@@ -10,8 +10,7 @@ use std::sync::Mutex;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use git2::Oid;
-use git2::{Repository, Signature};
+use git2::{ErrorCode, Oid, Repository, Signature};
 
 use super::paths::WIKI_PREFIX;
 
@@ -119,13 +118,16 @@ pub fn set_read_pointer_tag(
 pub fn get_read_pointer_tag(content_root: &Path, pointer_id: &str) -> Result<Option<String>> {
     let _guard = WIKI_GIT_LOCK.lock().expect("memory wiki git lock poisoned");
     let wiki_root = content_root.join(WIKI_PREFIX);
-    let Ok(repo) = Repository::open(&wiki_root) else {
-        return Ok(None);
+    let repo = match Repository::open(&wiki_root) {
+        Ok(repo) => repo,
+        Err(err) if err.code() == ErrorCode::NotFound => return Ok(None),
+        Err(err) => return Err(err).context("open wiki git repo for read pointer"),
     };
     let tag_ref = read_pointer_latest_ref(pointer_id);
     let target = match repo.find_reference(&tag_ref) {
         Ok(reference) => Ok(reference.target().map(|oid| oid.to_string())),
-        Err(_) => Ok(None),
+        Err(err) if err.code() == ErrorCode::NotFound => Ok(None),
+        Err(err) => Err(err).with_context(|| format!("find wiki read pointer tag: {tag_ref}")),
     };
     target
 }
@@ -143,13 +145,16 @@ fn open_prepared_repo(content_root: &Path) -> Result<Repository> {
 fn open_or_init_repo(wiki_root: &Path) -> Result<Repository> {
     match Repository::open(wiki_root) {
         Ok(repo) => Ok(repo),
-        Err(_) => {
+        Err(err) if err.code() == ErrorCode::NotFound => {
             log::debug!(
                 "[content_store::wiki_git] initialising summary wiki git repo at {}",
                 wiki_root.display()
             );
             Repository::init(wiki_root)
                 .with_context(|| format!("init wiki git repo: {}", wiki_root.display()))
+        }
+        Err(err) => {
+            Err(err).with_context(|| format!("open wiki git repo: {}", wiki_root.display()))
         }
     }
 }
@@ -311,217 +316,4 @@ fn read_pointer_timestamp_ref(pointer_id: &str, timestamp: DateTime<Utc>) -> Str
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use git2::IndexAddOption;
-    use tempfile::TempDir;
-
-    #[test]
-    fn commit_summary_initializes_repo_and_tracks_only_summaries() {
-        let dir = TempDir::new().unwrap();
-        let wiki = dir.path().join("wiki");
-        let summary = wiki.join("summaries/source-slack/L1/summary-1.md");
-        let raw = wiki.join("raw/should-not-track.md");
-        let note = wiki.join("notes/also-ignored.md");
-        std::fs::create_dir_all(summary.parent().unwrap()).unwrap();
-        std::fs::create_dir_all(raw.parent().unwrap()).unwrap();
-        std::fs::create_dir_all(note.parent().unwrap()).unwrap();
-        std::fs::write(&summary, "---\nkind: summary\n---\nbody").unwrap();
-        std::fs::write(&raw, "raw").unwrap();
-        std::fs::write(&note, "note").unwrap();
-
-        commit_summaries(
-            dir.path(),
-            &batch(
-                "queued_seal",
-                vec![entry(
-                    "summary-1",
-                    "wiki/summaries/source-slack/L1/summary-1.md",
-                )],
-            ),
-        )
-        .unwrap();
-
-        let repo = Repository::open(&wiki).unwrap();
-        let head = repo.head().unwrap().peel_to_commit().unwrap();
-        let tree = head.tree().unwrap();
-        assert!(tree.get_path(Path::new(".gitignore")).is_ok());
-        assert!(tree
-            .get_path(Path::new("summaries/source-slack/L1/summary-1.md"))
-            .is_ok());
-        assert!(tree.get_path(Path::new("raw/should-not-track.md")).is_err());
-        assert!(tree.get_path(Path::new("notes/also-ignored.md")).is_err());
-    }
-
-    #[test]
-    fn commit_summary_prunes_existing_non_summary_tracked_entries() {
-        let dir = TempDir::new().unwrap();
-        let wiki = dir.path().join("wiki");
-        std::fs::create_dir_all(wiki.join("raw")).unwrap();
-        std::fs::create_dir_all(wiki.join("summaries/source/L1")).unwrap();
-        std::fs::write(wiki.join("raw/old.md"), "old raw").unwrap();
-        std::fs::write(wiki.join("summaries/source/L1/new.md"), "new summary").unwrap();
-
-        let repo = Repository::init(&wiki).unwrap();
-        let mut index = repo.index().unwrap();
-        index
-            .add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
-            .unwrap();
-        index.write().unwrap();
-        let tree_oid = index.write_tree().unwrap();
-        let tree = repo.find_tree(tree_oid).unwrap();
-        let sig = Signature::now(SIG_NAME, SIG_EMAIL).unwrap();
-        repo.commit(Some("HEAD"), &sig, &sig, "old mixed commit", &tree, &[])
-            .unwrap();
-
-        commit_summaries(
-            dir.path(),
-            &batch(
-                "queued_seal",
-                vec![entry("new", "wiki/summaries/source/L1/new.md")],
-            ),
-        )
-        .unwrap();
-
-        let head = repo.head().unwrap().peel_to_commit().unwrap();
-        let tree = head.tree().unwrap();
-        assert!(tree
-            .get_path(Path::new("summaries/source/L1/new.md"))
-            .is_ok());
-        assert!(tree.get_path(Path::new("raw/old.md")).is_err());
-    }
-
-    #[test]
-    fn commit_summary_rejects_non_summary_paths() {
-        let dir = TempDir::new().unwrap();
-        let err = commit_summaries(
-            dir.path(),
-            &batch("bad", vec![entry("bad", "wiki/notes/one.md")]),
-        )
-        .unwrap_err();
-        assert!(err.to_string().contains("only tracks summary nodes"));
-    }
-
-    #[test]
-    fn commit_message_describes_seal_metadata() {
-        let dir = TempDir::new().unwrap();
-        let wiki = dir.path().join("wiki");
-        let summary = wiki.join("summaries/source/L2/summary-2.md");
-        std::fs::create_dir_all(summary.parent().unwrap()).unwrap();
-        std::fs::write(&summary, "---\nkind: summary\n---\nbody").unwrap();
-
-        commit_summaries(
-            dir.path(),
-            &batch(
-                "sync_cascade",
-                vec![SummaryCommitEntry {
-                    summary_id: "summary-2".to_string(),
-                    content_path: "wiki/summaries/source/L2/summary-2.md".to_string(),
-                    level: 2,
-                    child_count: 7,
-                    token_count: 123,
-                    time_range_start: ts(1_700_000_000_000),
-                    time_range_end: ts(1_700_003_600_000),
-                }],
-            ),
-        )
-        .unwrap();
-
-        let repo = Repository::open(&wiki).unwrap();
-        let head = repo.head().unwrap().peel_to_commit().unwrap();
-        let msg = head.message().unwrap();
-        assert!(msg.contains("Seal memory tree slack:#eng L2 summaries"));
-        assert!(msg.contains("Reason: sync_cascade"));
-        assert!(msg.contains("Summary-Count: 1"));
-        assert!(msg.contains("Child-Count: 7"));
-        assert!(msg.contains("Token-Count: 123"));
-        assert!(msg.contains("summary-2 L2 children=7 tokens=123"));
-    }
-
-    #[test]
-    fn read_pointer_tags_are_timestamped_and_move_latest_without_new_commit() {
-        let dir = TempDir::new().unwrap();
-        let wiki = dir.path().join("wiki");
-        let summary = wiki.join("summaries/source/L1/summary-1.md");
-        std::fs::create_dir_all(summary.parent().unwrap()).unwrap();
-        std::fs::write(&summary, "---\nkind: summary\n---\nbody").unwrap();
-        commit_summaries(
-            dir.path(),
-            &batch(
-                "queued_seal",
-                vec![entry("summary-1", "wiki/summaries/source/L1/summary-1.md")],
-            ),
-        )
-        .unwrap();
-
-        let repo = Repository::open(&wiki).unwrap();
-        let head = repo.head().unwrap().peel_to_commit().unwrap();
-        let head_id = head.id().to_string();
-
-        let tagged = set_read_pointer_tag(dir.path(), "agent:default", None).unwrap();
-        assert_eq!(tagged, head_id);
-        assert_eq!(
-            get_read_pointer_tag(dir.path(), "agent:default")
-                .unwrap()
-                .as_deref(),
-            Some(head_id.as_str())
-        );
-        let tag_prefix = format!(
-            "refs/tags/read/{}/",
-            hex::encode("agent:default".as_bytes())
-        );
-        let tags = repo.references().unwrap().fold(Vec::new(), |mut acc, r| {
-            let r = r.unwrap();
-            let name = r.name().unwrap();
-            if name.starts_with(&tag_prefix) {
-                acc.push(name.to_string());
-            }
-            acc
-        });
-        assert!(
-            tags.iter().any(|name| name.ends_with("/latest")),
-            "latest read pointer tag should be present: {tags:?}"
-        );
-        assert!(
-            tags.iter().any(|name| {
-                let suffix = name.strip_prefix(&tag_prefix).unwrap_or_default();
-                suffix.len() == "20260626T045537.123456789Z".len()
-                    && suffix.ends_with('Z')
-                    && suffix.contains('T')
-            }),
-            "timestamped read pointer tag should be present: {tags:?}"
-        );
-        let mut walk = repo.revwalk().unwrap();
-        walk.push_head().unwrap();
-        assert_eq!(
-            walk.count(),
-            1,
-            "moving the read pointer must not create commits"
-        );
-    }
-
-    fn batch(reason: &str, entries: Vec<SummaryCommitEntry>) -> SummaryCommitBatch {
-        SummaryCommitBatch {
-            reason: reason.to_string(),
-            tree_id: "tree-1".to_string(),
-            tree_scope: "slack:#eng".to_string(),
-            entries,
-        }
-    }
-
-    fn entry(summary_id: &str, content_path: &str) -> SummaryCommitEntry {
-        SummaryCommitEntry {
-            summary_id: summary_id.to_string(),
-            content_path: content_path.to_string(),
-            level: 1,
-            child_count: 2,
-            token_count: 10,
-            time_range_start: ts(1_700_000_000_000),
-            time_range_end: ts(1_700_000_001_000),
-        }
-    }
-
-    fn ts(ms: i64) -> DateTime<Utc> {
-        DateTime::<Utc>::from_timestamp_millis(ms).unwrap()
-    }
-}
+mod tests;

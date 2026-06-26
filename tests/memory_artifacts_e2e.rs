@@ -120,6 +120,10 @@ async fn summary_ingest_records_summary_only_git_history_and_timestamped_read_ta
     let workspace_dir = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace_dir).expect("workspace dir");
     let config = make_config(&workspace_dir);
+    let content_root = config.memory_tree_content_root();
+    let raw_path = content_root.join("wiki/raw/not-tracked.md");
+    std::fs::create_dir_all(raw_path.parent().unwrap()).expect("raw dir");
+    std::fs::write(&raw_path, "should stay out of git history").expect("seed raw file");
 
     let tree = get_or_create_source_tree(&config, "github:tinyhumansai/openhuman")
         .expect("create source tree");
@@ -143,7 +147,6 @@ async fn summary_ingest_records_summary_only_git_history_and_timestamped_read_ta
     .await
     .expect("ingest summary");
 
-    let content_root = config.memory_tree_content_root();
     let wiki_root = content_root.join("wiki");
     let repo = git2::Repository::open(&wiki_root).expect("wiki git repo should be initialized");
     let head = repo.head().expect("wiki head").peel_to_commit().unwrap();

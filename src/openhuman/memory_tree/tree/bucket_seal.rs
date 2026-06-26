@@ -715,8 +715,7 @@ pub(crate) async fn seal_one_level(
         node.id,
         staged.content_path
     );
-    commit_summary_seal(
-        config,
+    let summary_commit = summary_seal_batch(
         tree,
         "bucket_seal",
         std::slice::from_ref(&node),
@@ -724,7 +723,7 @@ pub(crate) async fn seal_one_level(
     )
     .with_context(|| {
         format!(
-            "commit_summary_seal failed for {}; seal aborted, buffer stays unsealed for retry",
+            "build summary git batch failed for {}; seal aborted, buffer stays unsealed for retry",
             node.id
         )
     })?;
@@ -849,6 +848,13 @@ pub(crate) async fn seal_one_level(
         Ok(())
     })?;
 
+    commit_summary_seal(config, &summary_commit).with_context(|| {
+        format!(
+            "commit_summary_seal failed for {} after DB seal commit",
+            summary_id
+        )
+    })?;
+
     log::info!(
         "[tree::bucket_seal] sealed tree_id={} level={}→{} summary_id={} children={}",
         tree.id,
@@ -889,15 +895,19 @@ fn refresh_last_sealed_tx(
     Ok(())
 }
 
-fn commit_summary_seal(
-    config: &Config,
+fn summary_seal_batch(
     tree: &Tree,
     reason: &str,
     nodes: &[SummaryNode],
     content_paths: &[String],
-) -> Result<()> {
+) -> Result<SummaryCommitBatch> {
     if nodes.is_empty() {
-        return Ok(());
+        return Ok(SummaryCommitBatch {
+            reason: reason.to_string(),
+            tree_id: tree.id.clone(),
+            tree_scope: tree.scope.clone(),
+            entries: Vec::new(),
+        });
     }
     if nodes.len() != content_paths.len() {
         anyhow::bail!(
@@ -921,14 +931,18 @@ fn commit_summary_seal(
         })
         .collect();
 
+    Ok(SummaryCommitBatch {
+        reason: reason.to_string(),
+        tree_id: tree.id.clone(),
+        tree_scope: tree.scope.clone(),
+        entries,
+    })
+}
+
+fn commit_summary_seal(config: &Config, batch: &SummaryCommitBatch) -> Result<()> {
     crate::openhuman::memory_store::content::wiki_git::commit_summaries(
         &config.memory_tree_content_root(),
-        &SummaryCommitBatch {
-            reason: reason.to_string(),
-            tree_id: tree.id.clone(),
-            tree_scope: tree.scope.clone(),
-            entries,
-        },
+        batch,
     )
 }
 
@@ -1482,8 +1496,7 @@ async fn seal_explicit_children(
                 node.id
             )
         })?;
-    commit_summary_seal(
-        config,
+    let summary_commit = summary_seal_batch(
         tree,
         "document_subtree_seal",
         std::slice::from_ref(&node),
@@ -1491,7 +1504,7 @@ async fn seal_explicit_children(
     )
     .with_context(|| {
         format!(
-            "commit_summary_seal failed for doc-subtree node {}; seal aborted",
+            "build summary git batch failed for doc-subtree node {}; seal aborted",
             node.id
         )
     })?;
@@ -1539,6 +1552,13 @@ async fn seal_explicit_children(
         }
         tx.commit()?;
         Ok(())
+    })?;
+
+    commit_summary_seal(config, &summary_commit).with_context(|| {
+        format!(
+            "commit_summary_seal failed for doc-subtree node {} after DB seal commit",
+            summary_id
+        )
     })?;
 
     log::info!(

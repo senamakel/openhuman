@@ -170,6 +170,16 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::vision_agent::prompt::build,
     },
     BuiltinAgent {
+        id: "image_agent",
+        toml: include_str!("image_agent/agent.toml"),
+        prompt_fn: super::image_agent::prompt::build,
+    },
+    BuiltinAgent {
+        id: "video_agent",
+        toml: include_str!("video_agent/agent.toml"),
+        prompt_fn: super::video_agent::prompt::build,
+    },
+    BuiltinAgent {
         id: "archivist",
         toml: include_str!("archivist/agent.toml"),
         prompt_fn: super::archivist::prompt::build,

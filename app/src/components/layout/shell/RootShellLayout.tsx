@@ -11,6 +11,7 @@ import {
 } from '../../../store/layoutSlice';
 import { Tooltip } from '../../ui';
 import CollapsedNavRail from './CollapsedNavRail';
+import WindowDragBar from './WindowDragBar';
 
 // `app-shell` (not the older `root-shell`) so the persisted geometry seeds
 // fresh with the sidebar visible by default. Exported so the global command
@@ -206,8 +207,14 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
         </div>
       )}
 
-      <div className="flex-1 min-w-0 overflow-hidden" data-testid="root-shell-content">
+      <div className="relative flex-1 min-w-0 overflow-hidden" data-testid="root-shell-content">
         {children}
+        {/* macOS overlay-title-bar drag strip — a transparent overlay pinned on
+            TOP of the routed view (last child) so full-bleed surfaces (Tiny
+            Place world, Chat backdrop) stay edge-to-edge while the top of the
+            window still drags. The sidebar is excluded — its header already
+            drags in place. No-op off macOS / outside Tauri. */}
+        <WindowDragBar />
       </div>
     </div>
   );

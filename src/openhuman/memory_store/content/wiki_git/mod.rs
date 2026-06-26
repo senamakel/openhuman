@@ -68,6 +68,7 @@ pub fn commit_summaries(content_root: &Path, batch: &SummaryCommitBatch) -> Resu
             .add_path(Path::new(path))
             .with_context(|| format!("stage wiki summary: {path}"))?;
     }
+    stage_existing_summary_paths(&mut index, &wiki_root)?;
     index
         .write()
         .context("write wiki git index after staging summary")?;
@@ -214,6 +215,34 @@ fn should_keep_index_entry(wiki_root: &Path, path: &str) -> bool {
 
 fn is_tracked_wiki_path(path: &str) -> bool {
     path == ".gitignore" || path.starts_with("summaries/")
+}
+
+fn stage_existing_summary_paths(index: &mut git2::Index, wiki_root: &Path) -> Result<()> {
+    let summaries_root = wiki_root.join("summaries");
+    if !summaries_root.exists() {
+        return Ok(());
+    }
+    stage_summary_dir(index, wiki_root, &summaries_root)
+}
+
+fn stage_summary_dir(index: &mut git2::Index, wiki_root: &Path, dir: &Path) -> Result<()> {
+    for entry in
+        std::fs::read_dir(dir).with_context(|| format!("read summary dir: {}", dir.display()))?
+    {
+        let entry = entry.with_context(|| format!("read summary dir entry: {}", dir.display()))?;
+        let path = entry.path();
+        if path.is_dir() {
+            stage_summary_dir(index, wiki_root, &path)?;
+        } else if path.is_file() {
+            let repo_path = path
+                .strip_prefix(wiki_root)
+                .with_context(|| format!("summary path outside wiki root: {}", path.display()))?;
+            index
+                .add_path(repo_path)
+                .with_context(|| format!("stage existing wiki summary: {}", repo_path.display()))?;
+        }
+    }
+    Ok(())
 }
 
 fn commit_index_if_changed(repo: &Repository, batch: &SummaryCommitBatch) -> Result<()> {

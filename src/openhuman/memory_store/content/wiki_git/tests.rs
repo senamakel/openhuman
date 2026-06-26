@@ -159,6 +159,41 @@ fn commit_summary_drops_deleted_summary_entries_from_the_index() {
 }
 
 #[test]
+fn commit_summary_recovers_existing_uncommitted_summary_files() {
+    let dir = TempDir::new().unwrap();
+    let wiki = dir.path().join("wiki");
+    let missed_summary = wiki.join("summaries/source/L1/missed.md");
+    let new_summary = wiki.join("summaries/source/L1/new.md");
+    std::fs::create_dir_all(missed_summary.parent().unwrap()).unwrap();
+    std::fs::write(&missed_summary, "missed summary").unwrap();
+    std::fs::write(&new_summary, "new summary").unwrap();
+
+    commit_summaries(
+        dir.path(),
+        &batch(
+            "queued_seal",
+            vec![entry("new", "wiki/summaries/source/L1/new.md")],
+        ),
+    )
+    .unwrap();
+
+    let repo = Repository::open(&wiki).unwrap();
+    let tree = repo
+        .head()
+        .unwrap()
+        .peel_to_commit()
+        .unwrap()
+        .tree()
+        .unwrap();
+    assert!(tree
+        .get_path(Path::new("summaries/source/L1/new.md"))
+        .is_ok());
+    assert!(tree
+        .get_path(Path::new("summaries/source/L1/missed.md"))
+        .is_ok());
+}
+
+#[test]
 fn commit_summary_rejects_non_summary_paths() {
     let dir = TempDir::new().unwrap();
     let err = commit_summaries(

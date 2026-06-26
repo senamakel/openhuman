@@ -626,30 +626,24 @@ impl Agent {
                     )
                 }
                 Ok(result) => {
+                    // No usable bundle: leave `agent_context_prepared_sources`
+                    // untouched. Recording a marker here would (a) make
+                    // `render_agent_context_status_note` tell the model to "use
+                    // the prepared context below" when none was injected, and
+                    // (b) suppress `agent_prepare_context` for the rest of the
+                    // turn — blocking a legitimate retry by any path that still
+                    // exposes the tool. The dedup only needs to hold once a
+                    // bundle was actually injected (the success arm above).
                     log::warn!(
                         "[agent_loop] super_context scout returned an error — proceeding without bundle: {}",
                         result.output()
                     );
-                    // The harness still *ran* a context-preparation pass this
-                    // turn; it just produced no usable bundle. Record the marker
-                    // anyway so the dedup task-local + status note hold — without
-                    // it a later `agent_prepare_context` call (any path that
-                    // still exposes the tool) would redundantly re-run the same
-                    // scout. See `with_agent_context_prepared_sources` below.
-                    agent_context_prepared_sources.push(harness::AgentContextPreparedSource {
-                        source: "super context preparation (no bundle)".to_string(),
-                        has_enough_context: None,
-                    });
                     enriched
                 }
                 Err(err) => {
                     log::warn!(
                         "[agent_loop] super_context collection failed — proceeding without bundle: {err}"
                     );
-                    agent_context_prepared_sources.push(harness::AgentContextPreparedSource {
-                        source: "super context preparation (no bundle)".to_string(),
-                        has_enough_context: None,
-                    });
                     enriched
                 }
             }

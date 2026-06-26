@@ -47,6 +47,7 @@ use crate::openhuman::memory_store::chunks::store::with_connection;
 use crate::openhuman::memory_store::content::{
     atomic::stage_summary_with_layout,
     paths::{slugify_source_id, SummaryDiskLayout},
+    wiki_git::{SummaryCommitBatch, SummaryCommitEntry},
     SummaryComposeInput,
 };
 use crate::openhuman::memory_store::trees::types::{
@@ -714,6 +715,19 @@ pub(crate) async fn seal_one_level(
         node.id,
         staged.content_path
     );
+    commit_summary_seal(
+        config,
+        tree,
+        "bucket_seal",
+        std::slice::from_ref(&node),
+        std::slice::from_ref(&staged.content_path),
+    )
+    .with_context(|| {
+        format!(
+            "commit_summary_seal failed for {}; seal aborted, buffer stays unsealed for retry",
+            node.id
+        )
+    })?;
 
     // Single write transaction: insert summary, clear this buffer, append
     // summary id to parent buffer, bump tree max_level/root if needed,
@@ -874,6 +888,49 @@ fn refresh_last_sealed_tx(
     )
     .with_context(|| format!("Failed to refresh last_sealed_at for tree {tree_id}"))?;
     Ok(())
+}
+
+fn commit_summary_seal(
+    config: &Config,
+    tree: &Tree,
+    reason: &str,
+    nodes: &[SummaryNode],
+    content_paths: &[String],
+) -> Result<()> {
+    if nodes.is_empty() {
+        return Ok(());
+    }
+    if nodes.len() != content_paths.len() {
+        anyhow::bail!(
+            "[tree::bucket_seal] commit_summary_seal: node/path length mismatch nodes={} paths={}",
+            nodes.len(),
+            content_paths.len()
+        );
+    }
+
+    let entries = nodes
+        .iter()
+        .zip(content_paths.iter())
+        .map(|(node, content_path)| SummaryCommitEntry {
+            summary_id: node.id.clone(),
+            content_path: content_path.clone(),
+            level: node.level,
+            child_count: node.child_ids.len(),
+            token_count: node.token_count,
+            time_range_start: node.time_range_start,
+            time_range_end: node.time_range_end,
+        })
+        .collect();
+
+    crate::openhuman::memory_store::content::wiki_git::commit_summaries(
+        &config.memory_tree_content_root(),
+        &SummaryCommitBatch {
+            reason: reason.to_string(),
+            tree_id: tree.id.clone(),
+            tree_scope: tree.scope.clone(),
+            entries,
+        },
+    )
 }
 
 /// Fetch contributions for `item_ids`. At level 0 we pull from
@@ -1426,6 +1483,19 @@ async fn seal_explicit_children(
                 node.id
             )
         })?;
+    commit_summary_seal(
+        config,
+        tree,
+        "document_subtree_seal",
+        std::slice::from_ref(&node),
+        std::slice::from_ref(&staged.content_path),
+    )
+    .with_context(|| {
+        format!(
+            "commit_summary_seal failed for doc-subtree node {}; seal aborted",
+            node.id
+        )
+    })?;
 
     // Persist the summary row + backlink children — NO buffer / tree-root
     // mutation (those belong to the merge tier).

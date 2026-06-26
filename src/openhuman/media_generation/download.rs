@@ -47,7 +47,11 @@ fn extension_for(kind: &str, content_type: Option<&str>, url: &str) -> String {
     let lower = url.split('?').next().unwrap_or(url).to_ascii_lowercase();
     for ext in ["png", "webp", "jpg", "jpeg", "mp4", "webm"] {
         if lower.ends_with(&format!(".{ext}")) {
-            return if ext == "jpeg" { "jpg".to_string() } else { ext.to_string() };
+            return if ext == "jpeg" {
+                "jpg".to_string()
+            } else {
+                ext.to_string()
+            };
         }
     }
     if kind.eq_ignore_ascii_case("video") {
@@ -95,7 +99,13 @@ async fn download_one(
     // be defensive against path separators).
     let safe_id: String = request_id
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     let filename = format!("{safe_id}-{index}.{ext}");
     let path = dir.join(&filename);
@@ -140,14 +150,26 @@ mod tests {
 
     #[test]
     fn extension_prefers_content_type() {
-        assert_eq!(extension_for("image", Some("image/png"), "https://x/y"), "png");
-        assert_eq!(extension_for("image", Some("image/webp"), "https://x/y"), "webp");
-        assert_eq!(extension_for("video", Some("video/mp4"), "https://x/y"), "mp4");
+        assert_eq!(
+            extension_for("image", Some("image/png"), "https://x/y"),
+            "png"
+        );
+        assert_eq!(
+            extension_for("image", Some("image/webp"), "https://x/y"),
+            "webp"
+        );
+        assert_eq!(
+            extension_for("video", Some("video/mp4"), "https://x/y"),
+            "mp4"
+        );
     }
 
     #[test]
     fn extension_falls_back_to_url_then_kind() {
-        assert_eq!(extension_for("image", None, "https://x/y/a.webp?sig=1"), "webp");
+        assert_eq!(
+            extension_for("image", None, "https://x/y/a.webp?sig=1"),
+            "webp"
+        );
         assert_eq!(extension_for("video", None, "https://x/y/clip"), "mp4");
         assert_eq!(extension_for("image", None, "https://x/y/clip"), "png");
     }

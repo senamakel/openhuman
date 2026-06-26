@@ -381,7 +381,9 @@ impl Tool for MediaListModelsTool {
                 resp.clone(),
                 serde_json::to_string_pretty(&resp).unwrap_or_else(|_| resp.to_string()),
             )),
-            Err(e) => Ok(ToolResult::error(format!("Failed to list media models: {e}"))),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Failed to list media models: {e}"
+            ))),
         }
     }
 }
@@ -391,10 +393,7 @@ impl Tool for MediaListModelsTool {
 /// Build the media-generation tool surface. Returns empty when no integration
 /// client is configured (no backend URL / not signed in), mirroring the other
 /// backend-proxied tool families.
-pub fn build_media_tools(
-    root_config: &Config,
-    action_dir: &std::path::Path,
-) -> Vec<Box<dyn Tool>> {
+pub fn build_media_tools(root_config: &Config, action_dir: &std::path::Path) -> Vec<Box<dyn Tool>> {
     let Some(client) = crate::openhuman::integrations::build_client(root_config) else {
         tracing::debug!("[media_generation] no integration client — media tools skipped");
         return Vec::new();
@@ -406,10 +405,7 @@ pub fn build_media_tools(
             Arc::clone(&client),
             action_dir.clone(),
         )),
-        Box::new(MediaGenerateVideoTool::new(
-            Arc::clone(&client),
-            action_dir,
-        )),
+        Box::new(MediaGenerateVideoTool::new(Arc::clone(&client), action_dir)),
         Box::new(MediaListModelsTool::new(Arc::clone(&client))),
     ];
     tracing::debug!("[media_generation] registered {} media tools", tools.len());

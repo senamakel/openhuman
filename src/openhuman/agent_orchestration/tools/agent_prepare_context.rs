@@ -308,9 +308,7 @@ pub async fn run_context_scout_with_catalog(
                 // Runs for both entry points (LLM-invoked tool + harness
                 // super-context first turn). Best-effort — never fails the call.
                 if let (Some(parent), Some(thread_id)) = (current_parent(), current_thread_id()) {
-                    if let Some(objective) =
-                        AgentPrepareContextTool::parse_proposed_goal(&bundle)
-                    {
+                    if let Some(objective) = AgentPrepareContextTool::parse_proposed_goal(&bundle) {
                         match crate::openhuman::thread_goals::store::set_if_absent(
                             &parent.workspace_dir,
                             &thread_id,
@@ -756,7 +754,10 @@ mod tests {
     #[test]
     fn rejects_unterminated_or_reversed_envelope() {
         // Open tag with no close.
-        assert_eq!(extract_context_bundle("[context_bundle]\nsummary: ..."), None);
+        assert_eq!(
+            extract_context_bundle("[context_bundle]\nsummary: ..."),
+            None
+        );
         // Close before open — out of order.
         assert_eq!(
             extract_context_bundle("[/context_bundle] stray [context_bundle]"),
@@ -768,7 +769,9 @@ mod tests {
     fn rejects_duplicated_envelope() {
         // Two envelopes — we can't tell which is authoritative, so reject.
         assert_eq!(
-            extract_context_bundle("[context_bundle]a[/context_bundle][context_bundle]b[/context_bundle]"),
+            extract_context_bundle(
+                "[context_bundle]a[/context_bundle][context_bundle]b[/context_bundle]"
+            ),
             None
         );
     }
@@ -799,7 +802,8 @@ mod tests {
     fn extracts_envelope_with_surrounding_whitespace() {
         // Leading/trailing whitespace is trimmed, not treated as prose.
         assert_eq!(
-            extract_context_bundle("\n  [context_bundle]\nsummary: x\n[/context_bundle]\n  ").as_deref(),
+            extract_context_bundle("\n  [context_bundle]\nsummary: x\n[/context_bundle]\n  ")
+                .as_deref(),
             Some("[context_bundle]\nsummary: x\n[/context_bundle]")
         );
     }

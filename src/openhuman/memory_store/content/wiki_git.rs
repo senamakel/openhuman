@@ -75,11 +75,13 @@ pub fn commit_summaries(content_root: &Path, batch: &SummaryCommitBatch) -> Resu
     commit_index_if_changed(&repo, batch)
 }
 
-/// Move a lightweight git tag that represents a reader's high-water mark.
+/// Add a timestamped lightweight git tag that represents a reader's high-water
+/// mark, and move a stable `latest` alias for quick lookup.
 ///
-/// This updates `refs/tags/read/<hex(pointer_id)>` to `target_commit`, or to
-/// wiki `HEAD` when `target_commit` is `None`. Moving a tag updates read state
-/// without creating another history commit.
+/// This writes `refs/tags/read/<hex(pointer_id)>/<YYYYMMDDTHHMMSS.nnnnnnnnnZ>`
+/// to `target_commit`, or to wiki `HEAD` when `target_commit` is `None`, and
+/// also updates `refs/tags/read/<hex(pointer_id)>/latest`. Tags update read
+/// state without creating another history commit.
 pub fn set_read_pointer_tag(
     content_root: &Path,
     pointer_id: &str,
@@ -93,12 +95,21 @@ pub fn set_read_pointer_tag(
         }
         None => repo.head()?.peel_to_commit()?.id(),
     };
-    let tag_ref = read_pointer_ref(pointer_id);
+    let tag_ref = read_pointer_timestamp_ref(pointer_id, Utc::now());
     repo.reference(&tag_ref, oid, true, "advance memory wiki read pointer")
         .with_context(|| format!("set wiki read pointer tag: {tag_ref}"))?;
+    let latest_ref = read_pointer_latest_ref(pointer_id);
+    repo.reference(
+        &latest_ref,
+        oid,
+        true,
+        "advance latest memory wiki read pointer",
+    )
+    .with_context(|| format!("set latest wiki read pointer tag: {latest_ref}"))?;
     log::debug!(
-        "[content_store::wiki_git] advanced read pointer tag {} -> {}",
+        "[content_store::wiki_git] advanced read pointer tags {} latest={} -> {}",
         tag_ref,
+        latest_ref,
         oid
     );
     Ok(oid.to_string())
@@ -111,7 +122,7 @@ pub fn get_read_pointer_tag(content_root: &Path, pointer_id: &str) -> Result<Opt
     let Ok(repo) = Repository::open(&wiki_root) else {
         return Ok(None);
     };
-    let tag_ref = read_pointer_ref(pointer_id);
+    let tag_ref = read_pointer_latest_ref(pointer_id);
     let target = match repo.find_reference(&tag_ref) {
         Ok(reference) => Ok(reference.target().map(|oid| oid.to_string())),
         Err(_) => Ok(None),
@@ -284,8 +295,19 @@ fn summary_repo_path(summary_content_path: &str) -> Result<String> {
     Ok(repo_path.to_string())
 }
 
-fn read_pointer_ref(pointer_id: &str) -> String {
-    format!("refs/tags/read/{}", hex::encode(pointer_id.as_bytes()))
+fn read_pointer_latest_ref(pointer_id: &str) -> String {
+    format!(
+        "refs/tags/read/{}/latest",
+        hex::encode(pointer_id.as_bytes())
+    )
+}
+
+fn read_pointer_timestamp_ref(pointer_id: &str, timestamp: DateTime<Utc>) -> String {
+    format!(
+        "refs/tags/read/{}/{}",
+        hex::encode(pointer_id.as_bytes()),
+        timestamp.format("%Y%m%dT%H%M%S%.9fZ")
+    )
 }
 
 #[cfg(test)]
@@ -417,7 +439,7 @@ mod tests {
     }
 
     #[test]
-    fn read_pointer_tags_move_without_new_commit() {
+    fn read_pointer_tags_are_timestamped_and_move_latest_without_new_commit() {
         let dir = TempDir::new().unwrap();
         let wiki = dir.path().join("wiki");
         let summary = wiki.join("summaries/source/L1/summary-1.md");
@@ -443,6 +465,31 @@ mod tests {
                 .unwrap()
                 .as_deref(),
             Some(head_id.as_str())
+        );
+        let tag_prefix = format!(
+            "refs/tags/read/{}/",
+            hex::encode("agent:default".as_bytes())
+        );
+        let tags = repo.references().unwrap().fold(Vec::new(), |mut acc, r| {
+            let r = r.unwrap();
+            let name = r.name().unwrap();
+            if name.starts_with(&tag_prefix) {
+                acc.push(name.to_string());
+            }
+            acc
+        });
+        assert!(
+            tags.iter().any(|name| name.ends_with("/latest")),
+            "latest read pointer tag should be present: {tags:?}"
+        );
+        assert!(
+            tags.iter().any(|name| {
+                let suffix = name.strip_prefix(&tag_prefix).unwrap_or_default();
+                suffix.len() == "20260626T045537.123456789Z".len()
+                    && suffix.ends_with('Z')
+                    && suffix.contains('T')
+            }),
+            "timestamped read pointer tag should be present: {tags:?}"
         );
         let mut walk = repo.revwalk().unwrap();
         walk.push_head().unwrap();

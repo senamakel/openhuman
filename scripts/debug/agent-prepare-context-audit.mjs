@@ -69,8 +69,8 @@ Options:
   --workspace <path>      Workspace whose session_raw transcripts are read
   --model <model>         Optional model_override passed to openhuman.inference_agent_chat
   --query <text>          Add a custom query (repeatable). Replaces the defaults.
-  --raw                   Send the query unwrapped instead of wrapping it in the
-                          prepared-context audit prompt.
+  --raw                   Deprecated no-op; queries are always sent directly so
+                          the harness scout sees the real case request.
   --scout-prompt-file <f> Override the context_scout system prompt with this file
                           (writes a temporary workspace agent override; restored
                           after the run unless --keep-workspace). Test your prompt.
@@ -508,15 +508,6 @@ async function seedTranscript(opts) {
   }
 }
 
-// ── Prompt shaping ──────────────────────────────────────────────────────────
-
-function auditPrompt(query) {
-  return `Answer the user request below. If the harness provided a prepared-context bundle, use it first. \
-Reply with the prepared context bundle verbatim if it is visible, then one short line on how you'd proceed.
-
-User request: ${query}`;
-}
-
 // ── Scout prompt override (optional) ─────────────────────────────────────────
 
 function scoutOverrideToml(inlinePrompt) {
@@ -831,9 +822,7 @@ async function main() {
     `  mode:       ${opts.spawnCore ? "spawned-core (this branch)" : "attached-core"}`,
   );
   console.log(`  model:      ${opts.model || "(account default)"}`);
-  console.log(
-    `  cases:      ${cases.length}${opts.raw ? " (raw query)" : " (wrapped audit prompt)"}`,
-  );
+  console.log(`  cases:      ${cases.length} (direct query)`);
 
   const caseResults = [];
   try {
@@ -842,7 +831,7 @@ async function main() {
       const threadId = `${opts.threadPrefix}-${i}`;
       const before = await snapshot(opts.workspace);
       const params = {
-        message: opts.raw ? c.query : auditPrompt(c.query),
+        message: c.query,
         thread_id: threadId,
       };
       if (opts.model) params.model_override = opts.model;

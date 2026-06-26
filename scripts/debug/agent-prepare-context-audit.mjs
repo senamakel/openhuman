@@ -69,8 +69,8 @@ Options:
   --workspace <path>      Workspace whose session_raw transcripts are read
   --model <model>         Optional model_override passed to openhuman.inference_agent_chat
   --query <text>          Add a custom query (repeatable). Replaces the defaults.
-  --raw                   Send the query unwrapped (let the orchestrator decide
-                          whether to call the tool) instead of forcing the call.
+  --raw                   Send the query unwrapped instead of wrapping it in the
+                          prepared-context audit prompt.
   --scout-prompt-file <f> Override the context_scout system prompt with this file
                           (writes a temporary workspace agent override; restored
                           after the run unless --keep-workspace). Test your prompt.
@@ -662,7 +662,7 @@ function printCase(opts, caseInfo, scout, root, ms) {
 
   if (!scout) {
     console.log(
-      "  ⚠ no context_scout transcript found — tool was not invoked.",
+      "  ⚠ no context_scout transcript found — prepared context did not run.",
     );
     console.log(
       "    (Is the core built from this branch? Is super context enabled?)",
@@ -832,7 +832,7 @@ async function main() {
   );
   console.log(`  model:      ${opts.model || "(account default)"}`);
   console.log(
-    `  cases:      ${cases.length}${opts.raw ? " (raw — not forcing the tool)" : " (forcing the tool)"}`,
+    `  cases:      ${cases.length}${opts.raw ? " (raw query)" : " (wrapped audit prompt)"}`,
   );
 
   const caseResults = [];
@@ -946,7 +946,7 @@ async function main() {
   console.table(
     caseResults.map((r) => ({
       case: r.name,
-      invoked: r.invoked ? "yes" : "NO",
+      prepared: r.invoked ? "yes" : "NO",
       enough: r.hasEnough ?? "-",
       rec_tools: r.recommended.length,
       rec_skills: r.skills.length,
@@ -958,7 +958,7 @@ async function main() {
       ),
     })),
   );
-  console.log(`  tool invoked: ${agg.invoked}/${caseResults.length}`);
+  console.log(`  prepared-context runs: ${agg.invoked}/${caseResults.length}`);
   // Surface whether the transcript-recall case actually proved the new reach.
   const recallCase = caseResults.find((r) => r.canaryRecalled !== null);
   if (recallCase) {

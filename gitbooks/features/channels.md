@@ -50,7 +50,7 @@ OpenHuman ships **18 channel provider modules** (16 built by default plus two be
 
 WhatsApp also has an experimental peer-to-peer variant behind the `whatsapp-web` feature flag. Channels marked "webhook" keep a live connection alive but receive inbound messages by HTTP push, so they need a reachable HTTPS endpoint configured on the provider's side.
 
-Telegram is the most fully featured channel — it supports typing indicators and live draft updates. Approvals aren't Telegram-specific: external-effect delivery on any channel is gated through OpenHuman's shared [approval gate](approval-gate.md) and surfaced in the in-app approval card. Discord adds native threaded replies; Lark also threads. Web supports rich text and stays entirely local.
+Telegram is the most fully featured channel — it supports typing indicators and live draft updates, and is currently the only channel wired to a per-channel approval surface, so `Prompt`-class tool calls can be answered inline rather than parked. Discord adds native threaded replies; Lark also threads. Web supports rich text and stays entirely local.
 
 ***
 

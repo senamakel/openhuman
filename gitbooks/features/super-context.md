@@ -22,7 +22,7 @@ On the **first turn of a new thread**, if SuperContext is enabled, the harness:
 3. The bundle is validated, then prepended to your message under a `Prepared context (super context)` header before the orchestrator model ever sees the turn.
 4. The model answers your message already grounded in that context.
 
-```
+```text
 New thread, first message
         │
         ▼

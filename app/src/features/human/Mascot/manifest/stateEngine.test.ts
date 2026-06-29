@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { MascotStateEngine } from './types';
 import {
   availablePoses,
   initialChannelValues,
@@ -9,6 +8,7 @@ import {
   resolveVisemeCode,
   restVisemeCode,
 } from './stateEngine';
+import type { MascotStateEngine } from './types';
 
 const TINY: MascotStateEngine = {
   idlePoseCycle: ['idle', 'bookreading', 'coffeedrink', 'writing', 'dancing'],
@@ -34,9 +34,7 @@ const TOSHI: MascotStateEngine = {
 
 describe('availablePoses', () => {
   it('unions idlePoseCycle and logical state values', () => {
-    expect(availablePoses(TOSHI)).toEqual(
-      new Set(['idle', 'look_around', 'pointing'])
-    );
+    expect(availablePoses(TOSHI)).toEqual(new Set(['idle', 'look_around', 'pointing']));
   });
 });
 
@@ -99,10 +97,7 @@ describe('initialChannelValues', () => {
   it('uses default then first value', () => {
     expect(initialChannelValues(TOSHI)).toEqual({ eyes: 'look_left' });
     expect(
-      initialChannelValues({
-        ...TOSHI,
-        channels: [{ key: 'eyes', values: ['blink', 'open'] }],
-      })
+      initialChannelValues({ ...TOSHI, channels: [{ key: 'eyes', values: ['blink', 'open'] }] })
     ).toEqual({ eyes: 'blink' });
   });
 

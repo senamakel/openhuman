@@ -10,8 +10,8 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ManifestRiveMascot } from './ManifestRiveMascot';
 import type { MascotManifestEntry } from './manifest/types';
+import { ManifestRiveMascot } from './ManifestRiveMascot';
 
 const h = vi.hoisted(() => ({
   useRiveParams: null as Record<string, unknown> | null,

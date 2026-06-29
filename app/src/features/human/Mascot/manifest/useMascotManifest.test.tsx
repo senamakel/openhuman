@@ -14,8 +14,7 @@ vi.mock('./manifestService', () => ({
   fetchMascotManifest,
   findMascot: (m: MascotManifest, id: string | null | undefined) =>
     id ? m.mascots.find(x => x.id === id) : undefined,
-  defaultMascot: (m: MascotManifest) =>
-    m.mascots.find(x => x.status === 'ready') ?? m.mascots[0],
+  defaultMascot: (m: MascotManifest) => m.mascots.find(x => x.status === 'ready') ?? m.mascots[0],
 }));
 
 function entry(id: string, status: 'ready' | 'draft'): MascotManifestEntry {
@@ -30,7 +29,9 @@ function entry(id: string, status: 'ready' | 'draft'): MascotManifestEntry {
       states: { idle: 'idle', thinking: 'thinking' },
       visemeCodes: ['sil'],
     },
-    files: [{ path: `${id}.riv`, bytes: 1, role: 'runtime', sha256: id, url: `https://x/${id}.riv` }],
+    files: [
+      { path: `${id}.riv`, bytes: 1, role: 'runtime', sha256: id, url: `https://x/${id}.riv` },
+    ],
   };
 }
 

@@ -80,10 +80,9 @@ function manifestDoc(mascots: unknown[] = [TINY, TOSHI]): unknown {
 }
 
 function mockFetchJson(doc: unknown) {
-  const fn = vi.fn().mockResolvedValue({
-    ok: true,
-    json: () => Promise.resolve(doc),
-  } as unknown as Response);
+  const fn = vi
+    .fn()
+    .mockResolvedValue({ ok: true, json: () => Promise.resolve(doc) } as unknown as Response);
   vi.stubGlobal('fetch', fn);
   return fn;
 }
@@ -175,10 +174,12 @@ describe('selectors', () => {
 describe('loadManifestRiv', () => {
   it('downloads the runtime file keyed by its sha256', async () => {
     const buf = new Uint8Array([0x52, 0x49, 0x56, 0x45]).buffer;
-    const fn = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: () => Promise.resolve(buf),
-    } as unknown as Response);
+    const fn = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(buf),
+      } as unknown as Response);
     vi.stubGlobal('fetch', fn);
 
     const out = await loadManifestRiv(TINY);

@@ -15,12 +15,12 @@ import debug from 'debug';
 
 import { MASCOT_MANIFEST_URL } from '../../../../utils/config';
 import { loadRivBuffer } from '../rivCache';
-import type {
-  MascotManifest,
-  MascotManifestEntry,
-  MascotManifestFile,
+import {
+  type MascotManifest,
+  type MascotManifestEntry,
+  type MascotManifestFile,
+  runtimeFile,
 } from './types';
-import { runtimeFile } from './types';
 
 const log = debug('human:mascot:manifest');
 

@@ -38,11 +38,7 @@ export interface MascotManifestChannel {
   /** Default value; falls back to `values[0]` when absent. */
   default?: string;
   /** Auto-cycle config — drives idle "aliveness" (e.g. random eye darts). */
-  cycle?: {
-    enabled: boolean;
-    intervalMs?: number;
-    order?: 'random' | 'sequential';
-  };
+  cycle?: { enabled: boolean; intervalMs?: number; order?: 'random' | 'sequential' };
 }
 
 /** The animation contract a mascot's `.riv` is authored against. */
@@ -54,11 +50,7 @@ export interface MascotStateEngine {
    */
   visemeCodes: string[];
   /** Logical state → pose-enum value. Always carries at least `idle`/`thinking`. */
-  states: {
-    idle: string;
-    thinking: string;
-    [key: string]: string;
-  };
+  states: { idle: string; thinking: string; [key: string]: string };
   /** Poses the mascot drifts through while idle (includes the resting pose). */
   idlePoseCycle: string[];
   /** Optional extra enum channels (eyes, etc.). */
@@ -82,11 +74,7 @@ export interface MascotManifest {
   schemaVersion: number;
   generatedAt: string;
   mascots: MascotManifestEntry[];
-  source: {
-    repository: string;
-    branch: string;
-    commit: string;
-  };
+  source: { repository: string; branch: string; commit: string };
 }
 
 /** The runtime (`.riv`) file for a mascot, or `undefined` if it has none. */

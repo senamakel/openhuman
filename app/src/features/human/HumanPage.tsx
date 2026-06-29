@@ -65,6 +65,7 @@ const HumanPage = () => {
             <CustomGifMascot src={customMascotGifUrl} face={face} />
           ) : mascotEntry ? (
             <ManifestRiveMascot
+              key={mascotEntry.id}
               entry={mascotEntry}
               face={face}
               primaryColor={primaryColor}

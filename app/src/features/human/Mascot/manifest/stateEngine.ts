@@ -7,8 +7,8 @@
  * actually accepts — setting an out-of-vocabulary enum on a Rive state machine
  * is a silent no-op, which would freeze the mouth or pose.
  */
-import { faceToPose, toRiveVisemeCode } from '../riveMaps';
 import type { MascotFace } from '../Ghosty';
+import { faceToPose, toRiveVisemeCode } from '../riveMaps';
 import type { MascotManifestEntry, MascotStateEngine } from './types';
 
 /** Every pose value this mascot's state machine accepts (cycle + logical states). */

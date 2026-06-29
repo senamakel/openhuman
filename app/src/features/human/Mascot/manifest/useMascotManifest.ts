@@ -8,11 +8,7 @@ import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 
 import { selectSelectedMascotId } from '../../../../store/mascotSlice';
-import {
-  defaultMascot,
-  fetchMascotManifest,
-  findMascot,
-} from './manifestService';
+import { defaultMascot, fetchMascotManifest, findMascot } from './manifestService';
 import type { MascotManifest, MascotManifestEntry } from './types';
 
 export interface UseMascotManifestResult {

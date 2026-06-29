@@ -12,13 +12,12 @@ import { type FC, useEffect, useRef, useState } from 'react';
 
 import type { MascotFace } from './Ghosty';
 import { loadManifestRiv } from './manifest/manifestService';
-import {
-  initialChannelValues,
-  pickIdleFlourish,
-  resolveFaceToPose,
-  resolveVisemeCode,
-} from './manifest/stateEngine';
-import type { MascotManifestChannel, MascotManifestEntry, MascotStateEngine } from './manifest/types';
+import { pickIdleFlourish, resolveFaceToPose, resolveVisemeCode } from './manifest/stateEngine';
+import type {
+  MascotManifestChannel,
+  MascotManifestEntry,
+  MascotStateEngine,
+} from './manifest/types';
 import { MASCOT_STATE_MACHINE } from './riveMaps';
 import { RiveMascot } from './RiveMascot';
 
@@ -214,10 +213,11 @@ export const ManifestRiveMascot: FC<ManifestRiveMascotProps> = ({
   const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
   const [failed, setFailed] = useState(false);
 
+  // Callers key this component by `entry.id`, so a new selection remounts it
+  // with fresh state — the effect only ever resolves the buffer (or marks
+  // failure) for the entry it mounted with.
   useEffect(() => {
     let cancelled = false;
-    setBuffer(null);
-    setFailed(false);
     (async () => {
       try {
         const buf = await loadManifestRiv(entry);

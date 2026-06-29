@@ -318,6 +318,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
   // in-memory blob audio, which freezes the mouth on a single viseme even
   // though the audio plays. A monotonic clock always advances, and because the
   // viseme frames are rescaled to the measured audio duration it stays in sync.
+  const playbackStartedAtRef = useRef(0);
   // Throttle marker for the lipsync diagnostic log (last logged ms).
   const lastLipsyncLogRef = useRef(0);
 
@@ -439,6 +440,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
         playbackSeqRef.current++;
         const orphan = playbackRef.current;
         playbackRef.current = null;
+        playbackStartedAtRef.current = 0;
         if (orphan) {
           orphan.stop();
           orphan.ended.catch(swallowAudioStop);
@@ -453,6 +455,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       playbackSeqRef.current++;
       const orphan = playbackRef.current;
       playbackRef.current = null;
+      playbackStartedAtRef.current = 0;
       if (orphan) {
         orphan.stop();
         orphan.ended.catch(swallowAudioStop);
@@ -474,6 +477,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
     playbackSeqRef.current++;
     const orphan = playbackRef.current;
     playbackRef.current = null;
+    playbackStartedAtRef.current = 0;
     if (orphan) {
       orphan.stop();
       orphan.ended.catch(swallowAudioStop);
@@ -492,6 +496,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
   ): Promise<void> {
     const prev = playbackRef.current;
     playbackRef.current = null;
+    playbackStartedAtRef.current = 0;
     if (prev) {
       prev.stop();
       prev.ended.catch(swallowAudioStop);
@@ -581,6 +586,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
       visemeFramesRef.current = frames;
       visemeCursorRef.current = 0;
       playbackRef.current = handle;
+      playbackStartedAtRef.current = window.performance.now();
       lastLipsyncLogRef.current = -1_000;
       setFace('speaking');
       mascotLog(
@@ -599,6 +605,7 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
     } finally {
       if (isStillCurrent()) {
         playbackRef.current = null;
+        playbackStartedAtRef.current = 0;
         visemeFramesRef.current = [];
         visemeCodeRef.current = 'sil';
         if (degraded) {
@@ -625,7 +632,12 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
   let visemeCode = 'sil';
   const playback = playbackRef.current;
   if (playback) {
-    const ms = playback.currentMs();
+    const audioMs = playback.currentMs();
+    const wallClockMs =
+      playbackStartedAtRef.current > 0
+        ? window.performance.now() - playbackStartedAtRef.current
+        : audioMs;
+    const ms = audioMs < 0 ? -1 : Math.max(audioMs, wallClockMs);
     if (ms >= 0) {
       const { frame, cursor } = findActiveFrame(
         visemeFramesRef.current,

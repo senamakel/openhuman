@@ -105,12 +105,15 @@ function makePlayback(durationMs: number): FakePlayback {
 let rafQueue: FrameRequestCallback[] = [];
 const originalRaf = window.requestAnimationFrame;
 const originalCancel = window.cancelAnimationFrame;
+let nowMs = 1_000;
 
 beforeEach(() => {
   capturedListeners = null;
   rafQueue = [];
+  nowMs = 1_000;
   (synthesizeSpeech as ReturnType<typeof vi.fn>).mockReset();
   (playBase64Audio as ReturnType<typeof vi.fn>).mockReset();
+  vi.spyOn(window.performance, 'now').mockImplementation(() => nowMs);
   window.requestAnimationFrame = ((cb: FrameRequestCallback) => {
     rafQueue.push(cb);
     return rafQueue.length;
@@ -121,12 +124,13 @@ beforeEach(() => {
 afterEach(() => {
   window.requestAnimationFrame = originalRaf;
   window.cancelAnimationFrame = originalCancel;
+  vi.restoreAllMocks();
 });
 
 function tickRaf() {
   const queue = rafQueue;
   rafQueue = [];
-  for (const cb of queue) cb(performance.now());
+  for (const cb of queue) cb(nowMs);
 }
 
 function fakeDone(text: string) {
@@ -334,6 +338,36 @@ describe('useHumanMascot — audio-driven lipsync end-to-end', () => {
     // At 600ms we are into the second (now-stretched) frame.
     act(() => {
       fake.setMs(600);
+      tickRaf();
+    });
+    expect(result.current.viseme).toEqual(VISEMES.M);
+  });
+
+  it('uses wall-clock elapsed time when the audio currentTime is frozen', async () => {
+    const fake = makePlayback(600);
+    (synthesizeSpeech as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      audio_base64: 'AAA=',
+      audio_mime: 'audio/mpeg',
+      visemes: [
+        { viseme: 'aa', start_ms: 0, end_ms: 200 },
+        { viseme: 'PP', start_ms: 200, end_ms: 400 },
+        { viseme: 'O', start_ms: 400, end_ms: 600 },
+      ],
+    });
+    (playBase64Audio as ReturnType<typeof vi.fn>).mockResolvedValueOnce(fake.handle);
+
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: true }));
+    await act(async () => {
+      capturedListeners?.onDone?.(fakeDone('hello'));
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Leave fake.currentMs() at 0 to model CEF blob audio where currentTime
+    // fails to advance even though playback is audible.
+    act(() => {
+      nowMs = 1_300;
       tickRaf();
     });
     expect(result.current.viseme).toEqual(VISEMES.M);

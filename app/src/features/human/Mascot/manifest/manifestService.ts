@@ -17,6 +17,7 @@ import { MASCOT_MANIFEST_URL } from '../../../../utils/config';
 import { loadRivBuffer } from '../rivCache';
 import {
   type MascotManifest,
+  type MascotManifestChannel,
   type MascotManifestEntry,
   type MascotManifestFile,
   runtimeFile,
@@ -26,6 +27,7 @@ const log = debug('human:mascot:manifest');
 
 /** localStorage key for the last successfully-fetched manifest snapshot. */
 const SNAPSHOT_KEY = 'openhuman.mascotManifest.v1';
+const MANIFEST_FETCH_TIMEOUT_MS = 5_000;
 
 /** Session-lifetime in-flight/resolved fetch. Shared across all callers. */
 let inflight: Promise<MascotManifest> | null = null;
@@ -45,6 +47,32 @@ function isManifestFile(value: unknown): value is MascotManifestFile {
   );
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
+}
+
+function isManifestChannel(value: unknown): value is MascotManifestChannel {
+  const channel = value as Partial<MascotManifestChannel> | null;
+  if (!channel || !isNonEmptyString(channel.key) || !isStringArray(channel.values)) return false;
+  if (channel.enum !== undefined && !isNonEmptyString(channel.enum)) return false;
+  if (channel.label !== undefined && !isNonEmptyString(channel.label)) return false;
+  if (channel.default !== undefined && !isNonEmptyString(channel.default)) return false;
+  if (channel.cycle !== undefined) {
+    const cycle = channel.cycle;
+    if (typeof cycle.enabled !== 'boolean') return false;
+    if (
+      cycle.intervalMs !== undefined &&
+      (!Number.isFinite(cycle.intervalMs) || cycle.intervalMs <= 0)
+    ) {
+      return false;
+    }
+    if (cycle.order !== undefined && cycle.order !== 'random' && cycle.order !== 'sequential') {
+      return false;
+    }
+  }
+  return true;
+}
+
 function isManifestEntry(value: unknown): value is MascotManifestEntry {
   const m = value as Partial<MascotManifestEntry> | null;
   if (!m || !isNonEmptyString(m.id) || !isNonEmptyString(m.name)) return false;
@@ -52,13 +80,18 @@ function isManifestEntry(value: unknown): value is MascotManifestEntry {
   const se = m.stateEngine;
   if (
     !se ||
-    !Array.isArray(se.visemeCodes) ||
-    se.visemeCodes.length === 0 ||
-    !Array.isArray(se.idlePoseCycle) ||
-    se.idlePoseCycle.length === 0 ||
+    !isStringArray(se.visemeCodes) ||
+    !isStringArray(se.idlePoseCycle) ||
     !se.states ||
     !isNonEmptyString(se.states.idle) ||
     !isNonEmptyString(se.states.thinking)
+  ) {
+    return false;
+  }
+  if (!Object.values(se.states).every(isNonEmptyString)) return false;
+  if (
+    se.channels !== undefined &&
+    (!Array.isArray(se.channels) || !se.channels.every(isManifestChannel))
   ) {
     return false;
   }
@@ -122,9 +155,14 @@ function writeSnapshot(manifest: MascotManifest): void {
 export function fetchMascotManifest(): Promise<MascotManifest> {
   if (inflight) return inflight;
   inflight = (async () => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), MANIFEST_FETCH_TIMEOUT_MS);
     try {
       log('fetching manifest %s', MASCOT_MANIFEST_URL);
-      const res = await fetch(MASCOT_MANIFEST_URL, { cache: 'no-cache' });
+      const res = await fetch(MASCOT_MANIFEST_URL, {
+        cache: 'no-cache',
+        signal: controller.signal,
+      });
       if (!res.ok) throw new Error(`manifest fetch failed (${res.status})`);
       const manifest = parseManifest(await res.json());
       log('manifest ok — %d mascots (schema v%d)', manifest.mascots.length, manifest.schemaVersion);
@@ -140,6 +178,8 @@ export function fetchMascotManifest(): Promise<MascotManifest> {
       // re-resolving this rejected promise forever.
       inflight = null;
       throw err;
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   })();
   return inflight;

@@ -306,11 +306,15 @@ fn parse_cue(v: &Value) -> Option<VisemeFrame> {
     .unwrap_or(0);
     let end = read_ms(v, &["end_ms"], &["endSeconds", "end_seconds", "endSec"])
         .or_else(|| {
-            let t = read_ms(v, &["time_ms", "t"], &["startSeconds", "start_seconds"])?;
+            let t = read_ms(
+                v,
+                &["time_ms", "t"],
+                &["startSeconds", "start_seconds", "startSec"],
+            )?;
             let d = read_ms(
                 v,
                 &["duration_ms", "d"],
-                &["durationSeconds", "duration_seconds"],
+                &["durationSeconds", "duration_seconds", "durationSec"],
             )?;
             Some(t + d)
         })
@@ -465,6 +469,25 @@ mod tests {
         assert_eq!(alignment.len(), 1);
         assert_eq!(alignment[0].start_ms, 0);
         assert_eq!(alignment[0].end_ms, 50);
+    }
+
+    #[test]
+    fn normalize_accepts_short_seconds_duration_aliases() {
+        let raw = json!({
+            "audio_base64": "AAA=",
+            "visemes": [
+                { "viseme": "aa", "startSec": 1.2, "durationSec": 0.15 },
+            ],
+        });
+        let r = normalize_response(&raw);
+        assert_eq!(
+            r.visemes,
+            vec![VisemeFrame {
+                viseme: "aa".into(),
+                start_ms: 1200,
+                end_ms: 1350
+            }]
+        );
     }
 
     #[test]

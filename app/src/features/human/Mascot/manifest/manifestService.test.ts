@@ -94,6 +94,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -117,6 +118,21 @@ describe('parseManifest', () => {
       stateEngine: { ...TOSHI.stateEngine, states: { idle: 'idle' } },
     };
     const m = parseManifest(manifestDoc([TINY, noStates]));
+    expect(m.mascots.map(x => x.id)).toEqual(['tiny-mascot']);
+  });
+
+  it('drops entries with malformed stateEngine arrays or channels', () => {
+    const badVisemes = {
+      ...TOSHI,
+      id: 'bad-visemes',
+      stateEngine: { ...TOSHI.stateEngine, visemeCodes: ['sil', 123] },
+    };
+    const badChannels = {
+      ...TOSHI,
+      id: 'bad-channels',
+      stateEngine: { ...TOSHI.stateEngine, channels: [{ key: 'eyes', values: [] }] },
+    };
+    const m = parseManifest(manifestDoc([TINY, badVisemes, badChannels]));
     expect(m.mascots.map(x => x.id)).toEqual(['tiny-mascot']);
   });
 
@@ -145,6 +161,27 @@ describe('fetchMascotManifest', () => {
       vi.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch
     );
     const m = await fetchMascotManifest();
+    expect(m.mascots.map(x => x.id)).toEqual(['tiny-mascot', 'toshi']);
+  });
+
+  it('aborts a stalled fetch so the localStorage snapshot can be used', async () => {
+    vi.useFakeTimers();
+    mockFetchJson(manifestDoc());
+    await fetchMascotManifest(); // writes snapshot
+    clearManifestCache();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        });
+      }) as unknown as typeof fetch
+    );
+
+    const pending = fetchMascotManifest();
+    await vi.advanceTimersByTimeAsync(5_000);
+    const m = await pending;
     expect(m.mascots.map(x => x.id)).toEqual(['tiny-mascot', 'toshi']);
   });
 

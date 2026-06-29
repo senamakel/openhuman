@@ -69,6 +69,16 @@ const TOSHI: MascotManifestEntry = {
   ],
 };
 
+const RIVER: MascotManifestEntry = {
+  ...TOSHI,
+  id: 'river-guide',
+  name: 'River Guide',
+  stateEngine: { ...TOSHI.stateEngine, states: { idle: 'idle', thinking: 'thinking' } },
+  files: [
+    { path: 'm/river.riv', bytes: 1, role: 'runtime', sha256: 'dddd', url: 'https://x/river.riv' },
+  ],
+};
+
 function enumLast(path: string): string | undefined {
   return (h.enumCalls[path] ?? []).at(-1) as string | undefined;
 }
@@ -101,6 +111,24 @@ describe('ManifestRiveMascot', () => {
     // 'thinking' face → Toshi's look_around (it has no 'thinking' pose).
     expect((h.enumCalls['pose'] ?? []).at(-1)).toBe('look_around');
     expect(enumLast('mouthVisemeCode')).toBe('aa');
+  });
+
+  it('clears the previous buffer when the entry changes without a remount', async () => {
+    let resolveRiver!: (buffer: ArrayBuffer) => void;
+    loadManifestRiv
+      .mockResolvedValueOnce(new Uint8Array([1, 2, 3]).buffer)
+      .mockReturnValueOnce(new Promise<ArrayBuffer>(res => (resolveRiver = res)));
+
+    const { rerender } = render(<ManifestRiveMascot entry={TOSHI} face="idle" />);
+    await waitFor(() => expect(h.useRiveParams?.buffer).toBeInstanceOf(ArrayBuffer));
+
+    rerender(<ManifestRiveMascot entry={RIVER} face="idle" />);
+    await waitFor(() => expect(h.useRiveParams?.src).toBe('/tiny_mascot.riv'));
+
+    await act(async () => {
+      resolveRiver(new Uint8Array([4, 5, 6]).buffer);
+    });
+    await waitFor(() => expect(h.useRiveParams?.buffer).toBeInstanceOf(ArrayBuffer));
   });
 
   it('rests the mouth for a viseme outside the mascot vocabulary', async () => {

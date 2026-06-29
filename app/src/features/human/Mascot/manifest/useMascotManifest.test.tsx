@@ -59,11 +59,12 @@ function Probe() {
 function renderProbe(selectedId: string | null) {
   const store = configureStore({ reducer: { mascot: mascotReducer } });
   if (selectedId) store.dispatch(setSelectedMascotId(selectedId));
-  return render(
+  const view = render(
     <Provider store={store}>
       <Probe />
     </Provider>
   );
+  return { store, ...view };
 }
 
 beforeEach(() => fetchMascotManifest.mockReset());
@@ -81,6 +82,13 @@ describe('useMascotManifest', () => {
     fetchMascotManifest.mockResolvedValue(MANIFEST);
     renderProbe(null);
     await waitFor(() => expect(screen.getByTestId('entry')).toHaveTextContent('tiny-mascot'));
+  });
+
+  it('reconciles a stale selected mascot id after the manifest loads', async () => {
+    fetchMascotManifest.mockResolvedValue(MANIFEST);
+    const { store } = renderProbe('removed-mascot');
+    await waitFor(() => expect(screen.getByTestId('entry')).toHaveTextContent('tiny-mascot'));
+    await waitFor(() => expect(store.getState().mascot.selectedMascotId).toBe('tiny-mascot'));
   });
 
   // The fetch-failure path is covered end-to-end in manifestService.test.ts

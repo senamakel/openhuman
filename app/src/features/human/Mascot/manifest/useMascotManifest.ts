@@ -5,9 +5,9 @@
  * agree on which mascot is current.
  */
 import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
-import { selectSelectedMascotId } from '../../../../store/mascotSlice';
+import { selectSelectedMascotId, setSelectedMascotId } from '../../../../store/mascotSlice';
 import { defaultMascot, fetchMascotManifest, findMascot } from './manifestService';
 import type { MascotManifest, MascotManifestEntry } from './types';
 
@@ -20,6 +20,7 @@ export interface UseMascotManifestResult {
 }
 
 export function useMascotManifest(): UseMascotManifestResult {
+  const dispatch = useDispatch();
   const selectedMascotId = useSelector(selectSelectedMascotId);
   const [manifest, setManifest] = useState<MascotManifest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,6 @@ export function useMascotManifest(): UseMascotManifestResult {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     (async () => {
       try {
         const m = await fetchMascotManifest();
@@ -46,9 +46,14 @@ export function useMascotManifest(): UseMascotManifestResult {
     };
   }, []);
 
-  const entry = manifest
-    ? (findMascot(manifest, selectedMascotId) ?? defaultMascot(manifest) ?? null)
-    : null;
+  const selectedEntry = manifest ? findMascot(manifest, selectedMascotId) : undefined;
+  const fallbackEntry = manifest ? (defaultMascot(manifest) ?? null) : null;
+  const entry = selectedEntry ?? fallbackEntry;
+
+  useEffect(() => {
+    if (!manifest || !selectedMascotId || selectedEntry) return;
+    dispatch(setSelectedMascotId(fallbackEntry?.id ?? null));
+  }, [dispatch, fallbackEntry?.id, manifest, selectedEntry, selectedMascotId]);
 
   return { manifest, entry, loading, error };
 }

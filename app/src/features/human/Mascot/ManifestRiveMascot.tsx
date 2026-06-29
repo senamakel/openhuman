@@ -165,7 +165,7 @@ const ManifestRiveStage: FC<{
     timer = window.setTimeout(toFlourish, randBetween(AMBIENT_IDLE_MIN_MS, AMBIENT_IDLE_MAX_MS));
     return () => {
       if (timer !== undefined) window.clearTimeout(timer);
-      setPoseRef.current(restPose);
+      setPoseRef.current(matchEnumValue(restPose, poseValuesRef.current));
     };
   }, [idlePoseRotation, basePose, restPose, engine]);
 
@@ -256,11 +256,10 @@ export const ManifestRiveMascot: FC<ManifestRiveMascotProps> = ({
   const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
   const [failed, setFailed] = useState(false);
 
-  // Callers key this component by `entry.id`, so a new selection remounts it
-  // with fresh state — the effect only ever resolves the buffer (or marks
-  // failure) for the entry it mounted with.
   useEffect(() => {
     let cancelled = false;
+    setBuffer(null);
+    setFailed(false);
     (async () => {
       try {
         const buf = await loadManifestRiv(entry);

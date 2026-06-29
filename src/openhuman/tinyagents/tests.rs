@@ -104,6 +104,96 @@ async fn turn_runs_through_the_tinyagents_harness_with_real_tools() {
     );
 }
 
+/// A provider that streams visible text in chunks through the request's stream
+/// sender, then returns the aggregated reply — exercising `ProviderModel::stream`.
+struct StreamingProvider;
+
+#[async_trait]
+impl Provider for StreamingProvider {
+    async fn chat_with_system(
+        &self,
+        _s: Option<&str>,
+        _m: &str,
+        _model: &str,
+        _t: f64,
+    ) -> anyhow::Result<String> {
+        Ok(String::new())
+    }
+    async fn chat(
+        &self,
+        r: ChatRequest<'_>,
+        _model: &str,
+        _t: f64,
+    ) -> anyhow::Result<ChatResponse> {
+        use crate::openhuman::inference::provider::{ProviderDelta, UsageInfo};
+        if let Some(tx) = r.stream {
+            for chunk in ["Hel", "lo ", "world"] {
+                let _ = tx
+                    .send(ProviderDelta::TextDelta {
+                        delta: chunk.to_string(),
+                    })
+                    .await;
+            }
+        }
+        Ok(ChatResponse {
+            text: Some("Hello world".to_string()),
+            usage: Some(UsageInfo {
+                input_tokens: 12,
+                output_tokens: 4,
+                ..Default::default()
+            }),
+            ..Default::default()
+        })
+    }
+    fn supports_native_tools(&self) -> bool {
+        true
+    }
+}
+
+#[tokio::test]
+async fn streaming_path_forwards_text_deltas_and_cost() {
+    use crate::openhuman::agent::progress::AgentProgress;
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<AgentProgress>(64);
+    let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
+    let history = vec![ChatMessage::user("hi")];
+
+    let outcome = run_turn_via_tinyagents_shared(
+        Arc::new(StreamingProvider),
+        "mock-model",
+        0.0,
+        history,
+        vec![registry],
+        std::collections::HashSet::new(),
+        4,
+        Some(tx),
+    )
+    .await
+    .expect("streaming turn runs");
+
+    assert_eq!(outcome.text, "Hello world");
+    assert_eq!((outcome.input_tokens, outcome.output_tokens), (12, 4));
+
+    // Collect the mirrored progress: incremental text deltas + a cost update.
+    let mut text = String::new();
+    let mut saw_cost = false;
+    while let Ok(p) = rx.try_recv() {
+        match p {
+            AgentProgress::TextDelta { delta, .. } => text.push_str(&delta),
+            AgentProgress::TurnCostUpdated { input_tokens, .. } => {
+                assert_eq!(input_tokens, 12);
+                saw_cost = true;
+            }
+            _ => {}
+        }
+    }
+    assert!(
+        text.contains("Hello world"),
+        "incremental text deltas should reassemble the reply, got {text:?}"
+    );
+    assert!(saw_cost, "a TurnCostUpdated should be emitted");
+}
+
 #[test]
 fn routing_flag_honors_explicit_override() {
     // Bare default is OFF under cfg(test) (legacy tests keep validating the

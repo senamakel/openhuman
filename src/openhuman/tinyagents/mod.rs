@@ -151,9 +151,9 @@ pub async fn run_turn_via_tinyagents(
 /// produced. Pass `None` for fire-and-forget turns (channel/sub-agent) that
 /// only need the final text.
 ///
-/// Parity note (issue #4249): multimodal prep, autocompaction, per-iteration
-/// steering, and the `ask_user_clarification` early-exit pause are not yet wired
-/// on this path.
+/// Parity note (issue #4249): multimodal-marker expansion, autocompaction, and
+/// per-iteration steering are not yet wired on this path. (Incremental token
+/// streaming, the live tool timeline, and the cost footer are now bridged.)
 #[allow(clippy::too_many_arguments)]
 pub async fn run_turn_via_tinyagents_shared(
     provider: Arc<dyn Provider>,

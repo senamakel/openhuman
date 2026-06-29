@@ -16,6 +16,7 @@ mod nodes;
 pub mod product_graphs;
 pub mod runner;
 pub mod state;
+pub mod tinyagents_graphs;
 
 pub use state::ProductState;
 

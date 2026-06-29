@@ -58,7 +58,10 @@ pub(super) async fn run_subagent_via_graph(
         specs,
         executor,
         max_iterations,
-    );
+    )
+    // `ask_user_clarification` pauses the sub-agent so the orchestrator can
+    // relay the user's answer (parity with the legacy early-exit path).
+    .with_early_exit_tools(vec!["ask_user_clarification".to_string()]);
     let outcome = run_turn_via_graph(machine).await?;
     // Write the final conversation back so the caller can checkpoint / persist.
     *history = outcome.history;
@@ -68,7 +71,12 @@ pub(super) async fn run_subagent_via_graph(
         cached_input_tokens: outcome.cost.cached_input_tokens,
         charged_amount_usd: outcome.cost.total_usd(),
     };
-    Ok((outcome.text, outcome.iterations as usize, usage, None))
+    Ok((
+        outcome.text,
+        outcome.iterations as usize,
+        usage,
+        outcome.early_exit_tool,
+    ))
 }
 
 #[cfg(test)]

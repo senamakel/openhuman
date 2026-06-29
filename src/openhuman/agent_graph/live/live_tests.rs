@@ -246,3 +246,155 @@ async fn harness_tool_executor_runs_a_real_tool_through_the_graph() {
     assert_eq!(outcome.iterations, 2);
     assert_eq!(outcome.text, "done");
 }
+
+/// Phase C parity: an early-exit tool (e.g. ask_user_clarification) stops the
+/// loop and is surfaced so the caller can pause.
+#[tokio::test]
+async fn early_exit_tool_pauses_the_live_turn() {
+    use super::HarnessToolExecutor;
+    use crate::openhuman::tools::{Tool, ToolResult};
+
+    struct AskTool;
+    #[async_trait]
+    impl Tool for AskTool {
+        fn name(&self) -> &str {
+            "ask_user_clarification"
+        }
+        fn description(&self) -> &str {
+            "ask"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object"})
+        }
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+            Ok(ToolResult::success("Which file did you mean?"))
+        }
+    }
+    struct AskProvider;
+    #[async_trait]
+    impl Provider for AskProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            Ok(ChatResponse {
+                tool_calls: vec![ToolCall {
+                    id: "a".to_string(),
+                    name: "ask_user_clarification".to_string(),
+                    arguments: "{}".to_string(),
+                    extra_content: None,
+                }],
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+    let executor = Arc::new(HarnessToolExecutor::new(vec![Arc::new(AskTool)]));
+    let machine = LiveTurnMachine::new(
+        Arc::new(AskProvider),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("do the thing")],
+        executor.specs(),
+        executor,
+        10,
+    )
+    .with_early_exit_tools(vec!["ask_user_clarification".to_string()]);
+    let outcome = run_turn_via_graph(machine).await.expect("runs");
+    assert_eq!(
+        outcome.early_exit_tool.as_deref(),
+        Some("ask_user_clarification")
+    );
+    assert_eq!(outcome.text, "Which file did you mean?");
+    // Paused on the first iteration.
+    assert_eq!(outcome.iterations, 1);
+}
+
+/// Phase C parity: the repeated-failure circuit breaker halts a stuck loop
+/// instead of grinding to the iteration cap.
+#[tokio::test]
+async fn circuit_breaker_halts_repeated_tool_failure() {
+    use super::HarnessToolExecutor;
+    use crate::openhuman::tools::{Tool, ToolResult};
+
+    struct FailTool;
+    #[async_trait]
+    impl Tool for FailTool {
+        fn name(&self) -> &str {
+            "broken"
+        }
+        fn description(&self) -> &str {
+            "always fails"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object"})
+        }
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+            Ok(ToolResult::error("permanent failure"))
+        }
+    }
+    struct RetryProvider;
+    #[async_trait]
+    impl Provider for RetryProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            Ok(ChatResponse {
+                text: Some("retrying".to_string()),
+                tool_calls: vec![ToolCall {
+                    id: "x".to_string(),
+                    name: "broken".to_string(),
+                    arguments: r#"{"n":1}"#.to_string(),
+                    extra_content: None,
+                }],
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+    let executor = Arc::new(HarnessToolExecutor::new(vec![Arc::new(FailTool)]));
+    let machine = LiveTurnMachine::new(
+        Arc::new(RetryProvider),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("use broken")],
+        executor.specs(),
+        executor,
+        100, // high cap — the breaker, not the cap, must stop it
+    );
+    let outcome = run_turn_via_graph(machine).await.expect("runs");
+    // Halted well before the 100-iteration cap.
+    assert!(
+        outcome.iterations < 100,
+        "breaker should halt early, got {}",
+        outcome.iterations
+    );
+    assert!(!outcome.hit_cap);
+}

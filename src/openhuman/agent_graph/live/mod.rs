@@ -116,6 +116,17 @@ pub struct LiveTurnMachine {
     pub hit_cap: bool,
     /// Accumulated token/USD cost.
     pub cost: TurnCost,
+
+    // ── Phase C parity seams ──
+    /// Tool names that, on success, stop the loop early (e.g.
+    /// `ask_user_clarification`) so the caller can pause/checkpoint.
+    pub early_exit_tools: Vec<String>,
+    /// Set when an early-exit tool fired.
+    pub early_exit_tool: Option<String>,
+    /// Repeated-failure circuit breaker (shared with the legacy loop).
+    failure_guard: crate::openhuman::agent::harness::tool_loop::RepeatFailureGuard,
+    /// No-progress (identical response+call) circuit breaker.
+    repeat_guard: crate::openhuman::agent::harness::tool_loop::RepeatOutputGuard,
 }
 
 impl LiveTurnMachine {
@@ -144,7 +155,17 @@ impl LiveTurnMachine {
             final_text: String::new(),
             hit_cap: false,
             cost: TurnCost::new(),
+            early_exit_tools: Vec::new(),
+            early_exit_tool: None,
+            failure_guard: crate::openhuman::agent::harness::tool_loop::RepeatFailureGuard::new(),
+            repeat_guard: crate::openhuman::agent::harness::tool_loop::RepeatOutputGuard::new(),
         }
+    }
+
+    /// Tools that stop the loop early on success (pause semantics).
+    pub fn with_early_exit_tools(mut self, tools: Vec<String>) -> Self {
+        self.early_exit_tools = tools;
+        self
     }
 }
 
@@ -180,6 +201,8 @@ pub struct LiveTurnOutcome {
     pub cost: TurnCost,
     /// Final conversation history (so callers can persist / checkpoint it).
     pub history: Vec<ChatMessage>,
+    /// Set when the turn exited early because an early-exit tool fired (pause).
+    pub early_exit_tool: Option<String>,
 }
 
 type Machine = Arc<Mutex<LiveTurnMachine>>;
@@ -260,6 +283,21 @@ impl Node<LiveTurnState> for Parse {
             };
             return Ok(NodeOutput::goto(state, "finalize"));
         }
+        // No-progress circuit breaker: identical response + tool-call signature
+        // repeated across iterations means the run is stuck. Mirrors the legacy
+        // loop's `RepeatOutputGuard` check (issue #4249 Phase C parity).
+        let mut sig = m.last_text.trim().to_string();
+        for call in &m.last_tool_calls {
+            sig.push('\u{1}');
+            sig.push_str(&call.name);
+            sig.push('\u{1}');
+            sig.push_str(&call.arguments);
+        }
+        if let Some(reason) = m.repeat_guard.record(&sig) {
+            tracing::warn!("[agent_graph::live] repeat-output breaker tripped — halting");
+            m.final_text = reason;
+            return Ok(NodeOutput::goto(state, "finalize"));
+        }
         Ok(NodeOutput::goto(state, "tools"))
     }
 }
@@ -275,6 +313,8 @@ impl Node<LiveTurnState> for Tools {
     ) -> Result<NodeOutput<LiveTurnState>> {
         let mut m = self.0.lock().await;
         let calls = m.last_tool_calls.clone();
+        let mut halt: Option<String> = None;
+        let mut early_exit: Option<String> = None;
         for call in &calls {
             tracing::debug!(
                 run_id = ctx.run_id,
@@ -288,6 +328,32 @@ impl Node<LiveTurnState> for Tools {
                 "success": success,
             });
             m.history.push(ChatMessage::tool(result.to_string()));
+
+            // Repeated-failure circuit breaker (legacy-loop parity): halt with a
+            // root cause instead of grinding to the iteration cap.
+            if let Some(reason) =
+                m.failure_guard
+                    .record(&call.name, &call.arguments, success, &output)
+            {
+                tracing::warn!(tool = %call.name, "[agent_graph::live] circuit breaker tripped");
+                halt = Some(reason);
+                break;
+            }
+            // Early-exit tool (e.g. ask_user_clarification): stop so the caller
+            // can pause/checkpoint and surface the question.
+            if success && m.early_exit_tools.iter().any(|t| t == &call.name) {
+                early_exit = Some(call.name.clone());
+                m.final_text = output;
+                break;
+            }
+        }
+        if let Some(reason) = halt {
+            m.final_text = reason;
+            return Ok(NodeOutput::goto(state, "finalize"));
+        }
+        if let Some(tool) = early_exit {
+            m.early_exit_tool = Some(tool);
+            return Ok(NodeOutput::goto(state, "finalize"));
         }
         Ok(NodeOutput::goto(state, "dispatch"))
     }
@@ -348,6 +414,7 @@ pub async fn run_turn_via_graph(machine: LiveTurnMachine) -> Result<LiveTurnOutc
         hit_cap: m.hit_cap,
         cost: m.cost.clone(),
         history: m.history.clone(),
+        early_exit_tool: m.early_exit_tool.clone(),
     })
 }
 

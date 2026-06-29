@@ -15,7 +15,7 @@ use std::sync::Arc;
 use super::loop_::AggregatedUsage;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
 use crate::openhuman::agent_graph::live::{
-    run_turn_via_graph, LiveTurnMachine, SharedToolExecutor,
+    run_turn_via_graph, LiveAutocompact, LiveTurnMachine, SharedToolExecutor,
 };
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 use crate::openhuman::tools::{Tool, ToolSpec};
@@ -63,7 +63,9 @@ pub(super) async fn run_subagent_via_graph(
     // `ask_user_clarification` pauses the sub-agent so the orchestrator can
     // relay the user's answer (parity with the legacy early-exit path).
     .with_early_exit_tools(vec!["ask_user_clarification".to_string()])
-    .with_run_queue(run_queue);
+    .with_run_queue(run_queue)
+    // Sub-agents opt into engine autocompaction in the legacy loop; mirror that.
+    .with_autocompact(LiveAutocompact::default());
     let outcome = run_turn_via_graph(machine).await?;
     // Write the final conversation back so the caller can checkpoint / persist.
     *history = outcome.history;

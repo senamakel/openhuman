@@ -26,11 +26,11 @@
 //! (`openhuman.agent_graph_*`) lives in [`schemas`] + [`ops`].
 
 pub mod checkpoint;
+pub mod definitions;
 pub mod graph;
 pub mod hitl;
 pub mod memory;
 pub mod observability;
 pub mod summarization;
 pub mod types;
-// Built out incrementally below — definitions and the RPC surface
-// (schemas/ops) are added as their tasks land.
+// The RPC surface (schemas/ops) is added next.

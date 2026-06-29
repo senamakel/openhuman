@@ -356,7 +356,7 @@ StateGraph::new(name)
 
 **RPC surface** (`schemas.rs` + `ops.rs`, registered in `src/core/all.rs`): `openhuman.agent_graph_definition_list`, `_run`, `_run_list`, `_run_get`, `_checkpoint_list`, `_resume`.
 
-> **Status:** the engine, checkpointing, HITL, observability, the product graph, and the RPC surface are live and tested (unit + `tests/json_rpc_e2e.rs`). The `canonical_turn` graph defines and exercises the turn's control-flow topology; routing the production `run_turn_engine` hot path through it (so the graph executor *is* the live turn loop, reusing the existing `ToolSource` / `ResponseParser` / `ContextManager` / `StopHook` primitives as node bodies) is the remaining integration step, staged separately to allow parity validation against the loop's many edge cases before flipping the default.
+> **Status:** the engine, checkpointing, HITL, observability, the product graph, and the RPC surface are live and tested (unit + `tests/json_rpc_e2e.rs`). The production `run_turn_engine` hot path (shared by `Agent::turn`, `run_tool_call_loop`, and `run_subagent`) is now itself driven by an **explicit `TurnPhase` state machine** (`Iterate(n)` / `MaxIterations`) rather than an implicit `for` loop — mirroring the `canonical_turn` node topology while reusing every existing primitive (`ToolSource`, `ResponseParser`, `ContextManager`, `StopHook`, circuit breakers) verbatim, so the change is behavior-preserving (validated against the engine's integration tests). The `canonical_turn` graph in `definitions/` is the same topology expressed on the generic engine for inspection and as the target for migrating each phase onto graph nodes individually.
 
 ## See also
 

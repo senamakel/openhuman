@@ -90,6 +90,22 @@ pub(crate) struct TurnEngineOutcome {
     pub early_exit_tool: Option<String>,
 }
 
+/// States of the turn state machine (issue #4249).
+///
+/// The turn is driven as explicit state transitions rather than an implicit
+/// `for` loop, mirroring the `agent_graph` `canonical_turn` node topology:
+/// each `Iterate(n)` round runs the inline dispatch → parse → (finalize |
+/// stop_check → tools → compact) sequence, and `MaxIterations` is the terminal
+/// state that hands the run to the [`CheckpointStrategy`]. A round's terminal
+/// sub-states (final answer, early-exit tool, repeat/circuit-breaker halt)
+/// return from the engine directly.
+enum TurnPhase {
+    /// Run iteration `n` (0-based).
+    Iterate(usize),
+    /// Iteration cap reached — hand off to the checkpoint strategy.
+    MaxIterations,
+}
+
 /// Truncate a digest entry's body so a huge tool result can't blow up the
 /// checkpoint summary. Mirrors the subagent's previous `truncate_with_ellipsis`.
 fn truncate_with_ellipsis(s: &str, max: usize) -> String {
@@ -217,7 +233,46 @@ pub(crate) async fn run_turn_engine(
     // (the gap left by the failure guard + per-generation frequency_penalty).
     let mut repeat_guard = RepeatOutputGuard::new();
     let mut halt_reason: Option<String> = None;
-    for iteration in 0..max_iterations {
+    // ── Explicit turn state machine (issue #4249) ──
+    // The linear `for iteration` loop is driven as state transitions: `Iterate(n)`
+    // runs one round, `MaxIterations` hands off to the checkpoint strategy. The
+    // round body is unchanged — its terminal sub-states still `return` directly.
+    let mut phase = TurnPhase::Iterate(0);
+    let max_iter_outcome: TurnEngineOutcome = loop {
+        let iteration = match phase {
+            TurnPhase::Iterate(i) if i >= max_iterations => {
+                phase = TurnPhase::MaxIterations;
+                continue;
+            }
+            TurnPhase::Iterate(i) => i,
+            TurnPhase::MaxIterations => {
+                // Iteration cap reached — hand off to the checkpoint strategy
+                // (error vs summarize). The accumulated digest lets a summarizing
+                // strategy produce a resumable, root-cause-aware checkpoint.
+                let digest = if run_tool_digest.is_empty() {
+                    "(no tool calls completed)"
+                } else {
+                    run_tool_digest.as_str()
+                };
+                let co = checkpoint.on_max_iter(digest, max_iterations).await?;
+                // Fold any summarization-call usage into the turn cost + observer
+                // so token accounting stays complete.
+                if let Some(ref u) = co.usage {
+                    turn_cost.add_call(model, u);
+                    observer.record_usage(provider_name, model, u);
+                }
+                // Emit the terminal lifecycle event on this successful (checkpoint)
+                // exit too, so consumers aren't left waiting.
+                progress.turn_completed(max_iterations as u32).await;
+                break TurnEngineOutcome {
+                    text: co.text,
+                    iterations: max_iterations as u32,
+                    cost: turn_cost,
+                    hit_cap: true,
+                    early_exit_tool: None,
+                };
+            }
+        };
         progress
             .iteration_started((iteration + 1) as u32, max_iterations as u32)
             .await;
@@ -1042,34 +1097,11 @@ pub(crate) async fn run_turn_engine(
                 early_exit_tool: None,
             });
         }
-    }
 
-    // Iteration cap reached — hand off to the checkpoint strategy (error vs
-    // summarize). The accumulated digest lets a summarizing strategy produce a
-    // resumable, root-cause-aware checkpoint.
-    let digest = if run_tool_digest.is_empty() {
-        "(no tool calls completed)"
-    } else {
-        run_tool_digest.as_str()
+        // ── End of this Iterate(n) state → transition to the next round. ──
+        phase = TurnPhase::Iterate(iteration + 1);
     };
-    let co = checkpoint.on_max_iter(digest, max_iterations).await?;
-    // Fold any summarization-call usage into the turn cost + observer so token
-    // accounting stays complete.
-    if let Some(ref u) = co.usage {
-        turn_cost.add_call(model, u);
-        observer.record_usage(provider_name, model, u);
-    }
-    // Emit the terminal lifecycle event on this successful (checkpoint) exit
-    // too, so consumers aren't left waiting — matching the final-response and
-    // circuit-breaker paths.
-    progress.turn_completed(max_iterations as u32).await;
-    Ok(TurnEngineOutcome {
-        text: co.text,
-        iterations: max_iterations as u32,
-        cost: turn_cost,
-        hit_cap: true,
-        early_exit_tool: None,
-    })
+    Ok(max_iter_outcome)
 }
 
 #[cfg(test)]

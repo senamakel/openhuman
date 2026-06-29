@@ -7,12 +7,15 @@
 //! tool registries, middleware, retry/fallback, and limits). This module is the
 //! **adapter seam**: it bridges openhuman's `Provider`, `Tool`, and `ChatMessage`
 //! types onto the crate's `ChatModel`, `Tool`, and `Message` traits, then drives
-//! a turn through [`AgentHarness::invoke`]. The channel + sub-agent routes call
-//! [`run_turn_via_tinyagents_shared`].
+//! a turn through [`AgentHarness::invoke`]. The chat / channel / sub-agent
+//! routes call [`run_turn_via_tinyagents_shared`] (default ON in production).
 //!
-//! The flagged routes are off by default. The harness owns its own native
-//! tool-call threading and transcript; per-iteration steering, the payload
-//! summarizer, and multimodal prep are not yet wired on this path.
+//! The chat route is at functional parity with the legacy `run_turn_engine`:
+//! the [`OpenhumanEventBridge`] mirrors the 0.2.0 harness event stream onto
+//! `AgentProgress` (live tool timeline, incremental text deltas, cost footer),
+//! [`ProviderModel::stream`] forwards true token streaming, multimodal markers
+//! are expanded, and history is trimmed to the context window. Remaining gaps:
+//! per-iteration steering and the `ask_user_clarification` early-exit pause.
 
 mod convert;
 mod model;

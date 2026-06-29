@@ -1,0 +1,58 @@
+/**
+ * Load the published mascot manifest and resolve the active mascot entry from
+ * the user's `selectedMascotId` Redux preference, falling back to the default
+ * (`ready`) mascot. Shared by the Human stage and the settings picker so both
+ * agree on which mascot is current.
+ */
+import { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
+
+import { selectSelectedMascotId } from '../../../../store/mascotSlice';
+import {
+  defaultMascot,
+  fetchMascotManifest,
+  findMascot,
+} from './manifestService';
+import type { MascotManifest, MascotManifestEntry } from './types';
+
+export interface UseMascotManifestResult {
+  manifest: MascotManifest | null;
+  /** The selected mascot, or the default when none is chosen / found yet. */
+  entry: MascotManifestEntry | null;
+  loading: boolean;
+  error: Error | null;
+}
+
+export function useMascotManifest(): UseMascotManifestResult {
+  const selectedMascotId = useSelector(selectSelectedMascotId);
+  const [manifest, setManifest] = useState<MascotManifest | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const m = await fetchMascotManifest();
+        if (cancelled) return;
+        setManifest(m);
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const entry = manifest
+    ? (findMascot(manifest, selectedMascotId) ?? defaultMascot(manifest) ?? null)
+    : null;
+
+  return { manifest, entry, loading, error };
+}

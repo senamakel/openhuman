@@ -33,4 +33,11 @@ pub mod memory;
 pub mod observability;
 pub mod summarization;
 pub mod types;
-// The RPC surface (schemas/ops) is added next.
+
+pub mod ops;
+mod schemas;
+
+pub use schemas::{
+    all_controller_schemas as all_agent_graph_controller_schemas,
+    all_registered_controllers as all_agent_graph_registered_controllers,
+};

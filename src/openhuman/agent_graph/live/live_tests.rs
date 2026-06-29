@@ -466,3 +466,112 @@ async fn stop_hook_halts_the_live_turn() {
     assert!(!outcome.hit_cap);
     assert!(outcome.text.contains("stopped by hook"));
 }
+
+/// Phase C parity: an oversized tool result is routed through the payload
+/// summarizer before entering history.
+#[tokio::test]
+async fn payload_summarizer_compresses_tool_output() {
+    use super::HarnessToolExecutor;
+    use crate::openhuman::agent::harness::payload_summarizer::{
+        PayloadSummarizer, SummarizedPayload,
+    };
+    use crate::openhuman::tools::{Tool, ToolResult};
+
+    struct BigTool;
+    #[async_trait]
+    impl Tool for BigTool {
+        fn name(&self) -> &str {
+            "big"
+        }
+        fn description(&self) -> &str {
+            "returns a lot"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object"})
+        }
+        async fn execute(&self, _a: serde_json::Value) -> anyhow::Result<ToolResult> {
+            Ok(ToolResult::success("X".repeat(10_000)))
+        }
+    }
+    struct Squeeze;
+    #[async_trait]
+    impl PayloadSummarizer for Squeeze {
+        async fn maybe_summarize(
+            &self,
+            _tool: &str,
+            _hint: Option<&str>,
+            raw: &str,
+        ) -> anyhow::Result<Option<SummarizedPayload>> {
+            Ok(Some(SummarizedPayload {
+                summary: "SUMMARY".to_string(),
+                original_bytes: raw.len(),
+                summary_bytes: 7,
+            }))
+        }
+    }
+    struct OneToolThenDone {
+        calls: AtomicUsize,
+    }
+    #[async_trait]
+    impl Provider for OneToolThenDone {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            let n = self.calls.fetch_add(1, Ordering::SeqCst);
+            if n == 0 {
+                Ok(ChatResponse {
+                    tool_calls: vec![ToolCall {
+                        id: "b".to_string(),
+                        name: "big".to_string(),
+                        arguments: "{}".to_string(),
+                        extra_content: None,
+                    }],
+                    ..Default::default()
+                })
+            } else {
+                Ok(ChatResponse {
+                    text: Some("ok".to_string()),
+                    ..Default::default()
+                })
+            }
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+    let executor = Arc::new(HarnessToolExecutor::new(vec![Arc::new(BigTool)]));
+    let machine = LiveTurnMachine::new(
+        Arc::new(OneToolThenDone {
+            calls: AtomicUsize::new(0),
+        }),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("get big")],
+        executor.specs(),
+        executor,
+        10,
+    )
+    .with_payload_summarizer(Arc::new(Squeeze), None);
+    let outcome = run_turn_via_graph(machine).await.expect("runs");
+    // The 10k payload was replaced with the summary in history.
+    assert!(outcome
+        .history
+        .iter()
+        .any(|m| m.content.contains("SUMMARY")));
+    assert!(!outcome
+        .history
+        .iter()
+        .any(|m| m.content.contains(&"X".repeat(10_000))));
+}

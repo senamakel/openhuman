@@ -127,6 +127,12 @@ pub struct LiveTurnMachine {
     failure_guard: crate::openhuman::agent::harness::tool_loop::RepeatFailureGuard,
     /// No-progress (identical response+call) circuit breaker.
     repeat_guard: crate::openhuman::agent::harness::tool_loop::RepeatOutputGuard,
+    /// Optional oversized-tool-result summarizer (legacy-loop parity). When set,
+    /// each tool result is offered to it before entering history.
+    payload_summarizer:
+        Option<Arc<dyn crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer>>,
+    /// Parent-task hint passed to the summarizer for extraction context.
+    task_hint: Option<String>,
 }
 
 impl LiveTurnMachine {
@@ -159,12 +165,27 @@ impl LiveTurnMachine {
             early_exit_tool: None,
             failure_guard: crate::openhuman::agent::harness::tool_loop::RepeatFailureGuard::new(),
             repeat_guard: crate::openhuman::agent::harness::tool_loop::RepeatOutputGuard::new(),
+            payload_summarizer: None,
+            task_hint: None,
         }
     }
 
     /// Tools that stop the loop early on success (pause semantics).
     pub fn with_early_exit_tools(mut self, tools: Vec<String>) -> Self {
         self.early_exit_tools = tools;
+        self
+    }
+
+    /// Install an oversized-tool-result summarizer + task hint.
+    pub fn with_payload_summarizer(
+        mut self,
+        summarizer: Arc<
+            dyn crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer,
+        >,
+        task_hint: Option<String>,
+    ) -> Self {
+        self.payload_summarizer = Some(summarizer);
+        self.task_hint = task_hint;
         self
     }
 }
@@ -373,6 +394,10 @@ impl Node<LiveTurnState> for Tools {
     ) -> Result<NodeOutput<LiveTurnState>> {
         let mut m = self.0.lock().await;
         let calls = m.last_tool_calls.clone();
+        // Cloned once: the summarizer + hint don't change across calls and we
+        // need them available while `m` is mutably used below.
+        let summarizer = m.payload_summarizer.clone();
+        let task_hint = m.task_hint.clone();
         let mut halt: Option<String> = None;
         let mut early_exit: Option<String> = None;
         for call in &calls {
@@ -381,7 +406,23 @@ impl Node<LiveTurnState> for Tools {
                 tool = %call.name,
                 "[agent_graph::live] executing tool"
             );
-            let (output, success) = m.executor.execute(&call.name, &call.arguments).await;
+            let (mut output, success) = m.executor.execute(&call.name, &call.arguments).await;
+            // Oversized-tool-result summarizer (legacy-loop parity): swap the raw
+            // payload for a compressed summary before it enters history.
+            if let Some(s) = &summarizer {
+                if let Ok(Some(summary)) = s
+                    .maybe_summarize(&call.name, task_hint.as_deref(), &output)
+                    .await
+                {
+                    tracing::debug!(
+                        tool = %call.name,
+                        original_bytes = summary.original_bytes,
+                        summary_bytes = summary.summary_bytes,
+                        "[agent_graph::live] tool result summarized"
+                    );
+                    output = summary.summary;
+                }
+            }
             // Native tool-result message shape the legacy loop uses: one
             // `role: tool` message per call id, so the assistant `tool_calls`
             // and their results stay paired on the next request.

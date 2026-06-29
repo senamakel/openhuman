@@ -27,6 +27,10 @@
 
 pub mod checkpoint;
 pub mod graph;
+pub mod hitl;
+pub mod memory;
+pub mod observability;
+pub mod summarization;
 pub mod types;
-// Built out incrementally below — observability, definitions, and the RPC
-// surface (schemas/ops) are added as their tasks land.
+// Built out incrementally below — definitions and the RPC surface
+// (schemas/ops) are added as their tasks land.

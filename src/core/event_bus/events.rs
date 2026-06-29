@@ -60,6 +60,59 @@ pub enum DomainEvent {
         message: String,
         recoverable: bool,
     },
+    // ── agent_graph state machine (issue #4249) ──────────────────────────
+    /// A graph run started executing.
+    GraphRunStarted {
+        /// Stable run id (checkpoint key).
+        run_id: String,
+        /// Graph definition name.
+        graph_name: String,
+        /// Entry node.
+        entry: String,
+    },
+    /// A node began executing within a graph run.
+    GraphNodeEntered {
+        run_id: String,
+        graph_name: String,
+        /// 0-based super-step index.
+        step: u32,
+        /// Node id.
+        node: String,
+    },
+    /// A node finished, with the routing command it returned.
+    GraphNodeCompleted {
+        run_id: String,
+        graph_name: String,
+        step: u32,
+        node: String,
+        /// Rendered command label (`continue`, `goto:x`, `interrupt:kind`, …).
+        command: String,
+        elapsed_ms: u64,
+    },
+    /// A graph run paused at a human-in-the-loop interrupt.
+    GraphRunPaused {
+        run_id: String,
+        graph_name: String,
+        /// Interrupting node.
+        node: String,
+        /// Interrupt kind (`approval`, `clarification`, …).
+        kind: String,
+    },
+    /// A graph run reached a finish node / `END`.
+    GraphRunCompleted {
+        run_id: String,
+        graph_name: String,
+        /// Super-steps executed.
+        steps: u32,
+        /// Last node that ran.
+        last_node: String,
+    },
+    /// A graph run aborted with an error / guard trip.
+    GraphRunFailed {
+        run_id: String,
+        graph_name: String,
+        error: String,
+    },
     /// A sub-agent was dispatched via `spawn_subagent`.
     SubagentSpawned {
         /// Parent agent's session id.
@@ -1213,6 +1266,13 @@ impl DomainEvent {
             | Self::RunQueueFollowupDispatched { .. }
             | Self::RunQueueInterrupted { .. } => "agent",
 
+            Self::GraphRunStarted { .. }
+            | Self::GraphNodeEntered { .. }
+            | Self::GraphNodeCompleted { .. }
+            | Self::GraphRunPaused { .. }
+            | Self::GraphRunCompleted { .. }
+            | Self::GraphRunFailed { .. } => "agent_graph",
+
             Self::MonitorStatusChanged { .. } | Self::MonitorLine { .. } => "monitor",
 
             Self::EmbeddingModelUnhealthy { .. }
@@ -1356,6 +1416,12 @@ impl DomainEvent {
             Self::AgentTurnStarted { .. } => "AgentTurnStarted",
             Self::AgentTurnCompleted { .. } => "AgentTurnCompleted",
             Self::AgentError { .. } => "AgentError",
+            Self::GraphRunStarted { .. } => "GraphRunStarted",
+            Self::GraphNodeEntered { .. } => "GraphNodeEntered",
+            Self::GraphNodeCompleted { .. } => "GraphNodeCompleted",
+            Self::GraphRunPaused { .. } => "GraphRunPaused",
+            Self::GraphRunCompleted { .. } => "GraphRunCompleted",
+            Self::GraphRunFailed { .. } => "GraphRunFailed",
             Self::SubagentSpawned { .. } => "SubagentSpawned",
             Self::SubagentCompleted { .. } => "SubagentCompleted",
             Self::SubagentFailed { .. } => "SubagentFailed",

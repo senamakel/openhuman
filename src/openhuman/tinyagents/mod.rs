@@ -31,11 +31,25 @@ pub use tools::{SharedToolAdapter, ToolAdapter};
 
 use std::collections::HashSet;
 
-/// Whether agent turns should route through the `tinyagents` harness.
+/// Whether agent turns (chat) should route through the `tinyagents` harness.
+///
+/// **Default ON in production** (issue #4249): the tinyagents harness is the
+/// agent engine. Set `OPENHUMAN_AGENT_GRAPH_TINYAGENTS=0` to fall back to the
+/// legacy `run_turn_engine` (e.g. when the missing streaming/cost/multimodal
+/// seams matter). Under `cfg(test)` the default is OFF so the legacy-engine
+/// unit tests keep validating the fallback path; an explicit env value always
+/// wins in either build.
 pub fn tinyagents_routing_enabled() -> bool {
-    std::env::var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
+    routing_default_with_override("OPENHUMAN_AGENT_GRAPH_TINYAGENTS")
+}
+
+/// Shared default-on-in-prod / off-under-test resolution for the route flags.
+/// An explicit `0`/`false` or `1`/`true` env value always overrides.
+pub(crate) fn routing_default_with_override(var: &str) -> bool {
+    match std::env::var(var) {
+        Ok(v) => !(v == "0" || v.eq_ignore_ascii_case("false")),
+        Err(_) => !cfg!(test),
+    }
 }
 
 /// The outcome of a turn driven on the `tinyagents` harness.

@@ -21,11 +21,13 @@ use crate::openhuman::inference::provider::{ChatMessage, Provider};
 use crate::openhuman::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::tools::Tool;
 
-/// Whether channel/CLI turns should route through the `agent_graph` engine.
+/// Whether channel/CLI turns should route through the tinyagents harness.
+///
+/// **Default ON in production** (issue #4249); OFF under `cfg(test)` so the
+/// legacy-engine tests keep validating the fallback. Set
+/// `OPENHUMAN_AGENT_GRAPH_CHANNEL=0` to force the legacy `run_tool_call_loop`.
 pub(crate) fn channel_graph_routing_enabled() -> bool {
-    std::env::var("OPENHUMAN_AGENT_GRAPH_CHANNEL")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
+    crate::openhuman::tinyagents::routing_default_with_override("OPENHUMAN_AGENT_GRAPH_CHANNEL")
 }
 
 /// Drive a channel/CLI turn on the graph engine. Returns the final assistant
@@ -166,8 +168,12 @@ mod tests {
     }
 
     #[test]
-    fn routing_flag_defaults_off() {
+    fn routing_flag_honors_explicit_override() {
+        // Bare default OFF under cfg(test); production defaults ON.
         std::env::remove_var("OPENHUMAN_AGENT_GRAPH_CHANNEL");
         assert!(!channel_graph_routing_enabled());
+        std::env::set_var("OPENHUMAN_AGENT_GRAPH_CHANNEL", "1");
+        assert!(channel_graph_routing_enabled());
+        std::env::remove_var("OPENHUMAN_AGENT_GRAPH_CHANNEL");
     }
 }

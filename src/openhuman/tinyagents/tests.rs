@@ -105,7 +105,15 @@ async fn turn_runs_through_the_tinyagents_harness_with_real_tools() {
 }
 
 #[test]
-fn routing_flag_defaults_off() {
+fn routing_flag_honors_explicit_override() {
+    // Bare default is OFF under cfg(test) (legacy tests keep validating the
+    // fallback); production (non-test build) defaults ON.
     std::env::remove_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS");
     assert!(!tinyagents_routing_enabled());
+    // Explicit values always win in either build.
+    std::env::set_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS", "1");
+    assert!(tinyagents_routing_enabled());
+    std::env::set_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS", "0");
+    assert!(!tinyagents_routing_enabled());
+    std::env::remove_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS");
 }

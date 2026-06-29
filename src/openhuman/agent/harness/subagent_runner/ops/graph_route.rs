@@ -18,11 +18,13 @@ use crate::openhuman::inference::provider::{ChatMessage, Provider};
 use crate::openhuman::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::tools::{Tool, ToolSpec};
 
-/// Whether sub-agent turns should be routed through the `agent_graph` engine.
+/// Whether sub-agent turns should be routed through the tinyagents harness.
+///
+/// **Default ON in production** (issue #4249); OFF under `cfg(test)` so the
+/// legacy-engine tests keep validating the fallback. Set
+/// `OPENHUMAN_AGENT_GRAPH_SUBAGENT=0` to force the legacy `run_inner_loop`.
 pub(super) fn subagent_graph_routing_enabled() -> bool {
-    std::env::var("OPENHUMAN_AGENT_GRAPH_SUBAGENT")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
+    crate::openhuman::tinyagents::routing_default_with_override("OPENHUMAN_AGENT_GRAPH_SUBAGENT")
 }
 
 /// Drive a sub-agent turn on the graph engine. Returns the same tuple shape as
@@ -177,9 +179,12 @@ mod tests {
     }
 
     #[test]
-    fn routing_flag_defaults_off() {
-        // No env var set in the default test environment.
+    fn routing_flag_honors_explicit_override() {
+        // Bare default OFF under cfg(test); production defaults ON.
         std::env::remove_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT");
         assert!(!subagent_graph_routing_enabled());
+        std::env::set_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT", "1");
+        assert!(subagent_graph_routing_enabled());
+        std::env::remove_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT");
     }
 }

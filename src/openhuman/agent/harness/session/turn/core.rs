@@ -718,6 +718,22 @@ impl Agent {
                     self.session_key.clone(),
                 ),
             );
+            // Route the whole turn through the tinyagents harness when enabled
+            // (issue #4249). This is the default; the legacy `run_turn_engine`
+            // below remains as a fallback. The tinyagents path is a documented
+            // subset — no token-streaming progress deltas, per-call cost
+            // accounting, multimodal prep, or autocompaction yet.
+            if crate::openhuman::tinyagents::tinyagents_routing_enabled() {
+                return self
+                    .run_turn_via_tinyagents_session(
+                        user_message,
+                        &effective_model,
+                        temperature,
+                        max_iterations,
+                    )
+                    .await;
+            }
+
             let mut tool_source = AgentToolSource {
                 tools: self.tools.clone(),
                 visible_tool_names: self.visible_tool_names.clone(),
@@ -1044,6 +1060,83 @@ impl Agent {
         }
 
         result
+    }
+
+    /// Drive a full chat turn through the `tinyagents` harness (issue #4249).
+    ///
+    /// The frozen system+prior history is converted to provider messages, the
+    /// user turn appended, and the loop run over the agent's resolved tools. The
+    /// final reply + the user turn are recorded into `history`, the transcript
+    /// is persisted, and `TurnCompleted` is emitted so the UI stops spinning.
+    ///
+    /// This is an explicit subset of the legacy `run_turn_engine` path: it does
+    /// not stream `AgentProgress` deltas, feed per-call usage into the cost
+    /// footer, expand multimodal markers, or run `ContextManager` autocompaction.
+    async fn run_turn_via_tinyagents_session(
+        &mut self,
+        user_message: &str,
+        effective_model: &str,
+        temperature: f64,
+        max_iterations: usize,
+    ) -> Result<String> {
+        // Frozen system + prior conversation, then this turn's user message.
+        let mut messages = self.tool_dispatcher.to_provider_messages(&self.history);
+        messages.push(ChatMessage::user(user_message.to_string()));
+
+        tracing::info!(
+            model = %effective_model,
+            max_iterations,
+            tools = self.tools.len(),
+            "[agent_loop] routing chat turn through the tinyagents harness"
+        );
+
+        let outcome = crate::openhuman::tinyagents::run_turn_via_tinyagents_shared(
+            self.provider.clone(),
+            effective_model,
+            temperature,
+            messages,
+            vec![self.tools.clone()],
+            self.visible_tool_names.clone(),
+            max_iterations,
+        )
+        .await?;
+
+        // Record the user + final assistant turns so history and the persisted
+        // transcript stay consistent for the next turn's KV-cache prefix.
+        self.history
+            .push(ConversationMessage::Chat(ChatMessage::user(
+                user_message.to_string(),
+            )));
+        self.history
+            .push(ConversationMessage::Chat(ChatMessage::assistant(
+                outcome.text.clone(),
+            )));
+        self.trim_history();
+
+        let persisted = self.tool_dispatcher.to_provider_messages(&self.history);
+        self.persist_session_transcript(
+            &persisted,
+            outcome.input_tokens,
+            outcome.output_tokens,
+            0,
+            0.0,
+            None,
+        );
+
+        self.emit_progress(AgentProgress::TurnCompleted {
+            iterations: outcome.model_calls as u32,
+        })
+        .await;
+
+        if self.auto_save {
+            let summary = truncate_with_ellipsis(&outcome.text, 100);
+            let _ = self
+                .memory
+                .store("", "assistant_resp", &summary, MemoryCategory::Daily, None)
+                .await;
+        }
+
+        Ok(outcome.text)
     }
 
     pub(super) async fn inject_agent_experience_context(

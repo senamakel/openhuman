@@ -310,13 +310,19 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
         if !matches!(role, "chat" | "reasoning" | "coding") {
             if let Some(chat) = config.chat_provider.as_deref() {
                 if crate::openhuman::inference::local::profile::is_local_provider_string(chat) {
+                    // burst is managed-backend only — there is no `burst_provider`
+                    // knob, so don't suggest setting one.
+                    let override_hint = if role == "burst" {
+                        "managed-backend only; no per-workload override".to_string()
+                    } else {
+                        format!("set {role}_provider explicitly to override")
+                    };
                     log::info!(
                         "[providers][local-fallback] role={} using managed backend (chat is \
-                         local '{}' but background workloads require cloud — set \
-                         {}_provider explicitly to override)",
+                         local '{}' but background workloads require cloud — {})",
                         role,
                         chat,
-                        role
+                        override_hint
                     );
                 }
             }

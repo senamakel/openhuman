@@ -4,7 +4,7 @@
 //! the exact same tools the legacy loop runs. The harness calls `call` with a
 //! validated [`TaToolCall`] (parsed JSON arguments + correlation id); we execute
 //! the underlying tool and render the [`ToolResult`] the way the LLM should see
-//! it — mirroring [`crate::openhuman::agent_graph::live::HarnessToolExecutor`].
+//! it (rendered via `output_for_llm`, matching the legacy tool loop).
 
 use std::sync::Arc;
 

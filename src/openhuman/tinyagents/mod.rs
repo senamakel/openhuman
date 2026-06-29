@@ -27,10 +27,13 @@ use std::sync::Arc;
 use anyhow::Result;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
+use tinyagents::harness::message::Message as TaMessage;
 use tinyagents::harness::middleware::MessageTrimMiddleware;
 use tinyagents::harness::runtime::AgentHarness;
+use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::summarization::TrimStrategy;
 
+use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 
@@ -59,6 +62,19 @@ pub(crate) fn routing_default_with_override(var: &str) -> bool {
     match std::env::var(var) {
         Ok(v) => !(v == "0" || v.eq_ignore_ascii_case("false")),
         Err(_) => !cfg!(test),
+    }
+}
+
+/// Drain the run queue's pending steer messages and forward them to the
+/// tinyagents [`SteeringHandle`] as injected user turns (the harness applies
+/// them to the working transcript at the next iteration checkpoint). This is the
+/// bridge behind the `steer_subagent` / mid-flight-steering feature.
+async fn forward_steers(queue: &RunQueue, handle: &SteeringHandle) {
+    for msg in queue.drain_steers().await {
+        handle.send(SteeringCommand::InjectMessage(TaMessage::user(format!(
+            "[User steering message]: {}",
+            msg.text
+        ))));
     }
 }
 
@@ -174,6 +190,7 @@ pub async fn run_turn_via_tinyagents_shared(
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     context_window: Option<u64>,
+    run_queue: Option<Arc<RunQueue>>,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness
@@ -227,26 +244,52 @@ pub async fn run_turn_via_tinyagents_shared(
 
     let input = convert::history_to_messages(&history);
 
-    // Observed path: attach the progress/cost bridge and stream. Plain path:
-    // fire-and-forget invoke.
-    let (run, bridge_totals) = if on_progress.is_some() {
-        let bridge = OpenhumanEventBridge::new(on_progress, model, max_iterations);
+    // Build the run context: optional progress/cost bridge (streaming) + optional
+    // mid-flight steering from the run queue.
+    let mut ctx = RunContext::new(config, ());
+
+    let streaming = on_progress.is_some();
+    let bridge = on_progress.map(|tx| {
+        let bridge = OpenhumanEventBridge::new(Some(tx), model, max_iterations);
         let events = EventSink::new();
         events.subscribe(bridge.clone());
-        let ctx = RunContext::new(config, ()).with_events(events);
-        let run = harness
-            .invoke_streaming_in_context(&(), ctx, input)
-            .await
-            .map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
-        let (input_tokens, output_tokens, _) = bridge.totals();
-        (run, Some((input_tokens, output_tokens)))
+        (bridge, events)
+    });
+    if let Some((_, events)) = &bridge {
+        ctx = ctx.with_events(events.clone());
+    }
+
+    // Steering: drain any already-queued steer messages into the handle (so a
+    // pre-run steer lands before the first model call), attach it, and forward
+    // mid-flight steers via a poller aborted when the run returns.
+    let steering_forwarder = if let Some(queue) = run_queue {
+        let handle = SteeringHandle::allow_all();
+        forward_steers(&queue, &handle).await;
+        ctx = ctx.with_steering(handle.clone());
+        let q = queue.clone();
+        Some(tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                forward_steers(&q, &handle).await;
+            }
+        }))
     } else {
-        let run = harness
-            .invoke(&(), (), config, input)
-            .await
-            .map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
-        (run, None)
+        None
     };
+
+    let run_result = if streaming {
+        harness.invoke_streaming_in_context(&(), ctx, input).await
+    } else {
+        harness.invoke_in_context(&(), ctx, input).await
+    };
+    if let Some(forwarder) = steering_forwarder {
+        forwarder.abort();
+    }
+    let run = run_result.map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
+    let bridge_totals = bridge.map(|(bridge, _)| {
+        let (input_tokens, output_tokens, _) = bridge.totals();
+        (input_tokens, output_tokens)
+    });
 
     // Prefer the bridge's accumulated usage (per-call, authoritative) when the
     // observed path ran; otherwise fall back to the run's aggregate totals.

@@ -168,6 +168,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         4,
         Some(tx),
         None,
+        None,
     )
     .await
     .expect("streaming turn runs");
@@ -193,6 +194,94 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         "incremental text deltas should reassemble the reply, got {text:?}"
     );
     assert!(saw_cost, "a TurnCostUpdated should be emitted");
+}
+
+/// A provider that records the messages of every request it receives.
+struct CapturingProvider {
+    captured: std::sync::Mutex<Vec<Vec<ChatMessage>>>,
+}
+
+#[async_trait]
+impl Provider for CapturingProvider {
+    async fn chat_with_system(
+        &self,
+        _s: Option<&str>,
+        _m: &str,
+        _model: &str,
+        _t: f64,
+    ) -> anyhow::Result<String> {
+        Ok(String::new())
+    }
+    async fn chat(
+        &self,
+        r: ChatRequest<'_>,
+        _model: &str,
+        _t: f64,
+    ) -> anyhow::Result<ChatResponse> {
+        self.captured.lock().unwrap().push(r.messages.to_vec());
+        Ok(ChatResponse {
+            text: Some("acknowledged".to_string()),
+            ..Default::default()
+        })
+    }
+    fn supports_native_tools(&self) -> bool {
+        true
+    }
+}
+
+#[tokio::test]
+async fn pre_queued_steer_message_is_injected_into_the_request() {
+    use crate::openhuman::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
+
+    let provider = Arc::new(CapturingProvider {
+        captured: std::sync::Mutex::new(Vec::new()),
+    });
+    let run_queue = RunQueue::new();
+    run_queue
+        .push(QueuedMessage {
+            text: "switch focus to memory safety".into(),
+            mode: QueueMode::Steer,
+            client_id: "steer".into(),
+            thread_id: "t1".into(),
+            queued_at_ms: 0,
+            model_override: None,
+            temperature: None,
+            profile_id: None,
+            locale: None,
+        })
+        .await;
+
+    let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
+    let outcome = run_turn_via_tinyagents_shared(
+        provider.clone(),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("investigate the bug")],
+        vec![registry],
+        std::collections::HashSet::new(),
+        4,
+        None,
+        None,
+        Some(run_queue),
+    )
+    .await
+    .expect("steered turn runs");
+
+    assert_eq!(outcome.text, "acknowledged");
+    let captured = provider.captured.lock().unwrap();
+    let steered = captured
+        .iter()
+        .flatten()
+        .any(|m| m.role == "user" && m.content.contains("switch focus to memory safety"));
+    assert!(
+        steered,
+        "the queued steer should be injected as a user turn, got: {:?}",
+        captured
+            .iter()
+            .flatten()
+            .map(|m| (&m.role, &m.content))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]

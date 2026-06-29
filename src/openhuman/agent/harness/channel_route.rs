@@ -73,6 +73,8 @@ pub(crate) async fn run_channel_turn_via_graph(
         None,
         // Channel turns don't resolve a per-turn context window here.
         None,
+        // No mid-flight steering on the channel path.
+        None,
     )
     .await?;
     *history = outcome.history;

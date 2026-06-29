@@ -1139,6 +1139,8 @@ impl Agent {
             // (live tool timeline, text deltas, cost footer) via the bridge.
             self.on_progress.clone(),
             context_window,
+            // Mid-flight steering from the session's run queue.
+            self.run_queue.clone(),
         )
         .await?;
 

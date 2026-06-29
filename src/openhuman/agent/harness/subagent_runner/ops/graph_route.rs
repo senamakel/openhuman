@@ -47,10 +47,9 @@ pub(super) async fn run_subagent_via_graph(
         max_iterations,
         "[subagent_runner:graph] routing sub-agent turn through tinyagents harness"
     );
-    // `run_queue` (steering) and the `ask_user_clarification` early-exit pause
-    // are parity seams not yet wired on the tinyagents path (issue #4249); kept
-    // off by default. `specs` is derived from the registry inside the runner.
-    let _ = (&specs, &run_queue);
+    // `specs` is derived from the registry inside the runner; the
+    // `ask_user_clarification` early-exit pause is a follow-up.
+    let _ = &specs;
 
     let outcome = run_turn_via_tinyagents_shared(
         provider,
@@ -65,6 +64,8 @@ pub(super) async fn run_subagent_via_graph(
         None,
         // Sub-agents inherit the parent's already-trimmed history.
         None,
+        // Mid-flight steering: forward queued steer messages into the run.
+        run_queue,
     )
     .await
     .map_err(SubagentRunError::Provider)?;

@@ -40,6 +40,12 @@ crate-type = ["rlib"]
 [dependencies]
 # tiny.place A2A social network SDK — published on crates.io (tinyhumansai/tiny.place)
 tinyplace = "1.0.1"
+# TinyAgents — Rust LLM orchestration framework (LangGraph/LangChain-style):
+# durable state graphs, agent-loop harness, model/tool registries, REPL +
+# `.rag` workflow language. The `agent_graph` domain is migrating onto this
+# crate's primitives via adapters (issue #4249). Default (offline) features
+# only — we wire openhuman's own Provider/Tool, not the bundled openai client.
+tinyagents = "0.1"
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.

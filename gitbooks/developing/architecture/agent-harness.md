@@ -330,6 +330,34 @@ The harness lives entirely under `src/openhuman/agent/`. The README in that dire
 | `progress.rs`                 | Real-time progress events to the UI.                              |
 | `memory_loader.rs`            | Memory-Tree context injection per user message.                   |
 
+## Agent state graphs (`agent_graph`)
+
+Alongside the linear tool-call loop, the harness ships a **LangGraph-style state-machine engine** under [`src/openhuman/agent_graph/`](../../../src/openhuman/agent_graph/) (issue #4249). Where the loop is an implicit "prompt → tool → result → next prompt" cycle, a graph models agent execution as an explicit directed graph of **nodes** (states) and **edges** (transitions), with typed working state that survives across transitions, parallel branches, and checkpoints.
+
+```
+StateGraph::new(name)
+  .add_node(id, node)            // a unit of work: async fn(State) -> (State, Command)
+  .add_edge(from, to)            // static transition
+  .add_conditional_edges(...)    // route by inspecting state
+  .add_fork(from, [a, b])        // fan out in parallel; merge via State::merge
+  .set_entry_point(id) / .set_finish_point(id)
+  .compile()? -> CompiledGraph   // validated; .invoke(state) / .resume_with(...)
+```
+
+| Subfolder         | Role                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| `graph/`          | The engine: `GraphState` (merge reducer), `Node` trait, builder + `compile()` validation, Pregel super-step `executor` with cycle / cancel / step-cap guards, `invoke`/`resume`. |
+| `checkpoint/`     | `Checkpointer` trait (type-erased JSON state) → `InMemoryCheckpointer` (tests) + `SqliteCheckpointer` at `{workspace}/.openhuman/agent_graph/checkpoints.db`. Durable pause/resume. |
+| `hitl/`           | Human-in-the-loop: `approval`/`clarification` interrupt builders + `ApplyResume` (folds the human's answer into state on resume). A node returns `Command::Interrupt` to pause. |
+| `observability/`  | `EventBusSink` (a `ProgressSink`) emits `tracing` spans + publishes the `GraphRun*`/`GraphNode*` `DomainEvent` family (new `agent_graph` event domain). |
+| `summarization/`  | Node-boundary wrapper over `context::summarize_chat_history`.                                      |
+| `memory/`         | Pre-node wrapper over `DefaultMemoryLoader::load_context`.                                         |
+| `definitions/`    | Built-in graphs over a shared `ProductState`: `canonical_turn` (the agent turn as a `dispatch → parse → stop_check → tools → compact → loop / finalize` graph) and `plan_execute_review` (composes the `planner` + `code_executor` archetypes around a HITL review gate), plus a deterministic `demo_review` twin for tests. A registry (`list_definitions`/`build_definition`) + `runner` (`run_graph`/`resume_graph`) persist runs to the checkpointer and emit bus events. |
+
+**RPC surface** (`schemas.rs` + `ops.rs`, registered in `src/core/all.rs`): `openhuman.agent_graph_definition_list`, `_run`, `_run_list`, `_run_get`, `_checkpoint_list`, `_resume`.
+
+> **Status:** the engine, checkpointing, HITL, observability, the product graph, and the RPC surface are live and tested (unit + `tests/json_rpc_e2e.rs`). The `canonical_turn` graph defines and exercises the turn's control-flow topology; routing the production `run_turn_engine` hot path through it (so the graph executor *is* the live turn loop, reusing the existing `ToolSource` / `ResponseParser` / `ContextManager` / `StopHook` primitives as node bodies) is the remaining integration step, staged separately to allow parity validation against the loop's many edge cases before flipping the default.
+
 ## See also
 
 * [Architecture overview](README.md) - where the harness sits in the bigger picture.

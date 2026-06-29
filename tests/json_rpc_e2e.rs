@@ -13542,3 +13542,125 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
 
     rpc_join.abort();
 }
+
+/// End-to-end coverage for the `agent_graph` state-machine RPC surface
+/// (issue #4249): list definitions, run the deterministic `demo_review` graph
+/// to completion, then exercise the human-in-the-loop pause → resume path and
+/// the run/checkpoint read endpoints.
+#[tokio::test]
+async fn json_rpc_agent_graph_run_pause_resume() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // 1. definition_list surfaces the canonical turn + product graphs.
+    let defs = post_json_rpc(
+        &rpc_base,
+        4249_1,
+        "openhuman.agent_graph_definition_list",
+        json!({}),
+    )
+    .await;
+    let defs_result = peel_logs_envelope(assert_no_jsonrpc_error(
+        &defs,
+        "agent_graph_definition_list",
+    ));
+    let names: Vec<String> = defs_result
+        .as_array()
+        .expect("definitions array")
+        .iter()
+        .map(|d| d["name"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(names.contains(&"canonical_turn".to_string()));
+    assert!(names.contains(&"plan_execute_review".to_string()));
+    assert!(names.contains(&"demo_review".to_string()));
+
+    // 2. Run demo_review with auto_approve → completes without pausing.
+    let auto = post_json_rpc(
+        &rpc_base,
+        4249_2,
+        "openhuman.agent_graph_run",
+        json!({ "name": "demo_review", "input": { "task": "ship feature", "auto_approve": true } }),
+    )
+    .await;
+    let auto_rec = peel_logs_envelope(assert_no_jsonrpc_error(&auto, "agent_graph_run auto"));
+    assert_eq!(auto_rec["status"].as_str(), Some("completed"));
+    assert!(auto_rec["state"]["vars"]["final"].as_str().is_some());
+
+    // 3. Run demo_review WITHOUT auto_approve → pauses at the HITL review gate.
+    let paused = post_json_rpc(
+        &rpc_base,
+        4249_3,
+        "openhuman.agent_graph_run",
+        json!({ "name": "demo_review", "input": { "task": "ship feature" } }),
+    )
+    .await;
+    let paused_rec = peel_logs_envelope(assert_no_jsonrpc_error(&paused, "agent_graph_run paused"));
+    assert_eq!(paused_rec["status"].as_str(), Some("paused"));
+    assert_eq!(paused_rec["interrupt"]["kind"].as_str(), Some("approval"));
+    let run_id = paused_rec["run_id"].as_str().expect("run_id").to_string();
+
+    // 4. run_get returns the run + its checkpoints (at least the pause snapshot).
+    let got = post_json_rpc(
+        &rpc_base,
+        4249_4,
+        "openhuman.agent_graph_run_get",
+        json!({ "run_id": run_id }),
+    )
+    .await;
+    let got_detail = peel_logs_envelope(assert_no_jsonrpc_error(&got, "agent_graph_run_get"));
+    assert_eq!(got_detail["run"]["run_id"].as_str(), Some(run_id.as_str()));
+    assert!(!got_detail["checkpoints"]
+        .as_array()
+        .expect("checkpoints")
+        .is_empty());
+
+    // 5. checkpoint_list returns the run's snapshots.
+    let cps = post_json_rpc(
+        &rpc_base,
+        4249_5,
+        "openhuman.agent_graph_checkpoint_list",
+        json!({ "run_id": run_id }),
+    )
+    .await;
+    let cps_list = peel_logs_envelope(assert_no_jsonrpc_error(&cps, "agent_graph_checkpoint_list"));
+    assert!(!cps_list.as_array().expect("checkpoint array").is_empty());
+
+    // 6. Resume with "approve" → completes.
+    let resumed = post_json_rpc(
+        &rpc_base,
+        4249_6,
+        "openhuman.agent_graph_resume",
+        json!({ "run_id": run_id, "input": "approve" }),
+    )
+    .await;
+    let resumed_rec = peel_logs_envelope(assert_no_jsonrpc_error(&resumed, "agent_graph_resume"));
+    assert_eq!(resumed_rec["status"].as_str(), Some("completed"));
+    assert_eq!(
+        resumed_rec["state"]["vars"]["review_decision"].as_str(),
+        Some("approve")
+    );
+
+    // 7. Resuming an already-completed run is rejected.
+    let bad = post_json_rpc(
+        &rpc_base,
+        4249_7,
+        "openhuman.agent_graph_resume",
+        json!({ "run_id": run_id, "input": "approve" }),
+    )
+    .await;
+    assert_jsonrpc_error(&bad, "agent_graph_resume non-paused");
+
+    // 8. run_list includes both runs, newest-first.
+    let runs = post_json_rpc(
+        &rpc_base,
+        4249_8,
+        "openhuman.agent_graph_run_list",
+        json!({}),
+    )
+    .await;
+    let runs_list = peel_logs_envelope(assert_no_jsonrpc_error(&runs, "agent_graph_run_list"));
+    assert!(runs_list.as_array().expect("runs array").len() >= 2);
+
+    rpc_join.abort();
+}

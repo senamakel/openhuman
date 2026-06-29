@@ -38,11 +38,11 @@ export function useMascotManifest(): UseMascotManifestResult {
         if (cancelled) return;
         setManifest(m);
         setError(null);
+        setLoading(false);
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err : new Error(String(err)));
-      } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     })();
     return () => {

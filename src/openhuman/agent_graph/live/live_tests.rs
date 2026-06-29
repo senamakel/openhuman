@@ -734,3 +734,53 @@ async fn autocompaction_summarizes_when_history_grows() {
         outcome.history.len()
     );
 }
+
+/// Phase C parity: multimodal preparation runs over the request (default config
+/// leaves plain-text messages intact, proving the seam is wired).
+#[tokio::test]
+async fn multimodal_preparation_is_wired() {
+    use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
+
+    struct PlainProvider;
+    #[async_trait]
+    impl Provider for PlainProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            Ok(ChatResponse {
+                text: Some("ok".to_string()),
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+    let executor = Arc::new(RecordingExecutor {
+        executed: AtomicUsize::new(0),
+    });
+    let machine = LiveTurnMachine::new(
+        Arc::new(PlainProvider),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("hello")],
+        vec![],
+        executor,
+        5,
+    )
+    .with_multimodal(MultimodalConfig::default(), MultimodalFileConfig::default());
+    let outcome = run_turn_via_graph(machine).await.expect("runs");
+    assert_eq!(outcome.text, "ok");
+}

@@ -140,6 +140,13 @@ pub struct LiveTurnMachine {
     /// `trigger_messages`, older turns are summarized before the next provider
     /// call (legacy-loop parity).
     autocompact: Option<LiveAutocompact>,
+    /// Optional multimodal config — when set, file/image markers in the request
+    /// are expanded (extracted text inlined, images prepared) before dispatch
+    /// (legacy-loop parity).
+    multimodal: Option<(
+        crate::openhuman::config::MultimodalConfig,
+        crate::openhuman::config::MultimodalFileConfig,
+    )>,
 }
 
 /// Config for the live path's context autocompaction.
@@ -200,7 +207,18 @@ impl LiveTurnMachine {
             task_hint: None,
             run_queue: None,
             autocompact: None,
+            multimodal: None,
         }
+    }
+
+    /// Enable multimodal file/image preparation before each provider call.
+    pub fn with_multimodal(
+        mut self,
+        image_config: crate::openhuman::config::MultimodalConfig,
+        file_config: crate::openhuman::config::MultimodalFileConfig,
+    ) -> Self {
+        self.multimodal = Some((image_config, file_config));
+        self
     }
 
     /// Enable context autocompaction.
@@ -383,6 +401,20 @@ impl Node<LiveTurnState> for Dispatch {
                     messages_removed = outcome.messages_removed,
                     "[agent_graph::live] pre-dispatch history trimmed to context window"
                 );
+            }
+        }
+        // Multimodal preparation: expand file/image markers in the request copy
+        // (extracted text inlined, images prepared) before dispatch.
+        if let Some((image_cfg, file_cfg)) = m.multimodal.clone() {
+            match crate::openhuman::agent::multimodal::prepare_messages_for_provider(
+                &messages, &image_cfg, &file_cfg,
+            )
+            .await
+            {
+                Ok(prepared) => messages = prepared.messages,
+                Err(e) => {
+                    tracing::warn!(error = %e, "[agent_graph::live] multimodal prep failed");
+                }
             }
         }
         let use_native = m.provider.supports_native_tools() && !m.tools.is_empty();

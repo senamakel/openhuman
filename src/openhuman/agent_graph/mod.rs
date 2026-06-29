@@ -25,7 +25,8 @@
 //! product graph) live in [`definitions`]. The RPC surface
 //! (`openhuman.agent_graph_*`) lives in [`schemas`] + [`ops`].
 
+pub mod checkpoint;
 pub mod graph;
 pub mod types;
-// Built out incrementally below — checkpoint, observability, definitions, and
-// the RPC surface (schemas/ops) are added as their tasks land.
+// Built out incrementally below — observability, definitions, and the RPC
+// surface (schemas/ops) are added as their tasks land.

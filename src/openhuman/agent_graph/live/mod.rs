@@ -40,6 +40,16 @@ pub trait LiveToolExecutor: Send + Sync {
     async fn execute(&self, name: &str, arguments: &str) -> (String, bool);
 }
 
+/// Observes the turn at each iteration boundary so callers can persist the
+/// transcript / mirror the worker thread (legacy `TurnObserver` parity). The
+/// production sub-agent adapter writes the transcript here.
+#[async_trait]
+pub trait LiveTurnObserver: Send + Sync {
+    /// Called with the full history after an iteration completes (and once more
+    /// at the end of the turn).
+    async fn after_iteration(&self, history: &[ChatMessage], iteration: usize);
+}
+
 /// Real tool executor over the harness [`Tool`] registry (Phase B).
 ///
 /// Holds the resolved, shareable tool set (`Arc<dyn Tool>` so it satisfies the
@@ -147,6 +157,8 @@ pub struct LiveTurnMachine {
         crate::openhuman::config::MultimodalConfig,
         crate::openhuman::config::MultimodalFileConfig,
     )>,
+    /// Optional per-iteration observer (transcript persistence / mirroring).
+    observer: Option<Arc<dyn LiveTurnObserver>>,
 }
 
 /// Config for the live path's context autocompaction.
@@ -208,7 +220,14 @@ impl LiveTurnMachine {
             run_queue: None,
             autocompact: None,
             multimodal: None,
+            observer: None,
         }
+    }
+
+    /// Install a per-iteration observer (transcript persistence / mirroring).
+    pub fn with_observer(mut self, observer: Arc<dyn LiveTurnObserver>) -> Self {
+        self.observer = Some(observer);
+        self
     }
 
     /// Enable multimodal file/image preparation before each provider call.
@@ -305,6 +324,13 @@ impl Node<LiveTurnState> for Dispatch {
         ctx: &NodeCtx<'_>,
     ) -> Result<NodeOutput<LiveTurnState>> {
         let mut m = self.0.lock().await;
+
+        // Persist the previous iteration's completed history (transcript parity).
+        if m.iteration > 0 {
+            if let Some(obs) = m.observer.clone() {
+                obs.after_iteration(&m.history, m.iteration).await;
+            }
+        }
 
         // ── Run-queue drain: absorb mid-flight steer/collect messages at the
         // iteration boundary (legacy-loop parity for `steer_subagent`). ──
@@ -592,7 +618,7 @@ impl Node<LiveTurnState> for Tools {
 }
 
 /// Finalize node: terminal.
-struct Finalize;
+struct Finalize(Machine);
 #[async_trait]
 impl Node<LiveTurnState> for Finalize {
     async fn run(
@@ -600,6 +626,12 @@ impl Node<LiveTurnState> for Finalize {
         mut state: LiveTurnState,
         _ctx: &NodeCtx<'_>,
     ) -> Result<NodeOutput<LiveTurnState>> {
+        // Persist the final history (transcript parity).
+        let m = self.0.lock().await;
+        if let Some(obs) = m.observer.clone() {
+            obs.after_iteration(&m.history, m.iteration).await;
+        }
+        drop(m);
         state.done = true;
         Ok(NodeOutput::end(state))
     }
@@ -612,8 +644,8 @@ fn build_live_graph(
     let mut g = StateGraph::<LiveTurnState>::new("live_turn");
     g.add_node("dispatch", Arc::new(Dispatch(machine.clone())));
     g.add_node("parse", Arc::new(Parse(machine.clone())));
-    g.add_node("tools", Arc::new(Tools(machine)));
-    g.add_node("finalize", Arc::new(Finalize));
+    g.add_node("tools", Arc::new(Tools(machine.clone())));
+    g.add_node("finalize", Arc::new(Finalize(machine)));
     g.set_entry_point("dispatch");
     // Nodes route via `Goto`; the static spine keeps every node non-dangling.
     g.add_edge("dispatch", "parse");

@@ -784,3 +784,48 @@ async fn multimodal_preparation_is_wired() {
     let outcome = run_turn_via_graph(machine).await.expect("runs");
     assert_eq!(outcome.text, "ok");
 }
+
+/// Phase C parity: the per-iteration observer is invoked with the history so the
+/// transcript can be persisted.
+#[tokio::test]
+async fn observer_fires_per_iteration() {
+    use super::LiveTurnObserver;
+    use std::sync::Mutex;
+
+    struct CountingObserver {
+        calls: Mutex<usize>,
+        last_len: Mutex<usize>,
+    }
+    #[async_trait]
+    impl LiveTurnObserver for CountingObserver {
+        async fn after_iteration(&self, history: &[ChatMessage], _iteration: usize) {
+            *self.calls.lock().unwrap() += 1;
+            *self.last_len.lock().unwrap() = history.len();
+        }
+    }
+    let obs = Arc::new(CountingObserver {
+        calls: Mutex::new(0),
+        last_len: Mutex::new(0),
+    });
+    // 2-iteration turn (tool then final).
+    let provider = Arc::new(ScriptedProvider {
+        calls: AtomicUsize::new(0),
+    });
+    let executor = Arc::new(RecordingExecutor {
+        executed: AtomicUsize::new(0),
+    });
+    let machine = LiveTurnMachine::new(
+        provider,
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("go")],
+        vec![],
+        executor,
+        10,
+    )
+    .with_observer(obs.clone());
+    let outcome = run_turn_via_graph(machine).await.expect("runs");
+    // Fired at least once (final), with the final history length.
+    assert!(*obs.calls.lock().unwrap() >= 1);
+    assert_eq!(*obs.last_len.lock().unwrap(), outcome.history.len());
+}

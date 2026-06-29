@@ -34,6 +34,7 @@ pub mod live;
 pub mod memory;
 pub mod observability;
 pub mod summarization;
+pub mod tinyagents;
 pub mod types;
 
 pub mod ops;

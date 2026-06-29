@@ -32,12 +32,57 @@ use crate::openhuman::agent_graph::types::GraphError;
 use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, Provider, ToolCall};
 use crate::openhuman::tools::ToolSpec;
 
-/// Executes one tool call. The real adapter (Phase B) wraps the harness tool
-/// registry; tests supply a deterministic mock.
+/// Executes one tool call. The real adapter ([`HarnessToolExecutor`]) wraps the
+/// harness tool registry; tests supply a deterministic mock.
 #[async_trait]
 pub trait LiveToolExecutor: Send + Sync {
     /// Run `name(arguments)` and return `(output, success)`.
     async fn execute(&self, name: &str, arguments: &str) -> (String, bool);
+}
+
+/// Real tool executor over the harness [`Tool`] registry (Phase B).
+///
+/// Holds the resolved, shareable tool set (`Arc<dyn Tool>` so it satisfies the
+/// engine's `'static` node bound) and dispatches a call by name, parsing the
+/// JSON arguments and rendering the [`ToolResult`] the way the LLM should see
+/// it. This is the bridge that lets a graph-driven turn run the *same* tools the
+/// legacy loop runs.
+pub struct HarnessToolExecutor {
+    tools: Vec<Arc<dyn crate::openhuman::tools::Tool>>,
+}
+
+impl HarnessToolExecutor {
+    /// Build from a resolved tool set.
+    pub fn new(tools: Vec<Arc<dyn crate::openhuman::tools::Tool>>) -> Self {
+        Self { tools }
+    }
+
+    /// The advertised tool specs for the provider request.
+    pub fn specs(&self) -> Vec<ToolSpec> {
+        self.tools.iter().map(|t| t.spec()).collect()
+    }
+}
+
+#[async_trait]
+impl LiveToolExecutor for HarnessToolExecutor {
+    async fn execute(&self, name: &str, arguments: &str) -> (String, bool) {
+        let Some(tool) = self.tools.iter().find(|t| t.name() == name) else {
+            tracing::warn!(tool = name, "[agent_graph::live] unknown tool requested");
+            return (format!("Error: unknown tool '{name}'"), false);
+        };
+        let args: serde_json::Value = serde_json::from_str(arguments)
+            .unwrap_or(serde_json::Value::Object(Default::default()));
+        match tool.execute(args).await {
+            Ok(result) => {
+                let success = !result.is_error;
+                (result.output_for_llm(true), success)
+            }
+            Err(e) => {
+                tracing::warn!(tool = name, error = %e, "[agent_graph::live] tool execution failed");
+                (format!("Error executing '{name}': {e}"), false)
+            }
+        }
+    }
 }
 
 /// The live, non-serializable turn machinery, owned for the duration of one run

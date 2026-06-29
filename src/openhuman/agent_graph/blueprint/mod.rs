@@ -26,6 +26,13 @@ use crate::openhuman::agent_graph::graph::{CompiledGraph, Node, NodeCtx, NodeOut
 use crate::openhuman::agent_graph::hitl;
 use crate::openhuman::agent_graph::types::{Command, GraphError};
 
+// `tinyagents` durable-graph primitives — the rebase target for the in-house
+// engine (issue #4249). Aliased so the two compilers read side by side.
+use tinyagents::graph::{
+    CompiledGraph as TaCompiledGraph, GraphBuilder as TaGraphBuilder, Interrupt as TaInterrupt,
+    NodeContext as TaNodeContext, NodeResult as TaNodeResult,
+};
+
 /// A signature a built-in agent's `graph.rs` exposes: `pub fn graph() -> GraphBlueprint`.
 pub type GraphBuilder = fn() -> GraphBlueprint;
 
@@ -198,6 +205,155 @@ impl GraphBlueprint {
             g.set_finish_point(f.clone());
         }
         g.compile()
+    }
+
+    /// Compile to a `tinyagents` durable [`TaCompiledGraph`] over
+    /// [`ProductState`] (issue #4249).
+    ///
+    /// This is the rebase target that retires the in-house engine: the same
+    /// topology and node semantics as [`Self::compile`], expressed on
+    /// `tinyagents::GraphBuilder` (whole-state overwrite reducer). Each node
+    /// returns the full next state as a [`NodeResult::Update`]; conditional
+    /// edges map a named condition to a router over committed state; HITL nodes
+    /// pause via [`NodeResult::Interrupt`].
+    ///
+    /// [`EdgeSpec::Fork`] is not yet supported here (no built-in blueprint uses
+    /// it) and is reported as a compile error.
+    pub fn compile_tinyagents(&self) -> Result<TaCompiledGraph<ProductState, ProductState>> {
+        self.validate()
+            .map_err(|e| anyhow::anyhow!("blueprint '{}' invalid: {e}", self.name))?;
+
+        let mut builder = TaGraphBuilder::<ProductState, ProductState>::overwrite()
+            .with_graph_id(self.name.clone());
+
+        for node in &self.nodes {
+            builder = add_ta_node(builder, &node.id, &node.kind);
+        }
+
+        builder = builder.set_entry(self.entry.clone());
+        for f in &self.finish {
+            builder = builder.set_finish(f.clone());
+        }
+
+        for edge in &self.edges {
+            match edge {
+                EdgeSpec::Static { from, to } => {
+                    builder = builder.add_edge(from.clone(), to.clone());
+                }
+                EdgeSpec::Conditional { from, on, targets } => {
+                    let on = on.clone();
+                    let targets_cl = targets.clone();
+                    let routes: Vec<(String, String)> =
+                        targets.iter().map(|t| (t.clone(), t.clone())).collect();
+                    builder = builder.add_conditional_edges(
+                        from.clone(),
+                        move |s: &ProductState| route(&on, &targets_cl, s),
+                        routes,
+                    );
+                }
+                EdgeSpec::Fork { from, .. } => {
+                    return Err(anyhow::anyhow!(
+                        "blueprint '{}': Fork edge from '{from}' is not supported by the \
+                         tinyagents compiler yet",
+                        self.name
+                    ));
+                }
+            }
+        }
+
+        builder
+            .compile()
+            .map_err(|e| anyhow::anyhow!("blueprint '{}' failed to compile: {e}", self.name))
+    }
+}
+
+/// Build the `tinyagents` node handler for a [`NodeKind`] and register it.
+///
+/// Mirrors [`make_node`]'s in-house semantics: Dispatch advances the iteration
+/// counter; Parse/StopCheck/Compact pass through (routing is decided by edges);
+/// Tools/Custom/Delegate record a step; Finalize stamps the terminal `final`
+/// var; Hitl interrupts (or auto-approves) for human review.
+fn add_ta_node(
+    builder: TaGraphBuilder<ProductState, ProductState>,
+    id: &str,
+    kind: &NodeKind,
+) -> TaGraphBuilder<ProductState, ProductState> {
+    let label = id.to_string();
+    match kind {
+        NodeKind::Dispatch => {
+            builder.add_node(id.to_string(), |mut s: ProductState, _c| async move {
+                let next = iter_count(&s) + 1;
+                s.vars.insert("__iter".to_string(), Value::from(next));
+                Ok(TaNodeResult::Update(s))
+            })
+        }
+        NodeKind::Parse | NodeKind::StopCheck | NodeKind::Compact => builder
+            .add_node(id.to_string(), |s: ProductState, _c| async move {
+                Ok(TaNodeResult::Update(s))
+            }),
+        NodeKind::Tools | NodeKind::Custom(_) => {
+            builder.add_node(id.to_string(), move |mut s: ProductState, _c| {
+                let label = label.clone();
+                async move {
+                    let n = iter_count(&s);
+                    s.record_step(&label, format!("{label} step (iteration {n})"));
+                    Ok(TaNodeResult::Update(s))
+                }
+            })
+        }
+        NodeKind::Delegate(agent) => {
+            let agent = agent.clone();
+            builder.add_node(id.to_string(), move |mut s: ProductState, _c| {
+                let agent = agent.clone();
+                async move {
+                    s.record_step("delegate", format!("delegated to {agent}"));
+                    Ok(TaNodeResult::Update(s))
+                }
+            })
+        }
+        NodeKind::Finalize => {
+            builder.add_node(id.to_string(), |mut s: ProductState, _c| async move {
+                let n = iter_count(&s);
+                s.set_var("final", format!("completed after {n} iteration(s)"));
+                Ok(TaNodeResult::Update(s))
+            })
+        }
+        NodeKind::Hitl => {
+            let node = label.clone();
+            builder.add_node(
+                id.to_string(),
+                move |mut s: ProductState, ctx: TaNodeContext| {
+                    let node = node.clone();
+                    async move {
+                        // A resume value arrives on the node context when the run is
+                        // resumed after the interrupt.
+                        if let Some(decision) = ctx
+                            .resume
+                            .as_ref()
+                            .and_then(|v| v.as_str())
+                            .map(str::to_string)
+                            .or_else(|| s.resume_input.take())
+                        {
+                            s.set_var("review_decision", decision);
+                            return Ok(TaNodeResult::Update(s));
+                        }
+                        if s.vars
+                            .get("auto_approve")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false)
+                        {
+                            s.set_var("review_decision", "approve");
+                            return Ok(TaNodeResult::Update(s));
+                        }
+                        Ok(TaNodeResult::Interrupt(TaInterrupt {
+                            id: format!("{node}-review"),
+                            node: node.clone().into(),
+                            payload: serde_json::json!({ "prompt": "Approve?" }),
+                        }))
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -487,5 +643,43 @@ mod tests {
     #[test]
     fn plan_execute_review_compiles() {
         plan_execute_review("planner").compile().expect("compiles");
+    }
+
+    // ── tinyagents rebase (issue #4249) ──
+
+    #[test]
+    fn canonical_turn_compiles_on_tinyagents() {
+        canonical_turn("researcher")
+            .compile_tinyagents()
+            .expect("compiles on the tinyagents engine");
+    }
+
+    #[tokio::test]
+    async fn canonical_turn_runs_to_completion_on_tinyagents() {
+        use tinyagents::harness::ids::ExecutionStatus;
+
+        let graph = canonical_turn("researcher").compile_tinyagents().unwrap();
+        let mut init = ProductState::default();
+        init.vars
+            .insert("max_iterations".to_string(), Value::from(2));
+        let run = graph.run(init).await.expect("run");
+        assert_eq!(run.status.status, ExecutionStatus::Completed);
+        assert!(
+            run.state.vars.contains_key("final"),
+            "finalize node should stamp the terminal `final` var"
+        );
+    }
+
+    #[test]
+    fn all_canonical_shapes_compile_on_tinyagents() {
+        for bp in [
+            canonical_turn("a"),
+            single_shot("b"),
+            orchestrator("c"),
+            plan_execute_review("d"),
+        ] {
+            bp.compile_tinyagents()
+                .unwrap_or_else(|e| panic!("blueprint '{}' should compile: {e}", bp.name));
+        }
     }
 }

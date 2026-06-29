@@ -25,6 +25,7 @@
 //! product graph) live in [`definitions`]. The RPC surface
 //! (`openhuman.agent_graph_*`) lives in [`schemas`] + [`ops`].
 
+pub mod blueprint;
 pub mod checkpoint;
 pub mod definitions;
 pub mod graph;

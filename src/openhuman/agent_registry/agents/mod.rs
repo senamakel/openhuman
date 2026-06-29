@@ -37,4 +37,7 @@ pub mod trigger_triage;
 pub mod video_agent;
 pub mod vision_agent;
 
-pub use loader::{load_builtins, validate_tier_hierarchy, BuiltinAgent, BUILTINS};
+pub use loader::{
+    all_builtin_graphs, builtin_graph, load_builtins, validate_tier_hierarchy, BuiltinAgent,
+    BUILTINS,
+};

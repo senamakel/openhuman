@@ -14,6 +14,8 @@ use crate::rpc::RpcOutcome;
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("definition_list"),
+        schemas("agent_list"),
+        schemas("agent_graph"),
         schemas("run"),
         schemas("run_list"),
         schemas("run_get"),
@@ -28,6 +30,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("definition_list"),
             handler: handle_definition_list,
+        },
+        RegisteredController {
+            schema: schemas("agent_list"),
+            handler: handle_agent_list,
+        },
+        RegisteredController {
+            schema: schemas("agent_graph"),
+            handler: handle_agent_graph,
         },
         RegisteredController {
             schema: schemas("run"),
@@ -69,6 +79,25 @@ pub fn schemas(function: &str) -> ControllerSchema {
             function: "definition_list",
             description: "List the registered agent-graph definitions (name, nodes, HITL).",
             inputs: vec![],
+            outputs: vec![],
+        },
+        "agent_list" => ControllerSchema {
+            namespace: "agent_graph",
+            function: "agent_list",
+            description: "List every built-in agent's LangGraph-compatible execution chain.",
+            inputs: vec![],
+            outputs: vec![],
+        },
+        "agent_graph" => ControllerSchema {
+            namespace: "agent_graph",
+            function: "agent_graph",
+            description: "Fetch one built-in agent's execution-chain blueprint by id.",
+            inputs: vec![FieldSchema {
+                name: "agent_id",
+                ty: TypeSchema::String,
+                comment: "Built-in agent id (e.g. 'orchestrator', 'researcher').",
+                required: true,
+            }],
             outputs: vec![],
         },
         "run" => ControllerSchema {
@@ -162,6 +191,17 @@ fn read_optional_usize(params: &Map<String, Value>, key: &str) -> Option<usize> 
 
 fn handle_definition_list(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move { to_json(super::ops::definition_list()?) })
+}
+
+fn handle_agent_list(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move { to_json(super::ops::agent_list()?) })
+}
+
+fn handle_agent_graph(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let agent_id = read_required_str(&params, "agent_id")?;
+        to_json(super::ops::agent_graph(agent_id.trim())?)
+    })
 }
 
 fn handle_run(params: Map<String, Value>) -> ControllerFuture {

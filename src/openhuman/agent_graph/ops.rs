@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::openhuman::agent_graph::blueprint::GraphBlueprint;
 use crate::openhuman::agent_graph::checkpoint::{
     Checkpoint, Checkpointer, GraphRunRecord, SqliteCheckpointer,
 };
@@ -13,6 +14,15 @@ use crate::rpc::RpcOutcome;
 
 /// Default page size for `run_list`.
 const DEFAULT_LIST_LIMIT: usize = 50;
+
+/// A built-in agent's id paired with its LangGraph-compatible chain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentGraphEntry {
+    /// Agent id.
+    pub agent_id: String,
+    /// The agent's execution-chain blueprint (from its `graph.rs`).
+    pub blueprint: GraphBlueprint,
+}
 
 /// A run plus its checkpoints (for `run_get`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +45,28 @@ pub fn definition_list() -> Result<RpcOutcome<Vec<GraphDefinitionMeta>>, String>
         defs,
         "agent_graph definitions listed",
     ))
+}
+
+/// List every built-in agent's execution-chain blueprint (from its `graph.rs`).
+pub fn agent_list() -> Result<RpcOutcome<Vec<AgentGraphEntry>>, String> {
+    let entries: Vec<AgentGraphEntry> =
+        crate::openhuman::agent_registry::agents::all_builtin_graphs()
+            .into_iter()
+            .map(|(agent_id, blueprint)| AgentGraphEntry {
+                agent_id: agent_id.to_string(),
+                blueprint,
+            })
+            .collect();
+    tracing::debug!(count = entries.len(), "[rpc] agent_graph_agent_list");
+    Ok(RpcOutcome::single_log(entries, "agent graphs listed"))
+}
+
+/// Fetch one built-in agent's chain blueprint by id.
+pub fn agent_graph(agent_id: &str) -> Result<RpcOutcome<GraphBlueprint>, String> {
+    let bp = crate::openhuman::agent_registry::agents::builtin_graph(agent_id)
+        .ok_or_else(|| format!("no built-in agent '{agent_id}'"))?;
+    tracing::debug!(agent_id, "[rpc] agent_graph_agent_graph");
+    Ok(RpcOutcome::single_log(bp, "agent graph fetched"))
 }
 
 /// Start a new run of a named graph with `input` seed vars.

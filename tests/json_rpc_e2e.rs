@@ -13664,3 +13664,70 @@ async fn json_rpc_agent_graph_run_pause_resume() {
 
     rpc_join.abort();
 }
+
+/// E2E coverage for per-agent LangGraph chain inspection (issue #4249): every
+/// built-in agent now declares an execution chain in its `graph.rs`, surfaced
+/// via `agent_graph_agent_list` / `agent_graph_agent_graph`.
+#[tokio::test]
+async fn json_rpc_agent_graph_agent_blueprints() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // agent_list surfaces every built-in's chain.
+    let list = post_json_rpc(
+        &rpc_base,
+        4262_1,
+        "openhuman.agent_graph_agent_list",
+        json!({}),
+    )
+    .await;
+    let list_result = peel_logs_envelope(assert_no_jsonrpc_error(&list, "agent_graph_agent_list"));
+    let entries = list_result.as_array().expect("agent list array");
+    assert!(
+        entries.len() >= 30,
+        "expected all built-in agents, got {}",
+        entries.len()
+    );
+    let ids: Vec<String> = entries
+        .iter()
+        .map(|e| e["agent_id"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(ids.contains(&"orchestrator".to_string()));
+    assert!(ids.contains(&"researcher".to_string()));
+
+    // Each entry carries a structurally-complete blueprint.
+    let orch = entries
+        .iter()
+        .find(|e| e["agent_id"] == "orchestrator")
+        .expect("orchestrator entry");
+    assert_eq!(orch["blueprint"]["name"].as_str(), Some("orchestrator"));
+    assert!(!orch["blueprint"]["nodes"]
+        .as_array()
+        .expect("nodes")
+        .is_empty());
+
+    // agent_graph fetches a single agent's chain.
+    let one = post_json_rpc(
+        &rpc_base,
+        4262_2,
+        "openhuman.agent_graph_agent_graph",
+        json!({ "agent_id": "researcher" }),
+    )
+    .await;
+    let one_bp = peel_logs_envelope(assert_no_jsonrpc_error(&one, "agent_graph_agent_graph"));
+    assert_eq!(one_bp["name"].as_str(), Some("researcher"));
+    assert_eq!(one_bp["entry"].as_str(), Some("dispatch"));
+
+    // Unknown agent id errors.
+    let missing = post_json_rpc(
+        &rpc_base,
+        4262_3,
+        "openhuman.agent_graph_agent_graph",
+        json!({ "agent_id": "does_not_exist" }),
+    )
+    .await;
+    assert_jsonrpc_error(&missing, "agent_graph_agent_graph unknown");
+
+    rpc_join.abort();
+}

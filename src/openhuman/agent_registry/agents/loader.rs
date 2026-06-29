@@ -53,6 +53,11 @@ pub struct BuiltinAgent {
     /// with a populated [`crate::openhuman::agent::harness::definition::PromptContext`]
     /// so the returned body can branch on runtime state.
     pub prompt_fn: PromptBuilder,
+    /// LangGraph-compatible execution chain builder, defined in the agent's
+    /// `graph.rs` next to `prompt.rs`. Returns the node/edge chain the
+    /// `agent_graph` engine drives (issue #4249). Inspectable via RPC and the
+    /// migration target for routing live execution through per-agent graphs.
+    pub graph_fn: crate::openhuman::agent_graph::blueprint::GraphBuilder,
 }
 
 /// Every built-in agent, in stable display order.
@@ -63,186 +68,223 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         id: "orchestrator",
         toml: include_str!("orchestrator/agent.toml"),
         prompt_fn: super::orchestrator::prompt::build,
+        graph_fn: super::orchestrator::graph::graph,
     },
     BuiltinAgent {
         id: "planner",
         toml: include_str!("planner/agent.toml"),
         prompt_fn: super::planner::prompt::build,
+        graph_fn: super::planner::graph::graph,
     },
     BuiltinAgent {
         id: "code_executor",
         toml: include_str!("code_executor/agent.toml"),
         prompt_fn: super::code_executor::prompt::build,
+        graph_fn: super::code_executor::graph::graph,
     },
     BuiltinAgent {
         id: "integrations_agent",
         toml: include_str!("integrations_agent/agent.toml"),
         prompt_fn: super::integrations_agent::prompt::build,
+        graph_fn: super::integrations_agent::graph::graph,
     },
     BuiltinAgent {
         id: "crypto_agent",
         toml: include_str!("crypto_agent/agent.toml"),
         prompt_fn: super::crypto_agent::prompt::build,
+        graph_fn: super::crypto_agent::graph::graph,
     },
     BuiltinAgent {
         id: "markets_agent",
         toml: include_str!("markets_agent/agent.toml"),
         prompt_fn: super::markets_agent::prompt::build,
+        graph_fn: super::markets_agent::graph::graph,
     },
     BuiltinAgent {
         id: "tinyplace_agent",
         toml: include_str!("../../tinyplace/agent/agent.toml"),
         prompt_fn: crate::openhuman::tinyplace::agent::prompt::build,
+        graph_fn: crate::openhuman::tinyplace::agent::graph::graph,
     },
     BuiltinAgent {
         id: "tools_agent",
         toml: include_str!("tools_agent/agent.toml"),
         prompt_fn: super::tools_agent::prompt::build,
+        graph_fn: super::tools_agent::graph::graph,
     },
     BuiltinAgent {
         id: "task_manager_agent",
         toml: include_str!("task_manager_agent/agent.toml"),
         prompt_fn: super::task_manager_agent::prompt::build,
+        graph_fn: super::task_manager_agent::graph::graph,
     },
     BuiltinAgent {
         id: "settings_agent",
         toml: include_str!("settings_agent/agent.toml"),
         prompt_fn: super::settings_agent::prompt::build,
+        graph_fn: super::settings_agent::graph::graph,
     },
     BuiltinAgent {
         id: "profile_memory_agent",
         toml: include_str!("profile_memory_agent/agent.toml"),
         prompt_fn: super::profile_memory_agent::prompt::build,
+        graph_fn: super::profile_memory_agent::graph::graph,
     },
     BuiltinAgent {
         id: "account_admin_agent",
         toml: include_str!("account_admin_agent/agent.toml"),
         prompt_fn: super::account_admin_agent::prompt::build,
+        graph_fn: super::account_admin_agent::graph::graph,
     },
     BuiltinAgent {
         id: "screen_awareness_agent",
         toml: include_str!("screen_awareness_agent/agent.toml"),
         prompt_fn: super::screen_awareness_agent::prompt::build,
+        graph_fn: super::screen_awareness_agent::graph::graph,
     },
     BuiltinAgent {
         id: "scheduler_agent",
         toml: include_str!("scheduler_agent/agent.toml"),
         prompt_fn: super::scheduler_agent::prompt::build,
+        graph_fn: super::scheduler_agent::graph::graph,
     },
     BuiltinAgent {
         id: "presentation_agent",
         toml: include_str!("presentation_agent/agent.toml"),
         prompt_fn: super::presentation_agent::prompt::build,
+        graph_fn: super::presentation_agent::graph::graph,
     },
     BuiltinAgent {
         id: "desktop_control_agent",
         toml: include_str!("desktop_control_agent/agent.toml"),
         prompt_fn: super::desktop_control_agent::prompt::build,
+        graph_fn: super::desktop_control_agent::graph::graph,
     },
     BuiltinAgent {
         id: "tool_maker",
         toml: include_str!("tool_maker/agent.toml"),
         prompt_fn: super::tool_maker::prompt::build,
+        graph_fn: super::tool_maker::graph::graph,
     },
     BuiltinAgent {
         id: "skill_creator",
         toml: include_str!("skill_creator/agent.toml"),
         prompt_fn: super::skill_creator::prompt::build,
+        graph_fn: super::skill_creator::graph::graph,
     },
     BuiltinAgent {
         id: "researcher",
         toml: include_str!("researcher/agent.toml"),
         prompt_fn: super::researcher::prompt::build,
+        graph_fn: super::researcher::graph::graph,
     },
     BuiltinAgent {
         id: "context_scout",
         toml: include_str!("context_scout/agent.toml"),
         prompt_fn: super::context_scout::prompt::build,
+        graph_fn: super::context_scout::graph::graph,
     },
     BuiltinAgent {
         id: "critic",
         toml: include_str!("critic/agent.toml"),
         prompt_fn: super::critic::prompt::build,
+        graph_fn: super::critic::graph::graph,
     },
     BuiltinAgent {
         id: "vision_agent",
         toml: include_str!("vision_agent/agent.toml"),
         prompt_fn: super::vision_agent::prompt::build,
+        graph_fn: super::vision_agent::graph::graph,
     },
     BuiltinAgent {
         id: "image_agent",
         toml: include_str!("image_agent/agent.toml"),
         prompt_fn: super::image_agent::prompt::build,
+        graph_fn: super::image_agent::graph::graph,
     },
     BuiltinAgent {
         id: "video_agent",
         toml: include_str!("video_agent/agent.toml"),
         prompt_fn: super::video_agent::prompt::build,
+        graph_fn: super::video_agent::graph::graph,
     },
     BuiltinAgent {
         id: "archivist",
         toml: include_str!("archivist/agent.toml"),
         prompt_fn: super::archivist::prompt::build,
+        graph_fn: super::archivist::graph::graph,
     },
     BuiltinAgent {
         id: "goals_agent",
         toml: include_str!("goals_agent/agent.toml"),
         prompt_fn: super::goals_agent::prompt::build,
+        graph_fn: super::goals_agent::graph::graph,
     },
     BuiltinAgent {
         id: "trigger_triage",
         toml: include_str!("trigger_triage/agent.toml"),
         prompt_fn: super::trigger_triage::prompt::build,
+        graph_fn: super::trigger_triage::graph::graph,
     },
     BuiltinAgent {
         id: "trigger_reactor",
         toml: include_str!("trigger_reactor/agent.toml"),
         prompt_fn: super::trigger_reactor::prompt::build,
+        graph_fn: super::trigger_reactor::graph::graph,
     },
     BuiltinAgent {
         id: "morning_briefing",
         toml: include_str!("morning_briefing/agent.toml"),
         prompt_fn: super::morning_briefing::prompt::build,
+        graph_fn: super::morning_briefing::graph::graph,
     },
     BuiltinAgent {
         id: "summarizer",
         toml: include_str!("summarizer/agent.toml"),
         prompt_fn: super::summarizer::prompt::build,
+        graph_fn: super::summarizer::graph::graph,
     },
     BuiltinAgent {
         id: "help",
         toml: include_str!("help/agent.toml"),
         prompt_fn: super::help::prompt::build,
+        graph_fn: super::help::graph::graph,
     },
     BuiltinAgent {
         id: "mcp_setup",
         toml: include_str!("mcp_setup/agent.toml"),
         prompt_fn: super::mcp_setup::prompt::build,
+        graph_fn: super::mcp_setup::graph::graph,
     },
     BuiltinAgent {
         id: "mcp_agent",
         toml: include_str!("mcp_agent/agent.toml"),
         prompt_fn: super::mcp_agent::prompt::build,
+        graph_fn: super::mcp_agent::graph::graph,
     },
     BuiltinAgent {
         id: "skill_setup",
         toml: include_str!("../../skill_registry/agent/skill_setup/agent.toml"),
         prompt_fn: crate::openhuman::skill_registry::agent::skill_setup::prompt::build,
+        graph_fn: crate::openhuman::skill_registry::agent::skill_setup::graph::graph,
     },
     BuiltinAgent {
         id: "skill_executor",
         toml: include_str!("../../skill_runtime/agent/skill_executor/agent.toml"),
         prompt_fn: crate::openhuman::skill_runtime::agent::skill_executor::prompt::build,
+        graph_fn: crate::openhuman::skill_runtime::agent::skill_executor::graph::graph,
     },
     BuiltinAgent {
         id: "agent_memory",
         toml: include_str!("../../agent_memory/agent/agent.toml"),
         prompt_fn: crate::openhuman::agent_memory::agent::prompt::build,
+        graph_fn: crate::openhuman::agent_memory::agent::graph::graph,
     },
     BuiltinAgent {
         id: "subconscious",
         toml: include_str!("../../subconscious/agent/agent.toml"),
         prompt_fn: crate::openhuman::subconscious::agent::prompt::build,
+        graph_fn: crate::openhuman::subconscious::agent::graph::graph,
     },
 ];
 
@@ -256,6 +298,25 @@ pub fn load_builtins() -> Result<Vec<AgentDefinition>> {
     validate_tier_hierarchy(&defs)
         .context("built-in agents violate the spawn-hierarchy contract")?;
     Ok(defs)
+}
+
+/// The LangGraph-compatible execution chain for one built-in agent, by id
+/// (issue #4249). `None` for unknown / custom (workspace TOML) agents.
+pub fn builtin_graph(
+    agent_id: &str,
+) -> Option<crate::openhuman::agent_graph::blueprint::GraphBlueprint> {
+    BUILTINS
+        .iter()
+        .find(|b| b.id == agent_id)
+        .map(|b| (b.graph_fn)())
+}
+
+/// Every built-in agent's `(id, chain blueprint)`, in `BUILTINS` order.
+pub fn all_builtin_graphs() -> Vec<(
+    &'static str,
+    crate::openhuman::agent_graph::blueprint::GraphBlueprint,
+)> {
+    BUILTINS.iter().map(|b| (b.id, (b.graph_fn)())).collect()
 }
 
 /// Validate the cross-agent spawn-hierarchy contract documented on
@@ -1671,5 +1732,25 @@ mod tests {
             crate::openhuman::agent::harness::definition::SkillsWildcard { skills: "*".into() },
         ));
         validate_tier_hierarchy(&defs).expect("skill wildcards on reasoning tier must validate");
+    }
+
+    #[test]
+    fn every_builtin_defines_a_valid_graph() {
+        // Each agent's graph.rs must produce a structurally-valid, compilable
+        // chain — the migration contract for issue #4249.
+        for (id, bp) in all_builtin_graphs() {
+            assert_eq!(bp.name, id, "blueprint name must match agent id");
+            bp.validate()
+                .unwrap_or_else(|e| panic!("agent '{id}' graph invalid: {e}"));
+            bp.compile()
+                .unwrap_or_else(|e| panic!("agent '{id}' graph failed to compile: {e}"));
+        }
+    }
+
+    #[test]
+    fn builtin_graph_lookup_matches_builtins() {
+        assert_eq!(builtin_graph("orchestrator").unwrap().name, "orchestrator");
+        assert!(builtin_graph("does_not_exist").is_none());
+        assert_eq!(all_builtin_graphs().len(), BUILTINS.len());
     }
 }

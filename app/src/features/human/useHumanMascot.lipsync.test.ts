@@ -142,7 +142,9 @@ function fakeDone(text: string) {
 
 describe('useHumanMascot — audio-driven lipsync end-to-end', () => {
   it('mouth opens (non-REST) once playback starts and visemes have known codes', async () => {
-    const fake = makePlayback(1000);
+    // Audio duration matches the viseme track span (400ms) so the duration-
+    // alignment rescale is a no-op and this test isolates code→shape mapping.
+    const fake = makePlayback(400);
     (synthesizeSpeech as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       audio_base64: 'AAA=',
       audio_mime: 'audio/mpeg',
@@ -183,7 +185,8 @@ describe('useHumanMascot — audio-driven lipsync end-to-end', () => {
   });
 
   it('mouth opens even when backend ships visemes in lowercase / aliased codes', async () => {
-    const fake = makePlayback(1000);
+    // Audio length matches the 600ms viseme span → rescale no-op (mapping only).
+    const fake = makePlayback(600);
     (synthesizeSpeech as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       audio_base64: 'AAA=',
       audio_mime: 'audio/mpeg',
@@ -294,6 +297,46 @@ describe('useHumanMascot — audio-driven lipsync end-to-end', () => {
     }
     expect(sampled.has(JSON.stringify(VISEMES.REST))).toBe(false);
     expect(sampled.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('stretches a short viseme track to match the longer measured audio', async () => {
+    // Backend ships a 400ms viseme track, but the rendered MP3 is 800ms. Without
+    // alignment the mouth would finish at the halfway point and run ahead of the
+    // voice; rescaling doubles every frame so the track fills the audio.
+    const fake = makePlayback(800);
+    (synthesizeSpeech as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      audio_base64: 'AAA=',
+      audio_mime: 'audio/mpeg',
+      visemes: [
+        { viseme: 'aa', start_ms: 0, end_ms: 200 },
+        { viseme: 'PP', start_ms: 200, end_ms: 400 },
+      ],
+    });
+    (playBase64Audio as ReturnType<typeof vi.fn>).mockResolvedValueOnce(fake.handle);
+
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: true }));
+    await act(async () => {
+      capturedListeners?.onDone?.(fakeDone('hello'));
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Rescaled track: frame[0]=aa 0–400ms, frame[1]=PP 400–800ms.
+    // At 300ms the *unscaled* track would already be on frame[1] (PP); after
+    // alignment it is still on frame[0] (aa) — proving the stretch.
+    act(() => {
+      fake.setMs(300);
+      tickRaf();
+    });
+    expect(result.current.viseme).toEqual(VISEMES.A);
+
+    // At 600ms we are into the second (now-stretched) frame.
+    act(() => {
+      fake.setMs(600);
+      tickRaf();
+    });
+    expect(result.current.viseme).toEqual(VISEMES.M);
   });
 
   it('mouth returns to a non-speaking shape once playback ends', async () => {

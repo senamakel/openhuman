@@ -1071,9 +1071,9 @@ impl Agent {
     ///
     /// Live tool-timeline / text-delta progress and the cost/token footer are
     /// mirrored from the harness event stream via the [`OpenhumanEventBridge`]
-    /// (tinyagents 0.2.0). Still a subset of the legacy `run_turn_engine`:
-    /// multimodal-marker expansion and `ContextManager` autocompaction are not
-    /// yet wired on this path.
+    /// (tinyagents 0.2.0), and `[IMAGE:…]`/`[FILE:…]` markers are expanded for
+    /// the provider. The remaining gap vs. the legacy `run_turn_engine` is
+    /// `ContextManager` autocompaction.
     async fn run_turn_via_tinyagents_session(
         &mut self,
         user_message: &str,
@@ -1084,6 +1084,34 @@ impl Agent {
         // Frozen system + prior conversation, then this turn's user message.
         let mut messages = self.tool_dispatcher.to_provider_messages(&self.history);
         messages.push(ChatMessage::user(user_message.to_string()));
+
+        // Multimodal prep (parity with the legacy engine): rehydrate image
+        // placeholders for vision-capable providers, then expand `[IMAGE:…]` /
+        // `[FILE:…]` markers into provider-ready content before dispatch. The
+        // expanded copy is provider-only and never persisted to `history`.
+        let multimodal = self
+            .integration_runtime_config
+            .as_ref()
+            .map(|c| c.multimodal.clone())
+            .unwrap_or_default();
+        let multimodal_files = self
+            .integration_runtime_config
+            .as_ref()
+            .map(|c| c.multimodal_files.clone())
+            .unwrap_or_default();
+        if self.provider.supports_vision()
+            && crate::openhuman::agent::multimodal::has_image_placeholders(&messages)
+        {
+            messages = crate::openhuman::agent::multimodal::rehydrate_image_placeholders(&messages);
+        }
+        let messages = crate::openhuman::agent::multimodal::prepare_messages_for_provider(
+            &messages,
+            &multimodal,
+            &multimodal_files,
+        )
+        .await
+        .map(|prepared| prepared.messages)
+        .unwrap_or(messages);
 
         tracing::info!(
             model = %effective_model,

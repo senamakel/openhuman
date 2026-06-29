@@ -20,6 +20,7 @@
 //! | `checkpoint.rs`     | `SubagentCheckpoint`, `parse_tool_arguments`                   |
 
 mod checkpoint;
+mod graph_route;
 mod handoff_helper;
 mod loop_;
 mod observer;

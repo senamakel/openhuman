@@ -178,6 +178,8 @@ pub struct LiveTurnOutcome {
     pub hit_cap: bool,
     /// Accumulated cost.
     pub cost: TurnCost,
+    /// Final conversation history (so callers can persist / checkpoint it).
+    pub history: Vec<ChatMessage>,
 }
 
 type Machine = Arc<Mutex<LiveTurnMachine>>;
@@ -345,7 +347,56 @@ pub async fn run_turn_via_graph(machine: LiveTurnMachine) -> Result<LiveTurnOutc
         iterations: m.iteration as u32,
         hit_cap: m.hit_cap,
         cost: m.cost.clone(),
+        history: m.history.clone(),
     })
+}
+
+/// A [`LiveToolExecutor`] over one or more shared harness tool sets
+/// (`Arc<Vec<Box<dyn Tool>>>`, the shape the sub-agent runner already owns via
+/// `ParentExecutionContext.all_tools`), with an optional name allowlist. Because
+/// the sources are `Arc`, the executor is `'static` and needs no engine
+/// lifetime change. This is what lets the sub-agent path run on the graph
+/// engine (Phase B).
+pub struct SharedToolExecutor {
+    sources: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
+    allowed: std::collections::HashSet<String>,
+}
+
+impl SharedToolExecutor {
+    /// Build from shared tool sources + an allowlist (empty = allow all).
+    pub fn new(
+        sources: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
+        allowed: std::collections::HashSet<String>,
+    ) -> Self {
+        Self { sources, allowed }
+    }
+}
+
+#[async_trait]
+impl LiveToolExecutor for SharedToolExecutor {
+    async fn execute(&self, name: &str, arguments: &str) -> (String, bool) {
+        if !self.allowed.is_empty() && !self.allowed.contains(name) {
+            return (
+                format!("Error: tool '{name}' is not permitted for this agent"),
+                false,
+            );
+        }
+        let tool = self
+            .sources
+            .iter()
+            .flat_map(|s| s.iter())
+            .find(|t| t.name() == name);
+        let Some(tool) = tool else {
+            tracing::warn!(tool = name, "[agent_graph::live] unknown tool requested");
+            return (format!("Error: unknown tool '{name}'"), false);
+        };
+        let args: serde_json::Value = serde_json::from_str(arguments)
+            .unwrap_or(serde_json::Value::Object(Default::default()));
+        match tool.execute(args).await {
+            Ok(result) => (result.output_for_llm(true), !result.is_error),
+            Err(e) => (format!("Error executing '{name}': {e}"), false),
+        }
+    }
 }
 
 #[cfg(test)]

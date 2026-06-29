@@ -794,28 +794,49 @@ async fn run_typed_mode(
         model_vision,
         "[subagent_runner] resolved sub-agent model vision capability"
     );
-    let (output, iterations, agg_usage, early_exit_tool) = Box::pin(run_inner_loop(
-        subagent_provider.as_ref(),
-        &mut history,
-        &parent.all_tools,
-        dynamic_tools,
-        &filtered_specs,
-        allowed_names,
-        lazy_resolver,
-        &model,
-        model_vision,
-        temperature,
-        definition.effective_max_iterations(),
-        task_id,
-        &definition.id,
-        options.worker_thread_id.clone(),
-        handoff_cache.as_deref(),
-        parent,
-        definition.iteration_policy == IterationPolicy::Extended,
-        definition.effective_tokenjuice_compression(),
-        options.run_queue.clone(),
-    ))
-    .await?;
+    // Phase B (issue #4249): optionally drive the sub-agent turn through the
+    // `agent_graph` engine. Off by default; the graph path reuses the same
+    // provider + tools but is an explicit subset of the legacy loop today, so
+    // it stays opt-in behind `OPENHUMAN_AGENT_GRAPH_SUBAGENT` until the
+    // remaining seams (summarizer / steering / observer / pause) are migrated.
+    let (output, iterations, agg_usage, early_exit_tool) =
+        if super::graph_route::subagent_graph_routing_enabled() {
+            super::graph_route::run_subagent_via_graph(
+                subagent_provider.clone(),
+                &model,
+                temperature,
+                &mut history,
+                parent.all_tools.clone(),
+                dynamic_tools,
+                filtered_specs.clone(),
+                allowed_names,
+                definition.effective_max_iterations(),
+            )
+            .await?
+        } else {
+            Box::pin(run_inner_loop(
+                subagent_provider.as_ref(),
+                &mut history,
+                &parent.all_tools,
+                dynamic_tools,
+                &filtered_specs,
+                allowed_names,
+                lazy_resolver,
+                &model,
+                model_vision,
+                temperature,
+                definition.effective_max_iterations(),
+                task_id,
+                &definition.id,
+                options.worker_thread_id.clone(),
+                handoff_cache.as_deref(),
+                parent,
+                definition.iteration_policy == IterationPolicy::Extended,
+                definition.effective_tokenjuice_compression(),
+                options.run_queue.clone(),
+            ))
+            .await?
+        };
 
     // Determine status: if the turn engine exited early because of
     // ask_user_clarification, checkpoint the history and return

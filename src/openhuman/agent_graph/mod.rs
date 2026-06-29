@@ -28,7 +28,6 @@
 pub mod blueprint;
 pub mod checkpoint;
 pub mod definitions;
-pub mod graph;
 pub mod hitl;
 pub mod memory;
 pub mod observability;

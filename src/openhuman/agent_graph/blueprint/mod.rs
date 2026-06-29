@@ -14,20 +14,14 @@
 //! Most agents reuse [`canonical_turn`] (the standard tool-calling loop);
 //! specialised agents (orchestrator, planner, critic, …) declare richer chains.
 
-use std::sync::Arc;
-
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::openhuman::agent_graph::definitions::ProductState;
-use crate::openhuman::agent_graph::graph::{CompiledGraph, Node, NodeCtx, NodeOutput, StateGraph};
-use crate::openhuman::agent_graph::hitl;
-use crate::openhuman::agent_graph::types::{Command, GraphError};
 
-// `tinyagents` durable-graph primitives — the rebase target for the in-house
-// engine (issue #4249). Aliased so the two compilers read side by side.
+// `tinyagents` durable-graph primitives — the engine blueprints compile onto
+// (issue #4249).
 use tinyagents::graph::{
     CompiledGraph as TaCompiledGraph, GraphBuilder as TaGraphBuilder, Interrupt as TaInterrupt,
     NodeContext as TaNodeContext, NodeResult as TaNodeResult,
@@ -172,46 +166,10 @@ impl GraphBlueprint {
         Ok(())
     }
 
-    /// Compile to a runnable [`CompiledGraph`] over [`ProductState`], reusing the
-    /// engine's `compile()` validation. Each node kind gets a generic executable
-    /// body; condition edges map known names to a state router.
-    pub fn compile(&self) -> Result<CompiledGraph<ProductState>, GraphError> {
-        self.validate().map_err(GraphError::UnknownNode)?;
-        let mut g = StateGraph::<ProductState>::new(self.name.clone());
-        for node in &self.nodes {
-            g.add_node(node.id.clone(), make_node(&node.kind));
-        }
-        for edge in &self.edges {
-            match edge {
-                EdgeSpec::Static { from, to } => {
-                    g.add_edge(from.clone(), to.clone());
-                }
-                EdgeSpec::Fork { from, targets } => {
-                    g.add_fork(from.clone(), targets.clone());
-                }
-                EdgeSpec::Conditional { from, on, targets } => {
-                    let on = on.clone();
-                    let targets_cl = targets.clone();
-                    g.add_conditional_edges(
-                        from.clone(),
-                        targets.clone(),
-                        Box::new(move |s: &ProductState| route(&on, &targets_cl, s)),
-                    );
-                }
-            }
-        }
-        g.set_entry_point(self.entry.clone());
-        for f in &self.finish {
-            g.set_finish_point(f.clone());
-        }
-        g.compile()
-    }
-
     /// Compile to a `tinyagents` durable [`TaCompiledGraph`] over
     /// [`ProductState`] (issue #4249).
     ///
-    /// This is the rebase target that retires the in-house engine: the same
-    /// topology and node semantics as [`Self::compile`], expressed on
+    /// The same topology and node semantics expressed on
     /// `tinyagents::GraphBuilder` (whole-state overwrite reducer). Each node
     /// returns the full next state as a [`NodeResult::Update`]; conditional
     /// edges map a named condition to a router over committed state; HITL nodes
@@ -512,122 +470,9 @@ pub fn plan_execute_review(agent_id: &str) -> GraphBlueprint {
         .build()
 }
 
-// ── Generic executable node bodies (one per NodeKind) ────────────────────────
-
-fn make_node(kind: &NodeKind) -> Arc<dyn Node<ProductState>> {
-    match kind {
-        NodeKind::Dispatch => Arc::new(DispatchNode),
-        NodeKind::Parse => Arc::new(PassNode("parse")),
-        NodeKind::StopCheck => Arc::new(PassNode("stop_check")),
-        NodeKind::Tools => Arc::new(RecordNode("tools".to_string())),
-        NodeKind::Compact => Arc::new(PassNode("compact")),
-        NodeKind::Finalize => Arc::new(FinalizeNode),
-        NodeKind::Hitl => Arc::new(HitlNode),
-        NodeKind::Delegate(agent) => Arc::new(DelegateNode(agent.clone())),
-        NodeKind::Custom(desc) => Arc::new(RecordNode(desc.clone())),
-    }
-}
-
-struct DispatchNode;
-#[async_trait]
-impl Node<ProductState> for DispatchNode {
-    async fn run(&self, mut s: ProductState, _c: &NodeCtx<'_>) -> Result<NodeOutput<ProductState>> {
-        let next = iter_count(&s) + 1;
-        s.vars.insert("__iter".to_string(), Value::from(next));
-        Ok(NodeOutput::cont(s))
-    }
-}
-
-/// Follows the declared edge (Parse/StopCheck/Compact route via conditional or
-/// static edges, so the node itself just continues).
-struct PassNode(&'static str);
-#[async_trait]
-impl Node<ProductState> for PassNode {
-    async fn run(&self, s: ProductState, _c: &NodeCtx<'_>) -> Result<NodeOutput<ProductState>> {
-        Ok(NodeOutput::cont(s))
-    }
-}
-
-struct RecordNode(String);
-#[async_trait]
-impl Node<ProductState> for RecordNode {
-    async fn run(&self, mut s: ProductState, _c: &NodeCtx<'_>) -> Result<NodeOutput<ProductState>> {
-        let n = iter_count(&s);
-        s.record_step(&self.0, format!("{} step (iteration {n})", self.0));
-        Ok(NodeOutput::cont(s))
-    }
-}
-
-struct DelegateNode(String);
-#[async_trait]
-impl Node<ProductState> for DelegateNode {
-    async fn run(&self, mut s: ProductState, _c: &NodeCtx<'_>) -> Result<NodeOutput<ProductState>> {
-        s.record_step("delegate", format!("delegated to {}", self.0));
-        Ok(NodeOutput::cont(s))
-    }
-}
-
-struct FinalizeNode;
-#[async_trait]
-impl Node<ProductState> for FinalizeNode {
-    async fn run(&self, mut s: ProductState, _c: &NodeCtx<'_>) -> Result<NodeOutput<ProductState>> {
-        let n = iter_count(&s);
-        s.set_var("final", format!("completed after {n} iteration(s)"));
-        Ok(NodeOutput::end(s))
-    }
-}
-
-struct HitlNode;
-#[async_trait]
-impl Node<ProductState> for HitlNode {
-    async fn run(&self, mut s: ProductState, _c: &NodeCtx<'_>) -> Result<NodeOutput<ProductState>> {
-        if let Some(decision) = s.resume_input.take() {
-            s.set_var("review_decision", decision);
-            return Ok(NodeOutput::cont(s));
-        }
-        if s.vars
-            .get("auto_approve")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
-            s.set_var("review_decision", "approve");
-            return Ok(NodeOutput::cont(s));
-        }
-        let mut req = hitl::approval("Approve?", vec![]);
-        req.resume_to = Some("review".to_string());
-        Ok(NodeOutput {
-            state: s,
-            command: Command::Interrupt(req),
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn canonical_turn_validates_and_compiles() {
-        let bp = canonical_turn("researcher");
-        assert_eq!(bp.name, "researcher");
-        bp.validate().expect("structural");
-        bp.compile().expect("compiles to a valid graph");
-    }
-
-    #[tokio::test]
-    async fn canonical_turn_blueprint_runs_to_completion() {
-        let bp = canonical_turn("researcher");
-        let graph = bp.compile().unwrap();
-        let mut init = ProductState::default();
-        init.vars
-            .insert("max_iterations".to_string(), Value::from(2));
-        let out = graph.invoke(init).await.expect("run");
-        assert_eq!(
-            out.status,
-            crate::openhuman::agent_graph::types::GraphRunStatus::Completed
-        );
-        assert!(out.state.vars.contains_key("final"));
-    }
 
     #[test]
     fn validate_rejects_dangling_edge() {
@@ -639,13 +484,6 @@ mod tests {
             .build();
         assert!(bp.validate().is_err());
     }
-
-    #[test]
-    fn plan_execute_review_compiles() {
-        plan_execute_review("planner").compile().expect("compiles");
-    }
-
-    // ── tinyagents rebase (issue #4249) ──
 
     #[test]
     fn canonical_turn_compiles_on_tinyagents() {

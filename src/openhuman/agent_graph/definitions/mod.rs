@@ -4,15 +4,9 @@
 //! monomorphic. The registry maps a name → builder; [`list_definitions`] backs
 //! `agent_graph_definition_list`.
 
-use std::sync::Arc;
-
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::agent_graph::graph::CompiledGraph;
-use crate::openhuman::config::Config;
-
 pub mod canonical_turn;
-mod nodes;
 pub mod product_graphs;
 pub mod runner;
 pub mod state;
@@ -72,29 +66,17 @@ pub fn list_definitions() -> Vec<GraphDefinitionMeta> {
     ]
 }
 
-/// Build a registered graph by name.
-pub fn build_definition(
-    name: &str,
-    config: Arc<Config>,
-) -> Result<CompiledGraph<ProductState>, String> {
-    let compiled = match name {
-        "canonical_turn" => canonical_turn::build(),
-        "plan_execute_review" => product_graphs::build_plan_execute_review(config),
-        "demo_review" => product_graphs::build_demo_review(),
-        other => return Err(format!("unknown graph definition '{other}'")),
-    };
-    compiled.map_err(|e| format!("compile graph '{name}': {e}"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::openhuman::config::Config;
+    use std::sync::Arc;
 
     #[test]
-    fn all_registered_definitions_compile() {
+    fn all_registered_definitions_compile_on_tinyagents() {
         let config = Arc::new(Config::default());
         for meta in list_definitions() {
-            build_definition(&meta.name, config.clone())
+            tinyagents_graphs::build_tinyagents(&meta.name, config.clone())
                 .unwrap_or_else(|e| panic!("definition '{}' failed to compile: {e}", meta.name));
         }
     }
@@ -102,7 +84,7 @@ mod tests {
     #[test]
     fn unknown_definition_errors() {
         let config = Arc::new(Config::default());
-        assert!(build_definition("ghost", config).is_err());
+        assert!(tinyagents_graphs::build_tinyagents("ghost", config).is_err());
     }
 
     #[test]

@@ -1742,7 +1742,7 @@ mod tests {
             assert_eq!(bp.name, id, "blueprint name must match agent id");
             bp.validate()
                 .unwrap_or_else(|e| panic!("agent '{id}' graph invalid: {e}"));
-            bp.compile()
+            bp.compile_tinyagents()
                 .unwrap_or_else(|e| panic!("agent '{id}' graph failed to compile: {e}"));
         }
     }

@@ -4,11 +4,9 @@
 //! run, persist and resume any registered product graph without generics
 //! leaking into the RPC layer.
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::openhuman::agent_graph::graph::GraphState;
 use crate::openhuman::agent_graph::hitl::ApplyResume;
 
 /// One recorded step's output — the "intermediate results that survive
@@ -79,26 +77,6 @@ impl ProductState {
     }
 }
 
-impl GraphState for ProductState {
-    fn merge(&mut self, other: Self) -> Result<()> {
-        // Vars: last-writer-wins per key (other overrides). Steps: append
-        // (dedup exact duplicates from a shared pre-fork prefix). resume_input:
-        // keep whichever is set.
-        for (k, v) in other.vars {
-            self.vars.insert(k, v);
-        }
-        for step in other.steps {
-            if !self.steps.contains(&step) {
-                self.steps.push(step);
-            }
-        }
-        if self.resume_input.is_none() {
-            self.resume_input = other.resume_input;
-        }
-        Ok(())
-    }
-}
-
 impl ApplyResume for ProductState {
     fn apply_resume(&mut self, input: &str) {
         self.resume_input = Some(input.to_string());
@@ -128,20 +106,6 @@ mod tests {
         s.record_step("plan", "a plan");
         assert_eq!(s.var_str("plan"), "a plan");
         assert_eq!(s.steps.len(), 1);
-    }
-
-    #[test]
-    fn merge_last_writer_and_dedup_steps() {
-        let mut a = ProductState::default();
-        a.record_step("plan", "x");
-        a.set_var("k", "1");
-        let mut b = ProductState::default();
-        b.record_step("plan", "x"); // duplicate, deduped
-        b.record_step("exec", "y");
-        b.set_var("k", "2"); // overrides
-        a.merge(b).unwrap();
-        assert_eq!(a.var_str("k"), "2");
-        assert_eq!(a.steps.len(), 2);
     }
 
     #[test]

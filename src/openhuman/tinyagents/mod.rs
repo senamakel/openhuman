@@ -24,7 +24,9 @@ use std::sync::Arc;
 use anyhow::Result;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
+use tinyagents::harness::middleware::MessageTrimMiddleware;
 use tinyagents::harness::runtime::AgentHarness;
+use tinyagents::harness::summarization::TrimStrategy;
 
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
@@ -151,9 +153,13 @@ pub async fn run_turn_via_tinyagents(
 /// produced. Pass `None` for fire-and-forget turns (channel/sub-agent) that
 /// only need the final text.
 ///
-/// Parity note (issue #4249): multimodal-marker expansion, autocompaction, and
-/// per-iteration steering are not yet wired on this path. (Incremental token
-/// streaming, the live tool timeline, and the cost footer are now bridged.)
+/// When `context_window` is known, a [`MessageTrimMiddleware`] keeps history
+/// under budget (autocompaction parity).
+///
+/// Parity note (issue #4249): per-iteration steering and the
+/// `ask_user_clarification` early-exit pause are not yet wired on this path.
+/// (Incremental streaming, the live tool timeline, the cost footer, and
+/// multimodal expansion are bridged on the chat route.)
 #[allow(clippy::too_many_arguments)]
 pub async fn run_turn_via_tinyagents_shared(
     provider: Arc<dyn Provider>,
@@ -164,6 +170,7 @@ pub async fn run_turn_via_tinyagents_shared(
     allowed: HashSet<String>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
+    context_window: Option<u64>,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness
@@ -172,6 +179,19 @@ pub async fn run_turn_via_tinyagents_shared(
             Arc::new(ProviderModel::new(provider, model, temperature)),
         )
         .set_default_model(model);
+
+    // Autocompaction parity: when the provider's context window is known, trim
+    // history from the front (system messages kept) so a long thread stays under
+    // budget before each model call — the deterministic, no-extra-LLM-call
+    // analogue of the legacy `ContextManager` reduce-before-call.
+    if let Some(window) = context_window.filter(|w| *w > 0) {
+        let budget = window.saturating_sub(
+            crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS as u64,
+        );
+        harness.push_middleware(Arc::new(MessageTrimMiddleware::new(
+            TrimStrategy::MaxTokens(budget.max(1024)),
+        )));
+    }
 
     // Register one adapter per unique callable tool name found across the shared
     // sets (newest set wins on a name clash; `allowed` empty = all visible).

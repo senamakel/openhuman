@@ -63,6 +63,8 @@ pub(super) async fn run_subagent_via_graph(
         // Sub-agent progress mirroring (child deltas) is a follow-up; the
         // orchestrator surfaces the synthesized result.
         None,
+        // Sub-agents inherit the parent's already-trimmed history.
+        None,
     )
     .await
     .map_err(SubagentRunError::Provider)?;

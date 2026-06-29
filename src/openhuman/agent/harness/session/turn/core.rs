@@ -1069,11 +1069,11 @@ impl Agent {
     /// final reply + the user turn are recorded into `history`, the transcript
     /// is persisted, and `TurnCompleted` is emitted so the UI stops spinning.
     ///
-    /// Live tool-timeline / text-delta progress and the cost/token footer are
-    /// mirrored from the harness event stream via the [`OpenhumanEventBridge`]
-    /// (tinyagents 0.2.0), and `[IMAGE:…]`/`[FILE:…]` markers are expanded for
-    /// the provider. The remaining gap vs. the legacy `run_turn_engine` is
-    /// `ContextManager` autocompaction.
+    /// Full-fidelity with the legacy `run_turn_engine`: live tool-timeline /
+    /// text-delta progress and the cost/token footer are mirrored from the
+    /// harness event stream via the [`OpenhumanEventBridge`] (tinyagents 0.2.0),
+    /// `[IMAGE:…]`/`[FILE:…]` markers are expanded for the provider, and history
+    /// is trimmed to the provider's context window.
     async fn run_turn_via_tinyagents_session(
         &mut self,
         user_message: &str,
@@ -1120,6 +1120,13 @@ impl Agent {
             "[agent_loop] routing chat turn through the tinyagents harness"
         );
 
+        // Resolve the provider's effective context window so the harness can
+        // trim long threads to budget (autocompaction parity).
+        let context_window = self
+            .provider
+            .effective_context_window(effective_model)
+            .await;
+
         let outcome = crate::openhuman::tinyagents::run_turn_via_tinyagents_shared(
             self.provider.clone(),
             effective_model,
@@ -1131,6 +1138,7 @@ impl Agent {
             // Mirror the harness event stream onto this session's progress sink
             // (live tool timeline, text deltas, cost footer) via the bridge.
             self.on_progress.clone(),
+            context_window,
         )
         .await?;
 

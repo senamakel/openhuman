@@ -167,6 +167,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         std::collections::HashSet::new(),
         4,
         Some(tx),
+        None,
     )
     .await
     .expect("streaming turn runs");

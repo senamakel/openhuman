@@ -65,6 +65,14 @@ impl EventBusSink {
             error: error.to_string(),
         });
     }
+
+    /// Emit `GraphRunPaused` (HITL). Called by the runner now that the
+    /// tinyagents engine surfaces interrupts as a return value rather than
+    /// emitting the openhuman event itself. Inherent wrapper over the
+    /// [`ProgressSink`] trait method so callers don't need the trait in scope.
+    pub fn emit_paused(&self, run_id: &str, node: &str, kind: &str) {
+        ProgressSink::run_paused(self, run_id, node, kind);
+    }
 }
 
 impl ProgressSink for EventBusSink {

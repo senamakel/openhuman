@@ -1069,9 +1069,11 @@ impl Agent {
     /// final reply + the user turn are recorded into `history`, the transcript
     /// is persisted, and `TurnCompleted` is emitted so the UI stops spinning.
     ///
-    /// This is an explicit subset of the legacy `run_turn_engine` path: it does
-    /// not stream `AgentProgress` deltas, feed per-call usage into the cost
-    /// footer, expand multimodal markers, or run `ContextManager` autocompaction.
+    /// Live tool-timeline / text-delta progress and the cost/token footer are
+    /// mirrored from the harness event stream via the [`OpenhumanEventBridge`]
+    /// (tinyagents 0.2.0). Still a subset of the legacy `run_turn_engine`:
+    /// multimodal-marker expansion and `ContextManager` autocompaction are not
+    /// yet wired on this path.
     async fn run_turn_via_tinyagents_session(
         &mut self,
         user_message: &str,
@@ -1098,6 +1100,9 @@ impl Agent {
             vec![self.tools.clone()],
             self.visible_tool_names.clone(),
             max_iterations,
+            // Mirror the harness event stream onto this session's progress sink
+            // (live tool timeline, text deltas, cost footer) via the bridge.
+            self.on_progress.clone(),
         )
         .await?;
 

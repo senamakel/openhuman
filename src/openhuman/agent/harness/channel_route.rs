@@ -69,6 +69,8 @@ pub(crate) async fn run_channel_turn_via_graph(
         vec![extra_arc, tools_registry],
         allowed,
         max_iterations,
+        // Channels post a single final message; no live progress sink to mirror.
+        None,
     )
     .await?;
     *history = outcome.history;

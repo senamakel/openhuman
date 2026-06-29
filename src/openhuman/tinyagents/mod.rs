@@ -16,20 +16,25 @@
 
 mod convert;
 mod model;
+pub mod observability;
 mod tools;
 
 use std::sync::Arc;
 
 use anyhow::Result;
-use tinyagents::harness::context::RunConfig;
+use tinyagents::harness::context::{RunConfig, RunContext};
+use tinyagents::harness::events::EventSink;
 use tinyagents::harness::runtime::AgentHarness;
 
+use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 
 pub use model::ProviderModel;
+pub use observability::OpenhumanEventBridge;
 pub use tools::{SharedToolAdapter, ToolAdapter};
 
 use std::collections::HashSet;
+use tokio::sync::mpsc::Sender;
 
 /// Whether agent turns (chat) should route through the `tinyagents` harness.
 ///
@@ -139,10 +144,16 @@ pub async fn run_turn_via_tinyagents(
 /// `allowed` is the callable tool-name whitelist (empty = every tool visible in
 /// `tool_sets`); each callable tool is advertised via its own `spec()`.
 ///
-/// Parity note (issue #4249): per-iteration steering, the payload summarizer,
-/// autocompaction, multimodal prep, and the `ask_user_clarification` early-exit
-/// pause are not yet wired on this path. The routes that use it stay off by
-/// default until those land.
+/// When `on_progress` is `Some`, the run streams (`invoke_streaming_in_context`)
+/// and a [`OpenhumanEventBridge`] mirrors the harness event stream onto
+/// `AgentProgress` (live tool timeline, text deltas, cost/token footer) and the
+/// global cost tracker — restoring the seams the legacy `run_turn_engine`
+/// produced. Pass `None` for fire-and-forget turns (channel/sub-agent) that
+/// only need the final text.
+///
+/// Parity note (issue #4249): multimodal prep, autocompaction, per-iteration
+/// steering, and the `ask_user_clarification` early-exit pause are not yet wired
+/// on this path.
 #[allow(clippy::too_many_arguments)]
 pub async fn run_turn_via_tinyagents_shared(
     provider: Arc<dyn Provider>,
@@ -152,6 +163,7 @@ pub async fn run_turn_via_tinyagents_shared(
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
     allowed: HashSet<String>,
     max_iterations: usize,
+    on_progress: Option<Sender<AgentProgress>>,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness
@@ -186,22 +198,45 @@ pub async fn run_turn_via_tinyagents_shared(
         model,
         max_iterations,
         tools = tool_count,
+        observed = on_progress.is_some(),
         "[tinyagents] routing turn through tinyagents harness (shared tools)"
     );
 
     let input = convert::history_to_messages(&history);
-    let run = harness
-        .invoke(&(), (), config, input)
-        .await
-        .map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
+
+    // Observed path: attach the progress/cost bridge and stream. Plain path:
+    // fire-and-forget invoke.
+    let (run, bridge_totals) = if on_progress.is_some() {
+        let bridge = OpenhumanEventBridge::new(on_progress, model, max_iterations);
+        let events = EventSink::new();
+        events.subscribe(bridge.clone());
+        let ctx = RunContext::new(config, ()).with_events(events);
+        let run = harness
+            .invoke_streaming_in_context(&(), ctx, input)
+            .await
+            .map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
+        let (input_tokens, output_tokens, _) = bridge.totals();
+        (run, Some((input_tokens, output_tokens)))
+    } else {
+        let run = harness
+            .invoke(&(), (), config, input)
+            .await
+            .map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
+        (run, None)
+    };
+
+    // Prefer the bridge's accumulated usage (per-call, authoritative) when the
+    // observed path ran; otherwise fall back to the run's aggregate totals.
+    let (input_tokens, output_tokens) =
+        bridge_totals.unwrap_or((run.usage.usage.input_tokens, run.usage.usage.output_tokens));
 
     Ok(TinyagentsTurnOutcome {
         text: run.text().unwrap_or_default(),
         history: convert::messages_to_history(&run.messages),
         model_calls: run.model_calls,
         tool_calls: run.tool_calls,
-        input_tokens: run.usage.usage.input_tokens,
-        output_tokens: run.usage.usage.output_tokens,
+        input_tokens,
+        output_tokens,
     })
 }
 

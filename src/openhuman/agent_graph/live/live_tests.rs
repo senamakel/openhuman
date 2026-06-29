@@ -643,3 +643,94 @@ async fn run_queue_steer_is_drained_into_history() {
         .iter()
         .any(|m| m.content.contains("actually, focus on X")));
 }
+
+/// Phase C parity: context autocompaction summarizes older turns once history
+/// grows past the trigger.
+#[tokio::test]
+async fn autocompaction_summarizes_when_history_grows() {
+    use super::LiveAutocompact;
+
+    // Provider: counts calls; returns a summary string when asked to summarize
+    // (a single user "summarize" message), else loops with a tool call until a
+    // small cap. We assert the history shrank after compaction.
+    struct CompactProvider {
+        calls: AtomicUsize,
+    }
+    #[async_trait]
+    impl Provider for CompactProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            msg: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            // The summarizer calls chat_with_system / chat_with_history.
+            let _ = msg;
+            Ok("[summary of earlier turns]".to_string())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            let n = self.calls.fetch_add(1, Ordering::SeqCst);
+            if n < 2 {
+                Ok(ChatResponse {
+                    text: Some("working".to_string()),
+                    tool_calls: vec![ToolCall {
+                        id: format!("c{n}"),
+                        name: "noop".to_string(),
+                        arguments: format!("{{\"i\":{n}}}"),
+                        extra_content: None,
+                    }],
+                    ..Default::default()
+                })
+            } else {
+                Ok(ChatResponse {
+                    text: Some("final".to_string()),
+                    ..Default::default()
+                })
+            }
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+    let executor = Arc::new(RecordingExecutor {
+        executed: AtomicUsize::new(0),
+    });
+    // Seed a large history so the very first dispatch trips the trigger.
+    let mut history = vec![ChatMessage::system("sys")];
+    for i in 0..30 {
+        history.push(ChatMessage::user(format!("turn {i}")));
+        history.push(ChatMessage::assistant(format!("reply {i}")));
+    }
+    let before = history.len();
+    let machine = LiveTurnMachine::new(
+        Arc::new(CompactProvider {
+            calls: AtomicUsize::new(0),
+        }),
+        "mock-model",
+        0.0,
+        history,
+        vec![],
+        executor,
+        5,
+    )
+    .with_autocompact(LiveAutocompact {
+        trigger_messages: 10,
+        keep_recent: 4,
+        temperature: 0.0,
+        summarizer_model: None,
+    });
+    let outcome = run_turn_via_graph(machine).await.expect("runs");
+    // After compaction the final history is materially smaller than the seed.
+    assert!(
+        outcome.history.len() < before,
+        "expected compaction to shrink history ({} -> {})",
+        before,
+        outcome.history.len()
+    );
+}

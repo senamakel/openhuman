@@ -136,6 +136,34 @@ pub struct LiveTurnMachine {
     /// Optional steering queue — drained at each iteration boundary so a running
     /// turn can absorb mid-flight `steer`/`collect` messages (legacy-loop parity).
     run_queue: Option<Arc<crate::openhuman::agent::harness::run_queue::RunQueue>>,
+    /// Optional context autocompaction — when history grows past
+    /// `trigger_messages`, older turns are summarized before the next provider
+    /// call (legacy-loop parity).
+    autocompact: Option<LiveAutocompact>,
+}
+
+/// Config for the live path's context autocompaction.
+#[derive(Debug, Clone)]
+pub struct LiveAutocompact {
+    /// Summarize once history exceeds this many messages.
+    pub trigger_messages: usize,
+    /// Most-recent messages preserved verbatim.
+    pub keep_recent: usize,
+    /// Summarizer temperature.
+    pub temperature: f64,
+    /// Optional cheaper summarizer model (defaults to the turn model).
+    pub summarizer_model: Option<String>,
+}
+
+impl Default for LiveAutocompact {
+    fn default() -> Self {
+        Self {
+            trigger_messages: 40,
+            keep_recent: crate::openhuman::agent_graph::summarization::DEFAULT_KEEP_RECENT,
+            temperature: crate::openhuman::agent_graph::summarization::DEFAULT_TEMPERATURE,
+            summarizer_model: None,
+        }
+    }
 }
 
 impl LiveTurnMachine {
@@ -171,7 +199,14 @@ impl LiveTurnMachine {
             payload_summarizer: None,
             task_hint: None,
             run_queue: None,
+            autocompact: None,
         }
+    }
+
+    /// Enable context autocompaction.
+    pub fn with_autocompact(mut self, autocompact: LiveAutocompact) -> Self {
+        self.autocompact = Some(autocompact);
+        self
     }
 
     /// Install a steering queue for mid-flight steer/collect injection.
@@ -268,6 +303,36 @@ impl Node<LiveTurnState> for Dispatch {
                         "[Additional context from user]: {}",
                         c.text
                     )));
+                }
+            }
+        }
+
+        // ── Context autocompaction: summarize older turns when history grows
+        // past the trigger, before the next provider call (legacy-loop parity). ──
+        if let Some(ac) = m.autocompact.clone() {
+            if m.history.len() > ac.trigger_messages {
+                let provider = m.provider.clone();
+                let model = ac
+                    .summarizer_model
+                    .clone()
+                    .unwrap_or_else(|| m.model.clone());
+                match crate::openhuman::context::summarize_chat_history(
+                    provider.as_ref(),
+                    &mut m.history,
+                    &model,
+                    ac.keep_recent,
+                    ac.temperature,
+                )
+                .await
+                {
+                    Ok(stats) if stats.messages_removed > 0 => tracing::info!(
+                        messages_removed = stats.messages_removed,
+                        "[agent_graph::live] autocompacted context"
+                    ),
+                    Ok(_) => {}
+                    Err(e) => {
+                        tracing::warn!(error = %e, "[agent_graph::live] autocompaction failed")
+                    }
                 }
             }
         }

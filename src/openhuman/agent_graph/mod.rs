@@ -30,6 +30,7 @@ pub mod checkpoint;
 pub mod definitions;
 pub mod graph;
 pub mod hitl;
+pub mod live;
 pub mod memory;
 pub mod observability;
 pub mod summarization;

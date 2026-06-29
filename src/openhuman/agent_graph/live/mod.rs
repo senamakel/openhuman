@@ -250,10 +250,22 @@ impl Node<LiveTurnState> for Dispatch {
         let text = resp.text_or_empty().to_string();
         m.last_text = text.clone();
         m.last_tool_calls = resp.tool_calls.clone();
-        // Append the assistant turn. (Phase A keeps this simple; the full
-        // native/text history threading is reused when the real ToolSource is
-        // wired in Phase B.)
-        m.history.push(ChatMessage::assistant(text));
+        // Append the assistant turn. When the model emitted native tool calls,
+        // serialize them into the assistant message via the SAME helper the
+        // legacy loop uses, so the structured `tool_calls` + their ids survive
+        // into the next provider request (otherwise OpenAI-compatible providers
+        // 400 on the follow-up). Plain text when there are no calls. (Phase C
+        // native/text history-threading parity, issue #4249.)
+        let assistant_content = if resp.tool_calls.is_empty() {
+            text
+        } else {
+            crate::openhuman::agent::harness::parse::build_native_assistant_history(
+                &text,
+                resp.reasoning_content.as_deref(),
+                &resp.tool_calls,
+            )
+        };
+        m.history.push(ChatMessage::assistant(assistant_content));
         m.iteration += 1;
         state.iteration = m.iteration as i64;
         Ok(NodeOutput::goto(state, "parse"))
@@ -322,10 +334,12 @@ impl Node<LiveTurnState> for Tools {
                 "[agent_graph::live] executing tool"
             );
             let (output, success) = m.executor.execute(&call.name, &call.arguments).await;
+            // Native tool-result message shape the legacy loop uses: one
+            // `role: tool` message per call id, so the assistant `tool_calls`
+            // and their results stay paired on the next request.
             let result = serde_json::json!({
                 "tool_call_id": call.id,
                 "content": output,
-                "success": success,
             });
             m.history.push(ChatMessage::tool(result.to_string()));
 

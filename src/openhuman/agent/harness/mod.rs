@@ -32,7 +32,7 @@ pub mod interrupt;
 pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
 pub mod model_vision_context;
-mod parse;
+pub(crate) mod parse;
 pub(crate) mod payload_summarizer;
 pub mod run_queue;
 pub mod sandbox_context;

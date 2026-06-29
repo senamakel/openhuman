@@ -126,8 +126,6 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::webview_apis::all_webview_apis_registered_controllers());
     // Agent definition and prompt inspection
     controllers.extend(crate::openhuman::agent::all_agent_registered_controllers());
-    // LangGraph-style agent state-machine: definitions, runs, checkpoints, resume.
-    controllers.extend(crate::openhuman::agent_graph::all_agent_graph_registered_controllers());
     // Persistent agent profiles (flavours): name, soul, memory sources, skills, MCP, connectors.
     controllers.extend(crate::openhuman::profiles::all_profiles_registered_controllers());
     // User-facing agent registry: defaults, enablement, custom agents, tool policy.
@@ -368,7 +366,6 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::mcp_registry::all_mcp_registry_controller_schemas());
     schemas.extend(crate::openhuman::webview_apis::all_webview_apis_controller_schemas());
     schemas.extend(crate::openhuman::agent::all_agent_controller_schemas());
-    schemas.extend(crate::openhuman::agent_graph::all_agent_graph_controller_schemas());
     schemas.extend(crate::openhuman::profiles::all_profiles_controller_schemas());
     schemas.extend(crate::openhuman::agent_registry::all_agent_registry_controller_schemas());
     schemas.extend(crate::openhuman::agent_experience::all_agent_experience_controller_schemas());
@@ -513,9 +510,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "app_state" => Some("Expose core-owned app shell state for frontend polling."),
         "auth" => Some("Manage app session and provider credentials."),
         "agent_experience" => Some("Local procedural experience capture and retrieval for agents."),
-        "agent_graph" => Some(
-            "LangGraph-style agent state machine: graph definitions, runs, checkpoints, and human-in-the-loop resume.",
-        ),
         "autocomplete" => Some("Inline autocomplete engine controls and style settings."),
         "channels" => Some("Channel definitions, connections, and lifecycle management."),
         "composio" => Some(

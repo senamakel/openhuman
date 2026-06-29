@@ -2,18 +2,17 @@
 //! [`tinyagents`](https://crates.io/crates/tinyagents) orchestration framework
 //! (issue #4249).
 //!
-//! The `agent_graph` domain is migrating off its in-house engine onto the
-//! `tinyagents` crate (LangGraph/LangChain-style durable graphs + an agent-loop
-//! harness with model/tool registries, middleware, retry/fallback, and limits).
-//! This module is the **adapter seam**: it bridges openhuman's `Provider`,
-//! `Tool`, and `ChatMessage` types onto the crate's `ChatModel`, `Tool`, and
-//! `Message` traits, then drives a turn through [`AgentHarness::invoke`].
+//! openhuman's agent execution runs on the `tinyagents` crate
+//! (LangGraph/LangChain-style durable graphs + an agent-loop harness with model/
+//! tool registries, middleware, retry/fallback, and limits). This module is the
+//! **adapter seam**: it bridges openhuman's `Provider`, `Tool`, and `ChatMessage`
+//! types onto the crate's `ChatModel`, `Tool`, and `Message` traits, then drives
+//! a turn through [`AgentHarness::invoke`]. The channel + sub-agent routes call
+//! [`run_turn_via_tinyagents_shared`].
 //!
-//! Gated by `OPENHUMAN_AGENT_GRAPH_TINYAGENTS` and **off by default**, mirroring
-//! the existing `live`/`channel`/`subagent` routes. It is an explicit subset
-//! today — the harness owns its own native tool-call threading and transcript,
-//! so per-iteration steering, the payload summarizer, and multimodal prep are
-//! not yet wired on this path. It is opt-in until those land.
+//! The flagged routes are off by default. The harness owns its own native
+//! tool-call threading and transcript; per-iteration steering, the payload
+//! summarizer, and multimodal prep are not yet wired on this path.
 
 mod convert;
 mod model;
@@ -92,7 +91,7 @@ pub async fn run_turn_via_tinyagents(
         model,
         max_iterations,
         tools = tool_count,
-        "[agent_graph::tinyagents] routing agent turn through tinyagents harness"
+        "[tinyagents] routing agent turn through tinyagents harness"
     );
 
     let input = convert::history_to_messages(&history);
@@ -173,7 +172,7 @@ pub async fn run_turn_via_tinyagents_shared(
         model,
         max_iterations,
         tools = tool_count,
-        "[agent_graph::tinyagents] routing turn through tinyagents harness (shared tools)"
+        "[tinyagents] routing turn through tinyagents harness (shared tools)"
     );
 
     let input = convert::history_to_messages(&history);

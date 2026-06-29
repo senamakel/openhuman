@@ -1481,18 +1481,6 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: None,
     },
     Capability {
-        id: "automation.agent_graph",
-        name: "Agent State Graphs",
-        domain: "agent_graph",
-        category: CapabilityCategory::Automation,
-        description: "Run agents as explicit LangGraph-style state machines: nodes and edges with \
-                      conditional routing, persistent working state, checkpointing for pause/resume, \
-                      and human-in-the-loop review gates — instead of an implicit linear tool-call loop.",
-        how_to: "RPC: openhuman.agent_graph_run / _run_list / _resume",
-        status: CapabilityStatus::Beta,
-        privacy: DERIVED_TO_BACKEND,
-    },
-    Capability {
         id: "automation.set_job_intervals",
         name: "Set Job Intervals",
         domain: "automation",

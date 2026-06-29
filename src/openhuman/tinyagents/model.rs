@@ -82,7 +82,7 @@ impl ChatModel<()> for ProviderModel {
             model = %self.model,
             messages = messages.len(),
             tools = specs.len(),
-            "[agent_graph::tinyagents] provider.chat via harness model adapter"
+            "[tinyagents] provider.chat via harness model adapter"
         );
 
         let response = self

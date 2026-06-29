@@ -54,7 +54,7 @@ async fn execute_openhuman_tool(
     tracing::debug!(
         tool = %call.name,
         call_id = %call.id,
-        "[agent_graph::tinyagents] executing openhuman tool via harness adapter"
+        "[tinyagents] executing openhuman tool via harness adapter"
     );
     match tool.execute(call.arguments.clone()).await {
         Ok(result) => {
@@ -74,7 +74,7 @@ async fn execute_openhuman_tool(
             }
         }
         Err(e) => {
-            tracing::warn!(tool = %call.name, error = %e, "[agent_graph::tinyagents] tool failed");
+            tracing::warn!(tool = %call.name, error = %e, "[tinyagents] tool failed");
             TaToolResult {
                 call_id: call.id,
                 name: call.name.clone(),
@@ -144,7 +144,7 @@ impl Tool<()> for SharedToolAdapter {
         match found {
             Some(tool) => Ok(execute_openhuman_tool(tool.as_ref(), call).await),
             None => {
-                tracing::warn!(tool = %self.name, "[agent_graph::tinyagents] shared tool not found");
+                tracing::warn!(tool = %self.name, "[tinyagents] shared tool not found");
                 Ok(TaToolResult {
                     call_id: call.id,
                     name: call.name,

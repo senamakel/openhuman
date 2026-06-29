@@ -16,9 +16,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use crate::openhuman::agent_graph::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
+use crate::openhuman::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::tools::Tool;
 
 /// Whether channel/CLI turns should route through the `agent_graph` engine.

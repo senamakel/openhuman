@@ -14,8 +14,8 @@ use std::sync::Arc;
 
 use super::loop_::AggregatedUsage;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
-use crate::openhuman::agent_graph::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
+use crate::openhuman::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::tools::{Tool, ToolSpec};
 
 /// Whether sub-agent turns should be routed through the `agent_graph` engine.

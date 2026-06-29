@@ -133,6 +133,9 @@ pub struct LiveTurnMachine {
         Option<Arc<dyn crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer>>,
     /// Parent-task hint passed to the summarizer for extraction context.
     task_hint: Option<String>,
+    /// Optional steering queue — drained at each iteration boundary so a running
+    /// turn can absorb mid-flight `steer`/`collect` messages (legacy-loop parity).
+    run_queue: Option<Arc<crate::openhuman::agent::harness::run_queue::RunQueue>>,
 }
 
 impl LiveTurnMachine {
@@ -167,7 +170,17 @@ impl LiveTurnMachine {
             repeat_guard: crate::openhuman::agent::harness::tool_loop::RepeatOutputGuard::new(),
             payload_summarizer: None,
             task_hint: None,
+            run_queue: None,
         }
+    }
+
+    /// Install a steering queue for mid-flight steer/collect injection.
+    pub fn with_run_queue(
+        mut self,
+        run_queue: Option<Arc<crate::openhuman::agent::harness::run_queue::RunQueue>>,
+    ) -> Self {
+        self.run_queue = run_queue;
+        self
     }
 
     /// Tools that stop the loop early on success (pause semantics).
@@ -239,6 +252,25 @@ impl Node<LiveTurnState> for Dispatch {
         ctx: &NodeCtx<'_>,
     ) -> Result<NodeOutput<LiveTurnState>> {
         let mut m = self.0.lock().await;
+
+        // ── Run-queue drain: absorb mid-flight steer/collect messages at the
+        // iteration boundary (legacy-loop parity for `steer_subagent`). ──
+        if let Some(rq) = m.run_queue.clone() {
+            if rq.has_pending_injections().await {
+                for s in rq.drain_steers().await {
+                    m.history.push(ChatMessage::user(format!(
+                        "[User steering message]: {}",
+                        s.text
+                    )));
+                }
+                for c in rq.drain_collects().await {
+                    m.history.push(ChatMessage::user(format!(
+                        "[Additional context from user]: {}",
+                        c.text
+                    )));
+                }
+            }
+        }
 
         // ── Stop hooks (budget / max-iter policy) — legacy-loop parity. ──
         // Scoped so the immutable borrow of `m` ends before we mutate below.

@@ -575,3 +575,71 @@ async fn payload_summarizer_compresses_tool_output() {
         .iter()
         .any(|m| m.content.contains(&"X".repeat(10_000))));
 }
+
+/// Phase C parity: a steering message queued mid-flight is drained into history
+/// at the iteration boundary.
+#[tokio::test]
+async fn run_queue_steer_is_drained_into_history() {
+    use crate::openhuman::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
+
+    let rq = RunQueue::new(); // returns Arc<RunQueue>
+    rq.push(QueuedMessage {
+        text: "actually, focus on X".to_string(),
+        mode: QueueMode::Steer,
+        client_id: String::new(),
+        thread_id: "thr-1".to_string(),
+        queued_at_ms: 0,
+        model_override: None,
+        temperature: None,
+        profile_id: None,
+        locale: None,
+    })
+    .await;
+
+    // Provider returns a final answer immediately (one dispatch).
+    struct FinalProvider;
+    #[async_trait]
+    impl Provider for FinalProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            Ok(ChatResponse {
+                text: Some("done".to_string()),
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+    let executor = Arc::new(RecordingExecutor {
+        executed: AtomicUsize::new(0),
+    });
+    let machine = LiveTurnMachine::new(
+        Arc::new(FinalProvider),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("start")],
+        vec![],
+        executor,
+        10,
+    )
+    .with_run_queue(Some(rq));
+    let outcome = run_turn_via_graph(machine).await.expect("runs");
+    assert!(outcome
+        .history
+        .iter()
+        .any(|m| m.content.contains("actually, focus on X")));
+}

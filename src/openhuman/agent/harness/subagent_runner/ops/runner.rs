@@ -811,6 +811,7 @@ async fn run_typed_mode(
                 filtered_specs.clone(),
                 allowed_names,
                 definition.effective_max_iterations(),
+                options.run_queue.clone(),
             )
             .await?
         } else {

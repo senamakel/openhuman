@@ -404,7 +404,7 @@ fn create_chat_provider_uses_role() {
 #[test]
 fn managed_backend_pins_specialised_role_to_tier() {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
     };
     // default_model is chat-v1 — the value the buggy path would have leaked.
     let config = Config::default();
@@ -414,6 +414,7 @@ fn managed_backend_pins_specialised_role_to_tier() {
         ("reasoning", MODEL_REASONING_V1),
         ("agentic", MODEL_AGENTIC_V1),
         ("coding", MODEL_CODING_V1),
+        ("burst", MODEL_BURST_V1),
         ("vision", MODEL_VISION_V1),
     ] {
         let (_, model) = create_chat_provider_from_string(role, "openhuman", &config)
@@ -481,12 +482,16 @@ fn managed_backend_summarization_ignores_cloud_llm_model_override() {
 // `code_executor` agent (`hint = "coding"`) makes when it spawns.
 #[test]
 fn subagent_hint_resolves_to_tier_on_managed_backend() {
-    use crate::openhuman::config::{MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1};
+    use crate::openhuman::config::{
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
+    };
     let config = Config::default();
     for (hint, expected_tier) in &[
         ("coding", MODEL_CODING_V1),
         ("agentic", MODEL_AGENTIC_V1),
         ("reasoning", MODEL_REASONING_V1),
+        // The super-context scout (`context_scout`) spawns with `hint = "burst"`.
+        ("burst", MODEL_BURST_V1),
     ] {
         let (_, model) =
             create_chat_provider(hint, &config).expect("create_chat_provider must succeed");

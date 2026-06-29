@@ -150,7 +150,7 @@ impl Default for CostConfig {
 /// Default pricing for popular models (USD per 1M tokens)
 fn get_default_pricing() -> HashMap<String, ModelPricing> {
     use super::types::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
         MODEL_REASONING_V1,
     };
 
@@ -190,6 +190,14 @@ fn get_default_pricing() -> HashMap<String, ModelPricing> {
         ModelPricing {
             input: 0.90,
             output: 3.30,
+        },
+    );
+    // Burst tier — flat $0.16/1M both directions (no prompt cache).
+    prices.insert(
+        MODEL_BURST_V1.into(),
+        ModelPricing {
+            input: 0.16,
+            output: 0.16,
         },
     );
 

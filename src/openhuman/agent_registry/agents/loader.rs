@@ -988,6 +988,14 @@ mod tests {
         let def = find("context_scout");
         assert_eq!(def.agent_tier, AgentTier::Worker);
         assert_eq!(def.sandbox_mode, SandboxMode::ReadOnly);
+        // Super-context scout rides the cheap, high-throughput `burst` tier
+        // (resolves to `burst-v1` on the managed backend) — not the pricier
+        // agentic/reasoning tiers.
+        assert!(
+            matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"),
+            "context_scout must spawn on the burst tier, got {:?}",
+            def.model
+        );
         // Bundle cap — load-bearing for the parent's context budget. Leaves
         // room for the `recommended_skills` block alongside summary + plan.
         assert_eq!(def.max_result_chars, Some(5000));

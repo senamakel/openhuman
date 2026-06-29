@@ -76,7 +76,7 @@ pub(crate) const NO_MODEL_CONFIGURED_ANCHOR: &str = "resolved to an empty model 
 
 fn is_abstract_tier_model(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
         MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
     };
     let trimmed = model.trim();
@@ -85,6 +85,7 @@ fn is_abstract_tier_model(model: &str) -> bool {
         || trimmed == MODEL_CHAT_V1
         || trimmed == MODEL_AGENTIC_V1
         || trimmed == MODEL_CODING_V1
+        || trimmed == MODEL_BURST_V1
         || trimmed == MODEL_VISION_V1
         || trimmed == MODEL_SUMMARIZATION_V1
 }
@@ -108,6 +109,7 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
         ("chat", crate::openhuman::config::MODEL_CHAT_V1),
         ("agentic", crate::openhuman::config::MODEL_AGENTIC_V1),
         ("coding", crate::openhuman::config::MODEL_CODING_V1),
+        ("burst", crate::openhuman::config::MODEL_BURST_V1),
         ("vision", crate::openhuman::config::MODEL_VISION_V1),
         (
             "summarization",
@@ -124,6 +126,7 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
         (crate::openhuman::config::MODEL_REASONING_QUICK_V1, "chat"),
         (crate::openhuman::config::MODEL_AGENTIC_V1, "agentic"),
         (crate::openhuman::config::MODEL_CODING_V1, "coding"),
+        (crate::openhuman::config::MODEL_BURST_V1, "burst"),
         (crate::openhuman::config::MODEL_VISION_V1, "vision"),
         (
             crate::openhuman::config::MODEL_SUMMARIZATION_V1,
@@ -183,7 +186,7 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
 /// to the backend.
 pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
         MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
     };
     matches!(
@@ -192,6 +195,7 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
             | MODEL_CHAT_V1
             | MODEL_AGENTIC_V1
             | MODEL_CODING_V1
+            | MODEL_BURST_V1
             | MODEL_REASONING_QUICK_V1
             | MODEL_SUMMARIZATION_V1
             | MODEL_VISION_V1
@@ -199,6 +203,7 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
             | "hint:chat"
             | "hint:agentic"
             | "hint:coding"
+            | "hint:burst"
             | "hint:summarization"
             | "hint:vision"
     )
@@ -218,7 +223,7 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
 /// ([`crate::openhuman::inference::model_context::model_vision_enabled`]).
 pub(crate) fn oh_tier_supports_vision(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
         MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
     };
     match model {
@@ -230,6 +235,8 @@ pub(crate) fn oh_tier_supports_vision(model: &str) -> bool {
         MODEL_REASONING_QUICK_V1 => false,
         MODEL_AGENTIC_V1 | "hint:agentic" => false,
         MODEL_CODING_V1 | "hint:coding" => false,
+        // Burst is a text-only tier.
+        MODEL_BURST_V1 | "hint:burst" => false,
         MODEL_SUMMARIZATION_V1 | "hint:summarization" => false,
         _ => false,
     }
@@ -258,6 +265,11 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
         "reasoning" => config.reasoning_provider.as_deref(),
         "agentic" => config.agentic_provider.as_deref(),
         "coding" => config.coding_provider.as_deref(),
+        // Burst is managed-backend only (no per-workload provider knob): it rides
+        // the hosted high-throughput tier. Unset → falls through to
+        // `primary_cloud` (→ managed `burst-v1`) like the other tier-specific
+        // background workloads.
+        "burst" => None,
         // Tier-specific multimodal model; like `agentic` it is NOT part of the
         // chat-tier BYOK inheritance below — when unset it falls through to
         // `primary_cloud` (→ managed `vision-v1`).
@@ -870,12 +882,18 @@ pub(crate) fn create_local_chat_provider_from_string(
 /// every attached image — leaving the managed vision sub-agent blind.
 fn managed_tier_for_role(role: &str) -> Option<&'static str> {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
+        MODEL_VISION_V1,
     };
     match role {
         "reasoning" => Some(MODEL_REASONING_V1),
         "agentic" => Some(MODEL_AGENTIC_V1),
         "coding" => Some(MODEL_CODING_V1),
+        // Burst rides the managed backend's high-throughput tier. Pinned here
+        // (rather than collapsing to `default_model`) so the `hint = "burst"`
+        // sub-agent — the super-context scout — actually reaches `burst-v1`.
+        // There is no `burst_provider` knob: burst is managed-only.
+        "burst" => Some(MODEL_BURST_V1),
         "vision" => Some(MODEL_VISION_V1),
         // Background subconscious tick/triage: pinned to the lightweight chat
         // tier (see the doc above for why it is pinned despite being background).

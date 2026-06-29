@@ -192,12 +192,12 @@ fn get_default_pricing() -> HashMap<String, ModelPricing> {
             output: 3.30,
         },
     );
-    // Burst tier — flat $0.16/1M both directions (no prompt cache).
+    // Burst tier — high-throughput, low-cost model; flat rate both directions.
     prices.insert(
         MODEL_BURST_V1.into(),
         ModelPricing {
-            input: 0.16,
-            output: 0.16,
+            input: 0.208,
+            output: 0.208,
         },
     );
 

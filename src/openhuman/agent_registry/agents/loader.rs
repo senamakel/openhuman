@@ -992,7 +992,7 @@ mod tests {
         // (resolves to `burst-v1` on the managed backend) — not the pricier
         // agentic/reasoning tiers.
         assert!(
-            matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"),
+            matches!(&def.model, ModelSpec::Hint(h) if h == "burst"),
             "context_scout must spawn on the burst tier, got {:?}",
             def.model
         );

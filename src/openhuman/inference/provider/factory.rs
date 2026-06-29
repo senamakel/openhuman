@@ -994,6 +994,7 @@ fn make_openhuman_backend(
         Some("chat") => crate::openhuman::config::MODEL_CHAT_V1.to_string(),
         Some("agentic") => crate::openhuman::config::MODEL_AGENTIC_V1.to_string(),
         Some("coding") => crate::openhuman::config::MODEL_CODING_V1.to_string(),
+        Some("burst") => crate::openhuman::config::MODEL_BURST_V1.to_string(),
         Some("summarization") => crate::openhuman::config::MODEL_SUMMARIZATION_V1.to_string(),
         Some("vision") => crate::openhuman::config::MODEL_VISION_V1.to_string(),
         Some(_) => {

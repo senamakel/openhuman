@@ -1015,8 +1015,21 @@ fn known_hints_pass() {
     assert!(is_known_openhuman_tier("hint:chat"));
     assert!(is_known_openhuman_tier("hint:agentic"));
     assert!(is_known_openhuman_tier("hint:coding"));
+    assert!(is_known_openhuman_tier("hint:burst"));
     assert!(is_known_openhuman_tier("hint:summarization"));
     assert!(is_known_openhuman_tier("hint:vision"));
+}
+
+// `hint:burst` is accepted by `is_known_openhuman_tier`, so it must also be
+// translated to `burst-v1` by the managed backend — otherwise a saved
+// `default_model = "hint:burst"` would be forwarded literally and 400.
+#[test]
+fn managed_backend_translates_hint_burst_to_burst_tier() {
+    let mut config = Config::default();
+    config.default_model = Some("hint:burst".to_string());
+    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, crate::openhuman::config::MODEL_BURST_V1);
 }
 
 #[test]

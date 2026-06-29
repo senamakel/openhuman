@@ -28,7 +28,9 @@ use tinyagents::harness::runtime::AgentHarness;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 
 pub use model::ProviderModel;
-pub use tools::ToolAdapter;
+pub use tools::{SharedToolAdapter, ToolAdapter};
+
+use std::collections::HashSet;
 
 /// Whether agent turns should route through the `tinyagents` harness.
 pub fn tinyagents_routing_enabled() -> bool {
@@ -105,6 +107,84 @@ pub async fn run_turn_via_tinyagents(
     Ok(TinyagentsTurnOutcome {
         text,
         history: out_history,
+        model_calls: run.model_calls,
+        tool_calls: run.tool_calls,
+        input_tokens: run.usage.usage.input_tokens,
+        output_tokens: run.usage.usage.output_tokens,
+    })
+}
+
+/// Drive a turn through the tinyagents harness over the routes' **shared**,
+/// `Arc`-owned tool registry sets (`Arc<Vec<Box<dyn Tool>>>`), advertising
+/// exactly `specs` (already filtered/deduped by the caller's visibility rules).
+///
+/// This is the entry point the channel/sub-agent routes use to retire the
+/// in-house `live` turn machine: it registers a [`SharedToolAdapter`] per
+/// advertised spec so the same `Arc`-shared tools the legacy loop runs are
+/// reused without cloning.
+///
+/// `allowed` is the callable tool-name whitelist (empty = every tool visible in
+/// `tool_sets`); each callable tool is advertised via its own `spec()`.
+///
+/// Parity note (issue #4249): per-iteration steering, the payload summarizer,
+/// autocompaction, multimodal prep, and the `ask_user_clarification` early-exit
+/// pause are not yet wired on this path. The routes that use it stay off by
+/// default until those land.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_turn_via_tinyagents_shared(
+    provider: Arc<dyn Provider>,
+    model: &str,
+    temperature: f64,
+    history: Vec<ChatMessage>,
+    tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
+    allowed: HashSet<String>,
+    max_iterations: usize,
+) -> Result<TinyagentsTurnOutcome> {
+    let mut harness: AgentHarness<()> = AgentHarness::new();
+    harness
+        .register_model(
+            model,
+            Arc::new(ProviderModel::new(provider, model, temperature)),
+        )
+        .set_default_model(model);
+
+    // Register one adapter per unique callable tool name found across the shared
+    // sets (newest set wins on a name clash; `allowed` empty = all visible).
+    let mut registered: HashSet<String> = HashSet::new();
+    for name in tool_sets
+        .iter()
+        .flat_map(|set| set.iter())
+        .map(|t| t.name())
+    {
+        if !registered.contains(name) && (allowed.is_empty() || allowed.contains(name)) {
+            if let Some(adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
+                registered.insert(name.to_string());
+                harness.register_tool(Arc::new(adapter));
+            }
+        }
+    }
+    let tool_count = registered.len();
+
+    let config = RunConfig::new("agent_turn")
+        .with_max_model_calls(max_iterations)
+        .with_max_tool_calls(max_iterations.saturating_mul(8).max(8));
+
+    tracing::info!(
+        model,
+        max_iterations,
+        tools = tool_count,
+        "[agent_graph::tinyagents] routing turn through tinyagents harness (shared tools)"
+    );
+
+    let input = convert::history_to_messages(&history);
+    let run = harness
+        .invoke(&(), (), config, input)
+        .await
+        .map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
+
+    Ok(TinyagentsTurnOutcome {
+        text: run.text().unwrap_or_default(),
+        history: convert::messages_to_history(&run.messages),
         model_calls: run.model_calls,
         tool_calls: run.tool_calls,
         input_tokens: run.usage.usage.input_tokens,

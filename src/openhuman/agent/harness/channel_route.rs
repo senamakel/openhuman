@@ -16,9 +16,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use crate::openhuman::agent_graph::live::{
-    run_turn_via_graph, LiveTurnMachine, SharedToolExecutor,
-};
+use crate::openhuman::agent_graph::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 use crate::openhuman::tools::Tool;
@@ -47,43 +45,30 @@ pub(crate) async fn run_channel_turn_via_graph(
 ) -> Result<String> {
     let extra_arc = Arc::new(extra_tools);
 
-    // Advertised specs: registry + per-turn extras, filtered by the visibility
-    // whitelist, deduped by name (newest wins — extras shadow registry).
-    let mut seen = HashSet::new();
-    let mut specs = Vec::new();
-    for tool in extra_arc.iter().chain(tools_registry.iter()) {
-        let name = tool.name().to_string();
-        let visible = visible_tool_names
-            .map(|w| w.contains(&name))
-            .unwrap_or(true);
-        if visible && seen.insert(name) {
-            specs.push(tool.spec());
-        }
-    }
-
+    // The callable set is the visibility whitelist (empty = every tool visible
+    // across the registry + per-turn extras). The runner advertises each via its
+    // own `spec()`, deduped by name (extras shadow the registry).
     let allowed = visible_tool_names.cloned().unwrap_or_default();
-    let executor = Arc::new(SharedToolExecutor::new(
-        vec![extra_arc, tools_registry],
-        allowed,
-    ));
+
+    // Multimodal prep is not yet wired on the tinyagents path (issue #4249);
+    // the params are accepted for signature parity with the legacy loop.
+    let _ = (&multimodal, &multimodal_files);
 
     tracing::info!(
         model,
         max_iterations,
-        tool_specs = specs.len(),
-        "[channel:graph] routing channel turn through agent_graph engine"
+        "[channel:graph] routing channel turn through tinyagents harness"
     );
-    let machine = LiveTurnMachine::new(
+    let outcome = run_turn_via_tinyagents_shared(
         provider,
         model,
         temperature,
         history.clone(),
-        specs,
-        executor,
+        vec![extra_arc, tools_registry],
+        allowed,
         max_iterations,
     )
-    .with_multimodal(multimodal, multimodal_files);
-    let outcome = run_turn_via_graph(machine).await?;
+    .await?;
     *history = outcome.history;
     Ok(outcome.text)
 }

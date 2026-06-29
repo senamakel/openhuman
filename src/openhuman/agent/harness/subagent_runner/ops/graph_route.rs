@@ -14,9 +14,7 @@ use std::sync::Arc;
 
 use super::loop_::AggregatedUsage;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
-use crate::openhuman::agent_graph::live::{
-    run_turn_via_graph, LiveAutocompact, LiveTurnMachine, SharedToolExecutor,
-};
+use crate::openhuman::agent_graph::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 use crate::openhuman::tools::{Tool, ToolSpec};
 
@@ -45,42 +43,34 @@ pub(super) async fn run_subagent_via_graph(
     tracing::info!(
         model,
         max_iterations,
-        "[subagent_runner:graph] routing sub-agent turn through agent_graph engine"
+        "[subagent_runner:graph] routing sub-agent turn through tinyagents harness"
     );
-    let executor = Arc::new(SharedToolExecutor::new(
-        vec![parent_tools, Arc::new(dynamic_tools)],
-        allowed_names,
-    ));
-    let machine = LiveTurnMachine::new(
+    // `run_queue` (steering) and the `ask_user_clarification` early-exit pause
+    // are parity seams not yet wired on the tinyagents path (issue #4249); kept
+    // off by default. `specs` is derived from the registry inside the runner.
+    let _ = (&specs, &run_queue);
+
+    let outcome = run_turn_via_tinyagents_shared(
         provider,
         model,
         temperature,
         history.clone(),
-        specs,
-        executor,
+        vec![parent_tools, Arc::new(dynamic_tools)],
+        allowed_names,
         max_iterations,
     )
-    // `ask_user_clarification` pauses the sub-agent so the orchestrator can
-    // relay the user's answer (parity with the legacy early-exit path).
-    .with_early_exit_tools(vec!["ask_user_clarification".to_string()])
-    .with_run_queue(run_queue)
-    // Sub-agents opt into engine autocompaction in the legacy loop; mirror that.
-    .with_autocompact(LiveAutocompact::default());
-    let outcome = run_turn_via_graph(machine).await?;
+    .await
+    .map_err(SubagentRunError::Provider)?;
+
     // Write the final conversation back so the caller can checkpoint / persist.
     *history = outcome.history;
     let usage = AggregatedUsage {
-        input_tokens: outcome.cost.input_tokens,
-        output_tokens: outcome.cost.output_tokens,
-        cached_input_tokens: outcome.cost.cached_input_tokens,
-        charged_amount_usd: outcome.cost.total_usd(),
+        input_tokens: outcome.input_tokens,
+        output_tokens: outcome.output_tokens,
+        cached_input_tokens: 0,
+        charged_amount_usd: 0.0,
     };
-    Ok((
-        outcome.text,
-        outcome.iterations as usize,
-        usage,
-        outcome.early_exit_tool,
-    ))
+    Ok((outcome.text, outcome.model_calls, usage, None))
 }
 
 #[cfg(test)]

@@ -36,6 +36,19 @@ function randBetween(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
+/**
+ * Map a value to the asset's actual enum option, case-insensitively. Rive
+ * enums are case-sensitive and silently ignore an unrecognised value — so if
+ * our resolved code (`oh`) doesn't exactly match the asset's option (`OH`),
+ * the mouth/pose freezes. The runtime exposes the real option list; we match
+ * against it and return the exact-cased option. Falls back to the input when
+ * the options aren't loaded yet or there's no match.
+ */
+function matchEnumValue(value: string, options: readonly string[] | undefined): string {
+  if (!options || options.length === 0) return value;
+  return options.find(o => o.toLowerCase() === value.toLowerCase()) ?? value;
+}
+
 const RIVE_LAYOUT = new Layout({ fit: Fit.Contain });
 
 export interface ManifestRiveMascotProps {
@@ -87,10 +100,39 @@ const ManifestRiveStage: FC<{
 
   const viewModel = useViewModel(rive, { useDefault: true });
   const vmInstance = useViewModelInstance(viewModel, { useDefault: true, rive });
-  const { setValue: setPose } = useViewModelInstanceEnum('pose', vmInstance);
-  const { setValue: setMouthVisemeCode } = useViewModelInstanceEnum('mouthVisemeCode', vmInstance);
+  const { setValue: setPose, values: poseEnumValues } = useViewModelInstanceEnum(
+    'pose',
+    vmInstance
+  );
+  const { setValue: setMouthVisemeCode, values: visemeEnumValues } = useViewModelInstanceEnum(
+    'mouthVisemeCode',
+    vmInstance
+  );
   const { setValue: setPrimaryColor } = useViewModelInstanceColor('primaryColor', vmInstance);
   const { setValue: setSecondaryColor } = useViewModelInstanceColor('secondaryColor', vmInstance);
+
+  // `useViewModelInstanceEnum(...).values` returns a NEW array reference on
+  // every render. Depending on that identity in an effect causes the effect to
+  // re-run each render → setValue updates the hook's internal state → re-render
+  // → loop ("Maximum update depth exceeded"). So we keep the arrays in refs
+  // (read inside effects) and gate re-runs on a *content* key that only changes
+  // when the asset's option list actually changes (i.e. once, when it loads).
+  const poseValuesRef = useRef<readonly string[] | undefined>(poseEnumValues);
+  poseValuesRef.current = poseEnumValues;
+  const visemeValuesRef = useRef<readonly string[] | undefined>(visemeEnumValues);
+  visemeValuesRef.current = visemeEnumValues;
+  const poseEnumKey = (poseEnumValues ?? []).join('');
+  const visemeEnumKey = (visemeEnumValues ?? []).join('');
+
+  // One-time visibility into what the asset actually accepts vs. what we send.
+  const loggedEnumsRef = useRef(false);
+  useEffect(() => {
+    if (loggedEnumsRef.current) return;
+    if (visemeEnumKey.length > 0 || poseEnumKey.length > 0) {
+      loggedEnumsRef.current = true;
+      log('asset enums — pose=%o viseme=%o', poseValuesRef.current, visemeValuesRef.current);
+    }
+  }, [poseEnumKey, visemeEnumKey]);
 
   const basePose = resolveFaceToPose(face, engine);
   const restPose = engine.states.idle;
@@ -98,8 +140,8 @@ const ManifestRiveStage: FC<{
   // Driven (face-derived) pose. A real activity pose always wins; the resting
   // pose is what the idle scheduler below is free to override.
   useEffect(() => {
-    setPose(basePose);
-  }, [basePose, setPose]);
+    setPose(matchEnumValue(basePose, poseValuesRef.current));
+  }, [basePose, setPose, poseEnumKey]);
 
   // Idle pose rotation, scoped to this mascot's idlePoseCycle. Same self-
   // rescheduling shape as RiveMascot; only runs while enabled AND resting.
@@ -111,13 +153,13 @@ const ManifestRiveStage: FC<{
     let current = restPose;
     const toRest = () => {
       current = restPose;
-      setPoseRef.current(restPose);
+      setPoseRef.current(matchEnumValue(restPose, poseValuesRef.current));
       timer = window.setTimeout(toFlourish, randBetween(AMBIENT_IDLE_MIN_MS, AMBIENT_IDLE_MAX_MS));
     };
     const toFlourish = () => {
       current = pickIdleFlourish(engine, current === restPose ? undefined : current);
       log('idle flourish → %s', current);
-      setPoseRef.current(current);
+      setPoseRef.current(matchEnumValue(current, poseValuesRef.current));
       timer = window.setTimeout(toRest, randBetween(AMBIENT_HOLD_MIN_MS, AMBIENT_HOLD_MAX_MS));
     };
     timer = window.setTimeout(toFlourish, randBetween(AMBIENT_IDLE_MIN_MS, AMBIENT_IDLE_MAX_MS));
@@ -128,8 +170,9 @@ const ManifestRiveStage: FC<{
   }, [idlePoseRotation, basePose, restPose, engine]);
 
   useEffect(() => {
-    setMouthVisemeCode(resolveVisemeCode(visemeCode, engine));
-  }, [visemeCode, engine, setMouthVisemeCode]);
+    const code = resolveVisemeCode(visemeCode, engine);
+    setMouthVisemeCode(matchEnumValue(code, visemeValuesRef.current));
+  }, [visemeCode, engine, setMouthVisemeCode, visemeEnumKey]);
 
   useEffect(() => {
     if (primaryColor !== undefined) setPrimaryColor(primaryColor);

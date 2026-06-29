@@ -398,3 +398,71 @@ async fn circuit_breaker_halts_repeated_tool_failure() {
     );
     assert!(!outcome.hit_cap);
 }
+
+/// Phase C parity: an installed stop hook (e.g. max-iterations policy) halts the
+/// live turn — the same `with_stop_hooks` surface the legacy loop honors.
+#[tokio::test]
+async fn stop_hook_halts_the_live_turn() {
+    use crate::openhuman::agent::stop_hooks::{with_stop_hooks, MaxIterationsStopHook};
+
+    // Provider that always asks for a tool (would run to the cap of 50).
+    struct LoopProvider;
+    #[async_trait]
+    impl Provider for LoopProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            Ok(ChatResponse {
+                text: Some("looping".to_string()),
+                tool_calls: vec![ToolCall {
+                    id: "t".to_string(),
+                    name: "noop".to_string(),
+                    arguments: "{}".to_string(),
+                    extra_content: None,
+                }],
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+    let executor = Arc::new(RecordingExecutor {
+        executed: AtomicUsize::new(0),
+    });
+    let machine = LiveTurnMachine::new(
+        Arc::new(LoopProvider),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("go")],
+        vec![],
+        executor,
+        50,
+    );
+    // Install a 2-iteration stop hook for the duration of the run.
+    let hooks: Vec<std::sync::Arc<dyn crate::openhuman::agent::stop_hooks::StopHook>> =
+        vec![std::sync::Arc::new(MaxIterationsStopHook::new(2))];
+    let outcome = with_stop_hooks(hooks, run_turn_via_graph(machine))
+        .await
+        .expect("runs");
+    // Halted by the hook well before the cap of 50.
+    assert!(
+        outcome.iterations <= 3,
+        "stop hook should halt early, got {}",
+        outcome.iterations
+    );
+    assert!(!outcome.hit_cap);
+    assert!(outcome.text.contains("stopped by hook"));
+}

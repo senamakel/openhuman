@@ -218,7 +218,55 @@ impl Node<LiveTurnState> for Dispatch {
         ctx: &NodeCtx<'_>,
     ) -> Result<NodeOutput<LiveTurnState>> {
         let mut m = self.0.lock().await;
-        let messages = m.history.clone();
+
+        // ── Stop hooks (budget / max-iter policy) — legacy-loop parity. ──
+        // Scoped so the immutable borrow of `m` ends before we mutate below.
+        let mut stop_reason: Option<String> = None;
+        {
+            let hooks = crate::openhuman::agent::stop_hooks::current_stop_hooks();
+            if !hooks.is_empty() {
+                let st = crate::openhuman::agent::stop_hooks::TurnState {
+                    iteration: (m.iteration + 1) as u32,
+                    max_iterations: m.max_iterations as u32,
+                    cost: &m.cost,
+                    model: &m.model,
+                };
+                for hook in &hooks {
+                    if let crate::openhuman::agent::stop_hooks::StopDecision::Stop { reason } =
+                        hook.check(&st).await
+                    {
+                        stop_reason = Some(format!(
+                            "Agent turn stopped by hook '{}': {reason}",
+                            hook.name()
+                        ));
+                        break;
+                    }
+                }
+            }
+        }
+        if let Some(reason) = stop_reason {
+            tracing::warn!(reason = %reason, "[agent_graph::live] stop hook halted turn");
+            m.final_text = reason;
+            return Ok(NodeOutput::goto(state, "finalize"));
+        }
+
+        // Request copy of history, trimmed to the model's context window so a
+        // long tool-calling chain can't overflow (legacy-loop parity). Trimming
+        // the request copy (not persisted history) keeps the transcript intact.
+        let mut messages = m.history.clone();
+        if let Some(cw) = m.provider.effective_context_window(&m.model).await {
+            let outcome =
+                crate::openhuman::agent::harness::token_budget::trim_chat_messages_to_budget(
+                    &mut messages,
+                    cw,
+                );
+            if outcome.trimmed {
+                tracing::debug!(
+                    messages_removed = outcome.messages_removed,
+                    "[agent_graph::live] pre-dispatch history trimmed to context window"
+                );
+            }
+        }
         let use_native = m.provider.supports_native_tools() && !m.tools.is_empty();
         let tools = if use_native {
             Some(m.tools.clone())

@@ -17,7 +17,7 @@ use std::sync::Arc;
 use super::loop_::AggregatedUsage;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::inference::provider::{ChatMessage, Provider};
+use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::openhuman::tools::{Tool, ToolSpec};
 
@@ -119,7 +119,7 @@ pub(super) async fn run_subagent_via_graph(
     // than surfacing an empty/partial answer — the legacy `SubagentCheckpoint`.
     if outcome.hit_cap {
         use super::super::super::engine::CheckpointStrategy;
-        let digest = build_cap_digest(&outcome.history);
+        let digest = build_cap_digest(&outcome.conversation);
         let strategy = super::checkpoint::SubagentCheckpoint {
             provider: summary_provider.as_ref(),
             model: model.to_string(),
@@ -152,18 +152,38 @@ pub(super) async fn run_subagent_via_graph(
     ))
 }
 
-/// Build the `tool → outcome` digest the cap-hit summary call summarizes, from
-/// the partial transcript: every tool result plus any visible assistant text.
-fn build_cap_digest(history: &[ChatMessage]) -> String {
-    history
-        .iter()
-        .filter(|m| {
-            (m.role == "tool" && !m.content.is_empty())
-                || (m.role == "assistant" && !m.content.trim().is_empty())
-        })
-        .map(|m| format!("[{}] {}", m.role, m.content))
-        .collect::<Vec<_>>()
-        .join("\n")
+/// Build the `tool → outcome` digest the cap-hit summary call summarizes, in the
+/// legacy `- {name} [{ok|failed}]: {output}` format (engine `run_tool_digest`),
+/// pairing each tool result back to its call by id. Tool success isn't carried
+/// on the converted transcript, so results are reported optimistically as `ok`.
+fn build_cap_digest(conversation: &[ConversationMessage]) -> String {
+    use std::collections::HashMap;
+    use std::fmt::Write as _;
+
+    // call_id -> tool name, from this turn's assistant tool-call rounds.
+    let mut names: HashMap<&str, &str> = HashMap::new();
+    for msg in conversation {
+        if let ConversationMessage::AssistantToolCalls { tool_calls, .. } = msg {
+            for call in tool_calls {
+                names.insert(call.id.as_str(), call.name.as_str());
+            }
+        }
+    }
+
+    let mut out = String::new();
+    for msg in conversation {
+        if let ConversationMessage::ToolResults(results) = msg {
+            for r in results {
+                let name = names
+                    .get(r.tool_call_id.as_str())
+                    .copied()
+                    .unwrap_or("tool");
+                let body = crate::openhuman::util::truncate_with_ellipsis(&r.content, 800);
+                let _ = writeln!(out, "- {name} [ok]: {body}");
+            }
+        }
+    }
+    out.trim_end().to_string()
 }
 
 #[cfg(test)]

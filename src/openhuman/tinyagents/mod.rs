@@ -39,7 +39,7 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 
 pub use model::{ProviderModel, ThinkingForwarder};
-pub use observability::{IterationCursor, OpenhumanEventBridge, SubagentScope};
+pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
 pub use tools::{EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter};
 
 use std::collections::HashSet;
@@ -98,6 +98,11 @@ pub struct TinyagentsTurnOutcome {
     /// loop paused so the caller can checkpoint and surface the question. When
     /// present, `text` holds the question. Mirrors the legacy `early_exit_tool`.
     pub early_exit_tool: Option<String>,
+    /// `true` when the run stopped because it reached the model-call cap with
+    /// work still pending (the last response requested more tools). The caller
+    /// should summarize a resumable checkpoint rather than treat `text` as a
+    /// final answer — the tinyagents analogue of `CheckpointStrategy::on_max_iter`.
+    pub hit_cap: bool,
 }
 
 /// Drive an agent turn through the `tinyagents` agent-loop harness.
@@ -156,6 +161,7 @@ pub async fn run_turn_via_tinyagents(
         input_tokens: run.usage.usage.input_tokens,
         output_tokens: run.usage.usage.output_tokens,
         early_exit_tool: None,
+        hit_cap: false,
     })
 }
 
@@ -199,6 +205,7 @@ pub async fn run_turn_via_tinyagents_shared(
     context_window: Option<u64>,
     run_queue: Option<Arc<RunQueue>>,
     early_exit_tools: &[&str],
+    pause_at_cap: bool,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
 
@@ -231,10 +238,10 @@ pub async fn run_turn_via_tinyagents_shared(
         )));
     }
 
-    // A single steering handle drives both mid-flight steering (run queue) and
-    // the early-exit pause, so an early-exit `Pause` and a queued `InjectMessage`
-    // reach the same loop. Created when either feature is active.
-    let needs_steering = run_queue.is_some() || !early_exit_tools.is_empty();
+    // A single steering handle drives mid-flight steering (run queue), the
+    // early-exit pause, and the model-call-cap pause, so all three reach the same
+    // loop. Created when any of them is active.
+    let needs_steering = run_queue.is_some() || !early_exit_tools.is_empty() || pause_at_cap;
     let handle = needs_steering.then(SteeringHandle::allow_all);
     let early_exit_set: HashSet<&str> = early_exit_tools.iter().copied().collect();
     // One hook per run, shared by every early-exit adapter (records the first
@@ -280,24 +287,40 @@ pub async fn run_turn_via_tinyagents_shared(
 
     let input = convert::history_to_messages(&history);
 
-    // Build the run context: optional progress/cost bridge (streaming) + optional
-    // mid-flight steering from the run queue.
+    // Build the run context: an optional event sink feeds the progress/cost
+    // bridge (streaming) and/or the model-call-cap pauser; the shared steering
+    // handle carries mid-flight, early-exit, and cap pauses.
     let mut ctx = RunContext::new(config, ());
 
     let streaming = on_progress.is_some();
-    let bridge = on_progress.map(|tx| {
-        let bridge = OpenhumanEventBridge::with_scope(
-            Some(tx),
-            model,
-            max_iterations,
-            subagent_scope.clone(),
-            cursor.clone(),
-        );
-        let events = EventSink::new();
-        events.subscribe(bridge.clone());
-        (bridge, events)
-    });
-    if let Some((_, events)) = &bridge {
+    // A sink is needed to mirror progress (bridge) or to observe model-call
+    // completions for the cap pauser.
+    let events = (on_progress.is_some() || pause_at_cap).then(EventSink::new);
+
+    let bridge = match (&events, on_progress) {
+        (Some(events), Some(tx)) => {
+            let bridge = OpenhumanEventBridge::with_scope(
+                Some(tx),
+                model,
+                max_iterations,
+                subagent_scope.clone(),
+                cursor.clone(),
+            );
+            events.subscribe(bridge.clone());
+            Some(bridge)
+        }
+        _ => None,
+    };
+
+    // Cap pauser: stop gracefully at the model-call budget (returning the partial
+    // transcript) so the caller can summarize a checkpoint instead of erroring.
+    if pause_at_cap {
+        if let (Some(events), Some(handle)) = (&events, &handle) {
+            events.subscribe(CapPauser::new(handle.clone(), max_iterations));
+        }
+    }
+
+    if let Some(events) = &events {
         ctx = ctx.with_events(events.clone());
     }
 
@@ -331,7 +354,7 @@ pub async fn run_turn_via_tinyagents_shared(
         forwarder.abort();
     }
     let run = run_result.map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
-    let bridge_totals = bridge.map(|(bridge, _)| {
+    let bridge_totals = bridge.map(|bridge| {
         let (input_tokens, output_tokens, _) = bridge.totals();
         (input_tokens, output_tokens)
     });
@@ -346,6 +369,18 @@ pub async fn run_turn_via_tinyagents_shared(
     // turn carries the tool call, not a final answer) so the caller can
     // checkpoint and prompt the user — matching the legacy `early_exit_tool`.
     let early_exit = early_exit_hook.and_then(|hook| hook.take());
+
+    // Cap detection: the harness sets `final_response` only when the loop
+    // finishes naturally (the model stopped requesting tools). When the cap
+    // pauser stops the loop mid-work, `final_response` stays `None` — that's the
+    // cap hit. An early-exit is a clean pause and takes precedence; under
+    // `pause_at_cap` the only other `Pause` source is the cap pauser, so this is
+    // unambiguous. (`run_queue` steering injects messages, never pauses.)
+    let hit_cap = pause_at_cap
+        && early_exit.is_none()
+        && run.model_calls >= max_iterations
+        && run.final_response.is_none();
+
     let (early_exit_tool, text) = match early_exit {
         Some(exit) => (Some(exit.tool), exit.question),
         None => (None, run.text().unwrap_or_default()),
@@ -359,6 +394,7 @@ pub async fn run_turn_via_tinyagents_shared(
         input_tokens,
         output_tokens,
         early_exit_tool,
+        hit_cap,
     })
 }
 

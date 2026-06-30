@@ -79,6 +79,9 @@ pub(crate) async fn run_channel_turn_via_graph(
         None,
         // No early-exit pause on the channel path.
         &[],
+        // Channels surface the cap as an error (legacy `ErrorCheckpoint`), so no
+        // graceful cap pause/summary here.
+        false,
     )
     .await?;
     *history = outcome.history;

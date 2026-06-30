@@ -171,6 +171,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         None,
         None,
         &[],
+        false,
     )
     .await
     .expect("streaming turn runs");
@@ -267,6 +268,7 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         None,
         Some(run_queue),
         &[],
+        false,
     )
     .await
     .expect("steered turn runs");

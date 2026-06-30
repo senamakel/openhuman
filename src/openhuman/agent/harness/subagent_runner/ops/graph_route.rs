@@ -6,9 +6,10 @@
 //! same provider and the same harness tools (via [`SharedToolAdapter`] over the
 //! sub-agent's shared `Arc<Vec<Box<dyn Tool>>>` tool sets, so no engine lifetime
 //! change is needed). It now mirrors the legacy seams: child progress deltas
-//! (`Subagent*` events incl. thinking), mid-flight steering, autocompaction, and
-//! the `ask_user_clarification` early-exit pause. Remaining gap: the payload
-//! summarizer / transcript observer details.
+//! (`Subagent*` events incl. thinking), mid-flight steering, autocompaction, the
+//! `ask_user_clarification` early-exit pause, and a graceful model-call-cap
+//! checkpoint summary (legacy `SubagentCheckpoint::on_max_iter`). Remaining gap:
+//! the transcript observer's persistence details.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -70,7 +71,11 @@ pub(super) async fn run_subagent_via_graph(
         extended_policy,
     });
 
-    let outcome = run_turn_via_tinyagents_shared(
+    // Keep a provider handle for the cap-hit summary call (the run consumes the
+    // other clone).
+    let summary_provider = provider.clone();
+
+    let mut outcome = run_turn_via_tinyagents_shared(
         provider,
         model,
         temperature,
@@ -87,27 +92,70 @@ pub(super) async fn run_subagent_via_graph(
         run_queue,
         // Pause + checkpoint when the child asks the user a clarifying question.
         &["ask_user_clarification"],
+        // Pause gracefully at the model-call cap so we can summarize a resumable
+        // checkpoint (below) instead of erroring — legacy `on_max_iter` parity.
+        true,
     )
     .await
     .map_err(SubagentRunError::Provider)?;
 
     // Write the final conversation back so the caller can checkpoint / persist.
-    *history = outcome.history;
-    let usage = AggregatedUsage {
+    *history = outcome.history.clone();
+
+    let mut usage = AggregatedUsage {
         input_tokens: outcome.input_tokens,
         output_tokens: outcome.output_tokens,
         cached_input_tokens: 0,
         charged_amount_usd: 0.0,
     };
+
+    // Cap hit with work still pending: summarize the run-so-far into a resumable
+    // checkpoint (the delegating agent continues from partial progress) rather
+    // than surfacing an empty/partial answer — the legacy `SubagentCheckpoint`.
+    if outcome.hit_cap {
+        use super::super::super::engine::CheckpointStrategy;
+        let digest = build_cap_digest(&outcome.history);
+        let strategy = super::checkpoint::SubagentCheckpoint {
+            provider: summary_provider.as_ref(),
+            model: model.to_string(),
+            temperature,
+            agent_id: agent_id.to_string(),
+        };
+        match strategy.on_max_iter(&digest, max_iterations).await {
+            Ok(co) => {
+                if let Some(u) = co.usage {
+                    usage.input_tokens += u.input_tokens;
+                    usage.output_tokens += u.output_tokens;
+                }
+                outcome.text = co.text;
+            }
+            Err(e) => return Err(SubagentRunError::Provider(e)),
+        }
+    }
+
     // On an early-exit (`ask_user_clarification`), `outcome.text` is the question
     // and the runner checkpoints + returns AwaitingUser. `None` = ran to a final
-    // answer.
+    // answer (or a cap-hit checkpoint summary).
     Ok((
         outcome.text,
         outcome.model_calls,
         usage,
         outcome.early_exit_tool,
     ))
+}
+
+/// Build the `tool → outcome` digest the cap-hit summary call summarizes, from
+/// the partial transcript: every tool result plus any visible assistant text.
+fn build_cap_digest(history: &[ChatMessage]) -> String {
+    history
+        .iter()
+        .filter(|m| {
+            (m.role == "tool" && !m.content.is_empty())
+                || (m.role == "assistant" && !m.content.trim().is_empty())
+        })
+        .map(|m| format!("[{}] {}", m.role, m.content))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg(test)]
@@ -434,6 +482,102 @@ mod tests {
             "the loop should pause before a second model call"
         );
         assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+    }
+
+    /// A tool that always succeeds, so the loop keeps going until the cap.
+    struct NoopTool;
+    #[async_trait]
+    impl Tool for NoopTool {
+        fn name(&self) -> &str {
+            "noop"
+        }
+        fn description(&self) -> &str {
+            "no-op"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object"})
+        }
+        async fn execute(&self, _a: serde_json::Value) -> anyhow::Result<ToolResult> {
+            Ok(ToolResult::success("ok"))
+        }
+    }
+
+    /// A provider that never finishes: every tool-enabled turn asks for `noop`.
+    /// A request with no tools is the cap-hit summary call — it returns prose.
+    struct LoopForeverProvider;
+    #[async_trait]
+    impl Provider for LoopForeverProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            if r.tools.is_some() {
+                Ok(ChatResponse {
+                    tool_calls: vec![ToolCall {
+                        id: "n".to_string(),
+                        name: "noop".to_string(),
+                        arguments: "{}".to_string(),
+                        extra_content: None,
+                    }],
+                    ..Default::default()
+                })
+            } else {
+                // The summary call (tools=None): return a progress checkpoint.
+                Ok(ChatResponse {
+                    text: Some("progress: explored two leads".to_string()),
+                    ..Default::default()
+                })
+            }
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+
+    #[tokio::test]
+    async fn cap_hit_summarizes_a_resumable_checkpoint() {
+        let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(NoopTool)]);
+        let mut allowed = HashSet::new();
+        allowed.insert("noop".to_string());
+        let mut history = vec![ChatMessage::user("do a big task")];
+
+        let (output, iterations, _usage, early_exit) = run_subagent_via_graph(
+            Arc::new(LoopForeverProvider),
+            "mock-model",
+            0.0,
+            &mut history,
+            parent_tools,
+            vec![],
+            vec![],
+            allowed,
+            2,
+            None,
+            None,
+            "researcher",
+            "task-cap",
+            false,
+        )
+        .await
+        .expect("cap-hit subagent runs");
+
+        // The loop paused at the 2-call budget and summarized instead of erroring.
+        assert!(early_exit.is_none());
+        assert_eq!(iterations, 2, "the loop should stop at the model-call cap");
+        assert!(
+            output.contains("progress: explored two leads"),
+            "cap hit should return the summary checkpoint, got {output:?}"
+        );
     }
 
     #[test]

@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::Sender;
 
 use tinyagents::harness::events::{AgentEvent, EventListener, EventRecord};
+use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::usage::Usage;
 
 use crate::openhuman::agent::progress::AgentProgress;
@@ -36,6 +37,46 @@ pub struct SubagentScope {
 /// thinking deltas it forwards out-of-band (tinyagents 0.2.0's `MessageDelta`
 /// carries no reasoning channel, so reasoning can't ride the harness stream).
 pub type IterationCursor = Arc<AtomicU32>;
+
+/// An [`EventListener`] that pauses the run once `cap` model calls have
+/// completed, so the loop stops gracefully at the iteration budget (returning
+/// the partial transcript) instead of erroring with `LimitExceeded`. The harness
+/// checks pending steering at the top of each turn *before* the model-call limit
+/// check, so a `Pause` sent here short-circuits the loop cleanly. The caller then
+/// inspects the run's finish reason to decide whether to summarize a checkpoint
+/// — the tinyagents analogue of the legacy `CheckpointStrategy::on_max_iter`.
+pub struct CapPauser {
+    handle: SteeringHandle,
+    cap: u32,
+    completed: AtomicU32,
+}
+
+impl CapPauser {
+    /// Pause `handle` once `cap` model calls complete.
+    pub fn new(handle: SteeringHandle, cap: usize) -> Arc<Self> {
+        Arc::new(Self {
+            handle,
+            cap: cap as u32,
+            completed: AtomicU32::new(0),
+        })
+    }
+}
+
+impl EventListener for CapPauser {
+    fn on_event(&self, record: &EventRecord) {
+        if matches!(record.event, AgentEvent::ModelCompleted { .. }) {
+            let n = self.completed.fetch_add(1, Ordering::SeqCst) + 1;
+            if n >= self.cap {
+                tracing::info!(
+                    completed = n,
+                    cap = self.cap,
+                    "[tinyagents] model-call cap reached — requesting graceful pause"
+                );
+                self.handle.send(SteeringCommand::Pause);
+            }
+        }
+    }
+}
 
 #[derive(Default)]
 struct BridgeState {

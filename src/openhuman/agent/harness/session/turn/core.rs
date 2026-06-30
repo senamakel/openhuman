@@ -1146,6 +1146,9 @@ impl Agent {
             // The top-level chat turn surfaces clarifying questions inline rather
             // than pausing the loop, so no early-exit tools here.
             &[],
+            // Chat surfaces the model-call cap to Agent::turn's own handling;
+            // graceful in-loop cap summarization is not wired on this path yet.
+            false,
         )
         .await?;
 

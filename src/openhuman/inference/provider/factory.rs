@@ -252,9 +252,10 @@ pub(crate) fn oh_tier_supports_vision(model: &str) -> bool {
 ///
 /// Only `chat`, `reasoning`, and `coding` participate in BYOK inheritance.
 /// Background workloads (`memory`, `embeddings`, `heartbeat`, `learning`,
-/// `subconscious`) and the `agentic` workload always fall through to
-/// `primary_cloud` — they use tier-specific models that BYOK providers don't
-/// understand, and their providers are configured independently.
+/// `subconscious`) and the `agentic`/`burst` workloads always fall through to
+/// `primary_cloud` when their explicit provider route is unset — they use
+/// tier-specific models that BYOK providers don't understand, and their
+/// providers are configured independently.
 ///
 /// For backwards compatibility, a legacy external `inference_url` takes
 /// precedence when `primary_cloud` still points at OpenHuman because
@@ -266,11 +267,10 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
         "reasoning" => config.reasoning_provider.as_deref(),
         "agentic" => config.agentic_provider.as_deref(),
         "coding" => config.coding_provider.as_deref(),
-        // Burst is managed-backend only (no per-workload provider knob): it rides
-        // the hosted high-throughput tier. Unset → falls through to
-        // `primary_cloud` (→ managed `burst-v1`) like the other tier-specific
-        // background workloads.
-        "burst" => None,
+        // Burst uses the existing Agentic workload route for BYOK/local parity.
+        // If unset, it falls through to the managed backend and is pinned to
+        // `burst-v1` by `managed_tier_for_role`.
+        "burst" => config.agentic_provider.as_deref(),
         // Tier-specific multimodal model; like `agentic` it is NOT part of the
         // chat-tier BYOK inheritance below — when unset it falls through to
         // `primary_cloud` (→ managed `vision-v1`).
@@ -291,9 +291,9 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
     if s.is_empty() || s == "cloud" {
         // BYOK inheritance is scoped to the three chat-tier roles only.
         // Background workloads (memory, embeddings, heartbeat, learning,
-        // subconscious) and the agentic workload must stay on the managed
-        // backend — they use tier-specific models that BYOK providers don't
-        // understand, and their providers are configured separately.
+        // subconscious) and the agentic/burst workloads must stay on the managed
+        // backend when unset — they use tier-specific models that BYOK providers
+        // don't understand, and their providers are configured separately.
         if matches!(role, "chat" | "reasoning" | "coding") {
             if let Some(byok) = resolve_byok_fallback_provider_string(config) {
                 log::debug!(
@@ -311,10 +311,8 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
         if !matches!(role, "chat" | "reasoning" | "coding") {
             if let Some(chat) = config.chat_provider.as_deref() {
                 if crate::openhuman::inference::local::profile::is_local_provider_string(chat) {
-                    // burst is managed-backend only — there is no `burst_provider`
-                    // knob, so don't suggest setting one.
                     let override_hint = if role == "burst" {
-                        "managed-backend only; no per-workload override".to_string()
+                        "set agentic_provider explicitly to override".to_string()
                     } else {
                         format!("set {role}_provider explicitly to override")
                     };

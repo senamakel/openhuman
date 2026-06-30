@@ -415,7 +415,6 @@ fn managed_backend_pins_specialised_role_to_tier() {
         ("agentic", MODEL_AGENTIC_V1),
         ("burst", MODEL_BURST_V1),
         ("coding", MODEL_CODING_V1),
-        ("burst", MODEL_BURST_V1),
         ("vision", MODEL_VISION_V1),
     ] {
         let (_, model) = create_chat_provider_from_string(role, "openhuman", &config)
@@ -492,8 +491,6 @@ fn subagent_hint_resolves_to_tier_on_managed_backend() {
         ("agentic", MODEL_AGENTIC_V1),
         ("burst", MODEL_BURST_V1),
         ("reasoning", MODEL_REASONING_V1),
-        // The super-context scout (`context_scout`) spawns with `hint = "burst"`.
-        ("burst", MODEL_BURST_V1),
     ] {
         let (_, model) =
             create_chat_provider(hint, &config).expect("create_chat_provider must succeed");
@@ -1019,7 +1016,6 @@ fn known_hints_pass() {
     assert!(is_known_openhuman_tier("hint:agentic"));
     assert!(is_known_openhuman_tier("hint:burst"));
     assert!(is_known_openhuman_tier("hint:coding"));
-    assert!(is_known_openhuman_tier("hint:burst"));
     assert!(is_known_openhuman_tier("hint:summarization"));
     assert!(is_known_openhuman_tier("hint:vision"));
 }
@@ -1468,6 +1464,33 @@ fn byok_fallback_explicit_agentic_overrides_chat_byok() {
     assert_eq!(
         result, "anthropic:claude-haiku-4-5",
         "explicit agentic_provider must win over inherited BYOK"
+    );
+}
+
+#[test]
+fn burst_role_uses_explicit_agentic_provider() {
+    let mut config = Config::default();
+    config.cloud_providers.push(openai_entry("p_oai", "openai"));
+    config.chat_provider = Some("openai:gpt-4o".to_string());
+    config.agentic_provider = Some("anthropic:claude-haiku-4-5".to_string());
+
+    assert_eq!(
+        provider_for_role("burst", &config),
+        "anthropic:claude-haiku-4-5",
+        "burst workers must preserve explicit agentic provider routing"
+    );
+}
+
+#[test]
+fn burst_role_does_not_inherit_chat_byok_when_agentic_unset() {
+    let mut config = Config::default();
+    config.cloud_providers.push(openai_entry("p_oai", "openai"));
+    config.chat_provider = Some("openai:gpt-4o".to_string());
+
+    assert_eq!(
+        provider_for_role("burst", &config),
+        "openhuman",
+        "unset burst must stay on managed backend rather than inherit chat BYOK"
     );
 }
 

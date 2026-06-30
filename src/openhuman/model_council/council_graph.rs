@@ -24,70 +24,15 @@
 //! This is the first openhuman feature driven on the SDK's StateGraph primitives.
 
 use std::future::Future;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use tinyagents::graph::stream::{GraphEvent, GraphEventSink};
 use tinyagents::graph::ClosureStateReducer;
 use tinyagents::graph::{Command, GraphBuilder, NodeContext, NodeResult};
 
 use crate::openhuman::config::Config;
+use crate::openhuman::tinyagents::observability::GraphTracingSink;
 
 use super::council::{run_member_answer_inner, CouncilMemberResult};
-
-/// A [`GraphEventSink`] that mirrors the graph executor's lifecycle stream onto
-/// openhuman's `tracing` diagnostics (an observability journal for graph runs,
-/// issue #4249 / #28). Node/step/run transitions land as grep-friendly
-/// `[<label>]` debug lines; the running count is exposed for tests.
-struct GraphTracingSink {
-    label: &'static str,
-    count: Arc<AtomicUsize>,
-}
-
-impl GraphTracingSink {
-    fn new(label: &'static str) -> Self {
-        Self {
-            label,
-            count: Arc::new(AtomicUsize::new(0)),
-        }
-    }
-
-    /// Shared counter of events seen, for assertions.
-    fn counter(&self) -> Arc<AtomicUsize> {
-        self.count.clone()
-    }
-}
-
-impl GraphEventSink for GraphTracingSink {
-    fn emit(&self, event: GraphEvent) {
-        self.count.fetch_add(1, Ordering::Relaxed);
-        let label = self.label;
-        match &event {
-            GraphEvent::RunStarted { run_id } => {
-                tracing::debug!(label, ?run_id, "[graph] run started")
-            }
-            GraphEvent::RunCompleted { steps, .. } => {
-                tracing::debug!(label, steps, "[graph] run completed")
-            }
-            GraphEvent::RunFailed { error, .. } => {
-                tracing::warn!(label, %error, "[graph] run failed")
-            }
-            GraphEvent::NodeStarted { node, step } => {
-                tracing::debug!(label, ?node, step, "[graph] node started")
-            }
-            GraphEvent::NodeCompleted { node, step } => {
-                tracing::debug!(label, ?node, step, "[graph] node completed")
-            }
-            GraphEvent::NodeFailed { node, error, .. } => {
-                tracing::warn!(label, ?node, %error, "[graph] node failed")
-            }
-            GraphEvent::RouteSelected { node, target } => {
-                tracing::trace!(label, ?node, ?target, "[graph] route selected")
-            }
-            _ => tracing::trace!(label, "[graph] event"),
-        }
-    }
-}
 
 /// Typed working state threaded through the council graph: one slot per member,
 /// filled in by the reducer as each member node completes (in any order).

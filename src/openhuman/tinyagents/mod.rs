@@ -19,6 +19,7 @@
 //! `ask_user_clarification` early-exit pause are all re-wired onto 0.2.0.
 
 mod convert;
+pub mod delegation;
 mod model;
 pub mod observability;
 mod tools;

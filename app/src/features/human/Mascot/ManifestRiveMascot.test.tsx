@@ -136,7 +136,7 @@ describe('ManifestRiveMascot', () => {
     render(<ManifestRiveMascot entry={TOSHI} face="speaking" visemeCode="O" />);
     await waitFor(() => expect(h.useRiveParams?.buffer).toBeInstanceOf(ArrayBuffer));
     // Toshi has no 'oh' viseme → rest on sil.
-    expect(enumLast('mouthVisemeCode')).toBe('sil');
+    await waitFor(() => expect(enumLast('mouthVisemeCode')).toBe('sil'));
   });
 
   it('auto-cycles a cyclable channel when idle rotation is on', async () => {

@@ -8,6 +8,8 @@ use std::path::PathBuf;
 
 /// Standard model identifiers matching the backend model registry.
 pub const MODEL_AGENTIC_V1: &str = "agentic-v1";
+/// Low-context, low-latency worker tier for narrow tool-driving agents.
+pub const MODEL_BURST_V1: &str = "burst-v1";
 pub const MODEL_REASONING_V1: &str = "reasoning-v1";
 /// Low-latency conversational tier.
 pub const MODEL_CHAT_V1: &str = "chat-v1";

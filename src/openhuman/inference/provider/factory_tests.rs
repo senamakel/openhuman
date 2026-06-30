@@ -404,7 +404,7 @@ fn create_chat_provider_uses_role() {
 #[test]
 fn managed_backend_pins_specialised_role_to_tier() {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
     };
     // default_model is chat-v1 — the value the buggy path would have leaked.
     let config = Config::default();
@@ -413,6 +413,7 @@ fn managed_backend_pins_specialised_role_to_tier() {
     for (role, expected_tier) in &[
         ("reasoning", MODEL_REASONING_V1),
         ("agentic", MODEL_AGENTIC_V1),
+        ("burst", MODEL_BURST_V1),
         ("coding", MODEL_CODING_V1),
         ("vision", MODEL_VISION_V1),
     ] {
@@ -481,11 +482,14 @@ fn managed_backend_summarization_ignores_cloud_llm_model_override() {
 // `code_executor` agent (`hint = "coding"`) makes when it spawns.
 #[test]
 fn subagent_hint_resolves_to_tier_on_managed_backend() {
-    use crate::openhuman::config::{MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1};
+    use crate::openhuman::config::{
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
+    };
     let config = Config::default();
     for (hint, expected_tier) in &[
         ("coding", MODEL_CODING_V1),
         ("agentic", MODEL_AGENTIC_V1),
+        ("burst", MODEL_BURST_V1),
         ("reasoning", MODEL_REASONING_V1),
     ] {
         let (_, model) =
@@ -992,6 +996,7 @@ fn known_tiers_pass() {
         "reasoning-v1",
         "chat-v1",
         "agentic-v1",
+        "burst-v1",
         "coding-v1",
         "reasoning-quick-v1",
         "summarization-v1",
@@ -1009,6 +1014,7 @@ fn known_hints_pass() {
     assert!(is_known_openhuman_tier("hint:reasoning"));
     assert!(is_known_openhuman_tier("hint:chat"));
     assert!(is_known_openhuman_tier("hint:agentic"));
+    assert!(is_known_openhuman_tier("hint:burst"));
     assert!(is_known_openhuman_tier("hint:coding"));
     assert!(is_known_openhuman_tier("hint:summarization"));
     assert!(is_known_openhuman_tier("hint:vision"));
@@ -1043,11 +1049,13 @@ fn reasoning_is_the_vision_capable_managed_tier() {
     for model in [
         "chat-v1",
         "agentic-v1",
+        "burst-v1",
         "coding-v1",
         "reasoning-quick-v1",
         "summarization-v1",
         "hint:chat",
         "hint:agentic",
+        "hint:burst",
         "hint:coding",
         "hint:summarization",
     ] {
@@ -2230,6 +2238,7 @@ fn resolve_model_for_hint_maps_known_hints_to_tiers() {
         resolve_model_for_hint("hint:agentic", &config),
         "agentic-v1"
     );
+    assert_eq!(resolve_model_for_hint("hint:burst", &config), "burst-v1");
     assert_eq!(resolve_model_for_hint("hint:coding", &config), "coding-v1");
     assert_eq!(
         resolve_model_for_hint("hint:summarization", &config),

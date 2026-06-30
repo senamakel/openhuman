@@ -559,6 +559,24 @@ mod tests {
     }
 
     #[test]
+    fn low_context_workers_use_burst_hint() {
+        for id in [
+            "researcher",
+            "context_scout",
+            "integrations_agent",
+            "tools_agent",
+            "crypto_agent",
+            "tinyplace_agent",
+        ] {
+            let def = find(id);
+            assert!(
+                matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"),
+                "{id} should use the burst worker tier"
+            );
+        }
+    }
+
+    #[test]
     fn orchestrator_has_chat_hint_and_named_tools() {
         let def = find("orchestrator");
         assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "chat"));

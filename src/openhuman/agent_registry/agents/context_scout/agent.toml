@@ -32,9 +32,9 @@ omit_profile = false
 omit_memory_md = false
 
 [model]
-# Multi-step gathering loop (recall → maybe fetch → assess), so the agentic
-# tier fits — not the slow reasoning tier (the scout is meant to be cheap).
-hint = "agentic"
+# Multi-step gathering loop (recall → maybe fetch → assess), but bounded and
+# read-only; keep it on the low-latency burst tier so chat startup stays fast.
+hint = "burst"
 
 [tools]
 # Curated read-only context-gathering surface. No writes, no shell, no

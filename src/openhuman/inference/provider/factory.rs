@@ -76,7 +76,7 @@ pub(crate) const NO_MODEL_CONFIGURED_ANCHOR: &str = "resolved to an empty model 
 
 fn is_abstract_tier_model(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
         MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
     };
     let trimmed = model.trim();
@@ -84,6 +84,7 @@ fn is_abstract_tier_model(model: &str) -> bool {
         || trimmed == MODEL_REASONING_QUICK_V1
         || trimmed == MODEL_CHAT_V1
         || trimmed == MODEL_AGENTIC_V1
+        || trimmed == MODEL_BURST_V1
         || trimmed == MODEL_CODING_V1
         || trimmed == MODEL_VISION_V1
         || trimmed == MODEL_SUMMARIZATION_V1
@@ -107,6 +108,7 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
         ("reasoning", crate::openhuman::config::MODEL_REASONING_V1),
         ("chat", crate::openhuman::config::MODEL_CHAT_V1),
         ("agentic", crate::openhuman::config::MODEL_AGENTIC_V1),
+        ("burst", crate::openhuman::config::MODEL_BURST_V1),
         ("coding", crate::openhuman::config::MODEL_CODING_V1),
         ("vision", crate::openhuman::config::MODEL_VISION_V1),
         (
@@ -123,6 +125,7 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
         (crate::openhuman::config::MODEL_CHAT_V1, "chat"),
         (crate::openhuman::config::MODEL_REASONING_QUICK_V1, "chat"),
         (crate::openhuman::config::MODEL_AGENTIC_V1, "agentic"),
+        (crate::openhuman::config::MODEL_BURST_V1, "burst"),
         (crate::openhuman::config::MODEL_CODING_V1, "coding"),
         (crate::openhuman::config::MODEL_VISION_V1, "vision"),
         (
@@ -183,7 +186,7 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
 /// to the backend.
 pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
         MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
     };
     matches!(
@@ -191,6 +194,7 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
         MODEL_REASONING_V1
             | MODEL_CHAT_V1
             | MODEL_AGENTIC_V1
+            | MODEL_BURST_V1
             | MODEL_CODING_V1
             | MODEL_REASONING_QUICK_V1
             | MODEL_SUMMARIZATION_V1
@@ -198,6 +202,7 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
             | "hint:reasoning"
             | "hint:chat"
             | "hint:agentic"
+            | "hint:burst"
             | "hint:coding"
             | "hint:summarization"
             | "hint:vision"
@@ -218,7 +223,7 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
 /// ([`crate::openhuman::inference::model_context::model_vision_enabled`]).
 pub(crate) fn oh_tier_supports_vision(model: &str) -> bool {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
         MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
     };
     match model {
@@ -229,6 +234,7 @@ pub(crate) fn oh_tier_supports_vision(model: &str) -> bool {
         MODEL_CHAT_V1 | "hint:chat" => false,
         MODEL_REASONING_QUICK_V1 => false,
         MODEL_AGENTIC_V1 | "hint:agentic" => false,
+        MODEL_BURST_V1 | "hint:burst" => false,
         MODEL_CODING_V1 | "hint:coding" => false,
         MODEL_SUMMARIZATION_V1 | "hint:summarization" => false,
         _ => false,
@@ -870,11 +876,13 @@ pub(crate) fn create_local_chat_provider_from_string(
 /// every attached image — leaving the managed vision sub-agent blind.
 fn managed_tier_for_role(role: &str) -> Option<&'static str> {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
+        MODEL_VISION_V1,
     };
     match role {
         "reasoning" => Some(MODEL_REASONING_V1),
         "agentic" => Some(MODEL_AGENTIC_V1),
+        "burst" => Some(MODEL_BURST_V1),
         "coding" => Some(MODEL_CODING_V1),
         "vision" => Some(MODEL_VISION_V1),
         // Background subconscious tick/triage: pinned to the lightweight chat
@@ -975,6 +983,7 @@ fn make_openhuman_backend(
         Some("reasoning") => crate::openhuman::config::MODEL_REASONING_V1.to_string(),
         Some("chat") => crate::openhuman::config::MODEL_CHAT_V1.to_string(),
         Some("agentic") => crate::openhuman::config::MODEL_AGENTIC_V1.to_string(),
+        Some("burst") => crate::openhuman::config::MODEL_BURST_V1.to_string(),
         Some("coding") => crate::openhuman::config::MODEL_CODING_V1.to_string(),
         Some("summarization") => crate::openhuman::config::MODEL_SUMMARIZATION_V1.to_string(),
         Some("vision") => crate::openhuman::config::MODEL_VISION_V1.to_string(),
@@ -988,7 +997,7 @@ fn make_openhuman_backend(
             } else {
                 log::warn!(
                     "[providers][chat-factory] model '{}' is not a recognized OpenHuman \
-                     backend tier (valid: reasoning-v1, chat-v1, agentic-v1, coding-v1, \
+                     backend tier (valid: reasoning-v1, chat-v1, agentic-v1, burst-v1, coding-v1, \
                      reasoning-quick-v1, summarization-v1, vision-v1); falling back to '{}'",
                     model,
                     crate::openhuman::config::MODEL_REASONING_V1,

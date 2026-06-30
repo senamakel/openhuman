@@ -33,7 +33,6 @@ use crate::openhuman::file_state::with_file_state_agent_id;
 use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 
-use super::loop_::run_inner_loop;
 use super::prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
 use super::provider::{
     resolve_subagent_provider, user_is_signed_in_to_composio, LazyToolkitResolver,

@@ -269,7 +269,12 @@ pub fn register_agent_handlers() {
                     with_current_sandbox_mode(sandbox_mode, async {
                         // Channel/CLI turns run through the tinyagents harness
                         // (issue #4249); the legacy `run_tool_call_loop` is removed.
-                        let _ = (&provider_name, silent, &channel_name, on_delta, on_progress);
+                        // `on_progress` mirrors the harness event stream (tool
+                        // timeline, text deltas, cost footer) — production channel
+                        // dispatch always supplies it and now expects it live.
+                        // `on_delta` (raw Sender<String>) is superseded by
+                        // `on_progress` text deltas, so it's intentionally unused.
+                        let _ = (&provider_name, silent, &channel_name, on_delta);
                         run_channel_turn_via_graph(
                             provider.clone(),
                             &mut history,
@@ -281,6 +286,7 @@ pub fn register_agent_handlers() {
                             max_tool_iterations,
                             multimodal.clone(),
                             multimodal_files.clone(),
+                            on_progress,
                         )
                         .await
                     }),

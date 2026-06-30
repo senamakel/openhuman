@@ -1,28 +1,31 @@
 //! Channel/CLI agent turns on the tinyagents harness (issue #4249).
 //!
-//!
-//! Gated by `OPENHUMAN_AGENT_GRAPH_CHANNEL` and **off by default**. Like the
-//! sub-agent route, this reuses the same provider + tools via
-//! [`SharedToolExecutor`] over the bus handler's `Arc`-shared tool sets
-//! (`tools_registry: Arc<Vec<Box<dyn Tool>>>` + per-turn extras), so no engine
-//! lifetime change is needed. The live path already covers the loop's
-//! control-flow seams (iteration cap, circuit breakers, stop hooks,
-//! token-budget trimming, multimodal prep). Token-streaming deltas /
-//! `AgentProgress` mirroring are not yet forwarded on this path, so it stays
-//! opt-in until that is migrated.
+//! This is the canonical channel/CLI turn path (the legacy `run_tool_call_loop`
+//! is removed). Like the sub-agent route, it reuses the same provider + tools
+//! over the bus handler's `Arc`-shared tool sets (`tools_registry:
+//! Arc<Vec<Box<dyn Tool>>>` + per-turn extras), so no engine lifetime change is
+//! needed. It covers the loop's control-flow seams (iteration cap, circuit
+//! breakers, stop hooks, context trimming) and — when the caller supplies an
+//! `on_progress` sender — mirrors the harness event stream onto `AgentProgress`
+//! (live tool timeline, streaming text deltas, cost/token footer) via the same
+//! [`OpenhumanEventBridge`](crate::openhuman::tinyagents::OpenhumanEventBridge)
+//! the chat route uses.
 
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::Result;
+use tokio::sync::mpsc::Sender;
 
+use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 use crate::openhuman::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::tools::Tool;
 
 /// Drive a channel/CLI turn on the graph engine. Returns the final assistant
-/// text, matching [`super::tool_loop::run_tool_call_loop`].
+/// text. When `on_progress` is `Some`, the run streams and mirrors progress
+/// onto `AgentProgress`; pass `None` for a fire-and-forget final-text turn.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_channel_turn_via_graph(
     provider: Arc<dyn Provider>,
@@ -35,6 +38,7 @@ pub(crate) async fn run_channel_turn_via_graph(
     max_iterations: usize,
     multimodal: MultimodalConfig,
     multimodal_files: MultimodalFileConfig,
+    on_progress: Option<Sender<AgentProgress>>,
 ) -> Result<String> {
     let extra_arc = Arc::new(extra_tools);
 
@@ -50,6 +54,7 @@ pub(crate) async fn run_channel_turn_via_graph(
     tracing::info!(
         model,
         max_iterations,
+        observed = on_progress.is_some(),
         "[channel:graph] routing channel turn through tinyagents harness"
     );
     let outcome = run_turn_via_tinyagents_shared(
@@ -60,8 +65,9 @@ pub(crate) async fn run_channel_turn_via_graph(
         vec![extra_arc, tools_registry],
         allowed,
         max_iterations,
-        // Channels post a single final message; no live progress sink to mirror.
-        None,
+        // Mirror the harness event stream onto AgentProgress when the caller
+        // (e.g. channel dispatch) supplied a progress sink.
+        on_progress,
         // Top-level (parent) turn — no child-progress attribution.
         None,
         // Channel turns don't resolve a per-turn context window here.
@@ -164,6 +170,7 @@ mod tests {
             10,
             MultimodalConfig::default(),
             MultimodalFileConfig::default(),
+            None,
         )
         .await
         .expect("channel graph turn runs");

@@ -30,7 +30,7 @@ use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
 use tinyagents::harness::middleware::MessageTrimMiddleware;
-use tinyagents::harness::runtime::AgentHarness;
+use tinyagents::harness::runtime::{AgentHarness, RunPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::summarization::TrimStrategy;
 
@@ -79,6 +79,23 @@ async fn forward_steers(queue: &RunQueue, handle: &SteeringHandle) {
     }
 }
 
+/// Build the harness [`RunPolicy`] for an openhuman turn.
+///
+/// The loop enforces limits from `self.policy.limits` (not the per-run
+/// `RunConfig`), so the model-call cap **must** be set here or it falls back to
+/// the tinyagents default of 25 — far more than openhuman's `max_iterations`.
+/// Retry is set to a single attempt: the openhuman [`Provider`] already does its
+/// own internal retry/backoff, so a second harness-level retry layer would
+/// double-retry transient errors and, worse, swallow a deterministic provider
+/// error when a mock/test provider yields a different result on the retry.
+fn run_policy_for(max_iterations: usize) -> RunPolicy {
+    let mut policy = RunPolicy::default();
+    policy.limits.max_model_calls = max_iterations;
+    policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
+    policy.retry.max_attempts = 1;
+    policy
+}
+
 /// The outcome of a turn driven on the `tinyagents` harness.
 #[derive(Debug, Clone)]
 pub struct TinyagentsTurnOutcome {
@@ -120,11 +137,11 @@ pub async fn run_turn_via_tinyagents(
     max_iterations: usize,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
+    harness.with_policy(run_policy_for(max_iterations));
+    let provider_model = ProviderModel::new(provider, model, temperature);
+    let error_slot = provider_model.error_slot();
     harness
-        .register_model(
-            model,
-            Arc::new(ProviderModel::new(provider, model, temperature)),
-        )
+        .register_model(model, Arc::new(provider_model))
         .set_default_model(model);
     let tool_count = resolved_tools.len();
     for tool in resolved_tools {
@@ -145,10 +162,15 @@ pub async fn run_turn_via_tinyagents(
     );
 
     let input = convert::history_to_messages(&history);
-    let run = harness
-        .invoke(&(), (), config, input)
-        .await
-        .map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
+    let run = match harness.invoke(&(), (), config, input).await {
+        Ok(run) => run,
+        Err(e) => {
+            if let Some(original) = error_slot.lock().unwrap().take() {
+                return Err(original);
+            }
+            return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
+        }
+    };
 
     let text = run.text().unwrap_or_default();
     let out_history = convert::messages_to_history(&run.messages);
@@ -208,6 +230,7 @@ pub async fn run_turn_via_tinyagents_shared(
     pause_at_cap: bool,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
+    harness.with_policy(run_policy_for(max_iterations));
 
     // Shared 1-based model-call cursor: the event bridge advances it on each
     // model start; the model adapter reads it to attribute out-of-band thinking
@@ -221,6 +244,9 @@ pub async fn run_turn_via_tinyagents_shared(
             cursor.clone(),
         ));
     }
+    // Recover the original (downcastable) provider error if the run fails — the
+    // harness only carries a stringified copy.
+    let error_slot = provider_model.error_slot();
     harness
         .register_model(model, Arc::new(provider_model))
         .set_default_model(model);
@@ -353,7 +379,17 @@ pub async fn run_turn_via_tinyagents_shared(
     if let Some(forwarder) = steering_forwarder {
         forwarder.abort();
     }
-    let run = run_result.map_err(|e| anyhow::anyhow!("tinyagents harness run failed: {e}"))?;
+    let run = match run_result {
+        Ok(run) => run,
+        Err(e) => {
+            // Prefer the original typed provider error (preserves `AgentError`
+            // downcasts the caller relies on) over the harness's string wrap.
+            if let Some(original) = error_slot.lock().unwrap().take() {
+                return Err(original);
+            }
+            return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
+        }
+    };
     let bridge_totals = bridge.map(|bridge| {
         let (input_tokens, output_tokens, _) = bridge.totals();
         (input_tokens, output_tokens)

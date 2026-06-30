@@ -8,7 +8,7 @@
 //! carrying through text, native tool calls, and token usage.
 
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use tinyagents::harness::message::{AssistantMessage, ContentBlock, MessageDelta};
@@ -168,6 +168,16 @@ fn forward_delta(
 /// The application `State` is `()` — openhuman tools and providers carry no
 /// harness-visible shared state — so this adapter implements
 /// `ChatModel<()>`.
+/// Shared slot that preserves the most recent original provider error.
+///
+/// tinyagents carries errors as `TinyAgentsError::Model(String)`, which would
+/// stringify openhuman's typed `anyhow::Error` (e.g. `AgentError::PermissionDenied`
+/// / `MaxIterationsExceeded`) and break the downcast the caller relies on for
+/// Sentry suppression and `AgentError`-tagged events. The adapter stashes the
+/// original error here before returning the stringified one to the harness, so
+/// the runner can re-surface the downcastable error after the run fails.
+pub type ProviderErrorSlot = Arc<Mutex<Option<anyhow::Error>>>;
+
 pub struct ProviderModel {
     provider: Arc<dyn Provider>,
     model: String,
@@ -176,6 +186,8 @@ pub struct ProviderModel {
     /// When set, the adapter forwards provider reasoning deltas onto the
     /// progress sink (the harness stream has no reasoning channel).
     thinking: Option<ThinkingForwarder>,
+    /// Preserves the last original provider error for the runner to re-surface.
+    error_slot: ProviderErrorSlot,
 }
 
 impl ProviderModel {
@@ -187,7 +199,14 @@ impl ProviderModel {
             temperature,
             max_tokens: None,
             thinking: None,
+            error_slot: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// A handle to the shared error slot (clone before moving `self` into the
+    /// harness, so the runner can recover the typed provider error on failure).
+    pub fn error_slot(&self) -> ProviderErrorSlot {
+        self.error_slot.clone()
     }
 
     /// Cap the output tokens requested from the provider for every call.
@@ -226,13 +245,20 @@ impl ChatModel<()> for ProviderModel {
             "[tinyagents] provider.chat via harness model adapter"
         );
 
-        let response = self
+        let response = match self
             .provider
             .chat(chat_request, &self.model, self.temperature)
             .await
-            .map_err(|e| {
-                tinyagents::TinyAgentsError::Model(format!("openhuman provider chat failed: {e}"))
-            })?;
+        {
+            Ok(response) => response,
+            Err(e) => {
+                // Preserve the original (downcastable) error for the runner, then
+                // hand the harness a stringified copy to stop the loop.
+                let msg = format!("openhuman provider chat failed: {e}");
+                *self.error_slot.lock().unwrap() = Some(e);
+                return Err(tinyagents::TinyAgentsError::Model(msg));
+            }
+        };
         // Non-streaming path: surface any reasoning the provider returned as a
         // single post-hoc thinking delta (it had no per-token channel to ride).
         if let Some(forwarder) = &self.thinking {
@@ -263,6 +289,7 @@ impl ChatModel<()> for ProviderModel {
         let temperature = self.temperature;
         let max_tokens = self.max_tokens;
         let thinking = self.thinking.clone();
+        let error_slot = self.error_slot.clone();
 
         let (item_tx, item_rx) = tokio::sync::mpsc::unbounded_channel::<ModelStreamItem>();
 
@@ -317,7 +344,12 @@ impl ChatModel<()> for ProviderModel {
                     }
                     ModelStreamItem::Completed(response_to_model_response(&resp))
                 }
-                Err(e) => ModelStreamItem::Failed(format!("openhuman provider chat failed: {e}")),
+                Err(e) => {
+                    // Preserve the original (downcastable) error for the runner.
+                    let msg = format!("openhuman provider chat failed: {e}");
+                    *error_slot.lock().unwrap() = Some(e);
+                    ModelStreamItem::Failed(msg)
+                }
             };
             let _ = item_tx.send(terminal);
         });

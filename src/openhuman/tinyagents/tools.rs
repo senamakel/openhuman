@@ -14,6 +14,58 @@ use tinyagents::harness::tool::{
     Tool, ToolCall as TaToolCall, ToolResult as TaToolResult, ToolSchema,
 };
 
+/// Internal sentinel tool name. tinyagents fails the whole run on a call to an
+/// unregistered tool ([`TinyAgentsError::ToolNotFound`]), but the legacy loop
+/// returned an "Unknown tool" result and let the model recover. The model
+/// adapter rewrites any call to an unadvertised tool onto this sentinel (the
+/// original name carried in `requested_tool`), so the harness executes it,
+/// produces the recovery result, and the loop continues — restoring the
+/// graceful-unknown-tool behavior. The leading underscores keep it out of any
+/// real tool namespace, and it is never advertised to the model.
+pub const UNKNOWN_TOOL_SENTINEL: &str = "__openhuman_unknown_tool__";
+
+/// The sentinel tool: reports the model's requested-but-unknown tool back as a
+/// recoverable result instead of aborting the run. See [`UNKNOWN_TOOL_SENTINEL`].
+pub struct UnknownToolAdapter;
+
+#[async_trait]
+impl Tool<()> for UnknownToolAdapter {
+    fn name(&self) -> &str {
+        UNKNOWN_TOOL_SENTINEL
+    }
+
+    fn description(&self) -> &str {
+        "internal: reports an unknown tool call"
+    }
+
+    fn schema(&self) -> ToolSchema {
+        ToolSchema::new(
+            UNKNOWN_TOOL_SENTINEL,
+            "internal",
+            serde_json::json!({"type": "object"}),
+        )
+    }
+
+    async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
+        let requested = call
+            .arguments
+            .get("requested_tool")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        Ok(TaToolResult {
+            call_id: call.id,
+            name: call.name,
+            content: format!(
+                "Unknown tool: '{requested}'. It is not available; do not call it again. \
+                 Use one of the advertised tools, or answer directly."
+            ),
+            raw: None,
+            error: None,
+            elapsed_ms: 0,
+        })
+    }
+}
+
 /// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.
 /// `ask_user_clarification`), so the loop should pause and surface `question`
 /// to the user. Mirrors the legacy `run_turn_engine` `early_exit_tool` seam.

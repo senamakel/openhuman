@@ -112,39 +112,61 @@ fn build_chat_inputs(
 /// for prompt-guided (`<tool_call>…` / p-format) calls — matching the legacy
 /// dispatcher — so text-mode models drive the tinyagents loop too. The visible
 /// text is the prose with any tool-call markup stripped.
-fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
-    let (visible_text, tool_calls): (String, Vec<TaToolCall>) = if !response.tool_calls.is_empty() {
-        let calls = response
-            .tool_calls
-            .iter()
-            .map(|tc| TaToolCall {
-                id: tc.id.clone(),
-                name: tc.name.clone(),
-                arguments: serde_json::from_str(&tc.arguments).unwrap_or(serde_json::Value::Null),
-            })
-            .collect();
-        (response.text.clone().unwrap_or_default(), calls)
-    } else if let Some(text) = response.text.as_deref() {
-        let (prose, parsed) = crate::openhuman::agent::harness::parse_tool_calls(text);
-        if parsed.is_empty() {
-            (text.to_string(), Vec::new())
-        } else {
-            let calls = parsed
-                .into_iter()
-                .enumerate()
-                .map(|(i, p)| TaToolCall {
-                    // Prompt-guided calls carry no provider id; synthesize a
-                    // stable one so tool results correlate in the harness.
-                    id: p.id.unwrap_or_else(|| format!("call_{i}")),
-                    name: p.name,
-                    arguments: p.arguments,
+///
+/// `valid_tools`, when present, is the set of registered tool names: any call to
+/// a name outside it (a hallucinated/unadvertised tool) is rewritten onto the
+/// [`UNKNOWN_TOOL_SENTINEL`](super::tools::UNKNOWN_TOOL_SENTINEL) so the harness
+/// executes a recovery result instead of aborting on `ToolNotFound`.
+fn response_to_model_response(
+    response: &ChatResponse,
+    valid_tools: Option<&std::collections::HashSet<String>>,
+) -> ModelResponse {
+    let (visible_text, mut tool_calls): (String, Vec<TaToolCall>) =
+        if !response.tool_calls.is_empty() {
+            let calls = response
+                .tool_calls
+                .iter()
+                .map(|tc| TaToolCall {
+                    id: tc.id.clone(),
+                    name: tc.name.clone(),
+                    arguments: serde_json::from_str(&tc.arguments)
+                        .unwrap_or(serde_json::Value::Null),
                 })
                 .collect();
-            (prose, calls)
+            (response.text.clone().unwrap_or_default(), calls)
+        } else if let Some(text) = response.text.as_deref() {
+            let (prose, parsed) = crate::openhuman::agent::harness::parse_tool_calls(text);
+            if parsed.is_empty() {
+                (text.to_string(), Vec::new())
+            } else {
+                let calls = parsed
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, p)| TaToolCall {
+                        // Prompt-guided calls carry no provider id; synthesize a
+                        // stable one so tool results correlate in the harness.
+                        id: p.id.unwrap_or_else(|| format!("call_{i}")),
+                        name: p.name,
+                        arguments: p.arguments,
+                    })
+                    .collect();
+                (prose, calls)
+            }
+        } else {
+            (String::new(), Vec::new())
+        };
+
+    // Rewrite calls to unadvertised tools onto the sentinel so an unknown tool
+    // is a recoverable result, not a fatal `ToolNotFound`.
+    if let Some(valid) = valid_tools {
+        for call in tool_calls.iter_mut() {
+            if call.name != super::tools::UNKNOWN_TOOL_SENTINEL && !valid.contains(&call.name) {
+                let requested = std::mem::take(&mut call.name);
+                call.arguments = serde_json::json!({ "requested_tool": requested });
+                call.name = super::tools::UNKNOWN_TOOL_SENTINEL.to_string();
+            }
         }
-    } else {
-        (String::new(), Vec::new())
-    };
+    }
 
     let mut content = Vec::new();
     if !visible_text.is_empty() {
@@ -226,6 +248,9 @@ pub struct ProviderModel {
     thinking: Option<ThinkingForwarder>,
     /// Preserves the last original provider error for the runner to re-surface.
     error_slot: ProviderErrorSlot,
+    /// Registered tool names; calls outside this set are rewritten onto the
+    /// unknown-tool sentinel. `None` = no rewrite (every call passes through).
+    valid_tools: Option<Arc<std::collections::HashSet<String>>>,
 }
 
 impl ProviderModel {
@@ -238,7 +263,15 @@ impl ProviderModel {
             max_tokens: None,
             thinking: None,
             error_slot: Arc::new(Mutex::new(None)),
+            valid_tools: None,
         }
+    }
+
+    /// Restrict tool calls to `valid` — calls to any other name are rewritten
+    /// onto the unknown-tool sentinel so the run recovers instead of aborting.
+    pub fn with_valid_tools(mut self, valid: Arc<std::collections::HashSet<String>>) -> Self {
+        self.valid_tools = Some(valid);
+        self
     }
 
     /// A handle to the shared error slot (clone before moving `self` into the
@@ -308,7 +341,10 @@ impl ChatModel<()> for ProviderModel {
                 forwarder.emit(reasoning.clone());
             }
         }
-        Ok(response_to_model_response(&response))
+        Ok(response_to_model_response(
+            &response,
+            self.valid_tools.as_deref(),
+        ))
     }
 
     /// Stream the model response, forwarding openhuman's `ProviderDelta` events
@@ -328,6 +364,7 @@ impl ChatModel<()> for ProviderModel {
         let max_tokens = self.max_tokens;
         let thinking = self.thinking.clone();
         let error_slot = self.error_slot.clone();
+        let valid_tools = self.valid_tools.clone();
 
         let (item_tx, item_rx) = tokio::sync::mpsc::unbounded_channel::<ModelStreamItem>();
 
@@ -380,7 +417,10 @@ impl ChatModel<()> for ProviderModel {
                             }
                         }
                     }
-                    ModelStreamItem::Completed(response_to_model_response(&resp))
+                    ModelStreamItem::Completed(response_to_model_response(
+                        &resp,
+                        valid_tools.as_deref(),
+                    ))
                 }
                 Err(e) => {
                     // Preserve the original (downcastable) error for the runner.

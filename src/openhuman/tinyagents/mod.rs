@@ -40,7 +40,10 @@ use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Pr
 
 pub use model::{ProviderModel, ThinkingForwarder};
 pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
-pub use tools::{EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter};
+pub use tools::{
+    EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter, UnknownToolAdapter,
+    UNKNOWN_TOOL_SENTINEL,
+};
 
 use std::collections::HashSet;
 use tokio::sync::mpsc::Sender;
@@ -244,8 +247,24 @@ pub async fn run_turn_via_tinyagents_shared(
     // Shared 1-based model-call cursor: the event bridge advances it on each
     // model start; the model adapter reads it to attribute out-of-band thinking
     // deltas (tinyagents has no reasoning channel on its stream).
+    // The set of tool names the model may call: every advertised tool plus the
+    // unknown-tool sentinel. Calls outside it are rewritten onto the sentinel so
+    // a hallucinated tool recovers instead of aborting the run. Computed upfront
+    // (mirrors the registration filter below) so the model adapter can enforce it.
+    let valid_tools: Arc<HashSet<String>> = {
+        let mut names: HashSet<String> = tool_sets
+            .iter()
+            .flat_map(|set| set.iter())
+            .map(|t| t.name().to_string())
+            .filter(|name| allowed.is_empty() || allowed.contains(name))
+            .collect();
+        names.insert(UNKNOWN_TOOL_SENTINEL.to_string());
+        Arc::new(names)
+    };
+
     let cursor: IterationCursor = Arc::default();
-    let mut provider_model = ProviderModel::new(provider, model, temperature);
+    let mut provider_model =
+        ProviderModel::new(provider, model, temperature).with_valid_tools(valid_tools);
     if let Some(tx) = &on_progress {
         provider_model = provider_model.with_thinking(ThinkingForwarder::new(
             tx.clone(),
@@ -306,6 +325,9 @@ pub async fn run_turn_via_tinyagents_shared(
             }
         }
     }
+    // The unknown-tool sentinel: the model adapter rewrites any unadvertised tool
+    // call onto it so the run recovers gracefully instead of aborting.
+    harness.register_tool(Arc::new(UnknownToolAdapter));
     let tool_count = registered.len();
 
     let config = RunConfig::new("agent_turn")

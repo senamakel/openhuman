@@ -39,7 +39,7 @@ use crate::openhuman::inference::provider::{ChatMessage, Provider};
 
 pub use model::{ProviderModel, ThinkingForwarder};
 pub use observability::{IterationCursor, OpenhumanEventBridge, SubagentScope};
-pub use tools::{SharedToolAdapter, ToolAdapter};
+pub use tools::{EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter};
 
 use std::collections::HashSet;
 use tokio::sync::mpsc::Sender;
@@ -93,6 +93,10 @@ pub struct TinyagentsTurnOutcome {
     pub input_tokens: u64,
     /// Accumulated output tokens.
     pub output_tokens: u64,
+    /// Set when an early-exit tool (e.g. `ask_user_clarification`) fired: the
+    /// loop paused so the caller can checkpoint and surface the question. When
+    /// present, `text` holds the question. Mirrors the legacy `early_exit_tool`.
+    pub early_exit_tool: Option<String>,
 }
 
 /// Drive an agent turn through the `tinyagents` agent-loop harness.
@@ -150,6 +154,7 @@ pub async fn run_turn_via_tinyagents(
         tool_calls: run.tool_calls,
         input_tokens: run.usage.usage.input_tokens,
         output_tokens: run.usage.usage.output_tokens,
+        early_exit_tool: None,
     })
 }
 
@@ -192,6 +197,7 @@ pub async fn run_turn_via_tinyagents_shared(
     subagent_scope: Option<SubagentScope>,
     context_window: Option<u64>,
     run_queue: Option<Arc<RunQueue>>,
+    early_exit_tools: &[&str],
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
 
@@ -224,6 +230,19 @@ pub async fn run_turn_via_tinyagents_shared(
         )));
     }
 
+    // A single steering handle drives both mid-flight steering (run queue) and
+    // the early-exit pause, so an early-exit `Pause` and a queued `InjectMessage`
+    // reach the same loop. Created when either feature is active.
+    let needs_steering = run_queue.is_some() || !early_exit_tools.is_empty();
+    let handle = needs_steering.then(SteeringHandle::allow_all);
+    let early_exit_set: HashSet<&str> = early_exit_tools.iter().copied().collect();
+    // One hook per run, shared by every early-exit adapter (records the first
+    // early-exit and pauses). Requires the steering handle.
+    let early_exit_hook = handle
+        .as_ref()
+        .filter(|_| !early_exit_set.is_empty())
+        .map(|h| EarlyExitHook::new(h.clone()));
+
     // Register one adapter per unique callable tool name found across the shared
     // sets (newest set wins on a name clash; `allowed` empty = all visible).
     let mut registered: HashSet<String> = HashSet::new();
@@ -233,7 +252,12 @@ pub async fn run_turn_via_tinyagents_shared(
         .map(|t| t.name())
     {
         if !registered.contains(name) && (allowed.is_empty() || allowed.contains(name)) {
-            if let Some(adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
+            if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
+                if early_exit_set.contains(name) {
+                    if let Some(hook) = &early_exit_hook {
+                        adapter = adapter.with_early_exit(hook.clone());
+                    }
+                }
                 registered.insert(name.to_string());
                 harness.register_tool(Arc::new(adapter));
             }
@@ -276,20 +300,23 @@ pub async fn run_turn_via_tinyagents_shared(
         ctx = ctx.with_events(events.clone());
     }
 
-    // Steering: drain any already-queued steer messages into the handle (so a
-    // pre-run steer lands before the first model call), attach it, and forward
-    // mid-flight steers via a poller aborted when the run returns.
-    let steering_forwarder = if let Some(queue) = run_queue {
-        let handle = SteeringHandle::allow_all();
-        forward_steers(&queue, &handle).await;
+    // Steering: attach the shared handle (when present), drain any already-queued
+    // steer messages into it (so a pre-run steer lands before the first model
+    // call), and forward mid-flight steers via a poller aborted when the run
+    // returns. The same handle carries the early-exit `Pause`.
+    let steering_forwarder = if let Some(handle) = handle {
+        if let Some(queue) = run_queue.clone() {
+            forward_steers(&queue, &handle).await;
+        }
         ctx = ctx.with_steering(handle.clone());
-        let q = queue.clone();
-        Some(tokio::spawn(async move {
-            loop {
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-                forward_steers(&q, &handle).await;
-            }
-        }))
+        run_queue.map(|queue| {
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                    forward_steers(&queue, &handle).await;
+                }
+            })
+        })
     } else {
         None
     };
@@ -313,13 +340,24 @@ pub async fn run_turn_via_tinyagents_shared(
     let (input_tokens, output_tokens) =
         bridge_totals.unwrap_or((run.usage.usage.input_tokens, run.usage.usage.output_tokens));
 
+    // An early-exit tool fired: the loop paused after its round. Surface the tool
+    // name and use its captured question as the turn text (the paused assistant
+    // turn carries the tool call, not a final answer) so the caller can
+    // checkpoint and prompt the user — matching the legacy `early_exit_tool`.
+    let early_exit = early_exit_hook.and_then(|hook| hook.take());
+    let (early_exit_tool, text) = match early_exit {
+        Some(exit) => (Some(exit.tool), exit.question),
+        None => (None, run.text().unwrap_or_default()),
+    };
+
     Ok(TinyagentsTurnOutcome {
-        text: run.text().unwrap_or_default(),
+        text,
         history: convert::messages_to_history(&run.messages),
         model_calls: run.model_calls,
         tool_calls: run.tool_calls,
         input_tokens,
         output_tokens,
+        early_exit_tool,
     })
 }
 

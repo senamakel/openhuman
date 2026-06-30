@@ -84,6 +84,8 @@ pub(super) async fn run_subagent_via_graph(
         None,
         // Mid-flight steering: forward queued steer messages into the run.
         run_queue,
+        // Pause + checkpoint when the child asks the user a clarifying question.
+        &["ask_user_clarification"],
     )
     .await
     .map_err(SubagentRunError::Provider)?;
@@ -96,7 +98,15 @@ pub(super) async fn run_subagent_via_graph(
         cached_input_tokens: 0,
         charged_amount_usd: 0.0,
     };
-    Ok((outcome.text, outcome.model_calls, usage, None))
+    // On an early-exit (`ask_user_clarification`), `outcome.text` is the question
+    // and the runner checkpoints + returns AwaitingUser. `None` = ran to a final
+    // answer.
+    Ok((
+        outcome.text,
+        outcome.model_calls,
+        usage,
+        outcome.early_exit_tool,
+    ))
 }
 
 #[cfg(test)]
@@ -315,6 +325,114 @@ mod tests {
             thinking.contains("let me think"),
             "child thinking deltas should be forwarded, got {thinking:?}"
         );
+    }
+
+    /// A tool named like the early-exit tool that echoes its `question` arg.
+    struct AskTool;
+    #[async_trait]
+    impl Tool for AskTool {
+        fn name(&self) -> &str {
+            "ask_user_clarification"
+        }
+        fn description(&self) -> &str {
+            "ask the user a clarifying question"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object", "properties": {"question": {"type": "string"}}})
+        }
+        async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+            let q = args
+                .get("question")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            Ok(ToolResult::success(q))
+        }
+    }
+
+    /// A provider whose first turn calls `ask_user_clarification`; a second turn
+    /// would answer, but the early-exit pause should stop the loop before it.
+    struct AskThenAnswer {
+        calls: AtomicUsize,
+    }
+    #[async_trait]
+    impl Provider for AskThenAnswer {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            let n = self.calls.fetch_add(1, Ordering::SeqCst);
+            if n == 0 {
+                Ok(ChatResponse {
+                    tool_calls: vec![ToolCall {
+                        id: "ask-1".to_string(),
+                        name: "ask_user_clarification".to_string(),
+                        arguments: r#"{"question":"which file?"}"#.to_string(),
+                        extra_content: None,
+                    }],
+                    ..Default::default()
+                })
+            } else {
+                Ok(ChatResponse {
+                    text: Some("should not be reached".to_string()),
+                    ..Default::default()
+                })
+            }
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+
+    #[tokio::test]
+    async fn ask_user_clarification_pauses_and_surfaces_the_question() {
+        let provider = Arc::new(AskThenAnswer {
+            calls: AtomicUsize::new(0),
+        });
+        let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(AskTool)]);
+        let mut allowed = HashSet::new();
+        allowed.insert("ask_user_clarification".to_string());
+        let mut history = vec![ChatMessage::user("help me")];
+
+        let (output, iterations, _usage, early_exit) = run_subagent_via_graph(
+            provider.clone(),
+            "mock-model",
+            0.0,
+            &mut history,
+            parent_tools,
+            vec![],
+            vec![],
+            allowed,
+            10,
+            None,
+            None,
+            "researcher",
+            "task-9",
+            false,
+        )
+        .await
+        .expect("ask-clarification subagent runs");
+
+        // The loop paused after the tool round: the early-exit tool is surfaced
+        // and the question is the returned text — the second model turn never ran.
+        assert_eq!(early_exit.as_deref(), Some("ask_user_clarification"));
+        assert_eq!(output, "which file?");
+        assert_eq!(
+            iterations, 1,
+            "the loop should pause before a second model call"
+        );
+        assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
     }
 
     #[test]

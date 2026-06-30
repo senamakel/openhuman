@@ -6,12 +6,64 @@
 //! the underlying tool and render the [`ToolResult`] the way the LLM should see
 //! it (rendered via `output_for_llm`, matching the legacy tool loop).
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
     Tool, ToolCall as TaToolCall, ToolResult as TaToolResult, ToolSchema,
 };
+
+/// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.
+/// `ask_user_clarification`), so the loop should pause and surface `question`
+/// to the user. Mirrors the legacy `run_turn_engine` `early_exit_tool` seam.
+#[derive(Debug, Clone)]
+pub struct EarlyExit {
+    pub tool: String,
+    pub question: String,
+}
+
+/// Shared early-exit hook handed to the adapters for the early-exit tool names.
+/// On a successful call to one of those tools it records the [`EarlyExit`] and
+/// sends a [`SteeringCommand::Pause`] so the harness loop short-circuits at the
+/// next checkpoint (before the next model call) — the tinyagents analogue of the
+/// legacy loop's "break on early-exit tool" behavior.
+#[derive(Clone)]
+pub struct EarlyExitHook {
+    handle: SteeringHandle,
+    slot: Arc<Mutex<Option<EarlyExit>>>,
+}
+
+impl EarlyExitHook {
+    /// Build a hook that pauses `handle` and records into a fresh slot.
+    pub fn new(handle: SteeringHandle) -> Self {
+        Self {
+            handle,
+            slot: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// The captured early-exit, if one fired during the run.
+    pub fn take(&self) -> Option<EarlyExit> {
+        self.slot.lock().unwrap().take()
+    }
+
+    /// Record an early-exit and request a cooperative pause. Only the first
+    /// early-exit in a run is kept (matching the legacy "halt on first").
+    fn trigger(&self, tool: &str, question: String) {
+        {
+            let mut slot = self.slot.lock().unwrap();
+            if slot.is_none() {
+                *slot = Some(EarlyExit {
+                    tool: tool.to_string(),
+                    question,
+                });
+            }
+        }
+        tracing::info!(tool, "[tinyagents] early-exit tool — requesting pause");
+        self.handle.send(SteeringCommand::Pause);
+    }
+}
 
 /// A harness tool backed by an openhuman [`Tool`].
 pub struct ToolAdapter {
@@ -98,6 +150,8 @@ pub struct SharedToolAdapter {
     name: String,
     description: String,
     schema: ToolSchema,
+    /// When set, a successful call records an [`EarlyExit`] and pauses the loop.
+    early_exit: Option<EarlyExitHook>,
 }
 
 impl SharedToolAdapter {
@@ -117,7 +171,15 @@ impl SharedToolAdapter {
             name: spec.name.clone(),
             description: spec.description.clone(),
             schema: super::convert::spec_to_schema(&spec),
+            early_exit: None,
         })
+    }
+
+    /// Treat this tool as an early-exit tool: a successful call records the
+    /// question and pauses the run via `hook`.
+    pub fn with_early_exit(mut self, hook: EarlyExitHook) -> Self {
+        self.early_exit = Some(hook);
+        self
     }
 }
 
@@ -142,7 +204,18 @@ impl Tool<()> for SharedToolAdapter {
             .flat_map(|set| set.iter())
             .find(|t| t.name() == self.name);
         match found {
-            Some(tool) => Ok(execute_openhuman_tool(tool.as_ref(), call).await),
+            Some(tool) => {
+                let result = execute_openhuman_tool(tool.as_ref(), call).await;
+                // Early-exit (e.g. `ask_user_clarification`): on a successful
+                // call, record the question and pause so the runner can
+                // checkpoint and surface the prompt — matching the legacy seam.
+                if let Some(hook) = &self.early_exit {
+                    if result.error.is_none() {
+                        hook.trigger(&self.name, result.content.clone());
+                    }
+                }
+                Ok(result)
+            }
             None => {
                 tracing::warn!(tool = %self.name, "[tinyagents] shared tool not found");
                 Ok(TaToolResult {

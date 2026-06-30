@@ -1143,6 +1143,9 @@ impl Agent {
             context_window,
             // Mid-flight steering from the session's run queue.
             self.run_queue.clone(),
+            // The top-level chat turn surfaces clarifying questions inline rather
+            // than pausing the loop, so no early-exit tools here.
+            &[],
         )
         .await?;
 

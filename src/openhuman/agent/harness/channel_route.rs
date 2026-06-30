@@ -77,6 +77,8 @@ pub(crate) async fn run_channel_turn_via_graph(
         None,
         // No mid-flight steering on the channel path.
         None,
+        // No early-exit pause on the channel path.
+        &[],
     )
     .await?;
     *history = outcome.history;

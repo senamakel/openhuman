@@ -90,6 +90,7 @@ pub(crate) async fn run_one_tool(
     tool_policy: &dyn ToolPolicy,
     payload_summarizer: Option<&dyn PayloadSummarizer>,
     progress_call_id: &str,
+    tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
 ) -> ToolRunResult {
     let iteration_u32 = (iteration + 1) as u32;
 
@@ -289,13 +290,15 @@ pub(crate) async fn run_one_tool(
                     "[agent_loop] tool succeeded"
                 );
                 let mut scrubbed = scrub_credentials(&output);
-                let (compacted, tj_stats) = crate::openhuman::tokenjuice::compact_tool_output(
-                    &call.name,
-                    Some(&call.arguments),
-                    &scrubbed,
-                    Some(0),
-                )
-                .await;
+                let (compacted, tj_stats) =
+                    crate::openhuman::tokenjuice::compact_tool_output_with_policy(
+                        &call.name,
+                        Some(&call.arguments),
+                        &scrubbed,
+                        Some(0),
+                        tokenjuice_compression,
+                    )
+                    .await;
                 if tj_stats.applied {
                     log::debug!(
                         "[agent_loop] tokenjuice applied tool={} rule={} {}->{} bytes",
@@ -379,11 +382,12 @@ pub(crate) async fn run_one_tool(
                     tool = call.name.as_str(),
                     "[agent_loop] tool returned error: {scrubbed}"
                 );
-                let (compacted, _) = crate::openhuman::tokenjuice::compact_tool_output(
+                let (compacted, _) = crate::openhuman::tokenjuice::compact_tool_output_with_policy(
                     &call.name,
                     Some(&call.arguments),
                     &scrubbed,
                     Some(1),
+                    tokenjuice_compression,
                 )
                 .await;
                 (format!("Error: {compacted}"), false)

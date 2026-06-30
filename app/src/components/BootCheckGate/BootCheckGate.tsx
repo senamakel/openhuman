@@ -89,7 +89,7 @@ function Panel({ children }: PanelProps) {
       className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
       style={{ backgroundColor: 'var(--color-background)' }}>
       <AppBackground />
-      <div className="relative z-10 w-full max-w-xl rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-soft animate-fade-up">
+      <div className="relative z-10 w-full max-w-xl rounded-2xl border border-line bg-surface p-6 shadow-soft animate-fade-up">
         {children}
       </div>
     </div>
@@ -239,16 +239,16 @@ function ModePicker({ onConfirm }: PickerProps) {
   return (
     <Panel>
       <BootCheckLanguageSelect />
-      <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
+      <h2 className="text-xl font-semibold text-content">
         {isDesktop ? t('bootCheck.chooseCoreMode') : t('bootCheck.connectToCore')}
       </h2>
-      <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+      <p className="mt-2 text-sm text-content-secondary">
         {isDesktop ? t('bootCheck.desktopDescription') : t('bootCheck.webDescription')}
       </p>
 
       {!isDesktop && (
         <div
-          className="mt-4 rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3 text-xs text-stone-600 dark:text-neutral-300"
+          className="mt-4 rounded-xl border border-line bg-surface-muted p-3 text-xs text-content-secondary"
           data-testid="web-download-cta">
           {t('bootCheck.preferDesktop')}{' '}
           <a
@@ -271,11 +271,11 @@ function ModePicker({ onConfirm }: PickerProps) {
             aria-pressed={selected === 'local'}
             className={`rounded-xl border-2 p-5 text-left transition-colors focus:outline-none ${
               selected === 'local'
-                ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-stone-900 dark:text-neutral-100 shadow-sm'
-                : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+                ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-content shadow-sm'
+                : '!border-stone-200 dark:!border-neutral-700 bg-surface text-content-secondary hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-surface-hover'
             }`}>
             <div className="font-medium">{t('bootCheck.localRecommended')}</div>
-            <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+            <div className="mt-0.5 text-xs text-content-muted">
               {t('bootCheck.localDescription')}
             </div>
           </button>
@@ -289,11 +289,11 @@ function ModePicker({ onConfirm }: PickerProps) {
             aria-pressed={selected === 'cloud'}
             className={`rounded-xl border-2 p-5 text-left transition-colors focus:outline-none ${
               selected === 'cloud'
-                ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-stone-900 dark:text-neutral-100 shadow-sm'
-                : '!border-stone-200 dark:!border-neutral-700 bg-white dark:bg-neutral-900 text-stone-700 dark:text-neutral-200 hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-stone-50 dark:hover:bg-neutral-800/60'
+                ? '!border-primary-500 bg-primary-50 dark:bg-primary-500/15 text-content shadow-sm'
+                : '!border-stone-200 dark:!border-neutral-700 bg-surface text-content-secondary hover:!border-stone-300 dark:hover:!border-neutral-600 hover:bg-surface-hover'
             }`}>
             <div className="font-medium">{t('bootCheck.cloudMode')}</div>
-            <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+            <div className="mt-0.5 text-xs text-content-muted">
               {t('bootCheck.cloudDescription')}
             </div>
           </button>
@@ -302,7 +302,7 @@ function ModePicker({ onConfirm }: PickerProps) {
         {selected === 'cloud' && (
           <div className="mt-1 flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+              <label className="text-xs font-medium text-content-secondary">
                 {t('bootCheck.coreRpcUrl')}
               </label>
               <input
@@ -316,7 +316,7 @@ function ModePicker({ onConfirm }: PickerProps) {
                   setUrlWarning(httpPublicHostWarning(next, t));
                   setTestStatus({ kind: 'idle' });
                 }}
-                className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
               {urlError && <p className="text-xs text-red-600">{urlError}</p>}
               {!urlError && urlWarning && (
@@ -324,7 +324,7 @@ function ModePicker({ onConfirm }: PickerProps) {
               )}
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-stone-700 dark:text-neutral-200">
+              <label className="text-xs font-medium text-content-secondary">
                 {t('bootCheck.authToken')} (
                 <code className="text-[10px]">OPENHUMAN_CORE_TOKEN</code>)
               </label>
@@ -341,10 +341,10 @@ function ModePicker({ onConfirm }: PickerProps) {
                   setTokenError(null);
                   setTestStatus({ kind: 'idle' });
                 }}
-                className="rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
               {tokenError && <p className="text-xs text-red-600">{tokenError}</p>}
-              <p className="text-[11px] text-stone-500 dark:text-neutral-400 leading-snug">
+              <p className="text-[11px] text-content-muted leading-snug">
                 {t('bootCheck.storedLocally')} <code>Authorization: Bearer …</code>{' '}
                 {t('bootCheck.rpcAuthSuffix')}
               </p>
@@ -396,10 +396,8 @@ function CheckingScreen() {
   return (
     <Panel>
       <div className="flex flex-col items-center gap-4 py-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-300 dark:border-neutral-700 border-t-primary-500" />
-        <p className="text-sm text-stone-600 dark:text-neutral-300">
-          {t('bootCheck.checkingCore')}
-        </p>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-line-strong border-t-primary-500" />
+        <p className="text-sm text-content-secondary">{t('bootCheck.checkingCore')}</p>
       </div>
     </Panel>
   );
@@ -438,10 +436,10 @@ function ResultScreen({
     const foreignOwner = result.foreignOwner;
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
+        <h2 className="text-xl font-semibold text-content">
           {isPortConflict ? t('bootCheck.portConflictTitle') : t('bootCheck.cannotReach')}
         </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+        <p className="mt-2 text-sm text-content-secondary">
           {isPortConflict
             ? foreignOwner
               ? t('bootCheck.portConflictOwner')
@@ -452,9 +450,7 @@ function ResultScreen({
             : result.reason || t('bootCheck.cannotReachDesc')}
         </p>
         {isPortConflict && foreignOwner && (
-          <p className="mt-2 text-xs text-stone-500 dark:text-neutral-400">
-            {t('bootCheck.portConflictGuidance')}
-          </p>
+          <p className="mt-2 text-xs text-content-muted">{t('bootCheck.portConflictGuidance')}</p>
         )}
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3 flex-wrap">
@@ -497,12 +493,8 @@ function ResultScreen({
   if (result.kind === 'daemonDetected') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-          {t('bootCheck.legacyDetected')}
-        </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-          {t('bootCheck.legacyDescription')}
-        </p>
+        <h2 className="text-xl font-semibold text-content">{t('bootCheck.legacyDetected')}</h2>
+        <p className="mt-2 text-sm text-content-secondary">{t('bootCheck.legacyDescription')}</p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
           <Button tone="danger" onClick={onAction} disabled={actionBusy}>
@@ -519,10 +511,8 @@ function ResultScreen({
   if (result.kind === 'outdatedLocal') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-          {t('bootCheck.localNeedsRestart')}
-        </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+        <h2 className="text-xl font-semibold text-content">{t('bootCheck.localNeedsRestart')}</h2>
+        <p className="mt-2 text-sm text-content-secondary">
           {t('bootCheck.localNeedsRestartDesc')}
         </p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
@@ -541,12 +531,8 @@ function ResultScreen({
   if (result.kind === 'outdatedCloud') {
     return (
       <Panel>
-        <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-          {t('bootCheck.cloudNeedsUpdate')}
-        </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-          {t('bootCheck.cloudNeedsUpdateDesc')}
-        </p>
+        <h2 className="text-xl font-semibold text-content">{t('bootCheck.cloudNeedsUpdate')}</h2>
+        <p className="mt-2 text-sm text-content-secondary">{t('bootCheck.cloudNeedsUpdateDesc')}</p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
         <div className="mt-5 flex gap-3">
           <Button onClick={onAction} disabled={actionBusy}>
@@ -563,12 +549,8 @@ function ResultScreen({
   // noVersionMethod — treat like outdated, user picks which flavor of action
   return (
     <Panel>
-      <h2 className="text-xl font-semibold text-stone-900 dark:text-neutral-100">
-        {t('bootCheck.versionCheckFailed')}
-      </h2>
-      <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
-        {t('bootCheck.versionCheckFailedDesc')}
-      </p>
+      <h2 className="text-xl font-semibold text-content">{t('bootCheck.versionCheckFailed')}</h2>
+      <p className="mt-2 text-sm text-content-secondary">{t('bootCheck.versionCheckFailedDesc')}</p>
       {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
       <div className="mt-5 flex gap-3">
         <Button onClick={onAction} disabled={actionBusy}>

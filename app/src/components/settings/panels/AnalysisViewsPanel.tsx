@@ -54,12 +54,12 @@ const AnalysisViewsPanel = () => {
       contentClassName=""
       description={t('settings.analysisViews.menuDesc')}
       leading={<SettingsBackButton onBack={navigateBack} />}>
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-5">
         <ChipTabs<AnalysisView>
           items={views.map(view => ({ id: view.id, label: view.label }))}
           value={activeView}
           onChange={setActiveView}
-          className="flex flex-wrap gap-2 pb-1"
+          className="flex flex-wrap gap-1.5 pb-1"
         />
 
         {activeView === 'diagram' && <DiagramViewerTab />}

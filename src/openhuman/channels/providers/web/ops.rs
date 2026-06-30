@@ -609,6 +609,7 @@ pub async fn start_chat(
                     &chat_result.full_response,
                     &user_message,
                     &chat_result.citations,
+                    chat_result.usage.as_ref(),
                 )
                 .await;
             }
@@ -813,6 +814,7 @@ async fn spawn_parallel_turn(
                     &chat_result.full_response,
                     &user_message,
                     &chat_result.citations,
+                    chat_result.usage.as_ref(),
                 )
                 .await;
             }

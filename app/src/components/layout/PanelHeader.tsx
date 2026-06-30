@@ -24,9 +24,9 @@ export interface PanelHeaderProps {
 // Horizontal padding matches the canonical body padding (`p-4`) so the
 // description lines up with the content beneath it — no extra indent.
 export const DEFAULT_PANEL_HEADER_CLASS = 'px-4 pt-4 pb-3';
-// Slightly off the white/neutral-900 body so the fixed header reads as its own
-// band (paired with the body's hairline top border).
-export const DEFAULT_PANEL_HEADER_BG = 'bg-stone-50 dark:bg-neutral-800/40';
+// Slightly off the body surface so the fixed header reads as its own band
+// (paired with the body's hairline top border).
+export const DEFAULT_PANEL_HEADER_BG = 'bg-surface-muted';
 
 /**
  * The fixed header band shared by {@link PanelScaffold} (panel header) and
@@ -56,18 +56,14 @@ export default function PanelHeader({
           <div className="flex min-w-0 items-center gap-2">
             {leading}
             {title != null && (
-              <h2 className="truncate text-base font-semibold text-stone-900 dark:text-neutral-100">
-                {title}
-              </h2>
+              <h2 className="truncate text-base font-semibold text-content">{title}</h2>
             )}
           </div>
           {action != null && <div className="flex-shrink-0">{action}</div>}
         </div>
       )}
 
-      {description != null && (
-        <p className="mt-0.5 text-sm text-stone-500 dark:text-neutral-400">{description}</p>
-      )}
+      {description != null && <p className="mt-0.5 text-sm text-content-muted">{description}</p>}
 
       {children}
     </div>

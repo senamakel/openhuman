@@ -81,7 +81,7 @@ const BackgroundActivityTab = () => {
   }, []);
 
   return (
-    <div className="p-4 space-y-3" data-testid="usage-background-tab">
+    <div className="p-4 space-y-5" data-testid="usage-background-tab">
       <SettingsStatusLine saving={false} error={loadError} savingLabel="" />
       {snapshot ? (
         <BackgroundLoopControls
@@ -91,7 +91,7 @@ const BackgroundActivityTab = () => {
           cloudProviders={snapshot.cloudProviders}
         />
       ) : !loadError ? (
-        <div className="text-xs text-neutral-500 dark:text-neutral-400">{t('common.loading')}</div>
+        <div className="text-xs text-content-muted">{t('common.loading')}</div>
       ) : null}
     </div>
   );

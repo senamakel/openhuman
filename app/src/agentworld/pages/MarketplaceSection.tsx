@@ -125,7 +125,7 @@ function SearchTab() {
   return (
     <div className="flex flex-col gap-4">
       <input
-        className="w-full rounded-lg border border-stone-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder-stone-400 dark:placeholder-neutral-500 focus:border-primary-500 focus:outline-none"
+        className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-content placeholder-content-faint focus:border-primary-500 focus:outline-none"
         placeholder="Search products by name, description, tag, or seller…"
         type="search"
         value={query}
@@ -139,25 +139,17 @@ function SearchTab() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {filtered.map(product => (
-            <div
-              key={product.productId}
-              className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+            <div key={product.productId} className="rounded-xl border border-line bg-surface p-4">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-                  {product.name}
-                </span>
-                <span className="shrink-0 rounded-full bg-stone-100 dark:bg-neutral-800 px-2 py-0.5 text-xs text-stone-500 dark:text-neutral-400">
+                <span className="text-sm font-medium text-content">{product.name}</span>
+                <span className="shrink-0 rounded-full bg-surface-subtle px-2 py-0.5 text-xs text-content-muted">
                   {product.category}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
-                {product.description}
-              </p>
+              <p className="mt-1 text-xs text-content-faint">{product.description}</p>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-stone-500 dark:text-neutral-400">
-                  {product.seller}
-                </span>
-                <span className="text-xs font-medium text-stone-900 dark:text-neutral-100">
+                <span className="text-xs text-content-muted">{product.seller}</span>
+                <span className="text-xs font-medium text-content">
                   {product.price.amount} {product.price.asset}
                 </span>
               </div>
@@ -166,7 +158,7 @@ function SearchTab() {
                   {product.tags.map(tag => (
                     <span
                       key={tag}
-                      className="rounded-full bg-stone-100 dark:bg-neutral-800 px-1.5 py-0.5 text-[10px] text-stone-400 dark:text-neutral-500">
+                      className="rounded-full bg-surface-subtle px-1.5 py-0.5 text-[10px] text-content-faint">
                       {tag}
                     </span>
                   ))}
@@ -209,7 +201,7 @@ function SearchTab() {
           <p className="text-xs font-medium text-red-500">
             {bs.onChainTx ? 'Payment sent but purchase did not complete.' : 'Purchase failed.'}
           </p>
-          <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">{bs.message}</p>
+          <p className="mt-1 text-xs text-content-muted">{bs.message}</p>
           {bs.onChainTx && (
             <a
               href={explorerTxUrl(bs.onChainTx)}
@@ -286,21 +278,17 @@ function JobsTab() {
   return (
     <div className="flex flex-col gap-3">
       {jobs.map(job => (
-        <div
-          key={job.jobId}
-          className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+        <div key={job.jobId} className="rounded-xl border border-line bg-surface p-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+            <span className="text-sm font-medium text-content">
               {typeof job.title === 'string' ? job.title : job.jobId}
             </span>
             <StatusBadge status={job.status} />
           </div>
           {typeof job.description === 'string' && (
-            <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">{job.description}</p>
+            <p className="mt-1 text-xs text-content-faint">{job.description}</p>
           )}
-          <span className="mt-2 block text-xs text-stone-500 dark:text-neutral-400">
-            {job.client}
-          </span>
+          <span className="mt-2 block text-xs text-content-muted">{job.client}</span>
         </div>
       ))}
     </div>
@@ -449,21 +437,17 @@ function ArtifactsTab() {
   return (
     <div className="flex flex-col gap-3">
       {artifacts.map(artifact => (
-        <div
-          key={artifact.artifactId}
-          className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+        <div key={artifact.artifactId} className="rounded-xl border border-line bg-surface p-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+            <span className="text-sm font-medium text-content">
               {artifact.name ?? artifact.artifactId}
             </span>
             {artifact.status && <StatusBadge status={artifact.status} />}
           </div>
           {artifact.description && (
-            <p className="mt-1 text-xs text-stone-400 dark:text-neutral-500">
-              {artifact.description}
-            </p>
+            <p className="mt-1 text-xs text-content-faint">{artifact.description}</p>
           )}
-          <div className="mt-2 flex items-center gap-3 text-xs text-stone-500 dark:text-neutral-400">
+          <div className="mt-2 flex items-center gap-3 text-xs text-content-muted">
             <span>{artifact.mimeType ?? 'unknown type'}</span>
             {artifact.sizeBytes !== undefined && (
               <span>{(artifact.sizeBytes / 1024).toFixed(1)} KB</span>
@@ -480,7 +464,7 @@ function ArtifactsTab() {
 function LoadingSpinner({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center py-12">
-      <span className="animate-pulse text-sm text-stone-500 dark:text-neutral-400">{label}</span>
+      <span className="animate-pulse text-sm text-content-muted">{label}</span>
     </div>
   );
 }
@@ -489,7 +473,7 @@ function PaymentRequired() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-12 text-amber-400">
       <p className="text-lg font-medium">Access requires payment</p>
-      <p className="text-sm text-stone-500 dark:text-neutral-400">
+      <p className="text-sm text-content-muted">
         Your wallet will be used to fulfill the x402 payment challenge.
       </p>
     </div>
@@ -503,7 +487,7 @@ function ErrorState({ message }: { message: string }) {
 
   if (isWalletLocked) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-12 text-stone-500 dark:text-neutral-400">
+      <div className="flex flex-col items-center justify-center gap-4 py-12 text-content-muted">
         <p className="text-lg font-medium">Unlock your wallet to use Agent World</p>
         <p className="text-sm">
           Agent World uses your wallet identity. Import your recovery phrase in Settings to
@@ -516,7 +500,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-12 text-red-400">
       <p className="font-medium">Failed to load</p>
-      <p className="text-sm text-stone-400 dark:text-neutral-500">{message}</p>
+      <p className="text-sm text-content-faint">{message}</p>
     </div>
   );
 }
@@ -524,7 +508,7 @@ function ErrorState({ message }: { message: string }) {
 function EmptyState({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center py-12">
-      <span className="text-sm text-stone-500 dark:text-neutral-400">{label}</span>
+      <span className="text-sm text-content-muted">{label}</span>
     </div>
   );
 }
@@ -535,12 +519,11 @@ function StatusBadge({ status }: { status: string }) {
     funded: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
     accepted: 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300',
     delivered: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-    settled: 'bg-stone-200 text-stone-600 dark:bg-neutral-700 dark:text-neutral-300',
+    settled: 'bg-surface-strong text-content-secondary',
     cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    expired: 'bg-stone-100 text-stone-400 dark:bg-neutral-800 dark:text-neutral-500',
+    expired: 'bg-surface-subtle text-content-faint',
   };
-  const cls =
-    colorMap[status] ?? 'bg-stone-100 dark:bg-neutral-800 text-stone-500 dark:text-neutral-400';
+  const cls = colorMap[status] ?? 'bg-surface-subtle text-content-muted';
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{status}</span>;
 }
 
@@ -556,14 +539,14 @@ function EscrowRow({
   };
 }) {
   return (
-    <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+    <div className="rounded-xl border border-line bg-surface p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-stone-900 dark:text-neutral-100">
+        <span className="text-sm font-medium text-content">
           {typeof escrow.title === 'string' ? escrow.title : escrow.escrowId}
         </span>
         <StatusBadge status={escrow.status} />
       </div>
-      <div className="mt-2 flex items-center gap-3 text-xs text-stone-500 dark:text-neutral-400">
+      <div className="mt-2 flex items-center gap-3 text-xs text-content-muted">
         <span>Client: {escrow.client}</span>
         <span>Provider: {escrow.provider}</span>
       </div>

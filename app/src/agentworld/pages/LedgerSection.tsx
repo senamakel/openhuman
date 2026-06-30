@@ -81,7 +81,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -96,7 +96,7 @@ export function StatusBadge({ status }: { status: string }) {
         ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
         : status === 'FAILED'
           ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-          : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400';
+          : 'bg-surface-subtle text-content-secondary';
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
       {status}
@@ -113,8 +113,8 @@ function TypeBadge({ type }: { type: string }) {
       : type === 'SALE'
         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
         : type === 'FEE'
-          ? 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400'
-          : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400';
+          ? 'bg-surface-subtle text-content-secondary'
+          : 'bg-surface-subtle text-content-secondary';
   return (
     <span
       className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${color}`}>
@@ -131,7 +131,7 @@ function TypeIcon({ type }: { type: string }) {
       ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
       : type === 'SALE'
         ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
-        : 'bg-stone-100 text-stone-500 dark:bg-neutral-800 dark:text-neutral-400';
+        : 'bg-surface-subtle text-content-muted';
   return (
     <div
       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${color}`}
@@ -160,19 +160,19 @@ function TransactionRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
+    <div className="border-b border-line-subtle last:border-0">
       {/* Summary row — leading icon · stacked content · fixed meta column */}
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/50">
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50">
         <TypeIcon type={tx.type} />
 
         {/* Content */}
         <div className="min-w-0 flex-1">
           {/* Line 1: amount + type + status */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+            <span className="text-sm font-semibold text-content">
               {formatLedgerAmount(tx.amount, tx.asset)}
               {tx.asset ? ` ${resolveAssetSymbol(tx.asset)}` : ''}
             </span>
@@ -181,10 +181,10 @@ function TransactionRow({
           </div>
 
           {/* Line 2: from → to · network */}
-          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400">
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-content-muted">
             <span className="font-mono">{abbreviateAddress(tx.from)}</span>
             <svg
-              className="h-3 w-3 shrink-0 text-stone-400"
+              className="h-3 w-3 shrink-0 text-content-faint"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24">
@@ -196,14 +196,14 @@ function TransactionRow({
               />
             </svg>
             <span className="font-mono">{abbreviateAddress(tx.to)}</span>
-            <span className="text-stone-300 dark:text-neutral-600">·</span>
+            <span className="text-content-faint dark:text-neutral-600">·</span>
             <span className="truncate">{friendlyNetwork(tx.network)}</span>
           </div>
         </div>
 
         {/* Fixed meta column: time + (view-on-chain + chevron) */}
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <span className="whitespace-nowrap text-xs text-stone-400 dark:text-neutral-500">
+          <span className="whitespace-nowrap text-xs text-content-faint">
             {relativeTime(tx.timestamp)}
           </span>
           <div className="flex items-center gap-2">
@@ -218,7 +218,7 @@ function TransactionRow({
               </a>
             )}
             <svg
-              className={`h-4 w-4 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${expanded ? 'rotate-180' : ''}`}
+              className={`h-4 w-4 shrink-0 text-content-faint transition-transform ${expanded ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24">
@@ -235,54 +235,46 @@ function TransactionRow({
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="border-t border-stone-100 bg-stone-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+        <div className="border-t border-line-subtle bg-surface-muted px-4 py-3">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
             {/* Ledger TX ID */}
-            <dt className="font-medium text-stone-500 dark:text-neutral-400">Tx ID</dt>
-            <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">{tx.txId}</dd>
+            <dt className="font-medium text-content-muted">Tx ID</dt>
+            <dd className="break-all font-mono text-content">{tx.txId}</dd>
 
             {/* Visibility */}
-            <dt className="font-medium text-stone-500 dark:text-neutral-400">Visibility</dt>
-            <dd className="text-stone-800 dark:text-neutral-200">{tx.visibility}</dd>
+            <dt className="font-medium text-content-muted">Visibility</dt>
+            <dd className="text-content">{tx.visibility}</dd>
 
             {/* Full From */}
-            <dt className="font-medium text-stone-500 dark:text-neutral-400">From</dt>
-            <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-              {tx.from ?? '-'}
-            </dd>
+            <dt className="font-medium text-content-muted">From</dt>
+            <dd className="break-all font-mono text-content">{tx.from ?? '-'}</dd>
 
             {/* Full To */}
-            <dt className="font-medium text-stone-500 dark:text-neutral-400">To</dt>
-            <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-              {tx.to ?? '-'}
-            </dd>
+            <dt className="font-medium text-content-muted">To</dt>
+            <dd className="break-all font-mono text-content">{tx.to ?? '-'}</dd>
 
             {/* Reference */}
             {tx.reference && (
               <>
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Ref kind</dt>
-                <dd className="text-stone-800 dark:text-neutral-200">{tx.reference.kind}</dd>
+                <dt className="font-medium text-content-muted">Ref kind</dt>
+                <dd className="text-content">{tx.reference.kind}</dd>
 
                 {tx.reference.id && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Ref ID</dt>
-                    <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-                      {tx.reference.id}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Ref ID</dt>
+                    <dd className="break-all font-mono text-content">{tx.reference.id}</dd>
                   </>
                 )}
                 {tx.reference.parentTxId && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Parent Tx</dt>
-                    <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-                      {tx.reference.parentTxId}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Parent Tx</dt>
+                    <dd className="break-all font-mono text-content">{tx.reference.parentTxId}</dd>
                   </>
                 )}
                 {tx.reference.rate && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Rate</dt>
-                    <dd className="text-stone-800 dark:text-neutral-200">{tx.reference.rate}</dd>
+                    <dt className="font-medium text-content-muted">Rate</dt>
+                    <dd className="text-content">{tx.reference.rate}</dd>
                   </>
                 )}
               </>
@@ -292,18 +284,14 @@ function TransactionRow({
           {/* Metadata key-value table */}
           {tx.metadata && Object.keys(tx.metadata).length > 0 && (
             <div className="mt-2">
-              <p className="mb-1 text-xs font-medium text-stone-500 dark:text-neutral-400">
-                Metadata
-              </p>
+              <p className="mb-1 text-xs font-medium text-content-muted">Metadata</p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
                 {Object.entries(tx.metadata).map(([key, val]) => (
                   <>
-                    <dt
-                      key={`k-${key}`}
-                      className="font-medium text-stone-500 dark:text-neutral-400">
+                    <dt key={`k-${key}`} className="font-medium text-content-muted">
                       {key}
                     </dt>
-                    <dd key={`v-${key}`} className="break-all text-stone-800 dark:text-neutral-200">
+                    <dd key={`v-${key}`} className="break-all text-content">
                       {typeof val === 'string' ? val : JSON.stringify(val)}
                     </dd>
                   </>
@@ -352,7 +340,7 @@ export default function LedgerSection() {
 
   if (ledgerState.status === 'loading') {
     body = (
-      <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
+      <div className="flex h-64 items-center justify-center text-content-faint">
         <span className="animate-pulse text-sm">Loading ledger…</span>
       </div>
     );
@@ -367,14 +355,14 @@ export default function LedgerSection() {
   } else if (ledgerState.transactions.length === 0) {
     body = (
       <StatusBlock
-        tone="text-stone-500 dark:text-neutral-400"
+        tone="text-content-muted"
         title="No transactions found"
         body="The ledger is empty or no transactions match the current filter."
       />
     );
   } else {
     body = (
-      <div className="rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="rounded-lg border border-line bg-surface">
         {ledgerState.transactions.map(tx => (
           <TransactionRow
             key={tx.txId}

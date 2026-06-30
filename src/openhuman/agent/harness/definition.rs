@@ -25,6 +25,8 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::path::PathBuf;
 
+use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
+
 /// Iteration-cap policy for a sub-agent.
 ///
 /// Controls how the harness enforces [`AgentDefinition::max_iterations`]:
@@ -176,6 +178,13 @@ pub struct AgentDefinition {
     #[serde(default)]
     pub max_result_chars: Option<usize>,
 
+    /// Optional per-LLM-call output token cap for this agent. When unset, the
+    /// shared agent-turn cap is used. Narrow agents can set a smaller cap so
+    /// a single verbose turn cannot flood the sub-agent loop before the final
+    /// result is truncated.
+    #[serde(default)]
+    pub max_turn_output_tokens: Option<u32>,
+
     /// Wall-clock timeout for the sub-agent's execution (seconds).
     #[serde(default)]
     pub timeout_secs: Option<u64>,
@@ -193,6 +202,14 @@ pub struct AgentDefinition {
     /// prompt and prepends its result to the prompt sent to this agent.
     #[serde(default)]
     pub trigger_memory_agent: TriggerMemoryAgent,
+
+    /// Per-agent TokenJuice tool-result compression profile.
+    ///
+    /// `auto` keeps compression on for normal agents, but resolves coding-model
+    /// agents to `light` so CCR-backed lossy compression does not replace raw
+    /// build/test/diff/search text that coding agents often need exactly.
+    #[serde(default)]
+    pub tokenjuice_compression: AgentTokenjuiceCompression,
 
     // ── delegation surface ─────────────────────────────────────────────
     /// Subagents this agent is allowed to spawn via synthesised
@@ -447,6 +464,19 @@ impl AgentDefinition {
             IterationPolicy::Extended => self
                 .max_iterations
                 .max(super::tool_loop::EXTENDED_MAX_TOOL_ITERATIONS),
+        }
+    }
+
+    /// Resolve the authored TokenJuice profile to the concrete per-call policy.
+    pub fn effective_tokenjuice_compression(&self) -> AgentTokenjuiceCompression {
+        match self.tokenjuice_compression {
+            AgentTokenjuiceCompression::Auto => match &self.model {
+                ModelSpec::Hint(hint) if hint.trim().eq_ignore_ascii_case("coding") => {
+                    AgentTokenjuiceCompression::Light
+                }
+                _ => AgentTokenjuiceCompression::Full,
+            },
+            other => other,
         }
     }
 }

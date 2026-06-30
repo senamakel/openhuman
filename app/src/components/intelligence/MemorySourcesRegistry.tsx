@@ -492,13 +492,9 @@ export function MemorySourcesRegistry({
   };
 
   return (
-    <section
-      className="rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-      data-testid="memory-sources">
+    <section className="rounded-lg border border-line bg-surface p-4" data-testid="memory-sources">
       <header className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-stone-700 dark:text-neutral-200">
-          {t('memorySources.title')}
-        </h3>
+        <h3 className="text-sm font-semibold text-content-secondary">{t('memorySources.title')}</h3>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -506,10 +502,10 @@ export function MemorySourcesRegistry({
             disabled={applyingAllIn}
             data-testid="all-in-button"
             className="inline-flex items-center gap-1 rounded-md border border-primary-300
-                       bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
+                       bg-surface px-3 py-1.5 text-xs font-semibold text-primary-600
                        shadow-sm transition-colors hover:bg-primary-50
                        disabled:cursor-not-allowed disabled:opacity-50
-                       dark:border-primary-500/30 dark:bg-neutral-900 dark:text-primary-400
+                       dark:border-primary-500/30 dark:bg-surface dark:text-primary-400
                        dark:hover:bg-primary-500/10
                        focus:outline-none focus:ring-2 focus:ring-primary-200">
             <AllInIcon />
@@ -528,11 +524,11 @@ export function MemorySourcesRegistry({
       <MemorySyncSchedule lastSyncMs={overallLastSyncMs} onToast={onToast} />
 
       {loading ? (
-        <p className="text-xs text-stone-500 dark:text-neutral-400">{t('common.loading')}</p>
+        <p className="text-xs text-content-muted">{t('common.loading')}</p>
       ) : sources.length === 0 ? (
-        <p className="text-xs text-stone-500 dark:text-neutral-400">{t('memorySources.empty')}</p>
+        <p className="text-xs text-content-muted">{t('memorySources.empty')}</p>
       ) : (
-        <ul className="divide-y divide-stone-100 dark:divide-neutral-800">
+        <ul className="divide-y divide-line-subtle dark:divide-neutral-800">
           {sources.map(source => (
             <SourceRow
               key={source.id}
@@ -646,14 +642,14 @@ function MemorySyncSchedule({ lastSyncMs, onToast }: MemorySyncScheduleProps) {
 
   return (
     <div
-      className="mb-3 rounded-md border border-stone-200 bg-stone-50 p-3 dark:border-neutral-800 dark:bg-neutral-800/40"
+      className="mb-3 rounded-md border border-line bg-surface-muted p-3"
       data-testid="memory-sync-schedule">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-stone-600 dark:text-neutral-300">
+          <p className="text-xs font-semibold text-content-secondary">
             {t('memorySyncInterval.title')}
           </p>
-          <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+          <p className="mt-0.5 text-xs text-content-muted">
             <span>
               {t('memorySyncInterval.lastSynced')} {lastSync ?? t('memorySyncInterval.never')}
             </span>
@@ -681,7 +677,7 @@ function MemorySyncSchedule({ lastSyncMs, onToast }: MemorySyncScheduleProps) {
                   disabled:cursor-not-allowed disabled:opacity-50 ${
                     isSelected
                       ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-500/50 dark:bg-primary-500/10 dark:text-primary-300'
-                      : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                      : 'border-line bg-surface text-content-secondary hover:bg-surface-hover'
                   }`}>
                 {intervalChipLabel(secs, t)}
               </button>
@@ -740,25 +736,19 @@ function SourceRow({
             <span className="text-base">{icon}</span>
             <span
               className={`truncate text-sm font-medium ${
-                source.enabled
-                  ? 'text-stone-900 dark:text-neutral-100'
-                  : 'text-stone-400 line-through dark:text-neutral-500'
+                source.enabled ? 'text-content' : 'text-content-faint line-through'
               }`}>
               {source.label}
             </span>
-            <span className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-500 dark:bg-neutral-800 dark:text-neutral-400">
+            <span className="rounded-md bg-surface-subtle px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
               {kindLabel}
             </span>
             {status && status.chunks_synced > 0 && <FreshnessPill freshness={status.freshness} />}
           </div>
-          {detail && (
-            <p className="mt-0.5 truncate pl-7 text-xs text-stone-400 dark:text-neutral-500">
-              {detail}
-            </p>
-          )}
+          {detail && <p className="mt-0.5 truncate pl-7 text-xs text-content-faint">{detail}</p>}
           {progress && (
             <div className="mt-2 pl-7">
-              <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-neutral-400">
+              <div className="flex items-center gap-2 text-xs text-content-muted">
                 <span className="capitalize">{progress.stage}</span>
                 {progress.percent !== null && (
                   <span className="font-medium text-primary-600 dark:text-primary-400">
@@ -766,12 +756,10 @@ function SourceRow({
                   </span>
                 )}
                 {progress.detail && (
-                  <span className="truncate text-stone-400 dark:text-neutral-500">
-                    {progress.detail}
-                  </span>
+                  <span className="truncate text-content-faint">{progress.detail}</span>
                 )}
               </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-stone-200 dark:bg-neutral-700">
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-strong">
                 <div
                   className="h-full rounded-full bg-primary-500 transition-all duration-300"
                   style={{
@@ -807,7 +795,7 @@ function SourceRow({
             !result &&
             status &&
             (status.chunks_synced > 0 || status.chunks_pending > 0) && (
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-stone-500 dark:text-neutral-400">
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-7 text-xs text-content-muted">
                 <span>
                   {status.chunks_synced.toLocaleString()} {t('sync.chunks')}
                 </span>
@@ -834,7 +822,7 @@ function SourceRow({
             className={`rounded p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-200 ${
               settingsExpanded
                 ? 'bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400'
-                : 'text-stone-400 hover:bg-stone-100 hover:text-stone-600 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300'
+                : 'text-content-faint hover:bg-surface-hover hover:text-content-secondary'
             }`}>
             <GearIcon />
           </button>
@@ -854,10 +842,10 @@ function SourceRow({
             disabled={!source.enabled || isBuilding || isSyncing}
             title={t('memorySources.build.title')}
             className="inline-flex items-center gap-1 rounded-md border border-primary-300
-                     bg-white px-3 py-1.5 text-xs font-semibold text-primary-600
+                     bg-surface px-3 py-1.5 text-xs font-semibold text-primary-600
                      shadow-sm transition-colors hover:bg-primary-50
                      disabled:cursor-not-allowed disabled:opacity-50
-                     dark:border-primary-500/30 dark:bg-neutral-900 dark:text-primary-400
+                     dark:border-primary-500/30 dark:bg-surface dark:text-primary-400
                      dark:hover:bg-primary-500/10
                      focus:outline-none focus:ring-2 focus:ring-primary-200">
             {isBuilding ? <Spinner /> : <BuildIcon />}
@@ -868,10 +856,10 @@ function SourceRow({
             onClick={() => onToggle(source)}
             title={source.enabled ? t('memorySources.disable') : t('memorySources.enable')}
             className={`relative h-5 w-9 rounded-full transition-colors ${
-              source.enabled ? 'bg-primary-500' : 'bg-stone-300 dark:bg-neutral-600'
+              source.enabled ? 'bg-primary-500' : 'bg-surface-strong'
             }`}>
             <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-surface shadow transition-transform ${
                 source.enabled ? 'left-[18px]' : 'left-0.5'
               }`}
             />
@@ -913,7 +901,7 @@ function FreshnessPill({ freshness }: { freshness: FreshnessLabel }) {
       ? 'bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300'
       : freshness === 'recent'
         ? 'bg-sage-100 dark:bg-sage-500/20 text-sage-700 dark:text-sage-300'
-        : 'bg-stone-100 dark:bg-neutral-800 text-stone-700 dark:text-neutral-200';
+        : 'bg-surface-subtle text-content-secondary';
   return <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>;
 }
 

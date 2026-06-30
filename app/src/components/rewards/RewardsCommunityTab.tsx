@@ -175,7 +175,7 @@ export default function RewardsCommunityTab({
               <>
                 <div
                   data-testid="rewards-discord-connected"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/15 px-4 py-3 text-sm font-semibold text-white">
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-surface/15 px-4 py-3 text-sm font-semibold text-white">
                   <svg
                     className="h-4 w-4"
                     viewBox="0 0 24 24"
@@ -196,7 +196,7 @@ export default function RewardsCommunityTab({
                   }}
                   disabled={disconnectState === 'disconnecting'}
                   data-testid="rewards-disconnect-discord"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70">
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-surface/10 px-4 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70">
                   {disconnectState === 'disconnecting'
                     ? t('rewards.community.disconnectingDiscord')
                     : t('rewards.community.disconnectDiscord')}
@@ -209,7 +209,7 @@ export default function RewardsCommunityTab({
                 }}
                 disabled={connectState === 'connecting'}
                 data-testid="rewards-connect-discord"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300 shadow-lg transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70">
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-surface px-4 py-3 text-sm font-semibold text-primary-700 dark:text-primary-300 shadow-lg transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70">
                 <svg
                   className="w-4 h-4"
                   fill="none"
@@ -232,7 +232,7 @@ export default function RewardsCommunityTab({
               onClick={() => {
                 void openUrl(inviteUrl);
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/15">
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-surface/10 px-4 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/15">
               <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M20.317 4.369A19.79 19.79 0 0 0 15.885 3c-.191.328-.403.775-.552 1.124a18.27 18.27 0 0 0-5.29 0A11.56 11.56 0 0 0 9.49 3a19.74 19.74 0 0 0-4.433 1.369C2.253 8.51 1.492 12.55 1.872 16.533a19.9 19.9 0 0 0 5.239 2.673c.423-.58.8-1.196 1.123-1.845a12.84 12.84 0 0 1-1.767-.85c.148-.106.292-.217.43-.332c3.408 1.6 7.104 1.6 10.472 0c.14.115.283.226.43.332c-.565.338-1.157.623-1.771.851c.322.648.698 1.264 1.123 1.844a19.84 19.84 0 0 0 5.241-2.673c.446-4.617-.761-8.621-3.787-12.164ZM9.46 14.088c-1.02 0-1.855-.936-1.855-2.084c0-1.148.82-2.084 1.855-2.084c1.044 0 1.87.944 1.855 2.084c0 1.148-.82 2.084-1.855 2.084Zm5.08 0c-1.02 0-1.855-.936-1.855-2.084c0-1.148.82-2.084 1.855-2.084c1.044 0 1.87.944 1.855 2.084c0 1.148-.812 2.084-1.855 2.084Z" />
               </svg>
@@ -256,8 +256,8 @@ export default function RewardsCommunityTab({
             </p>
           ) : null}
         </div>
-        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
-        <div className="absolute -bottom-10 -left-8 h-24 w-24 rounded-full bg-white/15 blur-xl" />
+        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-surface/10 blur-2xl" />
+        <div className="absolute -bottom-10 -left-8 h-24 w-24 rounded-full bg-surface/15 blur-xl" />
       </section>
 
       {error ? (
@@ -274,7 +274,7 @@ export default function RewardsCommunityTab({
               data-testid="rewards-retry"
               onClick={onRetry}
               disabled={isLoading}
-              className="rounded-full border border-amber-300 dark:border-amber-500/40 bg-white dark:bg-neutral-900 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-200 shadow-sm transition-colors hover:bg-amber-100 dark:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60">
+              className="rounded-full border border-amber-300 dark:border-amber-500/40 bg-surface px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-200 shadow-sm transition-colors hover:bg-amber-100 dark:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60">
               {isLoading ? t('rewards.community.retrying') : t('rewards.community.tryAgain')}
             </button>
           ) : null}
@@ -282,13 +282,13 @@ export default function RewardsCommunityTab({
       ) : null}
 
       <div className="space-y-4">
-        <section className="rounded-[1.25rem] bg-white dark:bg-neutral-900 p-6 shadow-[0_4px_20px_rgba(25,28,30,0.04)]">
+        <section className="rounded-[1.25rem] bg-surface p-6 shadow-[0_4px_20px_rgba(25,28,30,0.04)]">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-stone-900 dark:text-neutral-100">
+              <h2 className="text-lg font-bold text-content">
                 {t('rewards.community.yourProgress')}
               </h2>
-              <p className="text-xs text-stone-500 dark:text-neutral-400">
+              <p className="text-xs text-content-muted">
                 {isLoading
                   ? t('rewards.community.loadingRewards')
                   : t('rewards.community.achievementsUnlocked')
@@ -319,9 +319,7 @@ export default function RewardsCommunityTab({
                   className="text-primary-600 dark:text-primary-300 transition-all duration-300"
                 />
               </svg>
-              <span className="absolute text-sm font-bold text-stone-900 dark:text-neutral-100">
-                {progressPercent}%
-              </span>
+              <span className="absolute text-sm font-bold text-content">{progressPercent}%</span>
             </div>
           </div>
 
@@ -332,7 +330,7 @@ export default function RewardsCommunityTab({
                 className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full border-2 ${
                   role?.unlocked
                     ? 'border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-300'
-                    : 'border-dashed border-stone-300 dark:border-neutral-700 bg-stone-100 dark:bg-neutral-800 text-stone-400 dark:text-neutral-500'
+                    : 'border-dashed border-line-strong bg-surface-subtle text-content-faint'
                 }`}>
                 <svg className="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
                   {roleGlyph(index)}
@@ -344,7 +342,7 @@ export default function RewardsCommunityTab({
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-stone-900 dark:text-neutral-100">
+            <h2 className="text-lg font-bold text-content">
               {t('rewards.community.rolesAndRewards')}
             </h2>
           </div>
@@ -354,10 +352,10 @@ export default function RewardsCommunityTab({
               data-testid="rewards-claim-roles-banner"
               className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 px-4 py-3">
               <div className="min-w-0">
-                <p className="text-sm font-bold text-stone-900 dark:text-neutral-100">
+                <p className="text-sm font-bold text-content">
                   {t('rewards.community.roleClaimTitle')}
                 </p>
-                <p className="mt-0.5 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
+                <p className="mt-0.5 text-xs leading-relaxed text-content-secondary">
                   {t('rewards.community.roleClaimDesc')}
                 </p>
               </div>
@@ -374,8 +372,8 @@ export default function RewardsCommunityTab({
             </div>
           ) : null}
           {isLoading ? (
-            <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-soft">
-              <div className="text-sm text-stone-600 dark:text-neutral-300">
+            <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
+              <div className="text-sm text-content-secondary">
                 {t('rewards.community.loadingRewards')}
               </div>
             </div>
@@ -410,7 +408,7 @@ export default function RewardsCommunityTab({
               return (
                 <div
                   key={role.id}
-                  className={`rounded-[1.25rem] bg-white dark:bg-neutral-900 p-5 shadow-sm transition-shadow hover:shadow-md ${
+                  className={`rounded-[1.25rem] bg-surface p-5 shadow-sm transition-shadow hover:shadow-md ${
                     role.unlocked
                       ? 'ring-1 ring-primary-100 dark:ring-primary-500/20'
                       : 'ring-1 ring-black/[0.04] dark:ring-white/[0.06]'
@@ -424,10 +422,8 @@ export default function RewardsCommunityTab({
                         </svg>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-stone-900 dark:text-neutral-100">
-                          {role.title}
-                        </h3>
-                        <p className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
+                        <h3 className="text-base font-bold text-content">{role.title}</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-content-secondary">
                           {role.description}
                         </p>
                       </div>
@@ -464,21 +460,21 @@ export default function RewardsCommunityTab({
               );
             })
           ) : (
-            <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-soft">
-              <h2 className="text-lg font-semibold text-stone-900 dark:text-neutral-100">
+            <div className="rounded-2xl border border-line bg-surface p-5 shadow-soft">
+              <h2 className="text-lg font-semibold text-content">
                 {t('rewards.community.syncPending')}
               </h2>
-              <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+              <p className="mt-2 text-sm text-content-secondary">
                 {t('rewards.community.syncPendingDesc')}
               </p>
             </div>
           )}
         </section>
 
-        <section className="rounded-[1.25rem] bg-[#f2f4f6] dark:bg-neutral-800/60 p-4 text-sm text-stone-600 dark:text-neutral-300">
+        <section className="rounded-[1.25rem] bg-[#f2f4f6] dark:bg-surface-muted/60 p-4 text-sm text-content-secondary">
           <div className="flex items-center justify-between gap-3">
             <span>{t('rewards.community.discordServer')}</span>
-            <span className="font-semibold text-stone-900 dark:text-neutral-100">
+            <span className="font-semibold text-content">
               {!snapshot
                 ? t('rewards.community.discordWaiting')
                 : snapshot.discord.membershipStatus === 'member'
@@ -493,9 +489,7 @@ export default function RewardsCommunityTab({
           {discordLinked && discordUsername ? (
             <div className="mt-3 flex items-center justify-between gap-3">
               <span>{t('rewards.community.discordAccount')}</span>
-              <span
-                data-testid="rewards-discord-username"
-                className="font-semibold text-stone-900 dark:text-neutral-100">
+              <span data-testid="rewards-discord-username" className="font-semibold text-content">
                 {discordUsername}
               </span>
             </div>
@@ -503,9 +497,7 @@ export default function RewardsCommunityTab({
           {discordLinked && membershipStatus === 'member' ? (
             <div className="mt-3 flex items-center justify-between gap-3">
               <span>{t('rewards.community.rolesAndRewards')}</span>
-              <span
-                data-testid="rewards-roles-assigned"
-                className="font-semibold text-stone-900 dark:text-neutral-100">
+              <span data-testid="rewards-roles-assigned" className="font-semibold text-content">
                 {t('rewards.community.roleAssignmentCount')
                   .replace('{assigned}', String(assignedRoleCount))
                   .replace('{unlocked}', String(unlocked))}
@@ -514,7 +506,7 @@ export default function RewardsCommunityTab({
           ) : null}
           <div className="mt-3 flex items-center justify-between gap-3">
             <span>{t('rewards.community.currentStreak')}</span>
-            <span className="font-semibold text-stone-900 dark:text-neutral-100">
+            <span className="font-semibold text-content">
               {snapshot
                 ? t('rewards.community.streakDays').replace(
                     '{n}',
@@ -525,7 +517,7 @@ export default function RewardsCommunityTab({
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <span>{t('rewards.community.cumulativeTokens')}</span>
-            <span className="font-semibold text-stone-900 dark:text-neutral-100">
+            <span className="font-semibold text-content">
               {snapshot
                 ? formatNumber(snapshot.metrics.cumulativeTokens)
                 : t('rewards.community.unknown')}

@@ -203,23 +203,19 @@ export default function X402ConfirmDialog({
       onClose={busy ? () => undefined : onCancel}
       maxWidthClassName="max-w-sm">
       <div className="space-y-4">
-        <div className="rounded-lg border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-900/50 p-4 space-y-3">
+        <div className="rounded-lg border border-line bg-surface-muted p-4 space-y-3">
           <Row label={t('agentWorld.trading.amountLabel', 'Amount')}>
-            <span
-              className="font-semibold text-stone-900 dark:text-neutral-100"
-              data-testid="x402-amount">
+            <span className="font-semibold text-content" data-testid="x402-amount">
               {amountDisplay} {assetSymbol}
             </span>
           </Row>
           <Row label={t('agentWorld.trading.networkLabel', 'Network')}>
-            <span className="text-xs text-stone-500 dark:text-neutral-400">
-              {friendlyNetwork(network)}
-            </span>
+            <span className="text-xs text-content-muted">{friendlyNetwork(network)}</span>
           </Row>
           <Row label={t('agentWorld.trading.balanceLabel', 'Your balance')}>
             <span
               className={`font-medium ${
-                insufficient ? 'text-coral-500' : 'text-stone-700 dark:text-neutral-200'
+                insufficient ? 'text-coral-500' : 'text-content-secondary'
               }`}
               data-testid="x402-balance">
               {balance
@@ -228,7 +224,7 @@ export default function X402ConfirmDialog({
             </span>
           </Row>
           <Row label={t('agentWorld.trading.walletLabel', 'Wallet')}>
-            <span className="font-mono text-xs text-stone-500 dark:text-neutral-400">
+            <span className="font-mono text-xs text-content-muted">
               {truncateAddress(walletAddress)}
             </span>
           </Row>
@@ -260,14 +256,14 @@ export default function X402ConfirmDialog({
             )}
           </p>
         ) : mode === 'commit' ? (
-          <p className="text-xs text-stone-400 dark:text-neutral-500">
+          <p className="text-xs text-content-faint">
             {t(
               'agentWorld.trading.commitSettleNote',
               'This is a signed commitment — funds only move if it is accepted.'
             )}
           </p>
         ) : (
-          <p className="text-xs text-stone-400 dark:text-neutral-500">
+          <p className="text-xs text-content-faint">
             {t(
               'agentWorld.trading.spendBroadcastNote',
               'Your wallet will sign and broadcast this payment on'
@@ -312,7 +308,7 @@ export default function X402ConfirmDialog({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-stone-400 dark:text-neutral-500">{label}</span>
+      <span className="text-xs text-content-faint">{label}</span>
       {children}
     </div>
   );

@@ -200,6 +200,50 @@ function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | 
   return event.citations?.length ? { citations: event.citations } : undefined;
 }
 
+/**
+ * Map a `chat_done` event's holistic usage onto the `recordChatTurnUsage`
+ * payload. Prefers the structured `usage` object (tokens + cost + context window
+ * + per-sub-agent breakdown); falls back to the deprecated flat token fields for
+ * any older core that still emits them.
+ */
+function chatTurnUsagePayload(event: ChatDoneEvent): {
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens?: number;
+  costUsd?: number;
+  contextWindow?: number;
+  threadId?: string;
+  subAgents?: Array<{
+    agentId: string;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+  }>;
+} {
+  const u = event.usage;
+  if (u) {
+    return {
+      inputTokens: u.input_tokens,
+      outputTokens: u.output_tokens,
+      cachedTokens: u.cached_input_tokens,
+      costUsd: u.cost_usd,
+      contextWindow: u.context_window,
+      threadId: event.thread_id,
+      subAgents: (u.subagents ?? []).map(s => ({
+        agentId: s.agent_id,
+        inputTokens: s.input_tokens,
+        outputTokens: s.output_tokens,
+        costUsd: s.cost_usd,
+      })),
+    };
+  }
+  return {
+    inputTokens: event.total_input_tokens ?? 0,
+    outputTokens: event.total_output_tokens ?? 0,
+    threadId: event.thread_id,
+  };
+}
+
 export function findPendingDelegationContext(
   entries: ToolTimelineEntry[],
   round: number
@@ -1087,12 +1131,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined
         ) {
           const parallelRequestId = event.request_id;
-          dispatch(
-            recordChatTurnUsage({
-              inputTokens: event.total_input_tokens,
-              outputTokens: event.total_output_tokens,
-            })
-          );
+          dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
           if (!event.segment_total && event.full_response.length > 0) {
             void (async () => {
               try {
@@ -1127,12 +1166,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const segmentDelivery = takeSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
 
-        dispatch(
-          recordChatTurnUsage({
-            inputTokens: event.total_input_tokens,
-            outputTokens: event.total_output_tokens,
-          })
-        );
+        dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
         dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
         dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
         dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));

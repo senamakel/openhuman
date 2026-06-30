@@ -9,7 +9,10 @@ import chatRuntimeReducer, {
   clearRuntimeForThread,
   hydrateRuntimeFromRunLedger,
   hydrateRuntimeFromSnapshot,
+  hydrateThreadUsage,
   type QueueStatus,
+  recordChatTurnUsage,
+  resetSessionTokenUsage,
   setQueueStatusForThread,
   setToolTimelineForThread,
 } from './chatRuntimeSlice';
@@ -47,6 +50,167 @@ function makeInterruptedSnapshot(
 function makeStore() {
   return configureStore({ reducer: { chatRuntime: chatRuntimeReducer } });
 }
+
+describe('chatRuntimeSlice recordChatTurnUsage', () => {
+  it('accumulates tokens, cost, and context window across turns', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 1000,
+        outputTokens: 200,
+        cachedTokens: 50,
+        costUsd: 0.012,
+        contextWindow: 200_000,
+      })
+    );
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 500,
+        outputTokens: 100,
+        cachedTokens: 10,
+        costUsd: 0.008,
+        contextWindow: 200_000,
+      })
+    );
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.inputTokens).toBe(1500);
+    expect(usage.outputTokens).toBe(300);
+    expect(usage.cachedTokens).toBe(60);
+    expect(usage.costUsd).toBeCloseTo(0.02, 6);
+    expect(usage.turns).toBe(2);
+    expect(usage.contextWindow).toBe(200_000);
+    // Context gauge tracks the latest turn's input+output, not the running sum.
+    expect(usage.lastTurnContextUsed).toBe(600);
+  });
+
+  it('rolls sub-agent spend into a per-archetype breakdown keyed by agentId', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 100,
+        outputTokens: 20,
+        subAgents: [
+          { agentId: 'researcher', inputTokens: 40, outputTokens: 10, costUsd: 0.001 },
+          { agentId: 'coder', inputTokens: 80, outputTokens: 30, costUsd: 0.003 },
+        ],
+      })
+    );
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 50,
+        outputTokens: 10,
+        subAgents: [{ agentId: 'researcher', inputTokens: 60, outputTokens: 5, costUsd: 0.002 }],
+      })
+    );
+    const subs = store.getState().chatRuntime.sessionTokenUsage.subAgents;
+    expect(subs.researcher).toEqual({
+      agentId: 'researcher',
+      inputTokens: 100,
+      outputTokens: 15,
+      costUsd: 0.003,
+      runs: 2,
+    });
+    expect(subs.coder.runs).toBe(1);
+    expect(subs.coder.inputTokens).toBe(80);
+  });
+
+  it('keeps the prior context window when a turn reports an unknown (0) window', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 10, outputTokens: 5, contextWindow: 128_000 })
+    );
+    store.dispatch(recordChatTurnUsage({ inputTokens: 10, outputTokens: 5, contextWindow: 0 }));
+    expect(store.getState().chatRuntime.sessionTokenUsage.contextWindow).toBe(128_000);
+  });
+
+  it('coerces non-finite / negative inputs to zero', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: Number.NaN, outputTokens: -50, costUsd: -1 })
+    );
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.inputTokens).toBe(0);
+    expect(usage.outputTokens).toBe(0);
+    expect(usage.costUsd).toBe(0);
+    expect(usage.turns).toBe(1);
+  });
+
+  it('resetSessionTokenUsage clears all accumulated usage', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 100,
+        outputTokens: 20,
+        costUsd: 0.01,
+        subAgents: [{ agentId: 'researcher', inputTokens: 1, outputTokens: 1, costUsd: 0.001 }],
+      })
+    );
+    store.dispatch(resetSessionTokenUsage());
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.inputTokens).toBe(0);
+    expect(usage.costUsd).toBe(0);
+    expect(usage.turns).toBe(0);
+    expect(usage.subAgents).toEqual({});
+  });
+
+  it('routes a turn with a threadId into that thread bucket (and the global)', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 100, outputTokens: 20, costUsd: 0.01, threadId: 'thr-a' })
+    );
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 50, outputTokens: 10, costUsd: 0.005, threadId: 'thr-b' })
+    );
+    const { usageByThread, sessionTokenUsage } = store.getState().chatRuntime;
+    expect(usageByThread['thr-a'].inputTokens).toBe(100);
+    expect(usageByThread['thr-a'].costUsd).toBeCloseTo(0.01, 6);
+    expect(usageByThread['thr-b'].inputTokens).toBe(50);
+    // Global aggregate still sums both threads.
+    expect(sessionTokenUsage.inputTokens).toBe(150);
+  });
+
+  it('hydrateThreadUsage seeds a thread bucket and live turns accumulate on top', () => {
+    const store = makeStore();
+    store.dispatch(
+      hydrateThreadUsage({
+        threadId: 'thr-a',
+        inputTokens: 1000,
+        outputTokens: 300,
+        cachedTokens: 40,
+        costUsd: 0.02,
+        turns: 3,
+        contextWindow: 1_000_000,
+        lastTurnInputTokens: 400,
+        lastTurnOutputTokens: 120,
+        subAgents: [
+          { agentId: 'coder', inputTokens: 300, outputTokens: 80, costUsd: 0.006, runs: 2 },
+        ],
+      })
+    );
+    let bucket = store.getState().chatRuntime.usageByThread['thr-a'];
+    expect(bucket.inputTokens).toBe(1000);
+    expect(bucket.turns).toBe(3);
+    expect(bucket.contextWindow).toBe(1_000_000);
+    expect(bucket.lastTurnContextUsed).toBe(520);
+    // Sub-agent breakdown reconstructed from persisted transcripts.
+    expect(bucket.subAgents.coder).toEqual({
+      agentId: 'coder',
+      inputTokens: 300,
+      outputTokens: 80,
+      costUsd: 0.006,
+      runs: 2,
+    });
+
+    // A live turn for the same thread adds on top of the seeded base.
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 200, outputTokens: 50, costUsd: 0.004, threadId: 'thr-a' })
+    );
+    bucket = store.getState().chatRuntime.usageByThread['thr-a'];
+    expect(bucket.inputTokens).toBe(1200);
+    expect(bucket.turns).toBe(4);
+    expect(bucket.costUsd).toBeCloseTo(0.024, 6);
+  });
+});
 
 describe('chatRuntimeSlice queue status', () => {
   it('sets queue status for a thread', () => {

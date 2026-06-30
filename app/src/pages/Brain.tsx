@@ -26,6 +26,7 @@ import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
 import BetaBanner from '../components/ui/BetaBanner';
 import { useSubconscious } from '../hooks/useSubconscious';
 import { useT } from '../lib/i18n/I18nContext';
+import { useCoreState } from '../providers/CoreStateProvider';
 import type { ToastNotification } from '../types/intelligence';
 import {
   type GraphExportResponse,
@@ -96,6 +97,16 @@ export default function Brain() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
+  // The memory graph is read from the on-disk store, but the read only fired on
+  // mount — so after a logout→login cycle the page kept whatever (empty) state
+  // it had when the core was signed-out / mid identity-flip and never refetched
+  // once auth was restored, showing an empty graph for an account whose data is
+  // still on disk (#4149). Key the load on the authenticated identity so a
+  // re-auth (null→user, or A→B) re-pulls the persisted graph, mirroring the
+  // thread-cache reload CoreStateProvider already does on identity change.
+  const { snapshot } = useCoreState();
+  const authUserId = snapshot.auth.userId;
+
   const sub = useSubconscious();
 
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
@@ -136,10 +147,12 @@ export default function Brain() {
       cancelled = true;
       window.removeEventListener('openhuman:memory-tree-completed', onTreeDone);
     };
-  }, [mode, refreshKey]);
+    // `authUserId` is a dependency so a logout→login (identity becomes
+    // available again) re-pulls the persisted graph instead of leaving the
+    // signed-out empty state on screen (#4149).
+  }, [mode, refreshKey, authUserId]);
 
-  const cardClass =
-    'rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900';
+  const cardClass = 'rounded-lg border border-line bg-surface p-4';
 
   return (
     <div className="h-full">
@@ -225,11 +238,7 @@ export default function Brain() {
                 ],
               },
             ]}
-            header={
-              <p className="min-w-0 text-[11px] text-stone-500 dark:text-neutral-400">
-                {t('brain.subtitle')}
-              </p>
-            }
+            header={<p className="min-w-0 text-[11px] text-content-muted">{t('brain.subtitle')}</p>}
           />
         </div>
       </SidebarContent>
@@ -243,7 +252,7 @@ export default function Brain() {
           // card surface (the bespoke graph/sources/etc. tabs keep their own
           // scaffold below and stay flush).
           <div className="h-full p-4">
-            <div className="h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="h-full overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
               <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
                 {/* Distinct tab query key so the embedded Intelligence panel's
                     internal tab switches don't overwrite Brain's own

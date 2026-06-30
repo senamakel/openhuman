@@ -183,7 +183,7 @@ const PersonaPanel = ({ embedded = false }: PersonaPanelProps) => {
           </Button>
         </div>
       </SettingsSection>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1">
+      <p className="text-xs text-content-muted leading-relaxed px-1">
         {t('settings.persona.identityDesc')}
       </p>
 
@@ -191,7 +191,7 @@ const PersonaPanel = ({ embedded = false }: PersonaPanelProps) => {
       <SettingsSection title={t('settings.persona.soul.heading')}>
         {soulLoading ? (
           <div className="px-4 py-3">
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</p>
+            <p className="text-sm text-content-muted">{t('common.loading')}</p>
           </div>
         ) : (
           <>
@@ -228,7 +228,7 @@ const PersonaPanel = ({ embedded = false }: PersonaPanelProps) => {
               {soulIsDefault && (
                 <span
                   data-testid="persona-soul-default-badge"
-                  className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  className="text-[11px] text-content-muted">
                   {t('settings.persona.soul.usingDefault')}
                 </span>
               )}
@@ -243,7 +243,7 @@ const PersonaPanel = ({ embedded = false }: PersonaPanelProps) => {
           </p>
         )}
       </SettingsSection>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1">
+      <p className="text-xs text-content-muted leading-relaxed px-1">
         {t('settings.persona.soul.desc')}
       </p>
 
@@ -254,7 +254,7 @@ const PersonaPanel = ({ embedded = false }: PersonaPanelProps) => {
             type="button"
             data-testid="persona-open-mascot"
             onClick={() => navigateToSettings('personality#face')}
-            className="flex w-full items-center justify-between text-left text-sm text-neutral-800 dark:text-neutral-200 hover:text-primary-700 dark:hover:text-primary-300">
+            className="flex w-full items-center justify-between text-left text-sm text-content hover:text-primary-700 dark:hover:text-primary-300">
             <span>{t('settings.persona.openMascotSettings')}</span>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -262,7 +262,7 @@ const PersonaPanel = ({ embedded = false }: PersonaPanelProps) => {
           </button>
         </div>
       </SettingsSection>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed px-1">
+      <p className="text-xs text-content-muted leading-relaxed px-1">
         {t('settings.persona.appearanceDesc')}
       </p>
     </>

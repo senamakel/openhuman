@@ -181,6 +181,7 @@ use openhuman_core::openhuman::profiles::{
 };
 use openhuman_core::openhuman::security::SecurityPolicy;
 use openhuman_core::openhuman::todos::ops::BoardLocation;
+use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::{Tool, ToolResult, ToolSpec};
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
@@ -1598,10 +1599,12 @@ named = ["todo", "plan_exit"]
         max_iterations: 8,
         iteration_policy: Default::default(),
         max_result_chars: None,
+        max_turn_output_tokens: None,
         timeout_secs: None,
         sandbox_mode: SandboxMode::None,
         background: false,
         trigger_memory_agent: Default::default(),
+        tokenjuice_compression: AgentTokenjuiceCompression::Auto,
         subagents: Vec::new(),
         delegate_name: None,
         agent_tier: AgentTier::Worker,
@@ -2795,7 +2798,7 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     );
     let estimated =
         openhuman_core::openhuman::agent::cost::estimate_call_cost_usd("agentic-v1", &usage);
-    assert!((estimated - 18.3).abs() < 1e-6, "got {estimated}");
+    assert!((estimated - 1.308625).abs() < 1e-6, "got {estimated}");
     let charged = UsageInfo {
         charged_amount_usd: 0.42,
         ..usage.clone()
@@ -2812,7 +2815,7 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
     assert_eq!(turn_cost.cached_input_tokens, 2_000_000);
     assert_eq!(turn_cost.charged_usd, 0.42);
     assert_eq!(turn_cost.call_count, 2);
-    assert!(turn_cost.total_usd() > 18.7);
+    assert!((turn_cost.total_usd() - 1.728625).abs() < 1e-6);
 
     let composio = TriggerEnvelope::from_composio(
         "gmail",
@@ -3871,6 +3874,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
                 extra_content: None,
             }],
             reasoning_content: Some("thinking".into()),
+            extra_metadata: None,
         },
         ConversationMessage::ToolResults(vec![ToolResultMessage {
             tool_call_id: "call-1".into(),
@@ -3885,6 +3889,7 @@ fn agent_dispatchers_and_host_runtime_cover_public_edge_paths() {
                 extra_content: None,
             }],
             reasoning_content: None,
+            extra_metadata: None,
         },
         ConversationMessage::ToolResults(vec![ToolResultMessage {
             tool_call_id: "orphan".into(),
@@ -4699,6 +4704,7 @@ async fn agent_subagent_public_types_cover_task_local_and_error_display_paths() 
         mode: SubagentMode::Typed,
         status: SubagentRunStatus::Completed,
         final_history: Vec::new(),
+        usage: Default::default(),
     };
     assert_eq!(outcome.mode.as_str(), "typed");
     assert_eq!(outcome.elapsed.as_millis(), 12);

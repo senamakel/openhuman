@@ -1079,6 +1079,9 @@ impl Agent {
         let effective_trigger_memory_agent = target_def
             .map(|def| def.trigger_memory_agent)
             .unwrap_or_default();
+        let effective_tokenjuice_compression = target_def
+            .map(|def| def.effective_tokenjuice_compression())
+            .unwrap_or(crate::openhuman::tokenjuice::AgentTokenjuiceCompression::Full);
 
         // Stamp the resolved agent definition id onto the Agent via the
         // builder. Without this call, `agent_definition_name` falls
@@ -1201,7 +1204,8 @@ impl Agent {
             .agent_definition_name(agent_id.to_string())
             .omit_profile(effective_omit_profile)
             .omit_memory_md(effective_omit_memory_md)
-            .trigger_memory_agent(effective_trigger_memory_agent);
+            .trigger_memory_agent(effective_trigger_memory_agent)
+            .tokenjuice_compression(effective_tokenjuice_compression);
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }

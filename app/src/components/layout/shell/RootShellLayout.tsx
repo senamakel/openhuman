@@ -11,6 +11,7 @@ import {
 } from '../../../store/layoutSlice';
 import { Tooltip } from '../../ui';
 import CollapsedNavRail from './CollapsedNavRail';
+import WindowDragBar from './WindowDragBar';
 
 // `app-shell` (not the older `root-shell`) so the persisted geometry seeds
 // fresh with the sidebar visible by default. Exported so the global command
@@ -168,7 +169,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
             onPointerDown={onPointerDown}
             onKeyDown={onDividerKeyDown}
             title={t('layout.resizeSidebar')}
-            className="group relative w-px flex-shrink-0 cursor-col-resize select-none self-stretch bg-stone-200 dark:bg-neutral-800 focus:outline-none">
+            className="group relative w-px flex-shrink-0 cursor-col-resize select-none self-stretch bg-surface-strong focus:outline-none">
             <span className="absolute inset-y-0 -left-1 -right-1 z-10" />
             <span className="absolute inset-0 transition-colors group-hover:bg-primary-400 group-focus:bg-primary-500" />
           </div>
@@ -180,7 +181,13 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
           native CEF webview glued to the content's bounds, which composites
           above the HTML layer — starts to its right and never covers it. */}
       {!isOpen && (
-        <div className="flex w-14 flex-none flex-col items-center gap-0.5 border-r border-stone-200 bg-white pt-2 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex w-14 flex-none flex-col items-center gap-0.5 border-r border-line bg-surface">
+          {/* macOS overlay title bar (titleBarStyle: Overlay) floats the traffic
+              lights over the top-left. The expanded SidebarHeader dodges them by
+              right-aligning, but this narrow rail can't — so reserve a draggable
+              strip the height of the window controls and start the rail below it,
+              clear of the lights. */}
+          <div className="h-7 w-full flex-none" data-tauri-drag-region />
           <Tooltip label={t('layout.showSidebar')}>
             <button
               type="button"
@@ -188,7 +195,7 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
               data-testid="root-shell-reopen"
               data-analytics-id="root-shell-reopen-sidebar"
               aria-label={t('layout.showSidebar')}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-700 dark:text-neutral-400 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-200">
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -200,14 +207,20 @@ export default function RootShellLayout({ sidebar, children }: RootShellLayoutPr
             </button>
           </Tooltip>
           {/* Keep the primary nav reachable while collapsed: an icon-only rail. */}
-          <div className="mt-1 w-full border-t border-stone-200/70 pt-1 dark:border-neutral-800/70">
+          <div className="mt-1 w-full border-t border-line/70 pt-1 dark:border-line/70">
             <CollapsedNavRail />
           </div>
         </div>
       )}
 
-      <div className="flex-1 min-w-0 overflow-hidden" data-testid="root-shell-content">
+      <div className="relative flex-1 min-w-0 overflow-hidden" data-testid="root-shell-content">
         {children}
+        {/* macOS overlay-title-bar drag strip — a transparent overlay pinned on
+            TOP of the routed view (last child) so full-bleed surfaces (Tiny
+            Place world, Chat backdrop) stay edge-to-edge while the top of the
+            window still drags. The sidebar is excluded — its header already
+            drags in place. No-op off macOS / outside Tauri. */}
+        <WindowDragBar />
       </div>
     </div>
   );

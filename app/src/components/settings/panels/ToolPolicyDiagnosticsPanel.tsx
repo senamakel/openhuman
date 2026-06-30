@@ -75,7 +75,7 @@ const ToolPolicyDiagnosticsPanel = () => {
   const body = useMemo(() => {
     if (status.kind === 'loading') {
       return (
-        <div className="px-4 py-3 text-sm text-neutral-500 dark:text-neutral-400">
+        <div className="px-4 py-3 text-sm text-content-muted">
           {t('devOptions.toolPolicyDiagnostics.loading')}
         </div>
       );
@@ -83,7 +83,7 @@ const ToolPolicyDiagnosticsPanel = () => {
     if (status.kind === 'error') {
       return (
         <div className="px-4 py-3">
-          <div className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 mb-1">
+          <div className="text-sm font-semibold text-content mb-1">
             {t('devOptions.toolPolicyDiagnostics.unavailable')}
           </div>
           <SettingsStatusLine saving={false} error={status.message} savingLabel="" />
@@ -96,8 +96,8 @@ const ToolPolicyDiagnosticsPanel = () => {
       d.mcp_write_audit.recent_rows === null ? '—' : String(d.mcp_write_audit.recent_rows);
 
     return (
-      <div className="px-4 pt-3 pb-6 flex flex-col gap-3">
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-sage-50 dark:bg-sage-500/10">
+      <div className="px-4 pt-3 pb-6 space-y-3">
+        <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-sage-50 dark:bg-sage-500/10">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.posture.title')}
           </div>
@@ -133,7 +133,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           </dl>
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.inventory.title')}
           </div>
@@ -165,7 +165,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           </dl>
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.mcpAllowlists.title')}
           </div>
@@ -195,7 +195,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           )}
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.mcpWriteAudit.title')}
           </div>
@@ -211,7 +211,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           )}
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.recentBlocked.title')}
           </div>
@@ -242,7 +242,7 @@ const ToolPolicyDiagnosticsPanel = () => {
           )}
         </div>
 
-        <div className="px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20">
+        <div className="px-4 py-3 rounded-xl border border-sage-300 dark:border-sage-500/40 bg-surface dark:bg-sage-900/20">
           <div className="text-sm font-semibold text-sage-900 dark:text-sage-200">
             {t('devOptions.toolPolicyDiagnostics.redactedSurfaces.title')}
           </div>

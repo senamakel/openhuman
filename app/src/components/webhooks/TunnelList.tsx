@@ -63,7 +63,7 @@ export default function TunnelList({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-stone-900">{t('webhooks.tunnels.title')}</h3>
+        <h3 className="text-lg font-semibold text-content">{t('webhooks.tunnels.title')}</h3>
         <div className="flex gap-2">
           <Button variant="tertiary" size="sm" onClick={onRefresh} disabled={loading}>
             {loading ? t('common.loading') : t('common.refresh')}
@@ -76,13 +76,13 @@ export default function TunnelList({
 
       {/* Create form */}
       {showCreate && (
-        <div className="p-4 rounded-xl border border-stone-200 bg-white space-y-3">
+        <div className="p-4 rounded-xl border border-line bg-surface space-y-3">
           <input
             type="text"
             placeholder={t('webhooks.tunnels.namePlaceholder')}
             value={newName}
             onChange={e => setNewName(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+            className="w-full px-3 py-2 text-sm border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
             autoFocus
           />
           <input
@@ -90,7 +90,7 @@ export default function TunnelList({
             placeholder={t('webhooks.tunnels.descriptionPlaceholder')}
             value={newDesc}
             onChange={e => setNewDesc(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+            className="w-full px-3 py-2 text-sm border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
           />
           <div className="flex gap-2 justify-end">
             <Button variant="tertiary" size="sm" onClick={() => setShowCreate(false)}>
@@ -124,7 +124,7 @@ export default function TunnelList({
 
       {/* Tunnel list */}
       {tunnels.length === 0 && !loading && (
-        <p className="text-sm text-stone-500 text-center py-8">{t('webhooks.tunnels.empty')}</p>
+        <p className="text-sm text-content-muted text-center py-8">{t('webhooks.tunnels.empty')}</p>
       )}
 
       <div className="space-y-2">
@@ -214,14 +214,16 @@ function TunnelCard({
   };
 
   return (
-    <div className="p-4 rounded-xl border border-stone-200 bg-white hover:border-stone-300 transition-colors">
+    <div className="p-4 rounded-xl border border-line bg-surface hover:border-line-strong transition-colors">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="text-sm font-medium text-stone-900 truncate">{tunnel.name}</h4>
+            <h4 className="text-sm font-medium text-content truncate">{tunnel.name}</h4>
             <span
               className={`inline-flex items-center px-1.5 py-0.5 text-xs rounded-full ${
-                tunnel.isActive ? 'bg-sage-100 text-sage-700' : 'bg-stone-100 text-stone-500'
+                tunnel.isActive
+                  ? 'bg-sage-100 text-sage-700'
+                  : 'bg-surface-subtle text-content-muted'
               }`}>
               {tunnel.isActive ? t('webhooks.tunnels.active') : t('webhooks.tunnels.inactive')}
             </span>
@@ -237,10 +239,10 @@ function TunnelCard({
             )}
           </div>
           {tunnel.description && (
-            <p className="mt-1 text-xs text-stone-500">{tunnel.description}</p>
+            <p className="mt-1 text-xs text-content-muted">{tunnel.description}</p>
           )}
           <div className="mt-2 flex items-center gap-2">
-            <code className="text-xs text-stone-500 bg-stone-50 px-2 py-1 rounded font-mono truncate max-w-[400px]">
+            <code className="text-xs text-content-muted bg-surface-muted px-2 py-1 rounded font-mono truncate max-w-[400px]">
               {webhookUrl || 'Resolving backend URL…'}
             </code>
             <Button

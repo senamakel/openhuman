@@ -199,9 +199,9 @@ mod tests {
 
     #[test]
     fn cost_uses_input_price() {
-        // agentic-v1 input is $3/Mtok → 1M saved tokens ≈ $3.
+        // agentic-v1 input pricing is used for saved-token cost estimates.
         let c = cost_saved_usd("agentic-v1", 1_000_000);
-        assert!((c - 3.0).abs() < 1e-6, "got {c}");
+        assert!((c - 0.435).abs() < 1e-6, "got {c}");
     }
 
     #[test]

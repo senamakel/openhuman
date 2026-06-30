@@ -6,10 +6,7 @@ const STATUS_STYLES: Record<FeedbackStatus, { pill: string; dot: string }> = {
   open: { pill: 'bg-primary-500/10 text-primary-600 dark:text-primary-400', dot: 'bg-primary-500' },
   planned: { pill: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' },
   completed: { pill: 'bg-sage-500/10 text-sage-600 dark:text-sage-400', dot: 'bg-sage-500' },
-  closed: {
-    pill: 'bg-neutral-500/10 text-neutral-500 dark:text-neutral-400',
-    dot: 'bg-neutral-400',
-  },
+  closed: { pill: 'bg-neutral-500/10 text-content-muted', dot: 'bg-neutral-400' },
 };
 
 const STATUS_LABEL_KEYS: Record<FeedbackStatus, string> = {

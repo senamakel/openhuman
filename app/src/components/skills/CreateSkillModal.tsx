@@ -90,16 +90,16 @@ export default function CreateSkillModal({ onClose, onCreated, editing }: Props)
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-skill-title"
-        className="relative w-full max-w-[520px] rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl animate-fade-in">
+        className="relative w-full max-w-[520px] rounded-2xl bg-surface shadow-2xl animate-fade-in">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-stone-100 dark:border-neutral-800 px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-line-subtle px-5 py-4">
           <div className="min-w-0 flex-1">
             <h2
               id="create-skill-title"
-              className="text-base font-semibold text-stone-900 dark:text-neutral-100 font-sans">
+              className="text-base font-semibold text-content font-sans">
               {editing ? t('common.edit') : t('workflows.create.title')}
             </h2>
-            <p className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+            <p className="mt-0.5 text-xs text-content-muted">
               {t('workflows.create.subtitle')}
             </p>
           </div>
@@ -115,7 +115,7 @@ export default function CreateSkillModal({ onClose, onCreated, editing }: Props)
             }}
             disabled={submitting}
             aria-label={t('common.close')}
-            className="h-8 w-8 flex-shrink-0 text-stone-400 dark:text-neutral-500">
+            className="h-8 w-8 flex-shrink-0 text-content-faint">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -139,7 +139,7 @@ export default function CreateSkillModal({ onClose, onCreated, editing }: Props)
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-stone-100 dark:border-neutral-800 px-5 py-3">
+        <div className="flex items-center justify-end gap-2 border-t border-line-subtle px-5 py-3">
           <Button variant="tertiary" onClick={onClose} disabled={submitting}>
             {t('common.cancel')}
           </Button>

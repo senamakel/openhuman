@@ -62,13 +62,13 @@ const RailButton = ({
     // tooltip isn't trapped under a later sibling's stacking context.
     className={`group relative flex h-9 w-9 flex-none items-center justify-center rounded-lg transition-all hover:z-50 ${
       active
-        ? 'bg-primary-50 ring-2 ring-primary-500'
-        : 'hover:bg-stone-100 dark:hover:bg-neutral-800/60 hover:scale-105'
+        ? 'bg-primary-500/15 ring-2 ring-primary-500'
+        : 'hover:bg-surface-hover hover:scale-105'
     }`}
     aria-label={tooltip}>
     {children}
     {badge && badge > 0 ? (
-      <span className="absolute -right-0.5 -top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-semibold text-white">
+      <span className="absolute -right-0.5 -top-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-coral-500 px-1 text-[9px] font-semibold text-content-inverted">
         {badge > 99 ? '99+' : badge}
       </span>
     ) : null}
@@ -226,13 +226,13 @@ export default function SidebarAppRail() {
       <div
         data-testid="sidebar-app-rail"
         data-analytics-id="sidebar-app-rail"
-        className="scrollbar-hide flex flex-none items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-stone-100 px-2 py-2 dark:border-neutral-800">
+        className="scrollbar-hide flex flex-none items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-line-subtle px-2 py-2">
         <RailButton
           active={isAgentSelected}
           onClick={selectAgent}
           tooltip={t('accounts.agent')}
           analyticsId="sidebar-app-rail-agent">
-          <AgentIcon className="h-5 w-5 rounded-md bg-white dark:bg-neutral-200" />
+          <AgentIcon className="h-5 w-5 rounded-md bg-surface dark:bg-neutral-200" />
         </RailButton>
 
         {accounts.map(acct => (
@@ -260,7 +260,7 @@ export default function SidebarAppRail() {
           }}
           data-analytics-id="sidebar-app-rail-add-account"
           data-testid="accounts-add-button"
-          className={`group relative flex h-9 flex-none items-center justify-center gap-1.5 rounded-xl border border-dashed border-stone-300 text-stone-400 transition-colors hover:bg-stone-50 hover:text-stone-600 dark:border-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-300 ${
+          className={`group relative flex h-9 flex-none items-center justify-center gap-1.5 rounded-xl border border-dashed border-line-strong text-content-faint transition-colors hover:bg-surface-hover hover:text-content-secondary ${
             showAddLabel ? 'w-auto px-2.5' : 'w-9'
           }`}
           aria-label={t('accounts.addApps')}
@@ -283,14 +283,14 @@ export default function SidebarAppRail() {
 
       {ctxMenu && (
         <div
-          className="fixed z-50 min-w-[140px] rounded-lg border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 py-1 shadow-strong"
+          className="fixed z-50 min-w-[140px] rounded-lg border border-line bg-surface py-1 shadow-strong"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onMouseDown={e => e.stopPropagation()}>
           <button
             type="button"
             data-analytics-id="sidebar-app-rail-disconnect-account"
             onClick={() => void handleLogout(ctxMenu.accountId)}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-coral-600 hover:bg-stone-100 dark:hover:bg-neutral-800/60">
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-coral-600 hover:bg-surface-hover">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"

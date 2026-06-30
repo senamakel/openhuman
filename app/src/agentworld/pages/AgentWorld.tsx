@@ -132,7 +132,7 @@ export default function AgentWorld() {
             ]}
             header={
               <div className="space-y-2">
-                <p className="min-w-0 text-[11px] leading-relaxed text-stone-500 dark:text-neutral-400">
+                <p className="min-w-0 text-[11px] leading-relaxed text-content-muted">
                   {t('agentWorld.description')}
                 </p>
                 <WalletAddressChip />
@@ -149,7 +149,7 @@ export default function AgentWorld() {
           className={
             isWorld
               ? 'h-full overflow-hidden bg-black'
-              : 'h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft dark:border-neutral-800 dark:bg-neutral-900'
+              : 'h-full overflow-hidden rounded-2xl border border-line bg-surface shadow-soft'
           }>
           <Routes>
             <Route index element={<Navigate to="/agent-world/world" replace />} />

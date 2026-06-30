@@ -34,8 +34,7 @@ const debug = debugFactory('agentworld:explore');
 
 // ── Shared card style ─────────────────────────────────────────────────────────
 
-const CARD_CLASS =
-  'rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900';
+const CARD_CLASS = 'rounded-lg border border-line bg-surface';
 
 function formatAmount(amount: string): string {
   if (!Number.isFinite(Number(amount))) return amount;
@@ -268,13 +267,11 @@ function num(value?: number): string {
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className={`p-4 ${CARD_CLASS}`}>
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">
         {label}
       </div>
-      <div className="mt-1.5 text-2xl font-semibold text-stone-900 dark:text-neutral-100">
-        {value}
-      </div>
-      {sub && <div className="mt-0.5 text-xs text-stone-400 dark:text-neutral-500">{sub}</div>}
+      <div className="mt-1.5 text-2xl font-semibold text-content">{value}</div>
+      {sub && <div className="mt-0.5 text-xs text-content-faint">{sub}</div>}
     </div>
   );
 }
@@ -284,7 +281,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -301,7 +298,7 @@ function SectionHeader({
 }) {
   return (
     <div className="mb-3 flex items-center justify-between">
-      <h3 className="text-sm font-semibold text-stone-800 dark:text-neutral-200">{title}</h3>
+      <h3 className="text-sm font-semibold text-content">{title}</h3>
       <button
         type="button"
         onClick={onViewAll}
@@ -314,7 +311,7 @@ function SectionHeader({
 
 /** Inline empty message rendered inside a section when it has no data. */
 function SectionEmpty({ message }: { message: string }) {
-  return <p className="py-4 text-center text-sm text-stone-400 dark:text-neutral-500">{message}</p>;
+  return <p className="py-4 text-center text-sm text-content-faint">{message}</p>;
 }
 
 // ── Communities section ───────────────────────────────────────────────────────
@@ -325,9 +322,9 @@ function CommunitySkeletonGrid() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className={`animate-pulse p-3 ${CARD_CLASS}`}>
           <div className="space-y-2">
-            <div className="h-4 w-3/4 rounded bg-stone-200 dark:bg-neutral-800" />
-            <div className="h-3 w-full rounded bg-stone-200 dark:bg-neutral-800" />
-            <div className="h-3 w-1/3 rounded bg-stone-200 dark:bg-neutral-800" />
+            <div className="h-4 w-3/4 rounded bg-surface-strong" />
+            <div className="h-3 w-full rounded bg-surface-strong" />
+            <div className="h-3 w-1/3 rounded bg-surface-strong" />
           </div>
         </div>
       ))}
@@ -339,20 +336,16 @@ function CommunityCard({ group }: { group: GroupMetadata }) {
   const tags = group.tags ?? [];
   return (
     <div className={`p-3 ${CARD_CLASS}`}>
-      <div className="font-medium text-stone-900 dark:text-neutral-100">{group.name}</div>
+      <div className="font-medium text-content">{group.name}</div>
       {group.description && (
-        <p className="mt-1 line-clamp-2 text-xs text-stone-500 dark:text-neutral-400">
-          {group.description}
-        </p>
+        <p className="mt-1 line-clamp-2 text-xs text-content-muted">{group.description}</p>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-1">
-        <span className="text-xs text-stone-400 dark:text-neutral-500">
-          {group.memberCount} members
-        </span>
+        <span className="text-xs text-content-faint">{group.memberCount} members</span>
         {tags.slice(0, 3).map(tag => (
           <span
             key={tag}
-            className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600 dark:bg-neutral-800 dark:text-neutral-400">
+            className="rounded-full bg-surface-subtle px-2 py-0.5 text-[11px] text-content-secondary">
             {tag}
           </span>
         ))}
@@ -401,10 +394,10 @@ function JobSkeletonList() {
         <div key={i} className={`animate-pulse p-3 ${CARD_CLASS}`}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-2/3 rounded bg-stone-200 dark:bg-neutral-800" />
-              <div className="h-3 w-1/3 rounded bg-stone-200 dark:bg-neutral-800" />
+              <div className="h-4 w-2/3 rounded bg-surface-strong" />
+              <div className="h-3 w-1/3 rounded bg-surface-strong" />
             </div>
-            <div className="h-5 w-16 rounded bg-stone-200 dark:bg-neutral-800" />
+            <div className="h-5 w-16 rounded bg-surface-strong" />
           </div>
         </div>
       ))}
@@ -428,8 +421,8 @@ function JobRow({ job }: { job: GqlJobPosting }) {
     <div className={`p-3 ${CARD_CLASS}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="font-medium text-stone-900 dark:text-neutral-100">{job.title}</div>
-          <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+          <div className="font-medium text-content">{job.title}</div>
+          <div className="mt-0.5 text-xs text-content-muted">
             {job.clientProfile.displayName} &middot; {relativeTime(job.createdAt)}
           </div>
           {skills.length > 0 && (
@@ -437,7 +430,7 @@ function JobRow({ job }: { job: GqlJobPosting }) {
               {skills.slice(0, 4).map(skill => (
                 <span
                   key={skill}
-                  className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600 dark:bg-neutral-800 dark:text-neutral-400">
+                  className="rounded-full bg-surface-subtle px-2 py-0.5 text-[11px] text-content-secondary">
                   {skill}
                 </span>
               ))}
@@ -445,7 +438,7 @@ function JobRow({ job }: { job: GqlJobPosting }) {
           )}
         </div>
         <div className="flex-shrink-0 text-right">
-          <div className="text-sm font-semibold text-stone-800 dark:text-neutral-200">
+          <div className="text-sm font-semibold text-content">
             {job.budget.amount} {job.budget.asset}
           </div>
         </div>
@@ -494,10 +487,10 @@ function BountySkeletonList() {
         <div key={i} className={`animate-pulse p-3 ${CARD_CLASS}`}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-2/3 rounded bg-stone-200 dark:bg-neutral-800" />
-              <div className="h-3 w-1/4 rounded bg-stone-200 dark:bg-neutral-800" />
+              <div className="h-4 w-2/3 rounded bg-surface-strong" />
+              <div className="h-3 w-1/4 rounded bg-surface-strong" />
             </div>
-            <div className="h-5 w-20 rounded bg-stone-200 dark:bg-neutral-800" />
+            <div className="h-5 w-20 rounded bg-surface-strong" />
           </div>
         </div>
       ))}
@@ -510,14 +503,14 @@ function BountyRow({ bounty }: { bounty: GqlBounty }) {
     <div className={`p-3 ${CARD_CLASS}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="font-medium text-stone-900 dark:text-neutral-100">{bounty.title}</div>
-          <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">
+          <div className="font-medium text-content">{bounty.title}</div>
+          <div className="mt-0.5 text-xs text-content-muted">
             {bounty.submissionCount} submission{bounty.submissionCount !== 1 ? 's' : ''}
             {bounty.deadline ? ` · deadline ${new Date(bounty.deadline).toLocaleDateString()}` : ''}
           </div>
         </div>
         <div className="flex-shrink-0 text-right">
-          <div className="text-sm font-semibold text-stone-800 dark:text-neutral-200">
+          <div className="text-sm font-semibold text-content">
             {formatReward(bounty.reward.amount, bounty.reward.asset)}
           </div>
         </div>
@@ -588,9 +581,9 @@ function AgentSkeletonGrid() {
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className={`animate-pulse p-3 ${CARD_CLASS}`}>
           <div className="flex flex-col items-center gap-2 text-center">
-            <div className="h-10 w-10 rounded-full bg-stone-200 dark:bg-neutral-800" />
-            <div className="h-3 w-16 rounded bg-stone-200 dark:bg-neutral-800" />
-            <div className="h-3 w-full rounded bg-stone-200 dark:bg-neutral-800" />
+            <div className="h-10 w-10 rounded-full bg-surface-strong" />
+            <div className="h-3 w-16 rounded bg-surface-strong" />
+            <div className="h-3 w-full rounded bg-surface-strong" />
           </div>
         </div>
       ))}
@@ -611,11 +604,9 @@ function AgentMiniCard({ agent }: { agent: AgentCard }) {
           className={`flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white ${colorClass}`}>
           {initials}
         </div>
-        <div className="text-xs font-medium text-stone-800 dark:text-neutral-200">{handle}</div>
+        <div className="text-xs font-medium text-content">{handle}</div>
         {agent.description && (
-          <p className="line-clamp-2 text-[11px] text-stone-400 dark:text-neutral-500">
-            {agent.description}
-          </p>
+          <p className="line-clamp-2 text-[11px] text-content-faint">{agent.description}</p>
         )}
       </div>
     </div>
@@ -658,7 +649,7 @@ function ExploreAgentsGrid({
 function NetworkStatsSection({ state }: { state: StatsState }) {
   if (state.status === 'loading') {
     return (
-      <div className="flex h-40 items-center justify-center text-stone-400 dark:text-neutral-500">
+      <div className="flex h-40 items-center justify-center text-content-faint">
         <span className="animate-pulse text-sm">Loading network overview…</span>
       </div>
     );
@@ -678,7 +669,7 @@ function NetworkStatsSection({ state }: { state: StatsState }) {
       state.message.includes('wallet secret material is missing');
     return isWalletLocked ? (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Unlock your wallet to use Agent World"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
@@ -695,7 +686,7 @@ function NetworkStatsSection({ state }: { state: StatsState }) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-content-muted">
           All time
         </h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -705,7 +696,7 @@ function NetworkStatsSection({ state }: { state: StatsState }) {
         </div>
       </div>
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-content-muted">
           Last 24 hours
         </h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -716,7 +707,7 @@ function NetworkStatsSection({ state }: { state: StatsState }) {
         </div>
       </div>
       <div>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-content-muted">
           Ledger
         </h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -753,7 +744,7 @@ export default function ExploreSection() {
       <div className="space-y-8">
         {/* ── Network stats (top, always first) ── */}
         <section>
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-content-muted">
             {t('explore.networkOverview')}
           </h3>
           <NetworkStatsSection state={statsState} />

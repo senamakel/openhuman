@@ -9,7 +9,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { callCoreRpc } from '../../../services/coreRpcClient';
-import { SettingsStatusLine } from '../controls';
+import Button from '../../ui/Button';
+import { SettingsRow, SettingsSection, SettingsStatusLine } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 
 interface AgentBoxProviderInfo {
@@ -28,9 +29,6 @@ type PanelState =
   | { kind: 'loading' }
   | { kind: 'ready'; status: AgentBoxStatus }
   | { kind: 'error'; message: string };
-
-const ROW =
-  'px-4 py-3 rounded-lg border border-sage-300 dark:border-sage-500/40 bg-white dark:bg-sage-900/20';
 
 const AgentBoxPanel = () => {
   const { t } = useT();
@@ -64,16 +62,12 @@ const AgentBoxPanel = () => {
 
   const body = useMemo(() => {
     if (state.kind === 'loading') {
-      return (
-        <div className="px-4 py-3 text-sm text-neutral-500 dark:text-neutral-400">
-          {t('common.loading')}
-        </div>
-      );
+      return <div className="px-4 py-3 text-sm text-content-muted">{t('common.loading')}</div>;
     }
     if (state.kind === 'error') {
       return (
         <div className="px-4 py-3">
-          <div className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 mb-1">
+          <div className="text-sm font-semibold text-content mb-1">
             {t('settings.agentbox.unavailable')}
           </div>
           <SettingsStatusLine saving={false} error={state.message} savingLabel="" />
@@ -85,59 +79,57 @@ const AgentBoxPanel = () => {
     const modeLabel = s.mode_enabled ? t('common.enabled') : t('common.disabled');
 
     return (
-      <div className="px-4 pt-3 pb-6 flex flex-col gap-3">
+      <div className="px-4 pt-3 pb-6 space-y-3">
         <div className="text-xs text-sage-700 dark:text-sage-300">
           {t('settings.agentbox.intro')}
         </div>
 
-        <div className={ROW}>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-sage-900 dark:text-sage-200">
-              {t('settings.agentbox.modeLabel')}
-            </span>
-            <span
-              className={`text-xs font-mono px-2 py-0.5 rounded-full ${
-                s.mode_enabled
-                  ? 'bg-sage-100 text-sage-800 dark:bg-sage-500/20 dark:text-sage-200'
-                  : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700/40 dark:text-neutral-300'
-              }`}>
-              {modeLabel}
-            </span>
-          </div>
-        </div>
+        <SettingsSection>
+          <SettingsRow
+            label={t('settings.agentbox.modeLabel')}
+            control={
+              <span
+                className={`text-xs font-mono px-2 py-0.5 rounded-full ${
+                  s.mode_enabled
+                    ? 'bg-sage-100 text-sage-800 dark:bg-sage-500/20 dark:text-sage-200'
+                    : 'bg-surface-subtle text-content-secondary dark:bg-neutral-700/40'
+                }`}>
+                {modeLabel}
+              </span>
+            }
+          />
+        </SettingsSection>
 
-        <div className={ROW}>
-          <div className="text-sm font-semibold text-sage-900 dark:text-sage-200 mb-2">
-            {t('settings.agentbox.providerHeading')}
+        <SettingsSection title={t('settings.agentbox.providerHeading')}>
+          <div className="px-4 py-3">
+            {s.provider_configured && s.provider ? (
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                <dt className="text-sage-700 dark:text-sage-300">{t('settings.agentbox.slug')}</dt>
+                <dd className="font-mono text-sage-900 dark:text-sage-200 break-all">
+                  {s.provider.slug}
+                </dd>
+                <dt className="text-sage-700 dark:text-sage-300">
+                  {t('settings.agentbox.baseUrl')}
+                </dt>
+                <dd className="font-mono text-sage-900 dark:text-sage-200 break-all">
+                  {s.provider.base_url}
+                </dd>
+                <dt className="text-sage-700 dark:text-sage-300">{t('settings.agentbox.model')}</dt>
+                <dd className="font-mono text-sage-900 dark:text-sage-200 break-all">
+                  {s.provider.model}
+                </dd>
+              </dl>
+            ) : (
+              <div className="text-xs text-sage-700 dark:text-sage-300">
+                {t('settings.agentbox.notConfigured')}
+              </div>
+            )}
           </div>
-          {s.provider_configured && s.provider ? (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-              <dt className="text-sage-700 dark:text-sage-300">{t('settings.agentbox.slug')}</dt>
-              <dd className="font-mono text-sage-900 dark:text-sage-200 break-all">
-                {s.provider.slug}
-              </dd>
-              <dt className="text-sage-700 dark:text-sage-300">{t('settings.agentbox.baseUrl')}</dt>
-              <dd className="font-mono text-sage-900 dark:text-sage-200 break-all">
-                {s.provider.base_url}
-              </dd>
-              <dt className="text-sage-700 dark:text-sage-300">{t('settings.agentbox.model')}</dt>
-              <dd className="font-mono text-sage-900 dark:text-sage-200 break-all">
-                {s.provider.model}
-              </dd>
-            </dl>
-          ) : (
-            <div className="text-xs text-sage-700 dark:text-sage-300">
-              {t('settings.agentbox.notConfigured')}
-            </div>
-          )}
-        </div>
+        </SettingsSection>
 
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="self-start text-xs font-medium px-3 py-1.5 rounded-md border border-sage-300 dark:border-sage-500/40 text-sage-800 dark:text-sage-200 hover:bg-sage-50 dark:hover:bg-sage-500/10">
+        <Button type="button" variant="secondary" size="xs" onClick={() => void load()}>
           {t('common.refresh')}
-        </button>
+        </Button>
       </div>
     );
   }, [state, t, load]);

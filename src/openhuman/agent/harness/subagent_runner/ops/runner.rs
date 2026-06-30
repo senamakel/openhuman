@@ -30,6 +30,7 @@ use crate::openhuman::context::prompt::{
     render_subagent_system_prompt, PromptContext, PromptTool, SubagentRenderOptions,
 };
 use crate::openhuman::file_state::with_file_state_agent_id;
+use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 
 use super::loop_::run_inner_loop;
@@ -275,6 +276,9 @@ async fn run_typed_mode(
         options.model_override.as_deref(),
     );
     let temperature = definition.temperature;
+    let max_output_tokens = definition
+        .max_turn_output_tokens
+        .unwrap_or(AGENT_TURN_MAX_OUTPUT_TOKENS);
 
     // ── Refresh connected-integrations at spawn time ───────────────────
     //
@@ -794,7 +798,7 @@ async fn run_typed_mode(
         model_vision,
         "[subagent_runner] resolved sub-agent model vision capability"
     );
-    let (output, iterations, _agg_usage, early_exit_tool) = Box::pin(run_inner_loop(
+    let (output, iterations, agg_usage, early_exit_tool) = Box::pin(run_inner_loop(
         subagent_provider.as_ref(),
         &mut history,
         &parent.all_tools,
@@ -806,12 +810,14 @@ async fn run_typed_mode(
         model_vision,
         temperature,
         definition.effective_max_iterations(),
+        max_output_tokens,
         task_id,
         &definition.id,
         options.worker_thread_id.clone(),
         handoff_cache.as_deref(),
         parent,
         definition.iteration_policy == IterationPolicy::Extended,
+        definition.effective_tokenjuice_compression(),
         options.run_queue.clone(),
     ))
     .await?;
@@ -884,6 +890,22 @@ async fn run_typed_mode(
         crate::openhuman::agent::harness::subagent_runner::types::SubagentRunStatus::Completed
     };
 
+    // Surface this run's token/cost totals so the parent turn can roll them
+    // into the session-level meters and the global cost tracker. Also push the
+    // breakdown into any active turn-scoped collector (see
+    // `turn_subagent_usage`) so a delegating parent attributes per-child spend.
+    let usage = crate::openhuman::agent::harness::subagent_runner::types::SubagentUsage {
+        input_tokens: agg_usage.input_tokens,
+        output_tokens: agg_usage.output_tokens,
+        cached_input_tokens: agg_usage.cached_input_tokens,
+        charged_amount_usd: agg_usage.charged_amount_usd,
+    };
+    crate::openhuman::agent::harness::turn_subagent_usage::record_subagent_usage(
+        task_id,
+        &definition.id,
+        usage,
+    );
+
     Ok(SubagentRunOutcome {
         task_id: task_id.to_string(),
         agent_id: definition.id.clone(),
@@ -893,5 +915,6 @@ async fn run_typed_mode(
         mode: SubagentMode::Typed,
         status,
         final_history: history,
+        usage,
     })
 }

@@ -176,6 +176,8 @@ pub fn all_tools_with_runtime(
         // durable `subagent_session_id` (preferred) or transient `task_id`.
         Box::new(ListSubagentsTool::new()),
         Box::new(SteerSubagentTool::new()),
+        Box::new(WaitTool::new()),
+        Box::new(WaitLoopTool::new()),
         Box::new(WaitSubagentTool::new()),
         Box::new(CloseSubagentTool::new()),
         Box::new(ContinueSubagentTool::new()),
@@ -742,6 +744,13 @@ pub fn all_tools_with_runtime(
     }
 
     tools.extend(crate::openhuman::search::build_search_tools(root_config));
+
+    // Media generation (image/video via GMI through the backend). Skipped when
+    // no integration client is configured; artifacts land under `action_dir`.
+    tools.extend(crate::openhuman::media_generation::build_media_tools(
+        root_config,
+        action_dir,
+    ));
 
     // High-level web3 tools (swaps / bridges / dapp calls) built on the wallet.
     // They call the backend deBridge proxy per-invocation and error gracefully

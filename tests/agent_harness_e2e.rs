@@ -285,7 +285,7 @@ fn assert_no_jsonrpc_error<'a>(v: &'a Value, context: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("{context}: missing result: {v}"))
 }
 
-fn write_min_config(openhuman_dir: &Path, api_origin: &str) {
+fn write_min_config(openhuman_dir: &Path, api_origin: &str, super_context_enabled: bool) {
     let cfg = format!(
         r#"api_url = "{api_origin}"
 default_model = "e2e-mock-model"
@@ -296,10 +296,11 @@ chat_onboarding_completed = true
 encrypt = false
 
 [context]
-# These harness tests script the mock-LLM call sequence exactly; the default-on
+# Most harness tests script the mock-LLM call sequence exactly; the default-on
 # first-turn "super context" pass (#4085) would spawn a context_scout and consume
-# a scripted response, desyncing the orchestrator turns. Disable it here.
-super_context_enabled = false
+# a scripted response, desyncing the orchestrator turns. Tests opt in only when
+# they explicitly cover super context.
+super_context_enabled = {super_context_enabled}
 "#
     );
     fn write_config_file(config_dir: &Path, cfg: &str) {
@@ -447,6 +448,10 @@ impl Drop for Stack {
 }
 
 async fn boot_stack() -> Stack {
+    boot_stack_with_super_context(false).await
+}
+
+async fn boot_stack_with_super_context(super_context_enabled: bool) -> Stack {
     // Ensure the global AgentDefinitionRegistry is populated with built-in
     // archetypes (orchestrator, researcher, task_manager_agent, etc.) before
     // the RPC stack starts. Without this the session builder cannot synthesise
@@ -465,9 +470,13 @@ async fn boot_stack() -> Stack {
 
     let (mock_addr, mock_join) = serve_on_ephemeral(scripted_upstream_router()).await;
     let mock_origin = format!("http://{mock_addr}");
-    write_min_config(&openhuman_home, &mock_origin);
+    write_min_config(&openhuman_home, &mock_origin, super_context_enabled);
     // Pre-write user-scoped config so it's found after auth_store_session activates "e2e-user".
-    write_min_config(&openhuman_home.join("users").join("e2e-user"), &mock_origin);
+    write_min_config(
+        &openhuman_home.join("users").join("e2e-user"),
+        &mock_origin,
+        super_context_enabled,
+    );
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
@@ -803,33 +812,103 @@ async fn subagent_delegation_happy_path_inner() {
     stack.shutdown();
 }
 
-// ─── agent_prepare_context: context-scout happy path ──────────────────────────
+// ─── Super context: harness-driven context-scout happy path ───────────────────
 //
 // Tool surface (src/openhuman/agent_orchestration/tools/agent_prepare_context.rs,
 //   src/openhuman/agent_registry/agents/context_scout/agent.toml):
-//   - `agent_prepare_context` is a DIRECT tool on the orchestrator's [tools].named
-//     list (not a delegate). It runs the read-only `context_scout` sub-agent
-//     inline and returns the scout's `[context_bundle]` envelope as the tool
-//     result, which the orchestrator then synthesizes from.
+//   - First-turn context prep is harness-driven, not orchestrator-scoped. The
+//     harness runs the read-only `context_scout` before the orchestrator's first
+//     LLM call and injects the scout's `[context_bundle]` into the user message.
 //
 // Actual LLM request ordering (with registry init):
-//   request[0] = orchestrator → model returns { tool_calls: [agent_prepare_context(...)] }
-//   request[1] = context_scout subagent inner loop → model returns the bundle text
-//   request[2] = orchestrator synthesis → final text, having read the bundle
+//   request[0] = context_scout subagent inner loop → model returns the bundle text
+//   request[1] = orchestrator synthesis → final text, having read the bundle
 
-/// Orchestrator calls `agent_prepare_context`; the `context_scout` subagent runs
-/// its own inner LLM call and returns a `[context_bundle]`; the final
-/// orchestrator synthesis reads it. Three upstream requests prove the full
-/// scout path ran, and the synthesis request carries the bundle as a tool result.
+/// The harness runs `context_scout` before the first orchestrator turn and
+/// injects the returned `[context_bundle]`; the final orchestrator synthesis
+/// reads it. Two upstream requests prove the full scout path ran without
+/// exposing `agent_prepare_context` to the orchestrator.
 #[test]
-fn agent_prepare_context_happy_path() {
+fn super_context_happy_path() {
+    run_on_agent_stack("super_context_happy_path", super_context_happy_path_inner);
+}
+
+/// Regression for the "scout runs, bundle missing" failure: the fast chat-tier
+/// `context_scout` wraps its `[context_bundle]` envelope in a preamble and a
+/// closing line. The harness must extract just the envelope and inject it (not
+/// drop the whole thing, and not leak the surrounding prose into the
+/// orchestrator's context).
+#[test]
+fn super_context_extracts_prose_wrapped_bundle() {
     run_on_agent_stack(
-        "agent_prepare_context_happy_path",
-        agent_prepare_context_happy_path_inner,
+        "super_context_extracts_prose_wrapped_bundle",
+        super_context_extracts_prose_wrapped_bundle_inner,
     );
 }
 
-async fn agent_prepare_context_happy_path_inner() {
+async fn super_context_extracts_prose_wrapped_bundle_inner() {
+    let _lock = env_lock();
+    // The envelope is wrapped in prose on BOTH sides — exactly what the strict
+    // whole-output validator used to reject.
+    let prose_wrapped = "Sure! Here's what I found for you:\n\n\
+         [context_bundle]\n\
+         has_enough_context: true\n\
+         summary: CTX_CANARY_9 — the user wants the marker phrase (memory).\n\
+         recommended_tool_calls:\n\
+         [/context_bundle]\n\n\
+         Hope that helps — let me know if you want me to dig deeper!";
+    reset_script(vec![
+        // request[0]: harness-driven context_scout returns a prose-wrapped bundle.
+        text_completion(prose_wrapped),
+        // request[1]: orchestrator reads the *extracted* bundle and synthesizes.
+        text_completion("Prepared. CTX_CANARY_9 noted."),
+    ]);
+    let stack = boot_stack_with_super_context(true).await;
+
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-prepctx-prose",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        400,
+        "harness-prepctx-prose",
+        "thread-prepctx-prose",
+        "prepare context for the marker",
+    )
+    .await;
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "expected chat_done for prose-wrapped super_context: {done}"
+    );
+
+    let requests = with_captured(|c| c.clone());
+    let last_messages = serde_json::to_string(
+        requests
+            .last()
+            .and_then(|r| r.pointer("/body/messages"))
+            .unwrap_or(&Value::Null),
+    )
+    .unwrap_or_default();
+    // The extracted envelope (with its canary) must reach the orchestrator …
+    assert!(
+        last_messages.contains("[context_bundle]") && last_messages.contains("CTX_CANARY_9"),
+        "extracted bundle missing from synthesis request; messages: {last_messages}"
+    );
+    // … but the wrapping prose must NOT — we inject only the envelope.
+    assert!(
+        !last_messages.contains("Here's what I found")
+            && !last_messages.contains("Hope that helps"),
+        "scout's wrapping prose leaked into the orchestrator context; messages: {last_messages}"
+    );
+
+    stack.shutdown();
+}
+
+async fn super_context_happy_path_inner() {
     let _lock = env_lock();
     let scout_bundle = "[context_bundle]\n\
          has_enough_context: true\n\
@@ -840,17 +919,12 @@ async fn agent_prepare_context_happy_path_inner() {
          \x20   why: execute the prepared plan\n\
          [/context_bundle]";
     reset_script(vec![
-        // request[0]: Orchestrator calls the direct `agent_prepare_context` tool.
-        tool_call_completion(
-            "agent_prepare_context",
-            json!({ "question": "find the marker phrase" }),
-        ),
-        // request[1]: context_scout subagent inner LLM call returns the bundle.
+        // request[0]: harness-driven context_scout subagent returns the bundle.
         text_completion(scout_bundle),
-        // request[2]: Orchestrator reads the bundle and synthesizes.
+        // request[1]: Orchestrator reads the injected bundle and synthesizes.
         text_completion("Prepared. CTX_CANARY_7 noted; next I'd spawn a worker."),
     ]);
-    let stack = boot_stack().await;
+    let stack = boot_stack_with_super_context(true).await;
 
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-prepctx",
@@ -869,7 +943,7 @@ async fn agent_prepare_context_happy_path_inner() {
     assert_eq!(
         done.get("event").and_then(Value::as_str),
         Some("chat_done"),
-        "expected chat_done for agent_prepare_context: {done}"
+        "expected chat_done for super_context: {done}"
     );
     let full_response = done
         .get("full_response")
@@ -882,21 +956,27 @@ async fn agent_prepare_context_happy_path_inner() {
 
     let requests = with_captured(|c| c.clone());
     assert!(
-        requests.len() >= 3,
-        "expected ≥3 upstream requests (orchestrator + context_scout + synthesis), got {};\n{}",
+        requests.len() >= 2,
+        "expected ≥2 upstream requests (context_scout + orchestrator), got {};\n{}",
         requests.len(),
         serde_json::to_string_pretty(&requests).unwrap_or_default()
     );
 
-    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
+    let orchestrator_tools = serde_json::to_string(
+        requests
+            .last()
+            .and_then(|r| r.pointer("/body/tools"))
+            .unwrap_or(&Value::Null),
+    )
+    .unwrap_or_default();
     assert!(
-        !all_serialized.contains("Unknown tool:"),
-        "found 'Unknown tool:' — agent_prepare_context was not registered/visible; requests: {}",
-        serde_json::to_string_pretty(&requests).unwrap_or_default()
+        !orchestrator_tools.contains("agent_prepare_context"),
+        "orchestrator should not see agent_prepare_context in its tool schema; tools: {orchestrator_tools}"
     );
 
-    // The synthesis turn must carry the scout's bundle back as a tool result —
-    // proves the [context_bundle] flowed into the orchestrator's context.
+    // The synthesis turn must carry the scout's bundle in the user message —
+    // proves the [context_bundle] flowed into the orchestrator's context without
+    // an orchestrator tool call.
     let last_messages = serde_json::to_string(
         requests
             .last()

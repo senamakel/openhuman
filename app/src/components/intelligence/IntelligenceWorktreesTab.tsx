@@ -61,7 +61,7 @@ export default function IntelligenceWorktreesTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-10 text-stone-400 dark:text-neutral-500">
+      <div className="flex items-center justify-center py-10 text-content-faint">
         <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
         <span className="text-sm">{t('worktree.panel.loading')}</span>
       </div>
@@ -79,10 +79,8 @@ export default function IntelligenceWorktreesTab() {
   if (!data || data.worktrees.length === 0) {
     return (
       <div className="space-y-4">
-        <p className="text-xs text-stone-400 dark:text-neutral-500">
-          {t('worktree.panel.subtitle')}
-        </p>
-        <div className="rounded-xl border border-dashed border-stone-200 py-10 text-center text-sm text-stone-400 dark:border-neutral-800 dark:text-neutral-500">
+        <p className="text-xs text-content-faint">{t('worktree.panel.subtitle')}</p>
+        <div className="rounded-xl border border-dashed border-line py-10 text-center text-sm text-content-faint">
           {t('worktree.panel.empty')}
         </div>
       </div>
@@ -91,7 +89,7 @@ export default function IntelligenceWorktreesTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-stone-400 dark:text-neutral-500">{t('worktree.panel.subtitle')}</p>
+      <p className="text-xs text-content-faint">{t('worktree.panel.subtitle')}</p>
 
       {data.overlaps.length > 0 ? (
         <div
@@ -112,17 +110,15 @@ export default function IntelligenceWorktreesTab() {
         </div>
       ) : null}
 
-      <ul className="divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+      <ul className="divide-y divide-line-subtle overflow-hidden rounded-xl border border-line bg-surface dark:divide-neutral-800">
         {data.worktrees.map(wt => (
           <li key={wt.path} className="space-y-2 p-3" data-testid="worktree-row">
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="truncate text-sm font-medium text-stone-800 dark:text-neutral-100"
-                title={wt.path}>
+              <span className="truncate text-sm font-medium text-content" title={wt.path}>
                 {basename(wt.path)}
               </span>
               {wt.branch ? (
-                <span className="rounded-md border border-stone-200 px-1.5 py-0.5 font-mono text-[10px] text-stone-500 dark:border-neutral-700 dark:text-neutral-400">
+                <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-[10px] text-content-muted">
                   {wt.branch}
                 </span>
               ) : null}
@@ -136,7 +132,7 @@ export default function IntelligenceWorktreesTab() {
                 </span>
               )}
               {wt.changedFiles.length > 0 ? (
-                <span className="text-[11px] text-stone-400 dark:text-neutral-500">
+                <span className="text-[11px] text-content-faint">
                   {wt.changedFiles.length}{' '}
                   {wt.changedFiles.length === 1
                     ? t('worktree.changedFile')
@@ -146,16 +142,14 @@ export default function IntelligenceWorktreesTab() {
             </div>
 
             {wt.changedFiles.length > 0 ? (
-              <ul className="ml-1 space-y-0.5 font-mono text-[11px] text-stone-500 dark:text-neutral-400">
+              <ul className="ml-1 space-y-0.5 font-mono text-[11px] text-content-muted">
                 {wt.changedFiles.slice(0, 8).map(f => (
                   <li key={f} className="truncate" title={f}>
                     {f}
                   </li>
                 ))}
                 {wt.changedFiles.length > 8 ? (
-                  <li className="text-stone-400 dark:text-neutral-500">
-                    +{wt.changedFiles.length - 8}
-                  </li>
+                  <li className="text-content-faint">+{wt.changedFiles.length - 8}</li>
                 ) : null}
               </ul>
             ) : null}

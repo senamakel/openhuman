@@ -17,6 +17,7 @@ fn call(id: &str) -> ConversationMessage {
             extra_content: None,
         }],
         reasoning_content: None,
+        extra_metadata: None,
     }
 }
 

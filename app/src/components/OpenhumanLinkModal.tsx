@@ -87,12 +87,10 @@ const OpenhumanLinkModal = () => {
       role="dialog"
       aria-modal="true">
       <div
-        className="w-full max-w-md rounded-2xl bg-white dark:bg-neutral-900 shadow-xl overflow-hidden"
+        className="w-full max-w-md rounded-2xl bg-surface shadow-xl overflow-hidden"
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-stone-100 dark:border-neutral-800 px-5 py-3">
-          <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-            {titleForPath(activePath, t)}
-          </h2>
+        <div className="flex items-center justify-between border-b border-line-subtle px-5 py-3">
+          <h2 className="text-sm font-semibold text-content">{titleForPath(activePath, t)}</h2>
           <Button
             iconOnly
             variant="tertiary"
@@ -129,7 +127,7 @@ const MessagingSetupBridge = ({ onClose }: { onClose: () => void }) => {
   if (loading && !telegram) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="rounded-2xl bg-white dark:bg-neutral-900 px-6 py-4 text-sm text-stone-600 dark:text-neutral-300 shadow-xl">
+        <div className="rounded-2xl bg-surface px-6 py-4 text-sm text-content-secondary shadow-xl">
           {t('app.openhumanLink.loadingChannelSetup')}
         </div>
       </div>
@@ -142,7 +140,7 @@ const MessagingSetupBridge = ({ onClose }: { onClose: () => void }) => {
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
         onClick={onClose}>
         <div
-          className="rounded-2xl bg-white dark:bg-neutral-900 p-6 text-sm text-stone-700 dark:text-neutral-200 shadow-xl max-w-sm"
+          className="rounded-2xl bg-surface p-6 text-sm text-content-secondary shadow-xl max-w-sm"
           onClick={e => e.stopPropagation()}>
           <p>{t('app.openhumanLink.telegramUnavailable')}</p>
           <div className="mt-3 flex justify-end">
@@ -256,7 +254,7 @@ const NotificationsBody = ({ close }: { close: () => void }) => {
   };
 
   return (
-    <div className="space-y-4 text-sm text-stone-700 dark:text-neutral-200">
+    <div className="space-y-4 text-sm text-content-secondary">
       <p>{t('app.openhumanLink.notifications.intro')}</p>
       {permissionState === 'denied' && (
         <div className="rounded-xl border border-coral-200 bg-coral-50 dark:bg-coral-500/15 p-3 text-xs text-coral-700 dark:text-coral-300">
@@ -270,7 +268,7 @@ const NotificationsBody = ({ close }: { close: () => void }) => {
         </div>
       )}
       {(permissionState === 'prompt' || permissionState === 'unknown') && (
-        <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-3 text-xs text-stone-700 dark:text-neutral-200">
+        <div className="rounded-xl border border-line bg-surface-muted p-3 text-xs text-content-secondary">
           {t('app.openhumanLink.notifications.promptHint')}
         </div>
       )}
@@ -299,15 +297,15 @@ const NotificationsBody = ({ close }: { close: () => void }) => {
 const BillingBody = ({ close }: { close: () => void }) => {
   const { t } = useT();
   return (
-    <div className="space-y-4 text-sm text-stone-700 dark:text-neutral-200">
-      <div className="rounded-xl border border-stone-200 dark:border-neutral-800 bg-stone-50 dark:bg-neutral-800/60 p-4">
-        <p className="text-xs uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+    <div className="space-y-4 text-sm text-content-secondary">
+      <div className="rounded-xl border border-line bg-surface-muted p-4">
+        <p className="text-xs uppercase tracking-wide text-content-muted">
           {t('app.openhumanLink.billing.trialCredit')}
         </p>
-        <p className="mt-1 text-2xl font-semibold text-stone-900 dark:text-neutral-100">
+        <p className="mt-1 text-2xl font-semibold text-content">
           {t('onboarding.runtimeChoice.cloud.creditHighlight')}
         </p>
-        <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
+        <p className="mt-1 text-xs text-content-muted">
           {t('app.openhumanLink.billing.trialDesc')}
         </p>
       </div>
@@ -328,9 +326,9 @@ const BillingBody = ({ close }: { close: () => void }) => {
 const DiscordBody = ({ close }: { close: () => void }) => {
   const { t } = useT();
   return (
-    <div className="space-y-4 text-sm text-stone-700 dark:text-neutral-200">
+    <div className="space-y-4 text-sm text-content-secondary">
       <p>{t('app.openhumanLink.discord.intro')}</p>
-      <ul className="space-y-1.5 text-xs text-stone-600 dark:text-neutral-300 pl-1">
+      <ul className="space-y-1.5 text-xs text-content-secondary pl-1">
         <li className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-primary-400 flex-shrink-0" />
           {t('app.openhumanLink.discord.perk1')}
@@ -376,7 +374,7 @@ const DiscordReportBody = ({ close }: { close: () => void }) => {
   const { t } = useT();
 
   return (
-    <div className="space-y-4 text-sm text-stone-700 dark:text-neutral-200">
+    <div className="space-y-4 text-sm text-content-secondary">
       <p>{t('app.openhumanLink.discordReport.intro')}</p>
       <Button
         onClick={async () => {
@@ -513,7 +511,7 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
     : t('app.openhumanLink.accounts.done');
 
   return (
-    <div className="space-y-4 text-sm text-stone-700 dark:text-neutral-200">
+    <div className="space-y-4 text-sm text-content-secondary">
       <p>{t('app.openhumanLink.accounts.intro')}</p>
       <div className="space-y-2">
         {providerDescriptors.map(p => {
@@ -523,25 +521,21 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
           return (
             <div
               key={p.id}
-              className="flex items-center gap-3 rounded-xl border border-stone-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
+              className="flex items-center gap-3 rounded-xl border border-line-subtle bg-surface p-3">
               <ProviderIcon provider={p.id} className="h-5 w-5 flex-none" />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-stone-900 dark:text-neutral-100">
-                  {p.label}
-                </div>
+                <div className="text-sm font-medium text-content">{p.label}</div>
                 {on && status ? (
                   <div className="flex items-center gap-1.5">
                     <span
                       className={`inline-block h-1.5 w-1.5 rounded-full ${statusDisplay(status).dotClass}`}
                     />
-                    <span className="text-xs text-stone-500 dark:text-neutral-400">
+                    <span className="text-xs text-content-muted">
                       {t(statusDisplay(status).labelKey)}
                     </span>
                   </div>
                 ) : (
-                  <p className="line-clamp-1 text-xs text-stone-500 dark:text-neutral-400">
-                    {p.description}
-                  </p>
+                  <p className="line-clamp-1 text-xs text-content-muted">{p.description}</p>
                 )}
               </div>
               <button
@@ -551,10 +545,10 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
                 aria-label={`${on ? t('skills.disconnect') : t('skills.connect')} ${p.label}`}
                 onClick={() => handleToggle(p.id, p.label, on)}
                 className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                  on ? 'bg-primary-500' : 'bg-stone-200'
+                  on ? 'bg-primary-500' : 'bg-surface-strong'
                 }`}>
                 <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                  className={`inline-block h-5 w-5 transform rounded-full bg-surface shadow transition-transform ${
                     on ? 'translate-x-5' : 'translate-x-0.5'
                   }`}
                 />
@@ -563,9 +557,7 @@ const AccountsSetupBody = ({ close }: { close: () => void }) => {
           );
         })}
       </div>
-      <p className="text-xs text-stone-400 dark:text-neutral-500">
-        {t('app.openhumanLink.accounts.webviewNote')}
-      </p>
+      <p className="text-xs text-content-faint">{t('app.openhumanLink.accounts.webviewNote')}</p>
       <DoneFooter close={close} onDone={handleDone} doneLabel={doneLabel} />
     </div>
   );

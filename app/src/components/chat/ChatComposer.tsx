@@ -123,7 +123,7 @@ export default function ChatComposer({
       {headerSlots}
 
       {/* The input box — only this carries the focus-within highlight. */}
-      <div className="relative flex flex-col rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 transition-all focus-within:border-primary-500/50 focus-within:ring-1 focus-within:ring-primary-500/50">
+      <div className="relative flex flex-col rounded-2xl border border-line bg-surface transition-all focus-within:border-primary-500/50 focus-within:ring-1 focus-within:ring-primary-500/50">
         {/* Hidden file input for attachment (gated — see attachmentsEnabled). */}
         {attachmentsEnabled && (
           <input
@@ -168,7 +168,7 @@ export default function ChatComposer({
               disabled={
                 composerInteractionBlocked || isSending || attachments.length >= maxAttachments
               }
-              className="flex-shrink-0 flex items-center justify-center w-6 h-6 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              className="flex-shrink-0 flex items-center justify-center w-6 h-6 text-content-faint hover:text-content-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -186,7 +186,7 @@ export default function ChatComposer({
               aria-hidden
               className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-0.5 text-sm leading-5 font-sans">
               <span className="invisible">{inputValue}</span>
-              <span className="text-stone-500 dark:text-neutral-400/50">
+              <span className="text-content-muted dark:text-content-muted/50">
                 {inlineCompletionSuffix}
               </span>
             </div>
@@ -204,7 +204,7 @@ export default function ChatComposer({
               placeholder={allowParallelSend ? t('chat.followupHint') : t('chat.typeMessage')}
               rows={1}
               disabled={textareaDisabled}
-              className="relative z-10 w-full resize-none border-0 bg-transparent py-0.5 px-0.5 text-sm leading-5 whitespace-pre-wrap break-words font-sans text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative z-10 w-full resize-none border-0 bg-transparent py-0.5 px-0.5 text-sm leading-5 whitespace-pre-wrap break-words font-sans text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -216,7 +216,7 @@ export default function ChatComposer({
             title={t('composer.voiceMode')}
             onClick={onSwitchToMicCloud}
             disabled={composerInteractionBlocked || isSending}
-            className="flex-shrink-0 flex items-center justify-center w-6 h-6 text-stone-400 dark:text-neutral-500 hover:text-stone-600 dark:hover:text-neutral-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            className="flex-shrink-0 flex items-center justify-center w-6 h-6 text-content-faint hover:text-content-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -246,7 +246,7 @@ export default function ChatComposer({
               aria-label={t('chat.stopGeneration')}
               title={t('chat.stopGeneration')}
               onClick={onStopGeneration}
-              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-white transition-colors">
+              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-content-inverted transition-colors">
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                 <rect x="6" y="6" width="12" height="12" rx="1.5" />
               </svg>
@@ -262,7 +262,7 @@ export default function ChatComposer({
                 void onSend();
               }}
               disabled={!hasContent || composerLocked}
-              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 hover:bg-primary-600 text-content-inverted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
               {showSendingSpinner ? (
                 <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle

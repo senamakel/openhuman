@@ -51,13 +51,47 @@ export interface ChatToolResultEvent {
   tool_call_id?: string;
 }
 
+/** One sub-agent's token/cost contribution within a turn (hover breakdown). */
+export interface SubagentUsageWire {
+  task_id: string;
+  agent_id: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+}
+
+/**
+ * Holistic token/cost/context totals for a completed turn, carried on
+ * `chat_done`. Every numeric is a turn total (parent agent + any sub-agents);
+ * `subagents` breaks the same spend down per child. `context_window` is `0` when
+ * the core couldn't resolve the model's window.
+ */
+export interface TurnUsageWire {
+  input_tokens: number;
+  output_tokens: number;
+  cached_input_tokens: number;
+  cost_usd: number;
+  context_window: number;
+  subagents?: SubagentUsageWire[];
+}
+
 export interface ChatDoneEvent {
   thread_id: string;
   request_id?: string;
   full_response: string;
   rounds_used: number;
-  total_input_tokens: number;
-  total_output_tokens: number;
+  /**
+   * @deprecated Superseded by {@link ChatDoneEvent.usage}. The core no longer
+   * populates these flat fields; read token totals from `usage` instead.
+   */
+  total_input_tokens?: number;
+  /** @deprecated See {@link ChatDoneEvent.total_input_tokens}. */
+  total_output_tokens?: number;
+  /**
+   * Holistic token/cost/context usage for the turn (parent + sub-agents).
+   * Absent on synthetic done events that never ran a real turn.
+   */
+  usage?: TurnUsageWire | null;
   /** Emoji reaction decided by the local model (if any). */
   reaction_emoji?: string | null;
   /** Total segments when the response was split into bubbles by Rust. */

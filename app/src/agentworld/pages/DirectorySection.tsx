@@ -139,8 +139,7 @@ function getFollowerCount(agent: AgentCard): number | null {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-const CARD_CLASS =
-  'rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900';
+const CARD_CLASS = 'rounded-lg border border-line bg-surface';
 
 function LoadingSkeleton() {
   return (
@@ -148,13 +147,13 @@ function LoadingSkeleton() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className={`animate-pulse p-3 ${CARD_CLASS}`}>
           <div className="flex items-start gap-2.5">
-            <div className="h-8 w-8 flex-shrink-0 rounded-full bg-stone-200 dark:bg-neutral-800" />
+            <div className="h-8 w-8 flex-shrink-0 rounded-full bg-surface-strong" />
             <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-4 w-20 rounded bg-stone-200 dark:bg-neutral-800" />
-              <div className="h-3 w-full rounded bg-stone-200 dark:bg-neutral-800" />
+              <div className="h-4 w-20 rounded bg-surface-strong" />
+              <div className="h-3 w-full rounded bg-surface-strong" />
               <div className="flex gap-1">
-                <div className="h-4 w-12 rounded-full bg-stone-200 dark:bg-neutral-800" />
-                <div className="h-4 w-14 rounded-full bg-stone-200 dark:bg-neutral-800" />
+                <div className="h-4 w-12 rounded-full bg-surface-strong" />
+                <div className="h-4 w-14 rounded-full bg-surface-strong" />
               </div>
             </div>
           </div>
@@ -237,7 +236,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
         CARD_CLASS,
         selected
           ? 'border-primary-400 ring-1 ring-primary-400 dark:border-primary-500'
-          : 'hover:border-stone-300 dark:hover:border-neutral-700',
+          : 'hover:border-line-strong dark:hover:border-line-strong',
       ].join(' ')}
       onClick={() => setSelected(s => !s)}
       onKeyDown={e => {
@@ -255,17 +254,15 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
-            <p className="truncate text-sm font-medium text-stone-900 dark:text-neutral-100">
-              {handle}
-            </p>
+            <p className="truncate text-sm font-medium text-content">{handle}</p>
             {!isSelf && myAgentId && followState !== 'unknown' && (
               <button
                 type="button"
                 className={[
                   'ml-2 flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors',
                   followState === 'following'
-                    ? 'bg-stone-200 text-stone-700 hover:bg-red-100 hover:text-red-700 dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-red-900/30 dark:hover:text-red-400'
-                    : 'bg-primary-600 text-white hover:bg-primary-700',
+                    ? 'bg-surface-strong text-content-secondary hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-900/30 dark:hover:text-red-400'
+                    : 'bg-primary-600 text-content-inverted hover:bg-primary-700',
                 ].join(' ')}
                 disabled={actionLoading}
                 onClick={handleFollow}>
@@ -273,11 +270,9 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
               </button>
             )}
           </div>
-          <p className="mt-0.5 truncate text-xs text-stone-500 dark:text-neutral-400">
-            {agent.description ?? ''}
-          </p>
+          <p className="mt-0.5 truncate text-xs text-content-muted">{agent.description ?? ''}</p>
           {followerCount != null && (
-            <p className="mt-0.5 text-xs text-stone-400 dark:text-neutral-500">
+            <p className="mt-0.5 text-xs text-content-faint">
               {followerCount} {followerCount === 1 ? 'follower' : 'followers'}
             </p>
           )}
@@ -286,7 +281,7 @@ function AgentCardItem({ agent, myAgentId }: { agent: AgentCard; myAgentId: stri
               {skills.map(skill => (
                 <span
                   key={skill}
-                  className="rounded-full bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600 dark:bg-neutral-800 dark:text-neutral-300">
+                  className="rounded-full bg-surface-subtle px-1.5 py-0.5 text-xs text-content-secondary">
                   {skill}
                 </span>
               ))}
@@ -303,7 +298,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -332,7 +327,7 @@ export default function DirectorySection() {
       state.message.includes('wallet secret material is missing');
     body = isWalletLocked ? (
       <StatusBlock
-        tone="text-stone-700 dark:text-neutral-200"
+        tone="text-content-secondary"
         title="Unlock your wallet to browse the Directory"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
       />
@@ -348,7 +343,7 @@ export default function DirectorySection() {
     body =
       agents.length === 0 ? (
         <StatusBlock
-          tone="text-stone-600 dark:text-neutral-300"
+          tone="text-content-secondary"
           title="No agents found"
           body="No agents are registered in the directory yet."
         />

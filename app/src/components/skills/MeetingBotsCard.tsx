@@ -1,12 +1,17 @@
+import debug from 'debug';
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { type MascotFace, RiveMascot } from '../../features/human/Mascot';
+import { useComposioIntegrations } from '../../lib/composio/hooks';
+import type { ComposioConnection } from '../../lib/composio/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
+  isCapacityGateMessage,
   joinMeetViaBackendBot,
   leaveBackendMeetBot,
   listMeetCalls,
   type MeetCallRecord,
+  type MeetingPlatform,
 } from '../../services/meetCallService';
 import {
   type BackendMeetHarnessEvent,
@@ -33,6 +38,48 @@ import Button from '../ui/Button';
 import { RecentCallsSection } from './RecentCallsSection';
 
 type Toast = { type: 'success' | 'error' | 'info'; title: string; message?: string };
+
+const log = debug('meeting-bots');
+
+// Composio only hands back a connected account's email — there is no separate
+// display-name field on `ComposioConnection`. A meeting display name is almost
+// always "First Last" derived from that account, so we best-effort humanize the
+// email's local part (`first.last` → `First Last`).
+function deriveDisplayNameFromEmail(email: string | undefined): string {
+  const localPart = email?.split('@')[0]?.trim();
+  if (!localPart) return '';
+  return localPart
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map(token => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
+// Per-platform priority of Composio toolkits to source the user's in-call
+// display name from: the platform's own connected account first, then the
+// mailbox, then blank. Slugs are canonical Composio slugs (see
+// `canonicalizeComposioToolkitSlug`).
+const NAME_SOURCE_TOOLKITS: Record<MeetingPlatform, string[]> = {
+  gmeet: ['googlemeet', 'gmail'],
+  zoom: ['zoom', 'gmail'],
+  teams: ['microsoft_teams', 'outlook', 'gmail'],
+  webex: ['webex', 'gmail'],
+};
+
+// Resolve a default "Your name in this meeting" for the given platform: walk
+// that platform's toolkit priority (own account → mail → blank) and return the
+// first connected account whose email yields a usable name; blank if none are
+// connected. The single entry point the form calls.
+function resolveMeetingDisplayName(
+  platform: MeetingPlatform,
+  connectionByToolkit: Map<string, ComposioConnection>
+): string {
+  for (const slug of NAME_SOURCE_TOOLKITS[platform]) {
+    const name = deriveDisplayNameFromEmail(connectionByToolkit.get(slug)?.accountEmail);
+    if (name) return name;
+  }
+  return '';
+}
 
 interface Props {
   onToast?: (toast: Toast) => void;
@@ -173,17 +220,17 @@ function ActiveMeetingView({ onToast }: Props) {
           <RiveMascot face={face} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+          <div className="text-sm font-semibold text-content">
             {t('skills.meetingBots.liveTitle')}
           </div>
-          <div className="mt-0.5 text-xs text-stone-500 dark:text-neutral-400">{statusText}</div>
+          <div className="mt-0.5 text-xs text-content-muted">{statusText}</div>
           {meetingCode && (
-            <div className="mt-1 truncate font-mono text-[11px] text-stone-600 dark:text-neutral-400">
+            <div className="mt-1 truncate font-mono text-[11px] text-content-secondary">
               {meetingCode}
             </div>
           )}
           {lastReply?.reply && (
-            <div className="mt-1.5 text-xs text-stone-600 dark:text-neutral-300 line-clamp-2 italic">
+            <div className="mt-1.5 text-xs text-content-secondary line-clamp-2 italic">
               &ldquo;{lastReply.reply}&rdquo;
             </div>
           )}
@@ -201,6 +248,9 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
   // backend join payload as `respondToParticipant` → `respondTo`, which the
   // meeting stream uses to gate in-call requests to this speaker only.
   const [respondTo, setRespondTo] = useState('');
+  // Once the user types in the name field we stop auto-prefilling it, so a
+  // late-arriving Composio fetch (it polls) can never clobber manual input.
+  const respondToTouchedRef = useRef(false);
   // Active (respond when addressed) vs listen-only (transcribe only). Defaults
   // to active; the bot still only replies after being addressed by the wake
   // phrase. Forwarded to the backend as `listenOnly` and mirrored into the
@@ -218,6 +268,19 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
   const meetError = useAppSelector(selectBackendMeetError);
   const [recentCalls, setRecentCalls] = useState<MeetCallRecord[] | null>(null);
   const [recentError, setRecentError] = useState<string | null>(null);
+  // The meeting platform this form sends to (only Google Meet is wired up for
+  // now). Drives both the join payload and which connected accounts we source
+  // the default display name from.
+  const platform: MeetingPlatform = 'gmeet';
+  // Prefill "Your name in this meeting" from the connected account that best
+  // matches this platform (calendar → mail → platform-native).
+  const { connectionByToolkit } = useComposioIntegrations();
+  const resolvedDisplayName = resolveMeetingDisplayName(platform, connectionByToolkit);
+
+  useEffect(() => {
+    if (respondToTouchedRef.current || !resolvedDisplayName) return;
+    setRespondTo(prev => (prev.trim() ? prev : resolvedDisplayName));
+  }, [resolvedDisplayName]);
 
   const refreshRecentCalls = useCallback(async () => {
     setRecentError(null);
@@ -251,6 +314,7 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
     mascotColor === 'custom'
       ? { primaryColor: customPrimaryColor, secondaryColor: customSecondaryColor }
       : undefined;
+  const wakePhrase = listenOnly ? undefined : `Hey ${agentName}`;
 
   // Success ('active') is handled by the parent MeetingBotsCard, which stays
   // mounted across the inline→active view swap. The error path lives here
@@ -260,7 +324,12 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
     if (!hasSubmittedRef.current) return;
     if (meetStatus === 'error') {
       hasSubmittedRef.current = false;
-      const message = meetError?.trim() || t('skills.meetingBots.failedToStart');
+      const raw = meetError?.trim() || t('skills.meetingBots.failedToStart');
+      // A capacity-gate error carries the backend's terse "…try again later."
+      // wording; show the tailored, actionable (and localized) copy instead (#4151).
+      const message = isCapacityGateMessage(raw)
+        ? t('skills.meetingBots.serverOverloaded')
+        : raw;
       setError(message);
       setSubmitting(false);
       onToast?.({ type: 'error', title: t('skills.meetingBots.couldNotStartTitle'), message });
@@ -274,21 +343,32 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
     hasSubmittedRef.current = true;
     try {
       const meetingId = crypto.randomUUID();
+      log('join submit %o', {
+        active: !listenOnly,
+        agentChars: agentName.length,
+        ownerChars: respondTo.trim().length,
+        wakeChars: wakePhrase?.length ?? 0,
+        correlationId: meetingId,
+      });
       dispatch(setBackendMeetJoining({ meetUrl: meetUrl.trim(), meetingId, listenOnly }));
       await joinMeetViaBackendBot({
         meetUrl,
         displayName: agentName,
-        platform: 'gmeet',
+        platform,
         agentName,
         systemPrompt,
         mascotId,
         riveColors,
         correlationId: meetingId,
         respondToParticipant: respondTo.trim() || undefined,
+        wakePhrase,
         listenOnly,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('skills.meetingBots.failedToStart');
+      const raw = err instanceof Error ? err.message : t('skills.meetingBots.failedToStart');
+      const message = isCapacityGateMessage(raw)
+        ? t('skills.meetingBots.serverOverloaded')
+        : raw;
       setError(message);
       setSubmitting(false);
       hasSubmittedRef.current = false;
@@ -297,19 +377,19 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
   };
 
   return (
-    <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-soft animate-fade-up">
+    <div className="rounded-2xl border border-line bg-surface p-4 shadow-soft animate-fade-up">
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
+        <h2 className="text-sm font-semibold text-content">
           {t('skills.meetingBots.modalTitle')}
         </h2>
-        <p className="mt-1 text-xs leading-relaxed text-stone-600 dark:text-neutral-300">
+        <p className="mt-1 text-xs leading-relaxed text-content-secondary">
           {t('skills.meetingBots.modalDesc')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <label className="block">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
             {t('skills.meetingBots.meetingLink')}
           </span>
           <input
@@ -321,13 +401,13 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
             onChange={e => setMeetUrl(e.target.value)}
             placeholder={t('skills.meetingBots.platformHints.gmeet')}
             disabled={submitting}
-            className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
+            className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-surface-muted dark:disabled:bg-surface-muted/60"
             required
           />
         </label>
 
         <label className="block">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-stone-500 dark:text-neutral-400">
+          <span className="text-[10px] font-medium uppercase tracking-wide text-content-muted">
             {t('skills.meetingBots.respondToParticipant')}
           </span>
           <input
@@ -335,30 +415,33 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
             autoComplete="off"
             spellCheck={false}
             value={respondTo}
-            onChange={e => setRespondTo(e.target.value)}
+            onChange={e => {
+              respondToTouchedRef.current = true;
+              setRespondTo(e.target.value);
+            }}
             placeholder={t('skills.meetingBots.respondToParticipantHint')}
             disabled={submitting}
             required
-            className="mt-1 w-full rounded-xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-stone-900 dark:text-neutral-100 placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-stone-50 dark:disabled:bg-neutral-800/60"
+            className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-stone-400 dark:placeholder:text-neutral-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-surface-muted dark:disabled:bg-surface-muted/60"
           />
-          <p className="mt-1 text-[10px] text-stone-400 dark:text-neutral-500">
+          <p className="mt-1 text-[10px] text-content-faint">
             {t('skills.meetingBots.respondToParticipantDesc')}
           </p>
         </label>
 
-        <label className="flex items-start gap-3 rounded-xl border border-stone-200 dark:border-neutral-800 px-3 py-2.5">
+        <label className="flex items-start gap-3 rounded-xl border border-line px-3 py-2.5">
           <input
             type="checkbox"
             checked={!listenOnly}
             onChange={e => setListenOnly(!e.target.checked)}
             disabled={submitting}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-stone-300 text-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-line-strong text-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed"
           />
           <span className="min-w-0">
-            <span className="block text-sm font-medium text-stone-800 dark:text-neutral-100">
+            <span className="block text-sm font-medium text-content">
               {t('skills.meetingBots.activeMode')}
             </span>
-            <span className="mt-0.5 block text-[10px] leading-relaxed text-stone-400 dark:text-neutral-500">
+            <span className="mt-0.5 block text-[10px] leading-relaxed text-content-faint">
               {t('skills.meetingBots.activeModeDesc')}
             </span>
           </span>

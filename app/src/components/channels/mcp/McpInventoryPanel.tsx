@@ -65,17 +65,13 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
         if (event.target === event.currentTarget) onClose();
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6 overflow-y-auto">
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl max-w-3xl w-full p-5 max-h-full overflow-y-auto">
+      <div className="bg-surface rounded-xl shadow-xl max-w-3xl w-full p-5 max-h-full overflow-y-auto">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h2
-              id="mcp-inventory-panel-title"
-              className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+            <h2 id="mcp-inventory-panel-title" className="text-base font-semibold text-content">
               {t('mcp.inventory.title')}
             </h2>
-            <p className="text-xs text-stone-500 dark:text-neutral-400 mt-1">
-              {t('mcp.inventory.subtitle')}
-            </p>
+            <p className="text-xs text-content-muted mt-1">{t('mcp.inventory.subtitle')}</p>
           </div>
           <Button
             iconOnly
@@ -100,7 +96,7 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
         <div
           role="tablist"
           aria-label={t('mcp.inventory.tablistAria')}
-          className="flex gap-1 border-b border-stone-200 dark:border-neutral-800 mb-4">
+          className="flex gap-1 border-b border-line mb-4">
           <button
             type="button"
             role="tab"
@@ -112,7 +108,7 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
             className={`-mb-px px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
               tab === 'export'
                 ? 'border-primary-500 text-primary-600 dark:text-primary-300'
-                : 'border-transparent text-stone-500 dark:text-neutral-400 hover:text-stone-800 dark:hover:text-neutral-200'
+                : 'border-transparent text-content-muted hover:text-content dark:hover:text-neutral-200'
             }`}>
             {t('mcp.inventory.tab.export')}
           </button>
@@ -127,7 +123,7 @@ const McpInventoryPanel = ({ servers, onInstallServer, onClose }: McpInventoryPa
             className={`-mb-px px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
               tab === 'import'
                 ? 'border-primary-500 text-primary-600 dark:text-primary-300'
-                : 'border-transparent text-stone-500 dark:text-neutral-400 hover:text-stone-800 dark:hover:text-neutral-200'
+                : 'border-transparent text-content-muted hover:text-content dark:hover:text-neutral-200'
             }`}>
             {t('mcp.inventory.tab.import')}
           </button>

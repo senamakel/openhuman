@@ -136,20 +136,16 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
       {loading && workflows.length === 0 ? (
         <div className="space-y-2 animate-pulse" data-testid="workflows-loading">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-20 rounded-2xl bg-stone-100 dark:bg-neutral-800" />
+            <div key={i} className="h-20 rounded-2xl bg-surface-subtle" />
           ))}
         </div>
       ) : null}
 
       {/* Empty state */}
       {isEmpty ? (
-        <div className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-10 text-center shadow-soft animate-fade-up">
-          <h2 className="text-sm font-semibold text-stone-900 dark:text-neutral-100">
-            {t('workflows.empty.title')}
-          </h2>
-          <p className="mt-1 text-xs text-stone-500 dark:text-neutral-400">
-            {t('workflows.empty.body')}
-          </p>
+        <div className="rounded-2xl border border-line bg-surface p-10 text-center shadow-soft animate-fade-up">
+          <h2 className="text-sm font-semibold text-content">{t('workflows.empty.title')}</h2>
+          <p className="mt-1 text-xs text-content-muted">{t('workflows.empty.body')}</p>
           <Button
             variant="primary"
             size="md"
@@ -163,7 +159,7 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
       {/* Workflow list */}
       {workflows.length > 0 ? (
         <div
-          className="rounded-2xl border border-stone-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-soft animate-fade-up"
+          className="rounded-2xl border border-line bg-surface p-3 shadow-soft animate-fade-up"
           data-testid="workflows-list">
           <div className="space-y-2">
             {workflows.map(wf => {
@@ -175,12 +171,12 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
                     ? t('scope.project')
                     : t('scope.legacy');
               const scopeColor = wf.legacy
-                ? 'text-stone-600 dark:text-neutral-300'
+                ? 'text-content-secondary'
                 : wf.scope === 'user'
                   ? 'text-sage-600'
                   : wf.scope === 'project'
                     ? 'text-amber-600'
-                    : 'text-stone-600 dark:text-neutral-300';
+                    : 'text-content-secondary';
               const canUninstall = wf.scope === 'user' && !wf.legacy;
               return (
                 <UnifiedSkillCard
@@ -287,9 +283,7 @@ export default function WorkflowsTab({ asSettingsPanel = false }: WorkflowsTabPr
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 text-xs text-stone-500 dark:text-neutral-400">
-          {t('workflows.subtitle')}
-        </p>
+        <p className="min-w-0 text-xs text-content-muted">{t('workflows.subtitle')}</p>
         <div className="flex flex-shrink-0 items-center gap-2">{newWorkflowButton}</div>
       </div>
       {body}

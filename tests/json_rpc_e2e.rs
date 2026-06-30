@@ -10357,6 +10357,12 @@ async fn mcp_clients_lifecycle() {
 /// No npx, no network: we pre-seed `smithery:detail:<name>` with a detail whose
 /// stdio `exampleConfig.command` points at the stub binary, so
 /// `mcp_clients_install` resolves the launch command to the stub.
+///
+/// Smithery is now opt-in (only enabled when an API key is set), so we install
+/// with the explicit `smithery::` source prefix. `registry_get` routes a
+/// prefixed name straight to that adapter via `registry_for_source`, which
+/// resolves Smithery regardless of the key gate — the same path used for detail
+/// lookups of an already-installed Smithery server.
 #[tokio::test]
 async fn mcp_clients_install_connect_tool_call_happy_path() {
     let _env_lock = json_rpc_e2e_env_lock();
@@ -10410,7 +10416,7 @@ async fn mcp_clients_install_connect_tool_call_happy_path() {
         &rpc_base,
         9920,
         "openhuman.mcp_clients_install",
-        json!({ "qualified_name": qualified_name, "env": {} }),
+        json!({ "qualified_name": format!("smithery::{qualified_name}"), "env": {} }),
     )
     .await;
     let install_result = assert_no_jsonrpc_error(&install, "mcp_clients_install (happy path)");
@@ -10564,6 +10570,9 @@ async fn mcp_clients_set_enabled_smoke() {
     write_min_config(&user_scoped_dir, &mock_origin);
 
     // Seed the registry detail cache so install resolves offline to the stub.
+    // Smithery is opt-in (gated on an API key), so install routes via the
+    // explicit `smithery::` source prefix below — `registry_for_source` resolves
+    // the adapter regardless of the key gate.
     let stub_path = env!("CARGO_BIN_EXE_test-mcp-stub");
     let qualified_name = "@openhuman-test/echo-set-enabled";
     let detail = serde_json::json!({
@@ -10595,7 +10604,7 @@ async fn mcp_clients_set_enabled_smoke() {
         &rpc_base,
         9940,
         "openhuman.mcp_clients_install",
-        json!({ "qualified_name": qualified_name, "env": {} }),
+        json!({ "qualified_name": format!("smithery::{qualified_name}"), "env": {} }),
     )
     .await;
     let install_result =
@@ -10644,6 +10653,151 @@ async fn mcp_clients_set_enabled_smoke() {
         se_true_body.get("enabled"),
         Some(&json!(true)),
         "set_enabled=true should report enabled=true: {se_true_body}"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+/// `mcp_clients_install` idempotency (issue #4120 review): a re-install of the
+/// same service (a) collapses to ONE row and returns `already_installed:true`
+/// even when the first install used a source-prefixed name and the second used
+/// the bare name (canonical dedup), and (b) MERGES new env onto the existing row
+/// so re-running the dialog to replace an expired token doesn't drop the user's
+/// other stored keys.
+#[tokio::test]
+async fn mcp_clients_install_idempotent_refresh_and_canonical_dedup() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+    let user_scoped_dir = openhuman_home.join("users").join("local");
+    write_min_config(&user_scoped_dir, &mock_origin);
+
+    // Seed the smithery detail cache so the FIRST (prefixed) install resolves
+    // offline. The second install hits the idempotency branch before registry_get,
+    // so it needs no cache.
+    let stub_path = env!("CARGO_BIN_EXE_test-mcp-stub");
+    let qualified_name = "@openhuman-test/echo-reinstall";
+    let detail = serde_json::json!({
+        "qualifiedName": qualified_name,
+        "displayName": "Test Echo Reinstall",
+        "description": "Stub for install idempotency.",
+        "connections": [{
+            "type": "stdio",
+            "published": true,
+            "exampleConfig": { "command": stub_path, "args": [] }
+        }]
+    });
+    let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
+        .await
+        .expect("load config for cache seed");
+    openhuman_core::openhuman::mcp_registry::store::set_cached(
+        &seed_config,
+        &format!("smithery:detail:{qualified_name}"),
+        &detail.to_string(),
+    )
+    .expect("seed smithery detail cache");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // ── 1. install via the source-prefixed name with two env keys ────────────
+    let install1 = post_json_rpc(
+        &rpc_base,
+        9960,
+        "openhuman.mcp_clients_install",
+        json!({
+            "qualified_name": format!("smithery::{qualified_name}"),
+            "env": { "TOKEN": "old", "KEEP": "v1" }
+        }),
+    )
+    .await;
+    let r1 = assert_no_jsonrpc_error(&install1, "mcp_clients_install (first)");
+    let b1 = peel_logs_envelope(r1);
+    let server_id = b1
+        .get("server")
+        .and_then(|s| s.get("server_id"))
+        .and_then(Value::as_str)
+        .expect("first install returns server_id")
+        .to_string();
+    // Stored qualified_name is the bare (canonical) name, not the prefixed one.
+    assert_eq!(
+        b1.get("server")
+            .and_then(|s| s.get("qualified_name"))
+            .and_then(Value::as_str),
+        Some(qualified_name),
+        "install should store the canonical (bare) qualified_name: {b1}"
+    );
+
+    // ── 2. re-install via the BARE name with a rotated token ─────────────────
+    let install2 = post_json_rpc(
+        &rpc_base,
+        9961,
+        "openhuman.mcp_clients_install",
+        json!({ "qualified_name": qualified_name, "env": { "TOKEN": "new" } }),
+    )
+    .await;
+    let r2 = assert_no_jsonrpc_error(&install2, "mcp_clients_install (re-install)");
+    let b2 = peel_logs_envelope(r2);
+    assert_eq!(
+        b2.get("already_installed"),
+        Some(&json!(true)),
+        "re-install should be flagged already_installed: {b2}"
+    );
+    assert_eq!(
+        b2.get("server")
+            .and_then(|s| s.get("server_id"))
+            .and_then(Value::as_str),
+        Some(server_id.as_str()),
+        "re-install should return the same server_id: {b2}"
+    );
+    // Env merged: the rotated key AND the untouched first-install key survive.
+    let env_keys: Vec<String> = b2
+        .get("server")
+        .and_then(|s| s.get("env_keys"))
+        .and_then(Value::as_array)
+        .expect("re-install returns env_keys")
+        .iter()
+        .filter_map(|v| v.as_str().map(String::from))
+        .collect();
+    assert!(
+        env_keys.contains(&"TOKEN".to_string()) && env_keys.contains(&"KEEP".to_string()),
+        "re-install should merge env (KEEP preserved, TOKEN present): {env_keys:?}"
+    );
+
+    // ── 3. exactly one installed row for this service (no duplicate) ─────────
+    let listed = post_json_rpc(
+        &rpc_base,
+        9962,
+        "openhuman.mcp_clients_installed_list",
+        json!({}),
+    )
+    .await;
+    let lb = peel_logs_envelope(assert_no_jsonrpc_error(
+        &listed,
+        "mcp_clients_installed_list",
+    ));
+    let count = lb
+        .get("installed")
+        .and_then(Value::as_array)
+        .expect("installed list")
+        .iter()
+        .filter(|s| s.get("qualified_name").and_then(Value::as_str) == Some(qualified_name))
+        .count();
+    assert_eq!(
+        count, 1,
+        "prefixed + bare install must collapse to one row: {lb}"
     );
 
     mock_join.abort();
@@ -13263,4 +13417,128 @@ async fn poll_team_task_status(rpc_base: &str, team_id: &str, task_id: &str, wan
         }
     }
     false
+}
+
+/// End-to-end: plant a thread's session transcript on disk, then verify the
+/// `openhuman.threads_token_usage` RPC reads back the correct cumulative token
+/// totals, cost, last-turn usage, model, and inferred context window — the data
+/// the composer footer seeds itself from when a thread is selected.
+#[tokio::test]
+async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+    let workspace = home.join("workspace");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace);
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_min_config(&openhuman_home, "http://127.0.0.1:9");
+
+    // Plant a root session transcript for thread "thr-e2e": a `_meta` header with
+    // the cumulative totals + an assistant message carrying last-turn usage/model.
+    let raw = workspace.join("session_raw");
+    std::fs::create_dir_all(&raw).expect("mkdir session_raw");
+    let jsonl = format!(
+        "{}\n{}\n{}\n",
+        json!({"_meta": {
+            "agent": "main", "dispatcher": "native",
+            "created": "2026-04-11T14:30:00Z", "updated": "2026-04-11T14:35:22Z",
+            "turn_count": 2, "input_tokens": 4200, "output_tokens": 900,
+            "cached_input_tokens": 600, "charged_amount_usd": 0.0123, "thread_id": "thr-e2e"
+        }}),
+        json!({"role": "user", "content": "hi"}),
+        json!({"role": "assistant", "content": "hello", "model": "reasoning-v1",
+            "usage": {"input": 350, "output": 80, "cached_input": 40, "cost_usd": 0.0009},
+            "ts": "2026-04-11T14:35:22Z"}),
+    );
+    std::fs::write(raw.join("1700000000_main.jsonl"), jsonl).expect("write transcript");
+
+    // A sub-agent transcript (stem contains `__`) for the SAME thread: a `coder`
+    // archetype. Its message carries NO model (mirroring how sub-agent
+    // transcripts were historically written), so pricing must fall back to the
+    // thread's model rather than $0. Its spend is grouped under `coder` and
+    // folded into the thread totals — not collapsed into the orchestrator.
+    let sub_jsonl = format!(
+        "{}\n{}\n",
+        json!({"_meta": {
+            "agent": "coder", "dispatcher": "native",
+            "created": "2026-04-11T14:33:00Z", "updated": "2026-04-11T14:34:00Z",
+            "turn_count": 1, "input_tokens": 1000, "output_tokens": 200,
+            "cached_input_tokens": 0, "charged_amount_usd": 0.0, "thread_id": "thr-e2e"
+        }}),
+        json!({"role": "assistant", "content": "done"}),
+    );
+    std::fs::write(
+        raw.join("1700000000_main__1700000050_coder.jsonl"),
+        sub_jsonl,
+    )
+    .expect("write subagent transcript");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // Known thread → totals read back from the transcripts (orchestrator + coder).
+    let resp = post_json_rpc(
+        &rpc_base,
+        1,
+        "openhuman.threads_token_usage",
+        json!({ "thread_id": "thr-e2e" }),
+    )
+    .await;
+    let envelope = assert_no_jsonrpc_error(&resp, "threads_token_usage");
+    let data = envelope
+        .get("data")
+        .unwrap_or_else(|| panic!("missing data envelope: {envelope}"));
+    // Top-level totals include the sub-agent: 4200+1000 in, 900+200 out.
+    assert_eq!(data["input_tokens"], 5200);
+    assert_eq!(data["output_tokens"], 1100);
+    assert_eq!(data["cached_input_tokens"], 600);
+    // Cost is RE-AUDITED at current pricing, NOT the stale persisted charge.
+    // The coder sub-agent has no model, so it's priced at the thread's model
+    // (reasoning-v1 = "Pro"), NOT $0.
+    // orchestrator: (4200-600)*0.435 + 600*0.003625 + 900*0.87 = 0.002351175
+    // coder:        1000*0.435 + 0 + 200*0.87                  = 0.000609
+    // total                                                     = 0.002960175
+    let cost = data["cost_usd"].as_f64().expect("cost_usd");
+    assert!(
+        (cost - 0.002_960_175).abs() < 1e-9,
+        "re-audited total cost should be ~0.00296, got {cost}"
+    );
+    assert_eq!(data["turn_count"], 2);
+    assert_eq!(data["last_turn_input_tokens"], 350);
+    assert_eq!(data["last_turn_output_tokens"], 80);
+    assert_eq!(data["model"], "reasoning-v1");
+    // reasoning-v1 resolves to a 1M context window.
+    assert_eq!(data["context_window"], 1_000_000);
+    assert_eq!(data["has_usage"], true);
+    // Sub-agent breakdown grouped by archetype.
+    let subs = data["subagents"].as_array().expect("subagents array");
+    assert_eq!(subs.len(), 1);
+    assert_eq!(subs[0]["agent_id"], "coder");
+    assert_eq!(subs[0]["input_tokens"], 1000);
+    assert_eq!(subs[0]["output_tokens"], 200);
+    assert_eq!(subs[0]["runs"], 1);
+    assert!((subs[0]["cost_usd"].as_f64().expect("sub cost") - 0.000_609).abs() < 1e-9);
+
+    // Unknown thread → all-zero totals with has_usage=false (brand-new thread).
+    let resp_unknown = post_json_rpc(
+        &rpc_base,
+        2,
+        "openhuman.threads_token_usage",
+        json!({ "thread_id": "thr-does-not-exist" }),
+    )
+    .await;
+    let unknown = assert_no_jsonrpc_error(&resp_unknown, "threads_token_usage unknown");
+    let unknown_data = unknown
+        .get("data")
+        .unwrap_or_else(|| panic!("missing data envelope: {unknown}"));
+    assert_eq!(unknown_data["input_tokens"], 0);
+    assert_eq!(unknown_data["cost_usd"], 0.0);
+    assert_eq!(unknown_data["has_usage"], false);
+
+    rpc_join.abort();
 }

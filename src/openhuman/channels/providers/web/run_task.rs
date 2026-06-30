@@ -237,9 +237,11 @@ pub(crate) async fn run_chat_task(
             // later genuine empty response. See #3386.
             super::ops::clear_budget_signal(thread_id).await;
             let citations = agent.take_last_turn_citations();
+            let usage = agent.take_last_turn_usage_totals();
             Ok(WebChatTaskResult {
                 full_response: response,
                 citations,
+                usage,
             })
         }
         Err(err) => {
@@ -269,6 +271,7 @@ pub(crate) async fn run_chat_task(
                     Ok(WebChatTaskResult {
                         full_response: inference_budget_exceeded_user_message().to_string(),
                         citations: Vec::new(),
+                        usage: None,
                     })
                 }
                 BudgetCorrelation::UpgradeEmptyToBudget => {
@@ -286,6 +289,7 @@ pub(crate) async fn run_chat_task(
                     Ok(WebChatTaskResult {
                         full_response: inference_budget_exceeded_user_message().to_string(),
                         citations: Vec::new(),
+                        usage: None,
                     })
                 }
                 BudgetCorrelation::PassThrough => Err(err_message),
@@ -408,6 +412,7 @@ mod tests {
         Ok(WebChatTaskResult {
             full_response: "hello".to_string(),
             citations: Vec::new(),
+            usage: None,
         })
     }
 

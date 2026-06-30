@@ -301,6 +301,37 @@ pub struct CompactResult {
     pub classification: ClassificationResult,
 }
 
+/// Per-agent TokenJuice profile.
+///
+/// `Auto` is resolved by the agent definition layer. TokenJuice itself treats
+/// `Auto` like `Full` so non-agent callers keep the global `[tokenjuice]`
+/// behaviour unless they explicitly pass a narrower profile.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentTokenjuiceCompression {
+    /// Let the agent definition/runtime choose. Coding agents resolve this to
+    /// [`Self::Light`]; other agents resolve to [`Self::Full`].
+    #[default]
+    Auto,
+    /// Use the process-global TokenJuice configuration unchanged.
+    Full,
+    /// Keep only non-lossy reductions; disables CCR-backed lossy compaction.
+    Light,
+    /// Bypass TokenJuice for this agent's tool results.
+    Off,
+}
+
+impl AgentTokenjuiceCompression {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Full => "full",
+            Self::Light => "light",
+            Self::Off => "off",
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Content Router (TokenJuice 2.0) — content-kind detection + compressor dispatch
 // ---------------------------------------------------------------------------

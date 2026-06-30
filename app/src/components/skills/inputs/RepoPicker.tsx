@@ -111,7 +111,7 @@ const RepoPicker = ({ value, onChange, id, placeholder, disabled }: RepoPickerPr
   // Common <select> classes — match the plain inputs in WorkflowRunnerBody
   // so the picker visually blends with the surrounding form.
   const selectClass =
-    'w-full rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 px-3 py-2 text-sm text-stone-900 dark:text-stone-100';
+    'w-full rounded border border-line-strong dark:border-stone-600 bg-surface px-3 py-2 text-sm text-content dark:text-stone-100';
 
   return (
     <div>

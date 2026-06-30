@@ -437,6 +437,8 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
             "spawn_subagent",
             "spawn_async_subagent",
             "spawn_parallel_agents",
+            "wait",
+            "wait_loop",
             "todo",
             "plan_exit",
             "current_time",

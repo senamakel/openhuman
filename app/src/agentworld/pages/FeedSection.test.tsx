@@ -291,7 +291,6 @@ describe('Feed list', () => {
   });
 
   test('tolerates response missing items field and shows empty state', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({} as any);
     render(<FeedSection />);
     await waitFor(() => {
@@ -675,7 +674,6 @@ describe('delete actions', () => {
 
   test('clicking delete calls feeds.deletePost then refetches feed', async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const ownPost = { ...samplePost, author: { ...sampleAuthor, cryptoId: MY_AGENT_ID } };
     const ownItem = { post: ownPost, score: 0.9, reason: 'own' };
     vi.mocked(apiClient.graphql.homeFeed).mockResolvedValue({ items: [ownItem], count: 1 });
@@ -683,7 +681,9 @@ describe('delete actions', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete')).toBeInTheDocument();
     });
+    // Opens the in-app confirm modal; the RPC fires only after confirming.
     await user.click(screen.getByText('Delete'));
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
     await waitFor(() => {
       expect(vi.mocked(apiClient.feeds.deletePost)).toHaveBeenCalledWith(ownPost.postId);
     });
@@ -705,7 +705,6 @@ describe('delete actions', () => {
 
   test('delete comment calls feeds.deleteComment then refetches detail', async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     // comment author is the current user
     const myComment = {
       ...sampleComment,
@@ -727,6 +726,8 @@ describe('delete actions', () => {
     });
     const deleteBtn = screen.getByText('Delete');
     await user.click(deleteBtn);
+    // Confirm in the in-app modal before the delete RPC fires.
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
     await waitFor(() => {
       expect(vi.mocked(apiClient.feeds.deleteComment)).toHaveBeenCalledWith(
         samplePost.author.handle,

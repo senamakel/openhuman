@@ -132,8 +132,8 @@ export default function FeedbackFilterSelect({
         onKeyDown={onTriggerKeyDown}
         className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
           open
-            ? 'border-primary-500/50 bg-white text-neutral-900 ring-2 ring-primary-500/20 dark:bg-neutral-800 dark:text-neutral-100'
-            : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:border-neutral-300 hover:text-neutral-800 dark:border-neutral-700 dark:bg-white/[0.03] dark:text-neutral-300 dark:hover:text-neutral-100'
+            ? 'border-primary-500/50 bg-surface text-content ring-2 ring-primary-500/20'
+            : 'border-line bg-surface-muted text-content-secondary hover:border-line-strong hover:text-content dark:border-line-strong dark:bg-white/[0.03] dark:hover:text-content'
         }`}>
         {current?.label}
         <svg
@@ -153,7 +153,7 @@ export default function FeedbackFilterSelect({
           aria-label={ariaLabel}
           aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
           onKeyDown={onListKeyDown}
-          className="absolute z-20 mt-1.5 min-w-[10rem] animate-scale-in overflow-hidden rounded-xl border border-neutral-200 bg-white p-1 shadow-medium focus:outline-none dark:border-neutral-700 dark:bg-neutral-800">
+          className="absolute z-20 mt-1.5 min-w-[10rem] animate-scale-in overflow-hidden rounded-xl border border-line bg-surface p-1 shadow-medium focus:outline-none dark:border-line-strong">
           {options.map((option, index) => {
             const selected = option.value === value;
             const active = index === activeIndex;
@@ -167,10 +167,10 @@ export default function FeedbackFilterSelect({
                   className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-1.5 text-left text-xs transition-colors ${
                     selected
                       ? 'font-medium text-primary-600 dark:text-primary-400'
-                      : 'text-neutral-600 dark:text-neutral-300'
+                      : 'text-content-secondary'
                   } ${
                     active
-                      ? 'bg-neutral-100 dark:bg-white/[0.08]'
+                      ? 'bg-surface-subtle dark:bg-white/[0.08]'
                       : selected
                         ? 'bg-primary-500/10'
                         : ''

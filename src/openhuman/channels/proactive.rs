@@ -215,6 +215,7 @@ impl EventHandler for ProactiveMessageSubscriber {
             task_board: None,
             tool_display_label: None,
             tool_display_detail: None,
+            usage: None,
         });
 
         // 2. If an active external channel is configured, deliver there too.

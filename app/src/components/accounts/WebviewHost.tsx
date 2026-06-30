@@ -77,7 +77,7 @@ const LoadingPhaseHint = ({ accountId }: { accountId: string }) => {
   return (
     <span
       data-testid={`webview-loading-hint-${accountId}`}
-      className="text-[11px] font-medium text-stone-400 dark:text-neutral-500">
+      className="text-[11px] font-medium text-content-faint">
       {text}
     </span>
   );
@@ -199,7 +199,7 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
   return (
     <div
       ref={ref}
-      className="relative h-full w-full overflow-hidden bg-stone-100 dark:bg-neutral-800"
+      className="relative h-full w-full overflow-hidden bg-surface-subtle"
       aria-label={`webview host for account ${accountId}`}>
       {/* Branded placeholder + (optional) loading overlay collapsed into a
           single absolute container so we never paint two stacked / offset
@@ -214,9 +214,7 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
         <div
           data-testid={`webview-placeholder-${accountId}`}
           className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 ${
-            isLoading
-              ? 'text-stone-500 dark:text-neutral-400'
-              : 'text-stone-400 dark:text-neutral-500'
+            isLoading ? 'text-content-muted' : 'text-content-faint'
           }`}
           role={isLoading ? 'status' : undefined}
           aria-live={isLoading ? 'polite' : undefined}
@@ -226,7 +224,7 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
             className={`h-12 w-12 ${isLoading ? '' : 'opacity-70'}`}
           />
           <span
-            className={`text-xs font-medium tracking-wide ${isLoading ? '' : 'text-stone-500 dark:text-neutral-400'}`}>
+            className={`text-xs font-medium tracking-wide ${isLoading ? '' : 'text-content-muted'}`}>
             {isLoading
               ? t('accounts.webviewHost.loading').replace('{providerName}', providerName)
               : providerName}
@@ -235,7 +233,7 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
             <div
               data-testid={`webview-loading-${accountId}`}
               className="flex flex-col items-center gap-2">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-300 dark:border-neutral-700 border-t-stone-600 dark:border-t-neutral-400" />
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-line-strong border-t-stone-600 dark:border-t-neutral-400" />
               {/* Issue #1233 — `key={accountId}` forces React to unmount the
                   hint when the user switches between two still-loading
                   accounts so the elapsed counter doesn't carry the
@@ -249,15 +247,15 @@ const WebviewHost = ({ accountId, provider }: WebviewHostProps) => {
       {isTimeout ? (
         <div
           data-testid={`webview-timeout-${accountId}`}
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-stone-50 dark:bg-neutral-800/60 px-6 text-center"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-surface-muted px-6 text-center"
           role="status"
           aria-live="polite"
           aria-label={t('accounts.webviewHost.loadTimeout')}>
           <div className="max-w-sm space-y-1">
-            <p className="text-sm font-semibold text-stone-800 dark:text-neutral-100">
+            <p className="text-sm font-semibold text-content">
               {t('accounts.webviewHost.takingLonger').replace('{providerName}', providerName)}
             </p>
-            <p className="text-xs text-stone-600 dark:text-neutral-300">
+            <p className="text-xs text-content-secondary">
               {t('accounts.webviewHost.timeoutHint')}
             </p>
           </div>

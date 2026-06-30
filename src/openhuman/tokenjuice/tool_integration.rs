@@ -20,7 +20,7 @@ use serde_json::Value;
 use std::sync::RwLock;
 
 use super::compress::route;
-use super::types::{CompressInput, CompressOptions, ContentHint};
+use super::types::{AgentTokenjuiceCompression, CompressInput, CompressOptions, ContentHint};
 
 /// Skip compaction for outputs smaller than this (bytes) by default. Tiny
 /// outputs have no headroom and risk distortion. Overridable per the config's
@@ -50,6 +50,24 @@ pub fn current_options() -> CompressOptions {
         .read()
         .unwrap_or_else(|p| p.into_inner())
         .clone()
+}
+
+fn options_for_agent(profile: AgentTokenjuiceCompression) -> Option<CompressOptions> {
+    match profile {
+        AgentTokenjuiceCompression::Off => None,
+        AgentTokenjuiceCompression::Auto | AgentTokenjuiceCompression::Full => {
+            Some(current_options())
+        }
+        AgentTokenjuiceCompression::Light => {
+            let mut opts = current_options();
+            // Coding agents need raw, exact tool text more than aggressive token
+            // savings. Disabling CCR makes every lossy compressor decline in
+            // route(), while still allowing any truly lossless reduction.
+            opts.ccr_enabled = false;
+            opts.ml_text_enabled = false;
+            Some(opts)
+        }
+    }
 }
 
 /// Install the full TokenJuice runtime configuration in one call at startup:
@@ -113,7 +131,43 @@ pub async fn compact_tool_output(
     output: &str,
     exit_code: Option<i32>,
 ) -> (String, CompactionStats) {
+    compact_tool_output_with_policy(
+        tool_name,
+        arguments,
+        output,
+        exit_code,
+        AgentTokenjuiceCompression::Full,
+    )
+    .await
+}
+
+/// Compact a tool call's output using an agent-level TokenJuice profile.
+pub async fn compact_tool_output_with_policy(
+    tool_name: &str,
+    arguments: Option<&Value>,
+    output: &str,
+    exit_code: Option<i32>,
+    profile: AgentTokenjuiceCompression,
+) -> (String, CompactionStats) {
     let original_bytes = output.len();
+
+    let Some(opts) = options_for_agent(profile) else {
+        log::debug!(
+            "[tokenjuice] agent profile disabled compaction tool={} bytes={}",
+            tool_name,
+            original_bytes
+        );
+        return (
+            output.to_string(),
+            CompactionStats {
+                tool_name: tool_name.to_string(),
+                original_bytes,
+                compacted_bytes: original_bytes,
+                rule_id: "none/agent-profile-off".to_string(),
+                applied: false,
+            },
+        );
+    };
 
     // A recovery tool's output is the original we previously offloaded — never
     // re-compact it, or the agent could never see the full data it asked for.
@@ -130,7 +184,6 @@ pub async fn compact_tool_output(
         );
     }
 
-    let opts = current_options();
     let (command, argv) = extract_command_argv(arguments);
     let hint = ContentHint {
         source_tool: Some(tool_name.to_string()),
@@ -167,12 +220,29 @@ pub async fn compact_tool_output(
 /// Minimal compaction for call sites that only have content + tool name. The
 /// `enabled` flag is an explicit kill-switch on top of the configured options.
 pub async fn compact_output(content: String, tool_name: &str, enabled: bool) -> String {
+    compact_output_with_policy(
+        content,
+        tool_name,
+        enabled,
+        AgentTokenjuiceCompression::Full,
+    )
+    .await
+}
+
+/// Minimal compaction with an agent-level TokenJuice profile.
+pub async fn compact_output_with_policy(
+    content: String,
+    tool_name: &str,
+    enabled: bool,
+    profile: AgentTokenjuiceCompression,
+) -> String {
     // The call-site `enabled` flag and the configured router switch are both
     // hard off-switches; either one short-circuits to the untouched original.
     if !enabled || !current_options().router_enabled {
         return content;
     }
-    let (text, _stats) = compact_tool_output(tool_name, None, &content, None).await;
+    let (text, _stats) =
+        compact_tool_output_with_policy(tool_name, None, &content, None, profile).await;
     text
 }
 
@@ -278,6 +348,35 @@ mod tests {
     async fn disabled_flag_is_passthrough() {
         let big = "x".repeat(5000);
         assert_eq!(compact_output(big.clone(), "grep", false).await, big);
+    }
+
+    #[tokio::test]
+    async fn light_agent_profile_declines_lossy_ccr_compaction() {
+        let mut lines = vec!["On branch main".to_owned()];
+        for i in 0..200 {
+            lines.push(format!("\tmodified:   src/file_{i}.rs"));
+        }
+        let output = lines.join("\n");
+        let args = json!({"command": "git status"});
+        let (returned, stats) = compact_tool_output_with_policy(
+            "shell",
+            Some(&args),
+            &output,
+            Some(0),
+            AgentTokenjuiceCompression::Light,
+        )
+        .await;
+        assert_eq!(returned, output);
+        assert!(!stats.applied);
+    }
+
+    #[tokio::test]
+    async fn off_agent_profile_bypasses_router() {
+        let big = "x".repeat(5000);
+        let returned =
+            compact_output_with_policy(big.clone(), "grep", true, AgentTokenjuiceCompression::Off)
+                .await;
+        assert_eq!(returned, big);
     }
 
     #[test]

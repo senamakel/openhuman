@@ -170,6 +170,29 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navOrder: 1,
   },
   {
+    // Theme Studio — full colour + font customization on top of the simple
+    // light/dark toggle in Appearance.
+    id: 'theme',
+    titleKey: 'settings.theme.title',
+    descriptionKey: 'settings.theme.menuDesc',
+    section: 'home',
+    searchKeywords: [
+      'theme',
+      'color',
+      'colour',
+      'font',
+      'palette',
+      'customize',
+      'customise',
+      'appearance',
+      'surface',
+      'background',
+      'accent',
+    ],
+    navGroup: 'general',
+    navOrder: 2,
+  },
+  {
     // devices: real pairing panel (the old "Coming Soon" stub was removed).
     id: 'devices',
     titleKey: 'settings.account.devices',

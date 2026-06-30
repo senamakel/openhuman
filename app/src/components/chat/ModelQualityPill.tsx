@@ -18,9 +18,9 @@ export default function ModelQualityPill({ className }: ModelQualityPillProps) {
       aria-label={t('composer.modelSelector')}
       title={t('composer.modelSelector')}
       disabled
-      className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-stone-400 dark:text-neutral-500 disabled:cursor-default disabled:opacity-100 select-none ${className ?? ''}`}>
+      className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-content-faint disabled:cursor-default disabled:opacity-100 select-none ${className ?? ''}`}>
       <span>OpenHuman</span>
-      <span className="text-stone-300 dark:text-neutral-600">·</span>
+      <span className="text-content-faint dark:text-neutral-600">·</span>
       <span>{t('composer.qualityHigh')}</span>
       {/* `shrink-0` keeps the chevron from being squeezed, and the button's
           `px-2` gives it trailing padding so the glyph is never clipped against

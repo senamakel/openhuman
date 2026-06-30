@@ -57,7 +57,7 @@ export default function FeedbackItemRow({
   const avatarInitial = (item.createdByName?.trim() || handle).charAt(0).toUpperCase();
 
   return (
-    <div className="group flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-soft dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700">
+    <div className="group flex items-start gap-3 rounded-2xl border border-line bg-surface p-4 transition-all hover:border-line-strong hover:shadow-soft dark:hover:border-line-strong">
       <FeedbackVoteControl item={item} onVoted={onChange} />
 
       <div className="min-w-0 flex-1">
@@ -68,18 +68,18 @@ export default function FeedbackItemRow({
           <FeedbackStatusBadge status={item.status} />
         </div>
 
-        <h3 className="mt-2 break-words font-display text-[15px] font-semibold leading-snug text-neutral-900 dark:text-neutral-100">
+        <h3 className="mt-2 break-words font-title text-[15px] font-semibold leading-snug text-content">
           {item.title}
         </h3>
 
         <p
-          className={`mt-1 whitespace-pre-wrap break-words text-sm text-neutral-500 dark:text-neutral-400 ${
+          className={`mt-1 whitespace-pre-wrap break-words text-sm text-content-muted ${
             expanded ? '' : 'line-clamp-2'
           }`}>
           {item.body}
         </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-neutral-400 dark:text-neutral-500">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-content-faint">
           <span className="flex items-center gap-1.5">
             <span
               className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${avatarTint(
@@ -87,7 +87,7 @@ export default function FeedbackItemRow({
               )}`}>
               {avatarInitial}
             </span>
-            <span className="font-medium text-neutral-500 dark:text-neutral-400">{authorName}</span>
+            <span className="font-medium text-content-muted">{authorName}</span>
           </span>
           <span>·</span>
           <span>{formatDate(item.createdAt)}</span>
@@ -127,7 +127,7 @@ export default function FeedbackItemRow({
         )}
 
         {isAdmin && (
-          <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+          <div className="mt-3 border-t border-line pt-3">
             <FeedbackAdminMenu item={item} onUpdated={onChange} />
           </div>
         )}

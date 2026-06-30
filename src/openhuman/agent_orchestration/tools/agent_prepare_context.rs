@@ -1,12 +1,12 @@
 //! Tool: `agent_prepare_context` — "plan mode as a subagent".
 //!
-//! Before answering or delegating a non-trivial request, the parent agent
-//! (orchestrator / planner) calls `agent_prepare_context`. This runs the
-//! read-only `context_scout` sub-agent inline (blocking), which gathers
-//! context from memory, the user's goals/profile, connected integrations, and
-//! the web, then returns a tight `[context_bundle]` envelope: whether there's
-//! enough context to act, a compact context summary, and an ordered set of
-//! recommended next tool calls drawn from the *parent's own* tool catalogue.
+//! When a parent agent explicitly needs an ad hoc context pass, it can call
+//! `agent_prepare_context`. This runs the read-only `context_scout` sub-agent
+//! inline (blocking), which gathers context from memory, the user's
+//! goals/profile, connected integrations, and the web, then returns a tight
+//! `[context_bundle]` envelope: whether there's enough context to act, a
+//! compact context summary, and an ordered set of recommended next tool calls
+//! drawn from the *parent's own* tool catalogue.
 //!
 //! The scout's output is bounded by `context_scout`'s `max_result_chars`
 //! (≈1000 tokens) so the parent's context only grows by a bounded amount.
@@ -29,29 +29,43 @@ use std::fmt::Write as _;
 /// The sub-agent archetype this tool drives.
 const SCOUT_AGENT_ID: &str = "context_scout";
 
-/// Whether `output` is exactly one well-formed `[context_bundle] …
-/// [/context_bundle]` envelope and *nothing else*: the trimmed output must
-/// start with the open tag, end with the close tag, and contain exactly one of
-/// each.
+/// Extract exactly one `[context_bundle] … [/context_bundle]` envelope from
+/// `output`, tolerating surrounding prose, and return only the envelope
+/// substring (tags included). Returns `None` when no usable envelope is
+/// present.
 ///
-/// The harness prepends every non-error `run_context_scout` result to turn 1
-/// as "Prepared context", so a prompt drift / model regression in
-/// `context_scout` that emits free-form prose (e.g. `Sure, here's what I
-/// found:\n[context_bundle]…[/context_bundle]`), or a malformed/duplicated
-/// envelope, would otherwise silently inject arbitrary text. We reject those so
-/// the caller falls back to the un-augmented message instead. The scout's own
-/// contract is "emit the single envelope and nothing outside it".
-fn is_well_formed_context_bundle(output: &str) -> bool {
+/// The harness prepends every non-error `run_context_scout` result to turn 1 as
+/// "Prepared context", and the `context_scout` contract is "emit the single
+/// envelope and nothing outside it". But the scout runs on a fast chat-tier
+/// model that regularly wraps the envelope in a preamble (`Sure, here's what I
+/// found:\n[context_bundle]…`) or a closing line (`…[/context_bundle]\nHope
+/// that helps!`). Requiring the *whole* trimmed output to be the envelope made
+/// any such wrap fail validation, so the harness silently dropped an
+/// otherwise-good bundle and injected nothing — the "scout runs, bundle
+/// missing" failure.
+///
+/// Pulling the envelope substring out of the surrounding text keeps the safety
+/// property intact: we still never inject the model's free-form prose, only the
+/// bracketed envelope itself. We still reject genuinely unusable output —
+/// absent, unterminated/reversed, or duplicated (where we can't tell which
+/// envelope is authoritative) — by returning `None`, so the caller falls back
+/// to the un-augmented message.
+fn extract_context_bundle(output: &str) -> Option<String> {
     const OPEN: &str = "[context_bundle]";
     const CLOSE: &str = "[/context_bundle]";
-    let trimmed = output.trim();
-    // Exactly one open + one close tag, with no text outside the envelope.
-    trimmed.starts_with(OPEN)
-        && trimmed.ends_with(CLOSE)
-        && trimmed.matches(OPEN).count() == 1
-        && trimmed.matches(CLOSE).count() == 1
-        // Guard the degenerate case where OPEN/CLOSE overlap on too-short input.
-        && trimmed.len() >= OPEN.len() + CLOSE.len()
+    // Exactly one open + one close tag. Duplicates are a contract violation we
+    // reject rather than guess which envelope is authoritative.
+    if output.matches(OPEN).count() != 1 || output.matches(CLOSE).count() != 1 {
+        return None;
+    }
+    let open_idx = output.find(OPEN)?;
+    let close_idx = output.find(CLOSE)?;
+    // Tags must appear in order (open before close) and not overlap.
+    if close_idx < open_idx + OPEN.len() {
+        return None;
+    }
+    let end = close_idx + CLOSE.len();
+    Some(output[open_idx..end].trim().to_string())
 }
 
 fn already_prepared_context_bundle(sources: &[AgentContextPreparedSource]) -> String {
@@ -210,11 +224,14 @@ pub async fn run_context_scout_with_catalog(
         Ok(outcome) => match &outcome.status {
             SubagentRunStatus::Completed => {
                 // Guard the contract: the scout MUST return exactly one
-                // `[context_bundle] … [/context_bundle]` envelope. Reject
-                // free-form / malformed output so the harness (which prepends
-                // any non-error result to turn 1 as "Prepared context") cannot
-                // inject arbitrary prose on a scout prompt drift.
-                if !is_well_formed_context_bundle(&outcome.output) {
+                // `[context_bundle] … [/context_bundle]` envelope. We tolerate
+                // surrounding prose by extracting just the envelope (the harness
+                // prepends any non-error result to turn 1 as "Prepared context",
+                // so we still inject only the bracketed envelope, never the
+                // model's free-form text). Genuinely unusable output — absent,
+                // unterminated, or duplicated — is rejected so the caller falls
+                // back to the un-augmented message.
+                let Some(bundle) = extract_context_bundle(&outcome.output) else {
                     tracing::warn!(
                         target: "agent_prepare_context",
                         task_id = %outcome.task_id,
@@ -247,13 +264,17 @@ pub async fn run_context_scout_with_catalog(
                         "agent_prepare_context: context_scout did not return a well-formed \
                          [context_bundle] envelope",
                     ));
-                }
+                };
+                // From here on use the extracted `bundle`, not the raw
+                // `outcome.output`, so any prose the scout wrapped around the
+                // envelope never reaches the parent's context.
                 tracing::info!(
                     target: "agent_prepare_context",
                     task_id = %outcome.task_id,
                     elapsed_ms = outcome.elapsed.as_millis() as u64,
                     iterations = outcome.iterations,
-                    output_chars = outcome.output.chars().count(),
+                    output_chars = bundle.chars().count(),
+                    raw_output_chars = outcome.output.chars().count(),
                     "[agent_prepare_context] context bundle ready"
                 );
                 publish_global(DomainEvent::SubagentCompleted {
@@ -261,7 +282,7 @@ pub async fn run_context_scout_with_catalog(
                     task_id: outcome.task_id.clone(),
                     agent_id: outcome.agent_id.clone(),
                     elapsed_ms: outcome.elapsed.as_millis() as u64,
-                    output_chars: outcome.output.chars().count(),
+                    output_chars: bundle.chars().count(),
                     iterations: outcome.iterations,
                 });
                 if let Some(ref tx) = progress_sink {
@@ -271,7 +292,7 @@ pub async fn run_context_scout_with_catalog(
                             task_id: outcome.task_id.clone(),
                             elapsed_ms: outcome.elapsed.as_millis() as u64,
                             iterations: outcome.iterations as u32,
-                            output_chars: outcome.output.chars().count(),
+                            output_chars: bundle.chars().count(),
                             worktree_path: None,
                             changed_files: Vec::new(),
                             dirty_status: None,
@@ -287,9 +308,7 @@ pub async fn run_context_scout_with_catalog(
                 // Runs for both entry points (LLM-invoked tool + harness
                 // super-context first turn). Best-effort — never fails the call.
                 if let (Some(parent), Some(thread_id)) = (current_parent(), current_thread_id()) {
-                    if let Some(objective) =
-                        AgentPrepareContextTool::parse_proposed_goal(&outcome.output)
-                    {
+                    if let Some(objective) = AgentPrepareContextTool::parse_proposed_goal(&bundle) {
                         match crate::openhuman::thread_goals::store::set_if_absent(
                             &parent.workspace_dir,
                             &thread_id,
@@ -329,7 +348,7 @@ pub async fn run_context_scout_with_catalog(
                     }
                 }
 
-                Ok(ToolResult::success(outcome.output))
+                Ok(ToolResult::success(bundle))
             }
             // The scout has no `ask_user_clarification` tool, so this
             // branch should not fire — handle defensively rather than
@@ -528,10 +547,11 @@ impl Tool for AgentPrepareContextTool {
          (transcripts), your goals/profile, installed/registry skills, connected \
          integrations, and the web, then returns whether there's enough context \
          to answer, a compact context summary, an ordered list of recommended \
-         next tool calls (your own tools, by exact name, with args), and any \
-         skills worth running. Use at the start of non-trivial turns unless the \
-         current prompt says agent context has already been prepared; in that \
-         case, use the prepared context and do not call this tool again."
+         next tool calls (parent tools, by exact name, with args), and any \
+         skills worth running. Use only when a caller explicitly needs an \
+         ad hoc scout pass. If the current prompt says agent context has \
+         already been prepared, use the prepared context and do not call this \
+         tool again."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -554,10 +574,9 @@ impl Tool for AgentPrepareContextTool {
     fn permission_level(&self) -> PermissionLevel {
         // ReadOnly, not Execute: this tool only ever runs the read-only
         // `context_scout` (read_only sandbox, no write/exec tools). Marking it
-        // Execute would make `ToolPolicyEngine` strip it from the provider-
-        // visible set on a `ReadOnly`-capped channel, which would hide the
-        // orchestrator's mandatory first-turn context-prep call and either
-        // skip the pass or surface an unavailable-tool error.
+        // Execute would make `ToolPolicyEngine` strip it from any
+        // provider-visible set on a `ReadOnly`-capped channel, which would hide
+        // the scout from callers that still expose it explicitly.
         PermissionLevel::ReadOnly
     }
 
@@ -719,52 +738,73 @@ mod tests {
     }
 
     #[test]
-    fn accepts_a_single_well_formed_bundle() {
+    fn extracts_a_single_well_formed_bundle() {
         let out = "[context_bundle]\nhas_enough_context: true\nsummary: ok\n[/context_bundle]";
-        assert!(is_well_formed_context_bundle(out));
+        assert_eq!(extract_context_bundle(out).as_deref(), Some(out));
     }
 
     #[test]
     fn rejects_free_form_prose_without_a_bundle() {
-        assert!(!is_well_formed_context_bundle(
-            "Sure! Here's what I found about your request..."
-        ));
+        assert_eq!(
+            extract_context_bundle("Sure! Here's what I found about your request..."),
+            None
+        );
     }
 
     #[test]
     fn rejects_unterminated_or_reversed_envelope() {
-        assert!(!is_well_formed_context_bundle(
-            "[context_bundle]\nsummary: ..."
-        ));
-        assert!(!is_well_formed_context_bundle(
-            "[/context_bundle] stray [context_bundle]"
-        ));
+        // Open tag with no close.
+        assert_eq!(
+            extract_context_bundle("[context_bundle]\nsummary: ..."),
+            None
+        );
+        // Close before open — out of order.
+        assert_eq!(
+            extract_context_bundle("[/context_bundle] stray [context_bundle]"),
+            None
+        );
     }
 
     #[test]
     fn rejects_duplicated_envelope() {
-        assert!(!is_well_formed_context_bundle(
-            "[context_bundle]a[/context_bundle][context_bundle]b[/context_bundle]"
-        ));
+        // Two envelopes — we can't tell which is authoritative, so reject.
+        assert_eq!(
+            extract_context_bundle(
+                "[context_bundle]a[/context_bundle][context_bundle]b[/context_bundle]"
+            ),
+            None
+        );
     }
 
     #[test]
-    fn rejects_prose_around_the_envelope() {
-        // Leading prose before the bundle.
-        assert!(!is_well_formed_context_bundle(
-            "Sure, here's what I found:\n[context_bundle]\nsummary: x\n[/context_bundle]"
-        ));
-        // Trailing prose after the bundle.
-        assert!(!is_well_formed_context_bundle(
-            "[context_bundle]\nsummary: x\n[/context_bundle]\nHope that helps!"
-        ));
+    fn extracts_envelope_from_surrounding_prose() {
+        // Regression for the "scout runs, bundle missing" bug: a fast chat-tier
+        // scout wraps the envelope in a preamble and/or a closing line. We must
+        // extract just the envelope, not drop it and not inject the prose.
+        let leading = "Sure, here's what I found:\n[context_bundle]\nsummary: x\n[/context_bundle]";
+        assert_eq!(
+            extract_context_bundle(leading).as_deref(),
+            Some("[context_bundle]\nsummary: x\n[/context_bundle]")
+        );
+        let trailing = "[context_bundle]\nsummary: x\n[/context_bundle]\nHope that helps!";
+        assert_eq!(
+            extract_context_bundle(trailing).as_deref(),
+            Some("[context_bundle]\nsummary: x\n[/context_bundle]")
+        );
+        let both = "Here you go:\n[context_bundle]\nsummary: x\n[/context_bundle]\n\nLet me know!";
+        assert_eq!(
+            extract_context_bundle(both).as_deref(),
+            Some("[context_bundle]\nsummary: x\n[/context_bundle]")
+        );
     }
 
     #[test]
-    fn accepts_envelope_with_surrounding_whitespace() {
+    fn extracts_envelope_with_surrounding_whitespace() {
         // Leading/trailing whitespace is trimmed, not treated as prose.
-        assert!(is_well_formed_context_bundle(
-            "\n  [context_bundle]\nsummary: x\n[/context_bundle]\n  "
-        ));
+        assert_eq!(
+            extract_context_bundle("\n  [context_bundle]\nsummary: x\n[/context_bundle]\n  ")
+                .as_deref(),
+            Some("[context_bundle]\nsummary: x\n[/context_bundle]")
+        );
     }
 }

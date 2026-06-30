@@ -12,13 +12,13 @@ const BillingPanel = () => {
   return (
     <SettingsPanel>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-content-muted">
           {t('settings.billing.movedToWeb')}
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-neutral-800 dark:text-neutral-100">
+        <h1 className="mt-2 text-2xl font-semibold text-content">
           {t('settings.billing.openDashboard')}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+        <p className="mt-2 text-sm leading-6 text-content-secondary">
           {t('settings.billing.movedToWebDesc')}
         </p>
       </div>

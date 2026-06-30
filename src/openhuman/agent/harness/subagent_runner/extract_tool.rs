@@ -520,19 +520,28 @@ fn write_extract_transcript(
     // the blanks when we wire richer accounting later.
     let ts_rfc3339 = chrono::Utc::now().to_rfc3339();
     let turn_usage = TurnUsage {
+        provider: "extract_from_result".to_string(),
         model: model.to_string(),
         usage: MessageUsage {
             input: 0,
             output: 0,
             cached_input: 0,
+            context_window: 0,
             cost_usd: 0.0,
         },
         ts: ts_rfc3339.clone(),
+        reasoning_content: None,
+        tool_calls: Vec::new(),
+        iteration: 1,
     };
 
     let meta = TranscriptMeta {
         agent_name: format!("{owner_agent_id}::extract_from_result"),
+        agent_id: Some(owner_agent_id.to_string()),
+        agent_type: Some("extractor".to_string()),
         dispatcher: "native".into(),
+        provider: Some(turn_usage.provider.clone()),
+        model: Some(turn_usage.model.clone()),
         created: ts_rfc3339.clone(),
         updated: ts_rfc3339,
         turn_count: 1,
@@ -541,6 +550,7 @@ fn write_extract_transcript(
         cached_input_tokens: 0,
         charged_amount_usd: 0.0,
         thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
+        task_id: None,
     };
 
     if let Err(e) = write_transcript(&path, &messages, &meta, Some(&turn_usage)) {

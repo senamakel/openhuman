@@ -14,8 +14,7 @@ import { type GoalItem, goalsApi } from '../../services/api/goalsApi';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
-const cardClass =
-  'rounded-lg border border-stone-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900';
+const cardClass = 'rounded-lg border border-line bg-surface p-4';
 
 export default function GoalsPanel() {
   const { t } = useT();
@@ -159,12 +158,8 @@ export default function GoalsPanel() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
-              {t('brain.goals.title')}
-            </h2>
-            <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-              {t('brain.goals.description')}
-            </p>
+            <h2 className="text-sm font-semibold text-content">{t('brain.goals.title')}</h2>
+            <p className="mt-0.5 text-xs text-content-muted">{t('brain.goals.description')}</p>
           </div>
           <Button
             type="button"
@@ -216,7 +211,7 @@ export default function GoalsPanel() {
         {/* List */}
         <div className="mt-4">
           {loading ? (
-            <div className="flex items-center justify-center py-8 text-neutral-400 dark:text-neutral-500">
+            <div className="flex items-center justify-center py-8 text-content-faint">
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
               <span className="text-sm">{t('common.loading')}</span>
             </div>
@@ -225,13 +220,11 @@ export default function GoalsPanel() {
               {error}
             </div>
           ) : goals.length === 0 ? (
-            <p className="py-6 text-center text-sm text-neutral-400 dark:text-neutral-500">
-              {t('brain.goals.empty')}
-            </p>
+            <p className="py-6 text-center text-sm text-content-faint">{t('brain.goals.empty')}</p>
           ) : (
-            <ul className="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+            <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line dark:divide-neutral-800">
               {goals.map(goal => (
-                <li key={goal.id} className="bg-white px-3 py-2.5 dark:bg-neutral-900">
+                <li key={goal.id} className="bg-surface px-3 py-2.5">
                   {editingId === goal.id ? (
                     <div className="flex items-center gap-2">
                       <Input
@@ -264,7 +257,7 @@ export default function GoalsPanel() {
                     </div>
                   ) : (
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 flex-1 text-sm text-neutral-700 dark:text-neutral-200">
+                      <span className="min-w-0 flex-1 text-sm text-content-secondary">
                         {goal.text}
                       </span>
                       <div className="flex shrink-0 items-center gap-1">

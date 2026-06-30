@@ -88,7 +88,7 @@ export default function AutocompleteSetupModal({ onClose }: Props) {
       {/* ─── Enable step ─── */}
       {step === 'enable' && (
         <div className="space-y-4">
-          <p className="text-xs text-stone-500 dark:text-neutral-400 leading-relaxed">
+          <p className="text-xs text-content-muted leading-relaxed">
             {t('skills.setup.autocomplete.description')}
           </p>
 

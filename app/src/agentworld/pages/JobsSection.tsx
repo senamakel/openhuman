@@ -96,7 +96,7 @@ function StatusBlock({ tone, title, body }: { tone: string; title: string; body?
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
       <p className={`text-base font-medium ${tone}`}>{title}</p>
-      {body && <p className="max-w-md text-sm text-stone-500 dark:text-neutral-400">{body}</p>}
+      {body && <p className="max-w-md text-sm text-content-muted">{body}</p>}
     </div>
   );
 }
@@ -131,8 +131,8 @@ export function JobStatusBadge({ status }: { status: string }) {
           : status === 'DISPUTED'
             ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
             : status === 'CANCELLED'
-              ? 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400'
-              : 'bg-stone-100 text-stone-600 dark:bg-neutral-800 dark:text-neutral-400';
+              ? 'bg-surface-subtle text-content-secondary'
+              : 'bg-surface-subtle text-content-secondary';
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
       {status}
@@ -257,57 +257,51 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
         }}
         className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-            Title *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Title *</label>
           <input
             type="text"
             required
             value={title}
             onChange={e => setTitle(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. Build a Solana integration"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+          <label className="mb-1 block text-xs font-medium text-content-secondary">
             Description
           </label>
           <textarea
             rows={3}
             value={description}
             onChange={e => setDescription(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="Describe the work, requirements, and deliverables"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-            Category
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Category</label>
           <input
             type="text"
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. development, design, research"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-            Skills
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Skills</label>
           <input
             type="text"
             value={skillsCsv}
             onChange={e => setSkillsCsv(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="e.g. React, TypeScript"
           />
         </div>
         <div className="flex gap-2">
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            <label className="mb-1 block text-xs font-medium text-content-secondary">
               Budget Amount *
             </label>
             <input
@@ -315,32 +309,30 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               required
               value={budgetAmount}
               onChange={e => setBudgetAmount(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder="500"
             />
           </div>
           <div className="w-28">
-            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-              Asset
-            </label>
+            <label className="mb-1 block text-xs font-medium text-content-secondary">Asset</label>
             <input
               type="text"
               value={budgetAsset}
               onChange={e => setBudgetAsset(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder="USDC"
             />
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+          <label className="mb-1 block text-xs font-medium text-content-secondary">
             Proposal Deadline
           </label>
           <input
             type="date"
             value={proposalDeadline}
             onChange={e => setProposalDeadline(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
           />
         </div>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
@@ -424,7 +416,7 @@ function ApplyModal({
           <p className="text-sm font-medium text-green-700 dark:text-green-400">
             {t('agentworld.jobs.applyModal.successHeading')}
           </p>
-          <p className="text-xs text-stone-500 dark:text-neutral-400">
+          <p className="text-xs text-content-muted">
             {t('agentworld.jobs.applyModal.successBody')}
           </p>
         </div>
@@ -435,38 +427,38 @@ function ApplyModal({
           }}
           className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            <label className="mb-1 block text-xs font-medium text-content-secondary">
               {t('agentworld.jobs.applyModal.coverLetterLabel')}
             </label>
             <textarea
               rows={4}
               value={coverLetter}
               onChange={e => setCoverLetter(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.coverLetterPlaceholder')}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            <label className="mb-1 block text-xs font-medium text-content-secondary">
               {t('agentworld.jobs.applyModal.bidAmountLabel')}
             </label>
             <input
               type="text"
               value={bidAmount}
               onChange={e => setBidAmount(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.bidAmountPlaceholder')}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
+            <label className="mb-1 block text-xs font-medium text-content-secondary">
               {t('agentworld.jobs.applyModal.deliveryLabel')}
             </label>
             <input
               type="text"
               value={estimatedDelivery}
               onChange={e => setEstimatedDelivery(e.target.value)}
-              className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
               placeholder={t('agentworld.jobs.applyModal.deliveryPlaceholder')}
             />
           </div>
@@ -534,15 +526,13 @@ function DisputeModal({
         }}
         className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-stone-700 dark:text-neutral-300">
-            Reason *
-          </label>
+          <label className="mb-1 block text-xs font-medium text-content-secondary">Reason *</label>
           <textarea
             rows={4}
             required
             value={reason}
             onChange={e => setReason(e.target.value)}
-            className="w-full rounded border border-stone-300 bg-white px-2.5 py-1.5 text-sm text-stone-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-content"
             placeholder="Describe the issue that requires dispute resolution"
           />
         </div>
@@ -607,12 +597,12 @@ function JobRow({
   const proposalLabel = `${job.proposalCount} proposal${job.proposalCount !== 1 ? 's' : ''}`;
 
   return (
-    <div className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
+    <div className="border-b border-line-subtle last:border-0">
       {/* Summary row — avatar · stacked content · fixed meta column */}
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50 dark:hover:bg-neutral-800/50">
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted dark:hover:bg-surface-muted/50">
         <ClientAvatar
           avatarUrl={job.clientProfile.avatarUrl ?? undefined}
           displayName={job.clientProfile.displayName}
@@ -622,20 +612,18 @@ function JobRow({
         <div className="min-w-0 flex-1">
           {/* Line 1: title + status */}
           <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-semibold text-stone-900 dark:text-neutral-100">
-              {job.title}
-            </span>
+            <span className="truncate text-sm font-semibold text-content">{job.title}</span>
             <span className="shrink-0">
               <JobStatusBadge status={job.status} />
             </span>
           </div>
 
           {/* Line 2: client · budget */}
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-stone-500 dark:text-neutral-400">
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-content-muted">
             <span className="truncate">{displayClientName(job.clientProfile.displayName)}</span>
             {job.clientProfile.verified && <VerifiedBadge />}
-            <span className="text-stone-300 dark:text-neutral-600">·</span>
-            <span className="whitespace-nowrap font-medium text-stone-700 dark:text-neutral-300">
+            <span className="text-content-faint dark:text-neutral-600">·</span>
+            <span className="whitespace-nowrap font-medium text-content-secondary">
               {budgetLabel}
             </span>
           </div>
@@ -646,9 +634,9 @@ function JobRow({
               <SkillChip key={skill} skill={skill} />
             ))}
             {overflowCount > 0 && (
-              <span className="text-xs text-stone-400 dark:text-neutral-500">+{overflowCount}</span>
+              <span className="text-xs text-content-faint">+{overflowCount}</span>
             )}
-            <span className="text-xs text-stone-400 dark:text-neutral-500">
+            <span className="text-xs text-content-faint">
               {skills.length > 0 ? '· ' : ''}
               {proposalLabel}
             </span>
@@ -657,11 +645,11 @@ function JobRow({
 
         {/* Fixed meta column: time + chevron */}
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <span className="whitespace-nowrap text-xs text-stone-400 dark:text-neutral-500">
+          <span className="whitespace-nowrap text-xs text-content-faint">
             {relativeTime(job.createdAt)}
           </span>
           <svg
-            className={`h-4 w-4 shrink-0 text-stone-400 transition-transform dark:text-neutral-500 ${expanded ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 shrink-0 text-content-faint transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24">
@@ -672,31 +660,29 @@ function JobRow({
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="border-t border-stone-100 bg-stone-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/50">
+        <div className="border-t border-line-subtle bg-surface-muted px-4 py-3">
           {/* Description */}
-          <p className="mb-3 whitespace-pre-wrap text-sm text-stone-700 dark:text-neutral-300">
+          <p className="mb-3 whitespace-pre-wrap text-sm text-content-secondary">
             {job.description}
           </p>
 
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
             {/* Job ID */}
-            <dt className="font-medium text-stone-500 dark:text-neutral-400">Job ID</dt>
-            <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-              {job.jobId}
-            </dd>
+            <dt className="font-medium text-content-muted">Job ID</dt>
+            <dd className="break-all font-mono text-content">{job.jobId}</dd>
 
             {/* Category */}
             {job.category && (
               <>
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Category</dt>
-                <dd className="text-stone-800 dark:text-neutral-200">{job.category}</dd>
+                <dt className="font-medium text-content-muted">Category</dt>
+                <dd className="text-content">{job.category}</dd>
               </>
             )}
 
             {/* All skills */}
             {skills.length > 0 && (
               <>
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Skills</dt>
+                <dt className="font-medium text-content-muted">Skills</dt>
                 <dd className="flex flex-wrap gap-1">
                   {skills.map(skill => (
                     <SkillChip key={skill} skill={skill} />
@@ -708,59 +694,49 @@ function JobRow({
             {/* Budget chain */}
             {job.budget.chain && (
               <>
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Chain</dt>
-                <dd className="text-stone-800 dark:text-neutral-200">{job.budget.chain}</dd>
+                <dt className="font-medium text-content-muted">Chain</dt>
+                <dd className="text-content">{job.budget.chain}</dd>
               </>
             )}
 
             {/* Proposal deadline */}
             {job.proposalDeadline && (
               <>
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">
-                  Proposal Deadline
-                </dt>
-                <dd className="text-stone-800 dark:text-neutral-200">{job.proposalDeadline}</dd>
+                <dt className="font-medium text-content-muted">Proposal Deadline</dt>
+                <dd className="text-content">{job.proposalDeadline}</dd>
               </>
             )}
 
             {/* Contract escrow ID */}
             {job.contractEscrowId && (
               <>
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Escrow ID</dt>
-                <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-                  {job.contractEscrowId}
-                </dd>
+                <dt className="font-medium text-content-muted">Escrow ID</dt>
+                <dd className="break-all font-mono text-content">{job.contractEscrowId}</dd>
               </>
             )}
 
             {/* Selected candidate */}
             {job.selectedCandidate && (
               <>
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">
-                  Selected Candidate
-                </dt>
-                <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-                  {job.selectedCandidate}
-                </dd>
+                <dt className="font-medium text-content-muted">Selected Candidate</dt>
+                <dd className="break-all font-mono text-content">{job.selectedCandidate}</dd>
               </>
             )}
 
             {/* Group ID */}
             {job.groupId && (
               <>
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Group ID</dt>
-                <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-                  {job.groupId}
-                </dd>
+                <dt className="font-medium text-content-muted">Group ID</dt>
+                <dd className="break-all font-mono text-content">{job.groupId}</dd>
               </>
             )}
 
             {/* Timestamps */}
-            <dt className="font-medium text-stone-500 dark:text-neutral-400">Created</dt>
-            <dd className="text-stone-800 dark:text-neutral-200">{job.createdAt}</dd>
+            <dt className="font-medium text-content-muted">Created</dt>
+            <dd className="text-content">{job.createdAt}</dd>
 
-            <dt className="font-medium text-stone-500 dark:text-neutral-400">Updated</dt>
-            <dd className="text-stone-800 dark:text-neutral-200">{job.updatedAt}</dd>
+            <dt className="font-medium text-content-muted">Updated</dt>
+            <dd className="text-content">{job.updatedAt}</dd>
           </dl>
 
           {/* Dispute section */}
@@ -768,71 +744,57 @@ function JobRow({
             <div className="mt-3">
               <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">Dispute</p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Reason</dt>
-                <dd className="text-stone-800 dark:text-neutral-200">{job.dispute.reason}</dd>
+                <dt className="font-medium text-content-muted">Reason</dt>
+                <dd className="text-content">{job.dispute.reason}</dd>
 
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Opened By</dt>
-                <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-                  {job.dispute.openedBy}
-                </dd>
+                <dt className="font-medium text-content-muted">Opened By</dt>
+                <dd className="break-all font-mono text-content">{job.dispute.openedBy}</dd>
 
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Opened At</dt>
-                <dd className="text-stone-800 dark:text-neutral-200">{job.dispute.openedAt}</dd>
+                <dt className="font-medium text-content-muted">Opened At</dt>
+                <dd className="text-content">{job.dispute.openedAt}</dd>
 
-                <dt className="font-medium text-stone-500 dark:text-neutral-400">Status</dt>
-                <dd className="text-stone-800 dark:text-neutral-200">{job.dispute.status}</dd>
+                <dt className="font-medium text-content-muted">Status</dt>
+                <dd className="text-content">{job.dispute.status}</dd>
 
                 {job.dispute.outcome && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Outcome</dt>
-                    <dd className="text-stone-800 dark:text-neutral-200">{job.dispute.outcome}</dd>
+                    <dt className="font-medium text-content-muted">Outcome</dt>
+                    <dd className="text-content">{job.dispute.outcome}</dd>
                   </>
                 )}
 
                 {job.dispute.splitBps != null && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Split bps</dt>
-                    <dd className="text-stone-800 dark:text-neutral-200">{job.dispute.splitBps}</dd>
+                    <dt className="font-medium text-content-muted">Split bps</dt>
+                    <dd className="text-content">{job.dispute.splitBps}</dd>
                   </>
                 )}
 
                 {job.dispute.judgeModel && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">
-                      Judge Model
-                    </dt>
-                    <dd className="text-stone-800 dark:text-neutral-200">
-                      {job.dispute.judgeModel}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Judge Model</dt>
+                    <dd className="text-content">{job.dispute.judgeModel}</dd>
                   </>
                 )}
 
                 {job.dispute.presided != null && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Presided</dt>
-                    <dd className="text-stone-800 dark:text-neutral-200">
-                      {job.dispute.presided ? 'Yes' : 'No'}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Presided</dt>
+                    <dd className="text-content">{job.dispute.presided ? 'Yes' : 'No'}</dd>
                   </>
                 )}
 
                 {job.dispute.reasoning && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Reasoning</dt>
-                    <dd className="text-stone-800 dark:text-neutral-200">
-                      {job.dispute.reasoning}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Reasoning</dt>
+                    <dd className="text-content">{job.dispute.reasoning}</dd>
                   </>
                 )}
 
                 {job.dispute.resolvedAt && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">
-                      Resolved At
-                    </dt>
-                    <dd className="text-stone-800 dark:text-neutral-200">
-                      {job.dispute.resolvedAt}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Resolved At</dt>
+                    <dd className="text-content">{job.dispute.resolvedAt}</dd>
                   </>
                 )}
               </dl>
@@ -840,44 +802,28 @@ function JobRow({
               {/* Jury votes table */}
               {job.dispute.jury && job.dispute.jury.length > 0 && (
                 <div className="mt-2">
-                  <p className="mb-1 text-xs font-medium text-stone-500 dark:text-neutral-400">
-                    Jury Votes
-                  </p>
+                  <p className="mb-1 text-xs font-medium text-content-muted">Jury Votes</p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b border-stone-200 dark:border-neutral-700">
-                          <th className="pb-1 text-left font-medium text-stone-500 dark:text-neutral-400">
-                            Model
-                          </th>
-                          <th className="pb-1 text-left font-medium text-stone-500 dark:text-neutral-400">
-                            Outcome
-                          </th>
-                          <th className="pb-1 text-left font-medium text-stone-500 dark:text-neutral-400">
+                        <tr className="border-b border-line">
+                          <th className="pb-1 text-left font-medium text-content-muted">Model</th>
+                          <th className="pb-1 text-left font-medium text-content-muted">Outcome</th>
+                          <th className="pb-1 text-left font-medium text-content-muted">
                             Split bps
                           </th>
-                          <th className="pb-1 text-left font-medium text-stone-500 dark:text-neutral-400">
+                          <th className="pb-1 text-left font-medium text-content-muted">
                             Reasoning
                           </th>
                         </tr>
                       </thead>
                       <tbody>
                         {job.dispute.jury.map((vote, i) => (
-                          <tr
-                            key={i}
-                            className="border-b border-stone-100 last:border-0 dark:border-neutral-800">
-                            <td className="py-0.5 font-mono text-stone-800 dark:text-neutral-200">
-                              {vote.model}
-                            </td>
-                            <td className="py-0.5 text-stone-800 dark:text-neutral-200">
-                              {vote.outcome}
-                            </td>
-                            <td className="py-0.5 text-stone-800 dark:text-neutral-200">
-                              {vote.splitBps}
-                            </td>
-                            <td className="py-0.5 text-stone-800 dark:text-neutral-200">
-                              {vote.reasoning ?? '-'}
-                            </td>
+                          <tr key={i} className="border-b border-line-subtle last:border-0">
+                            <td className="py-0.5 font-mono text-content">{vote.model}</td>
+                            <td className="py-0.5 text-content">{vote.outcome}</td>
+                            <td className="py-0.5 text-content">{vote.splitBps}</td>
+                            <td className="py-0.5 text-content">{vote.reasoning ?? '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -891,34 +837,26 @@ function JobRow({
           {/* On-chain section */}
           {job.onChain && (
             <div className="mt-3">
-              <p className="mb-1 text-xs font-semibold text-stone-500 dark:text-neutral-400">
-                On-chain
-              </p>
+              <p className="mb-1 text-xs font-semibold text-content-muted">On-chain</p>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
                 {job.onChain.vault && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Vault</dt>
-                    <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-                      {job.onChain.vault}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Vault</dt>
+                    <dd className="break-all font-mono text-content">{job.onChain.vault}</dd>
                   </>
                 )}
 
                 {job.onChain.jobPdaCommit && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">
-                      Job PDA Commit
-                    </dt>
-                    <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
-                      {job.onChain.jobPdaCommit}
-                    </dd>
+                    <dt className="font-medium text-content-muted">Job PDA Commit</dt>
+                    <dd className="break-all font-mono text-content">{job.onChain.jobPdaCommit}</dd>
                   </>
                 )}
 
                 {job.onChain.fundingTxSig && (
                   <>
-                    <dt className="font-medium text-stone-500 dark:text-neutral-400">Funding Tx</dt>
-                    <dd className="break-all font-mono text-stone-800 dark:text-neutral-200">
+                    <dt className="font-medium text-content-muted">Funding Tx</dt>
+                    <dd className="break-all font-mono text-content">
                       <a
                         href={explorerTxUrl(job.onChain.fundingTxSig, 'solana-devnet')}
                         target="_blank"
@@ -979,7 +917,7 @@ function JobRow({
               )}
             </div>
           ) : (
-            <p className="mt-4 text-xs text-stone-400 dark:text-neutral-500">
+            <p className="mt-4 text-xs text-content-faint">
               Unlock your wallet to interact with this job.
             </p>
           )}
@@ -987,36 +925,30 @@ function JobRow({
           {/* Inline proposals panel */}
           {showingProposals && (
             <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold text-stone-600 dark:text-neutral-300">
-                Proposals
-              </p>
+              <p className="mb-2 text-xs font-semibold text-content-secondary">Proposals</p>
               {proposalsLoading ? (
-                <p className="text-xs text-stone-400 dark:text-neutral-500 animate-pulse">
-                  Loading proposals…
-                </p>
+                <p className="text-xs text-content-faint animate-pulse">Loading proposals…</p>
               ) : proposals.length === 0 ? (
-                <p className="text-xs text-stone-400 dark:text-neutral-500">No proposals yet.</p>
+                <p className="text-xs text-content-faint">No proposals yet.</p>
               ) : (
                 <div className="space-y-2">
                   {proposals.map(p => (
                     <div
                       key={p.proposalId}
-                      className="rounded border border-stone-200 bg-white p-2 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                      className="rounded border border-line bg-surface p-2 text-xs">
                       <div className="mb-1 flex items-center gap-2">
-                        <span className="font-mono text-stone-600 dark:text-neutral-400">
+                        <span className="font-mono text-content-secondary">
                           {p.candidate.slice(0, 8)}…
                         </span>
-                        <span className="text-stone-500 dark:text-neutral-500">{p.status}</span>
+                        <span className="text-content-muted dark:text-content-faint">
+                          {p.status}
+                        </span>
                         {p.bidAmount && (
-                          <span className="font-medium text-stone-800 dark:text-neutral-200">
-                            {p.bidAmount}
-                          </span>
+                          <span className="font-medium text-content">{p.bidAmount}</span>
                         )}
                       </div>
                       {p.coverLetter && (
-                        <p className="mb-1 text-stone-700 dark:text-neutral-300 line-clamp-2">
-                          {p.coverLetter}
-                        </p>
+                        <p className="mb-1 text-content-secondary line-clamp-2">{p.coverLetter}</p>
                       )}
                       <div className="flex gap-1">
                         <Button
@@ -1201,7 +1133,7 @@ export default function JobsSection() {
 
   if (jobsState.status === 'loading') {
     body = (
-      <div className="flex h-64 items-center justify-center text-stone-400 dark:text-neutral-500">
+      <div className="flex h-64 items-center justify-center text-content-faint">
         <span className="animate-pulse text-sm">Loading jobs...</span>
       </div>
     );
@@ -1216,14 +1148,14 @@ export default function JobsSection() {
   } else if (jobsState.jobs.length === 0) {
     body = (
       <StatusBlock
-        tone="text-stone-500 dark:text-neutral-400"
+        tone="text-content-muted"
         title="No jobs found"
         body="The jobs board is empty or no postings match the current filter."
       />
     );
   } else {
     body = (
-      <div className="rounded-lg border border-stone-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="rounded-lg border border-line bg-surface">
         {jobsState.jobs.map(job => (
           <JobRow
             key={job.jobId}

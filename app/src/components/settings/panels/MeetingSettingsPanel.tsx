@@ -143,9 +143,7 @@ const MeetingSettingsPanel = () => {
   if (!isTauri()) {
     return (
       <SettingsPanel description={t('settings.meetings.menuDesc')}>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {t('settings.meetings.desktopOnly')}
-        </p>
+        <p className="text-sm text-content-muted">{t('settings.meetings.desktopOnly')}</p>
       </SettingsPanel>
     );
   }
@@ -153,9 +151,7 @@ const MeetingSettingsPanel = () => {
   if (isLoading) {
     return (
       <SettingsPanel description={t('settings.meetings.menuDesc')}>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {t('settings.meetings.loading')}
-        </p>
+        <p className="text-sm text-content-muted">{t('settings.meetings.loading')}</p>
       </SettingsPanel>
     );
   }

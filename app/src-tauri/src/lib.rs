@@ -2009,21 +2009,37 @@ fn append_platform_cef_gpu_workarounds(
 ) {
     // Issue #1697: on Arch/Manjaro-family Linux systems, the AppImage can
     // abort during CEF GPU process startup when EGL context creation fails
-    // before Chromium's own fallback path gets a usable renderer. Disable the
-    // hardware GPU path on Linux so packaged builds can still launch via
-    // software compositing. Users with working GPU stacks can opt back into
-    // hardware acceleration via `OPENHUMAN_FORCE_GPU=1` — required for the
-    // Rive mascot on the Human tab and any other WebGL2 surface to render.
+    // before Chromium's own fallback path gets a usable renderer.
+    //
+    // The original workaround disabled the GPU path with `--disable-gpu`, but
+    // that shuts the GPU process down entirely — and with it every WebGL
+    // surface. That regressed Tiny Place (#4193): the world renderer needs a
+    // WebGL2 context, so on every packaged Linux build it failed to initialise
+    // and the world page showed a black screen with "Could not start the world
+    // renderer" (the Rive mascot on the Human tab is collateral damage too).
+    //
+    // Instead of killing the GPU process, pin it to ANGLE's SwiftShader
+    // software backend. SwiftShader is a pure-software rasteriser that needs no
+    // hardware EGL/driver, so it still sidesteps the #1697 EGL-context abort,
+    // while giving WebGL surfaces a working (software) context to render into.
+    // `--disable-gpu-compositing` is preserved so page compositing stays on the
+    // CPU exactly as before; only the lethal `--disable-gpu` is dropped.
+    // `--enable-unsafe-swiftshader` is required because Chromium gates
+    // SwiftShader-backed WebGL behind it (the "unsafe" label is about software
+    // perf, not security). Users with working GPU stacks can still opt into
+    // hardware acceleration via `OPENHUMAN_FORCE_GPU=1`.
     if os == "linux" {
         if cef_force_gpu_enabled(force_gpu_override) {
             log::info!(
-                "[cef-startup] OPENHUMAN_FORCE_GPU set — skipping --disable-gpu / --disable-gpu-compositing (issue #1697). If the app fails to launch with a GPU process abort, unset the env var."
+                "[cef-startup] OPENHUMAN_FORCE_GPU set — skipping SwiftShader software-GL fallback (issue #1697). If the app fails to launch with a GPU process abort, unset the env var."
             );
         } else {
-            args.push(("--disable-gpu", None));
+            args.push(("--use-gl", Some("angle")));
+            args.push(("--use-angle", Some("swiftshader")));
+            args.push(("--enable-unsafe-swiftshader", None));
             args.push(("--disable-gpu-compositing", None));
             log::info!(
-                "[cef-startup] Linux detected: adding --disable-gpu and --disable-gpu-compositing (issue #1697); set OPENHUMAN_FORCE_GPU=1 to re-enable hardware compositing (needed for WebGL2 surfaces like the Rive mascot)"
+                "[cef-startup] Linux detected: forcing ANGLE/SwiftShader software GL so WebGL surfaces (Tiny Place world renderer, Rive mascot) render without the crash-prone hardware GPU process (issues #1697/#4193); set OPENHUMAN_FORCE_GPU=1 for hardware acceleration"
             );
         }
     }
@@ -2655,10 +2671,13 @@ pub fn run() {
         // manager. Both are no-ops on Windows/Linux, so safe to always set.
         //
         // CDP attach goes through the in-process channel only — see
-        // `app/src-tauri/src/cdp/in_process.rs`. The legacy
-        // `--remote-debugging-port` flag is no longer passed: every
+        // `app/src-tauri/src/cdp/in_process.rs`. Production builds do
+        // not pass the legacy `--remote-debugging-port` flag: every
         // scanner attaches via `Webview::send_dev_tools_message` and
-        // there is no remaining loopback DevTools listener.
+        // there is no remaining loopback DevTools listener. The E2E
+        // test-support build can opt into a loopback port below because
+        // the Appium Chromium harness still attaches through
+        // `debuggerAddress`.
         //
         // NOTE: flags must be prefixed with `--`. The runtime's
         // `on_before_command_line_processing` dispatch (in
@@ -2763,10 +2782,13 @@ pub fn run() {
             args.push(("--use-fake-ui-for-media-stream", None));
             args.push(("--use-file-for-fake-video-capture", Some(path)));
         }
-        // CDP attach runs entirely through the in-process channel; the
-        // `--remote-debugging-port` flag is intentionally NOT passed so
-        // no loopback DevTools listener is bound for the lifetime of
-        // the embedded browser.
+        #[cfg(feature = "e2e-test-support")]
+        if std::env::var("OPENHUMAN_E2E_MODE").ok().as_deref() == Some("1") {
+            let port = std::env::var("CEF_CDP_PORT").unwrap_or_else(|_| "19222".to_string());
+            let leaked_port: &'static str = Box::leak(port.into_boxed_str());
+            log::info!("[cef-startup] e2e remote-debugging-port enabled port={leaked_port}");
+            args.push(("--remote-debugging-port", Some(leaked_port)));
+        }
         let force_gpu_env = std::env::var("OPENHUMAN_FORCE_GPU").ok();
         append_platform_cef_gpu_workarounds(
             &mut args,

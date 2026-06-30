@@ -859,6 +859,7 @@ mod tests {
             mode: SubagentMode::Typed,
             status: SubagentRunStatus::Completed,
             final_history: Vec::new(),
+            usage: Default::default(),
         }
     }
 

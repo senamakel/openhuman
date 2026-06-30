@@ -54,7 +54,7 @@ const ContextEligibilityBadge = ({
   }
   return (
     <span
-      className="shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:text-neutral-300"
+      className="shrink-0 rounded-full bg-surface-strong dark:bg-neutral-700 px-2 py-0.5 text-[10px] font-medium text-content-secondary"
       title={t('settings.localModel.status.contextUnknownTitle').replace(
         '{required}',
         fmt(eligibility.required)
@@ -244,9 +244,7 @@ const ModelStatusSection = ({
                 {urlValidation.error ?? t('localModel.ollamaServer.validationError')}
               </p>
             )}
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              {t('localModel.ollamaServer.helperText')}
-            </p>
+            <p className="text-xs text-content-muted">{t('localModel.ollamaServer.helperText')}</p>
           </div>
 
           {connectionTestResult !== null && (
@@ -302,7 +300,7 @@ const ModelStatusSection = ({
             </Button>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-neutral-500 dark:text-neutral-400">{t('settings.ai.state')}</span>
+            <span className="text-content-muted">{t('settings.ai.state')}</span>
             <span className={`font-medium ${statusTone(status?.state ?? 'idle')}`}>
               {status
                 ? statusLabel(downloads?.state ?? status.state)
@@ -310,7 +308,7 @@ const ModelStatusSection = ({
             </span>
           </div>
 
-          <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+          <div className="h-2 rounded-full bg-surface-strong overflow-hidden">
             <div
               className={`h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-500 ${
                 isIndeterminateDownload ? 'animate-pulse' : ''
@@ -319,7 +317,7 @@ const ModelStatusSection = ({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-content-muted">
             <span>
               {t('settings.localModel.status.progress')}{' '}
               {isInstalling
@@ -328,9 +326,7 @@ const ModelStatusSection = ({
                   ? t('settings.localModel.status.downloadingUnknown')
                   : `${Math.round(progress * 100)}%`}
             </span>
-            {downloadedText && (
-              <span className="text-neutral-700 dark:text-neutral-300">{downloadedText}</span>
-            )}
+            {downloadedText && <span className="text-content-secondary">{downloadedText}</span>}
             {speedText && (
               <span className="text-primary-600 dark:text-primary-300">{speedText}</span>
             )}
@@ -342,48 +338,46 @@ const ModelStatusSection = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
-              <div className="text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
+            <div className="rounded-md border border-line p-2">
+              <div className="text-content-muted text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.provider')}
               </div>
-              <div className="text-neutral-800 dark:text-neutral-100 mt-1">
+              <div className="text-content mt-1">
                 {status?.provider ?? t('settings.localModel.status.notAvailable')}
               </div>
             </div>
-            <div className="rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
-              <div className="text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
+            <div className="rounded-md border border-line p-2">
+              <div className="text-content-muted text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.model')}
               </div>
-              <div className="text-neutral-800 dark:text-neutral-100 mt-1">
+              <div className="text-content mt-1">
                 {status?.model_id ?? t('settings.localModel.status.notAvailable')}
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <div className="rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
-              <div className="text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
+            <div className="rounded-md border border-line p-2">
+              <div className="text-content-muted text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.backend')}
               </div>
-              <div className="text-neutral-800 dark:text-neutral-100 mt-1">
-                {status?.active_backend ?? 'cpu'}
-              </div>
+              <div className="text-content mt-1">{status?.active_backend ?? 'cpu'}</div>
             </div>
-            <div className="rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
-              <div className="text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
+            <div className="rounded-md border border-line p-2">
+              <div className="text-content-muted text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.lastLatency')}
               </div>
-              <div className="text-neutral-800 dark:text-neutral-100 mt-1">
+              <div className="text-content mt-1">
                 {typeof status?.last_latency_ms === 'number'
                   ? `${status.last_latency_ms} ms`
                   : t('settings.localModel.status.notAvailable')}
               </div>
             </div>
-            <div className="rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
-              <div className="text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wide">
+            <div className="rounded-md border border-line p-2">
+              <div className="text-content-muted text-xs uppercase tracking-wide">
                 {t('settings.localModel.status.generationTps')}
               </div>
-              <div className="text-neutral-800 dark:text-neutral-100 mt-1">
+              <div className="text-content mt-1">
                 {typeof status?.gen_toks_per_sec === 'number'
                   ? `${status.gen_toks_per_sec.toFixed(1)} tok/s`
                   : t('settings.localModel.status.notAvailable')}
@@ -392,7 +386,7 @@ const ModelStatusSection = ({
           </div>
 
           {status?.model_path && (
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 break-all">
+            <div className="text-xs text-content-muted break-all">
               {t('settings.localModel.status.artifact')} {status.model_path}
             </div>
           )}
@@ -424,7 +418,7 @@ const ModelStatusSection = ({
                   {status.error_detail}
                 </pre>
               )}
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs text-content-muted">
                 {t('settings.localModel.status.installManuallyFrom')}{' '}
                 <a
                   href="https://ollama.com"
@@ -455,7 +449,7 @@ const ModelStatusSection = ({
             </Button>
           </div>
           {!diagnostics && !diagnosticsError && (
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="text-xs text-content-muted">
               {t('settings.localModel.status.diagnosticsHint')}
             </p>
           )}
@@ -490,8 +484,8 @@ const ModelStatusSection = ({
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
-                  <div className="text-neutral-500 dark:text-neutral-400 uppercase tracking-wide text-[10px]">
+                <div className="rounded-md border border-line p-2">
+                  <div className="text-content-muted uppercase tracking-wide text-[10px]">
                     {t('settings.localModel.status.server')}
                   </div>
                   <div
@@ -502,18 +496,18 @@ const ModelStatusSection = ({
                   </div>
                   {diagnostics.ollama_base_url && (
                     <div
-                      className="mt-0.5 text-neutral-500 dark:text-neutral-400 truncate text-[10px]"
+                      className="mt-0.5 text-content-muted truncate text-[10px]"
                       title={diagnostics.ollama_base_url}>
                       {diagnostics.ollama_base_url}
                     </div>
                   )}
                 </div>
-                <div className="rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
-                  <div className="text-neutral-500 dark:text-neutral-400 uppercase tracking-wide text-[10px]">
+                <div className="rounded-md border border-line p-2">
+                  <div className="text-content-muted uppercase tracking-wide text-[10px]">
                     {t('settings.localModel.status.binary')}
                   </div>
                   <div
-                    className="mt-1 text-neutral-700 dark:text-neutral-300 truncate"
+                    className="mt-1 text-content-secondary truncate"
                     title={
                       diagnostics.ollama_binary_path ??
                       (diagnostics.ollama_running
@@ -531,7 +525,7 @@ const ModelStatusSection = ({
 
               {diagnostics.installed_models.length > 0 && (
                 <div>
-                  <div className="text-neutral-500 dark:text-neutral-400 uppercase tracking-wide text-[10px] mb-1">
+                  <div className="text-content-muted uppercase tracking-wide text-[10px] mb-1">
                     {t('settings.localModel.status.installedModels')} (
                     {diagnostics.installed_models.length})
                   </div>
@@ -544,20 +538,18 @@ const ModelStatusSection = ({
                           className={`flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-xs ${
                             rejected
                               ? 'border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-500/10'
-                              : 'border-neutral-200 dark:border-neutral-800'
+                              : 'border-line'
                           }`}>
                           <span
                             className={`min-w-0 truncate font-medium ${
-                              rejected
-                                ? 'text-red-700 dark:text-red-300'
-                                : 'text-neutral-800 dark:text-neutral-100'
+                              rejected ? 'text-red-700 dark:text-red-300' : 'text-content'
                             }`}
                             title={m.name}>
                             {m.name}
                           </span>
                           <span className="flex shrink-0 items-center gap-2">
                             <ContextEligibilityBadge eligibility={m.eligibility} />
-                            <span className="text-neutral-500 dark:text-neutral-400">
+                            <span className="text-content-muted">
                               {typeof m.size === 'number' ? formatBytes(m.size) : ''}
                             </span>
                           </span>
@@ -569,7 +561,7 @@ const ModelStatusSection = ({
               )}
 
               <div>
-                <div className="text-neutral-500 dark:text-neutral-400 uppercase tracking-wide text-[10px] mb-1">
+                <div className="text-content-muted uppercase tracking-wide text-[10px] mb-1">
                   {t('settings.localModel.status.expectedModels')}
                 </div>
                 <div className="space-y-1 text-xs">
@@ -582,7 +574,7 @@ const ModelStatusSection = ({
                       }>
                       {diagnostics.expected.chat_found ? '✓' : '✗'}
                     </span>
-                    <span className="text-neutral-800 dark:text-neutral-200">
+                    <span className="text-content">
                       {t('settings.localModel.status.expectedChat').replace(
                         '{model}',
                         diagnostics.expected.chat_model
@@ -598,7 +590,7 @@ const ModelStatusSection = ({
                       }>
                       {diagnostics.expected.embedding_found ? '✓' : '✗'}
                     </span>
-                    <span className="text-neutral-800 dark:text-neutral-200">
+                    <span className="text-content">
                       {t('settings.localModel.status.expectedEmbedding').replace(
                         '{model}',
                         diagnostics.expected.embedding_model
@@ -614,7 +606,7 @@ const ModelStatusSection = ({
                       }>
                       {diagnostics.expected.vision_found ? '✓' : '–'}
                     </span>
-                    <span className="text-neutral-800 dark:text-neutral-200">
+                    <span className="text-content">
                       {t('settings.localModel.status.expectedVision').replace(
                         '{model}',
                         diagnostics.expected.vision_model
@@ -640,7 +632,7 @@ const ModelStatusSection = ({
                 </div>
               )}
 
-              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+              <div className="text-xs text-content-muted">
                 {t('settings.localModel.status.manageOllamaExternal')}
               </div>
             </>

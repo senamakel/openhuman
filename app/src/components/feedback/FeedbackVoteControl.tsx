@@ -63,14 +63,14 @@ export default function FeedbackVoteControl({ item, onVoted }: FeedbackVoteContr
     ? 'bg-orange-500/10'
     : downActive
       ? 'bg-indigo-500/10'
-      : 'bg-neutral-100 dark:bg-white/[0.04]';
+      : 'bg-surface-subtle dark:bg-white/[0.04]';
   const countColor = error
     ? 'text-coral-500'
     : upActive
       ? 'text-orange-500'
       : downActive
         ? 'text-indigo-400'
-        : 'text-neutral-700 dark:text-neutral-200';
+        : 'text-content-secondary';
 
   return (
     <div
@@ -85,7 +85,7 @@ export default function FeedbackVoteControl({ item, onVoted }: FeedbackVoteContr
         className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           upActive
             ? 'text-orange-500'
-            : 'text-neutral-400 hover:bg-orange-500/10 hover:text-orange-500 dark:text-neutral-500'
+            : 'text-content-faint hover:bg-orange-500/10 hover:text-orange-500'
         }`}>
         <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
           <path d="M10 3.5a1 1 0 01.78.375l5.5 6.5A1 1 0 0115.5 12H13v4a1 1 0 01-1 1H8a1 1 0 01-1-1v-4H4.5a1 1 0 01-.78-1.625l5.5-6.5A1 1 0 0110 3.5z" />
@@ -106,7 +106,7 @@ export default function FeedbackVoteControl({ item, onVoted }: FeedbackVoteContr
         className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
           downActive
             ? 'text-indigo-400'
-            : 'text-neutral-400 hover:bg-indigo-500/10 hover:text-indigo-400 dark:text-neutral-500'
+            : 'text-content-faint hover:bg-indigo-500/10 hover:text-indigo-400'
         }`}>
         <svg className="h-4 w-4 rotate-180" fill="currentColor" viewBox="0 0 20 20">
           <path d="M10 3.5a1 1 0 01.78.375l5.5 6.5A1 1 0 0115.5 12H13v4a1 1 0 01-1 1H8a1 1 0 01-1-1v-4H4.5a1 1 0 01-.78-1.625l5.5-6.5A1 1 0 0110 3.5z" />

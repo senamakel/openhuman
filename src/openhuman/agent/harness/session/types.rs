@@ -70,6 +70,12 @@ pub struct Agent {
     /// Citation metadata collected from memory recall for the most recent turn.
     /// Consumed by web-channel delivery to render source chips in the UI.
     pub(super) last_turn_citations: Vec<crate::openhuman::agent::memory_loader::MemoryCitation>,
+    /// Holistic token/cost/context accounting for the most recent turn (parent +
+    /// any sub-agents spawned during it). Consumed by web-channel delivery to
+    /// surface session token/cost/context meters in the UI footer. `None` until
+    /// the first turn completes.
+    pub(super) last_turn_usage_totals:
+        Option<crate::openhuman::agent::harness::turn_subagent_usage::LastTurnUsage>,
     pub(super) history: Vec<ConversationMessage>,
     pub(super) post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
     pub(super) learning_enabled: bool,
@@ -178,6 +184,9 @@ pub struct Agent {
     /// `Always` runs the dedicated memory retrieval agent once before
     /// the user's prompt is sent to this agent.
     pub(super) trigger_memory_agent: TriggerMemoryAgent,
+    /// Per-agent TokenJuice profile for tool results entering this session's
+    /// model context.
+    pub(super) tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
     /// Pre-execution policy hook for tool calls in this session. The
     /// default policy allows all calls so existing agents keep their
     /// behaviour unless a caller opts into stricter policy.
@@ -350,6 +359,8 @@ pub struct AgentBuilder {
         Option<Arc<dyn crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer>>,
     /// Forwarded to [`Agent::trigger_memory_agent`] at build time.
     pub(super) trigger_memory_agent: Option<TriggerMemoryAgent>,
+    /// Per-agent TokenJuice tool-output compression profile.
+    pub(super) tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
     /// Optional pre-execution tool policy. Defaults to allow-all.
     pub(super) tool_policy: Option<Arc<dyn ToolPolicy>>,
     /// Optional reference to the production `ArchivistHook`. Set when

@@ -41,6 +41,8 @@ pub(super) struct AgentToolExecCtx<'a> {
     /// Whether Stage 1a (native content-aware compaction) runs before the
     /// byte budget. Sourced from `ContextManager::compaction_enabled`.
     pub compaction_enabled: bool,
+    /// Agent-level TokenJuice profile for this session's tool results.
+    pub tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
     pub artifact_store: Option<&'a ToolResultArtifactStore>,
 }
 
@@ -247,10 +249,11 @@ pub(super) async fn run_agent_tool_call(
     // content kind, routes to the matching compressor, and offloads the
     // original to CCR (recoverable via `tokenjuice_retrieve`); only ever
     // shrinks, otherwise passes the original through.
-    let raw_result = crate::openhuman::tokenjuice::compact_output(
+    let raw_result = crate::openhuman::tokenjuice::compact_output_with_policy(
         raw_result,
         &call.name,
         ctx.compaction_enabled,
+        ctx.tokenjuice_compression,
     )
     .await;
 

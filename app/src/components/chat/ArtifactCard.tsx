@@ -191,7 +191,7 @@ export default function ArtifactCard({ artifact, onRetry }: ArtifactCardProps) {
     <div
       role="group"
       aria-label={t('chat.artifact.aria').replace('{title}', artifact.title)}
-      className="flex flex-col gap-1.5 rounded-xl border border-stone-200 dark:border-neutral-700 bg-stone-50 dark:bg-neutral-800 px-3 py-2.5 text-sm text-stone-700 dark:text-neutral-200 max-w-[420px]">
+      className="flex flex-col gap-1.5 rounded-xl border border-line bg-surface-muted px-3 py-2.5 text-sm text-content-secondary max-w-[420px]">
       <div className="flex items-center gap-2.5">
         {artifact.status === 'in_progress' ? (
           <Spinner />
@@ -202,7 +202,7 @@ export default function ArtifactCard({ artifact, onRetry }: ArtifactCardProps) {
         )}
         <div className="flex flex-col min-w-0 flex-1">
           <span className="truncate font-medium leading-tight">{artifact.title}</span>
-          <span className="text-xs text-stone-500 dark:text-neutral-400 leading-tight font-mono">
+          <span className="text-xs text-content-muted leading-tight font-mono">
             {artifact.status === 'in_progress'
               ? t('chat.artifact.generating').replace('{kind}', artifact.kind)
               : artifact.status === 'ready' && artifact.sizeBytes != null
@@ -229,7 +229,7 @@ export default function ArtifactCard({ artifact, onRetry }: ArtifactCardProps) {
             type="button"
             data-analytics-id={`chat-artifact-retry-${artifact.kind}`}
             onClick={() => onRetry(artifact.artifactId)}
-            className="ml-auto rounded-md bg-stone-200 dark:bg-neutral-700 hover:bg-stone-300 dark:hover:bg-neutral-600 text-stone-700 dark:text-neutral-200 text-xs font-medium px-3 py-1.5 transition-colors">
+            className="ml-auto rounded-md bg-surface-strong hover:bg-stone-300 dark:hover:bg-neutral-600 text-content-secondary text-xs font-medium px-3 py-1.5 transition-colors">
             {t('chat.artifact.retry')}
           </button>
         )}

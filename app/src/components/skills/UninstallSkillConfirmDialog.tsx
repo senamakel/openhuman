@@ -105,17 +105,17 @@ export default function UninstallSkillConfirmDialog({ skill, onClose, onUninstal
       onMouseDown={e => {
         if (e.target === e.currentTarget && !submitting) onClose();
       }}>
-      <div className="w-[420px] max-w-[90vw] rounded-2xl bg-white dark:bg-neutral-900 p-5 shadow-2xl">
+      <div className="w-[420px] max-w-[90vw] rounded-2xl bg-surface p-5 shadow-2xl">
         <h2
           id="uninstall-skill-title"
-          className="text-base font-semibold text-stone-900 dark:text-neutral-100">
+          className="text-base font-semibold text-content">
           {t('common.delete')} {skill.name}?
         </h2>
-        <p className="mt-2 text-sm text-stone-600 dark:text-neutral-300">
+        <p className="mt-2 text-sm text-content-secondary">
           {t('skills.uninstall.description')}
         </p>
         {skill.location && (
-          <p className="mt-3 break-all rounded-lg bg-stone-50 dark:bg-neutral-800/60 px-3 py-2 font-mono text-[11px] text-stone-600 dark:text-neutral-300">
+          <p className="mt-3 break-all rounded-lg bg-surface-muted px-3 py-2 font-mono text-[11px] text-content-secondary">
             {skill.location.replace(/\/(WORKFLOW|SKILL)\.md$/i, '')}
           </p>
         )}

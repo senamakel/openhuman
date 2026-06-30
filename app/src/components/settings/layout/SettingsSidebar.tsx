@@ -88,7 +88,7 @@ const SettingsSidebar = () => {
             }>
             {section.labelKey && (
               <div className="px-2 pb-0.5 pt-2.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-500 dark:text-neutral-400">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-content-muted">
                   {t(section.labelKey)}
                 </span>
               </div>
@@ -102,8 +102,8 @@ const SettingsSidebar = () => {
                     'bg-primary-50 font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-200'
                   : highlight
                     ? // Highlighted-but-inactive rows accent the text only (no bg).
-                      'font-medium text-primary-700 hover:bg-stone-50 dark:text-primary-300 dark:hover:bg-neutral-800/60'
-                    : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900 dark:text-neutral-300 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-100';
+                      'font-medium text-primary-700 hover:bg-surface-hover dark:text-primary-300'
+                    : 'text-content-secondary hover:bg-surface-hover hover:text-content';
                 return (
                   <li key={row.id}>
                     <button
@@ -116,7 +116,7 @@ const SettingsSidebar = () => {
                         className={`shrink-0 ${
                           active || highlight
                             ? 'text-primary-600 dark:text-primary-400'
-                            : 'text-stone-400 dark:text-neutral-500'
+                            : 'text-content-faint'
                         }`}>
                         {SETTINGS_NAV_ICONS[row.id] ?? null}
                       </span>
@@ -132,7 +132,7 @@ const SettingsSidebar = () => {
         {isSearching && !hasRows && (
           <p
             data-testid="settings-search-empty"
-            className="px-2 pt-3 text-center text-xs text-stone-400 dark:text-neutral-500">
+            className="px-2 pt-3 text-center text-xs text-content-faint">
             {t('settings.settingsSearch.noResults').replace('{query}', searchQuery.trim())}
           </p>
         )}

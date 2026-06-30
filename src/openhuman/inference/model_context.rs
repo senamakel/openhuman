@@ -12,6 +12,8 @@ use crate::openhuman::config::{
 
 /// Conservative default for OpenHuman abstract tier models (tokens).
 const TIER_LARGE_CONTEXT: u64 = 200_000;
+/// Reasoning tier — backed by a 1M-context model.
+const TIER_REASONING_CONTEXT: u64 = 1_000_000;
 const TIER_STANDARD_CONTEXT: u64 = 128_000;
 const TIER_LOCAL_CONTEXT: u64 = 8_192;
 
@@ -122,9 +124,12 @@ pub fn context_window_for_model(model: &str) -> Option<u64> {
 
 fn tier_context_window(model: &str) -> Option<u64> {
     match model {
-        MODEL_REASONING_V1 | MODEL_AGENTIC_V1 | MODEL_CODING_V1 => Some(TIER_LARGE_CONTEXT),
-        MODEL_BURST_V1 => Some(TIER_STANDARD_CONTEXT),
+        MODEL_REASONING_V1 => Some(TIER_REASONING_CONTEXT),
+        MODEL_AGENTIC_V1 | MODEL_CODING_V1 => Some(TIER_LARGE_CONTEXT),
         "summarization-v1" => Some(TIER_SUMMARIZATION_CONTEXT),
+        // Burst tier advertises a 128k window on the managed backend. Matched on
+        // the `burst-v1` alias before any substring fallbacks below.
+        MODEL_BURST_V1 => Some(TIER_STANDARD_CONTEXT),
         MODEL_CHAT_V1 | MODEL_REASONING_QUICK_V1 | "chat" => Some(TIER_STANDARD_CONTEXT),
         m if m.starts_with("gemma") || m.contains(":1b") || m.contains("270m") => {
             Some(TIER_LOCAL_CONTEXT)
@@ -273,10 +278,12 @@ mod tests {
 
     #[test]
     fn tier_aliases_resolve() {
-        assert_eq!(context_window_for_model("reasoning-v1"), Some(200_000));
+        assert_eq!(context_window_for_model("reasoning-v1"), Some(1_000_000));
         assert_eq!(context_window_for_model("agentic-v1"), Some(200_000));
-        assert_eq!(context_window_for_model("burst-v1"), Some(128_000));
         assert_eq!(context_window_for_model("chat-v1"), Some(128_000));
+        // Burst tier — 128k on the managed backend. Matched on the alias, not
+        // the local-gemma 8k substring arm.
+        assert_eq!(context_window_for_model("burst-v1"), Some(128_000));
         assert_eq!(
             context_window_for_model("reasoning-quick-v1"),
             Some(128_000)

@@ -58,6 +58,7 @@ impl Agent {
             prefer_markdown: self.context.prefer_markdown_tool_output(),
             budget_bytes: self.context.tool_result_budget_bytes(),
             compaction_enabled: self.context.compaction_enabled(),
+            tokenjuice_compression: self.tokenjuice_compression,
             artifact_store: Some(&artifact_store),
         };
         agent_tool_exec::run_agent_tool_call(&ctx, &progress, call, iteration).await

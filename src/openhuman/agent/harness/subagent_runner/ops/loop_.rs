@@ -54,12 +54,14 @@ pub(super) async fn run_inner_loop(
     model_vision: bool,
     temperature: f64,
     max_iterations: usize,
+    max_output_tokens: u32,
     task_id: &str,
     agent_id: &str,
     worker_thread_id: Option<String>,
     handoff_cache: Option<&ResultHandoffCache>,
     parent: &ParentExecutionContext,
     extended_policy: bool,
+    tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
     // Optional steering channel. When `Some`, the child engine drains
     // steer/collect messages at iteration boundaries so the parent can
     // `steer_subagent` a running async sub-agent. `None` = non-steerable.
@@ -146,6 +148,7 @@ pub(super) async fn run_inner_loop(
         handoff_cache,
         policy: crate::openhuman::tools::policy::DefaultToolPolicy,
         agent_id: agent_id.to_string(),
+        tokenjuice_compression,
     };
     let mut observer = SubagentObserver {
         worker_thread_id,
@@ -155,12 +158,14 @@ pub(super) async fn run_inner_loop(
         task_id: task_id.to_string(),
         force_text_mode,
         usage: AggregatedUsage::default(),
+        last_turn_usage: None,
     };
     let checkpoint = SubagentCheckpoint {
         provider,
         model: model.to_string(),
         temperature,
         agent_id: agent_id.to_string(),
+        max_output_tokens,
     };
     let progress = super::super::super::engine::SubagentProgress {
         sink: parent.on_progress.clone(),
@@ -210,6 +215,7 @@ pub(super) async fn run_inner_loop(
             &crate::openhuman::config::MultimodalConfig::default(),
             &crate::openhuman::config::MultimodalFileConfig::default(),
             max_iterations,
+            max_output_tokens,
             None, // sub-agents don't stream a draft
             &["ask_user_clarification"],
             run_queue, // steering channel for `steer_subagent` (None = non-steerable)

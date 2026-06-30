@@ -82,16 +82,14 @@ const ComposioTriagePanel = () => {
   if (loading) {
     return (
       <SettingsPanel description={t('settings.developerMenu.composio.desc')}>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {t('settings.composio.loading')}
-        </p>
+        <p className="text-sm text-content-muted">{t('settings.composio.loading')}</p>
       </SettingsPanel>
     );
   }
 
   return (
     <SettingsPanel description={t('settings.developerMenu.composio.desc')}>
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
+      <p className="text-sm text-content-muted">
         {t('composio.triageDesc')}{' '}
         <span className="font-mono">OPENHUMAN_TRIGGER_TRIAGE_DISABLED</span>{' '}
         {t('composio.envVarOverrides')}

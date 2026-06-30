@@ -8,12 +8,10 @@ import { formatRelativeTime, formatResetTime } from '../utils/format';
 export function SectionHeader({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="flex items-center justify-between px-2.5 pb-1 pt-3">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 dark:text-neutral-500">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-content-faint">
         {title}
       </span>
-      {hint ? (
-        <span className="text-[11px] text-stone-400 dark:text-neutral-500">{hint}</span>
-      ) : null}
+      {hint ? <span className="text-[11px] text-content-faint">{hint}</span> : null}
     </div>
   );
 }
@@ -62,7 +60,7 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
       ? 'bg-red-500'
       : job.last_status === 'ok'
         ? 'bg-sage-500'
-        : 'bg-stone-300 dark:bg-neutral-600';
+        : 'bg-surface-strong';
 
   const lastLabel = job.last_run
     ? t('conversations.backgroundTasks.cronLast').replace(
@@ -80,11 +78,9 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
       <Dot className={lastDot} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-stone-800 dark:text-neutral-100">
-            {name}
-          </span>
+          <span className="truncate text-sm font-medium text-content">{name}</span>
           {job.enabled ? (
-            <span className="shrink-0 text-[11px] text-stone-400 dark:text-neutral-500">
+            <span className="shrink-0 text-[11px] text-content-faint">
               {job.next_run
                 ? t('conversations.backgroundTasks.cronNext').replace(
                     '{time}',
@@ -93,17 +89,15 @@ export function CronJobRow({ job }: { job: CoreCronJob }) {
                 : ''}
             </span>
           ) : (
-            <span className="shrink-0 text-[11px] font-medium text-stone-500 dark:text-neutral-400">
+            <span className="shrink-0 text-[11px] font-medium text-content-muted">
               {t('conversations.backgroundTasks.cronPaused')}
             </span>
           )}
         </div>
-        <span className="mt-0.5 block truncate text-[12px] text-stone-500 dark:text-neutral-400">
+        <span className="mt-0.5 block truncate text-[12px] text-content-muted">
           {scheduleLabel(job.schedule, t)}
         </span>
-        <span className="mt-0.5 block text-[11px] text-stone-400 dark:text-neutral-500">
-          {lastLabel}
-        </span>
+        <span className="mt-0.5 block text-[11px] text-content-faint">{lastLabel}</span>
       </div>
     </div>
   );
@@ -118,9 +112,9 @@ export function SubconsciousRow({ summary }: { summary: SubconsciousSummary }) {
   let pill: string;
   let pillClass: string;
   if (off) {
-    dot = 'bg-stone-300 dark:bg-neutral-600';
+    dot = 'bg-surface-strong';
     pill = t('conversations.backgroundTasks.subOff');
-    pillClass = 'text-stone-400 dark:text-neutral-500';
+    pillClass = 'text-content-faint';
   } else if (summary.working) {
     dot = 'bg-amber-500 animate-pulse';
     pill = t('conversations.backgroundTasks.subWorking');
@@ -155,14 +149,12 @@ export function SubconsciousRow({ summary }: { summary: SubconsciousSummary }) {
       <Dot className={dot} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-stone-800 dark:text-neutral-100">
+          <span className="truncate text-sm font-medium text-content">
             {t('conversations.backgroundTasks.sectionSubconscious')}
           </span>
           <span className={`shrink-0 text-[11px] font-medium ${pillClass}`}>{pill}</span>
         </div>
-        <span className="mt-0.5 block text-[11px] text-stone-400 dark:text-neutral-500">
-          {meta.join(' · ')}
-        </span>
+        <span className="mt-0.5 block text-[11px] text-content-faint">{meta.join(' · ')}</span>
       </div>
     </div>
   );
@@ -194,9 +186,9 @@ function providerFreshnessLabel(
     };
   }
   return {
-    dot: 'bg-stone-300 dark:bg-neutral-600',
+    dot: 'bg-surface-strong',
     label: t('conversations.backgroundTasks.memProviderIdle'),
-    pillClass: 'text-stone-400 dark:text-neutral-500',
+    pillClass: 'text-content-faint',
   };
 }
 
@@ -207,7 +199,7 @@ export function MemorySection({ memory }: { memory: MemorySyncSummary }) {
 
   if (!hasActivity) {
     return (
-      <div className="px-2.5 py-2 text-[12px] text-stone-400 dark:text-neutral-500">
+      <div className="px-2.5 py-2 text-[12px] text-content-faint">
         {t('conversations.backgroundTasks.memUpToDate')}
       </div>
     );
@@ -221,7 +213,7 @@ export function MemorySection({ memory }: { memory: MemorySyncSummary }) {
           className="mb-1 flex items-start gap-2.5 rounded-lg px-2.5 py-2">
           <Dot className="bg-amber-500 animate-pulse" />
           <div className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium text-stone-800 dark:text-neutral-100">
+            <span className="block truncate text-sm font-medium text-content">
               {memory.currentTitle
                 ? t('conversations.backgroundTasks.memIngesting').replace(
                     '{title}',
@@ -230,7 +222,7 @@ export function MemorySection({ memory }: { memory: MemorySyncSummary }) {
                 : t('conversations.backgroundTasks.memIngestingUntitled')}
             </span>
             {memory.queueDepth > 0 ? (
-              <span className="mt-0.5 block text-[11px] text-stone-400 dark:text-neutral-500">
+              <span className="mt-0.5 block text-[11px] text-content-faint">
                 {t('conversations.backgroundTasks.memQueued').replace(
                   '{count}',
                   String(memory.queueDepth)
@@ -258,15 +250,13 @@ export function MemorySection({ memory }: { memory: MemorySyncSummary }) {
             <Dot className={f.dot} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-medium capitalize text-stone-800 dark:text-neutral-100">
+                <span className="truncate text-sm font-medium capitalize text-content">
                   {row.provider}
                 </span>
                 <span className={`shrink-0 text-[11px] font-medium ${f.pillClass}`}>{f.label}</span>
               </div>
               {backlog ? (
-                <span className="mt-0.5 block text-[11px] text-stone-400 dark:text-neutral-500">
-                  {backlog}
-                </span>
+                <span className="mt-0.5 block text-[11px] text-content-faint">{backlog}</span>
               ) : null}
             </div>
           </div>

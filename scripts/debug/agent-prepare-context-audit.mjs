@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Live audit for the `agent_prepare_context` tool + `context_scout` subagent.
+// Live audit for harness-driven prepared context + the `context_scout` subagent.
 //
-// Drives real agent turns through JSON-RPC against an authenticated core, forces
-// the orchestrator to call `agent_prepare_context`, then reads the resulting
-// session transcripts to surface — per query — the returned [context_bundle]
+// Drives real first-turn orchestrator sessions through JSON-RPC against an
+// authenticated core, then reads the resulting session transcripts to surface —
+// per query — the harness-collected [context_bundle]
 // (including the new `recommended_skills` block), the scout's step-by-step turns
 // ("thoughts"), which curated gathering tools it exercised, and tokens/cost.
 //
@@ -60,7 +60,7 @@ const DEFAULT_CASES = [
 function usage() {
   return `Usage: node scripts/debug/agent-prepare-context-audit.mjs [options]
 
-Audits the agent_prepare_context tool live: forces it per query, then prints the
+Audits harness-driven prepared context live: starts a fresh thread per query, then prints the
 returned context bundle, the scout's turns, and tokens/cache/cost.
 
 Options:
@@ -69,8 +69,8 @@ Options:
   --workspace <path>      Workspace whose session_raw transcripts are read
   --model <model>         Optional model_override passed to openhuman.inference_agent_chat
   --query <text>          Add a custom query (repeatable). Replaces the defaults.
-  --raw                   Send the query unwrapped (let the orchestrator decide
-                          whether to call the tool) instead of forcing the call.
+  --raw                   Deprecated no-op; queries are always sent directly so
+                          the harness scout sees the real case request.
   --scout-prompt-file <f> Override the context_scout system prompt with this file
                           (writes a temporary workspace agent override; restored
                           after the run unless --keep-workspace). Test your prompt.
@@ -508,16 +508,6 @@ async function seedTranscript(opts) {
   }
 }
 
-// ── Prompt shaping ──────────────────────────────────────────────────────────
-
-function forcedPrompt(query) {
-  return `Call the \`agent_prepare_context\` tool now, passing \`question\` set to the user request below. \
-Do not answer the request yourself first — scout context first. After the tool returns, reply with the \
-returned context bundle verbatim, then one short line on how you'd proceed.
-
-User request: ${query}`;
-}
-
 // ── Scout prompt override (optional) ─────────────────────────────────────────
 
 function scoutOverrideToml(inlinePrompt) {
@@ -663,10 +653,10 @@ function printCase(opts, caseInfo, scout, root, ms) {
 
   if (!scout) {
     console.log(
-      "  ⚠ no context_scout transcript found — tool was not invoked.",
+      "  ⚠ no context_scout transcript found — prepared context did not run.",
     );
     console.log(
-      "    (Is the core built from this branch? Is agent_prepare_context allowlisted?)",
+      "    (Is the core built from this branch? Is super context enabled?)",
     );
     return;
   }
@@ -825,16 +815,14 @@ async function main() {
     }
   }
 
-  console.log("[apc-audit] starting live agent_prepare_context audit");
+  console.log("[apc-audit] starting live prepared-context audit");
   console.log(`  rpc:        ${opts.coreUrl}`);
   console.log(`  workspace:  ${opts.workspace}`);
   console.log(
     `  mode:       ${opts.spawnCore ? "spawned-core (this branch)" : "attached-core"}`,
   );
   console.log(`  model:      ${opts.model || "(account default)"}`);
-  console.log(
-    `  cases:      ${cases.length}${opts.raw ? " (raw — not forcing the tool)" : " (forcing the tool)"}`,
-  );
+  console.log(`  cases:      ${cases.length} (direct query)`);
 
   const caseResults = [];
   try {
@@ -843,7 +831,7 @@ async function main() {
       const threadId = `${opts.threadPrefix}-${i}`;
       const before = await snapshot(opts.workspace);
       const params = {
-        message: opts.raw ? c.query : forcedPrompt(c.query),
+        message: c.query,
         thread_id: threadId,
       };
       if (opts.model) params.model_override = opts.model;
@@ -947,7 +935,7 @@ async function main() {
   console.table(
     caseResults.map((r) => ({
       case: r.name,
-      invoked: r.invoked ? "yes" : "NO",
+      prepared: r.invoked ? "yes" : "NO",
       enough: r.hasEnough ?? "-",
       rec_tools: r.recommended.length,
       rec_skills: r.skills.length,
@@ -959,7 +947,7 @@ async function main() {
       ),
     })),
   );
-  console.log(`  tool invoked: ${agg.invoked}/${caseResults.length}`);
+  console.log(`  prepared-context runs: ${agg.invoked}/${caseResults.length}`);
   // Surface whether the transcript-recall case actually proved the new reach.
   const recallCase = caseResults.find((r) => r.canaryRecalled !== null);
   if (recallCase) {
@@ -982,7 +970,7 @@ async function main() {
   const everInvoked = agg.invoked > 0;
   if (!everInvoked) {
     console.error(
-      "\n[apc-audit] FAIL: agent_prepare_context was never invoked (no context_scout transcript).",
+      "\n[apc-audit] FAIL: prepared context was never invoked (no context_scout transcript).",
     );
     process.exit(1);
   }

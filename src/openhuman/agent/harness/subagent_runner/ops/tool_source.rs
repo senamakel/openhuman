@@ -30,6 +30,7 @@ pub(super) struct SubagentToolSource<'a> {
     pub(super) handoff_cache: Option<&'a ResultHandoffCache>,
     pub(super) policy: crate::openhuman::tools::policy::DefaultToolPolicy,
     pub(super) agent_id: String,
+    pub(super) tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
 }
 
 #[async_trait::async_trait]
@@ -118,6 +119,7 @@ impl super::super::super::engine::ToolSource for SubagentToolSource<'_> {
             &self.policy,
             None,
             progress_call_id,
+            self.tokenjuice_compression,
         )
         .await;
 

@@ -84,6 +84,13 @@ pub(super) async fn run_subagent_via_graph(
     // other clone).
     let summary_provider = provider.clone();
 
+    // Resolve the sub-agent model's effective context window so the harness runs
+    // the context-window summarization step (issue #4249) on sub-agent turns too.
+    // A long-running / resumed sub-agent (worker threads, durable sessions) can
+    // accumulate a transcript past its own window; summarize before each model
+    // call rather than relying solely on the parent's one-time trim.
+    let context_window = provider.effective_context_window(model).await;
+
     // A sub-agent turn runs *nested inside* the parent agent's turn (parent
     // harness → spawn_subagent tool → here), so the child's full
     // `run_turn_via_tinyagents_shared` future would otherwise sit on the parent's
@@ -101,8 +108,8 @@ pub(super) async fn run_subagent_via_graph(
         // Parent's progress sink — child events ride it, scoped below.
         on_progress,
         subagent_scope,
-        // Sub-agents inherit the parent's already-trimmed history.
-        None,
+        // Resolved above — drives the sub-agent context-window summarization step.
+        context_window,
         // Mid-flight steering: forward queued steer messages into the run.
         run_queue,
         // Pause + checkpoint when the child asks the user a clarifying question.

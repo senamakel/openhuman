@@ -25,6 +25,7 @@ mod model;
 pub mod observability;
 pub mod orchestration;
 pub mod stop_hooks;
+pub mod summarize;
 mod tools;
 
 use std::sync::Arc;
@@ -33,7 +34,7 @@ use anyhow::Result;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
-use tinyagents::harness::middleware::MessageTrimMiddleware;
+use tinyagents::harness::middleware::{ContextCompressionMiddleware, MessageTrimMiddleware};
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::summarization::TrimStrategy;
@@ -248,6 +249,9 @@ pub async fn run_turn_via_tinyagents_shared(
     };
 
     let cursor: IterationCursor = Arc::default();
+    // Keep a provider handle for the context-window summarizer (the run consumes
+    // the other clone into the `ProviderModel`).
+    let summary_provider = provider.clone();
     let mut provider_model =
         ProviderModel::new(provider, model, temperature).with_valid_tools(valid_tools);
     // Cap the model's per-call output budget (parity with the legacy engine,
@@ -271,11 +275,29 @@ pub async fn run_turn_via_tinyagents_shared(
         .register_model(model, Arc::new(provider_model))
         .set_default_model(model);
 
-    // Autocompaction parity: when the provider's context window is known, trim
-    // history from the front (system messages kept) so a long thread stays under
-    // budget before each model call — the deterministic, no-extra-LLM-call
-    // analogue of the legacy `ContextManager` reduce-before-call.
+    // Autocompaction parity: when the provider's context window is known, install
+    // the two-stage context-management step (issue #4249).
+    //
+    // 1. `ContextCompressionMiddleware` — the **summarization** step. Once the
+    //    running token estimate crosses `window * SUMMARIZE_THRESHOLD_FRACTION`
+    //    (90% of *this model's* context window), it folds the older slice of the
+    //    transcript into a single LLM-generated system summary (keeping system
+    //    messages + the recent window verbatim). This is keyed to whatever model
+    //    the turn is running on, mirroring the legacy `ContextGuard` threshold.
+    // 2. `MessageTrimMiddleware` — a deterministic, no-extra-LLM-call hard cap.
+    //    Pushed **after** compression (so `before_model` runs compression first),
+    //    it front-trims to budget only as a last resort when even the summary +
+    //    recent window still overflow.
     if let Some(window) = context_window.filter(|w| *w > 0) {
+        harness.push_middleware(Arc::new(ContextCompressionMiddleware::with_summarizer(
+            summarize::summarization_policy(window),
+            Box::new(summarize::ProviderModelSummarizer::new(
+                summary_provider,
+                model,
+                temperature,
+            )),
+        )));
+
         let budget = window.saturating_sub(
             crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS as u64,
         );

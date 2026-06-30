@@ -69,10 +69,16 @@ pub(crate) async fn run_channel_turn_via_graph(
     .map(|prepared| prepared.messages)
     .unwrap_or(prepared);
 
+    // Resolve the provider's effective context window so the harness can run the
+    // context-window summarization step (issue #4249) on channel/CLI turns too —
+    // long-running channel threads otherwise grew unbounded until the cap error.
+    let context_window = provider.effective_context_window(model).await;
+
     tracing::info!(
         model,
         max_iterations,
         observed = on_progress.is_some(),
+        context_window,
         "[channel:graph] routing channel turn through tinyagents harness"
     );
     let outcome = run_turn_via_tinyagents_shared(
@@ -88,8 +94,8 @@ pub(crate) async fn run_channel_turn_via_graph(
         on_progress,
         // Top-level (parent) turn — no child-progress attribution.
         None,
-        // Channel turns don't resolve a per-turn context window here.
-        None,
+        // Resolved above — drives the context-window summarization step.
+        context_window,
         // No mid-flight steering on the channel path.
         None,
         // No early-exit pause on the channel path.

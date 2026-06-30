@@ -8,6 +8,8 @@ mod awaiting_user;
 mod close_subagent;
 #[path = "tools/continue_subagent.rs"]
 mod continue_subagent;
+#[path = "tools/delegate_graph.rs"]
+mod delegate_graph;
 #[path = "tools/dispatch.rs"]
 mod dispatch;
 #[path = "tools/list_subagents.rs"]
@@ -40,6 +42,7 @@ pub use agent_prepare_context::{
     run_context_scout, run_context_scout_with_catalog, AgentPrepareContextTool,
 };
 pub use archetype_delegation::ArchetypeDelegationTool;
+pub use delegate_graph::DelegateGraphTool;
 pub use close_subagent::CloseSubagentTool;
 pub use continue_subagent::ContinueSubagentTool;
 pub use list_subagents::ListSubagentsTool;

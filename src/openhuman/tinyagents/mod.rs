@@ -48,27 +48,6 @@ pub use tools::{
 use std::collections::HashSet;
 use tokio::sync::mpsc::Sender;
 
-/// Whether agent turns (chat) should route through the `tinyagents` harness.
-///
-/// The tinyagents harness is now **the** agent engine on every build, including
-/// tests (issue #4249). The legacy `run_turn_engine` is being removed; until it
-/// is gone, `OPENHUMAN_AGENT_GRAPH_TINYAGENTS=0` is still honoured as a transition
-/// escape hatch to force the legacy path.
-pub fn tinyagents_routing_enabled() -> bool {
-    routing_default_with_override("OPENHUMAN_AGENT_GRAPH_TINYAGENTS")
-}
-
-/// Shared default-**on** resolution for the route flags: tinyagents is the
-/// default everywhere (prod and test). An explicit `0`/`false` env value still
-/// forces the legacy path during the transition; any other value (or unset) is
-/// on.
-pub(crate) fn routing_default_with_override(var: &str) -> bool {
-    match std::env::var(var) {
-        Ok(v) => !(v == "0" || v.eq_ignore_ascii_case("false")),
-        Err(_) => true,
-    }
-}
-
 /// Drain the run queue's pending steer messages and forward them to the
 /// tinyagents [`SteeringHandle`] as injected user turns (the harness applies
 /// them to the working transcript at the next iteration checkpoint). This is the

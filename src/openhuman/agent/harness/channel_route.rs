@@ -1,5 +1,5 @@
-//! Phase C (issue #4249): optionally run a channel/CLI agent turn through the
-//! `agent_graph` engine instead of the legacy `run_tool_call_loop`.
+//! Channel/CLI agent turns on the tinyagents harness (issue #4249).
+//!
 //!
 //! Gated by `OPENHUMAN_AGENT_GRAPH_CHANNEL` and **off by default**. Like the
 //! sub-agent route, this reuses the same provider + tools via
@@ -20,15 +20,6 @@ use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 use crate::openhuman::tinyagents::run_turn_via_tinyagents_shared;
 use crate::openhuman::tools::Tool;
-
-/// Whether channel/CLI turns should route through the tinyagents harness.
-///
-/// **Default ON in production** (issue #4249); OFF under `cfg(test)` so the
-/// legacy-engine tests keep validating the fallback. Set
-/// `OPENHUMAN_AGENT_GRAPH_CHANNEL=0` to force the legacy `run_tool_call_loop`.
-pub(crate) fn channel_graph_routing_enabled() -> bool {
-    crate::openhuman::tinyagents::routing_default_with_override("OPENHUMAN_AGENT_GRAPH_CHANNEL")
-}
 
 /// Drive a channel/CLI turn on the graph engine. Returns the final assistant
 /// text, matching [`super::tool_loop::run_tool_call_loop`].
@@ -178,15 +169,5 @@ mod tests {
         .expect("channel graph turn runs");
         assert_eq!(text, "channel done");
         assert!(history.iter().any(|m| m.content.contains("pong")));
-    }
-
-    #[test]
-    fn routing_flag_honors_explicit_override() {
-        // tinyagents is the default on every build now; `0` forces legacy.
-        std::env::remove_var("OPENHUMAN_AGENT_GRAPH_CHANNEL");
-        assert!(channel_graph_routing_enabled());
-        std::env::set_var("OPENHUMAN_AGENT_GRAPH_CHANNEL", "0");
-        assert!(!channel_graph_routing_enabled());
-        std::env::remove_var("OPENHUMAN_AGENT_GRAPH_CHANNEL");
     }
 }

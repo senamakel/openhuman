@@ -67,7 +67,7 @@ pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};
 pub use task_recency_context::{current_task_recency_window, with_task_recency_window};
 pub use worktree_context::{current_action_dir_override, with_action_dir_override};
 
-pub(crate) use channel_route::{channel_graph_routing_enabled, run_channel_turn_via_graph};
+pub(crate) use channel_route::run_channel_turn_via_graph;
 pub(crate) use instructions::build_tool_instructions_filtered;
 pub(crate) use parse::parse_tool_calls;
 

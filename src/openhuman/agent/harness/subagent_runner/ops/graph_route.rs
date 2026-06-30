@@ -21,15 +21,6 @@ use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Pr
 use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::openhuman::tools::{Tool, ToolSpec};
 
-/// Whether sub-agent turns should be routed through the tinyagents harness.
-///
-/// **Default ON in production** (issue #4249); OFF under `cfg(test)` so the
-/// legacy-engine tests keep validating the fallback. Set
-/// `OPENHUMAN_AGENT_GRAPH_SUBAGENT=0` to force the legacy `run_inner_loop`.
-pub(super) fn subagent_graph_routing_enabled() -> bool {
-    crate::openhuman::tinyagents::routing_default_with_override("OPENHUMAN_AGENT_GRAPH_SUBAGENT")
-}
-
 /// Drive a sub-agent turn on the graph engine. Returns the same tuple shape as
 /// [`super::loop_::run_inner_loop`] so the caller is agnostic to the path.
 #[allow(clippy::too_many_arguments)]
@@ -703,15 +694,5 @@ mod tests {
             output.contains("progress: explored two leads"),
             "cap hit should return the summary checkpoint, got {output:?}"
         );
-    }
-
-    #[test]
-    fn routing_flag_honors_explicit_override() {
-        // tinyagents is the default on every build now; `0` forces legacy.
-        std::env::remove_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT");
-        assert!(subagent_graph_routing_enabled());
-        std::env::set_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT", "0");
-        assert!(!subagent_graph_routing_enabled());
-        std::env::remove_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT");
     }
 }

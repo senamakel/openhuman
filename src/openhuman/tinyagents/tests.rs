@@ -395,16 +395,3 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         "each concurrent turn must receive a distinct FIFO response; got {got:?}"
     );
 }
-
-#[test]
-fn routing_flag_honors_explicit_override() {
-    // tinyagents is the default on every build now.
-    std::env::remove_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS");
-    assert!(tinyagents_routing_enabled());
-    std::env::set_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS", "1");
-    assert!(tinyagents_routing_enabled());
-    // An explicit `0` still forces the legacy path during the transition.
-    std::env::set_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS", "0");
-    assert!(!tinyagents_routing_enabled());
-    std::env::remove_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS");
-}

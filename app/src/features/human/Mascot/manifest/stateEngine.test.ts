@@ -62,6 +62,13 @@ describe('resolveVisemeCode', () => {
     expect(resolveVisemeCode('E', TINY)).toBe('E');
   });
 
+  it("returns the manifest's exact casing for case-varied viseme enums", () => {
+    const upper: MascotStateEngine = { ...TINY, visemeCodes: ['SIL', 'PP', 'AA', 'OH'] };
+    expect(resolveVisemeCode('O', upper)).toBe('OH');
+    expect(resolveVisemeCode('a', upper)).toBe('AA');
+    expect(restVisemeCode(upper)).toBe('SIL');
+  });
+
   it('falls back to rest for codes the mascot lacks', () => {
     // Toshi has no 'oh'; an O viseme rests the mouth instead of no-op.
     expect(resolveVisemeCode('O', TOSHI)).toBe('sil');

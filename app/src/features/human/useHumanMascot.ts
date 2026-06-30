@@ -34,6 +34,14 @@ const VISEME_DECAY_MS = 180;
  * 5 minutes comfortably covers any real reply; exported for tests.
  */
 export const TTS_MAX_PLAYBACK_MS = 5 * 60 * 1_000;
+const TTS_ESTIMATED_MS_PER_CHAR = 55;
+const TTS_MIN_ESTIMATED_PLAYBACK_MS = 600;
+
+function estimateTtsPlaybackMs(text: string, frames: VisemeFrame[]): number {
+  const frameEnd = frames.at(-1)?.end_ms ?? 0;
+  if (frameEnd > 0) return frameEnd;
+  return Math.max(TTS_MIN_ESTIMATED_PLAYBACK_MS, text.trim().length * TTS_ESTIMATED_MS_PER_CHAR);
+}
 
 /**
  * Heuristic — does this timeline contain at least one frame whose code maps
@@ -553,19 +561,17 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
         handle.ended.catch(swallowAudioStop);
         return;
       }
-      // Resolve the real audio length so the procedural/even-distribution
-      // fallbacks span the whole clip. Only wait on `metadataReady` if the
-      // duration isn't known yet — when it's already available we avoid an
-      // extra microtask (and the lipsync start stays immediate).
+      // Start lipsync as soon as audio.play() succeeds. Metadata can lag by the
+      // 500ms decoder fallback in blob/MP3 cases; keeping playbackRef empty
+      // until then makes short replies play while the mascot is still thinking.
       let audioMs = handle.durationMs();
-      if (audioMs <= 0) {
-        await handle.metadataReady;
-        if (!isStillCurrent()) {
-          handle.stop();
-          handle.ended.catch(swallowAudioStop);
-          return;
-        }
-        audioMs = handle.durationMs();
+      const waitingForMetadata = audioMs <= 0;
+      if (waitingForMetadata) {
+        audioMs = estimateTtsPlaybackMs(text, frames);
+        mascotLog(
+          'tts duration pending — starting lipsync with %dms estimate',
+          Math.round(audioMs)
+        );
       }
       if (frames.length === 0) {
         frames = proceduralVisemes(text, audioMs);
@@ -594,6 +600,27 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
         source,
         frames.length
       );
+      if (waitingForMetadata) {
+        await handle.metadataReady;
+        if (!isStillCurrent()) {
+          handle.stop();
+          handle.ended.catch(swallowAudioStop);
+          return;
+        }
+        const measuredAudioMs = handle.durationMs();
+        if (measuredAudioMs > 0 && playbackRef.current === handle) {
+          const measuredFrames =
+            source === 'procedural'
+              ? proceduralVisemes(text, measuredAudioMs)
+              : normalizeVisemeTimeline(visemeFramesRef.current, measuredAudioMs);
+          visemeFramesRef.current =
+            source === 'procedural'
+              ? normalizeVisemeTimeline(measuredFrames, measuredAudioMs)
+              : measuredFrames;
+          visemeCursorRef.current = 0;
+          mascotLog('tts metadata duration ready — refined lipsync to %dms', measuredAudioMs);
+        }
+      }
       try {
         await handle.ended;
       } catch (err) {

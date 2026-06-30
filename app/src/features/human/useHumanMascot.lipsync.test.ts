@@ -97,6 +97,44 @@ function makePlayback(durationMs: number): FakePlayback {
   };
 }
 
+function makePlaybackWithDeferredMetadata(
+  finalDurationMs: number
+): FakePlayback & { resolveMetadata(): void } {
+  let durationMs = 0;
+  let ms = 0;
+  let stopped = false;
+  let resolveEnded!: () => void;
+  let resolveMetadata!: () => void;
+  const ended = new Promise<void>(res => {
+    resolveEnded = res;
+  });
+  const metadataReady = new Promise<void>(res => {
+    resolveMetadata = () => {
+      durationMs = finalDurationMs;
+      res();
+    };
+  });
+  return {
+    handle: {
+      currentMs: () => (stopped ? -1 : ms),
+      durationMs: () => durationMs,
+      metadataReady,
+      stop: () => {
+        stopped = true;
+      },
+      ended,
+    },
+    setMs(next: number) {
+      ms = next;
+    },
+    finish() {
+      stopped = true;
+      resolveEnded();
+    },
+    resolveMetadata,
+  };
+}
+
 /**
  * Drive the hook's RAF-based render loop deterministically. The hook calls
  * `requestAnimationFrame` on every speaking frame; without firing it the
@@ -371,6 +409,41 @@ describe('useHumanMascot — audio-driven lipsync end-to-end', () => {
       tickRaf();
     });
     expect(result.current.viseme).toEqual(VISEMES.M);
+  });
+
+  it('starts lipsync before delayed audio metadata resolves', async () => {
+    const fake = makePlaybackWithDeferredMetadata(600);
+    (synthesizeSpeech as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      audio_base64: 'AAA=',
+      audio_mime: 'audio/mpeg',
+      visemes: [
+        { viseme: 'aa', start_ms: 0, end_ms: 200 },
+        { viseme: 'PP', start_ms: 200, end_ms: 400 },
+      ],
+    });
+    (playBase64Audio as ReturnType<typeof vi.fn>).mockResolvedValueOnce(fake.handle);
+
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: true }));
+    await act(async () => {
+      capturedListeners?.onDone?.(fakeDone('hi'));
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.face).toBe('speaking');
+    act(() => {
+      nowMs = 1_050;
+      tickRaf();
+    });
+    expect(result.current.viseme).toEqual(VISEMES.A);
+
+    await act(async () => {
+      fake.resolveMetadata();
+      fake.finish();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
   });
 
   it('mouth returns to a non-speaking shape once playback ends', async () => {

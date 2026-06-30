@@ -30,7 +30,7 @@ export function resolveFaceToPose(face: MascotFace, engine: MascotStateEngine): 
 
 /** The resting mouth code for this mascot (`sil` when present, else its first code). */
 export function restVisemeCode(engine: MascotStateEngine): string {
-  return engine.visemeCodes.includes('sil') ? 'sil' : engine.visemeCodes[0];
+  return engine.visemeCodes.find(code => code.toLowerCase() === 'sil') ?? engine.visemeCodes[0];
 }
 
 /**
@@ -40,7 +40,10 @@ export function restVisemeCode(engine: MascotStateEngine): string {
  */
 export function resolveVisemeCode(code: string, engine: MascotStateEngine): string {
   const normalised = toRiveVisemeCode(code);
-  return engine.visemeCodes.includes(normalised) ? normalised : restVisemeCode(engine);
+  return (
+    engine.visemeCodes.find(candidate => candidate.toLowerCase() === normalised.toLowerCase()) ??
+    restVisemeCode(engine)
+  );
 }
 
 /**

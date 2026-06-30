@@ -1812,6 +1812,8 @@ const messages: TranslationMap = {
   'team.teamName': 'Nama tim',
   'team.creating': 'Membuat...',
   'team.joinExistingTeam': 'Bergabung dengan Tim yang Ada',
+  'team.personalAutoCreatedNote':
+    'Tim pribadi Anda dibuat secara otomatis. Untuk berkolaborasi, gabung ke tim yang sudah ada dengan kode undangan di bawah.',
   'team.inviteCode': 'Kode undangan',
   'team.joining': 'Bergabung...',
   'team.join': 'Bergabung',
@@ -5167,6 +5169,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.platforms.teams': 'Microsoft Teams',
   'skills.meetingBots.platforms.zoom': 'Zoom',
   'skills.meetingBots.sendTo': 'Kirim ke',
+  'skills.meetingBots.serverOverloaded':
+    'OpenHuman sedang menerima beban tinggi saat ini. Silakan coba lagi dalam beberapa menit.',
   'skills.meetingBots.soonSuffix': 'segera',
   'skills.meetingBots.starting': 'Memulai...',
   'skills.meetingBots.recentCallsAriaLabel': 'Panggilan rapat terbaru',

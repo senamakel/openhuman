@@ -1852,6 +1852,8 @@ const messages: TranslationMap = {
   'team.teamName': 'Teamname',
   'team.creating': 'Erstellen...',
   'team.joinExistingTeam': 'Tritt einem bestehenden Team bei',
+  'team.personalAutoCreatedNote':
+    'Dein persönliches Team wird automatisch erstellt. Um zusammenzuarbeiten, tritt unten mit einem Einladungscode einem bestehenden Team bei.',
   'team.inviteCode': 'Einladungscode',
   'team.joining': 'Beitritt...',
   'team.join': 'Mach mit',
@@ -5281,6 +5283,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.platforms.teams': 'Microsoft Teams',
   'skills.meetingBots.platforms.zoom': 'Zoom',
   'skills.meetingBots.sendTo': 'Senden an',
+  'skills.meetingBots.serverOverloaded':
+    'OpenHuman ist gerade stark ausgelastet. Bitte versuche es in ein paar Minuten erneut.',
   'skills.meetingBots.soonSuffix': 'bald',
   'skills.meetingBots.starting': 'Beginnend mit …',
   'skills.meetingBots.recentCallsAriaLabel': 'Letzte Meeting-Anrufe',

@@ -1709,6 +1709,8 @@ const messages: TranslationMap = {
   'team.teamName': '团队名称',
   'team.creating': '创建中...',
   'team.joinExistingTeam': '加入已有团队',
+  'team.personalAutoCreatedNote':
+    '您的个人团队会自动创建。如需协作，请使用下方的邀请码加入现有团队。',
   'team.inviteCode': '邀请码',
   'team.joining': '加入中...',
   'team.join': '加入',
@@ -4895,6 +4897,7 @@ const messages: TranslationMap = {
   'skills.meetingBots.platforms.teams': '微软团队',
   'skills.meetingBots.platforms.zoom': '变焦',
   'skills.meetingBots.sendTo': '发送到会议',
+  'skills.meetingBots.serverOverloaded': 'OpenHuman 当前负载过高，请几分钟后重试。',
   'skills.meetingBots.soonSuffix': '很快',
   'skills.meetingBots.starting': '启动中…',
   'skills.meetingBots.recentCallsAriaLabel': '最近的会议通话',

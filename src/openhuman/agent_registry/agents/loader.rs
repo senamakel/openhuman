@@ -988,6 +988,14 @@ mod tests {
         let def = find("context_scout");
         assert_eq!(def.agent_tier, AgentTier::Worker);
         assert_eq!(def.sandbox_mode, SandboxMode::ReadOnly);
+        // Super-context scout rides the cheap, high-throughput `burst` tier
+        // (resolves to `burst-v1` on the managed backend) — not the pricier
+        // agentic/reasoning tiers.
+        assert!(
+            matches!(&def.model, ModelSpec::Hint(h) if h == "burst"),
+            "context_scout must spawn on the burst tier, got {:?}",
+            def.model
+        );
         // Bundle cap — load-bearing for the parent's context budget. Leaves
         // room for the `recommended_skills` block alongside summary + plan.
         assert_eq!(def.max_result_chars, Some(5000));
@@ -1069,17 +1077,27 @@ mod tests {
     }
 
     #[test]
-    fn researcher_has_curl_for_artifact_downloads() {
+    fn researcher_is_bounded_to_search_and_fetch() {
         let def = find("researcher");
+        assert_eq!(
+            def.max_iterations, 10,
+            "researcher keeps enough turns to recover from bad search results without broadening its tool surface"
+        );
+        assert_eq!(
+            def.max_turn_output_tokens,
+            Some(4096),
+            "researcher must cap each model turn so verbose research loops cannot flood context"
+        );
+        assert!(
+            def.extra_tools.is_empty(),
+            "researcher must not widen its tool surface via extra_tools"
+        );
         match &def.tools {
             ToolScope::Named(tools) => {
-                assert!(
-                    tools.iter().any(|t| t == "curl"),
-                    "researcher needs curl for artifact downloads"
-                );
-                assert!(
-                    tools.iter().any(|t| t == "http_request"),
-                    "researcher still needs http_request"
+                assert_eq!(
+                    tools,
+                    &vec!["web_search_tool".to_string(), "web_fetch".to_string()],
+                    "researcher must stay limited to search+fetch so simple lookups do not fan out into deep research loops"
                 );
             }
             ToolScope::Wildcard => panic!("researcher must have Named tool scope"),

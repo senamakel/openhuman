@@ -1803,6 +1803,8 @@ const messages: TranslationMap = {
   'team.teamName': 'टीम का नाम',
   'team.creating': 'बन रही है...',
   'team.joinExistingTeam': 'मौजूदा टीम जॉइन करें',
+  'team.personalAutoCreatedNote':
+    'आपकी व्यक्तिगत टीम स्वतः बन जाती है। सहयोग के लिए, नीचे आमंत्रण कोड के साथ किसी मौजूदा टीम में शामिल हों।',
   'team.inviteCode': 'इनवाइट कोड',
   'team.joining': 'जॉइन हो रहे हैं...',
   'team.join': 'जॉइन करें',
@@ -5153,6 +5155,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.platforms.teams': 'माइक्रोसॉफ्ट टीमें',
   'skills.meetingBots.platforms.zoom': 'ज़ूम करें',
   'skills.meetingBots.sendTo': 'भेजें',
+  'skills.meetingBots.serverOverloaded':
+    'OpenHuman अभी भारी लोड में है। कृपया कुछ मिनटों में फिर से प्रयास करें।',
   'skills.meetingBots.soonSuffix': 'जल्द ही',
   'skills.meetingBots.starting': 'शुरू हो रहा है…',
   'skills.meetingBots.recentCallsAriaLabel': 'हाल की मीटिंग कॉल',

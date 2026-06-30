@@ -1820,6 +1820,8 @@ const messages: TranslationMap = {
   'team.teamName': 'Название команды',
   'team.creating': 'Создание...',
   'team.joinExistingTeam': 'Вступить в существующую команду',
+  'team.personalAutoCreatedNote':
+    'Ваша личная команда создаётся автоматически. Чтобы работать вместе, присоединитесь к существующей команде по коду приглашения ниже.',
   'team.inviteCode': 'Код приглашения',
   'team.joining': 'Вход...',
   'team.join': 'Вступить',
@@ -5196,6 +5198,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.platforms.teams': 'Microsoft Teams',
   'skills.meetingBots.platforms.zoom': 'Zoom',
   'skills.meetingBots.sendTo': 'Отправить',
+  'skills.meetingBots.serverOverloaded':
+    'OpenHuman сейчас сильно загружен. Пожалуйста, повторите попытку через несколько минут.',
   'skills.meetingBots.soonSuffix': 'скоро',
   'skills.meetingBots.starting': 'Запуск…',
   'skills.meetingBots.recentCallsAriaLabel': 'Недавние звонки на встречах',

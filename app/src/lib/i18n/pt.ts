@@ -1844,6 +1844,8 @@ const messages: TranslationMap = {
   'team.teamName': 'Nome da equipe',
   'team.creating': 'Criando...',
   'team.joinExistingTeam': 'Entrar em Equipe Existente',
+  'team.personalAutoCreatedNote':
+    'Sua equipe pessoal é criada automaticamente. Para colaborar, entre em uma equipe existente com um código de convite abaixo.',
   'team.inviteCode': 'Código de convite',
   'team.joining': 'Entrando...',
   'team.join': 'Entrar',
@@ -5237,6 +5239,8 @@ const messages: TranslationMap = {
   'skills.meetingBots.platforms.teams': 'Microsoft Teams',
   'skills.meetingBots.platforms.zoom': 'Zoom',
   'skills.meetingBots.sendTo': 'Enviar para',
+  'skills.meetingBots.serverOverloaded':
+    'O OpenHuman está sob carga intensa no momento. Tente novamente em alguns minutos.',
   'skills.meetingBots.soonSuffix': 'em breve',
   'skills.meetingBots.starting': 'Iniciando…',
   'skills.meetingBots.recentCallsAriaLabel': 'Chamadas de reunião recentes',

@@ -404,7 +404,7 @@ fn create_chat_provider_uses_role() {
 #[test]
 fn managed_backend_pins_specialised_role_to_tier() {
     use crate::openhuman::config::{
-        MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CODING_V1, MODEL_REASONING_V1, MODEL_VISION_V1,
     };
     // default_model is chat-v1 — the value the buggy path would have leaked.
     let config = Config::default();
@@ -414,6 +414,7 @@ fn managed_backend_pins_specialised_role_to_tier() {
         ("reasoning", MODEL_REASONING_V1),
         ("agentic", MODEL_AGENTIC_V1),
         ("coding", MODEL_CODING_V1),
+        ("burst", MODEL_BURST_V1),
         ("vision", MODEL_VISION_V1),
     ] {
         let (_, model) = create_chat_provider_from_string(role, "openhuman", &config)
@@ -481,12 +482,16 @@ fn managed_backend_summarization_ignores_cloud_llm_model_override() {
 // `code_executor` agent (`hint = "coding"`) makes when it spawns.
 #[test]
 fn subagent_hint_resolves_to_tier_on_managed_backend() {
-    use crate::openhuman::config::{MODEL_AGENTIC_V1, MODEL_CODING_V1, MODEL_REASONING_V1};
+    use crate::openhuman::config::{
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
+    };
     let config = Config::default();
     for (hint, expected_tier) in &[
         ("coding", MODEL_CODING_V1),
         ("agentic", MODEL_AGENTIC_V1),
         ("reasoning", MODEL_REASONING_V1),
+        // The super-context scout (`context_scout`) spawns with `hint = "burst"`.
+        ("burst", MODEL_BURST_V1),
     ] {
         let (_, model) =
             create_chat_provider(hint, &config).expect("create_chat_provider must succeed");
@@ -1010,8 +1015,21 @@ fn known_hints_pass() {
     assert!(is_known_openhuman_tier("hint:chat"));
     assert!(is_known_openhuman_tier("hint:agentic"));
     assert!(is_known_openhuman_tier("hint:coding"));
+    assert!(is_known_openhuman_tier("hint:burst"));
     assert!(is_known_openhuman_tier("hint:summarization"));
     assert!(is_known_openhuman_tier("hint:vision"));
+}
+
+// `hint:burst` is accepted by `is_known_openhuman_tier`, so it must also be
+// translated to `burst-v1` by the managed backend — otherwise a saved
+// `default_model = "hint:burst"` would be forwarded literally and 400.
+#[test]
+fn managed_backend_translates_hint_burst_to_burst_tier() {
+    let mut config = Config::default();
+    config.default_model = Some("hint:burst".to_string());
+    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+        .expect("managed backend must build");
+    assert_eq!(model, crate::openhuman::config::MODEL_BURST_V1);
 }
 
 #[test]

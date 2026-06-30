@@ -30,6 +30,7 @@ use crate::openhuman::context::prompt::{
     render_subagent_system_prompt, PromptContext, PromptTool, SubagentRenderOptions,
 };
 use crate::openhuman::file_state::with_file_state_agent_id;
+use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 
 use super::loop_::run_inner_loop;
@@ -275,6 +276,9 @@ async fn run_typed_mode(
         options.model_override.as_deref(),
     );
     let temperature = definition.temperature;
+    let max_output_tokens = definition
+        .max_turn_output_tokens
+        .unwrap_or(AGENT_TURN_MAX_OUTPUT_TOKENS);
 
     // ── Refresh connected-integrations at spawn time ───────────────────
     //
@@ -795,10 +799,10 @@ async fn run_typed_mode(
         "[subagent_runner] resolved sub-agent model vision capability"
     );
     // Phase B (issue #4249): optionally drive the sub-agent turn through the
-    // `agent_graph` engine. Off by default; the graph path reuses the same
-    // provider + tools but is an explicit subset of the legacy loop today, so
-    // it stays opt-in behind `OPENHUMAN_AGENT_GRAPH_SUBAGENT` until the
-    // remaining seams (summarizer / steering / observer / pause) are migrated.
+    // tinyagents harness. Default ON in production; the graph path reuses the
+    // same provider + tools and now mirrors the legacy seams (child progress,
+    // steering, cap checkpoint, ask_user_clarification pause). Gated by
+    // `OPENHUMAN_AGENT_GRAPH_SUBAGENT` (set `=0` for the legacy `run_inner_loop`).
     let (output, iterations, agg_usage, early_exit_tool) =
         if super::graph_route::subagent_graph_routing_enabled() {
             super::graph_route::run_subagent_via_graph(
@@ -831,6 +835,7 @@ async fn run_typed_mode(
                 model_vision,
                 temperature,
                 definition.effective_max_iterations(),
+                max_output_tokens,
                 task_id,
                 &definition.id,
                 options.worker_thread_id.clone(),

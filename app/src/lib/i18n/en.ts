@@ -2170,6 +2170,8 @@ const en: TranslationMap = {
   'team.teamName': 'Team name',
   'team.creating': 'Creating...',
   'team.joinExistingTeam': 'Join Existing Team',
+  'team.personalAutoCreatedNote':
+    'Your personal team is created automatically. To collaborate, join an existing team with an invite code below.',
   'team.inviteCode': 'Invite code',
   'team.joining': 'Joining...',
   'team.join': 'Join',
@@ -5796,6 +5798,8 @@ const en: TranslationMap = {
   'skills.meetingBots.platforms.teams': 'Microsoft Teams',
   'skills.meetingBots.platforms.zoom': 'Zoom',
   'skills.meetingBots.sendTo': 'Send to {label}',
+  'skills.meetingBots.serverOverloaded':
+    'OpenHuman is under heavy load right now. Please try again in a few minutes.',
   'skills.meetingBots.soonSuffix': 'soon',
   'skills.meetingBots.starting': 'Starting…',
   'skills.meetingBots.recentCallsAriaLabel': 'Recent meeting calls',

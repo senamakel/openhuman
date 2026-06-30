@@ -1083,6 +1083,15 @@ mod tests {
             def.max_iterations, 10,
             "researcher keeps enough turns to recover from bad search results without broadening its tool surface"
         );
+        assert_eq!(
+            def.max_turn_output_tokens,
+            Some(4096),
+            "researcher must cap each model turn so verbose research loops cannot flood context"
+        );
+        assert!(
+            def.extra_tools.is_empty(),
+            "researcher must not widen its tool surface via extra_tools"
+        );
         match &def.tools {
             ToolScope::Named(tools) => {
                 assert_eq!(

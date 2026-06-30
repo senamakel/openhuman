@@ -5,6 +5,7 @@ when_to_use = "Web & docs crawler — reads real documentation, compresses to de
 temperature = 0.4
 max_iterations = 10
 iteration_policy = "extended"
+max_turn_output_tokens = 4096
 max_result_chars = 8000
 sandbox_mode = "none"
 omit_identity = true

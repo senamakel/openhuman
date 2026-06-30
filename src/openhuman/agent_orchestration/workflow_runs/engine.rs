@@ -484,8 +484,11 @@ async fn drive_phases(
             let capacity = budget_left as usize;
             let phase_agents = phase.agent_ids.to_vec();
             let capped = phase_agents.len() > capacity;
-            let to_run: Vec<(usize, String)> =
-                phase_agents.into_iter().take(capacity).enumerate().collect();
+            let to_run: Vec<(usize, String)> = phase_agents
+                .into_iter()
+                .take(capacity)
+                .enumerate()
+                .collect();
 
             // Clones moved into the (`'static`) worker closure.
             let session_for_workers = session.clone();

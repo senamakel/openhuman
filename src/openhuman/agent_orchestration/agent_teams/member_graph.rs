@@ -172,7 +172,11 @@ mod tests {
         let f = failed.clone();
         run_member_execution_graph(
             "test:complete",
-            || async { Ok(MemberOutcome::Completed { output: "ok".into() }) },
+            || async {
+                Ok(MemberOutcome::Completed {
+                    output: "ok".into(),
+                })
+            },
             move |out| {
                 let c = c.clone();
                 async move {
@@ -227,7 +231,10 @@ mod tests {
         .await
         .expect("graph runs");
         assert!(failed.load(Ordering::SeqCst), "fail path ran");
-        assert!(!completed.load(Ordering::SeqCst), "complete path did not run");
+        assert!(
+            !completed.load(Ordering::SeqCst),
+            "complete path did not run"
+        );
     }
 
     #[tokio::test]

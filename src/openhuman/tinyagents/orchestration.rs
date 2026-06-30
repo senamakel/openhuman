@@ -118,31 +118,37 @@ where
         let run_one = run_one.clone();
         let node_id = worker_ids[i].clone();
         let cell = Arc::new(StdMutex::new(Some(item)));
-        builder = builder.add_node(node_id.clone(), move |_s: FanoutState<T>, _c: NodeContext| {
-            let run_one = run_one.clone();
-            let cell = cell.clone();
-            async move {
-                let item = cell
-                    .lock()
-                    .expect("fan-out worker cell poisoned")
-                    .take()
-                    .expect("fan-out worker node ran more than once");
-                let value = run_one(i, item).await;
-                Ok(NodeResult::Update(FanoutUpdate::Slot {
-                    index: i,
-                    value: Box::new(value),
-                }))
-            }
-        });
+        builder = builder.add_node(
+            node_id.clone(),
+            move |_s: FanoutState<T>, _c: NodeContext| {
+                let run_one = run_one.clone();
+                let cell = cell.clone();
+                async move {
+                    let item = cell
+                        .lock()
+                        .expect("fan-out worker cell poisoned")
+                        .take()
+                        .expect("fan-out worker node ran more than once");
+                    let value = run_one(i, item).await;
+                    Ok(NodeResult::Update(FanoutUpdate::Slot {
+                        index: i,
+                        value: Box::new(value),
+                    }))
+                }
+            },
+        );
         builder = builder.add_edge(node_id, "collect");
     }
 
     // `collect`: fan-in barrier the executor schedules only once every worker
     // edge fired. Leaves accumulated state untouched and finishes the graph.
     builder = builder
-        .add_node("collect", |_s: FanoutState<T>, _c: NodeContext| async move {
-            Ok(NodeResult::Update(FanoutUpdate::Noop))
-        })
+        .add_node(
+            "collect",
+            |_s: FanoutState<T>, _c: NodeContext| async move {
+                Ok(NodeResult::Update(FanoutUpdate::Noop))
+            },
+        )
         .set_entry("dispatch")
         .mark_command_routing("dispatch")
         .set_finish("collect");
@@ -219,11 +225,12 @@ mod tests {
 
     #[tokio::test]
     async fn fanout_handles_single_worker() {
-        let results = run_parallel_fanout("solo", vec!["x".to_string()], 1, |_, label| async move {
-            format!("only:{label}")
-        })
-        .await
-        .expect("single-worker fan-out runs");
+        let results =
+            run_parallel_fanout("solo", vec!["x".to_string()], 1, |_, label| async move {
+                format!("only:{label}")
+            })
+            .await
+            .expect("single-worker fan-out runs");
         assert_eq!(results, vec!["only:x"]);
     }
 

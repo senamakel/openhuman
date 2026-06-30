@@ -474,8 +474,15 @@ impl Tool for SpawnParallelAgentsTool {
             move |_i, (definition, prompt, task, task_id, worktree_path)| {
                 let repo_root = action_root_for_workers.clone();
                 async move {
-                    run_one_parallel_task(definition, prompt, task, task_id, worktree_path, repo_root)
-                        .await
+                    run_one_parallel_task(
+                        definition,
+                        prompt,
+                        task,
+                        task_id,
+                        worktree_path,
+                        repo_root,
+                    )
+                    .await
                 }
             },
         )

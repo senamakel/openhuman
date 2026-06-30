@@ -222,6 +222,7 @@ pub async fn run_turn_via_tinyagents_shared(
     run_queue: Option<Arc<RunQueue>>,
     early_exit_tools: &[&str],
     pause_at_cap: bool,
+    max_output_tokens: Option<u32>,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness.with_policy(run_policy_for(max_iterations));
@@ -247,6 +248,13 @@ pub async fn run_turn_via_tinyagents_shared(
     let cursor: IterationCursor = Arc::default();
     let mut provider_model =
         ProviderModel::new(provider, model, temperature).with_valid_tools(valid_tools);
+    // Cap the model's per-call output budget (parity with the legacy engine,
+    // which bounded the main agent at `AGENT_TURN_MAX_OUTPUT_TOKENS` and each
+    // sub-agent at its `max_turn_output_tokens`). Without this the tinyagents
+    // path ran the provider uncapped.
+    if let Some(cap) = max_output_tokens {
+        provider_model = provider_model.with_max_tokens(cap);
+    }
     if let Some(tx) = &on_progress {
         provider_model = provider_model.with_thinking(ThinkingForwarder::new(
             tx.clone(),

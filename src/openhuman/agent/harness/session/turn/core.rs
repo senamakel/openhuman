@@ -941,6 +941,9 @@ impl Agent {
             // checkpoint (below) instead of erroring or returning a dangling tool
             // cycle — bug-report-2026-05-26 A1 parity.
             true,
+            // Bound the main agent's per-call output (legacy parity — the engine
+            // capped every turn at `AGENT_TURN_MAX_OUTPUT_TOKENS`).
+            Some(crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS),
         )
         .await?;
 

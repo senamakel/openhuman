@@ -801,12 +801,13 @@ async fn run_typed_mode(
     // route reuses the same provider + tools and mirrors every legacy seam (child
     // progress, steering, cap checkpoint, ask_user_clarification pause,
     // worker-thread mirror). The legacy `run_inner_loop` has been removed.
-    let _ = (
-        model_vision,
-        max_output_tokens,
-        &lazy_resolver,
-        &handoff_cache,
-    );
+    //
+    // `model_vision` and `max_output_tokens` are now forwarded into the graph
+    // route (image rehydration + per-call output cap). `lazy_resolver` /
+    // `handoff_cache` — the integrations-agent progressive-disclosure seams — are
+    // not yet re-expressed on the tinyagents path; they need a tool-result
+    // interception middleware and are tracked as a follow-up (issue #4249, 1b).
+    let _ = (&lazy_resolver, &handoff_cache);
     let (output, iterations, agg_usage, early_exit_tool) =
         super::graph_route::run_subagent_via_graph(
             subagent_provider.clone(),
@@ -825,6 +826,8 @@ async fn run_typed_mode(
             definition.iteration_policy == IterationPolicy::Extended,
             options.worker_thread_id.clone(),
             parent.workspace_dir.clone(),
+            max_output_tokens,
+            model_vision,
         )
         .await?;
 

@@ -39,18 +39,34 @@ pub(super) async fn run_subagent_via_graph(
     extended_policy: bool,
     worker_thread_id: Option<String>,
     workspace_dir: std::path::PathBuf,
+    max_output_tokens: u32,
+    model_vision: bool,
 ) -> Result<(String, usize, AggregatedUsage, Option<String>), SubagentRunError> {
     tracing::info!(
         model,
         max_iterations,
         agent_id,
         task_id,
+        model_vision,
         observed = on_progress.is_some(),
         "[subagent_runner:graph] routing sub-agent turn through tinyagents harness"
     );
     // `specs` is derived from the registry inside the runner; the tinyagents
     // adapters advertise each tool via its own `spec()`, so it's unused here.
     let _ = &specs;
+
+    // Vision forwarding (parity with the legacy `run_inner_loop`): rehydrate
+    // `[IMAGE:…]` placeholders in the sub-agent's history when either the
+    // provider advertises vision or the sub-agent model is user-flagged as
+    // vision-capable (BYOK/custom). The expanded copy is provider-only — the
+    // persisted `history` written back below keeps the original markers.
+    let dispatch_history = if (provider.supports_vision() || model_vision)
+        && crate::openhuman::agent::multimodal::has_image_placeholders(history)
+    {
+        crate::openhuman::agent::multimodal::rehydrate_image_placeholders(history)
+    } else {
+        history.clone()
+    };
 
     // Child-progress attribution: when the parent carries an `on_progress` sink,
     // mirror this sub-agent's iterations / tool calls / text + thinking deltas as
@@ -71,11 +87,12 @@ pub(super) async fn run_subagent_via_graph(
     // `run_turn_via_tinyagents_shared` future would otherwise sit on the parent's
     // poll stack. Heap-allocate it (as the legacy `run_inner_loop` did) so the
     // parent+child harness drives don't overflow the stack.
+    let prior_len = history.len();
     let mut outcome = Box::pin(run_turn_via_tinyagents_shared(
         provider,
         model,
         temperature,
-        history.clone(),
+        dispatch_history,
         vec![parent_tools, Arc::new(dynamic_tools)],
         allowed_names,
         max_iterations,
@@ -91,12 +108,18 @@ pub(super) async fn run_subagent_via_graph(
         // Pause gracefully at the model-call cap so we can summarize a resumable
         // checkpoint (below) instead of erroring — legacy `on_max_iter` parity.
         true,
+        // Bound the sub-agent's per-call output at its configured budget.
+        Some(max_output_tokens),
     ))
     .await
     .map_err(SubagentRunError::Provider)?;
 
     // Write the final conversation back so the caller can checkpoint / persist.
-    *history = outcome.history.clone();
+    // Keep the original (un-expanded) prior turns and append only the new turns:
+    // `outcome.history` is the dispatched (possibly image-expanded) history
+    // followed by this turn's new messages, so skipping `prior_len` drops the
+    // provider-only expansion and preserves the durable `[IMAGE:…]` markers.
+    history.extend(outcome.history.iter().skip(prior_len).cloned());
 
     let mut usage = AggregatedUsage {
         input_tokens: outcome.input_tokens,

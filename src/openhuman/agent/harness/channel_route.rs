@@ -97,6 +97,9 @@ pub(crate) async fn run_channel_turn_via_graph(
         // Channels surface the cap as an error (legacy `ErrorCheckpoint`), so no
         // graceful cap pause/summary here.
         false,
+        // Bound the model's per-call output (legacy parity — channel turns ran at
+        // the standard per-turn budget).
+        Some(crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS),
     )
     .await?;
     // Persist the original (un-expanded) prior turns plus only the new turns the

@@ -26,21 +26,29 @@ use crate::openhuman::inference::provider::{
 };
 use crate::openhuman::tools::ToolSpec;
 
-/// Out-of-band forwarder for model reasoning / thinking deltas.
+/// Out-of-band forwarder for the streaming progress events that don't round-trip
+/// through tinyagents: model reasoning (thinking) deltas and tool-call **argument**
+/// deltas.
 ///
-/// tinyagents 0.2.0's streaming `MessageDelta` carries only visible text +
-/// tool-call fragments — there is no reasoning channel on the harness stream —
-/// so the [`OpenhumanEventBridge`](super::OpenhumanEventBridge) cannot mirror
-/// thinking output. The model adapter is the only seam that sees the provider's
-/// [`ProviderDelta::ThinkingDelta`], so it forwards reasoning straight onto the
-/// progress sink here, sharing the bridge's [`IterationCursor`] so each delta is
-/// attributed to the model call it belongs to. Parent runs emit
-/// [`AgentProgress::ThinkingDelta`]; child runs emit the `Subagent` counterpart.
+/// tinyagents' streaming `MessageDelta` carries only assembled visible text — no
+/// reasoning channel, and the model adapter assembles tool calls itself rather
+/// than streaming their argument fragments through the harness — so the
+/// [`OpenhumanEventBridge`](super::OpenhumanEventBridge) can't mirror either. The
+/// model adapter is the only seam that sees the provider's
+/// [`ProviderDelta::ThinkingDelta`] / [`ProviderDelta::ToolCallArgsDelta`], so it
+/// forwards them straight onto the progress sink here, sharing the bridge's
+/// [`IterationCursor`] so each delta is attributed to the right model call.
+/// Parent runs emit the top-level variants; child runs emit the `Subagent`
+/// counterpart for thinking (tool-arg deltas have no child variant, so they ride
+/// the top-level event).
 #[derive(Clone)]
 pub struct ThinkingForwarder {
     sink: Sender<AgentProgress>,
     scope: Option<SubagentScope>,
     cursor: IterationCursor,
+    /// call_id → tool_name, learned from `ToolCallStart`, so an args delta can
+    /// carry the tool name the UI labels it with.
+    tool_names: Arc<Mutex<std::collections::HashMap<String, String>>>,
 }
 
 impl ThinkingForwarder {
@@ -53,6 +61,7 @@ impl ThinkingForwarder {
             sink,
             scope,
             cursor,
+            tool_names: Arc::new(Mutex::new(std::collections::HashMap::new())),
         }
     }
 
@@ -73,6 +82,44 @@ impl ThinkingForwarder {
             },
         };
         let _ = self.sink.try_send(progress);
+    }
+
+    /// Record the tool name a streaming tool call starts with, and emit the
+    /// start marker — an empty-delta `ToolCallArgsDelta` — so consumers see the
+    /// call begin before its arguments arrive (matching the legacy
+    /// `ProviderDelta::ToolCallStart` mapping).
+    fn note_tool_call(&self, call_id: String, tool_name: String) {
+        self.tool_names
+            .lock()
+            .unwrap()
+            .insert(call_id.clone(), tool_name.clone());
+        let _ = self.sink.try_send(AgentProgress::ToolCallArgsDelta {
+            call_id,
+            tool_name,
+            delta: String::new(),
+            iteration: self.cursor.load(Ordering::SeqCst),
+        });
+    }
+
+    /// Emit one tool-call argument fragment as `ToolCallArgsDelta` so the UI can
+    /// show the model composing the call before it executes.
+    fn emit_tool_args(&self, call_id: String, delta: String) {
+        if delta.is_empty() {
+            return;
+        }
+        let tool_name = self
+            .tool_names
+            .lock()
+            .unwrap()
+            .get(&call_id)
+            .cloned()
+            .unwrap_or_default();
+        let _ = self.sink.try_send(AgentProgress::ToolCallArgsDelta {
+            call_id,
+            tool_name,
+            delta,
+            iteration: self.cursor.load(Ordering::SeqCst),
+        });
     }
 }
 
@@ -196,10 +243,11 @@ fn response_to_model_response(
 }
 
 /// Forward one openhuman [`ProviderDelta`]. Visible text becomes a harness
-/// [`MessageDelta`] (so the bridge mirrors it as a text delta); reasoning rides
-/// the out-of-band [`ThinkingForwarder`] (the harness stream has no reasoning
-/// channel); tool-call fragments are not streamed (the final `Completed`
-/// response carries the native tool calls verbatim).
+/// [`MessageDelta`] (so the bridge mirrors it as a text delta); reasoning and
+/// tool-call **argument** fragments ride the out-of-band [`ThinkingForwarder`]
+/// (the harness stream carries neither). The model adapter still assembles the
+/// final native tool calls from the `Completed` response — these fragments are
+/// progress-only, so the UI can show the call being composed.
 fn forward_delta(
     tx: &UnboundedSender<ModelStreamItem>,
     thinking: Option<&ThinkingForwarder>,
@@ -219,7 +267,16 @@ fn forward_delta(
                 forwarder.emit(delta);
             }
         }
-        _ => {}
+        ProviderDelta::ToolCallStart { call_id, tool_name } => {
+            if let Some(forwarder) = thinking {
+                forwarder.note_tool_call(call_id, tool_name);
+            }
+        }
+        ProviderDelta::ToolCallArgsDelta { call_id, delta } => {
+            if let Some(forwarder) = thinking {
+                forwarder.emit_tool_args(call_id, delta);
+            }
+        }
     }
 }
 

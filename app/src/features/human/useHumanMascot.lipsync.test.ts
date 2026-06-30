@@ -446,6 +446,44 @@ describe('useHumanMascot — audio-driven lipsync end-to-end', () => {
     });
   });
 
+  it('does not estimate pending metadata duration from collapsed frame ends', async () => {
+    const fake = makePlaybackWithDeferredMetadata(900);
+    (synthesizeSpeech as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      audio_base64: 'AAA=',
+      audio_mime: 'audio/mpeg',
+      // Backend regression shape: starts collapsed at zero, short fixed ends.
+      // Treating the final 80ms end as total duration compresses the whole
+      // utterance before metadata is ready and leaves the mouth at rest.
+      visemes: [
+        { viseme: 'aa', start_ms: 0, end_ms: 80 },
+        { viseme: 'PP', start_ms: 0, end_ms: 80 },
+        { viseme: 'O', start_ms: 0, end_ms: 80 },
+      ],
+    });
+    (playBase64Audio as ReturnType<typeof vi.fn>).mockResolvedValueOnce(fake.handle);
+
+    const { result } = renderHook(() => useHumanMascot({ speakReplies: true }));
+    await act(async () => {
+      capturedListeners?.onDone?.(fakeDone('metadata is still loading'));
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    act(() => {
+      nowMs = 1_300;
+      tickRaf();
+    });
+    expect(result.current.viseme).not.toEqual(VISEMES.REST);
+
+    await act(async () => {
+      fake.resolveMetadata();
+      fake.finish();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  });
+
   it('mouth returns to a non-speaking shape once playback ends', async () => {
     const fake = makePlayback(500);
     (synthesizeSpeech as ReturnType<typeof vi.fn>).mockResolvedValueOnce({

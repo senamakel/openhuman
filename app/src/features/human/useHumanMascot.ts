@@ -39,7 +39,7 @@ const TTS_MIN_ESTIMATED_PLAYBACK_MS = 600;
 
 function estimateTtsPlaybackMs(text: string, frames: VisemeFrame[]): number {
   const frameEnd = frames.at(-1)?.end_ms ?? 0;
-  if (frameEnd > 0) return frameEnd;
+  if (frameEnd > 0 && hasUsableStarts(frames)) return frameEnd;
   return Math.max(TTS_MIN_ESTIMATED_PLAYBACK_MS, text.trim().length * TTS_ESTIMATED_MS_PER_CHAR);
 }
 

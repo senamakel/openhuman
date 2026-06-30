@@ -468,9 +468,7 @@ impl AgentDefinition {
     pub fn effective_max_iterations(&self) -> usize {
         match self.iteration_policy {
             IterationPolicy::Strict => self.max_iterations,
-            IterationPolicy::Extended => self
-                .max_iterations
-                .max(EXTENDED_MAX_TOOL_ITERATIONS),
+            IterationPolicy::Extended => self.max_iterations.max(EXTENDED_MAX_TOOL_ITERATIONS),
         }
     }
 

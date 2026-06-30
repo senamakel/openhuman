@@ -40,7 +40,6 @@ pub mod session;
 pub(crate) mod spawn_depth_context;
 pub mod subagent_runner;
 pub mod task_recency_context;
-pub(crate) mod token_budget;
 pub(crate) mod tool_filter;
 pub(crate) mod tool_result_artifacts;
 pub mod turn_attachments_context;

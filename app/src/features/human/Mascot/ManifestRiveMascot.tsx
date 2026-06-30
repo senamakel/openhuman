@@ -253,21 +253,22 @@ export const ManifestRiveMascot: FC<ManifestRiveMascotProps> = ({
   visemeCode = 'sil',
   idlePoseRotation = false,
 }) => {
-  const [buffer, setBuffer] = useState<ArrayBuffer | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [loadState, setLoadState] = useState<{
+    entryId: string;
+    buffer: ArrayBuffer | null;
+    failed: boolean;
+  }>({ entryId: entry.id, buffer: null, failed: false });
 
   useEffect(() => {
     let cancelled = false;
-    setBuffer(null);
-    setFailed(false);
     (async () => {
       try {
         const buf = await loadManifestRiv(entry);
-        if (!cancelled) setBuffer(buf);
+        if (!cancelled) setLoadState({ entryId: entry.id, buffer: buf, failed: false });
       } catch (err) {
         if (!cancelled) {
           log('failed to load mascot %s: %o', entry.id, err);
-          setFailed(true);
+          setLoadState({ entryId: entry.id, buffer: null, failed: true });
         }
       }
     })();
@@ -277,12 +278,14 @@ export const ManifestRiveMascot: FC<ManifestRiveMascotProps> = ({
   }, [entry]);
 
   const fallbackProps = { face, size, primaryColor, secondaryColor, visemeCode, idlePoseRotation };
-  if (failed || !buffer) return <RiveMascot key="default" {...fallbackProps} />;
+  const currentBuffer = loadState.entryId === entry.id ? loadState.buffer : null;
+  const currentFailed = loadState.entryId === entry.id && loadState.failed;
+  if (currentFailed || !currentBuffer) return <RiveMascot key="default" {...fallbackProps} />;
 
   return (
     <ManifestRiveStage
       key={`buf-${entry.id}`}
-      buffer={buffer}
+      buffer={currentBuffer}
       engine={entry.stateEngine}
       channels={entry.stateEngine.channels ?? []}
       face={face}

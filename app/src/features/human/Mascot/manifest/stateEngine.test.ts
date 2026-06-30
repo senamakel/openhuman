@@ -69,6 +69,13 @@ describe('resolveVisemeCode', () => {
     expect(restVisemeCode(upper)).toBe('SIL');
   });
 
+  it('preserves raw close-vowel aliases when the manifest uses them', () => {
+    const raw: MascotStateEngine = { ...TINY, visemeCodes: ['sil', 'I', 'O', 'U'] };
+    expect(resolveVisemeCode('I', raw)).toBe('I');
+    expect(resolveVisemeCode('O', raw)).toBe('O');
+    expect(resolveVisemeCode('U', raw)).toBe('U');
+  });
+
   it('falls back to rest for codes the mascot lacks', () => {
     // Toshi has no 'oh'; an O viseme rests the mouth instead of no-op.
     expect(resolveVisemeCode('O', TOSHI)).toBe('sil');

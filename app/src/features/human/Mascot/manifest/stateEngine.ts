@@ -40,9 +40,11 @@ export function restVisemeCode(engine: MascotStateEngine): string {
  */
 export function resolveVisemeCode(code: string, engine: MascotStateEngine): string {
   const normalised = toRiveVisemeCode(code);
+  const candidates = [code, normalised];
   return (
-    engine.visemeCodes.find(candidate => candidate.toLowerCase() === normalised.toLowerCase()) ??
-    restVisemeCode(engine)
+    engine.visemeCodes.find(candidate =>
+      candidates.some(alias => candidate.toLowerCase() === alias.toLowerCase())
+    ) ?? restVisemeCode(engine)
   );
 }
 

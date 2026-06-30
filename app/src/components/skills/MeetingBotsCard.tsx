@@ -2,6 +2,7 @@ import debug from 'debug';
 import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { type MascotFace, RiveMascot } from '../../features/human/Mascot';
+import type { MascotColor } from '../../features/human/Mascot/mascotPalette';
 import { useComposioIntegrations } from '../../lib/composio/hooks';
 import type { ComposioConnection } from '../../lib/composio/types';
 import { useT } from '../../lib/i18n/I18nContext';
@@ -40,6 +41,16 @@ import { RecentCallsSection } from './RecentCallsSection';
 type Toast = { type: 'success' | 'error' | 'info'; title: string; message?: string };
 
 const log = debug('meeting-bots');
+const MEETING_BOT_MASCOT_IDS = new Set(['yellow', 'blue', 'burgundy', 'black', 'navy']);
+
+function resolveMeetingBotMascotId(
+  selectedMascotId: string | null,
+  mascotColor: MascotColor
+): string | undefined {
+  if (selectedMascotId && MEETING_BOT_MASCOT_IDS.has(selectedMascotId)) return selectedMascotId;
+  if (mascotColor !== 'custom') return mascotColor;
+  return undefined;
+}
 
 // Composio only hands back a connected account's email — there is no separate
 // display-name field on `ComposioConnection`. A meeting display name is almost
@@ -309,7 +320,7 @@ function MeetingBotsInline({ onToast, hasSubmittedRef }: MeetingBotsInlineProps)
   const selectedLabel = t('skills.meetingBots.platforms.gmeet');
   const agentName = personaDisplayName.trim() || 'Tiny';
   const systemPrompt = personaDescription.trim() || undefined;
-  const mascotId = selectedMascotId ?? (mascotColor === 'custom' ? undefined : mascotColor);
+  const mascotId = resolveMeetingBotMascotId(selectedMascotId, mascotColor);
   const riveColors =
     mascotColor === 'custom'
       ? { primaryColor: customPrimaryColor, secondaryColor: customSecondaryColor }

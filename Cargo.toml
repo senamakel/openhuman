@@ -45,7 +45,7 @@ tinyplace = "1.0.1"
 # `.rag` workflow language. The `agent_graph` domain is migrating onto this
 # crate's primitives via adapters (issue #4249). Default (offline) features
 # only — we wire openhuman's own Provider/Tool, not the bundled openai client.
-tinyagents = "0.2"
+tinyagents = "1.0"
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.

@@ -186,11 +186,13 @@ pub(super) fn messages_to_text_mode_chat(messages: &[Message]) -> Vec<ChatMessag
 
 /// Convert an openhuman [`ToolSpec`] into a harness [`ToolSchema`].
 pub(super) fn spec_to_schema(spec: &ToolSpec) -> ToolSchema {
-    ToolSchema {
-        name: spec.name.clone(),
-        description: spec.description.clone(),
-        parameters: spec.parameters.clone(),
-    }
+    // `ToolSchema::new` sets the model-visible tool-call format to the JSON
+    // default (tinyagents 1.0), which is what openhuman advertises.
+    ToolSchema::new(
+        spec.name.clone(),
+        spec.description.clone(),
+        spec.parameters.clone(),
+    )
 }
 
 /// Convert a harness [`TaToolCall`] into an openhuman [`ToolCall`].

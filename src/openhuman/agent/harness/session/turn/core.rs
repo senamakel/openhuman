@@ -749,14 +749,17 @@ impl Agent {
             // subset — no token-streaming progress deltas, per-call cost
             // accounting, multimodal prep, or autocompaction yet.
             if crate::openhuman::tinyagents::tinyagents_routing_enabled() {
-                return self
-                    .run_turn_via_tinyagents_session(
-                        user_message,
-                        &effective_model,
-                        temperature,
-                        max_iterations,
-                    )
-                    .await;
+                // Heap-allocate the (large) session-turn future so it isn't held
+                // inline on `turn()`'s already-large frame — `run_single` and the
+                // cron wrappers nest more layers on top, which otherwise overflows
+                // the stack.
+                return Box::pin(self.run_turn_via_tinyagents_session(
+                    user_message,
+                    &effective_model,
+                    temperature,
+                    max_iterations,
+                ))
+                .await;
             }
 
             let mut tool_source = AgentToolSource {

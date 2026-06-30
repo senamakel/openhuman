@@ -29,7 +29,6 @@ pub(crate) mod definition_loader;
 pub(crate) mod engine;
 pub mod fork_context;
 mod instructions;
-pub mod interrupt;
 pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
 pub(crate) mod parse;
@@ -54,7 +53,6 @@ pub use fork_context::{
     current_agent_context_prepared_sources, current_parent, with_agent_context_prepared_sources,
     with_parent_context, AgentContextPreparedSource, ParentExecutionContext,
 };
-pub use interrupt::{check_interrupt, InterruptFence, InterruptedError};
 pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
 pub(crate) use spawn_depth_context::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};
 pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};

@@ -22,6 +22,7 @@ mod convert;
 pub mod delegation;
 mod model;
 pub mod observability;
+pub mod stop_hooks;
 mod tools;
 
 use std::sync::Arc;
@@ -272,11 +273,34 @@ pub async fn run_turn_via_tinyagents_shared(
         )));
     }
 
+    // Snapshot the installed stop hooks while the `CURRENT_STOP_HOOKS`
+    // task-local is in scope (the harness drive future runs inline on this
+    // task, but capturing here keeps the wiring robust). When present they fire
+    // via `StopHookMiddleware` and pause through the shared steering handle.
+    let stop_hooks = crate::openhuman::agent::stop_hooks::current_stop_hooks();
+
     // A single steering handle drives mid-flight steering (run queue), the
-    // early-exit pause, and the model-call-cap pause, so all three reach the same
-    // loop. Created when any of them is active.
-    let needs_steering = run_queue.is_some() || !early_exit_tools.is_empty() || pause_at_cap;
+    // early-exit pause, the model-call-cap pause, and stop-hook pauses, so they
+    // all reach the same loop. Created when any of them is active.
+    let needs_steering = run_queue.is_some()
+        || !early_exit_tools.is_empty()
+        || pause_at_cap
+        || !stop_hooks.is_empty();
     let handle = needs_steering.then(SteeringHandle::allow_all);
+
+    // Policy-driven stop hooks (budget cap, thread-goal budget, ad-hoc iteration
+    // ceiling): fire after each model call and pause the run on the first stop
+    // vote. Replaces the legacy tool-call-loop firing point.
+    if let Some(handle) = &handle {
+        if !stop_hooks.is_empty() {
+            harness.push_middleware(Arc::new(stop_hooks::StopHookMiddleware::new(
+                handle.clone(),
+                model,
+                max_iterations,
+                stop_hooks,
+            )));
+        }
+    }
     let early_exit_set: HashSet<&str> = early_exit_tools.iter().copied().collect();
     // One hook per run, shared by every early-exit adapter (records the first
     // early-exit and pauses). Requires the steering handle.

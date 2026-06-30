@@ -34,8 +34,8 @@ User: "remind me at 11 PM tonight".
 2. Resolve the concrete local civil time with `resolve_time`, using a parseable expression:
    ```json
    {
-     "expr": "2026-06-30 23:00",
-     "timezone": "America/Los_Angeles",
+     "expr": "<today YYYY-MM-DD> 23:00",
+     "timezone": "<user IANA timezone from current_time>",
      "format": "rfc3339"
    }
    ```
@@ -44,7 +44,7 @@ User: "remind me at 11 PM tonight".
    ```json
    {
      "name": "tonight_11pm_reminder",
-     "schedule": {"kind": "at", "at": "2026-07-01T06:00:00Z"},
+     "schedule": {"kind": "at", "at": "<resolve_time.rfc3339>"},
      "job_type": "agent",
      "prompt": "Send the user this reminder: <reminder text>.",
      "delivery": {"mode": "proactive", "best_effort": true},

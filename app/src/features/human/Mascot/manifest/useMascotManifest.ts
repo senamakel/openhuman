@@ -7,7 +7,11 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { selectSelectedMascotId, setSelectedMascotId } from '../../../../store/mascotSlice';
+import {
+  selectCustomMascotGifUrl,
+  selectSelectedMascotId,
+  setSelectedMascotId,
+} from '../../../../store/mascotSlice';
 import { defaultMascot, fetchMascotManifest, findMascot } from './manifestService';
 import type { MascotManifest, MascotManifestEntry } from './types';
 
@@ -22,6 +26,7 @@ export interface UseMascotManifestResult {
 export function useMascotManifest(): UseMascotManifestResult {
   const dispatch = useDispatch();
   const selectedMascotId = useSelector(selectSelectedMascotId);
+  const customMascotGifUrl = useSelector(selectCustomMascotGifUrl);
   const [manifest, setManifest] = useState<MascotManifest | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -51,9 +56,9 @@ export function useMascotManifest(): UseMascotManifestResult {
   const entry = selectedEntry ?? fallbackEntry;
 
   useEffect(() => {
-    if (!manifest || selectedEntry) return;
+    if (!manifest || customMascotGifUrl || selectedEntry) return;
     dispatch(setSelectedMascotId(fallbackEntry?.id ?? null));
-  }, [dispatch, fallbackEntry?.id, manifest, selectedEntry]);
+  }, [customMascotGifUrl, dispatch, fallbackEntry?.id, manifest, selectedEntry]);
 
   return { manifest, entry, loading, error };
 }

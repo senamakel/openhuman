@@ -3,7 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import mascotReducer, { setSelectedMascotId } from '../../../../store/mascotSlice';
+import mascotReducer, {
+  setCustomMascotGifUrl,
+  setSelectedMascotId,
+} from '../../../../store/mascotSlice';
 import type { MascotManifest, MascotManifestEntry } from './types';
 import { useMascotManifest } from './useMascotManifest';
 
@@ -56,9 +59,10 @@ function Probe() {
   );
 }
 
-function renderProbe(selectedId: string | null) {
+function renderProbe(selectedId: string | null, customGifUrl: string | null = null) {
   const store = configureStore({ reducer: { mascot: mascotReducer } });
   if (selectedId) store.dispatch(setSelectedMascotId(selectedId));
+  if (customGifUrl) store.dispatch(setCustomMascotGifUrl(customGifUrl));
   const view = render(
     <Provider store={store}>
       <Probe />
@@ -89,6 +93,16 @@ describe('useMascotManifest', () => {
     const { store } = renderProbe('removed-mascot');
     await waitFor(() => expect(screen.getByTestId('entry')).toHaveTextContent('tiny-mascot'));
     await waitFor(() => expect(store.getState().mascot.selectedMascotId).toBe('tiny-mascot'));
+  });
+
+  it('does not overwrite a custom GIF selection with the manifest fallback', async () => {
+    fetchMascotManifest.mockResolvedValue(MANIFEST);
+    const { store } = renderProbe(null, 'https://example.com/custom.gif');
+
+    await waitFor(() => expect(screen.getByTestId('entry')).toHaveTextContent('tiny-mascot'));
+
+    expect(store.getState().mascot.customMascotGifUrl).toBe('https://example.com/custom.gif');
+    expect(store.getState().mascot.selectedMascotId).toBeNull();
   });
 
   // The fetch-failure path is covered end-to-end in manifestService.test.ts

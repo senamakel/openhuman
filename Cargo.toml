@@ -45,6 +45,11 @@ tinyplace = "1.0.1"
 # `.rag` workflow language. The `agent_graph` domain is migrating onto this
 # crate's primitives via adapters (issue #4249). Default (offline) features
 # only — we wire openhuman's own Provider/Tool, not the bundled openai client.
+# Default (offline) features only. We deliberately do NOT enable the `sqlite`
+# feature: its `rusqlite 0.40` (libsqlite3-sys 0.38) conflicts with openhuman's
+# own `rusqlite 0.37` over the `links = "sqlite3"` native lib. Durable graph
+# checkpoints are instead provided by a custom `Checkpointer` over openhuman's
+# SQLite (see `tinyagents::graph`).
 tinyagents = "1.0"
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to

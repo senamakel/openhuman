@@ -6,6 +6,7 @@
 //! controller surface (`openhuman.model_council_run`).
 
 pub mod council;
+mod council_graph;
 mod schemas;
 
 pub use schemas::{

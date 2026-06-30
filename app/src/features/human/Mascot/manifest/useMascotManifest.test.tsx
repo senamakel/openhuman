@@ -84,8 +84,9 @@ describe('useMascotManifest', () => {
 
   it('falls back to the default (first ready) mascot when none selected', async () => {
     fetchMascotManifest.mockResolvedValue(MANIFEST);
-    renderProbe(null);
+    const { store } = renderProbe(null);
     await waitFor(() => expect(screen.getByTestId('entry')).toHaveTextContent('tiny-mascot'));
+    expect(store.getState().mascot.selectedMascotId).toBeNull();
   });
 
   it('reconciles a stale selected mascot id after the manifest loads', async () => {

@@ -1,8 +1,8 @@
 /**
  * Load the published mascot manifest and resolve the active mascot entry from
- * the user's `selectedMascotId` Redux preference, falling back to the default
- * (`ready`) mascot. Shared by the Human stage and the settings picker so both
- * agree on which mascot is current.
+ * the user's `selectedMascotId` Redux preference, with a render-only fallback
+ * to the default (`ready`) mascot while none is selected. Shared by the Human
+ * stage and the settings picker so both agree on which mascot is current.
  */
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -56,9 +56,9 @@ export function useMascotManifest(): UseMascotManifestResult {
   const entry = selectedEntry ?? fallbackEntry;
 
   useEffect(() => {
-    if (!manifest || customMascotGifUrl || selectedEntry) return;
+    if (!manifest || !selectedMascotId || customMascotGifUrl || selectedEntry) return;
     dispatch(setSelectedMascotId(fallbackEntry?.id ?? null));
-  }, [customMascotGifUrl, dispatch, fallbackEntry?.id, manifest, selectedEntry]);
+  }, [customMascotGifUrl, dispatch, fallbackEntry?.id, manifest, selectedEntry, selectedMascotId]);
 
   return { manifest, entry, loading, error };
 }

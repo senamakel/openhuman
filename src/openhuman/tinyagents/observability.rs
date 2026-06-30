@@ -8,6 +8,7 @@
 //! live tool timeline, streaming text, and the cost/token footer on the
 //! tinyagents path — and feeds per-call usage into the global cost tracker.
 
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc::Sender;
@@ -19,10 +20,25 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::UsageInfo;
 use crate::openhuman::tools::traits::humanize_tool_name;
 
+/// Attribution for child (sub-agent) progress. When present, the bridge routes
+/// events to the `Subagent*` [`AgentProgress`] variants (so the parent thread
+/// can nest child activity under a live subagent row) instead of the top-level
+/// ones. Absent = a parent/top-level turn.
+#[derive(Clone)]
+pub struct SubagentScope {
+    pub agent_id: String,
+    pub task_id: String,
+    pub extended_policy: bool,
+}
+
+/// A shared 1-based model-call (iteration) cursor. The bridge advances it on
+/// each `ModelStarted` event; the model adapter reads it to attribute the
+/// thinking deltas it forwards out-of-band (tinyagents 0.2.0's `MessageDelta`
+/// carries no reasoning channel, so reasoning can't ride the harness stream).
+pub type IterationCursor = Arc<AtomicU32>;
+
 #[derive(Default)]
 struct BridgeState {
-    /// 1-based model-call (iteration) counter.
-    iteration: u32,
     input_tokens: u64,
     output_tokens: u64,
     cached_input_tokens: u64,
@@ -35,21 +51,39 @@ pub struct OpenhumanEventBridge {
     on_progress: Option<Sender<AgentProgress>>,
     model: String,
     max_iterations: u32,
+    /// `None` for a parent turn; `Some` to emit child-scoped `Subagent*` events.
+    scope: Option<SubagentScope>,
+    /// Shared with the model adapter so thinking deltas line up with the
+    /// model call (iteration) they belong to.
+    cursor: IterationCursor,
     state: Mutex<BridgeState>,
 }
 
 impl OpenhumanEventBridge {
-    /// Build a bridge for `model`, forwarding progress to `on_progress` (when
-    /// present) and accumulating usage for the cost footer.
+    /// Build a parent-scoped bridge for `model`.
     pub fn new(
         on_progress: Option<Sender<AgentProgress>>,
         model: impl Into<String>,
         max_iterations: usize,
     ) -> Arc<Self> {
+        Self::with_scope(on_progress, model, max_iterations, None, Arc::default())
+    }
+
+    /// Build a bridge, optionally child-scoped, sharing `cursor` with the model
+    /// adapter so out-of-band thinking deltas carry the same iteration index.
+    pub fn with_scope(
+        on_progress: Option<Sender<AgentProgress>>,
+        model: impl Into<String>,
+        max_iterations: usize,
+        scope: Option<SubagentScope>,
+        cursor: IterationCursor,
+    ) -> Arc<Self> {
         Arc::new(Self {
             on_progress,
             model: model.into(),
             max_iterations: max_iterations as u32,
+            scope,
+            cursor,
             state: Mutex::new(BridgeState::default()),
         })
     }
@@ -69,19 +103,19 @@ impl OpenhumanEventBridge {
     }
 
     fn iteration(&self) -> u32 {
-        self.state.lock().unwrap().iteration
+        self.cursor.load(Ordering::SeqCst)
     }
 
     /// Accumulate a usage block, feed the global cost tracker, and emit a
     /// `TurnCostUpdated` so the UI footer stays live.
     fn record_usage(&self, usage: &Usage) {
-        let (iteration, input, output, cached, charged) = {
+        let iteration = self.iteration();
+        let (input, output, cached, charged) = {
             let mut s = self.state.lock().unwrap();
             s.input_tokens += usage.input_tokens;
             s.output_tokens += usage.output_tokens;
             s.cached_input_tokens += usage.cache_read_tokens;
             (
-                s.iteration,
                 s.input_tokens,
                 s.output_tokens,
                 s.cached_input_tokens,
@@ -100,14 +134,19 @@ impl OpenhumanEventBridge {
         };
         crate::openhuman::cost::record_provider_usage(&self.model, &usage_info);
 
-        self.send(AgentProgress::TurnCostUpdated {
-            model: self.model.clone(),
-            iteration,
-            input_tokens: input,
-            output_tokens: output,
-            cached_input_tokens: cached,
-            total_usd: charged,
-        });
+        // The cost footer is a top-level surface; for a child run the global
+        // cost tracker feed above is the authoritative accounting and the parent
+        // emits its own footer, so suppress the per-child `TurnCostUpdated`.
+        if self.scope.is_none() {
+            self.send(AgentProgress::TurnCostUpdated {
+                model: self.model.clone(),
+                iteration,
+                input_tokens: input,
+                output_tokens: output,
+                cached_input_tokens: cached,
+                total_usd: charged,
+            });
+        }
     }
 }
 
@@ -115,22 +154,36 @@ impl EventListener for OpenhumanEventBridge {
     fn on_event(&self, record: &EventRecord) {
         match &record.event {
             AgentEvent::ModelStarted { .. } => {
-                let iteration = {
-                    let mut s = self.state.lock().unwrap();
-                    s.iteration += 1;
-                    s.iteration
-                };
-                self.send(AgentProgress::IterationStarted {
-                    iteration,
-                    max_iterations: self.max_iterations,
-                });
+                let iteration = self.cursor.fetch_add(1, Ordering::SeqCst) + 1;
+                match &self.scope {
+                    None => self.send(AgentProgress::IterationStarted {
+                        iteration,
+                        max_iterations: self.max_iterations,
+                    }),
+                    Some(s) => self.send(AgentProgress::SubagentIterationStarted {
+                        agent_id: s.agent_id.clone(),
+                        task_id: s.task_id.clone(),
+                        iteration,
+                        max_iterations: self.max_iterations,
+                        extended_policy: s.extended_policy,
+                    }),
+                }
             }
             AgentEvent::ModelDelta { delta, .. } => {
                 if !delta.text.is_empty() {
-                    self.send(AgentProgress::TextDelta {
-                        delta: delta.text.clone(),
-                        iteration: self.iteration(),
-                    });
+                    let iteration = self.iteration();
+                    match &self.scope {
+                        None => self.send(AgentProgress::TextDelta {
+                            delta: delta.text.clone(),
+                            iteration,
+                        }),
+                        Some(s) => self.send(AgentProgress::SubagentTextDelta {
+                            agent_id: s.agent_id.clone(),
+                            task_id: s.task_id.clone(),
+                            delta: delta.text.clone(),
+                            iteration,
+                        }),
+                    }
                 }
             }
             // `UsageRecorded` carries the authoritative per-call usage and fires
@@ -138,24 +191,51 @@ impl EventListener for OpenhumanEventBridge {
             // optional usage to avoid double counting.
             AgentEvent::UsageRecorded { usage } => self.record_usage(usage),
             AgentEvent::ToolStarted { call_id, tool_name } => {
-                self.send(AgentProgress::ToolCallStarted {
-                    call_id: call_id.as_str().to_string(),
-                    tool_name: tool_name.clone(),
-                    arguments: serde_json::Value::Null,
-                    iteration: self.iteration(),
-                    display_label: Some(humanize_tool_name(tool_name)),
-                    display_detail: None,
-                });
+                let iteration = self.iteration();
+                match &self.scope {
+                    None => self.send(AgentProgress::ToolCallStarted {
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        arguments: serde_json::Value::Null,
+                        iteration,
+                        display_label: Some(humanize_tool_name(tool_name)),
+                        display_detail: None,
+                    }),
+                    Some(s) => self.send(AgentProgress::SubagentToolCallStarted {
+                        agent_id: s.agent_id.clone(),
+                        task_id: s.task_id.clone(),
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        arguments: serde_json::Value::Null,
+                        iteration,
+                        display_label: Some(humanize_tool_name(tool_name)),
+                        display_detail: None,
+                    }),
+                }
             }
             AgentEvent::ToolCompleted { call_id, tool_name } => {
-                self.send(AgentProgress::ToolCallCompleted {
-                    call_id: call_id.as_str().to_string(),
-                    tool_name: tool_name.clone(),
-                    success: true,
-                    output_chars: 0,
-                    elapsed_ms: 0,
-                    iteration: self.iteration(),
-                });
+                let iteration = self.iteration();
+                match &self.scope {
+                    None => self.send(AgentProgress::ToolCallCompleted {
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        success: true,
+                        output_chars: 0,
+                        elapsed_ms: 0,
+                        iteration,
+                    }),
+                    Some(s) => self.send(AgentProgress::SubagentToolCallCompleted {
+                        agent_id: s.agent_id.clone(),
+                        task_id: s.task_id.clone(),
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        success: true,
+                        output_chars: 0,
+                        output: String::new(),
+                        elapsed_ms: 0,
+                        iteration,
+                    }),
+                }
             }
             _ => {}
         }

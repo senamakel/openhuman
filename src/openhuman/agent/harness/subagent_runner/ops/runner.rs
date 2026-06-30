@@ -812,6 +812,10 @@ async fn run_typed_mode(
                 allowed_names,
                 definition.effective_max_iterations(),
                 options.run_queue.clone(),
+                parent.on_progress.clone(),
+                &definition.id,
+                task_id,
+                definition.iteration_policy == IterationPolicy::Extended,
             )
             .await?
         } else {

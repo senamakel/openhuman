@@ -1138,6 +1138,8 @@ impl Agent {
             // Mirror the harness event stream onto this session's progress sink
             // (live tool timeline, text deltas, cost footer) via the bridge.
             self.on_progress.clone(),
+            // Top-level chat turn — no child-progress attribution.
+            None,
             context_window,
             // Mid-flight steering from the session's run queue.
             self.run_queue.clone(),

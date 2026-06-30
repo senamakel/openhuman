@@ -7,6 +7,7 @@
 //! translate the [`ChatResponse`] back into a harness [`ModelResponse`] —
 //! carrying through text, native tool calls, and token usage.
 
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -16,12 +17,64 @@ use tinyagents::harness::model::{
 };
 use tinyagents::harness::tool::ToolCall as TaToolCall;
 use tinyagents::harness::usage::Usage;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{Sender, UnboundedSender};
 
+use super::observability::{IterationCursor, SubagentScope};
+use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ChatResponse, Provider, ProviderDelta,
 };
 use crate::openhuman::tools::ToolSpec;
+
+/// Out-of-band forwarder for model reasoning / thinking deltas.
+///
+/// tinyagents 0.2.0's streaming `MessageDelta` carries only visible text +
+/// tool-call fragments — there is no reasoning channel on the harness stream —
+/// so the [`OpenhumanEventBridge`](super::OpenhumanEventBridge) cannot mirror
+/// thinking output. The model adapter is the only seam that sees the provider's
+/// [`ProviderDelta::ThinkingDelta`], so it forwards reasoning straight onto the
+/// progress sink here, sharing the bridge's [`IterationCursor`] so each delta is
+/// attributed to the model call it belongs to. Parent runs emit
+/// [`AgentProgress::ThinkingDelta`]; child runs emit the `Subagent` counterpart.
+#[derive(Clone)]
+pub struct ThinkingForwarder {
+    sink: Sender<AgentProgress>,
+    scope: Option<SubagentScope>,
+    cursor: IterationCursor,
+}
+
+impl ThinkingForwarder {
+    pub fn new(
+        sink: Sender<AgentProgress>,
+        scope: Option<SubagentScope>,
+        cursor: IterationCursor,
+    ) -> Self {
+        Self {
+            sink,
+            scope,
+            cursor,
+        }
+    }
+
+    /// Best-effort, non-blocking emit of one reasoning chunk (drops on a full
+    /// channel, matching the streaming text path).
+    fn emit(&self, delta: String) {
+        if delta.is_empty() {
+            return;
+        }
+        let iteration = self.cursor.load(Ordering::SeqCst);
+        let progress = match &self.scope {
+            None => AgentProgress::ThinkingDelta { delta, iteration },
+            Some(s) => AgentProgress::SubagentThinkingDelta {
+                agent_id: s.agent_id.clone(),
+                task_id: s.task_id.clone(),
+                delta,
+                iteration,
+            },
+        };
+        let _ = self.sink.try_send(progress);
+    }
+}
 
 /// Translate a harness [`ModelRequest`] into openhuman's message list + tool
 /// specs (shared by the buffered and streaming paths).
@@ -82,17 +135,31 @@ fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
     }
 }
 
-/// Forward one openhuman [`ProviderDelta`] to the harness stream. Visible text
-/// becomes a [`MessageDelta`]; tool-call/thinking fragments are not streamed
-/// (the final `Completed` response carries the native tool calls verbatim).
-fn forward_delta(tx: &UnboundedSender<ModelStreamItem>, delta: ProviderDelta) {
-    if let ProviderDelta::TextDelta { delta } = delta {
-        if !delta.is_empty() {
-            let _ = tx.send(ModelStreamItem::MessageDelta(MessageDelta {
-                text: delta,
-                tool_call: None,
-            }));
+/// Forward one openhuman [`ProviderDelta`]. Visible text becomes a harness
+/// [`MessageDelta`] (so the bridge mirrors it as a text delta); reasoning rides
+/// the out-of-band [`ThinkingForwarder`] (the harness stream has no reasoning
+/// channel); tool-call fragments are not streamed (the final `Completed`
+/// response carries the native tool calls verbatim).
+fn forward_delta(
+    tx: &UnboundedSender<ModelStreamItem>,
+    thinking: Option<&ThinkingForwarder>,
+    delta: ProviderDelta,
+) {
+    match delta {
+        ProviderDelta::TextDelta { delta } => {
+            if !delta.is_empty() {
+                let _ = tx.send(ModelStreamItem::MessageDelta(MessageDelta {
+                    text: delta,
+                    tool_call: None,
+                }));
+            }
         }
+        ProviderDelta::ThinkingDelta { delta } => {
+            if let Some(forwarder) = thinking {
+                forwarder.emit(delta);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -106,6 +173,9 @@ pub struct ProviderModel {
     model: String,
     temperature: f64,
     max_tokens: Option<u32>,
+    /// When set, the adapter forwards provider reasoning deltas onto the
+    /// progress sink (the harness stream has no reasoning channel).
+    thinking: Option<ThinkingForwarder>,
 }
 
 impl ProviderModel {
@@ -116,12 +186,20 @@ impl ProviderModel {
             model: model.into(),
             temperature,
             max_tokens: None,
+            thinking: None,
         }
     }
 
     /// Cap the output tokens requested from the provider for every call.
     pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
+        self
+    }
+
+    /// Forward provider reasoning / thinking deltas onto a progress sink via
+    /// `forwarder` (parent or sub-agent scoped). See [`ThinkingForwarder`].
+    pub fn with_thinking(mut self, forwarder: ThinkingForwarder) -> Self {
+        self.thinking = Some(forwarder);
         self
     }
 }
@@ -155,6 +233,17 @@ impl ChatModel<()> for ProviderModel {
             .map_err(|e| {
                 tinyagents::TinyAgentsError::Model(format!("openhuman provider chat failed: {e}"))
             })?;
+        // Non-streaming path: surface any reasoning the provider returned as a
+        // single post-hoc thinking delta (it had no per-token channel to ride).
+        if let Some(forwarder) = &self.thinking {
+            if let Some(reasoning) = response
+                .reasoning_content
+                .as_ref()
+                .filter(|r| !r.is_empty())
+            {
+                forwarder.emit(reasoning.clone());
+            }
+        }
         Ok(response_to_model_response(&response))
     }
 
@@ -173,6 +262,7 @@ impl ChatModel<()> for ProviderModel {
         let model = self.model.clone();
         let temperature = self.temperature;
         let max_tokens = self.max_tokens;
+        let thinking = self.thinking.clone();
 
         let (item_tx, item_rx) = tokio::sync::mpsc::unbounded_channel::<ModelStreamItem>();
 
@@ -193,11 +283,13 @@ impl ChatModel<()> for ProviderModel {
             };
             tokio::pin!(chat_fut);
 
+            let mut streamed_thinking = false;
             let response = loop {
                 tokio::select! {
                     maybe = delta_rx.recv() => {
                         if let Some(delta) = maybe {
-                            forward_delta(&item_tx, delta);
+                            streamed_thinking |= matches!(delta, ProviderDelta::ThinkingDelta { .. });
+                            forward_delta(&item_tx, thinking.as_ref(), delta);
                         }
                     }
                     res = &mut chat_fut => break res,
@@ -205,11 +297,26 @@ impl ChatModel<()> for ProviderModel {
             };
             // Drain any deltas that landed before the call returned.
             while let Ok(delta) = delta_rx.try_recv() {
-                forward_delta(&item_tx, delta);
+                streamed_thinking |= matches!(delta, ProviderDelta::ThinkingDelta { .. });
+                forward_delta(&item_tx, thinking.as_ref(), delta);
             }
 
             let terminal = match response {
-                Ok(resp) => ModelStreamItem::Completed(response_to_model_response(&resp)),
+                Ok(resp) => {
+                    // Fallback for providers that return reasoning only on the
+                    // aggregated response (no incremental thinking deltas): emit
+                    // it once so child/parent thinking output isn't lost.
+                    if !streamed_thinking {
+                        if let Some(forwarder) = &thinking {
+                            if let Some(reasoning) =
+                                resp.reasoning_content.as_ref().filter(|r| !r.is_empty())
+                            {
+                                forwarder.emit(reasoning.clone());
+                            }
+                        }
+                    }
+                    ModelStreamItem::Completed(response_to_model_response(&resp))
+                }
                 Err(e) => ModelStreamItem::Failed(format!("openhuman provider chat failed: {e}")),
             };
             let _ = item_tx.send(terminal);

@@ -14,8 +14,9 @@ use std::sync::Arc;
 
 use super::loop_::AggregatedUsage;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
+use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
-use crate::openhuman::tinyagents::run_turn_via_tinyagents_shared;
+use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::openhuman::tools::{Tool, ToolSpec};
 
 /// Whether sub-agent turns should be routed through the tinyagents harness.
@@ -41,15 +42,32 @@ pub(super) async fn run_subagent_via_graph(
     allowed_names: HashSet<String>,
     max_iterations: usize,
     run_queue: Option<Arc<crate::openhuman::agent::harness::run_queue::RunQueue>>,
+    on_progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
+    agent_id: &str,
+    task_id: &str,
+    extended_policy: bool,
 ) -> Result<(String, usize, AggregatedUsage, Option<String>), SubagentRunError> {
     tracing::info!(
         model,
         max_iterations,
+        agent_id,
+        task_id,
+        observed = on_progress.is_some(),
         "[subagent_runner:graph] routing sub-agent turn through tinyagents harness"
     );
     // `specs` is derived from the registry inside the runner; the
     // `ask_user_clarification` early-exit pause is a follow-up.
     let _ = &specs;
+
+    // Child-progress attribution: when the parent carries an `on_progress` sink,
+    // mirror this sub-agent's iterations / tool calls / text + thinking deltas as
+    // `Subagent*` events scoped to (`agent_id`, `task_id`) so the parent thread
+    // can nest them under the live subagent row.
+    let subagent_scope = on_progress.as_ref().map(|_| SubagentScope {
+        agent_id: agent_id.to_string(),
+        task_id: task_id.to_string(),
+        extended_policy,
+    });
 
     let outcome = run_turn_via_tinyagents_shared(
         provider,
@@ -59,9 +77,9 @@ pub(super) async fn run_subagent_via_graph(
         vec![parent_tools, Arc::new(dynamic_tools)],
         allowed_names,
         max_iterations,
-        // Sub-agent progress mirroring (child deltas) is a follow-up; the
-        // orchestrator surfaces the synthesized result.
-        None,
+        // Parent's progress sink — child events ride it, scoped below.
+        on_progress,
+        subagent_scope,
         // Sub-agents inherit the parent's already-trimmed history.
         None,
         // Mid-flight steering: forward queued steer messages into the run.
@@ -171,6 +189,10 @@ mod tests {
             allowed,
             10,
             None,
+            None,
+            "researcher",
+            "task-1",
+            false,
         )
         .await
         .expect("graph subagent runs");
@@ -182,6 +204,117 @@ mod tests {
         // History was written back: user + assistant(tool) + tool result + assistant(final).
         assert!(history.len() >= 4);
         assert!(history.iter().any(|m| m.content.contains("echoed:hi")));
+    }
+
+    /// A provider that streams visible text + reasoning through the request's
+    /// delta sender, exercising the child-progress bridge end to end.
+    struct ThinkingStreamProvider;
+    #[async_trait]
+    impl Provider for ThinkingStreamProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            use crate::openhuman::inference::provider::ProviderDelta;
+            if let Some(tx) = r.stream {
+                let _ = tx
+                    .send(ProviderDelta::ThinkingDelta {
+                        delta: "let me think".into(),
+                    })
+                    .await;
+                for chunk in ["Hel", "lo"] {
+                    let _ = tx
+                        .send(ProviderDelta::TextDelta {
+                            delta: chunk.into(),
+                        })
+                        .await;
+                }
+            }
+            Ok(ChatResponse {
+                text: Some("Hello".to_string()),
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+
+    #[tokio::test]
+    async fn child_text_and_thinking_deltas_are_scoped_to_the_subagent() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<AgentProgress>(64);
+        let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
+        let mut history = vec![ChatMessage::user("hi")];
+
+        let (output, _iters, _usage, _early) = run_subagent_via_graph(
+            Arc::new(ThinkingStreamProvider),
+            "mock-model",
+            0.0,
+            &mut history,
+            parent_tools,
+            vec![],
+            vec![],
+            HashSet::new(),
+            4,
+            None,
+            Some(tx),
+            "researcher",
+            "task-7",
+            false,
+        )
+        .await
+        .expect("child-delta subagent runs");
+
+        assert_eq!(output, "Hello");
+
+        let mut text = String::new();
+        let mut thinking = String::new();
+        let mut saw_iter = false;
+        while let Ok(p) = rx.try_recv() {
+            match p {
+                AgentProgress::SubagentTextDelta { delta, task_id, .. } => {
+                    assert_eq!(task_id, "task-7");
+                    text.push_str(&delta);
+                }
+                AgentProgress::SubagentThinkingDelta {
+                    delta, agent_id, ..
+                } => {
+                    assert_eq!(agent_id, "researcher");
+                    thinking.push_str(&delta);
+                }
+                AgentProgress::SubagentIterationStarted { task_id, .. } => {
+                    assert_eq!(task_id, "task-7");
+                    saw_iter = true;
+                }
+                // The parent-scoped variants must never appear on a child run.
+                AgentProgress::TextDelta { .. }
+                | AgentProgress::ThinkingDelta { .. }
+                | AgentProgress::IterationStarted { .. } => {
+                    panic!("child run emitted a parent-scoped progress event");
+                }
+                _ => {}
+            }
+        }
+        assert!(saw_iter, "a SubagentIterationStarted should be emitted");
+        assert!(
+            text.contains("Hello"),
+            "child text deltas should reassemble, got {text:?}"
+        );
+        assert!(
+            thinking.contains("let me think"),
+            "child thinking deltas should be forwarded, got {thinking:?}"
+        );
     }
 
     #[test]

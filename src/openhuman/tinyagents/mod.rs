@@ -37,8 +37,8 @@ use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, Provider};
 
-pub use model::ProviderModel;
-pub use observability::OpenhumanEventBridge;
+pub use model::{ProviderModel, ThinkingForwarder};
+pub use observability::{IterationCursor, OpenhumanEventBridge, SubagentScope};
 pub use tools::{SharedToolAdapter, ToolAdapter};
 
 use std::collections::HashSet;
@@ -189,15 +189,26 @@ pub async fn run_turn_via_tinyagents_shared(
     allowed: HashSet<String>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
+    subagent_scope: Option<SubagentScope>,
     context_window: Option<u64>,
     run_queue: Option<Arc<RunQueue>>,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
+
+    // Shared 1-based model-call cursor: the event bridge advances it on each
+    // model start; the model adapter reads it to attribute out-of-band thinking
+    // deltas (tinyagents has no reasoning channel on its stream).
+    let cursor: IterationCursor = Arc::default();
+    let mut provider_model = ProviderModel::new(provider, model, temperature);
+    if let Some(tx) = &on_progress {
+        provider_model = provider_model.with_thinking(ThinkingForwarder::new(
+            tx.clone(),
+            subagent_scope.clone(),
+            cursor.clone(),
+        ));
+    }
     harness
-        .register_model(
-            model,
-            Arc::new(ProviderModel::new(provider, model, temperature)),
-        )
+        .register_model(model, Arc::new(provider_model))
         .set_default_model(model);
 
     // Autocompaction parity: when the provider's context window is known, trim
@@ -250,7 +261,13 @@ pub async fn run_turn_via_tinyagents_shared(
 
     let streaming = on_progress.is_some();
     let bridge = on_progress.map(|tx| {
-        let bridge = OpenhumanEventBridge::new(Some(tx), model, max_iterations);
+        let bridge = OpenhumanEventBridge::with_scope(
+            Some(tx),
+            model,
+            max_iterations,
+            subagent_scope.clone(),
+            cursor.clone(),
+        );
         let events = EventSink::new();
         events.subscribe(bridge.clone());
         (bridge, events)

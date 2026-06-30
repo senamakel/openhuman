@@ -169,6 +169,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         Some(tx),
         None,
         None,
+        None,
     )
     .await
     .expect("streaming turn runs");
@@ -260,6 +261,7 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         vec![registry],
         std::collections::HashSet::new(),
         4,
+        None,
         None,
         None,
         Some(run_queue),

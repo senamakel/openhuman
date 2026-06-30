@@ -29,10 +29,7 @@ use crate::openhuman::prompt_injection::{
 use crate::openhuman::tools::Tool;
 
 use super::harness::definition::{AgentDefinitionRegistry, SandboxMode};
-use super::harness::{
-    channel_graph_routing_enabled, run_channel_turn_via_graph, run_tool_call_loop,
-    with_current_sandbox_mode,
-};
+use super::harness::{run_channel_turn_via_graph, with_current_sandbox_mode};
 use crate::openhuman::file_state::with_file_state_agent_id;
 
 /// Method name used to dispatch an agentic turn through the native bus.

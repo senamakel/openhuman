@@ -70,7 +70,6 @@ pub use worktree_context::{current_action_dir_override, with_action_dir_override
 pub(crate) use channel_route::{channel_graph_routing_enabled, run_channel_turn_via_graph};
 pub(crate) use instructions::build_tool_instructions_filtered;
 pub(crate) use parse::parse_tool_calls;
-pub(crate) use tool_loop::run_tool_call_loop;
 
 #[cfg(test)]
 mod bughunt_tests;

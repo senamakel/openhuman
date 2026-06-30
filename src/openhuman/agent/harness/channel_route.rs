@@ -47,9 +47,27 @@ pub(crate) async fn run_channel_turn_via_graph(
     // own `spec()`, deduped by name (extras shadow the registry).
     let allowed = visible_tool_names.cloned().unwrap_or_default();
 
-    // Multimodal prep is not yet wired on the tinyagents path (issue #4249);
-    // the params are accepted for signature parity with the legacy loop.
-    let _ = (&multimodal, &multimodal_files);
+    // Multimodal prep (parity with the chat route's
+    // `run_turn_via_tinyagents_session`, issue #4249): rehydrate image
+    // placeholders for vision-capable providers, then expand `[IMAGE:…]` /
+    // `[FILE:…]` markers into provider-ready content before dispatch. The
+    // expanded copy is provider-only — it is sent to the model but never
+    // persisted back into the channel `history` (see the reconstruction below).
+    let prior_len = history.len();
+    let mut prepared = history.clone();
+    if provider.supports_vision()
+        && crate::openhuman::agent::multimodal::has_image_placeholders(&prepared)
+    {
+        prepared = crate::openhuman::agent::multimodal::rehydrate_image_placeholders(&prepared);
+    }
+    let prepared = crate::openhuman::agent::multimodal::prepare_messages_for_provider(
+        &prepared,
+        &multimodal,
+        &multimodal_files,
+    )
+    .await
+    .map(|prepared| prepared.messages)
+    .unwrap_or(prepared);
 
     tracing::info!(
         model,
@@ -61,7 +79,7 @@ pub(crate) async fn run_channel_turn_via_graph(
         provider,
         model,
         temperature,
-        history.clone(),
+        prepared,
         vec![extra_arc, tools_registry],
         allowed,
         max_iterations,
@@ -81,7 +99,11 @@ pub(crate) async fn run_channel_turn_via_graph(
         false,
     )
     .await?;
-    *history = outcome.history;
+    // Persist the original (un-expanded) prior turns plus only the new turns the
+    // run produced. `outcome.history` is `prepared` (expanded) followed by the
+    // turn's new messages; `prepared` maps 1:1 onto the input, so skipping
+    // `prior_len` drops the expanded copies and keeps the durable markers intact.
+    history.extend(outcome.history.into_iter().skip(prior_len));
     Ok(outcome.text)
 }
 

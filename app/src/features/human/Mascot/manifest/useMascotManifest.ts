@@ -51,9 +51,9 @@ export function useMascotManifest(): UseMascotManifestResult {
   const entry = selectedEntry ?? fallbackEntry;
 
   useEffect(() => {
-    if (!manifest || !selectedMascotId || selectedEntry) return;
+    if (!manifest || selectedEntry) return;
     dispatch(setSelectedMascotId(fallbackEntry?.id ?? null));
-  }, [dispatch, fallbackEntry?.id, manifest, selectedEntry, selectedMascotId]);
+  }, [dispatch, fallbackEntry?.id, manifest, selectedEntry]);
 
   return { manifest, entry, loading, error };
 }

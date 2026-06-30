@@ -44,6 +44,16 @@ describe('resolveFaceToPose', () => {
     expect(resolveFaceToPose('reading', TINY)).toBe('bookreading');
   });
 
+  it('uses manifest logical state mappings for custom activity poses', () => {
+    const custom: MascotStateEngine = {
+      ...TOSHI,
+      states: { ...TOSHI.states, writing: 'scribbling' },
+      idlePoseCycle: [...TOSHI.idlePoseCycle, 'scribbling'],
+    };
+
+    expect(resolveFaceToPose('writing', custom)).toBe('scribbling');
+  });
+
   it('falls back to the thinking state for thinking-ish faces', () => {
     // Toshi has no 'thinking' pose; thinking-ish faces map to its 'look_around'.
     expect(resolveFaceToPose('thinking', TOSHI)).toBe('look_around');

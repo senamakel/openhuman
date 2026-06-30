@@ -17,12 +17,15 @@ export function availablePoses(engine: MascotStateEngine): Set<string> {
 }
 
 /**
- * Map a {@link MascotFace} to a pose this mascot can actually play. We start
- * from the shared face→pose intent, then degrade to a guaranteed logical state
- * (`thinking` for thinking-ish faces, otherwise `idle`) when the mascot's
- * asset doesn't carry that specific flourish.
+ * Map a {@link MascotFace} to a pose this mascot can actually play. Manifest
+ * logical mappings win first, then the shared face→pose vocabulary, then a
+ * guaranteed logical state (`thinking` for thinking-ish faces, otherwise
+ * `idle`) when the mascot's asset doesn't carry that specific flourish.
  */
 export function resolveFaceToPose(face: MascotFace, engine: MascotStateEngine): string {
+  const logical = engine.states[face];
+  if (logical && availablePoses(engine).has(logical)) return logical;
+
   const desired = faceToPose(face);
   if (availablePoses(engine).has(desired)) return desired;
   return desired === 'thinking' ? engine.states.thinking : engine.states.idle;

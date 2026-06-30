@@ -114,8 +114,10 @@ fn persona_pack_reports_github_mascot_manifest_destination() {
     assert_eq!(privacy.data_kind, PrivacyDataKind::Metadata);
     let haystack = privacy.destinations.join(" | ").to_lowercase();
     assert!(
-        haystack.contains("github") && haystack.contains("raw.githubusercontent.com"),
-        "destinations must disclose the GitHub raw manifest host, got: {:?}",
+        haystack.contains("github")
+            && haystack.contains("raw.githubusercontent.com")
+            && haystack.contains("asset"),
+        "destinations must disclose the GitHub raw manifest host and manifest asset hosts, got: {:?}",
         privacy.destinations
     );
 }

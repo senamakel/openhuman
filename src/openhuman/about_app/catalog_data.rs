@@ -77,13 +77,15 @@ const GITHUB_REPO_SOURCE: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
 });
 
 // Persona Pack fetches the published mascot manifest directly from GitHub raw
-// content when the mascot picker / Human page need the dynamic library. The
-// request is metadata-class (manifest and asset URLs), but it does leave the
-// device and bypasses the managed backend.
+// content, then downloads the selected runtime asset from the manifest's
+// declared file URL. The request is metadata-class (manifest and asset URLs),
+// but it does leave the device and bypasses the managed backend.
 const GITHUB_MASCOT_MANIFEST: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
     leaves_device: true,
     data_kind: PrivacyDataKind::Metadata,
-    destinations: &["GitHub raw content (raw.githubusercontent.com)"],
+    destinations: &[
+        "GitHub raw content (raw.githubusercontent.com) and manifest-declared mascot asset hosts",
+    ],
 });
 
 const SEARXNG_RAW_TO_CONFIGURED_INSTANCE: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {

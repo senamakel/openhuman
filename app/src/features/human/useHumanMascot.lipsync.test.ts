@@ -74,8 +74,10 @@ function makePlayback(durationMs: number): FakePlayback {
   let ms = 0;
   let stopped = false;
   let resolveEnded!: () => void;
-  const ended = new Promise<void>(res => {
+  let rejectEnded!: (err: unknown) => void;
+  const ended = new Promise<void>((res, rej) => {
     resolveEnded = res;
+    rejectEnded = rej;
   });
   return {
     handle: {
@@ -83,7 +85,9 @@ function makePlayback(durationMs: number): FakePlayback {
       durationMs: () => durationMs,
       metadataReady: Promise.resolve(),
       stop: () => {
+        if (stopped) return;
         stopped = true;
+        rejectEnded({ stopped: true });
       },
       ended,
     },
@@ -104,9 +108,11 @@ function makePlaybackWithDeferredMetadata(
   let ms = 0;
   let stopped = false;
   let resolveEnded!: () => void;
+  let rejectEnded!: (err: unknown) => void;
   let resolveMetadata!: () => void;
-  const ended = new Promise<void>(res => {
+  const ended = new Promise<void>((res, rej) => {
     resolveEnded = res;
+    rejectEnded = rej;
   });
   const metadataReady = new Promise<void>(res => {
     resolveMetadata = () => {
@@ -120,7 +126,9 @@ function makePlaybackWithDeferredMetadata(
       durationMs: () => durationMs,
       metadataReady,
       stop: () => {
+        if (stopped) return;
         stopped = true;
+        rejectEnded({ stopped: true });
       },
       ended,
     },

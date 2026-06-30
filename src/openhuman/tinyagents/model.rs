@@ -78,12 +78,21 @@ impl ThinkingForwarder {
 
 /// Translate a harness [`ModelRequest`] into openhuman's message list + tool
 /// specs (shared by the buffered and streaming paths).
-fn build_chat_inputs(request: &ModelRequest) -> (Vec<ChatMessage>, Vec<ToolSpec>) {
-    let messages = request
-        .messages
-        .iter()
-        .map(super::convert::message_to_chat_message)
-        .collect();
+fn build_chat_inputs(
+    request: &ModelRequest,
+    native_tools: bool,
+) -> (Vec<ChatMessage>, Vec<ToolSpec>) {
+    // Native-tool providers take `tool`-role messages verbatim; prompt-guided
+    // providers need tool results folded into a `[Tool results]` user turn.
+    let messages = if native_tools {
+        request
+            .messages
+            .iter()
+            .map(super::convert::message_to_chat_message)
+            .collect()
+    } else {
+        super::convert::messages_to_text_mode_chat(&request.messages)
+    };
     let specs = request
         .tools
         .iter()
@@ -97,21 +106,50 @@ fn build_chat_inputs(request: &ModelRequest) -> (Vec<ChatMessage>, Vec<ToolSpec>
 }
 
 /// Translate an openhuman [`ChatResponse`] into a harness [`ModelResponse`]
-/// (visible text + native tool calls + token usage).
+/// (visible text + tool calls + token usage).
+///
+/// Native `tool_calls` take precedence; when absent, the response text is parsed
+/// for prompt-guided (`<tool_call>…` / p-format) calls — matching the legacy
+/// dispatcher — so text-mode models drive the tinyagents loop too. The visible
+/// text is the prose with any tool-call markup stripped.
 fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
+    let (visible_text, tool_calls): (String, Vec<TaToolCall>) = if !response.tool_calls.is_empty() {
+        let calls = response
+            .tool_calls
+            .iter()
+            .map(|tc| TaToolCall {
+                id: tc.id.clone(),
+                name: tc.name.clone(),
+                arguments: serde_json::from_str(&tc.arguments).unwrap_or(serde_json::Value::Null),
+            })
+            .collect();
+        (response.text.clone().unwrap_or_default(), calls)
+    } else if let Some(text) = response.text.as_deref() {
+        let (prose, parsed) = crate::openhuman::agent::harness::parse_tool_calls(text);
+        if parsed.is_empty() {
+            (text.to_string(), Vec::new())
+        } else {
+            let calls = parsed
+                .into_iter()
+                .enumerate()
+                .map(|(i, p)| TaToolCall {
+                    // Prompt-guided calls carry no provider id; synthesize a
+                    // stable one so tool results correlate in the harness.
+                    id: p.id.unwrap_or_else(|| format!("call_{i}")),
+                    name: p.name,
+                    arguments: p.arguments,
+                })
+                .collect();
+            (prose, calls)
+        }
+    } else {
+        (String::new(), Vec::new())
+    };
+
     let mut content = Vec::new();
-    if let Some(text) = response.text.as_ref().filter(|t| !t.is_empty()) {
-        content.push(ContentBlock::Text(text.clone()));
+    if !visible_text.is_empty() {
+        content.push(ContentBlock::Text(visible_text));
     }
-    let tool_calls: Vec<TaToolCall> = response
-        .tool_calls
-        .iter()
-        .map(|tc| TaToolCall {
-            id: tc.id.clone(),
-            name: tc.name.clone(),
-            arguments: serde_json::from_str(&tc.arguments).unwrap_or(serde_json::Value::Null),
-        })
-        .collect();
     let usage = response
         .usage
         .as_ref()
@@ -230,7 +268,7 @@ impl ChatModel<()> for ProviderModel {
         _state: &(),
         request: ModelRequest,
     ) -> tinyagents::Result<ModelResponse> {
-        let (messages, specs) = build_chat_inputs(&request);
+        let (messages, specs) = build_chat_inputs(&request, self.provider.supports_native_tools());
         let chat_request = ChatRequest {
             messages: &messages,
             tools: if specs.is_empty() { None } else { Some(&specs) },
@@ -283,7 +321,7 @@ impl ChatModel<()> for ProviderModel {
     /// aggregated response, which still arrives as the terminal `Completed`
     /// item. Native tool calls always ride on `Completed`.
     async fn stream(&self, _state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
-        let (messages, specs) = build_chat_inputs(&request);
+        let (messages, specs) = build_chat_inputs(&request, self.provider.supports_native_tools());
         let provider = self.provider.clone();
         let model = self.model.clone();
         let temperature = self.temperature;

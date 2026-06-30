@@ -73,6 +73,31 @@ fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
     }
 }
 
+/// Flatten the assistant tool calls a turn produced into [`ToolCallRecord`]s for
+/// the deterministic cap checkpoint (it lists the tools that ran). Tool success
+/// isn't tracked per call here, so each is recorded optimistically; the listing
+/// is a human-readable fallback, not authoritative accounting.
+fn tool_records_from_conversation(
+    conversation: &[ConversationMessage],
+) -> Vec<hooks::ToolCallRecord> {
+    let mut records = Vec::new();
+    for msg in conversation {
+        if let ConversationMessage::AssistantToolCalls { tool_calls, .. } = msg {
+            for call in tool_calls {
+                records.push(hooks::ToolCallRecord {
+                    name: call.name.clone(),
+                    arguments: serde_json::from_str(&call.arguments)
+                        .unwrap_or(serde_json::Value::Null),
+                    success: true,
+                    output_summary: String::new(),
+                    duration_ms: 0,
+                });
+            }
+        }
+    }
+    records
+}
+
 fn render_agent_context_status_note(sources: &[harness::AgentContextPreparedSource]) -> String {
     let sources = if sources.is_empty() {
         "the OpenHuman harness".to_string()
@@ -1081,9 +1106,26 @@ impl Agent {
         temperature: f64,
         max_iterations: usize,
     ) -> Result<String> {
-        // Frozen system + prior conversation, then this turn's user message.
+        let turn_started = std::time::Instant::now();
+        // This turn's stamped user message is already the last entry in
+        // `self.history` (pushed by `turn()` before the engine branch), so build
+        // the provider messages straight from history — do NOT push the user
+        // again. When a cached transcript prefix is present (a resumed session's
+        // KV-cache warm-up), prepend it and clear it so the first request reuses
+        // the cached prefix exactly once.
         let mut messages = self.tool_dispatcher.to_provider_messages(&self.history);
-        messages.push(ChatMessage::user(user_message.to_string()));
+        if let Some(cached) = self.cached_transcript_messages.take() {
+            // The cached prefix already carries the system prompt + prior
+            // conversation, so drop the freshly-rendered leading system
+            // message(s) and append only this turn's new (user) messages.
+            let tail = messages
+                .into_iter()
+                .skip_while(|m| m.role == "system")
+                .collect::<Vec<_>>();
+            let mut combined = cached;
+            combined.extend(tail);
+            messages = combined;
+        }
 
         // Multimodal prep (parity with the legacy engine): rehydrate image
         // placeholders for vision-capable providers, then expand `[IMAGE:…]` /
@@ -1146,38 +1188,80 @@ impl Agent {
             // The top-level chat turn surfaces clarifying questions inline rather
             // than pausing the loop, so no early-exit tools here.
             &[],
-            // Chat surfaces the model-call cap to Agent::turn's own handling;
-            // graceful in-loop cap summarization is not wired on this path yet.
-            false,
+            // Pause gracefully at the model-call cap so the turn emits a resumable
+            // checkpoint (below) instead of erroring or returning a dangling tool
+            // cycle — bug-report-2026-05-26 A1 parity.
+            true,
         )
         .await?;
 
-        // Record the user turn, then the structured messages this turn appended
-        // (assistant tool calls + tool results + final assistant), preserving
-        // tool-call history fidelity for the UI, persisted transcript, and the
-        // next turn's KV-cache prefix. Fall back to the flat final text if the
-        // structured conversation came back empty (e.g. a no-op turn).
-        self.history
-            .push(ConversationMessage::Chat(ChatMessage::user(
-                user_message.to_string(),
-            )));
-        if outcome.conversation.is_empty() {
+        // The stamped user turn is already in `self.history` (pushed by `turn()`),
+        // so append only the structured messages this turn produced — assistant
+        // tool calls + tool results + (for a clean finish) the final assistant —
+        // preserving tool-call history fidelity for the UI, persisted transcript,
+        // and the next turn's KV-cache prefix.
+        self.history.extend(outcome.conversation.iter().cloned());
+
+        // Token accounting for the turn (the cap checkpoint call below folds in
+        // its own usage).
+        let mut input_tokens = outcome.input_tokens;
+        let mut output_tokens = outcome.output_tokens;
+        let mut cached_input_tokens = 0u64;
+        let mut charged_amount_usd = 0.0;
+
+        let reply = if outcome.hit_cap {
+            // The loop paused at the tool-call cap. Ask the model for a resumable
+            // checkpoint (tools disabled), falling back to a deterministic
+            // done/next summary so the thread never ends on a dangling tool
+            // cycle. Fold the extra call's usage into the turn accounting.
+            let base = self.tool_dispatcher.to_provider_messages(&self.history);
+            let (summary, summary_usage) = self
+                .summarize_iteration_checkpoint(
+                    &base,
+                    effective_model,
+                    outcome.model_calls as u32 + 1,
+                )
+                .await;
+            if let Some(u) = summary_usage {
+                input_tokens += u.input_tokens;
+                output_tokens += u.output_tokens;
+                cached_input_tokens += u.cached_input_tokens;
+                charged_amount_usd += u.charged_amount_usd;
+            }
+            let checkpoint = if summary.trim().is_empty() {
+                super::super::turn_checkpoint::build_deterministic_checkpoint(
+                    &tool_records_from_conversation(&outcome.conversation),
+                    max_iterations,
+                )
+            } else {
+                summary
+            };
             self.history
                 .push(ConversationMessage::Chat(ChatMessage::assistant(
-                    outcome.text.clone(),
+                    checkpoint.clone(),
                 )));
+            checkpoint
+        } else if outcome.text.trim().is_empty() && outcome.tool_calls == 0 {
+            // A completion with no text and no tool calls is never a valid final
+            // answer — surface it as an error instead of wedging the thread on a
+            // blank reply (bug-report-2026-05-26 A1, defect B).
+            return Err(anyhow::Error::new(
+                crate::openhuman::agent::error::AgentError::EmptyProviderResponse {
+                    iteration: outcome.model_calls,
+                },
+            ));
         } else {
-            self.history.extend(outcome.conversation.iter().cloned());
-        }
+            outcome.text.clone()
+        };
         self.trim_history();
 
         let persisted = self.tool_dispatcher.to_provider_messages(&self.history);
         self.persist_session_transcript(
             &persisted,
-            outcome.input_tokens,
-            outcome.output_tokens,
-            0,
-            0.0,
+            input_tokens,
+            output_tokens,
+            cached_input_tokens,
+            charged_amount_usd,
             None,
         );
 
@@ -1187,14 +1271,32 @@ impl Agent {
         .await;
 
         if self.auto_save {
-            let summary = truncate_with_ellipsis(&outcome.text, 100);
+            let summary = truncate_with_ellipsis(&reply, 100);
             let _ = self
                 .memory
                 .store("", "assistant_resp", &summary, MemoryCategory::Daily, None)
                 .await;
         }
 
-        Ok(outcome.text)
+        // Fire post-turn hooks (non-blocking), matching the legacy engine.
+        if !self.post_turn_hooks.is_empty() {
+            let ctx = TurnContext {
+                user_message: user_message.to_string(),
+                assistant_response: reply.clone(),
+                tool_calls: tool_records_from_conversation(&outcome.conversation),
+                turn_duration_ms: turn_started.elapsed().as_millis() as u64,
+                session_id: Some(self.event_session_id.clone())
+                    .filter(|session_id| !session_id.trim().is_empty()),
+                agent_id: Some(self.agent_definition_id.clone())
+                    .filter(|agent_id| !agent_id.trim().is_empty()),
+                entrypoint: Some(self.event_channel.clone())
+                    .filter(|entrypoint| !entrypoint.trim().is_empty()),
+                iteration_count: outcome.model_calls,
+            };
+            hooks::fire_hooks(&self.post_turn_hooks, ctx);
+        }
+
+        Ok(reply)
     }
 
     pub(super) async fn inject_agent_experience_context(

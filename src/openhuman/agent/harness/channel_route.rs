@@ -182,11 +182,11 @@ mod tests {
 
     #[test]
     fn routing_flag_honors_explicit_override() {
-        // Bare default OFF under cfg(test); production defaults ON.
+        // tinyagents is the default on every build now; `0` forces legacy.
         std::env::remove_var("OPENHUMAN_AGENT_GRAPH_CHANNEL");
-        assert!(!channel_graph_routing_enabled());
-        std::env::set_var("OPENHUMAN_AGENT_GRAPH_CHANNEL", "1");
         assert!(channel_graph_routing_enabled());
+        std::env::set_var("OPENHUMAN_AGENT_GRAPH_CHANNEL", "0");
+        assert!(!channel_graph_routing_enabled());
         std::env::remove_var("OPENHUMAN_AGENT_GRAPH_CHANNEL");
     }
 }

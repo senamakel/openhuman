@@ -48,6 +48,8 @@ pub(super) async fn run_subagent_via_graph(
     agent_id: &str,
     task_id: &str,
     extended_policy: bool,
+    worker_thread_id: Option<String>,
+    workspace_dir: std::path::PathBuf,
 ) -> Result<(String, usize, AggregatedUsage, Option<String>), SubagentRunError> {
     tracing::info!(
         model,
@@ -141,6 +143,27 @@ pub(super) async fn run_subagent_via_graph(
         }
     }
 
+    // Mirror this turn's conversation to the spawn's worker thread (when one is
+    // attached), matching the legacy `SubagentObserver`: assistant intents +
+    // final answer as `agent` messages, tool results as `user` messages. The
+    // initial user prompt was already written when the worker thread was created.
+    if let Some(thread_id) = worker_thread_id {
+        mirror_worker_thread(
+            &workspace_dir,
+            &thread_id,
+            agent_id,
+            task_id,
+            &outcome.conversation,
+            // On a cap/early-exit, `outcome.text` is the checkpoint/question that
+            // replaced (or stands in for) a final assistant turn.
+            if outcome.hit_cap || outcome.early_exit_tool.is_some() {
+                Some(outcome.text.as_str())
+            } else {
+                None
+            },
+        );
+    }
+
     // On an early-exit (`ask_user_clarification`), `outcome.text` is the question
     // and the runner checkpoints + returns AwaitingUser. `None` = ran to a final
     // answer (or a cap-hit checkpoint summary).
@@ -150,6 +173,72 @@ pub(super) async fn run_subagent_via_graph(
         usage,
         outcome.early_exit_tool,
     ))
+}
+
+/// Mirror a sub-agent turn's structured conversation to its worker thread,
+/// matching the legacy [`SubagentObserver`]: assistant turns (intents + final)
+/// become `agent` messages, tool results become `user` messages. `extra_final`,
+/// when set, is appended as a trailing `agent` message (the cap checkpoint or
+/// clarifying question, which isn't a plain assistant turn in the transcript).
+fn mirror_worker_thread(
+    workspace_dir: &std::path::Path,
+    thread_id: &str,
+    agent_id: &str,
+    task_id: &str,
+    conversation: &[ConversationMessage],
+    extra_final: Option<&str>,
+) {
+    use crate::openhuman::memory_conversations::{
+        append_message, ConversationMessage as StoredMessage,
+    };
+
+    let mut append = |content: String, sender: &str| {
+        let message = StoredMessage {
+            id: format!("{sender}:{}", uuid::Uuid::new_v4()),
+            content,
+            message_type: "text".to_string(),
+            extra_metadata: serde_json::json!({
+                "scope": "worker_thread",
+                "agent_id": agent_id,
+                "task_id": task_id,
+            }),
+            sender: sender.to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+        if let Err(err) = append_message(workspace_dir.to_path_buf(), thread_id, message) {
+            tracing::debug!(
+                agent_id,
+                thread_id,
+                error = %err,
+                "[subagent_runner:graph] failed to append worker-thread message"
+            );
+        }
+    };
+
+    for msg in conversation {
+        match msg {
+            ConversationMessage::AssistantToolCalls { text, .. } => {
+                if let Some(t) = text.as_deref().filter(|t| !t.trim().is_empty()) {
+                    append(t.to_string(), "agent");
+                }
+            }
+            ConversationMessage::ToolResults(results) => {
+                for r in results {
+                    append(r.content.clone(), "user");
+                }
+            }
+            ConversationMessage::Chat(c) if c.role == "assistant" => {
+                if !c.content.trim().is_empty() {
+                    append(c.content.clone(), "agent");
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(text) = extra_final.filter(|t| !t.trim().is_empty()) {
+        append(text.to_string(), "agent");
+    }
 }
 
 /// Build the `tool → outcome` digest the cap-hit summary call summarizes, in the
@@ -280,6 +369,8 @@ mod tests {
             "researcher",
             "task-1",
             false,
+            None,
+            std::env::temp_dir(),
         )
         .await
         .expect("graph subagent runs");
@@ -359,6 +450,8 @@ mod tests {
             "researcher",
             "task-7",
             false,
+            None,
+            std::env::temp_dir(),
         )
         .await
         .expect("child-delta subagent runs");
@@ -497,6 +590,8 @@ mod tests {
             "researcher",
             "task-9",
             false,
+            None,
+            std::env::temp_dir(),
         )
         .await
         .expect("ask-clarification subagent runs");
@@ -595,6 +690,8 @@ mod tests {
             "researcher",
             "task-cap",
             false,
+            None,
+            std::env::temp_dir(),
         )
         .await
         .expect("cap-hit subagent runs");
@@ -610,11 +707,11 @@ mod tests {
 
     #[test]
     fn routing_flag_honors_explicit_override() {
-        // Bare default OFF under cfg(test); production defaults ON.
+        // tinyagents is the default on every build now; `0` forces legacy.
         std::env::remove_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT");
-        assert!(!subagent_graph_routing_enabled());
-        std::env::set_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT", "1");
         assert!(subagent_graph_routing_enabled());
+        std::env::set_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT", "0");
+        assert!(!subagent_graph_routing_enabled());
         std::env::remove_var("OPENHUMAN_AGENT_GRAPH_SUBAGENT");
     }
 }

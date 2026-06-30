@@ -820,6 +820,8 @@ async fn run_typed_mode(
                 &definition.id,
                 task_id,
                 definition.iteration_policy == IterationPolicy::Extended,
+                options.worker_thread_id.clone(),
+                parent.workspace_dir.clone(),
             )
             .await?
         } else {

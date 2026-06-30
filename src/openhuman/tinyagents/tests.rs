@@ -292,13 +292,12 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
 
 #[test]
 fn routing_flag_honors_explicit_override() {
-    // Bare default is OFF under cfg(test) (legacy tests keep validating the
-    // fallback); production (non-test build) defaults ON.
+    // tinyagents is the default on every build now.
     std::env::remove_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS");
-    assert!(!tinyagents_routing_enabled());
-    // Explicit values always win in either build.
+    assert!(tinyagents_routing_enabled());
     std::env::set_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS", "1");
     assert!(tinyagents_routing_enabled());
+    // An explicit `0` still forces the legacy path during the transition.
     std::env::set_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS", "0");
     assert!(!tinyagents_routing_enabled());
     std::env::remove_var("OPENHUMAN_AGENT_GRAPH_TINYAGENTS");

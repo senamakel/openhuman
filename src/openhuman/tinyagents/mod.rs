@@ -50,22 +50,22 @@ use tokio::sync::mpsc::Sender;
 
 /// Whether agent turns (chat) should route through the `tinyagents` harness.
 ///
-/// **Default ON in production** (issue #4249): the tinyagents harness is the
-/// agent engine. Set `OPENHUMAN_AGENT_GRAPH_TINYAGENTS=0` to fall back to the
-/// legacy `run_turn_engine` (e.g. when the missing streaming/cost/multimodal
-/// seams matter). Under `cfg(test)` the default is OFF so the legacy-engine
-/// unit tests keep validating the fallback path; an explicit env value always
-/// wins in either build.
+/// The tinyagents harness is now **the** agent engine on every build, including
+/// tests (issue #4249). The legacy `run_turn_engine` is being removed; until it
+/// is gone, `OPENHUMAN_AGENT_GRAPH_TINYAGENTS=0` is still honoured as a transition
+/// escape hatch to force the legacy path.
 pub fn tinyagents_routing_enabled() -> bool {
     routing_default_with_override("OPENHUMAN_AGENT_GRAPH_TINYAGENTS")
 }
 
-/// Shared default-on-in-prod / off-under-test resolution for the route flags.
-/// An explicit `0`/`false` or `1`/`true` env value always overrides.
+/// Shared default-**on** resolution for the route flags: tinyagents is the
+/// default everywhere (prod and test). An explicit `0`/`false` env value still
+/// forces the legacy path during the transition; any other value (or unset) is
+/// on.
 pub(crate) fn routing_default_with_override(var: &str) -> bool {
     match std::env::var(var) {
         Ok(v) => !(v == "0" || v.eq_ignore_ascii_case("false")),
-        Err(_) => !cfg!(test),
+        Err(_) => true,
     }
 }
 
@@ -422,6 +422,20 @@ pub async fn run_turn_via_tinyagents_shared(
             // downcasts the caller relies on) over the harness's string wrap.
             if let Some(original) = error_slot.lock().unwrap().take() {
                 return Err(original);
+            }
+            // The model-call cap (when not pausing gracefully — the channel/CLI
+            // path) maps to the typed `AgentError::MaxIterationsExceeded` so
+            // callers downcast it (Sentry skip) and render the canonical
+            // "Agent exceeded maximum tool iterations" message, matching the
+            // legacy `ErrorCheckpoint`.
+            if let tinyagents::TinyAgentsError::LimitExceeded(msg) = &e {
+                if msg.contains("model call") {
+                    return Err(anyhow::Error::new(
+                        crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
+                            max: max_iterations,
+                        },
+                    ));
+                }
             }
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
         }

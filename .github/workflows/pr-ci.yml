@@ -383,14 +383,9 @@ jobs:
         run: bash scripts/ci-cancel-aware.sh cargo llvm-cov --no-fail-fast -p openhuman --lcov --output-path lcov-core.info
         env:
           CARGO_BUILD_JOBS: "1"
-          # Pin the legacy agent engine for the test suite (issue #4249).
-          # Production defaults to the tinyagents harness; the integration
-          # tests assert legacy-engine behaviour the tinyagents path does not
-          # yet implement. (Lib unit tests already default to legacy under
-          # cfg(test); these cover the integration-test binaries.)
-          OPENHUMAN_AGENT_GRAPH_TINYAGENTS: "0"
-          OPENHUMAN_AGENT_GRAPH_CHANNEL: "0"
-          OPENHUMAN_AGENT_GRAPH_SUBAGENT: "0"
+          # The tinyagents harness is the agent engine on every build now
+          # (issue #4249); the suite exercises it by default. The legacy engine
+          # is being removed.
 
       - name: Upload core lcov
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5

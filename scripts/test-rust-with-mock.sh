@@ -49,16 +49,9 @@ export VITE_BACKEND_URL="$MOCK_API_URL"
 # unless the caller already pinned one explicitly.
 export RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}"
 
-# Pin the legacy agent engine for the test suite (issue #4249). Production
-# defaults to the tinyagents harness, but the integration tests assert
-# legacy-engine behaviour (streaming deltas, per-call cost accounting,
-# steering/checkpoint, multimodal) that the tinyagents path does not yet
-# implement. Unit tests already default to legacy under cfg(test); these
-# exports cover the integration-test binaries, which build the lib as a
-# non-test dependency. Drop them to exercise the tinyagents path.
-export OPENHUMAN_AGENT_GRAPH_TINYAGENTS="${OPENHUMAN_AGENT_GRAPH_TINYAGENTS:-0}"
-export OPENHUMAN_AGENT_GRAPH_CHANNEL="${OPENHUMAN_AGENT_GRAPH_CHANNEL:-0}"
-export OPENHUMAN_AGENT_GRAPH_SUBAGENT="${OPENHUMAN_AGENT_GRAPH_SUBAGENT:-0}"
+# The tinyagents harness is the agent engine on every build now (issue #4249);
+# the suite exercises it by default. Set OPENHUMAN_AGENT_GRAPH_{TINYAGENTS,CHANNEL,
+# SUBAGENT}=0 to force the (being-removed) legacy engine during the transition.
 
 echo "Running Rust tests with BACKEND_URL=$BACKEND_URL and RUST_MIN_STACK=$RUST_MIN_STACK"
 cd "$REPO_ROOT"

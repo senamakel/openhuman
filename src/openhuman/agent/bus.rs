@@ -270,52 +270,22 @@ pub fn register_agent_handlers() {
                 with_file_state_agent_id(
                     file_state_id,
                     with_current_sandbox_mode(sandbox_mode, async {
-                        // Phase C (issue #4249): optionally drive the channel turn
-                        // through the agent_graph engine. Off by default; reuses
-                        // the same Arc-shared provider + tools.
-                        if channel_graph_routing_enabled() {
-                            run_channel_turn_via_graph(
-                                provider.clone(),
-                                &mut history,
-                                tools_registry.clone(),
-                                extra_tools,
-                                visible_tool_names.as_ref(),
-                                &model,
-                                temperature,
-                                max_tool_iterations,
-                                multimodal.clone(),
-                                multimodal_files.clone(),
-                            )
-                            .await
-                        } else {
-                            run_tool_call_loop(
-                                provider.as_ref(),
-                                &mut history,
-                                tools_registry.as_ref(),
-                                &provider_name,
-                                &model,
-                                temperature,
-                                silent,
-                                &channel_name,
-                                &multimodal,
-                                &multimodal_files,
-                                max_tool_iterations,
-                                on_delta,
-                                visible_tool_names.as_ref(),
-                                &extra_tools,
-                                on_progress,
-                                // Bus path runs ad-hoc agent turns without an Agent
-                                // handle, so we pass None — payload summarization is
-                                // wired into the orchestrator session via Agent::turn,
-                                // not the bus dispatcher.
-                                None,
-                                // Use the default (allow-all) tool policy. Custom
-                                // policies can be wired in via AgentTurnRequest when
-                                // per-channel policy configuration is added (#2134).
-                                &crate::openhuman::tools::policy::DefaultToolPolicy,
-                            )
-                            .await
-                        }
+                        // Channel/CLI turns run through the tinyagents harness
+                        // (issue #4249); the legacy `run_tool_call_loop` is removed.
+                        let _ = (&provider_name, silent, &channel_name, on_delta, on_progress);
+                        run_channel_turn_via_graph(
+                            provider.clone(),
+                            &mut history,
+                            tools_registry.clone(),
+                            extra_tools,
+                            visible_tool_names.as_ref(),
+                            &model,
+                            temperature,
+                            max_tool_iterations,
+                            multimodal.clone(),
+                            multimodal_files.clone(),
+                        )
+                        .await
                     }),
                 ),
             )

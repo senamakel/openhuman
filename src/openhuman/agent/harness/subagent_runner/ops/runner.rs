@@ -798,57 +798,36 @@ async fn run_typed_mode(
         model_vision,
         "[subagent_runner] resolved sub-agent model vision capability"
     );
-    // Phase B (issue #4249): optionally drive the sub-agent turn through the
-    // tinyagents harness. Default ON in production; the graph path reuses the
-    // same provider + tools and now mirrors the legacy seams (child progress,
-    // steering, cap checkpoint, ask_user_clarification pause). Gated by
-    // `OPENHUMAN_AGENT_GRAPH_SUBAGENT` (set `=0` for the legacy `run_inner_loop`).
+    // Sub-agent turns run through the tinyagents harness (issue #4249): the graph
+    // route reuses the same provider + tools and mirrors every legacy seam (child
+    // progress, steering, cap checkpoint, ask_user_clarification pause,
+    // worker-thread mirror). The legacy `run_inner_loop` has been removed.
+    let _ = (
+        model_vision,
+        max_output_tokens,
+        &lazy_resolver,
+        &handoff_cache,
+    );
     let (output, iterations, agg_usage, early_exit_tool) =
-        if super::graph_route::subagent_graph_routing_enabled() {
-            super::graph_route::run_subagent_via_graph(
-                subagent_provider.clone(),
-                &model,
-                temperature,
-                &mut history,
-                parent.all_tools.clone(),
-                dynamic_tools,
-                filtered_specs.clone(),
-                allowed_names,
-                definition.effective_max_iterations(),
-                options.run_queue.clone(),
-                parent.on_progress.clone(),
-                &definition.id,
-                task_id,
-                definition.iteration_policy == IterationPolicy::Extended,
-                options.worker_thread_id.clone(),
-                parent.workspace_dir.clone(),
-            )
-            .await?
-        } else {
-            Box::pin(run_inner_loop(
-                subagent_provider.as_ref(),
-                &mut history,
-                &parent.all_tools,
-                dynamic_tools,
-                &filtered_specs,
-                allowed_names,
-                lazy_resolver,
-                &model,
-                model_vision,
-                temperature,
-                definition.effective_max_iterations(),
-                max_output_tokens,
-                task_id,
-                &definition.id,
-                options.worker_thread_id.clone(),
-                handoff_cache.as_deref(),
-                parent,
-                definition.iteration_policy == IterationPolicy::Extended,
-                definition.effective_tokenjuice_compression(),
-                options.run_queue.clone(),
-            ))
-            .await?
-        };
+        super::graph_route::run_subagent_via_graph(
+            subagent_provider.clone(),
+            &model,
+            temperature,
+            &mut history,
+            parent.all_tools.clone(),
+            dynamic_tools,
+            filtered_specs.clone(),
+            allowed_names,
+            definition.effective_max_iterations(),
+            options.run_queue.clone(),
+            parent.on_progress.clone(),
+            &definition.id,
+            task_id,
+            definition.iteration_policy == IterationPolicy::Extended,
+            options.worker_thread_id.clone(),
+            parent.workspace_dir.clone(),
+        )
+        .await?;
 
     // Determine status: if the turn engine exited early because of
     // ask_user_clarification, checkpoint the history and return

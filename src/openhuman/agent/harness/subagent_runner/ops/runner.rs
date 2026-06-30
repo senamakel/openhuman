@@ -896,7 +896,26 @@ async fn run_typed_mode(
             options: options_vec,
         }
     } else {
-        crate::openhuman::agent::harness::subagent_runner::types::SubagentRunStatus::Completed
+        use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunStatus;
+        match stop {
+            // A circuit-breaker halt (stuck) or the iteration cap means the
+            // sub-agent stopped WITHOUT reaching its goal. Surface it as
+            // Incomplete so the delegating agent relays the partial result +
+            // blocker instead of treating the summary as a finished answer or
+            // re-spinning the identical delegation (#4096).
+            TurnStop::Halted => SubagentRunStatus::Incomplete {
+                reason:
+                    "got stuck and stopped making progress (a no-progress circuit breaker tripped)"
+                        .into(),
+            },
+            TurnStop::Cap => SubagentRunStatus::Incomplete {
+                reason: "reached its tool-call limit before finishing".into(),
+            },
+            // A clean final response. (An `ask_user_clarification` early-exit is
+            // already handled by the branch above, so EarlyExit here — which
+            // sub-agents only reach via that tool — folds into Completed.)
+            TurnStop::Final | TurnStop::EarlyExit => SubagentRunStatus::Completed,
+        }
     };
 
     // Surface this run's token/cost totals so the parent turn can roll them

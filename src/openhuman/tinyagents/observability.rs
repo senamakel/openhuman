@@ -342,15 +342,16 @@ mod tests {
 /// exposed for tests. Shared by every openhuman graph (council fan-out,
 /// sub-agent delegation, …).
 pub struct GraphTracingSink {
-    label: &'static str,
+    label: String,
     count: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl GraphTracingSink {
     /// Build a sink tagging its lines with `label` (e.g. `"delegation:graph"`).
-    pub fn new(label: &'static str) -> Self {
+    /// Accepts both string literals and runtime-built labels.
+    pub fn new(label: impl Into<String>) -> Self {
         Self {
-            label,
+            label: label.into(),
             count: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         }
     }
@@ -364,7 +365,7 @@ impl GraphTracingSink {
 impl GraphEventSink for GraphTracingSink {
     fn emit(&self, event: GraphEvent) {
         self.count.fetch_add(1, Ordering::Relaxed);
-        let label = self.label;
+        let label = self.label.as_str();
         match &event {
             GraphEvent::RunStarted { run_id } => {
                 tracing::debug!(label, ?run_id, "[graph] run started")

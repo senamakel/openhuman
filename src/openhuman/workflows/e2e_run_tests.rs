@@ -250,6 +250,7 @@ async fn orchestrator_runs_workflow_tool_and_gets_inner_result() {
         5,
         MultimodalConfig::default(),
         MultimodalFileConfig::default(),
+        None,
     )
     .await
     .expect("orchestrator loop should complete");

@@ -22,6 +22,7 @@ mod convert;
 pub mod delegation;
 mod model;
 pub mod observability;
+pub mod orchestration;
 pub mod stop_hooks;
 mod tools;
 

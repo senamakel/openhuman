@@ -7,6 +7,26 @@ icon: layer-group
 
 # Agent Harness
 
+> **Status (issue #4249 — tinyagents migration):** the agent turn no longer runs
+> on the in-tree `run_turn_engine` loop. **All three entry points (`Agent::turn`,
+> the channel/CLI bus path, and `run_subagent`) now drive every turn through the
+> published [`tinyagents`](https://crates.io/crates/tinyagents) 1.0 agent-loop
+> harness** via the adapter seam in [`src/openhuman/tinyagents/`](../../../src/openhuman/tinyagents/)
+> (`run_turn_via_tinyagents_shared`). The legacy `run_turn_engine`, the three
+> hand-rolled loops, `turn_engine_adapter`, and the custom `agent_graph/` engine
+> described later in this page have been **removed**; the surviving shared seams
+> (`CheckpointStrategy`, `TurnProgress`) live in `agent/harness/engine/`.
+>
+> Multi-agent orchestration is being expressed on tinyagents' **graph layer**:
+> the model-council member fan-out runs on a real `StateGraph`
+> ([`model_council/council_graph.rs`](../../../src/openhuman/model_council/council_graph.rs)),
+> and [`tinyagents/delegation.rs`](../../../src/openhuman/tinyagents/delegation.rs)
+> is a `plan → execute ⇄ review → finalize` `CompiledGraph` with conditional
+> routing, a `RecursionPolicy`, a durable `FileCheckpointer`, a `CancellationToken`,
+> and a `GraphTracingSink` observability bridge. The sections below describing a
+> bespoke `agent_graph/` module + per-agent `GraphBlueprint`s are **historical**
+> (the pre-migration design) and are retained only for context.
+
 The agent harness is the runtime that turns a user message (or a webhook fire, or a cron tick) into a complete, tool-using LLM interaction. It owns the tool-call loop, sub-agent dispatch, the trigger-triage pipeline, and the hook surface around them. It does **not** own provider HTTP transport, tool implementations, prompt-section assembly, or memory storage - those are separate domains the harness composes.
 
 This page walks through what happens in one turn, then zooms in on each of the moving parts.

@@ -1,8 +1,8 @@
 //! Cumulative sub-agent usage stats.
 //!
-//! The sub-agent inner tool-call loop (`run_inner_loop`) that produced these was
-//! retired in favour of the tinyagents harness (issue #4249); only the usage
-//! aggregate it returned survives, reused by the tinyagents sub-agent route.
+//! The sub-agent inner tool-call loop that produced these was retired in favour
+//! of the tinyagents harness (issue #4249); only the usage aggregate it returned
+//! survives, reused by the tinyagents sub-agent route ([`super::graph_route`]).
 
 /// Cumulative usage stats gathered across a sub-agent run.
 #[derive(Debug, Clone, Default)]

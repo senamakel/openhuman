@@ -1,28 +1,26 @@
-//! Phase B (issue #4249): optionally run a sub-agent turn through the
-//! `agent_graph` engine instead of the legacy `run_turn_engine`.
+//! Run a sub-agent turn through the tinyagents harness (issue #4249).
 //!
-//! **Default ON in production** (issue #4249); set `OPENHUMAN_AGENT_GRAPH_SUBAGENT=0`
-//! to fall back to the legacy `run_inner_loop`. The tinyagents path reuses the
-//! same provider and the same harness tools (via [`SharedToolAdapter`] over the
-//! sub-agent's shared `Arc<Vec<Box<dyn Tool>>>` tool sets, so no engine lifetime
-//! change is needed). It now mirrors the legacy seams: child progress deltas
-//! (`Subagent*` events incl. thinking), mid-flight steering, autocompaction, the
-//! `ask_user_clarification` early-exit pause, and a graceful model-call-cap
-//! checkpoint summary (legacy `SubagentCheckpoint::on_max_iter`). Remaining gap:
-//! the transcript observer's persistence details.
+//! This is the canonical sub-agent turn path (the legacy `run_inner_loop` /
+//! `run_turn_engine` are removed); `run_typed_mode` calls it unconditionally.
+//! It reuses the same provider and the same harness tools (via
+//! [`SharedToolAdapter`] over the sub-agent's shared `Arc<Vec<Box<dyn Tool>>>`
+//! tool sets, so no engine lifetime change is needed). It mirrors the original
+//! seams: child progress deltas (`Subagent*` events incl. thinking), mid-flight
+//! steering, autocompaction, the `ask_user_clarification` early-exit pause, and
+//! a graceful model-call-cap checkpoint summary (`SubagentCheckpoint::on_max_iter`).
 
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use super::loop_::AggregatedUsage;
+use super::usage::AggregatedUsage;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::openhuman::tools::{Tool, ToolSpec};
 
-/// Drive a sub-agent turn on the graph engine. Returns the same tuple shape as
-/// [`super::loop_::run_inner_loop`] so the caller is agnostic to the path.
+/// Drive a sub-agent turn on the tinyagents harness. Returns
+/// `(text, model_calls, AggregatedUsage, early_exit_tool)`.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn run_subagent_via_graph(
     provider: Arc<dyn Provider>,

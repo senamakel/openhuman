@@ -14,8 +14,9 @@
 //! the [`OpenhumanEventBridge`] mirrors the 0.2.0 harness event stream onto
 //! `AgentProgress` (live tool timeline, incremental text deltas, cost footer),
 //! [`ProviderModel::stream`] forwards true token streaming, multimodal markers
-//! are expanded, and history is trimmed to the context window. Remaining gaps:
-//! per-iteration steering and the `ask_user_clarification` early-exit pause.
+//! are expanded, and history is trimmed to the context window. Mid-flight
+//! steering, sub-agent child-progress deltas (incl. thinking), and the
+//! `ask_user_clarification` early-exit pause are all re-wired onto 0.2.0.
 
 mod convert;
 mod model;
@@ -180,10 +181,10 @@ pub async fn run_turn_via_tinyagents(
 /// When `context_window` is known, a [`MessageTrimMiddleware`] keeps history
 /// under budget (autocompaction parity).
 ///
-/// Parity note (issue #4249): per-iteration steering and the
-/// `ask_user_clarification` early-exit pause are not yet wired on this path.
-/// (Incremental streaming, the live tool timeline, the cost footer, and
-/// multimodal expansion are bridged on the chat route.)
+/// `run_queue` forwards mid-flight steer messages into the run; `subagent_scope`
+/// re-scopes progress to the `Subagent*` variants (child runs); `early_exit_tools`
+/// name the tools that pause the loop (e.g. `ask_user_clarification`) and surface
+/// the question via [`TinyagentsTurnOutcome::early_exit_tool`].
 #[allow(clippy::too_many_arguments)]
 pub async fn run_turn_via_tinyagents_shared(
     provider: Arc<dyn Provider>,

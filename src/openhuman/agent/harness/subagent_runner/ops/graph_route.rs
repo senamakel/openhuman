@@ -1,13 +1,14 @@
 //! Phase B (issue #4249): optionally run a sub-agent turn through the
 //! `agent_graph` engine instead of the legacy `run_turn_engine`.
 //!
-//! Gated by `OPENHUMAN_AGENT_GRAPH_SUBAGENT` and **off by default**. The graph
-//! path reuses the same provider and the same harness tools (via
-//! [`SharedToolExecutor`] over the sub-agent's shared `Arc<Vec<Box<dyn Tool>>>`
-//! tool sets, so no engine lifetime change is needed). It is an explicit subset
-//! of the legacy loop today — it does not yet wire the payload summarizer,
-//! mid-flight steering, transcript observer, or the `ask_user_clarification`
-//! pause — so it is opt-in until those are migrated in the following phases.
+//! **Default ON in production** (issue #4249); set `OPENHUMAN_AGENT_GRAPH_SUBAGENT=0`
+//! to fall back to the legacy `run_inner_loop`. The tinyagents path reuses the
+//! same provider and the same harness tools (via [`SharedToolAdapter`] over the
+//! sub-agent's shared `Arc<Vec<Box<dyn Tool>>>` tool sets, so no engine lifetime
+//! change is needed). It now mirrors the legacy seams: child progress deltas
+//! (`Subagent*` events incl. thinking), mid-flight steering, autocompaction, and
+//! the `ask_user_clarification` early-exit pause. Remaining gap: the payload
+//! summarizer / transcript observer details.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -55,8 +56,8 @@ pub(super) async fn run_subagent_via_graph(
         observed = on_progress.is_some(),
         "[subagent_runner:graph] routing sub-agent turn through tinyagents harness"
     );
-    // `specs` is derived from the registry inside the runner; the
-    // `ask_user_clarification` early-exit pause is a follow-up.
+    // `specs` is derived from the registry inside the runner; the tinyagents
+    // adapters advertise each tool via its own `spec()`, so it's unused here.
     let _ = &specs;
 
     // Child-progress attribution: when the parent carries an `on_progress` sink,

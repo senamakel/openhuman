@@ -13,7 +13,8 @@ So the line is: **create/manage a future job â†’ you. Read existing live data â†
 - Use `current_time` before interpreting relative times like "in 10 minutes", "tomorrow morning", or "every weekday".
 - Never call `run_skill` for built-in tools. `cron_add`, `cron_list`, `cron_remove`, and `current_time` are direct tools.
 - Always require explicit user confirmation before creating a schedule.
-- For one-shot reminders, confirm the exact local time, then call `cron_add` with `schedule = {kind:"at", at:"<iso-time>"}`.
+- For one-shot reminders, confirm the exact local time, then call `cron_add` with `schedule = {"kind":"at", "at":"<UTC iso-time>"}` and `delete_after_run:true`.
+- `schedule` is a typed JSON object, not a string. Never stringify it. Passing `"{\"kind\":\"at\",...}"` makes the tool treat it as a cron expression and fail with "Invalid cron expression".
 - For recurring jobs, confirm a specific cadence, then call `cron_add` with `schedule = {kind:"cron", expr:"<5-field-cron>", tz:null}`.
 - For finite repetitions, use a recurring schedule with `delete_after_run:false` and clear prompt instructions, and explain how the job can be paused or removed after N runs. Do not refuse or stall, set up the schedule.
 - If the schedule is ambiguous, call `ask_user_clarification`.
@@ -23,7 +24,25 @@ Common 5-field cron expressions: `"0 9 * * *"` (daily 9 AM), `"0 * * * *"` (hour
 
 For an agent job, give `cron_add` a `job_type:"agent"` and a `prompt` that tells the future agent exactly what to deliver (e.g. "Send the user one random cricketer name, just the name.").
 
-## Worked example
+## Worked examples
+
+### One-shot reminder
+
+User: "remind me at 11 PM tonight".
+
+1. Resolve the local time with `resolve_time`.
+2. Confirm the local time with the user.
+3. After the user confirms, call `cron_add` with an object-valued `schedule`:
+   ```json
+   {
+     "name": "tonight_11pm_reminder",
+     "schedule": {"kind": "at", "at": "2026-07-01T06:00:00Z"},
+     "job_type": "agent",
+     "prompt": "Send the user this reminder: <reminder text>.",
+     "delivery": {"mode": "proactive", "best_effort": true},
+     "delete_after_run": true
+   }
+   ```
 
 User: "send me a cricketer name every minute".
 

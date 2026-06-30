@@ -405,7 +405,32 @@ Most agents reuse `blueprint::canonical_turn(id)` (the standard tool-calling loo
 
 **RPC surface** (`schemas.rs` + `ops.rs`, registered in `src/core/all.rs`): `openhuman.agent_graph_definition_list`, `_run`, `_run_list`, `_run_get`, `_checkpoint_list`, `_resume`.
 
-> **Status:** the engine, checkpointing, HITL, observability, the product graph, and the RPC surface are live and tested (unit + `tests/json_rpc_e2e.rs`). The production `run_turn_engine` hot path (shared by `Agent::turn`, `run_tool_call_loop`, and `run_subagent`) is now itself driven by an **explicit `TurnPhase` state machine** (`Iterate(n)` / `MaxIterations`) rather than an implicit `for` loop — mirroring the `canonical_turn` node topology while reusing every existing primitive (`ToolSource`, `ResponseParser`, `ContextManager`, `StopHook`, circuit breakers) verbatim, so the change is behavior-preserving (validated against the engine's integration tests). The `canonical_turn` graph in `definitions/` is the same topology expressed on the generic engine for inspection and as the target for migrating each phase onto graph nodes individually.
+> **Status (issue #4249 — superseded by the published `tinyagents` crate):** the in-house `agent_graph` engine described in this section **no longer exists**. openhuman's agent engine + orchestration now run on the published [`tinyagents`](https://crates.io/crates/tinyagents) **1.1** crate (the same LangGraph-style harness + durable graph runtime), via the adapter seam in `src/openhuman/tinyagents/`. The sections above are retained as design history; the subsection below describes the live architecture.
+
+## Agent engine + orchestration on tinyagents (live)
+
+Every agent turn — chat (`session/turn/core.rs`), channel/CLI (`harness/channel_route.rs`), and sub-agent (`harness/subagent_runner/ops/graph_route.rs`) — drives through `crate::openhuman::tinyagents::run_turn_via_tinyagents_shared`, which runs the crate's `AgentHarness`. There is no in-house turn engine, tool loop, or routing gate left; dispatch is unconditional. The seam:
+
+| File (`src/openhuman/tinyagents/`) | Role |
+| --- | --- |
+| `mod.rs` | The runner (`run_turn_via_tinyagents_shared`): registers openhuman's `Provider`/`Tool` on an `AgentHarness`, runs one turn, caps output via `ProviderModel::with_max_tokens`, mirrors progress, forwards steering, and pauses gracefully at the model-call cap. |
+| `model.rs` / `tools.rs` / `convert.rs` | `ChatModel` / `Tool` / message adapters (incl. out-of-band reasoning forwarding and unknown-tool recovery). |
+| `observability.rs` | Harness `AgentEvent` → `AgentProgress` + cost; `GraphTracingSink` for graph events. |
+| `orchestration.rs` | `run_parallel_fanout` (the shared `dispatch → workers → collect` graph) + re-exported `graph::orchestration` task-store types. |
+| `checkpoint.rs` | `SqlRunLedgerCheckpointer` — a `Checkpointer` over openhuman's SQLite (`graph_checkpoints` table), since the crate's `SqliteCheckpointer` is dependency-blocked and it has no durable `TaskStore`. |
+| `delegation.rs` | The durable `plan → execute ⇄ review → finalize` delegation graph (production worker wired in `agent_orchestration::delegation`). |
+
+**Orchestration on graphs** (`src/openhuman/agent_orchestration/`):
+
+- **Workflow phase DAG** (`workflow_runs/engine.rs`) runs on a `dispatch ⇄ run_phase → done` conditional-routing graph; each phase fans its agents out via `run_parallel_fanout`. The durable `workflow_runs` row stays the source of truth (controllers + resume read it).
+- **Team member runtime** (`agent_teams/member_graph.rs`) is a conditional-routing graph (`execute → complete|fail → done`).
+- **Multi-stage delegation** (`agent_orchestration::delegation` + the `delegate` tool) runs `delegation.rs`, checkpointed to the session DB.
+- **Detached sub-agents** (`running_subagents.rs`) track lifecycle on the crate's `InMemoryTaskStore`; the executor (abort/steer/await) stays bespoke because the store can't inject messages, block-await, or hard-abort a task.
+
+**Deliberately kept off the crate's primitives** (documented engineering decisions, not gaps):
+
+- **Sub-agent build pipeline** (`subagent_runner/`) — definition resolution, archetype tool filtering, provider resolution, narrow prompt building, memory context, worker-thread mirror, handoff cache, checkpoint/resume — stays openhuman-owned. Sub-agents already *execute* on the harness; the crate's generic `SubAgentTool` would discard this pipeline for marginal crate-native depth tracking (openhuman's `spawn_depth_context` already bounds recursion).
+- **Durable run ledgers** (`workflow_runs`, `agent_teams`, `command_center`, `subagent_sessions`) stay on openhuman SQLite/JSON: the crate's only `TaskStore` is in-memory, so moving them would lose durability and diverge from the controllers that read them. The `agent_teams` race-safe SQL compare-and-swap task claim has no crate equivalent.
 
 ## See also
 

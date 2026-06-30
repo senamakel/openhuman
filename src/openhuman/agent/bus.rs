@@ -2,7 +2,9 @@
 //!
 //! The agent domain publishes one native request handler, `agent.run_turn`,
 //! which executes a single end-to-end agentic turn (LLM call → tool calls →
-//! loop until final text) using the full `run_tool_call_loop` machinery.
+//! loop until final text) on the tinyagents harness via
+//! [`run_channel_turn_via_graph`](crate::openhuman::agent::harness::run_channel_turn_via_graph)
+//! (issue #4249; the legacy `run_tool_call_loop` was removed).
 //!
 //! Consumers call it via [`crate::core::event_bus::request_native_global`]
 //! with an [`AgentTurnRequest`] and receive an [`AgentTurnResponse`]. The

@@ -18,6 +18,7 @@
 //! steering, sub-agent child-progress deltas (incl. thinking), and the
 //! `ask_user_clarification` early-exit pause are all re-wired onto 0.2.0.
 
+pub mod checkpoint;
 mod convert;
 pub mod delegation;
 mod model;
@@ -41,6 +42,7 @@ use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 
+pub use checkpoint::SqlRunLedgerCheckpointer;
 pub use model::{ProviderModel, ThinkingForwarder};
 pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
 pub use tools::{

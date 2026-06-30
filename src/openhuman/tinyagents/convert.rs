@@ -82,6 +82,40 @@ pub(super) fn messages_to_history(messages: &[Message]) -> Vec<ChatMessage> {
     messages.iter().map(message_to_chat_message).collect()
 }
 
+/// Convert one harness [`Message`] into a [`ChatMessage`] for a **native**
+/// tool-calling provider request, preserving the structure the provider needs to
+/// round-trip a tool round: an assistant turn that made tool calls is encoded as
+/// the `{ "content", "tool_calls" }` JSON envelope (matching the dispatcher's
+/// native `to_provider_messages`), and a tool result as `{ "tool_call_id",
+/// "content" }`. Without this the provider sees an assistant with no `tool_calls`
+/// followed by an orphan tool message and drops the round — breaking multi-turn
+/// native tool calling (e.g. the orchestrator's `spawn_parallel_agents` →
+/// synthesis hop).
+pub(super) fn message_to_native_chat_message(msg: &Message) -> ChatMessage {
+    match msg {
+        Message::System(_) => ChatMessage::system(msg.text()),
+        Message::User(_) => ChatMessage::user(msg.text()),
+        Message::Assistant(a) if !a.tool_calls.is_empty() => {
+            let tool_calls: Vec<_> = a.tool_calls.iter().map(ta_call_to_oh_call).collect();
+            let payload = serde_json::json!({
+                "content": msg.text(),
+                "tool_calls": tool_calls,
+            });
+            ChatMessage::assistant(payload.to_string())
+        }
+        Message::Assistant(_) => ChatMessage::assistant(msg.text()),
+        Message::Tool(t) => {
+            let payload = serde_json::json!({
+                "tool_call_id": t.tool_call_id,
+                "content": msg.text(),
+            });
+            let mut cm = ChatMessage::tool(payload.to_string());
+            cm.id = Some(t.tool_call_id.clone());
+            cm
+        }
+    }
+}
+
 /// Convert a harness transcript into the **typed** [`ConversationMessage`] shape
 /// the chat session persists, preserving assistant tool-call structure
 /// (`AssistantToolCalls`) and tool results (`ToolResults`) — unlike

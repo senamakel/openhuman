@@ -326,8 +326,9 @@ pub async fn run_turn_via_tinyagents_shared(
         }
     }
     // The unknown-tool sentinel: the model adapter rewrites any unadvertised tool
-    // call onto it so the run recovers gracefully instead of aborting.
-    harness.register_tool(Arc::new(UnknownToolAdapter));
+    // call onto it so the run recovers gracefully instead of aborting. Its wording
+    // matches the legacy engine (sub-agent vs top-level).
+    harness.register_tool(Arc::new(UnknownToolAdapter::new(subagent_scope.is_some())));
     let tool_count = registered.len();
 
     let config = RunConfig::new("agent_turn")

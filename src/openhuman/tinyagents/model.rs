@@ -129,13 +129,14 @@ fn build_chat_inputs(
     request: &ModelRequest,
     native_tools: bool,
 ) -> (Vec<ChatMessage>, Vec<ToolSpec>) {
-    // Native-tool providers take `tool`-role messages verbatim; prompt-guided
+    // Native-tool providers need assistant tool calls + tool results encoded in
+    // the provider's native envelope so a tool round round-trips; prompt-guided
     // providers need tool results folded into a `[Tool results]` user turn.
     let messages = if native_tools {
         request
             .messages
             .iter()
-            .map(super::convert::message_to_chat_message)
+            .map(super::convert::message_to_native_chat_message)
             .collect()
     } else {
         super::convert::messages_to_text_mode_chat(&request.messages)

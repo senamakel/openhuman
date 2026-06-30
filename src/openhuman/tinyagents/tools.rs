@@ -24,9 +24,22 @@ use tinyagents::harness::tool::{
 /// real tool namespace, and it is never advertised to the model.
 pub const UNKNOWN_TOOL_SENTINEL: &str = "__openhuman_unknown_tool__";
 
-/// The sentinel tool: reports the model's requested-but-unknown tool back as a
-/// recoverable result instead of aborting the run. See [`UNKNOWN_TOOL_SENTINEL`].
-pub struct UnknownToolAdapter;
+/// The sentinel tool: reports the model's requested-but-unavailable tool back as
+/// a recoverable result instead of aborting the run. See [`UNKNOWN_TOOL_SENTINEL`].
+///
+/// `subagent` selects the wording so it matches the legacy engine: a sub-agent
+/// calling a tool outside its list gets the "not available to this sub-agent"
+/// message (the `SubagentToolSource` wording), while a top-level agent gets the
+/// "Unknown tool" message (`engine::tools`). Tests and the model key off these.
+pub struct UnknownToolAdapter {
+    subagent: bool,
+}
+
+impl UnknownToolAdapter {
+    pub fn new(subagent: bool) -> Self {
+        Self { subagent }
+    }
+}
 
 #[async_trait]
 impl Tool<()> for UnknownToolAdapter {
@@ -35,7 +48,7 @@ impl Tool<()> for UnknownToolAdapter {
     }
 
     fn description(&self) -> &str {
-        "internal: reports an unknown tool call"
+        "internal: reports an unavailable tool call"
     }
 
     fn schema(&self) -> ToolSchema {
@@ -52,13 +65,21 @@ impl Tool<()> for UnknownToolAdapter {
             .get("requested_tool")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
+        let content = if self.subagent {
+            format!(
+                "Error: tool '{requested}' is not available to this sub-agent. \
+                 Use one of your listed tools, or answer directly."
+            )
+        } else {
+            format!(
+                "Unknown tool: '{requested}'. It is not available; do not call it again. \
+                 Use one of the advertised tools, or answer directly."
+            )
+        };
         Ok(TaToolResult {
             call_id: call.id,
             name: call.name,
-            content: format!(
-                "Unknown tool: '{requested}'. It is not available; do not call it again. \
-                 Use one of the advertised tools, or answer directly."
-            ),
+            content,
             raw: None,
             error: None,
             elapsed_ms: 0,

@@ -1,6 +1,5 @@
 //! Core turn execution: the main `turn()` method and `inject_agent_experience_context()`.
 
-use super::super::turn_engine_adapter::{AgentCheckpoint, AgentObserver, AgentToolSource};
 use super::super::types::Agent;
 use super::{
     integration_announcement_note, mcp_announcement_note, newly_connected_slugs,

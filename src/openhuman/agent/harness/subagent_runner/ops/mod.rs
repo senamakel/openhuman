@@ -23,11 +23,9 @@ mod checkpoint;
 mod graph_route;
 mod handoff_helper;
 mod loop_;
-mod observer;
 mod prompt;
 mod provider;
 mod runner;
-mod tool_source;
 
 // Public entry point — the primary API surface consumed by the parent module.
 pub use runner::run_subagent;

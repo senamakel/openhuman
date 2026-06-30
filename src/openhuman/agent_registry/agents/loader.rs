@@ -431,6 +431,27 @@ mod tests {
     }
 
     #[test]
+    fn orchestrator_can_resume_paused_subagents_via_continue_subagent() {
+        // #4291: when a delegated sub-agent (e.g. mcp_setup) pauses on
+        // ask_user_clarification, the orchestrator gets a
+        // [SUBAGENT_AWAITING_USER] envelope and must resume that exact
+        // checkpoint with `continue_subagent`. Without the tool in scope the
+        // only continuation is to re-delegate a fresh, stateless sub-agent
+        // that asks again — the infinite re-spawn loop. Lock the tool in.
+        let def = find("orchestrator");
+        match &def.tools {
+            ToolScope::Named(tools) => assert!(
+                tools.iter().any(|t| t == "continue_subagent"),
+                "orchestrator must expose continue_subagent to resume paused \
+                 sub-agents instead of re-spawning them (#4291)"
+            ),
+            ToolScope::Wildcard => {
+                panic!("orchestrator must have a Named tool scope")
+            }
+        }
+    }
+
+    #[test]
     fn trigger_triage_has_no_tools_and_pulls_memory_context() {
         let def = find("trigger_triage");
         match &def.tools {
@@ -567,6 +588,24 @@ mod tests {
                 .any(|s| matches!(s, SubagentEntry::AgentId(id) if id == "vision_agent")),
             "orchestrator must list vision_agent in its subagents allowlist"
         );
+    }
+
+    #[test]
+    fn low_context_workers_use_burst_hint() {
+        for id in [
+            "researcher",
+            "context_scout",
+            "integrations_agent",
+            "tools_agent",
+            "crypto_agent",
+            "tinyplace_agent",
+        ] {
+            let def = find(id);
+            assert!(
+                matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"),
+                "{id} should use the burst worker tier"
+            );
+        }
     }
 
     #[test]
@@ -800,7 +839,7 @@ mod tests {
     #[test]
     fn tinyplace_agent_is_registered_and_narrow() {
         let def = find("tinyplace_agent");
-        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "agentic"));
+        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"));
         assert_eq!(def.sandbox_mode, SandboxMode::None);
         assert!(!def.omit_safety_preamble);
         assert_eq!(def.delegate_name.as_deref(), Some("use_tinyplace"));
@@ -1140,9 +1179,9 @@ mod tests {
     #[test]
     fn crypto_agent_has_narrow_wallet_market_tools_and_safety_on() {
         let def = find("crypto_agent");
-        // Hint must be agentic — the agent reasons about quotes vs.
-        // executes across multiple tool calls per turn.
-        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "agentic"));
+        // Hint must be burst — latency matters for the narrow quote/execute
+        // workflow and provider routing still preserves explicit agentic BYOK.
+        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"));
         assert_eq!(def.sandbox_mode, SandboxMode::None);
         // Financial-risk agent — global safety preamble stays ON.
         assert!(

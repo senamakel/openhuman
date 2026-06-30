@@ -17,7 +17,7 @@ omit_skills_catalog = true
 # the focused task to research, so it never needed the memory-tree walk.
 
 [model]
-hint = "agentic"
+hint = "burst"
 
 [tools]
 named = [

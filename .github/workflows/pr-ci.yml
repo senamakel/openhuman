@@ -336,7 +336,11 @@ jobs:
     needs: [changes, rust-quality]
     if: always() && needs.changes.outputs['rust-core'] == 'true' && needs['rust-quality'].result == 'success'
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    # 30 min was only ever enough because a stack overflow aborted the run early
+    # (see RUST_MIN_STACK below). With the overflow fixed the job runs the full
+    # instrumented suite (~13.6k tests, single-threaded build) end-to-end, which
+    # needs more wall-time.
+    timeout-minutes: 50
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     env:
@@ -349,6 +353,13 @@ jobs:
       # the maximum-shrink setting; line-tables-only was still too large for the
       # instrumented build.
       CARGO_PROFILE_DEV_DEBUG: "0"
+      # cargo-llvm-cov instrumentation inflates per-frame stack usage, so deep
+      # async tests (e.g. cron::scheduler agent-job tests that drive the full
+      # harness) overflow the default ~2 MB test-thread stack and SIGABRT the
+      # whole run with "stack overflow". Give libtest's per-test threads a large
+      # stack so coverage runs don't abort. (Virtual reservation only — no real
+      # memory cost.)
+      RUST_MIN_STACK: "67108864"
     steps:
       - name: Free disk space
         run: |
@@ -373,8 +384,17 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: . -> target
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: pr-rust-core-cov
+
+      - name: Prune stale coverage test executables
+        run: |
+          # The restored target cache can contain prior llvm-cov integration-test
+          # executables. Those are enormous after coverage instrumentation and
+          # can exhaust the runner before the current cargo invocation finishes.
+          find target/llvm-cov-target -type f -path '*/debug/deps/*' -perm -111 -delete 2>/dev/null || true
+          echo "Disk after coverage target prune:"
+          df -h /__w || true
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
@@ -386,6 +406,13 @@ jobs:
           # The tinyagents harness is the agent engine on every build now
           # (issue #4249); the suite exercises it by default. The legacy engine
           # is being removed.
+
+      - name: Prune coverage test executables before cache save
+        if: always()
+        run: |
+          find target/llvm-cov-target -type f -path '*/debug/deps/*' -perm -111 -delete 2>/dev/null || true
+          echo "Disk after post-coverage prune:"
+          df -h /__w || true
 
       - name: Upload core lcov
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
@@ -412,6 +439,9 @@ jobs:
       # __llvm_covmap/__llvm_covfun sections, NOT from DWARF, so coverage
       # numbers are unaffected. Mirrors rust-core-coverage.
       CARGO_PROFILE_DEV_DEBUG: "0"
+      # Large test-thread stack so coverage instrumentation's inflated frames
+      # don't overflow deep async tests. Mirrors rust-core-coverage.
+      RUST_MIN_STACK: "67108864"
     steps:
       - name: Free disk space
         run: |

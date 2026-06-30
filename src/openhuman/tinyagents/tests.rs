@@ -290,6 +290,112 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
     );
 }
 
+/// A provider that pops distinct scripted texts from a shared FIFO, recording
+/// the order of consumption — models the global mock the parallel children share.
+struct FifoProvider {
+    responses: std::sync::Mutex<std::collections::VecDeque<String>>,
+    calls: AtomicUsize,
+}
+
+#[async_trait]
+impl Provider for FifoProvider {
+    async fn chat_with_system(
+        &self,
+        _s: Option<&str>,
+        _m: &str,
+        _model: &str,
+        _t: f64,
+    ) -> anyhow::Result<String> {
+        Ok(String::new())
+    }
+    async fn chat(
+        &self,
+        _r: ChatRequest<'_>,
+        _model: &str,
+        _t: f64,
+    ) -> anyhow::Result<ChatResponse> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        // Yield once so two concurrent turns on the same task actually interleave.
+        tokio::task::yield_now().await;
+        let text = self
+            .responses
+            .lock()
+            .unwrap()
+            .pop_front()
+            .unwrap_or_default();
+        Ok(ChatResponse {
+            text: Some(text),
+            ..Default::default()
+        })
+    }
+    fn supports_native_tools(&self) -> bool {
+        true
+    }
+}
+
+/// Two sub-agent-style turns (`pause_at_cap = true`) running concurrently on the
+/// *same task* (as `spawn_parallel_agents` does via `join_all`) must each get a
+/// distinct FIFO response and not deadlock — the `parallel_subagent_fanout`
+/// regression in miniature.
+#[tokio::test]
+async fn concurrent_shared_turns_each_get_a_distinct_result() {
+    let provider = Arc::new(FifoProvider {
+        responses: std::sync::Mutex::new(
+            ["AAA_CANARY".to_string(), "BBB_CANARY".to_string()].into(),
+        ),
+        calls: AtomicUsize::new(0),
+    });
+    let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
+
+    let one = run_turn_via_tinyagents_shared(
+        provider.clone(),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("task one")],
+        vec![registry.clone()],
+        std::collections::HashSet::new(),
+        4,
+        None,
+        None,
+        None,
+        None,
+        &[],
+        true,
+    );
+    let two = run_turn_via_tinyagents_shared(
+        provider.clone(),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("task two")],
+        vec![registry],
+        std::collections::HashSet::new(),
+        4,
+        None,
+        None,
+        None,
+        None,
+        &[],
+        true,
+    );
+
+    let (a, b) = tokio::join!(one, two);
+    let a = a.expect("turn one runs");
+    let b = b.expect("turn two runs");
+
+    assert_eq!(
+        provider.calls.load(Ordering::SeqCst),
+        2,
+        "exactly one model call per turn"
+    );
+    let mut got = [a.text.as_str(), b.text.as_str()];
+    got.sort_unstable();
+    assert_eq!(
+        got,
+        ["AAA_CANARY", "BBB_CANARY"],
+        "each concurrent turn must receive a distinct FIFO response; got {got:?}"
+    );
+}
+
 #[test]
 fn routing_flag_honors_explicit_override() {
     // tinyagents is the default on every build now.

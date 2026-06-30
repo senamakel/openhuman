@@ -818,7 +818,7 @@ mod tests {
     #[test]
     fn tinyplace_agent_is_registered_and_narrow() {
         let def = find("tinyplace_agent");
-        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "agentic"));
+        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"));
         assert_eq!(def.sandbox_mode, SandboxMode::None);
         assert!(!def.omit_safety_preamble);
         assert_eq!(def.delegate_name.as_deref(), Some("use_tinyplace"));
@@ -1158,9 +1158,9 @@ mod tests {
     #[test]
     fn crypto_agent_has_narrow_wallet_market_tools_and_safety_on() {
         let def = find("crypto_agent");
-        // Hint must be agentic — the agent reasons about quotes vs.
-        // executes across multiple tool calls per turn.
-        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "agentic"));
+        // Hint must be burst — latency matters for the narrow quote/execute
+        // workflow and provider routing still preserves explicit agentic BYOK.
+        assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"));
         assert_eq!(def.sandbox_mode, SandboxMode::None);
         // Financial-risk agent — global safety preamble stays ON.
         assert!(

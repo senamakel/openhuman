@@ -30,9 +30,17 @@ For an agent job, give `cron_add` a `job_type:"agent"` and a `prompt` that tells
 
 User: "remind me at 11 PM tonight".
 
-1. Resolve the local time with `resolve_time`.
-2. Confirm the local time with the user.
-3. After the user confirms, call `cron_add` with an object-valued `schedule`:
+1. Call `current_time` to identify today's date and the user's local timezone.
+2. Resolve the concrete local civil time with `resolve_time`, using a parseable expression:
+   ```json
+   {
+     "expr": "2026-06-30 23:00",
+     "timezone": "America/Los_Angeles",
+     "format": "rfc3339"
+   }
+   ```
+3. Confirm the resolved local time with the user.
+4. After the user confirms, call `cron_add` with an object-valued `schedule`:
    ```json
    {
      "name": "tonight_11pm_reminder",

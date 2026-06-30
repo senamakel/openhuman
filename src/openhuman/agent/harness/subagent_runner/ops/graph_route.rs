@@ -20,7 +20,9 @@ use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope
 use crate::openhuman::tools::{Tool, ToolSpec};
 
 /// Drive a sub-agent turn on the tinyagents harness. Returns
-/// `(text, model_calls, AggregatedUsage, early_exit_tool)`.
+/// `(text, model_calls, AggregatedUsage, early_exit_tool, hit_cap)` — `hit_cap`
+/// is `true` when the run stopped at the model-call cap with work still pending
+/// (the caller surfaces this as `SubagentRunStatus::Incomplete`, #4096).
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn run_subagent_via_graph(
     provider: Arc<dyn Provider>,
@@ -41,7 +43,7 @@ pub(super) async fn run_subagent_via_graph(
     workspace_dir: std::path::PathBuf,
     max_output_tokens: u32,
     model_vision: bool,
-) -> Result<(String, usize, AggregatedUsage, Option<String>), SubagentRunError> {
+) -> Result<(String, usize, AggregatedUsage, Option<String>, bool), SubagentRunError> {
     tracing::info!(
         model,
         max_iterations,
@@ -184,6 +186,7 @@ pub(super) async fn run_subagent_via_graph(
         outcome.model_calls,
         usage,
         outcome.early_exit_tool,
+        outcome.hit_cap,
     ))
 }
 

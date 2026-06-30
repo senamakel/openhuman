@@ -808,7 +808,7 @@ async fn run_typed_mode(
     // not yet re-expressed on the tinyagents path; they need a tool-result
     // interception middleware and are tracked as a follow-up (issue #4249, 1b).
     let _ = (&lazy_resolver, &handoff_cache);
-    let (output, iterations, agg_usage, early_exit_tool) =
+    let (output, iterations, agg_usage, early_exit_tool, hit_cap) =
         super::graph_route::run_subagent_via_graph(
             subagent_provider.clone(),
             &model,
@@ -895,7 +895,19 @@ async fn run_typed_mode(
             question,
             options: options_vec,
         }
+    } else if hit_cap {
+        // The tinyagents run stopped at the model-call cap with work still
+        // pending (graph_route summarized a resumable checkpoint into `output`).
+        // Surface it as Incomplete so the delegating agent relays the partial
+        // result + blocker instead of treating the summary as a finished answer
+        // or re-spinning the identical delegation (#4096).
+        crate::openhuman::agent::harness::subagent_runner::types::SubagentRunStatus::Incomplete {
+            reason: "reached its tool-call limit before finishing".into(),
+        }
     } else {
+        // A clean final response. (An `ask_user_clarification` early-exit is
+        // handled by the branch above.) The legacy circuit-breaker `Halted`
+        // distinction folds into the tinyagents stop-hook / cap handling.
         crate::openhuman::agent::harness::subagent_runner::types::SubagentRunStatus::Completed
     };
 

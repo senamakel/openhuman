@@ -186,13 +186,6 @@ fn get_default_pricing() -> HashMap<String, ModelPricing> {
         },
     );
     prices.insert(
-        MODEL_BURST_V1.into(),
-        ModelPricing {
-            input: 0.0,
-            output: 0.0,
-        },
-    );
-    prices.insert(
         MODEL_CODING_V1.into(),
         ModelPricing {
             input: 0.90,

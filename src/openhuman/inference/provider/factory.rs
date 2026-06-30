@@ -87,7 +87,6 @@ fn is_abstract_tier_model(model: &str) -> bool {
         || trimmed == MODEL_AGENTIC_V1
         || trimmed == MODEL_BURST_V1
         || trimmed == MODEL_CODING_V1
-        || trimmed == MODEL_BURST_V1
         || trimmed == MODEL_VISION_V1
         || trimmed == MODEL_SUMMARIZATION_V1
 }
@@ -112,7 +111,6 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
         ("agentic", crate::openhuman::config::MODEL_AGENTIC_V1),
         ("burst", crate::openhuman::config::MODEL_BURST_V1),
         ("coding", crate::openhuman::config::MODEL_CODING_V1),
-        ("burst", crate::openhuman::config::MODEL_BURST_V1),
         ("vision", crate::openhuman::config::MODEL_VISION_V1),
         (
             "summarization",
@@ -130,7 +128,6 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
         (crate::openhuman::config::MODEL_AGENTIC_V1, "agentic"),
         (crate::openhuman::config::MODEL_BURST_V1, "burst"),
         (crate::openhuman::config::MODEL_CODING_V1, "coding"),
-        (crate::openhuman::config::MODEL_BURST_V1, "burst"),
         (crate::openhuman::config::MODEL_VISION_V1, "vision"),
         (
             crate::openhuman::config::MODEL_SUMMARIZATION_V1,
@@ -200,7 +197,6 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
             | MODEL_AGENTIC_V1
             | MODEL_BURST_V1
             | MODEL_CODING_V1
-            | MODEL_BURST_V1
             | MODEL_REASONING_QUICK_V1
             | MODEL_SUMMARIZATION_V1
             | MODEL_VISION_V1
@@ -209,7 +205,6 @@ pub(crate) fn is_known_openhuman_tier(model: &str) -> bool {
             | "hint:agentic"
             | "hint:burst"
             | "hint:coding"
-            | "hint:burst"
             | "hint:summarization"
             | "hint:vision"
     )
@@ -240,10 +235,9 @@ pub(crate) fn oh_tier_supports_vision(model: &str) -> bool {
         MODEL_CHAT_V1 | "hint:chat" => false,
         MODEL_REASONING_QUICK_V1 => false,
         MODEL_AGENTIC_V1 | "hint:agentic" => false,
-        MODEL_BURST_V1 | "hint:burst" => false,
-        MODEL_CODING_V1 | "hint:coding" => false,
         // Burst is a text-only tier.
         MODEL_BURST_V1 | "hint:burst" => false,
+        MODEL_CODING_V1 | "hint:coding" => false,
         MODEL_SUMMARIZATION_V1 | "hint:summarization" => false,
         _ => false,
     }
@@ -901,7 +895,6 @@ fn managed_tier_for_role(role: &str) -> Option<&'static str> {
     match role {
         "reasoning" => Some(MODEL_REASONING_V1),
         "agentic" => Some(MODEL_AGENTIC_V1),
-        "burst" => Some(MODEL_BURST_V1),
         "coding" => Some(MODEL_CODING_V1),
         // Burst rides the managed backend's high-throughput tier. Pinned here
         // (rather than collapsing to `default_model`) so the `hint = "burst"`
@@ -1009,7 +1002,6 @@ fn make_openhuman_backend(
         Some("agentic") => crate::openhuman::config::MODEL_AGENTIC_V1.to_string(),
         Some("burst") => crate::openhuman::config::MODEL_BURST_V1.to_string(),
         Some("coding") => crate::openhuman::config::MODEL_CODING_V1.to_string(),
-        Some("burst") => crate::openhuman::config::MODEL_BURST_V1.to_string(),
         Some("summarization") => crate::openhuman::config::MODEL_SUMMARIZATION_V1.to_string(),
         Some("vision") => crate::openhuman::config::MODEL_VISION_V1.to_string(),
         Some(_) => {

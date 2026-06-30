@@ -10,22 +10,42 @@ icon: layer-group
 > **Status (issue #4249 — tinyagents migration):** the agent turn no longer runs
 > on the in-tree `run_turn_engine` loop. **All three entry points (`Agent::turn`,
 > the channel/CLI bus path, and `run_subagent`) now drive every turn through the
-> published [`tinyagents`](https://crates.io/crates/tinyagents) 1.0 agent-loop
+> published [`tinyagents`](https://crates.io/crates/tinyagents) 1.1 agent-loop
 > harness** via the adapter seam in [`src/openhuman/tinyagents/`](../../../src/openhuman/tinyagents/)
 > (`run_turn_via_tinyagents_shared`). The legacy `run_turn_engine`, the three
 > hand-rolled loops, `turn_engine_adapter`, and the custom `agent_graph/` engine
 > described later in this page have been **removed**; the surviving shared seams
-> (`CheckpointStrategy`, `TurnProgress`) live in `agent/harness/engine/`.
+> (`CheckpointStrategy`, `TurnProgress`) live in `agent/harness/engine/`. The dead
+> `token_budget.rs` (context trimming is now `MessageTrimMiddleware`) and the
+> vestigial `interrupt.rs` fence (cancellation is the tinyagents steering channel)
+> are gone; policy **stop hooks** (budget / thread-goal / iteration caps) now fire
+> through a `StopHookMiddleware` ([`tinyagents/stop_hooks.rs`](../../../src/openhuman/tinyagents/stop_hooks.rs))
+> that pauses the run on the first stop vote, and the channel route forwards live
+> `AgentProgress` like the chat route.
 >
-> Multi-agent orchestration is being expressed on tinyagents' **graph layer**:
-> the model-council member fan-out runs on a real `StateGraph`
-> ([`model_council/council_graph.rs`](../../../src/openhuman/model_council/council_graph.rs)),
-> and [`tinyagents/delegation.rs`](../../../src/openhuman/tinyagents/delegation.rs)
-> is a `plan → execute ⇄ review → finalize` `CompiledGraph` with conditional
-> routing, a `RecursionPolicy`, a durable `FileCheckpointer`, a `CancellationToken`,
-> and a `GraphTracingSink` observability bridge. The sections below describing a
-> bespoke `agent_graph/` module + per-agent `GraphBlueprint`s are **historical**
-> (the pre-migration design) and are retained only for context.
+> Multi-agent **orchestration** is expressed on tinyagents' **graph layer** via the
+> shared helpers in [`tinyagents/orchestration.rs`](../../../src/openhuman/tinyagents/orchestration.rs)
+> (`run_parallel_fanout` — a `dispatch → parallel workers → collect` `CompiledGraph`
+> map step — plus the re-exported `graph::orchestration` `TaskStore` lifecycle
+> primitives):
+>
+> - the model-council member fan-out runs on a real `StateGraph`
+>   ([`model_council/council_graph.rs`](../../../src/openhuman/model_council/council_graph.rs));
+> - [`tinyagents/delegation.rs`](../../../src/openhuman/tinyagents/delegation.rs)
+>   is a `plan → execute ⇄ review → finalize` `CompiledGraph` (conditional routing,
+>   `RecursionPolicy`, durable `FileCheckpointer`, `CancellationToken`, `GraphTracingSink`);
+> - the **workflow phase engine** fans each phase's agents out on the graph
+>   (`with_max_concurrency`), keeping the durable `WorkflowRun` ledger as the resume
+>   source of truth;
+> - `spawn_parallel_agents` runs its fan-out through `run_parallel_fanout`;
+> - the **agent-teams** member runtime is a conditional-routing graph
+>   (`execute → complete | fail → done`, [`agent_teams/member_graph.rs`](../../../src/openhuman/agent_orchestration/agent_teams/member_graph.rs));
+> - the **detached-sub-agent** registry is backed by a typed `TaskStore` lifecycle
+>   ledger (Pending → Running → Completed/Failed/Cancelled).
+>
+> The sections below describing a bespoke `agent_graph/` module + per-agent
+> `GraphBlueprint`s are **historical** (the pre-migration design) and are retained
+> only for context.
 
 The agent harness is the runtime that turns a user message (or a webhook fire, or a cron tick) into a complete, tool-using LLM interaction. It owns the tool-call loop, sub-agent dispatch, the trigger-triage pipeline, and the hook surface around them. It does **not** own provider HTTP transport, tool implementations, prompt-section assembly, or memory storage - those are separate domains the harness composes.
 

@@ -50,7 +50,7 @@ tinyplace = "1.0.1"
 # own `rusqlite 0.37` over the `links = "sqlite3"` native lib. Durable graph
 # checkpoints are instead provided by a custom `Checkpointer` over openhuman's
 # SQLite (see `tinyagents::graph`).
-tinyagents = "1.0"
+tinyagents = "1.1"
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.

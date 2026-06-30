@@ -32,20 +32,16 @@ mod instructions;
 pub mod interrupt;
 pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
-pub mod model_vision_context;
 pub(crate) mod parse;
 pub(crate) mod payload_summarizer;
 pub mod run_queue;
 pub mod sandbox_context;
-pub(crate) mod self_healing;
 pub mod session;
-pub(crate) mod session_queue;
 pub(crate) mod spawn_depth_context;
 pub mod subagent_runner;
 pub mod task_recency_context;
 pub(crate) mod token_budget;
 pub(crate) mod tool_filter;
-pub(crate) mod tool_loop;
 pub(crate) mod tool_result_artifacts;
 pub mod turn_attachments_context;
 pub mod turn_subagent_usage;
@@ -60,7 +56,6 @@ pub use fork_context::{
     with_parent_context, AgentContextPreparedSource, ParentExecutionContext,
 };
 pub use interrupt::{check_interrupt, InterruptFence, InterruptedError};
-pub use model_vision_context::{current_model_vision, with_current_model_vision};
 pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
 pub(crate) use spawn_depth_context::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};
 pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};

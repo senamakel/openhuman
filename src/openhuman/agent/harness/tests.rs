@@ -4,7 +4,6 @@ use super::parse::{
     extract_json_values, parse_arguments_value, parse_glm_style_tool_calls, parse_tool_call_value,
     parse_tool_calls, parse_tool_calls_from_json_value, tools_to_openai_format,
 };
-use super::tool_loop::DEFAULT_MAX_TOOL_ITERATIONS;
 use crate::openhuman::inference::provider::traits::ProviderCapabilities;
 use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, ChatResponse, Provider};
 use crate::openhuman::tools::{self, Tool};
@@ -555,20 +554,6 @@ fn extract_json_values_handles_arrays() {
     let input = r#"[1, 2, 3]{"key": "value"}"#;
     let result = extract_json_values(input);
     assert_eq!(result.len(), 2);
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// Recovery Tests - Constants Validation
-// ═══════════════════════════════════════════════════════════════════════
-
-const _: () = {
-    assert!(DEFAULT_MAX_TOOL_ITERATIONS > 0);
-    assert!(DEFAULT_MAX_TOOL_ITERATIONS <= 100);
-};
-
-#[test]
-fn constants_bounds_are_compile_time_checked() {
-    // Bounds are enforced by the const assertions above.
 }
 
 // ═══════════════════════════════════════════════════════════════════════

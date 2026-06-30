@@ -23,7 +23,7 @@
 //! [`GraphTracingSink`](crate::openhuman::tinyagents::observability::GraphTracingSink).
 
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 
 use tinyagents::graph::{ClosureStateReducer, Command, GraphBuilder, NodeContext, NodeResult};
 
@@ -59,7 +59,7 @@ enum FanoutUpdate<T> {
     Noop,
 }
 
-/// Run `run_one(index, label)` for every entry in `labels` concurrently on a
+/// Run `run_one(index, item)` for every entry in `items` concurrently on a
 /// `tinyagents` fan-out graph, returning the results in **input order**
 /// (regardless of completion order). `max_concurrency` bounds how many workers
 /// run in the shared super-step.
@@ -68,20 +68,22 @@ enum FanoutUpdate<T> {
 /// `spawn_parallel_agents` tool: pure graph mechanics with no domain knowledge,
 /// so it is unit-testable with a trivial closure.
 ///
-/// `label` names the fan-out for tracing. The worker future's output `T` must be
+/// `label` names the fan-out for tracing. Each `item` is moved into its own
+/// worker node (no `Clone` bound on the payload). The worker output `T` must be
 /// `Clone` (it rides in the graph's typed state).
-pub async fn run_parallel_fanout<T, F, Fut>(
+pub async fn run_parallel_fanout<I, T, F, Fut>(
     label: &str,
-    labels: Vec<String>,
+    items: Vec<I>,
     max_concurrency: usize,
     run_one: F,
 ) -> Result<Vec<T>, String>
 where
+    I: Send + 'static,
     T: Clone + Send + Sync + 'static,
-    F: Fn(usize, String) -> Fut + Clone + Send + Sync + 'static,
+    F: Fn(usize, I) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = T> + Send + 'static,
 {
-    let n = labels.len();
+    let n = items.len();
     if n == 0 {
         return Ok(Vec::new());
     }
@@ -108,14 +110,23 @@ where
         async move { Ok(NodeResult::Command(Command::default().with_goto(goto_ids))) }
     });
 
-    // One node per worker: runs `run_one` and writes the result into its slot.
-    for (i, item) in labels.into_iter().enumerate() {
+    // One node per worker: runs `run_one(i, item)` and writes the result into
+    // its slot. The graph's `NodeHandler` is `Fn` (re-entrant), but each node
+    // runs exactly once — hold the moved-in payload in a take-once cell so it is
+    // consumed without a `Clone` bound on `I`.
+    for (i, item) in items.into_iter().enumerate() {
         let run_one = run_one.clone();
         let node_id = worker_ids[i].clone();
+        let cell = Arc::new(StdMutex::new(Some(item)));
         builder = builder.add_node(node_id.clone(), move |_s: FanoutState<T>, _c: NodeContext| {
             let run_one = run_one.clone();
-            let item = item.clone();
+            let cell = cell.clone();
             async move {
+                let item = cell
+                    .lock()
+                    .expect("fan-out worker cell poisoned")
+                    .take()
+                    .expect("fan-out worker node ran more than once");
                 let value = run_one(i, item).await;
                 Ok(NodeResult::Update(FanoutUpdate::Slot {
                     index: i,
@@ -197,11 +208,12 @@ mod tests {
 
     #[tokio::test]
     async fn fanout_empty_is_a_noop() {
-        let results = run_parallel_fanout::<String, _, _>("empty", vec![], 4, |_, _| async move {
-            String::new()
-        })
-        .await
-        .expect("empty fan-out runs");
+        let results =
+            run_parallel_fanout::<String, String, _, _>("empty", vec![], 4, |_, _| async move {
+                String::new()
+            })
+            .await
+            .expect("empty fan-out runs");
         assert!(results.is_empty());
     }
 

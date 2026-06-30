@@ -1152,16 +1152,23 @@ impl Agent {
         )
         .await?;
 
-        // Record the user + final assistant turns so history and the persisted
-        // transcript stay consistent for the next turn's KV-cache prefix.
+        // Record the user turn, then the structured messages this turn appended
+        // (assistant tool calls + tool results + final assistant), preserving
+        // tool-call history fidelity for the UI, persisted transcript, and the
+        // next turn's KV-cache prefix. Fall back to the flat final text if the
+        // structured conversation came back empty (e.g. a no-op turn).
         self.history
             .push(ConversationMessage::Chat(ChatMessage::user(
                 user_message.to_string(),
             )));
-        self.history
-            .push(ConversationMessage::Chat(ChatMessage::assistant(
-                outcome.text.clone(),
-            )));
+        if outcome.conversation.is_empty() {
+            self.history
+                .push(ConversationMessage::Chat(ChatMessage::assistant(
+                    outcome.text.clone(),
+                )));
+        } else {
+            self.history.extend(outcome.conversation.iter().cloned());
+        }
         self.trim_history();
 
         let persisted = self.tool_dispatcher.to_provider_messages(&self.history);

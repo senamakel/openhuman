@@ -36,7 +36,7 @@ use tinyagents::harness::summarization::TrimStrategy;
 
 use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::inference::provider::{ChatMessage, Provider};
+use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 
 pub use model::{ProviderModel, ThinkingForwarder};
 pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
@@ -101,8 +101,13 @@ fn run_policy_for(max_iterations: usize) -> RunPolicy {
 pub struct TinyagentsTurnOutcome {
     /// Final assistant text.
     pub text: String,
-    /// The full transcript, converted back to openhuman messages.
+    /// The full transcript, converted back to openhuman messages (flat — tool
+    /// calls rendered as text).
     pub history: Vec<ChatMessage>,
+    /// The **typed** messages this turn appended (after the user turn):
+    /// `AssistantToolCalls` / `ToolResults` / final assistant `Chat`. The chat
+    /// session persists these to keep structured tool-call history fidelity.
+    pub conversation: Vec<ConversationMessage>,
     /// Number of model calls the loop made.
     pub model_calls: usize,
     /// Number of tool calls the loop made.
@@ -162,7 +167,8 @@ pub async fn run_turn_via_tinyagents(
     );
 
     let input = convert::history_to_messages(&history);
-    let run = match harness.invoke(&(), (), config, input).await {
+    // Box the (large) harness drive future — see `run_turn_via_tinyagents_shared`.
+    let run = match Box::pin(harness.invoke(&(), (), config, input)).await {
         Ok(run) => run,
         Err(e) => {
             if let Some(original) = error_slot.lock().unwrap().take() {
@@ -174,10 +180,13 @@ pub async fn run_turn_via_tinyagents(
 
     let text = run.text().unwrap_or_default();
     let out_history = convert::messages_to_history(&run.messages);
+    let conversation =
+        convert::messages_to_conversation(convert::messages_since_last_user(&run.messages));
 
     Ok(TinyagentsTurnOutcome {
         text,
         history: out_history,
+        conversation,
         model_calls: run.model_calls,
         tool_calls: run.tool_calls,
         input_tokens: run.usage.usage.input_tokens,
@@ -371,10 +380,15 @@ pub async fn run_turn_via_tinyagents_shared(
         None
     };
 
+    // Heap-allocate the harness drive future. It is large (it owns the whole run
+    // context, middleware stack, and loop state), and a sub-agent turn runs
+    // nested inside its parent's drive future — leaving it inline on the stack
+    // overflows when the parent + child drives compose. Boxing keeps only a
+    // pointer on the stack at each level.
     let run_result = if streaming {
-        harness.invoke_streaming_in_context(&(), ctx, input).await
+        Box::pin(harness.invoke_streaming_in_context(&(), ctx, input)).await
     } else {
-        harness.invoke_in_context(&(), ctx, input).await
+        Box::pin(harness.invoke_in_context(&(), ctx, input)).await
     };
     if let Some(forwarder) = steering_forwarder {
         forwarder.abort();
@@ -425,6 +439,9 @@ pub async fn run_turn_via_tinyagents_shared(
     Ok(TinyagentsTurnOutcome {
         text,
         history: convert::messages_to_history(&run.messages),
+        conversation: convert::messages_to_conversation(convert::messages_since_last_user(
+            &run.messages,
+        )),
         model_calls: run.model_calls,
         tool_calls: run.tool_calls,
         input_tokens,

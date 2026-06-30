@@ -20,7 +20,7 @@ use tinyagents::harness::message::{
 };
 use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolSchema};
 
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, ToolResultMessage};
 use crate::openhuman::tools::ToolSpec;
 
 /// Convert one openhuman [`ChatMessage`] into a harness [`Message`].
@@ -82,6 +82,74 @@ pub(super) fn messages_to_history(messages: &[Message]) -> Vec<ChatMessage> {
     messages.iter().map(message_to_chat_message).collect()
 }
 
+/// Convert a harness transcript into the **typed** [`ConversationMessage`] shape
+/// the chat session persists, preserving assistant tool-call structure
+/// (`AssistantToolCalls`) and tool results (`ToolResults`) — unlike
+/// [`messages_to_history`], which flattens tool calls to text.
+///
+/// Consecutive `Tool` messages are coalesced into one `ToolResults` batch (the
+/// shape a single assistant tool-call round produces), matching the legacy
+/// `turn_engine_adapter` persistence.
+pub(super) fn messages_to_conversation(messages: &[Message]) -> Vec<ConversationMessage> {
+    let mut out: Vec<ConversationMessage> = Vec::new();
+    let mut pending: Vec<ToolResultMessage> = Vec::new();
+
+    fn flush(out: &mut Vec<ConversationMessage>, pending: &mut Vec<ToolResultMessage>) {
+        if !pending.is_empty() {
+            out.push(ConversationMessage::ToolResults(std::mem::take(pending)));
+        }
+    }
+
+    for msg in messages {
+        match msg {
+            Message::Tool(t) => {
+                pending.push(ToolResultMessage {
+                    tool_call_id: t.tool_call_id.clone(),
+                    content: msg.text(),
+                });
+            }
+            Message::System(_) => {
+                flush(&mut out, &mut pending);
+                out.push(ConversationMessage::Chat(ChatMessage::system(msg.text())));
+            }
+            Message::User(_) => {
+                flush(&mut out, &mut pending);
+                out.push(ConversationMessage::Chat(ChatMessage::user(msg.text())));
+            }
+            Message::Assistant(a) => {
+                flush(&mut out, &mut pending);
+                if a.tool_calls.is_empty() {
+                    out.push(ConversationMessage::Chat(ChatMessage::assistant(
+                        msg.text(),
+                    )));
+                } else {
+                    let text = msg.text();
+                    out.push(ConversationMessage::AssistantToolCalls {
+                        text: (!text.is_empty()).then_some(text),
+                        tool_calls: a.tool_calls.iter().map(ta_call_to_oh_call).collect(),
+                        reasoning_content: None,
+                        extra_metadata: None,
+                    });
+                }
+            }
+        }
+    }
+    flush(&mut out, &mut pending);
+    out
+}
+
+/// The suffix of `messages` produced *after* the most recent user turn — i.e.
+/// the assistant/tool messages a single turn appended. Robust to front-trimming
+/// middleware (which drops old messages but keeps the current user turn).
+pub(super) fn messages_since_last_user(messages: &[Message]) -> &[Message] {
+    let start = messages
+        .iter()
+        .rposition(|m| matches!(m, Message::User(_)))
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    &messages[start..]
+}
+
 /// Convert an openhuman [`ToolSpec`] into a harness [`ToolSchema`].
 pub(super) fn spec_to_schema(spec: &ToolSpec) -> ToolSchema {
     ToolSchema {
@@ -139,6 +207,61 @@ mod tests {
         assert_eq!(back[0].role, "tool");
         assert_eq!(back[0].content, "done");
         assert_eq!(back[0].id.as_deref(), Some("call-7"));
+    }
+
+    #[test]
+    fn conversation_preserves_tool_call_structure() {
+        let messages = vec![
+            Message::User(UserMessage {
+                content: vec![ContentBlock::Text("do it".into())],
+            }),
+            Message::Assistant(AssistantMessage {
+                id: None,
+                content: vec![ContentBlock::Text("calling".into())],
+                tool_calls: vec![TaToolCall {
+                    id: "c1".into(),
+                    name: "echo".into(),
+                    arguments: serde_json::json!({"msg": "hi"}),
+                }],
+                usage: None,
+            }),
+            Message::Tool(ToolMessage {
+                tool_call_id: "c1".into(),
+                content: vec![ContentBlock::Text("echoed:hi".into())],
+            }),
+            Message::Assistant(AssistantMessage {
+                id: None,
+                content: vec![ContentBlock::Text("all done".into())],
+                tool_calls: vec![],
+                usage: None,
+            }),
+        ];
+
+        // Only the suffix after the last user turn is persisted.
+        let suffix = messages_since_last_user(&messages);
+        let convo = messages_to_conversation(suffix);
+        assert_eq!(convo.len(), 3);
+        match &convo[0] {
+            ConversationMessage::AssistantToolCalls { tool_calls, .. } => {
+                assert_eq!(tool_calls[0].name, "echo");
+                assert_eq!(tool_calls[0].id, "c1");
+            }
+            other => panic!("expected AssistantToolCalls, got {other:?}"),
+        }
+        match &convo[1] {
+            ConversationMessage::ToolResults(results) => {
+                assert_eq!(results[0].tool_call_id, "c1");
+                assert_eq!(results[0].content, "echoed:hi");
+            }
+            other => panic!("expected ToolResults, got {other:?}"),
+        }
+        match &convo[2] {
+            ConversationMessage::Chat(c) => {
+                assert_eq!(c.role, "assistant");
+                assert_eq!(c.content, "all done");
+            }
+            other => panic!("expected Chat, got {other:?}"),
+        }
     }
 
     #[test]

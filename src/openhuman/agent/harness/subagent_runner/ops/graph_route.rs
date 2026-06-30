@@ -75,7 +75,12 @@ pub(super) async fn run_subagent_via_graph(
     // other clone).
     let summary_provider = provider.clone();
 
-    let mut outcome = run_turn_via_tinyagents_shared(
+    // A sub-agent turn runs *nested inside* the parent agent's turn (parent
+    // harness → spawn_subagent tool → here), so the child's full
+    // `run_turn_via_tinyagents_shared` future would otherwise sit on the parent's
+    // poll stack. Heap-allocate it (as the legacy `run_inner_loop` did) so the
+    // parent+child harness drives don't overflow the stack.
+    let mut outcome = Box::pin(run_turn_via_tinyagents_shared(
         provider,
         model,
         temperature,
@@ -95,7 +100,7 @@ pub(super) async fn run_subagent_via_graph(
         // Pause gracefully at the model-call cap so we can summarize a resumable
         // checkpoint (below) instead of erroring — legacy `on_max_iter` parity.
         true,
-    )
+    ))
     .await
     .map_err(SubagentRunError::Provider)?;
 

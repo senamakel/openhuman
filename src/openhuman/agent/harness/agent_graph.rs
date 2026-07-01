@@ -83,11 +83,10 @@ pub struct AgentTurnResult {
 
 /// A per-agent custom turn-graph runner: given the assembled [`AgentTurnRequest`],
 /// drive a bespoke tinyagents graph and return the [`AgentTurnResult`].
-pub type AgentGraphRunner = fn(
-    AgentTurnRequest,
-) -> Pin<
-    Box<dyn Future<Output = Result<AgentTurnResult, SubagentRunError>> + Send>,
->;
+pub type AgentGraphRunner =
+    fn(
+        AgentTurnRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<AgentTurnResult, SubagentRunError>> + Send>>;
 
 /// How an agent's turn is driven. Selected per-agent via each folder's
 /// `graph.rs::graph()` and injected onto [`AgentDefinition`][super::definition::AgentDefinition].

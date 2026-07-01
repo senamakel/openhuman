@@ -165,40 +165,38 @@ fn build_chat_inputs(
 /// now happens at the tool boundary in
 /// [`UnknownToolRewriteMiddleware`](super::middleware) (`before_tool`), not here.
 fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
-    let (visible_text, tool_calls): (String, Vec<TaToolCall>) =
-        if !response.tool_calls.is_empty() {
-            let calls = response
-                .tool_calls
-                .iter()
-                .map(|tc| TaToolCall {
-                    id: tc.id.clone(),
-                    name: tc.name.clone(),
-                    arguments: serde_json::from_str(&tc.arguments)
-                        .unwrap_or(serde_json::Value::Null),
+    let (visible_text, tool_calls): (String, Vec<TaToolCall>) = if !response.tool_calls.is_empty() {
+        let calls = response
+            .tool_calls
+            .iter()
+            .map(|tc| TaToolCall {
+                id: tc.id.clone(),
+                name: tc.name.clone(),
+                arguments: serde_json::from_str(&tc.arguments).unwrap_or(serde_json::Value::Null),
+            })
+            .collect();
+        (response.text.clone().unwrap_or_default(), calls)
+    } else if let Some(text) = response.text.as_deref() {
+        let (prose, parsed) = crate::openhuman::agent::harness::parse_tool_calls(text);
+        if parsed.is_empty() {
+            (text.to_string(), Vec::new())
+        } else {
+            let calls = parsed
+                .into_iter()
+                .enumerate()
+                .map(|(i, p)| TaToolCall {
+                    // Prompt-guided calls carry no provider id; synthesize a
+                    // stable one so tool results correlate in the harness.
+                    id: p.id.unwrap_or_else(|| format!("call_{i}")),
+                    name: p.name,
+                    arguments: p.arguments,
                 })
                 .collect();
-            (response.text.clone().unwrap_or_default(), calls)
-        } else if let Some(text) = response.text.as_deref() {
-            let (prose, parsed) = crate::openhuman::agent::harness::parse_tool_calls(text);
-            if parsed.is_empty() {
-                (text.to_string(), Vec::new())
-            } else {
-                let calls = parsed
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, p)| TaToolCall {
-                        // Prompt-guided calls carry no provider id; synthesize a
-                        // stable one so tool results correlate in the harness.
-                        id: p.id.unwrap_or_else(|| format!("call_{i}")),
-                        name: p.name,
-                        arguments: p.arguments,
-                    })
-                    .collect();
-                (prose, calls)
-            }
-        } else {
-            (String::new(), Vec::new())
-        };
+            (prose, calls)
+        }
+    } else {
+        (String::new(), Vec::new())
+    };
 
     let mut content = Vec::new();
     if !visible_text.is_empty() {

@@ -35,6 +35,7 @@ use tinyagents::harness::model::ModelRequest;
 use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolResult as TaToolResult};
 
+use super::tools::UNKNOWN_TOOL_SENTINEL;
 use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
@@ -42,7 +43,6 @@ use crate::openhuman::approval::{
 use crate::openhuman::context::tool_result_budget::apply_tool_result_budget;
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
 use crate::openhuman::tools::Tool;
-use super::tools::UNKNOWN_TOOL_SENTINEL;
 
 /// Default per-tool-result byte cap for the channel / sub-agent paths, which do
 /// not carry a session `ContextManager` to source the configured budget from.
@@ -107,11 +107,7 @@ impl TurnContextMiddleware {
     /// microcompact (clear tool bodies) are installed **before** the caller's
     /// summarization / trim middlewares — microcompact frees cheap tokens first,
     /// then summarization/trim handle the rest.
-    pub fn install(
-        self,
-        harness: &mut AgentHarness<()>,
-        tool_sets: &[Arc<Vec<Box<dyn Tool>>>],
-    ) {
+    pub fn install(self, harness: &mut AgentHarness<()>, tool_sets: &[Arc<Vec<Box<dyn Tool>>>]) {
         // Super context runs first: it prepares the read-only context bundle and
         // folds it into the first model call's user message before any other
         // before_model hook inspects the request.
@@ -281,7 +277,9 @@ impl Middleware<()> for CacheAlignMiddleware {
             .iter()
             .find(|m| matches!(m, TaMessage::System(_)))
         {
-            crate::openhuman::agent::harness::compaction::cache_align::warn_if_volatile(&sys.text());
+            crate::openhuman::agent::harness::compaction::cache_align::warn_if_volatile(
+                &sys.text(),
+            );
         }
         Ok(())
     }
@@ -682,7 +680,10 @@ mod tests {
     fn defaults_enable_cache_align_and_the_byte_cap_only() {
         let mw = TurnContextMiddleware::defaults();
         assert!(mw.cache_align);
-        assert_eq!(mw.tool_result_budget_bytes, DEFAULT_TOOL_RESULT_BUDGET_BYTES);
+        assert_eq!(
+            mw.tool_result_budget_bytes,
+            DEFAULT_TOOL_RESULT_BUDGET_BYTES
+        );
         assert!(mw.payload_summarizer.is_none());
         assert_eq!(mw.microcompact_keep_recent, 0);
         assert!(!mw.is_empty());
@@ -796,10 +797,8 @@ mod tests {
     #[tokio::test]
     async fn microcompact_is_a_noop_when_within_keep_recent() {
         let mw = MicrocompactMiddleware { keep_recent: 5 };
-        let mut req = ModelRequest::new(vec![
-            TaMessage::tool("t1", "A"),
-            TaMessage::tool("t2", "B"),
-        ]);
+        let mut req =
+            ModelRequest::new(vec![TaMessage::tool("t1", "A"), TaMessage::tool("t2", "B")]);
         mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
         assert_eq!(req.messages[0].text(), "A");
         assert_eq!(req.messages[1].text(), "B");

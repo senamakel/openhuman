@@ -191,7 +191,11 @@ where
 /// topology exposes only node names, edges, and routing, never closure bodies.
 pub(crate) fn member_graph_topology() -> anyhow::Result<GraphTopology> {
     let graph = build_member_graph(
-        || async { Ok(MemberOutcome::Completed { output: String::new() }) },
+        || async {
+            Ok(MemberOutcome::Completed {
+                output: String::new(),
+            })
+        },
         |_: String| async { Ok(()) },
         |_: String| async { Ok(()) },
     )?;

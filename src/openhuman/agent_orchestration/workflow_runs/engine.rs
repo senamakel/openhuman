@@ -340,7 +340,6 @@ async fn run_engine_loop(config: &Config, run_id: &str, definition: WorkflowDefi
     clear_cancel_flag(run_id);
 }
 
-
 /// What the scheduler's `dispatch` step decided.
 pub(super) enum PhaseSelection {
     /// Execute this phase next.
@@ -357,8 +356,6 @@ pub(super) enum PhaseExecOutcome {
     /// The run reached a terminal status (already persisted) — route to `done`.
     Terminated,
 }
-
-
 
 /// `dispatch` step: reload the run, honour cancellation, and pick the next
 /// runnable phase (pending, all deps `completed`). When none remains, persist the
@@ -674,7 +671,12 @@ pub(super) async fn execute_phase(
             "[workflow_run_engine] phase.failed run={run_id} phase={} reason={reason}",
             phase.name
         );
-        set_phase_status(&mut phase_states, &phase.name, PHASE_FAILED, Some(json!([])));
+        set_phase_status(
+            &mut phase_states,
+            &phase.name,
+            PHASE_FAILED,
+            Some(json!([])),
+        );
         set_phase_reason(&mut phase_states, &phase.name, &reason);
         persist(
             config,

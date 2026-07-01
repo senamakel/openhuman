@@ -387,18 +387,18 @@ pub async fn run_turn_via_tinyagents_shared(
     // `ApprovalGate`, a denial short-circuits with a model-consumable result, and
     // an approved call records a terminal audit row. Replaces the inline approval
     // block that used to live in `execute_openhuman_tool`.
-    harness.push_tool_middleware(Arc::new(
-        middleware::ApprovalSecurityMiddleware::new(tool_sets.clone()),
-    ));
+    harness.push_tool_middleware(Arc::new(middleware::ApprovalSecurityMiddleware::new(
+        tool_sets.clone(),
+    )));
 
     // Unknown-tool recovery as a `before_tool` middleware (issue #4249, Phase 1
     // Task B): a call to an unadvertised tool is rewritten onto the recovery
     // sentinel before the harness resolves it, so a hallucinated tool name is a
     // recoverable result rather than a fatal `ToolNotFound`. Replaces the
     // `valid_tools` rewrite that used to live in `ProviderModel`.
-    harness.push_middleware(Arc::new(
-        middleware::UnknownToolRewriteMiddleware::new(valid_tools),
-    ));
+    harness.push_middleware(Arc::new(middleware::UnknownToolRewriteMiddleware::new(
+        valid_tools,
+    )));
 
     let config = RunConfig::new("agent_turn")
         .with_max_model_calls(max_iterations)

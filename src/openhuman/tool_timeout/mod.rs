@@ -179,7 +179,9 @@ pub fn resolve_tool_deadline(
         ToolTimeout::Secs(req) => {
             let s = req.clamp(MIN_TIMEOUT_SECS, MAX_TIMEOUT_SECS);
             (
-                Some(Duration::from_secs(s.saturating_add(TOOL_TIMEOUT_GRACE_SECS))),
+                Some(Duration::from_secs(
+                    s.saturating_add(TOOL_TIMEOUT_GRACE_SECS),
+                )),
                 s,
             )
         }

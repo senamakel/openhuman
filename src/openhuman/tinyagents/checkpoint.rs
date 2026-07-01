@@ -190,8 +190,9 @@ where
         tokio::task::spawn_blocking(move || {
             with_connection(&config, |conn| {
                 init_run_ledger_schema(conn)?;
-                let mut stmt = conn
-                    .prepare("SELECT DISTINCT thread_id FROM graph_checkpoints ORDER BY thread_id")?;
+                let mut stmt = conn.prepare(
+                    "SELECT DISTINCT thread_id FROM graph_checkpoints ORDER BY thread_id",
+                )?;
                 let rows = stmt
                     .query_map([], |r| r.get::<_, String>(0))?
                     .collect::<std::result::Result<Vec<String>, _>>()?;

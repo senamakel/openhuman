@@ -42,9 +42,9 @@ pub use agent_prepare_context::{
     run_context_scout, run_context_scout_with_catalog, AgentPrepareContextTool,
 };
 pub use archetype_delegation::ArchetypeDelegationTool;
-pub use delegate_graph::DelegateGraphTool;
 pub use close_subagent::CloseSubagentTool;
 pub use continue_subagent::ContinueSubagentTool;
+pub use delegate_graph::DelegateGraphTool;
 pub use list_subagents::ListSubagentsTool;
 pub use skill_delegation::{SkillDelegationTool, INTEGRATIONS_DELEGATE_TOOL_NAME};
 pub use spawn_async_subagent::SpawnAsyncSubagentTool;

@@ -587,22 +587,34 @@ mod tests {
     #[test]
     fn estimate_prices_standard_input_and_output() {
         // opus-4-8: $5/$25 per MTok in/out. 1M in + 1M out, no cache.
-        approx(estimate_cost_usd("claude-opus-4-8", 1_000_000, 1_000_000, 0), 30.00);
+        approx(
+            estimate_cost_usd("claude-opus-4-8", 1_000_000, 1_000_000, 0),
+            30.00,
+        );
     }
 
     #[test]
     fn estimate_bills_cached_prefix_at_the_cheaper_rate() {
         // Fully cached input (cached == input) → cached rate only ($0.50/MTok).
-        approx(estimate_cost_usd("claude-opus-4-8", 1_000_000, 0, 1_000_000), 0.50);
+        approx(
+            estimate_cost_usd("claude-opus-4-8", 1_000_000, 0, 1_000_000),
+            0.50,
+        );
         // Half cached: 0.5M standard @ $5 + 0.5M cached @ $0.50 = 2.50 + 0.25.
-        approx(estimate_cost_usd("claude-opus-4-8", 1_000_000, 0, 500_000), 2.75);
+        approx(
+            estimate_cost_usd("claude-opus-4-8", 1_000_000, 0, 500_000),
+            2.75,
+        );
     }
 
     #[test]
     fn estimate_clamps_cached_to_input() {
         // cached_input_tokens > input_tokens must not underflow or overcharge:
         // it is clamped to input, so this is billed as fully cached.
-        approx(estimate_cost_usd("claude-opus-4-8", 1_000_000, 0, 5_000_000), 0.50);
+        approx(
+            estimate_cost_usd("claude-opus-4-8", 1_000_000, 0, 5_000_000),
+            0.50,
+        );
     }
 
     #[test]

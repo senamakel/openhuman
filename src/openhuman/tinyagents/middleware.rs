@@ -475,3 +475,278 @@ impl Middleware<()> for CostBudgetMiddleware {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use tinyagents::harness::context::{RunConfig, RunContext};
+    use tinyagents::harness::model::ModelRequest;
+
+    fn ctx() -> RunContext<()> {
+        RunContext::new(RunConfig::new("mw-test"), ())
+    }
+
+    /// A minimal openhuman [`Tool`] for the tool-set–backed middlewares. Its
+    /// `max_result_size_chars` and `external_effect` are configurable so the
+    /// budget/approval resolution paths can be exercised.
+    struct FakeTool {
+        name: &'static str,
+        cap: Option<usize>,
+        external: bool,
+    }
+
+    #[async_trait]
+    impl Tool for FakeTool {
+        fn name(&self) -> &str {
+            self.name
+        }
+        fn description(&self) -> &str {
+            "fake"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            json!({ "type": "object" })
+        }
+        async fn execute(
+            &self,
+            _args: serde_json::Value,
+        ) -> anyhow::Result<crate::openhuman::tools::ToolResult> {
+            Ok(crate::openhuman::tools::ToolResult::success("ok"))
+        }
+        fn max_result_size_chars(&self) -> Option<usize> {
+            self.cap
+        }
+        fn external_effect_with_args(&self, _args: &serde_json::Value) -> bool {
+            self.external
+        }
+    }
+
+    fn tool_result(name: &str, content: &str) -> TaToolResult {
+        TaToolResult {
+            call_id: "c1".into(),
+            name: name.into(),
+            content: content.into(),
+            raw: None,
+            error: None,
+            elapsed_ms: 0,
+        }
+    }
+
+    // ── TurnContextMiddleware config ────────────────────────────────────────
+
+    #[test]
+    fn defaults_enable_cache_align_and_the_byte_cap_only() {
+        let mw = TurnContextMiddleware::defaults();
+        assert!(mw.cache_align);
+        assert_eq!(mw.tool_result_budget_bytes, DEFAULT_TOOL_RESULT_BUDGET_BYTES);
+        assert!(mw.payload_summarizer.is_none());
+        assert_eq!(mw.microcompact_keep_recent, 0);
+        assert!(!mw.is_empty());
+    }
+
+    #[test]
+    fn an_all_default_bundle_installs_nothing() {
+        assert!(TurnContextMiddleware::default().is_empty());
+    }
+
+    // ── MicrocompactMiddleware ──────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn microcompact_clears_older_tool_bodies_and_keeps_recent() {
+        let mw = MicrocompactMiddleware { keep_recent: 1 };
+        let mut req = ModelRequest::new(vec![
+            TaMessage::system("sys"),
+            TaMessage::user("hello"),
+            TaMessage::tool("t1", "FIRST_BODY"),
+            TaMessage::assistant("thinking"),
+            TaMessage::tool("t2", "SECOND_BODY"),
+            TaMessage::tool("t3", "THIRD_BODY"),
+        ]);
+
+        mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
+
+        // 3 tool messages, keep_recent=1 → the two oldest cleared, newest kept.
+        assert_eq!(req.messages[2].text(), CLEARED_PLACEHOLDER);
+        assert_eq!(req.messages[4].text(), CLEARED_PLACEHOLDER);
+        assert_eq!(req.messages[5].text(), "THIRD_BODY");
+        // Non-tool messages are never touched.
+        assert_eq!(req.messages[0].text(), "sys");
+        assert_eq!(req.messages[1].text(), "hello");
+        assert_eq!(req.messages[3].text(), "thinking");
+    }
+
+    #[tokio::test]
+    async fn microcompact_is_a_noop_when_within_keep_recent() {
+        let mw = MicrocompactMiddleware { keep_recent: 5 };
+        let mut req = ModelRequest::new(vec![
+            TaMessage::tool("t1", "A"),
+            TaMessage::tool("t2", "B"),
+        ]);
+        mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
+        assert_eq!(req.messages[0].text(), "A");
+        assert_eq!(req.messages[1].text(), "B");
+    }
+
+    #[tokio::test]
+    async fn microcompact_is_idempotent() {
+        let mw = MicrocompactMiddleware { keep_recent: 1 };
+        let mut req = ModelRequest::new(vec![
+            TaMessage::tool("t1", "FIRST"),
+            TaMessage::tool("t2", "SECOND"),
+        ]);
+        mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
+        let after_first = req.messages[0].text();
+        assert_eq!(after_first, CLEARED_PLACEHOLDER);
+        // Second pass leaves the already-cleared body as the placeholder.
+        mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
+        assert_eq!(req.messages[0].text(), CLEARED_PLACEHOLDER);
+        assert_eq!(req.messages[1].text(), "SECOND");
+    }
+
+    // ── ToolOutputMiddleware ────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn tool_output_truncates_over_the_flat_budget() {
+        let mw = ToolOutputMiddleware {
+            budget_bytes: 100,
+            payload_summarizer: None,
+            tool_sets: vec![],
+        };
+        let mut result = tool_result("echo", &"x".repeat(5_000));
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert!(result.content.len() < 5_000, "content should be capped");
+        assert!(
+            result.content.contains("truncated by tool_result_budget"),
+            "a truncation marker should be appended: {}",
+            result.content
+        );
+    }
+
+    #[tokio::test]
+    async fn tool_output_leaves_small_results_untouched() {
+        let mw = ToolOutputMiddleware {
+            budget_bytes: 1_000,
+            payload_summarizer: None,
+            tool_sets: vec![],
+        };
+        let mut result = tool_result("echo", "tiny");
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert_eq!(result.content, "tiny");
+    }
+
+    #[test]
+    fn effective_budget_prefers_the_tools_own_cap() {
+        let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(FakeTool {
+            name: "big",
+            cap: Some(10),
+            external: false,
+        })]);
+        let mw = ToolOutputMiddleware {
+            budget_bytes: 1_000,
+            payload_summarizer: None,
+            tool_sets: vec![tools],
+        };
+        // Tool declares its own cap → used instead of the flat fallback.
+        assert_eq!(mw.effective_budget("big"), 10);
+        // Unknown tool → the flat fallback.
+        assert_eq!(mw.effective_budget("other"), 1_000);
+    }
+
+    #[tokio::test]
+    async fn tool_output_honors_a_tools_own_cap() {
+        let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(FakeTool {
+            name: "capped",
+            cap: Some(20),
+            external: false,
+        })]);
+        let mw = ToolOutputMiddleware {
+            budget_bytes: 100_000,
+            payload_summarizer: None,
+            tool_sets: vec![tools],
+        };
+        let mut result = tool_result("capped", &"y".repeat(500));
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert!(
+            result.content.contains("truncated by tool_result_budget"),
+            "the tool's own 20-byte cap should truncate: {}",
+            result.content
+        );
+    }
+
+    // ── UnknownToolRewriteMiddleware ────────────────────────────────────────
+
+    #[tokio::test]
+    async fn unknown_tool_is_rewritten_onto_the_recovery_sentinel() {
+        let valid: Arc<HashSet<String>> = Arc::new(["echo".to_string()].into_iter().collect());
+        let mw = UnknownToolRewriteMiddleware::new(valid);
+        let mut call = TaToolCall {
+            id: "1".into(),
+            name: "frobnicate".into(),
+            arguments: json!({ "x": 1 }),
+        };
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        assert_eq!(call.name, UNKNOWN_TOOL_SENTINEL);
+        assert_eq!(call.arguments["requested_tool"], json!("frobnicate"));
+    }
+
+    #[tokio::test]
+    async fn advertised_tool_is_left_untouched() {
+        let valid: Arc<HashSet<String>> = Arc::new(["echo".to_string()].into_iter().collect());
+        let mw = UnknownToolRewriteMiddleware::new(valid);
+        let mut call = TaToolCall {
+            id: "1".into(),
+            name: "echo".into(),
+            arguments: json!({ "msg": "hi" }),
+        };
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        assert_eq!(call.name, "echo");
+        assert_eq!(call.arguments, json!({ "msg": "hi" }));
+    }
+
+    #[tokio::test]
+    async fn the_sentinel_itself_is_never_rewritten() {
+        let valid: Arc<HashSet<String>> = Arc::new(HashSet::new());
+        let mw = UnknownToolRewriteMiddleware::new(valid);
+        let mut call = TaToolCall {
+            id: "1".into(),
+            name: UNKNOWN_TOOL_SENTINEL.to_string(),
+            arguments: json!({ "requested_tool": "x" }),
+        };
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        assert_eq!(call.name, UNKNOWN_TOOL_SENTINEL);
+    }
+
+    // ── CostBudgetMiddleware ────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn cost_budget_is_a_noop_without_a_global_tracker() {
+        // No global CostTracker is installed in the unit-test process, so the
+        // gate self-disables and the model call proceeds.
+        let mw = CostBudgetMiddleware;
+        let mut req = ModelRequest::new(vec![TaMessage::user("hi")]);
+        assert!(mw.before_model(&mut ctx(), &(), &mut req).await.is_ok());
+    }
+
+    // ── ApprovalSecurityMiddleware ──────────────────────────────────────────
+
+    #[test]
+    fn approval_external_effect_resolution_walks_the_tool_sets() {
+        let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![
+            Box::new(FakeTool {
+                name: "send_email",
+                cap: None,
+                external: true,
+            }),
+            Box::new(FakeTool {
+                name: "read_file",
+                cap: None,
+                external: false,
+            }),
+        ]);
+        let mw = ApprovalSecurityMiddleware::new(vec![tools]);
+        assert!(mw.has_external_effect("send_email", &json!({})));
+        assert!(!mw.has_external_effect("read_file", &json!({})));
+        // Unknown tool defaults to no external effect (nothing to gate).
+        assert!(!mw.has_external_effect("missing", &json!({})));
+    }
+}

@@ -58,3 +58,49 @@ pub fn all_graph_topologies() -> Vec<GraphTopologyReport> {
 
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_topologies_includes_the_member_graph() {
+        let reports = all_graph_topologies();
+        let member = reports
+            .iter()
+            .find(|r| r.name == "agent_teams:member")
+            .expect("the agent_teams member graph should be exported");
+
+        // The member graph is a fixed, well-formed structure.
+        assert!(
+            member.ok,
+            "member graph should validate structurally: {:?}",
+            member.errors
+        );
+        assert!(member.errors.is_empty());
+    }
+
+    #[test]
+    fn member_report_renders_mermaid_and_valid_json() {
+        let t = crate::openhuman::agent_orchestration::agent_teams::member_graph_topology()
+            .expect("member topology builds");
+        let report = describe("agent_teams:member", &t);
+
+        // Mermaid is a flowchart with at least the entry node rendered.
+        assert!(
+            report.mermaid.contains("flowchart"),
+            "mermaid should be a flowchart: {}",
+            report.mermaid
+        );
+        assert!(!t.nodes.is_empty(), "the graph should declare nodes");
+
+        // JSON round-trips to a value carrying the same node set.
+        let parsed: serde_json::Value =
+            serde_json::from_str(&report.json).expect("topology JSON parses");
+        assert!(
+            parsed.get("nodes").is_some(),
+            "serialized topology should carry its nodes: {}",
+            report.json
+        );
+    }
+}

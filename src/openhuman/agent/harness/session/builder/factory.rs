@@ -1218,7 +1218,6 @@ impl Agent {
             builder = builder.payload_summarizer(ps);
         }
         builder = builder.archivist_hook(archivist_hook_arc);
-        builder = builder.unified_compaction_enabled(config.learning.unified_compaction_enabled);
         let mut agent = builder.build()?;
         let connected_integrations_initialized = prewarmed_integrations.is_some();
         agent.connected_integrations = prewarmed_integrations.unwrap_or_default();

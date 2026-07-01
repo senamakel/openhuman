@@ -10,14 +10,12 @@
 //!    capabilities sections — pass their own via
 //!    [`ContextManager::build_system_prompt_with`].
 //!
-//! 2. **Mechanical context reduction** — a [`ContextPipeline`] with its
-//!    guard, microcompact stage, and session-memory tracker.
-//!
-//! 3. **LLM summarization dispatch** — an `Arc<dyn Summarizer>` that
-//!    gets called when the pipeline reports
-//!    [`PipelineOutcome::AutocompactionRequested`]. The manager records
-//!    the summarizer outcome on the guard's circuit breaker so
-//!    repeated failures don't loop forever.
+//! 2. **Context bookkeeping** — a [`ContextPipeline`] with its guard
+//!    (utilisation stats), tool-result budget, and session-memory
+//!    tracker. Live history reduction/summarization moved to the
+//!    tinyagents graph (`ContextCompressionMiddleware` +
+//!    `MessageTrimMiddleware`, issue #4249); this manager no longer runs
+//!    an in-turn summarizer.
 //!
 //! # What it doesn't own
 //!
@@ -28,51 +26,12 @@
 //! [`ContextManager::should_extract_session_memory`] so `turn.rs` can
 //! gate its existing `spawn_subagent` call.
 
-use std::sync::Arc;
-
-use super::pipeline::{
-    ContextPipeline, ContextPipelineConfig, PipelineOutcome, SessionMemoryHandle,
-};
+use super::pipeline::{ContextPipeline, ContextPipelineConfig, SessionMemoryHandle};
 use super::prompt::{PromptContext, SystemPromptBuilder};
 use super::session_memory::SessionMemoryConfig;
-use super::summarizer::{Summarizer, SummaryStats};
 use crate::openhuman::config::ContextConfig;
-use crate::openhuman::inference::provider::{ConversationMessage, UsageInfo};
+use crate::openhuman::inference::provider::UsageInfo;
 use anyhow::Result;
-
-/// Outcome of a reduction pass driven by [`ContextManager::reduce_before_call`].
-///
-/// This is a slightly wider shape than [`PipelineOutcome`] because the
-/// manager surfaces the result of the summarizer LLM call as a
-/// first-class variant — the pipeline alone can only return
-/// `AutocompactionRequested`.
-#[derive(Debug, Clone)]
-pub enum ReductionOutcome {
-    /// No stage fired — budget is healthy and history was untouched.
-    NoOp,
-    /// The pipeline's microcompact stage cleared one or more older
-    /// tool-result envelopes. The history has been mutated in place.
-    Microcompacted {
-        envelopes_cleared: usize,
-        entries_cleared: usize,
-        bytes_freed: usize,
-    },
-    /// The pipeline asked for summarization and the summarizer
-    /// successfully rewrote the head of the history. Contains the
-    /// summarizer's own stats for logging / RPC surfacing.
-    Summarized(SummaryStats),
-    /// The summarizer was asked to run but failed — the guard's
-    /// compaction circuit breaker has been nudged. If this happens
-    /// three times in a row the breaker trips and subsequent calls
-    /// return [`ReductionOutcome::Exhausted`].
-    SummarizationFailed { utilisation_pct: u8, reason: String },
-    /// The circuit breaker is tripped and the context is still above
-    /// the hard limit — the agent turn should abort.
-    Exhausted { utilisation_pct: u8, reason: String },
-    /// Autocompaction was requested but disabled by config. The
-    /// caller is expected to surface this via the guard directly.
-    NotAttempted { utilisation_pct: u8 },
-}
 
 /// Read-only snapshot of per-session context state. Returned by
 /// [`ContextManager::stats`] for observability and the optional
@@ -94,21 +53,16 @@ pub struct ContextStats {
 /// at session start; lives for the whole lifetime of the `Agent`.
 pub struct ContextManager {
     pipeline: ContextPipeline,
-    summarizer: Arc<dyn Summarizer>,
-    /// Model used for the summarization LLM call. Defaults to the
-    /// session's main model; can be overridden via
-    /// [`ContextConfig::summarizer_model`] when the user wants a
-    /// cheaper model for compaction.
-    summarizer_model: String,
     /// The default system-prompt builder used by
     /// [`ContextManager::build_system_prompt`]. Held by value so the
     /// agent's construction-time builder configuration survives the
     /// move into the manager.
     default_prompt_builder: SystemPromptBuilder,
-    /// Whether the entire module is enabled. When `false`,
-    /// [`ContextManager::reduce_before_call`] always returns `NoOp`.
-    /// Useful for tests and debugging; see
-    /// [`ContextConfig::enabled`].
+    /// Whether the entire module is enabled. Useful for tests and
+    /// debugging; see [`ContextConfig::enabled`]. Live history reduction
+    /// now runs in the tinyagents graph (`ContextCompressionMiddleware` +
+    /// `MessageTrimMiddleware`, issue #4249); this flag only gates the
+    /// manager's own bookkeeping surfaces.
     enabled: bool,
     /// Per-tool-result byte cap applied inline at tool-execution time.
     /// Stored on the manager (rather than on the agent directly) so
@@ -136,18 +90,14 @@ impl ContextManager {
     /// Construct a manager for a session.
     ///
     /// * `config` — the loaded [`ContextConfig`] section.
-    /// * `summarizer` — typically a [`super::ProviderSummarizer`]
-    ///   wrapping the session's provider, but tests pass a mock.
-    /// * `main_model` — the agent's main model; used as the
-    ///   summarizer model unless `config.summarizer_model` overrides.
     /// * `default_prompt_builder` — the builder [`build_system_prompt`]
     ///   calls. For most agents this is `SystemPromptBuilder::with_defaults()`.
-    pub fn new(
-        config: &ContextConfig,
-        summarizer: Arc<dyn Summarizer>,
-        main_model: String,
-        default_prompt_builder: SystemPromptBuilder,
-    ) -> Self {
+    ///
+    /// The manager no longer owns a summarizer: live history reduction moved
+    /// to the tinyagents graph (issue #4249). What remains here is the system
+    /// prompt, the stats/utilisation surface, tool-result budgeting, and
+    /// session-memory bookkeeping.
+    pub fn new(config: &ContextConfig, default_prompt_builder: SystemPromptBuilder) -> Self {
         // Map ContextConfig into the mechanical pipeline's own config
         // struct. Session-memory thresholds flow through unchanged.
         let pipeline_config = ContextPipelineConfig {
@@ -161,12 +111,8 @@ impl ContextManager {
             },
         };
 
-        let summarizer_model = config.summarizer_model.clone().unwrap_or(main_model);
-
         Self {
             pipeline: ContextPipeline::new(pipeline_config),
-            summarizer,
-            summarizer_model,
             default_prompt_builder,
             enabled: config.enabled,
             tool_result_budget_bytes: config.tool_result_budget_bytes,
@@ -312,84 +258,6 @@ impl ContextManager {
     fn warn_if_cache_unstable(&self, prompt: &str) {
         if self.compaction_enabled {
             crate::openhuman::agent::harness::compaction::cache_align::warn_if_volatile(prompt);
-        }
-    }
-
-    // ─── Reduction ─────────────────────────────────────────────────
-
-    /// Run the reduction chain against `history` before a provider
-    /// call. Cheap when the guard is healthy; executes the
-    /// summarization LLM call internally when the pipeline asks for
-    /// autocompaction.
-    ///
-    /// This is the single reduction entry point — agents call it once
-    /// before every provider hit and map the returned
-    /// [`ReductionOutcome`] into their own logging / abort logic.
-    pub async fn reduce_before_call(
-        &mut self,
-        history: &mut Vec<ConversationMessage>,
-    ) -> Result<ReductionOutcome> {
-        if !self.enabled {
-            return Ok(ReductionOutcome::NoOp);
-        }
-
-        match self.pipeline.run_before_call(history) {
-            PipelineOutcome::NoOp => Ok(ReductionOutcome::NoOp),
-
-            PipelineOutcome::Microcompacted(stats) => Ok(ReductionOutcome::Microcompacted {
-                envelopes_cleared: stats.envelopes_cleared,
-                entries_cleared: stats.entries_cleared,
-                bytes_freed: stats.bytes_freed,
-            }),
-
-            PipelineOutcome::ContextExhausted {
-                utilisation_pct,
-                reason,
-            } => Ok(ReductionOutcome::Exhausted {
-                utilisation_pct,
-                reason,
-            }),
-
-            PipelineOutcome::AutocompactionDisabled { utilisation_pct } => {
-                Ok(ReductionOutcome::NotAttempted { utilisation_pct })
-            }
-
-            PipelineOutcome::AutocompactionRequested { utilisation_pct } => {
-                // Dispatch the summarizer. If it succeeds we reset the
-                // guard's circuit breaker so a prior string of failures
-                // doesn't leave us permanently disabled after a good
-                // run. On failure, we nudge the breaker — three
-                // consecutive failures trip it and we return
-                // `Exhausted` the next time the guard is checked.
-                tracing::info!(
-                    utilisation_pct,
-                    model = %self.summarizer_model,
-                    "[context::manager] dispatching autocompaction summarizer"
-                );
-                match self
-                    .summarizer
-                    .summarize(history, &self.summarizer_model)
-                    .await
-                {
-                    Ok(stats) => {
-                        self.pipeline.guard.record_compaction_success();
-                        Ok(ReductionOutcome::Summarized(stats))
-                    }
-                    Err(e) => {
-                        let reason = e.to_string();
-                        tracing::warn!(
-                            utilisation_pct,
-                            error = %reason,
-                            "[context::manager] summarizer failed — nudging circuit breaker"
-                        );
-                        self.pipeline.guard.record_compaction_failure();
-                        Ok(ReductionOutcome::SummarizationFailed {
-                            utilisation_pct,
-                            reason,
-                        })
-                    }
-                }
-            }
         }
     }
 

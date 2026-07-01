@@ -41,7 +41,11 @@ impl DelegateGraphTool {
 #[async_trait]
 impl Tool for DelegateGraphTool {
     fn name(&self) -> &str {
-        "delegate"
+        // Distinct from the config-driven `delegate` tool (`DelegateTool`, added
+        // when `[agents]` are configured) so the two don't collide in the
+        // first-match tool registry — a shared `delegate` name made whichever
+        // registered first shadow the other. This is the graph delegation path.
+        "delegate_graph"
     }
 
     fn description(&self) -> &str {

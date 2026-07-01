@@ -13,7 +13,8 @@
 //!
 //! **Available tools.** The sub-agent reuses the parent's harness tools plus the
 //! per-spawn dynamic tools, advertised via [`SharedToolAdapter`] over the shared
-//! `Arc<Vec<Box<dyn Tool>>>` tool sets (`[parent_tools, dynamic_tools]`), filtered
+//! `Arc<Vec<Box<dyn Tool>>>` tool sets (`[dynamic_tools, parent_tools]` — dynamic
+//! first so a shadowing dynamic tool executes, matching advertisement), filtered
 //! by `allowed_names`. `ask_user_clarification` is the early-exit tool.
 //!
 //! **Summarization.** When the sub-agent model's effective context window is
@@ -119,7 +120,13 @@ pub(super) async fn run_subagent_via_graph(
         model,
         temperature,
         dispatch_history,
-        vec![parent_tools, Arc::new(dynamic_tools)],
+        // Dynamic (per-spawn) tools first so a dynamic tool that intentionally
+        // shadows a parent-registry tool of the same name is the one that
+        // *executes* — matching the advertisement order (`dedup_tool_specs_by_name`
+        // lists dynamic specs before parent specs in `runner.rs`). The shared
+        // adapter resolves a name by scanning the sets in order, so a
+        // parent-first order would run the parent impl for a shadowed name.
+        vec![Arc::new(dynamic_tools), parent_tools],
         allowed_names,
         max_iterations,
         // Parent's progress sink — child events ride it, scoped below.
@@ -153,8 +160,11 @@ pub(super) async fn run_subagent_via_graph(
     let mut usage = AggregatedUsage {
         input_tokens: outcome.input_tokens,
         output_tokens: outcome.output_tokens,
-        cached_input_tokens: 0,
-        charged_amount_usd: 0.0,
+        // Carry the child's cached-prefix tokens + estimated cost (the turn
+        // outcome now reports both) so sub-agent spend rolls into the parent
+        // instead of being recorded as uncached and $0.
+        cached_input_tokens: outcome.cached_input_tokens,
+        charged_amount_usd: outcome.charged_amount_usd,
     };
 
     // Cap hit with work still pending: summarize the run-so-far into a resumable

@@ -106,6 +106,7 @@ pub mod search;
 pub mod security;
 pub mod service;
 pub mod session_db;
+pub mod session_import;
 pub mod skill_registry;
 pub mod skill_runtime;
 pub mod socket;

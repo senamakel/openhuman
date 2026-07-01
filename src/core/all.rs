@@ -312,6 +312,9 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     controllers.extend(crate::openhuman::devices::all_devices_registered_controllers());
     // Durable agent session database — queryable index over transcripts, lineage, tool calls
     controllers.extend(crate::openhuman::session_db::all_session_db_registered_controllers());
+    // One-time legacy session import into TinyAgents stores
+    controllers
+        .extend(crate::openhuman::session_import::all_session_import_registered_controllers());
     // Background agent command center — read-only grouped view over the run ledger
     controllers
         .extend(crate::openhuman::agent_orchestration::all_command_center_registered_controllers());
@@ -469,6 +472,8 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::devices::all_devices_controller_schemas());
     // Durable agent session database
     schemas.extend(crate::openhuman::session_db::all_session_db_controller_schemas());
+    // One-time legacy session import into TinyAgents stores
+    schemas.extend(crate::openhuman::session_import::all_session_import_controller_schemas());
     // Background agent command center
     schemas.extend(crate::openhuman::agent_orchestration::all_command_center_controller_schemas());
     // Durable dynamic workflow runs
@@ -540,6 +545,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "screen_intelligence" => Some("Screen capture, permissions, and accessibility automation."),
         "security" => Some("Security policy and autonomy guardrail metadata."),
         "service" => Some("Desktop service lifecycle management."),
+        "session_import" => {
+            Some("One-time import of legacy session transcripts into TinyAgents stores.")
+        }
         "skill_registry" => Some("Browse, search, install, and uninstall skills from remote registries (OpenHuman, Hermes, OpenClaw)."),
         "skill_runtime" => Some("Run installed skills, inspect run logs, and resolve Node/Python skill runtimes."),
         "workflows" => Some("Discovered workflows (WORKFLOW.md/SKILL.md bundles) and their resources."),

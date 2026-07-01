@@ -521,3 +521,89 @@ fn adapter_inventory_gates_context_middleware_on_window() {
     );
     assert!(assembled.early_exit_hook.is_none());
 }
+
+/// Phase 5 rollup gap (issue #4249): the per-call global cost tracker feed
+/// lives in the event bridge, which only exists on observed runs. An
+/// unobserved (fire-and-forget) turn must feed its aggregate usage through
+/// `record_unobserved_turn_usage` — exactly once (the bridge and the fallback
+/// are mutually exclusive branches) — or its spend never reaches the cost
+/// dashboard.
+#[tokio::test]
+async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
+    use crate::openhuman::inference::provider::UsageInfo;
+
+    /// Answers immediately, echoing provider-reported usage.
+    struct DoneWithUsage;
+    #[async_trait]
+    impl Provider for DoneWithUsage {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            Ok(ChatResponse {
+                text: Some("done".to_string()),
+                usage: Some(UsageInfo {
+                    input_tokens: 111,
+                    output_tokens: 22,
+                    context_window: 0,
+                    cached_input_tokens: 7,
+                    charged_amount_usd: 0.0,
+                }),
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+
+    let outcome = run_turn_via_tinyagents_shared(
+        Arc::new(DoneWithUsage),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("hello")],
+        Vec::new(),
+        HashSet::new(),
+        3,
+        None, // on_progress: unobserved — no bridge, cost fallback branch runs
+        None,
+        None,
+        None,
+        &[],
+        false,
+        None,
+        TurnContextMiddleware::defaults(),
+        None,
+    )
+    .await
+    .expect("turn runs");
+
+    // The fallback branch aggregated the run's real usage (and fed the global
+    // tracker — a silent no-op when no tracker is installed in this process).
+    assert_eq!(outcome.input_tokens, 111);
+    assert_eq!(outcome.output_tokens, 22);
+    assert_eq!(outcome.cached_input_tokens, 7);
+}
+
+/// The cost-fallback recorder skips all-zero usage (providers that echo no
+/// usage must not inflate the tracker's request count) and attempts a record
+/// whenever any tokens were observed. It must never panic without a tracker.
+#[test]
+fn record_unobserved_turn_usage_gates_on_observed_tokens() {
+    assert!(!record_unobserved_turn_usage("m", 0, 0, 0, 0.0));
+    assert!(!record_unobserved_turn_usage("m", 0, 0, 5, 0.1));
+    assert!(record_unobserved_turn_usage("m", 10, 0, 0, 0.0));
+    assert!(record_unobserved_turn_usage("m", 0, 3, 0, 0.0));
+    assert!(record_unobserved_turn_usage("m", 10, 3, 2, 0.5));
+}

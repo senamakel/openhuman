@@ -416,13 +416,29 @@ run-ledger rows, and prove restart/resume parity.
     `CostConfig` fields + thread-id threading into the runner) and projecting the
     *next* call's cost pre-spend (needs an input-token estimate).
 
-- [ ] Add cost rollup across sub-agents and graphs.
+- [~] Add cost rollup across sub-agents and graphs.
   - OpenHuman files: `src/openhuman/agent_orchestration/**`,
     `src/openhuman/cost/global.rs`.
   - TinyAgents components: run ids, parent/root run lineage,
     `SubAgentStarted`, `SubAgentCompleted`, graph child runs.
   - Acceptance: parent run totals include child agent/model/tool usage without
     double counting dashboard totals.
+  - **Partial (audit + real gap fixed).** Audit of the current mechanics:
+    (1) parent-turn rollup — the `turn_subagent_usage` task-local collector
+    wraps the turn future; `run_typed_mode` (the single sub-agent chokepoint)
+    records every inline child, and graph fan-outs (`run_parallel_fanout`,
+    delegation, council) execute via `join_all` **on the same task**, so their
+    children inherit the collector too; (2) dashboard totals — the global
+    tracker is fed per model call by each run's own event bridge, and the
+    parent's fold into `LastTurnUsage`/transcript never re-records to the
+    tracker, so there is no double counting. **Gap fixed:** the tracker feed
+    lived *only* in the bridge, so an unobserved (`on_progress = None`,
+    fire-and-forget) turn's spend never reached the dashboard — the runner's
+    cost fallback now records the aggregate via `record_unobserved_turn_usage`
+    (mutually exclusive with the bridge → exactly-once). Remaining: crate
+    run-id / parent-root lineage on cost records (needs `TokenUsage` schema
+    fields), and rollup for *detached* background children beyond
+    global-tracker capture (documented behavior today).
 
 ## Phase 6 - Graph Runtime And Orchestration
 

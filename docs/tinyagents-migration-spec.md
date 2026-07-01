@@ -3,13 +3,16 @@
 Status: draft migration backlog
 
 TinyAgents source reviewed: `tinyhumansai/tinyagents` `origin/main` at
-`8f226f1`, crate version `1.1.0`.
+`8f226f1`, crate version `1.1.0`. Current OpenHuman dependency in this checkout
+is `tinyagents = "1.2"`.
 
-OpenHuman already depends on `tinyagents = "1.1"` and already routes the live
+OpenHuman already depends on `tinyagents = "1.2"` and already routes the live
 agent turn through `src/openhuman/tinyagents/`. This spec is not a proposal to
 add TinyAgents. It is a todo list for moving the rest of OpenHuman's generic
 agent runtime behavior onto TinyAgents primitives while keeping OpenHuman-owned
 product semantics in OpenHuman.
+
+Current inventory snapshot: [`tinyagents-harness-migration-audit.md`](tinyagents-harness-migration-audit.md).
 
 ## Goal
 
@@ -73,7 +76,7 @@ OpenHuman Rust core:
 
 Already done or partially done:
 
-- `Cargo.toml` pins `tinyagents = "1.1"` with default features only.
+- `Cargo.toml` pins `tinyagents = "1.2"` with default features only.
 - `src/openhuman/tinyagents/mod.rs` registers OpenHuman `Provider` and `Tool`
   adapters on `tinyagents::harness::runtime::AgentHarness`.
 - `ProviderModel` maps OpenHuman `ChatRequest`/`ChatResponse` into
@@ -222,7 +225,7 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
     `memory`, `subconscious`, etc.) can resolve to a TinyAgents model entry
     while retaining OpenHuman provider strings and config compatibility.
 
-- [ ] Translate OpenHuman provider capability data into TinyAgents model profiles.
+- [~] Translate OpenHuman provider capability data into TinyAgents model profiles.
   - OpenHuman files: `src/openhuman/inference/provider/traits.rs`,
     `src/openhuman/inference/provider/factory.rs`,
     `docs/inference-provider-catalog.md`.
@@ -231,6 +234,17 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
   - Acceptance: context window, tool calling, streaming, vision, structured
     output, reasoning, local/cloud source, and provider-family metadata are
     available before dispatch.
+  - **Partial:** every `ProviderModel` registered by the shared runner now
+    carries a crate `ModelProfile` built at construction from the provider's
+    canonical capability accessors — tool calling (+parallel), vision
+    (`modalities.image_in`), streaming, local/remote source — plus the
+    runner-threaded token limits (`with_context_window` → `max_input_tokens`,
+    output cap → `max_output_tokens`). `ChatModel::profile()` returns it, so
+    the crate's pre-dispatch validation and structured-output strategy see real
+    capabilities. Remaining: structured-output/JSON-schema/reasoning flags
+    (no OpenHuman capability source yet), release/status metadata, and a
+    registry-level model *catalog* (ties into the workload-route registry item
+    above).
 
 - [ ] Move model fallback and retry policy to TinyAgents policy/middleware.
   - OpenHuman files: `src/openhuman/inference/provider/reliable.rs`,
@@ -579,7 +593,7 @@ assessment, and migration coverage are complete.
   - Candidate outcome: replace dozens of boilerplate default `graph.rs` files
     with registry defaults, keeping files only for agents with custom graphs.
 
-- [~] Audit stale architecture references to removed in-house graph/loop code.
+- [x] Audit stale architecture references to removed in-house graph/loop code.
   - Current files: `gitbooks/developing/architecture/agent-harness.md`,
     `src/openhuman/context/README.md`.
   - Candidate stale names: `src/openhuman/agent_graph/`, `GraphBlueprint`,
@@ -594,9 +608,16 @@ assessment, and migration coverage are complete.
     section as HISTORICAL-removed (strong inline callout pointing at the live
     tinyagents surfaces); fixed `context/README.md` "Used by" line that still
     referenced the deleted `reduce_before_call`/`ProviderSummarizer`/
-    `SegmentRecapSummarizer`/`unified_compaction_enabled`. Remaining: a sweep of
-    code doc-comments across many `.rs` files that still name `run_turn_engine`,
-    `run_tool_call_loop`, `tool_loop.rs` (comments only — no behavior).
+    `SegmentRecapSummarizer`/`unified_compaction_enabled`. **Sweep completed:**
+    every code doc-comment that described `run_turn_engine`/`run_tool_call_loop`/
+    `tool_loop.rs` as *current* behavior (≈20 sites across 15 files: tools,
+    security, tokenjuice, triage, orchestration steering, task-local contexts,
+    cron, host_runtime, event-bus example, test-file headers) now points at the
+    live tinyagents surfaces; intentionally-historical "legacy X was removed /
+    parity with" notes were kept. Domain READMEs (tools, tokenjuice, approval)
+    fixed too — the tokenjuice one now records that `compact_tool_output` lost
+    its only production caller with the retired loop (re-wiring it as an
+    `after_tool` middleware is an open follow-up).
 
 - [ ] Audit `src/openhuman/context/{pipeline,guard,microcompact}.rs`.
   - Current role: context stats/session-memory bookkeeping plus older
@@ -649,7 +670,7 @@ assessment, and migration coverage are complete.
   - Candidate outcome: document why each fanout stays as `join_all` or move it
     to `run_parallel_fanout` / graph `Send`.
 
-- [ ] Audit tool registry comments and docs that still describe retired
+- [x] Audit tool registry comments and docs that still describe retired
   direct-loop behavior.
   - Current files: `src/openhuman/tools/traits.rs`,
     `src/openhuman/tools/README.md`,
@@ -659,6 +680,9 @@ assessment, and migration coverage are complete.
   - Candidate outcome: update comments to describe the TinyAgents execution
     path and delete references to the retired serial `harness::tool_loop`
     dispatcher once no code path uses it.
+  - **Done:** `tools/traits.rs` concurrency note and `tools/README.md` "Used
+    by" now describe the tinyagents execution path (`SharedToolAdapter` /
+    `ToolPolicyMiddleware`); `session/turn/tools.rs` had no stale references.
 
 ## Phase 11 - Testing And Conformance
 

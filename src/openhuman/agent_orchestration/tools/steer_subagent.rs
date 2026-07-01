@@ -2,8 +2,9 @@
 //!
 //! Pairs with `spawn_async_subagent`: that tool returns a `task_id` for a child
 //! running in the background. `steer_subagent` pushes a message into that child's
-//! steering queue, which its inner `run_turn_engine` drains at the next iteration
-//! boundary — so the parent can redirect or feed data to a running sub-agent
+//! steering queue, which the steering forwarder in the child's turn
+//! (`run_turn_via_tinyagents_shared`) drains mid-flight — so the parent can
+//! redirect or feed data to a running sub-agent
 //! without waiting for it to finish or restarting it. Mirrors Codex `send_input`.
 
 use crate::openhuman::agent::harness::fork_context::current_parent;

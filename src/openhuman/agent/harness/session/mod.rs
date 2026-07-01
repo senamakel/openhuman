@@ -37,6 +37,6 @@ mod tests;
 pub use types::{Agent, AgentBuilder};
 
 // Re-export the duplicate-tool-spec guard for sibling harness modules
-// (`tool_loop`, `subagent_runner`) so all three provider call sites
+// (`session::runtime`, `subagent_runner`) so all provider call sites
 // share one tested implementation.
 pub(crate) use builder::dedup_visible_tool_specs;

@@ -109,16 +109,17 @@ pub async fn run_subagent(
     // Unconditionally heap-allocate the entire run_subagent body so
     // every caller doesn't have to carry this future's state inline.
     // Tools that delegate run inside the parent agent's already-deep
-    // `run_turn_engine` poll, so the parent's stack would otherwise pile
-    // (parent engine state + dispatch_subagent state + run_subagent's
-    // wrapper state + run_typed_mode state + child engine state) onto
-    // tokio's 2 MiB worker stack and abort with "thread
+    // turn poll (the boxed tinyagents harness drive future in
+    // `run_turn_via_tinyagents_shared`), so the parent's stack would
+    // otherwise pile (parent turn state + dispatch_subagent state +
+    // run_subagent's wrapper state + run_typed_mode state + child turn
+    // state) onto tokio's 2 MiB worker stack and abort with "thread
     // 'tokio-rt-worker' has overflowed its stack, fatal runtime error:
     // stack overflow" — observed at `[subagent_runner] dispatching
     // agent_id=researcher ...` in the `chat-harness-subagent` Playwright
-    // lane crash. The inner `Box::pin`s around `run_typed_mode` /
-    // `run_inner_loop` / child `run_turn_engine` further chunk the
-    // child's state so a single sub-agent run can't blow the stack either.
+    // lane crash. The inner `Box::pin`s around `run_typed_mode` and the
+    // child's tinyagents drive future further chunk the child's state so
+    // a single sub-agent run can't blow the stack either.
     Box::pin(async move {
         let parent = current_parent().ok_or(SubagentRunError::NoParentContext)?;
         let task_id = options

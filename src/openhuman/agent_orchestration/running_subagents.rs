@@ -6,8 +6,9 @@
 //! closes both gaps.
 //!
 //! Each running async sub-agent registers, keyed by its `task_id`, with:
-//! - an `Arc<RunQueue>` — the same steering channel the inner `run_turn_engine`
-//!   drains at iteration boundaries, so `steer_subagent` can inject a message;
+//! - an `Arc<RunQueue>` — the same steering channel the steering forwarder in
+//!   `run_turn_via_tinyagents_shared` drains mid-turn, so `steer_subagent` can
+//!   inject a message;
 //! - a `watch::Receiver<SubagentStatus>` — so `wait_subagent` can block until the
 //!   child reaches a terminal status;
 //! - an `AbortHandle` — kept for a future `close_agent` tool.
@@ -302,8 +303,9 @@ pub enum SteerError {
     AlreadyDone,
 }
 
-/// Inject a message into a running sub-agent's steering queue. The child's
-/// `run_turn_engine` drains it at the next iteration boundary.
+/// Inject a message into a running sub-agent's steering queue. The steering
+/// forwarder in the child's `run_turn_via_tinyagents_shared` turn drains it
+/// mid-flight.
 pub async fn steer(
     task_id: &str,
     parent_session: &str,

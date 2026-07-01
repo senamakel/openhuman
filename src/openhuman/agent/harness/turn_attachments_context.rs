@@ -13,9 +13,9 @@
 //! rehydrates the image from the on-disk sidecar.
 //!
 //! Mirrors [`super::model_vision_context`]. Scoped around the orchestrator's
-//! `run_turn_engine` call; [`current_turn_image_placeholders`] returns an empty
-//! vec when no scope is active (CLI / direct invocation / tests) — strictly
-//! additive.
+//! turn future (`run_turn_via_tinyagents_shared`);
+//! [`current_turn_image_placeholders`] returns an empty vec when no scope is
+//! active (CLI / direct invocation / tests) — strictly additive.
 
 tokio::task_local! {
     /// Image-attachment placeholder tokens from the current turn's user message.
@@ -30,8 +30,8 @@ pub fn current_turn_image_placeholders() -> Vec<String> {
 }
 
 /// Run `future` with `placeholders` installed as the current turn's image
-/// placeholders. Intended call site is around the orchestrator's
-/// `run_turn_engine` invocation.
+/// placeholders. Intended call site is around the orchestrator's turn
+/// (`run_turn_via_tinyagents_shared`) invocation.
 pub async fn with_current_turn_image_placeholders<F, R>(placeholders: Vec<String>, future: F) -> R
 where
     F: std::future::Future<Output = R>,

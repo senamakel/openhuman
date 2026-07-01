@@ -348,12 +348,12 @@ pub trait Tool: Send + Sync {
     /// `cat` invocations and reject parallel `npm install`s) — most
     /// tools will ignore it.
     ///
-    /// **Wiring note:** the parallel dispatcher in
-    /// `harness::tool_loop` currently runs tool calls serially
-    /// regardless of this flag. Annotating tools is still load-
-    /// bearing: it lets the dispatch refactor land without
-    /// coordinating with every tool author. See the parallel-tool
-    /// dispatch follow-up issue.
+    /// **Wiring note:** the tinyagents harness loop (see
+    /// `crate::openhuman::tinyagents::tools`) currently executes tool
+    /// calls serially regardless of this flag. Annotating tools is
+    /// still load-bearing: it lets a parallel-dispatch refactor land
+    /// without coordinating with every tool author. See the
+    /// parallel-tool dispatch follow-up issue.
     fn is_concurrency_safe(&self, _args: &serde_json::Value) -> bool {
         false
     }

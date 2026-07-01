@@ -561,10 +561,10 @@ async fn capped_no_progress_subagent_returns_incomplete_status() {
 async fn run_queue_steer_lands_in_subagent_history() {
     // End-to-end proof that flipping the subagent loop's run-queue arg from
     // `None` to `Some(queue)` wires steering all the way through: a message
-    // pushed to the queue before the run is drained by the inner
-    // `run_turn_engine` and appears as a `[User steering message]:` user turn
-    // in the exact request sent to the provider. This is the mechanism behind
-    // the `steer_subagent` tool.
+    // pushed to the queue before the run is drained by the steering forwarder
+    // in the child's turn (`run_turn_via_tinyagents_shared`) and appears as a
+    // `[User steering message]:` user turn in the exact request sent to the
+    // provider. This is the mechanism behind the `steer_subagent` tool.
     let provider = ScriptedProvider::new(vec![text_response("acknowledged")]);
     let parent = make_parent(provider.clone(), vec![stub("file_read")]);
     let def = make_def_named_tools(&[]);
@@ -1514,8 +1514,8 @@ fn nested_subagent_dispatch_runs_on_a_constrained_worker_stack() {
     let outcome = outcome.expect(
         "nested run_subagent must complete on a 1 MiB worker stack — \
          a stack overflow here means the recursion boundary in \
-         `run_typed_mode` regressed (see `Box::pin` callsites around \
-         `run_inner_loop` and `run_turn_engine`).",
+         `run_typed_mode` regressed (see the `Box::pin` callsites around \
+         `run_typed_mode` and the child's tinyagents drive future).",
     );
     assert!(
         outcome.output.contains("inner-final"),

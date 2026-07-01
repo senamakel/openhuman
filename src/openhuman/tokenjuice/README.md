@@ -61,7 +61,7 @@ This module is **fully self-contained within `openhuman`** — it has no `use cr
 
 ## Used by
 
-- `src/openhuman/agent/harness/tool_loop.rs` — the only consumer. Calls `crate::openhuman::tokenjuice::compact_tool_output(&call.name, Some(&call.arguments), &scrubbed, Some(0))` after a successful tool call (post credential-scrub) to compact tool output before it is fed back to the model.
+- **Currently unwired on the live turn path.** The only production consumer of `compact_tool_output` was the retired in-house `agent/harness/tool_loop.rs` (removed in the tinyagents migration, issue #4249); the tinyagents route caps/summarizes tool output via `ToolOutputMiddleware` instead. Re-expressing tokenjuice compaction as an `after_tool` middleware on that path is the outstanding follow-up (see `docs/tinyagents-migration-spec.md`).
 
 ## Notes / gotchas
 

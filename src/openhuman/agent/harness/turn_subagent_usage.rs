@@ -9,10 +9,11 @@
 //! cost tracker.
 //!
 //! This module installs an [`Arc<Mutex<Vec<SubagentUsageEntry>>>`] as a
-//! task-local around the parent's `run_turn_engine` call. Synchronous
-//! delegations (`spawn_subagent`) run inline on the same tokio task, so the
-//! sub-agent runner can [`record_subagent_usage`] its totals into the active
-//! collector. After the engine returns, the parent [`drain`]s the collector to:
+//! task-local around the parent's turn future (the
+//! `run_turn_via_tinyagents_shared` drive). Synchronous delegations
+//! (`spawn_subagent`) run inline on the same tokio task, so the sub-agent
+//! runner can [`record_subagent_usage`] its totals into the active collector.
+//! After the turn returns, the parent [`drain`]s the collector to:
 //!
 //! 1. fold child tokens + USD into the turn's cumulative meters, and
 //! 2. attribute per-child spend for the `chat_done` breakdown (hover detail).
@@ -64,7 +65,8 @@ pub type TurnSubagentUsage = Arc<Mutex<Vec<SubagentUsageEntry>>>;
 
 tokio::task_local! {
     /// Active per-turn sub-agent usage collector, installed around the parent's
-    /// `run_turn_engine` call. Absent outside a turn scope.
+    /// turn future (`run_turn_via_tinyagents_shared`). Absent outside a turn
+    /// scope.
     static TURN_SUBAGENT_USAGE: TurnSubagentUsage;
 }
 
@@ -115,7 +117,7 @@ pub fn record_subagent_usage(task_id: &str, agent_id: &str, usage: SubagentUsage
 
 /// Run `future` with a fresh sub-agent usage collector installed, returning both
 /// the future's output and the gathered per-child entries. Intended call site is
-/// around the parent agent's `run_turn_engine` invocation.
+/// around the parent agent's turn (`run_turn_via_tinyagents_shared`) invocation.
 pub async fn with_turn_collector<F, R>(future: F) -> (R, Vec<SubagentUsageEntry>)
 where
     F: std::future::Future<Output = R>,

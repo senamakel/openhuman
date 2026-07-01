@@ -390,7 +390,8 @@ mod tests {
         // The readonly block must carry the hard-reject marker so the agent
         // harness recognizes it and halts on a verbatim repeat instead of
         // grinding. Ties this tool's literal to the marker const — the
-        // const→detector half is covered by tool_loop's guard tests.
+        // const→detector half lives in `RepeatedToolFailureMiddleware` and is
+        // covered by its tests (`src/openhuman/tinyagents/middleware.rs`).
         assert!(
             result
                 .output()

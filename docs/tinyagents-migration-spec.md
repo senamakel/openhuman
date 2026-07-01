@@ -298,7 +298,7 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
 
 ## Phase 5 - Usage, Cost, And Budgets
 
-- [ ] Replace bridge-only usage accounting with TinyAgents usage records.
+- [~] Replace bridge-only usage accounting with TinyAgents usage records.
   - OpenHuman files: `src/openhuman/cost/*`,
     `src/openhuman/tinyagents/observability.rs`,
     `src/openhuman/inference/provider/traits.rs`.
@@ -307,6 +307,15 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
   - Acceptance: input, output, cached input, reasoning, image/audio, embedding,
     tool/model call counts, and estimated/provider-reported source are recorded
     in normalized records.
+  - **Partial (real bug fixed):** the bridge hardcoded `charged_amount_usd: 0.0`
+    and `ProviderModel` dropped cached tokens, so EVERY tinyagents turn recorded
+    **$0 cost**. Now `model.rs` carries `cached_input_tokens` via crate
+    `Usage.cache_read_tokens`, and the bridge estimates per-call cost from
+    catalogued per-MTok rates (`cost::catalog::estimate_cost_usd`). Remaining:
+    reasoning/image/audio/embedding token fields, model/tool call counts, and an
+    explicit estimated-vs-provider-charged `cost_source` tag on `TokenUsage`
+    (provider-charged preservation needs an out-of-band carry — crate `Usage` has
+    no USD field).
 
 - [ ] Move budget checks to pre-call TinyAgents middleware.
   - OpenHuman files: `src/openhuman/cost/tracker.rs`,

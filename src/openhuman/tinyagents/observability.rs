@@ -152,11 +152,24 @@ impl OpenhumanEventBridge {
     /// `TurnCostUpdated` so the UI footer stays live.
     fn record_usage(&self, usage: &Usage) {
         let iteration = self.iteration();
+        // Provider-reported charged USD has no home in the crate `Usage` (all
+        // token counts), so estimate this call's cost from catalogued per-MTok
+        // rates. Fixes the long-standing $0 cost on the tinyagents path, where
+        // the charged amount was hardcoded to 0.0 (issue #4249, Phase 5). When a
+        // provider genuinely charges (credit-metered backends) preserving that
+        // exact amount needs an out-of-band carry — tracked as a follow-up.
+        let call_cost = crate::openhuman::cost::catalog::estimate_cost_usd(
+            &self.model,
+            usage.input_tokens,
+            usage.output_tokens,
+            usage.cache_read_tokens,
+        );
         let (input, output, cached, charged) = {
             let mut s = self.state.lock().unwrap();
             s.input_tokens += usage.input_tokens;
             s.output_tokens += usage.output_tokens;
             s.cached_input_tokens += usage.cache_read_tokens;
+            s.charged_amount_usd += call_cost;
             (
                 s.input_tokens,
                 s.output_tokens,
@@ -172,7 +185,7 @@ impl OpenhumanEventBridge {
             output_tokens: usage.output_tokens,
             context_window: 0,
             cached_input_tokens: usage.cache_read_tokens,
-            charged_amount_usd: 0.0,
+            charged_amount_usd: call_cost,
         };
         crate::openhuman::cost::record_provider_usage(&self.model, &usage_info);
 

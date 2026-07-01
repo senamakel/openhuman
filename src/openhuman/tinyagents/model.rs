@@ -220,10 +220,16 @@ fn response_to_model_response(
     if !visible_text.is_empty() {
         content.push(ContentBlock::Text(visible_text));
     }
-    let usage = response
-        .usage
-        .as_ref()
-        .map(|u| Usage::new(u.input_tokens, u.output_tokens));
+    let usage = response.usage.as_ref().map(|u| {
+        // Carry the provider's cached-prefix input count through the crate
+        // `Usage` (it has a `cache_read_tokens` field) so downstream cost
+        // accounting can price it at the cached rate. `Usage::new` seeds
+        // input/output/total; set the cache field on top. (`charged_amount_usd`
+        // has no crate home; the event bridge estimates cost from token counts.)
+        let mut usage = Usage::new(u.input_tokens, u.output_tokens);
+        usage.cache_read_tokens = u.cached_input_tokens;
+        usage
+    });
     let finish_reason = if tool_calls.is_empty() {
         "stop"
     } else {

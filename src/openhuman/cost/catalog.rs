@@ -378,6 +378,32 @@ pub fn context_window(model: &str) -> Option<u32> {
     lookup(model).map(|p| p.context_window)
 }
 
+/// Estimate the USD cost of a single model call from catalogued per-MTok rates.
+///
+/// Prices the standard (cache-miss) input tokens, the cached-prefix input
+/// tokens, and the output tokens separately. `cached_input_tokens` are billed at
+/// the (usually cheaper) cached rate and are assumed to be a subset of
+/// `input_tokens`, so the standard-rate portion is `input − cached`. Returns
+/// `0.0` when the model is not catalogued (caller should treat as "unknown, not
+/// free" — this is a best-effort estimate used when the provider does not report
+/// a charged amount).
+pub fn estimate_cost_usd(
+    model: &str,
+    input_tokens: u64,
+    output_tokens: u64,
+    cached_input_tokens: u64,
+) -> f64 {
+    let Some(p) = lookup(model) else {
+        return 0.0;
+    };
+    let cached = cached_input_tokens.min(input_tokens);
+    let standard_input = input_tokens.saturating_sub(cached);
+    let per_tok = |mtok_rate: f64| mtok_rate / 1_000_000.0;
+    (standard_input as f64) * per_tok(p.input_per_mtok_usd)
+        + (cached as f64) * per_tok(p.cached_input_per_mtok_usd)
+        + (output_tokens as f64) * per_tok(p.output_per_mtok_usd)
+}
+
 /// Build a default registry, one [`ModelRegistryEntry`] per catalogued model
 /// with prices and context window pre-filled. Used to seed an empty
 /// `config.model_registry`.

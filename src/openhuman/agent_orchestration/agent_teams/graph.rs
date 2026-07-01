@@ -31,7 +31,10 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use tinyagents::graph::{ClosureStateReducer, Command, GraphBuilder, NodeContext, NodeResult};
+use tinyagents::graph::export::GraphTopology;
+use tinyagents::graph::{
+    ClosureStateReducer, Command, CompiledGraph, GraphBuilder, NodeContext, NodeResult,
+};
 
 use crate::openhuman::tinyagents::observability::GraphTracingSink;
 
@@ -79,6 +82,38 @@ pub(super) async fn run_member_execution_graph<W, WF, C, CF, F, FF>(
     on_complete: C,
     on_failed: F,
 ) -> anyhow::Result<()>
+where
+    W: Fn() -> WF + Clone + Send + Sync + 'static,
+    WF: Future<Output = anyhow::Result<MemberOutcome>> + Send + 'static,
+    C: Fn(String) -> CF + Clone + Send + Sync + 'static,
+    CF: Future<Output = anyhow::Result<()>> + Send + 'static,
+    F: Fn(String) -> FF + Clone + Send + Sync + 'static,
+    FF: Future<Output = anyhow::Result<()>> + Send + 'static,
+{
+    let graph = build_member_graph(run_worker, on_complete, on_failed)?
+        .with_event_sink(Arc::new(GraphTracingSink::new(label.to_string())));
+
+    tracing::debug!(
+        target: "orchestration",
+        label,
+        "[orchestration] driving team member execution on tinyagents graph"
+    );
+
+    graph
+        .run(MemberState::default())
+        .await
+        .map_err(|e| anyhow::anyhow!("member graph run failed: {e}"))?;
+    Ok(())
+}
+
+/// Build (but do not run) the member-execution `CompiledGraph`. Shared by
+/// [`run_member_execution_graph`] and [`member_graph_topology`] so the graph's
+/// structure has one definition.
+fn build_member_graph<W, WF, C, CF, F, FF>(
+    run_worker: W,
+    on_complete: C,
+    on_failed: F,
+) -> anyhow::Result<CompiledGraph<MemberState, MemberUpdate>>
 where
     W: Fn() -> WF + Clone + Send + Sync + 'static,
     WF: Future<Output = anyhow::Result<MemberOutcome>> + Send + 'static,
@@ -147,20 +182,20 @@ where
         .mark_command_routing("execute")
         .set_finish("done")
         .compile()
-        .map_err(|e| anyhow::anyhow!("member graph compile failed: {e}"))?
-        .with_event_sink(Arc::new(GraphTracingSink::new(label.to_string())));
+        .map_err(|e| anyhow::anyhow!("member graph compile failed: {e}"))?;
+    Ok(graph)
+}
 
-    tracing::debug!(
-        target: "orchestration",
-        label,
-        "[orchestration] driving team member execution on tinyagents graph"
-    );
-
-    graph
-        .run(MemberState::default())
-        .await
-        .map_err(|e| anyhow::anyhow!("member graph run failed: {e}"))?;
-    Ok(())
+/// Structure-only [`GraphTopology`] of the member-execution graph for debug /
+/// inspection (issue #4249, Phase 4). Built with no-op stub closures — the
+/// topology exposes only node names, edges, and routing, never closure bodies.
+pub(crate) fn member_graph_topology() -> anyhow::Result<GraphTopology> {
+    let graph = build_member_graph(
+        || async { Ok(MemberOutcome::Completed { output: String::new() }) },
+        |_: String| async { Ok(()) },
+        |_: String| async { Ok(()) },
+    )?;
+    Ok(graph.topology())
 }
 
 #[cfg(test)]

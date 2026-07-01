@@ -28,6 +28,7 @@ pub mod orchestration;
 pub mod stop_hooks;
 pub mod summarize;
 mod tools;
+pub mod topology;
 
 use std::sync::Arc;
 

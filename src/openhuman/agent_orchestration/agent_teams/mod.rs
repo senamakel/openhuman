@@ -23,6 +23,7 @@
 //! which manages backend org/team membership.
 
 mod graph;
+pub(crate) use graph::member_graph_topology;
 pub mod ops;
 pub mod runtime;
 mod schemas;

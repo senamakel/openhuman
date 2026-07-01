@@ -469,6 +469,21 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     // because an early-exit tool name was supplied.
     assert!(assembled.handle.is_some());
     assert!(assembled.early_exit_hook.is_some());
+
+    // Capability profile (issue #4249, Phase 2): derived from the wrapped
+    // provider plus the runner-threaded token limits.
+    use tinyagents::harness::model::ChatModel;
+    let registered = assembled
+        .harness
+        .models()
+        .get("mock-model")
+        .expect("model registered");
+    let profile = registered.profile().expect("profile is populated");
+    assert_eq!(profile.model.as_deref(), Some("mock-model"));
+    assert!(profile.tool_calling, "EchoThenDone supports native tools");
+    assert!(!profile.modalities.image_in, "no vision on the mock");
+    assert_eq!(profile.max_input_tokens, Some(200_000), "context window");
+    assert_eq!(profile.max_output_tokens, Some(1024), "output cap");
 }
 
 /// The context-management middlewares gate on a known context window: without

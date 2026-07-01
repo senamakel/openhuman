@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use tinyagents::harness::message::{AssistantMessage, ContentBlock, MessageDelta};
 use tinyagents::harness::model::{
-    ChatModel, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
+    ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
 use tinyagents::harness::tool::ToolCall as TaToolCall;
 use tinyagents::harness::usage::Usage;
@@ -311,18 +311,58 @@ pub struct ProviderModel {
     thinking: Option<ThinkingForwarder>,
     /// Preserves the last original provider error for the runner to re-surface.
     error_slot: ProviderErrorSlot,
+    /// Capability profile derived from the wrapped provider (issue #4249,
+    /// Phase 2): lets the crate validate a request against the model's actual
+    /// capabilities (vision, tool calling, streaming, token limits) *before*
+    /// a network call, and drives capability-aware registry resolution.
+    profile: ModelProfile,
 }
 
 impl ProviderModel {
     /// Build a model adapter for `provider`, pinned to `model`/`temperature`.
+    ///
+    /// The adapter's [`ModelProfile`] is derived from the provider's declared
+    /// capabilities at construction: vision → `modalities.image_in`, native
+    /// tool calling → `tool_calling`/`parallel_tool_calls` (openhuman's
+    /// `ChatResponse` carries multiple tool calls per response), and
+    /// `supports_streaming` → `streaming`. `streaming_tool_chunks` stays
+    /// `false` — [`ProviderModel::stream`] forwards text deltas only and
+    /// reconstructs tool calls from the final response. Token limits are
+    /// threaded in by the runner via [`ProviderModel::with_context_window`] /
+    /// [`ProviderModel::with_max_tokens`].
     pub fn new(provider: Arc<dyn Provider>, model: impl Into<String>, temperature: f64) -> Self {
+        let model = model.into();
+        // Read the canonical accessor methods (not `capabilities()` directly):
+        // several providers override `supports_native_tools`/`supports_vision`
+        // without overriding the `capabilities()` struct.
+        let native_tools = provider.supports_native_tools();
+        let profile = ModelProfile {
+            provider: Some(
+                if provider.is_local_provider_for_model(&model) {
+                    "local"
+                } else {
+                    "remote"
+                }
+                .to_string(),
+            ),
+            model: Some(model.clone()),
+            modalities: Modalities {
+                image_in: provider.supports_vision(),
+                ..Modalities::default()
+            },
+            tool_calling: native_tools,
+            parallel_tool_calls: native_tools,
+            streaming: provider.supports_streaming(),
+            ..ModelProfile::default()
+        };
         Self {
             provider,
-            model: model.into(),
+            model,
             temperature,
             max_tokens: None,
             thinking: None,
             error_slot: Arc::new(Mutex::new(None)),
+            profile,
         }
     }
 
@@ -335,6 +375,15 @@ impl ProviderModel {
     /// Cap the output tokens requested from the provider for every call.
     pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
+        self.profile.max_output_tokens = Some(u64::from(max_tokens));
+        self
+    }
+
+    /// Record the model's effective context window on the profile so the crate
+    /// can validate/select on input capacity before dispatch. Metadata only —
+    /// history trimming stays with the context middlewares.
+    pub fn with_context_window(mut self, window: u64) -> Self {
+        self.profile.max_input_tokens = Some(window);
         self
     }
 
@@ -348,6 +397,10 @@ impl ProviderModel {
 
 #[async_trait]
 impl ChatModel<()> for ProviderModel {
+    fn profile(&self) -> Option<&ModelProfile> {
+        Some(&self.profile)
+    }
+
     async fn invoke(
         &self,
         _state: &(),

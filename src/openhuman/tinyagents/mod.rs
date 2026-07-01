@@ -647,6 +647,11 @@ fn assemble_turn_harness(
     if let Some(cap) = max_output_tokens {
         provider_model = provider_model.with_max_tokens(cap);
     }
+    // Record the model's context window on its capability profile (issue #4249,
+    // Phase 2) so the crate can validate input capacity before dispatch.
+    if let Some(window) = context_window.filter(|w| *w > 0) {
+        provider_model = provider_model.with_context_window(window);
+    }
     if let Some(tx) = &on_progress {
         provider_model = provider_model.with_thinking(ThinkingForwarder::new(
             tx.clone(),

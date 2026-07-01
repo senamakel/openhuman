@@ -19,6 +19,7 @@
 //! [`TurnContextMiddleware`] bundles the config and installs whichever hooks are
 //! enabled onto a harness.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -40,6 +41,7 @@ use crate::openhuman::approval::{
 use crate::openhuman::context::tool_result_budget::apply_tool_result_budget;
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
 use crate::openhuman::tools::Tool;
+use super::tools::UNKNOWN_TOOL_SENTINEL;
 
 /// Default per-tool-result byte cap for the channel / sub-agent paths, which do
 /// not carry a session `ContextManager` to source the configured budget from.
@@ -360,5 +362,54 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
             }
         }
         Ok(outcome)
+    }
+}
+
+/// `before_tool`: rewrite a call to an **unadvertised** tool onto the recovery
+/// sentinel (issue #4249, Phase 1 Task B) so a hallucinated tool name is a
+/// recoverable [`UnknownToolAdapter`](super::tools::UnknownToolAdapter) result
+/// rather than a fatal `ToolNotFound`. `before_tool` runs before the harness
+/// resolves the tool, so the rewrite lands in time.
+///
+/// This moves the decision out of `ProviderModel::response_to_model_response`
+/// (which used to carry a `valid_tools` set) to the tool boundary, where it
+/// applies uniformly to native and text-parsed tool calls. The sentinel handler
+/// is still required (the crate has no "tool not found → repair" hook — SDK gap),
+/// but it remains internal and is never advertised to the model.
+pub struct UnknownToolRewriteMiddleware {
+    /// The set of callable tool names (plus the sentinel). A call outside it is
+    /// rewritten onto the sentinel.
+    valid: Arc<HashSet<String>>,
+}
+
+impl UnknownToolRewriteMiddleware {
+    /// Build the middleware over the runner's valid-tool-name set.
+    pub fn new(valid: Arc<HashSet<String>>) -> Self {
+        Self { valid }
+    }
+}
+
+#[async_trait]
+impl Middleware<()> for UnknownToolRewriteMiddleware {
+    fn name(&self) -> &str {
+        "unknown_tool_rewrite"
+    }
+
+    async fn before_tool(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        call: &mut TaToolCall,
+    ) -> TaResult<()> {
+        if call.name != UNKNOWN_TOOL_SENTINEL && !self.valid.contains(&call.name) {
+            let requested = std::mem::take(&mut call.name);
+            tracing::debug!(
+                requested = %requested,
+                "[tinyagents::mw] rewriting unknown tool call onto recovery sentinel"
+            );
+            call.arguments = serde_json::json!({ "requested_tool": requested });
+            call.name = UNKNOWN_TOOL_SENTINEL.to_string();
+        }
+        Ok(())
     }
 }

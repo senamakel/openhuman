@@ -237,9 +237,9 @@ pub async fn run_turn_via_tinyagents_shared(
     // model start; the model adapter reads it to attribute out-of-band thinking
     // deltas (tinyagents has no reasoning channel on its stream).
     // The set of tool names the model may call: every advertised tool plus the
-    // unknown-tool sentinel. Calls outside it are rewritten onto the sentinel so
-    // a hallucinated tool recovers instead of aborting the run. Computed upfront
-    // (mirrors the registration filter below) so the model adapter can enforce it.
+    // unknown-tool sentinel. A call outside it is rewritten onto the sentinel so
+    // a hallucinated tool recovers instead of aborting the run — enforced by the
+    // `UnknownToolRewriteMiddleware` (`before_tool`) installed below.
     let valid_tools: Arc<HashSet<String>> = {
         let mut names: HashSet<String> = tool_sets
             .iter()
@@ -255,8 +255,7 @@ pub async fn run_turn_via_tinyagents_shared(
     // Keep a provider handle for the context-window summarizer (the run consumes
     // the other clone into the `ProviderModel`).
     let summary_provider = provider.clone();
-    let mut provider_model =
-        ProviderModel::new(provider, model, temperature).with_valid_tools(valid_tools);
+    let mut provider_model = ProviderModel::new(provider, model, temperature);
     // Cap the model's per-call output budget (parity with the legacy engine,
     // which bounded the main agent at `AGENT_TURN_MAX_OUTPUT_TOKENS` and each
     // sub-agent at its `max_turn_output_tokens`). Without this the tinyagents
@@ -384,6 +383,15 @@ pub async fn run_turn_via_tinyagents_shared(
     // block that used to live in `execute_openhuman_tool`.
     harness.push_tool_middleware(Arc::new(
         middleware::ApprovalSecurityMiddleware::new(tool_sets.clone()),
+    ));
+
+    // Unknown-tool recovery as a `before_tool` middleware (issue #4249, Phase 1
+    // Task B): a call to an unadvertised tool is rewritten onto the recovery
+    // sentinel before the harness resolves it, so a hallucinated tool name is a
+    // recoverable result rather than a fatal `ToolNotFound`. Replaces the
+    // `valid_tools` rewrite that used to live in `ProviderModel`.
+    harness.push_middleware(Arc::new(
+        middleware::UnknownToolRewriteMiddleware::new(valid_tools),
     ));
 
     let config = RunConfig::new("agent_turn")

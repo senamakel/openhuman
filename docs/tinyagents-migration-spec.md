@@ -169,13 +169,22 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
     land; full crate round-trip is blocked pending an SDK `ToolSchema` extension
     map.
 
-- [ ] Move unknown-tool recovery into a reusable middleware or tool policy layer.
+- [x] Move unknown-tool recovery into a reusable middleware or tool policy layer.
   - Current shim: `UNKNOWN_TOOL_SENTINEL` in `src/openhuman/tinyagents/tools.rs`.
   - TinyAgents components: `ToolRegistry`, `ToolMiddleware`,
     `AgentEvent::ToolStarted/ToolCompleted`, repairable tool results.
   - Acceptance: hallucinated tool names remain recoverable, sub-agent wording is
     preserved, and TinyAgents event stream records the original requested tool
     name without exposing the sentinel as a model-visible tool.
+  - **Done:** `UnknownToolRewriteMiddleware` (`before_tool`) rewrites a call to
+    an unadvertised tool onto the sentinel at the tool boundary, before the
+    harness resolves it — removing the `valid_tools` plumbing from `ProviderModel`
+    (`with_valid_tools`, the field, and the `response_to_model_response` rewrite
+    all deleted). Sub-agent vs top-level wording is preserved by the sentinel
+    handler; the sentinel is still never advertised. SDK gaps: no
+    "tool-not-found → repair" hook (the sentinel handler must stay), and no
+    dedicated unknown-tool `AgentEvent` variant (recording the original name in
+    the crate event stream would need a manual `ToolStarted` — deferred).
 
 - [x] Route approval and security through TinyAgents middleware.
   - Current OpenHuman files: `src/openhuman/approval/*`,

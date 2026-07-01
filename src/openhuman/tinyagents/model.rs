@@ -161,15 +161,11 @@ fn build_chat_inputs(
 /// dispatcher — so text-mode models drive the tinyagents loop too. The visible
 /// text is the prose with any tool-call markup stripped.
 ///
-/// `valid_tools`, when present, is the set of registered tool names: any call to
-/// a name outside it (a hallucinated/unadvertised tool) is rewritten onto the
-/// [`UNKNOWN_TOOL_SENTINEL`](super::tools::UNKNOWN_TOOL_SENTINEL) so the harness
-/// executes a recovery result instead of aborting on `ToolNotFound`.
-fn response_to_model_response(
-    response: &ChatResponse,
-    valid_tools: Option<&std::collections::HashSet<String>>,
-) -> ModelResponse {
-    let (visible_text, mut tool_calls): (String, Vec<TaToolCall>) =
+/// Rewriting a hallucinated/unadvertised tool call onto the recovery sentinel
+/// now happens at the tool boundary in
+/// [`UnknownToolRewriteMiddleware`](super::middleware) (`before_tool`), not here.
+fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
+    let (visible_text, tool_calls): (String, Vec<TaToolCall>) =
         if !response.tool_calls.is_empty() {
             let calls = response
                 .tool_calls
@@ -203,18 +199,6 @@ fn response_to_model_response(
         } else {
             (String::new(), Vec::new())
         };
-
-    // Rewrite calls to unadvertised tools onto the sentinel so an unknown tool
-    // is a recoverable result, not a fatal `ToolNotFound`.
-    if let Some(valid) = valid_tools {
-        for call in tool_calls.iter_mut() {
-            if call.name != super::tools::UNKNOWN_TOOL_SENTINEL && !valid.contains(&call.name) {
-                let requested = std::mem::take(&mut call.name);
-                call.arguments = serde_json::json!({ "requested_tool": requested });
-                call.name = super::tools::UNKNOWN_TOOL_SENTINEL.to_string();
-            }
-        }
-    }
 
     let mut content = Vec::new();
     if !visible_text.is_empty() {
@@ -312,9 +296,6 @@ pub struct ProviderModel {
     thinking: Option<ThinkingForwarder>,
     /// Preserves the last original provider error for the runner to re-surface.
     error_slot: ProviderErrorSlot,
-    /// Registered tool names; calls outside this set are rewritten onto the
-    /// unknown-tool sentinel. `None` = no rewrite (every call passes through).
-    valid_tools: Option<Arc<std::collections::HashSet<String>>>,
 }
 
 impl ProviderModel {
@@ -327,15 +308,7 @@ impl ProviderModel {
             max_tokens: None,
             thinking: None,
             error_slot: Arc::new(Mutex::new(None)),
-            valid_tools: None,
         }
-    }
-
-    /// Restrict tool calls to `valid` — calls to any other name are rewritten
-    /// onto the unknown-tool sentinel so the run recovers instead of aborting.
-    pub fn with_valid_tools(mut self, valid: Arc<std::collections::HashSet<String>>) -> Self {
-        self.valid_tools = Some(valid);
-        self
     }
 
     /// A handle to the shared error slot (clone before moving `self` into the
@@ -405,10 +378,7 @@ impl ChatModel<()> for ProviderModel {
                 forwarder.emit(reasoning.clone());
             }
         }
-        Ok(response_to_model_response(
-            &response,
-            self.valid_tools.as_deref(),
-        ))
+        Ok(response_to_model_response(&response))
     }
 
     /// Stream the model response, forwarding openhuman's `ProviderDelta` events
@@ -428,7 +398,6 @@ impl ChatModel<()> for ProviderModel {
         let max_tokens = self.max_tokens;
         let thinking = self.thinking.clone();
         let error_slot = self.error_slot.clone();
-        let valid_tools = self.valid_tools.clone();
 
         let (item_tx, item_rx) = tokio::sync::mpsc::unbounded_channel::<ModelStreamItem>();
 
@@ -481,10 +450,7 @@ impl ChatModel<()> for ProviderModel {
                             }
                         }
                     }
-                    ModelStreamItem::Completed(response_to_model_response(
-                        &resp,
-                        valid_tools.as_deref(),
-                    ))
+                    ModelStreamItem::Completed(response_to_model_response(&resp))
                 }
                 Err(e) => {
                     // Preserve the original (downcastable) error for the runner.

@@ -413,3 +413,65 @@ impl Middleware<()> for UnknownToolRewriteMiddleware {
         Ok(())
     }
 }
+
+/// `before_model`: enforce OpenHuman's daily/monthly cost budgets **before** a
+/// model call spends (issue #4249, Phase 5). Reads the global
+/// [`CostTracker`](crate::openhuman::cost) and, when cost budgets are configured
+/// and already exceeded, fails the run before the provider call; a warning
+/// threshold logs but proceeds.
+///
+/// Self-gating: a no-op unless a global tracker exists and `config.enabled` with
+/// a limit is set (`check_budget` returns `Allowed` otherwise). Complements the
+/// post-call `StopHookMiddleware` per-turn USD cap. Projecting the *next* call's
+/// cost pre-spend (vs the already-exceeded check here) needs an input-token
+/// estimate — a follow-up.
+pub struct CostBudgetMiddleware;
+
+#[async_trait]
+impl Middleware<()> for CostBudgetMiddleware {
+    fn name(&self) -> &str {
+        "cost_budget"
+    }
+
+    async fn before_model(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        _request: &mut ModelRequest,
+    ) -> TaResult<()> {
+        use crate::openhuman::cost::types::BudgetCheck;
+        let Some(tracker) = crate::openhuman::cost::try_global() else {
+            return Ok(());
+        };
+        // Pass 0.0 to test whether we are *already* over budget before spending
+        // more (rather than projecting this call's cost, which needs a token
+        // estimate).
+        match tracker.check_budget(0.0) {
+            Ok(BudgetCheck::Exceeded {
+                current_usd,
+                limit_usd,
+                period,
+            }) => {
+                tracing::warn!(
+                    %current_usd, %limit_usd, ?period,
+                    "[tinyagents::mw] cost budget exceeded — failing before model call"
+                );
+                Err(tinyagents::TinyAgentsError::LimitExceeded(format!(
+                    "cost budget exceeded: {period:?} spend ${current_usd:.4} \u{2265} limit ${limit_usd:.4}"
+                )))
+            }
+            Ok(BudgetCheck::Warning {
+                current_usd,
+                limit_usd,
+                period,
+            }) => {
+                tracing::warn!(
+                    %current_usd, %limit_usd, ?period,
+                    "[tinyagents::mw] cost budget warning threshold reached"
+                );
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+}

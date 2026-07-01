@@ -283,6 +283,11 @@ pub async fn run_turn_via_tinyagents_shared(
     // `before_model` hooks run cache-align → microcompact → compress → trim.
     context_mw.install(&mut harness, &tool_sets);
 
+    // Pre-call cost budget gate (issue #4249, Phase 5): fail before a model call
+    // when OpenHuman's daily/monthly cost budget is already exceeded. Self-gating
+    // — a no-op unless cost budgets are configured.
+    harness.push_middleware(Arc::new(middleware::CostBudgetMiddleware));
+
     // Autocompaction parity: when the provider's context window is known, install
     // the two-stage context-management step (issue #4249).
     //

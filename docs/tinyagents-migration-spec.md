@@ -338,7 +338,7 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
     (provider-charged preservation needs an out-of-band carry — crate `Usage` has
     no USD field).
 
-- [ ] Move budget checks to pre-call TinyAgents middleware.
+- [~] Move budget checks to pre-call TinyAgents middleware.
   - OpenHuman files: `src/openhuman/cost/tracker.rs`,
     `src/openhuman/tinyagents/mod.rs`.
   - TinyAgents components: `RunPolicy`, cost middleware, `before_model`,
@@ -346,6 +346,13 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
   - Acceptance: per-run, per-thread, daily, and monthly budgets can warn or
     fail before spend where enough data exists, then reconcile after provider
     usage is known.
+  - **Partial:** `CostBudgetMiddleware` (`before_model`) fails the run before a
+    model call when the global daily/monthly budget is already exceeded
+    (`CostTracker::check_budget`), and logs on the warning threshold. Self-gating
+    on `config.enabled`; previously daily/monthly enforcement was dormant on the
+    tinyagents path. Remaining: per-run/per-thread budgets (need new
+    `CostConfig` fields + thread-id threading into the runner) and projecting the
+    *next* call's cost pre-spend (needs an input-token estimate).
 
 - [ ] Add cost rollup across sub-agents and graphs.
   - OpenHuman files: `src/openhuman/agent_orchestration/**`,

@@ -132,13 +132,16 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
 
 ## Phase 0 - Baseline And Drift Control
 
-- [ ] Add a version/feature compatibility note to the OpenHuman architecture doc.
+- [x] Add a version/feature compatibility note to the OpenHuman architecture doc.
   - OpenHuman files: `gitbooks/developing/architecture/agent-harness.md`,
     `Cargo.toml`.
   - TinyAgents components: crate features `default`, `openai`, `sqlite`, `repl`.
   - Acceptance: document why default features are used, why TinyAgents `sqlite`
     is disabled, and which OpenHuman adapters replace feature-gated SDK
     providers.
+  - **Done:** added "TinyAgents crate: features & compatibility" section to
+    agent-harness.md (default-only, `openai`/`sqlite`/`repl` rationale, adapter
+    map) + fixed stale `council_graph.rs`/`member_graph.rs` links.
 
 ## Phase 1 - Tools
 

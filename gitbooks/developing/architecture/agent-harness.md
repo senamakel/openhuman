@@ -30,7 +30,7 @@ icon: layer-group
 > primitives):
 >
 > - the model-council member fan-out runs on a real `StateGraph`
->   ([`model_council/council_graph.rs`](../../../src/openhuman/model_council/council_graph.rs));
+>   ([`model_council/graph.rs`](../../../src/openhuman/model_council/graph.rs));
 > - [`tinyagents/delegation.rs`](../../../src/openhuman/tinyagents/delegation.rs)
 >   is a `plan → execute ⇄ review → finalize` `CompiledGraph` (conditional routing,
 >   `RecursionPolicy`, durable `FileCheckpointer`, `CancellationToken`, `GraphTracingSink`);
@@ -39,13 +39,24 @@ icon: layer-group
 >   source of truth;
 > - `spawn_parallel_agents` runs its fan-out through `run_parallel_fanout`;
 > - the **agent-teams** member runtime is a conditional-routing graph
->   (`execute → complete | fail → done`, [`agent_teams/member_graph.rs`](../../../src/openhuman/agent_orchestration/agent_teams/member_graph.rs));
+>   (`execute → complete | fail → done`, [`agent_teams/graph.rs`](../../../src/openhuman/agent_orchestration/agent_teams/graph.rs));
 > - the **detached-sub-agent** registry is backed by a typed `TaskStore` lifecycle
 >   ledger (Pending → Running → Completed/Failed/Cancelled).
 >
 > The sections below describing a bespoke `agent_graph/` module + per-agent
 > `GraphBlueprint`s are **historical** (the pre-migration design) and are retained
 > only for context.
+
+## TinyAgents crate: features & compatibility
+
+OpenHuman pins `tinyagents = "1.1"` with **default features only** (see [`Cargo.toml`](../../../Cargo.toml)). The rationale, so future upgrades don't silently regress it:
+
+- **Default (offline) features only.** We do **not** enable the crate's `openai` feature. OpenHuman owns provider transport, credentials, OAuth, and billing classification, so the live model is always OpenHuman's `Provider` wrapped as [`ProviderModel`](../../../src/openhuman/tinyagents/model.rs) — never the crate's bundled OpenAI client. The `ChatModel` adapter is the seam that replaces the feature-gated SDK provider.
+- **`sqlite` feature deliberately disabled.** The crate's `SqliteCheckpointer` pulls `rusqlite 0.40` (`libsqlite3-sys 0.38`), which conflicts with OpenHuman's own `rusqlite 0.37` over the `links = "sqlite3"` native lib — enabling it breaks the build. Durable graph checkpoints are instead provided by [`SqlRunLedgerCheckpointer`](../../../src/openhuman/tinyagents/checkpoint.rs), a custom `Checkpointer<State>` over OpenHuman's session DB. This holds until the upstream native-link conflict is resolved.
+- **`repl` / expressive-language features unused.** OpenHuman drives graphs from Rust (`GraphBuilder`), not the crate's `.rag` REPL language.
+- **Adapter map (feature-gated SDK piece → OpenHuman replacement):** OpenAI provider → `ProviderModel`; bundled SQLite checkpointer → `SqlRunLedgerCheckpointer`; in-memory-only durable task storage → OpenHuman SQL/JSON run ledgers (`running_subagents`, `workflow_runs`, `agent_teams`, `command_center`). The generic harness/graph/middleware/event primitives are used as-is.
+
+Migration backlog and per-phase tasks live in [`docs/tinyagents-migration-spec.md`](../../../docs/tinyagents-migration-spec.md).
 
 The agent harness is the runtime that turns a user message (or a webhook fire, or a cron tick) into a complete, tool-using LLM interaction. It owns the tool-call loop, sub-agent dispatch, the trigger-triage pipeline, and the hook surface around them. It does **not** own provider HTTP transport, tool implementations, prompt-section assembly, or memory storage - those are separate domains the harness composes.
 

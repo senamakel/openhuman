@@ -114,7 +114,9 @@ pub(super) async fn run_subagent_via_graph(
     // `run_turn_via_tinyagents_shared` future would otherwise sit on the parent's
     // poll stack. Heap-allocate it (as the legacy `run_inner_loop` did) so the
     // parent+child harness drives don't overflow the stack.
-    let prior_len = history.len();
+    // Capture native-tool support before `provider` is moved: the durable-history
+    // append below serializes this turn's typed suffix with the matching dispatcher.
+    let native_tools = provider.supports_native_tools();
     let mut outcome = Box::pin(run_turn_via_tinyagents_shared(
         provider,
         model,
@@ -151,11 +153,23 @@ pub(super) async fn run_subagent_via_graph(
     .map_err(SubagentRunError::Provider)?;
 
     // Write the final conversation back so the caller can checkpoint / persist.
-    // Keep the original (un-expanded) prior turns and append only the new turns:
-    // `outcome.history` is the dispatched (possibly image-expanded) history
-    // followed by this turn's new messages, so skipping `prior_len` drops the
-    // provider-only expansion and preserves the durable `[IMAGE:…]` markers.
-    history.extend(outcome.history.iter().skip(prior_len).cloned());
+    // Keep the original (un-expanded) prior turns and append only this turn's typed
+    // suffix, serialized with the matching dispatcher so a native tool round
+    // persists as the `{content, tool_calls}` / `{tool_call_id, content}` envelope
+    // (re-parsed by `convert::chat_message_to_message` next turn) instead of an
+    // assistant with no `tool_calls` followed by an orphan `tool` row. Appending
+    // the typed `outcome.conversation` (messages-since-last-user) also avoids
+    // indexing a post-trim `outcome.history` with the pre-trim length, and the
+    // durable `[IMAGE:…]` markers stay put since the prior user turns are untouched.
+    use crate::openhuman::agent::dispatcher::ToolDispatcher;
+    let suffix = if native_tools {
+        crate::openhuman::agent::dispatcher::NativeToolDispatcher
+            .to_provider_messages(&outcome.conversation)
+    } else {
+        crate::openhuman::agent::dispatcher::XmlToolDispatcher
+            .to_provider_messages(&outcome.conversation)
+    };
+    history.extend(suffix);
 
     let mut usage = AggregatedUsage {
         input_tokens: outcome.input_tokens,

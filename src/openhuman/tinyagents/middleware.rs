@@ -33,6 +33,7 @@ use tinyagents::harness::middleware::{
 };
 use tinyagents::harness::model::ModelRequest;
 use tinyagents::harness::runtime::AgentHarness;
+use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolResult as TaToolResult};
 
 use super::tools::UNKNOWN_TOOL_SENTINEL;
@@ -625,6 +626,82 @@ impl Middleware<()> for CostBudgetMiddleware {
     }
 }
 
+/// `after_tool`: stop the run when a tool returns the **same** error result
+/// repeatedly (issue #4249). The legacy tool loop's progress guard halted on a
+/// repeated deterministic failure — a security/approval denial, or a terminal
+/// tool error the model keeps reissuing — so the run surfaced the root cause
+/// instead of burning the whole iteration budget and then a generic cap failure.
+/// The tinyagents path kept only the generic model/tool call caps, so this
+/// reinstates the breaker as a graph middleware: after `threshold` consecutive
+/// identical error signatures (`tool name` + error text), it pauses the run via
+/// the shared steering handle (the same mechanism as the stop-hook / cap pausers).
+/// Any successful tool result resets the counter — progress was made.
+pub struct RepeatedToolFailureMiddleware {
+    handle: SteeringHandle,
+    threshold: usize,
+    last: std::sync::Mutex<Option<(String, usize)>>,
+}
+
+impl RepeatedToolFailureMiddleware {
+    /// Build the breaker. `threshold` is clamped to at least 2 (a single failure
+    /// is never a loop).
+    pub fn new(handle: SteeringHandle, threshold: usize) -> Self {
+        Self {
+            handle,
+            threshold: threshold.max(2),
+            last: std::sync::Mutex::new(None),
+        }
+    }
+}
+
+#[async_trait]
+impl Middleware<()> for RepeatedToolFailureMiddleware {
+    fn name(&self) -> &str {
+        "repeated_tool_failure"
+    }
+
+    async fn after_tool(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        result: &mut TaToolResult,
+    ) -> TaResult<()> {
+        let mut guard = self.last.lock().unwrap();
+        let Some(err) = result.error.as_deref() else {
+            // Success → progress was made; reset the breaker.
+            *guard = None;
+            return Ok(());
+        };
+        // Signature: tool name + error text. Truncate the error so a huge payload
+        // doesn't dominate the comparison (the first line is the deterministic part).
+        let sig = format!("{}\u{1f}{}", result.name, err.lines().next().unwrap_or(err));
+        let count = match guard.as_mut() {
+            Some((prev, c)) if *prev == sig => {
+                *c += 1;
+                *c
+            }
+            _ => {
+                *guard = Some((sig, 1));
+                1
+            }
+        };
+        if count >= self.threshold {
+            tracing::warn!(
+                tool = %result.name,
+                count,
+                threshold = self.threshold,
+                "[tinyagents::mw] repeated identical tool failure — pausing run so the root cause surfaces"
+            );
+            // Pause at the top of the next iteration (before the next model call),
+            // matching the stop-hook / cap pause path. Reset so a resumed run does
+            // not immediately re-pause on the same latched signature.
+            self.handle.send(SteeringCommand::Pause);
+            *guard = None;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -952,6 +1029,69 @@ mod tests {
         let mw = CostBudgetMiddleware;
         let mut req = ModelRequest::new(vec![TaMessage::user("hi")]);
         assert!(mw.before_model(&mut ctx(), &(), &mut req).await.is_ok());
+    }
+
+    // ── RepeatedToolFailureMiddleware ───────────────────────────────────────
+
+    fn failing_result(name: &str, err: &str) -> TaToolResult {
+        let mut r = tool_result(name, err);
+        r.error = Some(err.to_string());
+        r
+    }
+
+    #[tokio::test]
+    async fn repeated_tool_failure_pauses_only_after_the_threshold() {
+        let handle = SteeringHandle::allow_all();
+        let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3);
+        // Two identical failures: below the threshold, no pause.
+        for _ in 0..2 {
+            let mut r = failing_result("flaky", "boom");
+            mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        }
+        assert_eq!(handle.pending(), 0, "no pause before the threshold");
+        // Third identical failure trips the breaker.
+        let mut r = failing_result("flaky", "boom");
+        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        assert!(
+            handle.pending() >= 1,
+            "the third identical failure should pause the run"
+        );
+    }
+
+    #[tokio::test]
+    async fn repeated_tool_failure_resets_on_a_success() {
+        let handle = SteeringHandle::allow_all();
+        let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3);
+        // Two failures, then a success clears the counter.
+        for _ in 0..2 {
+            let mut r = failing_result("t", "boom");
+            mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        }
+        let mut ok = tool_result("t", "fine"); // error = None
+        mw.after_tool(&mut ctx(), &(), &mut ok).await.unwrap();
+        // Two more failures — still below the threshold because the counter reset.
+        for _ in 0..2 {
+            let mut r = failing_result("t", "boom");
+            mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        }
+        assert_eq!(handle.pending(), 0, "a success should reset the breaker");
+    }
+
+    #[tokio::test]
+    async fn repeated_tool_failure_ignores_distinct_errors() {
+        let handle = SteeringHandle::allow_all();
+        let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3);
+        // Three *different* errors never trip the breaker — only an identical,
+        // deterministic failure loop does.
+        for err in ["e1", "e2", "e3"] {
+            let mut r = failing_result("t", err);
+            mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        }
+        assert_eq!(
+            handle.pending(),
+            0,
+            "distinct errors must not trip the breaker"
+        );
     }
 
     // ── ApprovalSecurityMiddleware ──────────────────────────────────────────

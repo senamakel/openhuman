@@ -60,13 +60,17 @@ pub(crate) async fn run_channel_turn_via_graph(
     // own `spec()`, deduped by name (extras shadow the registry).
     let allowed = visible_tool_names.cloned().unwrap_or_default();
 
+    // Capture native-tool support before `provider` is moved into the runner: the
+    // durable history append below serializes this turn's typed suffix with the
+    // matching dispatcher (native envelope vs prompt-guided text).
+    let native_tools = provider.supports_native_tools();
+
     // Multimodal prep (parity with the chat route's
     // `run_turn_via_tinyagents_session`, issue #4249): rehydrate image
     // placeholders for vision-capable providers, then expand `[IMAGE:…]` /
     // `[FILE:…]` markers into provider-ready content before dispatch. The
     // expanded copy is provider-only — it is sent to the model but never
     // persisted back into the channel `history` (see the reconstruction below).
-    let prior_len = history.len();
     let mut prepared = history.clone();
     if provider.supports_vision()
         && crate::openhuman::agent::multimodal::has_image_placeholders(&prepared)
@@ -124,11 +128,26 @@ pub(crate) async fn run_channel_turn_via_graph(
         crate::openhuman::tinyagents::TurnContextMiddleware::defaults(),
     )
     .await?;
-    // Persist the original (un-expanded) prior turns plus only the new turns the
-    // run produced. `outcome.history` is `prepared` (expanded) followed by the
-    // turn's new messages; `prepared` maps 1:1 onto the input, so skipping
-    // `prior_len` drops the expanded copies and keeps the durable markers intact.
-    history.extend(outcome.history.into_iter().skip(prior_len));
+    // Append only this turn's typed suffix (assistant tool-calls + tool results +
+    // final assistant), serialized with the matching dispatcher so a native tool
+    // round persists as the `{content, tool_calls}` / `{tool_call_id, content}`
+    // envelope (re-parsed by `convert::chat_message_to_message` next turn) rather
+    // than an assistant with no `tool_calls` followed by an orphan `tool` row.
+    // Using `outcome.conversation` (the typed messages-since-last-user) avoids
+    // indexing into a post-trim `outcome.history` with the pre-trim `prior_len`,
+    // which could drop current-turn messages when compaction reshaped the run.
+    use crate::openhuman::agent::dispatcher::ToolDispatcher;
+    let suffix = if native_tools {
+        crate::openhuman::agent::dispatcher::NativeToolDispatcher
+            .to_provider_messages(&outcome.conversation)
+    } else {
+        // History serialization is format-independent for prompt-guided providers
+        // (tool calls already ride the visible assistant text); the XML dispatcher
+        // renders the flat `[Tool results]` shape.
+        crate::openhuman::agent::dispatcher::XmlToolDispatcher
+            .to_provider_messages(&outcome.conversation)
+    };
+    history.extend(suffix);
     Ok(outcome.text)
 }
 

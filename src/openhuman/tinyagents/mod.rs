@@ -87,6 +87,27 @@ fn run_policy_for(max_iterations: usize) -> RunPolicy {
     policy
 }
 
+/// Consecutive identical tool failures that trip the repeated-failure circuit
+/// breaker (see `middleware::RepeatedToolFailureMiddleware`). Three matches the
+/// legacy progress-guard's tolerance before it halted a stuck loop.
+const REPEATED_TOOL_FAILURE_THRESHOLD: usize = 3;
+
+/// Legacy default model-call cap used when a caller passes `max_iterations == 0`
+/// to request "unset" (native-bus / test callers relied on the old loop treating
+/// `max_tool_iterations == 0` as the default of 10). Passing `0` straight through
+/// would set the harness `max_model_calls` to zero and abort before the first
+/// provider call, so the runners normalize `0` to this value.
+const DEFAULT_MAX_ITERATIONS: usize = 10;
+
+/// Normalize a caller-supplied iteration cap: `0` means "unset" → the default.
+fn effective_max_iterations(max_iterations: usize) -> usize {
+    if max_iterations == 0 {
+        DEFAULT_MAX_ITERATIONS
+    } else {
+        max_iterations
+    }
+}
+
 /// The outcome of a turn driven on the `tinyagents` harness.
 #[derive(Debug, Clone)]
 pub struct TinyagentsTurnOutcome {
@@ -139,6 +160,9 @@ pub async fn run_turn_via_tinyagents(
     resolved_tools: Vec<Arc<dyn crate::openhuman::tools::Tool>>,
     max_iterations: usize,
 ) -> Result<TinyagentsTurnOutcome> {
+    // `0` means "unset" → the legacy default; otherwise the harness cap would be
+    // zero and the run would abort before the first model call.
+    let max_iterations = effective_max_iterations(max_iterations);
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness.with_policy(run_policy_for(max_iterations));
     let provider_model = ProviderModel::new(provider, model, temperature);
@@ -245,6 +269,10 @@ pub async fn run_turn_via_tinyagents_shared(
     max_output_tokens: Option<u32>,
     context_mw: TurnContextMiddleware,
 ) -> Result<TinyagentsTurnOutcome> {
+    // `0` means "unset" → the legacy default (a native-bus / test convention);
+    // otherwise the harness model-call cap would be zero and abort the run before
+    // the first provider call.
+    let max_iterations = effective_max_iterations(max_iterations);
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness.with_policy(run_policy_for(max_iterations));
 
@@ -352,11 +380,23 @@ pub async fn run_turn_via_tinyagents_shared(
     // A single steering handle drives mid-flight steering (run queue), the
     // early-exit pause, the model-call-cap pause, and stop-hook pauses, so they
     // all reach the same loop. Created when any of them is active.
-    let needs_steering = run_queue.is_some()
-        || !early_exit_tools.is_empty()
-        || pause_at_cap
-        || !stop_hooks.is_empty();
-    let handle = needs_steering.then(SteeringHandle::allow_all);
+    // A steering handle is always created now: besides run-queue steering, the
+    // early-exit / cap / stop-hook pauses, the repeated-tool-failure breaker
+    // (below) also pauses through it, and it wants to fire on every path
+    // (including plain channel turns that set none of the other flags). An idle
+    // handle is a no-op — the loop just drains an empty steering channel.
+    let handle = Some(SteeringHandle::allow_all());
+
+    // Repeated-failure circuit breaker: pause the run when a tool returns the same
+    // error `REPEATED_TOOL_FAILURE_THRESHOLD` times in a row, so a deterministic
+    // security/approval denial or terminal tool error surfaces its root cause
+    // instead of burning the whole iteration budget (legacy ProgressGuard parity).
+    if let Some(handle) = &handle {
+        harness.push_middleware(Arc::new(middleware::RepeatedToolFailureMiddleware::new(
+            handle.clone(),
+            REPEATED_TOOL_FAILURE_THRESHOLD,
+        )));
+    }
 
     // Policy-driven stop hooks (budget cap, thread-goal budget, ad-hoc iteration
     // ceiling): fire after each model call and pause the run on the first stop

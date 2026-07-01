@@ -875,6 +875,10 @@ impl Agent {
             payload_summarizer: self.payload_summarizer.clone(),
             cache_align: self.context.compaction_enabled(),
             microcompact_keep_recent: self.context.microcompact_keep_recent(),
+            // Honor the [context].enabled / autocompact_enabled opt-outs: when off,
+            // the summarization middleware is not installed (no summarizer tokens,
+            // no history rewrite).
+            autocompact_enabled: self.context.autocompact_enabled(),
             // Super context (first-turn read-only context collection) as a graph
             // node — enabled only when its gate passed above. The node runs the
             // scout on the first model call and folds the bundle into the message.
@@ -909,10 +913,14 @@ impl Agent {
 
         // Token accounting for the turn (the cap checkpoint call below folds in
         // its own usage).
+        // Seed from the turn outcome (the harness observed real usage incl. cached
+        // tokens and an estimated cost) rather than zero, so a normal non-cap turn
+        // persists real cost instead of $0. The cap-checkpoint branch below folds
+        // in its extra call's usage on top.
         let mut input_tokens = outcome.input_tokens;
         let mut output_tokens = outcome.output_tokens;
-        let mut cached_input_tokens = 0u64;
-        let mut charged_amount_usd = 0.0;
+        let mut cached_input_tokens = outcome.cached_input_tokens;
+        let mut charged_amount_usd = outcome.charged_amount_usd;
 
         let reply = if outcome.hit_cap {
             // The loop paused at the tool-call cap. Ask the model for a resumable

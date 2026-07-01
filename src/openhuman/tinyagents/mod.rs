@@ -107,6 +107,13 @@ pub struct TinyagentsTurnOutcome {
     pub input_tokens: u64,
     /// Accumulated output tokens.
     pub output_tokens: u64,
+    /// Accumulated cached (cache-read) input tokens. Carried so the turn persists
+    /// real cached usage instead of zero (issue #4249, Phase 5).
+    pub cached_input_tokens: u64,
+    /// Estimated charged USD for the turn (from `cost::catalog::estimate_cost_usd`
+    /// over the observed usage). Carried so the transcript / session meters record
+    /// a real cost instead of `$0` on every non-cap turn.
+    pub charged_amount_usd: f64,
     /// Set when an early-exit tool (e.g. `ask_user_clarification`) fired: the
     /// loop paused so the caller can checkpoint and surface the question. When
     /// present, `text` holds the question. Mirrors the legacy `early_exit_tool`.
@@ -182,6 +189,13 @@ pub async fn run_turn_via_tinyagents(
         tool_calls: run.tool_calls,
         input_tokens: run.usage.usage.input_tokens,
         output_tokens: run.usage.usage.output_tokens,
+        cached_input_tokens: run.usage.usage.cache_read_tokens,
+        charged_amount_usd: crate::openhuman::cost::catalog::estimate_cost_usd(
+            model,
+            run.usage.usage.input_tokens,
+            run.usage.usage.output_tokens,
+            run.usage.usage.cache_read_tokens,
+        ),
         early_exit_tool: None,
         hit_cap: false,
     })
@@ -282,6 +296,8 @@ pub async fn run_turn_via_tinyagents_shared(
     // warnings, microcompact tool-body clearing, and the after-tool byte cap /
     // payload summarizer. Installed before the summarization/trim block below so
     // `before_model` hooks run cache-align → microcompact → compress → trim.
+    // Capture the autocompaction opt-out before `install` consumes `context_mw`.
+    let autocompact_enabled = context_mw.autocompact_enabled;
     context_mw.install(&mut harness, &tool_sets);
 
     // Pre-call cost budget gate (issue #4249, Phase 5): fail before a model call
@@ -302,15 +318,22 @@ pub async fn run_turn_via_tinyagents_shared(
     //    Pushed **after** compression (so `before_model` runs compression first),
     //    it front-trims to budget only as a last resort when even the summary +
     //    recent window still overflow.
+    //
+    // The LLM summarization step honors the `[context].enabled` /
+    // `autocompact_enabled` opt-outs (a disabled config must not spend summarizer
+    // tokens or rewrite history); the deterministic trim backstop always installs
+    // when a window is known, matching the legacy always-on `trim_history` cap.
     if let Some(window) = context_window.filter(|w| *w > 0) {
-        harness.push_middleware(Arc::new(ContextCompressionMiddleware::with_summarizer(
-            summarize::summarization_policy(window),
-            Box::new(summarize::ProviderModelSummarizer::new(
-                summary_provider,
-                model,
-                temperature,
-            )),
-        )));
+        if autocompact_enabled {
+            harness.push_middleware(Arc::new(ContextCompressionMiddleware::with_summarizer(
+                summarize::summarization_policy(window),
+                Box::new(summarize::ProviderModelSummarizer::new(
+                    summary_provider,
+                    model,
+                    temperature,
+                )),
+            )));
+        }
 
         let budget = window.saturating_sub(
             crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS as u64,
@@ -510,15 +533,21 @@ pub async fn run_turn_via_tinyagents_shared(
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
         }
     };
-    let bridge_totals = bridge.map(|bridge| {
-        let (input_tokens, output_tokens, _) = bridge.totals();
-        (input_tokens, output_tokens)
-    });
+    let bridge_totals = bridge.map(|bridge| bridge.totals_with_cost());
 
-    // Prefer the bridge's accumulated usage (per-call, authoritative) when the
-    // observed path ran; otherwise fall back to the run's aggregate totals.
-    let (input_tokens, output_tokens) =
-        bridge_totals.unwrap_or((run.usage.usage.input_tokens, run.usage.usage.output_tokens));
+    // Prefer the bridge's accumulated usage (per-call, authoritative — including
+    // cached tokens and the estimated charged USD) when the observed path ran;
+    // otherwise fall back to the run's aggregate totals and estimate the cost from
+    // them so a fire-and-forget turn still reports a real (non-$0) cost.
+    let (input_tokens, output_tokens, cached_input_tokens, charged_amount_usd) = bridge_totals
+        .unwrap_or_else(|| {
+            let input = run.usage.usage.input_tokens;
+            let output = run.usage.usage.output_tokens;
+            let cached = run.usage.usage.cache_read_tokens;
+            let charged =
+                crate::openhuman::cost::catalog::estimate_cost_usd(model, input, output, cached);
+            (input, output, cached, charged)
+        });
 
     // An early-exit tool fired: the loop paused after its round. Surface the tool
     // name and use its captured question as the turn text (the paused assistant
@@ -552,6 +581,8 @@ pub async fn run_turn_via_tinyagents_shared(
         tool_calls: run.tool_calls,
         input_tokens,
         output_tokens,
+        cached_input_tokens,
+        charged_amount_usd,
         early_exit_tool,
         hit_cap,
     })

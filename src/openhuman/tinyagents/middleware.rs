@@ -63,6 +63,12 @@ pub struct TurnContextMiddleware {
     pub cache_align: bool,
     /// Keep-recent count for microcompact tool-body clearing. `0` disables it.
     pub microcompact_keep_recent: usize,
+    /// Whether the LLM summarization step (`ContextCompressionMiddleware`) may be
+    /// installed on this turn. `false` when `[context].enabled` or
+    /// `autocompact_enabled` is off, so a diagnostic/test opt-out doesn't spend
+    /// summarizer tokens or rewrite history. The deterministic hard-trim backstop
+    /// still installs regardless. Defaults to `true` (see [`defaults`](Self::defaults)).
+    pub autocompact_enabled: bool,
     /// "Super context" first-turn context collection. `Some` installs the
     /// [`SuperContextMiddleware`] graph node; `None` (the default, and every
     /// non-chat path) skips it. Only the chat turn sets this — and only when its
@@ -88,6 +94,7 @@ impl TurnContextMiddleware {
             payload_summarizer: None,
             cache_align: true,
             microcompact_keep_recent: 0,
+            autocompact_enabled: true,
             super_context: None,
         }
     }
@@ -686,6 +693,9 @@ mod tests {
         );
         assert!(mw.payload_summarizer.is_none());
         assert_eq!(mw.microcompact_keep_recent, 0);
+        // Autocompaction defaults on (channel/sub-agent); the chat path overrides
+        // it from config.
+        assert!(mw.autocompact_enabled);
         assert!(!mw.is_empty());
     }
 

@@ -25,32 +25,104 @@ use crate::openhuman::tools::ToolSpec;
 
 /// Convert one openhuman [`ChatMessage`] into a harness [`Message`].
 ///
-/// Role strings map onto the typed arms; the `tool` role uses the message id
-/// (when present) as the correlation id so a pre-threaded tool result keeps its
-/// `tool_call_id`. Assistant tool-call structure is not recoverable from the
-/// flat type, so an assistant message becomes plain text — the harness re-emits
-/// any new tool calls itself from the model adapter.
+/// Role strings map onto the typed arms. A seeded **native** tool round is
+/// serialized by [`NativeToolDispatcher::to_provider_messages`] as a
+/// `{ "content", "tool_calls" }` assistant envelope followed by
+/// `{ "tool_call_id", "content" }` tool envelopes; we unwrap those back into the
+/// structured [`AssistantMessage::tool_calls`] / [`ToolMessage::tool_call_id`]
+/// the harness needs. Without this, the seeded assistant loses its tool calls
+/// while the following tool rows survive, so the harness re-sends orphan `tool`
+/// messages and native providers reject the request (`assistant message with
+/// 'tool_calls' must be followed by tool messages`). A plain assistant/tool
+/// message that isn't an envelope maps straight through as text.
 pub(super) fn chat_message_to_message(msg: &ChatMessage) -> Message {
     let text = msg.content.clone();
     match msg.role.as_str() {
         "system" => Message::System(SystemMessage {
             content: vec![ContentBlock::Text(text)],
         }),
-        "assistant" => Message::Assistant(AssistantMessage {
-            id: msg.id.clone(),
-            content: vec![ContentBlock::Text(text)],
-            tool_calls: Vec::new(),
-            usage: None,
-        }),
-        "tool" => Message::Tool(ToolMessage {
-            tool_call_id: msg.id.clone().unwrap_or_default(),
-            content: vec![ContentBlock::Text(text)],
-        }),
+        "assistant" => {
+            if let Some((inner, tool_calls)) = parse_native_assistant_envelope(&text) {
+                Message::Assistant(AssistantMessage {
+                    id: msg.id.clone(),
+                    content: vec![ContentBlock::Text(inner)],
+                    tool_calls,
+                    usage: None,
+                })
+            } else {
+                Message::Assistant(AssistantMessage {
+                    id: msg.id.clone(),
+                    content: vec![ContentBlock::Text(text)],
+                    tool_calls: Vec::new(),
+                    usage: None,
+                })
+            }
+        }
+        "tool" => {
+            // Prefer the envelope's `tool_call_id` (the native seed shape); fall
+            // back to the message id, then an empty id for a bare tool message.
+            let (tool_call_id, content) = parse_native_tool_envelope(&text)
+                .unwrap_or_else(|| (msg.id.clone().unwrap_or_default(), text.clone()));
+            Message::Tool(ToolMessage {
+                tool_call_id,
+                content: vec![ContentBlock::Text(content)],
+            })
+        }
         // "user" and any unrecognized role default to a user turn — the safest
         // mapping for a free-form inbound message.
         _ => Message::User(UserMessage {
             content: vec![ContentBlock::Text(text)],
         }),
+    }
+}
+
+/// Parse a native assistant tool-call envelope (`{ "content", "tool_calls" }`, as
+/// [`NativeToolDispatcher::to_provider_messages`] emits) back into its inner
+/// visible text and structured [`TaToolCall`]s. Returns `None` when `text` is not
+/// such an envelope (plain assistant prose), so the caller can fall back to text.
+fn parse_native_assistant_envelope(text: &str) -> Option<(String, Vec<TaToolCall>)> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let obj = value.as_object()?;
+    let calls_val = obj.get("tool_calls")?;
+    // Require a non-empty, parseable tool-call array so ordinary JSON-looking
+    // assistant prose isn't misread as a tool round.
+    if !calls_val.as_array().is_some_and(|a| !a.is_empty()) {
+        return None;
+    }
+    let oh_calls: Vec<crate::openhuman::inference::provider::ToolCall> =
+        serde_json::from_value(calls_val.clone()).ok()?;
+    if oh_calls.is_empty() {
+        return None;
+    }
+    let inner = obj
+        .get("content")
+        .and_then(|c| c.as_str())
+        .unwrap_or_default()
+        .to_string();
+    Some((inner, oh_calls.iter().map(oh_call_to_ta_call).collect()))
+}
+
+/// Parse a native tool-result envelope (`{ "tool_call_id", "content" }`) back into
+/// its correlation id and payload. Returns `None` for a bare tool message.
+fn parse_native_tool_envelope(text: &str) -> Option<(String, String)> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let obj = value.as_object()?;
+    let id = obj.get("tool_call_id")?.as_str()?.to_string();
+    let content = obj
+        .get("content")
+        .and_then(|c| c.as_str())
+        .unwrap_or_default()
+        .to_string();
+    Some((id, content))
+}
+
+/// Inverse of [`ta_call_to_oh_call`]: rebuild a harness [`TaToolCall`] from an
+/// openhuman [`ToolCall`] (whose `arguments` is a serialized JSON string).
+fn oh_call_to_ta_call(oh: &crate::openhuman::inference::provider::ToolCall) -> TaToolCall {
+    TaToolCall {
+        id: oh.id.clone(),
+        name: oh.name.clone(),
+        arguments: serde_json::from_str(&oh.arguments).unwrap_or(serde_json::Value::Null),
     }
 }
 
@@ -247,6 +319,70 @@ pub(super) fn ta_call_to_oh_call(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn seeded_native_tool_round_recovers_structure_and_round_trips() {
+        use crate::openhuman::inference::provider::ToolCall as OhToolCall;
+        // The native dispatcher seeds an assistant tool round as a
+        // {content, tool_calls} envelope followed by {tool_call_id, content} rows.
+        let oh_call = OhToolCall {
+            id: "call-1".into(),
+            name: "echo".into(),
+            arguments: r#"{"msg":"hi"}"#.into(),
+            extra_content: None,
+        };
+        let assistant_cm = ChatMessage::assistant(
+            serde_json::json!({ "content": "calling echo", "tool_calls": [oh_call] }).to_string(),
+        );
+        let tool_cm = ChatMessage::tool(
+            serde_json::json!({ "tool_call_id": "call-1", "content": "echoed:hi" }).to_string(),
+        );
+
+        // Inbound: the envelopes are recovered into structured harness messages.
+        let a = chat_message_to_message(&assistant_cm);
+        let Message::Assistant(am) = &a else {
+            panic!("expected Assistant, got {a:?}");
+        };
+        assert_eq!(am.tool_calls.len(), 1);
+        assert_eq!(am.tool_calls[0].id, "call-1");
+        assert_eq!(am.tool_calls[0].name, "echo");
+        assert_eq!(
+            am.tool_calls[0].arguments,
+            serde_json::json!({ "msg": "hi" })
+        );
+        assert_eq!(a.text(), "calling echo");
+
+        let t = chat_message_to_message(&tool_cm);
+        let Message::Tool(tm) = &t else {
+            panic!("expected Tool, got {t:?}");
+        };
+        assert_eq!(tm.tool_call_id, "call-1");
+        assert_eq!(t.text(), "echoed:hi");
+
+        // Outbound: re-serialized to a well-formed native tool round (assistant
+        // carries structured tool_calls, the tool row carries the matching id).
+        let a_native = message_to_native_chat_message(&a);
+        assert_eq!(a_native.role, "assistant");
+        let av: serde_json::Value = serde_json::from_str(&a_native.content).unwrap();
+        assert_eq!(av["tool_calls"][0]["id"], "call-1");
+        assert_eq!(av["content"], "calling echo");
+
+        let t_native = message_to_native_chat_message(&t);
+        assert_eq!(t_native.role, "tool");
+        let tv: serde_json::Value = serde_json::from_str(&t_native.content).unwrap();
+        assert_eq!(tv["tool_call_id"], "call-1");
+        assert_eq!(tv["content"], "echoed:hi");
+    }
+
+    #[test]
+    fn plain_assistant_prose_is_not_misread_as_a_tool_round() {
+        let a = chat_message_to_message(&ChatMessage::assistant("just a normal reply"));
+        let Message::Assistant(am) = &a else {
+            panic!("expected Assistant, got {a:?}");
+        };
+        assert!(am.tool_calls.is_empty());
+        assert_eq!(a.text(), "just a normal reply");
+    }
 
     #[test]
     fn roles_round_trip_through_the_bridge() {

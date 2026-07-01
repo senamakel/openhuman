@@ -88,6 +88,11 @@ pub struct ContextManager {
     /// session construction so it only affects newly started threads.
     /// See [`ContextConfig::super_context_enabled`].
     super_context_enabled: bool,
+    /// When `true`, the tinyagents turn installs the LLM summarization step
+    /// (`ContextCompressionMiddleware`). Gated by both `[context].enabled` and
+    /// `[context].autocompact_enabled` so a diagnostic/test opt-out doesn't spend
+    /// summarizer tokens or rewrite history. See [`ContextConfig::autocompact_enabled`].
+    autocompact_enabled: bool,
 }
 
 impl ContextManager {
@@ -128,6 +133,9 @@ impl ContextManager {
                 0
             },
             super_context_enabled: config.super_context_enabled,
+            // Summarization is off when the whole context system is disabled OR
+            // autocompaction specifically is turned off.
+            autocompact_enabled: config.enabled && config.autocompact_enabled,
         }
     }
 
@@ -165,6 +173,15 @@ impl ContextManager {
     /// Read by `Agent::turn`. See [`ContextConfig::super_context_enabled`].
     pub fn super_context_enabled(&self) -> bool {
         self.super_context_enabled
+    }
+
+    /// Whether the tinyagents turn should install the LLM summarization step.
+    /// `false` when `[context].enabled = false` or `autocompact_enabled = false`
+    /// — the diagnostic/test opt-outs the legacy pipeline honored before
+    /// requesting autocompaction. Read by the chat turn when building
+    /// `TurnContextMiddleware`.
+    pub fn autocompact_enabled(&self) -> bool {
+        self.autocompact_enabled
     }
 
     /// Force-disable the first-turn super-context pass for this session,

@@ -136,6 +136,20 @@ impl OpenhumanEventBridge {
         (s.input_tokens, s.output_tokens, s.charged_amount_usd)
     }
 
+    /// Cumulative `(input_tokens, output_tokens, cached_input_tokens, charged_usd)`
+    /// observed so far — the full accounting the turn persists (transcript cost /
+    /// session meters), so a normal turn no longer records `$0` and zero cached
+    /// tokens despite real usage.
+    pub fn totals_with_cost(&self) -> (u64, u64, u64, f64) {
+        let s = self.state.lock().unwrap();
+        (
+            s.input_tokens,
+            s.output_tokens,
+            s.cached_input_tokens,
+            s.charged_amount_usd,
+        )
+    }
+
     /// Best-effort, non-blocking progress emit (drops on a full channel, like
     /// the legacy streaming path).
     fn send(&self, progress: AgentProgress) {

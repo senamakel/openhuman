@@ -63,6 +63,23 @@ fn microcompact_keep_recent_reflects_config_default() {
 }
 
 #[test]
+fn autocompact_enabled_requires_both_master_and_autocompact_flags() {
+    // Both on → summarization allowed.
+    let both = manager_with_config(&ContextConfig::default());
+    assert!(both.autocompact_enabled());
+
+    // Master context switch off → summarization off regardless of autocompact.
+    let mut disabled = ContextConfig::default();
+    disabled.enabled = false;
+    assert!(!manager_with_config(&disabled).autocompact_enabled());
+
+    // Autocompact specifically off → summarization off.
+    let mut no_autocompact = ContextConfig::default();
+    no_autocompact.autocompact_enabled = false;
+    assert!(!manager_with_config(&no_autocompact).autocompact_enabled());
+}
+
+#[test]
 fn super_context_enabled_reflects_config() {
     // Default config: on.
     let on = default_manager();

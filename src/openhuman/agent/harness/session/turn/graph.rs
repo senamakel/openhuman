@@ -32,7 +32,9 @@ use tokio::sync::mpsc::Sender;
 use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, Provider, AGENT_TURN_MAX_OUTPUT_TOKENS};
-use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, TinyagentsTurnOutcome};
+use crate::openhuman::tinyagents::{
+    run_turn_via_tinyagents_shared, TinyagentsTurnOutcome, TurnContextMiddleware,
+};
 use crate::openhuman::tools::Tool;
 
 /// Inputs for a single chat-turn graph dispatch. Grouped into a struct so the
@@ -64,6 +66,9 @@ pub(crate) struct ChatTurnGraph {
     pub context_window: Option<u64>,
     /// Session run queue for mid-flight steering.
     pub run_queue: Option<Arc<RunQueue>>,
+    /// openhuman context middlewares (cache-align, microcompact, tool-output
+    /// budget + payload summarizer) sourced from the session's `ContextManager`.
+    pub context_mw: TurnContextMiddleware,
 }
 
 /// Drive the chat turn graph: a thin wrapper over the shared tinyagents seam
@@ -95,6 +100,8 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         // Bound the main agent's per-call output (legacy parity — the engine
         // capped every turn at `AGENT_TURN_MAX_OUTPUT_TOKENS`).
         Some(AGENT_TURN_MAX_OUTPUT_TOKENS),
+        // Context middlewares sourced from the session's ContextManager.
+        graph.context_mw,
     )
     .await
 }

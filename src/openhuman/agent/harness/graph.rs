@@ -119,6 +119,9 @@ pub(crate) async fn run_channel_turn_via_graph(
         // Bound the model's per-call output (legacy parity — channel turns ran at
         // the standard per-turn budget).
         Some(crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS),
+        // Context middlewares: cache-align + default tool-result byte cap (the
+        // channel path has no session `ContextManager` to source config from).
+        crate::openhuman::tinyagents::TurnContextMiddleware::defaults(),
     )
     .await?;
     // Persist the original (un-expanded) prior turns plus only the new turns the

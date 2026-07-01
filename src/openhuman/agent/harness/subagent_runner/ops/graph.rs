@@ -136,6 +136,9 @@ pub(super) async fn run_subagent_via_graph(
         true,
         // Bound the sub-agent's per-call output at its configured budget.
         Some(max_output_tokens),
+        // Context middlewares: cache-align + default tool-result byte cap so a
+        // sub-agent's (often large) tool outputs stay bounded in its transcript.
+        crate::openhuman::tinyagents::TurnContextMiddleware::defaults(),
     ))
     .await
     .map_err(SubagentRunError::Provider)?;

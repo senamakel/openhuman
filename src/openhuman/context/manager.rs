@@ -79,6 +79,10 @@ pub struct ContextManager {
     /// kill-switch lives here so every caller reads one source of truth.
     /// See [`ContextConfig::compaction_enabled`].
     compaction_enabled: bool,
+    /// Number of most-recent tool results kept verbatim by the microcompact
+    /// middleware; `0` when microcompact is disabled. Read by the tinyagents
+    /// turn to configure `MicrocompactMiddleware`.
+    microcompact_keep_recent: usize,
     /// When `true`, the harness runs a mandatory first-turn context
     /// collection pass before the orchestrator LLM runs. Read once at
     /// session construction so it only affects newly started threads.
@@ -118,6 +122,11 @@ impl ContextManager {
             tool_result_budget_bytes: config.tool_result_budget_bytes,
             prefer_markdown_tool_output: config.prefer_markdown_tool_output,
             compaction_enabled: config.compaction_enabled,
+            microcompact_keep_recent: if config.microcompact_enabled {
+                config.microcompact_keep_recent
+            } else {
+                0
+            },
             super_context_enabled: config.super_context_enabled,
         }
     }
@@ -126,6 +135,13 @@ impl ContextManager {
     /// markdown (when supported) instead of JSON, to save LLM tokens.
     pub fn prefer_markdown_tool_output(&self) -> bool {
         self.prefer_markdown_tool_output
+    }
+
+    /// Number of most-recent tool results the microcompact middleware keeps
+    /// verbatim; `0` when microcompact is disabled. Read by the tinyagents turn
+    /// to configure `MicrocompactMiddleware`.
+    pub fn microcompact_keep_recent(&self) -> usize {
+        self.microcompact_keep_recent
     }
 
     /// Byte budget for an individual tool result before the context
@@ -230,7 +246,6 @@ impl ContextManager {
     /// automatically, so no boundary marker is emitted.
     pub fn build_system_prompt(&self, ctx: &PromptContext<'_>) -> Result<String> {
         let prompt = self.default_prompt_builder.build(ctx)?;
-        self.warn_if_cache_unstable(&prompt);
         Ok(prompt)
     }
 
@@ -247,18 +262,7 @@ impl ContextManager {
         ctx: &PromptContext<'_>,
     ) -> Result<String> {
         let prompt = builder.build(ctx)?;
-        self.warn_if_cache_unstable(&prompt);
         Ok(prompt)
-    }
-
-    /// Cache-aligner (Stage 1a sibling, warn-only): flag volatile tokens in
-    /// the cache-hot system prompt that would silently break the provider
-    /// KV-cache prefix. Never mutates the prompt. Gated on the compaction
-    /// kill-switch so disabling compaction also silences this diagnostic.
-    fn warn_if_cache_unstable(&self, prompt: &str) {
-        if self.compaction_enabled {
-            crate::openhuman::agent::harness::compaction::cache_align::warn_if_volatile(prompt);
-        }
     }
 
     // ─── Observability ─────────────────────────────────────────────

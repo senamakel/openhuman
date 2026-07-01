@@ -21,6 +21,7 @@
 pub mod checkpoint;
 mod convert;
 pub mod delegation;
+pub mod middleware;
 mod model;
 pub mod observability;
 pub mod orchestration;
@@ -44,6 +45,7 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 
 pub use checkpoint::SqlRunLedgerCheckpointer;
+pub use middleware::TurnContextMiddleware;
 pub use model::{ProviderModel, ThinkingForwarder};
 pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
 pub use tools::{
@@ -226,6 +228,7 @@ pub async fn run_turn_via_tinyagents_shared(
     early_exit_tools: &[&str],
     pause_at_cap: bool,
     max_output_tokens: Option<u32>,
+    context_mw: TurnContextMiddleware,
 ) -> Result<TinyagentsTurnOutcome> {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness.with_policy(run_policy_for(max_iterations));
@@ -274,6 +277,12 @@ pub async fn run_turn_via_tinyagents_shared(
     harness
         .register_model(model, Arc::new(provider_model))
         .set_default_model(model);
+
+    // openhuman context concerns as graph middlewares (issue #4249): cache-align
+    // warnings, microcompact tool-body clearing, and the after-tool byte cap /
+    // payload summarizer. Installed before the summarization/trim block below so
+    // `before_model` hooks run cache-align → microcompact → compress → trim.
+    context_mw.install(&mut harness);
 
     // Autocompaction parity: when the provider's context window is known, install
     // the two-stage context-management step (issue #4249).

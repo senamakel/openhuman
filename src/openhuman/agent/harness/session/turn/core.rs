@@ -920,6 +920,16 @@ impl Agent {
         // wrapper over the shared tinyagents seam that pins the chat path's fixed
         // arguments (no child scope, no early-exit tools, graceful cap pause,
         // per-turn output cap) and runs the context-window summarization step.
+        // Context middlewares sourced from this session's ContextManager: the
+        // per-tool-result byte cap + payload summarizer (after_tool), the
+        // cache-align warning and microcompact tool-body clearing (before_model).
+        let context_mw = crate::openhuman::tinyagents::TurnContextMiddleware {
+            tool_result_budget_bytes: self.context.tool_result_budget_bytes(),
+            payload_summarizer: self.payload_summarizer.clone(),
+            cache_align: self.context.compaction_enabled(),
+            microcompact_keep_recent: self.context.microcompact_keep_recent(),
+        };
+
         let outcome = super::graph::run_chat_turn_graph(super::graph::ChatTurnGraph {
             provider: self.provider.clone(),
             model: effective_model.to_string(),
@@ -931,6 +941,7 @@ impl Agent {
             on_progress: self.on_progress.clone(),
             context_window,
             run_queue: self.run_queue.clone(),
+            context_mw,
         })
         .await?;
 

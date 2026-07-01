@@ -905,20 +905,28 @@ impl Agent {
             }),
         };
 
-        let outcome = super::graph::run_chat_turn_graph(super::graph::ChatTurnGraph {
-            provider: self.provider.clone(),
-            model: effective_model.to_string(),
-            temperature,
-            messages,
-            tools: self.tools.clone(),
-            visible_tool_names: self.visible_tool_names.clone(),
-            max_iterations,
-            on_progress: self.on_progress.clone(),
-            context_window,
-            run_queue: self.run_queue.clone(),
-            context_mw,
-        })
-        .await?;
+        // Gather any sub-agent spend delegated during this turn (synchronous
+        // `spawn_subagent` runs inline on this task and records into the collector)
+        // so the turn's usage meters + the `chat_done` per-child breakdown include
+        // it — the collector scope the legacy engine installed.
+        let (outcome, subagent_usage_entries) =
+            crate::openhuman::agent::harness::turn_subagent_usage::with_turn_collector(
+                super::graph::run_chat_turn_graph(super::graph::ChatTurnGraph {
+                    provider: self.provider.clone(),
+                    model: effective_model.to_string(),
+                    temperature,
+                    messages,
+                    tools: self.tools.clone(),
+                    visible_tool_names: self.visible_tool_names.clone(),
+                    max_iterations,
+                    on_progress: self.on_progress.clone(),
+                    context_window,
+                    run_queue: self.run_queue.clone(),
+                    context_mw,
+                }),
+            )
+            .await;
+        let outcome = outcome?;
 
         // The stamped user turn is already in `self.history` (pushed by `turn()`),
         // so append only the structured messages this turn produced — assistant
@@ -983,6 +991,29 @@ impl Agent {
             outcome.text.clone()
         };
         self.trim_history();
+
+        // Fold this turn's sub-agent spend into the cumulative meters and capture
+        // the holistic per-turn usage the web channel surfaces on `chat_done` (it
+        // calls `take_last_turn_usage_totals()` right after the turn). Without this
+        // the event reported `usage: None` despite the transcript being persisted
+        // with real numbers.
+        for entry in &subagent_usage_entries {
+            input_tokens = input_tokens.saturating_add(entry.usage.input_tokens);
+            output_tokens = output_tokens.saturating_add(entry.usage.output_tokens);
+            cached_input_tokens =
+                cached_input_tokens.saturating_add(entry.usage.cached_input_tokens);
+            charged_amount_usd += entry.usage.charged_amount_usd;
+        }
+        self.last_turn_usage_totals = Some(
+            crate::openhuman::agent::harness::turn_subagent_usage::LastTurnUsage {
+                input_tokens,
+                output_tokens,
+                cached_input_tokens,
+                cost_usd: charged_amount_usd,
+                context_window: context_window.unwrap_or(0),
+                subagents: subagent_usage_entries,
+            },
+        );
 
         let persisted = self.tool_dispatcher.to_provider_messages(&self.history);
         self.persist_session_transcript(

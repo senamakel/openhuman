@@ -12,10 +12,18 @@
 //! 4. Builds a narrow system prompt that strips the sections the
 //!    definition asks to omit (`omit_identity`, `omit_memory_context`,
 //!    `omit_safety_preamble`, `omit_skills_catalog`).
-//! 5. Runs a slim inner tool-call loop using the parent's
-//!    [`crate::openhuman::inference::provider::Provider`] and returns a single
-//!    text result. The intra-sub-agent history never leaks back to the
-//!    parent — the parent only sees one compact tool result.
+//! 5. Runs the child turn on the TinyAgents harness (`ops::graph` →
+//!    [`crate::openhuman::tinyagents::run_turn_via_tinyagents_shared`]) using
+//!    the parent's [`crate::openhuman::inference::provider::Provider`] and
+//!    returns a single text result. The intra-sub-agent history never leaks
+//!    back to the parent — the parent only sees one compact tool result.
+//!
+//! This module is the OpenHuman **build pipeline** around that TinyAgents
+//! run: definition lookup/allowlists, archetype prompt assembly, toolkit
+//! filtering, sandbox/action-root narrowing, checkpoint/handback, and
+//! worker-thread transcript mirroring. Mapping it onto TinyAgents
+//! `SubAgent`/`SubAgentSession`/subgraph primitives is tracked in
+//! `docs/tinyagents-harness-migration-audit.md`.
 //!
 //! ## Layout
 //!

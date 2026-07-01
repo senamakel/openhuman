@@ -4,6 +4,17 @@
 //! agent workers from one parent session. The lower-level
 //! [`crate::openhuman::agent::harness`] module remains responsible for prompt
 //! construction, tool filtering, and the actual sub-agent run loop.
+//!
+//! Execution fans out on TinyAgents **graphs**: [`workflow_runs`] schedules
+//! phase DAGs on a graph engine, [`agent_teams`] runs members through a
+//! conditional-routing graph, [`delegation`] wires the durable
+//! plan→execute⇄review→finalize graph, and parallel fanout goes through
+//! [`crate::openhuman::tinyagents::orchestration`]. What stays here is the
+//! product layer: durable SQL/JSON run ledgers, validation, cancellation
+//! semantics, compatibility events, and JSON-RPC/tool response formatting.
+//! [`running_subagents`] mirrors detached-sub-agent lifecycle into a
+//! TinyAgents task store; porting more of that lifecycle upstream is tracked
+//! in `docs/tinyagents-harness-migration-audit.md`.
 
 pub mod agent_teams;
 pub mod background_completions;

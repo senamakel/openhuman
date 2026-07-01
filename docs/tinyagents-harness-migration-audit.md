@@ -266,6 +266,10 @@ remaining `run_turn_engine`/`run_inner_loop` mentions in code are explicit
 
 ### P1: Migrate old OpenHuman sessions into TinyAgents stores
 
+Design: `docs/tinyagents-session-migration-design.md` (2026-07-01) — source
+format inventory, target store layout, lineage-key mapping, idempotency
+ledger, fixture matrix, and phasing.
+
 Current OpenHuman files:
 
 - `src/openhuman/agent/harness/session/transcript.rs`
@@ -430,7 +434,7 @@ Remaining blockers are narrower:
    of the removed in-house loop.
 2. Add a one-time transcript/session migration design for old OpenHuman
    `session_raw/*.jsonl` and Markdown sessions into TinyAgents store/journal
-   records.
+   records. Done: `docs/tinyagents-session-migration-design.md`.
 3. Add a small "Historical pre-TinyAgents loop" appendix for details that are
    still useful context.
 4. Add per-folder READMEs or module docs for:

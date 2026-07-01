@@ -145,7 +145,7 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
 
 ## Phase 1 - Tools
 
-- [ ] Make OpenHuman tool metadata round-trip into TinyAgents tool metadata.
+- [~] Make OpenHuman tool metadata round-trip into TinyAgents tool metadata.
   - OpenHuman files: `src/openhuman/tools/traits.rs`,
     `src/openhuman/tinyagents/tools.rs`, `src/openhuman/tinyagents/convert.rs`.
   - TinyAgents components: `harness::tool::{ToolSchema, ToolFormat,
@@ -156,6 +156,18 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
   - Acceptance: a TinyAgents tool call has enough metadata for middleware to
     enforce approval, security, timeout, concurrency, truncation, and display
     behavior without re-querying OpenHuman trait methods ad hoc.
+  - **SDK gap + side-lookup adapter:** crate `ToolSchema` carries only
+    name/description/parameters/format — it has **no** metadata/extension map and
+    `ToolExecutionContext` is run-scoped, so none of OpenHuman's safety/runtime
+    fields have a crate home. The adopted pattern is a shared
+    `name → Arc<dyn Tool>` lookup the runner builds from `tool_sets`; middleware
+    calls the (often args-aware) trait methods live. Landed uses of it:
+    `ApprovalSecurityMiddleware` reads `external_effect_with_args`;
+    `ToolOutputMiddleware` now honors each tool's own `max_result_size_chars()`
+    (was a flat hardcoded budget). Remaining fields (timeout, concurrency,
+    display, generated context) can ride the same lookup as their middlewares
+    land; full crate round-trip is blocked pending an SDK `ToolSchema` extension
+    map.
 
 - [ ] Move unknown-tool recovery into a reusable middleware or tool policy layer.
   - Current shim: `UNKNOWN_TOOL_SENTINEL` in `src/openhuman/tinyagents/tools.rs`.

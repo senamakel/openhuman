@@ -89,7 +89,11 @@ impl TurnContextMiddleware {
     /// microcompact (clear tool bodies) are installed **before** the caller's
     /// summarization / trim middlewares — microcompact frees cheap tokens first,
     /// then summarization/trim handle the rest.
-    pub fn install(self, harness: &mut AgentHarness<()>) {
+    pub fn install(
+        self,
+        harness: &mut AgentHarness<()>,
+        tool_sets: &[Arc<Vec<Box<dyn Tool>>>],
+    ) {
         if self.cache_align {
             harness.push_middleware(Arc::new(CacheAlignMiddleware));
         }
@@ -102,6 +106,7 @@ impl TurnContextMiddleware {
             harness.push_middleware(Arc::new(ToolOutputMiddleware {
                 budget_bytes: self.tool_result_budget_bytes,
                 payload_summarizer: self.payload_summarizer,
+                tool_sets: tool_sets.to_vec(),
             }));
         }
     }
@@ -188,8 +193,26 @@ impl Middleware<()> for MicrocompactMiddleware {
 /// content, before it enters the transcript. The graph analogue of the byte cap
 /// + `payload_summarizer` interception the in-house `agent_tool_exec` ran.
 struct ToolOutputMiddleware {
+    /// Fallback per-tool-result byte cap for tools that don't declare their own.
     budget_bytes: usize,
     payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    /// Shared tool sets, used to honor a tool's own `max_result_size_chars()`
+    /// cap (issue #4249, Phase 1 Task C) instead of the flat `budget_bytes`.
+    tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+}
+
+impl ToolOutputMiddleware {
+    /// Effective byte cap for `name`: the tool's own `max_result_size_chars`
+    /// when it declares one (treated as bytes — a conservative approximation),
+    /// else the shared fallback `budget_bytes`.
+    fn effective_budget(&self, name: &str) -> usize {
+        self.tool_sets
+            .iter()
+            .flat_map(|set| set.iter())
+            .find(|t| t.name() == name)
+            .and_then(|t| t.max_result_size_chars())
+            .unwrap_or(self.budget_bytes)
+    }
 }
 
 #[async_trait]
@@ -223,9 +246,11 @@ impl Middleware<()> for ToolOutputMiddleware {
         }
 
         // 2. Hard byte cap backstop — truncate at a UTF-8 boundary with a marker.
-        if self.budget_bytes > 0 {
+        //    Honor the tool's own declared cap first, else the shared fallback.
+        let budget = self.effective_budget(&result.name);
+        if budget > 0 {
             let (capped, outcome) =
-                apply_tool_result_budget(std::mem::take(&mut result.content), self.budget_bytes);
+                apply_tool_result_budget(std::mem::take(&mut result.content), budget);
             if outcome.truncated {
                 tracing::debug!(
                     tool = %result.name,

@@ -10,7 +10,7 @@ icon: layer-group
 > **Status (issue #4249 — tinyagents migration):** the agent turn no longer runs
 > on the in-tree `run_turn_engine` loop. **All three entry points (`Agent::turn`,
 > the channel/CLI bus path, and `run_subagent`) now drive every turn through the
-> published [`tinyagents`](https://crates.io/crates/tinyagents) 1.1 agent-loop
+> published [`tinyagents`](https://crates.io/crates/tinyagents) 1.2 agent-loop
 > harness** via the adapter seam in [`src/openhuman/tinyagents/`](../../../src/openhuman/tinyagents/)
 > (`run_turn_via_tinyagents_shared`). The legacy `run_turn_engine`, the three
 > hand-rolled loops, `turn_engine_adapter`, and the custom `agent_graph/` engine
@@ -49,14 +49,14 @@ icon: layer-group
 
 ## TinyAgents crate: features & compatibility
 
-OpenHuman pins `tinyagents = "1.1"` with **default features only** (see [`Cargo.toml`](../../../Cargo.toml)). The rationale, so future upgrades don't silently regress it:
+OpenHuman pins `tinyagents = "1.2"` with **default features only** (see [`Cargo.toml`](../../../Cargo.toml)). The rationale, so future upgrades don't silently regress it:
 
 - **Default (offline) features only.** We do **not** enable the crate's `openai` feature. OpenHuman owns provider transport, credentials, OAuth, and billing classification, so the live model is always OpenHuman's `Provider` wrapped as [`ProviderModel`](../../../src/openhuman/tinyagents/model.rs) — never the crate's bundled OpenAI client. The `ChatModel` adapter is the seam that replaces the feature-gated SDK provider.
 - **`sqlite` feature deliberately disabled.** The crate's `SqliteCheckpointer` pulls `rusqlite 0.40` (`libsqlite3-sys 0.38`), which conflicts with OpenHuman's own `rusqlite 0.37` over the `links = "sqlite3"` native lib — enabling it breaks the build. Durable graph checkpoints are instead provided by [`SqlRunLedgerCheckpointer`](../../../src/openhuman/tinyagents/checkpoint.rs), a custom `Checkpointer<State>` over OpenHuman's session DB. This holds until the upstream native-link conflict is resolved.
 - **`repl` / expressive-language features unused.** OpenHuman drives graphs from Rust (`GraphBuilder`), not the crate's `.rag` REPL language.
 - **Adapter map (feature-gated SDK piece → OpenHuman replacement):** OpenAI provider → `ProviderModel`; bundled SQLite checkpointer → `SqlRunLedgerCheckpointer`; in-memory-only durable task storage → OpenHuman SQL/JSON run ledgers (`running_subagents`, `workflow_runs`, `agent_teams`, `command_center`). The generic harness/graph/middleware/event primitives are used as-is.
 
-Migration backlog and per-phase tasks live in [`docs/tinyagents-migration-spec.md`](../../../docs/tinyagents-migration-spec.md).
+Migration backlog and per-phase tasks live in [`docs/tinyagents-migration-spec.md`](../../../docs/tinyagents-migration-spec.md). The current harness inventory snapshot lives in [`docs/tinyagents-harness-migration-audit.md`](../../../docs/tinyagents-harness-migration-audit.md).
 
 The agent harness is the runtime that turns a user message (or a webhook fire, or a cron tick) into a complete, tool-using LLM interaction. It owns the tool-call loop, sub-agent dispatch, the trigger-triage pipeline, and the hook surface around them. It does **not** own provider HTTP transport, tool implementations, prompt-section assembly, or memory storage - those are separate domains the harness composes.
 

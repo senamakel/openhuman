@@ -4,6 +4,13 @@ Date: 2026-07-01
 
 Scope: current `openhuman-5` checkout on branch `issue/4249-finish-tinyagents-migration`.
 
+TinyAgents refresh: reviewed `tinyhumansai/tinyagents` `main` at
+`348a0e7dc71a1f9039f3d523a2a384661a7a9acd` after the current audit was first
+written. That repo is now materially ahead of the assumptions in the older
+OpenHuman migration docs: it has harness cache/store/session primitives,
+sub-agent reuse, graph subgraph/sub-agent nodes, lineage-aware events/status,
+and JSONL-backed append stores.
+
 This is a documentation-only audit of how much of the OpenHuman agent harness is
 actually migrated to TinyAgents, and which remaining OpenHuman files are good
 candidates to port, collapse, or keep as product-specific adapters.
@@ -26,9 +33,12 @@ The repository still has a large OpenHuman harness shell around that path:
 
 The migration should not be read as "OpenHuman can delete `agent/harness/` now."
 The correct read is: the execution core is on TinyAgents, but much of the
-surrounding runtime was preserved for product compatibility. Some of that should
-stay in OpenHuman. Some is generic runtime behavior that can be ported upstream
-or re-expressed through TinyAgents once SDK gaps close.
+surrounding runtime was preserved for product compatibility. After reviewing the
+current TinyAgents code, more of that surrounding runtime is now portable than
+this audit originally assumed: session transcript tracking, prompt/response
+cache handling, and sub-agent pipeline orchestration can be expressed through
+TinyAgents store/cache/subgraph/sub-agent-node primitives, with OpenHuman keeping
+only product policy and compatibility adapters.
 
 ## What Is Migrated
 
@@ -91,12 +101,12 @@ events, and result formatting.
 
 ## What Is Still Mostly OpenHuman-Owned
 
-### Session and transcript shell
+### Session, transcript, and cache shell
 
 Largest remaining harness surface: `src/openhuman/agent/harness/session/`
 at roughly 13.2k lines.
 
-Keep in OpenHuman for now:
+Current OpenHuman role:
 
 - Session transcript migration and compatibility.
 - Product-level `AgentBuilder` configuration.
@@ -106,13 +116,30 @@ Keep in OpenHuman for now:
 - Tool dispatcher compatibility for persisted native/XML/P-format transcript
   suffixes.
 
-Good TinyAgents candidates:
+Updated TinyAgents target:
 
-- Generic run status and event journal ownership.
-- Generic checkpoint/cap handling.
-- Generic transcript event projection once TinyAgents journals can reconstruct a
-  run with redaction and replay.
-- Generic prompt-cache layout events.
+- Use TinyAgents `harness::store::{Store, AppendStore, FileStore,
+  JsonlAppendStore}` as the durable substrate for message history, event
+  journals, tool/model call records, artifacts, and local migration outputs.
+- Use TinyAgents `harness::cache::{ResponseCache, PromptCacheLayout,
+  CacheLayoutEvent, CachePolicy}` for response-cache and provider KV-cache
+  layout protection instead of keeping prompt-cache reasoning as OpenHuman-only
+  session logic.
+- Use TinyAgents run/event/status lineage (`root_run_id`, `parent_run_id`,
+  offsets, status stores) as the canonical internal transcript/run inspection
+  surface, then project into legacy OpenHuman views where needed.
+- Write a one-time migration script for old OpenHuman `session_raw/*.jsonl` and
+  legacy Markdown session files into TinyAgents store/journal records. The
+  script should preserve original session ids, transcript stems, timestamps,
+  provider/model metadata, tool-call ids, and parent/child links, and should be
+  idempotent with a marker/version row so it can be safely re-run.
+
+Keep in OpenHuman:
+
+- The legacy reader/writer compatibility layer until migrated sessions are
+  proven equivalent.
+- Product-specific prompt assembly, memory source identity, approval/security
+  context, and JSON-RPC response shapes.
 
 ### Sub-agent build pipeline
 
@@ -127,13 +154,20 @@ Keep in OpenHuman:
 - Worker-thread mirroring and transcript compatibility.
 - Integrations-agent preflight and handoff cache behavior.
 
-Good TinyAgents candidates:
+Updated TinyAgents target:
 
-- A first-class `SubAgentSession` abstraction under the OpenHuman registry
-  adapter.
-- Parent/root run lineage and usage rollup.
-- Safe steering, waiting, cancellation, and recursion depth semantics.
-- Generic early-exit pause and resumable checkpoint handling.
+- Map the OpenHuman sub-agent build pipeline into TinyAgents `SubAgent`,
+  `SubAgentSession`, and `SubAgentTool` once registry/policy adapters are ready.
+- Express multi-step sub-agent work as graph structure using
+  `graph::subagent_node` for harness-agent leaves and `graph::subgraph` for
+  reusable pipelines. The current OpenHuman "prepare prompt -> filter tools ->
+  run child -> checkpoint/handback -> mirror transcript" flow can become a
+  subgraph rather than a sidecar runner.
+- Use TinyAgents parent/root run lineage and `UsageTotals` for child usage/cost
+  rollup instead of carrying separate OpenHuman aggregation structs.
+- Keep OpenHuman-specific preflight nodes for agent definition lookup,
+  allowlists, toolkit gates, sandbox/action-root narrowing, and worker-thread
+  mirroring.
 
 ### Detached sub-agent registry
 
@@ -144,14 +178,21 @@ Current state: it uses TinyAgents `InMemoryTaskStore` as a typed lifecycle
 ledger, but still owns watch channels, abort handles, wait/steer/cancel control,
 tombstones, ownership checks, and session lookup.
 
-Good TinyAgents candidates:
+Updated TinyAgents target:
 
 - Durable `TaskStore` support.
 - Typed wait/steer/cancel APIs.
 - Parent/root run tree queries.
 - Cancellation requests and hard abort lifecycle events.
 
-Keep in OpenHuman until the SDK grows those pieces:
+TinyAgents now has more of the lifecycle substrate than this audit originally
+assumed, including harness/graph status records, lineage-aware events,
+`SubAgentSession` reuse, and append stores. The migration should therefore be an
+adapter exercise first: map existing durable OpenHuman sub-agent session rows and
+worker-thread records into TinyAgents session/status/journal records, then keep
+OpenHuman controllers as compatibility projections.
+
+Keep in OpenHuman until parity is proven:
 
 - Desktop restart/resume compatibility.
 - Existing JSON-RPC/tool response shapes.
@@ -215,7 +256,33 @@ Action:
 Why first: stale docs make it hard to tell whether remaining files are live
 runtime, compatibility shell, or historical residue.
 
-### P1: Make event/status journals canonical
+### P1: Migrate old OpenHuman sessions into TinyAgents stores
+
+Current OpenHuman files:
+
+- `src/openhuman/agent/harness/session/transcript.rs`
+- `src/openhuman/agent/harness/session/migration.rs`
+- `session_raw/*.jsonl` and legacy Markdown session directories under user
+  workspaces.
+
+Target shape:
+
+- Add a one-time migration command/script that reads old OpenHuman session JSONL
+  and Markdown transcripts, normalizes them into TinyAgents message/event/store
+  records, and writes them through TinyAgents-compatible `Store`/`AppendStore`
+  semantics.
+- Preserve compatibility metadata so old UI surfaces and run-ledger lookups can
+  still answer by OpenHuman session key while new internals read by TinyAgents
+  `thread_id`, `run_id`, `root_run_id`, and stream offset.
+- Make the migration idempotent and observable: dry-run mode, per-file summary,
+  warning list, migrated-count counters, and a marker/version record.
+
+Risk: transcript shape is user data. This needs fixture coverage over current
+flat `session_raw/*.jsonl`, older date-folder JSONL, Markdown sessions,
+sub-agent transcript stems, native tool-call envelopes, XML/P-format tool
+history, and malformed partial files.
+
+### P2: Make event/status journals canonical
 
 Current OpenHuman files:
 
@@ -233,7 +300,7 @@ Target shape:
 Risk: this crosses UI streaming, cost footer, run ledgers, and desktop
 reconnect behavior. It needs focused parity tests before deletion.
 
-### P2: Port detached task lifecycle beyond `InMemoryTaskStore`
+### P3: Port detached task lifecycle beyond the OpenHuman registry
 
 Current OpenHuman files:
 
@@ -246,9 +313,13 @@ Target shape:
   run lineage, and terminal history.
 - OpenHuman owns durable SQL/JSON projection and product response formatting.
 
-Blocker: TinyAgents needs a durable task/status store, not only in-memory shape.
+This is no longer just waiting on SDK primitives. Current TinyAgents exposes
+session reuse, lineage-aware events/status, graph/harness observability, and
+JSONL append storage. The concrete blocker is now designing the OpenHuman
+compatibility adapter and proving restart/resume parity against existing
+controllers.
 
-### P3: Re-express `spawn_parallel_agents` as a graph tool
+### P4: Re-express `spawn_parallel_agents` as a graph tool
 
 Current OpenHuman files:
 
@@ -266,7 +337,7 @@ Target shape:
 Why: this is a high-value migration because it converts a large product-visible
 orchestration loop without touching the basic chat turn.
 
-### P4: Replace generic checkpoint/progress seams
+### P5: Replace generic checkpoint/progress seams
 
 Current OpenHuman files:
 
@@ -282,7 +353,7 @@ Target shape:
 Keep only the OpenHuman-specific compatibility formatting for existing
 transcripts and tool outputs.
 
-### P5: Retire boilerplate per-agent graph selectors
+### P6: Retire boilerplate per-agent graph selectors
 
 Current OpenHuman files:
 
@@ -319,33 +390,47 @@ semantics and compatibility boundaries.
 
 ## Main SDK Gaps Blocking More Deletion
 
-The most important upstream gaps are already tracked in
-`docs/tinyagents-sdk-gaps.md`; this audit confirms they are still the blockers
-for removing more local harness code:
+The most important upstream gaps are tracked in `docs/tinyagents-sdk-gaps.md`,
+but that file must be refreshed against TinyAgents `main` at
+`348a0e7dc71a1f9039f3d523a2a384661a7a9acd`. Several older "missing" items now
+exist as concrete TinyAgents modules:
+
+- `harness::cache` has response caching and prompt/KV-cache layout protection.
+- `harness::store` has key-value stores and `JsonlAppendStore`.
+- `harness::subagent` has `SubAgent`, `SubAgentSession`, and `SubAgentTool`.
+- `graph::subgraph` and `graph::subagent_node` can express nested graph and
+  sub-agent pipelines.
+- harness/graph observability and status types carry `root_run_id` /
+  `parent_run_id` lineage.
+
+Remaining blockers are narrower:
 
 - Rich tool policy metadata in TinyAgents schemas.
 - Recoverable unknown-tool policy without the OpenHuman sentinel.
-- Reasoning/tool-argument streaming events with stable lineage.
-- Durable task/status/event stores with replay, redaction, cursors, and
-  cancellation.
-- SQLite compatibility that does not force OpenHuman onto TinyAgents'
-  `rusqlite` native-link version.
-- Higher-level graph fanout/map-reduce helpers.
-- Parent/root run lineage and usage/cost rollup.
+- Full OpenHuman policy mapping for approval/security/sandbox/workspace roots.
+- A migration adapter from OpenHuman session JSONL/Markdown/run-ledger rows into
+  TinyAgents store/journal/status records.
+- SQLite/native-link compatibility if OpenHuman wants to use TinyAgents'
+  embedded SQLite backend directly rather than its own SQLite adapter.
+- Redaction/cursor/backfill rules for production UI replay.
+- OpenHuman controller compatibility during the migration window.
 
 ## Suggested Next Documentation Pass
 
 1. Rewrite the active `gitbooks/developing/architecture/agent-harness.md`
    sections below the status block so they describe the TinyAgents path instead
    of the removed in-house loop.
-2. Add a small "Historical pre-TinyAgents loop" appendix for details that are
+2. Add a one-time transcript/session migration design for old OpenHuman
+   `session_raw/*.jsonl` and Markdown sessions into TinyAgents store/journal
+   records.
+3. Add a small "Historical pre-TinyAgents loop" appendix for details that are
    still useful context.
-3. Add per-folder READMEs or module docs for:
+4. Add per-folder READMEs or module docs for:
    - `src/openhuman/agent/harness/session/`: product session shell over
      TinyAgents.
    - `src/openhuman/agent/harness/subagent_runner/`: OpenHuman sub-agent build
      pipeline over TinyAgents.
    - `src/openhuman/agent_orchestration/`: product orchestration wrappers over
      TinyAgents graphs/task lifecycle.
-4. Keep `docs/tinyagents-migration-spec.md` as the backlog, and use this audit
+5. Keep `docs/tinyagents-migration-spec.md` as the backlog, and use this audit
    as the current inventory snapshot.

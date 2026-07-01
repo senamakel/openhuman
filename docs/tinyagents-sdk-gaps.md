@@ -6,7 +6,15 @@ TinyAgents.
 
 Scope:
 
-- Source baseline: local TinyAgents checkout at `6f898fb`.
+- Original source baseline: local TinyAgents checkout at `6f898fb`.
+- Refresh note: TinyAgents `main` was re-reviewed at
+  `348a0e7dc71a1f9039f3d523a2a384661a7a9acd` after the SDK/docs update. The
+  backlog below still contains useful OpenHuman migration pressure, but several
+  older "missing" items are now implemented or partially implemented upstream.
+  In particular, current TinyAgents has `harness::cache`, `harness::store`
+  (`FileStore`, `JsonlAppendStore`), `harness::subagent::{SubAgent,
+  SubAgentSession, SubAgentTool}`, `graph::subgraph`, `graph::subagent_node`,
+  lineage-aware harness/graph status, and JSONL-backed append journals.
 - OpenHuman evidence: `src/openhuman/tinyagents/*`,
   `src/openhuman/agent/*`, `src/openhuman/cost/*`, and
   `src/openhuman/tokenjuice/*`.
@@ -24,16 +32,18 @@ policy metadata, durable orchestration stores, richer streaming events,
 recoverable tool-call behavior, graph fanout ergonomics, and SDK-owned adapters
 for the lifecycle controls OpenHuman currently implements around the SDK.
 
-OpenHuman can migrate more of `src/openhuman/agent/` if TinyAgents grows these
-features:
+OpenHuman can migrate more of `src/openhuman/agent/` by adopting the newer
+TinyAgents surfaces and filling the remaining gaps:
 
 - Rich tool metadata for safety, permissions, timeouts, retries, idempotency,
   side effects, workspace access, and approval requirements.
 - A recoverable unknown-tool policy so invalid model tool calls do not always
   abort the run.
 - First-class reasoning and tool-call argument streaming events.
-- Durable `TaskStore` and event/status stores with replay, lineage, cursors,
-  redaction, and cancellation semantics.
+- A one-time migration path from old OpenHuman `session_raw/*.jsonl` and
+  Markdown transcripts into TinyAgents store/journal/status records.
+- Production replay rules over TinyAgents stores/status: redaction, cursors,
+  backfill, cancellation, and OpenHuman controller compatibility.
 - Storage compatibility options for SQLite users that already depend on a
   different `rusqlite` / `libsqlite3-sys` version.
 - Higher-level map/reduce and parallel-agent orchestration helpers on top of
@@ -140,29 +150,33 @@ Acceptance criteria:
 
 ### 4. Durable Orchestration Task Store
 
-Status: partially present.
+Status: partially present; stale baseline.
 
-TinyAgents defines a `TaskStore` trait and an `InMemoryTaskStore`. OpenHuman
-still owns durable detached-sub-agent state, cancellation handles, wait/reuse
-semantics, tombstones, and task lifecycle persistence around that store.
+The original baseline only had `TaskStore` plus `InMemoryTaskStore`. Current
+TinyAgents also has harness stores, JSONL append stores, lineage-aware
+harness/graph status, graph observability journals, `SubAgentSession` reuse,
+`graph::subagent_node`, and `graph::subgraph`. OpenHuman still owns durable
+detached-sub-agent state, cancellation handles, wait/reuse semantics,
+tombstones, and task lifecycle persistence, but the blocker is now mostly the
+OpenHuman compatibility adapter and transcript/session migration, not absence of
+SDK primitives.
 
 Implement:
 
-- Add durable `TaskStore` implementations:
-  - JSONL append store.
-  - SQLite store behind a storage feature.
-  - Optional caller-supplied store adapter.
-- Persist task spec, status, timestamps, result, error, parent/root run ids,
-  cancellation requests, timeouts, and control decisions.
-- Add lifecycle history, not only latest state.
-- Support replay/listing by parent run, root run, thread id, task kind, status,
-  and created-at window.
+- Map OpenHuman durable sub-agent session rows and worker-thread records into
+  TinyAgents session/status/journal records.
+- Use TinyAgents JSONL append stores for local durable event journals where
+  SQLite is not required.
+- Preserve OpenHuman controller compatibility while TinyAgents records become
+  the canonical internal state.
+- Define replay/listing by parent run, root run, thread id, task kind, status,
+  and created-at window over the TinyAgents records.
 
 Acceptance criteria:
 
 - A process restart does not lose detached or awaiting orchestration tasks.
 - Supervisors can list, wait, cancel, kill, and inspect tasks through the SDK
-  store contract.
+  store/status contract or OpenHuman's compatibility projection over it.
 - OpenHuman can retire most bespoke task status/tombstone persistence in
   `running_subagents.rs`.
 

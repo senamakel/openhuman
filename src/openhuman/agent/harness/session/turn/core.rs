@@ -56,21 +56,9 @@ fn should_run_super_context(
     is_orchestrator && first_turn && !has_prior_conversation && enabled
 }
 
-fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
-    const PREFIX: &str = "has_enough_context:";
-    let line = bundle.lines().map(str::trim).find(|line| {
-        line.get(..PREFIX.len())
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(PREFIX))
-    })?;
-    let value = line[PREFIX.len()..].trim();
-    if value.eq_ignore_ascii_case("true") {
-        Some(true)
-    } else if value.eq_ignore_ascii_case("false") {
-        Some(false)
-    } else {
-        None
-    }
-}
+// `parse_context_bundle_has_enough_context` moved to
+// `tinyagents::middleware` alongside the `SuperContextMiddleware` graph node
+// that now owns the first-turn context-collection pass (#4249).
 
 /// Flatten the assistant tool calls a turn produced into [`ToolCallRecord`]s for
 /// the deterministic cap checkpoint (it lists the tools that ran). Tool success
@@ -610,70 +598,24 @@ impl Agent {
             .cached_transcript_messages
             .as_ref()
             .is_some_and(|msgs| msgs.iter().any(|m| m.role == "assistant"));
-        let enriched = if should_run_super_context(
+        // The scout no longer runs here imperatively: super context is now a
+        // before_model **graph node** (`SuperContextMiddleware`, installed via
+        // `context_mw.super_context` below). It runs the read-only `context_scout`
+        // on the first model call, folds the `[context_bundle]` into the user
+        // message, and registers its prepared-context source live so a later
+        // `agent_prepare_context` call self-suppresses. We only decide *whether*
+        // to enable the node here (the gate is unchanged).
+        let run_super_context = should_run_super_context(
             self.agent_definition_id == "orchestrator",
             first_turn,
             has_prior_conversation,
             self.context.super_context_enabled(),
-        ) {
+        );
+        if run_super_context {
             log::info!(
-                "[agent_loop] super_context enabled — running harness-driven context collection (new thread, first turn)"
+                "[agent_loop] super_context enabled — installing the SuperContextMiddleware graph node (new thread, first turn)"
             );
-            let scout = harness::with_parent_context(parent_context.clone(), {
-                let user_message = user_message.to_string();
-                async move {
-                    crate::openhuman::agent_orchestration::tools::run_context_scout(
-                        &user_message,
-                        None,
-                    )
-                    .await
-                }
-            })
-            .await;
-            match scout {
-                Ok(result) if !result.is_error => {
-                    let bundle = result.output();
-                    agent_context_prepared_sources.push(harness::AgentContextPreparedSource {
-                        source: "super context preparation".to_string(),
-                        has_enough_context: parse_context_bundle_has_enough_context(&bundle),
-                    });
-                    log::info!(
-                        "[agent_loop] super_context bundle collected bundle_chars={}",
-                        bundle.chars().count()
-                    );
-                    format!(
-                        "## Prepared context (super context)\n\nThe following context was \
-                         collected up-front by a read-only context scout before this turn. \
-                         Use it to ground your response; do not call `agent_prepare_context` \
-                         again for general preparation.\n\n\
-                         {bundle}\n\n---\n\n{enriched}"
-                    )
-                }
-                Ok(result) => {
-                    // No usable bundle: leave `agent_context_prepared_sources`
-                    // untouched. Recording a marker here would (a) make
-                    // `render_agent_context_status_note` tell the model to "use
-                    // the prepared context below" when none was injected, and
-                    // (b) suppress `agent_prepare_context` for the rest of the
-                    // turn — blocking a legitimate retry by any path that still
-                    // exposes the tool. The dedup only needs to hold once a
-                    // bundle was actually injected (the success arm above).
-                    log::warn!(
-                        "[agent_loop] super_context scout returned an error — proceeding without bundle: {}",
-                        result.output()
-                    );
-                    enriched
-                }
-                Err(err) => {
-                    log::warn!(
-                        "[agent_loop] super_context collection failed — proceeding without bundle: {err}"
-                    );
-                    enriched
-                }
-            }
-        } else {
-            enriched
-        };
+        }
 
         let enriched = if agent_context_prepared_sources.is_empty() {
             enriched
@@ -752,6 +694,7 @@ impl Agent {
                 &effective_model,
                 temperature,
                 max_iterations,
+                run_super_context,
             ))
             .await
         }; // end of `turn_body` async block
@@ -852,6 +795,10 @@ impl Agent {
         effective_model: &str,
         temperature: f64,
         max_iterations: usize,
+        // Whether the super-context graph node should run this turn (gate decided
+        // by `should_run_super_context` in `turn()`, before the user row was
+        // pushed to history — so it can't be recomputed here).
+        run_super_context: bool,
     ) -> Result<String> {
         let turn_started = std::time::Instant::now();
         // This turn's stamped user message is already the last entry in
@@ -928,6 +875,14 @@ impl Agent {
             payload_summarizer: self.payload_summarizer.clone(),
             cache_align: self.context.compaction_enabled(),
             microcompact_keep_recent: self.context.microcompact_keep_recent(),
+            // Super context (first-turn read-only context collection) as a graph
+            // node — enabled only when its gate passed above. The node runs the
+            // scout on the first model call and folds the bundle into the message.
+            super_context: run_super_context.then(|| {
+                crate::openhuman::tinyagents::SuperContextConfig {
+                    user_message: user_message.to_string(),
+                }
+            }),
         };
 
         let outcome = super::graph::run_chat_turn_graph(super::graph::ChatTurnGraph {
@@ -1210,10 +1165,7 @@ impl Agent {
 
 #[cfg(test)]
 mod super_context_gate_tests {
-    use super::{
-        parse_context_bundle_has_enough_context, render_agent_context_status_note,
-        should_run_super_context,
-    };
+    use super::{render_agent_context_status_note, should_run_super_context};
     use crate::openhuman::agent::harness::AgentContextPreparedSource;
 
     #[test]
@@ -1278,27 +1230,5 @@ mod super_context_gate_tests {
         assert!(note.contains("memory agent context retrieval"));
         assert!(note.contains("super context preparation"));
         assert!(note.contains("Do not call `agent_prepare_context` again"));
-    }
-
-    #[test]
-    fn parses_context_bundle_sufficiency() {
-        assert_eq!(
-            parse_context_bundle_has_enough_context(
-                "[context_bundle]\nhas_enough_context: true\n[/context_bundle]"
-            ),
-            Some(true)
-        );
-        assert_eq!(
-            parse_context_bundle_has_enough_context(
-                "[context_bundle]\nHAS_ENOUGH_CONTEXT: false\n[/context_bundle]"
-            ),
-            Some(false)
-        );
-        assert_eq!(
-            parse_context_bundle_has_enough_context(
-                "[context_bundle]\nsummary: ok\n[/context_bundle]"
-            ),
-            None
-        );
     }
 }

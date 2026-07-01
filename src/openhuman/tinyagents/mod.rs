@@ -46,7 +46,7 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 
 pub use checkpoint::SqlRunLedgerCheckpointer;
-pub use middleware::TurnContextMiddleware;
+pub use middleware::{SuperContextConfig, TurnContextMiddleware};
 pub use model::{ProviderModel, ThinkingForwarder};
 pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
 pub use tools::{

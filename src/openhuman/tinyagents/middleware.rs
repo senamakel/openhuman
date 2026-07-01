@@ -20,13 +20,14 @@
 //! enabled onto a harness.
 
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 
 use tinyagents::error::Result as TaResult;
 use tinyagents::harness::context::RunContext;
-use tinyagents::harness::message::Message as TaMessage;
+use tinyagents::harness::message::{ContentBlock, Message as TaMessage};
 use tinyagents::harness::middleware::{
     Middleware, MiddlewareToolOutcome, ToolHandler, ToolMiddleware,
 };
@@ -62,6 +63,19 @@ pub struct TurnContextMiddleware {
     pub cache_align: bool,
     /// Keep-recent count for microcompact tool-body clearing. `0` disables it.
     pub microcompact_keep_recent: usize,
+    /// "Super context" first-turn context collection. `Some` installs the
+    /// [`SuperContextMiddleware`] graph node; `None` (the default, and every
+    /// non-chat path) skips it. Only the chat turn sets this — and only when its
+    /// gate (`should_run_super_context`) passes.
+    pub super_context: Option<SuperContextConfig>,
+}
+
+/// Inputs the [`SuperContextMiddleware`] node needs to run its first-turn
+/// read-only context-collection pass.
+#[derive(Clone)]
+pub struct SuperContextConfig {
+    /// The raw user ask, used as the context scout's query.
+    pub user_message: String,
 }
 
 impl TurnContextMiddleware {
@@ -74,6 +88,7 @@ impl TurnContextMiddleware {
             payload_summarizer: None,
             cache_align: true,
             microcompact_keep_recent: 0,
+            super_context: None,
         }
     }
 
@@ -83,6 +98,7 @@ impl TurnContextMiddleware {
             && self.payload_summarizer.is_none()
             && !self.cache_align
             && self.microcompact_keep_recent == 0
+            && self.super_context.is_none()
     }
 
     /// Push the enabled middlewares onto `harness`.
@@ -96,6 +112,15 @@ impl TurnContextMiddleware {
         harness: &mut AgentHarness<()>,
         tool_sets: &[Arc<Vec<Box<dyn Tool>>>],
     ) {
+        // Super context runs first: it prepares the read-only context bundle and
+        // folds it into the first model call's user message before any other
+        // before_model hook inspects the request.
+        if let Some(sc) = self.super_context {
+            harness.push_middleware(Arc::new(SuperContextMiddleware {
+                user_message: sc.user_message,
+                ran: AtomicBool::new(false),
+            }));
+        }
         if self.cache_align {
             harness.push_middleware(Arc::new(CacheAlignMiddleware));
         }
@@ -111,6 +136,125 @@ impl TurnContextMiddleware {
                 tool_sets: tool_sets.to_vec(),
             }));
         }
+    }
+}
+
+/// `before_model` (first call only): "super context" — the graph node analogue
+/// of the harness-driven first-turn context collection that used to run
+/// imperatively in `session/turn/core.rs`. On the first model call it runs the
+/// read-only `context_scout` sub-agent against the raw user ask, folds the
+/// resulting `[context_bundle]` into the user message, and registers a
+/// prepared-context source so a later `agent_prepare_context` call in the same
+/// turn self-suppresses.
+///
+/// Best-effort: any scout error leaves the turn to proceed with the
+/// un-augmented message rather than blocking the user. Runs inside the parent
+/// context scope the chat turn already installs (`with_parent_context`), which
+/// the scout reads via `current_parent()`.
+struct SuperContextMiddleware {
+    /// The raw user ask, used as the scout's query (not the enriched message).
+    user_message: String,
+    /// One-shot latch — `before_model` fires on every model call, but super
+    /// context is a first-turn, once-per-run pass.
+    ran: AtomicBool,
+}
+
+#[async_trait]
+impl Middleware<()> for SuperContextMiddleware {
+    fn name(&self) -> &str {
+        "super_context"
+    }
+
+    async fn before_model(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        request: &mut ModelRequest,
+    ) -> TaResult<()> {
+        if self.ran.swap(true, Ordering::SeqCst) {
+            return Ok(());
+        }
+        let scout = crate::openhuman::agent_orchestration::tools::run_context_scout(
+            &self.user_message,
+            None,
+        )
+        .await;
+        match scout {
+            Ok(result) if !result.is_error => {
+                let bundle = result.output();
+                // Register the source live so `agent_prepare_context` (which reads
+                // `current_agent_context_prepared_sources()`) self-suppresses for
+                // the rest of the turn. Only on success — a failed scout must not
+                // block a legitimate retry.
+                crate::openhuman::agent::harness::push_agent_context_prepared_source(
+                    crate::openhuman::agent::harness::AgentContextPreparedSource {
+                        source: "super context preparation".to_string(),
+                        has_enough_context: parse_context_bundle_has_enough_context(&bundle),
+                    },
+                );
+                tracing::info!(
+                    bundle_chars = bundle.chars().count(),
+                    "[tinyagents::mw] super_context bundle collected — folding into user message"
+                );
+                let block = format!(
+                    "## Agent context status\n\nAgent context retrieval/preparation has already \
+                     run once for this turn in code via super context preparation. Do not call \
+                     `agent_prepare_context` again for general context preparation. Use the \
+                     prepared context below, and call only specific follow-up tools if a concrete \
+                     missing detail is required.\n\n\
+                     ## Prepared context (super context)\n\nThe following context was collected \
+                     up-front by a read-only context scout before this turn. Use it to ground your \
+                     response; do not call `agent_prepare_context` again for general preparation.\n\n\
+                     {bundle}\n\n---\n\n"
+                );
+                prepend_text_to_last_user(&mut request.messages, block);
+            }
+            Ok(_) => {
+                tracing::warn!(
+                    "[tinyagents::mw] super_context scout returned an error — proceeding without bundle"
+                );
+            }
+            Err(err) => {
+                tracing::warn!(
+                    %err,
+                    "[tinyagents::mw] super_context collection failed — proceeding without bundle"
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Prepend a text block to the most recent user message, preserving its existing
+/// content blocks (multimodal image blocks survive — the bundle rides in front
+/// as a new leading text block). No-op if there is no user message.
+fn prepend_text_to_last_user(messages: &mut [TaMessage], block: String) {
+    if let Some(TaMessage::User(m)) = messages
+        .iter_mut()
+        .rev()
+        .find(|m| matches!(m, TaMessage::User(_)))
+    {
+        m.content.insert(0, ContentBlock::Text(block));
+    }
+}
+
+/// Parse the `has_enough_context: true|false` marker line the context scout
+/// emits inside its `[context_bundle]`. Mirrors the former core.rs helper so the
+/// prepared-source record carries the same signal. Returns `None` when absent or
+/// unparseable.
+fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
+    const PREFIX: &str = "has_enough_context:";
+    let line = bundle.lines().map(str::trim).find(|line| {
+        line.get(..PREFIX.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(PREFIX))
+    })?;
+    let value = line[PREFIX.len()..].trim();
+    if value.eq_ignore_ascii_case("true") {
+        Some(true)
+    } else if value.eq_ignore_ascii_case("false") {
+        Some(false)
+    } else {
+        None
     }
 }
 
@@ -547,6 +691,80 @@ mod tests {
     #[test]
     fn an_all_default_bundle_installs_nothing() {
         assert!(TurnContextMiddleware::default().is_empty());
+    }
+
+    // ── SuperContextMiddleware helpers ──────────────────────────────────────
+
+    #[test]
+    fn super_context_is_off_by_default() {
+        assert!(TurnContextMiddleware::defaults().super_context.is_none());
+        assert!(TurnContextMiddleware::default().super_context.is_none());
+    }
+
+    #[test]
+    fn parse_bundle_sufficiency_reads_the_marker_case_insensitively() {
+        assert_eq!(
+            parse_context_bundle_has_enough_context(
+                "[context_bundle]\nhas_enough_context: true\n[/context_bundle]"
+            ),
+            Some(true)
+        );
+        assert_eq!(
+            parse_context_bundle_has_enough_context("HAS_ENOUGH_CONTEXT: false"),
+            Some(false)
+        );
+        assert_eq!(
+            parse_context_bundle_has_enough_context("[context_bundle]\nsummary: ok"),
+            None
+        );
+    }
+
+    #[test]
+    fn prepend_folds_bundle_ahead_of_the_last_user_message_keeping_images() {
+        use tinyagents::harness::message::ImageRef;
+        let mut msgs = vec![TaMessage::system("sys"), {
+            // A multimodal user turn: text + an image block.
+            let mut u = TaMessage::user("original ask");
+            if let TaMessage::User(m) = &mut u {
+                m.content.push(ContentBlock::Image(ImageRef {
+                    url: "data:image/png;base64,AAAA".into(),
+                    mime_type: None,
+                }));
+            }
+            u
+        }];
+
+        prepend_text_to_last_user(&mut msgs, "BUNDLE_BLOCK\n\n".to_string());
+
+        let TaMessage::User(m) = &msgs[1] else {
+            panic!("expected a user message");
+        };
+        // Bundle rides in front as a new leading text block.
+        assert!(
+            matches!(&m.content[0], ContentBlock::Text(t) if t.starts_with("BUNDLE_BLOCK")),
+            "bundle should be the leading text block"
+        );
+        // Original text and the image both survive.
+        assert!(m
+            .content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Text(t) if t.contains("original ask"))));
+        assert!(
+            m.content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::Image(_))),
+            "the image block must survive the fold"
+        );
+        // System message untouched.
+        assert_eq!(msgs[0].text(), "sys");
+    }
+
+    #[test]
+    fn prepend_is_a_noop_without_a_user_message() {
+        let mut msgs = vec![TaMessage::system("only system")];
+        prepend_text_to_last_user(&mut msgs, "IGNORED".to_string());
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].text(), "only system");
     }
 
     // ── MicrocompactMiddleware ──────────────────────────────────────────────

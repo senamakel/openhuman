@@ -578,7 +578,7 @@ assessment, and migration coverage are complete.
   - Candidate outcome: replace dozens of boilerplate default `graph.rs` files
     with registry defaults, keeping files only for agents with custom graphs.
 
-- [ ] Audit stale architecture references to removed in-house graph/loop code.
+- [~] Audit stale architecture references to removed in-house graph/loop code.
   - Current files: `gitbooks/developing/architecture/agent-harness.md`,
     `src/openhuman/context/README.md`.
   - Candidate stale names: `src/openhuman/agent_graph/`, `GraphBlueprint`,
@@ -589,6 +589,13 @@ assessment, and migration coverage are complete.
     graph-export/status surfaces.
   - Candidate outcome: move historical details into a short "pre-migration
     history" appendix or remove them from active architecture docs.
+  - **Partial:** flagged the `agent-harness.md` `agent_graph`/`GraphBlueprint`
+    section as HISTORICAL-removed (strong inline callout pointing at the live
+    tinyagents surfaces); fixed `context/README.md` "Used by" line that still
+    referenced the deleted `reduce_before_call`/`ProviderSummarizer`/
+    `SegmentRecapSummarizer`/`unified_compaction_enabled`. Remaining: a sweep of
+    code doc-comments across many `.rs` files that still name `run_turn_engine`,
+    `run_tool_call_loop`, `tool_loop.rs` (comments only — no behavior).
 
 - [ ] Audit `src/openhuman/context/{pipeline,guard,microcompact}.rs`.
   - Current role: context stats/session-memory bookkeeping plus older

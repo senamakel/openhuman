@@ -75,11 +75,9 @@ The durable long-term substrate session-memory targets is the workspace `MEMORY.
 - `crate::openhuman::agent::harness::archivist::ArchivistHook` — `SegmentRecapSummarizer` reads the rolling segment recap (read-only) from the archivist.
 - `crate::openhuman::skills::Skill` — `channels_prompt.rs` renders the available-skills section.
 - `crate::openhuman::util::floor_char_boundary` — UTF-8-safe truncation in `tool_result_budget`.
-- `crate::openhuman::memory` / `memory_store` — used only in the `segment_recap_summarizer` tests (`ChatPrompt`, `fts5`, `segments`).
-
 ## Used by
 
-- **`agent::harness`** — the primary consumer: `session/builder.rs` constructs the `ContextManager` (and chooses `ProviderSummarizer` vs `SegmentRecapSummarizer` based on `config.learning.unified_compaction_enabled`); `session/turn.rs` calls `reduce_before_call`, drives the session-memory counters, and spawns the archivist extraction when `should_extract_session_memory` says so; `session/runtime.rs`, `fork_context.rs`, `tool_loop.rs`, `subagent_runner/*`, and `tool_filter.rs` consume the prompt builder and reduction surface.
+- **`agent::harness`** — the primary consumer: `session/builder.rs` constructs the `ContextManager`; `session/turn.rs` drives the session-memory counters and spawns the archivist extraction when `should_extract_session_memory` says so; `fork_context.rs`, `subagent_runner/*`, and `tool_filter.rs` consume the prompt builder and stats/budget surface. (History reduction/summarization moved to the tinyagents graph in #4249 — see the status banner above; `reduce_before_call`/`ProviderSummarizer`/`SegmentRecapSummarizer`/`unified_compaction_enabled` are removed.)
 - **`agent::agents/*/prompt.rs`** — every archetype prompt module pulls prompt sections/builder through `context::prompt`.
 - **`channels`** — `channels/runtime/startup.rs` (and channel prompt/identity tests) call `channels_prompt::build_system_prompt`.
 - **`agent::dispatcher`, `agent::triage`, `agent::tools` (spawn_subagent / spawn_parallel / spawn_worker_thread), `learning::prompt_sections`, `memory_tools::prompt`, `tools::orchestrator_tools`, `composio::ops`** — consume the prompt-building surface.

@@ -381,7 +381,19 @@ The harness lives entirely under `src/openhuman/agent/`. The README in that dire
 | `progress.rs`                 | Real-time progress events to the UI.                              |
 | `memory_loader.rs`            | Memory-Tree context injection per user message.                   |
 
-## Agent state graphs (`agent_graph`)
+## Agent state graphs (`agent_graph`) — HISTORICAL (removed)
+
+> **⚠️ This section describes a design that was never shipped and has been removed.**
+> The bespoke `src/openhuman/agent_graph/` engine, `GraphBlueprint`, and the
+> `SqliteCheckpointer` described below **do not exist**. The live system runs on
+> the published **tinyagents** crate — see the status banner at the top of this
+> page and "Agent engine + orchestration on tinyagents (live)" below. Graphs are
+> built with `tinyagents::graph::GraphBuilder` (`model_council/graph.rs`,
+> `agent_orchestration/*/graph.rs`, `tinyagents/delegation.rs`), durable
+> checkpoints use `SqlRunLedgerCheckpointer`, and per-agent graph selection is
+> `AgentGraph` (`agent/harness/agent_graph.rs`) with each agent's
+> `agent_registry/agents/<id>/graph.rs`. The text below is retained only as
+> pre-migration design history.
 
 Alongside the linear tool-call loop, the harness ships a **LangGraph-style state-machine engine** under [`src/openhuman/agent_graph/`](../../../src/openhuman/agent_graph/) (issue #4249). Where the loop is an implicit "prompt → tool → result → next prompt" cycle, a graph models agent execution as an explicit directed graph of **nodes** (states) and **edges** (transitions), with typed working state that survives across transitions, parallel branches, and checkpoints.
 

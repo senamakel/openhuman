@@ -338,10 +338,15 @@ impl ChatModel<()> for ProviderModel {
         _state: &(),
         request: ModelRequest,
     ) -> tinyagents::Result<ModelResponse> {
-        let (messages, specs) = build_chat_inputs(&request, self.provider.supports_native_tools());
+        let native = self.provider.supports_native_tools();
+        let (messages, specs) = build_chat_inputs(&request, native);
         let chat_request = ChatRequest {
             messages: &messages,
-            tools: if specs.is_empty() { None } else { Some(&specs) },
+            // Only advertise structured tool specs to native providers. Prompt-
+            // guided providers (Ollama/LM Studio profiles) get the tool catalogue
+            // folded into the transcript instead; sending a `tools`/`tool_choice`
+            // payload would defeat the opt-out and get rejected/ignored.
+            tools: (native && !specs.is_empty()).then_some(&specs),
             stream: None,
             max_tokens: self.max_tokens,
         };
@@ -391,7 +396,8 @@ impl ChatModel<()> for ProviderModel {
     /// aggregated response, which still arrives as the terminal `Completed`
     /// item. Native tool calls always ride on `Completed`.
     async fn stream(&self, _state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
-        let (messages, specs) = build_chat_inputs(&request, self.provider.supports_native_tools());
+        let native = self.provider.supports_native_tools();
+        let (messages, specs) = build_chat_inputs(&request, native);
         let provider = self.provider.clone();
         let model = self.model.clone();
         let temperature = self.temperature;
@@ -410,7 +416,10 @@ impl ChatModel<()> for ProviderModel {
             let chat_fut = async {
                 let req = ChatRequest {
                     messages: &messages,
-                    tools: if specs.is_empty() { None } else { Some(&specs) },
+                    // Prompt-guided providers get the tool catalogue in the
+                    // transcript, not a structured `tools` payload (see the
+                    // buffered path). `native` is captured by the async move.
+                    tools: (native && !specs.is_empty()).then_some(&specs),
                     stream: Some(&delta_tx),
                     max_tokens,
                 };

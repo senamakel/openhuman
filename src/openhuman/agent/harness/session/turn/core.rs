@@ -719,12 +719,22 @@ impl Agent {
                 turn_stop_hooks.push(std::sync::Arc::new(hook));
             }
         }
+        // Surface this turn's image-attachment placeholders so a delegation to a
+        // vision sub-agent (which reads `current_turn_image_placeholders()` in
+        // `agent_orchestration::tools::dispatch`) can forward the user's attached
+        // image — the orchestrator itself keeps it as a text placeholder. Scoped
+        // around the harness turn (the delegating tool fires inside it).
+        let image_placeholders =
+            crate::openhuman::agent::multimodal::extract_image_placeholders_in_text(user_message);
         let result = if turn_stop_hooks.is_empty() {
             harness::with_parent_context(
                 parent_context,
                 harness::with_agent_context_prepared_sources(
                     agent_context_prepared_sources.clone(),
-                    turn_body,
+                    harness::turn_attachments_context::with_current_turn_image_placeholders(
+                        image_placeholders,
+                        turn_body,
+                    ),
                 ),
             )
             .await
@@ -733,9 +743,12 @@ impl Agent {
                 parent_context,
                 harness::with_agent_context_prepared_sources(
                     agent_context_prepared_sources.clone(),
-                    crate::openhuman::agent::stop_hooks::with_stop_hooks(
-                        turn_stop_hooks,
-                        turn_body,
+                    harness::turn_attachments_context::with_current_turn_image_placeholders(
+                        image_placeholders,
+                        crate::openhuman::agent::stop_hooks::with_stop_hooks(
+                            turn_stop_hooks,
+                            turn_body,
+                        ),
                     ),
                 ),
             )
@@ -835,7 +848,10 @@ impl Agent {
             .as_ref()
             .map(|c| c.multimodal_files.clone())
             .unwrap_or_default();
-        if self.provider.supports_vision()
+        // Honor custom/BYOK vision models too: they can set `model_vision` even
+        // when the provider capability bit is false, and must still rehydrate
+        // `[IMAGE:…]` placeholders (else image chat silently degrades to text).
+        if (self.provider.supports_vision() || self.model_vision)
             && crate::openhuman::agent::multimodal::has_image_placeholders(&messages)
         {
             messages = crate::openhuman::agent::multimodal::rehydrate_image_placeholders(&messages);
@@ -977,6 +993,18 @@ impl Agent {
             charged_amount_usd,
             None,
         );
+
+        // Charge this turn's usage against the thread's active goal (parity with
+        // the legacy engine) so budgeted goals progress to `budget_limited` and
+        // continuation scheduling reads a live budget. Self-guarding + best-effort
+        // — a no-op when there is no active goal for the ambient thread.
+        crate::openhuman::thread_goals::runtime::account_turn_against_goal(
+            &self.workspace_dir,
+            input_tokens,
+            output_tokens,
+            turn_started.elapsed().as_secs(),
+        )
+        .await;
 
         self.emit_progress(AgentProgress::TurnCompleted {
             iterations: outcome.model_calls as u32,

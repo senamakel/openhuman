@@ -182,34 +182,10 @@ async fn execute_openhuman_tool(
         "[tinyagents] executing openhuman tool via harness adapter"
     );
 
-    // Approval gate (HITL): a tool with an external effect intercepts through the
-    // global `ApprovalGate`, which emits the `approval_request` event and parks
-    // until the user approves/denies (or it times out). A denial short-circuits
-    // the call with the reason as the tool result — matching the legacy engine.
-    if tool.external_effect_with_args(&call.arguments) {
-        if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
-            let summary = crate::openhuman::approval::summarize_action(&call.name, &call.arguments);
-            let redacted = crate::openhuman::approval::redact_args(&call.arguments);
-            let (outcome, _request_id) =
-                gate.intercept_audited(&call.name, &summary, redacted).await;
-            if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
-                tracing::warn!(
-                    tool = %call.name,
-                    reason = %reason,
-                    "[tinyagents] approval gate denied tool call"
-                );
-                return TaToolResult {
-                    call_id: call.id,
-                    name: call.name,
-                    content: reason.clone(),
-                    raw: None,
-                    error: Some(reason),
-                    elapsed_ms: 0,
-                };
-            }
-        }
-    }
-
+    // Approval (HITL) now runs in `ApprovalSecurityMiddleware`
+    // (`tinyagents/middleware.rs`, a `wrap_tool` middleware) so a denial
+    // short-circuits before this executor is reached. This function is now pure
+    // "run the tool + render the result".
     match tool.execute(call.arguments.clone()).await {
         Ok(result) => {
             let content = result.output_for_llm(true);

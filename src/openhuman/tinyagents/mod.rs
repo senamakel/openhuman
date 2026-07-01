@@ -377,6 +377,15 @@ pub async fn run_turn_via_tinyagents_shared(
     harness.register_tool(Arc::new(UnknownToolAdapter::new(subagent_scope.is_some())));
     let tool_count = registered.len();
 
+    // Human-in-the-loop approval as a named tool middleware (issue #4249,
+    // Phase 1): an external-effect tool intercepts through the global
+    // `ApprovalGate`, a denial short-circuits with a model-consumable result, and
+    // an approved call records a terminal audit row. Replaces the inline approval
+    // block that used to live in `execute_openhuman_tool`.
+    harness.push_tool_middleware(Arc::new(
+        middleware::ApprovalSecurityMiddleware::new(tool_sets.clone()),
+    ));
+
     let config = RunConfig::new("agent_turn")
         .with_max_model_calls(max_iterations)
         .with_max_tool_calls(max_iterations.saturating_mul(8).max(8));

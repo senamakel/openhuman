@@ -165,13 +165,22 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
     preserved, and TinyAgents event stream records the original requested tool
     name without exposing the sentinel as a model-visible tool.
 
-- [ ] Route approval and security through TinyAgents middleware.
+- [x] Route approval and security through TinyAgents middleware.
   - Current OpenHuman files: `src/openhuman/approval/*`,
     `src/openhuman/security/*`, `src/openhuman/tinyagents/tools.rs`.
   - TinyAgents components: `ToolMiddleware`, `ToolExecutionContext`,
     tool safety metadata.
   - Acceptance: approval checks happen in `before_tool`/`wrap_tool`, emit typed
     events, preserve audit rows, and return model-consumable denial results.
+  - **Done:** `ApprovalSecurityMiddleware` (`tinyagents/middleware.rs`, a
+    `wrap_tool` middleware) replaces the inline approval block in
+    `execute_openhuman_tool`. Denials short-circuit with a model-consumable
+    result; approved external-effect calls now record a terminal audit row
+    (`record_execution`) the old path dropped. Typed approval events still ride
+    `DomainEvent` (the crate `AgentEvent` enum has no approval variant — SDK gap).
+    Tool-*internal* security (path/command `live_policy`) stays per-tool by
+    design. Follow-ups: channel permission-ceiling threading; per-tool metadata
+    side-lookup (Task C).
 
 - [ ] Use TinyAgents bounded-concurrent tool execution where safe.
   - OpenHuman files: `src/openhuman/tools/traits.rs`,

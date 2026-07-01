@@ -26,14 +26,20 @@ use async_trait::async_trait;
 use tinyagents::error::Result as TaResult;
 use tinyagents::harness::context::RunContext;
 use tinyagents::harness::message::Message as TaMessage;
-use tinyagents::harness::middleware::Middleware;
+use tinyagents::harness::middleware::{
+    Middleware, MiddlewareToolOutcome, ToolHandler, ToolMiddleware,
+};
 use tinyagents::harness::model::ModelRequest;
 use tinyagents::harness::runtime::AgentHarness;
-use tinyagents::harness::tool::ToolResult as TaToolResult;
+use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolResult as TaToolResult};
 
 use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
+use crate::openhuman::approval::{
+    redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
+};
 use crate::openhuman::context::tool_result_budget::apply_tool_result_budget;
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
+use crate::openhuman::tools::Tool;
 
 /// Default per-tool-result byte cap for the channel / sub-agent paths, which do
 /// not carry a session `ContextManager` to source the configured budget from.
@@ -231,5 +237,103 @@ impl Middleware<()> for ToolOutputMiddleware {
             result.content = capped;
         }
         Ok(())
+    }
+}
+
+/// `wrap_tool`: route OpenHuman's human-in-the-loop **approval gate** through a
+/// named tinyagents tool middleware (issue #4249, Phase 1). A tool with an
+/// external effect intercepts through the global [`ApprovalGate`]; a denial
+/// short-circuits with the reason as a model-consumable [`TaToolResult`]
+/// (`next` is never called), and an allowed call records a terminal audit row
+/// once the tool resolves.
+///
+/// This replaces the inline approval block that used to live in
+/// `execute_openhuman_tool`, giving approval a stable middleware name and
+/// letting it short-circuit cleanly. Tool-*internal* security (path/command
+/// policy via `live_policy`) stays inside each tool — it needs tool-specific
+/// operation semantics the harness boundary can't reconstruct generically.
+pub struct ApprovalSecurityMiddleware {
+    /// The same `Arc`-shared tool sets the runner registers, used to resolve a
+    /// call's OpenHuman `Tool` by name so `external_effect_with_args` can gate.
+    tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+}
+
+impl ApprovalSecurityMiddleware {
+    /// Build the middleware over the runner's shared tool sets.
+    pub fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
+        Self { tool_sets }
+    }
+
+    /// Whether the named tool declares an external effect for these args.
+    fn has_external_effect(&self, name: &str, args: &serde_json::Value) -> bool {
+        self.tool_sets
+            .iter()
+            .flat_map(|set| set.iter())
+            .find(|t| t.name() == name)
+            .map(|t| t.external_effect_with_args(args))
+            .unwrap_or(false)
+    }
+}
+
+#[async_trait]
+impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
+    fn name(&self) -> &str {
+        "approval_security"
+    }
+
+    async fn wrap_tool(
+        &self,
+        ctx: &mut RunContext<()>,
+        state: &(),
+        call: TaToolCall,
+        next: ToolHandler<'_, (), ()>,
+    ) -> TaResult<MiddlewareToolOutcome> {
+        // Resolve external-effect up front so no tool borrow is held across the
+        // approval await.
+        let mut audit_id: Option<String> = None;
+        if self.has_external_effect(&call.name, &call.arguments) {
+            if let Some(gate) = ApprovalGate::try_global() {
+                let summary = summarize_action(&call.name, &call.arguments);
+                let redacted = redact_args(&call.arguments);
+                let (outcome, request_id) =
+                    gate.intercept_audited(&call.name, &summary, redacted).await;
+                match outcome {
+                    GateOutcome::Deny { reason } => {
+                        tracing::warn!(
+                            tool = %call.name,
+                            reason = %reason,
+                            "[tinyagents::mw] approval gate denied tool call"
+                        );
+                        return Ok(MiddlewareToolOutcome::Result(TaToolResult {
+                            call_id: call.id,
+                            name: call.name,
+                            content: reason.clone(),
+                            raw: None,
+                            error: Some(reason),
+                            elapsed_ms: 0,
+                        }));
+                    }
+                    GateOutcome::Allow => audit_id = request_id,
+                }
+            }
+        }
+
+        let outcome = next.run(ctx, state, call).await?;
+
+        // Record the terminal audit row for an approved external-effect call
+        // (idempotent; a no-op when the id is unknown).
+        if let Some(id) = audit_id {
+            if let Some(gate) = ApprovalGate::try_global() {
+                if let MiddlewareToolOutcome::Result(res) = &outcome {
+                    let exec = if res.error.is_some() {
+                        ExecutionOutcome::Failure
+                    } else {
+                        ExecutionOutcome::Success
+                    };
+                    gate.record_execution(&id, exec, res.error.as_deref());
+                }
+            }
+        }
+        Ok(outcome)
     }
 }

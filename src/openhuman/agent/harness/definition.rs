@@ -283,6 +283,15 @@ pub struct AgentDefinition {
     /// Tracks where the definition was loaded from (Builtin vs. File).
     #[serde(skip)]
     pub source: DefinitionSource,
+
+    // ── turn graph ──────────────────────────────────────────────────────
+    /// How this agent's turn is driven (issue #4249). Injected post-load from
+    /// the agent folder's `graph.rs::graph()` (mirrors how
+    /// [`PromptSource::Dynamic`] is injected from `prompt.rs::build`); TOML-
+    /// authored agents cannot set it, so it is `#[serde(skip)]` and defaults to
+    /// [`AgentGraph::Default`] (the shared default turn graph).
+    #[serde(skip, default)]
+    pub graph: super::agent_graph::AgentGraph,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

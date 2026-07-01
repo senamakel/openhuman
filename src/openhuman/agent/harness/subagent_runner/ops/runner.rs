@@ -808,28 +808,81 @@ async fn run_typed_mode(
     // not yet re-expressed on the tinyagents path; they need a tool-result
     // interception middleware and are tracked as a follow-up (issue #4249, 1b).
     let _ = (&lazy_resolver, &handoff_cache);
-    let (output, iterations, agg_usage, early_exit_tool, hit_cap) =
-        super::graph::run_subagent_via_graph(
-            subagent_provider.clone(),
-            &model,
-            temperature,
-            &mut history,
-            parent.all_tools.clone(),
-            dynamic_tools,
-            filtered_specs.clone(),
-            allowed_names,
-            definition.effective_max_iterations(),
-            options.run_queue.clone(),
-            parent.on_progress.clone(),
-            &definition.id,
-            task_id,
-            definition.iteration_policy == IterationPolicy::Extended,
-            options.worker_thread_id.clone(),
-            parent.workspace_dir.clone(),
-            max_output_tokens,
-            model_vision,
-        )
-        .await?;
+    // Per-agent turn graph (issue #4249): `Default` runs the shared sub-agent
+    // graph; `Custom` hands the assembled turn to this agent's own graph runner
+    // (declared in its `graph.rs::graph()`). Every built-in agent selects
+    // `Default` today — the branch is the extension point.
+    use crate::openhuman::agent::harness::agent_graph::{
+        AgentGraph, AgentTurnRequest, AgentTurnUsage,
+    };
+    use super::usage::AggregatedUsage;
+    let (output, iterations, agg_usage, early_exit_tool, hit_cap) = match &definition.graph {
+        AgentGraph::Default => {
+            super::graph::run_subagent_via_graph(
+                subagent_provider.clone(),
+                &model,
+                temperature,
+                &mut history,
+                parent.all_tools.clone(),
+                dynamic_tools,
+                filtered_specs.clone(),
+                allowed_names,
+                definition.effective_max_iterations(),
+                options.run_queue.clone(),
+                parent.on_progress.clone(),
+                &definition.id,
+                task_id,
+                definition.iteration_policy == IterationPolicy::Extended,
+                options.worker_thread_id.clone(),
+                parent.workspace_dir.clone(),
+                max_output_tokens,
+                model_vision,
+            )
+            .await?
+        }
+        AgentGraph::Custom(run) => {
+            let req = AgentTurnRequest {
+                provider: subagent_provider.clone(),
+                model: model.clone(),
+                temperature,
+                history: std::mem::take(&mut history),
+                parent_tools: parent.all_tools.clone(),
+                dynamic_tools,
+                specs: filtered_specs.clone(),
+                allowed_names,
+                max_iterations: definition.effective_max_iterations(),
+                run_queue: options.run_queue.clone(),
+                on_progress: parent.on_progress.clone(),
+                agent_id: definition.id.clone(),
+                task_id: task_id.to_string(),
+                extended_policy: definition.iteration_policy == IterationPolicy::Extended,
+                worker_thread_id: options.worker_thread_id.clone(),
+                workspace_dir: parent.workspace_dir.clone(),
+                max_output_tokens,
+                model_vision,
+            };
+            let res = run(req).await?;
+            history = res.history;
+            let AgentTurnUsage {
+                input_tokens,
+                output_tokens,
+                cached_input_tokens,
+                charged_amount_usd,
+            } = res.usage;
+            (
+                res.output,
+                res.iterations,
+                AggregatedUsage {
+                    input_tokens,
+                    output_tokens,
+                    cached_input_tokens,
+                    charged_amount_usd,
+                },
+                res.early_exit_tool,
+                res.hit_cap,
+            )
+        }
+    };
 
     // Determine status: if the turn engine exited early because of
     // ask_user_clarification, checkpoint the history and return

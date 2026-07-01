@@ -19,6 +19,7 @@
 //! - **[`fork_context`]**: Task-local storage for parent context sharing.
 //! - **[`interrupt`]**: Infrastructure for graceful cancellation of agent loops.
 
+pub mod agent_graph;
 pub mod archivist;
 pub(crate) mod builtin_definitions;
 pub(crate) mod graph;
@@ -45,6 +46,7 @@ pub mod turn_attachments_context;
 pub mod turn_subagent_usage;
 pub mod worktree_context;
 
+pub use agent_graph::{AgentGraph, AgentTurnRequest, AgentTurnResult, AgentTurnUsage};
 pub use definition::{
     AgentDefinition, AgentDefinitionRegistry, DefinitionSource, ModelSpec, PromptSource,
     SandboxMode, ToolScope, TriggerMemoryAgent,

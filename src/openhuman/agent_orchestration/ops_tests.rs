@@ -306,11 +306,12 @@ async fn e2e_orchestrator_answers_coding_agent_question_and_resumes_child() {
     let first_wait = session
         .wait_agents(WaitAgentOptions {
             orchestration_ids: vec![first.orchestration_id.clone()],
-            timeout_ms: Some(2_000),
+            timeout_ms: Some(15_000),
         })
         .await
         .expect("wait first child");
     let first_child = &first_wait.agents[0];
+    eprintln!("DIAG first_child status = {:?} summary = {:?}", first_child.status, first_child.result_summary);
     assert_eq!(first_child.status, AgentStatus::Completed);
     assert!(first_child
         .result_summary

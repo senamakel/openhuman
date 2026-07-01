@@ -32,9 +32,10 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use tinyagents::graph::checkpoint::Checkpointer;
+use tinyagents::graph::export::GraphTopology;
 use tinyagents::graph::recursion::RecursionPolicy;
 use tinyagents::graph::ClosureStateReducer;
-use tinyagents::graph::{Command, GraphBuilder, NodeContext, NodeResult, END};
+use tinyagents::graph::{Command, CompiledGraph, GraphBuilder, NodeContext, NodeResult, END};
 use tinyagents::CancellationToken;
 
 /// Which stage a delegation node is asking the injected worker to run.
@@ -134,9 +135,46 @@ where
     F: Fn(DelegationStage, DelegationState) -> Fut + Clone + Send + Sync + 'static,
     Fut: Future<Output = Result<DelegationStageOutput, String>> + Send + 'static,
 {
-    let max_revisions = config.max_revisions;
-    let cancel = config.cancel.clone();
+    let mut graph = build_delegation_graph(config.max_revisions, config.cancel.clone(), run_stage)?
+        .with_event_sink(Arc::new(super::observability::GraphTracingSink::new(
+            "delegation:graph",
+        )));
 
+    if let Some(cp) = config.checkpointer {
+        graph = graph.with_checkpointer(cp);
+    }
+
+    tracing::info!(
+        max_revisions = config.max_revisions,
+        durable = config.thread_id.is_some(),
+        "[delegation] running sub-agent delegation graph"
+    );
+
+    let execution = match config.thread_id {
+        Some(thread_id) => {
+            graph
+                .run_with_thread(thread_id, DelegationState::default())
+                .await
+        }
+        None => graph.run(DelegationState::default()).await,
+    }
+    .map_err(|e| format!("delegation graph run failed: {e}"))?;
+
+    Ok(execution.state)
+}
+
+/// Build (but do not run) the delegation `CompiledGraph`. Shared by
+/// [`run_delegation`] and [`delegation_graph_topology`] so the graph's structure
+/// has one definition.
+fn build_delegation_graph<F, Fut>(
+    max_revisions: usize,
+    cancel: CancellationToken,
+    run_stage: F,
+) -> Result<CompiledGraph<DelegationState, DelegationUpdate>, String>
+where
+    F: Fn(DelegationStage, DelegationState) -> Fut + Clone + Send + Sync + 'static,
+    Fut: Future<Output = Result<DelegationStageOutput, String>> + Send + 'static,
+{
     let mut builder = GraphBuilder::<DelegationState, DelegationUpdate>::new().set_reducer(
         ClosureStateReducer::new(|mut s: DelegationState, u: DelegationUpdate| {
             match u {
@@ -268,12 +306,9 @@ where
         .mark_command_routing("review")
         .mark_command_routing("finalize");
 
-    let mut graph = builder
+    let graph = builder
         .compile()
         .map_err(|e| format!("delegation graph compile failed: {e}"))?
-        .with_event_sink(Arc::new(super::observability::GraphTracingSink::new(
-            "delegation:graph",
-        )))
         // Bound the execute⇄review loop as a backstop to the in-state counter:
         // each of execute/review may be visited at most max_revisions + 1 times.
         .with_recursion_policy(RecursionPolicy {
@@ -282,27 +317,20 @@ where
             ..RecursionPolicy::default()
         });
 
-    if let Some(cp) = config.checkpointer {
-        graph = graph.with_checkpointer(cp);
-    }
+    Ok(graph)
+}
 
-    tracing::info!(
-        max_revisions,
-        durable = config.thread_id.is_some(),
-        "[delegation] running sub-agent delegation graph"
-    );
-
-    let execution = match config.thread_id {
-        Some(thread_id) => {
-            graph
-                .run_with_thread(thread_id, DelegationState::default())
-                .await
-        }
-        None => graph.run(DelegationState::default()).await,
-    }
-    .map_err(|e| format!("delegation graph run failed: {e}"))?;
-
-    Ok(execution.state)
+/// Structure-only [`GraphTopology`] of the delegation graph for debug /
+/// inspection (issue #4249, Phase 4). Built with a no-op stub stage worker —
+/// the topology exposes only node names, edges, and routing, never closure
+/// bodies.
+pub(crate) fn delegation_graph_topology() -> Result<GraphTopology, String> {
+    let graph = build_delegation_graph(
+        DelegationConfig::default().max_revisions,
+        CancellationToken::new(),
+        |_stage, _state| async { Ok(DelegationStageOutput::done("")) },
+    )?;
+    Ok(graph.topology())
 }
 
 /// Map an injected-stage error string into a graph node error.

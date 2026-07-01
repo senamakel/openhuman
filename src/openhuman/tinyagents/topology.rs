@@ -49,12 +49,18 @@ pub fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("agent_teams:member", &t));
     }
 
-    // Follow-ups (same `build_*` extract-and-reuse pattern as the member graph):
-    // the `delegation` graph (injected `run_stage` — clean to add) and the
-    // `workflow_runs` scheduler graph (its node closures capture engine locals,
-    // so it needs a small refactor first). The generic item-count-driven
-    // fan-outs (`model_council`, `run_parallel_fanout` — dispatch → N workers →
-    // collect) are the fan-out pattern rather than a fixed named topology.
+    if let Ok(t) = super::delegation::delegation_graph_topology() {
+        out.push(describe("delegation", &t));
+    }
+
+    if let Ok(t) = crate::openhuman::agent_orchestration::workflow_runs::scheduler_graph_topology()
+    {
+        out.push(describe("workflow_runs:scheduler", &t));
+    }
+
+    // Not exported: the generic item-count-driven fan-outs (`model_council`,
+    // `run_parallel_fanout` — dispatch → N workers → collect) whose node set is
+    // determined per run, not a fixed named topology.
 
     out
 }
@@ -78,6 +84,39 @@ mod tests {
             member.errors
         );
         assert!(member.errors.is_empty());
+    }
+
+    #[test]
+    fn all_topologies_includes_delegation_and_workflow_scheduler() {
+        let reports = all_graph_topologies();
+        for name in ["delegation", "workflow_runs:scheduler"] {
+            let report = reports
+                .iter()
+                .find(|r| r.name == name)
+                .unwrap_or_else(|| panic!("the {name} graph should be exported"));
+            assert!(
+                report.ok,
+                "{name} graph should validate structurally: {:?}",
+                report.errors
+            );
+            assert!(
+                report.mermaid.contains("flowchart"),
+                "{name} mermaid should render: {}",
+                report.mermaid
+            );
+        }
+    }
+
+    #[test]
+    fn delegation_topology_names_the_revision_loop_nodes() {
+        let t = super::super::delegation::delegation_graph_topology().expect("builds");
+        let names: Vec<&str> = t.nodes.iter().map(|n| n.id.as_str()).collect();
+        for expected in ["plan", "execute", "review", "finalize"] {
+            assert!(
+                names.contains(&expected),
+                "missing node {expected}: {names:?}"
+            );
+        }
     }
 
     #[test]

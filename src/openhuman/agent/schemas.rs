@@ -24,6 +24,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("get_definition"),
         schemas("reload_definitions"),
         schemas("triage_evaluate"),
+        schemas("graph_topologies"),
     ]
 }
 
@@ -56,6 +57,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("triage_evaluate"),
             handler: handle_triage_evaluate,
+        },
+        RegisteredController {
+            schema: schemas("graph_topologies"),
+            handler: handle_graph_topologies,
         },
     ]
 }
@@ -153,6 +158,19 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 },
             ],
             outputs: vec![json_output("result", "Triage evaluation result.")],
+        },
+        "graph_topologies" => ControllerSchema {
+            namespace: "agent",
+            function: "graph_topologies",
+            description: "Export the structure-only topology (Mermaid + JSON + structural \
+                          validation report) of every custom tinyagents orchestration graph \
+                          for debugging and UI inspection. Structure only — node names, \
+                          edges, and routing; never closure bodies or run state.",
+            inputs: vec![],
+            outputs: vec![json_output(
+                "graphs",
+                "Array of {name, ok, errors, warnings, mermaid, topology} reports.",
+            )],
         },
         _ => ControllerSchema {
             namespace: "agent",
@@ -372,6 +390,32 @@ fn handle_triage_evaluate(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async {
+        let reports = crate::openhuman::tinyagents::topology::all_graph_topologies();
+        tracing::debug!(
+            graphs = reports.len(),
+            "[rpc][agent] graph_topologies export"
+        );
+        let graphs: Vec<Value> = reports
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "name": r.name,
+                    "ok": r.ok,
+                    "errors": r.errors,
+                    "warnings": r.warnings,
+                    "mermaid": r.mermaid,
+                    // The topology JSON is embedded as structured JSON, not a string.
+                    "topology": serde_json::from_str::<Value>(&r.json)
+                        .unwrap_or(Value::Null),
+                })
+            })
+            .collect();
+        Ok(serde_json::json!({ "graphs": graphs }))
+    })
+}
+
 fn deserialize_params<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
     serde_json::from_value(Value::Object(params)).map_err(|e| format!("invalid params: {e}"))
 }
@@ -436,6 +480,7 @@ mod tests {
                 "get_definition",
                 "reload_definitions",
                 "triage_evaluate",
+                "graph_topologies",
             ]
         );
         assert_eq!(schemas.len(), all_registered_controllers().len());
@@ -493,6 +538,37 @@ mod tests {
             TypeSchema::Option(_)
         ));
         assert!(matches!(json_output("result", "x").ty, TypeSchema::Json));
+    }
+
+    #[tokio::test]
+    async fn graph_topologies_handler_exports_structural_reports() {
+        let result = handle_graph_topologies(Map::new())
+            .await
+            .expect("topology export is infallible");
+        let graphs = result
+            .get("graphs")
+            .and_then(Value::as_array)
+            .expect("graphs array");
+        assert!(!graphs.is_empty(), "at least one custom graph is exported");
+        for g in graphs {
+            assert!(g.get("name").and_then(Value::as_str).is_some());
+            assert_eq!(g.get("ok").and_then(Value::as_bool), Some(true));
+            assert!(g
+                .get("mermaid")
+                .and_then(Value::as_str)
+                .unwrap()
+                .contains("flowchart"));
+            assert!(
+                g.get("topology").map(|t| !t.is_null()).unwrap_or(false),
+                "topology embeds as structured JSON"
+            );
+        }
+        let names: Vec<_> = graphs
+            .iter()
+            .filter_map(|g| g.get("name").and_then(Value::as_str))
+            .collect();
+        assert!(names.contains(&"delegation"), "saw {names:?}");
+        assert!(names.contains(&"workflow_runs:scheduler"), "saw {names:?}");
     }
 
     #[tokio::test]

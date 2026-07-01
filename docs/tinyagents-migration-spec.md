@@ -309,24 +309,25 @@ OpenHuman needs restart-safe SQL/JSON ledgers.
     list checkpoints, current node/task status, and replay offsets from one DB
     source.
 
-- [~] Export graph topology for debugging and UI inspection.
+- [x] Export graph topology for debugging and UI inspection.
   - OpenHuman files: built-in `graph.rs` files, `agent_orchestration/*/graph.rs`,
     `model_council/graph.rs`.
   - TinyAgents components: `GraphTopology`, `to_json`, `to_mermaid`,
     validation report.
   - Acceptance: every custom OpenHuman graph has a debug endpoint or test
     snapshot that exports topology and validates missing nodes/routes.
-  - **Foundation landed:** new `tinyagents/topology.rs` — `GraphTopologyReport`
-    (mermaid + JSON + validation errors/warnings), `describe()`, and
-    `all_graph_topologies()`. Pattern: each graph exposes a `build_*_graph`
-    (structure) reused by both the runner and a `*_topology()` that builds it
-    with no-op stub closures and returns `CompiledGraph::topology()`. Done for
-    `agent_teams:member`. Follow-ups (same pattern): `delegation` (injected
-    `run_stage` — clean) and `workflow_runs` scheduler (needs a small refactor —
-    its node closures capture engine locals). Fan-outs (council,
-    `run_parallel_fanout`) are the dispatch→N→collect pattern, not a fixed
-    topology. Debug endpoint = call `all_graph_topologies()` (RPC wiring is a
-    thin follow-up).
+  - **Done:** `tinyagents/topology.rs` — `GraphTopologyReport` (mermaid + JSON +
+    validation errors/warnings), `describe()`, and `all_graph_topologies()`.
+    Pattern: each graph exposes a `build_*_graph` (structure) reused by both the
+    runner and a `*_topology()` that builds it with no-op stub closures and
+    returns `CompiledGraph::topology()`. Exported graphs: `agent_teams:member`,
+    `delegation` (extracted `build_delegation_graph`), and
+    `workflow_runs:scheduler` (`build_scheduler_graph` with injected
+    `select`/`run` engine effects). Fan-outs (council, `run_parallel_fanout`)
+    are the dispatch→N→collect pattern, not a fixed topology — intentionally not
+    exported. Debug endpoint: `agent.graph_topologies` JSON-RPC controller
+    (`agent/schemas.rs`) returning `{name, ok, errors, warnings, mermaid,
+    topology}` per graph.
 
 ## Phase 5 - Usage, Cost, And Budgets
 

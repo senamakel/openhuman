@@ -243,7 +243,7 @@ defaults once at least one real custom graph proves the API shape.
 
 ### P0: Update stale active docs and comments
 
-Evidence: active architecture docs still describe the old `engine::run_turn_engine`
+Evidence: active architecture docs still described the old `engine::run_turn_engine`
 loop in sections below the TinyAgents status callout.
 
 Action:
@@ -255,6 +255,14 @@ Action:
 
 Why first: stale docs make it hard to tell whether remaining files are live
 runtime, compatibility shell, or historical residue.
+
+Status (2026-07-01): done. `gitbooks/developing/architecture/agent-harness.md`
+active sections now describe the TinyAgents path (loop, dialects-as-transcript-
+compat, middleware context management, steering-channel cancellation, corrected
+file map, 1.2 pin); pre-migration loop details are confined to the marked
+historical sections. The retired-loop comment sweep landed earlier (f5a6b5196);
+remaining `run_turn_engine`/`run_inner_loop` mentions in code are explicit
+"legacy parity" references, not current-behavior claims.
 
 ### P1: Migrate old OpenHuman sessions into TinyAgents stores
 

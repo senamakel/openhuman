@@ -17,7 +17,9 @@
 //! - **[`subagent_runner`]**: The core logic for executing a sub-agent.
 //! - **[`definition`]**: Data structures for defining an agent's archetype.
 //! - **[`fork_context`]**: Task-local storage for parent context sharing.
-//! - **[`interrupt`]**: Infrastructure for graceful cancellation of agent loops.
+//!
+//! Cancellation is handled by the tinyagents steering channel (see
+//! `crate::openhuman::tinyagents`); there is no in-house interrupt fence.
 
 pub mod agent_graph;
 pub mod archivist;

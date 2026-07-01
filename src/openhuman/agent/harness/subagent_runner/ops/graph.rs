@@ -396,7 +396,7 @@ mod tests {
         allowed.insert("echo".to_string());
         let mut history = vec![ChatMessage::user("please echo hi")];
 
-        let (output, iterations, usage, early_exit) = run_subagent_via_graph(
+        let (output, iterations, usage, early_exit, hit_cap) = run_subagent_via_graph(
             provider,
             "mock-model",
             0.0,
@@ -413,6 +413,8 @@ mod tests {
             false,
             None,
             std::env::temp_dir(),
+            1024,
+            false,
         )
         .await
         .expect("graph subagent runs");
@@ -420,6 +422,7 @@ mod tests {
         assert_eq!(output, "all done");
         assert_eq!(iterations, 2);
         assert!(early_exit.is_none());
+        assert!(!hit_cap, "a clean finish should not report a cap hit");
         let _ = usage;
         // History was written back: user + assistant(tool) + tool result + assistant(final).
         assert!(history.len() >= 4);
@@ -477,7 +480,7 @@ mod tests {
         let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
         let mut history = vec![ChatMessage::user("hi")];
 
-        let (output, _iters, _usage, _early) = run_subagent_via_graph(
+        let (output, _iters, _usage, _early, _hit_cap) = run_subagent_via_graph(
             Arc::new(ThinkingStreamProvider),
             "mock-model",
             0.0,
@@ -494,6 +497,8 @@ mod tests {
             false,
             None,
             std::env::temp_dir(),
+            1024,
+            false,
         )
         .await
         .expect("child-delta subagent runs");
@@ -617,7 +622,7 @@ mod tests {
         allowed.insert("ask_user_clarification".to_string());
         let mut history = vec![ChatMessage::user("help me")];
 
-        let (output, iterations, _usage, early_exit) = run_subagent_via_graph(
+        let (output, iterations, _usage, early_exit, _hit_cap) = run_subagent_via_graph(
             provider.clone(),
             "mock-model",
             0.0,
@@ -634,6 +639,8 @@ mod tests {
             false,
             None,
             std::env::temp_dir(),
+            1024,
+            false,
         )
         .await
         .expect("ask-clarification subagent runs");
@@ -717,7 +724,7 @@ mod tests {
         allowed.insert("noop".to_string());
         let mut history = vec![ChatMessage::user("do a big task")];
 
-        let (output, iterations, _usage, early_exit) = run_subagent_via_graph(
+        let (output, iterations, _usage, early_exit, hit_cap) = run_subagent_via_graph(
             Arc::new(LoopForeverProvider),
             "mock-model",
             0.0,
@@ -734,12 +741,15 @@ mod tests {
             false,
             None,
             std::env::temp_dir(),
+            1024,
+            false,
         )
         .await
         .expect("cap-hit subagent runs");
 
         // The loop paused at the 2-call budget and summarized instead of erroring.
         assert!(early_exit.is_none());
+        assert!(hit_cap, "reaching the model-call cap should report hit_cap");
         assert_eq!(iterations, 2, "the loop should stop at the model-call cap");
         assert!(
             output.contains("progress: explored two leads"),

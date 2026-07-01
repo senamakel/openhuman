@@ -1,5 +1,9 @@
 //! Team-member execution as a conditional-routing `tinyagents` graph (#4249, B2).
 //!
+//! This is the `agent_teams` folder's `graph.rs` per the per-folder graph
+//! convention: the folder's tinyagents graph definition (member-run state
+//! machine) lives here; `runtime.rs` drives it.
+//!
 //! A teammate's live run is a small state machine: **execute** the worker
 //! sub-agent, then route on its terminal outcome to **complete** (quality-gate +
 //! idle) or **fail** (release + idle + record), joining at a single **done**

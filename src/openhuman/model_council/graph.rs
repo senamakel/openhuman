@@ -1,5 +1,9 @@
 //! Parallel council fan-out expressed on the `tinyagents` graph layer (#4249, #27).
 //!
+//! This is the `model_council` folder's `graph.rs` per the per-folder graph
+//! convention: the folder's tinyagents fan-out graph definition lives here;
+//! `council.rs` drives it.
+//!
 //! The council runs N member models concurrently, then a chair synthesizes their
 //! answers. Historically the fan-out was a hand-rolled
 //! [`futures_util::future::join_all`]; this module re-expresses the *map* half as

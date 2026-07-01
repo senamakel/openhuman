@@ -291,11 +291,11 @@ async fn drive_member(
                     .ok_or_else(|| anyhow!("worker snapshot missing after wait"))?;
 
                 Ok(match snapshot.status {
-                    AgentStatus::Completed => super::member_graph::MemberOutcome::Completed {
+                    AgentStatus::Completed => super::graph::MemberOutcome::Completed {
                         output: snapshot.result_summary.unwrap_or_default(),
                     },
                     AgentStatus::Failed | AgentStatus::Cancelled | AgentStatus::Closed => {
-                        super::member_graph::MemberOutcome::Failed {
+                        super::graph::MemberOutcome::Failed {
                             reason: snapshot
                                 .error
                                 .unwrap_or_else(|| "worker ended without completing".to_string()),
@@ -303,7 +303,7 @@ async fn drive_member(
                     }
                     // `wait_agents` with no timeout only returns on terminal
                     // status, so this is purely defensive — treat as a failure.
-                    other => super::member_graph::MemberOutcome::Failed {
+                    other => super::graph::MemberOutcome::Failed {
                         reason: format!("worker returned non-terminal status {other:?}"),
                     },
                 })
@@ -374,7 +374,7 @@ async fn drive_member(
         }
     };
 
-    super::member_graph::run_member_execution_graph(
+    super::graph::run_member_execution_graph(
         &format!("team:{team_id}:{member_id}"),
         run_worker,
         on_complete,

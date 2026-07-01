@@ -22,7 +22,7 @@
 //! Namespace note: `agent_team` is distinct from the existing `team` domain,
 //! which manages backend org/team membership.
 
-mod member_graph;
+mod graph;
 pub mod ops;
 pub mod runtime;
 mod schemas;

@@ -256,7 +256,7 @@ pub async fn run_council(
 
     // Fan out the member seats on the tinyagents graph (StateGraph + parallel
     // super-step + reducer) rather than a hand-rolled `join_all` (issue #4249).
-    let members: Vec<CouncilMemberResult> = super::council_graph::run_council_members_via_graph(
+    let members: Vec<CouncilMemberResult> = super::graph::run_council_members_via_graph(
         Arc::new(config.clone()),
         Arc::from(question),
         models.clone(),

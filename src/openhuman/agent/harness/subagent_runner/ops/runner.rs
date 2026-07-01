@@ -809,7 +809,7 @@ async fn run_typed_mode(
     // interception middleware and are tracked as a follow-up (issue #4249, 1b).
     let _ = (&lazy_resolver, &handoff_cache);
     let (output, iterations, agg_usage, early_exit_tool, hit_cap) =
-        super::graph_route::run_subagent_via_graph(
+        super::graph::run_subagent_via_graph(
             subagent_provider.clone(),
             &model,
             temperature,
@@ -897,7 +897,7 @@ async fn run_typed_mode(
         }
     } else if hit_cap {
         // The tinyagents run stopped at the model-call cap with work still
-        // pending (graph_route summarized a resumable checkpoint into `output`).
+        // pending (graph summarized a resumable checkpoint into `output`).
         // Surface it as Incomplete so the delegating agent relays the partial
         // result + blocker instead of treating the summary as a finished answer
         // or re-spinning the identical delegation (#4096).

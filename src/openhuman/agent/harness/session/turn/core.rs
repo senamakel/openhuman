@@ -14,9 +14,7 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_experience::{
     prepend_experience_block, render_experience_hits, AgentExperienceStore, ExperienceQuery,
 };
-use crate::openhuman::inference::provider::{
-    ChatMessage, ConversationMessage, AGENT_TURN_MAX_OUTPUT_TOKENS,
-};
+use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage};
 use crate::openhuman::memory::MemoryCategory;
 use crate::openhuman::util::truncate_with_ellipsis;
 
@@ -918,33 +916,22 @@ impl Agent {
             .effective_context_window(effective_model)
             .await;
 
-        let outcome = crate::openhuman::tinyagents::run_turn_via_tinyagents_shared(
-            self.provider.clone(),
-            effective_model,
+        // Dispatch through the chat turn graph (this folder's `graph.rs`): a thin
+        // wrapper over the shared tinyagents seam that pins the chat path's fixed
+        // arguments (no child scope, no early-exit tools, graceful cap pause,
+        // per-turn output cap) and runs the context-window summarization step.
+        let outcome = super::graph::run_chat_turn_graph(super::graph::ChatTurnGraph {
+            provider: self.provider.clone(),
+            model: effective_model.to_string(),
             temperature,
             messages,
-            vec![self.tools.clone()],
-            self.visible_tool_names.clone(),
+            tools: self.tools.clone(),
+            visible_tool_names: self.visible_tool_names.clone(),
             max_iterations,
-            // Mirror the harness event stream onto this session's progress sink
-            // (live tool timeline, text deltas, cost footer) via the bridge.
-            self.on_progress.clone(),
-            // Top-level chat turn — no child-progress attribution.
-            None,
+            on_progress: self.on_progress.clone(),
             context_window,
-            // Mid-flight steering from the session's run queue.
-            self.run_queue.clone(),
-            // The top-level chat turn surfaces clarifying questions inline rather
-            // than pausing the loop, so no early-exit tools here.
-            &[],
-            // Pause gracefully at the model-call cap so the turn emits a resumable
-            // checkpoint (below) instead of erroring or returning a dangling tool
-            // cycle — bug-report-2026-05-26 A1 parity.
-            true,
-            // Bound the main agent's per-call output (legacy parity — the engine
-            // capped every turn at `AGENT_TURN_MAX_OUTPUT_TOKENS`).
-            Some(crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS),
-        )
+            run_queue: self.run_queue.clone(),
+        })
         .await?;
 
         // The stamped user turn is already in `self.history` (pushed by `turn()`),

@@ -1,15 +1,28 @@
-//! Channel/CLI agent turns on the tinyagents harness (issue #4249).
+//! The **channel/CLI turn graph** (issue #4249).
 //!
-//! This is the canonical channel/CLI turn path (the legacy `run_tool_call_loop`
-//! is removed). Like the sub-agent route, it reuses the same provider + tools
-//! over the bus handler's `Arc`-shared tool sets (`tools_registry:
-//! Arc<Vec<Box<dyn Tool>>>` + per-turn extras), so no engine lifetime change is
-//! needed. It covers the loop's control-flow seams (iteration cap, circuit
-//! breakers, stop hooks, context trimming) and — when the caller supplies an
-//! `on_progress` sender — mirrors the harness event stream onto `AgentProgress`
-//! (live tool timeline, streaming text deltas, cost/token footer) via the same
+//! Per the per-folder `graph.rs` convention, this is the harness's top-level
+//! (channel/CLI) graph definition, its available tools, and its summarization
+//! step — all thin over the shared tinyagents seam
+//! ([`run_turn_via_tinyagents_shared`]).
+//!
+//! **Graph.** A single agent-loop turn driven by the tinyagents harness (the
+//! canonical channel/CLI path; the legacy `run_tool_call_loop` is removed),
+//! covering the loop's control-flow seams (iteration cap, circuit breakers, stop
+//! hooks). When the caller supplies an `on_progress` sender the harness event
+//! stream is mirrored onto `AgentProgress` (live tool timeline, streaming text
+//! deltas, cost/token footer) via the same
 //! [`OpenhumanEventBridge`](crate::openhuman::tinyagents::OpenhumanEventBridge)
 //! the chat route uses.
+//!
+//! **Available tools.** Reuses the bus handler's `Arc`-shared tool sets
+//! (`tools_registry: Arc<Vec<Box<dyn Tool>>>` + per-turn `extra_tools`),
+//! advertised via [`SharedToolAdapter`](crate::openhuman::tinyagents::SharedToolAdapter)
+//! and filtered by `visible_tool_names`. No early-exit tools on this path.
+//!
+//! **Summarization.** [`run_channel_turn_via_graph`] resolves the model's
+//! effective context window before dispatch so the shared seam runs the
+//! context-window summarization step (`tinyagents::summarize`) ahead of the
+//! deterministic front-trim.
 
 use std::collections::HashSet;
 use std::sync::Arc;

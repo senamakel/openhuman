@@ -4,7 +4,7 @@
 //! [`runner::run_typed_mode`] (narrow prompt + filtered tools) which builds a
 //! brand-new system prompt and a filtered tool list for the requested
 //! archetype, then drives the turn through the tinyagents harness
-//! ([`graph_route::run_subagent_via_graph`]) until the model returns without
+//! ([`graph::run_subagent_via_graph`]) until the model returns without
 //! further tool calls (or the iteration budget is exhausted).
 //!
 //! ## Layout
@@ -14,13 +14,13 @@
 //! | `provider.rs`       | `resolve_subagent_provider`, `user_is_signed_in_to_composio`, `LazyToolkitResolver` |
 //! | `prompt.rs`         | Role-contract suffix, `append_subagent_role_contract`, `dedup_tool_specs_by_name` |
 //! | `runner.rs`         | `run_subagent`, `run_typed_mode`                               |
-//! | `graph_route.rs`    | `run_subagent_via_graph` — the tinyagents sub-agent turn       |
+//! | `graph.rs`          | `run_subagent_via_graph` — the sub-agent turn graph + tools    |
 //! | `usage.rs`          | `AggregatedUsage` (cumulative usage stats)                     |
 //! | `handoff_helper.rs` | `apply_handoff`                                                |
 //! | `checkpoint.rs`     | `SubagentCheckpoint`, `parse_tool_arguments`                   |
 
 mod checkpoint;
-mod graph_route;
+mod graph;
 mod handoff_helper;
 mod prompt;
 mod provider;

@@ -672,12 +672,22 @@ assessment, and migration coverage are complete.
     early-exit pause, model-call cap, and cost footer all have tests on the
     TinyAgents path.
 
-- [ ] Add a TinyAgents adapter inventory test.
+- [x] Add a TinyAgents adapter inventory test.
   - OpenHuman files: `src/openhuman/tinyagents/mod.rs`,
     `src/openhuman/tinyagents/tests.rs`.
   - Acceptance: one test asserts that the shared runner registers model, tools,
     middleware, event bridge, context compression, stop hooks, and unknown-tool
     sentinel in the intended order.
+  - **Done:** harness assembly extracted from `run_turn_via_tinyagents_shared`
+    into a testable `assemble_turn_harness` returning `AssembledTurnHarness`
+    (harness + cursor/error-slot/halt-summary/outcome-sink/steering/early-exit
+    seams). `adapter_inventory_registers_model_tools_and_middleware` asserts
+    model registry, callable tools + unknown-tool sentinel, 9 lifecycle + 2
+    around-tool middlewares, steering handle, early-exit hook;
+    `adapter_inventory_gates_context_middleware_on_window` proves the
+    compression/trim gating. SDK gap: `MiddlewareStack` exposes lengths but not
+    names, so exact ordering is documented at the registration sites and
+    guarded by counts.
 
 - [ ] Port behavior clusters to TinyAgents testkit.
   - OpenHuman files: `src/openhuman/agent/harness/*_tests.rs`,

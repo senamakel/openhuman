@@ -336,12 +336,290 @@ pub async fn run_turn_via_tinyagents_shared(
     // otherwise the harness model-call cap would be zero and abort the run before
     // the first provider call.
     let max_iterations = effective_max_iterations(max_iterations);
+    let AssembledTurnHarness {
+        harness,
+        cursor,
+        error_slot,
+        halt_summary,
+        tool_outcome_sink,
+        handle,
+        early_exit_hook,
+        tool_count,
+    } = assemble_turn_harness(
+        provider,
+        model,
+        temperature,
+        tool_sets,
+        allowed,
+        max_iterations,
+        on_progress.clone(),
+        subagent_scope.clone(),
+        context_window,
+        early_exit_tools,
+        max_output_tokens,
+        context_mw,
+        tool_policy,
+    );
+
+    let config = RunConfig::new("agent_turn")
+        .with_max_model_calls(max_iterations)
+        .with_max_tool_calls(max_iterations.saturating_mul(8).max(8));
+
+    tracing::info!(
+        model,
+        max_iterations,
+        tools = tool_count,
+        observed = on_progress.is_some(),
+        "[tinyagents] routing turn through tinyagents harness (shared tools)"
+    );
+
+    let input = convert::history_to_messages(&history);
+
+    // Build the run context: an optional event sink feeds the progress/cost
+    // bridge (streaming) and/or the model-call-cap pauser; the shared steering
+    // handle carries mid-flight, early-exit, and cap pauses.
+    let mut ctx = RunContext::new(config, ());
+
+    let streaming = on_progress.is_some();
+    // Retain a clone of the progress sink so the turn can emit a terminal
+    // `TurnCompleted` after the run (the harness event stream the bridge mirrors
+    // has no run-completed event). Parent turns only — a sub-agent turn reports
+    // via its `Subagent*` events, not a top-level `TurnCompleted`.
+    let turn_completed_sink = subagent_scope
+        .is_none()
+        .then(|| on_progress.clone())
+        .flatten();
+    // A sink is needed to mirror progress (bridge) or to observe model-call
+    // completions for the cap pauser.
+    let events = (on_progress.is_some() || pause_at_cap).then(EventSink::new);
+
+    let bridge = match (&events, on_progress) {
+        (Some(events), Some(tx)) => {
+            let bridge = OpenhumanEventBridge::with_scope(
+                Some(tx),
+                model,
+                max_iterations,
+                subagent_scope.clone(),
+                cursor.clone(),
+            );
+            events.subscribe(bridge.clone());
+            Some(bridge)
+        }
+        _ => None,
+    };
+
+    // Cap pauser: stop gracefully at the model-call budget (returning the partial
+    // transcript) so the caller can summarize a checkpoint instead of erroring.
+    if pause_at_cap {
+        if let (Some(events), Some(handle)) = (&events, &handle) {
+            events.subscribe(CapPauser::new(handle.clone(), max_iterations));
+        }
+    }
+
+    if let Some(events) = &events {
+        ctx = ctx.with_events(events.clone());
+    }
+
+    // Steering: attach the shared handle (when present), drain any already-queued
+    // steer messages into it (so a pre-run steer lands before the first model
+    // call), and forward mid-flight steers via a poller aborted when the run
+    // returns. The same handle carries the early-exit `Pause`.
+    let steering_forwarder = if let Some(handle) = handle {
+        if let Some(queue) = run_queue.clone() {
+            forward_steers(&queue, &handle).await;
+            forward_collects(&queue, &handle).await;
+        }
+        ctx = ctx.with_steering(handle.clone());
+        run_queue.map(|queue| {
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                    forward_steers(&queue, &handle).await;
+                    forward_collects(&queue, &handle).await;
+                }
+            })
+        })
+    } else {
+        None
+    };
+
+    // Heap-allocate the harness drive future. It is large (it owns the whole run
+    // context, middleware stack, and loop state), and a sub-agent turn runs
+    // nested inside its parent's drive future — leaving it inline on the stack
+    // overflows when the parent + child drives compose. Boxing keeps only a
+    // pointer on the stack at each level.
+    let run_result = if streaming {
+        Box::pin(harness.invoke_streaming_in_context(&(), ctx, input)).await
+    } else {
+        Box::pin(harness.invoke_in_context(&(), ctx, input)).await
+    };
+    if let Some(forwarder) = steering_forwarder {
+        forwarder.abort();
+    }
+    let run = match run_result {
+        Ok(run) => run,
+        Err(e) => {
+            // Prefer the original typed provider error (preserves `AgentError`
+            // downcasts the caller relies on) over the harness's string wrap.
+            if let Some(original) = error_slot.lock().unwrap().take() {
+                return Err(original);
+            }
+            // The model-call cap (when not pausing gracefully — the channel/CLI
+            // path) maps to the typed `AgentError::MaxIterationsExceeded` so
+            // callers downcast it (Sentry skip) and render the canonical
+            // "Agent exceeded maximum tool iterations" message, matching the
+            // legacy `ErrorCheckpoint`.
+            if let tinyagents::TinyAgentsError::LimitExceeded(msg) = &e {
+                if msg.contains("model call") {
+                    return Err(anyhow::Error::new(
+                        crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
+                            max: max_iterations,
+                        },
+                    ));
+                }
+            }
+            return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
+        }
+    };
+    // Terminal turn event (parity with the legacy engine's `progress::emit`): the
+    // harness stream has no run-completed event, so emit `TurnCompleted` here with
+    // the model-call count as the iteration total. Parent turns only; best-effort.
+    if let Some(sink) = &turn_completed_sink {
+        let _ = sink.try_send(AgentProgress::TurnCompleted {
+            iterations: run.model_calls as u32,
+        });
+    }
+
+    let bridge_totals = bridge.map(|bridge| bridge.totals_with_cost());
+
+    // Prefer the bridge's accumulated usage (per-call, authoritative — including
+    // cached tokens and the estimated charged USD) when the observed path ran;
+    // otherwise fall back to the run's aggregate totals and estimate the cost from
+    // them so a fire-and-forget turn still reports a real (non-$0) cost.
+    let (input_tokens, output_tokens, cached_input_tokens, charged_amount_usd) = bridge_totals
+        .unwrap_or_else(|| {
+            let input = run.usage.usage.input_tokens;
+            let output = run.usage.usage.output_tokens;
+            let cached = run.usage.usage.cache_read_tokens;
+            let charged =
+                crate::openhuman::cost::catalog::estimate_cost_usd(model, input, output, cached);
+            (input, output, cached, charged)
+        });
+
+    // An early-exit tool fired: the loop paused after its round. Surface the tool
+    // name and use its captured question as the turn text (the paused assistant
+    // turn carries the tool call, not a final answer) so the caller can
+    // checkpoint and prompt the user — matching the legacy `early_exit_tool`.
+    let early_exit = early_exit_hook.and_then(|hook| hook.take());
+
+    // Cap detection: the harness sets `final_response` only when the loop
+    // finishes naturally (the model stopped requesting tools). When the cap
+    // pauser stops the loop mid-work, `final_response` stays `None` — that's the
+    // cap hit. An early-exit is a clean pause and takes precedence; under
+    // `pause_at_cap` the only other `Pause` source is the cap pauser, so this is
+    // unambiguous. (`run_queue` steering injects messages, never pauses.)
+    // The repeated-failure breaker halts the run with a root-cause summary instead
+    // of a final model turn; surface it as the turn's text so the no-progress cause
+    // reaches the caller/user rather than an empty reply.
+    let breaker_halt = halt_summary.lock().ok().and_then(|mut s| s.take());
+
+    // Cap detection: the harness sets `final_response` only when the loop
+    // finishes naturally (the model stopped requesting tools). When the cap
+    // pauser stops the loop mid-work, `final_response` stays `None` — that's the
+    // cap hit. An early-exit is a clean pause and takes precedence; under
+    // `pause_at_cap` the only other `Pause` source is the cap pauser, so this is
+    // unambiguous. (`run_queue` steering injects messages, never pauses.) A
+    // breaker halt is *not* a cap hit: it already carries a root-cause summary, so
+    // treating it as a cap would let the caller (sub-agent runner) overwrite that
+    // summary with a generic checkpoint digest.
+    let hit_cap = pause_at_cap
+        && early_exit.is_none()
+        && breaker_halt.is_none()
+        && run.model_calls >= max_iterations
+        && run.final_response.is_none();
+
+    let (early_exit_tool, mut text) = match early_exit {
+        Some(exit) => (Some(exit.tool), exit.question),
+        None => (None, run.text().unwrap_or_default()),
+    };
+
+    if let Some(summary) = breaker_halt {
+        text = summary;
+    }
+
+    let tool_outcomes = tool_outcome_sink
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or_default();
+
+    Ok(TinyagentsTurnOutcome {
+        text,
+        history: convert::messages_to_history(&run.messages),
+        conversation: convert::messages_to_conversation(convert::messages_since_last_user(
+            &run.messages,
+        )),
+        model_calls: run.model_calls,
+        tool_calls: run.tool_calls,
+        input_tokens,
+        output_tokens,
+        cached_input_tokens,
+        charged_amount_usd,
+        early_exit_tool,
+        hit_cap,
+        tool_outcomes,
+    })
+}
+
+/// Everything [`assemble_turn_harness`] wires up for one turn: the configured
+/// harness plus the shared slots/handles the run loop reads after the drive
+/// future returns.
+struct AssembledTurnHarness {
+    /// The fully assembled harness: model, tools, and middleware registered in
+    /// the intended order.
+    harness: AgentHarness<()>,
+    /// Shared 1-based model-call cursor (event bridge advances, model adapter
+    /// reads for out-of-band thinking attribution).
+    cursor: IterationCursor,
+    /// Recovers the original (downcastable) provider error on run failure.
+    error_slot: crate::openhuman::tinyagents::model::ProviderErrorSlot,
+    /// Root-cause summary recorded by the repeated-tool-failure breaker.
+    halt_summary: HaltSummarySlot,
+    /// Per-call tool success/content capture for honest `ToolCallRecord`s.
+    tool_outcome_sink: ToolOutcomeSink,
+    /// The shared steering handle (mid-flight steer, early-exit, cap, stop-hook
+    /// pauses).
+    handle: Option<SteeringHandle>,
+    /// Records the first early-exit tool round, when early-exit tools exist.
+    early_exit_hook: Option<EarlyExitHook>,
+    /// Number of callable tools registered (excludes the unknown-tool sentinel).
+    tool_count: usize,
+}
+
+/// Assemble the turn harness for [`run_turn_via_tinyagents_shared`]: register
+/// the provider model, every shared tool (plus the unknown-tool sentinel), and
+/// the full middleware stack in the intended order. Split out of the runner so
+/// the adapter inventory is directly testable (issue #4249, Phase 11) — the
+/// returned [`AssembledTurnHarness`] exposes the harness registries without
+/// driving a run.
+#[allow(clippy::too_many_arguments)]
+fn assemble_turn_harness(
+    provider: Arc<dyn Provider>,
+    model: &str,
+    temperature: f64,
+    tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
+    allowed: HashSet<String>,
+    max_iterations: usize,
+    on_progress: Option<Sender<AgentProgress>>,
+    subagent_scope: Option<SubagentScope>,
+    context_window: Option<u64>,
+    early_exit_tools: &[&str],
+    max_output_tokens: Option<u32>,
+    context_mw: TurnContextMiddleware,
+    tool_policy: Option<ToolPolicyEnforcement>,
+) -> AssembledTurnHarness {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness.with_policy(run_policy_for(max_iterations));
 
-    // Shared 1-based model-call cursor: the event bridge advances it on each
-    // model start; the model adapter reads it to attribute out-of-band thinking
-    // deltas (tinyagents has no reasoning channel on its stream).
     // The set of tool names the model may call: every advertised tool plus the
     // unknown-tool sentinel. A call outside it is rewritten onto the sentinel so
     // a hallucinated tool recovers instead of aborting the run — enforced by the
@@ -566,213 +844,16 @@ pub async fn run_turn_via_tinyagents_shared(
     // and abort the whole turn. Engine parity.
     harness.push_middleware(Arc::new(middleware::ArgRecoveryMiddleware));
 
-    let config = RunConfig::new("agent_turn")
-        .with_max_model_calls(max_iterations)
-        .with_max_tool_calls(max_iterations.saturating_mul(8).max(8));
-
-    tracing::info!(
-        model,
-        max_iterations,
-        tools = tool_count,
-        observed = on_progress.is_some(),
-        "[tinyagents] routing turn through tinyagents harness (shared tools)"
-    );
-
-    let input = convert::history_to_messages(&history);
-
-    // Build the run context: an optional event sink feeds the progress/cost
-    // bridge (streaming) and/or the model-call-cap pauser; the shared steering
-    // handle carries mid-flight, early-exit, and cap pauses.
-    let mut ctx = RunContext::new(config, ());
-
-    let streaming = on_progress.is_some();
-    // Retain a clone of the progress sink so the turn can emit a terminal
-    // `TurnCompleted` after the run (the harness event stream the bridge mirrors
-    // has no run-completed event). Parent turns only — a sub-agent turn reports
-    // via its `Subagent*` events, not a top-level `TurnCompleted`.
-    let turn_completed_sink = subagent_scope
-        .is_none()
-        .then(|| on_progress.clone())
-        .flatten();
-    // A sink is needed to mirror progress (bridge) or to observe model-call
-    // completions for the cap pauser.
-    let events = (on_progress.is_some() || pause_at_cap).then(EventSink::new);
-
-    let bridge = match (&events, on_progress) {
-        (Some(events), Some(tx)) => {
-            let bridge = OpenhumanEventBridge::with_scope(
-                Some(tx),
-                model,
-                max_iterations,
-                subagent_scope.clone(),
-                cursor.clone(),
-            );
-            events.subscribe(bridge.clone());
-            Some(bridge)
-        }
-        _ => None,
-    };
-
-    // Cap pauser: stop gracefully at the model-call budget (returning the partial
-    // transcript) so the caller can summarize a checkpoint instead of erroring.
-    if pause_at_cap {
-        if let (Some(events), Some(handle)) = (&events, &handle) {
-            events.subscribe(CapPauser::new(handle.clone(), max_iterations));
-        }
+    AssembledTurnHarness {
+        harness,
+        cursor,
+        error_slot,
+        halt_summary,
+        tool_outcome_sink,
+        handle,
+        early_exit_hook,
+        tool_count,
     }
-
-    if let Some(events) = &events {
-        ctx = ctx.with_events(events.clone());
-    }
-
-    // Steering: attach the shared handle (when present), drain any already-queued
-    // steer messages into it (so a pre-run steer lands before the first model
-    // call), and forward mid-flight steers via a poller aborted when the run
-    // returns. The same handle carries the early-exit `Pause`.
-    let steering_forwarder = if let Some(handle) = handle {
-        if let Some(queue) = run_queue.clone() {
-            forward_steers(&queue, &handle).await;
-            forward_collects(&queue, &handle).await;
-        }
-        ctx = ctx.with_steering(handle.clone());
-        run_queue.map(|queue| {
-            tokio::spawn(async move {
-                loop {
-                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-                    forward_steers(&queue, &handle).await;
-                    forward_collects(&queue, &handle).await;
-                }
-            })
-        })
-    } else {
-        None
-    };
-
-    // Heap-allocate the harness drive future. It is large (it owns the whole run
-    // context, middleware stack, and loop state), and a sub-agent turn runs
-    // nested inside its parent's drive future — leaving it inline on the stack
-    // overflows when the parent + child drives compose. Boxing keeps only a
-    // pointer on the stack at each level.
-    let run_result = if streaming {
-        Box::pin(harness.invoke_streaming_in_context(&(), ctx, input)).await
-    } else {
-        Box::pin(harness.invoke_in_context(&(), ctx, input)).await
-    };
-    if let Some(forwarder) = steering_forwarder {
-        forwarder.abort();
-    }
-    let run = match run_result {
-        Ok(run) => run,
-        Err(e) => {
-            // Prefer the original typed provider error (preserves `AgentError`
-            // downcasts the caller relies on) over the harness's string wrap.
-            if let Some(original) = error_slot.lock().unwrap().take() {
-                return Err(original);
-            }
-            // The model-call cap (when not pausing gracefully — the channel/CLI
-            // path) maps to the typed `AgentError::MaxIterationsExceeded` so
-            // callers downcast it (Sentry skip) and render the canonical
-            // "Agent exceeded maximum tool iterations" message, matching the
-            // legacy `ErrorCheckpoint`.
-            if let tinyagents::TinyAgentsError::LimitExceeded(msg) = &e {
-                if msg.contains("model call") {
-                    return Err(anyhow::Error::new(
-                        crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
-                            max: max_iterations,
-                        },
-                    ));
-                }
-            }
-            return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
-        }
-    };
-    // Terminal turn event (parity with the legacy engine's `progress::emit`): the
-    // harness stream has no run-completed event, so emit `TurnCompleted` here with
-    // the model-call count as the iteration total. Parent turns only; best-effort.
-    if let Some(sink) = &turn_completed_sink {
-        let _ = sink.try_send(AgentProgress::TurnCompleted {
-            iterations: run.model_calls as u32,
-        });
-    }
-
-    let bridge_totals = bridge.map(|bridge| bridge.totals_with_cost());
-
-    // Prefer the bridge's accumulated usage (per-call, authoritative — including
-    // cached tokens and the estimated charged USD) when the observed path ran;
-    // otherwise fall back to the run's aggregate totals and estimate the cost from
-    // them so a fire-and-forget turn still reports a real (non-$0) cost.
-    let (input_tokens, output_tokens, cached_input_tokens, charged_amount_usd) = bridge_totals
-        .unwrap_or_else(|| {
-            let input = run.usage.usage.input_tokens;
-            let output = run.usage.usage.output_tokens;
-            let cached = run.usage.usage.cache_read_tokens;
-            let charged =
-                crate::openhuman::cost::catalog::estimate_cost_usd(model, input, output, cached);
-            (input, output, cached, charged)
-        });
-
-    // An early-exit tool fired: the loop paused after its round. Surface the tool
-    // name and use its captured question as the turn text (the paused assistant
-    // turn carries the tool call, not a final answer) so the caller can
-    // checkpoint and prompt the user — matching the legacy `early_exit_tool`.
-    let early_exit = early_exit_hook.and_then(|hook| hook.take());
-
-    // Cap detection: the harness sets `final_response` only when the loop
-    // finishes naturally (the model stopped requesting tools). When the cap
-    // pauser stops the loop mid-work, `final_response` stays `None` — that's the
-    // cap hit. An early-exit is a clean pause and takes precedence; under
-    // `pause_at_cap` the only other `Pause` source is the cap pauser, so this is
-    // unambiguous. (`run_queue` steering injects messages, never pauses.)
-    // The repeated-failure breaker halts the run with a root-cause summary instead
-    // of a final model turn; surface it as the turn's text so the no-progress cause
-    // reaches the caller/user rather than an empty reply.
-    let breaker_halt = halt_summary.lock().ok().and_then(|mut s| s.take());
-
-    // Cap detection: the harness sets `final_response` only when the loop
-    // finishes naturally (the model stopped requesting tools). When the cap
-    // pauser stops the loop mid-work, `final_response` stays `None` — that's the
-    // cap hit. An early-exit is a clean pause and takes precedence; under
-    // `pause_at_cap` the only other `Pause` source is the cap pauser, so this is
-    // unambiguous. (`run_queue` steering injects messages, never pauses.) A
-    // breaker halt is *not* a cap hit: it already carries a root-cause summary, so
-    // treating it as a cap would let the caller (sub-agent runner) overwrite that
-    // summary with a generic checkpoint digest.
-    let hit_cap = pause_at_cap
-        && early_exit.is_none()
-        && breaker_halt.is_none()
-        && run.model_calls >= max_iterations
-        && run.final_response.is_none();
-
-    let (early_exit_tool, mut text) = match early_exit {
-        Some(exit) => (Some(exit.tool), exit.question),
-        None => (None, run.text().unwrap_or_default()),
-    };
-
-    if let Some(summary) = breaker_halt {
-        text = summary;
-    }
-
-    let tool_outcomes = tool_outcome_sink
-        .lock()
-        .map(|guard| guard.clone())
-        .unwrap_or_default();
-
-    Ok(TinyagentsTurnOutcome {
-        text,
-        history: convert::messages_to_history(&run.messages),
-        conversation: convert::messages_to_conversation(convert::messages_since_last_user(
-            &run.messages,
-        )),
-        model_calls: run.model_calls,
-        tool_calls: run.tool_calls,
-        input_tokens,
-        output_tokens,
-        cached_input_tokens,
-        charged_amount_usd,
-        early_exit_tool,
-        hit_cap,
-        tool_outcomes,
-    })
 }
 
 #[cfg(test)]

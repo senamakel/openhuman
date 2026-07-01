@@ -247,10 +247,12 @@ fn forward_delta(
     match delta {
         ProviderDelta::TextDelta { delta } => {
             if !delta.is_empty() {
-                let _ = tx.send(ModelStreamItem::MessageDelta(MessageDelta {
-                    text: delta,
-                    tool_call: None,
-                }));
+                // `MessageDelta::text` sets the visible-text fragment and defaults
+                // the `reasoning` (new in tinyagents 1.2.0) and `tool_call` fields.
+                // Reasoning still rides the out-of-band `ThinkingForwarder` below
+                // (see `ThinkingDelta`) rather than the native `reasoning` channel,
+                // preserving the existing subagent-scoped thinking UI wiring.
+                let _ = tx.send(ModelStreamItem::MessageDelta(MessageDelta::text(delta)));
             }
         }
         ProviderDelta::ThinkingDelta { delta } => {

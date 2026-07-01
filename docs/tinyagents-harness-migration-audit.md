@@ -270,6 +270,11 @@ Design: `docs/tinyagents-session-migration-design.md` (2026-07-01) — source
 format inventory, target store layout, lineage-key mapping, idempotency
 ledger, fixture matrix, and phasing.
 
+Status (2026-07-01): Phase 1 (write-only importer) implemented in
+`src/openhuman/session_import/` as `openhuman.session_import_run`, with the
+full fixture matrix as tests. Phases 2–4 (read-side shadow, cutover,
+retirement of legacy readers) remain.
+
 Current OpenHuman files:
 
 - `src/openhuman/agent/harness/session/transcript.rs`

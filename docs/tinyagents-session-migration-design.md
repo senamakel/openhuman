@@ -2,7 +2,11 @@
 
 Date: 2026-07-01
 
-Status: design (P1 in `docs/tinyagents-harness-migration-audit.md`). No code yet.
+Status: Phase 1 implemented (2026-07-01) in `src/openhuman/session_import/`
+as the `openhuman.session_import_run` controller
+(`openhuman-core session_import run`). Phases 2–4 (read-side shadow, cutover,
+retirement) are not started. Implementation deviations from the original
+sketch are marked "as built" below.
 
 Goal: a one-time, idempotent migration of persisted OpenHuman session data —
 transcript JSONL, legacy Markdown transcripts, and run-ledger/sub-agent rows —
@@ -77,15 +81,28 @@ Use the crate's `harness::store` as the substrate — no new storage layer:
   root as `<stream>.jsonl`.
 - `Store` / `FileStore`: key-value records as `<namespace>/<key>.json`.
 
-Proposed layout under `{workspace}/tinyagents_store/`:
+Layout as built under `{workspace}/tinyagents_store/` (`kv/` holds the
+`FileStore`, `journal/` the `JsonlAppendStore`). Two constraints reshaped the
+original sketch:
 
-| Record                       | Primitive     | Stream / key                                   |
-| ---------------------------- | ------------- | ---------------------------------------------- |
-| Message journal (per thread) | `AppendStore` | stream `thread/{thread_id}/messages`           |
-| Run event journal            | `AppendStore` | stream `run/{run_id}/events`                   |
-| Session descriptor           | `Store`       | ns `sessions`, key `{session_key}`             |
-| Run descriptor               | `Store`       | ns `runs`, key `{run_id}`                      |
-| Migration ledger             | `Store`       | ns `migrations`, key `session_import_v1`       |
+- TinyAgents store/stream names are **slash-free** (ASCII alphanumerics plus
+  `-_.` — the crate's path-traversal guard), so the `thread/{id}/messages`
+  shape is impossible; names are dot-separated.
+- Journals are **per session, not per thread**: multiple transcript files can
+  share one `_meta.thread_id`, and appending them into a shared stream would
+  interleave sessions. The descriptor carries `thread_id`, so thread-level
+  views remain a projection.
+
+| Record                        | Primitive     | Stream / key                                     |
+| ----------------------------- | ------------- | ------------------------------------------------ |
+| Message journal (per session) | `AppendStore` | stream `session.{session_key}.messages`          |
+| Session descriptor            | `Store`       | ns `sessions`, key `{session_key}`               |
+| Item idempotency ledger       | `Store`       | ns `migration_items`, key `sha256(source path)`  |
+| Global run marker             | `Store`       | ns `migrations`, key `session_import_v1`         |
+
+Run event journals and run descriptors were dropped from v1 (see the resolved
+open questions at the end): run events stay queryable in SQLite and belong to
+the P2 journal-canonicalization work.
 
 Descriptor records carry the compatibility mapping both directions:
 
@@ -94,22 +111,29 @@ Descriptor records carry the compatibility mapping both directions:
 {
   "session_key": "1719800000_orchestrator",
   "parent_session_key": null,            // from the __ stem chain
-  "thread_id": "…",                       // from _meta.thread_id (nullable)
+  "thread_id": "…",                       // _meta.thread_id or imported-{stem}
+  "thread_id_synthesized": false,
   "task_id": "…",                         // from _meta.task_id (nullable)
   "run_ids": ["…"],                       // joined from agent_runs via thread_id
+  "stream": "session.1719800000_orchestrator.messages",
   "dispatcher": "native",
+  "agent_name": "…", "agent_id": "…", "agent_type": "…",
   "provider": "…", "model": "…",
-  "created": "…", "updated": "…",
+  "created": "…", "updated": "…", "turn_count": 1,
   "usage": { "input": 0, "output": 0, "cached_input": 0, "cost_usd": 0.0 },
   "source": { "jsonl": "session_raw/….jsonl", "md": null },
   "import": { "version": 1, "imported_at": "…", "warnings": 0 }
 }
 ```
 
-Message journal values are the tinyagents `harness::message::Message` shape,
-with an `openhuman` metadata block preserving what the crate model does not
-carry natively: original `MessageLine.extra_metadata`, `iteration`,
-`reasoning_content`, per-turn `usage`, and the raw dispatcher dialect.
+Message journal values (as built) are full-fidelity records of what
+`read_transcript()` returns — `{id?, role, content, extra_metadata?}`, where
+`extra_metadata` carries the reconstructed `openhuman_turn_usage` block
+(`iteration`, `reasoning_content`, per-turn `usage`, `tool_calls` including
+`extra_content`). `ChatMessage` itself marks `id`/`extra_metadata`
+`skip_serializing`, so the journal defines its own record type
+(`JournalMessage`). Projection into the tinyagents `harness::message::Message`
+model is left to the read side.
 
 ### Lineage keys
 
@@ -143,17 +167,19 @@ carry natively: original `MessageLine.extra_metadata`, `iteration`,
 Follow the proven `session_layout_v1` pattern, plus per-item ledger entries:
 
 - Global marker: `Store` record `migrations/session_import_v1` with run
-  timestamp, counters, and tool version. Present → skip scan entirely.
-- Per-source ledger: each imported stem/row writes
-  `migrations/items/{sha256(source_path)}` with source size + mtime. Re-runs
-  (e.g. after a crash) skip completed items; a changed size/mtime re-imports
-  and overwrites that item's records (append streams are truncated and
-  rewritten for that thread only).
+  timestamp, counters, and tool version. Present → skip scan entirely
+  (bypassed by `--only`, `--force`, and dry runs).
+- Per-source ledger: each imported stem writes
+  `migration_items/{sha256(workspace-relative source path)}` with source size
+  + mtime. Re-runs (e.g. after a crash) skip completed items; a changed
+  size/mtime re-imports and overwrites that item's records (only that
+  session's stream file is reset and rewritten).
 - Never mutate or delete sources. `session_raw/`, `sessions/`, `sessions.db`,
   and `subagent_sessions.json` remain untouched; legacy readers keep working
   until parity is proven.
-- CLI shape: `openhuman-core session-import [--dry-run] [--workspace <dir>]
-  [--only <stem-glob>] [--verbose]`.
+- Surface (as built): the `openhuman.session_import_run` controller —
+  `openhuman-core session_import run` / RPC — with `dry_run`, `only`
+  (stem glob), `force`, `verbose`, and `workspace` (dir override) params.
   - dry-run prints the per-file plan (stem → thread stream, message count,
     dialect, warnings) and writes nothing;
   - real run emits a summary: files scanned / imported / skipped / failed,
@@ -165,6 +191,9 @@ Follow the proven `session_layout_v1` pattern, plus per-item ledger entries:
   v1. Wiring it into startup comes only after parity tests.
 
 ## Fixture matrix (required before implementation is "done")
+
+Implemented in `src/openhuman/session_import/ops_tests.rs` (18 tests covering
+every row below, plus dry-run purity and sources-untouched assertions).
 
 Golden-file tests over real captured shapes:
 
@@ -192,8 +221,9 @@ and projecting it into `ChatMessage` history must equal what
 
 ## Phasing
 
-1. **Importer + CLI + fixtures** (this design): write-only into
-   `tinyagents_store/`, sources untouched, nothing reads the new records yet.
+1. **Importer + CLI + fixtures** — done (`src/openhuman/session_import/`):
+   write-only into `tinyagents_store/`, sources untouched, nothing reads the
+   new records yet.
 2. **Read-side shadow**: run-inspection surfaces read both and diff-log
    mismatches (behind a debug flag).
 3. **Cutover**: new internals read TinyAgents records; legacy readers stay as
@@ -201,15 +231,15 @@ and projecting it into `ChatMessage` history must equal what
 4. **Retirement**: delete legacy readers once telemetry shows no shadow
    mismatches (separate decision, out of scope here).
 
-## Open questions
+## Open questions (resolved in v1)
 
-- Should `run_events` / `run_telemetry` rows be journaled in v1, or only
-  transcripts + descriptors? Leaning transcripts-only: run events are already
-  queryable in SQLite and P2 (journal canonicalization) owns that surface.
-- Where the store root lives: `{workspace}/tinyagents_store/` vs
-  `{workspace}/state/tinyagents/`. Needs a call against the workspace-internal
-  path rules (`is_workspace_internal_path` — agent tools must not write here,
-  which is desirable).
-- Whether `subagent_sessions.json` `latestHistory` mirrors should be imported
-  as their own streams or dropped in favor of the child's own transcript
-  (leaning: drop, they are a cache of the same messages).
+- `run_events` / `run_telemetry` journaling: **not in v1** — transcripts +
+  descriptors only. Run events stay queryable in SQLite; P2 (journal
+  canonicalization) owns that surface.
+- Store root: **`{workspace}/tinyagents_store/`** (`kv/` + `journal/`).
+  Living under the workspace means the fail-closed
+  `is_workspace_internal_path` guard keeps agent tools from writing here —
+  desirable.
+- `subagent_sessions.json` `latestHistory` mirrors: **dropped** — they are a
+  cache of the same messages the child's own transcript carries; the child
+  stem imports as its own session.

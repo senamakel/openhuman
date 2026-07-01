@@ -329,8 +329,11 @@ run-ledger rows, and prove restart/resume parity.
     persisted TinyAgents events without relying only on transient
     `AgentProgress`.
 
-- [ ] Write a one-time OpenHuman session transcript migration into TinyAgents
-  store/journal records.
+- [x] Write a one-time OpenHuman session transcript migration into TinyAgents
+  store/journal records. Done: `src/openhuman/session_import/`
+  (`openhuman.session_import_run`), design + as-built notes in
+  `docs/tinyagents-session-migration-design.md`. Write-only Phase 1; read-side
+  shadow/cutover remain.
   - OpenHuman files: `src/openhuman/agent/harness/session/transcript.rs`,
     `src/openhuman/agent/harness/session/migration.rs`, user workspace
     `session_raw/*.jsonl`, legacy Markdown session directories.

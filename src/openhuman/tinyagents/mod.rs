@@ -705,7 +705,7 @@ fn assemble_turn_harness(
     //    (90% of *this model's* context window), it folds the older slice of the
     //    transcript into a single LLM-generated system summary (keeping system
     //    messages + the recent window verbatim). This is keyed to whatever model
-    //    the turn is running on, mirroring the legacy `ContextGuard` threshold.
+    //    the turn is running on, preserving the legacy context threshold.
     // 2. `MessageTrimMiddleware` — a deterministic, no-extra-LLM-call hard cap.
     //    Pushed **after** compression (so `before_model` runs compression first),
     //    it front-trims to budget only as a last resort when even the summary +

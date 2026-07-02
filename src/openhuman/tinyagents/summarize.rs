@@ -14,8 +14,8 @@
 //! and a context-window-aware [`SummarizationPolicy`]. The policy only fires once
 //! the running token estimate crosses [`SUMMARIZE_THRESHOLD_FRACTION`] of the
 //! **current model's** context window — so the trigger is keyed to "whatever
-//! model we are using", exactly mirroring the existing
-//! [`ContextGuard`][crate::openhuman::context] compaction threshold (0.90).
+//! model we are using", mirroring the historical OpenHuman compaction threshold
+//! (0.90).
 //!
 //! Layering: a graph installs the compression middleware **before** the
 //! deterministic trim, so summarization is preferred and trimming remains only a
@@ -35,8 +35,8 @@ use crate::openhuman::inference::provider::Provider;
 
 /// Fraction of the model's context window at which summarization fires.
 ///
-/// Mirrors `ContextGuard::COMPACTION_TRIGGER_THRESHOLD` (0.90) so the tinyagents
-/// path compacts at the same point the legacy `ContextManager` did.
+/// Mirrors the old OpenHuman context guard soft threshold (0.90) so the
+/// tinyagents path compacts at the same point the legacy `ContextManager` did.
 pub const SUMMARIZE_THRESHOLD_FRACTION: f64 = 0.90;
 
 /// Number of most-recent non-system messages kept verbatim after a compaction.

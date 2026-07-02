@@ -8,9 +8,9 @@
 //!    and channels all build their opening system prompts through this
 //!    module; there is no parallel implementation elsewhere in the crate.
 //!
-//! 2. **Mechanical history bookkeeping** — the [`pipeline`] records provider
-//!    usage and session-memory triggers. Live reduction runs in the TinyAgents
-//!    middleware stack.
+//! 2. **Mechanical history bookkeeping** — [`stats::ContextStatsState`] records
+//!    provider usage and session-memory triggers. Live reduction runs in the
+//!    TinyAgents middleware stack.
 //!
 //! Agents hold a single [`ContextManager`] per session. The manager owns
 //! per-conversation state (budget, utilisation, session-memory counters)
@@ -20,15 +20,12 @@
 //! migration lands (see plan `misty-bubbling-bunny.md`).
 
 pub mod channels_prompt;
-pub mod guard;
 pub mod manager;
-pub mod pipeline;
 pub mod prompt;
 pub mod session_memory;
+pub mod stats;
 
-pub use guard::{ContextCheckResult, ContextGuard};
 pub use manager::{ContextManager, ContextStats};
-pub use pipeline::{ContextPipeline, ContextPipelineConfig, PipelineOutcome};
 pub use prompt::{
     ArchetypePromptSection, DateTimeSection, IdentitySection, LearnedContextData, PromptContext,
     PromptSection, PromptTool, RuntimeSection, SafetySection, SystemPromptBuilder, ToolsSection,
@@ -38,6 +35,7 @@ pub use session_memory::{
     SessionMemoryConfig, SessionMemoryState, ARCHIVIST_EXTRACTION_PROMPT, DEFAULT_MIN_TOKEN_GROWTH,
     DEFAULT_MIN_TOOL_CALLS, DEFAULT_MIN_TURNS_BETWEEN,
 };
+pub use stats::{ContextStatsState, SessionMemoryHandle};
 
 /// Default per-tool-result budget. The live TinyAgents tool-output middleware
 /// and action-workspace artifact previews enforce this outside the legacy

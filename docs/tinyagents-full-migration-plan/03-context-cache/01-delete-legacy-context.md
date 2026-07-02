@@ -12,11 +12,10 @@ lives inside TinyAgents `CacheAlignMiddleware`.
 1. `context/microcompact.rs` (269): deleted. The shared placeholder/default
    constants now live in `context/mod.rs`, and the live clearing logic is the
    TinyAgents `MicrocompactMiddleware`.
-2. `context/pipeline.rs` (454) + `context/guard.rs` (236): superseded by
-   `ContextCompressionMiddleware` + `summarize.rs` (0.90 threshold mirrored
-   as `SUMMARIZE_THRESHOLD_FRACTION`). They survive only as the data model
-   behind `ContextManager::stats()` — extract the minimal stats structs into
-   `context/stats.rs`, delete the reduction machinery.
+2. `context/pipeline.rs` (454) + `context/guard.rs` (236): deleted. The
+   minimal usage/session-memory state now lives in `context/stats.rs`, and live
+   compression uses `ContextCompressionMiddleware` + `summarize.rs`
+   (`SUMMARIZE_THRESHOLD_FRACTION` preserves the 0.90 trigger).
 3. `harness/compaction/cache_align.rs` (200) + `compaction/mod.rs` shim:
    superseded by `CacheAlignMiddleware`; directory deleted.
 4. `context/tool_result_budget.rs` (172): deleted. The UTF-8-safe fallback
@@ -30,8 +29,8 @@ lives inside TinyAgents `CacheAlignMiddleware`.
 
 ## Deletions
 
-- `context/pipeline.rs`, `context/guard.rs` (post stats-extraction).
-  `context/microcompact.rs` and `harness/compaction/` are already deleted.
+- `context/microcompact.rs`, `context/pipeline.rs`, `context/guard.rs`, and
+  `harness/compaction/` are deleted.
 
 ## Acceptance
 

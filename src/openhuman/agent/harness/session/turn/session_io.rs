@@ -245,7 +245,7 @@ impl Agent {
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // Session-memory extraction (stage 5 of the context pipeline)
+    // Session-memory extraction.
     // ─────────────────────────────────────────────────────────────────
 
     /// Spawn a background archivist sub-agent to extract durable facts

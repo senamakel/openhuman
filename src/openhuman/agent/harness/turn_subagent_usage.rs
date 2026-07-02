@@ -30,10 +30,10 @@ use super::subagent_runner::SubagentUsage;
 
 /// One sub-agent's spend, tagged with its identity for the per-child breakdown.
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubagentUsageEntry {
-    pub task_id: String,
-    pub agent_id: String,
-    pub usage: SubagentUsage,
+pub(crate) struct SubagentUsageEntry {
+    pub(crate) task_id: String,
+    pub(crate) agent_id: String,
+    pub(crate) usage: SubagentUsage,
 }
 
 /// Holistic token/cost accounting for a single completed turn, including any
@@ -42,22 +42,22 @@ pub struct SubagentUsageEntry {
 /// event so the UI footer can show session tokens, context-window utilisation,
 /// USD cost, and a per-sub-agent hover breakdown.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct LastTurnUsage {
+pub(crate) struct LastTurnUsage {
     /// Input (prompt) tokens for the turn, parent + sub-agents.
-    pub input_tokens: u64,
+    pub(crate) input_tokens: u64,
     /// Output (completion) tokens for the turn, parent + sub-agents.
-    pub output_tokens: u64,
+    pub(crate) output_tokens: u64,
     /// Cached-input tokens for the turn, parent + sub-agents.
-    pub cached_input_tokens: u64,
+    pub(crate) cached_input_tokens: u64,
     /// USD cost for the turn (backend-charged where available, else estimated),
     /// parent + sub-agents.
-    pub cost_usd: f64,
+    pub(crate) cost_usd: f64,
     /// The model's context window for this turn (`0` when unknown, e.g. a cloud
     /// model whose window the core couldn't resolve). Lets the UI show real
     /// context utilisation instead of a hard-coded default.
-    pub context_window: u64,
+    pub(crate) context_window: u64,
     /// Per-sub-agent spend gathered during the turn, for the hover breakdown.
-    pub subagents: Vec<SubagentUsageEntry>,
+    pub(crate) subagents: Vec<SubagentUsageEntry>,
 }
 
 /// Shared, mutable list of sub-agent spend gathered during one parent turn.
@@ -80,7 +80,7 @@ fn current_collector() -> Option<TurnSubagentUsage> {
 /// Record a finished sub-agent's token/cost totals into the active turn
 /// collector. No-op when there is no active scope. Called by the sub-agent
 /// runner once it has the run's aggregated usage.
-pub fn record_subagent_usage(task_id: &str, agent_id: &str, usage: SubagentUsage) {
+pub(crate) fn record_subagent_usage(task_id: &str, agent_id: &str, usage: SubagentUsage) {
     let Some(collector) = current_collector() else {
         tracing::trace!(
             task_id,
@@ -118,7 +118,7 @@ pub fn record_subagent_usage(task_id: &str, agent_id: &str, usage: SubagentUsage
 /// Run `future` with a fresh sub-agent usage collector installed, returning both
 /// the future's output and the gathered per-child entries. Intended call site is
 /// around the parent agent's turn (`run_turn_via_tinyagents_shared`) invocation.
-pub async fn with_turn_collector<F, R>(future: F) -> (R, Vec<SubagentUsageEntry>)
+pub(crate) async fn with_turn_collector<F, R>(future: F) -> (R, Vec<SubagentUsageEntry>)
 where
     F: std::future::Future<Output = R>,
 {

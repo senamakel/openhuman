@@ -50,7 +50,7 @@ fn usage_payload(usage: Option<&LastTurnUsage>) -> Option<TurnUsagePayload> {
 /// Always emits at least one `chat_done` event. When the response is
 /// segmented, emits one `chat_segment` per bubble first, then a final
 /// `chat_done` with the full text for deduplication.
-pub async fn deliver_response(
+pub(crate) async fn deliver_response(
     client_id: &str,
     thread_id: &str,
     request_id: &str,

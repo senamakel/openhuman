@@ -52,7 +52,7 @@ they land.
       (live crate-internal adapter until crate checkpointer/schema migration
       replaces `graph_checkpoints`)
 - [ ] `CostBudgetMiddleware` (`tinyagents/middleware.rs`) +
-      `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
+      crate-internal `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
       (live until crate budget/run-tree accounting avoids duplicate
       `UsageRecorded` and covers parent-turn rollups)
 - [ ] `agent/dispatcher.rs` (609) + `harness/parse.rs` (833) legacy tool-call

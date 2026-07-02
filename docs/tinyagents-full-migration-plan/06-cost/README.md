@@ -19,15 +19,16 @@ usage primitives, but OpenHuman has not wired `BudgetMiddleware`,
 shared runner. Keep the current OpenHuman cost seams live for now:
 `CostBudgetMiddleware` gates already-exceeded daily/monthly budgets on every
 shared turn, `OpenhumanEventBridge::record_usage` records `UsageRecorded` into
-the global tracker, and `turn_subagent_usage` folds child spend into the parent
-turn footer and persisted `LastTurnUsage`. Installing the crate budget
+the global tracker, and crate-internal `turn_subagent_usage` folds child spend
+into the parent turn footer and persisted `LastTurnUsage`. Installing the crate budget
 middleware before event de-duplication would risk double-counting
 `UsageRecorded`.
 
 Local inventory: there is no `tinyagents/cost*` module. The current local seams
 are `tinyagents/middleware.rs::CostBudgetMiddleware` (inside the 1861-line
-middleware module), `agent/harness/turn_subagent_usage.rs` (176) for task-local
-parent-turn rollup, and `agent/cost.rs::TurnCost` for the web footer payload.
+middleware module), crate-internal `agent/harness/turn_subagent_usage.rs` (176)
+for task-local parent-turn rollup, and `agent/cost.rs::TurnCost` for the web
+footer payload.
 
 ## Steps
 

@@ -26,7 +26,9 @@ Import phases 2–4 from `../../tinyagents-session-migration-design.md`.
 ## Deletions (phase 4)
 
 - `session/transcript.rs` (1347) + `transcript_tests.rs`.
-- `session/migration.rs` + tests (old date-folder migration, vestigial).
+- `session/migration.rs` (373) + tests — old date-folder migration, still
+  invoked at startup through the `migrate_session_layout_if_needed` re-export
+  until the read-side cutover has a replacement startup gate.
 - `session/turn/session_io.rs` (391) — replaced by store reader/writer.
 - `session_db/{ops,store,schemas,types}.rs` generic session parts (keep
   `run_ledger/` until 05).

@@ -36,7 +36,7 @@
 #[cfg(test)]
 mod agent_tool_exec;
 mod builder;
-pub mod migration;
+mod migration;
 mod runtime;
 #[cfg(test)]
 mod tool_progress;

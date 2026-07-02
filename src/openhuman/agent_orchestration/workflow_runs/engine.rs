@@ -31,15 +31,16 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use anyhow::{Context, Result, anyhow};
-use serde_json::{Value, json};
-use tinyagents::graph::parallel::{FailurePolicy, ParallelOptions, map_reduce};
+use anyhow::{anyhow, Context, Result};
+use serde_json::{json, Value};
+use tinyagents::graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
+use tinyagents::{CancellationToken, TinyAgentsError};
 
 use crate::openhuman::agent::harness::fork_context::with_parent_context;
 use crate::openhuman::agent_orchestration::parent_context::build_root_parent;
 use crate::openhuman::config::Config;
 use crate::openhuman::session_db::run_ledger::{
-    WorkflowRun, WorkflowRunStatus, WorkflowRunUpsert, get_workflow_run, upsert_workflow_run,
+    get_workflow_run, upsert_workflow_run, WorkflowRun, WorkflowRunStatus, WorkflowRunUpsert,
 };
 
 use super::ops::definition_by_id;
@@ -74,26 +75,50 @@ struct PhaseWorkerOutcome {
 /// flips the flag; the engine loop checks it between phases and aborts in-flight
 /// child tasks via the orchestration session before marking the run
 /// `Interrupted`.
-fn cancel_registry() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
-    static REGISTRY: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+#[derive(Clone)]
+struct WorkflowCancelSignal {
+    flag: Arc<AtomicBool>,
+    token: CancellationToken,
+}
+
+fn cancel_registry() -> &'static Mutex<HashMap<String, WorkflowCancelSignal>> {
+    static REGISTRY: OnceLock<Mutex<HashMap<String, WorkflowCancelSignal>>> = OnceLock::new();
     REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 /// Register (or reuse) a cancellation flag for `run_id`.
-fn register_cancel_flag(run_id: &str) -> Arc<AtomicBool> {
+fn register_cancel_signal(run_id: &str) -> WorkflowCancelSignal {
     let mut map = cancel_registry().lock().expect("cancel registry poisoned");
     map.entry(run_id.to_string())
-        .or_insert_with(|| Arc::new(AtomicBool::new(false)))
+        .or_insert_with(|| WorkflowCancelSignal {
+            flag: Arc::new(AtomicBool::new(false)),
+            token: CancellationToken::new(),
+        })
         .clone()
 }
 
-/// Look up an existing cancellation flag for `run_id`, if one is registered.
-fn lookup_cancel_flag(run_id: &str) -> Option<Arc<AtomicBool>> {
+/// Register (or reuse) a cancellation flag for `run_id`.
+fn register_cancel_flag(run_id: &str) -> Arc<AtomicBool> {
+    register_cancel_signal(run_id).flag
+}
+
+/// Look up an existing cancellation signal for `run_id`, if one is registered.
+fn lookup_cancel_signal(run_id: &str) -> Option<WorkflowCancelSignal> {
     cancel_registry()
         .lock()
         .expect("cancel registry poisoned")
         .get(run_id)
         .cloned()
+}
+
+/// Look up an existing cancellation flag for `run_id`, if one is registered.
+fn lookup_cancel_flag(run_id: &str) -> Option<Arc<AtomicBool>> {
+    lookup_cancel_signal(run_id).map(|signal| signal.flag)
+}
+
+/// Look up an SDK cancellation token for `run_id`, if one is registered.
+fn lookup_cancel_token(run_id: &str) -> Option<CancellationToken> {
+    lookup_cancel_signal(run_id).map(|signal| signal.token)
 }
 
 /// Drop a run's cancellation flag once the engine loop is done with it.
@@ -201,12 +226,15 @@ pub async fn stop_workflow_run(config: &Config, id: &str) -> Result<Option<Workf
         return Ok(Some(run));
     }
 
-    if let Some(flag) = lookup_cancel_flag(id) {
-        flag.store(true, Ordering::SeqCst);
+    if let Some(signal) = lookup_cancel_signal(id) {
+        signal.flag.store(true, Ordering::SeqCst);
+        signal.token.cancel();
     } else {
         // No live loop (e.g. process restart) — register a flag anyway so a
         // future resume observes the stop intent.
-        register_cancel_flag(id).store(true, Ordering::SeqCst);
+        let signal = register_cancel_signal(id);
+        signal.flag.store(true, Ordering::SeqCst);
+        signal.token.cancel();
     }
 
     let updated = upsert_workflow_run(
@@ -528,10 +556,13 @@ pub(super) async fn execute_phase(
             phase_owned.name
         );
         let expected_outcomes = to_run.len();
-        let options = ParallelOptions::default()
+        let mut options = ParallelOptions::default()
             .with_max_concurrency(concurrency)
             .with_failure_policy(FailurePolicy::CollectAll);
-        let outcome = map_reduce(to_run, options, move |_node, (agent_index, agent_id)| {
+        if let Some(token) = lookup_cancel_token(run_id) {
+            options = options.with_cancellation(token);
+        }
+        let outcome = match map_reduce(to_run, options, move |_node, (agent_index, agent_id)| {
             let session = session_for_workers.clone();
             let cancel = cancel_for_workers.clone();
             let run_input = run_input.clone();
@@ -630,7 +661,28 @@ pub(super) async fn execute_phase(
             }
         })
         .await
-        .map_err(|e| anyhow!("workflow fan-out failed: {e}"))?;
+        {
+            Ok(outcome) => outcome,
+            Err(TinyAgentsError::Cancelled) => {
+                log::debug!(
+                    target: LOG_TARGET,
+                    "[workflow_run_engine] phase.cancelled_by_sdk run={run_id} phase={}",
+                    phase.name
+                );
+                session.abort_all().await;
+                persist(
+                    config,
+                    &run,
+                    phase_states,
+                    child_run_ids,
+                    WorkflowRunStatus::Interrupted,
+                    None,
+                    false,
+                )?;
+                return Ok(PhaseExecOutcome::Terminated);
+            }
+            Err(err) => return Err(anyhow!("workflow fan-out failed: {err}")),
+        };
 
         let mut outcomes = Vec::with_capacity(expected_outcomes);
         for item in outcome.outcomes {

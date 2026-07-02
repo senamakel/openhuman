@@ -9,7 +9,10 @@ Current status (2026-07-02): landed. Live fanout callers now invoke
 workflow phase fanout (`workflow_runs/engine.rs`), and model_council fanout.
 `tinyagents/orchestration.rs::run_parallel_fanout` has been removed. The
 remaining TaskStore re-export seam is crate-internal for detached-subagent
-lifecycle bookkeeping. Usage-rollup parity evidence is still pending.
+lifecycle bookkeeping. Workflow phase fanout now shares the durable workflow
+stop signal with `ParallelOptions::with_cancellation`, so SDK cancellation maps
+back to the existing `Interrupted` run state. Usage-rollup parity evidence is
+still pending.
 
 ## Steps
 
@@ -27,7 +30,8 @@ lifecycle bookkeeping. Usage-rollup parity evidence is still pending.
    phase = fail-fast or per-phase config). Use the 1.3.0 options:
    `with_item_timeout`/`with_total_timeout`/`with_cancellation`
    (a per-item timeout is behavior the old helper never had — set it
-   deliberately per caller, not by default).
+   deliberately per caller, not by default). Workflow phase fanout now uses
+   `with_cancellation`; timeout policy remains unset by design.
 
 ## Deletions
 

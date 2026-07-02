@@ -7,8 +7,9 @@ capability resolution happen inside the SDK.
 ## Steps
 
 1. Extend `assemble_turn_harness` to register one `ProviderModel` per
-   workload route the turn may use (`agentic`, `reasoning`, `coding`,
-   `memory`, `subconscious` — from `provider/router.rs` tier names), each
+   workload route the turn may use (`chat`, `agentic`, `reasoning`, `coding`,
+   `memory`, `subconscious`, `burst`, `summarization`, `vision` — from
+   `provider/router.rs` tier names), each
    with its real `ModelProfile` (already built at construction; add
    structured-output/reasoning flags from provider capabilities as they
    gain accessors).

@@ -284,7 +284,7 @@ impl SubagentPayloadSummarizer {
 
         let mut harness: AgentHarness<()> = AgentHarness::new();
         harness.with_policy(policy);
-        let provider_model = crate::openhuman::tinyagents::ProviderModel::new(
+        let provider_model = super::model::ProviderModel::new(
             provider,
             model.clone(),
             self.definition.temperature,

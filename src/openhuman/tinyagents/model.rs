@@ -40,7 +40,7 @@ use crate::openhuman::tools::ToolSpec;
 /// child runs emit the `Subagent` counterpart for thinking. Tool-arg deltas have
 /// no child variant, so they ride the top-level event.
 #[derive(Clone)]
-pub(crate) struct ThinkingForwarder {
+pub(super) struct ThinkingForwarder {
     sink: Sender<AgentProgress>,
     scope: Option<SubagentScope>,
     cursor: IterationCursor,
@@ -50,7 +50,7 @@ pub(crate) struct ThinkingForwarder {
 }
 
 impl ThinkingForwarder {
-    pub(crate) fn new(
+    pub(super) fn new(
         sink: Sender<AgentProgress>,
         scope: Option<SubagentScope>,
         cursor: IterationCursor,
@@ -288,9 +288,9 @@ fn forward_delta(
 /// Sentry suppression and `AgentError`-tagged events. The adapter stashes the
 /// original error here before returning the stringified one to the harness, so
 /// the runner can re-surface the downcastable error after the run fails.
-pub(crate) type ProviderErrorSlot = Arc<Mutex<Option<anyhow::Error>>>;
+pub(super) type ProviderErrorSlot = Arc<Mutex<Option<anyhow::Error>>>;
 
-pub(crate) struct ProviderModel {
+pub(super) struct ProviderModel {
     provider: Arc<dyn Provider>,
     model: String,
     temperature: f64,
@@ -319,7 +319,7 @@ impl ProviderModel {
     /// reconstructs tool calls from the final response. Token limits are
     /// threaded in by the runner via [`ProviderModel::with_context_window`] /
     /// [`ProviderModel::with_max_tokens`].
-    pub(crate) fn new(
+    pub(super) fn new(
         provider: Arc<dyn Provider>,
         model: impl Into<String>,
         temperature: f64,
@@ -361,12 +361,12 @@ impl ProviderModel {
 
     /// A handle to the shared error slot (clone before moving `self` into the
     /// harness, so the runner can recover the typed provider error on failure).
-    pub(crate) fn error_slot(&self) -> ProviderErrorSlot {
+    pub(super) fn error_slot(&self) -> ProviderErrorSlot {
         self.error_slot.clone()
     }
 
     /// Cap the output tokens requested from the provider for every call.
-    pub(crate) fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+    pub(super) fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
         self.profile.max_output_tokens = Some(u64::from(max_tokens));
         self
@@ -375,14 +375,14 @@ impl ProviderModel {
     /// Record the model's effective context window on the profile so the crate
     /// can validate/select on input capacity before dispatch. Metadata only —
     /// history trimming stays with the context middlewares.
-    pub(crate) fn with_context_window(mut self, window: u64) -> Self {
+    pub(super) fn with_context_window(mut self, window: u64) -> Self {
         self.profile.max_input_tokens = Some(window);
         self
     }
 
     /// Forward provider thinking/tool-argument progress onto a progress sink via
     /// `forwarder` (parent or sub-agent scoped). See [`ThinkingForwarder`].
-    pub(crate) fn with_thinking(mut self, forwarder: ThinkingForwarder) -> Self {
+    pub(super) fn with_thinking(mut self, forwarder: ThinkingForwarder) -> Self {
         self.thinking = Some(forwarder);
         self
     }

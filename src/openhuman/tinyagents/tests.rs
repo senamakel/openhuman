@@ -593,6 +593,8 @@ async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
                     output_tokens: 22,
                     context_window: 0,
                     cached_input_tokens: 7,
+                    cache_creation_tokens: 0,
+                    reasoning_tokens: 0,
                     charged_amount_usd: 0.0,
                 }),
                 ..Default::default()

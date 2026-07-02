@@ -198,8 +198,18 @@ impl OpenhumanEventBridge {
             output_tokens: usage.output_tokens,
             context_window: 0,
             cached_input_tokens: usage.cache_read_tokens,
+            cache_creation_tokens: usage.cache_creation_tokens,
+            reasoning_tokens: usage.reasoning_tokens,
             charged_amount_usd: call_cost,
         };
+        if usage.reasoning_tokens > 0 || usage.cache_creation_tokens > 0 {
+            log::debug!(
+                "[cost] recording reasoning/cache-creation tokens model={} reasoning_tokens={} cache_creation_tokens={}",
+                self.model,
+                usage.reasoning_tokens,
+                usage.cache_creation_tokens
+            );
+        }
         crate::openhuman::cost::record_provider_usage(&self.model, &usage_info);
 
         // The cost footer is a top-level surface; for a child run the global

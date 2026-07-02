@@ -108,6 +108,8 @@ where
                         output_tokens: usage.output_tokens,
                         context_window: 0,
                         cached_input_tokens: usage.cache_read_tokens,
+                        cache_creation_tokens: usage.cache_creation_tokens,
+                        reasoning_tokens: usage.reasoning_tokens,
                         charged_amount_usd: 0.0,
                     },
                 );

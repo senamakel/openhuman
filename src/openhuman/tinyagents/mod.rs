@@ -1081,6 +1081,8 @@ fn record_unobserved_turn_usage(
             output_tokens,
             context_window: 0,
             cached_input_tokens,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             charged_amount_usd,
         },
     );

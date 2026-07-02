@@ -1,7 +1,7 @@
-//! Progress reporting seam + the shared streaming-delta forwarder.
+//! Session tool-execution progress reporting + the shared streaming-delta forwarder.
 //!
-//! The engine never names a concrete [`AgentProgress`] variant. It talks to a
-//! [`ProgressReporter`], whose impls pick the event flavor:
+//! The legacy direct tool-execution path never names a concrete [`AgentProgress`]
+//! variant. It talks to a [`ProgressReporter`], whose impls pick the event flavor:
 //!
 //! * [`TurnProgress`] — top-level chat (channel loop, `Agent::turn`): emits the
 //!   `Turn*` / `ToolCall*` / `TurnCostUpdated` events and streams provider

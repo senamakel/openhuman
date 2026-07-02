@@ -12,7 +12,6 @@ use std::collections::HashSet;
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::{ParsedToolCall, ToolExecutionResult};
-use crate::openhuman::agent::harness::engine::ProgressReporter;
 use crate::openhuman::agent::harness::tool_result_artifacts::{
     apply_per_result_persistence, ToolResultArtifactStore,
 };
@@ -23,6 +22,8 @@ use crate::openhuman::agent::tool_policy::{
 use crate::openhuman::agent_tool_policy::ToolPolicySession;
 use crate::openhuman::tools::{Tool, ToolCallOptions};
 use crate::openhuman::util::truncate_with_ellipsis;
+
+use super::tool_progress::ProgressReporter;
 
 /// Read-only context the Agent tool executor needs, captured up front so it
 /// never borrows the `Agent` (whose history/context the turn observer mutates).

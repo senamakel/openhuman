@@ -40,7 +40,7 @@ impl Agent {
         // direct caller run the identical logic. Progress is emitted through a
         // `TurnProgress` over this agent's sink. Legacy `run_skill`-wrapped
         // built-in cron tool calls are normalized to direct calls first.
-        let progress = super::super::super::engine::TurnProgress::new(self.on_progress.clone());
+        let progress = super::super::tool_progress::TurnProgress::new(self.on_progress.clone());
         let artifact_store =
             crate::openhuman::agent::harness::tool_result_artifacts::ToolResultArtifactStore::new(
                 self.action_dir.clone(),

@@ -46,16 +46,15 @@ pub struct Agent {
     pub(super) visible_tool_names: std::collections::HashSet<String>,
     pub(super) tool_policy_session: ToolPolicySession,
     pub(super) memory: Arc<dyn Memory>,
-    // `Arc` (not `Box`) so the turn engine's parser seam can hold a cheap clone
-    // of the dispatcher without borrowing the `Agent` (which the turn observer
-    // borrows mutably) — see `engine::DispatcherParser`.
+    // `Arc` (not `Box`) so the tinyagents turn path can hold a cheap clone of
+    // the dispatcher without borrowing the `Agent` while session state mutates.
     pub(super) tool_dispatcher: Arc<dyn ToolDispatcher>,
     pub(super) memory_loader: Box<dyn MemoryLoader>,
     pub(super) config: crate::openhuman::config::AgentConfig,
     pub(super) model_name: String,
     /// User-configured vision capability for [`Self::model_name`], evaluated at
     /// session build from `model_vision_enabled(&model, config)`. Surfaced to the
-    /// turn engine's image gate via the `current_model_vision` task-local so a
+    /// tinyagents image gate via the `current_model_vision` task-local so a
     /// custom/BYOK model the user flagged can forward images. Defaults to `false`.
     pub(super) model_vision: bool,
     pub(super) temperature: f64,

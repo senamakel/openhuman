@@ -4,7 +4,7 @@
 //!
 //! The orchestrator runs on a non-vision tier (`chat-v1`): its turn keeps the
 //! image as a text placeholder and never rehydrates it (see the image gate in
-//! [`crate::openhuman::agent::harness::engine`]). When it delegates to the
+//! [`crate::openhuman::agent::harness::session`]). When it delegates to the
 //! vision sub-agent via `analyze_image`, the sub-agent only receives the
 //! orchestrator's text task — not the conversation history. This task-local
 //! surfaces the current user message's placeholders to

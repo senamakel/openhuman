@@ -17,8 +17,8 @@ Steps:
 3. `03-domainevent-projection.md` — DomainEvent/AgentProgress as projections.
 
 Done when: a UI can reconstruct a running/completed turn from persisted
-crate events without subscribing at start; `agent/harness/engine/` is
-deleted; run-ledger event rows are fed from journal records.
+crate events without subscribing at start; run-ledger event rows are fed from
+journal records. `agent/harness/engine/` is already deleted.
 
 Risk: crosses UI streaming, cost footer, desktop reconnect — parity tests
 before each deletion.

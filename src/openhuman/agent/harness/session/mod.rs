@@ -37,6 +37,7 @@ mod agent_tool_exec;
 mod builder;
 pub mod migration;
 mod runtime;
+mod tool_progress;
 pub(crate) mod transcript;
 mod turn;
 mod turn_checkpoint;

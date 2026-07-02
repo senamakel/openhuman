@@ -1,16 +1,16 @@
 # 05.2 — One event bridge; delete engine/
 
-Three parallel progress paths exist: `OpenhumanEventBridge`
-(`tinyagents/observability.rs`), `harness/engine/progress.rs`
-(`ProgressReporter`/`TurnProgress`/`SubagentProgress`), and scattered direct
-`publish_global` calls in session/turn code.
+Two progress paths remain: `OpenhumanEventBridge`
+(`tinyagents/observability.rs`) and scattered direct `publish_global` calls in
+session/turn code. The old shared `harness/engine/` progress/checkpoint seams
+are gone.
 
 ## Steps
 
-1. Inventory `ProgressReporter`/`TurnProgress` call sites; re-express each
-   projection through `OpenhumanEventBridge` (it already maps `AgentEvent` →
-   `AgentProgress` + cost tracker). Child/sub-agent progress uses the
-   scope-aware bridge.
+1. Done for the reusable engine module: `ProgressReporter`/`TurnProgress` moved
+   under `session/tool_progress.rs`, leaving no shared `harness/engine/`
+   surface. Remaining direct tool-execution call sites are session-local legacy
+   compatibility until `agent_tool_exec` is deleted/shrunk.
 2. Done: `engine/checkpoint.rs` is gone. `CapPauser` owns the graceful
    max-iteration stop, and the remaining sub-agent checkpoint summary is
    localized in `subagent_runner/ops/checkpoint.rs`.
@@ -25,10 +25,7 @@ Three parallel progress paths exist: `OpenhumanEventBridge`
 
 ## Deletions
 
-- `src/openhuman/agent/harness/engine/` (entire dir: mod, checkpoint,
-  progress — 309 lines).
-- Deleted: `engine/checkpoint.rs`; retain `engine/progress.rs` while
-  `ProgressReporter`/`TurnProgress` call sites remain.
+- Deleted: `src/openhuman/agent/harness/engine/` (checkpoint + progress seams).
 - Redundant publishes found in step 3.
 - Retain `agent/progress_tracing.rs` for now; delete only after journal-backed
   span export proves parity with the current config contract.

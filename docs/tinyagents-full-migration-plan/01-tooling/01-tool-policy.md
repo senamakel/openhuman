@@ -33,11 +33,13 @@ implementation details of the shared runner.
    overlays the static crate policy cannot yet express: `external_effect_with_args`,
    `ToolScope::CliRpcOnly`, `permission_level_with_args`, and
    `generated_runtime_context`.
-3. Install crate `ToolPolicyMiddleware` in `assemble_turn_harness`
-   (`src/openhuman/tinyagents/mod.rs`) fail-closed, configured with the
-   1.3.0 builders (`require_sandbox`/`require_approval`/
-   `enforce_result_bytes`); assert every registered tool is classified in
-   the adapter-inventory test.
+3. Partially done: install crate `ToolPolicyMiddleware` in
+   `assemble_turn_harness` (`src/openhuman/tinyagents/mod.rs`) with
+   `require_sandbox(true)` only. Do not enable classification, approval, or
+   result-byte gates until unknown-tool recovery can still return a recoverable
+   model-visible tool error and the OpenHuman approval/result-cap overlays have
+   equivalent crate policy coverage. Assert every registered tool is classified
+   in the adapter-inventory test when those gates become fail-closed.
 4. Done for output budgeting: `TurnContextMiddleware.install` takes the SDK
    policy snapshot instead of the `&tool_sets` parameter.
 

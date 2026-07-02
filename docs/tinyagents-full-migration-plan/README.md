@@ -1,6 +1,6 @@
 # TinyAgents Full Migration Plan
 
-Status: active plan (2026-07-01). Branch: `issue/4249-finish-tinyagents-migration`.
+Status: active plan (2026-07-02). Branch: `issue/4249-finish-tinyagents-migration`.
 
 Goal: **hard-migrate** OpenHuman's agent harness onto the `tinyagents` crate as
 the library for orchestration, caching, tooling, observability, model
@@ -17,12 +17,13 @@ goals. Execute a step file end-to-end (code + tests + deletions + commit).
 
 - Current crate is **1.3.0** (published 2026-07-02); the plan targets it —
   see the "1.3.0 delta" in `00-baseline.md`.
-- `docs/tinyagents-sdk-gaps.md` is **stale**: tinyagents 1.2.0-1.3.0 ships
-  `UnknownToolPolicy`, `ToolPolicy` safety metadata + `ToolPolicyMiddleware`,
-  reasoning deltas (`MessageDelta.reasoning`), durable `JsonlTaskStore` + 10
-  orchestration tools, `graph::parallel::map_reduce`, `ModelCatalog` w/
-  pricing, `WorkspaceIsolation`, `BudgetMiddleware`, event journals/status
-  stores, `CapabilityRegistry`, embeddings traits. See `00-baseline.md`.
+- `docs/tinyagents-sdk-gaps.md` was refreshed against TinyAgents 1.3.0 and now
+  tracks only residual gaps. tinyagents 1.2.0-1.3.0 ships `UnknownToolPolicy`,
+  `ToolPolicy` safety metadata + `ToolPolicyMiddleware`, reasoning deltas
+  (`MessageDelta.reasoning`), durable `JsonlTaskStore` + orchestration tools,
+  `graph::parallel::map_reduce`, `ModelCatalog` w/ pricing,
+  `WorkspaceIsolation`, `BudgetMiddleware`, event journals/status stores,
+  `CapabilityRegistry`, embeddings traits. See `00-baseline.md`.
 - Inventory of live/legacy files: `../tinyagents-harness-migration-audit.md`
   plus the per-folder deletion lists here (`99-deletion-ledger.md` is the
   master list).

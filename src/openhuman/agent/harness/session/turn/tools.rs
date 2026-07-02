@@ -51,7 +51,6 @@ impl Agent {
             visible_tool_names: &self.visible_tool_names,
             tool_policy_session: &self.tool_policy_session,
             tool_policy: self.tool_policy.as_ref(),
-            payload_summarizer: self.payload_summarizer.as_deref(),
             event_session_id: self.event_session_id(),
             event_channel: self.event_channel(),
             agent_definition_id: &self.agent_definition_id,

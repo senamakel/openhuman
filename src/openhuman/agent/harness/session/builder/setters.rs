@@ -297,13 +297,12 @@ impl AgentBuilder {
         self
     }
 
-    /// Wire an oversized-tool-result summarizer into the agent. When
-    /// set, [`Agent::execute_tool_call`] calls
-    /// [`crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer::maybe_summarize`]
-    /// on every successful tool output and replaces the raw payload
-    /// with the compressed summary on success. Currently set only for
-    /// the orchestrator session by
-    /// [`Agent::build_session_agent_inner`].
+    /// Wire an oversized-tool-result summarizer into the agent. The live
+    /// TinyAgents turn path passes it to `ToolOutputMiddleware`, which calls
+    /// [`crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer::maybe_summarize_in_parent`]
+    /// on successful tool output and replaces the raw payload with the
+    /// compressed summary on success. Currently set only for the orchestrator
+    /// session by [`Agent::build_session_agent_inner`].
     pub fn payload_summarizer(
         mut self,
         summarizer: Arc<

@@ -18,17 +18,18 @@ onto `SubAgent::invoke_in_parent`. The live TinyAgents middleware already calls
 the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`, and
 that implementation now dispatches the summarizer through
 `SubAgent::invoke_in_parent` so child lineage/events inherit the parent
-TinyAgents context. The legacy direct executor still uses the older
-`run_subagent` dispatch path until that executor is removed. The stale
-default-Full `tokenjuice::compact_tool_output` wrapper is removed; TinyAgents
-and the legacy direct executor use the policy-aware entry point.
+TinyAgents context. The older direct-executor payload-summarizer hook is
+removed. The stale default-Full `tokenjuice::compact_tool_output` wrapper is
+removed; TinyAgents and the legacy direct executor use the policy-aware
+TokenJuice entry point.
 
 1. `payload_summarizer.rs` (490 lines, oversized-result compression via a
    `summarizer` sub-agent + circuit breaker): `ToolOutputMiddleware` now calls
    the parent-context-aware summarizer seam, and that live path uses
    `SubAgent::invoke_in_parent` for child depth/event lineage. Remaining work:
-   delete the older direct-executor dispatch path and emit any additional
-   `SummaryRecord`-style provenance needed beyond `AgentEvent::Compressed`.
+   emit any additional `SummaryRecord`-style provenance needed beyond
+   `AgentEvent::Compressed`, then delete the payload-summarizer wrapper once no
+   builder/session wiring needs it.
 2. `tokenjuice::compact_tool_output`: deleted after confirming
    `compact_output_with_policy` covers the live TinyAgents middleware and
    legacy direct executor paths; decision recorded in
@@ -46,7 +47,7 @@ and the legacy direct executor use the policy-aware entry point.
 ## Deletions
 
 - `src/openhuman/agent/harness/payload_summarizer.rs`.
-- Byte-budget/summarizer branches of `session/agent_tool_exec.rs`.
+- Summarizer branch of `session/agent_tool_exec.rs`.
 - `tokenjuice::compact_tool_output`.
 
 ## Acceptance

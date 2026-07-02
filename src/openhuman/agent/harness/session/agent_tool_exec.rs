@@ -2,8 +2,8 @@
 //! [`super::types::Agent::execute_tool_call`] and the turn engine's
 //! `AgentToolSource` run the exact same path (visibility gate → session policy
 //! → per-call permission → pluggable `ToolPolicy` → `execute_with_options` +
-//! payload summarizer → per-result byte budget), without one borrowing the
-//! `Agent` while the turn observer borrows it mutably.
+//! per-result byte budget), without one borrowing the `Agent` while the turn
+//! observer borrows it mutably.
 //!
 //! Progress is emitted through a [`ProgressReporter`] (the channel/web flavor),
 //! matching the `Agent::turn` events 1:1.
@@ -13,7 +13,6 @@ use std::collections::HashSet;
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::{ParsedToolCall, ToolExecutionResult};
 use crate::openhuman::agent::harness::engine::ProgressReporter;
-use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::agent::harness::tool_result_artifacts::{
     apply_per_result_persistence, ToolResultArtifactStore,
 };
@@ -32,7 +31,6 @@ pub(super) struct AgentToolExecCtx<'a> {
     pub visible_tool_names: &'a HashSet<String>,
     pub tool_policy_session: &'a ToolPolicySession,
     pub tool_policy: &'a dyn ToolPolicy,
-    pub payload_summarizer: Option<&'a dyn PayloadSummarizer>,
     pub event_session_id: &'a str,
     pub event_channel: &'a str,
     pub agent_definition_id: &'a str,
@@ -221,45 +219,13 @@ pub(super) async fn run_agent_tool_call(
                     match outcome {
                         Ok(Ok(r)) => {
                             if !r.is_error {
-                                let mut output = r.output_for_llm(ctx.prefer_markdown);
+                                let output = r.output_for_llm(ctx.prefer_markdown);
                                 if ctx.prefer_markdown && r.markdown_formatted.is_some() {
                                     log::debug!(
                                         "[agent_loop] tool={} returned markdown payload bytes={}",
                                         call.name,
                                         output.len()
                                     );
-                                }
-                                if let Some(ps) = ctx.payload_summarizer {
-                                    log::debug!(
-                                        "[agent_loop] payload_summarizer intercepting tool={} bytes={}",
-                                        call.name,
-                                        output.len()
-                                    );
-                                    match ps.maybe_summarize(&call.name, None, &output).await {
-                                        Ok(Some(payload)) => {
-                                            log::info!(
-                                                "[agent_loop] payload_summarizer compressed tool={} {}->{} bytes",
-                                                call.name,
-                                                payload.original_bytes,
-                                                payload.summary_bytes
-                                            );
-                                            output = payload.summary;
-                                        }
-                                        Ok(None) => {
-                                            log::debug!(
-                                                "[agent_loop] payload_summarizer pass-through tool={} bytes={}",
-                                                call.name,
-                                                output.len()
-                                            );
-                                        }
-                                        Err(e) => {
-                                            log::warn!(
-                                                "[agent_loop] payload_summarizer error tool={} err={} (passing raw payload through)",
-                                                call.name,
-                                                e
-                                            );
-                                        }
-                                    }
                                 }
                                 (output, true)
                             } else {
@@ -468,7 +434,6 @@ mod tests {
             visible_tool_names: &visible_tool_names,
             tool_policy_session: &policy_session,
             tool_policy: &tool_policy,
-            payload_summarizer: None,
             event_session_id: "session-1",
             event_channel: "web",
             agent_definition_id: "context_scout",

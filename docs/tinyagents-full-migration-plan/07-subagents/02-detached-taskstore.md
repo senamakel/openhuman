@@ -20,7 +20,7 @@ restart reconciliation and steering-registry replacement remain pending.
 ## Steps
 
 1. Swap `InMemoryTaskStore` → `JsonlTaskStore::open` under the workspace
-   store dir; task records carry lineage (`with_lineage(run/root/parent)`),
+   store dir; task records carry lineage (`with_lineage(parent_run_id, root_run_id)`),
    thread, timeout. **Partially done:** JSONL store + thread/session metadata
    are live; run/root lineage and timeout fields still need to be threaded from
    the parent run context.

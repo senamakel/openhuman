@@ -42,8 +42,8 @@ it. `subagent_runner/ops/` is now 2764 lines across `runner`, `graph`,
 - Deleted: `subagent_runner/ops/usage.rs` glue.
 - Remaining: `subagent_runner/ops/handoff_helper.rs` glue; parts of
   `ops/runner.rs`/`ops/graph.rs` absorbed by nodes (target: `ops/*` shrinks
-  from 2764 production lines + 1827 companion-test lines to policy nodes +
-  tests; whole `subagent_runner` subtree is 6108 lines).
+  from 2764 raw `ops/*.rs` lines + 1827 companion-test lines to policy nodes +
+  tests; whole `subagent_runner` subtree is 6102 lines).
 
 ## Acceptance
 

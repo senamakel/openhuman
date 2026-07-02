@@ -29,6 +29,7 @@ pub(crate) mod observability;
 mod routes;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
+pub(crate) mod retriever;
 mod run_cancellation_context;
 pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;

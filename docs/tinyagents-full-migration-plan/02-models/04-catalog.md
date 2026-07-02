@@ -1,11 +1,12 @@
 # 02.4 — One model catalog
 
-Three sources of model metadata exist: `cost/catalog.rs` (pricing +
-windows), provider capability accessors, and
-`docs/inference-provider-catalog.md`. Crate `registry::ModelCatalog` is the
-normalized shape (`ModelCatalogEntry { provider, model_id, aliases,
-max_input_tokens, max_output_tokens, pricing, capabilities }` incl. cache/
-reasoning rates).
+Model metadata is currently split across several sources: `cost/catalog.rs`
+(pricing + windows), `Config::model_registry` seeding/enrichment,
+`model_context.rs` tier/pattern/local fallbacks, provider capability accessors,
+provider `effective_context_window`, and `docs/inference-provider-catalog.md`.
+Crate `registry::ModelCatalog` is the normalized shape
+(`ModelCatalogEntry { provider, model_id, aliases, max_input_tokens,
+max_output_tokens, pricing, capabilities }` incl. cache/reasoning rates).
 
 Current status (2026-07-02): `cost/catalog.rs` is a 622-line static pricing and
 window table plus registry-enrichment/estimate helpers. The unused

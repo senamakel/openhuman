@@ -18,17 +18,22 @@ graph_blueprint/agent`, `to_model_registry()`, `to_tool_registry()`,
 
 1. Build-per-run (or cached) `CapabilityRegistry` projection in
    `assemble_turn_harness`: models from 02.1 routes, tools from the
-   turn's tool sets, compiled graphs (delegation/scheduler/member/
-   subagent-pipeline/spawn-parallel), agents from `agent_registry`.
-   `to_model_registry()`/`to_tool_registry()` replace the hand-rolled
-   registration blocks.
+   turn's tool sets, graph descriptors from the current topology reports
+   (delegation/scheduler/member/subagent-pipeline/spawn-parallel), agents from
+   `AgentDefinitionRegistry` (built-ins plus workspace TOML overrides). `.rag`
+   `Blueprint` registration comes later when OpenHuman has real blueprint
+   artifacts; the current graph exports are structure snapshots, not compiled
+   blueprints. `AgentHarness` does not yet expose a registry-replacement setter,
+   so `to_model_registry()`/`to_tool_registry()` start as validation/projection
+   helpers before they can replace the hand-rolled registration blocks.
 2. Diagnostics fail-closed pre-dispatch: duplicate tool names across
    native/MCP/Composio/generated tools, unsafe aliases → registry
-   diagnostic errors (today: silent shadowing risk in
-   `tools/generated.rs` + `mcp_registry`). TinyAgents 1.3.0 is pinned and
-   exposes `AliasBinding`, alias diagnostics, cross-kind name-reuse detection,
-   and `ComponentKind::{Middleware, Checkpointer, TaskStore, Listener}`;
-   OpenHuman still needs to project those SDK diagnostics into its runtime.
+   diagnostic errors (today: duplicate handling is scattered across generated
+   tools, MCP, and native registration instead of one SDK diagnostic stream).
+   TinyAgents 1.3.0 is pinned and exposes `AliasBinding`, alias diagnostics,
+   cross-kind name-reuse detection, and `ComponentKind::{Middleware,
+   Checkpointer, TaskStore, Listener}`; OpenHuman still needs to project those
+   SDK diagnostics into its runtime.
 3. Introspection RPC: extend the existing `agent.graph_topologies` surface or
    add a sibling RPC for `RegistrySnapshot` (JSON + DOT) so a UI/CLI can show
    every active component.

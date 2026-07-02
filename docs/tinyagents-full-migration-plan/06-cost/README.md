@@ -6,7 +6,8 @@ DB, dashboard RPC, and pricing policy.
 Target SDK surface: `Usage { input_tokens, output_tokens, total_tokens,
 cache_read_tokens, cache_creation_tokens, reasoning_tokens }`, `UsageTotals`,
 `CostTotals`, `BudgetMiddleware`/`BudgetLimits`/`BudgetTracker`,
-`AgentEvent::{UsageRecorded, CostRecorded, BudgetWarning, BudgetExceeded}`,
+`AgentEvent::{UsageRecorded, CostRecorded, BudgetReserved, BudgetReconciled,
+BudgetWarning, BudgetExceeded}`,
 `ChildRun.usage`/`RunTree` lineage rollup, `ModelPricing` (catalog, incl.
 cache/reasoning rates).
 
@@ -24,9 +25,9 @@ crate-internal `CostBudgetMiddleware` gates already-exceeded daily/monthly
 budgets on every shared turn, `OpenhumanEventBridge::record_usage` records
 `UsageRecorded` into the global tracker, and crate-internal
 `turn_subagent_usage` folds child spend into the parent turn footer and
-persisted `LastTurnUsage`. Installing the crate budget middleware before event
-de-duplication would risk double-counting
-`UsageRecorded`.
+in-memory `LastTurnUsage` web footer payload. Transcript/session metadata
+persistence is separate. Installing the crate budget middleware before event
+de-duplication would risk double-counting `UsageRecorded`.
 
 Local inventory: there is no local `src/openhuman/tinyagents/cost*` adapter
 module; TinyAgents itself has `tinyagents::harness::cost`. The current local
@@ -38,11 +39,13 @@ stop hooks, and legacy progress compatibility.
 
 ## Steps
 
-1. **Normalize records:** carry `reasoning_tokens` (crate `Usage` has it),
-   image/audio/embedding usage where providers report; add
-   `cost_source: estimated | provider_charged` to `TokenUsage`; keep
-   provider-charged USD via an out-of-band carry (crate `Usage` has no USD
-   field — residual upstream gap).
+1. **Normalize records:** carry `cached_input_tokens`, cache-creation tokens,
+   `reasoning_tokens` (crate `Usage` has it), image/audio/embedding usage where
+   providers report; add `cost_source: estimated | provider_charged` to
+   `TokenUsage`; keep provider-charged USD via an out-of-band carry (crate
+   `Usage` has no USD field — residual upstream gap). Current `TokenUsage`
+   stores only input/output/total/cost/timestamp, and `build_token_usage` drops
+   cached/reasoning/cache-creation provenance.
 2. **Crate budget middleware:** replace bespoke `CostBudgetMiddleware`
    daily/monthly pre-checks with `BudgetMiddleware` where limits map; add
    per-run and per-thread budgets (new `CostConfig` fields + thread-id

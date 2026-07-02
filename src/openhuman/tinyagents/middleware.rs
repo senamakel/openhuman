@@ -60,43 +60,43 @@ const DEFAULT_TOOL_RESULT_BUDGET_BYTES: usize = 16 * 1024;
 /// Cheap to clone (the summarizer is an `Arc`). An all-default value installs
 /// nothing — [`install`](Self::install) is a no-op.
 #[derive(Clone, Default)]
-pub struct TurnContextMiddleware {
+pub(crate) struct TurnContextMiddleware {
     /// Per-tool-result byte cap. `0` disables the cap.
-    pub tool_result_budget_bytes: usize,
+    pub(crate) tool_result_budget_bytes: usize,
     /// Optional semantic tool-output summarizer (progressive disclosure).
-    pub payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    pub(crate) payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
     /// Optional action-workspace artifact sink for oversized tool results.
     pub(crate) artifact_store: Option<ToolResultArtifactStore>,
     /// Whether TokenJuice content-aware compaction runs before output caps.
-    pub tokenjuice_compaction_enabled: bool,
+    pub(crate) tokenjuice_compaction_enabled: bool,
     /// Agent-level TokenJuice profile for tool-result compaction.
-    pub tokenjuice_compression: AgentTokenjuiceCompression,
+    pub(crate) tokenjuice_compression: AgentTokenjuiceCompression,
     /// Warn on volatile tokens in the system prompt (KV-cache diagnostic).
-    pub cache_align: bool,
+    pub(crate) cache_align: bool,
     /// Keep-recent count for microcompact tool-body clearing. `0` disables it.
-    pub microcompact_keep_recent: usize,
+    pub(crate) microcompact_keep_recent: usize,
     /// Whether the LLM summarization step (`ContextCompressionMiddleware`) may be
     /// installed on this turn. `false` when `[context].enabled` or
     /// `autocompact_enabled` is off, so a diagnostic/test opt-out doesn't spend
     /// summarizer tokens or rewrite history. The deterministic hard-trim backstop
     /// still installs regardless. Defaults to `true` (see [`defaults`](Self::defaults)).
-    pub autocompact_enabled: bool,
+    pub(crate) autocompact_enabled: bool,
     /// "Super context" first-turn context collection. `Some` installs the
     /// [`SuperContextMiddleware`] graph node; `None` (the default, and every
     /// non-chat path) skips it. Only the chat turn sets this — and only when its
     /// gate (`should_run_super_context`) passes.
-    pub super_context: Option<SuperContextConfig>,
+    pub(crate) super_context: Option<SuperContextConfig>,
     /// Progressive-disclosure handoff: when set (integrations_agent with a
     /// resolved toolkit), oversized tool results are stashed in the shared
     /// [`ResultHandoffCache`] and replaced with an `extract_from_result` drill-in
     /// placeholder. `None` everywhere else.
-    pub handoff: Option<HandoffConfig>,
+    pub(crate) handoff: Option<HandoffConfig>,
 }
 
 /// Config for the [`HandoffMiddleware`]: the per-spawn cache (shared with the
 /// `extract_from_result` tool) plus the ids used in handoff log lines.
 #[derive(Clone)]
-pub struct HandoffConfig {
+pub(crate) struct HandoffConfig {
     pub(crate) cache: Arc<crate::openhuman::agent::harness::subagent_runner::ResultHandoffCache>,
     pub(crate) agent_id: String,
     pub(crate) task_id: String,
@@ -124,16 +124,16 @@ impl OpenHumanToolVisibilityMiddleware {
 /// Inputs the [`SuperContextMiddleware`] node needs to run its first-turn
 /// read-only context-collection pass.
 #[derive(Clone)]
-pub struct SuperContextConfig {
+pub(crate) struct SuperContextConfig {
     /// The raw user ask, used as the context scout's query.
-    pub user_message: String,
+    pub(crate) user_message: String,
 }
 
 impl TurnContextMiddleware {
     /// A sensible default for turn paths without a session `ContextManager`
     /// (channel / sub-agent): cache-align warnings on and the default tool-result
     /// byte cap, no summarizer or microcompact.
-    pub fn defaults() -> Self {
+    pub(crate) fn defaults() -> Self {
         Self {
             tool_result_budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
             payload_summarizer: None,
@@ -149,7 +149,7 @@ impl TurnContextMiddleware {
     }
 
     /// `true` when no middleware would be installed.
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.tool_result_budget_bytes == 0
             && self.payload_summarizer.is_none()
             && !self.tokenjuice_compaction_enabled
@@ -165,7 +165,7 @@ impl TurnContextMiddleware {
     /// microcompact (clear tool bodies) are installed **before** the caller's
     /// summarization / trim middlewares — microcompact frees cheap tokens first,
     /// then summarization/trim handle the rest.
-    pub fn install(
+    pub(crate) fn install(
         self,
         harness: &mut AgentHarness<()>,
         tool_policies: HashMap<String, TaToolPolicy>,

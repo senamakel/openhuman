@@ -10,8 +10,8 @@ snapshot instead of rebuilding a `name -> Arc<dyn Tool>` lookup. The remaining
 crate-internal OpenHuman lookups are behavior-preserving overlays for data the
 crate policy snapshot cannot represent yet: args-aware external effects,
 CLI/RPC-only scope, args-aware permission level, and generated-tool runtime
-context. The local `tinyagents/middleware.rs` module is crate-internal; public
-turn config types stay exposed only through `openhuman::tinyagents` re-exports.
+context. The local `tinyagents/middleware.rs` module is crate-internal; turn
+config types stay crate-visible only through `openhuman::tinyagents` re-exports.
 The `ToolAdapter`/`SharedToolAdapter` execution wrappers are crate-internal
 implementation details of the shared runner.
 

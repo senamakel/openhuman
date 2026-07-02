@@ -369,13 +369,14 @@ run-ledger rows, and prove restart/resume parity.
     Pattern: each graph exposes a `build_*_graph` (structure) reused by both the
     runner and a `*_topology()` that builds it with no-op stub closures and
     returns `CompiledGraph::topology()`. Exported graphs: `agent_teams:member`,
-    `delegation` (extracted `build_delegation_graph`), and
+    `delegation` (extracted `build_delegation_graph`),
     `workflow_runs:scheduler` (`build_scheduler_graph` with injected
-    `select`/`run` engine effects). Fan-outs (council, map-reduce helpers)
-    are the dispatch→N→collect pattern, not a fixed topology — intentionally not
-    exported. Debug endpoint: `agent.graph_topologies` JSON-RPC controller
-    (`agent/schemas.rs`) returning `{name, ok, errors, warnings, mermaid,
-    topology}` per graph.
+    `select`/`run` engine effects), `subagent:pipeline`, and
+    `spawn_parallel_agents`. Generic map-reduce fan-outs such as council runs
+    are still item-count-driven dispatch→N→collect patterns, not fixed named
+    topologies, so they are intentionally not exported. Debug endpoint:
+    `agent.graph_topologies` JSON-RPC controller (`agent/schemas.rs`) returning
+    `{name, ok, errors, warnings, mermaid, topology}` per graph.
 
 ## Phase 5 - Usage, Cost, And Budgets
 

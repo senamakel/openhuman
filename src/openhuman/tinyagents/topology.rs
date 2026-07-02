@@ -26,7 +26,7 @@ pub(crate) struct GraphTopologyReport {
 }
 
 /// Render a [`GraphTopology`] into a [`GraphTopologyReport`].
-pub(crate) fn describe(name: &'static str, topology: &GraphTopology) -> GraphTopologyReport {
+fn describe(name: &'static str, topology: &GraphTopology) -> GraphTopologyReport {
     GraphTopologyReport {
         name,
         mermaid: export::to_mermaid(topology),

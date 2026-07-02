@@ -28,7 +28,7 @@ pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 pub mod stop_hooks;
 pub(crate) mod subagent_graph;
-pub mod summarize;
+mod summarize;
 mod tools;
 pub(crate) mod topology;
 

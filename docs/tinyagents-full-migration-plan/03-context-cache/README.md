@@ -5,8 +5,8 @@ Live context reduction already runs on `ContextCompressionMiddleware` +
 cache-align live as TinyAgents middlewares. This workstream deletes the superseded
 originals and adopts the crate cache layer.
 
-Current status (2026-07-02): the legacy reducers are gone. `context/` is 1239
-lines across prompt assembly (`prompt.rs`, `channels_prompt.rs`),
+Current status (2026-07-02): the legacy reducers are gone. `context/` is 1237
+lines total, including 1051 lines across prompt assembly (`prompt.rs`, `channels_prompt.rs`),
 session-memory bookkeeping (`session_memory.rs`), and stats/config state
 (`manager.rs`, `stats.rs`). The inert legacy compaction-breaker stats have also
 been removed. Those files remain product-owned; cache correctness work now targets

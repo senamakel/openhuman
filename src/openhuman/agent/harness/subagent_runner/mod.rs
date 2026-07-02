@@ -62,6 +62,7 @@ pub(crate) use tool_prep::build_text_mode_tool_instructions;
 // `ResultHandoffCache` with the `extract_from_result` tool.
 pub(crate) use handoff::ResultHandoffCache;
 pub(crate) use ops::apply_handoff;
+pub(crate) use ops::run_agent_turn_request_via_default_graph;
 pub(crate) use ops::{append_subagent_role_contract, resolve_subagent_provider};
 
 // `user_is_signed_in_to_composio` is the mode-aware "can the user call

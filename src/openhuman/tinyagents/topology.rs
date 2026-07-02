@@ -62,6 +62,10 @@ pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("subagent:pipeline", &t));
     }
 
+    if let Ok(t) = crate::openhuman::agent_registry::agents::researcher::graph::topology() {
+        out.push(describe("agent:researcher", &t));
+    }
+
     if let Ok(t) =
         crate::openhuman::agent_orchestration::spawn_parallel_graph::spawn_parallel_graph_topology()
     {

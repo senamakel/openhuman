@@ -30,6 +30,9 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::openhuman::agent::harness::agent_graph::{
+    AgentTurnRequest, AgentTurnResult, AgentTurnUsage,
+};
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
@@ -44,6 +47,80 @@ pub(super) struct AggregatedUsage {
     pub(super) output_tokens: u64,
     pub(super) cached_input_tokens: u64,
     pub(super) charged_amount_usd: f64,
+}
+
+/// Run an assembled custom per-agent turn through the shared default sub-agent
+/// leaf. Bespoke `AgentGraph::Custom` graphs use this after their own routing
+/// nodes so transcript persistence, worker-thread mirroring, progress events,
+/// handoff middleware, cap summaries, and usage aggregation stay byte-for-byte
+/// on the default path.
+pub(crate) async fn run_agent_turn_request_via_default_graph(
+    req: AgentTurnRequest,
+) -> Result<AgentTurnResult, SubagentRunError> {
+    let AgentTurnRequest {
+        provider,
+        model,
+        temperature,
+        mut history,
+        parent_tools,
+        dynamic_tools,
+        specs,
+        allowed_names,
+        max_iterations,
+        run_queue,
+        on_progress,
+        agent_id,
+        task_id,
+        extended_policy,
+        worker_thread_id,
+        workspace_dir,
+        workspace_descriptor,
+        max_output_tokens,
+        model_vision,
+        transcript_stem,
+        provider_label,
+        handoff_cache,
+    } = req;
+
+    let (output, iterations, usage, early_exit_tool, hit_cap) = run_subagent_via_graph(
+        provider,
+        &model,
+        temperature,
+        &mut history,
+        parent_tools,
+        dynamic_tools,
+        specs,
+        allowed_names,
+        max_iterations,
+        run_queue,
+        on_progress,
+        &agent_id,
+        &task_id,
+        extended_policy,
+        worker_thread_id,
+        workspace_dir,
+        workspace_descriptor,
+        max_output_tokens,
+        model_vision,
+        &transcript_stem,
+        &provider_label,
+        handoff_cache,
+    )
+    .await?;
+
+    Ok(AgentTurnResult {
+        history,
+        output,
+        iterations,
+        usage: AgentTurnUsage {
+            input_tokens: usage.input_tokens,
+            output_tokens: usage.output_tokens,
+            cached_input_tokens: usage.cached_input_tokens,
+            charged_amount_usd: usage.charged_amount_usd,
+        },
+        early_exit_tool,
+        hit_cap,
+    })
 }
 
 /// Drive a sub-agent turn on the tinyagents harness. Returns

@@ -58,6 +58,10 @@ pub struct AgentTurnRequest {
     pub workspace_descriptor: Option<WorkspaceDescriptor>,
     pub max_output_tokens: u32,
     pub model_vision: bool,
+    pub transcript_stem: String,
+    pub provider_label: String,
+    pub(crate) handoff_cache:
+        Option<Arc<crate::openhuman::agent::harness::subagent_runner::ResultHandoffCache>>,
 }
 
 /// Token/cost totals a custom runner reports back. Mirrors the runner's internal

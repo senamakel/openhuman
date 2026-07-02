@@ -177,7 +177,7 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         id: "researcher",
         toml: include_str!("researcher/agent.toml"),
         prompt_fn: super::researcher::prompt::build,
-        graph_fn: None,
+        graph_fn: Some(super::researcher::graph::graph),
     },
     BuiltinAgent {
         id: "context_scout",

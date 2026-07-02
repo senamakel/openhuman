@@ -993,6 +993,9 @@ async fn run_typed_mode(
                 workspace_descriptor: workspace_descriptor.clone(),
                 max_output_tokens,
                 model_vision,
+                transcript_stem: transcript_stem.clone(),
+                provider_label: "subagent".to_string(),
+                handoff_cache: handoff_cache.clone(),
             };
             let res = run(req).await?;
             history = res.history;

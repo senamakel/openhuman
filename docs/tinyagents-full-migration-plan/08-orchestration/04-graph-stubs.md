@@ -9,18 +9,21 @@ Current status (2026-07-02): `BuiltinAgent.graph_fn` is optional and the
 loader supplies `AgentGraph::Default` when it is absent. All 32
 `agent_registry/agents/*/graph.rs` default stubs are gone, along with the five
 default-only non-registry graph modules (`tinyplace_agent`, skill setup,
-skill executor, agent memory, subconscious). A first bespoke production graph is
-still pending specifically as a per-agent `AgentGraph::Custom` runner; other
+skill executor, agent memory, subconscious). `researcher` is now the first
+bespoke production per-agent graph: it resolves to `AgentGraph::Custom`, runs a
+compiled `route_research -> run_research_turn -> finalize` topology, exports
+that topology through `agent.graph_topologies`, and delegates the actual
+model/tool loop to the shared default sub-agent leaf so transcript persistence,
+progress, handoff, cap-summary, and usage-rollup parity stay intact. Other
 production orchestration graph topologies (delegation/workflow/team/
-spawn-parallel) already exist.
+spawn-parallel) also exist.
 
 ## Steps
 
-1. Land the first bespoke per-agent graph — `orchestrator` (explicit plan/delegate/
-   parallelize routing) or `researcher` (search → read → synthesize → cite,
-   bounded + checkpointed) — as `AgentGraph::Custom` over a compiled graph
-   with topology export. tool_maker (generate → validate → expose with
-   review gates) is the third candidate.
+1. Done: land the first bespoke per-agent graph. `researcher/graph.rs` is an
+   `AgentGraph::Custom` runner over a compiled graph with topology export.
+   Remaining route sophistication: split search/read/synthesize/cite decisions
+   into richer nodes once those policies move out of prompt text.
 2. Done: make `graph_fn` optional on `BuiltinAgent` (default =
    `AgentGraph::Default` supplied by the loader/registry); delete every default
    stub `graph.rs` whose agent has no custom graph.
@@ -37,5 +40,5 @@ spawn-parallel) already exist.
 ## Acceptance
 
 - Registry loads all agents with correct graph resolution (test);
-  at least one bespoke graph in production with route tests + topology
-  snapshot.
+  first bespoke graph is in production and exported; richer route tests +
+  topology snapshot remain before declaring 08.4 complete.

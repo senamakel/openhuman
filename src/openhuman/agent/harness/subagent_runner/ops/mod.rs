@@ -20,6 +20,7 @@
 
 mod checkpoint;
 mod graph;
+pub(crate) use graph::run_agent_turn_request_via_default_graph;
 mod handoff_helper;
 pub(crate) use handoff_helper::apply_handoff;
 mod prompt;
@@ -48,7 +49,7 @@ pub(crate) use provider::resolve_subagent_provider;
 #[cfg(test)]
 pub(super) use prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
 #[cfg(test)]
-pub(super) use provider::{LazyToolkitResolver, normalize_slug};
+pub(super) use provider::{normalize_slug, LazyToolkitResolver};
 // filter_tool_indices lives in tool_prep (sibling of ops).
 #[cfg(test)]
 pub(super) use super::tool_prep::filter_tool_indices;
@@ -63,7 +64,7 @@ pub(super) use crate::openhuman::agent::harness::definition::{AgentDefinition, P
 pub(super) use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 #[cfg(test)]
 pub(super) use crate::openhuman::agent::harness::{
-    MAX_SPAWN_DEPTH, current_spawn_depth, with_spawn_depth,
+    current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
 #[cfg(test)]
 pub(super) use crate::openhuman::tools::{Tool, ToolSpec};

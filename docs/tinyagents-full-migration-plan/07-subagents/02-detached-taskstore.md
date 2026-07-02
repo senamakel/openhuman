@@ -1,7 +1,7 @@
 # 07.2 — Detached sub-agents on durable TaskStore
 
 `running_subagents.rs` already mirrors lifecycle into the crate TaskStore but
-still owns watch channels, abort handles, tombstones, ownership checks. The
+still owns watch channels, abort handles, task lookup, and ownership checks. The
 crate now has `JsonlTaskStore` (durable), `OrchestrationTaskSpec::with_lineage`,
 filters, and a `SteeringRegistry`.
 
@@ -12,7 +12,9 @@ back to `InMemoryTaskStore` only if that workspace log cannot be created/opened.
 Records carry parent session, parent thread, durable `subagent_session_id`, and
 workspace metadata, and terminal/cancelled mirrors now resolve the same
 workspace-scoped store that recorded the spawn. The executor/control path still
-uses OpenHuman's watch channels, abort handles, tombstones, and `RunQueue`;
+uses OpenHuman's watch channels, abort handles, task lookup, and `RunQueue`;
+the unused future `running_subagents::close` hook has been removed and the
+test-only typed ledger snapshot is no longer exported in production, while
 restart reconciliation and steering-registry replacement remain pending.
 
 ## Steps
@@ -28,7 +30,7 @@ restart reconciliation and steering-registry replacement remain pending.
    replacing the RunQueue lookup plumbing. Keep abort-handle hard-kill as
    the OpenHuman executor detail.
 3. Keep OpenHuman ownership checks + durable session rows as policy over
-   the store; tombstones become terminal `OrchestrationTaskRecord`s.
+   the store; cancelled/failed states become terminal `OrchestrationTaskRecord`s.
 4. Restart/resume: on boot, reconcile `JsonlTaskStore` live records against
    actual executors (orphans → failed-with-restart marker); prove desktop
    restart parity vs today's behavior. Run the crate's 1.3.0 testkit
@@ -44,7 +46,7 @@ restart reconciliation and steering-registry replacement remain pending.
 
 ## Deletions
 
-- Watch-channel/tombstone/task-lookup mechanics in `running_subagents.rs` (1229)
+- Watch-channel/task-lookup mechanics in `running_subagents.rs` (1244)
   (target ≤ ~300 lines of policy + executor glue).
 
 ## Acceptance

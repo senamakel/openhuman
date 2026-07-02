@@ -304,9 +304,8 @@ fn record_cancelled(workspace_dir: &Path, task_id: &str) {
 }
 
 /// Snapshot the typed lifecycle records, optionally scoped to a `parent_session`.
-/// Backs typed status surfaces without touching the live registry's executor
-/// plumbing.
-pub fn task_records(parent_session: Option<&str>) -> Vec<OrchestrationTaskRecord> {
+#[cfg(test)]
+fn task_records(parent_session: Option<&str>) -> Vec<OrchestrationTaskRecord> {
     let _ = task_store();
     let stores: Vec<Arc<DetachedTaskStore>> = task_stores()
         .lock()
@@ -347,7 +346,7 @@ pub enum SubagentStatus {
 }
 
 impl SubagentStatus {
-    pub fn is_terminal(&self) -> bool {
+    fn is_terminal(&self) -> bool {
         !matches!(self, SubagentStatus::Running)
     }
 }
@@ -727,22 +726,6 @@ pub fn cancel_by_session(
 ) -> Option<CancelledSubagent> {
     let task_id = task_id_for_session(subagent_session_id, parent_session).ok()?;
     cancel_by_task(&task_id)
-}
-
-/// Abort a running sub-agent and drop its registry entry. Kept for a future
-/// `close_agent` tool; the abort handle is stored at spawn time.
-pub fn close(task_id: &str, parent_session: &str) -> bool {
-    let mut map = registry().lock().expect("running_subagents mutex poisoned");
-    match map.get(task_id) {
-        Some(entry) if entry.parent_session == parent_session => {}
-        _ => return false,
-    }
-    let Some(entry) = map.remove(task_id) else {
-        return false;
-    };
-    entry.abort.abort();
-    record_cancelled(&entry.workspace_dir, task_id);
-    true
 }
 
 /// Abort and drop every running sub-agent whose parent chat thread is

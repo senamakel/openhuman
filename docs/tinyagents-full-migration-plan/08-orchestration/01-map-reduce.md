@@ -4,6 +4,12 @@ The crate now has the ordered/bounded map-reduce helper the OpenHuman
 helper was written to fill (`ParallelOptions`, `FailurePolicy`,
 per-item `ItemOutcome`, cancellation).
 
+Current status (2026-07-02): live fanout callers now invoke
+`tinyagents::graph::parallel::map_reduce` directly, and
+`tinyagents/orchestration.rs::run_parallel_fanout` has been removed. This is
+compile-clean under the root, all-features root, and Tauri manifest checks.
+Acceptance tests and usage-rollup parity are still pending.
+
 ## Steps
 
 1. Compare `tinyagents/orchestration.rs::run_parallel_fanout` semantics

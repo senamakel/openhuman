@@ -31,10 +31,11 @@ they land.
       contains non-filter prompt helpers that must move first)
 - [ ] `ThinkingForwarder` — 02.3
       (streaming reasoning moved to `MessageDelta.reasoning`; tool-arg progress
-      and non-streaming reasoning fallback remain live)
+      and non-streaming reasoning fallback remain live inside the tinyagents adapter)
 - [ ] `inference/provider/reliable.rs` (1215 + 1443 tests) — 02.2
       (live provider-factory wrapper; TinyAgents retry is held at one attempt
-      until fallback routes and retry events replace it)
+      until fallback routes, retry events, memory-tree wrappers, and shared
+      classifier exports are replaced)
 - [x] `tinyagents/orchestration.rs::run_parallel_fanout` — 08.1
 - [x] `harness/engine/` (entire dir, 309) — 05.2
 - [ ] `agent/progress_tracing.rs` + tests (1336, if duplicate) — 05.2

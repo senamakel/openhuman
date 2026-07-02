@@ -1,11 +1,10 @@
 //! SQLite-backed [`Checkpointer`] over openhuman's run ledger (issue #4249).
 //!
-//! tinyagents 1.1 ships a `SqliteCheckpointer`, but its `sqlite` feature pulls
-//! `rusqlite 0.40` / `libsqlite3-sys 0.38`, which conflict with openhuman's own
-//! `rusqlite 0.37` over the `links = "sqlite3"` native lib — so it cannot be
-//! enabled. The crate's always-available `FileCheckpointer` works, but durable
-//! orchestration state needs to stay queryable from the existing run-ledger
-//! controllers (workflow/team/command-center read the same `sessions.db`).
+//! tinyagents 1.3 ships a `SqliteCheckpointer`, and the crate's `sqlite` feature
+//! is now enabled in OpenHuman. This adapter remains because durable
+//! orchestration state already lives in OpenHuman's run-ledger schema and needs
+//! to stay queryable from existing run-ledger controllers
+//! (workflow/team/command-center read the same `sessions.db`).
 //!
 //! [`SqlRunLedgerCheckpointer`] is the stand-in: it implements the crate's
 //! [`Checkpointer`] trait but persists each superstep-boundary snapshot as a row

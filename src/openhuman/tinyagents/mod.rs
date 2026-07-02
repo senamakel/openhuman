@@ -53,10 +53,11 @@ use crate::openhuman::agent::harness::tool_result_artifacts::{
 };
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
+use model::ThinkingForwarder;
 
 pub(crate) use checkpoint::SqlRunLedgerCheckpointer;
 pub use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
-pub use model::{ProviderModel, ThinkingForwarder};
+pub use model::ProviderModel;
 pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
 pub use tools::{EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter};
 

@@ -40,7 +40,7 @@ use crate::openhuman::tools::ToolSpec;
 /// child runs emit the `Subagent` counterpart for thinking. Tool-arg deltas have
 /// no child variant, so they ride the top-level event.
 #[derive(Clone)]
-pub struct ThinkingForwarder {
+pub(crate) struct ThinkingForwarder {
     sink: Sender<AgentProgress>,
     scope: Option<SubagentScope>,
     cursor: IterationCursor,
@@ -50,7 +50,7 @@ pub struct ThinkingForwarder {
 }
 
 impl ThinkingForwarder {
-    pub fn new(
+    pub(crate) fn new(
         sink: Sender<AgentProgress>,
         scope: Option<SubagentScope>,
         cursor: IterationCursor,
@@ -378,7 +378,7 @@ impl ProviderModel {
 
     /// Forward provider thinking/tool-argument progress onto a progress sink via
     /// `forwarder` (parent or sub-agent scoped). See [`ThinkingForwarder`].
-    pub fn with_thinking(mut self, forwarder: ThinkingForwarder) -> Self {
+    pub(crate) fn with_thinking(mut self, forwarder: ThinkingForwarder) -> Self {
         self.thinking = Some(forwarder);
         self
     }

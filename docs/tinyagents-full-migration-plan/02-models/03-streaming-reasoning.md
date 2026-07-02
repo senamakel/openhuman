@@ -12,7 +12,8 @@ mapped to `MessageDelta::reasoning(...)`, and `OpenhumanEventBridge` projects
 `delta.reasoning` into the same parent/sub-agent thinking progress events as the
 old forwarder path. Tool-call start/argument fragments still ride
 `ThinkingForwarder` until `ToolCallDelta` can preserve OpenHuman's live
-tool-name timeline semantics.
+tool-name timeline semantics. The forwarder remains live but is now internal to
+the tinyagents adapter.
 
 ## Steps
 
@@ -29,7 +30,7 @@ tool-name timeline semantics.
 
 - Reasoning side of `ThinkingForwarder`: moved for streaming providers; keep the
   non-streaming fallback until the non-streaming path has an equivalent event.
-- Tool-argument side of `ThinkingForwarder` (in `tinyagents/model.rs`/`mod.rs`)
+- Tool-argument side of `ThinkingForwarder` (in `tinyagents/model.rs`)
   only after native `ToolCallDelta` preserves `tool_name` and start-event
   semantics for the UI timeline.
 

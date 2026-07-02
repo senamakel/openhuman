@@ -1,8 +1,9 @@
 # 02.2 — Retry/fallback ownership → RunPolicy
 
-`provider/reliable.rs` (1.2k lines + 1.4k tests) wraps every provider in
-retry/fallback; the crate loop ALSO retries (`RunLimits.max_retries_per_call
-= 3`). Audit then collapse to one owner: the SDK.
+`provider/reliable.rs` (1215 lines + 1443 tests) wraps several production
+provider paths in retry/fallback. The crate loop is currently pinned to a single
+attempt (`RunPolicy.retry.max_attempts = 1`) to avoid double-retry while
+OpenHuman owns reliability. Audit then collapse to one owner: the SDK.
 
 Current status (2026-07-02): do not delete `ReliableProvider` yet. Provider
 factory paths still wrap the OpenHuman backend in `ReliableProvider` for
@@ -29,9 +30,10 @@ parity.
    double-retry (assert total attempt counts with `MockModel::call_count`).
    Keep `RunPolicy.retry.max_attempts = 1` until this swap happens; raising it
    earlier would reintroduce double-retry on top of `ReliableProvider`.
-4. Non-turn callers of `ReliableProvider` (subconscious, memory sync, etc.):
-   either route them through a minimal harness invoke or a small shared
-   retry util — inventory call sites first; do not leave a fork.
+4. Non-turn callers of `ReliableProvider` and its classifier helpers (memory-tree
+   local summarizer, memory scoring, triage error classification): either route
+   them through a minimal harness invoke or a small shared retry/classification
+   utility — inventory call sites first; do not leave a fork.
 
 ## Deletions
 

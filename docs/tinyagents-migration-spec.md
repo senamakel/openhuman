@@ -690,7 +690,7 @@ assessment, and migration coverage are complete.
     parity with" notes were kept. Domain READMEs (tools, tokenjuice, approval)
     fixed too — the tokenjuice one now records that `compact_tool_output` lost
     its only production caller with the retired loop (re-wiring it as an
-    `after_tool` middleware is an open follow-up).
+    `after_tool` middleware; the stale default-Full wrapper is now deleted.
 
 - [ ] Audit `src/openhuman/context/{pipeline,guard,microcompact}.rs`.
   - Current role: context stats/session-memory bookkeeping plus older

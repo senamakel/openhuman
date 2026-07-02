@@ -13,6 +13,7 @@ they land.
 ## Superseded by existing middlewares (verify + delete)
 
 - [x] `harness/compaction/cache_align.rs` (200) — 03.1/03.2
+- [x] `tokenjuice::compact_tool_output` default-Full wrapper — 01.4
 - [ ] `context/microcompact.rs` (269) — 03.1
 - [ ] `context/pipeline.rs` (454) + `context/guard.rs` (236, keep stats structs) — 03.1
 - [ ] `context/tool_result_budget.rs` (172) — 03.1

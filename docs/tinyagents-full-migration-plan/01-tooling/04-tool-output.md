@@ -17,7 +17,9 @@ executor hooks once the old path is gone and move the summarizer child dispatch
 onto `SubAgent::invoke_in_parent`. The live TinyAgents middleware already calls
 the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`, so the
 next behavior change can swap the summarizer implementation without changing
-the legacy direct executor path.
+the legacy direct executor path. The stale default-Full
+`tokenjuice::compact_tool_output` wrapper is removed; TinyAgents and the legacy
+direct executor use the policy-aware entry point.
 
 1. `payload_summarizer.rs` (490 lines, oversized-result compression via a
    `summarizer` sub-agent + circuit breaker): re-express as an `after_tool`
@@ -25,9 +27,9 @@ the legacy direct executor path.
    `SubAgent::invoke_in_parent` for the summarizer child so usage/lineage
    roll up natively. Emit `SummaryRecord`-style provenance via
    `AgentEvent::Compressed`.
-2. Re-wire `tokenjuice::compact_tool_output` as an optional
-   semantic-compaction stage in the same middleware, or delete it if
-   `compact_output_with_policy` covers it. Decide once, record in
+2. `tokenjuice::compact_tool_output`: deleted after confirming
+   `compact_output_with_policy` covers the live TinyAgents middleware and
+   legacy direct executor paths; decision recorded in
    `src/openhuman/tokenjuice/README.md`.
 3. `harness/tool_result_artifacts/mod.rs` (476 lines, artifact spill):
    keep spill policy and action-workspace `.txt` writes in OpenHuman, but keep
@@ -43,7 +45,7 @@ the legacy direct executor path.
 
 - `src/openhuman/agent/harness/payload_summarizer.rs`.
 - Byte-budget/summarizer branches of `session/agent_tool_exec.rs`.
-- `tokenjuice::compact_tool_output` if superseded (call-site search first).
+- `tokenjuice::compact_tool_output`.
 
 ## Acceptance
 

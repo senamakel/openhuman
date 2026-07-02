@@ -39,6 +39,16 @@ pub struct SubagentScope {
 /// tool-argument deltas it still forwards out-of-band.
 pub(crate) type IterationCursor = Arc<AtomicU32>;
 
+/// A shared `call_id → tool_name` map. The model adapter's `ThinkingForwarder`
+/// writes it when a tool call *starts* (the crate `ToolDelta` has no `tool_name`
+/// field, so the start-event/name half of the tool-arg contract can't ride the
+/// crate stream and stays on the out-of-band forwarder path — see
+/// [`super::model::ThinkingForwarder`]). The bridge reads it to label the
+/// incremental tool-argument fragments it now projects off the crate stream
+/// (`MessageDelta.tool_call`), preserving the UI's `ToolCallArgsDelta`
+/// `tool_name` contract without the forwarder emitting those fragments itself.
+pub(crate) type ToolNameMap = Arc<Mutex<std::collections::HashMap<String, String>>>;
+
 /// An [`EventListener`] that pauses the run once `cap` model calls have
 /// completed, so the loop stops gracefully at the iteration budget (returning
 /// the partial transcript) instead of erroring with `LimitExceeded`. The harness
@@ -106,6 +116,10 @@ pub(crate) struct OpenhumanEventBridge {
     /// Shared with the model adapter so thinking deltas line up with the
     /// model call (iteration) they belong to.
     cursor: IterationCursor,
+    /// Shared `call_id → tool_name` map written by the model adapter's
+    /// `ThinkingForwarder` on tool-call start; read here to label the
+    /// incremental tool-argument fragments projected off the crate stream.
+    tool_names: ToolNameMap,
     state: Mutex<BridgeState>,
 }
 
@@ -116,17 +130,26 @@ impl OpenhumanEventBridge {
         model: impl Into<String>,
         max_iterations: usize,
     ) -> Arc<Self> {
-        Self::with_scope(on_progress, model, max_iterations, None, Arc::default())
+        Self::with_scope(
+            on_progress,
+            model,
+            max_iterations,
+            None,
+            Arc::default(),
+            Arc::default(),
+        )
     }
 
-    /// Build a bridge, optionally child-scoped, sharing `cursor` with the model
-    /// adapter so out-of-band thinking deltas carry the same iteration index.
+    /// Build a bridge, optionally child-scoped, sharing `cursor` (iteration
+    /// attribution) and `tool_names` (tool-call name lookup for the streamed
+    /// argument fragments) with the model adapter.
     pub(crate) fn with_scope(
         on_progress: Option<Sender<AgentProgress>>,
         model: impl Into<String>,
         max_iterations: usize,
         scope: Option<SubagentScope>,
         cursor: IterationCursor,
+        tool_names: ToolNameMap,
     ) -> Arc<Self> {
         Arc::new(Self {
             on_progress,
@@ -134,6 +157,7 @@ impl OpenhumanEventBridge {
             max_iterations: max_iterations as u32,
             scope,
             cursor,
+            tool_names,
             state: Mutex::new(BridgeState::default()),
         })
     }
@@ -292,6 +316,41 @@ impl EventListener for OpenhumanEventBridge {
                             delta: delta.reasoning.clone(),
                             iteration,
                         }),
+                    }
+                }
+                // Tool-call **argument** fragments now ride the crate stream
+                // (`MessageDelta.tool_call`) instead of the out-of-band
+                // `ThinkingForwarder`. Project them onto the same
+                // `ToolCallArgsDelta` the UI timeline consumes so the model can
+                // be shown composing the call before it executes. The crate
+                // `ToolDelta` carries no `tool_name`, so we recover it from the
+                // shared map the forwarder populated on the tool-call start
+                // event (empty until the start marker lands — matching the
+                // legacy forwarder's own default). There is no `Subagent*`
+                // tool-arg variant, so child runs ride the top-level event too
+                // (parity with the forwarder's prior behavior).
+                if let Some(tool_call) = &delta.tool_call {
+                    if !tool_call.content.is_empty() {
+                        let tool_name = self
+                            .tool_names
+                            .lock()
+                            .unwrap()
+                            .get(&tool_call.call_id)
+                            .cloned()
+                            .unwrap_or_default();
+                        tracing::trace!(
+                            call_id = tool_call.call_id.as_str(),
+                            tool_name = tool_name.as_str(),
+                            len = tool_call.content.len(),
+                            child = self.scope.is_some(),
+                            "[stream] projecting crate tool-arg fragment onto ToolCallArgsDelta"
+                        );
+                        self.send(AgentProgress::ToolCallArgsDelta {
+                            call_id: tool_call.call_id.clone(),
+                            tool_name,
+                            delta: tool_call.content.clone(),
+                            iteration,
+                        });
                     }
                 }
             }

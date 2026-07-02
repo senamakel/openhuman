@@ -15,11 +15,11 @@ use tinyagents::harness::message::{AssistantMessage, ContentBlock, MessageDelta}
 use tinyagents::harness::model::{
     ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyagents::harness::tool::ToolCall as TaToolCall;
+use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolDelta};
 use tinyagents::harness::usage::Usage;
 use tokio::sync::mpsc::{Sender, UnboundedSender};
 
-use super::observability::{IterationCursor, SubagentScope};
+use super::observability::{IterationCursor, SubagentScope, ToolNameMap};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ChatResponse, Provider, ProviderDelta,
@@ -27,26 +27,35 @@ use crate::openhuman::inference::provider::{
 use crate::openhuman::tools::ToolSpec;
 
 /// Out-of-band forwarder for progress events that do not yet round-trip through
-/// tinyagents with OpenHuman parity: non-streaming post-hoc reasoning and
-/// tool-call **argument** deltas.
+/// tinyagents with OpenHuman parity: non-streaming post-hoc reasoning and the
+/// tool-call **start** marker (tool name).
 ///
 /// Streaming reasoning now rides tinyagents' native `MessageDelta.reasoning`
-/// channel and is projected by [`OpenhumanEventBridge`](super::OpenhumanEventBridge).
-/// The model adapter still assembles tool calls itself rather than streaming
-/// their argument fragments through the harness with the OpenHuman tool-name
-/// contract, so it forwards those progress fragments straight onto the progress
-/// sink here, sharing the bridge's [`IterationCursor`] so each delta is
-/// attributed to the right model call. Parent runs emit the top-level variants;
-/// child runs emit the `Subagent` counterpart for thinking. Tool-arg deltas have
-/// no child variant, so they ride the top-level event.
+/// channel, and the incremental tool-call **argument** fragments ride the native
+/// `MessageDelta.tool_call` channel (crate `ToolDelta`); both are projected by
+/// [`OpenhumanEventBridge`](super::OpenhumanEventBridge). What remains here is
+/// the split the crate can't express: the crate `ToolDelta` has only
+/// `call_id`/`content` (no `tool_name`), so the tool-call **start** event — the
+/// empty-delta `ToolCallArgsDelta` that carries the tool name and opens the UI
+/// timeline row — is still emitted straight onto the progress sink, and the
+/// learned `call_id → tool_name` map is *shared* with the bridge (via
+/// [`ToolNameMap`]) so it can label the argument fragments it now projects off
+/// the crate stream. This forwarder also still emits non-streaming post-hoc
+/// reasoning (see [`ProviderModel::invoke`]). It shares the bridge's
+/// [`IterationCursor`] so each event is attributed to the right model call.
+/// Parent runs emit the top-level variants; child runs emit the `Subagent`
+/// counterpart for thinking. Tool-arg/start events have no child variant, so
+/// they ride the top-level event.
 #[derive(Clone)]
 pub(super) struct ThinkingForwarder {
     sink: Sender<AgentProgress>,
     scope: Option<SubagentScope>,
     cursor: IterationCursor,
-    /// call_id → tool_name, learned from `ToolCallStart`, so an args delta can
-    /// carry the tool name the UI labels it with.
-    tool_names: Arc<Mutex<std::collections::HashMap<String, String>>>,
+    /// call_id → tool_name, learned from `ToolCallStart`. Shared with the
+    /// [`OpenhumanEventBridge`](super::OpenhumanEventBridge) so the streamed
+    /// argument fragments (which ride the crate `ToolDelta`, sans name) can be
+    /// labelled with the tool the UI shows.
+    tool_names: ToolNameMap,
 }
 
 impl ThinkingForwarder {
@@ -54,12 +63,13 @@ impl ThinkingForwarder {
         sink: Sender<AgentProgress>,
         scope: Option<SubagentScope>,
         cursor: IterationCursor,
+        tool_names: ToolNameMap,
     ) -> Self {
         Self {
             sink,
             scope,
             cursor,
-            tool_names: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            tool_names,
         }
     }
 
@@ -82,40 +92,28 @@ impl ThinkingForwarder {
         let _ = self.sink.try_send(progress);
     }
 
-    /// Record the tool name a streaming tool call starts with, and emit the
-    /// start marker — an empty-delta `ToolCallArgsDelta` — so consumers see the
-    /// call begin before its arguments arrive (matching the legacy
-    /// `ProviderDelta::ToolCallStart` mapping).
+    /// Record the tool name a streaming tool call starts with (into the map
+    /// shared with the bridge, so it can label the argument fragments it
+    /// projects off the crate stream), and emit the start marker — an
+    /// empty-delta `ToolCallArgsDelta` — so consumers see the call begin before
+    /// its arguments arrive (matching the legacy `ProviderDelta::ToolCallStart`
+    /// mapping). The crate `ToolDelta` has no `tool_name` field, so this half of
+    /// the tool-arg contract can't ride the crate stream and stays here.
     fn note_tool_call(&self, call_id: String, tool_name: String) {
         self.tool_names
             .lock()
             .unwrap()
             .insert(call_id.clone(), tool_name.clone());
+        tracing::trace!(
+            call_id = call_id.as_str(),
+            tool_name = tool_name.as_str(),
+            child = self.scope.is_some(),
+            "[stream] tool-call start marker (name recorded for crate-stream arg fragments)"
+        );
         let _ = self.sink.try_send(AgentProgress::ToolCallArgsDelta {
             call_id,
             tool_name,
             delta: String::new(),
-            iteration: self.cursor.load(Ordering::SeqCst),
-        });
-    }
-
-    /// Emit one tool-call argument fragment as `ToolCallArgsDelta` so the UI can
-    /// show the model composing the call before it executes.
-    fn emit_tool_args(&self, call_id: String, delta: String) {
-        if delta.is_empty() {
-            return;
-        }
-        let tool_name = self
-            .tool_names
-            .lock()
-            .unwrap()
-            .get(&call_id)
-            .cloned()
-            .unwrap_or_default();
-        let _ = self.sink.try_send(AgentProgress::ToolCallArgsDelta {
-            call_id,
-            tool_name,
-            delta,
             iteration: self.cursor.load(Ordering::SeqCst),
         });
     }
@@ -238,12 +236,19 @@ fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
     }
 }
 
-/// Forward one openhuman [`ProviderDelta`]. Visible text and reasoning become
-/// harness [`MessageDelta`] items (so the bridge mirrors them as progress
-/// deltas); tool-call **argument** fragments still ride the out-of-band
-/// [`ThinkingForwarder`]. The model adapter still assembles the final native tool
-/// calls from the `Completed` response — these fragments are progress-only, so
-/// the UI can show the call being composed.
+/// Forward one openhuman [`ProviderDelta`]. Visible text, reasoning, and
+/// tool-call **argument** fragments all become harness [`ModelStreamItem`]s (so
+/// the [`OpenhumanEventBridge`](super::OpenhumanEventBridge) mirrors them as
+/// progress deltas from the crate stream alone): text/reasoning as
+/// [`MessageDelta`], and each argument fragment as
+/// [`ModelStreamItem::ToolCallDelta`] correlated by `call_id`. The crate
+/// `ToolDelta` has no `tool_name`, so the tool-call **start** marker (which
+/// carries the name and opens the UI timeline row) still rides the out-of-band
+/// [`ThinkingForwarder`]; it also records the name into the map shared with the
+/// bridge so the streamed fragments stay labelled. The model adapter still
+/// assembles the final native tool calls from the `Completed` response (the
+/// `StreamAccumulator` treats it as authoritative), so these fragments are
+/// progress-only — the UI can show the call being composed.
 fn forward_delta(
     tx: &UnboundedSender<ModelStreamItem>,
     thinking: Option<&ThinkingForwarder>,
@@ -268,8 +273,16 @@ fn forward_delta(
             }
         }
         ProviderDelta::ToolCallArgsDelta { call_id, delta } => {
-            if let Some(forwarder) = thinking {
-                forwarder.emit_tool_args(call_id, delta);
+            if !delta.is_empty() {
+                tracing::trace!(
+                    call_id = call_id.as_str(),
+                    len = delta.len(),
+                    "[stream] forwarding tool-arg fragment onto crate ToolCallDelta"
+                );
+                let _ = tx.send(ModelStreamItem::ToolCallDelta(ToolDelta {
+                    call_id,
+                    content: delta,
+                }));
             }
         }
     }

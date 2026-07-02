@@ -10,10 +10,20 @@ progress that preserves the UI's `tool_name`/start-event contract.
 Current status (2026-07-02): streaming provider `ThinkingDelta` values are
 mapped to `MessageDelta::reasoning(...)`, and `OpenhumanEventBridge` projects
 `delta.reasoning` into the same parent/sub-agent thinking progress events as the
-old forwarder path. Tool-call start/argument fragments still ride
-`ThinkingForwarder` until `ToolCallDelta` can preserve OpenHuman's live
-tool-name timeline semantics. The forwarder remains live but is now internal to
-the tinyagents adapter.
+old forwarder path. Tool-call **argument** fragments now ride the crate stream
+too: `forward_delta` maps each `ProviderDelta::ToolCallArgsDelta` onto a
+`ModelStreamItem::ToolCallDelta(ToolDelta { call_id, content })`, the crate
+agent-loop surfaces it as `MessageDelta.tool_call`, and `OpenhumanEventBridge`
+projects it into `AgentProgress::ToolCallArgsDelta`. Because the crate
+`ToolDelta` has only `call_id`/`content` (no `tool_name`), the tool-call
+**start** event — the empty-delta `ToolCallArgsDelta` that carries the tool name
+and opens the UI timeline row — still rides `ThinkingForwarder.note_tool_call`,
+which records the name into a `call_id → tool_name` map (`ToolNameMap`) *shared*
+with the bridge so the streamed fragments stay labelled. The forwarder remains
+live for that start marker and for non-streaming post-hoc reasoning; its
+`emit_tool_args` argument-fragment path has been removed. The `StreamAccumulator`
+treats the terminal `Completed` response as authoritative, so streaming the
+fragments never disturbs the final native tool calls.
 
 ## Steps
 
@@ -21,10 +31,13 @@ the tinyagents adapter.
    provider thinking deltas to `MessageDelta::reasoning(...)` on the crate
    stream, and `OpenhumanEventBridge` (`observability.rs`) projects
    `delta.reasoning` into OpenHuman progress events.
-2. Map provider tool-call argument fragments onto `ToolCallDelta` for UI
-   tool-timeline assembly. TinyAgents 1.3.0 `ToolDelta` currently carries
-   `call_id` and `content`; OpenHuman still needs the `tool_name`/start-event
-   timeline contract before the forwarder can be removed for tool arguments.
+2. Done: provider tool-call argument fragments map onto
+   `ModelStreamItem::ToolCallDelta` (crate `ToolDelta { call_id, content }`) and
+   are projected by `OpenhumanEventBridge`. `ToolDelta` carries no `tool_name`,
+   so the `tool_name`/start-event half of the UI timeline contract stays on
+   `ThinkingForwarder.note_tool_call`, which shares a `call_id → tool_name` map
+   (`ToolNameMap`) with the bridge so the streamed fragments keep their label.
+   Only `ThinkingForwarder.emit_tool_args` was removed.
 3. Verify sub-agent child thinking deltas still reach the scope-aware bridge
    (parity with the current forwarder behavior).
 
@@ -32,9 +45,12 @@ the tinyagents adapter.
 
 - Reasoning side of `ThinkingForwarder`: moved for streaming providers; keep the
   non-streaming fallback until the non-streaming path has an equivalent event.
-- Tool-argument side of `ThinkingForwarder` (in `tinyagents/model.rs`)
-  only after native `ToolCallDelta` preserves `tool_name` and start-event
-  semantics for the UI timeline.
+- Argument-fragment side of `ThinkingForwarder` (`emit_tool_args`, in
+  `tinyagents/model.rs`): removed — fragments ride `ToolCallDelta` and are
+  projected by the bridge. The tool-call **start** marker
+  (`note_tool_call`, empty-delta `ToolCallArgsDelta` with `tool_name`) stays,
+  since the crate `ToolDelta` cannot carry a tool name; it will only move if a
+  future crate revision adds `tool_name`/start semantics to `ToolDelta`.
 
 ## Acceptance
 

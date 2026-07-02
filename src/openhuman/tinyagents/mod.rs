@@ -72,7 +72,7 @@ pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 use model::ProviderModel;
 pub(crate) use observability::SubagentScope;
-use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
+use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, ToolNameMap};
 pub(crate) use run_cancellation_context::{current_run_cancellation, with_run_cancellation};
 #[cfg(test)]
 use tools::ToolAdapter;
@@ -396,6 +396,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     let AssembledTurnHarness {
         harness,
         cursor,
+        tool_names,
         error_slot,
         halt_summary,
         tool_outcome_sink,
@@ -542,6 +543,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
                 max_iterations,
                 subagent_scope.clone(),
                 cursor.clone(),
+                tool_names.clone(),
             );
             events.subscribe(bridge.clone());
             Some(bridge)
@@ -835,6 +837,10 @@ struct AssembledTurnHarness {
     /// Shared 1-based model-call cursor (event bridge advances, model adapter
     /// reads for out-of-band thinking attribution).
     cursor: IterationCursor,
+    /// Shared `call_id → tool_name` map: the model adapter's `ThinkingForwarder`
+    /// writes it on tool-call start; the event bridge reads it to label the
+    /// tool-argument fragments it now projects off the crate stream.
+    tool_names: ToolNameMap,
     /// Recovers the original (downcastable) provider error on run failure.
     error_slot: crate::openhuman::tinyagents::model::ProviderErrorSlot,
     /// Root-cause summary recorded by the repeated-tool-failure breaker.
@@ -924,6 +930,10 @@ fn assemble_turn_harness(
     let mut capability_registry: CapabilityRegistry<()> = CapabilityRegistry::new();
 
     let cursor: IterationCursor = Arc::default();
+    // Shared `call_id → tool_name` map: the forwarder records the name on
+    // tool-call start (the crate `ToolDelta` carries none), the bridge reads it
+    // to label the argument fragments now streamed via `MessageDelta.tool_call`.
+    let tool_names: ToolNameMap = Arc::default();
     // Keep a provider handle for the context-window summarizer (the run consumes
     // the other clone into the `ProviderModel`).
     let summary_provider = provider.clone();
@@ -945,6 +955,7 @@ fn assemble_turn_harness(
             tx.clone(),
             subagent_scope.clone(),
             cursor.clone(),
+            tool_names.clone(),
         ));
     }
     // Recover the original (downcastable) provider error if the run fails — the
@@ -1323,6 +1334,7 @@ fn assemble_turn_harness(
     AssembledTurnHarness {
         harness,
         cursor,
+        tool_names,
         error_slot,
         halt_summary,
         tool_outcome_sink,

@@ -30,8 +30,11 @@ they land.
       (live until middleware owns child/toolkit selection; `tool_prep.rs` also
       contains non-filter prompt helpers that must move first)
 - [ ] `ThinkingForwarder` — 02.3
-      (streaming reasoning moved to `MessageDelta.reasoning`; tool-arg progress
-      and non-streaming reasoning fallback remain live inside the tinyagents adapter)
+      (streaming reasoning moved to `MessageDelta.reasoning`; tool-arg **argument**
+      fragments moved to `ToolCallDelta`/`MessageDelta.tool_call` — `emit_tool_args`
+      removed. Still live for the tool-call **start** marker `note_tool_call`
+      (crate `ToolDelta` has no `tool_name`) and the non-streaming reasoning
+      fallback; both must move before deletion)
 - [ ] `inference/provider/reliable.rs` (1215 + 1443 tests) — 02.2
       (live provider-factory wrapper; TinyAgents retry is held at one attempt
       until fallback routes, retry events, memory-tree wrappers, and shared

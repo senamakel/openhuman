@@ -61,7 +61,7 @@ pub use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 pub(crate) use model::ProviderModel;
 pub(crate) use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
 pub use observability::SubagentScope;
-pub use tools::{EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter};
+pub(crate) use tools::{EarlyExitHook, SharedToolAdapter, ToolAdapter};
 
 use std::collections::HashSet;
 use std::sync::Arc as StdArc;

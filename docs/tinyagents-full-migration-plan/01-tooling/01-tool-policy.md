@@ -12,6 +12,8 @@ crate policy snapshot cannot represent yet: args-aware external effects,
 CLI/RPC-only scope, args-aware permission level, and generated-tool runtime
 context. The local `tinyagents/middleware.rs` module is crate-internal; public
 turn config types stay exposed only through `openhuman::tinyagents` re-exports.
+The `ToolAdapter`/`SharedToolAdapter` execution wrappers are crate-internal
+implementation details of the shared runner.
 
 ## Steps
 

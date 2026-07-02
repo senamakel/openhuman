@@ -19,9 +19,9 @@ use tinyagents::harness::tool::{
 /// `ask_user_clarification`), so the loop should pause and surface `question`
 /// to the user. Mirrors the legacy `run_turn_engine` `early_exit_tool` seam.
 #[derive(Debug, Clone)]
-pub struct EarlyExit {
-    pub tool: String,
-    pub question: String,
+pub(crate) struct EarlyExit {
+    pub(crate) tool: String,
+    pub(crate) question: String,
 }
 
 /// Shared early-exit hook handed to the adapters for the early-exit tool names.
@@ -30,14 +30,14 @@ pub struct EarlyExit {
 /// next checkpoint (before the next model call) — the tinyagents analogue of the
 /// legacy loop's "break on early-exit tool" behavior.
 #[derive(Clone)]
-pub struct EarlyExitHook {
+pub(crate) struct EarlyExitHook {
     handle: SteeringHandle,
     slot: Arc<Mutex<Option<EarlyExit>>>,
 }
 
 impl EarlyExitHook {
     /// Build a hook that pauses `handle` and records into a fresh slot.
-    pub fn new(handle: SteeringHandle) -> Self {
+    pub(crate) fn new(handle: SteeringHandle) -> Self {
         Self {
             handle,
             slot: Arc::new(Mutex::new(None)),
@@ -45,7 +45,7 @@ impl EarlyExitHook {
     }
 
     /// The captured early-exit, if one fired during the run.
-    pub fn take(&self) -> Option<EarlyExit> {
+    pub(crate) fn take(&self) -> Option<EarlyExit> {
         self.slot.lock().unwrap().take()
     }
 
@@ -67,13 +67,13 @@ impl EarlyExitHook {
 }
 
 /// A harness tool backed by an openhuman [`Tool`].
-pub struct ToolAdapter {
+pub(crate) struct ToolAdapter {
     inner: Arc<dyn crate::openhuman::tools::Tool>,
 }
 
 impl ToolAdapter {
     /// Wrap a resolved openhuman tool.
-    pub fn new(inner: Arc<dyn crate::openhuman::tools::Tool>) -> Self {
+    pub(crate) fn new(inner: Arc<dyn crate::openhuman::tools::Tool>) -> Self {
         Self { inner }
     }
 }
@@ -245,7 +245,7 @@ async fn execute_openhuman_tool(
 /// it — the tinyagents analogue of the live path's `SharedToolExecutor`, which
 /// lets a route reuse the same `Arc`-shared tools the legacy loop runs without
 /// cloning them.
-pub struct SharedToolAdapter {
+pub(crate) struct SharedToolAdapter {
     sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
     name: String,
     description: String,
@@ -257,7 +257,7 @@ pub struct SharedToolAdapter {
 impl SharedToolAdapter {
     /// Build an adapter for the tool named `name`, locating it across `sets` to
     /// capture its advertised spec. Returns `None` when no set contains it.
-    pub fn for_name(
+    pub(crate) fn for_name(
         sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
         name: &str,
     ) -> Option<Self> {
@@ -277,7 +277,7 @@ impl SharedToolAdapter {
 
     /// Treat this tool as an early-exit tool: a successful call records the
     /// question and pauses the run via `hook`.
-    pub fn with_early_exit(mut self, hook: EarlyExitHook) -> Self {
+    pub(crate) fn with_early_exit(mut self, hook: EarlyExitHook) -> Self {
         self.early_exit = Some(hook);
         self
     }

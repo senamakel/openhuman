@@ -25,12 +25,13 @@ graph_blueprint/agent`, `to_model_registry()`, `to_tool_registry()`,
 2. Diagnostics fail-closed pre-dispatch: duplicate tool names across
    native/MCP/Composio/generated tools, unsafe aliases → registry
    diagnostic errors (today: silent shadowing risk in
-   `tools/generated.rs` + `mcp_registry`). 1.3.0 adds `AliasBinding` alias
-   diagnostics, cross-kind name-reuse detection, and `ComponentKind::
-   {Middleware, Checkpointer, TaskStore, Listener}` so those components are
-   registrable too.
-3. Introspection RPC: expose `RegistrySnapshot` (JSON + DOT) alongside
-   `agent.graph_topologies` so a UI/CLI can show every active component.
+   `tools/generated.rs` + `mcp_registry`). TinyAgents 1.3.0 is pinned and
+   exposes `AliasBinding`, alias diagnostics, cross-kind name-reuse detection,
+   and `ComponentKind::{Middleware, Checkpointer, TaskStore, Listener}`;
+   OpenHuman still needs to project those SDK diagnostics into its runtime.
+3. Introspection RPC: extend the existing `agent.graph_topologies` surface or
+   add a sibling RPC for `RegistrySnapshot` (JSON + DOT) so a UI/CLI can show
+   every active component.
 4. This is also the enabler for `.rag` blueprints later (registry-bound
    capability resolution) — out of scope for this wave, note only.
 

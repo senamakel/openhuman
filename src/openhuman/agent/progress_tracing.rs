@@ -657,7 +657,7 @@ fn json_f64(n: f64) -> serde_json::Value {
 /// wraps each line with a `{"type":"span-create", ...}` observation envelope
 /// so it can be POSTed to the Langfuse ingestion API, while OTel emits the
 /// bare span. Returns an empty string for an empty slice.
-pub fn spans_to_ndjson(backend: AgentTracingBackend, spans: &[TraceSpan]) -> String {
+pub(crate) fn spans_to_ndjson(backend: AgentTracingBackend, spans: &[TraceSpan]) -> String {
     let mut out = String::new();
     for span in spans {
         let line = match backend {

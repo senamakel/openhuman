@@ -17,7 +17,7 @@ are gone.
 3. Sweep direct `publish_global(DomainEvent::Agent*)` calls on turn paths
    (session/turn, agent_tool_exec, orchestration tools) — emit through the
    bridge or a typed helper so ordering/rate-limiting is single-owner.
-4. Current finding (2026-07-02): `agent/progress_tracing.rs` (720) plus
+4. Current finding (2026-07-02): `agent/progress_tracing.rs` (722) plus
    `agent/progress_tracing/tests.rs` (616) are not currently redundant. The
    root module is the opt-in `observability.agent_tracing` exporter fed by the
    web progress bridge's `AgentProgress` stream. Retain it until the 05.1

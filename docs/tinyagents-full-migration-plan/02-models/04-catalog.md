@@ -16,14 +16,21 @@ model ids before falling back to legacy model-context patterns. OpenHuman's
 `ModelPrice` currently has input, cached-input, and output rates; TinyAgents
 `ModelPricing` also models cache-creation and reasoning-token rates, so the
 projection must preserve those gaps explicitly rather than pretending the local
-table is already a complete crate catalog.
+table is already a complete crate catalog. First projection helpers landed:
+`tinyagents_catalog_entry_for_model` maps one static OpenHuman row to a
+TinyAgents `ModelCatalogEntry`, and `tinyagents_catalog_snapshot` maps the whole
+table to `ModelCatalogSnapshot`, with per-token input/cache-read/output rates and
+context windows. Cache-creation/reasoning prices and most runtime capability
+flags remain unset until the catalog source can own them authoritatively.
 
 ## Steps
 
 1. Build a `ModelCatalogSnapshot` from OpenHuman's data: seed from crate
    `ModelCatalog::seed()`, overlay `cost/catalog.rs` rates/windows and
    remaining `model_context.rs` pattern fallbacks, plus local-model profiles discovered at
-   runtime (ollama).
+   runtime (ollama). Partially done: `cost/catalog.rs` can now project one
+   static row into TinyAgents `ModelCatalogEntry` and all static rows into a
+   `ModelCatalogSnapshot`; crate-seed merging and local-model overlays remain.
 2. Point consumers at the one projection: `estimate_cost_usd`
    (cost bridge), token budgeting / `effective_context_window`, model picker
    RPC, capability filter (02.1 profiles via

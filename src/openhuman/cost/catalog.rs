@@ -16,6 +16,9 @@
 //! - power the fallback estimate in
 //!   [`crate::openhuman::agent::cost::lookup_pricing`] when a backend doesn't
 //!   echo an authoritative `charged_amount_usd`.
+//! - project OpenHuman's static rows into TinyAgents catalog entries so later
+//!   phases can hydrate crate-native model profiles from the same pricing and
+//!   window source instead of carrying a second table.
 //!
 //! ## Authority & freshness
 //!
@@ -40,6 +43,8 @@ use crate::openhuman::config::schema::ModelRegistryEntry;
 
 /// Month the published values below were last verified. Bump when refreshing.
 pub const PRICING_AS_OF: &str = "2026-06";
+
+const TINYAGENTS_CATALOG_SOURCE: &str = "openhuman-cost-catalog";
 
 /// A single model's published per-million-token rates (USD) and context window.
 #[derive(Debug, Clone, Copy)]
@@ -414,6 +419,76 @@ pub fn default_registry_entries() -> Vec<ModelRegistryEntry> {
         .collect()
 }
 
+fn per_token(rate_per_mtok: f64) -> Option<f64> {
+    (rate_per_mtok > 0.0).then_some(rate_per_mtok / 1_000_000.0)
+}
+
+/// Project one OpenHuman catalog row into a TinyAgents model-catalog entry.
+///
+/// This is intentionally a pricing/window projection only. OpenHuman still
+/// derives live runtime capability flags (tools, vision, streaming) from the
+/// provider adapter at construction time, because the static cost catalog does
+/// not yet encode those fields authoritatively for every provider/model.
+pub fn tinyagents_catalog_entry(price: &ModelPrice) -> tinyagents::registry::ModelCatalogEntry {
+    tinyagents::registry::ModelCatalogEntry {
+        provider: price.provider.to_string(),
+        model_id: price.model_id.to_string(),
+        aliases: Vec::new(),
+        mode: "chat".to_string(),
+        max_input_tokens: Some(u64::from(price.context_window)),
+        max_output_tokens: None,
+        deprecation_date: None,
+        pricing: tinyagents::registry::ModelPricing {
+            input_per_token: per_token(price.input_per_mtok_usd),
+            output_per_token: per_token(price.output_per_mtok_usd),
+            cache_read_input_per_token: per_token(price.cached_input_per_mtok_usd),
+            cache_creation_input_per_token: None,
+            input_audio_per_token: None,
+            output_reasoning_per_token: None,
+        },
+        capabilities: tinyagents::registry::ModelCapabilities {
+            prompt_caching: price.cached_input_per_mtok_usd > 0.0,
+            ..tinyagents::registry::ModelCapabilities::default()
+        },
+        source: TINYAGENTS_CATALOG_SOURCE.to_string(),
+        source_url: None,
+        raw: serde_json::json!({ "pricing_as_of": PRICING_AS_OF }),
+    }
+}
+
+/// Resolve a model id and return its TinyAgents catalog projection.
+pub fn tinyagents_catalog_entry_for_model(
+    model: &str,
+) -> Option<tinyagents::registry::ModelCatalogEntry> {
+    lookup(model).map(tinyagents_catalog_entry)
+}
+
+/// Project the full OpenHuman static catalog into a TinyAgents snapshot.
+///
+/// This is an intermediate migration artifact: it makes the cost catalog
+/// consumable by crate-native catalog/profile APIs, while later work still
+/// needs to merge crate seed entries, local-model discoveries, tier aliases,
+/// and authoritative capability flags.
+pub fn tinyagents_catalog_snapshot() -> tinyagents::registry::ModelCatalogSnapshot {
+    tinyagents::registry::ModelCatalogSnapshot {
+        schema_version: 1,
+        snapshot_id: format!("{TINYAGENTS_CATALOG_SOURCE}-{PRICING_AS_OF}"),
+        created_at: format!("{PRICING_AS_OF}-01T00:00:00Z"),
+        currency: "USD".to_string(),
+        unit: "token".to_string(),
+        description: Some("OpenHuman static cost catalog projection for TinyAgents.".to_string()),
+        sources: vec![tinyagents::registry::ModelCatalogSource {
+            name: TINYAGENTS_CATALOG_SOURCE.to_string(),
+            url: "repo:src/openhuman/cost/catalog.rs".to_string(),
+            retrieved_at: format!("{PRICING_AS_OF}-01T00:00:00Z"),
+        }],
+        models: KNOWN_MODEL_PRICING
+            .iter()
+            .map(tinyagents_catalog_entry)
+            .collect(),
+    }
+}
+
 /// Pre-fill any **missing** (zero) price or context-window field on a registry
 /// entry from the catalog, matching on its `id`. Leaves user-supplied non-zero
 /// values and the `vision` flag untouched. Returns `true` when a field was
@@ -516,6 +591,37 @@ mod tests {
             assert!(e.context_window > 0, "{} missing context window", e.id);
             assert!(!e.provider.is_empty());
         }
+    }
+
+    #[test]
+    fn tinyagents_projection_uses_per_token_rates_and_context_window() {
+        let entry = tinyagents_catalog_entry_for_model("anthropic/claude-opus-4-8")
+            .expect("projected catalog entry");
+        assert_eq!(entry.provider, "anthropic");
+        assert_eq!(entry.model_id, "claude-opus-4-8");
+        assert_eq!(entry.mode, "chat");
+        assert_eq!(entry.max_input_tokens, Some(1_000_000));
+        assert_eq!(entry.pricing.input_per_token, Some(5.0 / 1_000_000.0));
+        assert_eq!(entry.pricing.output_per_token, Some(25.0 / 1_000_000.0));
+        assert_eq!(
+            entry.pricing.cache_read_input_per_token,
+            Some(0.50 / 1_000_000.0)
+        );
+        assert_eq!(entry.pricing.cache_creation_input_per_token, None);
+        assert_eq!(entry.pricing.output_reasoning_per_token, None);
+        assert!(entry.capabilities.prompt_caching);
+        assert_eq!(entry.source, TINYAGENTS_CATALOG_SOURCE);
+    }
+
+    #[test]
+    fn tinyagents_snapshot_contains_all_known_rows() {
+        let snapshot = tinyagents_catalog_snapshot();
+        assert_eq!(snapshot.schema_version, 1);
+        assert_eq!(snapshot.currency, "USD");
+        assert_eq!(snapshot.unit, "token");
+        assert_eq!(snapshot.models.len(), KNOWN_MODEL_PRICING.len());
+        assert_eq!(snapshot.sources.len(), 1);
+        assert_eq!(snapshot.sources[0].name, TINYAGENTS_CATALOG_SOURCE);
     }
 
     #[test]

@@ -39,9 +39,9 @@ impl Tool for SpawnParallelAgentsTool {
 
     fn description(&self) -> &str {
         "Run two or more independent sub-agent tasks concurrently and collect their results. \
-         Use only when tasks have clear non-overlapping ownership or read-only scopes. Each task \
-         has `{agent_id, prompt, context?, toolkit?, ownership?}`; include `ownership` for file, \
-         module, or responsibility boundaries so workers do not overlap."
+         Read-only and worktree-isolated workers run in parallel; shared-workspace workers with \
+         write-capable tools require disjoint `files:` ownership and run through a serial fallback. \
+         Each task has `{agent_id, prompt, context?, toolkit?, ownership?, isolation?, base_ref?}`."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -75,7 +75,7 @@ impl Tool for SpawnParallelAgentsTool {
                             "isolation": {
                                 "type": "string",
                                 "enum": ["none", "worktree"],
-                                "description": "File-isolation strategy. `none` (default) shares the workspace; `worktree` gives this edit-capable worker its own git worktree checkout so parallel edits never collide. Use `worktree` only for edit-capable coding workers, not read-only ones."
+                                "description": "File-isolation strategy. `none` (default) shares the workspace; write-capable shared workers need disjoint `files:` ownership and are serialized. `worktree` gives an edit-capable worker its own git worktree checkout so parallel edits never collide."
                             },
                             "base_ref": {
                                 "type": "string",

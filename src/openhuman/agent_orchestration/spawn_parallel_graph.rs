@@ -112,6 +112,7 @@ struct PreparedParallelTask {
     prompt: String,
     task: ParallelAgentTask,
     task_id: String,
+    dispatch_mode: WorkerDispatchMode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +135,12 @@ struct ParallelTaskRejection {
 enum SpawnParallelTaskPreflight {
     Prepared(PreparedParallelTask),
     Rejected(ParallelTaskRejection),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WorkerDispatchMode {
+    Parallel,
+    SerialSharedWorkspaceWrite,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -203,30 +210,21 @@ fn definition_visible_tool_permissions(
         .collect()
 }
 
-fn shared_workspace_rejection(
-    task: &ParallelAgentTask,
+fn shared_workspace_write_capable_tools(
     definition: &AgentDefinition,
     parent: &ParentExecutionContext,
-) -> Option<String> {
-    if matches!(
-        worktree_request_for_task(task),
-        ParallelWorktreeRequest::Isolated { .. }
-    ) {
-        return None;
-    }
-    if matches!(definition.sandbox_mode, SandboxMode::ReadOnly) {
-        return None;
-    }
+) -> Vec<String> {
     let mut write_capable_tools = definition_visible_tool_permissions(definition, parent)
         .into_iter()
         .filter(|(_, level)| *level > PermissionLevel::ReadOnly)
         .map(|(name, level)| format!("{name}:{level}"))
         .collect::<Vec<_>>();
-    if write_capable_tools.is_empty() {
-        return None;
-    }
     write_capable_tools.sort();
     write_capable_tools.dedup();
+    write_capable_tools
+}
+
+fn shared_workspace_write_preview(write_capable_tools: &[String]) -> String {
     let preview = write_capable_tools
         .iter()
         .take(6)
@@ -238,11 +236,78 @@ fn shared_workspace_rejection(
     } else {
         String::new()
     };
-    Some(format!(
-        "agent '{}' can use write/execute tools in the shared workspace ({preview}{suffix}); \
-         set isolation=\"worktree\" for edit-capable parallel workers or use a read-only agent",
-        definition.id
-    ))
+    format!("{preview}{suffix}")
+}
+
+fn ownership_file_paths(ownership: Option<&str>) -> Result<Vec<PathBuf>, String> {
+    let Some(ownership) = ownership.map(str::trim).filter(|s| !s.is_empty()) else {
+        return Ok(Vec::new());
+    };
+    let Some(rest) = ownership.strip_prefix("files:") else {
+        return Ok(Vec::new());
+    };
+    let mut paths = Vec::new();
+    for raw in rest.split([',', '\n']) {
+        let trimmed = raw
+            .trim()
+            .trim_start_matches(|c: char| c == '-' || c == '*')
+            .trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let path = PathBuf::from(trimmed);
+        if path.is_absolute()
+            || path.components().any(|component| {
+                matches!(
+                    component,
+                    std::path::Component::ParentDir | std::path::Component::Prefix(_)
+                )
+            })
+        {
+            return Err(format!(
+                "ownership path '{trimmed}' must be a relative file path under the workspace"
+            ));
+        }
+        paths.push(path);
+    }
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
+}
+
+fn paths_overlap(left: &Path, right: &Path) -> bool {
+    left == right || left.starts_with(right) || right.starts_with(left)
+}
+
+fn shared_workspace_write_claim(
+    task: &ParallelAgentTask,
+    definition: &AgentDefinition,
+    parent: &ParentExecutionContext,
+) -> Result<Option<Vec<PathBuf>>, String> {
+    if matches!(
+        worktree_request_for_task(task),
+        ParallelWorktreeRequest::Isolated { .. }
+    ) {
+        return Ok(None);
+    }
+    if matches!(definition.sandbox_mode, SandboxMode::ReadOnly) {
+        return Ok(None);
+    }
+    let write_capable_tools = shared_workspace_write_capable_tools(definition, parent);
+    if write_capable_tools.is_empty() {
+        return Ok(None);
+    }
+    let paths = ownership_file_paths(task.ownership.as_deref())?;
+    if paths.is_empty() {
+        return Err(format!(
+            "agent '{}' can use write/execute tools in the shared workspace ({}); \
+             set isolation=\"worktree\" for edit-capable parallel workers, use a read-only agent, \
+             or provide disjoint files: ownership for serial fallback",
+            definition.id,
+            shared_workspace_write_preview(&write_capable_tools)
+        ));
+    }
+    Ok(Some(paths))
 }
 
 fn create_spawn_parallel_worktree(
@@ -338,6 +403,7 @@ fn prepare_spawn_parallel_tasks_from_defs(
     definitions: &HashMap<String, AgentDefinition>,
     parent: &ParentExecutionContext,
 ) -> Vec<SpawnParallelTaskPreflight> {
+    let mut serial_write_claims: Vec<(PathBuf, String)> = Vec::new();
     tasks
         .into_iter()
         .map(|task| {
@@ -394,15 +460,47 @@ fn prepare_spawn_parallel_tasks_from_defs(
                 });
             }
 
-            if let Some(error) = shared_workspace_rejection(&task, &definition, parent) {
-                return SpawnParallelTaskPreflight::Rejected(ParallelTaskRejection {
-                    task_id,
-                    agent_id: definition.id.clone(),
-                    error,
-                    ownership: task.ownership,
-                    kind: ParallelTaskRejectionKind::RequiresIsolation,
-                });
-            }
+            let dispatch_mode =
+                match shared_workspace_write_claim(&task, &definition, parent) {
+                    Ok(Some(paths)) => {
+                        if let Some((overlap_path, overlap_task)) =
+                            paths.iter().find_map(|path| {
+                                serial_write_claims
+                                    .iter()
+                                    .find(|(claimed, _)| paths_overlap(path, claimed))
+                                    .map(|(claimed, task_id)| (claimed.clone(), task_id.clone()))
+                            })
+                        {
+                            return SpawnParallelTaskPreflight::Rejected(
+                                ParallelTaskRejection {
+                                    task_id,
+                                    agent_id: definition.id.clone(),
+                                    error: format!(
+                                        "agent '{}' requested shared-workspace write access to '{}' but it overlaps with serial worker {overlap_task}; set isolation=\"worktree\" or use disjoint files: ownership",
+                                        definition.id,
+                                        overlap_path.display()
+                                    ),
+                                    ownership: task.ownership,
+                                    kind: ParallelTaskRejectionKind::RequiresIsolation,
+                                },
+                            );
+                        }
+                        for path in paths {
+                            serial_write_claims.push((path, task_id.clone()));
+                        }
+                        WorkerDispatchMode::SerialSharedWorkspaceWrite
+                    }
+                    Ok(None) => WorkerDispatchMode::Parallel,
+                    Err(error) => {
+                        return SpawnParallelTaskPreflight::Rejected(ParallelTaskRejection {
+                            task_id,
+                            agent_id: definition.id.clone(),
+                            error,
+                            ownership: task.ownership,
+                            kind: ParallelTaskRejectionKind::RequiresIsolation,
+                        });
+                    }
+                };
 
             let prompt = with_ownership_boundary(&prompt, task.ownership.as_deref());
             SpawnParallelTaskPreflight::Prepared(PreparedParallelTask {
@@ -410,6 +508,7 @@ fn prepare_spawn_parallel_tasks_from_defs(
                 prompt,
                 task,
                 task_id,
+                dispatch_mode,
             })
         })
         .collect()
@@ -432,6 +531,7 @@ struct SpawnParallelWorker {
     task_id: String,
     lineage: ParallelAgentLineage,
     worktree_path: Option<PathBuf>,
+    dispatch_mode: WorkerDispatchMode,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -503,7 +603,7 @@ async fn stage_spawn_parallel_workers_from_defs(
     let mut prepared = Vec::new();
 
     for preflight in prepare_spawn_parallel_tasks_from_defs(tasks, definitions, parent) {
-        let (definition, prompt, task, task_id) = match preflight {
+        let (definition, prompt, task, task_id, dispatch_mode) = match preflight {
             SpawnParallelTaskPreflight::Rejected(rejection) => {
                 match rejection.kind {
                     ParallelTaskRejectionKind::MissingAgentOrPrompt => {
@@ -577,6 +677,7 @@ async fn stage_spawn_parallel_workers_from_defs(
                 prepared_task.prompt,
                 prepared_task.task,
                 prepared_task.task_id,
+                prepared_task.dispatch_mode,
             ),
         };
         project_spawn_parallel_spawned(
@@ -618,6 +719,7 @@ async fn stage_spawn_parallel_workers_from_defs(
             task_id,
             lineage,
             worktree_path,
+            dispatch_mode,
         });
     }
 
@@ -625,6 +727,13 @@ async fn stage_spawn_parallel_workers_from_defs(
         parent_session = %parent_session,
         prepared_count = prepared.len(),
         immediate_count = immediate_results.len(),
+        serial_write_count = prepared
+            .iter()
+            .filter(|worker| matches!(
+                worker.dispatch_mode,
+                WorkerDispatchMode::SerialSharedWorkspaceWrite
+            ))
+            .count(),
         "[spawn_parallel_agents] prepared_tasks"
     );
     (prepared, immediate_results)
@@ -989,6 +1098,29 @@ async fn run_spawn_parallel_workers(
     action_root: Option<PathBuf>,
 ) -> Result<Vec<ParallelAgentResult>, String> {
     let n = prepared.len();
+    let serial_write_count = prepared
+        .iter()
+        .filter(|worker| {
+            matches!(
+                worker.dispatch_mode,
+                WorkerDispatchMode::SerialSharedWorkspaceWrite
+            )
+        })
+        .count();
+    if serial_write_count > 0 {
+        tracing::debug!(
+            target: "orchestration",
+            workers = n,
+            serial_write_count,
+            "[orchestration] running serial fallback for shared-workspace write fan-out"
+        );
+        let mut results = Vec::with_capacity(n);
+        for worker in prepared {
+            results.push(run_one_parallel_task(worker, action_root.clone()).await);
+        }
+        return Ok(results);
+    }
+
     let max_concurrency = prepared.len().max(1);
     let action_root_for_workers = action_root.clone();
     tracing::debug!(
@@ -1039,6 +1171,7 @@ async fn run_one_parallel_task(
         task_id,
         lineage,
         worktree_path,
+        dispatch_mode: _,
     } = worker;
     let started = std::time::Instant::now();
     tracing::debug!(

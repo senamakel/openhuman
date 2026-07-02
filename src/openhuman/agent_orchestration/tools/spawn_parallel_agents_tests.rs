@@ -515,7 +515,7 @@ fn shared_workspace_rejects_write_capable_named_worker_without_worktree() {
             prompt: "edit a file".into(),
             context: None,
             toolkit: None,
-            ownership: Some("files: src/a.rs".into()),
+            ownership: None,
             isolation: None,
             base_ref: None,
         }],

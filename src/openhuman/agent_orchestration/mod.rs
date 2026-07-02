@@ -9,9 +9,9 @@
 //! phase DAGs on a graph engine, [`agent_teams`] runs members through a
 //! conditional-routing graph, [`delegation`] wires the durable
 //! plan→execute⇄review→finalize graph, and parallel fanout goes through
-//! [`crate::openhuman::tinyagents::orchestration`]. What stays here is the
-//! product layer: durable SQL/JSON run ledgers, validation, cancellation
-//! semantics, compatibility events, and JSON-RPC/tool response formatting.
+//! `tinyagents::graph::parallel::map_reduce`. What stays here is the product
+//! layer: durable SQL/JSON run ledgers, validation, cancellation semantics,
+//! compatibility events, and JSON-RPC/tool response formatting.
 //! [`running_subagents`] mirrors detached-sub-agent lifecycle into a
 //! TinyAgents task store; porting more of that lifecycle upstream is tracked
 //! in `docs/tinyagents-full-migration-plan/07-subagents/02-detached-taskstore.md`.

@@ -1,6 +1,7 @@
 # 08.2 — `spawn_parallel_agents` as a graph tool
 
-The spec's Phase 6 node shape stands; land it on `Send` + reducers.
+The spec's Phase 6 node shape is now live on SDK graph helpers; remaining work
+is parity evidence, cancellation coverage, and graph-lineage polish.
 
 Current status (2026-07-02): `spawn_parallel_agents` already fans prepared
 workers through `tinyagents::graph::parallel::map_reduce`, exports the fixed
@@ -35,10 +36,10 @@ implementation.
 
 ## Steps
 
-1. `build_spawn_parallel_graph` + topology export (established pattern).
-2. Tool wrapper in `agent_orchestration/tools/spawn_parallel_agents.rs` is now
+1. Done: `build_spawn_parallel_graph` + topology export (established pattern).
+2. Done: tool wrapper in `agent_orchestration/tools/spawn_parallel_agents.rs` is now
    a 128-line thin shell: schema → run graph → translate `ToolResult`.
-3. Policy (spec "ownership and scheduling"): disjoint write ownership or
+3. In progress: policy (spec "ownership and scheduling"): disjoint write ownership or
    reject/serial-fallback; read-only workers may share workspace;
    write-capable request worktree isolation (08.5); children share
    root run id, own task ids; no widening of tools/model/sandbox/budget;

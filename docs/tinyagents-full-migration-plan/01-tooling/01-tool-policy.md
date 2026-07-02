@@ -35,11 +35,12 @@ implementation details of the shared runner.
    `generated_runtime_context`.
 3. Partially done: install crate `ToolPolicyMiddleware` in
    `assemble_turn_harness` (`src/openhuman/tinyagents/mod.rs`) with
-   `require_sandbox(true)` only. Do not enable classification, approval, or
-   result-byte gates until unknown-tool recovery can still return a recoverable
-   model-visible tool error and the OpenHuman approval/result-cap overlays have
-   equivalent crate policy coverage. Assert every registered tool is classified
-   in the adapter-inventory test when those gates become fail-closed.
+   `require_sandbox(true)` only. TinyAgents 1.3 exposes classification,
+   approval, and result-byte gates, but OpenHuman still keeps args-aware
+   approval/audit and legacy result-cap wording in local overlays. Enable the
+   stricter crate gates only after those overlays have equivalent policy
+   coverage or can be deleted. Assert every registered tool is classified in the
+   adapter-inventory test when those gates become fail-closed.
 4. Done for output budgeting: `TurnContextMiddleware.install` takes the SDK
    policy snapshot instead of the `&tool_sets` parameter.
 

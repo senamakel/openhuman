@@ -16,7 +16,7 @@
 //! | `runner.rs`         | `run_subagent`, `run_typed_mode`                               |
 //! | `graph.rs`          | `run_subagent_via_graph` — the sub-agent turn graph + tools    |
 //! | `handoff_helper.rs` | `apply_handoff`                                                |
-//! | `checkpoint.rs`     | `SubagentCheckpoint`, `parse_tool_arguments`                   |
+//! | `checkpoint.rs`     | `SubagentCheckpoint`                                           |
 
 mod checkpoint;
 mod graph;

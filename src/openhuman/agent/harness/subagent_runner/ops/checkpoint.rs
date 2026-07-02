@@ -84,8 +84,3 @@ impl SubagentCheckpoint<'_> {
         }
     }
 }
-
-pub(super) fn parse_tool_arguments(arguments: &str) -> serde_json::Value {
-    serde_json::from_str(arguments)
-        .unwrap_or_else(|_| serde_json::Value::Object(Default::default()))
-}

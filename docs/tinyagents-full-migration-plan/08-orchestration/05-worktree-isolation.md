@@ -32,7 +32,8 @@ resumed checkpoint runs. `spawn_worker_thread` does the same for persisted
 worker-thread sub-agent runs. The archetype and integrations delegation tools
 now also forward the descriptor through their shared sub-agent dispatcher, and
 `agent_prepare_context` passes it into the read-only context scout when invoked
-as a tool.
+as a tool. `call_memory_agent` and `delegate_to_personality` likewise carry the
+descriptor into their spawned sub-agents.
 The TinyAgents tool adapter now forwards `ToolExecutionContext` into OpenHuman
 tools, and shell/git plus core filesystem tools (`file_read`, `list`,
 `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `csv_export`) and
@@ -57,10 +58,10 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
    tool adapter, `spawn_subagent`, `continue_subagent`, `spawn_worker_thread`,
    archetype/integrations delegation dispatch, `spawn_async_subagent`
    reuse/session roots, `spawn_parallel_agents` shared-worker roots,
-   `agent_prepare_context`, shell, git operations, `file_read`, `list`,
-   `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `csv_export`,
-   `node_exec`, and `npm_exec`. Remaining acting tools still need to read it.
-   OpenHuman
+   `agent_prepare_context`, `call_memory_agent`, `delegate_to_personality`,
+   shell, git operations, `file_read`, `list`, `file_write`, `edit`,
+   `apply_patch`, `grep`, `glob`, `csv_export`, `node_exec`, and `npm_exec`.
+   Remaining acting tools still need to read it. OpenHuman
    `SecurityPolicy` remains the enforcement authority — the descriptor is the
    carrier, not the policy.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations

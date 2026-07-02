@@ -80,6 +80,9 @@ struct ScriptedProvider {
     requests: Mutex<Vec<CapturedRequest>>,
     stream_events: Vec<ProviderDelta>,
     native_tools: bool,
+    /// When set, every `chat` call fails with this message — models a provider
+    /// that is down for the whole turn, so no fallback route can recover it.
+    always_fail: Option<&'static str>,
 }
 
 impl ScriptedProvider {
@@ -92,7 +95,7 @@ impl ScriptedProvider {
 
     fn failing(message: &'static str) -> Arc<Self> {
         Arc::new(Self {
-            responses: Mutex::new(VecDeque::from([Err(anyhow::anyhow!(message))])),
+            always_fail: Some(message),
             ..Self::default()
         })
     }
@@ -139,6 +142,9 @@ impl Provider for ScriptedProvider {
                 .unwrap_or_default(),
             stream_was_requested: request.stream.is_some(),
         });
+        if let Some(message) = self.always_fail {
+            return Err(anyhow::anyhow!(message));
+        }
         if let Some(stream) = request.stream {
             for event in &self.stream_events {
                 stream.send(event.clone()).await.ok();
@@ -605,6 +611,7 @@ async fn turn_native_tool_progress_reasoning_usage_and_resume_seed_paths() {
             },
         ],
         native_tools: true,
+        always_fail: None,
     });
     let mut agent = agent_with(
         provider.clone(),
@@ -833,7 +840,13 @@ async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_e
         .map(|message| message.content)
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(joined.contains("not available to this agent"));
+    // An unregistered tool (`hidden_tool`, absent from both the tool set and the
+    // visible allowlist) is never executed: since issue #4249 it flows through the
+    // tinyagents `UnknownToolPolicy::ReturnToolError` path, which injects a
+    // recoverable result naming the requested tool and the valid ones instead of
+    // the legacy "not available to this agent" wording. The security guarantee —
+    // the hidden tool does not run — is preserved.
+    assert!(joined.contains("unknown tool `hidden_tool`"));
     assert!(joined.contains("semantic failure"));
     assert!(joined.contains("Error executing round17_boom"));
     assert!(joined.contains("denied by policy 'round17-deny'"));
@@ -848,6 +861,11 @@ async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_e
         AgentConfig::default(),
         ContextConfig::default(),
     );
+    // A provider that fails on every attempt (primary *and* every same-family
+    // fallback route the tinyagents `RunPolicy.fallback` chain tries — issue #4249,
+    // Workstream 02.2) must surface a terminal error from `run_single` rather than
+    // wedging on a partial/empty reply. `ScriptedProvider::failing` fails
+    // unconditionally, so the cross-route fallback cannot mask it.
     let err = failing_agent.run_single("fail now").await.unwrap_err();
     assert!(err.to_string().contains("provider offline"));
 }

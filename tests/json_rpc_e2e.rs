@@ -9844,9 +9844,18 @@ async fn json_rpc_meet_agent_session_lifecycle() {
     // 4) Give the spawned brain turn a chance to finish, then poll for
     //    synthesized PCM. The stub TTS produces 200 ms of 440 Hz tone
     //    which encodes to ~6.4 KB of base64.
+    //
+    //    The brain turn runs the full agentic path (`run_single`) before it
+    //    can fall back to the spoken ack that gets stub-TTS'd. In this
+    //    hermetic setup BACKEND_URL is unset, so each provider attempt must
+    //    fail a real connection first; since issue #4249 the turn also tries
+    //    one same-family fallback route (Workstream 02.2), so the ack (and its
+    //    audio) can take a few seconds to materialize — well under the 20 s
+    //    agentic timeout. Poll generously (up to ~12 s) so the assertion tracks
+    //    "audio is eventually synthesized", not a fragile sub-second deadline.
     let mut got_audio = false;
-    for _ in 0..20 {
-        tokio::time::sleep(Duration::from_millis(50)).await;
+    for _ in 0..120 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
         let r = post_json_rpc(
             &rpc_base,
             9150,

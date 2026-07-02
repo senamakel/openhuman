@@ -181,7 +181,7 @@ const KNOWN_MODEL_PRICING: &[ModelPrice] = &[
         input_per_mtok_usd: 2.00,
         cached_input_per_mtok_usd: 0.50,
         output_per_mtok_usd: 8.00,
-        context_window: 1_000_000,
+        context_window: 1_047_576,
     },
     ModelPrice {
         provider: "openai",
@@ -189,7 +189,7 @@ const KNOWN_MODEL_PRICING: &[ModelPrice] = &[
         input_per_mtok_usd: 0.40,
         cached_input_per_mtok_usd: 0.10,
         output_per_mtok_usd: 1.60,
-        context_window: 1_000_000,
+        context_window: 1_047_576,
     },
     ModelPrice {
         provider: "openai",

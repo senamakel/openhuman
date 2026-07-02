@@ -789,7 +789,7 @@ pub(super) async fn run_spawn_parallel_graph_with_cancellation(
     run_spawn_parallel_graph_with_cancellation_and_workspace(args, cancel, None).await
 }
 
-async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
+pub(super) async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
     args: serde_json::Value,
     cancel: CancellationToken,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,

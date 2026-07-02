@@ -10,9 +10,10 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentRe
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTask;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
-    format_spawn_parallel_success, run_spawn_parallel_graph_with_workspace,
+    format_spawn_parallel_success, run_spawn_parallel_graph_with_cancellation_and_workspace,
     SpawnParallelGraphOutcome, SpawnParallelTaskValidationError,
 };
+use crate::openhuman::tinyagents::current_run_cancellation;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -107,9 +108,19 @@ impl Tool for SpawnParallelAgentsTool {
     ) -> anyhow::Result<ToolResult> {
         tracing::debug!("[spawn_parallel_agents] execute entry");
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
-        let outcome = run_spawn_parallel_graph_with_workspace(args, workspace_descriptor)
-            .await
-            .map_err(|e| anyhow::anyhow!(e))?;
+        let cancellation = current_run_cancellation().unwrap_or_else(|| {
+            tracing::debug!(
+                "[spawn_parallel_agents] no active tinyagents run cancellation token; using local token"
+            );
+            tinyagents::CancellationToken::new()
+        });
+        let outcome = run_spawn_parallel_graph_with_cancellation_and_workspace(
+            args,
+            cancellation,
+            workspace_descriptor,
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
         match outcome {
             SpawnParallelGraphOutcome::Collected(collected) => Ok(ToolResult::success(
                 format_spawn_parallel_success(&collected),

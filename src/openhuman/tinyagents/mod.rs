@@ -27,6 +27,7 @@ mod model;
 pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
+mod run_cancellation_context;
 pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;
 mod summarize;
@@ -65,6 +66,7 @@ pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddle
 use model::ProviderModel;
 pub(crate) use observability::SubagentScope;
 use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
+pub(crate) use run_cancellation_context::{current_run_cancellation, with_run_cancellation};
 #[cfg(test)]
 use tools::ToolAdapter;
 use tools::{EarlyExitHook, SharedToolAdapter};
@@ -419,7 +421,8 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // Build the run context: an optional event sink feeds the progress/cost
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
     // handle carries mid-flight, early-exit, and cap pauses.
-    let mut ctx = RunContext::new(config, ());
+    let cancellation = tinyagents::CancellationToken::new();
+    let mut ctx = RunContext::new(config, ()).with_cancellation(cancellation.clone());
     if let Some(descriptor) = workspace_descriptor {
         tracing::debug!(
             root = %descriptor.root.display(),
@@ -512,11 +515,14 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // nested inside its parent's drive future — leaving it inline on the stack
     // overflows when the parent + child drives compose. Boxing keeps only a
     // pointer on the stack at each level.
-    let run_result = if streaming {
-        Box::pin(harness.invoke_streaming_in_context(&(), ctx, input)).await
-    } else {
-        Box::pin(harness.invoke_in_context(&(), ctx, input)).await
-    };
+    let run_result = with_run_cancellation(cancellation.clone(), async {
+        if streaming {
+            Box::pin(harness.invoke_streaming_in_context(&(), ctx, input)).await
+        } else {
+            Box::pin(harness.invoke_in_context(&(), ctx, input)).await
+        }
+    })
+    .await;
     if let Some(forwarder) = steering_forwarder {
         forwarder.abort();
     }

@@ -25,8 +25,9 @@ queued/interrupt/followup events remain live.
    delivery-at-safe-boundaries semantics (crate drains before each model call).
 2. Install a `SteeringPolicy` allowlist per run (e.g. background runs
    accept Cancel only).
-3. Accepted/rejected steering emits `AgentEvent::Steered` → bridge → UI;
-   delete bespoke acknowledgment plumbing in `run_queue/` after parity.
+3. Accepted/rejected steering emits `AgentEvent::Steered`; the bridge now logs
+   accepted/rejected command kinds, and UI projection remains pending. Delete
+   bespoke acknowledgment plumbing in `run_queue/` after parity.
 4. `harness/run_queue/` (317 total; 174 non-test): first split it by ownership.
    Detached sub-agent `Steer`/`Collect` should collapse to a `SteeringRegistry`
    lookup/registration path; web-channel `Followup`/`Parallel` remain product

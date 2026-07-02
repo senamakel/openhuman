@@ -309,6 +309,16 @@ impl EventListener for OpenhumanEventBridge {
                     "[tinyagents] budget exceeded event observed"
                 );
             }
+            AgentEvent::Steered {
+                command_kind,
+                accepted,
+            } => {
+                tracing::debug!(
+                    command_kind = command_kind.as_str(),
+                    accepted,
+                    "[tinyagents] steering command observed"
+                );
+            }
             AgentEvent::ToolsFiltered {
                 by,
                 excluded,

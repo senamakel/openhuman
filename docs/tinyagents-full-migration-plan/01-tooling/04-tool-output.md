@@ -8,10 +8,13 @@ delete the legacy hooks.
 Current status: TinyAgents `ToolOutputMiddleware` already runs as `after_tool`
 for payload summarization, TokenJuice `compact_output_with_policy`, per-tool
 policy-derived output caps, generic byte budgets, and action-workspace artifact
-spill for oversized session tool results. Remaining work is to remove the
-legacy executor hooks once the old path is gone, then decide whether a
-TinyAgents `StoreRegistry` adapter should replace the direct OpenHuman artifact
-store.
+spill for oversized session tool results. Payload summarization and TokenJuice
+shrinks now emit TinyAgents `AgentEvent::Compressed`, and persisted
+action-workspace artifacts are indexed in `RunContext.stores` under
+`openhuman_tool_result_artifacts` while the existing `.txt` file and `file_read`
+envelope remain the source of truth. Remaining work is to remove the legacy
+executor hooks once the old path is gone and move the summarizer child dispatch
+onto `SubAgent::invoke_in_parent`.
 
 1. `payload_summarizer.rs` (490 lines, oversized-result compression via a
    `summarizer` sub-agent + circuit breaker): re-express as an `after_tool`
@@ -24,8 +27,9 @@ store.
    `compact_output_with_policy` covers it. Decide once, record in
    `src/openhuman/tokenjuice/README.md`.
 3. `harness/tool_result_artifacts/mod.rs` (476 lines, artifact spill):
-   keep spill policy (product), but write artifacts through the run's
-   `StoreRegistry` (`RunContext.stores`) so replay can find them.
+   keep spill policy and action-workspace `.txt` writes in OpenHuman, but keep
+   the run's `StoreRegistry` (`RunContext.stores`) populated with structured
+   artifact metadata so replay can find the model-facing preview's full body.
 4. Collapse the per-call executor chain in
    `session/agent_tool_exec.rs` (505 lines): visibility gate → middleware
    (01.3), permission/approval → middleware (already), byte budget/summarizer

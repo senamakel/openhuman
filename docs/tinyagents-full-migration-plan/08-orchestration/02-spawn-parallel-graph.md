@@ -33,8 +33,8 @@ translation so malformed-argument and public error shapes stay unchanged.
 ## Steps
 
 1. `build_spawn_parallel_graph` + topology export (established pattern).
-2. Tool wrapper in `agent_orchestration/tools/spawn_parallel_agents.rs`
-   shrinks to: parse args → run graph → format JSON.
+2. Tool wrapper in `agent_orchestration/tools/spawn_parallel_agents.rs` is now
+   a 126-line thin shell: schema → run graph → translate `ToolResult`.
 3. Policy (spec "ownership and scheduling"): disjoint write ownership or
    reject/serial-fallback; read-only workers may share workspace;
    write-capable request worktree isolation (08.5); children share
@@ -44,8 +44,9 @@ translation so malformed-argument and public error shapes stay unchanged.
 
 ## Deletions
 
-- Orchestration mechanics inside `spawn_parallel_agents.rs` (809 → thin
-  wrapper); overlap-detection helpers move into `collect`.
+- Orchestration mechanics inside `spawn_parallel_agents.rs` have moved into
+  `agent_orchestration/spawn_parallel_graph.rs`; overlap detection lives in the
+  collect/finalize graph path.
 
 ## Acceptance
 

@@ -15,7 +15,8 @@ while the run is active. Detached `steer`/`collect` controls now prefer that
 registry handle and fall back to `RunQueue` when no handle is available. Do not
 delete the directory until the remaining detached control modes and the
 web-channel followup/parallel lanes either have TinyAgents-owned equivalents or
-move into local owners.
+move into local owners. Hard cancel/prune paths also deregister task handles so
+aborted runs do not leave stale registry entries.
 The unused `DomainEvent::RunQueueMessageDelivered` projection has been removed;
 queued/interrupt/followup events remain live.
 

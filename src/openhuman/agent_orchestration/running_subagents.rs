@@ -449,7 +449,13 @@ pub(crate) fn register(
         // Only under genuine pressure: sweep collected/terminal entries so the
         // table can't grow without bound when a parent never waits (the Codex
         // spawn-slot leak). Live (Running) entries are always retained.
-        map.retain(|_, e| !e.status.borrow().is_terminal());
+        map.retain(|task_id, e| {
+            let keep = !e.status.borrow().is_terminal();
+            if !keep {
+                deregister_steering(task_id);
+            }
+            keep
+        });
     }
     map.insert(task_id.clone(), entry);
     log::debug!(
@@ -568,6 +574,16 @@ fn send_registered_steering(task_id: &str, text: String, mode: QueueMode) -> boo
     };
     handle.send(command);
     true
+}
+
+fn deregister_steering(task_id: &str) {
+    let task_id = TaskId::new(task_id);
+    if shared_steering_registry().deregister(&task_id).is_some() {
+        log::debug!(
+            "[running_subagents] deregistered steering handle task_id={}",
+            task_id.as_str()
+        );
+    }
 }
 
 /// Inject a message into a running sub-agent. Prefer the crate-native
@@ -756,6 +772,7 @@ pub(crate) struct CancelledSubagent {
 pub(crate) fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
     let entry = map.remove(task_id)?;
+    deregister_steering(task_id);
     entry.abort.abort();
     record_cancelled(&entry.workspace_dir, task_id);
     log::debug!(
@@ -795,6 +812,7 @@ pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
         .collect();
     for id in &to_cancel {
         if let Some(entry) = map.remove(id) {
+            deregister_steering(id);
             entry.abort.abort();
             record_cancelled(&entry.workspace_dir, id);
         }
@@ -821,6 +839,7 @@ pub(crate) fn cancel_all() -> Vec<String> {
     let mut thread_ids: Vec<String> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     for (task_id, entry) in map.drain() {
+        deregister_steering(&task_id);
         entry.abort.abort();
         record_cancelled(&entry.workspace_dir, &task_id);
         if let Some(thread_id) = entry.parent_thread_id {
@@ -838,6 +857,7 @@ pub(crate) fn cancel_all() -> Vec<String> {
 }
 
 fn prune(task_id: &str) {
+    deregister_steering(task_id);
     registry()
         .lock()
         .expect("running_subagents mutex poisoned")
@@ -1287,11 +1307,17 @@ mod tests {
         let rq = RunQueue::new();
         let _tx =
             register_test_with_thread("task-cbt", "session-Z", Some("thread-cbt"), rq.clone());
+        let task_id = TaskId::new("task-cbt");
+        shared_steering_registry().register(task_id.clone(), SteeringHandle::allow_all());
 
         let meta = cancel_by_task("task-cbt").expect("known task should cancel");
         assert_eq!(meta.agent_id, "researcher");
         assert_eq!(meta.parent_session, "session-Z");
         assert_eq!(meta.parent_thread_id.as_deref(), Some("thread-cbt"));
+        assert!(
+            shared_steering_registry().get(&task_id).is_none(),
+            "hard cancel should remove the registered steering handle"
+        );
 
         // Entry is gone — steer can no longer find it, and a second cancel is a no-op.
         assert_eq!(

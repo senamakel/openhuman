@@ -1,6 +1,6 @@
 # 04.2 — Read-side shadow, cutover, retirement
 
-Import phases 2–4 from `../tinyagents-session-migration-design.md`.
+Import phases 2–4 from `../../tinyagents-session-migration-design.md`.
 
 ## Steps
 

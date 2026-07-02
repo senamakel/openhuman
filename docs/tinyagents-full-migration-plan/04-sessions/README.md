@@ -3,7 +3,7 @@
 Make tinyagents `Store`/`AppendStore` the durable session substrate and
 retire the legacy transcript stack. The Phase-1 write-only importer already
 exists (`src/openhuman/session_import/`, `openhuman.session_import_run`,
-design in `../tinyagents-session-migration-design.md`).
+design in `../../tinyagents-session-migration-design.md`).
 
 Target SDK surface: `Store`/`FileStore`, `AppendStore`/`JsonlAppendStore`,
 `StoreRegistry` on `RunContext`, `ChatHistory`/`StoreChatHistory`,

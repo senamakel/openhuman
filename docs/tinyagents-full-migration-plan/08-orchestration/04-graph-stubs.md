@@ -21,8 +21,8 @@ subconscious). A first bespoke production graph is still pending.
 2. Done: make `graph_fn` optional on `BuiltinAgent` (default =
    `AgentGraph::Default` supplied by the loader/registry); delete every
    registry stub `graph.rs` whose agent has no custom graph.
-3. Registry diagnostics: `agent.graph_topologies` RPC already exists —
-   extend it to show which graph (default/custom) each agent resolves to.
+3. Done: `agent.graph_topologies` returns an `agents` array showing which graph
+   (`default`/`custom`) each built-in resolves to.
 
 ## Deletions
 

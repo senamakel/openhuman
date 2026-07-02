@@ -169,7 +169,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![],
             outputs: vec![json_output(
                 "graphs",
-                "Array of {name, ok, errors, warnings, mermaid, topology} reports.",
+                "Object containing graph topology reports and built-in agent graph resolutions.",
             )],
         },
         _ => ControllerSchema {
@@ -393,8 +393,24 @@ fn handle_triage_evaluate(params: Map<String, Value>) -> ControllerFuture {
 fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async {
         let reports = crate::openhuman::tinyagents::topology::all_graph_topologies();
+        let agents = crate::openhuman::agent_registry::agents::load_builtins()
+            .map_err(|e| format!("loading built-in agent graph resolutions: {e}"))?
+            .into_iter()
+            .map(|def| {
+                let graph = if def.graph.is_default() {
+                    "default"
+                } else {
+                    "custom"
+                };
+                serde_json::json!({
+                    "id": def.id,
+                    "graph": graph,
+                })
+            })
+            .collect::<Vec<_>>();
         tracing::debug!(
             graphs = reports.len(),
+            agents = agents.len(),
             "[rpc][agent] graph_topologies export"
         );
         let graphs: Vec<Value> = reports
@@ -412,7 +428,7 @@ fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
                 })
             })
             .collect();
-        Ok(serde_json::json!({ "graphs": graphs }))
+        Ok(serde_json::json!({ "graphs": graphs, "agents": agents }))
     })
 }
 
@@ -569,6 +585,18 @@ mod tests {
             .collect();
         assert!(names.contains(&"delegation"), "saw {names:?}");
         assert!(names.contains(&"workflow_runs:scheduler"), "saw {names:?}");
+        let agents = result
+            .get("agents")
+            .and_then(Value::as_array)
+            .expect("agents array");
+        let orchestrator = agents
+            .iter()
+            .find(|agent| agent.get("id").and_then(Value::as_str) == Some("orchestrator"))
+            .expect("orchestrator graph resolution");
+        assert_eq!(
+            orchestrator.get("graph").and_then(Value::as_str),
+            Some("default")
+        );
     }
 
     #[tokio::test]

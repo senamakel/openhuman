@@ -107,17 +107,22 @@ impl Tool for SteerSubagentTool {
             return Ok(ToolResult::error("steer_subagent: `message` is required"));
         }
 
-        let parent_session = match current_parent() {
-            Some(parent) => parent.session_id,
+        let parent = match current_parent() {
+            Some(parent) => parent,
             None => {
                 return Ok(ToolResult::error(
                     "steer_subagent called outside of an agent turn",
                 ));
             }
         };
+        let parent_session = parent.session_id;
 
         let resolved_task_id = if task_id.is_empty() {
-            match running_subagents::task_id_for_session(&subagent_session_id, &parent_session) {
+            match running_subagents::task_id_for_session_in_workspace(
+                &subagent_session_id,
+                &parent_session,
+                &parent.workspace_dir,
+            ) {
                 Ok(id) => id,
                 Err(running_subagents::WaitError::Unknown) => {
                     return Ok(ToolResult::error(format!(

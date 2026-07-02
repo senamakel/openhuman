@@ -36,7 +36,7 @@ renderer used by prompt debug dumps.
    { by, excluded, remaining }` (1.3.0) — projected into the bridge as
    structured diagnostics today.
 3. Move the visible-set computation, dynamic delegation refresh, and skill-event
-   catalogue reconciliation out of `session/turn/tools.rs` (692 lines) plus
+   catalogue reconciliation out of `session/turn/tools.rs` (697 lines) plus
    `subagent_runner/tool_prep.rs` (344 lines) into the middleware; the turn code
    only declares candidate tool sets and parent execution context.
 4. Keep product policy sources (registry definitions, security tier tables)

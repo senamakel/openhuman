@@ -74,7 +74,7 @@ they land.
 
 - `session/agent_tool_exec.rs` 505 → delete test-only parity shim after
   direct-executor tests migrate — 01.4
-- `session/turn/tools.rs` 692 → parent-context/assembly glue — 01.3
+- `session/turn/tools.rs` 697 → parent-context/assembly glue — 01.3
   (dynamic delegation refresh and skill-event catalogue reconciliation remain
   live until middleware owns contextual selection)
 - `subagent_runner/ops/*` 2764 (+1827 companion tests) → graph nodes/tests — 07.1

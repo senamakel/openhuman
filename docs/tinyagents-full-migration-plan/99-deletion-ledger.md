@@ -8,11 +8,11 @@ they land.
 
 - [ ] `agent/memory_loader.rs` (5-line facade) — 09
 - [ ] `agent/tree_loader.rs` (210, unwired per #3170) — 09
-- [ ] `harness/compaction/mod.rs` shim — 03.1
+- [x] `harness/compaction/mod.rs` shim — 03.1
 
 ## Superseded by existing middlewares (verify + delete)
 
-- [ ] `harness/compaction/cache_align.rs` (200) — 03.1/03.2
+- [x] `harness/compaction/cache_align.rs` (200) — 03.1/03.2
 - [ ] `context/microcompact.rs` (269) — 03.1
 - [ ] `context/pipeline.rs` (454) + `context/guard.rs` (236, keep stats structs) — 03.1
 - [ ] `context/tool_result_budget.rs` (172) — 03.1

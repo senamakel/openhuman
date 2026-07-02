@@ -407,6 +407,135 @@ fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
 /// `ContextManager::warn_if_cache_unstable`.
 struct CacheAlignMiddleware;
 
+/// One detected volatile token in the cache-hot system prompt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VolatileFinding {
+    kind: &'static str,
+    sample: String,
+}
+
+fn detect_volatile_prompt_tokens(system_prompt: &str) -> Vec<VolatileFinding> {
+    let mut findings = Vec::new();
+    for tok in system_prompt
+        .split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | ':' | '_')))
+    {
+        if tok.len() < 8 {
+            continue;
+        }
+        if is_uuid(tok) {
+            findings.push(VolatileFinding {
+                kind: "uuid",
+                sample: redact_volatile_token(tok),
+            });
+        } else if is_jwt(tok) {
+            findings.push(VolatileFinding {
+                kind: "jwt",
+                sample: redact_volatile_token(tok),
+            });
+        } else if is_iso8601(tok) {
+            findings.push(VolatileFinding {
+                kind: "iso8601",
+                sample: redact_volatile_token(tok),
+            });
+        } else if is_hex_hash(tok) {
+            findings.push(VolatileFinding {
+                kind: "hex_hash",
+                sample: redact_volatile_token(tok),
+            });
+        }
+    }
+    findings
+}
+
+fn warn_if_cache_prompt_volatile(system_prompt: &str) -> usize {
+    let findings = detect_volatile_prompt_tokens(system_prompt);
+    if !findings.is_empty() {
+        let mut kinds: Vec<&str> = findings.iter().map(|finding| finding.kind).collect();
+        kinds.sort_unstable();
+        kinds.dedup();
+        let samples = findings
+            .iter()
+            .take(5)
+            .map(|finding| finding.sample.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        ::log::warn!(
+            "[tinyagents::cache-align] system prompt contains {} volatile token(s) ({}) samples={} -- KV-cache prefix may not hit; keep dynamic content out of the system prompt",
+            findings.len(),
+            kinds.join(", "),
+            samples,
+        );
+    }
+    findings.len()
+}
+
+fn redact_volatile_token(tok: &str) -> String {
+    let head: String = tok.chars().take(4).collect();
+    format!("{head}...")
+}
+
+fn is_uuid(tok: &str) -> bool {
+    if tok.len() != 36 {
+        return false;
+    }
+    let bytes = tok.as_bytes();
+    for (i, b) in bytes.iter().enumerate() {
+        let expect_dash = matches!(i, 8 | 13 | 18 | 23);
+        if expect_dash {
+            if *b != b'-' {
+                return false;
+            }
+        } else if !b.is_ascii_hexdigit() {
+            return false;
+        }
+    }
+    true
+}
+
+fn is_jwt(tok: &str) -> bool {
+    let segs: Vec<&str> = tok.split('.').collect();
+    if segs.len() != 3 {
+        return false;
+    }
+    segs.iter().all(|segment| {
+        segment.len() >= 4
+            && segment
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    }) && tok.starts_with("ey")
+}
+
+fn is_hex_hash(tok: &str) -> bool {
+    matches!(tok.len(), 32 | 40 | 64) && tok.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+fn is_iso8601(tok: &str) -> bool {
+    let b = tok.as_bytes();
+    if tok.len() < 19 {
+        return false;
+    }
+    let digit = |i: usize| b[i].is_ascii_digit();
+    digit(0)
+        && digit(1)
+        && digit(2)
+        && digit(3)
+        && b[4] == b'-'
+        && digit(5)
+        && digit(6)
+        && b[7] == b'-'
+        && digit(8)
+        && digit(9)
+        && (b[10] == b'T' || b[10] == b' ')
+        && digit(11)
+        && digit(12)
+        && b[13] == b':'
+        && digit(14)
+        && digit(15)
+        && b[16] == b':'
+        && digit(17)
+        && digit(18)
+}
+
 #[async_trait]
 impl Middleware<()> for CacheAlignMiddleware {
     fn name(&self) -> &str {
@@ -424,9 +553,7 @@ impl Middleware<()> for CacheAlignMiddleware {
             .iter()
             .find(|m| matches!(m, TaMessage::System(_)))
         {
-            crate::openhuman::agent::harness::compaction::cache_align::warn_if_volatile(
-                &sys.text(),
-            );
+            warn_if_cache_prompt_volatile(&sys.text());
         }
         Ok(())
     }

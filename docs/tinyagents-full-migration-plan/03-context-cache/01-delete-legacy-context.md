@@ -3,6 +3,10 @@
 `tinyagents/middleware.rs` doc-comments already note these were "effectively
 dead on the live loop" before being re-expressed as middlewares.
 
+Current status: `harness/compaction/cache_align.rs` and the
+`harness/compaction/mod.rs` shim are deleted; the volatile-token detector now
+lives inside TinyAgents `CacheAlignMiddleware`.
+
 ## Steps
 
 1. `context/microcompact.rs` (269): superseded by `MicrocompactMiddleware`.
@@ -14,7 +18,7 @@ dead on the live loop" before being re-expressed as middlewares.
    behind `ContextManager::stats()` — extract the minimal stats structs into
    `context/stats.rs`, delete the reduction machinery.
 3. `harness/compaction/cache_align.rs` (200) + `compaction/mod.rs` shim:
-   superseded by `CacheAlignMiddleware`; delete the directory.
+   superseded by `CacheAlignMiddleware`; directory deleted.
 4. `context/tool_result_budget.rs` (172): superseded by
    `ToolOutputMiddleware` per-tool caps — verify no remaining caller
    (the `agent_tool_exec` chain shrink in 01.4 removes the last), delete.

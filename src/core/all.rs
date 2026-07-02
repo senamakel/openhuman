@@ -321,8 +321,6 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     // Durable agent-team coordination — teams, members, dependency-aware task claiming, messaging
     controllers
         .extend(crate::openhuman::agent_orchestration::all_agent_team_registered_controllers());
-    // User-consented tiny.place pairing for wrapped agent sessions
-    controllers.extend(crate::openhuman::agent_orchestration::all_pairing_registered_controllers());
     // Git-worktree isolation manager — list / status / diff / remove worker worktrees (#3376)
     controllers
         .extend(crate::openhuman::agent_orchestration::all_worktree_registered_controllers());
@@ -348,6 +346,9 @@ fn build_internal_only_controllers() -> Vec<RegisteredController> {
     // tiny.place A2A social-network integration: renderer-callable via core_rpc_relay
     // but NOT advertised to agents in tool listings or schema discovery.
     controllers.extend(crate::openhuman::tinyplace::all_tinyplace_registered_controllers());
+    // User-consented tiny.place pairing for wrapped agent sessions: UI-callable
+    // via core_rpc_relay, but excluded from agent tool listings/schema discovery.
+    controllers.extend(crate::openhuman::agent_orchestration::all_pairing_registered_controllers());
     controllers
 }
 
@@ -477,8 +478,6 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::agent_orchestration::all_workflow_run_controller_schemas());
     // Durable agent-team coordination
     schemas.extend(crate::openhuman::agent_orchestration::all_agent_team_controller_schemas());
-    // User-consented tiny.place pairing for wrapped agent sessions
-    schemas.extend(crate::openhuman::agent_orchestration::all_pairing_controller_schemas());
     // Git-worktree isolation manager (#3376)
     schemas.extend(crate::openhuman::agent_orchestration::all_worktree_controller_schemas());
     // User-driven cancel of detached background sub-agents (#3711)

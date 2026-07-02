@@ -89,9 +89,13 @@ fn agent_error_to_user_message(err: &AgentError) -> &'static str {
         // ToolExecutionError and Other have no actionable canned message —
         // their error bodies are too freeform to summarise safely without
         // interpolating contents. Fall back to the generic copy.
-        AgentError::ToolExecutionError { .. } | AgentError::Other(_) => {
-            AGENT_JOB_USER_FAILURE_MESSAGE
-        }
+        // RegistryValidationFailed carries diagnostic message bodies that name
+        // internal tool/component identifiers — too freeform to summarise safely
+        // without interpolation, so fall back to the generic copy like the other
+        // non-actionable variants.
+        AgentError::ToolExecutionError { .. }
+        | AgentError::RegistryValidationFailed { .. }
+        | AgentError::Other(_) => AGENT_JOB_USER_FAILURE_MESSAGE,
     }
 }
 

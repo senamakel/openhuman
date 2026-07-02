@@ -51,7 +51,7 @@ use tinyagents::harness::store::StoreRegistry;
 use tinyagents::harness::summarization::TrimStrategy;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 use tinyagents::registry::{
-    CapabilityRegistry, ComponentKind, RegistryDiagnostic, RegistrySnapshot,
+    CapabilityRegistry, ComponentKind, DiagnosticSeverity, RegistryDiagnostic, RegistrySnapshot,
 };
 
 use crate::openhuman::agent::harness::tool_result_artifacts::{
@@ -377,7 +377,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         early_exit_hook,
         tool_count,
         registry_snapshot: _,
-        registry_diagnostics: _,
+        registry_diagnostics,
         tool_result_artifact_index,
     } = assemble_turn_harness(
         provider,
@@ -394,6 +394,57 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         context_mw,
         tool_policy,
     );
+
+    // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).
+    // The projected `CapabilityRegistry` produced these diagnostics during
+    // assembly; enforce them here, *before* the first model dispatch, so an
+    // ambiguous/broken tool surface (duplicate name across native/MCP/Composio/
+    // generated tools, dangling alias, etc.) aborts the turn instead of silently
+    // resolving to an unintended component while a provider call is in flight.
+    if !registry_diagnostics.is_empty() {
+        let (errors, warnings): (Vec<&RegistryDiagnostic>, Vec<&RegistryDiagnostic>) =
+            registry_diagnostics
+                .iter()
+                .partition(|d| matches!(d.severity, DiagnosticSeverity::Error));
+        for diag in &warnings {
+            tracing::warn!(
+                kind = diag.kind.as_str(),
+                name = %diag.name,
+                "[registry] non-fatal diagnostic: {}",
+                diag.message
+            );
+        }
+        if !errors.is_empty() {
+            let messages: Vec<String> = errors
+                .iter()
+                .map(|d| {
+                    format!(
+                        "[{}] {}: {}",
+                        d.kind.as_str(),
+                        d.name,
+                        d.message
+                    )
+                })
+                .collect();
+            for msg in &messages {
+                tracing::error!("[registry] error-severity diagnostic aborting turn: {msg}");
+            }
+            tracing::error!(
+                error_count = messages.len(),
+                warning_count = warnings.len(),
+                "[registry] aborting turn before model dispatch: capability registry validation failed"
+            );
+            return Err(anyhow::Error::new(
+                crate::openhuman::agent::error::AgentError::RegistryValidationFailed {
+                    diagnostics: messages,
+                },
+            ));
+        }
+        tracing::debug!(
+            warning_count = warnings.len(),
+            "[registry] registry diagnostics present (warnings only); proceeding with turn"
+        );
+    }
 
     let config = RunConfig::new("agent_turn")
         .with_max_model_calls(max_iterations)

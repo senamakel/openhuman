@@ -397,8 +397,7 @@ fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
 
 /// `before_model`: flag volatile tokens (UUIDs, timestamps, JWTs, …) in the
 /// system prompt that silently break the provider KV-cache prefix. Warn-only —
-/// never mutates the request. The graph analogue of the former
-/// `ContextManager::warn_if_cache_unstable`.
+/// never mutates the request. Replaces the deleted context cache-align reducer.
 struct CacheAlignMiddleware;
 
 /// One detected volatile token in the cache-hot system prompt.

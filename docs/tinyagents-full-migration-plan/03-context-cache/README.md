@@ -5,6 +5,12 @@ Live context reduction already runs on `ContextCompressionMiddleware` +
 cache-align live as TinyAgents middlewares. This workstream deletes the superseded
 originals and adopts the crate cache layer.
 
+Current status (2026-07-02): the legacy reducers are gone. `context/` is 1255
+lines across prompt assembly (`prompt.rs`, `channels_prompt.rs`),
+session-memory bookkeeping (`session_memory.rs`), and stats/config state
+(`manager.rs`, `stats.rs`). Those files remain product-owned; cache correctness
+work now targets TinyAgents middleware and crate cache events.
+
 Target SDK surface: `ResponseCache`/`InMemoryResponseCache` + `cache_key`,
 `CachePolicy { response_cache_enabled, protect_prompt_prefix }`,
 `PromptCacheLayout` + `PromptCacheGuardMiddleware` + `CacheLayoutEvent`,

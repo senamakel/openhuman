@@ -47,6 +47,9 @@ use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::store::StoreRegistry;
 use tinyagents::harness::summarization::TrimStrategy;
+use tinyagents::registry::{
+    CapabilityRegistry, ComponentKind, RegistryDiagnostic, RegistrySnapshot,
+};
 
 use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::harness::tool_result_artifacts::{
@@ -59,12 +62,12 @@ use model::ThinkingForwarder;
 pub(crate) use checkpoint::SqlRunLedgerCheckpointer;
 pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 use model::ProviderModel;
-use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
 pub(crate) use observability::SubagentScope;
-pub(crate) use topology::all_graph_topologies;
-use tools::{EarlyExitHook, SharedToolAdapter};
+use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
 #[cfg(test)]
 use tools::ToolAdapter;
+use tools::{EarlyExitHook, SharedToolAdapter};
+pub(crate) use topology::all_graph_topologies;
 
 use std::collections::HashSet;
 use std::sync::Arc as StdArc;
@@ -362,6 +365,8 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         handle,
         early_exit_hook,
         tool_count,
+        registry_snapshot: _,
+        registry_diagnostics: _,
         tool_result_artifact_index,
     } = assemble_turn_harness(
         provider,
@@ -628,6 +633,12 @@ struct AssembledTurnHarness {
     early_exit_hook: Option<EarlyExitHook>,
     /// Number of callable tools registered.
     tool_count: usize,
+    /// TinyAgents named-capability projection for this turn. The live run still
+    /// uses the harness registries above; this snapshot makes the projected
+    /// model/tool/graph inventory inspectable without changing dispatch.
+    registry_snapshot: RegistrySnapshot,
+    /// Health diagnostics from the projected registry.
+    registry_diagnostics: Vec<RegistryDiagnostic>,
     /// TinyAgents store index for OpenHuman action-dir tool-result artifacts.
     tool_result_artifact_index: Option<Arc<ToolResultArtifactIndexStore>>,
 }
@@ -655,6 +666,7 @@ fn assemble_turn_harness(
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness.with_policy(run_policy_for(max_iterations));
+    let mut capability_registry: CapabilityRegistry<()> = CapabilityRegistry::new();
 
     let cursor: IterationCursor = Arc::default();
     // Keep a provider handle for the context-window summarizer (the run consumes
@@ -683,8 +695,10 @@ fn assemble_turn_harness(
     // Recover the original (downcastable) provider error if the run fails — the
     // harness only carries a stringified copy.
     let error_slot = provider_model.error_slot();
+    let provider_model = Arc::new(provider_model);
+    capability_registry.replace_model(model, provider_model.clone());
     harness
-        .register_model(model, Arc::new(provider_model))
+        .register_model(model, provider_model)
         .set_default_model(model);
 
     // Capture context settings before `install` consumes `context_mw`.
@@ -776,11 +790,18 @@ fn assemble_turn_harness(
                     }
                 }
                 registered.insert(name.to_string());
-                harness.register_tool(Arc::new(adapter));
+                let adapter = Arc::new(adapter);
+                capability_registry.replace_tool(adapter.clone());
+                harness.register_tool(adapter);
             }
         }
     }
     let tool_count = registered.len();
+    for report in all_graph_topologies() {
+        let _ = capability_registry.register_descriptor(ComponentKind::Graph, report.name);
+    }
+    let registry_diagnostics = capability_registry.diagnostics();
+    let registry_snapshot = capability_registry.snapshot();
     if !visibility_excluded.is_empty() {
         harness.push_middleware(Arc::new(
             middleware::OpenHumanToolVisibilityMiddleware::new(visibility_excluded, tool_count),
@@ -905,6 +926,8 @@ fn assemble_turn_harness(
         handle,
         early_exit_hook,
         tool_count,
+        registry_snapshot,
+        registry_diagnostics,
         tool_result_artifact_index,
     }
 }

@@ -2,8 +2,8 @@
 //! [`Provider`] and [`Tool`] driven through [`run_turn_via_tinyagents`].
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 
@@ -449,6 +449,32 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     let tools = assembled.harness.tools().names();
     assert!(tools.contains(&"echo".to_string()), "saw {tools:?}");
     assert_eq!(assembled.tool_count, 1);
+    assert!(
+        assembled.registry_diagnostics.is_empty(),
+        "turn capability projection should be healthy: {:?}",
+        assembled.registry_diagnostics
+    );
+    assert_eq!(
+        assembled
+            .registry_snapshot
+            .count(tinyagents::registry::ComponentKind::Model),
+        1,
+        "projected registry should include the turn model"
+    );
+    assert_eq!(
+        assembled
+            .registry_snapshot
+            .count(tinyagents::registry::ComponentKind::Tool),
+        1,
+        "projected registry should include callable tools"
+    );
+    assert!(
+        assembled
+            .registry_snapshot
+            .count(tinyagents::registry::ComponentKind::Graph)
+            >= 1,
+        "projected registry should include known graph descriptors"
+    );
     let policies = assembled.harness.tools().policies();
     assert!(
         policies.get("echo").is_some_and(|policy| policy.classified),

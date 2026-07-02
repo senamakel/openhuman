@@ -13,14 +13,19 @@ task-local `current_action_dir_override()` to execute inside the isolated
 checkout. The module is now hidden behind crate-internal harness re-exports.
 Its task-local carrier and accessor helpers are no longer public beyond the
 crate.
+`agent_orchestration::worktree::GitWorktreeIsolation` now implements the
+TinyAgents `WorkspaceIsolation` trait over OpenHuman's existing git-worktree
+create/remove policy and returns `WorkspaceDescriptor` roots for isolated
+workers. The adapter is not yet threaded into live tool execution.
 Delete it only after those tools resolve roots from a crate `WorkspaceDescriptor`
 carried on `ToolExecutionContext`.
 
 ## Steps
 
-1. Implement `WorkspaceIsolation` over
+1. Partially done: implement `WorkspaceIsolation` over
    `agent_orchestration/worktree.rs` (git-worktree create/cleanup, dirty-
-   worktree safeguards stay OpenHuman policy).
+   worktree safeguards stay OpenHuman policy). The adapter now exists; live
+   callers still need to use `prepare_workspace`/`cleanup_workspace`.
 2. Thread `WorkspaceDescriptor` into tool execution: TinyAgents owns the
    descriptor carrier, while acting tools resolve their allowed root from
    `ToolExecutionContext.workspace` instead of task-local

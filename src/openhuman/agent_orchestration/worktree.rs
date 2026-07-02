@@ -26,6 +26,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde::{Deserialize, Serialize};
+use tinyagents::harness::tool::SandboxMode;
+use tinyagents::harness::workspace::{WorkspaceDescriptor, WorkspaceIsolation};
 
 /// Directory (relative to the repo root) under which isolated worker
 /// worktrees are created — mirrors Claude Code's `.claude/worktrees/`
@@ -76,6 +78,98 @@ pub struct WorktreeStatus {
     pub is_dirty: bool,
     /// Paths (relative to the worktree root) that differ from HEAD.
     pub changed_files: Vec<PathBuf>,
+}
+
+/// TinyAgents [`WorkspaceIsolation`] adapter backed by OpenHuman's git-worktree
+/// policy.
+#[derive(Debug, Clone)]
+pub struct GitWorktreeIsolation {
+    repo_root: PathBuf,
+    base_ref: BaseRef,
+    sandbox: SandboxMode,
+    trusted_roots: Vec<PathBuf>,
+}
+
+impl GitWorktreeIsolation {
+    /// Create an isolation provider rooted at the user's project repo.
+    pub fn new(repo_root: impl Into<PathBuf>) -> Self {
+        Self {
+            repo_root: repo_root.into(),
+            base_ref: BaseRef::Head,
+            sandbox: SandboxMode::Inherit,
+            trusted_roots: Vec::new(),
+        }
+    }
+
+    /// Select which ref newly prepared worktrees branch from.
+    pub fn with_base_ref(mut self, base_ref: BaseRef) -> Self {
+        self.base_ref = base_ref;
+        self
+    }
+
+    /// Advertise the sandbox expectation on prepared descriptors.
+    pub fn with_sandbox(mut self, sandbox: SandboxMode) -> Self {
+        self.sandbox = sandbox;
+        self
+    }
+
+    /// Add an extra root tools may touch alongside the isolated checkout.
+    pub fn with_trusted_root(mut self, root: impl Into<PathBuf>) -> Self {
+        self.trusted_roots.push(root.into());
+        self
+    }
+}
+
+#[async_trait::async_trait]
+impl WorkspaceIsolation for GitWorktreeIsolation {
+    async fn prepare(
+        &self,
+        run_id: &str,
+        agent: Option<&str>,
+    ) -> tinyagents::Result<WorkspaceDescriptor> {
+        tracing::debug!(
+            repo = %self.repo_root.display(),
+            run_id,
+            agent = agent.unwrap_or(""),
+            base_ref = self.base_ref.as_str(),
+            "[worktree] workspace_prepare_start"
+        );
+        let status = create(&self.repo_root, run_id, self.base_ref)
+            .map_err(|err| tinyagents::TinyAgentsError::Tool(err.to_string()))?;
+        let policy_id = match agent {
+            Some(agent) if !agent.is_empty() => format!("openhuman.worktree:{agent}:{run_id}"),
+            _ => format!("openhuman.worktree:{run_id}"),
+        };
+        let mut descriptor = WorkspaceDescriptor::new(status.path.clone())
+            .with_policy_id(policy_id)
+            .with_sandbox(self.sandbox);
+        for root in &self.trusted_roots {
+            descriptor = descriptor.with_trusted_root(root.clone());
+        }
+        tracing::debug!(
+            root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[worktree] workspace_prepare_done"
+        );
+        Ok(descriptor)
+    }
+
+    async fn cleanup(&self, descriptor: &WorkspaceDescriptor) -> tinyagents::Result<()> {
+        tracing::debug!(
+            repo = %self.repo_root.display(),
+            root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[worktree] workspace_cleanup_start"
+        );
+        remove(&self.repo_root, &descriptor.root, false)
+            .map_err(|err| tinyagents::TinyAgentsError::Tool(err.to_string()))?;
+        tracing::debug!(
+            root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[worktree] workspace_cleanup_done"
+        );
+        Ok(())
+    }
 }
 
 /// Errors surfaced by the worktree manager. Stringified at the RPC / tool

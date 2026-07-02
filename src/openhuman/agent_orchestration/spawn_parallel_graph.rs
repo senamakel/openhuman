@@ -6,6 +6,7 @@
 //! topology surface from `docs/tinyagents-full-migration-plan/08-orchestration/
 //! 02-spawn-parallel-graph.md`.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -242,6 +243,25 @@ pub(crate) fn prepare_spawn_parallel_tasks(
     registry: &AgentDefinitionRegistry,
     parent: &ParentExecutionContext,
 ) -> Vec<SpawnParallelTaskPreflight> {
+    let definitions = snapshot_agent_definitions(registry);
+    prepare_spawn_parallel_tasks_from_defs(tasks, &definitions, parent)
+}
+
+fn snapshot_agent_definitions(
+    registry: &AgentDefinitionRegistry,
+) -> HashMap<String, AgentDefinition> {
+    registry
+        .list()
+        .into_iter()
+        .map(|definition| (definition.id.clone(), definition.clone()))
+        .collect()
+}
+
+fn prepare_spawn_parallel_tasks_from_defs(
+    tasks: Vec<ParallelAgentTask>,
+    definitions: &HashMap<String, AgentDefinition>,
+    parent: &ParentExecutionContext,
+) -> Vec<SpawnParallelTaskPreflight> {
     tasks
         .into_iter()
         .map(|task| {
@@ -259,7 +279,7 @@ pub(crate) fn prepare_spawn_parallel_tasks(
                 });
             }
 
-            let Some(definition) = registry.get(&agent_id).cloned() else {
+            let Some(definition) = definitions.get(&agent_id).cloned() else {
                 return SpawnParallelTaskPreflight::Rejected(ParallelTaskRejection {
                     task_id,
                     agent_id: agent_id.clone(),
@@ -367,10 +387,30 @@ pub(crate) async fn stage_spawn_parallel_workers(
     parent: &ParentExecutionContext,
     action_root: Option<&Path>,
 ) -> (Vec<SpawnParallelWorker>, Vec<ParallelAgentResult>) {
+    let definitions = snapshot_agent_definitions(registry);
+    stage_spawn_parallel_workers_from_defs(
+        parent_session,
+        progress_sink,
+        tasks,
+        &definitions,
+        parent,
+        action_root,
+    )
+    .await
+}
+
+async fn stage_spawn_parallel_workers_from_defs(
+    parent_session: &str,
+    progress_sink: Option<&Sender<AgentProgress>>,
+    tasks: Vec<ParallelAgentTask>,
+    definitions: &HashMap<String, AgentDefinition>,
+    parent: &ParentExecutionContext,
+    action_root: Option<&Path>,
+) -> (Vec<SpawnParallelWorker>, Vec<ParallelAgentResult>) {
     let mut immediate_results = Vec::new();
     let mut prepared = Vec::new();
 
-    for preflight in prepare_spawn_parallel_tasks(tasks, registry, parent) {
+    for preflight in prepare_spawn_parallel_tasks_from_defs(tasks, definitions, parent) {
         let (definition, prompt, task, task_id) = match preflight {
             SpawnParallelTaskPreflight::Rejected(rejection) => {
                 match rejection.kind {
@@ -484,21 +524,13 @@ pub(crate) async fn run_spawn_parallel_graph(
     parent: &ParentExecutionContext,
 ) -> Result<SpawnParallelCollected, String> {
     let action_root = resolve_spawn_parallel_action_root().await;
-    let (prepared, immediate_results) = stage_spawn_parallel_workers(
-        parent_session,
-        progress_sink,
-        tasks,
-        registry,
-        parent,
-        action_root.as_deref(),
-    )
-    .await;
-
+    let definitions = snapshot_agent_definitions(registry);
     let collected = run_spawn_parallel_execution_graph(
         parent_session,
         progress_sink.cloned(),
-        prepared,
-        immediate_results,
+        tasks,
+        definitions,
+        parent.clone(),
         action_root,
     )
     .await?;
@@ -960,6 +992,7 @@ pub(crate) const SPAWN_PARALLEL_PHASES: &[&str] =
 #[derive(Clone, Default)]
 pub(crate) struct SpawnParallelState {
     visited: Vec<&'static str>,
+    tasks: Vec<ParallelAgentTask>,
     prepared: Vec<SpawnParallelWorker>,
     immediate_results: Vec<ParallelAgentResult>,
     fanned_results: Vec<ParallelAgentResult>,
@@ -969,14 +1002,9 @@ pub(crate) struct SpawnParallelState {
 }
 
 impl SpawnParallelState {
-    fn for_execution(
-        prepared: Vec<SpawnParallelWorker>,
-        immediate_results: Vec<ParallelAgentResult>,
-        action_root: Option<PathBuf>,
-    ) -> Self {
+    fn for_execution(tasks: Vec<ParallelAgentTask>, action_root: Option<PathBuf>) -> Self {
         Self {
-            prepared,
-            immediate_results,
+            tasks,
             action_root,
             ..Self::default()
         }
@@ -985,6 +1013,10 @@ impl SpawnParallelState {
 
 pub(crate) enum SpawnParallelUpdate {
     PhaseEntered(&'static str),
+    Staged {
+        prepared: Vec<SpawnParallelWorker>,
+        immediate_results: Vec<ParallelAgentResult>,
+    },
     Fanned(Vec<ParallelAgentResult>),
     Results(Vec<ParallelAgentResult>),
     Collected(SpawnParallelCollected),
@@ -1015,6 +1047,13 @@ pub(crate) fn build_spawn_parallel_graph(
             |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
                 match update {
                     SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                    SpawnParallelUpdate::Staged {
+                        prepared,
+                        immediate_results,
+                    } => {
+                        state.prepared = prepared;
+                        state.immediate_results = immediate_results;
+                    }
                     SpawnParallelUpdate::Fanned(results) => state.fanned_results = results,
                     SpawnParallelUpdate::Results(results) => state.results = results,
                     SpawnParallelUpdate::Collected(collected) => state.collected = Some(collected),
@@ -1045,12 +1084,17 @@ pub(crate) fn build_spawn_parallel_graph(
 async fn run_spawn_parallel_execution_graph(
     parent_session: &str,
     progress_sink: Option<Sender<AgentProgress>>,
-    prepared: Vec<SpawnParallelWorker>,
-    immediate_results: Vec<ParallelAgentResult>,
+    tasks: Vec<ParallelAgentTask>,
+    definitions: HashMap<String, AgentDefinition>,
+    parent: ParentExecutionContext,
     action_root: Option<PathBuf>,
 ) -> Result<SpawnParallelCollected, String> {
     let phases = SPAWN_PARALLEL_PHASES;
     let label = format!("spawn_parallel_agents:{parent_session}");
+    let parent_for_dispatch_session = parent_session.to_string();
+    let progress_for_dispatch = progress_sink.clone();
+    let definitions_for_dispatch = definitions.clone();
+    let parent_for_dispatch = parent.clone();
     let parent_for_collect = parent_session.to_string();
     let progress_for_collect = progress_sink.clone();
     let parent_for_finalize = parent_session.to_string();
@@ -1059,6 +1103,13 @@ async fn run_spawn_parallel_execution_graph(
             |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
                 match update {
                     SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                    SpawnParallelUpdate::Staged {
+                        prepared,
+                        immediate_results,
+                    } => {
+                        state.prepared = prepared;
+                        state.immediate_results = immediate_results;
+                    }
                     SpawnParallelUpdate::Fanned(results) => state.fanned_results = results,
                     SpawnParallelUpdate::Results(results) => state.results = results,
                     SpawnParallelUpdate::Collected(collected) => state.collected = Some(collected),
@@ -1067,7 +1118,30 @@ async fn run_spawn_parallel_execution_graph(
             },
         ))
         .add_node(phases[0], phase_node(phases[0]))
-        .add_node(phases[1], phase_node(phases[1]))
+        .add_node(
+            phases[1],
+            move |state: SpawnParallelState, _ctx: NodeContext| {
+                let parent_session = parent_for_dispatch_session.clone();
+                let progress_sink = progress_for_dispatch.clone();
+                let definitions = definitions_for_dispatch.clone();
+                let parent = parent_for_dispatch.clone();
+                async move {
+                    let (prepared, immediate_results) = stage_spawn_parallel_workers_from_defs(
+                        &parent_session,
+                        progress_sink.as_ref(),
+                        state.tasks,
+                        &definitions,
+                        &parent,
+                        state.action_root.as_deref(),
+                    )
+                    .await;
+                    Ok(NodeResult::Update(SpawnParallelUpdate::Staged {
+                        prepared,
+                        immediate_results,
+                    }))
+                }
+            },
+        )
         .add_node(
             phases[2],
             |state: SpawnParallelState, _ctx: NodeContext| async move {
@@ -1126,11 +1200,7 @@ async fn run_spawn_parallel_execution_graph(
         "[spawn_parallel_agents] running graph fanout"
     );
     let execution = graph
-        .run(SpawnParallelState::for_execution(
-            prepared,
-            immediate_results,
-            action_root,
-        ))
+        .run(SpawnParallelState::for_execution(tasks, action_root))
         .await
         .map_err(|e| format!("spawn_parallel_agents graph run failed: {e}"))?;
 

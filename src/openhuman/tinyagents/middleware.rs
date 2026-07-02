@@ -27,6 +27,7 @@ use async_trait::async_trait;
 
 use tinyagents::error::Result as TaResult;
 use tinyagents::harness::context::RunContext;
+use tinyagents::harness::events::AgentEvent;
 use tinyagents::harness::message::{ContentBlock, Message as TaMessage};
 use tinyagents::harness::middleware::{
     Middleware, MiddlewareToolOutcome, ToolHandler, ToolMiddleware,
@@ -197,6 +198,10 @@ fn tool_policy_snapshot(tool_sets: &[Arc<Vec<Box<dyn Tool>>>]) -> HashMap<String
             .or_insert_with(|| super::tools::tool_policy_from_openhuman_tool(tool.as_ref()));
     }
     policies
+}
+
+fn estimate_output_tokens(bytes: usize) -> u64 {
+    bytes.div_ceil(4) as u64
 }
 
 /// `after_tool`: progressive-disclosure handoff (issue #4249 1b). An oversized
@@ -486,6 +491,10 @@ impl Middleware<()> for ToolOutputMiddleware {
                     to_bytes = payload.summary_bytes,
                     "[tinyagents::mw] payload_summarizer compressed tool output"
                 );
+                ctx.emit(AgentEvent::Compressed {
+                    from_tokens: estimate_output_tokens(payload.original_bytes),
+                    to_tokens: estimate_output_tokens(payload.summary_bytes),
+                });
                 result.content = payload.summary;
             }
         }
@@ -493,6 +502,7 @@ impl Middleware<()> for ToolOutputMiddleware {
         // 2. TokenJuice content-aware compaction. This mirrors the legacy
         //    `agent_tool_exec` stage that ran after semantic summarization and
         //    before the hard output caps.
+        let before_tokenjuice_bytes = result.content.len();
         let compacted = crate::openhuman::tokenjuice::compact_output_with_policy(
             std::mem::take(&mut result.content),
             &result.name,
@@ -501,6 +511,13 @@ impl Middleware<()> for ToolOutputMiddleware {
         )
         .await;
         result.content = compacted;
+        let after_tokenjuice_bytes = result.content.len();
+        if after_tokenjuice_bytes < before_tokenjuice_bytes {
+            ctx.emit(AgentEvent::Compressed {
+                from_tokens: estimate_output_tokens(before_tokenjuice_bytes),
+                to_tokens: estimate_output_tokens(after_tokenjuice_bytes),
+            });
+        }
 
         // 3. Per-tool **char** cap — a tool that declares `max_result_size_chars`
         //    caps its own output in characters, with the tool-cap marker the model

@@ -13,11 +13,11 @@ use tinyagents::graph::{
 use crate::openhuman::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry};
 use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::harness::subagent_runner::{SubagentRunOptions, run_subagent};
-use crate::openhuman::agent_orchestration::worktree::BaseRef;
+use crate::openhuman::agent_orchestration::worktree::{self, BaseRef};
 use crate::openhuman::file_state;
 use serde::Serialize;
 use serde_json::json;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// One requested worker in a `spawn_parallel_agents` call.
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -119,6 +119,77 @@ pub(crate) fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWor
         }
     } else {
         ParallelWorktreeRequest::SharedWorkspace
+    }
+}
+
+pub(crate) fn create_spawn_parallel_worktree(
+    parent_session: &str,
+    action_root: Option<&Path>,
+    task_id: &str,
+    agent_id: &str,
+    task: &ParallelAgentTask,
+) -> Result<Option<PathBuf>, ParallelAgentResult> {
+    match worktree_request_for_task(task) {
+        ParallelWorktreeRequest::SharedWorkspace => Ok(None),
+        ParallelWorktreeRequest::Isolated { base_ref } => match action_root {
+            Some(repo_root) => match worktree::create(repo_root, task_id, base_ref) {
+                Ok(status) => {
+                    tracing::debug!(
+                        parent_session = %parent_session,
+                        task_id = %task_id,
+                        worktree = %status.path.display(),
+                        base_ref = base_ref.as_str(),
+                        "[spawn_parallel_agents] created isolated worktree"
+                    );
+                    Ok(Some(status.path))
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        parent_session = %parent_session,
+                        task_id = %task_id,
+                        error = %err,
+                        "[spawn_parallel_agents] worktree_create_failed"
+                    );
+                    Err(ParallelAgentResult {
+                        task_id: task_id.to_string(),
+                        agent_id: agent_id.to_string(),
+                        success: false,
+                        output: None,
+                        error: Some(format!("worktree isolation failed: {err}")),
+                        ownership: task.ownership.clone(),
+                        elapsed_ms: 0,
+                        iterations: 0,
+                        stale_parent_reads: Vec::new(),
+                        worktree_path: None,
+                        changed_files: Vec::new(),
+                        dirty_status: None,
+                    })
+                }
+            },
+            None => {
+                tracing::warn!(
+                    parent_session = %parent_session,
+                    task_id = %task_id,
+                    "[spawn_parallel_agents] worktree_requested_but_no_action_dir"
+                );
+                Err(ParallelAgentResult {
+                    task_id: task_id.to_string(),
+                    agent_id: agent_id.to_string(),
+                    success: false,
+                    output: None,
+                    error: Some(
+                        "worktree isolation requested but action_dir is unavailable".to_string(),
+                    ),
+                    ownership: task.ownership.clone(),
+                    elapsed_ms: 0,
+                    iterations: 0,
+                    stale_parent_reads: Vec::new(),
+                    worktree_path: None,
+                    changed_files: Vec::new(),
+                    dirty_status: None,
+                })
+            }
+        },
     }
 }
 

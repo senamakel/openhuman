@@ -9,10 +9,10 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTa
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_boundary;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
-    ParallelAgentResult, ParallelTaskRejectionKind, ParallelWorktreeRequest,
-    SpawnParallelTaskPreflight, SpawnParallelWorker, collect_spawn_parallel_results,
+    ParallelAgentResult, ParallelTaskRejectionKind, SpawnParallelTaskPreflight,
+    SpawnParallelWorker, collect_spawn_parallel_results, create_spawn_parallel_worktree,
     format_spawn_parallel_success, prepare_spawn_parallel_tasks, run_spawn_parallel_workers,
-    validate_spawn_parallel_tasks, worktree_request_for_task,
+    validate_spawn_parallel_tasks,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -272,73 +272,18 @@ impl Tool for SpawnParallelAgentsTool {
             // surface an immediate error result rather than silently falling
             // back to the shared workspace (which is the exact collision this
             // feature prevents).
-            let worktree_path = match worktree_request_for_task(&task) {
-                ParallelWorktreeRequest::Isolated { base_ref } => {
-                    use crate::openhuman::agent_orchestration::worktree;
-                    match action_root.as_ref() {
-                        Some(repo_root) => match worktree::create(repo_root, &task_id, base_ref) {
-                            Ok(status) => {
-                                tracing::debug!(
-                                    parent_session = %parent_session,
-                                    task_id = %task_id,
-                                    worktree = %status.path.display(),
-                                    base_ref = base_ref.as_str(),
-                                    "[spawn_parallel_agents] created isolated worktree"
-                                );
-                                Some(status.path)
-                            }
-                            Err(err) => {
-                                tracing::warn!(
-                                    parent_session = %parent_session,
-                                    task_id = %task_id,
-                                    error = %err,
-                                    "[spawn_parallel_agents] worktree_create_failed"
-                                );
-                                immediate_results.push(ParallelAgentResult {
-                                    task_id,
-                                    agent_id: definition.id.clone(),
-                                    success: false,
-                                    output: None,
-                                    error: Some(format!("worktree isolation failed: {err}")),
-                                    ownership: task.ownership,
-                                    elapsed_ms: 0,
-                                    iterations: 0,
-                                    stale_parent_reads: Vec::new(),
-                                    worktree_path: None,
-                                    changed_files: Vec::new(),
-                                    dirty_status: None,
-                                });
-                                continue;
-                            }
-                        },
-                        None => {
-                            tracing::warn!(
-                                parent_session = %parent_session,
-                                task_id = %task_id,
-                                "[spawn_parallel_agents] worktree_requested_but_no_action_dir"
-                            );
-                            immediate_results.push(ParallelAgentResult {
-                                task_id,
-                                agent_id: definition.id.clone(),
-                                success: false,
-                                output: None,
-                                error: Some(
-                                    "worktree isolation requested but action_dir is unavailable"
-                                        .to_string(),
-                                ),
-                                ownership: task.ownership,
-                                elapsed_ms: 0,
-                                iterations: 0,
-                                stale_parent_reads: Vec::new(),
-                                worktree_path: None,
-                                changed_files: Vec::new(),
-                                dirty_status: None,
-                            });
-                            continue;
-                        }
-                    }
+            let worktree_path = match create_spawn_parallel_worktree(
+                &parent_session,
+                action_root.as_deref(),
+                &task_id,
+                &definition.id,
+                &task,
+            ) {
+                Ok(path) => path,
+                Err(result) => {
+                    immediate_results.push(result);
+                    continue;
                 }
-                ParallelWorktreeRequest::SharedWorkspace => None,
             };
             prepared.push(SpawnParallelWorker {
                 definition,

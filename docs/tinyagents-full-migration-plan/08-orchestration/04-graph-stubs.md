@@ -10,11 +10,13 @@ loader supplies `AgentGraph::Default` when it is absent. All 32
 `agent_registry/agents/*/graph.rs` default stubs are gone, along with the five
 default-only non-registry graph modules (`tinyplace_agent`, skill setup,
 skill executor, agent memory, subconscious). A first bespoke production graph is
-still pending.
+still pending specifically as a per-agent `AgentGraph::Custom` runner; other
+production orchestration graph topologies (delegation/workflow/team/
+spawn-parallel) already exist.
 
 ## Steps
 
-1. Land the first bespoke graph — `orchestrator` (explicit plan/delegate/
+1. Land the first bespoke per-agent graph — `orchestrator` (explicit plan/delegate/
    parallelize routing) or `researcher` (search → read → synthesize → cite,
    bounded + checkpointed) — as `AgentGraph::Custom` over a compiled graph
    with topology export. tool_maker (generate → validate → expose with

@@ -18,10 +18,11 @@ lifecycle bookkeeping. Usage-rollup parity evidence is still pending.
    graph events) with `map_reduce`.
 2. Done: re-point callers: `spawn_parallel_agents`, workflow phase intra-phase
    fanout (`workflow_runs/engine.rs`), model_council fanout.
-3. Pending evidence: preserve the task-local usage-collector behavior; confirm `map_reduce`
-   executes workers on the same task (`join_all`-style) or thread the
-   06-cost lineage rollup instead — this is the one silent-regression risk
-   (memory: collectors propagate because fanout is join_all on one task).
+3. Pending evidence: preserve the task-local usage-collector behavior. SDK
+   source confirms `map_reduce` uses `buffer_unordered` with ordered reassembly
+   and no `tokio::spawn` task boundary, so the task-local collector should stay
+   visible; still add direct `spawn_parallel_agents` usage-rollup evidence or
+   thread the 06-cost lineage rollup instead.
 4. Done: choose `FailurePolicy` per caller (council = collect-all; workflow
    phase = fail-fast or per-phase config). Use the 1.3.0 options:
    `with_item_timeout`/`with_total_timeout`/`with_cancellation`

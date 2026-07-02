@@ -52,7 +52,10 @@ pub fn stream_name(session_key: &str) -> String {
 pub fn effective_thread_id(session_key: &str, meta_thread_id: Option<&str>) -> (String, bool) {
     match meta_thread_id {
         Some(t) if !t.is_empty() => (t.to_string(), false),
-        _ => (format!("imported-{}", sanitize_store_name(session_key)), true),
+        _ => (
+            format!("imported-{}", sanitize_store_name(session_key)),
+            true,
+        ),
     }
 }
 
@@ -103,7 +106,11 @@ pub fn build_descriptor(
 
 /// Project a transcript's messages into journal records.
 pub fn journal_messages(transcript: &SessionTranscript) -> Vec<JournalMessage> {
-    transcript.messages.iter().map(JournalMessage::from).collect()
+    transcript
+        .messages
+        .iter()
+        .map(JournalMessage::from)
+        .collect()
 }
 
 #[cfg(test)]
@@ -150,6 +157,9 @@ mod tests {
 
     #[test]
     fn stream_name_is_store_safe() {
-        assert_eq!(stream_name("1719_a__1720_b"), "session.1719_a__1720_b.messages");
+        assert_eq!(
+            stream_name("1719_a__1720_b"),
+            "session.1719_a__1720_b.messages"
+        );
     }
 }

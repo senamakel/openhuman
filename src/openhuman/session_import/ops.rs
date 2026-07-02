@@ -75,10 +75,9 @@ pub async fn run_import(workspace: &Path, opts: &ImportOptions) -> Result<Import
     }
 
     let only_pattern = match opts.only.as_deref() {
-        Some(raw) => Some(
-            glob::Pattern::new(raw)
-                .with_context(|| format!("invalid --only glob: {raw:?}"))?,
-        ),
+        Some(raw) => {
+            Some(glob::Pattern::new(raw).with_context(|| format!("invalid --only glob: {raw:?}"))?)
+        }
         None => None,
     };
 
@@ -94,11 +93,7 @@ pub async fn run_import(workspace: &Path, opts: &ImportOptions) -> Result<Import
 
     let sources: Vec<SourceItem> = sources
         .into_iter()
-        .filter(|s| {
-            only_pattern
-                .as_ref()
-                .is_none_or(|p| p.matches(&s.stem))
-        })
+        .filter(|s| only_pattern.as_ref().is_none_or(|p| p.matches(&s.stem)))
         .collect();
     summary.scanned = sources.len();
     log::info!("[session-import] scanned {} source(s)", summary.scanned);
@@ -240,7 +235,9 @@ async fn process_item(
         return report;
     }
     let Some(transcript) = parsed.get(&item.stem) else {
-        report.warnings.push("internal: parsed transcript missing".into());
+        report
+            .warnings
+            .push("internal: parsed transcript missing".into());
         return report;
     };
 
@@ -352,12 +349,16 @@ async fn process_item(
     let descriptor_value = match serde_json::to_value(&descriptor) {
         Ok(v) => v,
         Err(err) => {
-            report.warnings.push(format!("descriptor not serializable: {err}"));
+            report
+                .warnings
+                .push(format!("descriptor not serializable: {err}"));
             return report;
         }
     };
     if let Err(err) = kv.put(NS_SESSIONS, &descriptor_key, descriptor_value).await {
-        report.warnings.push(format!("descriptor write failed: {err}"));
+        report
+            .warnings
+            .push(format!("descriptor write failed: {err}"));
         return report;
     }
 
@@ -374,12 +375,16 @@ async fn process_item(
     match serde_json::to_value(&ledger) {
         Ok(v) => {
             if let Err(err) = kv.put(NS_MIGRATION_ITEMS, &item_key, v).await {
-                report.warnings.push(format!("item ledger write failed: {err}"));
+                report
+                    .warnings
+                    .push(format!("item ledger write failed: {err}"));
                 return report;
             }
         }
         Err(err) => {
-            report.warnings.push(format!("item ledger not serializable: {err}"));
+            report
+                .warnings
+                .push(format!("item ledger not serializable: {err}"));
             return report;
         }
     }
@@ -430,12 +435,11 @@ fn read_run_ledger_links(workspace: &Path, warnings: &mut Vec<String>) -> RunLed
     };
 
     let mut links = RunLedgerLinks::default();
-    let mut stmt = match conn
-        .prepare("SELECT id, parent_thread_id, worker_thread_id FROM agent_runs")
-    {
-        Ok(s) => s,
-        Err(_) => return RunLedgerLinks::default(), // table absent: nothing to link
-    };
+    let mut stmt =
+        match conn.prepare("SELECT id, parent_thread_id, worker_thread_id FROM agent_runs") {
+            Ok(s) => s,
+            Err(_) => return RunLedgerLinks::default(), // table absent: nothing to link
+        };
     let rows = stmt.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,
@@ -446,7 +450,9 @@ fn read_run_ledger_links(workspace: &Path, warnings: &mut Vec<String>) -> RunLed
     let rows = match rows {
         Ok(r) => r,
         Err(err) => {
-            warnings.push(format!("run ledger query failed ({err}); skipping run links"));
+            warnings.push(format!(
+                "run ledger query failed ({err}); skipping run links"
+            ));
             return RunLedgerLinks::default();
         }
     };

@@ -33,12 +33,22 @@ pub fn discover_sources(workspace: &Path) -> (Vec<SourceItem>, Vec<String>) {
 
     // 1. Flat JSONL (current layout).
     for path in list_files(&raw_dir, "jsonl", &mut warnings) {
-        insert_stem(&mut by_stem, workspace, path, SourceKind::Jsonl, &mut warnings);
+        insert_stem(
+            &mut by_stem,
+            workspace,
+            path,
+            SourceKind::Jsonl,
+            &mut warnings,
+        );
     }
 
     // 2. Legacy date-folder JSONL.
     for sub in list_dirs(&raw_dir, &mut warnings) {
-        let name = sub.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let name = sub
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         if !is_ddmmyyyy(&name) {
             continue;
         }
@@ -58,7 +68,9 @@ pub fn discover_sources(workspace: &Path) -> (Vec<SourceItem>, Vec<String>) {
     let sessions_dir = workspace.join("sessions");
     for sub in list_dirs(&sessions_dir, &mut warnings) {
         for path in list_files(&sub, "md", &mut warnings) {
-            let Some(stem) = file_stem(&path) else { continue };
+            let Some(stem) = file_stem(&path) else {
+                continue;
+            };
             let relative = relative_to(workspace, &path);
             match by_stem.get_mut(&stem) {
                 Some(item) => {
@@ -147,7 +159,8 @@ fn list_entries(dir: &Path, warnings: &mut Vec<String>) -> Vec<PathBuf> {
     }
     match std::fs::read_dir(dir) {
         Ok(entries) => {
-            let mut paths: Vec<PathBuf> = entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
+            let mut paths: Vec<PathBuf> =
+                entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
             paths.sort();
             paths
         }

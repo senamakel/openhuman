@@ -284,12 +284,9 @@ impl SubagentPayloadSummarizer {
 
         let mut harness: AgentHarness<()> = AgentHarness::new();
         harness.with_policy(policy);
-        let provider_model = super::model::ProviderModel::new(
-            provider,
-            model.clone(),
-            self.definition.temperature,
-        )
-        .with_max_tokens(max_output_tokens);
+        let provider_model =
+            super::model::ProviderModel::new(provider, model.clone(), self.definition.temperature)
+                .with_max_tokens(max_output_tokens);
         harness
             .register_model(&model, Arc::new(provider_model))
             .set_default_model(&model);

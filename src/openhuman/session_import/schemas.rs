@@ -51,7 +51,8 @@ pub fn session_import_schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "only",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Glob over session stems to import a subset (skips the global marker).",
+                    comment:
+                        "Glob over session stems to import a subset (skips the global marker).",
                     required: false,
                 },
                 optional_bool("force", "Re-import even when markers say the work is done."),
@@ -87,8 +88,8 @@ pub fn session_import_schemas(function: &str) -> ControllerSchema {
 
 fn handle_session_import_run(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let payload: SessionImportRunParams =
-            serde_json::from_value(Value::Object(params)).map_err(|e| format!("invalid params: {e}"))?;
+        let payload: SessionImportRunParams = serde_json::from_value(Value::Object(params))
+            .map_err(|e| format!("invalid params: {e}"))?;
 
         let workspace = match payload.workspace {
             Some(dir) => std::path::PathBuf::from(dir),

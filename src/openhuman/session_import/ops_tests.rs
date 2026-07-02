@@ -103,7 +103,10 @@ async fn imports_flat_native_jsonl_with_parity() {
     let ws = ws();
     let stem = "1719000000_orchestrator";
     let source = flat_jsonl(ws.path(), stem);
-    write_file(&source, &(meta_line(Some("t-root"), "native") + native_body()));
+    write_file(
+        &source,
+        &(meta_line(Some("t-root"), "native") + native_body()),
+    );
 
     let summary = run(ws.path(), ImportOptions::default()).await;
     assert_eq!(summary.scanned, 1);
@@ -119,7 +122,10 @@ async fn imports_flat_native_jsonl_with_parity() {
     assert_eq!(desc.dispatcher, "native");
     assert_eq!(desc.usage.input, 100);
     assert_eq!(desc.usage.cost_usd, 0.05);
-    assert_eq!(desc.source.jsonl.as_deref(), Some("session_raw/1719000000_orchestrator.jsonl"));
+    assert_eq!(
+        desc.source.jsonl.as_deref(),
+        Some("session_raw/1719000000_orchestrator.jsonl")
+    );
 
     assert_parity_jsonl(ws.path(), stem, &source).await;
 
@@ -152,7 +158,10 @@ async fn imports_legacy_date_folder_jsonl() {
         .join("session_raw")
         .join("01062024")
         .join(format!("{stem}.jsonl"));
-    write_file(&source, &(meta_line(Some("t-legacy"), "native") + native_body()));
+    write_file(
+        &source,
+        &(meta_line(Some("t-legacy"), "native") + native_body()),
+    );
 
     let summary = run(ws.path(), ImportOptions::default()).await;
     assert_eq!(summary.imported, 1, "warnings: {:?}", summary.warnings);
@@ -220,11 +229,17 @@ async fn subagent_stem_chain_sets_parent_lineage() {
     assert_eq!(summary.imported, 3);
     assert_eq!(descriptor(ws.path(), root).await.parent_session_key, None);
     assert_eq!(
-        descriptor(ws.path(), child).await.parent_session_key.as_deref(),
+        descriptor(ws.path(), child)
+            .await
+            .parent_session_key
+            .as_deref(),
         Some("100_a")
     );
     assert_eq!(
-        descriptor(ws.path(), grandchild).await.parent_session_key.as_deref(),
+        descriptor(ws.path(), grandchild)
+            .await
+            .parent_session_key
+            .as_deref(),
         Some("100_a__200_b")
     );
 }
@@ -234,7 +249,8 @@ async fn subagent_stem_chain_sets_parent_lineage() {
 async fn xml_and_pformat_markup_preserved_verbatim() {
     let ws = ws();
     let xml_stem = "1716000000_xmlagent";
-    let xml_markup = "calling now <tool_call>{\"name\":\"shell\",\"arguments\":{\"cmd\":\"ls\"}}</tool_call>";
+    let xml_markup =
+        "calling now <tool_call>{\"name\":\"shell\",\"arguments\":{\"cmd\":\"ls\"}}</tool_call>";
     write_file(
         &flat_jsonl(ws.path(), xml_stem),
         &format!(

@@ -1115,15 +1115,6 @@ fn assemble_turn_harness(
                 .then(|| name.to_string())
         })
         .collect();
-    let visibility_excluded: Vec<String> = if allowed.is_empty() {
-        Vec::new()
-    } else {
-        candidate_names
-            .iter()
-            .filter(|name| !allowed.contains(*name))
-            .cloned()
-            .collect()
-    };
     let mut registered: HashSet<String> = HashSet::new();
     for name in candidate_names.iter().map(String::as_str) {
         if !registered.contains(name) && (allowed.is_empty() || allowed.contains(name)) {
@@ -1230,11 +1221,40 @@ fn assemble_turn_harness(
         diagnostics = registry_diagnostics.len(),
         "[registry] per-turn capability projection summary"
     );
-    if !visibility_excluded.is_empty() {
-        harness.push_middleware(Arc::new(
-            middleware::OpenHumanToolVisibilityMiddleware::new(visibility_excluded, tool_count),
-        ));
-    }
+    // SHADOW tool-exposure layer (issue #4249, 01.3 — dynamic exposure). Compose
+    // the OpenHuman exposure policy as a crate-native selection layer
+    // (ToolAllowlistMiddleware + a ContextualToolSelectionMiddleware built via
+    // `inheriting`) and run it in shadow: it emits the exposure decision
+    // event-native (`AgentEvent::ToolsFiltered`) and logs any divergence between
+    // the crate layer's decision and the set OpenHuman actually registered as
+    // callable — WITHOUT changing the callable set (byte-identical to today). The
+    // ownership flip + deletion of `tool_filter.rs`/`tool_prep.rs` is the gated
+    // follow-up once the `[tool-exposure]` divergence logs show parity. Tags encode
+    // the OpenHuman run context (agent id / channel / scope) for the flip; the
+    // name-based `inheriting` predicate does not consult them yet.
+    let exposure_tags: Vec<String> = {
+        let mut tags = vec![if subagent_scope.is_some() {
+            "scope:subagent".to_string()
+        } else {
+            "scope:root".to_string()
+        }];
+        if let Some(scope) = &subagent_scope {
+            tags.push(format!("agent:{}", scope.agent_id));
+            tags.push(format!("task:{}", scope.task_id));
+        }
+        if let Some(enforcement) = &tool_policy {
+            tags.push(format!("channel:{}", enforcement.channel));
+            tags.push(format!("agent_def:{}", enforcement.agent_definition_id));
+        }
+        tags
+    };
+    harness.push_middleware(Arc::new(
+        middleware::OpenHumanToolExposureShadowMiddleware::new(
+            &candidate_names,
+            &allowed,
+            exposure_tags,
+        ),
+    ));
 
     // Prompt-cache prefix protection (issue #4249, 03.2). First declare the turn's
     // stable prefix (system prompt + tool schemas) as `PromptSegment`s, then let

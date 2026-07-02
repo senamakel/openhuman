@@ -71,7 +71,9 @@ they land.
 ## Shrink (not full delete)
 
 - `session/agent_tool_exec.rs` 505 → session bookkeeping only — 01.3/01.4
-- `session/turn/tools.rs` 693 → assembly glue — 01.3
+- `session/turn/tools.rs` 692 → parent-context/assembly glue — 01.3
+  (dynamic delegation refresh and skill-event catalogue reconciliation remain
+  live until middleware owns contextual selection)
 - `subagent_runner/ops/*` → graph nodes — 07.1
 - `running_subagents.rs` 1024 → ≤~300 policy/executor glue — 07.2
 - `tools/spawn_parallel_agents.rs` 809 → thin wrapper — 08.2

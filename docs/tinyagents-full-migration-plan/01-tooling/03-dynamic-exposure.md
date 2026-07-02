@@ -3,7 +3,7 @@
 Replace scattered pre-filtering with crate selection middleware.
 
 Current OpenHuman surfaces: `agent/harness/tool_filter.rs` (mechanics),
-`tools/user_filter.rs`, sub-agent `tool_prep.rs`, per-turn assembly in
+`tools/user_filter.rs`, sub-agent `tool_prep.rs`, dynamic delegation refresh in
 `session/turn/tools.rs`, channel permission ceiling checks.
 
 Current status: the shared TinyAgents runner still registers only the
@@ -33,9 +33,10 @@ non-filter helpers have moved to narrower modules.
    exposure decisions are event-native via `AgentEvent::ToolsFiltered
    { by, excluded, remaining }` (1.3.0) — projected into the bridge as
    structured diagnostics today.
-3. Move the visible-set computation out of `session/turn/tools.rs` (693
-   lines) and `subagent_runner/tool_prep.rs` (350 lines) into the middleware;
-   the turn code only declares candidate tool sets.
+3. Move the visible-set computation, dynamic delegation refresh, and skill-event
+   catalogue reconciliation out of `session/turn/tools.rs` (692 lines) plus
+   `subagent_runner/tool_prep.rs` (350 lines) into the middleware; the turn code
+   only declares candidate tool sets and parent execution context.
 4. Keep product policy sources (registry definitions, security tier tables)
    in OpenHuman — the middleware consumes them.
 
@@ -43,7 +44,8 @@ non-filter helpers have moved to narrower modules.
 
 - `agent/harness/tool_filter.rs` mechanics (keep policy tables if any inline).
 - `subagent_runner/tool_prep.rs`.
-- Filtering blocks in `session/turn/tools.rs` (file shrinks to assembly glue).
+- Filtering/refresh blocks in `session/turn/tools.rs` (file shrinks to
+  parent-context and assembly glue).
 
 ## Acceptance
 

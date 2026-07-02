@@ -27,7 +27,7 @@ inventory has been refreshed against the published 1.3.0 crate source.
      `wacore::store::InMemoryBackend` and logs the non-durable session mode.
 3. **Unlocks:** crate `SqliteCheckpointer` → later deletion of
    `src/openhuman/tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`,
-   251 lines) once graphs are re-pointed and `graph_checkpoints` rows are
+   250 lines) once graphs are re-pointed and `graph_checkpoints` rows are
    migrated or expired (see `04-sessions/`).
 4. **Do NOT enable `openai` feature** — OpenHuman providers stay the product
    source of truth for credentials/billing (spec non-goal).

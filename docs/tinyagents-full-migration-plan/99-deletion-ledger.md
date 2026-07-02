@@ -48,7 +48,7 @@ they land.
 - [ ] `harness/worktree_context.rs` (74) — 08.5
       (live crate-internal action-root override for parallel worktrees)
 - [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) — 08.4
-- [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 251) — 04.3
+- [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 250) — 04.3
       (live crate-internal adapter until crate checkpointer/schema migration
       replaces `graph_checkpoints`)
 - [ ] crate-internal `CostBudgetMiddleware` (`tinyagents/middleware.rs`) +

@@ -18,7 +18,7 @@
 //! steering, sub-agent child-progress deltas (incl. thinking), and the
 //! `ask_user_clarification` early-exit pause are all re-wired onto 0.2.0.
 
-pub(crate) mod checkpoint;
+mod checkpoint;
 mod convert;
 pub(crate) mod delegation;
 pub mod middleware;

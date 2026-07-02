@@ -30,7 +30,7 @@ durable graph runs.
 ## Deletions
 
 - Later: `src/openhuman/tinyagents/checkpoint.rs`
-  (`SqlRunLedgerCheckpointer`, 251) + the `graph_checkpoints` table creation
+  (`SqlRunLedgerCheckpointer`, 250) + the `graph_checkpoints` table creation
   once migration/expiry ships. Retain it while delegation still points at the
   OpenHuman run-ledger schema.
 

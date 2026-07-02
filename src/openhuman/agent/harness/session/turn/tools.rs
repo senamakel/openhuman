@@ -1,10 +1,13 @@
 //! Tool execution and Composio delegation refresh.
 
+#[cfg(test)]
 use super::super::agent_tool_exec;
 use super::super::types::Agent;
 use super::newly_connected_slugs;
+#[cfg(test)]
 use crate::openhuman::agent::dispatcher::ParsedToolCall;
 use crate::openhuman::agent::harness;
+#[cfg(test)]
 use crate::openhuman::agent::hooks::ToolCallRecord;
 use crate::openhuman::agent::progress::AgentProgress;
 
@@ -24,6 +27,7 @@ impl Agent {
     /// 4. Dispatches to the underlying tool implementation.
     /// 5. Applies per-result byte budgets to prevent context window bloat.
     /// 6. Sanitizes and records the outcome for post-turn hooks.
+    #[cfg(test)]
     pub(in super::super) async fn execute_tool_call(
         &self,
         call: &ParsedToolCall,
@@ -66,6 +70,7 @@ impl Agent {
     /// Executes multiple tool calls in sequence.
     ///
     /// Collects results and execution records for all requested tools in a single batch.
+    #[cfg(test)]
     pub(in super::super) async fn execute_tools(
         &self,
         calls: &[ParsedToolCall],

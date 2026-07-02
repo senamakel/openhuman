@@ -12,18 +12,15 @@ spill for oversized session tool results. Payload summarization and TokenJuice
 shrinks now emit TinyAgents `AgentEvent::Compressed`, and persisted
 action-workspace artifacts are indexed in `RunContext.stores` under
 `openhuman_tool_result_artifacts` while the existing `.txt` file and `file_read`
-envelope remain the source of truth. Remaining work is to remove the legacy
-executor hooks once the old path is gone and move the summarizer child dispatch
-onto `SubAgent::invoke_in_parent`. The live TinyAgents middleware already calls
-the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`, and
-that implementation now dispatches the summarizer through
+envelope remain the source of truth. The live TinyAgents middleware already
+calls the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`,
+and that implementation dispatches the summarizer through
 `SubAgent::invoke_in_parent` so child lineage/events inherit the parent
 TinyAgents context. The older direct-executor payload-summarizer hook is
-removed. The stale default-Full `tokenjuice::compact_tool_output` wrapper is
-removed; TinyAgents and the legacy direct executor use the policy-aware
-TokenJuice entry point.
+removed, `session/agent_tool_exec.rs` is now a test-only parity shim, and the
+stale default-Full `tokenjuice::compact_tool_output` wrapper is removed.
 
-1. `payload_summarizer.rs` (moved to `src/openhuman/tinyagents/`; oversized-result
+1. `payload_summarizer.rs` (live in `src/openhuman/tinyagents/`; oversized-result
    compression via a `summarizer` sub-agent + circuit breaker):
    `ToolOutputMiddleware` now calls the parent-context-aware summarizer seam,
    and that live path uses `SubAgent::invoke_in_parent` for child depth/event
@@ -37,16 +34,13 @@ TokenJuice entry point.
    keep spill policy and action-workspace `.txt` writes in OpenHuman, but keep
    the run's `StoreRegistry` (`RunContext.stores`) populated with structured
    artifact metadata so replay can find the model-facing preview's full body.
-4. Collapse the per-call executor chain in
-   `session/agent_tool_exec.rs` (505 lines): visibility gate → middleware
-   (01.3), permission/approval → middleware (already), byte budget/summarizer
-   → this step. What remains is session bookkeeping; fold it into the
-   session shell.
+4. `session/agent_tool_exec.rs` is no longer production-compiled; it remains
+   behind `cfg(test)` so the old direct-executor parity tests can be migrated or
+   deleted deliberately.
 
 ## Deletions
 
-- `src/openhuman/tinyagents/payload_summarizer.rs`.
-- Summarizer branch of `session/agent_tool_exec.rs`.
+- Legacy direct-executor tests that depend on `session/agent_tool_exec.rs`.
 - `tokenjuice::compact_tool_output`.
 
 ## Acceptance

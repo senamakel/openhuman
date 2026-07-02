@@ -45,9 +45,9 @@ use tokio::task::AbortHandle;
 
 use crate::openhuman::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
 use crate::openhuman::tinyagents::orchestration::{
-    shared_steering_registry, InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter,
-    OrchestrationTaskKind, OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
-    SteeringCommand, TaskStore,
+    InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter, OrchestrationTaskKind,
+    OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
+    OrchestrationTaskStatus, SteeringCommand, TaskStore, shared_steering_registry,
 };
 use tinyagents::harness::ids::TaskId;
 use tinyagents::harness::message::Message as TaMessage;
@@ -326,6 +326,88 @@ fn record_cancelled(workspace_dir: &Path, task_id: &str) {
     let _ = store.mark_cancelled(&id);
 }
 
+fn list_task_records(workspace_dir: &Path) -> Vec<OrchestrationTaskRecord> {
+    let store = task_store_for_workspace(workspace_dir);
+    store.list(OrchestrationTaskFilter::default().with_kind("sub_agent"))
+}
+
+fn record_parent_session(record: &OrchestrationTaskRecord) -> Option<&str> {
+    record
+        .spec
+        .metadata
+        .get("parentSession")
+        .map(String::as_str)
+}
+
+fn record_subagent_session_id(record: &OrchestrationTaskRecord) -> Option<&str> {
+    record
+        .spec
+        .metadata
+        .get("subagentSessionId")
+        .map(String::as_str)
+}
+
+fn record_agent_id(record: &OrchestrationTaskRecord) -> String {
+    match &record.spec.kind {
+        OrchestrationTaskKind::SubAgent { agent } => agent.clone(),
+        _ => "subagent".to_string(),
+    }
+}
+
+fn record_to_status(record: OrchestrationTaskRecord) -> WaitOutcome {
+    match record.status {
+        OrchestrationTaskStatus::Completed => {
+            let output = record
+                .result
+                .and_then(|result| {
+                    result
+                        .text
+                        .or_else(|| result.output.map(|output| output.to_string()))
+                })
+                .unwrap_or_default();
+            WaitOutcome::Terminal(SubagentStatus::Completed {
+                output,
+                iterations: 0,
+            })
+        }
+        OrchestrationTaskStatus::Awaiting => WaitOutcome::Terminal(SubagentStatus::AwaitingUser {
+            question: record.error.unwrap_or_else(|| {
+                "sub-agent is awaiting user input; no clarification text was available from the durable task store".to_string()
+            }),
+        }),
+        OrchestrationTaskStatus::Failed
+        | OrchestrationTaskStatus::TimedOut
+        | OrchestrationTaskStatus::Abandoned => WaitOutcome::Terminal(SubagentStatus::Failed {
+            error: record.error.unwrap_or_else(|| {
+                format!(
+                    "sub-agent reached durable task status `{}`",
+                    task_status_label(record.status)
+                )
+            }),
+        }),
+        OrchestrationTaskStatus::Cancelled => WaitOutcome::Terminal(SubagentStatus::Failed {
+            error: "sub-agent was cancelled".to_string(),
+        }),
+        OrchestrationTaskStatus::Pending
+        | OrchestrationTaskStatus::Running
+        | OrchestrationTaskStatus::CancelRequested => WaitOutcome::TimedOut(SubagentStatus::Running),
+    }
+}
+
+fn task_status_label(status: OrchestrationTaskStatus) -> &'static str {
+    match status {
+        OrchestrationTaskStatus::Pending => "pending",
+        OrchestrationTaskStatus::Running => "running",
+        OrchestrationTaskStatus::Awaiting => "awaiting",
+        OrchestrationTaskStatus::Completed => "completed",
+        OrchestrationTaskStatus::Failed => "failed",
+        OrchestrationTaskStatus::CancelRequested => "cancel_requested",
+        OrchestrationTaskStatus::Cancelled => "cancelled",
+        OrchestrationTaskStatus::TimedOut => "timed_out",
+        OrchestrationTaskStatus::Abandoned => "abandoned",
+    }
+}
+
 /// Snapshot the typed lifecycle records, optionally scoped to a `parent_session`.
 #[cfg(test)]
 fn task_records(parent_session: Option<&str>) -> Vec<OrchestrationTaskRecord> {
@@ -546,6 +628,44 @@ pub(crate) fn task_id_for_session(
     Err(WaitError::Unknown)
 }
 
+pub(crate) fn task_id_for_session_in_workspace(
+    subagent_session_id: &str,
+    parent_session: &str,
+    workspace_dir: &Path,
+) -> Result<String, WaitError> {
+    match task_id_for_session(subagent_session_id, parent_session) {
+        Ok(task_id) => return Ok(task_id),
+        Err(WaitError::NotOwned) => return Err(WaitError::NotOwned),
+        Err(WaitError::Unknown) => {}
+    }
+
+    let mut saw_unowned = false;
+    let mut matches: Vec<OrchestrationTaskRecord> = list_task_records(workspace_dir)
+        .into_iter()
+        .filter(|record| record_subagent_session_id(record) == Some(subagent_session_id))
+        .collect();
+    matches.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    for record in matches {
+        if record_parent_session(&record) != Some(parent_session) {
+            saw_unowned = true;
+            continue;
+        }
+        let task_id = record.spec.task_id.as_str().to_string();
+        log::debug!(
+            "[running_subagents] resolved session from task store subagent_session_id={} task_id={} workspace_dir={}",
+            subagent_session_id,
+            task_id,
+            workspace_dir.display()
+        );
+        return Ok(task_id);
+    }
+    if saw_unowned {
+        return Err(WaitError::NotOwned);
+    }
+    Err(WaitError::Unknown)
+}
+
 pub(crate) fn resume_ref_for_task(
     task_id: &str,
     parent_session: &str,
@@ -559,6 +679,36 @@ pub(crate) fn resume_ref_for_task(
         task_id: task_id.to_string(),
         agent_id: entry.agent_id.clone(),
         subagent_session_id: entry.subagent_session_id.clone(),
+    })
+}
+
+pub(crate) fn resume_ref_for_task_in_workspace(
+    task_id: &str,
+    parent_session: &str,
+    workspace_dir: &Path,
+) -> Result<SubagentResumeRef, WaitError> {
+    match resume_ref_for_task(task_id, parent_session) {
+        Ok(reference) => return Ok(reference),
+        Err(WaitError::NotOwned) => return Err(WaitError::NotOwned),
+        Err(WaitError::Unknown) => {}
+    }
+
+    let id = TaskId::new(task_id);
+    let Some(record) = task_store_for_workspace(workspace_dir).get(&id) else {
+        return Err(WaitError::Unknown);
+    };
+    if record_parent_session(&record) != Some(parent_session) {
+        return Err(WaitError::NotOwned);
+    }
+    log::debug!(
+        "[running_subagents] resolved resume ref from task store task_id={} workspace_dir={}",
+        task_id,
+        workspace_dir.display()
+    );
+    Ok(SubagentResumeRef {
+        task_id: task_id.to_string(),
+        agent_id: record_agent_id(&record),
+        subagent_session_id: record_subagent_session_id(&record).map(ToOwned::to_owned),
     })
 }
 
@@ -769,6 +919,34 @@ pub(crate) async fn wait(
         }
         Err(_) => Ok(WaitOutcome::TimedOut(rx.borrow().clone())),
     }
+}
+
+pub(crate) async fn wait_in_workspace(
+    task_id: &str,
+    parent_session: &str,
+    workspace_dir: &Path,
+    timeout: Duration,
+) -> Result<WaitOutcome, WaitError> {
+    match wait(task_id, parent_session, timeout).await {
+        Ok(outcome) => return Ok(outcome),
+        Err(WaitError::NotOwned) => return Err(WaitError::NotOwned),
+        Err(WaitError::Unknown) => {}
+    }
+
+    let id = TaskId::new(task_id);
+    let Some(record) = task_store_for_workspace(workspace_dir).get(&id) else {
+        return Err(WaitError::Unknown);
+    };
+    if record_parent_session(&record) != Some(parent_session) {
+        return Err(WaitError::NotOwned);
+    }
+    log::debug!(
+        "[running_subagents] resolved wait from task store task_id={} status={} workspace_dir={}",
+        task_id,
+        task_status_label(record.status),
+        workspace_dir.display()
+    );
+    Ok(record_to_status(record))
 }
 
 /// Metadata captured when a sub-agent is cancelled, so the caller can surface
@@ -1279,14 +1457,16 @@ mod tests {
         ));
 
         // still steerable after a timed-out wait
-        assert!(steer(
-            "task-slow",
-            "session-A",
-            "still here".into(),
-            QueueMode::Steer
-        )
-        .await
-        .is_ok());
+        assert!(
+            steer(
+                "task-slow",
+                "session-A",
+                "still here".into(),
+                QueueMode::Steer
+            )
+            .await
+            .is_ok()
+        );
         prune("task-slow");
     }
 
@@ -1315,9 +1495,11 @@ mod tests {
         );
 
         // Non-matching entries stay live and steerable.
-        assert!(steer("task-tB", "session-A", "x".into(), QueueMode::Steer)
-            .await
-            .is_ok());
+        assert!(
+            steer("task-tB", "session-A", "x".into(), QueueMode::Steer)
+                .await
+                .is_ok()
+        );
         assert!(
             steer("task-headless", "session-A", "x".into(), QueueMode::Steer)
                 .await

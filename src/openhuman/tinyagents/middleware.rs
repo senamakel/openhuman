@@ -44,6 +44,7 @@ use crate::openhuman::approval::{
 };
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
 use crate::openhuman::context::tool_result_budget::apply_tool_result_budget;
+use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
 use crate::openhuman::tools::Tool;
 
 /// Default per-tool-result byte cap for the channel / sub-agent paths, which do
@@ -61,6 +62,10 @@ pub struct TurnContextMiddleware {
     pub tool_result_budget_bytes: usize,
     /// Optional semantic tool-output summarizer (progressive disclosure).
     pub payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    /// Whether TokenJuice content-aware compaction runs before output caps.
+    pub tokenjuice_compaction_enabled: bool,
+    /// Agent-level TokenJuice profile for tool-result compaction.
+    pub tokenjuice_compression: AgentTokenjuiceCompression,
     /// Warn on volatile tokens in the system prompt (KV-cache diagnostic).
     pub cache_align: bool,
     /// Keep-recent count for microcompact tool-body clearing. `0` disables it.
@@ -108,6 +113,8 @@ impl TurnContextMiddleware {
         Self {
             tool_result_budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
             payload_summarizer: None,
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression: AgentTokenjuiceCompression::Off,
             cache_align: true,
             microcompact_keep_recent: 0,
             autocompact_enabled: true,
@@ -163,6 +170,8 @@ impl TurnContextMiddleware {
             harness.push_middleware(Arc::new(ToolOutputMiddleware {
                 budget_bytes: self.tool_result_budget_bytes,
                 payload_summarizer: self.payload_summarizer,
+                tokenjuice_compaction_enabled: self.tokenjuice_compaction_enabled,
+                tokenjuice_compression: self.tokenjuice_compression,
                 tool_policies: tool_policy_snapshot(tool_sets),
             }));
         }
@@ -420,6 +429,8 @@ struct ToolOutputMiddleware {
     /// Fallback per-tool-result byte cap for tools that don't declare their own.
     budget_bytes: usize,
     payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    tokenjuice_compaction_enabled: bool,
+    tokenjuice_compression: AgentTokenjuiceCompression,
     /// SDK policy snapshot keyed by tool name. Used to honor the adapter-mapped
     /// `max_result_size_chars()` cap without re-querying the OpenHuman tool
     /// trait from `after_tool`.
@@ -467,7 +478,19 @@ impl Middleware<()> for ToolOutputMiddleware {
             }
         }
 
-        // 2. Per-tool **char** cap — a tool that declares `max_result_size_chars`
+        // 2. TokenJuice content-aware compaction. This mirrors the legacy
+        //    `agent_tool_exec` stage that ran after semantic summarization and
+        //    before the hard output caps.
+        let compacted = crate::openhuman::tokenjuice::compact_output_with_policy(
+            std::mem::take(&mut result.content),
+            &result.name,
+            self.tokenjuice_compaction_enabled,
+            self.tokenjuice_compression,
+        )
+        .await;
+        result.content = compacted;
+
+        // 3. Per-tool **char** cap — a tool that declares `max_result_size_chars`
         //    caps its own output in characters, with the tool-cap marker the model
         //    was taught to read (legacy engine parity). Distinct from the generic
         //    byte budget below: the tool cap is the tool's own contract.
@@ -490,7 +513,7 @@ impl Middleware<()> for ToolOutputMiddleware {
             }
         }
 
-        // 3. Shared byte-cap backstop — truncate at a UTF-8 boundary with a marker.
+        // 4. Shared byte-cap backstop — truncate at a UTF-8 boundary with a marker.
         //    Only for tools with no cap of their own (a capped tool already bounded
         //    itself above; stacking the two markers would double-truncate).
         if tool_cap.is_none() && self.budget_bytes > 0 {
@@ -1387,6 +1410,8 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 100,
             payload_summarizer: None,
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression: AgentTokenjuiceCompression::Off,
             tool_policies: HashMap::new(),
         };
         let mut result = tool_result("echo", &"x".repeat(5_000));
@@ -1404,6 +1429,8 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 1_000,
             payload_summarizer: None,
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression: AgentTokenjuiceCompression::Off,
             tool_policies: HashMap::new(),
         };
         let mut result = tool_result("echo", "tiny");
@@ -1421,6 +1448,8 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 1_000,
             payload_summarizer: None,
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression: AgentTokenjuiceCompression::Off,
             tool_policies: tool_policy_snapshot(&[tools]),
         };
         // Tool declares its own char cap → surfaced for the per-tool truncation.
@@ -1439,6 +1468,8 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 100_000,
             payload_summarizer: None,
+            tokenjuice_compaction_enabled: false,
+            tokenjuice_compression: AgentTokenjuiceCompression::Off,
             tool_policies: tool_policy_snapshot(&[tools]),
         };
         let mut result = tool_result("capped", &"y".repeat(500));

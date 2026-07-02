@@ -897,6 +897,8 @@ impl Agent {
         let context_mw = crate::openhuman::tinyagents::TurnContextMiddleware {
             tool_result_budget_bytes: self.context.tool_result_budget_bytes(),
             payload_summarizer: self.payload_summarizer.clone(),
+            tokenjuice_compaction_enabled: self.context.compaction_enabled(),
+            tokenjuice_compression: self.tokenjuice_compression,
             cache_align: self.context.compaction_enabled(),
             microcompact_keep_recent: self.context.microcompact_keep_recent(),
             // Honor the [context].enabled / autocompact_enabled opt-outs: when off,

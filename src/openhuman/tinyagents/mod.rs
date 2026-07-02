@@ -23,6 +23,7 @@ mod checkpoint;
 mod convert;
 pub(crate) mod delegation;
 mod embeddings;
+pub(crate) mod journal;
 pub(crate) mod middleware;
 mod model;
 pub(crate) mod observability;
@@ -531,9 +532,13 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         .is_none()
         .then(|| on_progress.clone())
         .flatten();
-    // A sink is needed to mirror progress (bridge) or to observe model-call
-    // completions for the cap pauser.
-    let events = (on_progress.is_some() || pause_at_cap).then(EventSink::new);
+    // A sink is needed to mirror progress (bridge), to observe model-call
+    // completions for the cap pauser, or to persist a durable event journal
+    // (issue #4249, 05.1). The journal must attach even for an unobserved
+    // (`on_progress = None`) turn so the run stays reconstructable, so the
+    // EventSink is now created unconditionally — cheap (an empty sink) and, if
+    // no consumer subscribes, inert.
+    let events = Some(EventSink::new());
 
     let bridge = match (&events, on_progress) {
         (Some(events), Some(tx)) => {
@@ -558,6 +563,16 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             events.subscribe(CapPauser::new(handle.clone(), max_iterations));
         }
     }
+
+    // Durable event journal + status store (issue #4249, 05.1). Attached *in
+    // addition to* the bridge above: the EventSink fans out to both, so the
+    // existing progress/global-bus path is untouched. Best-effort and non-fatal
+    // — a failure to open/attach the journal returns `None` and the turn runs
+    // unaffected. The handle stamps the terminal status once the run returns.
+    let turn_journal = match &events {
+        Some(events) => journal::attach_turn_journal(events, model).await,
+        None => None,
+    };
 
     if let Some(events) = &events {
         ctx = ctx.with_events(events.clone());
@@ -622,6 +637,11 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     let run = match run_result {
         Ok(run) => run,
         Err(e) => {
+            // Durable journal: stamp the terminal failed status (best-effort,
+            // non-fatal) before unwinding through the typed-error mapping below.
+            if let Some(journal) = &turn_journal {
+                journal.finish_failed(&e.to_string()).await;
+            }
             // Prefer the original typed provider error (preserves `AgentError`
             // downcasts the caller relies on) over the harness's string wrap.
             if let Some(original) = error_slot.lock().unwrap().take() {
@@ -647,6 +667,12 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
         }
     };
+    // Durable journal: the harness returned a transcript, so stamp the terminal
+    // completed status (best-effort, non-fatal). The event stream carries no
+    // run-terminal event, so this caller-driven write is authoritative.
+    if let Some(journal) = &turn_journal {
+        journal.finish_completed().await;
+    }
     // Context-compression provenance (issue #4249, 03.1 item 6): the harness's
     // `AgentEvent::Compressed` projection only carries token deltas, so drain the
     // compression middleware's `records()` here — each carries the full

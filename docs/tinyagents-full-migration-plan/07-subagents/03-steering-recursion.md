@@ -2,6 +2,14 @@
 
 ## Steering
 
+Current status (2026-07-02): `harness/run_queue/` is still live. TinyAgents
+already drains `Steer`/`Collect` lanes into a `SteeringHandle`, but the queue is
+also the product adapter for web-channel `followup` and `parallel` semantics and
+for detached sub-agent steer/collect lookup through `running_subagents`. Do not
+delete the directory until detached controls store/lookup crate `SteeringHandle`s
+directly via `SteeringRegistry`, and the web-channel followup/parallel lanes
+either have TinyAgents-owned equivalents or move into a web-channel-local queue.
+
 1. Map product tools onto crate commands: `steer_subagent` →
    `SteeringCommand::InjectMessage`/`Redirect` via `SteeringRegistry`;
    pause/resume/cancel → corresponding variants; keep delivery-at-safe-
@@ -9,9 +17,11 @@
 2. Install a `SteeringPolicy` allowlist per run (e.g. background runs
    accept Cancel only).
 3. Accepted/rejected steering emits `AgentEvent::Steered` → bridge → UI;
-   delete bespoke acknowledgment plumbing in `run_queue/`.
-4. `harness/run_queue/` (345): collapse to a constructor of
-   `SteeringHandle`s; delete the queue types the crate replaces.
+   delete bespoke acknowledgment plumbing in `run_queue/` after parity.
+4. `harness/run_queue/` (345): first split it by ownership. Detached
+   sub-agent `Steer`/`Collect` should collapse to a `SteeringRegistry`
+   lookup/registration path; web-channel `Followup`/`Parallel` remain product
+   turn orchestration unless a crate-owned replacement is introduced.
 
 ## Recursion
 
@@ -24,7 +34,9 @@
 
 ## Deletions
 
-- `harness/run_queue/` queue mechanics.
+- `harness/run_queue/` queue mechanics, only after detached steer/collect no
+  longer use `Arc<RunQueue>` and web-channel followup/parallel behavior has a
+  replacement or local owner.
 - `harness/spawn_depth_context.rs` (if step 5 wording-wrap suffices).
 
 ## Acceptance

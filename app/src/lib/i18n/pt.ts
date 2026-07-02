@@ -3,6 +3,9 @@ import type { TranslationMap } from './types';
 // Portuguese (Português) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'skills.recallCalendar.title': 'Google Agenda',
+  'skills.recallCalendar.description':
+    'Entrar automaticamente nas chamadas do Google Meet via Recall.ai',
   // Cross-host vault (#4278)
   'crossHostVault.title': 'O vault está no host do core.',
   'crossHostVault.message':
@@ -185,6 +188,41 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Algo deu errado. Tente novamente.',
   'brain.tabs.sources': 'Fontes',
   'brain.tabs.sync': 'Sincronização',
+  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'tinyplaceOrchestration.title': 'Relay TinyPlace',
+  'tinyplaceOrchestration.subtitle': 'Canais de agentes fixados e chats de sessões do app',
+  'tinyplaceOrchestration.refresh': 'Atualizar',
+  'tinyplaceOrchestration.pinned': 'Fixados',
+  'tinyplaceOrchestration.sessions': 'Sessões',
+  'tinyplaceOrchestration.loading': 'Carregando chats do TinyPlace…',
+  'tinyplaceOrchestration.paymentRequired': 'O acesso ao TinyPlace requer pagamento.',
+  'tinyplaceOrchestration.failedToLoad': 'Falha ao carregar chats do TinyPlace',
+  'tinyplaceOrchestration.noSessions': 'Ainda não há sessões de app do TinyPlace.',
+  'tinyplaceOrchestration.noMessages': 'Ainda não há mensagens neste chat.',
+  'tinyplaceOrchestration.active': 'Ativa',
+  'tinyplaceOrchestration.inactive': 'Inativa',
+  'tinyplaceOrchestration.encryptedBody': 'Mensagem criptografada do TinyPlace',
+  'tinyplaceOrchestration.unknownSender': 'Remetente desconhecido',
+  'tinyplaceOrchestration.master.title': 'Agente / humano',
+  'tinyplaceOrchestration.master.subtitle': 'Chat mestre',
+  'tinyplaceOrchestration.master.preview': 'Coordenação direta entre você e o OpenHuman.',
+  'tinyplaceOrchestration.subconscious.title': 'Subconsciente',
+  'tinyplaceOrchestration.subconscious.subtitle': 'Chats internos de agentes',
+  'tinyplaceOrchestration.subconscious.preview':
+    'Coordenação de agentes em segundo plano e loops de memória.',
+  'tinyplaceOrchestration.session.subtitle': 'Sessão de app do TinyPlace',
+  'tinyplaceOrchestration.pairing.linkLabel': 'Vincular sessão',
+  'tinyplaceOrchestration.pairing.linkPlaceholder': 'Cole o ID do agente da sessão',
+  'tinyplaceOrchestration.pairing.linkAction': 'Vincular',
+  'tinyplaceOrchestration.pairing.requests': 'Solicitações de contato',
+  'tinyplaceOrchestration.pairing.accept': 'Aceitar',
+  'tinyplaceOrchestration.pairing.decline': 'Recusar',
+  'tinyplaceOrchestration.pairing.block': 'Bloquear',
+  'tinyplaceOrchestration.pairing.linked': 'Vinculada',
+  'tinyplaceOrchestration.pairing.pending': 'Pendente',
+  'tinyplaceOrchestration.pairing.unlinked': 'Sem vínculo',
+  'tinyplaceOrchestration.pairing.incoming': 'Entrada',
+  'tinyplaceOrchestration.pairing.outgoing': 'Saída',
   'brain.empty':
     'Seu cérebro está vazio por enquanto — conecte uma fonte para começar a construir a memória.',
   'brain.error': 'Não foi possível carregar seu cérebro. Tente novamente.',
@@ -5294,6 +5332,10 @@ const messages: TranslationMap = {
   'skills.meetingBots.leavingButton': 'Saindo…',
   'skills.meetingBots.respondToParticipant': 'Seu nome nesta reunião',
   'skills.meetingBots.respondToParticipantHint': 'ex. João (seu nome exibido na chamada)',
+  'skills.meetingBots.replyName.label': 'Seu nome nas reuniões',
+  'skills.meetingBots.replyName.description':
+    'O nome que o bot escuta e ao qual responde. Digite seu nome como aparece na chamada — aplicado a cada reunião de que participa.',
+  'skills.meetingBots.replyName.placeholder': 'ex.: Alex Kim',
   'skills.meetingBots.respondToParticipantDesc':
     'Insira o seu nome de exibição exato da reunião. O bot só responde quando você diz o nome dele (frase de ativação).',
   'skills.meetingBots.wakePhrase': 'Frase de ativação',

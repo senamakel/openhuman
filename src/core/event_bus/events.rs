@@ -129,6 +129,14 @@ pub enum DomainEvent {
         orchestration_id: String,
         reason: Option<String>,
     },
+    /// A tiny.place contact edge changed for a wrapped orchestration session.
+    /// Payload is intentionally metadata only; contact graph details stay behind
+    /// the signed tiny.place API.
+    OrchestrationPairingChanged {
+        agent_id: String,
+        status: String,
+        source: String,
+    },
 
     // ── Subconscious orchestrator ───────────────────────────────────────
     /// A subconscious trigger finished gate evaluation (promote or drop).
@@ -1231,6 +1239,7 @@ impl DomainEvent {
             | Self::AgentOrchestrationCompleted { .. }
             | Self::AgentOrchestrationFailed { .. }
             | Self::AgentOrchestrationClosed { .. }
+            | Self::OrchestrationPairingChanged { .. }
             | Self::RunQueueMessageQueued { .. }
             | Self::RunQueueFollowupDispatched { .. }
             | Self::RunQueueInterrupted { .. } => "agent",
@@ -1390,6 +1399,7 @@ impl DomainEvent {
             Self::AgentOrchestrationCompleted { .. } => "AgentOrchestrationCompleted",
             Self::AgentOrchestrationFailed { .. } => "AgentOrchestrationFailed",
             Self::AgentOrchestrationClosed { .. } => "AgentOrchestrationClosed",
+            Self::OrchestrationPairingChanged { .. } => "OrchestrationPairingChanged",
             Self::SubconsciousTriggerProcessed { .. } => "SubconsciousTriggerProcessed",
             Self::RunQueueMessageQueued { .. } => "RunQueueMessageQueued",
             Self::RunQueueFollowupDispatched { .. } => "RunQueueFollowupDispatched",

@@ -41,6 +41,8 @@ shell-family runtime tools (`node_exec`, `npm_exec`) use
 `ToolExecutionContext.workspace.root` as their effective action directory when
 present. Generated media tools (`media_generate_image`, `media_generate_video`)
 also persist artifacts under that descriptor root for isolated fanout workers.
+Codegraph tools (`codegraph_index`, `codegraph_search`) likewise resolve their
+repo boundary and index store from the descriptor root during TinyAgents runs.
 For shell and the runtime tools this also covers sandbox policy and
 sandbox cwd. Delete the legacy task-local only after the remaining acting tools
 also resolve roots from the carried crate `WorkspaceDescriptor`.
@@ -64,7 +66,8 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
    `delegate_graph`, shell, git operations, `file_read`, `list`, `file_write`,
    `edit`, `apply_patch`, `grep`, `glob`, `csv_export`, `read_diff`,
    `run_linter`, `run_tests`, `update_memory_md`, `node_exec`, `npm_exec`,
-   `media_generate_image`, and `media_generate_video`.
+   `media_generate_image`, `media_generate_video`, `codegraph_index`, and
+   `codegraph_search`.
    Remaining acting tools still need to read it. OpenHuman
    `SecurityPolicy` remains the enforcement authority — the descriptor is the
    carrier, not the policy.

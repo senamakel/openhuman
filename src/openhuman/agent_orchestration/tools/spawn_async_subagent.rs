@@ -690,6 +690,7 @@ impl Tool for SpawnAsyncSubagentTool {
             task_id.clone(),
             definition.id.clone(),
             parent_session.clone(),
+            parent.session_parent_prefix.clone(),
             Some(durable_session.subagent_session_id.clone()),
             parent.workspace_dir.clone(),
             register_parent_thread_id,

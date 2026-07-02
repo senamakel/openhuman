@@ -9,10 +9,11 @@ Current status (2026-07-02): detached sub-agent lifecycle records now open a
 per-workspace durable `JsonlTaskStore` at
 `<workspace_dir>/.openhuman/orchestration_tasks.jsonl` on first spawn, falling
 back to `InMemoryTaskStore` only if that workspace log cannot be created/opened.
-Records carry parent session, parent thread, durable `subagent_session_id`, and
-workspace metadata, and terminal/cancelled mirrors now resolve the same
-workspace-scoped store that recorded the spawn. The executor/control path still
-uses OpenHuman's watch channels, abort handles, task lookup, and `RunQueue`;
+Records carry TinyAgents lineage (`parent_run_id`/`root_run_id`), timeout,
+parent session, parent thread, durable `subagent_session_id`, and workspace
+metadata, and terminal/cancelled mirrors now resolve the same workspace-scoped
+store that recorded the spawn. The executor/control path still uses
+OpenHuman's watch channels, abort handles, task lookup, and `RunQueue`;
 the unused future `running_subagents::close` hook has been removed and the
 test-only typed ledger snapshot plus finished background completion/delivery
 queues are crate-internal. `running_subagents` and `subagent_sessions` still
@@ -25,9 +26,9 @@ steering-registry replacement remain pending.
 
 1. Done: detached lifecycle now opens `JsonlTaskStore::open` under the
    workspace store dir, with `InMemoryTaskStore` only as the open-failure
-   fallback. Remaining: task records carry lineage
-   (`with_lineage(parent_run_id, root_run_id)`) and timeout fields from the
-   parent run context; thread/session metadata is already live.
+   fallback. Task records now carry lineage
+   (`with_lineage(parent_run_id, root_run_id)`), the default detached wait
+   timeout, and thread/session metadata.
 2. Re-express controls on crate semantics: wait → `orchestrate_await`-style
    store polling/wait handle; cancel/kill → `CancellationToken` +
    terminal record; steer → `SteeringRegistry` (`TaskId → SteeringHandle`)

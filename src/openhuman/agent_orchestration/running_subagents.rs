@@ -248,19 +248,34 @@ fn record_spawned(
     task_id: &str,
     agent_id: &str,
     parent_session: &str,
+    session_parent_prefix: Option<&str>,
     subagent_session_id: Option<&str>,
     workspace_dir: &Path,
     parent_thread_id: Option<&str>,
 ) {
     let store = task_store_for_workspace(workspace_dir);
+    let root_run_id = session_parent_prefix
+        .and_then(|prefix| prefix.split("__").next())
+        .filter(|root| !root.is_empty())
+        .unwrap_or(parent_session);
     let mut spec = OrchestrationTaskSpec::new(
         task_id.to_string(),
         OrchestrationTaskKind::SubAgent {
             agent: agent_id.to_string(),
         },
     )
+    .with_lineage(parent_session.to_string(), root_run_id.to_string())
+    .with_timeout_ms(DETACHED_LEDGER_TIMEOUT_MS)
     .with_metadata("parentSession", parent_session.to_string())
+    .with_metadata("rootSession", root_run_id.to_string())
+    .with_metadata(
+        "defaultWaitTimeoutMs",
+        DETACHED_LEDGER_TIMEOUT_MS.to_string(),
+    )
     .with_metadata("workspaceDir", workspace_dir.display().to_string());
+    if let Some(session_parent_prefix) = session_parent_prefix {
+        spec = spec.with_metadata("sessionParentPrefix", session_parent_prefix.to_string());
+    }
     if let Some(parent_thread_id) = parent_thread_id {
         spec = spec
             .with_thread(parent_thread_id.to_string())
@@ -384,6 +399,10 @@ pub(crate) struct SubagentResumeRef {
 /// grows past this, so the common case (a handful of live sub-agents) never
 /// evicts a still-uncollected terminal result out from under a `wait`/`steer`.
 const REGISTRY_SOFT_CAP: usize = 256;
+/// Metadata-only timeout mirrored into the TinyAgents task ledger. It matches
+/// `wait_subagent`'s default wait window; execution remains governed by the
+/// existing detached task and wait-tool paths.
+const DETACHED_LEDGER_TIMEOUT_MS: u64 = 120_000;
 
 static REGISTRY: OnceLock<Mutex<HashMap<String, RunningSubagentEntry>>> = OnceLock::new();
 
@@ -414,6 +433,7 @@ pub(crate) fn register(
     task_id: String,
     agent_id: String,
     parent_session: String,
+    session_parent_prefix: Option<String>,
     subagent_session_id: Option<String>,
     workspace_dir: PathBuf,
     parent_thread_id: Option<String>,
@@ -428,6 +448,7 @@ pub(crate) fn register(
         &task_id,
         &agent_id,
         &parent_session,
+        session_parent_prefix.as_deref(),
         subagent_session_id.as_deref(),
         &workspace_dir,
         parent_thread_id.as_deref(),
@@ -917,6 +938,7 @@ mod tests {
             "researcher".into(),
             parent_session.into(),
             None,
+            None,
             std::env::temp_dir(),
             parent_thread_id.map(Into::into),
             rq,
@@ -936,6 +958,10 @@ mod tests {
             running
                 .iter()
                 .any(|r| r.spec.task_id.as_str() == "task-ledger-1"
+                    && r.spec.parent_run_id.as_ref().map(|id| id.as_str())
+                        == Some("ledger-parent")
+                    && r.spec.root_run_id.as_ref().map(|id| id.as_str()) == Some("ledger-parent")
+                    && r.spec.timeout_ms == Some(DETACHED_LEDGER_TIMEOUT_MS)
                     && r.status == OrchestrationTaskStatus::Running),
             "spawned sub-agent is recorded Running: {running:?}"
         );
@@ -984,6 +1010,7 @@ mod tests {
             "task-session".into(),
             "researcher".into(),
             "session-owner".into(),
+            None,
             Some("subsess-1".into()),
             std::env::temp_dir(),
             Some("thread-1".into()),
@@ -1015,6 +1042,7 @@ mod tests {
             "task-resume".into(),
             "researcher".into(),
             "session-owner".into(),
+            None,
             Some("subsess-resume".into()),
             std::env::temp_dir(),
             Some("thread-1".into()),
@@ -1051,6 +1079,7 @@ mod tests {
             "task-old".into(),
             "researcher".into(),
             "session-owner".into(),
+            None,
             Some("subsess-live".into()),
             std::env::temp_dir(),
             Some("thread-1".into()),
@@ -1067,6 +1096,7 @@ mod tests {
             "task-new".into(),
             "researcher".into(),
             "session-owner".into(),
+            None,
             Some("subsess-live".into()),
             std::env::temp_dir(),
             Some("thread-1".into()),

@@ -7,7 +7,8 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTa
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_boundary;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
-    format_spawn_parallel_success, run_spawn_parallel_graph, validate_spawn_parallel_tasks,
+    SpawnParallelTaskValidationError, format_spawn_parallel_success, run_spawn_parallel_graph,
+    validate_spawn_parallel_tool_request,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -91,17 +92,17 @@ impl Tool for SpawnParallelAgentsTool {
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         tracing::debug!("[spawn_parallel_agents] execute entry");
-        let tasks = match validate_spawn_parallel_tasks(&args, None) {
+        let tasks = match validate_spawn_parallel_tool_request(&args, None) {
             Ok(tasks) => tasks,
-            Err(message) if message == "Missing 'tasks' parameter" => {
+            Err(SpawnParallelTaskValidationError::MissingTasks(message)) => {
                 tracing::debug!("[spawn_parallel_agents] missing_tasks_parameter");
                 return Err(anyhow::anyhow!(message));
             }
-            Err(message) if message.starts_with("Invalid tasks array:") => {
+            Err(SpawnParallelTaskValidationError::InvalidTasks(message)) => {
                 tracing::debug!(error = %message, "[spawn_parallel_agents] invalid_tasks_array");
                 return Err(anyhow::anyhow!(message));
             }
-            Err(message) => {
+            Err(SpawnParallelTaskValidationError::Rejected(message)) => {
                 tracing::debug!("[spawn_parallel_agents] rejected_too_few_tasks");
                 return Ok(ToolResult::error(message));
             }
@@ -123,9 +124,10 @@ impl Tool for SpawnParallelAgentsTool {
             max_parallel,
             "[spawn_parallel_agents] validated_parent_context"
         );
-        let tasks = match validate_spawn_parallel_tasks(&args, Some(max_parallel)) {
+        let tasks = match validate_spawn_parallel_tool_request(&args, Some(max_parallel)) {
             Ok(tasks) => tasks,
-            Err(message) => {
+            Err(err) => {
+                let message = err.message().to_string();
                 tracing::debug!(
                     parent_session = %parent.session_id,
                     task_count = tasks.len(),

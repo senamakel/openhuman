@@ -75,6 +75,37 @@ pub(crate) fn validate_spawn_parallel_tasks(
     Ok(tasks)
 }
 
+pub(crate) enum SpawnParallelTaskValidationError {
+    MissingTasks(String),
+    InvalidTasks(String),
+    Rejected(String),
+}
+
+impl SpawnParallelTaskValidationError {
+    pub(crate) fn message(&self) -> &str {
+        match self {
+            SpawnParallelTaskValidationError::MissingTasks(message)
+            | SpawnParallelTaskValidationError::InvalidTasks(message)
+            | SpawnParallelTaskValidationError::Rejected(message) => message,
+        }
+    }
+}
+
+pub(crate) fn validate_spawn_parallel_tool_request(
+    args: &serde_json::Value,
+    max_parallel: Option<usize>,
+) -> Result<Vec<ParallelAgentTask>, SpawnParallelTaskValidationError> {
+    validate_spawn_parallel_tasks(args, max_parallel).map_err(|message| {
+        if message == "Missing 'tasks' parameter" {
+            SpawnParallelTaskValidationError::MissingTasks(message)
+        } else if message.starts_with("Invalid tasks array:") {
+            SpawnParallelTaskValidationError::InvalidTasks(message)
+        } else {
+            SpawnParallelTaskValidationError::Rejected(message)
+        }
+    })
+}
+
 /// Prepared worker ready for the live dispatch/worker phases.
 pub(crate) struct PreparedParallelTask {
     pub(crate) definition: AgentDefinition,

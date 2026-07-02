@@ -251,9 +251,10 @@ impl Tool for SpawnAsyncSubagentTool {
         let reusable = if force_fresh {
             match subagent_sessions::find_reusable(&store, &selector) {
                 Ok(Some(session)) => {
-                    let _ = running_subagents::cancel_by_session(
+                    let _ = running_subagents::cancel_by_session_in_workspace(
                         &session.subagent_session_id,
                         &parent_session,
+                        &parent.workspace_dir,
                     );
                     if let Err(err) = subagent_sessions::close(&store, &session.subagent_session_id)
                     {

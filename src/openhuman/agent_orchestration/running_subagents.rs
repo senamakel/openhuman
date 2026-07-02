@@ -1004,6 +1004,17 @@ pub(crate) fn cancel_by_session(
     cancel_by_task(&task_id)
 }
 
+pub(crate) fn cancel_by_session_in_workspace(
+    subagent_session_id: &str,
+    parent_session: &str,
+    workspace_dir: &Path,
+) -> Option<CancelledSubagent> {
+    let task_id =
+        task_id_for_session_in_workspace(subagent_session_id, parent_session, workspace_dir)
+            .ok()?;
+    cancel_by_task(&task_id)
+}
+
 /// Abort and drop every running sub-agent whose parent chat thread is
 /// `thread_id`. Called when that thread is deleted so detached children don't
 /// keep running (and later try to deliver) against a thread that no longer

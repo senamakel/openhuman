@@ -16,8 +16,9 @@ store that recorded the spawn. `wait_subagent` still prefers the live registry,
 but can now resolve `subagent_session_id`, resume metadata, and terminal or
 still-running status from the workspace-scoped TaskStore after a live-registry
 miss. `steer_subagent` now uses the same workspace-scoped session-id resolver
-before delivering to the live executor. The rest of the executor/control path
-still uses OpenHuman's watch
+before delivering to the live executor. Reusable-session close/fresh paths also
+resolve session cancellation through the workspace store before aborting any live
+executor. The rest of the executor/control path still uses OpenHuman's watch
 channels, abort handles, task lookup, and `RunQueue`; the unused future
 `running_subagents::close` hook has been removed and the test-only typed ledger
 snapshot plus finished background completion/delivery queues are crate-internal.
@@ -37,9 +38,11 @@ durable store polling, and steering-registry replacement remain pending.
    live registry misses, `list_subagents` overlays stale durable session
    summaries with TaskStore status for each `current_task_id`, and
    `steer_subagent` resolves durable session ids from the same workspace store
-   before attempting live delivery. Continue re-expressing controls on crate
-   semantics: wait → `orchestrate_await`-style store polling/wait handle;
-   cancel/kill → `CancellationToken` + terminal record; steer →
+   before attempting live delivery. Close/fresh reusable-session paths use the
+   same workspace-scoped session lookup before cancelling a live task. Continue
+   re-expressing controls on crate semantics: wait →
+   `orchestrate_await`-style store polling/wait handle; cancel/kill →
+   `CancellationToken` + terminal record; steer →
    `SteeringRegistry` (`TaskId → SteeringHandle`) replacing the RunQueue lookup
    plumbing. Keep abort-handle hard-kill as the OpenHuman executor detail.
 3. Keep OpenHuman ownership checks + durable session rows as policy over

@@ -22,11 +22,11 @@ For current `spawn_parallel_agents` worktree workers, the runner derives the
 descriptor from the existing `worktree_action_dir` while keeping the old
 task-local action-dir override as the live tool fallback.
 The TinyAgents tool adapter now forwards `ToolExecutionContext` into OpenHuman
-tools, and shell/git plus read-only filesystem tools (`file_read`, `list`) use
-`ToolExecutionContext.workspace.root` as their effective action directory when
-present. For shell this also covers sandbox policy and sandbox cwd. Delete the
-legacy task-local only after the remaining acting tools also resolve roots from
-the carried crate `WorkspaceDescriptor`.
+tools, and shell/git plus core filesystem tools (`file_read`, `list`,
+`file_write`, `edit`) use `ToolExecutionContext.workspace.root` as their
+effective action directory when present. For shell this also covers sandbox
+policy and sandbox cwd. Delete the legacy task-local only after the remaining
+acting tools also resolve roots from the carried crate `WorkspaceDescriptor`.
 
 ## Steps
 
@@ -39,9 +39,10 @@ the carried crate `WorkspaceDescriptor`.
    from `ToolExecutionContext.workspace` instead of task-local
    `worktree_context.rs`/action-dir globals. The carrier is now threaded
    through sub-agent run options, `RunContext::with_workspace`, the OpenHuman
-   tool adapter, shell, git operations, `file_read`, and `list`. Remaining
-   acting tools still need to read it. OpenHuman `SecurityPolicy` remains the
-   enforcement authority — the descriptor is the carrier, not the policy.
+   tool adapter, shell, git operations, `file_read`, `list`, `file_write`, and
+   `edit`. Remaining acting tools still need to read it. OpenHuman
+   `SecurityPolicy` remains the enforcement authority — the descriptor is the
+   carrier, not the policy.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations
    also feed the security audit trail. Use 1.3.0
    `WorkspaceDescriptor::enforce(path, events)` so the check and the

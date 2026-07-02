@@ -7,9 +7,10 @@ Current status (2026-07-02): adapters expose classified SDK policies, the
 crate `ToolPolicyMiddleware` is installed from `harness.tools().policies()`, and
 `ToolOutputMiddleware` now reads per-tool result caps from that registry
 snapshot instead of rebuilding a `name -> Arc<dyn Tool>` lookup. The remaining
-OpenHuman lookups are behavior-preserving overlays for data the crate policy
-snapshot cannot represent yet: args-aware external effects, CLI/RPC-only scope,
-args-aware permission level, and generated-tool runtime context.
+crate-internal OpenHuman lookups are behavior-preserving overlays for data the
+crate policy snapshot cannot represent yet: args-aware external effects,
+CLI/RPC-only scope, args-aware permission level, and generated-tool runtime
+context.
 
 ## Steps
 
@@ -25,8 +26,8 @@ args-aware permission level, and generated-tool runtime context.
    `ToolPolicyMiddleware`, and `ToolOutputMiddleware`
    (`src/openhuman/tinyagents/middleware.rs`) to read `ToolPolicy` from the
    registry instead of the shared `name → Arc<dyn Tool>` side-lookup.
-   `ToolOutputMiddleware` is registry-backed. Keep the OpenHuman overlays the
-   static crate policy cannot yet express: `external_effect_with_args`,
+   `ToolOutputMiddleware` is registry-backed. Keep the crate-internal OpenHuman
+   overlays the static crate policy cannot yet express: `external_effect_with_args`,
    `ToolScope::CliRpcOnly`, `permission_level_with_args`, and
    `generated_runtime_context`.
 3. Install crate `ToolPolicyMiddleware` in `assemble_turn_harness`
@@ -41,8 +42,8 @@ args-aware permission level, and generated-tool runtime context.
 
 - Deleted: `ToolOutputMiddleware`'s `name → Arc<dyn Tool>` policy snapshot in
   `tinyagents/middleware.rs`.
-- Remaining by design until the SDK policy surface grows equivalent metadata:
-  `external_effect_with_args`, `ToolScope::CliRpcOnly`,
+- Remaining as crate-internal overlays by design until the SDK policy surface
+  grows equivalent metadata: `external_effect_with_args`, `ToolScope::CliRpcOnly`,
   `permission_level_with_args`, and `generated_runtime_context` overlays.
 - Redundant per-call trait re-queries in `agent_tool_exec.rs` policy chain
   (the chain itself shrinks in `01-tooling/04`).

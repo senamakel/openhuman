@@ -783,7 +783,7 @@ impl Middleware<()> for ToolOutputMiddleware {
 /// letting it short-circuit cleanly. Tool-*internal* security (path/command
 /// policy via `live_policy`) stays inside each tool — it needs tool-specific
 /// operation semantics the harness boundary can't reconstruct generically.
-pub struct ApprovalSecurityMiddleware {
+pub(crate) struct ApprovalSecurityMiddleware {
     /// The same `Arc`-shared tool sets the runner registers, used to resolve a
     /// call's OpenHuman `Tool` by name so `external_effect_with_args` can gate.
     tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
@@ -791,7 +791,7 @@ pub struct ApprovalSecurityMiddleware {
 
 impl ApprovalSecurityMiddleware {
     /// Build the middleware over the runner's shared tool sets.
-    pub fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
+    pub(crate) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
         Self { tool_sets }
     }
 
@@ -876,12 +876,12 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
 /// (e.g. phone calls) would execute from the model loop. Applies on every path
 /// (channel, session, sub-agent) since the restriction is intrinsic to the tool,
 /// not the session — installed unconditionally.
-pub struct CliRpcOnlyMiddleware {
+pub(crate) struct CliRpcOnlyMiddleware {
     tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
 }
 
 impl CliRpcOnlyMiddleware {
-    pub fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
+    pub(crate) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
         Self { tool_sets }
     }
 
@@ -938,7 +938,7 @@ impl ToolMiddleware<()> for CliRpcOnlyMiddleware {
 /// blocking decision short-circuits with a model-consumable result carrying the
 /// same `"Tool '<name>' <denied|requires approval> by policy '<policy>': <reason>"`
 /// wording the engine produced.
-pub struct ToolPolicyMiddleware {
+pub(crate) struct ToolPolicyMiddleware {
     policy: Arc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
     /// The session's channel-permission snapshot — enforces the per-channel deny
     /// + per-call permission-level ceiling the engine ran in `agent_tool_exec`.
@@ -953,7 +953,7 @@ pub struct ToolPolicyMiddleware {
 }
 
 impl ToolPolicyMiddleware {
-    pub fn new(
+    pub(crate) fn new(
         policy: Arc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
         session: crate::openhuman::agent_tool_policy::ToolPolicySession,
         tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,

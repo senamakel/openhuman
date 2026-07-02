@@ -479,8 +479,8 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         assembled
             .registry_snapshot
             .count(tinyagents::registry::ComponentKind::Model),
-        1,
-        "projected registry should include the turn model"
+        8,
+        "projected registry should include the turn model plus the workload-route set"
     );
     assert_eq!(
         assembled
@@ -505,12 +505,13 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     let serialized = serde_json::to_string(&stable_policies).unwrap();
     assert!(serialized.contains("\"classified\":true"));
 
-    // Lifecycle middleware, in registration order: cache-align + tool-output
-    // (TurnContextMiddleware::defaults), cost budget, context compression +
-    // message trim (window known + autocompact on), repeated-tool-failure
-    // breaker, SDK tool-policy projection, tool-outcome capture, arg recovery.
+    // Lifecycle middleware, in registration order: repeated-tool-failure
+    // breaker, shadow tool-exposure, prompt-cache segment + guard, cache-align +
+    // tool-output (TurnContextMiddleware::defaults), cost budget, context
+    // compression + message trim (window known + autocompact on), SDK
+    // tool-policy projection, tool-outcome capture, arg recovery.
     let mw = assembled.harness.middleware();
-    assert_eq!(mw.len(), 9, "lifecycle middleware inventory");
+    assert_eq!(mw.len(), 12, "lifecycle middleware inventory");
     // Around-tool wraps: approval/security + CLI/RPC-only scope gate (no
     // builder tool policy on this call).
     assert_eq!(mw.tool_middleware_len(), 2, "tool middleware inventory");
@@ -574,7 +575,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
     let mw = assembled.harness.middleware();
     assert_eq!(
         mw.len(),
-        7,
+        10,
         "compression + trim must not install without a window"
     );
     assert!(assembled.early_exit_hook.is_none());

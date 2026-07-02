@@ -942,10 +942,20 @@ mod tests {
             ("node_exec.rs", NODE_EXEC_SRC),
             ("npm_exec.rs", NPM_EXEC_SRC),
         ] {
+            // The tool CWD must resolve against `action_dir`, sourced from the
+            // tool's own `self.security`. Two accepted spellings:
+            //   * direct: `self.security.action_dir` (shell.rs / node_exec.rs)
+            //   * workspace-context-aware: `security_for_tool_context(&self.security, …)`
+            //     → `resolve_cwd(&path_policy.action_dir, …)` (npm_exec.rs, #4249)
+            // Both keep CWD rooted at `action_dir` and tied to `self.security`;
+            // neither may reach for `workspace_dir`.
+            let direct = src.contains("self.security.action_dir");
+            let context_aware = src.contains("security_for_tool_context(&self.security")
+                && src.contains("path_policy.action_dir");
             assert!(
-                src.contains("self.security.action_dir"),
-                "{name} must reference `self.security.action_dir` for tool CWD \
-                 (see #3074, #3238)"
+                direct || context_aware,
+                "{name} must route tool CWD through `action_dir` sourced from \
+                 `self.security` (see #3074, #3238, #4249)"
             );
             assert!(
                 !src.contains(&bad_call_1) && !src.contains(&bad_call_2),

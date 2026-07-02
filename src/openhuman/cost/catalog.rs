@@ -371,8 +371,36 @@ pub fn lookup(model: &str) -> Option<&'static ModelPrice> {
     }
     KNOWN_MODEL_PRICING
         .iter()
-        .filter(|p| norm.contains(p.model_id) || bare.contains(p.model_id))
+        .filter(|p| contains_at_boundary(&norm, p.model_id) || contains_at_boundary(bare, p.model_id))
         .max_by_key(|p| p.model_id.len())
+}
+
+/// Whether `needle` occurs in `haystack` at a token boundary — i.e. the
+/// characters immediately flanking the match are non-alphanumeric (or the string
+/// ends). This keeps the longest-substring fallback matching dated/suffixed ids
+/// (`gpt-5.4-mini-2026-05-01` → `gpt-5.4-mini`, flanked by `-`/string end) while
+/// refusing spurious mid-token collisions for short canonical ids
+/// (`proto3-chat` must NOT match the `o3` row, `solo1-7b` must NOT match `o1`).
+/// A naive `contains` overmatches those and, since [`context_window_for_model`]
+/// now routes windows through this catalog, that leaked a bogus 200K window
+/// (issue #4249 regression guard).
+fn contains_at_boundary(haystack: &str, needle: &str) -> bool {
+    if needle.is_empty() {
+        return false;
+    }
+    let bytes = haystack.as_bytes();
+    let mut search_from = 0;
+    while let Some(rel) = haystack[search_from..].find(needle) {
+        let start = search_from + rel;
+        let end = start + needle.len();
+        let before_ok = start == 0 || !bytes[start - 1].is_ascii_alphanumeric();
+        let after_ok = end == haystack.len() || !bytes[end].is_ascii_alphanumeric();
+        if before_ok && after_ok {
+            return true;
+        }
+        search_from = start + 1;
+    }
+    false
 }
 
 /// Estimate the USD cost of a single model call from catalogued per-MTok rates.

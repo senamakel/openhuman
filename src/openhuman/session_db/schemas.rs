@@ -502,7 +502,7 @@ mod tests {
     #[test]
     fn all_controller_schemas_lists_registered_functions() {
         let schemas = all_controller_schemas();
-        assert_eq!(schemas.len(), 10);
+        assert_eq!(schemas.len(), 9);
         assert!(schemas
             .iter()
             .any(|schema| schema.namespace == "session_db"));

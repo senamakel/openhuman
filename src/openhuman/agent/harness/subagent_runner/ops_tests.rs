@@ -813,9 +813,19 @@ async fn typed_mode_blocks_unallowed_tool_calls() {
         .iter()
         .find(|m| m.role == "tool")
         .expect("tool result message should be present");
+    // A tool outside the allowlist is never registered on the sub-agent
+    // harness, so a call to it flows through the tinyagents
+    // `UnknownToolPolicy::ReturnToolError` path (issue #4249): the runner
+    // injects a recoverable `unknown tool `forbidden_tool` …` result (naming the
+    // blocked tool and listing the valid ones) instead of executing it, and the
+    // next iteration recovers. The security guarantee — the disallowed tool does
+    // NOT run — is preserved; only the message wording changed from the legacy
+    // "not available".
     assert!(
-        tool_msg.content.contains("not available"),
-        "blocked tool should produce a 'not available' error message"
+        tool_msg.content.contains("unknown tool")
+            && tool_msg.content.contains("forbidden_tool"),
+        "blocked tool should produce a recoverable unknown-tool error naming it: {:?}",
+        tool_msg.content
     );
 }
 

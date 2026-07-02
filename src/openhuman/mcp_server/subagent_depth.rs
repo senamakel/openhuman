@@ -92,8 +92,9 @@ mod tests {
         assert_eq!(parse_header(None), 0);
         assert_eq!(parse_header(Some("")), 0);
         assert_eq!(parse_header(Some("nope")), 0);
-        assert_eq!(parse_header(Some("3")), 3);
-        assert_eq!(parse_header(Some("  4 ")), 4);
+        assert_eq!(parse_header(Some("2")), 2);
+        // Whitespace-padded, in-range value trims and parses cleanly.
+        assert_eq!(parse_header(Some("  3 ")), 3);
         // External input is clamped to the cap — a forged huge value can neither
         // bypass the limit nor overflow a later `depth + 1`.
         assert_eq!(parse_header(Some("999999")), MAX_SUBAGENT_DEPTH);

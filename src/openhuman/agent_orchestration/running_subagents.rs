@@ -1336,6 +1336,24 @@ mod tests {
         tokio::spawn(async {}).abort_handle()
     }
 
+    /// Per-process-run unique workspace for the detached task store.
+    ///
+    /// The task store is now a durable JSONL file under the given workspace
+    /// (issue #4249). Pointing tests at the shared `std::env::temp_dir()` leaked
+    /// records **across** test-process runs: a `task-ledger-1` left `Completed`
+    /// by a prior run would make `record_spawned`'s insert/`mark_running` no-op
+    /// (id already terminal), so this run would observe the stale terminal status
+    /// instead of `Running`. A fresh temp dir per process run keeps the store
+    /// hermetic; task ids are unique across tests so a single shared dir is safe
+    /// within a run. The `TempDir` lives for the whole process (cleaned at exit).
+    fn test_workspace() -> PathBuf {
+        static WORKSPACE: std::sync::LazyLock<tempfile::TempDir> =
+            std::sync::LazyLock::new(|| {
+                tempfile::tempdir().expect("create hermetic test task-store workspace")
+            });
+        WORKSPACE.path().to_path_buf()
+    }
+
     /// Register a sub-agent for tests, returning the status sender so the test
     /// can drive completion. Keeping the sender alive keeps the channel open.
     fn register_test(
@@ -1361,7 +1379,7 @@ mod tests {
             parent_session.into(),
             None,
             None,
-            std::env::temp_dir(),
+            test_workspace(),
             parent_thread_id.map(Into::into),
             rq,
             dummy_abort(),
@@ -1434,7 +1452,7 @@ mod tests {
             "session-owner".into(),
             None,
             Some("subsess-1".into()),
-            std::env::temp_dir(),
+            test_workspace(),
             Some("thread-1".into()),
             rq,
             dummy_abort(),
@@ -1466,7 +1484,7 @@ mod tests {
             "session-owner".into(),
             None,
             Some("subsess-resume".into()),
-            std::env::temp_dir(),
+            test_workspace(),
             Some("thread-1".into()),
             RunQueue::new(),
             dummy_abort(),
@@ -1503,7 +1521,7 @@ mod tests {
             "session-owner".into(),
             None,
             Some("subsess-live".into()),
-            std::env::temp_dir(),
+            test_workspace(),
             Some("thread-1".into()),
             RunQueue::new(),
             dummy_abort(),
@@ -1520,7 +1538,7 @@ mod tests {
             "session-owner".into(),
             None,
             Some("subsess-live".into()),
-            std::env::temp_dir(),
+            test_workspace(),
             Some("thread-1".into()),
             RunQueue::new(),
             dummy_abort(),

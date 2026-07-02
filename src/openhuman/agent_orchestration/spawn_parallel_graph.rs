@@ -7,15 +7,15 @@
 //! 02-spawn-parallel-graph.md`.
 
 use tinyagents::graph::export::GraphTopology;
-use tinyagents::graph::parallel::{FailurePolicy, ParallelOptions, map_reduce};
+use tinyagents::graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
 use tinyagents::graph::{
     ClosureStateReducer, CompiledGraph, GraphBuilder, NodeContext, NodeResult,
 };
 
-use crate::core::event_bus::{DomainEvent, publish_global};
+use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry};
 use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
-use crate::openhuman::agent::harness::subagent_runner::{SubagentRunOptions, run_subagent};
+use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_orchestration::worktree::{self, BaseRef};
 use crate::openhuman::file_state;
@@ -477,8 +477,8 @@ pub(crate) async fn run_spawn_parallel_graph(
     tasks: Vec<ParallelAgentTask>,
     registry: &AgentDefinitionRegistry,
     parent: &ParentExecutionContext,
-    action_root: Option<PathBuf>,
 ) -> Result<SpawnParallelCollected, String> {
+    let action_root = resolve_spawn_parallel_action_root().await;
     let (prepared, immediate_results) = stage_spawn_parallel_workers(
         parent_session,
         progress_sink,
@@ -510,6 +510,30 @@ pub(crate) async fn run_spawn_parallel_graph(
         "[spawn_parallel_agents] execute exit"
     );
     Ok(collected)
+}
+
+/// Resolve the agent sandbox root once for the graph run.
+///
+/// This is `Config.action_dir` (the user's project repo the coding agent edits),
+/// NOT OpenHuman's own tree. It is only consulted when a worker asks for
+/// git-worktree isolation; failures preserve the previous `None` fallback.
+async fn resolve_spawn_parallel_action_root() -> Option<PathBuf> {
+    match crate::openhuman::config::Config::load_or_init().await {
+        Ok(config) => {
+            tracing::debug!(
+                action_root = %config.action_dir.display(),
+                "[spawn_parallel_agents] resolved action root for graph"
+            );
+            Some(config.action_dir.clone())
+        }
+        Err(err) => {
+            tracing::debug!(
+                error = %err,
+                "[spawn_parallel_agents] config load failed; worktree isolation will use missing-root fallback"
+            );
+            None
+        }
+    }
 }
 
 pub(crate) struct SpawnParallelCollected {
@@ -947,8 +971,8 @@ fn noop_node(
 /// The node order is intentionally static for topology export:
 ///
 /// `validate -> dispatch -> worker -> collect -> finalize`
-pub(crate) fn build_spawn_parallel_graph()
--> Result<CompiledGraph<SpawnParallelState, SpawnParallelUpdate>, String> {
+pub(crate) fn build_spawn_parallel_graph(
+) -> Result<CompiledGraph<SpawnParallelState, SpawnParallelUpdate>, String> {
     GraphBuilder::<SpawnParallelState, SpawnParallelUpdate>::new()
         .set_reducer(ClosureStateReducer::new(
             |state: SpawnParallelState, _update: SpawnParallelUpdate| Ok(state),

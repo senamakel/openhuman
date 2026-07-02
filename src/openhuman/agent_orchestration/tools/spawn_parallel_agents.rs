@@ -3,12 +3,12 @@
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
 #[cfg(test)]
-use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTask;
-#[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_boundary;
+#[cfg(test)]
+use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTask;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
-    SpawnParallelTaskValidationError, format_spawn_parallel_success, run_spawn_parallel_graph,
-    validate_spawn_parallel_tool_request,
+    format_spawn_parallel_success, run_spawn_parallel_graph, validate_spawn_parallel_tool_request,
+    SpawnParallelTaskValidationError,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -151,23 +151,12 @@ impl Tool for SpawnParallelAgentsTool {
         let parent_session = parent.session_id.clone();
         let progress_sink = parent.on_progress.clone();
 
-        // Resolve the agent sandbox root once — used as the repo root when a
-        // task opts into git-worktree isolation. This is `Config.action_dir`
-        // (the user's project repo the coding agent edits), NOT openhuman's
-        // own tree. Loaded lazily; only consulted for worktree-isolated tasks.
-        let action_root: Option<std::path::PathBuf> =
-            crate::openhuman::config::Config::load_or_init()
-                .await
-                .ok()
-                .map(|cfg| cfg.action_dir.clone());
-
         let collected = run_spawn_parallel_graph(
             &parent_session,
             progress_sink.as_ref(),
             tasks,
             registry,
             &parent,
-            action_root,
         )
         .await
         .map_err(|e| anyhow::anyhow!(e))?;

@@ -26,7 +26,7 @@ mod model;
 pub mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
-pub mod stop_hooks;
+pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;
 mod summarize;
 mod tools;

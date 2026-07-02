@@ -36,7 +36,7 @@ use crate::openhuman::inference::provider::UsageInfo;
 
 /// Fires openhuman [`StopHook`]s after each model call and pauses the run when
 /// any hook votes to stop.
-pub struct StopHookMiddleware {
+pub(super) struct StopHookMiddleware {
     /// Steering handle the run was built with; `Pause` is sent here on stop.
     handle: SteeringHandle,
     /// Model name reported to hooks (and used for cost estimation).
@@ -55,7 +55,7 @@ pub struct StopHookMiddleware {
 
 impl StopHookMiddleware {
     /// Build a middleware firing `hooks`, pausing `handle` on the first stop.
-    pub fn new(
+    pub(super) fn new(
         handle: SteeringHandle,
         model: impl Into<String>,
         max_iterations: usize,

@@ -23,13 +23,12 @@ removed. The stale default-Full `tokenjuice::compact_tool_output` wrapper is
 removed; TinyAgents and the legacy direct executor use the policy-aware
 TokenJuice entry point.
 
-1. `payload_summarizer.rs` (490 lines, oversized-result compression via a
-   `summarizer` sub-agent + circuit breaker): `ToolOutputMiddleware` now calls
-   the parent-context-aware summarizer seam, and that live path uses
-   `SubAgent::invoke_in_parent` for child depth/event lineage. Remaining work:
-   emit any additional `SummaryRecord`-style provenance needed beyond
-   `AgentEvent::Compressed`, then delete the payload-summarizer wrapper once no
-   builder/session wiring needs it.
+1. `payload_summarizer.rs` (moved to `src/openhuman/tinyagents/`; oversized-result
+   compression via a `summarizer` sub-agent + circuit breaker):
+   `ToolOutputMiddleware` now calls the parent-context-aware summarizer seam,
+   and that live path uses `SubAgent::invoke_in_parent` for child depth/event
+   lineage. Remaining work: emit any additional `SummaryRecord`-style
+   provenance needed beyond `AgentEvent::Compressed`.
 2. `tokenjuice::compact_tool_output`: deleted after confirming
    `compact_output_with_policy` covers the live TinyAgents middleware and
    legacy direct executor paths; decision recorded in
@@ -46,7 +45,7 @@ TokenJuice entry point.
 
 ## Deletions
 
-- `src/openhuman/agent/harness/payload_summarizer.rs`.
+- `src/openhuman/tinyagents/payload_summarizer.rs`.
 - Summarizer branch of `session/agent_tool_exec.rs`.
 - `tokenjuice::compact_tool_output`.
 

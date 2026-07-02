@@ -374,7 +374,7 @@ The harness shell lives under `src/openhuman/agent/`, with the tinyagents adapte
 | `agent_orchestration/subagent_sessions/` | Durable reusable sub-agent identity, compatibility matching, persisted status/history. |
 | `harness/definition.rs`       | `AgentDefinition` - what an archetype declares.                   |
 | `harness/tool_filter.rs`      | Toolkit-action ranking for integrations sub-agents.               |
-| `harness/payload_summarizer.rs` | Oversized-tool-result detour.                                   |
+| `../tinyagents/payload_summarizer.rs` | Oversized-tool-result detour.                             |
 | `harness/engine/`             | Surviving OpenHuman seams: `CheckpointStrategy`, `TurnProgress`.  |
 | `dispatcher.rs`               | Tool-call dialect abstraction (persisted-transcript compatibility). |
 | `triage/`                     | External-trigger classification + escalation.                     |

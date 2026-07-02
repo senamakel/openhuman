@@ -61,9 +61,9 @@ use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::subagent::SubAgent;
 use tracing::{debug, info, warn};
 
-use super::definition::AgentDefinition;
-use super::fork_context::{current_parent, ParentExecutionContext};
-use super::subagent_runner;
+use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
+use crate::openhuman::agent::harness::fork_context::{current_parent, ParentExecutionContext};
+use crate::openhuman::agent::harness::subagent_runner;
 
 /// Outcome returned by [`PayloadSummarizer::maybe_summarize_in_parent`].
 ///
@@ -109,9 +109,9 @@ pub trait PayloadSummarizer: Send + Sync {
 ///
 /// Holds the `summarizer` agent definition (resolved once at agent
 /// build time from the global
-/// [`super::definition::AgentDefinitionRegistry`]) plus the threshold
-/// knobs and a small failure counter that acts as a session-scoped
-/// circuit breaker.
+/// [`crate::openhuman::agent::harness::definition::AgentDefinitionRegistry`])
+/// plus the threshold knobs and a small failure counter that acts as a
+/// session-scoped circuit breaker.
 pub struct SubagentPayloadSummarizer {
     /// The `summarizer` agent definition. Cloned from the registry at
     /// agent build time so the runner doesn't have to re-resolve it
@@ -335,9 +335,9 @@ impl SubagentPayloadSummarizer {
         };
 
         let system_prompt = match &self.definition.system_prompt {
-            super::definition::PromptSource::Dynamic(build) => build(&prompt_ctx)?,
-            super::definition::PromptSource::Inline(prompt) => prompt.clone(),
-            super::definition::PromptSource::File { path } => {
+            PromptSource::Dynamic(build) => build(&prompt_ctx)?,
+            PromptSource::Inline(prompt) => prompt.clone(),
+            PromptSource::File { path } => {
                 return Err(anyhow!(
                     "payload summarizer invoke_in_parent does not support file prompt source: {path}"
                 ));
@@ -414,8 +414,8 @@ impl SubagentPayloadSummarizer {
 
 /// Rough token estimate: ~4 characters per token. Mirrors
 /// [`crate::openhuman::memory_tree::tree_runtime::types::estimate_tokens`] but
-/// returns `usize` (not `u32`) and lives here to avoid a cross-module
-/// dependency from the agent harness on the tree summarizer.
+/// returns `usize` (not `u32`) and lives here to keep the tinyagents adapter
+/// independent from the tree summarizer.
 fn estimate_tokens(text: &str) -> usize {
     text.len().div_ceil(4)
 }

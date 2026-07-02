@@ -180,7 +180,7 @@ pub struct Agent {
     /// produced by [`Agent::execute_tool_call`] are routed through the
     /// summarizer sub-agent before they enter agent history.
     pub(super) payload_summarizer:
-        Option<Arc<dyn crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer>>,
+        Option<Arc<dyn crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer>>,
     /// Mirrors the agent definition's `trigger_memory_agent` policy.
     /// `Always` runs the dedicated memory retrieval agent once before
     /// the user's prompt is sent to this agent.
@@ -357,7 +357,7 @@ pub struct AgentBuilder {
     /// [`super::builder::Agent::build_session_agent_inner`] sets this
     /// to a `SubagentPayloadSummarizer` instance.
     pub(super) payload_summarizer:
-        Option<Arc<dyn crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer>>,
+        Option<Arc<dyn crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer>>,
     /// Forwarded to [`Agent::trigger_memory_agent`] at build time.
     pub(super) trigger_memory_agent: Option<TriggerMemoryAgent>,
     /// Per-agent TokenJuice tool-output compression profile.

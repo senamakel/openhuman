@@ -628,7 +628,7 @@ run-ledger rows, and prove restart/resume parity.
 
 - [ ] Move context compaction provenance into TinyAgents events.
   - OpenHuman files: `context/README.md`, `tinyagents/summarize.rs`,
-    `agent/harness/payload_summarizer.rs`.
+    `tinyagents/payload_summarizer.rs`.
   - TinyAgents components: `SummaryRecord`, `Compressed` events,
     `PromptCacheLayout`, cache layout events.
   - Acceptance: every summary records source ids, before/after token estimates,
@@ -703,7 +703,7 @@ assessment, and migration coverage are complete.
     OpenHuman-specific; move compression policy/provenance into TinyAgents
     middleware and delete unused reduction paths.
 
-- [ ] Audit `src/openhuman/agent/harness/payload_summarizer.rs`.
+- [ ] Audit `src/openhuman/tinyagents/payload_summarizer.rs`.
   - Current role: oversized tool-result compression via a `summarizer`
     sub-agent with a local circuit breaker.
   - TinyAgents expression: `ToolMiddleware::after_tool`,

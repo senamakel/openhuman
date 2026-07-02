@@ -39,7 +39,6 @@ use tinyagents::harness::tool::{
     ToolCall as TaToolCall, ToolPolicy as TaToolPolicy, ToolResult as TaToolResult,
 };
 
-use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::agent::harness::tool_result_artifacts::{
     apply_per_result_persistence, ToolResultArtifactStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
@@ -47,6 +46,7 @@ use crate::openhuman::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
 };
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
+use crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
 use crate::openhuman::tools::Tool;
 

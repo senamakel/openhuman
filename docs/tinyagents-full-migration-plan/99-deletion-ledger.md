@@ -52,7 +52,7 @@ they land.
       `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
       (live until crate budget/run-tree accounting avoids duplicate
       `UsageRecorded` and covers parent-turn rollups)
-- [ ] `agent/dispatcher.rs` (609) + `harness/parse.rs` (826) legacy tool-call
+- [ ] `agent/dispatcher.rs` (609) + `harness/parse.rs` (833) legacy tool-call
       parsing — after XML/P-format transcripts read from the store and no
       live path parses provider text (04.2 + verify)
       (live compatibility shell for prompt dialect selection, history

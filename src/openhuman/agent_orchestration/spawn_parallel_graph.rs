@@ -19,6 +19,7 @@ use tinyagents::graph::{
     ClosureStateReducer, CompiledGraph, GraphBuilder, NodeContext, NodeResult,
 };
 use tinyagents::harness::workspace::{WorkspaceDescriptor, WorkspaceIsolation};
+use tinyagents::{CancellationToken, TinyAgentsError};
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::{
@@ -762,6 +763,13 @@ async fn stage_spawn_parallel_workers_from_defs(
 pub(super) async fn run_spawn_parallel_graph(
     args: serde_json::Value,
 ) -> Result<SpawnParallelGraphOutcome, String> {
+    run_spawn_parallel_graph_with_cancellation(args, CancellationToken::new()).await
+}
+
+pub(super) async fn run_spawn_parallel_graph_with_cancellation(
+    args: serde_json::Value,
+    cancel: CancellationToken,
+) -> Result<SpawnParallelGraphOutcome, String> {
     let tasks = match validate_spawn_parallel_tool_request(&args, None) {
         Ok(tasks) => tasks,
         Err(err) => return Ok(SpawnParallelGraphOutcome::InvalidRequest(err)),
@@ -806,6 +814,7 @@ pub(super) async fn run_spawn_parallel_graph(
         definitions,
         parent,
         action_root,
+        cancel,
     )
     .await?;
     match &outcome {
@@ -830,6 +839,13 @@ pub(super) async fn run_spawn_parallel_graph(
             tracing::debug!(
                 parent_session = %parent_session,
                 "[spawn_parallel_agents] invalid_request_after_graph_run"
+            );
+        }
+        SpawnParallelGraphOutcome::Cancelled(message) => {
+            tracing::debug!(
+                parent_session = %parent_session,
+                message = %message,
+                "[spawn_parallel_agents] cancelled_by_graph"
             );
         }
     }
@@ -871,6 +887,7 @@ pub(super) enum SpawnParallelGraphOutcome {
     Collected(SpawnParallelCollected),
     InvalidRequest(SpawnParallelTaskValidationError),
     Rejected(String),
+    Cancelled(String),
 }
 
 impl SpawnParallelCollected {
@@ -1116,7 +1133,8 @@ fn overlap_warnings_for_results(
 async fn run_spawn_parallel_workers(
     prepared: Vec<SpawnParallelWorker>,
     action_root: Option<PathBuf>,
-) -> Result<Vec<ParallelAgentResult>, String> {
+    cancel: CancellationToken,
+) -> tinyagents::Result<Vec<ParallelAgentResult>> {
     let n = prepared.len();
     let serial_write_count = prepared
         .iter()
@@ -1136,6 +1154,13 @@ async fn run_spawn_parallel_workers(
         );
         let mut results = Vec::with_capacity(n);
         for worker in prepared {
+            if cancel.is_cancelled() {
+                tracing::debug!(
+                    target: "orchestration",
+                    "[orchestration] spawn_parallel serial fan-out cancelled before next worker"
+                );
+                return Err(TinyAgentsError::Cancelled);
+            }
             results.push(run_one_parallel_task(worker, action_root.clone()).await);
         }
         return Ok(results);
@@ -1151,31 +1176,31 @@ async fn run_spawn_parallel_workers(
     );
     let options = ParallelOptions::default()
         .with_max_concurrency(max_concurrency)
-        .with_failure_policy(FailurePolicy::CollectAll);
+        .with_failure_policy(FailurePolicy::CollectAll)
+        .with_cancellation(cancel);
     let outcome = map_reduce(prepared, options, move |_i, worker| {
         let repo_root = action_root_for_workers.clone();
         async move { Ok(run_one_parallel_task(worker, repo_root).await) }
     })
-    .await
-    .map_err(|e| format!("spawn_parallel_agents fan-out map_reduce failed: {e}"))?;
+    .await?;
 
     let mut results = Vec::with_capacity(n);
     for item in outcome.outcomes {
         match item.result {
             Ok(value) => results.push(value),
             Err(err) => {
-                return Err(format!(
+                return Err(TinyAgentsError::Graph(format!(
                     "spawn_parallel_agents fan-out: worker {} failed: {err}",
                     item.index
-                ));
+                )));
             }
         }
     }
     if results.len() != n {
-        return Err(format!(
+        return Err(TinyAgentsError::Graph(format!(
             "spawn_parallel_agents fan-out: expected {n} result(s), got {}",
             results.len()
-        ));
+        )));
     }
     Ok(results)
 }
@@ -1317,6 +1342,7 @@ const SPAWN_PARALLEL_PHASES: &[&str] = &["validate", "dispatch", "worker", "coll
 #[derive(Clone, Default)]
 struct SpawnParallelState {
     visited: Vec<&'static str>,
+    cancelled_phase: Option<&'static str>,
     tasks: Vec<ParallelAgentTask>,
     max_parallel: usize,
     rejection: Option<String>,
@@ -1345,6 +1371,7 @@ impl SpawnParallelState {
 
 enum SpawnParallelUpdate {
     PhaseEntered(&'static str),
+    Cancelled(&'static str),
     Rejected(String),
     Staged {
         prepared: Vec<SpawnParallelWorker>,
@@ -1380,6 +1407,10 @@ fn build_spawn_parallel_graph(
             |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
                 match update {
                     SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                    SpawnParallelUpdate::Cancelled(phase) => {
+                        state.visited.push(phase);
+                        state.cancelled_phase.get_or_insert(phase);
+                    }
                     SpawnParallelUpdate::Rejected(message) => state.rejection = Some(message),
                     SpawnParallelUpdate::Staged {
                         prepared,
@@ -1423,6 +1454,7 @@ async fn run_spawn_parallel_execution_graph(
     definitions: HashMap<String, AgentDefinition>,
     parent: ParentExecutionContext,
     action_root: Option<PathBuf>,
+    cancel: CancellationToken,
 ) -> Result<SpawnParallelGraphOutcome, String> {
     let phases = SPAWN_PARALLEL_PHASES;
     let label = format!("spawn_parallel_agents:{parent_session}");
@@ -1433,11 +1465,20 @@ async fn run_spawn_parallel_execution_graph(
     let parent_for_collect = parent_session.to_string();
     let progress_for_collect = progress_sink.clone();
     let parent_for_finalize = parent_session.to_string();
+    let cancel_for_validate = cancel.clone();
+    let cancel_for_dispatch = cancel.clone();
+    let cancel_for_worker = cancel.clone();
+    let cancel_for_collect = cancel.clone();
+    let cancel_for_finalize = cancel.clone();
     let graph = GraphBuilder::<SpawnParallelState, SpawnParallelUpdate>::new()
         .set_reducer(ClosureStateReducer::new(
             |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
                 match update {
                     SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                    SpawnParallelUpdate::Cancelled(phase) => {
+                        state.visited.push(phase);
+                        state.cancelled_phase.get_or_insert(phase);
+                    }
                     SpawnParallelUpdate::Rejected(message) => state.rejection = Some(message),
                     SpawnParallelUpdate::Staged {
                         prepared,
@@ -1455,18 +1496,30 @@ async fn run_spawn_parallel_execution_graph(
         ))
         .add_node(
             phases[0],
-            |state: SpawnParallelState, _ctx: NodeContext| async move {
-                if state.tasks.len() > state.max_parallel {
-                    let message = format!(
-                        "spawn_parallel_agents received {} tasks but max_parallel_tools is {}",
-                        state.tasks.len(),
-                        state.max_parallel
-                    );
-                    Ok(NodeResult::Update(SpawnParallelUpdate::Rejected(message)))
-                } else {
-                    Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
-                        "validate",
-                    )))
+            move |state: SpawnParallelState, _ctx: NodeContext| {
+                let cancel = cancel_for_validate.clone();
+                async move {
+                    if cancel.is_cancelled() {
+                        tracing::debug!(
+                            phase = "validate",
+                            "[spawn_parallel_agents] graph_cancelled_at_boundary"
+                        );
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled(
+                            "validate",
+                        )));
+                    }
+                    if state.tasks.len() > state.max_parallel {
+                        let message = format!(
+                            "spawn_parallel_agents received {} tasks but max_parallel_tools is {}",
+                            state.tasks.len(),
+                            state.max_parallel
+                        );
+                        Ok(NodeResult::Update(SpawnParallelUpdate::Rejected(message)))
+                    } else {
+                        Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                            "validate",
+                        )))
+                    }
                 }
             },
         )
@@ -1477,9 +1530,19 @@ async fn run_spawn_parallel_execution_graph(
                 let progress_sink = progress_for_dispatch.clone();
                 let definitions = definitions_for_dispatch.clone();
                 let parent = parent_for_dispatch.clone();
+                let cancel = cancel_for_dispatch.clone();
                 async move {
-                    if state.rejection.is_some() {
+                    if state.cancelled_phase.is_some() || state.rejection.is_some() {
                         return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                            "dispatch",
+                        )));
+                    }
+                    if cancel.is_cancelled() {
+                        tracing::debug!(
+                            phase = "dispatch",
+                            "[spawn_parallel_agents] graph_cancelled_at_boundary"
+                        );
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled(
                             "dispatch",
                         )));
                     }
@@ -1501,16 +1564,39 @@ async fn run_spawn_parallel_execution_graph(
         )
         .add_node(
             phases[2],
-            |state: SpawnParallelState, _ctx: NodeContext| async move {
-                if state.rejection.is_some() {
-                    return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
-                        "worker",
-                    )));
+            move |state: SpawnParallelState, _ctx: NodeContext| {
+                let cancel = cancel_for_worker.clone();
+                async move {
+                    if state.cancelled_phase.is_some() || state.rejection.is_some() {
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                            "worker",
+                        )));
+                    }
+                    if cancel.is_cancelled() {
+                        tracing::debug!(
+                            phase = "worker",
+                            "[spawn_parallel_agents] graph_cancelled_at_boundary"
+                        );
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled("worker")));
+                    }
+                    let fanned =
+                        match run_spawn_parallel_workers(state.prepared, state.action_root, cancel)
+                            .await
+                        {
+                            Ok(fanned) => fanned,
+                            Err(TinyAgentsError::Cancelled) => {
+                                tracing::debug!(
+                                    phase = "worker",
+                                    "[spawn_parallel_agents] fanout_cancelled"
+                                );
+                                return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled(
+                                    "worker",
+                                )));
+                            }
+                            Err(err) => return Err(err),
+                        };
+                    Ok(NodeResult::Update(SpawnParallelUpdate::Fanned(fanned)))
                 }
-                let fanned = run_spawn_parallel_workers(state.prepared, state.action_root)
-                    .await
-                    .map_err(tinyagents::TinyAgentsError::Graph)?;
-                Ok(NodeResult::Update(SpawnParallelUpdate::Fanned(fanned)))
             },
         )
         .add_node(
@@ -1518,9 +1604,19 @@ async fn run_spawn_parallel_execution_graph(
             move |state: SpawnParallelState, _ctx: NodeContext| {
                 let parent_session = parent_for_collect.clone();
                 let progress_sink = progress_for_collect.clone();
+                let cancel = cancel_for_collect.clone();
                 async move {
-                    if state.rejection.is_some() {
+                    if state.cancelled_phase.is_some() || state.rejection.is_some() {
                         return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                            "collect",
+                        )));
+                    }
+                    if cancel.is_cancelled() {
+                        tracing::debug!(
+                            phase = "collect",
+                            "[spawn_parallel_agents] graph_cancelled_at_boundary"
+                        );
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled(
                             "collect",
                         )));
                     }
@@ -1542,7 +1638,22 @@ async fn run_spawn_parallel_execution_graph(
             phases[4],
             move |state: SpawnParallelState, _ctx: NodeContext| {
                 let parent_session = parent_for_finalize.clone();
+                let cancel = cancel_for_finalize.clone();
                 async move {
+                    if state.cancelled_phase.is_some() {
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                            "finalize",
+                        )));
+                    }
+                    if cancel.is_cancelled() {
+                        tracing::debug!(
+                            phase = "finalize",
+                            "[spawn_parallel_agents] graph_cancelled_at_boundary"
+                        );
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::Cancelled(
+                            "finalize",
+                        )));
+                    }
                     if let Some(message) = state.rejection {
                         return Ok(NodeResult::Update(SpawnParallelUpdate::Rejected(message)));
                     }
@@ -1578,6 +1689,11 @@ async fn run_spawn_parallel_execution_graph(
         .await
         .map_err(|e| format!("spawn_parallel_agents graph run failed: {e}"))?;
 
+    if let Some(phase) = execution.state.cancelled_phase {
+        return Ok(SpawnParallelGraphOutcome::Cancelled(format!(
+            "spawn_parallel_agents cancelled at {phase}"
+        )));
+    }
     if let Some(message) = execution.state.rejection {
         return Ok(SpawnParallelGraphOutcome::Rejected(message));
     }

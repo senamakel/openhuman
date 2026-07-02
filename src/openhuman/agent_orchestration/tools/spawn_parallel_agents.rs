@@ -121,6 +121,7 @@ impl Tool for SpawnParallelAgentsTool {
                 Ok(ToolResult::error(message))
             }
             SpawnParallelGraphOutcome::Rejected(message) => Ok(ToolResult::error(message)),
+            SpawnParallelGraphOutcome::Cancelled(message) => Ok(ToolResult::error(message)),
         }
     }
 }

@@ -19,9 +19,13 @@ write/execute tools unless the target definition is `sandbox_mode = "read_only"`
 the task explicitly requests `isolation = "worktree"`, or the task provides
 non-overlapping `files:` ownership for the shared-workspace serial fallback.
 Worker fanout still uses the SDK `map_reduce` helper for parallel-safe batches,
-shared write fallback runs the prepared batch in deterministic task order,
-collect still projects compatibility `DomainEvent`/`AgentProgress`, and
-finalize still returns the existing JSON shape. The tool wrapper still owns
+shared write fallback runs the prepared batch in deterministic task order and
+now checks the graph cancellation token between serial workers, collect still
+projects compatibility `DomainEvent`/`AgentProgress`, and finalize still
+returns the existing JSON shape. Parallel batches pass the same token into SDK
+`ParallelOptions::with_cancellation`, so cancelled map-reduce runs surface as a
+graph `Cancelled` outcome instead of an opaque fanout error. The tool wrapper
+still owns
 `ToolResult` translation so
 malformed-argument and public error shapes stay unchanged. The unused pre-graph
 public wrappers have been removed, internal graph helpers have been narrowed,
@@ -51,8 +55,11 @@ and the remaining shrink target is the 1280-line graph implementation.
    may share workspace; worktree-isolated writers stay on `map_reduce`;
    shared-workspace writers with disjoint `files:` ownership are admitted but
    force a deterministic serial batch fallback; shared writers without
-   parseable/disjoint ownership are rejected. Remaining: cancellation at graph
-   boundaries. No widening of tools/model/sandbox/budget.
+   parseable/disjoint ownership are rejected. Cancellation now has a graph-level
+   token seam, named-node boundary checks, serial fallback checks between
+   workers, and SDK map-reduce cancellation wiring. Remaining: pass the live
+   parent run cancellation token into the tool path. No widening of
+   tools/model/sandbox/budget.
 4. Checkpointing optional (fanout = Async durability).
 
 ## Deletions
@@ -64,4 +71,5 @@ and the remaining shrink target is the 1280-line graph implementation.
 ## Acceptance
 
 - Required before completion: spawn_parallel suite green against identical JSON output;
-  cancellable mid-fanout; status consumers render per-task lineage.
+  caller-side live cancellation token wired into the tool path; status consumers
+  render per-task lineage.

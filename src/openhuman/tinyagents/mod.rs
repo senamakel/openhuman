@@ -30,7 +30,7 @@ pub mod stop_hooks;
 pub(crate) mod subagent_graph;
 pub mod summarize;
 mod tools;
-pub mod topology;
+pub(crate) mod topology;
 
 use std::sync::Arc;
 

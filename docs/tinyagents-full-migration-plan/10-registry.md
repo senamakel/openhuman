@@ -3,6 +3,11 @@
 One policy-aware lookup over OpenHuman's many registries (agents, tools,
 MCP, models, graphs).
 
+Current status (2026-07-02): `agent.graph_topologies` still exposes the
+structure-only graph snapshot as JSON-RPC, but the underlying
+`tinyagents/topology.rs` helper/report surface is now crate-internal. A full
+`CapabilityRegistry` projection remains pending.
+
 Target SDK surface: `CapabilityRegistry` (`register_model/tool/
 graph_blueprint/agent`, `to_model_registry()`, `to_tool_registry()`,
 `capability_resolver()`), `ComponentId`/`ComponentKind`/

@@ -10,23 +10,23 @@
 use tinyagents::graph::export::{self, GraphTopology};
 
 /// A rendered topology for one graph.
-pub struct GraphTopologyReport {
+pub(crate) struct GraphTopologyReport {
     /// Stable graph label (e.g. `"agent_teams:member"`).
-    pub name: &'static str,
+    pub(crate) name: &'static str,
     /// Mermaid `flowchart TD` rendering.
-    pub mermaid: String,
+    pub(crate) mermaid: String,
     /// Pretty-printed JSON of the full topology.
-    pub json: String,
+    pub(crate) json: String,
     /// `true` when the structural validation found no errors.
-    pub ok: bool,
+    pub(crate) ok: bool,
     /// Structural defects (missing nodes, unreachable routes, …).
-    pub errors: Vec<String>,
+    pub(crate) errors: Vec<String>,
     /// Non-fatal observations.
-    pub warnings: Vec<String>,
+    pub(crate) warnings: Vec<String>,
 }
 
 /// Render a [`GraphTopology`] into a [`GraphTopologyReport`].
-pub fn describe(name: &'static str, topology: &GraphTopology) -> GraphTopologyReport {
+pub(crate) fn describe(name: &'static str, topology: &GraphTopology) -> GraphTopologyReport {
     GraphTopologyReport {
         name,
         mermaid: export::to_mermaid(topology),
@@ -42,7 +42,7 @@ pub fn describe(name: &'static str, topology: &GraphTopology) -> GraphTopologyRe
 /// Graphs that fail to build (should not happen for the fixed-structure graphs)
 /// are silently skipped. Each entry carries a Mermaid + JSON rendering and the
 /// structural validation report.
-pub fn all_graph_topologies() -> Vec<GraphTopologyReport> {
+pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
     let mut out = Vec::new();
 
     if let Ok(t) = crate::openhuman::agent_orchestration::agent_teams::member_graph_topology() {

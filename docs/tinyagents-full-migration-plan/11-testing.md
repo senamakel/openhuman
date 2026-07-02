@@ -10,7 +10,13 @@ approval denial, streaming text + reasoning + tool-arg deltas, early-exit
 pause, model-call cap checkpoint, budget stop, fallback selection,
 compression at 90% window, cache hit/miss, steering inject/cancel,
 detached spawn→restart→wait, worktree-isolated parallel run.
-Extend `src/openhuman/tinyagents/tests.rs` + `tests/agent_harness_e2e.rs`.
+Extend `src/openhuman/tinyagents/tests.rs`, `tests/agent_harness_e2e.rs`, and
+`tests/agent_tool_loop_raw_coverage_e2e.rs`.
+
+Current execution mode for this migration branch: tests are intentionally
+deferred while code/docs are still moving quickly. Use docs drift and cargo
+checks for small slices; run the behavioral suites in the final conformance
+pass before declaring a workstream done.
 
 ## Testkit adoption
 
@@ -29,8 +35,12 @@ assertions.
 
 ## Known debts to clear here
 
-- 2 failing detached-orchestrator e2e (see 07.2 step 6).
-- `cost::init_global` OnceCell flakiness — test helper gating, not global
-  records (memory 2026-07-01).
-- Coverage gate: ≥80% on changed lines (repo CI rule) applies to every
-  workstream PR, not just this pass.
+- Previously flaky detached-orchestrator e2e timeout/hang debt (see 07.2 step
+  6): the tight 2s waits are now 15s, but re-run when tests are re-enabled
+  before treating that path as proven.
+- `cost::init_global` is now idempotent/no-panic; keep future tests isolated
+  around process-global state so they do not depend on execution order.
+- Coverage gate: ≥80% on changed lines applies when frontend/rust coverage
+  lanes are triggered. Docs-only migration-plan markdown does not trigger the
+  coverage lane, but code slices still need the normal changed-line coverage
+  before PR completion.

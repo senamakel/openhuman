@@ -1,8 +1,8 @@
 use super::*;
-use crate::openhuman::agent::Agent;
 use crate::openhuman::agent::dispatcher::NativeToolDispatcher;
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
-use crate::openhuman::agent::harness::fork_context::{ParentExecutionContext, with_parent_context};
+use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::openhuman::agent::Agent;
 use crate::openhuman::config::AgentConfig;
 use crate::openhuman::context::prompt::ToolCallFormat;
 use crate::openhuman::inference::provider::traits::ProviderCapabilities;
@@ -15,10 +15,10 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 use serde_json::json;
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
-use tokio::time::{Duration, sleep};
+use tokio::time::{sleep, Duration};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";
 const RESEARCH_PROMPT_CANARY: &str = "research-branch-canary";
@@ -26,6 +26,14 @@ const PLANNER_PROMPT_CANARY: &str = "planner-branch-canary";
 const RESEARCH_DONE_CANARY: &str = "research-finished-canary";
 const PLANNER_DONE_CANARY: &str = "planner-finished-canary";
 const FINAL_CANARY: &str = "parallel-summary-canary";
+
+fn test_lineage(task_id: &str) -> ParallelAgentLineage {
+    ParallelAgentLineage {
+        parent_session: "parent-session".into(),
+        root_session: "root-session".into(),
+        child_task_id: task_id.into(),
+    }
+}
 
 #[test]
 fn metadata_methods_expose_execute_permission_and_schema() {
@@ -86,6 +94,7 @@ fn result_omits_worktree_fields_when_absent() {
     let result = ParallelAgentResult {
         task_id: "t1".into(),
         agent_id: "a".into(),
+        lineage: test_lineage("t1"),
         success: true,
         output: Some("ok".into()),
         error: None,
@@ -108,6 +117,7 @@ fn result_serializes_worktree_fields_when_present() {
     let result = ParallelAgentResult {
         task_id: "t2".into(),
         agent_id: "coder".into(),
+        lineage: test_lineage("t2"),
         success: true,
         output: None,
         error: None,
@@ -347,21 +357,15 @@ async fn collects_immediate_task_validation_failures() {
         .iter()
         .map(|result| result["error"].as_str().unwrap_or_default())
         .collect::<Vec<_>>();
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("agent_id and prompt"))
-    );
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("unknown agent_id"))
-    );
-    assert!(
-        errors
-            .iter()
-            .any(|error| error.contains("requires toolkit"))
-    );
+    assert!(errors
+        .iter()
+        .any(|error| error.contains("agent_id and prompt")));
+    assert!(errors
+        .iter()
+        .any(|error| error.contains("unknown agent_id")));
+    assert!(errors
+        .iter()
+        .any(|error| error.contains("requires toolkit")));
 }
 
 #[derive(Default)]

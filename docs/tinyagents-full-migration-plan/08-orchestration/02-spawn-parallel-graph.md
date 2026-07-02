@@ -1,13 +1,16 @@
 # 08.2 — `spawn_parallel_agents` as a graph tool
 
 The spec's Phase 6 node shape is now live on SDK graph helpers; remaining work
-is parity evidence, cancellation coverage, and graph-lineage polish.
+is parity evidence and cancellation coverage.
 
 Current status (2026-07-02): `spawn_parallel_agents` already fans prepared
 workers through `tinyagents::graph::parallel::map_reduce`, exports the fixed
 `validate -> dispatch -> worker -> collect -> finalize` topology, and the graph
 entrypoint now owns `Config.action_dir` resolution for worktree-isolated workers.
-The graph now owns the live `validate`/`dispatch`/`worker`/`collect`/`finalize`
+Each result now carries explicit per-task lineage (`parentSession`,
+`rootSession`, `childTaskId`) so graph/status consumers can connect child task
+ids back to the root run. The graph now owns the live
+`validate`/`dispatch`/`worker`/`collect`/`finalize`
 phases: the graph entrypoint resolves parent context and registry state,
 validate parses task requests and enforces the parent `max_parallel_tools`
 limit, dispatch validates/preflights workers from an owned agent-definition
@@ -41,9 +44,8 @@ implementation.
    a 128-line thin shell: schema → run graph → translate `ToolResult`.
 3. In progress: policy (spec "ownership and scheduling"): disjoint write ownership or
    reject/serial-fallback; read-only workers may share workspace;
-   write-capable request worktree isolation (08.5); children share
-   root run id, own task ids; no widening of tools/model/sandbox/budget;
-   cancellation at graph boundaries.
+   write-capable request worktree isolation (08.5); no widening of
+   tools/model/sandbox/budget; cancellation at graph boundaries.
 4. Checkpointing optional (fanout = Async durability).
 
 ## Deletions
@@ -55,4 +57,4 @@ implementation.
 ## Acceptance
 
 - Required before completion: spawn_parallel suite green against identical JSON output;
-  cancellable mid-fanout; graph status shows per-task lineage.
+  cancellable mid-fanout; status consumers render per-task lineage.

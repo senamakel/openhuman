@@ -160,6 +160,7 @@ fn create_spawn_parallel_worktree(
     task_id: &str,
     agent_id: &str,
     task: &ParallelAgentTask,
+    session_parent_prefix: Option<&str>,
 ) -> Result<Option<PathBuf>, ParallelAgentResult> {
     match worktree_request_for_task(task) {
         ParallelWorktreeRequest::SharedWorkspace => Ok(None),
@@ -185,6 +186,11 @@ fn create_spawn_parallel_worktree(
                     Err(ParallelAgentResult {
                         task_id: task_id.to_string(),
                         agent_id: agent_id.to_string(),
+                        lineage: spawn_parallel_lineage(
+                            parent_session,
+                            session_parent_prefix,
+                            task_id,
+                        ),
                         success: false,
                         output: None,
                         error: Some(format!("worktree isolation failed: {err}")),
@@ -207,6 +213,7 @@ fn create_spawn_parallel_worktree(
                 Err(ParallelAgentResult {
                     task_id: task_id.to_string(),
                     agent_id: agent_id.to_string(),
+                    lineage: spawn_parallel_lineage(parent_session, session_parent_prefix, task_id),
                     success: false,
                     output: None,
                     error: Some(
@@ -322,7 +329,16 @@ struct SpawnParallelWorker {
     prompt: String,
     task: ParallelAgentTask,
     task_id: String,
+    lineage: ParallelAgentLineage,
     worktree_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ParallelAgentLineage {
+    pub(super) parent_session: String,
+    pub(super) root_session: String,
+    pub(super) child_task_id: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -330,6 +346,7 @@ struct SpawnParallelWorker {
 pub(super) struct ParallelAgentResult {
     pub(super) task_id: String,
     pub(super) agent_id: String,
+    pub(super) lineage: ParallelAgentLineage,
     pub(super) success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) output: Option<String>,
@@ -355,6 +372,22 @@ pub(super) struct ParallelAgentResult {
     /// user can choose). `None` for non-isolated workers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) dirty_status: Option<bool>,
+}
+
+fn spawn_parallel_lineage(
+    parent_session: &str,
+    session_parent_prefix: Option<&str>,
+    task_id: &str,
+) -> ParallelAgentLineage {
+    let root_session = session_parent_prefix
+        .and_then(|prefix| prefix.split("__").next())
+        .filter(|root| !root.is_empty())
+        .unwrap_or(parent_session);
+    ParallelAgentLineage {
+        parent_session: parent_session.to_string(),
+        root_session: root_session.to_string(),
+        child_task_id: task_id.to_string(),
+    }
 }
 
 async fn stage_spawn_parallel_workers_from_defs(
@@ -407,9 +440,15 @@ async fn stage_spawn_parallel_workers_from_defs(
                         );
                     }
                 }
+                let lineage = spawn_parallel_lineage(
+                    parent_session,
+                    parent.session_parent_prefix.as_deref(),
+                    &rejection.task_id,
+                );
                 immediate_results.push(ParallelAgentResult {
                     task_id: rejection.task_id,
                     agent_id: rejection.agent_id,
+                    lineage,
                     success: false,
                     output: None,
                     error: Some(rejection.error),
@@ -449,6 +488,7 @@ async fn stage_spawn_parallel_workers_from_defs(
             &task_id,
             &definition.id,
             &task,
+            parent.session_parent_prefix.as_deref(),
         ) {
             Ok(path) => path,
             Err(result) => {
@@ -456,11 +496,17 @@ async fn stage_spawn_parallel_workers_from_defs(
                 continue;
             }
         };
+        let lineage = spawn_parallel_lineage(
+            parent_session,
+            parent.session_parent_prefix.as_deref(),
+            &task_id,
+        );
         prepared.push(SpawnParallelWorker {
             definition,
             prompt,
             task,
             task_id,
+            lineage,
             worktree_path,
         });
     }
@@ -881,6 +927,7 @@ async fn run_one_parallel_task(
         prompt,
         task,
         task_id,
+        lineage,
         worktree_path,
     } = worker;
     let started = std::time::Instant::now();
@@ -960,6 +1007,7 @@ async fn run_one_parallel_task(
             ParallelAgentResult {
                 task_id: outcome.task_id,
                 agent_id: outcome.agent_id,
+                lineage,
                 success: true,
                 output: Some(outcome.output),
                 error: None,
@@ -983,6 +1031,7 @@ async fn run_one_parallel_task(
             ParallelAgentResult {
                 task_id,
                 agent_id: definition.id,
+                lineage,
                 success: false,
                 output: None,
                 error: Some(err.to_string()),

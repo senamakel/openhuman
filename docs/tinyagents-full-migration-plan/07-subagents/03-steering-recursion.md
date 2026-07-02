@@ -31,7 +31,10 @@ queued/interrupt/followup events remain live.
    authoritative; crate-internal `spawn_depth_context.rs` (66) becomes a
    reader/projector of crate depth (`ToolExecutionContext.depth`) for product
    error wording, or is deleted if the wording can wrap
-   `TinyAgentsError::SubAgentDepth`.
+   `TinyAgentsError::SubAgentDepth`. Current code has two live authorities to
+   collapse: harness sub-agent spawning uses `MAX_SPAWN_DEPTH = 3`, while MCP
+   `agent.run_subagent` uses `MAX_SUBAGENT_DEPTH = 6` in
+   `mcp_server/subagent_depth.rs`.
 6. One error shape: map `SubAgentDepth`/`RecursionLimit` to the existing
    JSON-RPC error for compat.
 

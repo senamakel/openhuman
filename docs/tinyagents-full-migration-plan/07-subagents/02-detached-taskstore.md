@@ -14,9 +14,11 @@ workspace metadata, and terminal/cancelled mirrors now resolve the same
 workspace-scoped store that recorded the spawn. The executor/control path still
 uses OpenHuman's watch channels, abort handles, task lookup, and `RunQueue`;
 the unused future `running_subagents::close` hook has been removed and the
-test-only typed ledger snapshot plus most registry APIs are no longer exported
-outside the crate (the debug audit still uses `steer`), and finished background
-completion/delivery queues are crate-internal. Restart reconciliation and
+test-only typed ledger snapshot plus finished background completion/delivery
+queues are crate-internal. `running_subagents` and `subagent_sessions` still
+remain public because the live `harness-subagent-audit` binary imports their
+debug/control types directly; shrink that audit seam before claiming the
+registry/session APIs are crate-only. Restart reconciliation and
 steering-registry replacement remain pending.
 
 ## Steps

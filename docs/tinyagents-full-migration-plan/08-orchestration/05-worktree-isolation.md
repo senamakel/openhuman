@@ -10,6 +10,8 @@ Current status (2026-07-02): do not delete
 `worktree_action_dir` into the sub-agent runner, and shell/git acting tools read
 the task-local `current_action_dir_override()` to execute inside the isolated
 checkout. The module is now hidden behind crate-internal harness re-exports.
+Its task-local carrier and accessor helpers are no longer public beyond the
+crate.
 Delete it only after those tools resolve roots from a crate `WorkspaceDescriptor`
 carried on `ToolExecutionContext`.
 

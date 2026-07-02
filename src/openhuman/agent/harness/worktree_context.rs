@@ -23,7 +23,7 @@ use std::path::PathBuf;
 tokio::task_local! {
     /// Absolute path to the isolated worktree checkout for the currently
     /// running worker. `None`-equivalent: the scope is simply not active.
-    pub static CURRENT_ACTION_DIR_OVERRIDE: PathBuf;
+    static CURRENT_ACTION_DIR_OVERRIDE: PathBuf;
 }
 
 /// Returns the active per-worker `action_dir` override, if one is installed.
@@ -32,14 +32,14 @@ tokio::task_local! {
 /// non-isolated parallel path, the main agent turn, CLI / JSON-RPC tool
 /// dispatch, or unit tests that invoke a [`crate::openhuman::tools::Tool`]
 /// directly.
-pub fn current_action_dir_override() -> Option<PathBuf> {
+pub(crate) fn current_action_dir_override() -> Option<PathBuf> {
     CURRENT_ACTION_DIR_OVERRIDE.try_with(|p| p.clone()).ok()
 }
 
 /// Run `future` with `action_dir` installed as the worker's action-dir
 /// override. Intended call site is the subagent runner, wrapping the inner
 /// tool-call loop for a worktree-isolated worker.
-pub async fn with_action_dir_override<F, R>(action_dir: PathBuf, future: F) -> R
+pub(crate) async fn with_action_dir_override<F, R>(action_dir: PathBuf, future: F) -> R
 where
     F: std::future::Future<Output = R>,
 {

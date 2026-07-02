@@ -318,6 +318,7 @@ pub(crate) fn with_ownership_boundary(prompt: &str, ownership: Option<&str>) -> 
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct SpawnParallelWorker {
     pub(crate) definition: AgentDefinition,
     pub(crate) prompt: String,
@@ -482,23 +483,6 @@ pub(crate) async fn run_spawn_parallel_graph(
     registry: &AgentDefinitionRegistry,
     parent: &ParentExecutionContext,
 ) -> Result<SpawnParallelCollected, String> {
-    match run_spawn_parallel_graph_skeleton(parent_session).await {
-        Ok(phases) => {
-            tracing::debug!(
-                parent_session = %parent_session,
-                phases = ?phases,
-                "[spawn_parallel_agents] graph skeleton completed"
-            );
-        }
-        Err(err) => {
-            tracing::warn!(
-                parent_session = %parent_session,
-                error = %err,
-                "[spawn_parallel_agents] graph skeleton failed; continuing map_reduce fanout"
-            );
-        }
-    }
-
     let action_root = resolve_spawn_parallel_action_root().await;
     let (prepared, immediate_results) = stage_spawn_parallel_workers(
         parent_session,
@@ -510,18 +494,14 @@ pub(crate) async fn run_spawn_parallel_graph(
     )
     .await;
 
-    // Fan the prepared workers out through the spawn graph module. Results
-    // come back in prepared order, then we append them after immediate
-    // pre-flight failures — the existing compatibility ordering.
-    let fanned = run_spawn_parallel_workers(prepared, action_root).await?;
-
-    let mut results = immediate_results;
-    for result in fanned {
-        project_spawn_parallel_result(parent_session, progress_sink, &result).await;
-        results.push(result);
-    }
-
-    let collected = collect_spawn_parallel_results(parent_session, results);
+    let collected = run_spawn_parallel_execution_graph(
+        parent_session,
+        progress_sink.cloned(),
+        prepared,
+        immediate_results,
+        action_root,
+    )
+    .await?;
     tracing::debug!(
         parent_session = %parent_session,
         total = collected.total(),
@@ -557,6 +537,7 @@ async fn resolve_spawn_parallel_action_root() -> Option<PathBuf> {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct SpawnParallelCollected {
     pub(crate) results: Vec<ParallelAgentResult>,
     pub(crate) failures: usize,
@@ -979,10 +960,34 @@ pub(crate) const SPAWN_PARALLEL_PHASES: &[&str] =
 #[derive(Clone, Default)]
 pub(crate) struct SpawnParallelState {
     visited: Vec<&'static str>,
+    prepared: Vec<SpawnParallelWorker>,
+    immediate_results: Vec<ParallelAgentResult>,
+    fanned_results: Vec<ParallelAgentResult>,
+    results: Vec<ParallelAgentResult>,
+    action_root: Option<PathBuf>,
+    collected: Option<SpawnParallelCollected>,
+}
+
+impl SpawnParallelState {
+    fn for_execution(
+        prepared: Vec<SpawnParallelWorker>,
+        immediate_results: Vec<ParallelAgentResult>,
+        action_root: Option<PathBuf>,
+    ) -> Self {
+        Self {
+            prepared,
+            immediate_results,
+            action_root,
+            ..Self::default()
+        }
+    }
 }
 
 pub(crate) enum SpawnParallelUpdate {
     PhaseEntered(&'static str),
+    Fanned(Vec<ParallelAgentResult>),
+    Results(Vec<ParallelAgentResult>),
+    Collected(SpawnParallelCollected),
 }
 
 type SpawnParallelNodeFuture =
@@ -1010,6 +1015,9 @@ pub(crate) fn build_spawn_parallel_graph(
             |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
                 match update {
                     SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                    SpawnParallelUpdate::Fanned(results) => state.fanned_results = results,
+                    SpawnParallelUpdate::Results(results) => state.results = results,
+                    SpawnParallelUpdate::Collected(collected) => state.collected = Some(collected),
                 }
                 Ok(state)
             },
@@ -1029,29 +1037,107 @@ pub(crate) fn build_spawn_parallel_graph(
         .map_err(|e| format!("spawn_parallel_agents graph compile failed: {e}"))
 }
 
-/// Run the fixed fanout graph with no-op phase nodes.
+/// Run the fixed fanout graph over the live worker/collect/finalize phases.
 ///
-/// This is diagnostic-only until the live validate/dispatch/worker/collect/
-/// finalize effects move into graph nodes. The map-reduce fanout below remains
-/// the source of behavior.
-pub(crate) async fn run_spawn_parallel_graph_skeleton(
+/// Validation and worktree preflight still happen before this helper; the graph
+/// owns the map-reduce worker fanout, compatibility progress projection, and
+/// final result collection.
+async fn run_spawn_parallel_execution_graph(
     parent_session: &str,
-) -> Result<Vec<&'static str>, String> {
+    progress_sink: Option<Sender<AgentProgress>>,
+    prepared: Vec<SpawnParallelWorker>,
+    immediate_results: Vec<ParallelAgentResult>,
+    action_root: Option<PathBuf>,
+) -> Result<SpawnParallelCollected, String> {
+    let phases = SPAWN_PARALLEL_PHASES;
     let label = format!("spawn_parallel_agents:{parent_session}");
-    let graph = build_spawn_parallel_graph()?.with_event_sink(Arc::new(
-        crate::openhuman::tinyagents::observability::GraphTracingSink::new(label),
-    ));
+    let parent_for_collect = parent_session.to_string();
+    let progress_for_collect = progress_sink.clone();
+    let parent_for_finalize = parent_session.to_string();
+    let graph = GraphBuilder::<SpawnParallelState, SpawnParallelUpdate>::new()
+        .set_reducer(ClosureStateReducer::new(
+            |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
+                match update {
+                    SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                    SpawnParallelUpdate::Fanned(results) => state.fanned_results = results,
+                    SpawnParallelUpdate::Results(results) => state.results = results,
+                    SpawnParallelUpdate::Collected(collected) => state.collected = Some(collected),
+                }
+                Ok(state)
+            },
+        ))
+        .add_node(phases[0], phase_node(phases[0]))
+        .add_node(phases[1], phase_node(phases[1]))
+        .add_node(
+            phases[2],
+            |state: SpawnParallelState, _ctx: NodeContext| async move {
+                let fanned = run_spawn_parallel_workers(state.prepared, state.action_root)
+                    .await
+                    .map_err(tinyagents::TinyAgentsError::Graph)?;
+                Ok(NodeResult::Update(SpawnParallelUpdate::Fanned(fanned)))
+            },
+        )
+        .add_node(
+            phases[3],
+            move |state: SpawnParallelState, _ctx: NodeContext| {
+                let parent_session = parent_for_collect.clone();
+                let progress_sink = progress_for_collect.clone();
+                async move {
+                    let mut results = state.immediate_results;
+                    for result in state.fanned_results {
+                        project_spawn_parallel_result(
+                            &parent_session,
+                            progress_sink.as_ref(),
+                            &result,
+                        )
+                        .await;
+                        results.push(result);
+                    }
+                    Ok(NodeResult::Update(SpawnParallelUpdate::Results(results)))
+                }
+            },
+        )
+        .add_node(
+            phases[4],
+            move |state: SpawnParallelState, _ctx: NodeContext| {
+                let parent_session = parent_for_finalize.clone();
+                async move {
+                    let collected = collect_spawn_parallel_results(&parent_session, state.results);
+                    Ok(NodeResult::Update(SpawnParallelUpdate::Collected(
+                        collected,
+                    )))
+                }
+            },
+        )
+        .add_edge(phases[0], phases[1])
+        .add_edge(phases[1], phases[2])
+        .add_edge(phases[2], phases[3])
+        .add_edge(phases[3], phases[4])
+        .set_entry(phases[0])
+        .set_finish(phases[4])
+        .compile()
+        .map_err(|e| format!("spawn_parallel_agents graph compile failed: {e}"))?
+        .with_event_sink(Arc::new(
+            crate::openhuman::tinyagents::observability::GraphTracingSink::new(label),
+        ));
 
     tracing::debug!(
         parent_session = %parent_session,
-        "[spawn_parallel_agents] running graph skeleton"
+        "[spawn_parallel_agents] running graph fanout"
     );
     let execution = graph
-        .run(SpawnParallelState::default())
+        .run(SpawnParallelState::for_execution(
+            prepared,
+            immediate_results,
+            action_root,
+        ))
         .await
-        .map_err(|e| format!("spawn_parallel_agents graph skeleton run failed: {e}"))?;
+        .map_err(|e| format!("spawn_parallel_agents graph run failed: {e}"))?;
 
-    Ok(execution.state.visited)
+    execution
+        .state
+        .collected
+        .ok_or_else(|| "spawn_parallel_agents graph finished without collected results".to_string())
 }
 
 /// Structure-only topology of the `spawn_parallel_agents` graph.

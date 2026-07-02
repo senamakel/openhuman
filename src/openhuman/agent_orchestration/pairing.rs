@@ -327,6 +327,18 @@ async fn save_store(workspace_dir: &Path, store: &PairingStore) -> Result<(), St
     tokio::fs::write(&tmp, bytes)
         .await
         .map_err(|e| format!("write orchestration pairing store: {e}"))?;
+    #[cfg(windows)]
+    {
+        match tokio::fs::remove_file(&path).await {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => {
+                return Err(format!(
+                    "remove existing orchestration pairing store: {err}"
+                ))
+            }
+        }
+    }
     tokio::fs::rename(&tmp, &path)
         .await
         .map_err(|e| format!("replace orchestration pairing store: {e}"))
@@ -421,6 +433,35 @@ mod tests {
         remove_record(tmp.path(), "@worker").await.unwrap();
         let store = load_store(tmp.path()).await.unwrap();
         assert!(store.records.is_empty());
+    }
+
+    #[tokio::test]
+    async fn pairing_store_rewrites_existing_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        persist_record(
+            tmp.path(),
+            "@worker".to_string(),
+            Some("Worker".to_string()),
+            PairingStatus::Pending,
+            PairingSource::UserLink,
+        )
+        .await
+        .unwrap();
+
+        persist_record(
+            tmp.path(),
+            "@worker".to_string(),
+            None,
+            PairingStatus::Linked,
+            PairingSource::ApprovedRequest,
+        )
+        .await
+        .unwrap();
+
+        let store = load_store(tmp.path()).await.unwrap();
+        assert_eq!(store.records.len(), 1);
+        assert_eq!(store.records[0].status, PairingStatus::Linked);
+        assert_eq!(store.records[0].source, PairingSource::ApprovedRequest);
     }
 
     #[tokio::test]

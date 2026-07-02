@@ -40,7 +40,7 @@ use tinyagents::CancellationToken;
 
 /// Which stage a delegation node is asking the injected worker to run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DelegationStage {
+pub(crate) enum DelegationStage {
     /// Produce a plan for the task.
     Plan,
     /// Execute the current plan (re-run on revision).
@@ -51,17 +51,17 @@ pub enum DelegationStage {
 
 /// What an injected stage worker returns.
 #[derive(Debug, Clone)]
-pub struct DelegationStageOutput {
+pub(crate) struct DelegationStageOutput {
     /// The stage's textual output (plan text, execution result, or review note).
-    pub text: String,
+    pub(crate) text: String,
     /// Only meaningful for [`DelegationStage::Review`]: `true` approves the
     /// execution and ends the loop; `false` requests another revision.
-    pub approved: bool,
+    pub(crate) approved: bool,
 }
 
 impl DelegationStageOutput {
     /// A plain non-review stage output (the `approved` flag is unused).
-    pub fn done(text: impl Into<String>) -> Self {
+    pub(crate) fn done(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
             approved: true,
@@ -72,21 +72,21 @@ impl DelegationStageOutput {
 /// Typed working state threaded through (and checkpointed across) the delegation
 /// graph. Serde-serializable so a [`Checkpointer`] can persist and restore it.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct DelegationState {
+pub(crate) struct DelegationState {
     /// The plan produced by the `plan` stage.
-    pub plan: Option<String>,
+    pub(crate) plan: Option<String>,
     /// One entry per execution pass (the first plus each revision).
-    pub executions: Vec<String>,
+    pub(crate) executions: Vec<String>,
     /// One entry per review pass.
-    pub reviews: Vec<String>,
+    pub(crate) reviews: Vec<String>,
     /// Number of revisions the reviewer requested (loops back to `execute`).
-    pub revisions: usize,
+    pub(crate) revisions: usize,
     /// Set once the reviewer approves or the revision cap is hit.
-    pub approved: bool,
+    pub(crate) approved: bool,
     /// The final synthesized output (set by `finalize`).
-    pub final_output: Option<String>,
+    pub(crate) final_output: Option<String>,
     /// Set when the run short-circuited because its token was cancelled.
-    pub cancelled: bool,
+    pub(crate) cancelled: bool,
 }
 
 /// Reducer updates emitted by the delegation nodes.
@@ -99,16 +99,16 @@ enum DelegationUpdate {
 }
 
 /// Configuration for a delegation run.
-pub struct DelegationConfig {
+pub(crate) struct DelegationConfig {
     /// Upper bound on reviewer-requested revisions before forcing `finalize`.
-    pub max_revisions: usize,
+    pub(crate) max_revisions: usize,
     /// Optional durable checkpointer (e.g. a `FileCheckpointer`). When set with a
     /// `thread_id`, the run persists its state at every super-step boundary.
-    pub checkpointer: Option<Arc<dyn Checkpointer<DelegationState>>>,
+    pub(crate) checkpointer: Option<Arc<dyn Checkpointer<DelegationState>>>,
     /// Thread id for checkpoint keying; required for the checkpointer to persist.
-    pub thread_id: Option<String>,
+    pub(crate) thread_id: Option<String>,
     /// Cooperative cancellation; checked at each node boundary.
-    pub cancel: CancellationToken,
+    pub(crate) cancel: CancellationToken,
 }
 
 impl Default for DelegationConfig {
@@ -127,7 +127,7 @@ impl Default for DelegationConfig {
 ///
 /// `run_stage` is the seam to the agent harness: production passes a closure that
 /// dispatches each [`DelegationStage`] to `run_subagent`; tests pass a mock.
-pub async fn run_delegation<F, Fut>(
+pub(crate) async fn run_delegation<F, Fut>(
     config: DelegationConfig,
     run_stage: F,
 ) -> Result<DelegationState, String>

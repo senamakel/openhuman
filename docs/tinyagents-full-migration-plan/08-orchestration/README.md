@@ -4,6 +4,10 @@ Finish graph adoption: parallel fanout on the SDK helper, spawn_parallel as
 a graph tool, durable interrupts for approvals, workspace isolation hooks,
 and graph-stub cleanup.
 
+Current status (2026-07-02): graph adapter internals such as the delegation
+state machine stay crate-internal; product orchestration modules own the public
+RPC/tool surfaces and output shapes.
+
 Target SDK surface: `graph::parallel::map_reduce` + `ParallelOptions`/
 `FailurePolicy`/`ItemOutcome`, `Send`/`Command`/reducers/`ChannelSet`,
 `Interrupt`/`ResumeTarget`/`Command::resume`, `WorkspaceIsolation`/

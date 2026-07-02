@@ -41,7 +41,7 @@ const LOG_TARGET: &str = "agent_orchestration::delegation";
 /// parent is built so the nested `run_subagent` calls still resolve a provider,
 /// tool registry, memory, and model (mirroring the workflow engine + team
 /// runtime).
-pub async fn run_subagent_delegation(
+pub(crate) async fn run_subagent_delegation(
     config: Arc<Config>,
     definition: AgentDefinition,
     task_prompt: String,

@@ -20,7 +20,7 @@
 
 pub(crate) mod checkpoint;
 mod convert;
-pub mod delegation;
+pub(crate) mod delegation;
 pub mod middleware;
 mod model;
 pub mod observability;

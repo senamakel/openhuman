@@ -15,7 +15,9 @@ use crate::openhuman::agent::harness::definition::{
     validate_tier_transition, AgentDefinition, AgentDefinitionRegistry, AgentTier, IterationPolicy,
     PromptSource, SandboxMode as AgentSandboxMode,
 };
-use crate::openhuman::agent::harness::fork_context::{current_parent, ParentExecutionContext};
+use crate::openhuman::agent::harness::fork_context::{
+    current_parent, with_parent_context, ParentExecutionContext,
+};
 use crate::openhuman::agent::harness::subagent_runner::extract_tool::ExtractFromResultTool;
 use crate::openhuman::agent::harness::subagent_runner::handoff::ResultHandoffCache;
 use crate::openhuman::agent::harness::subagent_runner::tool_prep::{
@@ -178,7 +180,15 @@ pub async fn run_subagent(
         // shared `Config.action_dir`. When `worktree_action_dir` is `None`
         // (the default / non-isolated path), no override scope is entered and
         // behaviour is unchanged.
-        let worktree_action_dir = options.worktree_action_dir.clone();
+        let mut parent_for_subagent = parent.clone();
+        parent_for_subagent.workspace_descriptor =
+            workspace_descriptor_for_subagent(definition, &options, &parent, &task_id);
+        let worktree_action_dir = options.worktree_action_dir.clone().or_else(|| {
+            parent_for_subagent
+                .workspace_descriptor
+                .as_ref()
+                .map(|descriptor| descriptor.root.clone())
+        });
         if let Some(ref wt_dir) = worktree_action_dir {
             tracing::debug!(
                 agent_id = %definition.id,
@@ -190,17 +200,26 @@ pub async fn run_subagent(
         let mut outcome = with_spawn_depth(attempted_depth, async {
             with_file_state_agent_id(task_id.clone(), async {
                 with_current_sandbox_mode(definition.sandbox_mode, async {
-                    let run = run_typed_mode(definition, task_prompt, &options, &parent, &task_id);
-                    match worktree_action_dir {
-                        Some(wt_dir) => {
-                            crate::openhuman::agent::harness::with_action_dir_override(
-                                wt_dir,
-                                Box::pin(run),
-                            )
-                            .await
+                    with_parent_context(parent_for_subagent.clone(), async {
+                        let run = run_typed_mode(
+                            definition,
+                            task_prompt,
+                            &options,
+                            &parent_for_subagent,
+                            &task_id,
+                        );
+                        match worktree_action_dir {
+                            Some(wt_dir) => {
+                                crate::openhuman::agent::harness::with_action_dir_override(
+                                    wt_dir,
+                                    Box::pin(run),
+                                )
+                                .await
+                            }
+                            None => Box::pin(run).await,
                         }
-                        None => Box::pin(run).await,
-                    }
+                    })
+                    .await
                 })
                 .await
             })
@@ -250,9 +269,13 @@ pub async fn run_subagent(
 fn workspace_descriptor_for_subagent(
     definition: &AgentDefinition,
     options: &SubagentRunOptions,
+    parent: &ParentExecutionContext,
     task_id: &str,
 ) -> Option<WorkspaceDescriptor> {
     if let Some(descriptor) = options.workspace_descriptor.clone() {
+        return Some(descriptor);
+    }
+    if let Some(descriptor) = parent.workspace_descriptor.clone() {
         return Some(descriptor);
     }
     let root = options.worktree_action_dir.clone()?;
@@ -927,7 +950,8 @@ async fn run_typed_mode(
         };
         format!("{parent_chain}__{child_session_key}")
     };
-    let workspace_descriptor = workspace_descriptor_for_subagent(definition, options, task_id);
+    let workspace_descriptor =
+        workspace_descriptor_for_subagent(definition, options, parent, task_id);
     if let Some(descriptor) = &workspace_descriptor {
         tracing::debug!(
             agent_id = %definition.id,

@@ -65,12 +65,12 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
    Remaining acting tools still need to read it. OpenHuman
    `SecurityPolicy` remains the enforcement authority — the descriptor is the
    carrier, not the policy.
-   The remaining production `SubagentRunOptions` constructors that still pass
-   `None` for workspace fields are root/background orchestration paths
-   (`AgentOrchestrationSession::spawn_agent` and the session memory trigger) or
-   test fixtures. They do not receive a `ToolExecutionContext`; migrating them
-   needs a parent-context descriptor carrier instead of another tool-adapter
-   patch.
+   `ParentExecutionContext` now also carries the descriptor as an ambient
+   fallback for internal/background fanout: the sub-agent runner scopes it into
+   child turns, and `AgentOrchestrationSession::spawn_agent` inherits it while
+   still letting explicit per-spawn descriptors win. The remaining production
+   `SubagentRunOptions` constructor that still relies on defaults is the
+   session memory trigger; it currently receives no `ToolExecutionContext`.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations
    also feed the security audit trail. Use 1.3.0
    `WorkspaceDescriptor::enforce(path, events)` so the check and the

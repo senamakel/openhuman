@@ -14,9 +14,7 @@ impl Agent {
 
     /// Snapshot the parent's runtime so spawned sub-agents can read
     /// it via the [`harness::PARENT_CONTEXT`] task-local.
-    pub(super) fn build_parent_execution_context(
-        &self,
-    ) -> harness::ParentExecutionContext {
+    pub(super) fn build_parent_execution_context(&self) -> harness::ParentExecutionContext {
         let allowed_subagent_ids = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
             .and_then(|registry| registry.get(&self.agent_definition_id))
             .map(|definition| {
@@ -58,6 +56,7 @@ impl Agent {
             model_name: self.model_name.clone(),
             temperature: self.temperature,
             workspace_dir: self.workspace_dir.clone(),
+            workspace_descriptor: None,
             memory: Arc::clone(&self.memory),
             agent_config: self.config.clone(),
             workflows: Arc::new(self.workflows.clone()),

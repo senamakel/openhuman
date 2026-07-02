@@ -35,7 +35,6 @@ pub mod microcompact;
 pub mod pipeline;
 pub mod prompt;
 pub mod session_memory;
-pub mod tool_result_budget;
 
 pub use guard::{ContextCheckResult, ContextGuard};
 pub use manager::{ContextManager, ContextStats};
@@ -52,6 +51,8 @@ pub use session_memory::{
     SessionMemoryConfig, SessionMemoryState, ARCHIVIST_EXTRACTION_PROMPT, DEFAULT_MIN_TOKEN_GROWTH,
     DEFAULT_MIN_TOOL_CALLS, DEFAULT_MIN_TURNS_BETWEEN,
 };
-pub use tool_result_budget::{
-    apply_tool_result_budget, BudgetOutcome, DEFAULT_TOOL_RESULT_BUDGET_BYTES,
-};
+
+/// Default per-tool-result budget. The live TinyAgents tool-output middleware
+/// and action-workspace artifact previews enforce this outside the legacy
+/// context reducer modules.
+pub const DEFAULT_TOOL_RESULT_BUDGET_BYTES: usize = 16 * 1024;

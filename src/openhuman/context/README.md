@@ -1,6 +1,6 @@
 # context
 
-Global context management for agent sessions: the home for system-prompt assembly, per-session context bookkeeping (utilisation stats, tool-result budgeting, session-memory triggers), and prompt-cache diagnostics. Agents hold one `ContextManager` per session. This is a **pure logic / state-tracking domain** — no RPC controllers, no agent tools, no event-bus subscribers, no persisted store.
+Global context management for agent sessions: the home for system-prompt assembly, per-session context bookkeeping (utilisation stats, budget configuration, session-memory triggers), and prompt-cache diagnostics. Agents hold one `ContextManager` per session. This is a **pure logic / state-tracking domain** — no RPC controllers, no agent tools, no event-bus subscribers, no persisted store.
 
 > **Status (#4249): live history reduction/summarization moved to the tinyagents graph.** The in-turn compaction that used to live here — `ContextManager::reduce_before_call`, the `Summarizer` trait, `ProviderSummarizer`, and `SegmentRecapSummarizer` — has been **removed**. Folding an over-budget transcript into a summary now runs as `ContextCompressionMiddleware` (+ `MessageTrimMiddleware` backstop) inside `run_turn_via_tinyagents_shared`, backed by `tinyagents::summarize::ProviderModelSummarizer`. `ContextGuard`/`ContextPipeline`/`microcompact` remain only as the data model behind `ContextManager::stats()` (the utilisation footer) and session-memory bookkeeping; they no longer drive a reduction pass. Some rows below still describe the removed machinery and are retained for history.
 
@@ -8,7 +8,7 @@ Global context management for agent sessions: the home for system-prompt assembl
 
 - Assemble opening system prompts (delegates to `agent::prompts` via `prompt.rs`; provides a separate bespoke builder for channel runtimes).
 - Track context-window utilisation per session and decide when reduction must run (`ContextGuard`).
-- Apply an inline per-tool-result byte cap before output enters history (`tool_result_budget`).
+- Expose the configured per-tool-result byte budget; enforcement now lives in TinyAgents tool-output middleware and action-workspace artifact previews.
 - Run microcompact: replace older `ToolResults` payloads with a placeholder while preserving the `AssistantToolCalls ⇔ ToolResults` API invariant.
 - Orchestrate the ordered reduction chain and signal when prose autocompaction is needed (`ContextPipeline`).
 - Dispatch the LLM summarization call on autocompaction and feed success/failure into a circuit breaker (`ContextManager` + `Summarizer`).
@@ -20,11 +20,11 @@ Global context management for agent sessions: the home for system-prompt assembl
 | File | Role |
 | --- | --- |
 | `src/openhuman/context/mod.rs` | Module docstring + `pub mod` decls + `pub use` re-exports. Export-focused, no logic. |
-| `src/openhuman/context/manager.rs` | `ContextManager` — per-session handle agents hold. Owns the default prompt builder, the pipeline (stats/session-memory), and budget/markdown config. Surfaces `build_system_prompt`, `stats()`, tool-result budget, and session-memory triggers. (The former `reduce_before_call`/summarizer dispatch was removed in #4249.) |
+| `src/openhuman/context/manager.rs` | `ContextManager` — per-session handle agents hold. Owns the default prompt builder, the pipeline (stats/session-memory), and budget/markdown config. Surfaces `build_system_prompt`, `stats()`, tool-result budget settings, and session-memory triggers. (The former `reduce_before_call`/summarizer dispatch was removed in #4249.) |
 | `src/openhuman/context/pipeline.rs` | `ContextPipeline` orchestrator. Runs the guard, microcompact, autocompact signalling, and session-memory bookkeeping. Owns `ContextGuard` + a shared `SessionMemoryHandle` (`Arc<Mutex<SessionMemoryState>>`). Pure — issues no LLM calls. |
 | `src/openhuman/context/guard.rs` | `ContextGuard` — pre-inference utilisation check (soft threshold 0.90, hard 0.95) with a 3-strike compaction circuit breaker. No-op when context window is unknown. |
 | `src/openhuman/context/microcompact.rs` | Stage 3. `microcompact()` clears bodies of older `ToolResults` envelopes (keeping the N most recent), idempotent, invariant-preserving. |
-| `src/openhuman/context/tool_result_budget.rs` | Stage 1. `apply_tool_result_budget()` — UTF-8-safe per-result byte cap applied inline at tool-execution time (default 16 KiB) with a truncation marker. |
+| `src/openhuman/context/tool_result_budget.rs` | **Removed (#4249).** UTF-8-safe per-result truncation moved next to action-workspace artifact preview/fallback handling in `agent/harness/tool_result_artifacts`. |
 | `src/openhuman/context/summarizer.rs` | **Removed (#4249).** Live summarization moved to `tinyagents::summarize` (`ProviderModelSummarizer`); the summarizer system prompt was relocated there. |
 | `src/openhuman/context/segment_recap_summarizer.rs` | **Removed (#4249).** The archivist-recap-backed compaction wrapper is gone; the archivist still produces durable segment recaps on its own post-turn path. |
 | `src/openhuman/context/session_memory.rs` | `SessionMemoryState` / `SessionMemoryConfig` — threshold-gated `should_extract` decision (token growth + tool calls + turns must all cross) and extraction bookkeeping. Holds `ARCHIVIST_EXTRACTION_PROMPT`. State-tracking only; does not spawn the archivist. |
@@ -44,7 +44,7 @@ From `mod.rs` re-exports:
 - **Segment recap**: `SegmentRecapSummarizer`.
 - **Session memory**: `SessionMemoryConfig`, `SessionMemoryState`, `ARCHIVIST_EXTRACTION_PROMPT`, `DEFAULT_MIN_TOKEN_GROWTH`, `DEFAULT_MIN_TOOL_CALLS`, `DEFAULT_MIN_TURNS_BETWEEN`.
 - **Summarizer**: `ProviderSummarizer`, `Summarizer` (trait), `SummaryStats`.
-- **Tool-result budget**: `apply_tool_result_budget`, `BudgetOutcome`, `DEFAULT_TOOL_RESULT_BUDGET_BYTES`.
+- **Tool-result budget**: `DEFAULT_TOOL_RESULT_BUDGET_BYTES` config default only; live truncation logic is owned by TinyAgents tool-output middleware / tool-result artifacts.
 
 ## RPC / controllers
 
@@ -74,7 +74,7 @@ The durable long-term substrate session-memory targets is the workspace `MEMORY.
 - `crate::openhuman::agent::prompts` — `prompt.rs` re-exports the entire prompt-section/builder surface from here (prompt logic lives next to the agents that consume it).
 - `crate::openhuman::agent::harness::archivist::ArchivistHook` — `SegmentRecapSummarizer` reads the rolling segment recap (read-only) from the archivist.
 - `crate::openhuman::skills::Skill` — `channels_prompt.rs` renders the available-skills section.
-- `crate::openhuman::util::floor_char_boundary` — UTF-8-safe truncation in `tool_result_budget`.
+- `crate::openhuman::util::floor_char_boundary` — UTF-8-safe truncation in the artifact-preview fallback path.
 ## Used by
 
 - **`agent::harness`** — the primary consumer: `session/builder.rs` constructs the `ContextManager`; `session/turn.rs` drives the session-memory counters and spawns the archivist extraction when `should_extract_session_memory` says so; `fork_context.rs`, `subagent_runner/*`, and `tool_filter.rs` consume the prompt builder and stats/budget surface. (History reduction/summarization moved to the tinyagents graph in #4249 — see the status banner above; `reduce_before_call`/`ProviderSummarizer`/`SegmentRecapSummarizer`/`unified_compaction_enabled` are removed.)
@@ -86,7 +86,7 @@ The durable long-term substrate session-memory targets is the workspace `MEMORY.
 ## Notes / gotchas
 
 - **The pipeline issues no LLM calls.** `ContextPipeline::run_before_call` only *signals* `AutocompactionRequested`; the actual summarization is dispatched by `ContextManager::reduce_before_call`. This keeps the pipeline fully testable without a provider.
-- **Stage 1 (tool-result budget) and the snip/trim are not pipeline stages.** Tool-result budget is applied inline in `Agent::execute_tool_call` before output enters history; the hard message-count trim is `Agent::trim_history`. Only microcompact (stage 3) and autocompact (stage 4) run inside `run_before_call`.
+- **Tool-result budgeting is not a context pipeline stage.** The live TinyAgents path applies per-result budgets in `ToolOutputMiddleware`, and artifact-preview fallback truncation lives in `agent/harness/tool_result_artifacts`. Only microcompact (stage 3) and autocompact (stage 4) run inside the remaining historical pipeline code.
 - **Cache contract**: microcompact and autocompact deliberately mutate previously-sent history (breaking the KV-cache prefix) and run *only* when the guard says the window would otherwise bust; each firing establishes the new smaller prefix as the next cache target.
 - **Circuit breaker**: three consecutive summarizer failures trip the breaker (`compaction_disabled`); above the 0.95 hard limit while tripped, the guard returns `ContextExhausted` and the turn should abort. Any successful reduction (microcompact freeing envelopes, or a successful summary) resets the breaker.
 - **No partial mutation on failure**: both `ProviderSummarizer` and `SegmentRecapSummarizer` either fully rewrite the head or leave history untouched — so the breaker can safely treat failure as "nothing happened."

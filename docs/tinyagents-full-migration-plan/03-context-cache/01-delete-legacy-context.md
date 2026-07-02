@@ -19,9 +19,10 @@ lives inside TinyAgents `CacheAlignMiddleware`.
    `context/stats.rs`, delete the reduction machinery.
 3. `harness/compaction/cache_align.rs` (200) + `compaction/mod.rs` shim:
    superseded by `CacheAlignMiddleware`; directory deleted.
-4. `context/tool_result_budget.rs` (172): superseded by
-   `ToolOutputMiddleware` per-tool caps — verify no remaining caller
-   (the `agent_tool_exec` chain shrink in 01.4 removes the last), delete.
+4. `context/tool_result_budget.rs` (172): deleted. The UTF-8-safe fallback
+   truncation helper now lives beside action-workspace artifact preview
+   handling; the live TinyAgents path uses `ToolOutputMiddleware` per-tool
+   caps.
 5. Summarization provenance: ensure every compression emits
    `AgentEvent::Compressed` with `SummaryRecord` data (source ids,
    before/after token estimates) — wire `ContextCompressionMiddleware::
@@ -30,8 +31,7 @@ lives inside TinyAgents `CacheAlignMiddleware`.
 ## Deletions
 
 - `context/microcompact.rs`, `context/pipeline.rs`, `context/guard.rs`
-  (post stats-extraction), `context/tool_result_budget.rs`,
-  `harness/compaction/` (whole dir).
+  (post stats-extraction), `harness/compaction/` (whole dir).
 
 ## Acceptance
 

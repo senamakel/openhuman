@@ -16,7 +16,7 @@ they land.
 - [x] `tokenjuice::compact_tool_output` default-Full wrapper — 01.4
 - [ ] `context/microcompact.rs` (269) — 03.1
 - [ ] `context/pipeline.rs` (454) + `context/guard.rs` (236, keep stats structs) — 03.1
-- [ ] `context/tool_result_budget.rs` (172) — 03.1
+- [x] `context/tool_result_budget.rs` (172) — 03.1
 - [ ] `harness/payload_summarizer.rs` (490) — 01.4
 
 ## Deletable after SDK-surface adoption

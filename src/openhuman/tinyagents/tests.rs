@@ -494,6 +494,11 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     // builder tool policy on this call).
     assert_eq!(mw.tool_middleware_len(), 2, "tool middleware inventory");
     assert_eq!(mw.model_middleware_len(), 0, "no around-model wraps");
+    assert_eq!(
+        assembled.harness.policy().limits.max_depth,
+        crate::openhuman::agent::harness::MAX_SPAWN_DEPTH,
+        "TinyAgents recursion cap should mirror OpenHuman's spawn cap"
+    );
 
     // The shared steering handle always exists; the early-exit hook exists
     // because an early-exit tool name was supplied.

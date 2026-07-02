@@ -51,10 +51,10 @@ use tinyagents::registry::{
     CapabilityRegistry, ComponentKind, RegistryDiagnostic, RegistrySnapshot,
 };
 
-use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::harness::tool_result_artifacts::{
     ToolResultArtifactIndexStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
+use crate::openhuman::agent::harness::{run_queue::RunQueue, MAX_SPAWN_DEPTH};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 use model::ThinkingForwarder;
@@ -122,6 +122,8 @@ async fn forward_collects(queue: &RunQueue, handle: &SteeringHandle) {
 /// The loop enforces limits from `self.policy.limits` (not the per-run
 /// `RunConfig`), so the model-call cap **must** be set here or it falls back to
 /// the tinyagents default of 25 — far more than openhuman's `max_iterations`.
+/// The recursion depth cap is also set here so TinyAgents uses OpenHuman's
+/// existing sub-agent spawn depth instead of the SDK default.
 /// Retry is set to a single attempt: the openhuman [`Provider`] already does its
 /// own internal retry/backoff, so a second harness-level retry layer would
 /// double-retry transient errors and, worse, swallow a deterministic provider
@@ -130,6 +132,7 @@ fn run_policy_for(max_iterations: usize) -> RunPolicy {
     let mut policy = RunPolicy::default();
     policy.limits.max_model_calls = max_iterations;
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
+    policy.limits.max_depth = MAX_SPAWN_DEPTH;
     policy.retry.max_attempts = 1;
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
     policy
@@ -257,6 +260,7 @@ pub(crate) async fn run_turn_via_tinyagents(
     let config = RunConfig::new("agent_turn")
         .with_max_model_calls(max_iterations)
         .with_max_tool_calls(max_iterations.saturating_mul(8).max(8))
+        .with_max_depth(MAX_SPAWN_DEPTH)
         .with_tag("openhuman")
         .with_tag("scope:root")
         .with_tag("unobserved");
@@ -387,6 +391,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     let config = RunConfig::new("agent_turn")
         .with_max_model_calls(max_iterations)
         .with_max_tool_calls(max_iterations.saturating_mul(8).max(8))
+        .with_max_depth(MAX_SPAWN_DEPTH)
         .with_tag("openhuman")
         .with_tag(if subagent_scope.is_some() {
             "scope:subagent"

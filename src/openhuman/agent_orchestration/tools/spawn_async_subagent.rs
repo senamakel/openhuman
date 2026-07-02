@@ -18,9 +18,10 @@ use crate::openhuman::agent_orchestration::subagent_sessions::{
     SubagentSessionUpsert,
 };
 use crate::openhuman::inference::provider::ChatMessage;
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinyagents::harness::tool::ToolExecutionContext;
 
 pub struct SpawnAsyncSubagentTool;
 
@@ -110,6 +111,16 @@ impl Tool for SpawnAsyncSubagentTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
         let agent_id = args
             .get("agent_id")
             .and_then(|v| v.as_str())
@@ -210,7 +221,18 @@ impl Tool for SpawnAsyncSubagentTool {
         let parent_thread_id =
             crate::openhuman::inference::provider::thread_context::current_thread_id();
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let effective_action_root = crate::openhuman::agent::harness::current_action_dir_override()
+        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
+        let effective_action_root = workspace_descriptor
+            .as_ref()
+            .map(|workspace| {
+                tracing::debug!(
+                    workspace_root = %workspace.root.display(),
+                    policy_id = %workspace.policy_id,
+                    "[spawn_async_subagent] using ToolExecutionContext workspace root"
+                );
+                workspace.root.clone()
+            })
+            .or_else(crate::openhuman::agent::harness::current_action_dir_override)
             .or_else(|| {
                 crate::openhuman::security::live_policy::current()
                     .map(|policy| policy.action_dir.clone())
@@ -447,6 +469,10 @@ impl Tool for SpawnAsyncSubagentTool {
         let background_worker_thread_id = worker_thread_id.clone();
         let background_store = store.clone();
         let background_subagent_session_id = durable_session.subagent_session_id.clone();
+        let background_workspace_descriptor = workspace_descriptor.clone();
+        let background_worktree_action_dir = background_workspace_descriptor
+            .as_ref()
+            .map(|descriptor| descriptor.root.clone());
         let background_thread_affinity_id = background_worker_thread_id
             .clone()
             .unwrap_or_else(|| background_subagent_session_id.clone());
@@ -478,8 +504,8 @@ impl Tool for SpawnAsyncSubagentTool {
                 worker_thread_id: background_worker_thread_id.clone(),
                 initial_history: background_initial_history,
                 checkpoint_dir: None,
-                worktree_action_dir: None,
-                workspace_descriptor: None,
+                worktree_action_dir: background_worktree_action_dir,
+                workspace_descriptor: background_workspace_descriptor,
                 run_queue: Some(task_queue),
             };
 

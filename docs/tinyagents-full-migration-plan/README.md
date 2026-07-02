@@ -17,7 +17,7 @@ goals. Execute a step file end-to-end (code + tests + deletions + commit).
 
 - Current crate is **1.3.0** (published 2026-07-02); the plan targets it —
   see the "1.3.0 delta" in `00-baseline.md`.
-- `docs/tinyagents-sdk-gaps.md` is **stale**: tinyagents 1.2.0 already ships
+- `docs/tinyagents-sdk-gaps.md` is **stale**: tinyagents 1.2.0-1.3.0 ships
   `UnknownToolPolicy`, `ToolPolicy` safety metadata + `ToolPolicyMiddleware`,
   reasoning deltas (`MessageDelta.reasoning`), durable `JsonlTaskStore` + 10
   orchestration tools, `graph::parallel::map_reduce`, `ModelCatalog` w/

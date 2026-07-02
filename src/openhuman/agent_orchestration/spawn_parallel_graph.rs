@@ -1,9 +1,9 @@
 //! Structure-only graph scaffold for `spawn_parallel_agents`.
 //!
-//! The tool wrapper still owns early request parsing and `ToolResult`
-//! translation. This module owns parent-context validation, graph-side request
-//! validation, worktree preflight, progress/event projection, worker fanout,
-//! final JSON formatting, and the topology surface from
+//! The tool wrapper still owns `ToolResult` translation. This module owns
+//! request parsing, parent-context validation, graph-side request validation,
+//! worktree preflight, progress/event projection, worker fanout, final JSON
+//! formatting, and the topology surface from
 //! `docs/tinyagents-full-migration-plan/08-orchestration/
 //! 02-spawn-parallel-graph.md`.
 
@@ -518,8 +518,13 @@ async fn stage_spawn_parallel_workers_from_defs(
 }
 
 pub(crate) async fn run_spawn_parallel_graph(
-    tasks: Vec<ParallelAgentTask>,
+    args: serde_json::Value,
 ) -> Result<SpawnParallelGraphOutcome, String> {
+    let tasks = match validate_spawn_parallel_tool_request(&args, None) {
+        Ok(tasks) => tasks,
+        Err(err) => return Ok(SpawnParallelGraphOutcome::InvalidRequest(err)),
+    };
+
     let parent = match current_parent() {
         Some(parent) => parent,
         None => {
@@ -579,6 +584,12 @@ pub(crate) async fn run_spawn_parallel_graph(
                 "[spawn_parallel_agents] rejected_by_graph_validate"
             );
         }
+        SpawnParallelGraphOutcome::InvalidRequest(_) => {
+            tracing::debug!(
+                parent_session = %parent_session,
+                "[spawn_parallel_agents] invalid_request_after_graph_run"
+            );
+        }
     }
     Ok(outcome)
 }
@@ -616,6 +627,7 @@ pub(crate) struct SpawnParallelCollected {
 
 pub(crate) enum SpawnParallelGraphOutcome {
     Collected(SpawnParallelCollected),
+    InvalidRequest(SpawnParallelTaskValidationError),
     Rejected(String),
 }
 

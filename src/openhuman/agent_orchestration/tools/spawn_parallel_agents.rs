@@ -6,8 +6,8 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTask;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
-    format_spawn_parallel_success, run_spawn_parallel_graph, validate_spawn_parallel_tool_request,
-    SpawnParallelGraphOutcome, SpawnParallelTaskValidationError,
+    format_spawn_parallel_success, run_spawn_parallel_graph, SpawnParallelGraphOutcome,
+    SpawnParallelTaskValidationError,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -91,29 +91,31 @@ impl Tool for SpawnParallelAgentsTool {
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         tracing::debug!("[spawn_parallel_agents] execute entry");
-        let tasks = match validate_spawn_parallel_tool_request(&args, None) {
-            Ok(tasks) => tasks,
-            Err(SpawnParallelTaskValidationError::MissingTasks(message)) => {
-                tracing::debug!("[spawn_parallel_agents] missing_tasks_parameter");
-                return Err(anyhow::anyhow!(message));
-            }
-            Err(SpawnParallelTaskValidationError::InvalidTasks(message)) => {
-                tracing::debug!(error = %message, "[spawn_parallel_agents] invalid_tasks_array");
-                return Err(anyhow::anyhow!(message));
-            }
-            Err(SpawnParallelTaskValidationError::Rejected(message)) => {
-                tracing::debug!("[spawn_parallel_agents] rejected_too_few_tasks");
-                return Ok(ToolResult::error(message));
-            }
-        };
-
-        let outcome = run_spawn_parallel_graph(tasks)
+        let outcome = run_spawn_parallel_graph(args)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
         match outcome {
             SpawnParallelGraphOutcome::Collected(collected) => Ok(ToolResult::success(
                 format_spawn_parallel_success(&collected),
             )),
+            SpawnParallelGraphOutcome::InvalidRequest(
+                SpawnParallelTaskValidationError::MissingTasks(message),
+            ) => {
+                tracing::debug!("[spawn_parallel_agents] missing_tasks_parameter");
+                Err(anyhow::anyhow!(message))
+            }
+            SpawnParallelGraphOutcome::InvalidRequest(
+                SpawnParallelTaskValidationError::InvalidTasks(message),
+            ) => {
+                tracing::debug!(error = %message, "[spawn_parallel_agents] invalid_tasks_array");
+                Err(anyhow::anyhow!(message))
+            }
+            SpawnParallelGraphOutcome::InvalidRequest(
+                SpawnParallelTaskValidationError::Rejected(message),
+            ) => {
+                tracing::debug!("[spawn_parallel_agents] rejected_too_few_tasks");
+                Ok(ToolResult::error(message))
+            }
             SpawnParallelGraphOutcome::Rejected(message) => Ok(ToolResult::error(message)),
         }
     }

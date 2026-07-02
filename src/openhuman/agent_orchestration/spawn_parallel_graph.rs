@@ -53,8 +53,8 @@ pub(super) struct ParallelAgentTask {
 /// Decode and validate the request batch before the live worker fanout.
 ///
 /// This is the first real `validate`-node responsibility moved out of the tool
-/// wrapper. Effectful worktree creation remains in the wrapper until the graph
-/// carries those dependencies explicitly.
+/// wrapper. Effectful worktree creation now runs in the graph path after the
+/// action root and worker definitions are resolved.
 fn validate_spawn_parallel_tasks(
     args: &serde_json::Value,
     max_parallel: Option<usize>,

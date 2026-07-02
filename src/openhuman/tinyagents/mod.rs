@@ -57,13 +57,13 @@ use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Pr
 use model::ThinkingForwarder;
 
 pub(crate) use checkpoint::SqlRunLedgerCheckpointer;
-pub use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
+pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 use model::ProviderModel;
 use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
-pub use observability::SubagentScope;
+pub(crate) use observability::SubagentScope;
 use tools::{EarlyExitHook, SharedToolAdapter};
 #[cfg(test)]
-pub(crate) use tools::ToolAdapter;
+use tools::ToolAdapter;
 
 use std::collections::HashSet;
 use std::sync::Arc as StdArc;
@@ -74,7 +74,7 @@ use tokio::sync::mpsc::Sender;
 /// so it can install the [`ToolPolicyMiddleware`](middleware::ToolPolicyMiddleware).
 /// `None` means "no policy enforcement on this turn" (the channel/CLI + sub-agent
 /// paths, which carry their own gating).
-pub struct ToolPolicyEnforcement {
+pub(crate) struct ToolPolicyEnforcement {
     pub policy: StdArc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
     /// The session's channel-permission snapshot — enforces the per-channel
     /// permission ceiling (deny + per-call permission-level gate) the in-house
@@ -154,7 +154,7 @@ fn effective_max_iterations(max_iterations: usize) -> usize {
 
 /// The outcome of a turn driven on the `tinyagents` harness.
 #[derive(Debug, Clone)]
-pub struct TinyagentsTurnOutcome {
+pub(crate) struct TinyagentsTurnOutcome {
     /// Final assistant text.
     pub text: String,
     /// The full transcript, converted back to openhuman messages (flat — tool
@@ -201,7 +201,7 @@ pub struct TinyagentsTurnOutcome {
 /// `TaToolResult::error`; `content` is the (possibly summarized/capped) result
 /// text used to derive a sanitized post-turn summary.
 #[derive(Debug, Clone)]
-pub struct ToolCallOutcome {
+pub(crate) struct ToolCallOutcome {
     pub call_id: String,
     pub name: String,
     pub success: bool,
@@ -210,13 +210,13 @@ pub struct ToolCallOutcome {
 
 /// Shared sink the [`ToolOutcomeCaptureMiddleware`](middleware::ToolOutcomeCaptureMiddleware)
 /// appends each tool call's outcome to, drained into the turn outcome.
-pub type ToolOutcomeSink = std::sync::Arc<std::sync::Mutex<Vec<ToolCallOutcome>>>;
+pub(crate) type ToolOutcomeSink = std::sync::Arc<std::sync::Mutex<Vec<ToolCallOutcome>>>;
 
 /// Shared slot the repeated-failure breaker writes a root-cause halt summary into
 /// when it trips. The turn overrides its final text with this summary so the
 /// no-progress halt surfaces the cause instead of an empty/last-model reply
 /// (legacy `RepeatFailureGuard` parity).
-pub type HaltSummarySlot = std::sync::Arc<std::sync::Mutex<Option<String>>>;
+pub(crate) type HaltSummarySlot = std::sync::Arc<std::sync::Mutex<Option<String>>>;
 
 /// Drive an agent turn through the `tinyagents` agent-loop harness.
 ///
@@ -225,7 +225,7 @@ pub type HaltSummarySlot = std::sync::Arc<std::sync::Mutex<Option<String>>>;
 /// by `max_iterations` model calls. Returns the final text plus the resulting
 /// transcript translated back to openhuman [`ChatMessage`]s.
 #[cfg(test)]
-pub async fn run_turn_via_tinyagents(
+pub(crate) async fn run_turn_via_tinyagents(
     provider: Arc<dyn Provider>,
     model: &str,
     temperature: f64,
@@ -330,7 +330,7 @@ pub async fn run_turn_via_tinyagents(
 /// name the tools that pause the loop (e.g. `ask_user_clarification`) and surface
 /// the question via [`TinyagentsTurnOutcome::early_exit_tool`].
 #[allow(clippy::too_many_arguments)]
-pub async fn run_turn_via_tinyagents_shared(
+pub(crate) async fn run_turn_via_tinyagents_shared(
     provider: Arc<dyn Provider>,
     model: &str,
     temperature: f64,

@@ -1,94 +1,13 @@
 //! Tool execution and Composio delegation refresh.
 
-#[cfg(test)]
-use super::super::agent_tool_exec;
 use super::super::types::Agent;
 use super::newly_connected_slugs;
-#[cfg(test)]
-use crate::openhuman::agent::dispatcher::ParsedToolCall;
 use crate::openhuman::agent::harness;
-#[cfg(test)]
-use crate::openhuman::agent::hooks::ToolCallRecord;
 use crate::openhuman::agent::progress::AgentProgress;
 
 use std::sync::Arc;
 
 impl Agent {
-    // ─────────────────────────────────────────────────────────────────
-    // Per-call tool execution
-    // ─────────────────────────────────────────────────────────────────
-
-    /// Executes a single tool call and returns the result and execution record.
-    ///
-    /// This method:
-    /// 1. Emits telemetry events for the start of execution.
-    /// 2. Handles the special `spawn_subagent` tool with `fork` context.
-    /// 3. Validates tool visibility and availability.
-    /// 4. Dispatches to the underlying tool implementation.
-    /// 5. Applies per-result byte budgets to prevent context window bloat.
-    /// 6. Sanitizes and records the outcome for post-turn hooks.
-    #[cfg(test)]
-    pub(in super::super) async fn execute_tool_call(
-        &self,
-        call: &ParsedToolCall,
-        iteration: usize,
-    ) -> (
-        crate::openhuman::agent::dispatcher::ToolExecutionResult,
-        ToolCallRecord,
-    ) {
-        let normalized_call = super::normalize_tool_call(call);
-        let call: &ParsedToolCall = &normalized_call;
-        // The per-call execution path lives in the shared
-        // [`super::agent_tool_exec::run_agent_tool_call`] so `Agent::turn`
-        // (when migrated to the turn engine, via `AgentToolSource`) and any
-        // direct caller run the identical logic. Progress is emitted through a
-        // `TurnProgress` over this agent's sink. Legacy `run_skill`-wrapped
-        // built-in cron tool calls are normalized to direct calls first.
-        let progress = super::super::tool_progress::TurnProgress::new(self.on_progress.clone());
-        let artifact_store =
-            crate::openhuman::agent::harness::tool_result_artifacts::ToolResultArtifactStore::new(
-                self.action_dir.clone(),
-                self.session_key.clone(),
-            );
-        let ctx = agent_tool_exec::AgentToolExecCtx {
-            tools: &self.tools,
-            visible_tool_names: &self.visible_tool_names,
-            tool_policy_session: &self.tool_policy_session,
-            tool_policy: self.tool_policy.as_ref(),
-            event_session_id: self.event_session_id(),
-            event_channel: self.event_channel(),
-            agent_definition_id: &self.agent_definition_id,
-            prefer_markdown: self.context.prefer_markdown_tool_output(),
-            budget_bytes: self.context.tool_result_budget_bytes(),
-            compaction_enabled: self.context.compaction_enabled(),
-            tokenjuice_compression: self.tokenjuice_compression,
-            artifact_store: Some(&artifact_store),
-        };
-        agent_tool_exec::run_agent_tool_call(&ctx, &progress, call, iteration).await
-    }
-
-    /// Executes multiple tool calls in sequence.
-    ///
-    /// Collects results and execution records for all requested tools in a single batch.
-    #[cfg(test)]
-    pub(in super::super) async fn execute_tools(
-        &self,
-        calls: &[ParsedToolCall],
-        iteration: usize,
-    ) -> (
-        Vec<crate::openhuman::agent::dispatcher::ToolExecutionResult>,
-        Vec<ToolCallRecord>,
-    ) {
-        let mut results = Vec::with_capacity(calls.len());
-        let mut records = Vec::with_capacity(calls.len());
-        for call in calls {
-            let (exec_result, record) = self.execute_tool_call(call, iteration).await;
-            results.push(exec_result);
-            records.push(record);
-        }
-        (results, records)
-    }
-
     // ─────────────────────────────────────────────────────────────────
     // Sub-agent context snapshots
     // ─────────────────────────────────────────────────────────────────

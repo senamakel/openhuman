@@ -175,9 +175,9 @@ pub struct Agent {
     pub(super) omit_memory_md: bool,
     /// Optional payload-summarizer wired in at agent-build time.
     /// Currently set only for the orchestrator session
-    /// (see [`super::builder`]). When `Some`, oversized tool results
-    /// produced by [`Agent::execute_tool_call`] are routed through the
-    /// summarizer sub-agent before they enter agent history.
+    /// (see [`super::builder`]). TinyAgents `ToolOutputMiddleware` uses this
+    /// when oversized tool results need summarizer-subagent compression before
+    /// they enter agent history.
     pub(super) payload_summarizer:
         Option<Arc<dyn crate::openhuman::tinyagents::payload_summarizer::PayloadSummarizer>>,
     /// Mirrors the agent definition's `trigger_memory_agent` policy.

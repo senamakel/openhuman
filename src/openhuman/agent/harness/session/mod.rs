@@ -33,8 +33,6 @@
 //! `crate::openhuman::agent`, which re-exports them from this module.
 //! The child files are an implementation detail.
 
-#[cfg(test)]
-mod agent_tool_exec;
 mod builder;
 mod migration;
 mod runtime;

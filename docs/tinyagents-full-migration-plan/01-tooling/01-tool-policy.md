@@ -51,8 +51,8 @@ implementation details of the shared runner.
 - Remaining as crate-internal overlays by design until the SDK policy surface
   grows equivalent metadata: `external_effect_with_args`, `ToolScope::CliRpcOnly`,
   `permission_level_with_args`, and `generated_runtime_context` overlays.
-- Redundant per-call trait re-queries in `agent_tool_exec.rs` policy chain
-  (the chain itself shrinks in `01-tooling/04`).
+- Deleted: redundant per-call trait re-queries in the legacy
+  `agent_tool_exec.rs` policy chain.
 
 ## Acceptance
 

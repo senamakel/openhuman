@@ -17,8 +17,8 @@ calls the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`,
 and that implementation dispatches the summarizer through
 `SubAgent::invoke_in_parent` so child lineage/events inherit the parent
 TinyAgents context. The older direct-executor payload-summarizer hook is
-removed, `session/agent_tool_exec.rs` is now a test-only parity shim, and the
-stale default-Full `tokenjuice::compact_tool_output` wrapper is removed.
+removed, the old `session/agent_tool_exec.rs` test-only parity shim is deleted,
+and the stale default-Full `tokenjuice::compact_tool_output` wrapper is removed.
 
 1. `payload_summarizer.rs` (live in `src/openhuman/tinyagents/`; oversized-result
    compression via a `summarizer` sub-agent + circuit breaker):
@@ -34,13 +34,12 @@ stale default-Full `tokenjuice::compact_tool_output` wrapper is removed.
    keep spill policy and action-workspace `.txt` writes in OpenHuman, but keep
    the run's `StoreRegistry` (`RunContext.stores`) populated with structured
    artifact metadata so replay can find the model-facing preview's full body.
-4. `session/agent_tool_exec.rs` is no longer production-compiled; it remains
-   behind `cfg(test)` so the old direct-executor parity tests can be migrated or
-   deleted deliberately.
+4. Done: `session/agent_tool_exec.rs` was deleted after the live turn path moved
+   to TinyAgents middleware.
 
 ## Deletions
 
-- Legacy direct-executor tests that depend on `session/agent_tool_exec.rs`.
+- Deleted: `session/agent_tool_exec.rs` legacy direct-executor shim.
 - `tokenjuice::compact_tool_output`.
 
 ## Acceptance

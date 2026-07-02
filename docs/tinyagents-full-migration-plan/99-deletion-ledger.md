@@ -76,8 +76,7 @@ they land.
 
 ## Shrink (not full delete)
 
-- `session/agent_tool_exec.rs` 471 → delete test-only parity shim after
-  direct-executor tests migrate — 01.4
+- Deleted: `session/agent_tool_exec.rs` 471-line test-only parity shim — 01.4
 - `session/turn/tools.rs` 697 → parent-context/assembly glue — 01.3
   (dynamic delegation refresh and skill-event catalogue reconciliation remain
   live until middleware owns contextual selection)

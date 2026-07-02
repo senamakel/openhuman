@@ -9,13 +9,13 @@ are gone.
 
 1. Done for the reusable engine module: `ProgressReporter`/`TurnProgress` moved
    under `session/tool_progress.rs`, leaving no shared `harness/engine/`
-   surface. Remaining direct tool-execution call sites are session-local legacy
-   compatibility until `agent_tool_exec` is deleted/shrunk.
+   surface. The old session-local `agent_tool_exec` compatibility shim is
+   deleted.
 2. Done: `engine/checkpoint.rs` is gone. `CapPauser` owns the graceful
    max-iteration stop, and the remaining sub-agent checkpoint summary is
    localized in `subagent_runner/ops/checkpoint.rs`.
 3. Sweep direct agent-run/tool/subagent lifecycle `DomainEvent` publishes on
-   turn paths (session/turn, agent_tool_exec, orchestration tools) — emit
+   turn paths (session/turn, orchestration tools) — emit
    through the bridge or a typed helper so ordering/rate-limiting is
    single-owner.
 4. Current finding (2026-07-02): `agent/progress_tracing.rs` (722) plus

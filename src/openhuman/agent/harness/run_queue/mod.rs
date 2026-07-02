@@ -12,7 +12,7 @@
 //! The engine drains steers and collects at safe points (after tool results are
 //! committed to history), preserving the tool-call / tool-result pairing invariant.
 
-pub mod types;
+mod types;
 
 use std::sync::Arc;
 use tokio::sync::Mutex;

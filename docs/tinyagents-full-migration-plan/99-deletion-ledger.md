@@ -38,7 +38,7 @@ they land.
 - [x] `harness/engine/` (entire dir, 309) — 05.2
 - [ ] `agent/progress_tracing.rs` + tests (1336, if duplicate) — 05.2
       (live web-progress exporter until journal-backed projection reaches parity)
-- [ ] `harness/run_queue/` mechanics (345) — 07.3
+- [ ] `harness/run_queue/` mechanics (317 total; 174 non-test) — 07.3
       (live adapter for detached steer/collect plus web followup/parallel;
       split before deleting)
 - [ ] `harness/spawn_depth_context.rs` (66) — 07.3

@@ -18,8 +18,8 @@ either have TinyAgents-owned equivalents or move into a web-channel-local queue.
    accept Cancel only).
 3. Accepted/rejected steering emits `AgentEvent::Steered` → bridge → UI;
    delete bespoke acknowledgment plumbing in `run_queue/` after parity.
-4. `harness/run_queue/` (345): first split it by ownership. Detached
-   sub-agent `Steer`/`Collect` should collapse to a `SteeringRegistry`
+4. `harness/run_queue/` (317 total; 174 non-test): first split it by ownership.
+   Detached sub-agent `Steer`/`Collect` should collapse to a `SteeringRegistry`
    lookup/registration path; web-channel `Followup`/`Parallel` remain product
    turn orchestration unless a crate-owned replacement is introduced.
 

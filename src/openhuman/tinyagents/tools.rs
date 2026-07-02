@@ -11,7 +11,8 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
-    Tool, ToolCall as TaToolCall, ToolResult as TaToolResult, ToolSchema,
+    SandboxMode, Tool, ToolAccess, ToolCall as TaToolCall, ToolPolicy, ToolResult as TaToolResult,
+    ToolRuntime, ToolSchema, ToolSideEffects, WorkspaceAccess,
 };
 
 /// Internal sentinel tool name. tinyagents fails the whole run on a call to an
@@ -57,6 +58,10 @@ impl Tool<()> for UnknownToolAdapter {
             "internal",
             serde_json::json!({"type": "object"}),
         )
+    }
+
+    fn policy(&self) -> ToolPolicy {
+        ToolPolicy::read_only()
     }
 
     async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
@@ -169,9 +174,65 @@ impl Tool<()> for ToolAdapter {
         super::convert::spec_to_schema(&self.inner.spec())
     }
 
+    fn policy(&self) -> ToolPolicy {
+        tool_policy_from_openhuman_tool(self.inner.as_ref())
+    }
+
     async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
         Ok(execute_openhuman_tool(self.inner.as_ref(), call).await)
     }
+}
+
+fn tool_policy_from_openhuman_tool(tool: &dyn crate::openhuman::tools::Tool) -> ToolPolicy {
+    use crate::openhuman::tools::PermissionLevel;
+    use crate::openhuman::tools::traits::ToolTimeout;
+
+    let permission = tool.permission_level();
+    let external_effect = tool.external_effect();
+    let read_only = matches!(
+        permission,
+        PermissionLevel::None | PermissionLevel::ReadOnly
+    ) && !external_effect;
+
+    let timeout_ms = match tool.timeout_policy(&serde_json::Value::Null) {
+        ToolTimeout::Secs(seconds) => Some(seconds.saturating_mul(1000)),
+        ToolTimeout::Inherit | ToolTimeout::Unbounded => None,
+    };
+
+    ToolPolicy::classified()
+        .with_side_effects(ToolSideEffects {
+            read_only,
+            writes_files: matches!(
+                permission,
+                PermissionLevel::Write | PermissionLevel::Execute | PermissionLevel::Dangerous
+            ),
+            network: false,
+            installs_dependencies: false,
+            destructive: matches!(permission, PermissionLevel::Dangerous),
+            external_service: external_effect,
+            payment: false,
+        })
+        .with_runtime(ToolRuntime {
+            timeout_ms,
+            max_retries: None,
+            idempotent: tool.is_concurrency_safe(&serde_json::Value::Null),
+            cancelable: true,
+            sandbox: SandboxMode::Inherit,
+            max_result_bytes: tool.max_result_size_chars(),
+            streaming: false,
+        })
+        .with_access(ToolAccess {
+            workspace: match permission {
+                PermissionLevel::None | PermissionLevel::ReadOnly => WorkspaceAccess::None,
+                PermissionLevel::Write | PermissionLevel::Execute | PermissionLevel::Dangerous => {
+                    WorkspaceAccess::Any
+                }
+            },
+            trusted_roots: Vec::new(),
+            credentials: Vec::new(),
+            approval_required: external_effect || matches!(permission, PermissionLevel::Dangerous),
+            background_safe: !external_effect && !matches!(permission, PermissionLevel::Dangerous),
+        })
 }
 
 /// Execute an openhuman [`Tool`](crate::openhuman::tools::Tool) for a harness
@@ -318,6 +379,17 @@ impl Tool<()> for SharedToolAdapter {
         self.schema.clone()
     }
 
+    fn policy(&self) -> ToolPolicy {
+        let found = self
+            .sets
+            .iter()
+            .flat_map(|set| set.iter())
+            .find(|t| t.name() == self.name);
+        found
+            .map(|tool| tool_policy_from_openhuman_tool(tool.as_ref()))
+            .unwrap_or_else(ToolPolicy::default)
+    }
+
     async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
         let found = self
             .sets
@@ -355,8 +427,8 @@ impl Tool<()> for SharedToolAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::tools::traits::ToolTimeout;
     use crate::openhuman::tools::ToolResult as OhToolResult;
+    use crate::openhuman::tools::traits::ToolTimeout;
 
     /// A tool whose `execute_with_options` sleeps forever but declares a short
     /// per-call timeout, so the adapter's deadline must fire.

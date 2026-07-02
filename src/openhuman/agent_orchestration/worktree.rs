@@ -29,6 +29,8 @@ use serde::{Deserialize, Serialize};
 use tinyagents::harness::tool::SandboxMode;
 use tinyagents::harness::workspace::{WorkspaceDescriptor, WorkspaceIsolation};
 
+use crate::core::event_bus::{publish_global, DomainEvent};
+
 /// Directory (relative to the repo root) under which isolated worker
 /// worktrees are created — mirrors Claude Code's `.claude/worktrees/`
 /// convention so the layout is familiar and easy to `.gitignore`.
@@ -151,6 +153,17 @@ impl WorkspaceIsolation for GitWorktreeIsolation {
             policy_id = %descriptor.policy_id,
             "[worktree] workspace_prepare_done"
         );
+        // Announce the prepared workspace so audit/observability subscribers can
+        // correlate the isolated run with its allowed root.
+        tracing::debug!(
+            root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[workspace] workspace_prepared_emit"
+        );
+        let _ = publish_global(DomainEvent::WorkspacePrepared {
+            policy_id: descriptor.policy_id.clone(),
+            root: descriptor.root.display().to_string(),
+        });
         Ok(descriptor)
     }
 
@@ -161,15 +174,77 @@ impl WorkspaceIsolation for GitWorktreeIsolation {
             policy_id = %descriptor.policy_id,
             "[worktree] workspace_cleanup_start"
         );
-        remove(&self.repo_root, &descriptor.root, false)
-            .map_err(|err| tinyagents::TinyAgentsError::Tool(err.to_string()))?;
-        tracing::debug!(
-            root = %descriptor.root.display(),
-            policy_id = %descriptor.policy_id,
-            "[worktree] workspace_cleanup_done"
-        );
-        Ok(())
+        match remove(&self.repo_root, &descriptor.root, false) {
+            Ok(()) => {
+                tracing::debug!(
+                    root = %descriptor.root.display(),
+                    policy_id = %descriptor.policy_id,
+                    "[worktree] workspace_cleanup_done"
+                );
+                tracing::debug!(
+                    policy_id = %descriptor.policy_id,
+                    "[workspace] workspace_cleanup_emit_ok"
+                );
+                let _ = publish_global(DomainEvent::WorkspaceCleanup {
+                    policy_id: descriptor.policy_id.clone(),
+                    error: None,
+                });
+                Ok(())
+            }
+            Err(err) => {
+                let message = err.to_string();
+                tracing::warn!(
+                    root = %descriptor.root.display(),
+                    policy_id = %descriptor.policy_id,
+                    error = %message,
+                    "[worktree] workspace_cleanup_failed"
+                );
+                tracing::debug!(
+                    policy_id = %descriptor.policy_id,
+                    error = %message,
+                    "[workspace] workspace_cleanup_emit_err"
+                );
+                let _ = publish_global(DomainEvent::WorkspaceCleanup {
+                    policy_id: descriptor.policy_id.clone(),
+                    error: Some(message.clone()),
+                });
+                Err(tinyagents::TinyAgentsError::Tool(message))
+            }
+        }
     }
+}
+
+/// Fail-closed workspace path gate that mirrors
+/// [`WorkspaceDescriptor::enforce`] but routes the violation onto OpenHuman's
+/// global event bus instead of the SDK [`EventSink`], so audit/observability
+/// subscribers see out-of-root rejections.
+///
+/// This is a **carrier-side check only** — it publishes a
+/// [`DomainEvent::WorkspaceViolation`] and returns an error when `path` escapes
+/// the descriptor's allowed roots. It does **not** replace the authoritative
+/// enforcement done by `SecurityPolicy`/landlock; it is an additional
+/// observability + fail-closed signal keyed on the descriptor the isolated run
+/// carries.
+///
+/// [`EventSink`]: tinyagents::harness::events::EventSink
+pub fn enforce_workspace_path(
+    descriptor: &WorkspaceDescriptor,
+    path: &Path,
+) -> std::result::Result<(), WorktreeError> {
+    if descriptor.allows(path) {
+        return Ok(());
+    }
+    let rendered = path.display().to_string();
+    tracing::warn!(
+        path = %rendered,
+        root = %descriptor.root.display(),
+        policy_id = %descriptor.policy_id,
+        "[workspace] workspace_violation_out_of_root"
+    );
+    let _ = publish_global(DomainEvent::WorkspaceViolation {
+        path: rendered.clone(),
+    });
+    Err(WorktreeError::OutsideWorkspace(path.to_path_buf()))
 }
 
 /// Errors surfaced by the worktree manager. Stringified at the RPC / tool
@@ -181,6 +256,9 @@ pub enum WorktreeError {
 
     #[error("worktree is dirty and force=false; refusing to remove: {0}")]
     DirtyRefused(PathBuf),
+
+    #[error("path is outside the allowed workspace roots: {0}")]
+    OutsideWorkspace(PathBuf),
 
     #[error("git command `{command}` failed: {stderr}")]
     GitFailed { command: String, stderr: String },

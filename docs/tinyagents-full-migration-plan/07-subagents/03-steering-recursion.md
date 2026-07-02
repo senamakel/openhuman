@@ -26,9 +26,10 @@ either have TinyAgents-owned equivalents or move into a web-channel-local queue.
 ## Recursion
 
 5. One cap: crate `RunLimits.max_depth`/`RecursionPolicy` becomes
-   authoritative; `spawn_depth_context.rs` (66) becomes a reader/projector
-   of crate depth (`ToolExecutionContext.depth`) for product error wording,
-   or is deleted if the wording can wrap `TinyAgentsError::SubAgentDepth`.
+   authoritative; crate-internal `spawn_depth_context.rs` (66) becomes a
+   reader/projector of crate depth (`ToolExecutionContext.depth`) for product
+   error wording, or is deleted if the wording can wrap
+   `TinyAgentsError::SubAgentDepth`.
 6. One error shape: map `SubAgentDepth`/`RecursionLimit` to the existing
    JSON-RPC error for compat.
 
@@ -37,7 +38,8 @@ either have TinyAgents-owned equivalents or move into a web-channel-local queue.
 - `harness/run_queue/` queue mechanics, only after detached steer/collect no
   longer use `Arc<RunQueue>` and web-channel followup/parallel behavior has a
   replacement or local owner.
-- `harness/spawn_depth_context.rs` (if step 5 wording-wrap suffices).
+- crate-internal `harness/spawn_depth_context.rs` (if step 5 wording-wrap
+  suffices).
 
 ## Acceptance
 

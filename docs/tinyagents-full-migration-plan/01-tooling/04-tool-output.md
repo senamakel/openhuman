@@ -30,7 +30,7 @@ stale default-Full `tokenjuice::compact_tool_output` wrapper is removed.
    `compact_output_with_policy` covers the live TinyAgents middleware and
    legacy direct executor paths; decision recorded in
    `src/openhuman/tokenjuice/README.md`.
-3. `harness/tool_result_artifacts/mod.rs` (476 lines, artifact spill):
+3. `harness/tool_result_artifacts/mod.rs` (588 lines, artifact spill):
    keep spill policy and action-workspace `.txt` writes in OpenHuman, but keep
    the run's `StoreRegistry` (`RunContext.stores`) populated with structured
    artifact metadata so replay can find the model-facing preview's full body.

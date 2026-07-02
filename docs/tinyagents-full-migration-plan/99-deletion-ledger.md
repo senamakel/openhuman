@@ -43,7 +43,7 @@ they land.
 - [ ] `harness/run_queue/` mechanics (317 total; 174 non-test) — 07.3
       (live adapter for detached steer/collect plus web followup/parallel;
       split before deleting)
-- [ ] `harness/spawn_depth_context.rs` (66) — 07.3
+- [ ] crate-internal `harness/spawn_depth_context.rs` (66) — 07.3
       (live recursion guard for nested delegation)
 - [ ] `harness/worktree_context.rs` (74) — 08.5
       (live crate-internal action-root override for parallel worktrees)
@@ -74,7 +74,7 @@ they land.
 
 ## Shrink (not full delete)
 
-- `session/agent_tool_exec.rs` 505 → delete test-only parity shim after
+- `session/agent_tool_exec.rs` 471 → delete test-only parity shim after
   direct-executor tests migrate — 01.4
 - `session/turn/tools.rs` 697 → parent-context/assembly glue — 01.3
   (dynamic delegation refresh and skill-event catalogue reconciliation remain

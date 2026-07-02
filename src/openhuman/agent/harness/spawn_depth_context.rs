@@ -13,7 +13,7 @@
 /// * reasoning sub-agent: depth 1
 /// * worker spawned by reasoning: depth 2
 /// * one final worker handoff: depth 3
-pub const MAX_SPAWN_DEPTH: usize = 3;
+pub(crate) const MAX_SPAWN_DEPTH: usize = 3;
 
 tokio::task_local! {
     /// Current active `run_subagent` nesting depth for this task.
@@ -23,12 +23,12 @@ tokio::task_local! {
 /// Return the active sub-agent nesting depth for this task.
 ///
 /// Direct callers outside [`with_spawn_depth`] are at depth 0.
-pub fn current_spawn_depth() -> usize {
+pub(crate) fn current_spawn_depth() -> usize {
     CURRENT_SPAWN_DEPTH.try_with(|depth| *depth).unwrap_or(0)
 }
 
 /// Run `future` with a specific active sub-agent depth.
-pub async fn with_spawn_depth<F, R>(depth: usize, future: F) -> R
+pub(crate) async fn with_spawn_depth<F, R>(depth: usize, future: F) -> R
 where
     F: std::future::Future<Output = R>,
 {

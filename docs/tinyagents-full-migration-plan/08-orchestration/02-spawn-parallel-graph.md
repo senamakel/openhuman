@@ -14,13 +14,15 @@ ids back to the root run. The graph now owns the live
 phases: the graph entrypoint resolves parent context and registry state,
 validate parses task requests and enforces the parent `max_parallel_tools`
 limit, dispatch validates/preflights workers from an owned agent-definition
-snapshot, worker fanout still uses the SDK `map_reduce` helper, collect still
-projects compatibility `DomainEvent`/`AgentProgress`, and finalize still
-returns the existing JSON shape. The tool wrapper still owns `ToolResult`
-translation so malformed-argument and public error shapes stay unchanged. The
-unused pre-graph public wrappers have been removed, internal graph helpers have
-been narrowed, and the remaining shrink target is the 1280-line graph
-implementation.
+snapshot, and dispatch now rejects shared-workspace workers that can use
+write/execute tools unless the target definition is `sandbox_mode = "read_only"`
+or the task explicitly requests `isolation = "worktree"`. Worker fanout still
+uses the SDK `map_reduce` helper, collect still projects compatibility
+`DomainEvent`/`AgentProgress`, and finalize still returns the existing JSON
+shape. The tool wrapper still owns `ToolResult` translation so
+malformed-argument and public error shapes stay unchanged. The unused pre-graph
+public wrappers have been removed, internal graph helpers have been narrowed,
+and the remaining shrink target is the 1280-line graph implementation.
 
 ## Nodes
 
@@ -42,10 +44,12 @@ implementation.
 1. Done: `build_spawn_parallel_graph` + topology export (established pattern).
 2. Done: tool wrapper in `agent_orchestration/tools/spawn_parallel_agents.rs` is now
    a 128-line thin shell: schema → run graph → translate `ToolResult`.
-3. In progress: policy (spec "ownership and scheduling"): disjoint write ownership or
-   reject/serial-fallback; read-only workers may share workspace;
-   write-capable request worktree isolation (08.5); no widening of
-   tools/model/sandbox/budget; cancellation at graph boundaries.
+3. Partially done: policy (spec "ownership and scheduling"): read-only workers
+   may share workspace; shared workers whose visible tool surface includes
+   `Write`/`Execute`/`Dangerous` are rejected unless they request worktree
+   isolation (08.5). Remaining: serial fallback for non-isolated disjoint write
+   ownership and cancellation at graph boundaries. No widening of
+   tools/model/sandbox/budget.
 4. Checkpointing optional (fanout = Async durability).
 
 ## Deletions

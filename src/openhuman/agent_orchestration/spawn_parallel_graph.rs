@@ -20,12 +20,15 @@ use tinyagents::graph::{
 };
 
 use crate::core::event_bus::{publish_global, DomainEvent};
-use crate::openhuman::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry};
+use crate::openhuman::agent::harness::definition::{
+    AgentDefinition, AgentDefinitionRegistry, SandboxMode, ToolScope,
+};
 use crate::openhuman::agent::harness::fork_context::{current_parent, ParentExecutionContext};
 use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_orchestration::worktree::{self, BaseRef};
 use crate::openhuman::file_state;
+use crate::openhuman::tools::PermissionLevel;
 use serde::Serialize;
 use serde_json::json;
 use tokio::sync::mpsc::Sender;
@@ -117,6 +120,7 @@ enum ParallelTaskRejectionKind {
     UnknownAgent,
     OutsideAllowlist,
     MissingToolkit,
+    RequiresIsolation,
 }
 
 struct ParallelTaskRejection {
@@ -152,6 +156,93 @@ fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWorktreeReques
     } else {
         ParallelWorktreeRequest::SharedWorkspace
     }
+}
+
+fn disallowed_tool_matches(disallowed: &[String], name: &str) -> bool {
+    disallowed.iter().any(|entry| {
+        if let Some(prefix) = entry.strip_suffix('*') {
+            name.starts_with(prefix)
+        } else {
+            entry == name
+        }
+    })
+}
+
+fn definition_visible_tool_permissions(
+    definition: &AgentDefinition,
+    parent: &ParentExecutionContext,
+) -> Vec<(String, PermissionLevel)> {
+    let skill_prefix = definition
+        .skill_filter
+        .as_ref()
+        .map(|skill| format!("{skill}__"));
+    parent
+        .all_tools
+        .iter()
+        .filter_map(|tool| {
+            let name = tool.name();
+            if disallowed_tool_matches(&definition.disallowed_tools, name) {
+                return None;
+            }
+            if let Some(prefix) = skill_prefix.as_deref() {
+                if !name.starts_with(prefix) {
+                    return None;
+                }
+            }
+            let allowed = match &definition.tools {
+                ToolScope::Wildcard => true,
+                ToolScope::Named(names) => {
+                    names.iter().any(|allowed| allowed == name)
+                        || definition.extra_tools.iter().any(|extra| extra == name)
+                        || (crate::openhuman::tokenjuice::is_recovery_tool(name)
+                            && !names.is_empty())
+                }
+            };
+            allowed.then(|| (name.to_string(), tool.permission_level()))
+        })
+        .collect()
+}
+
+fn shared_workspace_rejection(
+    task: &ParallelAgentTask,
+    definition: &AgentDefinition,
+    parent: &ParentExecutionContext,
+) -> Option<String> {
+    if matches!(
+        worktree_request_for_task(task),
+        ParallelWorktreeRequest::Isolated { .. }
+    ) {
+        return None;
+    }
+    if matches!(definition.sandbox_mode, SandboxMode::ReadOnly) {
+        return None;
+    }
+    let mut write_capable_tools = definition_visible_tool_permissions(definition, parent)
+        .into_iter()
+        .filter(|(_, level)| *level > PermissionLevel::ReadOnly)
+        .map(|(name, level)| format!("{name}:{level}"))
+        .collect::<Vec<_>>();
+    if write_capable_tools.is_empty() {
+        return None;
+    }
+    write_capable_tools.sort();
+    write_capable_tools.dedup();
+    let preview = write_capable_tools
+        .iter()
+        .take(6)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let suffix = if write_capable_tools.len() > 6 {
+        format!(", +{} more", write_capable_tools.len() - 6)
+    } else {
+        String::new()
+    };
+    Some(format!(
+        "agent '{}' can use write/execute tools in the shared workspace ({preview}{suffix}); \
+         set isolation=\"worktree\" for edit-capable parallel workers or use a read-only agent",
+        definition.id
+    ))
 }
 
 fn create_spawn_parallel_worktree(
@@ -303,6 +394,16 @@ fn prepare_spawn_parallel_tasks_from_defs(
                 });
             }
 
+            if let Some(error) = shared_workspace_rejection(&task, &definition, parent) {
+                return SpawnParallelTaskPreflight::Rejected(ParallelTaskRejection {
+                    task_id,
+                    agent_id: definition.id.clone(),
+                    error,
+                    ownership: task.ownership,
+                    kind: ParallelTaskRejectionKind::RequiresIsolation,
+                });
+            }
+
             let prompt = with_ownership_boundary(&prompt, task.ownership.as_deref());
             SpawnParallelTaskPreflight::Prepared(PreparedParallelTask {
                 definition,
@@ -437,6 +538,15 @@ async fn stage_spawn_parallel_workers_from_defs(
                             task_id = %rejection.task_id,
                             agent_id = %rejection.agent_id,
                             "[spawn_parallel_agents] invalid_task_missing_toolkit"
+                        );
+                    }
+                    ParallelTaskRejectionKind::RequiresIsolation => {
+                        tracing::warn!(
+                            parent_session = %parent_session,
+                            task_id = %rejection.task_id,
+                            agent_id = %rejection.agent_id,
+                            ownership = rejection.ownership.as_deref().unwrap_or(""),
+                            "[spawn_parallel_agents] rejected_shared_workspace_write_capable_task"
                         );
                     }
                 }

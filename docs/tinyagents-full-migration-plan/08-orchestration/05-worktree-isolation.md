@@ -18,9 +18,10 @@ TinyAgents `WorkspaceIsolation` trait over OpenHuman's existing git-worktree
 create/remove policy and returns `WorkspaceDescriptor` roots for isolated
 workers. Sub-agent run options now carry an optional `WorkspaceDescriptor`, and
 the TinyAgents shared turn seam attaches it to `RunContext::with_workspace`.
-For current `spawn_parallel_agents` worktree workers, the runner derives the
-descriptor from the existing `worktree_action_dir` while keeping the old
-task-local action-dir override as the live tool fallback.
+For current `spawn_parallel_agents` worktree workers, dispatch now calls
+`GitWorktreeIsolation::prepare` and carries the returned `WorkspaceDescriptor`
+into `SubagentRunOptions`; the old `worktree_action_dir` task-local remains as
+the live fallback until every acting tool reads the descriptor directly.
 The TinyAgents tool adapter now forwards `ToolExecutionContext` into OpenHuman
 tools, and shell/git plus core filesystem tools (`file_read`, `list`,
 `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `csv_export`) and
@@ -34,8 +35,9 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
 
 1. Partially done: implement `WorkspaceIsolation` over
    `agent_orchestration/worktree.rs` (git-worktree create/cleanup, dirty-
-   worktree safeguards stay OpenHuman policy). The adapter now exists; live
-   callers still need to use `prepare_workspace`/`cleanup_workspace`.
+   worktree safeguards stay OpenHuman policy). `spawn_parallel_agents` now uses
+   the adapter's prepare path and passes the descriptor into the runner;
+   cleanup remains a separate dirty-worktree policy slice.
 2. In progress: thread `WorkspaceDescriptor` into tool execution. TinyAgents
    owns the descriptor carrier, while acting tools resolve their allowed root
    from `ToolExecutionContext.workspace` instead of task-local

@@ -18,6 +18,7 @@ use tinyagents::graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
 use tinyagents::graph::{
     ClosureStateReducer, CompiledGraph, GraphBuilder, NodeContext, NodeResult,
 };
+use tinyagents::harness::workspace::{WorkspaceDescriptor, WorkspaceIsolation};
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::{
@@ -310,56 +311,68 @@ fn shared_workspace_write_claim(
     Ok(Some(paths))
 }
 
-fn create_spawn_parallel_worktree(
+async fn create_spawn_parallel_worktree(
     parent_session: &str,
     action_root: Option<&Path>,
     task_id: &str,
-    agent_id: &str,
+    definition: &AgentDefinition,
     task: &ParallelAgentTask,
     session_parent_prefix: Option<&str>,
-) -> Result<Option<PathBuf>, ParallelAgentResult> {
+) -> Result<Option<WorkspaceDescriptor>, ParallelAgentResult> {
     match worktree_request_for_task(task) {
         ParallelWorktreeRequest::SharedWorkspace => Ok(None),
         ParallelWorktreeRequest::Isolated { base_ref } => match action_root {
-            Some(repo_root) => match worktree::create(repo_root, task_id, base_ref) {
-                Ok(status) => {
-                    tracing::debug!(
-                        parent_session = %parent_session,
-                        task_id = %task_id,
-                        worktree = %status.path.display(),
-                        base_ref = base_ref.as_str(),
-                        "[spawn_parallel_agents] created isolated worktree"
-                    );
-                    Ok(Some(status.path))
+            Some(repo_root) => {
+                let sandbox = match definition.sandbox_mode {
+                    SandboxMode::Sandboxed => tinyagents::harness::tool::SandboxMode::Required,
+                    SandboxMode::None | SandboxMode::ReadOnly => {
+                        tinyagents::harness::tool::SandboxMode::Inherit
+                    }
+                };
+                let isolation = worktree::GitWorktreeIsolation::new(repo_root)
+                    .with_base_ref(base_ref)
+                    .with_sandbox(sandbox);
+                match isolation.prepare(task_id, Some(&definition.id)).await {
+                    Ok(descriptor) => {
+                        tracing::debug!(
+                            parent_session = %parent_session,
+                            task_id = %task_id,
+                            worktree = %descriptor.root.display(),
+                            policy_id = %descriptor.policy_id,
+                            base_ref = base_ref.as_str(),
+                            "[spawn_parallel_agents] prepared isolated workspace descriptor"
+                        );
+                        Ok(Some(descriptor))
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            parent_session = %parent_session,
+                            task_id = %task_id,
+                            error = %err,
+                            "[spawn_parallel_agents] workspace_prepare_failed"
+                        );
+                        Err(ParallelAgentResult {
+                            task_id: task_id.to_string(),
+                            agent_id: definition.id.clone(),
+                            lineage: spawn_parallel_lineage(
+                                parent_session,
+                                session_parent_prefix,
+                                task_id,
+                            ),
+                            success: false,
+                            output: None,
+                            error: Some(format!("worktree isolation failed: {err}")),
+                            ownership: task.ownership.clone(),
+                            elapsed_ms: 0,
+                            iterations: 0,
+                            stale_parent_reads: Vec::new(),
+                            worktree_path: None,
+                            changed_files: Vec::new(),
+                            dirty_status: None,
+                        })
+                    }
                 }
-                Err(err) => {
-                    tracing::warn!(
-                        parent_session = %parent_session,
-                        task_id = %task_id,
-                        error = %err,
-                        "[spawn_parallel_agents] worktree_create_failed"
-                    );
-                    Err(ParallelAgentResult {
-                        task_id: task_id.to_string(),
-                        agent_id: agent_id.to_string(),
-                        lineage: spawn_parallel_lineage(
-                            parent_session,
-                            session_parent_prefix,
-                            task_id,
-                        ),
-                        success: false,
-                        output: None,
-                        error: Some(format!("worktree isolation failed: {err}")),
-                        ownership: task.ownership.clone(),
-                        elapsed_ms: 0,
-                        iterations: 0,
-                        stale_parent_reads: Vec::new(),
-                        worktree_path: None,
-                        changed_files: Vec::new(),
-                        dirty_status: None,
-                    })
-                }
-            },
+            }
             None => {
                 tracing::warn!(
                     parent_session = %parent_session,
@@ -368,7 +381,7 @@ fn create_spawn_parallel_worktree(
                 );
                 Err(ParallelAgentResult {
                     task_id: task_id.to_string(),
-                    agent_id: agent_id.to_string(),
+                    agent_id: definition.id.clone(),
                     lineage: spawn_parallel_lineage(parent_session, session_parent_prefix, task_id),
                     success: false,
                     output: None,
@@ -531,6 +544,7 @@ struct SpawnParallelWorker {
     task_id: String,
     lineage: ParallelAgentLineage,
     worktree_path: Option<PathBuf>,
+    workspace_descriptor: Option<WorkspaceDescriptor>,
     dispatch_mode: WorkerDispatchMode,
 }
 
@@ -693,20 +707,25 @@ async fn stage_spawn_parallel_workers_from_defs(
                 .is_some(),
         )
         .await;
-        let worktree_path = match create_spawn_parallel_worktree(
+        let workspace_descriptor = match create_spawn_parallel_worktree(
             parent_session,
             action_root,
             &task_id,
-            &definition.id,
+            &definition,
             &task,
             parent.session_parent_prefix.as_deref(),
-        ) {
-            Ok(path) => path,
+        )
+        .await
+        {
+            Ok(descriptor) => descriptor,
             Err(result) => {
                 immediate_results.push(result);
                 continue;
             }
         };
+        let worktree_path = workspace_descriptor
+            .as_ref()
+            .map(|descriptor| descriptor.root.clone());
         let lineage = spawn_parallel_lineage(
             parent_session,
             parent.session_parent_prefix.as_deref(),
@@ -719,6 +738,7 @@ async fn stage_spawn_parallel_workers_from_defs(
             task_id,
             lineage,
             worktree_path,
+            workspace_descriptor,
             dispatch_mode,
         });
     }
@@ -1171,6 +1191,7 @@ async fn run_one_parallel_task(
         task_id,
         lineage,
         worktree_path,
+        workspace_descriptor,
         dispatch_mode: _,
     } = worker;
     let started = std::time::Instant::now();
@@ -1193,7 +1214,7 @@ async fn run_one_parallel_task(
         initial_history: None,
         checkpoint_dir: None,
         worktree_action_dir: worktree_path.clone(),
-        workspace_descriptor: None,
+        workspace_descriptor,
         run_queue: None,
     };
     let run_result = run_subagent(&definition, &prompt, options).await;

@@ -379,6 +379,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         registry_snapshot: _,
         registry_diagnostics,
         tool_result_artifact_index,
+        compression_mw,
     } = assemble_turn_harness(
         provider,
         model,
@@ -615,6 +616,45 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
         }
     };
+    // Context-compression provenance (issue #4249, 03.1 item 6): the harness's
+    // `AgentEvent::Compressed` projection only carries token deltas, so drain the
+    // compression middleware's `records()` here — each carries the full
+    // `CompressionProvenance` (source ids + before/after token estimates + policy
+    // reason) built by `ProviderModelSummarizer`. Surfaced at info with a
+    // grep-friendly `[context]` prefix so every compaction is auditable, not just
+    // its net token saving.
+    if let Some(mw) = &compression_mw {
+        let records = mw.records();
+        if !records.is_empty() {
+            tracing::info!(
+                model,
+                compactions = records.len(),
+                "[context] turn performed {} context compaction(s); surfacing provenance",
+                records.len()
+            );
+            for (idx, record) in records.iter().enumerate() {
+                let provenance = &record.provenance;
+                tracing::info!(
+                    model,
+                    compaction = idx + 1,
+                    of = records.len(),
+                    source_count = provenance.source_ids.len(),
+                    source_ids = ?provenance.source_ids,
+                    from_tokens = provenance.original_token_estimate,
+                    to_tokens = provenance.summary_token_estimate,
+                    saved_tokens = provenance
+                        .original_token_estimate
+                        .saturating_sub(provenance.summary_token_estimate),
+                    reason = %provenance.reason,
+                    "[context] compaction provenance: folded {} source message(s) ({} -> {} tokens)",
+                    provenance.source_ids.len(),
+                    provenance.original_token_estimate,
+                    provenance.summary_token_estimate,
+                );
+            }
+        }
+    }
+
     // Terminal turn event (parity with the legacy engine's `progress::emit`): the
     // harness stream has no run-completed event, so emit `TurnCompleted` here with
     // the model-call count as the iteration total. Parent turns only; best-effort.
@@ -753,6 +793,11 @@ struct AssembledTurnHarness {
     registry_diagnostics: Vec<RegistryDiagnostic>,
     /// TinyAgents store index for OpenHuman action-dir tool-result artifacts.
     tool_result_artifact_index: Option<Arc<ToolResultArtifactIndexStore>>,
+    /// Concrete handle to the installed [`ContextCompressionMiddleware`], when the
+    /// summarization step is active. Drained after the run to surface each
+    /// compaction's [`CompressionProvenance`][tinyagents::harness::summarization::CompressionProvenance]
+    /// (source ids + before/after token estimates) via the observability path.
+    compression_mw: Option<Arc<ContextCompressionMiddleware>>,
 }
 
 /// Assemble the turn harness for [`run_turn_via_tinyagents_shared`]: register
@@ -952,16 +997,24 @@ fn assemble_turn_harness(
     // `autocompact_enabled` opt-outs (a disabled config must not spend summarizer
     // tokens or rewrite history); the deterministic trim backstop always installs
     // when a window is known, matching the legacy always-on `trim_history` cap.
+    // Concrete handle to the compression middleware (when installed), retained so
+    // the run loop can drain its `records()` after the drive future returns and
+    // surface each compaction's provenance (source ids + before/after token
+    // estimates) — the `AgentEvent::Compressed` projection only carries the token
+    // deltas, so provenance would otherwise be dropped (issue #4249, 03.1 item 6).
+    let mut compression_mw: Option<Arc<ContextCompressionMiddleware>> = None;
     if let Some(window) = context_window.filter(|w| *w > 0) {
         if autocompact_enabled {
-            harness.push_middleware(Arc::new(ContextCompressionMiddleware::with_summarizer(
+            let mw = Arc::new(ContextCompressionMiddleware::with_summarizer(
                 summarize::summarization_policy(window),
                 Box::new(summarize::ProviderModelSummarizer::new(
                     summary_provider,
                     model,
                     temperature,
                 )),
-            )));
+            ));
+            harness.push_middleware(mw.clone());
+            compression_mw = Some(mw);
         }
 
         let budget = window.saturating_sub(
@@ -1041,6 +1094,7 @@ fn assemble_turn_harness(
         registry_snapshot,
         registry_diagnostics,
         tool_result_artifact_index,
+        compression_mw,
     }
 }
 

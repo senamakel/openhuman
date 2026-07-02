@@ -26,6 +26,7 @@ mod embeddings;
 pub(crate) mod middleware;
 mod model;
 pub(crate) mod observability;
+mod routes;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 mod run_cancellation_context;
@@ -41,6 +42,7 @@ use anyhow::Result;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
+use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::middleware::{
     ContextCompressionMiddleware, MessageTrimMiddleware,
     ToolPolicyMiddleware as TaToolPolicyMiddleware,
@@ -394,6 +396,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         max_output_tokens,
         context_mw,
         tool_policy,
+        routes::turn_required_capabilities(model),
     );
 
     // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).
@@ -820,6 +823,7 @@ fn assemble_turn_harness(
     max_output_tokens: Option<u32>,
     context_mw: TurnContextMiddleware,
     tool_policy: Option<ToolPolicyEnforcement>,
+    required_capabilities: Option<CapabilitySet>,
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness.with_policy(run_policy_for(max_iterations));
@@ -857,6 +861,36 @@ fn assemble_turn_harness(
     harness
         .register_model(model, provider_model)
         .set_default_model(model);
+
+    // Project the full workload-route set into the registry (issue #4249,
+    // Workstream 02.1). Each route is an additive registry entry carrying its
+    // per-route capability profile; `set_default_model` above keeps the turn's
+    // effective model as the dispatch target, so behavior is preserved until
+    // fallback/selection (02.2) chooses among the routes. `summary_provider` is
+    // the retained provider handle (the other clone was consumed into the
+    // primary `ProviderModel`); `build_route_models` clones it per route and
+    // skips the turn's own model so we don't shadow the default.
+    for route in
+        routes::build_route_models(&summary_provider, temperature, model, max_output_tokens)
+    {
+        let routes::RouteModel {
+            name,
+            model: route_model,
+        } = route;
+        capability_registry.replace_model(name.as_str(), route_model.clone());
+        harness.register_model(name, route_model);
+    }
+
+    // Per-call capability gate (issue #4249, Workstream 02.1): when the turn has
+    // derivable capability needs (today: vision for a `vision-v1` turn), stamp
+    // them onto every `ModelRequest` via `with_required_capabilities` so an unfit
+    // model is rejected pre-dispatch (and, once 02.2 lands, a capable fallback is
+    // selected) instead of failing at the provider.
+    if let Some(required) = required_capabilities {
+        harness.push_model_middleware(Arc::new(
+            routes::RequiredCapabilitiesMiddleware::new(required),
+        ));
+    }
 
     // Capture context settings before `install` consumes `context_mw`.
     let autocompact_enabled = context_mw.autocompact_enabled;

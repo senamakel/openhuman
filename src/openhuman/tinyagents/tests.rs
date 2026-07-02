@@ -437,12 +437,24 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         Some(1024),
         TurnContextMiddleware::defaults(),
         None, // no builder tool policy on this path
+        None, // no per-turn required capabilities
     );
 
-    // Model registry: exactly the turn's model.
+    // Model registry: the turn's model plus the projected workload-route set
+    // (issue #4249, Workstream 02.1). `names()` is sorted; the turn model
+    // (`mock-model`) is not a tier alias, so no route is skipped.
     assert_eq!(
         assembled.harness.models().names(),
-        vec!["mock-model".to_string()]
+        vec![
+            "agentic-v1".to_string(),
+            "burst-v1".to_string(),
+            "chat-v1".to_string(),
+            "coding-v1".to_string(),
+            "mock-model".to_string(),
+            "reasoning-v1".to_string(),
+            "summarization-v1".to_string(),
+            "vision-v1".to_string(),
+        ]
     );
 
     // Tool registry: every callable tool.
@@ -546,6 +558,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         None,
         TurnContextMiddleware::defaults(),
         None,
+        None, // no per-turn required capabilities
     );
 
     let mw = assembled.harness.middleware();

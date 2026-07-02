@@ -380,6 +380,28 @@ impl ProviderModel {
         self
     }
 
+    /// Override the profile's image-input (vision) capability.
+    ///
+    /// [`ProviderModel::new`] seeds `modalities.image_in` from the provider's
+    /// *provider-wide* `supports_vision()`, but a workload-route projection
+    /// (issue #4249, Workstream 02.1 — see [`super::routes`]) knows the
+    /// per-route vision capability (e.g. the dedicated `vision-v1` tier is
+    /// multimodal while `chat-v1` is text-only). This lets the route adapter
+    /// record the accurate per-route modality so capability gating can reject a
+    /// non-vision route for an image turn before dispatch.
+    pub(super) fn with_vision(mut self, image_in: bool) -> Self {
+        self.profile.modalities.image_in = image_in;
+        self
+    }
+
+    /// Override the profile's reasoning/thinking capability. Set by the
+    /// workload-route projection ([`super::routes`]) for reasoning-tier routes so
+    /// a request that requires reasoning resolves to a reasoning-capable model.
+    pub(super) fn with_reasoning(mut self, reasoning: bool) -> Self {
+        self.profile.reasoning = reasoning;
+        self
+    }
+
     /// Forward provider thinking/tool-argument progress onto a progress sink via
     /// `forwarder` (parent or sub-agent scoped). See [`ThinkingForwarder`].
     pub(super) fn with_thinking(mut self, forwarder: ThinkingForwarder) -> Self {

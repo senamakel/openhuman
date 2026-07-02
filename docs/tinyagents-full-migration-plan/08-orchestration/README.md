@@ -5,8 +5,8 @@ a graph tool, durable interrupts for approvals, workspace isolation hooks,
 and graph-stub cleanup.
 
 Current status (2026-07-02): graph adapter internals such as the delegation
-state machine stay crate-internal; product orchestration modules own the public
-RPC/tool surfaces and output shapes.
+state machine and production delegation glue stay crate-internal; product
+orchestration modules own the public RPC/tool surfaces and output shapes.
 
 Target SDK surface: `graph::parallel::map_reduce` + `ParallelOptions`/
 `FailurePolicy`/`ItemOutcome`, `Send`/`Command`/reducers/`ChannelSet`,
@@ -28,5 +28,5 @@ Done when: fanout/parallel code paths are SDK-owned with deterministic
 order + failure policy; every long-running orchestration has named nodes,
 topology export, cancellation checks; the boilerplate stubs are gone.
 
-Keep (product): workflow_runs/agent_teams/delegation/command_center product
-state + RPC shapes; worktree policy; orchestration tool output formats.
+Keep (product): workflow_runs/agent_teams/command_center product state + RPC
+shapes; delegate/orchestration tool output formats; worktree policy.

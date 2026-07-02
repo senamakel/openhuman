@@ -66,9 +66,6 @@ pub(crate) use instructions::build_tool_instructions_filtered;
 pub(crate) use parse::parse_tool_calls;
 
 #[cfg(test)]
-#[cfg(test)]
-#[cfg(test)]
-#[cfg(test)]
 mod harness_gap_tests;
 #[cfg(test)]
 mod tests;

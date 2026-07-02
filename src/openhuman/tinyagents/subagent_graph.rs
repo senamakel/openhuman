@@ -16,21 +16,12 @@ use tinyagents::graph::{
     ClosureStateReducer, CompiledGraph, GraphBuilder, NodeContext, NodeResult,
 };
 
-pub(crate) const SUBAGENT_PIPELINE_PHASES: &[&str] = &[
-    "resolve_definition",
-    "prepare_context",
-    "assemble_prompt",
-    "expose_tools",
-    "run_child",
-    "finalize",
-];
-
 #[derive(Clone, Default)]
-pub(crate) struct SubagentPipelineState {
+struct SubagentPipelineState {
     visited: Vec<&'static str>,
 }
 
-pub(crate) enum SubagentPipelineUpdate {
+enum SubagentPipelineUpdate {
     PhaseEntered(&'static str),
 }
 
@@ -60,7 +51,7 @@ fn phase_node(
 ///
 /// `resolve_definition -> prepare_context -> assemble_prompt -> expose_tools ->
 /// run_child -> finalize`
-pub(crate) fn build_subagent_pipeline_graph(
+fn build_subagent_pipeline_graph(
 ) -> Result<CompiledGraph<SubagentPipelineState, SubagentPipelineUpdate>, String> {
     GraphBuilder::<SubagentPipelineState, SubagentPipelineUpdate>::new()
         .set_reducer(ClosureStateReducer::new(

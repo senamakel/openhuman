@@ -67,10 +67,12 @@ impl EarlyExitHook {
 }
 
 /// A harness tool backed by an openhuman [`Tool`].
+#[cfg(test)]
 pub(crate) struct ToolAdapter {
     inner: Arc<dyn crate::openhuman::tools::Tool>,
 }
 
+#[cfg(test)]
 impl ToolAdapter {
     /// Wrap a resolved openhuman tool.
     pub(crate) fn new(inner: Arc<dyn crate::openhuman::tools::Tool>) -> Self {
@@ -78,6 +80,7 @@ impl ToolAdapter {
     }
 }
 
+#[cfg(test)]
 #[async_trait]
 impl Tool<()> for ToolAdapter {
     fn name(&self) -> &str {

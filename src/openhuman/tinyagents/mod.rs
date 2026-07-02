@@ -61,7 +61,9 @@ pub use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 pub(crate) use model::ProviderModel;
 pub(crate) use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
 pub use observability::SubagentScope;
-pub(crate) use tools::{EarlyExitHook, SharedToolAdapter, ToolAdapter};
+pub(crate) use tools::{EarlyExitHook, SharedToolAdapter};
+#[cfg(test)]
+pub(crate) use tools::ToolAdapter;
 
 use std::collections::HashSet;
 use std::sync::Arc as StdArc;
@@ -222,6 +224,7 @@ pub type HaltSummarySlot = std::sync::Arc<std::sync::Mutex<Option<String>>>;
 /// as a harness tool, seeds the loop with `history`, and runs the loop bounded
 /// by `max_iterations` model calls. Returns the final text plus the resulting
 /// transcript translated back to openhuman [`ChatMessage`]s.
+#[cfg(test)]
 pub async fn run_turn_via_tinyagents(
     provider: Arc<dyn Provider>,
     model: &str,

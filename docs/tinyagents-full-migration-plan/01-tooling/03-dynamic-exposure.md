@@ -11,6 +11,9 @@ OpenHuman-computed callable tools, preserving hidden-tool execution semantics.
 It now tags OpenHuman run contexts and emits a diagnostics-only
 `AgentEvent::ToolsFiltered` via `openhuman_tool_visibility` when that existing
 allowlist withholds candidate tools. Full middleware-owned selection remains.
+Production tool exposure now goes exclusively through
+`run_turn_via_tinyagents_shared` + `SharedToolAdapter`; the old non-shared
+`ToolAdapter` wrapper is test-only.
 
 `agent/harness/tool_filter.rs` is still live for `integrations_agent` toolkit
 spawns: the runner uses it to choose a compact Composio action set before

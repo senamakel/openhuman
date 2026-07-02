@@ -247,7 +247,7 @@ impl Middleware<()> for OpenHumanToolVisibilityMiddleware {
 /// `SubagentToolSource` ran on every tool result (via `apply_handoff`), which the
 /// agent_graph rewrite dropped. Errors and `extract_from_result`'s own output
 /// pass through unchanged (handled inside `apply_handoff`).
-pub struct HandoffMiddleware {
+pub(crate) struct HandoffMiddleware {
     cache: Arc<crate::openhuman::agent::harness::subagent_runner::ResultHandoffCache>,
     agent_id: String,
     task_id: String,
@@ -1110,12 +1110,12 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
 /// `ToolCallRecord` could only report every call as an optimistic success — the
 /// in-house engine tracked real per-call success. Runs last in the `after_tool`
 /// chain so it records the final (summarized/capped) content the transcript keeps.
-pub struct ToolOutcomeCaptureMiddleware {
+pub(crate) struct ToolOutcomeCaptureMiddleware {
     sink: super::ToolOutcomeSink,
 }
 
 impl ToolOutcomeCaptureMiddleware {
-    pub fn new(sink: super::ToolOutcomeSink) -> Self {
+    pub(crate) fn new(sink: super::ToolOutcomeSink) -> Self {
         Self { sink }
     }
 }
@@ -1151,7 +1151,7 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
 /// schema and aborts the whole turn. The in-house engine recovered such a call by
 /// running the tool with `{}`; restore that so a single bad tool call is
 /// recoverable rather than fatal.
-pub struct ArgRecoveryMiddleware;
+pub(crate) struct ArgRecoveryMiddleware;
 
 #[async_trait]
 impl Middleware<()> for ArgRecoveryMiddleware {
@@ -1187,7 +1187,7 @@ impl Middleware<()> for ArgRecoveryMiddleware {
 /// post-call `StopHookMiddleware` per-turn USD cap. Projecting the *next* call's
 /// cost pre-spend (vs the already-exceeded check here) needs an input-token
 /// estimate — a follow-up.
-pub struct CostBudgetMiddleware;
+pub(crate) struct CostBudgetMiddleware;
 
 #[async_trait]
 impl Middleware<()> for CostBudgetMiddleware {
@@ -1266,7 +1266,7 @@ const HARD_REJECT_REPEAT_THRESHOLD: usize = 2;
 /// On trip it records a root-cause summary into the shared [`HaltSummarySlot`]
 /// (the turn overrides its final text with it) and pauses the run via the shared
 /// steering handle (same mechanism as the stop-hook / cap pausers).
-pub struct RepeatedToolFailureMiddleware {
+pub(crate) struct RepeatedToolFailureMiddleware {
     handle: SteeringHandle,
     identical_threshold: usize,
     halt_summary: super::HaltSummarySlot,
@@ -1289,7 +1289,7 @@ struct FailureState {
 impl RepeatedToolFailureMiddleware {
     /// Build the breaker. `identical_threshold` (the identical-signature retry
     /// ceiling) is clamped to at least 2 — a single failure is never a loop.
-    pub fn new(
+    pub(crate) fn new(
         handle: SteeringHandle,
         identical_threshold: usize,
         halt_summary: super::HaltSummarySlot,

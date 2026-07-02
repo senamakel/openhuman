@@ -51,7 +51,7 @@ they land.
 - [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 251) — 04.3
       (live crate-internal adapter until crate checkpointer/schema migration
       replaces `graph_checkpoints`)
-- [ ] `CostBudgetMiddleware` (`tinyagents/middleware.rs`) +
+- [ ] crate-internal `CostBudgetMiddleware` (`tinyagents/middleware.rs`) +
       crate-internal `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
       (live until crate budget/run-tree accounting avoids duplicate
       `UsageRecorded` and covers parent-turn rollups)

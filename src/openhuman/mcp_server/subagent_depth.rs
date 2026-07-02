@@ -28,11 +28,12 @@ use std::future::Future;
 /// so it is trustworthy for bounding recursion.
 pub const HEADER_SUBAGENT_DEPTH: &str = "X-OpenHuman-Subagent-Depth";
 
-/// Generous cap on delegation-chain depth for the MCP `run_subagent` path.
-/// Keeps `claude-code → run_subagent → claude-code → …` from spawning an
-/// unbounded tower of `claude` processes while leaving ample room for real
-/// nested delegation.
-pub const MAX_SUBAGENT_DEPTH: usize = 6;
+/// Delegation-chain cap for the MCP `run_subagent` path.
+///
+/// Keep this as an alias to the harness limit so MCP, OpenHuman subagent
+/// execution, and TinyAgents `RunLimits.max_depth` all reject at the same
+/// nesting boundary.
+pub const MAX_SUBAGENT_DEPTH: usize = crate::openhuman::agent::harness::MAX_SPAWN_DEPTH;
 
 tokio::task_local! {
     static CHAIN_DEPTH: usize;

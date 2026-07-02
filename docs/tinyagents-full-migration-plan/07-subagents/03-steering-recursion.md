@@ -43,11 +43,11 @@ queued/interrupt/followup events remain live.
    reader/projector of crate depth (`ToolExecutionContext.depth`) for product
    error wording, or is deleted if the wording can wrap
    `TinyAgentsError::SubAgentDepth`. Current code now threads
-   `MAX_SPAWN_DEPTH = 3` into TinyAgents `RunPolicy.limits.max_depth` and
-   `RunConfig.max_depth`, but OpenHuman's own `spawn_depth_context` still
-   rejects beyond the same cap before the TinyAgents run. The remaining distinct
-   authority to collapse is MCP `agent.run_subagent` using
-   `MAX_SUBAGENT_DEPTH = 6` in `mcp_server/subagent_depth.rs`.
+   `MAX_SPAWN_DEPTH = 3` into TinyAgents `RunPolicy.limits.max_depth`,
+   `RunConfig.max_depth`, and MCP `agent.run_subagent` via
+   `mcp_server/subagent_depth.rs`, but OpenHuman's own
+   `spawn_depth_context` still rejects beyond the same cap before the
+   TinyAgents run.
 6. One error shape: map `SubAgentDepth`/`RecursionLimit` to the existing
    JSON-RPC error for compat.
 

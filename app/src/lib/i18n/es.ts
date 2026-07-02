@@ -208,6 +208,18 @@ const messages: TranslationMap = {
   'tinyplaceOrchestration.subconscious.preview':
     'Coordinación de agentes en segundo plano y bucles de memoria.',
   'tinyplaceOrchestration.session.subtitle': 'Sesión de app de TinyPlace',
+  'tinyplaceOrchestration.pairing.linkLabel': 'Vincular sesión',
+  'tinyplaceOrchestration.pairing.linkPlaceholder': 'Pega el ID del agente de sesión',
+  'tinyplaceOrchestration.pairing.linkAction': 'Vincular',
+  'tinyplaceOrchestration.pairing.requests': 'Solicitudes de contacto',
+  'tinyplaceOrchestration.pairing.accept': 'Aceptar',
+  'tinyplaceOrchestration.pairing.decline': 'Rechazar',
+  'tinyplaceOrchestration.pairing.block': 'Bloquear',
+  'tinyplaceOrchestration.pairing.linked': 'Vinculada',
+  'tinyplaceOrchestration.pairing.pending': 'Pendiente',
+  'tinyplaceOrchestration.pairing.unlinked': 'Sin vincular',
+  'tinyplaceOrchestration.pairing.incoming': 'Entrantes',
+  'tinyplaceOrchestration.pairing.outgoing': 'Salientes',
   'brain.empty':
     'Tu cerebro está vacío por ahora: conecta una fuente para empezar a construir tu memoria.',
   'brain.error': 'No se pudo cargar tu cerebro. Inténtalo de nuevo.',

@@ -5,19 +5,68 @@ import { apiClient } from '../../agentworld/AgentWorldShell';
 import TinyPlaceOrchestrationTab from './TinyPlaceOrchestrationTab';
 
 vi.mock('../../agentworld/AgentWorldShell', () => ({
-  apiClient: { messages: { list: vi.fn() }, inbox: { list: vi.fn() } },
+  apiClient: {
+    messages: { list: vi.fn() },
+    inbox: { list: vi.fn() },
+    orchestrationPairing: {
+      list: vi.fn(),
+      linkSession: vi.fn(),
+      acceptRequest: vi.fn(),
+      declineRequest: vi.fn(),
+      blockRequest: vi.fn(),
+    },
+  },
 }));
 
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 
 const messagesListMock = vi.mocked(apiClient.messages.list);
 const inboxListMock = vi.mocked(apiClient.inbox.list);
+const pairingListMock = vi.mocked(apiClient.orchestrationPairing.list);
+const pairingLinkMock = vi.mocked(apiClient.orchestrationPairing.linkSession);
+const pairingAcceptMock = vi.mocked(apiClient.orchestrationPairing.acceptRequest);
+const pairingDeclineMock = vi.mocked(apiClient.orchestrationPairing.declineRequest);
+const pairingBlockMock = vi.mocked(apiClient.orchestrationPairing.blockRequest);
 
 describe('TinyPlaceOrchestrationTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     messagesListMock.mockResolvedValue({ messages: [] });
     inboxListMock.mockResolvedValue({ items: [], unreadCount: 0, totalCount: 0 });
+    pairingListMock.mockResolvedValue({
+      records: [],
+      contacts: { contacts: [] },
+      requests: { incoming: [], outgoing: [] },
+      stats: { agentId: '@openhuman', contactCount: 0, pendingIncoming: 0, pendingOutgoing: 0 },
+    });
+    pairingLinkMock.mockResolvedValue({
+      record: {
+        agentId: '@worker-new',
+        status: 'pending',
+        linkedAt: '2026-07-01T12:00:00.000Z',
+        source: 'user_link',
+      },
+      remote: { agentId: '@worker-new', status: 'pending' },
+    });
+    pairingAcceptMock.mockResolvedValue({
+      record: {
+        agentId: '@worker-pending',
+        status: 'linked',
+        linkedAt: '2026-07-01T12:00:00.000Z',
+        source: 'approved_request',
+      },
+      remote: { agentId: '@worker-pending', status: 'accepted' },
+    });
+    pairingDeclineMock.mockResolvedValue({ record: null, remote: { ok: true } });
+    pairingBlockMock.mockResolvedValue({
+      record: {
+        agentId: '@worker-pending',
+        status: 'blocked',
+        linkedAt: '2026-07-01T12:00:00.000Z',
+        source: 'approved_request',
+      },
+      remote: { agentId: '@worker-pending', status: 'blocked' },
+    });
   });
 
   it('renders pinned master and subconscious chats before session chats', async () => {
@@ -108,5 +157,50 @@ describe('TinyPlaceOrchestrationTab', () => {
 
     await waitFor(() => expect(messagesListMock).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('tinyplaceOrchestration.noMessages')).toBeInTheDocument();
+  });
+
+  it('requests a contact edge for a pasted session identity', async () => {
+    render(<TinyPlaceOrchestrationTab />);
+
+    const input = await screen.findByPlaceholderText(
+      'tinyplaceOrchestration.pairing.linkPlaceholder'
+    );
+    fireEvent.change(input, { target: { value: '@worker-new' } });
+    fireEvent.click(screen.getByText('tinyplaceOrchestration.pairing.linkAction'));
+
+    await waitFor(() => expect(pairingLinkMock).toHaveBeenCalledWith('@worker-new'));
+    await waitFor(() => expect(pairingListMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('surfaces incoming contact requests for explicit approval', async () => {
+    pairingListMock.mockResolvedValue({
+      records: [],
+      contacts: { contacts: [] },
+      requests: {
+        incoming: [
+          {
+            agentId: '@worker-pending',
+            status: 'pending',
+            direction: 'incoming',
+            contact: {
+              requester: '@worker-pending',
+              addressee: '@openhuman',
+              status: 'pending',
+              createdAt: '2026-07-01T12:00:00.000Z',
+              updatedAt: '2026-07-01T12:00:00.000Z',
+            },
+          },
+        ],
+        outgoing: [],
+      },
+      stats: { agentId: '@openhuman', contactCount: 0, pendingIncoming: 1, pendingOutgoing: 0 },
+    });
+
+    render(<TinyPlaceOrchestrationTab />);
+
+    expect(await screen.findByText('@worker-pending')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('tinyplaceOrchestration.pairing.accept'));
+
+    await waitFor(() => expect(pairingAcceptMock).toHaveBeenCalledWith('@worker-pending'));
   });
 });

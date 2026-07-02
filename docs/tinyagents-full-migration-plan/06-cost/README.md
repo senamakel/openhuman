@@ -3,20 +3,23 @@
 Finish moving accounting onto crate primitives; OpenHuman keeps the tracker
 DB, dashboard RPC, and pricing policy.
 
-Target SDK surface: `Usage { input, output, total, cache_read,
-cache_creation, reasoning_tokens }`, `UsageTotals`, `CostTotals`,
-`UsageAccountingMiddleware`, `BudgetMiddleware`/`BudgetLimits`/
-`BudgetTracker`, `AgentEvent::{UsageRecorded, CostRecorded, BudgetWarning,
-BudgetExceeded}`, `ChildRun.usage`/`RunTree` lineage rollup,
-`ModelPricing` (catalog, incl. cache/reasoning rates).
+Target SDK surface: `Usage { input_tokens, output_tokens, total_tokens,
+cache_read_tokens, cache_creation_tokens, reasoning_tokens }`, `UsageTotals`,
+`CostTotals`, `BudgetMiddleware`/`BudgetLimits`/`BudgetTracker`,
+`AgentEvent::{UsageRecorded, CostRecorded, BudgetWarning, BudgetExceeded}`,
+`ChildRun.usage`/`RunTree` lineage rollup, `ModelPricing` (catalog, incl.
+cache/reasoning rates).
 
-The $0-cost bug and the unobserved-turn tracker gap are already fixed
-(memory, sessions e/2026-07-01). Remaining:
+The $0-cost bug and the unobserved-turn tracker gap are already fixed.
+Remaining:
 
 Current status (2026-07-02): tinyagents 1.3.0 exposes the target budget and
 usage primitives, but OpenHuman has not wired `BudgetMiddleware`,
-`BudgetLimits`, `UsageAccountingMiddleware`, `ChildRun`, or `RunTree` into the
-shared runner. Keep the current OpenHuman cost seams live for now:
+`BudgetLimits`, `ChildRun`, or `RunTree` into the shared runner. TinyAgents
+runtime already emits `AgentEvent::UsageRecorded` after each model call, so the
+OpenHuman gap is ownership/de-duplication of that event stream, not a separate
+usage-accounting middleware install. Keep the current OpenHuman cost seams live
+for now:
 crate-internal `CostBudgetMiddleware` gates already-exceeded daily/monthly
 budgets on every shared turn, `OpenhumanEventBridge::record_usage` records
 `UsageRecorded` into the global tracker, and crate-internal
@@ -25,9 +28,10 @@ persisted `LastTurnUsage`. Installing the crate budget middleware before event
 de-duplication would risk double-counting
 `UsageRecorded`.
 
-Local inventory: there is no `tinyagents/cost*` module. The current local seams
-are crate-internal `tinyagents/middleware.rs::CostBudgetMiddleware` (inside the
-1861-line middleware module), crate-internal
+Local inventory: there is no local `src/openhuman/tinyagents/cost*` adapter
+module; TinyAgents itself has `tinyagents::harness::cost`. The current local
+seams are crate-internal `tinyagents/middleware.rs::CostBudgetMiddleware`
+(inside the 1861-line middleware module), crate-internal
 `agent/harness/turn_subagent_usage.rs` (176) for task-local parent-turn rollup,
 and crate-internal `agent/cost.rs::TurnCost` for the web footer payload, budget
 stop hooks, and legacy progress compatibility.
@@ -59,11 +63,13 @@ stop hooks, and legacy progress compatibility.
 
 ## Deletions
 
-- crate-internal `CostBudgetMiddleware` (if fully mapped), `agent/cost.rs` TurnCost
-  aggregation where `UsageTotals` covers it, `turn_subagent_usage.rs`
-  task-local (only after 07.2 rollup parity). Do not delete any of these until
-  duplicate `UsageRecorded` semantics are resolved and run-tree/thread-budget
-  integration covers the current stop-hook and parent-turn rollup paths.
+- Later only: crate-internal `CostBudgetMiddleware` after crate budget mapping
+  covers OpenHuman daily/monthly stop behavior, `agent/cost.rs::TurnCost` only
+  where `UsageTotals` covers all current web-footer, stop-hook, TokenJuice, and
+  audit callers, and `turn_subagent_usage.rs` only after 07.2 rollup parity. Do
+  not delete any of these until duplicate `UsageRecorded` semantics are resolved
+  and run-tree/thread-budget integration covers the current stop-hook and
+  parent-turn rollup paths.
 
 ## Acceptance
 

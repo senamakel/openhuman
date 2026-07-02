@@ -17,15 +17,19 @@ Three parallel progress paths exist: `OpenhumanEventBridge`
 3. Sweep direct `publish_global(DomainEvent::Agent*)` calls on turn paths
    (session/turn, agent_tool_exec, orchestration tools) — emit through the
    bridge or a typed helper so ordering/rate-limiting is single-owner.
-4. `agent/progress_tracing/` (616): re-point at journal records (05.1) or
-   the bridge; delete the parallel trace bridge if redundant.
+4. Current finding (2026-07-02): `agent/progress_tracing.rs` is not currently
+   redundant. It is the opt-in `observability.agent_tracing` exporter fed by
+   the web progress bridge's `AgentProgress` stream. Retain it until the 05.1
+   journal path can produce the same metadata-only OTel/Langfuse spans and
+   append/export contract.
 
 ## Deletions
 
 - `src/openhuman/agent/harness/engine/` (entire dir: mod, checkpoint,
   progress — 309 lines).
 - Redundant publishes found in step 3.
-- `agent/progress_tracing/` if step 4 proves it a duplicate.
+- Retain `agent/progress_tracing.rs` for now; delete only after journal-backed
+  span export proves parity with the current config contract.
 
 ## Acceptance
 

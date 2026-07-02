@@ -21,8 +21,6 @@ pub struct ContextStatsState {
     last_input_tokens: u64,
     last_output_tokens: u64,
     context_window: u64,
-    compaction_disabled: bool,
-    consecutive_compaction_failures: u8,
     session_memory_config: SessionMemoryConfig,
     session_memory: SessionMemoryHandle,
 }
@@ -33,8 +31,6 @@ impl ContextStatsState {
             last_input_tokens: 0,
             last_output_tokens: 0,
             context_window: 0,
-            compaction_disabled: false,
-            consecutive_compaction_failures: 0,
             session_memory_config,
             session_memory: Arc::new(Mutex::new(SessionMemoryState::default())),
         }
@@ -119,13 +115,5 @@ impl ContextStatsState {
 
     pub fn context_window(&self) -> u64 {
         self.context_window
-    }
-
-    pub fn compaction_disabled(&self) -> bool {
-        self.compaction_disabled
-    }
-
-    pub fn consecutive_compaction_failures(&self) -> u8 {
-        self.consecutive_compaction_failures
     }
 }

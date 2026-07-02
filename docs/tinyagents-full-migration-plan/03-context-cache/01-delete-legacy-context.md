@@ -22,7 +22,10 @@ lives inside TinyAgents `CacheAlignMiddleware`.
    truncation helper now lives beside action-workspace artifact preview
    handling; the live TinyAgents path uses `ToolOutputMiddleware` per-tool
    caps.
-5. Summarization provenance: ensure every compression emits
+5. Legacy compaction-breaker fields in `ContextStatsState` / `ContextStats`:
+   deleted after exact non-test call-path checks showed no production readers.
+   The remaining stats projection is UI utilisation plus session-memory state.
+6. Summarization provenance: ensure every compression emits
    `AgentEvent::Compressed` with `SummaryRecord` data (source ids,
    before/after token estimates) — wire `ContextCompressionMiddleware::
    records()` into the run outcome/journal.

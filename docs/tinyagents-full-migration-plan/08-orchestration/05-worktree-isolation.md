@@ -59,17 +59,17 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
    archetype/integrations delegation dispatch, `spawn_async_subagent`
    reuse/session roots, `spawn_parallel_agents` shared-worker roots,
    `agent_prepare_context`, `call_memory_agent`, `delegate_to_personality`,
-   shell, git operations, `file_read`, `list`, `file_write`, `edit`,
-   `apply_patch`, `grep`, `glob`, `csv_export`, `node_exec`, and `npm_exec`.
-   Remaining acting tools still need to read it. OpenHuman
+   `delegate_graph`, shell, git operations, `file_read`, `list`, `file_write`,
+   `edit`, `apply_patch`, `grep`, `glob`, `csv_export`, `node_exec`, and
+   `npm_exec`. Remaining acting tools still need to read it. OpenHuman
    `SecurityPolicy` remains the enforcement authority — the descriptor is the
    carrier, not the policy.
    The remaining production `SubagentRunOptions` constructors that still pass
    `None` for workspace fields are root/background orchestration paths
-   (`AgentOrchestrationSession::spawn_agent`, durable delegation stages, and the
-   session memory trigger) or test fixtures. They do not receive a
-   `ToolExecutionContext`; migrating them needs a parent-context descriptor
-   carrier instead of another tool-adapter patch.
+   (`AgentOrchestrationSession::spawn_agent` and the session memory trigger) or
+   test fixtures. They do not receive a `ToolExecutionContext`; migrating them
+   needs a parent-context descriptor carrier instead of another tool-adapter
+   patch.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations
    also feed the security audit trail. Use 1.3.0
    `WorkspaceDescriptor::enforce(path, events)` so the check and the

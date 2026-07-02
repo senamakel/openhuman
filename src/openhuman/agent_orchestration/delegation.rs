@@ -26,6 +26,7 @@ use crate::openhuman::tinyagents::delegation::{
 };
 use crate::openhuman::tinyagents::SqlRunLedgerCheckpointer;
 use tinyagents::graph::checkpoint::Checkpointer;
+use tinyagents::harness::workspace::WorkspaceDescriptor;
 use tinyagents::CancellationToken;
 
 const LOG_TARGET: &str = "agent_orchestration::delegation";
@@ -46,6 +47,7 @@ pub(crate) async fn run_subagent_delegation(
     definition: AgentDefinition,
     task_prompt: String,
     max_revisions: usize,
+    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
 ) -> Result<DelegationState, String> {
     let thread_id = format!("delegrun-{}", uuid::Uuid::new_v4());
     let checkpointer: Arc<dyn Checkpointer<DelegationState>> =
@@ -58,16 +60,34 @@ pub(crate) async fn run_subagent_delegation(
         max_revisions,
         "[delegation] starting durable sub-agent delegation"
     );
+    if let Some(descriptor) = parent_workspace_descriptor.as_ref() {
+        tracing::debug!(
+            target: LOG_TARGET,
+            agent_id = %definition.id,
+            thread_id = %thread_id,
+            workspace_root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[delegation] using ToolExecutionContext workspace root"
+        );
+    }
 
     let run = async move {
         // Re-entrant per-stage worker: clones its captures each call so the graph
         // node handler stays `Fn` while each stage dispatches a fresh sub-agent.
+        let parent_workspace_descriptor = parent_workspace_descriptor.clone();
         let run_stage = move |stage: DelegationStage, state: DelegationState| {
             let definition = definition.clone();
             let task = task_prompt.clone();
+            let workspace_descriptor = parent_workspace_descriptor.clone();
             async move {
                 let prompt = build_stage_prompt(stage, &task, &state);
-                match run_subagent(&definition, &prompt, delegation_subagent_options()).await {
+                match run_subagent(
+                    &definition,
+                    &prompt,
+                    delegation_subagent_options(workspace_descriptor),
+                )
+                .await
+                {
                     Ok(outcome) => {
                         let approved = matches!(stage, DelegationStage::Review)
                             && review_approves(&outcome.output);
@@ -149,7 +169,12 @@ fn review_approves(output: &str) -> bool {
 
 /// Default sub-agent options for a delegation stage — a fresh UUID task id per
 /// call (so retries/revisions don't collide), everything else inherited.
-fn delegation_subagent_options() -> SubagentRunOptions {
+fn delegation_subagent_options(
+    workspace_descriptor: Option<WorkspaceDescriptor>,
+) -> SubagentRunOptions {
+    let worktree_action_dir = workspace_descriptor
+        .as_ref()
+        .map(|descriptor| descriptor.root.clone());
     SubagentRunOptions {
         skill_filter_override: None,
         toolkit_override: None,
@@ -159,8 +184,8 @@ fn delegation_subagent_options() -> SubagentRunOptions {
         worker_thread_id: None,
         initial_history: None,
         checkpoint_dir: None,
-        worktree_action_dir: None,
-        workspace_descriptor: None,
+        worktree_action_dir,
+        workspace_descriptor,
         run_queue: None,
     }
 }

@@ -59,9 +59,9 @@ use model::ThinkingForwarder;
 pub(crate) use checkpoint::SqlRunLedgerCheckpointer;
 pub use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 use model::ProviderModel;
-pub(crate) use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
+use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
 pub use observability::SubagentScope;
-pub(crate) use tools::{EarlyExitHook, SharedToolAdapter};
+use tools::{EarlyExitHook, SharedToolAdapter};
 #[cfg(test)]
 pub(crate) use tools::ToolAdapter;
 

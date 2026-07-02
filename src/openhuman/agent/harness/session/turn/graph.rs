@@ -13,7 +13,7 @@
 //! instead of erroring.
 //!
 //! **Available tools.** The agent's resolved harness tool set (`tools`),
-//! advertised via [`SharedToolAdapter`](crate::openhuman::tinyagents::SharedToolAdapter)
+//! advertised via `SharedToolAdapter`
 //! and filtered by `visible_tool_names`. The chat turn surfaces clarifying
 //! questions inline rather than pausing, so it advertises **no early-exit
 //! tools**.

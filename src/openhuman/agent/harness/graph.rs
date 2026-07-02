@@ -11,12 +11,12 @@
 //! hooks). When the caller supplies an `on_progress` sender the harness event
 //! stream is mirrored onto `AgentProgress` (live tool timeline, streaming text
 //! deltas, cost/token footer) via the same
-//! [`OpenhumanEventBridge`](crate::openhuman::tinyagents::OpenhumanEventBridge)
+//! `OpenhumanEventBridge`
 //! the chat route uses.
 //!
 //! **Available tools.** Reuses the bus handler's `Arc`-shared tool sets
 //! (`tools_registry: Arc<Vec<Box<dyn Tool>>>` + per-turn `extra_tools`),
-//! advertised via [`SharedToolAdapter`](crate::openhuman::tinyagents::SharedToolAdapter)
+//! advertised via `SharedToolAdapter`
 //! and filtered by `visible_tool_names`. No early-exit tools on this path.
 //!
 //! **Summarization.** [`run_channel_turn_via_graph`] resolves the model's

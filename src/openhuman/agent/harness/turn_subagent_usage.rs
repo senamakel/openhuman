@@ -166,6 +166,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn map_reduce_fanout_preserves_scope() {
+        use tinyagents::graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
+
+        let (result, entries) = with_turn_collector(async {
+            map_reduce(
+                vec![
+                    ("t1", "researcher", usage(10, 5, 0.01)),
+                    ("t2", "coder", usage(20, 8, 0.02)),
+                ],
+                ParallelOptions::default()
+                    .with_max_concurrency(2)
+                    .with_failure_policy(FailurePolicy::CollectAll),
+                |_index, (task_id, agent_id, usage)| async move {
+                    record_subagent_usage(task_id, agent_id, usage);
+                    Ok::<_, tinyagents::TinyAgentsError>(task_id)
+                },
+            )
+            .await
+        })
+        .await;
+
+        let outcome = result.expect("map_reduce should complete");
+        assert_eq!(outcome.outcomes.len(), 2);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].task_id, "t1");
+        assert_eq!(entries[1].agent_id, "coder");
+    }
+
+    #[tokio::test]
     async fn scope_does_not_leak() {
         let _ = with_turn_collector(async {
             record_subagent_usage("t1", "researcher", usage(1, 1, 0.0));

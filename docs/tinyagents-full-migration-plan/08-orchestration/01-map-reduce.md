@@ -11,8 +11,11 @@ workflow phase fanout (`workflow_runs/engine.rs`), and model_council fanout.
 remaining TaskStore re-export seam is crate-internal for detached-subagent
 lifecycle bookkeeping. Workflow phase fanout now shares the durable workflow
 stop signal with `ParallelOptions::with_cancellation`, so SDK cancellation maps
-back to the existing `Interrupted` run state. Usage-rollup parity evidence is
-still pending.
+back to the existing `Interrupted` run state. Usage-rollup parity has direct
+coverage in `turn_subagent_usage::map_reduce_fanout_preserves_scope`: TinyAgents
+1.3.0 `map_reduce` drives bounded futures through `buffer_unordered` and
+reorders in the same async call path, so OpenHuman's tokio task-local
+parent-turn collector stays visible to inline `spawn_parallel_agents` workers.
 
 ## Steps
 
@@ -21,11 +24,11 @@ still pending.
    graph events) with `map_reduce`.
 2. Done: re-point callers: `spawn_parallel_agents`, workflow phase intra-phase
    fanout (`workflow_runs/engine.rs`), model_council fanout.
-3. Pending evidence: preserve the task-local usage-collector behavior. SDK
-   source confirms `map_reduce` uses `buffer_unordered` with ordered reassembly
-   and no `tokio::spawn` task boundary, so the task-local collector should stay
-   visible; still add direct `spawn_parallel_agents` usage-rollup evidence or
-   thread the 06-cost lineage rollup instead.
+3. Done: preserve the task-local usage-collector behavior. The direct
+   `turn_subagent_usage::map_reduce_fanout_preserves_scope` regression proves
+   records made inside `map_reduce` workers still roll into the active parent
+   turn collector. The longer-term 06-cost work can replace this task-local
+   bridge with `UsageTotals`/`ChildRun` lineage once lineage parity lands.
 4. Done: choose `FailurePolicy` per caller (council = collect-all; workflow
    phase = fail-fast or per-phase config). Use the 1.3.0 options:
    `with_item_timeout`/`with_total_timeout`/`with_cancellation`
@@ -41,5 +44,5 @@ still pending.
 
 ## Acceptance
 
-- Deterministic input-order results with out-of-order completion; usage rollup
-  parity on a fanout turn.
+- Deterministic input-order results with out-of-order completion; task-local
+  usage rollup parity on a fanout turn.

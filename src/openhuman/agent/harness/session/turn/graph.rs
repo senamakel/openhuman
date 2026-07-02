@@ -109,6 +109,9 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         graph.tool_policy,
         // Top-level chat turns do not yet carry SDK workspace descriptors.
         None,
+        // Interactive chat turn — response caching MUST stay off so a live user
+        // turn is never served a cached model response (correctness/safety).
+        false,
     )
     .await
 }

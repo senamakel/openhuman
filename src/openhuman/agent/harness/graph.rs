@@ -130,6 +130,8 @@ pub(crate) async fn run_channel_turn_via_graph(
         None,
         // Channel turns do not yet carry SDK workspace descriptors.
         None,
+        // Interactive channel/CLI turn — never serve a cached model response.
+        false,
     )
     .await?;
     // Append only this turn's typed suffix (assistant tool-calls + tool results +

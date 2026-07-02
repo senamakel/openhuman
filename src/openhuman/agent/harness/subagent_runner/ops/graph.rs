@@ -267,6 +267,9 @@ pub(super) async fn run_subagent_via_graph(
         None,
         // Isolated worker descriptor, when worktree isolation prepared one.
         workspace_descriptor,
+        // Sub-agent turns run tools with external effects; not a deterministic
+        // internal run, so response caching stays off (safe default).
+        false,
     ))
     .await
     .map_err(map_tinyagents_subagent_error)?;

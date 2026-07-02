@@ -39,12 +39,13 @@ mod topology;
 use std::sync::Arc;
 
 use anyhow::Result;
+use tinyagents::harness::cache::InMemoryResponseCache;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
 use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::middleware::{
-    ContextCompressionMiddleware, MessageTrimMiddleware,
+    ContextCompressionMiddleware, MessageTrimMiddleware, PromptCacheGuardMiddleware,
     ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
@@ -136,13 +137,23 @@ async fn forward_collects(queue: &RunQueue, handle: &SteeringHandle) {
 /// own internal retry/backoff, so a second harness-level retry layer would
 /// double-retry transient errors and, worse, swallow a deterministic provider
 /// error when a mock/test provider yields a different result on the retry.
-fn run_policy_for(max_iterations: usize) -> RunPolicy {
+fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPolicy {
     let mut policy = RunPolicy::default();
     policy.limits.max_model_calls = max_iterations;
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
     policy.retry.max_attempts = 1;
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
+    // Prompt-prefix protection is always on (issue #4249, 03.2): the
+    // `PromptCacheGuardMiddleware` records a `CacheLayoutEvent` whenever volatile
+    // content busts the provider KV-cache prefix. Purely diagnostic — never
+    // mutates the request.
+    policy.cache.protect_prompt_prefix = true;
+    // Response caching is gated: it is enabled only for deterministic internal
+    // runs (which additionally attach a `ResponseCache`). Interactive chat turns
+    // pass `false` here AND attach no cache, so a live user turn can never be
+    // served a cached model response (double fail-safe).
+    policy.cache.response_cache_enabled = response_cache_enabled;
     policy
 }
 
@@ -252,7 +263,8 @@ pub(crate) async fn run_turn_via_tinyagents(
     // zero and the run would abort before the first model call.
     let max_iterations = effective_max_iterations(max_iterations);
     let mut harness: AgentHarness<()> = AgentHarness::new();
-    harness.with_policy(run_policy_for(max_iterations));
+    // Thin test variant: no response cache (chat-safe default).
+    harness.with_policy(run_policy_for(max_iterations, false));
     let provider_model = ProviderModel::new(provider, model, temperature);
     let error_slot = provider_model.error_slot();
     harness
@@ -364,6 +376,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     context_mw: TurnContextMiddleware,
     tool_policy: Option<ToolPolicyEnforcement>,
     workspace_descriptor: Option<WorkspaceDescriptor>,
+    deterministic_cacheable: bool,
 ) -> Result<TinyagentsTurnOutcome> {
     // `0` means "unset" → the legacy default (a native-bus / test convention);
     // otherwise the harness model-call cap would be zero and abort the run before
@@ -382,6 +395,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         registry_diagnostics,
         tool_result_artifact_index,
         compression_mw,
+        prompt_cache_guard,
     } = assemble_turn_harness(
         provider,
         model,
@@ -397,6 +411,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         context_mw,
         tool_policy,
         routes::turn_required_capabilities(model),
+        deterministic_cacheable,
     );
 
     // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).
@@ -658,6 +673,23 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         }
     }
 
+    // Prompt-cache layout diagnostics (issue #4249, 03.2): drain the crate
+    // `PromptCacheGuardMiddleware`'s recorded `CacheLayoutEvent`s and surface each
+    // as a structured `[cache]` warning. Fires only when the cacheable prompt
+    // prefix (system prompt + tool set) changed across model calls — i.e. volatile
+    // content silently busting the provider KV-cache prefix. The structured
+    // successor to `CacheAlignMiddleware`'s free-text warn-log (still installed in
+    // parallel until parity is shown).
+    let cache_layout_events = prompt_cache_guard.layout_events();
+    if !cache_layout_events.is_empty() {
+        tracing::debug!(
+            model,
+            events = cache_layout_events.len(),
+            "[cache] surfacing prompt-cache layout change events"
+        );
+        observability::surface_cache_layout_events(model, &cache_layout_events);
+    }
+
     // Terminal turn event (parity with the legacy engine's `progress::emit`): the
     // harness stream has no run-completed event, so emit `TurnCompleted` here with
     // the model-call count as the iteration total. Parent turns only; best-effort.
@@ -665,6 +697,23 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         let _ = sink.try_send(AgentProgress::TurnCompleted {
             iterations: run.model_calls as u32,
         });
+    }
+
+    // Response-cache effectiveness for this turn (issue #4249, 03.2). Additive —
+    // logged with a grep-friendly `[cache]` prefix here; wiring the counts into the
+    // cost-footer DTO is a follow-up coordinated with workstream 06. Only the
+    // observed (bridge) path accumulates these; deterministic internal runs that
+    // attach a `ResponseCache` are where non-zero counts appear.
+    if let Some(bridge) = &bridge {
+        let (cache_hits, cache_misses) = bridge.cache_counts();
+        if cache_hits > 0 || cache_misses > 0 {
+            tracing::debug!(
+                model,
+                cache_hits,
+                cache_misses,
+                "[cache] turn response-cache summary"
+            );
+        }
     }
 
     let bridge_totals = bridge.map(|bridge| bridge.totals_with_cost());
@@ -801,6 +850,12 @@ struct AssembledTurnHarness {
     /// compaction's [`CompressionProvenance`][tinyagents::harness::summarization::CompressionProvenance]
     /// (source ids + before/after token estimates) via the observability path.
     compression_mw: Option<Arc<ContextCompressionMiddleware>>,
+    /// Crate prompt-cache guard (issue #4249, 03.2). Records a `CacheLayoutEvent`
+    /// whenever the cacheable prompt prefix (system prompt + tool set) changes
+    /// across model calls. Drained after the run and surfaced via
+    /// [`observability::surface_cache_layout_events`] — the structured successor to
+    /// the `CacheAlignMiddleware` warn-log.
+    prompt_cache_guard: Arc<PromptCacheGuardMiddleware>,
 }
 
 /// Assemble the turn harness for [`run_turn_via_tinyagents_shared`]: register
@@ -824,9 +879,22 @@ fn assemble_turn_harness(
     context_mw: TurnContextMiddleware,
     tool_policy: Option<ToolPolicyEnforcement>,
     required_capabilities: Option<CapabilitySet>,
+    deterministic_cacheable: bool,
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<()> = AgentHarness::new();
-    harness.with_policy(run_policy_for(max_iterations));
+    harness.with_policy(run_policy_for(max_iterations, deterministic_cacheable));
+    // Deterministic internal runs (summarizer/triage/memory-scoring style) may
+    // reuse a prior identical model response; attach an in-memory response cache
+    // so the agent loop can short-circuit a recurring provider call and emit
+    // `CacheHit`/`CacheMiss` (issue #4249, 03.2). NEVER attached for interactive
+    // chat turns — a live user turn must never be served a cached response.
+    if deterministic_cacheable {
+        harness.with_response_cache(Arc::new(InMemoryResponseCache::new()));
+        tracing::debug!(
+            model,
+            "[cache] response cache attached (deterministic internal run)"
+        );
+    }
     let mut capability_registry: CapabilityRegistry<()> = CapabilityRegistry::new();
 
     let cursor: IterationCursor = Arc::default();
@@ -999,6 +1067,20 @@ fn assemble_turn_harness(
         ));
     }
 
+    // Prompt-cache prefix protection (issue #4249, 03.2). First declare the turn's
+    // stable prefix (system prompt + tool schemas) as `PromptSegment`s, then let
+    // the crate `PromptCacheGuardMiddleware` diff the cacheable prefix across model
+    // calls and record a `CacheLayoutEvent` when volatile content busts it.
+    // `before_model` hooks run in registration order, so the segment stamper must
+    // precede the guard; both run before the context middlewares below (they only
+    // touch the volatile tail / tool bodies, never the stable prefix). The guard is
+    // returned so the run loop can drain its events into the observability bridge —
+    // the structured successor to `CacheAlignMiddleware`'s warn-log (kept installed
+    // via `context_mw` until parity is shown).
+    harness.push_middleware(Arc::new(middleware::PromptCacheSegmentMiddleware));
+    let prompt_cache_guard = Arc::new(PromptCacheGuardMiddleware::new());
+    harness.push_middleware(prompt_cache_guard.clone());
+
     // openhuman context concerns as graph middlewares (issue #4249): cache-align
     // warnings, microcompact tool-body clearing, and the after-tool byte cap /
     // payload summarizer. Installed before the summarization/trim block below so
@@ -1129,6 +1211,7 @@ fn assemble_turn_harness(
         registry_diagnostics,
         tool_result_artifact_index,
         compression_mw,
+        prompt_cache_guard,
     }
 }
 

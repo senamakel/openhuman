@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::Sender;
 
 use tinyagents::graph::stream::{GraphEvent, GraphEventSink};
+use tinyagents::harness::cache::CacheLayoutEvent;
 use tinyagents::harness::events::{AgentEvent, EventListener, EventRecord};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::usage::Usage;
@@ -84,6 +85,14 @@ struct BridgeState {
     output_tokens: u64,
     cached_input_tokens: u64,
     charged_amount_usd: f64,
+    /// Local response-cache hits observed on this turn (issue #4249, 03.2). A hit
+    /// means the harness served a model call from its [`ResponseCache`] without
+    /// invoking the provider. Additive counters — a follow-up (coordinated with
+    /// workstream 06) wires these into the cost-footer DTO; today they are logged
+    /// with a grep-friendly `[cache]` prefix and exposed via [`OpenhumanEventBridge::cache_counts`].
+    cache_hits: u64,
+    /// Local response-cache misses observed on this turn (provider *was* invoked).
+    cache_misses: u64,
 }
 
 /// An [`EventListener`] that mirrors harness events onto openhuman's progress
@@ -147,6 +156,14 @@ impl OpenhumanEventBridge {
             s.cached_input_tokens,
             s.charged_amount_usd,
         )
+    }
+
+    /// Cumulative `(cache_hits, cache_misses)` observed so far (issue #4249,
+    /// 03.2). Exposed so the turn loop can surface response-cache effectiveness;
+    /// the cost-footer DTO wiring is a follow-up (workstream 06).
+    pub(crate) fn cache_counts(&self) -> (u64, u64) {
+        let s = self.state.lock().unwrap();
+        (s.cache_hits, s.cache_misses)
     }
 
     /// Best-effort, non-blocking progress emit (drops on a full channel, like
@@ -413,8 +430,61 @@ impl EventListener for OpenhumanEventBridge {
                     }),
                 }
             }
+            // Response-cache accounting (issue #4249, 03.2). A hit means the
+            // harness served this model call from its local `ResponseCache`
+            // without invoking the provider (deterministic internal runs only —
+            // interactive chat never attaches a cache). Counters are additive; the
+            // cost-footer DTO wiring is a follow-up (workstream 06).
+            AgentEvent::CacheHit { call_id, key } => {
+                {
+                    let mut s = self.state.lock().unwrap();
+                    s.cache_hits += 1;
+                }
+                tracing::debug!(
+                    model = %self.model,
+                    call_id = call_id.as_str(),
+                    key = key.as_str(),
+                    "[cache] response-cache hit — provider call skipped"
+                );
+            }
+            AgentEvent::CacheMiss { call_id, key } => {
+                {
+                    let mut s = self.state.lock().unwrap();
+                    s.cache_misses += 1;
+                }
+                tracing::debug!(
+                    model = %self.model,
+                    call_id = call_id.as_str(),
+                    key = key.as_str(),
+                    "[cache] response-cache miss — invoking provider and storing result"
+                );
+            }
             _ => {}
         }
+    }
+}
+
+/// Surface the crate `PromptCacheGuardMiddleware`'s recorded
+/// [`CacheLayoutEvent`]s as structured `[cache]` warnings (issue #4249, 03.2).
+///
+/// The guard records a layout event whenever the cacheable prompt prefix changes
+/// between turns (volatile content — a timestamp, uuid, injected memory, etc. —
+/// silently busting the provider KV-cache prefix). This is the structured
+/// successor to `CacheAlignMiddleware`'s free-text warn-log: instead of a
+/// token-pattern heuristic it reports the exact before/after cacheable segment
+/// ids. Drained by the turn loop after the run and logged here; `CacheAlign` is
+/// kept installed in parallel until parity is shown (its deletion is a gated
+/// follow-up).
+pub(crate) fn surface_cache_layout_events(model: &str, events: &[CacheLayoutEvent]) {
+    for event in events {
+        tracing::warn!(
+            model,
+            changed_prefix = event.changed_prefix,
+            volatile_only = event.volatile_only,
+            segments_before = ?event.segment_ids_before,
+            segments_after = ?event.segment_ids_after,
+            "[cache] prompt-cache prefix changed across turns — KV-cache prefix may not hit; keep dynamic content out of the system prompt / stable tool set"
+        );
     }
 }
 

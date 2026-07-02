@@ -176,6 +176,8 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         None,
         TurnContextMiddleware::defaults(),
         None,
+        None,
+        false,
     )
     .await
     .expect("streaming turn runs");
@@ -276,6 +278,8 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         None,
         TurnContextMiddleware::defaults(),
         None,
+        None,
+        false,
     )
     .await
     .expect("steered turn runs");
@@ -371,6 +375,8 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         None,
         TurnContextMiddleware::defaults(),
         None,
+        None,
+        false,
     );
     let two = run_turn_via_tinyagents_shared(
         provider.clone(),
@@ -389,6 +395,8 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         None,
         TurnContextMiddleware::defaults(),
         None,
+        None,
+        false,
     );
 
     let (a, b) = tokio::join!(one, two);
@@ -635,6 +643,8 @@ async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
         None,
         TurnContextMiddleware::defaults(),
         None,
+        None,
+        false,
     )
     .await
     .expect("turn runs");

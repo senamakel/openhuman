@@ -44,8 +44,8 @@ TinyAgents surfaces and filling the remaining gaps:
   Markdown transcripts into TinyAgents store/journal/status records.
 - Production replay rules over TinyAgents stores/status: redaction, cursors,
   backfill, cancellation, and OpenHuman controller compatibility.
-- Storage compatibility options for SQLite users that already depend on a
-  different `rusqlite` / `libsqlite3-sys` version.
+- Storage compatibility options for SQLite users that already own a connection,
+  schema, or native sqlite patch policy.
 - Higher-level map/reduce and parallel-agent orchestration helpers on top of
   graph `Send`.
 - Budget enforcement and provider/model catalog metadata that can drive
@@ -184,10 +184,13 @@ Acceptance criteria:
 
 Status: partially present.
 
-TinyAgents has a `SqliteCheckpointer`, but enabling the `sqlite` feature pulls a
-specific `rusqlite` / `libsqlite3-sys` version. OpenHuman already depends on a
-different SQLite native-link version, so it cannot enable that feature and had
-to implement `SqlRunLedgerCheckpointer`.
+TinyAgents has a `SqliteCheckpointer`, and OpenHuman now enables the `sqlite`
+feature by aligning both Cargo worlds on `rusqlite 0.40` / `libsqlite3-sys
+0.38`. The remaining gap is not feature enablement; it is ownership. OpenHuman
+still patches the sqlite crates locally for the current toolchain, owns existing
+session/checkpoint tables through `SqlRunLedgerCheckpointer`, and needs a clean
+way to adopt SDK checkpoint storage without handing dependency or schema control
+to the SDK.
 
 Implement one or more compatibility paths:
 

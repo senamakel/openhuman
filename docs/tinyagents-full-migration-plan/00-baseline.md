@@ -2,18 +2,23 @@
 
 ## Steps
 
-1. **Bump `tinyagents` to `"1.3"`** (root `Cargo.toml` pins `"1.2"`; bump the
-   requirement + `cargo update -p tinyagents` in both Cargo worlds — root and
+1. **Bump `tinyagents` to `"1.3"`** (done in both Cargo worlds — root and
    `app/src-tauri/`). Known 1.1→1.2 break already handled
    (`MessageDelta::text` ctor). Note: the `openai` crate feature was removed
    after 1.2.0 (1.2.1+ features are only `sqlite`/`repl`) — we never enabled
    it, so no impact. See "1.3.0 delta" below for new API this plan uses.
-2. **Align rusqlite to 0.40** in both worlds (`Cargo.toml:130` root,
-   `app/src-tauri/Cargo.toml:145`, currently `0.37` bundled). tinyagents'
-   `sqlite` feature pins `rusqlite 0.40` bundled; the `links = "sqlite3"`
-   conflict is the only blocker. Fix openhuman call sites for the 0.37→0.40
-   API delta, then enable `tinyagents = { version = "1.2", features =
-["sqlite"] }`.
+2. **Align rusqlite to 0.40** in both worlds (`Cargo.toml` root and
+   `app/src-tauri/Cargo.toml`). OpenHuman pins `rusqlite = "=0.40.0"` and
+   enables `tinyagents = { version = "1.3", features = ["sqlite"] }`.
+   Compatibility notes:
+   - `rusqlite` and `libsqlite3-sys` are patched from `vendor/` to replace
+     upstream `cfg_select!` macro use with stable `#[cfg]` blocks on the
+     current toolchain.
+   - `matrix-sdk-sqlite 0.16.0` is patched locally to use the same `rusqlite`
+     line, preventing a second native sqlite chain.
+   - `whatsapp-rust/sqlite-storage` is disabled because its Diesel storage
+     links sqlite independently; `whatsapp-web` temporarily uses
+     `wacore::store::InMemoryBackend` and logs the non-durable session mode.
 3. **Unlocks:** crate `SqliteCheckpointer` → later deletion of
    `src/openhuman/tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`,
    251 lines) once graphs are re-pointed and `graph_checkpoints` rows are
@@ -31,8 +36,9 @@
 
 ## 1.3.0 delta (verified from the published crate source)
 
-Same `rusqlite ^0.40 bundled` pin and feature set as 1.2.1. New API this
-plan's workstreams should use directly:
+Same `rusqlite ^0.40 bundled` pin and feature set as 1.2.1. OpenHuman currently
+pins the compatible patch release locally. New API this plan's workstreams
+should use directly:
 
 - `AgentEvent::ToolsFiltered { by, excluded }` — exposure decisions are now
   event-native (01.3).
@@ -60,6 +66,10 @@ plan's workstreams should use directly:
 
 ## Acceptance
 
-- Both Cargo worlds `cargo check` clean with `sqlite` feature on.
-- One duplicate-free `cargo tree -i libsqlite3-sys` per world.
+- Both Cargo worlds `cargo check` clean with `sqlite` feature on:
+  `cargo check --manifest-path Cargo.toml`,
+  `cargo check --manifest-path Cargo.toml --all-features`, and
+  `cargo check --manifest-path app/src-tauri/Cargo.toml`.
+- One duplicate-free `cargo tree -i libsqlite3-sys` per world, rooted at
+  `vendor/libsqlite3-sys-0.38.0`.
 - Docs updated; sdk-gaps marked.

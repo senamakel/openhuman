@@ -5,12 +5,13 @@ Status: draft migration backlog
 TinyAgents source reviewed: `tinyhumansai/tinyagents` `origin/main` at
 `8f226f1`, crate version `1.1.0`. Refreshed against `tinyhumansai/tinyagents`
 `main` at `348a0e7dc71a1f9039f3d523a2a384661a7a9acd` after the SDK/docs update.
-Current OpenHuman dependency in this checkout is `tinyagents = "1.2.1"`.
+Current OpenHuman dependency in this checkout is
+`tinyagents = { version = "1.3", features = ["sqlite"] }`.
 
-OpenHuman already depends on `tinyagents = "1.2.1"` and already routes the live
-agent turn through `src/openhuman/tinyagents/`. This spec is not a proposal to
-add TinyAgents. It is a todo list for moving the rest of OpenHuman's generic
-agent runtime behavior onto TinyAgents primitives while keeping OpenHuman-owned
+OpenHuman already depends on TinyAgents and already routes the live agent turn
+through `src/openhuman/tinyagents/`. This spec is not a proposal to add
+TinyAgents. It is a todo list for moving the rest of OpenHuman's generic agent
+runtime behavior onto TinyAgents primitives while keeping OpenHuman-owned
 product semantics in OpenHuman.
 
 Current inventory snapshot: [`tinyagents-harness-migration-audit.md`](tinyagents-harness-migration-audit.md).
@@ -79,7 +80,7 @@ OpenHuman Rust core:
 
 Already done or partially done:
 
-- `Cargo.toml` pins `tinyagents = "1.2.1"` with default features only.
+- `Cargo.toml` pins `tinyagents = { version = "1.3", features = ["sqlite"] }`.
 - `src/openhuman/tinyagents/mod.rs` registers OpenHuman `Provider` and `Tool`
   adapters on `tinyagents::harness::runtime::AgentHarness`.
 - `ProviderModel` maps OpenHuman `ChatRequest`/`ChatResponse` into
@@ -91,8 +92,8 @@ Already done or partially done:
 - `StopHookMiddleware`, `ContextCompressionMiddleware`, and
   `MessageTrimMiddleware` are already used on the TinyAgents path.
 - `SqlRunLedgerCheckpointer` implements TinyAgents `Checkpointer` on top of the
-  OpenHuman session DB because TinyAgents' `sqlite` feature conflicts with the
-  current `rusqlite` native-link version.
+  OpenHuman session DB while the migration re-points checkpoint rows to the
+  crate checkpointer.
 - `run_parallel_fanout` uses `GraphBuilder`, reducers, command routing, and a
   fan-in barrier for reusable concurrent fanout.
 - `model_council`, `workflow_runs`, `agent_teams`, and

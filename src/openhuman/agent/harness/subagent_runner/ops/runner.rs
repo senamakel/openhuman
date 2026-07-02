@@ -135,6 +135,11 @@ pub async fn run_subagent(
         let current_depth = current_spawn_depth();
         let attempted_depth = current_depth.saturating_add(1);
 
+        // Synchronous pre-dispatch projection of the single depth authority
+        // (`MAX_SPAWN_DEPTH`, also fed to the crate's `RunPolicy.limits.max_depth`).
+        // This surfaces `SpawnDepthExceeded` before a provider round-trip and
+        // across the MCP process hop; the crate's `TinyAgentsError::SubAgentDepth`
+        // maps onto this same error shape for over-deep in-process runs.
         if attempted_depth > MAX_SPAWN_DEPTH {
             tracing::warn!(
                 agent_id = %definition.id,

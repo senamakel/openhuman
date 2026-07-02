@@ -399,11 +399,26 @@ impl EventListener for OpenhumanEventBridge {
                 command_kind,
                 accepted,
             } => {
-                tracing::debug!(
-                    command_kind = command_kind.as_str(),
-                    accepted,
-                    "[tinyagents] steering command observed"
-                );
+                // Grep-friendly `[steering]` projection of every drained steering
+                // command (issue #4249, 07.3). A rejected command means the run's
+                // `SteeringPolicy` refused the kind and the crate is aborting the
+                // run with `TinyAgentsError::Steering`, so surface it louder. The
+                // bespoke ack plumbing in `harness/run_queue/` stays live (gated:
+                // web-channel followup/parallel still need a local owner); UI
+                // projection of this event remains pending.
+                if *accepted {
+                    tracing::debug!(
+                        command_kind = command_kind.as_str(),
+                        accepted,
+                        "[steering] command applied at safe boundary"
+                    );
+                } else {
+                    tracing::warn!(
+                        command_kind = command_kind.as_str(),
+                        accepted,
+                        "[steering] command rejected by run policy"
+                    );
+                }
             }
             AgentEvent::ToolsFiltered {
                 by,

@@ -1030,7 +1030,17 @@ fn assemble_turn_harness(
     // (below) also pauses through it, and it wants to fire on every path
     // (including plain channel turns that set none of the other flags). An idle
     // handle is a no-op — the loop just drains an empty steering channel.
-    let handle = Some(orchestration::openhuman_steering_handle());
+    // Tighten the steering allowlist by run class: a live interactive chat turn
+    // keeps the InjectMessage/Pause allowlist exactly, while a detached
+    // sub-agent run (identified by its `subagent_scope`) additionally accepts
+    // graceful control-flow steering (Resume/Cancel/Redirect). `subagent_scope`
+    // is the only run-class signal available at this steer site.
+    let steering_run_class = if subagent_scope.is_some() {
+        orchestration::SteeringRunClass::Background
+    } else {
+        orchestration::SteeringRunClass::Interactive
+    };
+    let handle = Some(orchestration::openhuman_steering_handle(steering_run_class));
 
     // Repeated-failure circuit breaker: pause the run when a tool returns the same
     // error `REPEATED_TOOL_FAILURE_THRESHOLD` times in a row, so a deterministic

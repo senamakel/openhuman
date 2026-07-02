@@ -49,18 +49,52 @@ pub(crate) fn shared_steering_registry() -> &'static SteeringRegistry {
     STEERING_REGISTRY.get_or_init(SteeringRegistry::new)
 }
 
-/// Steering handle policy for OpenHuman's shared TinyAgents turn path.
+/// Run class of a TinyAgents turn, used to tighten the steering allowlist.
 ///
-/// The current product path sends `InjectMessage` for user/orchestrator steering
-/// and `Pause` for cooperative early-exit, cap, stop-hook, and repeated-failure
-/// halts. Keep other command kinds closed until an OpenHuman control surface
-/// actually owns them.
-pub(crate) fn openhuman_steering_handle() -> SteeringHandle {
-    SteeringHandle::new(
-        SteeringPolicy::new()
-            .allow(SteeringCommandKind::InjectMessage)
-            .allow(SteeringCommandKind::Pause),
-    )
+/// The distinction matters for steering safety: an *interactive* turn is the
+/// user's own live chat turn, where the only trusted controls are transcript
+/// injection (user/orchestrator steering) and cooperative `Pause`. A
+/// *background* turn is a detached sub-agent run with no live user transcript of
+/// its own, so it can additionally accept crate-native control-flow steering
+/// (`Resume`, `Cancel`) and `Redirect` — a graceful, safe-boundary alternative
+/// to the hard `AbortHandle` cancel — without ever widening what the interactive
+/// path accepts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SteeringRunClass {
+    /// The user's live interactive chat turn.
+    Interactive,
+    /// A detached / background sub-agent run.
+    Background,
+}
+
+/// Steering handle policy for OpenHuman's shared TinyAgents turn path, tightened
+/// per [`SteeringRunClass`].
+///
+/// Interactive turns send `InjectMessage` for user/orchestrator steering and
+/// `Pause` for cooperative early-exit, cap, stop-hook, and repeated-failure
+/// halts — nothing else, matching the prior behavior exactly. Background
+/// (detached sub-agent) runs additionally accept `Resume`, `Cancel`, and
+/// `Redirect`: control-flow steering that never injects untrusted transcript and
+/// still lands only at a safe loop boundary (the crate drains before each model
+/// call). A command whose kind is not in the allowlist is *rejected* by the
+/// crate and aborts the run with `TinyAgentsError::Steering`, so callers must
+/// only enqueue kinds this policy permits (see `running_subagents::steer_directive`).
+pub(crate) fn openhuman_steering_handle(run_class: SteeringRunClass) -> SteeringHandle {
+    let mut policy = SteeringPolicy::new()
+        .allow(SteeringCommandKind::InjectMessage)
+        .allow(SteeringCommandKind::Pause);
+    if run_class == SteeringRunClass::Background {
+        // Background-only widening: accept graceful control-flow steering without
+        // also accepting transcript injection beyond the shared `InjectMessage`
+        // lane. `Cancel` is the crate-native, safe-boundary equivalent of the
+        // hard abort; `Resume` lifts a `Pause`; `Redirect` lowers to a system
+        // instruction the normal approval-gated loop still governs.
+        policy = policy
+            .allow(SteeringCommandKind::Resume)
+            .allow(SteeringCommandKind::Cancel)
+            .allow(SteeringCommandKind::Redirect);
+    }
+    SteeringHandle::new(policy)
 }
 
 #[cfg(test)]
@@ -95,12 +129,39 @@ mod tests {
     #[test]
     fn steering_registry_reexport_registers_task_handles() {
         let registry = shared_steering_registry();
-        let handle = openhuman_steering_handle();
+        let handle = openhuman_steering_handle(SteeringRunClass::Background);
         let task_id = TaskId::new("task-steer");
 
         registry.register(task_id.clone(), handle);
         assert!(registry.get(&task_id).is_some());
         assert!(registry.deregister(&task_id).is_some());
         assert!(registry.get(&task_id).is_none());
+    }
+
+    #[test]
+    fn steering_policy_tightens_by_run_class() {
+        // Interactive: only the two long-standing kinds; control-flow steering
+        // stays closed so the user's live turn can't be cancelled/redirected
+        // out from under it via a rogue steer.
+        let interactive = openhuman_steering_handle(SteeringRunClass::Interactive);
+        let policy = interactive.policy();
+        assert!(policy.is_allowed(SteeringCommandKind::InjectMessage));
+        assert!(policy.is_allowed(SteeringCommandKind::Pause));
+        assert!(!policy.is_allowed(SteeringCommandKind::Cancel));
+        assert!(!policy.is_allowed(SteeringCommandKind::Resume));
+        assert!(!policy.is_allowed(SteeringCommandKind::Redirect));
+        assert!(!policy.is_allowed(SteeringCommandKind::SetMetadata));
+
+        // Background: additionally accepts graceful control-flow steering.
+        let background = openhuman_steering_handle(SteeringRunClass::Background);
+        let policy = background.policy();
+        assert!(policy.is_allowed(SteeringCommandKind::InjectMessage));
+        assert!(policy.is_allowed(SteeringCommandKind::Pause));
+        assert!(policy.is_allowed(SteeringCommandKind::Cancel));
+        assert!(policy.is_allowed(SteeringCommandKind::Resume));
+        assert!(policy.is_allowed(SteeringCommandKind::Redirect));
+        // Metadata replacement stays closed on every class until a control
+        // surface owns it.
+        assert!(!policy.is_allowed(SteeringCommandKind::SetMetadata));
     }
 }

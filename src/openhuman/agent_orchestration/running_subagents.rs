@@ -47,7 +47,8 @@ use crate::openhuman::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQ
 use crate::openhuman::tinyagents::orchestration::{
     InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter, OrchestrationTaskKind,
     OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
-    OrchestrationTaskStatus, SteeringCommand, TaskStore, shared_steering_registry,
+    OrchestrationTaskStatus, SteeringCommand, SteeringCommandKind, TaskStore,
+    shared_steering_registry,
 };
 use tinyagents::harness::ids::TaskId;
 use tinyagents::harness::message::Message as TaMessage;
@@ -759,6 +760,117 @@ fn send_registered_steering(task_id: &str, text: String, mode: QueueMode) -> boo
     true
 }
 
+/// Crate-native steering directives beyond the `InjectMessage`/collect lanes.
+///
+/// These map 1:1 onto the tinyagents [`SteeringCommand`] control variants that
+/// the crate exposes (`Redirect`, `Pause`, `Resume`, `Cancel`). They are
+/// delivered **only** through a registered [`SteeringHandle`] and therefore land
+/// only at a safe loop boundary (the crate drains before each model call) —
+/// never mid-stream, and never through the `RunQueue` fallback (which has no
+/// equivalent lane). Approval/security is never bypassed: `Redirect` lowers to a
+/// system instruction the normal approval-gated loop still governs, and
+/// `Pause`/`Resume`/`Cancel` are pure control-flow.
+///
+/// The crate's `SetMetadata` command is intentionally *not* mapped here: no
+/// OpenHuman control surface owns run-metadata mutation yet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SteeringDirective {
+    /// Redirect the run toward a new instruction (`SteeringCommand::Redirect`).
+    Redirect(String),
+    /// Cooperatively pause at the next checkpoint (`SteeringCommand::Pause`).
+    Pause,
+    /// Clear a pending pause (`SteeringCommand::Resume`).
+    Resume,
+    /// Cooperatively terminate at the next checkpoint (`SteeringCommand::Cancel`) —
+    /// a graceful, safe-boundary alternative to the hard `AbortHandle` cancel.
+    Cancel,
+}
+
+impl SteeringDirective {
+    fn kind(&self) -> SteeringCommandKind {
+        match self {
+            SteeringDirective::Redirect(_) => SteeringCommandKind::Redirect,
+            SteeringDirective::Pause => SteeringCommandKind::Pause,
+            SteeringDirective::Resume => SteeringCommandKind::Resume,
+            SteeringDirective::Cancel => SteeringCommandKind::Cancel,
+        }
+    }
+
+    fn into_command(self) -> SteeringCommand {
+        match self {
+            SteeringDirective::Redirect(instruction) => SteeringCommand::Redirect { instruction },
+            SteeringDirective::Pause => SteeringCommand::Pause,
+            SteeringDirective::Resume => SteeringCommand::Resume,
+            SteeringDirective::Cancel => SteeringCommand::Cancel,
+        }
+    }
+}
+
+/// Why a crate-native steering directive could not be delivered.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum SteerDirectiveError {
+    /// No such sub-agent — never existed, or already finished and pruned.
+    Unknown,
+    /// The caller's `parent_session` does not own this sub-agent.
+    NotOwned,
+    /// The sub-agent already reached a terminal status.
+    AlreadyDone,
+    /// The sub-agent has no live crate-native `SteeringHandle` registered
+    /// (e.g. a legacy `RunQueue`-only run), so control-flow steering that has no
+    /// `RunQueue` lane cannot be delivered.
+    NoRegisteredHandle,
+    /// The run's [`SteeringPolicy`] does not permit this directive's command
+    /// kind. Enqueuing it anyway would abort the run with
+    /// `TinyAgentsError::Steering`, so we refuse up front.
+    PolicyRejected,
+}
+
+/// Deliver a crate-native control-flow [`SteeringDirective`] to a running
+/// sub-agent through its registered TinyAgents [`SteeringHandle`].
+///
+/// Unlike [`steer`], this has **no** `RunQueue` fallback: the crate control
+/// variants (`Redirect`/`Pause`/`Resume`/`Cancel`) have no OpenHuman queue lane,
+/// so a run must have a live registered handle to receive them. The directive's
+/// command kind is checked against the run's own `SteeringPolicy` *before*
+/// enqueue — a disallowed command would otherwise abort the run — so this can
+/// never smuggle a control kind past a policy that a tighter run class installed.
+pub(crate) fn steer_directive(
+    task_id: &str,
+    parent_session: &str,
+    directive: SteeringDirective,
+) -> Result<(), SteerDirectiveError> {
+    {
+        let map = registry().lock().expect("running_subagents mutex poisoned");
+        let entry = map.get(task_id).ok_or(SteerDirectiveError::Unknown)?;
+        if entry.parent_session != parent_session {
+            return Err(SteerDirectiveError::NotOwned);
+        }
+        if entry.status.borrow().is_terminal() {
+            return Err(SteerDirectiveError::AlreadyDone);
+        }
+    }
+
+    let handle = shared_steering_registry()
+        .get(&TaskId::new(task_id))
+        .ok_or(SteerDirectiveError::NoRegisteredHandle)?;
+    let kind = directive.kind();
+    if !handle.policy().is_allowed(kind) {
+        log::warn!(
+            "[running_subagents] directive rejected by run policy task_id={} kind={}",
+            task_id,
+            kind.as_str()
+        );
+        return Err(SteerDirectiveError::PolicyRejected);
+    }
+    handle.send(directive.into_command());
+    log::info!(
+        "[running_subagents] steered task_id={} directive={} via=tinyagents_registry",
+        task_id,
+        kind.as_str()
+    );
+    Ok(())
+}
+
 fn deregister_steering(task_id: &str) {
     let task_id = TaskId::new(task_id);
     if shared_steering_registry().deregister(&task_id).is_some() {
@@ -1090,7 +1202,10 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::tinyagents::orchestration::{OrchestrationTaskStatus, SteeringHandle};
+    use crate::openhuman::tinyagents::orchestration::{
+        OrchestrationTaskStatus, SteeringHandle, SteeringPolicy, SteeringRunClass,
+        openhuman_steering_handle,
+    };
     use std::sync::MutexGuard;
 
     /// Serializes every test that touches the global [`REGISTRY`]. We reuse the
@@ -1379,6 +1494,106 @@ mod tests {
             iterations: 1,
         });
         prune("task-registered-steer");
+    }
+
+    #[tokio::test]
+    async fn steer_directive_delivers_control_flow_via_background_policy() {
+        let _guard = test_guard();
+        let rq = RunQueue::new();
+        let tx = register_test("task-directive", "session-A", rq.clone());
+        // A background sub-agent handle accepts Cancel/Redirect/Resume.
+        let handle = openhuman_steering_handle(SteeringRunClass::Background);
+        let task_id = TaskId::new("task-directive");
+        shared_steering_registry().register(task_id.clone(), handle.clone());
+
+        steer_directive(
+            "task-directive",
+            "session-A",
+            SteeringDirective::Redirect("focus on the failing test".into()),
+        )
+        .expect("redirect should be accepted");
+        steer_directive("task-directive", "session-A", SteeringDirective::Cancel)
+            .expect("cancel should be accepted");
+
+        // RunQueue is untouched — directives never fall back to it.
+        assert_eq!(rq.status().await.steers, 0);
+        let commands = handle.drain();
+        assert_eq!(commands.len(), 2);
+        assert!(matches!(
+            &commands[0],
+            SteeringCommand::Redirect { instruction } if instruction == "focus on the failing test"
+        ));
+        assert_eq!(commands[1], SteeringCommand::Cancel);
+
+        let _ = shared_steering_registry().deregister(&task_id);
+        let _ = tx.send(SubagentStatus::Completed {
+            output: "done".into(),
+            iterations: 1,
+        });
+        prune("task-directive");
+    }
+
+    #[tokio::test]
+    async fn steer_directive_refuses_kinds_the_policy_rejects() {
+        let _guard = test_guard();
+        let rq = RunQueue::new();
+        let tx = register_test("task-tight", "session-A", rq);
+        // An interactive-class handle only allows InjectMessage/Pause, so a
+        // Cancel directive must be refused up front rather than enqueued (which
+        // would abort the run).
+        let handle = SteeringHandle::new(
+            SteeringPolicy::new()
+                .allow(SteeringCommandKind::InjectMessage)
+                .allow(SteeringCommandKind::Pause),
+        );
+        let task_id = TaskId::new("task-tight");
+        shared_steering_registry().register(task_id.clone(), handle.clone());
+
+        assert_eq!(
+            steer_directive("task-tight", "session-A", SteeringDirective::Cancel),
+            Err(SteerDirectiveError::PolicyRejected)
+        );
+        // Pause is allowed on the tight policy.
+        steer_directive("task-tight", "session-A", SteeringDirective::Pause)
+            .expect("pause should be accepted by the tight policy");
+        let commands = handle.drain();
+        assert_eq!(commands, vec![SteeringCommand::Pause]);
+
+        let _ = shared_steering_registry().deregister(&task_id);
+        let _ = tx.send(SubagentStatus::Completed {
+            output: "done".into(),
+            iterations: 1,
+        });
+        prune("task-tight");
+    }
+
+    #[tokio::test]
+    async fn steer_directive_enforces_ownership_and_registration() {
+        let _guard = test_guard();
+        let rq = RunQueue::new();
+        let tx = register_test("task-own", "session-owner", rq);
+
+        // Cross-parent is refused before any handle lookup.
+        assert_eq!(
+            steer_directive("task-own", "session-intruder", SteeringDirective::Resume),
+            Err(SteerDirectiveError::NotOwned)
+        );
+        // Unknown task id.
+        assert_eq!(
+            steer_directive("task-missing", "session-owner", SteeringDirective::Resume),
+            Err(SteerDirectiveError::Unknown)
+        );
+        // Owned but no registered crate handle → cannot deliver control-flow.
+        assert_eq!(
+            steer_directive("task-own", "session-owner", SteeringDirective::Resume),
+            Err(SteerDirectiveError::NoRegisteredHandle)
+        );
+
+        let _ = tx.send(SubagentStatus::Completed {
+            output: "done".into(),
+            iterations: 1,
+        });
+        prune("task-own");
     }
 
     #[tokio::test]

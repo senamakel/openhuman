@@ -60,8 +60,9 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
    reuse/session roots, `spawn_parallel_agents` shared-worker roots,
    `agent_prepare_context`, `call_memory_agent`, `delegate_to_personality`,
    `delegate_graph`, shell, git operations, `file_read`, `list`, `file_write`,
-   `edit`, `apply_patch`, `grep`, `glob`, `csv_export`, `node_exec`, and
-   `npm_exec`. Remaining acting tools still need to read it. OpenHuman
+   `edit`, `apply_patch`, `grep`, `glob`, `csv_export`, `read_diff`,
+   `run_linter`, `run_tests`, `update_memory_md`, `node_exec`, and `npm_exec`.
+   Remaining acting tools still need to read it. OpenHuman
    `SecurityPolicy` remains the enforcement authority — the descriptor is the
    carrier, not the policy.
    The remaining production `SubagentRunOptions` constructors that still pass

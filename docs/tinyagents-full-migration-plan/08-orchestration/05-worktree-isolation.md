@@ -22,6 +22,10 @@ For current `spawn_parallel_agents` worktree workers, dispatch now calls
 `GitWorktreeIsolation::prepare` and carries the returned `WorkspaceDescriptor`
 into `SubagentRunOptions`; the old `worktree_action_dir` task-local remains as
 the live fallback until every acting tool reads the descriptor directly.
+`spawn_parallel_agents` also reads the parent `ToolExecutionContext.workspace`
+at the tool boundary, so shared workers inherit the caller workspace root and
+isolated fanout workers prepare relative to that root before falling back to
+`Config.action_dir`.
 The TinyAgents tool adapter now forwards `ToolExecutionContext` into OpenHuman
 tools, and shell/git plus core filesystem tools (`file_read`, `list`,
 `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `csv_export`) and
@@ -43,10 +47,11 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
    from `ToolExecutionContext.workspace` instead of task-local
    `worktree_context.rs`/action-dir globals. The carrier is now threaded
    through sub-agent run options, `RunContext::with_workspace`, the OpenHuman
-   tool adapter, `spawn_async_subagent` reuse/session roots, shell, git
-   operations, `file_read`, `list`, `file_write`, `edit`, `apply_patch`,
-   `grep`, `glob`, `csv_export`, `node_exec`, and `npm_exec`. Remaining acting
-   tools still need to read it. OpenHuman
+   tool adapter, `spawn_async_subagent` reuse/session roots,
+   `spawn_parallel_agents` shared-worker roots, shell, git operations,
+   `file_read`, `list`, `file_write`, `edit`, `apply_patch`, `grep`, `glob`,
+   `csv_export`, `node_exec`, and `npm_exec`. Remaining acting tools still need
+   to read it. OpenHuman
    `SecurityPolicy` remains the enforcement authority — the descriptor is the
    carrier, not the policy.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations

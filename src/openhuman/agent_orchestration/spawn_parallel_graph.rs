@@ -613,6 +613,7 @@ async fn stage_spawn_parallel_workers_from_defs(
     definitions: &HashMap<String, AgentDefinition>,
     parent: &ParentExecutionContext,
     action_root: Option<&Path>,
+    parent_workspace_descriptor: Option<&WorkspaceDescriptor>,
 ) -> (Vec<SpawnParallelWorker>, Vec<ParallelAgentResult>) {
     let mut immediate_results = Vec::new();
     let mut prepared = Vec::new();
@@ -727,6 +728,9 @@ async fn stage_spawn_parallel_workers_from_defs(
         let worktree_path = workspace_descriptor
             .as_ref()
             .map(|descriptor| descriptor.root.clone());
+        let worker_workspace_descriptor = workspace_descriptor
+            .clone()
+            .or_else(|| parent_workspace_descriptor.cloned());
         let lineage = spawn_parallel_lineage(
             parent_session,
             parent.session_parent_prefix.as_deref(),
@@ -739,7 +743,7 @@ async fn stage_spawn_parallel_workers_from_defs(
             task_id,
             lineage,
             worktree_path,
-            workspace_descriptor,
+            workspace_descriptor: worker_workspace_descriptor,
             dispatch_mode,
         });
     }
@@ -763,12 +767,32 @@ async fn stage_spawn_parallel_workers_from_defs(
 pub(super) async fn run_spawn_parallel_graph(
     args: serde_json::Value,
 ) -> Result<SpawnParallelGraphOutcome, String> {
-    run_spawn_parallel_graph_with_cancellation(args, CancellationToken::new()).await
+    run_spawn_parallel_graph_with_workspace(args, None).await
+}
+
+pub(super) async fn run_spawn_parallel_graph_with_workspace(
+    args: serde_json::Value,
+    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
+) -> Result<SpawnParallelGraphOutcome, String> {
+    run_spawn_parallel_graph_with_cancellation_and_workspace(
+        args,
+        CancellationToken::new(),
+        parent_workspace_descriptor,
+    )
+    .await
 }
 
 pub(super) async fn run_spawn_parallel_graph_with_cancellation(
     args: serde_json::Value,
     cancel: CancellationToken,
+) -> Result<SpawnParallelGraphOutcome, String> {
+    run_spawn_parallel_graph_with_cancellation_and_workspace(args, cancel, None).await
+}
+
+async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
+    args: serde_json::Value,
+    cancel: CancellationToken,
+    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
 ) -> Result<SpawnParallelGraphOutcome, String> {
     let tasks = match validate_spawn_parallel_tool_request(&args, None) {
         Ok(tasks) => tasks,
@@ -804,7 +828,8 @@ pub(super) async fn run_spawn_parallel_graph_with_cancellation(
 
     let parent_session = parent.session_id.clone();
     let progress_sink = parent.on_progress.clone();
-    let action_root = resolve_spawn_parallel_action_root().await;
+    let action_root =
+        resolve_spawn_parallel_action_root(parent_workspace_descriptor.as_ref()).await;
     let definitions = snapshot_agent_definitions(registry);
     let outcome = run_spawn_parallel_execution_graph(
         &parent_session,
@@ -815,6 +840,7 @@ pub(super) async fn run_spawn_parallel_graph_with_cancellation(
         parent,
         action_root,
         cancel,
+        parent_workspace_descriptor,
     )
     .await?;
     match &outcome {
@@ -857,7 +883,17 @@ pub(super) async fn run_spawn_parallel_graph_with_cancellation(
 /// This is `Config.action_dir` (the user's project repo the coding agent edits),
 /// NOT OpenHuman's own tree. It is only consulted when a worker asks for
 /// git-worktree isolation; failures preserve the previous `None` fallback.
-async fn resolve_spawn_parallel_action_root() -> Option<PathBuf> {
+async fn resolve_spawn_parallel_action_root(
+    parent_workspace_descriptor: Option<&WorkspaceDescriptor>,
+) -> Option<PathBuf> {
+    if let Some(descriptor) = parent_workspace_descriptor {
+        tracing::debug!(
+            action_root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[spawn_parallel_agents] using ToolExecutionContext workspace root for graph"
+        );
+        return Some(descriptor.root.clone());
+    }
     match crate::openhuman::config::Config::load_or_init().await {
         Ok(config) => {
             tracing::debug!(
@@ -1229,6 +1265,11 @@ async fn run_one_parallel_task(
         isolated = worktree_path.is_some(),
         "[spawn_parallel_agents] task_start"
     );
+    let worktree_action_dir = worktree_path.clone().or_else(|| {
+        workspace_descriptor
+            .as_ref()
+            .map(|descriptor| descriptor.root.clone())
+    });
     let options = SubagentRunOptions {
         skill_filter_override: None,
         toolkit_override: task.toolkit.clone(),
@@ -1238,7 +1279,7 @@ async fn run_one_parallel_task(
         worker_thread_id: None,
         initial_history: None,
         checkpoint_dir: None,
-        worktree_action_dir: worktree_path.clone(),
+        worktree_action_dir,
         workspace_descriptor,
         run_queue: None,
     };
@@ -1455,6 +1496,7 @@ async fn run_spawn_parallel_execution_graph(
     parent: ParentExecutionContext,
     action_root: Option<PathBuf>,
     cancel: CancellationToken,
+    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
 ) -> Result<SpawnParallelGraphOutcome, String> {
     let phases = SPAWN_PARALLEL_PHASES;
     let label = format!("spawn_parallel_agents:{parent_session}");
@@ -1462,6 +1504,7 @@ async fn run_spawn_parallel_execution_graph(
     let progress_for_dispatch = progress_sink.clone();
     let definitions_for_dispatch = definitions.clone();
     let parent_for_dispatch = parent.clone();
+    let parent_workspace_for_dispatch = parent_workspace_descriptor.clone();
     let parent_for_collect = parent_session.to_string();
     let progress_for_collect = progress_sink.clone();
     let parent_for_finalize = parent_session.to_string();
@@ -1530,6 +1573,7 @@ async fn run_spawn_parallel_execution_graph(
                 let progress_sink = progress_for_dispatch.clone();
                 let definitions = definitions_for_dispatch.clone();
                 let parent = parent_for_dispatch.clone();
+                let parent_workspace_descriptor = parent_workspace_for_dispatch.clone();
                 let cancel = cancel_for_dispatch.clone();
                 async move {
                     if state.cancelled_phase.is_some() || state.rejection.is_some() {
@@ -1553,6 +1597,7 @@ async fn run_spawn_parallel_execution_graph(
                         &definitions,
                         &parent,
                         state.action_root.as_deref(),
+                        parent_workspace_descriptor.as_ref(),
                     )
                     .await;
                     Ok(NodeResult::Update(SpawnParallelUpdate::Staged {

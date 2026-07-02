@@ -10,12 +10,13 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentRe
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTask;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
-    format_spawn_parallel_success, run_spawn_parallel_graph, SpawnParallelGraphOutcome,
-    SpawnParallelTaskValidationError,
+    format_spawn_parallel_success, run_spawn_parallel_graph_with_workspace,
+    SpawnParallelGraphOutcome, SpawnParallelTaskValidationError,
 };
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinyagents::harness::tool::ToolExecutionContext;
 
 pub struct SpawnParallelAgentsTool;
 
@@ -94,8 +95,19 @@ impl Tool for SpawnParallelAgentsTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
         tracing::debug!("[spawn_parallel_agents] execute entry");
-        let outcome = run_spawn_parallel_graph(args)
+        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
+        let outcome = run_spawn_parallel_graph_with_workspace(args, workspace_descriptor)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
         match outcome {

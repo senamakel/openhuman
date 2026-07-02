@@ -133,7 +133,6 @@ impl Agent {
     /// 6. **Background Tasks**: Triggers episodic memory indexing and facts
     ///    extraction asynchronously.
     pub async fn turn(&mut self, user_message: &str) -> Result<String> {
-        let turn_started = std::time::Instant::now();
         // Capture before any system-prompt push mutates `history`: this is the
         // signal that gates first-turn-only work (system prompt build, and the
         // "super context" harness-driven context-collection pass below).
@@ -546,10 +545,6 @@ impl Agent {
         // model prompt, not in the Rust-side classifier. Sub-agents pick
         // their own tier via `ModelSpec::Hint(...)` in their definition.
         let effective_model = self.model_name.clone();
-        // Capture before `self` is borrowed by the turn observer below, so it can
-        // be installed as the `current_model_vision` task-local around the engine
-        // call (read by the image gate for custom/BYOK vision models).
-        let model_vision = self.model_vision;
         log::info!(
             "[agent_loop] model pinned model={} (per-turn classification disabled for KV cache stability)",
             effective_model
@@ -661,31 +656,11 @@ impl Agent {
         self.context.tick_turn();
 
         let turn_body = async {
-            // Capture everything the engine seams need as locals/clones *before*
-            // the observer takes `&mut self`, so the borrow checker is happy:
-            // the tool source + parser + checkpoint hold clones disjoint from
-            // the `Agent`, and the observer alone borrows it mutably.
-            let dispatcher = self.tool_dispatcher.clone();
-            let provider = self.provider.clone();
-            let provider_name = self.event_channel().to_string();
+            // Keep the scalar turn settings outside the pinned future arguments;
+            // the TinyAgents session path reads provider/tool/multimodal state
+            // directly from `self` when preparing the request.
             let temperature = self.temperature;
             let max_iterations = self.config.max_tool_iterations;
-            // Source multimodal limits from the session's runtime config when
-            // present so [IMAGE:…] / [FILE:…] markers in user messages are
-            // resolved with the operator-configured caps (max files, max size,
-            // max extracted text). Without this, agents fall back to the
-            // crate-default caps and `MultimodalFileConfig::default()`
-            // disables file expansion entirely.
-            let multimodal = self
-                .integration_runtime_config
-                .as_ref()
-                .map(|c| c.multimodal.clone())
-                .unwrap_or_default();
-            let multimodal_files = self
-                .integration_runtime_config
-                .as_ref()
-                .map(|c| c.multimodal_files.clone())
-                .unwrap_or_default();
             let artifact_store = Some(
                 crate::openhuman::agent::harness::tool_result_artifacts::ToolResultArtifactStore::new(
                     self.action_dir.clone(),

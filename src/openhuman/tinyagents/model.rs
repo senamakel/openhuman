@@ -26,21 +26,19 @@ use crate::openhuman::inference::provider::{
 };
 use crate::openhuman::tools::ToolSpec;
 
-/// Out-of-band forwarder for the streaming progress events that don't round-trip
-/// through tinyagents: model reasoning (thinking) deltas and tool-call **argument**
-/// deltas.
+/// Out-of-band forwarder for progress events that do not yet round-trip through
+/// tinyagents with OpenHuman parity: non-streaming post-hoc reasoning and
+/// tool-call **argument** deltas.
 ///
-/// tinyagents' streaming `MessageDelta` carries only assembled visible text — no
-/// reasoning channel, and the model adapter assembles tool calls itself rather
-/// than streaming their argument fragments through the harness — so the
-/// [`OpenhumanEventBridge`](super::OpenhumanEventBridge) can't mirror either. The
-/// model adapter is the only seam that sees the provider's
-/// [`ProviderDelta::ThinkingDelta`] / [`ProviderDelta::ToolCallArgsDelta`], so it
-/// forwards them straight onto the progress sink here, sharing the bridge's
-/// [`IterationCursor`] so each delta is attributed to the right model call.
-/// Parent runs emit the top-level variants; child runs emit the `Subagent`
-/// counterpart for thinking (tool-arg deltas have no child variant, so they ride
-/// the top-level event).
+/// Streaming reasoning now rides tinyagents' native `MessageDelta.reasoning`
+/// channel and is projected by [`OpenhumanEventBridge`](super::OpenhumanEventBridge).
+/// The model adapter still assembles tool calls itself rather than streaming
+/// their argument fragments through the harness with the OpenHuman tool-name
+/// contract, so it forwards those progress fragments straight onto the progress
+/// sink here, sharing the bridge's [`IterationCursor`] so each delta is
+/// attributed to the right model call. Parent runs emit the top-level variants;
+/// child runs emit the `Subagent` counterpart for thinking. Tool-arg deltas have
+/// no child variant, so they ride the top-level event.
 #[derive(Clone)]
 pub struct ThinkingForwarder {
     sink: Sender<AgentProgress>,
@@ -240,12 +238,12 @@ fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
     }
 }
 
-/// Forward one openhuman [`ProviderDelta`]. Visible text becomes a harness
-/// [`MessageDelta`] (so the bridge mirrors it as a text delta); reasoning and
-/// tool-call **argument** fragments ride the out-of-band [`ThinkingForwarder`]
-/// (the harness stream carries neither). The model adapter still assembles the
-/// final native tool calls from the `Completed` response — these fragments are
-/// progress-only, so the UI can show the call being composed.
+/// Forward one openhuman [`ProviderDelta`]. Visible text and reasoning become
+/// harness [`MessageDelta`] items (so the bridge mirrors them as progress
+/// deltas); tool-call **argument** fragments still ride the out-of-band
+/// [`ThinkingForwarder`]. The model adapter still assembles the final native tool
+/// calls from the `Completed` response — these fragments are progress-only, so
+/// the UI can show the call being composed.
 fn forward_delta(
     tx: &UnboundedSender<ModelStreamItem>,
     thinking: Option<&ThinkingForwarder>,
@@ -254,17 +252,14 @@ fn forward_delta(
     match delta {
         ProviderDelta::TextDelta { delta } => {
             if !delta.is_empty() {
-                // `MessageDelta::text` sets the visible-text fragment and defaults
-                // the `reasoning` (new in tinyagents 1.2.0) and `tool_call` fields.
-                // Reasoning still rides the out-of-band `ThinkingForwarder` below
-                // (see `ThinkingDelta`) rather than the native `reasoning` channel,
-                // preserving the existing subagent-scoped thinking UI wiring.
                 let _ = tx.send(ModelStreamItem::MessageDelta(MessageDelta::text(delta)));
             }
         }
         ProviderDelta::ThinkingDelta { delta } => {
-            if let Some(forwarder) = thinking {
-                forwarder.emit(delta);
+            if !delta.is_empty() {
+                let _ = tx.send(ModelStreamItem::MessageDelta(MessageDelta::reasoning(
+                    delta,
+                )));
             }
         }
         ProviderDelta::ToolCallStart { call_id, tool_name } => {
@@ -300,8 +295,8 @@ pub struct ProviderModel {
     model: String,
     temperature: f64,
     max_tokens: Option<u32>,
-    /// When set, the adapter forwards provider reasoning deltas onto the
-    /// progress sink (the harness stream has no reasoning channel).
+    /// When set, the adapter forwards tool-argument progress and post-hoc
+    /// non-streaming reasoning onto the progress sink.
     thinking: Option<ThinkingForwarder>,
     /// Preserves the last original provider error for the runner to re-surface.
     error_slot: ProviderErrorSlot,
@@ -381,7 +376,7 @@ impl ProviderModel {
         self
     }
 
-    /// Forward provider reasoning / thinking deltas onto a progress sink via
+    /// Forward provider thinking/tool-argument progress onto a progress sink via
     /// `forwarder` (parent or sub-agent scoped). See [`ThinkingForwarder`].
     pub fn with_thinking(mut self, forwarder: ThinkingForwarder) -> Self {
         self.thinking = Some(forwarder);
@@ -509,16 +504,17 @@ impl ChatModel<()> for ProviderModel {
 
             let terminal = match response {
                 Ok(resp) => {
-                    // Fallback for providers that return reasoning only on the
-                    // aggregated response (no incremental thinking deltas): emit
-                    // it once so child/parent thinking output isn't lost.
+                    // Fallback for streaming providers that return reasoning only
+                    // on the aggregated response (no incremental thinking
+                    // deltas): emit it once through the native crate stream so
+                    // the bridge handles scope consistently with live reasoning.
                     if !streamed_thinking {
-                        if let Some(forwarder) = &thinking {
-                            if let Some(reasoning) =
-                                resp.reasoning_content.as_ref().filter(|r| !r.is_empty())
-                            {
-                                forwarder.emit(reasoning.clone());
-                            }
+                        if let Some(reasoning) =
+                            resp.reasoning_content.as_ref().filter(|r| !r.is_empty())
+                        {
+                            let _ = item_tx.send(ModelStreamItem::MessageDelta(
+                                MessageDelta::reasoning(reasoning.clone()),
+                            ));
                         }
                     }
                     ModelStreamItem::Completed(response_to_model_response(&resp))

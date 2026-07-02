@@ -29,6 +29,8 @@ they land.
       (live until middleware owns child/toolkit selection; `tool_prep.rs` also
       contains non-filter prompt helpers that must move first)
 - [ ] `ThinkingForwarder` — 02.3
+      (streaming reasoning moved to `MessageDelta.reasoning`; tool-arg progress
+      and non-streaming reasoning fallback remain live)
 - [ ] `inference/provider/reliable.rs` (1215 + 1443 tests) — 02.2
 - [x] `tinyagents/orchestration.rs::run_parallel_fanout` — 08.1
 - [x] `harness/engine/` (entire dir, 309) — 05.2

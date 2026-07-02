@@ -1,7 +1,7 @@
 //! Bridge the `tinyagents` harness event stream onto openhuman's
-//! [`AgentProgress`] + cost tracker (issue #4249, tinyagents 0.2.0).
+//! [`AgentProgress`] + cost tracker (issue #4249).
 //!
-//! 0.2.0 emits a typed [`AgentEvent`] stream (model started/delta/completed,
+//! tinyagents emits a typed [`AgentEvent`] stream (model started/delta/completed,
 //! tool started/completed, usage) through an [`EventSink`] that callers attach
 //! to a [`RunContext`]. This listener translates those into the same
 //! `AgentProgress` events the legacy `run_turn_engine` produced — restoring the
@@ -35,8 +35,7 @@ pub struct SubagentScope {
 
 /// A shared 1-based model-call (iteration) cursor. The bridge advances it on
 /// each `ModelStarted` event; the model adapter reads it to attribute the
-/// thinking deltas it forwards out-of-band (tinyagents 0.2.0's `MessageDelta`
-/// carries no reasoning channel, so reasoning can't ride the harness stream).
+/// tool-argument deltas it still forwards out-of-band.
 pub type IterationCursor = Arc<AtomicU32>;
 
 /// An [`EventListener`] that pauses the run once `cap` model calls have
@@ -239,8 +238,8 @@ impl EventListener for OpenhumanEventBridge {
                 }
             }
             AgentEvent::ModelDelta { delta, .. } => {
+                let iteration = self.iteration();
                 if !delta.text.is_empty() {
-                    let iteration = self.iteration();
                     match &self.scope {
                         None => self.send(AgentProgress::TextDelta {
                             delta: delta.text.clone(),
@@ -250,6 +249,20 @@ impl EventListener for OpenhumanEventBridge {
                             agent_id: s.agent_id.clone(),
                             task_id: s.task_id.clone(),
                             delta: delta.text.clone(),
+                            iteration,
+                        }),
+                    }
+                }
+                if !delta.reasoning.is_empty() {
+                    match &self.scope {
+                        None => self.send(AgentProgress::ThinkingDelta {
+                            delta: delta.reasoning.clone(),
+                            iteration,
+                        }),
+                        Some(s) => self.send(AgentProgress::SubagentThinkingDelta {
+                            agent_id: s.agent_id.clone(),
+                            task_id: s.task_id.clone(),
+                            delta: delta.reasoning.clone(),
                             iteration,
                         }),
                     }

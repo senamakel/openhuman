@@ -1,15 +1,11 @@
 //! Progress reporting seam + the shared streaming-delta forwarder.
 //!
 //! The engine never names a concrete [`AgentProgress`] variant. It talks to a
-//! [`ProgressReporter`], whose impls pick the event *flavor*:
+//! [`ProgressReporter`], whose impls pick the event flavor:
 //!
 //! * [`TurnProgress`] — top-level chat (channel loop, `Agent::turn`): emits the
 //!   `Turn*` / `ToolCall*` / `TurnCostUpdated` events and streams provider
 //!   deltas as `TextDelta` / `ThinkingDelta` / `ToolCallArgsDelta`.
-//! * [`SubagentProgress`] — a spawned sub-agent: emits the `Subagent*` /
-//!   `SubagentToolCall*` events (nested under the subagent row in the UI) and
-//!   does not stream deltas. The `SubagentSpawned` / `SubagentCompleted` /
-//!   `SubagentFailed` lifecycle events stay in the spawn tool, outside the loop.
 
 use async_trait::async_trait;
 

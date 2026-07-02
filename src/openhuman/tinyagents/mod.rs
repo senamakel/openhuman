@@ -22,6 +22,7 @@
 mod checkpoint;
 mod convert;
 pub(crate) mod delegation;
+mod embeddings;
 pub(crate) mod middleware;
 mod model;
 pub(crate) mod observability;
@@ -62,6 +63,8 @@ use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Pr
 use model::ThinkingForwarder;
 
 pub(crate) use checkpoint::SqlRunLedgerCheckpointer;
+#[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
+pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 use model::ProviderModel;
 pub(crate) use observability::SubagentScope;

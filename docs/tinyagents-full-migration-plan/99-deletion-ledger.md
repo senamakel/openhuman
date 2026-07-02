@@ -6,7 +6,7 @@ they land.
 
 ## Immediately deletable (dead/vestigial — no precondition beyond call-site search)
 
-- [ ] `agent/memory_loader.rs` (5-line facade) — 09
+- [x] `agent/memory_loader.rs` (5-line facade) — 09
 - [x] `agent/tree_loader.rs` (210, unwired per #3170) — 09
 - [x] `harness/compaction/mod.rs` shim — 03.1
 

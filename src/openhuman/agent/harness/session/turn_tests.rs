@@ -2,7 +2,7 @@ use super::*;
 use crate::core::event_bus::{global, init_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::XmlToolDispatcher;
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
-use crate::openhuman::agent::memory_loader::MemoryLoader;
+use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
 use crate::openhuman::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,

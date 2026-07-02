@@ -51,9 +51,6 @@ use openhuman_core::openhuman::agent::hooks::{
     fire_hooks, sanitize_tool_output, PostTurnHook, ToolCallRecord, TurnContext,
 };
 use openhuman_core::openhuman::agent::host_runtime::create_runtime;
-use openhuman_core::openhuman::agent::memory_loader::{
-    collect_recall_citations, DefaultMemoryLoader, MemoryLoader, CROSS_CHAT_HEADER,
-};
 use openhuman_core::openhuman::agent::multimodal::{
     contains_image_markers, count_image_markers, extract_ollama_image_payload, parse_image_markers,
     prepare_messages_for_provider, MultimodalError,
@@ -101,6 +98,9 @@ use openhuman_core::openhuman::agent::triage::{parse_triage_decision, ParseError
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::agent::{
     all_agent_controller_schemas, all_agent_registered_controllers,
+};
+use openhuman_core::openhuman::agent_memory::memory_loader::{
+    collect_recall_citations, DefaultMemoryLoader, MemoryLoader, CROSS_CHAT_HEADER,
 };
 use openhuman_core::openhuman::agent_registry::agents::BUILTINS;
 use openhuman_core::openhuman::config::schema::cloud_providers::{

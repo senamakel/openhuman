@@ -2313,8 +2313,8 @@ async fn multi_hop_delegation_chain_inner() {
 mod streaming_support {
     use async_trait::async_trait;
     use openhuman_core::openhuman::agent::dispatcher::NativeToolDispatcher;
-    use openhuman_core::openhuman::agent::memory_loader::MemoryLoader;
     use openhuman_core::openhuman::agent::Agent;
+    use openhuman_core::openhuman::agent_memory::memory_loader::MemoryLoader;
     use openhuman_core::openhuman::config::{AgentConfig, ContextConfig, MemoryConfig};
     use openhuman_core::openhuman::inference::provider::{
         ChatRequest, ChatResponse, Provider, ProviderDelta, ToolCall, UsageInfo,

@@ -620,7 +620,7 @@ run-ledger rows, and prove restart/resume parity.
 
 - [ ] Adapt OpenHuman memory/retrieval to TinyAgents retriever interfaces.
   - OpenHuman files: `memory`, `memory_search`, `memory_tree`,
-    `agent/memory_loader.rs`, `context/*`.
+    `agent_memory/memory_loader.rs`, `context/*`.
   - TinyAgents components: `EmbeddingModel`, `Retriever`, `VectorStore`,
     `ScoredDoc`, context events.
   - Acceptance: the agent harness can load retrieval context through a

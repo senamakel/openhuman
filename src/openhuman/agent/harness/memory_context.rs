@@ -16,7 +16,7 @@ pub(crate) const CROSS_CHAT_LIMIT: usize = 3;
 /// Maximum characters of any one cross-chat snippet rendered into the
 /// prompt. Keeps the block bounded even if a prior chat had long turns.
 /// Shared across the harness path here and the loader-side path in
-/// `agent::memory_loader` so the same content renders at the same
+/// `agent_memory::memory_loader` so the same content renders at the same
 /// length regardless of which code path emitted it.
 pub(crate) const CROSS_CHAT_SNIPPET_CHARS: usize = 240;
 
@@ -147,7 +147,7 @@ pub(crate) async fn build_context(
             // primary JSONL path, and the orchestrator prompt's
             // "Capability questions" section that names this header stays
             // in sync. See CROSS_CHAT_HEADER's doc for the rationale.
-            context.push_str(crate::openhuman::agent::memory_loader::CROSS_CHAT_HEADER);
+            context.push_str(crate::openhuman::agent_memory::memory_loader::CROSS_CHAT_HEADER);
             for entry in &cross {
                 let prov = entry
                     .session_id
@@ -365,7 +365,9 @@ mod tests {
 
         let context = build_context(&mem, "what database should I use?", 0.4).await;
         assert!(
-            context.contains(crate::openhuman::agent::memory_loader::CROSS_CHAT_HEADER.trim_end()),
+            context.contains(
+                crate::openhuman::agent_memory::memory_loader::CROSS_CHAT_HEADER.trim_end()
+            ),
             "expected cross-chat header, got:\n{context}"
         );
         assert!(
@@ -431,7 +433,9 @@ mod tests {
         let mem = MockMemory::new(Vec::new(), Vec::new(), false);
         let context = build_context(&mem, "Postgres", 0.4).await;
         assert!(
-            !context.contains(crate::openhuman::agent::memory_loader::CROSS_CHAT_HEADER.trim_end()),
+            !context.contains(
+                crate::openhuman::agent_memory::memory_loader::CROSS_CHAT_HEADER.trim_end()
+            ),
             "no cross-chat hits must produce no header, got:\n{context}"
         );
     }

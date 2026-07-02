@@ -10,9 +10,9 @@ use crate::openhuman::agent::dispatcher::ToolDispatcher;
 use crate::openhuman::agent::harness::archivist::ArchivistHook;
 use crate::openhuman::agent::harness::definition::TriggerMemoryAgent;
 use crate::openhuman::agent::hooks::PostTurnHook;
-use crate::openhuman::agent::memory_loader::MemoryLoader;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::tool_policy::ToolPolicy;
+use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
 use crate::openhuman::agent_tool_policy::ToolPolicySession;
 use crate::openhuman::context::prompt::SystemPromptBuilder;
 use crate::openhuman::context::ContextManager;
@@ -69,7 +69,8 @@ pub struct Agent {
     pub(super) last_memory_context: Option<String>,
     /// Citation metadata collected from memory recall for the most recent turn.
     /// Consumed by web-channel delivery to render source chips in the UI.
-    pub(super) last_turn_citations: Vec<crate::openhuman::agent::memory_loader::MemoryCitation>,
+    pub(super) last_turn_citations:
+        Vec<crate::openhuman::agent_memory::memory_loader::MemoryCitation>,
     /// Holistic token/cost/context accounting for the most recent turn (parent +
     /// any sub-agents spawned during it). Consumed by web-channel delivery to
     /// surface session token/cost/context meters in the UI footer. `None` until

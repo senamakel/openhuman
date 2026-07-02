@@ -6,7 +6,7 @@
 use super::{dedup_visible_tool_specs, visible_tool_specs_for_policy};
 use crate::openhuman::agent::harness::session::types::{Agent, AgentBuilder};
 use crate::openhuman::agent::harness::TriggerMemoryAgent;
-use crate::openhuman::agent::memory_loader::DefaultMemoryLoader;
+use crate::openhuman::agent_memory::memory_loader::DefaultMemoryLoader;
 use crate::openhuman::agent_tool_policy::ToolPolicyEngine;
 use crate::openhuman::config::ContextConfig;
 use crate::openhuman::context::ContextManager;
@@ -116,7 +116,7 @@ impl AgentBuilder {
     /// Sets the memory loader for the agent.
     pub fn memory_loader(
         mut self,
-        memory_loader: Box<dyn crate::openhuman::agent::memory_loader::MemoryLoader>,
+        memory_loader: Box<dyn crate::openhuman::agent_memory::memory_loader::MemoryLoader>,
     ) -> Self {
         self.memory_loader = Some(memory_loader);
         self

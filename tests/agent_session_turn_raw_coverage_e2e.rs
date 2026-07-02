@@ -7,12 +7,12 @@ use openhuman_core::openhuman::agent::harness::{
     PromptSource, SandboxMode, SubagentRunError, SubagentRunOptions, ToolScope,
 };
 use openhuman_core::openhuman::agent::hooks::{PostTurnHook, TurnContext};
-use openhuman_core::openhuman::agent::memory_loader::MemoryLoader;
 use openhuman_core::openhuman::agent::progress::AgentProgress;
 use openhuman_core::openhuman::agent::tool_policy::{
     ToolPolicy, ToolPolicyDecision, ToolPolicyRequest,
 };
 use openhuman_core::openhuman::agent::Agent;
+use openhuman_core::openhuman::agent_memory::memory_loader::MemoryLoader;
 use openhuman_core::openhuman::config::{AgentConfig, ContextConfig, MemoryConfig};
 use openhuman_core::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, ProviderDelta, ToolCall,

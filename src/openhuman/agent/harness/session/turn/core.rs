@@ -703,6 +703,7 @@ impl Agent {
                 temperature,
                 max_iterations,
                 run_super_context,
+                artifact_store,
             ))
             .await
         }; // end of `turn_body` async block
@@ -820,6 +821,9 @@ impl Agent {
         // by `should_run_super_context` in `turn()`, before the user row was
         // pushed to history — so it can't be recomputed here).
         run_super_context: bool,
+        artifact_store: Option<
+            crate::openhuman::agent::harness::tool_result_artifacts::ToolResultArtifactStore,
+        >,
     ) -> Result<String> {
         let turn_started = std::time::Instant::now();
         // This turn's stamped user message is already the last entry in
@@ -897,6 +901,7 @@ impl Agent {
         let context_mw = crate::openhuman::tinyagents::TurnContextMiddleware {
             tool_result_budget_bytes: self.context.tool_result_budget_bytes(),
             payload_summarizer: self.payload_summarizer.clone(),
+            artifact_store,
             tokenjuice_compaction_enabled: self.context.compaction_enabled(),
             tokenjuice_compression: self.tokenjuice_compression,
             cache_align: self.context.compaction_enabled(),

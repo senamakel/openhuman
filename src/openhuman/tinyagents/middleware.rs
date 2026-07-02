@@ -39,11 +39,13 @@ use tinyagents::harness::tool::{
 };
 
 use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
+use crate::openhuman::agent::harness::tool_result_artifacts::{
+    ToolResultArtifactStore, apply_per_result_persistence,
+};
 use crate::openhuman::approval::{
     ApprovalGate, ExecutionOutcome, GateOutcome, redact_args, summarize_action,
 };
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
-use crate::openhuman::context::tool_result_budget::apply_tool_result_budget;
 use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
 use crate::openhuman::tools::Tool;
 
@@ -62,6 +64,8 @@ pub struct TurnContextMiddleware {
     pub tool_result_budget_bytes: usize,
     /// Optional semantic tool-output summarizer (progressive disclosure).
     pub payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    /// Optional action-workspace artifact sink for oversized tool results.
+    pub(crate) artifact_store: Option<ToolResultArtifactStore>,
     /// Whether TokenJuice content-aware compaction runs before output caps.
     pub tokenjuice_compaction_enabled: bool,
     /// Agent-level TokenJuice profile for tool-result compaction.
@@ -113,6 +117,7 @@ impl TurnContextMiddleware {
         Self {
             tool_result_budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
             payload_summarizer: None,
+            artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
             cache_align: true,
@@ -170,6 +175,7 @@ impl TurnContextMiddleware {
             harness.push_middleware(Arc::new(ToolOutputMiddleware {
                 budget_bytes: self.tool_result_budget_bytes,
                 payload_summarizer: self.payload_summarizer,
+                artifact_store: self.artifact_store,
                 tokenjuice_compaction_enabled: self.tokenjuice_compaction_enabled,
                 tokenjuice_compression: self.tokenjuice_compression,
                 tool_policies: tool_policy_snapshot(tool_sets),
@@ -429,6 +435,7 @@ struct ToolOutputMiddleware {
     /// Fallback per-tool-result byte cap for tools that don't declare their own.
     budget_bytes: usize,
     payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
+    artifact_store: Option<ToolResultArtifactStore>,
     tokenjuice_compaction_enabled: bool,
     tokenjuice_compression: AgentTokenjuiceCompression,
     /// SDK policy snapshot keyed by tool name. Used to honor the adapter-mapped
@@ -517,9 +524,22 @@ impl Middleware<()> for ToolOutputMiddleware {
         //    Only for tools with no cap of their own (a capped tool already bounded
         //    itself above; stacking the two markers would double-truncate).
         if tool_cap.is_none() && self.budget_bytes > 0 {
-            let (capped, outcome) =
-                apply_tool_result_budget(std::mem::take(&mut result.content), self.budget_bytes);
-            if outcome.truncated {
+            let (capped, outcome) = apply_per_result_persistence(
+                std::mem::take(&mut result.content),
+                self.artifact_store.as_ref(),
+                &result.name,
+                Some(&result.call_id),
+                self.budget_bytes,
+            )
+            .await;
+            if outcome.persisted {
+                tracing::info!(
+                    tool = %result.name,
+                    from_bytes = outcome.original_bytes,
+                    to_bytes = outcome.final_bytes,
+                    "[tinyagents::mw] tool_result_artifact persisted oversized output"
+                );
+            } else if outcome.original_bytes != outcome.final_bytes {
                 tracing::debug!(
                     tool = %result.name,
                     from_bytes = outcome.original_bytes,
@@ -1410,6 +1430,7 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 100,
             payload_summarizer: None,
+            artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
             tool_policies: HashMap::new(),
@@ -1429,6 +1450,7 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 1_000,
             payload_summarizer: None,
+            artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
             tool_policies: HashMap::new(),
@@ -1448,6 +1470,7 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 1_000,
             payload_summarizer: None,
+            artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
             tool_policies: tool_policy_snapshot(&[tools]),
@@ -1468,6 +1491,7 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 100_000,
             payload_summarizer: None,
+            artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
             tool_policies: tool_policy_snapshot(&[tools]),

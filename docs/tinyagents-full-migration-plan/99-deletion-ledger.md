@@ -32,7 +32,7 @@ they land.
 - [ ] `harness/run_queue/` mechanics (345) — 07.3
 - [ ] `harness/spawn_depth_context.rs` (66) — 07.3
 - [ ] `harness/worktree_context.rs` (74) — 08.5
-- [ ] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) — 08.4
+- [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) — 08.4
 - [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 251) — 04.3
 - [ ] `CostBudgetMiddleware` + `turn_subagent_usage.rs` task-local — 06
 - [ ] `agent/dispatcher.rs` (609) + `harness/parse.rs` (830) legacy tool-call

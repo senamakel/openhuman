@@ -1,10 +1,10 @@
 //! Per-agent turn-graph selection (issue #4249).
 //!
-//! Each built-in agent folder ships a `graph.rs` exporting
+//! Built-in agents with bespoke turn graphs ship a `graph.rs` exporting
 //! `pub fn graph() -> AgentGraph`, mirroring the per-agent `prompt.rs::build`
-//! hook. The registry loader injects the returned value onto the agent's
-//! [`AgentDefinition`] (post-deserialize, exactly like `PromptSource::Dynamic`),
-//! and the sub-agent turn chokepoint (`run_typed_mode`) consults it:
+//! hook. Default agents omit that module and the registry loader leaves
+//! [`AgentDefinition::graph`] at [`AgentGraph::Default`]. The sub-agent turn
+//! chokepoint (`run_typed_mode`) consults the resolved value:
 //!
 //! - [`AgentGraph::Default`] runs the shared default sub-agent turn graph
 //!   (`subagent_runner::ops::graph::run_subagent_via_graph`).
@@ -12,9 +12,9 @@
 //!   runner — a bespoke tinyagents graph, thin over
 //!   `run_turn_via_tinyagents_shared`.
 //!
-//! Today every built-in agent selects `Default`. The hook is the extension
-//! point that lets a specialized agent (orchestrator, researcher, …) define a
-//! bespoke graph without branching the shared runner.
+//! Today every built-in agent selects `Default`. The optional hook is the
+//! extension point that lets a specialized agent (orchestrator, researcher, …)
+//! define a bespoke graph without branching the shared runner.
 
 use std::collections::HashSet;
 use std::future::Future;

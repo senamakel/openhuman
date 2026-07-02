@@ -4,7 +4,7 @@ Date: 2026-07-01
 
 Status: Phase 1 implemented (2026-07-01) in `src/openhuman/session_import/`
 as the `openhuman.session_import_run` controller
-(`openhuman-core session_import run`). Phases 2–4 (read-side shadow, cutover,
+(`openhuman-core session-import run`). Phases 2–4 (read-side shadow, cutover,
 retirement) are not started. Implementation deviations from the original
 sketch are marked "as built" below.
 
@@ -73,7 +73,7 @@ All facts verified against the current checkout (TinyAgents 1.3 pinned with the
   toolkit/model/sandbox/action-root selector fields, `status`, `reusable`,
   inline `latestHistory` message mirror, timestamps.
 
-## Target shape (TinyAgents 1.2 primitives)
+## Target shape (TinyAgents 1.3 primitives)
 
 Use the crate's `harness::store` as the substrate — no new storage layer:
 
@@ -179,7 +179,7 @@ Follow the proven `session_layout_v1` pattern, plus per-item ledger entries:
   and `subagent_sessions.json` remain untouched; legacy readers keep working
   until parity is proven.
 - Surface (as built): the `openhuman.session_import_run` controller —
-  `openhuman-core session_import run` / RPC — with `dry_run`, `only`
+  `openhuman-core session-import run` / RPC — with `dry_run`, `only`
   (stem glob), `force`, `verbose`, and `workspace` (dir override) params.
   - dry-run prints the per-file plan (stem → thread stream, message count,
     dialect, warnings) and writes nothing;

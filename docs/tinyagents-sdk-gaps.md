@@ -20,7 +20,8 @@ Scope:
 - This is not the OpenHuman migration plan. That plan lives in
   `docs/tinyagents-migration-spec.md`.
 - Items here are upstream TinyAgents implementation candidates.
-- Tests should be implemented last, after the API and storage surfaces settle.
+- Tests should follow each migrated surface; only broad end-to-end parity suites
+  should wait for the final cutover.
 
 ## Executive Summary
 
@@ -124,22 +125,21 @@ OpenHuman follow-up:
 
 Status: partially present.
 
-TinyAgents has a `SqliteCheckpointer`, and OpenHuman now enables the `sqlite`
-feature by aligning both Cargo worlds on `rusqlite 0.40` / `libsqlite3-sys
-0.38`. The remaining gap is not feature enablement; it is ownership. OpenHuman
-still patches the sqlite crates locally for the current toolchain, owns existing
-session/checkpoint tables through `SqlRunLedgerCheckpointer`, and needs a clean
-way to adopt SDK checkpoint storage without handing dependency or schema control
-to the SDK.
+TinyAgents 1.3 has `SqliteCheckpointer`, `from_connection`, and `schema_sql`,
+and OpenHuman now enables the `sqlite` feature by aligning both Cargo worlds on
+`rusqlite 0.40` / `libsqlite3-sys 0.38`. The remaining gap is not feature
+enablement or basic schema access; it is ownership. OpenHuman still patches the
+sqlite crates locally for the current toolchain, owns existing session/checkpoint
+tables through `SqlRunLedgerCheckpointer`, and needs a clean way to adopt or
+bridge SDK checkpoint storage without surrendering dependency or schema control.
 
-Implement one or more compatibility paths:
+Implement one or more OpenHuman compatibility paths:
 
-- Make SQLite support trait-first and allow external connection adapters.
 - Provide a version-flexible storage layer, possibly via `sqlx` or a separate
   crate feature matrix.
-- Split schema helpers from dependency ownership so apps can create the tables
-  using their own SQLite connection.
 - Expose a small `CheckpointStore` persistence trait below `Checkpointer`.
+- Add an adapter/cutover path that can project OpenHuman run-ledger checkpoints
+  into SDK checkpoint storage without breaking existing resume semantics.
 
 Acceptance criteria:
 
@@ -323,14 +323,16 @@ Acceptance criteria:
 
 ### 17. Storage And Graph Conformance
 
-Status: missing as a standardized SDK suite.
+Status: partially present.
 
-Durable graphs and task stores are hard to migrate safely without a shared
-contract test suite.
+TinyAgents 1.3 includes storage conformance coverage for built-in checkpointers
+and task stores, including SQLite under the feature. Durable OpenHuman adapters
+and fuller graph behavior are still hard to migrate safely without shared
+contract coverage.
 
 Implement:
 
-- Checkpointer conformance for memory, file, SQLite, and caller-supplied stores.
+- Checkpointer conformance for OpenHuman adapters and caller-supplied stores.
 - TaskStore conformance for lifecycle transitions, filters, cancellation,
   timeout, kill, restart/replay, and concurrent writes.
 - Graph conformance for `Send`, reducers, interrupts, resume, max concurrency,

@@ -149,8 +149,8 @@ run-ledger rows, and prove restart/resume parity.
     `Cargo.toml`.
   - TinyAgents components: crate features `default`, `openai`, `sqlite`, `repl`.
   - Acceptance: document why default features are used, why TinyAgents `sqlite`
-    is disabled, and which OpenHuman adapters replace feature-gated SDK
-    providers.
+    is enabled through the aligned `rusqlite` stack, and which OpenHuman adapters
+    still replace SDK-owned providers.
   - **Done:** added "TinyAgents crate: features & compatibility" section to
     agent-harness.md (default-only, `openai`/`sqlite`/`repl` rationale, adapter
     map) + fixed stale `council_graph.rs`/`member_graph.rs` links.
@@ -825,9 +825,8 @@ assessment, and migration coverage are complete.
 
 ## Non-Goals For The First Migration Wave
 
-- Do not enable TinyAgents `sqlite` until the `rusqlite` native-link conflict is
-  solved.
-- Do not replace OpenHuman's durable run ledgers until the one-time
+- Do not replace OpenHuman's durable run ledgers with TinyAgents SQLite storage
+  until the one-time
   transcript/session migration, TinyAgents store/status adapter, and
   restart/resume parity tests are complete.
 - Do not expose TinyAgents' OpenAI provider directly to product code while

@@ -3,7 +3,7 @@
 Adapt OpenHuman embeddings/memory retrieval to crate interfaces; OpenHuman
 stores stay authoritative.
 
-Target SDK surface: `EmbeddingModel` trait, `VectorStore`, `Retriever`,
+Target SDK surface: `EmbeddingModel` trait, `VectorStore`, concrete `Retriever`,
 `ScoredDoc`, `cosine_similarity`, `MemoryScope`, `AgentEvent::
 {MemoryLoaded, MemorySaved}`.
 
@@ -13,22 +13,23 @@ Target SDK surface: `EmbeddingModel` trait, `VectorStore`, `Retriever`,
    `embeddings/provider_trait.rs::EmbeddingProvider` (voyage/openai/cohere/
    ollama/cloud/noop impls unchanged underneath). Keep OpenHuman
    `factory.rs`/rate-limit/retry as construction policy.
-2. Retriever facade: implement crate `Retriever` over the memory search
-   surface the harness uses (`harness/memory_context.rs` recall injection,
-   `agent_memory::memory_loader`) returning `ScoredDoc`s; the harness loads
-   retrieval context through the facade so retrieval becomes swappable and
-   event-visible (`MemoryLoaded`).
+2. Retriever facade: adapt the memory search surface the harness uses
+   (`harness/memory_context.rs` recall injection,
+   `agent_memory::memory_loader`) to TinyAgents `EmbeddingModel`/`VectorStore`,
+   using the concrete crate `Retriever` where applicable and returning
+   `ScoredDoc`s; the harness loads retrieval context through the facade so
+   retrieval becomes swappable and event-visible (`MemoryLoaded`).
 3. Memory source identity: preserve `metadata.path_scope` dedupe semantics
    (CLAUDE.md rule) in the facade mapping.
 4. Usage/cost: embedding calls emit crate `Usage` + catalog pricing (06.4).
-5. Delete the vestigial `agent/memory_loader.rs` 5-line facade and the unwired
-   `agent/tree_loader.rs` eager digest prefetch module. Both are deleted;
-   callers use `agent_memory::memory_loader` directly.
+5. Done: the vestigial `agent/memory_loader.rs` facade and unwired
+   `agent/tree_loader.rs` eager digest prefetch module were deleted; callers
+   use `agent_memory::memory_loader` directly.
 
 ## Deletions
 
-- `agent/memory_loader.rs`.
-- `agent/tree_loader.rs`.
+- Done: `agent/memory_loader.rs` (tracked in `99-deletion-ledger.md`).
+- Done: `agent/tree_loader.rs` (tracked in `99-deletion-ledger.md`).
 
 ## Acceptance
 

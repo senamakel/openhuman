@@ -24,7 +24,7 @@ pub(crate) mod delegation;
 pub mod middleware;
 mod model;
 pub mod observability;
-pub mod orchestration;
+pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 pub mod stop_hooks;
 pub(crate) mod subagent_graph;

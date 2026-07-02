@@ -8,7 +8,9 @@ Current status (2026-07-02): live fanout callers now invoke
 `tinyagents::graph::parallel::map_reduce` directly, and
 `tinyagents/orchestration.rs::run_parallel_fanout` has been removed. This is
 compile-clean under the root, all-features root, and Tauri manifest checks.
-Acceptance tests and usage-rollup parity are still pending.
+The remaining TaskStore re-export seam is crate-internal for detached-subagent
+lifecycle bookkeeping. Acceptance tests and usage-rollup parity are still
+pending.
 
 ## Steps
 

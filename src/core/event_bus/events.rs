@@ -152,13 +152,6 @@ pub enum DomainEvent {
         mode: String,
         queue_depth: usize,
     },
-    /// A queued steer/collect message was delivered to the engine at an
-    /// iteration boundary.
-    RunQueueMessageDelivered {
-        thread_id: String,
-        mode: String,
-        iteration: u32,
-    },
     /// A queued followup message was dispatched as a fresh turn after the
     /// current turn completed.
     RunQueueFollowupDispatched {
@@ -1218,7 +1211,6 @@ impl DomainEvent {
             | Self::AgentOrchestrationFailed { .. }
             | Self::AgentOrchestrationClosed { .. }
             | Self::RunQueueMessageQueued { .. }
-            | Self::RunQueueMessageDelivered { .. }
             | Self::RunQueueFollowupDispatched { .. }
             | Self::RunQueueInterrupted { .. } => "agent",
 
@@ -1375,7 +1367,6 @@ impl DomainEvent {
             Self::AgentOrchestrationClosed { .. } => "AgentOrchestrationClosed",
             Self::SubconsciousTriggerProcessed { .. } => "SubconsciousTriggerProcessed",
             Self::RunQueueMessageQueued { .. } => "RunQueueMessageQueued",
-            Self::RunQueueMessageDelivered { .. } => "RunQueueMessageDelivered",
             Self::RunQueueFollowupDispatched { .. } => "RunQueueFollowupDispatched",
             Self::RunQueueInterrupted { .. } => "RunQueueInterrupted",
             Self::MonitorStatusChanged { .. } => "MonitorStatusChanged",
@@ -1516,7 +1507,6 @@ impl DomainEvent {
             Self::ToolExecutionStarted { tool_name, .. }
             | Self::ToolExecutionCompleted { tool_name, .. } => Some(tool_name.as_str()),
             Self::RunQueueMessageQueued { thread_id, .. }
-            | Self::RunQueueMessageDelivered { thread_id, .. }
             | Self::RunQueueFollowupDispatched { thread_id, .. }
             | Self::RunQueueInterrupted { thread_id, .. } => Some(thread_id.as_str()),
             Self::MonitorStatusChanged { thread_id, .. } | Self::MonitorLine { thread_id, .. } => {

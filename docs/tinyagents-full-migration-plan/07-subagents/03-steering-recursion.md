@@ -9,6 +9,8 @@ for detached sub-agent steer/collect lookup through `running_subagents`. Do not
 delete the directory until detached controls store/lookup crate `SteeringHandle`s
 directly via `SteeringRegistry`, and the web-channel followup/parallel lanes
 either have TinyAgents-owned equivalents or move into a web-channel-local queue.
+The unused `DomainEvent::RunQueueMessageDelivered` projection has been removed;
+queued/interrupt/followup events remain live.
 
 1. Map product tools onto crate commands: `steer_subagent` →
    `SteeringCommand::InjectMessage`/`Redirect` via `SteeringRegistry`;

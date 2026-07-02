@@ -15,8 +15,9 @@ workspace-scoped store that recorded the spawn. The executor/control path still
 uses OpenHuman's watch channels, abort handles, task lookup, and `RunQueue`;
 the unused future `running_subagents::close` hook has been removed and the
 test-only typed ledger snapshot plus most registry APIs are no longer exported
-outside the crate (the debug audit still uses `steer`), while restart
-reconciliation and steering-registry replacement remain pending.
+outside the crate (the debug audit still uses `steer`), and the finished
+background-completion queue is crate-internal. Restart reconciliation and
+steering-registry replacement remain pending.
 
 ## Steps
 

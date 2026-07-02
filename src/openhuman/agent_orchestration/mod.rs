@@ -17,7 +17,7 @@
 //! in `docs/tinyagents-harness-migration-audit.md`.
 
 pub mod agent_teams;
-pub mod background_completions;
+pub(crate) mod background_completions;
 pub mod background_delivery;
 pub mod command_center;
 pub mod delegation;

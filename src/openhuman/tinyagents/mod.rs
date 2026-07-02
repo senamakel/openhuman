@@ -31,7 +31,7 @@ pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;
 mod summarize;
 mod tools;
-pub(crate) mod topology;
+mod topology;
 
 use std::sync::Arc;
 
@@ -61,6 +61,7 @@ pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddle
 use model::ProviderModel;
 use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
 pub(crate) use observability::SubagentScope;
+pub(crate) use topology::all_graph_topologies;
 use tools::{EarlyExitHook, SharedToolAdapter};
 #[cfg(test)]
 use tools::ToolAdapter;

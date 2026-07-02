@@ -392,7 +392,7 @@ fn handle_triage_evaluate(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async {
-        let reports = crate::openhuman::tinyagents::topology::all_graph_topologies();
+        let reports = crate::openhuman::tinyagents::all_graph_topologies();
         let agents = crate::openhuman::agent_registry::agents::load_builtins()
             .map_err(|e| format!("loading built-in agent graph resolutions: {e}"))?
             .into_iter()

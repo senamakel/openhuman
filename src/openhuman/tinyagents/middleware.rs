@@ -40,7 +40,7 @@ use tinyagents::harness::tool::{
 
 use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::agent::harness::tool_result_artifacts::{
-    apply_per_result_persistence, ToolResultArtifactStore,
+    apply_per_result_persistence, ToolResultArtifactStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
 use crate::openhuman::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
@@ -468,7 +468,7 @@ impl Middleware<()> for ToolOutputMiddleware {
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<()>,
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
@@ -544,6 +544,40 @@ impl Middleware<()> for ToolOutputMiddleware {
                     to_bytes = outcome.final_bytes,
                     "[tinyagents::mw] tool_result_artifact persisted oversized output"
                 );
+                if let Some(path) = outcome.artifact_path.as_deref() {
+                    if let Some(store) = ctx.stores.get(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE) {
+                        let key = result.call_id.clone();
+                        let mut fields = serde_json::Map::new();
+                        fields.insert("tool".to_string(), result.name.clone().into());
+                        fields.insert("call_id".to_string(), result.call_id.clone().into());
+                        fields.insert("artifact_path".to_string(), path.to_string().into());
+                        fields.insert(
+                            "original_bytes".to_string(),
+                            serde_json::Value::from(outcome.original_bytes as u64),
+                        );
+                        fields.insert(
+                            "preview_bytes".to_string(),
+                            serde_json::Value::from(outcome.final_bytes as u64),
+                        );
+                        let index_result: tinyagents::Result<()> =
+                            store.put("tool_results", &key, fields.into()).await;
+                        if let Err(err) = index_result {
+                            tracing::warn!(
+                                tool = %result.name,
+                                call_id = %result.call_id,
+                                error = %err,
+                                "[tinyagents::mw] failed to index tool_result_artifact"
+                            );
+                        } else {
+                            tracing::debug!(
+                                tool = %result.name,
+                                call_id = %result.call_id,
+                                artifact_path = %path,
+                                "[tinyagents::mw] indexed tool_result_artifact in run store"
+                            );
+                        }
+                    }
+                }
             } else if outcome.original_bytes != outcome.final_bytes {
                 tracing::debug!(
                     tool = %result.name,

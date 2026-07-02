@@ -43,9 +43,13 @@ use tinyagents::harness::middleware::{
 };
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
+use tinyagents::harness::store::StoreRegistry;
 use tinyagents::harness::summarization::TrimStrategy;
 
 use crate::openhuman::agent::harness::run_queue::RunQueue;
+use crate::openhuman::agent::harness::tool_result_artifacts::{
+    ToolResultArtifactIndexStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
+};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 
@@ -347,6 +351,7 @@ pub async fn run_turn_via_tinyagents_shared(
         handle,
         early_exit_hook,
         tool_count,
+        tool_result_artifact_index,
     } = assemble_turn_harness(
         provider,
         model,
@@ -381,6 +386,11 @@ pub async fn run_turn_via_tinyagents_shared(
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
     // handle carries mid-flight, early-exit, and cap pauses.
     let mut ctx = RunContext::new(config, ());
+    if let Some(index) = tool_result_artifact_index {
+        let mut stores = StoreRegistry::new();
+        stores.register(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE, index);
+        ctx = ctx.with_stores(stores);
+    }
 
     let streaming = on_progress.is_some();
     // Retain a clone of the progress sink so the turn can emit a terminal
@@ -596,6 +606,8 @@ struct AssembledTurnHarness {
     early_exit_hook: Option<EarlyExitHook>,
     /// Number of callable tools registered.
     tool_count: usize,
+    /// TinyAgents store index for OpenHuman action-dir tool-result artifacts.
+    tool_result_artifact_index: Option<Arc<ToolResultArtifactIndexStore>>,
 }
 
 /// Assemble the turn harness for [`run_turn_via_tinyagents_shared`]: register
@@ -659,6 +671,10 @@ fn assemble_turn_harness(
     // `before_model` hooks run cache-align → microcompact → compress → trim.
     // Capture the autocompaction opt-out before `install` consumes `context_mw`.
     let autocompact_enabled = context_mw.autocompact_enabled;
+    let tool_result_artifact_index = context_mw
+        .artifact_store
+        .as_ref()
+        .map(|_| Arc::new(ToolResultArtifactIndexStore::new()));
     context_mw.install(&mut harness, &tool_sets);
 
     // Pre-call cost budget gate (issue #4249, Phase 5): fail before a model call
@@ -842,6 +858,7 @@ fn assemble_turn_harness(
         handle,
         early_exit_hook,
         tool_count,
+        tool_result_artifact_index,
     }
 }
 

@@ -105,14 +105,14 @@ pub(crate) struct HandoffConfig {
 /// Diagnostics-only bridge from OpenHuman's precomputed visible-tool allowlist
 /// into TinyAgents events. It does not mutate `ModelRequest::tools`; hidden
 /// tools remain unregistered by the shared runner.
-pub(crate) struct OpenHumanToolVisibilityMiddleware {
+pub(super) struct OpenHumanToolVisibilityMiddleware {
     excluded: Vec<String>,
     remaining: usize,
     emitted: AtomicBool,
 }
 
 impl OpenHumanToolVisibilityMiddleware {
-    pub(crate) fn new(excluded: Vec<String>, remaining: usize) -> Self {
+    pub(super) fn new(excluded: Vec<String>, remaining: usize) -> Self {
         Self {
             excluded,
             remaining,
@@ -783,7 +783,7 @@ impl Middleware<()> for ToolOutputMiddleware {
 /// letting it short-circuit cleanly. Tool-*internal* security (path/command
 /// policy via `live_policy`) stays inside each tool — it needs tool-specific
 /// operation semantics the harness boundary can't reconstruct generically.
-pub(crate) struct ApprovalSecurityMiddleware {
+pub(super) struct ApprovalSecurityMiddleware {
     /// The same `Arc`-shared tool sets the runner registers, used to resolve a
     /// call's OpenHuman `Tool` by name so `external_effect_with_args` can gate.
     tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
@@ -791,7 +791,7 @@ pub(crate) struct ApprovalSecurityMiddleware {
 
 impl ApprovalSecurityMiddleware {
     /// Build the middleware over the runner's shared tool sets.
-    pub(crate) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
+    pub(super) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
         Self { tool_sets }
     }
 
@@ -876,12 +876,12 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
 /// (e.g. phone calls) would execute from the model loop. Applies on every path
 /// (channel, session, sub-agent) since the restriction is intrinsic to the tool,
 /// not the session — installed unconditionally.
-pub(crate) struct CliRpcOnlyMiddleware {
+pub(super) struct CliRpcOnlyMiddleware {
     tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
 }
 
 impl CliRpcOnlyMiddleware {
-    pub(crate) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
+    pub(super) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
         Self { tool_sets }
     }
 
@@ -938,7 +938,7 @@ impl ToolMiddleware<()> for CliRpcOnlyMiddleware {
 /// blocking decision short-circuits with a model-consumable result carrying the
 /// same `"Tool '<name>' <denied|requires approval> by policy '<policy>': <reason>"`
 /// wording the engine produced.
-pub(crate) struct ToolPolicyMiddleware {
+pub(super) struct ToolPolicyMiddleware {
     policy: Arc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
     /// The session's channel-permission snapshot — enforces the per-channel deny
     /// + per-call permission-level ceiling the engine ran in `agent_tool_exec`.
@@ -953,7 +953,7 @@ pub(crate) struct ToolPolicyMiddleware {
 }
 
 impl ToolPolicyMiddleware {
-    pub(crate) fn new(
+    pub(super) fn new(
         policy: Arc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
         session: crate::openhuman::agent_tool_policy::ToolPolicySession,
         tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,

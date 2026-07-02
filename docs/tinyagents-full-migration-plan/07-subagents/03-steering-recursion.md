@@ -7,17 +7,22 @@ drains its own `Steer`/`Collect` lanes and forwards them as TinyAgents
 `SteeringCommand::InjectMessage`; TinyAgents drains those `SteeringHandle`
 commands at loop checkpoints. The queue is also the product adapter for
 web-channel `followup` and `parallel` semantics and for detached sub-agent
-steer/collect lookup through `running_subagents`. Do not delete the directory
-until detached controls store/lookup crate `SteeringHandle`s directly via
-`SteeringRegistry`, and the web-channel followup/parallel lanes either have
-TinyAgents-owned equivalents or move into a web-channel-local queue.
+steer/collect lookup through `running_subagents`. The local
+`openhuman::tinyagents::orchestration` seam now re-exports `SteeringRegistry`,
+`TaskId`, `SteeringCommand`, and `SteeringHandle`, and sub-agent TinyAgents runs
+register their live `SteeringHandle` in a process-local `SteeringRegistry`
+while the run is active. The detached control lookup path still pushes into
+`RunQueue`. Do not delete the directory until detached controls look up crate
+`SteeringHandle`s directly via `SteeringRegistry`, and the web-channel
+followup/parallel lanes either have TinyAgents-owned equivalents or move into a
+web-channel-local queue.
 The unused `DomainEvent::RunQueueMessageDelivered` projection has been removed;
 queued/interrupt/followup events remain live.
 
 1. Map product tools onto crate commands: `steer_subagent` →
-   `SteeringCommand::InjectMessage`/`Redirect` via `SteeringRegistry`;
-   pause/resume/cancel → corresponding variants; keep delivery-at-safe-
-   boundaries semantics (crate drains before each model call).
+   `SteeringCommand::InjectMessage`/`Redirect` via the registered
+   `SteeringRegistry`; pause/resume/cancel → corresponding variants; keep
+   delivery-at-safe-boundaries semantics (crate drains before each model call).
 2. Install a `SteeringPolicy` allowlist per run (e.g. background runs
    accept Cancel only).
 3. Accepted/rejected steering emits `AgentEvent::Steered` → bridge → UI;
@@ -35,9 +40,10 @@ queued/interrupt/followup events remain live.
    error wording, or is deleted if the wording can wrap
    `TinyAgentsError::SubAgentDepth`. Current code now threads
    `MAX_SPAWN_DEPTH = 3` into TinyAgents `RunPolicy.limits.max_depth` and
-   `RunConfig.max_depth`, so the remaining second authority to collapse is MCP
-   `agent.run_subagent` using `MAX_SUBAGENT_DEPTH = 6` in
-   `mcp_server/subagent_depth.rs`.
+   `RunConfig.max_depth`, but OpenHuman's own `spawn_depth_context` still
+   rejects beyond the same cap before the TinyAgents run. The remaining distinct
+   authority to collapse is MCP `agent.run_subagent` using
+   `MAX_SUBAGENT_DEPTH = 6` in `mcp_server/subagent_depth.rs`.
 6. One error shape: map `SubAgentDepth`/`RecursionLimit` to the existing
    JSON-RPC error for compat.
 

@@ -468,7 +468,17 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // steer messages into it (so a pre-run steer lands before the first model
     // call), and forward mid-flight steers via a poller aborted when the run
     // returns. The same handle carries the early-exit `Pause`.
+    let mut registered_steering_task_id = None;
     let steering_forwarder = if let Some(handle) = handle {
+        if let Some(scope) = &subagent_scope {
+            let task_id = orchestration::TaskId::new(scope.task_id.clone());
+            orchestration::shared_steering_registry().register(task_id.clone(), handle.clone());
+            tracing::debug!(
+                task_id = scope.task_id.as_str(),
+                "[tinyagents] registered subagent steering handle"
+            );
+            registered_steering_task_id = Some(task_id);
+        }
         if let Some(queue) = run_queue.clone() {
             forward_steers(&queue, &handle).await;
             forward_collects(&queue, &handle).await;
@@ -499,6 +509,13 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     };
     if let Some(forwarder) = steering_forwarder {
         forwarder.abort();
+    }
+    if let Some(task_id) = registered_steering_task_id {
+        orchestration::shared_steering_registry().deregister(&task_id);
+        tracing::debug!(
+            task_id = task_id.as_str(),
+            "[tinyagents] deregistered subagent steering handle"
+        );
     }
     let run = match run_result {
         Ok(run) => run,

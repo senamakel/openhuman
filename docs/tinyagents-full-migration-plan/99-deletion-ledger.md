@@ -45,10 +45,11 @@ they land.
 - [ ] `harness/spawn_depth_context.rs` (66) — 07.3
       (live recursion guard for nested delegation)
 - [ ] `harness/worktree_context.rs` (74) — 08.5
-      (live action-root override for parallel worktrees)
+      (live crate-internal action-root override for parallel worktrees)
 - [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) — 08.4
 - [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 251) — 04.3
-      (live until crate checkpointer/schema migration replaces `graph_checkpoints`)
+      (live crate-internal adapter until crate checkpointer/schema migration
+      replaces `graph_checkpoints`)
 - [ ] `CostBudgetMiddleware` (`tinyagents/middleware.rs`) +
       `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
       (live until crate budget/run-tree accounting avoids duplicate

@@ -5,9 +5,10 @@ Requires 00-baseline (rusqlite 0.40 + `sqlite` feature).
 Current status (2026-07-02): do not delete
 `src/openhuman/tinyagents/checkpoint.rs` yet. `SqlRunLedgerCheckpointer` is still
 the live durable checkpointer for delegation graphs, and it writes OpenHuman's
-`graph_checkpoints` run-ledger schema. The crate `SqliteCheckpointer` uses its
-own checkpoint schema, so swapping it in requires an explicit row migration or
-documented expiry policy for in-flight durable graph runs.
+`graph_checkpoints` run-ledger schema. Its adapter surface is now crate-internal.
+The crate `SqliteCheckpointer` uses its own checkpoint schema, so swapping it in
+requires an explicit row migration or documented expiry policy for in-flight
+durable graph runs.
 
 ## Steps
 

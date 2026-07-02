@@ -35,7 +35,7 @@ use crate::openhuman::session_db::with_connection;
 
 /// A [`Checkpointer`] that persists graph checkpoints into the openhuman session
 /// DB (`graph_checkpoints` table). Cheap to clone; clones address the same DB.
-pub struct SqlRunLedgerCheckpointer<State> {
+pub(crate) struct SqlRunLedgerCheckpointer<State> {
     config: Arc<Config>,
     _marker: PhantomData<fn() -> State>,
 }
@@ -43,7 +43,7 @@ pub struct SqlRunLedgerCheckpointer<State> {
 impl<State> SqlRunLedgerCheckpointer<State> {
     /// Build a checkpointer backed by the session DB resolved from `config`
     /// (`{workspace}/session_db/sessions.db`).
-    pub fn new(config: Arc<Config>) -> Self {
+    pub(crate) fn new(config: Arc<Config>) -> Self {
         Self {
             config,
             _marker: PhantomData,

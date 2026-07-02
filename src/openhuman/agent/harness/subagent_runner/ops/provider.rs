@@ -77,9 +77,11 @@ pub(crate) fn resolve_subagent_provider(
                 match crate::openhuman::inference::provider::create_chat_provider(workload, cfg) {
                     Ok((p, m)) => {
                         log::info!(
-                        "[subagent_runner] role={} agent_id={} resolved via workload factory model={}",
-                        workload, agent_id, m
-                    );
+                            "[subagent_runner] role={} agent_id={} resolved via workload factory model={}",
+                            workload,
+                            agent_id,
+                            m
+                        );
                         (std::sync::Arc::from(p), m)
                     }
                     Err(e) => {

@@ -8,7 +8,9 @@ the fixed pipeline topology, and `run_typed_mode` now runs that graph as a
 best-effort diagnostic skeleton before continuing through the procedural runner.
 The skeleton records the named phases with `GraphTracingSink`; the node effects
 remain pending and can be moved over one phase at a time without changing the
-external sub-agent behavior.
+external sub-agent behavior. The standalone `ops/usage.rs` glue file is deleted;
+the remaining `AggregatedUsage` bridge lives with the graph route that produces
+it.
 
 ## Steps
 
@@ -35,9 +37,10 @@ external sub-agent behavior.
 
 ## Deletions
 
-- `subagent_runner/ops/{usage,handoff_helper}.rs` glue; parts of
-  `ops/runner.rs`/`ops/graph.rs` absorbed by nodes (target: dir shrinks
-  from ~6.1k to policy nodes + tests).
+- Deleted: `subagent_runner/ops/usage.rs` glue.
+- Remaining: `subagent_runner/ops/handoff_helper.rs` glue; parts of
+  `ops/runner.rs`/`ops/graph.rs` absorbed by nodes (target: dir shrinks from
+  ~6.1k to policy nodes + tests).
 
 ## Acceptance
 

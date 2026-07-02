@@ -15,7 +15,6 @@
 //! | `prompt.rs`         | Role-contract suffix, `append_subagent_role_contract`, `dedup_tool_specs_by_name` |
 //! | `runner.rs`         | `run_subagent`, `run_typed_mode`                               |
 //! | `graph.rs`          | `run_subagent_via_graph` — the sub-agent turn graph + tools    |
-//! | `usage.rs`          | `AggregatedUsage` (cumulative usage stats)                     |
 //! | `handoff_helper.rs` | `apply_handoff`                                                |
 //! | `checkpoint.rs`     | `SubagentCheckpoint`, `parse_tool_arguments`                   |
 
@@ -26,7 +25,6 @@ pub(crate) use handoff_helper::apply_handoff;
 mod prompt;
 mod provider;
 mod runner;
-mod usage;
 
 // Public entry point — the primary API surface consumed by the parent module.
 pub use runner::run_subagent;
@@ -50,7 +48,7 @@ pub(crate) use provider::resolve_subagent_provider;
 #[cfg(test)]
 pub(super) use prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
 #[cfg(test)]
-pub(super) use provider::{normalize_slug, LazyToolkitResolver};
+pub(super) use provider::{LazyToolkitResolver, normalize_slug};
 // filter_tool_indices lives in tool_prep (sibling of ops).
 #[cfg(test)]
 pub(super) use super::tool_prep::filter_tool_indices;
@@ -65,7 +63,7 @@ pub(super) use crate::openhuman::agent::harness::definition::{AgentDefinition, P
 pub(super) use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 #[cfg(test)]
 pub(super) use crate::openhuman::agent::harness::{
-    current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH,
+    MAX_SPAWN_DEPTH, current_spawn_depth, with_spawn_depth,
 };
 #[cfg(test)]
 pub(super) use crate::openhuman::tools::{Tool, ToolSpec};

@@ -16,8 +16,7 @@ use std::collections::HashSet;
 /// - make the child explicitly aware it is acting as a sub-agent
 /// - keep delegated outputs concise so parent-context growth stays bounded
 /// - discourage verbose restatement of the delegated task/context
-pub(super) const SUBAGENT_ROLE_CONTRACT_SUFFIX: &str =
-    "## Sub-agent Role Contract\n\n\
+pub(super) const SUBAGENT_ROLE_CONTRACT_SUFFIX: &str = "## Sub-agent Role Contract\n\n\
 You are a sub-agent working for a parent OpenHuman agent, not a direct end-user assistant.\n\
 - Stay tightly scoped to the delegated task.\n\
 - Keep tool arguments and follow-up prompts compact, include only required fields/context.\n\

@@ -5,8 +5,8 @@
 //! can drill into with `extract_from_result`.
 
 use crate::openhuman::agent::harness::subagent_runner::handoff::{
-    build_handoff_placeholder, clean_tool_output, ResultHandoffCache,
-    HANDOFF_OVERSIZE_THRESHOLD_TOKENS,
+    HANDOFF_OVERSIZE_THRESHOLD_TOKENS, ResultHandoffCache, build_handoff_placeholder,
+    clean_tool_output,
 };
 
 /// Apply the progressive-disclosure handoff to a tool result. If a cache is

@@ -30,12 +30,20 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use super::usage::AggregatedUsage;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
-use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
+use crate::openhuman::tinyagents::{SubagentScope, run_turn_via_tinyagents_shared};
 use crate::openhuman::tools::{Tool, ToolSpec};
+
+/// Cumulative usage stats gathered across a sub-agent graph run.
+#[derive(Debug, Clone, Default)]
+pub(super) struct AggregatedUsage {
+    pub(super) input_tokens: u64,
+    pub(super) output_tokens: u64,
+    pub(super) cached_input_tokens: u64,
+    pub(super) charged_amount_usd: f64,
+}
 
 /// Drive a sub-agent turn on the tinyagents harness. Returns
 /// `(text, model_calls, AggregatedUsage, early_exit_tool, hit_cap)` — `hit_cap`
@@ -396,7 +404,7 @@ fn mirror_worker_thread(
     extra_final: Option<&str>,
 ) {
     use crate::openhuman::memory_conversations::{
-        append_message, ConversationMessage as StoredMessage,
+        ConversationMessage as StoredMessage, append_message,
     };
 
     let append = |content: String, sender: &str| {

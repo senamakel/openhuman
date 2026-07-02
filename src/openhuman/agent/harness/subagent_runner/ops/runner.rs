@@ -864,7 +864,7 @@ async fn run_typed_mode(
     // graph; `Custom` hands the assembled turn to this agent's own graph runner
     // (declared in its `graph.rs::graph()`). Every built-in agent selects
     // `Default` today — the branch is the extension point.
-    use super::usage::AggregatedUsage;
+    use super::graph::AggregatedUsage;
     use crate::openhuman::agent::harness::agent_graph::{
         AgentGraph, AgentTurnRequest, AgentTurnUsage,
     };

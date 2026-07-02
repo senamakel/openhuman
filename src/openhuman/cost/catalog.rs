@@ -71,7 +71,7 @@ pub struct ModelPrice {
 /// rate); other providers' cached rates use the published discount where known
 /// and a conservative provider-typical fraction otherwise. Context windows are
 /// the published maximums.
-pub const KNOWN_MODEL_PRICING: &[ModelPrice] = &[
+const KNOWN_MODEL_PRICING: &[ModelPrice] = &[
     // ── Anthropic (authoritative prices; cache read = 0.1× input) ────────────
     ModelPrice {
         provider: "anthropic",

@@ -83,7 +83,9 @@ they land.
   target is `agent_orchestration/spawn_parallel_graph.rs` graph mechanics
   (1281) — 08.2
 - `context/` → stats + product prompt state — 03
-- `cost/catalog.rs` → catalog snapshot loader — 02.4
+- `cost/catalog.rs` (622) → catalog snapshot loader once config seeding, cost
+  estimates, and `context_window_for_model` all read one catalog projection —
+  02.4
 
 ## Never delete (product policy)
 

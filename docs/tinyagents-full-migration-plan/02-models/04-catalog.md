@@ -9,14 +9,15 @@ reasoning rates).
 
 Current status (2026-07-02): `cost/catalog.rs` is a 622-line static pricing and
 window table plus registry-enrichment/estimate helpers. The unused
-`context_window` convenience wrapper is gone; callers either use the richer
-`lookup` row or the inference provider/model-context path.
+`context_window` convenience wrapper is gone, the raw pricing table is private,
+and `context_window_for_model` now consults the richer `lookup` row for concrete
+model ids before falling back to legacy model-context patterns.
 
 ## Steps
 
 1. Build a `ModelCatalogSnapshot` from OpenHuman's data: seed from crate
-   `ModelCatalog::seed()`, overlay `cost/catalog.rs` rates and
-   `model_context.rs` windows, plus local-model profiles discovered at
+   `ModelCatalog::seed()`, overlay `cost/catalog.rs` rates/windows and
+   remaining `model_context.rs` pattern fallbacks, plus local-model profiles discovered at
    runtime (ollama).
 2. Point consumers at the one projection: `estimate_cost_usd`
    (cost bridge), token budgeting / `effective_context_window`, model picker

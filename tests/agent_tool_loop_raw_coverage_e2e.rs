@@ -498,9 +498,19 @@ async fn bus_turn_prompt_mode_covers_invisible_cli_only_and_unknown_tools() {
         .map(|msg| msg.content)
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(invisible_joined.contains("Unknown tool: hidden"));
+    // Unknown-tool recovery now flows through the tinyagents
+    // `UnknownToolPolicy::ReturnToolError` path (issue #4249), which emits
+    // `unknown tool `<name>` (arguments: …)` instead of the legacy
+    // `Unknown tool: <name>` wording.
+    assert!(
+        invisible_joined.contains("unknown tool") && invisible_joined.contains("hidden"),
+        "invisible tool call should surface a crate unknown-tool result naming `hidden`"
+    );
     assert!(joined.contains("only available via explicit CLI/RPC invocation"));
-    assert!(joined.contains("Unknown tool: missing"));
+    assert!(
+        joined.contains("unknown tool") && joined.contains("missing"),
+        "unknown tool call should surface a crate unknown-tool result naming `missing`"
+    );
 }
 
 #[tokio::test]

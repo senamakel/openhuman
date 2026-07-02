@@ -13,10 +13,6 @@ pub(crate) struct ParsedToolCall {
     pub id: Option<String>,
 }
 
-/// Find a tool by name in the registry.
-pub(crate) fn find_tool<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> Option<&'a dyn Tool> {
-    tools.iter().find(|t| t.name() == name).map(|t| t.as_ref())
-}
 pub(crate) fn parse_arguments_value(raw: Option<&serde_json::Value>) -> serde_json::Value {
     match raw {
         Some(serde_json::Value::String(s)) => serde_json::from_str::<serde_json::Value>(s)

@@ -482,7 +482,7 @@ impl Middleware<()> for ToolOutputMiddleware {
         //    Failures never break the tool call (the trait swallows them).
         if let Some(ps) = &self.payload_summarizer {
             if let Ok(Some(payload)) = ps
-                .maybe_summarize(&result.name, None, &result.content)
+                .maybe_summarize_in_parent(ctx, &result.name, None, &result.content)
                 .await
             {
                 tracing::info!(

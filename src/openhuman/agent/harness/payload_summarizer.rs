@@ -55,6 +55,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
+use tinyagents::harness::context::RunContext;
 use tracing::{debug, info, warn};
 
 use super::definition::AgentDefinition;
@@ -103,6 +104,22 @@ pub trait PayloadSummarizer: Send + Sync {
         parent_task_hint: Option<&str>,
         raw: &str,
     ) -> Result<Option<SummarizedPayload>>;
+
+    /// TinyAgents parent-context-aware entry point.
+    ///
+    /// The default preserves the legacy dispatch path, but the live
+    /// `ToolOutputMiddleware` now threads its `RunContext<()>` through this seam
+    /// so an implementation can call `SubAgent::invoke_in_parent` without
+    /// changing the older direct executor path.
+    async fn maybe_summarize_in_parent(
+        &self,
+        _parent_ctx: &RunContext<()>,
+        tool_name: &str,
+        parent_task_hint: Option<&str>,
+        raw: &str,
+    ) -> Result<Option<SummarizedPayload>> {
+        self.maybe_summarize(tool_name, parent_task_hint, raw).await
+    }
 }
 
 /// Default implementation that dispatches the `summarizer` sub-agent

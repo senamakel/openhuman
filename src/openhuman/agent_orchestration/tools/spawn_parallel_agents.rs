@@ -7,10 +7,8 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTa
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_boundary;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
-    ParallelAgentResult, ParallelTaskRejectionKind, SpawnParallelTaskPreflight,
-    SpawnParallelWorker, collect_spawn_parallel_results, create_spawn_parallel_worktree,
-    format_spawn_parallel_success, prepare_spawn_parallel_tasks, project_spawn_parallel_result,
-    project_spawn_parallel_spawned, run_spawn_parallel_workers, validate_spawn_parallel_tasks,
+    collect_spawn_parallel_results, format_spawn_parallel_success, project_spawn_parallel_result,
+    run_spawn_parallel_workers, stage_spawn_parallel_workers, validate_spawn_parallel_tasks,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -151,8 +149,6 @@ impl Tool for SpawnParallelAgentsTool {
 
         let parent_session = parent.session_id.clone();
         let progress_sink = parent.on_progress.clone();
-        let mut immediate_results = Vec::new();
-        let mut prepared = Vec::new();
 
         // Resolve the agent sandbox root once — used as the repo root when a
         // task opts into git-worktree isolation. This is `Config.action_dir`
@@ -164,115 +160,15 @@ impl Tool for SpawnParallelAgentsTool {
                 .ok()
                 .map(|cfg| cfg.action_dir.clone());
 
-        for preflight in prepare_spawn_parallel_tasks(tasks, registry, &parent) {
-            let (definition, prompt, task, task_id) = match preflight {
-                SpawnParallelTaskPreflight::Rejected(rejection) => {
-                    match rejection.kind {
-                        ParallelTaskRejectionKind::MissingAgentOrPrompt => {
-                            tracing::debug!(
-                                parent_session = %parent_session,
-                                task_id = %rejection.task_id,
-                                agent_id = %rejection.agent_id,
-                                "[spawn_parallel_agents] invalid_task_missing_agent_or_prompt"
-                            );
-                        }
-                        ParallelTaskRejectionKind::UnknownAgent => {
-                            tracing::debug!(
-                                parent_session = %parent_session,
-                                task_id = %rejection.task_id,
-                                agent_id = %rejection.agent_id,
-                                "[spawn_parallel_agents] invalid_task_unknown_agent"
-                            );
-                        }
-                        ParallelTaskRejectionKind::OutsideAllowlist => {
-                            tracing::warn!(
-                                parent_session = %parent_session,
-                                parent_agent = %parent.agent_definition_id,
-                                task_id = %rejection.task_id,
-                                agent_id = %rejection.agent_id,
-                                allowed = ?parent.allowed_subagent_ids,
-                                "[spawn_parallel_agents] rejected_task_outside_subagent_allowlist"
-                            );
-                        }
-                        ParallelTaskRejectionKind::MissingToolkit => {
-                            tracing::debug!(
-                                parent_session = %parent_session,
-                                task_id = %rejection.task_id,
-                                agent_id = %rejection.agent_id,
-                                "[spawn_parallel_agents] invalid_task_missing_toolkit"
-                            );
-                        }
-                    }
-                    immediate_results.push(ParallelAgentResult {
-                        task_id: rejection.task_id,
-                        agent_id: rejection.agent_id,
-                        success: false,
-                        output: None,
-                        error: Some(rejection.error),
-                        ownership: rejection.ownership,
-                        elapsed_ms: 0,
-                        iterations: 0,
-                        stale_parent_reads: Vec::new(),
-                        worktree_path: None,
-                        changed_files: Vec::new(),
-                        dirty_status: None,
-                    });
-                    continue;
-                }
-                SpawnParallelTaskPreflight::Prepared(prepared_task) => (
-                    prepared_task.definition,
-                    prepared_task.prompt,
-                    prepared_task.task,
-                    prepared_task.task_id,
-                ),
-            };
-            project_spawn_parallel_spawned(
-                &parent_session,
-                progress_sink.as_ref(),
-                &definition,
-                &task_id,
-                prompt.chars().count(),
-                task.ownership
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-                    .is_some(),
-            )
-            .await;
-            // ── Optional git-worktree isolation ────────────────────────────
-            // When the task requests `isolation = "worktree"`, create a
-            // dedicated worktree under the user's project repo and run this
-            // worker with its `action_dir` pointed there. On any failure we
-            // surface an immediate error result rather than silently falling
-            // back to the shared workspace (which is the exact collision this
-            // feature prevents).
-            let worktree_path = match create_spawn_parallel_worktree(
-                &parent_session,
-                action_root.as_deref(),
-                &task_id,
-                &definition.id,
-                &task,
-            ) {
-                Ok(path) => path,
-                Err(result) => {
-                    immediate_results.push(result);
-                    continue;
-                }
-            };
-            prepared.push(SpawnParallelWorker {
-                definition,
-                prompt,
-                task,
-                task_id,
-                worktree_path,
-            });
-        }
-        tracing::debug!(
-            parent_session = %parent_session,
-            prepared_count = prepared.len(),
-            immediate_count = immediate_results.len(),
-            "[spawn_parallel_agents] prepared_tasks"
-        );
+        let (prepared, immediate_results) = stage_spawn_parallel_workers(
+            &parent_session,
+            progress_sink.as_ref(),
+            tasks,
+            registry,
+            &parent,
+            action_root.as_deref(),
+        )
+        .await;
 
         // Fan the prepared workers out through the spawn graph module. Results
         // come back in prepared order, then we append them after immediate

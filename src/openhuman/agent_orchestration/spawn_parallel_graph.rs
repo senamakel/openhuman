@@ -322,6 +322,123 @@ pub(crate) struct ParallelAgentResult {
     pub(crate) dirty_status: Option<bool>,
 }
 
+pub(crate) async fn stage_spawn_parallel_workers(
+    parent_session: &str,
+    progress_sink: Option<&Sender<AgentProgress>>,
+    tasks: Vec<ParallelAgentTask>,
+    registry: &AgentDefinitionRegistry,
+    parent: &ParentExecutionContext,
+    action_root: Option<&Path>,
+) -> (Vec<SpawnParallelWorker>, Vec<ParallelAgentResult>) {
+    let mut immediate_results = Vec::new();
+    let mut prepared = Vec::new();
+
+    for preflight in prepare_spawn_parallel_tasks(tasks, registry, parent) {
+        let (definition, prompt, task, task_id) = match preflight {
+            SpawnParallelTaskPreflight::Rejected(rejection) => {
+                match rejection.kind {
+                    ParallelTaskRejectionKind::MissingAgentOrPrompt => {
+                        tracing::debug!(
+                            parent_session = %parent_session,
+                            task_id = %rejection.task_id,
+                            agent_id = %rejection.agent_id,
+                            "[spawn_parallel_agents] invalid_task_missing_agent_or_prompt"
+                        );
+                    }
+                    ParallelTaskRejectionKind::UnknownAgent => {
+                        tracing::debug!(
+                            parent_session = %parent_session,
+                            task_id = %rejection.task_id,
+                            agent_id = %rejection.agent_id,
+                            "[spawn_parallel_agents] invalid_task_unknown_agent"
+                        );
+                    }
+                    ParallelTaskRejectionKind::OutsideAllowlist => {
+                        tracing::warn!(
+                            parent_session = %parent_session,
+                            parent_agent = %parent.agent_definition_id,
+                            task_id = %rejection.task_id,
+                            agent_id = %rejection.agent_id,
+                            allowed = ?parent.allowed_subagent_ids,
+                            "[spawn_parallel_agents] rejected_task_outside_subagent_allowlist"
+                        );
+                    }
+                    ParallelTaskRejectionKind::MissingToolkit => {
+                        tracing::debug!(
+                            parent_session = %parent_session,
+                            task_id = %rejection.task_id,
+                            agent_id = %rejection.agent_id,
+                            "[spawn_parallel_agents] invalid_task_missing_toolkit"
+                        );
+                    }
+                }
+                immediate_results.push(ParallelAgentResult {
+                    task_id: rejection.task_id,
+                    agent_id: rejection.agent_id,
+                    success: false,
+                    output: None,
+                    error: Some(rejection.error),
+                    ownership: rejection.ownership,
+                    elapsed_ms: 0,
+                    iterations: 0,
+                    stale_parent_reads: Vec::new(),
+                    worktree_path: None,
+                    changed_files: Vec::new(),
+                    dirty_status: None,
+                });
+                continue;
+            }
+            SpawnParallelTaskPreflight::Prepared(prepared_task) => (
+                prepared_task.definition,
+                prepared_task.prompt,
+                prepared_task.task,
+                prepared_task.task_id,
+            ),
+        };
+        project_spawn_parallel_spawned(
+            parent_session,
+            progress_sink,
+            &definition,
+            &task_id,
+            prompt.chars().count(),
+            task.ownership
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .is_some(),
+        )
+        .await;
+        let worktree_path = match create_spawn_parallel_worktree(
+            parent_session,
+            action_root,
+            &task_id,
+            &definition.id,
+            &task,
+        ) {
+            Ok(path) => path,
+            Err(result) => {
+                immediate_results.push(result);
+                continue;
+            }
+        };
+        prepared.push(SpawnParallelWorker {
+            definition,
+            prompt,
+            task,
+            task_id,
+            worktree_path,
+        });
+    }
+
+    tracing::debug!(
+        parent_session = %parent_session,
+        prepared_count = prepared.len(),
+        immediate_count = immediate_results.len(),
+        "[spawn_parallel_agents] prepared_tasks"
+    );
+    (prepared, immediate_results)
+}
+
 pub(crate) struct SpawnParallelCollected {
     pub(crate) results: Vec<ParallelAgentResult>,
     pub(crate) failures: usize,

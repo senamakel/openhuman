@@ -129,6 +129,7 @@ pub struct TraceSpan {
 
 impl TraceSpan {
     /// Duration in milliseconds, or `None` while the span is still open.
+    #[cfg(test)]
     pub fn duration_ms(&self) -> Option<u64> {
         self.end_unix_ms
             .map(|end| end.saturating_sub(self.start_unix_ms))
@@ -194,6 +195,7 @@ impl SpanCollector {
     }
 
     /// Consume the collector and return its spans.
+    #[cfg(test)]
     pub fn into_spans(self) -> Vec<TraceSpan> {
         self.spans
     }

@@ -11,9 +11,9 @@ Three parallel progress paths exist: `OpenhumanEventBridge`
    projection through `OpenhumanEventBridge` (it already maps `AgentEvent` →
    `AgentProgress` + cost tracker). Child/sub-agent progress uses the
    scope-aware bridge.
-2. Move `engine/checkpoint.rs` (`CheckpointStrategy::on_max_iter`) into the
-   cap-pause path (`CapPauser` in `tinyagents/mod.rs`) — it's the only
-   consumer.
+2. Done: `engine/checkpoint.rs` is gone. `CapPauser` owns the graceful
+   max-iteration stop, and the remaining sub-agent checkpoint summary is
+   localized in `subagent_runner/ops/checkpoint.rs`.
 3. Sweep direct `publish_global(DomainEvent::Agent*)` calls on turn paths
    (session/turn, agent_tool_exec, orchestration tools) — emit through the
    bridge or a typed helper so ordering/rate-limiting is single-owner.
@@ -27,6 +27,8 @@ Three parallel progress paths exist: `OpenhumanEventBridge`
 
 - `src/openhuman/agent/harness/engine/` (entire dir: mod, checkpoint,
   progress — 309 lines).
+- Deleted: `engine/checkpoint.rs`; retain `engine/progress.rs` while
+  `ProgressReporter`/`TurnProgress` call sites remain.
 - Redundant publishes found in step 3.
 - Retain `agent/progress_tracing.rs` for now; delete only after journal-backed
   span export proves parity with the current config contract.

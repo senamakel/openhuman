@@ -45,7 +45,7 @@ pub type IterationCursor = Arc<AtomicU32>;
 /// checks pending steering at the top of each turn *before* the model-call limit
 /// check, so a `Pause` sent here short-circuits the loop cleanly. The caller then
 /// inspects the run's finish reason to decide whether to summarize a checkpoint
-/// — the tinyagents analogue of the legacy `CheckpointStrategy::on_max_iter`.
+/// — the tinyagents analogue of the legacy cap checkpoint seam.
 pub struct CapPauser {
     handle: SteeringHandle,
     cap: u32,

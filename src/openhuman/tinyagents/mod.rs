@@ -181,7 +181,7 @@ pub struct TinyagentsTurnOutcome {
     /// `true` when the run stopped because it reached the model-call cap with
     /// work still pending (the last response requested more tools). The caller
     /// should summarize a resumable checkpoint rather than treat `text` as a
-    /// final answer — the tinyagents analogue of `CheckpointStrategy::on_max_iter`.
+    /// final answer — the tinyagents analogue of the legacy cap checkpoint seam.
     pub hit_cap: bool,
     /// Per-tool-call execution outcomes (success + raw result content), keyed by
     /// provider call id, captured at the tool boundary. The harness folds a tool

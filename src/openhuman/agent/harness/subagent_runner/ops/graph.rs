@@ -25,7 +25,7 @@
 //! It mirrors the original seams: child progress deltas (`Subagent*` events incl.
 //! thinking), mid-flight steering, the `ask_user_clarification` early-exit pause,
 //! and a graceful model-call-cap checkpoint summary
-//! (`SubagentCheckpoint::on_max_iter`).
+//! (`SubagentCheckpoint::summarize_cap_hit`).
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -157,7 +157,7 @@ pub(super) async fn run_subagent_via_graph(
         // Pause + checkpoint when the child asks the user a clarifying question.
         &["ask_user_clarification"],
         // Pause gracefully at the model-call cap so we can summarize a resumable
-        // checkpoint (below) instead of erroring — legacy `on_max_iter` parity.
+        // checkpoint (below) instead of erroring — legacy cap-summary parity.
         true,
         // Bound the sub-agent's per-call output at its configured budget.
         Some(max_output_tokens),
@@ -215,7 +215,6 @@ pub(super) async fn run_subagent_via_graph(
     // checkpoint (the delegating agent continues from partial progress) rather
     // than surfacing an empty/partial answer — the legacy `SubagentCheckpoint`.
     if outcome.hit_cap {
-        use super::super::super::engine::CheckpointStrategy;
         let digest = build_cap_digest(&outcome.conversation);
         let strategy = super::checkpoint::SubagentCheckpoint {
             provider: summary_provider.as_ref(),
@@ -226,7 +225,7 @@ pub(super) async fn run_subagent_via_graph(
             // budget (the value this field replaced when it was hardcoded).
             max_output_tokens: crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS,
         };
-        match strategy.on_max_iter(&digest, max_iterations).await {
+        match strategy.summarize_cap_hit(&digest, max_iterations).await {
             Ok(co) => {
                 if let Some(u) = co.usage {
                     usage.input_tokens += u.input_tokens;

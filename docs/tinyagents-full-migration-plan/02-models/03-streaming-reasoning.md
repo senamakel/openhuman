@@ -10,10 +10,11 @@ tool-arg fragments. The out-of-band `ThinkingForwarder` is deletable.
    `MessageDelta::reasoning(...)` on the crate stream (today they bypass it).
 2. In `OpenhumanEventBridge` (`observability.rs`), source thinking-progress
    projection from the crate stream items instead of the forwarder.
-   KNOWN CRATE GAP: `AgentEvent::ModelDelta` payload has no reasoning field —
-   the bridge must tap the stream (or `StreamAccumulator`) not the event bus;
-   if that's too awkward, file/patch upstream (add reasoning to the event
-   payload) before deleting.
+   KNOWN CRATE GAP: the middleware-facing `harness::model::ModelDelta` has no
+   reasoning field, and the agent loop currently drops reasoning when converting
+   stream items into that middleware shape. `AgentEvent::ModelDelta` does carry
+   `MessageDelta.reasoning`, so the bridge can consume the event stream once the
+   provider adapter maps thinking deltas onto crate stream items.
 3. Map provider tool-call argument fragments onto `ToolCallDelta` for UI
    tool-timeline assembly.
 4. Verify sub-agent child thinking deltas still reach the scope-aware bridge

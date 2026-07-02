@@ -55,7 +55,7 @@ OpenHuman pins `tinyagents = { version = "1.3", features = ["sqlite"] }` (see [`
 - **`sqlite` feature enabled with one native sqlite chain.** OpenHuman's root and Tauri Cargo worlds pin `rusqlite = "=0.40.0"` and patch `rusqlite` / `libsqlite3-sys` locally to avoid the upstream `cfg_select!` build break on the current toolchain. Both worlds resolve to a single `libsqlite3-sys v0.38.0` chain. Durable graph checkpoints still run through [`SqlRunLedgerCheckpointer`](../../../src/openhuman/tinyagents/checkpoint.rs) until the migration re-points those rows to the crate checkpointer.
 - **WhatsApp Web storage bridge.** `whatsapp-rust`'s Diesel-backed `sqlite-storage` feature links sqlite separately from rusqlite 0.40, so the optional `whatsapp-web` feature currently builds against `wacore::store::InMemoryBackend` and logs that sessions are not durable. A rusqlite-backed durable WhatsApp store is required before treating Web sessions as persistent again.
 - **`repl` / expressive-language features unused.** OpenHuman drives graphs from Rust (`GraphBuilder`), not the crate's `.rag` REPL language.
-- **Adapter map (feature-gated SDK piece → OpenHuman replacement):** provider clients → `ProviderModel`; crate SQLite checkpointer rows not yet adopted → `SqlRunLedgerCheckpointer`; in-memory-only durable task storage → OpenHuman SQL/JSON run ledgers (`running_subagents`, `workflow_runs`, `agent_teams`, `command_center`). The generic harness/graph/middleware/event primitives are used as-is.
+- **Adapter map (feature-gated SDK piece → OpenHuman replacement):** provider clients → `ProviderModel`; crate SQLite checkpointer rows not yet adopted → `SqlRunLedgerCheckpointer`; task/status stores not yet controller-canonical → OpenHuman SQL/JSON run ledgers (`running_subagents`, `workflow_runs`, `agent_teams`, `command_center`). The generic harness/graph/middleware/event primitives are used as-is.
 
 Migration backlog and per-phase tasks live in [`docs/tinyagents-migration-spec.md`](../../../docs/tinyagents-migration-spec.md). The current harness inventory snapshot lives in [`docs/tinyagents-harness-migration-audit.md`](../../../docs/tinyagents-harness-migration-audit.md).
 
@@ -443,7 +443,7 @@ Every agent turn — chat (`harness/session/turn/core.rs`), channel/CLI (`harnes
 | `model.rs` / `tools.rs` / `convert.rs` | `ChatModel` / `Tool` / message adapters (incl. out-of-band reasoning forwarding and unknown-tool recovery). |
 | `observability.rs` | Harness `AgentEvent` → `AgentProgress` + cost; `GraphTracingSink` for graph events. |
 | `orchestration.rs` | `run_parallel_fanout` (the shared `dispatch → workers → collect` graph) + re-exported `graph::orchestration` task-store types. |
-| `checkpoint.rs` | `SqlRunLedgerCheckpointer` — a `Checkpointer` over openhuman's SQLite (`graph_checkpoints` table), since the crate's `SqliteCheckpointer` is dependency-blocked and it has no durable `TaskStore`. |
+| `checkpoint.rs` | `SqlRunLedgerCheckpointer` — a `Checkpointer` over openhuman's SQLite (`graph_checkpoints` table). TinyAgents 1.3 now ships `SqliteCheckpointer`; OpenHuman keeps this adapter until existing checkpoint rows are migrated or expired and schema ownership is settled. |
 | `delegation.rs` | The durable `plan → execute ⇄ review → finalize` delegation graph (production worker wired in `agent_orchestration::delegation`). |
 
 **Orchestration on graphs** (`src/openhuman/agent_orchestration/`):
@@ -451,14 +451,14 @@ Every agent turn — chat (`harness/session/turn/core.rs`), channel/CLI (`harnes
 - **Workflow phase DAG** (`workflow_runs/engine.rs`) runs on a `dispatch ⇄ run_phase → done` conditional-routing graph; each phase fans its agents out via `run_parallel_fanout`. The durable `workflow_runs` row stays the source of truth (controllers + resume read it).
 - **Team member runtime** (`agent_teams/graph.rs`) is a conditional-routing graph (`execute → complete|fail → done`).
 - **Multi-stage delegation** (`agent_orchestration::delegation` + the `delegate` tool) runs `delegation.rs`, checkpointed to the session DB.
-- **Detached sub-agents** (`running_subagents.rs`) track lifecycle on the crate's `InMemoryTaskStore`; the executor (abort/steer/await) stays bespoke because the store can't inject messages, block-await, or hard-abort a task.
+- **Detached sub-agents** (`running_subagents.rs`) track lifecycle through the crate task-store seam while OpenHuman keeps the executor (abort/steer/await) bespoke for controller compatibility, message injection, and user-facing hard-abort semantics.
 
 **Deliberately kept off the crate's primitives** (documented engineering decisions, not gaps):
 
 - **Sub-agent build pipeline** (`subagent_runner/`) — definition resolution, archetype tool filtering, provider resolution, narrow prompt building, memory context, worker-thread mirror, handoff cache, checkpoint/resume — stays openhuman-owned. Sub-agents already *execute* on the harness; the crate's generic `SubAgentTool` would discard this pipeline for marginal crate-native depth tracking (openhuman's `spawn_depth_context` already bounds recursion).
-- **Durable run ledgers** (`workflow_runs`, `agent_teams`, `command_center`, `subagent_sessions`) stay on openhuman SQLite/JSON: the pinned crate's only `TaskStore` is in-memory, so moving them would lose durability and diverge from the controllers that read them. The `agent_teams` race-safe SQL compare-and-swap task claim has no crate equivalent.
+- **Durable run ledgers** (`workflow_runs`, `agent_teams`, `command_center`, `subagent_sessions`) stay on openhuman SQLite/JSON until their controller projections and restart semantics are mapped onto TinyAgents task/status/journal records. The `agent_teams` race-safe SQL compare-and-swap task claim remains OpenHuman-owned.
 
-> **Note:** TinyAgents `main` (reviewed at `348a0e7`) has since grown harness store/cache/session primitives (`harness::store` with JSONL append stores, `harness::cache`, `harness::subagent`, lineage-aware status). The plan for migrating the session shell, sub-agent pipeline, and detached-task lifecycle onto those primitives lives in [`docs/tinyagents-harness-migration-audit.md`](../../../docs/tinyagents-harness-migration-audit.md).
+> **Note:** TinyAgents 1.3 ships harness store/cache/session primitives (`harness::store` with JSONL append stores, `harness::cache`, `harness::subagent`, lineage-aware status) plus graph task stores and conformance contracts. The plan for migrating the session shell, sub-agent pipeline, and detached-task lifecycle onto those primitives lives in [`docs/tinyagents-harness-migration-audit.md`](../../../docs/tinyagents-harness-migration-audit.md).
 
 ## See also
 

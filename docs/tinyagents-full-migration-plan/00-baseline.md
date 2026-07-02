@@ -1,5 +1,11 @@
 # 00 — Baseline: crate, features, native links
 
+Current status (2026-07-02): baseline dependency alignment is complete in both
+Cargo worlds. `tinyagents 1.3.0` is resolved with the `sqlite` feature,
+OpenHuman pins `rusqlite = "=0.40.0"`, both worlds patch through
+`vendor/rusqlite-0.40.0` and `vendor/libsqlite3-sys-0.38.0`, and the SDK-gaps
+inventory has been refreshed against the published 1.3.0 crate source.
+
 ## Steps
 
 1. **Bump `tinyagents` to `"1.3"`** (done in both Cargo worlds — root and
@@ -31,8 +37,8 @@
 6. Mark `docs/tinyagents-sdk-gaps.md` items 1, 2, 3, 4, 7, 10, 11, 12
    as shipped in 1.2.0–1.3.0 (verified against crate source); keep only the
    residuals, re-verified against 1.3.0: no free-form `ToolSchema` metadata
-   map, no reasoning field on `AgentEvent::ModelDelta` payload, no
-   `root_run_id` on `RunConfig`, no USD field on `Usage`.
+   map, no reasoning field on the middleware-facing `harness::model::ModelDelta`,
+   no `root_run_id` on `RunConfig`, no USD field on `Usage`.
 
 ## 1.3.0 delta (verified from the published crate source)
 
@@ -73,3 +79,11 @@ should use directly:
 - One duplicate-free `cargo tree -i libsqlite3-sys` per world, rooted at
   `vendor/libsqlite3-sys-0.38.0`.
 - Docs updated; sdk-gaps marked.
+
+Verified commands:
+
+- `cargo check --manifest-path Cargo.toml --message-format=short`
+- `cargo check --manifest-path Cargo.toml --all-features --message-format=short`
+- `cargo check --manifest-path app/src-tauri/Cargo.toml --message-format=short`
+- `cargo tree --manifest-path Cargo.toml --all-features -i libsqlite3-sys`
+- `cargo tree --manifest-path app/src-tauri/Cargo.toml --all-features -i libsqlite3-sys`

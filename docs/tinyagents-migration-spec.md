@@ -168,18 +168,15 @@ run-ledger rows, and prove restart/resume parity.
   - Acceptance: a TinyAgents tool call has enough metadata for middleware to
     enforce approval, security, timeout, concurrency, truncation, and display
     behavior without re-querying OpenHuman trait methods ad hoc.
-  - **SDK gap + side-lookup adapter:** crate `ToolSchema` carries only
-    name/description/parameters/format — it has **no** metadata/extension map and
-    `ToolExecutionContext` is run-scoped, so none of OpenHuman's safety/runtime
-    fields have a crate home. The adopted pattern is a shared
-    `name → Arc<dyn Tool>` lookup the runner builds from `tool_sets`; middleware
-    calls the (often args-aware) trait methods live. Landed uses of it:
-    `ApprovalSecurityMiddleware` reads `external_effect_with_args`;
-    `ToolOutputMiddleware` now honors each tool's own `max_result_size_chars()`
-    (was a flat hardcoded budget). Remaining fields (timeout, concurrency,
-    display, generated context) can ride the same lookup as their middlewares
-    land; full crate round-trip is blocked pending an SDK `ToolSchema` extension
-    map.
+  - **1.3 update:** crate `ToolPolicy`, `Tool::policy()`,
+    `ToolRegistry::policies()`, and `ToolPolicyMiddleware` now provide the
+    SDK-owned safety/runtime/access projection. `ToolSchema` still carries only
+    name/description/parameters/format — it has **no** model-visible
+    metadata/extension map — so OpenHuman should map enforcement fields into
+    `ToolPolicy` while keeping display/schema annotations as app-side metadata.
+    Existing side-lookup middleware (`ApprovalSecurityMiddleware`,
+    `ToolOutputMiddleware`) can shrink as those policy snapshots become the
+    source of truth.
 
 - [x] Move unknown-tool recovery into a reusable middleware or tool policy layer.
   - Current shim: `UNKNOWN_TOOL_SENTINEL` in `src/openhuman/tinyagents/tools.rs`.
@@ -188,15 +185,12 @@ run-ledger rows, and prove restart/resume parity.
   - Acceptance: hallucinated tool names remain recoverable, sub-agent wording is
     preserved, and TinyAgents event stream records the original requested tool
     name without exposing the sentinel as a model-visible tool.
-  - **Done:** `UnknownToolRewriteMiddleware` (`before_tool`) rewrites a call to
-    an unadvertised tool onto the sentinel at the tool boundary, before the
-    harness resolves it — removing the `valid_tools` plumbing from `ProviderModel`
-    (`with_valid_tools`, the field, and the `response_to_model_response` rewrite
-    all deleted). Sub-agent vs top-level wording is preserved by the sentinel
-    handler; the sentinel is still never advertised. SDK gaps: no
-    "tool-not-found → repair" hook (the sentinel handler must stay), and no
-    dedicated unknown-tool `AgentEvent` variant (recording the original name in
-    the crate event stream would need a manual `ToolStarted` — deferred).
+  - **1.3 update:** crate `RunPolicy.unknown_tool` now has
+    `UnknownToolPolicy::{Fail, ReturnToolError, Rewrite}` and emits
+    `AgentEvent::UnknownToolCall` with the original requested name/arguments.
+    The shipped `UnknownToolRewriteMiddleware` remains OpenHuman compatibility
+    glue until the runner switches to the crate policy and the sentinel handler
+    is deleted.
 
 - [x] Route approval and security through TinyAgents middleware.
   - Current OpenHuman files: `src/openhuman/approval/*`,

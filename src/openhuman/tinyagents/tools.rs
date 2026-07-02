@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
-    SandboxMode, Tool, ToolAccess, ToolCall as TaToolCall, ToolPolicy, ToolResult as TaToolResult,
-    ToolRuntime, ToolSchema, ToolSideEffects, WorkspaceAccess,
+    SandboxMode, Tool, ToolAccess, ToolCall as TaToolCall, ToolExecutionContext, ToolPolicy,
+    ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects, WorkspaceAccess,
 };
 
 /// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.
@@ -100,13 +100,22 @@ impl Tool<()> for ToolAdapter {
     }
 
     async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
-        Ok(execute_openhuman_tool(self.inner.as_ref(), call).await)
+        Ok(execute_openhuman_tool(self.inner.as_ref(), call, None).await)
+    }
+
+    async fn call_with_context(
+        &self,
+        _state: &(),
+        call: TaToolCall,
+        context: ToolExecutionContext,
+    ) -> tinyagents::Result<TaToolResult> {
+        Ok(execute_openhuman_tool(self.inner.as_ref(), call, Some(&context)).await)
     }
 }
 
 fn tool_policy_from_openhuman_tool(tool: &dyn crate::openhuman::tools::Tool) -> ToolPolicy {
-    use crate::openhuman::tools::traits::ToolTimeout;
     use crate::openhuman::tools::PermissionLevel;
+    use crate::openhuman::tools::traits::ToolTimeout;
 
     let permission = tool.permission_level();
     let external_effect = tool.external_effect();
@@ -162,10 +171,15 @@ fn tool_policy_from_openhuman_tool(tool: &dyn crate::openhuman::tools::Tool) -> 
 async fn execute_openhuman_tool(
     tool: &dyn crate::openhuman::tools::Tool,
     call: TaToolCall,
+    context: Option<&ToolExecutionContext>,
 ) -> TaToolResult {
+    let workspace_root = context
+        .and_then(|ctx| ctx.workspace.as_ref())
+        .map(|workspace| workspace.root.display().to_string());
     tracing::debug!(
         tool = %call.name,
         call_id = %call.id,
+        workspace_root = workspace_root.as_deref().unwrap_or("none"),
         "[tinyagents] executing openhuman tool via harness adapter"
     );
 
@@ -174,19 +188,20 @@ async fn execute_openhuman_tool(
     // short-circuits before this executor is reached.
     //
     // Execute through the session tool semantics the live path used
-    // (`agent_tool_exec`): `execute_with_options` (so markdown-capable tools
-    // render markdown) under the tool's resolved timeout deadline. Without the
-    // deadline an inherited/long-running tool call could hang the turn
-    // indefinitely. Per-call `ToolPolicy`/permission gating needs the session
-    // policy context, which the per-tool adapter does not carry; approval covers
-    // external effects, and `RunPolicy::unknown_tool` recovers unregistered
-    // tool names before execution reaches this adapter.
+    // (`agent_tool_exec`): `execute_with_context` (so markdown-capable tools
+    // render markdown and context-aware tools can see TinyAgents run metadata)
+    // under the tool's resolved timeout deadline. Without the deadline an
+    // inherited/long-running tool call could hang the turn indefinitely.
+    // Per-call `ToolPolicy`/permission gating needs the session policy context,
+    // which the per-tool adapter does not carry; approval covers external
+    // effects, and `RunPolicy::unknown_tool` recovers unregistered tool names
+    // before execution reaches this adapter.
     let options = crate::openhuman::tools::ToolCallOptions {
         prefer_markdown: true,
     };
     let (deadline, timeout_secs) =
         crate::openhuman::tool_timeout::resolve_tool_deadline(tool.timeout_policy(&call.arguments));
-    let exec = tool.execute_with_options(call.arguments.clone(), options);
+    let exec = tool.execute_with_context(call.arguments.clone(), options, context);
     let outcome = match deadline {
         Some(d) => match tokio::time::timeout(d, exec).await {
             Ok(r) => r,
@@ -307,6 +322,25 @@ impl Tool<()> for SharedToolAdapter {
     }
 
     async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
+        self.call_openhuman_tool(call, None).await
+    }
+
+    async fn call_with_context(
+        &self,
+        _state: &(),
+        call: TaToolCall,
+        context: ToolExecutionContext,
+    ) -> tinyagents::Result<TaToolResult> {
+        self.call_openhuman_tool(call, Some(&context)).await
+    }
+}
+
+impl SharedToolAdapter {
+    async fn call_openhuman_tool(
+        &self,
+        call: TaToolCall,
+        context: Option<&ToolExecutionContext>,
+    ) -> tinyagents::Result<TaToolResult> {
         let found = self
             .sets
             .iter()
@@ -314,7 +348,7 @@ impl Tool<()> for SharedToolAdapter {
             .find(|t| t.name() == self.name);
         match found {
             Some(tool) => {
-                let result = execute_openhuman_tool(tool.as_ref(), call).await;
+                let result = execute_openhuman_tool(tool.as_ref(), call, context).await;
                 // Early-exit (e.g. `ask_user_clarification`): on a successful
                 // call, record the question and pause so the runner can
                 // checkpoint and surface the prompt — matching the legacy seam.
@@ -343,8 +377,8 @@ impl Tool<()> for SharedToolAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::tools::traits::ToolTimeout;
     use crate::openhuman::tools::ToolResult as OhToolResult;
+    use crate::openhuman::tools::traits::ToolTimeout;
 
     /// A tool whose `execute_with_options` sleeps forever but declares a short
     /// per-call timeout, so the adapter's deadline must fire.

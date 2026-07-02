@@ -282,6 +282,22 @@ pub trait Tool: Send + Sync {
         self.execute(args).await
     }
 
+    /// Execute the tool with caller run context from TinyAgents.
+    ///
+    /// Default implementation forwards to [`Self::execute_with_options`], so
+    /// existing tools stay context-agnostic. Tools that need TinyAgents runtime
+    /// metadata, such as an isolated workspace descriptor, can override this
+    /// without widening [`ToolCallOptions`].
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        options: ToolCallOptions,
+        context: Option<&tinyagents::harness::tool::ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let _ = context;
+        self.execute_with_options(args, options).await
+    }
+
     /// Whether this tool can produce a markdown rendering when
     /// [`ToolCallOptions::prefer_markdown`] is set. Default: `false`.
     /// Tools that override [`Self::execute_with_options`] to honor the

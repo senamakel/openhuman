@@ -13,9 +13,9 @@ external sub-agent behavior. The live child turn loop is still
 steering, early exit, cap summaries, transcript persistence, and usage
 aggregation, but it is not yet a `SubAgentSession`/`subagent_node` graph
 implementation. The standalone `ops/usage.rs` glue file is deleted; the
-remaining `AggregatedUsage` bridge lives with the graph route that produces it.
-`subagent_runner/ops/` is now 2764 lines total, including 2682 lines across
-`runner`, `graph`, `provider`, `prompt`, `checkpoint`, and `handoff_helper`.
+remaining `AggregatedUsage` bridge lives with the graph route that produces it,
+and the oversized-result `apply_handoff` helper now lives beside
+`ResultHandoffCache` in `handoff.rs` instead of under `ops/`.
 
 ## Steps
 
@@ -36,7 +36,7 @@ remaining `AggregatedUsage` bridge lives with the graph route that produces it.
 3. Child lineage: run with parent depth/events (`invoke_in_parent`
    semantics) so `root_run_id` rollup + `SubAgentStarted/Completed/Reused`
    events are native; usage rollup via `ChildRun.usage` (feeds 06.3).
-4. Fold `ops/{provider,prompt,checkpoint,handoff_helper}.rs`
+4. Fold `ops/{provider,prompt,checkpoint}.rs`
    plumbing into node implementations; `ops/graph.rs` shrinks to the leaf.
 5. Reusable child sessions: map the follow-up/continue flows onto
    `SubAgentSession` (`send`, `transcript()`, `reset()`).
@@ -44,10 +44,10 @@ remaining `AggregatedUsage` bridge lives with the graph route that produces it.
 ## Deletions
 
 - Deleted: `subagent_runner/ops/usage.rs` glue.
-- Remaining: `subagent_runner/ops/handoff_helper.rs` glue; parts of
-  `ops/runner.rs`/`ops/graph.rs` absorbed by nodes (target: `ops/*` shrinks
-  from 2764 raw `ops/*.rs` lines + 1827 companion-test lines to policy nodes +
-  tests; whole `subagent_runner` subtree is 6102 lines).
+- Deleted: `subagent_runner/ops/handoff_helper.rs` glue; `apply_handoff` moved
+  to `subagent_runner/handoff.rs`.
+- Remaining: parts of `ops/runner.rs`/`ops/graph.rs` absorbed by nodes (target:
+  `ops/*` shrinks to policy nodes + tests).
 
 ## Acceptance
 

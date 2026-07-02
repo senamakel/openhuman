@@ -15,14 +15,11 @@
 //! | `prompt.rs`         | Role-contract suffix, `append_subagent_role_contract`, `dedup_tool_specs_by_name` |
 //! | `runner.rs`         | `run_subagent`, `run_typed_mode`                               |
 //! | `graph.rs`          | `run_subagent_via_graph` — the sub-agent turn graph + tools    |
-//! | `handoff_helper.rs` | `apply_handoff`                                                |
 //! | `checkpoint.rs`     | `SubagentCheckpoint`                                           |
 
 mod checkpoint;
 mod graph;
 pub(crate) use graph::run_agent_turn_request_via_default_graph;
-mod handoff_helper;
-pub(crate) use handoff_helper::apply_handoff;
 mod prompt;
 mod provider;
 mod runner;

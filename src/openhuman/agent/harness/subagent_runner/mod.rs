@@ -60,8 +60,7 @@ pub(crate) use tool_prep::build_text_mode_tool_instructions;
 // Progressive-disclosure handoff: the tinyagents `HandoffMiddleware` intercepts
 // oversized sub-agent tool results via `apply_handoff`, sharing the per-spawn
 // `ResultHandoffCache` with the `extract_from_result` tool.
-pub(crate) use handoff::ResultHandoffCache;
-pub(crate) use ops::apply_handoff;
+pub(crate) use handoff::{apply_handoff, ResultHandoffCache};
 pub(crate) use ops::run_agent_turn_request_via_default_graph;
 pub(crate) use ops::{append_subagent_role_contract, resolve_subagent_provider};
 

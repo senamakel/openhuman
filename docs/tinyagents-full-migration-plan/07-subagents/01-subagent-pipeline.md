@@ -3,6 +3,13 @@
 Convert `subagent_runner/` "prepare prompt → filter tools → run child →
 checkpoint/handback → mirror transcript" into an explicit graph.
 
+Current status (2026-07-02): `tinyagents/subagent_graph.rs` defines and exports
+the fixed pipeline topology, and `run_typed_mode` now runs that graph as a
+best-effort diagnostic skeleton before continuing through the procedural runner.
+The skeleton records the named phases with `GraphTracingSink`; the node effects
+remain pending and can be moved over one phase at a time without changing the
+external sub-agent behavior.
+
 ## Steps
 
 1. Define `build_subagent_pipeline_graph` (new

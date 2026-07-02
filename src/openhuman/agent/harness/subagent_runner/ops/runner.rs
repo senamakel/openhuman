@@ -261,6 +261,29 @@ async fn run_typed_mode(
     task_id: &str,
 ) -> Result<SubagentRunOutcome, SubagentRunError> {
     let started = Instant::now();
+    match crate::openhuman::tinyagents::subagent_graph::run_subagent_pipeline_skeleton(
+        &definition.id,
+        task_id,
+    )
+    .await
+    {
+        Ok(phases) => {
+            tracing::debug!(
+                agent_id = %definition.id,
+                task_id,
+                phases = ?phases,
+                "[subagent_runner:graph] sub-agent pipeline skeleton completed"
+            );
+        }
+        Err(err) => {
+            tracing::warn!(
+                agent_id = %definition.id,
+                task_id,
+                error = %err,
+                "[subagent_runner:graph] sub-agent pipeline skeleton failed; continuing procedural runner"
+            );
+        }
+    }
 
     // Resolve provider + model. See `resolve_subagent_provider` for the
     // semantics of each ModelSpec variant. `Config::load_or_init()` is

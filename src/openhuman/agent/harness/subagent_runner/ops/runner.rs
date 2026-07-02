@@ -11,10 +11,10 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::openhuman::agent::harness::definition::{
-    AgentDefinition, AgentDefinitionRegistry, AgentTier, IterationPolicy, PromptSource,
-    validate_tier_transition,
+    validate_tier_transition, AgentDefinition, AgentDefinitionRegistry, AgentTier, IterationPolicy,
+    PromptSource,
 };
-use crate::openhuman::agent::harness::fork_context::{ParentExecutionContext, current_parent};
+use crate::openhuman::agent::harness::fork_context::{current_parent, ParentExecutionContext};
 use crate::openhuman::agent::harness::subagent_runner::extract_tool::ExtractFromResultTool;
 use crate::openhuman::agent::harness::subagent_runner::handoff::ResultHandoffCache;
 use crate::openhuman::agent::harness::subagent_runner::tool_prep::{
@@ -25,10 +25,10 @@ use crate::openhuman::agent::harness::subagent_runner::types::{
     SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome,
 };
 use crate::openhuman::agent::harness::{
-    MAX_SPAWN_DEPTH, current_spawn_depth, with_current_sandbox_mode, with_spawn_depth,
+    current_spawn_depth, with_current_sandbox_mode, with_spawn_depth, MAX_SPAWN_DEPTH,
 };
 use crate::openhuman::context::prompt::{
-    PromptContext, PromptTool, SubagentRenderOptions, render_subagent_system_prompt,
+    render_subagent_system_prompt, PromptContext, PromptTool, SubagentRenderOptions,
 };
 use crate::openhuman::file_state::with_file_state_agent_id;
 use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
@@ -36,7 +36,7 @@ use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
 
 use super::prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
 use super::provider::{
-    LazyToolkitResolver, resolve_subagent_provider, user_is_signed_in_to_composio,
+    resolve_subagent_provider, user_is_signed_in_to_composio, LazyToolkitResolver,
 };
 
 /// Runtime spawn-hierarchy gate decision for one delegation hop.
@@ -61,7 +61,7 @@ use super::provider::{
 /// boot loader walk); a forbidden hop is logged and becomes a
 /// [`SubagentRunError::TierViolation`]. Logging lives here (rather than at the
 /// call site) so the deny path is exercised by this fn's unit tests.
-pub(crate) fn tier_gate_decision(
+pub(super) fn tier_gate_decision(
     parent_def: Option<&AgentDefinition>,
     child: &AgentDefinition,
     parent_agent_id: &str,
@@ -428,7 +428,7 @@ async fn run_typed_mode(
                 }
             };
 
-            use crate::openhuman::composio::client::{ComposioClientKind, create_composio_client};
+            use crate::openhuman::composio::client::{create_composio_client, ComposioClientKind};
             let client_kind = match create_composio_client(arc_config.as_ref()) {
                 Ok(k) => Some(k),
                 Err(e) => {

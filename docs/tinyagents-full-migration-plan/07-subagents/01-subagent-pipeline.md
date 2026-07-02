@@ -15,7 +15,7 @@ it. `subagent_runner/ops/` is now 2764 lines across `runner`, `graph`,
 
 ## Steps
 
-1. Define `build_subagent_pipeline_graph` (new
+1. Partially done: define `build_subagent_pipeline_graph` (now in
    `tinyagents/subagent_graph.rs` or under `subagent_runner/`): nodes
    `resolve_definition` (registry lookup + allowlist) → `prepare_context`
    (parent ctx, memory, action root, sandbox) → `assemble_prompt` →
@@ -23,15 +23,16 @@ it. `subagent_runner/ops/` is now 2764 lines across `runner`, `graph`,
    (harness leaf via `subagent_node` or direct
    `run_turn_via_tinyagents_shared`) → `finalize` (checkpoint/
    awaiting-user handback, worker-thread mirror, handoff cache).
-   Follow the established `build_*_graph` + `*_topology()` pattern; export
-   in `all_graph_topologies()`.
-2. `run_typed_mode` (`ops/runner.rs`, the single chokepoint) invokes the
-   compiled subgraph; `AgentGraph::Custom` runners plug in as alternate
-   `run_child` leaves.
+   Follow the established `build_*_graph` + `*_topology()` pattern; topology
+   export exists, but node effects are still diagnostic placeholders.
+2. Partially done: `run_typed_mode` (`ops/runner.rs`, the single chokepoint)
+   invokes the compiled subgraph for diagnostic tracing before continuing
+   through the procedural runner; `AgentGraph::Custom` runners still plug in as
+   alternate `run_child` leaves.
 3. Child lineage: run with parent depth/events (`invoke_in_parent`
    semantics) so `root_run_id` rollup + `SubAgentStarted/Completed/Reused`
    events are native; usage rollup via `ChildRun.usage` (feeds 06.3).
-4. Fold `ops/{provider,prompt,checkpoint,handoff_helper,usage}.rs`
+4. Fold `ops/{provider,prompt,checkpoint,handoff_helper}.rs`
    plumbing into node implementations; `ops/graph.rs` shrinks to the leaf.
 5. Reusable child sessions: map the follow-up/continue flows onto
    `SubAgentSession` (`send`, `transcript()`, `reset()`).
@@ -40,11 +41,12 @@ it. `subagent_runner/ops/` is now 2764 lines across `runner`, `graph`,
 
 - Deleted: `subagent_runner/ops/usage.rs` glue.
 - Remaining: `subagent_runner/ops/handoff_helper.rs` glue; parts of
-  `ops/runner.rs`/`ops/graph.rs` absorbed by nodes (target: dir shrinks from
-  2764 lines to policy nodes + tests).
+  `ops/runner.rs`/`ops/graph.rs` absorbed by nodes (target: `ops/*` shrinks
+  from 2764 production lines + 1827 companion-test lines to policy nodes +
+  tests; whole `subagent_runner` subtree is 6108 lines).
 
 ## Acceptance
 
-- Sub-agent e2e parity (ops_tests 1685-line suite green or rewritten
+- Sub-agent e2e parity (ops_tests 1689-line suite green or rewritten
   against graph events); topology export validates; checkpoint/handback
   and worker-thread mirroring unchanged from the outside.

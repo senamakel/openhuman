@@ -97,7 +97,7 @@ pub(crate) fn append_subagent_role_contract(base_prompt: String, agent_id: &str)
 ///
 /// Extracted as a free function so the regression suite can exercise the dedup
 /// without standing up the full `run_typed_mode` plumbing.
-pub(crate) fn dedup_tool_specs_by_name(agent_id: &str, specs: Vec<ToolSpec>) -> Vec<ToolSpec> {
+pub(super) fn dedup_tool_specs_by_name(agent_id: &str, specs: Vec<ToolSpec>) -> Vec<ToolSpec> {
     let mut seen: HashSet<String> = HashSet::with_capacity(specs.len());
     let mut deduped: Vec<ToolSpec> = Vec::with_capacity(specs.len());
     let mut dropped: Vec<String> = Vec::new();

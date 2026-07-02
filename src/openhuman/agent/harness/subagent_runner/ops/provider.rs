@@ -155,8 +155,8 @@ pub(crate) fn user_is_signed_in_to_composio(config: &crate::openhuman::config::C
 /// `composio.mode` toggle is honoured per execute — see
 /// [`crate::openhuman::composio::ComposioActionTool`] and issue #1710.
 pub(crate) struct LazyToolkitResolver {
-    pub(crate) config: std::sync::Arc<crate::openhuman::config::Config>,
-    pub(crate) actions: Vec<crate::openhuman::context::prompt::ConnectedIntegrationTool>,
+    pub(super) config: std::sync::Arc<crate::openhuman::config::Config>,
+    pub(super) actions: Vec<crate::openhuman::context::prompt::ConnectedIntegrationTool>,
 }
 
 /// Minimum normalized-slug length before the prefix/superstring tier in
@@ -279,7 +279,7 @@ impl LazyToolkitResolver {
 /// drift (`GOOGLESLIDES_BATCH_UPDATE` vs `googleslides_batch_update`) so
 /// near-miss tool slugs still resolve, while genuinely different slugs
 /// (e.g. a hallucinated `GMAIL_GET_LAST_3_MESSAGES`) stay distinct.
-pub(crate) fn normalize_slug(s: &str) -> String {
+pub(super) fn normalize_slug(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_ascii_alphanumeric())
         .map(|c| c.to_ascii_lowercase())

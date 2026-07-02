@@ -47,7 +47,8 @@ they land.
       (live recursion guard for nested delegation)
 - [ ] `harness/worktree_context.rs` (74) — 08.5
       (live crate-internal action-root override for parallel worktrees)
-- [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) — 08.4
+- [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) + five default-only
+      non-registry graph modules — 08.4
 - [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 250) — 04.3
       (live crate-internal adapter until crate checkpointer/schema migration
       replaces `graph_checkpoints`)

@@ -105,7 +105,7 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         id: "tinyplace_agent",
         toml: include_str!("../../tinyplace/agent/agent.toml"),
         prompt_fn: crate::openhuman::tinyplace::agent::prompt::build,
-        graph_fn: Some(crate::openhuman::tinyplace::agent::graph::graph),
+        graph_fn: None,
     },
     BuiltinAgent {
         id: "tools_agent",
@@ -267,25 +267,25 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         id: "skill_setup",
         toml: include_str!("../../skill_registry/agent/skill_setup/agent.toml"),
         prompt_fn: crate::openhuman::skill_registry::agent::skill_setup::prompt::build,
-        graph_fn: Some(crate::openhuman::skill_registry::agent::skill_setup::graph::graph),
+        graph_fn: None,
     },
     BuiltinAgent {
         id: "skill_executor",
         toml: include_str!("../../skill_runtime/agent/skill_executor/agent.toml"),
         prompt_fn: crate::openhuman::skill_runtime::agent::skill_executor::prompt::build,
-        graph_fn: Some(crate::openhuman::skill_runtime::agent::skill_executor::graph::graph),
+        graph_fn: None,
     },
     BuiltinAgent {
         id: "agent_memory",
         toml: include_str!("../../agent_memory/agent/agent.toml"),
         prompt_fn: crate::openhuman::agent_memory::agent::prompt::build,
-        graph_fn: Some(crate::openhuman::agent_memory::agent::graph::graph),
+        graph_fn: None,
     },
     BuiltinAgent {
         id: "subconscious",
         toml: include_str!("../../subconscious/agent/agent.toml"),
         prompt_fn: crate::openhuman::subconscious::agent::prompt::build,
-        graph_fn: Some(crate::openhuman::subconscious::agent::graph::graph),
+        graph_fn: None,
     },
 ];
 

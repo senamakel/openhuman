@@ -11,18 +11,20 @@ steer/collect lookup through `running_subagents`. The local
 `openhuman::tinyagents::orchestration` seam now re-exports `SteeringRegistry`,
 `TaskId`, `SteeringCommand`, and `SteeringHandle`, and sub-agent TinyAgents runs
 register their live `SteeringHandle` in a process-local `SteeringRegistry`
-while the run is active. The detached control lookup path still pushes into
-`RunQueue`. Do not delete the directory until detached controls look up crate
-`SteeringHandle`s directly via `SteeringRegistry`, and the web-channel
-followup/parallel lanes either have TinyAgents-owned equivalents or move into a
-web-channel-local queue.
+while the run is active. Detached `steer`/`collect` controls now prefer that
+registry handle and fall back to `RunQueue` when no handle is available. Do not
+delete the directory until the remaining detached control modes and the
+web-channel followup/parallel lanes either have TinyAgents-owned equivalents or
+move into local owners.
 The unused `DomainEvent::RunQueueMessageDelivered` projection has been removed;
 queued/interrupt/followup events remain live.
 
 1. Map product tools onto crate commands: `steer_subagent` →
-   `SteeringCommand::InjectMessage`/`Redirect` via the registered
-   `SteeringRegistry`; pause/resume/cancel → corresponding variants; keep
-   delivery-at-safe-boundaries semantics (crate drains before each model call).
+   `SteeringCommand::InjectMessage` via the registered `SteeringRegistry` is
+   live for active TinyAgents sub-agent runs, with `RunQueue` fallback. Next:
+   map redirect/pause/resume/cancel modes to corresponding variants while
+   preserving delivery-at-safe-boundaries semantics (crate drains before each
+   model call).
 2. Install a `SteeringPolicy` allowlist per run (e.g. background runs
    accept Cancel only).
 3. Accepted/rejected steering emits `AgentEvent::Steered`; the bridge now logs

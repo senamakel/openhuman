@@ -8,7 +8,10 @@
 //! Each running async sub-agent registers, keyed by its `task_id`, with:
 //! - an `Arc<RunQueue>` — the same steering channel the steering forwarder in
 //!   `run_turn_via_tinyagents_shared` drains mid-turn, so `steer_subagent` can
-//!   inject a message;
+//!   inject a message when no crate-native steering handle is registered;
+//! - a TinyAgents `SteeringHandle` in the process-local
+//!   `SteeringRegistry` while the child TinyAgents run is active, so
+//!   steer/collect controls can deliver directly to the crate queue;
 //! - a `watch::Receiver<SubagentStatus>` — so `wait_subagent` can block until the
 //!   child reaches a terminal status;
 //! - an `AbortHandle` — used by `subagent_cancel`/`close_subagent` paths to stop
@@ -42,10 +45,12 @@ use tokio::task::AbortHandle;
 
 use crate::openhuman::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
 use crate::openhuman::tinyagents::orchestration::{
-    InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter, OrchestrationTaskKind,
-    OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec, TaskStore,
+    shared_steering_registry, InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter,
+    OrchestrationTaskKind, OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
+    SteeringCommand, TaskStore,
 };
 use tinyagents::harness::ids::TaskId;
+use tinyagents::harness::message::Message as TaMessage;
 
 enum DetachedTaskStore {
     Durable(JsonlTaskStore),
@@ -541,9 +546,33 @@ pub enum SteerError {
     AlreadyDone,
 }
 
-/// Inject a message into a running sub-agent's steering queue. The steering
-/// forwarder in the child's `run_turn_via_tinyagents_shared` turn drains it
-/// mid-flight.
+fn steering_command_for_mode(mode: QueueMode, text: String) -> Option<SteeringCommand> {
+    match mode {
+        QueueMode::Steer => Some(SteeringCommand::InjectMessage(TaMessage::user(format!(
+            "[User steering message]: {text}"
+        )))),
+        QueueMode::Collect => Some(SteeringCommand::InjectMessage(TaMessage::user(format!(
+            "[Additional context from user]: {text}"
+        )))),
+        QueueMode::Interrupt | QueueMode::Followup | QueueMode::Parallel => None,
+    }
+}
+
+fn send_registered_steering(task_id: &str, text: String, mode: QueueMode) -> bool {
+    let Some(command) = steering_command_for_mode(mode, text) else {
+        return false;
+    };
+    let task_id = TaskId::new(task_id);
+    let Some(handle) = shared_steering_registry().get(&task_id) else {
+        return false;
+    };
+    handle.send(command);
+    true
+}
+
+/// Inject a message into a running sub-agent. Prefer the crate-native
+/// TinyAgents steering registry when the child run has registered its live
+/// handle, and fall back to the OpenHuman `RunQueue` compatibility path.
 pub async fn steer(
     task_id: &str,
     parent_session: &str,
@@ -561,6 +590,15 @@ pub async fn steer(
         }
         entry.run_queue.clone()
     };
+
+    if send_registered_steering(task_id, text.clone(), mode) {
+        log::info!(
+            "[running_subagents] steered task_id={} mode={} via=tinyagents_registry",
+            task_id,
+            mode
+        );
+        return Ok(());
+    }
 
     run_queue
         .push(QueuedMessage {
@@ -602,6 +640,15 @@ pub(crate) async fn steer_control(
         }
         entry.run_queue.clone()
     };
+
+    if send_registered_steering(task_id, text.clone(), mode) {
+        log::info!(
+            "[running_subagents] control_steered task_id={} mode={} via=tinyagents_registry",
+            task_id,
+            mode
+        );
+        return Ok(());
+    }
 
     run_queue
         .push(QueuedMessage {
@@ -807,7 +854,7 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::tinyagents::orchestration::OrchestrationTaskStatus;
+    use crate::openhuman::tinyagents::orchestration::{OrchestrationTaskStatus, SteeringHandle};
     use std::sync::MutexGuard;
 
     /// Serializes every test that touches the global [`REGISTRY`]. We reuse the
@@ -1050,6 +1097,43 @@ mod tests {
             iterations: 1,
         });
         prune("task-steer");
+    }
+
+    #[tokio::test]
+    async fn steer_prefers_registered_tinyagents_handle() {
+        let _guard = test_guard();
+        let rq = RunQueue::new();
+        let tx = register_test("task-registered-steer", "session-A", rq.clone());
+        let handle = SteeringHandle::allow_all();
+        let task_id = TaskId::new("task-registered-steer");
+        shared_steering_registry().register(task_id.clone(), handle.clone());
+
+        steer(
+            "task-registered-steer",
+            "session-A",
+            "refocus".into(),
+            QueueMode::Steer,
+        )
+        .await
+        .expect("steer should succeed");
+
+        let status = rq.status().await;
+        assert_eq!(status.steers, 0, "registered handle bypasses RunQueue");
+        let commands = handle.drain();
+        assert_eq!(commands.len(), 1);
+        match &commands[0] {
+            SteeringCommand::InjectMessage(message) => {
+                assert_eq!(message.text(), "[User steering message]: refocus");
+            }
+            other => panic!("expected injected steering message, got {other:?}"),
+        }
+
+        let _ = shared_steering_registry().deregister(&task_id);
+        let _ = tx.send(SubagentStatus::Completed {
+            output: "done".into(),
+            iterations: 1,
+        });
+        prune("task-registered-steer");
     }
 
     #[tokio::test]

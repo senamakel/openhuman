@@ -65,12 +65,11 @@ use super::definition::AgentDefinition;
 use super::fork_context::{current_parent, ParentExecutionContext};
 use super::subagent_runner;
 
-/// Outcome returned by [`PayloadSummarizer::maybe_summarize`].
+/// Outcome returned by [`PayloadSummarizer::maybe_summarize_in_parent`].
 ///
-/// `Ok(None)` from `maybe_summarize` means the caller should keep the
-/// raw payload unchanged. `Ok(Some(...))` means the caller should
-/// replace the raw payload with [`SummarizedPayload::summary`] before
-/// appending it to agent history.
+/// `Ok(None)` means the caller should keep the raw payload unchanged.
+/// `Ok(Some(...))` means the caller should replace the raw payload with
+/// [`SummarizedPayload::summary`] before appending it to agent history.
 #[derive(Debug, Clone)]
 pub struct SummarizedPayload {
     /// The compressed summary text. Replaces the raw tool output.

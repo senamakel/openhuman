@@ -2,18 +2,17 @@
 //!
 //! The council runs N member models concurrently, then a chair synthesizes their
 //! answers. Historically the fan-out was a hand-rolled `join_all`, then a local
-//! dispatch/worker/collect graph. This module now routes the map half through
-//! `openhuman::tinyagents::orchestration::run_parallel_fanout`, which is backed
-//! by `tinyagents::graph::parallel::map_reduce`. The chair synthesis stays
+//! dispatch/worker/collect graph. This module now routes the map half directly
+//! through `tinyagents::graph::parallel::map_reduce`. The chair synthesis stays
 //! outside the map step because it is a single sequential call.
 
 use std::future::Future;
 use std::sync::Arc;
+use tinyagents::graph::parallel::{FailurePolicy, ParallelOptions, map_reduce};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::tinyagents::orchestration::run_parallel_fanout;
 
-use super::council::{run_member_answer_inner, CouncilMemberResult};
+use super::council::{CouncilMemberResult, run_member_answer_inner};
 
 /// Run the council member fan-out and return member results in seat order.
 pub async fn run_council_members_via_graph(
@@ -45,12 +44,35 @@ where
         members = n,
         "[model-council] running member fan-out on tinyagents map_reduce"
     );
-    run_parallel_fanout("model_council", models, n.max(1), move |_i, model| {
+    let options = ParallelOptions::default()
+        .with_max_concurrency(n.max(1))
+        .with_failure_policy(FailurePolicy::CollectAll);
+    let outcome = map_reduce(models, options, move |_i, model| {
         let run_one = run_one.clone();
-        async move { run_one(model).await }
+        async move { Ok(run_one(model).await) }
     })
     .await
-    .map_err(|e| format!("council fan-out failed: {e}"))
+    .map_err(|e| format!("council fan-out failed: {e}"))?;
+
+    let mut results = Vec::with_capacity(n);
+    for item in outcome.outcomes {
+        match item.result {
+            Ok(value) => results.push(value),
+            Err(err) => {
+                return Err(format!(
+                    "council fan-out: worker {} failed: {err}",
+                    item.index
+                ));
+            }
+        }
+    }
+    if results.len() != n {
+        return Err(format!(
+            "council fan-out: expected {n} result(s), got {}",
+            results.len()
+        ));
+    }
+    Ok(results)
 }
 
 #[cfg(test)]

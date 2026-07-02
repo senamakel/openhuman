@@ -7,6 +7,7 @@
 //! 02-spawn-parallel-graph.md`.
 
 use tinyagents::graph::export::GraphTopology;
+use tinyagents::graph::parallel::{FailurePolicy, ParallelOptions, map_reduce};
 use tinyagents::graph::{
     ClosureStateReducer, CompiledGraph, GraphBuilder, NodeContext, NodeResult,
 };
@@ -761,18 +762,44 @@ pub(crate) async fn run_spawn_parallel_workers(
     prepared: Vec<SpawnParallelWorker>,
     action_root: Option<PathBuf>,
 ) -> Result<Vec<ParallelAgentResult>, String> {
+    let n = prepared.len();
     let max_concurrency = prepared.len().max(1);
     let action_root_for_workers = action_root.clone();
-    crate::openhuman::tinyagents::orchestration::run_parallel_fanout(
-        "spawn_parallel_agents",
-        prepared,
+    tracing::debug!(
+        target: "orchestration",
+        workers = n,
         max_concurrency,
-        move |_i, worker| {
-            let repo_root = action_root_for_workers.clone();
-            async move { run_one_parallel_task(worker, repo_root).await }
-        },
-    )
+        "[orchestration] running parallel fan-out on tinyagents map_reduce (spawn_parallel_agents)"
+    );
+    let options = ParallelOptions::default()
+        .with_max_concurrency(max_concurrency)
+        .with_failure_policy(FailurePolicy::CollectAll);
+    let outcome = map_reduce(prepared, options, move |_i, worker| {
+        let repo_root = action_root_for_workers.clone();
+        async move { Ok(run_one_parallel_task(worker, repo_root).await) }
+    })
     .await
+    .map_err(|e| format!("spawn_parallel_agents fan-out map_reduce failed: {e}"))?;
+
+    let mut results = Vec::with_capacity(n);
+    for item in outcome.outcomes {
+        match item.result {
+            Ok(value) => results.push(value),
+            Err(err) => {
+                return Err(format!(
+                    "spawn_parallel_agents fan-out: worker {} failed: {err}",
+                    item.index
+                ));
+            }
+        }
+    }
+    if results.len() != n {
+        return Err(format!(
+            "spawn_parallel_agents fan-out: expected {n} result(s), got {}",
+            results.len()
+        ));
+    }
+    Ok(results)
 }
 
 async fn run_one_parallel_task(

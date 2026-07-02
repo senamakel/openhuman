@@ -31,14 +31,15 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use anyhow::{anyhow, Context, Result};
-use serde_json::{json, Value};
+use anyhow::{Context, Result, anyhow};
+use serde_json::{Value, json};
+use tinyagents::graph::parallel::{FailurePolicy, ParallelOptions, map_reduce};
 
 use crate::openhuman::agent::harness::fork_context::with_parent_context;
 use crate::openhuman::agent_orchestration::parent_context::build_root_parent;
 use crate::openhuman::config::Config;
 use crate::openhuman::session_db::run_ledger::{
-    get_workflow_run, upsert_workflow_run, WorkflowRun, WorkflowRunStatus, WorkflowRunUpsert,
+    WorkflowRun, WorkflowRunStatus, WorkflowRunUpsert, get_workflow_run, upsert_workflow_run,
 };
 
 use super::ops::definition_by_id;
@@ -519,111 +520,136 @@ pub(super) async fn execute_phase(
         let upstream_owned = upstream_context.clone();
         let model_for_workers = model_override.clone();
 
-        let outcomes = crate::openhuman::tinyagents::orchestration::run_parallel_fanout(
-            &format!("workflow:{run_id}:{}", phase_owned.name),
-            to_run,
-            concurrency,
-            move |_node, (agent_index, agent_id)| {
-                let session = session_for_workers.clone();
-                let cancel = cancel_for_workers.clone();
-                let run_input = run_input.clone();
-                let phase = phase_owned.clone();
-                let upstream = upstream_owned.clone();
-                let model = model_for_workers.clone();
-                async move {
-                    // Don't launch new children once cancellation has landed.
-                    if cancel.load(Ordering::SeqCst) {
-                        return PhaseWorkerOutcome {
+        tracing::debug!(
+            target: "orchestration",
+            workers = to_run.len(),
+            max_concurrency = concurrency,
+            "[orchestration] running parallel fan-out on tinyagents map_reduce (workflow:{run_id}:{})",
+            phase_owned.name
+        );
+        let expected_outcomes = to_run.len();
+        let options = ParallelOptions::default()
+            .with_max_concurrency(concurrency)
+            .with_failure_policy(FailurePolicy::CollectAll);
+        let outcome = map_reduce(to_run, options, move |_node, (agent_index, agent_id)| {
+            let session = session_for_workers.clone();
+            let cancel = cancel_for_workers.clone();
+            let run_input = run_input.clone();
+            let phase = phase_owned.clone();
+            let upstream = upstream_owned.clone();
+            let model = model_for_workers.clone();
+            async move {
+                // Don't launch new children once cancellation has landed.
+                if cancel.load(Ordering::SeqCst) {
+                    return Ok(PhaseWorkerOutcome {
+                        orchestration_id: None,
+                        output: None,
+                        error: Some("cancelled before spawn".to_string()),
+                    });
+                }
+                let prompt = phase_prompt(&run_input, &phase, agent_index, &upstream);
+                let resp = match session
+                    .spawn_agent(SpawnAgentRequest {
+                        agent_id: agent_id.clone(),
+                        prompt,
+                        model,
+                        ..Default::default()
+                    })
+                    .await
+                {
+                    Ok(resp) => resp,
+                    Err(err) => {
+                        return Ok(PhaseWorkerOutcome {
                             orchestration_id: None,
                             output: None,
-                            error: Some("cancelled before spawn".to_string()),
-                        };
+                            error: Some(format!("spawn failed for agent '{agent_id}': {err}")),
+                        });
                     }
-                    let prompt = phase_prompt(&run_input, &phase, agent_index, &upstream);
-                    let resp = match session
-                        .spawn_agent(SpawnAgentRequest {
-                            agent_id: agent_id.clone(),
-                            prompt,
-                            model,
-                            ..Default::default()
-                        })
-                        .await
-                    {
-                        Ok(resp) => resp,
-                        Err(err) => {
-                            return PhaseWorkerOutcome {
-                                orchestration_id: None,
-                                output: None,
-                                error: Some(format!("spawn failed for agent '{agent_id}': {err}")),
-                            };
-                        }
-                    };
-                    let oid = resp.orchestration_id.clone();
-                    let wait = match session
-                        .wait_agents(WaitAgentOptions {
-                            orchestration_ids: vec![oid.clone()],
-                            timeout_ms: None,
-                        })
-                        .await
-                    {
-                        Ok(w) => w,
-                        Err(err) => {
-                            return PhaseWorkerOutcome {
-                                orchestration_id: Some(oid),
-                                output: None,
-                                error: Some(format!("wait_agents failed: {err}")),
-                            };
-                        }
-                    };
-                    match wait.agents.into_iter().next() {
-                        Some(s) => match s.status {
-                            AgentStatus::Completed => PhaseWorkerOutcome {
-                                orchestration_id: Some(oid),
-                                output: Some(json!({
-                                    "orchestrationId": s.orchestration_id,
-                                    "agentId": s.agent_id,
-                                    "output": s.result_summary.clone().unwrap_or_default(),
-                                })),
-                                error: None,
-                            },
-                            AgentStatus::Failed | AgentStatus::Cancelled | AgentStatus::Closed => {
-                                PhaseWorkerOutcome {
-                                    orchestration_id: Some(oid),
-                                    output: None,
-                                    error: Some(format!(
-                                        "child '{}' (agent '{}') ended {}: {}",
-                                        s.orchestration_id,
-                                        s.agent_id,
-                                        serde_json::to_value(s.status)
-                                            .ok()
-                                            .and_then(|v| v.as_str().map(str::to_string))
-                                            .unwrap_or_else(|| "non-completed".to_string()),
-                                        s.error.clone().unwrap_or_default()
-                                    )),
-                                }
-                            }
-                            AgentStatus::Pending | AgentStatus::Running | AgentStatus::Waiting => {
-                                PhaseWorkerOutcome {
-                                    orchestration_id: Some(oid),
-                                    output: None,
-                                    error: Some(format!(
-                                        "child '{}' returned non-terminal status",
-                                        s.orchestration_id
-                                    )),
-                                }
-                            }
-                        },
-                        None => PhaseWorkerOutcome {
+                };
+                let oid = resp.orchestration_id.clone();
+                let wait = match session
+                    .wait_agents(WaitAgentOptions {
+                        orchestration_ids: vec![oid.clone()],
+                        timeout_ms: None,
+                    })
+                    .await
+                {
+                    Ok(w) => w,
+                    Err(err) => {
+                        return Ok(PhaseWorkerOutcome {
                             orchestration_id: Some(oid),
                             output: None,
-                            error: Some("child returned no snapshot".to_string()),
-                        },
+                            error: Some(format!("wait_agents failed: {err}")),
+                        });
                     }
-                }
-            },
-        )
+                };
+                Ok(match wait.agents.into_iter().next() {
+                    Some(s) => match s.status {
+                        AgentStatus::Completed => PhaseWorkerOutcome {
+                            orchestration_id: Some(oid),
+                            output: Some(json!({
+                                "orchestrationId": s.orchestration_id,
+                                "agentId": s.agent_id,
+                                "output": s.result_summary.clone().unwrap_or_default(),
+                            })),
+                            error: None,
+                        },
+                        AgentStatus::Failed | AgentStatus::Cancelled | AgentStatus::Closed => {
+                            PhaseWorkerOutcome {
+                                orchestration_id: Some(oid),
+                                output: None,
+                                error: Some(format!(
+                                    "child '{}' (agent '{}') ended {}: {}",
+                                    s.orchestration_id,
+                                    s.agent_id,
+                                    serde_json::to_value(s.status)
+                                        .ok()
+                                        .and_then(|v| v.as_str().map(str::to_string))
+                                        .unwrap_or_else(|| "non-completed".to_string()),
+                                    s.error.clone().unwrap_or_default()
+                                )),
+                            }
+                        }
+                        AgentStatus::Pending | AgentStatus::Running | AgentStatus::Waiting => {
+                            PhaseWorkerOutcome {
+                                orchestration_id: Some(oid),
+                                output: None,
+                                error: Some(format!(
+                                    "child '{}' returned non-terminal status",
+                                    s.orchestration_id
+                                )),
+                            }
+                        }
+                    },
+                    None => PhaseWorkerOutcome {
+                        orchestration_id: Some(oid),
+                        output: None,
+                        error: Some("child returned no snapshot".to_string()),
+                    },
+                })
+            }
+        })
         .await
-        .map_err(|e| anyhow!(e))?;
+        .map_err(|e| anyhow!("workflow fan-out failed: {e}"))?;
+
+        let mut outcomes = Vec::with_capacity(expected_outcomes);
+        for item in outcome.outcomes {
+            match item.result {
+                Ok(value) => outcomes.push(value),
+                Err(err) => {
+                    return Err(anyhow!(
+                        "workflow fan-out: worker {} failed: {err}",
+                        item.index
+                    ));
+                }
+            }
+        }
+        if outcomes.len() != expected_outcomes {
+            return Err(anyhow!(
+                "workflow fan-out: expected {expected_outcomes} result(s), got {}",
+                outcomes.len()
+            ));
+        }
 
         // Aggregate worker outcomes in phase order: record every spawned
         // child id, collect completed outputs, and surface the first failure.

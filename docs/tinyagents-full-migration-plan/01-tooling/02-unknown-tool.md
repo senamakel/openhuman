@@ -30,4 +30,5 @@ sentinel/middleware symbols are gone from source.
 - Hallucinated tool name -> recoverable tool error, run continues; event
   stream records the original requested name; no sentinel appears in
   transcripts or advertised schemas.
-- Sub-agent and top-level wording parity tests green.
+- Sub-agent and top-level tests accept TinyAgents' fixed recoverable-tool-error
+  wording while preserving the original requested tool name in events/logs.

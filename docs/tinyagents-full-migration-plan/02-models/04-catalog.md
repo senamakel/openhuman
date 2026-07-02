@@ -12,7 +12,11 @@ Current status (2026-07-02): `cost/catalog.rs` is a 622-line static pricing and
 window table plus registry-enrichment/estimate helpers. The unused
 `context_window` convenience wrapper is gone, the raw pricing table is private,
 and `context_window_for_model` now consults the richer `lookup` row for concrete
-model ids before falling back to legacy model-context patterns.
+model ids before falling back to legacy model-context patterns. OpenHuman's
+`ModelPrice` currently has input, cached-input, and output rates; TinyAgents
+`ModelPricing` also models cache-creation and reasoning-token rates, so the
+projection must preserve those gaps explicitly rather than pretending the local
+table is already a complete crate catalog.
 
 ## Steps
 

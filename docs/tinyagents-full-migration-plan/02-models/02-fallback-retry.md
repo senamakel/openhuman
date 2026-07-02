@@ -11,7 +11,9 @@ configured retries and model fallbacks, and `run_policy_for` explicitly sets
 `policy.retry.max_attempts = 1` so TinyAgents does not double-retry while that
 wrapper owns reliability. Deletion is blocked on moving the configured fallback
 chain into registered crate model routes plus event-visible retry/fallback
-parity.
+parity. TinyAgents 1.3.0 `RunPolicy::fallback` can retry fallback model routes,
+but it does not by itself emit the OpenHuman `FallbackSelected` parity signal;
+that event parity requires `ModelFallbackMiddleware` or an equivalent bridge.
 
 ## Steps
 

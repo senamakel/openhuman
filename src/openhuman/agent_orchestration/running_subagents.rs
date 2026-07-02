@@ -11,7 +11,8 @@
 //!   inject a message;
 //! - a `watch::Receiver<SubagentStatus>` — so `wait_subagent` can block until the
 //!   child reaches a terminal status;
-//! - an `AbortHandle` — kept for a future `close_agent` tool.
+//! - an `AbortHandle` — used by `subagent_cancel`/`close_subagent` paths to stop
+//!   detached work.
 //!
 //! Ownership is enforced: only the spawning parent (matched by `parent_session`)
 //! may steer or wait on a given sub-agent. Terminal entries are pruned on `wait`,
@@ -702,9 +703,9 @@ pub(crate) struct CancelledSubagent {
 /// caller can deliver a "cancelled" notice into the parent chat. Returns `None`
 /// if no such sub-agent is registered (already finished, or unknown id).
 ///
-/// Unlike [`close`], this is keyed by `task_id` alone with no parent-session
-/// ownership check — it backs the user-facing "Cancel" affordance, and the
-/// desktop user owns every sub-agent in their own core.
+/// Unlike the parent-session-owned steering and close paths, this is keyed by
+/// `task_id` alone with no ownership check — it backs the user-facing "Cancel"
+/// affordance, and the desktop user owns every sub-agent in their own core.
 pub(crate) fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
     let entry = map.remove(task_id)?;

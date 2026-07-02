@@ -22,7 +22,9 @@ the tinyagents adapter.
    stream, and `OpenhumanEventBridge` (`observability.rs`) projects
    `delta.reasoning` into OpenHuman progress events.
 2. Map provider tool-call argument fragments onto `ToolCallDelta` for UI
-   tool-timeline assembly.
+   tool-timeline assembly. TinyAgents 1.3.0 `ToolDelta` currently carries
+   `call_id` and `content`; OpenHuman still needs the `tool_name`/start-event
+   timeline contract before the forwarder can be removed for tool arguments.
 3. Verify sub-agent child thinking deltas still reach the scope-aware bridge
    (parity with the current forwarder behavior).
 
@@ -37,5 +39,6 @@ the tinyagents adapter.
 ## Acceptance
 
 - UI receives visible-text, reasoning, and tool-arg deltas from crate stream
-  items alone; streaming e2e (chat + sub-agent) green.
+  items alone, including `tool_name`/start-event semantics; streaming e2e (chat
+  - sub-agent) green.
 - Non-streaming providers emit post-hoc reasoning once.

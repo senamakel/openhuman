@@ -8,11 +8,14 @@ the fixed pipeline topology, and `run_typed_mode` now runs that graph as a
 best-effort diagnostic skeleton before continuing through the procedural runner.
 The skeleton records the named phases with `GraphTracingSink`; the node effects
 remain pending and can be moved over one phase at a time without changing the
-external sub-agent behavior. The standalone `ops/usage.rs` glue file is deleted;
-the remaining `AggregatedUsage` bridge lives with the graph route that produces
-it. `subagent_runner/ops/` is now 2764 lines total, including 2682 lines
-across `runner`, `graph`, `provider`, `prompt`, `checkpoint`, and
-`handoff_helper`.
+external sub-agent behavior. The live child turn loop is still
+`run_subagent_via_graph`: it already uses the shared TinyAgents harness for
+steering, early exit, cap summaries, transcript persistence, and usage
+aggregation, but it is not yet a `SubAgentSession`/`subagent_node` graph
+implementation. The standalone `ops/usage.rs` glue file is deleted; the
+remaining `AggregatedUsage` bridge lives with the graph route that produces it.
+`subagent_runner/ops/` is now 2764 lines total, including 2682 lines across
+`runner`, `graph`, `provider`, `prompt`, `checkpoint`, and `handoff_helper`.
 
 ## Steps
 

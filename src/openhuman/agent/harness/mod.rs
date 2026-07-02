@@ -43,7 +43,7 @@ pub(crate) mod tool_filter;
 pub(crate) mod tool_result_artifacts;
 pub mod turn_attachments_context;
 pub mod turn_subagent_usage;
-pub mod worktree_context;
+mod worktree_context;
 
 pub use agent_graph::{AgentGraph, AgentTurnRequest, AgentTurnResult, AgentTurnUsage};
 pub use definition::{
@@ -59,7 +59,7 @@ pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
 pub(crate) use spawn_depth_context::{current_spawn_depth, with_spawn_depth, MAX_SPAWN_DEPTH};
 pub use subagent_runner::{run_subagent, SubagentRunError, SubagentRunOptions};
 pub use task_recency_context::{current_task_recency_window, with_task_recency_window};
-pub use worktree_context::{current_action_dir_override, with_action_dir_override};
+pub(crate) use worktree_context::{current_action_dir_override, with_action_dir_override};
 
 pub(crate) use graph::run_channel_turn_via_graph;
 pub(crate) use instructions::build_tool_instructions_filtered;

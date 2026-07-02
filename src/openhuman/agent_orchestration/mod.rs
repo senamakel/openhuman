@@ -23,7 +23,7 @@ pub mod command_center;
 pub mod delegation;
 mod ops;
 pub(crate) mod parent_context;
-pub mod run_ledger_finalize;
+pub(crate) mod run_ledger_finalize;
 pub mod running_subagents;
 pub(crate) mod spawn_parallel_graph;
 pub mod subagent_control;

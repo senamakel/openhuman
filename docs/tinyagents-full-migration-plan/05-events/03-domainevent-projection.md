@@ -7,7 +7,8 @@ as compatibility projections fed from crate events, never as primary state.
 
 1. Catalog current agent-domain `DomainEvent` publishers/subscribers
    (`agent/bus.rs`, triage, task_dispatcher, orchestration
-   background_delivery/run_ledger_finalize). For each event that mirrors a
+   background_delivery/run_ledger_finalize). The run-ledger finalizer subscriber
+   is now crate-internal registration glue. For each event that mirrors a
    crate `AgentEvent`/`GraphEvent`, source it from the journal/bridge.
    Events with no crate analogue (triage decisions, channel routing) stay
    native DomainEvents — they are product semantics.

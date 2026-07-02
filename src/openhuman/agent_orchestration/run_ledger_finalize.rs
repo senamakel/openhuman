@@ -99,7 +99,7 @@ impl EventHandler for RunLedgerFinalizeSubscriber {
 /// Register the run-ledger finalizer on the global event bus. Leaks the
 /// subscription handle so it lives for the whole process (its `Drop` would
 /// cancel the subscriber). Called once from `register_domain_subscribers`.
-pub fn register_run_ledger_finalize_subscriber(config: &Config) {
+pub(crate) fn register_run_ledger_finalize_subscriber(config: &Config) {
     if let Some(handle) = subscribe_global(Arc::new(RunLedgerFinalizeSubscriber {
         config: config.clone(),
     })) {

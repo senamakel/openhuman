@@ -10,6 +10,7 @@
 //! is an explicit command, never a boot hook.
 
 mod convert;
+pub mod live;
 pub mod ops;
 mod scan;
 mod schemas;

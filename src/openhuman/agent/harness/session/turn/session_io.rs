@@ -236,12 +236,84 @@ impl Agent {
             task_id: None,
         };
 
-        if let Err(err) = transcript::write_transcript(path, messages, &meta, turn_usage) {
+        match transcript::write_transcript(path, messages, &meta, turn_usage) {
+            Ok(()) => {
+                // Best-effort, non-fatal dual-write into the TinyAgents store,
+                // behind `OPENHUMAN_SESSION_DUAL_WRITE` (default OFF). Only runs
+                // after the legacy JSONL append above succeeds; the legacy path
+                // is primary and untouched (issue #4249, 04.1).
+                self.maybe_dual_write_session_store(path, messages, &meta, turn_usage);
+            }
+            Err(err) => {
+                log::warn!(
+                    "[transcript] failed to write transcript {}: {err}",
+                    path.display()
+                );
+            }
+        }
+    }
+
+    /// Mirror the just-persisted turn into the TinyAgents session store.
+    ///
+    /// Additive and gated on the `OPENHUMAN_SESSION_DUAL_WRITE` flag (default
+    /// OFF): when the flag is off this is a cheap early return — no store handle
+    /// is constructed and behavior is byte-identical to today. When on, the
+    /// store write is fired best-effort on a background task and any error is
+    /// logged (`[session-store]`) and swallowed, so it can never fail or alter a
+    /// chat turn. Records reuse the importer's normalization
+    /// ([`crate::openhuman::session_import`]) so live and imported records are
+    /// shape-identical. Reads stay 100% legacy until 04.2.
+    fn maybe_dual_write_session_store(
+        &self,
+        path: &std::path::Path,
+        messages: &[ChatMessage],
+        meta: &transcript::TranscriptMeta,
+        turn_usage: Option<&transcript::TurnUsage>,
+    ) {
+        use crate::openhuman::session_import::live;
+
+        if !live::dual_write_enabled() {
+            return;
+        }
+
+        // The session key is the transcript stem — the same value the importer
+        // reads off the on-disk filename, so `stream_name`/descriptor keys match.
+        let Some(stem) = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(str::to_string)
+        else {
             log::warn!(
-                "[transcript] failed to write transcript {}: {err}",
+                "[session-store] dual-write skipped: no file stem for {}",
                 path.display()
             );
+            return;
+        };
+
+        // Rebuild the exact message shape the importer sees after a JSONL
+        // round-trip: attach this turn's usage to the last assistant message so
+        // its `openhuman_turn_usage` metadata matches an imported record.
+        let mut msgs = messages.to_vec();
+        if let Some(usage) = turn_usage {
+            if let Some(idx) = msgs.iter().rposition(|m| m.role == "assistant") {
+                transcript::attach_turn_usage_metadata(&mut msgs[idx], usage);
+            }
         }
+        let session_transcript = transcript::SessionTranscript {
+            meta: meta.clone(),
+            messages: msgs,
+        };
+        let workspace = self.workspace_dir.clone();
+
+        log::debug!(
+            "[session-store] dual-write scheduled stem={stem} workspace={}",
+            workspace.display()
+        );
+        tokio::spawn(async move {
+            if let Err(err) = live::write_live_turn(&workspace, &stem, &session_transcript).await {
+                log::warn!("[session-store] dual-write failed stem={stem}: {err:#}");
+            }
+        });
     }
 
     // ─────────────────────────────────────────────────────────────────

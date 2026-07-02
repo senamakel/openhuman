@@ -36,6 +36,30 @@ pub fn store_root(workspace: &Path) -> PathBuf {
     workspace.join("tinyagents_store")
 }
 
+/// The KV + journal store handles opened over a workspace's TinyAgents store
+/// tree (`{workspace}/tinyagents_store/{kv,journal}`), plus the journal root
+/// for stream-file layout math.
+pub(crate) struct SessionStores {
+    pub kv: FileStore,
+    pub journal: JsonlAppendStore,
+    pub journal_root: PathBuf,
+}
+
+/// Open the KV + journal stores under `{workspace}/tinyagents_store/{kv,journal}`.
+///
+/// Shared by the one-time importer ([`run_import`]) and the live dual-write
+/// ([`super::live::write_live_turn`]) so both use the exact same store layout and
+/// records land in the same place regardless of who wrote them.
+pub(crate) fn open_session_stores(workspace: &Path) -> SessionStores {
+    let root = store_root(workspace);
+    let journal_root = root.join(JOURNAL_SUBDIR);
+    SessionStores {
+        kv: FileStore::new(root.join(KV_SUBDIR)),
+        journal: JsonlAppendStore::new(&journal_root),
+        journal_root,
+    }
+}
+
 /// Best-effort run-ledger links read from `session_db/sessions.db`
 /// (read-only; missing DB or table is not an error).
 #[derive(Debug, Default)]
@@ -48,10 +72,11 @@ struct RunLedgerLinks {
 
 /// Run the import. Never mutates sources; per-item failures become warnings.
 pub async fn run_import(workspace: &Path, opts: &ImportOptions) -> Result<ImportSummary> {
-    let root = store_root(workspace);
-    let kv = FileStore::new(root.join(KV_SUBDIR));
-    let journal_root = root.join(JOURNAL_SUBDIR);
-    let journal = JsonlAppendStore::new(&journal_root);
+    let SessionStores {
+        kv,
+        journal,
+        journal_root,
+    } = open_session_stores(workspace);
 
     log::info!(
         "[session-import] start workspace={} dry_run={} only={:?} force={}",

@@ -101,11 +101,9 @@ impl Tool<()> for ToolAdapter {
     }
 }
 
-pub(super) fn tool_policy_from_openhuman_tool(
-    tool: &dyn crate::openhuman::tools::Tool,
-) -> ToolPolicy {
-    use crate::openhuman::tools::PermissionLevel;
+fn tool_policy_from_openhuman_tool(tool: &dyn crate::openhuman::tools::Tool) -> ToolPolicy {
     use crate::openhuman::tools::traits::ToolTimeout;
+    use crate::openhuman::tools::PermissionLevel;
 
     let permission = tool.permission_level();
     let external_effect = tool.external_effect();
@@ -347,8 +345,8 @@ impl Tool<()> for SharedToolAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::tools::ToolResult as OhToolResult;
     use crate::openhuman::tools::traits::ToolTimeout;
+    use crate::openhuman::tools::ToolResult as OhToolResult;
 
     /// A tool whose `execute_with_options` sleeps forever but declares a short
     /// per-call timeout, so the adapter's deadline must fire.

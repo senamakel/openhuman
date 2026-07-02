@@ -19,7 +19,9 @@ and it currently mixes filtering (`filter_tool_indices`, nested-delegation
 stripping, denylist checks, toolkit top-K budgets) with non-filter helpers
 (`load_prompt_source`, text-mode protocol instructions). Delete it only after
 `ContextualToolSelectionMiddleware` owns child/toolkit selection and those
-non-filter helpers have moved to narrower modules.
+non-filter helpers have moved to narrower modules. The `tool_prep` helper
+surface has been narrowed to `subagent_runner` except for the text-mode protocol
+renderer used by prompt debug dumps.
 
 ## Steps
 
@@ -35,15 +37,16 @@ non-filter helpers have moved to narrower modules.
    structured diagnostics today.
 3. Move the visible-set computation, dynamic delegation refresh, and skill-event
    catalogue reconciliation out of `session/turn/tools.rs` (692 lines) plus
-   `subagent_runner/tool_prep.rs` (350 lines) into the middleware; the turn code
+   `subagent_runner/tool_prep.rs` (344 lines) into the middleware; the turn code
    only declares candidate tool sets and parent execution context.
 4. Keep product policy sources (registry definitions, security tier tables)
    in OpenHuman — the middleware consumes them.
 
 ## Deletions
 
-- `agent/harness/tool_filter.rs` mechanics (keep policy tables if any inline).
-- `subagent_runner/tool_prep.rs`.
+- `agent/harness/tool_filter.rs` mechanics (299 lines; keep policy tables if
+  any inline).
+- `subagent_runner/tool_prep.rs` (344 lines).
 - Filtering/refresh blocks in `session/turn/tools.rs` (file shrinks to
   parent-context and assembly glue).
 

@@ -2,10 +2,10 @@
 //! body before [`super::run_typed_mode`] spins up its tool-loop.
 //!
 //! Kept together because they share a theme (what does the sub-agent
-//! actually see?) and because several of them are exposed `pub(crate)`
-//! so the debug-dump path in
-//! [`crate::openhuman::agent::debug`] can mirror the live runner
-//! byte-for-byte instead of carrying its own drifting copies.
+//! actually see?). Only the text-mode protocol renderer is exposed outside
+//! this module so the debug-dump path in [`crate::openhuman::agent::debug`] can
+//! mirror the live runner byte-for-byte instead of carrying its own drifting
+//! copy.
 
 use super::super::definition::{PromptSource, ToolScope};
 use super::types::SubagentRunError;
@@ -133,10 +133,7 @@ pub(super) fn is_subagent_spawn_tool(name: &str) -> bool {
 /// 2. `skill_filter` — restrict to tools named `{skill}__*`.
 /// 3. `scope` — `Wildcard` (everything remaining) or `Named` allowlist.
 ///
-/// Exposed `pub(crate)` so the debug dump path in
-/// [`crate::openhuman::agent::debug`] shares the exact same
-/// filter logic as the live runner instead of keeping a separate copy.
-pub(crate) fn filter_tool_indices(
+pub(super) fn filter_tool_indices(
     parent_tools: &[Box<dyn Tool>],
     scope: &ToolScope,
     disallowed: &[String],
@@ -175,7 +172,7 @@ pub(crate) fn filter_tool_indices(
         .collect()
 }
 
-pub(crate) fn disallowed_tool_matches(disallowed: &[String], name: &str) -> bool {
+pub(super) fn disallowed_tool_matches(disallowed: &[String], name: &str) -> bool {
     disallowed.iter().any(|entry| {
         if let Some(prefix) = entry.strip_suffix('*') {
             name.starts_with(prefix)
@@ -275,10 +272,7 @@ mod recovery_visibility_tests {
 /// [`PromptContext`], `File` sources are read from disk relative to the
 /// workspace `prompts/` directory or the agent crate's bundled prompts.
 ///
-/// Exposed `pub(crate)` so the debug dump path in
-/// [`crate::openhuman::agent::debug`] loads prompts through the
-/// exact same code the runner uses instead of keeping a separate copy.
-pub(crate) fn load_prompt_source(
+pub(super) fn load_prompt_source(
     source: &PromptSource,
     ctx: &PromptContext<'_>,
 ) -> Result<String, SubagentRunError> {

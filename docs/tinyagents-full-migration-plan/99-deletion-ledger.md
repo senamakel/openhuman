@@ -25,7 +25,8 @@ they land.
 - [ ] tool side-lookup in `tinyagents/middleware.rs` — 01.1
       (live overlays for args-aware effects/permissions, CLI/RPC scope, and
       generated runtime context until SDK policy metadata can represent them)
-- [ ] `harness/tool_filter.rs` mechanics + `subagent_runner/tool_prep.rs` (350) — 01.3
+- [ ] `harness/tool_filter.rs` mechanics (299) +
+      `subagent_runner/tool_prep.rs` (344) — 01.3
       (live until middleware owns child/toolkit selection; `tool_prep.rs` also
       contains non-filter prompt helpers that must move first)
 - [ ] `ThinkingForwarder` — 02.3

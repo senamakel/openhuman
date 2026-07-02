@@ -88,16 +88,6 @@ pub(crate) enum SpawnParallelTaskValidationError {
     Rejected(String),
 }
 
-impl SpawnParallelTaskValidationError {
-    pub(crate) fn message(&self) -> &str {
-        match self {
-            SpawnParallelTaskValidationError::MissingTasks(message)
-            | SpawnParallelTaskValidationError::InvalidTasks(message)
-            | SpawnParallelTaskValidationError::Rejected(message) => message,
-        }
-    }
-}
-
 pub(crate) fn validate_spawn_parallel_tool_request(
     args: &serde_json::Value,
     max_parallel: Option<usize>,
@@ -235,19 +225,6 @@ pub(crate) fn create_spawn_parallel_worktree(
     }
 }
 
-/// Resolve and validate each worker before the tool performs effectful work.
-///
-/// This models the graph's validate/dispatch preflight without moving runtime
-/// effects out of the current tool wrapper yet.
-pub(crate) fn prepare_spawn_parallel_tasks(
-    tasks: Vec<ParallelAgentTask>,
-    registry: &AgentDefinitionRegistry,
-    parent: &ParentExecutionContext,
-) -> Vec<SpawnParallelTaskPreflight> {
-    let definitions = snapshot_agent_definitions(registry);
-    prepare_spawn_parallel_tasks_from_defs(tasks, &definitions, parent)
-}
-
 fn snapshot_agent_definitions(
     registry: &AgentDefinitionRegistry,
 ) -> HashMap<String, AgentDefinition> {
@@ -378,26 +355,6 @@ pub(crate) struct ParallelAgentResult {
     /// user can choose). `None` for non-isolated workers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) dirty_status: Option<bool>,
-}
-
-pub(crate) async fn stage_spawn_parallel_workers(
-    parent_session: &str,
-    progress_sink: Option<&Sender<AgentProgress>>,
-    tasks: Vec<ParallelAgentTask>,
-    registry: &AgentDefinitionRegistry,
-    parent: &ParentExecutionContext,
-    action_root: Option<&Path>,
-) -> (Vec<SpawnParallelWorker>, Vec<ParallelAgentResult>) {
-    let definitions = snapshot_agent_definitions(registry);
-    stage_spawn_parallel_workers_from_defs(
-        parent_session,
-        progress_sink,
-        tasks,
-        &definitions,
-        parent,
-        action_root,
-    )
-    .await
 }
 
 async fn stage_spawn_parallel_workers_from_defs(

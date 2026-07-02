@@ -13,7 +13,9 @@ limit, dispatch validates/preflights workers from an owned agent-definition
 snapshot, worker fanout still uses the SDK `map_reduce` helper, collect still
 projects compatibility `DomainEvent`/`AgentProgress`, and finalize still
 returns the existing JSON shape. The tool wrapper still owns `ToolResult`
-translation so malformed-argument and public error shapes stay unchanged.
+translation so malformed-argument and public error shapes stay unchanged. The
+unused pre-graph public wrappers have been removed; the remaining shrink target
+is the 1281-line graph implementation.
 
 ## Nodes
 

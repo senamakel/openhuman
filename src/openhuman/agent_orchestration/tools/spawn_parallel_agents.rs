@@ -10,10 +10,10 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTa
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_boundary;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
     ParallelAgentResult, ParallelTaskRejectionKind, ParallelWorktreeRequest,
-    SpawnParallelTaskPreflight, SpawnParallelWorker, prepare_spawn_parallel_tasks,
-    run_spawn_parallel_workers, validate_spawn_parallel_tasks, worktree_request_for_task,
+    SpawnParallelTaskPreflight, SpawnParallelWorker, collect_spawn_parallel_results,
+    format_spawn_parallel_success, prepare_spawn_parallel_tasks, run_spawn_parallel_workers,
+    validate_spawn_parallel_tasks, worktree_request_for_task,
 };
-use crate::openhuman::file_state;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -466,82 +466,18 @@ impl Tool for SpawnParallelAgentsTool {
             results.push(result);
         }
 
-        // Parent reminder: check if any child wrote to files the parent
-        // had previously read, and annotate the result.
-        if let Some(parent_agent_id) = file_state::current_file_state_agent_id() {
-            let child_ids: Vec<String> = results.iter().map(|r| r.task_id.clone()).collect();
-            let stale = file_state::parent_stale_files(&parent_agent_id, &child_ids);
-            if !stale.is_empty() {
-                let stale_strings: Vec<String> =
-                    stale.iter().map(|p| p.display().to_string()).collect();
-                tracing::debug!(
-                    parent = %parent_agent_id,
-                    stale_count = stale.len(),
-                    "[file_state] parent reads stale after child writes"
-                );
-                for result in &mut results {
-                    result.stale_parent_reads = stale_strings.clone();
-                }
-            }
-        }
-
-        // Cross-worker overlap detection: when two isolated workers changed
-        // the SAME file, surface a warning so the parent reconciles before
-        // synthesis/merge instead of silently clobbering. Keyed on the
-        // changed-file snapshot collected from each worker's worktree.
-        let per_worker: Vec<(String, Vec<std::path::PathBuf>)> = results
-            .iter()
-            .filter(|r| !r.changed_files.is_empty())
-            .map(|r| {
-                (
-                    r.task_id.clone(),
-                    r.changed_files
-                        .iter()
-                        .map(std::path::PathBuf::from)
-                        .collect(),
-                )
-            })
-            .collect();
-        let overlaps =
-            crate::openhuman::agent_orchestration::worktree::detect_overlaps(&per_worker);
-        let overlap_warnings: Vec<serde_json::Value> = overlaps
-            .iter()
-            .map(|(file, workers)| {
-                json!({
-                    "file": file.to_string_lossy(),
-                    "workers": workers,
-                })
-            })
-            .collect();
-        if !overlap_warnings.is_empty() {
-            tracing::warn!(
-                parent_session = %parent_session,
-                overlap_count = overlap_warnings.len(),
-                "[spawn_parallel_agents] detected overlapping changed files across workers"
-            );
-        }
-
-        let failures = results.iter().filter(|r| !r.success).count();
+        let collected = collect_spawn_parallel_results(&parent_session, results);
         tracing::debug!(
             parent_session = %parent_session,
-            total = results.len(),
-            succeeded = results.len().saturating_sub(failures),
-            failed = failures,
-            overlaps = overlap_warnings.len(),
+            total = collected.total(),
+            succeeded = collected.succeeded(),
+            failed = collected.failures,
+            overlaps = collected.overlap_warnings.len(),
             "[spawn_parallel_agents] execute exit"
         );
-        Ok(ToolResult::success(
-            serde_json::to_string_pretty(&json!({
-                "parallel_agents": {
-                    "total": results.len(),
-                    "succeeded": results.len() - failures,
-                    "failed": failures,
-                    "results": results,
-                    "overlap_warnings": overlap_warnings,
-                }
-            }))
-            .unwrap_or_else(|_| "{}".to_string()),
-        ))
+        Ok(ToolResult::success(format_spawn_parallel_success(
+            &collected,
+        )))
     }
 }
 

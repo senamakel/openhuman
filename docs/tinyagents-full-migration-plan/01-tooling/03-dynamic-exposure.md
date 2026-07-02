@@ -10,8 +10,16 @@ Current status: the shared TinyAgents runner still registers only the
 OpenHuman-computed callable tools, preserving hidden-tool execution semantics.
 It now tags OpenHuman run contexts and emits a diagnostics-only
 `AgentEvent::ToolsFiltered` via `openhuman_tool_visibility` when that existing
-allowlist withholds candidate tools. Full middleware-owned selection and
-deletion of `session/turn/tools.rs` / `subagent_runner/tool_prep.rs` remain.
+allowlist withholds candidate tools. Full middleware-owned selection remains.
+
+`agent/harness/tool_filter.rs` is still live for `integrations_agent` toolkit
+spawns: the runner uses it to choose a compact Composio action set before
+registering dynamic tools. `subagent_runner/tool_prep.rs` is also still live,
+and it currently mixes filtering (`filter_tool_indices`, nested-delegation
+stripping, denylist checks, toolkit top-K budgets) with non-filter helpers
+(`load_prompt_source`, text-mode protocol instructions). Delete it only after
+`ContextualToolSelectionMiddleware` owns child/toolkit selection and those
+non-filter helpers have moved to narrower modules.
 
 ## Steps
 

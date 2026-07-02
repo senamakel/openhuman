@@ -35,6 +35,7 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::openhuman::tools::{Tool, ToolSpec};
+use tinyagents::harness::workspace::WorkspaceDescriptor;
 
 /// Cumulative usage stats gathered across a sub-agent graph run.
 #[derive(Debug, Clone, Default)]
@@ -67,6 +68,7 @@ pub(super) async fn run_subagent_via_graph(
     extended_policy: bool,
     worker_thread_id: Option<String>,
     workspace_dir: std::path::PathBuf,
+    workspace_descriptor: Option<WorkspaceDescriptor>,
     max_output_tokens: u32,
     model_vision: bool,
     // Transcript-persistence provenance: the resolved child transcript stem
@@ -186,6 +188,8 @@ pub(super) async fn run_subagent_via_graph(
         // Sub-agents gate via their own SubagentToolSource policy path, not the
         // session `.tool_policy()`; no enforcement threaded here.
         None,
+        // Isolated worker descriptor, when worktree isolation prepared one.
+        workspace_descriptor,
     ))
     .await
     .map_err(map_tinyagents_subagent_error)?;

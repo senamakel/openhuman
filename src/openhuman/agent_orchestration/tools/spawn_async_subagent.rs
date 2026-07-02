@@ -479,6 +479,7 @@ impl Tool for SpawnAsyncSubagentTool {
                 initial_history: background_initial_history,
                 checkpoint_dir: None,
                 worktree_action_dir: None,
+                workspace_descriptor: None,
                 run_queue: Some(task_queue),
             };
 

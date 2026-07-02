@@ -47,6 +47,7 @@ use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::store::StoreRegistry;
 use tinyagents::harness::summarization::TrimStrategy;
+use tinyagents::harness::workspace::WorkspaceDescriptor;
 use tinyagents::registry::{
     CapabilityRegistry, ComponentKind, RegistryDiagnostic, RegistrySnapshot,
 };
@@ -355,6 +356,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     max_output_tokens: Option<u32>,
     context_mw: TurnContextMiddleware,
     tool_policy: Option<ToolPolicyEnforcement>,
+    workspace_descriptor: Option<WorkspaceDescriptor>,
 ) -> Result<TinyagentsTurnOutcome> {
     // `0` means "unset" → the legacy default (a native-bus / test convention);
     // otherwise the harness model-call cap would be zero and abort the run before
@@ -418,6 +420,14 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
     // handle carries mid-flight, early-exit, and cap pauses.
     let mut ctx = RunContext::new(config, ());
+    if let Some(descriptor) = workspace_descriptor {
+        tracing::debug!(
+            root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[tinyagents] attaching workspace descriptor"
+        );
+        ctx = ctx.with_workspace(descriptor);
+    }
     if let Some(index) = tool_result_artifact_index {
         let mut stores = StoreRegistry::new();
         stores.register(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE, index);

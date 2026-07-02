@@ -228,6 +228,7 @@ impl Tool for SpawnWorkerThreadTool {
             initial_history: None,
             checkpoint_dir: None,
             worktree_action_dir: None,
+            workspace_descriptor: None,
             run_queue: None,
         };
 

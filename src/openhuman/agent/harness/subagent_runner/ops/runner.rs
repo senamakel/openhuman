@@ -10,9 +10,10 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::openhuman::agent::harness::agent_graph::{AgentTurnRequest, AgentTurnUsage};
 use crate::openhuman::agent::harness::definition::{
     validate_tier_transition, AgentDefinition, AgentDefinitionRegistry, AgentTier, IterationPolicy,
-    PromptSource,
+    PromptSource, SandboxMode as AgentSandboxMode,
 };
 use crate::openhuman::agent::harness::fork_context::{current_parent, ParentExecutionContext};
 use crate::openhuman::agent::harness::subagent_runner::extract_tool::ExtractFromResultTool;
@@ -33,6 +34,8 @@ use crate::openhuman::context::prompt::{
 use crate::openhuman::file_state::with_file_state_agent_id;
 use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::openhuman::tools::{Tool, ToolCategory, ToolSpec};
+use tinyagents::harness::tool::SandboxMode as TinyagentsSandboxMode;
+use tinyagents::harness::workspace::WorkspaceDescriptor;
 
 use super::prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
 use super::provider::{
@@ -242,6 +245,26 @@ pub async fn run_subagent(
         Ok(outcome)
     })
     .await
+}
+
+fn workspace_descriptor_for_subagent(
+    definition: &AgentDefinition,
+    options: &SubagentRunOptions,
+    task_id: &str,
+) -> Option<WorkspaceDescriptor> {
+    if let Some(descriptor) = options.workspace_descriptor.clone() {
+        return Some(descriptor);
+    }
+    let root = options.worktree_action_dir.clone()?;
+    let sandbox = match definition.sandbox_mode {
+        AgentSandboxMode::Sandboxed => TinyagentsSandboxMode::Required,
+        AgentSandboxMode::None | AgentSandboxMode::ReadOnly => TinyagentsSandboxMode::Inherit,
+    };
+    Some(
+        WorkspaceDescriptor::new(root)
+            .with_policy_id(format!("openhuman.worktree:{task_id}"))
+            .with_sandbox(sandbox),
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -865,9 +888,7 @@ async fn run_typed_mode(
     // (declared in its `graph.rs::graph()`). Every built-in agent selects
     // `Default` today — the branch is the extension point.
     use super::graph::AggregatedUsage;
-    use crate::openhuman::agent::harness::agent_graph::{
-        AgentGraph, AgentTurnRequest, AgentTurnUsage,
-    };
+    use crate::openhuman::agent::harness::agent_graph::AgentGraph;
     // Resolve the child transcript stem once — `{parent_chain}__{child_session_key}`
     // — so the sub-agent's raw transcript lands in `session_raw` under a filename
     // that chains the parent session (parity with the removed observer stem).
@@ -906,6 +927,16 @@ async fn run_typed_mode(
         };
         format!("{parent_chain}__{child_session_key}")
     };
+    let workspace_descriptor = workspace_descriptor_for_subagent(definition, options, task_id);
+    if let Some(descriptor) = &workspace_descriptor {
+        tracing::debug!(
+            agent_id = %definition.id,
+            task_id,
+            root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[subagent_runner] prepared workspace descriptor for tinyagents run"
+        );
+    }
 
     let (output, iterations, agg_usage, early_exit_tool, hit_cap) = match &definition.graph {
         AgentGraph::Default => {
@@ -926,6 +957,7 @@ async fn run_typed_mode(
                 definition.iteration_policy == IterationPolicy::Extended,
                 options.worker_thread_id.clone(),
                 parent.workspace_dir.clone(),
+                workspace_descriptor.clone(),
                 max_output_tokens,
                 model_vision,
                 &transcript_stem,
@@ -958,6 +990,7 @@ async fn run_typed_mode(
                 extended_policy: definition.iteration_policy == IterationPolicy::Extended,
                 worker_thread_id: options.worker_thread_id.clone(),
                 workspace_dir: parent.workspace_dir.clone(),
+                workspace_descriptor: workspace_descriptor.clone(),
                 max_output_tokens,
                 model_vision,
             };

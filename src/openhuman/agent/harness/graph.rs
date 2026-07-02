@@ -128,6 +128,8 @@ pub(crate) async fn run_channel_turn_via_graph(
         crate::openhuman::tinyagents::TurnContextMiddleware::defaults(),
         // Channel/CLI path carries its own gating; no session `.tool_policy()`.
         None,
+        // Channel turns do not yet carry SDK workspace descriptors.
+        None,
     )
     .await?;
     // Append only this turn's typed suffix (assistant tool-calls + tool results +

@@ -147,6 +147,7 @@ pub(crate) async fn dispatch_subagent(
         initial_history: None,
         checkpoint_dir: None,
         worktree_action_dir: None,
+        workspace_descriptor: None,
         run_queue: None,
     };
 

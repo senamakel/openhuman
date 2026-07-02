@@ -107,6 +107,8 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         graph.context_mw,
         // Builder-configured tool policy enforcement (session chat path).
         graph.tool_policy,
+        // Top-level chat turns do not yet carry SDK workspace descriptors.
+        None,
     )
     .await
 }

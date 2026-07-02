@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 use thiserror::Error;
+use tinyagents::harness::workspace::WorkspaceDescriptor;
 
 use crate::openhuman::agent::harness::definition::AgentTier;
 use crate::openhuman::inference::provider::ChatMessage;
@@ -67,6 +68,12 @@ pub struct SubagentRunOptions {
     /// When `None` (the default), behaviour is unchanged — tools fall through
     /// to `security.action_dir`.
     pub worktree_action_dir: Option<PathBuf>,
+
+    /// SDK workspace descriptor to thread into TinyAgents tool execution
+    /// context. During the migration this rides alongside
+    /// `worktree_action_dir`; acting tools still use the old task-local
+    /// override until they switch to `ToolExecutionContext.workspace`.
+    pub workspace_descriptor: Option<WorkspaceDescriptor>,
 
     /// Steering channel for a running (typically async) sub-agent. When set,
     /// the tinyagents harness drains steer/collect messages from this queue at

@@ -16,7 +16,11 @@ crate.
 `agent_orchestration::worktree::GitWorktreeIsolation` now implements the
 TinyAgents `WorkspaceIsolation` trait over OpenHuman's existing git-worktree
 create/remove policy and returns `WorkspaceDescriptor` roots for isolated
-workers. The adapter is not yet threaded into live tool execution.
+workers. Sub-agent run options now carry an optional `WorkspaceDescriptor`, and
+the TinyAgents shared turn seam attaches it to `RunContext::with_workspace`.
+For current `spawn_parallel_agents` worktree workers, the runner derives the
+descriptor from the existing `worktree_action_dir` while keeping the old
+task-local action-dir override as the live tool fallback.
 Delete it only after those tools resolve roots from a crate `WorkspaceDescriptor`
 carried on `ToolExecutionContext`.
 
@@ -29,9 +33,10 @@ carried on `ToolExecutionContext`.
 2. Thread `WorkspaceDescriptor` into tool execution: TinyAgents owns the
    descriptor carrier, while acting tools resolve their allowed root from
    `ToolExecutionContext.workspace` instead of task-local
-   `worktree_context.rs`/action-dir globals. OpenHuman `SecurityPolicy`
-   remains the enforcement authority — the descriptor is the carrier, not the
-   policy.
+   `worktree_context.rs`/action-dir globals. The carrier is now threaded
+   through sub-agent run options and `RunContext::with_workspace`; acting
+   tools still need to read it. OpenHuman `SecurityPolicy` remains the
+   enforcement authority — the descriptor is the carrier, not the policy.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations
    also feed the security audit trail. Use 1.3.0
    `WorkspaceDescriptor::enforce(path, events)` so the check and the

@@ -5,6 +5,13 @@ The crate has the isolation seam the sdk-gaps doc asked for:
 policy_id, sandbox }` (+ `allows(path)`), `ToolExecutionContext.workspace`,
 and `WorkspacePrepared/Violation/Cleanup` events.
 
+Current status (2026-07-02): do not delete
+`harness/worktree_context.rs` yet. `spawn_parallel_agents` still threads
+`worktree_action_dir` into the sub-agent runner, and shell/git acting tools read
+the task-local `current_action_dir_override()` to execute inside the isolated
+checkout. Delete it only after those tools resolve roots from a crate
+`WorkspaceDescriptor` carried on `ToolExecutionContext`.
+
 ## Steps
 
 1. Implement `WorkspaceIsolation` over
@@ -24,8 +31,8 @@ and `WorkspacePrepared/Violation/Cleanup` events.
 
 ## Deletions
 
-- `harness/worktree_context.rs` (74) task-local once tools read the
-  descriptor; per-tool ad hoc root plumbing.
+- Later: `harness/worktree_context.rs` (74) task-local once shell/git and other
+  acting tools read the descriptor; per-tool ad hoc root plumbing.
 
 ## Acceptance
 

@@ -29,7 +29,8 @@ isolated fanout workers prepare relative to that root before falling back to
 routes to reusable async delegation and when a blocking sub-agent run is
 requested, and `continue_subagent` passes the current caller descriptor into
 resumed checkpoint runs. `spawn_worker_thread` does the same for persisted
-worker-thread sub-agent runs.
+worker-thread sub-agent runs. The archetype and integrations delegation tools
+now also forward the descriptor through their shared sub-agent dispatcher.
 The TinyAgents tool adapter now forwards `ToolExecutionContext` into OpenHuman
 tools, and shell/git plus core filesystem tools (`file_read`, `list`,
 `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `csv_export`) and
@@ -52,10 +53,11 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
    `worktree_context.rs`/action-dir globals. The carrier is now threaded
    through sub-agent run options, `RunContext::with_workspace`, the OpenHuman
    tool adapter, `spawn_subagent`, `continue_subagent`, `spawn_worker_thread`,
-   `spawn_async_subagent` reuse/session roots, `spawn_parallel_agents`
-   shared-worker roots, shell, git operations, `file_read`, `list`, `file_write`,
-   `edit`, `apply_patch`, `grep`, `glob`, `csv_export`, `node_exec`, and
-   `npm_exec`. Remaining acting tools still need to read it. OpenHuman
+   archetype/integrations delegation dispatch, `spawn_async_subagent`
+   reuse/session roots, `spawn_parallel_agents` shared-worker roots, shell, git
+   operations, `file_read`, `list`, `file_write`, `edit`, `apply_patch`, `grep`,
+   `glob`, `csv_export`, `node_exec`, and `npm_exec`. Remaining acting tools
+   still need to read it. OpenHuman
    `SecurityPolicy` remains the enforcement authority — the descriptor is the
    carrier, not the policy.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations

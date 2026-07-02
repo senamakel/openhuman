@@ -8,6 +8,7 @@ use crate::openhuman::agent::harness::subagent_runner::{
 };
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::tools::traits::ToolResult;
+use tinyagents::harness::workspace::WorkspaceDescriptor;
 
 pub(crate) async fn dispatch_subagent(
     agent_id: &str,
@@ -15,6 +16,7 @@ pub(crate) async fn dispatch_subagent(
     prompt: &str,
     skill_filter: Option<&str>,
     model_override: Option<&str>,
+    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
 ) -> anyhow::Result<ToolResult> {
     let registry = match AgentDefinitionRegistry::global() {
         Some(reg) => reg,
@@ -137,6 +139,18 @@ pub(crate) async fn dispatch_subagent(
     // so the filter excluded every Composio tool instead of narrowing
     // them. `toolkit_override` applies the correct `{TOOLKIT}_` prefix
     // check, restricted to skill-category tools.
+    let worktree_action_dir = parent_workspace_descriptor
+        .as_ref()
+        .map(|descriptor| descriptor.root.clone());
+    if let Some(descriptor) = parent_workspace_descriptor.as_ref() {
+        tracing::debug!(
+            agent_id,
+            tool_name,
+            workspace_root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[agent] using ToolExecutionContext workspace root for delegated subagent"
+        );
+    }
     let options = SubagentRunOptions {
         skill_filter_override: None,
         toolkit_override: skill_filter.map(str::to_string),
@@ -146,8 +160,8 @@ pub(crate) async fn dispatch_subagent(
         worker_thread_id: None,
         initial_history: None,
         checkpoint_dir: None,
-        worktree_action_dir: None,
-        workspace_descriptor: None,
+        worktree_action_dir,
+        workspace_descriptor: parent_workspace_descriptor,
         run_queue: None,
     };
 
@@ -314,6 +328,7 @@ mod tests {
             "__definitely_not_a_real_agent__",
             "test_tool",
             "irrelevant prompt",
+            None,
             None,
             None,
         )

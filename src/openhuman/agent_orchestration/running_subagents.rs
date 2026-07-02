@@ -32,7 +32,7 @@
 //! does not cover.
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -41,28 +41,113 @@ use tokio::task::AbortHandle;
 
 use crate::openhuman::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
 use crate::openhuman::tinyagents::orchestration::{
-    InMemoryTaskStore, OrchestrationTaskFilter, OrchestrationTaskKind, OrchestrationTaskRecord,
-    OrchestrationTaskResult, OrchestrationTaskSpec, TaskStore,
+    InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter, OrchestrationTaskKind,
+    OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec, TaskStore,
 };
 use tinyagents::harness::ids::TaskId;
 
+enum DetachedTaskStore {
+    Durable(JsonlTaskStore),
+    Memory(InMemoryTaskStore),
+}
+
+impl DetachedTaskStore {
+    fn as_store(&self) -> &dyn TaskStore {
+        match self {
+            Self::Durable(store) => store,
+            Self::Memory(store) => store,
+        }
+    }
+}
+
+static TASK_STORE: OnceLock<DetachedTaskStore> = OnceLock::new();
+
+fn task_store_path(workspace_dir: &Path) -> PathBuf {
+    workspace_dir
+        .join(".openhuman")
+        .join("orchestration_tasks.jsonl")
+}
+
+fn default_task_store_workspace() -> PathBuf {
+    crate::openhuman::config::default_root_openhuman_dir()
+        .map(|root| root.join("workspace"))
+        .unwrap_or_else(|_| PathBuf::from(".openhuman").join("workspace"))
+}
+
+fn open_task_store(workspace_dir: &Path) -> DetachedTaskStore {
+    let path = task_store_path(workspace_dir);
+    if let Some(parent) = path.parent() {
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            log::warn!(
+                "[running_subagents] failed to create task store dir {}; falling back to memory: {}",
+                parent.display(),
+                err
+            );
+            return DetachedTaskStore::Memory(InMemoryTaskStore::new());
+        }
+    }
+
+    match JsonlTaskStore::open(&path) {
+        Ok(store) => {
+            log::debug!(
+                "[running_subagents] opened durable task store at {}",
+                path.display()
+            );
+            DetachedTaskStore::Durable(store)
+        }
+        Err(err) => {
+            log::warn!(
+                "[running_subagents] failed to open durable task store {}; falling back to memory: {}",
+                path.display(),
+                err
+            );
+            DetachedTaskStore::Memory(InMemoryTaskStore::new())
+        }
+    }
+}
+
 /// Process-wide typed lifecycle ledger for detached sub-agents (issue #4249).
-fn task_store() -> &'static InMemoryTaskStore {
-    static STORE: OnceLock<InMemoryTaskStore> = OnceLock::new();
-    STORE.get_or_init(InMemoryTaskStore::new)
+///
+/// The first spawn opens a durable JSONL store under that workspace. Calls that
+/// need a view before any spawn use the default internal workspace location.
+fn task_store_for_workspace(workspace_dir: &Path) -> &'static dyn TaskStore {
+    TASK_STORE
+        .get_or_init(|| open_task_store(workspace_dir))
+        .as_store()
+}
+
+fn task_store() -> &'static dyn TaskStore {
+    let workspace = default_task_store_workspace();
+    task_store_for_workspace(&workspace)
 }
 
 /// Record a freshly-spawned sub-agent in the store (`Pending` → `Running`).
 /// Insert errors (e.g. a re-used task id across tests) are intentionally ignored.
-fn record_spawned(task_id: &str, agent_id: &str, parent_session: &str) {
-    let store = task_store();
-    let spec = OrchestrationTaskSpec::new(
+fn record_spawned(
+    task_id: &str,
+    agent_id: &str,
+    parent_session: &str,
+    subagent_session_id: Option<&str>,
+    workspace_dir: &Path,
+    parent_thread_id: Option<&str>,
+) {
+    let store = task_store_for_workspace(workspace_dir);
+    let mut spec = OrchestrationTaskSpec::new(
         task_id.to_string(),
         OrchestrationTaskKind::SubAgent {
             agent: agent_id.to_string(),
         },
     )
-    .with_metadata("parentSession", parent_session.to_string());
+    .with_metadata("parentSession", parent_session.to_string())
+    .with_metadata("workspaceDir", workspace_dir.display().to_string());
+    if let Some(parent_thread_id) = parent_thread_id {
+        spec = spec
+            .with_thread(parent_thread_id.to_string())
+            .with_metadata("parentThreadId", parent_thread_id.to_string());
+    }
+    if let Some(subagent_session_id) = subagent_session_id {
+        spec = spec.with_metadata("subagentSessionId", subagent_session_id.to_string());
+    }
     let _ = store.insert(spec);
     let _ = store.mark_running(&TaskId::new(task_id));
 }
@@ -193,7 +278,14 @@ pub fn register(
     // Typed lifecycle ledger: record the spawn and mirror the child's terminal
     // status into the store via a lightweight watcher (issue #4249). Done before
     // the entry is moved into the map so the metadata is still in scope.
-    record_spawned(&task_id, &agent_id, &parent_session);
+    record_spawned(
+        &task_id,
+        &agent_id,
+        &parent_session,
+        subagent_session_id.as_deref(),
+        &workspace_dir,
+        parent_thread_id.as_deref(),
+    );
     spawn_status_watcher(task_id.clone(), status.clone());
 
     let entry = RunningSubagentEntry {

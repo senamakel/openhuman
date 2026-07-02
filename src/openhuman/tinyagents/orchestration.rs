@@ -19,8 +19,8 @@
 // Re-export the tinyagents task-orchestration primitives so the detached
 // sub-agent control plane imports lifecycle types from one openhuman path.
 pub use tinyagents::graph::orchestration::{
-    InMemoryTaskStore, OrchestrationControlOutcome, OrchestrationTaskFilter, OrchestrationTaskKind,
-    OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
+    InMemoryTaskStore, JsonlTaskStore, OrchestrationControlOutcome, OrchestrationTaskFilter,
+    OrchestrationTaskKind, OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
     OrchestrationTaskStatus, TaskStore,
 };
 

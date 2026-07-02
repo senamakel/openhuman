@@ -1,15 +1,25 @@
 # 07.2 — Detached sub-agents on durable TaskStore
 
-`running_subagents.rs` (1024) already mirrors lifecycle into
-`InMemoryTaskStore` but still owns watch channels, abort handles,
-tombstones, ownership checks. The crate now has `JsonlTaskStore` (durable),
-`OrchestrationTaskSpec::with_lineage`, filters, and a `SteeringRegistry`.
+`running_subagents.rs` already mirrors lifecycle into the crate TaskStore but
+still owns watch channels, abort handles, tombstones, ownership checks. The
+crate now has `JsonlTaskStore` (durable), `OrchestrationTaskSpec::with_lineage`,
+filters, and a `SteeringRegistry`.
+
+Current status (2026-07-02): detached sub-agent lifecycle records now open a
+durable `JsonlTaskStore` at `<workspace_dir>/.openhuman/orchestration_tasks.jsonl`
+on first spawn, falling back to `InMemoryTaskStore` only if the log cannot be
+created/opened. Records carry parent session, parent thread, durable
+`subagent_session_id`, and workspace metadata. The executor/control path still
+uses OpenHuman's watch channels, abort handles, tombstones, and `RunQueue`;
+restart reconciliation and steering-registry replacement remain pending.
 
 ## Steps
 
 1. Swap `InMemoryTaskStore` → `JsonlTaskStore::open` under the workspace
    store dir; task records carry lineage (`with_lineage(run/root/parent)`),
-   thread, timeout.
+   thread, timeout. **Partially done:** JSONL store + thread/session metadata
+   are live; run/root lineage and timeout fields still need to be threaded from
+   the parent run context.
 2. Re-express controls on crate semantics: wait → `orchestrate_await`-style
    store polling/wait handle; cancel/kill → `CancellationToken` +
    terminal record; steer → `SteeringRegistry` (`TaskId → SteeringHandle`)

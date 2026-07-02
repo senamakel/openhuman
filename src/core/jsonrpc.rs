@@ -2446,6 +2446,26 @@ pub async fn bootstrap_core_runtime(host_kind: crate::core::types::HostKind) {
         Err(err) => log::warn!("[runtime] failed to settle orphaned agent runs: {err}"),
     }
 
+    // --- Detached sub-agent TaskStore reconciliation -------------------
+    // The durable orchestration TaskStore (`<workspace>/.openhuman/
+    // orchestration_tasks.jsonl`) can hold non-terminal sub-agent records left
+    // by a previous process — their detached executor (abort handle +
+    // cooperative CancellationToken) died with that process, so they cannot be
+    // re-attached. Reconcile each orphan to a terminal state and emit the typed
+    // terminal lifecycle event so the run ledger finalizes. Best-effort and
+    // non-fatal (issue #4249 / 07.2 steps 2 & 4).
+    {
+        let reconciled =
+            crate::openhuman::agent_orchestration::running_subagents::reconcile_orphaned_tasks_on_boot(
+                &workspace_dir,
+            );
+        if reconciled > 0 {
+            log::info!(
+                "[runtime] reconciled {reconciled} orphaned detached sub-agent task(s) on startup"
+            );
+        }
+    }
+
     // --- Cost dashboard tracker ---
     // Activates the previously-dormant CostTracker so the dashboard RPC
     // surface (`openhuman.cost_get_dashboard`) and `record_provider_usage`

@@ -52,6 +52,7 @@ use crate::openhuman::tinyagents::orchestration::{
 };
 use tinyagents::harness::ids::TaskId;
 use tinyagents::harness::message::Message as TaMessage;
+use tinyagents::CancellationToken;
 
 enum DetachedTaskStore {
     Durable(JsonlTaskStore),
@@ -332,6 +333,94 @@ fn list_task_records(workspace_dir: &Path) -> Vec<OrchestrationTaskRecord> {
     store.list(OrchestrationTaskFilter::default().with_kind("sub_agent"))
 }
 
+/// Restart/resume reconciliation for detached sub-agents (issue #4249 / 07.2
+/// steps 2 & 4).
+///
+/// A detached sub-agent runs as a `tokio` task owned by the process that spawned
+/// it. When the core restarts, that task — and its live [`AbortHandle`] /
+/// [`CancellationToken`] — is gone, but the durable [`JsonlTaskStore`] still
+/// holds a non-terminal (`Pending`/`Running`/`Awaiting`/`CancelRequested`)
+/// record for it. Such a record is **orphaned**: there is no live executor to
+/// re-attach to (OpenHuman spawns child processes, so an in-flight run from a
+/// dead parent cannot be resumed), and the run-ledger finalizer never observed a
+/// terminal event, so it would otherwise render as a perpetual "running" entry.
+///
+/// This scans the workspace-scoped store for those orphans and reconciles each
+/// to a terminal state — `Cancelled` if a cancel had been requested, otherwise
+/// `Failed` with an "orphaned by restart" reason — then emits the existing typed
+/// terminal lifecycle event ([`subagent_events::publish_subagent_failed`]) so the
+/// run ledger finalizes. Best-effort and non-fatal: per-task transition errors
+/// (e.g. a record that raced to terminal) are logged and skipped, and a
+/// store-open failure simply reconciles nothing. Returns the count reconciled.
+pub(crate) fn reconcile_orphaned_tasks_on_boot(workspace_dir: &Path) -> usize {
+    let store = task_store_for_workspace(workspace_dir);
+    let orphans: Vec<OrchestrationTaskRecord> = store
+        .list(OrchestrationTaskFilter::default().with_kind("sub_agent"))
+        .into_iter()
+        .filter(|record| record.status.is_live())
+        .collect();
+    if orphans.is_empty() {
+        log::debug!(
+            "[taskstore] reconcile found no orphaned sub-agent tasks workspace_dir={}",
+            workspace_dir.display()
+        );
+        return 0;
+    }
+
+    let mut reconciled = 0usize;
+    for record in orphans {
+        let task_id = record.spec.task_id.as_str().to_string();
+        let id = TaskId::new(task_id.as_str());
+        let prior = task_status_label(record.status);
+        let reason = format!("sub-agent orphaned by core restart (was `{prior}`)");
+        log::debug!(
+            "[orchestrator] reconciling orphaned sub-agent task_id={} prior_status={} workspace_dir={}",
+            task_id,
+            prior,
+            workspace_dir.display()
+        );
+        // A cancel-requested orphan settles as Cancelled; every other live state
+        // settles as Failed (its driver died without a terminal event).
+        let outcome = match record.status {
+            OrchestrationTaskStatus::CancelRequested => store.mark_cancelled(&id).map(|_| ()),
+            _ => store.fail(&id, reason.clone()).map(|_| ()),
+        };
+        match outcome {
+            Ok(()) => {
+                reconciled += 1;
+                let parent_session = record_parent_session(&record).unwrap_or_default().to_string();
+                let agent_id = record_agent_id(&record);
+                // Reuse the 05.2 typed terminal lifecycle helper so the run
+                // ledger finalizes exactly as it would for a live failure.
+                super::subagent_events::publish_subagent_failed(
+                    parent_session,
+                    task_id.clone(),
+                    agent_id,
+                    reason.clone(),
+                );
+                log::info!(
+                    "[orchestrator] reconciled orphaned sub-agent task_id={} prior_status={} -> terminal",
+                    task_id,
+                    prior
+                );
+            }
+            Err(err) => {
+                log::warn!(
+                    "[taskstore] failed to reconcile orphaned sub-agent task_id={} prior_status={}: {}",
+                    task_id,
+                    prior,
+                    err
+                );
+            }
+        }
+    }
+    log::info!(
+        "[taskstore] reconciled {reconciled} orphaned sub-agent task(s) on boot workspace_dir={}",
+        workspace_dir.display()
+    );
+    reconciled
+}
+
 fn record_parent_session(record: &OrchestrationTaskRecord) -> Option<&str> {
     record
         .spec
@@ -486,6 +575,14 @@ struct RunningSubagentEntry {
     parent_thread_id: Option<String>,
     run_queue: Arc<RunQueue>,
     abort: AbortHandle,
+    /// Cooperative-cancellation handle held **alongside** the hard-kill
+    /// [`AbortHandle`] (issue #4249 / 07.2 step 2). The cancel/kill paths flip
+    /// this token *before* aborting so a run that has opted into cooperative
+    /// cancellation (a crate `CancellationToken` threaded into its `RunContext`)
+    /// can unwind cleanly at its next safe checkpoint; the abort remains the
+    /// executor-detail hard stop for runs that have not. Latching + cheap to
+    /// clone, so cancelling it is always safe/idempotent.
+    cancel: CancellationToken,
     status: watch::Receiver<SubagentStatus>,
 }
 
@@ -564,6 +661,12 @@ pub(crate) fn register(
         parent_thread_id,
         run_queue,
         abort,
+        // Fresh cooperative-cancel token registered alongside the abort handle.
+        // Threading it into the child run's `RunContext` (so cooperative cancel
+        // reaches the executor loop) is part of the gated executor shrink; today
+        // it establishes the cancel channel + terminal store write on the cancel
+        // paths without disturbing abort-handle hard-kill.
+        cancel: CancellationToken::new(),
         status,
     };
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
@@ -1090,6 +1193,9 @@ pub(crate) fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
     let entry = map.remove(task_id)?;
     deregister_steering(task_id);
+    // Cooperative cancel first (safe-boundary unwind for opted-in runs), then the
+    // hard abort as the executor-detail stop, then the terminal store write.
+    entry.cancel.cancel();
     entry.abort.abort();
     record_cancelled(&entry.workspace_dir, task_id);
     log::debug!(
@@ -1141,6 +1247,9 @@ pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
     for id in &to_cancel {
         if let Some(entry) = map.remove(id) {
             deregister_steering(id);
+            // Cooperative cancel before the hard abort (issue #4249 / 07.2 step 2),
+            // mirroring `cancel_by_task`, then the terminal store write.
+            entry.cancel.cancel();
             entry.abort.abort();
             record_cancelled(&entry.workspace_dir, id);
         }
@@ -1168,6 +1277,9 @@ pub(crate) fn cancel_all() -> Vec<String> {
     let mut seen: HashSet<String> = HashSet::new();
     for (task_id, entry) in map.drain() {
         deregister_steering(&task_id);
+        // Cooperative cancel before the hard abort (issue #4249 / 07.2 step 2),
+        // mirroring `cancel_by_task`, then the terminal store write.
+        entry.cancel.cancel();
         entry.abort.abort();
         record_cancelled(&entry.workspace_dir, &task_id);
         if let Some(thread_id) = entry.parent_thread_id {

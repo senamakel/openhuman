@@ -36,7 +36,9 @@ pub(crate) use tinyagents::graph::orchestration::{
 #[allow(unused_imports)]
 pub(crate) use tinyagents::harness::ids::TaskId;
 #[allow(unused_imports)]
-pub(crate) use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
+pub(crate) use tinyagents::harness::steering::{
+    SteeringCommand, SteeringCommandKind, SteeringHandle, SteeringPolicy,
+};
 
 static STEERING_REGISTRY: OnceLock<SteeringRegistry> = OnceLock::new();
 
@@ -46,6 +48,20 @@ static STEERING_REGISTRY: OnceLock<SteeringRegistry> = OnceLock::new();
 /// migration slice.
 pub(crate) fn shared_steering_registry() -> &'static SteeringRegistry {
     STEERING_REGISTRY.get_or_init(SteeringRegistry::new)
+}
+
+/// Steering handle policy for OpenHuman's shared TinyAgents turn path.
+///
+/// The current product path sends `InjectMessage` for user/orchestrator steering
+/// and `Pause` for cooperative early-exit, cap, stop-hook, and repeated-failure
+/// halts. Keep other command kinds closed until an OpenHuman control surface
+/// actually owns them.
+pub(crate) fn openhuman_steering_handle() -> SteeringHandle {
+    SteeringHandle::new(
+        SteeringPolicy::new()
+            .allow(SteeringCommandKind::InjectMessage)
+            .allow(SteeringCommandKind::Pause),
+    )
 }
 
 #[cfg(test)]
@@ -80,7 +96,7 @@ mod tests {
     #[test]
     fn steering_registry_reexport_registers_task_handles() {
         let registry = shared_steering_registry();
-        let handle = SteeringHandle::allow_all();
+        let handle = openhuman_steering_handle();
         let task_id = TaskId::new("task-steer");
 
         registry.register(task_id.clone(), handle);

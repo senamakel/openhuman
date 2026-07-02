@@ -764,7 +764,7 @@ fn assemble_turn_harness(
     // (below) also pauses through it, and it wants to fire on every path
     // (including plain channel turns that set none of the other flags). An idle
     // handle is a no-op — the loop just drains an empty steering channel.
-    let handle = Some(SteeringHandle::allow_all());
+    let handle = Some(orchestration::openhuman_steering_handle());
 
     // Repeated-failure circuit breaker: pause the run when a tool returns the same
     // error `REPEATED_TOOL_FAILURE_THRESHOLD` times in a row, so a deterministic

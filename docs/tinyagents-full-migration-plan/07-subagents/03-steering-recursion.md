@@ -9,14 +9,17 @@ commands at loop checkpoints. The queue is also the product adapter for
 web-channel `followup` and `parallel` semantics and for detached sub-agent
 steer/collect lookup through `running_subagents`. The local
 `openhuman::tinyagents::orchestration` seam now re-exports `SteeringRegistry`,
-`TaskId`, `SteeringCommand`, and `SteeringHandle`, and sub-agent TinyAgents runs
-register their live `SteeringHandle` in a process-local `SteeringRegistry`
-while the run is active. Detached `steer`/`collect` controls now prefer that
-registry handle and fall back to `RunQueue` when no handle is available. Do not
-delete the directory until the remaining detached control modes and the
-web-channel followup/parallel lanes either have TinyAgents-owned equivalents or
-move into local owners. Hard cancel/prune paths also deregister task handles so
-aborted runs do not leave stale registry entries.
+`TaskId`, `SteeringCommand`, `SteeringPolicy`, and `SteeringHandle`, and
+sub-agent TinyAgents runs register their live `SteeringHandle` in a
+process-local `SteeringRegistry` while the run is active. Detached
+`steer`/`collect` controls now prefer that registry handle and fall back to
+`RunQueue` when no handle is available. The shared OpenHuman turn seam installs
+a local steering policy that accepts only `InjectMessage` and `Pause` until a
+product control surface owns additional crate command kinds. Do not delete the
+directory until the remaining detached control modes and the web-channel
+followup/parallel lanes either have TinyAgents-owned equivalents or move into
+local owners. Hard cancel/prune paths also deregister task handles so aborted
+runs do not leave stale registry entries.
 The unused `DomainEvent::RunQueueMessageDelivered` projection has been removed;
 queued/interrupt/followup events remain live.
 
@@ -26,8 +29,9 @@ queued/interrupt/followup events remain live.
    map redirect/pause/resume/cancel modes to corresponding variants while
    preserving delivery-at-safe-boundaries semantics (crate drains before each
    model call).
-2. Install a `SteeringPolicy` allowlist per run (e.g. background runs
-   accept Cancel only).
+2. Tighten policy by run class: the shared turn seam now installs an
+   `InjectMessage`/`Pause` allowlist; future background-only runs can accept
+   Cancel without also accepting transcript injection.
 3. Accepted/rejected steering emits `AgentEvent::Steered`; the bridge now logs
    accepted/rejected command kinds, and UI projection remains pending. Delete
    bespoke acknowledgment plumbing in `run_queue/` after parity.

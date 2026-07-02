@@ -459,6 +459,31 @@ impl EventListener for OpenhumanEventBridge {
                     "[cache] response-cache miss — invoking provider and storing result"
                 );
             }
+            // Retry/fallback parity (issue #4249, Workstream 02.2). These surface the
+            // SDK-owned reliability decisions on the observability bridge so they are
+            // no longer silently dropped by the catch-all below. `RetryScheduled` is
+            // emitted by the crate's model-retry loop; with the retry pin at a single
+            // attempt (`RunPolicy.retry.max_attempts = 1`, pending `ReliableProvider`
+            // removal) it will not fire on the live path yet, but the bridge is wired
+            // for when it does. `FallbackSelected` is emitted by
+            // [`FallbackObserverMiddleware`](super::routes::FallbackObserverMiddleware)
+            // whenever the harness fails over to a sibling workload-tier route.
+            AgentEvent::RetryScheduled { call_id, attempt } => {
+                tracing::info!(
+                    model = %self.model,
+                    call_id = call_id.as_str(),
+                    attempt,
+                    "[models] SDK scheduled a model-call retry after a retryable provider error"
+                );
+            }
+            AgentEvent::FallbackSelected { from, to } => {
+                tracing::info!(
+                    model = %self.model,
+                    from = from.as_str(),
+                    to = to.as_str(),
+                    "[fallback] SDK failed over to a cross-route fallback model"
+                );
+            }
             _ => {}
         }
     }

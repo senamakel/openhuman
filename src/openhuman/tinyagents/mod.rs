@@ -135,9 +135,19 @@ async fn forward_collects(queue: &RunQueue, handle: &SteeringHandle) {
 /// The recursion depth cap is also set here so TinyAgents uses OpenHuman's
 /// existing sub-agent spawn depth instead of the SDK default.
 /// Retry is set to a single attempt: the openhuman [`Provider`] already does its
-/// own internal retry/backoff, so a second harness-level retry layer would
-/// double-retry transient errors and, worse, swallow a deterministic provider
-/// error when a mock/test provider yields a different result on the retry.
+/// own internal retry/backoff (via the still-wrapped `ReliableProvider`), so a
+/// second harness-level retry layer would double-retry transient errors and,
+/// worse, swallow a deterministic provider error when a mock/test provider yields
+/// a different result on the retry. This pin stays until `ReliableProvider` is
+/// un-wrapped in the 02.2 conformance pass (Workstream 11); the crate's
+/// exp-backoff [`RetryPolicy`](tinyagents::harness::retry::RetryPolicy) fields
+/// stay at the default schedule so raising `max_attempts` later is a one-line flip.
+///
+/// Cross-route **fallback** (`RunPolicy.fallback`) is orthogonal to retry and is
+/// populated per-turn by the caller ([`assemble_turn_harness`] via
+/// [`routes::route_fallback_policy`]); it is safe to enable now because
+/// `ReliableProvider` does *not* fail over across the registered workload-tier
+/// routes (chat→burst, reasoning→agentic, …) the way the harness registry can.
 fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPolicy {
     let mut policy = RunPolicy::default();
     policy.limits.max_model_calls = max_iterations;
@@ -883,7 +893,22 @@ fn assemble_turn_harness(
     deterministic_cacheable: bool,
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<()> = AgentHarness::new();
-    harness.with_policy(run_policy_for(max_iterations, deterministic_cacheable));
+    // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
+    // SDK `RunPolicy.fallback` with the ordered same-family route chain for this
+    // turn's primary model so the harness fails over to a sibling workload tier
+    // (e.g. chat-v1 → burst-v1) when the primary route errors. Retry stays pinned
+    // to a single attempt (see `run_policy_for`) — fallback and retry are
+    // independent knobs, and only fallback is enabled here because `ReliableProvider`
+    // (still wrapped) does not fail over across the registered tier routes.
+    let mut policy = run_policy_for(max_iterations, deterministic_cacheable);
+    let route_fallback = routes::route_fallback_policy(model);
+    policy.fallback = route_fallback.clone();
+    tracing::debug!(
+        model,
+        fallback_chain = ?route_fallback.as_ref().map(|f| &f.models),
+        "[models] assembling turn harness with SDK retry/fallback policy"
+    );
+    harness.with_policy(policy);
     // Deterministic internal runs (summarizer/triage/memory-scoring style) may
     // reuse a prior identical model response; attach an in-memory response cache
     // so the agent loop can short-circuit a recurring provider call and emit
@@ -959,6 +984,18 @@ fn assemble_turn_harness(
         harness.push_model_middleware(Arc::new(
             routes::RequiredCapabilitiesMiddleware::new(required),
         ));
+    }
+
+    // Fallback event parity (issue #4249, Workstream 02.2): the crate's
+    // registry-backed `RunPolicy.fallback` traversal (wired above) performs the
+    // cross-route swap silently — it emits no `AgentEvent::FallbackSelected`. Wrap
+    // the model-resolving core with an observer that surfaces the parity event
+    // whenever the resolved model differs from the primary, so a fallback is
+    // visible on the OpenHuman progress/observability bridge (and grep-logged under
+    // `[fallback]`). Installed only when a fallback chain exists; it never re-issues
+    // the call, so it adds no provider dispatch (no double-fallback).
+    if route_fallback.is_some() {
+        harness.push_model_middleware(Arc::new(routes::FallbackObserverMiddleware::new(model)));
     }
 
     // Capture context settings before `install` consumes `context_mw`.

@@ -448,11 +448,31 @@ impl ChatModel<()> for ProviderModel {
         {
             Ok(response) => response,
             Err(e) => {
+                // Classify with OpenHuman's product error taxonomy (issue #4249,
+                // Workstream 02.2): a permanent config/auth rejection, billing/quota
+                // exhaustion, or context-window overflow is mapped to a *non-retryable*
+                // `TinyAgentsError::Validation` (crate `is_retryable` → false), while a
+                // transient 5xx/429/network blip stays a retryable `Model` error. This
+                // is the same `reliable::is_non_retryable` classifier `ReliableProvider`
+                // uses, keeping OpenHuman as the single `ProviderError` mapper. With the
+                // retry pin at a single attempt the mapping is behavior-neutral today; it
+                // stages honest retry semantics for when the crate loop owns retries.
+                let non_retryable =
+                    crate::openhuman::inference::provider::reliable::is_non_retryable(&e);
+                tracing::debug!(
+                    model = %self.model,
+                    non_retryable,
+                    "[models] provider chat failed; classifying error for tinyagents retry/fallback"
+                );
                 // Preserve the original (downcastable) error for the runner, then
                 // hand the harness a stringified copy to stop the loop.
                 let msg = format!("openhuman provider chat failed: {e}");
                 *self.error_slot.lock().unwrap() = Some(e);
-                return Err(tinyagents::TinyAgentsError::Model(msg));
+                return Err(if non_retryable {
+                    tinyagents::TinyAgentsError::Validation(msg)
+                } else {
+                    tinyagents::TinyAgentsError::Model(msg)
+                });
             }
         };
         // Non-streaming path: surface any reasoning the provider returned as a
@@ -546,6 +566,19 @@ impl ChatModel<()> for ProviderModel {
                     ModelStreamItem::Completed(response_to_model_response(&resp))
                 }
                 Err(e) => {
+                    // Streaming failures ride `ModelStreamItem::Failed(String)`, which
+                    // carries no retryable flag (the harness treats it as a retryable
+                    // `Model` error), so the non-retryable mapping applied on the
+                    // buffered path cannot be expressed here — a crate limitation. With
+                    // the retry pin at a single attempt this has no effect today; logged
+                    // under `[models]` for parity/auditability (issue #4249, 02.2).
+                    let non_retryable =
+                        crate::openhuman::inference::provider::reliable::is_non_retryable(&e);
+                    tracing::debug!(
+                        model = %model,
+                        non_retryable,
+                        "[models] streaming provider chat failed; harness will treat as retryable Model error"
+                    );
                     // Preserve the original (downcastable) error for the runner.
                     let msg = format!("openhuman provider chat failed: {e}");
                     *error_slot.lock().unwrap() = Some(e);

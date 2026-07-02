@@ -1,3 +1,25 @@
+//! # Deletion staged (issue #4249, Workstream 02.2)
+//!
+//! `ReliableProvider` is **slated for removal** once the tinyagents crate owns
+//! retry/fallback with proven parity. As of 02.2 the crate path now covers this
+//! module's responsibilities: transient-vs-permanent error classification (the
+//! `is_non_retryable` / `is_rate_limited` / `is_upstream_unhealthy` helpers here
+//! are reused by `tinyagents::model::ProviderModel` to map errors onto the crate's
+//! retryable/non-retryable `TinyAgentsError` variants), exponential-backoff retry
+//! (`RunPolicy.retry`, pinned to a single attempt until this wrapper is removed),
+//! and cross-route model fallover (`RunPolicy.fallback` + the event-visible
+//! `FallbackObserverMiddleware`, which additionally fails over across the
+//! registered workload-tier routes — something this wrapper never did).
+//!
+//! **Do not delete yet.** Removal is gated on the deferred conformance pass
+//! (Workstream 11): un-wrapping `ReliableProvider` from its remaining call sites
+//! (session builder/factory + the non-turn callers: memory-tree local summarizer,
+//! memory scoring, triage classification), flipping `RunPolicy.retry.max_attempts`
+//! off the single-attempt pin, and rewriting the behaviorally-relevant tests here
+//! (attempt-count parity for 429 / 500 / config-rejection / billing, retry/fallback
+//! event visibility, and no-double-retry) against the crate loop. Until then this
+//! wrapper stays authoritative for single-attempt retry on the live path.
+
 use super::traits::{
     ChatMessage, ChatRequest, ChatResponse, StreamChunk, StreamError, StreamOptions, StreamResult,
 };

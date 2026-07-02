@@ -21,10 +21,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tinyagents::harness::context::RunContext;
+use tinyagents::harness::events::AgentEvent;
 use tinyagents::harness::middleware::{
     MiddlewareModelOutcome, ModelHandler, ModelMiddleware,
 };
 use tinyagents::harness::model::{CapabilitySet, ModelRequest};
+use tinyagents::harness::retry::FallbackPolicy;
 
 use crate::openhuman::config::{
     MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
@@ -189,5 +191,126 @@ impl ModelMiddleware<()> for RequiredCapabilitiesMiddleware {
             request = request.with_required_capabilities(self.required.clone());
         }
         next.run(ctx, state, request).await
+    }
+}
+
+/// The ordered same-family fallback **alternates** for a workload tier (issue
+/// #4249, Workstream 02.2). Each primary tier falls back to a single sibling in
+/// the same workload family so the harness can retry a different registered route
+/// when the primary route errors — bounding the cross-route fan-out to one extra
+/// call per turn (mirroring the single-alternate spirit of `ReliableProvider`'s
+/// `model_fallbacks`, so this does not regress failure latency/cost).
+///
+/// Ordering rationale (derived from `provider/router.rs` tier families):
+/// - `chat-v1` ⇄ `burst-v1` — the two light/fast conversational tiers.
+/// - `reasoning-v1` ⇄ `agentic-v1` — the two heavy reasoning/agentic tiers.
+/// - `coding-v1` → `agentic-v1` — coding is agentic-adjacent (tool-heavy).
+/// - `summarization-v1` → `chat-v1` — summarization rides a general chat model.
+/// - `vision-v1` → **none**: a non-vision route cannot satisfy the `image_in`
+///   capability the [`RequiredCapabilitiesMiddleware`] stamps on a vision turn, so
+///   falling back to a text tier would only be rejected pre-dispatch. There is a
+///   single vision tier, so vision turns are primary-only.
+///
+/// A model that is not one of the recognized tiers (a raw provider model string)
+/// returns an empty slice → no fallback chain is installed for that turn.
+fn same_family_fallbacks(model: &str) -> &'static [&'static str] {
+    match model {
+        MODEL_CHAT_V1 => &[MODEL_BURST_V1],
+        MODEL_BURST_V1 => &[MODEL_CHAT_V1],
+        MODEL_REASONING_V1 => &[MODEL_AGENTIC_V1],
+        MODEL_AGENTIC_V1 => &[MODEL_REASONING_V1],
+        MODEL_CODING_V1 => &[MODEL_AGENTIC_V1],
+        MODEL_SUMMARIZATION_V1 => &[MODEL_CHAT_V1],
+        MODEL_VISION_V1 => &[],
+        _ => &[],
+    }
+}
+
+/// Build the [`FallbackPolicy`] for a turn whose effective/primary model is
+/// `model` (issue #4249, Workstream 02.2). The returned chain is `[primary,
+/// alternate…]` — the crate's [`FallbackPolicy::next_after`] traversal expects the
+/// current (primary) name as the first entry and yields each subsequent alternate.
+///
+/// Every alternate is a distinct workload tier that
+/// [`build_route_models`] has already registered in the harness model registry
+/// (the primary tier itself is skipped there, since the caller registers it as the
+/// default), so the harness can resolve each fallback name to its capability-carrying
+/// route adapter. Returns `None` when no same-family alternate exists (vision, or a
+/// raw non-tier model string), leaving the turn primary-only.
+pub(super) fn route_fallback_policy(model: &str) -> Option<FallbackPolicy> {
+    let alternates = same_family_fallbacks(model);
+    if alternates.is_empty() {
+        tracing::debug!(
+            route = model,
+            "[fallback] no same-family fallback route; turn is primary-only"
+        );
+        return None;
+    }
+    let mut models = Vec::with_capacity(alternates.len() + 1);
+    models.push(model.to_string());
+    models.extend(alternates.iter().map(|s| s.to_string()));
+    tracing::debug!(
+        route = model,
+        chain = ?models,
+        "[fallback] configured SDK-owned cross-route fallback chain"
+    );
+    Some(FallbackPolicy { models })
+}
+
+/// Around-model middleware that makes the crate's registry-backed
+/// [`RunPolicy::fallback`][tinyagents::harness::runtime::RunPolicy] traversal
+/// **event-visible** (issue #4249, Workstream 02.2).
+///
+/// The harness performs the cross-route fallback swap inside its model-resolving
+/// core (`agent_loop::invoke_model_resolving`) but — unlike the
+/// [`ModelFallbackMiddleware`][tinyagents::harness::middleware::ModelFallbackMiddleware]
+/// primitive — that native path emits **no**
+/// [`AgentEvent::FallbackSelected`]. This observer wraps the resolving core, and
+/// on success compares the response's `resolved_model` against the turn's primary
+/// model name: when they differ a fallback occurred, so it emits the parity
+/// `FallbackSelected` event (mirrored onto OpenHuman's progress/observability
+/// bridge) and logs it under `[fallback]`. It never re-issues the call, so it adds
+/// no extra provider dispatch on top of the native traversal (no double-fallback).
+pub(super) struct FallbackObserverMiddleware {
+    primary: String,
+}
+
+impl FallbackObserverMiddleware {
+    pub(super) fn new(primary: impl Into<String>) -> Self {
+        Self {
+            primary: primary.into(),
+        }
+    }
+}
+
+#[async_trait]
+impl ModelMiddleware<()> for FallbackObserverMiddleware {
+    fn name(&self) -> &str {
+        "openhuman.fallback_observer"
+    }
+
+    async fn wrap_model(
+        &self,
+        ctx: &mut RunContext<()>,
+        state: &(),
+        request: ModelRequest,
+        next: ModelHandler<'_, (), ()>,
+    ) -> tinyagents::Result<MiddlewareModelOutcome> {
+        let outcome = next.run(ctx, state, request).await?;
+        let response = outcome.into_response();
+        if let Some(resolved) = response.resolved_model.as_ref() {
+            if resolved.name != self.primary {
+                tracing::info!(
+                    from = %self.primary,
+                    to = %resolved.name,
+                    "[fallback] SDK selected a cross-route fallback model after the primary route failed"
+                );
+                ctx.emit(AgentEvent::FallbackSelected {
+                    from: self.primary.clone(),
+                    to: resolved.name.clone(),
+                });
+            }
+        }
+        Ok(MiddlewareModelOutcome::from(response))
     }
 }

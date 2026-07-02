@@ -16,11 +16,10 @@ store that recorded the spawn. The executor/control path still uses
 OpenHuman's watch channels, abort handles, task lookup, and `RunQueue`;
 the unused future `running_subagents::close` hook has been removed and the
 test-only typed ledger snapshot plus finished background completion/delivery
-queues are crate-internal. `running_subagents` and `subagent_sessions` still
-remain public because the live `harness-subagent-audit` binary imports their
-debug/control types directly; shrink that audit seam before claiming the
-registry/session APIs are crate-only. Restart reconciliation and
-steering-registry replacement remain pending.
+queues are crate-internal. `running_subagents` and `subagent_sessions` are now
+crate-only; the live `harness-subagent-audit` binary uses the narrow public
+`harness_audit` facade for durable session reads and mid-run steer probes.
+Restart reconciliation and steering-registry replacement remain pending.
 
 ## Steps
 

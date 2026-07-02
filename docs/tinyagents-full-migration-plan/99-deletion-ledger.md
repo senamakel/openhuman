@@ -21,7 +21,7 @@ they land.
 
 ## Deletable after SDK-surface adoption
 
-- [ ] `UNKNOWN_TOOL_SENTINEL` + `UnknownToolRewriteMiddleware` — 01.2
+- [x] `UNKNOWN_TOOL_SENTINEL` + `UnknownToolRewriteMiddleware` — 01.2
 - [ ] tool side-lookup in `tinyagents/middleware.rs` — 01.1
 - [ ] `harness/tool_filter.rs` mechanics + `subagent_runner/tool_prep.rs` (350) — 01.3
 - [ ] `ThinkingForwarder` — 02.3

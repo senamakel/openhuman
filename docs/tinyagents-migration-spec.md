@@ -94,8 +94,8 @@ Already done or partially done:
 - `SqlRunLedgerCheckpointer` implements TinyAgents `Checkpointer` on top of the
   OpenHuman session DB while the migration re-points checkpoint rows to the
   crate checkpointer.
-- `run_parallel_fanout` uses `GraphBuilder`, reducers, command routing, and a
-  fan-in barrier for reusable concurrent fanout.
+- `spawn_parallel_graph` uses `GraphBuilder` and
+  `graph::parallel::map_reduce` for reusable concurrent fanout.
 - `model_council`, `workflow_runs`, `agent_teams`, and
   `tinyagents/delegation.rs` already use TinyAgents graphs.
 - Built-in agents already have `graph.rs` selectors, but most return
@@ -179,7 +179,8 @@ run-ledger rows, and prove restart/resume parity.
     source of truth.
 
 - [x] Move unknown-tool recovery into a reusable middleware or tool policy layer.
-  - Current shim: `UNKNOWN_TOOL_SENTINEL` in `src/openhuman/tinyagents/tools.rs`.
+  - Current path: `run_policy_for` sets
+    `UnknownToolPolicy::ReturnToolError`; no sentinel tool is registered.
   - TinyAgents components: `ToolRegistry`, `ToolMiddleware`,
     `AgentEvent::ToolStarted/ToolCompleted`, repairable tool results.
   - Acceptance: hallucinated tool names remain recoverable, sub-agent wording is
@@ -188,9 +189,8 @@ run-ledger rows, and prove restart/resume parity.
   - **1.3 update:** crate `RunPolicy.unknown_tool` now has
     `UnknownToolPolicy::{Fail, ReturnToolError, Rewrite}` and emits
     `AgentEvent::UnknownToolCall` with the original requested name/arguments.
-    The shipped `UnknownToolRewriteMiddleware` remains OpenHuman compatibility
-    glue until the runner switches to the crate policy and the sentinel handler
-    is deleted.
+    OpenHuman now uses that policy directly; `UNKNOWN_TOOL_SENTINEL` and
+    `UnknownToolRewriteMiddleware` are gone from source.
 
 - [x] Route approval and security through TinyAgents middleware.
   - Current OpenHuman files: `src/openhuman/approval/*`,
@@ -371,7 +371,7 @@ run-ledger rows, and prove restart/resume parity.
     returns `CompiledGraph::topology()`. Exported graphs: `agent_teams:member`,
     `delegation` (extracted `build_delegation_graph`), and
     `workflow_runs:scheduler` (`build_scheduler_graph` with injected
-    `select`/`run` engine effects). Fan-outs (council, `run_parallel_fanout`)
+    `select`/`run` engine effects). Fan-outs (council, map-reduce helpers)
     are the dispatch→N→collect pattern, not a fixed topology — intentionally not
     exported. Debug endpoint: `agent.graph_topologies` JSON-RPC controller
     (`agent/schemas.rs`) returning `{name, ok, errors, warnings, mermaid,
@@ -424,7 +424,7 @@ run-ledger rows, and prove restart/resume parity.
   - **Partial (audit + real gap fixed).** Audit of the current mechanics:
     (1) parent-turn rollup — the `turn_subagent_usage` task-local collector
     wraps the turn future; `run_typed_mode` (the single sub-agent chokepoint)
-    records every inline child, and graph fan-outs (`run_parallel_fanout`,
+    records every inline child, and graph fan-outs (`spawn_parallel_graph`,
     delegation, council) execute via `join_all` **on the same task**, so their
     children inherit the collector too; (2) dashboard totals — the global
     tracker is fed per model call by each run's own event bridge, and the
@@ -465,7 +465,7 @@ run-ledger rows, and prove restart/resume parity.
   - Current behavior: validates at least two tasks, checks parent context,
     enforces `max_parallel_tools`, resolves `AgentDefinition`s, enforces the
     parent `subagents.allowlist`, optionally creates per-worker git worktrees,
-    fans workers out through `run_parallel_fanout`, collects results in input
+    fans workers out through `spawn_parallel_graph` + `map_reduce`, collects results in input
     order, emits `DomainEvent` + `AgentProgress`, detects stale parent file
     reads and cross-worker changed-file overlaps, and returns a structured
     `parallel_agents` JSON payload.
@@ -742,7 +742,7 @@ assessment, and migration coverage are complete.
     checkpointing, policy, cancellation, or graph observability. Leave simple
     independent IO probes as ordinary Rust concurrency.
   - Candidate outcome: document why each fanout stays as `join_all` or move it
-    to `run_parallel_fanout` / graph `Send`.
+    to `graph::parallel::map_reduce` / graph `Send`.
 
 - [x] Audit tool registry comments and docs that still describe retired
   direct-loop behavior.
@@ -775,12 +775,12 @@ assessment, and migration coverage are complete.
     `src/openhuman/tinyagents/tests.rs`.
   - Acceptance: one test asserts that the shared runner registers model, tools,
     middleware, event bridge, context compression, stop hooks, and unknown-tool
-    sentinel in the intended order.
+    policy in the intended order.
   - **Done:** harness assembly extracted from `run_turn_via_tinyagents_shared`
     into a testable `assemble_turn_harness` returning `AssembledTurnHarness`
     (harness + cursor/error-slot/halt-summary/outcome-sink/steering/early-exit
     seams). `adapter_inventory_registers_model_tools_and_middleware` asserts
-    model registry, callable tools + unknown-tool sentinel, 9 lifecycle + 2
+    model registry, callable tools + unknown-tool policy, 9 lifecycle + 2
     around-tool middlewares, steering handle, early-exit hook;
     `adapter_inventory_gates_context_middleware_on_window` proves the
     compression/trim gating. SDK gap: `MiddlewareStack` exposes lengths but not

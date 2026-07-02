@@ -23,11 +23,10 @@ icon: layer-group
 > that pauses the run on the first stop vote, and the channel route forwards live
 > `AgentProgress` like the chat route.
 >
-> Multi-agent **orchestration** is expressed on tinyagents' **graph layer** via the
-> shared helpers in [`tinyagents/orchestration.rs`](../../../src/openhuman/tinyagents/orchestration.rs)
-> (`run_parallel_fanout` — a `dispatch → parallel workers → collect` `CompiledGraph`
-> map step — plus the re-exported `graph::orchestration` `TaskStore` lifecycle
-> primitives):
+> Multi-agent **orchestration** is expressed on tinyagents' **graph layer** via
+> `graph::parallel::map_reduce`, the `spawn_parallel_graph` scaffold, and the
+> shared `graph::orchestration` `TaskStore` lifecycle primitives re-exported from
+> [`tinyagents/orchestration.rs`](../../../src/openhuman/tinyagents/orchestration.rs):
 >
 > - the model-council member fan-out runs on a real `StateGraph`
 >   ([`model_council/graph.rs`](../../../src/openhuman/model_council/graph.rs));
@@ -37,7 +36,8 @@ icon: layer-group
 > - the **workflow phase engine** fans each phase's agents out on the graph
 >   (`with_max_concurrency`), keeping the durable `WorkflowRun` ledger as the resume
 >   source of truth;
-> - `spawn_parallel_agents` runs its fan-out through `run_parallel_fanout`;
+> - `spawn_parallel_agents` runs its fan-out through `spawn_parallel_graph` +
+>   `graph::parallel::map_reduce`;
 > - the **agent-teams** member runtime is a conditional-routing graph
 >   (`execute → complete | fail → done`, [`agent_teams/graph.rs`](../../../src/openhuman/agent_orchestration/agent_teams/graph.rs));
 > - the **detached-sub-agent** registry is backed by a typed `TaskStore` lifecycle
@@ -144,7 +144,7 @@ loop {
 
 Every iteration emits a real-time `AgentProgress` event so the UI can render token-by-token streaming, "calling tool X" status, and per-iteration cost updates.
 
-**One engine, three entry points.** The loop lives in one place — the tinyagents `AgentHarness`, entered via `run_turn_via_tinyagents_shared` (`src/openhuman/tinyagents/mod.rs`) — and every caller drives it: the chat turn (`harness/session/turn/core.rs` → `session/turn/graph.rs`), the channel/CLI bus turn (`harness/graph.rs`), and spawned sub-agents (`harness/subagent_runner/ops/graph.rs`). What varies per caller is supplied through the adapter seam: OpenHuman's provider wrapped as a `ChatModel` (`tinyagents/model.rs`), tools wrapped as tinyagents `Tool`s (`tinyagents/tools.rs`), an event bridge that projects harness `AgentEvent`s into `AgentProgress` + cost telemetry (`tinyagents/observability.rs`), and a named middleware stack (`tinyagents/middleware.rs`) carrying the OpenHuman cross-cuts — approval/security gating (`ApprovalSecurityMiddleware`), tool policy and CLI/RPC-only denial (`ToolPolicyMiddleware`, `CliRpcOnlyMiddleware`), unknown-tool and malformed-argument recovery (`UnknownToolRewriteMiddleware`, `ArgRecoveryMiddleware`), cost budget pre-checks (`CostBudgetMiddleware`), the repeated-tool-failure circuit breaker (`RepeatedToolFailureMiddleware`), and context trimming/compression. Policy stop hooks fire through `StopHookMiddleware` (`tinyagents/stop_hooks.rs`). The surviving OpenHuman-owned seams — `CheckpointStrategy` (error vs. summarize at the model-call cap) and `TurnProgress` — live in `harness/engine/`. Because all three entry points assemble the same harness, they can't drift.
+**One engine, three entry points.** The loop lives in one place — the tinyagents `AgentHarness`, entered via `run_turn_via_tinyagents_shared` (`src/openhuman/tinyagents/mod.rs`) — and every caller drives it: the chat turn (`harness/session/turn/core.rs` → `session/turn/graph.rs`), the channel/CLI bus turn (`harness/graph.rs`), and spawned sub-agents (`harness/subagent_runner/ops/graph.rs`). What varies per caller is supplied through the adapter seam: OpenHuman's provider wrapped as a `ChatModel` (`tinyagents/model.rs`), tools wrapped as tinyagents `Tool`s (`tinyagents/tools.rs`), an event bridge that projects harness `AgentEvent`s into `AgentProgress` + cost telemetry (`tinyagents/observability.rs`), `RunPolicy::unknown_tool` for hallucinated tool recovery, and a named middleware stack (`tinyagents/middleware.rs`) carrying the OpenHuman cross-cuts — approval/security gating (`ApprovalSecurityMiddleware`), tool policy and CLI/RPC-only denial (`ToolPolicyMiddleware`, `CliRpcOnlyMiddleware`), malformed-argument recovery (`ArgRecoveryMiddleware`), cost budget pre-checks (`CostBudgetMiddleware`), the repeated-tool-failure circuit breaker (`RepeatedToolFailureMiddleware`), and context trimming/compression. Policy stop hooks fire through `StopHookMiddleware` (`tinyagents/stop_hooks.rs`). The surviving OpenHuman-owned seams — `CheckpointStrategy` (error vs. summarize at the model-call cap) and `TurnProgress` — live in `harness/engine/`. Because all three entry points assemble the same harness, they can't drift.
 
 ### Tool dispatch and tool-call dialects
 
@@ -440,15 +440,15 @@ Every agent turn — chat (`harness/session/turn/core.rs`), channel/CLI (`harnes
 | File (`src/openhuman/tinyagents/`) | Role |
 | --- | --- |
 | `mod.rs` | The runner (`run_turn_via_tinyagents_shared`): registers openhuman's `Provider`/`Tool` on an `AgentHarness`, runs one turn, caps output via `ProviderModel::with_max_tokens`, mirrors progress, forwards steering, and pauses gracefully at the model-call cap. |
-| `model.rs` / `tools.rs` / `convert.rs` | `ChatModel` / `Tool` / message adapters (incl. out-of-band reasoning forwarding and unknown-tool recovery). |
+| `mod.rs` / `model.rs` / `tools.rs` / `convert.rs` | `RunPolicy` / `ChatModel` / `Tool` / message adapters (incl. unknown-tool policy and out-of-band reasoning forwarding). |
 | `observability.rs` | Harness `AgentEvent` → `AgentProgress` + cost; `GraphTracingSink` for graph events. |
-| `orchestration.rs` | `run_parallel_fanout` (the shared `dispatch → workers → collect` graph) + re-exported `graph::orchestration` task-store types. |
+| `orchestration.rs` | Re-exported `graph::orchestration` task-store types; map-reduce fanout now uses the TinyAgents SDK surface directly. |
 | `checkpoint.rs` | `SqlRunLedgerCheckpointer` — a `Checkpointer` over openhuman's SQLite (`graph_checkpoints` table). TinyAgents 1.3 now ships `SqliteCheckpointer`; OpenHuman keeps this adapter until existing checkpoint rows are migrated or expired and schema ownership is settled. |
 | `delegation.rs` | The durable `plan → execute ⇄ review → finalize` delegation graph (production worker wired in `agent_orchestration::delegation`). |
 
 **Orchestration on graphs** (`src/openhuman/agent_orchestration/`):
 
-- **Workflow phase DAG** (`workflow_runs/engine.rs`) runs on a `dispatch ⇄ run_phase → done` conditional-routing graph; each phase fans its agents out via `run_parallel_fanout`. The durable `workflow_runs` row stays the source of truth (controllers + resume read it).
+- **Workflow phase DAG** (`workflow_runs/engine.rs`) runs on a `dispatch ⇄ run_phase → done` conditional-routing graph; each phase fans its agents out via `graph::parallel::map_reduce`. The durable `workflow_runs` row stays the source of truth (controllers + resume read it).
 - **Team member runtime** (`agent_teams/graph.rs`) is a conditional-routing graph (`execute → complete|fail → done`).
 - **Multi-stage delegation** (`agent_orchestration::delegation` + the `delegate` tool) runs `delegation.rs`, checkpointed to the session DB.
 - **Detached sub-agents** (`running_subagents.rs`) track lifecycle through the crate task-store seam while OpenHuman keeps the executor (abort/steer/await) bespoke for controller compatibility, message injection, and user-facing hard-abort semantics.

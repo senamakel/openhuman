@@ -20,8 +20,8 @@
 //! enabled onto a harness.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 
@@ -40,10 +40,10 @@ use tinyagents::harness::tool::{
 
 use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::agent::harness::tool_result_artifacts::{
-    ToolResultArtifactStore, apply_per_result_persistence,
+    apply_per_result_persistence, ToolResultArtifactStore,
 };
 use crate::openhuman::approval::{
-    ApprovalGate, ExecutionOutcome, GateOutcome, redact_args, summarize_action,
+    redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
 };
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
 use crate::openhuman::tokenjuice::AgentTokenjuiceCompression;
@@ -132,9 +132,11 @@ impl TurnContextMiddleware {
     pub fn is_empty(&self) -> bool {
         self.tool_result_budget_bytes == 0
             && self.payload_summarizer.is_none()
+            && !self.tokenjuice_compaction_enabled
             && !self.cache_align
             && self.microcompact_keep_recent == 0
             && self.super_context.is_none()
+            && self.handoff.is_none()
     }
 
     /// Push the enabled middlewares onto `harness`.
@@ -171,7 +173,10 @@ impl TurnContextMiddleware {
                 task_id: handoff.task_id,
             }));
         }
-        if self.tool_result_budget_bytes > 0 || self.payload_summarizer.is_some() {
+        if self.tool_result_budget_bytes > 0
+            || self.payload_summarizer.is_some()
+            || self.tokenjuice_compaction_enabled
+        {
             harness.push_middleware(Arc::new(ToolOutputMiddleware {
                 budget_bytes: self.tool_result_budget_bytes,
                 payload_summarizer: self.payload_summarizer,
@@ -1296,6 +1301,16 @@ mod tests {
         assert!(TurnContextMiddleware::default().is_empty());
     }
 
+    #[test]
+    fn tokenjuice_only_bundle_is_not_empty() {
+        let mw = TurnContextMiddleware {
+            tokenjuice_compaction_enabled: true,
+            tokenjuice_compression: AgentTokenjuiceCompression::Light,
+            ..Default::default()
+        };
+        assert!(!mw.is_empty());
+    }
+
     // ── SuperContextMiddleware helpers ──────────────────────────────────────
 
     #[test]
@@ -1348,11 +1363,10 @@ mod tests {
             "bundle should be the leading text block"
         );
         // Original text and the image both survive.
-        assert!(
-            m.content
-                .iter()
-                .any(|b| matches!(b, ContentBlock::Text(t) if t.contains("original ask")))
-        );
+        assert!(m
+            .content
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Text(t) if t.contains("original ask"))));
         assert!(
             m.content
                 .iter()

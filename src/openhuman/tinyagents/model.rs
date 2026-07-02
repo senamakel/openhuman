@@ -141,14 +141,9 @@ fn build_chat_inputs(
     } else {
         super::convert::messages_to_text_mode_chat(&request.messages)
     };
-    // The unknown-tool sentinel is a recovery adapter, never a real capability —
-    // its contract (see `tools::UNKNOWN_TOOL_SENTINEL`) is that it is never
-    // advertised to the model. Filter it out of the advertised specs so it never
-    // leaks into the provider's tool list.
     let specs = request
         .tools
         .iter()
-        .filter(|s| s.name != super::tools::UNKNOWN_TOOL_SENTINEL)
         .map(|s| ToolSpec {
             name: s.name.clone(),
             description: s.description.clone(),
@@ -166,9 +161,8 @@ fn build_chat_inputs(
 /// dispatcher — so text-mode models drive the tinyagents loop too. The visible
 /// text is the prose with any tool-call markup stripped.
 ///
-/// Rewriting a hallucinated/unadvertised tool call onto the recovery sentinel
-/// now happens at the tool boundary in
-/// [`UnknownToolRewriteMiddleware`](super::middleware) (`before_tool`), not here.
+/// Unknown-tool recovery is handled by `RunPolicy::unknown_tool`, so the model
+/// adapter preserves the provider-requested tool name.
 fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
     let (visible_text, tool_calls): (String, Vec<TaToolCall>) = if !response.tool_calls.is_empty() {
         let calls = response

@@ -1,8 +1,8 @@
 //! End-to-end tests for the `tinyagents` harness route: a real openhuman
 //! [`Provider`] and [`Tool`] driven through [`run_turn_via_tinyagents`].
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
 
@@ -409,11 +409,11 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
 }
 
 /// Adapter inventory (issue #4249, Phase 11): assert the shared runner's
-/// assembled harness registers the model, every callable tool plus the
-/// unknown-tool sentinel, and the intended middleware stack. Counts are the
-/// stable proxy for registration order — the crate's `MiddlewareStack` exposes
-/// lengths but not names (SDK gap), so ordering itself is documented at the
-/// registration sites in `assemble_turn_harness`.
+/// assembled harness registers the model, every callable tool, and the intended
+/// middleware stack. Counts are the stable proxy for registration order — the
+/// crate's `MiddlewareStack` exposes lengths but not names (SDK gap), so
+/// ordering itself is documented at the registration sites in
+/// `assemble_turn_harness`.
 #[test]
 fn adapter_inventory_registers_model_tools_and_middleware() {
     let provider: Arc<dyn Provider> = Arc::new(EchoThenDone {
@@ -444,22 +444,17 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         vec!["mock-model".to_string()]
     );
 
-    // Tool registry: every callable tool plus the unknown-tool sentinel; the
-    // sentinel is registered but never counted as a callable tool.
+    // Tool registry: every callable tool.
     let tools = assembled.harness.tools().names();
     assert!(tools.contains(&"echo".to_string()), "saw {tools:?}");
-    assert!(
-        tools.contains(&UNKNOWN_TOOL_SENTINEL.to_string()),
-        "saw {tools:?}"
-    );
-    assert_eq!(assembled.tool_count, 1, "sentinel excluded from tool_count");
+    assert_eq!(assembled.tool_count, 1);
 
     // Lifecycle middleware, in registration order: cache-align + tool-output
     // (TurnContextMiddleware::defaults), cost budget, context compression +
     // message trim (window known + autocompact on), repeated-tool-failure
-    // breaker, tool-outcome capture, unknown-tool rewrite, arg recovery.
+    // breaker, tool-outcome capture, arg recovery.
     let mw = assembled.harness.middleware();
-    assert_eq!(mw.len(), 9, "lifecycle middleware inventory");
+    assert_eq!(mw.len(), 8, "lifecycle middleware inventory");
     // Around-tool wraps: approval/security + CLI/RPC-only scope gate (no
     // builder tool policy on this call).
     assert_eq!(mw.tool_middleware_len(), 2, "tool middleware inventory");

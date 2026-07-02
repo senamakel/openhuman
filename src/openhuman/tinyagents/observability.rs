@@ -259,6 +259,20 @@ impl EventListener for OpenhumanEventBridge {
             // exactly once per model call; prefer it over `ModelCompleted`'s
             // optional usage to avoid double counting.
             AgentEvent::UsageRecorded { usage } => self.record_usage(usage),
+            AgentEvent::UnknownToolCall {
+                call_id,
+                requested_name,
+                arguments,
+                recovery,
+            } => {
+                tracing::debug!(
+                    call_id = call_id.as_str(),
+                    requested_tool = requested_name.as_str(),
+                    recovery = recovery.as_str(),
+                    arguments = %arguments,
+                    "[tinyagents] recovered unknown tool call without executing a tool"
+                );
+            }
             AgentEvent::ToolStarted { call_id, tool_name } => {
                 let iteration = self.iteration();
                 match &self.scope {

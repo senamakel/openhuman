@@ -19,9 +19,8 @@
 //! [`TurnContextMiddleware`] bundles the config and installs whichever hooks are
 //! enabled onto a harness.
 
-use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use async_trait::async_trait;
 
@@ -36,13 +35,12 @@ use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolResult as TaToolResult};
 
-use super::tools::UNKNOWN_TOOL_SENTINEL;
 use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::approval::{
-    redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
+    ApprovalGate, ExecutionOutcome, GateOutcome, redact_args, summarize_action,
 };
-use crate::openhuman::context::tool_result_budget::apply_tool_result_budget;
 use crate::openhuman::context::CLEARED_PLACEHOLDER;
+use crate::openhuman::context::tool_result_budget::apply_tool_result_budget;
 use crate::openhuman::tools::Tool;
 
 /// Default per-tool-result byte cap for the channel / sub-agent paths, which do
@@ -674,11 +672,6 @@ pub struct ToolPolicyMiddleware {
     /// `Tool` can be resolved for its generated-tool runtime context and its
     /// per-call permission level.
     tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
-    /// The advertised (visible) tool-name whitelist. Non-empty = restricted; a
-    /// call outside it is "not available to this agent" (the engine's first gate).
-    /// A non-visible tool is never registered, so it reaches here rewritten onto
-    /// the recovery sentinel — its original name rides `requested_tool`.
-    visible_tool_names: HashSet<String>,
     session_id: String,
     channel: String,
     agent_definition_id: String,
@@ -689,7 +682,6 @@ impl ToolPolicyMiddleware {
         policy: Arc<dyn crate::openhuman::agent::tool_policy::ToolPolicy>,
         session: crate::openhuman::agent_tool_policy::ToolPolicySession,
         tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
-        visible_tool_names: HashSet<String>,
         session_id: String,
         channel: String,
         agent_definition_id: String,
@@ -698,7 +690,6 @@ impl ToolPolicyMiddleware {
             policy,
             session,
             tool_sets,
-            visible_tool_names,
             session_id,
             channel,
             agent_definition_id,
@@ -767,36 +758,6 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
         use crate::openhuman::agent::tool_policy::{
             ToolCallContext, ToolPolicyDecision, ToolPolicyRequest,
         };
-
-        // A call the model made to a tool outside the visible set was registered
-        // nowhere, so it arrives rewritten onto the recovery sentinel with the
-        // original name on `requested_tool`. When the session restricts visibility
-        // (non-empty set) and that original tool isn't visible, the engine's first
-        // gate produced "not available to this agent" — reproduce it here (takes
-        // precedence over the generic "Unknown tool" sentinel wording). A genuinely
-        // unknown call with no visibility restriction still falls through to the
-        // sentinel's "Unknown tool" result.
-        if call.name == UNKNOWN_TOOL_SENTINEL {
-            if !self.visible_tool_names.is_empty() {
-                let requested = call
-                    .arguments
-                    .get("requested_tool")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or_default();
-                if !requested.is_empty() && !self.visible_tool_names.contains(requested) {
-                    let content = format!("Tool '{requested}' is not available to this agent");
-                    return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                        call_id: call.id,
-                        name: call.name,
-                        content: content.clone(),
-                        raw: None,
-                        error: Some(content),
-                        elapsed_ms: 0,
-                    }));
-                }
-            }
-            return next.run(ctx, state, call).await;
-        }
 
         // Channel-permission ceiling first (session deny + per-call permission
         // level), mirroring the engine order in `agent_tool_exec`.
@@ -868,55 +829,6 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
     }
 }
 
-/// `before_tool`: rewrite a call to an **unadvertised** tool onto the recovery
-/// sentinel (issue #4249, Phase 1 Task B) so a hallucinated tool name is a
-/// recoverable [`UnknownToolAdapter`](super::tools::UnknownToolAdapter) result
-/// rather than a fatal `ToolNotFound`. `before_tool` runs before the harness
-/// resolves the tool, so the rewrite lands in time.
-///
-/// This moves the decision out of `ProviderModel::response_to_model_response`
-/// (which used to carry a `valid_tools` set) to the tool boundary, where it
-/// applies uniformly to native and text-parsed tool calls. The sentinel handler
-/// is still required (the crate has no "tool not found → repair" hook — SDK gap),
-/// but it remains internal and is never advertised to the model.
-pub struct UnknownToolRewriteMiddleware {
-    /// The set of callable tool names (plus the sentinel). A call outside it is
-    /// rewritten onto the sentinel.
-    valid: Arc<HashSet<String>>,
-}
-
-impl UnknownToolRewriteMiddleware {
-    /// Build the middleware over the runner's valid-tool-name set.
-    pub fn new(valid: Arc<HashSet<String>>) -> Self {
-        Self { valid }
-    }
-}
-
-#[async_trait]
-impl Middleware<()> for UnknownToolRewriteMiddleware {
-    fn name(&self) -> &str {
-        "unknown_tool_rewrite"
-    }
-
-    async fn before_tool(
-        &self,
-        _ctx: &mut RunContext<()>,
-        _state: &(),
-        call: &mut TaToolCall,
-    ) -> TaResult<()> {
-        if call.name != UNKNOWN_TOOL_SENTINEL && !self.valid.contains(&call.name) {
-            let requested = std::mem::take(&mut call.name);
-            tracing::debug!(
-                requested = %requested,
-                "[tinyagents::mw] rewriting unknown tool call onto recovery sentinel"
-            );
-            call.arguments = serde_json::json!({ "requested_tool": requested });
-            call.name = UNKNOWN_TOOL_SENTINEL.to_string();
-        }
-        Ok(())
-    }
-}
-
 /// `after_tool`: capture each tool call's execution outcome (success + content)
 /// into a shared sink before the harness folds the result into a `Message::tool`
 /// that drops the `error` flag (issue #4249). Without this, a post-turn
@@ -963,8 +875,7 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
 /// those to `Value::Null`, which the harness then rejects against an object
 /// schema and aborts the whole turn. The in-house engine recovered such a call by
 /// running the tool with `{}`; restore that so a single bad tool call is
-/// recoverable rather than fatal. The recovery sentinel's own
-/// `{ "requested_tool": … }` payload is already an object, so it is untouched.
+/// recoverable rather than fatal.
 pub struct ArgRecoveryMiddleware;
 
 #[async_trait]
@@ -1179,15 +1090,7 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
         // arguments" halt only fires when the args truly repeat.
         let err_line = err.lines().next().unwrap_or(err);
         let sig = format!("{}\u{1f}{arg_fp}\u{1f}{err_line}", result.name);
-        // The unknown-tool recovery is a failure the model can correct (it got the
-        // "unknown tool" feedback), so it must NOT feed the generic *any*-failure
-        // no-progress counter — else a turn that recovers from one bad tool name
-        // and then legitimately exhausts its iteration budget would trip the
-        // backstop instead of hitting the cap. It still feeds the *identical*-repeat
-        // counter, so re-issuing the SAME unavailable tool halts with a root cause.
-        if result.name != UNKNOWN_TOOL_SENTINEL {
-            state.consecutive += 1;
-        }
+        state.consecutive += 1;
         let same_count = match &state.last_sig {
             Some(prev) if *prev == sig => {
                 state.same_count += 1;
@@ -1388,10 +1291,11 @@ mod tests {
             "bundle should be the leading text block"
         );
         // Original text and the image both survive.
-        assert!(m
-            .content
-            .iter()
-            .any(|b| matches!(b, ContentBlock::Text(t) if t.contains("original ask"))));
+        assert!(
+            m.content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::Text(t) if t.contains("original ask")))
+        );
         assert!(
             m.content
                 .iter()
@@ -1532,49 +1436,6 @@ mod tests {
             "the tool's own 20-char cap should truncate with the tool-cap marker: {}",
             result.content
         );
-    }
-
-    // ── UnknownToolRewriteMiddleware ────────────────────────────────────────
-
-    #[tokio::test]
-    async fn unknown_tool_is_rewritten_onto_the_recovery_sentinel() {
-        let valid: Arc<HashSet<String>> = Arc::new(["echo".to_string()].into_iter().collect());
-        let mw = UnknownToolRewriteMiddleware::new(valid);
-        let mut call = TaToolCall {
-            id: "1".into(),
-            name: "frobnicate".into(),
-            arguments: json!({ "x": 1 }),
-        };
-        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
-        assert_eq!(call.name, UNKNOWN_TOOL_SENTINEL);
-        assert_eq!(call.arguments["requested_tool"], json!("frobnicate"));
-    }
-
-    #[tokio::test]
-    async fn advertised_tool_is_left_untouched() {
-        let valid: Arc<HashSet<String>> = Arc::new(["echo".to_string()].into_iter().collect());
-        let mw = UnknownToolRewriteMiddleware::new(valid);
-        let mut call = TaToolCall {
-            id: "1".into(),
-            name: "echo".into(),
-            arguments: json!({ "msg": "hi" }),
-        };
-        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
-        assert_eq!(call.name, "echo");
-        assert_eq!(call.arguments, json!({ "msg": "hi" }));
-    }
-
-    #[tokio::test]
-    async fn the_sentinel_itself_is_never_rewritten() {
-        let valid: Arc<HashSet<String>> = Arc::new(HashSet::new());
-        let mw = UnknownToolRewriteMiddleware::new(valid);
-        let mut call = TaToolCall {
-            id: "1".into(),
-            name: UNKNOWN_TOOL_SENTINEL.to_string(),
-            arguments: json!({ "requested_tool": "x" }),
-        };
-        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
-        assert_eq!(call.name, UNKNOWN_TOOL_SENTINEL);
     }
 
     // ── CostBudgetMiddleware ────────────────────────────────────────────────

@@ -15,88 +15,6 @@ use tinyagents::harness::tool::{
     ToolRuntime, ToolSchema, ToolSideEffects, WorkspaceAccess,
 };
 
-/// Internal sentinel tool name. tinyagents fails the whole run on a call to an
-/// unregistered tool ([`TinyAgentsError::ToolNotFound`]), but the legacy loop
-/// returned an "Unknown tool" result and let the model recover. The model
-/// adapter rewrites any call to an unadvertised tool onto this sentinel (the
-/// original name carried in `requested_tool`), so the harness executes it,
-/// produces the recovery result, and the loop continues — restoring the
-/// graceful-unknown-tool behavior. The leading underscores keep it out of any
-/// real tool namespace, and it is never advertised to the model.
-pub const UNKNOWN_TOOL_SENTINEL: &str = "__openhuman_unknown_tool__";
-
-/// The sentinel tool: reports the model's requested-but-unavailable tool back as
-/// a recoverable result instead of aborting the run. See [`UNKNOWN_TOOL_SENTINEL`].
-///
-/// `subagent` selects the wording so it matches the legacy engine: a sub-agent
-/// calling a tool outside its list gets the "not available to this sub-agent"
-/// message (the `SubagentToolSource` wording), while a top-level agent gets the
-/// "Unknown tool" message (`engine::tools`). Tests and the model key off these.
-pub struct UnknownToolAdapter {
-    subagent: bool,
-}
-
-impl UnknownToolAdapter {
-    pub fn new(subagent: bool) -> Self {
-        Self { subagent }
-    }
-}
-
-#[async_trait]
-impl Tool<()> for UnknownToolAdapter {
-    fn name(&self) -> &str {
-        UNKNOWN_TOOL_SENTINEL
-    }
-
-    fn description(&self) -> &str {
-        "internal: reports an unavailable tool call"
-    }
-
-    fn schema(&self) -> ToolSchema {
-        ToolSchema::new(
-            UNKNOWN_TOOL_SENTINEL,
-            "internal",
-            serde_json::json!({"type": "object"}),
-        )
-    }
-
-    fn policy(&self) -> ToolPolicy {
-        ToolPolicy::read_only()
-    }
-
-    async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {
-        let requested = call
-            .arguments
-            .get("requested_tool")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown");
-        let content = if self.subagent {
-            format!(
-                "Error: tool '{requested}' is not available to this sub-agent. \
-                 Use one of your listed tools, or answer directly."
-            )
-        } else {
-            format!(
-                "Unknown tool: {requested}. It is not available; do not call it again. \
-                 Use one of the advertised tools, or answer directly."
-            )
-        };
-        Ok(TaToolResult {
-            call_id: call.id,
-            name: call.name,
-            // Surface the recovery result as an error too: an unknown-tool call IS
-            // a failure, so the repeated-failure breaker counts it and halts the
-            // run with a root cause when the model keeps re-issuing the same
-            // unavailable tool (instead of looping to the iteration cap). The
-            // model-visible content is unchanged.
-            error: Some(content.clone()),
-            content,
-            raw: None,
-            elapsed_ms: 0,
-        })
-    }
-}
-
 /// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.
 /// `ask_user_clarification`), so the loop should pause and surface `question`
 /// to the user. Mirrors the legacy `run_turn_engine` `early_exit_tool` seam.
@@ -256,10 +174,10 @@ async fn execute_openhuman_tool(
     // (`agent_tool_exec`): `execute_with_options` (so markdown-capable tools
     // render markdown) under the tool's resolved timeout deadline. Without the
     // deadline an inherited/long-running tool call could hang the turn
-    // indefinitely. (Per-call `ToolPolicy`/permission gating needs the session
-    // policy context, which the per-tool adapter does not carry — the advertised
-    // allow-list + `UnknownToolRewriteMiddleware` already block unadvertised
-    // tools, and approval covers external effects.)
+    // indefinitely. Per-call `ToolPolicy`/permission gating needs the session
+    // policy context, which the per-tool adapter does not carry; approval covers
+    // external effects, and `RunPolicy::unknown_tool` recovers unregistered
+    // tool names before execution reaches this adapter.
     let options = crate::openhuman::tools::ToolCallOptions {
         prefer_markdown: true,
     };

@@ -38,7 +38,7 @@ use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
 use tinyagents::harness::middleware::{ContextCompressionMiddleware, MessageTrimMiddleware};
-use tinyagents::harness::runtime::{AgentHarness, RunPolicy};
+use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::summarization::TrimStrategy;
 
@@ -50,10 +50,7 @@ pub use checkpoint::SqlRunLedgerCheckpointer;
 pub use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 pub use model::{ProviderModel, ThinkingForwarder};
 pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
-pub use tools::{
-    EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter, UnknownToolAdapter,
-    UNKNOWN_TOOL_SENTINEL,
-};
+pub use tools::{EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter};
 
 use std::collections::HashSet;
 use std::sync::Arc as StdArc;
@@ -117,6 +114,7 @@ fn run_policy_for(max_iterations: usize) -> RunPolicy {
     policy.limits.max_model_calls = max_iterations;
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.retry.max_attempts = 1;
+    policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
     policy
 }
 
@@ -593,16 +591,15 @@ struct AssembledTurnHarness {
     handle: Option<SteeringHandle>,
     /// Records the first early-exit tool round, when early-exit tools exist.
     early_exit_hook: Option<EarlyExitHook>,
-    /// Number of callable tools registered (excludes the unknown-tool sentinel).
+    /// Number of callable tools registered.
     tool_count: usize,
 }
 
 /// Assemble the turn harness for [`run_turn_via_tinyagents_shared`]: register
-/// the provider model, every shared tool (plus the unknown-tool sentinel), and
-/// the full middleware stack in the intended order. Split out of the runner so
-/// the adapter inventory is directly testable (issue #4249, Phase 11) — the
-/// returned [`AssembledTurnHarness`] exposes the harness registries without
-/// driving a run.
+/// the provider model, every shared tool, and the full middleware stack in the
+/// intended order. Split out of the runner so the adapter inventory is directly
+/// testable (issue #4249, Phase 11) — the returned [`AssembledTurnHarness`]
+/// exposes the harness registries without driving a run.
 #[allow(clippy::too_many_arguments)]
 fn assemble_turn_harness(
     provider: Arc<dyn Provider>,
@@ -621,21 +618,6 @@ fn assemble_turn_harness(
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<()> = AgentHarness::new();
     harness.with_policy(run_policy_for(max_iterations));
-
-    // The set of tool names the model may call: every advertised tool plus the
-    // unknown-tool sentinel. A call outside it is rewritten onto the sentinel so
-    // a hallucinated tool recovers instead of aborting the run — enforced by the
-    // `UnknownToolRewriteMiddleware` (`before_tool`) installed below.
-    let valid_tools: Arc<HashSet<String>> = {
-        let mut names: HashSet<String> = tool_sets
-            .iter()
-            .flat_map(|set| set.iter())
-            .map(|t| t.name().to_string())
-            .filter(|name| allowed.is_empty() || allowed.contains(name))
-            .collect();
-        names.insert(UNKNOWN_TOOL_SENTINEL.to_string());
-        Arc::new(names)
-    };
 
     let cursor: IterationCursor = Arc::default();
     // Keep a provider handle for the context-window summarizer (the run consumes
@@ -789,10 +771,6 @@ fn assemble_turn_harness(
             }
         }
     }
-    // The unknown-tool sentinel: the model adapter rewrites any unadvertised tool
-    // call onto it so the run recovers gracefully instead of aborting. Its wording
-    // matches the legacy engine (sub-agent vs top-level).
-    harness.register_tool(Arc::new(UnknownToolAdapter::new(subagent_scope.is_some())));
     let tool_count = registered.len();
 
     // Human-in-the-loop approval as a named tool middleware (issue #4249,
@@ -829,21 +807,11 @@ fn assemble_turn_harness(
             enforcement.policy,
             enforcement.session,
             tool_sets.clone(),
-            allowed.clone(),
             enforcement.session_id,
             enforcement.channel,
             enforcement.agent_definition_id,
         )));
     }
-
-    // Unknown-tool recovery as a `before_tool` middleware (issue #4249, Phase 1
-    // Task B): a call to an unadvertised tool is rewritten onto the recovery
-    // sentinel before the harness resolves it, so a hallucinated tool name is a
-    // recoverable result rather than a fatal `ToolNotFound`. Replaces the
-    // `valid_tools` rewrite that used to live in `ProviderModel`.
-    harness.push_middleware(Arc::new(middleware::UnknownToolRewriteMiddleware::new(
-        valid_tools,
-    )));
 
     // Malformed-argument recovery (`before_tool`): coerce a call's non-object
     // arguments (invalid JSON parses to Null) to `{}` so a single bad tool call is

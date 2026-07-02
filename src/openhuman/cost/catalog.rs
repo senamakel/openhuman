@@ -370,14 +370,6 @@ pub fn lookup(model: &str) -> Option<&'static ModelPrice> {
         .max_by_key(|p| p.model_id.len())
 }
 
-/// Published maximum context window (tokens) for a model, if catalogued.
-///
-/// Convenience wrapper over [`lookup`] for callers that only need the window
-/// to budget prompts / trigger compaction / pick a route. `None` ⇒ unknown.
-pub fn context_window(model: &str) -> Option<u32> {
-    lookup(model).map(|p| p.context_window)
-}
-
 /// Estimate the USD cost of a single model call from catalogued per-MTok rates.
 ///
 /// Prices the standard (cache-miss) input tokens, the cached-prefix input
@@ -512,14 +504,6 @@ mod tests {
             lookup("agentic-v1").is_none(),
             "abstract tiers aren't vendor models"
         );
-    }
-
-    #[test]
-    fn context_window_helper_resolves_known_models() {
-        assert_eq!(context_window("claude-opus-4-8"), Some(1_000_000));
-        assert_eq!(context_window("openai/gpt-4.1-mini"), Some(1_000_000));
-        assert_eq!(context_window("deepseek-chat"), Some(128_000));
-        assert_eq!(context_window("totally-made-up"), None);
     }
 
     #[test]

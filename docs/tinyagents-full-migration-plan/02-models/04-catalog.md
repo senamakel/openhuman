@@ -7,6 +7,11 @@ normalized shape (`ModelCatalogEntry { provider, model_id, aliases,
 max_input_tokens, max_output_tokens, pricing, capabilities }` incl. cache/
 reasoning rates).
 
+Current status (2026-07-02): `cost/catalog.rs` is a 622-line static pricing and
+window table plus registry-enrichment/estimate helpers. The unused
+`context_window` convenience wrapper is gone; callers either use the richer
+`lookup` row or the inference provider/model-context path.
+
 ## Steps
 
 1. Build a `ModelCatalogSnapshot` from OpenHuman's data: seed from crate

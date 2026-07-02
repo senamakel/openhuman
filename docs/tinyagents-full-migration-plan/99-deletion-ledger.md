@@ -32,6 +32,8 @@ they land.
       (streaming reasoning moved to `MessageDelta.reasoning`; tool-arg progress
       and non-streaming reasoning fallback remain live)
 - [ ] `inference/provider/reliable.rs` (1215 + 1443 tests) — 02.2
+      (live provider-factory wrapper; TinyAgents retry is held at one attempt
+      until fallback routes and retry events replace it)
 - [x] `tinyagents/orchestration.rs::run_parallel_fanout` — 08.1
 - [x] `harness/engine/` (entire dir, 309) — 05.2
 - [ ] `agent/progress_tracing/` (616, if duplicate) — 05.2

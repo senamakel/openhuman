@@ -44,8 +44,8 @@ stop hooks, and legacy progress compatibility.
    providers report; add `cost_source: estimated | provider_charged` to
    `TokenUsage`; keep provider-charged USD via an out-of-band carry (crate
    `Usage` has no USD field — residual upstream gap). Current `TokenUsage`
-   stores only input/output/total/cost/timestamp, and `build_token_usage` drops
-   cached/reasoning/cache-creation provenance.
+   persists cached-input provenance and `cost_source`; reasoning and
+   cache-creation tokens remain zero until providers report them.
 2. **Crate budget middleware:** replace bespoke `CostBudgetMiddleware`
    daily/monthly pre-checks with `BudgetMiddleware` where limits map; add
    per-run and per-thread budgets (new `CostConfig` fields + thread-id

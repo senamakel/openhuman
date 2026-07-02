@@ -18,7 +18,7 @@ use crate::openhuman::config::CostConfig;
 use crate::openhuman::inference::provider::traits::UsageInfo;
 
 use super::tracker::CostTracker;
-use super::types::TokenUsage;
+use super::types::{CostSource, TokenUsage};
 
 static GLOBAL_TRACKER: OnceCell<Arc<CostTracker>> = OnceCell::new();
 
@@ -135,15 +135,24 @@ pub(super) fn build_token_usage(model: &str, usage: &UsageInfo) -> Option<TokenU
         return None;
     }
     let total_tokens = usage.input_tokens.saturating_add(usage.output_tokens);
+    let provider_charged = usage.charged_amount_usd.is_finite() && usage.charged_amount_usd > 0.0;
     Some(TokenUsage {
         model: model.to_string(),
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
         total_tokens,
+        cached_input_tokens: usage.cached_input_tokens.min(usage.input_tokens),
+        cache_creation_tokens: 0,
+        reasoning_tokens: 0,
         cost_usd: if usage.charged_amount_usd.is_finite() && usage.charged_amount_usd >= 0.0 {
             usage.charged_amount_usd
         } else {
             0.0
+        },
+        cost_source: if provider_charged {
+            CostSource::ProviderCharged
+        } else {
+            CostSource::Estimated
         },
         timestamp: chrono::Utc::now(),
     })

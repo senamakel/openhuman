@@ -12,10 +12,31 @@ pub struct TokenUsage {
     pub output_tokens: u64,
     /// Total tokens
     pub total_tokens: u64,
+    /// Input tokens served from provider-side cache, when reported.
+    #[serde(default)]
+    pub cached_input_tokens: u64,
+    /// Tokens written into a provider-side cache, when reported.
+    #[serde(default)]
+    pub cache_creation_tokens: u64,
+    /// Reasoning/thinking tokens, when reported.
+    #[serde(default)]
+    pub reasoning_tokens: u64,
     /// Calculated cost in USD
     pub cost_usd: f64,
+    /// Whether `cost_usd` came from provider billing data or local estimation.
+    #[serde(default)]
+    pub cost_source: CostSource,
     /// Timestamp of the request
     pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+/// Source of a cost value persisted in [`TokenUsage`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CostSource {
+    #[default]
+    Estimated,
+    ProviderCharged,
 }
 
 impl TokenUsage {
@@ -50,7 +71,11 @@ impl TokenUsage {
             input_tokens,
             output_tokens,
             total_tokens,
+            cached_input_tokens: 0,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             cost_usd,
+            cost_source: CostSource::Estimated,
             timestamp: chrono::Utc::now(),
         }
     }

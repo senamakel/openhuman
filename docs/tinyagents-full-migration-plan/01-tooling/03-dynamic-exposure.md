@@ -6,6 +6,13 @@ Current OpenHuman surfaces: `agent/harness/tool_filter.rs` (mechanics),
 `tools/user_filter.rs`, sub-agent `tool_prep.rs`, per-turn assembly in
 `session/turn/tools.rs`, channel permission ceiling checks.
 
+Current status: the shared TinyAgents runner still registers only the
+OpenHuman-computed callable tools, preserving hidden-tool execution semantics.
+It now tags OpenHuman run contexts and emits a diagnostics-only
+`AgentEvent::ToolsFiltered` via `openhuman_tool_visibility` when that existing
+allowlist withholds candidate tools. Full middleware-owned selection and
+deletion of `session/turn/tools.rs` / `subagent_runner/tool_prep.rs` remain.
+
 ## Steps
 
 1. Express agent `tool_allowlist`/`tool_denylist`, sub-agent tool scope,

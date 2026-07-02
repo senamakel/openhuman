@@ -786,12 +786,28 @@ fn assemble_turn_harness(
 
     // Register one adapter per unique callable tool name found across the shared
     // sets (newest set wins on a name clash; `allowed` empty = all visible).
-    let mut registered: HashSet<String> = HashSet::new();
-    for name in tool_sets
+    let mut seen_candidates: HashSet<String> = HashSet::new();
+    let candidate_names: Vec<String> = tool_sets
         .iter()
         .flat_map(|set| set.iter())
-        .map(|t| t.name())
-    {
+        .map(|tool| tool.name())
+        .filter_map(|name| {
+            seen_candidates
+                .insert(name.to_string())
+                .then(|| name.to_string())
+        })
+        .collect();
+    let visibility_excluded: Vec<String> = if allowed.is_empty() {
+        Vec::new()
+    } else {
+        candidate_names
+            .iter()
+            .filter(|name| !allowed.contains(*name))
+            .cloned()
+            .collect()
+    };
+    let mut registered: HashSet<String> = HashSet::new();
+    for name in candidate_names.iter().map(String::as_str) {
         if !registered.contains(name) && (allowed.is_empty() || allowed.contains(name)) {
             if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
                 if early_exit_set.contains(name) {
@@ -805,6 +821,11 @@ fn assemble_turn_harness(
         }
     }
     let tool_count = registered.len();
+    if !visibility_excluded.is_empty() {
+        harness.push_middleware(Arc::new(
+            middleware::OpenHumanToolVisibilityMiddleware::new(visibility_excluded, tool_count),
+        ));
+    }
 
     // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration
     // 01.1). Keep this narrow for now: enforce sandbox requirements declared by

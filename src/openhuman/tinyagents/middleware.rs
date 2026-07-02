@@ -102,6 +102,25 @@ pub struct HandoffConfig {
     pub(crate) task_id: String,
 }
 
+/// Diagnostics-only bridge from OpenHuman's precomputed visible-tool allowlist
+/// into TinyAgents events. It does not mutate `ModelRequest::tools`; hidden
+/// tools remain unregistered by the shared runner.
+pub(crate) struct OpenHumanToolVisibilityMiddleware {
+    excluded: Vec<String>,
+    remaining: usize,
+    emitted: AtomicBool,
+}
+
+impl OpenHumanToolVisibilityMiddleware {
+    pub(crate) fn new(excluded: Vec<String>, remaining: usize) -> Self {
+        Self {
+            excluded,
+            remaining,
+            emitted: AtomicBool::new(false),
+        }
+    }
+}
+
 /// Inputs the [`SuperContextMiddleware`] node needs to run its first-turn
 /// read-only context-collection pass.
 #[derive(Clone)]
@@ -202,6 +221,29 @@ fn tool_policy_snapshot(tool_sets: &[Arc<Vec<Box<dyn Tool>>>]) -> HashMap<String
 
 fn estimate_output_tokens(bytes: usize) -> u64 {
     bytes.div_ceil(4) as u64
+}
+
+#[async_trait]
+impl Middleware<()> for OpenHumanToolVisibilityMiddleware {
+    fn name(&self) -> &str {
+        "openhuman_tool_visibility"
+    }
+
+    async fn before_model(
+        &self,
+        ctx: &mut RunContext<()>,
+        _state: &(),
+        _request: &mut ModelRequest,
+    ) -> TaResult<()> {
+        if !self.excluded.is_empty() && !self.emitted.swap(true, Ordering::SeqCst) {
+            ctx.emit(AgentEvent::ToolsFiltered {
+                by: self.name().to_string(),
+                excluded: self.excluded.clone(),
+                remaining: self.remaining,
+            });
+        }
+        Ok(())
+    }
 }
 
 /// `after_tool`: progressive-disclosure handoff (issue #4249 1b). An oversized

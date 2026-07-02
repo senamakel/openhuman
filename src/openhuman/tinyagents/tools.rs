@@ -253,6 +253,7 @@ pub(crate) struct SharedToolAdapter {
     name: String,
     description: String,
     schema: ToolSchema,
+    policy: ToolPolicy,
     /// When set, a successful call records an [`EarlyExit`] and pauses the loop.
     early_exit: Option<EarlyExitHook>,
 }
@@ -264,16 +265,17 @@ impl SharedToolAdapter {
         sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
         name: &str,
     ) -> Option<Self> {
-        let spec = sets
+        let (spec, policy) = sets
             .iter()
             .flat_map(|set| set.iter())
             .find(|t| t.name() == name)
-            .map(|t| t.spec())?;
+            .map(|t| (t.spec(), tool_policy_from_openhuman_tool(t.as_ref())))?;
         Some(Self {
             sets,
             name: spec.name.clone(),
             description: spec.description.clone(),
             schema: super::convert::spec_to_schema(&spec),
+            policy,
             early_exit: None,
         })
     }
@@ -301,14 +303,7 @@ impl Tool<()> for SharedToolAdapter {
     }
 
     fn policy(&self) -> ToolPolicy {
-        let found = self
-            .sets
-            .iter()
-            .flat_map(|set| set.iter())
-            .find(|t| t.name() == self.name);
-        found
-            .map(|tool| tool_policy_from_openhuman_tool(tool.as_ref()))
-            .unwrap_or_else(ToolPolicy::default)
+        self.policy.clone()
     }
 
     async fn call(&self, _state: &(), call: TaToolCall) -> tinyagents::Result<TaToolResult> {

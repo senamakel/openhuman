@@ -76,7 +76,7 @@ they land.
   (dynamic delegation refresh and skill-event catalogue reconciliation remain
   live until middleware owns contextual selection)
 - `subagent_runner/ops/*` → graph nodes — 07.1
-- `running_subagents.rs` 1024 → ≤~300 policy/executor glue — 07.2
+- `running_subagents.rs` 1229 → ≤~300 policy/executor glue — 07.2
 - `tools/spawn_parallel_agents.rs` is a 126-line tool shell; remaining shrink
   target is `agent_orchestration/spawn_parallel_graph.rs` graph mechanics — 08.2
 - `context/` → stats + product prompt state — 03

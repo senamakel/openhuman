@@ -10,9 +10,10 @@ per-workspace durable `JsonlTaskStore` at
 `<workspace_dir>/.openhuman/orchestration_tasks.jsonl` on first spawn, falling
 back to `InMemoryTaskStore` only if that workspace log cannot be created/opened.
 Records carry parent session, parent thread, durable `subagent_session_id`, and
-workspace metadata. The executor/control path still uses OpenHuman's watch
-channels, abort handles, tombstones, and `RunQueue`; restart reconciliation and
-steering-registry replacement remain pending.
+workspace metadata, and terminal/cancelled mirrors now resolve the same
+workspace-scoped store that recorded the spawn. The executor/control path still
+uses OpenHuman's watch channels, abort handles, tombstones, and `RunQueue`;
+restart reconciliation and steering-registry replacement remain pending.
 
 ## Steps
 
@@ -43,7 +44,7 @@ steering-registry replacement remain pending.
 
 ## Deletions
 
-- Watch-channel/tombstone/task-lookup mechanics in `running_subagents.rs`
+- Watch-channel/tombstone/task-lookup mechanics in `running_subagents.rs` (1229)
   (target ≤ ~300 lines of policy + executor glue).
 
 ## Acceptance

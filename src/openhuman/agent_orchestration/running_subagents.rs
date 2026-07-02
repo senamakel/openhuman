@@ -267,9 +267,15 @@ fn record_spawned(
 
 /// Mirror a child's published [`SubagentStatus`] into the typed store. Transition
 /// errors (already terminal / cancelled) are ignored — first writer wins.
-fn record_status(task_id: &str, status: &SubagentStatus) {
-    let store = task_store();
+fn record_status(workspace_dir: &Path, task_id: &str, status: &SubagentStatus) {
+    let store = task_store_for_workspace(workspace_dir);
     let id = TaskId::new(task_id);
+    log::debug!(
+        "[running_subagents] recording task status task_id={} workspace_dir={} terminal={}",
+        task_id,
+        workspace_dir.display(),
+        status.is_terminal()
+    );
     match status {
         SubagentStatus::Completed { output, .. } => {
             let _ = store.complete(&id, OrchestrationTaskResult::text(output.clone()));
@@ -285,9 +291,14 @@ fn record_status(task_id: &str, status: &SubagentStatus) {
 }
 
 /// Record a cancellation (`CancelRequested` → `Cancelled`) for `task_id`.
-fn record_cancelled(task_id: &str) {
-    let store = task_store();
+fn record_cancelled(workspace_dir: &Path, task_id: &str) {
+    let store = task_store_for_workspace(workspace_dir);
     let id = TaskId::new(task_id);
+    log::debug!(
+        "[running_subagents] recording task cancellation task_id={} workspace_dir={}",
+        task_id,
+        workspace_dir.display()
+    );
     let _ = store.request_cancel(&id);
     let _ = store.mark_cancelled(&id);
 }
@@ -296,7 +307,22 @@ fn record_cancelled(task_id: &str) {
 /// Backs typed status surfaces without touching the live registry's executor
 /// plumbing.
 pub fn task_records(parent_session: Option<&str>) -> Vec<OrchestrationTaskRecord> {
-    let all = task_store().list(OrchestrationTaskFilter::default());
+    let _ = task_store();
+    let stores: Vec<Arc<DetachedTaskStore>> = task_stores()
+        .lock()
+        .expect("running_subagents task store mutex poisoned")
+        .values()
+        .cloned()
+        .collect();
+    let all: Vec<OrchestrationTaskRecord> = stores
+        .into_iter()
+        .flat_map(|store| store.list(OrchestrationTaskFilter::default()))
+        .collect();
+    log::trace!(
+        "[running_subagents] task_records loaded records={} parent_session_filter={:?}",
+        all.len(),
+        parent_session
+    );
     match parent_session {
         Some(ps) => all
             .into_iter()
@@ -399,7 +425,7 @@ pub fn register(
         &workspace_dir,
         parent_thread_id.as_deref(),
     );
-    spawn_status_watcher(task_id.clone(), status.clone());
+    spawn_status_watcher(task_id.clone(), workspace_dir.clone(), status.clone());
 
     let entry = RunningSubagentEntry {
         agent_id,
@@ -429,16 +455,21 @@ pub fn register(
 /// Watch a child's status channel and mirror the first terminal status into the
 /// typed lifecycle store. A dropped sender (aborted/panicked task) without a
 /// terminal status is recorded as a failure, matching [`wait`].
-fn spawn_status_watcher(task_id: String, mut status: watch::Receiver<SubagentStatus>) {
+fn spawn_status_watcher(
+    task_id: String,
+    workspace_dir: PathBuf,
+    mut status: watch::Receiver<SubagentStatus>,
+) {
     tokio::spawn(async move {
         loop {
             let snapshot = status.borrow_and_update().clone();
             if snapshot.is_terminal() {
-                record_status(&task_id, &snapshot);
+                record_status(&workspace_dir, &task_id, &snapshot);
                 break;
             }
             if status.changed().await.is_err() {
                 record_status(
+                    &workspace_dir,
                     &task_id,
                     &SubagentStatus::Failed {
                         error: "sub-agent task ended without reporting a result".to_string(),
@@ -673,7 +704,7 @@ pub fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
     let entry = map.remove(task_id)?;
     entry.abort.abort();
-    record_cancelled(task_id);
+    record_cancelled(&entry.workspace_dir, task_id);
     log::debug!(
         "[running_subagents] cancel_by_task task_id={} agent_id={} parent_thread_id={:?} live_entries={}",
         task_id,
@@ -703,14 +734,15 @@ pub fn cancel_by_session(
 pub fn close(task_id: &str, parent_session: &str) -> bool {
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
     match map.get(task_id) {
-        Some(entry) if entry.parent_session == parent_session => {
-            entry.abort.abort();
-            map.remove(task_id);
-            record_cancelled(task_id);
-            true
-        }
-        _ => false,
+        Some(entry) if entry.parent_session == parent_session => {}
+        _ => return false,
     }
+    let Some(entry) = map.remove(task_id) else {
+        return false;
+    };
+    entry.abort.abort();
+    record_cancelled(&entry.workspace_dir, task_id);
+    true
 }
 
 /// Abort and drop every running sub-agent whose parent chat thread is
@@ -727,7 +759,7 @@ pub fn cancel_for_thread(thread_id: &str) -> usize {
     for id in &to_cancel {
         if let Some(entry) = map.remove(id) {
             entry.abort.abort();
-            record_cancelled(id);
+            record_cancelled(&entry.workspace_dir, id);
         }
     }
     let count = to_cancel.len();
@@ -753,7 +785,7 @@ pub fn cancel_all() -> Vec<String> {
     let mut seen: HashSet<String> = HashSet::new();
     for (task_id, entry) in map.drain() {
         entry.abort.abort();
-        record_cancelled(&task_id);
+        record_cancelled(&entry.workspace_dir, &task_id);
         if let Some(thread_id) = entry.parent_thread_id {
             if seen.insert(thread_id.clone()) {
                 thread_ids.push(thread_id);

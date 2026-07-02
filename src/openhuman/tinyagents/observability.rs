@@ -36,7 +36,7 @@ pub struct SubagentScope {
 /// A shared 1-based model-call (iteration) cursor. The bridge advances it on
 /// each `ModelStarted` event; the model adapter reads it to attribute the
 /// tool-argument deltas it still forwards out-of-band.
-pub type IterationCursor = Arc<AtomicU32>;
+pub(crate) type IterationCursor = Arc<AtomicU32>;
 
 /// An [`EventListener`] that pauses the run once `cap` model calls have
 /// completed, so the loop stops gracefully at the iteration budget (returning
@@ -45,7 +45,7 @@ pub type IterationCursor = Arc<AtomicU32>;
 /// check, so a `Pause` sent here short-circuits the loop cleanly. The caller then
 /// inspects the run's finish reason to decide whether to summarize a checkpoint
 /// — the tinyagents analogue of the legacy cap checkpoint seam.
-pub struct CapPauser {
+pub(crate) struct CapPauser {
     handle: SteeringHandle,
     cap: u32,
     completed: AtomicU32,
@@ -53,7 +53,7 @@ pub struct CapPauser {
 
 impl CapPauser {
     /// Pause `handle` once `cap` model calls complete.
-    pub fn new(handle: SteeringHandle, cap: usize) -> Arc<Self> {
+    pub(crate) fn new(handle: SteeringHandle, cap: usize) -> Arc<Self> {
         Arc::new(Self {
             handle,
             cap: cap as u32,
@@ -88,7 +88,7 @@ struct BridgeState {
 
 /// An [`EventListener`] that mirrors harness events onto openhuman's progress
 /// sink and cost tracker.
-pub struct OpenhumanEventBridge {
+pub(crate) struct OpenhumanEventBridge {
     on_progress: Option<Sender<AgentProgress>>,
     model: String,
     max_iterations: u32,
@@ -102,7 +102,7 @@ pub struct OpenhumanEventBridge {
 
 impl OpenhumanEventBridge {
     /// Build a parent-scoped bridge for `model`.
-    pub fn new(
+    pub(crate) fn new(
         on_progress: Option<Sender<AgentProgress>>,
         model: impl Into<String>,
         max_iterations: usize,
@@ -112,7 +112,7 @@ impl OpenhumanEventBridge {
 
     /// Build a bridge, optionally child-scoped, sharing `cursor` with the model
     /// adapter so out-of-band thinking deltas carry the same iteration index.
-    pub fn with_scope(
+    pub(crate) fn with_scope(
         on_progress: Option<Sender<AgentProgress>>,
         model: impl Into<String>,
         max_iterations: usize,
@@ -130,7 +130,7 @@ impl OpenhumanEventBridge {
     }
 
     /// Cumulative `(input_tokens, output_tokens, charged_usd)` observed so far.
-    pub fn totals(&self) -> (u64, u64, f64) {
+    fn totals(&self) -> (u64, u64, f64) {
         let s = self.state.lock().unwrap();
         (s.input_tokens, s.output_tokens, s.charged_amount_usd)
     }
@@ -139,7 +139,7 @@ impl OpenhumanEventBridge {
     /// observed so far — the full accounting the turn persists (transcript cost /
     /// session meters), so a normal turn no longer records `$0` and zero cached
     /// tokens despite real usage.
-    pub fn totals_with_cost(&self) -> (u64, u64, u64, f64) {
+    pub(crate) fn totals_with_cost(&self) -> (u64, u64, u64, f64) {
         let s = self.state.lock().unwrap();
         (
             s.input_tokens,
@@ -418,7 +418,7 @@ mod tests {
 /// grep-friendly `[graph]` lines tagged with `label`; the running event count is
 /// exposed for tests. Shared by every openhuman graph (council fan-out,
 /// sub-agent delegation, …).
-pub struct GraphTracingSink {
+pub(crate) struct GraphTracingSink {
     label: String,
     count: Arc<std::sync::atomic::AtomicUsize>,
 }
@@ -426,7 +426,7 @@ pub struct GraphTracingSink {
 impl GraphTracingSink {
     /// Build a sink tagging its lines with `label` (e.g. `"delegation:graph"`).
     /// Accepts both string literals and runtime-built labels.
-    pub fn new(label: impl Into<String>) -> Self {
+    pub(crate) fn new(label: impl Into<String>) -> Self {
         Self {
             label: label.into(),
             count: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
@@ -434,7 +434,7 @@ impl GraphTracingSink {
     }
 
     /// Shared counter of events observed, for assertions.
-    pub fn counter(&self) -> Arc<std::sync::atomic::AtomicUsize> {
+    fn counter(&self) -> Arc<std::sync::atomic::AtomicUsize> {
         self.count.clone()
     }
 }

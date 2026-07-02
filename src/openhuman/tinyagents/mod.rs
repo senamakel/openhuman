@@ -11,19 +11,20 @@
 //! routes call [`run_turn_via_tinyagents_shared`] (default ON in production).
 //!
 //! The chat route is at functional parity with the legacy `run_turn_engine`:
-//! the [`OpenhumanEventBridge`] mirrors the 0.2.0 harness event stream onto
+//! the [`OpenhumanEventBridge`] mirrors the harness event stream onto
 //! `AgentProgress` (live tool timeline, incremental text deltas, cost footer),
 //! [`ProviderModel::stream`] forwards true token streaming, multimodal markers
 //! are expanded, and history is trimmed to the context window. Mid-flight
 //! steering, sub-agent child-progress deltas (incl. thinking), and the
-//! `ask_user_clarification` early-exit pause are all re-wired onto 0.2.0.
+//! `ask_user_clarification` early-exit pause are all re-wired onto the
+//! tinyagents harness.
 
 mod checkpoint;
 mod convert;
 pub(crate) mod delegation;
 pub mod middleware;
 mod model;
-pub mod observability;
+pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 pub(crate) mod stop_hooks;
@@ -58,7 +59,8 @@ use model::ThinkingForwarder;
 pub(crate) use checkpoint::SqlRunLedgerCheckpointer;
 pub use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
 pub use model::ProviderModel;
-pub use observability::{CapPauser, IterationCursor, OpenhumanEventBridge, SubagentScope};
+pub(crate) use observability::{CapPauser, IterationCursor, OpenhumanEventBridge};
+pub use observability::SubagentScope;
 pub use tools::{EarlyExit, EarlyExitHook, SharedToolAdapter, ToolAdapter};
 
 use std::collections::HashSet;

@@ -783,7 +783,7 @@ impl Agent {
     ///
     /// Full-fidelity with the legacy `run_turn_engine`: live tool-timeline /
     /// text-delta progress and the cost/token footer are mirrored from the
-    /// harness event stream via the [`OpenhumanEventBridge`] (tinyagents 0.2.0),
+    /// harness event stream via the [`OpenhumanEventBridge`] (tinyagents harness),
     /// `[IMAGE:…]`/`[FILE:…]` markers are expanded for the provider, and history
     /// is trimmed to the provider's context window.
     async fn run_turn_via_tinyagents_session(

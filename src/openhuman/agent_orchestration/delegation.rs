@@ -106,6 +106,11 @@ pub(crate) async fn run_subagent_delegation(
             checkpointer: Some(checkpointer),
             thread_id: Some(thread_id),
             cancel: CancellationToken::new(),
+            // Automated (non-human-gated) delegation: the reviewer stage decides
+            // approve/revise on its own. The durable human-approval interrupt
+            // (see `tinyagents::delegation::run_delegation_durable`) is opt-in and
+            // stays off here until a human-review delegation surface wires it.
+            ..DelegationConfig::default()
         };
         run_delegation(delegation_config, run_stage).await
     };

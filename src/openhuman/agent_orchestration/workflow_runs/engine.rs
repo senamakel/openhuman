@@ -26,6 +26,19 @@
 //! `spawn_agent` call nested in that scope then resolves `current_parent()` to
 //! the root, inheriting a real provider, tool registry, memory, and model — the
 //! same construction path `agent_chat` uses.
+//!
+//! ## TODO(#4249, 08.3): human-review phases as durable interrupts
+//!
+//! When a workflow phase gains a *human-review* gate, express the pause as a
+//! durable graph interrupt (`NodeResult::Interrupt` persisted via the
+//! checkpointer, resumed with `Command { resume: .. }`) instead of the ad-hoc
+//! `Interrupted`/cancel-flag bookkeeping used for stop/resume here. The
+//! mechanism is already implemented end-to-end for the delegation review gate in
+//! [`crate::openhuman::tinyagents::delegation`] (see `run_delegation_durable` /
+//! `resume_delegation`); this engine should adopt the same
+//! interrupt→checkpoint→resume path once a human-review phase kind exists. The
+//! current between-phase cancellation bookkeeping is intentionally left in place
+//! until that phase kind lands, to keep stop/resume semantics unchanged.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};

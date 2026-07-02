@@ -1,42 +1,17 @@
 //! The layered context pipeline orchestrator.
 //!
-//! Ordered reduction chain applied before each provider hit:
-//!
-//! 1. **Tool-result budget** — applied inline in `Agent::execute_tool_call`
-//!    (not here). Oversized tool results are truncated before they enter
-//!    history, so they never show up as a pipeline stage.
-//! 2. **Snip compact** — hard cap on message count. Implemented by the
-//!    pre-existing `Agent::trim_history`; the pipeline leaves it to the
-//!    caller because trimming is a terminal fallback.
-//! 3. **Microcompact** — this module. Runs when `ContextGuard` reports
-//!    `CompactionNeeded` (soft threshold). Replaces the payload of older
-//!    `ToolResults` envelopes with a placeholder, preserving the
-//!    `AssistantToolCalls ⇔ ToolResults` API invariant.
-//! 4. **Autocompact** — prose summarisation of older messages.
-//!    The summariser (`ProviderSummarizer` in `context/summarizer.rs`,
-//!    optionally wrapped by `segment_recap_summarizer.rs`) operates on
-//!    `ConversationMessage` and issues LLM calls, so we don't run it
-//!    here — the pipeline
-//!    instead signals a `PipelineOutcome::AutocompactionRequested` to
-//!    the caller and trusts the caller to dispatch its own summariser
-//!    when ready. Keeping the pipeline pure (no LLM calls) means the
-//!    integration tests can exercise every stage without a provider.
-//! 5. **Session memory** — handled separately by
-//!    [`crate::openhuman::context::session_memory`].
+//! Live history reduction now runs in the TinyAgents middleware stack. This
+//! legacy pipeline shell remains for provider-usage bookkeeping, the utilisation
+//! guard used by `ContextManager::stats()`, and session-memory trigger state.
 //!
 //! # Cache contract
 //!
-//! Stages 1–2 are byte-neutral with respect to previously-sent history
-//! (stage 1 applies to a fresh tool result before insertion; stage 2 is
-//! a terminal trim). Stages 3–4 deliberately mutate previously-sent
-//! history and therefore break the KV-cache prefix; they run **only
-//! when the context guard says we'd otherwise bust the window**. Each
-//! firing resets the stable prefix to the new, smaller history so
-//! subsequent turns hit the cache again.
+//! The remaining shell does not mutate history. Cache-affecting work lives in
+//! `crate::openhuman::tinyagents::middleware`.
 
 use super::guard::{ContextCheckResult, ContextGuard};
-use super::microcompact::{microcompact, MicrocompactStats, DEFAULT_KEEP_RECENT_TOOL_RESULTS};
 use super::session_memory::{SessionMemoryConfig, SessionMemoryState};
+use super::DEFAULT_KEEP_RECENT_TOOL_RESULTS;
 use crate::openhuman::inference::provider::{ConversationMessage, UsageInfo};
 use std::sync::{Arc, Mutex};
 
@@ -88,11 +63,8 @@ pub enum PipelineOutcome {
     /// No stage fired — either the guard is happy or the history is
     /// already small enough.
     NoOp,
-    /// Microcompact cleared at least one older `ToolResults` envelope.
-    Microcompacted(MicrocompactStats),
     /// The guard reports we're above the soft threshold and
-    /// microcompact wasn't enough (or was disabled). The caller should
-    /// invoke its autocompaction summariser.
+    /// the caller should invoke its TinyAgents autocompaction path.
     AutocompactionRequested {
         /// The last-known context utilisation as a 0..=100 percentage.
         utilisation_pct: u8,
@@ -190,36 +162,10 @@ impl ContextPipeline {
 
     /// Run the reduction chain against `history` in place. Safe to call
     /// before every provider hit — it's cheap when the guard is happy.
-    pub fn run_before_call(&mut self, history: &mut [ConversationMessage]) -> PipelineOutcome {
+    pub fn run_before_call(&mut self, _history: &mut [ConversationMessage]) -> PipelineOutcome {
         match self.guard.check() {
             ContextCheckResult::Ok => PipelineOutcome::NoOp,
             ContextCheckResult::CompactionNeeded => {
-                // Stage 3: microcompact the older tool results.
-                if self.config.microcompact_enabled {
-                    let stats = microcompact(history, self.config.microcompact_keep_recent);
-                    if stats.envelopes_cleared > 0 {
-                        // A successful reduction should reset the guard's
-                        // circuit breaker so a previous string of
-                        // autocompaction failures doesn't leave the
-                        // breaker tripped after we've just freed tokens.
-                        self.guard.record_compaction_success();
-                        tracing::info!(
-                            envelopes_cleared = stats.envelopes_cleared,
-                            entries_cleared = stats.entries_cleared,
-                            bytes_freed = stats.bytes_freed,
-                            "[context_pipeline] microcompact fired"
-                        );
-                        return PipelineOutcome::Microcompacted(stats);
-                    }
-                }
-
-                // Stage 4: if microcompact didn't free anything (no old
-                // tool results to clear), signal autocompaction to the
-                // caller. The pipeline deliberately does not issue the
-                // LLM call itself. When autocompact is disabled we
-                // still surface the situation as a distinct variant so
-                // the manager can log/observe it rather than silently
-                // dropping back to `NoOp`.
                 let pct = self
                     .guard
                     .utilization()
@@ -228,7 +174,7 @@ impl ContextPipeline {
                 if self.config.autocompact_enabled {
                     tracing::info!(
                         utilisation_pct = pct,
-                        "[context_pipeline] autocompaction requested"
+                        "[context_pipeline] autocompaction requested by utilisation guard"
                     );
                     return PipelineOutcome::AutocompactionRequested {
                         utilisation_pct: pct,
@@ -256,7 +202,6 @@ impl ContextPipeline {
 
 #[cfg(test)]
 mod tests {
-    use super::super::microcompact::CLEARED_PLACEHOLDER;
     use super::*;
     use crate::openhuman::inference::provider::{
         ChatMessage, ConversationMessage, ToolCall, ToolResultMessage, UsageInfo,
@@ -315,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn microcompact_fires_at_soft_threshold_when_there_are_old_tool_results() {
+    fn autocompaction_requested_at_soft_threshold_with_old_tool_results() {
         let mut pipeline = ContextPipeline::default();
         let mut history = vec![
             call("t1"),
@@ -335,18 +280,14 @@ mod tests {
         ];
         set_high_utilisation(&mut pipeline);
         let outcome = pipeline.run_before_call(&mut history);
-        match outcome {
-            PipelineOutcome::Microcompacted(stats) => {
-                assert_eq!(stats.envelopes_cleared, 2);
-                assert!(stats.bytes_freed > 9_000);
-            }
-            other => panic!("expected Microcompacted, got {other:?}"),
-        }
-        // Older entries are cleared, newer ones are preserved.
+        assert!(matches!(
+            outcome,
+            PipelineOutcome::AutocompactionRequested { .. }
+        ));
+        // The context pipeline shell no longer mutates history; live
+        // tool-result clearing is owned by TinyAgents MicrocompactMiddleware.
         match &history[1] {
-            ConversationMessage::ToolResults(r) => {
-                assert_eq!(r[0].content, CLEARED_PLACEHOLDER)
-            }
+            ConversationMessage::ToolResults(r) => assert_eq!(r[0].content.len(), 5_000),
             _ => panic!(),
         }
         match &history[13] {
@@ -372,9 +313,6 @@ mod tests {
 
     #[test]
     fn autocompaction_requested_when_only_recent_tool_results_exist() {
-        // All tool results fall within `keep_recent`, so microcompact
-        // has nothing to clear and the pipeline falls through to
-        // autocompaction.
         let mut pipeline = ContextPipeline::default();
         let mut history = vec![call("t1"), result("t1", "a"), call("t2"), result("t2", "b")];
         set_high_utilisation(&mut pipeline);
@@ -386,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    fn microcompact_disabled_skips_to_autocompaction() {
+    fn microcompact_config_does_not_change_pipeline_history() {
         let mut pipeline = ContextPipeline::new(ContextPipelineConfig {
             microcompact_enabled: false,
             ..ContextPipelineConfig::default()

@@ -1,8 +1,8 @@
 # 03 — Context management & caching
 
 Live context reduction already runs on `ContextCompressionMiddleware` +
-`MessageTrimMiddleware` + `tinyagents/summarize.rs`, and microcompact/
-cache-align exist as middlewares. This workstream deletes the superseded
+`MessageTrimMiddleware` + `tinyagents/summarize.rs`; microcompact and
+cache-align live as TinyAgents middlewares. This workstream deletes the superseded
 originals and adopts the crate cache layer.
 
 Target SDK surface: `ResponseCache`/`InMemoryResponseCache` + `cache_key`,

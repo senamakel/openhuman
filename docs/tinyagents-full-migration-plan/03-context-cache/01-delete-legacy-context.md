@@ -9,9 +9,9 @@ lives inside TinyAgents `CacheAlignMiddleware`.
 
 ## Steps
 
-1. `context/microcompact.rs` (269): superseded by `MicrocompactMiddleware`.
-   Call-site search; move any constant/policy the middleware still imports;
-   delete file + re-point tests.
+1. `context/microcompact.rs` (269): deleted. The shared placeholder/default
+   constants now live in `context/mod.rs`, and the live clearing logic is the
+   TinyAgents `MicrocompactMiddleware`.
 2. `context/pipeline.rs` (454) + `context/guard.rs` (236): superseded by
    `ContextCompressionMiddleware` + `summarize.rs` (0.90 threshold mirrored
    as `SUMMARIZE_THRESHOLD_FRACTION`). They survive only as the data model
@@ -30,8 +30,8 @@ lives inside TinyAgents `CacheAlignMiddleware`.
 
 ## Deletions
 
-- `context/microcompact.rs`, `context/pipeline.rs`, `context/guard.rs`
-  (post stats-extraction), `harness/compaction/` (whole dir).
+- `context/pipeline.rs`, `context/guard.rs` (post stats-extraction).
+  `context/microcompact.rs` and `harness/compaction/` are already deleted.
 
 ## Acceptance
 

@@ -59,8 +59,9 @@ they land.
       parsing — after XML/P-format transcripts read from the store and no
       live path parses provider text (04.2 + verify)
       (live compatibility shell for prompt dialect selection, history
-      serialization, XML parsing, checkpoint cleanup, and TinyAgents text-mode
-      provider responses; trim unused/test-only parse helpers before full delete)
+      serialization, XML/P-format fallback parsing, checkpoint cleanup, native
+      text fallback, and TinyAgents text-mode provider responses; trim
+      unused/test-only parse helpers before full delete)
 
 ## Deletable after session-store cutover (04.2 phase 4)
 

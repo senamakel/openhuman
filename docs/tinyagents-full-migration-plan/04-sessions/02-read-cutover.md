@@ -18,6 +18,10 @@ Import phases 2–4 from `../../tinyagents-session-migration-design.md`.
    resolve through store descriptors — verify against
    `subagent_runner` mirroring and `agent_orchestration/subagent_sessions/`
    (that store also folds into descriptors here).
+5. Parser retirement gate: keep `agent/dispatcher.rs` and
+   `harness/parse.rs` until no live provider path needs XML/P-format prompt
+   dialects, native text-fallback parsing, TinyAgents text-mode response
+   parsing, or sub-agent checkpoint cleanup.
 
 ## Deletions (phase 4)
 

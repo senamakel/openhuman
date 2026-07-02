@@ -25,11 +25,17 @@ Target SDK surface: `EmbeddingModel` trait, `VectorStore`, concrete `Retriever`,
 5. Done: the vestigial `agent/memory_loader.rs` facade and unwired
    `agent/tree_loader.rs` eager digest prefetch module were deleted; callers
    use `agent_memory::memory_loader` directly.
+6. Done: `embeddings::mod` no longer re-exports `memory_store::vectors`, and
+   `memory_search::vector::store` was deleted. Vector storage now has one
+   canonical owner (`memory_store::vectors`); `memory_search::vector` only owns
+   MMR/diversity selection.
 
 ## Deletions
 
 - Done: `agent/memory_loader.rs` (tracked in `99-deletion-ledger.md`).
 - Done: `agent/tree_loader.rs` (tracked in `99-deletion-ledger.md`).
+- Done: `memory_search::vector::store` compatibility shim; direct callers import
+  `memory_store::vectors::cosine_similarity`.
 
 ## Acceptance
 

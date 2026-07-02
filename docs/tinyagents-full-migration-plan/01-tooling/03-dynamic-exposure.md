@@ -13,10 +13,11 @@ Current OpenHuman surfaces: `agent/harness/tool_filter.rs` (mechanics),
    `ToolAllowlistMiddleware` + one OpenHuman
    `ContextualToolSelectionMiddleware` (`ToolSelectionContext` carries agent
    id, task kind, tier, channel). Inheritance rule: children can only narrow —
-   use `ToolAllowlistMiddleware::inheriting(...)` (new in 1.3.0).
+   use `ContextualToolSelectionMiddleware::inheriting(...)` (new in 1.3.0).
 2. Fail closed when policy metadata is missing (unclassified → not exposed);
    exposure decisions are event-native via `AgentEvent::ToolsFiltered
-   { by, excluded }` (1.3.0) — project them into the bridge for audit.
+   { by, excluded, remaining }` (1.3.0) — projected into the bridge as
+   structured diagnostics today.
 3. Move the visible-set computation out of `session/turn/tools.rs` (693
    lines) and `subagent_runner/tool_prep.rs` (350 lines) into the middleware;
    the turn code only declares candidate tool sets.

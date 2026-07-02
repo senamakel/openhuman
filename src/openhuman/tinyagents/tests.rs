@@ -1,6 +1,7 @@
 //! End-to-end tests for the `tinyagents` harness route: a real openhuman
 //! [`Provider`] and [`Tool`] driven through [`run_turn_via_tinyagents`].
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -448,13 +449,21 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     let tools = assembled.harness.tools().names();
     assert!(tools.contains(&"echo".to_string()), "saw {tools:?}");
     assert_eq!(assembled.tool_count, 1);
+    let policies = assembled.harness.tools().policies();
+    assert!(
+        policies.get("echo").is_some_and(|policy| policy.classified),
+        "registered tools must expose classified SDK policy snapshots: {policies:?}"
+    );
+    let stable_policies: BTreeMap<_, _> = policies.into_iter().collect();
+    let serialized = serde_json::to_string(&stable_policies).unwrap();
+    assert!(serialized.contains("\"classified\":true"));
 
     // Lifecycle middleware, in registration order: cache-align + tool-output
     // (TurnContextMiddleware::defaults), cost budget, context compression +
     // message trim (window known + autocompact on), repeated-tool-failure
-    // breaker, tool-outcome capture, arg recovery.
+    // breaker, SDK tool-policy projection, tool-outcome capture, arg recovery.
     let mw = assembled.harness.middleware();
-    assert_eq!(mw.len(), 8, "lifecycle middleware inventory");
+    assert_eq!(mw.len(), 9, "lifecycle middleware inventory");
     // Around-tool wraps: approval/security + CLI/RPC-only scope gate (no
     // builder tool policy on this call).
     assert_eq!(mw.tool_middleware_len(), 2, "tool middleware inventory");

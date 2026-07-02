@@ -37,7 +37,10 @@ use anyhow::Result;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
-use tinyagents::harness::middleware::{ContextCompressionMiddleware, MessageTrimMiddleware};
+use tinyagents::harness::middleware::{
+    ContextCompressionMiddleware, MessageTrimMiddleware,
+    ToolPolicyMiddleware as TaToolPolicyMiddleware,
+};
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::summarization::TrimStrategy;
@@ -772,6 +775,17 @@ fn assemble_turn_harness(
         }
     }
     let tool_count = registered.len();
+
+    // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration
+    // 01.1). Keep this narrow for now: enforce sandbox requirements declared by
+    // adapter policies without enabling classification/approval/result-byte
+    // gates yet. `require_classification(true)` would currently reject an
+    // unregistered hallucinated tool in `before_tool` before
+    // `RunPolicy::unknown_tool` can return a recoverable tool error, while
+    // OpenHuman's existing wrappers still own HITL approval and output caps.
+    harness.push_middleware(Arc::new(
+        TaToolPolicyMiddleware::new(harness.tools().policies()).require_sandbox(true),
+    ));
 
     // Human-in-the-loop approval as a named tool middleware (issue #4249,
     // Phase 1): an external-effect tool intercepts through the global

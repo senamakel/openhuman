@@ -400,7 +400,7 @@ fn mirror_worker_thread(
         append_message, ConversationMessage as StoredMessage,
     };
 
-    let mut append = |content: String, sender: &str| {
+    let append = |content: String, sender: &str| {
         let message = StoredMessage {
             id: format!("{sender}:{}", uuid::Uuid::new_v4()),
             content,

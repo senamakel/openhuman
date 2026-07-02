@@ -132,7 +132,7 @@ fn resolve_connected_toolkits(
     slug: &str,
     live_connected: Option<&[String]>,
 ) -> (bool, Vec<String>) {
-    let mut allowed: Vec<String> = snapshot.iter().map(|(slug, _)| slug.clone()).collect();
+    let allowed: Vec<String> = snapshot.iter().map(|(slug, _)| slug.clone()).collect();
     if snapshot.iter().any(|(known_slug, _)| known_slug == slug) {
         return (true, allowed);
     }

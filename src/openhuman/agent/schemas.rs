@@ -691,6 +691,7 @@ mod tests {
                 "reload_definitions",
                 "triage_evaluate",
                 "graph_topologies",
+                "registry_snapshot",
             ]
         );
         assert_eq!(schemas.len(), all_registered_controllers().len());

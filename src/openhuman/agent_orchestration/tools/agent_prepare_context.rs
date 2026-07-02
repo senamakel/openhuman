@@ -21,10 +21,12 @@ use crate::openhuman::agent::harness::subagent_runner::{
 };
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::thread_context::current_thread_id;
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::fmt::Write as _;
+use tinyagents::harness::tool::ToolExecutionContext;
+use tinyagents::harness::workspace::WorkspaceDescriptor;
 
 /// The sub-agent archetype this tool drives.
 const SCOUT_AGENT_ID: &str = "context_scout";
@@ -140,6 +142,15 @@ pub async fn run_context_scout_with_catalog(
     focus: Option<&str>,
     tool_catalog: &str,
 ) -> anyhow::Result<ToolResult> {
+    run_context_scout_with_catalog_and_workspace(question, focus, tool_catalog, None).await
+}
+
+async fn run_context_scout_with_catalog_and_workspace(
+    question: &str,
+    focus: Option<&str>,
+    tool_catalog: &str,
+    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
+) -> anyhow::Result<ToolResult> {
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
 
@@ -215,8 +226,22 @@ pub async fn run_context_scout_with_catalog(
             .await;
     }
 
+    let worktree_action_dir = parent_workspace_descriptor
+        .as_ref()
+        .map(|descriptor| descriptor.root.clone());
+    if let Some(descriptor) = parent_workspace_descriptor.as_ref() {
+        tracing::debug!(
+            target: "agent_prepare_context",
+            task_id = %task_id,
+            workspace_root = %descriptor.root.display(),
+            policy_id = %descriptor.policy_id,
+            "[agent_prepare_context] using ToolExecutionContext workspace root"
+        );
+    }
     let options = SubagentRunOptions {
         task_id: Some(task_id.clone()),
+        worktree_action_dir,
+        workspace_descriptor: parent_workspace_descriptor,
         ..Default::default()
     };
 
@@ -619,6 +644,16 @@ impl Tool for AgentPrepareContextTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
         let prepared_sources = current_agent_context_prepared_sources();
         if !prepared_sources.is_empty() {
             tracing::info!(
@@ -633,7 +668,14 @@ impl Tool for AgentPrepareContextTool {
 
         let question = args.get("question").and_then(|v| v.as_str()).unwrap_or("");
         let focus = args.get("focus").and_then(|v| v.as_str());
-        run_context_scout(question, focus).await
+        let tool_catalog = AgentPrepareContextTool::render_parent_tool_catalog();
+        run_context_scout_with_catalog_and_workspace(
+            question,
+            focus,
+            &tool_catalog,
+            tool_context.and_then(|ctx| ctx.workspace.clone()),
+        )
+        .await
     }
 }
 

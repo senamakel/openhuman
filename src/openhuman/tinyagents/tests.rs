@@ -446,6 +446,7 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         TurnContextMiddleware::defaults(),
         None, // no builder tool policy on this path
         None, // no per-turn required capabilities
+        false, // deterministic_cacheable
     );
 
     // Model registry: the turn's model plus the projected workload-route set
@@ -567,6 +568,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         TurnContextMiddleware::defaults(),
         None,
         None, // no per-turn required capabilities
+        false, // deterministic_cacheable
     );
 
     let mw = assembled.harness.middleware();

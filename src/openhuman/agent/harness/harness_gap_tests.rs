@@ -24,7 +24,6 @@
 //!   only the tag body (JSON) is used.
 
 use crate::openhuman::agent::error::AgentError;
-use crate::openhuman::context::guard::{ContextCheckResult, ContextGuard};
 use crate::openhuman::inference::provider::traits::ProviderCapabilities;
 use crate::openhuman::inference::provider::Provider;
 use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, ChatResponse, UsageInfo};
@@ -118,66 +117,11 @@ fn multimodal_file_cfg() -> crate::openhuman::config::MultimodalFileConfig {
 //           result injected → LLM produces final text.
 // ─────────────────────────────────────────────────────────────────────────────
 
-#[test]
-fn context_guard_exhausted_after_circuit_breaker_and_95pct_utilization() {
-    // Simulate the scenario where compaction has failed 3 times (circuit
-    // breaker tripped) and context is at 96 % — the guard must surface
-    // ContextExhausted, not CompactionNeeded, so the loop can bail cleanly.
-    let mut guard = ContextGuard::with_context_window(100_000);
-    guard.update_usage(&UsageInfo {
-        input_tokens: 91_000,
-        output_tokens: 5_100, // 96.1 % total
-        context_window: 100_000,
-        ..Default::default()
-    });
-
-    // Trip the circuit breaker.
-    guard.record_compaction_failure();
-    guard.record_compaction_failure();
-    guard.record_compaction_failure();
-    assert!(guard.is_compaction_disabled(), "breaker should be tripped");
-
-    let result = guard.check();
-    assert!(
-        matches!(result, ContextCheckResult::ContextExhausted { .. }),
-        "guard must return ContextExhausted when breaker is tripped and >95%, got: {result:?}"
-    );
-
-    // The utilization percentage embedded in the result must be ≥ 95.
-    if let ContextCheckResult::ContextExhausted {
-        utilization_pct, ..
-    } = result
-    {
-        assert!(
-            utilization_pct >= 95,
-            "utilization_pct in exhausted result should be ≥ 95, got {utilization_pct}"
-        );
-    }
-}
-
-#[test]
-fn context_guard_update_usage_raises_window_from_response() {
-    // UsageInfo that carries a non-zero `context_window` must update the
-    // guard's known window — a guard with window=0 is a no-op, so this
-    // path matters for the first provider response that reports its window.
-    let mut guard = ContextGuard::new(); // window = 0 initially
-    assert_eq!(guard.check(), ContextCheckResult::Ok, "unknown window → Ok");
-
-    guard.update_usage(&UsageInfo {
-        input_tokens: 95_000,
-        output_tokens: 2_000,
-        context_window: 100_000,
-        ..Default::default()
-    });
-    // Now at 97 % with no compaction failures — CompactionNeeded (below hard limit if
-    // circuit breaker is not tripped, but above COMPACTION_TRIGGER_THRESHOLD=90%).
-    // With compaction NOT disabled, the guard returns CompactionNeeded, not Exhausted.
-    assert_eq!(
-        guard.check(),
-        ContextCheckResult::CompactionNeeded,
-        "97% with no circuit breaker should return CompactionNeeded"
-    );
-}
+// NOTE: The `ContextGuard`/`ContextCheckResult` tests that used to live here
+// (context_guard_exhausted_after_circuit_breaker_and_95pct_utilization,
+// context_guard_update_usage_raises_window_from_response) were removed during the
+// tinyagents migration: the context reducer shell (`context/guard.rs`) was
+// deleted (commit d55ea9a5d) and the tested API no longer exists.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Item 3 — parse_tool_calls: <invoke> tag variant (JSON body, not attributes).

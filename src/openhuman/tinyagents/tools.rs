@@ -435,7 +435,7 @@ mod tests {
     #[tokio::test]
     async fn tool_execution_respects_the_per_call_timeout() {
         let result =
-            execute_openhuman_tool(&HangingTool, call("hang", serde_json::json!({}))).await;
+            execute_openhuman_tool(&HangingTool, call("hang", serde_json::json!({})), None).await;
         assert!(
             result
                 .error
@@ -450,7 +450,7 @@ mod tests {
     #[tokio::test]
     async fn fast_tool_runs_to_completion() {
         let result =
-            execute_openhuman_tool(&EchoTool, call("echo", serde_json::json!({ "msg": "hi" })))
+            execute_openhuman_tool(&EchoTool, call("echo", serde_json::json!({ "msg": "hi" })), None)
                 .await;
         assert!(result.error.is_none());
         assert!(result.content.contains("echoed:hi"));

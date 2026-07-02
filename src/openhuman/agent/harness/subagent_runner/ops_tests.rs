@@ -335,6 +335,7 @@ fn make_parent(provider: Arc<dyn Provider>, tools: Vec<Box<dyn Tool>>) -> Parent
     let tool_specs: Vec<crate::openhuman::tools::ToolSpec> =
         tools.iter().map(|t| t.spec()).collect();
     ParentExecutionContext {
+        workspace_descriptor: None,
         agent_definition_id: "orchestrator".into(),
         allowed_subagent_ids: ["test".to_string(), "child".to_string(), "inner".to_string()]
             .into_iter()
@@ -496,6 +497,7 @@ async fn typed_mode_returns_text_through_runner() {
             &def,
             "summarise X",
             SubagentRunOptions {
+                workspace_descriptor: None,
                 skill_filter_override: None,
                 toolkit_override: None,
                 context: None,
@@ -711,6 +713,7 @@ async fn typed_mode_filters_tools_by_skill_filter() {
             &def,
             "lookup",
             SubagentRunOptions {
+                workspace_descriptor: None,
                 skill_filter_override: Some("notion".into()),
                 toolkit_override: None,
                 context: None,

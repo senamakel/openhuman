@@ -241,6 +241,7 @@ mod tests {
 
     fn parent_context(workspace_dir: &Path) -> ParentExecutionContext {
         ParentExecutionContext {
+            workspace_descriptor: None,
             agent_definition_id: "orchestrator".into(),
             allowed_subagent_ids: HashSet::new(),
             provider: Arc::new(NoopProvider),

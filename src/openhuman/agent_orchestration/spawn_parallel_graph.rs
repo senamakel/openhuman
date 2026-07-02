@@ -108,7 +108,7 @@ fn validate_spawn_parallel_tool_request(
 }
 
 /// Prepared worker ready for the live dispatch/worker phases.
-struct PreparedParallelTask {
+pub(crate) struct PreparedParallelTask {
     definition: AgentDefinition,
     prompt: String,
     task: ParallelAgentTask,
@@ -117,7 +117,7 @@ struct PreparedParallelTask {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ParallelTaskRejectionKind {
+pub(crate) enum ParallelTaskRejectionKind {
     MissingAgentOrPrompt,
     UnknownAgent,
     OutsideAllowlist,
@@ -125,15 +125,15 @@ enum ParallelTaskRejectionKind {
     RequiresIsolation,
 }
 
-struct ParallelTaskRejection {
-    task_id: String,
-    agent_id: String,
-    error: String,
-    ownership: Option<String>,
-    kind: ParallelTaskRejectionKind,
+pub(crate) struct ParallelTaskRejection {
+    pub(crate) task_id: String,
+    pub(crate) agent_id: String,
+    pub(crate) error: String,
+    pub(crate) ownership: Option<String>,
+    pub(crate) kind: ParallelTaskRejectionKind,
 }
 
-enum SpawnParallelTaskPreflight {
+pub(crate) enum SpawnParallelTaskPreflight {
     Prepared(PreparedParallelTask),
     Rejected(ParallelTaskRejection),
 }
@@ -411,7 +411,7 @@ fn snapshot_agent_definitions(
         .collect()
 }
 
-fn prepare_spawn_parallel_tasks_from_defs(
+pub(crate) fn prepare_spawn_parallel_tasks_from_defs(
     tasks: Vec<ParallelAgentTask>,
     definitions: &HashMap<String, AgentDefinition>,
     parent: &ParentExecutionContext,

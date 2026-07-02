@@ -339,6 +339,8 @@ fn xml_tool_response(value: &str) -> ChatResponse {
             output_tokens: 12,
             context_window: 16_000,
             cached_input_tokens: 8,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             charged_amount_usd: 0.0002,
         }),
         reasoning_content: None,

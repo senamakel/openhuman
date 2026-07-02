@@ -43,10 +43,17 @@ pub(crate) use provider::resolve_subagent_provider;
 
 // Re-exports for test companion modules that use `use super::*`.
 // These provide the same flat namespace the original ops.rs had.
+// `append_subagent_role_contract` is already re-exported (pub(crate)) above.
+// `dedup_tool_specs_by_name` and `normalize_slug` are private in their source
+// modules and cannot be `pub`-re-exported; a plain `use` still makes them
+// reachable from the `#[cfg(test)]` companion modules via their `use super::*`
+// (descendants can name ancestor-private imports).
 #[cfg(test)]
-pub(super) use prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
+use prompt::dedup_tool_specs_by_name;
 #[cfg(test)]
-pub(super) use provider::{normalize_slug, LazyToolkitResolver};
+use provider::normalize_slug;
+#[cfg(test)]
+pub(super) use provider::LazyToolkitResolver;
 // filter_tool_indices lives in tool_prep (sibling of ops).
 #[cfg(test)]
 pub(super) use super::tool_prep::filter_tool_indices;

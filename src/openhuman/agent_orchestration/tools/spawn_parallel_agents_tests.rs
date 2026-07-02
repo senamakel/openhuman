@@ -2,9 +2,12 @@ use super::*;
 use crate::openhuman::agent::dispatcher::NativeToolDispatcher;
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::definition::{
-    AgentTier, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
+    AgentDefinition, AgentTier, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
 };
 use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
+    prepare_spawn_parallel_tasks_from_defs, ParallelTaskRejectionKind, SpawnParallelTaskPreflight,
+};
 use crate::openhuman::agent::Agent;
 use crate::openhuman::config::AgentConfig;
 use crate::openhuman::context::prompt::ToolCallFormat;
@@ -278,6 +281,7 @@ fn parent_context_with_provider(
         ..Default::default()
     };
     ParentExecutionContext {
+        workspace_descriptor: None,
         agent_definition_id: "orchestrator".into(),
         allowed_subagent_ids: [
             "researcher".to_string(),

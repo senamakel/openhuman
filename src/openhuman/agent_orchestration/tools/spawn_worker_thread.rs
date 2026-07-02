@@ -399,6 +399,7 @@ mod tests {
 
     fn test_parent_ctx(workspace_dir: PathBuf) -> ParentExecutionContext {
         ParentExecutionContext {
+            workspace_descriptor: None,
             agent_definition_id: "orchestrator".into(),
             allowed_subagent_ids: std::collections::HashSet::new(),
             session_id: "test".into(),

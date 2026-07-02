@@ -1,9 +1,10 @@
 //! Structure-only graph scaffold for `spawn_parallel_agents`.
 //!
-//! The tool wrapper still owns parent context, progress/event projection, and
-//! final JSON formatting. This module owns the graph-side request validation,
-//! worker fanout, and the topology surface from `docs/tinyagents-full-
-//! migration-plan/08-orchestration/02-spawn-parallel-graph.md`.
+//! The tool wrapper still owns parent context and `ToolResult` translation.
+//! This module owns the graph-side request validation, worktree preflight,
+//! progress/event projection, worker fanout, final JSON formatting, and the
+//! topology surface from `docs/tinyagents-full-migration-plan/08-orchestration/
+//! 02-spawn-parallel-graph.md`.
 
 use tinyagents::graph::export::GraphTopology;
 use tinyagents::graph::{

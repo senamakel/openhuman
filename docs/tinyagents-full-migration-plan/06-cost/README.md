@@ -13,6 +13,17 @@ BudgetExceeded}`, `ChildRun.usage`/`RunTree` lineage rollup,
 The $0-cost bug and the unobserved-turn tracker gap are already fixed
 (memory, sessions e/2026-07-01). Remaining:
 
+Current status (2026-07-02): tinyagents 1.3.0 exposes the target budget and
+usage primitives, but OpenHuman has not wired `BudgetMiddleware`,
+`BudgetLimits`, `UsageAccountingMiddleware`, `ChildRun`, or `RunTree` into the
+shared runner. Keep the current OpenHuman cost seams live for now:
+`CostBudgetMiddleware` gates already-exceeded daily/monthly budgets on every
+shared turn, `OpenhumanEventBridge::record_usage` records `UsageRecorded` into
+the global tracker, and `turn_subagent_usage` folds child spend into the parent
+turn footer and persisted `LastTurnUsage`. Installing the crate budget
+middleware before event de-duplication would risk double-counting
+`UsageRecorded`.
+
 ## Steps
 
 1. **Normalize records:** carry `reasoning_tokens` (crate `Usage` has it),
@@ -27,6 +38,9 @@ The $0-cost bug and the unobserved-turn tracker gap are already fixed
    1.3.0 adds pre-spend reservation: `BudgetReserved`/`BudgetReconciled`
    events + `BudgetLimits.max_cached_input_tokens` — this closes the
    "project the next call's cost pre-spend" TODO from the spec.
+   First build an OpenHuman limits adapter and define `UsageRecorded`
+   ownership so the bridge, crate accounting middleware, and unobserved-turn
+   fallback cannot record the same model call twice.
 3. **Lineage rollup:** stamp cost records with `run_id`/`root_run_id` from
    the observation stream (needs `TokenUsage` schema fields); parent totals
    via `UsageTotals`/`ChildRun` instead of the `turn_subagent_usage`
@@ -39,7 +53,9 @@ The $0-cost bug and the unobserved-turn tracker gap are already fixed
 
 - `CostBudgetMiddleware` (if fully mapped), `agent/cost.rs` TurnCost
   aggregation where `UsageTotals` covers it, `turn_subagent_usage.rs`
-  task-local (only after 07.2 rollup parity).
+  task-local (only after 07.2 rollup parity). Do not delete any of these until
+  duplicate `UsageRecorded` semantics are resolved and run-tree/thread-budget
+  integration covers the current stop-hook and parent-turn rollup paths.
 
 ## Acceptance
 

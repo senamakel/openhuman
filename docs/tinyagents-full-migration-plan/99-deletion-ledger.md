@@ -24,17 +24,25 @@ they land.
 - [x] `UNKNOWN_TOOL_SENTINEL` + `UnknownToolRewriteMiddleware` — 01.2
 - [ ] tool side-lookup in `tinyagents/middleware.rs` — 01.1
 - [ ] `harness/tool_filter.rs` mechanics + `subagent_runner/tool_prep.rs` (350) — 01.3
+      (live until middleware owns child/toolkit selection; `tool_prep.rs` also
+      contains non-filter prompt helpers that must move first)
 - [ ] `ThinkingForwarder` — 02.3
 - [ ] `inference/provider/reliable.rs` (1215 + 1443 tests) — 02.2
 - [x] `tinyagents/orchestration.rs::run_parallel_fanout` — 08.1
 - [x] `harness/engine/` (entire dir, 309) — 05.2
 - [ ] `agent/progress_tracing/` (616, if duplicate) — 05.2
+      (live web-progress exporter until journal-backed projection reaches parity)
 - [ ] `harness/run_queue/` mechanics (345) — 07.3
 - [ ] `harness/spawn_depth_context.rs` (66) — 07.3
+      (live recursion guard for nested delegation)
 - [ ] `harness/worktree_context.rs` (74) — 08.5
+      (live action-root override for parallel worktrees)
 - [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) — 08.4
 - [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 251) — 04.3
+      (live until crate checkpointer/schema migration replaces `graph_checkpoints`)
 - [ ] `CostBudgetMiddleware` + `turn_subagent_usage.rs` task-local — 06
+      (live until crate budget/run-tree accounting avoids duplicate
+      `UsageRecorded` and covers parent-turn rollups)
 - [ ] `agent/dispatcher.rs` (609) + `harness/parse.rs` (830) legacy tool-call
       parsing — after XML/P-format transcripts read from the store and no
       live path parses provider text (04.2 + verify)

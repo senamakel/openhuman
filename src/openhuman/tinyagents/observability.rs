@@ -259,6 +259,29 @@ impl EventListener for OpenhumanEventBridge {
             // exactly once per model call; prefer it over `ModelCompleted`'s
             // optional usage to avoid double counting.
             AgentEvent::UsageRecorded { usage } => self.record_usage(usage),
+            AgentEvent::ToolsFiltered {
+                by,
+                excluded,
+                remaining,
+            } => {
+                tracing::debug!(
+                    policy = by.as_str(),
+                    excluded_tools = ?excluded,
+                    remaining,
+                    "[tinyagents] model-visible tools filtered"
+                );
+            }
+            AgentEvent::Compressed {
+                from_tokens,
+                to_tokens,
+            } => {
+                tracing::debug!(
+                    from_tokens,
+                    to_tokens,
+                    saved_tokens = from_tokens.saturating_sub(*to_tokens),
+                    "[tinyagents] context compressed before model call"
+                );
+            }
             AgentEvent::UnknownToolCall {
                 call_id,
                 requested_name,

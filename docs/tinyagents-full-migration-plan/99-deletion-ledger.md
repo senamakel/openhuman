@@ -50,8 +50,8 @@ they land.
 - [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) + five default-only
       non-registry graph modules — 08.4
 - [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 250) — 04.3
-      (live crate-internal adapter until crate checkpointer/schema migration
-      replaces `graph_checkpoints`)
+      (SDK checkpointer is available; live adapter stays until OpenHuman
+      `graph_checkpoints` row migration/expiry replaces the run-ledger schema)
 - [ ] crate-internal `CostBudgetMiddleware` (`tinyagents/middleware.rs`) +
       crate-internal `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
       (live until crate budget/run-tree accounting avoids duplicate

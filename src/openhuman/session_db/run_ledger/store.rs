@@ -125,8 +125,10 @@ pub(crate) fn init_run_ledger_schema(conn: &Connection) -> Result<()> {
         -- superstep-boundary snapshot, keyed by thread_id; `record_json` holds the
         -- full serialized `tinyagents::graph::Checkpoint<State>`. `seq` preserves
         -- insertion order so the latest checkpoint and `list` ordering are exact.
-        -- Backs `SqlRunLedgerCheckpointer` (the openhuman-SQLite stand-in for the
-        -- crate's dependency-blocked SqliteCheckpointer).
+        -- Backs `SqlRunLedgerCheckpointer`, OpenHuman's run-ledger adapter.
+        -- TinyAgents' own `SqliteCheckpointer` is available, but uses a
+        -- different schema and needs a row migration or expiry policy before
+        -- this table can be retired.
         CREATE TABLE IF NOT EXISTS graph_checkpoints (
             seq                INTEGER PRIMARY KEY AUTOINCREMENT,
             thread_id          TEXT NOT NULL,

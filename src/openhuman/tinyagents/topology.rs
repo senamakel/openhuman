@@ -58,6 +58,16 @@ pub fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("workflow_runs:scheduler", &t));
     }
 
+    if let Ok(t) = super::subagent_graph::subagent_pipeline_topology() {
+        out.push(describe("subagent:pipeline", &t));
+    }
+
+    if let Ok(t) =
+        crate::openhuman::agent_orchestration::spawn_parallel_graph::spawn_parallel_graph_topology()
+    {
+        out.push(describe("spawn_parallel_agents", &t));
+    }
+
     // Not exported: the generic item-count-driven fan-outs (`model_council`,
     // `run_parallel_fanout` — dispatch → N workers → collect) whose node set is
     // determined per run, not a fixed named topology.

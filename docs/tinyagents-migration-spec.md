@@ -5,9 +5,9 @@ Status: draft migration backlog
 TinyAgents source reviewed: `tinyhumansai/tinyagents` `origin/main` at
 `8f226f1`, crate version `1.1.0`. Refreshed against `tinyhumansai/tinyagents`
 `main` at `348a0e7dc71a1f9039f3d523a2a384661a7a9acd` after the SDK/docs update.
-Current OpenHuman dependency in this checkout is `tinyagents = "1.2"`.
+Current OpenHuman dependency in this checkout is `tinyagents = "1.2.1"`.
 
-OpenHuman already depends on `tinyagents = "1.2"` and already routes the live
+OpenHuman already depends on `tinyagents = "1.2.1"` and already routes the live
 agent turn through `src/openhuman/tinyagents/`. This spec is not a proposal to
 add TinyAgents. It is a todo list for moving the rest of OpenHuman's generic
 agent runtime behavior onto TinyAgents primitives while keeping OpenHuman-owned
@@ -79,7 +79,7 @@ OpenHuman Rust core:
 
 Already done or partially done:
 
-- `Cargo.toml` pins `tinyagents = "1.2"` with default features only.
+- `Cargo.toml` pins `tinyagents = "1.2.1"` with default features only.
 - `src/openhuman/tinyagents/mod.rs` registers OpenHuman `Provider` and `Tool`
   adapters on `tinyagents::harness::runtime::AgentHarness`.
 - `ProviderModel` maps OpenHuman `ChatRequest`/`ChatResponse` into

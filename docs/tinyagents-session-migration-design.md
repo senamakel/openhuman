@@ -16,7 +16,7 @@ OpenHuman session key.
 
 ## Source inventory (what exists on disk today)
 
-All facts verified against the current checkout (tinyagents 1.2.0 pinned).
+All facts verified against the current checkout (tinyagents 1.2.1 pinned).
 
 ### 1. Transcript JSONL (source of truth)
 

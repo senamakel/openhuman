@@ -8931,9 +8931,9 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ca5080fa45dc248b4c3fcee368891a240ea4f8103243ca581202ab17bb881c7"
+checksum = "f608ffbcb44ebd823de1f0792467dc9c525bcd05eb4dc4f9dc0b989a526d8851"
 dependencies = [
  "async-trait",
  "futures",

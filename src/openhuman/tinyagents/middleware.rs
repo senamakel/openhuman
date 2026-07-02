@@ -86,9 +86,9 @@ pub struct TurnContextMiddleware {
 /// `extract_from_result` tool) plus the ids used in handoff log lines.
 #[derive(Clone)]
 pub struct HandoffConfig {
-    pub cache: Arc<crate::openhuman::agent::harness::subagent_runner::ResultHandoffCache>,
-    pub agent_id: String,
-    pub task_id: String,
+    pub(crate) cache: Arc<crate::openhuman::agent::harness::subagent_runner::ResultHandoffCache>,
+    pub(crate) agent_id: String,
+    pub(crate) task_id: String,
 }
 
 /// Inputs the [`SuperContextMiddleware`] node needs to run its first-turn

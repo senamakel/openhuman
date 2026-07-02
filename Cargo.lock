@@ -4782,7 +4782,7 @@ version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51e219e79014df21a225b1860a479e2dcd7cbd9130f4defd4bd0e191ea31d67d"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.21.7",
  "chrono",
  "getrandom 0.2.17",
  "http 1.4.0",
@@ -7969,9 +7969,9 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ca5080fa45dc248b4c3fcee368891a240ea4f8103243ca581202ab17bb881c7"
+checksum = "f608ffbcb44ebd823de1f0792467dc9c525bcd05eb4dc4f9dc0b989a526d8851"
 dependencies = [
  "async-trait",
  "futures",
@@ -9425,7 +9425,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

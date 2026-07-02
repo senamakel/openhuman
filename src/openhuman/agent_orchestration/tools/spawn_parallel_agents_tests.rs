@@ -1,8 +1,8 @@
 use super::*;
+use crate::openhuman::agent::Agent;
 use crate::openhuman::agent::dispatcher::NativeToolDispatcher;
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
-use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
-use crate::openhuman::agent::Agent;
+use crate::openhuman::agent::harness::fork_context::{ParentExecutionContext, with_parent_context};
 use crate::openhuman::config::AgentConfig;
 use crate::openhuman::context::prompt::ToolCallFormat;
 use crate::openhuman::inference::provider::traits::ProviderCapabilities;
@@ -15,10 +15,10 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 use serde_json::json;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";
 const RESEARCH_PROMPT_CANARY: &str = "research-branch-canary";
@@ -347,15 +347,21 @@ async fn collects_immediate_task_validation_failures() {
         .iter()
         .map(|result| result["error"].as_str().unwrap_or_default())
         .collect::<Vec<_>>();
-    assert!(errors
-        .iter()
-        .any(|error| error.contains("agent_id and prompt")));
-    assert!(errors
-        .iter()
-        .any(|error| error.contains("unknown agent_id")));
-    assert!(errors
-        .iter()
-        .any(|error| error.contains("requires toolkit")));
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("agent_id and prompt"))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("unknown agent_id"))
+    );
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("requires toolkit"))
+    );
 }
 
 #[derive(Default)]

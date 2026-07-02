@@ -6,6 +6,11 @@
 //! topology surface from `docs/tinyagents-full-migration-plan/08-orchestration/
 //! 02-spawn-parallel-graph.md`.
 
+use std::future::Future;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::sync::Arc;
+
 use tinyagents::graph::export::GraphTopology;
 use tinyagents::graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
 use tinyagents::graph::{
@@ -21,7 +26,6 @@ use crate::openhuman::agent_orchestration::worktree::{self, BaseRef};
 use crate::openhuman::file_state;
 use serde::Serialize;
 use serde_json::json;
-use std::path::{Path, PathBuf};
 use tokio::sync::mpsc::Sender;
 
 /// One requested worker in a `spawn_parallel_agents` call.
@@ -478,6 +482,23 @@ pub(crate) async fn run_spawn_parallel_graph(
     registry: &AgentDefinitionRegistry,
     parent: &ParentExecutionContext,
 ) -> Result<SpawnParallelCollected, String> {
+    match run_spawn_parallel_graph_skeleton(parent_session).await {
+        Ok(phases) => {
+            tracing::debug!(
+                parent_session = %parent_session,
+                phases = ?phases,
+                "[spawn_parallel_agents] graph skeleton completed"
+            );
+        }
+        Err(err) => {
+            tracing::warn!(
+                parent_session = %parent_session,
+                error = %err,
+                "[spawn_parallel_agents] graph skeleton failed; continuing map_reduce fanout"
+            );
+        }
+    }
+
     let action_root = resolve_spawn_parallel_action_root().await;
     let (prepared, immediate_results) = stage_spawn_parallel_workers(
         parent_session,
@@ -952,18 +973,28 @@ async fn run_one_parallel_task(
     }
 }
 
-#[derive(Clone, Default)]
-pub(crate) struct SpawnParallelState;
+pub(crate) const SPAWN_PARALLEL_PHASES: &[&str] =
+    &["validate", "dispatch", "worker", "collect", "finalize"];
 
-pub(crate) enum SpawnParallelUpdate {
-    Noop,
+#[derive(Clone, Default)]
+pub(crate) struct SpawnParallelState {
+    visited: Vec<&'static str>,
 }
 
-fn noop_node(
-    _state: SpawnParallelState,
-    _ctx: NodeContext,
-) -> impl std::future::Future<Output = tinyagents::Result<NodeResult<SpawnParallelUpdate>>> + Send {
-    async move { Ok(NodeResult::Update(SpawnParallelUpdate::Noop)) }
+pub(crate) enum SpawnParallelUpdate {
+    PhaseEntered(&'static str),
+}
+
+type SpawnParallelNodeFuture =
+    Pin<Box<dyn Future<Output = tinyagents::Result<NodeResult<SpawnParallelUpdate>>> + Send>>;
+
+fn phase_node(
+    phase: &'static str,
+) -> impl Fn(SpawnParallelState, NodeContext) -> SpawnParallelNodeFuture + Clone + Send + Sync + 'static
+{
+    move |_state: SpawnParallelState, _ctx: NodeContext| {
+        Box::pin(async move { Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(phase))) })
+    }
 }
 
 /// Build the fixed `spawn_parallel_agents` graph scaffold.
@@ -973,23 +1004,54 @@ fn noop_node(
 /// `validate -> dispatch -> worker -> collect -> finalize`
 pub(crate) fn build_spawn_parallel_graph(
 ) -> Result<CompiledGraph<SpawnParallelState, SpawnParallelUpdate>, String> {
+    let phases = SPAWN_PARALLEL_PHASES;
     GraphBuilder::<SpawnParallelState, SpawnParallelUpdate>::new()
         .set_reducer(ClosureStateReducer::new(
-            |state: SpawnParallelState, _update: SpawnParallelUpdate| Ok(state),
+            |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
+                match update {
+                    SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                }
+                Ok(state)
+            },
         ))
-        .add_node("validate", noop_node)
-        .add_node("dispatch", noop_node)
-        .add_node("worker", noop_node)
-        .add_node("collect", noop_node)
-        .add_node("finalize", noop_node)
-        .add_edge("validate", "dispatch")
-        .add_edge("dispatch", "worker")
-        .add_edge("worker", "collect")
-        .add_edge("collect", "finalize")
-        .set_entry("validate")
-        .set_finish("finalize")
+        .add_node(phases[0], phase_node(phases[0]))
+        .add_node(phases[1], phase_node(phases[1]))
+        .add_node(phases[2], phase_node(phases[2]))
+        .add_node(phases[3], phase_node(phases[3]))
+        .add_node(phases[4], phase_node(phases[4]))
+        .add_edge(phases[0], phases[1])
+        .add_edge(phases[1], phases[2])
+        .add_edge(phases[2], phases[3])
+        .add_edge(phases[3], phases[4])
+        .set_entry(phases[0])
+        .set_finish(phases[4])
         .compile()
         .map_err(|e| format!("spawn_parallel_agents graph compile failed: {e}"))
+}
+
+/// Run the fixed fanout graph with no-op phase nodes.
+///
+/// This is diagnostic-only until the live validate/dispatch/worker/collect/
+/// finalize effects move into graph nodes. The map-reduce fanout below remains
+/// the source of behavior.
+pub(crate) async fn run_spawn_parallel_graph_skeleton(
+    parent_session: &str,
+) -> Result<Vec<&'static str>, String> {
+    let label = format!("spawn_parallel_agents:{parent_session}");
+    let graph = build_spawn_parallel_graph()?.with_event_sink(Arc::new(
+        crate::openhuman::tinyagents::observability::GraphTracingSink::new(label),
+    ));
+
+    tracing::debug!(
+        parent_session = %parent_session,
+        "[spawn_parallel_agents] running graph skeleton"
+    );
+    let execution = graph
+        .run(SpawnParallelState::default())
+        .await
+        .map_err(|e| format!("spawn_parallel_agents graph skeleton run failed: {e}"))?;
+
+    Ok(execution.state.visited)
 }
 
 /// Structure-only topology of the `spawn_parallel_agents` graph.

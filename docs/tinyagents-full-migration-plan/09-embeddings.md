@@ -21,13 +21,12 @@ Target SDK surface: `EmbeddingModel` trait, `VectorStore`, `Retriever`,
 3. Memory source identity: preserve `metadata.path_scope` dedupe semantics
    (CLAUDE.md rule) in the facade mapping.
 4. Usage/cost: embedding calls emit crate `Usage` + catalog pricing (06.4).
-5. Delete the vestigial `agent/memory_loader.rs` 5-line facade and
-   `agent/tree_loader.rs` (210 lines, doc-commented "not currently wired
-   into the agent turn loop", #3170) after call-site search.
+5. Delete the vestigial `agent/memory_loader.rs` 5-line facade. The unwired
+   `agent/tree_loader.rs` eager digest prefetch module has been deleted.
 
 ## Deletions
 
-- `agent/memory_loader.rs`, `agent/tree_loader.rs`.
+- `agent/memory_loader.rs`.
 
 ## Acceptance
 

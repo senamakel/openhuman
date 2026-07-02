@@ -49,7 +49,6 @@ pub mod task_dispatcher;
 pub(crate) mod task_session;
 pub mod tool_policy;
 pub mod tools;
-pub mod tree_loader;
 pub mod triage;
 /// Turn-origin task-local — explicit trust/routing label scoped by every
 /// entry point that invokes the agent (web chat, channel runtime,

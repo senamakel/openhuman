@@ -23,7 +23,7 @@
 //! filtering, sandbox/action-root narrowing, checkpoint/handback, and
 //! worker-thread transcript mirroring. Mapping it onto TinyAgents
 //! `SubAgent`/`SubAgentSession`/subgraph primitives is tracked in
-//! `docs/tinyagents-harness-migration-audit.md`.
+//! `docs/tinyagents-full-migration-plan/07-subagents/`.
 //!
 //! ## Layout
 //!

@@ -1,7 +1,6 @@
 //! Tool: `spawn_parallel_agents` — fan out independent sub-agent tasks.
 
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
-use crate::openhuman::agent::harness::fork_context::current_parent;
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_boundary;
 #[cfg(test)]
@@ -108,45 +107,9 @@ impl Tool for SpawnParallelAgentsTool {
             }
         };
 
-        let parent = match current_parent() {
-            Some(parent) => parent,
-            None => {
-                tracing::debug!("[spawn_parallel_agents] rejected_outside_agent_turn");
-                return Ok(ToolResult::error(
-                    "spawn_parallel_agents called outside of an agent turn",
-                ));
-            }
-        };
-        let max_parallel = parent.agent_config.max_parallel_tools.max(2);
-        tracing::debug!(
-            parent_session = %parent.session_id,
-            task_count = tasks.len(),
-            max_parallel,
-            "[spawn_parallel_agents] validated_parent_context"
-        );
-        let registry = match AgentDefinitionRegistry::global() {
-            Some(registry) => registry,
-            None => {
-                tracing::debug!("[spawn_parallel_agents] registry_unavailable");
-                return Ok(ToolResult::error(
-                    "spawn_parallel_agents: AgentDefinitionRegistry has not been initialised",
-                ));
-            }
-        };
-
-        let parent_session = parent.session_id.clone();
-        let progress_sink = parent.on_progress.clone();
-
-        let outcome = run_spawn_parallel_graph(
-            &parent_session,
-            progress_sink.as_ref(),
-            tasks,
-            max_parallel,
-            registry,
-            &parent,
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
+        let outcome = run_spawn_parallel_graph(tasks)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
         match outcome {
             SpawnParallelGraphOutcome::Collected(collected) => Ok(ToolResult::success(
                 format_spawn_parallel_success(&collected),

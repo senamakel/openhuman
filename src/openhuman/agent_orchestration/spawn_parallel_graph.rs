@@ -1,9 +1,10 @@
 //! Structure-only graph scaffold for `spawn_parallel_agents`.
 //!
-//! The tool wrapper still owns parent context and `ToolResult` translation.
-//! This module owns the graph-side request validation, worktree preflight,
-//! progress/event projection, worker fanout, final JSON formatting, and the
-//! topology surface from `docs/tinyagents-full-migration-plan/08-orchestration/
+//! The tool wrapper still owns early request parsing and `ToolResult`
+//! translation. This module owns parent-context validation, graph-side request
+//! validation, worktree preflight, progress/event projection, worker fanout,
+//! final JSON formatting, and the topology surface from
+//! `docs/tinyagents-full-migration-plan/08-orchestration/
 //! 02-spawn-parallel-graph.md`.
 
 use std::collections::HashMap;
@@ -20,7 +21,7 @@ use tinyagents::graph::{
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry};
-use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
+use crate::openhuman::agent::harness::fork_context::{current_parent, ParentExecutionContext};
 use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_orchestration::worktree::{self, BaseRef};
@@ -517,22 +518,46 @@ async fn stage_spawn_parallel_workers_from_defs(
 }
 
 pub(crate) async fn run_spawn_parallel_graph(
-    parent_session: &str,
-    progress_sink: Option<&Sender<AgentProgress>>,
     tasks: Vec<ParallelAgentTask>,
-    max_parallel: usize,
-    registry: &AgentDefinitionRegistry,
-    parent: &ParentExecutionContext,
 ) -> Result<SpawnParallelGraphOutcome, String> {
+    let parent = match current_parent() {
+        Some(parent) => parent,
+        None => {
+            tracing::debug!("[spawn_parallel_agents] rejected_outside_agent_turn");
+            return Ok(SpawnParallelGraphOutcome::Rejected(
+                "spawn_parallel_agents called outside of an agent turn".to_string(),
+            ));
+        }
+    };
+    let max_parallel = parent.agent_config.max_parallel_tools.max(2);
+    tracing::debug!(
+        parent_session = %parent.session_id,
+        task_count = tasks.len(),
+        max_parallel,
+        "[spawn_parallel_agents] validated_parent_context"
+    );
+    let registry = match AgentDefinitionRegistry::global() {
+        Some(registry) => registry,
+        None => {
+            tracing::debug!("[spawn_parallel_agents] registry_unavailable");
+            return Ok(SpawnParallelGraphOutcome::Rejected(
+                "spawn_parallel_agents: AgentDefinitionRegistry has not been initialised"
+                    .to_string(),
+            ));
+        }
+    };
+
+    let parent_session = parent.session_id.clone();
+    let progress_sink = parent.on_progress.clone();
     let action_root = resolve_spawn_parallel_action_root().await;
     let definitions = snapshot_agent_definitions(registry);
     let outcome = run_spawn_parallel_execution_graph(
-        parent_session,
-        progress_sink.cloned(),
+        &parent_session,
+        progress_sink,
         tasks,
         max_parallel,
         definitions,
-        parent.clone(),
+        parent,
         action_root,
     )
     .await?;

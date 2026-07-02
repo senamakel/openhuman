@@ -7,20 +7,22 @@ workers through `tinyagents::graph::parallel::map_reduce`, exports the fixed
 `validate -> dispatch -> worker -> collect -> finalize` topology, and the graph
 entrypoint now owns `Config.action_dir` resolution for worktree-isolated workers.
 The graph now owns the live `validate`/`dispatch`/`worker`/`collect`/`finalize`
-phases: validate enforces the parent `max_parallel_tools` limit, dispatch
+phases: the graph entrypoint resolves parent context and registry state,
+validate enforces the parent `max_parallel_tools` limit, dispatch
 validates/preflights workers from an owned agent-definition snapshot, worker
 fanout still uses the SDK `map_reduce` helper, collect still projects
 compatibility `DomainEvent`/`AgentProgress`, and finalize still returns the
-existing JSON shape. The tool wrapper still owns early request parsing, parent
-lookup, registry lookup, and `ToolResult` translation so the public error shapes
-stay unchanged.
+existing JSON shape. The tool wrapper still owns early request parsing and
+`ToolResult` translation so malformed-argument and public error shapes stay
+unchanged.
 
 ## Nodes
 
-- `validate`: parse tasks, min/max count, parent context, `subagents.
-  allowlist`, toolkit requirements, worktree preflight.
-- `dispatch`: `Send` one worker invocation per task (payload-specific
-  fanout — no static per-task nodes).
+- `validate`: enforce parent-scoped fanout limits. Early JSON parsing/min-count
+  remains in the wrapper until raw request args can enter the graph without
+  changing malformed-argument error ordering.
+- `dispatch`: resolve per-task agent definitions, `subagents.allowlist`,
+  toolkit requirements, ownership prompt boundaries, and worktree preflight.
 - `worker`: the 07.1 subagent pipeline subgraph with inherited policy,
   optional `worktree_action_dir`, child task id, bounded budgets
   (`SubAgentBudget`).

@@ -46,16 +46,16 @@ Same `rusqlite ^0.40 bundled` pin and feature set as 1.2.1. OpenHuman currently
 pins the compatible patch release locally. New API this plan's workstreams
 should use directly:
 
-- `AgentEvent::ToolsFiltered { by, excluded }` — exposure decisions are now
-  event-native (01.3).
+- `AgentEvent::ToolsFiltered { by, excluded, remaining }` — exposure decisions
+  are now event-native (01.3).
 - `AgentEvent::{BudgetReserved, BudgetReconciled}` + `BudgetLimits.
   max_cached_input_tokens` + reservation tracking — pre-spend
   reserve/reconcile (06).
 - `AgentEvent::ControlApplied` + `MiddlewareControl::kind()/precedence()` —
   typed middleware control outcomes with defined precedence (sdk-gaps §13
   closed).
-- `ToolAllowlistMiddleware::inheriting(...)` — parent→child narrowing
-  composition built in (01.3, 07).
+- `ContextualToolSelectionMiddleware::inheriting(...)` — parent→child
+  narrowing composition built in (01.3, 07).
 - `ToolPolicyMiddleware::{require_sandbox, require_approval,
   enforce_result_bytes}` builders (01.1).
 - `ParallelOptions::{with_item_timeout, with_total_timeout,

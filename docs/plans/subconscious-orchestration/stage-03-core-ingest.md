@@ -1,4 +1,4 @@
-# Stage 2 — Core ingest + session state (`src/openhuman/orchestration/`)
+# Stage 3 — Core ingest + session state (`src/openhuman/orchestration/`)
 
 ## Goal command
 
@@ -6,7 +6,7 @@
 > recognizes `HarnessSessionEnvelope` v1 payloads (stage 1), and maintains durable per-session
 > state (master / subconscious / session chat windows). This is the "channel ingestion" boundary of
 > the split-brain graph: it normalizes heterogeneous DM traffic into typed graph inputs and
-> persists a chat-window model the RPC/UI layer (stage 6) can read directly — replacing the string
+> persists a chat-window model the RPC/UI layer (stage 7) can read directly — replacing the string
 > heuristics currently in `TinyPlaceOrchestrationTab.tsx`.
 
 ## Read first
@@ -22,7 +22,7 @@
 
 1. **Domain skeleton** (canonical shape): `orchestration/{mod.rs, types.rs, store.rs, ops.rs,
    schemas.rs, bus.rs, ingest.rs}` + inline tests. Wire `all_controller_schemas` into
-   `src/core/all.rs` (schemas themselves land in stage 6; register the namespace now).
+   `src/core/all.rs` (schemas themselves land in stage 7; register the namespace now).
 2. **`types.rs`**: Rust mirror of `HarnessSessionEnvelope` (serde, `#[serde(tag = "v")]`-style
    versioning tolerant of unknown fields), plus:
    - `ChatKind { Master, Subconscious, Session }`
@@ -44,8 +44,8 @@
    by `is_workspace_internal_path`.
 5. **`bus.rs`**: `OrchestrationIngestSubscriber` (`name() = "orchestration::ingest"`), registered
    at startup next to the other bus registrations; also publish
-   `DomainEvent::OrchestrationSessionMessage` after persist, so stage 3 (front-end agent) and
-   stage 6 (UI socket push) can both react without coupling.
+   `DomainEvent::OrchestrationSessionMessage` after persist, so stage 4 (front-end graph) and
+   stage 7 (UI socket push) can both react without coupling.
 6. **Logging**: `[orchestration]` prefix; log envelope seq/session/kind on ingest entry/exit,
    classification decisions, dedupe skips, parse failures (body **never** logged).
 

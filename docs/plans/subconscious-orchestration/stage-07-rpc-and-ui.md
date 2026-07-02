@@ -1,10 +1,10 @@
-# Stage 6 — RPC surface + TinyPlaceOrchestrationTab wiring
+# Stage 7 — RPC surface + TinyPlaceOrchestrationTab wiring
 
 ## Goal command
 
 > Expose the orchestration layer over JSON-RPC (`openhuman.orchestration_*`) and rewire
 > **`app/src/components/intelligence/TinyPlaceOrchestrationTab.tsx`** onto it: the tab's
-> master / subconscious / per-session chat windows come from the stage-2 store's real
+> master / subconscious / per-session chat windows come from the stage-3 store's real
 > classification and metadata instead of the current `chatKindForEnvelope` string heuristics; add
 > live updates over the core socket and a composer for the Master window (owner → agent DM).
 
@@ -14,7 +14,7 @@
   `ChatKind`/`ChatWindow` model, pinned master+subconscious, `LoadState` incl. `payment_required`.
 - `app/src/lib/agentworld/invokeApiClient.ts` — `callCoreRpc` pattern, `PaymentRequiredError`.
 - `src/openhuman/tinyplace/schemas.rs` — internal-registry controller pattern to copy.
-- `src/openhuman/orchestration/{types.rs, store.rs, ops.rs}` (stages 2–5).
+- `src/openhuman/orchestration/{types.rs, store.rs, ops.rs}` (stages 3–6).
 - Socket push: `app/src/services/socketService.ts`, `src/openhuman/socket/` — how domain events
   reach the renderer (dual-socket sync rule).
 - i18n: `app/src/lib/i18n/en.ts` `tinyplaceOrchestration.*` block (exists; extend).
@@ -44,7 +44,7 @@
    - Preserve `payment_required` and error states; loading per-pane rather than whole-tab.
 4. **i18n**: new keys (composer placeholder, send, steering banner, read errors) added to `en.ts`
    **and all 13 other locales** (`pnpm i18n:check`, `pnpm i18n:english:check` clean).
-5. **Steering visibility**: pinned Subconscious window shows directives (stage 5 feed); header
+5. **Steering visibility**: pinned Subconscious window shows directives (stage 6 feed); header
    chip on the tab surfaces the current directive from `orchestration.status`.
 
 ## Tasks
@@ -62,7 +62,7 @@
 
 ## Acceptance criteria
 
-- With stages 1–5 running and a wrapped Codex/Claude session active, the tab shows that session's
+- With stages 1–6 running and a wrapped Codex/Claude session active, the tab shows that session's
   window with real label/workspace metadata and both user and assistant messages, updating live
   without manual refresh.
 - Master composer sends an E2E DM that reaches the front-end agent (verified in e2e via mock).

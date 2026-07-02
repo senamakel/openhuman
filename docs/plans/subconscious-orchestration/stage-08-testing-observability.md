@@ -1,4 +1,4 @@
-# Stage 7 — End-to-end testing, observability & hardening
+# Stage 8 — End-to-end testing, observability & hardening
 
 ## Goal command
 
@@ -16,9 +16,11 @@
 ## Deliverables
 
 1. **Mock tiny.place relay** additions to the shared mock backend (`scripts/mock-api-core.mjs` or
-   a sibling): DM send/receive endpoints + a scriptable "wrapped session" that emits stage-1
+   a sibling): DM send/receive + contacts endpoints (enforcing `403 not_a_contact` on unpaired
+   DMs, crossing-request auto-accept) + a scriptable "wrapped session" that emits stage-1
    envelopes, so the full loop runs hermetically in CI.
-2. **Cross-layer e2e** (`tests/json_rpc_e2e.rs` + mock relay): scripted session emits
+2. **Cross-layer e2e** (`tests/json_rpc_e2e.rs` + mock relay): scripted session pairs first
+   (stage-2 flow A and flow B both covered), then emits
    user+assistant envelopes → ingest → frontend pass 1 → reasoning cycle (mock provider) →
    frontend pass 2 → outbound DM captured by the mock → `orchestration.messages_list` shows the
    complete conversation; then a subconscious tick emits a directive and the next cycle carries it.

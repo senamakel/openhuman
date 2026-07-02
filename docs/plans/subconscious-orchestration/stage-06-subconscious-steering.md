@@ -1,9 +1,9 @@
-# Stage 5 — Subconscious steering loop (offline reflection)
+# Stage 6 — Subconscious steering loop (offline reflection)
 
 ## Goal command
 
 > Extend the existing **`SubconsciousEngine`** so its cron/heartbeat tick consumes the
-> orchestration layer's **compressed history** and **cumulative world-state diff** (stage 4) and
+> orchestration layer's **compressed history** and **cumulative world-state diff** (stage 5) and
 > emits short, dense **steering directives** that are injected into the Reasoning orchestrator's
 > prompts on subsequent cycles. The subconscious stays fully offline: no channels, no user
 > contact, no tools with external effects — its only output is the directive (and its existing
@@ -14,7 +14,7 @@
 - `src/openhuman/subconscious/README.md`, `engine.rs` (three-stage tick), `heartbeat/mod.rs`,
   `store.rs`, `agent/{agent.toml, prompt.md, graph.rs}`, `global.rs`.
 - `src/openhuman/scheduler_gate/` — capacity gating already applied to ticks.
-- Stage 4's store tables (`compressed_history`, `world_diff`) and `orchestration/types.rs`.
+- Stage 5's store tables (`compressed_history`, `world_diff`) and `orchestration/types.rs`.
 - `docs/arch-subconscious.md` §3.2 — world-diff evaluation semantics ("macro-trends, filter
   localized variance").
 
@@ -42,7 +42,7 @@
 5. **Subconscious chat surface**: publish each emitted directive as an
    `OrchestrationMessage { chat_kind: Subconscious }` (and optionally mirror it as a self-DM over
    tiny.place so it is visible in other clients) — this is what fills the pinned "Subconscious"
-   window in the UI (stage 6).
+   window in the UI (stage 7).
 
 ## Tasks
 
@@ -51,7 +51,7 @@
    (reject and retry once on contract violation; skip tick on second failure, log warn).
 3. Store + supersede/expiry logic; unit tests (expiry by cycle count, supersede chain).
 4. Integration test: seed fake compressed rows + diff timeline → tick → directive persisted →
-   stage 4 `apply_steering` picks it up on the next cycle (assert it lands in the system prompt of
+   the stage-5 graph loads it via `execute` on the next cycle (assert it lands in the system prompt of
    the mock provider call).
 5. Isolation test: assert the tick's tool surface contains no channel/effect tools and that no
    tinyplace *outbound* op other than the optional self-DM mirror is reachable.
@@ -61,6 +61,6 @@
 - A heartbeat tick over seeded orchestration data produces exactly one current directive; the next
   reasoning cycle demonstrably runs with it injected.
 - Ticks are idempotent (re-run without new data → no new directive) and cheap when idle.
-- Directives appear in the Subconscious chat window feed (stage 6 consumes them).
+- Directives appear in the Subconscious chat window feed (stage 7 consumes them).
 - Existing subconscious behaviors (memory diff, planner, notify_user) unchanged — their tests stay
   green.

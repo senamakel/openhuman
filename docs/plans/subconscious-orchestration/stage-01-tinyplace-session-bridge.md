@@ -20,7 +20,7 @@
 ## Deliverables
 
 1. **`SessionEnvelope` v1 wire schema** (new `sdk/typescript/src/types/session-envelope.ts`,
-   exported from the root). This is the contract stages 2–6 parse; it rides inside the DM body as
+   exported from the root). This is the contract stages 3–7 parse; it rides inside the DM body as
    JSON (encrypted end-to-end):
 
    ```ts
@@ -52,7 +52,16 @@
    `codex.ts` into `src/cli/session-bridge.ts` rather than copy-pasting).
 4. **Size limits**: cap `body` at 8 KiB per DM (set `truncated: true`; full text stays in the local
    JSONL). Never forward raw terminal chunks — semantic messages only.
-5. Docs: README section + `tinyplace describe` entries for the new flags/command.
+5. **Contact-pairing handshake** (wrapper half of stage 2 — the relay refuses DMs between
+   non-contacts, `403 not_a_contact`): on start with a forward target, print the wrapper's own
+   identity (`agentId` / `@handle`) so the user can link it from OpenHuman, then check
+   `contacts/{owner}/status`:
+   - `accepted` → forward; `none` → send a contact request, queue envelopes (bounded, drop-oldest
+     with a lifecycle `error` note) and poll until accepted;
+   - `pending incoming` **from the exact configured forward-to identity only** → accept;
+   - `blocked` → terminal error, no retries.
+   At send time, branch on the `not_a_contact` error code → re-enter pairing instead of retrying.
+6. Docs: README section + `tinyplace describe` entries for the new flags/command.
 
 ## Tasks
 
@@ -63,9 +72,12 @@
 3. Implement the forwarder (queue + retry + never-crash guarantee) behind `--tinyplace-forward-to`.
 4. Implement `claude.ts` tailer: resolve session file for the wrapped instance (newest JSONL in the
    project slug dir after spawn; honor `--tinyplace-session-file` override like codex does).
-5. Wire both into `cli.ts`/`commands.ts`; update help/catalog output.
-6. Vitest coverage: envelope schema, forwarder retry/drop behavior (mock client), claude JSONL
-   parsing fixtures (user message, assistant message, tool-use records ignored).
+5. Implement the pairing handshake (status check, request, owner-only auto-accept, bounded queue,
+   `not_a_contact` recovery) in the shared session-bridge module.
+6. Wire both into `cli.ts`/`commands.ts`; update help/catalog output.
+7. Vitest coverage: envelope schema, forwarder retry/drop behavior (mock client), pairing state
+   machine (all four contact statuses + owner-only accept), claude JSONL parsing fixtures (user
+   message, assistant message, tool-use records ignored).
 
 ## Acceptance criteria
 
@@ -73,5 +85,7 @@
   of the session as Signal DMs whose plaintext bodies parse as `HarnessSessionEnvelope` v1, plus
   `started`/`ended` lifecycle envelopes.
 - `tinyplace claude …` does the same for a Claude Code session.
+- With no contact edge, the wrapper pairs (or waits, queueing) before any envelope DM is sent; it
+  never auto-accepts an identity other than the configured forward-to target.
 - Killing the network mid-session does not break the wrapped CLI; envelopes on disk stay complete.
 - `pnpm test` green in `sdk/typescript`; new module has no `any`-typed public surface.

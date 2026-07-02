@@ -1,19 +1,19 @@
-# Stage 4 — Reasoning + memory nodes (completing the unified graph)
+# Stage 5 — Reasoning + memory nodes (completing the unified graph)
 
 ## Goal command
 
-> Replace the stage-3 stubs with the real **reasoning and memory nodes** of the unified
+> Replace the stage-4 stubs with the real **reasoning and memory nodes** of the unified
 > orchestration graph: an `execute` node on the reasoning tier that applies the current
 > subconscious steering directive and spawns execution sub-agents via `subagent_runner`, followed
 > by the three memory mechanics from the spec as their own nodes — the **20:1 compression hook**
 > over the cycle's execution trace, the **append-only world-state diff**, and the **80–90%
 > context-eviction guard** that runs after mutations and before END. All state changes flow
 > through `OrchestrationState` and are checkpointed; durable copies land in the orchestration
-> store for the subconscious (stage 5) and the UI (stage 6).
+> store for the subconscious (stage 6) and the UI (stage 7).
 
 ## Read first
 
-- Stage 3's `orchestration/graph/` (state, topology, stubs to replace).
+- Stage 4's `orchestration/graph/` (state, topology, stubs to replace).
 - `src/openhuman/tinyagents/` — `mod.rs` (`run_turn_via_tinyagents_shared`, `RunPolicy`, steering
   forwarders), `delegation.rs` (sub-agent spawning), `summarize.rs` (tokenizer + summarization
   seam), `middleware.rs` (`TurnContextMiddleware`, `SuperContextConfig`), `observability.rs`

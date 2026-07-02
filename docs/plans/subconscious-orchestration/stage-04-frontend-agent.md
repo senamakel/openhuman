@@ -1,4 +1,4 @@
-# Stage 3 — Unified orchestration graph: skeleton, state & front-end nodes
+# Stage 4 — Unified orchestration graph: skeleton, state & front-end nodes
 
 ## Goal command
 
@@ -26,8 +26,8 @@
 ## Deliverables
 
 1. **Graph state** (`orchestration/graph/state.rs`): `OrchestrationState` — `messages` (windowed
-   from the stage-2 store), `agent_instructions: Option<String>`, `agent_reply: Option<String>`,
-   `channel_response: Option<String>`, `subconscious_steering: Option<String>` (read in stage 4/5),
+   from the stage-3 store), `agent_instructions: Option<String>`, `agent_reply: Option<String>`,
+   `channel_response: Option<String>`, `subconscious_steering: Option<String>` (read in stage 5/6),
    `compressed_history: Vec<CompressedEntry>`, `world_state_diff: WorldDiff`,
    `context_utilization: f32`. Serde-serializable so `SqlRunLedgerCheckpointer<OrchestrationState>`
    persists it at superstep boundaries.
@@ -35,11 +35,11 @@
    `AgentGraph::Custom` runner:
    - Nodes this stage: `normalize` (fold pending session messages into state),
      `frontend` (two-pass, Quick LLM), `send_dm` (Signal reply to the session counterpart),
-     `execute_stub` (sets a canned `agent_reply`; replaced in stage 4), `context_guard_stub`.
+     `execute_stub` (sets a canned `agent_reply`; replaced in stage 5), `context_guard_stub`.
    - Conditional edges = the spec's router: from `frontend`, `channel_response` present →
      `send_dm` → `context_guard` → END; else → `execute` → back to `frontend`.
    - **Invocation**: `invoke_orchestration_graph(session_id)` in `orchestration/ops.rs`, called by
-     the stage-2 ingest subscriber on `OrchestrationSessionMessage`, debounced per session so DM
+     the stage-3 ingest subscriber on `OrchestrationSessionMessage`, debounced per session so DM
      bursts produce one graph run. Resumes from the last checkpoint for that thread.
 3. **Front-end node** driven by a slim agent package
    `orchestration/frontend_agent/{agent.toml, prompt.md}`: model `hint:chat`, small context

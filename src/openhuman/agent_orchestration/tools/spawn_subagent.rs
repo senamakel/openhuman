@@ -12,7 +12,6 @@
 //! Sub-agents always run in "typed" mode: a narrow archetype-specific
 //! prompt with a filtered tool list, on a cheaper model where applicable.
 //!
-use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
 use crate::openhuman::agent::harness::subagent_runner::{
@@ -473,13 +472,13 @@ impl Tool for SpawnSubagentTool {
             .ok()
         });
 
-        publish_global(DomainEvent::SubagentSpawned {
-            parent_session: parent_session.clone(),
-            agent_id: definition.id.clone(),
-            mode: "typed".to_string(),
-            task_id: task_id.clone(),
-            prompt_chars: prompt.chars().count(),
-        });
+        crate::openhuman::agent_orchestration::subagent_events::publish_subagent_spawned(
+            parent_session.clone(),
+            definition.id.clone(),
+            "typed".to_string(),
+            task_id.clone(),
+            prompt.chars().count(),
+        );
 
         // Mirror the spawn onto the parent's per-turn progress sink so the
         // web-channel bridge can stream a live subagent row into the
@@ -541,12 +540,12 @@ impl Tool for SpawnSubagentTool {
                         // awaiting event and return structured envelope so
                         // the orchestrator can relay the question and later
                         // call continue_subagent.
-                        publish_global(DomainEvent::SubagentAwaitingUser {
+                        crate::openhuman::agent_orchestration::subagent_events::publish_subagent_awaiting_user(
                             parent_session,
-                            task_id: outcome.task_id.clone(),
-                            agent_id: outcome.agent_id.clone(),
-                            question: question.clone(),
-                        });
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            question.clone(),
+                        );
                         if let Some(ref tx) = progress_sink {
                             let _ = tx
                                 .send(AgentProgress::SubagentAwaitingUser {
@@ -566,14 +565,14 @@ impl Tool for SpawnSubagentTool {
                         Ok(ToolResult::success(envelope))
                     }
                     SubagentRunStatus::Completed => {
-                        publish_global(DomainEvent::SubagentCompleted {
+                        crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
                             parent_session,
-                            task_id: outcome.task_id.clone(),
-                            agent_id: outcome.agent_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            output_chars: outcome.output.chars().count(),
-                            iterations: outcome.iterations,
-                        });
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            outcome.elapsed.as_millis() as u64,
+                            outcome.output.chars().count(),
+                            outcome.iterations,
+                        );
 
                         if let Some(ref tx) = progress_sink {
                             let _ = tx
@@ -638,14 +637,14 @@ impl Tool for SpawnSubagentTool {
                             iterations = outcome.iterations,
                             "[spawn_subagent] sub-agent stopped incomplete — returning structured handback"
                         );
-                        publish_global(DomainEvent::SubagentCompleted {
+                        crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
                             parent_session,
-                            task_id: outcome.task_id.clone(),
-                            agent_id: outcome.agent_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            output_chars: outcome.output.chars().count(),
-                            iterations: outcome.iterations,
-                        });
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            outcome.elapsed.as_millis() as u64,
+                            outcome.output.chars().count(),
+                            outcome.iterations,
+                        );
                         if let Some(ref tx) = progress_sink {
                             let _ = tx
                                 .send(AgentProgress::SubagentCompleted {
@@ -695,12 +694,12 @@ impl Tool for SpawnSubagentTool {
                     error_kind = %error_kind,
                     "[spawn_subagent] sub-agent execution failed"
                 );
-                publish_global(DomainEvent::SubagentFailed {
+                crate::openhuman::agent_orchestration::subagent_events::publish_subagent_failed(
                     parent_session,
-                    task_id: task_id.clone(),
-                    agent_id: definition.id.clone(),
-                    error: message.clone(),
-                });
+                    task_id.clone(),
+                    definition.id.clone(),
+                    message.clone(),
+                );
 
                 if let Some(ref tx) = progress_sink {
                     let _ = tx

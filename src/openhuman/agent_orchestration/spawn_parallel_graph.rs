@@ -21,7 +21,6 @@ use tinyagents::graph::{
 use tinyagents::harness::workspace::{WorkspaceDescriptor, WorkspaceIsolation};
 use tinyagents::{CancellationToken, TinyAgentsError};
 
-use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, SandboxMode, ToolScope,
 };
@@ -979,13 +978,13 @@ async fn project_spawn_parallel_spawned(
         has_ownership,
         "[spawn_parallel_agents] publishing_subagent_spawned"
     );
-    publish_global(DomainEvent::SubagentSpawned {
-        parent_session: parent_session.to_string(),
-        agent_id: definition.id.clone(),
-        mode: "typed".to_string(),
-        task_id: task_id.to_string(),
+    crate::openhuman::agent_orchestration::subagent_events::publish_subagent_spawned(
+        parent_session.to_string(),
+        definition.id.clone(),
+        "typed".to_string(),
+        task_id.to_string(),
         prompt_chars,
-    });
+    );
     if let Some(tx) = progress_sink {
         if let Err(err) = tx
             .send(AgentProgress::SubagentSpawned {
@@ -1036,14 +1035,14 @@ async fn project_spawn_parallel_result(
                 iterations = *iterations,
                 "[spawn_parallel_agents] publishing_subagent_completed"
             );
-            publish_global(DomainEvent::SubagentCompleted {
-                parent_session: parent_session.to_string(),
-                task_id: task_id.clone(),
-                agent_id: agent_id.clone(),
-                elapsed_ms: *elapsed_ms,
-                output_chars: output.as_ref().map(|s| s.chars().count()).unwrap_or(0),
-                iterations: *iterations as usize,
-            });
+            crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
+                parent_session.to_string(),
+                task_id.clone(),
+                agent_id.clone(),
+                *elapsed_ms,
+                output.as_ref().map(|s| s.chars().count()).unwrap_or(0),
+                *iterations as usize,
+            );
             if let Some(tx) = progress_sink {
                 if let Err(err) = tx
                     .send(AgentProgress::SubagentCompleted {
@@ -1085,12 +1084,12 @@ async fn project_spawn_parallel_result(
                 error = %message,
                 "[spawn_parallel_agents] publishing_subagent_failed"
             );
-            publish_global(DomainEvent::SubagentFailed {
-                parent_session: parent_session.to_string(),
-                task_id: task_id.clone(),
-                agent_id: agent_id.clone(),
-                error: message.clone(),
-            });
+            crate::openhuman::agent_orchestration::subagent_events::publish_subagent_failed(
+                parent_session.to_string(),
+                task_id.clone(),
+                agent_id.clone(),
+                message.clone(),
+            );
             if let Some(tx) = progress_sink {
                 if let Err(err) = tx
                     .send(AgentProgress::SubagentFailed {

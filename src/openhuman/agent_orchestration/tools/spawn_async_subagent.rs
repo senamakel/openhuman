@@ -4,7 +4,6 @@
 //! accepted. Completion/failure is reported through normal sub-agent lifecycle
 //! events and, when possible, persisted in the child worker thread.
 
-use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::{current_parent, with_parent_context};
 use crate::openhuman::agent::harness::run_queue::RunQueue;
@@ -432,13 +431,13 @@ impl Tool for SpawnAsyncSubagentTool {
             task_key
         );
 
-        publish_global(DomainEvent::SubagentSpawned {
-            parent_session: parent_session.clone(),
-            agent_id: definition.id.clone(),
-            mode: "async".to_string(),
-            task_id: task_id.clone(),
-            prompt_chars: prompt.chars().count(),
-        });
+        crate::openhuman::agent_orchestration::subagent_events::publish_subagent_spawned(
+            parent_session.clone(),
+            definition.id.clone(),
+            "async".to_string(),
+            task_id.clone(),
+            prompt.chars().count(),
+        );
         if let Some(ref tx) = progress_sink {
             let _ = tx
                 .send(AgentProgress::SubagentSpawned {
@@ -553,14 +552,14 @@ impl Tool for SpawnAsyncSubagentTool {
                             outcome.output.clone(),
                             background_parent_thread_id.clone(),
                         );
-                        publish_global(DomainEvent::SubagentCompleted {
-                            parent_session: background_parent_session,
-                            task_id: outcome.task_id.clone(),
-                            agent_id: outcome.agent_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            output_chars: outcome.output.chars().count(),
-                            iterations: outcome.iterations,
-                        });
+                        crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
+                            background_parent_session,
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            outcome.elapsed.as_millis() as u64,
+                            outcome.output.chars().count(),
+                            outcome.iterations,
+                        );
                         if let Some(ref tx) = background_progress {
                             let _ = tx
                                 .send(AgentProgress::SubagentCompleted {
@@ -612,14 +611,14 @@ impl Tool for SpawnAsyncSubagentTool {
                             framed,
                             background_parent_thread_id.clone(),
                         );
-                        publish_global(DomainEvent::SubagentCompleted {
-                            parent_session: background_parent_session,
-                            task_id: outcome.task_id.clone(),
-                            agent_id: outcome.agent_id.clone(),
-                            elapsed_ms: outcome.elapsed.as_millis() as u64,
-                            output_chars: outcome.output.chars().count(),
-                            iterations: outcome.iterations,
-                        });
+                        crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
+                            background_parent_session,
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            outcome.elapsed.as_millis() as u64,
+                            outcome.output.chars().count(),
+                            outcome.iterations,
+                        );
                         if let Some(ref tx) = background_progress {
                             let _ = tx
                                 .send(AgentProgress::SubagentCompleted {
@@ -657,12 +656,12 @@ impl Tool for SpawnAsyncSubagentTool {
                         let error = format!(
                             "async sub-agent requested user clarification and was not continued: {question}"
                         );
-                        publish_global(DomainEvent::SubagentFailed {
-                            parent_session: background_parent_session,
-                            task_id: outcome.task_id.clone(),
-                            agent_id: outcome.agent_id.clone(),
-                            error: error.clone(),
-                        });
+                        crate::openhuman::agent_orchestration::subagent_events::publish_subagent_failed(
+                            background_parent_session,
+                            outcome.task_id.clone(),
+                            outcome.agent_id.clone(),
+                            error.clone(),
+                        );
                         if let Some(ref tx) = background_progress {
                             let _ = tx
                                 .send(AgentProgress::SubagentFailed {
@@ -693,12 +692,12 @@ impl Tool for SpawnAsyncSubagentTool {
                     let _ = status_tx.send(SubagentStatus::Failed {
                         error: error.clone(),
                     });
-                    publish_global(DomainEvent::SubagentFailed {
-                        parent_session: background_parent_session,
-                        task_id: background_task_id.clone(),
-                        agent_id: background_agent_id.clone(),
-                        error: error.clone(),
-                    });
+                    crate::openhuman::agent_orchestration::subagent_events::publish_subagent_failed(
+                        background_parent_session,
+                        background_task_id.clone(),
+                        background_agent_id.clone(),
+                        error.clone(),
+                    );
                     if let Some(ref tx) = background_progress {
                         let _ = tx
                             .send(AgentProgress::SubagentFailed {

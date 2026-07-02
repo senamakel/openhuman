@@ -205,13 +205,13 @@ async fn run_context_scout_with_catalog_and_workspace(
     // child's own iterations/tool-calls already stream to this sink from
     // inside run_subagent; we bookend them with spawned/completed so the
     // UI opens and closes the card. Best-effort — a closed sink is fine.
-    publish_global(DomainEvent::SubagentSpawned {
-        parent_session: parent_session.clone(),
-        agent_id: definition.id.clone(),
-        mode: "typed".to_string(),
-        task_id: task_id.clone(),
-        prompt_chars: scout_prompt.chars().count(),
-    });
+    crate::openhuman::agent_orchestration::subagent_events::publish_subagent_spawned(
+        parent_session.clone(),
+        definition.id.clone(),
+        "typed".to_string(),
+        task_id.clone(),
+        scout_prompt.chars().count(),
+    );
     if let Some(ref tx) = progress_sink {
         let _ = tx
             .send(AgentProgress::SubagentSpawned {
@@ -263,14 +263,14 @@ async fn run_context_scout_with_catalog_and_workspace(
                         output_chars = outcome.output.chars().count(),
                         "[agent_prepare_context] scout returned a malformed/absent context_bundle — rejecting"
                     );
-                    publish_global(DomainEvent::SubagentCompleted {
-                        parent_session: parent_session.clone(),
-                        task_id: outcome.task_id.clone(),
-                        agent_id: outcome.agent_id.clone(),
-                        elapsed_ms: outcome.elapsed.as_millis() as u64,
-                        output_chars: 0,
-                        iterations: outcome.iterations,
-                    });
+                    crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
+                        parent_session.clone(),
+                        outcome.task_id.clone(),
+                        outcome.agent_id.clone(),
+                        outcome.elapsed.as_millis() as u64,
+                        0,
+                        outcome.iterations,
+                    );
                     if let Some(ref tx) = progress_sink {
                         let _ = tx
                             .send(AgentProgress::SubagentCompleted {
@@ -302,14 +302,14 @@ async fn run_context_scout_with_catalog_and_workspace(
                     raw_output_chars = outcome.output.chars().count(),
                     "[agent_prepare_context] context bundle ready"
                 );
-                publish_global(DomainEvent::SubagentCompleted {
-                    parent_session: parent_session.clone(),
-                    task_id: outcome.task_id.clone(),
-                    agent_id: outcome.agent_id.clone(),
-                    elapsed_ms: outcome.elapsed.as_millis() as u64,
-                    output_chars: bundle.chars().count(),
-                    iterations: outcome.iterations,
-                });
+                crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
+                    parent_session.clone(),
+                    outcome.task_id.clone(),
+                    outcome.agent_id.clone(),
+                    outcome.elapsed.as_millis() as u64,
+                    bundle.chars().count(),
+                    outcome.iterations,
+                );
                 if let Some(ref tx) = progress_sink {
                     let _ = tx
                         .send(AgentProgress::SubagentCompleted {
@@ -387,14 +387,14 @@ async fn run_context_scout_with_catalog_and_workspace(
                 // Close the domain-event lifecycle too — a SubagentSpawned
                 // was already published, so emit Completed to avoid a
                 // dangling spawned state for event-bus consumers.
-                publish_global(DomainEvent::SubagentCompleted {
-                    parent_session: parent_session.clone(),
-                    task_id: outcome.task_id.clone(),
-                    agent_id: outcome.agent_id.clone(),
-                    elapsed_ms: outcome.elapsed.as_millis() as u64,
-                    output_chars: 0,
-                    iterations: outcome.iterations,
-                });
+                crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
+                    parent_session.clone(),
+                    outcome.task_id.clone(),
+                    outcome.agent_id.clone(),
+                    outcome.elapsed.as_millis() as u64,
+                    0,
+                    outcome.iterations,
+                );
                 if let Some(ref tx) = progress_sink {
                     let _ = tx
                         .send(AgentProgress::SubagentCompleted {
@@ -425,14 +425,14 @@ async fn run_context_scout_with_catalog_and_workspace(
                     reason = %reason,
                     "[agent_prepare_context] scout stopped incomplete — returning empty bundle"
                 );
-                publish_global(DomainEvent::SubagentCompleted {
-                    parent_session: parent_session.clone(),
-                    task_id: outcome.task_id.clone(),
-                    agent_id: outcome.agent_id.clone(),
-                    elapsed_ms: outcome.elapsed.as_millis() as u64,
-                    output_chars: 0,
-                    iterations: outcome.iterations,
-                });
+                crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
+                    parent_session.clone(),
+                    outcome.task_id.clone(),
+                    outcome.agent_id.clone(),
+                    outcome.elapsed.as_millis() as u64,
+                    0,
+                    outcome.iterations,
+                );
                 if let Some(ref tx) = progress_sink {
                     let _ = tx
                         .send(AgentProgress::SubagentCompleted {
@@ -466,12 +466,12 @@ async fn run_context_scout_with_catalog_and_workspace(
                 error_kind = %error_kind,
                 "[agent_prepare_context] context_scout run failed"
             );
-            publish_global(DomainEvent::SubagentFailed {
-                parent_session: parent_session.clone(),
-                task_id: task_id.clone(),
-                agent_id: definition.id.clone(),
-                error: message.clone(),
-            });
+            crate::openhuman::agent_orchestration::subagent_events::publish_subagent_failed(
+                parent_session.clone(),
+                task_id.clone(),
+                definition.id.clone(),
+                message.clone(),
+            );
             if let Some(ref tx) = progress_sink {
                 let _ = tx
                     .send(AgentProgress::SubagentFailed {

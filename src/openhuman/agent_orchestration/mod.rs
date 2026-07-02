@@ -28,6 +28,7 @@ pub(crate) mod run_ledger_finalize;
 pub(crate) mod running_subagents;
 pub(crate) mod spawn_parallel_graph;
 pub mod subagent_control;
+pub(crate) mod subagent_events;
 pub(crate) mod subagent_sessions;
 pub mod tools;
 pub mod types;

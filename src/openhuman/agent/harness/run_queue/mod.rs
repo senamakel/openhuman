@@ -101,12 +101,6 @@ impl RunQueue {
         inner.collects.clear();
         total
     }
-
-    /// Check whether any steers or collects are pending (engine poll).
-    pub async fn has_pending_injections(&self) -> bool {
-        let inner = self.inner.lock().await;
-        !inner.steers.is_empty() || !inner.collects.is_empty()
-    }
 }
 
 #[cfg(test)]

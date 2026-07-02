@@ -10,7 +10,6 @@
 //!   `SubagentToolCall*` events (nested under the subagent row in the UI) and
 //!   does not stream deltas. The `SubagentSpawned` / `SubagentCompleted` /
 //!   `SubagentFailed` lifecycle events stay in the spawn tool, outside the loop.
-//! * [`NullProgress`] — triage / tests: every method is a no-op.
 
 use async_trait::async_trait;
 
@@ -198,11 +197,6 @@ impl ProgressReporter for TurnProgress {
         spawn_delta_forwarder(self.sink.clone(), iteration)
     }
 }
-
-/// No-op reporter for triage / tests.
-pub(crate) struct NullProgress;
-
-impl ProgressReporter for NullProgress {}
 
 /// Spawn a task that forwards `ProviderDelta`s from the provider's streaming
 /// channel into `on_progress` as `AgentProgress` delta events, tagged with

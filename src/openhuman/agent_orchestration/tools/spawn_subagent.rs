@@ -22,10 +22,11 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::memory_conversations::{
     self as conversations, ConversationMessage, CreateConversationThread,
 };
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
+use tinyagents::harness::tool::ToolExecutionContext;
 
 /// Spawns a sub-agent of the requested type to handle a delegated task.
 ///
@@ -155,6 +156,16 @@ impl Tool for SpawnSubagentTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
         // ── Argument extraction with back-compat ───────────────────────
         let agent_id = args
             .get("agent_id")
@@ -433,7 +444,7 @@ impl Tool for SpawnSubagentTool {
                 "[spawn_subagent] routing to reusable async sub-agent by default"
             );
             return super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-                .execute(async_args)
+                .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
                 .await;
         }
 
@@ -490,6 +501,19 @@ impl Tool for SpawnSubagentTool {
         }
 
         // ── Run the sub-agent ──────────────────────────────────────────
+        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
+        let worktree_action_dir = workspace_descriptor
+            .as_ref()
+            .map(|descriptor| descriptor.root.clone());
+        if let Some(descriptor) = workspace_descriptor.as_ref() {
+            tracing::debug!(
+                task_id = %task_id,
+                agent_id = %definition.id,
+                workspace_root = %descriptor.root.display(),
+                policy_id = %descriptor.policy_id,
+                "[spawn_subagent] using ToolExecutionContext workspace root"
+            );
+        }
         let options = SubagentRunOptions {
             skill_filter_override: None,
             toolkit_override,
@@ -499,8 +523,8 @@ impl Tool for SpawnSubagentTool {
             worker_thread_id: worker_thread_id.clone(),
             initial_history: None,
             checkpoint_dir: None,
-            worktree_action_dir: None,
-            workspace_descriptor: None,
+            worktree_action_dir,
+            workspace_descriptor,
             run_queue: None,
         };
 

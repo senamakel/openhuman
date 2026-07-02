@@ -35,7 +35,7 @@
    `AgentGraph::Custom` runner:
    - Nodes this stage: `normalize` (fold pending session messages into state),
      `frontend` (two-pass, Quick LLM), `send_dm` (Signal reply to the session counterpart),
-     `execute_stub` (sets a canned `agent_reply`; replaced in stage 5), `context_guard_stub`.
+     `execute_stub` (sets a canned `agent_reply`; replaced in stage 5), `context_guard`.
    - Conditional edges = the spec's router: from `frontend`, `channel_response` present →
      `send_dm` → `context_guard` → END; else → `execute` → back to `frontend`.
    - **Invocation**: `invoke_orchestration_graph(session_id)` in `orchestration/ops.rs`, called by

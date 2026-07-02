@@ -114,7 +114,7 @@ from dataclasses import dataclass
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langgraph.checkpoint.memory import MemorySaver
+from openhuman.orchestration.checkpoint import SqlRunLedgerCheckpointer
 
 # ==========================================
 # 1. AUTONOMOUS STATE DEFINITION
@@ -304,9 +304,9 @@ workflow.add_conditional_edges(
 workflow.add_edge("agent_execution", "frontend_agent")
 workflow.add_edge("context_manager_hook", END)
 
-# Compile graph with persistence memory layers
-memory = MemorySaver()
-compiled_autonomous_harness = workflow.compile(checkpointer=memory)
+# Compile graph with the durable run ledger checkpointer used by OpenHuman.
+checkpointer = SqlRunLedgerCheckpointer()
+compiled_autonomous_harness = workflow.compile(checkpointer=checkpointer)
 
 # ==========================================
 # 4. RUNTIME WALKTHROUGH SIMULATION

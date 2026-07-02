@@ -34,8 +34,9 @@
      outputs) captured for the compression node.
 2. **`compress` node** (`orchestration/graph/compress.rs`): token-count the cycle trace (tokenizer
    util used by `summarize.rs`); summarize via a cheap `hint:*` route with an enforced output
-   budget of `input_tokens / 20` (floor 200 tokens); retry once if >1.5× budget, then
-   hard-truncate. Append to `state.compressed_history` **and** persist to the store's
+   budget of `min(input_tokens / 20, input_tokens)`; apply the 200-token floor only when the
+   source trace is large enough that the budget is still compressive. Retry once if >1.5× budget,
+   then hard-truncate. Append to `state.compressed_history` **and** persist to the store's
    `compressed_history` table (cycle id, session id, token counts, text).
 3. **`world_diff` node** (`orchestration/graph/world_diff.rs` + store table): append one timeline
    entry `{ seq, cycle_id, event_signature, world_mutation, delta, timestamp }`; `genesis` row on

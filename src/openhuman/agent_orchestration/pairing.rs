@@ -4,17 +4,23 @@
 //! local consent record for orchestration sessions that are allowed to exchange
 //! 1:1 encrypted envelopes.
 
+use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::Mutex;
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
 use crate::openhuman::tinyplace::ops::{global_state as tinyplace_state, map_err};
 
 const LOG_TARGET: &str = "orchestration_pairing";
+
+static STORE_LOCKS: LazyLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -258,6 +264,8 @@ async fn persist_record(
     status: PairingStatus,
     source: PairingSource,
 ) -> Result<PairingRecord, String> {
+    let store_lock = store_lock(workspace_dir).await;
+    let _guard = store_lock.lock().await;
     let mut store = load_store(workspace_dir).await?;
     let record = PairingRecord {
         agent_id,
@@ -279,9 +287,20 @@ async fn persist_record(
 }
 
 async fn remove_record(workspace_dir: &Path, agent_id: &str) -> Result<(), String> {
+    let store_lock = store_lock(workspace_dir).await;
+    let _guard = store_lock.lock().await;
     let mut store = load_store(workspace_dir).await?;
     store.records.retain(|record| record.agent_id != agent_id);
     save_store(workspace_dir, &store).await
+}
+
+async fn store_lock(workspace_dir: &Path) -> Arc<Mutex<()>> {
+    let path = store_path(workspace_dir);
+    let mut locks = STORE_LOCKS.lock().await;
+    locks
+        .entry(path)
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
 }
 
 async fn load_store(workspace_dir: &Path) -> Result<PairingStore, String> {
@@ -402,5 +421,38 @@ mod tests {
         remove_record(tmp.path(), "@worker").await.unwrap();
         let store = load_store(tmp.path()).await.unwrap();
         assert!(store.records.is_empty());
+    }
+
+    #[tokio::test]
+    async fn pairing_store_serializes_concurrent_mutations() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut tasks = Vec::new();
+
+        for index in 0..20 {
+            let workspace_dir = tmp.path().to_path_buf();
+            tasks.push(tokio::spawn(async move {
+                persist_record(
+                    &workspace_dir,
+                    format!("@worker-{index}"),
+                    Some(format!("Worker {index}")),
+                    PairingStatus::Linked,
+                    PairingSource::ApprovedRequest,
+                )
+                .await
+            }));
+        }
+
+        for task in tasks {
+            task.await.unwrap().unwrap();
+        }
+
+        let store = load_store(tmp.path()).await.unwrap();
+        assert_eq!(store.records.len(), 20);
+        for index in 0..20 {
+            assert!(store
+                .records
+                .iter()
+                .any(|record| record.agent_id == format!("@worker-{index}")));
+        }
     }
 }

@@ -67,24 +67,10 @@ function pickString(source: Record<string, unknown>, keys: string[]): string | n
   return null;
 }
 
-function searchText(envelope: MessageEnvelope): string {
-  return [
-    envelope.from,
-    envelope.to,
-    envelope.type,
-    envelope.contentHint,
-    envelope.body,
-    pickString(envelope, ['sessionId', 'appSessionId', 'threadId', 'conversationId', 'runId']),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-}
-
 function chatKindForEnvelope(envelope: MessageEnvelope): ChatKind {
-  const text = searchText(envelope);
-  if (text.includes('subconscious') || text.includes('internal')) return 'subconscious';
-  if (text.includes('master') || text.includes('agent-human') || /\bhuman\b/.test(text)) {
+  const type = (envelope.type ?? '').toLowerCase();
+  if (type.includes('subconscious') || type.includes('internal')) return 'subconscious';
+  if (type.includes('master') || type.includes('agent-human') || type.includes('human')) {
     return 'master';
   }
   return 'session';

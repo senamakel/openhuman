@@ -97,7 +97,7 @@ describe('TinyPlaceOrchestrationTab', () => {
           timestamp: '2026-07-01T12:02:00.000Z',
           deviceId: 1,
           type: 'session',
-          body: 'I opened a worktree and started the review.',
+          body: 'I asked the human master for context, then opened a worktree.',
           sessionId: 'app-session-1',
           sessionLabel: 'OpenHuman app session',
         },
@@ -114,7 +114,7 @@ describe('TinyPlaceOrchestrationTab', () => {
 
     expect(
       within(await screen.findByTestId('tinyplace-chat-messages')).getByText(
-        'I opened a worktree and started the review.'
+        'I asked the human master for context, then opened a worktree.'
       )
     ).toBeInTheDocument();
   });

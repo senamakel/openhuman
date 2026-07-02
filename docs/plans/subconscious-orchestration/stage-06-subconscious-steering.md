@@ -40,9 +40,8 @@
 4. **Feedback provenance**: each directive records which compressed-history rows / diff seq range
    it was derived from; reviewed cursor advances only on successful persist (idempotent ticks).
 5. **Subconscious chat surface**: publish each emitted directive as an
-   `OrchestrationMessage { chat_kind: Subconscious }` (and optionally mirror it as a self-DM over
-   tiny.place so it is visible in other clients) — this is what fills the pinned "Subconscious"
-   window in the UI (stage 7).
+   `OrchestrationMessage { chat_kind: Subconscious }` for the local UI only. This fills the pinned
+   "Subconscious" window in the UI (stage 7) without introducing outbound tiny.place effects.
 
 ## Tasks
 
@@ -54,7 +53,7 @@
    the stage-5 graph loads it via `execute` on the next cycle (assert it lands in the system prompt of
    the mock provider call).
 5. Isolation test: assert the tick's tool surface contains no channel/effect tools and that no
-   tinyplace *outbound* op other than the optional self-DM mirror is reachable.
+   tinyplace outbound op is reachable.
 
 ## Acceptance criteria
 

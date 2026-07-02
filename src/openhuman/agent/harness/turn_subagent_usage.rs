@@ -61,7 +61,7 @@ pub struct LastTurnUsage {
 }
 
 /// Shared, mutable list of sub-agent spend gathered during one parent turn.
-pub type TurnSubagentUsage = Arc<Mutex<Vec<SubagentUsageEntry>>>;
+type TurnSubagentUsage = Arc<Mutex<Vec<SubagentUsageEntry>>>;
 
 tokio::task_local! {
     /// Active per-turn sub-agent usage collector, installed around the parent's
@@ -73,7 +73,7 @@ tokio::task_local! {
 /// The collector active for the current turn, or `None` when no scope is in
 /// effect (e.g. a sub-agent running on a detached background task, or a direct
 /// CLI invocation).
-pub fn current_collector() -> Option<TurnSubagentUsage> {
+fn current_collector() -> Option<TurnSubagentUsage> {
     TURN_SUBAGENT_USAGE.try_with(|c| c.clone()).ok()
 }
 

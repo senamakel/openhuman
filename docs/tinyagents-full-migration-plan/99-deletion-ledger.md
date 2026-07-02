@@ -48,7 +48,8 @@ they land.
 - [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) — 08.4
 - [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 251) — 04.3
       (live until crate checkpointer/schema migration replaces `graph_checkpoints`)
-- [ ] `CostBudgetMiddleware` + `turn_subagent_usage.rs` task-local — 06
+- [ ] `CostBudgetMiddleware` (`tinyagents/middleware.rs`) +
+      `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
       (live until crate budget/run-tree accounting avoids duplicate
       `UsageRecorded` and covers parent-turn rollups)
 - [ ] `agent/dispatcher.rs` (609) + `harness/parse.rs` (830) legacy tool-call

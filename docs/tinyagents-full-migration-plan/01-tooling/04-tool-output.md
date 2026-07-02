@@ -14,7 +14,10 @@ action-workspace artifacts are indexed in `RunContext.stores` under
 `openhuman_tool_result_artifacts` while the existing `.txt` file and `file_read`
 envelope remain the source of truth. Remaining work is to remove the legacy
 executor hooks once the old path is gone and move the summarizer child dispatch
-onto `SubAgent::invoke_in_parent`.
+onto `SubAgent::invoke_in_parent`. The live TinyAgents middleware already calls
+the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`, so the
+next behavior change can swap the summarizer implementation without changing
+the legacy direct executor path.
 
 1. `payload_summarizer.rs` (490 lines, oversized-result compression via a
    `summarizer` sub-agent + circuit breaker): re-express as an `after_tool`

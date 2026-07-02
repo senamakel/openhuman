@@ -176,6 +176,7 @@ fn task_store_path(workspace_dir: &Path) -> PathBuf {
         .join("orchestration_tasks.jsonl")
 }
 
+#[cfg(test)]
 fn default_task_store_workspace() -> PathBuf {
     crate::openhuman::config::default_root_openhuman_dir()
         .map(|root| root.join("workspace"))
@@ -229,6 +230,7 @@ fn task_store_for_workspace(workspace_dir: &Path) -> Arc<DetachedTaskStore> {
         .clone()
 }
 
+#[cfg(test)]
 fn task_store() -> Arc<DetachedTaskStore> {
     let workspace = default_task_store_workspace();
     task_store_for_workspace(&workspace)
@@ -334,7 +336,7 @@ fn task_records(parent_session: Option<&str>) -> Vec<OrchestrationTaskRecord> {
 /// Terminal/transient state of a running async sub-agent, published by the
 /// spawner's background task and observed by `wait_subagent`.
 #[derive(Debug, Clone)]
-pub enum SubagentStatus {
+pub(crate) enum SubagentStatus {
     /// Still executing its inner tool-call loop.
     Running,
     /// Finished normally with a final response.
@@ -366,10 +368,10 @@ struct RunningSubagentEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SubagentResumeRef {
-    pub task_id: String,
-    pub agent_id: String,
-    pub subagent_session_id: Option<String>,
+pub(crate) struct SubagentResumeRef {
+    pub(crate) task_id: String,
+    pub(crate) agent_id: String,
+    pub(crate) subagent_session_id: Option<String>,
 }
 
 /// Soft cap on registry size. Terminal entries are only swept when the table
@@ -389,7 +391,7 @@ fn registry() -> &'static Mutex<HashMap<String, RunningSubagentEntry>> {
 /// terminal [`SubagentStatus`] on completion. Dropping the sender (e.g. a
 /// panicked/aborted task) closes the channel, which `wait_subagent` surfaces as
 /// a failure rather than hanging.
-pub fn status_channel() -> (
+pub(crate) fn status_channel() -> (
     watch::Sender<SubagentStatus>,
     watch::Receiver<SubagentStatus>,
 ) {
@@ -402,7 +404,7 @@ pub fn status_channel() -> (
 /// task owns the matching [`watch::Sender`] from [`status_channel`]. Once the
 /// table passes [`REGISTRY_SOFT_CAP`], registration sweeps already-terminal
 /// entries so it stays bounded even if a parent never calls `wait_subagent`.
-pub fn register(
+pub(crate) fn register(
     task_id: String,
     agent_id: String,
     parent_session: String,
@@ -482,7 +484,7 @@ fn spawn_status_watcher(
 
 /// Resolve a durable `subagent_session_id` to the currently-running transient
 /// `task_id`, enforcing parent-session ownership.
-pub fn task_id_for_session(
+pub(crate) fn task_id_for_session(
     subagent_session_id: &str,
     parent_session: &str,
 ) -> Result<String, WaitError> {
@@ -511,7 +513,7 @@ pub fn task_id_for_session(
     Err(WaitError::Unknown)
 }
 
-pub fn resume_ref_for_task(
+pub(crate) fn resume_ref_for_task(
     task_id: &str,
     parent_session: &str,
 ) -> Result<SubagentResumeRef, WaitError> {
@@ -586,7 +588,11 @@ pub async fn steer(
 /// the RPC layer is already bearer-protected and mirrors the existing
 /// `subagent_cancel` control surface, which can abort a task by id. The function
 /// still refuses unknown or terminal tasks and never logs the steered text.
-pub async fn steer_control(task_id: &str, text: String, mode: QueueMode) -> Result<(), SteerError> {
+pub(crate) async fn steer_control(
+    task_id: &str,
+    text: String,
+    mode: QueueMode,
+) -> Result<(), SteerError> {
     let run_queue = {
         let map = registry().lock().expect("running_subagents mutex poisoned");
         let entry = map.get(task_id).ok_or(SteerError::Unknown)?;
@@ -619,14 +625,14 @@ pub async fn steer_control(task_id: &str, text: String, mode: QueueMode) -> Resu
 
 /// Why a wait could not be set up.
 #[derive(Debug, PartialEq, Eq)]
-pub enum WaitError {
+pub(crate) enum WaitError {
     Unknown,
     NotOwned,
 }
 
 /// Result of waiting on a sub-agent.
 #[derive(Debug)]
-pub enum WaitOutcome {
+pub(crate) enum WaitOutcome {
     /// The sub-agent reached a terminal status (entry pruned).
     Terminal(SubagentStatus),
     /// The timeout elapsed first; the entry is left intact so the parent can
@@ -635,7 +641,7 @@ pub enum WaitOutcome {
 }
 
 /// Block until `task_id` reaches a terminal status or `timeout` elapses.
-pub async fn wait(
+pub(crate) async fn wait(
     task_id: &str,
     parent_session: &str,
     timeout: Duration,
@@ -684,12 +690,12 @@ pub async fn wait(
 /// the cancellation back in the parent chat (record a "cancelled" completion
 /// for idle-gated delivery).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CancelledSubagent {
-    pub agent_id: String,
-    pub parent_session: String,
-    pub subagent_session_id: Option<String>,
-    pub workspace_dir: PathBuf,
-    pub parent_thread_id: Option<String>,
+pub(crate) struct CancelledSubagent {
+    pub(crate) agent_id: String,
+    pub(crate) parent_session: String,
+    pub(crate) subagent_session_id: Option<String>,
+    pub(crate) workspace_dir: PathBuf,
+    pub(crate) parent_thread_id: Option<String>,
 }
 
 /// Abort and drop the sub-agent with `task_id`, returning its metadata so the
@@ -699,7 +705,7 @@ pub struct CancelledSubagent {
 /// Unlike [`close`], this is keyed by `task_id` alone with no parent-session
 /// ownership check — it backs the user-facing "Cancel" affordance, and the
 /// desktop user owns every sub-agent in their own core.
-pub fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
+pub(crate) fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
     let entry = map.remove(task_id)?;
     entry.abort.abort();
@@ -720,7 +726,7 @@ pub fn cancel_by_task(task_id: &str) -> Option<CancelledSubagent> {
     })
 }
 
-pub fn cancel_by_session(
+pub(crate) fn cancel_by_session(
     subagent_session_id: &str,
     parent_session: &str,
 ) -> Option<CancelledSubagent> {
@@ -732,7 +738,7 @@ pub fn cancel_by_session(
 /// `thread_id`. Called when that thread is deleted so detached children don't
 /// keep running (and later try to deliver) against a thread that no longer
 /// exists. Returns the number of sub-agents cancelled.
-pub fn cancel_for_thread(thread_id: &str) -> usize {
+pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
     let to_cancel: Vec<String> = map
         .iter()
@@ -761,7 +767,7 @@ pub fn cancel_for_thread(thread_id: &str) -> usize {
 /// [`super::background_completions`] and drop any straggler completion that wins
 /// the cooperative-abort race. Headless sub-agents (no parent thread) are still
 /// aborted but contribute no id.
-pub fn cancel_all() -> Vec<String> {
+pub(crate) fn cancel_all() -> Vec<String> {
     let mut map = registry().lock().expect("running_subagents mutex poisoned");
     let count = map.len();
     let mut thread_ids: Vec<String> = Vec::new();

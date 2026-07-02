@@ -14,8 +14,9 @@ workspace metadata, and terminal/cancelled mirrors now resolve the same
 workspace-scoped store that recorded the spawn. The executor/control path still
 uses OpenHuman's watch channels, abort handles, task lookup, and `RunQueue`;
 the unused future `running_subagents::close` hook has been removed and the
-test-only typed ledger snapshot is no longer exported in production, while
-restart reconciliation and steering-registry replacement remain pending.
+test-only typed ledger snapshot plus most registry APIs are no longer exported
+outside the crate (the debug audit still uses `steer`), while restart
+reconciliation and steering-registry replacement remain pending.
 
 ## Steps
 
@@ -46,7 +47,7 @@ restart reconciliation and steering-registry replacement remain pending.
 
 ## Deletions
 
-- Watch-channel/task-lookup mechanics in `running_subagents.rs` (1244)
+- Watch-channel/task-lookup mechanics in `running_subagents.rs` (1250)
   (target ≤ ~300 lines of policy + executor glue).
 
 ## Acceptance

@@ -95,7 +95,7 @@ impl Agent {
 
     /// Snapshot the parent's runtime so spawned sub-agents can read
     /// it via the [`harness::PARENT_CONTEXT`] task-local.
-    pub(in super::super) fn build_parent_execution_context(
+    pub(super) fn build_parent_execution_context(
         &self,
     ) -> harness::ParentExecutionContext {
         let allowed_subagent_ids = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
@@ -162,7 +162,7 @@ impl Agent {
     /// progress bridge (e.g. a tool row stuck in `running` forever).
     /// A closed sink is logged and ignored; no progress subscriber is
     /// equivalent to success.
-    pub(in super::super) async fn emit_progress(&self, event: AgentProgress) {
+    pub(super) async fn emit_progress(&self, event: AgentProgress) {
         if let Some(ref tx) = self.on_progress {
             if let Err(e) = tx.send(event).await {
                 log::warn!("[agent] progress sink closed while emitting lifecycle event: {e}");
@@ -205,7 +205,7 @@ impl Agent {
 
     /// Lazily attach this session to the global event bus so it can
     /// observe `ComposioIntegrationsChanged` notifications.
-    pub(in super::super) fn ensure_composio_integrations_listener(&mut self) {
+    pub(super) fn ensure_composio_integrations_listener(&mut self) {
         if self.composio_integrations_rx.is_some() {
             return;
         }
@@ -267,7 +267,7 @@ impl Agent {
     /// [`crate::core::event_bus::DomainEvent::WorkflowsChanged`] (skill
     /// install / uninstall / create). Mirror of
     /// [`Self::ensure_composio_integrations_listener`].
-    pub(in super::super) fn ensure_skill_events_listener(&mut self) {
+    pub(super) fn ensure_skill_events_listener(&mut self) {
         if self.skill_events_rx.is_some() {
             return;
         }
@@ -323,7 +323,7 @@ impl Agent {
 
     /// Reconcile the session's delegation schema against the latest cached
     /// integrations snapshot. Returns `true` only when a refresh applied.
-    pub(in super::super) fn refresh_delegation_tools_from_cached_integrations(
+    pub(super) fn refresh_delegation_tools_from_cached_integrations(
         &mut self,
         trigger: &str,
     ) -> bool {

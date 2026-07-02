@@ -21,7 +21,10 @@ stripping, denylist checks, toolkit top-K budgets) with non-filter helpers
 `ContextualToolSelectionMiddleware` owns child/toolkit selection and those
 non-filter helpers have moved to narrower modules. The `tool_prep` helper
 surface has been narrowed to `subagent_runner` except for the text-mode protocol
-renderer used by prompt debug dumps.
+renderer used by prompt debug dumps. The turn-local parent-context/progress and
+cached integration refresh helpers in `session/turn/tools.rs` are scoped to the
+turn module, while the cross-surface integration fetch and delegation refresh
+entrypoints remain live.
 
 ## Steps
 
@@ -30,7 +33,7 @@ renderer used by prompt debug dumps.
    `ToolAllowlistMiddleware` + one OpenHuman
    `ContextualToolSelectionMiddleware` (`ToolSelectionContext` carries agent
    id, task kind, tier, channel). Inheritance rule: children can only narrow —
-   use `ContextualToolSelectionMiddleware::inheriting(...)` (new in 1.3.0).
+   use `ContextualToolSelectionMiddleware::inheriting(...)`.
 2. Fail closed when policy metadata is missing (unclassified → not exposed);
    exposure decisions are event-native via `AgentEvent::ToolsFiltered
    { by, excluded, remaining }` (1.3.0) — projected into the bridge as

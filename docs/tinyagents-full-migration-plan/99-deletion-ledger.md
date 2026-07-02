@@ -26,7 +26,7 @@ they land.
 - [ ] `harness/tool_filter.rs` mechanics + `subagent_runner/tool_prep.rs` (350) — 01.3
 - [ ] `ThinkingForwarder` — 02.3
 - [ ] `inference/provider/reliable.rs` (1215 + 1443 tests) — 02.2
-- [ ] `tinyagents/orchestration.rs::run_parallel_fanout` — 08.1
+- [x] `tinyagents/orchestration.rs::run_parallel_fanout` — 08.1
 - [ ] `harness/engine/` (entire dir, 309) — 05.2
 - [ ] `agent/progress_tracing/` (616, if duplicate) — 05.2
 - [ ] `harness/run_queue/` mechanics (345) — 07.3

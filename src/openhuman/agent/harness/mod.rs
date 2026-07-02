@@ -36,7 +36,7 @@ pub(crate) mod parse;
 pub mod run_queue;
 pub mod sandbox_context;
 pub mod session;
-pub(crate) mod spawn_depth_context;
+mod spawn_depth_context;
 pub mod subagent_runner;
 pub mod task_recency_context;
 pub(crate) mod tool_filter;

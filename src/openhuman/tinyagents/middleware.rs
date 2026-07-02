@@ -165,7 +165,11 @@ impl TurnContextMiddleware {
     /// microcompact (clear tool bodies) are installed **before** the caller's
     /// summarization / trim middlewares — microcompact frees cheap tokens first,
     /// then summarization/trim handle the rest.
-    pub fn install(self, harness: &mut AgentHarness<()>, tool_sets: &[Arc<Vec<Box<dyn Tool>>>]) {
+    pub fn install(
+        self,
+        harness: &mut AgentHarness<()>,
+        tool_policies: HashMap<String, TaToolPolicy>,
+    ) {
         // Super context runs first: it prepares the read-only context bundle and
         // folds it into the first model call's user message before any other
         // before_model hook inspects the request.
@@ -203,20 +207,10 @@ impl TurnContextMiddleware {
                 artifact_store: self.artifact_store,
                 tokenjuice_compaction_enabled: self.tokenjuice_compaction_enabled,
                 tokenjuice_compression: self.tokenjuice_compression,
-                tool_policies: tool_policy_snapshot(tool_sets),
+                tool_policies,
             }));
         }
     }
-}
-
-fn tool_policy_snapshot(tool_sets: &[Arc<Vec<Box<dyn Tool>>>]) -> HashMap<String, TaToolPolicy> {
-    let mut policies = HashMap::new();
-    for tool in tool_sets.iter().flat_map(|set| set.iter()) {
-        policies
-            .entry(tool.name().to_string())
-            .or_insert_with(|| super::tools::tool_policy_from_openhuman_tool(tool.as_ref()));
-    }
-    policies
 }
 
 fn estimate_output_tokens(bytes: usize) -> u64 {
@@ -1696,18 +1690,26 @@ mod tests {
 
     #[test]
     fn tool_char_cap_reads_the_tools_own_declared_cap() {
-        let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(FakeTool {
-            name: "big",
-            cap: Some(10),
-            external: false,
-        })]);
+        let mut tool_policies = HashMap::new();
+        tool_policies.insert(
+            "big".to_string(),
+            TaToolPolicy::classified().with_runtime(tinyagents::harness::tool::ToolRuntime {
+                timeout_ms: None,
+                max_retries: None,
+                idempotent: false,
+                cancelable: true,
+                sandbox: tinyagents::harness::tool::SandboxMode::Inherit,
+                max_result_bytes: Some(10),
+                streaming: false,
+            }),
+        );
         let mw = ToolOutputMiddleware {
             budget_bytes: 1_000,
             payload_summarizer: None,
             artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
-            tool_policies: tool_policy_snapshot(&[tools]),
+            tool_policies,
         };
         // Tool declares its own char cap → surfaced for the per-tool truncation.
         assert_eq!(mw.tool_char_cap("big"), Some(10));
@@ -1717,18 +1719,26 @@ mod tests {
 
     #[tokio::test]
     async fn tool_output_honors_a_tools_own_cap() {
-        let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(FakeTool {
-            name: "capped",
-            cap: Some(20),
-            external: false,
-        })]);
+        let mut tool_policies = HashMap::new();
+        tool_policies.insert(
+            "capped".to_string(),
+            TaToolPolicy::classified().with_runtime(tinyagents::harness::tool::ToolRuntime {
+                timeout_ms: None,
+                max_retries: None,
+                idempotent: false,
+                cancelable: true,
+                sandbox: tinyagents::harness::tool::SandboxMode::Inherit,
+                max_result_bytes: Some(20),
+                streaming: false,
+            }),
+        );
         let mw = ToolOutputMiddleware {
             budget_bytes: 100_000,
             payload_summarizer: None,
             artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
-            tool_policies: tool_policy_snapshot(&[tools]),
+            tool_policies,
         };
         let mut result = tool_result("capped", &"y".repeat(500));
         mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();

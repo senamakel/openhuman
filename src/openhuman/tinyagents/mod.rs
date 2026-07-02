@@ -680,60 +680,12 @@ fn assemble_turn_harness(
         .register_model(model, Arc::new(provider_model))
         .set_default_model(model);
 
-    // openhuman context concerns as graph middlewares (issue #4249): cache-align
-    // warnings, microcompact tool-body clearing, and the after-tool byte cap /
-    // payload summarizer. Installed before the summarization/trim block below so
-    // `before_model` hooks run cache-align → microcompact → compress → trim.
-    // Capture the autocompaction opt-out before `install` consumes `context_mw`.
+    // Capture context settings before `install` consumes `context_mw`.
     let autocompact_enabled = context_mw.autocompact_enabled;
     let tool_result_artifact_index = context_mw
         .artifact_store
         .as_ref()
         .map(|_| Arc::new(ToolResultArtifactIndexStore::new()));
-    context_mw.install(&mut harness, &tool_sets);
-
-    // Pre-call cost budget gate (issue #4249, Phase 5): fail before a model call
-    // when OpenHuman's daily/monthly cost budget is already exceeded. Self-gating
-    // — a no-op unless cost budgets are configured.
-    harness.push_middleware(Arc::new(middleware::CostBudgetMiddleware));
-
-    // Autocompaction parity: when the provider's context window is known, install
-    // the two-stage context-management step (issue #4249).
-    //
-    // 1. `ContextCompressionMiddleware` — the **summarization** step. Once the
-    //    running token estimate crosses `window * SUMMARIZE_THRESHOLD_FRACTION`
-    //    (90% of *this model's* context window), it folds the older slice of the
-    //    transcript into a single LLM-generated system summary (keeping system
-    //    messages + the recent window verbatim). This is keyed to whatever model
-    //    the turn is running on, preserving the legacy context threshold.
-    // 2. `MessageTrimMiddleware` — a deterministic, no-extra-LLM-call hard cap.
-    //    Pushed **after** compression (so `before_model` runs compression first),
-    //    it front-trims to budget only as a last resort when even the summary +
-    //    recent window still overflow.
-    //
-    // The LLM summarization step honors the `[context].enabled` /
-    // `autocompact_enabled` opt-outs (a disabled config must not spend summarizer
-    // tokens or rewrite history); the deterministic trim backstop always installs
-    // when a window is known, matching the legacy always-on `trim_history` cap.
-    if let Some(window) = context_window.filter(|w| *w > 0) {
-        if autocompact_enabled {
-            harness.push_middleware(Arc::new(ContextCompressionMiddleware::with_summarizer(
-                summarize::summarization_policy(window),
-                Box::new(summarize::ProviderModelSummarizer::new(
-                    summary_provider,
-                    model,
-                    temperature,
-                )),
-            )));
-        }
-
-        let budget = window.saturating_sub(
-            crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS as u64,
-        );
-        harness.push_middleware(Arc::new(MessageTrimMiddleware::new(
-            TrimStrategy::MaxTokens(budget.max(1024)),
-        )));
-    }
 
     // Snapshot the installed stop hooks while the `CURRENT_STOP_HOOKS`
     // task-local is in scope (the harness drive future runs inline on this
@@ -826,6 +778,58 @@ fn assemble_turn_harness(
         harness.push_middleware(Arc::new(
             middleware::OpenHumanToolVisibilityMiddleware::new(visibility_excluded, tool_count),
         ));
+    }
+
+    // openhuman context concerns as graph middlewares (issue #4249): cache-align
+    // warnings, microcompact tool-body clearing, and the after-tool byte cap /
+    // payload summarizer. Installed before the summarization/trim block below so
+    // `before_model` hooks run cache-align → microcompact → compress → trim.
+    // Tool-result caps read the SDK registry policy snapshot, not the
+    // OpenHuman-side tool lookup.
+    let tool_policies = harness.tools().policies();
+    context_mw.install(&mut harness, tool_policies);
+
+    // Pre-call cost budget gate (issue #4249, Phase 5): fail before a model call
+    // when OpenHuman's daily/monthly cost budget is already exceeded. Self-gating
+    // — a no-op unless cost budgets are configured.
+    harness.push_middleware(Arc::new(middleware::CostBudgetMiddleware));
+
+    // Autocompaction parity: when the provider's context window is known, install
+    // the two-stage context-management step (issue #4249).
+    //
+    // 1. `ContextCompressionMiddleware` — the **summarization** step. Once the
+    //    running token estimate crosses `window * SUMMARIZE_THRESHOLD_FRACTION`
+    //    (90% of *this model's* context window), it folds the older slice of the
+    //    transcript into a single LLM-generated system summary (keeping system
+    //    messages + the recent window verbatim). This is keyed to whatever model
+    //    the turn is running on, preserving the legacy context threshold.
+    // 2. `MessageTrimMiddleware` — a deterministic, no-extra-LLM-call hard cap.
+    //    Pushed **after** compression (so `before_model` runs compression first),
+    //    it front-trims to budget only as a last resort when even the summary +
+    //    recent window still overflow.
+    //
+    // The LLM summarization step honors the `[context].enabled` /
+    // `autocompact_enabled` opt-outs (a disabled config must not spend summarizer
+    // tokens or rewrite history); the deterministic trim backstop always installs
+    // when a window is known, matching the legacy always-on `trim_history` cap.
+    if let Some(window) = context_window.filter(|w| *w > 0) {
+        if autocompact_enabled {
+            harness.push_middleware(Arc::new(ContextCompressionMiddleware::with_summarizer(
+                summarize::summarization_policy(window),
+                Box::new(summarize::ProviderModelSummarizer::new(
+                    summary_provider,
+                    model,
+                    temperature,
+                )),
+            )));
+        }
+
+        let budget = window.saturating_sub(
+            crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS as u64,
+        );
+        harness.push_middleware(Arc::new(MessageTrimMiddleware::new(
+            TrimStrategy::MaxTokens(budget.max(1024)),
+        )));
     }
 
     // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration

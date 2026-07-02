@@ -520,29 +520,42 @@ pub(crate) async fn run_spawn_parallel_graph(
     parent_session: &str,
     progress_sink: Option<&Sender<AgentProgress>>,
     tasks: Vec<ParallelAgentTask>,
+    max_parallel: usize,
     registry: &AgentDefinitionRegistry,
     parent: &ParentExecutionContext,
-) -> Result<SpawnParallelCollected, String> {
+) -> Result<SpawnParallelGraphOutcome, String> {
     let action_root = resolve_spawn_parallel_action_root().await;
     let definitions = snapshot_agent_definitions(registry);
-    let collected = run_spawn_parallel_execution_graph(
+    let outcome = run_spawn_parallel_execution_graph(
         parent_session,
         progress_sink.cloned(),
         tasks,
+        max_parallel,
         definitions,
         parent.clone(),
         action_root,
     )
     .await?;
-    tracing::debug!(
-        parent_session = %parent_session,
-        total = collected.total(),
-        succeeded = collected.succeeded(),
-        failed = collected.failures,
-        overlaps = collected.overlap_warnings.len(),
-        "[spawn_parallel_agents] execute exit"
-    );
-    Ok(collected)
+    match &outcome {
+        SpawnParallelGraphOutcome::Collected(collected) => {
+            tracing::debug!(
+                parent_session = %parent_session,
+                total = collected.total(),
+                succeeded = collected.succeeded(),
+                failed = collected.failures,
+                overlaps = collected.overlap_warnings.len(),
+                "[spawn_parallel_agents] execute exit"
+            );
+        }
+        SpawnParallelGraphOutcome::Rejected(message) => {
+            tracing::debug!(
+                parent_session = %parent_session,
+                error = %message,
+                "[spawn_parallel_agents] rejected_by_graph_validate"
+            );
+        }
+    }
+    Ok(outcome)
 }
 
 /// Resolve the agent sandbox root once for the graph run.
@@ -574,6 +587,11 @@ pub(crate) struct SpawnParallelCollected {
     pub(crate) results: Vec<ParallelAgentResult>,
     pub(crate) failures: usize,
     pub(crate) overlap_warnings: Vec<serde_json::Value>,
+}
+
+pub(crate) enum SpawnParallelGraphOutcome {
+    Collected(SpawnParallelCollected),
+    Rejected(String),
 }
 
 impl SpawnParallelCollected {
@@ -993,6 +1011,8 @@ pub(crate) const SPAWN_PARALLEL_PHASES: &[&str] =
 pub(crate) struct SpawnParallelState {
     visited: Vec<&'static str>,
     tasks: Vec<ParallelAgentTask>,
+    max_parallel: usize,
+    rejection: Option<String>,
     prepared: Vec<SpawnParallelWorker>,
     immediate_results: Vec<ParallelAgentResult>,
     fanned_results: Vec<ParallelAgentResult>,
@@ -1002,9 +1022,14 @@ pub(crate) struct SpawnParallelState {
 }
 
 impl SpawnParallelState {
-    fn for_execution(tasks: Vec<ParallelAgentTask>, action_root: Option<PathBuf>) -> Self {
+    fn for_execution(
+        tasks: Vec<ParallelAgentTask>,
+        max_parallel: usize,
+        action_root: Option<PathBuf>,
+    ) -> Self {
         Self {
             tasks,
+            max_parallel,
             action_root,
             ..Self::default()
         }
@@ -1013,6 +1038,7 @@ impl SpawnParallelState {
 
 pub(crate) enum SpawnParallelUpdate {
     PhaseEntered(&'static str),
+    Rejected(String),
     Staged {
         prepared: Vec<SpawnParallelWorker>,
         immediate_results: Vec<ParallelAgentResult>,
@@ -1047,6 +1073,7 @@ pub(crate) fn build_spawn_parallel_graph(
             |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
                 match update {
                     SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                    SpawnParallelUpdate::Rejected(message) => state.rejection = Some(message),
                     SpawnParallelUpdate::Staged {
                         prepared,
                         immediate_results,
@@ -1085,10 +1112,11 @@ async fn run_spawn_parallel_execution_graph(
     parent_session: &str,
     progress_sink: Option<Sender<AgentProgress>>,
     tasks: Vec<ParallelAgentTask>,
+    max_parallel: usize,
     definitions: HashMap<String, AgentDefinition>,
     parent: ParentExecutionContext,
     action_root: Option<PathBuf>,
-) -> Result<SpawnParallelCollected, String> {
+) -> Result<SpawnParallelGraphOutcome, String> {
     let phases = SPAWN_PARALLEL_PHASES;
     let label = format!("spawn_parallel_agents:{parent_session}");
     let parent_for_dispatch_session = parent_session.to_string();
@@ -1103,6 +1131,7 @@ async fn run_spawn_parallel_execution_graph(
             |mut state: SpawnParallelState, update: SpawnParallelUpdate| {
                 match update {
                     SpawnParallelUpdate::PhaseEntered(phase) => state.visited.push(phase),
+                    SpawnParallelUpdate::Rejected(message) => state.rejection = Some(message),
                     SpawnParallelUpdate::Staged {
                         prepared,
                         immediate_results,
@@ -1117,7 +1146,23 @@ async fn run_spawn_parallel_execution_graph(
                 Ok(state)
             },
         ))
-        .add_node(phases[0], phase_node(phases[0]))
+        .add_node(
+            phases[0],
+            |state: SpawnParallelState, _ctx: NodeContext| async move {
+                if state.tasks.len() > state.max_parallel {
+                    let message = format!(
+                        "spawn_parallel_agents received {} tasks but max_parallel_tools is {}",
+                        state.tasks.len(),
+                        state.max_parallel
+                    );
+                    Ok(NodeResult::Update(SpawnParallelUpdate::Rejected(message)))
+                } else {
+                    Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                        "validate",
+                    )))
+                }
+            },
+        )
         .add_node(
             phases[1],
             move |state: SpawnParallelState, _ctx: NodeContext| {
@@ -1126,6 +1171,11 @@ async fn run_spawn_parallel_execution_graph(
                 let definitions = definitions_for_dispatch.clone();
                 let parent = parent_for_dispatch.clone();
                 async move {
+                    if state.rejection.is_some() {
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                            "dispatch",
+                        )));
+                    }
                     let (prepared, immediate_results) = stage_spawn_parallel_workers_from_defs(
                         &parent_session,
                         progress_sink.as_ref(),
@@ -1145,6 +1195,11 @@ async fn run_spawn_parallel_execution_graph(
         .add_node(
             phases[2],
             |state: SpawnParallelState, _ctx: NodeContext| async move {
+                if state.rejection.is_some() {
+                    return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                        "worker",
+                    )));
+                }
                 let fanned = run_spawn_parallel_workers(state.prepared, state.action_root)
                     .await
                     .map_err(tinyagents::TinyAgentsError::Graph)?;
@@ -1157,6 +1212,11 @@ async fn run_spawn_parallel_execution_graph(
                 let parent_session = parent_for_collect.clone();
                 let progress_sink = progress_for_collect.clone();
                 async move {
+                    if state.rejection.is_some() {
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::PhaseEntered(
+                            "collect",
+                        )));
+                    }
                     let mut results = state.immediate_results;
                     for result in state.fanned_results {
                         project_spawn_parallel_result(
@@ -1176,6 +1236,9 @@ async fn run_spawn_parallel_execution_graph(
             move |state: SpawnParallelState, _ctx: NodeContext| {
                 let parent_session = parent_for_finalize.clone();
                 async move {
+                    if let Some(message) = state.rejection {
+                        return Ok(NodeResult::Update(SpawnParallelUpdate::Rejected(message)));
+                    }
                     let collected = collect_spawn_parallel_results(&parent_session, state.results);
                     Ok(NodeResult::Update(SpawnParallelUpdate::Collected(
                         collected,
@@ -1200,13 +1263,21 @@ async fn run_spawn_parallel_execution_graph(
         "[spawn_parallel_agents] running graph fanout"
     );
     let execution = graph
-        .run(SpawnParallelState::for_execution(tasks, action_root))
+        .run(SpawnParallelState::for_execution(
+            tasks,
+            max_parallel,
+            action_root,
+        ))
         .await
         .map_err(|e| format!("spawn_parallel_agents graph run failed: {e}"))?;
 
+    if let Some(message) = execution.state.rejection {
+        return Ok(SpawnParallelGraphOutcome::Rejected(message));
+    }
     execution
         .state
         .collected
+        .map(SpawnParallelGraphOutcome::Collected)
         .ok_or_else(|| "spawn_parallel_agents graph finished without collected results".to_string())
 }
 

@@ -6,13 +6,14 @@ Current status (2026-07-02): `spawn_parallel_agents` already fans prepared
 workers through `tinyagents::graph::parallel::map_reduce`, exports the fixed
 `validate -> dispatch -> worker -> collect -> finalize` topology, and the graph
 entrypoint now owns `Config.action_dir` resolution for worktree-isolated workers.
-The graph now owns the live `dispatch`/`worker`/`collect`/`finalize` phases:
-dispatch validates/preflights workers from an owned agent-definition snapshot,
-worker fanout still uses the SDK `map_reduce` helper, collect still projects
+The graph now owns the live `validate`/`dispatch`/`worker`/`collect`/`finalize`
+phases: validate enforces the parent `max_parallel_tools` limit, dispatch
+validates/preflights workers from an owned agent-definition snapshot, worker
+fanout still uses the SDK `map_reduce` helper, collect still projects
 compatibility `DomainEvent`/`AgentProgress`, and finalize still returns the
-existing JSON shape. The tool wrapper still owns parent lookup, registry lookup,
-max-parallel gating, and `ToolResult` translation; request parsing remains
-outside graph nodes.
+existing JSON shape. The tool wrapper still owns early request parsing, parent
+lookup, registry lookup, and `ToolResult` translation so the public error shapes
+stay unchanged.
 
 ## Nodes
 

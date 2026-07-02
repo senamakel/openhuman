@@ -8,7 +8,7 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTask;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
     format_spawn_parallel_success, run_spawn_parallel_graph, validate_spawn_parallel_tool_request,
-    SpawnParallelTaskValidationError,
+    SpawnParallelGraphOutcome, SpawnParallelTaskValidationError,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -124,20 +124,6 @@ impl Tool for SpawnParallelAgentsTool {
             max_parallel,
             "[spawn_parallel_agents] validated_parent_context"
         );
-        let tasks = match validate_spawn_parallel_tool_request(&args, Some(max_parallel)) {
-            Ok(tasks) => tasks,
-            Err(err) => {
-                let message = err.message().to_string();
-                tracing::debug!(
-                    parent_session = %parent.session_id,
-                    task_count = tasks.len(),
-                    max_parallel,
-                    "[spawn_parallel_agents] rejected_too_many_tasks"
-                );
-                return Ok(ToolResult::error(message));
-            }
-        };
-
         let registry = match AgentDefinitionRegistry::global() {
             Some(registry) => registry,
             None => {
@@ -151,18 +137,22 @@ impl Tool for SpawnParallelAgentsTool {
         let parent_session = parent.session_id.clone();
         let progress_sink = parent.on_progress.clone();
 
-        let collected = run_spawn_parallel_graph(
+        let outcome = run_spawn_parallel_graph(
             &parent_session,
             progress_sink.as_ref(),
             tasks,
+            max_parallel,
             registry,
             &parent,
         )
         .await
         .map_err(|e| anyhow::anyhow!(e))?;
-        Ok(ToolResult::success(format_spawn_parallel_success(
-            &collected,
-        )))
+        match outcome {
+            SpawnParallelGraphOutcome::Collected(collected) => Ok(ToolResult::success(
+                format_spawn_parallel_success(&collected),
+            )),
+            SpawnParallelGraphOutcome::Rejected(message) => Ok(ToolResult::error(message)),
+        }
     }
 }
 

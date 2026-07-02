@@ -1,7 +1,7 @@
 # 02.1 — Workload routes as ModelRegistry entries
 
-Today `run_turn_via_tinyagents_shared` registers exactly one `ProviderModel`
-per run. Target: register the run's full resolved route set so fallback and
+Today `run_turn_via_tinyagents_shared` registers exactly one crate-internal
+`ProviderModel` per run. Target: register the run's full resolved route set so fallback and
 capability resolution happen inside the SDK.
 
 ## Steps

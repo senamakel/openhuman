@@ -37,7 +37,8 @@ From `mod.rs` re-exports:
 
 - **Manager**: `ContextManager`, `ContextStats`.
 - **Microcompact config**: `CLEARED_PLACEHOLDER`, `DEFAULT_KEEP_RECENT_TOOL_RESULTS`.
-- **Stats**: `ContextStatsState`, `SessionMemoryHandle`.
+- **Stats**: `ContextStats` via `ContextManager::stats()`; internal
+  bookkeeping stays in `ContextStatsState` / `SessionMemoryHandle`.
 - **Prompt** (re-exported from `agent::prompts`): `SystemPromptBuilder`, `PromptSection`, `PromptContext`, `PromptTool`, `ArchetypePromptSection`, `DateTimeSection`, `IdentitySection`, `LearnedContextData`, `RuntimeSection`, `SafetySection`, `ToolsSection`, `WorkspaceSection`.
 - **Session memory**: `SessionMemoryConfig`, `SessionMemoryState`, `ARCHIVIST_EXTRACTION_PROMPT`, `DEFAULT_MIN_TOKEN_GROWTH`, `DEFAULT_MIN_TOOL_CALLS`, `DEFAULT_MIN_TURNS_BETWEEN`.
 - **Tool-result budget**: `DEFAULT_TOOL_RESULT_BUDGET_BYTES` config default only; live truncation logic is owned by TinyAgents tool-output middleware / tool-result artifacts.

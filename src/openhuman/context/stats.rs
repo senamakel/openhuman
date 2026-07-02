@@ -14,10 +14,10 @@ use super::session_memory::{SessionMemoryConfig, SessionMemoryState};
 /// Shared handle to a [`SessionMemoryState`] so a detached background archivist
 /// task can mark extraction complete/failed after the foreground turn releases
 /// its borrow.
-pub type SessionMemoryHandle = Arc<Mutex<SessionMemoryState>>;
+pub(crate) type SessionMemoryHandle = Arc<Mutex<SessionMemoryState>>;
 
 #[derive(Debug)]
-pub struct ContextStatsState {
+pub(crate) struct ContextStatsState {
     last_input_tokens: u64,
     last_output_tokens: u64,
     context_window: u64,
@@ -26,7 +26,7 @@ pub struct ContextStatsState {
 }
 
 impl ContextStatsState {
-    pub fn new(session_memory_config: SessionMemoryConfig) -> Self {
+    pub(crate) fn new(session_memory_config: SessionMemoryConfig) -> Self {
         Self {
             last_input_tokens: 0,
             last_output_tokens: 0,
@@ -36,7 +36,7 @@ impl ContextStatsState {
         }
     }
 
-    pub fn record_usage(&mut self, usage: &UsageInfo) {
+    pub(crate) fn record_usage(&mut self, usage: &UsageInfo) {
         self.last_input_tokens = usage.input_tokens;
         self.last_output_tokens = usage.output_tokens;
         if usage.context_window > 0 {
@@ -48,55 +48,55 @@ impl ContextStatsState {
         }
     }
 
-    pub fn tick_turn(&mut self) {
+    pub(crate) fn tick_turn(&mut self) {
         if let Ok(mut sm) = self.session_memory.lock() {
             sm.tick_turn();
         }
     }
 
-    pub fn record_tool_calls(&mut self, n: usize) {
+    pub(crate) fn record_tool_calls(&mut self, n: usize) {
         if let Ok(mut sm) = self.session_memory.lock() {
             sm.record_tool_calls(n);
         }
     }
 
-    pub fn should_extract_session_memory(&self) -> bool {
+    pub(crate) fn should_extract_session_memory(&self) -> bool {
         self.session_memory
             .lock()
             .map(|sm| sm.should_extract(&self.session_memory_config))
             .unwrap_or(false)
     }
 
-    pub fn mark_session_memory_started(&mut self) {
+    pub(crate) fn mark_session_memory_started(&mut self) {
         if let Ok(mut sm) = self.session_memory.lock() {
             sm.mark_extraction_started();
         }
     }
 
-    pub fn mark_session_memory_complete(&mut self) {
+    pub(crate) fn mark_session_memory_complete(&mut self) {
         if let Ok(mut sm) = self.session_memory.lock() {
             sm.mark_extraction_complete();
         }
     }
 
-    pub fn mark_session_memory_failed(&mut self) {
+    pub(crate) fn mark_session_memory_failed(&mut self) {
         if let Ok(mut sm) = self.session_memory.lock() {
             sm.mark_extraction_failed();
         }
     }
 
-    pub fn session_memory_snapshot(&self) -> SessionMemoryState {
+    pub(crate) fn session_memory_snapshot(&self) -> SessionMemoryState {
         self.session_memory
             .lock()
             .map(|sm| sm.clone())
             .unwrap_or_default()
     }
 
-    pub fn session_memory_handle(&self) -> SessionMemoryHandle {
+    pub(crate) fn session_memory_handle(&self) -> SessionMemoryHandle {
         Arc::clone(&self.session_memory)
     }
 
-    pub fn utilization_pct(&self) -> Option<u8> {
+    pub(crate) fn utilization_pct(&self) -> Option<u8> {
         if self.context_window == 0 {
             return None;
         }
@@ -105,15 +105,15 @@ impl ContextStatsState {
         Some(pct as u8)
     }
 
-    pub fn last_input_tokens(&self) -> u64 {
+    pub(crate) fn last_input_tokens(&self) -> u64 {
         self.last_input_tokens
     }
 
-    pub fn last_output_tokens(&self) -> u64 {
+    pub(crate) fn last_output_tokens(&self) -> u64 {
         self.last_output_tokens
     }
 
-    pub fn context_window(&self) -> u64 {
+    pub(crate) fn context_window(&self) -> u64 {
         self.context_window
     }
 }

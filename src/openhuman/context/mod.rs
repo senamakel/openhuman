@@ -35,8 +35,6 @@ pub use session_memory::{
     SessionMemoryConfig, SessionMemoryState, ARCHIVIST_EXTRACTION_PROMPT, DEFAULT_MIN_TOKEN_GROWTH,
     DEFAULT_MIN_TOOL_CALLS, DEFAULT_MIN_TURNS_BETWEEN,
 };
-pub use stats::{ContextStatsState, SessionMemoryHandle};
-
 /// Default per-tool-result budget. The live TinyAgents tool-output middleware
 /// and action-workspace artifact previews enforce this outside the legacy
 /// context reducer modules.

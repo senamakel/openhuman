@@ -229,7 +229,7 @@ impl ContextManager {
     /// [`Self::mark_session_memory_started`] *before* spawning so
     /// overlapping turns don't fire duplicate extractions while this
     /// one is in flight.
-    pub fn session_memory_handle(&self) -> SessionMemoryHandle {
+    pub(crate) fn session_memory_handle(&self) -> SessionMemoryHandle {
         self.stats_state.session_memory_handle()
     }
 

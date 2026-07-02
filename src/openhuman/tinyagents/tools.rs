@@ -101,7 +101,9 @@ impl Tool<()> for ToolAdapter {
     }
 }
 
-fn tool_policy_from_openhuman_tool(tool: &dyn crate::openhuman::tools::Tool) -> ToolPolicy {
+pub(super) fn tool_policy_from_openhuman_tool(
+    tool: &dyn crate::openhuman::tools::Tool,
+) -> ToolPolicy {
     use crate::openhuman::tools::PermissionLevel;
     use crate::openhuman::tools::traits::ToolTimeout;
 

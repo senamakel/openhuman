@@ -19,6 +19,7 @@
 //! [`TurnContextMiddleware`] bundles the config and installs whichever hooks are
 //! enabled onto a harness.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -33,7 +34,9 @@ use tinyagents::harness::middleware::{
 use tinyagents::harness::model::ModelRequest;
 use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
-use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolResult as TaToolResult};
+use tinyagents::harness::tool::{
+    ToolCall as TaToolCall, ToolPolicy as TaToolPolicy, ToolResult as TaToolResult,
+};
 
 use crate::openhuman::agent::harness::payload_summarizer::PayloadSummarizer;
 use crate::openhuman::approval::{
@@ -160,10 +163,20 @@ impl TurnContextMiddleware {
             harness.push_middleware(Arc::new(ToolOutputMiddleware {
                 budget_bytes: self.tool_result_budget_bytes,
                 payload_summarizer: self.payload_summarizer,
-                tool_sets: tool_sets.to_vec(),
+                tool_policies: tool_policy_snapshot(tool_sets),
             }));
         }
     }
+}
+
+fn tool_policy_snapshot(tool_sets: &[Arc<Vec<Box<dyn Tool>>>]) -> HashMap<String, TaToolPolicy> {
+    let mut policies = HashMap::new();
+    for tool in tool_sets.iter().flat_map(|set| set.iter()) {
+        policies
+            .entry(tool.name().to_string())
+            .or_insert_with(|| super::tools::tool_policy_from_openhuman_tool(tool.as_ref()));
+    }
+    policies
 }
 
 /// `after_tool`: progressive-disclosure handoff (issue #4249 1b). An oversized
@@ -407,19 +420,20 @@ struct ToolOutputMiddleware {
     /// Fallback per-tool-result byte cap for tools that don't declare their own.
     budget_bytes: usize,
     payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
-    /// Shared tool sets, used to honor a tool's own `max_result_size_chars()`
-    /// cap (issue #4249, Phase 1 Task C) instead of the flat `budget_bytes`.
-    tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+    /// SDK policy snapshot keyed by tool name. Used to honor the adapter-mapped
+    /// `max_result_size_chars()` cap without re-querying the OpenHuman tool
+    /// trait from `after_tool`.
+    tool_policies: HashMap<String, TaToolPolicy>,
 }
 
 impl ToolOutputMiddleware {
-    /// The tool's own declared character cap, if any.
+    /// The tool's own declared cap, if any. The adapter maps OpenHuman's
+    /// `max_result_size_chars()` into `ToolRuntime.max_result_bytes`; preserving
+    /// char-based truncation here keeps the existing model-facing marker stable.
     fn tool_char_cap(&self, name: &str) -> Option<usize> {
-        self.tool_sets
-            .iter()
-            .flat_map(|set| set.iter())
-            .find(|t| t.name() == name)
-            .and_then(|t| t.max_result_size_chars())
+        self.tool_policies
+            .get(name)
+            .and_then(|policy| policy.runtime.max_result_bytes)
     }
 }
 
@@ -1373,7 +1387,7 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 100,
             payload_summarizer: None,
-            tool_sets: vec![],
+            tool_policies: HashMap::new(),
         };
         let mut result = tool_result("echo", &"x".repeat(5_000));
         mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
@@ -1390,7 +1404,7 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 1_000,
             payload_summarizer: None,
-            tool_sets: vec![],
+            tool_policies: HashMap::new(),
         };
         let mut result = tool_result("echo", "tiny");
         mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
@@ -1407,7 +1421,7 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 1_000,
             payload_summarizer: None,
-            tool_sets: vec![tools],
+            tool_policies: tool_policy_snapshot(&[tools]),
         };
         // Tool declares its own char cap → surfaced for the per-tool truncation.
         assert_eq!(mw.tool_char_cap("big"), Some(10));
@@ -1425,7 +1439,7 @@ mod tests {
         let mw = ToolOutputMiddleware {
             budget_bytes: 100_000,
             payload_summarizer: None,
-            tool_sets: vec![tools],
+            tool_policies: tool_policy_snapshot(&[tools]),
         };
         let mut result = tool_result("capped", &"y".repeat(500));
         mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();

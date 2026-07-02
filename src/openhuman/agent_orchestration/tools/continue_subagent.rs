@@ -16,9 +16,10 @@ use crate::openhuman::agent::harness::subagent_runner::{
 };
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::ChatMessage;
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinyagents::harness::tool::ToolExecutionContext;
 
 pub struct ContinueSubagentTool;
 
@@ -74,6 +75,16 @@ impl Tool for ContinueSubagentTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
         let task_id = args
             .get("task_id")
             .and_then(|v| v.as_str())
@@ -219,6 +230,19 @@ impl Tool for ContinueSubagentTool {
         }
 
         // Build options with initial_history for replay
+        let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
+        let worktree_action_dir = workspace_descriptor
+            .as_ref()
+            .map(|descriptor| descriptor.root.clone());
+        if let Some(descriptor) = workspace_descriptor.as_ref() {
+            tracing::debug!(
+                task_id = %task_id,
+                agent_id = %agent_id,
+                workspace_root = %descriptor.root.display(),
+                policy_id = %descriptor.policy_id,
+                "[continue_subagent] using ToolExecutionContext workspace root"
+            );
+        }
         let options = SubagentRunOptions {
             skill_filter_override: checkpoint.skill_filter_override,
             toolkit_override: checkpoint.toolkit_override,
@@ -228,8 +252,8 @@ impl Tool for ContinueSubagentTool {
             worker_thread_id: checkpoint.worker_thread_id.clone(),
             initial_history: Some(history),
             checkpoint_dir: Some(checkpoint_dir.clone()),
-            worktree_action_dir: None,
-            workspace_descriptor: None,
+            worktree_action_dir,
+            workspace_descriptor,
             run_queue: None,
         };
 

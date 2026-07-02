@@ -14,9 +14,9 @@
 //!    `omit_safety_preamble`, `omit_skills_catalog`).
 //! 5. Runs the child turn on the TinyAgents harness (`ops::graph` →
 //!    [`crate::openhuman::tinyagents::run_turn_via_tinyagents_shared`]) using
-//!    the parent's [`crate::openhuman::inference::provider::Provider`] and
-//!    returns a single text result. The intra-sub-agent history never leaks
-//!    back to the parent — the parent only sees one compact tool result.
+//!    the parent's [`crate::openhuman::inference::provider::Provider`], then
+//!    mirrors the child transcript/progress and returns one compact tool result
+//!    to the parent.
 //!
 //! This module is the OpenHuman **build pipeline** around that TinyAgents
 //! run: definition lookup/allowlists, archetype prompt assembly, toolkit
@@ -33,7 +33,7 @@
 //! | File              | Contents                                                    |
 //! | ----------------- | ----------------------------------------------------------- |
 //! | `types.rs`        | `SubagentRun{Options,Outcome,Error}`, `SubagentMode`        |
-//! | `ops.rs`          | `run_subagent`, typed + fork mode, inner tool-call loop     |
+//! | `ops/`            | `run_subagent`, typed/fork mode, TinyAgents graph route     |
 //! | `handoff.rs`      | Oversized-tool-result cache + hygiene helpers               |
 //! | `extract_tool.rs` | `extract_from_result` tool (direct provider extraction)     |
 //! | `tool_prep.rs`    | Tool filtering + prompt loading + text-mode protocol block  |

@@ -37,12 +37,15 @@
 ## Pairing flows (both must work)
 
 **A. User-initiated link (recommended, zero unsolicited approvals):**
-1. Wrapper prints its identity (`agentId` + optional `@handle`) at startup (stage 1).
-2. User pastes it into "Link a session" in the Brain tab → core sends `POST /contacts/{sessionId}`.
-3. Wrapper, which is already polling `GET /contacts/{owner}/status`, sees `pending incoming` from
-   its configured `--tinyplace-forward-to` identity and accepts (it only ever auto-accepts from
-   that exact configured identity) — or, if the wrapper requested first, the owner's request
-   crosses and **auto-accepts** server-side. Envelopes start flowing.
+1. The tinyplace TUI setup flow shows the CLI's identity (`agentId` + optional `@handle`)
+   (stage 1; this identity is per-machine, from `~/.tinyplace/config.json` — pairing happens once,
+   not per session).
+2. User pastes it into "Link a session" in the Brain tab → core sends `POST /contacts/{cliId}`.
+3. The CLI, polling `GET /contacts/{owner}/status`, sees `pending incoming` from its **configured
+   owner identity** and accepts (it only ever auto-accepts that exact identity) — or, if the CLI
+   requested first, the owner's request crosses and **auto-accepts** server-side. The TUI flips to
+   "paired", persists the status, and envelopes flow for every future session with no further
+   steps.
 
 **B. Session-initiated request (approval-gated):**
 1. Wrapper sends the contact request to the owner identity and queues envelopes (stage 1).
@@ -68,11 +71,11 @@
    chip → accepted), pending-request approval list (accept / decline / block), and a linked-
    sessions indicator on session chat windows (unlinked/pending sessions render a "waiting for
    pairing" state instead of messages). i18n keys across all 14 locales.
-5. **Stage-1 handshake contract (amend `stage-01`)**: wrapper checks
-   `contacts/{owner}/status` on start; `none` → send request + queue (bounded) + poll;
-   `pending incoming` from the configured owner → accept; `accepted` → forward; `blocked` → hard
-   error. Forwarder branches on the `not_a_contact` error code at send time and re-enters pairing
-   instead of retrying blindly.
+5. **CLI-side handshake** (specified in `stage-01` deliverable 6, config-first + TUI-driven):
+   status check on start, request + bounded queue + poll on `none`, owner-only auto-accept,
+   `blocked` → hard error, `not_a_contact` at send time → re-enter pairing. Pairing is
+   **once per machine identity** (persisted `pairingStatus` in `~/.tinyplace/config.json`), never
+   per session or per flag.
 6. **Security invariants**: wrapper auto-accepts only its configured owner identity; core never
    auto-accepts unless the user initiated the link (flow A) or explicitly enabled the config;
    blocked identities are never re-requested automatically; the contact graph is private — don't
@@ -87,13 +90,13 @@
 3. Renderer `contacts` namespace + Vitest (RPC name mapping, type round-trip).
 4. Brain-tab UX + i18n + component tests (link flow optimistic states, pending approval list,
    unpaired session placeholder).
-5. Amend the stage-1 wrapper per deliverable 5 (lands in `tiny.place/` with its own tests: queue
+5. Amend the stage-1 CLI per deliverable 5 (lands in `tiny.place/` with its own tests: queue
    bounds, owner-only auto-accept, `not_a_contact` recovery).
 6. `tests/json_rpc_e2e.rs`: pair → DM flows; unpaired → send refused surfaced cleanly.
 
 ## Acceptance criteria
 
-- Flow A: pasting a wrapper identity in the tab yields an accepted edge (crossing-request case
+- Flow A: pasting the CLI identity in the tab yields an accepted edge (crossing-request case
   covered) and envelopes flow with no approval prompt.
 - Flow B: an unsolicited session request appears as a pending approval; accept → DMs flow;
   decline/block → wrapper reports a clear terminal state and stops retrying.

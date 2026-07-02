@@ -36,7 +36,7 @@ they land.
       until fallback routes and retry events replace it)
 - [x] `tinyagents/orchestration.rs::run_parallel_fanout` — 08.1
 - [x] `harness/engine/` (entire dir, 309) — 05.2
-- [ ] `agent/progress_tracing/` (616, if duplicate) — 05.2
+- [ ] `agent/progress_tracing.rs` + tests (1336, if duplicate) — 05.2
       (live web-progress exporter until journal-backed projection reaches parity)
 - [ ] `harness/run_queue/` mechanics (345) — 07.3
       (live adapter for detached steer/collect plus web followup/parallel;

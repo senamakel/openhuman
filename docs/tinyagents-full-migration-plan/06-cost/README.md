@@ -24,9 +24,10 @@ turn footer and persisted `LastTurnUsage`. Installing the crate budget
 middleware before event de-duplication would risk double-counting
 `UsageRecorded`.
 
-Local inventory: `CostBudgetMiddleware` lives inside `tinyagents/middleware.rs`
-(1861 total lines for the middleware module); `agent/harness/turn_subagent_usage.rs`
-is 176 lines and remains the task-local parent-turn rollup bridge.
+Local inventory: there is no `tinyagents/cost*` module. The current local seams
+are `tinyagents/middleware.rs::CostBudgetMiddleware` (inside the 1861-line
+middleware module), `agent/harness/turn_subagent_usage.rs` (176) for task-local
+parent-turn rollup, and `agent/cost.rs::TurnCost` for the web footer payload.
 
 ## Steps
 

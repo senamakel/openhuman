@@ -354,6 +354,24 @@ fn record_agent_id(record: &OrchestrationTaskRecord) -> String {
     }
 }
 
+pub(crate) fn task_record_for_task_in_workspace(
+    workspace_dir: &Path,
+    task_id: &str,
+    parent_session: &str,
+) -> Result<OrchestrationTaskRecord, WaitError> {
+    let id = TaskId::new(task_id);
+    let Some(record) = task_store_for_workspace(workspace_dir).get(&id) else {
+        return Err(WaitError::Unknown);
+    };
+    if !matches!(record.spec.kind, OrchestrationTaskKind::SubAgent { .. }) {
+        return Err(WaitError::Unknown);
+    }
+    if record_parent_session(&record) != Some(parent_session) {
+        return Err(WaitError::NotOwned);
+    }
+    Ok(record)
+}
+
 fn record_to_status(record: OrchestrationTaskRecord) -> WaitOutcome {
     match record.status {
         OrchestrationTaskStatus::Completed => {
@@ -693,13 +711,7 @@ pub(crate) fn resume_ref_for_task_in_workspace(
         Err(WaitError::Unknown) => {}
     }
 
-    let id = TaskId::new(task_id);
-    let Some(record) = task_store_for_workspace(workspace_dir).get(&id) else {
-        return Err(WaitError::Unknown);
-    };
-    if record_parent_session(&record) != Some(parent_session) {
-        return Err(WaitError::NotOwned);
-    }
+    let record = task_record_for_task_in_workspace(workspace_dir, task_id, parent_session)?;
     log::debug!(
         "[running_subagents] resolved resume ref from task store task_id={} workspace_dir={}",
         task_id,
@@ -933,13 +945,7 @@ pub(crate) async fn wait_in_workspace(
         Err(WaitError::Unknown) => {}
     }
 
-    let id = TaskId::new(task_id);
-    let Some(record) = task_store_for_workspace(workspace_dir).get(&id) else {
-        return Err(WaitError::Unknown);
-    };
-    if record_parent_session(&record) != Some(parent_session) {
-        return Err(WaitError::NotOwned);
-    }
+    let record = task_record_for_task_in_workspace(workspace_dir, task_id, parent_session)?;
     log::debug!(
         "[running_subagents] resolved wait from task store task_id={} status={} workspace_dir={}",
         task_id,

@@ -22,7 +22,7 @@ snapshot plus finished background completion/delivery queues are crate-internal.
 `running_subagents` and `subagent_sessions` are now crate-only; the live
 `harness-subagent-audit` binary uses the narrow public `harness_audit` facade
 for durable session reads and mid-run steer probes. Restart reconciliation,
-durable list overlays, and steering-registry replacement remain pending.
+durable store polling, and steering-registry replacement remain pending.
 
 ## Steps
 
@@ -32,11 +32,13 @@ durable list overlays, and steering-registry replacement remain pending.
    (`with_lineage(parent_run_id, root_run_id)`), the default detached wait
    timeout, and thread/session metadata.
 2. In progress: `wait_subagent` now falls back to TaskStore reads after the
-   live registry misses. Continue re-expressing controls on crate semantics:
-   wait → `orchestrate_await`-style store polling/wait handle; cancel/kill →
-   `CancellationToken` + terminal record; steer → `SteeringRegistry`
-   (`TaskId → SteeringHandle`) replacing the RunQueue lookup plumbing. Keep
-   abort-handle hard-kill as the OpenHuman executor detail.
+   live registry misses, and `list_subagents` overlays stale durable session
+   summaries with TaskStore status for each `current_task_id`. Continue
+   re-expressing controls on crate semantics: wait → `orchestrate_await`-style
+   store polling/wait handle; cancel/kill → `CancellationToken` + terminal
+   record; steer → `SteeringRegistry` (`TaskId → SteeringHandle`) replacing the
+   RunQueue lookup plumbing. Keep abort-handle hard-kill as the OpenHuman
+   executor detail.
 3. Keep OpenHuman ownership checks + durable session rows as policy over
    the store; cancelled/failed states become terminal `OrchestrationTaskRecord`s.
 4. Restart/resume: on boot, reconcile `JsonlTaskStore` live records against

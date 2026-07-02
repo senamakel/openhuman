@@ -24,7 +24,7 @@
 //!
 //! ## Trigger conditions
 //!
-//! [`PayloadSummarizer::maybe_summarize`] returns `Ok(None)` (i.e.
+//! [`PayloadSummarizer::maybe_summarize_in_parent`] returns `Ok(None)` (i.e.
 //! pass-through, do nothing) when:
 //!
 //! * The raw payload is below
@@ -63,7 +63,7 @@ use tracing::{debug, info, warn};
 
 use super::definition::AgentDefinition;
 use super::fork_context::{current_parent, ParentExecutionContext};
-use super::subagent_runner::{self, SubagentRunOptions};
+use super::subagent_runner;
 
 /// Outcome returned by [`PayloadSummarizer::maybe_summarize`].
 ///
@@ -84,15 +84,9 @@ pub struct SummarizedPayload {
 /// Trait for anything that can compress a tool result before it enters
 /// agent history. Implementations decide the threshold, the dispatch
 /// mechanism, and the failure policy.
-///
-/// Wired into the tool-execution site in
-/// [`crate::openhuman::agent::harness::session::Agent::execute_tool_call`]
-/// via an `Option<&dyn PayloadSummarizer>` parameter so callers
-/// (CLI, REPL, tests, non-orchestrator sub-agents) can pass `None` and
-/// keep the existing pass-through behaviour.
 #[async_trait]
 pub trait PayloadSummarizer: Send + Sync {
-    /// Inspect a tool result and decide whether to compress it.
+    /// TinyAgents parent-context-aware entry point.
     ///
     /// Returns `Ok(None)` if the payload should be kept as-is, or
     /// `Ok(Some(...))` if the caller should swap it for the
@@ -102,32 +96,17 @@ pub trait PayloadSummarizer: Send + Sync {
     /// — a failed summarization should never break a tool call. The
     /// trait still returns `Result` so future implementations can
     /// surface fatal misconfigurations.
-    async fn maybe_summarize(
+    async fn maybe_summarize_in_parent(
         &self,
+        parent_ctx: &RunContext<()>,
         tool_name: &str,
         parent_task_hint: Option<&str>,
         raw: &str,
     ) -> Result<Option<SummarizedPayload>>;
-
-    /// TinyAgents parent-context-aware entry point.
-    ///
-    /// The default preserves the legacy dispatch path, but the live
-    /// `ToolOutputMiddleware` now threads its `RunContext<()>` through this seam
-    /// so an implementation can call `SubAgent::invoke_in_parent` without
-    /// changing the older direct executor path.
-    async fn maybe_summarize_in_parent(
-        &self,
-        _parent_ctx: &RunContext<()>,
-        tool_name: &str,
-        parent_task_hint: Option<&str>,
-        raw: &str,
-    ) -> Result<Option<SummarizedPayload>> {
-        self.maybe_summarize(tool_name, parent_task_hint, raw).await
-    }
 }
 
-/// Default implementation that dispatches the `summarizer` sub-agent
-/// via [`subagent_runner::run_subagent`].
+/// Default implementation that dispatches the `summarizer` through
+/// TinyAgents [`SubAgent::invoke_in_parent`].
 ///
 /// Holds the `summarizer` agent definition (resolved once at agent
 /// build time from the global
@@ -216,66 +195,6 @@ impl SubagentPayloadSummarizer {
 
 #[async_trait]
 impl PayloadSummarizer for SubagentPayloadSummarizer {
-    async fn maybe_summarize(
-        &self,
-        tool_name: &str,
-        parent_task_hint: Option<&str>,
-        raw: &str,
-    ) -> Result<Option<SummarizedPayload>> {
-        let tokens = estimate_tokens(raw);
-
-        // ── 1. Pass-through checks ─────────────────────────────────────
-        if tokens < self.threshold_tokens {
-            debug!(
-                tool = tool_name,
-                tokens = tokens,
-                bytes = raw.len(),
-                threshold = self.threshold_tokens,
-                "[payload_summarizer] below threshold, passing through"
-            );
-            return Ok(None);
-        }
-        if tokens > self.max_payload_tokens {
-            warn!(
-                tool = tool_name,
-                tokens = tokens,
-                bytes = raw.len(),
-                max = self.max_payload_tokens,
-                "[payload_summarizer] payload exceeds max cap, skipping summarization (will be truncated downstream)"
-            );
-            return Ok(None);
-        }
-        if self.breaker_tripped() {
-            warn!(
-                tool = tool_name,
-                tokens = tokens,
-                bytes = raw.len(),
-                "[payload_summarizer] circuit breaker tripped, skipping summarization"
-            );
-            return Ok(None);
-        }
-
-        info!(
-            tool = tool_name,
-            tokens = tokens,
-            bytes = raw.len(),
-            "[payload_summarizer] dispatching summarizer sub-agent"
-        );
-
-        // ── 2. Build the sub-agent prompt ─────────────────────────────
-        let prompt = build_summarizer_prompt(tool_name, parent_task_hint, raw);
-
-        // ── 3. Dispatch via subagent_runner ───────────────────────────
-        let started = std::time::Instant::now();
-        let outcome =
-            subagent_runner::run_subagent(&self.definition, &prompt, SubagentRunOptions::default())
-                .await;
-        let outcome = outcome
-            .map(|run| run.output)
-            .map_err(|e| anyhow!("legacy summarizer dispatch failed: {e}"));
-        self.handle_summarizer_result(tool_name, raw, started, outcome)
-    }
-
     async fn maybe_summarize_in_parent(
         &self,
         parent_ctx: &RunContext<()>,
@@ -567,6 +486,10 @@ mod tests {
     const TEST_THRESHOLD_TOKENS: usize = 500_000;
     const TEST_MAX_TOKENS: usize = 2_000_000;
 
+    fn dummy_parent_ctx() -> RunContext<()> {
+        RunContext::new(tinyagents::harness::context::RunConfig::new("test"), ())
+    }
+
     #[tokio::test]
     async fn maybe_summarize_returns_none_below_threshold() {
         let summarizer = SubagentPayloadSummarizer::new(
@@ -577,7 +500,7 @@ mod tests {
         // 1 KB of 'x' → ~256 tokens, well below the 500 000 threshold.
         let raw = "x".repeat(1_024);
         let outcome = summarizer
-            .maybe_summarize("test_tool", None, &raw)
+            .maybe_summarize_in_parent(&dummy_parent_ctx(), "test_tool", None, &raw)
             .await
             .expect("below-threshold check should not error");
         assert!(
@@ -596,7 +519,7 @@ mod tests {
         // 9 MB of 'x' → ~2 359 296 tokens, above the 2 000 000 cap.
         let raw = "x".repeat(9 * 1024 * 1024);
         let outcome = summarizer
-            .maybe_summarize("test_tool", None, &raw)
+            .maybe_summarize_in_parent(&dummy_parent_ctx(), "test_tool", None, &raw)
             .await
             .expect("above-cap check should not error");
         assert!(
@@ -622,7 +545,7 @@ mod tests {
         // window, so would normally dispatch — but breaker is tripped.
         let raw = "x".repeat(3 * 1024 * 1024);
         let outcome = summarizer
-            .maybe_summarize("test_tool", None, &raw)
+            .maybe_summarize_in_parent(&dummy_parent_ctx(), "test_tool", None, &raw)
             .await
             .expect("breaker check should not error");
         assert!(

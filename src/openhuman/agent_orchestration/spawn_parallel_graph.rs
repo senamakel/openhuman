@@ -10,14 +10,17 @@ use tinyagents::graph::{
     ClosureStateReducer, CompiledGraph, GraphBuilder, NodeContext, NodeResult,
 };
 
+use crate::core::event_bus::{DomainEvent, publish_global};
 use crate::openhuman::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry};
 use crate::openhuman::agent::harness::fork_context::ParentExecutionContext;
 use crate::openhuman::agent::harness::subagent_runner::{SubagentRunOptions, run_subagent};
+use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_orchestration::worktree::{self, BaseRef};
 use crate::openhuman::file_state;
 use serde::Serialize;
 use serde_json::json;
 use std::path::{Path, PathBuf};
+use tokio::sync::mpsc::Sender;
 
 /// One requested worker in a `spawn_parallel_agents` call.
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -359,6 +362,156 @@ pub(crate) fn format_spawn_parallel_success(collected: &SpawnParallelCollected) 
         }
     }))
     .unwrap_or_else(|_| "{}".to_string())
+}
+
+pub(crate) async fn project_spawn_parallel_spawned(
+    parent_session: &str,
+    progress_sink: Option<&Sender<AgentProgress>>,
+    definition: &AgentDefinition,
+    task_id: &str,
+    prompt_chars: usize,
+    has_ownership: bool,
+) {
+    tracing::debug!(
+        parent_session = %parent_session,
+        task_id = %task_id,
+        agent_id = %definition.id,
+        prompt_chars,
+        has_ownership,
+        "[spawn_parallel_agents] publishing_subagent_spawned"
+    );
+    publish_global(DomainEvent::SubagentSpawned {
+        parent_session: parent_session.to_string(),
+        agent_id: definition.id.clone(),
+        mode: "typed".to_string(),
+        task_id: task_id.to_string(),
+        prompt_chars,
+    });
+    if let Some(tx) = progress_sink {
+        if let Err(err) = tx
+            .send(AgentProgress::SubagentSpawned {
+                agent_id: definition.id.clone(),
+                task_id: task_id.to_string(),
+                mode: "typed".to_string(),
+                dedicated_thread: false,
+                prompt_chars,
+                worker_thread_id: None,
+                display_name: Some(definition.display_name().to_string()),
+            })
+            .await
+        {
+            tracing::debug!(
+                parent_session = %parent_session,
+                task_id = %task_id,
+                agent_id = %definition.id,
+                error = %err,
+                "[spawn_parallel_agents] progress_send_failed spawned"
+            );
+        }
+    }
+}
+
+pub(crate) async fn project_spawn_parallel_result(
+    parent_session: &str,
+    progress_sink: Option<&Sender<AgentProgress>>,
+    result: &ParallelAgentResult,
+) {
+    match result {
+        ParallelAgentResult {
+            success: true,
+            agent_id,
+            task_id,
+            elapsed_ms,
+            iterations,
+            output,
+            worktree_path,
+            changed_files,
+            dirty_status,
+            ..
+        } => {
+            tracing::debug!(
+                parent_session = %parent_session,
+                task_id = %task_id,
+                agent_id = %agent_id,
+                elapsed_ms = *elapsed_ms,
+                iterations = *iterations,
+                "[spawn_parallel_agents] publishing_subagent_completed"
+            );
+            publish_global(DomainEvent::SubagentCompleted {
+                parent_session: parent_session.to_string(),
+                task_id: task_id.clone(),
+                agent_id: agent_id.clone(),
+                elapsed_ms: *elapsed_ms,
+                output_chars: output.as_ref().map(|s| s.chars().count()).unwrap_or(0),
+                iterations: *iterations as usize,
+            });
+            if let Some(tx) = progress_sink {
+                if let Err(err) = tx
+                    .send(AgentProgress::SubagentCompleted {
+                        agent_id: agent_id.clone(),
+                        task_id: task_id.clone(),
+                        elapsed_ms: *elapsed_ms,
+                        iterations: *iterations,
+                        output_chars: output.as_ref().map(|s| s.chars().count()).unwrap_or(0),
+                        worktree_path: worktree_path.clone(),
+                        changed_files: changed_files.clone(),
+                        dirty_status: *dirty_status,
+                    })
+                    .await
+                {
+                    tracing::debug!(
+                        parent_session = %parent_session,
+                        task_id = %task_id,
+                        agent_id = %agent_id,
+                        error = %err,
+                        "[spawn_parallel_agents] progress_send_failed completed"
+                    );
+                }
+            }
+        }
+        ParallelAgentResult {
+            success: false,
+            agent_id,
+            task_id,
+            error,
+            ..
+        } => {
+            let message = error
+                .clone()
+                .unwrap_or_else(|| "unknown failure".to_string());
+            tracing::debug!(
+                parent_session = %parent_session,
+                task_id = %task_id,
+                agent_id = %agent_id,
+                error = %message,
+                "[spawn_parallel_agents] publishing_subagent_failed"
+            );
+            publish_global(DomainEvent::SubagentFailed {
+                parent_session: parent_session.to_string(),
+                task_id: task_id.clone(),
+                agent_id: agent_id.clone(),
+                error: message.clone(),
+            });
+            if let Some(tx) = progress_sink {
+                if let Err(err) = tx
+                    .send(AgentProgress::SubagentFailed {
+                        agent_id: agent_id.clone(),
+                        task_id: task_id.clone(),
+                        error: message,
+                    })
+                    .await
+                {
+                    tracing::debug!(
+                        parent_session = %parent_session,
+                        task_id = %task_id,
+                        agent_id = %agent_id,
+                        error = %err,
+                        "[spawn_parallel_agents] progress_send_failed failed"
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn annotate_stale_parent_reads(results: &mut [ParallelAgentResult]) {

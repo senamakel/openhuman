@@ -1,9 +1,7 @@
 //! Tool: `spawn_parallel_agents` — fan out independent sub-agent tasks.
 
-use crate::core::event_bus::{DomainEvent, publish_global};
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::current_parent;
-use crate::openhuman::agent::progress::AgentProgress;
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTask;
 #[cfg(test)]
@@ -11,8 +9,8 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
     ParallelAgentResult, ParallelTaskRejectionKind, SpawnParallelTaskPreflight,
     SpawnParallelWorker, collect_spawn_parallel_results, create_spawn_parallel_worktree,
-    format_spawn_parallel_success, prepare_spawn_parallel_tasks, run_spawn_parallel_workers,
-    validate_spawn_parallel_tasks,
+    format_spawn_parallel_success, prepare_spawn_parallel_tasks, project_spawn_parallel_result,
+    project_spawn_parallel_spawned, run_spawn_parallel_workers, validate_spawn_parallel_tasks,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -228,43 +226,19 @@ impl Tool for SpawnParallelAgentsTool {
                     prepared_task.task_id,
                 ),
             };
-            tracing::debug!(
-                parent_session = %parent_session,
-                task_id = %task_id,
-                agent_id = %definition.id,
-                prompt_chars = prompt.chars().count(),
-                has_ownership = task.ownership.as_deref().map(str::trim).filter(|s| !s.is_empty()).is_some(),
-                "[spawn_parallel_agents] publishing_subagent_spawned"
-            );
-            publish_global(DomainEvent::SubagentSpawned {
-                parent_session: parent_session.clone(),
-                agent_id: definition.id.clone(),
-                mode: "typed".to_string(),
-                task_id: task_id.clone(),
-                prompt_chars: prompt.chars().count(),
-            });
-            if let Some(ref tx) = progress_sink {
-                if let Err(err) = tx
-                    .send(AgentProgress::SubagentSpawned {
-                        agent_id: definition.id.clone(),
-                        task_id: task_id.clone(),
-                        mode: "typed".to_string(),
-                        dedicated_thread: false,
-                        prompt_chars: prompt.chars().count(),
-                        worker_thread_id: None,
-                        display_name: Some(definition.display_name().to_string()),
-                    })
-                    .await
-                {
-                    tracing::debug!(
-                        parent_session = %parent_session,
-                        task_id = %task_id,
-                        agent_id = %definition.id,
-                        error = %err,
-                        "[spawn_parallel_agents] progress_send_failed spawned"
-                    );
-                }
-            }
+            project_spawn_parallel_spawned(
+                &parent_session,
+                progress_sink.as_ref(),
+                &definition,
+                &task_id,
+                prompt.chars().count(),
+                task.ownership
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .is_some(),
+            )
+            .await;
             // ── Optional git-worktree isolation ────────────────────────────
             // When the task requests `isolation = "worktree"`, create a
             // dedicated worktree under the user's project repo and run this
@@ -309,105 +283,7 @@ impl Tool for SpawnParallelAgentsTool {
 
         let mut results = immediate_results;
         for result in fanned {
-            match &result {
-                ParallelAgentResult {
-                    success: true,
-                    agent_id,
-                    task_id,
-                    elapsed_ms,
-                    iterations,
-                    output,
-                    worktree_path,
-                    changed_files,
-                    dirty_status,
-                    ..
-                } => {
-                    tracing::debug!(
-                        parent_session = %parent_session,
-                        task_id = %task_id,
-                        agent_id = %agent_id,
-                        elapsed_ms = *elapsed_ms,
-                        iterations = *iterations,
-                        "[spawn_parallel_agents] publishing_subagent_completed"
-                    );
-                    publish_global(DomainEvent::SubagentCompleted {
-                        parent_session: parent_session.clone(),
-                        task_id: task_id.clone(),
-                        agent_id: agent_id.clone(),
-                        elapsed_ms: *elapsed_ms,
-                        output_chars: output.as_ref().map(|s| s.chars().count()).unwrap_or(0),
-                        iterations: *iterations as usize,
-                    });
-                    if let Some(ref tx) = progress_sink {
-                        if let Err(err) = tx
-                            .send(AgentProgress::SubagentCompleted {
-                                agent_id: agent_id.clone(),
-                                task_id: task_id.clone(),
-                                elapsed_ms: *elapsed_ms,
-                                iterations: *iterations,
-                                output_chars: output
-                                    .as_ref()
-                                    .map(|s| s.chars().count())
-                                    .unwrap_or(0),
-                                worktree_path: worktree_path.clone(),
-                                changed_files: changed_files.clone(),
-                                dirty_status: *dirty_status,
-                            })
-                            .await
-                        {
-                            tracing::debug!(
-                                parent_session = %parent_session,
-                                task_id = %task_id,
-                                agent_id = %agent_id,
-                                error = %err,
-                                "[spawn_parallel_agents] progress_send_failed completed"
-                            );
-                        }
-                    }
-                }
-                ParallelAgentResult {
-                    success: false,
-                    agent_id,
-                    task_id,
-                    error,
-                    ..
-                } => {
-                    let message = error
-                        .clone()
-                        .unwrap_or_else(|| "unknown failure".to_string());
-                    tracing::debug!(
-                        parent_session = %parent_session,
-                        task_id = %task_id,
-                        agent_id = %agent_id,
-                        error = %message,
-                        "[spawn_parallel_agents] publishing_subagent_failed"
-                    );
-                    publish_global(DomainEvent::SubagentFailed {
-                        parent_session: parent_session.clone(),
-                        task_id: task_id.clone(),
-                        agent_id: agent_id.clone(),
-                        error: message.clone(),
-                    });
-                    if let Some(ref tx) = progress_sink {
-                        if let Err(err) = tx
-                            .send(AgentProgress::SubagentFailed {
-                                agent_id: agent_id.clone(),
-                                task_id: task_id.clone(),
-                                error: message,
-                            })
-                            .await
-                        {
-                            tracing::debug!(
-                                parent_session = %parent_session,
-                                task_id = %task_id,
-                                agent_id = %agent_id,
-                                error = %err,
-                                "[spawn_parallel_agents] progress_send_failed failed"
-                            );
-                        }
-                    }
-                }
-            }
+            project_spawn_parallel_result(&parent_session, progress_sink.as_ref(), &result).await;
             results.push(result);
         }
 

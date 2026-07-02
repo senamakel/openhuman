@@ -49,13 +49,17 @@ stop hooks, and legacy progress compatibility.
 2. **Crate budget middleware:** replace bespoke `CostBudgetMiddleware`
    daily/monthly pre-checks with `BudgetMiddleware` where limits map; add
    per-run and per-thread budgets (new `CostConfig` fields + thread-id
-   threading). Budget stop = `BudgetExceeded` event + typed run failure.
-   1.3.0 adds pre-spend reservation: `BudgetReserved`/`BudgetReconciled`
-   events + `BudgetLimits.max_cached_input_tokens` — this closes the
-   "project the next call's cost pre-spend" TODO from the spec.
-   First build an OpenHuman limits adapter and define `UsageRecorded`
-   ownership so the bridge, crate accounting middleware, and unobserved-turn
-   fallback cannot record the same model call twice.
+   threading). TinyAgents `BudgetTracker` is run/tree-local, so it does not
+   directly replace OpenHuman's persistent daily/monthly `CostTracker`
+   semantics. Preflight `BudgetExceeded { blocked: true }` fails a model call
+   before dispatch; post-spend `BudgetExceeded { blocked: false }` is only an
+   event unless OpenHuman installs an explicit pause/failure policy. 1.3.0 also
+   emits `BudgetReserved`/`BudgetReconciled`, but current preflight estimates
+   input tokens and blocks against configured limits rather than pre-reserving
+   cached tokens or projected USD for the next provider call. First build an
+   OpenHuman limits adapter and define `UsageRecorded` ownership so the bridge,
+   crate accounting middleware, and unobserved-turn fallback cannot record the
+   same model call twice.
 3. **Lineage rollup:** stamp cost records with `run_id`/`root_run_id` from
    the observation stream (needs `TokenUsage` schema fields); parent totals
    via `UsageTotals`/`ChildRun` instead of the `turn_subagent_usage`

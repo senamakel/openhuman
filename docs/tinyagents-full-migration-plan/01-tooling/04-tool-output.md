@@ -5,12 +5,15 @@ delete the legacy hooks.
 
 ## Steps
 
-Current status: TinyAgents `ToolOutputMiddleware` already runs as `after_tool`
-for payload summarization, TokenJuice `compact_output_with_policy`, per-tool
-policy-derived output caps, generic byte budgets, and action-workspace artifact
-spill for oversized session tool results. Payload summarization and TokenJuice
-shrinks now emit TinyAgents `AgentEvent::Compressed`, and persisted
-action-workspace artifacts are indexed in `RunContext.stores` under
+Current status: OpenHuman's local `ToolOutputMiddleware` now runs on the
+TinyAgents harness as `after_tool` for payload summarization, TokenJuice
+`compact_output_with_policy`, per-tool policy-derived output caps, generic byte
+budgets, and action-workspace artifact spill for oversized session tool
+results. The SDK's closest built-in cap is `ToolPolicyMiddleware` result-byte
+enforcement, which remains disabled here because OpenHuman still owns the
+legacy marker/artifact behavior. Payload summarization and TokenJuice shrinks
+now emit TinyAgents `AgentEvent::Compressed`, and persisted action-workspace
+artifacts are indexed in `RunContext.stores` under
 `openhuman_tool_result_artifacts` while the existing `.txt` file and `file_read`
 envelope remain the source of truth. The live TinyAgents middleware already
 calls the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`,

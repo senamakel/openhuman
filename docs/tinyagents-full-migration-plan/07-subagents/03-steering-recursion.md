@@ -2,13 +2,15 @@
 
 ## Steering
 
-Current status (2026-07-02): `harness/run_queue/` is still live. TinyAgents
-already drains `Steer`/`Collect` lanes into a `SteeringHandle`, but the queue is
-also the product adapter for web-channel `followup` and `parallel` semantics and
-for detached sub-agent steer/collect lookup through `running_subagents`. Do not
-delete the directory until detached controls store/lookup crate `SteeringHandle`s
-directly via `SteeringRegistry`, and the web-channel followup/parallel lanes
-either have TinyAgents-owned equivalents or move into a web-channel-local queue.
+Current status (2026-07-02): `harness/run_queue/` is still live. OpenHuman
+drains its own `Steer`/`Collect` lanes and forwards them as TinyAgents
+`SteeringCommand::InjectMessage`; TinyAgents drains those `SteeringHandle`
+commands at loop checkpoints. The queue is also the product adapter for
+web-channel `followup` and `parallel` semantics and for detached sub-agent
+steer/collect lookup through `running_subagents`. Do not delete the directory
+until detached controls store/lookup crate `SteeringHandle`s directly via
+`SteeringRegistry`, and the web-channel followup/parallel lanes either have
+TinyAgents-owned equivalents or move into a web-channel-local queue.
 The unused `DomainEvent::RunQueueMessageDelivered` projection has been removed;
 queued/interrupt/followup events remain live.
 
@@ -31,10 +33,11 @@ queued/interrupt/followup events remain live.
    authoritative; crate-internal `spawn_depth_context.rs` (66) becomes a
    reader/projector of crate depth (`ToolExecutionContext.depth`) for product
    error wording, or is deleted if the wording can wrap
-   `TinyAgentsError::SubAgentDepth`. Current code has two live authorities to
-   collapse: harness sub-agent spawning uses `MAX_SPAWN_DEPTH = 3`, while MCP
+   `TinyAgentsError::SubAgentDepth`. Current code has three live authorities to
+   collapse: harness sub-agent spawning uses `MAX_SPAWN_DEPTH = 3`, MCP
    `agent.run_subagent` uses `MAX_SUBAGENT_DEPTH = 6` in
-   `mcp_server/subagent_depth.rs`.
+   `mcp_server/subagent_depth.rs`, and TinyAgents `RunLimits::DEFAULT_MAX_DEPTH`
+   remains active unless `run_policy_for` sets it explicitly.
 6. One error shape: map `SubAgentDepth`/`RecursionLimit` to the existing
    JSON-RPC error for compat.
 

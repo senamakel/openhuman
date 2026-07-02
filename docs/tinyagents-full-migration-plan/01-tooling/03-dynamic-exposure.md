@@ -35,15 +35,18 @@ entrypoints remain live.
 1. Express agent `tool_allowlist`/`tool_denylist`, sub-agent tool scope,
    MCP tool visibility, and the channel permission ceiling as a composed
    `ToolAllowlistMiddleware` + one OpenHuman
-   `ContextualToolSelectionMiddleware` (`ToolSelectionContext` carries agent
-   id, task kind, tier, channel). Inheritance rule: children can only narrow —
+   `ContextualToolSelectionMiddleware`. TinyAgents 1.3.0's selection context
+   carries run id, depth, tags, and requested model; OpenHuman-specific agent
+   id, task kind, security tier, and channel either stay in local middleware
+   state or are encoded into tags. Inheritance rule: children can only narrow —
    use `ContextualToolSelectionMiddleware::inheriting(...)`.
 2. Fail closed when policy metadata is missing (unclassified → not exposed);
    exposure decisions are event-native via `AgentEvent::ToolsFiltered
    { by, excluded, remaining }` (1.3.0) — projected into the bridge as
    structured diagnostics today.
 3. Move the visible-set computation, dynamic delegation refresh, and skill-event
-   catalogue reconciliation out of `session/turn/tools.rs` (697 lines) plus
+   catalogue reconciliation out of
+   `src/openhuman/agent/harness/session/turn/tools.rs` (616 lines) plus
    `subagent_runner/tool_prep.rs` (344 lines) into the middleware; the turn code
    only declares candidate tool sets and parent execution context.
 4. Keep product policy sources (registry definitions, security tier tables)

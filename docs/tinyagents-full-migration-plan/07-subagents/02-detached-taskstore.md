@@ -23,11 +23,11 @@ steering-registry replacement remain pending.
 
 ## Steps
 
-1. Swap `InMemoryTaskStore` → `JsonlTaskStore::open` under the workspace
-   store dir; task records carry lineage (`with_lineage(parent_run_id, root_run_id)`),
-   thread, timeout. **Partially done:** JSONL store + thread/session metadata
-   are live; run/root lineage and timeout fields still need to be threaded from
-   the parent run context.
+1. Done: detached lifecycle now opens `JsonlTaskStore::open` under the
+   workspace store dir, with `InMemoryTaskStore` only as the open-failure
+   fallback. Remaining: task records carry lineage
+   (`with_lineage(parent_run_id, root_run_id)`) and timeout fields from the
+   parent run context; thread/session metadata is already live.
 2. Re-express controls on crate semantics: wait → `orchestrate_await`-style
    store polling/wait handle; cancel/kill → `CancellationToken` +
    terminal record; steer → `SteeringRegistry` (`TaskId → SteeringHandle`)

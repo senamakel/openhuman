@@ -42,6 +42,7 @@ pub(crate) use provider::user_is_signed_in_to_composio;
 // `resolve_subagent_provider` is called from tests via
 // `super::resolve_subagent_provider`. Keep it accessible at the ops
 // module boundary.
+pub(crate) use prompt::append_subagent_role_contract;
 pub(crate) use provider::resolve_subagent_provider;
 
 // Re-exports for test companion modules that use `use super::*`.

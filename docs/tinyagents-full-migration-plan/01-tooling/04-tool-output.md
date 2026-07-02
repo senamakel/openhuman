@@ -15,18 +15,20 @@ action-workspace artifacts are indexed in `RunContext.stores` under
 envelope remain the source of truth. Remaining work is to remove the legacy
 executor hooks once the old path is gone and move the summarizer child dispatch
 onto `SubAgent::invoke_in_parent`. The live TinyAgents middleware already calls
-the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`, so the
-next behavior change can swap the summarizer implementation without changing
-the legacy direct executor path. The stale default-Full
-`tokenjuice::compact_tool_output` wrapper is removed; TinyAgents and the legacy
-direct executor use the policy-aware entry point.
+the parent-context-aware `PayloadSummarizer::maybe_summarize_in_parent`, and
+that implementation now dispatches the summarizer through
+`SubAgent::invoke_in_parent` so child lineage/events inherit the parent
+TinyAgents context. The legacy direct executor still uses the older
+`run_subagent` dispatch path until that executor is removed. The stale
+default-Full `tokenjuice::compact_tool_output` wrapper is removed; TinyAgents
+and the legacy direct executor use the policy-aware entry point.
 
 1. `payload_summarizer.rs` (490 lines, oversized-result compression via a
-   `summarizer` sub-agent + circuit breaker): re-express as an `after_tool`
-   stage inside `ToolOutputMiddleware` (byte-cap already there). Use
-   `SubAgent::invoke_in_parent` for the summarizer child so usage/lineage
-   roll up natively. Emit `SummaryRecord`-style provenance via
-   `AgentEvent::Compressed`.
+   `summarizer` sub-agent + circuit breaker): `ToolOutputMiddleware` now calls
+   the parent-context-aware summarizer seam, and that live path uses
+   `SubAgent::invoke_in_parent` for child depth/event lineage. Remaining work:
+   delete the older direct-executor dispatch path and emit any additional
+   `SummaryRecord`-style provenance needed beyond `AgentEvent::Compressed`.
 2. `tokenjuice::compact_tool_output`: deleted after confirming
    `compact_output_with_policy` covers the live TinyAgents middleware and
    legacy direct executor paths; decision recorded in

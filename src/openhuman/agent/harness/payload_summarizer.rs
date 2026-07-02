@@ -52,13 +52,17 @@
 //! `None` and their tool results are untouched. The summarizer itself
 //! is also `None` so it can never recursively summarize its own input.
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use tinyagents::harness::context::RunContext;
+use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
+use tinyagents::harness::subagent::SubAgent;
 use tracing::{debug, info, warn};
 
 use super::definition::AgentDefinition;
+use super::fork_context::{current_parent, ParentExecutionContext};
 use super::subagent_runner::{self, SubagentRunOptions};
 
 /// Outcome returned by [`PayloadSummarizer::maybe_summarize`].
@@ -266,11 +270,177 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
         let outcome =
             subagent_runner::run_subagent(&self.definition, &prompt, SubagentRunOptions::default())
                 .await;
+        let outcome = outcome
+            .map(|run| run.output)
+            .map_err(|e| anyhow!("legacy summarizer dispatch failed: {e}"));
+        self.handle_summarizer_result(tool_name, raw, started, outcome)
+    }
 
-        // ── 4. Handle result ─────────────────────────────────────────
+    async fn maybe_summarize_in_parent(
+        &self,
+        parent_ctx: &RunContext<()>,
+        tool_name: &str,
+        parent_task_hint: Option<&str>,
+        raw: &str,
+    ) -> Result<Option<SummarizedPayload>> {
+        let tokens = estimate_tokens(raw);
+
+        // ── 1. Pass-through checks ─────────────────────────────────────
+        if tokens < self.threshold_tokens {
+            debug!(
+                tool = tool_name,
+                tokens = tokens,
+                bytes = raw.len(),
+                threshold = self.threshold_tokens,
+                "[payload_summarizer] below threshold, passing through"
+            );
+            return Ok(None);
+        }
+        if tokens > self.max_payload_tokens {
+            warn!(
+                tool = tool_name,
+                tokens = tokens,
+                bytes = raw.len(),
+                max = self.max_payload_tokens,
+                "[payload_summarizer] payload exceeds max cap, skipping summarization (will be truncated downstream)"
+            );
+            return Ok(None);
+        }
+        if self.breaker_tripped() {
+            warn!(
+                tool = tool_name,
+                tokens = tokens,
+                bytes = raw.len(),
+                "[payload_summarizer] circuit breaker tripped, skipping summarization"
+            );
+            return Ok(None);
+        }
+
+        info!(
+            tool = tool_name,
+            tokens = tokens,
+            bytes = raw.len(),
+            parent_depth = parent_ctx.depth(),
+            "[payload_summarizer] dispatching summarizer via tinyagents parent context"
+        );
+
+        let prompt = build_summarizer_prompt(tool_name, parent_task_hint, raw);
+        let started = std::time::Instant::now();
+        let outcome = self
+            .invoke_tinyagents_summarizer_in_parent(parent_ctx, prompt)
+            .await;
+        self.handle_summarizer_result(tool_name, raw, started, outcome)
+    }
+}
+
+impl SubagentPayloadSummarizer {
+    async fn invoke_tinyagents_summarizer_in_parent(
+        &self,
+        parent_ctx: &RunContext<()>,
+        prompt: String,
+    ) -> Result<String> {
+        let parent = current_parent().ok_or_else(|| {
+            anyhow!("payload summarizer cannot use invoke_in_parent without ParentExecutionContext")
+        })?;
+        let config_loaded = crate::openhuman::config::Config::load_or_init().await;
+        let (provider, model) = subagent_runner::resolve_subagent_provider(
+            &self.definition.model,
+            &self.definition.id,
+            config_loaded.as_ref().ok(),
+            parent.provider.clone(),
+            parent.model_name.clone(),
+            false,
+            None,
+        );
+        let max_output_tokens = self
+            .definition
+            .max_turn_output_tokens
+            .unwrap_or(crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS);
+        let system_prompt = self.build_tinyagents_system_prompt(&parent, &model)?;
+
+        let mut policy = RunPolicy::default();
+        policy.limits.max_model_calls = self.definition.max_iterations;
+        policy.limits.max_tool_calls = self.definition.max_iterations.saturating_mul(8).max(8);
+        policy.retry.max_attempts = 1;
+        policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
+
+        let mut harness: AgentHarness<()> = AgentHarness::new();
+        harness.with_policy(policy);
+        let provider_model = crate::openhuman::tinyagents::ProviderModel::new(
+            provider,
+            model.clone(),
+            self.definition.temperature,
+        )
+        .with_max_tokens(max_output_tokens);
+        harness
+            .register_model(&model, Arc::new(provider_model))
+            .set_default_model(&model);
+
+        let child = SubAgent::new(
+            self.definition.id.clone(),
+            self.definition.when_to_use.clone(),
+            Arc::new(harness),
+        )
+        .with_system_prompt(system_prompt);
+        let run = child.invoke_in_parent(&(), (), parent_ctx, prompt).await?;
+        Ok(run.text().unwrap_or_default())
+    }
+
+    fn build_tinyagents_system_prompt(
+        &self,
+        parent: &ParentExecutionContext,
+        model: &str,
+    ) -> Result<String> {
+        let prompt_tools = Vec::new();
+        let visible_tool_names = HashSet::new();
+        let connected_identities_md =
+            crate::openhuman::agent::prompts::render_connected_identities();
+        let prompt_ctx = crate::openhuman::context::prompt::PromptContext {
+            workspace_dir: &parent.workspace_dir,
+            model_name: model,
+            agent_id: &self.definition.id,
+            tools: &prompt_tools,
+            workflows: parent.workflows.as_slice(),
+            dispatcher_instructions: "",
+            learned: crate::openhuman::context::prompt::LearnedContextData::default(),
+            visible_tool_names: &visible_tool_names,
+            tool_call_format: parent.tool_call_format,
+            connected_integrations: &parent.connected_integrations,
+            connected_identities_md,
+            include_profile: !self.definition.omit_profile,
+            include_memory_md: !self.definition.omit_memory_md,
+            curated_snapshot: None,
+            user_identity: crate::openhuman::app_state::peek_cached_current_user_identity(),
+            personality_soul_md: None,
+            personality_memory_md: None,
+            personality_roster: vec![],
+        };
+
+        let system_prompt = match &self.definition.system_prompt {
+            super::definition::PromptSource::Dynamic(build) => build(&prompt_ctx)?,
+            super::definition::PromptSource::Inline(prompt) => prompt.clone(),
+            super::definition::PromptSource::File { path } => {
+                return Err(anyhow!(
+                    "payload summarizer invoke_in_parent does not support file prompt source: {path}"
+                ));
+            }
+        };
+        Ok(subagent_runner::append_subagent_role_contract(
+            system_prompt,
+            &self.definition.id,
+        ))
+    }
+
+    fn handle_summarizer_result(
+        &self,
+        tool_name: &str,
+        raw: &str,
+        started: std::time::Instant,
+        outcome: Result<String>,
+    ) -> Result<Option<SummarizedPayload>> {
         match outcome {
-            Ok(run) => {
-                let summary = run.output.trim().to_string();
+            Ok(output) => {
+                let summary = output.trim().to_string();
                 if summary.is_empty() {
                     warn!(
                         tool = tool_name,

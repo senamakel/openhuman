@@ -6,12 +6,13 @@ crate now has `JsonlTaskStore` (durable), `OrchestrationTaskSpec::with_lineage`,
 filters, and a `SteeringRegistry`.
 
 Current status (2026-07-02): detached sub-agent lifecycle records now open a
-durable `JsonlTaskStore` at `<workspace_dir>/.openhuman/orchestration_tasks.jsonl`
-on first spawn, falling back to `InMemoryTaskStore` only if the log cannot be
-created/opened. Records carry parent session, parent thread, durable
-`subagent_session_id`, and workspace metadata. The executor/control path still
-uses OpenHuman's watch channels, abort handles, tombstones, and `RunQueue`;
-restart reconciliation and steering-registry replacement remain pending.
+per-workspace durable `JsonlTaskStore` at
+`<workspace_dir>/.openhuman/orchestration_tasks.jsonl` on first spawn, falling
+back to `InMemoryTaskStore` only if that workspace log cannot be created/opened.
+Records carry parent session, parent thread, durable `subagent_session_id`, and
+workspace metadata. The executor/control path still uses OpenHuman's watch
+channels, abort handles, tombstones, and `RunQueue`; restart reconciliation and
+steering-registry replacement remain pending.
 
 ## Steps
 

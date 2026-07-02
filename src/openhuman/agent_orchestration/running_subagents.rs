@@ -51,16 +51,124 @@ enum DetachedTaskStore {
     Memory(InMemoryTaskStore),
 }
 
-impl DetachedTaskStore {
-    fn as_store(&self) -> &dyn TaskStore {
+impl TaskStore for DetachedTaskStore {
+    fn insert(&self, spec: OrchestrationTaskSpec) -> tinyagents::Result<OrchestrationTaskRecord> {
         match self {
-            Self::Durable(store) => store,
-            Self::Memory(store) => store,
+            Self::Durable(store) => store.insert(spec),
+            Self::Memory(store) => store.insert(spec),
+        }
+    }
+
+    fn get(&self, task_id: &TaskId) -> Option<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.get(task_id),
+            Self::Memory(store) => store.get(task_id),
+        }
+    }
+
+    fn list(&self, filter: OrchestrationTaskFilter) -> Vec<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.list(filter),
+            Self::Memory(store) => store.list(filter),
+        }
+    }
+
+    fn history(&self, task_id: &TaskId) -> Vec<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.history(task_id),
+            Self::Memory(store) => store.history(task_id),
+        }
+    }
+
+    fn mark_running(&self, task_id: &TaskId) -> tinyagents::Result<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.mark_running(task_id),
+            Self::Memory(store) => store.mark_running(task_id),
+        }
+    }
+
+    fn mark_awaiting(&self, task_id: &TaskId) -> tinyagents::Result<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.mark_awaiting(task_id),
+            Self::Memory(store) => store.mark_awaiting(task_id),
+        }
+    }
+
+    fn complete(
+        &self,
+        task_id: &TaskId,
+        result: OrchestrationTaskResult,
+    ) -> tinyagents::Result<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.complete(task_id, result),
+            Self::Memory(store) => store.complete(task_id, result),
+        }
+    }
+
+    fn fail(&self, task_id: &TaskId, error: String) -> tinyagents::Result<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.fail(task_id, error),
+            Self::Memory(store) => store.fail(task_id, error),
+        }
+    }
+
+    fn timeout(
+        &self,
+        task_id: &TaskId,
+        error: String,
+    ) -> tinyagents::Result<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.timeout(task_id, error),
+            Self::Memory(store) => store.timeout(task_id, error),
+        }
+    }
+
+    fn request_cancel(
+        &self,
+        task_id: &TaskId,
+    ) -> tinyagents::Result<crate::openhuman::tinyagents::orchestration::OrchestrationControlOutcome>
+    {
+        match self {
+            Self::Durable(store) => store.request_cancel(task_id),
+            Self::Memory(store) => store.request_cancel(task_id),
+        }
+    }
+
+    fn mark_cancelled(&self, task_id: &TaskId) -> tinyagents::Result<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.mark_cancelled(task_id),
+            Self::Memory(store) => store.mark_cancelled(task_id),
+        }
+    }
+
+    fn kill(
+        &self,
+        task_id: &TaskId,
+    ) -> tinyagents::Result<crate::openhuman::tinyagents::orchestration::OrchestrationControlOutcome>
+    {
+        match self {
+            Self::Durable(store) => store.kill(task_id),
+            Self::Memory(store) => store.kill(task_id),
+        }
+    }
+
+    fn set_timeout_ms(
+        &self,
+        task_id: &TaskId,
+        timeout_ms: u64,
+    ) -> tinyagents::Result<OrchestrationTaskRecord> {
+        match self {
+            Self::Durable(store) => store.set_timeout_ms(task_id, timeout_ms),
+            Self::Memory(store) => store.set_timeout_ms(task_id, timeout_ms),
         }
     }
 }
 
-static TASK_STORE: OnceLock<DetachedTaskStore> = OnceLock::new();
+static TASK_STORES: OnceLock<Mutex<HashMap<PathBuf, Arc<DetachedTaskStore>>>> = OnceLock::new();
+
+fn task_stores() -> &'static Mutex<HashMap<PathBuf, Arc<DetachedTaskStore>>> {
+    TASK_STORES.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 fn task_store_path(workspace_dir: &Path) -> PathBuf {
     workspace_dir
@@ -110,13 +218,18 @@ fn open_task_store(workspace_dir: &Path) -> DetachedTaskStore {
 ///
 /// The first spawn opens a durable JSONL store under that workspace. Calls that
 /// need a view before any spawn use the default internal workspace location.
-fn task_store_for_workspace(workspace_dir: &Path) -> &'static dyn TaskStore {
-    TASK_STORE
-        .get_or_init(|| open_task_store(workspace_dir))
-        .as_store()
+fn task_store_for_workspace(workspace_dir: &Path) -> Arc<DetachedTaskStore> {
+    let key = workspace_dir.to_path_buf();
+    let mut stores = task_stores()
+        .lock()
+        .expect("running_subagents task store mutex poisoned");
+    stores
+        .entry(key.clone())
+        .or_insert_with(|| Arc::new(open_task_store(&key)))
+        .clone()
 }
 
-fn task_store() -> &'static dyn TaskStore {
+fn task_store() -> Arc<DetachedTaskStore> {
     let workspace = default_task_store_workspace();
     task_store_for_workspace(&workspace)
 }

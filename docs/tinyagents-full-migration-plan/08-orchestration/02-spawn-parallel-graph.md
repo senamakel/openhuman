@@ -15,7 +15,7 @@ projects compatibility `DomainEvent`/`AgentProgress`, and finalize still
 returns the existing JSON shape. The tool wrapper still owns `ToolResult`
 translation so malformed-argument and public error shapes stay unchanged. The
 unused pre-graph public wrappers have been removed, internal graph helpers have
-been narrowed, and the remaining shrink target is the 1281-line graph
+been narrowed, and the remaining shrink target is the 1280-line graph
 implementation.
 
 ## Nodes
@@ -53,5 +53,5 @@ implementation.
 
 ## Acceptance
 
-- Required before completion: spawn_parallel suite (14) green against identical JSON output;
+- Required before completion: spawn_parallel suite green against identical JSON output;
   cancellable mid-fanout; graph status shows per-task lineage.

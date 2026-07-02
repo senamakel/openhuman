@@ -32,22 +32,22 @@ use tokio::sync::mpsc::Sender;
 
 /// One requested worker in a `spawn_parallel_agents` call.
 #[derive(Debug, Clone, serde::Deserialize)]
-pub(crate) struct ParallelAgentTask {
-    pub(crate) agent_id: String,
-    pub(crate) prompt: String,
+pub(super) struct ParallelAgentTask {
+    pub(super) agent_id: String,
+    pub(super) prompt: String,
     #[serde(default)]
-    pub(crate) context: Option<String>,
+    pub(super) context: Option<String>,
     #[serde(default)]
-    pub(crate) toolkit: Option<String>,
+    pub(super) toolkit: Option<String>,
     #[serde(default)]
-    pub(crate) ownership: Option<String>,
+    pub(super) ownership: Option<String>,
     /// File-isolation strategy for this worker: `"none"` (default) or
     /// `"worktree"` (dedicated git worktree checkout).
     #[serde(default)]
-    pub(crate) isolation: Option<String>,
+    pub(super) isolation: Option<String>,
     /// Worktree base ref: `"head"` (default) or `"fresh"`.
     #[serde(default)]
-    pub(crate) base_ref: Option<String>,
+    pub(super) base_ref: Option<String>,
 }
 
 /// Decode and validate the request batch before the live worker fanout.
@@ -82,7 +82,7 @@ fn validate_spawn_parallel_tasks(
     Ok(tasks)
 }
 
-pub(crate) enum SpawnParallelTaskValidationError {
+pub(super) enum SpawnParallelTaskValidationError {
     MissingTasks(String),
     InvalidTasks(String),
     Rejected(String),
@@ -105,10 +105,10 @@ fn validate_spawn_parallel_tool_request(
 
 /// Prepared worker ready for the live dispatch/worker phases.
 struct PreparedParallelTask {
-    pub(crate) definition: AgentDefinition,
-    pub(crate) prompt: String,
-    pub(crate) task: ParallelAgentTask,
-    pub(crate) task_id: String,
+    definition: AgentDefinition,
+    prompt: String,
+    task: ParallelAgentTask,
+    task_id: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,11 +120,11 @@ enum ParallelTaskRejectionKind {
 }
 
 struct ParallelTaskRejection {
-    pub(crate) task_id: String,
-    pub(crate) agent_id: String,
-    pub(crate) error: String,
-    pub(crate) ownership: Option<String>,
-    pub(crate) kind: ParallelTaskRejectionKind,
+    task_id: String,
+    agent_id: String,
+    error: String,
+    ownership: Option<String>,
+    kind: ParallelTaskRejectionKind,
 }
 
 enum SpawnParallelTaskPreflight {
@@ -307,7 +307,7 @@ fn prepare_spawn_parallel_tasks_from_defs(
         .collect()
 }
 
-pub(crate) fn with_ownership_boundary(prompt: &str, ownership: Option<&str>) -> String {
+pub(super) fn with_ownership_boundary(prompt: &str, ownership: Option<&str>) -> String {
     match ownership.map(str::trim).filter(|s| !s.is_empty()) {
         Some(boundary) => format!(
             "[Ownership Boundary]\n{boundary}\n\n[Task]\n{prompt}\n\nDo not work outside the ownership boundary unless the parent explicitly asks you to."
@@ -318,43 +318,43 @@ pub(crate) fn with_ownership_boundary(prompt: &str, ownership: Option<&str>) -> 
 
 #[derive(Clone)]
 struct SpawnParallelWorker {
-    pub(crate) definition: AgentDefinition,
-    pub(crate) prompt: String,
-    pub(crate) task: ParallelAgentTask,
-    pub(crate) task_id: String,
-    pub(crate) worktree_path: Option<PathBuf>,
+    definition: AgentDefinition,
+    prompt: String,
+    task: ParallelAgentTask,
+    task_id: String,
+    worktree_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct ParallelAgentResult {
-    pub(crate) task_id: String,
-    pub(crate) agent_id: String,
-    pub(crate) success: bool,
+pub(super) struct ParallelAgentResult {
+    pub(super) task_id: String,
+    pub(super) agent_id: String,
+    pub(super) success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) output: Option<String>,
+    pub(super) output: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) error: Option<String>,
+    pub(super) error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) ownership: Option<String>,
-    pub(crate) elapsed_ms: u64,
-    pub(crate) iterations: u32,
+    pub(super) ownership: Option<String>,
+    pub(super) elapsed_ms: u64,
+    pub(super) iterations: u32,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) stale_parent_reads: Vec<String>,
+    pub(super) stale_parent_reads: Vec<String>,
     /// Absolute path to the worker's isolated `git worktree` checkout, when
     /// it ran with `isolation = "worktree"`. `None` for non-isolated workers.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) worktree_path: Option<String>,
+    pub(super) worktree_path: Option<String>,
     /// Files (relative to the worktree root) the worker changed, collected
     /// from `git status` after the run. Empty for non-isolated workers or a
     /// clean worktree.
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub(crate) changed_files: Vec<String>,
+    pub(super) changed_files: Vec<String>,
     /// Whether the worker's worktree had uncommitted changes after the run.
     /// A dirty worktree must not be auto-removed (surfaced to the UI so the
     /// user can choose). `None` for non-isolated workers.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) dirty_status: Option<bool>,
+    pub(super) dirty_status: Option<bool>,
 }
 
 async fn stage_spawn_parallel_workers_from_defs(
@@ -474,7 +474,7 @@ async fn stage_spawn_parallel_workers_from_defs(
     (prepared, immediate_results)
 }
 
-pub(crate) async fn run_spawn_parallel_graph(
+pub(super) async fn run_spawn_parallel_graph(
     args: serde_json::Value,
 ) -> Result<SpawnParallelGraphOutcome, String> {
     let tasks = match validate_spawn_parallel_tool_request(&args, None) {
@@ -576,24 +576,24 @@ async fn resolve_spawn_parallel_action_root() -> Option<PathBuf> {
 }
 
 #[derive(Clone)]
-pub(crate) struct SpawnParallelCollected {
-    pub(crate) results: Vec<ParallelAgentResult>,
-    pub(crate) failures: usize,
-    pub(crate) overlap_warnings: Vec<serde_json::Value>,
+pub(super) struct SpawnParallelCollected {
+    pub(super) results: Vec<ParallelAgentResult>,
+    pub(super) failures: usize,
+    pub(super) overlap_warnings: Vec<serde_json::Value>,
 }
 
-pub(crate) enum SpawnParallelGraphOutcome {
+pub(super) enum SpawnParallelGraphOutcome {
     Collected(SpawnParallelCollected),
     InvalidRequest(SpawnParallelTaskValidationError),
     Rejected(String),
 }
 
 impl SpawnParallelCollected {
-    pub(crate) fn total(&self) -> usize {
+    pub(super) fn total(&self) -> usize {
         self.results.len()
     }
 
-    pub(crate) fn succeeded(&self) -> usize {
+    pub(super) fn succeeded(&self) -> usize {
         self.results.len().saturating_sub(self.failures)
     }
 }
@@ -612,7 +612,7 @@ fn collect_spawn_parallel_results(
     }
 }
 
-pub(crate) fn format_spawn_parallel_success(collected: &SpawnParallelCollected) -> String {
+pub(super) fn format_spawn_parallel_success(collected: &SpawnParallelCollected) -> String {
     serde_json::to_string_pretty(&json!({
         "parallel_agents": {
             "total": collected.total(),
@@ -625,7 +625,7 @@ pub(crate) fn format_spawn_parallel_success(collected: &SpawnParallelCollected) 
     .unwrap_or_else(|_| "{}".to_string())
 }
 
-pub(crate) async fn project_spawn_parallel_spawned(
+async fn project_spawn_parallel_spawned(
     parent_session: &str,
     progress_sink: Option<&Sender<AgentProgress>>,
     definition: &AgentDefinition,
@@ -672,7 +672,7 @@ pub(crate) async fn project_spawn_parallel_spawned(
     }
 }
 
-pub(crate) async fn project_spawn_parallel_result(
+async fn project_spawn_parallel_result(
     parent_session: &str,
     progress_sink: Option<&Sender<AgentProgress>>,
     result: &ParallelAgentResult,

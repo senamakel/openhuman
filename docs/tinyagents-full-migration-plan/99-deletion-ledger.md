@@ -84,7 +84,7 @@ they land.
 - `running_subagents.rs` 1250 → ≤~300 policy/executor glue — 07.2
 - `tools/spawn_parallel_agents.rs` is a 128-line tool shell; remaining shrink
   target is `agent_orchestration/spawn_parallel_graph.rs` graph mechanics
-  (1281) — 08.2
+  (1280) — 08.2
 - `context/` → stats + product prompt state — 03
 - `cost/catalog.rs` (622) → catalog snapshot loader once config seeding, cost
   estimates, and `context_window_for_model` all read one catalog projection —

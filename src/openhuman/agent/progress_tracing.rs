@@ -679,7 +679,7 @@ pub(crate) fn spans_to_ndjson(backend: AgentTracingBackend, spans: &[TraceSpan])
 /// configured file, or emit to the application log when no path is set.
 /// Best-effort — a failed write is logged and swallowed so tracing never
 /// breaks an agent run. A no-op when tracing is disabled or there are no spans.
-pub fn export_spans(config: &AgentTracingConfig, spans: &[TraceSpan]) {
+pub(crate) fn export_spans(config: &AgentTracingConfig, spans: &[TraceSpan]) {
     if !config.enabled || spans.is_empty() {
         return;
     }

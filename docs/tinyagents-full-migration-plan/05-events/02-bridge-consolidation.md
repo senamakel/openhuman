@@ -14,9 +14,10 @@ are gone.
 2. Done: `engine/checkpoint.rs` is gone. `CapPauser` owns the graceful
    max-iteration stop, and the remaining sub-agent checkpoint summary is
    localized in `subagent_runner/ops/checkpoint.rs`.
-3. Sweep direct `publish_global(DomainEvent::Agent*)` calls on turn paths
-   (session/turn, agent_tool_exec, orchestration tools) — emit through the
-   bridge or a typed helper so ordering/rate-limiting is single-owner.
+3. Sweep direct agent-run/tool/subagent lifecycle `DomainEvent` publishes on
+   turn paths (session/turn, agent_tool_exec, orchestration tools) — emit
+   through the bridge or a typed helper so ordering/rate-limiting is
+   single-owner.
 4. Current finding (2026-07-02): `agent/progress_tracing.rs` (722) plus
    `agent/progress_tracing/tests.rs` (616) are not currently redundant. The
    root module is the opt-in `observability.agent_tracing` exporter fed by the

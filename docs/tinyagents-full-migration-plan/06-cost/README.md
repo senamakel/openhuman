@@ -29,7 +29,8 @@ Local inventory: there is no `tinyagents/cost*` module. The current local seams
 are crate-internal `tinyagents/middleware.rs::CostBudgetMiddleware` (inside the
 1861-line middleware module), crate-internal
 `agent/harness/turn_subagent_usage.rs` (176) for task-local parent-turn rollup,
-and `agent/cost.rs::TurnCost` for the web footer payload.
+and crate-internal `agent/cost.rs::TurnCost` for the web footer payload, budget
+stop hooks, and legacy progress compatibility.
 
 ## Steps
 

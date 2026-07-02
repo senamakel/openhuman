@@ -19,7 +19,7 @@
 //!   within a parent agent's tool loop, enabling hierarchical delegation.
 
 pub mod bus;
-pub mod cost;
+pub(crate) mod cost;
 pub mod debug;
 pub mod dispatcher;
 pub mod error;

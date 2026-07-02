@@ -8,7 +8,7 @@
 //!
 //! - emit per-iteration cost telemetry via
 //!   [`crate::openhuman::agent::progress::AgentProgress::TurnCostUpdated`];
-//! - feed an upcoming budget stop-hook (mid-turn USD cap);
+//! - feed budget stop hooks (mid-turn USD cap);
 //! - log accurate end-of-turn cost lines.
 //!
 //! When `charged_amount_usd` is zero (older backend builds, providers

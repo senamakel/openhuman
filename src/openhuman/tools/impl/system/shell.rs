@@ -2,11 +2,15 @@ use crate::openhuman::agent::host_runtime::RuntimeAdapter;
 use crate::openhuman::javascript::NodeBootstrap;
 use crate::openhuman::runtime_python::PythonBootstrap;
 use crate::openhuman::security::{AuditLogger, CommandExecutionLog, GateDecision, SecurityPolicy};
-use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
+use crate::openhuman::tools::traits::{
+    PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout,
+};
 use async_trait::async_trait;
 use serde_json::json;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tinyagents::harness::tool::ToolExecutionContext;
 
 /// Maximum output size in bytes (1MB).
 const MAX_OUTPUT_BYTES: usize = 1_048_576;
@@ -146,9 +150,21 @@ impl ShellTool {
     /// edit-capable worker running with `isolation = "worktree"`), otherwise
     /// the shared `self.security.action_dir`. Keeping `security.action_dir` as
     /// the fallback preserves the non-isolated behaviour exactly. See #3376.
-    fn effective_action_dir(&self) -> std::path::PathBuf {
+    fn effective_action_dir(&self) -> PathBuf {
         crate::openhuman::agent::harness::current_action_dir_override()
             .unwrap_or_else(|| self.security.action_dir.clone())
+    }
+
+    fn effective_action_dir_for_context(&self, context: Option<&ToolExecutionContext>) -> PathBuf {
+        if let Some(workspace) = context.and_then(|ctx| ctx.workspace.as_ref()) {
+            tracing::debug!(
+                workspace_root = %workspace.root.display(),
+                policy_id = %workspace.policy_id,
+                "[shell] using TinyAgents workspace descriptor as action dir"
+            );
+            return workspace.root.clone();
+        }
+        self.effective_action_dir()
     }
 
     /// The explicit wall-clock budget for this invocation, or `None` to run
@@ -254,6 +270,25 @@ impl Tool for ShellTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_in_context(args, None).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        context: Option<&ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_in_context(args, context).await
+    }
+}
+
+impl ShellTool {
+    async fn execute_in_context(
+        &self,
+        args: serde_json::Value,
+        context: Option<&ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
         let command = args
             .get("command")
             .and_then(|v| v.as_str())
@@ -266,7 +301,9 @@ impl Tool for ShellTool {
         let requested_timeout = args.get("timeout_secs").and_then(|v| v.as_u64());
 
         let start = Instant::now();
-        let (allowed, result) = self.run_with_security(command, requested_timeout).await;
+        let (allowed, result) = self
+            .run_with_security_in_context(command, requested_timeout, context)
+            .await;
         let duration_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
         // `allowed` = passed the in-tool security checks. `approved` = the command
         // is Prompt-class (required human approval) and thus went through the
@@ -295,6 +332,16 @@ impl ShellTool {
         &self,
         command: &str,
         requested_timeout: Option<u64>,
+    ) -> (bool, ToolResult) {
+        self.run_with_security_in_context(command, requested_timeout, None)
+            .await
+    }
+
+    async fn run_with_security_in_context(
+        &self,
+        command: &str,
+        requested_timeout: Option<u64>,
+        context: Option<&ToolExecutionContext>,
     ) -> (bool, ToolResult) {
         // Read-only `Block` + the Option-2 structural guard. Approval for
         // Write / Network / Destructive already happened at the harness
@@ -325,16 +372,17 @@ impl ShellTool {
             crate::openhuman::agent::harness::current_sandbox_mode(),
             Some(crate::openhuman::agent::harness::definition::SandboxMode::Sandboxed)
         ) {
-            return self.run_sandboxed(command, requested_timeout).await;
+            let action_dir = self.effective_action_dir_for_context(context);
+            return self
+                .run_sandboxed(command, requested_timeout, &action_dir)
+                .await;
         }
 
         // Execute with timeout to prevent hanging commands.
         // Clear the environment to prevent leaking API keys and other secrets
         // (CWE-200), then re-add only safe, functional variables.
-        let mut cmd = match self
-            .runtime
-            .build_shell_command(command, &self.effective_action_dir())
-        {
+        let action_dir = self.effective_action_dir_for_context(context);
+        let mut cmd = match self.runtime.build_shell_command(command, &action_dir) {
             Ok(cmd) => cmd,
             Err(e) => {
                 return (
@@ -449,13 +497,14 @@ impl ShellTool {
         &self,
         command: &str,
         requested_timeout: Option<u64>,
+        action_dir: &Path,
     ) -> (bool, ToolResult) {
         use crate::openhuman::sandbox;
 
         let config = crate::openhuman::config::RuntimeConfig::default();
         let policy = sandbox::resolve_sandbox_policy(
             crate::openhuman::agent::harness::definition::SandboxMode::Sandboxed,
-            &self.effective_action_dir(),
+            action_dir,
             &config,
             false,
         );
@@ -494,14 +543,7 @@ impl ShellTool {
             "[shell] starting sandboxed command"
         );
 
-        match sandbox::execute_in_sandbox(
-            &policy,
-            command,
-            &self.security.action_dir,
-            extra_env,
-            effective,
-        )
-        .await
+        match sandbox::execute_in_sandbox(&policy, command, action_dir, extra_env, effective).await
         {
             Ok(result) => {
                 let tool_result = if result.timed_out {
@@ -758,10 +800,12 @@ mod tests {
         );
         let schema = tool.parameters_schema();
         assert!(schema["properties"]["command"].is_object());
-        assert!(schema["required"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("command")));
+        assert!(
+            schema["required"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("command"))
+        );
         // The self-asserted `approved` param was removed — approval now happens
         // at the harness ApprovalGate, not via a model-set flag.
         assert!(schema["properties"]["approved"].is_null());
@@ -1120,8 +1164,11 @@ mod tests {
         let tool = ShellTool::new(full, test_runtime(), test_audit());
         assert!(!tool.external_effect_with_args(&json!({"command": "touch f"})));
         // …but a self-declared `destructive` escalates it to a prompt.
-        assert!(tool
-            .external_effect_with_args(&json!({"command": "touch f", "category": "destructive"})));
+        assert!(
+            tool.external_effect_with_args(
+                &json!({"command": "touch f", "category": "destructive"})
+            )
+        );
         // The hint can never LOWER: declaring a destructive command "read"
         // still prompts (in any acting tier).
         let supervised = test_security(AutonomyLevel::Supervised);

@@ -14,8 +14,9 @@ snapshot, worker fanout still uses the SDK `map_reduce` helper, collect still
 projects compatibility `DomainEvent`/`AgentProgress`, and finalize still
 returns the existing JSON shape. The tool wrapper still owns `ToolResult`
 translation so malformed-argument and public error shapes stay unchanged. The
-unused pre-graph public wrappers have been removed; the remaining shrink target
-is the 1281-line graph implementation.
+unused pre-graph public wrappers have been removed, internal graph helpers have
+been narrowed, and the remaining shrink target is the 1281-line graph
+implementation.
 
 ## Nodes
 
@@ -36,7 +37,7 @@ is the 1281-line graph implementation.
 
 1. `build_spawn_parallel_graph` + topology export (established pattern).
 2. Tool wrapper in `agent_orchestration/tools/spawn_parallel_agents.rs` is now
-   a 126-line thin shell: schema → run graph → translate `ToolResult`.
+   a 128-line thin shell: schema → run graph → translate `ToolResult`.
 3. Policy (spec "ownership and scheduling"): disjoint write ownership or
    reject/serial-fallback; read-only workers may share workspace;
    write-capable request worktree isolation (08.5); children share
@@ -52,5 +53,5 @@ is the 1281-line graph implementation.
 
 ## Acceptance
 
-- spawn_parallel suite (14) green against identical JSON output;
+- Required before completion: spawn_parallel suite (14) green against identical JSON output;
   cancellable mid-fanout; graph status shows per-task lineage.

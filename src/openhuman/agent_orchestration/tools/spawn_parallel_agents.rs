@@ -4,6 +4,8 @@ use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_boundary;
 #[cfg(test)]
+use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentResult;
+#[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTask;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
     format_spawn_parallel_success, run_spawn_parallel_graph, SpawnParallelGraphOutcome,

@@ -55,7 +55,7 @@ pub(crate) struct ParallelAgentTask {
 /// This is the first real `validate`-node responsibility moved out of the tool
 /// wrapper. Effectful worktree creation remains in the wrapper until the graph
 /// carries those dependencies explicitly.
-pub(crate) fn validate_spawn_parallel_tasks(
+fn validate_spawn_parallel_tasks(
     args: &serde_json::Value,
     max_parallel: Option<usize>,
 ) -> Result<Vec<ParallelAgentTask>, String> {
@@ -88,7 +88,7 @@ pub(crate) enum SpawnParallelTaskValidationError {
     Rejected(String),
 }
 
-pub(crate) fn validate_spawn_parallel_tool_request(
+fn validate_spawn_parallel_tool_request(
     args: &serde_json::Value,
     max_parallel: Option<usize>,
 ) -> Result<Vec<ParallelAgentTask>, SpawnParallelTaskValidationError> {
@@ -104,7 +104,7 @@ pub(crate) fn validate_spawn_parallel_tool_request(
 }
 
 /// Prepared worker ready for the live dispatch/worker phases.
-pub(crate) struct PreparedParallelTask {
+struct PreparedParallelTask {
     pub(crate) definition: AgentDefinition,
     pub(crate) prompt: String,
     pub(crate) task: ParallelAgentTask,
@@ -112,14 +112,14 @@ pub(crate) struct PreparedParallelTask {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ParallelTaskRejectionKind {
+enum ParallelTaskRejectionKind {
     MissingAgentOrPrompt,
     UnknownAgent,
     OutsideAllowlist,
     MissingToolkit,
 }
 
-pub(crate) struct ParallelTaskRejection {
+struct ParallelTaskRejection {
     pub(crate) task_id: String,
     pub(crate) agent_id: String,
     pub(crate) error: String,
@@ -127,18 +127,18 @@ pub(crate) struct ParallelTaskRejection {
     pub(crate) kind: ParallelTaskRejectionKind,
 }
 
-pub(crate) enum SpawnParallelTaskPreflight {
+enum SpawnParallelTaskPreflight {
     Prepared(PreparedParallelTask),
     Rejected(ParallelTaskRejection),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ParallelWorktreeRequest {
+enum ParallelWorktreeRequest {
     SharedWorkspace,
     Isolated { base_ref: BaseRef },
 }
 
-pub(crate) fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWorktreeRequest {
+fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWorktreeRequest {
     let isolated = task
         .isolation
         .as_deref()
@@ -154,7 +154,7 @@ pub(crate) fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWor
     }
 }
 
-pub(crate) fn create_spawn_parallel_worktree(
+fn create_spawn_parallel_worktree(
     parent_session: &str,
     action_root: Option<&Path>,
     task_id: &str,
@@ -317,7 +317,7 @@ pub(crate) fn with_ownership_boundary(prompt: &str, ownership: Option<&str>) -> 
 }
 
 #[derive(Clone)]
-pub(crate) struct SpawnParallelWorker {
+struct SpawnParallelWorker {
     pub(crate) definition: AgentDefinition,
     pub(crate) prompt: String,
     pub(crate) task: ParallelAgentTask,
@@ -598,7 +598,7 @@ impl SpawnParallelCollected {
     }
 }
 
-pub(crate) fn collect_spawn_parallel_results(
+fn collect_spawn_parallel_results(
     parent_session: &str,
     mut results: Vec<ParallelAgentResult>,
 ) -> SpawnParallelCollected {
@@ -828,7 +828,7 @@ fn overlap_warnings_for_results(
     overlap_warnings
 }
 
-pub(crate) async fn run_spawn_parallel_workers(
+async fn run_spawn_parallel_workers(
     prepared: Vec<SpawnParallelWorker>,
     action_root: Option<PathBuf>,
 ) -> Result<Vec<ParallelAgentResult>, String> {
@@ -998,11 +998,10 @@ async fn run_one_parallel_task(
     }
 }
 
-pub(crate) const SPAWN_PARALLEL_PHASES: &[&str] =
-    &["validate", "dispatch", "worker", "collect", "finalize"];
+const SPAWN_PARALLEL_PHASES: &[&str] = &["validate", "dispatch", "worker", "collect", "finalize"];
 
 #[derive(Clone, Default)]
-pub(crate) struct SpawnParallelState {
+struct SpawnParallelState {
     visited: Vec<&'static str>,
     tasks: Vec<ParallelAgentTask>,
     max_parallel: usize,
@@ -1030,7 +1029,7 @@ impl SpawnParallelState {
     }
 }
 
-pub(crate) enum SpawnParallelUpdate {
+enum SpawnParallelUpdate {
     PhaseEntered(&'static str),
     Rejected(String),
     Staged {
@@ -1059,7 +1058,7 @@ fn phase_node(
 /// The node order is intentionally static for topology export:
 ///
 /// `validate -> dispatch -> worker -> collect -> finalize`
-pub(crate) fn build_spawn_parallel_graph(
+fn build_spawn_parallel_graph(
 ) -> Result<CompiledGraph<SpawnParallelState, SpawnParallelUpdate>, String> {
     let phases = SPAWN_PARALLEL_PHASES;
     GraphBuilder::<SpawnParallelState, SpawnParallelUpdate>::new()

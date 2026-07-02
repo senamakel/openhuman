@@ -1060,8 +1060,92 @@ fn assemble_turn_harness(
     for report in all_graph_topologies() {
         let _ = capability_registry.register_descriptor(ComponentKind::Graph, report.name);
     }
+
+    // Project the agents visible to this turn into the registry as name-only
+    // `ComponentKind::Agent` descriptors (issue #4249, Workstream 10.1). This is
+    // metadata only: no executable `HarnessAgent` is attached (sub-agent
+    // dispatch still flows through the openhuman sub-agent runner), so the
+    // registration is cheap and leaves the turn hot path unchanged. Agents are
+    // sourced from BOTH the runtime `AgentDefinitionRegistry` global (built-ins
+    // plus any workspace/config custom overrides, already merged by id) AND the
+    // `agent_registry` built-in loader, deduped by id — the runtime registry is
+    // registered first and wins, since it carries the richer, override-aware
+    // `when_to_use`. Registering here keeps the ids in
+    // `capability_registry.snapshot()` so the 10.3 `agent.registry_snapshot` RPC
+    // and the fail-closed diagnostics (10.2) observe them.
+    //
+    // DEFERRED (rich metadata): tinyagents 1.3.0 exposes no public API to attach
+    // a `ComponentMetadata` description/tags to a name-only descriptor — only
+    // `register_agent(Arc<dyn HarnessAgent>)` carries a full executable blueprint
+    // we do not have at this layer. Until the crate grows a
+    // `register_descriptor_with_meta` (or we thread real `HarnessAgent`s through
+    // `assemble_turn_harness`), the `when_to_use` descriptions and
+    // `display_name`/`source` tags cannot be persisted onto the snapshot entry;
+    // only the ids are projected. The runtime-registry → executable-agent
+    // projection (so `register_agent`/`.rag` sub-agent resolution can bind these)
+    // remains the deferred follow-up.
+    let mut registered_agents: HashSet<String> = HashSet::new();
+    let mut runtime_agent_count = 0usize;
+    if let Some(runtime) =
+        crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
+    {
+        for def in runtime.list() {
+            if registered_agents.insert(def.id.clone()) {
+                let _ = capability_registry
+                    .register_descriptor(ComponentKind::Agent, def.id.clone());
+                runtime_agent_count += 1;
+            }
+        }
+    }
+    // agent_registry built-ins as a supplement/fallback (deduped by id). When the
+    // runtime global is uninitialised this is the sole source; otherwise it only
+    // contributes ids the runtime registry did not already cover.
+    let mut builtin_supplement_count = 0usize;
+    match crate::openhuman::agent_registry::agents::load_builtins() {
+        Ok(builtins) => {
+            for def in builtins {
+                if registered_agents.insert(def.id.clone()) {
+                    let _ = capability_registry
+                        .register_descriptor(ComponentKind::Agent, def.id.clone());
+                    builtin_supplement_count += 1;
+                }
+            }
+        }
+        Err(err) => {
+            tracing::debug!(
+                %err,
+                "[registry] agent_registry builtin load failed; \
+                 registered runtime-registry agents only"
+            );
+        }
+    }
+
     let registry_diagnostics = capability_registry.diagnostics();
     let registry_snapshot = capability_registry.snapshot();
+
+    // Validation/projection pass (issue #4249, Workstream 10.1): exercise the
+    // model/tool projection helpers that are slated to eventually replace the
+    // live `harness.register_model`/`register_tool` glue. Today they are
+    // infallible projections — they cannot themselves surface diagnostics — so
+    // invoking them here is a non-fatal cross-check that every registered model
+    // and tool projects into a harness registry cleanly. The authoritative,
+    // fail-closed health signal stays `capability_registry.diagnostics()`
+    // (captured in `registry_diagnostics` above and enforced by 10.2); a benign
+    // projection difference must never abort a turn, so nothing here is folded
+    // into that stream. The harness is deliberately NOT switched over to these
+    // projections yet — that glue swap is explicitly deferred.
+    let projected_models = capability_registry.to_model_registry();
+    let projected_tools = capability_registry.to_tool_registry();
+    tracing::debug!(
+        models = projected_models.names().len(),
+        tools = projected_tools.names().len(),
+        graphs = capability_registry.names(ComponentKind::Graph).len(),
+        agents = registered_agents.len(),
+        runtime_agents = runtime_agent_count,
+        builtin_supplement_agents = builtin_supplement_count,
+        diagnostics = registry_diagnostics.len(),
+        "[registry] per-turn capability projection summary"
+    );
     if !visibility_excluded.is_empty() {
         harness.push_middleware(Arc::new(
             middleware::OpenHumanToolVisibilityMiddleware::new(visibility_excluded, tool_count),

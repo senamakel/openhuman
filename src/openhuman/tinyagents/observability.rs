@@ -272,6 +272,43 @@ impl EventListener for OpenhumanEventBridge {
             // exactly once per model call; prefer it over `ModelCompleted`'s
             // optional usage to avoid double counting.
             AgentEvent::UsageRecorded { usage } => self.record_usage(usage),
+            AgentEvent::CostRecorded { cost } => {
+                tracing::debug!(
+                    cost = ?cost,
+                    "[tinyagents] cost event observed without OpenHuman accounting side effect"
+                );
+            }
+            AgentEvent::BudgetReserved {
+                estimated_input_tokens,
+            } => {
+                tracing::debug!(
+                    estimated_input_tokens,
+                    "[tinyagents] budget reserved estimated input tokens"
+                );
+            }
+            AgentEvent::BudgetReconciled {
+                estimated_input_tokens,
+                actual_input_tokens,
+            } => {
+                tracing::debug!(
+                    estimated_input_tokens,
+                    actual_input_tokens,
+                    "[tinyagents] budget reservation reconciled"
+                );
+            }
+            AgentEvent::BudgetWarning { reason } => {
+                tracing::debug!(
+                    reason,
+                    "[tinyagents] budget warning observed without run interruption"
+                );
+            }
+            AgentEvent::BudgetExceeded { reason, blocked } => {
+                tracing::debug!(
+                    reason,
+                    blocked,
+                    "[tinyagents] budget exceeded event observed"
+                );
+            }
             AgentEvent::ToolsFiltered {
                 by,
                 excluded,

@@ -26,8 +26,11 @@ budgets on every shared turn, `OpenhumanEventBridge::record_usage` records
 `UsageRecorded` into the global tracker, and crate-internal
 `turn_subagent_usage` folds child spend into the parent turn footer and
 in-memory `LastTurnUsage` web footer payload. Transcript/session metadata
-persistence is separate. Installing the crate budget middleware before event
-de-duplication would risk double-counting `UsageRecorded`.
+persistence is separate. The bridge now logs TinyAgents budget/cost events
+(`BudgetReserved`, `BudgetReconciled`, `BudgetWarning`, `BudgetExceeded`,
+`CostRecorded`) without feeding them into OpenHuman accounting. Installing the
+crate budget middleware before event de-duplication would risk double-counting
+`UsageRecorded`.
 
 Local inventory: there is no local `src/openhuman/tinyagents/cost*` adapter
 module; TinyAgents itself has `tinyagents::harness::cost`. The current local

@@ -28,6 +28,7 @@ Target SDK surface: `EmbeddingModel` trait, `VectorStore`, `Retriever`,
 ## Deletions
 
 - `agent/memory_loader.rs`.
+- `agent/tree_loader.rs`.
 
 ## Acceptance
 

@@ -90,6 +90,27 @@ impl TaEmbeddingModel for ProviderEmbeddingModel {
             vectors = result.len(),
             "[embeddings] adapter embed: exit"
         );
+        // Best-effort embedding cost recording (06-cost step 4 / 09-embeddings
+        // step 4). Records provider, model, approximate input tokens, dims, and
+        // vector count as a CostRecord priced via the unified catalog. Never
+        // fail an embed because cost recording failed — `record_embedding_usage`
+        // swallows its own errors; we only skip the accounting call for an empty
+        // batch (a non-event) so the request count isn't inflated.
+        if !result.is_empty() {
+            // Rough token estimate from character count (~4 chars/token). The
+            // exact value only affects the catalog price when an embedding rate
+            // exists; embedding models are usually uncatalogued, in which case
+            // the recorded cost is zero regardless.
+            let total_chars: usize = texts.iter().map(|t| t.chars().count()).sum();
+            let approx_input_tokens = (total_chars as u64).div_ceil(4);
+            crate::openhuman::cost::record_embedding_usage(
+                self.provider.name(),
+                self.provider.model_id(),
+                approx_input_tokens,
+                self.provider.dimensions(),
+                result.len() as u64,
+            );
+        }
         Ok(result)
     }
 

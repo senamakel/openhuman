@@ -6,7 +6,7 @@ pub mod tools;
 pub mod tracker;
 pub mod types;
 
-pub use global::{init_global, record_provider_usage, try_global};
+pub use global::{init_global, record_embedding_usage, record_provider_usage, try_global};
 pub use schemas::{
     all_controller_schemas as all_cost_controller_schemas,
     all_registered_controllers as all_cost_registered_controllers,

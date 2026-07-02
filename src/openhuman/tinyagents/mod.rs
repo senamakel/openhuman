@@ -539,6 +539,9 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
                     ));
                 }
             }
+            if let Some(depth_err) = tinyagents_depth_error(&e) {
+                return Err(anyhow::Error::new(depth_err));
+            }
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
         }
     };
@@ -630,6 +633,23 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         hit_cap,
         tool_outcomes,
     })
+}
+
+fn tinyagents_depth_error(
+    err: &tinyagents::TinyAgentsError,
+) -> Option<crate::openhuman::agent::harness::subagent_runner::SubagentRunError> {
+    match err {
+        tinyagents::TinyAgentsError::SubAgentDepth(max_depth)
+        | tinyagents::TinyAgentsError::RecursionLimit(max_depth) => {
+            Some(
+                crate::openhuman::agent::harness::subagent_runner::SubagentRunError::SpawnDepthExceeded {
+                    attempted_depth: max_depth.saturating_add(1),
+                    max_depth: *max_depth,
+                },
+            )
+        }
+        _ => None,
+    }
 }
 
 /// Everything [`assemble_turn_harness`] wires up for one turn: the configured

@@ -33,7 +33,7 @@ use std::sync::Arc;
 use crate::openhuman::agent::harness::subagent_runner::types::SubagentRunError;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
-use crate::openhuman::tinyagents::{SubagentScope, run_turn_via_tinyagents_shared};
+use crate::openhuman::tinyagents::{run_turn_via_tinyagents_shared, SubagentScope};
 use crate::openhuman::tools::{Tool, ToolSpec};
 
 /// Cumulative usage stats gathered across a sub-agent graph run.
@@ -188,7 +188,7 @@ pub(super) async fn run_subagent_via_graph(
         None,
     ))
     .await
-    .map_err(SubagentRunError::Provider)?;
+    .map_err(map_tinyagents_subagent_error)?;
 
     // Write the final conversation back so the caller can checkpoint / persist.
     // Keep the original (un-expanded) prior turns and append only this turn's typed
@@ -317,6 +317,13 @@ pub(super) async fn run_subagent_via_graph(
     ))
 }
 
+fn map_tinyagents_subagent_error(err: anyhow::Error) -> SubagentRunError {
+    match err.downcast::<SubagentRunError>() {
+        Ok(run_err) => run_err,
+        Err(err) => SubagentRunError::Provider(err),
+    }
+}
+
 /// Persist a sub-agent turn's raw transcript to `session_raw`, mirroring the
 /// removed `SubagentObserver::persist_transcript`: `agent_type:"subagent"`, the
 /// `task_id`, and the provider/model + usage carried on the last assistant
@@ -404,7 +411,7 @@ fn mirror_worker_thread(
     extra_final: Option<&str>,
 ) {
     use crate::openhuman::memory_conversations::{
-        ConversationMessage as StoredMessage, append_message,
+        append_message, ConversationMessage as StoredMessage,
     };
 
     let append = |content: String, sender: &str| {

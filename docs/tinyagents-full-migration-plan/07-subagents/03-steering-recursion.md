@@ -48,8 +48,9 @@ queued/interrupt/followup events remain live.
    `mcp_server/subagent_depth.rs`, but OpenHuman's own
    `spawn_depth_context` still rejects beyond the same cap before the
    TinyAgents run.
-6. One error shape: map `SubAgentDepth`/`RecursionLimit` to the existing
-   JSON-RPC error for compat.
+6. One error shape: `SubAgentDepth`/`RecursionLimit` now preserve the existing
+   `SpawnDepthExceeded` error surface before the subagent graph wraps provider
+   failures.
 
 ## Deletions
 

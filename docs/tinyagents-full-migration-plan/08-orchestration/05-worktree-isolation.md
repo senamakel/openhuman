@@ -16,7 +16,9 @@ and `WorkspacePrepared/Violation/Cleanup` events.
    `SecurityPolicy` remains the enforcement authority — the descriptor is
    the carrier, not the policy.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations
-   also feed the security audit trail.
+   also feed the security audit trail. Use 1.3.0
+   `WorkspaceDescriptor::enforce(path, events)` so the check and the
+   violation event are one call.
 4. Sandbox descriptor: map `sandbox_mode` onto the descriptor's sandbox
    field so sandboxed runs are inspectable.
 

@@ -24,6 +24,9 @@ The $0-cost bug and the unobserved-turn tracker gap are already fixed
    daily/monthly pre-checks with `BudgetMiddleware` where limits map; add
    per-run and per-thread budgets (new `CostConfig` fields + thread-id
    threading). Budget stop = `BudgetExceeded` event + typed run failure.
+   1.3.0 adds pre-spend reservation: `BudgetReserved`/`BudgetReconciled`
+   events + `BudgetLimits.max_cached_input_tokens` — this closes the
+   "project the next call's cost pre-spend" TODO from the spec.
 3. **Lineage rollup:** stamp cost records with `run_id`/`root_run_id` from
    the observation stream (needs `TokenUsage` schema fields); parent totals
    via `UsageTotals`/`ChildRun` instead of the `turn_subagent_usage`

@@ -19,7 +19,9 @@ tombstones, ownership checks. The crate now has `JsonlTaskStore` (durable),
    the store; tombstones become terminal `OrchestrationTaskRecord`s.
 4. Restart/resume: on boot, reconcile `JsonlTaskStore` live records against
    actual executors (orphans → failed-with-restart marker); prove desktop
-   restart parity vs today's behavior.
+   restart parity vs today's behavior. Run the crate's 1.3.0 testkit
+   contracts (`taskstore_concurrent_contract`, `taskstore_replay_contract`)
+   against the chosen store.
 5. Evaluate exposing crate `orchestrate_*` tools to the orchestrator agent
    as the internal engine under `spawn_agent`/`wait_agents`/etc. — the
    product tools stay as the model-visible surface (names/output shapes are

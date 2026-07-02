@@ -12,10 +12,11 @@ Current OpenHuman surfaces: `agent/harness/tool_filter.rs` (mechanics),
    MCP tool visibility, and the channel permission ceiling as a composed
    `ToolAllowlistMiddleware` + one OpenHuman
    `ContextualToolSelectionMiddleware` (`ToolSelectionContext` carries agent
-   id, task kind, tier, channel). Inheritance rule: children can only narrow.
+   id, task kind, tier, channel). Inheritance rule: children can only narrow —
+   use `ToolAllowlistMiddleware::inheriting(...)` (new in 1.3.0).
 2. Fail closed when policy metadata is missing (unclassified → not exposed);
-   emit exposure decisions through events (`RouteSelected`/observation
-   metadata) for audit.
+   exposure decisions are event-native via `AgentEvent::ToolsFiltered
+   { by, excluded }` (1.3.0) — project them into the bridge for audit.
 3. Move the visible-set computation out of `session/turn/tools.rs` (693
    lines) and `subagent_runner/tool_prep.rs` (350 lines) into the middleware;
    the turn code only declares candidate tool sets.

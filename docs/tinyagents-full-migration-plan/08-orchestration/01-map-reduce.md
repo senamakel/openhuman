@@ -17,7 +17,10 @@ per-item `ItemOutcome`, cancellation).
    06-cost lineage rollup instead — this is the one silent-regression risk
    (memory: collectors propagate because fanout is join_all on one task).
 4. Choose `FailurePolicy` per caller (council = collect-all; workflow
-   phase = fail-fast or per-phase config).
+   phase = fail-fast or per-phase config). Use the 1.3.0 options:
+   `with_item_timeout`/`with_total_timeout`/`with_cancellation`
+   (a per-item timeout is behavior the old helper never had — set it
+   deliberately per caller, not by default).
 
 ## Deletions
 

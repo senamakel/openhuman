@@ -19,8 +19,10 @@ The spec's "SDK gap: ToolSchema has no metadata map" is obsolete: the crate
    Keep args-aware checks (`external_effect_with_args`) as an OpenHuman
    overlay where the static policy is insufficient — document each overlay.
 3. Install crate `ToolPolicyMiddleware` in `assemble_turn_harness`
-   (`src/openhuman/tinyagents/mod.rs`) fail-closed; assert every registered
-   tool is classified in the adapter-inventory test.
+   (`src/openhuman/tinyagents/mod.rs`) fail-closed, configured with the
+   1.3.0 builders (`require_sandbox`/`require_approval`/
+   `enforce_result_bytes`); assert every registered tool is classified in
+   the adapter-inventory test.
 4. Delete the side-lookup plumbing from `TurnContextMiddleware.install`
    (the `&tool_sets` parameter) once no middleware needs it.
 

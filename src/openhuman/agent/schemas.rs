@@ -479,6 +479,42 @@ fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
 /// Other kinds (Router/Reducer/Store/Middleware/Checkpointer/TaskStore/Listener)
 /// are wired per-run and are not enumerable outside a turn; they are reported in
 /// `deferred`.
+/// Project the user's model registry into runtime-discovered local models for
+/// the unified catalog overlay.
+///
+/// A registry entry is treated as a local runtime model when its `provider`
+/// parses as a [`LocalProviderKind`] (`ollama`, `lmstudio`, `mlx`, …). The
+/// context window comes from the entry when set, else the runtime profile's
+/// default; tool-calling/streaming flags come from the static provider profile
+/// (the local runtimes do not advertise per-model capability here). Non-local
+/// (cloud/BYOK) rows are skipped — those are owned by the priced catalog layers.
+fn local_catalog_models_from_config(
+    config: &crate::openhuman::config::Config,
+) -> Vec<crate::openhuman::cost::catalog::LocalCatalogModel> {
+    use crate::openhuman::inference::local::profile::{profile_for_kind, LocalProviderKind, ToolSupport};
+
+    config
+        .model_registry
+        .iter()
+        .filter_map(|entry| {
+            let kind = LocalProviderKind::from_str_loose(&entry.provider)?;
+            let profile = profile_for_kind(kind);
+            let context_window = if entry.context_window > 0 {
+                Some(u64::from(entry.context_window))
+            } else {
+                profile.default_context_window
+            };
+            Some(crate::openhuman::cost::catalog::LocalCatalogModel {
+                provider: entry.provider.clone(),
+                model_id: entry.id.clone(),
+                context_window,
+                tool_calling: matches!(profile.tool_support, ToolSupport::Native),
+                streaming: profile.supports_streaming,
+            })
+        })
+        .collect()
+}
+
 fn handle_registry_snapshot(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async {
         use crate::openhuman::tools::Tool as _;
@@ -486,8 +522,22 @@ fn handle_registry_snapshot(_params: Map<String, Value>) -> ControllerFuture {
 
         let mut components: Vec<ComponentMetadata> = Vec::new();
 
-        // ── Models: static cost catalog projection ──────────────────────────
-        let catalog = crate::openhuman::cost::catalog::tinyagents_catalog_snapshot();
+        // ── Models: unified catalog (crate seed + OpenHuman overlay + local) ─
+        // Derive runtime-discovered local models from the user's model registry:
+        // any entry whose provider is a local runtime (ollama, lmstudio, mlx, …)
+        // is overlaid as a free, runtime-profiled catalog entry so local models
+        // appear in the one projection alongside priced vendor rows.
+        let local_models = match config_rpc::load_config_with_timeout().await {
+            Ok(config) => local_catalog_models_from_config(&config),
+            Err(err) => {
+                tracing::debug!(
+                    error = %err,
+                    "[registry][rpc][agent] config unavailable; unified catalog omits local models"
+                );
+                Vec::new()
+            }
+        };
+        let catalog = crate::openhuman::cost::catalog::unified_model_catalog(&local_models);
         let model_count = catalog.models.len();
         for entry in catalog.models {
             let mut meta = ComponentMetadata::new(entry.model_id.clone(), ComponentKind::Model)

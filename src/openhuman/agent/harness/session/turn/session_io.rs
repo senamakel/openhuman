@@ -254,7 +254,10 @@ impl Agent {
     /// Gated by [`context_pipeline::SessionMemoryState::should_extract`]
     /// — see its docs for the threshold invariants. Safe to call from
     /// inside `turn()` after the turn body has settled.
-    pub(in super::super) async fn spawn_session_memory_extraction(&mut self) {
+    pub(in super::super) async fn spawn_session_memory_extraction(
+        &mut self,
+        parent_ctx: harness::ParentExecutionContext,
+    ) {
         // ── Flush the trailing open segment before the session winds down ──
         //
         // The ArchivistHook manages per-turn segment lifecycle but cannot
@@ -288,11 +291,6 @@ impl Agent {
             return;
         };
 
-        // Build a dedicated ParentExecutionContext for the background
-        // task. The in-progress turn's context has already been
-        // consumed by the `with_parent_context` scope above, so this is
-        // a fresh snapshot.
-        let parent_ctx = self.build_parent_execution_context();
         let extraction_prompt = ARCHIVIST_EXTRACTION_PROMPT.to_string();
 
         // Flip the extraction state to "in-progress" so future

@@ -68,9 +68,10 @@ also resolve roots from the carried crate `WorkspaceDescriptor`.
    `ParentExecutionContext` now also carries the descriptor as an ambient
    fallback for internal/background fanout: the sub-agent runner scopes it into
    child turns, and `AgentOrchestrationSession::spawn_agent` inherits it while
-   still letting explicit per-spawn descriptors win. The remaining production
-   `SubagentRunOptions` constructor that still relies on defaults is the
-   session memory trigger; it currently receives no `ToolExecutionContext`.
+   still letting explicit per-spawn descriptors win. Parent-context snapshots now
+   preserve an ambient descriptor when one is active, and post-turn session
+   memory extraction reuses the turn's parent snapshot instead of rebuilding a
+   default-only context after the scope has ended.
 3. Emit `WorkspacePrepared/Violation/Cleanup` through the bridge; violations
    also feed the security audit trail. Use 1.3.0
    `WorkspaceDescriptor::enforce(path, events)` so the check and the

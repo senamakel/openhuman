@@ -439,6 +439,47 @@ pub(crate) async fn stage_spawn_parallel_workers(
     (prepared, immediate_results)
 }
 
+pub(crate) async fn run_spawn_parallel_graph(
+    parent_session: &str,
+    progress_sink: Option<&Sender<AgentProgress>>,
+    tasks: Vec<ParallelAgentTask>,
+    registry: &AgentDefinitionRegistry,
+    parent: &ParentExecutionContext,
+    action_root: Option<PathBuf>,
+) -> Result<SpawnParallelCollected, String> {
+    let (prepared, immediate_results) = stage_spawn_parallel_workers(
+        parent_session,
+        progress_sink,
+        tasks,
+        registry,
+        parent,
+        action_root.as_deref(),
+    )
+    .await;
+
+    // Fan the prepared workers out through the spawn graph module. Results
+    // come back in prepared order, then we append them after immediate
+    // pre-flight failures — the existing compatibility ordering.
+    let fanned = run_spawn_parallel_workers(prepared, action_root).await?;
+
+    let mut results = immediate_results;
+    for result in fanned {
+        project_spawn_parallel_result(parent_session, progress_sink, &result).await;
+        results.push(result);
+    }
+
+    let collected = collect_spawn_parallel_results(parent_session, results);
+    tracing::debug!(
+        parent_session = %parent_session,
+        total = collected.total(),
+        succeeded = collected.succeeded(),
+        failed = collected.failures,
+        overlaps = collected.overlap_warnings.len(),
+        "[spawn_parallel_agents] execute exit"
+    );
+    Ok(collected)
+}
+
 pub(crate) struct SpawnParallelCollected {
     pub(crate) results: Vec<ParallelAgentResult>,
     pub(crate) failures: usize,

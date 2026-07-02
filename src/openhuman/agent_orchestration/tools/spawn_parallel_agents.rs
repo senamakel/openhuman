@@ -7,8 +7,7 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::ParallelAgentTa
 #[cfg(test)]
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::with_ownership_boundary;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
-    collect_spawn_parallel_results, format_spawn_parallel_success, project_spawn_parallel_result,
-    run_spawn_parallel_workers, stage_spawn_parallel_workers, validate_spawn_parallel_tasks,
+    format_spawn_parallel_success, run_spawn_parallel_graph, validate_spawn_parallel_tasks,
 };
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
@@ -160,38 +159,16 @@ impl Tool for SpawnParallelAgentsTool {
                 .ok()
                 .map(|cfg| cfg.action_dir.clone());
 
-        let (prepared, immediate_results) = stage_spawn_parallel_workers(
+        let collected = run_spawn_parallel_graph(
             &parent_session,
             progress_sink.as_ref(),
             tasks,
             registry,
             &parent,
-            action_root.as_deref(),
+            action_root,
         )
-        .await;
-
-        // Fan the prepared workers out through the spawn graph module. Results
-        // come back in prepared order, then we append them after immediate
-        // pre-flight failures — the existing compatibility ordering.
-        let fanned = run_spawn_parallel_workers(prepared, action_root.clone())
-            .await
-            .map_err(|e| anyhow::anyhow!(e))?;
-
-        let mut results = immediate_results;
-        for result in fanned {
-            project_spawn_parallel_result(&parent_session, progress_sink.as_ref(), &result).await;
-            results.push(result);
-        }
-
-        let collected = collect_spawn_parallel_results(&parent_session, results);
-        tracing::debug!(
-            parent_session = %parent_session,
-            total = collected.total(),
-            succeeded = collected.succeeded(),
-            failed = collected.failures,
-            overlaps = collected.overlap_warnings.len(),
-            "[spawn_parallel_agents] execute exit"
-        );
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
         Ok(ToolResult::success(format_spawn_parallel_success(
             &collected,
         )))

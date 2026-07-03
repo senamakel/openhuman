@@ -243,6 +243,26 @@ pub struct AgentConfig {
     /// `OPENHUMAN_TOOL_TIMEOUT_SECS` env var still overrides it when set.
     #[serde(default = "default_agent_timeout_secs")]
     pub agent_timeout_secs: u64,
+
+    /// Dual-write each completed session turn into the TinyAgents session
+    /// store (`{workspace}/tinyagents_store/{kv,journal}`) alongside the
+    /// legacy `session_raw/*.jsonl` transcript (issue #4249, sessions 04.1).
+    ///
+    /// Defaults **ON**: the store has to be populated by live turns so the
+    /// 04.2 read cutover inherits a complete corpus. The write is additive,
+    /// best-effort, and non-fatal — a store-write failure never affects the
+    /// chat turn or the authoritative legacy JSONL. The
+    /// `OPENHUMAN_SESSION_DUAL_WRITE` env var is a kill switch that overrides
+    /// this flag in either direction: a falsy value (`0`/`false`/`no`/`off`)
+    /// forces the dual-write OFF regardless of config; a truthy value forces
+    /// it ON. See
+    /// [`crate::openhuman::session_import::live::dual_write_enabled`].
+    #[serde(default = "default_session_dual_write")]
+    pub session_dual_write: bool,
+}
+
+fn default_session_dual_write() -> bool {
+    true
 }
 
 fn default_tool_result_budget_bytes() -> usize {
@@ -374,6 +394,7 @@ impl Default for AgentConfig {
             channel_permissions: std::collections::HashMap::new(),
             tool_result_budget_bytes: default_tool_result_budget_bytes(),
             agent_timeout_secs: default_agent_timeout_secs(),
+            session_dual_write: default_session_dual_write(),
         }
     }
 }

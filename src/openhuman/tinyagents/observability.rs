@@ -644,39 +644,14 @@ mod tests {
         assert_eq!((input, output), (100, 40));
     }
 
-    #[tokio::test]
-    async fn sentinel_tool_started_is_not_forwarded() {
-        // #4249 regression guard: a `ToolStarted` for the unknown-tool sentinel
-        // must NOT emit a `ToolCallStarted`. The frontend keys tool-timeline rows
-        // by `call_id` and overwrites the name on Started, so forwarding the
-        // sentinel would clobber the real streamed row (e.g. `web_fetch`) and drop
-        // the attempted tool from the UI timeline. A real tool name still forwards.
-        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
-        let bridge = OpenhumanEventBridge::new(Some(tx), "mock-model", 10);
-        let sink = EventSink::new();
-        sink.subscribe(bridge.clone());
-
-        sink.emit(AgentEvent::ToolStarted {
-            call_id: "c1".into(),
-            tool_name: crate::openhuman::tinyagents::tools::UNKNOWN_TOOL_SENTINEL.to_string(),
-        });
-        sink.emit(AgentEvent::ToolStarted {
-            call_id: "c2".into(),
-            tool_name: "web_fetch".to_string(),
-        });
-
-        let mut started_names = Vec::new();
-        while let Ok(p) = rx.try_recv() {
-            if let AgentProgress::ToolCallStarted { tool_name, .. } = p {
-                started_names.push(tool_name);
-            }
-        }
-        assert_eq!(
-            started_names,
-            vec!["web_fetch".to_string()],
-            "sentinel Started must be skipped; the real tool name must still forward"
-        );
-    }
+    // NOTE: the former `sentinel_tool_started_is_not_forwarded` test was removed
+    // here. The #4249 migration (commit 60097ba8d, "use sdk unknown tool
+    // recovery") deleted `UNKNOWN_TOOL_SENTINEL` + `UnknownToolRewriteMiddleware`
+    // in favour of the crate `UnknownToolPolicy::ReturnToolError` path, so a
+    // `ToolStarted` now only ever fires for real, model-visible tools (see the
+    // `ToolStarted` arm above — it no longer special-cases a sentinel). The test
+    // referenced the deleted constant (a stale reference reintroduced by a merge)
+    // and asserted behaviour that no longer exists.
 }
 
 /// A [`GraphEventSink`] that mirrors the `tinyagents` graph executor's lifecycle

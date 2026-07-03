@@ -1,12 +1,14 @@
 //! Langfuse ingestion exporter for agent trace spans (issue #4249 follow-up).
 //!
 //! When `[observability.agent_tracing]` has `enabled = true` and
-//! `backend = "langfuse"`, a completed run's spans are POSTed to the Langfuse
-//! server co-hosted with the OpenHuman backend. The endpoint is derived from the
-//! **current backend hostname** (`effective_backend_api_url`) plus the fixed
-//! `/api/public/ingestion` path, and the request reuses the OpenHuman **session
-//! bearer** — the same auth every other backend call carries — because staging
-//! proxies Langfuse behind that session (no separate project keys).
+//! `backend = "langfuse"`, a completed run's spans are POSTed to the OpenHuman
+//! backend's Langfuse **proxy** route, `/telemetry/langfuse/ingestion`, derived
+//! from the **current backend hostname** (`effective_backend_api_url`). The
+//! request reuses the OpenHuman **session bearer** — the same auth every other
+//! backend call carries; the backend authenticates that JWT, injects the
+//! Langfuse project keys server-side, and forwards the batch to Langfuse's real
+//! `/api/public/ingestion` (backend `src/services/langfuseProxy.ts`). Clients
+//! never hold Langfuse keys and never hit `/api/public/ingestion` directly.
 //!
 //! Best-effort: any failure is logged and swallowed by the caller so tracing
 //! never breaks a turn. Spans carry only metadata (names, kinds, timings,
@@ -25,25 +27,24 @@ use crate::openhuman::credentials::session_support::require_live_session_token;
 use super::{SpanStatus, TraceSpan};
 
 const LOG_TARGET: &str = "agent-tracing::langfuse";
-/// Langfuse's batched ingestion endpoint (relative to the backend origin).
-const INGESTION_PATH: &str = "/api/public/ingestion";
+/// Backend proxy route for Langfuse ingestion (relative to the backend origin).
+/// The backend authenticates the caller's session JWT, injects the Langfuse
+/// project keys, and forwards to Langfuse's real `/api/public/ingestion` — so
+/// clients POST here, NOT to `/api/public/ingestion` (which is unexposed and
+/// carries no keys).
+const INGESTION_PATH: &str = "/telemetry/langfuse/ingestion";
 /// Cap the push so a slow/hung Langfuse never stalls run teardown.
 const PUSH_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Resolve the Langfuse ingestion URL from the current backend host: the
-/// scheme+authority (origin) of the configured backend base, plus the fixed
-/// ingestion path. Taking only the origin means a backend base that carries a
-/// path prefix (e.g. `/api/v1`) doesn't leak into the ingestion path. Returns
-/// `None` when the backend base can't be parsed as an absolute URL.
-pub(crate) fn ingestion_url(config: &Config) -> Option<String> {
+/// Resolve the Langfuse ingestion URL from the current backend host. Joins the
+/// proxy path onto [`effective_backend_api_url`] — the exact base-server
+/// resolution every other backend call uses — via the canonical
+/// [`crate::api::config::api_url`] helper, which replaces any path the base
+/// carried with the given absolute path. So the host always matches wherever the
+/// app's domain calls go (staging, prod, or a custom `api_url` override).
+pub(crate) fn ingestion_url(config: &Config) -> String {
     let base = effective_backend_api_url(&config.api_url);
-    let url = reqwest::Url::parse(&base).ok()?;
-    let origin = url.origin();
-    if !origin.is_tuple() {
-        // Opaque origin (e.g. a non-http scheme) — nothing sane to POST to.
-        return None;
-    }
-    Some(format!("{}{INGESTION_PATH}", origin.ascii_serialization()))
+    crate::api::config::api_url(&base, INGESTION_PATH)
 }
 
 /// Epoch-milliseconds → RFC 3339 / ISO-8601 string (Langfuse requires ISO
@@ -144,8 +145,12 @@ pub(crate) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
     if spans.is_empty() {
         return Ok(());
     }
-    let url = ingestion_url(config)
-        .ok_or_else(|| "could not resolve Langfuse ingestion URL from backend host".to_string())?;
+    let url = ingestion_url(config);
+    if !url.starts_with("http") {
+        return Err(format!(
+            "could not resolve Langfuse ingestion URL from backend host (got {url:?})"
+        ));
+    }
     let token = require_live_session_token(config)?;
     let batch = spans_to_langfuse_batch(spans);
     let span_count = spans.len();
@@ -220,9 +225,21 @@ mod tests {
         let mut config = Config::default();
         config.api_url = Some("https://staging-api.tinyhumans.ai/api/v1".to_string());
         assert_eq!(
-            ingestion_url(&config).as_deref(),
-            Some("https://staging-api.tinyhumans.ai/api/public/ingestion"),
-            "endpoint derives from the backend host and drops any path prefix"
+            ingestion_url(&config),
+            "https://staging-api.tinyhumans.ai/telemetry/langfuse/ingestion",
+            "endpoint is the backend's Langfuse proxy route on the base server \
+             host, replacing any inference path the base carried"
+        );
+
+        // A base carrying an inference path resolves to the proxy route on the
+        // SAME host — the ingestion host tracks the base server URL, not a fixed
+        // literal.
+        let mut with_inference_path = Config::default();
+        with_inference_path.api_url =
+            Some("https://api.tinyhumans.ai/openai/v1/chat/completions".to_string());
+        assert_eq!(
+            ingestion_url(&with_inference_path),
+            "https://api.tinyhumans.ai/telemetry/langfuse/ingestion"
         );
     }
 

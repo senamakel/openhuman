@@ -5,103 +5,19 @@ import { apiClient } from '../../agentworld/AgentWorldShell';
 import {
   type ContactRequestsResponse,
   type ContactView,
-  type InboxItem,
-  type MessageEnvelope,
   type PairingSnapshot,
   PaymentRequiredError,
 } from '../../lib/agentworld/invokeApiClient';
 import { useT } from '../../lib/i18n/I18nContext';
+import {
+  type ChatMessage,
+  type ChatWindow,
+  MASTER_CHAT_KEY,
+  useOrchestrationChats,
+} from '../../lib/orchestration/useOrchestrationChats';
 import Button from '../ui/Button';
 
 const debug = debugFactory('brain:tinyplace-orchestration');
-
-const MESSAGE_LIMIT = 100;
-const INBOX_LIMIT = 40;
-const ACTIVE_WINDOW_MS = 45 * 60 * 1000;
-
-type ChatKind = 'master' | 'subconscious' | 'session';
-
-interface ChatMessage {
-  id: string;
-  from: string;
-  body: string;
-  timestamp: string;
-  encrypted: boolean;
-}
-
-interface ChatWindow {
-  id: string;
-  kind: ChatKind;
-  title: string;
-  subtitle: string;
-  preview: string;
-  lastTimestamp: string | null;
-  unread: number;
-  active: boolean;
-  pinned: boolean;
-  peerAgentId: string | null;
-  messages: ChatMessage[];
-}
-
-interface TinyPlaceChatData {
-  messages: MessageEnvelope[];
-  inboxItems: InboxItem[];
-  pairing: PairingSnapshot;
-}
-
-type LoadState =
-  | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | { status: 'payment_required' }
-  | { status: 'ok'; data: TinyPlaceChatData };
-
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value : null;
-}
-
-function pickString(source: Record<string, unknown>, keys: string[]): string | null {
-  for (const key of keys) {
-    const value = asString(source[key]);
-    if (value) return value;
-  }
-  return null;
-}
-
-function chatKindForEnvelope(envelope: MessageEnvelope): ChatKind {
-  const type = (envelope.type ?? '').toLowerCase();
-  if (type.includes('subconscious') || type.includes('internal')) return 'subconscious';
-  if (type.includes('master') || type.includes('agent-human') || type.includes('human')) {
-    return 'master';
-  }
-  return 'session';
-}
-
-function sessionIdForEnvelope(envelope: MessageEnvelope): string {
-  return (
-    pickString(envelope, ['sessionId', 'appSessionId', 'threadId', 'conversationId', 'runId']) ??
-    `${envelope.from || 'unknown'}:${envelope.to || 'unknown'}`
-  );
-}
-
-function isEncrypted(envelope: MessageEnvelope): boolean {
-  const hint = (envelope.contentHint ?? '').toLowerCase();
-  const type = (envelope.type ?? '').toLowerCase();
-  return Boolean(envelope.signal) || hint.includes('encrypted') || type.includes('signal');
-}
-
-function displayBody(message: MessageEnvelope, encryptedText: string): string {
-  if (isEncrypted(message)) return encryptedText;
-  return message.body || message.contentHint || encryptedText;
-}
-
-function messageTime(message: Pick<ChatMessage, 'timestamp'>): number {
-  const parsed = Date.parse(message.timestamp);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function sortMessages(messages: ChatMessage[]): ChatMessage[] {
-  return messages.slice().sort((a, b) => messageTime(a) - messageTime(b));
-}
 
 function formatTime(timestamp: string | null): string {
   if (!timestamp) return '';
@@ -118,123 +34,6 @@ function formatTime(timestamp: string | null): string {
 function truncate(text: string, length = 96): string {
   if (text.length <= length) return text;
   return `${text.slice(0, length - 1)}…`;
-}
-
-function isActive(lastTimestamp: string | null, unread: number): boolean {
-  if (unread > 0) return true;
-  if (!lastTimestamp) return false;
-  const parsed = Date.parse(lastTimestamp);
-  return Number.isFinite(parsed) && Date.now() - parsed < ACTIVE_WINDOW_MS;
-}
-
-function emptyPinnedChats(t: (key: string) => string): ChatWindow[] {
-  return [
-    {
-      id: 'pinned:master',
-      kind: 'master',
-      title: t('tinyplaceOrchestration.master.title'),
-      subtitle: t('tinyplaceOrchestration.master.subtitle'),
-      preview: t('tinyplaceOrchestration.master.preview'),
-      lastTimestamp: null,
-      unread: 0,
-      active: true,
-      pinned: true,
-      peerAgentId: null,
-      messages: [],
-    },
-    {
-      id: 'pinned:subconscious',
-      kind: 'subconscious',
-      title: t('tinyplaceOrchestration.subconscious.title'),
-      subtitle: t('tinyplaceOrchestration.subconscious.subtitle'),
-      preview: t('tinyplaceOrchestration.subconscious.preview'),
-      lastTimestamp: null,
-      unread: 0,
-      active: true,
-      pinned: true,
-      peerAgentId: null,
-      messages: [],
-    },
-  ];
-}
-
-function buildChats(data: TinyPlaceChatData, t: (key: string) => string): ChatWindow[] {
-  const encryptedText = t('tinyplaceOrchestration.encryptedBody');
-  const unknownSender = t('tinyplaceOrchestration.unknownSender');
-  const pinned = emptyPinnedChats(t);
-  const byId = new Map<string, ChatWindow>(pinned.map(chat => [chat.id, chat]));
-
-  for (const envelope of data.messages) {
-    const kind = chatKindForEnvelope(envelope);
-    const id = kind === 'session' ? `session:${sessionIdForEnvelope(envelope)}` : `pinned:${kind}`;
-    const message: ChatMessage = {
-      id: envelope.id,
-      from: envelope.from || unknownSender,
-      body: displayBody(envelope, encryptedText),
-      timestamp: envelope.timestamp,
-      encrypted: isEncrypted(envelope),
-    };
-    const existing = byId.get(id);
-    const title =
-      kind === 'session'
-        ? (pickString(envelope, ['sessionLabel', 'appName', 'threadTitle']) ??
-          sessionIdForEnvelope(envelope))
-        : (existing?.title ?? id);
-    const subtitle =
-      kind === 'session'
-        ? (pickString(envelope, ['workspace', 'source', 'appSessionId']) ??
-          t('tinyplaceOrchestration.session.subtitle'))
-        : (existing?.subtitle ?? '');
-    const nextMessages = sortMessages([...(existing?.messages ?? []), message]);
-    const last = nextMessages[nextMessages.length - 1] ?? message;
-    byId.set(id, {
-      id,
-      kind,
-      title,
-      subtitle,
-      preview: truncate(last.body),
-      lastTimestamp: last.timestamp,
-      unread: existing?.unread ?? 0,
-      active: true,
-      pinned: kind !== 'session',
-      peerAgentId: kind === 'session' ? envelope.from || envelope.to || null : null,
-      messages: nextMessages,
-    });
-  }
-
-  for (const item of data.inboxItems) {
-    const sender = item.from ?? item.type ?? 'tiny.place';
-    const id = `session:${sender}`;
-    const message: ChatMessage = {
-      id: item.itemId,
-      from: sender,
-      body: item.summary ?? item.subject,
-      timestamp: item.timestamp,
-      encrypted: false,
-    };
-    const existing = byId.get(id);
-    const nextMessages = sortMessages([...(existing?.messages ?? []), message]);
-    const last = nextMessages[nextMessages.length - 1] ?? message;
-    const unread = (existing?.unread ?? 0) + (item.status === 'unread' ? 1 : 0);
-    byId.set(id, {
-      id,
-      kind: 'session',
-      title: sender,
-      subtitle: item.type || t('tinyplaceOrchestration.session.subtitle'),
-      preview: truncate(last.body),
-      lastTimestamp: last.timestamp,
-      unread,
-      active: isActive(last.timestamp, unread),
-      pinned: false,
-      peerAgentId: sender,
-      messages: nextMessages,
-    });
-  }
-
-  return Array.from(byId.values()).map(chat => ({
-    ...chat,
-    active: chat.pinned ? true : isActive(chat.lastTimestamp, chat.unread),
-  }));
 }
 
 function acceptedContactIds(contacts: ContactView[]): Set<string> {
@@ -349,47 +148,60 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+// ── Pairing (unchanged data source: apiClient.orchestrationPairing.*) ─────────
+
+type PairingState =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'payment_required' }
+  | { status: 'ok'; snapshot: PairingSnapshot };
+
 export default function TinyPlaceOrchestrationTab() {
   const { t } = useT();
-  const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const [selectedId, setSelectedId] = useState('pinned:master');
+  const {
+    sessionsState,
+    messagesState,
+    chats,
+    selectedId,
+    selected,
+    status,
+    masterError,
+    selectChat,
+    refresh,
+    sendMaster,
+  } = useOrchestrationChats(t);
+
+  const [pairingState, setPairingState] = useState<PairingState>({ status: 'loading' });
   const [linkAgentId, setLinkAgentId] = useState('');
   const [pairingAction, setPairingAction] = useState<string | null>(null);
   const [pairingError, setPairingError] = useState<string | null>(null);
+  const [composerBody, setComposerBody] = useState('');
+  const [sending, setSending] = useState(false);
   const mountedRef = useRef(true);
 
-  const load = useCallback(async () => {
-    debug('[tinyplace-orchestration] load entry');
-    setState({ status: 'loading' });
+  const loadPairing = useCallback(async () => {
+    debug('[tinyplace-orchestration] pairing load entry');
+    setPairingState({ status: 'loading' });
     try {
-      const [messages, inbox, pairing] = await Promise.all([
-        apiClient.messages.list({ limit: MESSAGE_LIMIT }),
-        apiClient.inbox.list({ limit: INBOX_LIMIT }),
-        apiClient.orchestrationPairing.list(),
-      ]);
+      const snapshot = await apiClient.orchestrationPairing.list();
       if (!mountedRef.current) return;
       debug(
-        '[tinyplace-orchestration] load exit messages=%d inbox=%d contacts=%d incoming=%d outgoing=%d',
-        messages.messages.length,
-        inbox.items.length,
-        pairing.contacts.contacts.length,
-        pairing.requests.incoming.length,
-        pairing.requests.outgoing.length
+        '[tinyplace-orchestration] pairing load exit contacts=%d incoming=%d outgoing=%d',
+        snapshot.contacts.contacts.length,
+        snapshot.requests.incoming.length,
+        snapshot.requests.outgoing.length
       );
-      setState({
-        status: 'ok',
-        data: { messages: messages.messages, inboxItems: inbox.items, pairing },
-      });
+      setPairingState({ status: 'ok', snapshot });
     } catch (error) {
       if (!mountedRef.current) return;
       if (error instanceof PaymentRequiredError) {
-        debug('[tinyplace-orchestration] load payment_required');
-        setState({ status: 'payment_required' });
+        debug('[tinyplace-orchestration] pairing payment_required');
+        setPairingState({ status: 'payment_required' });
         return;
       }
       const message = error instanceof Error ? error.message : String(error);
-      debug('[tinyplace-orchestration] load error %s', message);
-      setState({ status: 'error', message });
+      debug('[tinyplace-orchestration] pairing load error %s', message);
+      setPairingState({ status: 'error', message });
     }
   }, []);
 
@@ -402,7 +214,7 @@ export default function TinyPlaceOrchestrationTab() {
         await action();
         if (!mountedRef.current) return;
         debug('[tinyplace-orchestration] pairing action success id=%s', actionId);
-        await load();
+        await loadPairing();
       } catch (error) {
         if (!mountedRef.current) return;
         const message = error instanceof Error ? error.message : String(error);
@@ -414,7 +226,7 @@ export default function TinyPlaceOrchestrationTab() {
         }
       }
     },
-    [load]
+    [loadPairing]
   );
 
   const submitLink = useCallback(
@@ -430,42 +242,54 @@ export default function TinyPlaceOrchestrationTab() {
     [linkAgentId, runPairingAction]
   );
 
+  const refreshAll = useCallback(() => {
+    void refresh();
+    void loadPairing();
+  }, [refresh, loadPairing]);
+
+  const submitComposer = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const body = composerBody.trim();
+      if (!body || sending) return;
+      setSending(true);
+      void sendMaster(body).then(ok => {
+        if (!mountedRef.current) return;
+        if (ok) setComposerBody('');
+        setSending(false);
+      });
+    },
+    [composerBody, sending, sendMaster]
+  );
+
   useEffect(() => {
     mountedRef.current = true;
-    const handle = window.setTimeout(() => void load(), 0);
+    const handle = window.setTimeout(() => void loadPairing(), 0);
     return () => {
       window.clearTimeout(handle);
       mountedRef.current = false;
     };
-  }, [load]);
+  }, [loadPairing]);
 
-  const chats = useMemo(
-    () => (state.status === 'ok' ? buildChats(state.data, t) : emptyPinnedChats(t)),
-    [state, t]
-  );
-
-  const resolvedSelectedId = chats.some(chat => chat.id === selectedId)
-    ? selectedId
-    : (chats[0]?.id ?? 'pinned:master');
-  const selected = chats.find(chat => chat.id === resolvedSelectedId) ?? chats[0];
   const pinned = chats.filter(chat => chat.pinned);
   const sessions = chats
     .filter(chat => !chat.pinned)
-    .sort(
-      (a, b) =>
-        Number(b.active) - Number(a.active) || messageTimeFromChat(b) - messageTimeFromChat(a)
-    );
-  const contactData = state.status === 'ok' ? state.data : null;
+    .sort((a, b) => Number(b.active) - Number(a.active) || chatTime(b) - chatTime(a));
+
+  const pairingSnapshot = pairingState.status === 'ok' ? pairingState.snapshot : null;
   const acceptedContacts = useMemo(
-    () => acceptedContactIds(contactData?.pairing.contacts.contacts ?? []),
-    [contactData?.pairing.contacts.contacts]
+    () => acceptedContactIds(pairingSnapshot?.contacts.contacts ?? []),
+    [pairingSnapshot?.contacts.contacts]
   );
   const pendingContacts = useMemo(
-    () => pendingContactIds(contactData?.pairing.requests ?? { incoming: [], outgoing: [] }),
-    [contactData?.pairing.requests]
+    () => pendingContactIds(pairingSnapshot?.requests ?? { incoming: [], outgoing: [] }),
+    [pairingSnapshot?.requests]
   );
-  const incomingRequests = contactData?.pairing.requests.incoming ?? [];
-  const contactStats = contactData?.pairing.stats ?? null;
+  const incomingRequests = pairingSnapshot?.requests.incoming ?? [];
+  const contactStats = pairingSnapshot?.stats ?? null;
+
+  const steeringText = status?.steering?.text?.trim() || null;
+  const isMasterSelected = selected?.id === MASTER_CHAT_KEY;
 
   return (
     <div className="flex min-h-[620px] overflow-hidden rounded-xl border border-line bg-surface shadow-soft">
@@ -483,12 +307,22 @@ export default function TinyPlaceOrchestrationTab() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => void load()}
+              onClick={refreshAll}
               aria-label={t('tinyplaceOrchestration.refresh')}
-              disabled={state.status === 'loading'}>
+              disabled={sessionsState.status === 'loading'}>
               {t('tinyplaceOrchestration.refresh')}
             </Button>
           </div>
+          {steeringText ? (
+            <div
+              data-testid="tinyplace-steering-chip"
+              className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+              <span className="flex-none font-semibold uppercase tracking-wide">
+                {t('tinyplaceOrchestration.steering.label')}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{truncate(steeringText, 72)}</span>
+            </div>
+          ) : null}
         </div>
 
         <section className="border-b border-line px-4 py-3">
@@ -525,7 +359,7 @@ export default function TinyPlaceOrchestrationTab() {
             </span>
             <span className="rounded-full bg-surface-strong px-2 py-0.5">
               {t('tinyplaceOrchestration.pairing.outgoing')}:{' '}
-              {contactData?.pairing.requests.outgoing.length ?? 0}
+              {pairingSnapshot?.requests.outgoing.length ?? 0}
             </span>
           </div>
 
@@ -596,10 +430,10 @@ export default function TinyPlaceOrchestrationTab() {
                 <ChatListButton
                   key={chat.id}
                   chat={chat}
-                  selected={selected?.id === chat.id}
+                  selected={selectedId === chat.id}
                   onSelect={() => {
                     debug('[tinyplace-orchestration] open pinned id=%s', chat.id);
-                    setSelectedId(chat.id);
+                    selectChat(chat.id);
                   }}
                 />
               ))}
@@ -620,11 +454,11 @@ export default function TinyPlaceOrchestrationTab() {
                   <ChatListButton
                     key={chat.id}
                     chat={chat}
-                    selected={selected?.id === chat.id}
+                    selected={selectedId === chat.id}
                     contactBadge={contactBadgeKey(chat, acceptedContacts, pendingContacts)}
                     onSelect={() => {
                       debug('[tinyplace-orchestration] open session id=%s', chat.id);
-                      setSelectedId(chat.id);
+                      selectChat(chat.id);
                     }}
                   />
                 ))}
@@ -654,20 +488,36 @@ export default function TinyPlaceOrchestrationTab() {
           ) : null}
         </div>
 
-        {state.status === 'loading' ? (
+        {sessionsState.status === 'loading' ? (
           <div className="flex flex-1 items-center justify-center text-sm text-content-muted">
             {t('tinyplaceOrchestration.loading')}
           </div>
-        ) : state.status === 'payment_required' ? (
+        ) : sessionsState.status === 'payment_required' ? (
           <div className="flex flex-1 items-center justify-center text-sm text-amber-600 dark:text-amber-300">
             {t('tinyplaceOrchestration.paymentRequired')}
           </div>
-        ) : state.status === 'error' ? (
+        ) : sessionsState.status === 'error' ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-coral-600 dark:text-coral-300">
             <p>
-              {t('tinyplaceOrchestration.failedToLoad')}: {state.message}
+              {t('tinyplaceOrchestration.failedToLoad')}: {sessionsState.message}
             </p>
-            <Button variant="secondary" size="sm" onClick={() => void load()}>
+            <Button variant="secondary" size="sm" onClick={() => void refresh()}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        ) : messagesState.status === 'loading' ? (
+          <div className="flex flex-1 items-center justify-center text-sm text-content-muted">
+            {t('tinyplaceOrchestration.loading')}
+          </div>
+        ) : messagesState.status === 'error' ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-coral-600 dark:text-coral-300">
+            <p>
+              {t('tinyplaceOrchestration.failedToLoad')}: {messagesState.message}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => selected && selectChat(selected.id)}>
               {t('common.retry')}
             </Button>
           </div>
@@ -684,12 +534,41 @@ export default function TinyPlaceOrchestrationTab() {
             {t('tinyplaceOrchestration.noMessages')}
           </div>
         )}
+
+        {isMasterSelected && sessionsState.status === 'ok' ? (
+          <form
+            className="flex flex-col gap-2 border-t border-line px-5 py-3"
+            onSubmit={submitComposer}>
+            {masterError ? (
+              <p className="rounded-md bg-coral-50 px-2 py-1 text-xs text-coral-700 dark:bg-coral-500/10 dark:text-coral-300">
+                {t('tinyplaceOrchestration.composer.sendFailed')}: {masterError}
+              </p>
+            ) : null}
+            <div className="flex gap-2">
+              <input
+                data-testid="tinyplace-master-composer-input"
+                value={composerBody}
+                onChange={event => setComposerBody(event.target.value)}
+                placeholder={t('tinyplaceOrchestration.composer.placeholder')}
+                className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-content outline-none transition focus:border-ocean-500 focus:ring-2 focus:ring-ocean-500/20"
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                data-testid="tinyplace-master-composer-send"
+                disabled={!composerBody.trim() || sending}>
+                {t('tinyplaceOrchestration.composer.send')}
+              </Button>
+            </div>
+          </form>
+        ) : null}
       </main>
     </div>
   );
 }
 
-function messageTimeFromChat(chat: ChatWindow): number {
+function chatTime(chat: ChatWindow): number {
   if (!chat.lastTimestamp) return 0;
   const parsed = Date.parse(chat.lastTimestamp);
   return Number.isFinite(parsed) ? parsed : 0;

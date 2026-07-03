@@ -352,6 +352,10 @@ fn build_internal_only_controllers() -> Vec<RegisteredController> {
     // User-consented tiny.place pairing for wrapped agent sessions: UI-callable
     // via core_rpc_relay, but excluded from agent tool listings/schema discovery.
     controllers.extend(crate::openhuman::agent_orchestration::all_pairing_registered_controllers());
+    // Orchestration read surface (stage 7): the TinyPlaceOrchestrationTab reads
+    // sessions/messages, sends Master steering DMs, marks read, and polls status.
+    // Renderer-only — not advertised to agents.
+    controllers.extend(crate::openhuman::orchestration::all_registered_controllers());
     controllers
 }
 
@@ -588,6 +592,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         ),
         "orchestration_pairing" => Some(
             "User-consented tiny.place contact pairing for wrapped agent sessions.",
+        ),
+        "orchestration" => Some(
+            "Subconscious-orchestration read surface: chat windows (master/subconscious/per-session), message history, Master steering DMs, read state, and steering status.",
         ),
         "billing" => Some("Subscription plan, payment links, and credit top-up via the backend."),
         "announcements" => {

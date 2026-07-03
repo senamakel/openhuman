@@ -4,11 +4,38 @@
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
+use once_cell::sync::Lazy;
+use tokio::sync::broadcast;
 
 use crate::core::event_bus::{subscribe_global, DomainEvent, EventHandler, SubscriptionHandle};
 
 static INGEST_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 static WAKE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
+
+/// Broadcast bus of orchestration chat activity for the renderer socket bridge
+/// (stage 7). Each message is a `{ agentId, sessionId, chatKind }` payload the
+/// `core/socketio.rs` bridge re-emits as `orchestration:message` so the
+/// `TinyPlaceOrchestrationTab` can targeted-refetch the affected chat live.
+static ORCH_SOCKET_BUS: Lazy<broadcast::Sender<serde_json::Value>> = Lazy::new(|| {
+    let (tx, _rx) = broadcast::channel(128);
+    tx
+});
+
+/// Subscribe to orchestration socket activity. Used by the Socket.IO bridge.
+pub fn subscribe_orchestration_socket() -> broadcast::Receiver<serde_json::Value> {
+    ORCH_SOCKET_BUS.subscribe()
+}
+
+/// Fan an orchestration chat activity event out to the renderer socket bridge.
+pub fn notify_orchestration_message(agent_id: &str, session_id: &str, chat_kind: &str) {
+    let payload = serde_json::json!({
+        "agentId": agent_id,
+        "sessionId": session_id,
+        "chatKind": chat_kind,
+    });
+    // No subscribers (headless / cron) is fine — drop silently.
+    let _ = ORCH_SOCKET_BUS.send(payload);
+}
 
 /// Register the orchestration ingest subscriber on the global event bus.
 pub fn register_orchestration_ingest_subscriber() {
@@ -98,6 +125,9 @@ impl EventHandler for OrchestrationWakeSubscriber {
         else {
             return;
         };
+        // Live UI: fan every persisted chat message out to the renderer socket
+        // (all kinds — session, master, subconscious) before the wake gating.
+        notify_orchestration_message(agent_id, session_id, chat_kind);
         super::ops::schedule_wake(agent_id.clone(), session_id.clone(), chat_kind.clone()).await;
     }
 }

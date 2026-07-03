@@ -173,6 +173,124 @@ pub fn count_messages(conn: &Connection, agent_id: &str, session_id: &str) -> Re
     )?)
 }
 
+/// List every persisted session row, newest activity first (stage-7 read surface).
+pub fn list_sessions(conn: &Connection) -> Result<Vec<OrchestrationSession>> {
+    let mut stmt = conn.prepare(
+        "SELECT session_id, agent_id, source, label, workspace, last_seq, created_at, last_message_at
+           FROM sessions ORDER BY last_message_at DESC",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(OrchestrationSession {
+                session_id: row.get(0)?,
+                agent_id: row.get(1)?,
+                source: row.get(2)?,
+                label: row.get(3)?,
+                workspace: row.get(4)?,
+                last_seq: row.get(5)?,
+                created_at: row.get(6)?,
+                last_message_at: row.get(7)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// List messages for a chat keyed by `session_id` alone (so the pinned `master` /
+/// `subconscious` windows aggregate across peers). Newest `limit` returned in
+/// chronological order; `before` (exclusive timestamp) pages backwards.
+pub fn list_messages_by_session(
+    conn: &Connection,
+    session_id: &str,
+    limit: u32,
+    before: Option<&str>,
+) -> Result<Vec<OrchestrationMessage>> {
+    let rows = match before {
+        Some(before) => {
+            let mut stmt = conn.prepare(
+                "SELECT id, agent_id, session_id, chat_kind, role, body, timestamp, seq
+                   FROM messages WHERE session_id = ?1 AND timestamp < ?2
+                   ORDER BY timestamp DESC, seq DESC LIMIT ?3",
+            )?;
+            let rows = stmt
+                .query_map(params![session_id, before, limit], map_message_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            rows
+        }
+        None => {
+            let mut stmt = conn.prepare(
+                "SELECT id, agent_id, session_id, chat_kind, role, body, timestamp, seq
+                   FROM messages WHERE session_id = ?1
+                   ORDER BY timestamp DESC, seq DESC LIMIT ?2",
+            )?;
+            let rows = stmt
+                .query_map(params![session_id, limit], map_message_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            rows
+        }
+    };
+    Ok(rows.into_iter().rev().collect())
+}
+
+/// Row → [`OrchestrationMessage`] mapper (a free fn so it is `Copy` and can be
+/// reused across the two `query_map` arms without a borrow-lifetime tangle).
+fn map_message_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<OrchestrationMessage> {
+    let chat_kind: String = row.get(3)?;
+    Ok(OrchestrationMessage {
+        id: row.get(0)?,
+        agent_id: row.get(1)?,
+        session_id: row.get(2)?,
+        chat_kind: crate::openhuman::orchestration::types::ChatKind::from_str(&chat_kind),
+        role: row.get(4)?,
+        body: row.get(5)?,
+        timestamp: row.get(6)?,
+        seq: row.get(7)?,
+    })
+}
+
+/// Count unread messages for a chat: rows with `timestamp` after the read cursor.
+pub fn unread_count(conn: &Connection, session_id: &str) -> Result<i64> {
+    let cursor = kv_get(conn, &read_cursor_key(session_id))?.unwrap_or_default();
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM messages WHERE session_id = ?1 AND timestamp > ?2",
+        params![session_id, cursor],
+        |row| row.get(0),
+    )?)
+}
+
+/// Advance a chat's read cursor to its newest message timestamp (mark-read).
+pub fn mark_chat_read(conn: &Connection, session_id: &str) -> Result<()> {
+    let latest: Option<String> = conn
+        .query_row(
+            "SELECT MAX(timestamp) FROM messages WHERE session_id = ?1",
+            params![session_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .flatten();
+    if let Some(latest) = latest {
+        kv_set(conn, &read_cursor_key(session_id), &latest)?;
+    }
+    Ok(())
+}
+
+/// The agent_id of the most recent `master`-window message — the default
+/// recipient when the human sends a Master steering DM.
+pub fn latest_master_peer(conn: &Connection) -> Result<Option<String>> {
+    conn.query_row(
+        "SELECT agent_id FROM messages WHERE session_id = 'master'
+           ORDER BY timestamp DESC, seq DESC LIMIT 1",
+        [],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
+fn read_cursor_key(session_id: &str) -> String {
+    format!("read:{session_id}")
+}
+
 /// Load a single session row (the wake graph's counterpart + metadata).
 pub fn load_session(
     conn: &Connection,
@@ -628,6 +746,55 @@ mod tests {
             let after = list_unreviewed_compressed(conn, &review_cursor(conn)?, 10)?;
             assert_eq!(after.len(), 1, "only the newer row remains unreviewed");
             assert_eq!(after[0].1, "s2");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn read_surface_lists_sessions_messages_and_tracks_unread() {
+        let tmp = tempfile::tempdir().unwrap();
+        with_connection(tmp.path(), |conn| {
+            // Two sessions: a harness session and the pinned master window.
+            upsert_session(conn, &session("@peer", "h1", 2))?;
+            insert_message(conn, &msg("m1", "@peer", "h1", 1))?;
+            let mut m2 = msg("m2", "@peer", "h1", 2);
+            m2.timestamp = "2026-07-02T00:05:00Z".into();
+            insert_message(conn, &m2)?;
+
+            // list_sessions returns the row; messages come back chronologically.
+            let sessions = list_sessions(conn)?;
+            assert_eq!(sessions.len(), 1);
+            assert_eq!(sessions[0].session_id, "h1");
+            let msgs = list_messages_by_session(conn, "h1", 100, None)?;
+            assert_eq!(
+                msgs.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+                vec!["m1", "m2"]
+            );
+
+            // Both messages are unread until we mark the chat read.
+            assert_eq!(unread_count(conn, "h1")?, 2);
+            mark_chat_read(conn, "h1")?;
+            assert_eq!(unread_count(conn, "h1")?, 0);
+
+            // `before` pages backwards (exclusive).
+            let older = list_messages_by_session(conn, "h1", 100, Some("2026-07-02T00:05:00Z"))?;
+            assert_eq!(older.len(), 1);
+            assert_eq!(older[0].id, "m1");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn latest_master_peer_resolves_the_send_recipient() {
+        let tmp = tempfile::tempdir().unwrap();
+        with_connection(tmp.path(), |conn| {
+            assert!(latest_master_peer(conn)?.is_none());
+            let mut master = msg("mm", "@owner-agent", "master", 0);
+            master.chat_kind = ChatKind::Master;
+            insert_message(conn, &master)?;
+            assert_eq!(latest_master_peer(conn)?.as_deref(), Some("@owner-agent"));
             Ok(())
         })
         .unwrap();

@@ -16,13 +16,18 @@ pub mod graph;
 pub mod ingest;
 pub mod ops;
 pub mod reasoning_agent;
+pub mod schemas;
 pub mod steering;
 pub mod store;
 pub mod tools;
 pub mod types;
 
-pub use bus::{register_orchestration_ingest_subscriber, register_orchestration_wake_subscriber};
+pub use bus::{
+    notify_orchestration_message, register_orchestration_ingest_subscriber,
+    register_orchestration_wake_subscriber, subscribe_orchestration_socket,
+};
 pub use graph::{
     build_orchestration_graph, orchestration_graph_topology, run_orchestration_graph,
     OrchestrationState,
 };
+pub use schemas::{all_controller_schemas, all_registered_controllers};

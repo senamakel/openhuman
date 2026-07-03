@@ -74,6 +74,20 @@ const SCHEMA_DDL: &str = "
 
     CREATE INDEX IF NOT EXISTS idx_world_diff_session
         ON world_diff (agent_id, session_id, seq);
+
+    -- Stage 6: append-only subconscious steering directives. 'Current' directive
+    -- is the latest row with superseded_by IS NULL that has not expired
+    -- (created_cycle + expires_after_cycles > current cycle). Never rewritten.
+    CREATE TABLE IF NOT EXISTS steering_directives (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        text                TEXT NOT NULL,
+        created_at          TEXT NOT NULL,
+        source_tick_id      TEXT NOT NULL,
+        expires_after_cycles INTEGER NOT NULL,
+        created_cycle       INTEGER NOT NULL,
+        derived_from        TEXT NOT NULL,
+        superseded_by       INTEGER
+    );
 ";
 
 /// Open the orchestration DB, initialise the schema, and run `f`.
@@ -324,6 +338,136 @@ pub fn world_diff_seqs(conn: &Connection, agent_id: &str, session_id: &str) -> R
     Ok(rows)
 }
 
+// ── Stage 6: steering directives + review cursor ────────────────────────────
+
+use super::steering::SteeringDirective;
+
+/// Kv key: the global reasoning-cycle counter (bumped once per wake cycle).
+const CYCLE_COUNTER_KEY: &str = "orchestration:cycle";
+/// Kv key: the `created_at` high-water mark of reviewed compressed-history rows.
+const REVIEW_CURSOR_KEY: &str = "steering:reviewed_at";
+
+/// Bump and return the global reasoning-cycle counter. Called once per wake cycle
+/// so steering-directive expiry can be measured in cycles.
+pub fn bump_cycle_counter(conn: &Connection) -> Result<i64> {
+    let current: i64 = kv_get(conn, CYCLE_COUNTER_KEY)?
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+    let next = current + 1;
+    kv_set(conn, CYCLE_COUNTER_KEY, &next.to_string())?;
+    Ok(next)
+}
+
+/// The current reasoning-cycle counter (read-only; used at directive creation).
+pub fn current_cycle_counter(conn: &Connection) -> Result<i64> {
+    Ok(kv_get(conn, CYCLE_COUNTER_KEY)?
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0))
+}
+
+/// The review cursor: the highest compressed-history `created_at` already folded
+/// into a steering tick (empty string until the first review).
+pub fn review_cursor(conn: &Connection) -> Result<String> {
+    Ok(kv_get(conn, REVIEW_CURSOR_KEY)?.unwrap_or_default())
+}
+
+/// Advance the review cursor (idempotent — only after a successful persist).
+pub fn set_review_cursor(conn: &Connection, created_at: &str) -> Result<()> {
+    kv_set(conn, REVIEW_CURSOR_KEY, created_at)
+}
+
+/// Compressed-history rows not yet reviewed (created_at > cursor), oldest-first,
+/// bounded. Returns `(created_at, text)`.
+pub fn list_unreviewed_compressed(
+    conn: &Connection,
+    since_created_at: &str,
+    limit: u32,
+) -> Result<Vec<(String, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT created_at, text FROM compressed_history
+           WHERE created_at > ?1 ORDER BY created_at ASC LIMIT ?2",
+    )?;
+    let rows = stmt
+        .query_map(params![since_created_at, limit], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// The most recent world-diff mutations across all sessions (the cumulative
+/// timeline), oldest-first within the returned window.
+pub fn list_recent_world_mutations(conn: &Connection, limit: u32) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT world_mutation FROM world_diff ORDER BY timestamp DESC, seq DESC LIMIT ?1",
+    )?;
+    let rows = stmt
+        .query_map(params![limit], |r| r.get::<_, String>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows.into_iter().rev().collect())
+}
+
+/// Append a steering directive, superseding the prior current directive. Returns
+/// the new directive's id.
+pub fn insert_steering_directive(
+    conn: &Connection,
+    text: &str,
+    created_at: &str,
+    source_tick_id: &str,
+    expires_after_cycles: u32,
+    created_cycle: i64,
+    derived_from: &str,
+) -> Result<i64> {
+    conn.execute(
+        "INSERT INTO steering_directives
+           (text, created_at, source_tick_id, expires_after_cycles, created_cycle, derived_from)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            text,
+            created_at,
+            source_tick_id,
+            expires_after_cycles,
+            created_cycle,
+            derived_from
+        ],
+    )?;
+    let new_id = conn.last_insert_rowid();
+    // Supersede every prior still-current directive so 'current' is unambiguous.
+    conn.execute(
+        "UPDATE steering_directives SET superseded_by = ?1
+           WHERE superseded_by IS NULL AND id <> ?1",
+        params![new_id],
+    )?;
+    Ok(new_id)
+}
+
+/// The current directive: the latest non-superseded row that has not expired at
+/// `current_cycle` (`created_cycle + expires_after_cycles > current_cycle`).
+pub fn current_steering_directive(
+    conn: &Connection,
+    current_cycle: i64,
+) -> Result<Option<SteeringDirective>> {
+    conn.query_row(
+        "SELECT id, text, created_at, expires_after_cycles, created_cycle
+           FROM steering_directives
+           WHERE superseded_by IS NULL
+             AND (created_cycle + expires_after_cycles) > ?1
+           ORDER BY id DESC LIMIT 1",
+        params![current_cycle],
+        |row| {
+            Ok(SteeringDirective {
+                id: row.get(0)?,
+                text: row.get(1)?,
+                created_at: row.get(2)?,
+                expires_after_cycles: row.get::<_, i64>(3)? as u32,
+                created_cycle: row.get(4)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
 /// Read a `kv` value (used for the per-session idempotence cursor).
 pub fn kv_get(conn: &Connection, key: &str) -> Result<Option<String>> {
     conn.query_row("SELECT v FROM kv WHERE k = ?1", params![key], |r| r.get(0))
@@ -414,6 +558,76 @@ mod tests {
                 kv_get(conn, "terminal_state:@a:h1")?.as_deref(),
                 Some("world v2")
             );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn steering_supersede_chain_and_expiry_by_cycle_count() {
+        let tmp = tempfile::tempdir().unwrap();
+        with_connection(tmp.path(), |conn| {
+            // Directive A created at cycle 5, expires after 10 → valid until 15.
+            let a = insert_steering_directive(conn, "A", "t1", "tick1", 10, 5, "rows:1-2")?;
+            let cur = current_steering_directive(conn, 6)?.expect("current at cycle 6");
+            assert_eq!(cur.id, a);
+            assert_eq!(cur.text, "A");
+
+            // Directive B supersedes A. Now B is current, A is superseded.
+            let b = insert_steering_directive(conn, "B", "t2", "tick2", 10, 8, "rows:3")?;
+            let cur = current_steering_directive(conn, 9)?.expect("current at cycle 9");
+            assert_eq!(cur.id, b, "newest non-superseded directive wins");
+
+            // B (created cycle 8, expires 10) is expired once cycle ≥ 18.
+            assert!(
+                current_steering_directive(conn, 17)?.is_some(),
+                "still valid at 17"
+            );
+            assert!(
+                current_steering_directive(conn, 18)?.is_none(),
+                "expired at 18"
+            );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn cycle_counter_bumps_and_review_cursor_advances() {
+        let tmp = tempfile::tempdir().unwrap();
+        with_connection(tmp.path(), |conn| {
+            assert_eq!(current_cycle_counter(conn)?, 0);
+            assert_eq!(bump_cycle_counter(conn)?, 1);
+            assert_eq!(bump_cycle_counter(conn)?, 2);
+            assert_eq!(current_cycle_counter(conn)?, 2);
+
+            assert_eq!(review_cursor(conn)?, "");
+            insert_compressed(
+                conn,
+                "h1#1",
+                "h1",
+                "@a",
+                100,
+                5,
+                "s1",
+                "2026-07-02T00:00:01Z",
+            )?;
+            insert_compressed(
+                conn,
+                "h1#2",
+                "h1",
+                "@a",
+                100,
+                5,
+                "s2",
+                "2026-07-02T00:00:02Z",
+            )?;
+            let unreviewed = list_unreviewed_compressed(conn, "", 10)?;
+            assert_eq!(unreviewed.len(), 2);
+            set_review_cursor(conn, "2026-07-02T00:00:01Z")?;
+            let after = list_unreviewed_compressed(conn, &review_cursor(conn)?, 10)?;
+            assert_eq!(after.len(), 1, "only the newer row remains unreviewed");
+            assert_eq!(after[0].1, "s2");
             Ok(())
         })
         .unwrap();

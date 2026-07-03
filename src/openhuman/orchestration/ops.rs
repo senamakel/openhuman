@@ -25,12 +25,24 @@ use super::graph::{
     run_orchestration_graph, world_diff, CompressedEntry, EvictionOutcome, ExecuteOutcome,
     OrchestrationRuntime, OrchestrationState, WorldDiffEntry,
 };
+use super::steering::{
+    build_steering_prompt, is_explicit_none, parse_steering_output, ParsedSteering,
+};
 use super::store;
-use super::types::ChatKind;
+use super::types::{ChatKind, OrchestrationMessage, OrchestrationSession};
 
 /// Assumed model context window (tokens) for the `context_guard` utilization
 /// estimate until per-model resolution is wired. Sized to the reasoning tier.
 const ASSUMED_CONTEXT_WINDOW: u64 = 200_000;
+
+/// The pinned local "Subconscious" chat window session id (UI only, stage 7).
+const SUBCONSCIOUS_SESSION: &str = "subconscious";
+/// System prompt for the offline steering-synthesis call (tool-free by design).
+const STEERING_SYNTH_SYSTEM: &str =
+    "You are an offline subconscious. You never take actions and never contact anyone. Follow the \
+     output contract EXACTLY.";
+/// Bounded batch of unreviewed compressed rows / world mutations per review.
+const REVIEW_BATCH: u32 = 20;
 
 const LOG: &str = "orchestration";
 
@@ -118,11 +130,17 @@ pub fn seed_state(
         if messages.is_empty() {
             return Ok(None);
         }
-        Ok(Some(OrchestrationState::seed(
-            session_id.to_string(),
-            agent_id.to_string(),
-            messages,
-        )))
+        let mut state =
+            OrchestrationState::seed(session_id.to_string(), agent_id.to_string(), messages);
+        // Out-of-band writer pattern (spec §6): bump the global reasoning-cycle
+        // counter and load the current (non-expired) subconscious steering
+        // directive into state at cycle start — the reasoning `execute` node then
+        // weaves it into its prompt. The subconscious never edges into the graph.
+        let cycle = store::bump_cycle_counter(conn)?;
+        state.subconscious_steering = store::current_steering_directive(conn, cycle)?
+            .map(|d| d.text)
+            .filter(|t| !t.trim().is_empty());
+        Ok(Some(state))
     })
     .map_err(|e| format!("seed_state: {e}"))
 }
@@ -151,6 +169,201 @@ fn advance_cursor(config: &Config, agent_id: &str, session_id: &str, latest: i64
     }) {
         log::warn!(target: LOG, "[orchestration] cursor.advance_failed session={session_id}: {e}");
     }
+}
+
+// ── Stage 6: subconscious orchestration review ──────────────────────────────
+
+/// The subconscious tick's `orchestration_review` stage (stage 6): reflect over
+/// the orchestration layer's unreviewed compressed history + cumulative
+/// world-diff timeline and, if a macro-trend warrants it, emit **one** steering
+/// directive that later reasoning cycles inject into their prompt.
+///
+/// Fully offline: a single **tool-free** provider chat on the `subconscious`
+/// route (structurally isolated — no channel/effect tools reachable). Self-gating
+/// (no-op when orchestration is disabled or there is nothing new to review) and
+/// idempotent (advances a review cursor only after a successful persist). Returns
+/// `Ok(true)` when a directive was emitted.
+pub async fn run_orchestration_review(
+    config: &Config,
+    source_tick_id: &str,
+) -> Result<bool, String> {
+    if !config.orchestration.enabled {
+        return Ok(false);
+    }
+
+    // 1. Load unreviewed compressed history + the cumulative world-diff timeline.
+    let (compressed, mutations, current_cycle) =
+        store::with_connection(&config.workspace_dir, |conn| {
+            let cursor = store::review_cursor(conn)?;
+            let compressed = store::list_unreviewed_compressed(conn, &cursor, REVIEW_BATCH)?;
+            let mutations = store::list_recent_world_mutations(conn, REVIEW_BATCH)?;
+            let cycle = store::current_cycle_counter(conn)?;
+            Ok((compressed, mutations, cycle))
+        })
+        .map_err(|e| format!("review load: {e}"))?;
+
+    // Idempotence trigger: a review fires only on **new** compressed history
+    // since the cursor. Compressed rows are written every cycle alongside the
+    // world diff, so this makes a re-tick with no new data a clean no-op while
+    // still handing the model the full cumulative world timeline for context.
+    if compressed.is_empty() {
+        log::debug!(target: LOG, "[orchestration] review.idle — no new compressed history");
+        return Ok(false);
+    }
+    let newest_reviewed = compressed.iter().map(|(c, _)| c.clone()).max();
+    let summaries: Vec<String> = compressed.iter().map(|(_, t)| t.clone()).collect();
+
+    // 2. Synthesize offline (tool-free chat, tainted origin). Retry once on a
+    //    contract violation; a clean NONE is a valid idle response.
+    let prompt = build_steering_prompt(&summaries, &mutations);
+    let parsed = synthesize_steering(config, &prompt, source_tick_id).await;
+
+    let Some(parsed) = parsed else {
+        // No directive this window (idle, NONE, or twice-failed). Advance the
+        // cursor so we don't reflect on the same rows forever — a transient model
+        // failure simply yields no directive for this batch.
+        if let Some(newest) = newest_reviewed {
+            let _ = store::with_connection(&config.workspace_dir, |conn| {
+                store::set_review_cursor(conn, &newest)
+            });
+        }
+        return Ok(false);
+    };
+
+    // 3. Persist the directive (superseding the prior), advance the cursor, and
+    //    surface it in the local Subconscious chat window.
+    let now = chrono::Utc::now().to_rfc3339();
+    let derived_from = format!(
+        "compressed_rows:{} world_mutations:{}",
+        compressed.len(),
+        mutations.len()
+    );
+    let directive_id = store::with_connection(&config.workspace_dir, |conn| {
+        let id = store::insert_steering_directive(
+            conn,
+            &parsed.text,
+            &now,
+            source_tick_id,
+            parsed.expires_after_cycles,
+            current_cycle,
+            &derived_from,
+        )?;
+        if let Some(newest) = &newest_reviewed {
+            store::set_review_cursor(conn, newest)?;
+        }
+        Ok(id)
+    })
+    .map_err(|e| format!("review persist: {e}"))?;
+
+    record_subconscious_directive(config, directive_id, &parsed.text).await;
+    log::info!(
+        target: LOG,
+        "[orchestration] review.directive_emitted id={directive_id} expires_after={} derived={derived_from}",
+        parsed.expires_after_cycles,
+    );
+    Ok(true)
+}
+
+/// Run the offline steering synthesis: a single tool-free chat on the
+/// `subconscious` provider route under the `SubconsciousTainted` origin. Retries
+/// once on a contract violation; returns `None` on a clean NONE or twice-failed.
+async fn synthesize_steering(
+    config: &Config,
+    prompt: &str,
+    tick_id: &str,
+) -> Option<ParsedSteering> {
+    use crate::openhuman::agent::turn_origin::{
+        with_origin, AgentTurnOrigin, TrustedAutomationSource,
+    };
+    use crate::openhuman::inference::provider::create_chat_provider;
+
+    for attempt in 1..=2 {
+        let (provider, model) = match create_chat_provider("subconscious", config) {
+            Ok(pm) => pm,
+            Err(e) => {
+                log::warn!(target: LOG, "[orchestration] review.provider_unavailable: {e}");
+                return None;
+            }
+        };
+        let origin = AgentTurnOrigin::TrustedAutomation {
+            job_id: tick_id.to_string(),
+            source: TrustedAutomationSource::SubconsciousTainted,
+        };
+        match with_origin(
+            origin,
+            provider.chat_with_system(Some(STEERING_SYNTH_SYSTEM), prompt, &model, 0.3),
+        )
+        .await
+        {
+            Ok(text) => {
+                if let Some(parsed) = parse_steering_output(&text) {
+                    return Some(parsed);
+                }
+                if is_explicit_none(&text) {
+                    return None; // valid idle response — do not retry
+                }
+                log::warn!(
+                    target: LOG,
+                    "[orchestration] review.contract_violation attempt={attempt}",
+                );
+                if attempt == 2 {
+                    return None;
+                }
+            }
+            Err(e) => {
+                log::warn!(target: LOG, "[orchestration] review.synth_failed attempt={attempt}: {e}");
+                if attempt == 2 {
+                    return None;
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Persist an emitted directive into the local Subconscious chat window and
+/// publish it for the live UI (stage 7). No outbound tiny.place effect: the wake
+/// subscriber ignores `Subconscious` chat-kind events.
+pub async fn record_subconscious_directive(config: &Config, directive_id: i64, text: &str) {
+    let now = chrono::Utc::now().to_rfc3339();
+    if let Err(e) = store::with_connection(&config.workspace_dir, |conn| {
+        store::upsert_session(
+            conn,
+            &OrchestrationSession {
+                session_id: SUBCONSCIOUS_SESSION.to_string(),
+                agent_id: SUBCONSCIOUS_SESSION.to_string(),
+                source: "subconscious".to_string(),
+                label: None,
+                workspace: None,
+                last_seq: directive_id,
+                created_at: now.clone(),
+                last_message_at: now.clone(),
+            },
+        )?;
+        store::insert_message(
+            conn,
+            &OrchestrationMessage {
+                id: format!("steering:{directive_id}"),
+                agent_id: SUBCONSCIOUS_SESSION.to_string(),
+                session_id: SUBCONSCIOUS_SESSION.to_string(),
+                chat_kind: ChatKind::Subconscious,
+                role: "subconscious".to_string(),
+                body: text.to_string(),
+                timestamp: now.clone(),
+                seq: directive_id,
+            },
+        )
+    }) {
+        log::warn!(target: LOG, "[orchestration] review.window_persist_failed: {e}");
+    }
+
+    crate::core::event_bus::publish_global(
+        crate::core::event_bus::DomainEvent::OrchestrationSessionMessage {
+            agent_id: SUBCONSCIOUS_SESSION.to_string(),
+            session_id: SUBCONSCIOUS_SESSION.to_string(),
+            chat_kind: ChatKind::Subconscious.as_str().to_string(),
+        },
+    );
 }
 
 /// Build the production node set and drive one wake cycle. Skips (no LLM, no DM)
@@ -654,5 +867,167 @@ mod tests {
         let cp = SqlRunLedgerCheckpointer::<OrchestrationState>::new(config);
         let list = cp.list("orchestration:h1").await.expect("list checkpoints");
         assert!(!list.is_empty(), "wake cycle persisted checkpoints");
+    }
+
+    // ── Stage 6: subconscious steering ──────────────────────────────────────
+
+    /// The factory test override (`test_provider_override`) is process-global, so
+    /// the two tests that install a scripted provider must not run concurrently.
+    /// This lock serializes them (poison-tolerant).
+    static PROVIDER_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// A scripted provider so `create_chat_provider` returns a canned steering
+    /// synthesis without any network (the factory test override).
+    struct ScriptedProvider {
+        reply: String,
+    }
+    #[async_trait]
+    impl crate::openhuman::inference::provider::Provider for ScriptedProvider {
+        async fn chat_with_system(
+            &self,
+            _system_prompt: Option<&str>,
+            _message: &str,
+            _model: &str,
+            _temperature: f64,
+        ) -> anyhow::Result<String> {
+            Ok(self.reply.clone())
+        }
+    }
+
+    /// Seed one compressed-history row + one world-diff entry so a review has data.
+    fn seed_orchestration_activity(config: &Config, cycle_tag: &str) {
+        store::with_connection(&config.workspace_dir, |conn| {
+            store::insert_compressed(
+                conn,
+                &format!("h1#{cycle_tag}"),
+                "h1",
+                "@me",
+                400,
+                20,
+                &format!("did work {cycle_tag}"),
+                &format!("2026-07-02T00:0{cycle_tag}:00Z"),
+            )?;
+            store::append_world_diff(
+                conn,
+                &format!("h1#{cycle_tag}"),
+                "h1",
+                "@me",
+                "sig",
+                &format!("world moved {cycle_tag}"),
+                "delta",
+                &format!("2026-07-02T00:0{cycle_tag}:00Z"),
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn review_emits_directive_and_next_cycle_seeds_it_into_state() {
+        let _serial = PROVIDER_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = tempfile::tempdir().unwrap();
+        let config = test_config(&tmp);
+        seed_orchestration_activity(&config, "1");
+
+        let _guard =
+            crate::openhuman::inference::provider::factory::test_provider_override::install(
+                Arc::new(ScriptedProvider {
+                    reply: "STEERING_DIRECTIVE: prioritize the billing migration\n\
+                            expires_after_cycles: 12"
+                        .to_string(),
+                }),
+            );
+
+        // One review over seeded data → exactly one current directive.
+        let emitted = run_orchestration_review(&config, "tick1").await.unwrap();
+        assert!(emitted, "a directive was emitted");
+        store::with_connection(&config.workspace_dir, |conn| {
+            let cur = store::current_steering_directive(conn, 0)?.expect("current directive");
+            assert_eq!(cur.text, "prioritize the billing migration");
+            assert_eq!(cur.expires_after_cycles, 12);
+            Ok(())
+        })
+        .unwrap();
+
+        // The next reasoning cycle loads it into state at cycle start (the seam the
+        // `execute` node reads → reasoning prompt weaves it in, per stage 5).
+        store::with_connection(&config.workspace_dir, |conn| {
+            store::insert_message(conn, &msg("h1", 1))?;
+            Ok(())
+        })
+        .unwrap();
+        let state = seed_state(&config, "@peer", "h1").unwrap().expect("seeded");
+        assert_eq!(
+            state.subconscious_steering.as_deref(),
+            Some("prioritize the billing migration"),
+            "the directive is injected into the next cycle's state"
+        );
+
+        // It also surfaced in the local Subconscious chat window.
+        store::with_connection(&config.workspace_dir, |conn| {
+            assert_eq!(
+                store::count_messages(conn, "subconscious", "subconscious")?,
+                1
+            );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn review_is_idempotent_and_idle_without_new_data() {
+        let _serial = PROVIDER_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = tempfile::tempdir().unwrap();
+        let config = test_config(&tmp);
+
+        // Empty orchestration store → clean no-op, no provider call needed.
+        assert!(!run_orchestration_review(&config, "t0").await.unwrap());
+
+        seed_orchestration_activity(&config, "1");
+        let _guard =
+            crate::openhuman::inference::provider::factory::test_provider_override::install(
+                Arc::new(ScriptedProvider {
+                    reply: "STEERING_DIRECTIVE: do the thing\nexpires_after_cycles: 20".to_string(),
+                }),
+            );
+        assert!(
+            run_orchestration_review(&config, "t1").await.unwrap(),
+            "first emits"
+        );
+        // Re-tick with no new compressed history → idempotent no-op (cursor past it).
+        assert!(
+            !run_orchestration_review(&config, "t2").await.unwrap(),
+            "re-tick without new data emits nothing"
+        );
+        // Still exactly one directive total.
+        store::with_connection(&config.workspace_dir, |conn| {
+            let count: i64 =
+                conn.query_row("SELECT COUNT(*) FROM steering_directives", [], |r| r.get(0))?;
+            assert_eq!(count, 1);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn subconscious_agent_tool_surface_has_no_channel_or_effect_tools() {
+        // Isolation invariant (stage 6): the subconscious never contacts anyone.
+        // Its decide-stage agent must expose no tiny.place / channel outbound
+        // tools; the orchestration_review synthesis is a tool-free provider chat
+        // by construction. Assert the shipped agent definition stays clean.
+        const SUBCONSCIOUS_TOML: &str = include_str!("../subconscious/agent/agent.toml");
+        let def: toml::Value = toml::from_str(SUBCONSCIOUS_TOML).expect("subconscious agent.toml");
+        let tools = def
+            .get("tools")
+            .and_then(|t| t.get("named"))
+            .and_then(|n| n.as_array())
+            .expect("subconscious [tools].named");
+        for t in tools {
+            let name = t.as_str().unwrap_or_default();
+            assert!(
+                !name.starts_with("tinyplace_") && !name.contains("send_message"),
+                "subconscious must not expose channel/outbound tool `{name}`"
+            );
+        }
     }
 }

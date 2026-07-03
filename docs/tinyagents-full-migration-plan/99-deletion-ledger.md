@@ -35,10 +35,25 @@ they land.
       removed. Still live for the tool-call **start** marker `note_tool_call`
       (crate `ToolDelta` has no `tool_name`) and the non-streaming reasoning
       fallback; both must move before deletion)
-- [ ] `inference/provider/reliable.rs` (1215 + 1443 tests) — 02.2
-      (live provider-factory wrapper; TinyAgents retry is held at one attempt
-      until fallback routes, retry events, memory-tree wrappers, and shared
-      classifier exports are replaced)
+- [ ] `inference/provider/reliable.rs` (now 900, was 1215 + 1443 tests) — 02.2
+      PARTIAL: the shared classifier/backoff exports (`is_non_retryable`,
+      `is_rate_limited`, `is_upstream_unhealthy`, `parse_retry_after_ms`,
+      `structured_http_4xx`, `compute_backoff`, etc.) + their unit tests were
+      extracted to `inference/provider/error_classify.rs`; cross-module importers
+      (model.rs, memory_tree, triage, config_rejection, channels) repointed;
+      classifier + reliable + triage + tinyagents suites green (138 passed).
+      RESIDUAL (the actual delete, deliberately NOT forced): `ReliableProvider`
+      is the universal retry/backoff/**model-fallback**/API-key-rotation/
+      **streaming-failover** wrapper applied to every provider in
+      `provider_factory.rs` and used by non-turn callers (memory-tree, channels)
+      that never enter the crate harness. The crate `FallbackPolicy` carries only
+      the hardcoded tier map, not user `config.reliability.model_fallbacks`, so
+      un-wrapping the turn path would silently drop user fallbacks, and a faithful
+      non-turn replacement reconstitutes most of the struct (net-zero) — the only
+      true removal is routing all non-turn provider calls through the crate
+      harness (large, and unverifiable by the mock suite, which never exercises
+      real transient-network retry). Its own header still says "do not delete
+      yet." Gated on that re-architecture.
 - [x] `tinyagents/orchestration.rs::run_parallel_fanout` — 08.1
 - [x] `harness/engine/` (entire dir, 309) — 05.2
 - [ ] `agent/progress_tracing.rs` + tests (1338, if duplicate) — 05.2

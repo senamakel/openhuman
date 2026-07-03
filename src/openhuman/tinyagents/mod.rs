@@ -156,6 +156,20 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
     policy.retry.max_attempts = 1;
+    // Unknown-tool recovery (01.2 / C3): the crate policy owns this end to end —
+    // the `__openhuman_unknown_tool__` sentinel tool + `UnknownToolRewriteMiddleware`
+    // were already deleted. We deliberately keep `ReturnToolError` rather than
+    // `Rewrite { tool_name }`: Rewrite requires a real catch-all target tool (the
+    // deleted sentinel was exactly that) and, when it hits, *silently* executes
+    // that tool and emits `AgentEvent::UnknownToolCall { recovery: "rewrite:.." }`
+    // WITHOUT injecting a tool message. `ReturnToolError` instead injects a
+    // recoverable `unknown tool `<name>` (arguments: ..); valid tools: [..]`
+    // result naming the originally-requested tool. Two live consumers depend on
+    // that message: (1) the #4419 attempted-tool-name UX and (2) the failure
+    // classifier in `agent::hooks::sanitize_tool_output`, which labels the result
+    // `unknown_tool` by matching the "unknown tool" substring. Flipping to Rewrite
+    // would drop both. The original name + args are also preserved verbatim on
+    // `AgentEvent::UnknownToolCall` and projected by `OpenhumanEventBridge`.
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
     // Prompt-prefix protection is always on (issue #4249, 03.2): the
     // `PromptCacheGuardMiddleware` records a `CacheLayoutEvent` whenever volatile

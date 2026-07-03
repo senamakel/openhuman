@@ -514,8 +514,8 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     let mw = assembled.harness.middleware();
     assert_eq!(mw.len(), 13, "lifecycle middleware inventory");
     // Around-tool wraps: approval/security + CLI/RPC-only scope gate (no
-    // builder tool policy on this call).
-    assert_eq!(mw.tool_middleware_len(), 2, "tool middleware inventory");
+    // builder tool policy on this call) + credential scrub (#4453, innermost).
+    assert_eq!(mw.tool_middleware_len(), 3, "tool middleware inventory");
     assert_eq!(mw.model_middleware_len(), 0, "no around-model wraps");
     assert_eq!(
         assembled.harness.policy().limits.max_depth,

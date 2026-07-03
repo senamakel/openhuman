@@ -287,6 +287,18 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: crate::openhuman::subconscious::agent::prompt::build,
         graph_fn: None,
     },
+    BuiltinAgent {
+        id: "frontend_agent",
+        toml: include_str!("../../orchestration/frontend_agent/agent.toml"),
+        prompt_fn: crate::openhuman::orchestration::frontend_agent::prompt::build,
+        graph_fn: crate::openhuman::orchestration::frontend_agent::graph::graph,
+    },
+    BuiltinAgent {
+        id: "reasoning_agent",
+        toml: include_str!("../../orchestration/reasoning_agent/agent.toml"),
+        prompt_fn: crate::openhuman::orchestration::reasoning_agent::prompt::build,
+        graph_fn: crate::openhuman::orchestration::reasoning_agent::graph::graph,
+    },
 ];
 
 /// Parse every entry in [`BUILTINS`] into an [`AgentDefinition`].
@@ -883,6 +895,40 @@ mod tests {
     fn tools_agent_is_registered() {
         let def = find("tools_agent");
         assert!(matches!(def.tools, ToolScope::Wildcard));
+    }
+
+    #[test]
+    fn frontend_agent_is_registered_on_chat_tier_with_decision_tools() {
+        // Quick-tier verification (stage 4): the orchestration front end must
+        // resolve via `hint:chat` (fast, remote for TTFT) and expose exactly the
+        // two domain-owned decision tools the two-pass graph routes on.
+        let def = find("frontend_agent");
+        assert!(
+            matches!(def.model, ModelSpec::Hint(ref h) if h == "chat"),
+            "frontend_agent must run on the quick chat tier, got {:?}",
+            def.model
+        );
+        assert_eq!(def.agent_tier, AgentTier::Chat);
+        match &def.tools {
+            ToolScope::Named(tools) => {
+                for required in ["defer_to_orchestrator", "reply_to_channel"] {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "frontend_agent must expose `{required}`"
+                    );
+                }
+                // No broad surface — it triages and phrases, it does not act.
+                for forbidden in ["shell", "file_write", "spawn_subagent"] {
+                    assert!(
+                        !tools.iter().any(|t| t == forbidden),
+                        "frontend_agent must not expose `{forbidden}`"
+                    );
+                }
+            }
+            ToolScope::Wildcard => panic!("frontend_agent must have a Named tool scope"),
+        }
+        // Leaf reflex: no onward delegation.
+        assert!(def.subagents.is_empty());
     }
 
     #[test]
@@ -1695,13 +1741,16 @@ mod tests {
     #[test]
     fn other_builtins_default_to_worker_tier() {
         for def in load_builtins().unwrap() {
-            if def.id == "orchestrator" || def.id == "planner" || def.id == "subconscious" {
+            if matches!(
+                def.id.as_str(),
+                "orchestrator" | "planner" | "subconscious" | "frontend_agent" | "reasoning_agent"
+            ) {
                 continue;
             }
             assert_eq!(
                 def.agent_tier,
                 AgentTier::Worker,
-                "{} should default to worker tier (only orchestrator/planner/subconscious are non-worker today)",
+                "{} should default to worker tier (only orchestrator/planner/subconscious/frontend_agent/reasoning_agent are non-worker today)",
                 def.id
             );
         }

@@ -223,6 +223,11 @@ const messages: TranslationMap = {
   'tinyplaceOrchestration.pairing.unlinked': 'Sem vínculo',
   'tinyplaceOrchestration.pairing.incoming': 'Entrada',
   'tinyplaceOrchestration.pairing.outgoing': 'Saída',
+  'tinyplaceOrchestration.master.you': 'Você',
+  'tinyplaceOrchestration.composer.placeholder': 'Mensagem para o OpenHuman…',
+  'tinyplaceOrchestration.composer.send': 'Enviar',
+  'tinyplaceOrchestration.composer.sendFailed': 'Falha ao enviar mensagem',
+  'tinyplaceOrchestration.steering.label': 'Direção',
   'brain.empty':
     'Seu cérebro está vazio por enquanto — conecte uma fonte para começar a construir a memória.',
   'brain.error': 'Não foi possível carregar seu cérebro. Tente novamente.',

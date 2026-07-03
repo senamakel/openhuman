@@ -251,6 +251,26 @@ impl SubconsciousEngine {
             state.provider_unavailable_reason = None;
         }
 
+        // ── Stage: orchestration_review — steer the reasoning core (stage 6) ──
+        // Offline reflection over the orchestration layer's compressed history +
+        // cumulative world diff, emitting a steering directive for later reasoning
+        // cycles. Runs before the memory_diff stage and independently of it (it is
+        // driven by orchestration activity, not source syncs). Self-gating: a
+        // clean no-op when orchestration is disabled or there is nothing new to
+        // review. Its only output is the directive (+ the local Subconscious
+        // window) — no channels, no external effects.
+        let review_tick_id = format!("subconscious:orchestration_review:{tick_at}");
+        match crate::openhuman::orchestration::ops::run_orchestration_review(
+            &config,
+            &review_tick_id,
+        )
+        .await
+        {
+            Ok(true) => info!("[subconscious] orchestration_review emitted a steering directive"),
+            Ok(false) => {}
+            Err(e) => warn!("[subconscious] orchestration_review failed: {e}"),
+        }
+
         // ── Stage 1: memory_diff — how did the agent's world change? ──────────
         let baseline =
             store::with_connection(&self.workspace_dir, store::get_baseline_checkpoint_id)

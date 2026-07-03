@@ -39,7 +39,7 @@ use tinyagents::graph::{
 
 use crate::openhuman::config::Config;
 use crate::openhuman::tinyagents::observability::GraphTracingSink;
-use crate::openhuman::tinyagents::SqlRunLedgerCheckpointer;
+use tinyagents::graph::SqliteCheckpointer;
 
 pub use state::{CompressedEntry, OrchestrationState, WorldDiff, WorldDiffEntry};
 
@@ -381,7 +381,17 @@ pub async fn run_orchestration_graph(
     let threshold = config.orchestration.effective_evict_threshold();
     let thread_id = format!("orchestration:{}", state.session_id);
     let label = thread_id.clone();
-    let checkpointer = Arc::new(SqlRunLedgerCheckpointer::<OrchestrationState>::new(config));
+    // Durable graph checkpoints ride the crate's `SqliteCheckpointer` (issue
+    // #4249, 04.3) at a dedicated `orchestration_checkpoints.db` under the
+    // workspace — the old run-ledger `SqlRunLedgerCheckpointer` was retired, so
+    // pre-swap in-flight wake graphs simply expire.
+    let checkpoint_db = config
+        .workspace_dir
+        .join("orchestration_checkpoints.db");
+    let checkpointer = Arc::new(
+        SqliteCheckpointer::<OrchestrationState>::open(&checkpoint_db)
+            .map_err(|e| anyhow::anyhow!("open orchestration checkpoint store: {e}"))?,
+    );
 
     tracing::debug!(
         target: LOG, session_id = %state.session_id, %thread_id,

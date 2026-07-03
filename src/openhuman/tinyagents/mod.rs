@@ -156,6 +156,20 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
     policy.retry.max_attempts = 1;
+    // Unknown-tool recovery (01.2 / C3): the crate policy owns this end to end —
+    // the `__openhuman_unknown_tool__` sentinel tool + `UnknownToolRewriteMiddleware`
+    // were already deleted. We deliberately keep `ReturnToolError` rather than
+    // `Rewrite { tool_name }`: Rewrite requires a real catch-all target tool (the
+    // deleted sentinel was exactly that) and, when it hits, *silently* executes
+    // that tool and emits `AgentEvent::UnknownToolCall { recovery: "rewrite:.." }`
+    // WITHOUT injecting a tool message. `ReturnToolError` instead injects a
+    // recoverable `unknown tool `<name>` (arguments: ..); valid tools: [..]`
+    // result naming the originally-requested tool. Two live consumers depend on
+    // that message: (1) the #4419 attempted-tool-name UX and (2) the failure
+    // classifier in `agent::hooks::sanitize_tool_output`, which labels the result
+    // `unknown_tool` by matching the "unknown tool" substring. Flipping to Rewrite
+    // would drop both. The original name + args are also preserved verbatim on
+    // `AgentEvent::UnknownToolCall` and projected by `OpenhumanEventBridge`.
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
     // Prompt-prefix protection is always on (issue #4249, 03.2): the
     // `PromptCacheGuardMiddleware` records a `CacheLayoutEvent` whenever volatile
@@ -750,9 +764,9 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // `PromptCacheGuardMiddleware`'s recorded `CacheLayoutEvent`s and surface each
     // as a structured `[cache]` warning. Fires only when the cacheable prompt
     // prefix (system prompt + tool set) changed across model calls — i.e. volatile
-    // content silently busting the provider KV-cache prefix. The structured
-    // successor to `CacheAlignMiddleware`'s free-text warn-log (still installed in
-    // parallel until parity is shown).
+    // content silently busting the provider KV-cache prefix. This is now the sole
+    // owner of KV-cache-prefix drift detection: the warn-only
+    // `CacheAlignMiddleware` was deleted in C3.
     let cache_layout_events = prompt_cache_guard.layout_events();
     if !cache_layout_events.is_empty() {
         tracing::debug!(
@@ -934,8 +948,8 @@ struct AssembledTurnHarness {
     /// Crate prompt-cache guard (issue #4249, 03.2). Records a `CacheLayoutEvent`
     /// whenever the cacheable prompt prefix (system prompt + tool set) changes
     /// across model calls. Drained after the run and surfaced via
-    /// [`observability::surface_cache_layout_events`] — the structured successor to
-    /// the `CacheAlignMiddleware` warn-log.
+    /// [`observability::surface_cache_layout_events`] — the crate-native
+    /// replacement for the deleted `CacheAlignMiddleware` warn-log (C3).
     prompt_cache_guard: Arc<PromptCacheGuardMiddleware>,
 }
 
@@ -1308,18 +1322,19 @@ fn assemble_turn_harness(
     // precede the guard; both run before the context middlewares below (they only
     // touch the volatile tail / tool bodies, never the stable prefix). The guard is
     // returned so the run loop can drain its events into the observability bridge —
-    // the structured successor to `CacheAlignMiddleware`'s warn-log (kept installed
-    // via `context_mw` until parity is shown).
+    // the crate-native replacement for the deleted `CacheAlignMiddleware` warn-log
+    // (C3: the warn-only shadow is gone; this guard is the sole owner).
     harness.push_middleware(Arc::new(middleware::PromptCacheSegmentMiddleware));
     let prompt_cache_guard = Arc::new(PromptCacheGuardMiddleware::new());
     harness.push_middleware(prompt_cache_guard.clone());
 
-    // openhuman context concerns as graph middlewares (issue #4249): cache-align
-    // warnings, microcompact tool-body clearing, and the after-tool byte cap /
-    // payload summarizer. Installed before the summarization/trim block below so
-    // `before_model` hooks run cache-align → microcompact → compress → trim.
-    // Tool-result caps read the SDK registry policy snapshot, not the
-    // OpenHuman-side tool lookup.
+    // openhuman context concerns as graph middlewares (issue #4249): microcompact
+    // tool-body clearing and the after-tool byte cap / payload summarizer.
+    // Installed before the summarization/trim block below so `before_model` hooks
+    // run microcompact → compress → trim. (KV-cache-prefix drift is handled above
+    // by the crate `PromptCacheGuardMiddleware`; the warn-only CacheAlign shadow
+    // was deleted in C3.) Tool-result caps read the SDK registry policy snapshot,
+    // not the OpenHuman-side tool lookup.
     let tool_policies = harness.tools().policies();
     context_mw.install(&mut harness, tool_policies);
 

@@ -7,8 +7,6 @@
 //! [`Middleware`] hooks restores the behaviour and makes the graph the single
 //! place cross-cutting context concerns live:
 //!
-//! - [`CacheAlignMiddleware`] (`before_model`) — warn on volatile tokens in the
-//!   system prompt that would bust the provider KV-cache prefix. Warn-only.
 //! - [`MicrocompactMiddleware`] (`before_model`) — clear the bodies of older
 //!   tool-result messages (keeping the N most recent) so a long tool-heavy
 //!   thread stays cheap without dropping chat history.
@@ -75,8 +73,6 @@ pub(crate) struct TurnContextMiddleware {
     pub(crate) tokenjuice_compaction_enabled: bool,
     /// Agent-level TokenJuice profile for tool-result compaction.
     pub(crate) tokenjuice_compression: AgentTokenjuiceCompression,
-    /// Warn on volatile tokens in the system prompt (KV-cache diagnostic).
-    pub(crate) cache_align: bool,
     /// Keep-recent count for microcompact tool-body clearing. `0` disables it.
     pub(crate) microcompact_keep_recent: usize,
     /// Whether the LLM summarization step (`ContextCompressionMiddleware`) may be
@@ -225,8 +221,8 @@ pub(crate) struct SuperContextConfig {
 
 impl TurnContextMiddleware {
     /// A sensible default for turn paths without a session `ContextManager`
-    /// (channel / sub-agent): cache-align warnings on and the default tool-result
-    /// byte cap, no summarizer or microcompact.
+    /// (channel / sub-agent): the default tool-result byte cap, no summarizer or
+    /// microcompact.
     pub(crate) fn defaults() -> Self {
         Self {
             tool_result_budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
@@ -234,7 +230,6 @@ impl TurnContextMiddleware {
             artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
-            cache_align: true,
             microcompact_keep_recent: 0,
             autocompact_enabled: true,
             super_context: None,
@@ -247,7 +242,6 @@ impl TurnContextMiddleware {
         self.tool_result_budget_bytes == 0
             && self.payload_summarizer.is_none()
             && !self.tokenjuice_compaction_enabled
-            && !self.cache_align
             && self.microcompact_keep_recent == 0
             && self.super_context.is_none()
             && self.handoff.is_none()
@@ -255,10 +249,10 @@ impl TurnContextMiddleware {
 
     /// Push the enabled middlewares onto `harness`.
     ///
-    /// `before_model` hooks run in registration order, so cache-align (warn) and
-    /// microcompact (clear tool bodies) are installed **before** the caller's
-    /// summarization / trim middlewares — microcompact frees cheap tokens first,
-    /// then summarization/trim handle the rest.
+    /// `before_model` hooks run in registration order, so microcompact (clear
+    /// tool bodies) is installed **before** the caller's summarization / trim
+    /// middlewares — microcompact frees cheap tokens first, then
+    /// summarization/trim handle the rest.
     pub(crate) fn install(
         self,
         harness: &mut AgentHarness<()>,
@@ -272,9 +266,6 @@ impl TurnContextMiddleware {
                 user_message: sc.user_message,
                 ran: AtomicBool::new(false),
             }));
-        }
-        if self.cache_align {
-            harness.push_middleware(Arc::new(CacheAlignMiddleware));
         }
         if self.microcompact_keep_recent > 0 {
             harness.push_middleware(Arc::new(MicrocompactMiddleware {
@@ -552,163 +543,6 @@ fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
     }
 }
 
-/// `before_model`: flag volatile tokens (UUIDs, timestamps, JWTs, …) in the
-/// system prompt that silently break the provider KV-cache prefix. Warn-only —
-/// never mutates the request. Replaces the deleted context cache-align reducer.
-struct CacheAlignMiddleware;
-
-/// One detected volatile token in the cache-hot system prompt.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct VolatileFinding {
-    kind: &'static str,
-    sample: String,
-}
-
-fn detect_volatile_prompt_tokens(system_prompt: &str) -> Vec<VolatileFinding> {
-    let mut findings = Vec::new();
-    for tok in system_prompt
-        .split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | ':' | '_')))
-    {
-        if tok.len() < 8 {
-            continue;
-        }
-        if is_uuid(tok) {
-            findings.push(VolatileFinding {
-                kind: "uuid",
-                sample: redact_volatile_token(tok),
-            });
-        } else if is_jwt(tok) {
-            findings.push(VolatileFinding {
-                kind: "jwt",
-                sample: redact_volatile_token(tok),
-            });
-        } else if is_iso8601(tok) {
-            findings.push(VolatileFinding {
-                kind: "iso8601",
-                sample: redact_volatile_token(tok),
-            });
-        } else if is_hex_hash(tok) {
-            findings.push(VolatileFinding {
-                kind: "hex_hash",
-                sample: redact_volatile_token(tok),
-            });
-        }
-    }
-    findings
-}
-
-fn warn_if_cache_prompt_volatile(system_prompt: &str) -> usize {
-    let findings = detect_volatile_prompt_tokens(system_prompt);
-    if !findings.is_empty() {
-        let mut kinds: Vec<&str> = findings.iter().map(|finding| finding.kind).collect();
-        kinds.sort_unstable();
-        kinds.dedup();
-        let samples = findings
-            .iter()
-            .take(5)
-            .map(|finding| finding.sample.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        ::log::warn!(
-            "[tinyagents::cache-align] system prompt contains {} volatile token(s) ({}) samples={} -- KV-cache prefix may not hit; keep dynamic content out of the system prompt",
-            findings.len(),
-            kinds.join(", "),
-            samples,
-        );
-    }
-    findings.len()
-}
-
-fn redact_volatile_token(tok: &str) -> String {
-    let head: String = tok.chars().take(4).collect();
-    format!("{head}...")
-}
-
-fn is_uuid(tok: &str) -> bool {
-    if tok.len() != 36 {
-        return false;
-    }
-    let bytes = tok.as_bytes();
-    for (i, b) in bytes.iter().enumerate() {
-        let expect_dash = matches!(i, 8 | 13 | 18 | 23);
-        if expect_dash {
-            if *b != b'-' {
-                return false;
-            }
-        } else if !b.is_ascii_hexdigit() {
-            return false;
-        }
-    }
-    true
-}
-
-fn is_jwt(tok: &str) -> bool {
-    let segs: Vec<&str> = tok.split('.').collect();
-    if segs.len() != 3 {
-        return false;
-    }
-    segs.iter().all(|segment| {
-        segment.len() >= 4
-            && segment
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-    }) && tok.starts_with("ey")
-}
-
-fn is_hex_hash(tok: &str) -> bool {
-    matches!(tok.len(), 32 | 40 | 64) && tok.bytes().all(|b| b.is_ascii_hexdigit())
-}
-
-fn is_iso8601(tok: &str) -> bool {
-    let b = tok.as_bytes();
-    if tok.len() < 19 {
-        return false;
-    }
-    let digit = |i: usize| b[i].is_ascii_digit();
-    digit(0)
-        && digit(1)
-        && digit(2)
-        && digit(3)
-        && b[4] == b'-'
-        && digit(5)
-        && digit(6)
-        && b[7] == b'-'
-        && digit(8)
-        && digit(9)
-        && (b[10] == b'T' || b[10] == b' ')
-        && digit(11)
-        && digit(12)
-        && b[13] == b':'
-        && digit(14)
-        && digit(15)
-        && b[16] == b':'
-        && digit(17)
-        && digit(18)
-}
-
-#[async_trait]
-impl Middleware<()> for CacheAlignMiddleware {
-    fn name(&self) -> &str {
-        "cache_align"
-    }
-
-    async fn before_model(
-        &self,
-        _ctx: &mut RunContext<()>,
-        _state: &(),
-        request: &mut ModelRequest,
-    ) -> TaResult<()> {
-        if let Some(sys) = request
-            .messages
-            .iter()
-            .find(|m| matches!(m, TaMessage::System(_)))
-        {
-            warn_if_cache_prompt_volatile(&sys.text());
-        }
-        Ok(())
-    }
-}
-
 /// Seed-free FNV-1a fingerprint (matches the crate's own prompt-layout hash
 /// approach) so a segment id is stable across process restarts — unlike Rust's
 /// randomly-seeded `SipHash`. Used to build content-fingerprinted prompt-cache
@@ -735,11 +569,12 @@ fn stable_prefix_fingerprint(data: &str) -> String {
 /// have no prefix to protect. This stamps the segments with **content-fingerprint
 /// ids**: an unchanged system prompt + tool set yields a stable prefix, while an
 /// injected timestamp/uuid/etc. changes the fingerprint and the guard records a
-/// [`CacheLayoutEvent`](tinyagents::harness::cache::CacheLayoutEvent). The
-/// structured successor to [`CacheAlignMiddleware`]'s warn-only volatile-token
-/// scan (kept installed in parallel until parity is shown; deletion is a gated
-/// follow-up). Read-only w.r.t. the transcript — only sets `cache_segments` /
-/// `prompt_fingerprint`.
+/// [`CacheLayoutEvent`](tinyagents::harness::cache::CacheLayoutEvent). This is
+/// the structured, crate-native replacement for the deleted warn-only
+/// `CacheAlignMiddleware` volatile-token scan (C3): the crate
+/// `PromptCacheGuardMiddleware` now owns KV-cache-prefix drift detection via
+/// recorded `CacheLayoutEvent`s. Read-only w.r.t. the transcript — only sets
+/// `cache_segments` / `prompt_fingerprint`.
 pub(crate) struct PromptCacheSegmentMiddleware;
 
 #[async_trait]
@@ -1892,9 +1727,8 @@ mod tests {
     // ── TurnContextMiddleware config ────────────────────────────────────────
 
     #[test]
-    fn defaults_enable_cache_align_and_the_byte_cap_only() {
+    fn defaults_enable_the_byte_cap_only() {
         let mw = TurnContextMiddleware::defaults();
-        assert!(mw.cache_align);
         assert_eq!(
             mw.tool_result_budget_bytes,
             DEFAULT_TOOL_RESULT_BUDGET_BYTES
@@ -1904,6 +1738,8 @@ mod tests {
         // Autocompaction defaults on (channel/sub-agent); the chat path overrides
         // it from config.
         assert!(mw.autocompact_enabled);
+        // The byte cap alone is enough to make the bundle non-empty (CacheAlign
+        // was deleted in C3, so it no longer contributes here).
         assert!(!mw.is_empty());
     }
 

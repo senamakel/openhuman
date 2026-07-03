@@ -20,8 +20,11 @@ inventory has been refreshed against the published 1.3.0 crate source.
    - `rusqlite` and `libsqlite3-sys` are patched from `vendor/` to replace
      upstream `cfg_select!` macro use with stable `#[cfg]` blocks on the
      current toolchain.
-   - `matrix-sdk-sqlite 0.16.0` is patched locally to use the same `rusqlite`
-     line, preventing a second native sqlite chain.
+   - The `channel-matrix` feature (and its `matrix-sdk` dependency) was dropped,
+     which removes `matrix-sdk-sqlite` from the tree entirely. That crate pinned
+     `rusqlite 0.37` and previously had to be vendored/patched onto the `0.40`
+     line to avoid a second native sqlite chain; with Matrix gone the patch is
+     deleted.
    - `whatsapp-rust/sqlite-storage` is disabled because its Diesel storage
      links sqlite independently; `whatsapp-web` temporarily uses
      `wacore::store::InMemoryBackend` and logs the non-durable session mode.

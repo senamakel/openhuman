@@ -17,9 +17,11 @@ inventory has been refreshed against the published 1.3.0 crate source.
    `app/src-tauri/Cargo.toml`). OpenHuman pins `rusqlite = "=0.40.0"` and
    enables `tinyagents = { version = "1.3", features = ["sqlite"] }`.
    Compatibility notes:
-   - `rusqlite` and `libsqlite3-sys` are patched from `vendor/` to replace
-     upstream `cfg_select!` macro use with stable `#[cfg]` blocks on the
-     current toolchain.
+   - `rusqlite 0.40` and `libsqlite3-sys 0.38` are consumed directly from
+     crates.io. Their build scripts use the `cfg_select!` macro (stable from
+     Rust 1.96 — `rust-toolchain.toml` pins `1.96.1`), so the earlier vendored
+     copies under `vendor/` that backported `cfg_select!` to `#[cfg]` for the
+     old 1.93 toolchain have been deleted.
    - The `channel-matrix` feature (and its `matrix-sdk` dependency) was dropped,
      which removes `matrix-sdk-sqlite` from the tree entirely. That crate pinned
      `rusqlite 0.37` and previously had to be vendored/patched onto the `0.40`

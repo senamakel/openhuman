@@ -305,7 +305,10 @@ mod tests {
         assert_eq!(c.evidence, vec!["cargo test".to_string()]);
         assert_eq!(c.notes.as_deref(), Some("note"));
         assert_eq!(c.session_thread_id.as_deref(), Some("thread-x"));
-        assert_eq!(c.source_metadata, Some(serde_json::json!({ "urgency": 0.5 })));
+        assert_eq!(
+            c.source_metadata,
+            Some(serde_json::json!({ "urgency": 0.5 }))
+        );
         assert_eq!(c.order, 3);
         assert_eq!(c.updated_at, "2026-07-03T00:00:00Z");
     }

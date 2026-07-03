@@ -471,15 +471,27 @@ mod tests {
         // Status store round-trips a running → completed transition and answers
         // list_active / list_by_root / list_by_thread.
         let status_store = FileStatusStore::new(open_session_stores(&tmp).kv);
-        let mut status = HarnessRunStatus::new(run_id.clone(), ComponentId::new("mock-model".to_string()))
-            .with_thread(ThreadId::new("thread-42"));
+        let mut status =
+            HarnessRunStatus::new(run_id.clone(), ComponentId::new("mock-model".to_string()))
+                .with_thread(ThreadId::new("thread-42"));
         status.mark_running(HarnessPhase::Model);
         status_store.put_status(status.clone()).await.unwrap();
         let active = status_store.list_active().await.unwrap();
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].status, ExecutionStatus::Running);
-        assert_eq!(status_store.list_by_thread("thread-42").await.unwrap().len(), 1);
-        assert!(status_store.list_by_thread("nope").await.unwrap().is_empty());
+        assert_eq!(
+            status_store
+                .list_by_thread("thread-42")
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(status_store
+            .list_by_thread("nope")
+            .await
+            .unwrap()
+            .is_empty());
 
         status.mark_completed();
         status_store.put_status(status).await.unwrap();

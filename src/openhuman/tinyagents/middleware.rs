@@ -1642,8 +1642,7 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
                 );
                 // Inject the crate's structured corrective into the working
                 // transcript (advisory system text; bypasses no security gate).
-                self.handle
-                    .send(SteeringCommand::Redirect { instruction });
+                self.handle.send(SteeringCommand::Redirect { instruction });
             }
             NoProgress::Halt(summary) => {
                 tracing::warn!(
@@ -2029,7 +2028,11 @@ mod tests {
             let mut r = failing_result("flaky", "boom");
             mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
         }
-        assert_eq!(drain_pause_count(&handle), 0, "no halt before the threshold");
+        assert_eq!(
+            drain_pause_count(&handle),
+            0,
+            "no halt before the threshold"
+        );
         // Third identical failure exhausts the same-strategy retries → halt.
         let mut r = failing_result("flaky", "boom");
         mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();

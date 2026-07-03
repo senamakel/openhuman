@@ -378,7 +378,10 @@ mod tests {
         let g = sample_goal(ThreadGoalStatus::Complete);
         let crate_goal = to_crate_goal(&g);
         assert_eq!(crate_goal.thread_id, g.thread_id);
-        assert_eq!(crate_goal.goal_id, g.goal_id, "goal_id preserved (no re-mint)");
+        assert_eq!(
+            crate_goal.goal_id, g.goal_id,
+            "goal_id preserved (no re-mint)"
+        );
         assert_eq!(crate_goal.objective, g.objective);
         assert_eq!(crate_goal.status, CrateStatus::Complete);
         assert_eq!(crate_goal.token_budget, g.token_budget, "budget preserved");

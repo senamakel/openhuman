@@ -29,6 +29,7 @@ pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 mod policy_denial;
+pub(crate) mod replay;
 pub(crate) mod retriever;
 mod routes;
 mod run_cancellation_context;

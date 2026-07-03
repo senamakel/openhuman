@@ -2173,16 +2173,22 @@ async fn json_rpc_model_council_runs_with_default_sentinel_and_repeated_jury_sea
         "mock chair synthesis should be returned: {result}"
     );
 
-    let captured_models = with_chat_completion_models(|models| models.clone());
+    // The council's jury members run concurrently (08.1 map_reduce), so the
+    // order the mock records their model ids is non-deterministic — only the
+    // multiset is a stable contract: two default-sentinel seats + one critic
+    // member + one default chair call. Compare sorted so a member reorder can't
+    // flake the gate.
+    let mut captured_models = with_chat_completion_models(|models| models.clone());
+    captured_models.sort();
     assert_eq!(
         captured_models,
         vec![
-            "e2e-mock-model",
-            "e2e-mock-model",
             "critic-model",
-            "e2e-mock-model"
+            "e2e-mock-model",
+            "e2e-mock-model",
+            "e2e-mock-model",
         ],
-        "three member calls plus one default chair call should be made"
+        "three member calls (two default seats + one critic) plus one default chair call should be made"
     );
     let captured_requests = with_chat_completion_requests(|requests| requests.clone());
     assert_eq!(captured_requests.len(), 4);

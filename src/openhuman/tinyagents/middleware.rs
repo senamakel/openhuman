@@ -1640,9 +1640,19 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
                     hard_reject,
                     "[tinyagents::mw] no-progress nudge — steering the model to change strategy before the retry cap"
                 );
-                // Inject the crate's structured corrective into the working
-                // transcript (advisory system text; bypasses no security gate).
-                self.handle.send(SteeringCommand::Redirect { instruction });
+                // Inject the crate's structured corrective as a system message via
+                // the `InjectMessage` steering lane. This runs on *every* turn,
+                // including the user's live interactive turn, whose steering policy
+                // permits only `InjectMessage`/`Pause` — `Redirect` is Background
+                // (sub-agent) only, so sending it here aborted every interactive
+                // turn that hit the nudge with `steering command redirect is not
+                // permitted by the run policy` (a #4473 migration regression). The
+                // corrective is trusted, system-generated advisory text, so the
+                // `InjectMessage` lane is both permitted and semantically correct.
+                self.handle
+                    .send(SteeringCommand::InjectMessage(TaMessage::system(
+                        instruction,
+                    )));
             }
             NoProgress::Halt(summary) => {
                 tracing::warn!(
@@ -2090,6 +2100,82 @@ mod tests {
             handle.pending(),
             0,
             "distinct errors below the backstop must not steer the run"
+        );
+    }
+
+    /// Collect the nudge system-message texts drained from `handle`. The nudge
+    /// rides the `InjectMessage` lane (not `Redirect`) so it is permitted on the
+    /// user's interactive turn — see the test below.
+    fn drain_nudge_messages(handle: &SteeringHandle) -> Vec<String> {
+        handle
+            .drain()
+            .into_iter()
+            .filter_map(|c| match c {
+                SteeringCommand::InjectMessage(message) => Some(message.text()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn repeated_tool_failure_nudges_change_of_strategy_before_the_halt() {
+        use crate::openhuman::tinyagents::orchestration::{
+            openhuman_steering_handle, SteeringRunClass,
+        };
+        use tinyagents::harness::steering::SteeringCommandKind;
+
+        // #4089: before the same-strategy retry cap, the breaker must feed a
+        // structured "no progress since step X" corrective back into the loop so
+        // the model changes approach rather than retrying the identical failing
+        // call — and it must do so *without* pausing yet.
+        let handle = SteeringHandle::allow_all();
+        let mw = RepeatedToolFailureMiddleware::new(
+            handle.clone(),
+            3,
+            std::sync::Arc::new(std::sync::Mutex::new(None)),
+        );
+        // First identical failure: not a loop yet — no steering.
+        let mut r = failing_result("read_file", "file not found");
+        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        assert!(
+            handle.drain().is_empty(),
+            "a single failure is never a loop"
+        );
+        // Second identical failure: the nudge fires, still no halt.
+        let mut r = failing_result("read_file", "file not found");
+        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        let nudges = drain_nudge_messages(&handle);
+        assert_eq!(
+            nudges.len(),
+            1,
+            "the repeat should steer the model to change strategy before the retry cap"
+        );
+        let nudge = &nudges[0];
+        assert!(
+            nudge.contains("no progress"),
+            "the nudge carries the structured no-progress signal: {nudge}"
+        );
+        assert!(
+            nudge.to_lowercase().contains("read_file"),
+            "the nudge names the failing call so the model knows what not to repeat: {nudge}"
+        );
+
+        // Regression for the #4473 crash: the nudge must ride a steering lane the
+        // user's *interactive* turn permits. `Redirect` is Background-only, so a
+        // Redirect nudge aborted interactive turns; `InjectMessage` is permitted
+        // on both classes. Assert the interactive policy accepts the lane we use.
+        let interactive = openhuman_steering_handle(SteeringRunClass::Interactive);
+        assert!(
+            interactive
+                .policy()
+                .is_allowed(SteeringCommandKind::InjectMessage),
+            "the no-progress nudge must use a lane the interactive turn permits"
+        );
+        assert!(
+            !interactive
+                .policy()
+                .is_allowed(SteeringCommandKind::Redirect),
+            "sanity: interactive still refuses Redirect (the lane that crashed it)"
         );
     }
 

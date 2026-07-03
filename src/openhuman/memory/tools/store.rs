@@ -30,9 +30,10 @@ impl Tool for MemoryStoreTool {
          Do NOT use this for user preferences — for any preference (how the user wants you to behave, \
          their tastes, settings, standing instructions) call `save_preference` instead, which routes it \
          to the preference store the assistant actually reads. Requires an explicit namespace. \
-         Memory protocol: before storing, recall existing memory (e.g. `memory_recall`) to check for a \
-         near-duplicate so you don't create one; after storing, call `update_memory_md` to keep the \
-         MEMORY.md index in sync with the store."
+         Memory protocol (only with tools you actually have available): if you have a memory-recall \
+         tool (e.g. `memory_recall`), check for a near-duplicate before storing so you don't create \
+         one; and if `update_memory_md` is available, call it after storing to keep the MEMORY.md \
+         index in sync with the store."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

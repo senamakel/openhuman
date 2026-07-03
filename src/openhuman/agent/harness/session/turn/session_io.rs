@@ -240,8 +240,9 @@ impl Agent {
 
         match transcript::write_transcript(path, messages, &meta, turn_usage) {
             Ok(()) => {
-                // Best-effort, non-fatal dual-write into the TinyAgents store,
-                // behind `OPENHUMAN_SESSION_DUAL_WRITE` (default OFF). Only runs
+                // Best-effort, non-fatal dual-write into the TinyAgents store.
+                // Gated by the default-ON session dual-write flag
+                // (`OPENHUMAN_SESSION_DUAL_WRITE` is a kill switch). Only runs
                 // after the legacy JSONL append above succeeds; the legacy path
                 // is primary and untouched (issue #4249, 04.1).
                 self.maybe_dual_write_session_store(path, messages, &meta, turn_usage);
@@ -257,9 +258,10 @@ impl Agent {
 
     /// Mirror the just-persisted turn into the TinyAgents session store.
     ///
-    /// Additive and gated on the `OPENHUMAN_SESSION_DUAL_WRITE` flag (default
-    /// OFF): when the flag is off this is a cheap early return — no store handle
-    /// is constructed and behavior is byte-identical to today. When on, the
+    /// Additive and gated on the default-ON session dual-write flag
+    /// (`OPENHUMAN_SESSION_DUAL_WRITE` is a kill switch): when killed this is a
+    /// cheap early return — no store handle is constructed and behavior is
+    /// byte-identical to the legacy-only path. When on (the default), the
     /// store write is fired best-effort on a background task and any error is
     /// logged (`[session-store]`) and swallowed, so it can never fail or alter a
     /// chat turn. Records reuse the importer's normalization
@@ -274,7 +276,9 @@ impl Agent {
     ) {
         use crate::openhuman::session_import::live;
 
-        if !live::dual_write_enabled() {
+        // Config flag (default ON) gates the mirror; the env kill switch can
+        // still force it off. `self.config` is the effective per-agent config.
+        if !live::dual_write_enabled(self.config.session_dual_write) {
             return;
         }
 

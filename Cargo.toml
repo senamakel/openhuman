@@ -56,7 +56,7 @@ tinyflows = "0.3"
 # aligned to 0.40, avoiding duplicate `links = "sqlite3"` native bindings.
 # Durable graph checkpoints still use `SqlRunLedgerCheckpointer` until the
 # migration re-points those rows to the crate checkpointer.
-tinyagents = { version = "1.3", features = ["sqlite"] }
+tinyagents = { version = "1.5", features = ["sqlite"] }
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.
@@ -331,6 +331,11 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 # See: https://github.com/tinyhumansai/openhuman/issues/273
 [patch.crates-io]
 whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", branch = "main" }
+# TinyAgents vendored at v1.5.0 as a submodule (vendor/tinyagents) so agent
+# fixes can patch the crate locally (validation policy, trim hooks, etc.) and
+# so the 1.3 -> 1.5 upgrade is buildable/verifiable in-tree. Covers both the
+# direct `tinyagents` dep and the transitive one pulled by tinyflows 0.3.
+tinyagents = { path = "vendor/tinyagents" }
 
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the

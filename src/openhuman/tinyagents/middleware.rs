@@ -20,7 +20,7 @@
 //! enabled onto a harness.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -34,6 +34,7 @@ use tinyagents::harness::middleware::{
     ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
 };
 use tinyagents::harness::model::{ModelRequest, PromptSegment, SegmentRole};
+use tinyagents::harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
 use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
@@ -1670,39 +1671,41 @@ impl Middleware<()> for CostBudgetMiddleware {
     }
 }
 
-/// Consecutive **any**-failure no-progress backstop: different commands all
-/// failing means the goal is unreachable here. Matches the legacy
-/// `NO_PROGRESS_FAILURE_THRESHOLD`.
-const NO_PROGRESS_FAILURE_THRESHOLD: usize = 6;
-/// Consecutive **identical** hard-policy-rejection repeats before halting — a
-/// blocked call re-issued unchanged can never succeed. Legacy
-/// `HARD_REJECT_REPEAT_THRESHOLD`.
-const HARD_REJECT_REPEAT_THRESHOLD: usize = 2;
-
-/// `after_tool`: stop the run when tool calls keep failing with no progress
-/// (issue #4249). The legacy tool loop's progress guard surfaced a root-cause
-/// halt summary — a security/approval denial re-issued unchanged, an identical
-/// error retried, or *different* commands all failing — instead of burning the
-/// whole iteration budget and ending on a generic cap error. The tinyagents path
-/// kept only the model/tool call caps, so this reinstates the guard as a graph
-/// middleware. Three halt conditions, checked per failure (any success resets
-/// every counter — progress was made):
+/// `after_tool`: stop (or nudge) the run when tool calls keep failing with no
+/// progress (issue #4249). The legacy tool loop's progress guard surfaced a
+/// root-cause halt summary — a security/approval denial re-issued unchanged, an
+/// identical error retried, or *different* commands all failing — instead of
+/// burning the whole iteration budget and ending on a generic cap error. The
+/// tinyagents path kept only the model/tool call caps, so this reinstates the
+/// guard as a graph middleware.
 ///
-/// 1. **Hard policy rejection** (`[policy-blocked]`) repeated `HARD_REJECT_REPEAT_THRESHOLD`
-///    times with an identical signature — "blocked by the security policy … re-issued".
-/// 2. **Identical** error signature repeated `identical_threshold` times —
-///    "retried N times with identical arguments".
-/// 3. **Any** failure `NO_PROGRESS_FAILURE_THRESHOLD` times in a row (even with
-///    varied errors) — "N tool calls in a row failed".
+/// As of tinyagents 1.5.0 the escalation ladder itself lives in the crate
+/// ([`NoProgressTracker`], extracted upstream from OpenHuman #4389). This
+/// middleware is now a **thin driver**: it captures the per-call argument
+/// fingerprint (the tool result carries no arguments), feeds each outcome into
+/// [`NoProgressTracker::record`], and lowers the returned [`NoProgress`] verdict
+/// into OpenHuman steering. It owns only the OpenHuman-side policy:
 ///
-/// On trip it records a root-cause summary into the shared [`HaltSummarySlot`]
-/// (the turn overrides its final text with it) and pauses the run via the shared
-/// steering handle (same mechanism as the stop-hook / cap pausers).
+/// - [`NoProgress::Continue`] — do nothing.
+/// - [`NoProgress::Nudge`] — inject the crate's structured "no progress since
+///   step X" corrective into the working transcript via
+///   [`SteeringCommand::Redirect`] so the next model call sees it and changes
+///   strategy *before* the same-strategy retry cap trips.
+/// - [`NoProgress::Halt`] — record the crate's root-cause summary into the shared
+///   [`HaltSummarySlot`](super::HaltSummarySlot) (the turn overrides its final
+///   text with it) and pause the run via the shared steering handle (same
+///   mechanism as the stop-hook / cap pausers), then [`reset`](NoProgressTracker::reset)
+///   so a resumed run does not immediately re-pause on the latched state.
 pub(crate) struct RepeatedToolFailureMiddleware {
     handle: SteeringHandle,
-    identical_threshold: usize,
     halt_summary: super::HaltSummarySlot,
-    state: std::sync::Mutex<FailureState>,
+    /// Crate no-progress escalation ladder — the single source of the
+    /// identical-failure / varied-failure / hard-reject logic (tinyagents 1.5.0).
+    tracker: NoProgressTracker,
+    /// Monotonic tool-outcome counter, used only for the crate's "no progress
+    /// since step X" nudge wording. Not the model-call count, but a stable,
+    /// increasing marker is all the wording needs.
+    step: AtomicUsize,
     /// call_id → argument fingerprint, captured in `before_tool` (the tool result
     /// carries no arguments). Folded into the identical-repeat signature so the
     /// "identical arguments" halt only trips on the *same* args — two different
@@ -1711,16 +1714,10 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     arg_sigs: std::sync::Mutex<std::collections::HashMap<String, String>>,
 }
 
-#[derive(Default)]
-struct FailureState {
-    last_sig: Option<String>,
-    same_count: usize,
-    consecutive: usize,
-}
-
 impl RepeatedToolFailureMiddleware {
     /// Build the breaker. `identical_threshold` (the identical-signature retry
-    /// ceiling) is clamped to at least 2 — a single failure is never a loop.
+    /// ceiling) is handed straight to [`NoProgressTracker::new`], which clamps it
+    /// so a nudge always precedes a halt (a single failure is never a loop).
     pub(crate) fn new(
         handle: SteeringHandle,
         identical_threshold: usize,
@@ -1728,9 +1725,9 @@ impl RepeatedToolFailureMiddleware {
     ) -> Self {
         Self {
             handle,
-            identical_threshold: identical_threshold.max(2),
             halt_summary,
-            state: std::sync::Mutex::new(FailureState::default()),
+            tracker: NoProgressTracker::new(identical_threshold),
+            step: AtomicUsize::new(0),
             arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
         }
     }
@@ -1743,13 +1740,6 @@ fn args_fingerprint(arguments: &serde_json::Value) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     arguments.to_string().hash(&mut hasher);
     format!("{:x}", hasher.finish())
-}
-
-/// Trim a tool error for inclusion in a halt summary (keep it bounded but retain
-/// the deterministic leading detail the model/user needs).
-fn truncate_for_halt(text: &str) -> String {
-    const MAX: usize = 600;
-    crate::openhuman::util::truncate_with_ellipsis(text, MAX)
 }
 
 #[async_trait]
@@ -1778,90 +1768,66 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
-        let mut state = self.state.lock().unwrap();
         let arg_fp = self
             .arg_sigs
             .lock()
             .ok()
             .and_then(|mut sigs| sigs.remove(&result.call_id))
             .unwrap_or_default();
-        let Some(err) = result.error.as_deref() else {
-            // Success → progress was made; reset every counter.
-            *state = FailureState::default();
-            return Ok(());
-        };
-
-        // Signature: tool name + argument fingerprint + first error line (the
-        // deterministic parts; a huge payload tail must not dominate the
-        // identical-repeat comparison). Including the args means the "identical
-        // arguments" halt only fires when the args truly repeat.
-        let err_line = err.lines().next().unwrap_or(err);
-        let sig = format!("{}\u{1f}{arg_fp}\u{1f}{err_line}", result.name);
-        state.consecutive += 1;
-        let same_count = match &state.last_sig {
-            Some(prev) if *prev == sig => {
-                state.same_count += 1;
-                state.same_count
-            }
-            _ => {
-                state.last_sig = Some(sig);
-                state.same_count = 1;
-                1
-            }
-        };
+        let step = self.step.fetch_add(1, Ordering::SeqCst) + 1;
 
         // A hard policy rejection is marked in the tool output; it can never
-        // succeed when re-issued unchanged, so it trips faster.
-        let is_hard_reject = result
+        // succeed when re-issued unchanged, so the crate ladder trips it faster.
+        let hard_reject = result
             .content
             .contains(crate::openhuman::security::POLICY_BLOCKED_MARKER)
-            || err.contains(crate::openhuman::security::POLICY_BLOCKED_MARKER);
+            || result
+                .error
+                .as_deref()
+                .is_some_and(|err| err.contains(crate::openhuman::security::POLICY_BLOCKED_MARKER));
 
-        let summary = if is_hard_reject && same_count >= HARD_REJECT_REPEAT_THRESHOLD {
-            Some(format!(
-                "Stopping: the `{}` call is blocked by the security policy and was re-issued with \
-                 identical arguments — it can never succeed this way. Reason:\n{}\n\nDo not repeat \
-                 this call; use an allowed alternative or report that it can't be done here.",
-                result.name,
-                truncate_for_halt(err),
-            ))
-        } else if same_count >= self.identical_threshold {
-            Some(format!(
-                "Stopping: the `{}` call was retried {same_count} times with identical arguments \
-                 and kept failing — repeating it will not help. Last error:\n{}\n\nThis looks \
-                 unrecoverable in the current environment. Report this back instead of retrying.",
-                result.name,
-                truncate_for_halt(err),
-            ))
-        } else if state.consecutive >= NO_PROGRESS_FAILURE_THRESHOLD {
-            Some(format!(
-                "Stopping: {} tool calls in a row failed with no progress. Last error (from \
-                 `{}`):\n{}\n\nDifferent commands are all failing — the goal looks unreachable in \
-                 this environment. Report this back instead of retrying.",
-                state.consecutive,
-                result.name,
-                truncate_for_halt(err),
-            ))
-        } else {
-            None
+        let attempt = ToolAttempt {
+            tool: &result.name,
+            arg_fingerprint: &arg_fp,
+            error: result.error.as_deref(),
+            hard_reject,
+            // The unknown-tool recovery sentinel is a C3 concern; today every
+            // failure feeds the generic backstop exactly as the legacy ladder did.
+            recoverable_miss: false,
         };
 
-        if let Some(summary) = summary {
-            tracing::warn!(
-                tool = %result.name,
-                consecutive = state.consecutive,
-                same_count,
-                is_hard_reject,
-                "[tinyagents::mw] repeated tool failure — halting run so the root cause surfaces"
-            );
-            if let Ok(mut slot) = self.halt_summary.lock() {
-                *slot = Some(summary);
+        match self.tracker.record(step, &attempt) {
+            NoProgress::Continue => {}
+            NoProgress::Nudge(instruction) => {
+                tracing::warn!(
+                    tool = %result.name,
+                    step,
+                    hard_reject,
+                    "[tinyagents::mw] no-progress nudge — steering the model to change strategy before the retry cap"
+                );
+                // Inject the crate's structured corrective into the working
+                // transcript (advisory system text; bypasses no security gate).
+                self.handle
+                    .send(SteeringCommand::Redirect { instruction });
             }
-            // Pause at the top of the next iteration (before the next model call),
-            // matching the stop-hook / cap pause path. Reset so a resumed run does
-            // not immediately re-pause on the same latched state.
-            self.handle.send(SteeringCommand::Pause);
-            *state = FailureState::default();
+            NoProgress::Halt(summary) => {
+                tracing::warn!(
+                    tool = %result.name,
+                    step,
+                    hard_reject,
+                    "[tinyagents::mw] repeated tool failure — halting run so the root cause surfaces"
+                );
+                if let Ok(mut slot) = self.halt_summary.lock() {
+                    *slot = Some(summary);
+                }
+                // Pause at the top of the next iteration (before the next model
+                // call), matching the stop-hook / cap pause path. Reset so a
+                // resumed run does not immediately re-pause on the latched state
+                // (the crate also resets internally on a halt; this is explicit
+                // and idempotent).
+                self.handle.send(SteeringCommand::Pause);
+                self.tracker.reset();
+            }
         }
         Ok(())
     }
@@ -2201,6 +2167,18 @@ mod tests {
         r
     }
 
+    /// Count how many of the steering commands drained from `handle` are
+    /// `Pause` (the halt signal). The tracker-driven breaker now also emits a
+    /// `Redirect` **nudge** below the retry cap, so a raw `pending()` count no
+    /// longer isolates the halt — the tests classify by command kind instead.
+    fn drain_pause_count(handle: &SteeringHandle) -> usize {
+        handle
+            .drain()
+            .into_iter()
+            .filter(|c| matches!(c, SteeringCommand::Pause))
+            .count()
+    }
+
     #[tokio::test]
     async fn repeated_tool_failure_pauses_only_after_the_threshold() {
         let handle = SteeringHandle::allow_all();
@@ -2209,18 +2187,20 @@ mod tests {
             3,
             std::sync::Arc::new(std::sync::Mutex::new(None)),
         );
-        // Two identical failures: below the threshold, no pause.
+        // Two identical failures: below the halt threshold. The crate ladder
+        // nudges (Redirect) on the second, but must NOT pause (halt) yet.
         for _ in 0..2 {
             let mut r = failing_result("flaky", "boom");
             mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
         }
-        assert_eq!(handle.pending(), 0, "no pause before the threshold");
-        // Third identical failure trips the breaker.
+        assert_eq!(drain_pause_count(&handle), 0, "no halt before the threshold");
+        // Third identical failure exhausts the same-strategy retries → halt.
         let mut r = failing_result("flaky", "boom");
         mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
-        assert!(
-            handle.pending() >= 1,
-            "the third identical failure should pause the run"
+        assert_eq!(
+            drain_pause_count(&handle),
+            1,
+            "the third identical failure should pause (halt) the run"
         );
     }
 
@@ -2239,12 +2219,17 @@ mod tests {
         }
         let mut ok = tool_result("t", "fine"); // error = None
         mw.after_tool(&mut ctx(), &(), &mut ok).await.unwrap();
-        // Two more failures — still below the threshold because the counter reset.
+        // Two more failures — still below the halt threshold because the counter
+        // reset, so the ladder never reaches the third identical repeat.
         for _ in 0..2 {
             let mut r = failing_result("t", "boom");
             mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
         }
-        assert_eq!(handle.pending(), 0, "a success should reset the breaker");
+        assert_eq!(
+            drain_pause_count(&handle),
+            0,
+            "a success should reset the breaker so it never halts"
+        );
     }
 
     #[tokio::test]
@@ -2256,7 +2241,8 @@ mod tests {
             std::sync::Arc::new(std::sync::Mutex::new(None)),
         );
         // Three *different* errors never trip the breaker — only an identical,
-        // deterministic failure loop does.
+        // deterministic failure loop does (and the varied-failure backstop nudges
+        // at 4 / halts at 6, both above this count).
         for err in ["e1", "e2", "e3"] {
             let mut r = failing_result("t", err);
             mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
@@ -2264,7 +2250,7 @@ mod tests {
         assert_eq!(
             handle.pending(),
             0,
-            "distinct errors must not trip the breaker"
+            "distinct errors below the backstop must not steer the run"
         );
     }
 

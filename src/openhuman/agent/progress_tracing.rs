@@ -44,6 +44,10 @@ use serde::Serialize;
 
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::config::schema::{AgentTracingBackend, AgentTracingConfig};
+use crate::openhuman::config::Config;
+
+/// Langfuse ingestion exporter (remote push to the co-hosted staging server).
+pub(crate) mod langfuse;
 
 /// Trace-level correlation context, stamped onto the root span.
 #[derive(Debug, Clone)]
@@ -716,6 +720,35 @@ pub(crate) fn export_spans(config: &AgentTracingConfig, spans: &[TraceSpan]) {
             );
         }
     }
+}
+
+/// Hand a completed run's spans to the configured tracing sink.
+///
+/// For the `Langfuse` backend this pushes to the co-hosted staging server —
+/// the endpoint is derived from the current backend hostname and the request
+/// reuses the session bearer (see [`langfuse::push_spans`]). If the push fails
+/// (no live session, network error, rejected batch) — or for the `Otel`
+/// backend — it falls back to the local file/log sink [`export_spans`]. A no-op
+/// when tracing is disabled or there are no spans. Best-effort: never returns an
+/// error to the turn.
+pub(crate) async fn export_run_trace(config: &Config, spans: &[TraceSpan]) {
+    let tracing_config = &config.observability.agent_tracing;
+    if !tracing_config.enabled || spans.is_empty() {
+        return;
+    }
+
+    if tracing_config.backend == AgentTracingBackend::Langfuse {
+        match langfuse::push_spans(config, spans).await {
+            Ok(()) => return,
+            Err(err) => {
+                log::warn!(
+                    "[agent-tracing] Langfuse push failed ({err}); falling back to file/log sink"
+                );
+            }
+        }
+    }
+
+    export_spans(tracing_config, spans);
 }
 
 #[cfg(test)]

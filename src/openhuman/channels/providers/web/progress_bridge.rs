@@ -1118,10 +1118,8 @@ pub(crate) fn spawn_progress_bridge(
         // never affects the turn outcome.
         if let Some(mut collector) = span_collector.take() {
             collector.finish(unix_epoch_ms());
-            crate::openhuman::agent::progress_tracing::export_spans(
-                &config.observability.agent_tracing,
-                collector.spans(),
-            );
+            crate::openhuman::agent::progress_tracing::export_run_trace(&config, collector.spans())
+                .await;
         }
 
         log::debug!(

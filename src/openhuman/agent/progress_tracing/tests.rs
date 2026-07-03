@@ -614,3 +614,38 @@ fn export_with_no_path_does_not_panic() {
     export_spans(&cfg, &one_turn_spans());
     export_spans(&cfg, &[]); // empty slice short-circuits.
 }
+
+#[tokio::test]
+async fn export_run_trace_is_noop_when_disabled_or_empty() {
+    // Disabled tracing → no-op regardless of spans (default config is disabled).
+    let config = crate::openhuman::config::Config::default();
+    export_run_trace(&config, &one_turn_spans()).await;
+
+    // Enabled but no spans → also a no-op.
+    let mut enabled = crate::openhuman::config::Config::default();
+    enabled.observability.agent_tracing.enabled = true;
+    export_run_trace(&enabled, &[]).await;
+}
+
+#[tokio::test]
+async fn export_run_trace_otel_backend_uses_local_sink() {
+    // The Otel backend never touches the network — it writes the file/log sink.
+    let dir = std::env::temp_dir().join(format!("oh-trace-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("spans.ndjson");
+
+    let mut config = crate::openhuman::config::Config::default();
+    config.observability.agent_tracing = AgentTracingConfig {
+        enabled: true,
+        backend: AgentTracingBackend::Otel,
+        export_path: Some(path.to_string_lossy().to_string()),
+    };
+    export_run_trace(&config, &one_turn_spans()).await;
+
+    let written = std::fs::read_to_string(&path).expect("otel export should write the file");
+    assert!(
+        !written.trim().is_empty(),
+        "spans should be appended locally"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

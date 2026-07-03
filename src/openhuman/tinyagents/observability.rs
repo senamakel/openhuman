@@ -458,6 +458,13 @@ impl EventListener for OpenhumanEventBridge {
                 );
             }
             AgentEvent::ToolStarted { call_id, tool_name } => {
+                // Unknown/invisible tool calls no longer produce a sentinel-named
+                // Started event: the migration replaced `UNKNOWN_TOOL_SENTINEL` +
+                // `UnknownToolRewriteMiddleware` with the crate
+                // `UnknownToolPolicy::ReturnToolError` path (01.2), which recovers
+                // the call and emits `AgentEvent::UnknownToolCall` (handled above)
+                // instead of a rewritten ToolStarted. So this arm fires only for
+                // real, model-visible tools and needs no sentinel guard.
                 let iteration = self.iteration();
                 match &self.scope {
                     None => self.send(AgentProgress::ToolCallStarted {
@@ -635,6 +642,40 @@ mod tests {
 
         let (input, output, _) = bridge.totals();
         assert_eq!((input, output), (100, 40));
+    }
+
+    #[tokio::test]
+    async fn sentinel_tool_started_is_not_forwarded() {
+        // #4249 regression guard: a `ToolStarted` for the unknown-tool sentinel
+        // must NOT emit a `ToolCallStarted`. The frontend keys tool-timeline rows
+        // by `call_id` and overwrites the name on Started, so forwarding the
+        // sentinel would clobber the real streamed row (e.g. `web_fetch`) and drop
+        // the attempted tool from the UI timeline. A real tool name still forwards.
+        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+        let bridge = OpenhumanEventBridge::new(Some(tx), "mock-model", 10);
+        let sink = EventSink::new();
+        sink.subscribe(bridge.clone());
+
+        sink.emit(AgentEvent::ToolStarted {
+            call_id: "c1".into(),
+            tool_name: crate::openhuman::tinyagents::tools::UNKNOWN_TOOL_SENTINEL.to_string(),
+        });
+        sink.emit(AgentEvent::ToolStarted {
+            call_id: "c2".into(),
+            tool_name: "web_fetch".to_string(),
+        });
+
+        let mut started_names = Vec::new();
+        while let Ok(p) = rx.try_recv() {
+            if let AgentProgress::ToolCallStarted { tool_name, .. } = p {
+                started_names.push(tool_name);
+            }
+        }
+        assert_eq!(
+            started_names,
+            vec!["web_fetch".to_string()],
+            "sentinel Started must be skipped; the real tool name must still forward"
+        );
     }
 }
 

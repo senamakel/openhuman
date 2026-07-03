@@ -138,6 +138,15 @@ pub enum DomainEvent {
         source: String,
     },
 
+    /// A tiny.place harness session DM was ingested and persisted. Metadata only
+    /// — bodies stay in the workspace-internal orchestration store. Consumed by
+    /// later stages (graph run, UI socket push).
+    OrchestrationSessionMessage {
+        agent_id: String,
+        session_id: String,
+        chat_kind: String,
+    },
+
     // ── Subconscious orchestrator ───────────────────────────────────────
     /// A subconscious trigger finished gate evaluation (promote or drop).
     /// Observability only — lets dashboards see ingestion volume and the
@@ -1240,6 +1249,7 @@ impl DomainEvent {
             | Self::AgentOrchestrationFailed { .. }
             | Self::AgentOrchestrationClosed { .. }
             | Self::OrchestrationPairingChanged { .. }
+            | Self::OrchestrationSessionMessage { .. }
             | Self::RunQueueMessageQueued { .. }
             | Self::RunQueueFollowupDispatched { .. }
             | Self::RunQueueInterrupted { .. } => "agent",
@@ -1400,6 +1410,7 @@ impl DomainEvent {
             Self::AgentOrchestrationFailed { .. } => "AgentOrchestrationFailed",
             Self::AgentOrchestrationClosed { .. } => "AgentOrchestrationClosed",
             Self::OrchestrationPairingChanged { .. } => "OrchestrationPairingChanged",
+            Self::OrchestrationSessionMessage { .. } => "OrchestrationSessionMessage",
             Self::SubconsciousTriggerProcessed { .. } => "SubconsciousTriggerProcessed",
             Self::RunQueueMessageQueued { .. } => "RunQueueMessageQueued",
             Self::RunQueueFollowupDispatched { .. } => "RunQueueFollowupDispatched",

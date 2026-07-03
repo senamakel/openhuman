@@ -42,6 +42,38 @@ const SCHEMA_DDL: &str = "
         ON messages (agent_id, session_id, timestamp);
 
     CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+
+    -- Stage 5: 20:1-compressed execution-trace summaries, one row per wake cycle.
+    -- Keyed by cycle_id so a checkpoint-resumed cycle re-writes idempotently.
+    CREATE TABLE IF NOT EXISTS compressed_history (
+        cycle_id      TEXT PRIMARY KEY,
+        session_id    TEXT NOT NULL,
+        agent_id      TEXT NOT NULL,
+        input_tokens  INTEGER NOT NULL,
+        output_tokens INTEGER NOT NULL,
+        text          TEXT NOT NULL,
+        created_at    TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_compressed_session
+        ON compressed_history (agent_id, session_id, created_at);
+
+    -- Stage 5: append-only world-state-diff timeline. `seq` is monotonic per
+    -- (agent, session) from genesis (seq 1). Keyed by cycle_id so a resumed
+    -- cycle never appends a duplicate row.
+    CREATE TABLE IF NOT EXISTS world_diff (
+        cycle_id        TEXT PRIMARY KEY,
+        seq             INTEGER NOT NULL,
+        session_id      TEXT NOT NULL,
+        agent_id        TEXT NOT NULL,
+        event_signature TEXT NOT NULL,
+        world_mutation  TEXT NOT NULL,
+        delta           TEXT NOT NULL,
+        timestamp       TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_world_diff_session
+        ON world_diff (agent_id, session_id, seq);
 ";
 
 /// Open the orchestration DB, initialise the schema, and run `f`.
@@ -186,6 +218,112 @@ pub fn list_recent_messages(
     Ok(rows.into_iter().rev().collect())
 }
 
+/// Insert a compressed-history row, idempotent by `cycle_id`. Returns true if a
+/// new row landed (false on a resumed-cycle replay).
+#[allow(clippy::too_many_arguments)]
+pub fn insert_compressed(
+    conn: &Connection,
+    cycle_id: &str,
+    session_id: &str,
+    agent_id: &str,
+    input_tokens: i64,
+    output_tokens: i64,
+    text: &str,
+    created_at: &str,
+) -> Result<bool> {
+    let changed = conn.execute(
+        "INSERT OR IGNORE INTO compressed_history
+           (cycle_id, session_id, agent_id, input_tokens, output_tokens, text, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            cycle_id,
+            session_id,
+            agent_id,
+            input_tokens,
+            output_tokens,
+            text,
+            created_at
+        ],
+    )?;
+    Ok(changed > 0)
+}
+
+/// Count compressed-history rows for a session.
+pub fn count_compressed(conn: &Connection, agent_id: &str, session_id: &str) -> Result<i64> {
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM compressed_history WHERE agent_id = ?1 AND session_id = ?2",
+        params![agent_id, session_id],
+        |row| row.get(0),
+    )?)
+}
+
+/// Append one world-diff timeline entry, idempotent by `cycle_id`. The `seq` is
+/// assigned monotonically per (agent, session) — genesis is seq 1. Returns the
+/// assigned seq for a new row, or the existing row's seq on a resumed replay
+/// (never a second row). Also stamps `terminal_state:<agent>:<session>` in `kv`.
+#[allow(clippy::too_many_arguments)]
+pub fn append_world_diff(
+    conn: &Connection,
+    cycle_id: &str,
+    session_id: &str,
+    agent_id: &str,
+    event_signature: &str,
+    world_mutation: &str,
+    delta: &str,
+    timestamp: &str,
+) -> Result<i64> {
+    // Idempotent replay: if this cycle already appended, return its seq unchanged.
+    if let Some(seq) = conn
+        .query_row(
+            "SELECT seq FROM world_diff WHERE cycle_id = ?1",
+            params![cycle_id],
+            |r| r.get::<_, i64>(0),
+        )
+        .optional()?
+    {
+        return Ok(seq);
+    }
+
+    let next_seq: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(seq), 0) + 1 FROM world_diff WHERE agent_id = ?1 AND session_id = ?2",
+        params![agent_id, session_id],
+        |r| r.get(0),
+    )?;
+    conn.execute(
+        "INSERT INTO world_diff
+           (cycle_id, seq, session_id, agent_id, event_signature, world_mutation, delta, timestamp)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            cycle_id,
+            next_seq,
+            session_id,
+            agent_id,
+            event_signature,
+            world_mutation,
+            delta,
+            timestamp
+        ],
+    )?;
+    kv_set(
+        conn,
+        &format!("terminal_state:{agent_id}:{session_id}"),
+        world_mutation,
+    )?;
+    Ok(next_seq)
+}
+
+/// The ordered `seq` values of a session's world-diff timeline (append-only test
+/// + stage-7 read surface).
+pub fn world_diff_seqs(conn: &Connection, agent_id: &str, session_id: &str) -> Result<Vec<i64>> {
+    let mut stmt = conn.prepare(
+        "SELECT seq FROM world_diff WHERE agent_id = ?1 AND session_id = ?2 ORDER BY seq ASC",
+    )?;
+    let rows = stmt
+        .query_map(params![agent_id, session_id], |r| r.get::<_, i64>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 /// Read a `kv` value (used for the per-session idempotence cursor).
 pub fn kv_get(conn: &Connection, key: &str) -> Result<Option<String>> {
     conn.query_row("SELECT v FROM kv WHERE k = ?1", params![key], |r| r.get(0))
@@ -245,6 +383,54 @@ mod tests {
             assert!(!insert_message(conn, &msg("m1", "@a", "h1", 1))?);
             assert!(message_exists(conn, "m1")?);
             assert_eq!(count_messages(conn, "@a", "h1")?, 1);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn world_diff_is_append_only_with_monotonic_seq_and_idempotent_cycles() {
+        let tmp = tempfile::tempdir().unwrap();
+        with_connection(tmp.path(), |conn| {
+            // Genesis is seq 1, next cycle seq 2 — the append-only timeline.
+            let s1 = append_world_diff(conn, "h1#1", "h1", "@a", "sig1", "world v1", "d1", "t1")?;
+            let s2 = append_world_diff(conn, "h1#2", "h1", "@a", "sig2", "world v2", "d2", "t2")?;
+            assert_eq!(s1, 1, "genesis seq");
+            assert_eq!(s2, 2, "second cycle seq");
+
+            // A resumed cycle (same cycle_id) does not append a second row and
+            // returns the original seq — genesis untouched.
+            let s1_again =
+                append_world_diff(conn, "h1#1", "h1", "@a", "sig1", "world v1'", "d1'", "t1'")?;
+            assert_eq!(s1_again, 1, "resumed cycle reuses its seq");
+            assert_eq!(
+                world_diff_seqs(conn, "@a", "h1")?,
+                vec![1, 2],
+                "no duplicate rows"
+            );
+
+            // terminal_state tracks the latest mutation.
+            assert_eq!(
+                kv_get(conn, "terminal_state:@a:h1")?.as_deref(),
+                Some("world v2")
+            );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn compressed_history_is_idempotent_by_cycle_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        with_connection(tmp.path(), |conn| {
+            assert!(insert_compressed(
+                conn, "h1#1", "h1", "@a", 400, 20, "summary", "now"
+            )?);
+            // Resumed cycle → no second row.
+            assert!(!insert_compressed(
+                conn, "h1#1", "h1", "@a", 400, 20, "summary", "now"
+            )?);
+            assert_eq!(count_compressed(conn, "@a", "h1")?, 1);
             Ok(())
         })
         .unwrap();

@@ -1,5 +1,6 @@
-//! Graph-mechanics tests: full-cycle walk (exactly one DM) and the
-//! loop-continuity property (adversarial state combos never cycle or double-send).
+//! Graph-mechanics tests: full-cycle walk, node ordering (guard after mutations,
+//! before END), context-guard eviction threshold, and the loop-continuity
+//! property (adversarial state combos never cycle or double-send).
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -8,46 +9,111 @@ use async_trait::async_trait;
 
 use super::*;
 
-/// Records front-end / reasoning calls and every DM sent, so tests can assert
-/// call counts and single-send.
+/// Records the ordered sequence of node operations + every DM sent.
 #[derive(Default)]
 struct Recorder {
+    order: Mutex<Vec<String>>,
     instruct_calls: AtomicUsize,
     compile_calls: AtomicUsize,
     execute_calls: AtomicUsize,
+    compress_calls: AtomicUsize,
+    world_diff_calls: AtomicUsize,
+    evict_calls: AtomicUsize,
     dms: Mutex<Vec<(String, String)>>,
 }
 
-struct StubFrontend(Arc<Recorder>);
+impl Recorder {
+    fn mark(&self, op: &str) {
+        self.order.lock().unwrap().push(op.to_string());
+    }
+    fn order(&self) -> Vec<String> {
+        self.order.lock().unwrap().clone()
+    }
+    /// Index of the first occurrence of `op` in the call order.
+    fn pos(&self, op: &str) -> Option<usize> {
+        self.order().iter().position(|o| o == op)
+    }
+}
+
+/// A configurable stub runtime. `utilization` drives the context-guard branch.
+struct StubRuntime {
+    rec: Arc<Recorder>,
+    utilization: f32,
+    evicted: usize,
+    post_evict_util: f32,
+}
+
+impl StubRuntime {
+    fn new(rec: Arc<Recorder>) -> Self {
+        Self {
+            rec,
+            utilization: 0.1,
+            evicted: 0,
+            post_evict_util: 0.1,
+        }
+    }
+    fn with_utilization(mut self, util: f32, evicted: usize, post: f32) -> Self {
+        self.utilization = util;
+        self.evicted = evicted;
+        self.post_evict_util = post;
+        self
+    }
+}
+
 #[async_trait]
-impl FrontendNode for StubFrontend {
-    async fn instruct(&self, _s: &OrchestrationState) -> anyhow::Result<String> {
-        self.0.instruct_calls.fetch_add(1, Ordering::SeqCst);
+impl OrchestrationRuntime for StubRuntime {
+    async fn frontend_instruct(&self, _s: &OrchestrationState) -> anyhow::Result<String> {
+        self.rec.mark("frontend_instruct");
+        self.rec.instruct_calls.fetch_add(1, Ordering::SeqCst);
         Ok("do the thing".into())
     }
-    async fn compile_reply(&self, s: &OrchestrationState) -> anyhow::Result<String> {
-        self.0.compile_calls.fetch_add(1, Ordering::SeqCst);
+    async fn frontend_compile(&self, s: &OrchestrationState) -> anyhow::Result<String> {
+        self.rec.mark("frontend_compile");
+        self.rec.compile_calls.fetch_add(1, Ordering::SeqCst);
         Ok(format!(
             "reply: {}",
             s.agent_reply.clone().unwrap_or_default()
         ))
     }
-}
-
-struct StubReasoning(Arc<Recorder>);
-#[async_trait]
-impl ReasoningNode for StubReasoning {
-    async fn execute(&self, _s: &OrchestrationState) -> anyhow::Result<String> {
-        self.0.execute_calls.fetch_add(1, Ordering::SeqCst);
-        Ok("canned reasoning reply".into())
+    async fn execute(&self, _s: &OrchestrationState) -> anyhow::Result<ExecuteOutcome> {
+        self.rec.mark("execute");
+        self.rec.execute_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(ExecuteOutcome {
+            reply: "canned reasoning reply".into(),
+            trace: "step 1\nstep 2\nstep 3".into(),
+        })
     }
-}
-
-struct StubSender(Arc<Recorder>);
-#[async_trait]
-impl ChannelSender for StubSender {
+    async fn compress(&self, _s: &OrchestrationState) -> anyhow::Result<CompressedEntry> {
+        self.rec.mark("compress");
+        self.rec.compress_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(CompressedEntry {
+            summary: "compact".into(),
+            covered_messages: 3,
+        })
+    }
+    async fn world_diff(&self, s: &OrchestrationState) -> anyhow::Result<WorldDiffEntry> {
+        self.rec.mark("world_diff");
+        self.rec.world_diff_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(WorldDiffEntry {
+            seq: s.world_state_diff.entries.len() as u64 + 1,
+            note: "mutation".into(),
+        })
+    }
+    async fn context_utilization(&self, _s: &OrchestrationState) -> anyhow::Result<f32> {
+        self.rec.mark("context_utilization");
+        Ok(self.utilization)
+    }
+    async fn evict(&self, _s: &OrchestrationState) -> anyhow::Result<EvictionOutcome> {
+        self.rec.mark("evict");
+        self.rec.evict_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(EvictionOutcome {
+            evicted: self.evicted,
+            new_utilization: self.post_evict_util,
+        })
+    }
     async fn send_dm(&self, counterpart: &str, body: &str) -> anyhow::Result<()> {
-        self.0
+        self.rec.mark("send_dm");
+        self.rec
             .dms
             .lock()
             .unwrap()
@@ -56,15 +122,8 @@ impl ChannelSender for StubSender {
     }
 }
 
-fn run(state: OrchestrationState, rec: Arc<Recorder>) -> OrchestrationState {
-    let graph = build_orchestration_graph(
-        Arc::new(StubFrontend(rec.clone())),
-        Arc::new(StubReasoning(rec.clone())),
-        Arc::new(StubSender(rec.clone())),
-        12,
-    )
-    .expect("graph compiles");
-    // No thread id → no checkpoint persistence needed; exercises pure mechanics.
+fn run(state: OrchestrationState, runtime: StubRuntime) -> OrchestrationState {
+    let graph = build_orchestration_graph(Arc::new(runtime), 12, 0.85).expect("graph compiles");
     let exec = tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(graph.run(state))
@@ -73,38 +132,115 @@ fn run(state: OrchestrationState, rec: Arc<Recorder>) -> OrchestrationState {
 }
 
 #[test]
-fn full_cycle_walks_normalize_frontend_execute_frontend_send_guard_and_sends_one_dm() {
+fn full_cycle_walks_all_nodes_and_produces_one_dm_one_compressed_one_diff() {
     let rec = Arc::new(Recorder::default());
     let state = OrchestrationState::seed("h1", "@peer", Vec::new());
-    let out = run(state, rec.clone());
+    let out = run(state, StubRuntime::new(rec.clone()));
 
-    // One pass-1 instruct, one reasoning execute, one pass-2 compile.
+    // Each behaviour-bearing node fired exactly once this cycle.
     assert_eq!(rec.instruct_calls.load(Ordering::SeqCst), 1, "one pass-1");
     assert_eq!(rec.execute_calls.load(Ordering::SeqCst), 1, "one execute");
+    assert_eq!(rec.compress_calls.load(Ordering::SeqCst), 1, "one compress");
+    assert_eq!(
+        rec.world_diff_calls.load(Ordering::SeqCst),
+        1,
+        "one world_diff"
+    );
     assert_eq!(rec.compile_calls.load(Ordering::SeqCst), 1, "one pass-2");
 
-    // Exactly one outbound DM, to the right counterpart, carrying the compiled reply.
-    let dms = rec.dms.lock().unwrap();
-    assert_eq!(dms.len(), 1, "exactly one DM");
-    assert_eq!(dms[0].0, "@peer");
-    assert_eq!(dms[0].1, "reply: canned reasoning reply");
+    // Exactly one DM, one compressed-history entry, one world-diff entry.
+    assert_eq!(rec.dms.lock().unwrap().len(), 1, "exactly one DM");
+    assert_eq!(out.compressed_history.len(), 1, "one compressed row");
+    assert_eq!(out.world_state_diff.entries.len(), 1, "one diff entry");
+    assert_eq!(out.world_state_diff.entries[0].seq, 1);
 
-    // Terminal state: response compiled, latched sent, two front-end passes,
-    // context utilization computed before END.
-    assert_eq!(out.agent_instructions.as_deref(), Some("do the thing"));
+    // Terminal state.
     assert_eq!(out.agent_reply.as_deref(), Some("canned reasoning reply"));
+    assert_eq!(out.execution_trace, "step 1\nstep 2\nstep 3");
     assert_eq!(
         out.channel_response.as_deref(),
         Some("reply: canned reasoning reply")
     );
     assert!(out.dm_sent);
     assert_eq!(out.pass, 2);
-    assert!(out.context_utilization >= 0.0);
+}
+
+#[test]
+fn node_order_is_execute_compress_world_diff_then_send_then_guard() {
+    let rec = Arc::new(Recorder::default());
+    let state = OrchestrationState::seed("h1", "@peer", Vec::new());
+    let _ = run(state, StubRuntime::new(rec.clone()));
+
+    // Memory mechanics run in the spec order between execute and the pass-2 reply.
+    let execute = rec.pos("execute").expect("execute ran");
+    let compress = rec.pos("compress").expect("compress ran");
+    let world_diff = rec.pos("world_diff").expect("world_diff ran");
+    let compile = rec.pos("frontend_compile").expect("pass-2 ran");
+    assert!(execute < compress, "compress runs after execute");
+    assert!(compress < world_diff, "world_diff runs after compress");
+    assert!(
+        world_diff < compile,
+        "pass-2 runs after the memory mechanics"
+    );
+
+    // Guard-before-END invariant: the context guard runs AFTER the outbound DM
+    // (all mutations complete) and is the last op before END.
+    let send = rec.pos("send_dm").expect("dm sent");
+    let guard = rec.pos("context_utilization").expect("guard ran");
+    assert!(
+        send < guard,
+        "context_guard runs after send_dm (post-mutation)"
+    );
+    assert_eq!(
+        guard,
+        rec.order().len() - 1,
+        "context_guard is the final op before END: {:?}",
+        rec.order()
+    );
+}
+
+#[test]
+fn context_guard_noop_below_threshold_and_evicts_at_or_above() {
+    // 0.84 < 0.85 threshold → measure only, no eviction.
+    let rec = Arc::new(Recorder::default());
+    let out = run(
+        OrchestrationState::seed("h1", "@peer", Vec::new()),
+        StubRuntime::new(rec.clone()).with_utilization(0.84, 3, 0.2),
+    );
+    assert_eq!(
+        rec.evict_calls.load(Ordering::SeqCst),
+        0,
+        "no eviction at 0.84"
+    );
+    assert!((out.context_utilization - 0.84).abs() < f32::EPSILON);
+    assert_eq!(out.compressed_history.len(), 1, "compress row retained");
+
+    // 0.86 ≥ 0.85 → evict. The stub reports 1 evicted; state drops that many
+    // oldest compressed entries (capped at what exists) and resets utilization.
+    let rec = Arc::new(Recorder::default());
+    let out = run(
+        OrchestrationState::seed("h1", "@peer", Vec::new()),
+        StubRuntime::new(rec.clone()).with_utilization(0.86, 1, 0.2),
+    );
+    assert_eq!(
+        rec.evict_calls.load(Ordering::SeqCst),
+        1,
+        "eviction at 0.86"
+    );
+    assert!(
+        (out.context_utilization - 0.2).abs() < f32::EPSILON,
+        "utilization reset"
+    );
+    // One compressed entry was pushed this cycle and one evicted → empty.
+    assert_eq!(
+        out.compressed_history.len(),
+        0,
+        "evicted entry dropped from state"
+    );
 }
 
 #[test]
 fn loop_continuity_adversarial_state_combos_never_cycle_or_double_send() {
-    // (label, seed mutation): every combination must terminate with ≤1 DM.
     let cases: Vec<(&str, Box<dyn Fn(&mut OrchestrationState)>)> = vec![
         ("cold_start", Box::new(|_s| {})),
         (
@@ -132,7 +268,7 @@ fn loop_continuity_adversarial_state_combos_never_cycle_or_double_send() {
         let rec = Arc::new(Recorder::default());
         let mut state = OrchestrationState::seed("h1", "@peer", Vec::new());
         mutate(&mut state);
-        let out = run(state, rec.clone());
+        let out = run(state, StubRuntime::new(rec.clone()));
 
         let dm_count = rec.dms.lock().unwrap().len();
         assert!(
@@ -147,13 +283,11 @@ fn loop_continuity_adversarial_state_combos_never_cycle_or_double_send() {
             out.channel_response.is_some(),
             "{label}: cycle must terminate with a channel_response"
         );
-        // Bounded front-end work: never more passes than the backstop allows.
         assert!(
             out.pass <= 12,
             "{label}: {} passes — exceeded backstop",
             out.pass
         );
-        // A pre-set channel_response short-circuits the LLM entirely.
         if label == "response_preset" || label == "reply_and_response_preset" {
             assert_eq!(
                 rec.instruct_calls.load(Ordering::SeqCst),

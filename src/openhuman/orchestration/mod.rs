@@ -15,6 +15,7 @@ pub mod frontend_agent;
 pub mod graph;
 pub mod ingest;
 pub mod ops;
+pub mod reasoning_agent;
 pub mod store;
 pub mod tools;
 pub mod types;

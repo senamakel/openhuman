@@ -293,6 +293,12 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: crate::openhuman::orchestration::frontend_agent::prompt::build,
         graph_fn: crate::openhuman::orchestration::frontend_agent::graph::graph,
     },
+    BuiltinAgent {
+        id: "reasoning_agent",
+        toml: include_str!("../../orchestration/reasoning_agent/agent.toml"),
+        prompt_fn: crate::openhuman::orchestration::reasoning_agent::prompt::build,
+        graph_fn: crate::openhuman::orchestration::reasoning_agent::graph::graph,
+    },
 ];
 
 /// Parse every entry in [`BUILTINS`] into an [`AgentDefinition`].
@@ -1737,14 +1743,14 @@ mod tests {
         for def in load_builtins().unwrap() {
             if matches!(
                 def.id.as_str(),
-                "orchestrator" | "planner" | "subconscious" | "frontend_agent"
+                "orchestrator" | "planner" | "subconscious" | "frontend_agent" | "reasoning_agent"
             ) {
                 continue;
             }
             assert_eq!(
                 def.agent_tier,
                 AgentTier::Worker,
-                "{} should default to worker tier (only orchestrator/planner/subconscious/frontend_agent are non-worker today)",
+                "{} should default to worker tier (only orchestrator/planner/subconscious/frontend_agent/reasoning_agent are non-worker today)",
                 def.id
             );
         }

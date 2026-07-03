@@ -20,11 +20,17 @@ use serde_json::{Map, Value};
 
 use crate::openhuman::config::Config;
 
+use super::graph::compress::{compression_budget, count_tokens, enforce_budget};
 use super::graph::{
-    run_orchestration_graph, ChannelSender, FrontendNode, OrchestrationState, ReasoningNode,
+    run_orchestration_graph, world_diff, CompressedEntry, EvictionOutcome, ExecuteOutcome,
+    OrchestrationRuntime, OrchestrationState, WorldDiffEntry,
 };
 use super::store;
 use super::types::ChatKind;
+
+/// Assumed model context window (tokens) for the `context_guard` utilization
+/// estimate until per-model resolution is wired. Sized to the reasoning tier.
+const ASSUMED_CONTEXT_WINDOW: u64 = 200_000;
 
 const LOG: &str = "orchestration";
 
@@ -168,14 +174,13 @@ pub async fn invoke_orchestration_graph(
     }
 
     let config = Arc::new(config.clone());
-    let frontend: Arc<dyn FrontendNode> = Arc::new(AgentFrontendRunner {
+    let runtime: Arc<dyn OrchestrationRuntime> = Arc::new(ProductionRuntime {
         config: config.clone(),
+        agent_id: agent_id.to_string(),
         session_id: session_id.to_string(),
     });
-    let reasoning: Arc<dyn ReasoningNode> = Arc::new(StubReasoningCore);
-    let sender: Arc<dyn ChannelSender> = Arc::new(SignalDmSender);
 
-    let out = run_orchestration_graph(config.clone(), frontend, reasoning, sender, state)
+    let out = run_orchestration_graph(config.clone(), runtime, state)
         .await
         .map_err(|e| format!("graph run: {e}"))?;
 
@@ -185,71 +190,78 @@ pub async fn invoke_orchestration_graph(
     Ok(())
 }
 
-// ── Production nodes ────────────────────────────────────────────────────────
+// ── Production runtime ──────────────────────────────────────────────────────
 
-/// Render the windowed transcript for the front-end prompt. Roles are the
-/// harness roles (`user` / `agent`); the front end reads them like a chat log.
+/// Render the windowed transcript for a node prompt. Roles are the harness roles
+/// (`user` / `agent`); the agents read them like a chat log.
 fn render_transcript(state: &OrchestrationState) -> String {
     let mut out = String::with_capacity(1024);
     for m in &state.messages {
         out.push_str(&format!("[{}] {}\n", m.role, m.body));
     }
-    if let Some(steer) = &state.subconscious_steering {
-        out.push_str(&format!("\n[subconscious steering]: {steer}\n"));
-    }
     out
 }
 
-/// Production front end: runs the `frontend_agent` built-in for one turn on the
-/// Quick (`hint:chat`) tier. Pass 1 frames macro-instructions; pass 2 compiles
-/// the reasoning reply into the finished channel text.
-struct AgentFrontendRunner {
+/// The production wiring for every wake-graph node: the front-end + reasoning
+/// agents, the compression summarizer, the world-diff + compressed-history store
+/// writes, the memory-RAG eviction, and the Signal DM reply.
+struct ProductionRuntime {
     config: Arc<Config>,
+    agent_id: String,
     session_id: String,
 }
 
-impl AgentFrontendRunner {
-    async fn run_turn(&self, user_message: String) -> anyhow::Result<String> {
+impl ProductionRuntime {
+    /// Run a built-in agent for one turn under a background origin, forcing the
+    /// given model hint (`hint:chat` for the front end, `hint:reasoning` for the
+    /// core). Returns the final assistant text.
+    async fn run_agent_turn(
+        &self,
+        agent_id: &str,
+        model_hint: &str,
+        channel: &str,
+        user_message: String,
+    ) -> anyhow::Result<String> {
         use crate::openhuman::agent::turn_origin::{
             with_origin, AgentTurnOrigin, TrustedAutomationSource,
         };
         use crate::openhuman::agent::Agent;
 
-        // Force the Quick tier — verified `hint:chat` (TTFT-optimized, remote).
         let mut effective = (*self.config).clone();
-        effective.default_model = Some("hint:chat".to_string());
+        effective.default_model = Some(model_hint.to_string());
 
-        let mut agent = Agent::from_config_for_agent(&effective, "frontend_agent")
-            .map_err(|e| anyhow::anyhow!("frontend agent init: {e}"))?;
+        let mut agent = Agent::from_config_for_agent(&effective, agent_id)
+            .map_err(|e| anyhow::anyhow!("{agent_id} init: {e}"))?;
         agent.set_event_context(
-            format!("orchestration:frontend:{}", self.session_id),
+            format!("orchestration:{channel}:{}", self.session_id),
             "orchestration",
         );
 
-        // Background origin: no interactive approval parking (stage-4 gating).
+        // Background origin: no interactive approval parking.
         let origin = AgentTurnOrigin::TrustedAutomation {
-            job_id: format!("orchestration:frontend:{}", self.session_id),
+            job_id: format!("orchestration:{channel}:{}", self.session_id),
             source: TrustedAutomationSource::Cron,
         };
         with_origin(origin, agent.run_single(&user_message))
             .await
-            .map_err(|e| anyhow::anyhow!("frontend agent run: {e}"))
+            .map_err(|e| anyhow::anyhow!("{agent_id} run: {e}"))
     }
 }
 
 #[async_trait]
-impl FrontendNode for AgentFrontendRunner {
-    async fn instruct(&self, state: &OrchestrationState) -> anyhow::Result<String> {
+impl OrchestrationRuntime for ProductionRuntime {
+    async fn frontend_instruct(&self, state: &OrchestrationState) -> anyhow::Result<String> {
         let prompt = format!(
             "Session transcript:\n\n{}\n\n## Pass 1\n\nTriage this. If a complete answer is \
              obvious, call `reply_to_channel`. Otherwise call `defer_to_orchestrator` with concise \
              macro-instructions for the reasoning core.",
             render_transcript(state),
         );
-        self.run_turn(prompt).await
+        self.run_agent_turn("frontend_agent", "hint:chat", "frontend", prompt)
+            .await
     }
 
-    async fn compile_reply(&self, state: &OrchestrationState) -> anyhow::Result<String> {
+    async fn frontend_compile(&self, state: &OrchestrationState) -> anyhow::Result<String> {
         let reply = state.agent_reply.clone().unwrap_or_default();
         let prompt = format!(
             "Session transcript:\n\n{}\n\n## Pass 2\n\nThe reasoning core produced this result:\n\n\
@@ -258,30 +270,195 @@ impl FrontendNode for AgentFrontendRunner {
             render_transcript(state),
             reply,
         );
-        self.run_turn(prompt).await
+        self.run_agent_turn("frontend_agent", "hint:chat", "frontend", prompt)
+            .await
     }
-}
 
-/// Stubbed reasoning core (stage 4). Replaced by the real sub-agent-spawning
-/// `execute` node in stage 5.
-struct StubReasoningCore;
-
-#[async_trait]
-impl ReasoningNode for StubReasoningCore {
-    async fn execute(&self, state: &OrchestrationState) -> anyhow::Result<String> {
+    async fn execute(&self, state: &OrchestrationState) -> anyhow::Result<ExecuteOutcome> {
         let instructions = state.agent_instructions.as_deref().unwrap_or("(none)");
-        Ok(format!(
-            "[stubbed reasoning core] acknowledged instructions: {instructions}"
-        ))
+        let prompt = format!(
+            "Macro-instructions from the front end:\n\n{instructions}\n\nSession transcript:\n\n{}\n\n\
+             Do the work (delegating to worker sub-agents where appropriate) and return the result.",
+            render_transcript(state),
+        );
+        // Scope the current steering directive so the reasoning agent's prompt
+        // builder weaves it into the system prompt (spec §3.2).
+        let steering = state.subconscious_steering.clone().unwrap_or_default();
+        let reply = super::reasoning_agent::with_steering(
+            steering,
+            self.run_agent_turn("reasoning_agent", "hint:reasoning", "reasoning", prompt),
+        )
+        .await?;
+        // The trace the compression node condenses. `run_single` surfaces the
+        // final assistant text; the richer per-tool/sub-agent trace lands when
+        // the lower-level runner is wired (follow-up). Frame it with the
+        // instructions so the compressed record is self-describing.
+        let trace = format!("Instructions: {instructions}\n\nResult:\n{reply}");
+        Ok(ExecuteOutcome { reply, trace })
     }
-}
 
-/// Production DM sender: the finished `channel_response` back over the tiny.place
-/// Signal channel, reusing the same reply seam the messaging UI uses.
-struct SignalDmSender;
+    async fn compress(&self, state: &OrchestrationState) -> anyhow::Result<CompressedEntry> {
+        let trace = &state.execution_trace;
+        let input_tokens = count_tokens(trace);
+        if input_tokens == 0 {
+            return Ok(CompressedEntry::default());
+        }
+        let budget = compression_budget(input_tokens);
 
-#[async_trait]
-impl ChannelSender for SignalDmSender {
+        // Summarize via a cheap tier, then enforce the 20:1 budget: retry once if
+        // the summary exceeds 1.5× budget, then hard-truncate.
+        let summarize_prompt = format!(
+            "Compress the following execution trace into at most ~{budget} tokens. Keep only the \
+             decisions, outcomes, and facts needed to continue. No preamble.\n\n{trace}",
+        );
+        let raw = self
+            .run_agent_turn(
+                "summarizer",
+                "hint:burst",
+                "compress",
+                summarize_prompt.clone(),
+            )
+            .await
+            .unwrap_or_else(|_| trace.clone());
+        let (mut summary, mut truncated) = enforce_budget(&raw, budget);
+        if truncated {
+            if let Ok(retry) = self
+                .run_agent_turn("summarizer", "hint:burst", "compress", summarize_prompt)
+                .await
+            {
+                let (s2, t2) = enforce_budget(&retry, budget);
+                summary = s2;
+                truncated = t2;
+            }
+        }
+        let output_tokens = count_tokens(&summary);
+        let now = chrono::Utc::now().to_rfc3339();
+
+        // Persist idempotently by cycle_id (a resumed cycle re-writes the same row).
+        let cycle_id = state.cycle_id.clone();
+        let session_id = state.session_id.clone();
+        let agent_id = self.agent_id.clone();
+        let text = summary.clone();
+        if let Err(e) = store::with_connection(&self.config.workspace_dir, |conn| {
+            store::insert_compressed(
+                conn,
+                &cycle_id,
+                &session_id,
+                &agent_id,
+                input_tokens as i64,
+                output_tokens as i64,
+                &text,
+                &now,
+            )
+        }) {
+            log::warn!(target: LOG, "[orchestration] compress.persist_failed cycle={cycle_id}: {e}");
+        }
+        log::debug!(
+            target: LOG,
+            "[orchestration] compress cycle={} input={input_tokens} output={output_tokens} budget={budget} truncated={truncated}",
+            state.cycle_id,
+        );
+        Ok(CompressedEntry {
+            summary,
+            covered_messages: state.messages.len() as u32,
+        })
+    }
+
+    async fn world_diff(&self, state: &OrchestrationState) -> anyhow::Result<WorldDiffEntry> {
+        let signature = world_diff::event_signature(state);
+        let mutation = world_diff::world_mutation(state);
+        let delta = world_diff::delta(state);
+        let now = chrono::Utc::now().to_rfc3339();
+
+        let cycle_id = state.cycle_id.clone();
+        let session_id = state.session_id.clone();
+        let agent_id = self.agent_id.clone();
+        let seq = store::with_connection(&self.config.workspace_dir, |conn| {
+            store::append_world_diff(
+                conn,
+                &cycle_id,
+                &session_id,
+                &agent_id,
+                &signature,
+                &mutation,
+                &delta,
+                &now,
+            )
+        })
+        .map_err(|e| anyhow::anyhow!("world_diff persist: {e}"))?;
+
+        Ok(WorldDiffEntry {
+            seq: seq as u64,
+            note: mutation,
+        })
+    }
+
+    async fn context_utilization(&self, state: &OrchestrationState) -> anyhow::Result<f32> {
+        // Estimate accumulated tokens: the message window + execution trace +
+        // retained compressed-history summaries, over the assumed window.
+        let mut tokens = count_tokens(&render_transcript(state));
+        tokens += count_tokens(&state.execution_trace);
+        for entry in &state.compressed_history {
+            tokens += count_tokens(&entry.summary);
+        }
+        let util = (tokens as f32 / ASSUMED_CONTEXT_WINDOW as f32).min(1.0);
+        Ok(util)
+    }
+
+    async fn evict(&self, state: &OrchestrationState) -> anyhow::Result<EvictionOutcome> {
+        // Keep the most recent two compressed entries live; evict the older head
+        // to memory RAG under a session-scoped path so it stays retrievable.
+        let total = state.compressed_history.len();
+        let keep = 2usize.min(total);
+        let evict_count = total.saturating_sub(keep);
+        let path_scope = format!("orchestration/{}", state.session_id);
+
+        for (i, entry) in state
+            .compressed_history
+            .iter()
+            .take(evict_count)
+            .enumerate()
+        {
+            let doc = crate::openhuman::memory_sync::canonicalize::document::DocumentInput {
+                provider: "orchestration".to_string(),
+                title: format!("orchestration session {} — cycle summary", state.session_id),
+                body: entry.summary.clone(),
+                modified_at: chrono::Utc::now(),
+                source_ref: None,
+            };
+            let source_id = format!("orchestration/{}/{}#{i}", state.session_id, state.cycle_id);
+            if let Err(e) = crate::openhuman::memory::ingest_pipeline::ingest_document_with_scope(
+                &self.config,
+                &source_id,
+                &self.agent_id,
+                vec!["orchestration".to_string()],
+                doc,
+                Some(path_scope.clone()),
+            )
+            .await
+            {
+                log::warn!(target: LOG, "[orchestration] evict.memory_write_failed: {e}");
+            }
+        }
+
+        // Utilization after dropping the evicted head from live state.
+        let mut retained_tokens = count_tokens(&render_transcript(state));
+        retained_tokens += count_tokens(&state.execution_trace);
+        for entry in state.compressed_history.iter().skip(evict_count) {
+            retained_tokens += count_tokens(&entry.summary);
+        }
+        let new_utilization = (retained_tokens as f32 / ASSUMED_CONTEXT_WINDOW as f32).min(1.0);
+        log::debug!(
+            target: LOG,
+            "[orchestration] evict session={} evicted={evict_count} new_util={new_utilization}",
+            state.session_id,
+        );
+        Ok(EvictionOutcome {
+            evicted: evict_count,
+            new_utilization,
+        })
+    }
+
     async fn send_dm(&self, counterpart_agent_id: &str, body: &str) -> anyhow::Result<()> {
         let mut params = Map::new();
         params.insert("recipient".to_string(), Value::from(counterpart_agent_id));
@@ -368,55 +545,112 @@ mod tests {
         assert_eq!(latest_seq(&state), 2);
     }
 
-    // Stub nodes for the integration run (no LLM, no real Signal).
-    struct StubFe;
+    // A hermetic stub runtime for the integration run (no LLM, no real Signal,
+    // no memory writes) that records DMs + world-diff/compress store rows.
+    // (`CompressedEntry`, `ExecuteOutcome`, etc. are in scope via `use super::*`.)
+    struct StubRuntime {
+        config: Arc<Config>,
+        agent_id: String,
+        sends: Arc<AtomicUsize>,
+    }
+
     #[async_trait]
-    impl FrontendNode for StubFe {
-        async fn instruct(&self, _s: &OrchestrationState) -> anyhow::Result<String> {
+    impl OrchestrationRuntime for StubRuntime {
+        async fn frontend_instruct(&self, _s: &OrchestrationState) -> anyhow::Result<String> {
             Ok("instructions".into())
         }
-        async fn compile_reply(&self, _s: &OrchestrationState) -> anyhow::Result<String> {
+        async fn frontend_compile(&self, _s: &OrchestrationState) -> anyhow::Result<String> {
             Ok("compiled reply".into())
         }
-    }
-    struct StubReasoning;
-    #[async_trait]
-    impl ReasoningNode for StubReasoning {
-        async fn execute(&self, _s: &OrchestrationState) -> anyhow::Result<String> {
-            Ok("reasoning reply".into())
+        async fn execute(&self, _s: &OrchestrationState) -> anyhow::Result<ExecuteOutcome> {
+            Ok(ExecuteOutcome {
+                reply: "reasoning reply".into(),
+                trace: "trace line one\ntrace line two".into(),
+            })
         }
-    }
-    struct CountingSender(Arc<AtomicUsize>);
-    #[async_trait]
-    impl ChannelSender for CountingSender {
+        async fn compress(&self, s: &OrchestrationState) -> anyhow::Result<CompressedEntry> {
+            // Persist a real compressed row so the e2e can assert exactly one.
+            store::with_connection(&self.config.workspace_dir, |conn| {
+                store::insert_compressed(
+                    conn,
+                    &s.cycle_id,
+                    &s.session_id,
+                    &self.agent_id,
+                    100,
+                    5,
+                    "compact",
+                    "now",
+                )
+            })
+            .ok();
+            Ok(CompressedEntry {
+                summary: "compact".into(),
+                covered_messages: s.messages.len() as u32,
+            })
+        }
+        async fn world_diff(&self, s: &OrchestrationState) -> anyhow::Result<WorldDiffEntry> {
+            let seq = store::with_connection(&self.config.workspace_dir, |conn| {
+                store::append_world_diff(
+                    conn,
+                    &s.cycle_id,
+                    &s.session_id,
+                    &self.agent_id,
+                    "sig",
+                    "mutation",
+                    "delta",
+                    "now",
+                )
+            })
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+            Ok(WorldDiffEntry {
+                seq: seq as u64,
+                note: "mutation".into(),
+            })
+        }
+        async fn context_utilization(&self, _s: &OrchestrationState) -> anyhow::Result<f32> {
+            Ok(0.1)
+        }
+        async fn evict(&self, _s: &OrchestrationState) -> anyhow::Result<EvictionOutcome> {
+            Ok(EvictionOutcome {
+                evicted: 0,
+                new_utilization: 0.1,
+            })
+        }
         async fn send_dm(&self, _c: &str, _b: &str) -> anyhow::Result<()> {
-            self.0.fetch_add(1, Ordering::SeqCst);
+            self.sends.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
     }
 
     #[tokio::test]
-    async fn graph_run_persists_checkpoints_and_sends_one_dm() {
+    async fn full_cycle_persists_one_dm_one_compressed_one_diff_and_checkpoints() {
         let tmp = tempfile::tempdir().unwrap();
         let config = Arc::new(test_config(&tmp));
         let sends = Arc::new(AtomicUsize::new(0));
 
         let state = OrchestrationState::seed("h1", "@peer", vec![msg("h1", 1)]);
-        let out = run_orchestration_graph(
-            config.clone(),
-            Arc::new(StubFe),
-            Arc::new(StubReasoning),
-            Arc::new(CountingSender(sends.clone())),
-            state,
-        )
-        .await
-        .expect("graph runs");
+        let runtime = Arc::new(StubRuntime {
+            config: config.clone(),
+            agent_id: "@me".into(),
+            sends: sends.clone(),
+        });
+        let out = run_orchestration_graph(config.clone(), runtime, state)
+            .await
+            .expect("graph runs");
 
         assert!(out.dm_sent, "cycle latches dm_sent");
         assert_eq!(sends.load(Ordering::SeqCst), 1, "exactly one DM");
         assert_eq!(out.channel_response.as_deref(), Some("compiled reply"));
 
-        // Checkpoints were persisted for the thread — kill/restart could resume.
+        // Exactly one compressed row + one world-diff entry landed in the store.
+        store::with_connection(&config.workspace_dir, |conn| {
+            assert_eq!(store::count_compressed(conn, "@me", "h1")?, 1);
+            assert_eq!(store::world_diff_seqs(conn, "@me", "h1")?, vec![1]);
+            Ok(())
+        })
+        .unwrap();
+
+        // Checkpoints persisted → kill/restart could resume without re-sending.
         let cp = SqlRunLedgerCheckpointer::<OrchestrationState>::new(config);
         let list = cp.list("orchestration:h1").await.expect("list checkpoints");
         assert!(!list.is_empty(), "wake cycle persisted checkpoints");

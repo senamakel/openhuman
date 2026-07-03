@@ -50,6 +50,10 @@ pub struct OrchestrationState {
     /// The harness session id this cycle is waking for (`"master"` for a peer's
     /// Master window).
     pub session_id: String,
+    /// Stable id for this wake cycle. Derived deterministically from
+    /// `session_id` + the latest message seq so a resumed run reuses it and the
+    /// compressed-history / world-diff store writes stay idempotent.
+    pub cycle_id: String,
     /// The tiny.place `@handle` of the counterpart the reply DM goes back to.
     pub counterpart_agent_id: String,
     /// Windowed recent messages the `normalize` node folded in from the store.
@@ -57,9 +61,12 @@ pub struct OrchestrationState {
 
     /// Front-end pass-1 output: macro-instructions for the reasoning core.
     pub agent_instructions: Option<String>,
-    /// Reasoning-core output (stubbed this stage): the answer the front end
-    /// compiles into a channel reply on pass 2.
+    /// Reasoning-core output: the answer the front end compiles into a channel
+    /// reply on pass 2.
     pub agent_reply: Option<String>,
+    /// Raw execution trace captured by the `execute` node (assistant text +
+    /// tool/sub-agent activity) — the input the `compress` node condenses 20:1.
+    pub execution_trace: String,
     /// Front-end pass-2 output: the finished text sent back over the DM channel.
     /// Its presence is the router's terminate predicate (spec §5).
     pub channel_response: Option<String>,
@@ -90,8 +97,15 @@ impl OrchestrationState {
         counterpart_agent_id: impl Into<String>,
         messages: Vec<OrchestrationMessage>,
     ) -> Self {
+        let session_id = session_id.into();
+        // Deterministic cycle id: session + the latest seq in this window. A
+        // resumed run over the same window recomputes the same id, so the
+        // per-cycle store writes (compressed_history, world_diff) dedupe.
+        let latest_seq = messages.iter().map(|m| m.seq).max().unwrap_or(0);
+        let cycle_id = format!("{session_id}#{latest_seq}");
         Self {
-            session_id: session_id.into(),
+            session_id,
+            cycle_id,
             counterpart_agent_id: counterpart_agent_id.into(),
             messages,
             ..Self::default()

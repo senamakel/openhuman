@@ -9,7 +9,10 @@
 //!
 //! - [`MicrocompactMiddleware`] (`before_model`) — clear the bodies of older
 //!   tool-result messages (keeping the N most recent) so a long tool-heavy
-//!   thread stays cheap without dropping chat history.
+//!   thread stays cheap without dropping chat history. This is now the crate
+//!   [`tinyagents::harness::middleware::MicrocompactMiddleware`], constructed
+//!   with OpenHuman's [`CLEARED_PLACEHOLDER`] wording; the in-house copy was
+//!   upstreamed (see `99-deletion-ledger.md`).
 //! - [`ToolOutputMiddleware`] (`after_tool`) — apply the per-tool-result byte
 //!   cap and (optionally) the semantic payload summarizer to each tool result
 //!   as it returns, before it enters the transcript.
@@ -28,8 +31,8 @@ use tinyagents::harness::context::RunContext;
 use tinyagents::harness::events::AgentEvent;
 use tinyagents::harness::message::{ContentBlock, Message as TaMessage};
 use tinyagents::harness::middleware::{
-    AgentRun, ContextualToolSelectionMiddleware, Middleware, MiddlewareToolOutcome,
-    ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
+    AgentRun, ContextualToolSelectionMiddleware, MicrocompactMiddleware, Middleware,
+    MiddlewareToolOutcome, ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
 };
 use tinyagents::harness::model::{ModelRequest, PromptSegment, SegmentRole};
 use tinyagents::harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
@@ -268,9 +271,14 @@ impl TurnContextMiddleware {
             }));
         }
         if self.microcompact_keep_recent > 0 {
-            harness.push_middleware(Arc::new(MicrocompactMiddleware {
-                keep_recent: self.microcompact_keep_recent,
-            }));
+            // Crate middleware (upstreamed from the in-house copy). Constructed
+            // with OpenHuman's model-facing placeholder so behavior is
+            // byte-identical to the deleted local version. Events stay off (the
+            // default) to preserve the prior silent-rewrite behavior.
+            harness.push_middleware(Arc::new(MicrocompactMiddleware::new(
+                self.microcompact_keep_recent,
+                CLEARED_PLACEHOLDER,
+            )));
         }
         // Handoff runs BEFORE the tool-output budget so an oversized payload is
         // stashed + replaced with a short placeholder first; the byte cap would
@@ -633,53 +641,6 @@ impl Middleware<()> for PromptCacheSegmentMiddleware {
                 "[cache] declared stable prompt-prefix segments for KV-cache guard"
             );
             request.cache_segments = segments;
-        }
-        Ok(())
-    }
-}
-
-/// `before_model`: clear the bodies of older tool-result messages, keeping the
-/// `keep_recent` most recent verbatim. The graph analogue of
-/// `context::microcompact` — bounds a tool-heavy thread's cost without dropping
-/// any chat turns. Idempotent: an already-cleared body is left as the
-/// placeholder.
-struct MicrocompactMiddleware {
-    keep_recent: usize,
-}
-
-#[async_trait]
-impl Middleware<()> for MicrocompactMiddleware {
-    fn name(&self) -> &str {
-        "microcompact"
-    }
-
-    async fn before_model(
-        &self,
-        _ctx: &mut RunContext<()>,
-        _state: &(),
-        request: &mut ModelRequest,
-    ) -> TaResult<()> {
-        let tool_idxs: Vec<usize> = request
-            .messages
-            .iter()
-            .enumerate()
-            .filter(|(_, m)| matches!(m, TaMessage::Tool(_)))
-            .map(|(i, _)| i)
-            .collect();
-        if tool_idxs.len() <= self.keep_recent {
-            return Ok(());
-        }
-        let cut = tool_idxs.len() - self.keep_recent;
-        for &i in &tool_idxs[..cut] {
-            // Skip messages already reduced to the placeholder; otherwise swap the
-            // body for it (idempotent, preserves the tool_call_id).
-            if request.messages[i].text() == CLEARED_PLACEHOLDER {
-                continue;
-            }
-            if let TaMessage::Tool(t) = &request.messages[i] {
-                let id = t.tool_call_id.clone();
-                request.messages[i] = TaMessage::tool(id, CLEARED_PLACEHOLDER);
-            }
         }
         Ok(())
     }
@@ -1831,11 +1792,15 @@ mod tests {
         assert_eq!(msgs[0].text(), "only system");
     }
 
-    // ── MicrocompactMiddleware ──────────────────────────────────────────────
+    // ── MicrocompactMiddleware (crate) ──────────────────────────────────────
+    //
+    // These assert the crate `MicrocompactMiddleware`, constructed with
+    // OpenHuman's `CLEARED_PLACEHOLDER`, reproduces the deleted in-house
+    // middleware byte-for-byte — the parity contract for the upstream swap.
 
     #[tokio::test]
     async fn microcompact_clears_older_tool_bodies_and_keeps_recent() {
-        let mw = MicrocompactMiddleware { keep_recent: 1 };
+        let mw = MicrocompactMiddleware::new(1, CLEARED_PLACEHOLDER);
         let mut req = ModelRequest::new(vec![
             TaMessage::system("sys"),
             TaMessage::user("hello"),
@@ -1859,7 +1824,7 @@ mod tests {
 
     #[tokio::test]
     async fn microcompact_is_a_noop_when_within_keep_recent() {
-        let mw = MicrocompactMiddleware { keep_recent: 5 };
+        let mw = MicrocompactMiddleware::new(5, CLEARED_PLACEHOLDER);
         let mut req =
             ModelRequest::new(vec![TaMessage::tool("t1", "A"), TaMessage::tool("t2", "B")]);
         mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
@@ -1869,7 +1834,7 @@ mod tests {
 
     #[tokio::test]
     async fn microcompact_is_idempotent() {
-        let mw = MicrocompactMiddleware { keep_recent: 1 };
+        let mw = MicrocompactMiddleware::new(1, CLEARED_PLACEHOLDER);
         let mut req = ModelRequest::new(vec![
             TaMessage::tool("t1", "FIRST"),
             TaMessage::tool("t2", "SECOND"),

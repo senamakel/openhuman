@@ -3070,3 +3070,177 @@ async fn provider_sse_tool_args_accumulation() {
 
     server.abort();
 }
+
+// ─── #4451: malformed tool-arg schema validation is recoverable, not fatal ────
+//
+// The tinyagents harness schema-validates a model-supplied tool call before
+// execution. Historically a violation (missing required field, wrong type, bad
+// enum) returned `TinyAgentsError::Validation` out of the loop and failed the
+// *entire* turn with a `chat_error` — a routine model behavior the legacy engine
+// absorbed by surfacing argument errors as recoverable tool results.
+//
+// The fix wires `ValidationPolicy::ReturnToolError` in `run_policy_for`
+// (src/openhuman/tinyagents/mod.rs): a schema violation is now injected into the
+// transcript as a descriptive, model-visible tool error and the loop continues,
+// so the model self-corrects. These two tests exercise the acceptance criteria
+// end-to-end over the real RPC/SSE stack: a scripted provider emits one
+// malformed tool call then a corrected response; the turn must reach `chat_done`
+// and never emit `chat_error`.
+
+/// Chat path: the orchestrator emits a `resolve_time` call missing its required
+/// `expr` field (wrong field name), then a corrected text reply. The malformed
+/// call must NOT abort the turn — it becomes a recoverable tool error and the
+/// turn reaches `chat_done`.
+#[test]
+fn malformed_tool_call_recovers_on_chat_path() {
+    run_on_agent_stack(
+        "malformed_tool_call_recovers_on_chat_path",
+        malformed_tool_call_recovers_on_chat_path_inner,
+    );
+}
+
+async fn malformed_tool_call_recovers_on_chat_path_inner() {
+    let _lock = env_lock();
+    reset_script(vec![
+        // request[0]: orchestrator calls resolve_time with the WRONG field name
+        // (`expression` instead of the required `expr`). Under the old fatal gate
+        // this aborted the whole turn; now it is a recoverable tool error.
+        tool_call_completion("resolve_time", json!({ "expression": "24h ago" })),
+        // request[1]: having read the schema-error tool result, the model corrects
+        // itself and returns a final answer.
+        text_completion("RECOVERED_ARG_CANARY: corrected after the schema error."),
+    ]);
+    let stack = boot_stack().await;
+
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-argrecover",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        900,
+        "harness-argrecover",
+        "thread-argrecover",
+        "what time was it a day ago?",
+    )
+    .await;
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(60)).await;
+    // Acceptance: the malformed call did not convert into a turn-level chat_error.
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "malformed tool call must be recoverable, not a chat_error: {done}"
+    );
+    let full_response = done
+        .get("full_response")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("chat_done missing 'full_response': {done}"));
+    assert!(
+        full_response.contains("RECOVERED_ARG_CANARY"),
+        "final response missing recovery canary; full_response: {full_response}\nevent: {done}"
+    );
+
+    // The second upstream request must carry a descriptive schema-error tool
+    // result so the model could self-correct — the exact recoverable-error text
+    // the fix injects (agent_loop `ValidationPolicy::ReturnToolError`).
+    let requests = with_captured(|c| c.clone());
+    assert!(
+        requests.len() >= 2,
+        "expected ≥2 upstream requests (malformed call + corrected turn), got {};\nrequests: {}",
+        requests.len(),
+        serde_json::to_string_pretty(&requests).unwrap_or_default()
+    );
+    let second_serialized = serde_json::to_string(requests.get(1).unwrap()).unwrap_or_default();
+    assert!(
+        second_serialized.contains("invalid arguments for `resolve_time`"),
+        "corrected turn's upstream request must include the injected schema-error tool result; \
+         request[1]: {}",
+        serde_json::to_string_pretty(requests.get(1).unwrap()).unwrap_or_default()
+    );
+
+    stack.shutdown();
+}
+
+/// Subagent path: the researcher subagent's inner loop emits a `web_search_tool`
+/// call with `{"q": …}` instead of the required `query` (the exact scenario from
+/// the issue), then corrected canary text. The malformed inner call must not
+/// kill the subagent run; delegation completes and the turn reaches `chat_done`.
+#[test]
+fn malformed_tool_call_recovers_on_subagent_path() {
+    run_on_agent_stack(
+        "malformed_tool_call_recovers_on_subagent_path",
+        malformed_tool_call_recovers_on_subagent_path_inner,
+    );
+}
+
+async fn malformed_tool_call_recovers_on_subagent_path_inner() {
+    let _lock = env_lock();
+    reset_script(vec![
+        // request[0]: orchestrator delegates to the researcher via `research`.
+        tool_call_completion("research", json!({ "prompt": "find the marker" })),
+        // request[1]: researcher inner loop emits web_search_tool with the WRONG
+        // field name (`q` instead of the required `query`). Under the old fatal
+        // gate this killed the whole subagent run; now it is recoverable.
+        tool_call_completion("web_search_tool", json!({ "q": "marker phrase" })),
+        // request[2]: researcher reads the schema-error tool result and returns
+        // its corrected canary as text.
+        text_completion("SUBAGENT_RECOVERED_CANARY is the marker."),
+        // request[3]: orchestrator synthesizes the researcher result.
+        text_completion("Done: SUBAGENT_RECOVERED_CANARY"),
+    ]);
+    let stack = boot_stack().await;
+
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-subargrecover",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        910,
+        "harness-subargrecover",
+        "thread-subargrecover",
+        "research the marker",
+    )
+    .await;
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    // Acceptance: the malformed inner call did not convert into a chat_error on
+    // the subagent path.
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "malformed subagent tool call must be recoverable, not a chat_error: {done}"
+    );
+    let full_response = done
+        .get("full_response")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("chat_done missing 'full_response': {done}"));
+    assert!(
+        full_response.contains("SUBAGENT_RECOVERED_CANARY"),
+        "final response missing subagent recovery canary; full_response: {full_response}\n\
+         event: {done}"
+    );
+
+    // ≥4 upstream requests prove the subagent inner loop recovered rather than
+    // aborting: orchestrator → researcher (malformed) → researcher (corrected) →
+    // orchestrator synthesis. The researcher's recovered turn must carry the
+    // injected schema-error tool result.
+    let requests = with_captured(|c| c.clone());
+    assert!(
+        requests.len() >= 4,
+        "expected ≥4 upstream requests (orchestrator + researcher x2 + synthesis), got {};\
+        \nrequests: {}",
+        requests.len(),
+        serde_json::to_string_pretty(&requests).unwrap_or_default()
+    );
+    let all_serialized = serde_json::to_string(&requests).unwrap_or_default();
+    assert!(
+        all_serialized.contains("invalid arguments for `web_search_tool`"),
+        "a recovered researcher turn must include the injected schema-error tool result; \
+         requests: {}",
+        serde_json::to_string_pretty(&requests).unwrap_or_default()
+    );
+
+    stack.shutdown();
+}

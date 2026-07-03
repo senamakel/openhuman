@@ -50,7 +50,7 @@ use tinyagents::harness::middleware::{
     ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::model::CapabilitySet;
-use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
+use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy, ValidationPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::store::StoreRegistry;
 use tinyagents::harness::summarization::TrimStrategy;
@@ -157,6 +157,12 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
     policy.retry.max_attempts = 1;
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
+    // Schema-validation failures on tool arguments (missing required field,
+    // wrong type, bad enum) become recoverable, model-visible tool errors rather
+    // than fatal turn aborts — the legacy engine surfaced argument errors as
+    // recoverable tool results and self-corrected on the next iteration (#4451).
+    // Bounded by `max_tool_calls` above, exactly like the unknown-tool path.
+    policy.validation = ValidationPolicy::ReturnToolError;
     // Prompt-prefix protection is always on (issue #4249, 03.2): the
     // `PromptCacheGuardMiddleware` records a `CacheLayoutEvent` whenever volatile
     // content busts the provider KV-cache prefix. Purely diagnostic — never
@@ -1389,11 +1395,22 @@ fn assemble_turn_harness(
         )));
     }
 
-    // Malformed-argument recovery (`before_tool`): coerce a call's non-object
-    // arguments (invalid JSON parses to Null) to `{}` so a single bad tool call is
-    // recoverable — the harness would otherwise reject it against an object schema
-    // and abort the whole turn. Engine parity.
-    harness.push_middleware(Arc::new(middleware::ArgRecoveryMiddleware));
+    // Malformed-argument recovery (`before_tool`): recover a call's non-object
+    // arguments where possible (JSON-encoded-string / Markdown-fenced payloads),
+    // and coerce to `{}` only for no-required-field tools. Required-field tools
+    // with unrecoverable arguments fall through to the harness'
+    // `ValidationPolicy::ReturnToolError` path (set in `run_policy_for`), which
+    // surfaces a descriptive tool error the model self-corrects on — instead of
+    // aborting the whole turn (#4451). Needs the tool schemas to read `required`.
+    let arg_recovery_schemas: std::collections::HashMap<String, serde_json::Value> = harness
+        .tools()
+        .schemas()
+        .into_iter()
+        .map(|schema| (schema.name, schema.parameters))
+        .collect();
+    harness.push_middleware(Arc::new(middleware::ArgRecoveryMiddleware::new(
+        arg_recovery_schemas,
+    )));
 
     AssembledTurnHarness {
         harness,

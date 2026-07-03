@@ -1439,14 +1439,70 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
     }
 }
 
-/// `before_tool`: coerce a tool call's arguments to an empty object when they
-/// are not a JSON object (issue #4249). A model can emit malformed native
-/// arguments (invalid JSON, or a bare scalar/array); the model adapter parses
-/// those to `Value::Null`, which the harness then rejects against an object
-/// schema and aborts the whole turn. The in-house engine recovered such a call by
-/// running the tool with `{}`; restore that so a single bad tool call is
-/// recoverable rather than fatal.
-pub(crate) struct ArgRecoveryMiddleware;
+/// `before_tool`: best-effort recovery of malformed tool-call arguments before
+/// the harness schema-validates them (issues #4249, #4451).
+///
+/// A model routinely emits arguments the native adapter can't parse cleanly:
+/// invalid JSON (parsed to `Value::Null`), a JSON *string* that itself encodes
+/// the real object (double-encoding), or that object wrapped in a Markdown code
+/// fence. This middleware recovers what it can **without fabricating data**:
+///
+/// 1. If the arguments are a string, strip a surrounding ```` ```json ```` fence
+///    and re-parse — recovering the intended object when the model
+///    double-encoded or fenced it.
+/// 2. If the arguments are still not an object *and the tool's schema declares
+///    no required fields*, coerce to `{}` (the legacy convenience that lets a
+///    no-argument tool run when the model sends `null`).
+/// 3. Otherwise leave the arguments untouched. Under
+///    [`ValidationPolicy::ReturnToolError`](tinyagents::harness::runtime::ValidationPolicy)
+///    the harness turns the schema violation into a descriptive, model-visible
+///    tool error and continues the loop, so the model self-corrects on the next
+///    turn — mirroring the legacy engine, which surfaced argument errors as
+///    recoverable tool results rather than fatal aborts.
+///
+/// The prior behavior — blindly coercing *every* non-object to `{}` — actively
+/// destroyed recoverable intent and, for the common required-field tool,
+/// guaranteed a `"<field> is required"` result the model then had to repair
+/// blind. Recovering the real object (step 1) usually passes validation outright
+/// with no extra round-trip.
+pub(crate) struct ArgRecoveryMiddleware {
+    /// Snapshot of each registered tool's parameters JSON-Schema, keyed by tool
+    /// name. Captured at harness-assembly time so the `before_tool` hook (which
+    /// only receives the call) can consult `required` without the registry.
+    schemas: HashMap<String, serde_json::Value>,
+}
+
+impl ArgRecoveryMiddleware {
+    /// Builds the middleware from a name → parameters-schema snapshot.
+    pub(crate) fn new(schemas: HashMap<String, serde_json::Value>) -> Self {
+        Self { schemas }
+    }
+
+    /// Returns `true` when the tool's schema declares a non-empty `required`
+    /// array. Absent schema / no `required` → `false` (treat as no-required, so
+    /// a `null`-arg call to an optional-arg tool still recovers to `{}`).
+    fn schema_has_required(&self, tool: &str) -> bool {
+        self.schemas
+            .get(tool)
+            .and_then(|schema| schema.get("required"))
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|required| !required.is_empty())
+    }
+}
+
+/// Attempts to recover a JSON value the model encoded as a *string*: strips a
+/// surrounding Markdown code fence (```` ```json … ``` ````) and parses the
+/// remainder. Returns `Some(value)` only when the string parses to valid JSON.
+fn recover_json_encoded_arguments(raw: &str) -> Option<serde_json::Value> {
+    let mut text = raw.trim();
+    if let Some(stripped) = text.strip_prefix("```") {
+        // Drop an optional language tag on the opening fence line, then the
+        // closing fence.
+        let after_tag = stripped.split_once('\n').map(|(_, rest)| rest).unwrap_or("");
+        text = after_tag.trim().strip_suffix("```").unwrap_or(after_tag).trim();
+    }
+    serde_json::from_str::<serde_json::Value>(text).ok()
+}
 
 #[async_trait]
 impl Middleware<()> for ArgRecoveryMiddleware {
@@ -1460,10 +1516,40 @@ impl Middleware<()> for ArgRecoveryMiddleware {
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
-        if !call.arguments.is_object() {
+        if call.arguments.is_object() {
+            return Ok(());
+        }
+
+        // Step 1: recover a JSON-encoded-string / fenced payload into its real value.
+        if let Some(raw) = call.arguments.as_str() {
+            if let Some(recovered) = recover_json_encoded_arguments(raw) {
+                tracing::debug!(
+                    tool = call.name.as_str(),
+                    recovered_object = recovered.is_object(),
+                    "[tinyagents::mw::arg_recovery] recovered JSON-encoded string tool arguments"
+                );
+                call.arguments = recovered;
+                if call.arguments.is_object() {
+                    return Ok(());
+                }
+            }
+        }
+
+        // Step 2: still not an object. Only coerce to `{}` when the tool declares
+        // no required fields — otherwise `{}` would mask the real error and the
+        // model would repair blind. Leave required-field tools to the harness'
+        // `ValidationPolicy::ReturnToolError` recoverable-error path (step 3).
+        if self.schema_has_required(&call.name) {
             tracing::debug!(
                 tool = call.name.as_str(),
-                "[tinyagents::mw] recovering non-object tool arguments to {{}}"
+                "[tinyagents::mw::arg_recovery] non-object arguments left intact for required-field \
+                 tool; deferring to schema-validation tool-error recovery"
+            );
+        } else {
+            tracing::debug!(
+                tool = call.name.as_str(),
+                "[tinyagents::mw::arg_recovery] coercing non-object arguments to {{}} for \
+                 no-required-field tool"
             );
             call.arguments = serde_json::json!({});
         }
@@ -2444,5 +2530,103 @@ mod tests {
             "a second unsynced write should flag index drift: {}",
             second.content
         );
+    }
+
+    // ── ArgRecoveryMiddleware (#4451) ─────────────────────────────────────────
+
+    fn required_schema(tool: &str) -> HashMap<String, serde_json::Value> {
+        let mut m = HashMap::new();
+        m.insert(
+            tool.to_string(),
+            json!({
+                "type": "object",
+                "required": ["query"],
+                "properties": { "query": { "type": "string" } }
+            }),
+        );
+        m
+    }
+
+    fn optional_schema(tool: &str) -> HashMap<String, serde_json::Value> {
+        let mut m = HashMap::new();
+        m.insert(
+            tool.to_string(),
+            json!({ "type": "object", "properties": { "q": { "type": "string" } } }),
+        );
+        m
+    }
+
+    async fn recover(
+        schemas: HashMap<String, serde_json::Value>,
+        args: serde_json::Value,
+    ) -> serde_json::Value {
+        let mw = ArgRecoveryMiddleware::new(schemas);
+        let mut call = TaToolCall {
+            id: "c1".into(),
+            name: "query_memory".into(),
+            arguments: args,
+        };
+        mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+        call.arguments
+    }
+
+    #[test]
+    fn recover_json_encoded_string_parses_object() {
+        let v = recover_json_encoded_arguments(r#"{"query":"hi"}"#).expect("parses");
+        assert_eq!(v, json!({ "query": "hi" }));
+    }
+
+    #[test]
+    fn recover_json_encoded_string_strips_markdown_fence() {
+        let fenced = "```json\n{\"query\":\"hi\"}\n```";
+        let v = recover_json_encoded_arguments(fenced).expect("parses fenced");
+        assert_eq!(v, json!({ "query": "hi" }));
+    }
+
+    #[test]
+    fn recover_json_encoded_string_rejects_non_json() {
+        assert!(recover_json_encoded_arguments("not json at all").is_none());
+    }
+
+    #[tokio::test]
+    async fn arg_recovery_parses_double_encoded_object_args() {
+        // The model emitted the whole arguments object as a JSON *string*.
+        let out = recover(required_schema("query_memory"), json!("{\"query\":\"hi\"}")).await;
+        assert_eq!(
+            out,
+            json!({ "query": "hi" }),
+            "a JSON-encoded-string payload should be recovered to its real object"
+        );
+    }
+
+    #[tokio::test]
+    async fn arg_recovery_leaves_unrecoverable_non_object_intact_for_required_tool() {
+        // A bare scalar with a required-field schema must NOT be coerced to `{}`
+        // (that would mask the real error); it is left for the harness'
+        // ValidationPolicy::ReturnToolError recoverable-error path.
+        let out = recover(required_schema("query_memory"), json!(null)).await;
+        assert_eq!(
+            out,
+            json!(null),
+            "non-object args for a required-field tool must be left intact"
+        );
+    }
+
+    #[tokio::test]
+    async fn arg_recovery_coerces_non_object_to_empty_for_optional_tool() {
+        // A no-required-field tool keeps the legacy convenience: `null` → `{}`
+        // so the tool still runs without an extra self-correction round-trip.
+        let out = recover(optional_schema("query_memory"), json!(null)).await;
+        assert_eq!(
+            out,
+            json!({}),
+            "non-object args for a no-required tool should coerce to an empty object"
+        );
+    }
+
+    #[tokio::test]
+    async fn arg_recovery_is_noop_for_valid_object_args() {
+        let out = recover(required_schema("query_memory"), json!({ "query": "hi" })).await;
+        assert_eq!(out, json!({ "query": "hi" }));
     }
 }

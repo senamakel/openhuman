@@ -671,3 +671,195 @@ fn record_unobserved_turn_usage_gates_on_observed_tokens() {
     assert!(record_unobserved_turn_usage("m", 0, 3, 0, 0.0));
     assert!(record_unobserved_turn_usage("m", 10, 3, 2, 0.5));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Credential scrubbing (issue #4453): every raw tool output is redacted before
+// it reaches the model-visible transcript, the persisted conversation, the
+// worker-thread mirror, or the `ToolCallOutcome` sink — on BOTH the chat and the
+// sub-agent path (both drive the shared `run_turn_via_tinyagents_shared` seam,
+// which installs `CredentialScrubMiddleware`).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The fake secrets a leaky tool emits. Each is a distinct well-known format the
+/// scrub patterns must catch: a bare AWS access-key ID, a bare OpenAI `sk-` key,
+/// and a space-separated `Bearer` token.
+const FAKE_AWS_KEY: &str = "AKIAIOSFODNN7EXAMPLE";
+const FAKE_OPENAI_KEY: &str = "sk-abcdefghijklmnopqrstuvwxyz012345";
+const FAKE_BEARER_TOKEN: &str = "abcdefghijklmnop1234567890xyz";
+
+/// A tool that dumps credentials in its output (env dump / config read style).
+struct SecretLeakTool;
+
+#[async_trait]
+impl Tool for SecretLeakTool {
+    fn name(&self) -> &str {
+        "leak_secrets"
+    }
+    fn description(&self) -> &str {
+        "returns output containing credentials (test fixture)"
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({ "type": "object" })
+    }
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        Ok(ToolResult::success(format!(
+            "env dump:\n\
+             AWS access key: {FAKE_AWS_KEY}\n\
+             OpenAI: {FAKE_OPENAI_KEY}\n\
+             Authorization: Bearer {FAKE_BEARER_TOKEN}\n"
+        )))
+    }
+}
+
+/// Provider: first call requests `leak_secrets`, second call answers.
+struct LeakThenDone {
+    calls: AtomicUsize,
+}
+
+#[async_trait]
+impl Provider for LeakThenDone {
+    async fn chat_with_system(
+        &self,
+        _s: Option<&str>,
+        _m: &str,
+        _model: &str,
+        _t: f64,
+    ) -> anyhow::Result<String> {
+        Ok(String::new())
+    }
+    async fn chat(
+        &self,
+        _r: ChatRequest<'_>,
+        _model: &str,
+        _t: f64,
+    ) -> anyhow::Result<ChatResponse> {
+        let n = self.calls.fetch_add(1, Ordering::SeqCst);
+        if n == 0 {
+            Ok(ChatResponse {
+                tool_calls: vec![ToolCall {
+                    id: "call-secret".to_string(),
+                    name: "leak_secrets".to_string(),
+                    arguments: "{}".to_string(),
+                    extra_content: None,
+                }],
+                ..Default::default()
+            })
+        } else {
+            Ok(ChatResponse {
+                text: Some("done".to_string()),
+                ..Default::default()
+            })
+        }
+    }
+    fn supports_native_tools(&self) -> bool {
+        true
+    }
+}
+
+/// Assert that none of the raw secrets survive on any surface of a turn outcome,
+/// and that at least one redaction marker is present (proving the scrub ran, not
+/// that the content was merely dropped).
+fn assert_scrubbed(outcome: &TinyagentsTurnOutcome, surface: &str) {
+    let raw_secrets = [FAKE_AWS_KEY, FAKE_OPENAI_KEY, FAKE_BEARER_TOKEN];
+
+    // 1. Model-visible transcript (`history`) — what the model saw and what the
+    //    session persists to `session_raw` / mirrors to the worker thread.
+    let history_blob = outcome
+        .history
+        .iter()
+        .map(|m| m.content.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
+    // 2. Typed conversation (the structured messages the chat session persists).
+    let conversation_blob = format!("{:?}", outcome.conversation);
+    // 3. The tool-outcome sink (`ToolCallOutcome` records feed post-turn hooks).
+    let outcomes_blob = outcome
+        .tool_outcomes
+        .iter()
+        .map(|o| o.content.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    for secret in raw_secrets {
+        assert!(
+            !history_blob.contains(secret),
+            "[{surface}] raw secret {secret} leaked into model-visible transcript:\n{history_blob}"
+        );
+        assert!(
+            !conversation_blob.contains(secret),
+            "[{surface}] raw secret {secret} leaked into persisted conversation:\n{conversation_blob}"
+        );
+        assert!(
+            !outcomes_blob.contains(secret),
+            "[{surface}] raw secret {secret} leaked into ToolCallOutcome sink:\n{outcomes_blob}"
+        );
+    }
+
+    // The tool actually ran and its output was captured (not dropped), so the
+    // redaction marker must be present on the model-visible surface.
+    assert!(
+        history_blob.contains("[REDACTED]"),
+        "[{surface}] expected a [REDACTED] marker in the transcript (tool output must be \
+         scrubbed, not dropped):\n{history_blob}"
+    );
+    // The ToolCallOutcome sink captured the (scrubbed) tool output.
+    assert!(
+        !outcome.tool_outcomes.is_empty() && outcomes_blob.contains("[REDACTED]"),
+        "[{surface}] expected the ToolCallOutcome sink to hold the scrubbed tool output:\n{outcomes_blob}"
+    );
+}
+
+/// Build the leaky provider + tool and drive one shared-seam turn under the given
+/// sub-agent scope (`None` = the top-level chat path).
+async fn run_leak_turn(subagent_scope: Option<SubagentScope>) -> TinyagentsTurnOutcome {
+    let provider = Arc::new(LeakThenDone {
+        calls: AtomicUsize::new(0),
+    });
+    let history = vec![ChatMessage::user("dump the environment")];
+    let tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>> =
+        vec![Arc::new(vec![Box::new(SecretLeakTool) as Box<dyn Tool>])];
+
+    run_turn_via_tinyagents_shared(
+        provider,
+        "mock-model",
+        0.0,
+        history,
+        tool_sets,
+        HashSet::new(), // allowed empty = every tool visible
+        10,
+        None, // on_progress
+        subagent_scope,
+        None,  // context_window
+        None,  // run_queue
+        &[],   // early_exit_tools
+        false, // pause_at_cap
+        None,  // max_output_tokens
+        TurnContextMiddleware::default(),
+        None,  // tool_policy
+        None,  // workspace_descriptor
+        false, // deterministic_cacheable
+    )
+    .await
+    .expect("shared tinyagents turn runs")
+}
+
+#[tokio::test]
+async fn credentials_are_scrubbed_from_tool_output_on_the_chat_path() {
+    let outcome = run_leak_turn(None).await;
+    assert_eq!(outcome.text, "done");
+    assert!(outcome.tool_calls >= 1, "the leaky tool must have run");
+    assert_scrubbed(&outcome, "chat");
+}
+
+#[tokio::test]
+async fn credentials_are_scrubbed_from_tool_output_on_the_subagent_path() {
+    let scope = SubagentScope {
+        agent_id: "child-agent".to_string(),
+        task_id: "task-1".to_string(),
+        extended_policy: false,
+    };
+    let outcome = run_leak_turn(Some(scope)).await;
+    assert_eq!(outcome.text, "done");
+    assert!(outcome.tool_calls >= 1, "the leaky tool must have run");
+    assert_scrubbed(&outcome, "subagent");
+}

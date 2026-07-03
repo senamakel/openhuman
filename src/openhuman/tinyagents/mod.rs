@@ -1389,6 +1389,16 @@ fn assemble_turn_harness(
         )));
     }
 
+    // Credential scrubbing (`wrap_tool`): redact known secret patterns from every
+    // raw tool output before it enters the transcript, summarization/caps, on-disk
+    // persistence, or the tool-outcome sink (issue #4453 — restores the legacy
+    // `engine/tools.rs` scrub the tinyagents migration dropped). Registered LAST
+    // among the tool middlewares so it is the innermost wrap layer: its
+    // post-execution redaction runs before any outer `wrap_tool` post-processing
+    // (e.g. the approval-gate audit) can observe a raw secret. Installed on the
+    // shared harness, so both the parent and sub-agent paths are covered.
+    harness.push_tool_middleware(Arc::new(middleware::CredentialScrubMiddleware));
+
     // Malformed-argument recovery (`before_tool`): coerce a call's non-object
     // arguments (invalid JSON parses to Null) to `{}` so a single bad tool call is
     // recoverable — the harness would otherwise reject it against an object schema

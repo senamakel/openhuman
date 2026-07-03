@@ -1119,6 +1119,78 @@ impl ToolMiddleware<()> for ApprovalSecurityMiddleware {
     }
 }
 
+/// `wrap_tool`: scrub known credential patterns from a tool's **raw** output
+/// before it enters the transcript, summarization, per-result caps, on-disk
+/// persistence, or the tool-outcome sink (issue #4453). Restores the legacy
+/// engine's `scrub_credentials` pass (v0.58.7 `engine/tools.rs`), which the
+/// tinyagents migration dropped — leaving secrets in tool output (env dumps,
+/// config reads, API responses, shell output) reaching model context (and thus
+/// third-party providers), `session_raw` transcripts, worker-thread mirrors, and
+/// [`ToolCallOutcome`](super::ToolCallOutcome) records. Violates the project rule
+/// "Never log secrets or full PII."
+///
+/// Installed as a `wrap_tool` middleware (**not** `after_tool`) deliberately: the
+/// crate agent loop runs the wrap onion to completion (`run_wrapped_tool`) and
+/// only then runs the `after_tool` chain (`run_after_tool`), so this scrub always
+/// sees the RAW tool output and always runs BEFORE summarization / caps /
+/// tokenjuice ([`ToolOutputMiddleware`]) and before the transcript push —
+/// independent of `after_tool` registration order (which #4464 reworks). Because
+/// it is installed on the shared turn harness, both the parent chat path and the
+/// sub-agent path are covered. The scrub patterns are owned by
+/// [`crate::openhuman::agent::harness::credentials`] (single source of truth).
+///
+/// Registered as the **innermost** tool-wrap layer so its post-`next` redaction
+/// runs before any outer `wrap_tool` post-processing inspects the result — e.g.
+/// so the approval gate's terminal audit row never records a raw secret from the
+/// tool's error text.
+pub(super) struct CredentialScrubMiddleware;
+
+#[async_trait]
+impl ToolMiddleware<()> for CredentialScrubMiddleware {
+    fn name(&self) -> &str {
+        "credential_scrub"
+    }
+
+    async fn wrap_tool(
+        &self,
+        ctx: &mut RunContext<()>,
+        state: &(),
+        call: TaToolCall,
+        next: ToolHandler<'_, (), ()>,
+    ) -> TaResult<MiddlewareToolOutcome> {
+        let tool_name = call.name.clone();
+        let call_id = call.id.clone();
+        let mut result = next.run(ctx, state, call).await?.into_result();
+
+        // Scrub the model-facing content. Everything downstream (transcript push,
+        // ToolOutputMiddleware summarization/caps, ToolOutcomeCaptureMiddleware
+        // sink, session_raw persistence, worker-thread mirror) derives from this
+        // field, so a single scrub here covers every surface.
+        let scrubbed =
+            crate::openhuman::agent::harness::credentials::scrub_credentials(&result.content);
+        if scrubbed != result.content {
+            tracing::debug!(
+                tool = %tool_name,
+                call_id = %call_id,
+                before_bytes = result.content.len(),
+                after_bytes = scrubbed.len(),
+                "[tinyagents::mw] credential_scrub redacted tool output"
+            );
+            result.content = scrubbed;
+        }
+
+        // The error text can echo the raw output (a tool that fails with a secret
+        // in the message), and the tool-outcome sink / model-facing error surface
+        // consume it — scrub it too.
+        if let Some(err) = result.error.take() {
+            result.error =
+                Some(crate::openhuman::agent::harness::credentials::scrub_credentials(&err));
+        }
+
+        Ok(MiddlewareToolOutcome::Result(result))
+    }
+}
+
 /// `wrap_tool`: refuse a tool whose scope is
 /// [`ToolScope::CliRpcOnly`](crate::openhuman::tools::ToolScope) inside the
 /// autonomous agent loop (issue #4249). The in-house engine ran this gate in

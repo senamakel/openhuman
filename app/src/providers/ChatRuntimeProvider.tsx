@@ -51,12 +51,14 @@ import {
   setStreamingAssistantForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
+  setWorkflowProposalForThread,
   type StreamingAssistantState,
   type ToolTimelineEntry,
   type ToolTimelineEntryStatus,
   upsertArtifactFailedForThread,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
+  type WorkflowProposal,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectSocketStatus } from '../store/socketSelectors';
@@ -248,6 +250,51 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
     inputTokens: event.total_input_tokens ?? 0,
     outputTokens: event.total_output_tokens ?? 0,
     threadId: event.thread_id,
+  };
+}
+
+/**
+ * Parses a completed `propose_workflow` tool call's JSON `output` into a
+ * `WorkflowProposal` for `WorkflowProposalCard` (issue B4 — agent-first
+ * Workflow authoring). The tool's `execute()`
+ * (`src/openhuman/flows/tools.rs`) returns
+ * `{ type: "workflow_proposal", name, graph, require_approval, summary }` as
+ * its `ToolResult` body; this maps that wire shape onto the store's camelCase
+ * `WorkflowProposal`. Returns `null` for anything that fails to parse or
+ * doesn't match the expected shape — defensive, since a malformed proposal
+ * must never crash the chat runtime, it should just silently not render a
+ * card.
+ */
+function parseWorkflowProposal(output: string): WorkflowProposal | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(output);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const obj = parsed as Record<string, unknown>;
+  if (obj.type !== 'workflow_proposal') return null;
+  if (typeof obj.name !== 'string' || obj.graph == null) return null;
+
+  const summary = (obj.summary ?? {}) as Record<string, unknown>;
+  const rawSteps = Array.isArray(summary.steps) ? summary.steps : [];
+  const steps = rawSteps
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object')
+    .map(s => ({
+      kind: typeof s.kind === 'string' ? s.kind : 'unknown',
+      name: typeof s.name === 'string' ? s.name : '',
+      config_hint: typeof s.config_hint === 'string' ? s.config_hint : undefined,
+    }));
+
+  return {
+    name: obj.name,
+    graph: obj.graph,
+    // The Rust tool defaults `require_approval` to `true` when the caller
+    // omits it, so treat anything other than an explicit `false` as `true`
+    // here too — keeps the client's fallback in lockstep with the server's.
+    requireApproval: obj.require_approval !== false,
+    summary: { trigger: typeof summary.trigger === 'string' ? summary.trigger : '', steps },
   };
 }
 
@@ -626,6 +673,27 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
 
           if (changed) {
             dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries: nextEntries }));
+          }
+        }
+
+        // Agent-first Workflow authoring (issue B4): a completed
+        // `propose_workflow` call carries a `workflow_proposal` JSON payload
+        // in `output` — surface it as a `WorkflowProposalCard` above the
+        // composer. The tool only validates; only the card's "Save & enable"
+        // action ever calls `flows_create`, so this dispatch alone can never
+        // create a flow.
+        if (event.tool_name === 'propose_workflow' && event.success) {
+          const proposal = parseWorkflowProposal(event.output);
+          if (proposal) {
+            rtLog('propose_workflow proposal parsed', {
+              thread: event.thread_id,
+              name: proposal.name,
+            });
+            dispatch(setWorkflowProposalForThread({ threadId: event.thread_id, proposal }));
+          } else {
+            rtLog('propose_workflow result did not parse as a workflow_proposal', {
+              thread: event.thread_id,
+            });
           }
         }
 

@@ -156,6 +156,20 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
     policy.retry.max_attempts = 1;
+    // Unknown-tool recovery (01.2 / C3): the crate policy owns this end to end —
+    // the `__openhuman_unknown_tool__` sentinel tool + `UnknownToolRewriteMiddleware`
+    // were already deleted. We deliberately keep `ReturnToolError` rather than
+    // `Rewrite { tool_name }`: Rewrite requires a real catch-all target tool (the
+    // deleted sentinel was exactly that) and, when it hits, *silently* executes
+    // that tool and emits `AgentEvent::UnknownToolCall { recovery: "rewrite:.." }`
+    // WITHOUT injecting a tool message. `ReturnToolError` instead injects a
+    // recoverable `unknown tool `<name>` (arguments: ..); valid tools: [..]`
+    // result naming the originally-requested tool. Two live consumers depend on
+    // that message: (1) the #4419 attempted-tool-name UX and (2) the failure
+    // classifier in `agent::hooks::sanitize_tool_output`, which labels the result
+    // `unknown_tool` by matching the "unknown tool" substring. Flipping to Rewrite
+    // would drop both. The original name + args are also preserved verbatim on
+    // `AgentEvent::UnknownToolCall` and projected by `OpenhumanEventBridge`.
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
     // Prompt-prefix protection is always on (issue #4249, 03.2): the
     // `PromptCacheGuardMiddleware` records a `CacheLayoutEvent` whenever volatile
@@ -512,9 +526,32 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         );
         ctx = ctx.with_workspace(descriptor);
     }
+    // Assemble the run's store registry: the tool-result artifact index (when
+    // present) and — behind the default-ON session dual-write flag — the
+    // session KV store, so the harness carries a handle to the same
+    // `{workspace}/tinyagents_store/kv` tree the live dual-write mirrors into
+    // (issue #4249, 04.1). Both stores share one registry so neither clobbers
+    // the other. Reads stay legacy until 04.2; this registration is additive
+    // and best-effort (a workspace-resolve failure just skips it).
+    let mut stores: Option<StoreRegistry> = None;
     if let Some(index) = tool_result_artifact_index {
-        let mut stores = StoreRegistry::new();
-        stores.register(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE, index);
+        stores
+            .get_or_insert_with(StoreRegistry::new)
+            .register(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE, index);
+    }
+    // `session_kv_store` self-gates on the dual-write flag (config default ON +
+    // env kill switch), returning `None` when disabled or unresolvable.
+    if let Some(session_kv) = crate::openhuman::session_import::live::session_kv_store().await {
+        stores.get_or_insert_with(StoreRegistry::new).register(
+            crate::openhuman::session_import::live::TINYAGENTS_SESSION_KV_STORE,
+            session_kv,
+        );
+        tracing::debug!(
+            "[session-store] registered session kv store on RunContext.stores under '{}'",
+            crate::openhuman::session_import::live::TINYAGENTS_SESSION_KV_STORE
+        );
+    }
+    if let Some(stores) = stores {
         ctx = ctx.with_stores(stores);
     }
 
@@ -533,7 +570,13 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // (`on_progress = None`) turn so the run stays reconstructable, so the
     // EventSink is now created unconditionally — cheap (an empty sink) and, if
     // no consumer subscribes, inert.
-    let events = Some(EventSink::new());
+    //
+    // Mint the durable run id *before* the sink and seed the sink stream prefix
+    // with it (`with_stream_id`), so every persisted observation's `event_id` is
+    // the restart-stable `{run_id}-evt-{offset}` a late-attach replay
+    // reconstructs the timeline from (05.1). The same id keys the journal + status.
+    let journal_run_id = journal::mint_run_id();
+    let events = Some(EventSink::with_stream_id(journal_run_id.as_str()));
 
     let bridge = match (&events, on_progress) {
         (Some(events), Some(tx)) => {
@@ -565,8 +608,17 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // existing progress/global-bus path is untouched. Best-effort and non-fatal
     // — a failure to open/attach the journal returns `None` and the turn runs
     // unaffected. The handle stamps the terminal status once the run returns.
+    // A sub-agent turn records under its task scope as the status thread id, so
+    // `list_by_thread` can enumerate a task's runs (full parent/root lineage is
+    // a 05.2/05.3 follow-up).
+    let journal_thread_id = subagent_scope
+        .as_ref()
+        .map(|scope| tinyagents::harness::ids::ThreadId::new(scope.task_id.clone()));
     let turn_journal = match &events {
-        Some(events) => journal::attach_turn_journal(events, model).await,
+        Some(events) => {
+            journal::attach_turn_journal(events, model, journal_run_id.clone(), journal_thread_id)
+                .await
+        }
         None => None,
     };
 
@@ -712,9 +764,9 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // `PromptCacheGuardMiddleware`'s recorded `CacheLayoutEvent`s and surface each
     // as a structured `[cache]` warning. Fires only when the cacheable prompt
     // prefix (system prompt + tool set) changed across model calls — i.e. volatile
-    // content silently busting the provider KV-cache prefix. The structured
-    // successor to `CacheAlignMiddleware`'s free-text warn-log (still installed in
-    // parallel until parity is shown).
+    // content silently busting the provider KV-cache prefix. This is now the sole
+    // owner of KV-cache-prefix drift detection: the warn-only
+    // `CacheAlignMiddleware` was deleted in C3.
     let cache_layout_events = prompt_cache_guard.layout_events();
     if !cache_layout_events.is_empty() {
         tracing::debug!(
@@ -896,8 +948,8 @@ struct AssembledTurnHarness {
     /// Crate prompt-cache guard (issue #4249, 03.2). Records a `CacheLayoutEvent`
     /// whenever the cacheable prompt prefix (system prompt + tool set) changes
     /// across model calls. Drained after the run and surfaced via
-    /// [`observability::surface_cache_layout_events`] — the structured successor to
-    /// the `CacheAlignMiddleware` warn-log.
+    /// [`observability::surface_cache_layout_events`] — the crate-native
+    /// replacement for the deleted `CacheAlignMiddleware` warn-log (C3).
     prompt_cache_guard: Arc<PromptCacheGuardMiddleware>,
 }
 
@@ -1270,18 +1322,19 @@ fn assemble_turn_harness(
     // precede the guard; both run before the context middlewares below (they only
     // touch the volatile tail / tool bodies, never the stable prefix). The guard is
     // returned so the run loop can drain its events into the observability bridge —
-    // the structured successor to `CacheAlignMiddleware`'s warn-log (kept installed
-    // via `context_mw` until parity is shown).
+    // the crate-native replacement for the deleted `CacheAlignMiddleware` warn-log
+    // (C3: the warn-only shadow is gone; this guard is the sole owner).
     harness.push_middleware(Arc::new(middleware::PromptCacheSegmentMiddleware));
     let prompt_cache_guard = Arc::new(PromptCacheGuardMiddleware::new());
     harness.push_middleware(prompt_cache_guard.clone());
 
-    // openhuman context concerns as graph middlewares (issue #4249): cache-align
-    // warnings, microcompact tool-body clearing, and the after-tool byte cap /
-    // payload summarizer. Installed before the summarization/trim block below so
-    // `before_model` hooks run cache-align → microcompact → compress → trim.
-    // Tool-result caps read the SDK registry policy snapshot, not the
-    // OpenHuman-side tool lookup.
+    // openhuman context concerns as graph middlewares (issue #4249): microcompact
+    // tool-body clearing and the after-tool byte cap / payload summarizer.
+    // Installed before the summarization/trim block below so `before_model` hooks
+    // run microcompact → compress → trim. (KV-cache-prefix drift is handled above
+    // by the crate `PromptCacheGuardMiddleware`; the warn-only CacheAlign shadow
+    // was deleted in C3.) Tool-result caps read the SDK registry policy snapshot,
+    // not the OpenHuman-side tool lookup.
     let tool_policies = harness.tools().policies();
     context_mw.install(&mut harness, tool_policies);
 

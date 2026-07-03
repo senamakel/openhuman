@@ -5,3 +5,6 @@
 [submodule "app/src-tauri/vendor/tauri-plugin-notification"]
 	path = app/src-tauri/vendor/tauri-plugin-notification
 	url = https://github.com/tinyhumansai/tauri-plugin-notification.git
+[submodule "vendor/tinyagents"]
+	path = vendor/tinyagents
+	url = https://github.com/tinyhumansai/tinyagents

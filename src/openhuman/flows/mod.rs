@@ -11,6 +11,7 @@ pub mod bus;
 pub mod ops;
 mod schemas;
 mod store;
+pub mod tools;
 mod types;
 
 pub use schemas::{

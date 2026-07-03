@@ -1,0 +1,120 @@
+/**
+ * FlowListRow — one saved-flow row on the Workflows list page (issue B5a).
+ *
+ * Mirrors the row layout of `CoreJobList`
+ * (`app/src/components/settings/panels/cron/CoreJobList.tsx`): name + status
+ * badge header, a line of run metadata, then a row of `Button` actions. Swaps
+ * the cron "pause/resume" text button for a `SettingsSwitch` toggle (the
+ * canonical boolean control — see `components/settings/controls`) since
+ * enable/disable here is a persistent setting, not a one-off action.
+ *
+ * "View runs" (issue B5a.1) opens `FlowRunsDrawer` (mounted by `FlowsPage`)
+ * for this flow's run history — re-added now that B3b's run inspector has
+ * landed and the drawer has somewhere to send the user.
+ */
+import { useT } from '../../lib/i18n/I18nContext';
+import type { Flow } from '../../services/api/flowsApi';
+import SettingsSwitch from '../settings/controls/SettingsSwitch';
+import Button from '../ui/Button';
+
+/** Which of this row's actions currently has a request in flight, if any. */
+export type FlowListRowBusy = 'toggle' | 'run' | null;
+
+/** Matches `useT()`'s `t` signature (`I18nContextValue['t']` isn't exported). */
+type TFn = (key: string, fallback?: string) => string;
+
+export interface FlowListRowProps {
+  flow: Flow;
+  onToggle: (flow: Flow) => void;
+  onRun: (flow: Flow) => void;
+  onViewRuns: (flow: Flow) => void;
+  busy?: FlowListRowBusy;
+}
+
+/**
+ * Formats the "last run" line. `t()` doesn't interpolate, so counts are
+ * spliced into the translated template in code (`{count}` placeholder) rather
+ * than templated through raw string concatenation.
+ */
+function relativeTime(iso: string, t: TFn): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return t('flows.list.justNow');
+  if (mins < 60) return t('flows.list.minutesAgo').replace('{count}', String(mins));
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return t('flows.list.hoursAgo').replace('{count}', String(hrs));
+  const days = Math.floor(hrs / 24);
+  return t('flows.list.daysAgo').replace('{count}', String(days));
+}
+
+/**
+ * `last_status` is rendered as-is (capitalized) rather than mapped through
+ * i18n — the same precedent `CoreJobList` follows for `job.last_status` —
+ * since it's a raw engine-status word, not prose.
+ */
+function capitalize(value: string): string {
+  return value.length > 0 ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+const FlowListRow = ({ flow, onToggle, onRun, onViewRuns, busy = null }: FlowListRowProps) => {
+  const { t } = useT();
+  const toggleBusy = busy === 'toggle';
+  const runBusy = busy === 'run';
+
+  const lastRunLabel =
+    flow.last_run_at && flow.last_status
+      ? `${capitalize(flow.last_status)} · ${relativeTime(flow.last_run_at, t)}`
+      : t('flows.list.neverRun');
+
+  return (
+    <div
+      data-testid={`flow-row-${flow.id}`}
+      className="space-y-3 border-t border-line p-4 first:border-t-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-content">{flow.name}</div>
+          <div className="mt-0.5 text-[11px] text-content-faint">{lastRunLabel}</div>
+        </div>
+        <span
+          data-testid={`flow-status-${flow.id}`}
+          className={`flex-shrink-0 rounded-full border px-2 py-1 text-[11px] font-semibold uppercase ${
+            flow.enabled
+              ? 'border-sage-200 bg-sage-50 text-sage-700 dark:border-sage-500/30 dark:bg-sage-500/10 dark:text-sage-300'
+              : 'border-line bg-surface-subtle text-content-secondary'
+          }`}>
+          {flow.enabled ? t('flows.list.enabled') : t('flows.list.paused')}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <SettingsSwitch
+          id={`flow-toggle-${flow.id}`}
+          data-testid={`flow-toggle-${flow.id}`}
+          checked={flow.enabled}
+          disabled={toggleBusy}
+          aria-label={t('flows.list.toggleEnabled')}
+          onCheckedChange={() => onToggle(flow)}
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          data-testid={`flow-view-runs-${flow.id}`}
+          onClick={() => onViewRuns(flow)}>
+          {t('flows.list.viewRuns')}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          data-testid={`flow-run-${flow.id}`}
+          disabled={runBusy}
+          onClick={() => onRun(flow)}>
+          {runBusy ? t('flows.list.running') : t('flows.list.runNow')}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default FlowListRow;

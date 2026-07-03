@@ -12,6 +12,7 @@ import Accounts from './pages/Accounts';
 import Brain from './pages/Brain';
 import AgentInsightsPreview from './pages/dev/AgentInsightsPreview';
 import Feedback from './pages/Feedback';
+import FlowsPage from './pages/FlowsPage';
 import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
@@ -90,6 +91,20 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
         element={
           <ProtectedRoute requireAuth={true}>
             <Brain />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Workflows — the `flows::` domain's discoverable list hub (issue
+          B5a). Distinct from the legacy SKILL.md `/workflows/*` Skill routes
+          below (create/run) and their `/workflows` → `/settings/automations`
+          back-compat redirect, which stay untouched. The canvas (B5b) and
+          agent-proposal surface (B4) are separate, later work. */}
+      <Route
+        path="/flows/*"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <FlowsPage />
           </ProtectedRoute>
         }
       />

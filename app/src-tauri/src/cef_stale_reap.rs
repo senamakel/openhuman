@@ -569,7 +569,10 @@ mod tests {
 
     #[test]
     fn marker_is_fresh_bounds_on_age() {
-        assert!(marker_is_fresh(Some(Duration::from_secs(0)), MARKER_MAX_AGE));
+        assert!(marker_is_fresh(
+            Some(Duration::from_secs(0)),
+            MARKER_MAX_AGE
+        ));
         assert!(marker_is_fresh(Some(MARKER_MAX_AGE), MARKER_MAX_AGE));
         assert!(!marker_is_fresh(
             Some(MARKER_MAX_AGE + Duration::from_secs(1)),

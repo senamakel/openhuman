@@ -18,6 +18,7 @@ use tinyagents::graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
 use tinyagents::graph::{
     ClosureStateReducer, CompiledGraph, GraphBuilder, NodeContext, NodeResult,
 };
+use tinyagents::harness::retry::RetryPolicy;
 use tinyagents::harness::workspace::{WorkspaceDescriptor, WorkspaceIsolation};
 use tinyagents::{CancellationToken, TinyAgentsError};
 
@@ -1718,7 +1719,16 @@ async fn run_spawn_parallel_execution_graph(
         .map_err(|e| format!("spawn_parallel_agents graph compile failed: {e}"))?
         .with_event_sink(Arc::new(
             crate::openhuman::tinyagents::observability::GraphTracingSink::new(label),
-        ));
+        ))
+        // Adapter-first landing of the crate-native per-node RetryPolicy
+        // (tinyagents 1.5.0 `CompiledGraph::with_node_retry`). Conservative:
+        // `max_attempts(1)` preserves today's single-attempt phase semantics
+        // exactly (no bespoke retry glue existed on these phases) and backoff
+        // sleeping stays off (the default). Per-worker fanout resilience is
+        // owned inside the worker/collect phases, not the phase-graph node loop;
+        // this wires the crate seam so a future slice can raise the attempt cap
+        // without re-plumbing.
+        .with_node_retry(RetryPolicy::default().with_max_attempts(1));
 
     tracing::debug!(
         parent_session = %parent_session,

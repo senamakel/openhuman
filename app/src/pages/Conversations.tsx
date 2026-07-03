@@ -15,6 +15,7 @@ import IntegrationConnectCard from '../components/chat/IntegrationConnectCard';
 import QueuedFollowups from '../components/chat/QueuedFollowups';
 import SuperContextToggle from '../components/chat/SuperContextToggle';
 import { whenSuperContextWriteSettled } from '../components/chat/superContextWrite';
+import WorkflowProposalCard from '../components/chat/WorkflowProposalCard';
 import { ConfirmationModal } from '../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import { settingsNavState } from '../components/settings/modal/settingsOverlay';
@@ -351,6 +352,9 @@ const Conversations = ({
   );
   const pendingPlanReviewByThread = useAppSelector(
     state => state.chatRuntime.pendingPlanReviewByThread
+  );
+  const pendingWorkflowProposalsByThread = useAppSelector(
+    state => state.chatRuntime.pendingWorkflowProposalsByThread
   );
   const streamingAssistantByThread = useAppSelector(
     state => state.chatRuntime.streamingAssistantByThread
@@ -1610,6 +1614,13 @@ const Conversations = ({
   // resolves the parked turn; the todo strip stays read-only progress.
   const pendingPlanReview = selectedThreadId
     ? (pendingPlanReviewByThread[selectedThreadId] ?? null)
+    : null;
+  // A candidate automation the agent drafted via `propose_workflow` (issue B4),
+  // awaiting the user's Save/Dismiss decision on `WorkflowProposalCard`. Unlike
+  // `pendingPlanReview`, the underlying tool call already completed — this
+  // just controls whether the card is still showing.
+  const pendingWorkflowProposal = selectedThreadId
+    ? (pendingWorkflowProposalsByThread[selectedThreadId] ?? null)
     : null;
   const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
   const hasVisibleMessages = visibleMessages.length > 0;
@@ -2879,6 +2890,22 @@ const Conversations = ({
             key={pendingPlanReview.requestId}
             threadId={selectedThreadId}
             review={pendingPlanReview}
+          />
+        )}
+
+        {/* Agent-first Workflow authoring (issue B4): the agent drafted a
+            candidate automation via `propose_workflow`. The tool only
+            validates — it never creates the flow — so this card is the ONLY
+            path from proposal to saved automation via "Save & enable"
+            (`flows_create`), or the user can Dismiss it outright. */}
+        {selectedThreadId && pendingWorkflowProposal && (
+          // Keyed by name so a second proposal in the same thread (before the
+          // first is resolved) remounts the card and resets its local
+          // saving/error state, matching the PlanReviewCard pattern above.
+          <WorkflowProposalCard
+            key={pendingWorkflowProposal.name}
+            threadId={selectedThreadId}
+            proposal={pendingWorkflowProposal}
           />
         )}
 

@@ -873,15 +873,17 @@ impl Agent {
         // arguments (no child scope, no early-exit tools, graceful cap pause,
         // per-turn output cap) and runs the context-window summarization step.
         // Context middlewares sourced from this session's ContextManager: the
-        // per-tool-result byte cap + payload summarizer (after_tool), the
-        // cache-align warning and microcompact tool-body clearing (before_model).
+        // per-tool-result byte cap + payload summarizer (after_tool) and
+        // microcompact tool-body clearing (before_model). KV-cache-prefix drift
+        // detection is owned by the crate `PromptCacheGuardMiddleware` (fed by
+        // `PromptCacheSegmentMiddleware`); the warn-only `CacheAlignMiddleware`
+        // was deleted in C3.
         let context_mw = crate::openhuman::tinyagents::TurnContextMiddleware {
             tool_result_budget_bytes: self.context.tool_result_budget_bytes(),
             payload_summarizer: self.payload_summarizer.clone(),
             artifact_store,
             tokenjuice_compaction_enabled: self.context.compaction_enabled(),
             tokenjuice_compression: self.tokenjuice_compression,
-            cache_align: self.context.compaction_enabled(),
             microcompact_keep_recent: self.context.microcompact_keep_recent(),
             // Honor the [context].enabled / autocompact_enabled opt-outs: when off,
             // the summarization middleware is not installed (no summarizer tokens,

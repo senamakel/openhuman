@@ -722,33 +722,36 @@ pub(crate) fn export_spans(config: &AgentTracingConfig, spans: &[TraceSpan]) {
     }
 }
 
-/// Hand a completed run's spans to the configured tracing sink.
+/// Hand a completed run's spans to the configured tracing sink(s).
 ///
-/// For the `Langfuse` backend this pushes to the co-hosted staging server —
-/// the endpoint is derived from the current backend hostname and the request
-/// reuses the session bearer (see [`langfuse::push_spans`]). If the push fails
-/// (no live session, network error, rejected batch) — or for the `Otel`
-/// backend — it falls back to the local file/log sink [`export_spans`]. A no-op
-/// when tracing is disabled or there are no spans. Best-effort: never returns an
-/// error to the turn.
+/// Two independent paths, both best-effort and never fatal to a turn:
+///
+/// 1. **Usage-data sharing** (`observability.share_usage_data`, on by default):
+///    push the run's spans to the backend Langfuse proxy — endpoint derived from
+///    the current backend host, authed with the session bearer (see
+///    [`langfuse::push_spans`]). A failure (no live session, network, rejected
+///    batch) just logs; there is no local fallback, since sharing and local
+///    export are distinct opt-ins.
+/// 2. **Local exporter** (`observability.agent_tracing.enabled`, opt-in): append
+///    OTel/Langfuse-format NDJSON to the configured file or the app log via
+///    [`export_spans`].
+///
+/// A no-op when there are no spans or both paths are off.
 pub(crate) async fn export_run_trace(config: &Config, spans: &[TraceSpan]) {
-    let tracing_config = &config.observability.agent_tracing;
-    if !tracing_config.enabled || spans.is_empty() {
+    if spans.is_empty() {
         return;
     }
+    let observability = &config.observability;
 
-    if tracing_config.backend == AgentTracingBackend::Langfuse {
-        match langfuse::push_spans(config, spans).await {
-            Ok(()) => return,
-            Err(err) => {
-                log::warn!(
-                    "[agent-tracing] Langfuse push failed ({err}); falling back to file/log sink"
-                );
-            }
+    if observability.share_usage_data {
+        if let Err(err) = langfuse::push_spans(config, spans).await {
+            log::warn!("[agent-tracing] Langfuse usage-data push failed ({err})");
         }
     }
 
-    export_spans(tracing_config, spans);
+    if observability.agent_tracing.enabled {
+        export_spans(&observability.agent_tracing, spans);
+    }
 }
 
 #[cfg(test)]

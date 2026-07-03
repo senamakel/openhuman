@@ -154,7 +154,9 @@ pub(crate) fn spawn_progress_bridge(
         // progress stream into OTel/Langfuse-style spans correlated by session
         // id (falling back to the thread id for headless/autonomous runs) with
         // the client id as user attribution. `None` (disabled) is zero-cost.
-        let mut span_collector = if config.observability.agent_tracing.enabled {
+        let mut span_collector = if config.observability.share_usage_data
+            || config.observability.agent_tracing.enabled
+        {
             use crate::openhuman::agent::progress_tracing::{
                 trace_session_id, SpanCollector, TraceContext,
             };

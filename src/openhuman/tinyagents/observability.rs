@@ -481,6 +481,63 @@ impl EventListener for OpenhumanEventBridge {
                     arguments = %arguments,
                     "[tinyagents] recovered unknown tool call without executing a tool"
                 );
+                // #4118: surface the *attempted* unavailable tool on the timeline
+                // as a failed call so the UI shows what the agent tried (and
+                // recovered from) rather than silently dropping it — the crate
+                // recovers the call without ever emitting Started/Completed for it,
+                // so nothing else in this bridge projects it. Two rows (start +
+                // failed-complete) keyed by the same call_id, mirroring a real
+                // tool call. Classified `Unknown` (recoverable) — the model got the
+                // "valid tools: [...]" corrective and can retry a real tool.
+                let iteration = self.iteration();
+                let failure = Some(crate::openhuman::tool_status::describe(
+                    crate::openhuman::tool_status::ToolFailureClass::Unknown,
+                ));
+                let label = format!("{} (unavailable)", humanize_tool_name(requested_name));
+                match &self.scope {
+                    None => {
+                        self.send(AgentProgress::ToolCallStarted {
+                            call_id: call_id.as_str().to_string(),
+                            tool_name: requested_name.clone(),
+                            arguments: arguments.clone(),
+                            iteration,
+                            display_label: Some(label),
+                            display_detail: Some("tool not available".to_string()),
+                        });
+                        self.send(AgentProgress::ToolCallCompleted {
+                            call_id: call_id.as_str().to_string(),
+                            tool_name: requested_name.clone(),
+                            success: false,
+                            output_chars: 0,
+                            elapsed_ms: 0,
+                            iteration,
+                            failure,
+                        });
+                    }
+                    Some(s) => {
+                        self.send(AgentProgress::SubagentToolCallStarted {
+                            agent_id: s.agent_id.clone(),
+                            task_id: s.task_id.clone(),
+                            call_id: call_id.as_str().to_string(),
+                            tool_name: requested_name.clone(),
+                            arguments: arguments.clone(),
+                            iteration,
+                            display_label: Some(label),
+                            display_detail: Some("tool not available".to_string()),
+                        });
+                        self.send(AgentProgress::SubagentToolCallCompleted {
+                            agent_id: s.agent_id.clone(),
+                            task_id: s.task_id.clone(),
+                            call_id: call_id.as_str().to_string(),
+                            tool_name: requested_name.clone(),
+                            success: false,
+                            output_chars: 0,
+                            output: String::new(),
+                            elapsed_ms: 0,
+                            iteration,
+                        });
+                    }
+                }
             }
             AgentEvent::ToolStarted { call_id, tool_name } => {
                 // Unknown/invisible tool calls no longer produce a sentinel-named
@@ -681,6 +738,47 @@ mod tests {
 
         let (input, output, _) = bridge.totals();
         assert_eq!((input, output), (100, 40));
+    }
+
+    #[tokio::test]
+    async fn unknown_tool_call_projects_attempted_name_as_failed_timeline_row() {
+        // #4118: the crate recovers an unavailable-tool call via ReturnToolError
+        // without ever emitting Started/Completed for it. The bridge must still
+        // surface the *attempted* tool on the timeline (a failed call) so the UI
+        // shows what the agent tried, instead of the attempt vanishing.
+        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+        let bridge = OpenhumanEventBridge::new(Some(tx), "mock-model", 10);
+        let sink = EventSink::new();
+        sink.subscribe(bridge.clone());
+
+        sink.emit(AgentEvent::UnknownToolCall {
+            call_id: "c9".into(),
+            requested_name: "search_files".to_string(),
+            arguments: serde_json::json!({ "query": "config" }),
+            recovery: "tool_error".to_string(),
+        });
+
+        let mut started_name = None;
+        let mut completed: Option<(String, bool)> = None;
+        while let Ok(p) = rx.try_recv() {
+            match p {
+                AgentProgress::ToolCallStarted { tool_name, .. } => started_name = Some(tool_name),
+                AgentProgress::ToolCallCompleted {
+                    tool_name, success, ..
+                } => completed = Some((tool_name, success)),
+                _ => {}
+            }
+        }
+        assert_eq!(
+            started_name.as_deref(),
+            Some("search_files"),
+            "the attempted unavailable tool name must appear on the timeline"
+        );
+        assert_eq!(
+            completed,
+            Some(("search_files".to_string(), false)),
+            "the attempted tool must be projected as a *failed* call"
+        );
     }
 
     // NOTE: the former `sentinel_tool_started_is_not_forwarded` test was removed

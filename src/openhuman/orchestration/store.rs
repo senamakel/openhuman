@@ -127,6 +127,82 @@ pub fn count_messages(conn: &Connection, agent_id: &str, session_id: &str) -> Re
     )?)
 }
 
+/// Load a single session row (the wake graph's counterpart + metadata).
+pub fn load_session(
+    conn: &Connection,
+    agent_id: &str,
+    session_id: &str,
+) -> Result<Option<OrchestrationSession>> {
+    conn.query_row(
+        "SELECT session_id, agent_id, source, label, workspace, last_seq, created_at, last_message_at
+           FROM sessions WHERE agent_id = ?1 AND session_id = ?2",
+        params![agent_id, session_id],
+        |row| {
+            Ok(OrchestrationSession {
+                session_id: row.get(0)?,
+                agent_id: row.get(1)?,
+                source: row.get(2)?,
+                label: row.get(3)?,
+                workspace: row.get(4)?,
+                last_seq: row.get(5)?,
+                created_at: row.get(6)?,
+                last_message_at: row.get(7)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
+/// Load the most recent `limit` messages for a session, returned in chronological
+/// (oldest-first) order so the graph reads them like a transcript.
+pub fn list_recent_messages(
+    conn: &Connection,
+    agent_id: &str,
+    session_id: &str,
+    limit: u32,
+) -> Result<Vec<OrchestrationMessage>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, agent_id, session_id, chat_kind, role, body, timestamp, seq
+           FROM messages WHERE agent_id = ?1 AND session_id = ?2
+           ORDER BY timestamp DESC, seq DESC LIMIT ?3",
+    )?;
+    let rows = stmt
+        .query_map(params![agent_id, session_id, limit], |row| {
+            let chat_kind: String = row.get(3)?;
+            Ok(OrchestrationMessage {
+                id: row.get(0)?,
+                agent_id: row.get(1)?,
+                session_id: row.get(2)?,
+                chat_kind: crate::openhuman::orchestration::types::ChatKind::from_str(&chat_kind),
+                role: row.get(4)?,
+                body: row.get(5)?,
+                timestamp: row.get(6)?,
+                seq: row.get(7)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    // Reverse the DESC scan back to chronological order.
+    Ok(rows.into_iter().rev().collect())
+}
+
+/// Read a `kv` value (used for the per-session idempotence cursor).
+pub fn kv_get(conn: &Connection, key: &str) -> Result<Option<String>> {
+    conn.query_row("SELECT v FROM kv WHERE k = ?1", params![key], |r| r.get(0))
+        .optional()
+        .map_err(Into::into)
+}
+
+/// Write a `kv` value (upsert).
+pub fn kv_set(conn: &Connection, key: &str, value: &str) -> Result<()> {
+    conn.execute(
+        "INSERT INTO kv (k, v) VALUES (?1, ?2)
+           ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+        params![key, value],
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::types::ChatKind;

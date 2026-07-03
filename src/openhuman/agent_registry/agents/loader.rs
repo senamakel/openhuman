@@ -287,6 +287,12 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: crate::openhuman::subconscious::agent::prompt::build,
         graph_fn: crate::openhuman::subconscious::agent::graph::graph,
     },
+    BuiltinAgent {
+        id: "frontend_agent",
+        toml: include_str!("../../orchestration/frontend_agent/agent.toml"),
+        prompt_fn: crate::openhuman::orchestration::frontend_agent::prompt::build,
+        graph_fn: crate::openhuman::orchestration::frontend_agent::graph::graph,
+    },
 ];
 
 /// Parse every entry in [`BUILTINS`] into an [`AgentDefinition`].

@@ -127,6 +127,16 @@ impl ChatKind {
             ChatKind::Session => "session",
         }
     }
+
+    /// Parse the persisted string form back into a [`ChatKind`]. Unknown values
+    /// fall back to [`ChatKind::Master`] (the safe, non-session default).
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "session" => ChatKind::Session,
+            "subconscious" => ChatKind::Subconscious,
+            _ => ChatKind::Master,
+        }
+    }
 }
 
 /// Durable per-session record. `session_id` is the harness session id for

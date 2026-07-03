@@ -2244,6 +2244,8 @@ fn register_domain_subscribers(
         crate::openhuman::memory_sync::workspace::start_workspace_periodic_sync();
         // Orchestration: ingest tiny.place harness session DMs off the stream bus.
         crate::openhuman::orchestration::register_orchestration_ingest_subscriber();
+        // Orchestration: wake the split-brain graph on each persisted session DM.
+        crate::openhuman::orchestration::register_orchestration_wake_subscriber();
         // Task-sources proactive ingestion: connection-created hook + poll.
         crate::openhuman::task_sources::bus::register_task_sources_subscriber();
         crate::openhuman::task_sources::start_periodic_poll();

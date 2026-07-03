@@ -385,9 +385,7 @@ pub async fn run_orchestration_graph(
     // #4249, 04.3) at a dedicated `orchestration_checkpoints.db` under the
     // workspace — the old run-ledger `SqlRunLedgerCheckpointer` was retired, so
     // pre-swap in-flight wake graphs simply expire.
-    let checkpoint_db = config
-        .workspace_dir
-        .join("orchestration_checkpoints.db");
+    let checkpoint_db = config.workspace_dir.join("orchestration_checkpoints.db");
     let checkpointer = Arc::new(
         SqliteCheckpointer::<OrchestrationState>::open(&checkpoint_db)
             .map_err(|e| anyhow::anyhow!("open orchestration checkpoint store: {e}"))?,

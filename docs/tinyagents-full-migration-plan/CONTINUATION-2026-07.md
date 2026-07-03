@@ -184,11 +184,20 @@ The importer (`session_import/`) already proves shape parity. Execute:
    once), then install crate `BudgetMiddleware`/`BudgetLimits`; delete local
    `CostBudgetMiddleware` + `turn_subagent_usage.rs` task-local (206) in
    favour of `RunTree` rollup.
-3. Delete `CacheAlign` + `Microcompact` middlewares (crate-superseded,
-   warn-only); fold `PromptCacheSegment` into crate cache guard.
-4. Adopt `UnknownToolPolicy::Rewrite`; delete the
-   `__openhuman_unknown_tool__` sentinel (sdk-gaps §2).
-   Net: `tinyagents/middleware.rs` 2448 → ~1400.
+3. ~~Delete `CacheAlign` + `Microcompact`~~ CORRECTED by C3 execution
+   (2026-07-03): `CacheAlign` deleted (warn-only, crate cache guard already
+   installed — commit on `feat/tinyagents-c3-middleware-dedupe`).
+   `Microcompact` is NOT crate-superseded — tinyagents 1.5.0 has no
+   tool-result body-clearing equivalent and the local one is live on the
+   session turn path — moved to the C5 upstream-extraction batch (extract a
+   crate microcompact first, then delete locally).
+4. ~~Adopt `UnknownToolPolicy::Rewrite`~~ CORRECTED by C3 execution: the
+   sentinel + `UnknownToolRewriteMiddleware` were already deleted in 01.2;
+   live policy is `UnknownToolPolicy::ReturnToolError`, which preserves the
+   attempted tool name + args (#4419 UX). Rewrite mode would regress (needs a
+   catch-all target tool); rationale comment added at `run_policy_for`. Done —
+   no further action.
+   Net: `tinyagents/middleware.rs` 2448 → ~1500 (Microcompact stays until C5).
 
 ### C4 — Events/progress projection (05.3) then delete progress_tracing
 

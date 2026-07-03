@@ -1,21 +1,21 @@
 # 00 — Baseline: crate, features, native links
 
-Current status (2026-07-02): baseline dependency alignment is complete in both
-Cargo worlds. `tinyagents 1.3.0` is resolved with the `sqlite` feature,
+Current status (2026-07-03): baseline dependency alignment is complete in both
+Cargo worlds. `tinyagents 1.5.0` is resolved with the `sqlite` feature,
 OpenHuman pins `rusqlite = "=0.40.0"`, both worlds patch through
 `vendor/rusqlite-0.40.0` and `vendor/libsqlite3-sys-0.38.0`, and the SDK-gaps
 inventory has been refreshed against the published 1.3.0 crate source.
 
 ## Steps
 
-1. **Bump `tinyagents` to `"1.3"`** (done in both Cargo worlds — root and
+1. **Bump `tinyagents` to `"1.5.0"`** (done in both Cargo worlds — root and
    `app/src-tauri/`). Known 1.1→1.2 break already handled
    (`MessageDelta::text` ctor). Note: the `openai` crate feature was removed
    after 1.2.0 (1.2.1+ features are only `sqlite`/`repl`) — we never enabled
    it, so no impact. See "1.3.0 delta" below for new API this plan uses.
 2. **Align rusqlite to 0.40** in both worlds (`Cargo.toml` root and
    `app/src-tauri/Cargo.toml`). OpenHuman pins `rusqlite = "=0.40.0"` and
-   enables `tinyagents = { version = "1.3", features = ["sqlite"] }`.
+   enables `tinyagents = { version = "1.5.0", features = ["sqlite"] }`.
    Compatibility notes:
    - `rusqlite 0.40` and `libsqlite3-sys 0.38` are consumed directly from
      crates.io. Their build scripts use the `cfg_select!` macro (stable from

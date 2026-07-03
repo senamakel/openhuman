@@ -26,7 +26,14 @@ const FLOW_RUN_TIMEOUT_SECS: u64 = 600;
 /// an older-schema definition to current), deserializes it, and rejects a
 /// structurally invalid graph via `tinyflows::validate::validate` — so a bad
 /// graph is caught at the door, before it's ever persisted.
-fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
+///
+/// `pub(crate)` (not private) so `flows::tools::ProposeWorkflowTool` (issue
+/// B4 — agent-first workflow authoring) can run a candidate graph through the
+/// exact same validate/migrate path `flows_create` uses below, without
+/// duplicating it. The tool only calls this — never `flows_create` itself —
+/// which is what keeps the "the agent can never create a flow" invariant
+/// intact: this function validates and returns, it has no persistence effect.
+pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
     let migrated = tinyflows::migrate::migrate(graph_json).map_err(|e| e.to_string())?;
     let graph: WorkflowGraph = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
     tinyflows::validate::validate(&graph).map_err(|e| e.to_string())?;

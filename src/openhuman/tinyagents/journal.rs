@@ -25,14 +25,25 @@
 //! sinks here) and its records pass through a [`RedactingSink`] so process
 //! credentials are masked before anything is persisted.
 //!
+//! ## Stable event ids (05.1)
+//!
+//! The run [`EventSink`] is seeded by the caller with
+//! [`EventSink::with_stream_id`]`(run_id)` (see [`mint_run_id`]), so every
+//! persisted observation carries a restart-stable `event_id` of the form
+//! `{run_id}-evt-{offset}`. That is the id a late-attaching replay reader
+//! reconstructs the timeline from — the same `(stream_id, offset)` always mints
+//! the same id, and two runs never collide even if both restart their offset
+//! counter at zero.
+//!
 //! ## Follow-ups (not in this slice)
 //!
 //! - A replay RPC (`agent.run_events`?) that surfaces [`read_run_events`] /
 //!   [`read_run_status`] to the desktop for mid-run reconnect (05.x).
-//! - Sub-agent / graph run lineage (`parent_run_id` / `root_run_id` threading)
-//!   and per-thread status (`thread_id`) — wired in 05.2/05.3.
-//! - Seeding the run [`EventSink`] with `with_stream_id(run_id)` for
-//!   restart-stable event ids.
+//! - Full sub-agent / graph run lineage (`parent_run_id` / `root_run_id`
+//!   threading) — wired in 05.2/05.3. This slice threads `thread_id` (from the
+//!   sub-agent task scope) so [`FileStatusStore::list_by_thread`] answers.
+//!
+//! [`EventSink::with_stream_id`]: tinyagents::harness::events::EventSink::with_stream_id
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -41,7 +52,7 @@ use async_trait::async_trait;
 
 use tinyagents::error::Result as TaResult;
 use tinyagents::harness::events::{EventSink, HarnessRunStatus};
-use tinyagents::harness::ids::{ComponentId, HarnessPhase, RunId};
+use tinyagents::harness::ids::{ComponentId, HarnessPhase, RunId, ThreadId};
 use tinyagents::harness::observability::{
     AgentObservation, FanOutSink, HarnessEventJournal, HarnessStatusStore, JournalSink,
     RedactingSink, StoreEventJournal,
@@ -55,10 +66,18 @@ use crate::openhuman::session_import::ops::open_session_stores;
 /// it round-trips the crate [`FileStore`] name sanitizer.
 const STATUS_NS: &str = "run_status";
 
-/// Mints a fresh, slash-free, process-unique run id (`run.<32-hex>`), used both
-/// as the journal stream key and the status-store key. The `simple()` uuid form
-/// (no hyphens) keeps the id inside the crate store's allowed-character set.
-fn new_run_id() -> RunId {
+/// Mints a fresh, slash-free, process-unique run id (`run.<32-hex>`), used three
+/// ways for one turn: the [`EventSink::with_stream_id`] prefix (so persisted
+/// `event_id`s are the restart-stable `{run_id}-evt-{offset}`), the journal
+/// stream key, and the status-store key. The `simple()` uuid form (no hyphens)
+/// keeps the id inside the crate store's allowed-character set.
+///
+/// The caller mints this *before* creating the run [`EventSink`] so the same id
+/// seeds the sink stream prefix and the durable journal/status — see
+/// [`attach_turn_journal`].
+///
+/// [`EventSink::with_stream_id`]: tinyagents::harness::events::EventSink::with_stream_id
+pub(crate) fn mint_run_id() -> RunId {
     RunId::new(format!("run.{}", uuid::Uuid::new_v4().simple()))
 }
 
@@ -268,13 +287,26 @@ impl TurnJournal {
 /// Attach a durable event journal + status writer to `events`, *in addition to*
 /// the existing (untouched) [`OpenhumanEventBridge`] subscription.
 ///
+/// `run_id` MUST be the same id the caller passed to
+/// [`EventSink::with_stream_id`] when it created `events` (mint it once via
+/// [`mint_run_id`]). That shared id is what makes the persisted `event_id`s the
+/// restart-stable `{run_id}-evt-{offset}` a late-attach replay reconstructs the
+/// timeline from. `thread_id` (when known — e.g. the sub-agent task scope)
+/// records the run under a thread so [`FileStatusStore::list_by_thread`] answers.
+///
 /// Returns a [`TurnJournal`] handle the caller uses to stamp the terminal
 /// status after the run, or `None` when the store could not be opened (the run
 /// proceeds unaffected — journaling is best-effort). Safe to call for observed
 /// and unobserved turns alike: it does not depend on `on_progress`.
 ///
 /// [`OpenhumanEventBridge`]: crate::openhuman::tinyagents::observability::OpenhumanEventBridge
-pub(crate) async fn attach_turn_journal(events: &EventSink, model: &str) -> Option<TurnJournal> {
+/// [`EventSink::with_stream_id`]: tinyagents::harness::events::EventSink::with_stream_id
+pub(crate) async fn attach_turn_journal(
+    events: &EventSink,
+    model: &str,
+    run_id: RunId,
+    thread_id: Option<ThreadId>,
+) -> Option<TurnJournal> {
     let workspace = match resolve_workspace().await {
         Ok(dir) => dir,
         Err(err) => {
@@ -284,11 +316,12 @@ pub(crate) async fn attach_turn_journal(events: &EventSink, model: &str) -> Opti
     };
 
     let stores = open_session_stores(&workspace);
-    let run_id = new_run_id();
 
     // Event journal: crate StoreEventJournal over the 04-sessions JsonlAppendStore
     // (stream key = run id). Wrapped in a JournalSink (stamps run lineage) and a
-    // RedactingSink (masks process credentials) before persisting.
+    // RedactingSink (masks process credentials) before persisting. Because
+    // `events` was seeded with `with_stream_id(run_id)`, every persisted
+    // observation's `event_id` is the stable `{run_id}-evt-{offset}`.
     let journal: Arc<dyn HarnessEventJournal> = Arc::new(StoreEventJournal::new(stores.journal));
     let journal_sink = JournalSink::new(journal, run_id.clone());
     let redacting = RedactingSink::new(Arc::new(journal_sink), openhuman_redaction_secrets());
@@ -299,9 +332,13 @@ pub(crate) async fn attach_turn_journal(events: &EventSink, model: &str) -> Opti
     let fanout = FanOutSink::new().with(Arc::new(redacting));
     events.subscribe(Arc::new(fanout));
 
-    // Status store: durable, Store-backed. Seed an initial `running` snapshot.
+    // Status store: durable, Store-backed. Seed an initial `running` snapshot,
+    // recording the thread (when known) so list_by_thread answers at run start.
     let status_store = Arc::new(FileStatusStore::new(stores.kv));
     let mut status = HarnessRunStatus::new(run_id.clone(), ComponentId::new(model.to_string()));
+    if let Some(thread_id) = thread_id {
+        status = status.with_thread(thread_id);
+    }
     status.mark_running(HarnessPhase::Model);
     if let Err(err) = status_store.put_status(status.clone()).await {
         log::debug!(
@@ -311,8 +348,9 @@ pub(crate) async fn attach_turn_journal(events: &EventSink, model: &str) -> Opti
     }
 
     log::debug!(
-        "[journal] attached durable event journal run_id={} model={model}",
-        run_id.as_str()
+        "[journal] attached durable event journal run_id={} thread={:?} model={model}",
+        run_id.as_str(),
+        status.thread_id.as_ref().map(|t| t.as_str())
     );
     Some(TurnJournal {
         run_id,
@@ -372,12 +410,15 @@ mod tests {
     async fn journal_persists_and_replays_run() {
         let tmp = std::env::temp_dir().join(format!("oh-journal-test-{}", uuid::Uuid::new_v4()));
         let stores = open_session_stores(&tmp);
-        let run_id = new_run_id();
+        let run_id = mint_run_id();
 
         // Attach a journal sink directly (bypassing config resolution) and emit.
+        // Seed the sink with the run id so persisted `event_id`s are the
+        // restart-stable `{run_id}-evt-{offset}` — mirrors the caller in
+        // `run_turn_via_tinyagents_shared`.
         let journal: Arc<dyn HarnessEventJournal> =
             Arc::new(StoreEventJournal::new(stores.journal));
-        let sink = EventSink::new();
+        let sink = EventSink::with_stream_id(run_id.as_str());
         let journal_sink = JournalSink::new(journal, run_id.clone());
         let redacting = RedactingSink::new(Arc::new(journal_sink), vec!["sk-super-secret".into()]);
         sink.subscribe(Arc::new(FanOutSink::new().with(Arc::new(redacting))));
@@ -394,6 +435,16 @@ mod tests {
         // Reconstruct from the durable store alone.
         let replayed = read_run_events_at(&tmp, run_id.as_str(), 0).await;
         assert_eq!(replayed.len(), 2);
+        // Records come back fully ordered with restart-stable ids of the form
+        // `{run_id}-evt-{offset}`.
+        for (offset, obs) in replayed.iter().enumerate() {
+            assert_eq!(obs.offset, offset as u64, "offset should be monotonic");
+            assert_eq!(
+                obs.event_id.as_str(),
+                format!("{}-evt-{offset}", run_id.as_str()),
+                "event id should be the stable {{stream_id}}-evt-{{offset}}"
+            );
+        }
         // The seeded secret was masked before persistence.
         if let AgentEvent::ModelStarted { model, .. } = &replayed[0].event {
             assert!(
@@ -405,15 +456,42 @@ mod tests {
             panic!("expected ModelStarted first");
         }
 
-        // Status store round-trips a running → completed transition + list_by_root.
+        // Late attach at a non-zero offset: a reader that reconnects after the
+        // first event reconstructs only the tail (offset >= 1), still ordered and
+        // still with stable ids — the mid-run reconnect/backfill path.
+        let tail = read_run_events_at(&tmp, run_id.as_str(), 1).await;
+        assert_eq!(tail.len(), 1);
+        assert_eq!(tail[0].offset, 1);
+        assert_eq!(
+            tail[0].event_id.as_str(),
+            format!("{}-evt-1", run_id.as_str())
+        );
+        assert!(matches!(tail[0].event, AgentEvent::ToolStarted { .. }));
+
+        // Status store round-trips a running → completed transition and answers
+        // list_active / list_by_root / list_by_thread.
         let status_store = FileStatusStore::new(open_session_stores(&tmp).kv);
         let mut status =
-            HarnessRunStatus::new(run_id.clone(), ComponentId::new("mock-model".to_string()));
+            HarnessRunStatus::new(run_id.clone(), ComponentId::new("mock-model".to_string()))
+                .with_thread(ThreadId::new("thread-42"));
         status.mark_running(HarnessPhase::Model);
         status_store.put_status(status.clone()).await.unwrap();
         let active = status_store.list_active().await.unwrap();
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].status, ExecutionStatus::Running);
+        assert_eq!(
+            status_store
+                .list_by_thread("thread-42")
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(status_store
+            .list_by_thread("nope")
+            .await
+            .unwrap()
+            .is_empty());
 
         status.mark_completed();
         status_store.put_status(status).await.unwrap();

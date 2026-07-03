@@ -15,12 +15,16 @@
  * actions and marks it read. Dismiss is UI-only: there is no `flows_deny` /
  * cancel-run RPC yet (documented follow-up — the run stays parked
  * `pending_approval` server-side and can still be approved later from the run
- * history once B3b's inspector ships), so Dismiss just clears the prompt from
- * the Notification Center without touching the engine.
+ * history), so Dismiss just clears the prompt from the Notification Center
+ * without touching the engine.
  *
  * Styling mirrors the existing amber approval chrome
  * (`WorkflowRunApprovalCard`) and the `role="alertdialog"` a11y pattern
  * (`ApprovalRequestCard`) so this reads as the same affordance family.
+ *
+ * "View run" (B3b) opens {@link FlowRunInspectorDrawer} for the run's status +
+ * step timeline (run id === the payload's `thread_id`) without disturbing the
+ * Approve/Dismiss flow above.
  */
 import debug from 'debug';
 import { useState } from 'react';
@@ -33,6 +37,7 @@ import {
   markRead,
   type NotificationItem,
 } from '../../store/notificationSlice';
+import { FlowRunInspectorDrawer } from '../flows/FlowRunInspectorDrawer';
 import Button from '../ui/Button';
 
 const log = debug('notifications:flow-approval-card');
@@ -50,7 +55,8 @@ function isFlowApprovalPayload(value: unknown): value is FlowApprovalPayload {
   return (
     typeof record.flow_id === 'string' &&
     typeof record.thread_id === 'string' &&
-    Array.isArray(record.node_ids)
+    Array.isArray(record.node_ids) &&
+    record.node_ids.every((x: unknown) => typeof x === 'string')
   );
 }
 
@@ -67,6 +73,7 @@ const FlowApprovalCard = ({ notification: n }: Props) => {
   const dispatch = useAppDispatch();
   const [pending, setPending] = useState<'approve' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inspecting, setInspecting] = useState(false);
 
   const payload = n.actions?.[0]?.payload;
   const parsed = isFlowApprovalPayload(payload) ? payload : null;
@@ -174,9 +181,31 @@ const FlowApprovalCard = ({ notification: n }: Props) => {
               onClick={handleDismiss}>
               {t('notifications.flow.dismiss')}
             </Button>
+            {parsed && (
+              <Button
+                variant="tertiary"
+                size="sm"
+                data-testid="flow-approval-view-run"
+                onClick={() => {
+                  log(
+                    'viewRun: opening drawer notification=%s threadId=%s',
+                    n.id,
+                    parsed.thread_id
+                  );
+                  setInspecting(true);
+                }}>
+                {t('notifications.flow.viewRun')}
+              </Button>
+            )}
           </div>
         </div>
       </div>
+      {parsed && (
+        <FlowRunInspectorDrawer
+          runId={inspecting ? parsed.thread_id : null}
+          onClose={() => setInspecting(false)}
+        />
+      )}
     </div>
   );
 };

@@ -6,7 +6,7 @@ TinyAgents source reviewed: `tinyhumansai/tinyagents` `origin/main` at
 `8f226f1`, crate version `1.1.0`. Refreshed against `tinyhumansai/tinyagents`
 `main` at `348a0e7dc71a1f9039f3d523a2a384661a7a9acd` after the SDK/docs update.
 Current OpenHuman dependency in this checkout is
-`tinyagents = { version = "1.3", features = ["sqlite"] }`.
+`tinyagents = { version = "1.5.0", features = ["sqlite"] }`.
 
 OpenHuman already depends on TinyAgents and already routes the live agent turn
 through `src/openhuman/tinyagents/`. This spec is not a proposal to add
@@ -80,7 +80,7 @@ OpenHuman Rust core:
 
 Already done or partially done:
 
-- `Cargo.toml` pins `tinyagents = { version = "1.3", features = ["sqlite"] }`.
+- `Cargo.toml` pins `tinyagents = { version = "1.5.0", features = ["sqlite"] }`.
 - `src/openhuman/tinyagents/mod.rs` registers OpenHuman `Provider` and `Tool`
   adapters on `tinyagents::harness::runtime::AgentHarness`.
 - `ProviderModel` maps OpenHuman `ChatRequest`/`ChatResponse` into

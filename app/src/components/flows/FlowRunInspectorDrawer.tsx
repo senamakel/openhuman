@@ -1,0 +1,282 @@
+/**
+ * FlowRunInspectorDrawer (issue B3b)
+ * ----------------------------------
+ *
+ * Right-side drawer showing a single durable `tinyflows` run's status + step
+ * timeline, opened from the "View run" action on {@link FlowApprovalCard}.
+ * Drawer chrome mirrors `pages/conversations/components/SubagentDrawer.tsx`
+ * (fixed overlay + backdrop-click-to-close + Escape-to-close) so it renders
+ * as a fixed overlay regardless of where the parent mounts it in the DOM.
+ *
+ * Data comes from {@link useFlowRunPoller}, which polls
+ * `openhuman.flows_get_run` every 2s until the run reaches a terminal status
+ * (`completed`/`failed`) — `pending_approval` keeps polling since the run can
+ * still be resumed elsewhere.
+ *
+ * `FlowRunStep` is lean by design (`node_id` + `output` + optional `port`
+ * only — no per-step status/timing), so each step renders as a plain label
+ * + collapsible output, not a graduated status timeline. Status-dot/pill
+ * visual language borrows from `components/intelligence/WorkflowRunDetail.tsx`
+ * (`RUN_STATUS_ACCENT`/`PHASE_STATUS_DOT`) and
+ * `pages/conversations/components/ToolTimelineBlock.tsx` (`StatusTag`) —
+ * dots, not progress bars (project rule).
+ */
+import debug from 'debug';
+
+import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useFlowRunPoller } from '../../hooks/useFlowRunPoller';
+import { useT } from '../../lib/i18n/I18nContext';
+import type { FlowRunStatus, FlowRunStep } from '../../services/api/flowsApi';
+
+const log = debug('flows:run-inspector-drawer');
+
+/**
+ * Accent classes per run status (semantic palette from tailwind.config.js).
+ * Exported so {@link FlowRunsDrawer} (issue B5a.1) can reuse the same
+ * status-pill visual language for its run-history rows instead of
+ * duplicating the mapping.
+ */
+export const FLOW_RUN_STATUS_ACCENT: Record<FlowRunStatus, string> = {
+  running:
+    'border-ocean-200 bg-ocean-50 text-ocean-700 dark:border-ocean-500/30 dark:bg-ocean-500/10 dark:text-ocean-300',
+  completed:
+    'border-sage-200 bg-sage-50 text-sage-700 dark:border-sage-500/30 dark:bg-sage-500/10 dark:text-sage-300',
+  pending_approval:
+    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
+  failed:
+    'border-coral-200 bg-coral-50 text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300',
+};
+
+/** Header status dot per run status — mirrors `PHASE_STATUS_DOT`. Exported, see above. */
+export const FLOW_RUN_STATUS_DOT: Record<FlowRunStatus, string> = {
+  running: 'bg-ocean-500 animate-pulse',
+  completed: 'bg-sage-500',
+  pending_approval: 'bg-amber-500 animate-pulse',
+  failed: 'bg-coral-500',
+};
+
+/** i18n key per run status. Exported, see above. */
+export const FLOW_RUN_STATUS_KEY: Record<FlowRunStatus, string> = {
+  running: 'flowRuns.status.running',
+  completed: 'flowRuns.status.completed',
+  pending_approval: 'flowRuns.status.pending_approval',
+  failed: 'flowRuns.status.failed',
+};
+
+function formatTimestamp(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(parsed));
+}
+
+/** Render a step's `output` — pretty-printed JSON for objects/arrays, verbatim for strings. */
+function formatStepOutput(output: unknown): string {
+  if (output == null) return '';
+  if (typeof output === 'string') return output;
+  try {
+    return JSON.stringify(output, null, 2);
+  } catch {
+    return String(output);
+  }
+}
+
+function StepRow({ step, index }: { step: FlowRunStep; index: number }) {
+  const { t } = useT();
+  const outputText = formatStepOutput(step.output);
+
+  return (
+    <li
+      data-testid={`flow-run-step-${index}`}
+      className="rounded-lg border border-line bg-surface-muted p-2.5 text-xs">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="h-1.5 w-1.5 flex-none rounded-full bg-content-faint" aria-hidden />
+        <span className="truncate font-mono font-medium text-content-secondary">
+          {step.node_id}
+        </span>
+        {step.port !== undefined && (
+          <span
+            data-testid={`flow-run-step-port-${index}`}
+            className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium text-content-muted">
+            {t('flowRuns.inspector.port')}: {step.port}
+          </span>
+        )}
+      </div>
+      {outputText.length > 0 && (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer text-[11px] font-medium text-content-faint hover:text-content-secondary">
+            {t('flowRuns.inspector.output')}
+          </summary>
+          <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-surface px-2 py-1.5 font-mono text-[11px] leading-relaxed text-content-secondary">
+            {outputText}
+          </pre>
+        </details>
+      )}
+    </li>
+  );
+}
+
+interface Props {
+  /** Run id (== thread_id) to inspect. Renders `null` (nothing) when absent. */
+  runId: string | null;
+  onClose: () => void;
+}
+
+/**
+ * Renders `null` when `runId` is `null` so the parent can mount this
+ * unconditionally and just flip `runId` (same convention as
+ * `SubagentDrawer`).
+ */
+export function FlowRunInspectorDrawer({ runId, onClose }: Props) {
+  const { t } = useT();
+  const { run, loading, error } = useFlowRunPoller(runId);
+
+  useEscapeKey(() => {
+    log('escape: closing runId=%s', runId);
+    onClose();
+  }, runId !== null);
+
+  if (!runId) return null;
+
+  const startedAt = formatTimestamp(run?.started_at);
+  const finishedAt = formatTimestamp(run?.finished_at);
+  const pendingCount = run?.pending_approvals.length ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" data-testid="flow-run-inspector-drawer">
+      {/* Backdrop */}
+      <button
+        type="button"
+        aria-label={t('conversations.subagent.close')}
+        data-testid="flow-run-inspector-backdrop"
+        className="absolute inset-0 bg-stone-900/30 dark:bg-black/50"
+        onClick={onClose}
+      />
+      <aside className="relative flex h-full w-full max-w-md flex-col bg-surface shadow-xl">
+        {/* Header */}
+        <header className="flex items-start gap-2.5 border-b border-line px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate font-semibold text-content">
+                {t('flowRuns.inspector.title')}
+              </span>
+              {run && (
+                <span
+                  data-testid="flow-run-status-dot"
+                  className={`h-2 w-2 shrink-0 rounded-full ${FLOW_RUN_STATUS_DOT[run.status]}`}
+                />
+              )}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-content-muted">
+              {run && (
+                <span
+                  data-testid="flow-run-status-pill"
+                  className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium ${FLOW_RUN_STATUS_ACCENT[run.status]}`}>
+                  {t(FLOW_RUN_STATUS_KEY[run.status])}
+                </span>
+              )}
+              {run && <span className="truncate font-mono">{run.flow_id}</span>}
+              {run && <span className="truncate font-mono">{run.thread_id}</span>}
+            </div>
+          </div>
+          <button
+            type="button"
+            data-testid="flow-run-inspector-close"
+            onClick={onClose}
+            aria-label={t('conversations.subagent.close')}
+            className="shrink-0 rounded-full p-1.5 text-content-faint hover:bg-surface-hover hover:text-content-secondary">
+            ✕
+          </button>
+        </header>
+
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          {loading && !run && (
+            <div
+              className="flex items-center gap-2 py-8 text-content-faint"
+              data-testid="flow-run-inspector-loading">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-ocean-500 border-t-transparent" />
+              <span className="text-sm">{t('flowRuns.inspector.loading')}</span>
+            </div>
+          )}
+
+          {error && (
+            <div
+              role="alert"
+              data-testid="flow-run-inspector-error"
+              className="rounded-xl border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+              {t('flowRuns.inspector.loadError')}: {error}
+            </div>
+          )}
+
+          {run && (
+            <>
+              {/* Timing */}
+              <div className="text-xs text-content-muted" data-testid="flow-run-timing">
+                {startedAt && (
+                  <div>
+                    {t('flowRuns.inspector.startedAt')}: {startedAt}
+                  </div>
+                )}
+                {finishedAt ? (
+                  <div>
+                    {t('flowRuns.inspector.finishedAt')}: {finishedAt}
+                  </div>
+                ) : run.status === 'running' || run.status === 'pending_approval' ? (
+                  <div className="animate-pulse">{t('flowRuns.inspector.running')}</div>
+                ) : null}
+              </div>
+
+              {/* Error banner */}
+              {run.error && (
+                <div
+                  role="alert"
+                  data-testid="flow-run-error-banner"
+                  className="rounded-xl border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+                  {t('flowRuns.inspector.error')}: {run.error}
+                </div>
+              )}
+
+              {/* Pending approvals banner */}
+              {run.status === 'pending_approval' && pendingCount > 0 && (
+                <div
+                  data-testid="flow-run-pending-approvals-banner"
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                  {t('flowRuns.inspector.pendingApprovalsCount').replace(
+                    '{count}',
+                    String(pendingCount)
+                  )}
+                </div>
+              )}
+
+              {/* Steps timeline */}
+              <div>
+                <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-content-muted">
+                  {t('flowRuns.inspector.steps')}
+                </h3>
+                {run.steps.length === 0 ? (
+                  <p className="text-xs italic text-content-faint">
+                    {t('flowRuns.inspector.noSteps')}
+                  </p>
+                ) : (
+                  <ol className="space-y-2" data-testid="flow-run-steps">
+                    {run.steps.map((step, idx) => (
+                      <StepRow key={`${step.node_id}-${idx}`} step={step} index={idx} />
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+export default FlowRunInspectorDrawer;

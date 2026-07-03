@@ -614,12 +614,12 @@ impl EventListener for OpenhumanEventBridge {
 ///
 /// The guard records a layout event whenever the cacheable prompt prefix changes
 /// between turns (volatile content — a timestamp, uuid, injected memory, etc. —
-/// silently busting the provider KV-cache prefix). This is the structured
-/// successor to `CacheAlignMiddleware`'s free-text warn-log: instead of a
-/// token-pattern heuristic it reports the exact before/after cacheable segment
-/// ids. Drained by the turn loop after the run and logged here; `CacheAlign` is
-/// kept installed in parallel until parity is shown (its deletion is a gated
-/// follow-up).
+/// silently busting the provider KV-cache prefix). This is the crate-native
+/// replacement for the deleted `CacheAlignMiddleware` free-text warn-log:
+/// instead of a token-pattern heuristic it reports the exact before/after
+/// cacheable segment ids. Drained by the turn loop after the run and logged
+/// here. The warn-only `CacheAlignMiddleware` shadow was deleted in C3; this
+/// guard is now the sole owner of KV-cache-prefix drift detection.
 pub(crate) fn surface_cache_layout_events(model: &str, events: &[CacheLayoutEvent]) {
     for event in events {
         tracing::warn!(

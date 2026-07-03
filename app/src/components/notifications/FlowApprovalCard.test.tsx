@@ -1,10 +1,12 @@
 /**
- * Approve/Dismiss contract for the flow-pending-approval notification card
- * (issue B3a). Asserts that Approve reads `{ flow_id, thread_id, node_ids }`
- * from the notification's action payload, calls `flowsApi.resumeFlow` with
- * those args, clears the notification on success, surfaces a localized error
- * on failure, and that Dismiss clears the notification WITHOUT calling any RPC
- * (there is no `flows_deny` endpoint yet).
+ * Approve/Dismiss/View-run contract for the flow-pending-approval
+ * notification card (issues B3a + B3b). Asserts that Approve reads
+ * `{ flow_id, thread_id, node_ids }` from the notification's action payload,
+ * calls `flowsApi.resumeFlow` with those args, clears the notification on
+ * success, surfaces a localized error on failure (including when `node_ids`
+ * contains non-string entries — an invalid payload), that Dismiss clears the
+ * notification WITHOUT calling any RPC (there is no `flows_deny` endpoint
+ * yet), and that "View run" opens the {@link FlowRunInspectorDrawer}.
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
@@ -16,6 +18,11 @@ import FlowApprovalCard from './FlowApprovalCard';
 
 const resumeFlow = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/flowsApi', () => ({ resumeFlow }));
+
+vi.mock('../flows/FlowRunInspectorDrawer', () => ({
+  FlowRunInspectorDrawer: ({ runId }: { runId: string | null; onClose: () => void }) =>
+    runId ? <div data-testid="flow-run-inspector-drawer-stub">{runId}</div> : null,
+}));
 
 function makeItem(overrides: Partial<NotificationItem> = {}): NotificationItem {
   return {
@@ -92,7 +99,11 @@ describe('FlowApprovalCard', () => {
   it('does NOT clear the notification when the run parks again on the next gate', async () => {
     // Sequential gates: resume returns with pending_approvals still non-empty and
     // the core re-publishes the same-id prompt — the card must not wipe it.
-    resumeFlow.mockResolvedValue({ output: null, pending_approvals: ['node-c'], thread_id: 'thread-1' });
+    resumeFlow.mockResolvedValue({
+      output: null,
+      pending_approvals: ['node-c'],
+      thread_id: 'thread-1',
+    });
     store.dispatch({ type: 'notifications/notificationReceived', payload: makeItem() });
     renderCard(makeItem());
 
@@ -105,9 +116,7 @@ describe('FlowApprovalCard', () => {
     expect(item?.actions).toHaveLength(1);
     expect(item?.read).toBe(false);
     // Approve re-enabled so the user can act on the next gate.
-    await waitFor(() =>
-      expect(screen.getByTestId('flow-approval-approve')).not.toBeDisabled()
-    );
+    await waitFor(() => expect(screen.getByTestId('flow-approval-approve')).not.toBeDisabled());
   });
 
   it('shows a localized error and re-enables the buttons when resumeFlow rejects', async () => {
@@ -167,5 +176,55 @@ describe('FlowApprovalCard', () => {
       expect(item?.actions ?? []).toHaveLength(0);
     });
     expect(resumeFlow).not.toHaveBeenCalled();
+  });
+
+  it('treats non-string node_ids as an invalid payload (Approve errors, no resumeFlow call)', async () => {
+    renderCard(
+      makeItem({
+        actions: [
+          {
+            actionId: 'approve',
+            label: 'Review',
+            payload: { flow_id: 'flow-1', thread_id: 'thread-1', node_ids: [42, null] },
+          },
+        ],
+      })
+    );
+
+    fireEvent.click(screen.getByTestId('flow-approval-approve'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          (_content, element) =>
+            element?.tagName.toLowerCase() === 'p' &&
+            (element?.textContent ?? '').includes(
+              'Could not resume the workflow. Please try again.'
+            )
+        )
+      ).toBeInTheDocument();
+    });
+    expect(resumeFlow).not.toHaveBeenCalled();
+  });
+
+  it('does not render "View run" when the payload is invalid', () => {
+    renderCard(
+      makeItem({
+        actions: [{ actionId: 'approve', label: 'Review', payload: { flow_id: 'flow-1' } }],
+      })
+    );
+    expect(screen.queryByTestId('flow-approval-view-run')).not.toBeInTheDocument();
+  });
+
+  it('"View run" opens the run inspector drawer for the payload thread_id', () => {
+    renderCard(makeItem());
+
+    expect(screen.queryByTestId('flow-run-inspector-drawer-stub')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('flow-approval-view-run'));
+
+    const drawer = screen.getByTestId('flow-run-inspector-drawer-stub');
+    expect(drawer).toBeInTheDocument();
+    expect(drawer).toHaveTextContent('thread-1');
   });
 });

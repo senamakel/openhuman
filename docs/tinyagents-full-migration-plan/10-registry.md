@@ -37,7 +37,7 @@ aliases }`, `RegistrySnapshot` (`to_dot()`),
    native/MCP/Composio/generated tools, unsafe aliases → registry
    diagnostic errors (today: duplicate handling is scattered across generated
    tools, MCP, and native registration instead of one SDK diagnostic stream).
-   TinyAgents 1.3.0 is pinned and exposes `AliasBinding`, alias diagnostics,
+   TinyAgents 1.5.0 is pinned and exposes `AliasBinding`, alias diagnostics,
    cross-kind name-reuse detection, and `ComponentKind::{Middleware,
 Checkpointer, TaskStore, Listener}`; OpenHuman still needs to project those
    SDK diagnostics into its runtime.

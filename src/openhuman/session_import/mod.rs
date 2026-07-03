@@ -22,4 +22,6 @@ pub use schemas::{
 pub use types::{ImportOptions, ImportSummary};
 
 #[cfg(test)]
+mod live_tests;
+#[cfg(test)]
 mod ops_tests;

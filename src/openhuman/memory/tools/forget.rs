@@ -25,7 +25,9 @@ impl Tool for MemoryForgetTool {
     }
 
     fn description(&self) -> &str {
-        "Remove a memory by namespace and key. Returns whether the memory was found and removed."
+        "Remove a memory by namespace and key. Returns whether the memory was found and removed. \
+         Memory protocol: after removing an entry, call `update_memory_md` to keep the MEMORY.md \
+         index in sync with the store."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

@@ -687,15 +687,28 @@ async fn run_typed_mode(
             .iter()
             .map(|&i| parent.all_tool_specs[i].clone()),
     );
-    let mut allowed_names: HashSet<String> = allowed_indices
+    let mut allowed_name_set: HashSet<String> = allowed_indices
         .iter()
         .map(|&i| parent.all_tools[i].name().to_string())
         .collect();
     // Dynamic tool names must also be in the allowlist so the inner loop
     // accepts model tool_calls that reference them.
     for tool in &dynamic_tools {
-        allowed_names.insert(tool.name().to_string());
+        allowed_name_set.insert(tool.name().to_string());
     }
+    // Fail-closed allowlist (issue #4452): a sub-agent's callable set is ALWAYS
+    // `Some(..)`. An empty set (a `tools = []` scope, a zero-match `skill_filter`,
+    // or a `Named` list whose entries are absent from the parent surface) means
+    // deny-all — it must NOT fall through the seam's `None` "no filter → all
+    // tools" branch and inherit the parent's shell / file-write / spawn surface.
+    if allowed_name_set.is_empty() {
+        tracing::warn!(
+            agent_id = %definition.id,
+            "[subagent] tool allowlist resolved empty — registering no tools"
+        );
+    }
+    let allowed_names: Option<HashSet<String>> = Some(allowed_name_set);
+    let allowed_tool_count = allowed_names.as_ref().map_or(0, |s| s.len());
     let filtered_specs =
         crate::openhuman::agent::harness::session::dedup_visible_tool_specs(filtered_specs);
     let filtered_specs = dedup_tool_specs_by_name(&definition.id, filtered_specs);
@@ -703,7 +716,7 @@ async fn run_typed_mode(
     tracing::debug!(
         agent_id = %definition.id,
         model = %model,
-        tool_count = allowed_names.len(),
+        tool_count = allowed_tool_count,
         max_iterations = definition.effective_max_iterations(),
         iteration_policy = ?definition.iteration_policy,
         "[subagent_runner:typed] resolved configuration"

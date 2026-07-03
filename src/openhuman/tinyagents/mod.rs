@@ -353,8 +353,18 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// advertised spec so the same `Arc`-shared tools the legacy loop runs are
 /// reused without cloning.
 ///
-/// `allowed` is the callable tool-name whitelist (empty = every tool visible in
-/// `tool_sets`); each callable tool is advertised via its own `spec()`.
+/// `allowed` is the callable tool-name whitelist, fail-closed on `Some`:
+/// * `None` — no filter supplied → register every tool visible in `tool_sets`
+///   (top-level chat/channel turns whose visibility set is the full surface).
+/// * `Some(set)` — register only the named tools; **`Some(empty)` registers
+///   NONE** (deny-all). This distinction is the fix for #4452: a sub-agent with
+///   `tools = []` (or a zero-match `skill_filter`) must NOT silently inherit the
+///   parent's full tool surface (shell / file-write / spawn). Sub-agent turns
+///   therefore always pass `Some(..)`; only top-level turns pass `None`.
+///
+/// Regardless of `allowed`, when `subagent_scope` is `Some` the spawn/delegate
+/// meta-tools are stripped at registration time — the "sub-agents never spawn"
+/// invariant is re-asserted here, not just upstream in the runner's index filter.
 ///
 /// When `on_progress` is `Some`, the run streams (`invoke_streaming_in_context`)
 /// and a [`OpenhumanEventBridge`] mirrors the harness event stream onto
@@ -377,7 +387,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     temperature: f64,
     history: Vec<ChatMessage>,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
-    allowed: HashSet<String>,
+    allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
@@ -901,6 +911,22 @@ struct AssembledTurnHarness {
     prompt_cache_guard: Arc<PromptCacheGuardMiddleware>,
 }
 
+/// Spawn/delegate meta-tools that a sub-agent turn must never be able to
+/// register, regardless of its resolved allowlist (issue #4452, defense in
+/// depth). Kept in lockstep with the canonical
+/// [`crate::openhuman::agent::harness::subagent_runner`] index-level strip
+/// (`is_subagent_spawn_tool` + the explicit `spawn_worker_thread` retain); this
+/// is the registration-time backstop for the shared seam, which also runs for
+/// custom-graph sub-agents that bypass that filter. If the delegation-tool
+/// naming scheme changes, update both together.
+fn is_subagent_never_register_tool(name: &str) -> bool {
+    name == "spawn_subagent"
+        || name == "spawn_worker_thread"
+        || name == "use_tinyplace"
+        || name == "agent_prepare_context"
+        || name.starts_with("delegate_")
+}
+
 /// Assemble the turn harness for [`run_turn_via_tinyagents_shared`]: register
 /// the provider model, every shared tool, and the full middleware stack in the
 /// intended order. Split out of the runner so the adapter inventory is directly
@@ -912,7 +938,7 @@ fn assemble_turn_harness(
     model: &str,
     temperature: f64,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
-    allowed: HashSet<String>,
+    allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
@@ -1109,7 +1135,18 @@ fn assemble_turn_harness(
         .map(|h| EarlyExitHook::new(h.clone()));
 
     // Register one adapter per unique callable tool name found across the shared
-    // sets (newest set wins on a name clash; `allowed` empty = all visible).
+    // sets (newest set wins on a name clash). The allowlist is fail-closed on
+    // `Some` (issue #4452):
+    // * `allowed == None` → no filter supplied → every visible tool is callable
+    //   (top-level chat/channel turn whose visibility set is the full surface);
+    // * `allowed == Some(set)` → only names in `set` are callable — and
+    //   `Some(empty)` therefore registers NOTHING (deny-all). A sub-agent with
+    //   `tools = []` / a zero-match `skill_filter` lands here and must NOT
+    //   inherit the parent's shell / file-write / spawn tools.
+    let is_subagent_turn = subagent_scope.is_some();
+    if is_subagent_turn && allowed.as_ref().is_some_and(|a| a.is_empty()) {
+        tracing::warn!("[subagent] tool allowlist resolved empty — registering no tools");
+    }
     let mut seen_candidates: HashSet<String> = HashSet::new();
     let candidate_names: Vec<String> = tool_sets
         .iter()
@@ -1122,8 +1159,26 @@ fn assemble_turn_harness(
         })
         .collect();
     let mut registered: HashSet<String> = HashSet::new();
+    let mut spawn_stripped_at_registration = 0usize;
     for name in candidate_names.iter().map(String::as_str) {
-        if !registered.contains(name) && (allowed.is_empty() || allowed.contains(name)) {
+        let allowed_ok = match &allowed {
+            None => true,
+            Some(set) => set.contains(name),
+        };
+        // Re-assert the never-spawn invariant at registration time (#4452): a
+        // sub-agent turn must never register a spawn/delegate meta-tool no matter
+        // what the allowlist contains, backstopping the runner's index filter. We
+        // only count (and warn about) a strip when the allowlist would otherwise
+        // have let the tool through — so the diagnostic means "an allowlist tried
+        // to register a spawn tool onto a sub-agent", not just "a spawn tool was
+        // visible in the parent set".
+        if is_subagent_turn && is_subagent_never_register_tool(name) {
+            if allowed_ok {
+                spawn_stripped_at_registration += 1;
+            }
+            continue;
+        }
+        if !registered.contains(name) && allowed_ok {
             if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
                 if early_exit_set.contains(name) {
                     if let Some(hook) = &early_exit_hook {
@@ -1137,7 +1192,19 @@ fn assemble_turn_harness(
             }
         }
     }
+    if spawn_stripped_at_registration > 0 {
+        tracing::warn!(
+            stripped = spawn_stripped_at_registration,
+            "[subagent] stripped spawn/delegate tools at registration (never-spawn invariant)"
+        );
+    }
     let tool_count = registered.len();
+    tracing::debug!(
+        subagent = is_subagent_turn,
+        allowlist = ?allowed.as_ref().map(|a| a.len()),
+        registered = tool_count,
+        "[tinyagents] tool registration resolved"
+    );
     for report in all_graph_topologies() {
         let _ = capability_registry.register_descriptor(ComponentKind::Graph, report.name);
     }

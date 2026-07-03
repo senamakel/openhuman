@@ -165,7 +165,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         0.0,
         history,
         vec![registry],
-        std::collections::HashSet::new(),
+        None, // allowed=None → register all visible tools (top-level turn)
         4,
         Some(tx),
         None,
@@ -267,7 +267,7 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         0.0,
         vec![ChatMessage::user("investigate the bug")],
         vec![registry],
-        std::collections::HashSet::new(),
+        None, // allowed=None → register all visible tools (top-level turn)
         4,
         None,
         None,
@@ -364,7 +364,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         0.0,
         vec![ChatMessage::user("task one")],
         vec![registry.clone()],
-        std::collections::HashSet::new(),
+        None, // allowed=None → register all visible tools (top-level turn)
         4,
         None,
         None,
@@ -384,7 +384,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         0.0,
         vec![ChatMessage::user("task two")],
         vec![registry],
-        std::collections::HashSet::new(),
+        None, // allowed=None → register all visible tools (top-level turn)
         4,
         None,
         None,
@@ -436,7 +436,7 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         "mock-model",
         0.0,
         tool_sets,
-        HashSet::new(),
+        None, // allowed=None → register all visible tools (top-level turn)
         4,
         None,          // on_progress: fire-and-forget
         None,          // subagent_scope: top-level turn
@@ -560,7 +560,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         "mock-model",
         0.0,
         tool_sets,
-        HashSet::new(),
+        None, // allowed=None → register all visible tools (top-level turn)
         4,
         None,
         None,
@@ -636,7 +636,7 @@ async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
         0.0,
         vec![ChatMessage::user("hello")],
         Vec::new(),
-        HashSet::new(),
+        None, // allowed=None → register all visible tools (top-level turn)
         3,
         None, // on_progress: unobserved — no bridge, cost fallback branch runs
         None,
@@ -670,4 +670,142 @@ fn record_unobserved_turn_usage_gates_on_observed_tokens() {
     assert!(record_unobserved_turn_usage("m", 10, 0, 0, 0.0));
     assert!(record_unobserved_turn_usage("m", 0, 3, 0, 0.0));
     assert!(record_unobserved_turn_usage("m", 10, 3, 2, 0.5));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Registration allowlist predicate (issue #4452)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A no-op tool with a caller-chosen name, so tests can synthesise a parent
+/// surface (`shell`, `spawn_subagent`, …) without pulling in real tools.
+struct NamedNoopTool(&'static str);
+
+#[async_trait]
+impl Tool for NamedNoopTool {
+    fn name(&self) -> &str {
+        self.0
+    }
+    fn description(&self) -> &str {
+        "noop"
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({ "type": "object", "properties": {} })
+    }
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        Ok(ToolResult::success("ok"))
+    }
+}
+
+/// Assemble a harness over a fixed three-tool parent surface
+/// (`echo`, `shell`, `spawn_subagent`) with the given `allowed` filter and
+/// optional sub-agent scope, and return the set of registered tool names.
+fn registered_tool_names(
+    allowed: Option<HashSet<String>>,
+    subagent: bool,
+) -> std::collections::HashSet<String> {
+    let provider: Arc<dyn Provider> = Arc::new(EchoThenDone {
+        calls: AtomicUsize::new(0),
+    });
+    let tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>> = vec![Arc::new(vec![
+        Box::new(EchoTool) as Box<dyn Tool>,
+        Box::new(NamedNoopTool("shell")) as Box<dyn Tool>,
+        Box::new(NamedNoopTool("spawn_subagent")) as Box<dyn Tool>,
+    ])];
+    let subagent_scope = subagent.then(|| SubagentScope {
+        agent_id: "summarizer".to_string(),
+        task_id: "t1".to_string(),
+        extended_policy: false,
+    });
+    let assembled = assemble_turn_harness(
+        provider,
+        "mock-model",
+        0.0,
+        tool_sets,
+        allowed,
+        4,
+        None,
+        subagent_scope,
+        None,
+        &[],
+        None,
+        TurnContextMiddleware::defaults(),
+        None,
+        None,
+        false,
+    );
+    assembled.harness.tools().names().into_iter().collect()
+}
+
+/// `None` = "no filter supplied" → every visible tool is registered (top-level
+/// chat/channel turn whose visibility set is the full surface).
+#[test]
+fn allowed_none_registers_all_visible_tools() {
+    let names = registered_tool_names(None, false);
+    assert!(names.contains("echo"), "saw {names:?}");
+    assert!(names.contains("shell"), "saw {names:?}");
+    assert!(names.contains("spawn_subagent"), "saw {names:?}");
+}
+
+/// `Some(empty)` on a sub-agent turn = deny-all → NO tools registered. This is
+/// the #4452 fix: a `tools = []` / zero-match sub-agent must not inherit the
+/// parent's shell/spawn surface.
+#[test]
+fn allowed_some_empty_registers_no_tools() {
+    let names = registered_tool_names(Some(HashSet::new()), true);
+    assert!(
+        names.is_empty(),
+        "empty allowlist must register zero tools, saw {names:?}"
+    );
+}
+
+/// `Some(named)` registers exactly the named tools and nothing else.
+#[test]
+fn allowed_some_named_registers_only_named() {
+    let mut allow = HashSet::new();
+    allow.insert("echo".to_string());
+    let names = registered_tool_names(Some(allow), true);
+    assert!(names.contains("echo"), "saw {names:?}");
+    assert!(!names.contains("shell"), "saw {names:?}");
+    assert!(!names.contains("spawn_subagent"), "saw {names:?}");
+    assert_eq!(names.len(), 1, "saw {names:?}");
+}
+
+/// A `Named` list whose entries are absent from the parent surface resolves to
+/// zero registrations (fail-closed) rather than falling through to "all".
+#[test]
+fn allowed_named_but_unresolvable_registers_nothing() {
+    let mut allow = HashSet::new();
+    allow.insert("does_not_exist".to_string());
+    let names = registered_tool_names(Some(allow), true);
+    assert!(
+        names.is_empty(),
+        "unresolvable names must register zero tools, saw {names:?}"
+    );
+}
+
+/// The never-spawn invariant is re-asserted at registration time: even if the
+/// allowlist explicitly names `spawn_subagent`, a sub-agent turn must never
+/// register it (backstops the runner's index-level strip).
+#[test]
+fn subagent_never_registers_spawn_tools_even_if_allowlisted() {
+    let mut allow = HashSet::new();
+    allow.insert("echo".to_string());
+    allow.insert("spawn_subagent".to_string());
+    let names = registered_tool_names(Some(allow), true);
+    assert!(names.contains("echo"), "saw {names:?}");
+    assert!(
+        !names.contains("spawn_subagent"),
+        "sub-agent must never register spawn tools, saw {names:?}"
+    );
+}
+
+/// A top-level (non-sub-agent) turn keeps spawn tools — the strip is scoped to
+/// sub-agent turns only, so the parent orchestrator can still delegate.
+#[test]
+fn top_level_turn_keeps_spawn_tools() {
+    let names = registered_tool_names(None, false);
+    assert!(
+        names.contains("spawn_subagent"),
+        "top-level turn keeps spawn tools, saw {names:?}"
+    );
 }

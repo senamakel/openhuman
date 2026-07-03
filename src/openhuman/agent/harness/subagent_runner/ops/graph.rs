@@ -136,7 +136,11 @@ pub(super) async fn run_subagent_via_graph(
     parent_tools: Arc<Vec<Box<dyn Tool>>>,
     dynamic_tools: Vec<Box<dyn Tool>>,
     specs: Vec<ToolSpec>,
-    allowed_names: HashSet<String>,
+    // Fail-closed callable allowlist (issue #4452). Sub-agent turns always pass
+    // `Some(..)`: `Some(empty)` denies all tools (a `tools = []` / zero-match
+    // agent), `Some(names)` registers exactly those. Never `None` on this path —
+    // `None` is reserved for top-level turns that mean "no filter, all tools".
+    allowed_names: Option<HashSet<String>>,
     max_iterations: usize,
     run_queue: Option<Arc<crate::openhuman::agent::harness::run_queue::RunQueue>>,
     on_progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
@@ -668,7 +672,7 @@ mod tests {
             parent_tools,
             vec![],
             vec![],
-            allowed,
+            Some(allowed),
             10,
             None,
             None,
@@ -695,6 +699,99 @@ mod tests {
         // History was written back: user + assistant(tool) + tool result + assistant(final).
         assert!(history.len() >= 4);
         assert!(history.iter().any(|m| m.content.contains("echoed:hi")));
+    }
+
+    /// A tool that panics if it is ever executed — a canary for "no tool should
+    /// have been registered/called on this turn".
+    struct ExplodingShellTool;
+    #[async_trait]
+    impl Tool for ExplodingShellTool {
+        fn name(&self) -> &str {
+            "shell"
+        }
+        fn description(&self) -> &str {
+            "shell"
+        }
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({"type": "object"})
+        }
+        async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+            panic!("shell tool must never be reachable from a tools=[] sub-agent");
+        }
+    }
+
+    /// A provider that answers in one shot with plain text (no tool calls).
+    struct TextOnlyProvider;
+    #[async_trait]
+    impl Provider for TextOnlyProvider {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: crate::openhuman::inference::provider::ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            Ok(ChatResponse {
+                text: Some("summary complete".to_string()),
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+
+    /// #4452 acceptance: a `tools = []` sub-agent (allowlist `Some(empty)`) with a
+    /// parent surface that includes `shell` must register ZERO tools — it must not
+    /// inherit the parent's shell — yet still complete a text-only turn.
+    #[tokio::test]
+    async fn tools_empty_subagent_has_no_shell_but_completes_text_turn() {
+        let provider = Arc::new(TextOnlyProvider);
+        // Parent surface has a shell tool that panics if reached.
+        let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(ExplodingShellTool)]);
+        // The deny-all allowlist: `Some(empty)` (a `tools = []` scope resolves here).
+        let allowed: Option<HashSet<String>> = Some(HashSet::new());
+        let mut history = vec![ChatMessage::user("summarize this untrusted content")];
+
+        let (output, iterations, _usage, early_exit, hit_cap) = run_subagent_via_graph(
+            provider,
+            "mock-model",
+            0.0,
+            &mut history,
+            parent_tools,
+            vec![],
+            vec![],
+            allowed,
+            10,
+            None,
+            None,
+            "summarizer",
+            "task-1",
+            false,
+            None,
+            std::env::temp_dir(),
+            None,
+            1024,
+            false,
+            "root-session__tools_empty",
+            "mock-channel",
+            None,
+        )
+        .await
+        .expect("tools=[] sub-agent still completes a text-only turn");
+
+        assert_eq!(output, "summary complete");
+        assert_eq!(iterations, 1, "one model call, no tool round");
+        assert!(early_exit.is_none());
+        assert!(!hit_cap);
     }
 
     /// A provider that streams visible text + reasoning through the request's
@@ -756,7 +853,7 @@ mod tests {
             parent_tools,
             vec![],
             vec![],
-            HashSet::new(),
+            Some(HashSet::new()),
             4,
             None,
             Some(tx),
@@ -902,7 +999,7 @@ mod tests {
             parent_tools,
             vec![],
             vec![],
-            allowed,
+            Some(allowed),
             10,
             None,
             None,
@@ -1008,7 +1105,7 @@ mod tests {
             parent_tools,
             vec![],
             vec![],
-            allowed,
+            Some(allowed),
             2,
             None,
             None,

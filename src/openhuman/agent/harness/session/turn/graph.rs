@@ -85,7 +85,10 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         graph.temperature,
         graph.messages,
         vec![graph.tools],
-        graph.visible_tool_names,
+        // Top-level chat turn: an empty visibility set means "no filter — every
+        // visible tool is callable", so map it to `None` (issue #4452). A
+        // non-empty set is a real whitelist and passes through as `Some(..)`.
+        Some(graph.visible_tool_names).filter(|s| !s.is_empty()),
         graph.max_iterations,
         // Mirror the harness event stream onto this session's progress sink.
         graph.on_progress,

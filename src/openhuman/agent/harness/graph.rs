@@ -55,10 +55,13 @@ pub(crate) async fn run_channel_turn_via_graph(
 ) -> Result<String> {
     let extra_arc = Arc::new(extra_tools);
 
-    // The callable set is the visibility whitelist (empty = every tool visible
-    // across the registry + per-turn extras). The runner advertises each via its
-    // own `spec()`, deduped by name (extras shadow the registry).
-    let allowed = visible_tool_names.cloned().unwrap_or_default();
+    // The callable set is the visibility whitelist. Top-level channel/CLI turn:
+    // `None` (or an empty set) means "no filter — every tool visible across the
+    // registry + per-turn extras is callable", mapped to `None` for the seam
+    // (issue #4452). A non-empty set is a real whitelist → `Some(..)`. The runner
+    // advertises each callable via its own `spec()`, deduped by name (extras
+    // shadow the registry).
+    let allowed: Option<HashSet<String>> = visible_tool_names.filter(|s| !s.is_empty()).cloned();
 
     // Capture native-tool support before `provider` is moved into the runner: the
     // durable history append below serializes this turn's typed suffix with the

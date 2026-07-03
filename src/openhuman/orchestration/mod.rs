@@ -19,9 +19,7 @@ pub mod store;
 pub mod tools;
 pub mod types;
 
-pub use bus::{
-    register_orchestration_ingest_subscriber, register_orchestration_wake_subscriber,
-};
+pub use bus::{register_orchestration_ingest_subscriber, register_orchestration_wake_subscriber};
 pub use graph::{
     build_orchestration_graph, orchestration_graph_topology, run_orchestration_graph,
     OrchestrationState,

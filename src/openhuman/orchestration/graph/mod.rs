@@ -137,16 +137,19 @@ pub fn build_orchestration_graph(
     // `normalize`: the recent-message window is folded into state before the run
     // (see `ops::seed_state`), so this node is a structural entry that logs and
     // hands off to the front end.
-    builder = builder.add_node("normalize", |s: OrchestrationState, _c: NodeContext| async move {
-        tracing::debug!(
-            target: LOG,
-            session_id = %s.session_id,
-            node = "normalize",
-            messages = s.messages.len(),
-            "[orchestration] node.enter",
-        );
-        Ok(NodeResult::Update(OrchestrationUpdate::Noop))
-    });
+    builder = builder.add_node(
+        "normalize",
+        |s: OrchestrationState, _c: NodeContext| async move {
+            tracing::debug!(
+                target: LOG,
+                session_id = %s.session_id,
+                node = "normalize",
+                messages = s.messages.len(),
+                "[orchestration] node.enter",
+            );
+            Ok(NodeResult::Update(OrchestrationUpdate::Noop))
+        },
+    );
 
     // `frontend`: the router. Two-pass, Quick LLM, conditional goto.
     builder = builder.add_node("frontend", move |s: OrchestrationState, _c: NodeContext| {
@@ -162,15 +165,14 @@ pub fn build_orchestration_graph(
                     route = "send_dm", reason = "channel_response_present",
                     "[orchestration] node.route",
                 );
-                return Ok(NodeResult::Command(Command::default().with_goto(["send_dm"])));
+                return Ok(NodeResult::Command(
+                    Command::default().with_goto(["send_dm"]),
+                ));
             }
 
             // Loop-continuity backstop (spec §5): never cycle past the cap.
             if pass > max_supersteps {
-                let body = s
-                    .agent_reply
-                    .clone()
-                    .unwrap_or_else(|| "…".to_string());
+                let body = s.agent_reply.clone().unwrap_or_else(|| "…".to_string());
                 tracing::warn!(
                     target: LOG, session_id = %s.session_id, node = "frontend", pass,
                     route = "send_dm", reason = "max_supersteps_backstop",
@@ -178,7 +180,9 @@ pub fn build_orchestration_graph(
                 );
                 return Ok(NodeResult::Command(
                     Command::default()
-                        .with_update(OrchestrationUpdate::Pass2 { channel_response: body })
+                        .with_update(OrchestrationUpdate::Pass2 {
+                            channel_response: body,
+                        })
                         .with_goto(["send_dm"]),
                 ));
             }
@@ -193,7 +197,9 @@ pub fn build_orchestration_graph(
                 );
                 return Ok(NodeResult::Command(
                     Command::default()
-                        .with_update(OrchestrationUpdate::Pass2 { channel_response: body })
+                        .with_update(OrchestrationUpdate::Pass2 {
+                            channel_response: body,
+                        })
                         .with_goto(["send_dm"]),
                 ));
             }
@@ -265,9 +271,12 @@ pub fn build_orchestration_graph(
     );
 
     let graph = builder
-        .add_node("done", |_s: OrchestrationState, _c: NodeContext| async move {
-            Ok(NodeResult::Update(OrchestrationUpdate::Noop))
-        })
+        .add_node(
+            "done",
+            |_s: OrchestrationState, _c: NodeContext| async move {
+                Ok(NodeResult::Update(OrchestrationUpdate::Noop))
+            },
+        )
         .add_edge("normalize", "frontend")
         .add_edge("execute", "frontend")
         .add_edge("send_dm", "context_guard")

@@ -49,6 +49,12 @@ pub fn all_graph_topologies() -> Vec<GraphTopologyReport> {
         out.push(describe("agent_teams:member", &t));
     }
 
+    // The subconscious-orchestration wake graph (stage 4): normalize → frontend
+    // (two-pass, command-routing) → execute → send_dm → context_guard → done.
+    if let Ok(t) = crate::openhuman::orchestration::orchestration_graph_topology() {
+        out.push(describe("orchestration:wake", &t));
+    }
+
     // Follow-ups (same `build_*` extract-and-reuse pattern as the member graph):
     // the `delegation` graph (injected `run_stage` — clean to add) and the
     // `workflow_runs` scheduler graph (its node closures capture engine locals,

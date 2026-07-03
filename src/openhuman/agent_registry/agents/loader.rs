@@ -892,6 +892,40 @@ mod tests {
     }
 
     #[test]
+    fn frontend_agent_is_registered_on_chat_tier_with_decision_tools() {
+        // Quick-tier verification (stage 4): the orchestration front end must
+        // resolve via `hint:chat` (fast, remote for TTFT) and expose exactly the
+        // two domain-owned decision tools the two-pass graph routes on.
+        let def = find("frontend_agent");
+        assert!(
+            matches!(def.model, ModelSpec::Hint(ref h) if h == "chat"),
+            "frontend_agent must run on the quick chat tier, got {:?}",
+            def.model
+        );
+        assert_eq!(def.agent_tier, AgentTier::Chat);
+        match &def.tools {
+            ToolScope::Named(tools) => {
+                for required in ["defer_to_orchestrator", "reply_to_channel"] {
+                    assert!(
+                        tools.iter().any(|t| t == required),
+                        "frontend_agent must expose `{required}`"
+                    );
+                }
+                // No broad surface — it triages and phrases, it does not act.
+                for forbidden in ["shell", "file_write", "spawn_subagent"] {
+                    assert!(
+                        !tools.iter().any(|t| t == forbidden),
+                        "frontend_agent must not expose `{forbidden}`"
+                    );
+                }
+            }
+            ToolScope::Wildcard => panic!("frontend_agent must have a Named tool scope"),
+        }
+        // Leaf reflex: no onward delegation.
+        assert!(def.subagents.is_empty());
+    }
+
+    #[test]
     fn tinyplace_agent_is_registered_and_narrow() {
         let def = find("tinyplace_agent");
         assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "burst"));
@@ -1701,13 +1735,16 @@ mod tests {
     #[test]
     fn other_builtins_default_to_worker_tier() {
         for def in load_builtins().unwrap() {
-            if def.id == "orchestrator" || def.id == "planner" || def.id == "subconscious" {
+            if matches!(
+                def.id.as_str(),
+                "orchestrator" | "planner" | "subconscious" | "frontend_agent"
+            ) {
                 continue;
             }
             assert_eq!(
                 def.agent_tier,
                 AgentTier::Worker,
-                "{} should default to worker tier (only orchestrator/planner/subconscious are non-worker today)",
+                "{} should default to worker tier (only orchestrator/planner/subconscious/frontend_agent are non-worker today)",
                 def.id
             );
         }

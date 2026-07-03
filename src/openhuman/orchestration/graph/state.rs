@@ -127,7 +127,10 @@ mod tests {
         // Identical state after a serialize → resume round-trip.
         assert_eq!(back.session_id, "h1");
         assert_eq!(back.counterpart_agent_id, "@peer");
-        assert_eq!(back.agent_instructions.as_deref(), Some("summarize the diff"));
+        assert_eq!(
+            back.agent_instructions.as_deref(),
+            Some("summarize the diff")
+        );
         assert_eq!(back.agent_reply.as_deref(), Some("done"));
         assert_eq!(back.channel_response.as_deref(), Some("all set"));
         assert_eq!(back.compressed_history.len(), 1);

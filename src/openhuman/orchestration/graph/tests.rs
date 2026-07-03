@@ -27,7 +27,10 @@ impl FrontendNode for StubFrontend {
     }
     async fn compile_reply(&self, s: &OrchestrationState) -> anyhow::Result<String> {
         self.0.compile_calls.fetch_add(1, Ordering::SeqCst);
-        Ok(format!("reply: {}", s.agent_reply.clone().unwrap_or_default()))
+        Ok(format!(
+            "reply: {}",
+            s.agent_reply.clone().unwrap_or_default()
+        ))
     }
 }
 
@@ -90,7 +93,10 @@ fn full_cycle_walks_normalize_frontend_execute_frontend_send_guard_and_sends_one
     // context utilization computed before END.
     assert_eq!(out.agent_instructions.as_deref(), Some("do the thing"));
     assert_eq!(out.agent_reply.as_deref(), Some("canned reasoning reply"));
-    assert_eq!(out.channel_response.as_deref(), Some("reply: canned reasoning reply"));
+    assert_eq!(
+        out.channel_response.as_deref(),
+        Some("reply: canned reasoning reply")
+    );
     assert!(out.dm_sent);
     assert_eq!(out.pass, 2);
     assert!(out.context_utilization >= 0.0);
@@ -129,14 +135,24 @@ fn loop_continuity_adversarial_state_combos_never_cycle_or_double_send() {
         let out = run(state, rec.clone());
 
         let dm_count = rec.dms.lock().unwrap().len();
-        assert!(dm_count <= 1, "{label}: sent {dm_count} DMs — must never double-send");
-        assert!(out.dm_sent, "{label}: cycle must reach the terminal send_dm latch");
+        assert!(
+            dm_count <= 1,
+            "{label}: sent {dm_count} DMs — must never double-send"
+        );
+        assert!(
+            out.dm_sent,
+            "{label}: cycle must reach the terminal send_dm latch"
+        );
         assert!(
             out.channel_response.is_some(),
             "{label}: cycle must terminate with a channel_response"
         );
         // Bounded front-end work: never more passes than the backstop allows.
-        assert!(out.pass <= 12, "{label}: {} passes — exceeded backstop", out.pass);
+        assert!(
+            out.pass <= 12,
+            "{label}: {} passes — exceeded backstop",
+            out.pass
+        );
         // A pre-set channel_response short-circuits the LLM entirely.
         if label == "response_preset" || label == "reply_and_response_preset" {
             assert_eq!(
@@ -144,7 +160,10 @@ fn loop_continuity_adversarial_state_combos_never_cycle_or_double_send() {
                 0,
                 "{label}: pre-set response must not call the front-end LLM"
             );
-            assert_eq!(dm_count, 1, "{label}: still sends the pre-set response once");
+            assert_eq!(
+                dm_count, 1,
+                "{label}: still sends the pre-set response once"
+            );
         }
     }
 }
@@ -152,6 +171,10 @@ fn loop_continuity_adversarial_state_combos_never_cycle_or_double_send() {
 #[test]
 fn topology_is_structurally_valid() {
     let t = orchestration_graph_topology().expect("topology builds");
-    assert!(t.validation.ok, "structural errors: {:?}", t.validation.errors);
+    assert!(
+        t.validation.ok,
+        "structural errors: {:?}",
+        t.validation.errors
+    );
     assert!(!t.nodes.is_empty());
 }

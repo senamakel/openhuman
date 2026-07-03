@@ -138,6 +138,12 @@ struct OrchestrationStatus {
     last_tick_at: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     ingest_last_message_at: Option<String>,
+    /// Sessions with pending wake work (health signal — persistently > 0 means
+    /// the wake loop is stuck).
+    ingest_cursor_lag: i64,
+    /// Most recent orchestration error, if any (short cause string, never a body).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_error: Option<String>,
 }
 
 /// Resolve the `chat` param to a store session id. `master` / `subconscious` map
@@ -339,23 +345,30 @@ fn handle_mark_read(params: Map<String, Value>) -> ControllerFuture {
 fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = load_config("status").await?;
-        let (steering, ingest_last): (Option<SteeringSummary>, Option<String>) =
-            store::with_connection(&config.workspace_dir, |conn| {
-                let cycle = store::current_cycle_counter(conn)?;
-                let steering =
-                    store::current_steering_directive(conn, cycle)?.map(|d| SteeringSummary {
-                        text: d.text,
-                        created_at: d.created_at,
-                        expires_after_cycles: d.expires_after_cycles,
-                    });
-                // MAX() always returns exactly one row (NULL when empty).
-                let ingest_last: Option<String> =
-                    conn.query_row("SELECT MAX(last_message_at) FROM sessions", [], |r| {
-                        r.get::<_, Option<String>>(0)
-                    })?;
-                Ok((steering, ingest_last))
-            })
-            .map_err(|e| format!("status: {e}"))?;
+        #[allow(clippy::type_complexity)]
+        let (steering, ingest_last, lag, last_error): (
+            Option<SteeringSummary>,
+            Option<String>,
+            i64,
+            Option<String>,
+        ) = store::with_connection(&config.workspace_dir, |conn| {
+            let cycle = store::current_cycle_counter(conn)?;
+            let steering =
+                store::current_steering_directive(conn, cycle)?.map(|d| SteeringSummary {
+                    text: d.text,
+                    created_at: d.created_at,
+                    expires_after_cycles: d.expires_after_cycles,
+                });
+            // MAX() always returns exactly one row (NULL when empty).
+            let ingest_last: Option<String> =
+                conn.query_row("SELECT MAX(last_message_at) FROM sessions", [], |r| {
+                    r.get::<_, Option<String>>(0)
+                })?;
+            let lag = store::ingest_cursor_lag(conn)?;
+            let last_error = store::kv_get(conn, "orchestration:last_error")?;
+            Ok((steering, ingest_last, lag, last_error))
+        })
+        .map_err(|e| format!("status: {e}"))?;
 
         // Last subconscious tick (best-effort — subconscious store is separate).
         let last_tick_at = crate::openhuman::subconscious::store::with_connection(
@@ -369,6 +382,8 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
             steering,
             last_tick_at,
             ingest_last_message_at: ingest_last.filter(|s| !s.is_empty()),
+            ingest_cursor_lag: lag,
+            last_error,
         })
     })
 }

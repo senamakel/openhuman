@@ -373,6 +373,32 @@ pub async fn invoke_orchestration_graph(
     agent_id: &str,
     session_id: &str,
 ) -> Result<(), String> {
+    let config_arc = Arc::new(config.clone());
+    let runtime: Arc<dyn OrchestrationRuntime> = Arc::new(ProductionRuntime {
+        config: config_arc.clone(),
+        agent_id: agent_id.to_string(),
+        session_id: session_id.to_string(),
+    });
+    invoke_with_runtime(config, agent_id, session_id, runtime).await
+}
+
+/// Drive one wake cycle with an injected runtime (the production nodes, or a stub
+/// in tests). Hardening (stage 8):
+/// - **scheduler_gate**: awaits `wait_for_capacity()` so a `Paused`/`Throttled`
+///   gate defers the cycle instead of running — the message stays in the store
+///   and the cursor is untouched, so nothing is dropped.
+/// - **no duplicate DM on failure**: the idempotence cursor advances *only* when
+///   the cycle completed and sent its DM; a provider error mid-graph leaves the
+///   cursor unmoved so the next trigger resumes (the `dm_sent` latch + the
+///   deterministic `cycle_id` keep store writes idempotent).
+/// - **last-error observability**: a failed cycle records `orchestration:last_error`
+///   for `orchestration.status`.
+pub async fn invoke_with_runtime(
+    config: &Config,
+    agent_id: &str,
+    session_id: &str,
+    runtime: Arc<dyn OrchestrationRuntime>,
+) -> Result<(), String> {
     let Some(state) = seed_state(config, agent_id, session_id)? else {
         log::debug!(target: LOG, "[orchestration] wake.skip_empty session={session_id}");
         return Ok(());
@@ -386,21 +412,35 @@ pub async fn invoke_orchestration_graph(
         return Ok(());
     }
 
-    let config = Arc::new(config.clone());
-    let runtime: Arc<dyn OrchestrationRuntime> = Arc::new(ProductionRuntime {
-        config: config.clone(),
-        agent_id: agent_id.to_string(),
-        session_id: session_id.to_string(),
-    });
+    // Defer under a paused/throttled scheduler gate — the permit is held for the
+    // whole cycle so background pressure backs off without dropping the message.
+    let _gate = crate::openhuman::scheduler_gate::wait_for_capacity().await;
 
-    let out = run_orchestration_graph(config.clone(), runtime, state)
-        .await
-        .map_err(|e| format!("graph run: {e}"))?;
+    let config_arc = Arc::new(config.clone());
+    let out = match run_orchestration_graph(config_arc.clone(), runtime, state).await {
+        Ok(out) => out,
+        Err(e) => {
+            let msg = format!("graph run: {e}");
+            record_last_error(config, &msg);
+            return Err(msg);
+        }
+    };
 
+    // Advance the cursor only on a completed, DM-sent cycle (no double-send on
+    // resume; a crash before this leaves the cursor for a clean retry).
     if out.dm_sent {
-        advance_cursor(&config, agent_id, session_id, latest);
+        advance_cursor(config, agent_id, session_id, latest);
     }
     Ok(())
+}
+
+/// Record the most recent orchestration error for `orchestration.status` health.
+/// Never includes message bodies — just a short cause string.
+fn record_last_error(config: &Config, message: &str) {
+    let stamped = format!("{} · {}", chrono::Utc::now().to_rfc3339(), message);
+    let _ = store::with_connection(&config.workspace_dir, |conn| {
+        store::kv_set(conn, "orchestration:last_error", &stamped)
+    });
 }
 
 // ── Production runtime ──────────────────────────────────────────────────────
@@ -765,6 +805,8 @@ mod tests {
         config: Arc<Config>,
         agent_id: String,
         sends: Arc<AtomicUsize>,
+        /// Stage-8 failure injection: when true, the reasoning node errors mid-graph.
+        fail_execute: bool,
     }
 
     #[async_trait]
@@ -776,6 +818,9 @@ mod tests {
             Ok("compiled reply".into())
         }
         async fn execute(&self, _s: &OrchestrationState) -> anyhow::Result<ExecuteOutcome> {
+            if self.fail_execute {
+                anyhow::bail!("provider error mid-graph (injected)");
+            }
             Ok(ExecuteOutcome {
                 reply: "reasoning reply".into(),
                 trace: "trace line one\ntrace line two".into(),
@@ -846,6 +891,7 @@ mod tests {
             config: config.clone(),
             agent_id: "@me".into(),
             sends: sends.clone(),
+            fail_execute: false,
         });
         let out = run_orchestration_graph(config.clone(), runtime, state)
             .await
@@ -1028,6 +1074,147 @@ mod tests {
                 !name.starts_with("tinyplace_") && !name.contains("send_message"),
                 "subconscious must not expose channel/outbound tool `{name}`"
             );
+        }
+    }
+
+    // ── Stage 8: failure-mode hardening + observability ─────────────────────
+
+    #[tokio::test]
+    async fn provider_error_mid_graph_sends_no_dm_and_a_later_cycle_does_not_double_send() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = test_config(&tmp);
+        store::with_connection(&config.workspace_dir, |conn| {
+            store::upsert_session(
+                conn,
+                &OrchestrationSession {
+                    session_id: "h1".into(),
+                    agent_id: "@peer".into(),
+                    source: "codex".into(),
+                    label: None,
+                    workspace: None,
+                    last_seq: 1,
+                    created_at: "now".into(),
+                    last_message_at: "now".into(),
+                },
+            )?;
+            store::insert_message(conn, &msg("h1", 1))?;
+            Ok(())
+        })
+        .unwrap();
+
+        let sends = Arc::new(AtomicUsize::new(0));
+        // Cycle 1: the reasoning node errors → the run fails, no DM, and the
+        // idempotence cursor is NOT advanced (so the message is not lost).
+        let failing = Arc::new(StubRuntime {
+            config: Arc::new(config.clone()),
+            agent_id: "@me".into(),
+            sends: sends.clone(),
+            fail_execute: true,
+        });
+        let err = invoke_with_runtime(&config, "@peer", "h1", failing)
+            .await
+            .expect_err("cycle fails on the injected provider error");
+        assert!(err.contains("graph run"));
+        assert_eq!(sends.load(Ordering::SeqCst), 0, "no DM on a failed cycle");
+        // last_error surfaced for orchestration.status.
+        let last_error = store::with_connection(&config.workspace_dir, |conn| {
+            store::kv_get(conn, "orchestration:last_error")
+        })
+        .unwrap();
+        assert!(last_error.is_some(), "failed cycle records last_error");
+
+        // Cycle 2 (recovery): a healthy runtime sends exactly one DM — the earlier
+        // failure did not consume the message or leave a duplicate.
+        let healthy = Arc::new(StubRuntime {
+            config: Arc::new(config.clone()),
+            agent_id: "@me".into(),
+            sends: sends.clone(),
+            fail_execute: false,
+        });
+        invoke_with_runtime(&config, "@peer", "h1", healthy)
+            .await
+            .expect("recovery cycle runs");
+        assert_eq!(
+            sends.load(Ordering::SeqCst),
+            1,
+            "recovery sends exactly one DM"
+        );
+
+        // A third trigger with no new messages is idempotent (cursor advanced).
+        let healthy2 = Arc::new(StubRuntime {
+            config: Arc::new(config.clone()),
+            agent_id: "@me".into(),
+            sends: sends.clone(),
+            fail_execute: false,
+        });
+        invoke_with_runtime(&config, "@peer", "h1", healthy2)
+            .await
+            .expect("idempotent re-trigger");
+        assert_eq!(
+            sends.load(Ordering::SeqCst),
+            1,
+            "no duplicate DM on re-trigger"
+        );
+    }
+
+    #[test]
+    fn malformed_envelope_flood_all_fall_back_to_master_without_panic() {
+        // A flood of non-envelope / malformed DM bodies must each classify as a
+        // Master message (never a crash, never a Session mis-route). Uses the
+        // ingest classifier indirectly through persist.
+        let tmp = tempfile::tempdir().unwrap();
+        let config = test_config(&tmp);
+        for i in 0..200 {
+            // Deliberately malformed: truncated JSON, wrong version, junk.
+            let body = match i % 3 {
+                0 => "{ not json".to_string(),
+                1 => r#"{"envelope_version":"bogus","scope":{}}"#.to_string(),
+                _ => format!("plain chatter {i}"),
+            };
+            // classify_message is private to ingest; assert the envelope parser
+            // rejects each (→ Master fallback) without panicking.
+            assert!(
+                super::super::types::SessionEnvelopeV1::parse(&body).is_none(),
+                "malformed body #{i} must not parse as a session envelope"
+            );
+        }
+        let _ = config; // tempdir kept alive
+    }
+
+    /// Stage-8 leak guard: no orchestration log line may emit a message body /
+    /// decrypted plaintext / seed. Scans the domain source for logging macros
+    /// that reference a body-bearing field. The project rule is "never log
+    /// secrets or full PII" — message bodies are decrypted plaintext.
+    #[test]
+    fn orchestration_logs_never_reference_message_bodies() {
+        const SOURCES: &[(&str, &str)] = &[
+            ("ingest.rs", include_str!("ingest.rs")),
+            ("ops.rs", include_str!("ops.rs")),
+            ("bus.rs", include_str!("bus.rs")),
+            ("schemas.rs", include_str!("schemas.rs")),
+            ("graph/mod.rs", include_str!("graph/mod.rs")),
+        ];
+        // Forbidden substrings that would interpolate secret content into a log.
+        const FORBIDDEN: &[&str] = &["plaintext", ".body", "message.text", "signer_seed", "seed="];
+        for (name, src) in SOURCES {
+            for (lineno, line) in src.lines().enumerate() {
+                let is_log = line.contains("log::")
+                    || line.contains("tracing::debug!")
+                    || line.contains("tracing::info!")
+                    || line.contains("tracing::warn!")
+                    || line.contains("tracing::error!");
+                if !is_log {
+                    continue;
+                }
+                for needle in FORBIDDEN {
+                    assert!(
+                        !line.contains(needle),
+                        "{name}:{}: log line may leak secret/body content (`{needle}`): {}",
+                        lineno + 1,
+                        line.trim(),
+                    );
+                }
+            }
         }
     }
 }

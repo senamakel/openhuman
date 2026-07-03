@@ -291,6 +291,36 @@ fn read_cursor_key(session_id: &str) -> String {
     format!("read:{session_id}")
 }
 
+/// Ingest-cursor lag (stage-8 health): how many sessions have a latest message
+/// seq beyond the wake-cursor seq already processed — i.e. pending wake work. A
+/// persistently non-zero value signals the wake loop is stuck.
+pub fn ingest_cursor_lag(conn: &Connection) -> Result<i64> {
+    let mut stmt = conn.prepare("SELECT agent_id, session_id, last_seq FROM sessions")?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, i64>(2)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let mut lag = 0i64;
+    for (agent_id, session_id, last_seq) in rows {
+        // Master/subconscious windows are UI-only, not wake-driven — skip them.
+        if session_id == "master" || session_id == "subconscious" {
+            continue;
+        }
+        let cursor = kv_get(conn, &format!("cursor:{agent_id}:{session_id}"))?
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(i64::MIN);
+        if last_seq > cursor {
+            lag += 1;
+        }
+    }
+    Ok(lag)
+}
+
 /// Load a single session row (the wake graph's counterpart + metadata).
 pub fn load_session(
     conn: &Connection,

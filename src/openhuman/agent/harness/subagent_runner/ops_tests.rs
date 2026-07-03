@@ -474,16 +474,12 @@ async fn typed_mode_system_prompt_includes_subagent_role_contract() {
         .find(|m| m.role == "system")
         .expect("system message should be present");
     assert!(system_msg.content.contains("## Sub-agent Role Contract"));
-    assert!(
-        system_msg
-            .content
-            .contains("You are a sub-agent working for a parent OpenHuman agent")
-    );
-    assert!(
-        system_msg
-            .content
-            .contains("Keep your final response concise and synthesis-ready")
-    );
+    assert!(system_msg
+        .content
+        .contains("You are a sub-agent working for a parent OpenHuman agent"));
+    assert!(system_msg
+        .content
+        .contains("Keep your final response concise and synthesis-ready"));
 }
 
 #[tokio::test]
@@ -822,8 +818,7 @@ async fn typed_mode_blocks_unallowed_tool_calls() {
     // NOT run — is preserved; only the message wording changed from the legacy
     // "not available".
     assert!(
-        tool_msg.content.contains("unknown tool")
-            && tool_msg.content.contains("forbidden_tool"),
+        tool_msg.content.contains("unknown tool") && tool_msg.content.contains("forbidden_tool"),
         "blocked tool should produce a recoverable unknown-tool error naming it: {:?}",
         tool_msg.content
     );

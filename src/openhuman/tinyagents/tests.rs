@@ -444,8 +444,8 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         &["ask_user_clarification"],
         Some(1024),
         TurnContextMiddleware::defaults(),
-        None, // no builder tool policy on this path
-        None, // no per-turn required capabilities
+        None,  // no builder tool policy on this path
+        None,  // no per-turn required capabilities
         false, // deterministic_cacheable
     );
 
@@ -568,7 +568,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         None,
         TurnContextMiddleware::defaults(),
         None,
-        None, // no per-turn required capabilities
+        None,  // no per-turn required capabilities
         false, // deterministic_cacheable
     );
 

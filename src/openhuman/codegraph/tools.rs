@@ -6,13 +6,13 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use serde_json::Value;
 use tracing::debug;
 
 use crate::openhuman::codegraph::{
-    CodegraphStore, IndexMode, count_code_files, current_ref, index_ref, search_ref,
+    count_code_files, current_ref, index_ref, search_ref, CodegraphStore, IndexMode,
 };
 use crate::openhuman::config::Config;
 use crate::openhuman::embeddings;

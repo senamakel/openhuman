@@ -114,8 +114,8 @@ impl Tool<()> for ToolAdapter {
 }
 
 fn tool_policy_from_openhuman_tool(tool: &dyn crate::openhuman::tools::Tool) -> ToolPolicy {
-    use crate::openhuman::tools::PermissionLevel;
     use crate::openhuman::tools::traits::ToolTimeout;
+    use crate::openhuman::tools::PermissionLevel;
 
     let permission = tool.permission_level();
     let external_effect = tool.external_effect();
@@ -377,8 +377,8 @@ impl SharedToolAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::tools::ToolResult as OhToolResult;
     use crate::openhuman::tools::traits::ToolTimeout;
+    use crate::openhuman::tools::ToolResult as OhToolResult;
 
     /// A tool whose `execute_with_options` sleeps forever but declares a short
     /// per-call timeout, so the adapter's deadline must fire.
@@ -449,9 +449,12 @@ mod tests {
 
     #[tokio::test]
     async fn fast_tool_runs_to_completion() {
-        let result =
-            execute_openhuman_tool(&EchoTool, call("echo", serde_json::json!({ "msg": "hi" })), None)
-                .await;
+        let result = execute_openhuman_tool(
+            &EchoTool,
+            call("echo", serde_json::json!({ "msg": "hi" })),
+            None,
+        )
+        .await;
         assert!(result.error.is_none());
         assert!(result.content.contains("echoed:hi"));
     }

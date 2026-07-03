@@ -371,7 +371,9 @@ pub fn lookup(model: &str) -> Option<&'static ModelPrice> {
     }
     KNOWN_MODEL_PRICING
         .iter()
-        .filter(|p| contains_at_boundary(&norm, p.model_id) || contains_at_boundary(bare, p.model_id))
+        .filter(|p| {
+            contains_at_boundary(&norm, p.model_id) || contains_at_boundary(bare, p.model_id)
+        })
         .max_by_key(|p| p.model_id.len())
 }
 
@@ -799,14 +801,20 @@ mod tests {
                 .iter()
                 .find(|m| m.provider == price.provider && m.model_id == price.model_id)
                 .unwrap_or_else(|| panic!("missing {} in unified snapshot", price.model_id));
-            assert_eq!(entry.max_input_tokens, Some(u64::from(price.context_window)));
+            assert_eq!(
+                entry.max_input_tokens,
+                Some(u64::from(price.context_window))
+            );
             assert_eq!(
                 entry.pricing.input_per_token,
                 Some(price.input_per_mtok_usd / 1_000_000.0)
             );
         }
         // OpenHuman provenance is recorded alongside any crate-seed sources.
-        assert!(snapshot.sources.iter().any(|s| s.name == TINYAGENTS_CATALOG_SOURCE));
+        assert!(snapshot
+            .sources
+            .iter()
+            .any(|s| s.name == TINYAGENTS_CATALOG_SOURCE));
     }
 
     #[test]

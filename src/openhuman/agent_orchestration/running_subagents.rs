@@ -45,10 +45,9 @@ use tokio::task::AbortHandle;
 
 use crate::openhuman::agent::harness::run_queue::{QueueMode, QueuedMessage, RunQueue};
 use crate::openhuman::tinyagents::orchestration::{
-    InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter, OrchestrationTaskKind,
-    OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
+    shared_steering_registry, InMemoryTaskStore, JsonlTaskStore, OrchestrationTaskFilter,
+    OrchestrationTaskKind, OrchestrationTaskRecord, OrchestrationTaskResult, OrchestrationTaskSpec,
     OrchestrationTaskStatus, SteeringCommand, SteeringCommandKind, TaskStore,
-    shared_steering_registry,
 };
 use tinyagents::harness::ids::TaskId;
 use tinyagents::harness::message::Message as TaMessage;
@@ -388,7 +387,9 @@ pub(crate) fn reconcile_orphaned_tasks_on_boot(workspace_dir: &Path) -> usize {
         match outcome {
             Ok(()) => {
                 reconciled += 1;
-                let parent_session = record_parent_session(&record).unwrap_or_default().to_string();
+                let parent_session = record_parent_session(&record)
+                    .unwrap_or_default()
+                    .to_string();
                 let agent_id = record_agent_id(&record);
                 // Reuse the 05.2 typed terminal lifecycle helper so the run
                 // ledger finalizes exactly as it would for a live failure.
@@ -1315,8 +1316,8 @@ fn now_ms() -> u64 {
 mod tests {
     use super::*;
     use crate::openhuman::tinyagents::orchestration::{
-        OrchestrationTaskStatus, SteeringHandle, SteeringPolicy, SteeringRunClass,
-        openhuman_steering_handle,
+        openhuman_steering_handle, OrchestrationTaskStatus, SteeringHandle, SteeringPolicy,
+        SteeringRunClass,
     };
     use std::sync::MutexGuard;
 
@@ -1347,10 +1348,9 @@ mod tests {
     /// hermetic; task ids are unique across tests so a single shared dir is safe
     /// within a run. The `TempDir` lives for the whole process (cleaned at exit).
     fn test_workspace() -> PathBuf {
-        static WORKSPACE: std::sync::LazyLock<tempfile::TempDir> =
-            std::sync::LazyLock::new(|| {
-                tempfile::tempdir().expect("create hermetic test task-store workspace")
-            });
+        static WORKSPACE: std::sync::LazyLock<tempfile::TempDir> = std::sync::LazyLock::new(|| {
+            tempfile::tempdir().expect("create hermetic test task-store workspace")
+        });
         WORKSPACE.path().to_path_buf()
     }
 
@@ -1819,16 +1819,14 @@ mod tests {
         ));
 
         // still steerable after a timed-out wait
-        assert!(
-            steer(
-                "task-slow",
-                "session-A",
-                "still here".into(),
-                QueueMode::Steer
-            )
-            .await
-            .is_ok()
-        );
+        assert!(steer(
+            "task-slow",
+            "session-A",
+            "still here".into(),
+            QueueMode::Steer
+        )
+        .await
+        .is_ok());
         prune("task-slow");
     }
 
@@ -1857,11 +1855,9 @@ mod tests {
         );
 
         // Non-matching entries stay live and steerable.
-        assert!(
-            steer("task-tB", "session-A", "x".into(), QueueMode::Steer)
-                .await
-                .is_ok()
-        );
+        assert!(steer("task-tB", "session-A", "x".into(), QueueMode::Steer)
+            .await
+            .is_ok());
         assert!(
             steer("task-headless", "session-A", "x".into(), QueueMode::Steer)
                 .await

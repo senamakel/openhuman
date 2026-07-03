@@ -22,9 +22,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tinyagents::harness::context::RunContext;
 use tinyagents::harness::events::AgentEvent;
-use tinyagents::harness::middleware::{
-    MiddlewareModelOutcome, ModelHandler, ModelMiddleware,
-};
+use tinyagents::harness::middleware::{MiddlewareModelOutcome, ModelHandler, ModelMiddleware};
 use tinyagents::harness::model::{CapabilitySet, ModelRequest};
 use tinyagents::harness::retry::FallbackPolicy;
 

@@ -18,7 +18,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::openhuman::config::Config;
 use crate::openhuman::integrations::IntegrationClient;

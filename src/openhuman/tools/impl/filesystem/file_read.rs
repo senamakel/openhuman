@@ -170,12 +170,10 @@ mod tests {
         let tool = FileReadTool::new(test_security(std::env::temp_dir()));
         let schema = tool.parameters_schema();
         assert!(schema["properties"]["path"].is_object());
-        assert!(
-            schema["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("path"))
-        );
+        assert!(schema["required"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("path")));
     }
 
     #[tokio::test]

@@ -41,7 +41,12 @@ pub fn dual_write_enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| {
         let enabled = std::env::var(DUAL_WRITE_ENV)
-            .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+            .map(|v| {
+                matches!(
+                    v.trim().to_ascii_lowercase().as_str(),
+                    "1" | "true" | "yes" | "on"
+                )
+            })
             .unwrap_or(false);
         log::debug!("[session-store] dual-write flag {DUAL_WRITE_ENV} resolved to {enabled}");
         enabled
@@ -90,8 +95,8 @@ pub async fn write_live_turn(
     let records = journal_messages(transcript);
     let message_count = records.len();
     for (idx, record) in records.iter().enumerate() {
-        let value =
-            serde_json::to_value(record).with_context(|| format!("serialize live message {idx}"))?;
+        let value = serde_json::to_value(record)
+            .with_context(|| format!("serialize live message {idx}"))?;
         journal
             .append(&stream, value)
             .await

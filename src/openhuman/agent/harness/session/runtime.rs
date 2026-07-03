@@ -416,9 +416,7 @@ impl Agent {
             Some(AgentError::EmptyProviderResponse { .. }) => Some("empty_provider_response"),
             Some(AgentError::CompactionFailed { .. }) => Some("compaction_failed"),
             Some(AgentError::PermissionDenied { .. }) => Some("permission_denied"),
-            Some(AgentError::RegistryValidationFailed { .. }) => {
-                Some("registry_validation_failed")
-            }
+            Some(AgentError::RegistryValidationFailed { .. }) => Some("registry_validation_failed"),
             Some(AgentError::Other(_)) | None => None,
         };
 

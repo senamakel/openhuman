@@ -119,7 +119,9 @@ fn entry_to_scored_doc(entry: &MemoryEntry) -> ScoredDoc {
 /// rides along in each doc's `metadata` as the collection scope.
 fn dedupe_scored_docs(docs: Vec<ScoredDoc>) -> Vec<ScoredDoc> {
     let mut seen: HashSet<String> = HashSet::new();
-    docs.into_iter().filter(|d| seen.insert(d.id.clone())).collect()
+    docs.into_iter()
+        .filter(|d| seen.insert(d.id.clone()))
+        .collect()
 }
 
 /// Collapse recalled entries by the same per-item `id` dedupe key the
@@ -298,7 +300,10 @@ mod tests {
             derive_path_scope(&entry("episodic-cross:42", "k", None, None)),
             "episodic-cross"
         );
-        assert_eq!(derive_path_scope(&entry("plainid", "k", None, None)), "global");
+        assert_eq!(
+            derive_path_scope(&entry("plainid", "k", None, None)),
+            "global"
+        );
     }
 
     #[test]
@@ -386,7 +391,11 @@ mod tests {
 
         let retriever = build_retriever(Arc::new(StubProvider));
         retriever
-            .index(vec![("d1".into(), "cats".into(), json!({"path_scope": "s"}))])
+            .index(vec![(
+                "d1".into(),
+                "cats".into(),
+                json!({"path_scope": "s"}),
+            )])
             .await
             .expect("index");
         let hits = retriever.retrieve("cats", 1).await.expect("retrieve");

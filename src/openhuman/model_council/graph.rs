@@ -8,11 +8,11 @@
 
 use std::future::Future;
 use std::sync::Arc;
-use tinyagents::graph::parallel::{FailurePolicy, ParallelOptions, map_reduce};
+use tinyagents::graph::parallel::{map_reduce, FailurePolicy, ParallelOptions};
 
 use crate::openhuman::config::Config;
 
-use super::council::{CouncilMemberResult, run_member_answer_inner};
+use super::council::{run_member_answer_inner, CouncilMemberResult};
 
 /// Run the council member fan-out and return member results in seat order.
 pub async fn run_council_members_via_graph(

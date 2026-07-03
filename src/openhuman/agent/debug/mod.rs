@@ -22,10 +22,10 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 
 pub mod dump_writer;
-pub use dump_writer::{DumpWriteSummary, write_prompt_dumps};
+pub use dump_writer::{write_prompt_dumps, DumpWriteSummary};
 
 use crate::openhuman::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, PromptSource,
@@ -281,7 +281,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
     // `fetch_toolkit_actions` round-trip; direct mode skips the
     // refresh (no backend allowlist to consult) and keeps the cached
     // catalogue, mirroring `ComposioListToolsTool`'s short-circuit.
-    use crate::openhuman::composio::client::{ComposioClientKind, create_composio_client};
+    use crate::openhuman::composio::client::{create_composio_client, ComposioClientKind};
     let client_kind = create_composio_client(config)
         .map_err(|e| anyhow!("composio client unavailable — is the user signed in? ({e})"))?;
 

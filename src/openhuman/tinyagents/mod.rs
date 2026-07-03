@@ -26,10 +26,10 @@ pub(crate) mod journal;
 pub(crate) mod middleware;
 mod model;
 pub(crate) mod observability;
-mod routes;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 pub(crate) mod retriever;
+mod routes;
 mod run_cancellation_context;
 pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;
@@ -44,11 +44,11 @@ use tinyagents::harness::cache::InMemoryResponseCache;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
-use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::middleware::{
     ContextCompressionMiddleware, MessageTrimMiddleware, PromptCacheGuardMiddleware,
     ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
+use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::store::StoreRegistry;
@@ -447,14 +447,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         if !errors.is_empty() {
             let messages: Vec<String> = errors
                 .iter()
-                .map(|d| {
-                    format!(
-                        "[{}] {}: {}",
-                        d.kind.as_str(),
-                        d.name,
-                        d.message
-                    )
-                })
+                .map(|d| format!("[{}] {}: {}", d.kind.as_str(), d.name, d.message))
                 .collect();
             for msg in &messages {
                 tracing::error!("[registry] error-severity diagnostic aborting turn: {msg}");
@@ -1016,9 +1009,9 @@ fn assemble_turn_harness(
     // model is rejected pre-dispatch (and, once 02.2 lands, a capable fallback is
     // selected) instead of failing at the provider.
     if let Some(required) = required_capabilities {
-        harness.push_model_middleware(Arc::new(
-            routes::RequiredCapabilitiesMiddleware::new(required),
-        ));
+        harness.push_model_middleware(Arc::new(routes::RequiredCapabilitiesMiddleware::new(
+            required,
+        )));
     }
 
     // Fallback event parity (issue #4249, Workstream 02.2): the crate's
@@ -1164,8 +1157,8 @@ fn assemble_turn_harness(
     {
         for def in runtime.list() {
             if registered_agents.insert(def.id.clone()) {
-                let _ = capability_registry
-                    .register_descriptor(ComponentKind::Agent, def.id.clone());
+                let _ =
+                    capability_registry.register_descriptor(ComponentKind::Agent, def.id.clone());
                 runtime_agent_count += 1;
             }
         }

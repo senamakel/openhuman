@@ -98,8 +98,8 @@ fn git_resolves_cwd_from_workspace_descriptor() {
     let tool = test_tool(action_tmp.path());
 
     // WITH a descriptor → the worktree root wins.
-    let ws = WorkspaceDescriptor::new(worktree_tmp.path().to_path_buf())
-        .with_policy_id("test-worktree");
+    let ws =
+        WorkspaceDescriptor::new(worktree_tmp.path().to_path_buf()).with_policy_id("test-worktree");
     let ctx: RunContext = RunContext::new(RunConfig::new("test-run"), ()).with_workspace(ws);
     let tool_ctx = ToolExecutionContext::from_run_context(&ctx);
     assert_eq!(

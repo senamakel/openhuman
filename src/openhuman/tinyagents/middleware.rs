@@ -340,7 +340,9 @@ impl Middleware<()> for OpenHumanToolExposureShadowMiddleware {
             ..Default::default()
         };
         // Reuse the crate selection's own retain + `ToolsFiltered` emit verbatim.
-        self.selection.before_model(ctx, state, &mut scratch).await?;
+        self.selection
+            .before_model(ctx, state, &mut scratch)
+            .await?;
         let shadow_exposed: std::collections::HashSet<String> =
             scratch.tools.iter().map(|s| s.name.clone()).collect();
 

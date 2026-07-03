@@ -105,9 +105,14 @@ pub(crate) struct DelegationState {
 enum DelegationUpdate {
     Plan(String),
     Execution(String),
-    Review { note: String, approved: bool },
+    Review {
+        note: String,
+        approved: bool,
+    },
     /// A durable human-approval decision delivered by a resume command.
-    HumanDecision { approved: bool },
+    HumanDecision {
+        approved: bool,
+    },
     Final(String),
     Cancelled,
 }

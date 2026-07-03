@@ -581,8 +581,7 @@ async fn subagent_repeated_unknown_tool_recovers_and_bounds_at_cap() -> Result<(
         .into_iter()
         .flat_map(|request| request.messages)
         .any(|message| {
-            message.content.contains("unknown tool")
-                && message.content.contains("missing_tool")
+            message.content.contains("unknown tool") && message.content.contains("missing_tool")
         });
     assert!(
         recovered,

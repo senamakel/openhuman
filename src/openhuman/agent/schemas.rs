@@ -491,7 +491,9 @@ fn handle_graph_topologies(_params: Map<String, Value>) -> ControllerFuture {
 fn local_catalog_models_from_config(
     config: &crate::openhuman::config::Config,
 ) -> Vec<crate::openhuman::cost::catalog::LocalCatalogModel> {
-    use crate::openhuman::inference::local::profile::{profile_for_kind, LocalProviderKind, ToolSupport};
+    use crate::openhuman::inference::local::profile::{
+        profile_for_kind, LocalProviderKind, ToolSupport,
+    };
 
     config
         .model_registry

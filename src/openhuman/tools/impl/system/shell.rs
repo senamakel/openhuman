@@ -798,12 +798,10 @@ mod tests {
         );
         let schema = tool.parameters_schema();
         assert!(schema["properties"]["command"].is_object());
-        assert!(
-            schema["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("command"))
-        );
+        assert!(schema["required"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("command")));
         // The self-asserted `approved` param was removed — approval now happens
         // at the harness ApprovalGate, not via a model-set flag.
         assert!(schema["properties"]["approved"].is_null());
@@ -998,7 +996,9 @@ mod tests {
         let result = tool
             .execute_with_context(
                 json!({"command": "pwd"}),
-                crate::openhuman::tools::traits::ToolCallOptions { prefer_markdown: false },
+                crate::openhuman::tools::traits::ToolCallOptions {
+                    prefer_markdown: false,
+                },
                 Some(&ctx),
             )
             .await
@@ -1246,11 +1246,8 @@ mod tests {
         let tool = ShellTool::new(full, test_runtime(), test_audit());
         assert!(!tool.external_effect_with_args(&json!({"command": "touch f"})));
         // …but a self-declared `destructive` escalates it to a prompt.
-        assert!(
-            tool.external_effect_with_args(
-                &json!({"command": "touch f", "category": "destructive"})
-            )
-        );
+        assert!(tool
+            .external_effect_with_args(&json!({"command": "touch f", "category": "destructive"})));
         // The hint can never LOWER: declaring a destructive command "read"
         // still prompts (in any acting tier).
         let supervised = test_security(AutonomyLevel::Supervised);

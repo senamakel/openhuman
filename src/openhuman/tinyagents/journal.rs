@@ -42,11 +42,11 @@ use async_trait::async_trait;
 use tinyagents::error::Result as TaResult;
 use tinyagents::harness::events::{EventSink, HarnessRunStatus};
 use tinyagents::harness::ids::{ComponentId, HarnessPhase, RunId};
-use tinyagents::harness::store::{FileStore, Store};
 use tinyagents::harness::observability::{
     AgentObservation, FanOutSink, HarnessEventJournal, HarnessStatusStore, JournalSink,
     RedactingSink, StoreEventJournal,
 };
+use tinyagents::harness::store::{FileStore, Store};
 
 use crate::openhuman::session_import::ops::open_session_stores;
 
@@ -140,9 +140,9 @@ impl FileStatusStore {
             if let Some(value) = self.kv.get(STATUS_NS, &key).await? {
                 match serde_json::from_value::<HarnessRunStatus>(value) {
                     Ok(status) => out.push(status),
-                    Err(err) => log::debug!(
-                        "[journal] skipping undecodable run status key={key} err={err}"
-                    ),
+                    Err(err) => {
+                        log::debug!("[journal] skipping undecodable run status key={key} err={err}")
+                    }
                 }
             }
         }
@@ -170,7 +170,11 @@ impl HarnessStatusStore for FileStatusStore {
             .all()
             .await?
             .into_iter()
-            .filter(|s| s.thread_id.as_ref().is_some_and(|t| t.as_str() == thread_id))
+            .filter(|s| {
+                s.thread_id
+                    .as_ref()
+                    .is_some_and(|t| t.as_str() == thread_id)
+            })
             .collect())
     }
 
@@ -392,7 +396,10 @@ mod tests {
         assert_eq!(replayed.len(), 2);
         // The seeded secret was masked before persistence.
         if let AgentEvent::ModelStarted { model, .. } = &replayed[0].event {
-            assert!(!model.contains("sk-super-secret"), "secret should be redacted");
+            assert!(
+                !model.contains("sk-super-secret"),
+                "secret should be redacted"
+            );
             assert!(model.contains("[REDACTED]"));
         } else {
             panic!("expected ModelStarted first");

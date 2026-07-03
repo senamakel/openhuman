@@ -142,6 +142,15 @@ pub(crate) struct OpenhumanEventBridge {
     /// Shared `call_id → (success, failure)` side-channel written by
     /// `ToolOutcomeCaptureMiddleware`; read when projecting `ToolCallCompleted`.
     failure_map: ToolFailureMap,
+    /// Model-call iterations whose `UsageRecorded` has already been folded into
+    /// the global cost tracker (W2-budget-dedupe). A single model call can now
+    /// surface **two** `UsageRecorded` events — one from the harness runtime
+    /// (`agent_loop`, always) and one from the observe-only crate
+    /// `BudgetMiddleware::after_model` — both carrying identical usage and both
+    /// delivered to this bridge. Keyed on the run-scoped model-call identity (the
+    /// iteration cursor, bumped once per `ModelStarted`) so a given call's usage
+    /// is recorded exactly once. See [`OpenhumanEventBridge::record_usage`].
+    recorded_iterations: Mutex<std::collections::HashSet<u32>>,
     state: Mutex<BridgeState>,
 }
 
@@ -183,6 +192,7 @@ impl OpenhumanEventBridge {
             cursor,
             tool_names,
             failure_map,
+            recorded_iterations: Mutex::new(std::collections::HashSet::new()),
             state: Mutex::new(BridgeState::default()),
         })
     }
@@ -231,6 +241,32 @@ impl OpenhumanEventBridge {
     /// `TurnCostUpdated` so the UI footer stays live.
     fn record_usage(&self, usage: &Usage) {
         let iteration = self.iteration();
+        // Dedupe guard (W2-budget-dedupe): record a given model call's usage into
+        // the global cost tracker **exactly once**. Installing the observe-only
+        // crate `BudgetMiddleware` makes each model call emit two `UsageRecorded`
+        // events (the runtime's own at `agent_loop` + the middleware's
+        // `after_model` re-emit), both reaching this listener with identical
+        // usage. The two events have *distinct* stable ids, so an event-id key
+        // would not collapse them — instead we key on the run-scoped model-call
+        // identity: the iteration cursor, bumped once per `ModelStarted`. This
+        // bridge instance is per-run (parent or child scope), so the set is
+        // naturally (run, turn)-scoped. First writer for an iteration records;
+        // any later `UsageRecorded` for the same iteration is a duplicate.
+        {
+            let mut seen = self
+                .recorded_iterations
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
+            if !seen.insert(iteration) {
+                tracing::debug!(
+                    iteration,
+                    model = %self.model,
+                    child = self.scope.is_some(),
+                    "[budget] duplicate UsageRecorded for model call — skipping double record"
+                );
+                return;
+            }
+        }
         // Provider-reported charged USD has no home in the crate `Usage` (all
         // token counts), so estimate this call's cost from catalogued per-MTok
         // rates. Fixes the long-standing $0 cost on the tinyagents path, where
@@ -681,6 +717,64 @@ mod tests {
 
         let (input, output, _) = bridge.totals();
         assert_eq!((input, output), (100, 40));
+    }
+
+    /// W2-budget-dedupe: two `UsageRecorded` events for the *same* model call
+    /// (as happens once the observe-only crate `BudgetMiddleware` re-emits usage
+    /// its `after_model` folded, on top of the runtime's own emit) must be
+    /// recorded into the bridge accounting **exactly once**. Without the dedupe
+    /// guard the totals would double.
+    #[tokio::test]
+    async fn duplicate_usage_for_same_model_call_is_recorded_once() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+        let bridge = OpenhumanEventBridge::new(Some(tx), "mock-model", 10);
+        let sink = EventSink::new();
+        sink.subscribe(bridge.clone());
+
+        // One model call → one `ModelStarted` (iteration cursor → 1).
+        sink.emit(AgentEvent::ModelStarted {
+            call_id: "c1".into(),
+            model: "mock-model".to_string(),
+        });
+        // Same call surfaces usage twice (runtime emit + BudgetMiddleware re-emit).
+        sink.emit(AgentEvent::UsageRecorded {
+            usage: Usage::new(100, 40),
+        });
+        sink.emit(AgentEvent::UsageRecorded {
+            usage: Usage::new(100, 40),
+        });
+
+        // Totals reflect a single record, not two.
+        let (input, output, _) = bridge.totals();
+        assert_eq!(
+            (input, output),
+            (100, 40),
+            "the duplicate UsageRecorded for the same iteration must be skipped"
+        );
+
+        // Exactly one `TurnCostUpdated` footer emit for the call.
+        let mut cost_updates = 0;
+        while let Ok(p) = rx.try_recv() {
+            if matches!(p, AgentProgress::TurnCostUpdated { .. }) {
+                cost_updates += 1;
+            }
+        }
+        assert_eq!(cost_updates, 1, "footer must update once per model call");
+
+        // A genuinely new model call (iteration cursor → 2) records again.
+        sink.emit(AgentEvent::ModelStarted {
+            call_id: "c2".into(),
+            model: "mock-model".to_string(),
+        });
+        sink.emit(AgentEvent::UsageRecorded {
+            usage: Usage::new(10, 5),
+        });
+        let (input, output, _) = bridge.totals();
+        assert_eq!(
+            (input, output),
+            (110, 45),
+            "a distinct model call (new iteration) must still record"
+        );
     }
 
     // NOTE: the former `sentinel_tool_started_is_not_forwarded` test was removed

@@ -84,6 +84,19 @@ they land.
       crate-internal `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
       (live until crate budget/run-tree accounting avoids duplicate
       `UsageRecorded` and covers parent-turn rollups)
+      W2-budget-dedupe (2026-07-03): dedupe guard landed — the event bridge now
+      records a model call's `UsageRecorded` exactly once, keyed on the run-scoped
+      iteration, so the observe-only crate `BudgetMiddleware`'s re-emit can't
+      double-count (`observability::OpenhumanEventBridge::record_usage`, `[budget]`).
+      Crate `BudgetMiddleware` installed OBSERVE-ONLY (empty `BudgetLimits`) at
+      `tinyagents/mod.rs`; local `CostBudgetMiddleware` demoted to a
+      divergence-logging shadow (`[budget_shadow]`, `after_agent`) but STILL
+      authoritative for enforcement. Flip criteria (must ALL hold before deleting
+      this row): (1) ≥ 500 parent+subagent turns with zero `[budget_shadow]`
+      divergence; (2) crate pricing table wired for money budgets; (3) run-tree
+      rollup via a shared `BudgetTracker` replacing the `turn_subagent_usage`
+      task-local. See the flip-criteria comment at the `tinyagents/mod.rs`
+      registration site.
 - [ ] `agent/dispatcher.rs` (609) + `harness/parse.rs` (833) legacy tool-call
       parsing — after XML/P-format transcripts read from the store and no
       live path parses provider text (04.2 + verify)

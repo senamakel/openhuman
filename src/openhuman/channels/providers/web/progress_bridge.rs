@@ -165,9 +165,13 @@ pub(crate) fn spawn_progress_bridge(
             // conversation's per-turn traces still group under one session.
             let base = trace_session_id(metadata.session_id, &thread_id);
             let trace_id = format!("{base}:{request_id}");
+            // Content capture is gated at the span-storage level: when
+            // `capture_content` is off (default), prompt/reply text is never
+            // attached to a span, so no exporter can transmit it (#4454).
             Some(SpanCollector::new(
                 TraceContext::new(trace_id, Some(client_id.clone()))
                     .with_session_group(thread_id.clone()),
+                config.observability.agent_tracing.capture_content,
             ))
         } else {
             None

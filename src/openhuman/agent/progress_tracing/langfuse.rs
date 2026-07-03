@@ -183,15 +183,24 @@ fn apply_usage_fields(body: &mut Value, span: &TraceSpan) -> bool {
     }
     let input = input.unwrap_or(0);
     let output = output.unwrap_or(0);
-    let mut usage = Map::new();
-    usage.insert("input".to_string(), json!(input));
-    usage.insert("output".to_string(), json!(output));
-    usage.insert("total".to_string(), json!(input.saturating_add(output)));
-    if let Some(cached) = attrs
+    // Langfuse aggregates `usageDetails` keys as **disjoint** buckets and
+    // independently trusts the explicit `total`. `input_tokens` is inclusive of
+    // the cached read tokens (see cost.rs:171), so emitting `input` (full) PLUS
+    // `cache_read_input_tokens` double-counts the cache and makes the components
+    // exceed `total`. Split them so the buckets are disjoint and sum to `total`:
+    //   input (uncached) + cache_read_input_tokens + output == total (#4454).
+    let cached = attrs
         .get("gen_ai.usage.cached_input_tokens")
         .and_then(Value::as_u64)
-        .filter(|c| *c > 0)
-    {
+        .filter(|c| *c > 0);
+    let uncached_input = input.saturating_sub(cached.unwrap_or(0));
+    let mut usage = Map::new();
+    usage.insert("input".to_string(), json!(uncached_input));
+    usage.insert("output".to_string(), json!(output));
+    // `total` stays the full accounting figure (full input + output); the
+    // disjoint components (uncached input + cached + output) reconstruct it.
+    usage.insert("total".to_string(), json!(input.saturating_add(output)));
+    if let Some(cached) = cached {
         usage.insert("cache_read_input_tokens".to_string(), json!(cached));
     }
     body["usageDetails"] = Value::Object(usage);
@@ -466,6 +475,78 @@ mod tests {
         assert_eq!(trace["type"], "trace-create");
         assert_eq!(trace["body"]["userId"], "client-7");
         assert_eq!(trace["body"]["sessionId"], "thread-abc");
+    }
+
+    #[test]
+    fn usage_details_are_disjoint_and_sum_to_total() {
+        // #4454: `input_tokens` is inclusive of cached read tokens, so the
+        // usageDetails components (input + cache_read_input_tokens + output)
+        // must be disjoint and reconstruct `total` — no double-count.
+        let mut turn = span(
+            "trace-1",
+            "root",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        turn.attributes.clear();
+        turn.attributes
+            .insert("gen_ai.usage.input_tokens".into(), json!(1_000));
+        turn.attributes
+            .insert("gen_ai.usage.output_tokens".into(), json!(200));
+        turn.attributes
+            .insert("gen_ai.usage.cached_input_tokens".into(), json!(300));
+        let batch = spans_to_langfuse_batch(&[turn], false);
+        let usage = &batch["batch"][1]["body"]["usageDetails"];
+
+        let uncached = usage["input"].as_u64().unwrap();
+        let cached = usage["cache_read_input_tokens"].as_u64().unwrap();
+        let output = usage["output"].as_u64().unwrap();
+        let total = usage["total"].as_u64().unwrap();
+
+        // `input` is the uncached remainder, NOT the full input (which would
+        // double-count the cache against `cache_read_input_tokens`).
+        assert_eq!(uncached, 700, "input must exclude the cached tokens");
+        assert_eq!(cached, 300);
+        assert_eq!(output, 200);
+        assert_eq!(total, 1_200, "total is full input (1000) + output (200)");
+        // Disjoint components reconstruct the total exactly.
+        assert_eq!(uncached + cached + output, total);
+    }
+
+    #[test]
+    fn usage_details_without_cache_report_full_input() {
+        // No cached tokens → `input` is the whole input and there is no cache
+        // bucket; components still sum to total.
+        let mut turn = span(
+            "trace-1",
+            "root",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        turn.attributes.clear();
+        turn.attributes
+            .insert("gen_ai.usage.input_tokens".into(), json!(100));
+        turn.attributes
+            .insert("gen_ai.usage.output_tokens".into(), json!(20));
+        turn.attributes
+            .insert("gen_ai.usage.cached_input_tokens".into(), json!(0));
+        let batch = spans_to_langfuse_batch(&[turn], false);
+        let usage = &batch["batch"][1]["body"]["usageDetails"];
+        assert_eq!(usage["input"], 100);
+        assert_eq!(usage["output"], 20);
+        assert_eq!(usage["total"], 120);
+        assert!(
+            usage.get("cache_read_input_tokens").is_none(),
+            "no cache bucket when cached is zero"
+        );
     }
 
     #[tokio::test]

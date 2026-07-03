@@ -142,9 +142,10 @@ pub struct TraceSpan {
     pub status: SpanStatus,
     /// Metadata-only attributes (no secrets/PII).
     pub attributes: BTreeMap<String, serde_json::Value>,
-    /// Optional prompt/input content. Populated only when content capture is on
-    /// (via `AgentProgress::TurnContent`); the exporter still gates transmission
-    /// behind `observability.agent_tracing.capture_content`.
+    /// Optional prompt/input content. Attached **only** when
+    /// `observability.agent_tracing.capture_content` is enabled — the
+    /// [`SpanCollector`] gates this at storage time (#4454), so when capture is
+    /// off (the default) the field stays `None` and no exporter can ever emit it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input: Option<serde_json::Value>,
     /// Optional model-reply/output content. Same capture/gating rules as
@@ -181,6 +182,13 @@ struct SubagentState {
 #[derive(Debug)]
 pub struct SpanCollector {
     ctx: TraceContext,
+    /// Privacy gate at the **storage** level: when `false` (the documented
+    /// default), prompt/reply content from `AgentProgress::TurnContent` is
+    /// dropped on the floor and never attached to a span — so no exporter
+    /// (NDJSON file, app log, or Langfuse push) can ever transmit it. This is
+    /// the single choke point that enforces
+    /// `observability.agent_tracing.capture_content` for all sinks (#4454).
+    capture_content: bool,
     spans: Vec<TraceSpan>,
     next_span_seq: u64,
     /// Per-collector (per-turn) random prefix for minted span ids. Langfuse
@@ -202,9 +210,13 @@ pub struct SpanCollector {
 }
 
 impl SpanCollector {
-    pub fn new(ctx: TraceContext) -> Self {
+    /// Build a collector for one turn's trace. `capture_content` mirrors
+    /// `observability.agent_tracing.capture_content`: when `false` (default),
+    /// prompt/reply text is never stored on any span (see [`Self::capture_content`]).
+    pub fn new(ctx: TraceContext, capture_content: bool) -> Self {
         Self {
             ctx,
+            capture_content,
             spans: Vec::new(),
             next_span_seq: 0,
             id_prefix: uuid::Uuid::new_v4().simple().to_string(),
@@ -625,6 +637,23 @@ impl SpanCollector {
             }
 
             AgentProgress::TurnContent { input, output } => {
+                // Privacy choke point (#4454): only ever attach prompt/reply to
+                // the span when content capture is explicitly enabled. When off
+                // (the default) the content is dropped here so it can NEVER reach
+                // any exporter — NDJSON file, app log, or Langfuse push.
+                if !self.capture_content {
+                    log::debug!(
+                        "[agent-tracing] TurnContent dropped at storage \
+                         (capture_content=false); prompt/reply not attached to span"
+                    );
+                    return;
+                }
+                log::debug!(
+                    "[agent-tracing] TurnContent attached to turn span \
+                     (capture_content=true, input={}, output={})",
+                    input.is_some(),
+                    output.is_some()
+                );
                 // Attach prompt/reply to the root turn span. Held in-memory only;
                 // the exporter decides whether to transmit it (opt-in gate).
                 let index = match self.turn_span_index {
@@ -715,6 +744,21 @@ fn json_f64(n: f64) -> serde_json::Value {
         .unwrap_or(serde_json::Value::Null)
 }
 
+/// Clone `spans` with any prompt/reply content (`input`/`output`) stripped.
+/// Used before logging spans to the plaintext app log so PII never lands there,
+/// regardless of the `capture_content` gate (#4454).
+fn strip_span_content(spans: &[TraceSpan]) -> Vec<TraceSpan> {
+    spans
+        .iter()
+        .map(|span| {
+            let mut redacted = span.clone();
+            redacted.input = None;
+            redacted.output = None;
+            redacted
+        })
+        .collect()
+}
+
 /// Serialize spans to NDJSON (one span object per line) in the requested
 /// backend envelope. Both backends share the [`TraceSpan`] body; Langfuse
 /// wraps each line with a `{"type":"span-create", ...}` observation envelope
@@ -769,13 +813,21 @@ pub(crate) fn export_spans(config: &AgentTracingConfig, spans: &[TraceSpan]) {
             }
         }
         None => {
-            // No path configured — surface to the log so the export still works
-            // on read-only / sandboxed deployments.
-            log::info!(
-                "[agent-tracing] {} spans (trace_id={}):\n{}",
+            // No path configured — surface to the app log so the export still
+            // works on read-only / sandboxed deployments. Two hard rules (#4454):
+            //   1. NEVER at `info` — span dumps belong at `debug` diagnostics.
+            //   2. NEVER carry prompt/reply content into the plaintext app log,
+            //      even when `capture_content` is on (the file sink is the
+            //      operator's opt-in content target; the log is not). Strip
+            //      input/output before serializing so no PII can land in logs.
+            let redacted = strip_span_content(spans);
+            let metadata_only = spans_to_ndjson(config.backend, &redacted);
+            log::debug!(
+                "[agent-tracing] {} spans (trace_id={}) [metadata-only; \
+                 prompt/reply content withheld from log]:\n{}",
                 spans.len(),
                 spans.first().map(|s| s.trace_id.as_str()).unwrap_or(""),
-                payload.trim_end()
+                metadata_only.trim_end()
             );
         }
     }

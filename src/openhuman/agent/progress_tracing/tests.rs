@@ -11,7 +11,14 @@ fn ctx() -> TraceContext {
 }
 
 fn collect(events: &[(AgentProgress, u64)]) -> SpanCollector {
-    let mut c = SpanCollector::new(ctx());
+    // Default helper captures content (capture_content = true) so content-shape
+    // tests can assert prompt/reply attachment; the gate is exercised explicitly
+    // by `collect_with_capture` in the privacy tests.
+    collect_with_capture(events, true)
+}
+
+fn collect_with_capture(events: &[(AgentProgress, u64)], capture_content: bool) -> SpanCollector {
+    let mut c = SpanCollector::new(ctx(), capture_content);
     for (event, ts) in events {
         c.record(event, *ts);
     }
@@ -377,7 +384,7 @@ fn subagent_failure_records_error_without_raw_text() {
 #[test]
 fn unknown_subagent_task_ids_are_ignored() {
     // Completion/tool events with no matching spawn must not panic or spawn.
-    let mut c = SpanCollector::new(ctx());
+    let mut c = SpanCollector::new(ctx(), false);
     c.record(&AgentProgress::TurnStarted, 0);
     c.record(
         &AgentProgress::SubagentCompleted {
@@ -453,7 +460,7 @@ fn tool_arguments_are_never_serialized() {
 #[test]
 fn first_event_lazily_opens_the_turn_span() {
     // Stream that begins mid-flight (no TurnStarted) still correlates.
-    let mut c = SpanCollector::new(ctx());
+    let mut c = SpanCollector::new(ctx(), false);
     c.record(
         &AgentProgress::IterationStarted {
             iteration: 4,
@@ -493,7 +500,7 @@ fn finish_seals_all_open_spans_idempotently() {
 
 #[test]
 fn cost_update_before_turn_start_lazily_opens_root() {
-    let mut c = SpanCollector::new(ctx());
+    let mut c = SpanCollector::new(ctx(), false);
     c.record(
         &AgentProgress::TurnCostUpdated {
             model: "m".to_string(),
@@ -520,7 +527,7 @@ fn trace_session_id_prefers_ui_session_else_thread() {
 
 #[test]
 fn no_user_attribution_omits_user_id() {
-    let mut c = SpanCollector::new(TraceContext::new("anon-1", None));
+    let mut c = SpanCollector::new(TraceContext::new("anon-1", None), false);
     c.record(&AgentProgress::TurnStarted, 0);
     let turn = find(c.spans(), "agent.turn");
     assert!(turn.attributes.get("user.id").is_none());
@@ -691,6 +698,7 @@ fn turn_span_stamps_user_and_thread_grouping_attributes() {
     let mut c = SpanCollector::new(
         TraceContext::new("trace:req-1", Some("client-7".to_string()))
             .with_session_group("thread-abc"),
+        false,
     );
     c.record(&AgentProgress::TurnStarted, 1_000);
     let turn = find(c.spans(), "agent.turn");
@@ -716,4 +724,124 @@ fn span_ids_are_unique_across_turns() {
         find(b.spans(), "agent.turn").span_id,
         "span ids must be globally unique across turns"
     );
+}
+
+// ── #4454: capture_content gate at span storage ─────────────────────────────
+
+const SECRET_PROMPT: &str = "SECRET-PROMPT-my-bank-pin-is-1234";
+const SECRET_REPLY: &str = "SECRET-REPLY-transfer-all-funds";
+
+fn turn_with_content(capture_content: bool) -> Vec<TraceSpan> {
+    let mut c = collect_with_capture(
+        &[
+            (AgentProgress::TurnStarted, 1_000),
+            (
+                AgentProgress::TurnContent {
+                    input: Some(SECRET_PROMPT.to_string()),
+                    output: Some(SECRET_REPLY.to_string()),
+                },
+                1_100,
+            ),
+            (AgentProgress::TurnCompleted { iterations: 1 }, 1_200),
+        ],
+        capture_content,
+    );
+    c.finish(1_200);
+    c.into_spans()
+}
+
+#[test]
+fn capture_content_off_drops_prompt_reply_at_storage() {
+    // With the default gate off, TurnContent is dropped at the storage choke
+    // point — the span carries no input/output at all.
+    let spans = turn_with_content(false);
+    let turn = find(&spans, "agent.turn");
+    assert!(
+        turn.input.is_none(),
+        "prompt must not be stored when capture_content is off"
+    );
+    assert!(
+        turn.output.is_none(),
+        "reply must not be stored when capture_content is off"
+    );
+}
+
+#[test]
+fn capture_content_on_stores_prompt_reply() {
+    // Opt-in: content is stored so the operator's configured file sink / Langfuse
+    // push can carry it.
+    let spans = turn_with_content(true);
+    let turn = find(&spans, "agent.turn");
+    assert_eq!(
+        turn.input.as_ref().and_then(|v| v.as_str()),
+        Some(SECRET_PROMPT)
+    );
+    assert_eq!(
+        turn.output.as_ref().and_then(|v| v.as_str()),
+        Some(SECRET_REPLY)
+    );
+}
+
+#[test]
+fn ndjson_export_omits_content_when_capture_off() {
+    // Acceptance criterion: with capture_content off, no prompt/reply text
+    // appears in the NDJSON export payload (either backend envelope).
+    let spans = turn_with_content(false);
+    for backend in [AgentTracingBackend::Otel, AgentTracingBackend::Langfuse] {
+        let out = spans_to_ndjson(backend, &spans);
+        assert!(
+            !out.contains(SECRET_PROMPT),
+            "prompt text leaked into {backend:?} NDJSON export"
+        );
+        assert!(
+            !out.contains(SECRET_REPLY),
+            "reply text leaked into {backend:?} NDJSON export"
+        );
+    }
+}
+
+#[test]
+fn ndjson_log_payload_never_carries_content_even_when_captured() {
+    // The no-path (app-log) sink must NEVER carry content, even when
+    // capture_content is on and the span itself holds it — content is stripped
+    // before it is serialized for the log.
+    let spans = turn_with_content(true);
+    let turn = find(&spans, "agent.turn");
+    assert!(turn.input.is_some(), "precondition: span holds content");
+
+    let redacted = strip_span_content(&spans);
+    let logged = spans_to_ndjson(AgentTracingBackend::Otel, &redacted);
+    assert!(
+        !logged.contains(SECRET_PROMPT) && !logged.contains(SECRET_REPLY),
+        "app-log payload must never carry prompt/reply content"
+    );
+    // Metadata survives the strip so the log still correlates.
+    assert!(logged.contains("agent.turn"));
+    assert!(logged.contains("sess-42"));
+}
+
+#[test]
+fn export_to_file_omits_content_when_capture_off() {
+    // End-to-end file sink: capture_content off → the written NDJSON file has no
+    // prompt/reply text (the acceptance criterion for the file export path).
+    let dir = std::env::temp_dir().join(format!("oh-trace-nopii-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("spans.ndjson");
+    let cfg = AgentTracingConfig {
+        enabled: true,
+        backend: AgentTracingBackend::Langfuse,
+        export_path: Some(path.to_string_lossy().to_string()),
+        capture_content: false,
+    };
+    export_spans(&cfg, &turn_with_content(false));
+    let body = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        !body.contains(SECRET_PROMPT),
+        "prompt leaked into export file"
+    );
+    assert!(
+        !body.contains(SECRET_REPLY),
+        "reply leaked into export file"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
 }

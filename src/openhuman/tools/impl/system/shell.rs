@@ -145,16 +145,14 @@ impl ShellTool {
 
     /// Resolve the working directory for this shell invocation.
     ///
-    /// Returns the per-worker git-worktree override when one is installed via
-    /// [`crate::openhuman::agent::harness::with_action_dir_override`] (an
-    /// edit-capable worker running with `isolation = "worktree"`), otherwise
-    /// the shared `self.security.action_dir`. Keeping `security.action_dir` as
-    /// the fallback preserves the non-isolated behaviour exactly. See #3376.
-    fn effective_action_dir(&self) -> PathBuf {
-        crate::openhuman::agent::harness::current_action_dir_override()
-            .unwrap_or_else(|| self.security.action_dir.clone())
-    }
-
+    /// Returns the per-worker git-worktree checkout when the tinyagents harness
+    /// threaded a [`WorkspaceDescriptor`] into this call's
+    /// [`ToolExecutionContext`] — an edit-capable worker running with
+    /// `isolation = "worktree"`, whose isolated worktree root is carried on the
+    /// run context (`RunContext::with_workspace`) and surfaced per tool call via
+    /// `ToolExecutionContext::from_run_context`. Otherwise falls back to the
+    /// shared `self.security.action_dir`, which preserves the non-isolated
+    /// behaviour exactly. See #3376, #4249 (08.5).
     fn effective_action_dir_for_context(&self, context: Option<&ToolExecutionContext>) -> PathBuf {
         if let Some(workspace) = context.and_then(|ctx| ctx.workspace.as_ref()) {
             tracing::debug!(
@@ -164,7 +162,7 @@ impl ShellTool {
             );
             return workspace.root.clone();
         }
-        self.effective_action_dir()
+        self.security.action_dir.clone()
     }
 
     /// The explicit wall-clock budget for this invocation, or `None` to run
@@ -963,6 +961,80 @@ mod tests {
                  acting tools spawn into `action_dir`. See #3074, #3238."
             );
         }
+    }
+
+    /// Build a `ToolExecutionContext` carrying a `WorkspaceDescriptor` rooted
+    /// at `root`, mirroring what the tinyagents harness threads into every tool
+    /// call of a worktree-isolated worker (`RunContext::with_workspace` →
+    /// `ToolExecutionContext::from_run_context`).
+    fn tool_context_with_workspace(root: &std::path::Path) -> ToolExecutionContext {
+        use tinyagents::harness::context::{RunConfig, RunContext};
+        use tinyagents::harness::workspace::WorkspaceDescriptor;
+        let ws = WorkspaceDescriptor::new(root.to_path_buf()).with_policy_id("test-worktree");
+        let ctx: RunContext = RunContext::new(RunConfig::new("test-run"), ()).with_workspace(ws);
+        ToolExecutionContext::from_run_context(&ctx)
+    }
+
+    /// Parity guard for the worktree-isolation action-dir override (#3376,
+    /// #4249 08.5). A worktree-isolated worker's shell command MUST spawn inside
+    /// the isolated worktree, sourced from the carried `WorkspaceDescriptor`, not
+    /// the shared `security.action_dir`. This encodes the exact behaviour the
+    /// deleted `worktree_context.rs` task-local used to provide.
+    #[cfg(not(windows))]
+    #[tokio::test]
+    async fn shell_uses_workspace_descriptor_root_as_cwd() {
+        let action_tmp = tempfile::tempdir().expect("create action tempdir");
+        let worktree_tmp = tempfile::tempdir().expect("create worktree tempdir");
+        let security = Arc::new(SecurityPolicy {
+            autonomy: AutonomyLevel::Full,
+            workspace_dir: std::env::temp_dir(),
+            action_dir: action_tmp.path().to_path_buf(),
+            ..SecurityPolicy::default()
+        });
+        let tool = ShellTool::new(security.clone(), test_runtime(), test_audit());
+
+        // WITH a descriptor → pwd reports the worktree root, never action_dir.
+        let ctx = tool_context_with_workspace(worktree_tmp.path());
+        let result = tool
+            .execute_with_context(
+                json!({"command": "pwd"}),
+                crate::openhuman::tools::traits::ToolCallOptions { prefer_markdown: false },
+                Some(&ctx),
+            )
+            .await
+            .expect("pwd executes");
+        assert!(!result.is_error, "{}", result.output());
+        let reported = std::path::PathBuf::from(result.output().trim());
+        let reported = reported.canonicalize().unwrap_or(reported);
+        let expected_wt = worktree_tmp
+            .path()
+            .canonicalize()
+            .unwrap_or_else(|_| worktree_tmp.path().to_path_buf());
+        let action_canon = action_tmp
+            .path()
+            .canonicalize()
+            .unwrap_or_else(|_| action_tmp.path().to_path_buf());
+        assert_eq!(
+            reported, expected_wt,
+            "shell with a WorkspaceDescriptor must spawn in the worktree root"
+        );
+        assert_ne!(
+            reported, action_canon,
+            "shell must NOT fall back to security.action_dir when a descriptor is present"
+        );
+
+        // WITHOUT a descriptor → pwd reports action_dir (non-isolated parity).
+        let result = tool
+            .execute(json!({"command": "pwd"}))
+            .await
+            .expect("pwd executes");
+        assert!(!result.is_error, "{}", result.output());
+        let reported = std::path::PathBuf::from(result.output().trim());
+        let reported = reported.canonicalize().unwrap_or(reported);
+        assert_eq!(
+            reported, action_canon,
+            "shell with no descriptor must fall back to security.action_dir"
+        );
     }
 
     #[tokio::test]

@@ -23,16 +23,14 @@ impl GitOperationsTool {
 
     /// Resolve the working directory for git operations.
     ///
-    /// Returns the per-worker git-worktree override when one is installed via
-    /// [`crate::openhuman::agent::harness::with_action_dir_override`] (an
-    /// edit-capable worker running with `isolation = "worktree"`), otherwise
-    /// the tool's configured `action_dir`. Keeping `self.action_dir` as the
-    /// fallback preserves the non-isolated behaviour exactly. See #3376.
-    fn effective_action_dir(&self) -> PathBuf {
-        crate::openhuman::agent::harness::current_action_dir_override()
-            .unwrap_or_else(|| self.action_dir.clone())
-    }
-
+    /// Returns the per-worker git-worktree checkout when the tinyagents harness
+    /// threaded a [`WorkspaceDescriptor`] into this call's
+    /// [`ToolExecutionContext`] — an edit-capable worker running with
+    /// `isolation = "worktree"`, whose isolated worktree root is carried on the
+    /// run context (`RunContext::with_workspace`) and surfaced per tool call via
+    /// `ToolExecutionContext::from_run_context`. Otherwise falls back to the
+    /// tool's configured `action_dir`, which preserves the non-isolated
+    /// behaviour exactly. See #3376, #4249 (08.5).
     fn effective_action_dir_for_context(&self, context: Option<&ToolExecutionContext>) -> PathBuf {
         if let Some(workspace) = context.and_then(|ctx| ctx.workspace.as_ref()) {
             tracing::debug!(
@@ -42,7 +40,7 @@ impl GitOperationsTool {
             );
             return workspace.root.clone();
         }
-        self.effective_action_dir()
+        self.action_dir.clone()
     }
 
     /// Sanitize git arguments to prevent injection attacks

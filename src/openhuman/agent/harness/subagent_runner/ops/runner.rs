@@ -179,50 +179,41 @@ pub async fn run_subagent(
         // Install the sub-agent's declared `sandbox_mode` as the active
         // task-local for every tool invocation inside this run.
         //
-        // When the worker opted into git-worktree isolation, also install
-        // its isolated checkout path as the `action_dir` override so acting
-        // tools (shell, git) operate inside that worktree instead of the
-        // shared `Config.action_dir`. When `worktree_action_dir` is `None`
-        // (the default / non-isolated path), no override scope is entered and
-        // behaviour is unchanged.
+        // When the worker opted into git-worktree isolation, its isolated
+        // checkout is carried on the `WorkspaceDescriptor` prepared below and
+        // threaded onto the run's tinyagents `RunContext`
+        // (`run_turn_via_tinyagents_shared` → `RunContext::with_workspace`).
+        // Every tool call then receives it via
+        // `ToolExecutionContext::from_run_context`, so acting tools (shell, git)
+        // resolve their CWD to that worktree (`effective_action_dir_for_context`)
+        // instead of the shared `Config.action_dir` — no task-local override
+        // needed. When no descriptor is prepared (the default / non-isolated
+        // path), tools fall through to `security.action_dir` and behaviour is
+        // unchanged.
         let mut parent_for_subagent = parent.clone();
         parent_for_subagent.workspace_descriptor =
             workspace_descriptor_for_subagent(definition, &options, &parent, &task_id);
-        let worktree_action_dir = options.worktree_action_dir.clone().or_else(|| {
-            parent_for_subagent
-                .workspace_descriptor
-                .as_ref()
-                .map(|descriptor| descriptor.root.clone())
-        });
-        if let Some(ref wt_dir) = worktree_action_dir {
+        if let Some(descriptor) = parent_for_subagent.workspace_descriptor.as_ref() {
             tracing::debug!(
                 agent_id = %definition.id,
                 task_id = %task_id,
-                worktree = %wt_dir.display(),
-                "[subagent_runner] installing worktree action_dir override"
+                worktree = %descriptor.root.display(),
+                policy_id = %descriptor.policy_id,
+                "[subagent_runner] worktree-isolated worker: descriptor will route acting-tool CWD"
             );
         }
         let mut outcome = with_spawn_depth(attempted_depth, async {
             with_file_state_agent_id(task_id.clone(), async {
                 with_current_sandbox_mode(definition.sandbox_mode, async {
                     with_parent_context(parent_for_subagent.clone(), async {
-                        let run = run_typed_mode(
+                        Box::pin(run_typed_mode(
                             definition,
                             task_prompt,
                             &options,
                             &parent_for_subagent,
                             &task_id,
-                        );
-                        match worktree_action_dir {
-                            Some(wt_dir) => {
-                                crate::openhuman::agent::harness::with_action_dir_override(
-                                    wt_dir,
-                                    Box::pin(run),
-                                )
-                                .await
-                            }
-                            None => Box::pin(run).await,
-                        }
+                        ))
+                        .await
                     })
                     .await
                 })

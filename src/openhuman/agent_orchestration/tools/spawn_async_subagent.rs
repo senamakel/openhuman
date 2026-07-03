@@ -231,7 +231,6 @@ impl Tool for SpawnAsyncSubagentTool {
                 );
                 workspace.root.clone()
             })
-            .or_else(crate::openhuman::agent::harness::current_action_dir_override)
             .or_else(|| {
                 crate::openhuman::security::live_policy::current()
                     .map(|policy| policy.action_dir.clone())

@@ -48,8 +48,14 @@ they land.
       split before deleting)
 - [ ] crate-internal `harness/spawn_depth_context.rs` (66) — 07.3
       (live recursion guard for nested delegation)
-- [ ] `harness/worktree_context.rs` (74) — 08.5
-      (live crate-internal action-root override for parallel worktrees)
+- [x] `harness/worktree_context.rs` (74) — 08.5
+      (deleted: worktree-isolated workers now resolve CWD from the carried
+      `WorkspaceDescriptor` on `ToolExecutionContext` via
+      `effective_action_dir_for_context`; the subagent runner sets the descriptor
+      on the worker `RunContext` instead of the task-local. Parity tests
+      `shell_uses_workspace_descriptor_root_as_cwd` /
+      `git_resolves_cwd_from_workspace_descriptor` assert descriptor→worktree
+      root and no-descriptor→`security.action_dir`)
 - [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) + five default-only
       non-registry graph modules — 08.4
 - [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 250) — 04.3

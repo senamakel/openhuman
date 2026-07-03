@@ -271,6 +271,21 @@ const RESOURCE_CATALOG: &[PromptResource] = &[
         description: "Sandboxed worker that runs installed skill packages.",
         content: include_str!("../skill_runtime/agent/skill_executor/prompt.md"),
     },
+    // ── Subconscious orchestration wake-graph agents (#4430) ───────────────
+    PromptResource {
+        uri: "openhuman://prompts/agents/frontend_agent",
+        name: "frontend_agent",
+        description: "Subconscious wake-graph worker that normalizes and routes \
+                      an incoming channel message (command detection, reply framing).",
+        content: include_str!("../orchestration/frontend_agent/prompt.md"),
+    },
+    PromptResource {
+        uri: "openhuman://prompts/agents/reasoning_agent",
+        name: "reasoning_agent",
+        description: "Subconscious wake-graph worker that runs the reasoning / \
+                      execution stage of a wake cycle.",
+        content: include_str!("../orchestration/reasoning_agent/prompt.md"),
+    },
 ];
 
 /// Returns the `resources/list` result payload listing every catalog entry.

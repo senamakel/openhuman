@@ -35,14 +35,15 @@ const LOG_PREFIX: &str = "[app_state]";
 const APP_STATE_FILENAME: &str = "app-state.json";
 const CURRENT_USER_REFRESH_TTL: Duration = Duration::from_secs(5);
 // Runtime-status widgets (screen intelligence / local AI / autocomplete /
-// service) tolerate ~10s of staleness. A short TTL (was 2s < the ~2.4s build
-// time) meant the cache was stale before it was even written, so the frontend's
-// ~4s `app_state_snapshot` poll never hit the fast path and every poll re-ran
-// the full 4-way fan-out (issue #4249 profiling: this, combined with the lack
-// of a single-flight gate, pegged ~2 cores and starved the shared tokio runtime
-// the agent harness runs on — the agent's turns stalled 50-100s between model
-// calls even though inference itself was idle).
-const RUNTIME_SNAPSHOT_TTL: Duration = Duration::from_secs(10);
+// service). The real fix for the rebuild stampede (issue #4249 profiling: ~2
+// cores pegged, ~4s `app_state_snapshot` polls each launching their own 4-way
+// fan-out, starving the shared tokio runtime the agent harness runs on) is the
+// single-flight gate below — it collapses N concurrent rebuilds into one. The
+// TTL only controls how often a *coalesced* rebuild runs, so a short window is
+// fine and keeps the runtime status fresh. Kept at 2s so callers that need a
+// post-change snapshot only have to age the cache out briefly (see the
+// `app_state_snapshot_degrades_runtime_service_status_failures` e2e).
+const RUNTIME_SNAPSHOT_TTL: Duration = Duration::from_secs(2);
 const AUTH_FETCH_TIMEOUT: Duration = Duration::from_secs(5);
 const RUNTIME_SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(10);
 const SNAPSHOT_SUB_OP_TIMEOUT: Duration = Duration::from_secs(5);

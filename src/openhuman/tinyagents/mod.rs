@@ -19,7 +19,6 @@
 //! `ask_user_clarification` early-exit pause are all re-wired onto the
 //! tinyagents harness.
 
-mod checkpoint;
 mod convert;
 pub(crate) mod delegation;
 mod embeddings;
@@ -67,7 +66,6 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
 use model::ThinkingForwarder;
 
-pub(crate) use checkpoint::SqlRunLedgerCheckpointer;
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};

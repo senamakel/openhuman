@@ -58,9 +58,13 @@ they land.
       root and no-descriptor→`security.action_dir`)
 - [x] 32 × `agent_registry/agents/*/graph.rs` stubs (~420) + five default-only
       non-registry graph modules — 08.4
-- [ ] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 250) — 04.3
-      (SDK checkpointer is available; live adapter stays until OpenHuman
-      `graph_checkpoints` row migration/expiry replaces the run-ledger schema)
+- [x] `tinyagents/checkpoint.rs` (`SqlRunLedgerCheckpointer`, 250) — 04.3
+      (deleted: durable delegation graphs now checkpoint through the crate
+      `SqliteCheckpointer` at a dedicated `{workspace}/graph_checkpoints.db`.
+      Nothing outside the adapter read the old run-ledger `graph_checkpoints`
+      table, so the DDL was removed and pre-swap rows simply expire — orphaned
+      in-flight tasks are reconciled at boot per 07.2. Delegation + 08.3 durable
+      interrupt/resume + session_db suites green: 18 + 43 passed)
 - [ ] crate-internal `CostBudgetMiddleware` (`tinyagents/middleware.rs`) +
       crate-internal `agent/harness/turn_subagent_usage.rs` (176) task-local — 06
       (live until crate budget/run-tree accounting avoids duplicate

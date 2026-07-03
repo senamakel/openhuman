@@ -7,8 +7,9 @@
 //! with a mock. This module supplies the **production** worker: every stage runs
 //! through [`run_subagent`] (the same dispatch path `spawn_subagent` uses), and
 //! the run is made durable/resumable by checkpointing the typed
-//! [`DelegationState`] to the openhuman session DB through
-//! [`SqlRunLedgerCheckpointer`].
+//! [`DelegationState`] through the crate
+//! [`SqliteCheckpointer`](tinyagents::graph::SqliteCheckpointer) at a dedicated
+//! `graph_checkpoints.db` under the workspace.
 //!
 //! Layering: the delegation *graph* lives in the `tinyagents` adapter seam; this
 //! production glue lives in `agent_orchestration`, which already depends on both
@@ -24,8 +25,8 @@ use crate::openhuman::config::Config;
 use crate::openhuman::tinyagents::delegation::{
     run_delegation, DelegationConfig, DelegationStage, DelegationStageOutput, DelegationState,
 };
-use crate::openhuman::tinyagents::SqlRunLedgerCheckpointer;
 use tinyagents::graph::checkpoint::Checkpointer;
+use tinyagents::graph::SqliteCheckpointer;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 use tinyagents::CancellationToken;
 
@@ -50,8 +51,20 @@ pub(crate) async fn run_subagent_delegation(
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
 ) -> Result<DelegationState, String> {
     let thread_id = format!("delegrun-{}", uuid::Uuid::new_v4());
-    let checkpointer: Arc<dyn Checkpointer<DelegationState>> =
-        Arc::new(SqlRunLedgerCheckpointer::new(config.clone()));
+    // Durable graph checkpoints ride the crate's `SqliteCheckpointer` (issue
+    // #4249, 04.3) at a dedicated `graph_checkpoints.db` under the workspace —
+    // a separate SQLite file from OpenHuman's session-db pool, so the crate's
+    // owned connection never contends on the run-ledger locks. Nothing outside
+    // the retired `SqlRunLedgerCheckpointer` read the old `graph_checkpoints`
+    // run-ledger table, so no row migration is needed: pre-swap in-flight
+    // durable graphs simply expire (orphaned tasks are reconciled at boot per
+    // 07.2). Checkpoint metadata (thread/checkpoint/parent/run ids) stays
+    // inspectable through the crate `Checkpointer` API.
+    let checkpoint_db = config.workspace_dir.join("graph_checkpoints.db");
+    let checkpointer: Arc<dyn Checkpointer<DelegationState>> = Arc::new(
+        SqliteCheckpointer::<DelegationState>::open(&checkpoint_db)
+            .map_err(|e| format!("open durable graph checkpoint store: {e}"))?,
+    );
 
     tracing::info!(
         target: LOG_TARGET,

@@ -556,7 +556,13 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // (`on_progress = None`) turn so the run stays reconstructable, so the
     // EventSink is now created unconditionally — cheap (an empty sink) and, if
     // no consumer subscribes, inert.
-    let events = Some(EventSink::new());
+    //
+    // Mint the durable run id *before* the sink and seed the sink stream prefix
+    // with it (`with_stream_id`), so every persisted observation's `event_id` is
+    // the restart-stable `{run_id}-evt-{offset}` a late-attach replay
+    // reconstructs the timeline from (05.1). The same id keys the journal + status.
+    let journal_run_id = journal::mint_run_id();
+    let events = Some(EventSink::with_stream_id(journal_run_id.as_str()));
 
     let bridge = match (&events, on_progress) {
         (Some(events), Some(tx)) => {
@@ -588,8 +594,17 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // existing progress/global-bus path is untouched. Best-effort and non-fatal
     // — a failure to open/attach the journal returns `None` and the turn runs
     // unaffected. The handle stamps the terminal status once the run returns.
+    // A sub-agent turn records under its task scope as the status thread id, so
+    // `list_by_thread` can enumerate a task's runs (full parent/root lineage is
+    // a 05.2/05.3 follow-up).
+    let journal_thread_id = subagent_scope
+        .as_ref()
+        .map(|scope| tinyagents::harness::ids::ThreadId::new(scope.task_id.clone()));
     let turn_journal = match &events {
-        Some(events) => journal::attach_turn_journal(events, model).await,
+        Some(events) => {
+            journal::attach_turn_journal(events, model, journal_run_id.clone(), journal_thread_id)
+                .await
+        }
         None => None,
     };
 

@@ -1055,10 +1055,11 @@ impl Agent {
             if agent_id == "integrations_agent" && tool_dispatcher.should_send_tool_specs() {
                 log::info!(
                     "[agent::builder] integrations_agent: overriding native tool dispatcher with \
-                     XmlToolDispatcher (native mode hits provider grammar-rule limits on \
-                     large Composio toolkits)"
+                     PFormatToolDispatcher (native mode hits provider grammar-rule limits on \
+                     large Composio toolkits; p-format keeps the in-prompt catalogue compact \
+                     and still parses JSON-in-tag fallbacks)"
                 );
-                Box::new(XmlToolDispatcher)
+                Box::new(PFormatToolDispatcher::new(pformat_registry.clone()))
             } else {
                 tool_dispatcher
             };

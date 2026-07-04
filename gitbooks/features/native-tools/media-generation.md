@@ -25,7 +25,7 @@ The tools submit the job and then poll on a 4-second cadence (up to 180 s for im
 
 ## Privacy
 
-Prompts and reference media for these tools are sent to the OpenHuman backend and on to the hosted media provider — this is disclosed in the in-app capability catalog (`intelligence.image_generation` / `intelligence.video_generation`, both Beta). If you run [Privacy Mode](../privacy-and-security.md) in local-only, cloud media generation is unavailable like any other cloud inference.
+Prompts and reference media for these tools are sent to the OpenHuman backend and on to the hosted media provider — this is disclosed in the in-app capability catalog (`intelligence.image_generation` / `intelligence.video_generation`, both Beta). Note that [Privacy Mode](../privacy-mode.md)'s local-only enforcement currently covers **inference providers only** — the media tools still call the backend, so avoid using them if you need strict no-egress today; extending enforcement to integrations and network tools is a planned later slice.
 
 ## See also
 

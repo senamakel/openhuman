@@ -1,8 +1,8 @@
 ---
 description: >-
-  Personal AI assistant for your desktop. Connects to 118+ services, builds a
-  local-first memory of your life, self-reflects, and can interact with you
-  over audio and video.
+  Personal AI super intelligence for your desktop: a brain that builds a
+  local-first memory of your life, a fantastic orchestrator of agent fleets and
+  workflows, and a deep researcher across 118+ connected services.
 icon: diamond
 ---
 
@@ -10,7 +10,7 @@ icon: diamond
 
 <figure><img src=".gitbook/assets/demo.png" alt=""><figcaption></figcaption></figure>
 
-OpenHuman is an open-source AI assistant designed to be the **memory**, **doer**, and **orchestrator** for everything you do across your tools. Built on Rust + Tauri and licensed under GNU GPL3, it closes the gap between what AI models can do and what they actually know about _you_ — and it doesn't just run one agent in one loop: it [orchestrates](features/orchestration.md) durable agent graphs, visual workflows, sub-agent fleets, and end-to-end encrypted agent-to-agent sessions.
+OpenHuman is an open-source AI assistant built to be three things most assistants aren't: **a brain** — a persistent, local, readable memory of your world; **a fantastic orchestrator** — durable agent graphs, visual workflows, sub-agent fleets, and [end-to-end encrypted agent-to-agent sessions](features/orchestration.md); and **a deep researcher** — it sweeps your data and the web before you finish asking. Built on Rust + Tauri, licensed under GNU GPL3.
 
 Every model in the world, all 200+ of them, shares the same fundamental limitation: they are stateless. You type a prompt, get a response, and the context evaporates. Even the ones with "memory" store a few bullet points. A few bullet points is a sticky note, not intelligence.
 

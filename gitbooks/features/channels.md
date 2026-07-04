@@ -51,7 +51,7 @@ WhatsApp also has an experimental peer-to-peer variant behind the `whatsapp-web`
 
 Telegram is the most fully featured channel — it supports typing indicators and live draft updates, and is currently the only channel wired to a per-channel approval surface, so `Prompt`-class tool calls can be answered inline rather than parked. Discord adds native threaded replies; Lark also threads. Web supports rich text and stays entirely local.
 
-**Email deserves a special mention**: it is a fully **native, self-hosted connector** — no third-party broker in the loop. Inbound mail arrives over IMAP with **IMAP IDLE** push (new mail reaches the agent in seconds, with the connection refreshed every ~29 minutes per the RFC), and replies go out over SMTP with full attachment/multipart support, from your own address on any provider you configure. An `allowed_senders` allowlist is the inbound security gate — empty means deny-all, so strangers can't prompt your agent by emailing it.
+**Email deserves a special mention**: it is a fully **native, self-hosted connector** — no third-party broker in the loop. Inbound mail arrives over IMAP with **IMAP IDLE** push (new mail reaches the agent in seconds, with the connection refreshed every ~29 minutes per the RFC), and replies go out over SMTP with full attachment/multipart support, from your own address on any provider you configure. An `allowed_senders` allowlist is the inbound security gate — set it explicitly to the addresses you trust. (In `config.toml` an empty list means deny-all, but the Connections UI defaults a blank field to `["*"]` — allow **any** sender — so don't leave it blank if strangers shouldn't be able to prompt your agent by email.)
 
 ***
 

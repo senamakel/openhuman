@@ -476,7 +476,7 @@ A breaker halt at the top level is likewise never a silent finish: the turn's fi
 
 ## Journals, replay, and migration shadows
 
-Every run appends to a durable **event journal** (`tinyagents/journal.rs`): a `StoreEventJournal` over a JSONL append store at `{workspace}/tinyagents_store/journal`, composed as `FanOutSink` (live bridge + journal) → `RedactingSink` (credential masking before persistence), with restart-stable event ids (`{run_id}-evt-{offset}`). Even an unobserved background turn is reconstructable after the fact. Three read-only RPCs expose it: `agent_run_events` (paged, late-attach replay by `run_id`/`offset`/`limit`), `agent_run_status` (latest harness status), and `agent_run_list` (active runs, filterable by thread or root run).
+Every run appends to a durable **event journal** (`tinyagents/journal.rs`): a `StoreEventJournal` over a JSONL append store at `{workspace}/tinyagents_store/journal`, composed as `FanOutSink` (live bridge + journal) → `RedactingSink` (credential masking before persistence), with restart-stable event ids (`{run_id}-evt-{offset}`). Even an unobserved background turn is reconstructable after the fact. Three read-only RPCs expose it: `agent_run_events` (paged, late-attach replay by `run_id`/`offset`/`limit`), `agent_run_status` (latest harness status), and `agent_runs_active` (active runs, filterable by thread or root run).
 
 The remaining store cutover runs on **shadow scaffolding** (product behavior unchanged; divergences logged):
 

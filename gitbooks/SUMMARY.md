@@ -34,6 +34,7 @@
 * [Third-party Integrations (118+)](features/integrations/README.md)
   * [Triggers](features/integrations/triggers.md)
   * [MCP Servers & Skills](features/integrations/mcp-and-skills.md)
+* [The Orchestrator](features/orchestration.md)
 * [Workflows](features/workflows.md)
 * [Messaging Channels](features/channels.md)
 * [SuperContext](features/super-context.md)

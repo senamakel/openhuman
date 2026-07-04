@@ -174,6 +174,17 @@ In just one sync pass, the agent has full (compressed) context of your inbox, yo
 
 Already self-host [agentmemory](https://github.com/rohitg00/agentmemory) across other coding agents? OpenHuman ships an optional `Memory` backend that proxies to it — set `memory.backend = "agentmemory"` in `config.toml` and the same durable store powers OpenHuman alongside Claude Code, Cursor, Codex, and OpenCode. See the [agentmemory backend](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/agentmemory-backend) page for setup.
 
+## An orchestrator, not a chatbot
+
+The biggest difference between OpenHuman and other harnesses isn't any single feature — it's the execution model. Claude Code, OpenClaw, and Hermes run **one agent in one loop**. OpenHuman is built as an **[orchestrator](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**:
+
+- **Graphs, not loops** — turns compile to state-machine graphs on [tinyagents](https://github.com/tinyhumansai/tinyagents) (`plan → execute ⇄ review → finalize`, phase DAGs, map-reduce fan-out) with durable checkpointing: pause for a human, survive a restart, resume mid-run.
+- **Sub-agent fleets** — spawn specialists up to 3 levels deep, reuse idle workers, route each to the right model tier — with circuit breakers so a stuck agent hands back a root cause, never silence.
+- **Workflows you can see** — the agent proposes [tinyflows](https://github.com/tinyhumansai/tinyflows) graphs you review on a canvas; runs are durable, trigger-driven, and approval-gated.
+- **An always-on split brain** — a fast reflex agent triages inbound traffic while a deep reasoning core does the work, steered by the subconscious loop.
+- **Agent-to-agent, encrypted** — OpenHuman instances orchestrate each other over **Signal-protocol E2E-encrypted** sessions with consent-based pairing and x402 payments. No server sees plaintext.
+- **Next: RLMs** — language-based workflows where the model writes its own orchestration code in a sandboxed REPL. The graph engine and trust model above are the substrate.
+
 ## OpenHuman vs Other Agent Harnesses
 
 High-level comparison (products evolve, so verify against each vendor). OpenHuman is built to **minimize vendor sprawl**, keep **workflow knowledge on-device**, and give the agent a **persistent memory** of your data, not only chat.
@@ -186,6 +197,7 @@ High-level comparison (products evolve, so verify against each vendor). OpenHuma
 | **Memory**           | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Memory Tree + Obsidian vault, optional [agentmemory](https://github.com/rohitg00/agentmemory) backend |
 | **Integrations**     | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills |
 | **Auto-fetch**       | 🚫 None           | 🚫 None           | 🚫 None           | ✅ 20-min sync into memory         |
+| **Orchestration**    | ⚠️ Sub-tasks      | ⚠️ Single loop    | ⚠️ Single loop    | 🚀 Agent graphs + checkpoints + E2E-encrypted A2A |
 | **Workflows**        | 🚫 None           | ⚠️ Scripts        | ⚠️ Scripts        | 🚀 Visual, durable, agent-proposed, approval-gated |
 | **Meetings**         | 🚫 None           | 🚫 None           | 🚫 None           | 🚀 Joins Meet/Zoom/Teams/Webex, speaks, live transcript |
 | **Messaging channels** | 🚫 None         | ⚠️ A few          | ⚠️ A few          | ✅ 17 incl. native email (IMAP/SMTP) |

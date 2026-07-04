@@ -6692,8 +6692,6 @@ dependencies = [
 [[package]]
 name = "tinyflows"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17ea75c3f90edabea59dc15f5a43d290bc4175bc6f1e2e930da32a304a5844d9"
 dependencies = [
  "async-trait",
  "futures-timer",
@@ -9053,3 +9051,7 @@ checksum = "27bc9d5b815bc103f142aa054f561d9187d191692ec7c2d1e2b4737f8dbd7296"
 dependencies = [
  "zune-core",
 ]
+
+[[patch.unused]]
+name = "tinycortex"
+version = "0.1.1"

@@ -29,6 +29,7 @@ pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 mod policy_denial;
+pub(crate) mod replay;
 pub(crate) mod retriever;
 mod routes;
 mod run_cancellation_context;
@@ -46,8 +47,8 @@ use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
 use tinyagents::harness::middleware::{
-    ContextCompressionMiddleware, MessageTrimMiddleware, PromptCacheGuardMiddleware,
-    ToolPolicyMiddleware as TaToolPolicyMiddleware,
+    BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware, MessageTrimMiddleware,
+    PromptCacheGuardMiddleware, ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
@@ -1338,10 +1339,51 @@ fn assemble_turn_harness(
     let tool_policies = harness.tools().policies();
     context_mw.install(&mut harness, tool_policies);
 
-    // Pre-call cost budget gate (issue #4249, Phase 5): fail before a model call
-    // when OpenHuman's daily/monthly cost budget is already exceeded. Self-gating
-    // — a no-op unless cost budgets are configured.
-    harness.push_middleware(Arc::new(middleware::CostBudgetMiddleware));
+    // Observe-only crate `BudgetMiddleware` (W2-budget-dedupe / workstream 06).
+    // Installed with empty `BudgetLimits` so it NEVER enforces or halts: its
+    // `before_model` preflight has no configured limit to trip, and its
+    // `after_model` only folds each call's usage into its shared `BudgetTracker`.
+    // It also re-emits `AgentEvent::UsageRecorded` per call (on top of the
+    // runtime's own emit); the event bridge dedupes those by model-call iteration
+    // so the global cost tracker still records each call exactly once (see
+    // `observability::OpenhumanEventBridge::record_usage`). Enforcement STAYS with
+    // the local `CostBudgetMiddleware` below (authoritative: reads the global
+    // daily/monthly `CostTracker`).
+    //
+    // FLIP CRITERIA — what must hold before the crate `BudgetMiddleware` becomes
+    // the enforcing owner and the local `CostBudgetMiddleware` + the
+    // `agent/harness/turn_subagent_usage.rs` task-local are DELETED (deletion
+    // ledger row: "crate-internal CostBudgetMiddleware + turn_subagent_usage.rs
+    // task-local", `docs/tinyagents-full-migration-plan/99-deletion-ledger.md`):
+    //   1. ≥ 500 production turns across BOTH parent and sub-agent runs with
+    //      ZERO `[budget_shadow]` divergence log lines — proving the crate
+    //      tracker's per-run token accounting matches the authoritative runtime
+    //      `AgentRun.usage` on every model call.
+    //   2. A pricing table wired via `BudgetMiddleware::with_pricing(..)` at
+    //      parity with `cost::catalog::estimate_cost_usd`, so the crate can own
+    //      MONEY (USD) budgets. Today the shadow compares TOKENS only (the
+    //      observe-only crate middleware has no pricing, so its cost stays $0)
+    //      and the local gate is the sole money-budget authority.
+    //   3. Run-tree rollup wired: the same shared `BudgetTracker` handed to every
+    //      sub-agent harness so a parent budget halts a recursive run pre-spend —
+    //      replacing the `turn_subagent_usage` parent-turn rollup (06-cost step 3
+    //      / 07.2 TaskStore rollup).
+    // Until all three hold, this middleware is observe-only and the local gate
+    // enforces.
+    let shadow_budget = Arc::new(BudgetMiddleware::new(BudgetLimits::default()));
+    let shadow_budget_tracker = shadow_budget.tracker();
+    harness.push_middleware(shadow_budget);
+
+    // Pre-call cost budget gate (issue #4249, Phase 5) — AUTHORITATIVE
+    // enforcement: fail before a model call when OpenHuman's daily/monthly cost
+    // budget is already exceeded. Self-gating — a no-op unless cost budgets are
+    // configured. Demoted to a divergence-logging shadow owner (W2-budget-dedupe):
+    // it keeps enforcing exactly as before, but ALSO compares its per-run token
+    // accounting against the observe-only crate `BudgetMiddleware` above at end of
+    // run and logs `[budget_shadow]` parity/divergence.
+    harness.push_middleware(Arc::new(middleware::CostBudgetMiddleware::with_shadow(
+        shadow_budget_tracker,
+    )));
 
     // Autocompaction parity: when the provider's context window is known, install
     // the two-stage context-management step (issue #4249).

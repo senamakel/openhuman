@@ -78,9 +78,9 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     // intentionally NOT rendered here. Its text is written around `pwd`
     // and `shell` ("that is where shell runs"), and the orchestrator has
     // no shell — teaching it invited calls to a tool outside its scope.
-    // The orchestrator's own prompt.md covers its direct file surface
-    // (file_read/grep/glob/edit/file_write) and when to escalate to
-    // `run_code` instead.
+    // The orchestrator's own prompt.md covers its read-only direct file
+    // surface (file_read/grep/glob/list) and defers every file
+    // modification to `run_code`.
 
     Ok(out)
 }

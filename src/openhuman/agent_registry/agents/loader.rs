@@ -708,24 +708,29 @@ mod tests {
                     "spawn_subagent must not appear — removed in #1141"
                 );
                 assert!(!tools.iter().any(|t| t == "call_memory_agent"));
-                // Shell stays out — repo-scale work (build/test/git/run)
-                // routes to `run_code`.
-                assert!(!tools.iter().any(|t| t == "shell"));
-                // Basic direct surface: quick lookups and small user-pointed
-                // edits without spawning a sub-agent per touch.
+                // Write tools and shell stay OUT — the chat-tier
+                // orchestrator must not mutate files or run commands; all
+                // modification is deferred to `run_code` / owning
+                // specialists where edits live next to build/test/verify.
+                for forbidden in ["shell", "edit", "file_write", "apply_patch"] {
+                    assert!(
+                        !tools.iter().any(|t| t == forbidden),
+                        "orchestrator must NOT have write/exec tool `{forbidden}`"
+                    );
+                }
+                // Basic READ-ONLY direct surface: quick lookups without
+                // spawning a sub-agent per touch.
                 for direct in [
                     "file_read",
                     "grep",
                     "glob",
                     "list",
-                    "edit",
-                    "file_write",
                     "web_search_tool",
                     "web_fetch",
                 ] {
                     assert!(
                         tools.iter().any(|t| t == direct),
-                        "orchestrator must have direct tool `{direct}`"
+                        "orchestrator must have read-only direct tool `{direct}`"
                     );
                 }
             }

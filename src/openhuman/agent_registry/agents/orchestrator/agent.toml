@@ -191,17 +191,16 @@ hint = "chat"
 named = [
     "read_workspace_state",
     "ask_user_clarification",
-    # Basic direct surface — lets the orchestrator answer small lookups and
-    # make small, user-pointed file edits itself instead of spawning a
-    # sub-agent for every touch. Deliberately NO `shell`: anything that needs
-    # a build / test / git / run cycle is repo-scale work and still routes to
-    # `run_code` (see prompt.md's code-repo rule).
+    # Basic READ-ONLY direct surface — lets the orchestrator answer small
+    # lookups itself instead of spawning a sub-agent for every touch.
+    # Deliberately NO write tools (`edit` / `file_write`) and NO `shell`:
+    # the chat-tier orchestrator must not mutate files — any modification,
+    # however small, is deferred to `run_code` (or another owning
+    # specialist) where edits live next to the build/test/verify loop.
     "file_read",
     "grep",
     "glob",
     "list",
-    "edit",
-    "file_write",
     # Quick web lookups. A single fact ("what's the capital of X", "latest
     # version of Y") is one `web_search_tool` / `web_fetch` call — spawning
     # the `research` worker for that is overkill. Multi-source crawls,

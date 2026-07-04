@@ -681,6 +681,7 @@ impl EventListener for OpenhumanEventBridge {
                             output: String::new(),
                             elapsed_ms: 0,
                             iteration,
+                            failure,
                         });
                     }
                 }

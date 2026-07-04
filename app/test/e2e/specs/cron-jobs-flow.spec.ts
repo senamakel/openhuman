@@ -105,7 +105,9 @@ async function openCronJobsPanel(): Promise<void> {
 }
 
 describe('Cron jobs settings panel (real UI flow)', () => {
-  before(async () => {
+  before(async function () {
+    // waitForApp() + resetApp() can exceed the default 30s Mocha hook budget.
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);

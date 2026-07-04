@@ -147,7 +147,10 @@ async function waitForHome(timeout = 20_000): Promise<boolean> {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const hash = await currentHash();
-    if (hash.startsWith('#/home')) return true;
+    // Home was merged into the unified chat surface: /home redirects to /chat
+    // (AppRoutes.tsx). Accept either so the wizard's post-finish landing check
+    // survives the IA change.
+    if (hash.startsWith('#/home') || hash.startsWith('#/chat')) return true;
     await pause(400);
   }
   return false;
@@ -254,7 +257,13 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
           await clickTestId('onboarding-runtime-choice-custom');
           await pause(300);
         }
-        await clickOnboardingNext();
+        // Only advance past RuntimeChoice if we're still on that step. In local
+        // session mode RuntimeChoicePage auto-redirects to custom/inference, so
+        // an unconditional Next here over-advances inference→voice (matches the
+        // Phase C guard below).
+        if (await testIdExists('onboarding-runtime-choice-step', 500)) {
+          await clickOnboardingNext();
+        }
       }
     }
     // else: local session mode — already redirected to custom/inference, continue there.
@@ -394,6 +403,13 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
       return true;
     }, want);
     expect(dispatched).toBe(true);
+
+    // Voice Routing was decoupled into staged edit + explicit Save: the select's
+    // onChange only stages `sttProvider` (VoicePanel `onSttProviderChange`);
+    // persistence to config.toml happens on the always-rendered Save button
+    // (`save-voice-routing`, enabled once there are routing changes). Click it so
+    // the staged provider actually writes through.
+    expect(await clickTestId('save-voice-routing')).toBe(true);
 
     // Poll config.toml for the new value.
     let onDisk: string | null = null;

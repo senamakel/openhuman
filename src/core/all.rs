@@ -1019,6 +1019,29 @@ pub fn all_http_method_schemas() -> Vec<HttpMethodSchemaDefinition> {
     methods
 }
 
+/// Shared test helper: assert a domain's controller-schema list and
+/// registered-controller list stay in lockstep, and that a known function is
+/// present. Replaces the brittle `assert_eq!(schemas().len(), N)` magic-number
+/// pattern repeated across ~15 domains (plan.md §3/§6) — a legitimate new
+/// controller no longer breaks the count, but a schema/handler desync or a
+/// dropped op still fails.
+#[cfg(test)]
+pub(crate) fn assert_schema_controller_parity(
+    schemas: &[ControllerSchema],
+    controllers: &[RegisteredController],
+    known_function: &str,
+) {
+    assert_eq!(
+        schemas.len(),
+        controllers.len(),
+        "schema/controller registration lists must stay in lockstep",
+    );
+    assert!(
+        schemas.iter().any(|s| s.function == known_function),
+        "expected a `{known_function}` controller schema to be registered",
+    );
+}
+
 #[cfg(test)]
 #[path = "all_tests.rs"]
 mod tests;

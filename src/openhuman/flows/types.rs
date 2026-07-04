@@ -8,6 +8,33 @@
 use serde::{Deserialize, Serialize};
 use tinyflows::model::WorkflowGraph;
 
+/// How a flow run was started. Stamped onto the run's Langfuse trace as a
+/// `trigger:<kind>` tag plus `trigger` metadata so runs can be filtered by
+/// origin in the Langfuse UI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlowRunTrigger {
+    /// An explicit run request over RPC/CLI (the Workflows UI "Run" button).
+    Rpc,
+    /// A `FlowScheduleTick` cron dispatch (`schedule` trigger node).
+    Schedule,
+    /// A `ComposioTriggerReceived` dispatch (`app_event` trigger node).
+    AppEvent,
+    /// A human-in-the-loop resume of a paused run (`flows_resume`).
+    Resume,
+}
+
+impl FlowRunTrigger {
+    /// Stable snake_case identifier used in Langfuse tags/metadata.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FlowRunTrigger::Rpc => "rpc",
+            FlowRunTrigger::Schedule => "schedule",
+            FlowRunTrigger::AppEvent => "app_event",
+            FlowRunTrigger::Resume => "resume",
+        }
+    }
+}
+
 /// A saved automation workflow: a `tinyflows` graph plus OpenHuman-side
 /// bookkeeping (enablement, run history summary).
 #[derive(Debug, Clone, Serialize, Deserialize)]

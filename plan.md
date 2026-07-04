@@ -280,12 +280,14 @@ untested: `command_checks.rs`, `path_checks.rs`, `encryption/core.rs` have zero 
    0%-lcov backstop protects *changed lines lacking any test*, not *existing tests that would now
    fail*. Low frequency, but worth knowing when a release-PR failure looks "impossible".
 
-### Phase 0 (updated)
+### Phase 0 (updated) — ✅ landed
 
-Unchanged items: wire orphaned tests, add `scripts/**` to PR-lane filters (now also: make
-`scripts/mock-api/**` changes at least trigger the scripts self-test job), WDIO reset hook,
-orphan-check, controller-domain check. **New:** resolve the Playwright `continue-on-error` gate
-bypass (#3615) and adopt a red-release-PR policy (build-cop + revert-first).
+Done in `ci/phase0-test-substrate`: wired orphaned tests (`test:scripts` + `scripts-tests` job,
+`pester-install` job), added `scripts/mock-api/**` + `scripts/*.mjs` to PR-lane filters (mock
+changes now trigger the scripts self-test job), WDIO per-spec-file `/__admin/reset` hook,
+orphan-check + controller-domain check (`generate-test-inventory.mjs` → `test-inventory` job),
+and resolved the Playwright `continue-on-error` gate bypass (#3615, excluded from the gate).
+**Still open (process, not code):** adopt a red-release-PR policy (build-cop + revert-first).
 
 ---
 
@@ -346,31 +348,91 @@ Dimensions the suite (and this audit) currently have **zero** coverage of:
 
 ## 8. Execution plan
 
-**Phase 0 — CI substrate (hours, do immediately)**
-- Wire orphaned tests into CI (`test:scripts`, socket auth/transport, Pester lane).
-- Add `scripts/**` to coverage-gate path filters.
-- Unconditional mock `/__admin/reset` per spec in WDIO.
-- Orphan-check in the inventory generator (test file → CI job mapping).
-- Controller-domain coverage check: every domain in `src/core/all.rs` referenced by ≥1 file in
-  `tests/` (Appendix A.4).
+**Phase 0 — CI substrate (hours, do immediately)** — ✅ landed (PR: `ci/phase0-test-substrate`)
+- [x] Wire orphaned tests into CI (`test:scripts` runs `scripts/__tests__`, `scripts/mock-api`
+  socket auth/transport + route tests; new `scripts-tests` PR-lane job) and a Pester lane
+  (`pester-install` job → `test:install-ps1`).
+- [x] Add `scripts/mock-api/**` + `scripts/*.mjs` (+ `scripts/__tests__/**`) to the PR-lane path
+  filters so mock-backend/script changes trigger the scripts self-tests.
+- [x] Unconditional mock `/__admin/reset` per spec file in WDIO (`beforeSuite`, file-path-guarded).
+- [x] Orphan-check in the inventory generator (`scripts/generate-test-inventory.mjs`, wired as the
+  `test-inventory` PR-lane job via `test:inventory`): every script-level test file is invoked by
+  ≥1 package.json script or workflow.
+- [x] Controller-domain coverage check: every domain in `src/core/all.rs` referenced by ≥1 file in
+  `tests/` (Appendix A.4). 26 currently-uncovered domains seeded into a burn-down allowlist.
+- [x] Resolve the Release CI Gate Playwright `continue-on-error` bypass (§5bis item 1, #3615):
+  `playwright-e2e` excluded from the gate's `needs`/results with an explanatory comment.
 
-**Phase 1 — P0 coverage (1–2 weeks)**
-- Security gate-matrix suite (command_checks/path_checks). 
-- Encryption core round-trip + tamper suite; RPC-integrated variant.
-- `delete_source_rpc` cascade suite.
-- Event-bus panic isolation; webhook flood behavior (or file the product gap).
-- `stop_core_process` debug command + crash-recovery E2E; RPC auth-failure E2E.
+**Phase 1 — P0 coverage** — ⏳ partial (PR: `test/phase1-p0-coverage`). Each item was
+**re-verified against current source first** (the §4 backlog was never skeptic-verified); three
+of the five "ZERO tests" claims turned out **already covered**, so only the genuine gaps were filled.
+- [x] **Encryption core round-trip + tamper suite** — GENUINE GAP (verified 0 prior tests in
+  `encryption/core.rs`). Added 11 tests: bytes/string round-trip, KDF determinism (behavioural —
+  key_bytes is private), wrong-password / different-salt rejection, tampered-ciphertext and
+  tampered-nonce GCM auth failure, fresh-random-nonce-per-call, salt length+randomness,
+  malformed-JSON and empty-plaintext edge cases.
+- [x] **Event-bus panic isolation** — GENUINE GAP (verified: `catch_unwind` in `bus.rs` had no
+  test; only `publish_without_subscribers`). Added a two-subscriber test: one handler panics on its
+  first event then recovers; asserts the panicked handler's own loop survives AND a peer keeps
+  receiving every event.
+- [~] **Security gate-matrix (command_checks/path_checks)** — ALREADY COVERED. `policy_tests.rs`
+  comprehensively tests `classify_command` (unknown⇒Write, redirect-lifts, highest-segment-wins,
+  all classes), `gate_decision` (all tiers × classes + Install), `is_always_forbidden`, and
+  `is_workspace_internal_path`. Plan's "ZERO tests" was inaccurate; no suite added (would duplicate).
+- [~] **`delete_source_rpc` cascade** — ALREADY COVERED. `memory_store/chunks/store_tests.rs` has
+  `delete_source_rpc_purges_document_source_fully`, `_unknown_id_is_idempotent`,
+  `_rejects_empty_source_id`, `_cleans_legacy_partial_delete`, plus the cascade (shared-tree
+  preserved while referenced, orphan cascade, escape-path/symlink rejection, per-owner scoping).
+- [~] **Webhook flood** — PRODUCT GAP (verified: no rate-limit/backpressure/throttle anywhere in
+  `webhooks/router.rs`; it is registration/routing/logging only). Filed as a product gap, not a test.
+- [ ] **core-process crash/recovery E2E** and **RPC bearer-auth-failure E2E** — deferred: both need
+  the Tauri crate (blocked locally by missing system `glib-2.0`) and/or the WDIO desktop harness.
+  `tests/json_rpc_e2e.rs` already covers RPC bearer auth/401s at the transport layer; the remaining
+  gap is the frontend `core_rpc_relay` E2E. To be done in the CI-capable environment.
 
-**Phase 2 — deletions & rewrites (parallel with Phase 1, low risk)**
-- Land §2.1 deletions and §2.2 connector consolidation.
-- Rewrite §3 overfits (preserve the load-bearing assertions flagged by the skeptic pass).
-- Shared helpers: `assert_schema_controller_parity()`, `allowlist_contract_tests!`, envelope-unwrap
-  test helper, connector contract runner.
+**Phase 2 — deletions & rewrites (parallel with Phase 1, low risk)** — ✅ landed (PR: `test/phase2-drops-rewrites`)
+- [x] §2.1 deletions applied (⚠️ items re-verified against source before deleting):
+  useSettingsNavigation.test.tsx, RecoveryPhrasePanel.test.tsx, the 7 graph-api
+  "exposes the public surface" tests, the duplicate root ArtifactCard.test.tsx (unique
+  kind-label assertion ported into `__tests__/`), the it.skip smoke test; Rust:
+  harness_gap datetime test, 4 lib_tests no-ops, 4 factory construct-only tests,
+  3 telemetry emit-no-assert tests, 15 threads/ops_tests title dups (lowercase-hex
+  assertion folded into title.rs), whatsapp 7→1 parameterized skip test; deep_link_ipc
+  refactored to `collect_deep_link_urls_from_args` + real-fn test, vacuous no_primary test dropped.
+- [x] §2.2 connector consolidation: 11 specs → `connector-composio-contract.spec.ts` +
+  `runConnectorContract()`; jira/gmail-composio kept bespoke; misleading `composio_sync`
+  test renamed across the contract + remaining specs.
+- [x] §3 overfit rewrites (load-bearing assertions preserved): grounding wording-lock,
+  identity split (template-compare + labeled brand-voice lock), provider_surfaces parity via
+  new `assert_schema_controller_parity()`, composio catalog input-names, core_process
+  loose-contains (keeps task-slot/shutdown-token asserts), useDaemonLifecycle (keeps
+  listener asserts), ApprovalRequestCard (labeled visual lock), AppWalkthrough (data-testid).
+- [x] Shared helper `assert_schema_controller_parity()` added (`src/core/all.rs`) and the
+  connector contract runner. (`allowlist_contract_tests!` / envelope-unwrap helper: follow-up.)
+- Deferred: §3 gmail-flow fixture fix (needs deterministic mock Gmail-skill seeding validated
+  against a running desktop E2E app — not runnable in the authoring env; §2.3 flagged those
+  tests as load-bearing boot guards, so they were left intact rather than risk an unvalidated
+  E2E change).
 
-**Phase 3 — P1 backlog (2–4 weeks, interleave with feature work)**
-- Approval×turn integration, TransportManager race, socket backoff, hostile webhook payloads,
-  path_scope invariant, web3 tool wiring, threadSlice/accountsSlice, journey spec, Playwright
-  approval mirror.
+**Phase 3 — P1 backlog** — ⏳ partial (PR: `test/phase3-p1-gaps`). Verification-first pass: like §4
+P0, most P1 "untested" claims were **inaccurate against current `main`**. Verified state:
+- [x] **`TransportManager.raceLanAndTunnel`** — GENUINE GAP (the sibling test only covered profile
+  *selection*, never the race). Added a dedicated `TransportManager.race.test.ts`: LAN-wins /
+  tunnel-wins (loser closed), both-fail throws, `reset()` re-race, and winner-caching. Surfaced a
+  real timing quirk: when the first `isHealthy()` to settle is `false`, the
+  `Promise.race`→`Promise.any` fallback grabs that already-fulfilled `null` and throws instead of
+  waiting for a later-healthy peer — worth a production follow-up.
+- [~] ALREADY COVERED (no gap): `composerInteractionBlocked` (ChatComposer + composerSendDecision
+  tests), `threadSlice`/`accountsSlice` (multiple `__tests__`), CustomInference/CustomSearch
+  onboarding pages, AgentAccessPanel (23 tests), and every P2 slice reducer
+  (socket/channelConnections/ptt/providerSurface) + TeamInvites. web3 tool layer has `web3_tests.rs`.
+- [~] NOT A GAP: primary socket-client backoff is delegated to socket.io
+  (`reconnectionAttempts: Infinity`), not custom logic — nothing bespoke to unit-test.
+- [ ] Genuine-but-deferred (need a full Rust build + deep store/parser fixtures, high iteration cost
+  in the authoring env): memory two-source-one-tree `path_scope` invariant; broad hostile-webhook
+  payload matrix (wrong types / deep nesting / oversized) beyond the current missing-field tests;
+  the ~20 controller domains with no `tests/` reference (the Phase 0 inventory allowlist to burn
+  down). Approval×turn integration, journey spec, and the Playwright approval mirror need WDIO/PW.
 
 **Phase 4 — new dimensions (ongoing)**
 - proptest + cargo-fuzz targets; scoped cargo-mutants; jest-axe lane; migration fixture;

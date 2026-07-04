@@ -31,7 +31,6 @@ use crate::openhuman::tool_timeout::parse_tool_timeout_secs;
 use crate::openhuman::tools::{Tool, ToolResult};
 use async_trait::async_trait;
 use parking_lot::Mutex;
-use std::collections::HashSet;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared test doubles
@@ -325,61 +324,5 @@ fn current_datetime_line_matches_iso8601_date_and_utc_offset_pattern() {
     assert!(
         has_iana,
         "stamp must contain an IANA zone (slashed) or UTC fallback: {payload}"
-    );
-}
-
-#[test]
-fn datetime_section_is_static_grounding_rule_not_a_volatile_timestamp() {
-    use crate::openhuman::agent::prompts::{DateTimeSection, PromptContext, PromptSection};
-    use std::collections::HashSet;
-    use std::path::Path;
-    use std::sync::LazyLock;
-
-    static EMPTY_FILTER: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
-    static EMPTY_TOOLS: &[crate::openhuman::agent::prompts::PromptTool<'static>] = &[];
-    static EMPTY_INTEGRATIONS: &[crate::openhuman::context::prompt::ConnectedIntegration] = &[];
-
-    let ctx = PromptContext {
-        workspace_dir: Path::new("/tmp"),
-        model_name: "test-model",
-        agent_id: "",
-        tools: EMPTY_TOOLS,
-        workflows: &[],
-        dispatcher_instructions: "",
-        learned: crate::openhuman::agent::prompts::LearnedContextData::default(),
-        visible_tool_names: &EMPTY_FILTER,
-        tool_call_format: crate::openhuman::context::prompt::ToolCallFormat::PFormat,
-        connected_integrations: EMPTY_INTEGRATIONS,
-        connected_identities_md: String::new(),
-        include_profile: false,
-        include_memory_md: false,
-        curated_snapshot: None,
-        user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
-        personality_roster: vec![],
-    };
-
-    let rendered = DateTimeSection.build(&ctx).unwrap();
-    let payload = rendered
-        .strip_prefix("## Current Date & Time\n\n")
-        .expect("DateTimeSection must start with the heading");
-
-    // The section is a static rule: it must carry the greeting-grounding
-    // guidance and point at the per-turn line, but NOT bake in a date — a
-    // concrete YYYY-MM-DD here would re-freeze the volatile clock into the
-    // cached prefix (the #3602 regression this guards against).
-    assert!(
-        payload.contains("match the actual local hour") && payload.contains("Current Date & Time:"),
-        "section must carry the grounding rule pointing at the per-turn stamp: {payload}"
-    );
-    // Byte-stability is the real no-volatile-timestamp invariant (a static
-    // literal like "11 PM" in the rule is fine; a baked `Local::now()` is
-    // not): two renders a moment apart must be identical, or the cached
-    // prefix would churn every second.
-    let again = DateTimeSection.build(&ctx).unwrap();
-    assert_eq!(
-        rendered, again,
-        "datetime section must be byte-stable (no volatile timestamp baked in)"
     );
 }

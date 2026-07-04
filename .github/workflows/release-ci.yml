@@ -309,7 +309,14 @@ jobs:
       - unit-tests
       - rust-e2e
       - build-playwright-e2e-artifact
-      - playwright-e2e
+      # `playwright-e2e` is intentionally EXCLUDED from the gate. It carries
+      # `continue-on-error: true` (flaky specs, TODO #3615), which makes the
+      # job report `success` to `needs` even when its steps fail — so listing
+      # it here would be a can-never-fail check that only reads as coverage.
+      # Rather than leave it decorative, we drop it from the gate until the
+      # specs are stabilised and the flag removed (#3615); the lane still runs
+      # for signal, and `build-playwright-e2e-artifact` (which CAN fail) stays
+      # gated so a broken web build is still caught.
       - e2e-desktop
     if: always()
     runs-on: ubuntu-latest
@@ -318,11 +325,13 @@ jobs:
       - name: Require all Release CI jobs to pass
         run: |
           set -euo pipefail
+          # NOTE: "Playwright E2E" is deliberately absent — see the needs:
+          # comment above (#3615). Re-add it here once continue-on-error is
+          # removed from the playwright-e2e job.
           declare -A results=(
             ["Full Unit Suites"]="${{ needs['unit-tests'].result }}"
             ["Rust E2E"]="${{ needs['rust-e2e'].result }}"
             ["Build Playwright E2E Artifact"]="${{ needs['build-playwright-e2e-artifact'].result }}"
-            ["Playwright E2E"]="${{ needs['playwright-e2e'].result }}"
             ["Desktop E2E"]="${{ needs['e2e-desktop'].result }}"
           )
 

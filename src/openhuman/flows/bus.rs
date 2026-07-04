@@ -120,7 +120,11 @@ impl FlowTriggerSubscriber {
             tracing::debug!(target: "flows", %flow_id, "[flows] schedule tick for flow whose trigger is no longer `schedule` — ignoring");
             return;
         }
-        self.spawn_run(flow_id.to_string(), Value::Null);
+        self.spawn_run(
+            flow_id.to_string(),
+            Value::Null,
+            crate::openhuman::flows::FlowRunTrigger::Schedule,
+        );
     }
 
     /// `DomainEvent::ComposioTriggerReceived` — scans every enabled flow for
@@ -140,7 +144,11 @@ impl FlowTriggerSubscriber {
         for flow in flows {
             if matches_app_event(&flow, toolkit, trigger_slug) {
                 matched += 1;
-                self.spawn_run(flow.id.clone(), payload.clone());
+                self.spawn_run(
+                    flow.id.clone(),
+                    payload.clone(),
+                    crate::openhuman::flows::FlowRunTrigger::AppEvent,
+                );
             }
         }
         tracing::debug!(target: "flows", %toolkit, %trigger_slug, matched, "[flows] app_event trigger matching complete");
@@ -154,7 +162,12 @@ impl FlowTriggerSubscriber {
     /// Skips the dispatch (see [`try_acquire_dispatch`]) if a trigger-driven
     /// run for this `flow_id` is already in flight, so a fast schedule or a
     /// burst of matching `app_event`s cannot run the same flow concurrently.
-    fn spawn_run(&self, flow_id: String, input: Value) {
+    fn spawn_run(
+        &self,
+        flow_id: String,
+        input: Value,
+        trigger: crate::openhuman::flows::FlowRunTrigger,
+    ) {
         let Some(guard) = self.try_acquire_dispatch(&flow_id) else {
             tracing::debug!(target: "flows", %flow_id, "[flows] trigger: flow already running — skipping this tick");
             return;
@@ -166,7 +179,7 @@ impl FlowTriggerSubscriber {
             // on panic) by `InFlightGuard`.
             let _guard = guard;
             tracing::info!(target: "flows", %flow_id, "[flows] trigger fired — starting run");
-            match crate::openhuman::flows::ops::flows_run(&config, &flow_id, input).await {
+            match crate::openhuman::flows::ops::flows_run(&config, &flow_id, input, trigger).await {
                 Ok(_) => {
                     tracing::info!(target: "flows", %flow_id, "[flows] trigger-driven run finished")
                 }

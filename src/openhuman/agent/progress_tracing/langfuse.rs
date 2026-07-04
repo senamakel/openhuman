@@ -11,12 +11,12 @@
 //! never hold Langfuse keys and never hit `/api/public/ingestion` directly.
 //!
 //! Best-effort: any failure is logged and swallowed by the caller so tracing
-//! never breaks a turn. By default spans carry only metadata (names, kinds,
-//! timings, and non-PII token/cost figures — the latter promoted into Langfuse's
-//! native `usageDetails`/`costDetails`). Prompt text and the model's reply are
-//! withheld unless the operator opts in via
-//! `observability.agent_tracing.capture_content`, preserving the project's
-//! "never log secrets or full PII" default.
+//! never breaks a turn. Spans always carry metadata (names, kinds, timings,
+//! and non-PII token/cost figures — the latter promoted into Langfuse's native
+//! `usageDetails`/`costDetails`). Prompt/reply text and truncated tool I/O
+//! ride along while `observability.agent_tracing.capture_content` is on (its
+//! default); setting it to `false` withholds all content and falls back to
+//! the metadata-only posture.
 
 use std::time::Duration;
 
@@ -82,11 +82,35 @@ fn langfuse_metadata(span: &TraceSpan) -> Value {
     Value::Object(map)
 }
 
+/// Derive the Langfuse `environment` for a backend base URL. Chosen signal:
+/// the resolved backend host is the single existing config-driven fact that
+/// distinguishes deployments (there is no NODE_ENV-style flag in the core
+/// config) — `staging` in the host → staging, loopback/local → development,
+/// anything else → production.
+pub(crate) fn environment_for_base(base: &str) -> &'static str {
+    let lower = base.to_ascii_lowercase();
+    if lower.contains("staging") {
+        "staging"
+    } else if lower.contains("localhost")
+        || lower.contains("127.0.0.1")
+        || lower.contains("0.0.0.0")
+    {
+        "development"
+    } else {
+        "production"
+    }
+}
+
 /// Convert finished spans into a Langfuse `/api/public/ingestion` batch payload:
 /// a single `trace-create` for the shared trace id followed by one
 /// `span-create` observation per span. Field names are Langfuse's camelCase
 /// (`traceId`, `startTime`, `parentObservationId`); timestamps are ISO strings.
-pub(crate) fn spans_to_langfuse_batch(spans: &[TraceSpan], include_content: bool) -> Value {
+/// `environment` lands as the trace's top-level Langfuse environment.
+pub(crate) fn spans_to_langfuse_batch(
+    spans: &[TraceSpan],
+    include_content: bool,
+    environment: &str,
+) -> Value {
     let mut batch: Vec<Value> = Vec::with_capacity(spans.len() + 1);
 
     // One trace-create for the run, keyed by the shared trace id. Prefer the
@@ -100,15 +124,62 @@ pub(crate) fn spans_to_langfuse_batch(spans: &[TraceSpan], include_content: bool
             "id": root.trace_id,
             "name": root.name,
             "timestamp": iso_millis(root.start_unix_ms),
+            // Top-level Langfuse trace fields (not metadata): deployment
+            // environment + the core release that produced the trace.
+            "environment": environment,
+            "release": env!("CARGO_PKG_VERSION"),
         });
         // Attribute the trace to the user and group per-turn traces under the
         // conversation via Langfuse's native `userId`/`sessionId` (read from the
-        // turn span's stamped attributes).
+        // turn span's stamped attributes). Every trace gets a sessionId: the
+        // stamped thread.id when present, else the trace id itself.
         if let Some(user) = root.attributes.get("user.id").and_then(Value::as_str) {
             trace_body["userId"] = json!(user);
         }
-        if let Some(group) = root.attributes.get("thread.id").and_then(Value::as_str) {
-            trace_body["sessionId"] = json!(group);
+        let session = root
+            .attributes
+            .get("thread.id")
+            .and_then(Value::as_str)
+            .unwrap_or(root.trace_id.as_str());
+        trace_body["sessionId"] = json!(session);
+        // Trace-level metadata: transport client, agent attribution, run
+        // origin, and the core version — all secret-free identifiers.
+        let mut trace_meta = Map::new();
+        for key in ["client.id", "agent.id", "channel.source", "gen_ai.provider"] {
+            if let Some(value) = root.attributes.get(key) {
+                trace_meta.insert(key.to_string(), value.clone());
+            }
+        }
+        trace_meta.insert("app.version".to_string(), json!(env!("CARGO_PKG_VERSION")));
+        // Run-type tags so traces filter by kind of run in the Langfuse UI:
+        // `run:<type>` (interactive_chat / autonomous_task / agentbox /
+        // channel_inbound) plus `source:<channel.source>` when known.
+        let mut tags: Vec<String> = Vec::with_capacity(2);
+        if let Some(run_type) = root.attributes.get("run.type").and_then(Value::as_str) {
+            tags.push(format!("run:{run_type}"));
+            trace_meta.insert("run_type".to_string(), json!(run_type));
+        }
+        if let Some(source) = root
+            .attributes
+            .get("channel.source")
+            .and_then(Value::as_str)
+        {
+            tags.push(format!("source:{source}"));
+        }
+        if !tags.is_empty() {
+            trace_body["tags"] = json!(tags);
+        }
+        trace_body["metadata"] = Value::Object(trace_meta);
+        // Trace-level input/output mirror the root turn span's content so the
+        // Langfuse trace list shows the prompt/reply at a glance. Same opt-out
+        // gate as the observations.
+        if include_content {
+            if let Some(input) = &root.input {
+                trace_body["input"] = input.clone();
+            }
+            if let Some(output) = &root.output {
+                trace_body["output"] = output.clone();
+            }
         }
         batch.push(json!({
             "id": new_event_id(),
@@ -132,6 +203,11 @@ pub(crate) fn spans_to_langfuse_batch(spans: &[TraceSpan], include_content: bool
         }
         if let Some(parent) = &span.parent_span_id {
             body["parentObservationId"] = json!(parent);
+        }
+        // Failed spans surface their captured error text as the Langfuse
+        // statusMessage (the collector already truncated + content-gated it).
+        if let Some(message) = span.attributes.get("error.message").and_then(Value::as_str) {
+            body["statusMessage"] = json!(message);
         }
         // Prompt/reply content is transmitted only when the caller opted in
         // (`observability.agent_tracing.capture_content`); otherwise it never
@@ -187,12 +263,30 @@ fn apply_usage_fields(body: &mut Value, span: &TraceSpan) -> bool {
     usage.insert("input".to_string(), json!(input));
     usage.insert("output".to_string(), json!(output));
     usage.insert("total".to_string(), json!(input.saturating_add(output)));
-    if let Some(cached) = attrs
+    // Cache reads always flow into usageDetails (0 included) so the figure is
+    // explicit rather than absent when no cache was hit.
+    let cached = attrs
         .get("gen_ai.usage.cached_input_tokens")
         .and_then(Value::as_u64)
-        .filter(|c| *c > 0)
+        .unwrap_or(0);
+    usage.insert("cache_read_input_tokens".to_string(), json!(cached));
+    // Reasoning + cache-write tokens ride along whenever the span carries them
+    // (the collector stamps them when > 0). Langfuse accepts arbitrary
+    // usageDetails keys.
+    if let Some(reasoning) = attrs
+        .get("gen_ai.usage.reasoning_tokens")
+        .and_then(Value::as_u64)
     {
-        usage.insert("cache_read_input_tokens".to_string(), json!(cached));
+        usage.insert("reasoning_tokens".to_string(), json!(reasoning));
+    }
+    if let Some(cache_write) = attrs
+        .get("gen_ai.usage.cache_creation_tokens")
+        .and_then(Value::as_u64)
+    {
+        usage.insert(
+            "cache_creation_input_tokens".to_string(),
+            json!(cache_write),
+        );
     }
     body["usageDetails"] = Value::Object(usage);
     if let Some(model) = attrs.get("gen_ai.request.model").and_then(Value::as_str) {
@@ -226,7 +320,8 @@ pub(crate) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
     }
     let token = require_live_session_token(config)?;
     let include_content = config.observability.agent_tracing.capture_content;
-    let batch = spans_to_langfuse_batch(spans, include_content);
+    let environment = environment_for_base(&url);
+    let batch = spans_to_langfuse_batch(spans, include_content, environment);
     let span_count = spans.len();
 
     tracing::debug!(
@@ -366,7 +461,7 @@ mod tests {
                 Some(1_500),
             ),
         ];
-        let payload = spans_to_langfuse_batch(&spans, false);
+        let payload = spans_to_langfuse_batch(&spans, false, "production");
         let batch = payload["batch"].as_array().expect("batch array");
         assert_eq!(batch.len(), 3, "one trace-create + two span-create");
 
@@ -420,7 +515,7 @@ mod tests {
 
         // Content OFF (default): span is promoted to a generation with native
         // usage + cost, but prompt/reply are withheld.
-        let off = spans_to_langfuse_batch(&spans, false);
+        let off = spans_to_langfuse_batch(&spans, false, "production");
         let obs = &off["batch"][1];
         assert_eq!(obs["type"], "generation-create");
         assert_eq!(obs["body"]["model"], "claude-x");
@@ -435,7 +530,7 @@ mod tests {
         assert!(obs["body"].get("output").is_none());
 
         // Content ON: prompt/reply included, usage/cost unchanged.
-        let on = spans_to_langfuse_batch(&spans, true);
+        let on = spans_to_langfuse_batch(&spans, true, "production");
         let obs = &on["batch"][1];
         assert_eq!(obs["type"], "generation-create");
         assert_eq!(obs["body"]["input"], "what is 2+2?");
@@ -461,11 +556,258 @@ mod tests {
         turn.attributes.insert("user.id".into(), json!("client-7"));
         turn.attributes
             .insert("thread.id".into(), json!("thread-abc"));
-        let payload = spans_to_langfuse_batch(&[turn], false);
+        let payload = spans_to_langfuse_batch(&[turn], false, "production");
         let trace = &payload["batch"][0];
         assert_eq!(trace["type"], "trace-create");
         assert_eq!(trace["body"]["userId"], "client-7");
         assert_eq!(trace["body"]["sessionId"], "thread-abc");
+    }
+
+    #[test]
+    fn trace_create_session_id_falls_back_to_trace_id() {
+        // No thread.id attribute → the trace id itself becomes the sessionId,
+        // so every trace lands with a session in Langfuse.
+        let turn = span(
+            "trace:req-2",
+            "root",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        let payload = spans_to_langfuse_batch(&[turn], false, "production");
+        assert_eq!(payload["batch"][0]["body"]["sessionId"], "trace:req-2");
+    }
+
+    #[test]
+    fn trace_create_metadata_carries_attribution_and_version() {
+        let mut turn = span(
+            "trace-1",
+            "root",
+            None,
+            "agent.turn:researcher",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        turn.attributes
+            .insert("client.id".into(), json!("socket-abc"));
+        turn.attributes
+            .insert("agent.id".into(), json!("researcher"));
+        turn.attributes
+            .insert("channel.source".into(), json!("chat"));
+        let payload = spans_to_langfuse_batch(&[turn], false, "production");
+        let trace = &payload["batch"][0]["body"];
+        assert_eq!(trace["name"], "agent.turn:researcher");
+        let meta = &trace["metadata"];
+        assert_eq!(meta["client.id"], "socket-abc");
+        assert_eq!(meta["agent.id"], "researcher");
+        assert_eq!(meta["channel.source"], "chat");
+        assert_eq!(meta["app.version"], env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn trace_create_input_output_follow_content_gate() {
+        let mut turn = span(
+            "trace-1",
+            "root",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        turn.input = Some(json!("the prompt"));
+        turn.output = Some(json!("the reply"));
+        let spans = vec![turn];
+
+        let on = spans_to_langfuse_batch(&spans, true, "production");
+        assert_eq!(on["batch"][0]["body"]["input"], "the prompt");
+        assert_eq!(on["batch"][0]["body"]["output"], "the reply");
+
+        let off = spans_to_langfuse_batch(&spans, false, "production");
+        assert!(off["batch"][0]["body"].get("input").is_none());
+        assert!(off["batch"][0]["body"].get("output").is_none());
+    }
+
+    #[test]
+    fn environment_derivation_from_backend_base() {
+        assert_eq!(
+            environment_for_base("https://staging-api.tinyhumans.ai"),
+            "staging"
+        );
+        assert_eq!(environment_for_base("http://localhost:5000"), "development");
+        assert_eq!(environment_for_base("http://127.0.0.1:5000"), "development");
+        assert_eq!(
+            environment_for_base("https://api.tinyhumans.ai"),
+            "production"
+        );
+    }
+
+    #[test]
+    fn trace_create_carries_environment_release_and_run_tags() {
+        let mut turn = span(
+            "trace-1",
+            "root",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        turn.attributes
+            .insert("run.type".into(), json!("autonomous_task"));
+        turn.attributes
+            .insert("channel.source".into(), json!("autonomous"));
+        let payload = spans_to_langfuse_batch(&[turn], false, "staging");
+        let trace = &payload["batch"][0]["body"];
+        // Top-level Langfuse trace fields, not metadata.
+        assert_eq!(trace["environment"], "staging");
+        assert_eq!(trace["release"], env!("CARGO_PKG_VERSION"));
+        // Filterable run tags + run_type metadata.
+        assert_eq!(
+            trace["tags"],
+            json!(["run:autonomous_task", "source:autonomous"])
+        );
+        assert_eq!(trace["metadata"]["run_type"], "autonomous_task");
+    }
+
+    #[test]
+    fn interactive_chat_trace_gets_interactive_run_tag() {
+        let mut turn = span(
+            "trace-1",
+            "root",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        turn.attributes
+            .insert("run.type".into(), json!("interactive_chat"));
+        turn.attributes
+            .insert("channel.source".into(), json!("chat"));
+        let payload = spans_to_langfuse_batch(&[turn], false, "production");
+        let trace = &payload["batch"][0]["body"];
+        assert_eq!(
+            trace["tags"],
+            json!(["run:interactive_chat", "source:chat"])
+        );
+        assert_eq!(trace["metadata"]["run_type"], "interactive_chat");
+    }
+
+    #[test]
+    fn generation_usage_details_map_reasoning_and_cache_tokens() {
+        let mut gen = span(
+            "trace-1",
+            "gen-1",
+            Some("root"),
+            "llm.agentic-v1",
+            SpanKind::Generation,
+            SpanStatus::Ok,
+            1_000,
+            Some(1_500),
+        );
+        gen.attributes.clear();
+        gen.attributes
+            .insert("gen_ai.request.model".into(), json!("agentic-v1"));
+        gen.attributes
+            .insert("gen_ai.usage.input_tokens".into(), json!(1_000));
+        gen.attributes
+            .insert("gen_ai.usage.output_tokens".into(), json!(200));
+        gen.attributes
+            .insert("gen_ai.usage.cached_input_tokens".into(), json!(0));
+        gen.attributes
+            .insert("gen_ai.usage.reasoning_tokens".into(), json!(128));
+        gen.attributes
+            .insert("gen_ai.usage.cache_creation_tokens".into(), json!(64));
+        gen.attributes
+            .insert("gen_ai.usage.cost_usd".into(), json!(0.0042));
+        gen.attributes
+            .insert("gen_ai.provider".into(), json!("managed"));
+
+        let payload = spans_to_langfuse_batch(&[gen], false, "production");
+        let obs = &payload["batch"][1];
+        assert_eq!(obs["type"], "generation-create");
+        let usage = &obs["body"]["usageDetails"];
+        assert_eq!(usage["input"], 1_000);
+        assert_eq!(usage["output"], 200);
+        // Cache reads always flow, even at 0.
+        assert_eq!(usage["cache_read_input_tokens"], 0);
+        assert_eq!(usage["reasoning_tokens"], 128);
+        assert_eq!(usage["cache_creation_input_tokens"], 64);
+        assert_eq!(obs["body"]["costDetails"]["total"], 0.0042);
+        // Provenance rides in observation metadata.
+        assert_eq!(obs["body"]["metadata"]["gen_ai.provider"], "managed");
+    }
+
+    #[test]
+    fn generation_without_reasoning_or_cache_write_omits_those_usage_keys() {
+        let mut gen = span(
+            "trace-1",
+            "gen-1",
+            Some("root"),
+            "llm.agentic-v1",
+            SpanKind::Generation,
+            SpanStatus::Ok,
+            1_000,
+            Some(1_500),
+        );
+        gen.attributes.clear();
+        gen.attributes
+            .insert("gen_ai.usage.input_tokens".into(), json!(10));
+        gen.attributes
+            .insert("gen_ai.usage.output_tokens".into(), json!(5));
+        let payload = spans_to_langfuse_batch(&[gen], false, "production");
+        let usage = &payload["batch"][1]["body"]["usageDetails"];
+        assert_eq!(
+            usage["cache_read_input_tokens"], 0,
+            "cache reads always present"
+        );
+        assert!(usage.get("reasoning_tokens").is_none());
+        assert!(usage.get("cache_creation_input_tokens").is_none());
+    }
+
+    #[test]
+    fn error_span_gets_error_level_and_status_message() {
+        let mut tool = span(
+            "trace-1",
+            "tool-1",
+            Some("root"),
+            "tool.shell",
+            SpanKind::Tool,
+            SpanStatus::Error,
+            1_000,
+            Some(1_200),
+        );
+        tool.attributes
+            .insert("error.message".into(), json!("The command timed out"));
+        let payload = spans_to_langfuse_batch(&[tool], false, "production");
+        let obs = &payload["batch"][1]["body"];
+        assert_eq!(obs["level"], "ERROR");
+        assert_eq!(obs["statusMessage"], "The command timed out");
+
+        // Without a captured message: ERROR level, no statusMessage.
+        let bare = span(
+            "trace-1",
+            "tool-2",
+            Some("root"),
+            "tool.shell",
+            SpanKind::Tool,
+            SpanStatus::Error,
+            1_000,
+            Some(1_200),
+        );
+        let payload = spans_to_langfuse_batch(&[bare], false, "production");
+        let obs = &payload["batch"][1]["body"];
+        assert_eq!(obs["level"], "ERROR");
+        assert!(obs.get("statusMessage").is_none());
     }
 
     #[tokio::test]

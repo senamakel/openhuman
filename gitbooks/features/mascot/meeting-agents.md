@@ -8,7 +8,7 @@ icon: video
 
 # Meeting Agents
 
-The mascot's flagship integration is the **Meeting Agent**: the same character you talk to on your desktop can join a meeting on your behalf — **Google Meet, Zoom, Microsoft Teams, or Webex** — sit in the participant grid as an animated face, hear everyone in the room, talk back into the call with its own voice, and reach for tools while the meeting is happening.
+The mascot's flagship integration is the **Meeting Agent**: the same character you talk to on your desktop can join a meeting on your behalf (**Google Meet, Zoom, Microsoft Teams, or Webex**), sit in the participant grid as an animated face, hear everyone in the room, talk back into the call with its own voice, and reach for tools while the meeting is happening.
 
 It is not a notetaker. A notetaker sits silently and produces a transcript. A meeting agent participates - it answers questions, looks things up live, remembers prior meetings with the same people, and contributes when you (or it) decide it has something useful to add.
 
@@ -73,15 +73,15 @@ The result, in practice, is that participants stop treating it like a bot and st
 
 Everything meeting-related lives on one redesigned page (**Intelligence → Meetings**):
 
-* **Join any platform.** A composer with platform chips — Google Meet / Zoom / Teams / Webex — where the URL placeholder adapts per platform and "Your name" auto-fills from your connected account. Tick *active mode* and the bot answers when addressed (the wake phrase is derived as `Hey {your agent's name}`); leave it off for listen-only.
-* **Live transcript, during the call.** Transcript turns stream into the app in real time while the meeting is running — the in-progress line renders greyed until finalized, then the authoritative final transcript takes over when the call ends.
+* **Join any platform.** A composer with platform chips (Google Meet / Zoom / Teams / Webex) where the URL placeholder adapts per platform and "Your name" auto-fills from your connected account. Tick *active mode* and the bot answers when addressed (the wake phrase is derived as `Hey {your agent's name}`); leave it off for listen-only.
+* **Live transcript, during the call.** Transcript turns stream into the app in real time while the meeting is running. The in-progress line renders greyed until finalized, then the authoritative final transcript takes over when the call ends.
 * **Meeting history, master-detail.** Recent calls (up to 200) sit in a rail; select one for the full detail: platform, participants, duration, an AI **summary** with headline, key points and an action-item checklist, and the complete **transcript**.
 
 ## Calendar auto-join
 
-Connect your Google Calendar once through Recall's hosted OAuth — **read-only scopes only** (`calendar.events.readonly` + your email) — and OpenHuman sees your upcoming meetings and can join them automatically. Bots are still scheduled and owned by OpenHuman (your mascot, your credits), not by a third party.
+Connect your Google Calendar once through Recall's hosted OAuth with **read-only scopes only** (`calendar.events.readonly` + your email), and OpenHuman sees your upcoming meetings and can join them automatically. Bots are still scheduled and owned by OpenHuman (your mascot, your credits), not by a third party.
 
-Auto-join is policy-driven: **ask each time / always / never**, globally and **per platform** (your Zoom standups can auto-join while Teams stays manual). Set a **reply display name** in the defaults drawer and calendar joins come up in reply mode — the bot answers when addressed; leave it unset and calendar joins stay listen-only.
+Auto-join is policy-driven: **ask each time / always / never**, globally and **per platform** (your Zoom standups can auto-join while Teams stays manual). Set a **reply display name** in the defaults drawer and calendar joins come up in reply mode, where the bot answers when addressed. Leave it unset and calendar joins stay listen-only.
 
 ## Wake words that fail closed
 

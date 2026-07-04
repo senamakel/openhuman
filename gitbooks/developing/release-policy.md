@@ -101,7 +101,7 @@ There is no separate `staging` branch, staging cuts and production promotions bo
 2. The run first parks on the **`review-approval`** job (`environment: Release-Approval`); a [required reviewer](#release-app-token-approval-gate-and-rotation) must approve before anything is pushed. Only after approval does `prepare-build` run the bump-and-tag path: bump on `main`, commit `chore(release): vX.Y.Z`, push, tag `vX.Y.Z`, build.
 3. Use this only when a production-only fix needs to ship without going through staging.
 
-> The `staging_tag` promotion path is **not** gated by `review-approval` — it pushes only an immutable `v<version>` tag at an already-validated staging commit, never a commit to `main`. It remains gated by the existing `Production` environment.
+> The `staging_tag` promotion path is **not** gated by `review-approval`: it pushes only an immutable `v<version>` tag at an already-validated staging commit, never a commit to `main`. It remains gated by the existing `Production` environment.
 
 ### Tag policy and rollback
 
@@ -113,7 +113,7 @@ There is no separate `staging` branch, staging cuts and production promotions bo
 
 ## Release App token: approval gate and rotation
 
-The `main_head` path of `release-production.yml` bumps the version, **commits to `main`**, and pushes that commit + tag with a GitHub App token (`secrets.XGITHUB_APP_ID` / `secrets.XGITHUB_APP_PRIVATE_KEY`) that **bypasses branch protection**. A leaked private key (via a log, a compromised action, or a misconfigured runner) would let an attacker push arbitrary commits to the default branch — [CWE-250: Execution with Unnecessary Privileges](https://cwe.mitre.org/data/definitions/250.html). Two controls bound that blast radius.
+The `main_head` path of `release-production.yml` bumps the version, **commits to `main`**, and pushes that commit + tag with a GitHub App token (`secrets.XGITHUB_APP_ID` / `secrets.XGITHUB_APP_PRIVATE_KEY`) that **bypasses branch protection**. A leaked private key (via a log, a compromised action, or a misconfigured runner) would let an attacker push arbitrary commits to the default branch ([CWE-250: Execution with Unnecessary Privileges](https://cwe.mitre.org/data/definitions/250.html)). Two controls bound that blast radius.
 
 ### Manual approval gate
 
@@ -121,9 +121,9 @@ The `review-approval` job runs **before** `prepare-build` and parks the run on t
 
 One-time setup (repo **Settings → Environments**):
 
-1. Create an environment named **`Release-Approval`** (exact name — the workflow references it verbatim).
+1. Create an environment named **`Release-Approval`** (exact name: the workflow references it verbatim).
 2. Under **Deployment protection rules**, enable **Required reviewers** and add the maintainers allowed to authorize a production push to `main`. A reviewer **cannot** approve their own run unless _Prevent self-review_ is left off; for a release gate, keeping a second approver is preferred.
-3. (Optional) Set a short **wait timer** of 0 — the gate is a human decision, not a delay.
+3. (Optional) Set a short **wait timer** of 0. The gate is a human decision, not a delay.
 
 When a `main_head` run starts it shows **"Waiting"** on the `review-approval` job; an approver opens the run and clicks **Review deployments → Approve**. Rejecting (or cancelling) leaves `prepare-build` skipped, so nothing is pushed.
 
@@ -134,7 +134,7 @@ Rotate `XGITHUB_APP_PRIVATE_KEY` **every quarter** (and immediately on any suspe
 1. In the GitHub **App settings** (Org → Settings → Developer settings → GitHub Apps → the release App), under **Private keys** click **Generate a private key**. Download the new `.pem`.
 2. Update the repo secret: **Settings → Secrets and variables → Actions → `XGITHUB_APP_PRIVATE_KEY`** → paste the full new key (including the `-----BEGIN/END-----` lines). `XGITHUB_APP_ID` is unchanged.
 3. Trigger a low-risk verification run (e.g. **Release (Staging)**) and confirm the **Generate GitHub App token** step succeeds and the push authenticates.
-   Do not use `main_head` for this check unless you intentionally want to cut a real bump commit and production tag — even with `create_release = false`, `prepare-build` still bumps the version, commits to `main`, and pushes the release tag.
+   Do not use `main_head` for this check unless you intentionally want to cut a real bump commit and production tag: even with `create_release = false`, `prepare-build` still bumps the version, commits to `main`, and pushes the release tag.
 4. Back in **App settings → Private keys**, **delete the old key** so only the freshly-issued one remains valid.
 5. Record the rotation date (PR description, ops log, or `docs/OPERATIONS.md`) so the next quarter's owner can see when it last happened.
 

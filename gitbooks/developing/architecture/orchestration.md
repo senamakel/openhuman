@@ -30,7 +30,7 @@ Claude Code / Codex session
   UI: Brain → Orchestration tab (orchestration.* RPC + orchestration:message socket)
 ```
 
-## The wake graph (stages 4–5)
+## The wake graph (stages 4 to 5)
 
 One `OrchestrationState` (`graph/state.rs`) flows through the whole cycle and is
 checkpointed at every super-step boundary under thread `orchestration:<session_id>`
@@ -40,14 +40,14 @@ instructions to `execute` and loops back. The reasoning core always sets
 `agent_reply`, so the second front-end pass compiles a `channel_response`; a hard
 `max_supersteps` backstop guarantees termination (spec §5 loop continuity).
 
-Every behaviour-bearing node — the two-pass front end (Quick LLM, `hint:chat`),
-the reasoning core (`hint:reasoning`, spawns worker sub-agents), 20:1 compression,
-the append-only world-state diff, utilization + eviction, and the DM reply — is
-bundled behind one injected `OrchestrationRuntime` (`graph/mod.rs`), so the graph
-mechanics are hermetically unit-testable with a single stub while production wires
-the real agents / store / memory in `ops.rs`.
+Every behaviour-bearing node is bundled behind one injected `OrchestrationRuntime`
+(`graph/mod.rs`): the two-pass front end (Quick LLM, `hint:chat`), the reasoning
+core (`hint:reasoning`, spawns worker sub-agents), 20:1 compression, the
+append-only world-state diff, utilization + eviction, and the DM reply. As a
+result, the graph mechanics are hermetically unit-testable with a single stub
+while production wires the real agents / store / memory in `ops.rs`.
 
-Memory mechanics (spec §3–§4):
+Memory mechanics (spec §3 to §4):
 
 - **`compress`** condenses the cycle's execution trace to a strict `input/20` token
   budget (200-token floor only when still compressive), retry-once-then-truncate,
@@ -55,14 +55,14 @@ Memory mechanics (spec §3–§4):
 - **`world_diff`** appends one entry to an append-only timeline (monotonic `seq`
   from genesis, `terminal_state` kv), idempotent by `cycle_id`.
 - **`context_guard`** runs after all mutations, before END: at ≥
-  `context_evict_threshold` (clamped 0.8–0.9) it evicts the oldest compressed
+  `context_evict_threshold` (clamped 0.8 to 0.9) it evicts the oldest compressed
   entries to memory RAG under `path_scope = orchestration/<session>` and resets
   utilization.
 
 ## The subconscious steering loop (stage 6)
 
 The existing `SubconsciousEngine` tick gains an `orchestration_review` stage that
-runs **fully offline** — a single tool-free provider chat on the `subconscious`
+runs **fully offline**: a single tool-free provider chat on the `subconscious`
 route under `SubconsciousTainted` origin. It reads unreviewed `compressed_history`
 plus the cumulative world-diff timeline and emits at most one dense
 `STEERING_DIRECTIVE` (with `expires_after_cycles`) into the append-only
@@ -70,7 +70,7 @@ plus the cumulative world-diff timeline and emits at most one dense
 each wake cycle `ops::seed_state` bumps a global reasoning-cycle counter and loads
 the current non-expired directive into `state.subconscious_steering`, which the
 `execute` node weaves into its system prompt via a task-local. The subconscious is
-a decoupled writer — never an edge in the wake graph, never a channel/effect.
+a decoupled writer: never an edge in the wake graph, never a channel/effect.
 
 ## RPC + UI (stage 7)
 
@@ -105,4 +105,4 @@ the owner steer the front-end agent from the Master composer.
 
 The `[orchestration]` config block (`src/openhuman/config/schema/orchestration.rs`):
 `enabled`, `debounce_ms`, `max_supersteps`, `message_window`,
-`context_evict_threshold` (clamped 0.8–0.9), `subagent_concurrency`.
+`context_evict_threshold` (clamped 0.8 to 0.9), `subagent_concurrency`.

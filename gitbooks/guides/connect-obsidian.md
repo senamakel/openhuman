@@ -1,7 +1,7 @@
 ---
 description: >-
   Open OpenHuman's memory as an Obsidian vault so you can read, edit, and link
-  the agent's notes by hand — and have it pick up your edits.
+  the agent's notes by hand, and have it pick up your edits.
 icon: book-open
 ---
 
@@ -16,13 +16,13 @@ OpenHuman's memory isn't a black box: the same chunks the agent reasons over are
 ## Prerequisites
 
 * [Obsidian](https://obsidian.md) installed (free).
-* OpenHuman set up with at least one source connected, so there's memory to look at — see [Create my personal AI assistant](personal-assistant.md).
+* OpenHuman set up with at least one source connected, so there's memory to look at. See [Create my personal AI assistant](personal-assistant.md).
 
 ## Privacy implications
 
-* The vault is **local** — it lives in your workspace folder (`…/wiki/`) on your machine. Opening it in Obsidian doesn't upload anything.
+* The vault is **local**. It lives in your workspace folder (`…/wiki/`) on your machine. Opening it in Obsidian doesn't upload anything.
 * Obsidian reads local files directly; no OpenHuman account or backend is involved in browsing the vault.
-* Anything you type into the vault becomes part of what the agent can read on its next ingest — treat it like writing into the assistant's memory.
+* Anything you type into the vault becomes part of what the agent can read on its next ingest. Treat it like writing into the assistant's memory.
 
 ***
 
@@ -51,7 +51,7 @@ Inside the vault you'll find auto-generated summaries organized by source, topic
 
 ### 4. Let the agent pick up your edits
 
-Your changes are read on the next ingest — you don't have to import anything. The agent will see notes you added and links you drew.
+Your changes are read on the next ingest, so you don't have to import anything. The agent will see notes you added and links you drew.
 
 ***
 
@@ -71,10 +71,10 @@ Your changes are read on the next ingest — you don't have to import anything. 
 
 ## Recovery
 
-* The vault is just files. If Obsidian shows something odd, close it and reopen the folder — you can't break OpenHuman by browsing.
+* The vault is just files. If Obsidian shows something odd, close it and reopen the folder. You can't break OpenHuman by browsing.
 * If you deleted a note you wanted, the memory database still holds the underlying chunk; the summary can regenerate.
 
 ## See also
 
-* [Memory](../features/obsidian-wiki/) — how the vault is produced and organized.
-* [Keep sensitive data private](privacy-sensitive-data.md) — why the vault being local is the whole point.
+* [Memory](../features/obsidian-wiki/): how the vault is produced and organized.
+* [Keep sensitive data private](privacy-sensitive-data.md): why the vault being local is the whole point.

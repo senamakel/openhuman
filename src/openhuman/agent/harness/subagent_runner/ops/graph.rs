@@ -398,7 +398,7 @@ pub(super) async fn run_subagent_via_graph(
     // checkpoint (the delegating agent continues from partial progress) rather
     // than surfacing an empty/partial answer — the legacy `SubagentCheckpoint`.
     if outcome.hit_cap {
-        let digest = build_cap_digest(&outcome.conversation);
+        let digest = build_cap_digest(&outcome.conversation, &outcome.tool_outcomes);
         let strategy = super::checkpoint::SubagentCheckpoint {
             provider: summary_provider.as_ref(),
             model: model.to_string(),
@@ -411,8 +411,48 @@ pub(super) async fn run_subagent_via_graph(
         match strategy.summarize_cap_hit(&digest, max_iterations).await {
             Ok(co) => {
                 if let Some(u) = co.usage {
+                    // Fold ALL four token fields (the legacy cap-summary folded
+                    // cached tokens too, not just input/output), then price the
+                    // call and feed the global cost tracker directly (#4467,
+                    // item 2). The checkpoint summary call bypasses the harness so
+                    // the observability bridge never sees it — without this record
+                    // its cached tokens are lost and it costs $0 in the footer /
+                    // transcript meta / cost dashboard.
                     usage.input_tokens += u.input_tokens;
                     usage.output_tokens += u.output_tokens;
+                    usage.cached_input_tokens += u.cached_input_tokens;
+                    let call_cost =
+                        if u.charged_amount_usd.is_finite() && u.charged_amount_usd > 0.0 {
+                            u.charged_amount_usd
+                        } else {
+                            crate::openhuman::cost::catalog::estimate_cost_usd(
+                                model,
+                                u.input_tokens,
+                                u.output_tokens,
+                                u.cached_input_tokens,
+                            )
+                        };
+                    usage.charged_amount_usd += call_cost;
+                    crate::openhuman::cost::record_provider_usage(
+                        model,
+                        &crate::openhuman::inference::provider::UsageInfo {
+                            input_tokens: u.input_tokens,
+                            output_tokens: u.output_tokens,
+                            context_window: u.context_window,
+                            cached_input_tokens: u.cached_input_tokens,
+                            cache_creation_tokens: u.cache_creation_tokens,
+                            reasoning_tokens: u.reasoning_tokens,
+                            charged_amount_usd: call_cost,
+                        },
+                    );
+                    tracing::debug!(
+                        agent_id,
+                        input_tokens = u.input_tokens,
+                        output_tokens = u.output_tokens,
+                        cached_input_tokens = u.cached_input_tokens,
+                        call_cost,
+                        "[subagent] cap-hit summary call folded + priced + recorded into cost tracker (#4467, item 2)"
+                    );
                 }
                 outcome.text = co.text;
             }
@@ -892,9 +932,16 @@ fn mirror_worker_thread_from_history(
 
 /// Build the `tool → outcome` digest the cap-hit summary call summarizes, in the
 /// legacy `- {name} [{ok|failed}]: {output}` format (engine `run_tool_digest`),
-/// pairing each tool result back to its call by id. Tool success isn't carried
-/// on the converted transcript, so results are reported optimistically as `ok`.
-fn build_cap_digest(conversation: &[ConversationMessage]) -> String {
+/// pairing each tool result back to its call by id. Per-tool success is derived
+/// from the turn's captured [`ToolCallOutcome`]s (#4467, item 7) rather than
+/// reported optimistically as `ok`: a result whose call has no captured outcome
+/// — e.g. a hallucinated/unknown tool the crate recovered without running
+/// `after_tool` — is marked `failed`, so the summary no longer tells the model
+/// every call succeeded.
+fn build_cap_digest(
+    conversation: &[ConversationMessage],
+    tool_outcomes: &[crate::openhuman::tinyagents::ToolCallOutcome],
+) -> String {
     use std::collections::HashMap;
     use std::fmt::Write as _;
 
@@ -908,6 +955,12 @@ fn build_cap_digest(conversation: &[ConversationMessage]) -> String {
         }
     }
 
+    // call_id -> success, from the captured per-call outcomes.
+    let success_by_id: HashMap<&str, bool> = tool_outcomes
+        .iter()
+        .map(|o| (o.call_id.as_str(), o.success))
+        .collect();
+
     let mut out = String::new();
     for msg in conversation {
         if let ConversationMessage::ToolResults(results) = msg {
@@ -916,8 +969,15 @@ fn build_cap_digest(conversation: &[ConversationMessage]) -> String {
                     .get(r.tool_call_id.as_str())
                     .copied()
                     .unwrap_or("tool");
+                // Missing outcome → `false` (unknown/hallucinated tool): honest
+                // failed status rather than an optimistic `[ok]`.
+                let ok = success_by_id
+                    .get(r.tool_call_id.as_str())
+                    .copied()
+                    .unwrap_or(false);
+                let tag = if ok { "ok" } else { "failed" };
                 let body = crate::openhuman::util::truncate_with_ellipsis(&r.content, 800);
-                let _ = writeln!(out, "- {name} [ok]: {body}");
+                let _ = writeln!(out, "- {name} [{tag}]: {body}");
             }
         }
     }

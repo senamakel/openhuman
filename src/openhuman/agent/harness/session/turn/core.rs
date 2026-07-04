@@ -75,7 +75,13 @@ fn tool_records_from_conversation(
         if let ConversationMessage::AssistantToolCalls { tool_calls, .. } = msg {
             for call in tool_calls {
                 let outcome = tool_outcomes.iter().find(|o| o.call_id == call.id);
-                let success = outcome.map(|o| o.success).unwrap_or(true);
+                // Default a MISSING outcome to `false` (#4467, item 7): a call
+                // with no captured outcome is a hallucinated/unknown tool the
+                // crate recovered via `ReturnToolError` without running
+                // `after_tool` (so the capture sink never saw it). Recording it as
+                // succeeded misreports the timeline; real executed tools always
+                // have an outcome, so this only flips the genuinely-unknown case.
+                let success = outcome.map(|o| o.success).unwrap_or(false);
                 let output_summary = outcome
                     .map(|o| hooks::sanitize_tool_output(&o.content, &call.name, success))
                     .unwrap_or_default();

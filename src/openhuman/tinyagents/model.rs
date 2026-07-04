@@ -20,7 +20,7 @@ use tinyagents::harness::usage::Usage;
 use tokio::sync::mpsc::{Sender, UnboundedSender};
 
 use super::abort_guard::AbortOnDrop;
-use super::observability::{IterationCursor, SubagentScope, ToolNameMap};
+use super::observability::{IterationCursor, ProviderUsageCarry, SubagentScope, ToolNameMap};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::thread_context::{current_thread_id, with_thread_id};
 use crate::openhuman::inference::provider::{
@@ -351,6 +351,12 @@ pub(super) struct ProviderModel {
     thinking: Option<ThinkingForwarder>,
     /// Preserves the last original provider error for the runner to re-surface.
     error_slot: ProviderErrorSlot,
+    /// FIFO side-channel shared with the event bridge: on each successful chat
+    /// response the adapter pushes the provider `UsageInfo` (which carries the
+    /// backend-charged USD + context window + cache-creation/reasoning tokens
+    /// the crate `Usage` mapping drops), and the bridge pops it when recording
+    /// that call's usage — restoring charged-USD precedence (#4467, item 1).
+    usage_carry: ProviderUsageCarry,
     /// Capability profile derived from the wrapped provider (issue #4249,
     /// Phase 2): lets the crate validate a request against the model's actual
     /// capabilities (vision, tool calling, streaming, token limits) *before*
@@ -406,6 +412,7 @@ impl ProviderModel {
             max_tokens: None,
             thinking: None,
             error_slot: Arc::new(Mutex::new(None)),
+            usage_carry: Arc::default(),
             profile,
         }
     }
@@ -414,6 +421,14 @@ impl ProviderModel {
     /// harness, so the runner can recover the typed provider error on failure).
     pub(super) fn error_slot(&self) -> ProviderErrorSlot {
         self.error_slot.clone()
+    }
+
+    /// Attach the shared provider-usage carry the event bridge drains, so the
+    /// backend-charged USD + context window this adapter observes reach the cost
+    /// accounting (#4467, item 1). Clone the same handle into the bridge.
+    pub(super) fn with_usage_carry(mut self, carry: ProviderUsageCarry) -> Self {
+        self.usage_carry = carry;
+        self
     }
 
     /// Cap the output tokens requested from the provider for every call.
@@ -554,6 +569,16 @@ impl ChatModel<()> for ProviderModel {
                 forwarder.emit(reasoning.clone());
             }
         }
+        // Push this call's provider usage onto the shared carry so the event
+        // bridge records charged USD / context window with provider precedence
+        // (#4467, item 1). One push per successful response, matching the single
+        // `UsageRecorded` the crate emits for this call.
+        if let Some(u) = &response.usage {
+            self.usage_carry
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .push_back(u.clone());
+        }
         Ok(response_to_model_response(&response, &pformat_registry))
     }
 
@@ -578,6 +603,10 @@ impl ChatModel<()> for ProviderModel {
         let max_tokens = self.max_tokens;
         let thinking = self.thinking.clone();
         let error_slot = self.error_slot.clone();
+        // Captured for the spawned producer (task-locals/`self` do not cross the
+        // spawn): the streaming path pushes provider usage onto the same carry
+        // the buffered path uses, so charged USD reaches the bridge (#4467, item 1).
+        let usage_carry = self.usage_carry.clone();
 
         let (item_tx, item_rx) = tokio::sync::mpsc::unbounded_channel::<ModelStreamItem>();
 
@@ -665,6 +694,15 @@ impl ChatModel<()> for ProviderModel {
                                 MessageDelta::reasoning(reasoning.clone()),
                             ));
                         }
+                    }
+                    // Push provider usage onto the shared carry (#4467, item 1),
+                    // mirroring the buffered path — before building the terminal
+                    // item, so it is queued ahead of the crate `UsageRecorded`.
+                    if let Some(u) = &resp.usage {
+                        usage_carry
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner())
+                            .push_back(u.clone());
                     }
                     ModelStreamItem::Completed(response_to_model_response(&resp, &pformat_registry))
                 }

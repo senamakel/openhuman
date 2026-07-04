@@ -76,7 +76,8 @@ pub(crate) use middleware::{
 use model::ProviderModel;
 pub(crate) use observability::SubagentScope;
 use observability::{
-    CapPauser, IterationCursor, OpenhumanEventBridge, ToolFailureMap, ToolNameMap,
+    CapPauser, IterationCursor, OpenhumanEventBridge, ProviderUsageCarry, ToolFailureMap,
+    ToolNameMap,
 };
 pub(crate) use run_cancellation_context::{current_run_cancellation, with_run_cancellation};
 #[cfg(test)]
@@ -444,6 +445,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         cursor,
         tool_names,
         failure_map,
+        provider_usage_carry,
         error_slot,
         halt_summary,
         tool_outcome_sink,
@@ -619,22 +621,30 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     let journal_run_id = journal::mint_run_id();
     let events = Some(EventSink::with_stream_id(journal_run_id.as_str()));
 
-    let bridge = match (&events, on_progress) {
-        (Some(events), Some(tx)) => {
-            let bridge = OpenhumanEventBridge::with_scope(
-                Some(tx),
-                model,
-                max_iterations,
-                subagent_scope.clone(),
-                cursor.clone(),
-                tool_names.clone(),
-                failure_map.clone(),
-            );
-            events.subscribe(bridge.clone());
-            Some(bridge)
-        }
-        _ => None,
-    };
+    // Attach the event bridge for EVERY turn — including an unobserved
+    // (`on_progress = None`) background/cron turn (#4467, item 3). The bridge's
+    // `record_usage` feeds the global cost tracker on each `UsageRecorded` event
+    // *during* the run, so a run that burns N model calls and then fails still
+    // contributes that spend to the wallet/cost surfaces — the post-run
+    // `record_unobserved_turn_usage` fallback below only runs on the success path
+    // and never sees a failed run's usage. With `on_progress = None` the bridge
+    // still records cost but its progress `send`s are inert no-ops, so there is
+    // no spurious streaming. `events` is created unconditionally above, so the
+    // bridge is always present.
+    let bridge = events.as_ref().map(|events| {
+        let bridge = OpenhumanEventBridge::with_scope(
+            on_progress,
+            model,
+            max_iterations,
+            subagent_scope.clone(),
+            cursor.clone(),
+            tool_names.clone(),
+            failure_map.clone(),
+            provider_usage_carry.clone(),
+        );
+        events.subscribe(bridge.clone());
+        bridge
+    });
 
     // Cap pauser: stop gracefully at the model-call budget (returning the partial
     // transcript) so the caller can summarize a checkpoint instead of erroring.
@@ -1028,10 +1038,15 @@ struct AssembledTurnHarness {
     /// writes it on tool-call start; the event bridge reads it to label the
     /// tool-argument fragments it now projects off the crate stream.
     tool_names: ToolNameMap,
-    /// Shared `call_id → (success, failure)` side-channel: the tool-outcome
-    /// capture middleware classifies each outcome; the event bridge reads it to
-    /// project real success + a user-facing failure onto `ToolCallCompleted`.
+    /// Shared `call_id → (success, failure, elapsed_ms, output_chars)`
+    /// side-channel: the tool-outcome capture middleware classifies each outcome
+    /// + records its duration/output size; the event bridge reads it to project
+    /// real success + a user-facing failure + timing onto `ToolCallCompleted`.
     failure_map: ToolFailureMap,
+    /// Shared FIFO carry of per-call provider `UsageInfo` (charged USD + context
+    /// window): the model adapter pushes, the event bridge pops when recording
+    /// usage — restores charged-USD precedence on the tinyagents path (#4467).
+    provider_usage_carry: ProviderUsageCarry,
     /// Recovers the original (downcastable) provider error on run failure.
     error_slot: crate::openhuman::tinyagents::model::ProviderErrorSlot,
     /// Root-cause summary recorded by the repeated-tool-failure breaker.
@@ -1125,10 +1140,16 @@ fn assemble_turn_harness(
     // tool-call start (the crate `ToolDelta` carries none), the bridge reads it
     // to label the argument fragments now streamed via `MessageDelta.tool_call`.
     let tool_names: ToolNameMap = Arc::default();
+    // Shared FIFO carry of per-call provider `UsageInfo`: the model adapter
+    // pushes each successful response's usage (charged USD + context window +
+    // cache-creation/reasoning tokens the crate `Usage` drops), the event bridge
+    // pops it when recording that call's usage (#4467, item 1).
+    let provider_usage_carry: ProviderUsageCarry = Arc::default();
     // Keep a provider handle for the context-window summarizer (the run consumes
     // the other clone into the `ProviderModel`).
     let summary_provider = provider.clone();
-    let mut provider_model = ProviderModel::new(provider, model, temperature);
+    let mut provider_model = ProviderModel::new(provider, model, temperature)
+        .with_usage_carry(provider_usage_carry.clone());
     // Cap the model's per-call output budget (parity with the legacy engine,
     // which bounded the main agent at `AGENT_TURN_MAX_OUTPUT_TOKENS` and each
     // sub-agent at its `max_turn_output_tokens`). Without this the tinyagents
@@ -1718,6 +1739,7 @@ fn assemble_turn_harness(
         cursor,
         tool_names,
         failure_map,
+        provider_usage_carry,
         error_slot,
         halt_summary,
         tool_outcome_sink,

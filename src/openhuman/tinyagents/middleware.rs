@@ -1404,7 +1404,18 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
             ))
         };
         if let Ok(mut map) = self.failure_map.lock() {
-            map.insert(result.call_id.clone(), (success, failure));
+            // Also carry the executor-measured duration + rendered output size so
+            // the event bridge can project real `elapsed_ms`/`output_chars` on
+            // `ToolCallCompleted` instead of `0`/`0` (#4467, item 4).
+            map.insert(
+                result.call_id.clone(),
+                (
+                    success,
+                    failure,
+                    result.elapsed_ms,
+                    result.content.chars().count(),
+                ),
+            );
         }
         if let Ok(mut sink) = self.sink.lock() {
             sink.push(super::ToolCallOutcome {

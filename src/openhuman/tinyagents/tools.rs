@@ -165,6 +165,12 @@ fn tool_policy_from_openhuman_tool(tool: &dyn crate::openhuman::tools::Tool) -> 
         })
 }
 
+/// `session_id` stamped on the per-tool `DomainEvent`s this executor publishes.
+/// The tinyagents adapter carries no per-turn session handle at this seam, so a
+/// stable module label groups its tool-execution telemetry (matches the fixed
+/// `"javascript"` label the node runtime uses for the same events).
+const TINYAGENTS_TOOL_SESSION: &str = "tinyagents";
+
 /// Execute an openhuman [`Tool`](crate::openhuman::tools::Tool) for a harness
 /// [`TaToolCall`] and render the [`TaToolResult`] the way the LLM should see it
 /// (mirrors the live-path `HarnessToolExecutor`).
@@ -181,6 +187,20 @@ async fn execute_openhuman_tool(
         call_id = %call.id,
         workspace_root = workspace_root.as_deref().unwrap_or("none"),
         "[tinyagents] executing openhuman tool via harness adapter"
+    );
+
+    // Measure the real execution duration (#4467, item 4) and re-publish the
+    // per-tool `DomainEvent`s the legacy session loop emitted so SSE consumers
+    // keep per-tool start/complete telemetry on the tinyagents path (#4467,
+    // item 5). `tool_name` is cloned up front because `call.name` is moved into
+    // the `TaToolResult` below.
+    let started = std::time::Instant::now();
+    let tool_name = call.name.clone();
+    crate::core::event_bus::publish_global(
+        crate::core::event_bus::DomainEvent::ToolExecutionStarted {
+            tool_name: tool_name.clone(),
+            session_id: TINYAGENTS_TOOL_SESSION.to_string(),
+        },
     );
 
     // Approval (HITL) now runs in `ApprovalSecurityMiddleware`
@@ -206,10 +226,20 @@ async fn execute_openhuman_tool(
         Some(d) => match tokio::time::timeout(d, exec).await {
             Ok(r) => r,
             Err(_) => {
+                let elapsed_ms = started.elapsed().as_millis() as u64;
                 tracing::warn!(
                     tool = %call.name,
                     timeout_secs,
+                    elapsed_ms,
                     "[tinyagents] tool timed out"
+                );
+                crate::core::event_bus::publish_global(
+                    crate::core::event_bus::DomainEvent::ToolExecutionCompleted {
+                        tool_name: tool_name.clone(),
+                        session_id: TINYAGENTS_TOOL_SESSION.to_string(),
+                        success: false,
+                        elapsed_ms,
+                    },
                 );
                 return TaToolResult {
                     call_id: call.id,
@@ -220,13 +250,14 @@ async fn execute_openhuman_tool(
                     ),
                     raw: None,
                     error: Some(format!("tool '{}' timed out", call.name)),
-                    elapsed_ms: timeout_secs.saturating_mul(1000),
+                    elapsed_ms,
                 };
             }
         },
         None => exec.await,
     };
-    match outcome {
+    let elapsed_ms = started.elapsed().as_millis() as u64;
+    let result = match outcome {
         Ok(result) => {
             let content = result.output_for_llm(true);
             let error = if result.is_error {
@@ -240,7 +271,7 @@ async fn execute_openhuman_tool(
                 content,
                 raw: None,
                 error,
-                elapsed_ms: 0,
+                elapsed_ms,
             }
         }
         Err(e) => {
@@ -251,10 +282,22 @@ async fn execute_openhuman_tool(
                 content: format!("Error executing {}: {e}", call.name),
                 raw: None,
                 error: Some(e.to_string()),
-                elapsed_ms: 0,
+                elapsed_ms,
             }
         }
-    }
+    };
+    // Terminal per-tool telemetry (#4467, item 5): success is derived from the
+    // rendered result's error channel so a tool-reported error surfaces as a
+    // failed completion, mirroring the node-runtime bridge.
+    crate::core::event_bus::publish_global(
+        crate::core::event_bus::DomainEvent::ToolExecutionCompleted {
+            tool_name,
+            session_id: TINYAGENTS_TOOL_SESSION.to_string(),
+            success: result.error.is_none(),
+            elapsed_ms,
+        },
+    );
+    result
 }
 
 /// A harness tool backed by the routes' shared, `Arc`-owned tool registry sets

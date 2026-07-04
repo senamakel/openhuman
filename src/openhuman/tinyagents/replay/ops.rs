@@ -174,9 +174,7 @@ mod tests {
 
     use tinyagents::harness::events::{AgentEvent, EventSink};
     use tinyagents::harness::ids::{ComponentId, HarnessPhase, ThreadId};
-    use tinyagents::harness::observability::{
-        FanOutSink, HarnessEventJournal as _, JournalSink, StoreEventJournal,
-    };
+    use tinyagents::harness::observability::{FanOutSink, JournalSink, StoreEventJournal};
 
     use crate::openhuman::tinyagents::journal::mint_run_id;
 

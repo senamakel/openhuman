@@ -43,7 +43,6 @@ OpenHuman ships with three test layers. Know which one your change belongs in:
 * [**Testing Strategy**](testing-strategy.md). When to write Vitest vs cargo tests vs WDIO.
 * [**E2E Testing**](e2e-testing.md). WDIO/Appium specs, dual-platform setup (Linux tauri-driver, macOS Appium Mac2), and how to run a single spec locally.
 * [**Agent Observability**](agent-observability.md). The artifact-capture layer that makes E2E and agent runs debuggable after the fact.
-* [**Agent Tracing (Langfuse)**](agent-tracing.md). Full-content run tracing: one trace per turn, LLM/tool/sub-agent spans, real token counts and costs, replayable journals.
 
 PRs must clear the **≥ 80% coverage on changed lines** gate. Add tests for new behavior, not just the happy path.
 

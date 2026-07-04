@@ -472,11 +472,11 @@ Three cooperating mechanisms keep runs from wandering or dying silently:
 
 A breaker halt at the top level is likewise never a silent finish: the turn's final text is overridden with the breaker's root-cause summary, and `hit_cap` / `breaker_halt` are surfaced on the turn result.
 
-**Classified tool failures** (`src/openhuman/tool_status/`) — every failed tool call is classified into a transport-agnostic `ClassifiedFailure { class, category, cause_plain, next_action, recoverable }`. Classes cover `MissingPermission`, `MissingApp`, `ServiceUnavailable`, `BadCredentials`, `BlockedByPolicy`, `ModelConnection`, `Timeout`, `Denied`, `ApprovalExpired`; categories map 1:1 to UI states — *recoverable* (safe auto-retry), *blocked by policy* (change settings), *needs user confirmation* (sign in / install / grant), *user declined* (never auto-retried). The classification rides `AgentProgress::ToolCallCompleted.failure` (including for sub-agent calls) into the chat timeline and into [Langfuse spans](../agent-tracing.md).
+**Classified tool failures** (`src/openhuman/tool_status/`) — every failed tool call is classified into a transport-agnostic `ClassifiedFailure { class, category, cause_plain, next_action, recoverable }`. Classes cover `MissingPermission`, `MissingApp`, `ServiceUnavailable`, `BadCredentials`, `BlockedByPolicy`, `ModelConnection`, `Timeout`, `Denied`, `ApprovalExpired`; categories map 1:1 to UI states — *recoverable* (safe auto-retry), *blocked by policy* (change settings), *needs user confirmation* (sign in / install / grant), *user declined* (never auto-retried). The classification rides `AgentProgress::ToolCallCompleted.failure` (including for sub-agent calls) into the chat timeline.
 
 ## Journals, replay, and migration shadows
 
-Every run appends to a durable **event journal** (`tinyagents/journal.rs`): a `StoreEventJournal` over a JSONL append store at `{workspace}/tinyagents_store/journal`, composed as `FanOutSink` (live bridge + journal) → `RedactingSink` (credential masking before persistence), with restart-stable event ids (`{run_id}-evt-{offset}`). Three read-only RPCs — `agent_run_events` (paged replay), `agent_run_status`, `agent_run_list` — expose it; see [Agent Tracing](../agent-tracing.md).
+Every run appends to a durable **event journal** (`tinyagents/journal.rs`): a `StoreEventJournal` over a JSONL append store at `{workspace}/tinyagents_store/journal`, composed as `FanOutSink` (live bridge + journal) → `RedactingSink` (credential masking before persistence), with restart-stable event ids (`{run_id}-evt-{offset}`). Even an unobserved background turn is reconstructable after the fact. Three read-only RPCs expose it: `agent_run_events` (paged, late-attach replay by `run_id`/`offset`/`limit`), `agent_run_status` (latest harness status), and `agent_run_list` (active runs, filterable by thread or root run).
 
 The remaining store cutover runs on **shadow scaffolding** (product behavior unchanged; divergences logged):
 
@@ -491,7 +491,6 @@ The remaining store cutover runs on **shadow scaffolding** (product behavior unc
 ## See also
 
 * [Architecture overview](README.md) - where the harness sits in the bigger picture.
-* [Agent Tracing (Langfuse)](../agent-tracing.md) - the trace/span pipeline these runs emit into.
 * [Memory Tree](../../features/obsidian-wiki/memory-tree.md) - what the memory loader reads from and post-turn hooks write to.
 * [Automatic Model Routing](../../features/model-routing/) - how `model: "hint:reasoning"` resolves to a concrete provider+model.
 * [Native Tools - Agent Coordination](../../features/native-tools/agent-coordination.md) - the user-facing surface for `spawn_subagent`, `delegate_*`, `todo_write`.

@@ -48,8 +48,6 @@ When a run pauses, you get a **Flow Approval Card** in your notifications naming
 * **Run Inspector** — a drawer showing each run step by step: node label, emitted output, and final status, live-polling every 2 seconds until the run finishes.
 * Full **run history** is persisted per flow: status, start/finish times, pending approvals, errors, and reconstructed per-step output.
 
-Workflow runs also export to [Langfuse](../developing/agent-tracing.md) as graph traces — each node becomes a timed span with Agent-Graph-view metadata, so you can inspect a production run node-by-node.
-
 ## RPC surface (for developers)
 
 The `flows` domain (`src/openhuman/flows/`) exposes ten controllers under `openhuman.flows_*`: `create`, `get`, `list`, `update`, `delete`, `set_enabled`, `run`, `resume`, `list_runs`, `get_run`. See the [Agent Harness](../developing/architecture/agent-harness.md) page for how flow runs share the tinyagents execution stack.

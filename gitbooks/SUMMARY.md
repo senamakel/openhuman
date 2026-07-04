@@ -84,7 +84,6 @@
 * [Chromium Embedded Framework](developing/cef.md)
 * [Theming (Token System)](developing/theming.md)
 * [Agent Observability](developing/agent-observability.md)
-* [Agent Tracing (Langfuse)](developing/agent-tracing.md)
 * [Architecture](developing/architecture/README.md)
   * [Agent Harness](developing/architecture/agent-harness.md)
   * [Memory Tree (`src/openhuman/memory_tree/`)](developing/architecture/memory-tree.md)

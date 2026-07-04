@@ -2,7 +2,11 @@
 // Bump version in package.json, Tauri configs, and Cargo.toml manifests.
 //
 // Usage:
-//   node scripts/release/bump-version.js <patch|minor|major>
+//   node scripts/release/bump-version.js <patch|minor|major|X.Y.Z>
+//
+// An explicit `X.Y.Z` sets that exact version (it must be strictly greater
+// than the current one — release tags are immutable). Releases are cut with
+// a manually chosen version; the increment keywords remain for tooling.
 //
 // Outputs (to stdout, one per line):
 //   version=X.Y.Z
@@ -17,8 +21,9 @@ const path = require('path');
 
 const RELEASE_TYPE = process.argv[2] || process.env.RELEASE_TYPE;
 const allowed = new Set(['patch', 'minor', 'major']);
-if (!allowed.has(RELEASE_TYPE)) {
-  console.error(`Usage: bump-version.js <patch|minor|major>  (got: "${RELEASE_TYPE}")`);
+const explicitVersion = /^(\d+)\.(\d+)\.(\d+)$/.exec(RELEASE_TYPE || '');
+if (!allowed.has(RELEASE_TYPE) && !explicitVersion) {
+  console.error(`Usage: bump-version.js <patch|minor|major|X.Y.Z>  (got: "${RELEASE_TYPE}")`);
   process.exit(1);
 }
 
@@ -42,7 +47,21 @@ let minor = Number(match[2]);
 let patch = Number(match[3]);
 
 // ── Bump ────────────────────────────────────────────────────────────────────
-if (RELEASE_TYPE === 'major') {
+if (explicitVersion) {
+  const next = explicitVersion.slice(1, 4).map(Number);
+  const current = [major, minor, patch];
+  const cmp =
+    next[0] !== current[0] ? next[0] - current[0]
+    : next[1] !== current[1] ? next[1] - current[1]
+    : next[2] - current[2];
+  if (cmp <= 0) {
+    console.error(
+      `Explicit version ${RELEASE_TYPE} must be strictly greater than current ${major}.${minor}.${patch}`
+    );
+    process.exit(1);
+  }
+  [major, minor, patch] = next;
+} else if (RELEASE_TYPE === 'major') {
   major += 1; minor = 0; patch = 0;
 } else if (RELEASE_TYPE === 'minor') {
   minor += 1; patch = 0;

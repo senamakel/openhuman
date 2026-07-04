@@ -87,8 +87,9 @@ fi
 
 case "$RELEASE_TYPE" in
   major|minor|patch) ;;
+  [0-9]*.[0-9]*.[0-9]*) ;; # explicit version, forwarded as the `version` input
   *)
-    echo "--release-type must be one of: major, minor, patch" >&2
+    echo "--release-type must be one of: major, minor, patch, or an explicit X.Y.Z" >&2
     exit 1
     ;;
 esac
@@ -150,7 +151,7 @@ jq -n \
   --arg name "$REPO_NAME" \
   '{
     ref: $ref,
-    inputs: { release_type: $rt },
+    inputs: { version: $rt },
     repository: {
       full_name: $full,
       default_branch: "main",
@@ -162,7 +163,7 @@ jq -n \
 
 echo "Workflow: $WORKFLOW"
 echo "Secrets:  $SECRETS_JSON"
-echo "Input:    release_type=$RELEASE_TYPE"
+echo "Input:    version=$RELEASE_TYPE"
 echo "Mode:     $RUN_MODE"
 if [[ -n "$JOB_NAME" ]]; then
   echo "Job:      $JOB_NAME"

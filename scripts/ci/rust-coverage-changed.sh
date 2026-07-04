@@ -88,6 +88,21 @@ for f in "${files[@]}"; do
 "
       log "${f} → libtest filter '${key}'"
       ;;
+    src/*/*)
+      # Non-.rs asset embedded in a domain (e.g. agent prompt markdown under
+      # src/openhuman/agent/prompts/) — scope to that domain's tests.
+      p="${f#src/}"
+      IFS='/' read -r -a segs <<<"${p}"
+      n="${#segs[@]}"
+      if [ "${n}" -ge 3 ]; then
+        key="${segs[0]}::${segs[1]}"
+      else
+        key="${segs[0]}"
+      fi
+      lib_filters_raw="${lib_filters_raw}${key}
+"
+      log "${f} → libtest filter '${key}' (embedded asset)"
+      ;;
     tests/*.rs)
       name="${f#tests/}"
       name="${name%.rs}"

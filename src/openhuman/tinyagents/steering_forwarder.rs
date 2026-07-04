@@ -223,17 +223,23 @@ impl Drop for SteeringForwarderGuard {
         //    Control-flow-only commands (Pause/Resume/Cancel/…) are meaningless
         //    once the run is gone and are intentionally dropped.
         let residual = self.handle.drain();
-        let requeue_texts: Vec<String> = residual
+        let requeue_texts: Vec<(String, QueueMode)> = residual
             .into_iter()
             .filter_map(|cmd| match cmd {
                 SteeringCommand::InjectMessage(msg) => {
                     let text = msg.text();
-                    let recovered = text
-                        .strip_prefix(STEER_PREFIX)
-                        .or_else(|| text.strip_prefix(COLLECT_PREFIX))
-                        .unwrap_or(text.as_str())
-                        .to_string();
-                    Some(recovered)
+                    // The prefix that matched tells us the lane — preserve it so
+                    // a delivered-but-unapplied collect line re-enters as Collect
+                    // (framed `[Additional context from user]:`) rather than being
+                    // re-labeled as user Steer. Default to Steer when neither
+                    // prefix is present (a raw steer that was never framed).
+                    if let Some(rest) = text.strip_prefix(STEER_PREFIX) {
+                        Some((rest.to_string(), QueueMode::Steer))
+                    } else if let Some(rest) = text.strip_prefix(COLLECT_PREFIX) {
+                        Some((rest.to_string(), QueueMode::Collect))
+                    } else {
+                        Some((text.to_string(), QueueMode::Steer))
+                    }
                 }
                 _ => None,
             })
@@ -257,11 +263,11 @@ impl Drop for SteeringForwarderGuard {
             Ok(rt) => {
                 let label = thread_label.clone();
                 rt.spawn(async move {
-                    for text in requeue_texts {
+                    for (text, mode) in requeue_texts {
                         queue
                             .push(QueuedMessage {
                                 text,
-                                mode: QueueMode::Steer,
+                                mode,
                                 client_id: String::new(),
                                 thread_id: label.clone(),
                                 queued_at_ms: now_ms(),

@@ -67,9 +67,12 @@ async fn atomic_write(path: &Path, file: &str, content: &str) -> anyhow::Result<
         "[update_memory_md] atomic write: staging temp file"
     );
 
-    tokio::fs::write(&tmp_path, content)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to stage temp file for {file}: {e}"))?;
+    if let Err(e) = tokio::fs::write(&tmp_path, content).await {
+        // Clean up a partially-written temp file so a failed stage doesn't
+        // litter the workspace (CodeRabbit: temp not cleaned on initial write).
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(anyhow::anyhow!("Failed to stage temp file for {file}: {e}"));
+    }
 
     if let Err(e) = tokio::fs::rename(&tmp_path, path).await {
         // Best-effort cleanup so a failed rename doesn't litter the workspace.

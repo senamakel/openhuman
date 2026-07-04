@@ -24,9 +24,12 @@
 //! ## Privacy
 //!
 //! Spans always carry *metadata* — span names, counts, timings, and
-//! token/cost figures. While `observability.agent_tracing.capture_content` is
-//! on (its default), the turn's prompt/reply and **truncated** tool
-//! arguments/results are additionally recorded as span `input`/`output`;
+//! token/cost figures (model labels are `{provider_id}.{model}`, e.g.
+//! `managed.chat-v1`). While `observability.agent_tracing.capture_content` is
+//! on (its default), content is additionally recorded as span
+//! `input`/`output` — the turn's prompt/reply, each generation's **truncated**
+//! request messages (system prompt included) + completion, **truncated** tool
+//! arguments/results, and each subagent's delegated prompt + final output;
 //! with the flag off, none of that content ever reaches the in-memory span.
 //! Streamed text/thinking deltas (`TextDelta`, `ThinkingDelta`,
 //! `ToolCallArgsDelta`), raw error strings, and filesystem paths are **never**

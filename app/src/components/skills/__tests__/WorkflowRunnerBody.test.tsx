@@ -1,8 +1,8 @@
 /**
  * WorkflowRunnerBody — vitest coverage for the saved-schedules block.
  *
- * Phase 2 of the WorkflowRunnerBody / DevWorkflowPanel unification (see
- * docs/skills-runner-unification.md): this file is seeded with the
+ * Phase 2 of the WorkflowRunnerBody / DevWorkflowPanel unification:
+ * this file is seeded with the
  * smoke-test for the enable/disable toggle so future Phase 3 chunks
  * (run-history, active-config card, smart-issue picker gating) drop
  * additional cases alongside.

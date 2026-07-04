@@ -9,7 +9,10 @@
 //!
 //! - [`MicrocompactMiddleware`] (`before_model`) — clear the bodies of older
 //!   tool-result messages (keeping the N most recent) so a long tool-heavy
-//!   thread stays cheap without dropping chat history.
+//!   thread stays cheap without dropping chat history. This is now the crate
+//!   [`tinyagents::harness::middleware::MicrocompactMiddleware`], constructed
+//!   with OpenHuman's [`CLEARED_PLACEHOLDER`] wording; the in-house copy was
+//!   upstreamed (see `99-deletion-ledger.md`).
 //! - [`ToolOutputMiddleware`] (`after_tool`) — apply the per-tool-result byte
 //!   cap and (optionally) the semantic payload summarizer to each tool result
 //!   as it returns, before it enters the transcript.
@@ -28,8 +31,8 @@ use tinyagents::harness::context::RunContext;
 use tinyagents::harness::events::AgentEvent;
 use tinyagents::harness::message::{ContentBlock, Message as TaMessage};
 use tinyagents::harness::middleware::{
-    AgentRun, ContextualToolSelectionMiddleware, Middleware, MiddlewareToolOutcome,
-    ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
+    AgentRun, BudgetTracker, ContextualToolSelectionMiddleware, MicrocompactMiddleware, Middleware,
+    MiddlewareToolOutcome, ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
 };
 use tinyagents::harness::model::{ModelRequest, PromptSegment, SegmentRole};
 use tinyagents::harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
@@ -268,9 +271,14 @@ impl TurnContextMiddleware {
             }));
         }
         if self.microcompact_keep_recent > 0 {
-            harness.push_middleware(Arc::new(MicrocompactMiddleware {
-                keep_recent: self.microcompact_keep_recent,
-            }));
+            // Crate middleware (upstreamed from the in-house copy). Constructed
+            // with OpenHuman's model-facing placeholder so behavior is
+            // byte-identical to the deleted local version. Events stay off (the
+            // default) to preserve the prior silent-rewrite behavior.
+            harness.push_middleware(Arc::new(MicrocompactMiddleware::new(
+                self.microcompact_keep_recent,
+                CLEARED_PLACEHOLDER,
+            )));
         }
         // Handoff runs BEFORE the tool-output budget so an oversized payload is
         // stashed + replaced with a short placeholder first; the byte cap would
@@ -633,53 +641,6 @@ impl Middleware<()> for PromptCacheSegmentMiddleware {
                 "[cache] declared stable prompt-prefix segments for KV-cache guard"
             );
             request.cache_segments = segments;
-        }
-        Ok(())
-    }
-}
-
-/// `before_model`: clear the bodies of older tool-result messages, keeping the
-/// `keep_recent` most recent verbatim. The graph analogue of
-/// `context::microcompact` — bounds a tool-heavy thread's cost without dropping
-/// any chat turns. Idempotent: an already-cleared body is left as the
-/// placeholder.
-struct MicrocompactMiddleware {
-    keep_recent: usize,
-}
-
-#[async_trait]
-impl Middleware<()> for MicrocompactMiddleware {
-    fn name(&self) -> &str {
-        "microcompact"
-    }
-
-    async fn before_model(
-        &self,
-        _ctx: &mut RunContext<()>,
-        _state: &(),
-        request: &mut ModelRequest,
-    ) -> TaResult<()> {
-        let tool_idxs: Vec<usize> = request
-            .messages
-            .iter()
-            .enumerate()
-            .filter(|(_, m)| matches!(m, TaMessage::Tool(_)))
-            .map(|(i, _)| i)
-            .collect();
-        if tool_idxs.len() <= self.keep_recent {
-            return Ok(());
-        }
-        let cut = tool_idxs.len() - self.keep_recent;
-        for &i in &tool_idxs[..cut] {
-            // Skip messages already reduced to the placeholder; otherwise swap the
-            // body for it (idempotent, preserves the tool_call_id).
-            if request.messages[i].text() == CLEARED_PLACEHOLDER {
-                continue;
-            }
-            if let TaMessage::Tool(t) = &request.messages[i] {
-                let id = t.tool_call_id.clone();
-                request.messages[i] = TaMessage::tool(id, CLEARED_PLACEHOLDER);
-            }
         }
         Ok(())
     }
@@ -1239,6 +1200,25 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        // Enrich a raw security-policy / autonomy block (issue #4094): the ~20
+        // `[policy-blocked]` denials emitted deep in `SecurityPolicy` / the tools
+        // return a bare marker line with no workaround and no relay directive, so
+        // the agent dead-ends. Rewrite the content into the structured
+        // `Blocked / Reason / Workaround / relay` shape here — the last `after_tool`
+        // hook, so the enriched text is what the transcript keeps. The marker is
+        // preserved, and already-structured `ToolPolicyMiddleware` denials (which
+        // carry a `Workaround:` suffix) are left untouched. This runs before
+        // classification below, which still recognises the preserved marker.
+        if let Some(enriched) =
+            super::policy_denial::maybe_enrich_policy_block(&result.name, &result.content)
+        {
+            tracing::debug!(
+                tool = result.name.as_str(),
+                "[tinyagents::mw] enriched raw security-policy block with workaround + relay"
+            );
+            result.content = enriched;
+        }
+
         let success = result.error.is_none();
         // Classify the failure so the live `ToolCallCompleted` event and the
         // persisted timeline can explain it in plain language. A hard
@@ -1448,14 +1428,54 @@ impl Middleware<()> for MemoryProtocolMiddleware {
 /// model call spends (issue #4249, Phase 5). Reads the global
 /// [`CostTracker`](crate::openhuman::cost) and, when cost budgets are configured
 /// and already exceeded, fails the run before the provider call; a warning
-/// threshold logs but proceeds.
+/// threshold logs but proceeds. This enforcement path stays **authoritative**.
 ///
 /// Self-gating: a no-op unless a global tracker exists and `config.enabled` with
 /// a limit is set (`check_budget` returns `Allowed` otherwise). Complements the
 /// post-call `StopHookMiddleware` per-turn USD cap. Projecting the *next* call's
 /// cost pre-spend (vs the already-exceeded check here) needs an input-token
 /// estimate — a follow-up.
-pub(crate) struct CostBudgetMiddleware;
+///
+/// # Shadow role (W2-budget-dedupe)
+///
+/// When built with [`with_shadow`](Self::with_shadow), this middleware is ALSO a
+/// divergence-logging shadow over the observe-only crate
+/// [`BudgetMiddleware`](tinyagents::harness::middleware::BudgetMiddleware). It
+/// keeps enforcing exactly as before, but at `after_agent` it compares the
+/// crate `BudgetMiddleware`'s shared [`BudgetTracker`] accumulation against the
+/// authoritative runtime [`AgentRun::usage`] and logs `[budget_shadow]` parity
+/// or divergence (compact numeric summary; no PII). Both accumulate the same
+/// per-call `response.usage`, so token totals must match once the crate
+/// middleware is on the path — this is the parity signal that must be clean
+/// before enforcement can flip to the crate owner (see the flip-criteria comment
+/// at the registration site in `tinyagents/mod.rs`). Cost is intentionally NOT
+/// compared: the observe-only crate middleware has no pricing table, so its cost
+/// stays zero while the local path prices via `cost::catalog` — cost parity is a
+/// flip-criteria follow-up.
+pub(crate) struct CostBudgetMiddleware {
+    /// Observe-only crate `BudgetMiddleware`'s shared tracker handle, for the
+    /// end-of-run `[budget_shadow]` comparison. `None` when the shadow is not
+    /// installed (isolated unit tests of the enforcement gate).
+    shadow_tracker: Option<BudgetTracker>,
+}
+
+impl CostBudgetMiddleware {
+    /// Enforcement-only gate with no shadow comparison (isolated unit tests).
+    pub(crate) fn new() -> Self {
+        Self {
+            shadow_tracker: None,
+        }
+    }
+
+    /// Enforcement gate that ALSO compares its per-run token accounting against
+    /// the observe-only crate `BudgetMiddleware`'s shared `tracker` at end of run
+    /// and logs `[budget_shadow]` parity/divergence.
+    pub(crate) fn with_shadow(tracker: BudgetTracker) -> Self {
+        Self {
+            shadow_tracker: Some(tracker),
+        }
+    }
+}
 
 #[async_trait]
 impl Middleware<()> for CostBudgetMiddleware {
@@ -1503,6 +1523,56 @@ impl Middleware<()> for CostBudgetMiddleware {
             }
             _ => Ok(()),
         }
+    }
+
+    /// Shadow parity check (W2-budget-dedupe). Enforcement already happened per
+    /// call in `before_model`; here we only observe. Compares the observe-only
+    /// crate `BudgetMiddleware`'s accumulated token spend against the runtime's
+    /// authoritative `AgentRun::usage` and logs `[budget_shadow]` divergence.
+    /// Never fails the run.
+    async fn after_agent(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        run: &mut AgentRun,
+    ) -> TaResult<()> {
+        let Some(tracker) = &self.shadow_tracker else {
+            return Ok(());
+        };
+        let crate_usage = tracker.snapshot().usage; // UsageTotals (crate shadow)
+        let local = run.usage; // UsageTotals (runtime authoritative)
+        let l = &local.usage;
+        let c = &crate_usage.usage;
+        let diverged = l.input_tokens != c.input_tokens
+            || l.output_tokens != c.output_tokens
+            || l.cache_read_tokens != c.cache_read_tokens
+            || l.total_tokens != c.total_tokens
+            || local.calls != crate_usage.calls;
+        if diverged {
+            tracing::warn!(
+                local_calls = local.calls,
+                crate_calls = crate_usage.calls,
+                local_in = l.input_tokens,
+                crate_in = c.input_tokens,
+                local_out = l.output_tokens,
+                crate_out = c.output_tokens,
+                local_cached = l.cache_read_tokens,
+                crate_cached = c.cache_read_tokens,
+                local_total = l.total_tokens,
+                crate_total = c.total_tokens,
+                "[budget_shadow] divergence: crate BudgetMiddleware token accounting differs from authoritative AgentRun.usage"
+            );
+        } else {
+            tracing::debug!(
+                calls = local.calls,
+                input = l.input_tokens,
+                output = l.output_tokens,
+                cached = l.cache_read_tokens,
+                total = l.total_tokens,
+                "[budget_shadow] parity: crate BudgetMiddleware token accounting matches AgentRun.usage"
+            );
+        }
+        Ok(())
     }
 }
 
@@ -1669,9 +1739,19 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
                     hard_reject,
                     "[tinyagents::mw] no-progress nudge — steering the model to change strategy before the retry cap"
                 );
-                // Inject the crate's structured corrective into the working
-                // transcript (advisory system text; bypasses no security gate).
-                self.handle.send(SteeringCommand::Redirect { instruction });
+                // Inject the crate's structured corrective as a system message via
+                // the `InjectMessage` steering lane. This runs on *every* turn,
+                // including the user's live interactive turn, whose steering policy
+                // permits only `InjectMessage`/`Pause` — `Redirect` is Background
+                // (sub-agent) only, so sending it here aborted every interactive
+                // turn that hit the nudge with `steering command redirect is not
+                // permitted by the run policy` (a #4473 migration regression). The
+                // corrective is trusted, system-generated advisory text, so the
+                // `InjectMessage` lane is both permitted and semantically correct.
+                self.handle
+                    .send(SteeringCommand::InjectMessage(TaMessage::system(
+                        instruction,
+                    )));
             }
             NoProgress::Halt(summary) => {
                 // #4092: if the blocker is user-actionable (a missing connection),
@@ -1760,6 +1840,52 @@ mod tests {
             error: None,
             elapsed_ms: 0,
         }
+    }
+
+    // ── ToolOutcomeCaptureMiddleware policy-block enrichment (issue #4094) ───
+
+    fn outcome_capture_mw() -> ToolOutcomeCaptureMiddleware {
+        ToolOutcomeCaptureMiddleware::new(
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+        )
+    }
+
+    #[tokio::test]
+    async fn raw_security_policy_block_is_enriched_with_workaround_and_relay() {
+        let mw = outcome_capture_mw();
+        let mut result = tool_result(
+            "run_command",
+            "[policy-blocked] Security policy: read-only mode — only read commands are allowed",
+        );
+        result.error = Some(result.content.clone());
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        // The bare denial now carries a workaround + relay directive, and keeps the
+        // marker so classification / the loop-breaker still recognise it.
+        assert!(result.content.contains("Workaround:"), "{}", result.content);
+        assert!(result.content.contains("Relay this to the user"));
+        assert!(result
+            .content
+            .contains(crate::openhuman::security::POLICY_BLOCKED_MARKER));
+        assert!(result.content.contains("read-only mode"));
+    }
+
+    #[tokio::test]
+    async fn already_structured_denial_is_not_double_wrapped() {
+        // A ToolPolicyMiddleware-style denial already has "Workaround:"; the capture
+        // middleware must leave it untouched (no second Workaround block).
+        let mw = outcome_capture_mw();
+        let structured =
+            "Blocked: Tool 'x' denied. Reason: nope. Workaround: do y. Relay this to the user: ...";
+        let mut result = tool_result("x", structured);
+        result.error = Some(result.content.clone());
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert_eq!(
+            result.content.matches("Workaround:").count(),
+            1,
+            "must not double-wrap: {}",
+            result.content
+        );
     }
 
     // ── TurnContextMiddleware config ────────────────────────────────────────
@@ -1870,11 +1996,15 @@ mod tests {
         assert_eq!(msgs[0].text(), "only system");
     }
 
-    // ── MicrocompactMiddleware ──────────────────────────────────────────────
+    // ── MicrocompactMiddleware (crate) ──────────────────────────────────────
+    //
+    // These assert the crate `MicrocompactMiddleware`, constructed with
+    // OpenHuman's `CLEARED_PLACEHOLDER`, reproduces the deleted in-house
+    // middleware byte-for-byte — the parity contract for the upstream swap.
 
     #[tokio::test]
     async fn microcompact_clears_older_tool_bodies_and_keeps_recent() {
-        let mw = MicrocompactMiddleware { keep_recent: 1 };
+        let mw = MicrocompactMiddleware::new(1, CLEARED_PLACEHOLDER);
         let mut req = ModelRequest::new(vec![
             TaMessage::system("sys"),
             TaMessage::user("hello"),
@@ -1898,7 +2028,7 @@ mod tests {
 
     #[tokio::test]
     async fn microcompact_is_a_noop_when_within_keep_recent() {
-        let mw = MicrocompactMiddleware { keep_recent: 5 };
+        let mw = MicrocompactMiddleware::new(5, CLEARED_PLACEHOLDER);
         let mut req =
             ModelRequest::new(vec![TaMessage::tool("t1", "A"), TaMessage::tool("t2", "B")]);
         mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
@@ -1908,7 +2038,7 @@ mod tests {
 
     #[tokio::test]
     async fn microcompact_is_idempotent() {
-        let mw = MicrocompactMiddleware { keep_recent: 1 };
+        let mw = MicrocompactMiddleware::new(1, CLEARED_PLACEHOLDER);
         let mut req = ModelRequest::new(vec![
             TaMessage::tool("t1", "FIRST"),
             TaMessage::tool("t2", "SECOND"),
@@ -2028,9 +2158,44 @@ mod tests {
     async fn cost_budget_is_a_noop_without_a_global_tracker() {
         // No global CostTracker is installed in the unit-test process, so the
         // gate self-disables and the model call proceeds.
-        let mw = CostBudgetMiddleware;
+        let mw = CostBudgetMiddleware::new();
         let mut req = ModelRequest::new(vec![TaMessage::user("hi")]);
         assert!(mw.before_model(&mut ctx(), &(), &mut req).await.is_ok());
+    }
+
+    // ── CostBudgetMiddleware shadow (W2-budget-dedupe) ──────────────────────
+
+    /// The shadow comparison at `after_agent` logs parity when the crate
+    /// `BudgetMiddleware`'s tracker matches the runtime `AgentRun.usage`, and
+    /// never fails the run — in both the matching and diverging cases. It also
+    /// must be inert (no panic, `Ok`) when no shadow tracker is installed.
+    #[tokio::test]
+    async fn cost_budget_shadow_after_agent_never_fails_the_run() {
+        use tinyagents::harness::usage::Usage;
+
+        // No shadow tracker: after_agent is a silent no-op.
+        let plain = CostBudgetMiddleware::new();
+        let mut run = AgentRun::new();
+        run.usage.record(Usage::new(100, 40));
+        assert!(plain.after_agent(&mut ctx(), &(), &mut run).await.is_ok());
+
+        // Matching tracker (parity): the crate tracker accumulated the same
+        // single call's usage the runtime recorded into `run.usage`.
+        let tracker = BudgetTracker::new();
+        tracker.record(Usage::new(100, 40), Default::default());
+        let shadow = CostBudgetMiddleware::with_shadow(tracker.clone());
+        let mut run = AgentRun::new();
+        run.usage.record(Usage::new(100, 40));
+        assert!(shadow.after_agent(&mut ctx(), &(), &mut run).await.is_ok());
+
+        // Diverging tracker (crate missed a call): still only logs, never fails.
+        let mut diverged_run = AgentRun::new();
+        diverged_run.usage.record(Usage::new(100, 40));
+        diverged_run.usage.record(Usage::new(10, 5));
+        assert!(shadow
+            .after_agent(&mut ctx(), &(), &mut diverged_run)
+            .await
+            .is_ok());
     }
 
     // ── RepeatedToolFailureMiddleware ───────────────────────────────────────
@@ -2184,6 +2349,82 @@ mod tests {
             drain_pause_count(&handle),
             1,
             "it still pauses the run to surface the ask"
+        );
+    }
+
+    /// Collect the nudge system-message texts drained from `handle`. The nudge
+    /// rides the `InjectMessage` lane (not `Redirect`) so it is permitted on the
+    /// user's interactive turn — see the test below.
+    fn drain_nudge_messages(handle: &SteeringHandle) -> Vec<String> {
+        handle
+            .drain()
+            .into_iter()
+            .filter_map(|c| match c {
+                SteeringCommand::InjectMessage(message) => Some(message.text()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn repeated_tool_failure_nudges_change_of_strategy_before_the_halt() {
+        use crate::openhuman::tinyagents::orchestration::{
+            openhuman_steering_handle, SteeringRunClass,
+        };
+        use tinyagents::harness::steering::SteeringCommandKind;
+
+        // #4089: before the same-strategy retry cap, the breaker must feed a
+        // structured "no progress since step X" corrective back into the loop so
+        // the model changes approach rather than retrying the identical failing
+        // call — and it must do so *without* pausing yet.
+        let handle = SteeringHandle::allow_all();
+        let mw = RepeatedToolFailureMiddleware::new(
+            handle.clone(),
+            3,
+            std::sync::Arc::new(std::sync::Mutex::new(None)),
+        );
+        // First identical failure: not a loop yet — no steering.
+        let mut r = failing_result("read_file", "file not found");
+        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        assert!(
+            handle.drain().is_empty(),
+            "a single failure is never a loop"
+        );
+        // Second identical failure: the nudge fires, still no halt.
+        let mut r = failing_result("read_file", "file not found");
+        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        let nudges = drain_nudge_messages(&handle);
+        assert_eq!(
+            nudges.len(),
+            1,
+            "the repeat should steer the model to change strategy before the retry cap"
+        );
+        let nudge = &nudges[0];
+        assert!(
+            nudge.contains("no progress"),
+            "the nudge carries the structured no-progress signal: {nudge}"
+        );
+        assert!(
+            nudge.to_lowercase().contains("read_file"),
+            "the nudge names the failing call so the model knows what not to repeat: {nudge}"
+        );
+
+        // Regression for the #4473 crash: the nudge must ride a steering lane the
+        // user's *interactive* turn permits. `Redirect` is Background-only, so a
+        // Redirect nudge aborted interactive turns; `InjectMessage` is permitted
+        // on both classes. Assert the interactive policy accepts the lane we use.
+        let interactive = openhuman_steering_handle(SteeringRunClass::Interactive);
+        assert!(
+            interactive
+                .policy()
+                .is_allowed(SteeringCommandKind::InjectMessage),
+            "the no-progress nudge must use a lane the interactive turn permits"
+        );
+        assert!(
+            !interactive
+                .policy()
+                .is_allowed(SteeringCommandKind::Redirect),
+            "sanity: interactive still refuses Redirect (the lane that crashed it)"
         );
     }
 

@@ -34,6 +34,11 @@ impl Agent {
                         }
                         let loaded_count = session.messages.len();
                         log::info!("[transcript] loaded {} messages for resume", loaded_count);
+                        // Best-effort store-backed shadow read (issue #4249,
+                        // 04.2 phase 2). Observes + logs divergence only; the
+                        // legacy transcript just loaded stays authoritative and
+                        // is what feeds the resume below. Gated OFF by default.
+                        self.maybe_shadow_read_session_store(&path, &session);
                         let bounded = self.bound_cached_transcript_messages(session.messages);
                         if bounded.len() < loaded_count {
                             log::warn!(
@@ -319,6 +324,59 @@ impl Agent {
             if let Err(err) = live::write_live_turn(&workspace, &stem, &session_transcript).await {
                 log::warn!("[session-store] dual-write failed stem={stem}: {err:#}");
             }
+        });
+    }
+
+    /// Store-backed **shadow read** of a just-loaded session transcript.
+    ///
+    /// Beside the legacy authoritative reader (`try_load_session_transcript`),
+    /// read the same session back from the TinyAgents journal store, normalize
+    /// both sides through the importer's `session_import::convert` machinery,
+    /// compare, and log any divergence (`[session_shadow_read]`, issue #4249,
+    /// 04.2 phase 2). Additive and gated on the default-**OFF**
+    /// `AgentConfig::session_shadow_reads` flag
+    /// (`OPENHUMAN_SESSION_SHADOW_READS` is a kill switch): when disabled this
+    /// is a cheap early return.
+    ///
+    /// The legacy transcript stays authoritative — this only observes. The
+    /// comparison runs on a spawned background task so it never slows the
+    /// authoritative read, and every store-read error is treated as "no shadow
+    /// available" (logged at debug), never propagated.
+    fn maybe_shadow_read_session_store(
+        &self,
+        path: &std::path::Path,
+        session: &transcript::SessionTranscript,
+    ) {
+        use crate::openhuman::session_import::live;
+
+        // Config flag (default OFF) gates the shadow read; the env kill switch
+        // can still force it off. `self.config` is the effective per-agent config.
+        if !live::shadow_reads_enabled(self.config.session_shadow_reads) {
+            return;
+        }
+
+        // Same session key the write side / importer use: the transcript stem.
+        let Some(stem) = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(str::to_string)
+        else {
+            log::debug!(
+                "[session_shadow_read] skipped: no file stem for {}",
+                path.display()
+            );
+            return;
+        };
+
+        let workspace = self.workspace_dir.clone();
+        let transcript = session.clone();
+        log::debug!(
+            "[session_shadow_read] scheduled stem={stem} workspace={} legacy_messages={}",
+            workspace.display(),
+            transcript.messages.len()
+        );
+        tokio::spawn(async move {
+            let _ = live::shadow_read_compare(&workspace, &stem, &transcript).await;
         });
     }
 

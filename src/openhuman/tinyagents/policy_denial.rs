@@ -9,11 +9,29 @@
 //! flows back into the turn the same way the unknown-tool corrective error is
 //! surfaced to the model (see PR #4360).
 
+use crate::openhuman::security::POLICY_BLOCKED_MARKER;
 use crate::openhuman::tools::PermissionLevel;
+
+/// Generic workaround for a raw security-policy / autonomy block. These denials
+/// originate deep in the tools / `SecurityPolicy` layer (autonomy tier, command
+/// classification, path checks) rather than the pluggable `ToolPolicy`, so there
+/// is no single structured reason to lean on — point the agent at the levers that
+/// actually unblock the family.
+const SECURITY_POLICY_WORKAROUND: &str = "Raise the agent's access tier / autonomy \
+    (Settings → Agent access, or the `config.update_autonomy_settings` RPC / \
+    `[autonomy]` config) if this action should be allowed; otherwise reach the goal \
+    with a permitted (e.g. read-only) alternative, or report that it can't be done \
+    here.";
 
 /// The boundary that blocked a tool call, with the context needed to explain it
 /// and suggest a way forward.
 pub(super) enum PolicyDenial<'a> {
+    /// A raw security-policy / autonomy denial emitted by the tools /
+    /// `SecurityPolicy` layer, recognised by its [`POLICY_BLOCKED_MARKER`] prefix.
+    /// It already states *what* and *why* but carries no workaround or relay
+    /// directive; [`render`](Self::render) keeps the marker and reason and appends
+    /// the missing guidance. `raw_reason` is the full marker-bearing tool output.
+    SecurityPolicyBlocked { tool: &'a str, raw_reason: &'a str },
     /// The session tool policy forbids this tool for the channel's permission
     /// tier (it is not in the allowed set).
     SessionForbidden {
@@ -57,6 +75,24 @@ impl PolicyDenial<'_> {
     /// message for the model.
     pub(super) fn render(&self) -> String {
         let (blocked, reason, workaround) = match self {
+            PolicyDenial::SecurityPolicyBlocked { tool, raw_reason } => {
+                // Strip the marker prefix from the reason (it is re-added on the
+                // `blocked` line so downstream `contains(POLICY_BLOCKED_MARKER)`
+                // checks — classification, the loop-breaker — keep matching).
+                let reason = raw_reason
+                    .trim()
+                    .strip_prefix(POLICY_BLOCKED_MARKER)
+                    .unwrap_or(raw_reason)
+                    .trim()
+                    .to_string();
+                (
+                    format!(
+                        "{POLICY_BLOCKED_MARKER} Tool '{tool}' was blocked by the security policy"
+                    ),
+                    reason,
+                    SECURITY_POLICY_WORKAROUND.to_string(),
+                )
+            }
             PolicyDenial::SessionForbidden {
                 tool,
                 required,
@@ -123,6 +159,33 @@ impl PolicyDenial<'_> {
             "Blocked: {blocked}. Reason: {reason}. Workaround: {workaround} {RELAY_INSTRUCTION}"
         )
     }
+}
+
+/// Enrich a raw security-policy / autonomy tool result (issue #4094).
+///
+/// The pluggable-`ToolPolicy` and channel-permission denials are already rendered
+/// with a `Blocked / Reason / Workaround / relay` shape by [`ToolPolicyMiddleware`]
+/// (PR #4443). But the ~20 `[policy-blocked]` denials emitted deep in
+/// `SecurityPolicy` / the tools themselves still return a bare marker line with no
+/// workaround and no relay directive, so the agent dead-ends. This wraps such a
+/// result into the structured form, appending the workaround + relay while keeping
+/// the marker (so classification and the repeated-failure breaker still match).
+///
+/// Returns `None` — leaving the content untouched — when the result is not a raw
+/// policy block, i.e. it lacks the marker, or it already carries a `Workaround:`
+/// suffix (an already-structured `ToolPolicyMiddleware` denial that must not be
+/// double-wrapped).
+pub(super) fn maybe_enrich_policy_block(tool: &str, content: &str) -> Option<String> {
+    if !content.contains(POLICY_BLOCKED_MARKER) || content.contains("Workaround:") {
+        return None;
+    }
+    Some(
+        PolicyDenial::SecurityPolicyBlocked {
+            tool,
+            raw_reason: content,
+        }
+        .render(),
+    )
 }
 
 /// Workaround shared by the permission-tier denials: raise the channel's
@@ -213,6 +276,50 @@ mod tests {
         assert!(msg.contains("sandbox restriction"));
         assert!(msg.contains("permitted alternative"));
         assert!(msg.contains("Relay this to the user"));
+    }
+
+    #[test]
+    fn security_policy_block_keeps_marker_and_adds_workaround_and_relay() {
+        let raw =
+            "[policy-blocked] Security policy: read-only mode — only read commands are allowed";
+        let msg = PolicyDenial::SecurityPolicyBlocked {
+            tool: "run_command",
+            raw_reason: raw,
+        }
+        .render();
+
+        // The marker survives so classification + the loop-breaker still match.
+        assert!(msg.contains(POLICY_BLOCKED_MARKER));
+        assert!(msg.starts_with("Blocked:"));
+        // The original reason is preserved (without a duplicated marker in it).
+        assert!(msg.contains("read-only mode — only read commands are allowed"));
+        assert!(msg.contains("Workaround:"));
+        assert!(msg.contains("agent-access tier / autonomy") || msg.contains("Agent access"));
+        assert!(msg.contains("Relay this to the user"));
+    }
+
+    #[test]
+    fn maybe_enrich_only_touches_raw_marker_results() {
+        // A raw marker line with no workaround → enriched.
+        let raw = "[policy-blocked] Command not allowed by security policy: rm -rf /";
+        let enriched = maybe_enrich_policy_block("run_command", raw)
+            .expect("a raw policy block should be enriched");
+        assert!(enriched.contains("Workaround:"));
+        assert!(enriched.contains("Relay this to the user"));
+        assert!(enriched.contains(POLICY_BLOCKED_MARKER));
+
+        // An already-structured ToolPolicyMiddleware denial (has "Workaround:") is
+        // left alone — no double-wrapping.
+        let already = PolicyDenial::PolicyDenied {
+            tool: "run_script",
+            policy: "sandbox",
+            reason: "sandbox restriction",
+        }
+        .render();
+        assert!(maybe_enrich_policy_block("run_script", &already).is_none());
+
+        // A plain non-policy error is untouched.
+        assert!(maybe_enrich_policy_block("read_file", "Error: file not found").is_none());
     }
 
     #[test]

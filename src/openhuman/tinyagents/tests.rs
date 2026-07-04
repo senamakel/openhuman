@@ -508,11 +508,12 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     // Lifecycle middleware, in registration order: memory-protocol enforcement
     // (outermost), repeated-tool-failure breaker, shadow tool-exposure,
     // prompt-cache segment + guard, cache-align + tool-output
-    // (TurnContextMiddleware::defaults), cost budget, context compression +
-    // message trim (window known + autocompact on), SDK tool-policy projection,
-    // tool-outcome capture, arg recovery.
+    // (TurnContextMiddleware::defaults), observe-only crate BudgetMiddleware
+    // (W2-budget-dedupe), cost budget (local enforcement + budget_shadow),
+    // context compression + message trim (window known + autocompact on), SDK
+    // tool-policy projection, tool-outcome capture, arg recovery.
     let mw = assembled.harness.middleware();
-    assert_eq!(mw.len(), 13, "lifecycle middleware inventory");
+    assert_eq!(mw.len(), 14, "lifecycle middleware inventory");
     // Around-tool wraps: approval/security + CLI/RPC-only scope gate (no
     // builder tool policy on this call).
     assert_eq!(mw.tool_middleware_len(), 2, "tool middleware inventory");

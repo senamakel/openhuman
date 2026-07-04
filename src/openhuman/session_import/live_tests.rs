@@ -14,7 +14,10 @@ use tempfile::TempDir;
 use tinyagents::harness::store::{AppendStore, FileStore, JsonlAppendStore, Store};
 
 use super::convert::{sanitize_store_name, stream_name};
-use super::live::{dual_write_enabled, write_live_turn};
+use super::live::{
+    dual_write_enabled, shadow_read_compare, shadow_reads_enabled, write_live_turn,
+    ShadowReadOutcome,
+};
 use super::ops::store_root;
 use super::types::{JournalMessage, SessionDescriptor, NS_SESSIONS};
 use crate::openhuman::agent::harness::session::transcript::{
@@ -197,6 +200,151 @@ fn config_flag_and_env_kill_switch() {
     assert!(
         !dual_write_enabled(false),
         "non-falsey env does not force config-off on"
+    );
+
+    match prior {
+        Some(v) => std::env::set_var(ENV, v),
+        None => std::env::remove_var(ENV),
+    }
+}
+
+// ── Store-backed shadow read (issue #4249, 04.2 phase 2) ────────────────────
+
+/// A session written by the dual-write and then read back through the shadow
+/// reader must render byte-for-byte the messages the legacy JSONL reader
+/// produces — no divergence. This is the read-path twin of
+/// [`live_dual_write_matches_legacy_jsonl_render`]: it drives the *same*
+/// writers, then compares via the actual `shadow_read_compare` path and asserts
+/// a clean [`ShadowReadOutcome::Match`].
+#[tokio::test]
+async fn shadow_read_roundtrip_matches_legacy() {
+    let ws = TempDir::new().expect("tempdir");
+    let stem = "1719_orchestrator";
+    let jsonl_path = ws.path().join("session_raw").join(format!("{stem}.jsonl"));
+
+    let base_messages = vec![ChatMessage::user("hi"), ChatMessage::assistant("done")];
+    let meta = meta("t-root");
+    let usage = turn_usage();
+
+    // (1) Legacy authoritative write. (2) Live dual-write into the store.
+    write_transcript(&jsonl_path, &base_messages, &meta, Some(&usage)).expect("legacy write");
+    let mut live_messages = base_messages.clone();
+    let last_assistant = live_messages
+        .iter()
+        .rposition(|m| m.role == "assistant")
+        .expect("assistant message present");
+    attach_turn_usage_metadata(&mut live_messages[last_assistant], &usage);
+    let store_transcript = SessionTranscript {
+        meta: meta.clone(),
+        messages: live_messages,
+    };
+    write_live_turn(ws.path(), stem, &store_transcript)
+        .await
+        .expect("live dual-write");
+
+    // The legacy reader materializes this SessionTranscript for a resume; the
+    // shadow reader compares it against the store stream.
+    let legacy = read_transcript(&jsonl_path).expect("read legacy transcript");
+    let outcome = shadow_read_compare(ws.path(), stem, &legacy).await;
+    assert_eq!(
+        outcome,
+        ShadowReadOutcome::Match {
+            messages: legacy.messages.len()
+        },
+        "round-tripped shadow read must match the legacy render with no divergence"
+    );
+}
+
+/// When the store has no stream for the session (dual-write never ran), the
+/// shadow read reports [`ShadowReadOutcome::Unavailable`] rather than a spurious
+/// divergence, and a content mismatch is reported as
+/// [`ShadowReadOutcome::Divergence`] with a compact first-diff index.
+#[tokio::test]
+async fn shadow_read_unavailable_and_divergence() {
+    let ws = TempDir::new().expect("tempdir");
+    let stem = "1719_orchestrator";
+    let meta = meta("t-root");
+
+    // No store write yet: empty/absent stream against a non-empty legacy
+    // transcript → Unavailable (no shadow), never a divergence.
+    let legacy = SessionTranscript {
+        meta: meta.clone(),
+        messages: vec![ChatMessage::user("hi"), ChatMessage::assistant("done")],
+    };
+    assert_eq!(
+        shadow_read_compare(ws.path(), stem, &legacy).await,
+        ShadowReadOutcome::Unavailable,
+        "absent store stream must be reported as no shadow available"
+    );
+
+    // Now mirror the two-message transcript, then compare against a legacy
+    // transcript that has an extra trailing message: divergence at index 2.
+    write_live_turn(ws.path(), stem, &legacy)
+        .await
+        .expect("live dual-write");
+    let diverging = SessionTranscript {
+        meta,
+        messages: vec![
+            ChatMessage::user("hi"),
+            ChatMessage::assistant("done"),
+            ChatMessage::user("more"),
+        ],
+    };
+    assert_eq!(
+        shadow_read_compare(ws.path(), stem, &diverging).await,
+        ShadowReadOutcome::Divergence {
+            legacy: 3,
+            shadow: 2,
+            first_diff: Some(2),
+        },
+        "a trailing legacy-only message must be reported as a compact divergence"
+    );
+}
+
+/// The shadow read is driven by the `AgentConfig::session_shadow_reads` config
+/// flag (default **OFF**) with the `OPENHUMAN_SESSION_SHADOW_READS` env var as a
+/// pure kill switch (can only force OFF, never ON). This exercises the decision
+/// matrix directly — the gate `maybe_shadow_read_session_store` early-returns
+/// (never invoking the reader) whenever this returns `false`. Env mutation is
+/// process-global, so all assertions live in one serial test and the var is
+/// restored on exit.
+#[test]
+fn shadow_read_flag_and_env_kill_switch() {
+    const ENV: &str = "OPENHUMAN_SESSION_SHADOW_READS";
+    let prior = std::env::var(ENV).ok();
+
+    // Config OFF (the default) disables regardless of env — reader not invoked.
+    std::env::remove_var(ENV);
+    assert!(
+        !shadow_reads_enabled(false),
+        "config off (default) disables the shadow read"
+    );
+
+    // Config ON enables when the env is unset.
+    assert!(
+        shadow_reads_enabled(true),
+        "config on + no env enables the shadow read"
+    );
+
+    // A falsey env value is the kill switch: forces OFF even with config ON.
+    for killed in ["0", "false", "no", "off", "disable", "disabled", "OFF"] {
+        std::env::set_var(ENV, killed);
+        assert!(
+            !shadow_reads_enabled(true),
+            "kill switch value {killed:?} must force off even with flag on"
+        );
+    }
+
+    // A non-falsey env value does not force on: config still governs, and it
+    // can never turn a default-off flag on.
+    std::env::set_var(ENV, "1");
+    assert!(
+        shadow_reads_enabled(true),
+        "non-falsey env leaves config ON on"
+    );
+    assert!(
+        !shadow_reads_enabled(false),
+        "non-falsey env cannot force a default-off flag on"
     );
 
     match prior {

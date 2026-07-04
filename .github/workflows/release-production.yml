@@ -416,9 +416,9 @@ jobs:
           fetch-depth: 1
       # Targeted init (not `submodules: true`) so we skip the large tauri-cef
       # fork the core image doesn't need. The Dockerfile COPYs vendor/ because
-      # [patch.crates-io] resolves tinyagents from vendor/tinyagents.
-      - name: Init tinyagents submodule
-        run: git submodule update --init vendor/tinyagents
+      # [patch.crates-io] resolves Rust SDK crates from vendor/.
+      - name: Init vendored Rust submodules
+        run: git submodule update --init vendor/tinyagents vendor/tinyflows vendor/tinycortex
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR

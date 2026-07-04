@@ -414,10 +414,25 @@ of the five "ZERO tests" claims turned out **already covered**, so only the genu
   tests as load-bearing boot guards, so they were left intact rather than risk an unvalidated
   E2E change).
 
-**Phase 3 — P1 backlog (2–4 weeks, interleave with feature work)**
-- Approval×turn integration, TransportManager race, socket backoff, hostile webhook payloads,
-  path_scope invariant, web3 tool wiring, threadSlice/accountsSlice, journey spec, Playwright
-  approval mirror.
+**Phase 3 — P1 backlog** — ⏳ partial (PR: `test/phase3-p1-gaps`). Verification-first pass: like §4
+P0, most P1 "untested" claims were **inaccurate against current `main`**. Verified state:
+- [x] **`TransportManager.raceLanAndTunnel`** — GENUINE GAP (the sibling test only covered profile
+  *selection*, never the race). Added a dedicated `TransportManager.race.test.ts`: LAN-wins /
+  tunnel-wins (loser closed), both-fail throws, `reset()` re-race, and winner-caching. Surfaced a
+  real timing quirk: when the first `isHealthy()` to settle is `false`, the
+  `Promise.race`→`Promise.any` fallback grabs that already-fulfilled `null` and throws instead of
+  waiting for a later-healthy peer — worth a production follow-up.
+- [~] ALREADY COVERED (no gap): `composerInteractionBlocked` (ChatComposer + composerSendDecision
+  tests), `threadSlice`/`accountsSlice` (multiple `__tests__`), CustomInference/CustomSearch
+  onboarding pages, AgentAccessPanel (23 tests), and every P2 slice reducer
+  (socket/channelConnections/ptt/providerSurface) + TeamInvites. web3 tool layer has `web3_tests.rs`.
+- [~] NOT A GAP: primary socket-client backoff is delegated to socket.io
+  (`reconnectionAttempts: Infinity`), not custom logic — nothing bespoke to unit-test.
+- [ ] Genuine-but-deferred (need a full Rust build + deep store/parser fixtures, high iteration cost
+  in the authoring env): memory two-source-one-tree `path_scope` invariant; broad hostile-webhook
+  payload matrix (wrong types / deep nesting / oversized) beyond the current missing-field tests;
+  the ~20 controller domains with no `tests/` reference (the Phase 0 inventory allowlist to burn
+  down). Approval×turn integration, journey spec, and the Playwright approval mirror need WDIO/PW.
 
 **Phase 4 — new dimensions (ongoing)**
 - proptest + cargo-fuzz targets; scoped cargo-mutants; jest-axe lane; migration fixture;

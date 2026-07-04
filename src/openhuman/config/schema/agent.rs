@@ -259,10 +259,34 @@ pub struct AgentConfig {
     /// [`crate::openhuman::session_import::live::dual_write_enabled`].
     #[serde(default = "default_session_dual_write")]
     pub session_dual_write: bool,
+
+    /// Store-backed **shadow read** of a resumed session's messages: on the
+    /// legacy transcript read path (`session/turn/session_io.rs` →
+    /// `try_load_session_transcript`), also read the same session back from the
+    /// TinyAgents journal (`{workspace}/tinyagents_store/journal`), normalize
+    /// both sides through the importer's `session_import::convert` machinery,
+    /// compare, and log any divergence (`[session_shadow_read]`, issue #4249,
+    /// sessions 04.2 phase 2).
+    ///
+    /// Defaults **OFF** (unlike `session_dual_write`, which defaults ON): this
+    /// is an observation-only parity probe with no product effect. The legacy
+    /// JSONL read stays authoritative — the shadow read only observes and logs
+    /// on a background task; a store-read failure is treated as "no shadow
+    /// available" and never breaks or slows the authoritative read. The
+    /// `OPENHUMAN_SESSION_SHADOW_READS` env var is a pure **kill switch**: a
+    /// falsy value (`0`/`false`/`no`/`off`/`disable`) forces the shadow read
+    /// OFF regardless of config; it can never force it ON. See
+    /// [`crate::openhuman::session_import::live::shadow_reads_enabled`].
+    #[serde(default = "default_session_shadow_reads")]
+    pub session_shadow_reads: bool,
 }
 
 fn default_session_dual_write() -> bool {
     true
+}
+
+fn default_session_shadow_reads() -> bool {
+    false
 }
 
 fn default_tool_result_budget_bytes() -> usize {
@@ -395,6 +419,7 @@ impl Default for AgentConfig {
             tool_result_budget_bytes: default_tool_result_budget_bytes(),
             agent_timeout_secs: default_agent_timeout_secs(),
             session_dual_write: default_session_dual_write(),
+            session_shadow_reads: default_session_shadow_reads(),
         }
     }
 }

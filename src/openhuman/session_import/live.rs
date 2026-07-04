@@ -30,7 +30,7 @@ use super::convert::{
     build_descriptor, effective_thread_id, journal_messages, sanitize_store_name, stream_name,
 };
 use super::ops::{open_session_stores, SessionStores};
-use super::types::{DescriptorSource, NS_SESSIONS};
+use super::types::{DescriptorSource, JournalMessage, NS_SESSIONS};
 
 /// Kill-switch env var for the live session-store dual-write. The config flag
 /// (`AgentConfig::session_dual_write`) defaults ON; setting this env var to a
@@ -38,18 +38,32 @@ use super::types::{DescriptorSource, NS_SESSIONS};
 /// [`dual_write_enabled`].
 const DUAL_WRITE_ENV: &str = "OPENHUMAN_SESSION_DUAL_WRITE";
 
-/// Whether the `OPENHUMAN_SESSION_DUAL_WRITE` kill switch is engaged (set to a
-/// falsey value). Unset — or any non-falsey value — leaves the mirror driven by
-/// the config flag. Read live (not cached) so a config reload / env change is
-/// honored on the next turn.
-fn kill_switch_engaged() -> bool {
-    match std::env::var(DUAL_WRITE_ENV) {
+/// Kill-switch env var for the store-backed session shadow read. The config
+/// flag (`AgentConfig::session_shadow_reads`) defaults OFF; setting this env
+/// var to a falsey value forces the shadow read OFF even when the flag is ON.
+/// It can never force the shadow read ON. See [`shadow_reads_enabled`].
+const SHADOW_READ_ENV: &str = "OPENHUMAN_SESSION_SHADOW_READS";
+
+/// Whether `var` is set to a case-insensitive falsey value
+/// (`0`/`false`/`no`/`off`/`disable`/`disabled`). Unset — or any non-falsey
+/// value — is not a kill. Read live (not cached) so a config reload / env
+/// change is honored on the next turn/read.
+fn env_kill_switch_engaged(var: &str) -> bool {
+    match std::env::var(var) {
         Ok(v) => matches!(
             v.trim().to_ascii_lowercase().as_str(),
             "0" | "false" | "no" | "off" | "disable" | "disabled"
         ),
         Err(_) => false,
     }
+}
+
+/// Whether the `OPENHUMAN_SESSION_DUAL_WRITE` kill switch is engaged (set to a
+/// falsey value). Unset — or any non-falsey value — leaves the mirror driven by
+/// the config flag. Read live (not cached) so a config reload / env change is
+/// honored on the next turn.
+fn kill_switch_engaged() -> bool {
+    env_kill_switch_engaged(DUAL_WRITE_ENV)
 }
 
 /// Store-registry name under which the session KV store is registered on each
@@ -190,4 +204,148 @@ pub async fn write_live_turn(
         "[session-store] dual-write exit stem={session_key} stream={stream} messages={message_count}"
     );
     Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Store-backed SHADOW READ (issue #4249, sessions 04.2 phase 2)
+//
+// Beside the legacy authoritative transcript reader
+// (`session/turn/session_io.rs` → `try_load_session_transcript`), read the
+// same session's messages back from the crate journal store, normalize both
+// sides through the same `convert` machinery the dual-write uses, compare, and
+// log divergence. Legacy stays authoritative: this observes + logs only and
+// never affects, fails, or slows the authoritative read.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Whether the store-backed session **shadow read** is enabled for this read.
+///
+/// `config_enabled` is the `AgentConfig::session_shadow_reads` flag, which
+/// **defaults OFF** (unlike `session_dual_write`). The
+/// `OPENHUMAN_SESSION_SHADOW_READS` env var is a pure kill switch: an explicit
+/// falsey value (case-insensitive `0`/`false`/`no`/`off`/`disable`/`disabled`)
+/// forces the shadow read OFF regardless of config; it can never force it ON.
+/// Read live (never cached) so a config reload / env change is honored on the
+/// next read. Mirrors the [`dual_write_enabled`] flag/env idiom exactly, only
+/// with the default flipped and no default-on behavior.
+pub fn shadow_reads_enabled(config_enabled: bool) -> bool {
+    let killed = env_kill_switch_engaged(SHADOW_READ_ENV);
+    let enabled = config_enabled && !killed;
+    log::debug!(
+        "[session_shadow_read] decision config_enabled={config_enabled} kill_switch={killed} enabled={enabled}"
+    );
+    enabled
+}
+
+/// Outcome of one shadow-read comparison. Returned for tests/observability;
+/// the compact divergence summary is also logged (`[session_shadow_read]`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ShadowReadOutcome {
+    /// The store stream rendered exactly the legacy transcript's messages.
+    Match { messages: usize },
+    /// The store stream diverged from the legacy render. Carries only compact
+    /// counts + the first differing index — never message bodies (PII).
+    Divergence {
+        legacy: usize,
+        shadow: usize,
+        first_diff: Option<usize>,
+    },
+    /// No shadow available: the store read errored, or the stream is
+    /// empty/absent for a non-empty legacy transcript (e.g. dual-write was off
+    /// when this session was written). Treated as non-divergent — the legacy
+    /// read is authoritative regardless.
+    Unavailable,
+}
+
+/// Read a session's messages back from the crate journal store
+/// (`{workspace}/tinyagents_store/journal`, stream `session.{stem}.messages`)
+/// as normalized [`JournalMessage`]s — the same shape the importer and live
+/// dual-write write. A missing stream yields an empty vec (not an error).
+async fn read_shadow_messages(workspace: &Path, session_key: &str) -> Result<Vec<JournalMessage>> {
+    let SessionStores { journal, .. } = open_session_stores(workspace);
+    let stream = stream_name(session_key);
+    let records = journal
+        .read_from(&stream, 0)
+        .await
+        .with_context(|| format!("shadow read of stream {stream}"))?;
+    let mut out = Vec::with_capacity(records.len());
+    for (offset, value) in records {
+        let msg: JournalMessage = serde_json::from_value(value)
+            .with_context(|| format!("shadow record shape at offset {offset}"))?;
+        out.push(msg);
+    }
+    Ok(out)
+}
+
+/// Shadow-read the given session back from the store and compare it against the
+/// legacy transcript, logging divergence. Legacy stays authoritative — the
+/// caller ignores the returned outcome for control flow (it exists for tests /
+/// observability). Best-effort: any store-read error is logged at debug and
+/// reported as [`ShadowReadOutcome::Unavailable`]; it never breaks or slows the
+/// authoritative read.
+///
+/// Both sides are normalized through the importer's `convert` machinery
+/// ([`journal_messages`]) so live/legacy renders are directly comparable, then
+/// compared by message count and normalized content. On mismatch a **compact**
+/// summary (counts + first differing index) is warn-logged; message bodies are
+/// never emitted (PII).
+pub async fn shadow_read_compare(
+    workspace: &Path,
+    session_key: &str,
+    legacy: &SessionTranscript,
+) -> ShadowReadOutcome {
+    let expected = journal_messages(legacy);
+    log::debug!(
+        "[session_shadow_read] enter stem={session_key} workspace={} legacy_messages={}",
+        workspace.display(),
+        expected.len()
+    );
+
+    let shadow = match read_shadow_messages(workspace, session_key).await {
+        Ok(v) => v,
+        Err(err) => {
+            log::debug!(
+                "[session_shadow_read] store read error stem={session_key}: {err:#} — no shadow available"
+            );
+            return ShadowReadOutcome::Unavailable;
+        }
+    };
+
+    // Empty/absent store stream against a non-empty legacy transcript: the
+    // session simply was not mirrored (dual-write off when it was written).
+    // Treat as "no shadow" rather than a spurious divergence.
+    if shadow.is_empty() && !expected.is_empty() {
+        log::debug!(
+            "[session_shadow_read] no store stream stem={session_key} legacy_messages={} — no shadow available",
+            expected.len()
+        );
+        return ShadowReadOutcome::Unavailable;
+    }
+
+    if shadow == expected {
+        log::debug!(
+            "[session_shadow_read] parity OK stem={session_key} messages={}",
+            expected.len()
+        );
+        return ShadowReadOutcome::Match {
+            messages: expected.len(),
+        };
+    }
+
+    // Divergence: first index where the two normalized renders differ, or the
+    // shorter length when one is a strict prefix of the other. Compact only.
+    let first_diff = expected
+        .iter()
+        .zip(shadow.iter())
+        .position(|(a, b)| a != b)
+        .or_else(|| (expected.len() != shadow.len()).then(|| expected.len().min(shadow.len())));
+    log::warn!(
+        "[session_shadow_read] DIVERGENCE stem={session_key} legacy_count={} shadow_count={} first_diff={first_diff:?}",
+        expected.len(),
+        shadow.len()
+    );
+    ShadowReadOutcome::Divergence {
+        legacy: expected.len(),
+        shadow: shadow.len(),
+        first_diff,
+    }
 }

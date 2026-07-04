@@ -1638,8 +1638,6 @@ impl RepeatedToolFailureMiddleware {
     }
 }
 
-/// A stable, bounded fingerprint of a tool call's arguments for the identical-
-/// repeat signature (hashed so a huge payload doesn't bloat the map/comparison).
 /// Recognise a **user-actionable** blocker in a failing tool result — one only
 /// the user can clear — and phrase the halt as a direct ask instead of the
 /// crate's generic "the goal looks unreachable in this environment, report this
@@ -1651,13 +1649,25 @@ impl RepeatedToolFailureMiddleware {
 /// the crate's summary in place.
 fn user_actionable_escalation(tool: &str, error: &str) -> Option<String> {
     let lower = error.to_lowercase();
-    // Mirrors the not-connected detection openhuman's composio error mapping
-    // already uses; the tools themselves emit "connect … in Settings →
-    // Connections" text on these failures.
-    let missing_connection = lower.contains("not connected")
+    let permission_or_scope_failure = lower.contains("[composio:error:insufficient_scope]")
+        || lower.contains("[composio:error:trigger_permission]")
+        || lower.contains("insufficient scope")
+        || lower.contains("insufficient authentication scopes")
+        || lower.contains("insufficient permissions")
+        || lower.contains("missing required permissions")
+        || lower.contains("permission to manage triggers");
+    if permission_or_scope_failure {
+        return None;
+    }
+    // Keep this narrow: some scope/permission failures legitimately tell the
+    // user to reconnect in Settings, but they are not missing connections.
+    let missing_connection = lower.contains("[composio:error:composio_platform]")
+        || lower.contains("not connected")
         || lower.contains("isn't connected")
         || lower.contains("is not connected")
-        || (lower.contains("connect") && lower.contains("settings"));
+        || lower.contains("not enabled")
+        || lower.contains("token revoked")
+        || lower.contains("connection error, try to authenticate");
     if !missing_connection {
         return None;
     }
@@ -1669,6 +1679,8 @@ fn user_actionable_escalation(tool: &str, error: &str) -> Option<String> {
     ))
 }
 
+/// A stable, bounded fingerprint of a tool call's arguments for the identical-
+/// repeat signature (hashed so a huge payload doesn't bloat the map/comparison).
 fn args_fingerprint(arguments: &serde_json::Value) -> String {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -2315,6 +2327,22 @@ mod tests {
         // A plain environment failure is NOT user-actionable → keep crate summary.
         assert!(user_actionable_escalation("read_file", "file not found").is_none());
         assert!(user_actionable_escalation("shell", "exit code 1: segfault").is_none());
+        assert!(user_actionable_escalation(
+            "gmail_send",
+            "[composio:error:insufficient_scope] `gmail_send` was rejected because the connected \
+             gmail account is missing required permissions (insufficient authentication scopes). \
+             Reconnect the integration in Settings → Connections → gmail and grant the scopes \
+             requested during OAuth."
+        )
+        .is_none());
+        assert!(user_actionable_escalation(
+            "gmail_trigger",
+            "[composio:error:trigger_permission] Couldn't enable this trigger: the connected \
+             gmail account doesn't have permission to manage triggers. Reconnect gmail in \
+             Settings → Connections → gmail and grant the permissions requested during OAuth, \
+             then try again."
+        )
+        .is_none());
     }
 
     #[tokio::test]

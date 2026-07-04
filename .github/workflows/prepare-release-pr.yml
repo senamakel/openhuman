@@ -1,0 +1,72 @@
+---
+# Keeps the main→release PR standing at all times.
+#
+# Every push to main ensures there is exactly one open PR from main into the
+# long-lived `release` branch. GitHub automatically refreshes an open
+# branch-to-branch PR as main advances, so if one already exists this is a
+# no-op; otherwise it opens one (skipping when main has nothing release
+# doesn't already have). Release CI (release-ci.yml) runs the full test +
+# E2E matrix on that PR; once it greens up a maintainer merges it and cuts a
+# release from `release` via release-staging.yml / release-production.yml.
+name: Prepare Release PR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: prepare-release-pr
+  cancel-in-progress: false
+
+jobs:
+  ensure-release-pr:
+    name: Ensure main→release PR exists
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Open or refresh the main→release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          log() { echo "[ci][prepare-release-pr] $*"; }
+
+          if ! gh api "repos/${REPO}/branches/release" --silent 2>/dev/null; then
+            log "release branch does not exist yet — nothing to do"
+            exit 0
+          fi
+
+          existing="$(gh pr list --repo "${REPO}" --base release --head main --state open --json number --jq '.[0].number // empty')"
+          if [ -n "${existing}" ]; then
+            log "open main→release PR already exists: #${existing} (auto-updates as main advances)"
+            exit 0
+          fi
+
+          # Skip when main has no commits release lacks (e.g. right after a
+          # release-back-merge) — GitHub rejects empty PRs anyway.
+          ahead_by="$(gh api "repos/${REPO}/compare/release...main" --jq '.ahead_by')"
+          log "main is ahead of release by ${ahead_by} commit(s)"
+          if [ "${ahead_by}" = "0" ]; then
+            log "release already contains main — no PR needed"
+            exit 0
+          fi
+
+          url="$(gh pr create \
+            --repo "${REPO}" \
+            --base release \
+            --head main \
+            --title "Release: merge main into release" \
+            --body "$(printf 'Auto-prepared by prepare-release-pr.yml on push to main.\n\nThis PR runs the full Release CI suite (unit + Rust E2E + Playwright + desktop E2E on 3 OSes). Maintainers can push fixes to it; merge once green to advance the release branch, then cut a release with release-staging.yml / release-production.yml.')")"
+          log "opened ${url}"

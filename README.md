@@ -24,11 +24,9 @@
    </a>
  </p>
 
-
 <p align="center">
  <strong>OpenHuman is your Personal AI super intelligence: local memory, managed services where needed, simple and powerful.</strong>
 </p>
-
 
 <p align="center">
  <a href="https://discord.tinyhumans.ai/">Discord</a> •
@@ -41,8 +39,6 @@
 <p align="center">
   🇺🇸 <a href="./README.md">English</a> | 🇨🇳 <a href="./docs/README.zh-CN.md">简体中文</a> | 🇯🇵 <a href="./docs/README.ja-JP.md">日本語</a> | 🇰🇷 <a href="./docs/README.ko.md">한국어</a> | 🇩🇪 <a href="./docs/README.de.md">Deutsch</a> | 🇵🇰 <a href="./docs/README.ur-pk.md">اردو</a>
 </p>
-
-
 
 <p align="center">
  <img src="https://img.shields.io/badge/status-early%20beta-orange" alt="Early Beta" />
@@ -58,7 +54,7 @@
 
 > **Early Beta**: Under active development. Expect rough edges.
 
-> **Local + managed services, upfront:** OpenHuman stores its Memory Tree, Obsidian-style Markdown vault, workspace config, and local runtime state on your machine. The default managed experience still uses OpenHuman-hosted services for account sign-in, model routing, web search proxying, and managed integration/OAuth flows through the Composio connector layer. Choose custom/local settings if you want to bring your own model, search, or Composio credentials; some real-time triggers and hosted features still require the managed backend.
+> 🎉 Within one week of launch, OpenHuman became the number one trending repository on GitHub for nine days in a row.
 
 # Install
 
@@ -120,7 +116,7 @@ OpenHuman is an open-source agentic assistant designed to integrate with you in 
 
 - **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: everything you connect is compressed into scored Markdown summary trees in **SQLite on your machine** — and mirrored as an Obsidian-compatible vault you can open and edit. Inspired by Karpathy's [obsidian-wiki workflow](https://x.com/karpathy/status/2039805659525644595). No vector-soup black box.
 
-- **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: every new thread starts with a read-only scout that sweeps your memory and files *before* the model reads your message. No cold starts, no "let me look that up."
+- **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: every new thread starts with a read-only scout that sweeps your memory and files _before_ the model reads your message. No cold starts, no "let me look that up."
 
 - **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: long-term goals that self-reflect against your activity, durable per-thread goals the agent works across turns and idle time, and a shared kanban board per conversation.
 
@@ -189,23 +185,23 @@ The biggest difference between OpenHuman and other harnesses isn't any single fe
 
 High-level comparison (products evolve, so verify against each vendor). OpenHuman is built to **minimize vendor sprawl**, keep **workflow knowledge on-device**, and give the agent a **persistent memory** of your data, not only chat.
 
-|                      | Claude Cowork     | OpenClaw          | Hermes Agent      | OpenHuman                          |
-| -------------------- | ----------------- | ----------------- | ----------------- | ---------------------------------- |
-| **Open-source**      | 🚫 Proprietary    | ✅ MIT            | ✅ MIT            | ✅ GNU                             |
-| **Simple to start**  | ✅ Desktop + CLI  | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes               |
-| **Cost**             | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ One sub + TokenJuice            |
-| **Memory**           | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Memory Tree + Obsidian vault, optional [agentmemory](https://github.com/rohitg00/agentmemory) backend |
-| **Integrations**     | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills |
-| **Auto-fetch**       | 🚫 None           | 🚫 None           | 🚫 None           | ✅ 20-min sync into memory         |
-| **Orchestration**    | ⚠️ Sub-tasks      | ⚠️ Single loop    | ⚠️ Single loop    | 🚀 Agent graphs + checkpoints + E2E-encrypted A2A |
-| **Workflows**        | 🚫 None           | ⚠️ Scripts        | ⚠️ Scripts        | 🚀 Visual, durable, agent-proposed, approval-gated |
-| **Meetings**         | 🚫 None           | 🚫 None           | 🚫 None           | 🚀 Joins Meet/Zoom/Teams/Webex, speaks, live transcript |
-| **Messaging channels** | 🚫 None         | ⚠️ A few          | ⚠️ A few          | ✅ 17 incl. native email (IMAP/SMTP) |
-| **Local-only mode**  | 🚫 Cloud-only     | ⚠️ BYO local      | ⚠️ BYO local      | ✅ One-switch enforced Privacy Mode |
-| **Observability**    | 🚫 Opaque         | ⚠️ Logs           | ⚠️ Logs           | ✅ Replayable run journals + per-call cost accounting |
-| **API sprawl**       | 🚫 Extra keys     | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                     |
-| **Model routing**    | 🚫 Single model   | ⚠️ Manual         | ⚠️ Manual         | ✅ Built-in                        |
-| **Native tools**     | ✅ Code-only      | ✅ Code-only      | ✅ Code-only      | ✅ Code + search + scraper + browser + voice + media gen |
+|                        | Claude Cowork     | OpenClaw          | Hermes Agent      | OpenHuman                                                                                                |
+| ---------------------- | ----------------- | ----------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| **Open-source**        | 🚫 Proprietary    | ✅ MIT            | ✅ MIT            | ✅ GNU                                                                                                   |
+| **Simple to start**    | ✅ Desktop + CLI  | ⚠️ Terminal-first | ⚠️ Terminal-first | ✅ Clean UI, minutes                                                                                     |
+| **Cost**               | ⚠️ Sub + add-ons  | ⚠️ BYO models     | ⚠️ BYO models     | ✅ One sub + TokenJuice                                                                                  |
+| **Memory**             | ✅ Chat-scoped    | ⚠️ Plugin-reliant | ✅ Self-learning  | 🚀 Memory Tree + Obsidian vault, optional [agentmemory](https://github.com/rohitg00/agentmemory) backend |
+| **Integrations**       | ⚠️ Few connectors | ⚠️ BYO            | ⚠️ BYO            | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                                    |
+| **Auto-fetch**         | 🚫 None           | 🚫 None           | 🚫 None           | ✅ 20-min sync into memory                                                                               |
+| **Orchestration**      | ⚠️ Sub-tasks      | ⚠️ Single loop    | ⚠️ Single loop    | 🚀 Agent graphs + checkpoints + E2E-encrypted A2A                                                        |
+| **Workflows**          | 🚫 None           | ⚠️ Scripts        | ⚠️ Scripts        | 🚀 Visual, durable, agent-proposed, approval-gated                                                       |
+| **Meetings**           | 🚫 None           | 🚫 None           | 🚫 None           | 🚀 Joins Meet/Zoom/Teams/Webex, speaks, live transcript                                                  |
+| **Messaging channels** | 🚫 None           | ⚠️ A few          | ⚠️ A few          | ✅ 17 incl. native email (IMAP/SMTP)                                                                     |
+| **Local-only mode**    | 🚫 Cloud-only     | ⚠️ BYO local      | ⚠️ BYO local      | ✅ One-switch enforced Privacy Mode                                                                      |
+| **Observability**      | 🚫 Opaque         | ⚠️ Logs           | ⚠️ Logs           | ✅ Replayable run journals + per-call cost accounting                                                    |
+| **API sprawl**         | 🚫 Extra keys     | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                                                                                           |
+| **Model routing**      | 🚫 Single model   | ⚠️ Manual         | ⚠️ Manual         | ✅ Built-in                                                                                              |
+| **Native tools**       | ✅ Code-only      | ✅ Code-only      | ✅ Code-only      | ✅ Code + search + scraper + browser + voice + media gen                                                 |
 
 # Star us on GitHub
 

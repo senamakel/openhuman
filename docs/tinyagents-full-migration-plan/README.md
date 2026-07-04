@@ -7,6 +7,13 @@ Status: active plan (2026-07-02). Branch: `issue/4249-finish-tinyagents-migratio
 > supersedes the workstream ordering below and targets tinyagents 1.4/1.5
 > (`graph::goals`, `graph::todos`, `NoProgressTracker`, resumable graph
 > failures).
+>
+> **2026-07-04 update:** vendor-crate improvement work (reasoning tokens,
+> streaming, performance, native Anthropic provider, upstream extractions)
+> is planned separately in
+> [`../tinyagents-vendor-improvement-plan/`](../tinyagents-vendor-improvement-plan/)
+> (workstreams V1–V6, run in parallel with C0–C7; this folder's
+> `99-deletion-ledger.md` remains the master delete list).
 
 Goal: **hard-migrate** OpenHuman's agent harness onto the `tinyagents` crate as
 the library for orchestration, caching, tooling, observability, model

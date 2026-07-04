@@ -155,6 +155,34 @@ async function maybeApplyGlobalBehavior(ctx) {
 
   for (const rule of rules) {
     if (!ruleMatches(rule, ctx)) continue;
+    const mode = typeof rule.mode === "string" ? rule.mode : "status";
+
+    // Chaos mode "reset": tear down the socket mid-response so the client sees
+    // a connection reset (ECONNRESET / "socket hang up") rather than a clean
+    // HTTP status — a real outage shape the status path can't reproduce.
+    if (mode === "reset") {
+      console.warn(
+        `[MockServer] Injected connection reset ${ctx.method} ${ctx.url}`,
+      );
+      ctx.res.socket?.destroy();
+      return true;
+    }
+
+    // Chaos mode "malformed": a 200 carrying a non-JSON body, so the caller's
+    // JSON parse throws instead of receiving a clean error envelope.
+    if (mode === "malformed") {
+      const status = Number(rule.status || 200);
+      const raw = typeof rule.body === "string" ? rule.body : "<<not-json>>{";
+      console.warn(
+        `[MockServer] Injected malformed body ${ctx.method} ${ctx.url} -> ${status}`,
+      );
+      setCors(ctx.res);
+      ctx.res.writeHead(status, { "Content-Type": "application/json" });
+      ctx.res.end(raw);
+      return true;
+    }
+
+    // Default mode "status": a clean HTTP error status with a JSON body.
     const status = Number(rule.status || 500);
     const body =
       rule.body && typeof rule.body === "object"

@@ -70,9 +70,21 @@ describe('Jira Composio connector flow', () => {
 
   it('connect modal renders subdomain input field for Jira', async function () {
     this.timeout(60_000);
-    // Seed as idle (no active connection) so we see the connect flow
-    seedComposioConnection(TOOLKIT_SLUG, 'CONNECTING', 'c-jira-idle');
+    // Seed as idle (no active connection) so we see the connect flow. The prior
+    // test rendered Jira ACTIVE, which persisted into the durable client-side
+    // connection cache (localStorage `composio:connections`). That cache
+    // re-seeds the tile as connected on remount — before the live `[]` fetch
+    // lands — and ComposioConnectModal latches its phase once at mount, so the
+    // modal would open stuck in the `connected` phase (no subdomain form).
+    // Clear the durable cache so the tile mounts disconnected and the modal
+    // opens in `idle`.
     setMockBehavior('composioConnections', JSON.stringify([]));
+    // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
+    await browser.execute(() => {
+      Object.keys(window.localStorage)
+        .filter(k => k.includes('composio:connections'))
+        .forEach(k => window.localStorage.removeItem(k));
+    });
     await navigateToSkills();
     await waitForText(CONNECTOR_NAME, 10_000);
     const modal = await openConnectorModal(CONNECTOR_NAME);

@@ -64,18 +64,19 @@ const STREAM_SCRIPT = [
   { finish: 'stop' },
 ];
 
-// The message column is the `<div ref={messagesContainerRef} className="flex-1 overflow-y-auto ...">`
-// in Conversations.tsx. There's only one in /chat so a CSS predicate
-// matching the unique `bg-[#f6f6f6]` class is enough.
+// The message column is the `<div ref={messagesContainerRef}
+// className="flex-1 min-h-0 overflow-y-auto ...">` in Conversations.tsx.
+// There's only one in /chat so the structural class predicate is enough.
 async function scrollMetrics(): Promise<{
   scrollTop: number;
   scrollHeight: number;
   clientHeight: number;
 }> {
   return (await browser.execute(() => {
-    const el = document.querySelector(
-      'div.flex-1.overflow-y-auto.bg-\\[\\#f6f6f6\\]'
-    ) as HTMLElement | null;
+    // The messages scroll container is `flex-1 min-h-0 overflow-y-auto`
+    // (Conversations.tsx). The former hardcoded `bg-[#f6f6f6]` class was
+    // replaced by a surface token, so match on the structural classes instead.
+    const el = document.querySelector('div.flex-1.min-h-0.overflow-y-auto') as HTMLElement | null;
     if (!el) return { scrollTop: 0, scrollHeight: 0, clientHeight: 0 };
     return {
       scrollTop: el.scrollTop,
@@ -87,9 +88,10 @@ async function scrollMetrics(): Promise<{
 
 async function scrollMessageColumn(top: number): Promise<void> {
   await browser.execute((y: number) => {
-    const el = document.querySelector(
-      'div.flex-1.overflow-y-auto.bg-\\[\\#f6f6f6\\]'
-    ) as HTMLElement | null;
+    // The messages scroll container is `flex-1 min-h-0 overflow-y-auto`
+    // (Conversations.tsx). The former hardcoded `bg-[#f6f6f6]` class was
+    // replaced by a surface token, so match on the structural classes instead.
+    const el = document.querySelector('div.flex-1.min-h-0.overflow-y-auto') as HTMLElement | null;
     if (el) el.scrollTo({ top: y, behavior: 'auto' });
   }, top);
 }

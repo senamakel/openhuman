@@ -24,7 +24,10 @@ async function openWebhooksDebugPanel(): Promise<void> {
 }
 
 describe('Webhooks ingress surface (stub-level)', () => {
-  before(async () => {
+  before(async function () {
+    // resetApp bring-up (waitForApp + onboarding walk + home confirm) can run
+    // ~25-30s and race the default 30s Mocha hook budget; raise it.
+    this.timeout(90_000);
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);

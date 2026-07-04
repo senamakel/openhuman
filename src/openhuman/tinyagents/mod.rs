@@ -70,7 +70,9 @@ use model::ThinkingForwarder;
 
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
-pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
+pub(crate) use middleware::{
+    HandoffConfig, SuperContextConfig, TranscriptSnapshotSink, TurnContextMiddleware,
+};
 use model::ProviderModel;
 pub(crate) use observability::SubagentScope;
 use observability::{
@@ -214,6 +216,13 @@ pub(crate) struct TinyagentsTurnOutcome {
     /// should summarize a resumable checkpoint rather than treat `text` as a
     /// final answer — the tinyagents analogue of the legacy cap checkpoint seam.
     pub hit_cap: bool,
+    /// Set (with the root-cause halt summary) when the repeated-tool-failure /
+    /// repeat-progress circuit breaker halted the run before a natural finish.
+    /// The sub-agent runner surfaces this as `SubagentRunStatus::Incomplete`
+    /// (#4466) so a parent does NOT treat a halted child as a clean completion.
+    /// `text` already carries this same summary; the flag lets the status mapper
+    /// distinguish a breaker halt from a genuine final answer.
+    pub breaker_halt: Option<String>,
     /// Per-tool-call execution outcomes (success + raw result content), keyed by
     /// provider call id, captured at the tool boundary. The harness folds a tool
     /// result into a `Message::tool` that drops its `error` flag, so this is the
@@ -341,6 +350,8 @@ pub(crate) async fn run_turn_via_tinyagents(
         ),
         early_exit_tool: None,
         hit_cap: false,
+        // This thin (test-only) variant does not install the breaker middleware.
+        breaker_halt: None,
         // This thin variant carries no per-call outcome capture middleware.
         tool_outcomes: Vec::new(),
     })
@@ -938,8 +949,17 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         None => (None, run.text().unwrap_or_default()),
     };
 
-    if let Some(summary) = breaker_halt {
-        text = summary;
+    // Carry the breaker halt onto the outcome so the sub-agent runner can report
+    // `Incomplete` (#4466). `text` is overridden with the same root-cause summary
+    // so callers with no breaker-awareness still surface the cause, not an empty
+    // last-model reply.
+    if let Some(summary) = &breaker_halt {
+        tracing::info!(
+            model,
+            subagent = subagent_scope.is_some(),
+            "[tinyagents] run halted by circuit breaker; surfacing as breaker_halt (#4466)"
+        );
+        text = summary.clone();
     }
 
     let tool_outcomes = tool_outcome_sink
@@ -972,6 +992,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         charged_amount_usd,
         early_exit_tool,
         hit_cap,
+        breaker_halt,
         tool_outcomes,
     })
 }

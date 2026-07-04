@@ -959,89 +959,95 @@ async fn run_typed_mode(
         );
     }
 
-    let (output, iterations, agg_usage, early_exit_tool, hit_cap) = match &definition.graph {
-        AgentGraph::Default => {
-            super::graph::run_subagent_via_graph(
-                subagent_provider.clone(),
-                &model,
-                temperature,
-                &mut history,
-                parent.all_tools.clone(),
-                dynamic_tools,
-                filtered_specs.clone(),
-                allowed_names,
-                subagent_iter_cap_with_autonomous_lift(definition.effective_max_iterations()),
-                options.run_queue.clone(),
-                parent.on_progress.clone(),
-                &definition.id,
-                task_id,
-                definition.iteration_policy == IterationPolicy::Extended,
-                options.worker_thread_id.clone(),
-                parent.workspace_dir.clone(),
-                workspace_descriptor.clone(),
-                max_output_tokens,
-                model_vision,
-                &transcript_stem,
-                // Sub-agent turns record their provider label as the literal
-                // "subagent" (parity with the legacy observer's TurnObserver
-                // provenance), distinguishing delegated spend from the parent's
-                // own channel in per-thread usage reads.
-                "subagent",
-                // Progressive-disclosure handoff cache (shared with the
-                // extract_from_result tool registered above).
-                handoff_cache.clone(),
-            )
-            .await?
-        }
-        AgentGraph::Custom(run) => {
-            let req = AgentTurnRequest {
-                provider: subagent_provider.clone(),
-                model: model.clone(),
-                temperature,
-                history: std::mem::take(&mut history),
-                parent_tools: parent.all_tools.clone(),
-                dynamic_tools,
-                specs: filtered_specs.clone(),
-                allowed_names,
-                max_iterations: subagent_iter_cap_with_autonomous_lift(
-                    definition.effective_max_iterations(),
-                ),
-                run_queue: options.run_queue.clone(),
-                on_progress: parent.on_progress.clone(),
-                agent_id: definition.id.clone(),
-                task_id: task_id.to_string(),
-                extended_policy: definition.iteration_policy == IterationPolicy::Extended,
-                worker_thread_id: options.worker_thread_id.clone(),
-                workspace_dir: parent.workspace_dir.clone(),
-                workspace_descriptor: workspace_descriptor.clone(),
-                max_output_tokens,
-                model_vision,
-                transcript_stem: transcript_stem.clone(),
-                provider_label: "subagent".to_string(),
-                handoff_cache: handoff_cache.clone(),
-            };
-            let res = run(req).await?;
-            history = res.history;
-            let AgentTurnUsage {
-                input_tokens,
-                output_tokens,
-                cached_input_tokens,
-                charged_amount_usd,
-            } = res.usage;
-            (
-                res.output,
-                res.iterations,
-                AggregatedUsage {
+    let (output, iterations, agg_usage, early_exit_tool, hit_cap, breaker_halt) =
+        match &definition.graph {
+            AgentGraph::Default => {
+                super::graph::run_subagent_via_graph(
+                    subagent_provider.clone(),
+                    &model,
+                    temperature,
+                    &mut history,
+                    parent.all_tools.clone(),
+                    dynamic_tools,
+                    filtered_specs.clone(),
+                    allowed_names,
+                    subagent_iter_cap_with_autonomous_lift(definition.effective_max_iterations()),
+                    options.run_queue.clone(),
+                    parent.on_progress.clone(),
+                    &definition.id,
+                    task_id,
+                    definition.iteration_policy == IterationPolicy::Extended,
+                    options.worker_thread_id.clone(),
+                    parent.workspace_dir.clone(),
+                    workspace_descriptor.clone(),
+                    max_output_tokens,
+                    model_vision,
+                    &transcript_stem,
+                    // Sub-agent turns record their provider label as the literal
+                    // "subagent" (parity with the legacy observer's TurnObserver
+                    // provenance), distinguishing delegated spend from the parent's
+                    // own channel in per-thread usage reads.
+                    "subagent",
+                    // Progressive-disclosure handoff cache (shared with the
+                    // extract_from_result tool registered above).
+                    handoff_cache.clone(),
+                    // Agent-level TokenJuice profile → sub-agent context middleware
+                    // (#4466), so sub-agent tool outputs compact like the chat path.
+                    definition.effective_tokenjuice_compression(),
+                )
+                .await?
+            }
+            AgentGraph::Custom(run) => {
+                let req = AgentTurnRequest {
+                    provider: subagent_provider.clone(),
+                    model: model.clone(),
+                    temperature,
+                    history: std::mem::take(&mut history),
+                    parent_tools: parent.all_tools.clone(),
+                    dynamic_tools,
+                    specs: filtered_specs.clone(),
+                    allowed_names,
+                    max_iterations: subagent_iter_cap_with_autonomous_lift(
+                        definition.effective_max_iterations(),
+                    ),
+                    run_queue: options.run_queue.clone(),
+                    on_progress: parent.on_progress.clone(),
+                    agent_id: definition.id.clone(),
+                    task_id: task_id.to_string(),
+                    extended_policy: definition.iteration_policy == IterationPolicy::Extended,
+                    worker_thread_id: options.worker_thread_id.clone(),
+                    workspace_dir: parent.workspace_dir.clone(),
+                    workspace_descriptor: workspace_descriptor.clone(),
+                    max_output_tokens,
+                    model_vision,
+                    transcript_stem: transcript_stem.clone(),
+                    provider_label: "subagent".to_string(),
+                    handoff_cache: handoff_cache.clone(),
+                    tokenjuice_compression: definition.effective_tokenjuice_compression(),
+                };
+                let res = run(req).await?;
+                history = res.history;
+                let AgentTurnUsage {
                     input_tokens,
                     output_tokens,
                     cached_input_tokens,
                     charged_amount_usd,
-                },
-                res.early_exit_tool,
-                res.hit_cap,
-            )
-        }
-    };
+                } = res.usage;
+                (
+                    res.output,
+                    res.iterations,
+                    AggregatedUsage {
+                        input_tokens,
+                        output_tokens,
+                        cached_input_tokens,
+                        charged_amount_usd,
+                    },
+                    res.early_exit_tool,
+                    res.hit_cap,
+                    res.breaker_halt,
+                )
+            }
+        };
 
     // Determine status: if the turn engine exited early because of
     // ask_user_clarification, checkpoint the history and return
@@ -1106,6 +1112,22 @@ async fn run_typed_mode(
         crate::openhuman::agent::harness::subagent_runner::types::SubagentRunStatus::AwaitingUser {
             question,
             options: options_vec,
+        }
+    } else if let Some(reason) = breaker_halt {
+        // The repeated-failure / repeat-progress circuit breaker halted the run
+        // (#4466). It is NOT a clean finish: `output` carries the breaker's
+        // root-cause summary, not a completed answer. Surface `Incomplete` with
+        // the halt reason so a delegating parent relays the blocker instead of
+        // treating the halted child as finished (the migrated path reported
+        // `hit_cap=false` → `Completed`, hiding the halt).
+        tracing::warn!(
+            task_id = %task_id,
+            agent_id = %definition.id,
+            reason = %reason,
+            "[subagent_runner] child halted by circuit breaker; reporting Incomplete (#4466)"
+        );
+        crate::openhuman::agent::harness::subagent_runner::types::SubagentRunStatus::Incomplete {
+            reason,
         }
     } else if hit_cap {
         // The tinyagents run stopped at the model-call cap with work still

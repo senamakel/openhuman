@@ -94,6 +94,55 @@ pub(crate) struct TurnContextMiddleware {
     /// [`ResultHandoffCache`] and replaced with an `extract_from_result` drill-in
     /// placeholder. `None` everywhere else.
     pub(crate) handoff: Option<HandoffConfig>,
+    /// Live transcript snapshot sink (#4466). When set, a
+    /// [`TranscriptSnapshotMiddleware`] mirrors the running conversation (as
+    /// openhuman [`ChatMessage`]s) into this shared buffer before every model
+    /// call. Only the sub-agent path sets it, so an erroring run can persist the
+    /// rounds completed before the failure (the harness drops its partial
+    /// transcript on `Err`). `None` everywhere else (chat persists post-run).
+    pub(crate) transcript_snapshot: Option<TranscriptSnapshotSink>,
+}
+
+/// Shared buffer a [`TranscriptSnapshotMiddleware`] mirrors the live sub-agent
+/// conversation into, so the caller can persist completed rounds even when the
+/// harness run ends in `Err` (#4466).
+pub(crate) type TranscriptSnapshotSink =
+    Arc<std::sync::Mutex<Vec<crate::openhuman::inference::provider::ChatMessage>>>;
+
+/// Observation-only middleware that snapshots the running transcript into a
+/// shared [`TranscriptSnapshotSink`] before each model call (#4466).
+///
+/// The tinyagents harness owns the working message vector and only hands it back
+/// inside a successful `AgentRun`; on a mid-run error it is dropped. The
+/// sub-agent runner persists a per-child `session_raw` transcript so
+/// `learning/transcript_ingest` can read it — but a failed run used to persist
+/// nothing. This middleware mirrors each `before_model` request's messages
+/// (which include every prior completed assistant/tool round) into an
+/// openhuman-owned buffer, so the runner's error path can still write the rounds
+/// that completed before the failure. Converts to [`ChatMessage`] eagerly so the
+/// caller does not need access to the private `convert` module.
+pub(crate) struct TranscriptSnapshotMiddleware {
+    sink: TranscriptSnapshotSink,
+}
+
+#[async_trait]
+impl Middleware<()> for TranscriptSnapshotMiddleware {
+    fn name(&self) -> &str {
+        "openhuman.transcript_snapshot"
+    }
+
+    async fn before_model(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        request: &mut ModelRequest,
+    ) -> TaResult<()> {
+        let history = super::convert::messages_to_history(&request.messages);
+        if let Ok(mut guard) = self.sink.lock() {
+            *guard = history;
+        }
+        Ok(())
+    }
 }
 
 /// Config for the [`HandoffMiddleware`]: the per-spawn cache (shared with the
@@ -240,6 +289,7 @@ impl TurnContextMiddleware {
             autocompact_enabled: true,
             super_context: None,
             handoff: None,
+            transcript_snapshot: None,
         }
     }
 
@@ -251,6 +301,7 @@ impl TurnContextMiddleware {
             && self.microcompact_keep_recent == 0
             && self.super_context.is_none()
             && self.handoff.is_none()
+            && self.transcript_snapshot.is_none()
     }
 
     /// Push the enabled middlewares onto `harness`.
@@ -264,6 +315,13 @@ impl TurnContextMiddleware {
         harness: &mut AgentHarness<()>,
         tool_policies: HashMap<String, TaToolPolicy>,
     ) {
+        // Transcript snapshot (#4466) runs first among before_model hooks so it
+        // mirrors the *incoming* request transcript (every prior completed round)
+        // before microcompact/summarization rewrite it — the caller's error path
+        // persists exactly what the model was about to see.
+        if let Some(sink) = self.transcript_snapshot {
+            harness.push_middleware(Arc::new(TranscriptSnapshotMiddleware { sink }));
+        }
         // Super context runs first: it prepares the read-only context bundle and
         // folds it into the first model call's user message before any other
         // before_model hook inspects the request.

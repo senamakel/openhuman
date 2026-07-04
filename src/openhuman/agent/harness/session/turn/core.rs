@@ -900,6 +900,9 @@ impl Agent {
             // Progressive-disclosure handoff is a sub-agent (integrations_agent)
             // concern; the top-level chat turn never sets it.
             handoff: None,
+            // Live transcript snapshotting is a sub-agent error-recovery concern
+            // (#4466); the chat path persists its transcript post-run.
+            transcript_snapshot: None,
         };
 
         // Gather any sub-agent spend delegated during this turn (synchronous

@@ -225,11 +225,40 @@ impl OpenhumanEventBridge {
         (s.cache_hits, s.cache_misses)
     }
 
-    /// Best-effort, non-blocking progress emit (drops on a full channel, like
-    /// the legacy streaming path).
+    /// Forward a progress event without ever silently dropping it under
+    /// backpressure (#4466). The crate `EventListener::on_event` callback is
+    /// **synchronous**, so we cannot `.await` a bounded `send()` inline the way
+    /// the legacy streaming path did. Fast path: `try_send`, which succeeds (and
+    /// stays fully synchronous + ordered) whenever the downstream channel has
+    /// room — the common case. Only when the channel is momentarily **full** do
+    /// we fall back to an awaited `send()` on a spawned task so the delta is
+    /// delivered under backpressure instead of being dropped (the old bug). A
+    /// `Closed` channel means the receiver is gone (turn tore down), where
+    /// dropping is correct.
     fn send(&self, progress: AgentProgress) {
-        if let Some(tx) = &self.on_progress {
-            let _ = tx.try_send(progress);
+        use tokio::sync::mpsc::error::TrySendError;
+        let Some(tx) = &self.on_progress else {
+            return;
+        };
+        match tx.try_send(progress) {
+            Ok(()) => {}
+            Err(TrySendError::Closed(_)) => {}
+            Err(TrySendError::Full(progress)) => {
+                // Backpressure, not capacity loss: hand the delta to an awaited
+                // `send()` on a spawned task rather than dropping it. Guard on a
+                // live runtime so a non-async construction path can't panic.
+                if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                    let tx = tx.clone();
+                    handle.spawn(async move {
+                        let _ = tx.send(progress).await;
+                    });
+                } else {
+                    tracing::debug!(
+                        model = %self.model,
+                        "[tinyagents] progress channel full and no runtime to defer send; dropping one delta"
+                    );
+                }
+            }
         }
     }
 

@@ -329,6 +329,34 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
     expect(container.querySelector('[data-testid="agent-task-insights"]')).toBeNull();
   });
 
+  it('renders the tool result output inside the expanded row', () => {
+    const entries: ToolTimelineEntry[] = [
+      {
+        id: 'd',
+        name: 'web_search',
+        round: 1,
+        status: 'success',
+        argsBuffer: '{"query":"f1"}',
+        result: 'Top result: https://openhuman.dev',
+      },
+    ];
+    renderInStore(<ToolTimelineBlock entries={entries} expandAllRows />);
+    const output = screen.getByTestId('tool-result-output');
+    expect(output.textContent).toContain('Top result: https://openhuman.dev');
+  });
+
+  it('makes a row expandable on a result alone and omits the block without one', () => {
+    const entries: ToolTimelineEntry[] = [
+      // No argsBuffer / detail / subagent — the result is the only body.
+      { id: 'a', name: 'run_code', round: 1, status: 'success', result: 'exit 0' },
+      { id: 'b', name: 'run_code', round: 2, status: 'success' },
+    ];
+    renderInStore(<ToolTimelineBlock entries={entries} expandAllRows />);
+    const outputs = screen.getAllByTestId('tool-result-output');
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0].textContent).toBe('exit 0');
+  });
+
   it('renders the parent live response inside the panel under a Response heading', () => {
     const entries: ToolTimelineEntry[] = [
       { id: 'r', name: 'web_search', round: 1, status: 'running', argsBuffer: '{"query":"f1"}' },

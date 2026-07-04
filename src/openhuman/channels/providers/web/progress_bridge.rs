@@ -1305,6 +1305,70 @@ mod tests {
         assert!(capped.len() <= MAX_WIRE_SUBAGENT_OUTPUT);
     }
 
+    /// The `tool_result` wire event must carry the tool's real (capped) output
+    /// so the UI can render what the tool returned — not the legacy
+    /// `{"output_chars", "elapsed_ms"}` metadata stub (which broke both the
+    /// timeline result view and the `propose_workflow` proposal parser).
+    #[tokio::test]
+    async fn tool_call_completed_forwards_real_output_on_tool_result() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = crate::openhuman::config::Config {
+            workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
+            config_path: tmp.path().join("config.toml"),
+            ..Default::default()
+        };
+        let store = TurnStateStore::new(tmp.path().join("turn_states"));
+        let (tx, rx) = tokio::sync::mpsc::channel(16);
+        let mut bus = super::super::event_bus::subscribe_web_channel_events();
+        spawn_progress_bridge(
+            rx,
+            "client-out".into(),
+            "thread-out".into(),
+            "req-out".into(),
+            store,
+            ChatRequestMetadata::default(),
+            config,
+        );
+
+        tx.send(
+            crate::openhuman::agent::progress::AgentProgress::ToolCallCompleted {
+                call_id: "call-1".into(),
+                tool_name: "web_search".into(),
+                success: true,
+                output_chars: 12,
+                output: "real payload".into(),
+                arguments: None,
+                elapsed_ms: 42,
+                iteration: 1,
+                failure: None,
+            },
+        )
+        .await
+        .expect("send progress");
+
+        // The bus is process-global — skip unrelated events from concurrent
+        // tests and wait (bounded) for our thread's tool_result.
+        let event = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                match bus.recv().await {
+                    Ok(ev) if ev.thread_id == "thread-out" && ev.event == "tool_result" => {
+                        return ev;
+                    }
+                    Ok(_) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(err) => panic!("bus closed: {err}"),
+                }
+            }
+        })
+        .await
+        .expect("tool_result within timeout");
+
+        assert_eq!(event.output.as_deref(), Some("real payload"));
+        assert_eq!(event.success, Some(true));
+        assert_eq!(event.tool_call_id.as_deref(), Some("call-1"));
+    }
+
     #[test]
     fn worktree_detail_collapses_empty_changed_files_to_none() {
         // Non-isolated / clean worker: empty list → `None` so the renderer

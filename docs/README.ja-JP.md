@@ -90,22 +90,12 @@ OpenHuman は、ほとんどのアシスタントが持っていない 3 つの�
 - **[プライバシー & セキュリティ](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: デバイス上で暗号化されたデータ、承認ゲート、OS キーリングによるシークレット管理、オプトインのサンドボックス — そして **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: スイッチひとつで推論が一切マシンの外に出なくなり、Rust コアで強制されます。
 - **[テーマ & Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: 5 つのテーマファミリーとフル機能のビジュアルエディター、JSON としてエクスポート可能。
 
-## ソースからのコントリビュート
-
-新しいコントリビューターの方は、まず [`CONTRIBUTING.md`](../CONTRIBUTING.md) で fork/PR ワークフローとローカル検証コマンドを確認するか、[`CONTRIBUTING-BEGINNERS.md`](../CONTRIBUTING-BEGINNERS.md#optional-let-an-ai-coding-agent-guide-you) のコピー&ペーストできる AI エージェント向けプロンプトを使ってください。最短経路は以下のとおりです:
-
-1. Git、Node.js 24+、pnpm 10.10.0、Rust 1.93.0（`rustfmt` + `clippy`）、CMake、Ninja、ripgrep、プラットフォーム向けデスクトップビルドの前提条件をインストールします。
-2. リポジトリを fork してクローンし、`pnpm install` の前に `git submodule update --init --recursive` を実行して、ベンダー化された Tauri/CEF のソースを取得します。
-3. ウェブのみの UI 作業には `pnpm dev` を、デスクトップシェルには `pnpm --filter openhuman-app dev:app` を使用し、PR を出す前に `pnpm typecheck`、`pnpm format:check`、`cargo check -p openhuman --lib` などの集中チェックを実行してください。
-
-詳細なドキュメント: [アーキテクチャ](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [セットアップガイド](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [クラウドデプロイ](../gitbooks/features/cloud-deploy.md)。
-
 ## コンテキストを数週間ではなく数分で
 
 OpenHuman は、数分であなたのことを理解する初めてのエージェントハーネスです。[Karpathy 氏の LLM ナレッジベース](https://x.com/karpathy/status/2039805659525644595)にインスパイアされました。ほとんどのエージェントは冷えた状態から始まります。Hermes はあなたの作業を見て学習し、OpenClaw はプラグインがコンテキストを運び込むのを待ちます。いずれにせよ、エージェントがあなたのスタックを十分理解して本当に役立つようになるまで、数日から数週間を費やすことになります。
 
 <p align="center">
- <img src="../gitbooks/.gitbook/assets/image (1).png" alt="OpenHuman のコンテキスト構築図">
+ <img src="../gitbooks/.gitbook/assets/memory.png" alt="OpenHuman のコンテキスト構築図">
 </p>
 
 > OpenHuman はあなたのすべてのドキュメント、メール、チャットを要約・圧縮し、エージェントがあなたについてすべてを覚えていられるメモリーグラフを作成します。
@@ -122,30 +112,43 @@ OpenHuman はその待ち時間をスキップします。アカウントを接�
 
 - **ループではなくグラフ** — ターンは [tinyagents](https://github.com/tinyhumansai/tinyagents) 上のチェックポイント付きグラフとして実行されます: 人間のために一時停止し、再起動を生き延び、実行の途中から再開します。
 - **サブエージェントの艦隊** — スペシャリストは 3 階層の深さまで起動され、行き詰まったエージェントは根本原因レポートになります。
-- **目に見えるワークフロー** — エージェントが提案する [tinyflows](https://github.com/tinyhumansai/tinyflows) グラフをキャンバス上でレビュー: 永続的、トリガー駆動、承認ゲート付き。
 - **エージェント間、暗号化済み** — インスタンス同士は、x402 決済を備えた Signal プロトコルの E2E セッション上で互いをオーケストレーションします。
+
+## 目に見えるワークフロー
+
+自動化を依頼すると、エージェントが提案してくれます: 保存する前にビジュアルキャンバス上でレビューできる [tinyflows](https://github.com/tinyhumansai/tinyflows) グラフです。保存された[ワークフロー](https://tinyhumans.gitbook.io/openhuman/features/workflows)は永続的でトリガー駆動 — スケジュール、Webhook、チャネルイベントで発火し、再起動を生き延び、副作用は承認ゲートで守られます。
 
 ## OpenHuman と他のエージェントハーネスの比較
 
 ハイレベルな比較です(製品は進化するため、各ベンダーで確認してください)。OpenHuman は **ベンダーの乱立を最小限に抑え**、**ワークフロー知識をデバイス上に保ち**、チャットだけでなくあなたのデータに対する **永続的なメモリ** をエージェントに与えるよう構築されています。
 
-|                            | Claude Cowork          | OpenClaw            | Hermes Agent        | OpenHuman                                                                                                |
-| -------------------------- | ---------------------- | ------------------- | ------------------- | -------------------------------------------------------------------------------------------------------- |
-| **オープンソース**         | 🚫 プロプライエタリ    | ✅ MIT              | ✅ MIT              | ✅ GNU                                                                                                   |
-| **開始が簡単**             | ✅ デスクトップ + CLI  | ⚠️ ターミナル中心   | ⚠️ ターミナル中心   | ✅ クリーンな UI、数分                                                                                   |
-| **コスト**                 | ⚠️ サブスク + アドオン | ⚠️ モデル持ち込み   | ⚠️ モデル持ち込み   | ✅ 1 つのサブスク + TokenJuice                                                                           |
+|                            | Claude Cowork          | OpenClaw            | Hermes Agent        | OpenHuman                                                                                                          |
+| -------------------------- | ---------------------- | ------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **オープンソース**         | 🚫 プロプライエタリ    | ✅ MIT              | ✅ MIT              | ✅ GNU                                                                                                             |
+| **開始が簡単**             | ✅ デスクトップ + CLI  | ⚠️ ターミナル中心   | ⚠️ ターミナル中心   | ✅ クリーンな UI、数分                                                                                             |
+| **コスト**                 | ⚠️ サブスク + アドオン | ⚠️ モデル持ち込み   | ⚠️ モデル持ち込み   | ✅ 1 つのサブスク + TokenJuice                                                                                     |
 | **メモリ**                 | ✅ チャット範囲のみ    | ⚠️ プラグイン依存   | ✅ 自己学習         | 🚀 Memory Tree + Obsidian ボルト、オプションの [agentmemory](https://github.com/rohitg00/agentmemory) バックエンド |
-| **統合**                   | ⚠️ 少数のコネクター    | ⚠️ 持ち込み         | ⚠️ 持ち込み         | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                                    |
-| **自動取得**               | 🚫 なし                | 🚫 なし             | 🚫 なし             | ✅ 20 分同期でメモリに取り込み                                                                           |
-| **オーケストレーション**   | ⚠️ サブタスク          | ⚠️ 単一ループ       | ⚠️ 単一ループ       | 🚀 エージェントグラフ + チェックポイント + E2E 暗号化 A2A                                                |
-| **ワークフロー**           | 🚫 なし                | ⚠️ スクリプト       | ⚠️ スクリプト       | 🚀 ビジュアル、永続、エージェント提案、承認ゲート付き                                                    |
-| **会議**                   | 🚫 なし                | 🚫 なし             | 🚫 なし             | 🚀 Meet/Zoom/Teams/Webex に参加、発話、ライブ文字起こし                                                  |
-| **メッセージングチャネル** | 🚫 なし                | ⚠️ 少数             | ⚠️ 少数             | ✅ ネイティブメール（IMAP/SMTP）を含む 17 チャネル                                                       |
-| **ローカル専用モード**     | 🚫 クラウドのみ        | ⚠️ ローカル持ち込み | ⚠️ ローカル持ち込み | ✅ スイッチひとつで強制される Privacy Mode                                                               |
-| **可観測性**               | 🚫 不透明              | ⚠️ ログ             | ⚠️ ログ             | ✅ リプレイ可能な実行ジャーナル + 呼び出しごとのコスト計上                                               |
-| **API の乱立**             | 🚫 追加キー            | 🚫 BYOK             | 🚫 マルチベンダー   | ✅ 1 アカウント                                                                                          |
-| **モデルルーティング**     | 🚫 単一モデル          | ⚠️ 手動             | ⚠️ 手動             | ✅ ビルトイン                                                                                            |
-| **ネイティブツール**       | ✅ コードのみ          | ✅ コードのみ       | ✅ コードのみ       | ✅ コード + 検索 + スクレイパー + ブラウザ + 音声 + メディア生成                                         |
+| **統合**                   | ⚠️ 少数のコネクター    | ⚠️ 持ち込み         | ⚠️ 持ち込み         | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                                              |
+| **自動取得**               | 🚫 なし                | 🚫 なし             | 🚫 なし             | ✅ 20 分同期でメモリに取り込み                                                                                     |
+| **オーケストレーション**   | ⚠️ サブタスク          | ⚠️ 単一ループ       | ⚠️ 単一ループ       | 🚀 エージェントグラフ + チェックポイント + E2E 暗号化 A2A                                                          |
+| **ワークフロー**           | 🚫 なし                | ⚠️ スクリプト       | ⚠️ スクリプト       | 🚀 ビジュアル、永続、エージェント提案、承認ゲート付き                                                              |
+| **会議**                   | 🚫 なし                | 🚫 なし             | 🚫 なし             | 🚀 Meet/Zoom/Teams/Webex に参加、発話、ライブ文字起こし                                                            |
+| **メッセージングチャネル** | 🚫 なし                | ⚠️ 少数             | ⚠️ 少数             | ✅ ネイティブメール（IMAP/SMTP）を含む 17 チャネル                                                                 |
+| **ローカル専用モード**     | 🚫 クラウドのみ        | ⚠️ ローカル持ち込み | ⚠️ ローカル持ち込み | ✅ スイッチひとつで強制される Privacy Mode                                                                         |
+| **可観測性**               | 🚫 不透明              | ⚠️ ログ             | ⚠️ ログ             | ✅ リプレイ可能な実行ジャーナル + 呼び出しごとのコスト計上                                                         |
+| **API の乱立**             | 🚫 追加キー            | 🚫 BYOK             | 🚫 マルチベンダー   | ✅ 1 アカウント                                                                                                    |
+| **モデルルーティング**     | 🚫 単一モデル          | ⚠️ 手動             | ⚠️ 手動             | ✅ ビルトイン                                                                                                      |
+| **ネイティブツール**       | ✅ コードのみ          | ✅ コードのみ       | ✅ コードのみ       | ✅ コード + 検索 + スクレイパー + ブラウザ + 音声 + メディア生成                                                   |
+
+## ソースからのコントリビュート
+
+新しいコントリビューターの方は、まず [`CONTRIBUTING.md`](../CONTRIBUTING.md) で fork/PR ワークフローとローカル検証コマンドを確認するか、[`CONTRIBUTING-BEGINNERS.md`](../CONTRIBUTING-BEGINNERS.md#optional-let-an-ai-coding-agent-guide-you) のコピー&ペーストできる AI エージェント向けプロンプトを使ってください。最短経路は以下のとおりです:
+
+1. Git、Node.js 24+、pnpm 10.10.0、Rust 1.93.0（`rustfmt` + `clippy`）、CMake、Ninja、ripgrep、プラットフォーム向けデスクトップビルドの前提条件をインストールします。
+2. リポジトリを fork してクローンし、`pnpm install` の前に `git submodule update --init --recursive` を実行して、ベンダー化された Tauri/CEF のソースを取得します。
+3. ウェブのみの UI 作業には `pnpm dev` を、デスクトップシェルには `pnpm --filter openhuman-app dev:app` を使用し、PR を出す前に `pnpm typecheck`、`pnpm format:check`、`cargo check -p openhuman --lib` などの集中チェックを実行してください。
+
+詳細なドキュメント: [アーキテクチャ](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [セットアップガイド](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [クラウドデプロイ](../gitbooks/features/cloud-deploy.md)。
 
 # GitHub でスターをお願いします
 

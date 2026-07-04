@@ -90,22 +90,12 @@ OpenHuman 是大多数助手所不具备的三样东西的集合：**一颗大�
 - **[隐私与安全](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**：设备端加密数据、审批关卡、操作系统钥匙串密钥、可选沙箱——以及 **[隐私模式](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**：一个开关，任何推理都不会离开你的机器，由 Rust 核心强制执行。
 - **[主题与主题工作室](https://tinyhumans.gitbook.io/openhuman/features/theming)**：五套主题系列，外加完整的可视化编辑器，可导出为 JSON。
 
-## 从源码贡献
-
-新贡献者？从 [`CONTRIBUTING.md`](../CONTRIBUTING.md) 了解 fork/PR 工作流和本地验证命令，或使用 [`CONTRIBUTING-BEGINNERS.md`](../CONTRIBUTING-BEGINNERS.md#optional-let-an-ai-coding-agent-guide-you) 中可直接复制粘贴的 AI 智能体提示词。快速路径：
-
-1. 安装 Git、Node.js 24+、pnpm 10.10.0、Rust 1.93.0（`rustfmt` + `clippy`）、CMake、Ninja、ripgrep，以及各平台桌面构建的前置依赖。
-2. Fork 并克隆仓库，然后运行 `git submodule update --init --recursive` 之后再执行 `pnpm install`，确保内置的 Tauri/CEF 源码就位。
-3. 使用 `pnpm dev` 进行纯 Web UI 开发，`pnpm --filter openhuman-app dev:app` 用于桌面壳，在提交 PR 之前运行针对性的检查如 `pnpm typecheck`、`pnpm format:check` 和 `cargo check -p openhuman --lib`。
-
-更多文档：[架构](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [环境搭建](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [云端部署](../gitbooks/features/cloud-deploy.md)。
-
 ## 几分钟内建立上下文，而非数周
 
 OpenHuman 是首个能在几分钟内了解你的智能体框架。灵感来源于 [Karpathy 的 LLM 知识库](https://x.com/karpathy/status/2039805659525644595)。大多数智能体从零开始。Hermes 通过观察你的工作来学习；OpenClaw 等待插件输送上下文。无论哪种方式，你都需要花费数天甚至数周时间，智能体才能对你的技术栈有足够的了解从而真正发挥作用。
 
 <p align="center">
- <img src="../gitbooks/.gitbook/assets/image (1).png" alt="OpenHuman 上下文构建示意图">
+ <img src="../gitbooks/.gitbook/assets/memory.png" alt="OpenHuman 上下文构建示意图">
 </p>
 
 > OpenHuman 将你的所有文档、邮件和聊天记录进行摘要和压缩，并创建一个记忆图谱，让你的智能体记住关于你的一切。
@@ -122,30 +112,43 @@ OpenHuman 跳过了等待期。连接你的账户，让[自动拉取](https://ti
 
 - **图，而非循环**——每一轮对话都作为带检查点的图在 [tinyagents](https://github.com/tinyhumansai/tinyagents) 上运行：可暂停等待人工介入、可在重启后存活、可从运行中途恢复。
 - **子智能体舰队**——专家子智能体可派生至三层深；卡住的智能体会变成根因报告。
-- **看得见的工作流**——智能体提出的 [tinyflows](https://github.com/tinyhumansai/tinyflows) 图，在画布上审阅：持久化、触发器驱动、审批把关。
 - **智能体对智能体，端到端加密**——实例之间通过 Signal 协议 E2E 会话相互编排，并支持 x402 支付。
+
+## 看得见的工作流
+
+向智能体请求一个自动化，它就会提出方案：一张 [tinyflows](https://github.com/tinyhumansai/tinyflows) 图，你可以在可视化画布上审阅后再保存。保存的[工作流](https://tinyhumans.gitbook.io/openhuman/features/workflows)是持久且触发器驱动的——它们由定时任务、Webhook 或渠道事件触发，可在重启后存活，并将副作用置于审批把关之后。
 
 ## OpenHuman vs 其他智能体框架
 
 高层次对比（产品持续演进，请以各厂商最新情况为准）。OpenHuman 的设计目标是**减少供应商碎片化**、将**工作流知识保留在设备上**、为智能体提供对你数据的**持久记忆**，而不仅仅是对话。
 
-|                  | Claude Cowork    | OpenClaw    | Hermes Agent | OpenHuman                                                                                    |
-| ---------------- | ---------------- | ----------- | ------------ | -------------------------------------------------------------------------------------------- |
-| **开源**         | 🚫 闭源          | ✅ MIT      | ✅ MIT       | ✅ GNU                                                                                       |
-| **易上手**       | ✅ 桌面 + CLI    | ⚠️ 终端优先 | ⚠️ 终端优先  | ✅ 清爽 UI，几分钟上手                                                                       |
-| **成本**         | ⚠️ 订阅 + 附加项 | ⚠️ 自带模型 | ⚠️ 自带模型  | ✅ 单一订阅 + TokenJuice                                                                     |
-| **记忆**         | ✅ 对话范围      | ⚠️ 依赖插件 | ✅ 自学习    | 🚀 记忆树 + Obsidian 仓库，可选 [agentmemory](https://github.com/rohitg00/agentmemory) 后端 |
-| **集成**         | ⚠️ 少量连接器    | ⚠️ 自行接入 | ⚠️ 自行接入  | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                        |
-| **自动拉取**     | 🚫 无            | 🚫 无       | 🚫 无        | ✅ 20 分钟同步到记忆                                                                         |
-| **编排**         | ⚠️ 子任务        | ⚠️ 单循环   | ⚠️ 单循环    | 🚀 智能体图 + 检查点 + E2E 加密的 A2A                                                        |
-| **工作流**       | 🚫 无            | ⚠️ 脚本     | ⚠️ 脚本      | 🚀 可视化、持久化、智能体提议、审批把关                                                      |
-| **会议**         | 🚫 无            | 🚫 无       | 🚫 无        | 🚀 加入 Meet/Zoom/Teams/Webex，能发言，实时转写                                              |
-| **消息渠道**     | 🚫 无            | ⚠️ 少数几个 | ⚠️ 少数几个  | ✅ 17 个，含原生邮件（IMAP/SMTP）                                                            |
-| **纯本地模式**   | 🚫 仅云端        | ⚠️ 自带本地 | ⚠️ 自带本地  | ✅ 一键强制的隐私模式                                                                        |
-| **可观测性**     | 🚫 不透明        | ⚠️ 日志     | ⚠️ 日志      | ✅ 可回放的运行日志 + 每次调用的成本核算                                                     |
-| **API 碎片化**   | 🚫 额外密钥      | 🚫 自带密钥 | 🚫 多供应商  | ✅ 一个账户                                                                                  |
-| **模型路由**     | 🚫 单一模型      | ⚠️ 手动     | ⚠️ 手动      | ✅ 内置                                                                                      |
-| **原生工具**     | ✅ 仅代码        | ✅ 仅代码   | ✅ 仅代码    | ✅ 代码 + 搜索 + 抓取 + 浏览器 + 语音 + 媒体生成                                             |
+|                | Claude Cowork    | OpenClaw    | Hermes Agent | OpenHuman                                                                                   |
+| -------------- | ---------------- | ----------- | ------------ | ------------------------------------------------------------------------------------------- |
+| **开源**       | 🚫 闭源          | ✅ MIT      | ✅ MIT       | ✅ GNU                                                                                      |
+| **易上手**     | ✅ 桌面 + CLI    | ⚠️ 终端优先 | ⚠️ 终端优先  | ✅ 清爽 UI，几分钟上手                                                                      |
+| **成本**       | ⚠️ 订阅 + 附加项 | ⚠️ 自带模型 | ⚠️ 自带模型  | ✅ 单一订阅 + TokenJuice                                                                    |
+| **记忆**       | ✅ 对话范围      | ⚠️ 依赖插件 | ✅ 自学习    | 🚀 记忆树 + Obsidian 仓库，可选 [agentmemory](https://github.com/rohitg00/agentmemory) 后端 |
+| **集成**       | ⚠️ 少量连接器    | ⚠️ 自行接入 | ⚠️ 自行接入  | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                       |
+| **自动拉取**   | 🚫 无            | 🚫 无       | 🚫 无        | ✅ 20 分钟同步到记忆                                                                        |
+| **编排**       | ⚠️ 子任务        | ⚠️ 单循环   | ⚠️ 单循环    | 🚀 智能体图 + 检查点 + E2E 加密的 A2A                                                       |
+| **工作流**     | 🚫 无            | ⚠️ 脚本     | ⚠️ 脚本      | 🚀 可视化、持久化、智能体提议、审批把关                                                     |
+| **会议**       | 🚫 无            | 🚫 无       | 🚫 无        | 🚀 加入 Meet/Zoom/Teams/Webex，能发言，实时转写                                             |
+| **消息渠道**   | 🚫 无            | ⚠️ 少数几个 | ⚠️ 少数几个  | ✅ 17 个，含原生邮件（IMAP/SMTP）                                                           |
+| **纯本地模式** | 🚫 仅云端        | ⚠️ 自带本地 | ⚠️ 自带本地  | ✅ 一键强制的隐私模式                                                                       |
+| **可观测性**   | 🚫 不透明        | ⚠️ 日志     | ⚠️ 日志      | ✅ 可回放的运行日志 + 每次调用的成本核算                                                    |
+| **API 碎片化** | 🚫 额外密钥      | 🚫 自带密钥 | 🚫 多供应商  | ✅ 一个账户                                                                                 |
+| **模型路由**   | 🚫 单一模型      | ⚠️ 手动     | ⚠️ 手动      | ✅ 内置                                                                                     |
+| **原生工具**   | ✅ 仅代码        | ✅ 仅代码   | ✅ 仅代码    | ✅ 代码 + 搜索 + 抓取 + 浏览器 + 语音 + 媒体生成                                            |
+
+## 从源码贡献
+
+新贡献者？从 [`CONTRIBUTING.md`](../CONTRIBUTING.md) 了解 fork/PR 工作流和本地验证命令，或使用 [`CONTRIBUTING-BEGINNERS.md`](../CONTRIBUTING-BEGINNERS.md#optional-let-an-ai-coding-agent-guide-you) 中可直接复制粘贴的 AI 智能体提示词。快速路径：
+
+1. 安装 Git、Node.js 24+、pnpm 10.10.0、Rust 1.93.0（`rustfmt` + `clippy`）、CMake、Ninja、ripgrep，以及各平台桌面构建的前置依赖。
+2. Fork 并克隆仓库，然后运行 `git submodule update --init --recursive` 之后再执行 `pnpm install`，确保内置的 Tauri/CEF 源码就位。
+3. 使用 `pnpm dev` 进行纯 Web UI 开发，`pnpm --filter openhuman-app dev:app` 用于桌面壳，在提交 PR 之前运行针对性的检查如 `pnpm typecheck`、`pnpm format:check` 和 `cargo check -p openhuman --lib`。
+
+更多文档：[架构](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [环境搭建](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [云端部署](../gitbooks/features/cloud-deploy.md)。
 
 # 在 GitHub 上为我们加星
 

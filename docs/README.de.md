@@ -90,22 +90,12 @@ OpenHuman ist drei Dinge, die die meisten Assistenten nicht sind: **ein Gehirn**
 - **[Privatsphäre & Sicherheit](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: verschlüsselte Daten auf dem Gerät, Freigabe-Gate, Secrets im OS-Schlüsselbund, Opt-in-Sandboxing — und **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: ein Schalter, und keine Inferenz verlässt deine Maschine — erzwungen im Rust-Core.
 - **[Themes & Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: fünf Theme-Familien plus ein vollständiger visueller Editor, exportierbar als JSON.
 
-## Beitragen aus dem Quellcode
-
-Neu hier? Beginne mit [`CONTRIBUTING.md`](../CONTRIBUTING.md) für den Fork-/PR-Workflow und die lokalen Prüfbefehle, oder nutze den Copy-Paste-Prompt für KI-Coding-Agenten in [`CONTRIBUTING-BEGINNERS.md`](../CONTRIBUTING-BEGINNERS.md#optional-let-an-ai-coding-agent-guide-you). Der kurze Weg:
-
-1. Installiere Git, Node.js 24+, pnpm 10.10.0, Rust 1.93.0 (`rustfmt` + `clippy`), CMake, Ninja, ripgrep sowie die plattformspezifischen Desktop-Build-Voraussetzungen.
-2. Forke und klone das Repo, führe dann `git submodule update --init --recursive` aus, bevor du `pnpm install` startest, damit die mitgelieferten Tauri/CEF-Quellen vorhanden sind.
-3. Nutze `pnpm dev` für reine Web-UI-Arbeit, `pnpm --filter openhuman-app dev:app` für die Desktop-Shell sowie gezielte Checks wie `pnpm typecheck`, `pnpm format:check` und `cargo check -p openhuman --lib`, bevor du einen PR öffnest.
-
-Tiefer einsteigen: [Architektur](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Einrichtung](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud-Deployment](../gitbooks/features/cloud-deploy.md).
-
 ## Kontext in Minuten, nicht in Wochen
 
 OpenHuman ist das erste Agent-Harness, das dich in Minuten kennenlernt. Inspiriert von [Karpathys LLM-Knowledgebase](https://x.com/karpathy/status/2039805659525644595). Die meisten Agenten starten aus dem Kalten. Hermes lernt, indem er dir bei der Arbeit zusieht; OpenClaw wartet darauf, dass Plugins Kontext einspielen. So oder so vergehen Tage oder Wochen, bevor der Agent genug über deinen Stack weiß, um wirklich nützlich zu sein.
 
 <p align="center">
- <img src="../gitbooks/.gitbook/assets/image (1).png" alt="Diagramm zum OpenHuman-Kontextaufbau">
+ <img src="../gitbooks/.gitbook/assets/memory.png" alt="Diagramm zum OpenHuman-Kontextaufbau">
 </p>
 
 > OpenHuman fasst all deine Dokumente, E-Mails und Chats zusammen, komprimiert sie und legt einen Memory Graph an, mit dem dein Agent sich alles über dich merken kann.
@@ -122,30 +112,43 @@ Die meisten Agent-Harnesses betreiben einen Agenten in einer Schleife. OpenHuman
 
 - **Graphen statt Schleifen** — Turns laufen als checkpointed Graphen auf [tinyagents](https://github.com/tinyhumansai/tinyagents): für einen Menschen pausieren, einen Neustart überleben, mitten im Lauf weitermachen.
 - **Sub-Agenten-Flotten** — Spezialisten spawnen drei Ebenen tief; festgefahrene Agenten werden zu Root-Cause-Berichten.
-- **Sichtbare Workflows** — vom Agenten vorgeschlagene [tinyflows](https://github.com/tinyhumansai/tinyflows)-Graphen, geprüft auf einer Canvas: dauerhaft, trigger-gesteuert, freigabe-gesichert.
 - **Agent-zu-Agent, verschlüsselt** — Instanzen orchestrieren sich gegenseitig über Signal-Protokoll-E2E-Sitzungen mit x402-Zahlungen.
+
+## Workflows, die du sehen kannst
+
+Bitte um eine Automatisierung, und der Agent schlägt eine vor: einen [tinyflows](https://github.com/tinyhumansai/tinyflows)-Graphen, den du vor dem Speichern auf einer visuellen Canvas prüfst. Gespeicherte [Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows) sind dauerhaft und trigger-gesteuert — sie feuern auf Zeitpläne, Webhooks oder Kanal-Events, überleben Neustarts und sichern Seiteneffekte hinter Freigaben ab.
 
 ## OpenHuman vs. andere Agent-Harnesses
 
 Übersichtsvergleich (Produkte entwickeln sich weiter — bitte beim jeweiligen Anbieter verifizieren). OpenHuman ist darauf ausgelegt, **Vendor-Wildwuchs zu reduzieren**, **Workflow-Wissen auf dem Gerät zu halten** und dem Agenten eine **persistente Erinnerung** an deine Daten zu geben — nicht nur an den Chat.
 
-|                        | Claude Cowork          | OpenClaw           | Hermes Agent       | OpenHuman                                                                                                 |
-| ---------------------- | ---------------------- | ------------------ | ------------------ | --------------------------------------------------------------------------------------------------------- |
-| **Quelloffen**         | 🚫 Proprietär          | ✅ MIT             | ✅ MIT             | ✅ GNU                                                                                                    |
-| **Einfacher Einstieg** | ✅ Desktop + CLI       | ⚠️ Terminal zuerst | ⚠️ Terminal zuerst | ✅ Aufgeräumte UI, in Minuten                                                                             |
-| **Kosten**             | ⚠️ Abo + Zusatzkosten  | ⚠️ BYO-Modelle     | ⚠️ BYO-Modelle     | ✅ Ein Abo + TokenJuice                                                                                   |
-| **Memory**             | ✅ chat-gebunden       | ⚠️ plugin-abhängig | ✅ selbstlernend   | 🚀 Memory Tree + Obsidian-Vault, optional [agentmemory](https://github.com/rohitg00/agentmemory)-Backend |
-| **Integrationen**      | ⚠️ wenige Konnektoren  | ⚠️ BYO             | ⚠️ BYO             | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                                     |
-| **Auto-Fetch**         | 🚫 keiner              | 🚫 keiner          | 🚫 keiner          | ✅ 20-Min.-Sync ins Memory                                                                                |
-| **Orchestrierung**     | ⚠️ Sub-Tasks           | ⚠️ eine Schleife   | ⚠️ eine Schleife   | 🚀 Agent-Graphen + Checkpoints + E2E-verschlüsseltes A2A                                                  |
-| **Workflows**          | 🚫 keine               | ⚠️ Skripte         | ⚠️ Skripte         | 🚀 visuell, dauerhaft, agent-vorgeschlagen, freigabe-gesichert                                            |
-| **Meetings**           | 🚫 keine               | 🚫 keine           | 🚫 keine           | 🚀 nimmt an Meet/Zoom/Teams/Webex teil, spricht, Live-Transkript                                          |
-| **Messaging-Kanäle**   | 🚫 keine               | ⚠️ einige wenige   | ⚠️ einige wenige   | ✅ 17 inkl. nativer E-Mail (IMAP/SMTP)                                                                    |
-| **Nur-lokal-Modus**    | 🚫 nur Cloud           | ⚠️ BYO lokal       | ⚠️ BYO lokal       | ✅ per Schalter erzwungener Privacy Mode                                                                  |
-| **Observability**      | 🚫 undurchsichtig      | ⚠️ Logs            | ⚠️ Logs            | ✅ wiederabspielbare Lauf-Journale + Kostenabrechnung pro Aufruf                                          |
-| **API-Wildwuchs**      | 🚫 zusätzliche Keys    | 🚫 BYOK            | 🚫 Multi-Vendor    | ✅ ein Account                                                                                            |
-| **Model-Routing**      | 🚫 nur ein Modell      | ⚠️ manuell         | ⚠️ manuell         | ✅ eingebaut                                                                                              |
-| **Native Tools**       | ✅ nur Code            | ✅ nur Code        | ✅ nur Code        | ✅ Code + Suche + Scraper + Browser + Sprache + Mediengenerierung                                         |
+|                        | Claude Cowork         | OpenClaw           | Hermes Agent       | OpenHuman                                                                                                |
+| ---------------------- | --------------------- | ------------------ | ------------------ | -------------------------------------------------------------------------------------------------------- |
+| **Quelloffen**         | 🚫 Proprietär         | ✅ MIT             | ✅ MIT             | ✅ GNU                                                                                                   |
+| **Einfacher Einstieg** | ✅ Desktop + CLI      | ⚠️ Terminal zuerst | ⚠️ Terminal zuerst | ✅ Aufgeräumte UI, in Minuten                                                                            |
+| **Kosten**             | ⚠️ Abo + Zusatzkosten | ⚠️ BYO-Modelle     | ⚠️ BYO-Modelle     | ✅ Ein Abo + TokenJuice                                                                                  |
+| **Memory**             | ✅ chat-gebunden      | ⚠️ plugin-abhängig | ✅ selbstlernend   | 🚀 Memory Tree + Obsidian-Vault, optional [agentmemory](https://github.com/rohitg00/agentmemory)-Backend |
+| **Integrationen**      | ⚠️ wenige Konnektoren | ⚠️ BYO             | ⚠️ BYO             | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                                    |
+| **Auto-Fetch**         | 🚫 keiner             | 🚫 keiner          | 🚫 keiner          | ✅ 20-Min.-Sync ins Memory                                                                               |
+| **Orchestrierung**     | ⚠️ Sub-Tasks          | ⚠️ eine Schleife   | ⚠️ eine Schleife   | 🚀 Agent-Graphen + Checkpoints + E2E-verschlüsseltes A2A                                                 |
+| **Workflows**          | 🚫 keine              | ⚠️ Skripte         | ⚠️ Skripte         | 🚀 visuell, dauerhaft, agent-vorgeschlagen, freigabe-gesichert                                           |
+| **Meetings**           | 🚫 keine              | 🚫 keine           | 🚫 keine           | 🚀 nimmt an Meet/Zoom/Teams/Webex teil, spricht, Live-Transkript                                         |
+| **Messaging-Kanäle**   | 🚫 keine              | ⚠️ einige wenige   | ⚠️ einige wenige   | ✅ 17 inkl. nativer E-Mail (IMAP/SMTP)                                                                   |
+| **Nur-lokal-Modus**    | 🚫 nur Cloud          | ⚠️ BYO lokal       | ⚠️ BYO lokal       | ✅ per Schalter erzwungener Privacy Mode                                                                 |
+| **Observability**      | 🚫 undurchsichtig     | ⚠️ Logs            | ⚠️ Logs            | ✅ wiederabspielbare Lauf-Journale + Kostenabrechnung pro Aufruf                                         |
+| **API-Wildwuchs**      | 🚫 zusätzliche Keys   | 🚫 BYOK            | 🚫 Multi-Vendor    | ✅ ein Account                                                                                           |
+| **Model-Routing**      | 🚫 nur ein Modell     | ⚠️ manuell         | ⚠️ manuell         | ✅ eingebaut                                                                                             |
+| **Native Tools**       | ✅ nur Code           | ✅ nur Code        | ✅ nur Code        | ✅ Code + Suche + Scraper + Browser + Sprache + Mediengenerierung                                        |
+
+## Beitragen aus dem Quellcode
+
+Neu hier? Beginne mit [`CONTRIBUTING.md`](../CONTRIBUTING.md) für den Fork-/PR-Workflow und die lokalen Prüfbefehle, oder nutze den Copy-Paste-Prompt für KI-Coding-Agenten in [`CONTRIBUTING-BEGINNERS.md`](../CONTRIBUTING-BEGINNERS.md#optional-let-an-ai-coding-agent-guide-you). Der kurze Weg:
+
+1. Installiere Git, Node.js 24+, pnpm 10.10.0, Rust 1.93.0 (`rustfmt` + `clippy`), CMake, Ninja, ripgrep sowie die plattformspezifischen Desktop-Build-Voraussetzungen.
+2. Forke und klone das Repo, führe dann `git submodule update --init --recursive` aus, bevor du `pnpm install` startest, damit die mitgelieferten Tauri/CEF-Quellen vorhanden sind.
+3. Nutze `pnpm dev` für reine Web-UI-Arbeit, `pnpm --filter openhuman-app dev:app` für die Desktop-Shell sowie gezielte Checks wie `pnpm typecheck`, `pnpm format:check` und `cargo check -p openhuman --lib`, bevor du einen PR öffnest.
+
+Tiefer einsteigen: [Architektur](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Einrichtung](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud-Deployment](../gitbooks/features/cloud-deploy.md).
 
 # Gib uns einen Stern auf GitHub
 

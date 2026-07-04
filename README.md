@@ -90,22 +90,12 @@ OpenHuman is three things most assistants aren't: **a brain** that builds a pers
 - **[Privacy & security](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: on-device encrypted data, approval gate, OS-keyring secrets, opt-in sandboxing — and **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: one switch and no inference leaves your machine, enforced in the Rust core.
 - **[Themes & Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: five theme families plus a full visual editor, exportable as JSON.
 
-## Contributing from source
-
-New contributor? Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the fork/PR workflow and local validation commands, or use the copy-paste AI-agent prompt in [`CONTRIBUTING-BEGINNERS.md`](./CONTRIBUTING-BEGINNERS.md#optional-let-an-ai-coding-agent-guide-you). The short path is:
-
-1. Install Git, Node.js 24+, pnpm 10.10.0, Rust 1.93.0 (`rustfmt` + `clippy`), CMake, Ninja, ripgrep, and the platform desktop build prerequisites.
-2. Fork and clone the repo, then run `git submodule update --init --recursive` before `pnpm install` so the vendored Tauri/CEF sources are present.
-3. Use `pnpm dev` for web-only UI work, `pnpm --filter openhuman-app dev:app` for the desktop shell, and focused checks such as `pnpm typecheck`, `pnpm format:check`, and `cargo check -p openhuman --lib` before opening a PR.
-
-Deeper docs: [Architecture](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud Deploy](./gitbooks/features/cloud-deploy.md).
-
 ## Context in minutes, not weeks
 
 OpenHuman is the first agent harness that gets to know you in minutes. Inspired by [Karpathy's LLM Knowledgebase](https://x.com/karpathy/status/2039805659525644595). Most agents start cold. Hermes learns by watching you work; OpenClaw waits for plugins to ferry context in. Either way, you spend days or weeks before the agent knows enough about your stack to be genuinely useful.
 
 <p align="center">
- <img src="./gitbooks/.gitbook/assets/image (1).png" alt="OpenHuman context-building diagram">
+ <img src="./gitbooks/.gitbook/assets/memory.png" alt="OpenHuman context-building diagram">
 </p>
 
 > OpenHuman summarizes and compresses all your documents, emails & chats; and creates a memory graph that lets your agent remember everything about you.
@@ -122,8 +112,11 @@ Most agent harnesses run one agent in one loop. OpenHuman is an **[orchestrator]
 
 - **Graphs, not loops** — turns run as checkpointed graphs on [tinyagents](https://github.com/tinyhumansai/tinyagents): pause for a human, survive a restart, resume mid-run.
 - **Sub-agent fleets** — specialists spawn three levels deep; stuck agents become root-cause reports.
-- **Visible workflows** — agent-proposed [tinyflows](https://github.com/tinyhumansai/tinyflows) graphs, reviewed on a canvas: durable, trigger-driven, approval-gated.
 - **Agent-to-agent, encrypted** — instances orchestrate each other over Signal-protocol E2E sessions with x402 payments.
+
+## Workflows you can see
+
+Ask for an automation and the agent proposes one: a [tinyflows](https://github.com/tinyhumansai/tinyflows) graph you review on a visual canvas before saving. Saved [workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows) are durable and trigger-driven — they fire on schedules, webhooks, or channel events, survive restarts, and gate side effects behind approvals.
 
 ## OpenHuman vs Other Agent Harnesses
 
@@ -146,6 +139,16 @@ High-level comparison (products evolve, so verify against each vendor). OpenHuma
 | **API sprawl**         | 🚫 Extra keys     | 🚫 BYOK           | 🚫 Multi-vendor   | ✅ One account                                                                                           |
 | **Model routing**      | 🚫 Single model   | ⚠️ Manual         | ⚠️ Manual         | ✅ Built-in                                                                                              |
 | **Native tools**       | ✅ Code-only      | ✅ Code-only      | ✅ Code-only      | ✅ Code + search + scraper + browser + voice + media gen                                                 |
+
+## Contributing from source
+
+New contributor? Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the fork/PR workflow and local validation commands, or use the copy-paste AI-agent prompt in [`CONTRIBUTING-BEGINNERS.md`](./CONTRIBUTING-BEGINNERS.md#optional-let-an-ai-coding-agent-guide-you). The short path is:
+
+1. Install Git, Node.js 24+, pnpm 10.10.0, Rust 1.93.0 (`rustfmt` + `clippy`), CMake, Ninja, ripgrep, and the platform desktop build prerequisites.
+2. Fork and clone the repo, then run `git submodule update --init --recursive` before `pnpm install` so the vendored Tauri/CEF sources are present.
+3. Use `pnpm dev` for web-only UI work, `pnpm --filter openhuman-app dev:app` for the desktop shell, and focused checks such as `pnpm typecheck`, `pnpm format:check`, and `cargo check -p openhuman --lib` before opening a PR.
+
+Deeper docs: [Architecture](https://tinyhumans.gitbook.io/openhuman/developing/architecture) · [Getting Set Up](https://tinyhumans.gitbook.io/openhuman/developing/getting-set-up) · [Cloud Deploy](./gitbooks/features/cloud-deploy.md).
 
 # Star us on GitHub
 

@@ -157,7 +157,7 @@ export function runConnectorContract(config: ConnectorContractConfig): void {
       console.log(`${LOG} PASS: expired auth does not log user out`);
     });
 
-    it('unrelated 401 on composio route does not nuke session', async function () {
+    it('unrelated 400 on composio route does not nuke session', async function () {
       this.timeout(60_000);
       injectComposioFault(400);
       await callOpenhumanRpc('openhuman.composio_execute', {
@@ -166,7 +166,7 @@ export function runConnectorContract(config: ConnectorContractConfig): void {
         params: {},
       });
       await assertSessionNotNuked();
-      console.log(`${LOG} PASS: 401-class error does not nuke session`);
+      console.log(`${LOG} PASS: unrelated 400 error does not nuke session`);
     });
 
     it('disconnect flow removes connection', async function () {

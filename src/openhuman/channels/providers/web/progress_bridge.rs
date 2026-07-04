@@ -470,6 +470,7 @@ pub(crate) fn spawn_progress_bridge(
                     tool_name,
                     success,
                     output_chars,
+                    output,
                     elapsed_ms,
                     iteration,
                     failure,
@@ -500,10 +501,11 @@ pub(crate) fn spawn_progress_bridge(
                         request_id: request_id.clone(),
                         tool_name: Some(tool_name),
                         skill_id: Some("web_channel".to_string()),
-                        output: Some(
-                            json!({"output_chars": output_chars, "elapsed_ms": elapsed_ms})
-                                .to_string(),
-                        ),
+                        // Forward the real tool result (size-capped) so the UI
+                        // can render tool output — mirrors the subagent
+                        // `subagent_tool_result` path. Frontends that only
+                        // need size/timing read the ledger telemetry instead.
+                        output: Some(cap_wire_output(output)),
                         success: Some(success),
                         round: Some(iteration),
                         tool_call_id: Some(call_id),

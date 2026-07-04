@@ -1042,7 +1042,18 @@ impl EventListener for OpenhumanEventBridge {
                     "[fallback] SDK failed over to a cross-route fallback model"
                 );
             }
-            _ => {}
+            other => {
+                // Not projected into `AgentProgress` (run lifecycle, sub-agent
+                // boundaries — reconstructed from the orchestration tools'
+                // manual emits — middleware, workspace, memory, limits). Trace
+                // the kind so a dropped-event hypothesis is checkable from
+                // logs instead of reading this match.
+                tracing::trace!(
+                    model = %self.model,
+                    kind = ?std::mem::discriminant(other),
+                    "[tinyagents:bridge] event observed but not forwarded to UI progress"
+                );
+            }
         }
     }
 }

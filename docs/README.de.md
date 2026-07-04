@@ -45,12 +45,6 @@
  <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="Aktuellste Version" /></a>
  <a href="https://github.com/tinyhumansai/openhuman/stargazers"><img src="https://img.shields.io/github/stars/tinyhumansai/openhuman?style=flat" alt="GitHub Stars" /></a>
  <a href="../LICENSE"><img src="https://img.shields.io/github/license/tinyhumansai/openhuman" alt="Lizenz" /></a>
- <a href="../README.md"><img src="https://img.shields.io/badge/lang-English-blue" alt="English" /></a>
- <a href="./README.zh-CN.md"><img src="https://img.shields.io/badge/lang-简体中文-blue" alt="简体中文" /></a>
- <a href="./README.ja-JP.md"><img src="https://img.shields.io/badge/lang-日本語-blue" alt="日本語" /></a>
- <a href="./README.ko.md"><img src="https://img.shields.io/badge/lang-한국어-blue" alt="한국어" /></a>
- <a href="./README.de.md"><img src="https://img.shields.io/badge/lang-Deutsch-blue" alt="Deutsch" /></a>
- <a href="./README.ur-pk.md"><img src="https://img.shields.io/badge/lang-اردو-blue" alt="اردو" /></a>
 </p>
 
 > **Frühe Beta**: Wird aktiv weiterentwickelt. Mit Ecken und Kanten ist zu rechnen.
@@ -59,53 +53,9 @@
 
 # Installation
 
-Lade die Installer von [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) oder von der [GitHub-Releases](https://github.com/tinyhumansai/openhuman/releases/latest)-Seite herunter. Für Terminal-Installationen sind die nativen Paketpfade unten zu bevorzugen, da sie — wo verfügbar — den Paketmanager bzw. nativen Installer deines Betriebssystems nutzen.
+Lade die Installer von [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) oder von der [GitHub-Releases](https://github.com/tinyhumansai/openhuman/releases/latest)-Seite herunter.
 
-## Empfohlene Installation (native Pakete)
-
-Diese Pfade nutzen native Installer-Oberflächen. Homebrew und MSI bringen ihre üblichen Signatur-/Integritätsprüfungen mit; unter Debian/Ubuntu installiert `apt-get` das Release-`.deb` und löst die Systemabhängigkeiten auf.
-
-**macOS (Homebrew-Tap):**
-
-```bash
-brew tap tinyhumansai/core
-brew install openhuman
-```
-
-**Linux (Debian/Ubuntu — Release-`.deb`):**
-
-```bash
-# Download OpenHuman_<version>_amd64.deb or OpenHuman_<version>_arm64.deb
-# from https://github.com/tinyhumansai/openhuman/releases/latest, then:
-# Replace amd64 with arm64 on arm64 hosts.
-sudo apt-get install -y --no-install-recommends ./OpenHuman_*_amd64.deb
-```
-
-**Linux (Arch — AUR):** das [`openhuman-bin`-AUR-Rezept](../packages/arch/openhuman-bin/) liegt im Repo. Sobald es veröffentlicht ist, können Arch-Nutzer es mit `yay -S openhuman-bin` installieren.
-
-**Windows:** lade die signierte `.msi` vom [neuesten Release](https://github.com/tinyhumansai/openhuman/releases/latest) herunter und führe sie aus.
-
-**Manuell `.dmg` / `.deb` / `.AppImage` / `.msi`:** hole dir den Installer für deine Plattform direkt von der [Seite des neuesten Releases](https://github.com/tinyhumansai/openhuman/releases/latest).
-
-> **Linux:** das AppImage kann unter Wayland beim Start abstürzen, Host-Systembibliotheken wie `libgbm.so.1` vermissen oder auf Arch-basierten Distros mit `sharun: Interpreter not found!` fehlschlagen — siehe [#2463](https://github.com/tinyhumansai/openhuman/issues/2463) für die Ursache und Env-Var-Workarounds. Das `.deb`-Paket oben vermeidet diese Fehlerbilder auf Debian/Ubuntu, indem apt die Laufzeitabhängigkeiten auflöst.
-
-## Alternative: Skript-Installation (ohne Integritätsprüfung)
-
-> **Warnung — unverifizierte Installation.** Diese Skripte werden live von `raw.githubusercontent.com` ausgeliefert und bringen **keine** separate Signatur mit — `curl … | bash` und `irm … | iex` haben also keine Möglichkeit, Manipulationen an den Skript-Bytes zu erkennen. Bevorzuge wann immer möglich die **nativen Paketpfade** oben. Wenn du das Skript dennoch nutzen musst, siehe „Verifizierte Skript-Installation" unten.
-
-```bash
-# macOS or Linux x64
-curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh | bash
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.ps1 | iex
-```
-
-Unter Debian/Ubuntu löst `install.sh` zuerst das neueste Release-`.deb` auf und installiert es mit `apt-get`, sodass apt die Laufzeitabhängigkeiten übernimmt. Setze `OPENHUMAN_INSTALLER_LINUX_PACKAGE=appimage`, um den AppImage-Pfad zu erzwingen.
-
-## Status der verifizierten Skript-Installation
-
-Ein separat signierter Skript-Installationspfad ist derzeit nicht verfügbar. Issue [#2620](https://github.com/tinyhumansai/openhuman/issues/2620) wurde geschlossen, nachdem die nativen Paketpfade in den Vordergrund gerückt wurden, aber die aktuellen Release-Assets enthalten kein `install.sh.asc` / `install.ps1.asc` zur Skriptverifikation vor der Ausführung. Behandle die Skript-Installation als unverifiziert und bevorzuge nach Möglichkeit die nativen Paketoptionen oben.
+Für Terminal-Installationen — Homebrew, Debian/Ubuntu-`.deb`, AUR, Install-Skripte und Plattformhinweise — siehe **[INSTALL.md](../INSTALL.md)**.
 
 # Was ist OpenHuman?
 
@@ -121,23 +71,23 @@ OpenHuman ist drei Dinge, die die meisten Assistenten nicht sind: **ein Gehirn**
 
 ### 🕸️ Der Orchestrator
 
-- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)** _(neu)_: der Agent schlägt die Automatisierung vor; du prüfst sie auf einer Canvas und speicherst. Dauerhafte, trigger-gesteuerte, freigabe-gesicherte Läufe auf dem quelloffenen [tinyflows](https://github.com/tinyhumansai/tinyflows).
-- **[Ein Harness, das die Arbeit zu Ende bringt](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)** _(neu)_: checkpointed Graph-Läufe auf dem quelloffenen [tinyagents](https://github.com/tinyhumansai/tinyagents) — festgefahrene Agenten werden nachgesteuert, gestoppte liefern eine Root Cause zurück, jeder Lauf lässt sich mit echten Kosten pro Aufruf wieder abspielen.
-- **[Ein Split Brain, immer an](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** _(neu)_: ein schneller Reflex-Agent triagiert eingehenden Traffic, während ein tiefer Reasoning-Kern an Worker-Flotten delegiert, gesteuert vom Unterbewusstsein.
+- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**: der Agent schlägt die Automatisierung vor; du prüfst sie auf einer Canvas und speicherst. Dauerhafte, trigger-gesteuerte, freigabe-gesicherte Läufe auf dem quelloffenen [tinyflows](https://github.com/tinyhumansai/tinyflows).
+- **[Ein Harness, das die Arbeit zu Ende bringt](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: checkpointed Graph-Läufe auf dem quelloffenen [tinyagents](https://github.com/tinyhumansai/tinyagents) — festgefahrene Agenten werden nachgesteuert, gestoppte liefern eine Root Cause zurück, jeder Lauf lässt sich mit echten Kosten pro Aufruf wieder abspielen.
+- **[Ein Split Brain, immer an](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**: ein schneller Reflex-Agent triagiert eingehenden Traffic, während ein tiefer Reasoning-Kern an Worker-Flotten delegiert, gesteuert vom Unterbewusstsein.
 - **[Eine Agenten-Ökonomie](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: ein `@handle` auf [tiny.place](https://tiny.place), Signal-verschlüsselte Agent-zu-Agent-Orchestrierung, x402-USDC-Bounties und Handel — Keys berühren nie die Festplatte.
 
 ### 🔬 Der Deep Researcher & Macher
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: ein Research-Scout durchkämmt dein Gedächtnis und deine Dateien, bevor das Modell deine erste Nachricht liest. Keine Kaltstarts.
 - **Alles eingebaut**: Web-Suche, Scraper, Coder-Toolset, ein echter [Browser](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), [native Sprache](../gitbooks/features/native-tools/voice.md) mit In-Process-Whisper — und [Model-Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing), das das passende LLM pro Workload auswählt, ein Abo, [lokale KI optional](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai).
-- **[Meeting-Agenten](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)** _(neu)_: nimmt an **Meet, Zoom, Teams und Webex** teil — mit Gesicht und Stimme. Tritt automatisch aus deinem Kalender bei, streamt ein Live-Transkript, antwortet auf seinen Namen und legt Zusammenfassung + Action Items ab.
-- **[Bild- & Videogenerierung](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** _(neu)_: Seedream/SeedEdit-Bilder und Seedance/Veo-Video, direkt in deinen Workspace im selben Abo.
+- **[Meeting-Agenten](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: nimmt an **Meet, Zoom, Teams und Webex** teil — mit Gesicht und Stimme. Tritt automatisch aus deinem Kalender bei, streamt ein Live-Transkript, antwortet auf seinen Namen und legt Zusammenfassung + Action Items ab.
+- **[Bild- & Videogenerierung](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit-Bilder und Seedance/Veo-Video, direkt in deinen Workspace im selben Abo.
 - **[17 Messaging-Kanäle](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… plus **native E-Mail** (IMAP IDLE + SMTP). Dein Agent erreicht dich dort, wo du ohnehin schon bist.
 
 ### 🧍 Menschlich, privat, deins
 
 - **Schlicht, UI-zuerst & menschlich**: von der Installation zum laufenden Agenten in wenigen Klicks — keine Config-Dateien, kein Terminal. Und es hat [ein Gesicht](https://tinyhumans.gitbook.io/openhuman/features/mascot): ein Maskottchen, das spricht, reagiert und sich an dich erinnert.
-- **[Privatsphäre & Sicherheit](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: verschlüsselte Daten auf dem Gerät, Freigabe-Gate, Secrets im OS-Schlüsselbund, Opt-in-Sandboxing — und _(neu)_ **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: ein Schalter, und keine Inferenz verlässt deine Maschine — erzwungen im Rust-Core.
+- **[Privatsphäre & Sicherheit](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: verschlüsselte Daten auf dem Gerät, Freigabe-Gate, Secrets im OS-Schlüsselbund, Opt-in-Sandboxing — und **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: ein Schalter, und keine Inferenz verlässt deine Maschine — erzwungen im Rust-Core.
 - **[Themes & Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: fünf Theme-Familien plus ein vollständiger visueller Editor, exportierbar als JSON.
 
 ## Beitragen aus dem Quellcode
@@ -168,14 +118,12 @@ Du hostest [agentmemory](https://github.com/rohitg00/agentmemory) bereits selbst
 
 ## Ein Orchestrator, kein Chatbot
 
-Der tiefste Unterschied ist kein einzelnes Feature — es ist das Ausführungsmodell. Claude Code, OpenClaw und Hermes betreiben **einen Agenten in einer Schleife**. OpenHuman ist ein **[Orchestrator](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**:
+Die meisten Agent-Harnesses betreiben einen Agenten in einer Schleife. OpenHuman ist ein **[Orchestrator](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**:
 
-- **Graphen statt Schleifen** — Turns kompilieren zu checkpointed State-Machine-Graphen auf [tinyagents](https://github.com/tinyhumansai/tinyagents): für einen Menschen pausieren, einen Neustart überleben, mitten im Lauf weitermachen.
-- **Sub-Agenten-Flotten** — Spezialisten spawnen drei Ebenen tief, untätige Worker werden wiederverwendet, und Circuit Breaker verwandeln festgefahrene Agenten in Root-Cause-Berichte.
-- **Workflows, die du sehen kannst** — vom Agenten vorgeschlagene [tinyflows](https://github.com/tinyhumansai/tinyflows)-Graphen, geprüft auf einer Canvas: dauerhaft, trigger-gesteuert, freigabe-gesichert.
-- **Ein Split Brain, immer an** — ein schneller Reflex-Agent triagiert, während ein tiefer Kern nachdenkt, gesteuert von der Unterbewusstseins-Schleife.
-- **Agent-zu-Agent, verschlüsselt** — Instanzen orchestrieren sich gegenseitig über **Signal-Protokoll-E2E**-Sitzungen mit einwilligungsbasiertem Pairing und x402-Zahlungen. Kein Server sieht Klartext.
-- **Als Nächstes: RLMs** — das Modell schreibt seinen eigenen Orchestrierungscode in einer gesandboxten REPL, auf derselben Graph-Engine und demselben Vertrauensmodell.
+- **Graphen statt Schleifen** — Turns laufen als checkpointed Graphen auf [tinyagents](https://github.com/tinyhumansai/tinyagents): für einen Menschen pausieren, einen Neustart überleben, mitten im Lauf weitermachen.
+- **Sub-Agenten-Flotten** — Spezialisten spawnen drei Ebenen tief; festgefahrene Agenten werden zu Root-Cause-Berichten.
+- **Sichtbare Workflows** — vom Agenten vorgeschlagene [tinyflows](https://github.com/tinyhumansai/tinyflows)-Graphen, geprüft auf einer Canvas: dauerhaft, trigger-gesteuert, freigabe-gesichert.
+- **Agent-zu-Agent, verschlüsselt** — Instanzen orchestrieren sich gegenseitig über Signal-Protokoll-E2E-Sitzungen mit x402-Zahlungen.
 
 ## OpenHuman vs. andere Agent-Harnesses
 

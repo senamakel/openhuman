@@ -55,11 +55,6 @@
  <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="تازہ ترین نسخہ" /></a>
  <a href="https://github.com/tinyhumansai/openhuman/stargazers"><img src="https://img.shields.io/github/stars/tinyhumansai/openhuman?style=flat" alt="ستارے" /></a>
  <a href="../LICENSE"><img src="https://img.shields.io/github/license/tinyhumansai/openhuman" alt="لائسنس" /></a>
- <a href="./README.zh-CN.md"><img src="https://img.shields.io/badge/lang-简体中文-blue" alt="简体中文" /></a>
- <a href="./README.ja-JP.md"><img src="https://img.shields.io/badge/lang-日本語-blue" alt="日本語" /></a>
- <a href="./README.ko.md"><img src="https://img.shields.io/badge/lang-한국어-blue" alt="한국어" /></a>
- <a href="./README.de.md"><img src="https://img.shields.io/badge/lang-Deutsch-blue" alt="Deutsch" /></a>
- <a href="./README.ur-pk.md"><img src="https://img.shields.io/badge/lang-اردو-blue" alt="اردو" /></a>
 </p>
 
 </div>
@@ -72,77 +67,9 @@
 
 # انسٹال کریں
 
-انسٹالر [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) سے یا [GitHub ریلیز](https://github.com/tinyhumansai/openhuman/releases/latest) صفحے سے ڈاؤن لوڈ کریں۔ ٹرمینل انسٹال کے لیے، نیچے دیے گئے مقامی پیکیج کے راستے ترجیحی ہیں کیونکہ جہاں دستیاب ہو وہاں یہ OS پیکیج مینیجر یا مقامی انسٹالر استعمال کرتے ہیں۔
+انسٹالر [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) سے یا [GitHub ریلیز](https://github.com/tinyhumansai/openhuman/releases/latest) صفحے سے ڈاؤن لوڈ کریں۔
 
-## تجویز کردہ انسٹال (مقامی پیکیجز)
-
-یہ راستے مقامی installer surfaces استعمال کرتے ہیں۔ Homebrew اور MSI اپنی معمول کی signing/integrity checks فراہم کرتے ہیں؛ Debian/Ubuntu release `.deb` کو `apt-get` سے انسٹال کرتا ہے تاکہ سسٹم dependencies حل ہوں۔
-
-**میک او ایس (ہومبریو ٹیپ):**
-
-</div>
-
-<div dir="ltr">
-
-```bash
-brew tap tinyhumansai/core
-brew install openhuman
-```
-
-</div>
-
-<div dir="rtl" lang="ur">
-
-**لینکس (ڈیبین/ابونٹو — ریلیز `.deb`):**
-
-</div>
-
-<div dir="ltr">
-
-```bash
-# Download OpenHuman_<version>_amd64.deb or OpenHuman_<version>_arm64.deb
-# from https://github.com/tinyhumansai/openhuman/releases/latest, then:
-# Replace amd64 with arm64 on arm64 hosts.
-sudo apt-get install -y --no-install-recommends ./OpenHuman_*_amd64.deb
-```
-
-</div>
-
-<div dir="rtl" lang="ur">
-
-**لینکس (آرچ — اے یو آر):** ریپو میں [`openhuman-bin` AUR recipe](../packages/arch/openhuman-bin/) موجود ہے۔ شائع ہونے کے بعد، آرچ صارفین `yay -S openhuman-bin` سے انسٹال کر سکتے ہیں۔
-
-**ونڈوز:** [تازہ ترین ریلیز](https://github.com/tinyhumansai/openhuman/releases/latest) سے سائنڈ `.msi` ڈاؤن لوڈ کریں اور چلائیں۔
-
-**دستی `.dmg` / `.deb` / `.AppImage` / `.msi`:** اپنے پلیٹ فارم کے لیے انسٹالر براہ راست [تازہ ترین ریلیز صفحے](https://github.com/tinyhumansai/openhuman/releases/latest) سے حاصل کریں۔
-
-> **لینکس:** ایپ امیج وے لینڈ کے تحت لانچ ہوتے وقت کریش کر سکتا ہے، `libgbm.so.1` جیسی میزبان سسٹم لائبریری کھو سکتا ہے، یا آرچ پر مبنی ڈسٹرو پر `sharun: Interpreter not found!` کے ساتھ ناکام ہو سکتا ہے — وجہ اور env-var ورک‌اراؤنڈ کے لیے [#2463](https://github.com/tinyhumansai/openhuman/issues/2463) دیکھیں۔ اوپر والا `.deb` پیکیج ڈیبین/ابونٹو پر apt کے ذریعے runtime dependencies حل کر کے ان ناکامیوں سے بچاتا ہے۔
-
-## متبادل: اسکرپٹ انسٹال (مربوطیت کی تصدیق نہیں)
-
-> **انتباہ — غیر تصدیق شدہ انسٹال۔** یہ اسکرپٹس براہ راست `raw.githubusercontent.com` سے پیش کی جاتی ہیں اور **الگ سے** کوئی دستخط فراہم نہیں کرتیں، اس لیے `curl … | bash` اور `irm … | iex` میں اسکرپٹ بائٹس کی چھیڑ چھاڑ کا پتہ لگانے کا کوئی طریقہ نہیں ہے۔ جب ممکن ہو اوپر والے **مقامی پیکیج** کے راستوں کو ترجیح دیں۔ اگر اسکرپٹ استعمال کرنا ضروری ہو تو نیچے "تصدیق شدہ اسکرپٹ انسٹال" دیکھیں۔
-
-</div>
-
-<div dir="ltr">
-
-```bash
-# macOS or Linux x64
-curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh | bash
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.ps1 | iex
-```
-
-</div>
-
-<div dir="rtl" lang="ur">
-
-ڈیبین/ابونٹو پر `install.sh` پہلے تازہ ترین release `.deb` resolve کرتا ہے اور اسے `apt-get` سے انسٹال کرتا ہے تاکہ runtime dependencies apt حل کرے۔ AppImage راستہ زبردستی استعمال کرنے کے لیے `OPENHUMAN_INSTALLER_LINUX_PACKAGE=appimage` سیٹ کریں۔
-
-## تصدیق شدہ اسکرپٹ انسٹال کی حیثیت
-
-الگ سے دستخط شدہ اسکرپٹ انسٹال کا راستہ فی الحال دستیاب نہیں ہے۔ مقامی پیکیج کے راستوں کو فروغ دینے کے بعد [#2620](https://github.com/tinyhumansai/openhuman/issues/2620) بند کر دیا گیا ہے، لیکن موجودہ ریلیز اثاثوں میں پہلے سے عملدرآمد کی اسکرپٹ تصدیق کے لیے `install.sh.asc` / `install.ps1.asc` شامل نہیں ہیں۔ اسکرپٹ انسٹال کے راستے کو غیر تصدیق شدہ سمجھیں اور جب ممکن ہو اوپر والے مقامی پیکیج کے اختیارات کو ترجیح دیں۔
+ٹرمینل انسٹال کے لیے — Homebrew، Debian/Ubuntu `.deb`، AUR، انسٹال اسکرپٹس، اور پلیٹ فارم نوٹس — **[INSTALL.md](../INSTALL.md)** دیکھیں۔
 
 # OpenHuman کیا ہے؟
 
@@ -158,23 +85,23 @@ OpenHuman تین چیزیں ہے جو زیادہ تر اسسٹنٹس نہیں ہ
 
 ### 🕸️ آرکسٹریٹر
 
-- **[ورک فلوز](https://tinyhumans.gitbook.io/openhuman/features/workflows)** _(نیا)_: ایجنٹ آٹومیشن تجویز کرتا ہے؛ آپ اسے کینوس پر جائزہ لے کر محفوظ کرتے ہیں۔ اوپن سورس [tinyflows](https://github.com/tinyhumansai/tinyflows) پر پائیدار، ٹرگر سے چلنے والے، منظوری سے محفوظ رنز۔
-- **[ایک ہارنس جو کام مکمل کرتا ہے](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)** _(نیا)_: اوپن سورس [tinyagents](https://github.com/tinyhumansai/tinyagents) پر چیک پوائنٹ شدہ گراف رنز — اٹکے ہوئے ایجنٹس کو راہ دکھائی جاتی ہے، رکے ہوئے بنیادی وجہ واپس دیتے ہیں، ہر رن حقیقی فی کال لاگت کے ساتھ دوبارہ چلایا جا سکتا ہے۔
-- **[ایک split brain، ہمیشہ فعال](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** _(نیا)_: ایک تیز reflex ایجنٹ آنے والی ٹریفک کو چھانٹتا ہے جبکہ ایک گہرا reasoning کور ورکر فلیٹس کو کام سونپتا ہے، لاشعور کی رہنمائی میں۔
+- **[ورک فلوز](https://tinyhumans.gitbook.io/openhuman/features/workflows)**: ایجنٹ آٹومیشن تجویز کرتا ہے؛ آپ اسے کینوس پر جائزہ لے کر محفوظ کرتے ہیں۔ اوپن سورس [tinyflows](https://github.com/tinyhumansai/tinyflows) پر پائیدار، ٹرگر سے چلنے والے، منظوری سے محفوظ رنز۔
+- **[ایک ہارنس جو کام مکمل کرتا ہے](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: اوپن سورس [tinyagents](https://github.com/tinyhumansai/tinyagents) پر چیک پوائنٹ شدہ گراف رنز — اٹکے ہوئے ایجنٹس کو راہ دکھائی جاتی ہے، رکے ہوئے بنیادی وجہ واپس دیتے ہیں، ہر رن حقیقی فی کال لاگت کے ساتھ دوبارہ چلایا جا سکتا ہے۔
+- **[ایک split brain، ہمیشہ فعال](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**: ایک تیز reflex ایجنٹ آنے والی ٹریفک کو چھانٹتا ہے جبکہ ایک گہرا reasoning کور ورکر فلیٹس کو کام سونپتا ہے، لاشعور کی رہنمائی میں۔
 - **[ایک ایجنٹ معیشت](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place) پر ایک `@handle`، Signal-انکرپٹڈ ایجنٹ سے ایجنٹ آرکسٹریشن، x402 USDC انعامی کام اور تجارت — چابیاں کبھی ڈسک کو نہیں چھوتیں۔
 
 ### 🔬 گہرا محقق اور کام کرنے والا
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: ایک ریسرچ اسکاؤٹ ماڈل کے آپ کا پہلا پیغام پڑھنے سے پہلے آپ کی یادداشت اور فائلوں کا جائزہ لے لیتا ہے۔ کوئی سرد آغاز نہیں۔
 - **سب کچھ شامل ہے**: ویب سرچ، سکریپر، کوڈر ٹول سیٹ، ایک حقیقی [براؤزر](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)، ان پروسیس Whisper کے ساتھ [مقامی آواز](../gitbooks/features/native-tools/voice.md) — اور [ماڈل روٹنگ](https://tinyhumans.gitbook.io/openhuman/features/model-routing) جو ہر ورک لوڈ کے لیے صحیح LLM چنتی ہے، ایک سبسکرپشن، [مقامی AI اختیاری](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)۔
-- **[میٹنگ ایجنٹس](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)** _(نیا)_: چہرے اور آواز کے ساتھ **Meet، Zoom، Teams، اور Webex** میں شامل ہوتا ہے — کیلنڈر سے خود بخود شامل ہوتا ہے، لائیو ٹرانسکرپٹ اسٹریم کرتا ہے، نام سے جواب دیتا ہے، خلاصہ + ایکشن آئٹمز محفوظ کرتا ہے۔
-- **[تصویر اور ویڈیو جنریشن](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** _(نیا)_: Seedream/SeedEdit تصاویر اور Seedance/Veo ویڈیو، براہ راست آپ کے ورک اسپیس میں، اسی سبسکرپشن پر۔
+- **[میٹنگ ایجنٹس](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: چہرے اور آواز کے ساتھ **Meet، Zoom، Teams، اور Webex** میں شامل ہوتا ہے — کیلنڈر سے خود بخود شامل ہوتا ہے، لائیو ٹرانسکرپٹ اسٹریم کرتا ہے، نام سے جواب دیتا ہے، خلاصہ + ایکشن آئٹمز محفوظ کرتا ہے۔
+- **[تصویر اور ویڈیو جنریشن](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit تصاویر اور Seedance/Veo ویڈیو، براہ راست آپ کے ورک اسپیس میں، اسی سبسکرپشن پر۔
 - **[17 میسجنگ چینلز](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram، Discord، Slack، WhatsApp، Signal، iMessage… اور ساتھ **مقامی ای میل** (IMAP IDLE + SMTP)۔ آپ کا ایجنٹ آپ تک وہیں پہنچتا ہے جہاں آپ پہلے سے موجود ہیں۔
 
 ### 🧍 انسانی، نجی، آپ کا اپنا
 
 - **سادہ، یوزر انٹرفیس اول اور انسانی**: انسٹال سے کام کرنے والے ایجنٹ تک چند کلکس میں — کوئی کنفیگ فائلیں نہیں، کوئی ٹرمینل نہیں۔ اور اس کا [ایک چہرہ](https://tinyhumans.gitbook.io/openhuman/features/mascot) ہے: ایک مسکاٹ جو بولتا ہے، ردعمل دیتا ہے، اور آپ کو یاد رکھتا ہے۔
-- **[پرائیویسی اور سیکیورٹی](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: ڈیوائس پر انکرپٹڈ ڈیٹا، منظوری کا دروازہ، OS-keyring رازداری، اختیاری سینڈ باکسنگ — اور _(نیا)_ **[پرائیویسی موڈ](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: ایک سوئچ اور کوئی inference آپ کی مشین سے باہر نہیں جاتی، Rust کور میں نافذ۔
+- **[پرائیویسی اور سیکیورٹی](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: ڈیوائس پر انکرپٹڈ ڈیٹا، منظوری کا دروازہ، OS-keyring رازداری، اختیاری سینڈ باکسنگ — اور **[پرائیویسی موڈ](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: ایک سوئچ اور کوئی inference آپ کی مشین سے باہر نہیں جاتی، Rust کور میں نافذ۔
 - **[تھیمز اور تھیم اسٹوڈیو](https://tinyhumans.gitbook.io/openhuman/features/theming)**: پانچ تھیم خاندان اور ایک مکمل بصری ایڈیٹر، JSON کے طور پر قابلِ ایکسپورٹ۔
 
 ## سورس سے تعاون
@@ -213,14 +140,12 @@ OpenHuman انتظار چھوڑ دیتا ہے۔ اپنے اکاؤنٹس جوڑی
 
 ## ایک آرکسٹریٹر، چیٹ بوٹ نہیں
 
-سب سے گہرا فرق کوئی ایک فیچر نہیں — بلکہ execution model ہے۔ Claude Code، OpenClaw، اور Hermes **ایک لوپ میں ایک ایجنٹ** چلاتے ہیں۔ OpenHuman ایک **[آرکسٹریٹر](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** ہے:
+زیادہ تر ایجنٹ ہارنسز ایک لوپ میں ایک ایجنٹ چلاتے ہیں۔ OpenHuman ایک **[آرکسٹریٹر](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** ہے:
 
-- **گرافس، لوپس نہیں** — باریاں [tinyagents](https://github.com/tinyhumansai/tinyagents) پر چیک پوائنٹ شدہ state-machine گرافس میں کمپائل ہوتی ہیں: انسان کے لیے رکیں، ری اسٹارٹ سے بچ نکلیں، رن کے بیچ سے دوبارہ شروع ہوں۔
-- **ذیلی ایجنٹ فلیٹس** — ماہرین تین سطح گہرائی تک بنتے ہیں، فارغ ورکرز دوبارہ استعمال ہوتے ہیں، اور سرکٹ بریکرز اٹکے ہوئے ایجنٹس کو بنیادی وجہ کی رپورٹوں میں بدل دیتے ہیں۔
-- **ورک فلوز جو آپ دیکھ سکتے ہیں** — ایجنٹ کے تجویز کردہ [tinyflows](https://github.com/tinyhumansai/tinyflows) گرافس، کینوس پر جائزہ شدہ: پائیدار، ٹرگر سے چلنے والے، منظوری سے محفوظ۔
-- **ایک split brain، ہمیشہ فعال** — ایک تیز reflex ایجنٹ چھانٹتا ہے جبکہ ایک گہرا کور سوچتا ہے، لاشعوری لوپ کی رہنمائی میں۔
-- **ایجنٹ سے ایجنٹ، انکرپٹڈ** — انسٹینسز ایک دوسرے کو **Signal-پروٹوکول E2E** سیشنز پر آرکسٹریٹ کرتے ہیں، رضامندی پر مبنی جوڑی اور x402 ادائیگیوں کے ساتھ۔ کوئی سرور plaintext نہیں دیکھتا۔
-- **آگے: RLMs** — ماڈل ایک سینڈ باکسڈ REPL میں اپنا آرکسٹریشن کوڈ خود لکھتا ہے، اسی گراف انجن اور ٹرسٹ ماڈل پر۔
+- **گرافس، لوپس نہیں** — باریاں [tinyagents](https://github.com/tinyhumansai/tinyagents) پر چیک پوائنٹ شدہ گرافس کے طور پر چلتی ہیں: انسان کے لیے رکیں، ری اسٹارٹ سے بچ نکلیں، رن کے بیچ سے دوبارہ شروع ہوں۔
+- **ذیلی ایجنٹ فلیٹس** — ماہرین تین سطح گہرائی تک بنتے ہیں؛ اٹکے ہوئے ایجنٹ بنیادی وجہ کی رپورٹیں بن جاتے ہیں۔
+- **نظر آنے والے ورک فلوز** — ایجنٹ کے تجویز کردہ [tinyflows](https://github.com/tinyhumansai/tinyflows) گرافس، کینوس پر جائزہ شدہ: پائیدار، ٹرگر سے چلنے والے، منظوری سے محفوظ۔
+- **ایجنٹ سے ایجنٹ، انکرپٹڈ** — انسٹینسز ایک دوسرے کو Signal-پروٹوکول E2E سیشنز پر x402 ادائیگیوں کے ساتھ آرکسٹریٹ کرتے ہیں۔
 
 ## OpenHuman بمقابلہ دوسرے ایجنٹ ہارنسز
 

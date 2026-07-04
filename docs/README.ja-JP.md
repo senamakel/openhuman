@@ -45,11 +45,6 @@
  <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="最新リリース" /></a>
  <a href="https://github.com/tinyhumansai/openhuman/stargazers"><img src="https://img.shields.io/github/stars/tinyhumansai/openhuman?style=flat" alt="GitHub Stars" /></a>
  <a href="../LICENSE"><img src="https://img.shields.io/github/license/tinyhumansai/openhuman" alt="ライセンス" /></a>
- <a href="../README.md"><img src="https://img.shields.io/badge/lang-English-blue" alt="English" /></a>
- <a href="./README.zh-CN.md"><img src="https://img.shields.io/badge/lang-简体中文-blue" alt="简体中文" /></a>
- <a href="./README.ko.md"><img src="https://img.shields.io/badge/lang-한국어-blue" alt="한국어" /></a>
- <a href="./README.de.md"><img src="https://img.shields.io/badge/lang-Deutsch-blue" alt="Deutsch" /></a>
- <a href="./README.ur-pk.md"><img src="https://img.shields.io/badge/lang-اردو-blue" alt="اردو" /></a>
 </p>
 
 > **早期ベータ版**: 現在も活発に開発中です。荒削りな部分があることをご了承ください。
@@ -58,53 +53,9 @@
 
 # インストール
 
-インストーラーは [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) または [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) ページからダウンロードできます。ターミナルからインストールする場合は、可能な限り OS のパッケージマネージャーやネイティブインストーラーを使用する、以下のネイティブパッケージ経路を推奨します。
+インストーラーは [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) または [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) ページからダウンロードできます。
 
-## 推奨インストール（ネイティブパッケージ）
-
-これらの経路はネイティブなインストーラー面を使用します。Homebrew と MSI は通常の署名/整合性チェックを提供し、Debian/Ubuntu では `apt-get` がリリース版の `.deb` をインストールしてシステム依存関係を解決します。
-
-**macOS（Homebrew tap）:**
-
-```bash
-brew tap tinyhumansai/core
-brew install openhuman
-```
-
-**Linux（Debian/Ubuntu — リリース版 `.deb`）:**
-
-```bash
-# Download OpenHuman_<version>_amd64.deb or OpenHuman_<version>_arm64.deb
-# from https://github.com/tinyhumansai/openhuman/releases/latest, then:
-# Replace amd64 with arm64 on arm64 hosts.
-sudo apt-get install -y --no-install-recommends ./OpenHuman_*_amd64.deb
-```
-
-**Linux（Arch — AUR）:** [`openhuman-bin` AUR レシピ](../packages/arch/openhuman-bin/)はリポジトリ内にあります。公開後、Arch ユーザーは `yay -S openhuman-bin` でインストールできます。
-
-**Windows:** [最新リリース](https://github.com/tinyhumansai/openhuman/releases/latest)から署名済みの `.msi` をダウンロードして実行してください。
-
-**手動での `.dmg` / `.deb` / `.AppImage` / `.msi` インストール:** お使いのプラットフォーム向けのインストーラーを[最新リリースページ](https://github.com/tinyhumansai/openhuman/releases/latest)から直接入手してください。
-
-> **Linux:** AppImage は Wayland 環境で起動時にクラッシュしたり、`libgbm.so.1` などのホストシステムライブラリが見つからなかったり、Arch 系ディストリビューションで `sharun: Interpreter not found!` により失敗することがあります。原因と環境変数による回避策は [#2463](https://github.com/tinyhumansai/openhuman/issues/2463) を参照してください。上記の `.deb` パッケージなら、apt がランタイム依存関係を解決するため、Debian/Ubuntu ではこれらの失敗を回避できます。
-
-## 代替手段: スクリプトインストール（整合性チェックなし）
-
-> **警告 — 未検証のインストールです。** これらのスクリプトは `raw.githubusercontent.com` からライブ配信されており、独立した署名を**持たない**ため、`curl … | bash` や `irm … | iex` ではスクリプトバイトの改ざんを検出する手段がありません。可能な限り上記の**ネイティブパッケージ**経路を優先してください。どうしてもスクリプトを使う場合は、下の「検証済みスクリプトインストール」を参照してください。
-
-```bash
-# macOS or Linux x64
-curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh | bash
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.ps1 | iex
-```
-
-Debian/Ubuntu では、`install.sh` はまず最新リリースの `.deb` を解決し、`apt-get` でインストールするため、ランタイム依存関係は apt が処理します。AppImage 経路を強制するには `OPENHUMAN_INSTALLER_LINUX_PACKAGE=appimage` を設定してください。
-
-## 検証済みスクリプトインストールの状況
-
-独立して署名されたスクリプトインストール経路は現在利用できません。Issue [#2620](https://github.com/tinyhumansai/openhuman/issues/2620) はネイティブパッケージ経路が推奨経路に昇格した後にクローズされましたが、現在のリリースアセットには実行前のスクリプト検証用の `install.sh.asc` / `install.ps1.asc` は含まれていません。スクリプトインストール経路は未検証として扱い、可能な限り上記のネイティブパッケージの選択肢を優先してください。
+ターミナルからのインストール — Homebrew、Debian/Ubuntu の `.deb`、AUR、インストールスクリプト、プラットフォーム別の注意点 — については **[INSTALL.md](../INSTALL.md)** を参照してください。
 
 # OpenHuman とは?
 
@@ -120,23 +71,23 @@ OpenHuman は、ほとんどのアシスタントが持っていない 3 つの�
 
 ### 🕸️ オーケストレーター
 
-- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)** _（新機能）_: エージェントが自動化を提案し、あなたはキャンバス上でレビューして保存します。オープンソースの [tinyflows](https://github.com/tinyhumansai/tinyflows) 上で、永続的・トリガー駆動・承認ゲート付きの実行が行われます。
-- **[仕事をやり遂げるハーネス](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)** _（新機能）_: オープンソースの [tinyagents](https://github.com/tinyhumansai/tinyagents) 上でのチェックポイント付きグラフ実行 — 行き詰まったエージェントは軌道修正され、停止したエージェントは根本原因を返し、すべての実行は呼び出しごとの実コスト付きでリプレイできます。
-- **[常時稼働のスプリットブレイン](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** _（新機能）_: 高速な反射エージェントが受信トラフィックをトリアージし、深い推論コアがワーカー艦隊に委任します。サブコンシャスがそれを操縦します。
+- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**: エージェントが自動化を提案し、あなたはキャンバス上でレビューして保存します。オープンソースの [tinyflows](https://github.com/tinyhumansai/tinyflows) 上で、永続的・トリガー駆動・承認ゲート付きの実行が行われます。
+- **[仕事をやり遂げるハーネス](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: オープンソースの [tinyagents](https://github.com/tinyhumansai/tinyagents) 上でのチェックポイント付きグラフ実行 — 行き詰まったエージェントは軌道修正され、停止したエージェントは根本原因を返し、すべての実行は呼び出しごとの実コスト付きでリプレイできます。
+- **[常時稼働のスプリットブレイン](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**: 高速な反射エージェントが受信トラフィックをトリアージし、深い推論コアがワーカー艦隊に委任します。サブコンシャスがそれを操縦します。
 - **[エージェントの経済圏](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place) 上の `@handle`、Signal 暗号化のエージェント間オーケストレーション、x402 USDC バウンティと取引 — 鍵はディスクに一切触れません。
 
 ### 🔬 ディープリサーチャー & 実行者
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: モデルがあなたの最初のメッセージを読む前に、リサーチスカウトがメモリとファイルを走査します。コールドスタートはありません。
 - **電池同梱（Batteries included）**: ウェブ検索、スクレイパー、コーダーツールセット、本物の[ブラウザ](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、インプロセス Whisper による[ネイティブ音声](../gitbooks/features/native-tools/voice.md) — さらにワークロードごとに適切な LLM を選ぶ[モデルルーティング](https://tinyhumans.gitbook.io/openhuman/features/model-routing)。1 つのサブスクリプションで、[ローカル AI はオプション](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)です。
-- **[会議エージェント](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)** _（新機能）_: 顔と声を持って **Meet、Zoom、Teams、Webex** に参加 — カレンダーから自動参加し、ライブ文字起こしをストリーミングし、名前で呼ばれると答え、要約とアクションアイテムを保存します。
-- **[画像・動画生成](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** _（新機能）_: Seedream/SeedEdit の画像と Seedance/Veo の動画を、同じサブスクリプションでワークスペースに直接生成します。
+- **[会議エージェント](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: 顔と声を持って **Meet、Zoom、Teams、Webex** に参加 — カレンダーから自動参加し、ライブ文字起こしをストリーミングし、名前で呼ばれると答え、要約とアクションアイテムを保存します。
+- **[画像・動画生成](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit の画像と Seedance/Veo の動画を、同じサブスクリプションでワークスペースに直接生成します。
 - **[17 のメッセージングチャネル](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram、Discord、Slack、WhatsApp、Signal、iMessage… さらに**ネイティブメール**（IMAP IDLE + SMTP）。エージェントはあなたが既にいる場所であなたに届きます。
 
 ### 🧍 ヒューマンで、プライベートで、あなたのもの
 
 - **シンプル、UI ファースト、そしてヒューマン**: インストールから動作するエージェントまで数クリック — 設定ファイルもターミナルも不要です。そして[顔があります](https://tinyhumans.gitbook.io/openhuman/features/mascot): 喋り、反応し、あなたを覚えているマスコットです。
-- **[プライバシー & セキュリティ](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: デバイス上で暗号化されたデータ、承認ゲート、OS キーリングによるシークレット管理、オプトインのサンドボックス — そして _（新機能）_ **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: スイッチひとつで推論が一切マシンの外に出なくなり、Rust コアで強制されます。
+- **[プライバシー & セキュリティ](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: デバイス上で暗号化されたデータ、承認ゲート、OS キーリングによるシークレット管理、オプトインのサンドボックス — そして **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: スイッチひとつで推論が一切マシンの外に出なくなり、Rust コアで強制されます。
 - **[テーマ & Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: 5 つのテーマファミリーとフル機能のビジュアルエディター、JSON としてエクスポート可能。
 
 ## ソースからのコントリビュート
@@ -167,14 +118,12 @@ OpenHuman はその待ち時間をスキップします。アカウントを接�
 
 ## チャットボットではなく、オーケストレーター
 
-最も深い違いは、個々の機能ではなく実行モデルにあります。Claude Code、OpenClaw、Hermes は**1 つのループで 1 つのエージェント**を動かします。OpenHuman は**[オーケストレーター](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**です:
+ほとんどのエージェントハーネスは 1 つのループで 1 つのエージェントを動かします。OpenHuman は**[オーケストレーター](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**です:
 
-- **ループではなくグラフ** — ターンは [tinyagents](https://github.com/tinyhumansai/tinyagents) 上のチェックポイント付きステートマシングラフにコンパイルされます: 人間のために一時停止し、再起動を生き延び、実行の途中から再開します。
-- **サブエージェントの艦隊** — スペシャリストは 3 階層の深さまで起動され、アイドル状態のワーカーは再利用され、サーキットブレーカーが行き詰まったエージェントを根本原因レポートに変えます。
+- **ループではなくグラフ** — ターンは [tinyagents](https://github.com/tinyhumansai/tinyagents) 上のチェックポイント付きグラフとして実行されます: 人間のために一時停止し、再起動を生き延び、実行の途中から再開します。
+- **サブエージェントの艦隊** — スペシャリストは 3 階層の深さまで起動され、行き詰まったエージェントは根本原因レポートになります。
 - **目に見えるワークフロー** — エージェントが提案する [tinyflows](https://github.com/tinyhumansai/tinyflows) グラフをキャンバス上でレビュー: 永続的、トリガー駆動、承認ゲート付き。
-- **常時稼働のスプリットブレイン** — 高速な反射エージェントがトリアージし、深いコアが推論します。サブコンシャスループがそれを操縦します。
-- **エージェント間、暗号化済み** — インスタンス同士は、同意ベースのペアリングと x402 決済を備えた **Signal プロトコルの E2E** セッション上で互いをオーケストレーションします。サーバーは平文を一切見ません。
-- **次は RLM** — 同じグラフエンジンと信頼モデルの上で、モデルがサンドボックス化された REPL の中で自らのオーケストレーションコードを書きます。
+- **エージェント間、暗号化済み** — インスタンス同士は、x402 決済を備えた Signal プロトコルの E2E セッション上で互いをオーケストレーションします。
 
 ## OpenHuman と他のエージェントハーネスの比較
 

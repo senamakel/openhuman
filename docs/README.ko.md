@@ -45,12 +45,6 @@
  <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="최신 릴리스" /></a>
  <a href="https://github.com/tinyhumansai/openhuman/stargazers"><img src="https://img.shields.io/github/stars/tinyhumansai/openhuman?style=flat" alt="GitHub Stars" /></a>
  <a href="../LICENSE"><img src="https://img.shields.io/github/license/tinyhumansai/openhuman" alt="라이선스" /></a>
- <a href="../README.md"><img src="https://img.shields.io/badge/lang-English-blue" alt="English" /></a>
- <a href="./README.zh-CN.md"><img src="https://img.shields.io/badge/lang-简体中文-blue" alt="简体中文" /></a>
- <a href="./README.ja-JP.md"><img src="https://img.shields.io/badge/lang-日本語-blue" alt="日本語" /></a>
- <a href="./README.ko.md"><img src="https://img.shields.io/badge/lang-한국어-blue" alt="한국어" /></a>
- <a href="./README.de.md"><img src="https://img.shields.io/badge/lang-Deutsch-blue" alt="Deutsch" /></a>
- <a href="./README.ur-pk.md"><img src="https://img.shields.io/badge/lang-اردو-blue" alt="اردو" /></a>
 </p>
 
 > **얼리 베타**: 활발히 개발 중입니다. 다소 미흡한 부분이 있을 수 있습니다.
@@ -59,53 +53,9 @@
 
 # 설치
 
-[tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) 또는 [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) 페이지에서 설치 프로그램을 다운로드하세요. 터미널 설치의 경우, 가능한 한 OS 패키지 관리자나 네이티브 설치 프로그램을 사용하는 아래의 네이티브 패키지 경로를 권장합니다.
+[tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) 또는 [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) 페이지에서 설치 프로그램을 다운로드하세요.
 
-## 권장 설치 방법 (네이티브 패키지)
-
-이 경로들은 네이티브 설치 프로그램을 사용합니다. Homebrew와 MSI는 일반적인 서명/무결성 검사를 제공하며, Debian/Ubuntu는 `apt-get`으로 릴리스 `.deb`를 설치하고 시스템 의존성을 해결합니다.
-
-**macOS (Homebrew tap):**
-
-```bash
-brew tap tinyhumansai/core
-brew install openhuman
-```
-
-**Linux (Debian/Ubuntu — 릴리스 `.deb`):**
-
-```bash
-# Download OpenHuman_<version>_amd64.deb or OpenHuman_<version>_arm64.deb
-# from https://github.com/tinyhumansai/openhuman/releases/latest, then:
-# Replace amd64 with arm64 on arm64 hosts.
-sudo apt-get install -y --no-install-recommends ./OpenHuman_*_amd64.deb
-```
-
-**Linux (Arch — AUR):** [`openhuman-bin` AUR 레시피](../packages/arch/openhuman-bin/)가 저장소에 포함되어 있습니다. 게시된 후에는 Arch 사용자가 `yay -S openhuman-bin`으로 설치할 수 있습니다.
-
-**Windows:** [최신 릴리스](https://github.com/tinyhumansai/openhuman/releases/latest)에서 서명된 `.msi`를 다운로드하여 실행하세요.
-
-**수동 `.dmg` / `.deb` / `.AppImage` / `.msi` 설치:** [최신 릴리스 페이지](https://github.com/tinyhumansai/openhuman/releases/latest)에서 플랫폼에 맞는 설치 프로그램을 직접 받으세요.
-
-> **Linux:** AppImage는 Wayland 환경에서 실행 시 크래시가 발생하거나, `libgbm.so.1` 같은 호스트 시스템 라이브러리가 없거나, Arch 계열 배포판에서 `sharun: Interpreter not found!` 오류로 실패할 수 있습니다. 원인과 환경 변수 우회 방법은 [#2463](https://github.com/tinyhumansai/openhuman/issues/2463)을 참조하세요. 위의 `.deb` 패키지는 apt가 런타임 의존성을 해결하도록 하여 Debian/Ubuntu에서 이러한 문제를 피합니다.
-
-## 대안: 스크립트 설치 (무결성 검사 없음)
-
-> **경고 — 검증되지 않은 설치입니다.** 이 스크립트들은 `raw.githubusercontent.com`에서 실시간으로 제공되며 별도의 서명을 포함하지 **않으므로**, `curl … | bash`와 `irm … | iex`는 스크립트 바이트가 변조되었는지 감지할 방법이 없습니다. 가능하면 위의 **네이티브 패키지** 경로를 우선 사용하세요. 스크립트를 반드시 사용해야 한다면 아래의 "검증된 스크립트 설치 상태"를 참조하세요.
-
-```bash
-# macOS or Linux x64
-curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh | bash
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.ps1 | iex
-```
-
-Debian/Ubuntu에서 `install.sh`는 먼저 최신 릴리스 `.deb`를 찾아 `apt-get`으로 설치하므로 런타임 의존성이 apt에 의해 처리됩니다. AppImage 경로를 강제하려면 `OPENHUMAN_INSTALLER_LINUX_PACKAGE=appimage`를 설정하세요.
-
-## 검증된 스크립트 설치 상태
-
-별도로 서명된 스크립트 설치 경로는 현재 제공되지 않습니다. 이슈 [#2620](https://github.com/tinyhumansai/openhuman/issues/2620)은 네이티브 패키지 경로가 우선 방식으로 승격된 후 닫혔지만, 현재 릴리스 자산에는 실행 전 스크립트 검증을 위한 `install.sh.asc` / `install.ps1.asc`가 포함되어 있지 않습니다. 스크립트 설치 경로는 검증되지 않은 것으로 간주하고, 가능하면 위의 네이티브 패키지 옵션을 우선 사용하세요.
+터미널 설치 — Homebrew, Debian/Ubuntu `.deb`, AUR, 설치 스크립트, 플랫폼별 참고 사항 — 는 **[INSTALL.md](../INSTALL.md)**를 참조하세요.
 
 # OpenHuman이란 무엇인가요?
 
@@ -121,23 +71,23 @@ OpenHuman은 대부분의 어시스턴트가 갖지 못한 세 가지입니다: 
 
 ### 🕸️ 오케스트레이터
 
-- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)** _(신규)_: 에이전트가 자동화를 제안하면 캔버스에서 검토하고 저장하면 됩니다. 내구성 있고, 트리거 기반이며, 승인 게이트를 거치는 실행이 오픈 소스 [tinyflows](https://github.com/tinyhumansai/tinyflows) 위에서 동작합니다.
-- **[일을 끝까지 마무리하는 하네스](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)** _(신규)_: 오픈 소스 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트 그래프 실행 — 막힌 에이전트는 방향을 조정받고, 중단된 에이전트는 근본 원인을 돌려주며, 모든 실행은 호출별 실제 비용과 함께 재생됩니다.
-- **[상시 가동되는 분할 두뇌(split brain)](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** _(신규)_: 빠른 반사 에이전트가 들어오는 트래픽을 분류하는 동안 깊은 추론 코어가 워커 함대에 작업을 위임하며, 잠재의식이 이를 조종합니다.
+- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**: 에이전트가 자동화를 제안하면 캔버스에서 검토하고 저장하면 됩니다. 내구성 있고, 트리거 기반이며, 승인 게이트를 거치는 실행이 오픈 소스 [tinyflows](https://github.com/tinyhumansai/tinyflows) 위에서 동작합니다.
+- **[일을 끝까지 마무리하는 하네스](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: 오픈 소스 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트 그래프 실행 — 막힌 에이전트는 방향을 조정받고, 중단된 에이전트는 근본 원인을 돌려주며, 모든 실행은 호출별 실제 비용과 함께 재생됩니다.
+- **[상시 가동되는 분할 두뇌(split brain)](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**: 빠른 반사 에이전트가 들어오는 트래픽을 분류하는 동안 깊은 추론 코어가 워커 함대에 작업을 위임하며, 잠재의식이 이를 조종합니다.
 - **[에이전트 경제](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place)의 `@handle`, Signal로 암호화된 에이전트 간 오케스트레이션, x402 USDC 바운티와 거래 — 키는 디스크에 절대 닿지 않습니다.
 
 ### 🔬 깊이 있는 리서처이자 실행가
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: 모델이 첫 메시지를 읽기 전에 리서치 스카우트가 당신의 메모리와 파일을 훑습니다. 콜드 스타트가 없습니다.
 - **모든 것이 포함됨(Batteries included)**: 웹 검색, 스크레이퍼, 코더 툴셋, 실제 [브라우저](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), 인프로세스 Whisper를 갖춘 [네이티브 음성](../gitbooks/features/native-tools/voice.md) — 그리고 워크로드별로 적합한 LLM을 선택하는 [모델 라우팅](https://tinyhumans.gitbook.io/openhuman/features/model-routing)까지. 하나의 구독으로, [로컬 AI는 선택 사항](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)입니다.
-- **[미팅 에이전트](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)** _(신규)_: 얼굴과 목소리를 가지고 **Meet, Zoom, Teams, Webex**에 참여합니다 — 캘린더에서 자동으로 참여하고, 실시간 자막을 스트리밍하며, 이름이 불리면 대답하고, 요약과 액션 아이템을 정리합니다.
-- **[이미지 및 비디오 생성](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** _(신규)_: Seedream/SeedEdit 이미지와 Seedance/Veo 비디오가 동일한 구독으로 워크스페이스에 바로 생성됩니다.
+- **[미팅 에이전트](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: 얼굴과 목소리를 가지고 **Meet, Zoom, Teams, Webex**에 참여합니다 — 캘린더에서 자동으로 참여하고, 실시간 자막을 스트리밍하며, 이름이 불리면 대답하고, 요약과 액션 아이템을 정리합니다.
+- **[이미지 및 비디오 생성](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit 이미지와 Seedance/Veo 비디오가 동일한 구독으로 워크스페이스에 바로 생성됩니다.
 - **[17개의 메시징 채널](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… 그리고 **네이티브 이메일**(IMAP IDLE + SMTP)까지. 에이전트는 당신이 이미 있는 곳에서 당신에게 닿습니다.
 
 ### 🧍 인간적이고, 프라이빗하며, 당신의 것
 
 - **단순함, UI 우선 및 인간 중심**: 설치 후 몇 번의 클릭만으로 작동하는 에이전트를 만날 수 있습니다 — 설정 파일도, 터미널도 필요 없습니다. 그리고 [얼굴](https://tinyhumans.gitbook.io/openhuman/features/mascot)이 있습니다: 말하고, 반응하고, 당신을 기억하는 마스코트입니다.
-- **[개인 정보 보호 및 보안](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: 기기 내 암호화된 데이터, 승인 게이트, OS 키링 시크릿, 선택적 샌드박싱 — 그리고 _(신규)_ **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: 스위치 하나로 어떤 추론도 당신의 머신을 떠나지 않으며, Rust 코어에서 강제됩니다.
+- **[개인 정보 보호 및 보안](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: 기기 내 암호화된 데이터, 승인 게이트, OS 키링 시크릿, 선택적 샌드박싱 — 그리고 **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: 스위치 하나로 어떤 추론도 당신의 머신을 떠나지 않으며, Rust 코어에서 강제됩니다.
 - **[테마 및 Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: 5가지 테마 패밀리와 완전한 시각적 에디터, JSON으로 내보낼 수 있습니다.
 
 ## 소스에서 기여하기
@@ -168,14 +118,12 @@ OpenHuman은 기다림을 생략합니다. 계정을 연결하고, [자동 가�
 
 ## 챗봇이 아닌 오케스트레이터
 
-가장 깊은 차이는 어느 하나의 기능이 아니라 실행 모델입니다. Claude Code, OpenClaw, Hermes는 **하나의 루프에서 하나의 에이전트**를 실행합니다. OpenHuman은 **[오케스트레이터](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**입니다:
+대부분의 에이전트 하네스는 하나의 루프에서 하나의 에이전트를 실행합니다. OpenHuman은 **[오케스트레이터](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**입니다:
 
-- **루프가 아닌 그래프** — 턴은 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트가 있는 상태 머신 그래프로 컴파일됩니다: 사람을 위해 일시 정지하고, 재시작에도 살아남고, 실행 중간에 재개합니다.
-- **서브 에이전트 함대** — 전문 에이전트가 3단계 깊이까지 생성되고, 유휴 워커는 재사용되며, 서킷 브레이커가 막힌 에이전트를 근본 원인 보고서로 바꿔 줍니다.
+- **루프가 아닌 그래프** — 턴은 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트가 있는 그래프로 실행됩니다: 사람을 위해 일시 정지하고, 재시작에도 살아남고, 실행 중간에 재개합니다.
+- **서브 에이전트 함대** — 전문 에이전트가 3단계 깊이까지 생성되고, 막힌 에이전트는 근본 원인 보고서가 됩니다.
 - **눈으로 볼 수 있는 워크플로우** — 에이전트가 제안하고 캔버스에서 검토하는 [tinyflows](https://github.com/tinyhumansai/tinyflows) 그래프: 내구성 있고, 트리거 기반이며, 승인 게이트를 거칩니다.
-- **상시 가동되는 분할 두뇌(split brain)** — 빠른 반사 에이전트가 분류하는 동안 깊은 코어가 추론하며, 잠재의식 루프가 이를 조종합니다.
-- **암호화된 에이전트 간 통신** — 인스턴스들은 동의 기반 페어링과 x402 결제를 갖춘 **Signal 프로토콜 E2E** 세션을 통해 서로를 오케스트레이션합니다. 어떤 서버도 평문을 보지 못합니다.
-- **다음 단계: RLM** — 모델이 샌드박스 REPL에서 자신의 오케스트레이션 코드를 직접 작성합니다. 동일한 그래프 엔진과 신뢰 모델 위에서요.
+- **암호화된 에이전트 간 통신** — 인스턴스들은 x402 결제를 갖춘 Signal 프로토콜 E2E 세션을 통해 서로를 오케스트레이션합니다.
 
 ## OpenHuman vs 다른 에이전트 하네스
 

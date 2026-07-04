@@ -45,11 +45,6 @@
  <a href="https://github.com/tinyhumansai/openhuman/releases/latest"><img src="https://img.shields.io/github/v/release/tinyhumansai/openhuman?label=latest" alt="最新版本" /></a>
  <a href="https://github.com/tinyhumansai/openhuman/stargazers"><img src="https://img.shields.io/github/stars/tinyhumansai/openhuman?style=flat" alt="GitHub Stars" /></a>
  <a href="../LICENSE"><img src="https://img.shields.io/github/license/tinyhumansai/openhuman" alt="许可证" /></a>
- <a href="../README.md"><img src="https://img.shields.io/badge/lang-English-blue" alt="English" /></a>
- <a href="./README.ja-JP.md"><img src="https://img.shields.io/badge/lang-日本語-blue" alt="日本語" /></a>
- <a href="./README.ko.md"><img src="https://img.shields.io/badge/lang-한국어-blue" alt="한국어" /></a>
- <a href="./README.de.md"><img src="https://img.shields.io/badge/lang-Deutsch-blue" alt="Deutsch" /></a>
- <a href="./README.ur-pk.md"><img src="https://img.shields.io/badge/lang-اردو-blue" alt="اردو" /></a>
 </p>
 
 > **早期测试版**：正在积极开发中，可能存在不完善之处。
@@ -58,53 +53,9 @@
 
 # 安装
 
-从 [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) 或 [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) 页面下载安装包。若在终端中安装，推荐使用下面的原生软件包路径，它们会尽可能利用你的操作系统包管理器或原生安装器。
+从 [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) 或 [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) 页面下载安装包。
 
-## 推荐安装方式（原生软件包）
-
-以下路径使用原生安装器。Homebrew 和 MSI 自带常规的签名/完整性校验；Debian/Ubuntu 通过 `apt-get` 安装发布的 `.deb` 并解析系统依赖。
-
-**macOS（Homebrew tap）：**
-
-```bash
-brew tap tinyhumansai/core
-brew install openhuman
-```
-
-**Linux（Debian/Ubuntu — 发布版 `.deb`）：**
-
-```bash
-# Download OpenHuman_<version>_amd64.deb or OpenHuman_<version>_arm64.deb
-# from https://github.com/tinyhumansai/openhuman/releases/latest, then:
-# Replace amd64 with arm64 on arm64 hosts.
-sudo apt-get install -y --no-install-recommends ./OpenHuman_*_amd64.deb
-```
-
-**Linux（Arch — AUR）：**[`openhuman-bin` AUR 配方](../packages/arch/openhuman-bin/)已收录在仓库中。发布后，Arch 用户可以通过 `yay -S openhuman-bin` 安装。
-
-**Windows：**从[最新发布页](https://github.com/tinyhumansai/openhuman/releases/latest)下载已签名的 `.msi` 并运行。
-
-**手动安装 `.dmg` / `.deb` / `.AppImage` / `.msi`：**直接从[最新发布页](https://github.com/tinyhumansai/openhuman/releases/latest)获取适用于你平台的安装包。
-
-> **Linux：**AppImage 在 Wayland 下启动时可能崩溃、缺少 `libgbm.so.1` 等宿主系统库，或在基于 Arch 的发行版上报 `sharun: Interpreter not found!` 错误——原因和环境变量绕过方案见 [#2463](https://github.com/tinyhumansai/openhuman/issues/2463)。上面的 `.deb` 软件包让 apt 解析运行时依赖，在 Debian/Ubuntu 上可避免这些故障。
-
-## 备选：脚本安装（无完整性校验）
-
-> **警告——未经校验的安装方式。**这些脚本直接从 `raw.githubusercontent.com` 实时提供，且**不**附带独立签名，因此 `curl … | bash` 和 `irm … | iex` 无法检测脚本字节是否被篡改。请尽量优先使用上面的**原生软件包**路径。如果你必须使用脚本安装，请参阅下方"已验证脚本安装"。
-
-```bash
-# macOS or Linux x64
-curl -fsSL https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.sh | bash
-
-# Windows (PowerShell)
-irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/install.ps1 | iex
-```
-
-在 Debian/Ubuntu 上，`install.sh` 会优先解析最新发布的 `.deb` 并通过 `apt-get` 安装，由 apt 处理运行时依赖。设置 `OPENHUMAN_INSTALLER_LINUX_PACKAGE=appimage` 可强制使用 AppImage 路径。
-
-## 已验证脚本安装的现状
-
-目前尚未提供带独立签名的脚本安装路径。Issue [#2620](https://github.com/tinyhumansai/openhuman/issues/2620) 在原生软件包路径成为首选方案后已关闭，但当前发布资产中不包含用于执行前脚本校验的 `install.sh.asc` / `install.ps1.asc`。请将脚本安装路径视为未经校验，并尽可能优先使用上面的原生软件包选项。
+终端安装——Homebrew、Debian/Ubuntu `.deb`、AUR、安装脚本以及各平台注意事项——请参阅 **[INSTALL.md](../INSTALL.md)**。
 
 # 什么是 OpenHuman？
 
@@ -120,23 +71,23 @@ OpenHuman 是大多数助手所不具备的三样东西的集合：**一颗大�
 
 ### 🕸️ 编排者
 
-- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)** _（新）_：智能体提出自动化方案；你在画布上审阅并保存。持久化、触发器驱动、审批把关的运行，基于开源的 [tinyflows](https://github.com/tinyhumansai/tinyflows)。
-- **[能把事情做完的执行框架](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)** _（新）_：基于开源 [tinyagents](https://github.com/tinyhumansai/tinyagents) 的检查点式图运行——卡住的智能体会被引导回正轨，中止的会交回根因，每次运行都可回放并附带真实的每次调用成本。
-- **[常驻的分脑](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** _（新）_：一个快速反应智能体负责分流入站流量，一个深度推理核心负责向工作者舰队分派任务，由潜意识统一调度。
+- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**：智能体提出自动化方案；你在画布上审阅并保存。持久化、触发器驱动、审批把关的运行，基于开源的 [tinyflows](https://github.com/tinyhumansai/tinyflows)。
+- **[能把事情做完的执行框架](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**：基于开源 [tinyagents](https://github.com/tinyhumansai/tinyagents) 的检查点式图运行——卡住的智能体会被引导回正轨，中止的会交回根因，每次运行都可回放并附带真实的每次调用成本。
+- **[常驻的分脑](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**：一个快速反应智能体负责分流入站流量，一个深度推理核心负责向工作者舰队分派任务，由潜意识统一调度。
 - **[智能体经济](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**：在 [tiny.place](https://tiny.place) 上的 `@handle`、Signal 加密的智能体间编排、x402 USDC 赏金与交易——密钥永不落盘。
 
 ### 🔬 深度研究员与实干家
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**：在模型读取你的第一条消息之前，一个研究侦察器会先扫描你的记忆和文件。没有冷启动。
 - **开箱即用**：网络搜索、抓取器、编码工具集、真正的[浏览器](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、带进程内 Whisper 的[原生语音](../gitbooks/features/native-tools/voice.md)——以及为每个工作负载挑选合适 LLM 的[模型路由](https://tinyhumans.gitbook.io/openhuman/features/model-routing)，一个订阅，[本地 AI 可选](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)。
-- **[会议智能体](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)** _（新）_：带着一张脸和一副嗓音加入 **Meet、Zoom、Teams 和 Webex**——根据日历自动入会、实时输出转写字幕、被点名时回答、归档摘要和行动项。
-- **[图像与视频生成](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** _（新）_：Seedream/SeedEdit 图像和 Seedance/Veo 视频，直接输出到你的工作区，同一份订阅。
+- **[会议智能体](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**：带着一张脸和一副嗓音加入 **Meet、Zoom、Teams 和 Webex**——根据日历自动入会、实时输出转写字幕、被点名时回答、归档摘要和行动项。
+- **[图像与视频生成](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**：Seedream/SeedEdit 图像和 Seedance/Veo 视频，直接输出到你的工作区，同一份订阅。
 - **[17 个消息渠道](https://tinyhumans.gitbook.io/openhuman/features/channels)**：Telegram、Discord、Slack、WhatsApp、Signal、iMessage……外加**原生邮件**（IMAP IDLE + SMTP）。无论你在哪里，智能体都能找到你。
 
 ### 🧍 人性化、私密、属于你
 
 - **简洁、UI 优先、人性化**：从安装到拥有一个可用的智能体仅需几次点击——无需配置文件，无需终端。它还有[一张脸](https://tinyhumans.gitbook.io/openhuman/features/mascot)：一个会说话、会回应、记得你的吉祥物。
-- **[隐私与安全](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**：设备端加密数据、审批关卡、操作系统钥匙串密钥、可选沙箱——以及 _（新）_ **[隐私模式](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**：一个开关，任何推理都不会离开你的机器，由 Rust 核心强制执行。
+- **[隐私与安全](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**：设备端加密数据、审批关卡、操作系统钥匙串密钥、可选沙箱——以及 **[隐私模式](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**：一个开关，任何推理都不会离开你的机器，由 Rust 核心强制执行。
 - **[主题与主题工作室](https://tinyhumans.gitbook.io/openhuman/features/theming)**：五套主题系列，外加完整的可视化编辑器，可导出为 JSON。
 
 ## 从源码贡献
@@ -167,14 +118,12 @@ OpenHuman 跳过了等待期。连接你的账户，让[自动拉取](https://ti
 
 ## 编排器，而非聊天机器人
 
-最深层的区别不在于任何单一功能，而在于执行模型。Claude Code、OpenClaw 和 Hermes 都是**一个智能体跑一个循环**。OpenHuman 是一个**[编排器](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**：
+大多数智能体框架都是一个智能体跑一个循环。OpenHuman 是一个**[编排器](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**：
 
-- **图，而非循环**——每一轮对话都会在 [tinyagents](https://github.com/tinyhumansai/tinyagents) 上编译为带检查点的状态机图：可暂停等待人工介入、可在重启后存活、可从运行中途恢复。
-- **子智能体舰队**——专家子智能体可派生至三层深，空闲工作者被复用，熔断器把卡住的智能体变成根因报告。
+- **图，而非循环**——每一轮对话都作为带检查点的图在 [tinyagents](https://github.com/tinyhumansai/tinyagents) 上运行：可暂停等待人工介入、可在重启后存活、可从运行中途恢复。
+- **子智能体舰队**——专家子智能体可派生至三层深；卡住的智能体会变成根因报告。
 - **看得见的工作流**——智能体提出的 [tinyflows](https://github.com/tinyhumansai/tinyflows) 图，在画布上审阅：持久化、触发器驱动、审批把关。
-- **常驻的分脑**——一个快速反应智能体负责分流，一个深度核心负责推理，由潜意识循环统一调度。
-- **智能体对智能体，端到端加密**——实例之间通过 **Signal 协议 E2E** 会话相互编排，采用基于同意的配对机制和 x402 支付。没有任何服务器能看到明文。
-- **下一步：RLM**——模型在沙箱化 REPL 中自行编写编排代码，运行在同一套图引擎和信任模型之上。
+- **智能体对智能体，端到端加密**——实例之间通过 Signal 协议 E2E 会话相互编排，并支持 x402 支付。
 
 ## OpenHuman vs 其他智能体框架
 

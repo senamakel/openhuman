@@ -110,13 +110,27 @@ Du hostest [agentmemory](https://github.com/rohitg00/agentmemory) bereits selbst
 
 Die meisten Agent-Harnesses betreiben einen Agenten in einer Schleife. OpenHuman ist ein **[Orchestrator](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**:
 
+<p align="center">
+ <img src="../gitbooks/.gitbook/assets/orchestration.png" alt="OpenHuman-Orchestrierungsdiagramm">
+</p>
+
+> Agent-zu-Agent-Messaging läuft über Signal-Protokoll-Ende-zu-Ende-Verschlüsselung — du kannst also alles anbinden — Claude Code, Codex, OpenClaw, Hermes — und mit OpenHuman all deine Agenten und Tools orchestrieren.
+
 - **Graphen statt Schleifen** — Turns laufen als checkpointed Graphen auf [tinyagents](https://github.com/tinyhumansai/tinyagents): für einen Menschen pausieren, einen Neustart überleben, mitten im Lauf weitermachen.
 - **Sub-Agenten-Flotten** — Spezialisten spawnen drei Ebenen tief; festgefahrene Agenten werden zu Root-Cause-Berichten.
-- **Agent-zu-Agent, verschlüsselt** — Instanzen orchestrieren sich gegenseitig über Signal-Protokoll-E2E-Sitzungen mit x402-Zahlungen.
+- **Agent-zu-Agent, verschlüsselt** — Instanzen orchestrieren sich gegenseitig über Signal-Protokoll-E2E-Sitzungen mit x402-Zahlungen. Kein Server sieht jemals Klartext.
 
 ## Workflows, die du sehen kannst
 
-Bitte um eine Automatisierung, und der Agent schlägt eine vor: einen [tinyflows](https://github.com/tinyhumansai/tinyflows)-Graphen, den du vor dem Speichern auf einer visuellen Canvas prüfst. Gespeicherte [Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows) sind dauerhaft und trigger-gesteuert — sie feuern auf Zeitpläne, Webhooks oder Kanal-Events, überleben Neustarts und sichern Seiteneffekte hinter Freigaben ab.
+Stark inspiriert von n8n und Zapier bringen [Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows) dieselbe visuelle, trigger-gesteuerte Automatisierung zu deinem Agenten — nur dass der Agent sie für dich baut. Bitte um eine Automatisierung, und er schlägt eine vor: einen [tinyflows](https://github.com/tinyhumansai/tinyflows)-Graphen, den du vor dem Speichern auf einer visuellen Canvas prüfst.
+
+<p align="center">
+ <img src="../gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman-Workflow-Canvas">
+</p>
+
+> Der Agent schlägt den Workflow vor; du prüfst ihn auf einer Canvas und speicherst ihn.
+
+Gespeicherte Workflows sind dauerhaft und trigger-gesteuert — sie feuern auf Zeitpläne, Webhooks oder Kanal-Events, überleben Neustarts und sichern Seiteneffekte hinter Freigaben ab.
 
 ## OpenHuman vs. andere Agent-Harnesses
 

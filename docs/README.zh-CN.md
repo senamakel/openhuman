@@ -110,13 +110,27 @@ OpenHuman 跳过了等待期。连接你的账户，让[自动拉取](https://ti
 
 大多数智能体框架都是一个智能体跑一个循环。OpenHuman 是一个**[编排器](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**：
 
+<p align="center">
+ <img src="../gitbooks/.gitbook/assets/orchestration.png" alt="OpenHuman 编排示意图">
+</p>
+
+> 智能体之间的消息通过 Signal 协议端到端加密传输，因此你可以接入任何东西——Claude Code、Codex、OpenClaw、Hermes——并用 OpenHuman 编排你所有的智能体和工具。
+
 - **图，而非循环**——每一轮对话都作为带检查点的图在 [tinyagents](https://github.com/tinyhumansai/tinyagents) 上运行：可暂停等待人工介入、可在重启后存活、可从运行中途恢复。
 - **子智能体舰队**——专家子智能体可派生至三层深；卡住的智能体会变成根因报告。
-- **智能体对智能体，端到端加密**——实例之间通过 Signal 协议 E2E 会话相互编排，并支持 x402 支付。
+- **智能体对智能体，端到端加密**——实例之间通过 Signal 协议 E2E 会话相互编排，并支持 x402 支付。任何服务器都无法看到明文。
 
 ## 看得见的工作流
 
-向智能体请求一个自动化，它就会提出方案：一张 [tinyflows](https://github.com/tinyhumansai/tinyflows) 图，你可以在可视化画布上审阅后再保存。保存的[工作流](https://tinyhumans.gitbook.io/openhuman/features/workflows)是持久且触发器驱动的——它们由定时任务、Webhook 或渠道事件触发，可在重启后存活，并将副作用置于审批把关之后。
+深受 n8n 和 Zapier 的启发，[工作流](https://tinyhumans.gitbook.io/openhuman/features/workflows)将同样的可视化、触发器驱动的自动化带给你的智能体——不同的是，智能体会替你构建它们。向智能体请求一个自动化，它就会提出方案：一张 [tinyflows](https://github.com/tinyhumansai/tinyflows) 图，你可以在可视化画布上审阅后再保存。
+
+<p align="center">
+ <img src="../gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman 工作流画布">
+</p>
+
+> 智能体提出工作流；你在画布上审阅并保存。
+
+保存的工作流是持久且触发器驱动的——它们由定时任务、Webhook 或渠道事件触发，可在重启后存活，并将副作用置于审批把关之后。
 
 ## OpenHuman vs 其他智能体框架
 

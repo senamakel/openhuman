@@ -110,13 +110,27 @@ OpenHuman은 기다림을 생략합니다. 계정을 연결하고, [자동 가�
 
 대부분의 에이전트 하네스는 하나의 루프에서 하나의 에이전트를 실행합니다. OpenHuman은 **[오케스트레이터](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**입니다:
 
+<p align="center">
+ <img src="../gitbooks/.gitbook/assets/orchestration.png" alt="OpenHuman 오케스트레이션 다이어그램">
+</p>
+
+> 에이전트 간 메시징은 Signal 프로토콜 종단 간 암호화 위에서 동작하므로, Claude Code, Codex, OpenClaw, Hermes 등 무엇이든 연결하고 OpenHuman으로 모든 에이전트와 도구를 오케스트레이션할 수 있습니다.
+
 - **루프가 아닌 그래프** — 턴은 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트가 있는 그래프로 실행됩니다: 사람을 위해 일시 정지하고, 재시작에도 살아남고, 실행 중간에 재개합니다.
 - **서브 에이전트 함대** — 전문 에이전트가 3단계 깊이까지 생성되고, 막힌 에이전트는 근본 원인 보고서가 됩니다.
-- **암호화된 에이전트 간 통신** — 인스턴스들은 x402 결제를 갖춘 Signal 프로토콜 E2E 세션을 통해 서로를 오케스트레이션합니다.
+- **암호화된 에이전트 간 통신** — 인스턴스들은 x402 결제를 갖춘 Signal 프로토콜 E2E 세션을 통해 서로를 오케스트레이션합니다. 어떤 서버도 평문을 볼 수 없습니다.
 
 ## 눈으로 볼 수 있는 워크플로우
 
-자동화를 요청하면 에이전트가 하나를 제안합니다: 저장하기 전에 시각적 캔버스에서 검토하는 [tinyflows](https://github.com/tinyhumansai/tinyflows) 그래프입니다. 저장된 [워크플로우](https://tinyhumans.gitbook.io/openhuman/features/workflows)는 내구성 있고 트리거 기반입니다 — 스케줄, 웹훅 또는 채널 이벤트에 의해 실행되고, 재시작에도 살아남으며, 부수 효과는 승인 게이트 뒤에 둡니다.
+n8n과 Zapier에서 깊은 영감을 받은 [워크플로우](https://tinyhumans.gitbook.io/openhuman/features/workflows)는 동일한 시각적, 트리거 기반 자동화를 에이전트에 가져옵니다 — 다만 에이전트가 대신 만들어 준다는 점이 다릅니다. 자동화를 요청하면 에이전트가 하나를 제안합니다: 저장하기 전에 시각적 캔버스에서 검토하는 [tinyflows](https://github.com/tinyhumansai/tinyflows) 그래프입니다.
+
+<p align="center">
+ <img src="../gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman 워크플로우 캔버스">
+</p>
+
+> 에이전트가 워크플로우를 제안하고, 당신은 캔버스에서 검토한 후 저장합니다.
+
+저장된 워크플로우는 내구성 있고 트리거 기반입니다 — 스케줄, 웹훅 또는 채널 이벤트에 의해 실행되고, 재시작에도 살아남으며, 부수 효과는 승인 게이트 뒤에 둡니다.
 
 ## OpenHuman vs 다른 에이전트 하네스
 

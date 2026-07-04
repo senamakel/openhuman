@@ -110,13 +110,27 @@ OpenHuman はその待ち時間をスキップします。アカウントを接�
 
 ほとんどのエージェントハーネスは 1 つのループで 1 つのエージェントを動かします。OpenHuman は**[オーケストレーター](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**です:
 
+<p align="center">
+ <img src="../gitbooks/.gitbook/assets/orchestration.png" alt="OpenHuman のオーケストレーション図">
+</p>
+
+> エージェント間メッセージングは Signal プロトコルのエンドツーエンド暗号化の上で動作するため、Claude Code、Codex、OpenClaw、Hermes など何でも接続でき、OpenHuman ですべてのエージェントとツールをオーケストレーションできます。
+
 - **ループではなくグラフ** — ターンは [tinyagents](https://github.com/tinyhumansai/tinyagents) 上のチェックポイント付きグラフとして実行されます: 人間のために一時停止し、再起動を生き延び、実行の途中から再開します。
 - **サブエージェントの艦隊** — スペシャリストは 3 階層の深さまで起動され、行き詰まったエージェントは根本原因レポートになります。
-- **エージェント間、暗号化済み** — インスタンス同士は、x402 決済を備えた Signal プロトコルの E2E セッション上で互いをオーケストレーションします。
+- **エージェント間、暗号化済み** — インスタンス同士は、x402 決済を備えた Signal プロトコルの E2E セッション上で互いをオーケストレーションします。サーバーが平文を目にすることは決してありません。
 
 ## 目に見えるワークフロー
 
-自動化を依頼すると、エージェントが提案してくれます: 保存する前にビジュアルキャンバス上でレビューできる [tinyflows](https://github.com/tinyhumansai/tinyflows) グラフです。保存された[ワークフロー](https://tinyhumans.gitbook.io/openhuman/features/workflows)は永続的でトリガー駆動 — スケジュール、Webhook、チャネルイベントで発火し、再起動を生き延び、副作用は承認ゲートで守られます。
+n8n と Zapier に強くインスパイアされた[ワークフロー](https://tinyhumans.gitbook.io/openhuman/features/workflows)は、同じビジュアルでトリガー駆動の自動化をあなたのエージェントにもたらします — ただし、それを構築するのはエージェント自身です。自動化を依頼すると、エージェントが提案してくれます: 保存する前にビジュアルキャンバス上でレビューできる [tinyflows](https://github.com/tinyhumansai/tinyflows) グラフです。
+
+<p align="center">
+ <img src="../gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman のワークフローキャンバス">
+</p>
+
+> エージェントがワークフローを提案し、あなたはキャンバス上でレビューして保存します。
+
+保存されたワークフローは永続的でトリガー駆動 — スケジュール、Webhook、チャネルイベントで発火し、再起動を生き延び、副作用は承認ゲートで守られます。
 
 ## OpenHuman と他のエージェントハーネスの比較
 

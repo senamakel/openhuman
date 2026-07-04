@@ -50,7 +50,7 @@ use tinyagents::harness::middleware::{
     ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::model::CapabilitySet;
-use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
+use tinyagents::harness::runtime::{AgentHarness, InvalidArgsPolicy, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::store::StoreRegistry;
 use tinyagents::harness::summarization::TrimStrategy;
@@ -171,6 +171,19 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     // would drop both. The original name + args are also preserved verbatim on
     // `AgentEvent::UnknownToolCall` and projected by `OpenhumanEventBridge`.
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
+    // Invalid-tool-argument recovery (#4451): the crate default is fail-closed —
+    // a single malformed tool call (missing a required field, wrong type, or a
+    // value outside an `enum`) fails schema validation and aborts the *entire*
+    // turn with `TinyAgentsError::Validation`, surfacing to the user as a generic
+    // `chat_error`. That is a routine model behavior (e.g. `{"q": ..}` instead of
+    // `{"query": ..}`, or streaming-mangled JSON) that the legacy engine absorbed
+    // as a recoverable tool result. Flip to `ReturnToolError` so the loop injects
+    // the validation error as a model-visible tool result and continues, letting
+    // the model self-correct on the next iteration — mirroring `unknown_tool`
+    // above. The injected message contains "invalid", which the failure
+    // classifier in `agent::hooks::sanitize_tool_output` labels `parse_error`
+    // (a recoverable class), not a fatal turn error.
+    policy.invalid_args = InvalidArgsPolicy::ReturnToolError;
     // Prompt-prefix protection is always on (issue #4249, 03.2): the
     // `PromptCacheGuardMiddleware` records a `CacheLayoutEvent` whenever volatile
     // content busts the provider KV-cache prefix. Purely diagnostic — never

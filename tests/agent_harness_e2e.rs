@@ -812,6 +812,160 @@ async fn subagent_delegation_happy_path_inner() {
     stack.shutdown();
 }
 
+// ─── #4451: malformed tool arguments are recoverable, not turn-fatal ──────────
+//
+// Before #4451 the tinyagents harness ran *fatal* JSON-schema validation on every
+// tool call: any `required`/type/`enum` violation returned `Validation(..)`, which
+// propagated out of the loop and failed the WHOLE turn as a generic `chat_error`.
+// A routine model slip (a missing required field, or streaming-mangled args) killed
+// the turn. The fix flips `RunPolicy.invalid_args` to `InvalidArgsPolicy::ReturnToolError`
+// (see `tinyagents::run_policy_for`), so a schema violation becomes a model-visible
+// tool error the loop injects before continuing, letting the model self-correct —
+// exactly what the legacy engine did. These two tests pin that behavior on both the
+// top-level chat loop and a subagent's inner loop (both drive the same agent loop
+// via `assemble_turn_harness`).
+
+/// Chat path: the orchestrator's FIRST `research` call omits the required `prompt`
+/// (a schema violation). The turn must NOT error — the loop injects a recoverable
+/// tool error, the model self-corrects with a valid `research` call on the next
+/// iteration, and the turn completes with the researcher canary.
+#[test]
+fn malformed_tool_call_recovers_on_chat_path() {
+    run_on_agent_stack(
+        "malformed_tool_call_recovers_on_chat_path",
+        malformed_tool_call_recovers_on_chat_path_inner,
+    );
+}
+
+async fn malformed_tool_call_recovers_on_chat_path_inner() {
+    let _lock = env_lock();
+    reset_script(vec![
+        // request[0]: orchestrator emits a MALFORMED `research` call — the
+        // ArchetypeDelegationTool schema requires `prompt`, so `{}` fails
+        // pre-execution validation. Pre-#4451 this aborted the whole turn.
+        tool_call_completion("research", json!({})),
+        // request[1]: having read the injected validation error, the orchestrator
+        // self-corrects with a valid `research` call.
+        tool_call_completion("research", json!({ "prompt": "Find the marker phrase" })),
+        // request[2]: researcher subagent inner LLM call returns its canary.
+        text_completion("RESEARCHER_CANARY_42 is the marker."),
+        // request[3]: orchestrator synthesis forwards the canary.
+        text_completion("Done. The result is: RESEARCHER_CANARY_42"),
+    ]);
+    let stack = boot_stack().await;
+
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-badargs-chat",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        320,
+        "harness-badargs-chat",
+        "thread-badargs-chat",
+        "research the marker",
+    )
+    .await;
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "a malformed tool call must NOT convert the turn into chat_error; got: {done}"
+    );
+    let full_response = done
+        .get("full_response")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("chat_done missing 'full_response': {done}"));
+    assert!(
+        full_response.contains("RESEARCHER_CANARY_42"),
+        "turn did not self-correct + complete after a malformed call; full_response: {full_response}"
+    );
+
+    // The malformed call was recovered (not fatal): the corrected call, the
+    // subagent inner call, and the synthesis all ran → ≥4 upstream requests.
+    let requests = with_captured(|c| c.clone());
+    assert!(
+        requests.len() >= 4,
+        "expected ≥4 upstream requests (malformed + corrected + subagent + synthesis), got {};\n{}",
+        requests.len(),
+        serde_json::to_string_pretty(&requests).unwrap_or_default()
+    );
+
+    stack.shutdown();
+}
+
+/// Subagent path: the orchestrator delegates to the researcher (valid), then the
+/// researcher's OWN inner loop emits a malformed `web_search_tool` call (missing
+/// the required `query`). That inner schema violation must likewise be recoverable
+/// — the subagent injects a tool error, self-corrects to a text answer, and the
+/// outer turn still completes with the canary (no subagent-level abort).
+#[test]
+fn malformed_tool_call_recovers_on_subagent_path() {
+    run_on_agent_stack(
+        "malformed_tool_call_recovers_on_subagent_path",
+        malformed_tool_call_recovers_on_subagent_path_inner,
+    );
+}
+
+async fn malformed_tool_call_recovers_on_subagent_path_inner() {
+    let _lock = env_lock();
+    reset_script(vec![
+        // request[0]: orchestrator delegates to the researcher (valid args).
+        tool_call_completion("research", json!({ "prompt": "Find the marker phrase" })),
+        // request[1]: researcher subagent inner loop emits a MALFORMED
+        // `web_search_tool` call — its schema requires `query`, so `{}` fails
+        // validation. Pre-#4451 this killed the subagent run.
+        tool_call_completion("web_search_tool", json!({})),
+        // request[2]: having read the injected validation error, the researcher
+        // self-corrects and answers directly with its canary (no tool re-run,
+        // so the test never depends on a live search backend).
+        text_completion("RESEARCHER_CANARY_42 is the marker."),
+        // request[3]: orchestrator synthesis forwards the canary.
+        text_completion("Done. The result is: RESEARCHER_CANARY_42"),
+    ]);
+    let stack = boot_stack().await;
+
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=harness-badargs-sub",
+        stack.rpc_base
+    ));
+    send_web_chat(
+        &stack.rpc_base,
+        321,
+        "harness-badargs-sub",
+        "thread-badargs-sub",
+        "research the marker",
+    )
+    .await;
+
+    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "a malformed tool call inside a subagent must NOT abort the turn; got: {done}"
+    );
+    let full_response = done
+        .get("full_response")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("chat_done missing 'full_response': {done}"));
+    assert!(
+        full_response.contains("RESEARCHER_CANARY_42"),
+        "subagent did not self-correct + complete after a malformed inner call; full_response: {full_response}"
+    );
+
+    // Delegation + inner recovery + synthesis all ran → ≥4 upstream requests.
+    let requests = with_captured(|c| c.clone());
+    assert!(
+        requests.len() >= 4,
+        "expected ≥4 upstream requests (delegation + malformed inner + corrected + synthesis), got {};\n{}",
+        requests.len(),
+        serde_json::to_string_pretty(&requests).unwrap_or_default()
+    );
+
+    stack.shutdown();
+}
+
 // ─── Super context: harness-driven context-scout happy path ───────────────────
 //
 // Tool surface (src/openhuman/agent_orchestration/tools/agent_prepare_context.rs,

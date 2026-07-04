@@ -631,7 +631,9 @@ impl EventListener for OpenhumanEventBridge {
                     }),
                 }
             }
-            AgentEvent::ToolCompleted { call_id, tool_name } => {
+            AgentEvent::ToolCompleted {
+                call_id, tool_name, ..
+            } => {
                 let iteration = self.iteration();
                 // The crate event carries no success/error, so read what the
                 // outcome-capture middleware classified for this call. Absent →
@@ -775,6 +777,8 @@ mod tests {
         sink.emit(AgentEvent::ToolCompleted {
             call_id: "c1".into(),
             tool_name: "echo".to_string(),
+            input: None,
+            output: None,
         });
         sink.emit(AgentEvent::UsageRecorded {
             usage: Usage::new(100, 40),

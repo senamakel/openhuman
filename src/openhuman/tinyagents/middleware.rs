@@ -1524,8 +1524,10 @@ impl Middleware<()> for CostBudgetMiddleware {
 /// - [`NoProgress::Continue`] — do nothing.
 /// - [`NoProgress::Nudge`] — inject the crate's structured "no progress since
 ///   step X" corrective into the working transcript via
-///   [`SteeringCommand::Redirect`] so the next model call sees it and changes
-///   strategy *before* the same-strategy retry cap trips.
+///   [`SteeringCommand::InjectMessage`] so the next model call sees it and
+///   changes strategy *before* the same-strategy retry cap trips. (Not
+///   `Redirect`: that verb is outside the Interactive steering allowlist and
+///   would abort the turn — see the nudge call site.)
 /// - [`NoProgress::Halt`] — record the crate's root-cause summary into the shared
 ///   [`HaltSummarySlot`](super::HaltSummarySlot) (the turn overrides its final
 ///   text with it) and pause the run via the shared steering handle (same
@@ -1642,7 +1644,16 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
                 );
                 // Inject the crate's structured corrective into the working
                 // transcript (advisory system text; bypasses no security gate).
-                self.handle.send(SteeringCommand::Redirect { instruction });
+                // Use InjectMessage, not Redirect: Redirect is not in the
+                // Interactive steering allowlist (InjectMessage + Pause only),
+                // so an interactive turn would abort with a Steering error the
+                // moment the no-progress ladder nudges. Both variants append a
+                // system message and Continue, so InjectMessage is equivalent
+                // here while staying within the interactive policy (#4473 regression).
+                self.handle
+                    .send(SteeringCommand::InjectMessage(TaMessage::system(
+                        instruction,
+                    )));
             }
             NoProgress::Halt(summary) => {
                 tracing::warn!(

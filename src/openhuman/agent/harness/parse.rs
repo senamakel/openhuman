@@ -782,9 +782,10 @@ pub(crate) fn parse_tool_calls_with_pformat(
                 arguments,
                 id: None,
             });
-            // Advance the JSON cursor too so both parsers stay in lockstep over
-            // the shared tag sequence (matches the legacy dispatcher).
-            json_idx += 1;
+            // Do NOT advance `json_idx` here: a P-Format tag is one the JSON pass
+            // could not parse, so `parse_tool_calls` produced no `json_calls`
+            // entry for it. Advancing would shift every later JSON tag onto the
+            // wrong `json_calls` index and silently drop a real JSON call.
         } else if let Some(json_call) = json_calls.get(json_idx) {
             combined.push(json_call.clone());
             json_idx += 1;

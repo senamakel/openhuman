@@ -792,6 +792,7 @@ fn tool_io_is_captured_when_capture_content_is_on() {
             output: "file contents".to_string(),
             elapsed_ms: 4,
             iteration: 1,
+            failure: None,
         },
         4,
     );
@@ -839,6 +840,7 @@ fn tool_io_is_never_recorded_when_capture_content_is_off() {
                 output: "sekrit".to_string(),
                 elapsed_ms: 4,
                 iteration: 1,
+                failure: None,
             },
             4,
         ),

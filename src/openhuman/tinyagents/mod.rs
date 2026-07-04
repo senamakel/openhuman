@@ -1553,6 +1553,17 @@ fn assemble_turn_harness(
         )));
     }
 
+    // Credential scrubbing (issue #4453): redact credential-shaped secrets out of
+    // every tool result. The legacy engine ran `scrub_credentials` over every
+    // tool output before it entered model context; the tinyagents path dropped
+    // that call site. Installed as the **innermost** tool wrap (pushed last) so
+    // it scrubs the RAW tool result before any outer wrap, the `after_tool`
+    // chain (summarization/caps), the transcript push, or the tool-outcome
+    // capture sink can observe the unredacted content — covering the parent,
+    // sub-agent, persisted-transcript, and `ToolCallOutcome` surfaces by
+    // construction since every path shares this seam.
+    harness.push_tool_middleware(Arc::new(middleware::CredentialScrubMiddleware::new()));
+
     // Malformed-argument recovery (`before_tool`): repair a call's non-object
     // arguments before the crate's schema gate — decode JSON-encoded-string args
     // (optionally markdown-fenced) to an object, or coerce to `{}` only when the

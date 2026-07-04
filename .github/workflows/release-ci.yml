@@ -46,8 +46,9 @@ jobs:
   # pretest gate uses.
   unit-tests:
     name: Full Unit Suites
+    # No `secrets: inherit` — the called workflow uses no secrets, and this
+    # workflow is pull_request-triggered; keep its runs secret-free.
     uses: ./.github/workflows/test-reusable.yml
-    secrets: inherit
     with:
       run_unit: true
       run_rust_core: true
@@ -293,8 +294,9 @@ jobs:
   # shards — see e2e-reusable.yml).
   e2e-desktop:
     name: Desktop E2E (full suite, 3 OS)
+    # No `secrets: inherit` — the called workflow uses no secrets, and this
+    # workflow is pull_request-triggered; keep its runs secret-free.
     uses: ./.github/workflows/e2e-reusable.yml
-    secrets: inherit
     with:
       run_linux: true
       run_macos: true

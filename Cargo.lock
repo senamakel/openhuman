@@ -4394,6 +4394,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tinyagents",
  "tinyflows",
+ "tinyjuice",
  "tinyplace",
  "tokio",
  "tokio-rustls",
@@ -4406,10 +4407,6 @@ dependencies = [
  "tracing-appender",
  "tracing-log",
  "tracing-subscriber",
- "tree-sitter",
- "tree-sitter-python",
- "tree-sitter-rust",
- "tree-sitter-typescript",
  "uiautomation",
  "unicode-normalization",
  "unicode-segmentation",
@@ -6726,6 +6723,29 @@ dependencies = [
  "thiserror 2.0.18",
  "tinyagents",
  "tracing",
+]
+
+[[package]]
+name = "tinyjuice"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "dirs 5.0.1",
+ "hex",
+ "log",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tokio",
+ "tree-sitter",
+ "tree-sitter-python",
+ "tree-sitter-rust",
+ "tree-sitter-typescript",
+ "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]

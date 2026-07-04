@@ -45,6 +45,14 @@ jobs:
         with:
           app-id: ${{ secrets.XGITHUB_APP_ID }}
           private-key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
+          # Scope the minted installation token to the minimum this job
+          # needs: opening a PR. Unlike the release workflows' token, this
+          # one can NOT push commits, so a compromise of this job cannot
+          # write to protected branches. (This workflow only ever runs
+          # trusted code — push:main / dispatch, never pull_request — this
+          # is defense-in-depth.)
+          permission-contents: read
+          permission-pull-requests: write
 
       - name: Open or refresh the main→release PR
         env:

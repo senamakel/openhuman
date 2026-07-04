@@ -280,12 +280,14 @@ untested: `command_checks.rs`, `path_checks.rs`, `encryption/core.rs` have zero 
    0%-lcov backstop protects *changed lines lacking any test*, not *existing tests that would now
    fail*. Low frequency, but worth knowing when a release-PR failure looks "impossible".
 
-### Phase 0 (updated)
+### Phase 0 (updated) — ✅ landed
 
-Unchanged items: wire orphaned tests, add `scripts/**` to PR-lane filters (now also: make
-`scripts/mock-api/**` changes at least trigger the scripts self-test job), WDIO reset hook,
-orphan-check, controller-domain check. **New:** resolve the Playwright `continue-on-error` gate
-bypass (#3615) and adopt a red-release-PR policy (build-cop + revert-first).
+Done in `ci/phase0-test-substrate`: wired orphaned tests (`test:scripts` + `scripts-tests` job,
+`pester-install` job), added `scripts/mock-api/**` + `scripts/*.mjs` to PR-lane filters (mock
+changes now trigger the scripts self-test job), WDIO per-spec-file `/__admin/reset` hook,
+orphan-check + controller-domain check (`generate-test-inventory.mjs` → `test-inventory` job),
+and resolved the Playwright `continue-on-error` gate bypass (#3615, excluded from the gate).
+**Still open (process, not code):** adopt a red-release-PR policy (build-cop + revert-first).
 
 ---
 
@@ -346,13 +348,20 @@ Dimensions the suite (and this audit) currently have **zero** coverage of:
 
 ## 8. Execution plan
 
-**Phase 0 — CI substrate (hours, do immediately)**
-- Wire orphaned tests into CI (`test:scripts`, socket auth/transport, Pester lane).
-- Add `scripts/**` to coverage-gate path filters.
-- Unconditional mock `/__admin/reset` per spec in WDIO.
-- Orphan-check in the inventory generator (test file → CI job mapping).
-- Controller-domain coverage check: every domain in `src/core/all.rs` referenced by ≥1 file in
-  `tests/` (Appendix A.4).
+**Phase 0 — CI substrate (hours, do immediately)** — ✅ landed (PR: `ci/phase0-test-substrate`)
+- [x] Wire orphaned tests into CI (`test:scripts` runs `scripts/__tests__`, `scripts/mock-api`
+  socket auth/transport + route tests; new `scripts-tests` PR-lane job) and a Pester lane
+  (`pester-install` job → `test:install-ps1`).
+- [x] Add `scripts/mock-api/**` + `scripts/*.mjs` (+ `scripts/__tests__/**`) to the PR-lane path
+  filters so mock-backend/script changes trigger the scripts self-tests.
+- [x] Unconditional mock `/__admin/reset` per spec file in WDIO (`beforeSuite`, file-path-guarded).
+- [x] Orphan-check in the inventory generator (`scripts/generate-test-inventory.mjs`, wired as the
+  `test-inventory` PR-lane job via `test:inventory`): every script-level test file is invoked by
+  ≥1 package.json script or workflow.
+- [x] Controller-domain coverage check: every domain in `src/core/all.rs` referenced by ≥1 file in
+  `tests/` (Appendix A.4). 26 currently-uncovered domains seeded into a burn-down allowlist.
+- [x] Resolve the Release CI Gate Playwright `continue-on-error` bypass (§5bis item 1, #3615):
+  `playwright-e2e` excluded from the gate's `needs`/results with an explanatory comment.
 
 **Phase 1 — P0 coverage (1–2 weeks)**
 - Security gate-matrix suite (command_checks/path_checks). 

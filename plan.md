@@ -361,11 +361,29 @@ Dimensions the suite (and this audit) currently have **zero** coverage of:
 - Event-bus panic isolation; webhook flood behavior (or file the product gap).
 - `stop_core_process` debug command + crash-recovery E2E; RPC auth-failure E2E.
 
-**Phase 2 — deletions & rewrites (parallel with Phase 1, low risk)**
-- Land §2.1 deletions and §2.2 connector consolidation.
-- Rewrite §3 overfits (preserve the load-bearing assertions flagged by the skeptic pass).
-- Shared helpers: `assert_schema_controller_parity()`, `allowlist_contract_tests!`, envelope-unwrap
-  test helper, connector contract runner.
+**Phase 2 — deletions & rewrites (parallel with Phase 1, low risk)** — ✅ landed (PR: `test/phase2-drops-rewrites`)
+- [x] §2.1 deletions applied (⚠️ items re-verified against source before deleting):
+  useSettingsNavigation.test.tsx, RecoveryPhrasePanel.test.tsx, the 7 graph-api
+  "exposes the public surface" tests, the duplicate root ArtifactCard.test.tsx (unique
+  kind-label assertion ported into `__tests__/`), the it.skip smoke test; Rust:
+  harness_gap datetime test, 4 lib_tests no-ops, 4 factory construct-only tests,
+  3 telemetry emit-no-assert tests, 15 threads/ops_tests title dups (lowercase-hex
+  assertion folded into title.rs), whatsapp 7→1 parameterized skip test; deep_link_ipc
+  refactored to `collect_deep_link_urls_from_args` + real-fn test, vacuous no_primary test dropped.
+- [x] §2.2 connector consolidation: 11 specs → `connector-composio-contract.spec.ts` +
+  `runConnectorContract()`; jira/gmail-composio kept bespoke; misleading `composio_sync`
+  test renamed across the contract + remaining specs.
+- [x] §3 overfit rewrites (load-bearing assertions preserved): grounding wording-lock,
+  identity split (template-compare + labeled brand-voice lock), provider_surfaces parity via
+  new `assert_schema_controller_parity()`, composio catalog input-names, core_process
+  loose-contains (keeps task-slot/shutdown-token asserts), useDaemonLifecycle (keeps
+  listener asserts), ApprovalRequestCard (labeled visual lock), AppWalkthrough (data-testid).
+- [x] Shared helper `assert_schema_controller_parity()` added (`src/core/all.rs`) and the
+  connector contract runner. (`allowlist_contract_tests!` / envelope-unwrap helper: follow-up.)
+- Deferred: §3 gmail-flow fixture fix (needs deterministic mock Gmail-skill seeding validated
+  against a running desktop E2E app — not runnable in the authoring env; §2.3 flagged those
+  tests as load-bearing boot guards, so they were left intact rather than risk an unvalidated
+  E2E change).
 
 **Phase 3 — P1 backlog (2–4 weeks, interleave with feature work)**
 - Approval×turn integration, TransportManager race, socket backoff, hostile webhook payloads,

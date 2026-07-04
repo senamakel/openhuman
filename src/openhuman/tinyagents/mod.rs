@@ -314,7 +314,17 @@ pub(crate) async fn run_turn_via_tinyagents(
     let run = match Box::pin(harness.invoke(&(), (), config, input)).await {
         Ok(run) => run,
         Err(e) => {
-            if let Some(original) = error_slot.lock().unwrap().take() {
+            // #4469 item 3: recover from a poisoned slot instead of panicking.
+            // A thread that panicked mid-run while holding this mutex would
+            // otherwise turn every subsequent error-recovery read into a second
+            // panic, masking the original provider failure. `into_inner` yields
+            // the guarded value regardless of poison so we still re-surface the
+            // typed error.
+            if let Some(original) = error_slot
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take()
+            {
                 return Err(original);
             }
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
@@ -803,7 +813,14 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             // `AgentError` downcasts the caller relies on) over the harness's
             // string wrap — this is where a genuine model/provider failure that
             // halted the run is re-surfaced with its real classification.
-            if let Some(original) = error_slot.lock().unwrap().take() {
+            // #4469 item 3: `into_inner` recovers a poisoned slot so a panic in
+            // one run can't cascade into a second panic here that would mask the
+            // original typed provider error.
+            if let Some(original) = error_slot
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take()
+            {
                 tracing::debug!(
                     model,
                     "[tinyagents] re-surfacing typed provider error from error_slot as the run failure — #4457 defect B"

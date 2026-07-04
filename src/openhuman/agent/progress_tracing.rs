@@ -126,7 +126,16 @@ pub enum SpanStatus {
 }
 
 /// A single finished (or in-flight) span. Field names follow OpenTelemetry
-/// conventions so the NDJSON drops cleanly into an OTel/Langfuse importer.
+/// conventions (snake_case `trace_id`/`span_id`/`start_unix_ms`/…) so the raw
+/// NDJSON file/log export is a self-describing OTel-style span dump for local
+/// inspection.
+///
+/// #4469 item 13: this raw record is **not** directly Langfuse-ingestible — the
+/// Langfuse `/api/public/ingestion` API needs each span wrapped in a
+/// `{ type, id, timestamp, body }` event envelope. That envelope is produced
+/// only by [`langfuse::spans_to_langfuse_batch`] on the remote-push path; the
+/// local NDJSON exporter intentionally emits the raw spans, not the batch
+/// format.
 #[derive(Debug, Clone, Serialize)]
 pub struct TraceSpan {
     /// Trace id (the session id) — shared by every span in the run.

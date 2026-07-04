@@ -404,9 +404,13 @@ pub(super) async fn run_subagent_via_graph(
             model: model.to_string(),
             temperature,
             agent_id: agent_id.to_string(),
-            // The checkpoint summary call's output cap — the standard per-turn
-            // budget (the value this field replaced when it was hardcoded).
-            max_output_tokens: crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS,
+            // The checkpoint summary call's output cap. #4469 item 5: honour this
+            // sub-agent definition's own per-call output budget (the same
+            // `max_output_tokens` bounding every task model call above) instead of
+            // the process-global `AGENT_TURN_MAX_OUTPUT_TOKENS` floor, so a
+            // definition that raised or lowered its output cap is respected by the
+            // cap-summary call too.
+            max_output_tokens,
         };
         match strategy.summarize_cap_hit(&digest, max_iterations).await {
             Ok(co) => {

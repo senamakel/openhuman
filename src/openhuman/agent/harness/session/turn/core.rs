@@ -695,10 +695,13 @@ impl Agent {
         // read the parent's provider, tools, model, and workspace via
         // the PARENT_CONTEXT task-local.
         // Arm the thread-goal budget stop hook for this turn when an active,
-        // budgeted goal exists — it hard-stops the loop the moment running usage
-        // would exceed the cap (so an autonomous run can't blow past it between
-        // accounting points). Merge with any ambient stop hooks rather than
-        // clobbering them. No budgeted active goal → no extra hook, no wrap.
+        // budgeted goal exists — it votes to stop the loop as soon as running
+        // usage would exceed the cap. #4469 item 1: the stop is a graceful pause
+        // drained at the next iteration boundary, not an instantaneous abort, so
+        // the current tool round + one wrap-up summary call can still run past the
+        // cap (a small, bounded overshoot) before the partial transcript returns.
+        // Merge with any ambient stop hooks rather than clobbering them. No
+        // budgeted active goal → no extra hook, no wrap.
         let mut turn_stop_hooks = crate::openhuman::agent::stop_hooks::current_stop_hooks();
         if let Some(ref goal) = active_goal {
             if let Some(hook) =

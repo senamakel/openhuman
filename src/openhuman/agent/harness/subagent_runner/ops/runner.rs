@@ -1231,6 +1231,31 @@ impl crate::openhuman::inference::provider::Provider for TextModeProvider {
         self.inner.effective_context_window(model).await
     }
 
+    // #4469 item 2: forward the local-provider identity + cache passthroughs. This
+    // decorator only masks native tool calling (above); everything about *where*
+    // and *how* the inner provider runs must pass through unchanged. Without these
+    // the default trait impls report the inner as a remote, non-caching provider,
+    // so a local runtime behind text mode loses its `n_keep >= n_ctx` un-evictable
+    // prefix guard (`is_local_provider*` / `loaded_context_window`, #3550) and its
+    // KV-cache pricing/strategy (`prompt_cache_capabilities`, #3939).
+    fn is_local_provider(&self) -> bool {
+        self.inner.is_local_provider()
+    }
+
+    fn is_local_provider_for_model(&self, model: &str) -> bool {
+        self.inner.is_local_provider_for_model(model)
+    }
+
+    async fn loaded_context_window(&self, model: &str) -> Option<u64> {
+        self.inner.loaded_context_window(model).await
+    }
+
+    fn prompt_cache_capabilities(
+        &self,
+    ) -> crate::openhuman::inference::provider::traits::PromptCacheCapabilities {
+        self.inner.prompt_cache_capabilities()
+    }
+
     async fn warmup(&self) -> anyhow::Result<()> {
         self.inner.warmup().await
     }

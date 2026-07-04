@@ -6,7 +6,7 @@
 //! the underlying tool and render the [`ToolResult`] the way the LLM should see
 //! it (rendered via `output_for_llm`, matching the legacy tool loop).
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use async_trait::async_trait;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
@@ -46,14 +46,21 @@ impl EarlyExitHook {
 
     /// The captured early-exit, if one fired during the run.
     pub(crate) fn take(&self) -> Option<EarlyExit> {
-        self.slot.lock().unwrap().take()
+        // #4469 item 3: recover a poisoned slot rather than panic — a panic while
+        // some other tool held this lock must not swallow the early-exit.
+        self.slot
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
     }
 
     /// Record an early-exit and request a cooperative pause. Only the first
     /// early-exit in a run is kept (matching the legacy "halt on first").
     fn trigger(&self, tool: &str, question: String) {
         {
-            let mut slot = self.slot.lock().unwrap();
+            // #4469 item 3: `into_inner` keeps early-exit recording working even
+            // if the slot mutex was poisoned by an unrelated panic.
+            let mut slot = self.slot.lock().unwrap_or_else(PoisonError::into_inner);
             if slot.is_none() {
                 *slot = Some(EarlyExit {
                     tool: tool.to_string(),

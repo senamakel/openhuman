@@ -28,7 +28,7 @@
 //! pass-through, do nothing) when:
 //!
 //! * The raw payload is below
-//!   [`SubagentPayloadSummarizer::threshold_tokens`] (default 500 000
+//!   [`SubagentPayloadSummarizer::threshold_tokens`] (config default 4 000
 //!   tokens — small payloads aren't worth an extra LLM round-trip).
 //!   Token count is estimated as `chars / 4`, matching
 //!   `tree_summarizer::estimate_tokens`.
@@ -120,7 +120,7 @@ pub struct SubagentPayloadSummarizer {
     /// Lower bound, in **estimated tokens** (`chars / 4`): tool results
     /// smaller than this are passed through untouched. Default is
     /// `summarizer_payload_threshold_tokens` from
-    /// [`crate::openhuman::config::ContextConfig`] (500 000 tokens).
+    /// [`crate::openhuman::config::ContextConfig`] (default 4 000 tokens).
     threshold_tokens: usize,
     /// Upper bound, in **estimated tokens**: tool results larger than
     /// this are also passed through (no LLM call) and fall through to

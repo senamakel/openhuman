@@ -180,5 +180,4 @@ Each connected account gets its own profile and its own IDB. CDP can snapshot on
 
 ## See also
 
-* [`docs/TAURI_CEF_FINDINGS_AND_CHANGES.md`](../../docs/TAURI_CEF_FINDINGS_AND_CHANGES.md). the notification-permission deep dive.
 * [`CLAUDE.md`](../../CLAUDE.md). the canonical "no new JS injection" rule.

@@ -1536,13 +1536,22 @@ fn assemble_turn_harness(
     let mut compression_mw: Option<Arc<ContextCompressionMiddleware>> = None;
     if let Some(window) = context_window.filter(|w| *w > 0) {
         if autocompact_enabled {
-            let mw = Arc::new(ContextCompressionMiddleware::with_summarizer(
-                summarize::summarization_policy(window),
+            let policy = summarize::summarization_policy(window);
+            // Wrap the LLM-backed summarizer in a fault-tolerant, per-turn-caching
+            // adapter (issue #4461): a summarizer failure must no longer abort the
+            // turn (warn + circuit-breaker + deterministic trim instead), and an
+            // identical re-issued input slice must not re-run the summarizer LLM.
+            let summarizer = summarize::FaultTolerantCachingSummarizer::new(
                 Box::new(summarize::ProviderModelSummarizer::new(
                     summary_provider,
                     model,
                     temperature,
                 )),
+                &policy,
+            );
+            let mw = Arc::new(ContextCompressionMiddleware::with_summarizer(
+                policy,
+                Box::new(summarizer),
             ));
             harness.push_middleware(mw.clone());
             compression_mw = Some(mw);

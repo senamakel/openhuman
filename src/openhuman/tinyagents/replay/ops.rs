@@ -101,10 +101,9 @@ pub(crate) async fn read_run_status(
     log::debug!("[agent] replay read_run_status run_id={run_id}");
     let stores = open_session_stores(workspace);
     let store = FileStatusStore::new(stores.kv);
-    let status = store
-        .get_status(run_id)
-        .await
-        .map_err(|e| anyhow::anyhow!("[agent] replay read_run_status failed run_id={run_id}: {e}"))?;
+    let status = store.get_status(run_id).await.map_err(|e| {
+        anyhow::anyhow!("[agent] replay read_run_status failed run_id={run_id}: {e}")
+    })?;
     log::debug!(
         "[agent] replay read_run_status run_id={run_id} found={}",
         status.is_some()
@@ -276,12 +275,16 @@ mod tests {
         assert_eq!(active[0].run_id.as_str(), run_a.as_str());
 
         // Filter by thread-A: the running run is returned.
-        let by_thread_a = list_active_runs(&tmp, Some("thread-A"), None).await.unwrap();
+        let by_thread_a = list_active_runs(&tmp, Some("thread-A"), None)
+            .await
+            .unwrap();
         assert_eq!(by_thread_a.len(), 1);
         assert_eq!(by_thread_a[0].run_id.as_str(), run_a.as_str());
 
         // Filter by thread-B: the only run there is completed → excluded.
-        let by_thread_b = list_active_runs(&tmp, Some("thread-B"), None).await.unwrap();
+        let by_thread_b = list_active_runs(&tmp, Some("thread-B"), None)
+            .await
+            .unwrap();
         assert!(by_thread_b.is_empty());
 
         // Filter by an unknown thread: empty.

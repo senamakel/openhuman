@@ -337,9 +337,7 @@ pub async fn shadow_read_compare(
         .iter()
         .zip(shadow.iter())
         .position(|(a, b)| a != b)
-        .or_else(|| {
-            (expected.len() != shadow.len()).then(|| expected.len().min(shadow.len()))
-        });
+        .or_else(|| (expected.len() != shadow.len()).then(|| expected.len().min(shadow.len())));
     log::warn!(
         "[session_shadow_read] DIVERGENCE stem={session_key} legacy_count={} shadow_count={} first_diff={first_diff:?}",
         expected.len(),

@@ -71,6 +71,10 @@ jobs:
           filters: |
             frontend:
               - '.github/workflows/pr-ci.yml'
+              # The changed-files runner itself must trigger the lane that
+              # runs it (it is also in frontend-full → full-suite mode).
+              - 'scripts/ci/vitest-changed-coverage.sh'
+              - 'scripts/ci-cancel-aware.sh'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'app/package.json'
@@ -112,6 +116,9 @@ jobs:
               - 'package.json'
             rust-core:
               - '.github/workflows/pr-ci.yml'
+              # The changed-files runner itself must trigger the lane that
+              # runs it (it is also in rust-core-full → full-suite mode).
+              - 'scripts/ci/rust-coverage-changed.sh'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - 'rust-toolchain.toml'

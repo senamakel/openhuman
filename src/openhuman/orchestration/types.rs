@@ -108,6 +108,29 @@ impl SessionEnvelopeV1 {
         let envelope: Self = serde_json::from_str(body).ok()?;
         envelope.is_valid_v1().then_some(envelope)
     }
+
+    /// Build an outgoing v1 session envelope carrying `body` under `session_id`,
+    /// so a compliant peer harness threads its reply under the same session.
+    pub fn outgoing(session_id: &str, body: &str, message_id: &str, timestamp: &str) -> Self {
+        SessionEnvelopeV1 {
+            envelope_version: SESSION_ENVELOPE_VERSION_V1.to_string(),
+            version: 1,
+            scope: HarnessScope {
+                scope_type: "session".to_string(),
+                wrapper_session_id: session_id.to_string(),
+                harness_session_id: session_id.to_string(),
+                ..Default::default()
+            },
+            message: HarnessEnvelopeMessage {
+                id: message_id.to_string(),
+                role: "owner".to_string(),
+                text: body.to_string(),
+                timestamp: timestamp.to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
 }
 
 /// Which pinned/session window a persisted message belongs to.
@@ -192,6 +215,17 @@ mod tests {
         assert_eq!(env.scope.harness_session_id, "h1");
         assert_eq!(env.message.role, "agent");
         assert_eq!(env.harness.provider, "claude");
+    }
+
+    #[test]
+    fn outgoing_builds_a_parseable_v1_envelope() {
+        let env = SessionEnvelopeV1::outgoing("h9", "reply body", "m9", "2026-07-04T00:00:00Z");
+        let wire = serde_json::to_string(&env).expect("encode");
+        let parsed = SessionEnvelopeV1::parse(&wire).expect("valid v1");
+        assert_eq!(parsed.scope.harness_session_id, "h9");
+        assert_eq!(parsed.scope.wrapper_session_id, "h9");
+        assert_eq!(parsed.message.text, "reply body");
+        assert_eq!(parsed.message.role, "owner");
     }
 
     #[test]

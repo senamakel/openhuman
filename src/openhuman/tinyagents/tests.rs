@@ -518,6 +518,11 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     // tool-policy projection, tool-outcome capture, arg recovery, schema guard
     // (#4451 before_tool).
     let mw = assembled.harness.middleware();
+    // NOTE(parity merge): these inventory counts are the upstream base (13 / 2)
+    // plus the lifecycle + around-tool middlewares this parity branch adds. They
+    // are NOT compiled by `cargo check --lib` (this is a #[cfg(test)] block) and
+    // are pending the deferred test pass — verify/adjust the exact numbers when
+    // the test suite actually compiles.
     assert_eq!(mw.len(), 16, "lifecycle middleware inventory");
     // Around-tool wraps: schema guard (#4451, outermost) + approval/security +
     // CLI/RPC-only scope gate + credential scrub (#4453, innermost). No builder

@@ -1,11 +1,12 @@
 /**
- * FlowsPage (issue B5a / B5a.1) — the Workflows list page. Asserts the
- * loading/empty/error/list states, that toggling a flow calls
+ * FlowsPage (issue B5a / B5a.1 / B5b.1) — the Workflows list page. Asserts
+ * the loading/empty/error/list states, that toggling a flow calls
  * `setFlowEnabled` and refreshes the row, that Run fires `runFlow`, shows a
  * "Workflow started" toast, and refetches the list, that "View runs" opens
- * `FlowRunsDrawer` for the clicked flow, and that "New workflow" (header +
- * empty state) navigates to Chat (no canvas builder yet — bridges to B4's
- * agent-proposal flow).
+ * `FlowRunsDrawer` for the clicked flow, that clicking a flow's name
+ * navigates to its read-only Workflow Canvas (`/flows/:id`, issue B5b.1),
+ * and that "New workflow" (header + empty state) navigates to Chat (no
+ * canvas *builder* yet — bridges to B4's agent-proposal flow).
  */
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -134,6 +135,16 @@ describe('FlowsPage', () => {
 
     fireEvent.click(screen.getByTestId('flow-runs-close'));
     expect(screen.queryByTestId('flow-runs-drawer')).not.toBeInTheDocument();
+  });
+
+  it('navigates to the Workflow Canvas when a flow name is clicked', async () => {
+    listFlows.mockResolvedValue([makeFlow()]);
+    renderWithProviders(<FlowsPage />);
+
+    await waitFor(() => expect(screen.getByTestId('flow-view-flow-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('flow-view-flow-1'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/flows/flow-1');
   });
 
   it('renders a "New workflow" header button and navigates to /chat when clicked', async () => {

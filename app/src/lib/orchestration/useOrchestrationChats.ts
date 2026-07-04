@@ -158,7 +158,8 @@ export interface UseOrchestrationChatsResult {
   masterError: string | null;
   selectChat: (chatKey: string) => void;
   refresh: () => Promise<void>;
-  sendMaster: (body: string) => Promise<boolean>;
+  sendMessage: (chat: ChatWindow | undefined, body: string) => Promise<boolean>;
+  createSession: (agentId: string, label?: string) => Promise<string | null>;
 }
 
 export function useOrchestrationChats(t: Translate): UseOrchestrationChatsResult {
@@ -256,10 +257,14 @@ export function useOrchestrationChats(t: Translate): UseOrchestrationChatsResult
     [loadMessages, markRead]
   );
 
-  const sendMaster = useCallback(
-    async (rawBody: string): Promise<boolean> => {
+  // Send into a chat. Master/subconscious go to the Master send path; a session
+  // chat threads under its own session id (routed to its peer contact).
+  const sendMessage = useCallback(
+    async (chat: ChatWindow | undefined, rawBody: string): Promise<boolean> => {
       const body = rawBody.trim();
-      if (!body) return false;
+      if (!body || !chat) return false;
+      const chatKey = chat.id;
+      const isSession = chat.kind === 'session' && !!chat.peerAgentId;
       setMasterError(null);
       const optimistic: ChatMessage = {
         id: `optimistic:${Date.now()}`,
@@ -270,13 +275,15 @@ export function useOrchestrationChats(t: Translate): UseOrchestrationChatsResult
       };
       setMessagesByChat(prev => ({
         ...prev,
-        [MASTER_CHAT_KEY]: sortMessages([...(prev[MASTER_CHAT_KEY] ?? []), optimistic]),
+        [chatKey]: sortMessages([...(prev[chatKey] ?? []), optimistic]),
       }));
       try {
-        await orchestrationClient.sendMasterMessage({ body });
+        await orchestrationClient.sendMasterMessage(
+          isSession ? { body, recipient: chat.peerAgentId as string, sessionId: chatKey } : { body }
+        );
         if (!mountedRef.current) return true;
         // Reconcile against the authoritative server state.
-        void loadMessages(MASTER_CHAT_KEY);
+        void loadMessages(chatKey);
         void loadSessions();
         return true;
       } catch (error) {
@@ -284,7 +291,7 @@ export function useOrchestrationChats(t: Translate): UseOrchestrationChatsResult
         // Roll the optimistic message back out.
         setMessagesByChat(prev => ({
           ...prev,
-          [MASTER_CHAT_KEY]: (prev[MASTER_CHAT_KEY] ?? []).filter(m => m.id !== optimistic.id),
+          [chatKey]: (prev[chatKey] ?? []).filter(m => m.id !== optimistic.id),
         }));
         const message = error instanceof Error ? error.message : String(error);
         setMasterError(message);
@@ -292,6 +299,31 @@ export function useOrchestrationChats(t: Translate): UseOrchestrationChatsResult
       }
     },
     [loadMessages, loadSessions, t]
+  );
+
+  // Create a new empty session for a contact and select it.
+  const createSession = useCallback(
+    async (agentId: string, label?: string): Promise<string | null> => {
+      setMasterError(null);
+      try {
+        const { session } = await orchestrationClient.sessionsCreate({
+          agentId,
+          ...(label ? { label } : {}),
+        });
+        if (!mountedRef.current) return null;
+        await loadSessions();
+        const key = session.sessionId;
+        setSelectedId(key);
+        void loadMessages(key);
+        return key;
+      } catch (error) {
+        if (!mountedRef.current) return null;
+        const message = error instanceof Error ? error.message : String(error);
+        setMasterError(message);
+        return null;
+      }
+    },
+    [loadSessions, loadMessages]
   );
 
   // Initial load + mark the default (master) chat read.
@@ -353,6 +385,7 @@ export function useOrchestrationChats(t: Translate): UseOrchestrationChatsResult
     masterError,
     selectChat,
     refresh,
-    sendMaster,
+    sendMessage,
+    createSession,
   };
 }

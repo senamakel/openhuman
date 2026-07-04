@@ -14,7 +14,7 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::{rpc as config_rpc, Config};
 
 use super::store;
-use super::types::{ChatKind, OrchestrationMessage, OrchestrationSession};
+use super::types::{ChatKind, OrchestrationMessage, OrchestrationSession, SessionEnvelopeV1};
 
 /// Active-window: a session is "active" if it saw traffic within this many ms.
 const ACTIVE_WINDOW_MS: i64 = 45 * 60 * 1000;
@@ -23,6 +23,7 @@ const LOG: &str = "orchestration_rpc";
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schema_for("orchestration_sessions_list"),
+        schema_for("orchestration_sessions_create"),
         schema_for("orchestration_messages_list"),
         schema_for("orchestration_send_master_message"),
         schema_for("orchestration_mark_read"),
@@ -35,6 +36,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_for("orchestration_sessions_list"),
             handler: handle_sessions_list,
+        },
+        RegisteredController {
+            schema: schema_for("orchestration_sessions_create"),
+            handler: handle_sessions_create,
         },
         RegisteredController {
             schema: schema_for("orchestration_messages_list"),
@@ -64,6 +69,16 @@ fn schema_for(function: &str) -> ControllerSchema {
             inputs: vec![],
             outputs: vec![json_output("result", "{ sessions: SessionSummary[] }.")],
         },
+        "orchestration_sessions_create" => ControllerSchema {
+            namespace: "orchestration",
+            function: "sessions_create",
+            description: "Create a new empty orchestration session for a contact (mints a fresh harness session id). Idempotent per (agentId, sessionId).",
+            inputs: vec![
+                required_str("agentId", "Contact agent id (address) the new session belongs to."),
+                optional_str("label", "Optional human-friendly label for the session."),
+            ],
+            outputs: vec![json_output("result", "{ session: SessionSummary }.")],
+        },
         "orchestration_messages_list" => ControllerSchema {
             namespace: "orchestration",
             function: "messages_list",
@@ -71,16 +86,23 @@ fn schema_for(function: &str) -> ControllerSchema {
             inputs: vec![
                 required_str("chat", "Chat key: \"master\" | \"subconscious\" | <sessionId>."),
                 optional_str("before", "Exclusive ISO timestamp to page backwards from."),
+                FieldSchema {
+                    name: "limit",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                    comment: "Max messages to return (default 100, capped at 500).",
+                    required: false,
+                },
             ],
             outputs: vec![json_output("result", "{ messages: OrchestrationMessage[] }.")],
         },
         "orchestration_send_master_message" => ControllerSchema {
             namespace: "orchestration",
             function: "send_master_message",
-            description: "Send a Master steering DM (owner → front-end agent) over the signal-send op.",
+            description: "Send a Master steering DM (owner → front-end agent) over the signal-send op. With a sessionId, sends a session-scoped envelope instead and threads it under that session window.",
             inputs: vec![
                 required_str("body", "Message body to send to the Master counterpart."),
                 optional_str("recipient", "Recipient agent id; defaults to the latest Master peer."),
+                optional_str("sessionId", "Session id to send under; when set the body is wrapped in a v1 session envelope and mirrored into that session window instead of Master."),
             ],
             outputs: vec![json_output("result", "{ ok: bool, messageId?: string }.")],
         },
@@ -225,6 +247,41 @@ fn handle_sessions_list(_params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_sessions_create(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = load_config("sessions_create").await?;
+        let agent_id = required_param(&params, "agentId")?.to_string();
+        let label = params
+            .get("label")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        log::debug!(
+            target: LOG,
+            "[orchestration_rpc] sessions_create agent_id={agent_id} session_id={session_id}"
+        );
+        let session = OrchestrationSession {
+            session_id: session_id.clone(),
+            agent_id: agent_id.clone(),
+            source: "user_created".to_string(),
+            label,
+            workspace: None,
+            last_seq: 0,
+            created_at: now.clone(),
+            last_message_at: now.clone(),
+        };
+        store::with_connection(&config.workspace_dir, |conn| {
+            store::upsert_session(conn, &session)
+        })
+        .map_err(|e| format!("sessions_create: {e}"))?;
+        super::bus::notify_orchestration_message(&agent_id, &session_id, "session");
+        to_json(serde_json::json!({ "session": summarize(session, 0, false) }))
+    })
+}
+
 fn pinned_placeholder(session_id: &str) -> SessionSummary {
     SessionSummary {
         session_id: session_id.to_string(),
@@ -263,6 +320,20 @@ fn handle_messages_list(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+/// Build the v1 session-envelope wire body for an outgoing session message so a
+/// compliant peer harness threads the reply under the same `session_id`.
+fn session_envelope_plaintext(
+    session_id: &str,
+    body: &str,
+    message_id: &str,
+    now: &str,
+) -> Result<String, String> {
+    serde_json::to_string(&SessionEnvelopeV1::outgoing(
+        session_id, body, message_id, now,
+    ))
+    .map_err(|e| format!("envelope encode: {e}"))
+}
+
 fn handle_send_master_message(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = load_config("send_master_message").await?;
@@ -272,33 +343,71 @@ fn handle_send_master_message(params: Map<String, Value>) -> ControllerFuture {
             .and_then(Value::as_str)
             .filter(|s| !s.trim().is_empty())
             .map(str::to_string);
+        // When present, the message threads under this session (envelope) rather
+        // than the Master window.
+        let session_id = params
+            .get("sessionId")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty() && *s != "master" && *s != "subconscious")
+            .map(str::to_string);
 
-        let recipient = match explicit {
-            Some(r) => r,
-            None => store::with_connection(&config.workspace_dir, store::latest_master_peer)
-                .map_err(|e| format!("resolve recipient: {e}"))?
-                .ok_or_else(|| "no Master counterpart yet — specify a recipient".to_string())?,
+        // Resolve the recipient: explicit wins; otherwise the session's contact
+        // (session mode) or the latest Master peer (master mode).
+        let recipient = match (explicit, session_id.as_deref()) {
+            (Some(r), _) => r,
+            (None, Some(sid)) => {
+                let sid = sid.to_string();
+                store::with_connection(&config.workspace_dir, move |conn| {
+                    store::session_agent_id(conn, &sid)
+                })
+                .map_err(|e| format!("resolve session recipient: {e}"))?
+                .ok_or_else(|| "unknown session — specify a recipient".to_string())?
+            }
+            (None, None) => {
+                store::with_connection(&config.workspace_dir, store::latest_master_peer)
+                    .map_err(|e| format!("resolve recipient: {e}"))?
+                    .ok_or_else(|| "no Master counterpart yet — specify a recipient".to_string())?
+            }
+        };
+
+        let now = chrono::Utc::now().to_rfc3339();
+        let (window, chat_kind, message_id) = match &session_id {
+            Some(sid) => (sid.clone(), ChatKind::Session, format!("session-out:{now}")),
+            None => (
+                "master".to_string(),
+                ChatKind::Master,
+                format!("master-out:{now}"),
+            ),
+        };
+
+        // Session sends go over the wire as a v1 envelope; Master sends stay plain.
+        let plaintext = match &session_id {
+            Some(sid) => session_envelope_plaintext(sid, &body, &message_id, &now)?,
+            None => body.clone(),
         };
 
         // Send the E2E DM to the front-end agent (human steering the front end).
         let mut send_params = Map::new();
         send_params.insert("recipient".to_string(), Value::from(recipient.clone()));
-        send_params.insert("plaintext".to_string(), Value::from(body.clone()));
+        send_params.insert("plaintext".to_string(), Value::from(plaintext));
         crate::openhuman::tinyplace::handle_tinyplace_signal_send_message(send_params)
             .await
             .map_err(|e| format!("signal send: {e}"))?;
 
-        // Mirror it into the Master window so the composer's message is visible,
-        // and notify the renderer.
-        let now = chrono::Utc::now().to_rfc3339();
-        let message_id = format!("master-out:{}", now);
+        // Mirror it into the target window so the composer's message is visible,
+        // and notify the renderer. `upsert_session` never clobbers an existing
+        // session's `source`, so a user-created session keeps its origin.
         let persisted = store::with_connection(&config.workspace_dir, |conn| {
             store::upsert_session(
                 conn,
                 &OrchestrationSession {
-                    session_id: "master".to_string(),
+                    session_id: window.clone(),
                     agent_id: recipient.clone(),
-                    source: "master".to_string(),
+                    source: match &session_id {
+                        Some(_) => "user_created".to_string(),
+                        None => "master".to_string(),
+                    },
                     label: None,
                     workspace: None,
                     last_seq: 0,
@@ -311,8 +420,8 @@ fn handle_send_master_message(params: Map<String, Value>) -> ControllerFuture {
                 &OrchestrationMessage {
                     id: message_id.clone(),
                     agent_id: recipient.clone(),
-                    session_id: "master".to_string(),
-                    chat_kind: ChatKind::Master,
+                    session_id: window.clone(),
+                    chat_kind,
                     role: "owner".to_string(),
                     body: body.clone(),
                     timestamp: now.clone(),
@@ -323,7 +432,7 @@ fn handle_send_master_message(params: Map<String, Value>) -> ControllerFuture {
         if let Err(e) = persisted {
             log::warn!(target: LOG, "[orchestration_rpc] send_master.mirror_failed: {e}");
         }
-        super::bus::notify_orchestration_message(&recipient, "master", "master");
+        super::bus::notify_orchestration_message(&recipient, &window, chat_kind.as_str());
 
         to_json(serde_json::json!({ "ok": true, "messageId": message_id }))
     })
@@ -450,12 +559,57 @@ mod tests {
     #[test]
     fn schemas_use_orchestration_namespace() {
         let schemas = all_controller_schemas();
-        assert_eq!(schemas.len(), 5);
+        assert_eq!(schemas.len(), 6);
         assert!(schemas.iter().all(|s| s.namespace == "orchestration"));
         assert_eq!(
             schema_for("orchestration_messages_list").function,
             "messages_list"
         );
+        assert_eq!(
+            schema_for("orchestration_sessions_create").function,
+            "sessions_create"
+        );
+    }
+
+    #[test]
+    fn session_envelope_plaintext_roundtrips_as_v1() {
+        let wire =
+            session_envelope_plaintext("sess-1", "hello world", "msg-1", "2026-07-04T00:00:00Z")
+                .expect("encode");
+        let parsed = SessionEnvelopeV1::parse(&wire).expect("valid v1 envelope");
+        assert_eq!(parsed.scope.harness_session_id, "sess-1");
+        assert_eq!(parsed.message.text, "hello world");
+        assert_eq!(parsed.message.role, "owner");
+    }
+
+    #[tokio::test]
+    async fn created_session_persists_and_resolves_its_agent() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = Config {
+            workspace_dir: tmp.path().to_path_buf(),
+            ..Config::default()
+        };
+        let now = "2026-07-04T00:00:00Z".to_string();
+        let session = OrchestrationSession {
+            session_id: "sess-42".to_string(),
+            agent_id: "@peer".to_string(),
+            source: "user_created".to_string(),
+            label: Some("Design review".to_string()),
+            workspace: None,
+            last_seq: 0,
+            created_at: now.clone(),
+            last_message_at: now,
+        };
+        let resolved = store::with_connection(&config.workspace_dir, |conn| {
+            store::upsert_session(conn, &session)?;
+            let rows = store::list_sessions(conn)?;
+            assert!(rows.iter().any(|s| s.session_id == "sess-42"
+                && s.source == "user_created"
+                && s.agent_id == "@peer"));
+            store::session_agent_id(conn, "sess-42")
+        })
+        .unwrap();
+        assert_eq!(resolved.as_deref(), Some("@peer"));
     }
 
     #[test]

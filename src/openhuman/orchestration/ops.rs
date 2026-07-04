@@ -29,7 +29,7 @@ use super::steering::{
     build_steering_prompt, is_explicit_none, parse_steering_output, ParsedSteering,
 };
 use super::store;
-use super::types::{ChatKind, OrchestrationMessage, OrchestrationSession};
+use super::types::{ChatKind, OrchestrationMessage, OrchestrationSession, SessionEnvelopeV1};
 
 /// Assumed model context window (tokens) for the `context_guard` utilization
 /// estimate until per-model resolution is wired. Sized to the reasoning tier.
@@ -728,14 +728,36 @@ impl OrchestrationRuntime for ProductionRuntime {
     }
 
     async fn send_dm(&self, counterpart_agent_id: &str, body: &str) -> anyhow::Result<()> {
+        // A reply into a real harness session is stamped with a v1 session
+        // envelope so the peer threads it under the same session id; Master and
+        // subconscious replies stay plain.
+        let plaintext = session_send_plaintext(&self.session_id, body)?;
         let mut params = Map::new();
         params.insert("recipient".to_string(), Value::from(counterpart_agent_id));
-        params.insert("plaintext".to_string(), Value::from(body));
+        params.insert("plaintext".to_string(), Value::from(plaintext));
         crate::openhuman::tinyplace::handle_tinyplace_signal_send_message(params)
             .await
             .map(|_| ())
             .map_err(|e| anyhow::anyhow!("signal send: {e}"))
     }
+}
+
+/// Wire body for an agent reply into `session_id`: a v1 session envelope for a
+/// real harness session (so the peer threads its reply under the same id), or
+/// the plain body for the pinned Master / subconscious windows.
+fn session_send_plaintext(session_id: &str, body: &str) -> anyhow::Result<String> {
+    if session_id == "master" || session_id == "subconscious" {
+        return Ok(body.to_string());
+    }
+    let message_id = format!("session-out:{}", uuid::Uuid::new_v4());
+    let now = chrono::Utc::now().to_rfc3339();
+    serde_json::to_string(&SessionEnvelopeV1::outgoing(
+        session_id,
+        body,
+        &message_id,
+        &now,
+    ))
+    .map_err(|e| anyhow::anyhow!("envelope encode: {e}"))
 }
 
 #[cfg(test)]
@@ -751,6 +773,18 @@ mod tests {
             workspace_dir: tmp.path().to_path_buf(),
             ..Config::default()
         }
+    }
+
+    #[test]
+    fn session_reply_is_wrapped_but_master_reply_stays_plain() {
+        // A real session id → v1 envelope threaded under that id.
+        let wire = session_send_plaintext("h-42", "on it").expect("encode");
+        let env = SessionEnvelopeV1::parse(&wire).expect("valid v1 envelope");
+        assert_eq!(env.scope.harness_session_id, "h-42");
+        assert_eq!(env.message.text, "on it");
+        // The pinned windows stay plain (no envelope).
+        assert_eq!(session_send_plaintext("master", "hi").unwrap(), "hi");
+        assert_eq!(session_send_plaintext("subconscious", "hi").unwrap(), "hi");
     }
 
     fn msg(session: &str, seq: i64) -> OrchestrationMessage {

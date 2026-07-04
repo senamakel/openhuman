@@ -327,6 +327,17 @@ pub fn latest_master_peer(conn: &Connection) -> Result<Option<String>> {
     .map_err(Into::into)
 }
 
+/// The contact (`agent_id`) that owns a given session id, if the session exists.
+pub fn session_agent_id(conn: &Connection, session_id: &str) -> Result<Option<String>> {
+    conn.query_row(
+        "SELECT agent_id FROM sessions WHERE session_id = ?1 LIMIT 1",
+        params![session_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
 fn read_cursor_key(session_id: &str) -> String {
     format!("read:{session_id}")
 }

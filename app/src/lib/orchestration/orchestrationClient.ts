@@ -60,6 +60,10 @@ export interface SessionsListResponse {
   sessions: SessionSummary[];
 }
 
+export interface SessionCreateResponse {
+  session: SessionSummary;
+}
+
 export interface MessagesListResponse {
   messages: OrchestrationMessage[];
 }
@@ -117,6 +121,13 @@ export const orchestrationClient = {
   /** List all orchestration chats (pinned master + subconscious, plus sessions). */
   sessionsList: () => call<SessionsListResponse>('openhuman.orchestration_sessions_list', {}),
 
+  /** Create a new empty session for a contact; returns the created summary. */
+  sessionsCreate: (params: { agentId: string; label?: string }) =>
+    call<SessionCreateResponse>('openhuman.orchestration_sessions_create', {
+      agentId: params.agentId,
+      ...(params.label !== undefined ? { label: params.label } : {}),
+    }),
+
   /**
    * List messages for a chat. `chat` is `"master"`, `"subconscious"`, or a
    * session's `sessionId`.
@@ -128,11 +139,15 @@ export const orchestrationClient = {
       ...(params.before !== undefined ? { before: params.before } : {}),
     }),
 
-  /** Send a message from the human master into the pinned master chat. */
-  sendMasterMessage: (params: { body: string; recipient?: string }) =>
+  /**
+   * Send a message from the human master. With `sessionId` the message threads
+   * under that session (session envelope); otherwise it goes to the Master chat.
+   */
+  sendMasterMessage: (params: { body: string; recipient?: string; sessionId?: string }) =>
     call<SendMasterMessageResponse>('openhuman.orchestration_send_master_message', {
       body: params.body,
       ...(params.recipient !== undefined ? { recipient: params.recipient } : {}),
+      ...(params.sessionId !== undefined ? { sessionId: params.sessionId } : {}),
     }),
 
   /** Mark a chat as read (clears the server-side unread count). */

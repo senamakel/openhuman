@@ -105,7 +105,19 @@ describe('UpcomingTable', () => {
   });
 
   it('shows a date-group separator (Today)', async () => {
-    listMock.mockResolvedValueOnce([makeMeeting()]);
+    // Anchor the meeting to noon *today* rather than `NOW + 1h`. The default
+    // `NOW + 1h` fixture rolls into tomorrow's date bucket when the suite runs
+    // within an hour of local midnight (CI hit this at 23:14 UTC), so the
+    // "Today" separator never rendered. Noon today always shares today's day
+    // key regardless of wall-clock time, making the grouping deterministic.
+    const noonToday = new Date();
+    noonToday.setHours(12, 0, 0, 0);
+    listMock.mockResolvedValueOnce([
+      makeMeeting({
+        start_time_ms: noonToday.getTime(),
+        end_time_ms: noonToday.getTime() + 30 * 60 * 1000,
+      }),
+    ]);
     renderWithProviders(<UpcomingTable />);
     await waitFor(() => expect(screen.getByText(/today/i)).toBeInTheDocument());
   });

@@ -129,6 +129,15 @@ export default function FlowsPage() {
     setSelectedFlowId(flow.id);
   }, []);
 
+  /** Opens the read-only Workflow Canvas for this flow (issue B5b.1). */
+  const handleView = useCallback(
+    (flow: Flow) => {
+      log('view: navigating to canvas id=%s', flow.id);
+      navigate(`/flows/${flow.id}`);
+    },
+    [navigate]
+  );
+
   const selectedFlow = flows.find(f => f.id === selectedFlowId) ?? null;
 
   /**
@@ -209,6 +218,7 @@ export default function FlowsPage() {
                 onToggle={f => void handleToggle(f)}
                 onRun={f => void handleRun(f)}
                 onViewRuns={handleViewRuns}
+                onView={handleView}
               />
             ))}
           </div>

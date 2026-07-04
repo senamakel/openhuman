@@ -43,7 +43,8 @@ tinyplace = "1.0.1"
 # tinyflows — host-agnostic workflow engine (typed node graph → validate → compile →
 # run on tinyagents). Powers the "Workflows" feature via the seam in
 # `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.5 transitively
-# (same version openhuman already uses — no conflict). Published on crates.io.
+# (same version openhuman already uses — no conflict). Published on crates.io
+# and patched below to the vendored submodule.
 tinyflows = "0.3"
 # TinyAgents — Rust LLM orchestration framework (LangGraph/LangChain-style):
 # durable state graphs, agent-loop harness, model/tool registries, REPL +
@@ -337,6 +338,10 @@ whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", b
 # version in lockstep with the `tinyagents` requirement above. After cloning:
 # `git submodule update --init vendor/tinyagents` (worktrees included).
 tinyagents = { path = "vendor/tinyagents" }
+# TinyFlows and TinyCortex are vendored beside TinyAgents so integration work can
+# test workflow and memory-layer changes against OpenHuman before publishing.
+tinyflows = { path = "vendor/tinyflows" }
+tinycortex = { path = "vendor/tinycortex" }
 
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the

@@ -1,8 +1,10 @@
 /**
- * FlowListRow (issue B5a / B5a.1) — one saved-flow row on the Workflows list
- * page. Asserts the name/status rendering, the last-run/never-run text
- * (including the localized relative-time strings), and that the
- * toggle/Run/View runs controls call back with the row's `Flow`.
+ * FlowListRow (issue B5a / B5a.1 / B5b.1) — one saved-flow row on the
+ * Workflows list page. Asserts the name/status rendering, the
+ * last-run/never-run text (including the localized relative-time strings),
+ * that the toggle/Run/View runs controls call back with the row's `Flow`,
+ * and that the flow name itself is the "View" affordance that opens the
+ * read-only Workflow Canvas (issue B5b.1).
  */
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -29,7 +31,13 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
 describe('FlowListRow', () => {
   it('renders the flow name and an Enabled badge when enabled', () => {
     renderWithProviders(
-      <FlowListRow flow={makeFlow()} onToggle={vi.fn()} onRun={vi.fn()} onViewRuns={vi.fn()} />
+      <FlowListRow
+        flow={makeFlow()}
+        onToggle={vi.fn()}
+        onRun={vi.fn()}
+        onViewRuns={vi.fn()}
+        onView={vi.fn()}
+      />
     );
 
     expect(screen.getByText('Daily digest')).toBeInTheDocument();
@@ -43,6 +51,7 @@ describe('FlowListRow', () => {
         onToggle={vi.fn()}
         onRun={vi.fn()}
         onViewRuns={vi.fn()}
+        onView={vi.fn()}
       />
     );
 
@@ -51,7 +60,13 @@ describe('FlowListRow', () => {
 
   it('shows "Never run" when the flow has no last_run_at', () => {
     renderWithProviders(
-      <FlowListRow flow={makeFlow()} onToggle={vi.fn()} onRun={vi.fn()} onViewRuns={vi.fn()} />
+      <FlowListRow
+        flow={makeFlow()}
+        onToggle={vi.fn()}
+        onRun={vi.fn()}
+        onViewRuns={vi.fn()}
+        onView={vi.fn()}
+      />
     );
 
     expect(screen.getByText('Never run')).toBeInTheDocument();
@@ -64,6 +79,7 @@ describe('FlowListRow', () => {
         onToggle={vi.fn()}
         onRun={vi.fn()}
         onViewRuns={vi.fn()}
+        onView={vi.fn()}
       />
     );
 
@@ -78,6 +94,7 @@ describe('FlowListRow', () => {
         onToggle={vi.fn()}
         onRun={vi.fn()}
         onViewRuns={vi.fn()}
+        onView={vi.fn()}
       />
     );
 
@@ -92,6 +109,7 @@ describe('FlowListRow', () => {
         onToggle={vi.fn()}
         onRun={vi.fn()}
         onViewRuns={vi.fn()}
+        onView={vi.fn()}
       />
     );
 
@@ -106,6 +124,7 @@ describe('FlowListRow', () => {
         onToggle={vi.fn()}
         onRun={vi.fn()}
         onViewRuns={vi.fn()}
+        onView={vi.fn()}
       />
     );
 
@@ -115,7 +134,13 @@ describe('FlowListRow', () => {
   it('calls onToggle with the flow when the switch is clicked', () => {
     const onToggle = vi.fn();
     renderWithProviders(
-      <FlowListRow flow={makeFlow()} onToggle={onToggle} onRun={vi.fn()} onViewRuns={vi.fn()} />
+      <FlowListRow
+        flow={makeFlow()}
+        onToggle={onToggle}
+        onRun={vi.fn()}
+        onViewRuns={vi.fn()}
+        onView={vi.fn()}
+      />
     );
 
     fireEvent.click(screen.getByTestId('flow-toggle-flow-1'));
@@ -126,7 +151,13 @@ describe('FlowListRow', () => {
   it('calls onRun with the flow when the Run button is clicked', () => {
     const onRun = vi.fn();
     renderWithProviders(
-      <FlowListRow flow={makeFlow()} onToggle={vi.fn()} onRun={onRun} onViewRuns={vi.fn()} />
+      <FlowListRow
+        flow={makeFlow()}
+        onToggle={vi.fn()}
+        onRun={onRun}
+        onViewRuns={vi.fn()}
+        onView={vi.fn()}
+      />
     );
 
     fireEvent.click(screen.getByTestId('flow-run-flow-1'));
@@ -137,7 +168,13 @@ describe('FlowListRow', () => {
   it('renders a "View runs" control and calls onViewRuns with the flow when clicked', () => {
     const onViewRuns = vi.fn();
     renderWithProviders(
-      <FlowListRow flow={makeFlow()} onToggle={vi.fn()} onRun={vi.fn()} onViewRuns={onViewRuns} />
+      <FlowListRow
+        flow={makeFlow()}
+        onToggle={vi.fn()}
+        onRun={vi.fn()}
+        onViewRuns={onViewRuns}
+        onView={vi.fn()}
+      />
     );
 
     const viewRunsButton = screen.getByTestId('flow-view-runs-flow-1');
@@ -147,6 +184,25 @@ describe('FlowListRow', () => {
     expect(onViewRuns).toHaveBeenCalledWith(makeFlow());
   });
 
+  it('renders the flow name as a "View" affordance and calls onView with the flow when clicked', () => {
+    const onView = vi.fn();
+    renderWithProviders(
+      <FlowListRow
+        flow={makeFlow()}
+        onToggle={vi.fn()}
+        onRun={vi.fn()}
+        onViewRuns={vi.fn()}
+        onView={onView}
+      />
+    );
+
+    const viewButton = screen.getByTestId('flow-view-flow-1');
+    expect(viewButton).toHaveTextContent('Daily digest');
+    fireEvent.click(viewButton);
+
+    expect(onView).toHaveBeenCalledWith(makeFlow());
+  });
+
   it('shows the running label and disables Run while busy', () => {
     renderWithProviders(
       <FlowListRow
@@ -154,6 +210,7 @@ describe('FlowListRow', () => {
         onToggle={vi.fn()}
         onRun={vi.fn()}
         onViewRuns={vi.fn()}
+        onView={vi.fn()}
         busy="run"
       />
     );
@@ -170,6 +227,7 @@ describe('FlowListRow', () => {
         onToggle={vi.fn()}
         onRun={vi.fn()}
         onViewRuns={vi.fn()}
+        onView={vi.fn()}
         busy="toggle"
       />
     );

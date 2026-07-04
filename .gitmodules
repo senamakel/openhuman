@@ -8,3 +8,9 @@
 [submodule "vendor/tinyagents"]
 	path = vendor/tinyagents
 	url = https://github.com/tinyhumansai/tinyagents
+[submodule "vendor/tinyflows"]
+	path = vendor/tinyflows
+	url = https://github.com/tinyhumansai/tinyflows
+[submodule "vendor/tinycortex"]
+	path = vendor/tinycortex
+	url = https://github.com/tinyhumansai/tinycortex

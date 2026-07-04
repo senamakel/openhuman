@@ -1,13 +1,15 @@
 /**
  * Frontend client for the durable `openhuman.flows_*` run surface (issue B2 /
- * B3 / B4). Wraps the subset of controllers the B3a approval card, the B3b
- * run inspector, and the B4 agent-proposal card need:
+ * B3 / B4 / B5b). Wraps the subset of controllers the B3a approval card, the
+ * B3b run inspector, the B4 agent-proposal card, and the B5b Workflow Canvas
+ * need:
  *   - `flows_create`    — persist a new flow (B4 — only ever called from the
  *     user's own "Save & enable" click on `WorkflowProposalCard`; the agent's
  *     `propose_workflow` tool only validates and never reaches this RPC)
  *   - `flows_resume`    — resume a `pending_approval` run past its checkpoint
  *   - `flows_list_runs` — recent runs for a flow, newest first (B3b)
  *   - `flows_get_run`   — a single run record by id (B3b)
+ *   - `flows_get`       — a single flow by id, graph included (B5b.1 canvas)
  *
  * Wire shape note: every `src/openhuman/flows/ops.rs` handler returns its
  * value via `RpcOutcome::single_log(value, "...")`, which
@@ -258,6 +260,21 @@ export async function setFlowEnabled(id: string, enabled: boolean): Promise<Flow
 }
 
 /**
+ * Load a single saved flow by id via `openhuman.flows_get` (the Workflow
+ * Canvas, B5b.1). Returns the `Flow` directly (same no-wrapper shape as
+ * `flows_list`'s elements and `flows_set_enabled` — see
+ * `src/openhuman/flows/schemas.rs::handle_get`, which delegates straight to
+ * `ops::flows_get` through `RpcOutcome::single_log`).
+ */
+export async function getFlow(id: string): Promise<Flow> {
+  log('getFlow: request id=%s', id);
+  const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_get', params: { id } });
+  const flow = unwrapCliEnvelope<Flow>(response);
+  log('getFlow: response id=%s name=%s', flow.id, flow.name);
+  return flow;
+}
+
+/**
  * Run a saved flow to completion (or until it pauses on a human-approval
  * gate) via `openhuman.flows_run`. This is the call that actually drives the
  * tinyflows engine, so it shares `flows_resume`'s ~600s server-side budget
@@ -287,6 +304,7 @@ export const flowsApi = {
   resumeFlow,
   listFlowRuns,
   getFlowRun,
+  getFlow,
   listFlows,
   setFlowEnabled,
   runFlow,

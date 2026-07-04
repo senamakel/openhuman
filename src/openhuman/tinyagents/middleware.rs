@@ -1376,6 +1376,25 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        // Enrich a raw security-policy / autonomy block (issue #4094): the ~20
+        // `[policy-blocked]` denials emitted deep in `SecurityPolicy` / the tools
+        // return a bare marker line with no workaround and no relay directive, so
+        // the agent dead-ends. Rewrite the content into the structured
+        // `Blocked / Reason / Workaround / relay` shape here — the last `after_tool`
+        // hook, so the enriched text is what the transcript keeps. The marker is
+        // preserved, and already-structured `ToolPolicyMiddleware` denials (which
+        // carry a `Workaround:` suffix) are left untouched. This runs before
+        // classification below, which still recognises the preserved marker.
+        if let Some(enriched) =
+            super::policy_denial::maybe_enrich_policy_block(&result.name, &result.content)
+        {
+            tracing::debug!(
+                tool = result.name.as_str(),
+                "[tinyagents::mw] enriched raw security-policy block with workaround + relay"
+            );
+            result.content = enriched;
+        }
+
         let success = result.error.is_none();
         // Classify the failure so the live `ToolCallCompleted` event and the
         // persisted timeline can explain it in plain language. The classifier
@@ -2099,8 +2118,10 @@ impl Middleware<()> for CostBudgetMiddleware {
 /// - [`NoProgress::Continue`] — do nothing.
 /// - [`NoProgress::Nudge`] — inject the crate's structured "no progress since
 ///   step X" corrective into the working transcript via
-///   [`SteeringCommand::Redirect`] so the next model call sees it and changes
-///   strategy *before* the same-strategy retry cap trips.
+///   [`SteeringCommand::InjectMessage`] so the next model call sees it and
+///   changes strategy *before* the same-strategy retry cap trips. (Not
+///   `Redirect`: that verb is outside the Interactive steering allowlist and
+///   would abort the turn — see the nudge call site.)
 /// - [`NoProgress::Halt`] — record the crate's root-cause summary into the shared
 ///   [`HaltSummarySlot`](super::HaltSummarySlot) (the turn overrides its final
 ///   text with it) and pause the run via the shared steering handle (same
@@ -2200,6 +2221,47 @@ impl RepeatedToolFailureMiddleware {
         }
         None
     }
+}
+
+/// Recognise a **user-actionable** blocker in a failing tool result — one only
+/// the user can clear — and phrase the halt as a direct ask instead of the
+/// crate's generic "the goal looks unreachable in this environment, report this
+/// back" summary (issue #4092). Today that's a missing service connection (the
+/// issue's canonical example: acting on a service that isn't connected). Such a
+/// failure will never self-resolve by retrying, and the fix is the user's, so
+/// escalate with a concrete next step instead of looping or reporting a generic
+/// dead-end. Returns `None` for failures that are not user-actionable, leaving
+/// the crate's summary in place.
+fn user_actionable_escalation(tool: &str, error: &str) -> Option<String> {
+    let lower = error.to_lowercase();
+    let permission_or_scope_failure = lower.contains("[composio:error:insufficient_scope]")
+        || lower.contains("[composio:error:trigger_permission]")
+        || lower.contains("insufficient scope")
+        || lower.contains("insufficient authentication scopes")
+        || lower.contains("insufficient permissions")
+        || lower.contains("missing required permissions")
+        || lower.contains("permission to manage triggers");
+    if permission_or_scope_failure {
+        return None;
+    }
+    // Keep this narrow: some scope/permission failures legitimately tell the
+    // user to reconnect in Settings, but they are not missing connections.
+    let missing_connection = lower.contains("[composio:error:composio_platform]")
+        || lower.contains("not connected")
+        || lower.contains("isn't connected")
+        || lower.contains("is not connected")
+        || lower.contains("not enabled")
+        || lower.contains("token revoked")
+        || lower.contains("connection error, try to authenticate");
+    if !missing_connection {
+        return None;
+    }
+    Some(format!(
+        "I can't continue without your input: the `{tool}` action needs a service that isn't \
+         connected. {}\n\nConnect it (Settings \u{2192} Connections), then tell me to retry — or \
+         tell me how you'd like to proceed instead.",
+        crate::openhuman::util::truncate_with_ellipsis(error, 400),
+    ))
 }
 
 /// A stable, bounded fingerprint of a tool call's arguments for the identical-
@@ -2365,10 +2427,20 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
                     )));
             }
             NoProgress::Halt(summary) => {
+                // #4092: if the blocker is user-actionable (a missing connection),
+                // escalate with a concrete ask instead of the crate's generic
+                // "unreachable environment, report back" summary.
+                let escalation = user_actionable_escalation(
+                    &result.name,
+                    result.error.as_deref().unwrap_or(result.content.as_str()),
+                );
+                let user_actionable = escalation.is_some();
+                let summary = escalation.unwrap_or(summary);
                 tracing::warn!(
                     tool = %result.name,
                     step,
                     hard_reject,
+                    user_actionable,
                     "[tinyagents::mw] repeated tool failure — halting run so the root cause surfaces"
                 );
                 if let Ok(mut slot) = self.halt_summary.lock() {
@@ -3121,6 +3193,52 @@ mod tests {
         }
     }
 
+    // ── ToolOutcomeCaptureMiddleware policy-block enrichment (issue #4094) ───
+
+    fn outcome_capture_mw() -> ToolOutcomeCaptureMiddleware {
+        ToolOutcomeCaptureMiddleware::new(
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+        )
+    }
+
+    #[tokio::test]
+    async fn raw_security_policy_block_is_enriched_with_workaround_and_relay() {
+        let mw = outcome_capture_mw();
+        let mut result = tool_result(
+            "run_command",
+            "[policy-blocked] Security policy: read-only mode — only read commands are allowed",
+        );
+        result.error = Some(result.content.clone());
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        // The bare denial now carries a workaround + relay directive, and keeps the
+        // marker so classification / the loop-breaker still recognise it.
+        assert!(result.content.contains("Workaround:"), "{}", result.content);
+        assert!(result.content.contains("Relay this to the user"));
+        assert!(result
+            .content
+            .contains(crate::openhuman::security::POLICY_BLOCKED_MARKER));
+        assert!(result.content.contains("read-only mode"));
+    }
+
+    #[tokio::test]
+    async fn already_structured_denial_is_not_double_wrapped() {
+        // A ToolPolicyMiddleware-style denial already has "Workaround:"; the capture
+        // middleware must leave it untouched (no second Workaround block).
+        let mw = outcome_capture_mw();
+        let structured =
+            "Blocked: Tool 'x' denied. Reason: nope. Workaround: do y. Relay this to the user: ...";
+        let mut result = tool_result("x", structured);
+        result.error = Some(result.content.clone());
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert_eq!(
+            result.content.matches("Workaround:").count(),
+            1,
+            "must not double-wrap: {}",
+            result.content
+        );
+    }
+
     // ── TurnContextMiddleware config ────────────────────────────────────────
 
     #[test]
@@ -3527,6 +3645,77 @@ mod tests {
             handle.pending(),
             0,
             "distinct errors below the backstop must not steer the run"
+        );
+    }
+
+    #[test]
+    fn user_actionable_escalation_detects_missing_connection() {
+        // A not-connected blocker → a user-directed ask with a concrete next step.
+        let ask = user_actionable_escalation(
+            "gmail_send",
+            "Gmail is not connected. Ask the user to connect 'gmail' in Settings → Connections.",
+        )
+        .expect("a missing-connection failure is user-actionable");
+        assert!(ask.contains("without your input"));
+        assert!(ask.contains("Settings"));
+        assert!(ask.to_lowercase().contains("connect"));
+        assert!(ask.contains("gmail_send"));
+        // The original tool text is relayed so the user sees which service.
+        assert!(ask.to_lowercase().contains("gmail"));
+
+        // A plain environment failure is NOT user-actionable → keep crate summary.
+        assert!(user_actionable_escalation("read_file", "file not found").is_none());
+        assert!(user_actionable_escalation("shell", "exit code 1: segfault").is_none());
+        assert!(user_actionable_escalation(
+            "gmail_send",
+            "[composio:error:insufficient_scope] `gmail_send` was rejected because the connected \
+             gmail account is missing required permissions (insufficient authentication scopes). \
+             Reconnect the integration in Settings → Connections → gmail and grant the scopes \
+             requested during OAuth."
+        )
+        .is_none());
+        assert!(user_actionable_escalation(
+            "gmail_trigger",
+            "[composio:error:trigger_permission] Couldn't enable this trigger: the connected \
+             gmail account doesn't have permission to manage triggers. Reconnect gmail in \
+             Settings → Connections → gmail and grant the permissions requested during OAuth, \
+             then try again."
+        )
+        .is_none());
+    }
+
+    #[tokio::test]
+    async fn halt_on_missing_connection_asks_the_user_instead_of_reporting_back() {
+        // #4092: a repeated not-connected failure halts with a user-directed ask,
+        // not the crate's generic "unreachable environment, report this back".
+        let handle = SteeringHandle::allow_all();
+        let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+        // Three identical not-connected failures → halt.
+        for _ in 0..3 {
+            let mut r = failing_result(
+                "slack_post",
+                "Slack is not connected — connect it in Settings → Connections.",
+            );
+            mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        }
+        let summary = slot
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("halt records a summary");
+        assert!(
+            summary.contains("without your input") && summary.contains("Settings"),
+            "the halt should ask the user to connect the service: {summary}"
+        );
+        assert!(
+            !summary.contains("Report this back"),
+            "a user-actionable blocker must not use the generic report-back summary: {summary}"
+        );
+        assert_eq!(
+            drain_pause_count(&handle),
+            1,
+            "it still pauses the run to surface the ask"
         );
     }
 

@@ -11,6 +11,14 @@
  * "View runs" (issue B5a.1) opens `FlowRunsDrawer` (mounted by `FlowsPage`)
  * for this flow's run history — re-added now that B3b's run inspector has
  * landed and the drawer has somewhere to send the user.
+ *
+ * The flow name (issue B5b.1) is itself the "View" affordance for the new
+ * read-only Workflow Canvas: it's rendered as a button that calls `onView`,
+ * which `FlowsPage` wires to `navigate('/flows/' + flow.id)`. Kept as the
+ * name itself (not a separate icon button) since it's the row's most
+ * prominent, discoverable element and "view this flow's graph" is the most
+ * natural action to hang off it — "View runs" and "Run" stay distinct
+ * actions in the button row below.
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { Flow } from '../../services/api/flowsApi';
@@ -28,6 +36,8 @@ export interface FlowListRowProps {
   onToggle: (flow: Flow) => void;
   onRun: (flow: Flow) => void;
   onViewRuns: (flow: Flow) => void;
+  /** Opens the read-only Workflow Canvas for this flow (issue B5b.1). */
+  onView: (flow: Flow) => void;
   busy?: FlowListRowBusy;
 }
 
@@ -56,7 +66,14 @@ function capitalize(value: string): string {
   return value.length > 0 ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
 
-const FlowListRow = ({ flow, onToggle, onRun, onViewRuns, busy = null }: FlowListRowProps) => {
+const FlowListRow = ({
+  flow,
+  onToggle,
+  onRun,
+  onViewRuns,
+  onView,
+  busy = null,
+}: FlowListRowProps) => {
   const { t } = useT();
   const toggleBusy = busy === 'toggle';
   const runBusy = busy === 'run';
@@ -72,7 +89,15 @@ const FlowListRow = ({ flow, onToggle, onRun, onViewRuns, busy = null }: FlowLis
       className="space-y-3 border-t border-line p-4 first:border-t-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-content">{flow.name}</div>
+          <button
+            type="button"
+            data-testid={`flow-view-${flow.id}`}
+            title={t('flows.list.view')}
+            aria-label={`${t('flows.list.view')}: ${flow.name}`}
+            onClick={() => onView(flow)}
+            className="max-w-full truncate text-left text-sm font-semibold text-content hover:text-primary-600 hover:underline dark:hover:text-primary-400">
+            {flow.name}
+          </button>
           <div className="mt-0.5 text-[11px] text-content-faint">{lastRunLabel}</div>
         </div>
         <span

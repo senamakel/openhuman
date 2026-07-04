@@ -165,7 +165,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         0.0,
         history,
         vec![registry],
-        std::collections::HashSet::new(),
+        None,
         4,
         Some(tx),
         None,
@@ -267,7 +267,7 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         0.0,
         vec![ChatMessage::user("investigate the bug")],
         vec![registry],
-        std::collections::HashSet::new(),
+        None,
         4,
         None,
         None,
@@ -364,7 +364,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         0.0,
         vec![ChatMessage::user("task one")],
         vec![registry.clone()],
-        std::collections::HashSet::new(),
+        None,
         4,
         None,
         None,
@@ -384,7 +384,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         0.0,
         vec![ChatMessage::user("task two")],
         vec![registry],
-        std::collections::HashSet::new(),
+        None,
         4,
         None,
         None,
@@ -436,7 +436,7 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         "mock-model",
         0.0,
         tool_sets,
-        HashSet::new(),
+        None,
         4,
         None,          // on_progress: fire-and-forget
         None,          // subagent_scope: top-level turn
@@ -560,7 +560,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         "mock-model",
         0.0,
         tool_sets,
-        HashSet::new(),
+        None,
         4,
         None,
         None,
@@ -580,6 +580,217 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         "compression + trim must not install without a window"
     );
     assert!(assembled.early_exit_hook.is_none());
+}
+
+// ── Tool-allowlist registration gate (issue #4452) ─────────────────────────
+//
+// Regression guard for the fail-OPEN empty-allowlist bug: an empty sub-agent
+// allowlist used to be treated as "all visible", silently handing a tool-less
+// agent the parent's full surface (shell/file-write/spawn). The registration
+// gate now distinguishes `None` (no filter → all) from `Some(empty)` (deny-all),
+// and strips spawn/delegate tools regardless.
+
+/// A minimal named tool for the allowlist-gate tests.
+struct NamedTool(&'static str);
+
+#[async_trait]
+impl Tool for NamedTool {
+    fn name(&self) -> &str {
+        self.0
+    }
+    fn description(&self) -> &str {
+        "allowlist-gate test tool"
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({ "type": "object", "properties": {} })
+    }
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        Ok(ToolResult::success("ok"))
+    }
+}
+
+/// Assemble a turn over a fixed candidate surface — `echo`, `shell`, and the
+/// spawn meta-tool `spawn_subagent` — with the given allowlist.
+fn assemble_with_allowed(allowed: Option<HashSet<String>>) -> AssembledTurnHarness {
+    let provider: Arc<dyn Provider> = Arc::new(EchoThenDone {
+        calls: AtomicUsize::new(0),
+    });
+    let tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>> = vec![Arc::new(vec![
+        Box::new(NamedTool("echo")) as Box<dyn Tool>,
+        Box::new(NamedTool("shell")) as Box<dyn Tool>,
+        Box::new(NamedTool("spawn_subagent")) as Box<dyn Tool>,
+    ])];
+    assemble_turn_harness(
+        provider,
+        "mock-model",
+        0.0,
+        tool_sets,
+        allowed,
+        4,
+        None,
+        None,
+        None,
+        &[],
+        None,
+        TurnContextMiddleware::defaults(),
+        None,
+        None,
+        false,
+    )
+}
+
+/// `None` = no filter supplied → every candidate registers, EXCEPT the spawn
+/// meta-tool, which is stripped at registration regardless of the allowlist.
+#[test]
+fn allowlist_none_registers_all_tools_except_spawn() {
+    let assembled = assemble_with_allowed(None);
+    let names = assembled.harness.tools().names();
+    assert!(names.contains(&"echo".to_string()), "saw {names:?}");
+    assert!(names.contains(&"shell".to_string()), "saw {names:?}");
+    assert!(
+        !names.contains(&"spawn_subagent".to_string()),
+        "spawn meta-tool must never register, saw {names:?}"
+    );
+    assert_eq!(assembled.tool_count, 2);
+}
+
+/// `Some(empty)` = deny-all: register NOTHING. This is the core #4452 fix — a
+/// `tools = []` sub-agent must NOT inherit the parent's surface.
+#[test]
+fn allowlist_some_empty_registers_no_tools() {
+    let assembled = assemble_with_allowed(Some(HashSet::new()));
+    assert_eq!(
+        assembled.tool_count,
+        0,
+        "an empty allowlist must register zero tools (deny-all), saw {:?}",
+        assembled.harness.tools().names()
+    );
+    assert!(assembled.harness.tools().names().is_empty());
+}
+
+/// `Some({named})` registers exactly the named subset — a name outside the set
+/// (here `shell`) is excluded.
+#[test]
+fn allowlist_some_named_registers_only_named() {
+    let allowed: HashSet<String> = ["echo".to_string()].into_iter().collect();
+    let assembled = assemble_with_allowed(Some(allowed));
+    let names = assembled.harness.tools().names();
+    assert_eq!(assembled.tool_count, 1);
+    assert!(names.contains(&"echo".to_string()), "saw {names:?}");
+    assert!(!names.contains(&"shell".to_string()), "saw {names:?}");
+}
+
+/// A `named` list whose entries are absent from the candidate surface resolves
+/// to deny-all (register nothing) — it must NOT fall through to "all".
+#[test]
+fn allowlist_named_unresolvable_registers_no_tools() {
+    let allowed: HashSet<String> = ["does_not_exist".to_string()].into_iter().collect();
+    let assembled = assemble_with_allowed(Some(allowed));
+    assert_eq!(
+        assembled.tool_count,
+        0,
+        "an allowlist of unresolvable names must register zero tools, saw {:?}",
+        assembled.harness.tools().names()
+    );
+}
+
+/// Spawn/delegate tools are never registered even when explicitly allowlisted —
+/// the "sub-agents must never spawn" invariant is re-asserted at registration.
+#[test]
+fn spawn_tools_never_registered_even_when_allowlisted() {
+    let allowed: HashSet<String> = ["echo".to_string(), "spawn_subagent".to_string()]
+        .into_iter()
+        .collect();
+    let assembled = assemble_with_allowed(Some(allowed));
+    let names = assembled.harness.tools().names();
+    assert!(names.contains(&"echo".to_string()), "saw {names:?}");
+    assert!(
+        !names.contains(&"spawn_subagent".to_string()),
+        "spawn tool must never register regardless of allowlist, saw {names:?}"
+    );
+    assert_eq!(assembled.tool_count, 1);
+}
+
+/// End-to-end: a deliberately tool-less sub-agent (`Some(empty)` allowlist over a
+/// candidate surface that includes `shell`) registers no tools yet still
+/// completes a text-only turn — the payload-summarizer / untrusted-content path.
+#[tokio::test]
+async fn tool_less_subagent_has_no_shell_but_completes_text_turn() {
+    struct TextOnly;
+    #[async_trait]
+    impl Provider for TextOnly {
+        async fn chat_with_system(
+            &self,
+            _s: Option<&str>,
+            _m: &str,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<String> {
+            Ok(String::new())
+        }
+        async fn chat(
+            &self,
+            _r: ChatRequest<'_>,
+            _model: &str,
+            _t: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            Ok(ChatResponse {
+                text: Some("summary complete".to_string()),
+                ..Default::default()
+            })
+        }
+        fn supports_native_tools(&self) -> bool {
+            true
+        }
+    }
+
+    // The candidate surface DOES include `shell`, but the sub-agent allowlist is
+    // an explicit empty set (deny-all).
+    let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![
+        Box::new(NamedTool("shell")) as Box<dyn Tool>,
+        Box::new(NamedTool("write_file")) as Box<dyn Tool>,
+    ]);
+
+    // Registration gate: no tools visible to this sub-agent.
+    let assembled = assemble_with_allowed(Some(HashSet::new()));
+    assert!(
+        !assembled
+            .harness
+            .tools()
+            .names()
+            .contains(&"shell".to_string()),
+        "tool-less sub-agent must not see shell"
+    );
+
+    let outcome = run_turn_via_tinyagents_shared(
+        Arc::new(TextOnly),
+        "mock-model",
+        0.0,
+        vec![ChatMessage::user("summarize this untrusted web page")],
+        vec![registry],
+        Some(HashSet::new()), // deny-all sub-agent allowlist
+        4,
+        None,
+        Some(SubagentScope {
+            agent_id: "payload_summarizer".to_string(),
+            task_id: "task-1".to_string(),
+            extended_policy: false,
+        }),
+        None,
+        None,
+        &[],
+        false,
+        None,
+        TurnContextMiddleware::defaults(),
+        None,
+        None,
+        false,
+    )
+    .await
+    .expect("tool-less sub-agent still completes a text-only turn");
+
+    assert_eq!(outcome.text, "summary complete");
+    assert_eq!(outcome.tool_calls, 0, "a tool-less sub-agent runs no tools");
 }
 
 /// Phase 5 rollup gap (issue #4249): the per-call global cost tracker feed
@@ -636,7 +847,7 @@ async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
         0.0,
         vec![ChatMessage::user("hello")],
         Vec::new(),
-        HashSet::new(),
+        None,
         3,
         None, // on_progress: unobserved — no bridge, cost fallback branch runs
         None,

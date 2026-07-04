@@ -117,7 +117,7 @@ pub(crate) fn build_text_mode_tool_instructions() -> String {
 /// filter pass. If the delegation-tool naming scheme changes, update
 /// this function and the corresponding generator in
 /// `orchestrator_tools.rs` together.
-pub(super) fn is_subagent_spawn_tool(name: &str) -> bool {
+pub(crate) fn is_subagent_spawn_tool(name: &str) -> bool {
     name == "spawn_subagent"
         || name.starts_with("delegate_")
         || name == "use_tinyplace"

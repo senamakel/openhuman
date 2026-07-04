@@ -46,7 +46,10 @@ pub struct AgentTurnRequest {
     pub parent_tools: Arc<Vec<Box<dyn Tool>>>,
     pub dynamic_tools: Vec<Box<dyn Tool>>,
     pub specs: Vec<ToolSpec>,
-    pub allowed_names: HashSet<String>,
+    /// Sub-agent callable allowlist (issue #4452). `Some(set)` restricts the
+    /// sub-agent to exactly `set` (`Some(empty)` = deny-all); `None` = no filter
+    /// (all tools) and is never used on the sub-agent path.
+    pub allowed_names: Option<HashSet<String>>,
     pub max_iterations: usize,
     pub run_queue: Option<Arc<RunQueue>>,
     pub on_progress: Option<Sender<AgentProgress>>,

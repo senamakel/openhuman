@@ -160,23 +160,26 @@ pub(super) struct OpenHumanToolExposureShadowMiddleware {
 impl OpenHumanToolExposureShadowMiddleware {
     /// Build the shadow layer from the SAME inputs the precompute path feeds the
     /// runner: the broad `candidate_names` and the narrowed `allowed` visible set.
-    /// An empty `allowed` means "all candidates visible" (OpenHuman convention).
+    /// `allowed` mirrors the registration gate (issue #4452):
+    ///   * `None`      → no filter supplied, every candidate is visible;
+    ///   * `Some(set)` → only names in `set` are visible;
+    ///   * `Some({})`  → NO candidate is visible (deny-all — fail-closed).
     pub(super) fn new(
         candidate_names: &[String],
-        allowed: &std::collections::HashSet<String>,
+        allowed: Option<&std::collections::HashSet<String>>,
         tags: Vec<String>,
     ) -> Self {
         // Effective visible set = the OpenHuman-precomputed `allowed` (or every
-        // candidate when `allowed` is empty). Fail-closed: a candidate absent from
-        // `allowed` is treated as excluded (unclassified -> not exposed).
-        let registered: std::collections::HashSet<String> = if allowed.is_empty() {
-            candidate_names.iter().cloned().collect()
-        } else {
-            candidate_names
+        // candidate when no filter was supplied). Fail-closed: a candidate absent
+        // from a `Some(set)` allowlist is treated as excluded (unclassified -> not
+        // exposed), and `Some(empty)` excludes everything.
+        let registered: std::collections::HashSet<String> = match allowed {
+            None => candidate_names.iter().cloned().collect(),
+            Some(set) => candidate_names
                 .iter()
-                .filter(|name| allowed.contains(*name))
+                .filter(|name| set.contains(*name))
                 .cloned()
-                .collect()
+                .collect(),
         };
         let excluded: Vec<String> = candidate_names
             .iter()

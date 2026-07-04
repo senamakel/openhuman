@@ -367,8 +367,13 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// advertised spec so the same `Arc`-shared tools the legacy loop runs are
 /// reused without cloning.
 ///
-/// `allowed` is the callable tool-name whitelist (empty = every tool visible in
-/// `tool_sets`); each callable tool is advertised via its own `spec()`.
+/// `allowed` is the callable tool-name whitelist. `None` = no filter supplied,
+/// so every tool visible in `tool_sets` is registered (parent/channel/chat
+/// turns). `Some(set)` restricts registration to exactly `set`; `Some(empty)`
+/// registers **no** tools (fail-closed — the sub-agent deny-all path, #4452).
+/// Each callable tool is advertised via its own `spec()`. Spawn/delegate tools
+/// are stripped at registration regardless of `allowed` (sub-agents must never
+/// spawn).
 ///
 /// When `on_progress` is `Some`, the run streams (`invoke_streaming_in_context`)
 /// and a [`OpenhumanEventBridge`] mirrors the harness event stream onto
@@ -391,7 +396,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     temperature: f64,
     history: Vec<ChatMessage>,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
-    allowed: HashSet<String>,
+    allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
@@ -964,7 +969,7 @@ fn assemble_turn_harness(
     model: &str,
     temperature: f64,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
-    allowed: HashSet<String>,
+    allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
@@ -1161,7 +1166,26 @@ fn assemble_turn_harness(
         .map(|h| EarlyExitHook::new(h.clone()));
 
     // Register one adapter per unique callable tool name found across the shared
-    // sets (newest set wins on a name clash; `allowed` empty = all visible).
+    // sets (newest set wins on a name clash).
+    //
+    // Allowlist semantics (issue #4452 — fail-CLOSED on an empty allowlist):
+    //   * `allowed == None`      → no filter supplied, register every candidate
+    //                              (parent/channel/chat turns).
+    //   * `allowed == Some(set)` → register ONLY names in `set`.
+    //   * `allowed == Some({})`  → register NOTHING (deny-all — a deliberately
+    //                              tool-less sub-agent). Previously an empty set
+    //                              was treated as "all visible", which let a
+    //                              `tools = []` sub-agent silently inherit the
+    //                              parent's full surface (shell/file-write/spawn)
+    //                              — a prompt-injection privilege escalation.
+    if let Some(set) = &allowed {
+        if set.is_empty() {
+            tracing::warn!(
+                subagent = subagent_scope.is_some(),
+                "[subagent] tool allowlist resolved empty — registering no tools"
+            );
+        }
+    }
     let mut seen_candidates: HashSet<String> = HashSet::new();
     let candidate_names: Vec<String> = tool_sets
         .iter()
@@ -1174,20 +1198,47 @@ fn assemble_turn_harness(
         })
         .collect();
     let mut registered: HashSet<String> = HashSet::new();
+    let mut spawn_stripped = 0usize;
     for name in candidate_names.iter().map(String::as_str) {
-        if !registered.contains(name) && (allowed.is_empty() || allowed.contains(name)) {
-            if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
-                if early_exit_set.contains(name) {
-                    if let Some(hook) = &early_exit_hook {
-                        adapter = adapter.with_early_exit(hook.clone());
-                    }
-                }
-                registered.insert(name.to_string());
-                let adapter = Arc::new(adapter);
-                capability_registry.replace_tool(adapter.clone());
-                harness.register_tool(adapter);
-            }
+        if registered.contains(name) {
+            continue;
         }
+        // Allowlist gate: `None` admits everything, `Some(set)` admits only
+        // members of `set` (so `Some(empty)` admits nothing).
+        let allowed_by_filter = allowed.as_ref().map_or(true, |set| set.contains(name));
+        if !allowed_by_filter {
+            continue;
+        }
+        // Re-assert the "sub-agents must never spawn" invariant at registration
+        // time (issue #4452, defense-in-depth): strip spawn/delegate tool names
+        // from whatever set is registered, independent of the allowlist. The
+        // subagent runner already filters these out of `allowed_indices`, but
+        // this closes the gap where a broadened/None allowlist could otherwise
+        // re-admit them.
+        if crate::openhuman::agent::harness::subagent_runner::is_subagent_spawn_tool(name)
+            || name == "spawn_worker_thread"
+        {
+            spawn_stripped += 1;
+            continue;
+        }
+        if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
+            if early_exit_set.contains(name) {
+                if let Some(hook) = &early_exit_hook {
+                    adapter = adapter.with_early_exit(hook.clone());
+                }
+            }
+            registered.insert(name.to_string());
+            let adapter = Arc::new(adapter);
+            capability_registry.replace_tool(adapter.clone());
+            harness.register_tool(adapter);
+        }
+    }
+    if spawn_stripped > 0 {
+        tracing::debug!(
+            spawn_stripped,
+            subagent = subagent_scope.is_some(),
+            "[subagent] stripped spawn/delegate tools at registration (never registrable)"
+        );
     }
     let tool_count = registered.len();
     for report in all_graph_topologies() {
@@ -1309,7 +1360,7 @@ fn assemble_turn_harness(
     harness.push_middleware(Arc::new(
         middleware::OpenHumanToolExposureShadowMiddleware::new(
             &candidate_names,
-            &allowed,
+            allowed.as_ref(),
             exposure_tags,
         ),
     ));

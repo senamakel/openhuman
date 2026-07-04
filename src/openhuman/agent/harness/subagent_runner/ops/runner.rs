@@ -696,6 +696,23 @@ async fn run_typed_mode(
     for tool in &dynamic_tools {
         allowed_names.insert(tool.name().to_string());
     }
+    // Fail-closed allowlist (issue #4452): a sub-agent is ALWAYS scoped to a
+    // concrete `Some(set)` — never `None` (no filter → parent's full surface).
+    // An empty `set` (a `tools = []` archetype, a zero-match `skill_filter`, or a
+    // `named` list whose entries are absent from the parent surface) means
+    // deny-all: the registration gate registers NO tools. Previously an empty
+    // allowlist was treated as "all visible", silently handing the sub-agent the
+    // parent's shell/file-write/spawn tools (prompt-injection escalation).
+    let allowed_names: Option<HashSet<String>> = {
+        if allowed_names.is_empty() {
+            tracing::warn!(
+                agent_id = %definition.id,
+                task_id = %task_id,
+                "[subagent] tool allowlist resolved empty — sub-agent will register no tools (deny-all)"
+            );
+        }
+        Some(allowed_names)
+    };
     let filtered_specs =
         crate::openhuman::agent::harness::session::dedup_visible_tool_specs(filtered_specs);
     let filtered_specs = dedup_tool_specs_by_name(&definition.id, filtered_specs);
@@ -703,7 +720,7 @@ async fn run_typed_mode(
     tracing::debug!(
         agent_id = %definition.id,
         model = %model,
-        tool_count = allowed_names.len(),
+        tool_count = allowed_names.as_ref().map_or(0, |set| set.len()),
         max_iterations = definition.effective_max_iterations(),
         iteration_policy = ?definition.iteration_policy,
         "[subagent_runner:typed] resolved configuration"

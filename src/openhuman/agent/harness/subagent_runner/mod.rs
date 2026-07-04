@@ -56,6 +56,11 @@ pub use types::{
 // Crate-internal re-exports: `agent::debug` calls the text-mode protocol
 // renderer. The other `tool_prep` helpers are used only inside this module.
 pub(crate) use tool_prep::build_text_mode_tool_instructions;
+// Re-asserted at tinyagents registration time (issue #4452): spawn/delegate tool
+// names are stripped from any registered sub-agent surface regardless of the
+// allowlist, so the "sub-agents must never spawn" invariant holds even if the
+// allowlist is widened/None.
+pub(crate) use tool_prep::is_subagent_spawn_tool;
 
 // Progressive-disclosure handoff: the tinyagents `HandoffMiddleware` intercepts
 // oversized sub-agent tool results via `apply_handoff`, sharing the per-spawn

@@ -85,7 +85,14 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         graph.temperature,
         graph.messages,
         vec![graph.tools],
-        graph.visible_tool_names,
+        // Chat path: an empty visibility set means "every tool visible" (parent
+        // turn), so it maps to `None` (no filter) for the shared seam. A non-empty
+        // set restricts registration to exactly those names. Deny-all `Some(empty)`
+        // is the sub-agent path, not this one (issue #4452).
+        {
+            let names = graph.visible_tool_names;
+            (!names.is_empty()).then_some(names)
+        },
         graph.max_iterations,
         // Mirror the harness event stream onto this session's progress sink.
         graph.on_progress,

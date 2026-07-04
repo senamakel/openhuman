@@ -136,7 +136,11 @@ pub(super) async fn run_subagent_via_graph(
     parent_tools: Arc<Vec<Box<dyn Tool>>>,
     dynamic_tools: Vec<Box<dyn Tool>>,
     specs: Vec<ToolSpec>,
-    allowed_names: HashSet<String>,
+    // Sub-agent callable allowlist (issue #4452). ALWAYS `Some(set)` on this path:
+    // a sub-agent is scoped to exactly `set` (`Some(empty)` = deny-all, e.g. a
+    // `tools = []` summarizer). `None` (no filter → all tools) is reserved for
+    // parent/channel/chat turns and never reaches a sub-agent.
+    allowed_names: Option<HashSet<String>>,
     max_iterations: usize,
     run_queue: Option<Arc<crate::openhuman::agent::harness::run_queue::RunQueue>>,
     on_progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
@@ -668,7 +672,7 @@ mod tests {
             parent_tools,
             vec![],
             vec![],
-            allowed,
+            Some(allowed),
             10,
             None,
             None,
@@ -756,7 +760,7 @@ mod tests {
             parent_tools,
             vec![],
             vec![],
-            HashSet::new(),
+            Some(HashSet::new()),
             4,
             None,
             Some(tx),
@@ -902,7 +906,7 @@ mod tests {
             parent_tools,
             vec![],
             vec![],
-            allowed,
+            Some(allowed),
             10,
             None,
             None,
@@ -1008,7 +1012,7 @@ mod tests {
             parent_tools,
             vec![],
             vec![],
-            allowed,
+            Some(allowed),
             2,
             None,
             None,

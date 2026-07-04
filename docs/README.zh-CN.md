@@ -55,7 +55,7 @@
 
 从 [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) 或 [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) 页面下载安装包。
 
-终端安装——Homebrew、Debian/Ubuntu `.deb`、AUR、安装脚本以及各平台注意事项——请参阅 **[INSTALL.md](../INSTALL.md)**。
+终端安装（Homebrew、Debian/Ubuntu `.deb`、AUR、安装脚本以及各平台注意事项）请参阅 **[INSTALL.md](../INSTALL.md)**。
 
 # 什么是 OpenHuman？
 
@@ -64,30 +64,30 @@ OpenHuman 是大多数助手所不具备的三样东西的集合：**一颗大�
 ### 🧠 大脑
 
 - **[记忆树](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**：你的数据被压缩为带评分的 Markdown 树，存储在你本机的 SQLite 中，并镜像为一个你可以打开和编辑的 [Obsidian 仓库](https://x.com/karpathy/status/2039805659525644595)。没有向量浓汤式的黑箱。
-- **[100+ OAuth 集成、5,000+ MCP 服务器、90,000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**：一键接入 Gmail、Notion、GitHub、Slack 以及你技术栈中的其他服务。[自动拉取](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)每 20 分钟为大脑输送养分——它在今天早上就已经拥有明天的上下文。
-- **[潜意识](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**：一个后台循环，持续比对你的世界的变化、推进你的目标，并为你撰写晨间简报——在你停止输入之后，思考仍在继续。
+- **[100+ OAuth 集成、5,000+ MCP 服务器、90,000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**：一键接入 Gmail、Notion、GitHub、Slack 以及你技术栈中的其他服务。[自动拉取](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)每 20 分钟为大脑输送养分，所以它在今天早上就已经拥有明天的上下文。
+- **[潜意识](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**：一个后台循环，持续比对你的世界的变化、推进你的目标，并为你撰写晨间简报。在你停止输入之后，思考仍在继续。
 - **[目标与待办](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**：长期目标、持久化的会话级目标，以及每个对话共享的看板。
-- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**：工具输出在触达模型之前先被压缩——信息不变，token 最多减少 80%。没有它，这么大的一颗大脑将贵得用不起。
+- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**：工具输出在触达模型之前先被压缩：信息不变，token 最多减少 80%。没有它，这么大的一颗大脑将贵得用不起。
 
 ### 🕸️ 编排者
 
 - **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**：智能体提出自动化方案；你在画布上审阅并保存。持久化、触发器驱动、审批把关的运行，基于开源的 [tinyflows](https://github.com/tinyhumansai/tinyflows)。
-- **[能把事情做完的执行框架](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**：基于开源 [tinyagents](https://github.com/tinyhumansai/tinyagents) 的检查点式图运行——卡住的智能体会被引导回正轨，中止的会交回根因，每次运行都可回放并附带真实的每次调用成本。
+- **[能把事情做完的执行框架](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**：基于开源 [tinyagents](https://github.com/tinyhumansai/tinyagents) 的检查点式图运行：卡住的智能体会被引导回正轨，中止的会交回根因，每次运行都可回放并附带真实的每次调用成本。
 - **[常驻的分脑](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**：一个快速反应智能体负责分流入站流量，一个深度推理核心负责向工作者舰队分派任务，由潜意识统一调度。
-- **[智能体经济](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**：在 [tiny.place](https://tiny.place) 上的 `@handle`、Signal 加密的智能体间编排、x402 USDC 赏金与交易——密钥永不落盘。
+- **[智能体经济](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**：在 [tiny.place](https://tiny.place) 上的 `@handle`、Signal 加密的智能体间编排、x402 USDC 赏金与交易。密钥永不落盘。
 
 ### 🔬 深度研究员与实干家
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**：在模型读取你的第一条消息之前，一个研究侦察器会先扫描你的记忆和文件。没有冷启动。
-- **开箱即用**：网络搜索、抓取器、编码工具集、真正的[浏览器](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、带进程内 Whisper 的[原生语音](../gitbooks/features/native-tools/voice.md)——以及为每个工作负载挑选合适 LLM 的[模型路由](https://tinyhumans.gitbook.io/openhuman/features/model-routing)，一个订阅，[本地 AI 可选](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)。
-- **[会议智能体](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**：带着一张脸和一副嗓音加入 **Meet、Zoom、Teams 和 Webex**——根据日历自动入会、实时输出转写字幕、被点名时回答、归档摘要和行动项。
+- **开箱即用**：网络搜索、抓取器、编码工具集、真正的[浏览器](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、带进程内 Whisper 的[原生语音](../gitbooks/features/native-tools/voice.md)，以及为每个工作负载挑选合适 LLM 的[模型路由](https://tinyhumans.gitbook.io/openhuman/features/model-routing)。一个订阅搞定，[本地 AI 可选](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)。
+- **[会议智能体](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**：带着一张脸和一副嗓音加入 **Meet、Zoom、Teams 和 Webex**：根据日历自动入会、实时输出转写字幕、被点名时回答、归档摘要和行动项。
 - **[图像与视频生成](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**：Seedream/SeedEdit 图像和 Seedance/Veo 视频，直接输出到你的工作区，同一份订阅。
 - **[17 个消息渠道](https://tinyhumans.gitbook.io/openhuman/features/channels)**：Telegram、Discord、Slack、WhatsApp、Signal、iMessage……外加**原生邮件**（IMAP IDLE + SMTP）。无论你在哪里，智能体都能找到你。
 
 ### 🧍 人性化、私密、属于你
 
-- **简洁、UI 优先、人性化**：从安装到拥有一个可用的智能体仅需几次点击——无需配置文件，无需终端。它还有[一张脸](https://tinyhumans.gitbook.io/openhuman/features/mascot)：一个会说话、会回应、记得你的吉祥物。
-- **[隐私与安全](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**：设备端加密数据、审批关卡、操作系统钥匙串密钥、可选沙箱——以及 **[隐私模式](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**：一个开关，任何推理都不会离开你的机器，由 Rust 核心强制执行。
+- **简洁、UI 优先、人性化**：从安装到拥有一个可用的智能体仅需几次点击，无需配置文件，也无需终端。它还有[一张脸](https://tinyhumans.gitbook.io/openhuman/features/mascot)：一个会说话、会回应、记得你的吉祥物。
+- **[隐私与安全](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**：设备端加密数据、审批关卡、操作系统钥匙串密钥、可选沙箱，以及 **[隐私模式](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**：一个开关，任何推理都不会离开你的机器，由 Rust 核心强制执行。
 - **[主题与主题工作室](https://tinyhumans.gitbook.io/openhuman/features/theming)**：五套主题系列，外加完整的可视化编辑器，可导出为 JSON。
 
 ## 几分钟内建立上下文，而非数周
@@ -104,7 +104,7 @@ OpenHuman 跳过了等待期。连接你的账户，让[自动拉取](https://ti
 
 仅需一次同步，智能体就拥有了你收件箱、日历、仓库、文档、消息的完整（压缩后的）上下文。无需训练期，无需"给它几周时间"。它成为你，由你掌控。
 
-已经在其他编码智能体中自托管 [agentmemory](https://github.com/rohitg00/agentmemory)？OpenHuman 提供可选的 `Memory` 后端来代理它——在 `config.toml` 中设置 `memory.backend = "agentmemory"`，同一个持久化存储将同时服务于 OpenHuman 和 Claude Code、Cursor、Codex、OpenCode。详见 [agentmemory 后端](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/agentmemory-backend)页面。
+已经在其他编码智能体中自托管 [agentmemory](https://github.com/rohitg00/agentmemory)？OpenHuman 提供可选的 `Memory` 后端来代理它：在 `config.toml` 中设置 `memory.backend = "agentmemory"`，同一个持久化存储将同时服务于 OpenHuman 和 Claude Code、Cursor、Codex、OpenCode。详见 [agentmemory 后端](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/agentmemory-backend)页面。
 
 ## 编排器，而非聊天机器人
 
@@ -114,15 +114,15 @@ OpenHuman 跳过了等待期。连接你的账户，让[自动拉取](https://ti
  <img src="../gitbooks/.gitbook/assets/orchestration.png" alt="OpenHuman 编排示意图">
 </p>
 
-> 智能体之间的消息通过 Signal 协议端到端加密传输，因此你可以接入任何东西——Claude Code、Codex、OpenClaw、Hermes——并用 OpenHuman 编排你所有的智能体和工具。
+> 智能体之间的消息通过 Signal 协议端到端加密传输，因此你可以接入任何东西（Claude Code、Codex、OpenClaw、Hermes），并用 OpenHuman 编排你所有的智能体和工具。
 
-- **图，而非循环**——每一轮对话都作为带检查点的图在 [tinyagents](https://github.com/tinyhumansai/tinyagents) 上运行：可暂停等待人工介入、可在重启后存活、可从运行中途恢复。
-- **子智能体舰队**——专家子智能体可派生至三层深；卡住的智能体会变成根因报告。
-- **智能体对智能体，端到端加密**——实例之间通过 Signal 协议 E2E 会话相互编排，并支持 x402 支付。任何服务器都无法看到明文。
+- **图，而非循环**：每一轮对话都作为带检查点的图在 [tinyagents](https://github.com/tinyhumansai/tinyagents) 上运行，可暂停等待人工介入、可在重启后存活、可从运行中途恢复。
+- **子智能体舰队**：专家子智能体可派生至三层深；卡住的智能体会变成根因报告。
+- **智能体对智能体，端到端加密**：实例之间通过 Signal 协议 E2E 会话相互编排，并支持 x402 支付。任何服务器都无法看到明文。
 
 ## 看得见的工作流
 
-深受 n8n 和 Zapier 的启发，[工作流](https://tinyhumans.gitbook.io/openhuman/features/workflows)将同样的可视化、触发器驱动的自动化带给你的智能体——不同的是，智能体会替你构建它们。向智能体请求一个自动化，它就会提出方案：一张 [tinyflows](https://github.com/tinyhumansai/tinyflows) 图，你可以在可视化画布上审阅后再保存。
+深受 n8n 和 Zapier 的启发，[工作流](https://tinyhumans.gitbook.io/openhuman/features/workflows)将同样的可视化、触发器驱动的自动化带给你的智能体。不同的是，智能体会替你构建它们。向智能体请求一个自动化，它就会提出方案：一张 [tinyflows](https://github.com/tinyhumansai/tinyflows) 图，你可以在可视化画布上审阅后再保存。
 
 <p align="center">
  <img src="../gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman 工作流画布">
@@ -130,7 +130,7 @@ OpenHuman 跳过了等待期。连接你的账户，让[自动拉取](https://ti
 
 > 智能体提出工作流；你在画布上审阅并保存。
 
-保存的工作流是持久且触发器驱动的——它们由定时任务、Webhook 或渠道事件触发，可在重启后存活，并将副作用置于审批把关之后。
+保存的工作流是持久且触发器驱动的：它们由定时任务、Webhook 或渠道事件触发，可在重启后存活，并将副作用置于审批把关之后。
 
 ## OpenHuman vs 其他智能体框架
 

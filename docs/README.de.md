@@ -55,7 +55,7 @@
 
 Lade die Installer von [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) oder von der [GitHub-Releases](https://github.com/tinyhumansai/openhuman/releases/latest)-Seite herunter.
 
-Für Terminal-Installationen — Homebrew, Debian/Ubuntu-`.deb`, AUR, Install-Skripte und Plattformhinweise — siehe **[INSTALL.md](../INSTALL.md)**.
+Für Terminal-Installationen (Homebrew, Debian/Ubuntu-`.deb`, AUR, Install-Skripte und Plattformhinweise) siehe **[INSTALL.md](../INSTALL.md)**.
 
 # Was ist OpenHuman?
 
@@ -64,30 +64,30 @@ OpenHuman ist drei Dinge, die die meisten Assistenten nicht sind: **ein Gehirn**
 ### 🧠 Das Gehirn
 
 - **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian-Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: deine Daten, komprimiert in bewertete Markdown-Bäume in SQLite auf deiner Maschine, gespiegelt als [Obsidian-Vault](https://x.com/karpathy/status/2039805659525644595), das du öffnen und editieren kannst. Keine Vektor-Suppen-Blackbox.
-- **[100+ OAuth-Integrationen, 5.000+ MCP-Server, 90.000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: mit einem Klick in Gmail, Notion, GitHub, Slack und den Rest deines Stacks. [Auto-Fetch](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) füttert das Gehirn alle 20 Minuten — es hat den Kontext von morgen schon heute Früh.
-- **[Ein Unterbewusstsein](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**: eine Hintergrundschleife, die Veränderungen in deiner Welt erkennt, deine Ziele vorantreibt und dein Morgen-Briefing schreibt — das Denken geht weiter, auch wenn du längst nicht mehr tippst.
+- **[100+ OAuth-Integrationen, 5.000+ MCP-Server, 90.000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: mit einem Klick in Gmail, Notion, GitHub, Slack und den Rest deines Stacks. [Auto-Fetch](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) füttert das Gehirn alle 20 Minuten. So hat es den Kontext von morgen schon heute Früh.
+- **[Ein Unterbewusstsein](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**: eine Hintergrundschleife, die Veränderungen in deiner Welt erkennt, deine Ziele vorantreibt und dein Morgen-Briefing schreibt. Das Denken geht weiter, auch wenn du längst nicht mehr tippst.
 - **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: Langzeitziele, dauerhafte Ziele pro Thread und ein geteiltes Kanban-Board pro Unterhaltung.
-- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: Tool-Ausgaben werden komprimiert, bevor sie das Modell erreichen — dieselbe Information, bis zu 80% weniger Tokens. Ein so großes Gehirn wäre ohne es unbezahlbar.
+- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: Tool-Ausgaben werden komprimiert, bevor sie das Modell erreichen: dieselbe Information, bis zu 80% weniger Tokens. Ein so großes Gehirn wäre ohne es unbezahlbar.
 
 ### 🕸️ Der Orchestrator
 
 - **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**: der Agent schlägt die Automatisierung vor; du prüfst sie auf einer Canvas und speicherst. Dauerhafte, trigger-gesteuerte, freigabe-gesicherte Läufe auf dem quelloffenen [tinyflows](https://github.com/tinyhumansai/tinyflows).
-- **[Ein Harness, das die Arbeit zu Ende bringt](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: checkpointed Graph-Läufe auf dem quelloffenen [tinyagents](https://github.com/tinyhumansai/tinyagents) — festgefahrene Agenten werden nachgesteuert, gestoppte liefern eine Root Cause zurück, jeder Lauf lässt sich mit echten Kosten pro Aufruf wieder abspielen.
+- **[Ein Harness, das die Arbeit zu Ende bringt](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: checkpointed Graph-Läufe auf dem quelloffenen [tinyagents](https://github.com/tinyhumansai/tinyagents). Festgefahrene Agenten werden nachgesteuert, gestoppte liefern eine Root Cause zurück, jeder Lauf lässt sich mit echten Kosten pro Aufruf wieder abspielen.
 - **[Ein Split Brain, immer an](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**: ein schneller Reflex-Agent triagiert eingehenden Traffic, während ein tiefer Reasoning-Kern an Worker-Flotten delegiert, gesteuert vom Unterbewusstsein.
-- **[Eine Agenten-Ökonomie](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: ein `@handle` auf [tiny.place](https://tiny.place), Signal-verschlüsselte Agent-zu-Agent-Orchestrierung, x402-USDC-Bounties und Handel — Keys berühren nie die Festplatte.
+- **[Eine Agenten-Ökonomie](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: ein `@handle` auf [tiny.place](https://tiny.place), Signal-verschlüsselte Agent-zu-Agent-Orchestrierung, x402-USDC-Bounties und Handel. Keys berühren nie die Festplatte.
 
 ### 🔬 Der Deep Researcher & Macher
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: ein Research-Scout durchkämmt dein Gedächtnis und deine Dateien, bevor das Modell deine erste Nachricht liest. Keine Kaltstarts.
-- **Alles eingebaut**: Web-Suche, Scraper, Coder-Toolset, ein echter [Browser](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), [native Sprache](../gitbooks/features/native-tools/voice.md) mit In-Process-Whisper — und [Model-Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing), das das passende LLM pro Workload auswählt, ein Abo, [lokale KI optional](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai).
-- **[Meeting-Agenten](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: nimmt an **Meet, Zoom, Teams und Webex** teil — mit Gesicht und Stimme. Tritt automatisch aus deinem Kalender bei, streamt ein Live-Transkript, antwortet auf seinen Namen und legt Zusammenfassung + Action Items ab.
+- **Alles eingebaut**: Web-Suche, Scraper, Coder-Toolset, ein echter [Browser](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), [native Sprache](../gitbooks/features/native-tools/voice.md) mit In-Process-Whisper. Dazu [Model-Routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing), das das passende LLM pro Workload auswählt, ein Abo, [lokale KI optional](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai).
+- **[Meeting-Agenten](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: nimmt an **Meet, Zoom, Teams und Webex** teil, mit Gesicht und Stimme. Tritt automatisch aus deinem Kalender bei, streamt ein Live-Transkript, antwortet auf seinen Namen und legt Zusammenfassung + Action Items ab.
 - **[Bild- & Videogenerierung](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit-Bilder und Seedance/Veo-Video, direkt in deinen Workspace im selben Abo.
 - **[17 Messaging-Kanäle](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… plus **native E-Mail** (IMAP IDLE + SMTP). Dein Agent erreicht dich dort, wo du ohnehin schon bist.
 
 ### 🧍 Menschlich, privat, deins
 
-- **Schlicht, UI-zuerst & menschlich**: von der Installation zum laufenden Agenten in wenigen Klicks — keine Config-Dateien, kein Terminal. Und es hat [ein Gesicht](https://tinyhumans.gitbook.io/openhuman/features/mascot): ein Maskottchen, das spricht, reagiert und sich an dich erinnert.
-- **[Privatsphäre & Sicherheit](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: verschlüsselte Daten auf dem Gerät, Freigabe-Gate, Secrets im OS-Schlüsselbund, Opt-in-Sandboxing — und **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: ein Schalter, und keine Inferenz verlässt deine Maschine — erzwungen im Rust-Core.
+- **Schlicht, UI-zuerst & menschlich**: von der Installation zum laufenden Agenten in wenigen Klicks, ohne Config-Dateien und ohne Terminal. Und es hat [ein Gesicht](https://tinyhumans.gitbook.io/openhuman/features/mascot): ein Maskottchen, das spricht, reagiert und sich an dich erinnert.
+- **[Privatsphäre & Sicherheit](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: verschlüsselte Daten auf dem Gerät, Freigabe-Gate, Secrets im OS-Schlüsselbund, Opt-in-Sandboxing. Dazu **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: ein Schalter, und keine Inferenz verlässt deine Maschine, erzwungen im Rust-Core.
 - **[Themes & Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: fünf Theme-Familien plus ein vollständiger visueller Editor, exportierbar als JSON.
 
 ## Kontext in Minuten, nicht in Wochen
@@ -102,9 +102,9 @@ OpenHuman ist das erste Agent-Harness, das dich in Minuten kennenlernt. Inspirie
 
 OpenHuman überspringt die Wartezeit. Verbinde deine Accounts, lass [Auto-Fetch](https://tinyhumans.gitbook.io/openhuman/features/integrations/auto-fetch) die Daten lokal in einer 20-Minuten-Schleife abholen, und [Memory Trees](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) komprimieren alles in Markdown-Dateien, intelligent abgelegt in einem [Obsidian-Wiki im Karpathy-Stil](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki).
 
-Nach nur einem Sync-Durchlauf hat der Agent den vollständigen (komprimierten) Kontext deines Postfachs, deines Kalenders, deiner Repos, deiner Dokumente und deiner Nachrichten. Keine Trainingsphase. Kein „gib ihm ein paar Wochen". Er wird zu dir — gesteuert von dir.
+Nach nur einem Sync-Durchlauf hat der Agent den vollständigen (komprimierten) Kontext deines Postfachs, deines Kalenders, deiner Repos, deiner Dokumente und deiner Nachrichten. Keine Trainingsphase. Kein „gib ihm ein paar Wochen". Er wird zu dir, gesteuert von dir.
 
-Du hostest [agentmemory](https://github.com/rohitg00/agentmemory) bereits selbst für andere Coding-Agenten? OpenHuman bringt ein optionales `Memory`-Backend mit, das dorthin proxyt — setze `memory.backend = "agentmemory"` in `config.toml`, und derselbe persistente Store treibt OpenHuman zusammen mit Claude Code, Cursor, Codex und OpenCode an. Setup-Details auf der Seite zum [agentmemory-Backend](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/agentmemory-backend).
+Du hostest [agentmemory](https://github.com/rohitg00/agentmemory) bereits selbst für andere Coding-Agenten? OpenHuman bringt ein optionales `Memory`-Backend mit, das dorthin proxyt: setze `memory.backend = "agentmemory"` in `config.toml`, und derselbe persistente Store treibt OpenHuman zusammen mit Claude Code, Cursor, Codex und OpenCode an. Setup-Details auf der Seite zum [agentmemory-Backend](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/agentmemory-backend).
 
 ## Ein Orchestrator, kein Chatbot
 
@@ -114,15 +114,15 @@ Die meisten Agent-Harnesses betreiben einen Agenten in einer Schleife. OpenHuman
  <img src="../gitbooks/.gitbook/assets/orchestration.png" alt="OpenHuman-Orchestrierungsdiagramm">
 </p>
 
-> Agent-zu-Agent-Messaging läuft über Signal-Protokoll-Ende-zu-Ende-Verschlüsselung — du kannst also alles anbinden — Claude Code, Codex, OpenClaw, Hermes — und mit OpenHuman all deine Agenten und Tools orchestrieren.
+> Agent-zu-Agent-Messaging läuft über Signal-Protokoll-Ende-zu-Ende-Verschlüsselung. Du kannst also alles anbinden (Claude Code, Codex, OpenClaw, Hermes) und mit OpenHuman all deine Agenten und Tools orchestrieren.
 
-- **Graphen statt Schleifen** — Turns laufen als checkpointed Graphen auf [tinyagents](https://github.com/tinyhumansai/tinyagents): für einen Menschen pausieren, einen Neustart überleben, mitten im Lauf weitermachen.
-- **Sub-Agenten-Flotten** — Spezialisten spawnen drei Ebenen tief; festgefahrene Agenten werden zu Root-Cause-Berichten.
-- **Agent-zu-Agent, verschlüsselt** — Instanzen orchestrieren sich gegenseitig über Signal-Protokoll-E2E-Sitzungen mit x402-Zahlungen. Kein Server sieht jemals Klartext.
+- **Graphen statt Schleifen**: Turns laufen als checkpointed Graphen auf [tinyagents](https://github.com/tinyhumansai/tinyagents): für einen Menschen pausieren, einen Neustart überleben, mitten im Lauf weitermachen.
+- **Sub-Agenten-Flotten**: Spezialisten spawnen drei Ebenen tief; festgefahrene Agenten werden zu Root-Cause-Berichten.
+- **Agent-zu-Agent, verschlüsselt**: Instanzen orchestrieren sich gegenseitig über Signal-Protokoll-E2E-Sitzungen mit x402-Zahlungen. Kein Server sieht jemals Klartext.
 
 ## Workflows, die du sehen kannst
 
-Stark inspiriert von n8n und Zapier bringen [Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows) dieselbe visuelle, trigger-gesteuerte Automatisierung zu deinem Agenten — nur dass der Agent sie für dich baut. Bitte um eine Automatisierung, und er schlägt eine vor: einen [tinyflows](https://github.com/tinyhumansai/tinyflows)-Graphen, den du vor dem Speichern auf einer visuellen Canvas prüfst.
+Stark inspiriert von n8n und Zapier bringen [Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows) dieselbe visuelle, trigger-gesteuerte Automatisierung zu deinem Agenten, nur dass der Agent sie für dich baut. Bitte um eine Automatisierung, und er schlägt eine vor: einen [tinyflows](https://github.com/tinyhumansai/tinyflows)-Graphen, den du vor dem Speichern auf einer visuellen Canvas prüfst.
 
 <p align="center">
  <img src="../gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman-Workflow-Canvas">
@@ -130,11 +130,11 @@ Stark inspiriert von n8n und Zapier bringen [Workflows](https://tinyhumans.gitbo
 
 > Der Agent schlägt den Workflow vor; du prüfst ihn auf einer Canvas und speicherst ihn.
 
-Gespeicherte Workflows sind dauerhaft und trigger-gesteuert — sie feuern auf Zeitpläne, Webhooks oder Kanal-Events, überleben Neustarts und sichern Seiteneffekte hinter Freigaben ab.
+Gespeicherte Workflows sind dauerhaft und trigger-gesteuert: sie feuern auf Zeitpläne, Webhooks oder Kanal-Events, überleben Neustarts und sichern Seiteneffekte hinter Freigaben ab.
 
 ## OpenHuman vs. andere Agent-Harnesses
 
-Übersichtsvergleich (Produkte entwickeln sich weiter — bitte beim jeweiligen Anbieter verifizieren). OpenHuman ist darauf ausgelegt, **Vendor-Wildwuchs zu reduzieren**, **Workflow-Wissen auf dem Gerät zu halten** und dem Agenten eine **persistente Erinnerung** an deine Daten zu geben — nicht nur an den Chat.
+Übersichtsvergleich (Produkte entwickeln sich weiter, bitte beim jeweiligen Anbieter verifizieren). OpenHuman ist darauf ausgelegt, **Vendor-Wildwuchs zu reduzieren**, **Workflow-Wissen auf dem Gerät zu halten** und dem Agenten eine **persistente Erinnerung** an deine Daten zu geben, nicht nur an den Chat.
 
 |                        | Claude Cowork         | OpenClaw           | Hermes Agent       | OpenHuman                                                                                                |
 | ---------------------- | --------------------- | ------------------ | ------------------ | -------------------------------------------------------------------------------------------------------- |

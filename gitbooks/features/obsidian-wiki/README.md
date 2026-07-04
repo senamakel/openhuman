@@ -15,7 +15,7 @@ The design is directly inspired by [Andrej Karpathy's obsidian-wiki workflow](ht
 
 ## In this section
 
-The memory system spans several layers — this page covers the on-disk vault; the rest of the section goes deeper:
+The memory system spans several layers. This page covers the on-disk vault; the rest of the section goes deeper:
 
 | Page                                          | What it covers                                                                              |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -24,7 +24,7 @@ The memory system spans several layers — this page covers the on-disk vault; t
 | [Auto-fetch from Integrations](auto-fetch.md) | The 20-minute sync loop that keeps memory fresh on its own.                                 |
 | [Scoring & Ranking](scoring.md)               | How chunks are admitted, enriched with entities, and indexed for recall.                    |
 | [Retrieval & Recall](retrieval.md)            | The `memory_tree` tool modes the agent uses to read memory back.                            |
-| [Memory Diff (Git-Backed)](memory-diff.md)    | A git ledger of how memory changes over time — "what's new since I last looked."            |
+| [Memory Diff (Git-Backed)](memory-diff.md)    | A git ledger of how memory changes over time: "what's new since I last looked."             |
 | [agentmemory backend](agentmemory-backend.md) | Optional shared `agentmemory` store across other coding agents.                             |
 
 ## Where the vault lives
@@ -41,10 +41,10 @@ The `summaries/` folder is laid out hierarchically, by date for the global tree,
 
 ## Open the vault
 
-In the desktop app, the **Memory** tab has a **"View vault in Obsidian"** button. It uses an `obsidian://open?path=...` deep link, which only resolves once the folder is **registered** as a vault in Obsidian — the deep link can't register it for you. So the first time:
+In the desktop app, the **Memory** tab has a **"View vault in Obsidian"** button. It uses an `obsidian://open?path=...` deep link, which only resolves once the folder is **registered** as a vault in Obsidian. The deep link can't register it for you. So the first time:
 
 1. Click **View vault in Obsidian**. If the folder isn't a registered vault yet, OpenHuman shows inline guidance instead of silently failing.
-2. In Obsidian, choose **"Open folder as vault"** and pick the path shown — you only need to do this once.
+2. In Obsidian, choose **"Open folder as vault"** and pick the path shown. You only need to do this once.
 3. Click **View vault in Obsidian** again; it now opens straight into the vault.
 
 If Obsidian is installed somewhere non-standard (Flatpak/Snap/portable), use **Open in Obsidian anyway**, or point OpenHuman at its config folder under **Advanced** so detection works. Don't have Obsidian? The guidance links to the download page, and **Reveal Folder** always opens the vault directory in your OS file manager.

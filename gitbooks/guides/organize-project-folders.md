@@ -1,13 +1,13 @@
 ---
 description: >-
-  Let OpenHuman tidy, rename, and restructure a folder of files — safely, inside
+  Let OpenHuman tidy, rename, and restructure a folder of files safely, inside
   a boundary you set, with every change gated by your approval.
 icon: folder-tree
 ---
 
 # Organize my project folders
 
-**Goal:** point the assistant at a folder and have it clean it up — sort files, rename consistently, remove clutter — without letting it roam your whole disk or make changes you didn't see.
+**Goal:** point the assistant at a folder and have it clean it up (sort files, rename consistently, remove clutter) without letting it roam your whole disk or make changes you didn't see.
 
 The core idea: the agent works inside a **boundary you define**, and any file change that isn't provably read-only is **parked for your approval** before it runs.
 
@@ -15,12 +15,12 @@ The core idea: the agent works inside a **boundary you define**, and any file ch
 
 ## Prerequisites
 
-* OpenHuman set up — see [Create my personal AI assistant](personal-assistant.md).
+* OpenHuman set up. See [Create my personal AI assistant](personal-assistant.md).
 * A specific folder you want organized. Ideally, make a copy first if the contents are irreplaceable.
 
 ## Privacy implications
 
-* File organizing is **local** — reading, moving, and renaming files happens on your machine.
+* File organizing is **local**. Reading, moving, and renaming files happens on your machine.
 * If you ask the agent to *reason about* file contents (e.g. "group these by topic"), it may send relevant snippets to the model to do that. Route inference to a [local model](local-model.md) if you want that reasoning on-device too.
 * The agent cannot touch system or credential folders (`~/.ssh`, `~/.gnupg`, `~/.aws`, OS directories) — those are blocked outright regardless of settings.
 

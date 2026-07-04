@@ -55,7 +55,7 @@
 
 インストーラーは [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) または [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) ページからダウンロードできます。
 
-ターミナルからのインストール — Homebrew、Debian/Ubuntu の `.deb`、AUR、インストールスクリプト、プラットフォーム別の注意点 — については **[INSTALL.md](../INSTALL.md)** を参照してください。
+ターミナルからのインストール（Homebrew、Debian/Ubuntu の `.deb`、AUR、インストールスクリプト、プラットフォーム別の注意点）については **[INSTALL.md](../INSTALL.md)** を参照してください。
 
 # OpenHuman とは?
 
@@ -65,29 +65,29 @@ OpenHuman は、ほとんどのアシスタントが持っていない 3 つの�
 
 - **[Memory Tree](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: あなたのデータはスコアリングされた Markdown ツリーへ圧縮されてあなたのマシン上の SQLite に保存され、開いて編集できる [Obsidian ボルト](https://x.com/karpathy/status/2039805659525644595)としてミラーリングされます。ベクトルスープのブラックボックスではありません。
 - **[100+ の OAuth 統合、5,000+ の MCP サーバー、90,000+ の Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: Gmail、Notion、GitHub、Slack などのスタックにワンクリックで接続。[自動取得](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)が 20 分ごとに脳に栄養を与えるので、今朝の時点で明日のコンテキストを持っています。
-- **[サブコンシャス](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**: あなたの世界の差分を取り、ゴールを前進させ、モーニングブリーフィングを書くバックグラウンドループ — あなたが入力をやめた後も思考は続きます。
+- **[サブコンシャス](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**: あなたの世界の差分を取り、ゴールを前進させ、モーニングブリーフィングを書くバックグラウンドループです。あなたが入力をやめた後も思考は続きます。
 - **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: 長期ゴール、スレッドごとの永続ゴール、そして会話ごとの共有かんばんボード。
-- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: ツール出力はモデルに届く前に圧縮されます — 同じ情報を最大 80% 少ないトークンで。これがなければ、これほど大きな脳は維持できません。
+- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: ツール出力はモデルに届く前に圧縮され、同じ情報を最大 80% 少ないトークンで扱えます。これがなければ、これほど大きな脳は維持できません。
 
 ### 🕸️ オーケストレーター
 
 - **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**: エージェントが自動化を提案し、あなたはキャンバス上でレビューして保存します。オープンソースの [tinyflows](https://github.com/tinyhumansai/tinyflows) 上で、永続的・トリガー駆動・承認ゲート付きの実行が行われます。
-- **[仕事をやり遂げるハーネス](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: オープンソースの [tinyagents](https://github.com/tinyhumansai/tinyagents) 上でのチェックポイント付きグラフ実行 — 行き詰まったエージェントは軌道修正され、停止したエージェントは根本原因を返し、すべての実行は呼び出しごとの実コスト付きでリプレイできます。
+- **[仕事をやり遂げるハーネス](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: オープンソースの [tinyagents](https://github.com/tinyhumansai/tinyagents) 上でのチェックポイント付きグラフ実行です。行き詰まったエージェントは軌道修正され、停止したエージェントは根本原因を返し、すべての実行は呼び出しごとの実コスト付きでリプレイできます。
 - **[常時稼働のスプリットブレイン](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**: 高速な反射エージェントが受信トラフィックをトリアージし、深い推論コアがワーカー艦隊に委任します。サブコンシャスがそれを操縦します。
-- **[エージェントの経済圏](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place) 上の `@handle`、Signal 暗号化のエージェント間オーケストレーション、x402 USDC バウンティと取引 — 鍵はディスクに一切触れません。
+- **[エージェントの経済圏](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place) 上の `@handle`、Signal 暗号化のエージェント間オーケストレーション、x402 USDC バウンティと取引。鍵はディスクに一切触れません。
 
 ### 🔬 ディープリサーチャー & 実行者
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: モデルがあなたの最初のメッセージを読む前に、リサーチスカウトがメモリとファイルを走査します。コールドスタートはありません。
-- **電池同梱（Batteries included）**: ウェブ検索、スクレイパー、コーダーツールセット、本物の[ブラウザ](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、インプロセス Whisper による[ネイティブ音声](../gitbooks/features/native-tools/voice.md) — さらにワークロードごとに適切な LLM を選ぶ[モデルルーティング](https://tinyhumans.gitbook.io/openhuman/features/model-routing)。1 つのサブスクリプションで、[ローカル AI はオプション](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)です。
-- **[会議エージェント](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: 顔と声を持って **Meet、Zoom、Teams、Webex** に参加 — カレンダーから自動参加し、ライブ文字起こしをストリーミングし、名前で呼ばれると答え、要約とアクションアイテムを保存します。
+- **電池同梱（Batteries included）**: ウェブ検索、スクレイパー、コーダーツールセット、本物の[ブラウザ](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)、インプロセス Whisper による[ネイティブ音声](../gitbooks/features/native-tools/voice.md)、さらにワークロードごとに適切な LLM を選ぶ[モデルルーティング](https://tinyhumans.gitbook.io/openhuman/features/model-routing)。1 つのサブスクリプションで、[ローカル AI はオプション](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)です。
+- **[会議エージェント](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: 顔と声を持って **Meet、Zoom、Teams、Webex** に参加します。カレンダーから自動参加し、ライブ文字起こしをストリーミングし、名前で呼ばれると答え、要約とアクションアイテムを保存します。
 - **[画像・動画生成](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit の画像と Seedance/Veo の動画を、同じサブスクリプションでワークスペースに直接生成します。
 - **[17 のメッセージングチャネル](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram、Discord、Slack、WhatsApp、Signal、iMessage… さらに**ネイティブメール**（IMAP IDLE + SMTP）。エージェントはあなたが既にいる場所であなたに届きます。
 
 ### 🧍 ヒューマンで、プライベートで、あなたのもの
 
-- **シンプル、UI ファースト、そしてヒューマン**: インストールから動作するエージェントまで数クリック — 設定ファイルもターミナルも不要です。そして[顔があります](https://tinyhumans.gitbook.io/openhuman/features/mascot): 喋り、反応し、あなたを覚えているマスコットです。
-- **[プライバシー & セキュリティ](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: デバイス上で暗号化されたデータ、承認ゲート、OS キーリングによるシークレット管理、オプトインのサンドボックス — そして **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: スイッチひとつで推論が一切マシンの外に出なくなり、Rust コアで強制されます。
+- **シンプル、UI ファースト、そしてヒューマン**: インストールから動作するエージェントまで数クリックで、設定ファイルもターミナルも不要です。そして[顔があります](https://tinyhumans.gitbook.io/openhuman/features/mascot): 喋り、反応し、あなたを覚えているマスコットです。
+- **[プライバシー & セキュリティ](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: デバイス上で暗号化されたデータ、承認ゲート、OS キーリングによるシークレット管理、オプトインのサンドボックス、そして **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: スイッチひとつで推論が一切マシンの外に出なくなり、Rust コアで強制されます。
 - **[テーマ & Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: 5 つのテーマファミリーとフル機能のビジュアルエディター、JSON としてエクスポート可能。
 
 ## コンテキストを数週間ではなく数分で
@@ -116,13 +116,13 @@ OpenHuman はその待ち時間をスキップします。アカウントを接�
 
 > エージェント間メッセージングは Signal プロトコルのエンドツーエンド暗号化の上で動作するため、Claude Code、Codex、OpenClaw、Hermes など何でも接続でき、OpenHuman ですべてのエージェントとツールをオーケストレーションできます。
 
-- **ループではなくグラフ** — ターンは [tinyagents](https://github.com/tinyhumansai/tinyagents) 上のチェックポイント付きグラフとして実行されます: 人間のために一時停止し、再起動を生き延び、実行の途中から再開します。
-- **サブエージェントの艦隊** — スペシャリストは 3 階層の深さまで起動され、行き詰まったエージェントは根本原因レポートになります。
-- **エージェント間、暗号化済み** — インスタンス同士は、x402 決済を備えた Signal プロトコルの E2E セッション上で互いをオーケストレーションします。サーバーが平文を目にすることは決してありません。
+- **ループではなくグラフ**: ターンは [tinyagents](https://github.com/tinyhumansai/tinyagents) 上のチェックポイント付きグラフとして実行され、人間のために一時停止し、再起動を生き延び、実行の途中から再開します。
+- **サブエージェントの艦隊**: スペシャリストは 3 階層の深さまで起動され、行き詰まったエージェントは根本原因レポートになります。
+- **エージェント間、暗号化済み**: インスタンス同士は、x402 決済を備えた Signal プロトコルの E2E セッション上で互いをオーケストレーションします。サーバーが平文を目にすることは決してありません。
 
 ## 目に見えるワークフロー
 
-n8n と Zapier に強くインスパイアされた[ワークフロー](https://tinyhumans.gitbook.io/openhuman/features/workflows)は、同じビジュアルでトリガー駆動の自動化をあなたのエージェントにもたらします — ただし、それを構築するのはエージェント自身です。自動化を依頼すると、エージェントが提案してくれます: 保存する前にビジュアルキャンバス上でレビューできる [tinyflows](https://github.com/tinyhumansai/tinyflows) グラフです。
+n8n と Zapier に強くインスパイアされた[ワークフロー](https://tinyhumans.gitbook.io/openhuman/features/workflows)は、同じビジュアルでトリガー駆動の自動化をあなたのエージェントにもたらします。ただし、それを構築するのはエージェント自身です。自動化を依頼すると、エージェントが提案してくれます: 保存する前にビジュアルキャンバス上でレビューできる [tinyflows](https://github.com/tinyhumansai/tinyflows) グラフです。
 
 <p align="center">
  <img src="../gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman のワークフローキャンバス">
@@ -130,7 +130,7 @@ n8n と Zapier に強くインスパイアされた[ワークフロー](https://
 
 > エージェントがワークフローを提案し、あなたはキャンバス上でレビューして保存します。
 
-保存されたワークフローは永続的でトリガー駆動 — スケジュール、Webhook、チャネルイベントで発火し、再起動を生き延び、副作用は承認ゲートで守られます。
+保存されたワークフローは永続的でトリガー駆動です。スケジュール、Webhook、チャネルイベントで発火し、再起動を生き延び、副作用は承認ゲートで守られます。
 
 ## OpenHuman と他のエージェントハーネスの比較
 

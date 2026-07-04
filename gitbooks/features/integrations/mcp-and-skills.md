@@ -15,13 +15,13 @@ The [one-click OAuth integrations](README.md) are the curated path. Beyond them,
 
 OpenHuman has a built-in **MCP registry** that browses the open MCP ecosystem and lets you install servers locally as new typed tools for the agent.
 
-* **Two upstream registries, merged.** Discovery fans out in parallel to [Smithery.ai](https://smithery.ai) and the official [`registry.modelcontextprotocol.io`](https://registry.modelcontextprotocol.io), then merges the results — thousands of servers across both.
+* **Two upstream registries, merged.** Discovery fans out in parallel to [Smithery.ai](https://smithery.ai) and the official [`registry.modelcontextprotocol.io`](https://registry.modelcontextprotocol.io), then merges the results: thousands of servers across both.
 * **Search → install → connect.** Search the catalog, view a server's details, and install it. A local install spawns the server as a stdio subprocess; deployed servers connect over HTTP.
 * **Supervised connections.** Installed servers are persisted in a local SQLite store (`mcp_clients/mcp_clients.db`) with their command, args, and transport. A supervisor loop keeps enabled servers connected, probing every ~60s with per-server exponential backoff.
 
 Once connected, an MCP server's tools are available to the agent exactly like native tools.
 
-> The catalogs are open-ended and grow on their own — the "5,000+" figure reflects the combined Smithery + official ecosystem size, not a fixed list baked into OpenHuman.
+> The catalogs are open-ended and grow on their own. The "5,000+" figure reflects the combined Smithery + official ecosystem size, not a fixed list baked into OpenHuman.
 
 ### OpenHuman as an MCP server
 

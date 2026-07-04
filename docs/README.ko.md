@@ -55,7 +55,7 @@
 
 [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman?utm_source=github&utm_medium=readme) 또는 [GitHub Releases](https://github.com/tinyhumansai/openhuman/releases/latest) 페이지에서 설치 프로그램을 다운로드하세요.
 
-터미널 설치 — Homebrew, Debian/Ubuntu `.deb`, AUR, 설치 스크립트, 플랫폼별 참고 사항 — 는 **[INSTALL.md](../INSTALL.md)**를 참조하세요.
+터미널 설치(Homebrew, Debian/Ubuntu `.deb`, AUR, 설치 스크립트, 플랫폼별 참고 사항)는 **[INSTALL.md](../INSTALL.md)**를 참조하세요.
 
 # OpenHuman이란 무엇인가요?
 
@@ -64,30 +64,30 @@ OpenHuman은 대부분의 어시스턴트가 갖지 못한 세 가지입니다: 
 ### 🧠 두뇌
 
 - **[메모리 트리(Memory Tree)](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian 위키](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: 당신의 데이터는 점수가 매겨진 Markdown 트리로 압축되어 당신의 머신에 있는 SQLite에 저장되고, 열어서 직접 편집할 수 있는 [Obsidian 볼트](https://x.com/karpathy/status/2039805659525644595)로 미러링됩니다. 벡터 수프 같은 블랙박스가 아닙니다.
-- **[100개 이상의 OAuth 통합, 5,000개 이상의 MCP 서버, 90,000개 이상의 Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: Gmail, Notion, GitHub, Slack 등 당신의 스택을 원클릭으로 연결하세요. [자동 가져오기(auto-fetch)](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)가 20분마다 두뇌에 데이터를 공급합니다 — 오늘 아침에 이미 내일의 컨텍스트를 가지고 있습니다.
-- **[잠재의식(subconscious)](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**: 당신의 세계의 변화를 비교 분석하고, 목표를 진전시키고, 아침 브리핑을 작성하는 백그라운드 루프 — 타이핑을 멈춘 후에도 생각은 계속됩니다.
+- **[100개 이상의 OAuth 통합, 5,000개 이상의 MCP 서버, 90,000개 이상의 Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: Gmail, Notion, GitHub, Slack 등 당신의 스택을 원클릭으로 연결하세요. [자동 가져오기(auto-fetch)](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)가 20분마다 두뇌에 데이터를 공급합니다. 덕분에 오늘 아침에 이미 내일의 컨텍스트를 가지고 있습니다.
+- **[잠재의식(subconscious)](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**: 당신의 세계의 변화를 비교 분석하고, 목표를 진전시키고, 아침 브리핑을 작성하는 백그라운드 루프입니다. 타이핑을 멈춘 후에도 생각은 계속됩니다.
 - **[목표 및 할 일(Goals & Todos)](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: 장기 목표, 스레드별 지속 목표, 그리고 대화별 공유 칸반 보드를 제공합니다.
-- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: 도구 출력은 모델에 닿기 전에 압축됩니다 — 동일한 정보를 최대 80% 적은 토큰으로. 이것 없이는 이만큼 큰 두뇌를 감당할 수 없을 것입니다.
+- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: 도구 출력은 모델에 닿기 전에 압축되어, 동일한 정보가 최대 80% 적은 토큰으로 전달됩니다. 이것 없이는 이만큼 큰 두뇌를 감당할 수 없을 것입니다.
 
 ### 🕸️ 오케스트레이터
 
 - **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**: 에이전트가 자동화를 제안하면 캔버스에서 검토하고 저장하면 됩니다. 내구성 있고, 트리거 기반이며, 승인 게이트를 거치는 실행이 오픈 소스 [tinyflows](https://github.com/tinyhumansai/tinyflows) 위에서 동작합니다.
-- **[일을 끝까지 마무리하는 하네스](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: 오픈 소스 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트 그래프 실행 — 막힌 에이전트는 방향을 조정받고, 중단된 에이전트는 근본 원인을 돌려주며, 모든 실행은 호출별 실제 비용과 함께 재생됩니다.
+- **[일을 끝까지 마무리하는 하네스](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: 오픈 소스 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트 그래프 실행입니다. 막힌 에이전트는 방향을 조정받고, 중단된 에이전트는 근본 원인을 돌려주며, 모든 실행은 호출별 실제 비용과 함께 재생됩니다.
 - **[상시 가동되는 분할 두뇌(split brain)](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**: 빠른 반사 에이전트가 들어오는 트래픽을 분류하는 동안 깊은 추론 코어가 워커 함대에 작업을 위임하며, 잠재의식이 이를 조종합니다.
-- **[에이전트 경제](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place)의 `@handle`, Signal로 암호화된 에이전트 간 오케스트레이션, x402 USDC 바운티와 거래 — 키는 디스크에 절대 닿지 않습니다.
+- **[에이전트 경제](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place)의 `@handle`, Signal로 암호화된 에이전트 간 오케스트레이션, x402 USDC 바운티와 거래까지 제공합니다. 키는 디스크에 절대 닿지 않습니다.
 
 ### 🔬 깊이 있는 리서처이자 실행가
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: 모델이 첫 메시지를 읽기 전에 리서치 스카우트가 당신의 메모리와 파일을 훑습니다. 콜드 스타트가 없습니다.
-- **모든 것이 포함됨(Batteries included)**: 웹 검색, 스크레이퍼, 코더 툴셋, 실제 [브라우저](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), 인프로세스 Whisper를 갖춘 [네이티브 음성](../gitbooks/features/native-tools/voice.md) — 그리고 워크로드별로 적합한 LLM을 선택하는 [모델 라우팅](https://tinyhumans.gitbook.io/openhuman/features/model-routing)까지. 하나의 구독으로, [로컬 AI는 선택 사항](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)입니다.
-- **[미팅 에이전트](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: 얼굴과 목소리를 가지고 **Meet, Zoom, Teams, Webex**에 참여합니다 — 캘린더에서 자동으로 참여하고, 실시간 자막을 스트리밍하며, 이름이 불리면 대답하고, 요약과 액션 아이템을 정리합니다.
+- **모든 것이 포함됨(Batteries included)**: 웹 검색, 스크레이퍼, 코더 툴셋, 실제 [브라우저](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), 인프로세스 Whisper를 갖춘 [네이티브 음성](../gitbooks/features/native-tools/voice.md), 그리고 워크로드별로 적합한 LLM을 선택하는 [모델 라우팅](https://tinyhumans.gitbook.io/openhuman/features/model-routing)까지. 하나의 구독으로, [로컬 AI는 선택 사항](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)입니다.
+- **[미팅 에이전트](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: 얼굴과 목소리를 가지고 **Meet, Zoom, Teams, Webex**에 참여합니다. 캘린더에서 자동으로 참여하고, 실시간 자막을 스트리밍하며, 이름이 불리면 대답하고, 요약과 액션 아이템을 정리합니다.
 - **[이미지 및 비디오 생성](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit 이미지와 Seedance/Veo 비디오가 동일한 구독으로 워크스페이스에 바로 생성됩니다.
 - **[17개의 메시징 채널](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… 그리고 **네이티브 이메일**(IMAP IDLE + SMTP)까지. 에이전트는 당신이 이미 있는 곳에서 당신에게 닿습니다.
 
 ### 🧍 인간적이고, 프라이빗하며, 당신의 것
 
-- **단순함, UI 우선 및 인간 중심**: 설치 후 몇 번의 클릭만으로 작동하는 에이전트를 만날 수 있습니다 — 설정 파일도, 터미널도 필요 없습니다. 그리고 [얼굴](https://tinyhumans.gitbook.io/openhuman/features/mascot)이 있습니다: 말하고, 반응하고, 당신을 기억하는 마스코트입니다.
-- **[개인 정보 보호 및 보안](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: 기기 내 암호화된 데이터, 승인 게이트, OS 키링 시크릿, 선택적 샌드박싱 — 그리고 **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: 스위치 하나로 어떤 추론도 당신의 머신을 떠나지 않으며, Rust 코어에서 강제됩니다.
+- **단순함, UI 우선 및 인간 중심**: 설치 후 몇 번의 클릭만으로 작동하는 에이전트를 만날 수 있습니다. 설정 파일도, 터미널도 필요 없습니다. 그리고 [얼굴](https://tinyhumans.gitbook.io/openhuman/features/mascot)이 있습니다: 말하고, 반응하고, 당신을 기억하는 마스코트입니다.
+- **[개인 정보 보호 및 보안](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: 기기 내 암호화된 데이터, 승인 게이트, OS 키링 시크릿, 선택적 샌드박싱, 그리고 **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: 스위치 하나로 어떤 추론도 당신의 머신을 떠나지 않으며, Rust 코어에서 강제됩니다.
 - **[테마 및 Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: 5가지 테마 패밀리와 완전한 시각적 에디터, JSON으로 내보낼 수 있습니다.
 
 ## 몇 주가 아닌 몇 분 만에 구축되는 컨텍스트
@@ -116,13 +116,13 @@ OpenHuman은 기다림을 생략합니다. 계정을 연결하고, [자동 가�
 
 > 에이전트 간 메시징은 Signal 프로토콜 종단 간 암호화 위에서 동작하므로, Claude Code, Codex, OpenClaw, Hermes 등 무엇이든 연결하고 OpenHuman으로 모든 에이전트와 도구를 오케스트레이션할 수 있습니다.
 
-- **루프가 아닌 그래프** — 턴은 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트가 있는 그래프로 실행됩니다: 사람을 위해 일시 정지하고, 재시작에도 살아남고, 실행 중간에 재개합니다.
-- **서브 에이전트 함대** — 전문 에이전트가 3단계 깊이까지 생성되고, 막힌 에이전트는 근본 원인 보고서가 됩니다.
-- **암호화된 에이전트 간 통신** — 인스턴스들은 x402 결제를 갖춘 Signal 프로토콜 E2E 세션을 통해 서로를 오케스트레이션합니다. 어떤 서버도 평문을 볼 수 없습니다.
+- **루프가 아닌 그래프**: 턴은 [tinyagents](https://github.com/tinyhumansai/tinyagents) 기반의 체크포인트가 있는 그래프로 실행되어, 사람을 위해 일시 정지하고, 재시작에도 살아남고, 실행 중간에 재개합니다.
+- **서브 에이전트 함대**: 전문 에이전트가 3단계 깊이까지 생성되고, 막힌 에이전트는 근본 원인 보고서가 됩니다.
+- **암호화된 에이전트 간 통신**: 인스턴스들은 x402 결제를 갖춘 Signal 프로토콜 E2E 세션을 통해 서로를 오케스트레이션합니다. 어떤 서버도 평문을 볼 수 없습니다.
 
 ## 눈으로 볼 수 있는 워크플로우
 
-n8n과 Zapier에서 깊은 영감을 받은 [워크플로우](https://tinyhumans.gitbook.io/openhuman/features/workflows)는 동일한 시각적, 트리거 기반 자동화를 에이전트에 가져옵니다 — 다만 에이전트가 대신 만들어 준다는 점이 다릅니다. 자동화를 요청하면 에이전트가 하나를 제안합니다: 저장하기 전에 시각적 캔버스에서 검토하는 [tinyflows](https://github.com/tinyhumansai/tinyflows) 그래프입니다.
+n8n과 Zapier에서 깊은 영감을 받은 [워크플로우](https://tinyhumans.gitbook.io/openhuman/features/workflows)는 동일한 시각적, 트리거 기반 자동화를 에이전트에 가져옵니다. 다만 에이전트가 대신 만들어 준다는 점이 다릅니다. 자동화를 요청하면 에이전트가 하나를 제안합니다: 저장하기 전에 시각적 캔버스에서 검토하는 [tinyflows](https://github.com/tinyhumansai/tinyflows) 그래프입니다.
 
 <p align="center">
  <img src="../gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman 워크플로우 캔버스">
@@ -130,7 +130,7 @@ n8n과 Zapier에서 깊은 영감을 받은 [워크플로우](https://tinyhumans
 
 > 에이전트가 워크플로우를 제안하고, 당신은 캔버스에서 검토한 후 저장합니다.
 
-저장된 워크플로우는 내구성 있고 트리거 기반입니다 — 스케줄, 웹훅 또는 채널 이벤트에 의해 실행되고, 재시작에도 살아남으며, 부수 효과는 승인 게이트 뒤에 둡니다.
+저장된 워크플로우는 내구성 있고 트리거 기반입니다. 스케줄, 웹훅 또는 채널 이벤트에 의해 실행되고, 재시작에도 살아남으며, 부수 효과는 승인 게이트 뒤에 둡니다.
 
 ## OpenHuman vs 다른 에이전트 하네스
 

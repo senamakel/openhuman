@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use tinyagents::error::Result as TaResult;
+use tinyagents::error::{Result as TaResult, TinyAgentsError};
 use tinyagents::harness::context::RunContext;
 use tinyagents::harness::events::AgentEvent;
 use tinyagents::harness::message::{ContentBlock, Message as TaMessage};
@@ -1236,14 +1236,42 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
     }
 }
 
-/// `before_tool`: coerce a tool call's arguments to an empty object when they
-/// are not a JSON object (issue #4249). A model can emit malformed native
-/// arguments (invalid JSON, or a bare scalar/array); the model adapter parses
-/// those to `Value::Null`, which the harness then rejects against an object
-/// schema and aborts the whole turn. The in-house engine recovered such a call by
-/// running the tool with `{}`; restore that so a single bad tool call is
-/// recoverable rather than fatal.
-pub(crate) struct ArgRecoveryMiddleware;
+/// `before_tool`: repair a tool call's arguments *before* the harness runs its
+/// fatal pre-execution schema gate (issues #4249 / #4451). A model can emit
+/// arguments the model adapter parses to a non-object `Value` — invalid JSON
+/// decodes to `Value::Null`, and some providers emit the whole arguments blob as
+/// a JSON-encoded *string* (optionally wrapped in a ```json markdown fence). Left
+/// alone the harness rejects those against an object schema and aborts the whole
+/// turn.
+///
+/// Recovery, in order:
+/// 1. Already a JSON object → leave it (the common, valid case).
+/// 2. A JSON-encoded string (optionally fenced) that decodes to an object →
+///    decode and use it.
+/// 3. Otherwise a non-object whose tool schema declares **no** required fields →
+///    coerce to `{}` (legacy-engine parity: the tool runs and produces its own
+///    recoverable error).
+/// 4. Otherwise (non-object + schema has required fields) → leave the arguments
+///    untouched so [`SchemaGuardMiddleware`] converts the schema-validation
+///    failure into a model-visible tool error rather than a turn abort. The old
+///    behaviour (coerce to `{}`) *guaranteed* a `"<field> is required"` fatal
+///    abort for those tools, so it is exactly the case that must fall through.
+pub(crate) struct ArgRecoveryMiddleware {
+    /// The same `Arc`-shared tool sets the runner registers, used to resolve a
+    /// call's schema so we can tell whether coercing to `{}` is safe.
+    tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+}
+
+impl ArgRecoveryMiddleware {
+    /// Build the middleware over the runner's shared tool sets.
+    pub(crate) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
+        Self { tool_sets }
+    }
+
+    fn schema_for(&self, name: &str) -> Option<ToolSchema> {
+        schema_for_tool(&self.tool_sets, name)
+    }
+}
 
 #[async_trait]
 impl Middleware<()> for ArgRecoveryMiddleware {
@@ -1257,15 +1285,318 @@ impl Middleware<()> for ArgRecoveryMiddleware {
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
-        if !call.arguments.is_object() {
+        // (1) Already valid object shape — nothing to do.
+        if call.arguments.is_object() {
+            return Ok(());
+        }
+
+        // (2) JSON-encoded-string arguments (optionally markdown-fenced): decode
+        // and adopt the inner object.
+        if let Some(raw) = call.arguments.as_str() {
+            if let Some(obj) = recover_object_from_json_string(raw) {
+                tracing::debug!(
+                    tool = call.name.as_str(),
+                    "[tinyagents::mw] arg_recovery: decoded JSON-encoded-string tool arguments to object"
+                );
+                call.arguments = obj;
+                return Ok(());
+            }
+        }
+
+        // (3) Non-object with a permissive schema (no required fields): coerce to
+        // `{}` so the tool runs and produces its own recoverable error — engine
+        // parity for tools that predate the schema gate.
+        let has_required = self
+            .schema_for(&call.name)
+            .map(|schema| schema_has_required_fields(&schema.parameters))
+            .unwrap_or(false);
+        if !has_required {
             tracing::debug!(
                 tool = call.name.as_str(),
-                "[tinyagents::mw] recovering non-object tool arguments to {{}}"
+                "[tinyagents::mw] arg_recovery: coercing non-object tool arguments to {{}} (schema declares no required fields)"
             );
             call.arguments = serde_json::json!({});
+            return Ok(());
         }
+
+        // (4) Non-object + schema has required fields: leave untouched. Coercing
+        // to `{}` here would guarantee a fatal `"<field> is required"` abort;
+        // instead `SchemaGuardMiddleware` surfaces a descriptive, recoverable
+        // tool error.
+        tracing::debug!(
+            tool = call.name.as_str(),
+            args_kind = json_value_kind(&call.arguments),
+            "[tinyagents::mw] arg_recovery: leaving non-object tool arguments for the schema-guard tool-error path"
+        );
         Ok(())
     }
+}
+
+/// `before_tool` + `wrap_tool`: convert the harness's **fatal** pre-execution
+/// JSON-schema gate into a model-visible tool error instead of a turn abort
+/// (issue #4451).
+///
+/// The tinyagents agent loop validates every tool call against its schema
+/// (`ToolSchema::validate_call`) *between* `before_tool` and the tool-wrap onion;
+/// any `required`/type/`enum` violation returns `TinyAgentsError::Validation`,
+/// which propagates out of `run_loop` and fails the entire turn
+/// (`"tinyagents harness run failed: Validation(...)"`). The legacy engine had no
+/// such gate — bad arguments came back as recoverable tool *results* the model
+/// self-corrected on the next iteration.
+///
+/// This middleware restores that behaviour entirely seam-side (the crate is
+/// upstream/read-only):
+/// - `before_tool` runs the *same* validation itself; on failure it records a
+///   descriptive error keyed by the call id and rewrites the arguments to a
+///   schema-satisfying **stub** so the crate's own fatal gate passes.
+/// - `wrap_tool` then short-circuits the flagged call with a synthetic failed
+///   [`TaToolResult`] **without** executing the real tool (the stub args never
+///   reach it), so the loop continues and the model self-corrects.
+///
+/// Installed as the outermost tool-wrap middleware so an invalid call is turned
+/// into a tool error before approval/policy wraps ever see the stub arguments.
+pub(super) struct SchemaGuardMiddleware {
+    /// The same `Arc`-shared tool sets the runner registers, used to resolve a
+    /// call's schema for validation.
+    tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+    /// call id → synthetic tool-error message, written in `before_tool` when a
+    /// call fails validation and consumed in `wrap_tool` to short-circuit it.
+    /// A flagged call always reaches `wrap_tool` (its stub args pass the crate
+    /// gate), so entries never accumulate across a turn.
+    pending: Arc<std::sync::Mutex<std::collections::HashMap<String, String>>>,
+}
+
+impl SchemaGuardMiddleware {
+    /// Build the middleware over the runner's shared tool sets.
+    pub(super) fn new(tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>) -> Self {
+        Self {
+            tool_sets,
+            pending: Arc::default(),
+        }
+    }
+
+    fn schema_for(&self, name: &str) -> Option<ToolSchema> {
+        schema_for_tool(&self.tool_sets, name)
+    }
+}
+
+#[async_trait]
+impl Middleware<()> for SchemaGuardMiddleware {
+    fn name(&self) -> &str {
+        "schema_guard"
+    }
+
+    async fn before_tool(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        call: &mut TaToolCall,
+    ) -> TaResult<()> {
+        // Unknown tool → let the crate's `UnknownToolPolicy` handle it (it
+        // already returns a recoverable tool error).
+        let Some(schema) = self.schema_for(&call.name) else {
+            return Ok(());
+        };
+
+        let probe = TaToolCall {
+            id: call.id.clone(),
+            name: call.name.clone(),
+            arguments: call.arguments.clone(),
+        };
+        let Err(err) = schema.validate_call(&probe) else {
+            return Ok(());
+        };
+
+        let detail = match err {
+            TinyAgentsError::Validation(message) => message,
+            other => other.to_string(),
+        };
+        let schema_json = serde_json::to_string(&schema.parameters)
+            .unwrap_or_else(|_| "<unavailable>".to_string());
+        let message = format!(
+            "invalid arguments for {}: {}. Expected schema: {}",
+            call.name, detail, schema_json
+        );
+        tracing::warn!(
+            tool = call.name.as_str(),
+            detail = detail.as_str(),
+            "[tinyagents::mw] schema_guard: tool-arg validation failed; converting fatal gate into a model-visible tool error"
+        );
+
+        if let Ok(mut pending) = self.pending.lock() {
+            pending.insert(call.id.clone(), message);
+        }
+        // Rewrite to a schema-satisfying stub so the crate's fatal
+        // `validate_call` gate passes; `wrap_tool` short-circuits the call
+        // before these stub args can reach the real tool.
+        call.arguments = synthesize_valid_arguments(&schema.parameters);
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl ToolMiddleware<()> for SchemaGuardMiddleware {
+    fn name(&self) -> &str {
+        "schema_guard"
+    }
+
+    async fn wrap_tool(
+        &self,
+        ctx: &mut RunContext<()>,
+        state: &(),
+        call: TaToolCall,
+        next: ToolHandler<'_, (), ()>,
+    ) -> TaResult<MiddlewareToolOutcome> {
+        let flagged = self
+            .pending
+            .lock()
+            .ok()
+            .and_then(|mut pending| pending.remove(&call.id));
+        if let Some(message) = flagged {
+            tracing::debug!(
+                tool = call.name.as_str(),
+                "[tinyagents::mw] schema_guard: short-circuiting invalid tool call with a synthetic error result"
+            );
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(
+                call.id, call.name, message,
+            )));
+        }
+        next.run(ctx, state, call).await
+    }
+}
+
+/// Resolves the harness [`ToolSchema`] for `name` across the runner's shared
+/// tool sets.
+///
+/// Built via the same [`spec_to_schema`](super::convert::spec_to_schema)
+/// conversion the runner uses for [`SharedToolAdapter::schema`], so the
+/// `parameters` we validate against are byte-identical to the ones the crate's
+/// fatal `validate_call` gate checks — otherwise our pre-validation could
+/// disagree with the crate and either miss a fatal case or stub a call the crate
+/// still rejects.
+fn schema_for_tool(tool_sets: &[Arc<Vec<Box<dyn Tool>>>], name: &str) -> Option<ToolSchema> {
+    tool_sets
+        .iter()
+        .flat_map(|set| set.iter())
+        .find(|tool| tool.name() == name)
+        .map(|tool| super::convert::spec_to_schema(&tool.spec()))
+}
+
+/// Whether a tool's JSON-schema `parameters` declares any `required` field.
+fn schema_has_required_fields(parameters: &serde_json::Value) -> bool {
+    parameters
+        .get("required")
+        .and_then(serde_json::Value::as_array)
+        .map(|required| required.iter().any(serde_json::Value::is_string))
+        .unwrap_or(false)
+}
+
+/// Attempts to recover a JSON **object** from a string-encoded arguments payload:
+/// providers sometimes emit the whole arguments blob as a JSON string, optionally
+/// wrapped in a ```json markdown fence. Returns `None` when the string does not
+/// decode to a JSON object.
+fn recover_object_from_json_string(raw: &str) -> Option<serde_json::Value> {
+    let candidate = strip_code_fence(raw);
+    serde_json::from_str::<serde_json::Value>(candidate)
+        .ok()
+        .filter(serde_json::Value::is_object)
+}
+
+/// Strips a surrounding markdown code fence (```` ```json … ``` ````) and its
+/// optional language tag, returning the inner text. A string with no fence is
+/// returned trimmed and unchanged.
+fn strip_code_fence(raw: &str) -> &str {
+    let trimmed = raw.trim();
+    let Some(after_open) = trimmed.strip_prefix("```") else {
+        return trimmed;
+    };
+    // Drop an optional language tag on the opening fence line (e.g. `json`).
+    let body = match after_open.find('\n') {
+        Some(newline)
+            if after_open[..newline]
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric()) =>
+        {
+            &after_open[newline + 1..]
+        }
+        _ => after_open,
+    };
+    body.trim().strip_suffix("```").unwrap_or(body).trim()
+}
+
+/// A short, human-readable kind label for a JSON value, for debug logging.
+fn json_value_kind(value: &serde_json::Value) -> &'static str {
+    match value {
+        serde_json::Value::Null => "null",
+        serde_json::Value::Bool(_) => "boolean",
+        serde_json::Value::Number(_) => "number",
+        serde_json::Value::String(_) => "string",
+        serde_json::Value::Array(_) => "array",
+        serde_json::Value::Object(_) => "object",
+    }
+}
+
+/// Synthesizes a minimal value that satisfies the JSON-schema subset the
+/// tinyagents gate (`ToolSchema::validate_call`) enforces — `enum`, `type`,
+/// object `properties`/`required`, and array `items`. Used to rewrite a
+/// validation-failed call's arguments so the crate's fatal gate passes; the call
+/// is then short-circuited in `wrap_tool`, so this stub never reaches the tool.
+fn synthesize_valid_arguments(schema: &serde_json::Value) -> serde_json::Value {
+    use serde_json::Value;
+
+    // `enum` constrains the value to a fixed set — the first option always
+    // satisfies the gate (and any co-declared `type`).
+    if let Some(values) = schema.get("enum").and_then(Value::as_array) {
+        return values.first().cloned().unwrap_or(Value::Null);
+    }
+
+    // `type` may be a string or an array of strings; pick the first known kind.
+    let kind = schema.get("type").and_then(|type_spec| {
+        type_spec.as_str().map(str::to_string).or_else(|| {
+            type_spec
+                .as_array()?
+                .iter()
+                .filter_map(Value::as_str)
+                .next()
+                .map(str::to_string)
+        })
+    });
+
+    match kind.as_deref() {
+        Some("object") => synthesize_valid_object(schema),
+        Some("array") => Value::Array(Vec::new()),
+        Some("string") => Value::String(String::new()),
+        Some("integer") | Some("number") => serde_json::json!(0),
+        Some("boolean") => Value::Bool(false),
+        Some("null") => Value::Null,
+        _ => {
+            if schema.get("properties").is_some() {
+                synthesize_valid_object(schema)
+            } else {
+                // No understood constraints → an empty object trivially passes.
+                Value::Object(serde_json::Map::new())
+            }
+        }
+    }
+}
+
+/// Builds an object populated with every `required` field (recursively) so it
+/// satisfies the gate's object/`required` checks.
+fn synthesize_valid_object(schema: &serde_json::Value) -> serde_json::Value {
+    use serde_json::Value;
+
+    let mut object = serde_json::Map::new();
+    if let Some(required) = schema.get("required").and_then(Value::as_array) {
+        let properties = schema.get("properties").and_then(Value::as_object);
+        for field in required.iter().filter_map(Value::as_str) {
+            let field_schema = properties
+                .and_then(|props| props.get(field))
+                .cloned()
+                .unwrap_or(Value::Null);
+            object.insert(field.to_string(), synthesize_valid_arguments(&field_schema));
+        }
+    }
+    Value::Object(object)
 }
 
 /// Agents are told to follow a **read-index → dedupe → write → update-index**

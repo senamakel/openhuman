@@ -511,12 +511,13 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     // (TurnContextMiddleware::defaults), observe-only crate BudgetMiddleware
     // (W2-budget-dedupe), cost budget (local enforcement + budget_shadow),
     // context compression + message trim (window known + autocompact on), SDK
-    // tool-policy projection, tool-outcome capture, arg recovery.
+    // tool-policy projection, tool-outcome capture, arg recovery, schema guard
+    // (#4451 before_tool).
     let mw = assembled.harness.middleware();
-    assert_eq!(mw.len(), 14, "lifecycle middleware inventory");
-    // Around-tool wraps: approval/security + CLI/RPC-only scope gate (no
-    // builder tool policy on this call).
-    assert_eq!(mw.tool_middleware_len(), 2, "tool middleware inventory");
+    assert_eq!(mw.len(), 15, "lifecycle middleware inventory");
+    // Around-tool wraps: schema guard (#4451, outermost) + approval/security +
+    // CLI/RPC-only scope gate (no builder tool policy on this call).
+    assert_eq!(mw.tool_middleware_len(), 3, "tool middleware inventory");
     assert_eq!(mw.model_middleware_len(), 0, "no around-model wraps");
     assert_eq!(
         assembled.harness.policy().limits.max_depth,

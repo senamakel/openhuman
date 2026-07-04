@@ -1442,6 +1442,20 @@ fn assemble_turn_harness(
         TaToolPolicyMiddleware::new(harness.tools().policies()).require_sandbox(true),
     ));
 
+    // Schema-guard (issue #4451): the crate runs a **fatal** JSON-schema gate on
+    // every tool call between `before_tool` and the tool-wrap onion — a missing
+    // required field / wrong type / bad enum returns `TinyAgentsError::Validation`
+    // and aborts the whole turn (`chat_error`). This middleware re-runs the same
+    // validation in `before_tool`; on failure it records a descriptive error and
+    // rewrites the args to a schema-satisfying stub (so the crate gate passes),
+    // then its `wrap_tool` hook short-circuits the flagged call with a synthetic
+    // failed `ToolResult` before the stub can reach the tool — restoring the
+    // legacy engine's "bad args → recoverable tool error the model self-corrects
+    // on" behaviour. Installed as the **outermost** tool wrap so an invalid call
+    // becomes a tool error before approval/policy wraps ever see the stub args.
+    let schema_guard = Arc::new(middleware::SchemaGuardMiddleware::new(tool_sets.clone()));
+    harness.push_tool_middleware(schema_guard.clone());
+
     // Human-in-the-loop approval as a named tool middleware (issue #4249,
     // Phase 1): an external-effect tool intercepts through the global
     // `ApprovalGate`, a denial short-circuits with a model-consumable result, and
@@ -1484,11 +1498,22 @@ fn assemble_turn_harness(
         )));
     }
 
-    // Malformed-argument recovery (`before_tool`): coerce a call's non-object
-    // arguments (invalid JSON parses to Null) to `{}` so a single bad tool call is
-    // recoverable — the harness would otherwise reject it against an object schema
-    // and abort the whole turn. Engine parity.
-    harness.push_middleware(Arc::new(middleware::ArgRecoveryMiddleware));
+    // Malformed-argument recovery (`before_tool`): repair a call's non-object
+    // arguments before the crate's schema gate — decode JSON-encoded-string args
+    // (optionally markdown-fenced) to an object, or coerce to `{}` only when the
+    // tool schema has no required fields (engine parity). A non-object against a
+    // required-field schema is left untouched so the schema-guard tool-error path
+    // handles it instead of forcing a fatal `"<field> is required"` abort. Runs
+    // before `SchemaGuardMiddleware::before_tool` (registered next) validates.
+    harness.push_middleware(Arc::new(middleware::ArgRecoveryMiddleware::new(
+        tool_sets.clone(),
+    )));
+
+    // Schema-guard `before_tool` (see the tool-wrap registration above): runs the
+    // crate's schema validation and, on failure, flags the call + stubs its args
+    // so the fatal gate passes and `wrap_tool` can short-circuit it. Registered
+    // last so it validates the arguments `ArgRecoveryMiddleware` just repaired.
+    harness.push_middleware(schema_guard);
 
     AssembledTurnHarness {
         harness,

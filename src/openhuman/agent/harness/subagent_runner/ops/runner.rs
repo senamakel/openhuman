@@ -20,6 +20,7 @@ use crate::openhuman::agent::harness::fork_context::{
 };
 use crate::openhuman::agent::harness::subagent_runner::extract_tool::ExtractFromResultTool;
 use crate::openhuman::agent::harness::subagent_runner::handoff::ResultHandoffCache;
+use crate::openhuman::agent::harness::subagent_runner::subagent_iter_cap_with_autonomous_lift;
 use crate::openhuman::agent::harness::subagent_runner::tool_prep::{
     build_text_mode_tool_instructions, filter_tool_indices, is_subagent_spawn_tool,
     load_prompt_source, top_k_for_toolkit,
@@ -704,7 +705,7 @@ async fn run_typed_mode(
         agent_id = %definition.id,
         model = %model,
         tool_count = allowed_names.len(),
-        max_iterations = definition.effective_max_iterations(),
+        max_iterations = subagent_iter_cap_with_autonomous_lift(definition.effective_max_iterations()),
         iteration_policy = ?definition.iteration_policy,
         "[subagent_runner:typed] resolved configuration"
     );
@@ -969,7 +970,7 @@ async fn run_typed_mode(
                 dynamic_tools,
                 filtered_specs.clone(),
                 allowed_names,
-                definition.effective_max_iterations(),
+                subagent_iter_cap_with_autonomous_lift(definition.effective_max_iterations()),
                 options.run_queue.clone(),
                 parent.on_progress.clone(),
                 &definition.id,
@@ -1002,7 +1003,9 @@ async fn run_typed_mode(
                 dynamic_tools,
                 specs: filtered_specs.clone(),
                 allowed_names,
-                max_iterations: definition.effective_max_iterations(),
+                max_iterations: subagent_iter_cap_with_autonomous_lift(
+                    definition.effective_max_iterations(),
+                ),
                 run_queue: options.run_queue.clone(),
                 on_progress: parent.on_progress.clone(),
                 agent_id: definition.id.clone(),

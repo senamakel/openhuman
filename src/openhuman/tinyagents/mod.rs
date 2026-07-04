@@ -1231,6 +1231,19 @@ fn assemble_turn_harness(
         )));
     }
 
+    // Repeat-progress breaker (issue #4463, restoring #4088 / #4095): the failure
+    // breaker above resets on every success, so a model looping on a *successful*
+    // no-op tool or re-emitting an identical narration+call never trips it. This
+    // guard halts on identical successful `(tool, args)` batches / identical
+    // outputs, sharing the same halt-summary slot + steering handle. Polling tools
+    // (`wait_subagent`) stay exempt.
+    if let Some(handle) = &handle {
+        harness.push_middleware(Arc::new(middleware::RepeatProgressMiddleware::new(
+            handle.clone(),
+            halt_summary.clone(),
+        )));
+    }
+
     // Policy-driven stop hooks (budget cap, thread-goal budget, ad-hoc iteration
     // ceiling): fire after each model call and pause the run on the first stop
     // vote. Replaces the legacy tool-call-loop firing point.

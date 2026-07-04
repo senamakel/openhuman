@@ -21,7 +21,7 @@
 //! enabled onto a harness.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -34,7 +34,7 @@ use tinyagents::harness::middleware::{
     AgentRun, BudgetTracker, ContextualToolSelectionMiddleware, MicrocompactMiddleware, Middleware,
     MiddlewareToolOutcome, ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
 };
-use tinyagents::harness::model::{ModelRequest, PromptSegment, SegmentRole};
+use tinyagents::harness::model::{ModelRequest, ModelResponse, PromptSegment, SegmentRole};
 use tinyagents::harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
 use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
@@ -2038,6 +2038,17 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// argument sets that happen to share a first error line don't count as a
     /// repeat and can't pre-empt the generic no-progress backstop.
     arg_sigs: std::sync::Mutex<std::collections::HashMap<String, String>>,
+    /// Recoverable-failure ladder (issue #4463): transient failures (timeouts,
+    /// connection resets, rate limits, 5xx) are routed here instead of the crate
+    /// tracker so they get the legacy extended headroom
+    /// ([`RECOVERABLE_REPEAT_FAILURE_THRESHOLD`] identical /
+    /// [`RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD`] consecutive) rather than the
+    /// crate's fixed 3/6, which is right only for deterministic failures.
+    /// `tool\u{1f}args` → identical-failure count; persists across the turn.
+    recoverable_sig_counts: std::sync::Mutex<std::collections::HashMap<String, u32>>,
+    /// Consecutive recoverable-looking failures with no success in between. Reset
+    /// on any success or non-recoverable failure (mirrors the legacy guard).
+    recoverable_consecutive: AtomicU32,
 }
 
 impl RepeatedToolFailureMiddleware {
@@ -2055,7 +2066,55 @@ impl RepeatedToolFailureMiddleware {
             tracker: NoProgressTracker::new(identical_threshold),
             step: AtomicUsize::new(0),
             arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
+            recoverable_sig_counts: std::sync::Mutex::new(std::collections::HashMap::new()),
+            recoverable_consecutive: AtomicU32::new(0),
         }
+    }
+
+    /// Clear the consecutive recoverable-failure streak. Called on any success or
+    /// non-recoverable failure (the per-signature identical counts persist across
+    /// the turn, matching the legacy guard). Idempotent.
+    fn reset_recoverable_streak(&self) {
+        self.recoverable_consecutive.store(0, Ordering::SeqCst);
+    }
+
+    /// Record one recoverable failure and return a root-cause halt summary once
+    /// its extended headroom is exhausted (identical `>=` [`RECOVERABLE_REPEAT_FAILURE_THRESHOLD`]
+    /// or consecutive `>=` [`RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD`]).
+    fn record_recoverable(&self, tool: &str, arg_fp: &str, failure_text: &str) -> Option<String> {
+        let key = format!("{tool}\u{1f}{arg_fp}");
+        let count = self
+            .recoverable_sig_counts
+            .lock()
+            .ok()
+            .map(|mut counts| {
+                let c = counts.entry(key).or_insert(0);
+                *c += 1;
+                *c
+            })
+            .unwrap_or(0);
+        let consecutive = self.recoverable_consecutive.fetch_add(1, Ordering::SeqCst) + 1;
+        tracing::debug!(
+            tool,
+            count,
+            consecutive,
+            "[tinyagents::mw] recoverable tool failure recorded with extended circuit-breaker headroom"
+        );
+        if count >= RECOVERABLE_REPEAT_FAILURE_THRESHOLD {
+            return Some(recoverable_identical_halt_summary(
+                tool,
+                count,
+                failure_text,
+            ));
+        }
+        if consecutive >= RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD {
+            return Some(recoverable_no_progress_halt_summary(
+                consecutive,
+                tool,
+                failure_text,
+            ));
+        }
+        None
     }
 }
 
@@ -2102,15 +2161,91 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
             .unwrap_or_default();
         let step = self.step.fetch_add(1, Ordering::SeqCst) + 1;
 
+        // Combined failure text for classification: the model-facing content plus
+        // the (redundant but authoritative) error field. Both are scanned for the
+        // policy / terminal-inference / recoverable markers below.
+        let failure_text = match result.error.as_deref() {
+            Some(err) => format!("{}\n{}", result.content, err),
+            None => String::new(),
+        };
+
+        // ── Part 5 (#3104): terminal delegated-inference fast-halt ──────────────
+        // A permanent inference failure (out of budget / provider-config rejection)
+        // surfaced by a delegated sub-agent cannot be recovered by retrying — the
+        // budget is account-wide and the model/provider config is shared by every
+        // (sub-)agent. Halt on the FIRST occurrence with an actionable root cause,
+        // *before* the count-based thresholds, because the orchestrator otherwise
+        // re-emits the doomed step under varied delegation-tool names so the
+        // identical-retry threshold never trips in time.
+        if result.error.is_some() {
+            if let Some(kind) = terminal_inference_failure_kind(&failure_text) {
+                tracing::warn!(
+                    tool = %result.name,
+                    kind = ?kind,
+                    "[tinyagents::mw] terminal delegated-inference failure — halting on first occurrence with root cause"
+                );
+                if let Ok(mut slot) = self.halt_summary.lock() {
+                    *slot = Some(terminal_inference_halt_summary(
+                        kind,
+                        &result.name,
+                        &failure_text,
+                    ));
+                }
+                self.handle.send(SteeringCommand::Pause);
+                self.tracker.reset();
+                self.reset_recoverable_streak();
+                return Ok(());
+            }
+        }
+
         // A hard policy rejection is marked in the tool output; it can never
-        // succeed when re-issued unchanged, so the crate ladder trips it faster.
-        let hard_reject = result
-            .content
-            .contains(crate::openhuman::security::POLICY_BLOCKED_MARKER)
-            || result
-                .error
-                .as_deref()
-                .is_some_and(|err| err.contains(crate::openhuman::security::POLICY_BLOCKED_MARKER));
+        // succeed when re-issued unchanged, so the crate ladder trips it faster
+        // (its `HARD_REJECT_HALT_THRESHOLD` of 2). Both the read-only/forbidden
+        // block (`POLICY_BLOCKED_MARKER`) and the approval denial / TTL expiry
+        // (`POLICY_DENIED_MARKER`) are deterministic — restore the 2-repeat
+        // fast-trip for BOTH (issue #4463 part 6: denied had drifted to the
+        // generic 3).
+        let policy_marked = |s: &str| {
+            s.contains(crate::openhuman::security::POLICY_BLOCKED_MARKER)
+                || s.contains(crate::openhuman::security::POLICY_DENIED_MARKER)
+        };
+        let hard_reject =
+            policy_marked(&result.content) || result.error.as_deref().is_some_and(policy_marked);
+
+        // ── Part 4: recoverable-failure headroom ────────────────────────────────
+        // Transient failures (timeouts, connection resets, rate limits, 5xx) get
+        // the legacy extended headroom instead of the crate's deterministic 3/6.
+        // Route them to the recoverable ladder; a success or a non-recoverable
+        // failure resets that streak and feeds the crate tracker as before.
+        let recoverable = result.error.is_some()
+            && !hard_reject
+            && (is_recoverable_tool_failure(&failure_text)
+                || matches!(
+                    crate::openhuman::tool_status::classify(&failure_text, false).class,
+                    crate::openhuman::tool_status::ToolFailureClass::Timeout
+                        | crate::openhuman::tool_status::ToolFailureClass::ServiceUnavailable
+                        | crate::openhuman::tool_status::ToolFailureClass::ModelConnection
+                ));
+        if recoverable {
+            if let Some(summary) = self.record_recoverable(&result.name, &arg_fp, &failure_text) {
+                tracing::warn!(
+                    tool = %result.name,
+                    "[tinyagents::mw] recoverable-failure headroom exhausted — halting run so the root cause surfaces"
+                );
+                if let Ok(mut slot) = self.halt_summary.lock() {
+                    *slot = Some(summary);
+                }
+                self.handle.send(SteeringCommand::Pause);
+                self.reset_recoverable_streak();
+            }
+            // Recoverable failures never feed the crate tracker — its fixed 3/6
+            // backstop would halt them before the extended headroom is spent.
+            return Ok(());
+        }
+        // Success or non-recoverable failure: clear the recoverable streak (its
+        // per-signature counts persist across the turn) before the crate tracker
+        // handles the deterministic 3/6 + hard-reject-2 path below.
+        self.reset_recoverable_streak();
 
         let attempt = ToolAttempt {
             tool: &result.name,
@@ -2163,6 +2298,471 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
                 self.handle.send(SteeringCommand::Pause);
                 self.tracker.reset();
             }
+        }
+        Ok(())
+    }
+}
+
+// ── Loop-guard restorations (issue #4463) ────────────────────────────────────
+//
+// The TinyAgents migration dropped several loop breakers that the crate does not
+// replace (verified against `harness::no_progress`, which tracks *failures*
+// only): the recoverable-failure headroom, the terminal delegated-inference
+// fast-halt (#3104), the policy-denied fast-trip, and the successful-repeat /
+// identical-output guards (#4088 / #4095). These helpers + the
+// [`RepeatProgressMiddleware`] below restore that behaviour seam-side, ported
+// verbatim from the deleted `agent/harness/tool_loop.rs` thresholds/wording so
+// the guards read identically to the legacy loop.
+
+/// Recoverable/transient failures get more identical-retry headroom than the
+/// deterministic default: a flaky network call or a timeout can succeed on a
+/// later attempt once the model adapts (longer timeout, smaller batch, retry).
+/// Mirrors the legacy `RECOVERABLE_REPEAT_FAILURE_THRESHOLD`.
+const RECOVERABLE_REPEAT_FAILURE_THRESHOLD: u32 = 8;
+/// Recoverable failures also get a larger *consecutive* (varied-args) no-progress
+/// headroom before the breaker halts. Mirrors the legacy
+/// `RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD`.
+const RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD: u32 = 12;
+
+/// The model re-emitting the IDENTICAL assistant output (narration + the same
+/// tool call) this many times in a row is a no-progress narration loop — halt.
+/// Mirrors the legacy `REPEAT_OUTPUT_THRESHOLD` (#4095).
+const REPEAT_OUTPUT_THRESHOLD: u32 = 4;
+
+/// The model re-issuing the IDENTICAL `(tool, args)` batch this many times in a
+/// row — regardless of whether each call *succeeds* — is spinning one action
+/// with no new information. Set just below [`REPEAT_OUTPUT_THRESHOLD`] so a
+/// verbatim call loop is caught a step earlier than the broader narration loop.
+/// Mirrors the legacy `REPEAT_CALL_THRESHOLD` (#4088).
+const REPEAT_CALL_THRESHOLD: u32 = 3;
+
+/// Clamp the last-error text embedded in a circuit-breaker halt summary so a huge
+/// tool error (already capped at 1MB upstream) can't blow up the agent's result.
+/// Mirrors the legacy `tool_loop::truncate_for_halt`.
+fn truncate_for_halt(s: &str) -> String {
+    const MAX: usize = 600;
+    if s.chars().count() <= MAX {
+        return s.to_string();
+    }
+    let head: String = s.chars().take(MAX).collect();
+    format!("{head}\n… [truncated]")
+}
+
+/// Failures that are informative and plausibly recoverable by changing the next
+/// action (longer timeout, smaller batch, different network retry/fallback)
+/// rather than by abandoning the turn. Deliberately marker-based and
+/// conservative: it only controls breaker headroom, never converts a failure
+/// into success. Ported verbatim from legacy `tool_loop::is_recoverable_tool_failure`.
+fn is_recoverable_tool_failure(result: &str) -> bool {
+    let lower = result.to_ascii_lowercase();
+    [
+        "timed out",
+        "timeout",
+        "deadline exceeded",
+        "temporarily unavailable",
+        "temporary failure",
+        "connection reset",
+        "connection refused",
+        "connection closed",
+        "connection aborted",
+        "network is unreachable",
+        "host is unreachable",
+        "dns error",
+        "failed to lookup address",
+        "failed to resolve",
+        "rate limit",
+        "too many requests",
+        "retry after",
+        "503 service unavailable",
+        "502 bad gateway",
+        "504 gateway timeout",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
+/// A permanent, non-retryable inference failure surfaced by a delegated
+/// sub-agent's tool result. Unlike a transient error, re-issuing the call cannot
+/// succeed even under a *different* delegation tool or varied args: the budget is
+/// account-wide and the model/provider configuration is shared by every
+/// (sub-)agent. See [`terminal_inference_failure_kind`] (#3104).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum TerminalInferenceFailure {
+    /// Out of inference budget / credits — every retry hits the same wall.
+    BudgetExhausted,
+    /// The configured model/provider rejected the request for a reason the user
+    /// must fix (unknown model, non-chat/embedding model, missing credential,
+    /// region block, …).
+    ProviderConfig,
+}
+
+/// Inference/delegation **envelope** markers that prove a tool result came from a
+/// delegated inference call (a sub-agent / provider round-trip) rather than from
+/// arbitrary tool stderr. Every marker here is harness-generated (our own
+/// reliable-chain rollup or sub-agent dispatch wrapper), NOT a provider HTTP body
+/// that arbitrary tool stderr could forge. Ported from legacy `tool_loop`.
+const INFERENCE_FAILURE_ENVELOPE_MARKERS: &[&str] = &[
+    // Reliable-chain exhaustion rollup (reliable.rs::format_failure_aggregate).
+    "all providers/models failed",
+    "may not be available on your provider",
+    // Sub-agent delegation failure wrapper (dispatch.rs::format_subagent_failure).
+    "failed and did not complete",
+];
+
+/// True if `result` carries one of the inference/delegation envelope markers —
+/// i.e. the failure demonstrably came from a delegated provider round-trip, not
+/// arbitrary tool stderr. See [`INFERENCE_FAILURE_ENVELOPE_MARKERS`].
+fn has_inference_failure_envelope(result: &str) -> bool {
+    let lower = result.to_ascii_lowercase();
+    INFERENCE_FAILURE_ENVELOPE_MARKERS
+        .iter()
+        .any(|marker| lower.contains(marker))
+}
+
+/// Recognize a permanent (non-retryable) delegated-inference failure from a tool
+/// result. Two-stage gate so a *recoverable* tool failure can't be misclassified:
+/// (1) the result must carry a delegated-inference envelope
+/// ([`has_inference_failure_envelope`]); (2) the trusted body is matched against
+/// the two tight provider classifiers. Budget takes precedence if both match.
+/// Ported from legacy `tool_loop::terminal_inference_failure_kind` (#3104).
+pub(crate) fn terminal_inference_failure_kind(result: &str) -> Option<TerminalInferenceFailure> {
+    use crate::openhuman::inference::provider::{
+        is_budget_exhausted_message, is_provider_config_rejection_message,
+    };
+    if !has_inference_failure_envelope(result) {
+        return None;
+    }
+    if is_budget_exhausted_message(result) {
+        Some(TerminalInferenceFailure::BudgetExhausted)
+    } else if is_provider_config_rejection_message(result) {
+        Some(TerminalInferenceFailure::ProviderConfig)
+    } else {
+        None
+    }
+}
+
+/// The actionable root-cause halt summary for a terminal delegated-inference
+/// failure. Ported verbatim from the legacy loop.
+fn terminal_inference_halt_summary(
+    kind: TerminalInferenceFailure,
+    tool: &str,
+    result: &str,
+) -> String {
+    match kind {
+        TerminalInferenceFailure::BudgetExhausted => format!(
+            "Stopping: the `{tool}` step failed because the account is out of inference \
+             budget/credits — every retry hits the same wall. Add credits to your account \
+             (or, when using a custom/BYO provider, top up that provider's own account) and try \
+             again. Details:\n{}",
+            truncate_for_halt(result),
+        ),
+        TerminalInferenceFailure::ProviderConfig => format!(
+            "Stopping: the `{tool}` step failed because the configured model/provider rejected the \
+             request (e.g. an unknown model, a non-chat/embedding model, a missing credential, or \
+             a region block) — retrying will not help. Fix the model or API key in Settings → AI. \
+             Details:\n{}",
+            truncate_for_halt(result),
+        ),
+    }
+}
+
+/// Halt summary when a single recoverable `(tool, args)` call exhausts its
+/// extended identical-retry headroom. Ported from the legacy loop.
+fn recoverable_identical_halt_summary(tool: &str, count: u32, result: &str) -> String {
+    format!(
+        "Stopping: the `{tool}` call was retried {count} times with identical arguments and kept \
+         failing — repeating it will not help. Last error:\n{}\n\nThis looked recoverable at \
+         first, but the same call exhausted the extended transient-failure headroom. Report this \
+         back instead of retrying.",
+        truncate_for_halt(result),
+    )
+}
+
+/// Halt summary when many recoverable-looking failures pile up with no progress.
+/// Ported from the legacy loop.
+fn recoverable_no_progress_halt_summary(consecutive: u32, tool: &str, result: &str) -> String {
+    format!(
+        "Stopping: {consecutive} recoverable-looking tool failures happened in a row with no \
+         successful progress. Last error (from `{tool}`):\n{}\n\nThe turn is still bounded by the \
+         iteration/cost limits, but this many consecutive transient failures means the goal is not \
+         currently reachable. Report this back instead of retrying.",
+        truncate_for_halt(result),
+    )
+}
+
+/// Tools whose contract is to be re-invoked with identical arguments, so an
+/// identical repeat is legitimate progress — not a no-progress loop. Today this
+/// is `wait_subagent`, which polls a running async sub-agent and explicitly tells
+/// the model to "call wait_subagent again" when a `timeout_secs` window elapses
+/// while the sub-agent is still running. Without this exemption a task that
+/// outlives two wait windows would have its third identical `wait_subagent`
+/// halted by the no-progress breakers before it could collect the eventual
+/// result. Ported from legacy `tool_loop::is_repeat_call_exempt` (Codex P1 on #4230).
+pub(crate) fn is_repeat_call_exempt(tool: &str) -> bool {
+    matches!(tool, "wait_subagent")
+}
+
+/// Extract the assistant's visible text (concatenated [`ContentBlock::Text`]
+/// blocks) from a model response message, for the repeat-output signature.
+fn assistant_visible_text(message: &tinyagents::harness::message::AssistantMessage) -> String {
+    let mut out = String::new();
+    for block in &message.content {
+        if let ContentBlock::Text(t) = block {
+            if !out.is_empty() {
+                out.push('\n');
+            }
+            out.push_str(t);
+        }
+    }
+    out
+}
+
+/// A back-to-back identical-signature streak counter. Trips (`record` returns the
+/// new consecutive count) once the same hashed signature repeats; a different
+/// signature resets the run. Backs both the repeat-output and repeat-call guards.
+#[derive(Default)]
+struct StreakGuard {
+    last_hash: Option<u64>,
+    consecutive: u32,
+}
+
+impl StreakGuard {
+    /// Record one signature; returns the new consecutive count for that signature
+    /// (1 after a reset). A different signature resets the streak to 1.
+    fn record(&mut self, signature: &str) -> u32 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        signature.hash(&mut hasher);
+        let h = hasher.finish();
+        if self.last_hash == Some(h) {
+            self.consecutive += 1;
+        } else {
+            self.last_hash = Some(h);
+            self.consecutive = 1;
+        }
+        self.consecutive
+    }
+
+    /// Clear the streak — used when an iteration is a legitimately-repeating
+    /// poll/wait (see [`is_repeat_call_exempt`]) or a failing batch that another
+    /// guard owns, so it counts as a distinct action rather than a repeat.
+    fn reset(&mut self) {
+        self.last_hash = None;
+        self.consecutive = 0;
+    }
+}
+
+/// Per-batch state the repeat-CALL guard needs but can only fully evaluate once
+/// every tool result in the assistant's batch has come back: the canonical
+/// `(tool, args)` signature captured at `after_model`, plus the running
+/// success/remaining accounting folded in at each `after_tool`.
+#[derive(Default)]
+struct PendingCallBatch {
+    /// Canonical `(tool, args)` signature of the batch, from `after_model`.
+    call_sig: String,
+    /// Tool results still outstanding for this batch.
+    remaining: usize,
+    /// `true` while every result so far in the batch has succeeded.
+    all_ok: bool,
+    /// `true` when every call in the batch is a polling/wait exemption.
+    exempt: bool,
+}
+
+/// Restores the deleted successful-repeat / identical-output loop breakers
+/// (#4088 / #4095) as a seam middleware. The crate `no_progress` ladder (driving
+/// [`RepeatedToolFailureMiddleware`]) resets on every success, so a model looping
+/// on a *successful* no-op tool or re-emitting an identical narration+call never
+/// trips it and burns the whole iteration budget. This guard closes both gaps:
+///
+/// - **Repeat-output** (`after_model`, checked before the tools run): halts when
+///   the assistant's visible text + tool-call `(name, args)` batch is byte
+///   identical [`REPEAT_OUTPUT_THRESHOLD`] iterations in a row.
+/// - **Repeat-call** (evaluated once the batch's tool results are all back, gated
+///   on every call succeeding): halts when the `(tool, args)` batch alone repeats
+///   [`REPEAT_CALL_THRESHOLD`] times — catching successful no-op loops that vary
+///   only their narration.
+///
+/// Polling/wait tools ([`is_repeat_call_exempt`]) are exempt from both: their
+/// contract is to be re-invoked identically, so an all-poll batch resets the
+/// streaks instead of recording. On a trip it writes the legacy root-cause
+/// summary into the shared [`HaltSummarySlot`](super::HaltSummarySlot) and pauses
+/// the run through the shared steering handle — the same halt mechanism as the
+/// repeated-failure breaker.
+pub(crate) struct RepeatProgressMiddleware {
+    handle: SteeringHandle,
+    halt_summary: super::HaltSummarySlot,
+    /// Narration+call identical-output streak (#4095), threshold
+    /// [`REPEAT_OUTPUT_THRESHOLD`].
+    output_guard: std::sync::Mutex<StreakGuard>,
+    /// `(tool, args)`-only successful-batch streak (#4088), threshold
+    /// [`REPEAT_CALL_THRESHOLD`].
+    call_guard: std::sync::Mutex<StreakGuard>,
+    /// Batch bookkeeping bridging `after_model` → `after_tool` for the call guard.
+    pending: std::sync::Mutex<Option<PendingCallBatch>>,
+}
+
+impl RepeatProgressMiddleware {
+    pub(crate) fn new(handle: SteeringHandle, halt_summary: super::HaltSummarySlot) -> Self {
+        Self {
+            handle,
+            halt_summary,
+            output_guard: std::sync::Mutex::new(StreakGuard::default()),
+            call_guard: std::sync::Mutex::new(StreakGuard::default()),
+            pending: std::sync::Mutex::new(None),
+        }
+    }
+
+    /// Latch a root-cause halt: record the summary the turn surfaces instead of an
+    /// empty/last-model reply, and pause at the top of the next iteration (before
+    /// the next model call), matching the repeated-failure breaker's halt path.
+    fn halt(&self, summary: String) {
+        if let Ok(mut slot) = self.halt_summary.lock() {
+            *slot = Some(summary);
+        }
+        self.handle.send(SteeringCommand::Pause);
+    }
+}
+
+#[async_trait]
+impl Middleware<()> for RepeatProgressMiddleware {
+    fn name(&self) -> &str {
+        "repeat_progress"
+    }
+
+    async fn after_model(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        response: &mut ModelResponse,
+    ) -> TaResult<()> {
+        let tool_calls = &response.message.tool_calls;
+        if tool_calls.is_empty() {
+            // A final answer (no tool calls) ends the loop; nothing to guard, and
+            // there is no batch to track for the call guard.
+            if let Ok(mut pending) = self.pending.lock() {
+                *pending = None;
+            }
+            return Ok(());
+        }
+
+        // Polling/wait tools are contractually re-invoked with identical args +
+        // narration each timeout while the work is still running, so an all-poll
+        // batch is legitimate progress, not a no-progress repeat.
+        let all_exempt = tool_calls.iter().all(|c| is_repeat_call_exempt(&c.name));
+
+        // Canonical `(tool, args)` batch signature (call guard) and the broader
+        // narration+call signature (output guard). Both fold each call in order
+        // with a `\u{1}` separator, matching the legacy signatures.
+        let mut call_sig = String::new();
+        for call in tool_calls {
+            call_sig.push('\u{1}');
+            call_sig.push_str(&call.name);
+            call_sig.push('\u{1}');
+            call_sig.push_str(&call.arguments.to_string());
+        }
+        let output_sig = format!(
+            "{}{}",
+            assistant_visible_text(&response.message).trim(),
+            call_sig
+        );
+
+        // Repeat-OUTPUT guard, checked BEFORE the (repeated) tools run so we don't
+        // burn another no-op iteration.
+        if all_exempt {
+            if let Ok(mut g) = self.output_guard.lock() {
+                g.reset();
+            }
+        } else {
+            let consecutive = self
+                .output_guard
+                .lock()
+                .map(|mut g| g.record(&output_sig))
+                .unwrap_or(0);
+            if consecutive >= REPEAT_OUTPUT_THRESHOLD {
+                tracing::warn!(
+                    consecutive,
+                    "[tinyagents::mw] repeat-output circuit breaker tripped — identical response+tool-call repeated; halting"
+                );
+                self.halt(format!(
+                    "Stopping: the last {consecutive} iterations produced the IDENTICAL response \
+                     and tool call with no change — the run is stuck repeating the same step \
+                     without making progress. Re-issuing it will not help. Summarise what (if \
+                     anything) was actually accomplished and report that the task could not \
+                     progress, or take a genuinely different approach.",
+                ));
+            }
+        }
+
+        // Stage the batch for the repeat-CALL guard, evaluated once every result
+        // is back (gated on success) in `after_tool`.
+        if let Ok(mut pending) = self.pending.lock() {
+            *pending = Some(PendingCallBatch {
+                call_sig,
+                remaining: tool_calls.len(),
+                all_ok: true,
+                exempt: all_exempt,
+            });
+        }
+        Ok(())
+    }
+
+    async fn after_tool(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        result: &mut TaToolResult,
+    ) -> TaResult<()> {
+        // Fold this result into the pending batch; only act once the batch is
+        // complete so the call guard sees whole-batch success.
+        let completed = {
+            let Ok(mut pending) = self.pending.lock() else {
+                return Ok(());
+            };
+            let Some(batch) = pending.as_mut() else {
+                return Ok(());
+            };
+            if result.error.is_some() {
+                batch.all_ok = false;
+            }
+            batch.remaining = batch.remaining.saturating_sub(1);
+            if batch.remaining == 0 {
+                pending.take()
+            } else {
+                None
+            }
+        };
+        let Some(batch) = completed else {
+            return Ok(());
+        };
+
+        // Repeat-CALL breaker for SUCCESSFUL no-op loops (#4088): the failure
+        // breaker owns repeated *failures* and resets on success, so an identical
+        // call that keeps SUCCEEDING slips past it. A failing batch (its domain)
+        // or an all-poll exemption resets the streak instead of recording.
+        if batch.exempt || !batch.all_ok {
+            if let Ok(mut g) = self.call_guard.lock() {
+                g.reset();
+            }
+            return Ok(());
+        }
+        let consecutive = self
+            .call_guard
+            .lock()
+            .map(|mut g| g.record(&batch.call_sig))
+            .unwrap_or(0);
+        if consecutive >= REPEAT_CALL_THRESHOLD {
+            tracing::warn!(
+                consecutive,
+                "[tinyagents::mw] repeat-call circuit breaker tripped — identical successful (tool,args) batch repeated; halting"
+            );
+            self.halt(format!(
+                "Stopping: the same tool call was issued {consecutive} times in a row with \
+                 identical arguments and no new information — the run is stuck repeating one \
+                 action without making progress. Re-issuing it will not help. Summarise what (if \
+                 anything) was actually accomplished and report that the task could not progress, \
+                 or take a genuinely different action (a different tool, different arguments, or \
+                 hand back).",
+            ));
         }
         Ok(())
     }

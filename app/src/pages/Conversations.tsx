@@ -1697,6 +1697,18 @@ const Conversations = ({
   const shouldRenderTimelineBeforeLatestAgentMessage =
     selectedThreadToolTimeline.length > 0 && !isSending && Boolean(latestVisibleAgentMessage);
 
+  // Live agent activity that must stay visible even before the thread's
+  // message history has loaded: an in-flight turn, recorded tool steps, a
+  // processing transcript, or streamed prose. Without this, switching to a
+  // thread mid-turn rendered a blank pane (the message list is gated on
+  // `hasVisibleMessages`) until `loadThreadMessages` resolved — tool calls and
+  // streaming output silently invisible despite landing in Redux.
+  const hasLiveAgentActivity =
+    isSending ||
+    selectedThreadToolTimeline.length > 0 ||
+    selectedThreadProcessing.length > 0 ||
+    Boolean(selectedStreamingAssistant);
+
   // Anchor the "Agentic task insights" panel right after the latest turn's user
   // message — processing happens *before* the answer, so it reads above the
   // result (for both the live streaming preview and the settled agent bubbles).
@@ -1815,7 +1827,12 @@ const Conversations = ({
   // centered composer; the moment the first message lands, hasVisibleMessages
   // flips true and this collapses back to the normal conversation layout.
   const isNewWindow =
-    !isSidebar && !isLoadingMessages && !messagesError && !hasVisibleMessages && !hasTaskBoard;
+    !isSidebar &&
+    !isLoadingMessages &&
+    !messagesError &&
+    !hasVisibleMessages &&
+    !hasTaskBoard &&
+    !hasLiveAgentActivity;
 
   // Track the floating composer footer's height so the message list can reserve
   // matching bottom padding. In the page variant the footer is absolutely
@@ -2140,7 +2157,7 @@ const Conversations = ({
               {t('common.reload')}
             </button>
           </div>
-        ) : hasVisibleMessages || hasTaskBoard ? (
+        ) : hasVisibleMessages || hasTaskBoard || hasLiveAgentActivity ? (
           <div
             data-testid="chat-message-list"
             className={`mx-auto w-full max-w-[48.75rem] space-y-3 px-5 pt-4 ${

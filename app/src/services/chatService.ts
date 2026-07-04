@@ -547,8 +547,16 @@ export interface ChatEventListeners {
 }
 
 export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
-  const socket = socketService.getSocket();
-  if (!socket) return () => {};
+  // Register through the socketService wrapper (not the raw socket instance)
+  // so chat listeners get the same lifecycle guarantees as every other
+  // subscription: queued while the socket is still connecting (the raw-socket
+  // path silently no-opped when `getSocket()` was null, dropping the whole
+  // chat event stream until the next re-subscribe) and re-attached when the
+  // service flushes pending listeners on (re)connect.
+  const socket = {
+    on: (event: string, cb: (...args: unknown[]) => void) => socketService.on(event, cb),
+    off: (event: string, cb: (...args: unknown[]) => void) => socketService.off(event, cb),
+  };
 
   const handlers: Array<[string, (...args: unknown[]) => void]> = [];
   // Canonical convention for web-channel events is snake_case.

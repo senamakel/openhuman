@@ -447,11 +447,12 @@ export function ToolTimelineBlock({
             normalizeToolBody(formatted.detail) ?? normalizeToolBody(entry.argsBuffer);
           const workerRef = parseWorkerThreadRef(formatted.detail ?? entry.detail);
           const subagent = entry.subagent;
+          const resultContent = normalizeToolBody(entry.result);
           // A subagent row should always render the expandable details so
           // its live activity is visible — even when there is no prompt
           // detail to show. Mirrors the rule that a non-subagent row only
-          // expands when it has detail content.
-          const expandable = detailContent != null || subagent != null;
+          // expands when it has detail content (or a result to show).
+          const expandable = detailContent != null || subagent != null || resultContent != null;
           const isLatestRunning = latestRunningEntryId != null && latestRunningEntryId === entry.id;
           const shouldAutoExpand = expandAllRows || isLatestRunning;
           const nameTone = agentNameTone(entry.status);
@@ -510,6 +511,16 @@ export function ToolTimelineBlock({
                     <pre
                       className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-content-secondary ${BODY_SURFACE}`}>
                       {detailContent}
+                    </pre>
+                  ) : null}
+                  {resultContent ? (
+                    // What the tool returned (size-capped upstream). Scrolls
+                    // inside its own box so a long result never floods the
+                    // timeline.
+                    <pre
+                      data-testid="tool-result-output"
+                      className={`mt-1 max-h-40 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-content-secondary ${BODY_SURFACE}`}>
+                      {resultContent}
                     </pre>
                   ) : null}
                   {subagent ? (

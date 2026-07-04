@@ -259,6 +259,14 @@ export interface ToolTimelineEntry {
    * persisted round-trip so a reloaded failed turn keeps its explanation.
    */
   failure?: ToolFailureExplanation;
+  /**
+   * The tool's actual (size-capped) result text, set on completion from the
+   * `tool_result` socket event's `output` and carried through the persisted
+   * turn-state round-trip. Mirrors {@link SubagentToolCallEntry.result} so the
+   * timeline can show what a main-agent tool returned. Absent while running
+   * and on rows from cores that predate output forwarding.
+   */
+  result?: string;
 }
 
 export interface StreamingAssistantState {
@@ -686,6 +694,9 @@ function subagentToolCallFromPersisted(call: PersistedSubagentToolCall): Subagen
     detail: call.detail,
     // Carry the persisted failure explanation across the round-trip (#4459).
     failure: parseToolFailure(call.failure),
+    // Carry the persisted (capped) result text so a rehydrated child row can
+    // still show what the tool returned.
+    result: call.output,
   };
 }
 
@@ -787,6 +798,8 @@ function toolTimelineFromPersisted(entry: PersistedToolTimelineEntry): ToolTimel
     // Carry a persisted failure explanation across the round-trip (#4254). The
     // shared parser tolerates both camelCase (persisted) and snake_case (wire).
     failure: parseToolFailure(entry.failure),
+    // Persisted (capped) tool result text, when the core recorded one.
+    result: entry.output,
   };
 }
 
@@ -1472,6 +1485,23 @@ const chatRuntimeSlice = createSlice({
     ) => {
       const { snapshot } = action.payload;
       const threadId = snapshot.threadId;
+
+      // A live socket driver is feeding this thread right now (the provider is
+      // mounted globally, so events keep dispatching even while the user is on
+      // another tab/route). The snapshot was written at the last flush boundary
+      // and is at best equal to — usually behind — the in-memory state, so
+      // applying it would wipe streamed prose, tool results, and any pending
+      // approval card mid-turn. Take only the task board (monotonic, cheap) and
+      // leave the volatile state to the live event stream. Rehydration is a
+      // fallback for when there is no live driver (cold boot, new window,
+      // interrupted turn), not an overwrite of one.
+      const liveLifecycle = state.inferenceTurnLifecycleByThread[threadId];
+      if (liveLifecycle === 'started' || liveLifecycle === 'streaming') {
+        if (snapshot.taskBoard) {
+          state.taskBoardByThread[threadId] = snapshot.taskBoard;
+        }
+        return;
+      }
 
       // `completed` is a settled turn, not an in-flight lifecycle — drop any
       // stale in-flight marker rather than store it (the in-flight enum only

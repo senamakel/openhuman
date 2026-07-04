@@ -35,9 +35,20 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      # PRs created with the default GITHUB_TOKEN do not trigger pull_request
+      # workflows (GitHub's recursion guard), which would leave the standing
+      # main→release PR without a Release CI run until someone touched it.
+      # Use the same GitHub App the release workflows push with.
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.XGITHUB_APP_ID }}
+          private-key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
+
       - name: Open or refresh the main→release PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail

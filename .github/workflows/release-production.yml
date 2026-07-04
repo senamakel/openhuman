@@ -31,10 +31,6 @@ permissions:
   actions: read
   contents: write
   packages: write
-env:
-  # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
-  GH_TOKEN: ${{ github.token }}
-
 concurrency:
   # Distinct group from release-staging.yml so production and staging cuts can
   # run independently.
@@ -241,9 +237,15 @@ jobs:
           RELEASE_SHA="$(git rev-parse HEAD)"
           git fetch origin main
           git checkout -B main origin/main
-          if git merge --no-ff "$RELEASE_SHA" -m "chore(release): merge release v${VERSION} back into main"; then
+          # Fast-forward when main hasn't moved since the cut — this leaves
+          # main == release, so prepare-release-pr sees ahead_by=0 and does
+          # NOT open a no-op main→release PR for the back-merge commit.
+          if git merge --ff-only "$RELEASE_SHA" 2>/dev/null; then
             git push origin HEAD:main
-            echo "[release-production] merged $RELEASE_SHA into main"
+            echo "[release-production] fast-forwarded main to $RELEASE_SHA"
+          elif git merge --no-ff "$RELEASE_SHA" -m "chore(release): merge release v${VERSION} back into main"; then
+            git push origin HEAD:main
+            echo "[release-production] merged $RELEASE_SHA into main (merge commit)"
           else
             echo "::warning::Automatic release→main back-merge hit conflicts. Merge branch 'release' into 'main' manually."
             exit 1
@@ -483,6 +485,9 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
+    env:
+      # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout build ref
         uses: actions/checkout@v5

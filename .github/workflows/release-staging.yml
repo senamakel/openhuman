@@ -29,10 +29,6 @@ permissions:
   # `v<version>-staging` tag push performed by `prepare-build` below.
   contents: write
   packages: read
-env:
-  # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
-  GH_TOKEN: ${{ github.token }}
-
 concurrency:
   group: release-staging
   cancel-in-progress: false

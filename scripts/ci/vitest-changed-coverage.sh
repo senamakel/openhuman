@@ -35,9 +35,15 @@ if [ "${FULL}" = "true" ]; then
   run_full "config/workflow-level change detected by paths-filter"
 fi
 
-# CHANGED_FILES is shell-quoted by paths-filter; eval reassembles the array.
+# CHANGED_FILES is the shell-quoted list from dorny/paths-filter
+# (list-files: shell). Filenames are PR-controlled, so never eval it —
+# xargs unquotes tokens as data without ever invoking a shell. If xargs
+# can't parse it (e.g. hostile quoting), we get an empty list and fall
+# back to the full suite.
 declare -a files=()
-eval "files=( ${CHANGED_FILES} )"
+while IFS= read -r f; do
+  [ -n "${f}" ] && files+=("${f}")
+done < <(printf '%s\n' "${CHANGED_FILES}" | xargs -n1 printf '%s\n' 2>/dev/null || true)
 log "received ${#files[@]} changed frontend file(s)"
 
 if [ "${#files[@]}" -eq 0 ]; then

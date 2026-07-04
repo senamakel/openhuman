@@ -21,10 +21,6 @@ permissions:
   pages: write
   id-token: write
   issues: write
-env:
-  # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
-  GH_TOKEN: ${{ github.token }}
-
 concurrency:
   group: release-packages-${{ github.event.release.tag_name }}
   cancel-in-progress: false
@@ -41,6 +37,9 @@ jobs:
     name: Build Linux arm64 CLI tarball
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
+    env:
+      # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout tag
         uses: actions/checkout@v5

@@ -411,6 +411,7 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
         output: String::new(),
         elapsed_ms: 12,
         iteration: 1,
+        failure: None,
     });
 
     let activity = m.snapshot().tool_timeline[0]

@@ -560,19 +560,20 @@ impl EventListener for OpenhumanEventBridge {
                     .ok()
                     .and_then(|mut m| m.remove(call_id.as_str()));
                 let success = outcome.as_ref().map(|(ok, _)| *ok).unwrap_or(true);
+                // Carry the classified failure onto whichever completion event
+                // this projects — main-agent OR sub-agent (#4459). Previously
+                // the sub-agent branch dropped it on the floor.
+                let failure = outcome.and_then(|(_, f)| f);
                 match &self.scope {
-                    None => {
-                        let failure = outcome.and_then(|(_, f)| f);
-                        self.send(AgentProgress::ToolCallCompleted {
-                            call_id: call_id.as_str().to_string(),
-                            tool_name: tool_name.clone(),
-                            success,
-                            output_chars: 0,
-                            elapsed_ms: 0,
-                            iteration,
-                            failure,
-                        })
-                    }
+                    None => self.send(AgentProgress::ToolCallCompleted {
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        success,
+                        output_chars: 0,
+                        elapsed_ms: 0,
+                        iteration,
+                        failure,
+                    }),
                     Some(s) => self.send(AgentProgress::SubagentToolCallCompleted {
                         agent_id: s.agent_id.clone(),
                         task_id: s.task_id.clone(),
@@ -583,6 +584,7 @@ impl EventListener for OpenhumanEventBridge {
                         output: String::new(),
                         elapsed_ms: 0,
                         iteration,
+                        failure,
                     }),
                 }
             }

@@ -3852,6 +3852,13 @@ const en: TranslationMap = {
   'conversations.toolFailure.timeout.cause': 'The action took too long and was stopped.',
   'conversations.toolFailure.timeout.next':
     'OpenHuman will try again, or you can retry it manually.',
+  'conversations.toolFailure.denied.cause': 'You declined this action.',
+  'conversations.toolFailure.denied.next':
+    'Nothing to do — it was not run. Ask again if you change your mind.',
+  'conversations.toolFailure.approvalExpired.cause':
+    'The approval request expired before anyone responded.',
+  'conversations.toolFailure.approvalExpired.next':
+    "Ask again to run it — OpenHuman won't retry it on its own.",
   'conversations.toolFailure.unknown.cause': 'Something went wrong with this action.',
   'conversations.toolFailure.unknown.next':
     'Try again; if it keeps failing, run diagnostics from Settings.',

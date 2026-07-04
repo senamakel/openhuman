@@ -288,6 +288,7 @@ fn subagent_lifecycle_nests_under_the_turn() {
                 output: "file contents".to_string(),
                 elapsed_ms: 40,
                 iteration: 1,
+                failure: None,
             },
             30,
         ),

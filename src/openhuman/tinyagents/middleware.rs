@@ -1305,24 +1305,30 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
     ) -> TaResult<()> {
         let success = result.error.is_none();
         // Classify the failure so the live `ToolCallCompleted` event and the
-        // persisted timeline can explain it in plain language. A hard
-        // policy/permission denial is its own class; otherwise heuristics over
-        // the error text (`timed_out` detected from the timeout branch's phrase).
+        // persisted timeline can explain it in plain language. The classifier
+        // owns all marker precedence now (policy-blocked / policy-denied / TTL
+        // expiry short-circuit ahead of the `timed out` sniff — #4459), so this
+        // just hands it the failure text.
+        //
+        // Sniff both `error` and `content`: the classifier historically read
+        // `error` while the marker/timeout sniffs read `content`, a latent
+        // asymmetry (#4459). Combine them so a marker/phrase is found wherever
+        // the tool layer put it.
         let failure = if success {
             None
         } else {
-            let text = result.error.as_deref().unwrap_or(result.content.as_str());
-            if result
-                .content
-                .contains(crate::openhuman::security::POLICY_BLOCKED_MARKER)
-            {
-                Some(crate::openhuman::tool_status::describe(
-                    crate::openhuman::tool_status::ToolFailureClass::BlockedByPolicy,
-                ))
+            let error = result.error.as_deref().unwrap_or("");
+            let combined: std::borrow::Cow<'_, str> = if error.is_empty() {
+                std::borrow::Cow::Borrowed(result.content.as_str())
+            } else if result.content.is_empty() || result.content == error {
+                std::borrow::Cow::Borrowed(error)
             } else {
-                let timed_out = result.content.contains("timed out");
-                Some(crate::openhuman::tool_status::classify(text, timed_out))
-            }
+                std::borrow::Cow::Owned(format!("{error}\n{}", result.content))
+            };
+            let timed_out = combined.contains("timed out");
+            Some(crate::openhuman::tool_status::classify(
+                &combined, timed_out,
+            ))
         };
         if let Ok(mut map) = self.failure_map.lock() {
             map.insert(result.call_id.clone(), (success, failure));

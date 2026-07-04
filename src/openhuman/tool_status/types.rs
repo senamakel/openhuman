@@ -56,6 +56,14 @@ pub enum ToolFailureClass {
     ModelConnection,
     /// The action ran past its deadline and was stopped.
     Timeout,
+    /// The user (or the approval gate on their behalf) refused this action at
+    /// the approval prompt. Non-retryable — re-running just re-prompts for an
+    /// effect the user already declined (#4459).
+    Denied,
+    /// The approval prompt expired (TTL) before anyone responded. Non-retryable:
+    /// nobody approved, so it must not read as an execution timeout that
+    /// auto-retries (#4459).
+    ApprovalExpired,
     /// Could not be classified into any of the above.
     Unknown,
 }
@@ -73,6 +81,11 @@ pub enum FailureCategory {
     /// Needs the user to act (grant permission, install an app, sign in) before
     /// the action can succeed.
     NeedsUserConfirmation,
+    /// The user declined the action, or the approval prompt expired before
+    /// anyone responded. Never retried automatically — auto-re-attempting a
+    /// refused external effect is exactly the bug this category prevents
+    /// (#4459).
+    UserDeclined,
 }
 
 /// A tool failure rendered for a non-technical user: what class it is, which
@@ -113,6 +126,9 @@ impl ToolFailureClass {
             | ToolFailureClass::Timeout
             | ToolFailureClass::Unknown => FailureCategory::Recoverable,
             ToolFailureClass::BlockedByPolicy => FailureCategory::BlockedByPolicy,
+            ToolFailureClass::Denied | ToolFailureClass::ApprovalExpired => {
+                FailureCategory::UserDeclined
+            }
             ToolFailureClass::MissingPermission
             | ToolFailureClass::MissingApp
             | ToolFailureClass::BadCredentials => FailureCategory::NeedsUserConfirmation,
@@ -129,6 +145,7 @@ mod tests {
         assert!(FailureCategory::Recoverable.is_recoverable());
         assert!(!FailureCategory::BlockedByPolicy.is_recoverable());
         assert!(!FailureCategory::NeedsUserConfirmation.is_recoverable());
+        assert!(!FailureCategory::UserDeclined.is_recoverable());
     }
 
     #[test]
@@ -146,6 +163,8 @@ mod tests {
         assert_eq!(MissingPermission.category(), NeedsUserConfirmation);
         assert_eq!(MissingApp.category(), NeedsUserConfirmation);
         assert_eq!(BadCredentials.category(), NeedsUserConfirmation);
+        assert_eq!(Denied.category(), UserDeclined);
+        assert_eq!(ApprovalExpired.category(), UserDeclined);
     }
 
     #[test]

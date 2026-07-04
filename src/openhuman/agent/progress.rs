@@ -190,6 +190,11 @@ pub enum AgentProgress {
         elapsed_ms: u64,
         /// 1-based child iteration index.
         iteration: u32,
+        /// Present when `success` is false: a user-facing classification of the
+        /// child tool failure, mirroring [`Self::ToolCallCompleted::failure`] so
+        /// a failed sub-agent row carries the same "why + what to do next" copy
+        /// instead of discarding the already-computed classification (#4459).
+        failure: Option<crate::openhuman::tool_status::ClassifiedFailure>,
     },
 
     /// A chunk of a sub-agent's visible assistant text arrived from the

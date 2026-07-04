@@ -427,6 +427,13 @@ export interface ChatSubagentToolResultEvent {
    * `subagent.elapsed_ms`.
    */
   output?: string;
+  /**
+   * Optional structured failure explanation for a FAILED child tool call
+   * (#4459), present only when `success` is false. Parsed via
+   * `parseToolFailure` and stored on the child row so the "why / next" copy
+   * survives live (previously it was dropped until a snapshot reload).
+   */
+  failure?: unknown;
   subagent?: SubagentProgressDetail;
 }
 

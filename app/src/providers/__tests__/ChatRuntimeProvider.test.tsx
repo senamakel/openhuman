@@ -1205,6 +1205,74 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       });
     });
 
+    it('stores the structured failure on a failed subagent tool call (#4459)', () => {
+      const listeners = renderProvider();
+      const threadId = 'tsa-fail';
+
+      act(() => {
+        listeners.onSubagentSpawned?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          tool_name: 'researcher',
+          skill_id: 'sub-1',
+          message: 'spawned',
+          round: 1,
+          subagent: { mode: 'typed', dedicated_thread: false, prompt_chars: 42 },
+        });
+        listeners.onSubagentToolCall?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          round: 1,
+          tool_name: 'shell',
+          skill_id: 'sub-1',
+          tool_call_id: 'cc-1',
+          subagent: { agent_id: 'researcher', task_id: 'sub-1', child_iteration: 1 },
+        });
+      });
+
+      act(() => {
+        listeners.onSubagentToolResult?.({
+          thread_id: threadId,
+          request_id: 'r1',
+          round: 1,
+          tool_name: 'shell',
+          skill_id: 'sub-1',
+          tool_call_id: 'cc-1',
+          success: false,
+          failure: {
+            class: 'denied',
+            category: 'user_declined',
+            cause_plain: 'You declined this action.',
+            next_action: 'Ask again if you change your mind.',
+            recoverable: false,
+          },
+          subagent: { agent_id: 'researcher', task_id: 'sub-1', child_iteration: 1, elapsed_ms: 5 },
+        });
+      });
+
+      const timeline = store.getState().chatRuntime.toolTimelineByThread[threadId] ?? [];
+      const call = timeline[0]?.subagent?.toolCalls[0];
+      expect(call).toMatchObject({ callId: 'cc-1', status: 'error' });
+      // The structured why/next survives live rather than being dropped until a
+      // snapshot reload (#4459).
+      expect(call?.failure).toMatchObject({
+        class: 'denied',
+        category: 'user_declined',
+        recoverable: false,
+        causePlain: 'You declined this action.',
+        nextAction: 'Ask again if you change your mind.',
+      });
+      // The rendered live path uses `subagent.transcript`, so the failure must
+      // also land on the transcript tool item, not just the fallback list.
+      const transcriptTool = timeline[0]?.subagent?.transcript?.find(
+        i => i.kind === 'tool' && i.callId === 'cc-1'
+      );
+      expect(transcriptTool).toMatchObject({
+        status: 'error',
+        failure: { class: 'denied', category: 'user_declined' },
+      });
+    });
+
     it('ignores subagent_tool_call events that arrive before subagent_spawned', () => {
       const listeners = renderProvider();
       const threadId = 'tsa-orphan';

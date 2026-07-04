@@ -899,6 +899,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           elapsedMs: event.subagent?.elapsed_ms ?? updatedCalls[callIdx].elapsedMs,
           outputChars: event.subagent?.output_chars ?? updatedCalls[callIdx].outputChars,
           result: event.output ?? updatedCalls[callIdx].result,
+          // Carry the structured failure so the child row keeps its "why / next"
+          // copy live instead of losing it until a snapshot reload (#4459). A
+          // successful result clears any stale failure on the row.
+          failure: event.success ? undefined : parseToolFailure(event.failure),
         };
         const next = [...existing];
         next[idx] = { ...entry, subagent: { ...entry.subagent, toolCalls: updatedCalls } };
@@ -912,6 +916,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             elapsedMs: event.subagent?.elapsed_ms,
             outputChars: event.subagent?.output_chars,
             result: event.output,
+            failure: event.success ? undefined : parseToolFailure(event.failure),
           })
         );
       },

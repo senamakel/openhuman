@@ -89,6 +89,11 @@ pub(super) fn build_route_models(
     temperature: f64,
     skip_model: &str,
     max_output_tokens: Option<u32>,
+    // Shared provider-usage carry (#4467): fallback route models must drain the
+    // SAME carry the bridge reads, or a successful fallback call never feeds its
+    // backend-charged USD / context-window / cache-creation-reasoning breakdown
+    // to the cost surfaces (it would fall back to a catalogue estimate).
+    usage_carry: &super::observability::ProviderUsageCarry,
 ) -> Vec<RouteModel> {
     let mut out = Vec::new();
     for &tier in WORKLOAD_ROUTE_TIERS {
@@ -108,7 +113,8 @@ pub(super) fn build_route_models(
         }
         let mut model = ProviderModel::new(provider.clone(), tier, temperature)
             .with_vision(vision)
-            .with_reasoning(reasoning);
+            .with_reasoning(reasoning)
+            .with_usage_carry(usage_carry.clone());
         if let Some(cap) = max_output_tokens {
             model = model.with_max_tokens(cap);
         }

@@ -199,6 +199,22 @@ pub(crate) struct OpenhumanEventBridge {
     /// event carries a real `elapsed_ms` (the crate event has no timing).
     tool_started_at: Mutex<std::collections::HashMap<String, std::time::Instant>>,
     state: Mutex<BridgeState>,
+    /// Ordered overflow buffer for progress events that hit backpressure
+    /// (channel `Full`). Once ANY event spills here, `draining` stays set and
+    /// every subsequent event queues here too — a single spawned forwarder
+    /// drains them to the channel in FIFO order — so a later fast-path
+    /// `try_send` can never jump ahead of an earlier spilled event and scramble
+    /// start/completed ordering (which would leave a tool row stuck `running`
+    /// when a `ToolCallCompleted` overtakes its `ToolCallStarted`) (#4466).
+    overflow: Arc<Mutex<OverflowState>>,
+}
+
+/// Backpressure overflow state guarded by a single mutex so the "are we
+/// draining?" decision and the queue mutation stay atomic together.
+#[derive(Default)]
+struct OverflowState {
+    queue: std::collections::VecDeque<AgentProgress>,
+    draining: bool,
 }
 
 impl OpenhumanEventBridge {
@@ -249,6 +265,7 @@ impl OpenhumanEventBridge {
             resolved_calls: Mutex::new(std::collections::HashMap::new()),
             tool_started_at: Mutex::new(std::collections::HashMap::new()),
             state: Mutex::new(BridgeState::default()),
+            overflow: Arc::default(),
         })
     }
 
@@ -295,17 +312,51 @@ impl OpenhumanEventBridge {
         let Some(tx) = &self.on_progress else {
             return;
         };
+        // Hold the overflow lock across the ordering decision so "are we
+        // draining?" and the queue mutation are atomic (try_send is
+        // non-blocking, so holding a std mutex across it is fine).
+        let mut ov = self.overflow.lock().unwrap_or_else(|p| p.into_inner());
+        if ov.draining {
+            // Already spilling: queue in order; the single forwarder delivers it.
+            ov.queue.push_back(progress);
+            return;
+        }
         match tx.try_send(progress) {
             Ok(()) => {}
             Err(TrySendError::Closed(_)) => {}
             Err(TrySendError::Full(progress)) => {
-                // Backpressure, not capacity loss: hand the delta to an awaited
-                // `send()` on a spawned task rather than dropping it. Guard on a
-                // live runtime so a non-async construction path can't panic.
+                // Backpressure, not capacity loss. Enter ordered-drain mode:
+                // queue this event and spawn ONE forwarder that awaits `send()`
+                // per event in FIFO order. `draining` stays set (so every later
+                // event also queues here) until the buffer fully drains — that is
+                // what stops a later `try_send` from overtaking a spilled earlier
+                // event and scrambling start/completed ordering.
                 if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                    ov.queue.push_back(progress);
+                    ov.draining = true;
+                    let overflow = Arc::clone(&self.overflow);
                     let tx = tx.clone();
+                    drop(ov);
                     handle.spawn(async move {
-                        let _ = tx.send(progress).await;
+                        loop {
+                            let next = {
+                                let mut ov = overflow.lock().unwrap_or_else(|p| p.into_inner());
+                                match ov.queue.pop_front() {
+                                    Some(item) => item,
+                                    None => {
+                                        ov.draining = false;
+                                        break;
+                                    }
+                                }
+                            };
+                            if tx.send(next).await.is_err() {
+                                // Receiver gone: stop draining, discard the rest.
+                                let mut ov = overflow.lock().unwrap_or_else(|p| p.into_inner());
+                                ov.queue.clear();
+                                ov.draining = false;
+                                break;
+                            }
+                        }
                     });
                 } else {
                     tracing::debug!(

@@ -100,6 +100,9 @@ export type PersistedSubagentTranscriptItem =
       outputChars?: number;
       displayName?: string;
       detail?: string;
+      /** Plain-language failure explanation for a FAILED child tool call
+       *  (#4459); mirrors {@link PersistedSubagentToolCall.failure}. */
+      failure?: PersistedToolFailure;
     };
 
 export interface PersistedSubagentActivity {

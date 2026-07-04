@@ -916,6 +916,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             elapsedMs: event.subagent?.elapsed_ms,
             outputChars: event.subagent?.output_chars,
             result: event.output,
+            failure: event.success ? undefined : parseToolFailure(event.failure),
           })
         );
       },

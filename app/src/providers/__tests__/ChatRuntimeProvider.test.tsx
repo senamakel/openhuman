@@ -1262,6 +1262,15 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         causePlain: 'You declined this action.',
         nextAction: 'Ask again if you change your mind.',
       });
+      // The rendered live path uses `subagent.transcript`, so the failure must
+      // also land on the transcript tool item, not just the fallback list.
+      const transcriptTool = timeline[0]?.subagent?.transcript?.find(
+        i => i.kind === 'tool' && i.callId === 'cc-1'
+      );
+      expect(transcriptTool).toMatchObject({
+        status: 'error',
+        failure: { class: 'denied', category: 'user_declined' },
+      });
     });
 
     it('ignores subagent_tool_call events that arrive before subagent_spawned', () => {

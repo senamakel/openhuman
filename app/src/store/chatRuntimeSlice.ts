@@ -151,6 +151,10 @@ export type SubagentTranscriptItem =
       displayName?: string;
       /** Server-computed contextual detail (path / recipient / query). */
       detail?: string;
+      /** Plain-language failure explanation for a FAILED child tool call
+       *  (#4459) — kept on the transcript item so the rendered live path (not
+       *  just the fallback `toolCalls` list) shows the why/next copy. */
+      failure?: ToolFailureExplanation;
     };
 
 /** One child tool call performed by a running sub-agent. */
@@ -730,6 +734,7 @@ function subagentTranscriptItemFromPersisted(
       outputChars: item.outputChars,
       displayName: item.displayName,
       detail: item.detail,
+      failure: item.failure,
     };
   }
   return { kind: item.kind, iteration: item.iteration, text: item.text };
@@ -1109,9 +1114,11 @@ const chatRuntimeSlice = createSlice({
         elapsedMs?: number;
         outputChars?: number;
         result?: string;
+        failure?: ToolFailureExplanation;
       }>
     ) => {
-      const { threadId, rowId, callId, success, elapsedMs, outputChars, result } = action.payload;
+      const { threadId, rowId, callId, success, elapsedMs, outputChars, result, failure } =
+        action.payload;
       const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
       const item = entry?.subagent?.transcript?.find(i => i.kind === 'tool' && i.callId === callId);
       if (!item || item.kind !== 'tool') return;
@@ -1119,6 +1126,9 @@ const chatRuntimeSlice = createSlice({
       if (elapsedMs != null) item.elapsedMs = elapsedMs;
       if (outputChars != null) item.outputChars = outputChars;
       if (result != null) item.result = result;
+      // Carry the structured why/next onto the rendered transcript item; a
+      // successful result clears any stale failure (#4459).
+      item.failure = success ? undefined : failure;
     },
     setTaskBoardForThread: (
       state,

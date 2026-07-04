@@ -363,12 +363,32 @@ Dimensions the suite (and this audit) currently have **zero** coverage of:
 - [x] Resolve the Release CI Gate Playwright `continue-on-error` bypass (§5bis item 1, #3615):
   `playwright-e2e` excluded from the gate's `needs`/results with an explanatory comment.
 
-**Phase 1 — P0 coverage (1–2 weeks)**
-- Security gate-matrix suite (command_checks/path_checks). 
-- Encryption core round-trip + tamper suite; RPC-integrated variant.
-- `delete_source_rpc` cascade suite.
-- Event-bus panic isolation; webhook flood behavior (or file the product gap).
-- `stop_core_process` debug command + crash-recovery E2E; RPC auth-failure E2E.
+**Phase 1 — P0 coverage** — ⏳ partial (PR: `test/phase1-p0-coverage`). Each item was
+**re-verified against current source first** (the §4 backlog was never skeptic-verified); three
+of the five "ZERO tests" claims turned out **already covered**, so only the genuine gaps were filled.
+- [x] **Encryption core round-trip + tamper suite** — GENUINE GAP (verified 0 prior tests in
+  `encryption/core.rs`). Added 11 tests: bytes/string round-trip, KDF determinism (behavioural —
+  key_bytes is private), wrong-password / different-salt rejection, tampered-ciphertext and
+  tampered-nonce GCM auth failure, fresh-random-nonce-per-call, salt length+randomness,
+  malformed-JSON and empty-plaintext edge cases.
+- [x] **Event-bus panic isolation** — GENUINE GAP (verified: `catch_unwind` in `bus.rs` had no
+  test; only `publish_without_subscribers`). Added a two-subscriber test: one handler panics on its
+  first event then recovers; asserts the panicked handler's own loop survives AND a peer keeps
+  receiving every event.
+- [~] **Security gate-matrix (command_checks/path_checks)** — ALREADY COVERED. `policy_tests.rs`
+  comprehensively tests `classify_command` (unknown⇒Write, redirect-lifts, highest-segment-wins,
+  all classes), `gate_decision` (all tiers × classes + Install), `is_always_forbidden`, and
+  `is_workspace_internal_path`. Plan's "ZERO tests" was inaccurate; no suite added (would duplicate).
+- [~] **`delete_source_rpc` cascade** — ALREADY COVERED. `memory_store/chunks/store_tests.rs` has
+  `delete_source_rpc_purges_document_source_fully`, `_unknown_id_is_idempotent`,
+  `_rejects_empty_source_id`, `_cleans_legacy_partial_delete`, plus the cascade (shared-tree
+  preserved while referenced, orphan cascade, escape-path/symlink rejection, per-owner scoping).
+- [~] **Webhook flood** — PRODUCT GAP (verified: no rate-limit/backpressure/throttle anywhere in
+  `webhooks/router.rs`; it is registration/routing/logging only). Filed as a product gap, not a test.
+- [ ] **core-process crash/recovery E2E** and **RPC bearer-auth-failure E2E** — deferred: both need
+  the Tauri crate (blocked locally by missing system `glib-2.0`) and/or the WDIO desktop harness.
+  `tests/json_rpc_e2e.rs` already covers RPC bearer auth/401s at the transport layer; the remaining
+  gap is the frontend `core_rpc_relay` E2E. To be done in the CI-capable environment.
 
 **Phase 2 — deletions & rewrites (parallel with Phase 1, low risk)** — ✅ landed (PR: `test/phase2-drops-rewrites`)
 - [x] §2.1 deletions applied (⚠️ items re-verified against source before deleting):

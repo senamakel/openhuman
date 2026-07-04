@@ -314,4 +314,21 @@ mod tests {
         let payload = k.encrypt(b"").expect("encrypt empty");
         assert_eq!(k.decrypt(&payload).expect("decrypt empty"), b"");
     }
+
+    proptest::proptest! {
+        // Round-trip must hold for arbitrary plaintext and any printable
+        // password (plan.md §6.3). Argon2id is deliberately expensive, so the
+        // case count is capped to keep the property fast.
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(24))]
+        #[test]
+        fn encrypt_decrypt_round_trips_for_arbitrary_input(
+            plaintext in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..256),
+            password in "[ -~]{1,48}",
+        ) {
+            let salt = EncryptionKey::generate_salt();
+            let k = EncryptionKey::derive(&password, &salt).expect("derive");
+            let payload = k.encrypt(&plaintext).expect("encrypt");
+            proptest::prelude::prop_assert_eq!(k.decrypt(&payload).expect("decrypt"), plaintext);
+        }
+    }
 }

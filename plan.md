@@ -223,6 +223,72 @@ already exists. `httpFaultRules` gives generic per-route status/body/latency inj
 
 ---
 
+## 5bis. Re-check under the two-lane CI (2026-07-03, after #4486)
+
+CI moved to a two-branch model: PRs → `main` run a fast lane (`pr-ci.yml`: quality checks +
+unit tests **only for changed files** — `vitest related` / domain-scoped `cargo llvm-cov`), and a
+standing main→release PR (auto-refreshed by `prepare-release-pr.yml` on every push to main) runs
+the full lane (`release-ci.yml`: full unit suites, Rust mock-backend E2E, Playwright, desktop E2E
+on 3 OSes, gated by "Release CI Gate"). Re-audit of every CI-related finding:
+
+### Improved by the change
+
+- **Full-suite cadence is now structural**: because the standing release PR synchronizes on every
+  main push, the complete unit + Rust E2E + desktop matrix runs against every mainline state —
+  cross-domain breakage can no longer reach a *release* unseen. (It can still land on `main`
+  unseen; see below.)
+- Legacy `e2e.yml` / `e2e-playwright.yml` / `test.yml` are now `workflow_dispatch`-only — the
+  fan-out lives behind the release gate instead of ad-hoc triggers.
+
+### Findings from §5 that are STILL open (re-verified by grep on the new workflows)
+
+| Plan item | Status |
+|---|---|
+| Orphaned harness self-tests (`scripts/mock-api/socket.{auth,transport}.test.mjs`, most of `scripts/__tests__/`, Pester `test:install-ps1`) | **Still orphaned.** No workflow references them in either lane (`pnpm docs:test` remains the only `scripts/__tests__` entry point; no `pwsh` anywhere). |
+| Coverage-gate scope hole for `scripts/**` | **Still open, and slightly worse.** The new `pr-ci.yml` path filters still exclude `scripts/mock-api/**` and `scripts/*.mjs` (only `ci-cancel-aware.sh`, `test-rust-e2e.sh`, `test-rust-with-mock.sh`, `scripts/ci/*.sh` appear). A mock-backend rewrite now triggers **zero tests of any kind on the PR lane** — the code it can break (Rust E2E, Playwright, desktop E2E) only runs at the release PR. |
+| Per-spec mock `/__admin/reset` WDIO hook | **Not landed** (`wdio.conf.ts` unchanged). Matters more now: the full WDIO matrix is the release gate, so its order-dependent flakes directly block releases. |
+| Test-file→CI orphan check | **Not implemented.** |
+| `check-domain-e2e-coverage.mjs` | Still not wired into any workflow (`check-coverage-matrix.mjs` runs in `pr-quality.yml`). |
+
+### §4/§A missing-test items: unchanged
+
+The restructure moved *where* suites run; it added no tests. Re-verified the P0s are still
+untested: `command_checks.rs`, `path_checks.rs`, `encryption/core.rs` have zero `#[test]`s and
+`delete_source_rpc` has none. Everything in §4 and Appendix A.3 stands.
+
+### NEW gaps introduced by the two-lane model
+
+1. **Playwright is decorative even at the release gate.** `playwright-e2e` has
+   `continue-on-error: true` (TODO #3615), and a job with `continue-on-error` reports `success`
+   to `needs`, so "Release CI Gate" can never fail on it. The whole web-E2E lane is currently a
+   can-never-fail check — the same anti-pattern as the gmail-flow specs, one level up. Either fix
+   the flaky specs and drop the flag, or exclude the job from the gate's `needs` and say so.
+2. **Cross-domain regressions land on `main` undetected.** The fast lane's own script comments
+   state it: coverage/tests scoped to the changed domain only — a change in domain A that breaks
+   domain B's tests, or breaks `tests/*.rs` integration behavior, merges green and only fails on
+   the release PR, where failures from many merged PRs arrive **batched** and need bisection.
+   Mitigations: treat a red release PR as build-cop priority with a revert-first policy; and/or a
+   scheduled full unit run on `main` (cheaper than per-PR, catches breakage within hours with
+   per-commit granularity via `git bisect` against a known-good tag).
+3. **Rust integration tests (`tests/*.rs`) never run on the PR lane for `src/**` changes** —
+   `rust-coverage-changed.sh` maps `src/<a>/<b>` to unit-test filters and only runs a `--test`
+   target when the *test file itself* changed. An RPC-behavior regression in a domain with thin
+   unit tests but good E2E coverage sails through the fast lane. Consider mapping changed domains
+   to their obvious integration targets too (e.g. `src/core/**` → `--test json_rpc_e2e`).
+4. **`vitest related` is import-graph-based**: tests coupled to a changed file through non-import
+   seams (mock fixtures, runtime registration, `?raw` prompt assets) won't be selected. The
+   0%-lcov backstop protects *changed lines lacking any test*, not *existing tests that would now
+   fail*. Low frequency, but worth knowing when a release-PR failure looks "impossible".
+
+### Phase 0 (updated)
+
+Unchanged items: wire orphaned tests, add `scripts/**` to PR-lane filters (now also: make
+`scripts/mock-api/**` changes at least trigger the scripts self-test job), WDIO reset hook,
+orphan-check, controller-domain check. **New:** resolve the Playwright `continue-on-error` gate
+bypass (#3615) and adopt a red-release-PR policy (build-cop + revert-first).
+
+---
+
 ## 6. Strategy: how to get a lot of functional tests cheaply
 
 The audit shows the marginal value is in **behavioral/functional tests over shared harnesses**,

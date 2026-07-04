@@ -180,6 +180,20 @@ pub enum DomainEvent {
         thread_id: String,
         cancelled_request_id: String,
     },
+    /// One or more queued steer/collect messages were delivered into a running
+    /// turn's steering handle (the harness applies them at the next iteration
+    /// checkpoint). Restores the delivery visibility the legacy
+    /// `RunQueueMessageDelivered` event provided before the TinyAgents migration
+    /// (issue #4456). `mode` is `"steer"` or `"collect"`.
+    RunQueueMessageDelivered {
+        thread_id: String,
+        mode: String,
+        delivered: usize,
+    },
+    /// Residual steer messages that the turn ended or was cancelled before
+    /// applying were drained back into the session run queue so they become the
+    /// next turn's input instead of silently vanishing (issue #4456).
+    RunQueueSteerRequeued { thread_id: String, requeued: usize },
 
     // ── Monitor ───────────────────────────────────────────────────────
     /// A background monitor changed lifecycle state.
@@ -1263,7 +1277,9 @@ impl DomainEvent {
             | Self::OrchestrationSessionMessage { .. }
             | Self::RunQueueMessageQueued { .. }
             | Self::RunQueueFollowupDispatched { .. }
-            | Self::RunQueueInterrupted { .. } => "agent",
+            | Self::RunQueueInterrupted { .. }
+            | Self::RunQueueMessageDelivered { .. }
+            | Self::RunQueueSteerRequeued { .. } => "agent",
 
             Self::MonitorStatusChanged { .. } | Self::MonitorLine { .. } => "monitor",
 
@@ -1427,6 +1443,8 @@ impl DomainEvent {
             Self::RunQueueMessageQueued { .. } => "RunQueueMessageQueued",
             Self::RunQueueFollowupDispatched { .. } => "RunQueueFollowupDispatched",
             Self::RunQueueInterrupted { .. } => "RunQueueInterrupted",
+            Self::RunQueueMessageDelivered { .. } => "RunQueueMessageDelivered",
+            Self::RunQueueSteerRequeued { .. } => "RunQueueSteerRequeued",
             Self::MonitorStatusChanged { .. } => "MonitorStatusChanged",
             Self::MonitorLine { .. } => "MonitorLine",
             Self::MemoryStored { .. } => "MemoryStored",
@@ -1573,7 +1591,9 @@ impl DomainEvent {
             Self::WorkspaceViolation { path } => Some(path.as_str()),
             Self::RunQueueMessageQueued { thread_id, .. }
             | Self::RunQueueFollowupDispatched { thread_id, .. }
-            | Self::RunQueueInterrupted { thread_id, .. } => Some(thread_id.as_str()),
+            | Self::RunQueueInterrupted { thread_id, .. }
+            | Self::RunQueueMessageDelivered { thread_id, .. }
+            | Self::RunQueueSteerRequeued { thread_id, .. } => Some(thread_id.as_str()),
             Self::MonitorStatusChanged { thread_id, .. } | Self::MonitorLine { thread_id, .. } => {
                 thread_id.as_deref()
             }

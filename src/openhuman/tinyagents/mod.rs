@@ -33,6 +33,7 @@ pub(crate) mod replay;
 pub(crate) mod retriever;
 mod routes;
 mod run_cancellation_context;
+mod steering_forwarder;
 pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;
 mod summarize;
@@ -45,14 +46,13 @@ use anyhow::Result;
 use tinyagents::harness::cache::InMemoryResponseCache;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
-use tinyagents::harness::message::Message as TaMessage;
 use tinyagents::harness::middleware::{
     BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware, MessageTrimMiddleware,
     PromptCacheGuardMiddleware, ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
-use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
+use tinyagents::harness::steering::SteeringHandle;
 use tinyagents::harness::store::StoreRegistry;
 use tinyagents::harness::summarization::TrimStrategy;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
@@ -100,34 +100,6 @@ pub(crate) struct ToolPolicyEnforcement {
     pub session_id: String,
     pub channel: String,
     pub agent_definition_id: String,
-}
-
-/// Drain the run queue's pending steer messages and forward them to the
-/// tinyagents [`SteeringHandle`] as injected user turns (the harness applies
-/// them to the working transcript at the next iteration checkpoint). This is the
-/// bridge behind the `steer_subagent` / mid-flight-steering feature.
-async fn forward_steers(queue: &RunQueue, handle: &SteeringHandle) {
-    for msg in queue.drain_steers().await {
-        handle.send(SteeringCommand::InjectMessage(TaMessage::user(format!(
-            "[User steering message]: {}",
-            msg.text
-        ))));
-    }
-}
-
-/// Forward any queued **collect** messages (orchestrator/monitor lines enqueued
-/// via `QueueMode::Collect`) into the run as injected user turns so they reach the
-/// next LLM call as additional context. The in-house loop drained these each
-/// iteration (`drain_collects`); the tinyagents rewrite wired only `forward_steers`
-/// (issue #4249), so monitor lines never reached the model. Mirrors the legacy
-/// `[Additional context from user]:` framing the model was taught to read.
-async fn forward_collects(queue: &RunQueue, handle: &SteeringHandle) {
-    for msg in queue.drain_collects().await {
-        handle.send(SteeringCommand::InjectMessage(TaMessage::user(format!(
-            "[Additional context from user]: {}",
-            msg.text
-        ))));
-    }
 }
 
 /// Build the harness [`RunPolicy`] for an openhuman turn.
@@ -673,33 +645,62 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
 
     // Steering: attach the shared handle (when present), drain any already-queued
     // steer messages into it (so a pre-run steer lands before the first model
-    // call), and forward mid-flight steers via a poller aborted when the run
-    // returns. The same handle carries the early-exit `Pause`.
-    let mut registered_steering_task_id = None;
-    let steering_forwarder = if let Some(handle) = handle {
-        if let Some(scope) = &subagent_scope {
+    // call), and forward mid-flight steers via a poll loop. The same handle
+    // carries the early-exit `Pause`.
+    //
+    // Best-effort thread label for the delivery/requeue observability events and
+    // the metadata on any requeued steer: a sub-agent uses its task id; the
+    // interactive/channel parent turn reads the task-local turn origin.
+    let steer_thread_label = subagent_scope
+        .as_ref()
+        .map(|s| s.task_id.clone())
+        .or_else(|| match crate::openhuman::agent::turn_origin::current() {
+            Some(crate::openhuman::agent::turn_origin::AgentTurnOrigin::WebChat {
+                thread_id,
+                ..
+            }) => Some(thread_id),
+            Some(crate::openhuman::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+                reply_target,
+                ..
+            }) => Some(reply_target),
+            _ => None,
+        })
+        .unwrap_or_default();
+
+    // The forwarder is wrapped in an abort-on-drop RAII guard (issue #4456): its
+    // `Drop` aborts the poll task, deregisters the sub-agent steering handle, and
+    // drains residual (delivered-but-unapplied) steers back into the session run
+    // queue. Because the guard is held across the drive future, that cleanup runs
+    // identically on normal return, error, AND drop-cancellation — the previous
+    // manual `forwarder.abort()` after the drive future only ran on normal
+    // return, so a cancelled turn (web interrupt / sub-agent abort, both
+    // drop-based) leaked a forwarder task that looped forever and raced the next
+    // turn for the shared run queue.
+    let steering_forwarder_guard = if let Some(handle) = handle {
+        let registry_task_id = if let Some(scope) = &subagent_scope {
             let task_id = orchestration::TaskId::new(scope.task_id.clone());
             orchestration::shared_steering_registry().register(task_id.clone(), handle.clone());
             tracing::debug!(
                 task_id = scope.task_id.as_str(),
                 "[tinyagents] registered subagent steering handle"
             );
-            registered_steering_task_id = Some(task_id);
-        }
+            Some(task_id)
+        } else {
+            None
+        };
+        // Pre-run drain so a steer/collect queued before the turn started lands
+        // ahead of the first model call.
         if let Some(queue) = run_queue.clone() {
-            forward_steers(&queue, &handle).await;
-            forward_collects(&queue, &handle).await;
+            steering_forwarder::forward_steers(&queue, &handle, &steer_thread_label).await;
+            steering_forwarder::forward_collects(&queue, &handle, &steer_thread_label).await;
         }
         ctx = ctx.with_steering(handle.clone());
-        run_queue.map(|queue| {
-            tokio::spawn(async move {
-                loop {
-                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-                    forward_steers(&queue, &handle).await;
-                    forward_collects(&queue, &handle).await;
-                }
-            })
-        })
+        Some(steering_forwarder::SteeringForwarderGuard::new(
+            handle,
+            run_queue,
+            registry_task_id,
+            steer_thread_label.clone(),
+        ))
     } else {
         None
     };
@@ -717,16 +718,12 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         }
     })
     .await;
-    if let Some(forwarder) = steering_forwarder {
-        forwarder.abort();
-    }
-    if let Some(task_id) = registered_steering_task_id {
-        orchestration::shared_steering_registry().deregister(&task_id);
-        tracing::debug!(
-            task_id = task_id.as_str(),
-            "[tinyagents] deregistered subagent steering handle"
-        );
-    }
+    // Drive future returned: run cleanup now (abort poll task + deregister +
+    // requeue residual steers) rather than deferring to end-of-scope so the poll
+    // loop cannot deliver into the no-longer-drained handle during post-run
+    // journal/mapping work. On a *cancelled* turn this line is never reached; the
+    // guard's `Drop` fires as the turn future unwinds, giving identical cleanup.
+    drop(steering_forwarder_guard);
     let run = match run_result {
         Ok(run) => run,
         Err(e) => {

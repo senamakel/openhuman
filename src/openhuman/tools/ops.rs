@@ -167,6 +167,17 @@ pub fn all_tools_with_runtime(
         // `agent::harness::subagent_runner` for the dispatch path.
         Box::new(SpawnSubagentTool::new()),
         Box::new(SpawnAsyncSubagentTool::new()),
+        // Interactive clarification early-exit. Sub-agents pause on this tool
+        // (checkpoint → `AwaitingUser`, see `subagent_runner::ops::graph`) and
+        // the orchestrator resumes them via `continue_subagent` (#4291).
+        // Several agent scopes (orchestrator, crypto, markets, scheduler,
+        // mcp_setup, desktop control) name it, so it must exist in the base
+        // registry or none of them can actually ask the user anything.
+        Box::new(AskClarificationTool::new()),
+        // Read-only project overview (git status, recent commits, top-level
+        // tree) rooted at the agent action dir. Named by the orchestrator and
+        // planner scopes.
+        Box::new(WorkspaceStateTool::new(action_dir.to_path_buf())),
         // "Plan mode as a subagent": runs the read-only `context_scout`
         // inline and returns a bounded context bundle + recommended next
         // tool calls. Visible only to agents that allowlist it

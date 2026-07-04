@@ -77,6 +77,17 @@ pub fn classify_memory_op(tool_name: &str, arguments: &serde_json::Value) -> Mem
         // Durable mutations: create an entry, delete an entry, or ingest a
         // document into the memory tree (the split-out ingest tool).
         "memory_store" | "memory_forget" | "memory_tree_ingest_document" => MemoryOp::Write,
+        // `remember_preference` / `save_preference` (#4458): these DO persist via
+        // `Memory::store`, but into dedicated preference namespaces
+        // (`pinned_preferences` / `user_pref_{general,situational}`) that are
+        // surfaced by direct system-prompt injection or per-query recall — they
+        // bypass the inference/stability pipeline and are NOT part of the
+        // `MEMORY.md` curated wiki the archivist reconciles. So they are neither
+        // an index write that needs a dedupe read nor one that must be closed by
+        // `update_memory_md`; treating them as `Write` would resurrect the very
+        // unsatisfiable "call update_memory_md" nag loop this issue removes.
+        // Classified `Other` deliberately (explicit arm, not fall-through).
+        "remember_preference" | "save_preference" => MemoryOp::Other,
         // Consolidated memory_tree tool: `ingest_document` writes; every other
         // mode is a read-only retrieval.
         "memory_tree" => match arg_str("mode") {

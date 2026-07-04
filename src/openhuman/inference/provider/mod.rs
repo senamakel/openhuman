@@ -48,6 +48,6 @@ pub use error_code::{
 pub use factory::{create_chat_provider, provider_for_role, BYOK_INCOMPLETE_SENTINEL};
 pub use ops::*;
 pub use resolved_route::{
-    current_resolved_provider_route, record_resolved_provider_route,
-    with_resolved_provider_route_scope, ResolvedProviderRoute,
+    current_resolved_provider_route, current_route_slot, record_resolved_provider_route,
+    with_resolved_provider_route_scope, with_route_slot, ResolvedProviderRoute, RouteSlot,
 };

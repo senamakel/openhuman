@@ -19,10 +19,13 @@ use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolDelta};
 use tinyagents::harness::usage::Usage;
 use tokio::sync::mpsc::{Sender, UnboundedSender};
 
+use super::abort_guard::AbortOnDrop;
 use super::observability::{IterationCursor, SubagentScope, ToolNameMap};
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::inference::provider::thread_context::{current_thread_id, with_thread_id};
 use crate::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, ChatResponse, Provider, ProviderDelta,
+    current_route_slot, with_route_slot, ChatMessage, ChatRequest, ChatResponse, Provider,
+    ProviderDelta,
 };
 use crate::openhuman::tools::ToolSpec;
 
@@ -537,10 +540,32 @@ impl ChatModel<()> for ProviderModel {
 
         let (item_tx, item_rx) = tokio::sync::mpsc::unbounded_channel::<ModelStreamItem>();
 
+        // #4460: the producer below runs in a detached `tokio::spawn`, and
+        // `tokio::task_local`s do NOT propagate across a spawn boundary. Capture
+        // the two ambient task-locals the provider call depends on *here*, on the
+        // caller's task, and re-establish them inside the spawn:
+        //   - `thread_id`  → the managed backend's `thread_id` extension
+        //     (`compatible_request::outbound_thread_id`) so streamed requests stay
+        //     attributed to the right chat / prompt-cache group.
+        //   - resolved-route audit slot → so `record_resolved_provider_route`
+        //     calls inside `provider.chat` write back to the caller's scope and the
+        //     channel audit reports the *resolved* route, not the requested one.
+        let thread_id = current_thread_id();
+        let route_slot = current_route_slot();
+        // Label for the abort-on-drop debug log; the moved-in `model` clone is
+        // consumed by the producer body.
+        let abort_label = model.clone();
+        tracing::debug!(
+            model = %model,
+            thread_id = thread_id.as_deref().unwrap_or("<none>"),
+            route_slot = route_slot.is_some(),
+            "[tinyagents] spawning streamed provider producer; re-establishing task-locals across spawn — #4460"
+        );
+
         // Producer: run the provider call while forwarding its incremental
         // deltas, then emit the terminal item. Everything captured is owned, so
         // the task is `'static`.
-        tokio::spawn(async move {
+        let producer = async move {
             let _ = item_tx.send(ModelStreamItem::Started);
             let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel::<ProviderDelta>(64);
             let chat_fut = async {
@@ -623,10 +648,28 @@ impl ChatModel<()> for ProviderModel {
                 }
             };
             let _ = item_tx.send(terminal);
+        };
+
+        // Re-establish the captured task-locals inside the spawned task (#4460).
+        // `with_thread_id` normalizes an absent id to `None`, so it is a no-op
+        // when there was no ambient thread; the route slot is only re-scoped when
+        // an enclosing `with_resolved_provider_route_scope` supplied one.
+        let handle = tokio::spawn(async move {
+            let scoped = with_thread_id(thread_id.unwrap_or_default(), producer);
+            match route_slot {
+                Some(slot) => with_route_slot(slot, scoped).await,
+                None => scoped.await,
+            }
         });
 
-        let stream = futures_util::stream::unfold(item_rx, |mut rx| async move {
-            rx.recv().await.map(|item| (item, rx))
+        // #4460: tie the producer's lifetime to the consumer. Moving the
+        // abort-on-drop guard into the stream state means that dropping the
+        // stream (the turn future being hard-cancelled via `AbortHandle`, or
+        // dropped for any other reason) aborts the in-flight `provider.chat` call
+        // instead of letting it run — and bill — to completion in the background.
+        let guard = AbortOnDrop::new(handle, abort_label);
+        let stream = futures_util::stream::unfold((item_rx, guard), |(mut rx, guard)| async move {
+            rx.recv().await.map(|item| (item, (rx, guard)))
         });
         Ok(Box::pin(stream))
     }

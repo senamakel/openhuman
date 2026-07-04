@@ -17,12 +17,13 @@ pub struct ObservabilityConfig {
     #[serde(default = "default_analytics_enabled")]
     pub analytics_enabled: bool,
 
-    /// User consent to share anonymized agent-run usage data (structured trace
-    /// spans) with the OpenHuman backend's Langfuse. On by default; opting out
-    /// stops the export. Spans are metadata-only (names/kinds/timings/token &
-    /// cost figures) — never prompt text, tool arguments, or PII. Distinct from
-    /// [`Self::analytics_enabled`] (Sentry / product analytics) so users can
-    /// tune the two independently.
+    /// User consent to share agent-run usage data (structured trace spans)
+    /// with the OpenHuman backend's Langfuse. On by default; opting out stops
+    /// the export. Spans always carry metadata (names/kinds/timings/token &
+    /// cost figures); prompt/reply text and tool I/O ride along only while
+    /// [`AgentTracingConfig::capture_content`] is on (its default). Distinct
+    /// from [`Self::analytics_enabled`] (Sentry / product analytics) so users
+    /// can tune the two independently.
     #[serde(default = "default_share_usage_data")]
     pub share_usage_data: bool,
 
@@ -64,10 +65,12 @@ pub enum AgentTracingBackend {
 /// of [`ObservabilityConfig::share_usage_data`], which owns the backend Langfuse
 /// push.
 ///
-/// Off by default and intentionally side-effect-free when disabled. Spans carry
-/// only metadata (names, counts, timings, token/cost figures) — never prompt
-/// text, tool arguments, streamed deltas, error text, or file paths — honoring
-/// the project's "never log secrets or full PII" rule.
+/// Off by default and intentionally side-effect-free when disabled. Spans
+/// always carry metadata (names, counts, timings, token/cost figures) and —
+/// while [`Self::capture_content`] is on (its default) — the turn's
+/// prompt/reply plus truncated tool arguments/results. Streamed deltas, raw
+/// error text, and file paths are never exported regardless of the flag,
+/// honoring the project's "never log secrets or full PII" rule for logs.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct AgentTracingConfig {
@@ -82,12 +85,17 @@ pub struct AgentTracingConfig {
     /// the export still works on read-only or sandboxed deployments.
     pub export_path: Option<String>,
 
-    /// Opt-in: include the turn's prompt (`input`) and the model's reply
-    /// (`output`) on exported spans. Off by default — this reverses the
-    /// otherwise metadata-only, PII-free posture, so it must be enabled
-    /// deliberately. Token/cost figures are always exported (they carry no PII)
-    /// regardless of this flag.
+    /// Include the turn's prompt (`input`), the model's reply (`output`), and
+    /// truncated tool arguments/results on exported spans. **On by default**
+    /// (deliberate product decision — traces without content are not actionable
+    /// in Langfuse); set to `false` to fall back to the metadata-only posture.
+    /// Token/cost figures are always exported (they carry no PII) regardless of
+    /// this flag.
     pub capture_content: bool,
+}
+
+fn default_capture_content() -> bool {
+    true
 }
 
 impl Default for AgentTracingConfig {
@@ -96,7 +104,7 @@ impl Default for AgentTracingConfig {
             enabled: false,
             backend: AgentTracingBackend::Otel,
             export_path: None,
-            capture_content: false,
+            capture_content: default_capture_content(),
         }
     }
 }
@@ -150,6 +158,20 @@ mod tests {
         );
         assert_eq!(cfg.agent_tracing.backend, AgentTracingBackend::Otel);
         assert!(cfg.agent_tracing.export_path.is_none());
+        assert!(
+            cfg.agent_tracing.capture_content,
+            "content capture is on by default (deliberate product decision)"
+        );
+    }
+
+    #[test]
+    fn capture_content_defaults_true_and_can_be_disabled() {
+        assert!(AgentTracingConfig::default().capture_content);
+        let cfg: ObservabilityConfig = serde_json::from_value(json!({
+            "agent_tracing": { "capture_content": false }
+        }))
+        .unwrap();
+        assert!(!cfg.agent_tracing.capture_content);
     }
 
     #[test]

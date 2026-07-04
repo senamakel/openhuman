@@ -140,6 +140,13 @@ span-projection slice.
 
 ## 4. Sequenced slices (each: code + tests + green build; deletions gated)
 
+0. **S0 — enrich crate `AgentEvent::ToolCompleted`** with `duration_ms` /
+   `output_bytes` / `error` so the journal is self-sufficient for tool outcomes
+   (§2a). **DONE** — tinyagents#18 (branch `feat/tool-completed-outcome`,
+   933 tests green). Also enriches the crate Langfuse tool span. Merge + gitlink
+   bump precede S1. (Usage/charged-USD accounting — §2a item 2 — is still open:
+   fill it at export time from the persisted per-run cost store rather than the
+   `usage_carry` side-channel.)
 1. **S1 — extract `event_to_progress`** (pure mapping) + make the live bridge a
    driver over it. No behavior change; existing bridge/`observability` tests are
    the gate. *No deletion.*

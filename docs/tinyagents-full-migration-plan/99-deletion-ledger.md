@@ -18,6 +18,15 @@ they land.
 - [x] `context/pipeline.rs` (454) + `context/guard.rs` (236, keep stats structs) — 03.1
 - [x] `context/tool_result_budget.rs` (172) — 03.1
 - [x] `harness/payload_summarizer.rs` (490) — 01.4
+- [x] `tinyagents/middleware.rs::MicrocompactMiddleware` struct + impl (~46) —
+      W2-microcompact (2026-07-03): upstreamed into the vendored crate as
+      `tinyagents::harness::middleware::MicrocompactMiddleware`
+      (`tinyhumansai/tinyagents@feat/microcompact-middleware`, gitlink bumped);
+      OpenHuman now constructs the crate type with `CLEARED_PLACEHOLDER` and
+      events off, so behavior is byte-identical. The in-house struct + impl are
+      deleted; the retained OpenHuman tests assert parity against the crate type.
+      Was the C3-corrected/C5 "extract-then-delete" item (the local microcompact
+      was NOT 1.5.0-superseded; this PR did the extraction).
 
 ## Deletable after SDK-surface adoption
 
@@ -106,6 +115,15 @@ they land.
       unused/test-only parse helpers before full delete)
 
 ## Deletable after session-store cutover (04.2 phase 4)
+
+> **04.2 phase 2 landed (W2-shadow-reads, 2026-07-03):** a store-backed shadow
+> reader runs beside the legacy transcript reader, normalizes both sides via
+> `session_import/convert.rs`, and logs `[session_shadow_read]` divergence
+> (compact, no-PII). Legacy stays authoritative; gated by
+> `agent.session_shadow_reads` (default OFF) + `OPENHUMAN_SESSION_SHADOW_READS`
+> kill switch. The rows below stay `[ ]` until the shadow logs are
+> divergence-clean across the fixture matrix and reads are flipped to the store
+> (phase 3), which is the precondition for these deletions.
 
 - [ ] `session/transcript.rs` (1347) + tests (978)
 - [ ] `session/migration.rs` (373) + tests

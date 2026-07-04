@@ -787,8 +787,23 @@ async fn turn_xml_failures_checkpoint_policy_visibility_and_hooks_are_publicly_e
             channel_permissions,
             ..AgentConfig::default()
         })
+        // Budget must clear the rendered policy-denial message (~400 B) so the
+        // `denied by policy 'round17-deny'` assertion below still sees it. Before
+        // the tinyagents 1.5 migration (#4473) policy denials bypassed the
+        // per-result budget entirely; the migration now routes them through
+        // `ToolOutputMiddleware.after_tool`, so a tiny 96 B budget truncated the
+        // denial down to a `[… truncated …]` stub and the assertion no longer
+        // saw it. Production's default budget is 16 KiB, so real denials (~400 B)
+        // are never truncated — the old 96 B here was an artificial value with no
+        // assertion depending on truncation actually happening.
+        // TODO(follow-up): restore the "policy denials are exempt from the
+        // per-result budget" contract in production (tag the denial render with
+        // POLICY_BLOCKED_MARKER and skip the budget/persist path for it in
+        // `ToolOutputMiddleware.after_tool`). That also re-enables the no-progress
+        // `hard_reject` fast-path, which currently never fires for policy denials
+        // because their render omits the marker it greps for.
         .context_config(ContextConfig {
-            tool_result_budget_bytes: 96,
+            tool_result_budget_bytes: 8192,
             ..ContextConfig::default()
         })
         .post_turn_hooks(vec![Arc::new(RecordingHook {

@@ -497,150 +497,48 @@ fn whatsapp_parse_status_update_ignored() {
 }
 
 #[test]
-fn whatsapp_parse_audio_message_skipped() {
+fn whatsapp_parse_non_text_media_message_types_are_skipped() {
+    // Every non-text message type hits the same `type != "text" -> continue`
+    // branch in parse_webhook_payload. Table-driven, one representative case
+    // per media type (collapsed from 7 byte-identical tests, plan.md §2.1).
     let ch = WhatsAppChannel::new("tok".into(), "123".into(), "ver".into(), vec!["*".into()]);
-    let payload = serde_json::json!({
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "111",
-                        "timestamp": "1",
-                        "type": "audio",
-                        "audio": { "id": "audio123", "mime_type": "audio/ogg" }
-                    }]
-                }
-            }]
-        }]
-    });
-    let msgs = ch.parse_webhook_payload(&payload);
-    assert!(msgs.is_empty());
-}
-
-#[test]
-fn whatsapp_parse_video_message_skipped() {
-    let ch = WhatsAppChannel::new("tok".into(), "123".into(), "ver".into(), vec!["*".into()]);
-    let payload = serde_json::json!({
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "111",
-                        "timestamp": "1",
-                        "type": "video",
-                        "video": { "id": "video123" }
-                    }]
-                }
-            }]
-        }]
-    });
-    let msgs = ch.parse_webhook_payload(&payload);
-    assert!(msgs.is_empty());
-}
-
-#[test]
-fn whatsapp_parse_document_message_skipped() {
-    let ch = WhatsAppChannel::new("tok".into(), "123".into(), "ver".into(), vec!["*".into()]);
-    let payload = serde_json::json!({
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "111",
-                        "timestamp": "1",
-                        "type": "document",
-                        "document": { "id": "doc123", "filename": "file.pdf" }
-                    }]
-                }
-            }]
-        }]
-    });
-    let msgs = ch.parse_webhook_payload(&payload);
-    assert!(msgs.is_empty());
-}
-
-#[test]
-fn whatsapp_parse_sticker_message_skipped() {
-    let ch = WhatsAppChannel::new("tok".into(), "123".into(), "ver".into(), vec!["*".into()]);
-    let payload = serde_json::json!({
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "111",
-                        "timestamp": "1",
-                        "type": "sticker",
-                        "sticker": { "id": "sticker123" }
-                    }]
-                }
-            }]
-        }]
-    });
-    let msgs = ch.parse_webhook_payload(&payload);
-    assert!(msgs.is_empty());
-}
-
-#[test]
-fn whatsapp_parse_location_message_skipped() {
-    let ch = WhatsAppChannel::new("tok".into(), "123".into(), "ver".into(), vec!["*".into()]);
-    let payload = serde_json::json!({
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "111",
-                        "timestamp": "1",
-                        "type": "location",
-                        "location": { "latitude": 40.7128, "longitude": -74.0060 }
-                    }]
-                }
-            }]
-        }]
-    });
-    let msgs = ch.parse_webhook_payload(&payload);
-    assert!(msgs.is_empty());
-}
-
-#[test]
-fn whatsapp_parse_contacts_message_skipped() {
-    let ch = WhatsAppChannel::new("tok".into(), "123".into(), "ver".into(), vec!["*".into()]);
-    let payload = serde_json::json!({
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "111",
-                        "timestamp": "1",
-                        "type": "contacts",
-                        "contacts": [{ "name": { "formatted_name": "John" } }]
-                    }]
-                }
-            }]
-        }]
-    });
-    let msgs = ch.parse_webhook_payload(&payload);
-    assert!(msgs.is_empty());
-}
-
-#[test]
-fn whatsapp_parse_reaction_message_skipped() {
-    let ch = WhatsAppChannel::new("tok".into(), "123".into(), "ver".into(), vec!["*".into()]);
-    let payload = serde_json::json!({
-        "entry": [{
-            "changes": [{
-                "value": {
-                    "messages": [{
-                        "from": "111",
-                        "timestamp": "1",
-                        "type": "reaction",
-                        "reaction": { "message_id": "wamid.xxx", "emoji": "👍" }
-                    }]
-                }
-            }]
-        }]
-    });
-    let msgs = ch.parse_webhook_payload(&payload);
-    assert!(msgs.is_empty());
+    let cases = [
+        (
+            "audio",
+            serde_json::json!({ "id": "audio123", "mime_type": "audio/ogg" }),
+        ),
+        ("video", serde_json::json!({ "id": "video123" })),
+        (
+            "document",
+            serde_json::json!({ "id": "doc123", "filename": "file.pdf" }),
+        ),
+        ("sticker", serde_json::json!({ "id": "sticker123" })),
+        (
+            "location",
+            serde_json::json!({ "latitude": 40.7128, "longitude": -74.0060 }),
+        ),
+        (
+            "contacts",
+            serde_json::json!([{ "name": { "formatted_name": "John" } }]),
+        ),
+        (
+            "reaction",
+            serde_json::json!({ "message_id": "wamid.xxx", "emoji": "\u{1F44D}" }),
+        ),
+    ];
+    for (kind, sub) in cases {
+        let mut message = serde_json::json!({
+            "from": "111",
+            "timestamp": "1",
+            "type": kind,
+        });
+        message[kind] = sub;
+        let payload = serde_json::json!({
+            "entry": [{ "changes": [{ "value": { "messages": [message] } }] }]
+        });
+        let msgs = ch.parse_webhook_payload(&payload);
+        assert!(msgs.is_empty(), "{kind} message must be skipped");
+    }
 }
 
 #[test]

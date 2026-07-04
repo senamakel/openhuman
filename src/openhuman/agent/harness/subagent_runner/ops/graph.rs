@@ -232,7 +232,13 @@ pub(super) async fn run_subagent_via_graph(
         // adapter resolves a name by scanning the sets in order, so a
         // parent-first order would run the parent impl for a shadowed name.
         vec![Arc::new(dynamic_tools), parent_tools],
-        allowed_names,
+        // Fail-closed (issue #4452): a sub-agent ALWAYS carries a concrete,
+        // resolved allowlist (`allowed_names`), so pass it as `Some(..)`. An empty
+        // set is therefore a genuine deny-all — a tool-less agent
+        // (`ToolScope::Named([])`), a zero-match `skill_filter`, or a `named` list
+        // that resolved to nothing registers ZERO tools instead of implicitly
+        // inheriting the parent's full surface (shell/file-write/spawn).
+        Some(allowed_names),
         max_iterations,
         // Parent's progress sink — child events ride it, scoped below.
         on_progress,

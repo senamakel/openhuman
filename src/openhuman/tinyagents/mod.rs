@@ -368,8 +368,14 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// advertised spec so the same `Arc`-shared tools the legacy loop runs are
 /// reused without cloning.
 ///
-/// `allowed` is the callable tool-name whitelist (empty = every tool visible in
-/// `tool_sets`); each callable tool is advertised via its own `spec()`.
+/// `allowed` is the callable tool-name whitelist. Its semantics are
+/// **fail-closed** (issue #4452): `None` means "no filter supplied" → every tool
+/// visible in `tool_sets` is registered; `Some(set)` registers *exactly* the
+/// named tools, so `Some(empty)` is an explicit **deny-all** (zero tools). This
+/// distinction is what stops a tool-less sub-agent (`ToolScope::Named([])`, a
+/// zero-match `skill_filter`, or a `named` list that resolves to nothing) from
+/// silently inheriting the parent's full tool surface (shell/file-write/spawn).
+/// Each registered tool is advertised via its own `spec()`.
 ///
 /// When `on_progress` is `Some`, the run streams (`invoke_streaming_in_context`)
 /// and a [`OpenhumanEventBridge`] mirrors the harness event stream onto
@@ -385,6 +391,21 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// re-scopes progress to the `Subagent*` variants (child runs); `early_exit_tools`
 /// name the tools that pause the loop (e.g. `ask_user_clarification`) and surface
 /// the question via [`TinyagentsTurnOutcome::early_exit_tool`].
+/// True when `name` is a sub-agent spawn/delegation tool that a **child** run
+/// must never be able to invoke (issue #4452). Mirrors the caller-side strip in
+/// `subagent_runner::tool_prep::is_subagent_spawn_tool` plus the worker-thread
+/// spawn, re-asserted at registration as defense-in-depth so a misconfigured
+/// allowlist cannot reintroduce sub-agent spawning into a nested run. Kept local
+/// to this seam (rather than importing the `pub(super)` runner helper) so the
+/// invariant travels with the registration site that enforces it.
+fn is_subagent_spawn_or_delegate_tool(name: &str) -> bool {
+    name == "spawn_subagent"
+        || name.starts_with("delegate_")
+        || name == "use_tinyplace"
+        || name == "agent_prepare_context"
+        || name == "spawn_worker_thread"
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_turn_via_tinyagents_shared(
     provider: Arc<dyn Provider>,
@@ -392,7 +413,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     temperature: f64,
     history: Vec<ChatMessage>,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
-    allowed: HashSet<String>,
+    allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
@@ -965,7 +986,7 @@ fn assemble_turn_harness(
     model: &str,
     temperature: f64,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
-    allowed: HashSet<String>,
+    allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
@@ -1162,7 +1183,23 @@ fn assemble_turn_harness(
         .map(|h| EarlyExitHook::new(h.clone()));
 
     // Register one adapter per unique callable tool name found across the shared
-    // sets (newest set wins on a name clash; `allowed` empty = all visible).
+    // sets (newest set wins on a name clash). Allowlist semantics are
+    // **fail-closed** (issue #4452): `allowed == None` → no filter, every visible
+    // tool registers; `allowed == Some(set)` → register *exactly* the named
+    // tools, so `Some(empty)` denies all. This is what keeps a deliberately
+    // tool-less sub-agent (`ToolScope::Named([])`, a zero-match `skill_filter`,
+    // or a `named` list that resolves to nothing) from silently inheriting the
+    // parent's full tool surface (shell/file-write/spawn) — the old
+    // `allowed.is_empty() || allowed.contains(name)` predicate was fail-open.
+    let is_subagent_run = subagent_scope.is_some();
+    if let Some(set) = &allowed {
+        if set.is_empty() {
+            tracing::warn!(
+                subagent = is_subagent_run,
+                "[subagent] tool allowlist resolved empty — registering no tools"
+            );
+        }
+    }
     let mut seen_candidates: HashSet<String> = HashSet::new();
     let candidate_names: Vec<String> = tool_sets
         .iter()
@@ -1176,7 +1213,25 @@ fn assemble_turn_harness(
         .collect();
     let mut registered: HashSet<String> = HashSet::new();
     for name in candidate_names.iter().map(String::as_str) {
-        if !registered.contains(name) && (allowed.is_empty() || allowed.contains(name)) {
+        // Fail-closed allowlist: `None` admits everything, `Some(set)` admits only
+        // its members (empty set → nothing).
+        let admitted = match &allowed {
+            None => true,
+            Some(set) => set.contains(name),
+        };
+        // Defense-in-depth (issue #4452): a sub-agent must NEVER be handed a
+        // spawn/delegate tool, regardless of what the resolved allowlist contains.
+        // Re-assert the invariant here at registration time (not just on the
+        // caller's `allowed_indices`) so a misbuilt allowlist can't reintroduce
+        // `spawn_subagent`/`delegate_*`/worker-thread spawning into a child run.
+        let spawn_stripped = is_subagent_run && is_subagent_spawn_or_delegate_tool(name);
+        if spawn_stripped {
+            tracing::warn!(
+                tool = name,
+                "[subagent] refusing to register spawn/delegate tool on sub-agent run"
+            );
+        }
+        if !registered.contains(name) && admitted && !spawn_stripped {
             if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
                 if early_exit_set.contains(name) {
                     if let Some(hook) = &early_exit_hook {
@@ -1310,7 +1365,7 @@ fn assemble_turn_harness(
     harness.push_middleware(Arc::new(
         middleware::OpenHumanToolExposureShadowMiddleware::new(
             &candidate_names,
-            &allowed,
+            allowed.as_ref(),
             exposure_tags,
         ),
     ));

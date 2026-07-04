@@ -163,23 +163,26 @@ pub(super) struct OpenHumanToolExposureShadowMiddleware {
 impl OpenHumanToolExposureShadowMiddleware {
     /// Build the shadow layer from the SAME inputs the precompute path feeds the
     /// runner: the broad `candidate_names` and the narrowed `allowed` visible set.
-    /// An empty `allowed` means "all candidates visible" (OpenHuman convention).
+    /// Allowlist semantics are **fail-closed** (issue #4452): `None` means "no
+    /// filter supplied → all candidates visible"; `Some(set)` means "exactly the
+    /// named tools", so `Some(empty)` is a genuine deny-all. This mirrors the
+    /// registration loop in `assemble_turn_harness`, keeping the shadow divergence
+    /// reference in step with what OpenHuman actually registers as callable.
     pub(super) fn new(
         candidate_names: &[String],
-        allowed: &std::collections::HashSet<String>,
+        allowed: Option<&std::collections::HashSet<String>>,
         tags: Vec<String>,
     ) -> Self {
-        // Effective visible set = the OpenHuman-precomputed `allowed` (or every
-        // candidate when `allowed` is empty). Fail-closed: a candidate absent from
-        // `allowed` is treated as excluded (unclassified -> not exposed).
-        let registered: std::collections::HashSet<String> = if allowed.is_empty() {
-            candidate_names.iter().cloned().collect()
-        } else {
-            candidate_names
+        // Effective visible set: `None` → every candidate; `Some(set)` → exactly
+        // the candidates named in `set` (empty set → none). Fail-closed: a
+        // candidate absent from a supplied `allowed` is excluded (not exposed).
+        let registered: std::collections::HashSet<String> = match allowed {
+            None => candidate_names.iter().cloned().collect(),
+            Some(set) => candidate_names
                 .iter()
-                .filter(|name| allowed.contains(*name))
+                .filter(|name| set.contains(*name))
                 .cloned()
-                .collect()
+                .collect(),
         };
         let excluded: Vec<String> = candidate_names
             .iter()

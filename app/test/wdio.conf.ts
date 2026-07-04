@@ -34,6 +34,40 @@ const APPIUM_PORT = parseInt(process.env.APPIUM_PORT || '4723', 10);
 const CEF_CDP_HOST = process.env.CEF_CDP_HOST || '127.0.0.1';
 const CEF_CDP_PORT = parseInt(process.env.CEF_CDP_PORT || '19222', 10);
 
+// Admin base for the shared mock backend. The runner exports BACKEND_URL to
+// the mock; fall back to the E2E_MOCK_PORT default the runner scripts use.
+const MOCK_ADMIN_BASE =
+  process.env.BACKEND_URL || `http://127.0.0.1:${process.env.E2E_MOCK_PORT || 18473}`;
+
+// The mock backend carries module-level mutable state (conversations, cron
+// jobs, webhook triggers, request log, socket sessions). Specs run in ONE
+// ordered session and historically only reset it when a spec *remembered* to
+// call `/__admin/reset` in its own hook — so a spec that failed before its
+// reset poisoned the next spec file. Reset once at the start of every spec
+// file, unconditionally, so no spec can leak mock state into the next one.
+// Guarded by file path so nested `describe` blocks inside a file don't wipe
+// state mid-file (specs still build up state across their own `it`s).
+let lastResetSpecFile: string | null = null;
+
+async function resetMockBackendOncePerSpecFile(specFile: string | undefined): Promise<void> {
+  if (!specFile || specFile === lastResetSpecFile) return;
+  lastResetSpecFile = specFile;
+  try {
+    const res = await fetch(`${MOCK_ADMIN_BASE}/__admin/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) {
+      console.warn(`[wdio] mock /__admin/reset returned ${res.status} for ${specFile}`);
+    }
+  } catch (err) {
+    // Best-effort: some lanes run specs that don't stand up the mock backend.
+    // Never fail the run on an unreachable mock — just record it.
+    console.warn(`[wdio] mock /__admin/reset skipped for ${specFile}: ${(err as Error).message}`);
+  }
+}
+
 // appium-chromium-driver advertises support for platformName ∈ {windows, mac, linux}
 // (not "chromium" — that's only the automationName). Pick the actual OS so the
 // capability negotiation succeeds.
@@ -133,6 +167,11 @@ export const config: Options.Testrunner & Record<string, unknown> = {
     if (target) {
       await browser.switchToWindow(target);
     }
+  },
+  beforeSuite: async function (suite: { file?: string }) {
+    // Fires once per Mocha suite. The per-file guard makes the reset run only
+    // for the first suite encountered in each spec file.
+    await resetMockBackendOncePerSpecFile(suite?.file);
   },
   afterTest: async function (
     test: { title: string; parent?: string },

@@ -283,16 +283,15 @@ impl TurnContextMiddleware {
                 CLEARED_PLACEHOLDER,
             )));
         }
-        // Handoff runs BEFORE the tool-output budget so an oversized payload is
-        // stashed + replaced with a short placeholder first; the byte cap would
-        // otherwise shrink it below the handoff threshold and defeat the drill-in.
-        if let Some(handoff) = self.handoff {
-            harness.push_middleware(Arc::new(HandoffMiddleware {
-                cache: handoff.cache,
-                agent_id: handoff.agent_id,
-                task_id: handoff.task_id,
-            }));
-        }
+        // REVERSE-ORDER RULE (issue #4464): the crate runs `after_tool` hooks in
+        // REVERSE registration order (`MiddlewareStack::run_after_tool` iterates
+        // `self.middlewares.iter().rev()`, tinyagents src/harness/middleware/mod.rs).
+        // So the LAST-pushed middleware's `after_tool` runs FIRST. To make the
+        // effective `after_tool` chain be handoff(raw) → tool-output budget/caps,
+        // the handoff MUST be pushed AFTER the tool-output budget.
+        //
+        // Push the tool-output budget FIRST (so its `after_tool` runs SECOND):
+        // it truncates the oversized payload to the 16 KiB byte cap.
         if self.tool_result_budget_bytes > 0
             || self.payload_summarizer.is_some()
             || self.tokenjuice_compaction_enabled
@@ -304,6 +303,18 @@ impl TurnContextMiddleware {
                 tokenjuice_compaction_enabled: self.tokenjuice_compaction_enabled,
                 tokenjuice_compression: self.tokenjuice_compression,
                 tool_policies,
+            }));
+        }
+        // Push the handoff LAST (so its `after_tool` runs FIRST): it observes the
+        // RAW, uncapped payload, stashes an oversized result into the
+        // `ResultHandoffCache`, and swaps in a short pointer BEFORE the tool-output
+        // budget can shrink it below the 50k-token handoff threshold and defeat the
+        // drill-in.
+        if let Some(handoff) = self.handoff {
+            harness.push_middleware(Arc::new(HandoffMiddleware {
+                cache: handoff.cache,
+                agent_id: handoff.agent_id,
+                task_id: handoff.task_id,
             }));
         }
     }
@@ -1272,8 +1283,12 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
 /// into a shared sink before the harness folds the result into a `Message::tool`
 /// that drops the `error` flag (issue #4249). Without this, a post-turn
 /// `ToolCallRecord` could only report every call as an optimistic success — the
-/// in-house engine tracked real per-call success. Runs last in the `after_tool`
-/// chain so it records the final (summarized/capped) content the transcript keeps.
+/// in-house engine tracked real per-call success. The crate runs `after_tool` in
+/// REVERSE registration order (issue #4464), so registering this AFTER the
+/// summarization/cap middlewares (i.e. pushing it EARLIER, before
+/// `TurnContextMiddleware::install`) makes its `after_tool` run AFTER those caps —
+/// recording the final (summarized/capped) content the transcript keeps, not the
+/// raw payload.
 pub(crate) struct ToolOutcomeCaptureMiddleware {
     sink: super::ToolOutcomeSink,
     /// `call_id → (success, classified failure)` side-channel read by the event

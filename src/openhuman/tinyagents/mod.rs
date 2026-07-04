@@ -1474,6 +1474,26 @@ fn assemble_turn_harness(
     // by the crate `PromptCacheGuardMiddleware`; the warn-only CacheAlign shadow
     // was deleted in C3.) Tool-result caps read the SDK registry policy snapshot,
     // not the OpenHuman-side tool lookup.
+    // Capture each tool call's real success + content before the harness folds the
+    // result into a `Message::tool` that drops the failure flag, so the turn can
+    // build honest per-call `ToolCallRecord`s (post-turn hooks + cap checkpoint).
+    //
+    // REVERSE-ORDER RULE (issue #4464): the crate runs `after_tool` in REVERSE
+    // registration order, so the LATER a middleware is pushed the EARLIER its
+    // `after_tool` runs. This capture must observe the FINAL (summarized/capped)
+    // content, so it is pushed BEFORE `context_mw.install` (which registers the
+    // handoff + tool-output budget/caps) — that way its `after_tool` runs AFTER
+    // those caps, not before. Registering it after `install` (the pre-#4464 bug)
+    // made its `after_tool` run first and record the full raw payload of every
+    // call, bloating the per-turn sink and feeding failure classification /
+    // `ToolCallRecord.output_summary` pre-cap content.
+    let tool_outcome_sink: ToolOutcomeSink = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let failure_map: ToolFailureMap = Arc::default();
+    harness.push_middleware(Arc::new(middleware::ToolOutcomeCaptureMiddleware::new(
+        tool_outcome_sink.clone(),
+        failure_map.clone(),
+    )));
+
     let tool_policies = harness.tools().policies();
     context_mw.install(&mut harness, tool_policies);
 
@@ -1626,16 +1646,6 @@ fn assemble_turn_harness(
     // every path (channel/session/sub-agent).
     harness.push_tool_middleware(Arc::new(middleware::CliRpcOnlyMiddleware::new(
         tool_sets.clone(),
-    )));
-
-    // Capture each tool call's real success + content before the harness folds the
-    // result into a `Message::tool` that drops the failure flag, so the turn can
-    // build honest per-call `ToolCallRecord`s (post-turn hooks + cap checkpoint).
-    let tool_outcome_sink: ToolOutcomeSink = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-    let failure_map: ToolFailureMap = Arc::default();
-    harness.push_middleware(Arc::new(middleware::ToolOutcomeCaptureMiddleware::new(
-        tool_outcome_sink.clone(),
-        failure_map.clone(),
     )));
 
     // Builder-configured tool policy (`.tool_policy()`), enforced at the tool

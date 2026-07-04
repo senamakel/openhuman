@@ -471,19 +471,28 @@ export function ToolTimelineBlock({
                 // opens the full-run panel scoped to this step. A collapsed row
                 // is backgrounded, so it never pulses — only the single active
                 // (expanded) step blinks. Strip `animate-pulse` from the tone.
-                <button
-                  type="button"
-                  onClick={() => onViewDetails(entry)}
-                  data-testid="view-details"
-                  className="group/details flex items-center gap-1.5 text-left">
-                  <span
-                    className={`text-[13px] font-medium ${nameTone.replace('animate-pulse ', '')} group-hover/details:underline`}>
-                    {formatted.title}
-                  </span>
-                  <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
-                    →
-                  </span>
-                </button>
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => onViewDetails(entry)}
+                    data-testid="view-details"
+                    className="group/details flex items-center gap-1.5 text-left">
+                    <span
+                      className={`text-[13px] font-medium ${nameTone.replace('animate-pulse ', '')} group-hover/details:underline`}>
+                      {formatted.title}
+                    </span>
+                    <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
+                      →
+                    </span>
+                  </button>
+                  {resultContent ? (
+                    <pre
+                      data-testid="tool-result-output"
+                      className={`max-h-40 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-content-secondary ${BODY_SURFACE}`}>
+                      {resultContent}
+                    </pre>
+                  ) : null}
+                </div>
               ) : expandable ? (
                 <details open={shouldAutoExpand} className="group/row">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">

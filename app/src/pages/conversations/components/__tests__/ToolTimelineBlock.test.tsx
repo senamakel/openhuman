@@ -492,7 +492,14 @@ describe('ToolTimelineBlock — worker thread ref status propagation', () => {
 describe('ToolTimelineBlock — compact chat mode (onViewDetails)', () => {
   const entries: ToolTimelineEntry[] = [
     // A finished step.
-    { id: 'tl-1', name: 'agent_prepare_context', round: 1, status: 'success', detail: 'fetch X' },
+    {
+      id: 'tl-1',
+      name: 'agent_prepare_context',
+      round: 1,
+      status: 'success',
+      detail: 'fetch X',
+      result: 'Prepared context from 3 sources.',
+    },
     // The currently-running sub-agent (latest running).
     {
       id: 'sa-1',
@@ -520,6 +527,9 @@ describe('ToolTimelineBlock — compact chat mode (onViewDetails)', () => {
     // (its activity is visible) — and shows no "View details" link itself.
     const activity = screen.getByTestId('subagent-activity');
     expect(activity.textContent).toContain('pondering');
+    expect(screen.getByTestId('tool-result-output').textContent).toContain(
+      'Prepared context from 3 sources.'
+    );
 
     // Clicking the finished step's link opens the full-run panel.
     fireEvent.click(links[0]);

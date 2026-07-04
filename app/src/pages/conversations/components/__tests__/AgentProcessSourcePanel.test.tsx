@@ -190,6 +190,21 @@ describe('AgentProcessSourcePanel', () => {
     expect(screen.queryByText('whole-run narration')).toBeNull();
   });
 
+  it('shows scoped tool result output when no detail or args were captured', () => {
+    const scoped: ToolTimelineEntry = {
+      id: 'tool-result-only',
+      name: 'run_code',
+      round: 1,
+      status: 'success',
+      result: 'exit 0\nAll checks passed.',
+    };
+    renderPanel(
+      <AgentProcessSourcePanel open entries={[scoped]} scopedEntry={scoped} onClose={() => {}} />
+    );
+    expect(screen.getByText('Run Code')).toBeInTheDocument();
+    expect(screen.getByText(/All checks passed/)).toBeInTheDocument();
+  });
+
   it('renders no source rows when no web tools were used', () => {
     renderPanel(
       <AgentProcessSourcePanel

@@ -419,8 +419,12 @@ mod tests {
         let journal: Arc<dyn HarnessEventJournal> =
             Arc::new(StoreEventJournal::new(stores.journal));
         let sink = EventSink::with_stream_id(run_id.as_str());
-        let journal_sink = JournalSink::new(journal, run_id.clone());
-        let redacting = RedactingSink::new(Arc::new(journal_sink), vec!["sk-super-secret".into()]);
+        // Keep a handle to the JournalSink: persistence became asynchronous
+        // (background `AppendWorker` drain, tinyagents v1.5 audit remediation),
+        // so the test must `flush()` before reading the journal back — exactly
+        // the contract the crate documents for read-after-write.
+        let journal_sink = Arc::new(JournalSink::new(journal, run_id.clone()));
+        let redacting = RedactingSink::new(journal_sink.clone(), vec!["sk-super-secret".into()]);
         sink.subscribe(Arc::new(FanOutSink::new().with(Arc::new(redacting))));
 
         sink.emit(AgentEvent::ModelStarted {
@@ -431,6 +435,9 @@ mod tests {
             call_id: "c1".into(),
             tool_name: "echo".to_string(),
         });
+        // Drain the async persistence worker so the durable log has caught up
+        // (flush blocks on the drain thread's ack, not on this runtime).
+        journal_sink.flush();
 
         // Reconstruct from the durable store alone.
         let replayed = read_run_events_at(&tmp, run_id.as_str(), 0).await;

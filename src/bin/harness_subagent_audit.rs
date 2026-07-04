@@ -447,6 +447,7 @@ async fn drain_progress(
                 prompt_chars,
                 worker_thread_id,
                 display_name,
+                ..
             } => {
                 eprintln!(
                     "[harness_subagent_audit] progress turn={} subagent_spawned agent_id={} task_id={} mode={} dedicated_thread={} prompt_chars={} worker_thread_id={}",
@@ -586,7 +587,7 @@ async fn drain_progress(
                 output: _,
                 elapsed_ms,
                 iteration,
-                failure: _,
+                ..
             } => {
                 eprintln!(
                     "[harness_subagent_audit] progress turn={} subagent_tool_completed agent_id={} task_id={} tool={} call_id={} success={} output_chars={} elapsed_ms={} iteration={}",

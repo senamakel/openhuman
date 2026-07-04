@@ -2,6 +2,7 @@ import WorktreeActions from '../../../components/worktree/WorktreeActions';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type {
   SubagentActivity,
+  ToolFailureExplanation,
   ToolTimelineEntry,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
@@ -14,6 +15,7 @@ import {
 import { parseWorkerThreadRef } from '../utils/workerThreadRef';
 import { BubbleMarkdown } from './AgentMessageBubble';
 import { agentNameTone, AgentTimelineRail } from './AgentTimelineRail';
+import { ToolFailureLines } from './ToolFailureLines';
 import { WorkerThreadRefCard, type WorkerThreadStatus } from './WorkerThreadRefCard';
 
 /**
@@ -96,39 +98,44 @@ function ToolCallRow({
     displayName?: string;
     /** Server-computed contextual detail (path / recipient / query). */
     detail?: string;
+    /** Structured why/next explanation for a FAILED child tool call (#4459). */
+    failure?: ToolFailureExplanation;
   };
 }) {
   const tone = toolCallTone(call.status);
   return (
-    <div className="flex min-w-0 items-center gap-1.5" data-testid="subagent-tool-call">
-      <span aria-hidden className={`shrink-0 text-[11px] ${tone}`}>
-        •
-      </span>
-      <span className="shrink-0 text-[12px] whitespace-nowrap text-content-secondary">
-        {call.displayName ?? formatToolName(call.toolName)}
-      </span>
-      {/* The contextual arg (path / recipient / query) can be long, so it
+    <div className="min-w-0" data-testid="subagent-tool-call">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span aria-hidden className={`shrink-0 text-[11px] ${tone}`}>
+          •
+        </span>
+        <span className="shrink-0 text-[12px] whitespace-nowrap text-content-secondary">
+          {call.displayName ?? formatToolName(call.toolName)}
+        </span>
+        {/* The contextual arg (path / recipient / query) can be long, so it
           truncates to a single line and absorbs the row's spare width — the
           full value stays available on hover — instead of wrapping into a
           multi-line box that knocks the name and status out of alignment. */}
-      {call.detail ? (
-        <span
-          title={call.detail}
-          className="min-w-0 truncate rounded bg-surface-subtle px-1 py-px font-mono text-[11px] text-content-muted">
-          {call.detail}
+        {call.detail ? (
+          <span
+            title={call.detail}
+            className="min-w-0 truncate rounded bg-surface-subtle px-1 py-px font-mono text-[11px] text-content-muted">
+            {call.detail}
+          </span>
+        ) : null}
+        {/* Status reads as a tinted "Done" / "Failed" / "Running" tag. */}
+        <span className="shrink-0">
+          <StatusTag status={call.status} />
         </span>
-      ) : null}
-      {/* Status reads as a tinted "Done" / "Failed" / "Running" tag. */}
-      <span className="shrink-0">
-        <StatusTag status={call.status} />
-      </span>
-      {call.elapsedMs != null && call.status !== 'running' ? (
-        <span className="shrink-0 text-[11px] text-content-faint">
-          {call.elapsedMs >= 1000
-            ? `${(call.elapsedMs / 1000).toFixed(1)}s`
-            : `${call.elapsedMs}ms`}
-        </span>
-      ) : null}
+        {call.elapsedMs != null && call.status !== 'running' ? (
+          <span className="shrink-0 text-[11px] text-content-faint">
+            {call.elapsedMs >= 1000
+              ? `${(call.elapsedMs / 1000).toFixed(1)}s`
+              : `${call.elapsedMs}ms`}
+          </span>
+        ) : null}
+      </div>
+      {call.status === 'error' && call.failure ? <ToolFailureLines failure={call.failure} /> : null}
     </div>
   );
 }

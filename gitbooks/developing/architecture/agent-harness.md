@@ -57,8 +57,6 @@ OpenHuman pins `tinyagents = { version = "1.5.0", features = ["sqlite"] }` (see 
 - **`repl` / expressive-language features unused.** OpenHuman drives graphs from Rust (`GraphBuilder`), not the crate's `.rag` REPL language.
 - **Adapter map (feature-gated SDK piece → OpenHuman replacement):** provider clients → `ProviderModel`; crate SQLite checkpointer rows not yet adopted → `SqlRunLedgerCheckpointer`; task/status stores not yet controller-canonical → OpenHuman SQL/JSON run ledgers (`running_subagents`, `workflow_runs`, `agent_teams`, `command_center`). The generic harness/graph/middleware/event primitives are used as-is.
 
-Migration backlog and per-phase tasks live in [`docs/tinyagents-migration-spec.md`](../../../docs/tinyagents-migration-spec.md). The current harness inventory snapshot lives in [`docs/tinyagents-harness-migration-audit.md`](../../../docs/tinyagents-harness-migration-audit.md).
-
 The agent harness is the runtime that turns a user message (or a webhook fire, or a cron tick) into a complete, tool-using LLM interaction. It owns the tool-call loop, sub-agent dispatch, the trigger-triage pipeline, and the hook surface around them. It does **not** own provider HTTP transport, tool implementations, prompt-section assembly, or memory storage - those are separate domains the harness composes.
 
 This page walks through what happens in one turn, then zooms in on each of the moving parts.
@@ -458,7 +456,7 @@ Every agent turn — chat (`harness/session/turn/core.rs`), channel/CLI (`harnes
 - **Sub-agent build pipeline** (`subagent_runner/`) — definition resolution, archetype tool filtering, provider resolution, narrow prompt building, memory context, worker-thread mirror, handoff cache, checkpoint/resume — stays openhuman-owned. Sub-agents already *execute* on the harness; the crate's generic `SubAgentTool` would discard this pipeline for marginal crate-native depth tracking (openhuman's `spawn_depth_context` already bounds recursion).
 - **Durable run ledgers** (`workflow_runs`, `agent_teams`, `command_center`, `subagent_sessions`) stay on openhuman SQLite/JSON until their controller projections and restart semantics are mapped onto TinyAgents task/status/journal records. The `agent_teams` race-safe SQL compare-and-swap task claim remains OpenHuman-owned.
 
-> **Note:** TinyAgents 1.3+ ships harness store/cache/session primitives (`harness::store` with JSONL append stores, `harness::cache`, `harness::subagent`, lineage-aware status) plus graph task stores and conformance contracts. The plan for migrating the session shell, sub-agent pipeline, and detached-task lifecycle onto those primitives lives in [`docs/tinyagents-harness-migration-audit.md`](../../../docs/tinyagents-harness-migration-audit.md).
+> **Note:** TinyAgents 1.3+ ships harness store/cache/session primitives (`harness::store` with JSONL append stores, `harness::cache`, `harness::subagent`, lineage-aware status) plus graph task stores and conformance contracts. The session shell, sub-agent pipeline, and detached-task lifecycle are still being migrated onto those primitives.
 
 ## See also
 

@@ -143,11 +143,27 @@ struct BridgeState {
     cache_misses: u64,
 }
 
+/// Per-model-call figures `record_usage` resolved from the provider-usage
+/// carry (charged>estimate cost precedence + cache/reasoning breakdown),
+/// keyed by iteration so the subsequent `ModelCompleted` projection reports
+/// the same numbers as the wallet accounting.
+#[derive(Clone, Copy, Debug)]
+struct ResolvedCallFigures {
+    cost_usd: f64,
+    cache_creation_tokens: u64,
+    reasoning_tokens: u64,
+}
+
 /// An [`EventListener`] that mirrors harness events onto openhuman's progress
 /// sink and cost tracker.
 pub(crate) struct OpenhumanEventBridge {
     on_progress: Option<Sender<AgentProgress>>,
     model: String,
+    /// Telemetry provider id (`"managed"`, `"openai"`, …) — from
+    /// [`Provider::telemetry_provider_id`](crate::openhuman::inference::provider::Provider::telemetry_provider_id).
+    /// Rides on `ModelCallCompleted` so trace exporters render the Langfuse
+    /// model as `{provider_id}.{model}`.
+    provider_id: String,
     max_iterations: u32,
     /// `None` for a parent turn; `Some` to emit child-scoped `Subagent*` events.
     scope: Option<SubagentScope>,
@@ -175,6 +191,13 @@ pub(crate) struct OpenhumanEventBridge {
     /// iteration cursor, bumped once per `ModelStarted`) so a given call's usage
     /// is recorded exactly once. See [`OpenhumanEventBridge::record_usage`].
     recorded_iterations: Mutex<std::collections::HashSet<u32>>,
+    /// Per-iteration figures resolved by `record_usage` (see
+    /// [`ResolvedCallFigures`]); taken by the `ModelCompleted` arm.
+    resolved_calls: Mutex<std::collections::HashMap<u32, ResolvedCallFigures>>,
+    /// `call_id → start instant` for in-flight tool calls, written on
+    /// `ToolStarted` and taken on `ToolCompleted` so the projected completion
+    /// event carries a real `elapsed_ms` (the crate event has no timing).
+    tool_started_at: Mutex<std::collections::HashMap<String, std::time::Instant>>,
     state: Mutex<BridgeState>,
     /// Ordered overflow buffer for progress events that hit backpressure
     /// (channel `Full`). Once ANY event spills here, `draining` stays set and
@@ -204,6 +227,7 @@ impl OpenhumanEventBridge {
         Self::with_scope(
             on_progress,
             model,
+            "custom",
             max_iterations,
             None,
             Arc::default(),
@@ -219,6 +243,7 @@ impl OpenhumanEventBridge {
     pub(crate) fn with_scope(
         on_progress: Option<Sender<AgentProgress>>,
         model: impl Into<String>,
+        provider_id: impl Into<String>,
         max_iterations: usize,
         scope: Option<SubagentScope>,
         cursor: IterationCursor,
@@ -229,6 +254,7 @@ impl OpenhumanEventBridge {
         Arc::new(Self {
             on_progress,
             model: model.into(),
+            provider_id: provider_id.into(),
             max_iterations: max_iterations as u32,
             scope,
             cursor,
@@ -236,6 +262,8 @@ impl OpenhumanEventBridge {
             failure_map,
             usage_carry,
             recorded_iterations: Mutex::new(std::collections::HashSet::new()),
+            resolved_calls: Mutex::new(std::collections::HashMap::new()),
+            tool_started_at: Mutex::new(std::collections::HashMap::new()),
             state: Mutex::new(BridgeState::default()),
             overflow: Arc::default(),
         })
@@ -387,16 +415,13 @@ impl OpenhumanEventBridge {
             .unwrap_or_else(|p| p.into_inner())
             .pop_front();
 
-        // Estimate from catalogued per-MTok rates as the floor; prefer the
-        // provider's own charged amount when it reported one (charged > estimate
-        // precedence — restores the legacy observer's behaviour, so credit-metered
-        // backends surface real billing rather than a token-rate estimate).
-        let estimate = crate::openhuman::cost::catalog::estimate_cost_usd(
-            &self.model,
-            usage.input_tokens,
-            usage.output_tokens,
-            usage.cache_read_tokens,
-        );
+        // Estimate as the floor via the tier-aware `agent::cost` table (managed
+        // handles like `chat-v1`/`burst-v1` + the vendor catalog + heuristics —
+        // the catalog-only lookup priced every managed-tier call as $0); prefer
+        // the provider's own charged amount when it reported one (charged >
+        // estimate precedence, so credit-metered backends surface real billing
+        // rather than a token-rate estimate).
+        let estimate = Self::estimate_call_cost(&self.model, usage);
         let call_cost = carried
             .as_ref()
             .map(|u| u.charged_amount_usd)
@@ -435,6 +460,21 @@ impl OpenhumanEventBridge {
             context_window,
             "[cost] recording per-call usage (charged>estimate precedence via provider carry)"
         );
+        // Stash the resolved per-call figures so the `ModelCompleted` arm (which
+        // fires right after this event and emits the `ModelCallCompleted`
+        // generation telemetry) reports the SAME cost/cache/reasoning numbers as
+        // the wallet accounting, instead of re-deriving a bare estimate.
+        self.resolved_calls
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .insert(
+                iteration,
+                ResolvedCallFigures {
+                    cost_usd: call_cost,
+                    cache_creation_tokens,
+                    reasoning_tokens,
+                },
+            );
         let (input, output, cached, charged) = {
             let mut s = self.state.lock().unwrap();
             s.input_tokens += usage.input_tokens;
@@ -473,38 +513,12 @@ impl OpenhumanEventBridge {
         // The cost footer is a top-level surface; for a child run the global
         // cost tracker feed above is the authoritative accounting and the parent
         // emits its own footer, so suppress the per-child `TurnCostUpdated`.
+        // Per-call generation telemetry (`ModelCallCompleted`) is emitted from
+        // the `AgentEvent::ModelCompleted` arm instead — that event fires after
+        // `UsageRecorded` and is the only one carrying the captured request
+        // messages + completion, so the generation gets usage AND content in
+        // one shot (for parent and child scopes alike).
         if self.scope.is_none() {
-            // Per-call telemetry first (exact model/usage/cost for THIS call —
-            // trace exporters turn it into a Langfuse generation), then the
-            // cumulative footer rollup. Child-scoped calls carry no task
-            // attribution on this event, so they stay cumulative-only.
-            log::debug!(
-                "[tinyagents][usage] model_call_completed model={} iteration={} in={} out={} \
-                 cache_read={} cache_write={} reasoning={} cost_usd={:.6}",
-                self.model,
-                iteration,
-                usage.input_tokens,
-                usage.output_tokens,
-                usage.cache_read_tokens,
-                usage.cache_creation_tokens,
-                usage.reasoning_tokens,
-                call_cost,
-            );
-            self.send(AgentProgress::ModelCallCompleted {
-                model: self.model.clone(),
-                iteration,
-                input_tokens: usage.input_tokens,
-                output_tokens: usage.output_tokens,
-                cached_input_tokens: usage.cache_read_tokens,
-                // Use the carried-or-crate breakdown (computed above): for
-                // providers where cache-creation/reasoning tokens ride only on
-                // the carried UsageInfo, the crate `usage.*` fields are 0, which
-                // would leave per-call progress/Langfuse telemetry at zero even
-                // though the cost tracker got the right values (#4467).
-                cache_creation_tokens,
-                reasoning_tokens,
-                cost_usd: call_cost,
-            });
             self.send(AgentProgress::TurnCostUpdated {
                 model: self.model.clone(),
                 iteration,
@@ -514,6 +528,26 @@ impl OpenhumanEventBridge {
                 total_usd: charged,
             });
         }
+    }
+
+    /// Estimate one call's USD cost. Uses the tier-aware
+    /// [`agent::cost`](crate::openhuman::agent::cost) table (managed handles
+    /// like `chat-v1`/`burst-v1` + the vendor catalog + heuristics) — the
+    /// previous `cost::catalog::estimate_cost_usd` only knew concrete vendor
+    /// ids, so every managed-tier call priced as $0 in traces and the footer.
+    fn estimate_call_cost(model: &str, usage: &Usage) -> f64 {
+        crate::openhuman::agent::cost::estimate_call_cost_usd(
+            model,
+            &UsageInfo {
+                input_tokens: usage.input_tokens,
+                output_tokens: usage.output_tokens,
+                context_window: 0,
+                cached_input_tokens: usage.cache_read_tokens,
+                cache_creation_tokens: usage.cache_creation_tokens,
+                reasoning_tokens: usage.reasoning_tokens,
+                charged_amount_usd: 0.0,
+            },
+        )
     }
 }
 
@@ -611,6 +645,76 @@ impl EventListener for OpenhumanEventBridge {
             // exactly once per model call; prefer it over `ModelCompleted`'s
             // optional usage to avoid double counting.
             AgentEvent::UsageRecorded { usage } => self.record_usage(usage),
+            // Per-call generation telemetry. `ModelCompleted` fires exactly once
+            // per model call, after `UsageRecorded`, and is the only event
+            // carrying the captured request messages (incl. the system prompt)
+            // + completion (`RunPolicy.capture.model_io`, enabled in
+            // `run_policy_for`). Emitted for parent AND child scopes — the
+            // child call carries its owning `subagent_task_id` so the trace
+            // exporter nests the generation under the subagent span (this is
+            // what makes the Context Scout's model calls visible in Langfuse).
+            AgentEvent::ModelCompleted {
+                usage,
+                input,
+                output,
+                ..
+            } => {
+                let iteration = self.iteration();
+                let usage = usage.unwrap_or_default();
+                // Prefer the figures `record_usage` resolved for this call
+                // (charged>estimate cost + carried cache/reasoning breakdown —
+                // `UsageRecorded` fires before `ModelCompleted`), so the
+                // generation telemetry matches the wallet accounting exactly;
+                // fall back to a bare tier-aware estimate when absent.
+                let resolved = self
+                    .resolved_calls
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .remove(&iteration);
+                let call_cost = resolved
+                    .as_ref()
+                    .map(|r| r.cost_usd)
+                    .unwrap_or_else(|| Self::estimate_call_cost(&self.model, &usage));
+                let cache_creation_tokens = resolved
+                    .as_ref()
+                    .map(|r| r.cache_creation_tokens)
+                    .unwrap_or(usage.cache_creation_tokens);
+                let reasoning_tokens = resolved
+                    .as_ref()
+                    .map(|r| r.reasoning_tokens)
+                    .unwrap_or(usage.reasoning_tokens);
+                log::debug!(
+                    "[tinyagents][usage] model_call_completed model={} provider={} iteration={} \
+                     child={} in={} out={} cache_read={} cache_write={} reasoning={} \
+                     cost_usd={:.6} input_captured={} output_captured={}",
+                    self.model,
+                    self.provider_id,
+                    iteration,
+                    self.scope.is_some(),
+                    usage.input_tokens,
+                    usage.output_tokens,
+                    usage.cache_read_tokens,
+                    cache_creation_tokens,
+                    reasoning_tokens,
+                    call_cost,
+                    input.is_some(),
+                    output.is_some(),
+                );
+                self.send(AgentProgress::ModelCallCompleted {
+                    model: self.model.clone(),
+                    provider_id: self.provider_id.clone(),
+                    subagent_task_id: self.scope.as_ref().map(|s| s.task_id.clone()),
+                    input: input.clone(),
+                    output: output.clone(),
+                    iteration,
+                    input_tokens: usage.input_tokens,
+                    output_tokens: usage.output_tokens,
+                    cached_input_tokens: usage.cache_read_tokens,
+                    cache_creation_tokens,
+                    reasoning_tokens,
+                    cost_usd: call_cost,
+                });
+            }
             AgentEvent::CostRecorded { cost } => {
                 tracing::debug!(
                     cost = ?cost,
@@ -737,6 +841,8 @@ impl EventListener for OpenhumanEventBridge {
                             tool_name: requested_name.clone(),
                             success: false,
                             output_chars: 0,
+                            output: String::new(),
+                            arguments: Some(arguments.clone()),
                             elapsed_ms: 0,
                             iteration,
                             failure,
@@ -761,6 +867,7 @@ impl EventListener for OpenhumanEventBridge {
                             success: false,
                             output_chars: 0,
                             output: String::new(),
+                            arguments: Some(arguments.clone()),
                             elapsed_ms: 0,
                             iteration,
                             failure,
@@ -777,6 +884,12 @@ impl EventListener for OpenhumanEventBridge {
                 // instead of a rewritten ToolStarted. So this arm fires only for
                 // real, model-visible tools and needs no sentinel guard.
                 let iteration = self.iteration();
+                // Stamp the start instant so the completion event carries a real
+                // elapsed_ms (the crate's ToolCompleted has no timing payload).
+                self.tool_started_at
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .insert(call_id.as_str().to_string(), std::time::Instant::now());
                 match &self.scope {
                     None => self.send(AgentProgress::ToolCallStarted {
                         call_id: call_id.as_str().to_string(),
@@ -799,7 +912,10 @@ impl EventListener for OpenhumanEventBridge {
                 }
             }
             AgentEvent::ToolCompleted {
-                call_id, tool_name, ..
+                call_id,
+                tool_name,
+                input,
+                output,
             } => {
                 let iteration = self.iteration();
                 // The crate event carries no success/error, so read what the
@@ -813,10 +929,34 @@ impl EventListener for OpenhumanEventBridge {
                     .and_then(|mut m| m.remove(call_id.as_str()));
                 let success = outcome.as_ref().map(|(ok, ..)| *ok).unwrap_or(true);
                 // Real execution duration + output size the capture middleware
-                // recorded off the `ToolResult` (#4467, item 4). Absent (event
-                // projected before the middleware ran) → 0, as before.
-                let elapsed_ms = outcome.as_ref().map(|(_, _, e, _)| *e).unwrap_or(0);
-                let output_chars = outcome.as_ref().map(|(_, _, _, c)| *c).unwrap_or(0);
+                // recorded off the `ToolResult` (#4467, item 4). Fall back to
+                // the bridge's own ToolStarted stamp for duration, and to the
+                // captured payload for size, when the middleware ran late.
+                let stamped_elapsed = self
+                    .tool_started_at
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .remove(call_id.as_str())
+                    .map(|t| t.elapsed().as_millis() as u64)
+                    .unwrap_or(0);
+                let elapsed_ms = outcome
+                    .as_ref()
+                    .map(|(_, _, e, _)| *e)
+                    .filter(|e| *e > 0)
+                    .unwrap_or(stamped_elapsed);
+                // Tool result text, captured by the harness when
+                // `RunPolicy.capture.tool_io` is on (the loop emits it as a
+                // JSON string). Empty when capture is off.
+                let output_text = match output {
+                    Some(serde_json::Value::String(s)) => s.clone(),
+                    Some(v) => v.to_string(),
+                    None => String::new(),
+                };
+                let output_chars = outcome
+                    .as_ref()
+                    .map(|(_, _, _, c)| *c)
+                    .filter(|c| *c > 0)
+                    .unwrap_or_else(|| output_text.chars().count());
                 // Carry the classified failure onto whichever completion event
                 // this projects — main-agent OR sub-agent (#4459). Previously
                 // the sub-agent branch dropped it on the floor.
@@ -827,6 +967,8 @@ impl EventListener for OpenhumanEventBridge {
                         tool_name: tool_name.clone(),
                         success,
                         output_chars,
+                        output: output_text,
+                        arguments: input.clone(),
                         elapsed_ms,
                         iteration,
                         failure,
@@ -838,7 +980,8 @@ impl EventListener for OpenhumanEventBridge {
                         tool_name: tool_name.clone(),
                         success,
                         output_chars,
-                        output: String::new(),
+                        output: output_text,
+                        arguments: input.clone(),
                         elapsed_ms,
                         iteration,
                         failure,
@@ -979,6 +1122,151 @@ mod tests {
 
         let (input, output, _) = bridge.totals();
         assert_eq!((input, output), (100, 40));
+    }
+
+    #[tokio::test]
+    async fn model_completed_projects_generation_with_content_and_provider() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+        let bridge = OpenhumanEventBridge::with_scope(
+            Some(tx),
+            "chat-v1",
+            "managed",
+            10,
+            None,
+            Arc::default(),
+            Arc::default(),
+            Arc::default(),
+            Arc::default(),
+        );
+        let sink = EventSink::new();
+        sink.subscribe(bridge.clone());
+
+        sink.emit(AgentEvent::ModelStarted {
+            call_id: "m1".into(),
+            model: "chat-v1".to_string(),
+        });
+        sink.emit(AgentEvent::ModelCompleted {
+            call_id: "m1".into(),
+            usage: Some(Usage::new(1_000, 50)),
+            input: Some(serde_json::json!([
+                {"role": "system", "content": "You are OpenHuman."}
+            ])),
+            output: Some(serde_json::json!({"role": "assistant", "content": "hi"})),
+        });
+
+        let mut seen = None;
+        while let Ok(p) = rx.try_recv() {
+            if let AgentProgress::ModelCallCompleted {
+                model,
+                provider_id,
+                subagent_task_id,
+                input,
+                output,
+                input_tokens,
+                cost_usd,
+                ..
+            } = p
+            {
+                seen = Some((
+                    model,
+                    provider_id,
+                    subagent_task_id,
+                    input,
+                    output,
+                    input_tokens,
+                    cost_usd,
+                ));
+            }
+        }
+        let (model, provider_id, task, input, output, input_tokens, cost_usd) =
+            seen.expect("ModelCallCompleted projected from ModelCompleted");
+        assert_eq!(model, "chat-v1");
+        assert_eq!(provider_id, "managed");
+        assert!(task.is_none(), "parent scope carries no task id");
+        assert!(input.unwrap().to_string().contains("You are OpenHuman."));
+        assert!(output.unwrap().to_string().contains("hi"));
+        assert_eq!(input_tokens, 1_000);
+        // chat-v1 is a managed tier handle — the tier-aware estimator must
+        // price it (> $0); the old catalog-only lookup returned exactly 0.
+        assert!(cost_usd > 0.0, "managed tier call must not price as $0");
+    }
+
+    #[tokio::test]
+    async fn subagent_model_completed_carries_task_attribution() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+        let bridge = OpenhumanEventBridge::with_scope(
+            Some(tx),
+            "burst-v1",
+            "managed",
+            8,
+            Some(SubagentScope {
+                agent_id: "context_scout".to_string(),
+                task_id: "ctx-1".to_string(),
+                extended_policy: true,
+            }),
+            Arc::default(),
+            Arc::default(),
+            Arc::default(),
+            Arc::default(),
+        );
+        let sink = EventSink::new();
+        sink.subscribe(bridge.clone());
+        sink.emit(AgentEvent::ModelCompleted {
+            call_id: "m1".into(),
+            usage: Some(Usage::new(10, 5)),
+            input: None,
+            output: None,
+        });
+        let mut task = None;
+        while let Ok(p) = rx.try_recv() {
+            if let AgentProgress::ModelCallCompleted {
+                subagent_task_id, ..
+            } = p
+            {
+                task = subagent_task_id;
+            }
+        }
+        assert_eq!(
+            task.as_deref(),
+            Some("ctx-1"),
+            "child model calls must carry the owning subagent task id"
+        );
+    }
+
+    #[tokio::test]
+    async fn tool_completed_projects_output_arguments_and_elapsed() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+        let bridge = OpenhumanEventBridge::new(Some(tx), "mock-model", 10);
+        let sink = EventSink::new();
+        sink.subscribe(bridge.clone());
+
+        sink.emit(AgentEvent::ToolStarted {
+            call_id: "t1".into(),
+            tool_name: "echo".to_string(),
+        });
+        sink.emit(AgentEvent::ToolCompleted {
+            call_id: "t1".into(),
+            tool_name: "echo".to_string(),
+            input: Some(serde_json::json!({"text": "ping"})),
+            output: Some(serde_json::Value::String("pong".to_string())),
+        });
+
+        let mut seen = None;
+        while let Ok(p) = rx.try_recv() {
+            if let AgentProgress::ToolCallCompleted {
+                output,
+                output_chars,
+                arguments,
+                ..
+            } = p
+            {
+                seen = Some((output, output_chars, arguments));
+            }
+        }
+        let (output, output_chars, arguments) = seen.expect("tool completion projected");
+        assert_eq!(output, "pong");
+        assert_eq!(output_chars, 4);
+        assert!(arguments.unwrap().to_string().contains("ping"));
     }
 
     #[tokio::test]

@@ -65,6 +65,37 @@ describe('SubagentDrawer', () => {
     expect(texts[1].textContent).toContain('The answer is');
   });
 
+  it('renders the why/next explanation for a failed child tool call (#4459)', () => {
+    render(
+      <SubagentDrawer
+        subagent={activity({
+          transcript: [
+            {
+              kind: 'tool',
+              iteration: 1,
+              callId: 'cc-1',
+              toolName: 'shell',
+              status: 'error',
+              // A class not in LOCALIZED_FAILURE_CLASSES so the copy falls back
+              // to the verbatim causePlain/nextAction (i18n-independent assert).
+              failure: {
+                class: 'someUnclassifiedFailure',
+                category: 'user_declined',
+                recoverable: false,
+                causePlain: 'You declined this action.',
+                nextAction: 'Ask again if you change your mind.',
+              },
+            },
+          ],
+        })}
+        onClose={() => {}}
+      />
+    );
+    const failure = screen.getByTestId('processing-tool-failure');
+    expect(failure).toHaveTextContent('You declined this action.');
+    expect(failure).toHaveTextContent('Ask again if you change your mind.');
+  });
+
   it('opens with the parent delegation prompt as a chat bubble', () => {
     render(
       <SubagentDrawer

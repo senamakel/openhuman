@@ -3140,6 +3140,46 @@ impl Middleware<()> for ImageAwareMessageTrimMiddleware {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // #4462: image-aware token estimation. A base64 image marker must be priced
+    // at the flat IMAGE_MARKER_TOKEN_COST, not chars/4 of its payload — otherwise
+    // one image reads as millions of tokens and the trimmer evicts everything,
+    // including the system prompt.
+
+    #[test]
+    fn estimate_text_tokens_markerless_is_chars_over_four() {
+        assert_eq!(estimate_text_tokens(&"a".repeat(40)), (40 + 3) / 4);
+        assert_eq!(estimate_text_tokens(""), 0);
+    }
+
+    #[test]
+    fn estimate_text_tokens_prices_image_marker_flat_not_by_length() {
+        let huge = "x".repeat(40_000);
+        let text = format!("[IMAGE:{huge}]");
+        let tokens = estimate_text_tokens(&text);
+        // chars/4 of the payload would be ~10_000; the flat price is 1_200.
+        assert!(
+            tokens >= IMAGE_MARKER_TOKEN_COST,
+            "at least the flat image cost: {tokens}"
+        );
+        assert!(
+            tokens < 2_000,
+            "image priced flat, not by base64 length: {tokens}"
+        );
+    }
+
+    #[test]
+    fn estimate_text_tokens_charges_each_image_marker_once() {
+        let tokens = estimate_text_tokens("[IMAGE:aaaa] and [IMAGE:bbbb]");
+        assert!(
+            tokens >= 2 * IMAGE_MARKER_TOKEN_COST,
+            "two images each priced: {tokens}"
+        );
+        assert!(
+            tokens < 2 * IMAGE_MARKER_TOKEN_COST + 100,
+            "no runaway from the surrounding text: {tokens}"
+        );
+    }
     use serde_json::json;
     use tinyagents::harness::context::{RunConfig, RunContext};
     use tinyagents::harness::model::ModelRequest;

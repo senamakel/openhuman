@@ -111,4 +111,53 @@ mod tests {
         let output = scrub_credentials(input);
         assert!(output.contains("api_key: 1234*[REDACTED]"));
     }
+
+    // #4453: bare, unlabelled secrets that show up in env dumps / API responses.
+
+    #[test]
+    fn scrubs_bare_aws_access_key() {
+        let out = scrub_credentials("config dump AKIAIOSFODNN7EXAMPLE trailing text");
+        assert!(
+            !out.contains("AKIAIOSFODNN7EXAMPLE"),
+            "bare AWS access key must be redacted: {out}"
+        );
+        assert!(
+            out.contains("[REDACTED]"),
+            "redaction marker present: {out}"
+        );
+    }
+
+    #[test]
+    fn scrubs_bare_openai_key() {
+        let out = scrub_credentials("response body sk-abcdefghij1234567890ABCDEFGHIJ end");
+        assert!(
+            !out.contains("abcdefghij1234567890ABCDEFGHIJ"),
+            "openai secret body must be redacted: {out}"
+        );
+        assert!(
+            out.contains("sk-"),
+            "the sk- scheme is kept for context: {out}"
+        );
+        assert!(
+            out.contains("[REDACTED]"),
+            "redaction marker present: {out}"
+        );
+    }
+
+    #[test]
+    fn scrubs_space_separated_bearer_token() {
+        let out = scrub_credentials("Authorization: Bearer abcDEF1234567890ghijklmnop done");
+        assert!(
+            !out.contains("abcDEF1234567890ghijklmnop"),
+            "space-separated bearer token must be redacted: {out}"
+        );
+        assert!(
+            out.contains("Bearer"),
+            "the scheme word is kept for context: {out}"
+        );
+        assert!(
+            out.contains("[REDACTED]"),
+            "redaction marker present: {out}"
+        );
+    }
 }

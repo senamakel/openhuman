@@ -421,6 +421,17 @@ fn format_prompt_messages(messages: &[ChatMessage]) -> String {
 
 #[async_trait]
 pub trait Provider: Send + Sync {
+    /// Stable provider identifier for telemetry/tracing. Rendered by trace
+    /// exporters as the Langfuse `gen_ai.provider` and the `{provider}.{model}`
+    /// model label (e.g. `managed.chat-v1`, `openai.gpt-4o`).
+    ///
+    /// Defaults to `"custom"`; concrete providers override with their slug
+    /// (the managed backend returns `"managed"`, an OpenAI-compatible BYOK
+    /// provider its configured name, wrappers delegate to their active inner).
+    fn telemetry_provider_id(&self) -> String {
+        "custom".to_string()
+    }
+
     /// Query provider capabilities.
     ///
     /// Default implementation returns minimal capabilities (no native tool calling).

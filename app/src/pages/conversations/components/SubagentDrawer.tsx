@@ -11,6 +11,7 @@ import type {
 import type { ThreadMessage } from '../../../types/thread';
 import { stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
+import { ToolFailureLines } from './ToolFailureLines';
 
 /**
  * Rebuild a renderable transcript from a worker sub-thread's persisted
@@ -480,6 +481,11 @@ function ToolCallRow({ item }: { item: SubagentToolItem }) {
           <span className="text-[10px] text-content-faint">{formatElapsed(item.elapsedMs)}</span>
         ) : null}
       </button>
+      {item.status === 'error' && item.failure ? (
+        <div className="px-2.5 pb-1.5">
+          <ToolFailureLines failure={item.failure} />
+        </div>
+      ) : null}
       {expandable && expanded ? (
         <div className="space-y-2 border-t border-line px-2.5 py-2">
           {argsText != null ? (

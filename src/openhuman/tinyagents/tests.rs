@@ -684,3 +684,30 @@ fn record_unobserved_turn_usage_gates_on_observed_tokens() {
     assert!(record_unobserved_turn_usage("m", 0, 3, 0, 0.0));
     assert!(record_unobserved_turn_usage("m", 10, 3, 2, 0.5));
 }
+
+#[test]
+fn spawn_and_delegate_tools_are_never_registered_on_subagents() {
+    // #4452: a child run must never be able to register a spawn/delegate tool,
+    // even if the resolved allowlist somehow contains one — the registration
+    // site strips these unconditionally as defense-in-depth.
+    for name in [
+        "spawn_subagent",
+        "spawn_worker_thread",
+        "use_tinyplace",
+        "agent_prepare_context",
+        "delegate_research",
+        "delegate_",
+    ] {
+        assert!(
+            is_subagent_spawn_or_delegate_tool(name),
+            "{name} must be treated as a spawn/delegate tool"
+        );
+    }
+    // Ordinary tools (and near-miss names) must NOT be stripped.
+    for name in ["shell", "read_file", "web_search", "spawn", "subagent"] {
+        assert!(
+            !is_subagent_spawn_or_delegate_tool(name),
+            "{name} is a normal tool and must not be stripped"
+        );
+    }
+}

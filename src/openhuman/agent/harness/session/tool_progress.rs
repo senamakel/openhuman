@@ -176,6 +176,10 @@ impl ProgressReporter for TurnProgress {
                     tool_name: tool_name.to_string(),
                     success,
                     output_chars: output.chars().count(),
+                    output: output.to_string(),
+                    // The legacy reporter path has no captured argument
+                    // payload at completion time.
+                    arguments: None,
                     elapsed_ms,
                     iteration,
                     failure: None,

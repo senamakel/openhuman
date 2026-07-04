@@ -49,7 +49,6 @@ import SmartIssuePicker from './SmartIssuePicker';
 //
 // TODO(picker-schema): replace this hard-coded set with a schema-level
 // signal in `skill.toml` — e.g. `[[inputs]] picker = "github-issue"`.
-// See docs/skills-runner-unification.md open question 1.
 const SMART_PICKER_SKILL_IDS = new Set(['dev-workflow']);
 const SMART_PICKER_INPUT_NAMES = new Set(['repo', 'upstream', 'target_branch', 'fork_owner']);
 

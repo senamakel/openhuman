@@ -113,6 +113,22 @@ fn subagent_worktree_detail(
     }
 }
 
+/// Trace user attribution for a turn whose `auth_get_me` cache is cold
+/// (headless / autonomous / freshly booted cores): read the on-disk
+/// app-session profile and return the user's email (preferred) or backend
+/// user id. `None` when signed out or the profile is unreadable — the caller
+/// then falls back to the transport client id.
+fn session_profile_user_attribution(config: &crate::openhuman::config::Config) -> Option<String> {
+    let state = crate::openhuman::credentials::session_support::build_session_state(config).ok()?;
+    state
+        .user
+        .as_ref()
+        .and_then(|u| u.get("email"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .or(state.user_id)
+}
+
 /// Spawn a background task that reads [`AgentProgress`] events from the
 /// agent turn loop and translates them into [`WebChannelEvent`]s tagged
 /// with the correct client/thread/request IDs. The task runs until the
@@ -175,6 +191,7 @@ pub(crate) fn spawn_progress_bridge(
             let user_attributed = identity.is_some();
             let user_id = identity
                 .and_then(|i| i.id.or(i.email))
+                .or_else(|| session_profile_user_attribution(&config))
                 .unwrap_or_else(|| client_id.clone());
             // Run origin for trace metadata: the request's source tag
             // ("ptt"/"dictation"/"type"/"agentbox"/"autonomous"/…), else a
@@ -456,6 +473,7 @@ pub(crate) fn spawn_progress_bridge(
                     elapsed_ms,
                     iteration,
                     failure,
+                    ..
                 } => {
                     // Serialize the classified failure (if any) for the UI + ledger.
                     let failure_json = failure.as_ref().and_then(|f| serde_json::to_value(f).ok());
@@ -501,6 +519,7 @@ pub(crate) fn spawn_progress_bridge(
                     prompt_chars,
                     worker_thread_id,
                     display_name,
+                    ..
                 } => {
                     let label = display_name.as_deref().unwrap_or(&agent_id);
                     let kind = if worker_thread_id.is_some() {
@@ -585,6 +604,7 @@ pub(crate) fn spawn_progress_bridge(
                     worktree_path,
                     changed_files,
                     dirty_status,
+                    ..
                 } => {
                     let completed_at = chrono::Utc::now();
                     ledger_upsert_agent_run(
@@ -901,6 +921,7 @@ pub(crate) fn spawn_progress_bridge(
                     elapsed_ms,
                     iteration,
                     failure,
+                    ..
                 } => {
                     // Serialize the classified failure (if any) so a failed
                     // sub-agent tool row carries its "why + next" copy on the
@@ -1214,6 +1235,52 @@ pub(crate) fn spawn_progress_bridge(
 
 #[cfg(test)]
 mod tests {
+    use super::session_profile_user_attribution;
+
+    #[test]
+    fn session_profile_attribution_none_when_signed_out() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = crate::openhuman::config::Config {
+            workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
+            config_path: tmp.path().join("config.toml"),
+            ..Default::default()
+        };
+        assert!(session_profile_user_attribution(&config).is_none());
+    }
+
+    #[test]
+    fn session_profile_attribution_prefers_email_from_stored_session() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = crate::openhuman::config::Config {
+            workspace_dir: tmp.path().join("workspace"),
+            action_dir: tmp.path().join("workspace"),
+            config_path: tmp.path().join("config.toml"),
+            ..Default::default()
+        };
+        let service = crate::openhuman::credentials::AuthService::from_config(&config);
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert(
+            "user_json".to_string(),
+            "{\"email\": \"steven@example.test\", \"_id\": \"u-1\"}".to_string(),
+        );
+        metadata.insert("user_id".to_string(), "u-1".to_string());
+        service
+            .store_provider_token(
+                crate::openhuman::credentials::APP_SESSION_PROVIDER,
+                crate::openhuman::credentials::DEFAULT_AUTH_PROFILE_NAME,
+                "session-token",
+                metadata,
+                true,
+            )
+            .expect("store session profile");
+        assert_eq!(
+            session_profile_user_attribution(&config).as_deref(),
+            Some("steven@example.test"),
+            "cold-cache attribution must resolve the on-disk session email"
+        );
+    }
+
     use super::*;
 
     #[test]

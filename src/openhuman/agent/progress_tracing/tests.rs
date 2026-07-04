@@ -88,6 +88,8 @@ fn tool_completed(
         tool_name: tool.to_string(),
         success,
         output_chars: chars,
+        output: String::new(),
+        arguments: None,
         elapsed_ms: elapsed,
         iteration: 1,
         failure: None,
@@ -237,6 +239,7 @@ fn spawn(task: &str, display: &str) -> AgentProgress {
         mode: "typed".to_string(),
         dedicated_thread: true,
         prompt_chars: 256,
+        prompt: "delegated prompt".to_string(),
         worker_thread_id: Some("worker-abc".to_string()),
         display_name: Some(display.to_string()),
     }
@@ -286,6 +289,7 @@ fn subagent_lifecycle_nests_under_the_turn() {
                 success: true,
                 output_chars: 99,
                 output: "file contents".to_string(),
+                arguments: None,
                 elapsed_ms: 40,
                 iteration: 1,
                 failure: None,
@@ -299,6 +303,7 @@ fn subagent_lifecycle_nests_under_the_turn() {
                 elapsed_ms: 500,
                 iterations: 3,
                 output_chars: 1024,
+                output: String::new(),
                 worktree_path: Some("/private/should/not/leak".to_string()),
                 changed_files: vec!["secret_file.rs".to_string()],
                 dirty_status: Some(true),
@@ -387,6 +392,7 @@ fn unknown_subagent_task_ids_are_ignored() {
             elapsed_ms: 1,
             iterations: 1,
             output_chars: 1,
+            output: String::new(),
             worktree_path: None,
             changed_files: vec![],
             dirty_status: None,
@@ -790,6 +796,7 @@ fn tool_io_is_captured_when_capture_content_is_on() {
             success: true,
             output_chars: 13,
             output: "file contents".to_string(),
+            arguments: None,
             elapsed_ms: 4,
             iteration: 1,
             failure: None,
@@ -838,6 +845,7 @@ fn tool_io_is_never_recorded_when_capture_content_is_off() {
                 success: true,
                 output_chars: 6,
                 output: "sekrit".to_string(),
+                arguments: None,
                 elapsed_ms: 4,
                 iteration: 1,
                 failure: None,
@@ -888,6 +896,10 @@ fn captured_tool_io_is_truncated_with_marker() {
 fn model_call(model: &str, reasoning: u64, cache_write: u64) -> AgentProgress {
     AgentProgress::ModelCallCompleted {
         model: model.to_string(),
+        provider_id: "managed".to_string(),
+        subagent_task_id: None,
+        input: None,
+        output: None,
         iteration: 1,
         input_tokens: 1_000,
         output_tokens: 200,
@@ -928,7 +940,11 @@ fn model_call_completed_emits_generation_span_with_usage_cost_and_pricing() {
     assert_eq!(generation.status, SpanStatus::Ok);
 
     let a = &generation.attributes;
-    assert_eq!(a["gen_ai.request.model"], serde_json::json!("agentic-v1"));
+    // Provider-labeled model: `{provider_id}.{model}`.
+    assert_eq!(
+        a["gen_ai.request.model"],
+        serde_json::json!("managed.agentic-v1")
+    );
     assert_eq!(a["gen_ai.usage.input_tokens"], serde_json::json!(1_000));
     assert_eq!(a["gen_ai.usage.output_tokens"], serde_json::json!(200));
     // Cache reads always flow, even when other calls happen to be zero.
@@ -952,15 +968,32 @@ fn model_call_completed_emits_generation_span_with_usage_cost_and_pricing() {
 
 #[test]
 fn custom_model_generation_is_stamped_custom_provenance() {
-    let mut c = collect(&[
-        (AgentProgress::TurnStarted, 0),
-        (model_call("claude-imaginary-9", 0, 0), 10),
-    ]);
+    // A BYO model rides whatever provider id the event carries ("openai",
+    // "ollama", or the "custom" default) — both on the generation and the root.
+    let event = AgentProgress::ModelCallCompleted {
+        model: "claude-imaginary-9".to_string(),
+        provider_id: "custom".to_string(),
+        subagent_task_id: None,
+        input: None,
+        output: None,
+        iteration: 1,
+        input_tokens: 10,
+        output_tokens: 2,
+        cached_input_tokens: 0,
+        cache_creation_tokens: 0,
+        reasoning_tokens: 0,
+        cost_usd: 0.0001,
+    };
+    let mut c = collect(&[(AgentProgress::TurnStarted, 0), (event, 10)]);
     c.finish(20);
     let generation = find(c.spans(), "llm.claude-imaginary-9");
     assert_eq!(
         generation.attributes["gen_ai.provider"],
         serde_json::json!("custom")
+    );
+    assert_eq!(
+        generation.attributes["gen_ai.request.model"],
+        serde_json::json!("custom.claude-imaginary-9")
     );
     // Provenance also lands on the root turn span (→ trace metadata).
     let turn = find(c.spans(), "agent.turn");
@@ -1100,6 +1133,8 @@ fn failed_tool_records_classified_cause_only_when_capture_on() {
         tool_name: "shell".to_string(),
         success: false,
         output_chars: 0,
+        output: String::new(),
+        arguments: None,
         elapsed_ms: 5,
         iteration: 1,
         failure: Some(ClassifiedFailure {
@@ -1166,4 +1201,271 @@ fn span_ids_are_unique_across_turns() {
         find(b.spans(), "agent.turn").span_id,
         "span ids must be globally unique across turns"
     );
+}
+
+// ── content-bearing wiring (system prompt / tool IO / subagent IO) ──────────
+
+fn capture_ctx() -> TraceContext {
+    ctx().with_capture_content(true)
+}
+
+fn collect_with_capture(events: &[(AgentProgress, u64)]) -> SpanCollector {
+    let mut c = SpanCollector::new(capture_ctx());
+    for (event, ts) in events {
+        c.record(event, *ts);
+    }
+    c
+}
+
+fn model_call_with_content(subagent_task_id: Option<&str>) -> AgentProgress {
+    AgentProgress::ModelCallCompleted {
+        model: "chat-v1".to_string(),
+        provider_id: "managed".to_string(),
+        subagent_task_id: subagent_task_id.map(str::to_string),
+        input: Some(serde_json::json!([
+            {"role": "system", "content": "You are OpenHuman."},
+            {"role": "user", "content": "hi"}
+        ])),
+        output: Some(serde_json::json!({"role": "assistant", "content": "hello"})),
+        iteration: 1,
+        input_tokens: 100,
+        output_tokens: 10,
+        cached_input_tokens: 0,
+        cache_creation_tokens: 0,
+        reasoning_tokens: 0,
+        cost_usd: 0.001,
+    }
+}
+
+#[test]
+fn generation_records_request_messages_and_completion_when_capture_on() {
+    let mut c = collect_with_capture(&[
+        (AgentProgress::TurnStarted, 0),
+        (model_call_with_content(None), 10),
+    ]);
+    c.finish(20);
+    let generation = find(c.spans(), "llm.chat-v1");
+    let input = generation.input.as_ref().expect("generation input");
+    assert!(
+        input.to_string().contains("You are OpenHuman."),
+        "system prompt must land in the generation input: {input}"
+    );
+    assert!(generation
+        .output
+        .as_ref()
+        .expect("generation output")
+        .to_string()
+        .contains("hello"));
+}
+
+#[test]
+fn generation_withholds_content_when_capture_off() {
+    let mut c = collect(&[
+        (AgentProgress::TurnStarted, 0),
+        (model_call_with_content(None), 10),
+    ]);
+    c.finish(20);
+    let generation = find(c.spans(), "llm.chat-v1");
+    assert!(generation.input.is_none(), "capture off → no prompt");
+    assert!(generation.output.is_none(), "capture off → no completion");
+}
+
+#[test]
+fn subagent_model_call_nests_generation_and_stamps_model_on_subagent_span() {
+    let mut c = collect_with_capture(&[
+        (AgentProgress::TurnStarted, 0),
+        (spawn("task-9", "Context Scout"), 5),
+        (
+            AgentProgress::SubagentIterationStarted {
+                agent_id: "context_scout".to_string(),
+                task_id: "task-9".to_string(),
+                iteration: 1,
+                max_iterations: 8,
+                extended_policy: true,
+            },
+            6,
+        ),
+        (model_call_with_content(Some("task-9")), 10),
+    ]);
+    c.finish(20);
+    let spans = c.spans();
+
+    // Generation nests under the subagent's iteration, not the parent turn.
+    let generation = find(spans, "llm.chat-v1");
+    let child_iter = find(spans, "subagent.iteration#1");
+    assert_eq!(
+        generation.parent_span_id.as_deref(),
+        Some(child_iter.span_id.as_str())
+    );
+    assert!(generation.input.is_some(), "child generation carries input");
+
+    // The subagent span itself surfaces the provider-labeled model + usage.
+    let sub = find(spans, "subagent.Context Scout");
+    assert_eq!(
+        sub.attributes["gen_ai.request.model"],
+        serde_json::json!("managed.chat-v1")
+    );
+    assert_eq!(
+        sub.attributes["gen_ai.usage.input_tokens"],
+        serde_json::json!(100)
+    );
+    assert_eq!(
+        sub.attributes["gen_ai.usage.cost_usd"],
+        serde_json::json!(0.001)
+    );
+
+    // The parent turn's rollup is NOT polluted by the child call.
+    let turn = find(spans, "agent.turn");
+    assert!(turn.attributes.get("gen_ai.request.model").is_none());
+}
+
+#[test]
+fn parent_tool_completion_backfills_arguments_and_records_output() {
+    let mut c = collect_with_capture(&[
+        (AgentProgress::TurnStarted, 0),
+        (
+            // tinyagents path: Started carries Null arguments.
+            AgentProgress::ToolCallStarted {
+                call_id: "c1".to_string(),
+                tool_name: "web_search".to_string(),
+                arguments: serde_json::Value::Null,
+                iteration: 1,
+                display_label: None,
+                display_detail: None,
+            },
+            5,
+        ),
+        (
+            AgentProgress::ToolCallCompleted {
+                call_id: "c1".to_string(),
+                tool_name: "web_search".to_string(),
+                success: true,
+                output_chars: 7,
+                output: "results".to_string(),
+                arguments: Some(serde_json::json!({"query": "weather"})),
+                elapsed_ms: 40,
+                iteration: 1,
+                failure: None,
+            },
+            45,
+        ),
+    ]);
+    c.finish(50);
+    let tool = find(c.spans(), "tool.web_search");
+    assert!(
+        tool.input
+            .as_ref()
+            .expect("tool input backfilled from completion")
+            .to_string()
+            .contains("weather"),
+        "arguments from the completion event must backfill the span input"
+    );
+    assert_eq!(
+        tool.output,
+        Some(serde_json::Value::String("results".to_string()))
+    );
+}
+
+#[test]
+fn subagent_span_records_prompt_and_final_output_when_capture_on() {
+    let mut c = collect_with_capture(&[
+        (AgentProgress::TurnStarted, 0),
+        (spawn("task-1", "Researcher"), 5),
+        (
+            AgentProgress::SubagentCompleted {
+                agent_id: "researcher".to_string(),
+                task_id: "task-1".to_string(),
+                elapsed_ms: 100,
+                iterations: 2,
+                output_chars: 12,
+                output: "final answer".to_string(),
+                worktree_path: None,
+                changed_files: vec![],
+                dirty_status: None,
+            },
+            105,
+        ),
+    ]);
+    c.finish(110);
+    let sub = find(c.spans(), "subagent.Researcher");
+    assert_eq!(
+        sub.input,
+        Some(serde_json::Value::String("delegated prompt".to_string()))
+    );
+    assert_eq!(
+        sub.output,
+        Some(serde_json::Value::String("final answer".to_string()))
+    );
+}
+
+#[test]
+fn subagent_content_is_withheld_when_capture_off() {
+    let mut c = collect(&[
+        (AgentProgress::TurnStarted, 0),
+        (spawn("task-1", "Researcher"), 5),
+        (
+            AgentProgress::SubagentCompleted {
+                agent_id: "researcher".to_string(),
+                task_id: "task-1".to_string(),
+                elapsed_ms: 100,
+                iterations: 2,
+                output_chars: 12,
+                output: "final answer".to_string(),
+                worktree_path: None,
+                changed_files: vec![],
+                dirty_status: None,
+            },
+            105,
+        ),
+    ]);
+    c.finish(110);
+    let sub = find(c.spans(), "subagent.Researcher");
+    assert!(sub.input.is_none());
+    assert!(sub.output.is_none());
+}
+
+#[test]
+fn oversized_model_content_degrades_to_truncated_string() {
+    let big = "x".repeat(MAX_MODEL_CONTENT_CHARS + 100);
+    let captured = capture_model_content(&serde_json::json!({ "content": big }));
+    let rendered = match &captured {
+        serde_json::Value::String(s) => s.clone(),
+        other => other.to_string(),
+    };
+    assert!(rendered.chars().count() <= MAX_MODEL_CONTENT_CHARS + 64);
+    assert!(rendered.contains("truncated"));
+}
+
+#[test]
+fn turn_content_respects_the_trace_context_capture_gate() {
+    // Regression (PR #4506 review): the collector briefly carried TWO capture
+    // gates — a collector-level flag (checked by the TurnContent arm) and the
+    // TraceContext flag (checked everywhere else). The web progress bridge only
+    // sets the TraceContext flag, so TurnContent silently dropped the turn's
+    // prompt/reply even with capture_content enabled. There is now a single
+    // gate: both construction styles must attach TurnContent.
+    for collector in [
+        SpanCollector::new(ctx().with_capture_content(true)),
+        SpanCollector::new(ctx()).with_content_capture(true),
+    ] {
+        let mut c = collector;
+        c.record(&AgentProgress::TurnStarted, 0);
+        c.record(
+            &AgentProgress::TurnContent {
+                input: Some("the prompt".to_string()),
+                output: Some("the reply".to_string()),
+            },
+            5,
+        );
+        c.finish(10);
+        let turn = find(c.spans(), "agent.turn");
+        assert_eq!(
+            turn.input,
+            Some(serde_json::Value::String("the prompt".to_string()))
+        );
+        assert_eq!(
+            turn.output,
+            Some(serde_json::Value::String("the reply".to_string()))
+        );
+    }
 }

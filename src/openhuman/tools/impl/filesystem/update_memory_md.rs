@@ -61,10 +61,28 @@ async fn acquire_cross_process_write_lock(workspace_dir: &Path) -> anyhow::Resul
         if let Some(parent) = lock_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(false)
+        // Reject a symlinked lock file: a project-controlled `.memory-write.lock`
+        // symlink (including a dangling one) could otherwise redirect this
+        // create/open/lock to a path OUTSIDE the already-containment-checked
+        // workspace, bypassing the symlink hardening applied to MEMORY.md /
+        // SKILL.md. If it exists it must be a regular file.
+        if let Ok(meta) = std::fs::symlink_metadata(&lock_path) {
+            if meta.file_type().is_symlink() {
+                return Err(anyhow::anyhow!(
+                    "workspace lock file {lock_path:?} is a symlink; refusing to follow it"
+                ));
+            }
+        }
+        let mut opts = std::fs::OpenOptions::new();
+        opts.create(true).write(true).truncate(false);
+        #[cfg(unix)]
+        {
+            // O_NOFOLLOW closes the TOCTOU window: if a symlink is swapped in
+            // after the check above, the open fails (ELOOP) rather than follows.
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.custom_flags(libc::O_NOFOLLOW);
+        }
+        let file = opts
             .open(&lock_path)
             .map_err(|e| anyhow::anyhow!("open workspace lock file {lock_path:?}: {e}"))?;
         file.lock_exclusive()

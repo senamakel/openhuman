@@ -133,6 +133,15 @@ impl ReliableProvider {
 
 #[async_trait]
 impl Provider for ReliableProvider {
+    fn telemetry_provider_id(&self) -> String {
+        // Delegate to the primary (first) upstream - the one that serves the
+        // call unless a failover kicks in.
+        self.providers
+            .first()
+            .map(|(_, p)| p.telemetry_provider_id())
+            .unwrap_or_else(|| "custom".to_string())
+    }
+
     async fn warmup(&self) -> anyhow::Result<()> {
         for (name, provider) in &self.providers {
             tracing::info!(provider = name, "Warming up provider connection pool");

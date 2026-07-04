@@ -54,6 +54,18 @@ pub enum AgentProgress {
         tool_name: String,
         success: bool,
         output_chars: usize,
+        /// Full text the tool returned. Mirrors
+        /// [`Self::SubagentToolCallCompleted::output`] so trace exporters can
+        /// record the parent-scope tool result as the span output (truncated +
+        /// content-gated at the collector). Empty when the harness ran with
+        /// payload capture off.
+        output: String,
+        /// The arguments the tool was invoked with, when the harness captured
+        /// them (`PayloadCapture::tool_io`). The crate emits arguments on the
+        /// *completed* event, so trace exporters use this to backfill the tool
+        /// span's input (the started event's `arguments` is `Null` on the
+        /// tinyagents path).
+        arguments: Option<serde_json::Value>,
         elapsed_ms: u64,
         /// 1-based iteration index.
         iteration: u32,
@@ -89,6 +101,11 @@ pub enum AgentProgress {
         /// "Researcher", "Coding Agent"). Falls back to `agent_id` in
         /// the UI when absent.
         display_name: Option<String>,
+        /// The full delegated prompt text. `prompt_chars` stays as the cheap
+        /// size hint; trace exporters record this (truncated + content-gated)
+        /// as the subagent span's input so a delegation is inspectable
+        /// end-to-end in Langfuse.
+        prompt: String,
     },
 
     /// A sub-agent completed successfully.
@@ -103,6 +120,9 @@ pub enum AgentProgress {
         iterations: u32,
         /// Character length of the sub-agent's final assistant text.
         output_chars: usize,
+        /// The sub-agent's full final assistant text. Trace exporters record
+        /// this (truncated + content-gated) as the subagent span's output.
+        output: String,
         /// Absolute path to the worker's isolated `git worktree` checkout,
         /// when it ran with `isolation = "worktree"` (#3376). `None` for
         /// non-isolated (read-only / shared-workspace) workers.
@@ -187,6 +207,11 @@ pub enum AgentProgress {
         /// actual result/output. `output_chars` is kept as a cheap size hint
         /// for consumers that only want the length.
         output: String,
+        /// The arguments the tool was invoked with, when the harness captured
+        /// them (`PayloadCapture::tool_io`). Backfills the tool span's input in
+        /// trace exports (the started event's `arguments` is `Null` on the
+        /// tinyagents path).
+        arguments: Option<serde_json::Value>,
         elapsed_ms: u64,
         /// 1-based child iteration index.
         iteration: u32,
@@ -292,12 +317,27 @@ pub enum AgentProgress {
     /// [`Self::TurnCostUpdated`] (cumulative rollup), every field here is
     /// **per-call**, so trace exporters can render each model invocation as
     /// its own Langfuse generation with exact model + token + cost figures.
-    /// Emitted once per parent-scope model call, right after the usage block
-    /// is recorded; child (subagent) calls stay inside the cumulative rollup
-    /// because this event carries no task attribution.
+    /// Emitted once per model call — parent-scope calls carry
+    /// `subagent_task_id: None`; child (subagent) calls carry the owning
+    /// task id so exporters can nest the generation under the subagent span.
     ModelCallCompleted {
         /// Model that served this call (tier handle or concrete model id).
         model: String,
+        /// Provider that served this call (`"managed"`, `"openai"`,
+        /// `"ollama"`, …). Trace exporters render the Langfuse model as
+        /// `{provider_id}.{model}` (e.g. `managed.chat-v1`).
+        provider_id: String,
+        /// Owning subagent task id when this call ran inside a child run
+        /// (`spawn_subagent` / Context Scout). `None` for parent-scope calls.
+        subagent_task_id: Option<String>,
+        /// The request messages sent to the model (including the system
+        /// prompt), when the harness captured them
+        /// (`PayloadCapture::model_io`). Trace exporters record this as the
+        /// generation's input, gated on `capture_content`.
+        input: Option<serde_json::Value>,
+        /// The model completion (assistant message), when captured. Recorded
+        /// as the generation's output, gated on `capture_content`.
+        output: Option<serde_json::Value>,
         /// 1-based iteration index (one model call per iteration).
         iteration: u32,
         /// Input/prompt tokens for this call.

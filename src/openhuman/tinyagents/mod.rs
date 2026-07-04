@@ -157,6 +157,16 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     // pass `false` here AND attach no cache, so a live user turn can never be
     // served a cached model response (double fail-safe).
     policy.cache.response_cache_enabled = response_cache_enabled;
+    // Payload capture ON: the loop stamps request messages + completion onto
+    // `ModelCompleted` and tool arguments + result onto `ToolCompleted`, which
+    // the `OpenhumanEventBridge` projects into content-bearing `AgentProgress`
+    // events (generation/tool span input+output in trace exports). Privacy
+    // posture is unchanged off-device: the durable journal passes through a
+    // `RedactingSink` (on-device, same data class as the threads DB, which
+    // already persists full conversations + tool output), and the Langfuse
+    // exporter withholds all content unless
+    // `observability.agent_tracing.capture_content` is on.
+    policy.capture = tinyagents::harness::runtime::PayloadCapture::all();
     policy
 }
 
@@ -450,6 +460,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // otherwise the harness model-call cap would be zero and abort the run before
     // the first provider call.
     let max_iterations = effective_max_iterations(max_iterations);
+    // Snapshot the provider's telemetry id before `provider` moves into the
+    // harness assembly — the event bridge stamps it on every per-call
+    // generation event (`{provider_id}.{model}` in Langfuse).
+    let provider_id = provider.telemetry_provider_id();
     let AssembledTurnHarness {
         harness,
         cursor,
@@ -645,6 +659,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         let bridge = OpenhumanEventBridge::with_scope(
             on_progress,
             model,
+            provider_id.clone(),
             max_iterations,
             subagent_scope.clone(),
             cursor.clone(),

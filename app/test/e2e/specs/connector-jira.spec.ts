@@ -132,7 +132,7 @@ describe('Jira Composio connector flow', () => {
     console.log(`${LOG} PASS: connected state persists`);
   });
 
-  it('composio_sync RPC routes to mock backend', async function () {
+  it('composio_sync does not tear down the session', async function () {
     this.timeout(30_000);
     clearRequestLog();
     await callOpenhumanRpc('openhuman.composio_sync', { toolkit: TOOLKIT_SLUG });

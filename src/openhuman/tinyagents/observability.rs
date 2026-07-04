@@ -312,8 +312,7 @@ impl OpenhumanEventBridge {
                     handle.spawn(async move {
                         loop {
                             let next = {
-                                let mut ov =
-                                    overflow.lock().unwrap_or_else(|p| p.into_inner());
+                                let mut ov = overflow.lock().unwrap_or_else(|p| p.into_inner());
                                 match ov.queue.pop_front() {
                                     Some(item) => item,
                                     None => {
@@ -324,8 +323,7 @@ impl OpenhumanEventBridge {
                             };
                             if tx.send(next).await.is_err() {
                                 // Receiver gone: stop draining, discard the rest.
-                                let mut ov =
-                                    overflow.lock().unwrap_or_else(|p| p.into_inner());
+                                let mut ov = overflow.lock().unwrap_or_else(|p| p.into_inner());
                                 ov.queue.clear();
                                 ov.draining = false;
                                 break;

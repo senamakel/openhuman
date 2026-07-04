@@ -1246,12 +1246,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
             next_action: 'Ask again if you change your mind.',
             recoverable: false,
           },
-          subagent: {
-            agent_id: 'researcher',
-            task_id: 'sub-1',
-            child_iteration: 1,
-            elapsed_ms: 5,
-          },
+          subagent: { agent_id: 'researcher', task_id: 'sub-1', child_iteration: 1, elapsed_ms: 5 },
         });
       });
 

@@ -321,6 +321,13 @@ pub(crate) async fn run_turn_via_tinyagents(
     );
 
     let input = convert::history_to_messages(&history);
+    // Explicit persistence boundary (issue #4455): the request transcript length,
+    // captured *before* the run consumes `input`. Everything the harness appends
+    // after this index — assistant/tool rounds plus any mid-turn steer messages —
+    // is this turn's persisted `conversation`. Anchoring on this index instead of
+    // the last-user-message suffix keeps injected steers (which move that
+    // boundary) from truncating persisted history.
+    let request_base_len = input.len();
     // Box the (large) harness drive future — see `run_turn_via_tinyagents_shared`.
     let run = match Box::pin(harness.invoke(&(), (), config, input)).await {
         Ok(run) => run,
@@ -334,8 +341,16 @@ pub(crate) async fn run_turn_via_tinyagents(
 
     let text = run.text().unwrap_or_default();
     let out_history = convert::messages_to_history(&run.messages);
-    let conversation =
-        convert::messages_to_conversation(convert::messages_since_last_user(&run.messages));
+    let conversation = convert::messages_to_conversation(convert::messages_since_request(
+        &run.messages,
+        request_base_len,
+    ));
+    tracing::debug!(
+        request_base_len,
+        transcript_len = run.messages.len(),
+        persisted_messages = run.messages.len().saturating_sub(request_base_len),
+        "[tinyagents] persisting post-request transcript (thin path; steer-safe boundary)"
+    );
 
     Ok(TinyagentsTurnOutcome {
         text,
@@ -534,6 +549,14 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     );
 
     let input = convert::history_to_messages(&history);
+    // Explicit persistence boundary (issue #4455): the request transcript length,
+    // captured *before* the run consumes `input`. The turn's persisted
+    // `conversation` is everything appended past this index — assistant/tool
+    // rounds plus any mid-turn steer/collect messages injected as user turns.
+    // Anchoring here (instead of the last-user-message suffix) keeps injected
+    // steers from moving the boundary and truncating persisted history on both
+    // the parent (`session/turn/core.rs`) and subagent (`subagent_runner`) paths.
+    let request_base_len = input.len();
 
     // Build the run context: an optional event sink feeds the progress/cost
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
@@ -888,12 +911,23 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         .map(|guard| guard.clone())
         .unwrap_or_default();
 
+    let conversation = convert::messages_to_conversation(convert::messages_since_request(
+        &run.messages,
+        request_base_len,
+    ));
+    tracing::debug!(
+        model,
+        request_base_len,
+        transcript_len = run.messages.len(),
+        persisted_messages = run.messages.len().saturating_sub(request_base_len),
+        subagent = subagent_scope.is_some(),
+        "[tinyagents] persisting post-request transcript (shared path; steer-safe boundary)"
+    );
+
     Ok(TinyagentsTurnOutcome {
         text,
         history: convert::messages_to_history(&run.messages),
-        conversation: convert::messages_to_conversation(convert::messages_since_last_user(
-            &run.messages,
-        )),
+        conversation,
         model_calls: run.model_calls,
         tool_calls: run.tool_calls,
         input_tokens,

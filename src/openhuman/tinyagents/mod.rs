@@ -48,14 +48,13 @@ use tinyagents::harness::cache::InMemoryResponseCache;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::middleware::{
-    BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware, MessageTrimMiddleware,
-    PromptCacheGuardMiddleware, ToolPolicyMiddleware as TaToolPolicyMiddleware,
+    BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware, PromptCacheGuardMiddleware,
+    ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::SteeringHandle;
 use tinyagents::harness::store::StoreRegistry;
-use tinyagents::harness::summarization::TrimStrategy;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 use tinyagents::registry::{
     CapabilityRegistry, ComponentKind, DiagnosticSeverity, RegistryDiagnostic, RegistrySnapshot,
@@ -372,8 +371,9 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// produced. Pass `None` for fire-and-forget turns (channel/sub-agent) that
 /// only need the final text.
 ///
-/// When `context_window` is known, a [`MessageTrimMiddleware`] keeps history
-/// under budget (autocompaction parity).
+/// When `context_window` is known, an
+/// [`ImageAwareMessageTrimMiddleware`](middleware::ImageAwareMessageTrimMiddleware)
+/// keeps history under budget (autocompaction parity).
 ///
 /// `run_queue` forwards mid-flight steer messages into the run; `subagent_scope`
 /// re-scopes progress to the `Subagent*` variants (child runs); `early_exit_tools`
@@ -1519,10 +1519,12 @@ fn assemble_turn_harness(
     //    transcript into a single LLM-generated system summary (keeping system
     //    messages + the recent window verbatim). This is keyed to whatever model
     //    the turn is running on, preserving the legacy context threshold.
-    // 2. `MessageTrimMiddleware` — a deterministic, no-extra-LLM-call hard cap.
+    // 2. `ImageAwareMessageTrimMiddleware` — a deterministic, no-extra-LLM-call
+    //    hard cap (issue #4462; replaces the crate `MessageTrimMiddleware`).
     //    Pushed **after** compression (so `before_model` runs compression first),
-    //    it front-trims to budget only as a last resort when even the summary +
-    //    recent window still overflow.
+    //    it front-trims to the legacy proportional budget only as a last resort
+    //    when even the summary + recent window still overflow — image markers
+    //    priced flat, system messages never dropped, evictions logged.
     //
     // The LLM summarization step honors the `[context].enabled` /
     // `autocompact_enabled` opt-outs (a disabled config must not spend summarizer
@@ -1557,12 +1559,19 @@ fn assemble_turn_harness(
             compression_mw = Some(mw);
         }
 
-        let budget = window.saturating_sub(
-            crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS as u64,
-        );
-        harness.push_middleware(Arc::new(MessageTrimMiddleware::new(
-            TrimStrategy::MaxTokens(budget.max(1024)),
-        )));
+        // Deterministic hard-cap trim (issue #4462). The crate
+        // `MessageTrimMiddleware` regressed three legacy `token_budget.rs`
+        // guards: it priced a base64 image at ~2M tokens (chars/4) and could
+        // evict system messages, it reordered system messages to the front, and
+        // its budget was the fixed `window − AGENT_TURN_MAX_OUTPUT_TOKENS`
+        // (floored 1024) that collapses an 8k local model's input budget from
+        // ~7373 to 1024. Our seam-owned `ImageAwareMessageTrimMiddleware`
+        // restores all three: image markers priced at a flat cost, the
+        // proportional reply reserve, system messages always kept in place, and a
+        // grep-able warn with drop/token counts on any eviction.
+        harness.push_middleware(Arc::new(
+            middleware::ImageAwareMessageTrimMiddleware::for_context_window(window),
+        ));
     }
 
     // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration

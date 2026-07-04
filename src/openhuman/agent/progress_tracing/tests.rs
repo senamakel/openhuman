@@ -705,6 +705,181 @@ fn turn_span_stamps_user_and_thread_grouping_attributes() {
     );
 }
 
+// ── identity / attribution / content capture ───────────────────────────────
+
+#[test]
+fn turn_span_carries_agent_client_and_source_attribution() {
+    let mut c = SpanCollector::new(
+        TraceContext::new("trace:req-9", Some("user-123".to_string()))
+            .with_client_id("socket-abc")
+            .with_agent_id("researcher")
+            .with_channel_source("autonomous"),
+    );
+    c.record(&AgentProgress::TurnStarted, 0);
+    // Trace name folds in the agent id.
+    let turn = find(c.spans(), "agent.turn:researcher");
+    assert_eq!(turn.kind, SpanKind::Turn);
+    // Real user id is the user attribution; the transport client id is a
+    // separate attribute, never conflated with the user.
+    assert_eq!(turn.attributes["user.id"], serde_json::json!("user-123"));
+    assert_eq!(
+        turn.attributes["client.id"],
+        serde_json::json!("socket-abc")
+    );
+    assert_eq!(turn.attributes["agent.id"], serde_json::json!("researcher"));
+    assert_eq!(
+        turn.attributes["channel.source"],
+        serde_json::json!("autonomous")
+    );
+}
+
+#[test]
+fn turn_span_name_stays_plain_without_agent_id() {
+    let mut c = SpanCollector::new(ctx());
+    c.record(&AgentProgress::TurnStarted, 0);
+    assert!(names(c.spans()).contains(&"agent.turn".to_string()));
+}
+
+#[test]
+fn thread_id_falls_back_to_trace_id_without_session_group() {
+    // Every trace must end up with a Langfuse sessionId: with no explicit
+    // session group, the trace id itself is stamped as thread.id.
+    let mut c = SpanCollector::new(TraceContext::new("sess-42:req-1", None));
+    c.record(&AgentProgress::TurnStarted, 0);
+    let turn = find(c.spans(), "agent.turn");
+    assert_eq!(
+        turn.attributes["thread.id"],
+        serde_json::json!("sess-42:req-1")
+    );
+}
+
+#[test]
+fn tool_io_is_captured_when_capture_content_is_on() {
+    let mut c = SpanCollector::new(ctx().with_capture_content(true));
+    c.record(&AgentProgress::TurnStarted, 0);
+    c.record(&tool_started("c1", "web_search", 1), 1);
+    let tool = find(c.spans(), "tool.web_search");
+    let input = tool.input.as_ref().and_then(|v| v.as_str()).unwrap();
+    assert!(
+        input.contains("do-not-export"),
+        "tool arguments must be recorded as span input when capture is on"
+    );
+
+    // Subagent tool result → span output.
+    c.record(&spawn("task-1", "Researcher"), 2);
+    c.record(
+        &AgentProgress::SubagentToolCallStarted {
+            agent_id: "researcher".to_string(),
+            task_id: "task-1".to_string(),
+            call_id: "sc-1".to_string(),
+            tool_name: "read_file".to_string(),
+            arguments: serde_json::json!({"path": "notes.md"}),
+            iteration: 1,
+            display_label: None,
+            display_detail: None,
+        },
+        3,
+    );
+    c.record(
+        &AgentProgress::SubagentToolCallCompleted {
+            agent_id: "researcher".to_string(),
+            task_id: "task-1".to_string(),
+            call_id: "sc-1".to_string(),
+            tool_name: "read_file".to_string(),
+            success: true,
+            output_chars: 13,
+            output: "file contents".to_string(),
+            elapsed_ms: 4,
+            iteration: 1,
+        },
+        4,
+    );
+    let child_tool = find(c.spans(), "tool.read_file");
+    assert!(child_tool
+        .input
+        .as_ref()
+        .and_then(|v| v.as_str())
+        .unwrap()
+        .contains("notes.md"));
+    assert_eq!(
+        child_tool.output.as_ref().and_then(|v| v.as_str()),
+        Some("file contents")
+    );
+}
+
+#[test]
+fn tool_io_is_never_recorded_when_capture_content_is_off() {
+    // Default ctx() has capture_content = false.
+    let mut c = collect(&[
+        (AgentProgress::TurnStarted, 0),
+        (tool_started("c1", "web_search", 1), 1),
+        (spawn("task-1", "Researcher"), 2),
+        (
+            AgentProgress::SubagentToolCallStarted {
+                agent_id: "researcher".to_string(),
+                task_id: "task-1".to_string(),
+                call_id: "sc-1".to_string(),
+                tool_name: "read_file".to_string(),
+                arguments: serde_json::json!({"path": "secret.md"}),
+                iteration: 1,
+                display_label: None,
+                display_detail: None,
+            },
+            3,
+        ),
+        (
+            AgentProgress::SubagentToolCallCompleted {
+                agent_id: "researcher".to_string(),
+                task_id: "task-1".to_string(),
+                call_id: "sc-1".to_string(),
+                tool_name: "read_file".to_string(),
+                success: true,
+                output_chars: 6,
+                output: "sekrit".to_string(),
+                elapsed_ms: 4,
+                iteration: 1,
+            },
+            4,
+        ),
+    ]);
+    c.finish(100);
+    for span in c.spans() {
+        if span.kind == SpanKind::Tool {
+            assert!(span.input.is_none(), "no tool input with capture off");
+            assert!(span.output.is_none(), "no tool output with capture off");
+        }
+    }
+    let blob = serde_json::to_string(c.spans()).unwrap();
+    assert!(!blob.contains("do-not-export"));
+    assert!(!blob.contains("sekrit"));
+}
+
+#[test]
+fn captured_tool_io_is_truncated_with_marker() {
+    let mut c = SpanCollector::new(ctx().with_capture_content(true));
+    c.record(&AgentProgress::TurnStarted, 0);
+    let huge = "x".repeat(10_000);
+    c.record(
+        &AgentProgress::ToolCallStarted {
+            call_id: "c1".to_string(),
+            tool_name: "shell".to_string(),
+            arguments: serde_json::json!({ "cmd": huge }),
+            iteration: 1,
+            display_label: None,
+            display_detail: None,
+        },
+        1,
+    );
+    let tool = find(c.spans(), "tool.shell");
+    let input = tool.input.as_ref().and_then(|v| v.as_str()).unwrap();
+    assert!(input.contains("[truncated"), "marker must flag truncation");
+    assert!(
+        input.chars().count() < 4_100,
+        "captured input must be capped near 4000 chars, got {}",
+        input.chars().count()
+    );
+}
+
 #[test]
 fn span_ids_are_unique_across_turns() {
     // Two separate collectors (two turns) must not reuse span ids, or Langfuse

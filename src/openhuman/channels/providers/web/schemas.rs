@@ -122,6 +122,9 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                     speak_reply: p.speak_reply,
                     source: p.source,
                     session_id: p.session_id,
+                    // Attribution is stamped later by run_chat_task once the
+                    // target agent is resolved.
+                    agent_id: None,
                 },
             )
             .await?,

@@ -23,12 +23,15 @@
 //!
 //! ## Privacy
 //!
-//! Spans intentionally carry only *metadata* — span names, counts, timings,
-//! and token/cost figures. Prompt text, tool arguments, streamed text/thinking
-//! deltas, raw error strings, and filesystem paths are **never** recorded,
-//! honoring the project's "never log secrets or full PII" rule. The
-//! content-bearing [`AgentProgress`] variants (`TextDelta`, `ThinkingDelta`,
-//! `ToolCallArgsDelta`) are dropped on the floor here.
+//! Spans always carry *metadata* — span names, counts, timings, and
+//! token/cost figures. While `observability.agent_tracing.capture_content` is
+//! on (its default), the turn's prompt/reply and **truncated** tool
+//! arguments/results are additionally recorded as span `input`/`output`;
+//! with the flag off, none of that content ever reaches the in-memory span.
+//! Streamed text/thinking deltas (`TextDelta`, `ThinkingDelta`,
+//! `ToolCallArgsDelta`), raw error strings, and filesystem paths are **never**
+//! recorded regardless of the flag, honoring the project's "never log secrets
+//! or full PII" rule for logs.
 //!
 //! ## Wiring
 //!
@@ -55,13 +58,31 @@ pub struct TraceContext {
     /// Trace id — unique per turn. Every span of a single turn shares it, so
     /// each turn becomes its own Langfuse trace.
     pub session_id: String,
-    /// User attribution (e.g. the broadcast client id / "system" for
-    /// autonomous runs). `None` when the caller is anonymous.
+    /// Real authenticated user attribution (the backend user id, or email as
+    /// fallback) — exported as the Langfuse `userId`. `None` when the caller
+    /// is anonymous. Transport identifiers (socket client id / "system")
+    /// belong in [`Self::client_id`], not here.
     pub user_id: Option<String>,
+    /// Transport client id (the broadcast socket client, or `"system"` for
+    /// autonomous runs). Exported as the `client.id` metadata attribute so it
+    /// stays inspectable without polluting user attribution.
+    pub client_id: Option<String>,
+    /// Agent definition id driving the turn (e.g. `"orchestrator"`,
+    /// `"researcher"`). Stamped as the `agent.id` attribute and folded into
+    /// the root span/trace name (`agent.turn:<agent_id>`).
+    pub agent_id: Option<String>,
+    /// Where the run originated (`"chat"`, `"ptt"`, `"autonomous"`, …).
+    /// Exported as the `channel.source` metadata attribute.
+    pub channel_source: Option<String>,
     /// Grouping key (the thread/conversation id) exported as the Langfuse
-    /// `sessionId` so per-turn traces still group under one session. `None`
-    /// leaves the trace ungrouped.
+    /// `sessionId` so per-turn traces still group under one session. When
+    /// `None`, the collector falls back to the trace id so every trace still
+    /// carries a session id.
     pub session_group: Option<String>,
+    /// Whether content capture (`observability.agent_tracing.capture_content`)
+    /// is on. Gates recording tool arguments/results onto spans at collection
+    /// time — when off, tool I/O never even reaches the in-memory span.
+    pub capture_content: bool,
 }
 
 impl TraceContext {
@@ -69,7 +90,11 @@ impl TraceContext {
         Self {
             session_id: session_id.into(),
             user_id,
+            client_id: None,
+            agent_id: None,
+            channel_source: None,
             session_group: None,
+            capture_content: false,
         }
     }
 
@@ -77,6 +102,30 @@ impl TraceContext {
     /// `sessionId`, so a conversation's per-turn traces group together.
     pub fn with_session_group(mut self, group: impl Into<String>) -> Self {
         self.session_group = Some(group.into());
+        self
+    }
+
+    /// Set the transport client id (`client.id` metadata attribute).
+    pub fn with_client_id(mut self, client_id: impl Into<String>) -> Self {
+        self.client_id = Some(client_id.into());
+        self
+    }
+
+    /// Set the agent definition id (`agent.id` attribute + trace name suffix).
+    pub fn with_agent_id(mut self, agent_id: impl Into<String>) -> Self {
+        self.agent_id = Some(agent_id.into());
+        self
+    }
+
+    /// Set the run origin (`channel.source` metadata attribute).
+    pub fn with_channel_source(mut self, source: impl Into<String>) -> Self {
+        self.channel_source = Some(source.into());
+        self
+    }
+
+    /// Enable/disable content capture (tool arguments/results on spans).
+    pub fn with_capture_content(mut self, capture_content: bool) -> Self {
+        self.capture_content = capture_content;
         self
     }
 }
@@ -302,13 +351,47 @@ impl SpanCollector {
                 serde_json::Value::String(user.clone()),
             );
         }
-        if let Some(group) = &self.ctx.session_group {
+        if let Some(client) = &self.ctx.client_id {
             attrs.insert(
-                "thread.id".to_string(),
-                serde_json::Value::String(group.clone()),
+                "client.id".to_string(),
+                serde_json::Value::String(client.clone()),
             );
         }
-        let (id, index) = self.open_span(SpanKind::Turn, "agent.turn", None, start_unix_ms, attrs);
+        if let Some(agent) = &self.ctx.agent_id {
+            attrs.insert(
+                "agent.id".to_string(),
+                serde_json::Value::String(agent.clone()),
+            );
+        }
+        if let Some(source) = &self.ctx.channel_source {
+            attrs.insert(
+                "channel.source".to_string(),
+                serde_json::Value::String(source.clone()),
+            );
+        }
+        // Every trace must end up with a Langfuse sessionId: prefer the
+        // explicit grouping key (thread/conversation id), else fall back to
+        // the trace id itself so the trace is never left session-less.
+        let group = self
+            .ctx
+            .session_group
+            .clone()
+            .unwrap_or_else(|| self.ctx.session_id.clone());
+        attrs.insert("thread.id".to_string(), serde_json::Value::String(group));
+        // Trace/root-span name carries agent attribution when known.
+        let name = match &self.ctx.agent_id {
+            Some(agent) => format!("agent.turn:{agent}"),
+            None => "agent.turn".to_string(),
+        };
+        log::debug!(
+            "[agent-tracing] opening turn span trace_id={} name={} user_attributed={} client_attributed={} source={:?}",
+            self.ctx.session_id,
+            name,
+            self.ctx.user_id.is_some(),
+            self.ctx.client_id.is_some(),
+            self.ctx.channel_source,
+        );
+        let (id, index) = self.open_span(SpanKind::Turn, name, None, start_unix_ms, attrs);
         self.turn_span_id = Some(id.clone());
         self.turn_span_index = Some(index);
         id
@@ -321,6 +404,46 @@ impl SpanCollector {
             return id.clone();
         }
         self.ensure_turn_span(now_unix_ms)
+    }
+
+    /// Record a tool call's arguments as the span's `input`, truncated to
+    /// [`MAX_TOOL_CONTENT_CHARS`]. A no-op unless content capture is on
+    /// (`observability.agent_tracing.capture_content`) — when off, tool I/O
+    /// never even reaches the in-memory span. `Null` arguments are skipped.
+    fn capture_tool_arguments(&mut self, index: usize, arguments: &serde_json::Value) {
+        if !self.ctx.capture_content || arguments.is_null() {
+            return;
+        }
+        let serialized = arguments.to_string();
+        let chars = serialized.chars().count();
+        if let Some(span) = self.spans.get_mut(index) {
+            span.input = Some(serde_json::Value::String(truncate_capture_text(
+                &serialized,
+            )));
+            log::trace!(
+                "[agent-tracing] captured tool input span={} chars={chars} truncated={}",
+                span.name,
+                chars > MAX_TOOL_CONTENT_CHARS,
+            );
+        }
+    }
+
+    /// Record a tool call's result as the span's `output`, truncated to
+    /// [`MAX_TOOL_CONTENT_CHARS`]. Same capture gate as
+    /// [`Self::capture_tool_arguments`]. Empty output is skipped.
+    fn capture_tool_output(&mut self, index: usize, output: &str) {
+        if !self.ctx.capture_content || output.is_empty() {
+            return;
+        }
+        let chars = output.chars().count();
+        if let Some(span) = self.spans.get_mut(index) {
+            span.output = Some(serde_json::Value::String(truncate_capture_text(output)));
+            log::trace!(
+                "[agent-tracing] captured tool output span={} chars={chars} truncated={}",
+                span.name,
+                chars > MAX_TOOL_CONTENT_CHARS,
+            );
+        }
     }
 
     fn close_current_iteration(&mut self, end_unix_ms: u64) {
@@ -364,6 +487,7 @@ impl SpanCollector {
             AgentProgress::ToolCallStarted {
                 call_id,
                 tool_name,
+                arguments,
                 iteration,
                 ..
             } => {
@@ -379,6 +503,7 @@ impl SpanCollector {
                     now_unix_ms,
                     attrs,
                 );
+                self.capture_tool_arguments(index, arguments);
                 self.open_tools.insert(call_id.clone(), index);
             }
 
@@ -492,6 +617,7 @@ impl SpanCollector {
                 task_id,
                 call_id,
                 tool_name,
+                arguments,
                 iteration,
                 ..
             } => {
@@ -513,6 +639,7 @@ impl SpanCollector {
                     now_unix_ms,
                     attrs,
                 );
+                self.capture_tool_arguments(index, arguments);
                 if let Some(state) = self.subagents.get_mut(task_id) {
                     state.open_tools.insert(call_id.clone(), index);
                 }
@@ -523,6 +650,7 @@ impl SpanCollector {
                 call_id,
                 success,
                 output_chars,
+                output,
                 elapsed_ms,
                 ..
             } => {
@@ -533,6 +661,7 @@ impl SpanCollector {
                 else {
                     return;
                 };
+                self.capture_tool_output(index, output);
                 let start = self.spans[index].start_unix_ms;
                 let mut extra = BTreeMap::new();
                 extra.insert(
@@ -681,6 +810,25 @@ impl SpanCollector {
         self.current_iteration_index = None;
         self.open_tools.clear();
         self.subagents.clear();
+    }
+}
+
+/// Cap on tool arguments / tool output recorded onto spans when content
+/// capture is on. Keeps a single runaway tool result from bloating the trace
+/// batch while still giving Langfuse an actionable preview.
+const MAX_TOOL_CONTENT_CHARS: usize = 4_000;
+
+/// Truncate `text` to [`MAX_TOOL_CONTENT_CHARS`] characters, appending an
+/// explicit truncation marker (with the omitted char count) when content was
+/// dropped. Returns the input unchanged when it already fits. Slices on char
+/// boundaries, so it never panics on multi-byte content.
+fn truncate_capture_text(text: &str) -> String {
+    match text.char_indices().nth(MAX_TOOL_CONTENT_CHARS) {
+        None => text.to_string(),
+        Some((byte_end, _)) => {
+            let omitted = text.chars().count() - MAX_TOOL_CONTENT_CHARS;
+            format!("{}…[truncated {omitted} chars]", &text[..byte_end])
+        }
     }
 }
 

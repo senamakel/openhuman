@@ -152,8 +152,8 @@ pub(crate) fn spawn_progress_bridge(
 
         // #3886: opt-in structured tracing export. When enabled, fold the same
         // progress stream into OTel/Langfuse-style spans correlated by session
-        // id (falling back to the thread id for headless/autonomous runs) with
-        // the client id as user attribution. `None` (disabled) is zero-cost.
+        // id (falling back to the thread id for headless/autonomous runs).
+        // `None` (disabled) is zero-cost.
         let mut span_collector = if config.observability.share_usage_data
             || config.observability.agent_tracing.enabled
         {
@@ -165,10 +165,44 @@ pub(crate) fn spawn_progress_bridge(
             // conversation's per-turn traces still group under one session.
             let base = trace_session_id(metadata.session_id, &thread_id);
             let trace_id = format!("{base}:{request_id}");
-            Some(SpanCollector::new(
-                TraceContext::new(trace_id, Some(client_id.clone()))
-                    .with_session_group(thread_id.clone()),
-            ))
+            // Attribute the trace to the *real* authenticated user (cached
+            // `auth_get_me` identity: id, else email) — the transport client
+            // id (socket client / "system") is NOT a user; it rides along as
+            // the separate `client.id` metadata attribute. When no identity is
+            // cached (signed-out / fresh install), fall back to the client id
+            // so the trace still carries some attribution.
+            let identity = crate::openhuman::app_state::peek_cached_current_user_identity();
+            let user_attributed = identity.is_some();
+            let user_id = identity
+                .and_then(|i| i.id.or(i.email))
+                .unwrap_or_else(|| client_id.clone());
+            // Run origin for trace metadata: the request's source tag
+            // ("ptt"/"dictation"/"type"/"agentbox"/"autonomous"/…), else a
+            // plain interactive chat turn.
+            let channel_source = metadata
+                .source
+                .clone()
+                .unwrap_or_else(|| "chat".to_string());
+            let capture_content = config.observability.agent_tracing.capture_content;
+            log::debug!(
+                "[web_channel][bridge] trace context trace_id={} user_attributed={} \
+                 agent_id={:?} channel_source={} capture_content={} request_id={}",
+                trace_id,
+                user_attributed,
+                metadata.agent_id,
+                channel_source,
+                capture_content,
+                request_id,
+            );
+            let mut trace_ctx = TraceContext::new(trace_id, Some(user_id))
+                .with_session_group(thread_id.clone())
+                .with_client_id(client_id.clone())
+                .with_channel_source(channel_source)
+                .with_capture_content(capture_content);
+            if let Some(agent_id) = metadata.agent_id.clone() {
+                trace_ctx = trace_ctx.with_agent_id(agent_id);
+            }
+            Some(SpanCollector::new(trace_ctx))
         } else {
             None
         };

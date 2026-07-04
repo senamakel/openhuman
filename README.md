@@ -76,23 +76,23 @@ OpenHuman is three things most assistants aren't: **a brain** that builds a pers
 
 ### 🕸️ The orchestrator
 
-- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)** _(new)_: the agent proposes the automation; you review it on a canvas and save. Durable, trigger-driven, approval-gated runs on open-source [tinyflows](https://github.com/tinyhumansai/tinyflows).
-- **[A harness that finishes the job](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)** _(new)_: checkpointed graph runs on open-source [tinyagents](https://github.com/tinyhumansai/tinyagents) — stuck agents get steered, halted ones return a root cause, every run replays with real per-call costs.
-- **[A split brain, always on](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** _(new)_: a fast reflex agent triages inbound traffic while a deep reasoning core delegates to worker fleets, steered by the subconscious.
+- **[Workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows)**: the agent proposes the automation; you review it on a canvas and save. Durable, trigger-driven, approval-gated runs on open-source [tinyflows](https://github.com/tinyhumansai/tinyflows).
+- **[A harness that finishes the job](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)**: checkpointed graph runs on open-source [tinyagents](https://github.com/tinyhumansai/tinyagents) — stuck agents get steered, halted ones return a root cause, every run replays with real per-call costs.
+- **[A split brain, always on](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**: a fast reflex agent triages inbound traffic while a deep reasoning core delegates to worker fleets, steered by the subconscious.
 - **[An agent economy](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: a `@handle` on [tiny.place](https://tiny.place), Signal-encrypted agent-to-agent orchestration, x402 USDC bounties and trading — keys never touch disk.
 
 ### 🔬 The deep researcher & doer
 
 - **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: a research scout sweeps your memory and files before the model reads your first message. No cold starts.
 - **Batteries included**: web search, scraper, coder toolset, a real [browser](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer), [native voice](gitbooks/features/native-tools/voice.md) with in-process Whisper — and [model routing](https://tinyhumans.gitbook.io/openhuman/features/model-routing) that picks the right LLM per workload, one subscription, [local AI optional](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai).
-- **[Meeting agents](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)** _(new)_: joins **Meet, Zoom, Teams, and Webex** with a face and a voice — auto-joins from your calendar, streams a live transcript, answers by name, files summary + action items.
-- **[Image & video generation](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** _(new)_: Seedream/SeedEdit images and Seedance/Veo video, straight into your workspace on the same subscription.
+- **[Meeting agents](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)**: joins **Meet, Zoom, Teams, and Webex** with a face and a voice — auto-joins from your calendar, streams a live transcript, answers by name, files summary + action items.
+- **[Image & video generation](https://tinyhumans.gitbook.io/openhuman/features/native-tools)**: Seedream/SeedEdit images and Seedance/Veo video, straight into your workspace on the same subscription.
 - **[17 messaging channels](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram, Discord, Slack, WhatsApp, Signal, iMessage… plus **native email** (IMAP IDLE + SMTP). Your agent reaches you where you already are.
 
 ### 🧍 Human, private, yours
 
 - **Simple, UI-first & Human**: install to working agent in a few clicks — no config files, no terminal. And it has [a face](https://tinyhumans.gitbook.io/openhuman/features/mascot): a mascot that speaks, reacts, and remembers you.
-- **[Privacy & security](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: on-device encrypted data, approval gate, OS-keyring secrets, opt-in sandboxing — and _(new)_ **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: one switch and no inference leaves your machine, enforced in the Rust core.
+- **[Privacy & security](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: on-device encrypted data, approval gate, OS-keyring secrets, opt-in sandboxing — and **[Privacy Mode](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: one switch and no inference leaves your machine, enforced in the Rust core.
 - **[Themes & Theme Studio](https://tinyhumans.gitbook.io/openhuman/features/theming)**: five theme families plus a full visual editor, exportable as JSON.
 
 ## Contributing from source
@@ -123,14 +123,12 @@ Already self-host [agentmemory](https://github.com/rohitg00/agentmemory) across 
 
 ## An orchestrator, not a chatbot
 
-The deepest difference isn't any single feature — it's the execution model. Claude Code, OpenClaw, and Hermes run **one agent in one loop**. OpenHuman is an **[orchestrator](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**:
+Most agent harnesses run one agent in one loop. OpenHuman is an **[orchestrator](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**:
 
-- **Graphs, not loops** — turns compile to checkpointed state-machine graphs on [tinyagents](https://github.com/tinyhumansai/tinyagents): pause for a human, survive a restart, resume mid-run.
-- **Sub-agent fleets** — specialists spawn three levels deep, idle workers get reused, and circuit breakers turn stuck agents into root-cause reports.
-- **Workflows you can see** — agent-proposed [tinyflows](https://github.com/tinyhumansai/tinyflows) graphs, reviewed on a canvas: durable, trigger-driven, approval-gated.
-- **A split brain, always on** — a fast reflex agent triages while a deep core reasons, steered by the subconscious loop.
-- **Agent-to-agent, encrypted** — instances orchestrate each other over **Signal-protocol E2E** sessions with consent-based pairing and x402 payments. No server sees plaintext.
-- **Next: RLMs** — the model writing its own orchestration code in a sandboxed REPL, on the same graph engine and trust model.
+- **Graphs, not loops** — turns run as checkpointed graphs on [tinyagents](https://github.com/tinyhumansai/tinyagents): pause for a human, survive a restart, resume mid-run.
+- **Sub-agent fleets** — specialists spawn three levels deep; stuck agents become root-cause reports.
+- **Visible workflows** — agent-proposed [tinyflows](https://github.com/tinyhumansai/tinyflows) graphs, reviewed on a canvas: durable, trigger-driven, approval-gated.
+- **Agent-to-agent, encrypted** — instances orchestrate each other over Signal-protocol E2E sessions with x402 payments.
 
 ## OpenHuman vs Other Agent Harnesses
 

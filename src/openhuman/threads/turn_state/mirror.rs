@@ -417,8 +417,8 @@ impl TurnStateMirror {
                 self.flush();
                 true
             }
-            AgentProgress::TurnCostUpdated { .. } => {
-                // Cost updates don't change the turn-state snapshot
+            AgentProgress::TurnCostUpdated { .. } | AgentProgress::ModelCallCompleted { .. } => {
+                // Cost/usage updates don't change the turn-state snapshot
                 // shape (lifecycle / phase / active tool / etc.), so
                 // we just acknowledge them without flushing. Surfacing
                 // cost in the persisted snapshot would force a disk

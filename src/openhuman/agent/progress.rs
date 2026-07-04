@@ -283,6 +283,33 @@ pub enum AgentProgress {
         total_usd: f64,
     },
 
+    /// A single LLM call finished and reported usage. Unlike
+    /// [`Self::TurnCostUpdated`] (cumulative rollup), every field here is
+    /// **per-call**, so trace exporters can render each model invocation as
+    /// its own Langfuse generation with exact model + token + cost figures.
+    /// Emitted once per parent-scope model call, right after the usage block
+    /// is recorded; child (subagent) calls stay inside the cumulative rollup
+    /// because this event carries no task attribution.
+    ModelCallCompleted {
+        /// Model that served this call (tier handle or concrete model id).
+        model: String,
+        /// 1-based iteration index (one model call per iteration).
+        iteration: u32,
+        /// Input/prompt tokens for this call.
+        input_tokens: u64,
+        /// Output/completion tokens for this call.
+        output_tokens: u64,
+        /// Input tokens served from a provider-side cache (cache reads).
+        cached_input_tokens: u64,
+        /// Input tokens written into a provider cache (cache creation).
+        cache_creation_tokens: u64,
+        /// Reasoning/thinking tokens, when the provider reports them.
+        reasoning_tokens: u64,
+        /// Best-available USD cost for this single call (charged when the
+        /// backend reported it, else a catalog estimate).
+        cost_usd: f64,
+    },
+
     /// The turn completed with a final text response.
     TurnCompleted {
         /// Total iterations used.

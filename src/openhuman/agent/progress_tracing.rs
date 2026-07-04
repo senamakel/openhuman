@@ -52,6 +52,52 @@ use crate::openhuman::config::Config;
 /// Langfuse ingestion exporter (remote push to the co-hosted staging server).
 pub(crate) mod langfuse;
 
+/// Kind of run a trace belongs to, rendered as stable snake_case strings for
+/// Langfuse trace tags (`run:<type>`) and metadata (`run_type`) so runs can be
+/// filtered in the UI.
+///
+/// Only kinds actually observable at the collector installation point (the
+/// web progress bridge) exist here: orchestration passes, subconscious runs,
+/// cron turns, and meeting agents run their turns WITHOUT a progress bridge
+/// today, so they never reach the span collector and get no variant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RunType {
+    /// Interactive user chat turn (desktop UI / socket / PTT / dictation).
+    #[default]
+    InteractiveChat,
+    /// Autonomous background run from the task dispatcher.
+    AutonomousTask,
+    /// Programmatic AgentBox `/run` invocation.
+    Agentbox,
+    /// Inbound message relayed from an external channel (Telegram, Discord,
+    /// Slack, …) through the channel bus.
+    ChannelInbound,
+}
+
+impl RunType {
+    /// Stable snake_case identifier used in tags/metadata.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            RunType::InteractiveChat => "interactive_chat",
+            RunType::AutonomousTask => "autonomous_task",
+            RunType::Agentbox => "agentbox",
+            RunType::ChannelInbound => "channel_inbound",
+        }
+    }
+
+    /// Classify from the chat-request `source` tag. Known background sources
+    /// map to their kinds; everything else (`ptt`/`dictation`/`type`/absent)
+    /// is an interactive chat turn.
+    pub fn from_source(source: Option<&str>) -> Self {
+        match source {
+            Some("autonomous") => RunType::AutonomousTask,
+            Some("agentbox") => RunType::Agentbox,
+            Some("channel_inbound") => RunType::ChannelInbound,
+            _ => RunType::InteractiveChat,
+        }
+    }
+}
+
 /// Trace-level correlation context, stamped onto the root span.
 #[derive(Debug, Clone)]
 pub struct TraceContext {
@@ -83,6 +129,9 @@ pub struct TraceContext {
     /// is on. Gates recording tool arguments/results onto spans at collection
     /// time — when off, tool I/O never even reaches the in-memory span.
     pub capture_content: bool,
+    /// Kind of run — exported as Langfuse trace tags (`run:<type>`) and the
+    /// `run_type` metadata key. Defaults to interactive chat.
+    pub run_type: RunType,
 }
 
 impl TraceContext {
@@ -95,6 +144,7 @@ impl TraceContext {
             channel_source: None,
             session_group: None,
             capture_content: false,
+            run_type: RunType::default(),
         }
     }
 
@@ -128,6 +178,12 @@ impl TraceContext {
         self.capture_content = capture_content;
         self
     }
+
+    /// Set the run type (Langfuse `run:<type>` tag / `run_type` metadata).
+    pub fn with_run_type(mut self, run_type: RunType) -> Self {
+        self.run_type = run_type;
+        self
+    }
 }
 
 /// Derive the trace id (session id) for a run: prefer the UI session id when
@@ -149,6 +205,8 @@ pub enum SpanKind {
     Iteration,
     /// A tool call.
     Tool,
+    /// A single LLM call (model invocation) with per-call usage/cost.
+    Generation,
     /// A spawned subagent.
     Subagent,
     /// One LLM iteration inside a subagent.
@@ -369,6 +427,10 @@ impl SpanCollector {
                 serde_json::Value::String(source.clone()),
             );
         }
+        attrs.insert(
+            "run.type".to_string(),
+            serde_json::Value::String(self.ctx.run_type.as_str().to_string()),
+        );
         // Every trace must end up with a Langfuse sessionId: prefer the
         // explicit grouping key (thread/conversation id), else fall back to
         // the trace id itself so the trace is never left session-less.
@@ -446,6 +508,134 @@ impl SpanCollector {
         }
     }
 
+    /// Fold a per-call `ModelCallCompleted` into the tree:
+    ///
+    /// 1. emit a closed [`SpanKind::Generation`] span (name `llm.<model>`)
+    ///    parented under the current iteration, carrying exact per-call
+    ///    model/usage/cost plus provenance (`gen_ai.provider`) and the pricing
+    ///    basis the local estimator would use;
+    /// 2. accumulate reasoning / cache-creation tokens onto the root turn
+    ///    span, which `TurnCostUpdated` (cumulative rollup) does not carry.
+    ///
+    /// Generation start is approximated by the enclosing iteration span's
+    /// start (the iteration opens on `ModelStarted`); end is the observation
+    /// time of the usage record.
+    #[allow(clippy::too_many_arguments)]
+    fn record_model_call(
+        &mut self,
+        model: &str,
+        iteration: u32,
+        input_tokens: u64,
+        output_tokens: u64,
+        cached_input_tokens: u64,
+        cache_creation_tokens: u64,
+        reasoning_tokens: u64,
+        cost_usd: f64,
+        now_unix_ms: u64,
+    ) {
+        let start_unix_ms = self
+            .current_iteration_index
+            .and_then(|idx| self.spans.get(idx))
+            .map(|span| span.start_unix_ms)
+            .unwrap_or(now_unix_ms);
+        let parent = self.active_parent_id(now_unix_ms);
+
+        // Model provenance: managed OpenHuman tier vs custom/BYO model.
+        let provider_source = if crate::openhuman::agent::cost::is_managed_tier(model) {
+            "managed"
+        } else {
+            "custom"
+        };
+        let pricing = crate::openhuman::agent::cost::lookup_pricing(model);
+
+        let mut attrs = BTreeMap::new();
+        attrs.insert("gen_ai.request.model".to_string(), json_str(model));
+        attrs.insert("gen_ai.provider".to_string(), json_str(provider_source));
+        attrs.insert("agent.iteration".to_string(), json_u32(iteration));
+        attrs.insert(
+            "gen_ai.usage.input_tokens".to_string(),
+            json_u64(input_tokens),
+        );
+        attrs.insert(
+            "gen_ai.usage.output_tokens".to_string(),
+            json_u64(output_tokens),
+        );
+        // Cache reads always flow (even 0) so usageDetails stay complete.
+        attrs.insert(
+            "gen_ai.usage.cached_input_tokens".to_string(),
+            json_u64(cached_input_tokens),
+        );
+        if cache_creation_tokens > 0 {
+            attrs.insert(
+                "gen_ai.usage.cache_creation_tokens".to_string(),
+                json_u64(cache_creation_tokens),
+            );
+        }
+        if reasoning_tokens > 0 {
+            attrs.insert(
+                "gen_ai.usage.reasoning_tokens".to_string(),
+                json_u64(reasoning_tokens),
+            );
+        }
+        attrs.insert("gen_ai.usage.cost_usd".to_string(), json_f64(cost_usd));
+        // Pricing basis so Langfuse cost figures are auditable against the
+        // client-side estimator (USD per million tokens).
+        attrs.insert(
+            "gen_ai.pricing.input_per_mtok_usd".to_string(),
+            json_f64(pricing.input_per_mtok_usd),
+        );
+        attrs.insert(
+            "gen_ai.pricing.cached_input_per_mtok_usd".to_string(),
+            json_f64(pricing.cached_input_per_mtok_usd),
+        );
+        attrs.insert(
+            "gen_ai.pricing.output_per_mtok_usd".to_string(),
+            json_f64(pricing.output_per_mtok_usd),
+        );
+
+        log::debug!(
+            "[agent-tracing] generation span model={model} provider={provider_source} \
+             iteration={iteration} in={input_tokens} out={output_tokens} cost_usd={cost_usd:.6}"
+        );
+        let (_, index) = self.open_span(
+            SpanKind::Generation,
+            format!("llm.{model}"),
+            Some(parent),
+            start_unix_ms,
+            attrs,
+        );
+        self.close_span(index, now_unix_ms, SpanStatus::Ok, BTreeMap::new());
+
+        // Root rollup for the usage dimensions the cumulative TurnCostUpdated
+        // event does not carry (reasoning / cache-creation), plus provenance.
+        let root = match self.turn_span_index {
+            Some(idx) => idx,
+            None => {
+                self.ensure_turn_span(now_unix_ms);
+                self.turn_span_index.expect("turn span just created")
+            }
+        };
+        if let Some(span) = self.spans.get_mut(root) {
+            span.attributes
+                .insert("gen_ai.provider".to_string(), json_str(provider_source));
+            for (key, add) in [
+                ("gen_ai.usage.reasoning_tokens", reasoning_tokens),
+                ("gen_ai.usage.cache_creation_tokens", cache_creation_tokens),
+            ] {
+                if add == 0 && span.attributes.get(key).is_none() {
+                    continue;
+                }
+                let prior = span
+                    .attributes
+                    .get(key)
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
+                span.attributes
+                    .insert(key.to_string(), json_u64(prior.saturating_add(add)));
+            }
+        }
+    }
+
     fn close_current_iteration(&mut self, end_unix_ms: u64) {
         if let Some(index) = self.current_iteration_index.take() {
             self.close_span(index, end_unix_ms, SpanStatus::Ok, BTreeMap::new());
@@ -512,6 +702,7 @@ impl SpanCollector {
                 success,
                 output_chars,
                 elapsed_ms,
+                failure,
                 ..
             } => {
                 if let Some(index) = self.open_tools.remove(call_id) {
@@ -523,8 +714,45 @@ impl SpanCollector {
                     );
                     extra.insert("tool.output_chars".to_string(), json_usize(*output_chars));
                     extra.insert("tool.elapsed_ms".to_string(), json_u64(*elapsed_ms));
+                    // Failed tool calls surface a Langfuse statusMessage: the
+                    // classified plain-language cause, truncated, gated on
+                    // content capture (it can quote user data / paths).
+                    if let Some(failure) = failure {
+                        if self.ctx.capture_content {
+                            extra.insert(
+                                "error.message".to_string(),
+                                serde_json::Value::String(truncate_chars(
+                                    &failure.cause_plain,
+                                    MAX_ERROR_MESSAGE_CHARS,
+                                )),
+                            );
+                        }
+                    }
                     self.close_span(index, start + elapsed_ms, status_of(*success), extra);
                 }
+            }
+
+            AgentProgress::ModelCallCompleted {
+                model,
+                iteration,
+                input_tokens,
+                output_tokens,
+                cached_input_tokens,
+                cache_creation_tokens,
+                reasoning_tokens,
+                cost_usd,
+            } => {
+                self.record_model_call(
+                    model,
+                    *iteration,
+                    *input_tokens,
+                    *output_tokens,
+                    *cached_input_tokens,
+                    *cache_creation_tokens,
+                    *reasoning_tokens,
+                    *cost_usd,
+                    now_unix_ms,
+                );
             }
 
             AgentProgress::SubagentSpawned {
@@ -709,10 +937,18 @@ impl SpanCollector {
                     }
                 }
                 let mut extra = BTreeMap::new();
-                // Record only that an error occurred and its length — never the
-                // raw error text (may embed paths / payloads / secrets).
+                // Always record that an error occurred and its length. The raw
+                // error text (may embed paths / payloads) is recorded — truncated
+                // — only when content capture is on, and surfaces in Langfuse as
+                // the observation statusMessage.
                 extra.insert("error".to_string(), serde_json::Value::Bool(true));
                 extra.insert("error.length".to_string(), json_usize(error.len()));
+                if self.ctx.capture_content {
+                    extra.insert(
+                        "error.message".to_string(),
+                        serde_json::Value::String(truncate_chars(error, MAX_ERROR_MESSAGE_CHARS)),
+                    );
+                }
                 self.close_span(state.span_index, now_unix_ms, SpanStatus::Error, extra);
             }
 
@@ -818,18 +1054,26 @@ impl SpanCollector {
 /// batch while still giving Langfuse an actionable preview.
 const MAX_TOOL_CONTENT_CHARS: usize = 4_000;
 
-/// Truncate `text` to [`MAX_TOOL_CONTENT_CHARS`] characters, appending an
-/// explicit truncation marker (with the omitted char count) when content was
-/// dropped. Returns the input unchanged when it already fits. Slices on char
-/// boundaries, so it never panics on multi-byte content.
-fn truncate_capture_text(text: &str) -> String {
-    match text.char_indices().nth(MAX_TOOL_CONTENT_CHARS) {
+/// Cap on captured error text (Langfuse observation `statusMessage`).
+const MAX_ERROR_MESSAGE_CHARS: usize = 500;
+
+/// Truncate `text` to `max` characters, appending an explicit truncation
+/// marker (with the omitted char count) when content was dropped. Returns the
+/// input unchanged when it already fits. Slices on char boundaries, so it
+/// never panics on multi-byte content.
+fn truncate_chars(text: &str, max: usize) -> String {
+    match text.char_indices().nth(max) {
         None => text.to_string(),
         Some((byte_end, _)) => {
-            let omitted = text.chars().count() - MAX_TOOL_CONTENT_CHARS;
+            let omitted = text.chars().count() - max;
             format!("{}…[truncated {omitted} chars]", &text[..byte_end])
         }
     }
+}
+
+/// Truncate tool-content text to [`MAX_TOOL_CONTENT_CHARS`].
+fn truncate_capture_text(text: &str) -> String {
+    truncate_chars(text, MAX_TOOL_CONTENT_CHARS)
 }
 
 fn status_of(success: bool) -> SpanStatus {

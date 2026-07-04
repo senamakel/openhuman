@@ -158,7 +158,7 @@ pub(crate) fn spawn_progress_bridge(
             || config.observability.agent_tracing.enabled
         {
             use crate::openhuman::agent::progress_tracing::{
-                trace_session_id, SpanCollector, TraceContext,
+                trace_session_id, RunType, SpanCollector, TraceContext,
             };
             // One trace per turn: the trace id is unique per request, while the
             // thread id rides along as the Langfuse `sessionId` so a
@@ -179,6 +179,7 @@ pub(crate) fn spawn_progress_bridge(
             // Run origin for trace metadata: the request's source tag
             // ("ptt"/"dictation"/"type"/"agentbox"/"autonomous"/…), else a
             // plain interactive chat turn.
+            let run_type = RunType::from_source(metadata.source.as_deref());
             let channel_source = metadata
                 .source
                 .clone()
@@ -186,11 +187,12 @@ pub(crate) fn spawn_progress_bridge(
             let capture_content = config.observability.agent_tracing.capture_content;
             log::debug!(
                 "[web_channel][bridge] trace context trace_id={} user_attributed={} \
-                 agent_id={:?} channel_source={} capture_content={} request_id={}",
+                 agent_id={:?} channel_source={} run_type={} capture_content={} request_id={}",
                 trace_id,
                 user_attributed,
                 metadata.agent_id,
                 channel_source,
+                run_type.as_str(),
                 capture_content,
                 request_id,
             );
@@ -198,6 +200,7 @@ pub(crate) fn spawn_progress_bridge(
                 .with_session_group(thread_id.clone())
                 .with_client_id(client_id.clone())
                 .with_channel_source(channel_source)
+                .with_run_type(run_type)
                 .with_capture_content(capture_content);
             if let Some(agent_id) = metadata.agent_id.clone() {
                 trace_ctx = trace_ctx.with_agent_id(agent_id);
@@ -1126,6 +1129,22 @@ pub(crate) fn spawn_progress_bridge(
                 AgentProgress::TurnContent { .. } => {
                     // Prompt/reply content is attached to the trace span by the
                     // span collector above; the ledger/telemetry bridge ignores it.
+                }
+                AgentProgress::ModelCallCompleted {
+                    model,
+                    iteration,
+                    input_tokens,
+                    output_tokens,
+                    cost_usd,
+                    ..
+                } => {
+                    // Per-call usage is consumed by the span collector above
+                    // (per-call Langfuse generation); the socket/ledger surfaces
+                    // stay on the cumulative TurnCostUpdated rollup.
+                    log::debug!(
+                        "[web_channel][bridge] model_call_completed model={model} iter={iteration} \
+                         in={input_tokens} out={output_tokens} cost_usd={cost_usd:.6} request_id={request_id}"
+                    );
                 }
             }
         }

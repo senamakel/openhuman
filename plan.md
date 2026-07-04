@@ -436,9 +436,12 @@ P0, most P1 "untested" claims were **inaccurate against current `main`**. Verifi
 
 **Phase 4 — new dimensions** — ⏳ partial (PR: `test/phase4-new-dimensions`). Unlike the §4 backlog,
 these are genuinely greenfield (the suite had zero of them), so they were built and validated:
-- [x] **proptest** (was absent): added as a dev-dep; property suites for the command classifier +
-  path check (never-panic on arbitrary/unicode input; fail-closed redirect floor) and the
-  encryption round-trip over arbitrary plaintext/password.
+- [x] **proptest** (was absent): added as a dev-dep; property suite for the command classifier +
+  path check (never-panic on arbitrary/unicode input; fail-closed redirect floor). NOTE: an
+  encryption round-trip property was trialled but dropped — under coverage Argon2id is ~2.5s/case,
+  so it held the lib-test binary ~60s and deterministically exposed a pre-existing env-var race in
+  the unrelated `config::schema::load` env-overlay tests; the round-trip stays covered by the
+  Phase 1 fixed-input tests.
 - [x] **Mock chaos modes** (§5.3): `httpFaultRules` gains `mode: "reset"` (connection reset) and
   `mode: "malformed"` (non-JSON 200) beyond clean statuses; `scripts/mock-api/chaos.test.mjs`
   drives the real server (auto-run by the Phase 0 `test:scripts` job).

@@ -389,6 +389,27 @@ mod tests {
     }
 
     #[test]
+    fn policy_denied_marker_is_denied_and_not_recoverable() {
+        use crate::openhuman::security::POLICY_DENIED_MARKER;
+        let text = format!("{POLICY_DENIED_MARKER} you declined this shell action");
+        assert_eq!(class_of(&text), ToolFailureClass::Denied);
+        // UserDeclined family — never eligible for an auto-retry (#4459).
+        assert!(!classify(&text, false).recoverable);
+    }
+
+    #[test]
+    fn policy_denied_ttl_expiry_is_approval_expired_not_timeout() {
+        use crate::openhuman::security::POLICY_DENIED_MARKER;
+        // A TTL-expiry deny reason literally contains "timed out" — the policy
+        // marker must win over the timeout sniff so it classifies as an expired
+        // approval, NOT an execution Timeout that promises an auto-retry (#4459).
+        let text = format!("{POLICY_DENIED_MARKER} Approval for 'shell' timed out after 600s");
+        assert_eq!(class_of(&text), ToolFailureClass::ApprovalExpired);
+        assert_ne!(class_of(&text), ToolFailureClass::Timeout);
+        assert!(!classify(&text, false).recoverable);
+    }
+
+    #[test]
     fn numeric_status_codes_need_word_boundaries() {
         // `403`/`503` embedded in a longer digit run must NOT trip the code
         // needles — these fall through to Unknown.

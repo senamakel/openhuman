@@ -432,6 +432,40 @@ export interface PendingPlanReview {
   steps: string[];
 }
 
+/** One step in a `WorkflowProposal`'s summary — a non-trigger node. */
+export interface WorkflowProposalStep {
+  /** tinyflows node kind (e.g. `"agent"`, `"tool_call"`, `"http_request"`). */
+  kind: string;
+  /** Human-readable node name. */
+  name: string;
+  /** Optional short description of the node's config (e.g. a tool slug, prompt). */
+  config_hint?: string;
+}
+
+/**
+ * A candidate automation workflow the agent proposed via the `propose_workflow`
+ * tool (issue B4 — agent-first Workflow authoring). VALIDATED but never
+ * created — the agent's tool can only validate and summarize a graph; the
+ * user must click "Save & enable" on `WorkflowProposalCard` to actually
+ * persist it via `openhuman.flows_create`. Parsed from the `propose_workflow`
+ * tool call's completed-result JSON (`tool_result` socket event) in
+ * `ChatRuntimeProvider`.
+ */
+export interface WorkflowProposal {
+  /** Proposed flow name. */
+  name: string;
+  /** The validated tinyflows WorkflowGraph, ready to hand to `flows_create` as-is. */
+  graph: unknown;
+  /** Whether the flow should require approval on every outbound action once saved. */
+  requireApproval: boolean;
+  summary: {
+    /** One-line description of the trigger (e.g. `"schedule: 0 9 * * *"`). */
+    trigger: string;
+    /** Ordered non-trigger steps. */
+    steps: WorkflowProposalStep[];
+  };
+}
+
 /**
  * Lifecycle status of a single agent-generated artifact, as projected
  * onto the chat runtime per thread.
@@ -530,6 +564,16 @@ interface ChatRuntimeState {
   pendingApprovalByThread: Record<string, PendingApproval>;
   pendingPlanReviewByThread: Record<string, PendingPlanReview>;
   /**
+   * Thread-scoped candidate workflow proposed by the `propose_workflow` agent
+   * tool (issue B4), awaiting the user's "Save & enable" / "Dismiss" decision
+   * on `WorkflowProposalCard`. Unlike `pendingApprovalByThread` /
+   * `pendingPlanReviewByThread`, this is NOT parked on a server-side gate —
+   * the underlying tool call already completed; this is purely a
+   * client-side "should the card render" flag, cleared on Save, Dismiss, or
+   * thread reset.
+   */
+  pendingWorkflowProposalsByThread: Record<string, WorkflowProposal>;
+  /**
    * Per-thread artifact ledger. Snapshots are upserted on
    * `artifact_ready` / `artifact_failed` socket events keyed on
    * `artifactId`. `ArtifactCard` reads this slice to render inline
@@ -595,6 +639,7 @@ const initialState: ChatRuntimeState = {
   inferenceTurnLifecycleByThread: {},
   pendingApprovalByThread: {},
   pendingPlanReviewByThread: {},
+  pendingWorkflowProposalsByThread: {},
   artifactsByThread: {},
   sessionTokenUsage: emptySessionTokenUsage(),
   usageByThread: {},
@@ -1097,6 +1142,15 @@ const chatRuntimeSlice = createSlice({
     clearPendingPlanReviewForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.pendingPlanReviewByThread[action.payload.threadId];
     },
+    setWorkflowProposalForThread: (
+      state,
+      action: PayloadAction<{ threadId: string; proposal: WorkflowProposal }>
+    ) => {
+      state.pendingWorkflowProposalsByThread[action.payload.threadId] = action.payload.proposal;
+    },
+    clearWorkflowProposalForThread: (state, action: PayloadAction<{ threadId: string }>) => {
+      delete state.pendingWorkflowProposalsByThread[action.payload.threadId];
+    },
     /**
      * Mark a producer-tool call as in-flight so the `ArtifactCard` can
      * render a spinner before any ready/failed event arrives. Caller
@@ -1292,6 +1346,7 @@ const chatRuntimeSlice = createSlice({
       delete state.inferenceTurnLifecycleByThread[action.payload.threadId];
       delete state.pendingApprovalByThread[action.payload.threadId];
       delete state.pendingPlanReviewByThread[action.payload.threadId];
+      delete state.pendingWorkflowProposalsByThread[action.payload.threadId];
       delete state.queueStatusByThread[action.payload.threadId];
       delete state.queuedFollowupsByThread[action.payload.threadId];
       delete state.pendingSendThreadIds[action.payload.threadId];
@@ -1313,6 +1368,7 @@ const chatRuntimeSlice = createSlice({
       state.inferenceTurnLifecycleByThread = {};
       state.pendingApprovalByThread = {};
       state.pendingPlanReviewByThread = {};
+      state.pendingWorkflowProposalsByThread = {};
       state.artifactsByThread = {};
       state.queueStatusByThread = {};
       state.queuedFollowupsByThread = {};
@@ -1416,6 +1472,10 @@ const chatRuntimeSlice = createSlice({
       // Likewise drop any stale parked plan review — its gate future cannot
       // survive a rehydrate, so the card must not linger.
       delete state.pendingPlanReviewByThread[threadId];
+      // Same for a workflow proposal (B4) — it's a client-only "should the
+      // card render" flag with no server-side record, so a rehydrate must
+      // not resurrect one left over from a previous session.
+      delete state.pendingWorkflowProposalsByThread[threadId];
       if (snapshot.taskBoard) {
         state.taskBoardByThread[threadId] = snapshot.taskBoard;
       }
@@ -1518,6 +1578,8 @@ export const {
   clearPendingApprovalForThread,
   setPendingPlanReviewForThread,
   clearPendingPlanReviewForThread,
+  setWorkflowProposalForThread,
+  clearWorkflowProposalForThread,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
   upsertArtifactFailedForThread,

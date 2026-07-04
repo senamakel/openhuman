@@ -42,7 +42,7 @@ crate-type = ["rlib"]
 tinyplace = "1.0.1"
 # tinyflows — host-agnostic workflow engine (typed node graph → validate → compile →
 # run on tinyagents). Powers the "Workflows" feature via the seam in
-# `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.3 transitively
+# `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.5 transitively
 # (same version openhuman already uses — no conflict). Published on crates.io.
 tinyflows = "0.3"
 # TinyAgents — Rust LLM orchestration framework (LangGraph/LangChain-style):
@@ -56,7 +56,7 @@ tinyflows = "0.3"
 # aligned to 0.40, avoiding duplicate `links = "sqlite3"` native bindings.
 # Durable graph checkpoints still use `SqlRunLedgerCheckpointer` until the
 # migration re-points those rows to the crate checkpointer.
-tinyagents = { version = "1.3", features = ["sqlite"] }
+tinyagents = { version = "1.5.0", features = ["sqlite"] }
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.
@@ -230,7 +230,7 @@ fantoccini = { version = "0.22.0", optional = true, default-features = false, fe
 serde-big-array = { version = "0.5", optional = true }
 pdf-extract = "0.10"
 # WhatsApp Web — upstream `whatsapp-rust` 0.5. Its Diesel-backed sqlite-storage
-# feature links sqlite3 separately from rusqlite 0.40, so the TinyAgents 1.3
+# feature links sqlite3 separately from rusqlite 0.40, so the TinyAgents 1.5
 # baseline compiles this provider against wacore's in-memory Backend until a
 # rusqlite-backed durable store lands.
 whatsapp-rust = { version = "0.5", optional = true, default-features = false, features = ["tokio-runtime"] }
@@ -331,6 +331,12 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 # See: https://github.com/tinyhumansai/openhuman/issues/273
 [patch.crates-io]
 whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", branch = "main" }
+# TinyAgents is vendored as a git submodule (pinned at the released tag) so
+# migration work can change the SDK source in-tree, test it against OpenHuman
+# immediately, and PR the diff upstream from the submodule. Keep the submodule
+# version in lockstep with the `tinyagents` requirement above. After cloning:
+# `git submodule update --init vendor/tinyagents` (worktrees included).
+tinyagents = { path = "vendor/tinyagents" }
 
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the

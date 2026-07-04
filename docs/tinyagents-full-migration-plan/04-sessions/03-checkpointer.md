@@ -1,6 +1,6 @@
 # 04.3 — SqliteCheckpointer swap
 
-Baseline is complete: OpenHuman is on tinyagents 1.3.0 with the `sqlite`
+Baseline is complete: OpenHuman is on tinyagents 1.5.0 with the `sqlite`
 feature and the compatible `rusqlite` pin. The remaining work is the
 OpenHuman-row migration/expiry decision.
 

@@ -1,0 +1,128 @@
+---
+# Keeps the main→release PR standing at all times.
+#
+# Every push to main ensures there is exactly one open PR from main into the
+# long-lived `release` branch. GitHub automatically refreshes an open
+# branch-to-branch PR as main advances, so if one already exists this is a
+# no-op; otherwise it opens one (skipping when main has nothing release
+# doesn't already have). Release CI (release-ci.yml) runs the full test +
+# E2E matrix on that PR; once it greens up a maintainer merges it and cuts a
+# release from `release` via release-staging.yml / release-production.yml.
+#
+# Two-job split on purpose: `check` runs on every merge to main with only the
+# default read token and no environment — the common case (PR already open)
+# stops there. `open-pr`, which claims the Release-PR-Automation environment
+# and mints a GitHub App token, only runs when a PR actually needs creating.
+name: Prepare Release PR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: prepare-release-pr
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check whether a main→release PR is needed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      needs-pr: ${{ steps.decide.outputs.needs_pr }}
+    steps:
+      - name: Decide (release branch exists, no open PR, main is ahead)
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          log() { echo "[ci][prepare-release-pr] $*"; }
+          decide() { echo "needs_pr=$1" >> "$GITHUB_OUTPUT"; log "needs_pr=$1 ($2)"; }
+
+          if ! gh api "repos/${REPO}/branches/release" --silent 2>/dev/null; then
+            decide false "release branch does not exist yet"
+            exit 0
+          fi
+
+          existing="$(gh pr list --repo "${REPO}" --base release --head main --state open --json number --jq '.[0].number // empty')"
+          if [ -n "${existing}" ]; then
+            decide false "open main→release PR already exists: #${existing} (auto-updates as main advances)"
+            exit 0
+          fi
+
+          # Skip when main has no commits release lacks (e.g. right after a
+          # release-back-merge) — GitHub rejects empty PRs anyway.
+          ahead_by="$(gh api "repos/${REPO}/compare/release...main" --jq '.ahead_by')"
+          log "main is ahead of release by ${ahead_by} commit(s)"
+          if [ "${ahead_by}" = "0" ]; then
+            decide false "release already contains main"
+            exit 0
+          fi
+
+          decide true "no open PR and main is ahead by ${ahead_by}"
+
+  open-pr:
+    name: Open the main→release PR
+    needs: [check]
+    if: needs.check.outputs.needs-pr == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    # The XGITHUB_APP_* secrets live in environments, never at repo level.
+    # This dedicated environment holds ONLY those two secrets and is branch-
+    # policied to `main`, so this job never sees the Production environment
+    # (Apple signing, Tauri updater key, …) and no other ref can claim it.
+    # It is only entered when `check` says a PR must be created.
+    environment: Release-PR-Automation
+    steps:
+      # PRs created with the default GITHUB_TOKEN do not trigger pull_request
+      # workflows (GitHub's recursion guard), which would leave the standing
+      # main→release PR without a Release CI run until someone touched it.
+      # Use the same GitHub App the release workflows push with.
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.XGITHUB_APP_ID }}
+          private-key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}
+          # Scope the minted installation token to the minimum this job
+          # needs: opening a PR. Unlike the release workflows' token, this
+          # one can NOT push commits, so a compromise of this job cannot
+          # write to protected branches. (This workflow only ever runs
+          # trusted code — push:main / dispatch, never pull_request — this
+          # is defense-in-depth.)
+          permission-contents: read
+          permission-pull-requests: write
+
+      - name: Open the main→release PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          log() { echo "[ci][prepare-release-pr] $*"; }
+
+          # Re-check under the concurrency group: a parallel run may have
+          # opened the PR between `check` and this job.
+          existing="$(gh pr list --repo "${REPO}" --base release --head main --state open --json number --jq '.[0].number // empty')"
+          if [ -n "${existing}" ]; then
+            log "open main→release PR appeared meanwhile: #${existing} — nothing to do"
+            exit 0
+          fi
+
+          url="$(gh pr create \
+            --repo "${REPO}" \
+            --base release \
+            --head main \
+            --title "Release: merge main into release" \
+            --body "$(printf 'Auto-prepared by prepare-release-pr.yml on push to main.\n\nThis PR runs the full Release CI suite (unit + Rust E2E + Playwright + desktop E2E on 3 OSes). Maintainers can push fixes to it; merge once green to advance the release branch, then cut a release with release-staging.yml / release-production.yml.')")"
+          log "opened ${url}"

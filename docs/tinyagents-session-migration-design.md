@@ -16,7 +16,7 @@ OpenHuman session key.
 
 ## Source inventory (what exists on disk today)
 
-All facts verified against the current checkout (TinyAgents 1.3 pinned with the
+All facts verified against the current checkout (TinyAgents 1.5.0 pinned with the
 `sqlite` feature enabled).
 
 ### 1. Transcript JSONL (source of truth)
@@ -73,7 +73,7 @@ All facts verified against the current checkout (TinyAgents 1.3 pinned with the
   toolkit/model/sandbox/action-root selector fields, `status`, `reusable`,
   inline `latestHistory` message mirror, timestamps.
 
-## Target shape (TinyAgents 1.3 primitives)
+## Target shape (TinyAgents 1.3+ primitives)
 
 Use the crate's `harness::store` as the substrate — no new storage layer:
 

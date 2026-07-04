@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getFlowRun, listFlowRuns, resumeFlow } from './flowsApi';
+import {
+  getFlowRun,
+  listFlowRuns,
+  listFlows,
+  resumeFlow,
+  runFlow,
+  setFlowEnabled,
+} from './flowsApi';
 
 const mockCallCoreRpc = vi.fn();
 vi.mock('../coreRpcClient', () => ({ callCoreRpc: (...a: unknown[]) => mockCallCoreRpc(...a) }));
@@ -141,6 +148,119 @@ describe('flowsApi', () => {
       mockCallCoreRpc.mockRejectedValue(new Error('flow run not found'));
 
       await expect(getFlowRun('missing')).rejects.toThrow('flow run not found');
+    });
+  });
+
+  describe('listFlows', () => {
+    const flow = {
+      id: 'flow-1',
+      name: 'Demo flow',
+      enabled: true,
+      graph: { nodes: [], edges: [] },
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      last_run_at: null,
+      last_status: null,
+      require_approval: false,
+    };
+
+    it('calls openhuman.flows_list with no params', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope([flow]));
+
+      await listFlows();
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.flows_list', params: {} });
+    });
+
+    it('unwraps the { result, logs } envelope into the flow array', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope([flow]));
+
+      const result = await listFlows();
+
+      expect(result).toEqual([flow]);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('boom'));
+
+      await expect(listFlows()).rejects.toThrow('boom');
+    });
+  });
+
+  describe('setFlowEnabled', () => {
+    it('calls openhuman.flows_set_enabled with id and enabled', async () => {
+      const flow = {
+        id: 'flow-1',
+        name: 'Demo flow',
+        enabled: false,
+        graph: {},
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        last_run_at: null,
+        last_status: null,
+        require_approval: false,
+      };
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope(flow));
+
+      const result = await setFlowEnabled('flow-1', false);
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_set_enabled',
+        params: { id: 'flow-1', enabled: false },
+      });
+      expect(result).toEqual(flow);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('flow not found'));
+
+      await expect(setFlowEnabled('missing', true)).rejects.toThrow('flow not found');
+    });
+  });
+
+  describe('runFlow', () => {
+    it('calls openhuman.flows_run with id, input, and the extended timeout', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({ output: { nodes: {} }, pending_approvals: [], thread_id: 't1' })
+      );
+
+      const result = await runFlow('flow-1');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_run',
+        params: { id: 'flow-1', input: null },
+        timeoutMs: 610_000,
+      });
+      expect(result).toEqual({ output: { nodes: {} }, pending_approvals: [], thread_id: 't1' });
+    });
+
+    it('passes a supplied input payload through', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({ output: null, pending_approvals: [], thread_id: 't2' })
+      );
+
+      await runFlow('flow-1', { trigger: 'manual' });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_run',
+        params: { id: 'flow-1', input: { trigger: 'manual' } },
+        timeoutMs: 610_000,
+      });
+    });
+
+    it('unwraps the { result, logs } envelope', async () => {
+      const payload = { output: null, pending_approvals: ['node-a'], thread_id: 't3' };
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope(payload));
+
+      const result = await runFlow('flow-1');
+
+      expect(result).toEqual(payload);
+    });
+
+    it('propagates rejection from callCoreRpc', async () => {
+      mockCallCoreRpc.mockRejectedValue(new Error('flow disabled'));
+
+      await expect(runFlow('flow-1')).rejects.toThrow('flow disabled');
     });
   });
 });

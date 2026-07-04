@@ -5,7 +5,7 @@ exposure, and output budgeting onto SDK primitives; delete the OpenHuman
 side-lookup pattern and legacy tool plumbing.
 
 Target SDK surface (available across tinyagents 1.2.x–1.3.0; current repo lock
-is 1.3.0):
+is 1.5.0):
 
 - `Tool::policy() -> ToolPolicy { side_effects, runtime, access }` —
   serializable safety metadata (read_only/writes_files/network/destructive/

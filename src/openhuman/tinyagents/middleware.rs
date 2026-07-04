@@ -7,11 +7,12 @@
 //! [`Middleware`] hooks restores the behaviour and makes the graph the single
 //! place cross-cutting context concerns live:
 //!
-//! - [`CacheAlignMiddleware`] (`before_model`) — warn on volatile tokens in the
-//!   system prompt that would bust the provider KV-cache prefix. Warn-only.
 //! - [`MicrocompactMiddleware`] (`before_model`) — clear the bodies of older
 //!   tool-result messages (keeping the N most recent) so a long tool-heavy
-//!   thread stays cheap without dropping chat history.
+//!   thread stays cheap without dropping chat history. This is now the crate
+//!   [`tinyagents::harness::middleware::MicrocompactMiddleware`], constructed
+//!   with OpenHuman's [`CLEARED_PLACEHOLDER`] wording; the in-house copy was
+//!   upstreamed (see `99-deletion-ledger.md`).
 //! - [`ToolOutputMiddleware`] (`after_tool`) — apply the per-tool-result byte
 //!   cap and (optionally) the semantic payload summarizer to each tool result
 //!   as it returns, before it enters the transcript.
@@ -20,7 +21,7 @@
 //! enabled onto a harness.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -30,10 +31,11 @@ use tinyagents::harness::context::RunContext;
 use tinyagents::harness::events::AgentEvent;
 use tinyagents::harness::message::{ContentBlock, Message as TaMessage};
 use tinyagents::harness::middleware::{
-    AgentRun, ContextualToolSelectionMiddleware, Middleware, MiddlewareToolOutcome,
-    ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
+    AgentRun, BudgetTracker, ContextualToolSelectionMiddleware, MicrocompactMiddleware, Middleware,
+    MiddlewareToolOutcome, ToolAllowlistMiddleware, ToolHandler, ToolMiddleware,
 };
 use tinyagents::harness::model::{ModelRequest, PromptSegment, SegmentRole};
+use tinyagents::harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
 use tinyagents::harness::runtime::AgentHarness;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
@@ -74,8 +76,6 @@ pub(crate) struct TurnContextMiddleware {
     pub(crate) tokenjuice_compaction_enabled: bool,
     /// Agent-level TokenJuice profile for tool-result compaction.
     pub(crate) tokenjuice_compression: AgentTokenjuiceCompression,
-    /// Warn on volatile tokens in the system prompt (KV-cache diagnostic).
-    pub(crate) cache_align: bool,
     /// Keep-recent count for microcompact tool-body clearing. `0` disables it.
     pub(crate) microcompact_keep_recent: usize,
     /// Whether the LLM summarization step (`ContextCompressionMiddleware`) may be
@@ -224,8 +224,8 @@ pub(crate) struct SuperContextConfig {
 
 impl TurnContextMiddleware {
     /// A sensible default for turn paths without a session `ContextManager`
-    /// (channel / sub-agent): cache-align warnings on and the default tool-result
-    /// byte cap, no summarizer or microcompact.
+    /// (channel / sub-agent): the default tool-result byte cap, no summarizer or
+    /// microcompact.
     pub(crate) fn defaults() -> Self {
         Self {
             tool_result_budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
@@ -233,7 +233,6 @@ impl TurnContextMiddleware {
             artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,
-            cache_align: true,
             microcompact_keep_recent: 0,
             autocompact_enabled: true,
             super_context: None,
@@ -246,7 +245,6 @@ impl TurnContextMiddleware {
         self.tool_result_budget_bytes == 0
             && self.payload_summarizer.is_none()
             && !self.tokenjuice_compaction_enabled
-            && !self.cache_align
             && self.microcompact_keep_recent == 0
             && self.super_context.is_none()
             && self.handoff.is_none()
@@ -254,10 +252,10 @@ impl TurnContextMiddleware {
 
     /// Push the enabled middlewares onto `harness`.
     ///
-    /// `before_model` hooks run in registration order, so cache-align (warn) and
-    /// microcompact (clear tool bodies) are installed **before** the caller's
-    /// summarization / trim middlewares — microcompact frees cheap tokens first,
-    /// then summarization/trim handle the rest.
+    /// `before_model` hooks run in registration order, so microcompact (clear
+    /// tool bodies) is installed **before** the caller's summarization / trim
+    /// middlewares — microcompact frees cheap tokens first, then
+    /// summarization/trim handle the rest.
     pub(crate) fn install(
         self,
         harness: &mut AgentHarness<()>,
@@ -272,13 +270,15 @@ impl TurnContextMiddleware {
                 ran: AtomicBool::new(false),
             }));
         }
-        if self.cache_align {
-            harness.push_middleware(Arc::new(CacheAlignMiddleware));
-        }
         if self.microcompact_keep_recent > 0 {
-            harness.push_middleware(Arc::new(MicrocompactMiddleware {
-                keep_recent: self.microcompact_keep_recent,
-            }));
+            // Crate middleware (upstreamed from the in-house copy). Constructed
+            // with OpenHuman's model-facing placeholder so behavior is
+            // byte-identical to the deleted local version. Events stay off (the
+            // default) to preserve the prior silent-rewrite behavior.
+            harness.push_middleware(Arc::new(MicrocompactMiddleware::new(
+                self.microcompact_keep_recent,
+                CLEARED_PLACEHOLDER,
+            )));
         }
         // Handoff runs BEFORE the tool-output budget so an oversized payload is
         // stashed + replaced with a short placeholder first; the byte cap would
@@ -551,163 +551,6 @@ fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
     }
 }
 
-/// `before_model`: flag volatile tokens (UUIDs, timestamps, JWTs, …) in the
-/// system prompt that silently break the provider KV-cache prefix. Warn-only —
-/// never mutates the request. Replaces the deleted context cache-align reducer.
-struct CacheAlignMiddleware;
-
-/// One detected volatile token in the cache-hot system prompt.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct VolatileFinding {
-    kind: &'static str,
-    sample: String,
-}
-
-fn detect_volatile_prompt_tokens(system_prompt: &str) -> Vec<VolatileFinding> {
-    let mut findings = Vec::new();
-    for tok in system_prompt
-        .split(|c: char| !(c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | ':' | '_')))
-    {
-        if tok.len() < 8 {
-            continue;
-        }
-        if is_uuid(tok) {
-            findings.push(VolatileFinding {
-                kind: "uuid",
-                sample: redact_volatile_token(tok),
-            });
-        } else if is_jwt(tok) {
-            findings.push(VolatileFinding {
-                kind: "jwt",
-                sample: redact_volatile_token(tok),
-            });
-        } else if is_iso8601(tok) {
-            findings.push(VolatileFinding {
-                kind: "iso8601",
-                sample: redact_volatile_token(tok),
-            });
-        } else if is_hex_hash(tok) {
-            findings.push(VolatileFinding {
-                kind: "hex_hash",
-                sample: redact_volatile_token(tok),
-            });
-        }
-    }
-    findings
-}
-
-fn warn_if_cache_prompt_volatile(system_prompt: &str) -> usize {
-    let findings = detect_volatile_prompt_tokens(system_prompt);
-    if !findings.is_empty() {
-        let mut kinds: Vec<&str> = findings.iter().map(|finding| finding.kind).collect();
-        kinds.sort_unstable();
-        kinds.dedup();
-        let samples = findings
-            .iter()
-            .take(5)
-            .map(|finding| finding.sample.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        ::log::warn!(
-            "[tinyagents::cache-align] system prompt contains {} volatile token(s) ({}) samples={} -- KV-cache prefix may not hit; keep dynamic content out of the system prompt",
-            findings.len(),
-            kinds.join(", "),
-            samples,
-        );
-    }
-    findings.len()
-}
-
-fn redact_volatile_token(tok: &str) -> String {
-    let head: String = tok.chars().take(4).collect();
-    format!("{head}...")
-}
-
-fn is_uuid(tok: &str) -> bool {
-    if tok.len() != 36 {
-        return false;
-    }
-    let bytes = tok.as_bytes();
-    for (i, b) in bytes.iter().enumerate() {
-        let expect_dash = matches!(i, 8 | 13 | 18 | 23);
-        if expect_dash {
-            if *b != b'-' {
-                return false;
-            }
-        } else if !b.is_ascii_hexdigit() {
-            return false;
-        }
-    }
-    true
-}
-
-fn is_jwt(tok: &str) -> bool {
-    let segs: Vec<&str> = tok.split('.').collect();
-    if segs.len() != 3 {
-        return false;
-    }
-    segs.iter().all(|segment| {
-        segment.len() >= 4
-            && segment
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-    }) && tok.starts_with("ey")
-}
-
-fn is_hex_hash(tok: &str) -> bool {
-    matches!(tok.len(), 32 | 40 | 64) && tok.bytes().all(|b| b.is_ascii_hexdigit())
-}
-
-fn is_iso8601(tok: &str) -> bool {
-    let b = tok.as_bytes();
-    if tok.len() < 19 {
-        return false;
-    }
-    let digit = |i: usize| b[i].is_ascii_digit();
-    digit(0)
-        && digit(1)
-        && digit(2)
-        && digit(3)
-        && b[4] == b'-'
-        && digit(5)
-        && digit(6)
-        && b[7] == b'-'
-        && digit(8)
-        && digit(9)
-        && (b[10] == b'T' || b[10] == b' ')
-        && digit(11)
-        && digit(12)
-        && b[13] == b':'
-        && digit(14)
-        && digit(15)
-        && b[16] == b':'
-        && digit(17)
-        && digit(18)
-}
-
-#[async_trait]
-impl Middleware<()> for CacheAlignMiddleware {
-    fn name(&self) -> &str {
-        "cache_align"
-    }
-
-    async fn before_model(
-        &self,
-        _ctx: &mut RunContext<()>,
-        _state: &(),
-        request: &mut ModelRequest,
-    ) -> TaResult<()> {
-        if let Some(sys) = request
-            .messages
-            .iter()
-            .find(|m| matches!(m, TaMessage::System(_)))
-        {
-            warn_if_cache_prompt_volatile(&sys.text());
-        }
-        Ok(())
-    }
-}
-
 /// Seed-free FNV-1a fingerprint (matches the crate's own prompt-layout hash
 /// approach) so a segment id is stable across process restarts — unlike Rust's
 /// randomly-seeded `SipHash`. Used to build content-fingerprinted prompt-cache
@@ -734,11 +577,12 @@ fn stable_prefix_fingerprint(data: &str) -> String {
 /// have no prefix to protect. This stamps the segments with **content-fingerprint
 /// ids**: an unchanged system prompt + tool set yields a stable prefix, while an
 /// injected timestamp/uuid/etc. changes the fingerprint and the guard records a
-/// [`CacheLayoutEvent`](tinyagents::harness::cache::CacheLayoutEvent). The
-/// structured successor to [`CacheAlignMiddleware`]'s warn-only volatile-token
-/// scan (kept installed in parallel until parity is shown; deletion is a gated
-/// follow-up). Read-only w.r.t. the transcript — only sets `cache_segments` /
-/// `prompt_fingerprint`.
+/// [`CacheLayoutEvent`](tinyagents::harness::cache::CacheLayoutEvent). This is
+/// the structured, crate-native replacement for the deleted warn-only
+/// `CacheAlignMiddleware` volatile-token scan (C3): the crate
+/// `PromptCacheGuardMiddleware` now owns KV-cache-prefix drift detection via
+/// recorded `CacheLayoutEvent`s. Read-only w.r.t. the transcript — only sets
+/// `cache_segments` / `prompt_fingerprint`.
 pub(crate) struct PromptCacheSegmentMiddleware;
 
 #[async_trait]
@@ -797,53 +641,6 @@ impl Middleware<()> for PromptCacheSegmentMiddleware {
                 "[cache] declared stable prompt-prefix segments for KV-cache guard"
             );
             request.cache_segments = segments;
-        }
-        Ok(())
-    }
-}
-
-/// `before_model`: clear the bodies of older tool-result messages, keeping the
-/// `keep_recent` most recent verbatim. The graph analogue of
-/// `context::microcompact` — bounds a tool-heavy thread's cost without dropping
-/// any chat turns. Idempotent: an already-cleared body is left as the
-/// placeholder.
-struct MicrocompactMiddleware {
-    keep_recent: usize,
-}
-
-#[async_trait]
-impl Middleware<()> for MicrocompactMiddleware {
-    fn name(&self) -> &str {
-        "microcompact"
-    }
-
-    async fn before_model(
-        &self,
-        _ctx: &mut RunContext<()>,
-        _state: &(),
-        request: &mut ModelRequest,
-    ) -> TaResult<()> {
-        let tool_idxs: Vec<usize> = request
-            .messages
-            .iter()
-            .enumerate()
-            .filter(|(_, m)| matches!(m, TaMessage::Tool(_)))
-            .map(|(i, _)| i)
-            .collect();
-        if tool_idxs.len() <= self.keep_recent {
-            return Ok(());
-        }
-        let cut = tool_idxs.len() - self.keep_recent;
-        for &i in &tool_idxs[..cut] {
-            // Skip messages already reduced to the placeholder; otherwise swap the
-            // body for it (idempotent, preserves the tool_call_id).
-            if request.messages[i].text() == CLEARED_PLACEHOLDER {
-                continue;
-            }
-            if let TaMessage::Tool(t) = &request.messages[i] {
-                let id = t.tool_call_id.clone();
-                request.messages[i] = TaMessage::tool(id, CLEARED_PLACEHOLDER);
-            }
         }
         Ok(())
     }
@@ -1403,6 +1200,25 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        // Enrich a raw security-policy / autonomy block (issue #4094): the ~20
+        // `[policy-blocked]` denials emitted deep in `SecurityPolicy` / the tools
+        // return a bare marker line with no workaround and no relay directive, so
+        // the agent dead-ends. Rewrite the content into the structured
+        // `Blocked / Reason / Workaround / relay` shape here — the last `after_tool`
+        // hook, so the enriched text is what the transcript keeps. The marker is
+        // preserved, and already-structured `ToolPolicyMiddleware` denials (which
+        // carry a `Workaround:` suffix) are left untouched. This runs before
+        // classification below, which still recognises the preserved marker.
+        if let Some(enriched) =
+            super::policy_denial::maybe_enrich_policy_block(&result.name, &result.content)
+        {
+            tracing::debug!(
+                tool = result.name.as_str(),
+                "[tinyagents::mw] enriched raw security-policy block with workaround + relay"
+            );
+            result.content = enriched;
+        }
+
         let success = result.error.is_none();
         // Classify the failure so the live `ToolCallCompleted` event and the
         // persisted timeline can explain it in plain language. A hard
@@ -1612,14 +1428,54 @@ impl Middleware<()> for MemoryProtocolMiddleware {
 /// model call spends (issue #4249, Phase 5). Reads the global
 /// [`CostTracker`](crate::openhuman::cost) and, when cost budgets are configured
 /// and already exceeded, fails the run before the provider call; a warning
-/// threshold logs but proceeds.
+/// threshold logs but proceeds. This enforcement path stays **authoritative**.
 ///
 /// Self-gating: a no-op unless a global tracker exists and `config.enabled` with
 /// a limit is set (`check_budget` returns `Allowed` otherwise). Complements the
 /// post-call `StopHookMiddleware` per-turn USD cap. Projecting the *next* call's
 /// cost pre-spend (vs the already-exceeded check here) needs an input-token
 /// estimate — a follow-up.
-pub(crate) struct CostBudgetMiddleware;
+///
+/// # Shadow role (W2-budget-dedupe)
+///
+/// When built with [`with_shadow`](Self::with_shadow), this middleware is ALSO a
+/// divergence-logging shadow over the observe-only crate
+/// [`BudgetMiddleware`](tinyagents::harness::middleware::BudgetMiddleware). It
+/// keeps enforcing exactly as before, but at `after_agent` it compares the
+/// crate `BudgetMiddleware`'s shared [`BudgetTracker`] accumulation against the
+/// authoritative runtime [`AgentRun::usage`] and logs `[budget_shadow]` parity
+/// or divergence (compact numeric summary; no PII). Both accumulate the same
+/// per-call `response.usage`, so token totals must match once the crate
+/// middleware is on the path — this is the parity signal that must be clean
+/// before enforcement can flip to the crate owner (see the flip-criteria comment
+/// at the registration site in `tinyagents/mod.rs`). Cost is intentionally NOT
+/// compared: the observe-only crate middleware has no pricing table, so its cost
+/// stays zero while the local path prices via `cost::catalog` — cost parity is a
+/// flip-criteria follow-up.
+pub(crate) struct CostBudgetMiddleware {
+    /// Observe-only crate `BudgetMiddleware`'s shared tracker handle, for the
+    /// end-of-run `[budget_shadow]` comparison. `None` when the shadow is not
+    /// installed (isolated unit tests of the enforcement gate).
+    shadow_tracker: Option<BudgetTracker>,
+}
+
+impl CostBudgetMiddleware {
+    /// Enforcement-only gate with no shadow comparison (isolated unit tests).
+    pub(crate) fn new() -> Self {
+        Self {
+            shadow_tracker: None,
+        }
+    }
+
+    /// Enforcement gate that ALSO compares its per-run token accounting against
+    /// the observe-only crate `BudgetMiddleware`'s shared `tracker` at end of run
+    /// and logs `[budget_shadow]` parity/divergence.
+    pub(crate) fn with_shadow(tracker: BudgetTracker) -> Self {
+        Self {
+            shadow_tracker: Some(tracker),
+        }
+    }
+}
 
 #[async_trait]
 impl Middleware<()> for CostBudgetMiddleware {
@@ -1668,41 +1524,93 @@ impl Middleware<()> for CostBudgetMiddleware {
             _ => Ok(()),
         }
     }
+
+    /// Shadow parity check (W2-budget-dedupe). Enforcement already happened per
+    /// call in `before_model`; here we only observe. Compares the observe-only
+    /// crate `BudgetMiddleware`'s accumulated token spend against the runtime's
+    /// authoritative `AgentRun::usage` and logs `[budget_shadow]` divergence.
+    /// Never fails the run.
+    async fn after_agent(
+        &self,
+        _ctx: &mut RunContext<()>,
+        _state: &(),
+        run: &mut AgentRun,
+    ) -> TaResult<()> {
+        let Some(tracker) = &self.shadow_tracker else {
+            return Ok(());
+        };
+        let crate_usage = tracker.snapshot().usage; // UsageTotals (crate shadow)
+        let local = run.usage; // UsageTotals (runtime authoritative)
+        let l = &local.usage;
+        let c = &crate_usage.usage;
+        let diverged = l.input_tokens != c.input_tokens
+            || l.output_tokens != c.output_tokens
+            || l.cache_read_tokens != c.cache_read_tokens
+            || l.total_tokens != c.total_tokens
+            || local.calls != crate_usage.calls;
+        if diverged {
+            tracing::warn!(
+                local_calls = local.calls,
+                crate_calls = crate_usage.calls,
+                local_in = l.input_tokens,
+                crate_in = c.input_tokens,
+                local_out = l.output_tokens,
+                crate_out = c.output_tokens,
+                local_cached = l.cache_read_tokens,
+                crate_cached = c.cache_read_tokens,
+                local_total = l.total_tokens,
+                crate_total = c.total_tokens,
+                "[budget_shadow] divergence: crate BudgetMiddleware token accounting differs from authoritative AgentRun.usage"
+            );
+        } else {
+            tracing::debug!(
+                calls = local.calls,
+                input = l.input_tokens,
+                output = l.output_tokens,
+                cached = l.cache_read_tokens,
+                total = l.total_tokens,
+                "[budget_shadow] parity: crate BudgetMiddleware token accounting matches AgentRun.usage"
+            );
+        }
+        Ok(())
+    }
 }
 
-/// Consecutive **any**-failure no-progress backstop: different commands all
-/// failing means the goal is unreachable here. Matches the legacy
-/// `NO_PROGRESS_FAILURE_THRESHOLD`.
-const NO_PROGRESS_FAILURE_THRESHOLD: usize = 6;
-/// Consecutive **identical** hard-policy-rejection repeats before halting — a
-/// blocked call re-issued unchanged can never succeed. Legacy
-/// `HARD_REJECT_REPEAT_THRESHOLD`.
-const HARD_REJECT_REPEAT_THRESHOLD: usize = 2;
-
-/// `after_tool`: stop the run when tool calls keep failing with no progress
-/// (issue #4249). The legacy tool loop's progress guard surfaced a root-cause
-/// halt summary — a security/approval denial re-issued unchanged, an identical
-/// error retried, or *different* commands all failing — instead of burning the
-/// whole iteration budget and ending on a generic cap error. The tinyagents path
-/// kept only the model/tool call caps, so this reinstates the guard as a graph
-/// middleware. Three halt conditions, checked per failure (any success resets
-/// every counter — progress was made):
+/// `after_tool`: stop (or nudge) the run when tool calls keep failing with no
+/// progress (issue #4249). The legacy tool loop's progress guard surfaced a
+/// root-cause halt summary — a security/approval denial re-issued unchanged, an
+/// identical error retried, or *different* commands all failing — instead of
+/// burning the whole iteration budget and ending on a generic cap error. The
+/// tinyagents path kept only the model/tool call caps, so this reinstates the
+/// guard as a graph middleware.
 ///
-/// 1. **Hard policy rejection** (`[policy-blocked]`) repeated `HARD_REJECT_REPEAT_THRESHOLD`
-///    times with an identical signature — "blocked by the security policy … re-issued".
-/// 2. **Identical** error signature repeated `identical_threshold` times —
-///    "retried N times with identical arguments".
-/// 3. **Any** failure `NO_PROGRESS_FAILURE_THRESHOLD` times in a row (even with
-///    varied errors) — "N tool calls in a row failed".
+/// As of tinyagents 1.5.0 the escalation ladder itself lives in the crate
+/// ([`NoProgressTracker`], extracted upstream from OpenHuman #4389). This
+/// middleware is now a **thin driver**: it captures the per-call argument
+/// fingerprint (the tool result carries no arguments), feeds each outcome into
+/// [`NoProgressTracker::record`], and lowers the returned [`NoProgress`] verdict
+/// into OpenHuman steering. It owns only the OpenHuman-side policy:
 ///
-/// On trip it records a root-cause summary into the shared [`HaltSummarySlot`]
-/// (the turn overrides its final text with it) and pauses the run via the shared
-/// steering handle (same mechanism as the stop-hook / cap pausers).
+/// - [`NoProgress::Continue`] — do nothing.
+/// - [`NoProgress::Nudge`] — inject the crate's structured "no progress since
+///   step X" corrective into the working transcript via
+///   [`SteeringCommand::Redirect`] so the next model call sees it and changes
+///   strategy *before* the same-strategy retry cap trips.
+/// - [`NoProgress::Halt`] — record the crate's root-cause summary into the shared
+///   [`HaltSummarySlot`](super::HaltSummarySlot) (the turn overrides its final
+///   text with it) and pause the run via the shared steering handle (same
+///   mechanism as the stop-hook / cap pausers), then [`reset`](NoProgressTracker::reset)
+///   so a resumed run does not immediately re-pause on the latched state.
 pub(crate) struct RepeatedToolFailureMiddleware {
     handle: SteeringHandle,
-    identical_threshold: usize,
     halt_summary: super::HaltSummarySlot,
-    state: std::sync::Mutex<FailureState>,
+    /// Crate no-progress escalation ladder — the single source of the
+    /// identical-failure / varied-failure / hard-reject logic (tinyagents 1.5.0).
+    tracker: NoProgressTracker,
+    /// Monotonic tool-outcome counter, used only for the crate's "no progress
+    /// since step X" nudge wording. Not the model-call count, but a stable,
+    /// increasing marker is all the wording needs.
+    step: AtomicUsize,
     /// call_id → argument fingerprint, captured in `before_tool` (the tool result
     /// carries no arguments). Folded into the identical-repeat signature so the
     /// "identical arguments" halt only trips on the *same* args — two different
@@ -1711,16 +1619,10 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     arg_sigs: std::sync::Mutex<std::collections::HashMap<String, String>>,
 }
 
-#[derive(Default)]
-struct FailureState {
-    last_sig: Option<String>,
-    same_count: usize,
-    consecutive: usize,
-}
-
 impl RepeatedToolFailureMiddleware {
     /// Build the breaker. `identical_threshold` (the identical-signature retry
-    /// ceiling) is clamped to at least 2 — a single failure is never a loop.
+    /// ceiling) is handed straight to [`NoProgressTracker::new`], which clamps it
+    /// so a nudge always precedes a halt (a single failure is never a loop).
     pub(crate) fn new(
         handle: SteeringHandle,
         identical_threshold: usize,
@@ -1728,12 +1630,53 @@ impl RepeatedToolFailureMiddleware {
     ) -> Self {
         Self {
             handle,
-            identical_threshold: identical_threshold.max(2),
             halt_summary,
-            state: std::sync::Mutex::new(FailureState::default()),
+            tracker: NoProgressTracker::new(identical_threshold),
+            step: AtomicUsize::new(0),
             arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
         }
     }
+}
+
+/// Recognise a **user-actionable** blocker in a failing tool result — one only
+/// the user can clear — and phrase the halt as a direct ask instead of the
+/// crate's generic "the goal looks unreachable in this environment, report this
+/// back" summary (issue #4092). Today that's a missing service connection (the
+/// issue's canonical example: acting on a service that isn't connected). Such a
+/// failure will never self-resolve by retrying, and the fix is the user's, so
+/// escalate with a concrete next step instead of looping or reporting a generic
+/// dead-end. Returns `None` for failures that are not user-actionable, leaving
+/// the crate's summary in place.
+fn user_actionable_escalation(tool: &str, error: &str) -> Option<String> {
+    let lower = error.to_lowercase();
+    let permission_or_scope_failure = lower.contains("[composio:error:insufficient_scope]")
+        || lower.contains("[composio:error:trigger_permission]")
+        || lower.contains("insufficient scope")
+        || lower.contains("insufficient authentication scopes")
+        || lower.contains("insufficient permissions")
+        || lower.contains("missing required permissions")
+        || lower.contains("permission to manage triggers");
+    if permission_or_scope_failure {
+        return None;
+    }
+    // Keep this narrow: some scope/permission failures legitimately tell the
+    // user to reconnect in Settings, but they are not missing connections.
+    let missing_connection = lower.contains("[composio:error:composio_platform]")
+        || lower.contains("not connected")
+        || lower.contains("isn't connected")
+        || lower.contains("is not connected")
+        || lower.contains("not enabled")
+        || lower.contains("token revoked")
+        || lower.contains("connection error, try to authenticate");
+    if !missing_connection {
+        return None;
+    }
+    Some(format!(
+        "I can't continue without your input: the `{tool}` action needs a service that isn't \
+         connected. {}\n\nConnect it (Settings \u{2192} Connections), then tell me to retry — or \
+         tell me how you'd like to proceed instead.",
+        crate::openhuman::util::truncate_with_ellipsis(error, 400),
+    ))
 }
 
 /// A stable, bounded fingerprint of a tool call's arguments for the identical-
@@ -1743,13 +1686,6 @@ fn args_fingerprint(arguments: &serde_json::Value) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     arguments.to_string().hash(&mut hasher);
     format!("{:x}", hasher.finish())
-}
-
-/// Trim a tool error for inclusion in a halt summary (keep it bounded but retain
-/// the deterministic leading detail the model/user needs).
-fn truncate_for_halt(text: &str) -> String {
-    const MAX: usize = 600;
-    crate::openhuman::util::truncate_with_ellipsis(text, MAX)
 }
 
 #[async_trait]
@@ -1778,90 +1714,85 @@ impl Middleware<()> for RepeatedToolFailureMiddleware {
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
-        let mut state = self.state.lock().unwrap();
         let arg_fp = self
             .arg_sigs
             .lock()
             .ok()
             .and_then(|mut sigs| sigs.remove(&result.call_id))
             .unwrap_or_default();
-        let Some(err) = result.error.as_deref() else {
-            // Success → progress was made; reset every counter.
-            *state = FailureState::default();
-            return Ok(());
-        };
-
-        // Signature: tool name + argument fingerprint + first error line (the
-        // deterministic parts; a huge payload tail must not dominate the
-        // identical-repeat comparison). Including the args means the "identical
-        // arguments" halt only fires when the args truly repeat.
-        let err_line = err.lines().next().unwrap_or(err);
-        let sig = format!("{}\u{1f}{arg_fp}\u{1f}{err_line}", result.name);
-        state.consecutive += 1;
-        let same_count = match &state.last_sig {
-            Some(prev) if *prev == sig => {
-                state.same_count += 1;
-                state.same_count
-            }
-            _ => {
-                state.last_sig = Some(sig);
-                state.same_count = 1;
-                1
-            }
-        };
+        let step = self.step.fetch_add(1, Ordering::SeqCst) + 1;
 
         // A hard policy rejection is marked in the tool output; it can never
-        // succeed when re-issued unchanged, so it trips faster.
-        let is_hard_reject = result
+        // succeed when re-issued unchanged, so the crate ladder trips it faster.
+        let hard_reject = result
             .content
             .contains(crate::openhuman::security::POLICY_BLOCKED_MARKER)
-            || err.contains(crate::openhuman::security::POLICY_BLOCKED_MARKER);
+            || result
+                .error
+                .as_deref()
+                .is_some_and(|err| err.contains(crate::openhuman::security::POLICY_BLOCKED_MARKER));
 
-        let summary = if is_hard_reject && same_count >= HARD_REJECT_REPEAT_THRESHOLD {
-            Some(format!(
-                "Stopping: the `{}` call is blocked by the security policy and was re-issued with \
-                 identical arguments — it can never succeed this way. Reason:\n{}\n\nDo not repeat \
-                 this call; use an allowed alternative or report that it can't be done here.",
-                result.name,
-                truncate_for_halt(err),
-            ))
-        } else if same_count >= self.identical_threshold {
-            Some(format!(
-                "Stopping: the `{}` call was retried {same_count} times with identical arguments \
-                 and kept failing — repeating it will not help. Last error:\n{}\n\nThis looks \
-                 unrecoverable in the current environment. Report this back instead of retrying.",
-                result.name,
-                truncate_for_halt(err),
-            ))
-        } else if state.consecutive >= NO_PROGRESS_FAILURE_THRESHOLD {
-            Some(format!(
-                "Stopping: {} tool calls in a row failed with no progress. Last error (from \
-                 `{}`):\n{}\n\nDifferent commands are all failing — the goal looks unreachable in \
-                 this environment. Report this back instead of retrying.",
-                state.consecutive,
-                result.name,
-                truncate_for_halt(err),
-            ))
-        } else {
-            None
+        let attempt = ToolAttempt {
+            tool: &result.name,
+            arg_fingerprint: &arg_fp,
+            error: result.error.as_deref(),
+            hard_reject,
+            // The unknown-tool recovery sentinel is a C3 concern; today every
+            // failure feeds the generic backstop exactly as the legacy ladder did.
+            recoverable_miss: false,
         };
 
-        if let Some(summary) = summary {
-            tracing::warn!(
-                tool = %result.name,
-                consecutive = state.consecutive,
-                same_count,
-                is_hard_reject,
-                "[tinyagents::mw] repeated tool failure — halting run so the root cause surfaces"
-            );
-            if let Ok(mut slot) = self.halt_summary.lock() {
-                *slot = Some(summary);
+        match self.tracker.record(step, &attempt) {
+            NoProgress::Continue => {}
+            NoProgress::Nudge(instruction) => {
+                tracing::warn!(
+                    tool = %result.name,
+                    step,
+                    hard_reject,
+                    "[tinyagents::mw] no-progress nudge — steering the model to change strategy before the retry cap"
+                );
+                // Inject the crate's structured corrective as a system message via
+                // the `InjectMessage` steering lane. This runs on *every* turn,
+                // including the user's live interactive turn, whose steering policy
+                // permits only `InjectMessage`/`Pause` — `Redirect` is Background
+                // (sub-agent) only, so sending it here aborted every interactive
+                // turn that hit the nudge with `steering command redirect is not
+                // permitted by the run policy` (a #4473 migration regression). The
+                // corrective is trusted, system-generated advisory text, so the
+                // `InjectMessage` lane is both permitted and semantically correct.
+                self.handle
+                    .send(SteeringCommand::InjectMessage(TaMessage::system(
+                        instruction,
+                    )));
             }
-            // Pause at the top of the next iteration (before the next model call),
-            // matching the stop-hook / cap pause path. Reset so a resumed run does
-            // not immediately re-pause on the same latched state.
-            self.handle.send(SteeringCommand::Pause);
-            *state = FailureState::default();
+            NoProgress::Halt(summary) => {
+                // #4092: if the blocker is user-actionable (a missing connection),
+                // escalate with a concrete ask instead of the crate's generic
+                // "unreachable environment, report back" summary.
+                let escalation = user_actionable_escalation(
+                    &result.name,
+                    result.error.as_deref().unwrap_or(result.content.as_str()),
+                );
+                let user_actionable = escalation.is_some();
+                let summary = escalation.unwrap_or(summary);
+                tracing::warn!(
+                    tool = %result.name,
+                    step,
+                    hard_reject,
+                    user_actionable,
+                    "[tinyagents::mw] repeated tool failure — halting run so the root cause surfaces"
+                );
+                if let Ok(mut slot) = self.halt_summary.lock() {
+                    *slot = Some(summary);
+                }
+                // Pause at the top of the next iteration (before the next model
+                // call), matching the stop-hook / cap pause path. Reset so a
+                // resumed run does not immediately re-pause on the latched state
+                // (the crate also resets internally on a halt; this is explicit
+                // and idempotent).
+                self.handle.send(SteeringCommand::Pause);
+                self.tracker.reset();
+            }
         }
         Ok(())
     }
@@ -1923,12 +1854,57 @@ mod tests {
         }
     }
 
+    // ── ToolOutcomeCaptureMiddleware policy-block enrichment (issue #4094) ───
+
+    fn outcome_capture_mw() -> ToolOutcomeCaptureMiddleware {
+        ToolOutcomeCaptureMiddleware::new(
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+        )
+    }
+
+    #[tokio::test]
+    async fn raw_security_policy_block_is_enriched_with_workaround_and_relay() {
+        let mw = outcome_capture_mw();
+        let mut result = tool_result(
+            "run_command",
+            "[policy-blocked] Security policy: read-only mode — only read commands are allowed",
+        );
+        result.error = Some(result.content.clone());
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        // The bare denial now carries a workaround + relay directive, and keeps the
+        // marker so classification / the loop-breaker still recognise it.
+        assert!(result.content.contains("Workaround:"), "{}", result.content);
+        assert!(result.content.contains("Relay this to the user"));
+        assert!(result
+            .content
+            .contains(crate::openhuman::security::POLICY_BLOCKED_MARKER));
+        assert!(result.content.contains("read-only mode"));
+    }
+
+    #[tokio::test]
+    async fn already_structured_denial_is_not_double_wrapped() {
+        // A ToolPolicyMiddleware-style denial already has "Workaround:"; the capture
+        // middleware must leave it untouched (no second Workaround block).
+        let mw = outcome_capture_mw();
+        let structured =
+            "Blocked: Tool 'x' denied. Reason: nope. Workaround: do y. Relay this to the user: ...";
+        let mut result = tool_result("x", structured);
+        result.error = Some(result.content.clone());
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert_eq!(
+            result.content.matches("Workaround:").count(),
+            1,
+            "must not double-wrap: {}",
+            result.content
+        );
+    }
+
     // ── TurnContextMiddleware config ────────────────────────────────────────
 
     #[test]
-    fn defaults_enable_cache_align_and_the_byte_cap_only() {
+    fn defaults_enable_the_byte_cap_only() {
         let mw = TurnContextMiddleware::defaults();
-        assert!(mw.cache_align);
         assert_eq!(
             mw.tool_result_budget_bytes,
             DEFAULT_TOOL_RESULT_BUDGET_BYTES
@@ -1938,6 +1914,8 @@ mod tests {
         // Autocompaction defaults on (channel/sub-agent); the chat path overrides
         // it from config.
         assert!(mw.autocompact_enabled);
+        // The byte cap alone is enough to make the bundle non-empty (CacheAlign
+        // was deleted in C3, so it no longer contributes here).
         assert!(!mw.is_empty());
     }
 
@@ -2030,11 +2008,15 @@ mod tests {
         assert_eq!(msgs[0].text(), "only system");
     }
 
-    // ── MicrocompactMiddleware ──────────────────────────────────────────────
+    // ── MicrocompactMiddleware (crate) ──────────────────────────────────────
+    //
+    // These assert the crate `MicrocompactMiddleware`, constructed with
+    // OpenHuman's `CLEARED_PLACEHOLDER`, reproduces the deleted in-house
+    // middleware byte-for-byte — the parity contract for the upstream swap.
 
     #[tokio::test]
     async fn microcompact_clears_older_tool_bodies_and_keeps_recent() {
-        let mw = MicrocompactMiddleware { keep_recent: 1 };
+        let mw = MicrocompactMiddleware::new(1, CLEARED_PLACEHOLDER);
         let mut req = ModelRequest::new(vec![
             TaMessage::system("sys"),
             TaMessage::user("hello"),
@@ -2058,7 +2040,7 @@ mod tests {
 
     #[tokio::test]
     async fn microcompact_is_a_noop_when_within_keep_recent() {
-        let mw = MicrocompactMiddleware { keep_recent: 5 };
+        let mw = MicrocompactMiddleware::new(5, CLEARED_PLACEHOLDER);
         let mut req =
             ModelRequest::new(vec![TaMessage::tool("t1", "A"), TaMessage::tool("t2", "B")]);
         mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
@@ -2068,7 +2050,7 @@ mod tests {
 
     #[tokio::test]
     async fn microcompact_is_idempotent() {
-        let mw = MicrocompactMiddleware { keep_recent: 1 };
+        let mw = MicrocompactMiddleware::new(1, CLEARED_PLACEHOLDER);
         let mut req = ModelRequest::new(vec![
             TaMessage::tool("t1", "FIRST"),
             TaMessage::tool("t2", "SECOND"),
@@ -2188,9 +2170,44 @@ mod tests {
     async fn cost_budget_is_a_noop_without_a_global_tracker() {
         // No global CostTracker is installed in the unit-test process, so the
         // gate self-disables and the model call proceeds.
-        let mw = CostBudgetMiddleware;
+        let mw = CostBudgetMiddleware::new();
         let mut req = ModelRequest::new(vec![TaMessage::user("hi")]);
         assert!(mw.before_model(&mut ctx(), &(), &mut req).await.is_ok());
+    }
+
+    // ── CostBudgetMiddleware shadow (W2-budget-dedupe) ──────────────────────
+
+    /// The shadow comparison at `after_agent` logs parity when the crate
+    /// `BudgetMiddleware`'s tracker matches the runtime `AgentRun.usage`, and
+    /// never fails the run — in both the matching and diverging cases. It also
+    /// must be inert (no panic, `Ok`) when no shadow tracker is installed.
+    #[tokio::test]
+    async fn cost_budget_shadow_after_agent_never_fails_the_run() {
+        use tinyagents::harness::usage::Usage;
+
+        // No shadow tracker: after_agent is a silent no-op.
+        let plain = CostBudgetMiddleware::new();
+        let mut run = AgentRun::new();
+        run.usage.record(Usage::new(100, 40));
+        assert!(plain.after_agent(&mut ctx(), &(), &mut run).await.is_ok());
+
+        // Matching tracker (parity): the crate tracker accumulated the same
+        // single call's usage the runtime recorded into `run.usage`.
+        let tracker = BudgetTracker::new();
+        tracker.record(Usage::new(100, 40), Default::default());
+        let shadow = CostBudgetMiddleware::with_shadow(tracker.clone());
+        let mut run = AgentRun::new();
+        run.usage.record(Usage::new(100, 40));
+        assert!(shadow.after_agent(&mut ctx(), &(), &mut run).await.is_ok());
+
+        // Diverging tracker (crate missed a call): still only logs, never fails.
+        let mut diverged_run = AgentRun::new();
+        diverged_run.usage.record(Usage::new(100, 40));
+        diverged_run.usage.record(Usage::new(10, 5));
+        assert!(shadow
+            .after_agent(&mut ctx(), &(), &mut diverged_run)
+            .await
+            .is_ok());
     }
 
     // ── RepeatedToolFailureMiddleware ───────────────────────────────────────
@@ -2201,6 +2218,18 @@ mod tests {
         r
     }
 
+    /// Count how many of the steering commands drained from `handle` are
+    /// `Pause` (the halt signal). The tracker-driven breaker now also emits a
+    /// `Redirect` **nudge** below the retry cap, so a raw `pending()` count no
+    /// longer isolates the halt — the tests classify by command kind instead.
+    fn drain_pause_count(handle: &SteeringHandle) -> usize {
+        handle
+            .drain()
+            .into_iter()
+            .filter(|c| matches!(c, SteeringCommand::Pause))
+            .count()
+    }
+
     #[tokio::test]
     async fn repeated_tool_failure_pauses_only_after_the_threshold() {
         let handle = SteeringHandle::allow_all();
@@ -2209,18 +2238,24 @@ mod tests {
             3,
             std::sync::Arc::new(std::sync::Mutex::new(None)),
         );
-        // Two identical failures: below the threshold, no pause.
+        // Two identical failures: below the halt threshold. The crate ladder
+        // nudges (Redirect) on the second, but must NOT pause (halt) yet.
         for _ in 0..2 {
             let mut r = failing_result("flaky", "boom");
             mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
         }
-        assert_eq!(handle.pending(), 0, "no pause before the threshold");
-        // Third identical failure trips the breaker.
+        assert_eq!(
+            drain_pause_count(&handle),
+            0,
+            "no halt before the threshold"
+        );
+        // Third identical failure exhausts the same-strategy retries → halt.
         let mut r = failing_result("flaky", "boom");
         mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
-        assert!(
-            handle.pending() >= 1,
-            "the third identical failure should pause the run"
+        assert_eq!(
+            drain_pause_count(&handle),
+            1,
+            "the third identical failure should pause (halt) the run"
         );
     }
 
@@ -2239,12 +2274,17 @@ mod tests {
         }
         let mut ok = tool_result("t", "fine"); // error = None
         mw.after_tool(&mut ctx(), &(), &mut ok).await.unwrap();
-        // Two more failures — still below the threshold because the counter reset.
+        // Two more failures — still below the halt threshold because the counter
+        // reset, so the ladder never reaches the third identical repeat.
         for _ in 0..2 {
             let mut r = failing_result("t", "boom");
             mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
         }
-        assert_eq!(handle.pending(), 0, "a success should reset the breaker");
+        assert_eq!(
+            drain_pause_count(&handle),
+            0,
+            "a success should reset the breaker so it never halts"
+        );
     }
 
     #[tokio::test]
@@ -2256,7 +2296,8 @@ mod tests {
             std::sync::Arc::new(std::sync::Mutex::new(None)),
         );
         // Three *different* errors never trip the breaker — only an identical,
-        // deterministic failure loop does.
+        // deterministic failure loop does (and the varied-failure backstop nudges
+        // at 4 / halts at 6, both above this count).
         for err in ["e1", "e2", "e3"] {
             let mut r = failing_result("t", err);
             mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
@@ -2264,7 +2305,154 @@ mod tests {
         assert_eq!(
             handle.pending(),
             0,
-            "distinct errors must not trip the breaker"
+            "distinct errors below the backstop must not steer the run"
+        );
+    }
+
+    #[test]
+    fn user_actionable_escalation_detects_missing_connection() {
+        // A not-connected blocker → a user-directed ask with a concrete next step.
+        let ask = user_actionable_escalation(
+            "gmail_send",
+            "Gmail is not connected. Ask the user to connect 'gmail' in Settings → Connections.",
+        )
+        .expect("a missing-connection failure is user-actionable");
+        assert!(ask.contains("without your input"));
+        assert!(ask.contains("Settings"));
+        assert!(ask.to_lowercase().contains("connect"));
+        assert!(ask.contains("gmail_send"));
+        // The original tool text is relayed so the user sees which service.
+        assert!(ask.to_lowercase().contains("gmail"));
+
+        // A plain environment failure is NOT user-actionable → keep crate summary.
+        assert!(user_actionable_escalation("read_file", "file not found").is_none());
+        assert!(user_actionable_escalation("shell", "exit code 1: segfault").is_none());
+        assert!(user_actionable_escalation(
+            "gmail_send",
+            "[composio:error:insufficient_scope] `gmail_send` was rejected because the connected \
+             gmail account is missing required permissions (insufficient authentication scopes). \
+             Reconnect the integration in Settings → Connections → gmail and grant the scopes \
+             requested during OAuth."
+        )
+        .is_none());
+        assert!(user_actionable_escalation(
+            "gmail_trigger",
+            "[composio:error:trigger_permission] Couldn't enable this trigger: the connected \
+             gmail account doesn't have permission to manage triggers. Reconnect gmail in \
+             Settings → Connections → gmail and grant the permissions requested during OAuth, \
+             then try again."
+        )
+        .is_none());
+    }
+
+    #[tokio::test]
+    async fn halt_on_missing_connection_asks_the_user_instead_of_reporting_back() {
+        // #4092: a repeated not-connected failure halts with a user-directed ask,
+        // not the crate's generic "unreachable environment, report this back".
+        let handle = SteeringHandle::allow_all();
+        let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+        // Three identical not-connected failures → halt.
+        for _ in 0..3 {
+            let mut r = failing_result(
+                "slack_post",
+                "Slack is not connected — connect it in Settings → Connections.",
+            );
+            mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        }
+        let summary = slot
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("halt records a summary");
+        assert!(
+            summary.contains("without your input") && summary.contains("Settings"),
+            "the halt should ask the user to connect the service: {summary}"
+        );
+        assert!(
+            !summary.contains("Report this back"),
+            "a user-actionable blocker must not use the generic report-back summary: {summary}"
+        );
+        assert_eq!(
+            drain_pause_count(&handle),
+            1,
+            "it still pauses the run to surface the ask"
+        );
+    }
+
+    /// Collect the nudge system-message texts drained from `handle`. The nudge
+    /// rides the `InjectMessage` lane (not `Redirect`) so it is permitted on the
+    /// user's interactive turn — see the test below.
+    fn drain_nudge_messages(handle: &SteeringHandle) -> Vec<String> {
+        handle
+            .drain()
+            .into_iter()
+            .filter_map(|c| match c {
+                SteeringCommand::InjectMessage(message) => Some(message.text()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn repeated_tool_failure_nudges_change_of_strategy_before_the_halt() {
+        use crate::openhuman::tinyagents::orchestration::{
+            openhuman_steering_handle, SteeringRunClass,
+        };
+        use tinyagents::harness::steering::SteeringCommandKind;
+
+        // #4089: before the same-strategy retry cap, the breaker must feed a
+        // structured "no progress since step X" corrective back into the loop so
+        // the model changes approach rather than retrying the identical failing
+        // call — and it must do so *without* pausing yet.
+        let handle = SteeringHandle::allow_all();
+        let mw = RepeatedToolFailureMiddleware::new(
+            handle.clone(),
+            3,
+            std::sync::Arc::new(std::sync::Mutex::new(None)),
+        );
+        // First identical failure: not a loop yet — no steering.
+        let mut r = failing_result("read_file", "file not found");
+        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        assert!(
+            handle.drain().is_empty(),
+            "a single failure is never a loop"
+        );
+        // Second identical failure: the nudge fires, still no halt.
+        let mut r = failing_result("read_file", "file not found");
+        mw.after_tool(&mut ctx(), &(), &mut r).await.unwrap();
+        let nudges = drain_nudge_messages(&handle);
+        assert_eq!(
+            nudges.len(),
+            1,
+            "the repeat should steer the model to change strategy before the retry cap"
+        );
+        let nudge = &nudges[0];
+        assert!(
+            nudge.contains("no progress"),
+            "the nudge carries the structured no-progress signal: {nudge}"
+        );
+        assert!(
+            nudge.to_lowercase().contains("read_file"),
+            "the nudge names the failing call so the model knows what not to repeat: {nudge}"
+        );
+
+        // Regression for the #4473 crash: the nudge must ride a steering lane the
+        // user's *interactive* turn permits. `Redirect` is Background-only, so a
+        // Redirect nudge aborted interactive turns; `InjectMessage` is permitted
+        // on both classes. Assert the interactive policy accepts the lane we use.
+        let interactive = openhuman_steering_handle(SteeringRunClass::Interactive);
+        assert!(
+            interactive
+                .policy()
+                .is_allowed(SteeringCommandKind::InjectMessage),
+            "the no-progress nudge must use a lane the interactive turn permits"
+        );
+        assert!(
+            !interactive
+                .policy()
+                .is_allowed(SteeringCommandKind::Redirect),
+            "sanity: interactive still refuses Redirect (the lane that crashed it)"
         );
     }
 

@@ -25,6 +25,7 @@ pub use crate::openhuman::credentials::tools::*;
 pub use crate::openhuman::cron::tools::*;
 pub use crate::openhuman::dashboard::tools::*;
 pub use crate::openhuman::doctor::tools::*;
+pub use crate::openhuman::flows::tools::*;
 pub use crate::openhuman::health::tools::*;
 pub use crate::openhuman::integrations::tools::*;
 pub use crate::openhuman::learning::tools::*;

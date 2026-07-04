@@ -1,10 +1,15 @@
 /**
  * Frontend client for the durable `openhuman.flows_*` run surface (issue B2 /
- * B3). Wraps the subset of controllers the B3a approval card and the B3b run
- * inspector need:
+ * B3 / B4 / B5b). Wraps the subset of controllers the B3a approval card, the
+ * B3b run inspector, the B4 agent-proposal card, and the B5b Workflow Canvas
+ * need:
+ *   - `flows_create`    — persist a new flow (B4 — only ever called from the
+ *     user's own "Save & enable" click on `WorkflowProposalCard`; the agent's
+ *     `propose_workflow` tool only validates and never reaches this RPC)
  *   - `flows_resume`    — resume a `pending_approval` run past its checkpoint
  *   - `flows_list_runs` — recent runs for a flow, newest first (B3b)
  *   - `flows_get_run`   — a single run record by id (B3b)
+ *   - `flows_get`       — a single flow by id, graph included (B5b.1 canvas)
  *
  * Wire shape note: every `src/openhuman/flows/ops.rs` handler returns its
  * value via `RpcOutcome::single_log(value, "...")`, which
@@ -28,10 +33,11 @@ import { callCoreRpc } from '../coreRpcClient';
 const log = debug('flowsApi');
 
 /**
- * `openhuman.flows_resume` drives the engine and can run up to ~600s server-side
- * (`FLOW_RUN_TIMEOUT_SECS` in `src/openhuman/flows/ops.rs`). Give the client a
- * slightly larger budget than the default 30s so a slow resume doesn't fail
- * client-side while the engine is still running.
+ * `openhuman.flows_resume` and `openhuman.flows_run` both drive the tinyflows
+ * engine and can run up to ~600s server-side (`FLOW_RUN_TIMEOUT_SECS` in
+ * `src/openhuman/flows/ops.rs`). Give the client a slightly larger budget than
+ * the default 30s so a slow run/resume doesn't fail client-side while the
+ * engine is still running.
  */
 const FLOW_RESUME_TIMEOUT_MS = 610_000;
 
@@ -78,6 +84,33 @@ export interface FlowResumeResult {
   thread_id: string;
 }
 
+/**
+ * A saved automation workflow (`src/openhuman/flows/types.rs::Flow`) — the
+ * Workflows list page (B5a) row shape. `graph` is the raw tinyflows
+ * `WorkflowGraph`; the list page doesn't need to interpret it, only the
+ * canvas (B5b) does, so it's kept as `unknown` here.
+ */
+export interface Flow {
+  /** Stable identifier (UUID) for this flow. */
+  id: string;
+  /** Human-readable name shown in the Workflows UI. */
+  name: string;
+  /** Whether this flow may currently be triggered/run. */
+  enabled: boolean;
+  /** The validated, migrated workflow graph — opaque to this client. */
+  graph: unknown;
+  /** RFC3339 creation timestamp. */
+  created_at: string;
+  /** RFC3339 last-update timestamp. */
+  updated_at: string;
+  /** RFC3339 timestamp of the most recent run, if any. */
+  last_run_at: string | null;
+  /** Outcome of the most recent run: `"completed"` | `"pending_approval"` | `"failed"`. */
+  last_status: string | null;
+  /** "Require approval for outbound actions" toggle (issue B2). */
+  require_approval: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // CLI-compatible envelope unwrapping.
 // ---------------------------------------------------------------------------
@@ -107,6 +140,35 @@ function unwrapCliEnvelope<T>(payload: unknown): T {
 // ---------------------------------------------------------------------------
 // RPC client.
 // ---------------------------------------------------------------------------
+
+/**
+ * Create (and, by default, enable) a new saved flow via `openhuman.flows_create`
+ * (issue B4). This is the ONLY path that persists a flow — the agent's
+ * `propose_workflow` tool (`src/openhuman/flows/tools.rs`) only validates a
+ * candidate graph and returns a summary; `WorkflowProposalCard`'s "Save &
+ * enable" button is what calls this function, directly from the client, on
+ * the user's explicit action. `requireApproval` defaults server-side to
+ * `false` when omitted, but the B4 proposal flow always passes it explicitly
+ * (defaulting to `true` on the Rust tool side) so a saved agent-proposed flow
+ * starts with its outbound-action approval gate on.
+ */
+export async function createFlow(
+  name: string,
+  graph: unknown,
+  requireApproval?: boolean
+): Promise<Flow> {
+  log('createFlow: request name=%s requireApproval=%s', name, requireApproval ?? 'default');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_create',
+    params:
+      requireApproval === undefined
+        ? { name, graph }
+        : { name, graph, require_approval: requireApproval },
+  });
+  const flow = unwrapCliEnvelope<Flow>(response);
+  log('createFlow: response id=%s name=%s enabled=%s', flow.id, flow.name, flow.enabled);
+  return flow;
+}
 
 /**
  * Resume a `pending_approval` flow run past its checkpoint via
@@ -166,6 +228,86 @@ export async function getFlowRun(runId: string): Promise<FlowRun> {
   return run;
 }
 
-export const flowsApi = { resumeFlow, listFlowRuns, getFlowRun };
+/**
+ * List all saved flows via `openhuman.flows_list` (the Workflows list page,
+ * B5a). No params. Unlike the run-surface calls above, the payload IS the
+ * `Flow[]` array directly — there is no outer `{ flows: [...] }` wrapper (see
+ * `src/openhuman/flows/ops.rs::flows_list`, which returns `Vec<Flow>`
+ * straight through `RpcOutcome::single_log`).
+ */
+export async function listFlows(): Promise<Flow[]> {
+  log('listFlows: request');
+  const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_list', params: {} });
+  const flows = unwrapCliEnvelope<Flow[]>(response);
+  log('listFlows: response count=%d', flows.length);
+  return flows;
+}
+
+/**
+ * Enable or disable a saved flow via `openhuman.flows_set_enabled`. Returns
+ * the updated `Flow` row directly (same no-wrapper shape as `flows_list`'s
+ * elements).
+ */
+export async function setFlowEnabled(id: string, enabled: boolean): Promise<Flow> {
+  log('setFlowEnabled: request id=%s enabled=%s', id, enabled);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_set_enabled',
+    params: { id, enabled },
+  });
+  const flow = unwrapCliEnvelope<Flow>(response);
+  log('setFlowEnabled: response id=%s enabled=%s', flow.id, flow.enabled);
+  return flow;
+}
+
+/**
+ * Load a single saved flow by id via `openhuman.flows_get` (the Workflow
+ * Canvas, B5b.1). Returns the `Flow` directly (same no-wrapper shape as
+ * `flows_list`'s elements and `flows_set_enabled` — see
+ * `src/openhuman/flows/schemas.rs::handle_get`, which delegates straight to
+ * `ops::flows_get` through `RpcOutcome::single_log`).
+ */
+export async function getFlow(id: string): Promise<Flow> {
+  log('getFlow: request id=%s', id);
+  const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_get', params: { id } });
+  const flow = unwrapCliEnvelope<Flow>(response);
+  log('getFlow: response id=%s name=%s', flow.id, flow.name);
+  return flow;
+}
+
+/**
+ * Run a saved flow to completion (or until it pauses on a human-approval
+ * gate) via `openhuman.flows_run`. This is the call that actually drives the
+ * tinyflows engine, so it shares `flows_resume`'s ~600s server-side budget
+ * (see {@link FLOW_RESUME_TIMEOUT_MS}). The Workflows list page's Run button
+ * uses this fire-and-forget: it awaits the call just long enough to know the
+ * run kicked off, shows a toast, and refetches `listFlows()` to pick up the
+ * refreshed `last_run_at`/`last_status`.
+ */
+export async function runFlow(id: string, input?: unknown): Promise<FlowResumeResult> {
+  log('runFlow: request id=%s', id);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_run',
+    params: { id, input: input ?? null },
+    timeoutMs: FLOW_RESUME_TIMEOUT_MS,
+  });
+  const result = unwrapCliEnvelope<FlowResumeResult>(response);
+  log(
+    'runFlow: response threadId=%s pendingApprovals=%d',
+    result.thread_id,
+    result.pending_approvals?.length ?? 0
+  );
+  return result;
+}
+
+export const flowsApi = {
+  createFlow,
+  resumeFlow,
+  listFlowRuns,
+  getFlowRun,
+  getFlow,
+  listFlows,
+  setFlowEnabled,
+  runFlow,
+};
 
 export default flowsApi;

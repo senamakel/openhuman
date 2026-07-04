@@ -2,6 +2,12 @@
 
 Status: active plan (2026-07-02). Branch: `issue/4249-finish-tinyagents-migration`.
 
+> **2026-07-03 update:** #4249 has landed on main. Remaining work is
+> re-planned in [`CONTINUATION-2026-07.md`](CONTINUATION-2026-07.md), which
+> supersedes the workstream ordering below and targets tinyagents 1.4/1.5
+> (`graph::goals`, `graph::todos`, `NoProgressTracker`, resumable graph
+> failures).
+
 Goal: **hard-migrate** OpenHuman's agent harness onto the `tinyagents` crate as
 the library for orchestration, caching, tooling, observability, model
 providers, context management, embeddings, sub-agents, steering, summarization,
@@ -15,9 +21,10 @@ goals. Execute a step file end-to-end (code + tests + deletions + commit).
 
 ## Key facts superseding older docs
 
-- Current crate is **1.3.0** (published 2026-07-02); the plan targets it —
-  see the "1.3.0 delta" in `00-baseline.md`.
-- `docs/tinyagents-sdk-gaps.md` was refreshed against TinyAgents 1.3.0 and now
+- Current crate is **1.5.0**; the plan still records the earlier "1.3.0 delta"
+  in `00-baseline.md` where those primitives first became available.
+- `docs/tinyagents-sdk-gaps.md` was refreshed against TinyAgents 1.3.0 and
+  should be re-audited after the 1.5.0 bump; it currently
   tracks only residual gaps. tinyagents 1.2.0-1.3.0 ships `UnknownToolPolicy`,
   `ToolPolicy` safety metadata + `ToolPolicyMiddleware`, reasoning deltas
   (`MessageDelta.reasoning`), durable `JsonlTaskStore` + orchestration tools,

@@ -29,6 +29,7 @@ pub(crate) mod observability;
 pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 mod policy_denial;
+pub(crate) mod replay;
 pub(crate) mod retriever;
 mod routes;
 mod run_cancellation_context;
@@ -46,8 +47,8 @@ use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::message::Message as TaMessage;
 use tinyagents::harness::middleware::{
-    ContextCompressionMiddleware, MessageTrimMiddleware, PromptCacheGuardMiddleware,
-    ToolPolicyMiddleware as TaToolPolicyMiddleware,
+    BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware, MessageTrimMiddleware,
+    PromptCacheGuardMiddleware, ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
@@ -156,6 +157,20 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
     policy.retry.max_attempts = 1;
+    // Unknown-tool recovery (01.2 / C3): the crate policy owns this end to end —
+    // the `__openhuman_unknown_tool__` sentinel tool + `UnknownToolRewriteMiddleware`
+    // were already deleted. We deliberately keep `ReturnToolError` rather than
+    // `Rewrite { tool_name }`: Rewrite requires a real catch-all target tool (the
+    // deleted sentinel was exactly that) and, when it hits, *silently* executes
+    // that tool and emits `AgentEvent::UnknownToolCall { recovery: "rewrite:.." }`
+    // WITHOUT injecting a tool message. `ReturnToolError` instead injects a
+    // recoverable `unknown tool `<name>` (arguments: ..); valid tools: [..]`
+    // result naming the originally-requested tool. Two live consumers depend on
+    // that message: (1) the #4419 attempted-tool-name UX and (2) the failure
+    // classifier in `agent::hooks::sanitize_tool_output`, which labels the result
+    // `unknown_tool` by matching the "unknown tool" substring. Flipping to Rewrite
+    // would drop both. The original name + args are also preserved verbatim on
+    // `AgentEvent::UnknownToolCall` and projected by `OpenhumanEventBridge`.
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
     // Prompt-prefix protection is always on (issue #4249, 03.2): the
     // `PromptCacheGuardMiddleware` records a `CacheLayoutEvent` whenever volatile
@@ -512,9 +527,32 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         );
         ctx = ctx.with_workspace(descriptor);
     }
+    // Assemble the run's store registry: the tool-result artifact index (when
+    // present) and — behind the default-ON session dual-write flag — the
+    // session KV store, so the harness carries a handle to the same
+    // `{workspace}/tinyagents_store/kv` tree the live dual-write mirrors into
+    // (issue #4249, 04.1). Both stores share one registry so neither clobbers
+    // the other. Reads stay legacy until 04.2; this registration is additive
+    // and best-effort (a workspace-resolve failure just skips it).
+    let mut stores: Option<StoreRegistry> = None;
     if let Some(index) = tool_result_artifact_index {
-        let mut stores = StoreRegistry::new();
-        stores.register(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE, index);
+        stores
+            .get_or_insert_with(StoreRegistry::new)
+            .register(TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE, index);
+    }
+    // `session_kv_store` self-gates on the dual-write flag (config default ON +
+    // env kill switch), returning `None` when disabled or unresolvable.
+    if let Some(session_kv) = crate::openhuman::session_import::live::session_kv_store().await {
+        stores.get_or_insert_with(StoreRegistry::new).register(
+            crate::openhuman::session_import::live::TINYAGENTS_SESSION_KV_STORE,
+            session_kv,
+        );
+        tracing::debug!(
+            "[session-store] registered session kv store on RunContext.stores under '{}'",
+            crate::openhuman::session_import::live::TINYAGENTS_SESSION_KV_STORE
+        );
+    }
+    if let Some(stores) = stores {
         ctx = ctx.with_stores(stores);
     }
 
@@ -533,7 +571,13 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // (`on_progress = None`) turn so the run stays reconstructable, so the
     // EventSink is now created unconditionally — cheap (an empty sink) and, if
     // no consumer subscribes, inert.
-    let events = Some(EventSink::new());
+    //
+    // Mint the durable run id *before* the sink and seed the sink stream prefix
+    // with it (`with_stream_id`), so every persisted observation's `event_id` is
+    // the restart-stable `{run_id}-evt-{offset}` a late-attach replay
+    // reconstructs the timeline from (05.1). The same id keys the journal + status.
+    let journal_run_id = journal::mint_run_id();
+    let events = Some(EventSink::with_stream_id(journal_run_id.as_str()));
 
     let bridge = match (&events, on_progress) {
         (Some(events), Some(tx)) => {
@@ -565,8 +609,17 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // existing progress/global-bus path is untouched. Best-effort and non-fatal
     // — a failure to open/attach the journal returns `None` and the turn runs
     // unaffected. The handle stamps the terminal status once the run returns.
+    // A sub-agent turn records under its task scope as the status thread id, so
+    // `list_by_thread` can enumerate a task's runs (full parent/root lineage is
+    // a 05.2/05.3 follow-up).
+    let journal_thread_id = subagent_scope
+        .as_ref()
+        .map(|scope| tinyagents::harness::ids::ThreadId::new(scope.task_id.clone()));
     let turn_journal = match &events {
-        Some(events) => journal::attach_turn_journal(events, model).await,
+        Some(events) => {
+            journal::attach_turn_journal(events, model, journal_run_id.clone(), journal_thread_id)
+                .await
+        }
         None => None,
     };
 
@@ -712,9 +765,9 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // `PromptCacheGuardMiddleware`'s recorded `CacheLayoutEvent`s and surface each
     // as a structured `[cache]` warning. Fires only when the cacheable prompt
     // prefix (system prompt + tool set) changed across model calls — i.e. volatile
-    // content silently busting the provider KV-cache prefix. The structured
-    // successor to `CacheAlignMiddleware`'s free-text warn-log (still installed in
-    // parallel until parity is shown).
+    // content silently busting the provider KV-cache prefix. This is now the sole
+    // owner of KV-cache-prefix drift detection: the warn-only
+    // `CacheAlignMiddleware` was deleted in C3.
     let cache_layout_events = prompt_cache_guard.layout_events();
     if !cache_layout_events.is_empty() {
         tracing::debug!(
@@ -896,8 +949,8 @@ struct AssembledTurnHarness {
     /// Crate prompt-cache guard (issue #4249, 03.2). Records a `CacheLayoutEvent`
     /// whenever the cacheable prompt prefix (system prompt + tool set) changes
     /// across model calls. Drained after the run and surfaced via
-    /// [`observability::surface_cache_layout_events`] — the structured successor to
-    /// the `CacheAlignMiddleware` warn-log.
+    /// [`observability::surface_cache_layout_events`] — the crate-native
+    /// replacement for the deleted `CacheAlignMiddleware` warn-log (C3).
     prompt_cache_guard: Arc<PromptCacheGuardMiddleware>,
 }
 
@@ -1270,25 +1323,67 @@ fn assemble_turn_harness(
     // precede the guard; both run before the context middlewares below (they only
     // touch the volatile tail / tool bodies, never the stable prefix). The guard is
     // returned so the run loop can drain its events into the observability bridge —
-    // the structured successor to `CacheAlignMiddleware`'s warn-log (kept installed
-    // via `context_mw` until parity is shown).
+    // the crate-native replacement for the deleted `CacheAlignMiddleware` warn-log
+    // (C3: the warn-only shadow is gone; this guard is the sole owner).
     harness.push_middleware(Arc::new(middleware::PromptCacheSegmentMiddleware));
     let prompt_cache_guard = Arc::new(PromptCacheGuardMiddleware::new());
     harness.push_middleware(prompt_cache_guard.clone());
 
-    // openhuman context concerns as graph middlewares (issue #4249): cache-align
-    // warnings, microcompact tool-body clearing, and the after-tool byte cap /
-    // payload summarizer. Installed before the summarization/trim block below so
-    // `before_model` hooks run cache-align → microcompact → compress → trim.
-    // Tool-result caps read the SDK registry policy snapshot, not the
-    // OpenHuman-side tool lookup.
+    // openhuman context concerns as graph middlewares (issue #4249): microcompact
+    // tool-body clearing and the after-tool byte cap / payload summarizer.
+    // Installed before the summarization/trim block below so `before_model` hooks
+    // run microcompact → compress → trim. (KV-cache-prefix drift is handled above
+    // by the crate `PromptCacheGuardMiddleware`; the warn-only CacheAlign shadow
+    // was deleted in C3.) Tool-result caps read the SDK registry policy snapshot,
+    // not the OpenHuman-side tool lookup.
     let tool_policies = harness.tools().policies();
     context_mw.install(&mut harness, tool_policies);
 
-    // Pre-call cost budget gate (issue #4249, Phase 5): fail before a model call
-    // when OpenHuman's daily/monthly cost budget is already exceeded. Self-gating
-    // — a no-op unless cost budgets are configured.
-    harness.push_middleware(Arc::new(middleware::CostBudgetMiddleware));
+    // Observe-only crate `BudgetMiddleware` (W2-budget-dedupe / workstream 06).
+    // Installed with empty `BudgetLimits` so it NEVER enforces or halts: its
+    // `before_model` preflight has no configured limit to trip, and its
+    // `after_model` only folds each call's usage into its shared `BudgetTracker`.
+    // It also re-emits `AgentEvent::UsageRecorded` per call (on top of the
+    // runtime's own emit); the event bridge dedupes those by model-call iteration
+    // so the global cost tracker still records each call exactly once (see
+    // `observability::OpenhumanEventBridge::record_usage`). Enforcement STAYS with
+    // the local `CostBudgetMiddleware` below (authoritative: reads the global
+    // daily/monthly `CostTracker`).
+    //
+    // FLIP CRITERIA — what must hold before the crate `BudgetMiddleware` becomes
+    // the enforcing owner and the local `CostBudgetMiddleware` + the
+    // `agent/harness/turn_subagent_usage.rs` task-local are DELETED (deletion
+    // ledger row: "crate-internal CostBudgetMiddleware + turn_subagent_usage.rs
+    // task-local", `docs/tinyagents-full-migration-plan/99-deletion-ledger.md`):
+    //   1. ≥ 500 production turns across BOTH parent and sub-agent runs with
+    //      ZERO `[budget_shadow]` divergence log lines — proving the crate
+    //      tracker's per-run token accounting matches the authoritative runtime
+    //      `AgentRun.usage` on every model call.
+    //   2. A pricing table wired via `BudgetMiddleware::with_pricing(..)` at
+    //      parity with `cost::catalog::estimate_cost_usd`, so the crate can own
+    //      MONEY (USD) budgets. Today the shadow compares TOKENS only (the
+    //      observe-only crate middleware has no pricing, so its cost stays $0)
+    //      and the local gate is the sole money-budget authority.
+    //   3. Run-tree rollup wired: the same shared `BudgetTracker` handed to every
+    //      sub-agent harness so a parent budget halts a recursive run pre-spend —
+    //      replacing the `turn_subagent_usage` parent-turn rollup (06-cost step 3
+    //      / 07.2 TaskStore rollup).
+    // Until all three hold, this middleware is observe-only and the local gate
+    // enforces.
+    let shadow_budget = Arc::new(BudgetMiddleware::new(BudgetLimits::default()));
+    let shadow_budget_tracker = shadow_budget.tracker();
+    harness.push_middleware(shadow_budget);
+
+    // Pre-call cost budget gate (issue #4249, Phase 5) — AUTHORITATIVE
+    // enforcement: fail before a model call when OpenHuman's daily/monthly cost
+    // budget is already exceeded. Self-gating — a no-op unless cost budgets are
+    // configured. Demoted to a divergence-logging shadow owner (W2-budget-dedupe):
+    // it keeps enforcing exactly as before, but ALSO compares its per-run token
+    // accounting against the observe-only crate `BudgetMiddleware` above at end of
+    // run and logs `[budget_shadow]` parity/divergence.
+    harness.push_middleware(Arc::new(middleware::CostBudgetMiddleware::with_shadow(
+        shadow_budget_tracker,
+    )));
 
     // Autocompaction parity: when the provider's context window is known, install
     // the two-stage context-management step (issue #4249).

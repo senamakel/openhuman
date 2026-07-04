@@ -39,6 +39,7 @@ use tinyagents::graph::ClosureStateReducer;
 use tinyagents::graph::{
     Command, CompiledGraph, GraphBuilder, Interrupt, NodeContext, NodeResult, END,
 };
+use tinyagents::harness::retry::RetryPolicy;
 use tinyagents::CancellationToken;
 
 /// Which stage a delegation node is asking the injected worker to run.
@@ -605,7 +606,15 @@ where
             max_visits_per_node: Some(max_revisions + 2),
             max_total_steps: (max_revisions + 1) * 4 + 8,
             ..RecursionPolicy::default()
-        });
+        })
+        // Adapter-first landing of the crate-native per-node RetryPolicy
+        // (tinyagents 1.5.0 `CompiledGraph::with_node_retry`). Conservative:
+        // `max_attempts(1)` preserves today's single-attempt semantics exactly
+        // (no bespoke retry glue existed here) and backoff sleeping stays off
+        // (the default), so a transient node-handler failure surfaces as it does
+        // today. This wires the seam so raising the attempt cap / enabling
+        // backoff is a one-line, gated follow-up rather than a rewrite.
+        .with_node_retry(RetryPolicy::default().with_max_attempts(1));
 
     Ok(graph)
 }

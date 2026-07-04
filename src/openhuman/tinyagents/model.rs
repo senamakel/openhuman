@@ -152,6 +152,31 @@ fn build_chat_inputs(
     (messages, specs)
 }
 
+/// Build a [`PFormatRegistry`](crate::openhuman::agent::pformat::PFormatRegistry)
+/// from the tool schemas advertised on a [`ModelRequest`] (issue #4465).
+///
+/// The text-mode fallback parse needs each tool's positional parameter layout
+/// to reconstruct named JSON arguments from a P-Format `name[a|b]` body. The
+/// harness always populates `request.tools` (schemas are rendered into the
+/// prompt for prompt-guided providers, or advertised natively otherwise), so
+/// the registry is available in both modes. An empty registry (no tools
+/// advertised) makes the P-Format-aware parser short-circuit to the canonical
+/// grammar, so this is behaviour-neutral when there are no tools.
+fn pformat_registry_from_request(
+    request: &ModelRequest,
+) -> crate::openhuman::agent::pformat::PFormatRegistry {
+    request
+        .tools
+        .iter()
+        .map(|t| {
+            (
+                t.name.clone(),
+                crate::openhuman::agent::pformat::PFormatToolParams::from_schema(&t.parameters),
+            )
+        })
+        .collect()
+}
+
 /// Translate an openhuman [`ChatResponse`] into a harness [`ModelResponse`]
 /// (visible text + tool calls + token usage).
 ///
@@ -160,9 +185,18 @@ fn build_chat_inputs(
 /// dispatcher — so text-mode models drive the tinyagents loop too. The visible
 /// text is the prose with any tool-call markup stripped.
 ///
+/// `pformat_registry` carries the advertised tools' positional layouts so the
+/// text-mode fallback can recover P-Format (`name[a|b]`) calls that ~10 builtin
+/// prompts still teach — the migrated parse path had dropped that grammar and
+/// silently lost those calls (issue #4465). It is empty for the native-tool
+/// path (where `response.tool_calls` is used directly) and for tool-less turns.
+///
 /// Unknown-tool recovery is handled by `RunPolicy::unknown_tool`, so the model
 /// adapter preserves the provider-requested tool name.
-fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
+fn response_to_model_response(
+    response: &ChatResponse,
+    pformat_registry: &crate::openhuman::agent::pformat::PFormatRegistry,
+) -> ModelResponse {
     let (visible_text, tool_calls): (String, Vec<TaToolCall>) = if !response.tool_calls.is_empty() {
         let calls = response
             .tool_calls
@@ -175,7 +209,8 @@ fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
             .collect();
         (response.text.clone().unwrap_or_default(), calls)
     } else if let Some(text) = response.text.as_deref() {
-        let (prose, parsed) = crate::openhuman::agent::harness::parse_tool_calls(text);
+        let (prose, parsed) =
+            crate::openhuman::agent::harness::parse_tool_calls_with_pformat(text, pformat_registry);
         if parsed.is_empty() {
             (text.to_string(), Vec::new())
         } else {
@@ -439,6 +474,9 @@ impl ChatModel<()> for ProviderModel {
     ) -> tinyagents::Result<ModelResponse> {
         let native = self.provider.supports_native_tools();
         let (messages, specs) = build_chat_inputs(&request, native);
+        // Positional layouts for the text-mode P-Format fallback (issue #4465);
+        // empty (and thus behaviour-neutral) when no tools are advertised.
+        let pformat_registry = pformat_registry_from_request(&request);
         let chat_request = ChatRequest {
             messages: &messages,
             // Only advertise structured tool specs to native providers. Prompt-
@@ -516,7 +554,7 @@ impl ChatModel<()> for ProviderModel {
                 forwarder.emit(reasoning.clone());
             }
         }
-        Ok(response_to_model_response(&response))
+        Ok(response_to_model_response(&response, &pformat_registry))
     }
 
     /// Stream the model response, forwarding openhuman's `ProviderDelta` events
@@ -531,6 +569,9 @@ impl ChatModel<()> for ProviderModel {
     async fn stream(&self, _state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
         let native = self.provider.supports_native_tools();
         let (messages, specs) = build_chat_inputs(&request, native);
+        // Positional layouts for the text-mode P-Format fallback (issue #4465);
+        // built here so it can move into the `'static` producer task below.
+        let pformat_registry = pformat_registry_from_request(&request);
         let provider = self.provider.clone();
         let model = self.model.clone();
         let temperature = self.temperature;
@@ -625,7 +666,7 @@ impl ChatModel<()> for ProviderModel {
                             ));
                         }
                     }
-                    ModelStreamItem::Completed(response_to_model_response(&resp))
+                    ModelStreamItem::Completed(response_to_model_response(&resp, &pformat_registry))
                 }
                 Err(e) => {
                     // Streaming failures ride `ModelStreamItem::Failed(String)`, which

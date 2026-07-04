@@ -470,7 +470,15 @@ jobs:
         run: |
           rustup default 1.93.0 || true
           which cargo
+          # `cargo --version` in the repo root materializes the
+          # rust-toolchain.toml override toolchain (1.96.1), which supersedes the
+          # dtolnay-installed 1.93.0. The action's `targets:` input added
+          # x86_64-apple-darwin to 1.93.0, NOT the override toolchain the CEF
+          # universal-helper build actually uses — so add it to the active
+          # (override) toolchain here or the cross-compile fails with E0463
+          # "can't find crate for `core`".
           cargo --version
+          rustup target add x86_64-apple-darwin
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
@@ -669,7 +677,15 @@ jobs:
         run: |
           rustup default 1.93.0 || true
           which cargo
+          # `cargo --version` in the repo root materializes the
+          # rust-toolchain.toml override toolchain (1.96.1), which supersedes the
+          # dtolnay-installed 1.93.0. The action's `targets:` input added
+          # x86_64-apple-darwin to 1.93.0, NOT the override toolchain the CEF
+          # universal-helper build actually uses — so add it to the active
+          # (override) toolchain here or the cross-compile fails with E0463
+          # "can't find crate for `core`".
           cargo --version
+          rustup target add x86_64-apple-darwin
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2

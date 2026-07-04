@@ -318,15 +318,6 @@ pub struct SpanCollector {
     /// fresh nonce makes every span id globally unique.
     id_prefix: String,
 
-    /// Storage-level privacy gate (mirrors
-    /// `observability.agent_tracing.capture_content`). When `false` (the
-    /// default), prompt/reply content from [`AgentProgress::TurnContent`] is
-    /// **never attached to a span** — so no exporter (NDJSON file, app log, or
-    /// Langfuse push) can ever serialize it. This is the single choke point
-    /// referenced in the module docs: gating at storage protects every present
-    /// and future exporter, not just the transmission path.
-    capture_content: bool,
-
     turn_span_id: Option<String>,
     turn_span_index: Option<usize>,
     current_iteration_span_id: Option<String>,
@@ -345,8 +336,6 @@ impl SpanCollector {
             spans: Vec::new(),
             next_span_seq: 0,
             id_prefix: uuid::Uuid::new_v4().simple().to_string(),
-            // Metadata-only by default; opt in via `with_content_capture`.
-            capture_content: false,
             turn_span_id: None,
             turn_span_index: None,
             current_iteration_span_id: None,
@@ -356,12 +345,14 @@ impl SpanCollector {
         }
     }
 
-    /// Opt into attaching prompt/reply content to spans (from
-    /// [`AgentProgress::TurnContent`]). Wire this to
-    /// `observability.agent_tracing.capture_content`. Left off, content is
-    /// dropped at storage time so it can never reach any exporter.
+    /// Opt into attaching content to spans (prompt/reply, generation
+    /// request/completion, tool + subagent I/O). Wire this to
+    /// `observability.agent_tracing.capture_content`. Equivalent to setting
+    /// [`TraceContext::with_capture_content`] before construction — there is a
+    /// single storage-level gate (`ctx.capture_content`), so content dropped
+    /// here can never reach any exporter.
     pub fn with_content_capture(mut self, capture_content: bool) -> Self {
-        self.capture_content = capture_content;
+        self.ctx.capture_content = capture_content;
         self
     }
 
@@ -1169,7 +1160,7 @@ impl SpanCollector {
                 // exporter — NDJSON file, app log, or Langfuse push — can ever
                 // serialize it. This is the single choke point; the exporters
                 // deliberately do not re-check the flag.
-                if !self.capture_content {
+                if !self.ctx.capture_content {
                     log::debug!(
                         target: "agent-tracing",
                         "[agent-tracing] TurnContent dropped at storage (capture_content=false)"

@@ -459,7 +459,21 @@ impl ChatModel<()> for ProviderModel {
             .chat(chat_request, &self.model, self.temperature)
             .await
         {
-            Ok(response) => response,
+            Ok(response) => {
+                // #4457 (defect B): the error slot preserves the last provider
+                // error for the runner to re-surface as the typed turn failure.
+                // A call that *succeeds* — including one the provider fallback
+                // chain recovered after an inner error — must clear any stale
+                // error so a later, unrelated run failure (e.g. the model-call
+                // cap) is not misclassified as that recovered provider error.
+                if self.error_slot.lock().unwrap().take().is_some() {
+                    tracing::debug!(
+                        model = %self.model,
+                        "[models] provider chat succeeded; cleared stale error_slot — #4457 defect B"
+                    );
+                }
+                response
+            }
             Err(e) => {
                 // Classify with OpenHuman's product error taxonomy (issue #4249,
                 // Workstream 02.2): a permanent config/auth rejection, billing/quota
@@ -563,6 +577,16 @@ impl ChatModel<()> for ProviderModel {
 
             let terminal = match response {
                 Ok(resp) => {
+                    // #4457 (defect B): a successful streaming call — including
+                    // one recovered by the provider fallback chain — clears any
+                    // stale error preserved in the slot so a later unrelated run
+                    // failure is not misclassified as that recovered error.
+                    if error_slot.lock().unwrap().take().is_some() {
+                        tracing::debug!(
+                            model = %model,
+                            "[models] streaming provider chat succeeded; cleared stale error_slot — #4457 defect B"
+                        );
+                    }
                     // Fallback for streaming providers that return reasoning only
                     // on the aggregated response (no incremental thinking
                     // deltas): emit it once through the native crate stream so

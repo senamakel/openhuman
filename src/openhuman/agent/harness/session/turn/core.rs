@@ -989,6 +989,28 @@ impl Agent {
             // A completion with no text and no tool calls is never a valid final
             // answer — surface it as an error instead of wedging the thread on a
             // blank reply (bug-report-2026-05-26 A1, defect B).
+            //
+            // #4457 (defect A): the empty terminal assistant response was already
+            // folded into `self.history` via `outcome.conversation` at the
+            // `history.extend` above (an empty `Chat(assistant(""))`). The #4093
+            // branch below pops that dangling blank row before re-prompting, but
+            // this `tool_calls == 0` path returned the error with the empty row
+            // still in history — so the *next* request carried an empty-content
+            // assistant message and strict providers (Anthropic: "text content
+            // blocks must be non-empty") 400 the whole thread, not just this turn.
+            // Pop the trailing empty assistant row before returning so a retry
+            // sends a clean transcript.
+            if matches!(
+                self.history.last(),
+                Some(ConversationMessage::Chat(msg))
+                    if msg.role == "assistant" && msg.content.trim().is_empty()
+            ) {
+                log::debug!(
+                    "[agent_loop] EmptyProviderResponse at iteration {}: popping dangling empty assistant row before returning — #4457 defect A",
+                    outcome.model_calls
+                );
+                self.history.pop();
+            }
             return Err(anyhow::Error::new(
                 crate::openhuman::agent::error::AgentError::EmptyProviderResponse {
                     iteration: outcome.model_calls,

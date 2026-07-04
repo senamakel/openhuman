@@ -140,6 +140,10 @@ pub(crate) async fn run_channel_turn_via_graph(
         None,
         // Interactive channel/CLI turn — never serve a cached model response.
         false,
+        // #4457 (defect C): the channel/CLI path has no post-run wrap-up and does
+        // NOT emit `TurnCompleted` itself, so let the seam emit the single
+        // terminal event (legacy-engine parity).
+        false,
     )
     .await?;
     // Append only this turn's typed suffix (assistant tool-calls + tool results +

@@ -413,6 +413,15 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     tool_policy: Option<ToolPolicyEnforcement>,
     workspace_descriptor: Option<WorkspaceDescriptor>,
     deterministic_cacheable: bool,
+    // #4457 (defect C): when `true`, the seam does NOT emit the terminal
+    // `TurnCompleted` — the caller emits it itself *after* its post-run wrap-up
+    // (e.g. the chat/session path streams a cap/#4093 checkpoint via
+    // `summarize_turn_wrapup` after this seam returns, so a seam-level emit here
+    // would land `turn_active = false` before that checkpoint finishes
+    // streaming, and the web bridge would record two ledger events + two
+    // Completed upserts). Callers with no post-run streaming (channel/CLI) pass
+    // `false` and rely on this seam's emit for parity with the legacy engine.
+    defer_turn_completed_to_caller: bool,
 ) -> Result<TinyagentsTurnOutcome> {
     // `0` means "unset" → the legacy default (a native-bus / test convention);
     // otherwise the harness model-call cap would be zero and abort the run before
@@ -577,8 +586,11 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // `TurnCompleted` after the run (the harness event stream the bridge mirrors
     // has no run-completed event). Parent turns only — a sub-agent turn reports
     // via its `Subagent*` events, not a top-level `TurnCompleted`.
-    let turn_completed_sink = subagent_scope
-        .is_none()
+    //
+    // #4457 (defect C): suppressed entirely when `defer_turn_completed_to_caller`
+    // is set — the caller (chat/session path) emits the single terminal
+    // `TurnCompleted` itself, after its post-run wrap-up finishes streaming.
+    let turn_completed_sink = (subagent_scope.is_none() && !defer_turn_completed_to_caller)
         .then(|| on_progress.clone())
         .flatten();
     // A sink is needed to mirror progress (bridge), to observe model-call
@@ -732,11 +744,18 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             if let Some(journal) = &turn_journal {
                 journal.finish_failed(&e.to_string()).await;
             }
-            // Prefer the original typed provider error (preserves `AgentError`
-            // downcasts the caller relies on) over the harness's string wrap.
-            if let Some(original) = error_slot.lock().unwrap().take() {
-                return Err(original);
-            }
+            // #4457 (defect B): map the run's *own* definitively-non-provider
+            // failure kinds FIRST, before consulting `error_slot`. The slot
+            // preserves the last provider error the model adapter saw — but the
+            // adapter now clears it on every successful call (see
+            // `ProviderModel::chat`/`stream`), so a stale slot should not exist
+            // here. Ordering the cap/depth mappings ahead of the slot is
+            // defense-in-depth: a run that failed on the model-call cap or a
+            // spawn-depth limit is not a provider error, so it must surface as
+            // `MaxIterationsExceeded` / the depth error rather than a leftover
+            // provider error (wrong classification, wrong Sentry suppression,
+            // wrong user message).
+            //
             // The model-call cap (when not pausing gracefully — the channel/CLI
             // path) maps to the typed `AgentError::MaxIterationsExceeded` so
             // callers downcast it (Sentry skip) and render the canonical
@@ -744,6 +763,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             // legacy `ErrorCheckpoint`.
             if let tinyagents::TinyAgentsError::LimitExceeded(msg) = &e {
                 if msg.contains("model call") {
+                    tracing::debug!(
+                        model,
+                        "[tinyagents] run hit the model-call cap; mapping to MaxIterationsExceeded (not consulting error_slot) — #4457 defect B"
+                    );
                     return Err(anyhow::Error::new(
                         crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
                             max: max_iterations,
@@ -753,6 +776,17 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             }
             if let Some(depth_err) = tinyagents_depth_error(&e) {
                 return Err(anyhow::Error::new(depth_err));
+            }
+            // Otherwise prefer the original typed provider error (preserves
+            // `AgentError` downcasts the caller relies on) over the harness's
+            // string wrap — this is where a genuine model/provider failure that
+            // halted the run is re-surfaced with its real classification.
+            if let Some(original) = error_slot.lock().unwrap().take() {
+                tracing::debug!(
+                    model,
+                    "[tinyagents] re-surfacing typed provider error from error_slot as the run failure — #4457 defect B"
+                );
+                return Err(original);
             }
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
         }
@@ -822,6 +856,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // Terminal turn event (parity with the legacy engine's `progress::emit`): the
     // harness stream has no run-completed event, so emit `TurnCompleted` here with
     // the model-call count as the iteration total. Parent turns only; best-effort.
+    // `turn_completed_sink` is `None` for sub-agent turns AND when the caller
+    // opted to emit the terminal event itself after its post-run wrap-up
+    // (`defer_turn_completed_to_caller`, #4457 defect C) — so this is the single
+    // emission point for callers with no post-run streaming (channel/CLI).
     if let Some(sink) = &turn_completed_sink {
         let _ = sink.try_send(AgentProgress::TurnCompleted {
             iterations: run.model_calls as u32,

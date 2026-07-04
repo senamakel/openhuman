@@ -178,6 +178,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     )
     .await
     .expect("streaming turn runs");
@@ -280,6 +281,7 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     )
     .await
     .expect("steered turn runs");
@@ -377,6 +379,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     );
     let two = run_turn_via_tinyagents_shared(
         provider.clone(),
@@ -397,6 +400,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     );
 
     let (a, b) = tokio::join!(one, two);
@@ -652,6 +656,7 @@ async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     )
     .await
     .expect("turn runs");

@@ -122,6 +122,12 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         // Interactive chat turn — response caching MUST stay off so a live user
         // turn is never served a cached model response (correctness/safety).
         false,
+        // #4457 (defect C): defer the terminal `TurnCompleted` to the caller.
+        // The session path (`run_turn_impl` in `turn/core.rs`) runs its cap/#4093
+        // wrap-up (`summarize_turn_wrapup`) *after* this seam returns and then
+        // emits the single `TurnCompleted` itself — a seam-level emit here would
+        // fire before that checkpoint streams and duplicate the event.
+        true,
     )
     .await
 }

@@ -276,6 +276,10 @@ pub(super) async fn run_subagent_via_graph(
         // Sub-agent turns run tools with external effects; not a deterministic
         // internal run, so response caching stays off (safe default).
         false,
+        // #4457 (defect C): irrelevant for sub-agents — they carry a
+        // `subagent_scope`, so the seam never emits a top-level `TurnCompleted`
+        // (they report via `Subagent*` events). Pass `false` for clarity.
+        false,
     ))
     .await
     .map_err(map_tinyagents_subagent_error)?;

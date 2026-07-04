@@ -12,8 +12,7 @@
 //! in a shared section impl.
 
 use crate::openhuman::context::prompt::{
-    render_datetime, render_tools, render_user_files, ConnectedIntegration,
-    PromptContext,
+    render_datetime, render_tools, render_user_files, ConnectedIntegration, PromptContext,
 };
 use crate::openhuman::tools::orchestrator_tools::sanitise_slug;
 use crate::openhuman::workflows::ops_types::Workflow;

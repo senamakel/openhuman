@@ -49,6 +49,8 @@
 
 > **Early Beta**: Under active development. Expect rough edges.
 
+> OpenHuman is not AGI. But it is a meaningful architectural step closer, with better memory, better orchestration, and better tooling.
+
 > 🎉 Within one week of launch, OpenHuman became the number one trending repository on GitHub for nine days in a row.
 
 # Install
@@ -110,13 +112,27 @@ Already self-host [agentmemory](https://github.com/rohitg00/agentmemory) across 
 
 Most agent harnesses run one agent in one loop. OpenHuman is an **[orchestrator](https://tinyhumans.gitbook.io/openhuman/features/orchestration)**:
 
+<p align="center">
+ <img src="./gitbooks/.gitbook/assets/orchestration.png" alt="OpenHuman orchestration diagram">
+</p>
+
+> Agent-to-agent messaging runs over Signal-protocol end-to-end encryption, so you can connect anything — Claude Code, Codex, OpenClaw, Hermes — and use OpenHuman to orchestrate all of your agents and tools.
+
 - **Graphs, not loops** — turns run as checkpointed graphs on [tinyagents](https://github.com/tinyhumansai/tinyagents): pause for a human, survive a restart, resume mid-run.
 - **Sub-agent fleets** — specialists spawn three levels deep; stuck agents become root-cause reports.
-- **Agent-to-agent, encrypted** — instances orchestrate each other over Signal-protocol E2E sessions with x402 payments.
+- **Agent-to-agent, encrypted** — instances orchestrate each other over Signal-protocol E2E sessions with x402 payments. No server ever sees plaintext.
 
 ## Workflows you can see
 
-Ask for an automation and the agent proposes one: a [tinyflows](https://github.com/tinyhumansai/tinyflows) graph you review on a visual canvas before saving. Saved [workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows) are durable and trigger-driven — they fire on schedules, webhooks, or channel events, survive restarts, and gate side effects behind approvals.
+Heavily inspired by n8n and Zapier, [workflows](https://tinyhumans.gitbook.io/openhuman/features/workflows) bring the same visual, trigger-driven automation to your agent — except the agent builds them for you. Ask for an automation and it proposes one: a [tinyflows](https://github.com/tinyhumansai/tinyflows) graph you review on a visual canvas before saving.
+
+<p align="center">
+ <img src="./gitbooks/.gitbook/assets/workflows.png" alt="OpenHuman workflow canvas">
+</p>
+
+> The agent proposes the workflow; you review it on a canvas and save it.
+
+Saved workflows are durable and trigger-driven — they fire on schedules, webhooks, or channel events, survive restarts, and gate side effects behind approvals.
 
 ## OpenHuman vs Other Agent Harnesses
 

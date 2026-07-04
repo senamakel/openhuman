@@ -7,7 +7,7 @@ icon: book-open
 
 # Memory
 
-<figure><img src="../../.gitbook/assets/image (1).png" alt=""><figcaption><p>A preview of the OpenHuman memory in Obsidian. Data from various sources (GMail, Slack, Whatsapp etc..) is organized as a memory tree.</p></figcaption></figure>
+<figure><img src="../../.gitbook/assets/memory.png" alt=""><figcaption><p>A preview of the OpenHuman memory in Obsidian. Data from various sources (GMail, Slack, Whatsapp etc..) is organized as a memory tree.</p></figcaption></figure>
 
 OpenHuman's memory is not a black box. The same chunks the agent reasons over are written as plain `.md` files into an Obsidian-compatible vault inside your workspace. You can open it in [Obsidian](https://obsidian.md), browse it, edit it, and link notes by hand, and the agent will see your edits.
 
@@ -17,15 +17,15 @@ The design is directly inspired by [Andrej Karpathy's obsidian-wiki workflow](ht
 
 The memory system spans several layers — this page covers the on-disk vault; the rest of the section goes deeper:
 
-| Page | What it covers |
-| ---- | -------------- |
-| [Memory Tree](memory-tree.md) | The hierarchical summary forest (L0 buffers → summaries → digests) that produces the vault. |
-| [Memory Sources & Scoping](sources.md) | The typed registry of connectors that feed memory, and per-agent source allowlisting. |
-| [Auto-fetch from Integrations](auto-fetch.md) | The 20-minute sync loop that keeps memory fresh on its own. |
-| [Scoring & Ranking](scoring.md) | How chunks are admitted, enriched with entities, and indexed for recall. |
-| [Retrieval & Recall](retrieval.md) | The `memory_tree` tool modes the agent uses to read memory back. |
-| [Memory Diff (Git-Backed)](memory-diff.md) | A git ledger of how memory changes over time — "what's new since I last looked." |
-| [agentmemory backend](agentmemory-backend.md) | Optional shared `agentmemory` store across other coding agents. |
+| Page                                          | What it covers                                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [Memory Tree](memory-tree.md)                 | The hierarchical summary forest (L0 buffers → summaries → digests) that produces the vault. |
+| [Memory Sources & Scoping](sources.md)        | The typed registry of connectors that feed memory, and per-agent source allowlisting.       |
+| [Auto-fetch from Integrations](auto-fetch.md) | The 20-minute sync loop that keeps memory fresh on its own.                                 |
+| [Scoring & Ranking](scoring.md)               | How chunks are admitted, enriched with entities, and indexed for recall.                    |
+| [Retrieval & Recall](retrieval.md)            | The `memory_tree` tool modes the agent uses to read memory back.                            |
+| [Memory Diff (Git-Backed)](memory-diff.md)    | A git ledger of how memory changes over time — "what's new since I last looked."            |
+| [agentmemory backend](agentmemory-backend.md) | Optional shared `agentmemory` store across other coding agents.                             |
 
 ## Where the vault lives
 
@@ -57,9 +57,9 @@ Anything you put in `wiki/notes/` is fair game for ingest. The same pipeline tha
 
 This means you can:
 
-* Drop a meeting note in `wiki/notes/2026-05-08-board-call.md` and the agent will know the context tomorrow.
-* Maintain a file per project, per person, per ticker, the topic tree treats your manual notes as just another source.
-* Bulk-import an existing Obsidian vault: drop the `.md` files in and trigger ingest.
+- Drop a meeting note in `wiki/notes/2026-05-08-board-call.md` and the agent will know the context tomorrow.
+- Maintain a file per project, per person, per ticker, the topic tree treats your manual notes as just another source.
+- Bulk-import an existing Obsidian vault: drop the `.md` files in and trigger ingest.
 
 ## Why this matters
 
@@ -69,5 +69,5 @@ It's also the cleanest possible export: stop using OpenHuman tomorrow and you ke
 
 ## See also
 
-* [Memory Tree](memory-tree.md). the pipeline that produces the vault.
-* [Auto-fetch from Integrations](auto-fetch.md). how the vault grows on its own.
+- [Memory Tree](memory-tree.md). the pipeline that produces the vault.
+- [Auto-fetch from Integrations](auto-fetch.md). how the vault grows on its own.

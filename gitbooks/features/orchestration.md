@@ -8,6 +8,8 @@ icon: sitemap
 
 # The Orchestrator
 
+<figure><img src="../.gitbook/assets/orchestration.png" alt=""><figcaption><p>OpenHuman orchestrating a fleet of agents — its own workers and external harnesses alike — over Signal-encrypted agent-to-agent sessions.</p></figcaption></figure>
+
 Most harnesses run one agent in one loop. OpenHuman is built as an **orchestrator**: a stack for coordinating many agents, over long horizons, across machines — durably, observably, and under your control.
 
 Five layers make that real:
@@ -31,6 +33,8 @@ Inbound traffic hits a **fast reflex agent** that triages in seconds and hands a
 ## 5. Orchestration across machines — encrypted
 
 OpenHuman instances collaborate through [tiny.place](tinyplace.md) sessions secured with the **Signal protocol** — real end-to-end encryption, keys derived on-device and never persisted. Pairing is consent-based and fails closed: an unlinked agent's message is just a message, never an instruction. Your agent can orchestrate other agents (and be orchestrated) without a server ever seeing plaintext.
+
+Because the transport is plain Signal-encrypted messaging, the other side doesn't have to be OpenHuman: connect **Claude Code, Codex, OpenClaw, Hermes** — anything that can hold a session — and use OpenHuman as the conductor for all of your agents and tools.
 
 ## What's next: RLMs
 

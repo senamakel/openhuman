@@ -458,9 +458,40 @@ Every agent turn — chat (`harness/session/turn/core.rs`), channel/CLI (`harnes
 
 > **Note:** TinyAgents 1.3+ ships harness store/cache/session primitives (`harness::store` with JSONL append stores, `harness::cache`, `harness::subagent`, lineage-aware status) plus graph task stores and conformance contracts. The session shell, sub-agent pipeline, and detached-task lifecycle are still being migrated onto those primitives.
 
+## Reliability: breakers, handback, and classified failures
+
+Three cooperating mechanisms keep runs from wandering or dying silently:
+
+**No-progress circuit breaker** (`RepeatedToolFailureMiddleware`, `src/openhuman/tinyagents/middleware.rs`) — a thin driver over the crate's `NoProgressTracker`. It fingerprints each tool call's arguments and feeds outcomes into an escalation ladder: `Continue` → `Nudge` (a structured "no progress since step X" corrective injected via `SteeringCommand::InjectMessage`, which is safe inside interactive turns) → `Halt` (record a root-cause summary into the `HaltSummarySlot`, pause via the steering handle). Identical arguments retried count toward the trip (threshold 3 consecutive identical failures); *recoverable* failures — timeouts, connection resets, rate limits, 5xx — get an extended headroom ladder instead of the fixed crate thresholds.
+
+**Sub-agent handback** (`subagent_runner/ops/runner.rs`) — a sub-agent run resolves to one of three statuses:
+
+* `Completed` — clean final response.
+* `AwaitingUser { question, options }` — the child called `ask_user_clarification`; a full checkpoint (history, question, options, overrides) is written to `{workspace}/.openhuman/subagent_checkpoints/{task_id}.json`, and the run resumes from it when the user answers.
+* `Incomplete { reason }` — the child was halted by the breaker or hit its model-call cap. The delegating parent **relays the blocker** instead of treating a halted child as a finished answer or re-spinning the identical delegation.
+
+A breaker halt at the top level is likewise never a silent finish: the turn's final text is overridden with the breaker's root-cause summary, and `hit_cap` / `breaker_halt` are surfaced on the turn result.
+
+**Classified tool failures** (`src/openhuman/tool_status/`) — every failed tool call is classified into a transport-agnostic `ClassifiedFailure { class, category, cause_plain, next_action, recoverable }`. Classes cover `MissingPermission`, `MissingApp`, `ServiceUnavailable`, `BadCredentials`, `BlockedByPolicy`, `ModelConnection`, `Timeout`, `Denied`, `ApprovalExpired`; categories map 1:1 to UI states — *recoverable* (safe auto-retry), *blocked by policy* (change settings), *needs user confirmation* (sign in / install / grant), *user declined* (never auto-retried). The classification rides `AgentProgress::ToolCallCompleted.failure` (including for sub-agent calls) into the chat timeline and into [Langfuse spans](../agent-tracing.md).
+
+## Journals, replay, and migration shadows
+
+Every run appends to a durable **event journal** (`tinyagents/journal.rs`): a `StoreEventJournal` over a JSONL append store at `{workspace}/tinyagents_store/journal`, composed as `FanOutSink` (live bridge + journal) → `RedactingSink` (credential masking before persistence), with restart-stable event ids (`{run_id}-evt-{offset}`). Three read-only RPCs — `agent_run_events` (paged replay), `agent_run_status`, `agent_run_list` — expose it; see [Agent Tracing](../agent-tracing.md).
+
+The remaining store cutover runs on **shadow scaffolding** (product behavior unchanged; divergences logged):
+
+* **Session dual-write / shadow read** (`session/turn/session_io.rs`) — session messages dual-write into the TinyAgents store (default-ON flag `config.session_dual_write`); loads shadow-read for parity while the legacy file store stays authoritative.
+* **Task-board shadow** (`todos/graph_shadow.rs`) — mirrors the board into the crate `graph.todos` `TaskBoard` and shadow-runs its `claim_card` CAS.
+* **Goals shadow** (`thread_goals/crate_adapter.rs`) — faithful copy into the crate `graph.goals` KV store, keyed by thread id.
+
+## Workload routes and the burst tier
+
+`tinyagents/routes.rs` projects OpenHuman's workload tiers into the crate `ProviderModel` registry: `chat`, `reasoning`, `agentic`, `coding`, `burst`, `summarization`, `vision`. The **`burst-v1`** tier serves low-context, high-fanout workers (e.g. the SuperContext scout) on a fast/cheap model, while `inference/provider/router.rs` remains the product source of truth for which provider+model backs each tier. Each registry entry carries a `ModelProfile` (vision/reasoning capability, context window) enabling SDK-owned fallback and the model catalog.
+
 ## See also
 
 * [Architecture overview](README.md) - where the harness sits in the bigger picture.
+* [Agent Tracing (Langfuse)](../agent-tracing.md) - the trace/span pipeline these runs emit into.
 * [Memory Tree](../../features/obsidian-wiki/memory-tree.md) - what the memory loader reads from and post-turn hooks write to.
 * [Automatic Model Routing](../../features/model-routing/) - how `model: "hint:reasoning"` resolves to a concrete provider+model.
 * [Native Tools - Agent Coordination](../../features/native-tools/agent-coordination.md) - the user-facing surface for `spawn_subagent`, `delegate_*`, `todo_write`.

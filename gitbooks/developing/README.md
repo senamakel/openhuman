@@ -43,6 +43,7 @@ OpenHuman ships with three test layers. Know which one your change belongs in:
 * [**Testing Strategy**](testing-strategy.md). When to write Vitest vs cargo tests vs WDIO.
 * [**E2E Testing**](e2e-testing.md). WDIO/Appium specs, dual-platform setup (Linux tauri-driver, macOS Appium Mac2), and how to run a single spec locally.
 * [**Agent Observability**](agent-observability.md). The artifact-capture layer that makes E2E and agent runs debuggable after the fact.
+* [**Agent Tracing (Langfuse)**](agent-tracing.md). Full-content run tracing: one trace per turn, LLM/tool/sub-agent spans, real token counts and costs, replayable journals.
 
 PRs must clear the **≥ 80% coverage on changed lines** gate. Add tests for new behavior, not just the happy path.
 
@@ -57,7 +58,8 @@ PRs must clear the **≥ 80% coverage on changed lines** gate. Add tests for new
 
 ## Going deeper
 
-* [**Agent Harness**](architecture/agent-harness.md). The agent's code-focused tool surface and how to extend it.
+* [**Agent Harness**](architecture/agent-harness.md). The tinyagents-based turn loop — checkpointing, circuit breakers, sub-agent handback, journals/replay — and how to extend the tool surface.
+* [**Workflows**](../features/workflows.md). The tinyflows-backed `flows` domain: triggers, trust origins, approval-gated runs, and the `flows_*` RPC surface.
 * [**Chromium Embedded Framework**](cef.md). How embedded provider webviews work, why they don't run injected JS, and what the per-provider scanners do instead.
 
 For features still being built, the [Subconscious Loop](../features/subconscious.md) page covers the background task evaluation system end-to-end.

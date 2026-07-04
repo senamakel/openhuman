@@ -5,6 +5,10 @@ icon: eye
 
 # Agent Observability for E2E
 
+{% hint style="info" %}
+Looking for **runtime agent tracing** — Langfuse traces of live agent turns, LLM/tool/sub-agent spans, token counts, costs, and replayable run journals? That's the [Agent Tracing (Langfuse)](agent-tracing.md) page. This page is about **E2E test** artifact capture.
+{% endhint %}
+
 This doc describes the artifact-capture layer that makes the desktop app
 inspectable by coding agents (Codex, Claude Code, Cursor) through the
 existing WDIO/Appium/tauri-driver harness.

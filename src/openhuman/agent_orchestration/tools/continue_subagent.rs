@@ -222,6 +222,7 @@ impl Tool for ContinueSubagentTool {
                     mode: "typed".to_string(),
                     dedicated_thread: false,
                     prompt_chars: message.chars().count(),
+                    prompt: message.to_string(),
                     worker_thread_id: checkpoint.worker_thread_id.clone(),
                     display_name: definition.display_name.clone(),
                 })
@@ -328,6 +329,7 @@ impl Tool for ContinueSubagentTool {
                                     elapsed_ms: outcome.elapsed.as_millis() as u64,
                                     iterations: outcome.iterations as u32,
                                     output_chars: outcome.output.chars().count(),
+                                    output: outcome.output.clone(),
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,
@@ -372,6 +374,7 @@ impl Tool for ContinueSubagentTool {
                                     elapsed_ms: outcome.elapsed.as_millis() as u64,
                                     iterations: outcome.iterations as u32,
                                     output_chars: outcome.output.chars().count(),
+                                    output: outcome.output.clone(),
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,

@@ -445,6 +445,7 @@ impl Tool for SpawnAsyncSubagentTool {
                     mode: "async".to_string(),
                     dedicated_thread: worker_thread_id.is_some(),
                     prompt_chars: prompt.chars().count(),
+                    prompt: prompt.clone(),
                     worker_thread_id: worker_thread_id.clone(),
                     display_name: Some(definition.display_name().to_string()),
                 })
@@ -567,6 +568,7 @@ impl Tool for SpawnAsyncSubagentTool {
                                     elapsed_ms: outcome.elapsed.as_millis() as u64,
                                     iterations: outcome.iterations as u32,
                                     output_chars: outcome.output.chars().count(),
+                                    output: outcome.output.clone(),
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,
@@ -626,6 +628,7 @@ impl Tool for SpawnAsyncSubagentTool {
                                     elapsed_ms: outcome.elapsed.as_millis() as u64,
                                     iterations: outcome.iterations as u32,
                                     output_chars: outcome.output.chars().count(),
+                                    output: outcome.output.clone(),
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,

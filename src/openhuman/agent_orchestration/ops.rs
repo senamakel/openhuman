@@ -449,6 +449,7 @@ impl AgentOrchestrationSession {
                     mode: "typed".to_string(),
                     dedicated_thread: false,
                     prompt_chars: prompt.chars().count(),
+                    prompt: prompt.clone(),
                     worker_thread_id: None,
                     display_name: resolved_display_name,
                 })
@@ -554,6 +555,7 @@ impl AgentOrchestrationSession {
                                 elapsed_ms: outcome.elapsed.as_millis() as u64,
                                 iterations: outcome.iterations as u32,
                                 output_chars: outcome.output.chars().count(),
+                                output: outcome.output.clone(),
                                 worktree_path: None,
                                 changed_files: Vec::new(),
                                 dirty_status: None,

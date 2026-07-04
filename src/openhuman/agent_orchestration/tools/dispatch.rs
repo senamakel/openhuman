@@ -114,6 +114,7 @@ pub(crate) async fn dispatch_subagent(
                 mode: "typed".to_string(),
                 dedicated_thread: false,
                 prompt_chars: prompt.chars().count(),
+                prompt: prompt.to_string(),
                 worker_thread_id: None,
                 display_name: Some(definition.display_name().to_string()),
             })

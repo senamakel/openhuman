@@ -3157,6 +3157,8 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         tool_name: "memory.search".into(),
         success: false,
         output_chars: 0,
+        output: String::new(),
+        arguments: None,
         elapsed_ms: 11,
         iteration: 2,
         failure: None,
@@ -3176,6 +3178,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         mode: "typed".into(),
         dedicated_thread: true,
         prompt_chars: 99,
+        prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
     }));
@@ -3209,6 +3212,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         success: true,
         output_chars: 44,
         output: "child tool output".into(),
+        arguments: None,
         elapsed_ms: 22,
         iteration: 1,
     }));

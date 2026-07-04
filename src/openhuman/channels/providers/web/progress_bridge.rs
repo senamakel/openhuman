@@ -452,6 +452,7 @@ pub(crate) fn spawn_progress_bridge(
                     elapsed_ms,
                     iteration,
                     failure,
+                    ..
                 } => {
                     // Serialize the classified failure (if any) for the UI + ledger.
                     let failure_json = failure.as_ref().and_then(|f| serde_json::to_value(f).ok());
@@ -497,6 +498,7 @@ pub(crate) fn spawn_progress_bridge(
                     prompt_chars,
                     worker_thread_id,
                     display_name,
+                    ..
                 } => {
                     let label = display_name.as_deref().unwrap_or(&agent_id);
                     let kind = if worker_thread_id.is_some() {
@@ -581,6 +583,7 @@ pub(crate) fn spawn_progress_bridge(
                     worktree_path,
                     changed_files,
                     dirty_status,
+                    ..
                 } => {
                     let completed_at = chrono::Utc::now();
                     ledger_upsert_agent_run(
@@ -896,6 +899,7 @@ pub(crate) fn spawn_progress_bridge(
                     output,
                     elapsed_ms,
                     iteration,
+                    ..
                 } => {
                     ledger_append_event(
                         &config,

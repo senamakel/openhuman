@@ -28,6 +28,11 @@ jobs:
     name: Ensure main→release PR exists
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The XGITHUB_APP_* secrets live in environments, never at repo level.
+    # This dedicated environment holds ONLY those two secrets and is branch-
+    # policied to `main`, so this job never sees the Production environment
+    # (Apple signing, Tauri updater key, …) and no other ref can claim it.
+    environment: Release-PR-Automation
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

@@ -1204,9 +1204,13 @@ fn assemble_turn_harness(
     // the retained provider handle (the other clone was consumed into the
     // primary `ProviderModel`); `build_route_models` clones it per route and
     // skips the turn's own model so we don't shadow the default.
-    for route in
-        routes::build_route_models(&summary_provider, temperature, model, max_output_tokens)
-    {
+    for route in routes::build_route_models(
+        &summary_provider,
+        temperature,
+        model,
+        max_output_tokens,
+        &provider_usage_carry,
+    ) {
         let routes::RouteModel {
             name,
             model: route_model,

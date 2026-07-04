@@ -45,6 +45,36 @@ fn workspace_write_lock(workspace_dir: &Path) -> Arc<tokio::sync::Mutex<()>> {
     )
 }
 
+/// Acquire an **inter-process** advisory write lock for `workspace_dir` (#4458).
+///
+/// [`WORKSPACE_WRITE_LOCKS`] only serializes writers inside this OS process, but
+/// cron launches work via separate `tokio::process::Command` subprocesses that
+/// don't share that mutex — so two cron runs could still clobber the same
+/// `MEMORY.md` mid read-modify-write. This takes an `fs2` exclusive `flock` on a
+/// sentinel `.memory-write.lock` file in the workspace; the returned `File`
+/// holds the lock until it is dropped (end of the write). `flock` acquisition
+/// blocks, so it runs on a blocking thread.
+async fn acquire_cross_process_write_lock(workspace_dir: &Path) -> anyhow::Result<std::fs::File> {
+    let lock_path = workspace_dir.join(".memory-write.lock");
+    tokio::task::spawn_blocking(move || {
+        use fs2::FileExt;
+        if let Some(parent) = lock_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(false)
+            .open(&lock_path)
+            .map_err(|e| anyhow::anyhow!("open workspace lock file {lock_path:?}: {e}"))?;
+        file.lock_exclusive()
+            .map_err(|e| anyhow::anyhow!("acquire workspace write flock: {e}"))?;
+        Ok::<std::fs::File, anyhow::Error>(file)
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("workspace lock task join failed: {e}"))?
+}
+
 /// Atomically replace `path`'s contents with `content`.
 ///
 /// Writes to a sibling temp file in the same directory (so the rename stays on
@@ -218,9 +248,13 @@ impl Tool for UpdateMemoryMdTool {
         // write so no interleaving append can be lost.
         let lock = workspace_write_lock(&workspace_dir);
         let _guard = lock.lock().await;
+        // Also take a cross-process advisory lock so cron subprocesses (which
+        // don't share the in-process mutex above) can't clobber the same file
+        // mid-RMW. Held across read + atomic write; released on drop.
+        let _file_lock = acquire_cross_process_write_lock(&workspace_dir).await?;
         tracing::debug!(
             workspace = %workspace_dir.display(),
-            "[update_memory_md] acquired per-workspace write lock"
+            "[update_memory_md] acquired per-workspace write lock (in-process + cross-process flock)"
         );
 
         match action {

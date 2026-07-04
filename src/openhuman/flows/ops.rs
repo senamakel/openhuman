@@ -13,7 +13,7 @@ use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, Trusted
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::bus;
 use crate::openhuman::flows::store;
-use crate::openhuman::flows::types::FlowRunStep;
+use crate::openhuman::flows::types::{FlowRunStep, FlowRunTrigger};
 use crate::openhuman::flows::{Flow, FlowRun};
 use crate::rpc::RpcOutcome;
 
@@ -335,6 +335,65 @@ pub async fn reconcile_schedule_triggers_on_boot(config: &Config) -> Result<(), 
     Ok(())
 }
 
+/// Reads a settled run's durable [`tinyflows::engine::GraphObservation`]
+/// slice back out of the per-run journal (keyed by the tinyagents-minted
+/// `graph_run_id`) and exports it to Langfuse as one trace. Best-effort by
+/// construction: any journal read failure is logged and swallowed, and the
+/// exporter itself never fails the run. Skips the journal read entirely when
+/// `observability.share_usage_data` is off.
+async fn export_run_to_langfuse(
+    config: &Config,
+    flow_name: &str,
+    flow_id: &str,
+    thread_id: &str,
+    status: &str,
+    trigger: FlowRunTrigger,
+    journal: &tinyflows::engine::InMemoryGraphEventJournal,
+    graph_run_id: &str,
+) {
+    if !config.observability.share_usage_data {
+        tracing::debug!(
+            target: "flows",
+            flow_id = %flow_id,
+            "[flows] langfuse export skipped: observability.share_usage_data is off"
+        );
+        return;
+    }
+    use tinyflows::engine::GraphEventJournal as _;
+    let observations = match journal.read_from(graph_run_id, 0).await {
+        Ok(observations) => observations,
+        Err(e) => {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %flow_id,
+                %thread_id,
+                graph_run_id = %graph_run_id,
+                error = %e,
+                "[flows] langfuse export skipped: could not read run journal"
+            );
+            return;
+        }
+    };
+    tracing::debug!(
+        target: "flows",
+        flow_id = %flow_id,
+        %thread_id,
+        graph_run_id = %graph_run_id,
+        observation_count = observations.len(),
+        "[flows] exporting flow run trace to Langfuse"
+    );
+    crate::openhuman::tinyflows::langfuse_export::export_flow_run_trace(
+        config,
+        flow_name,
+        flow_id,
+        thread_id,
+        status,
+        trigger,
+        &observations,
+    )
+    .await;
+}
+
 /// Runs a saved flow end-to-end: compile → build capabilities → durable
 /// checkpointed run → record the outcome onto the flow's summary fields and
 /// into a `flow_runs` history row.
@@ -356,6 +415,7 @@ pub async fn flows_run(
     config: &Config,
     flow_id: &str,
     input: Value,
+    trigger: FlowRunTrigger,
 ) -> Result<RpcOutcome<Value>, String> {
     let flow = store::get_flow(config, flow_id)
         .map_err(|e| e.to_string())?
@@ -400,17 +460,29 @@ pub async fn flows_run(
     };
 
     let origin = workflow_origin(flow_id, flow.require_approval);
+    // Per-run in-memory journal: tinyflows records every graph event as a
+    // durable GraphObservation under the run's tinyagents run id, which the
+    // post-run Langfuse export reads back. Process-local and dropped with the
+    // run — never persisted.
+    let journal = Arc::new(tinyflows::engine::InMemoryGraphEventJournal::new());
     let run = with_origin(
         origin,
-        tinyflows::engine::run_with_checkpointer(&compiled, input, &caps, checkpointer, &thread_id),
+        tinyflows::engine::run_with_checkpointer_journaled(
+            &compiled,
+            input,
+            &caps,
+            checkpointer,
+            &thread_id,
+            journal.clone(),
+        ),
     );
-    let outcome = match tokio::time::timeout(
+    let journaled = match tokio::time::timeout(
         std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS),
         run,
     )
     .await
     {
-        Ok(Ok(outcome)) => outcome,
+        Ok(Ok(journaled)) => journaled,
         Ok(Err(e)) => {
             record_failed(&e.to_string());
             tracing::warn!(target: "flows", flow_id = %flow_id, error = %e, "[flows] flows_run: run failed");
@@ -423,6 +495,7 @@ pub async fn flows_run(
             return Err(msg);
         }
     };
+    let outcome = journaled.outcome;
 
     let status = if outcome.pending_approvals.is_empty() {
         "completed"
@@ -438,6 +511,17 @@ pub async fn flows_run(
         &outcome.pending_approvals,
         None,
     );
+    export_run_to_langfuse(
+        config,
+        &flow.name,
+        flow_id,
+        &thread_id,
+        status,
+        trigger,
+        &journal,
+        &journaled.graph_run_ids.run_id,
+    )
+    .await;
     notify_pending_approval(&flow, &thread_id, &outcome.pending_approvals);
 
     tracing::info!(
@@ -537,24 +621,28 @@ pub async fn flows_resume(
     );
 
     let origin = workflow_origin(flow_id, flow.require_approval);
+    // Same per-run journal as `flows_run`: the resumed execution mints a new
+    // tinyagents run id, so its observation slice is read under that id.
+    let journal = Arc::new(tinyflows::engine::InMemoryGraphEventJournal::new());
     let run = with_origin(
         origin,
-        tinyflows::engine::resume_with_checkpointer(
+        tinyflows::engine::resume_with_checkpointer_journaled(
             &compiled,
             &caps,
             checkpointer,
             thread_id,
             approvals,
+            journal.clone(),
         ),
     );
 
-    let outcome = match tokio::time::timeout(
+    let journaled = match tokio::time::timeout(
         std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS),
         run,
     )
     .await
     {
-        Ok(Ok(outcome)) => outcome,
+        Ok(Ok(journaled)) => journaled,
         Ok(Err(e)) => {
             let _ = store::record_run(config, flow_id, "failed");
             finish_flow_run_row(config, thread_id, "failed", &[], &[], Some(&e.to_string()));
@@ -569,6 +657,7 @@ pub async fn flows_resume(
             return Err(msg);
         }
     };
+    let outcome = journaled.outcome;
 
     let status = if outcome.pending_approvals.is_empty() {
         "completed"
@@ -584,6 +673,17 @@ pub async fn flows_resume(
         &outcome.pending_approvals,
         None,
     );
+    export_run_to_langfuse(
+        config,
+        &flow.name,
+        flow_id,
+        thread_id,
+        status,
+        FlowRunTrigger::Resume,
+        &journal,
+        &journaled.graph_run_ids.run_id,
+    )
+    .await;
     notify_pending_approval(&flow, thread_id, &outcome.pending_approvals);
 
     tracing::info!(

@@ -413,7 +413,15 @@ fn handle_run(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let id = read_required::<String>(&params, "id")?;
         let input = params.get("input").cloned().unwrap_or(Value::Null);
-        to_json(ops::flows_run(&config, id.trim(), input).await?)
+        to_json(
+            ops::flows_run(
+                &config,
+                id.trim(),
+                input,
+                crate::openhuman::flows::FlowRunTrigger::Rpc,
+            )
+            .await?,
+        )
     })
 }
 

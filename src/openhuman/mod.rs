@@ -98,6 +98,7 @@ pub mod provider_surfaces;
 pub mod recall_calendar;
 pub mod redirect_links;
 pub mod referral;
+pub mod rlm;
 pub mod routing;
 pub mod runtime_node;
 pub mod runtime_python;

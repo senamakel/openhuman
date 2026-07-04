@@ -90,7 +90,7 @@ jobs:
       # Use the same GitHub App the release workflows push with.
       - name: Generate GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.XGITHUB_APP_ID }}
           private-key: ${{ secrets.XGITHUB_APP_PRIVATE_KEY }}

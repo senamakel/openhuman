@@ -51,7 +51,8 @@ const messages: TranslationMap = {
   'conversations.toolFailure.timeout.cause': '操作耗时过长，已被停止。',
   'conversations.toolFailure.timeout.next': 'OpenHuman 会重试，你也可以手动重试。',
   'conversations.toolFailure.denied.cause': '你拒绝了此操作。',
-  'conversations.toolFailure.denied.next': '无需任何操作——它没有被执行。如果你改变主意，请再次提出。',
+  'conversations.toolFailure.denied.next':
+    '无需任何操作——它没有被执行。如果你改变主意，请再次提出。',
   'conversations.toolFailure.approvalExpired.cause': '在有人响应之前，审批请求已过期。',
   'conversations.toolFailure.approvalExpired.next': '再次提出以执行它——OpenHuman 不会自行重试。',
   'conversations.toolFailure.unknown.cause': '此操作出现了问题。',

@@ -183,15 +183,24 @@ fn apply_usage_fields(body: &mut Value, span: &TraceSpan) -> bool {
     }
     let input = input.unwrap_or(0);
     let output = output.unwrap_or(0);
-    let mut usage = Map::new();
-    usage.insert("input".to_string(), json!(input));
-    usage.insert("output".to_string(), json!(output));
-    usage.insert("total".to_string(), json!(input.saturating_add(output)));
-    if let Some(cached) = attrs
+    // `input_tokens` is INCLUSIVE of cached prompt tokens (cost.rs treats cached
+    // as a subset of input). Langfuse sums `usageDetails` components as disjoint
+    // buckets, so emitting the full `input` alongside `cache_read_input_tokens`
+    // double-counts the cached portion and disagrees with the explicit `total`
+    // (#4454). Emit the NON-cached input so the components are disjoint and sum
+    // back to `total` = input_tokens + output_tokens.
+    let cached = attrs
         .get("gen_ai.usage.cached_input_tokens")
         .and_then(Value::as_u64)
-        .filter(|c| *c > 0)
-    {
+        .unwrap_or(0);
+    let non_cached_input = input.saturating_sub(cached);
+    let mut usage = Map::new();
+    usage.insert("input".to_string(), json!(non_cached_input));
+    usage.insert("output".to_string(), json!(output));
+    // Total stays the true grand total (full input + output); the disjoint
+    // components (non_cached_input + cache_read + output) now reconcile to it.
+    usage.insert("total".to_string(), json!(input.saturating_add(output)));
+    if cached > 0 {
         usage.insert("cache_read_input_tokens".to_string(), json!(cached));
     }
     body["usageDetails"] = Value::Object(usage);

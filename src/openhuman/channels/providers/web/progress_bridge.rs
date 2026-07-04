@@ -165,10 +165,16 @@ pub(crate) fn spawn_progress_bridge(
             // conversation's per-turn traces still group under one session.
             let base = trace_session_id(metadata.session_id, &thread_id);
             let trace_id = format!("{base}:{request_id}");
-            Some(SpanCollector::new(
-                TraceContext::new(trace_id, Some(client_id.clone()))
-                    .with_session_group(thread_id.clone()),
-            ))
+            Some(
+                SpanCollector::new(
+                    TraceContext::new(trace_id, Some(client_id.clone()))
+                        .with_session_group(thread_id.clone()),
+                )
+                // Storage-level privacy gate (#4454): only attach prompt/reply
+                // content to spans when the operator opted in. Off by default so
+                // no exporter can ever serialize prompt/reply text.
+                .with_content_capture(config.observability.agent_tracing.capture_content),
+            )
         } else {
             None
         };

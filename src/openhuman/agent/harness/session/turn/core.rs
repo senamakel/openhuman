@@ -1122,14 +1122,32 @@ impl Agent {
         .await;
 
         // Content (prompt + reply) rides its own event so a tracing consumer can
-        // attach it to the turn span. Transmission off-device stays gated by the
-        // exporter's opt-in `capture_content` flag; here it is only surfaced onto
-        // the in-memory span.
-        self.emit_progress(AgentProgress::TurnContent {
-            input: Some(user_message.to_string()),
-            output: Some(reply.clone()),
-        })
-        .await;
+        // attach it to the turn span. Gated on the opt-in
+        // `observability.agent_tracing.capture_content` flag (#4454): with the
+        // default off, we don't even emit the content event, so prompt/reply text
+        // never reaches the span store or any exporter. The collector applies the
+        // same storage-level gate as defense in depth.
+        let capture_content = self
+            .integration_runtime_config
+            .as_ref()
+            .map(|c| c.observability.agent_tracing.capture_content)
+            .unwrap_or(false);
+        if capture_content {
+            log::debug!(
+                target: "agent-tracing",
+                "[agent-tracing] emitting TurnContent (capture_content=true)"
+            );
+            self.emit_progress(AgentProgress::TurnContent {
+                input: Some(user_message.to_string()),
+                output: Some(reply.clone()),
+            })
+            .await;
+        } else {
+            log::debug!(
+                target: "agent-tracing",
+                "[agent-tracing] skipping TurnContent emit (capture_content=false)"
+            );
+        }
 
         self.emit_progress(AgentProgress::TurnCompleted {
             iterations: outcome.model_calls as u32,

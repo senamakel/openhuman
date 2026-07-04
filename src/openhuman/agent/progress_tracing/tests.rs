@@ -663,22 +663,22 @@ async fn export_run_trace_otel_backend_uses_local_sink() {
 // ── Route A: content + grouping + span-id uniqueness ────────────────────────
 
 #[test]
-fn turn_content_attaches_input_output_to_turn_span() {
-    let c = collect(&[
-        (AgentProgress::TurnStarted, 1_000),
-        (
-            AgentProgress::TurnContent {
-                input: Some("what is your favorite color?".to_string()),
-                output: Some("i'm partial to teal".to_string()),
-            },
-            1_100,
-        ),
-    ]);
+fn turn_content_attaches_input_output_to_turn_span_when_capture_enabled() {
+    // Content lands on the span ONLY when capture is opted in (#4454).
+    let mut c = SpanCollector::new(ctx()).with_content_capture(true);
+    c.record(&AgentProgress::TurnStarted, 1_000);
+    c.record(
+        &AgentProgress::TurnContent {
+            input: Some("what is your favorite color?".to_string()),
+            output: Some("i'm partial to teal".to_string()),
+        },
+        1_100,
+    );
     let turn = find(c.spans(), "agent.turn");
     assert_eq!(
         turn.input.as_ref().and_then(|v| v.as_str()),
         Some("what is your favorite color?"),
-        "TurnContent input must land on the turn span"
+        "TurnContent input must land on the turn span when capture_content=true"
     );
     assert_eq!(
         turn.output.as_ref().and_then(|v| v.as_str()),

@@ -3,13 +3,6 @@ name: Release Staging
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description:
-          Exact version for this staging cut (X.Y.Z). Chosen manually by the
-          releaser — never auto-guessed. Must be strictly greater than the
-          current version.
-        required: true
-        type: string
       commit_sha:
         description:
           Build from a specific commit SHA instead of release HEAD. Leave empty
@@ -147,15 +140,15 @@ jobs:
             git checkout release
             git pull origin release --ff-only
           fi
-      # The staging version is supplied manually via the `version` input —
-      # never auto-incremented. Bump commit lands on `release` (we don't
-      # maintain a separate `staging` branch) and the immutable
-      # `v<version>-staging` tag pinpoints the exact release commit QA
-      # validated, so production promotion can later find the tagged commit
-      # reachable from release.
-      - name: Apply staging version
+      # Patch-only bump for staging cuts. Minor/major promotions are owned
+      # by `release-production.yml` and only happen on the production path.
+      # Bump commit lands on `release` (we don't maintain a separate `staging`
+      # branch) and the immutable `v<version>-staging` tag pinpoints the
+      # exact release commit QA validated, so production promotion can later
+      # find the tagged commit reachable from release.
+      - name: Bump patch version
         id: bump
-        run: node scripts/release/bump-version.js "${{ inputs.version }}"
+        run: node scripts/release/bump-version.js patch
       - name: Verify version sync
         run: node scripts/release/verify-version-sync.js "${{ steps.bump.outputs.version }}"
       - name: Refresh Cargo.lock files
@@ -226,28 +219,6 @@ jobs:
             echo "build_ref=$SHA" >> "$GITHUB_OUTPUT"
           fi
           echo "base_url=https://staging-api.tinyhumans.ai/" >> "$GITHUB_OUTPUT"
-
-      # Keep main in sync: the version-bump commit (and anything else on
-      # release) flows back into main right after the cut. continue-on-error
-      # so a merge conflict never strands a staging cut that is already
-      # tagged — resolve the merge manually in that case.
-      - name: Merge release back into main
-        continue-on-error: true
-        env:
-          VERSION: ${{ steps.bump.outputs.version }}
-        run: |
-          set -euo pipefail
-          echo "[release-staging] merging release back into main"
-          RELEASE_SHA="$(git rev-parse HEAD)"
-          git fetch origin main
-          git checkout -B main origin/main
-          if git merge --no-ff "$RELEASE_SHA" -m "chore(staging): merge release v${VERSION}-staging back into main"; then
-            git push origin HEAD:main
-            echo "[release-staging] merged $RELEASE_SHA into main"
-          else
-            echo "::warning::Automatic release→main back-merge hit conflicts. Merge branch 'release' into 'main' manually."
-            exit 1
-          fi
 
   # =========================================================================
   # Phase 2: Build desktop artifacts (delegated to reusable workflow)

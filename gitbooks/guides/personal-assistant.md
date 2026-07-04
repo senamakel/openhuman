@@ -33,14 +33,14 @@ This is the "start here" guide. It assumes nothing beyond a downloaded app.
 
 ### 1. Sign in
 
-Launch the app. The first screen is **"Sign in! Let's Cook"**. Choose a login option. There is an **Advanced** panel for pointing at a custom core — most people ignore it.
+Launch the app. The first screen is **"Sign in! Let's Cook"**. Choose a login option. There is an **Advanced** panel for pointing at a custom core; most people ignore it.
 
 ### 2. Choose how AI runs
 
 After sign-in you'll hit a **runtime choice**:
 
-* **Cloud** — one click, and the hosted model router handles inference. This is the fastest path to a working assistant.
-* **Custom** — walk through choosing your inference provider, voice, integrations (OAuth), web search, and embeddings yourself.
+* **Cloud**: one click, and the hosted model router handles inference. This is the fastest path to a working assistant.
+* **Custom**: walk through choosing your inference provider, voice, integrations (OAuth), web search, and embeddings yourself.
 
 If you're not sure, pick **Cloud**. You can change any of this later in **Settings**.
 
@@ -61,16 +61,16 @@ Open **Settings → Agents → Agent access**. This controls how much the assist
 | **Supervised** *(default)* | It can act, but any state-changing, network, install, or destructive action is **parked for your approval** first. |
 | **Full** | Routine actions run automatically; network/install/destructive actions still ask. |
 
-Leave it on **Supervised** unless you have a reason not to — nothing with an external effect will happen in a chat without you saying yes. This is the [Approval Gate](../features/approval-gate.md), and it's on by default.
+Leave it on **Supervised** unless you have a reason not to. Nothing with an external effect will happen in a chat without you saying yes. This is the [Approval Gate](../features/approval-gate.md), and it's on by default.
 
 ### 5. Shape its personality (optional)
 
-How the assistant talks and behaves is defined by an editable prompt called **`SOUL.md`** (its mission and values live in a companion **`IDENTITY.md`**). You don't have to touch these — they ship with sensible defaults — but you can:
+How the assistant talks and behaves is defined by an editable prompt called **`SOUL.md`** (its mission and values live in a companion **`IDENTITY.md`**). You don't have to touch these (they ship with sensible defaults), but you can:
 
 * Set a display name and short description in **Settings → Personality**.
 * Edit the behavior itself via the **Brain** page (the raised center button in the bottom bar, `/brain`), where memory, goals, and intelligence live.
 
-OpenHuman also **learns** durable preferences from how you correct it over time — see [Personalization & Self-Learning](../features/personalization.md).
+OpenHuman also **learns** durable preferences from how you correct it over time. See [Personalization & Self-Learning](../features/personalization.md).
 
 ### 6. Run your first real request
 
@@ -89,7 +89,7 @@ You have a working assistant when **all** of these are true:
 * [ ] The app is signed in (you're past the welcome screen and in the chat/home view).
 * [ ] At least one integration shows as **connected** in Settings.
 * [ ] A briefing prompt ("what's waiting on me?") returns something drawn from your actual data, not a generic answer.
-* [ ] Opening the **Memory** tab shows summaries appearing (give it one auto-fetch cycle — up to ~20 minutes — after connecting a source).
+* [ ] Opening the **Memory** tab shows summaries appearing (give it one auto-fetch cycle, up to about 20 minutes, after connecting a source).
 * [ ] When you ask it to do something with an external effect (e.g. "draft and send an email"), you see an **Approval Request card** appear above the chat box rather than it silently acting.
 
 ## Common failures
@@ -103,14 +103,14 @@ You have a working assistant when **all** of these are true:
 
 ## Recovery
 
-* **Reset boundaries fast:** if the assistant is doing too much, drop the tier to **Read-only** in Agent access — it takes effect on the next turn and blocks all acting immediately.
+* **Reset boundaries fast:** if the assistant is doing too much, drop the tier to **Read-only** in Agent access. It takes effect on the next turn and blocks all acting immediately.
 * **Nothing you connect is permanent:** revoke any integration from Settings; chunks already in your local memory stay (they're yours), and the next sync tick stops pulling that source.
-* **If the app itself won't start,** see [Recover from a failed installation](recover-failed-installation.md) — your configuration is preserved by default.
+* **If the app itself won't start,** see [Recover from a failed installation](recover-failed-installation.md). Your configuration is preserved by default.
 
 ***
 
 ## Next steps
 
-* [Use OpenHuman with a local model](local-model.md) — keep inference on-device.
-* [Connect OpenHuman to Obsidian](connect-obsidian.md) — read and edit the memory by hand.
-* [Keep sensitive data private](privacy-sensitive-data.md) — understand exactly what leaves your machine.
+* [Use OpenHuman with a local model](local-model.md): keep inference on-device.
+* [Connect OpenHuman to Obsidian](connect-obsidian.md): read and edit the memory by hand.
+* [Keep sensitive data private](privacy-sensitive-data.md): understand exactly what leaves your machine.

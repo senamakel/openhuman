@@ -86,7 +86,7 @@ When two values compete for the same fact (e.g. `verbosity=terse` vs `verbosity=
 
 ## Where it's stored: `PROFILE.md`
 
-The learned profile is materialized into **`PROFILE.md`** in your workspace — a real, editable Markdown file. Each facet class owns a managed block (`## Style`, `## Identity`, `## Tooling`, `## Vetoes`, `## Goals`), and only **Active** facets are written, sorted by stability. Pinned entries are marked `*(pinned)*`.
+The learned profile is materialized into **`PROFILE.md`** in your workspace, a real, editable Markdown file. Each facet class owns a managed block (`## Style`, `## Identity`, `## Tooling`, `## Vetoes`, `## Goals`), and only **Active** facets are written, sorted by stability. Pinned entries are marked `*(pinned)*`.
 
 The renderer only touches its own managed blocks. Anything you write by hand outside those blocks (and the separate `## Connected Accounts` block owned by the integrations layer) is left untouched. Empty classes show a `*(no entries yet)*` placeholder rather than disappearing.
 

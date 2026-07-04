@@ -191,11 +191,38 @@ hint = "chat"
 named = [
     "read_workspace_state",
     "ask_user_clarification",
-    "spawn_worker_thread",
+    # Basic direct surface — lets the orchestrator answer small lookups and
+    # make small, user-pointed file edits itself instead of spawning a
+    # sub-agent for every touch. Deliberately NO `shell`: anything that needs
+    # a build / test / git / run cycle is repo-scale work and still routes to
+    # `run_code` (see prompt.md's code-repo rule).
+    "file_read",
+    "grep",
+    "glob",
+    "list",
+    "edit",
+    "file_write",
+    # Quick web lookups. A single fact ("what's the capital of X", "latest
+    # version of Y") is one `web_search_tool` / `web_fetch` call — spawning
+    # the `research` worker for that is overkill. Multi-source crawls,
+    # comparisons, and doc digests still delegate to `research`.
+    "web_search_tool",
+    "web_fetch",
+    # NOTE: `spawn_worker_thread` is intentionally absent — the tool is
+    # disabled pending a worker-thread UI (#1624) and is not registered, so
+    # listing it here (and teaching it in prompt.md) only trained the model
+    # to call a tool that does not exist.
     "spawn_async_subagent",
     "spawn_parallel_agents",
     "wait",
     "wait_loop",
+    # Async sub-agent control surface. prompt.md's "Async background
+    # sub-agents" section instructs steering (`steer_subagent`) and result
+    # collection (`wait_subagent`) by `subagent_session_id` / `task_id`;
+    # both tools exist in the base registry and must be in scope here or
+    # the whole async flow dead-ends after `spawn_async_subagent`.
+    "steer_subagent",
+    "wait_subagent",
     # Resume a sub-agent that paused on `ask_user_clarification` (#4291). When
     # a delegated sub-agent (e.g. mcp_setup via `delegate_setup_mcp_server`)
     # asks the user a question, the runner checkpoints it and the orchestrator

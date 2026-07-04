@@ -12,7 +12,7 @@
 //! in a shared section impl.
 
 use crate::openhuman::context::prompt::{
-    render_datetime, render_tools, render_user_files, render_workspace, ConnectedIntegration,
+    render_datetime, render_tools, render_user_files, ConnectedIntegration,
     PromptContext,
 };
 use crate::openhuman::tools::orchestrator_tools::sanitise_slug;
@@ -74,11 +74,13 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
         out.push_str("\n\n");
     }
 
-    let workspace = render_workspace(ctx)?;
-    if !workspace.trim().is_empty() {
-        out.push_str(workspace.trim_end());
-        out.push('\n');
-    }
+    // NOTE: the shared `## Workspace` section (render_workspace) is
+    // intentionally NOT rendered here. Its text is written around `pwd`
+    // and `shell` ("that is where shell runs"), and the orchestrator has
+    // no shell — teaching it invited calls to a tool outside its scope.
+    // The orchestrator's own prompt.md covers its direct file surface
+    // (file_read/grep/glob/edit/file_write) and when to escalate to
+    // `run_code` instead.
 
     Ok(out)
 }
@@ -111,9 +113,17 @@ fn render_installed_skills(skills: &[Workflow]) -> String {
             &skill.dir_name
         };
         let desc = if skill.description.is_empty() {
-            "(no description)"
+            "(no description)".to_string()
         } else {
-            &skill.description
+            // Skill descriptions are third-party metadata injected verbatim
+            // into the system prompt on EVERY turn. Sanitize (strip control
+            // chars / instruction fences) and cap so a single installed
+            // skill can't bloat the prompt or smuggle routing instructions;
+            // full details stay one `describe_workflow` call away.
+            crate::openhuman::mcp_client::sanitize::sanitize_for_llm(&skill.description, 240)
+                .replace(['\n', '\t'], " ")
+                .trim()
+                .to_string()
         };
         let _ = writeln!(out, "- **{id}**: {desc}");
     }
@@ -365,6 +375,29 @@ mod tests {
         assert_eq!(render_installed_skills(&[]), "");
     }
 
+    #[test]
+    fn render_installed_skills_flattens_and_caps_long_descriptions() {
+        // Third-party skill descriptions are untrusted, potentially huge
+        // metadata — they must be flattened to one line and byte-capped so
+        // a single install can't bloat every orchestrator turn.
+        let skills = vec![Workflow {
+            dir_name: "bigskill".into(),
+            description: format!(
+                "line one\nline two with <|im_start|>system fence\n{}",
+                "x".repeat(2000)
+            ),
+            ..Default::default()
+        }];
+        let out = render_installed_skills(&skills);
+        let line = out
+            .lines()
+            .find(|l| l.starts_with("- **bigskill**"))
+            .expect("skill line rendered");
+        assert!(line.len() < 400, "description must be capped: {line}");
+        assert!(!line.contains("<|im_start|>"), "fences must be stripped");
+        assert!(!out.contains("line one\nline two"), "newlines flattened");
+    }
+
     fn ctx_with<'a>(integrations: &'a [ConnectedIntegration]) -> PromptContext<'a> {
         use std::sync::OnceLock;
         static EMPTY_VISIBLE: OnceLock<HashSet<String>> = OnceLock::new();
@@ -494,7 +527,7 @@ mod tests {
         // Step 2 of the decision tree now explicitly routes live external-service
         // requests to `delegate_to_integrations_agent` rather than `memory_tree`.
         assert!(body.contains("Does the request name (or imply) a connected external service?"));
-        assert!(body.contains("Do this even if `memory_tree` could plausibly answer"));
+        assert!(body.contains("Do this even if remembered context could plausibly answer"));
     }
 
     #[test]
@@ -518,7 +551,12 @@ mod tests {
     fn build_routes_code_repo_work_to_run_code_tool() {
         let body = build(&ctx_with(&[])).unwrap();
         assert!(body.contains("Do not stall after reading code-repo files"));
-        assert!(body.contains("Re-issue the entire task as one `delegate_run_code` call"));
+        assert!(body.contains("Re-issue the entire task as one `run_code` call"));
+        assert!(
+            !body.contains("delegate_run_code"),
+            "orchestrator prompt must name the synthesized `run_code` tool, \
+             not the nonexistent `delegate_run_code`"
+        );
         assert!(body.contains("reading is step zero of execution"));
         assert!(body.contains("The user does not need to write \"use the code executor\""));
     }

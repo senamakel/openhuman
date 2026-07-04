@@ -364,6 +364,19 @@ pub(super) struct ProviderModel {
     profile: ModelProfile,
 }
 
+/// Builds a `ChatModel<()>` capability over an openhuman [`Provider`], pinned to
+/// `model`/`temperature`, ready to register into a `tinyagents`
+/// [`CapabilityRegistry`](tinyagents::registry::CapabilityRegistry) — e.g. the
+/// `.ragsh` REPL bridge (`crate::openhuman::rlm`). [`ProviderModel::new`] is
+/// `pub(super)`; this is the crate-visible factory for that one bridge use.
+pub(crate) fn provider_chat_model(
+    provider: Arc<dyn Provider>,
+    model: impl Into<String>,
+    temperature: f64,
+) -> Arc<dyn ChatModel<()>> {
+    Arc::new(ProviderModel::new(provider, model, temperature))
+}
+
 impl ProviderModel {
     /// Build a model adapter for `provider`, pinned to `model`/`temperature`.
     ///

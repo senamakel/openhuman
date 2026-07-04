@@ -31,7 +31,7 @@
 <div dir="rtl" lang="ur">
 
 <p align="center">
- <strong>OpenHuman آپ کی ذاتی AI سپر انٹیلی جنس ہے: مقامی یادداشت، جہاں ضرورت ہو وہاں منظم خدمات، سادہ مگر طاقتور۔</strong>
+ <strong>OpenHuman آپ کی ذاتی AI سپر انٹیلی جنس ہے: ایک دماغ جو سب کچھ یاد رکھتا ہے، ایک شاندار آرکسٹریٹر، ایک گہرا محقق۔ مقامی اول، سادہ، طاقتور۔</strong>
 </p>
 
 <p align="center">
@@ -146,41 +146,36 @@ irm https://raw.githubusercontent.com/tinyhumansai/openhuman/main/scripts/instal
 
 # OpenHuman کیا ہے؟
 
-OpenHuman ایک اوپن سورس ایجنٹک اسسٹنٹ ہے جو آپ کی روزمرہ زندگی میں آپ کے ساتھ ضم ہونے کے لیے ڈیزائن کیا گیا ہے — ایک ذاتی AI جس کے پاس **مستقل مقامی یادداشت**، **حقیقی ہاتھ** (100+ انضمام، محفوظ شدہ ورک فلو، ایک براؤزر، ایک والٹ، ایک آواز)، اور **ایک چہرہ** ہے (ایک ڈیسک ٹاپ مسکاٹ جو آپ کی میٹنگز میں شامل ہوتا ہے اور جواب دیتا ہے)۔ ہر بلیٹ [دستاویزات](https://tinyhumans.gitbook.io/openhuman/) میں گہرائی سے تحریر کی طرف جاتا ہے۔
+OpenHuman تین چیزیں ہے جو زیادہ تر اسسٹنٹس نہیں ہیں: **ایک دماغ** جو آپ کی دنیا کی ایک مستقل، مقامی یادداشت بناتا ہے؛ **ایک شاندار آرکسٹریٹر** جو پائیدار گرافس پر ایجنٹس کے فلیٹس چلاتا ہے؛ اور **ایک گہرا محقق** جو آپ کے سوال مکمل کرنے سے پہلے آپ کے ڈیٹا اور ویب کا جائزہ لے لیتا ہے۔ ہر بلیٹ [دستاویزات](https://tinyhumans.gitbook.io/openhuman/) میں گہرائی سے تحریر کی طرف جاتا ہے۔
 
-- **سادہ، یوزر انٹرفیس اول اور انسانی**: انسٹال سے کام کرنے والے ایجنٹ تک چند کلکس میں — کوئی کنفیگ فائلیں نہیں، کوئی ٹرمینل نہیں۔ اور اس کا [ایک چہرہ](https://tinyhumans.gitbook.io/openhuman/features/mascot) ہے: ایک ڈیسک ٹاپ مسکاٹ جو بولتا ہے، ردعمل دیتا ہے، آپ کو یاد رکھتا ہے، اور آپ کے ٹائپ کرنا چھوڑنے کے بعد بھی سوچتا رہتا ہے۔
+### 🧠 دماغ
 
-- **[100+ OAuth انضمام، 5,000+ MCP سرورز، 90,000+ سکلز](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: ایک کلک سے Gmail، Notion، GitHub، Slack، Stripe، Linear اور اپنے باقی اسٹیک میں پلگ ان کریں، اور باقی سب کے لیے کھلے MCP اور Skills ایکوسسٹم موجود ہیں۔ ہر 20 منٹ میں، [خودکار لانا](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) ہر کنیکشن سے تازہ ڈیٹا کھینچتا ہے — ایجنٹ کے پاس آج صبح ہی کل کا سیاق و سباق ہوتا ہے۔ _(منظم OAuth، Composio پرت کے ذریعے چلتا ہے؛ ڈائریکٹ موڈ کے لیے اپنی Composio کلید لائیں۔)_
+- **[میموری ٹری](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: آپ کا ڈیٹا اسکور شدہ Markdown درختوں میں کمپریس ہو کر آپ کی مشین پر SQLite میں محفوظ ہوتا ہے، اور ایک [Obsidian والٹ](https://x.com/karpathy/status/2039805659525644595) کے طور پر عکس بند ہوتا ہے جسے آپ کھول اور ایڈٹ کر سکتے ہیں۔ کوئی ویکٹر سوپ بلیک باکس نہیں۔
+- **[100+ OAuth انضمام، 5,000+ MCP سرورز، 90,000+ سکلز](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: ایک کلک سے Gmail، Notion، GitHub، Slack اور اپنے باقی اسٹیک میں پلگ ان کریں۔ [خودکار لانا](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) ہر 20 منٹ میں دماغ کو خوراک دیتا ہے — اس کے پاس آج صبح ہی کل کا سیاق و سباق ہوتا ہے۔
+- **[ایک لاشعور](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**: ایک پس منظر لوپ جو آپ کی دنیا کا موازنہ کرتا ہے، آپ کے اہداف کو آگے بڑھاتا ہے، اور آپ کی صبح کی بریفنگ لکھتا ہے — آپ کے ٹائپ کرنا چھوڑنے کے بعد بھی سوچ جاری رہتی ہے۔
+- **[اہداف اور ٹوڈوز](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: طویل مدتی اہداف، فی تھریڈ پائیدار اہداف، اور ہر گفتگو کے لیے ایک مشترکہ کنبان بورڈ۔
+- **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: ٹول آؤٹ پٹ ماڈل تک پہنچنے سے پہلے کمپریس ہوتا ہے — وہی معلومات، 80% تک کم ٹوکنز۔ اتنا بڑا دماغ اس کے بغیر ناقابلِ برداشت مہنگا ہوتا۔
 
-- **[میموری ٹری](https://tinyhumans.gitbook.io/openhuman/features/memory-tree) + [Obsidian Wiki](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki)**: آپ جو کچھ بھی جوڑتے ہیں وہ اسکور شدہ Markdown خلاصے کے درختوں میں کمپریس ہو کر **آپ کی مشین پر SQLite** میں محفوظ ہوتا ہے — اور ایک Obsidian-مطابق والٹ کے طور پر عکس بند ہوتا ہے جسے آپ کھول اور ایڈٹ کر سکتے ہیں۔ کارپیتھی کے [obsidian-wiki ورک فلو](https://x.com/karpathy/status/2039805659525644595) سے متاثر۔ کوئی ویکٹر سوپ بلیک باکس نہیں۔
+### 🕸️ آرکسٹریٹر
 
-- **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: ہر نیا تھریڈ ایک read-only اسکاؤٹ سے شروع ہوتا ہے جو ماڈل کے آپ کا پیغام پڑھنے _سے پہلے_ آپ کی یادداشت اور فائلوں کا جائزہ لے لیتا ہے۔ کوئی سرد آغاز نہیں، کوئی "مجھے دیکھنے دیں" نہیں۔
+- **[ورک فلوز](https://tinyhumans.gitbook.io/openhuman/features/workflows)** _(نیا)_: ایجنٹ آٹومیشن تجویز کرتا ہے؛ آپ اسے کینوس پر جائزہ لے کر محفوظ کرتے ہیں۔ اوپن سورس [tinyflows](https://github.com/tinyhumansai/tinyflows) پر پائیدار، ٹرگر سے چلنے والے، منظوری سے محفوظ رنز۔
+- **[ایک ہارنس جو کام مکمل کرتا ہے](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)** _(نیا)_: اوپن سورس [tinyagents](https://github.com/tinyhumansai/tinyagents) پر چیک پوائنٹ شدہ گراف رنز — اٹکے ہوئے ایجنٹس کو راہ دکھائی جاتی ہے، رکے ہوئے بنیادی وجہ واپس دیتے ہیں، ہر رن حقیقی فی کال لاگت کے ساتھ دوبارہ چلایا جا سکتا ہے۔
+- **[ایک split brain، ہمیشہ فعال](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** _(نیا)_: ایک تیز reflex ایجنٹ آنے والی ٹریفک کو چھانٹتا ہے جبکہ ایک گہرا reasoning کور ورکر فلیٹس کو کام سونپتا ہے، لاشعور کی رہنمائی میں۔
+- **[ایک ایجنٹ معیشت](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place) پر ایک `@handle`، Signal-انکرپٹڈ ایجنٹ سے ایجنٹ آرکسٹریشن، x402 USDC انعامی کام اور تجارت — چابیاں کبھی ڈسک کو نہیں چھوتیں۔
 
-- **[اہداف اور ٹوڈوز](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: طویل مدتی اہداف جو آپ کی سرگرمی کے خلاف خود جائزہ لیتے ہیں، فی تھریڈ پائیدار اہداف جن پر ایجنٹ باریوں اور فارغ وقت میں کام کرتا ہے، اور ہر گفتگو کے لیے ایک مشترکہ کنبان بورڈ۔
+### 🔬 گہرا محقق اور کام کرنے والا
 
-- **[ورک فلوز](https://tinyhumans.gitbook.io/openhuman/features/workflows)** _(نیا)_: چیٹ میں کسی آٹومیشن کو بیان کریں اور **ایجنٹ خود ورک فلو تجویز کرتا ہے** — اسے ایک بصری کینوس پر جائزہ لیں، محفوظ کریں، بس۔ رنز شیڈول یا لائیو ایپ ایونٹس پر چلتے ہیں، منظوری کے دروازوں پر رکتے ہیں، اور مکمل رن ہسٹری کے ساتھ بالکل وہیں سے دوبارہ شروع ہوتے ہیں جہاں رکے تھے۔ ہمارے اوپن سورس [tinyflows](https://github.com/tinyhumansai/tinyflows) انجن سے چلتے ہیں۔
+- **[SuperContext](https://tinyhumans.gitbook.io/openhuman/features/super-context)**: ایک ریسرچ اسکاؤٹ ماڈل کے آپ کا پہلا پیغام پڑھنے سے پہلے آپ کی یادداشت اور فائلوں کا جائزہ لے لیتا ہے۔ کوئی سرد آغاز نہیں۔
+- **سب کچھ شامل ہے**: ویب سرچ، سکریپر، کوڈر ٹول سیٹ، ایک حقیقی [براؤزر](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer)، ان پروسیس Whisper کے ساتھ [مقامی آواز](../gitbooks/features/native-tools/voice.md) — اور [ماڈل روٹنگ](https://tinyhumans.gitbook.io/openhuman/features/model-routing) جو ہر ورک لوڈ کے لیے صحیح LLM چنتی ہے، ایک سبسکرپشن، [مقامی AI اختیاری](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)۔
+- **[میٹنگ ایجنٹس](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)** _(نیا)_: چہرے اور آواز کے ساتھ **Meet، Zoom، Teams، اور Webex** میں شامل ہوتا ہے — کیلنڈر سے خود بخود شامل ہوتا ہے، لائیو ٹرانسکرپٹ اسٹریم کرتا ہے، نام سے جواب دیتا ہے، خلاصہ + ایکشن آئٹمز محفوظ کرتا ہے۔
+- **[تصویر اور ویڈیو جنریشن](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** _(نیا)_: Seedream/SeedEdit تصاویر اور Seedance/Veo ویڈیو، براہ راست آپ کے ورک اسپیس میں، اسی سبسکرپشن پر۔
+- **[17 میسجنگ چینلز](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram، Discord، Slack، WhatsApp، Signal، iMessage… اور ساتھ **مقامی ای میل** (IMAP IDLE + SMTP)۔ آپ کا ایجنٹ آپ تک وہیں پہنچتا ہے جہاں آپ پہلے سے موجود ہیں۔
 
-- **[میٹنگ ایجنٹس جو واقعی شرکت کرتے ہیں](https://tinyhumans.gitbook.io/openhuman/features/mascot/meeting-agents)** _(نیا)_: کیمرہ ٹائل پر چہرے اور کال میں آواز کے ساتھ **Meet، Zoom، Teams، اور Webex** میں شامل ہوتا ہے۔ آپ کے کیلنڈر سے خود بخود شامل ہوتا ہے، لائیو ٹرانسکرپٹ اسٹریم کرتا ہے، نام سے مخاطب ہونے پر جواب دیتا ہے، اور خلاصہ + ایکشن آئٹمز کو قابل تلاش ہسٹری میں محفوظ کرتا ہے۔
+### 🧍 انسانی، نجی، آپ کا اپنا
 
-- **[ایک ہارنس جو کام مکمل کرتا ہے](https://tinyhumans.gitbook.io/openhuman/developing/architecture/agent-harness)** _(نیا)_: ہمارے اوپن سورس [tinyagents](https://github.com/tinyhumansai/tinyagents) انجن پر پائیدار چیک پوائنٹنگ — اٹکے ہوئے ایجنٹس کو راہ دکھائی جاتی ہے، رکے ہوئے ایجنٹس بنیادی وجہ کا خلاصہ واپس دیتے ہیں، اور ذیلی ایجنٹس مرنے کے بجائے آپ کے ان پٹ کے لیے رک کر دوبارہ شروع ہوتے ہیں۔ ہر رن ایک قابلِ اعادہ جرنل ہے جس میں فی کال حقیقی لاگت درج ہوتی ہے۔
-
-- **[پرائیویسی موڈ](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)** _(نیا)_: ایک سوئچ اور **کوئی inference آپ کی مشین سے باہر نہیں جاتی** — کلاؤڈ ماڈلز کو Rust کور میں بلاک کیا جاتا ہے، کسی پرامپٹ میں نرمی سے درخواست نہیں کی جاتی۔ Ollama، LM Studio، MLX، اور مقامی اینڈ پوائنٹس کام کرتے رہتے ہیں۔
-
-- **[تصویر اور ویڈیو جنریشن](https://tinyhumans.gitbook.io/openhuman/features/native-tools)** _(نیا)_: کہیے، اور میڈیا ایجنٹس تصاویر بناتے یا ایڈٹ کرتے ہیں (Seedream / SeedEdit) اور ویڈیو رینڈر کرتے ہیں (Seedance / Veo) براہ راست آپ کے ورک اسپیس میں — وہی سبسکرپشن، کوئی اضافی چابیاں نہیں۔
-
-- **[تھیمز اور تھیم اسٹوڈیو](https://tinyhumans.gitbook.io/openhuman/features/theming)**: پانچ بلٹ ان تھیم خاندان اور ایک مکمل بصری ایڈیٹر — ہر کلر ٹوکن، فونٹس، اینیمیٹڈ WebGL پس منظر، اور شیئر کرنے کے لیے JSON ایکسپورٹ۔
-
-- **سب کچھ شامل ہے**: ویب سرچ، سکریپر، مکمل کوڈر ٹول سیٹ، ایک حقیقی [براؤزر](https://tinyhumans.gitbook.io/openhuman/features/native-tools/browser-and-computer) (Playwright، مقامی، یا computer-use بیک اینڈز)، اور ان پروسیس Whisper STT کے ساتھ [مقامی آواز](../gitbooks/features/native-tools/voice.md)۔ [ماڈل روٹنگ](https://tinyhumans.gitbook.io/openhuman/features/model-routing) ہر ورک لوڈ کے لیے صحیح LLM چنتی ہے — ایک سبسکرپشن، تمام ماڈلز، [مقامی AI اختیاری](https://tinyhumans.gitbook.io/openhuman/features/model-routing/local-ai)۔
-
-- **[اسمارٹ ٹوکن کمپریشن (TokenJuice)](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: ہر ٹول نتیجہ کسی ماڈل کو چھونے سے پہلے کمپریس کیا جاتا ہے — وہی معلومات، ٹوکنز کا ایک حصہ، لاگت اور تاخیر میں 80% تک کمی۔
-
-- **[17 میسجنگ چینلز](https://tinyhumans.gitbook.io/openhuman/features/channels)**: Telegram، Discord، Slack، WhatsApp، Signal، iMessage، اور مزید — اور ساتھ **مقامی ای میل** (IMAP IDLE + SMTP، آپ کا اپنا ایڈریس، کوئی بھی فراہم کنندہ، بھیجنے والوں کی allowlist)۔ آپ کا ایجنٹ آپ تک وہیں پہنچتا ہے جہاں آپ پہلے سے موجود ہیں۔
-
-- **[ایک لاشعور جو کام کرتا رہتا ہے](https://tinyhumans.gitbook.io/openhuman/features/subconscious)**: ایک پس منظر لوپ جو آپ کی جڑی ہوئی دنیا کا موازنہ کرتا ہے، اہداف کو آگے بڑھاتا ہے، ایک split-brain آرکسٹریشن پرت کو چلاتا ہے، اور آپ کے لیے ایک ذاتی صبح کی بریفنگ لکھتا ہے۔
-
-- **[آپ کے ایجنٹ کے لیے ایک معیشت](https://tinyhumans.gitbook.io/openhuman/features/tinyplace)**: [tiny.place](https://tiny.place) پر شہریت — ایک `@handle`، Signal-انکرپٹڈ ایجنٹ سے ایجنٹ پیغام رسانی، x402 USDC انعامی کام، اور مارکیٹ پلیس تجارت، ایک ایسی والٹ کلید سے دستخط شدہ جو کبھی ڈسک کو نہیں چھوتی۔
-
-- **[پرائیویسی اور سیکیورٹی](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: ڈیٹا ڈیوائس پر اور انکرپٹڈ رہتا ہے، باہر جانے والے اقدامات پر منظوری کا دروازہ، OS-keyring رازداری، کمانڈ کی درجہ بندی، اور اختیاری OS سطح کی سینڈ باکسنگ کے ساتھ۔
+- **سادہ، یوزر انٹرفیس اول اور انسانی**: انسٹال سے کام کرنے والے ایجنٹ تک چند کلکس میں — کوئی کنفیگ فائلیں نہیں، کوئی ٹرمینل نہیں۔ اور اس کا [ایک چہرہ](https://tinyhumans.gitbook.io/openhuman/features/mascot) ہے: ایک مسکاٹ جو بولتا ہے، ردعمل دیتا ہے، اور آپ کو یاد رکھتا ہے۔
+- **[پرائیویسی اور سیکیورٹی](https://tinyhumans.gitbook.io/openhuman/features/privacy-and-security)**: ڈیوائس پر انکرپٹڈ ڈیٹا، منظوری کا دروازہ، OS-keyring رازداری، اختیاری سینڈ باکسنگ — اور _(نیا)_ **[پرائیویسی موڈ](https://tinyhumans.gitbook.io/openhuman/features/privacy-mode)**: ایک سوئچ اور کوئی inference آپ کی مشین سے باہر نہیں جاتی، Rust کور میں نافذ۔
+- **[تھیمز اور تھیم اسٹوڈیو](https://tinyhumans.gitbook.io/openhuman/features/theming)**: پانچ تھیم خاندان اور ایک مکمل بصری ایڈیٹر، JSON کے طور پر قابلِ ایکسپورٹ۔
 
 ## سورس سے تعاون
 
@@ -218,14 +213,14 @@ OpenHuman انتظار چھوڑ دیتا ہے۔ اپنے اکاؤنٹس جوڑی
 
 ## ایک آرکسٹریٹر، چیٹ بوٹ نہیں
 
-OpenHuman اور دوسرے ہارنسز کے درمیان سب سے بڑا فرق کوئی ایک فیچر نہیں — بلکہ execution model ہے۔ Claude Code، OpenClaw، اور Hermes **ایک لوپ میں ایک ایجنٹ** چلاتے ہیں۔ OpenHuman ایک **[آرکسٹریٹر](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** کے طور پر بنایا گیا ہے:
+سب سے گہرا فرق کوئی ایک فیچر نہیں — بلکہ execution model ہے۔ Claude Code، OpenClaw، اور Hermes **ایک لوپ میں ایک ایجنٹ** چلاتے ہیں۔ OpenHuman ایک **[آرکسٹریٹر](https://tinyhumans.gitbook.io/openhuman/features/orchestration)** ہے:
 
-- **گرافس، لوپس نہیں** — باریاں [tinyagents](https://github.com/tinyhumansai/tinyagents) پر state-machine گرافس میں کمپائل ہوتی ہیں (`plan → execute ⇄ review → finalize`، فیز DAGs، map-reduce fan-out) پائیدار چیک پوائنٹنگ کے ساتھ: انسان کے لیے رکیں، ری اسٹارٹ سے بچ نکلیں، رن کے بیچ سے دوبارہ شروع ہوں۔
-- **ذیلی ایجنٹ فلیٹس** — 3 سطح تک گہرائی میں ماہرین بنائیں، فارغ ورکرز کو دوبارہ استعمال کریں، ہر ایک کو صحیح ماڈل درجے کی طرف روٹ کریں — سرکٹ بریکرز کے ساتھ تاکہ اٹکا ہوا ایجنٹ بنیادی وجہ واپس دے، کبھی خاموشی نہیں۔
-- **ورک فلوز جو آپ دیکھ سکتے ہیں** — ایجنٹ [tinyflows](https://github.com/tinyhumansai/tinyflows) گرافس تجویز کرتا ہے جن کا آپ کینوس پر جائزہ لیتے ہیں؛ رنز پائیدار، ٹرگر سے چلنے والے، اور منظوری کے دروازوں سے محفوظ ہوتے ہیں۔
-- **ایک ہمیشہ فعال split brain** — ایک تیز reflex ایجنٹ آنے والی ٹریفک کو چھانٹتا ہے جبکہ ایک گہرا reasoning کور کام کرتا ہے، لاشعوری لوپ کی رہنمائی میں۔
-- **ایجنٹ سے ایجنٹ، انکرپٹڈ** — OpenHuman انسٹینسز ایک دوسرے کو **Signal-پروٹوکول E2E-انکرپٹڈ** سیشنز پر آرکسٹریٹ کرتے ہیں، رضامندی پر مبنی جوڑی اور x402 ادائیگیوں کے ساتھ۔ کوئی سرور plaintext نہیں دیکھتا۔
-- **آگے: RLMs** — زبان پر مبنی ورک فلوز جہاں ماڈل ایک سینڈ باکسڈ REPL میں اپنا آرکسٹریشن کوڈ خود لکھتا ہے۔ اوپر والا گراف انجن اور ٹرسٹ ماڈل اس کی بنیاد ہیں۔
+- **گرافس، لوپس نہیں** — باریاں [tinyagents](https://github.com/tinyhumansai/tinyagents) پر چیک پوائنٹ شدہ state-machine گرافس میں کمپائل ہوتی ہیں: انسان کے لیے رکیں، ری اسٹارٹ سے بچ نکلیں، رن کے بیچ سے دوبارہ شروع ہوں۔
+- **ذیلی ایجنٹ فلیٹس** — ماہرین تین سطح گہرائی تک بنتے ہیں، فارغ ورکرز دوبارہ استعمال ہوتے ہیں، اور سرکٹ بریکرز اٹکے ہوئے ایجنٹس کو بنیادی وجہ کی رپورٹوں میں بدل دیتے ہیں۔
+- **ورک فلوز جو آپ دیکھ سکتے ہیں** — ایجنٹ کے تجویز کردہ [tinyflows](https://github.com/tinyhumansai/tinyflows) گرافس، کینوس پر جائزہ شدہ: پائیدار، ٹرگر سے چلنے والے، منظوری سے محفوظ۔
+- **ایک split brain، ہمیشہ فعال** — ایک تیز reflex ایجنٹ چھانٹتا ہے جبکہ ایک گہرا کور سوچتا ہے، لاشعوری لوپ کی رہنمائی میں۔
+- **ایجنٹ سے ایجنٹ، انکرپٹڈ** — انسٹینسز ایک دوسرے کو **Signal-پروٹوکول E2E** سیشنز پر آرکسٹریٹ کرتے ہیں، رضامندی پر مبنی جوڑی اور x402 ادائیگیوں کے ساتھ۔ کوئی سرور plaintext نہیں دیکھتا۔
+- **آگے: RLMs** — ماڈل ایک سینڈ باکسڈ REPL میں اپنا آرکسٹریشن کوڈ خود لکھتا ہے، اسی گراف انجن اور ٹرسٹ ماڈل پر۔
 
 ## OpenHuman بمقابلہ دوسرے ایجنٹ ہارنسز
 

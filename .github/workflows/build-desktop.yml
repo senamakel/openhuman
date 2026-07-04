@@ -11,6 +11,9 @@
 # the repo's secrets without having to enumerate them; vars are read
 # directly from the `vars` context.
 name: Build Desktop (reusable)
+env:
+  # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
+  GH_TOKEN: ${{ github.token }}
 on:
   workflow_call:
     inputs:

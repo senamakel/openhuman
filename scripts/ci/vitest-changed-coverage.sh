@@ -28,7 +28,7 @@ log() { echo "[ci][vitest-changed] $*"; }
 
 run_full() {
   log "running FULL Vitest coverage suite (reason: $1)"
-  exec pnpm --filter openhuman-app test:coverage
+  exec bash scripts/ci-cancel-aware.sh pnpm --filter openhuman-app test:coverage
 }
 
 if [ "${FULL}" = "true" ]; then
@@ -72,4 +72,4 @@ log "running 'vitest related' with coverage for ${#related[@]} file(s):"
 printf '[ci][vitest-changed]   %s\n' "${related[@]}"
 
 cd app
-exec pnpm exec vitest related --run --coverage --config test/vitest.config.ts "${related[@]}"
+exec bash ../scripts/ci-cancel-aware.sh pnpm exec vitest related --run --coverage --config test/vitest.config.ts "${related[@]}"

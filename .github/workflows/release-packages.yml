@@ -13,10 +13,18 @@ name: Release Packages
 on:
   workflow_dispatch:
 permissions:
+  # `actions: read` lets scripts/ci-cancel-aware.sh poll the run status so
+  # cancelled builds inside container jobs stop themselves (docker exec
+  # swallows the runner's signals).
+  actions: read
   contents: write
   pages: write
   id-token: write
   issues: write
+env:
+  # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
+  GH_TOKEN: ${{ github.token }}
+
 concurrency:
   group: release-packages-${{ github.event.release.tag_name }}
   cancel-in-progress: false

@@ -14,11 +14,17 @@ on:
     branches: [main]
 
 permissions:
+  # `actions: read` lets scripts/ci-cancel-aware.sh poll the run status so
+  # cancelled builds inside container jobs stop themselves (docker exec
+  # swallows the runner's signals).
+  actions: read
   contents: read
   packages: read
   pull-requests: read
 
 env:
+  # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
+  GH_TOKEN: ${{ github.token }}
   NPM_CONFIG_STORE_DIR: .pnpm-store
 
 # Keep only the newest run per PR/branch. Long Rust/Tauri build commands must

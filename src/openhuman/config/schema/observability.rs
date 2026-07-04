@@ -77,9 +77,11 @@ pub struct AgentTracingConfig {
     /// Serialized span envelope to emit. Defaults to OpenTelemetry.
     pub backend: AgentTracingBackend,
 
-    /// Absolute path of the NDJSON file spans are appended to. When unset,
-    /// spans are emitted to the application log at `info` level instead, so
-    /// the export still works on read-only or sandboxed deployments.
+    /// Absolute path of the NDJSON file spans are appended to. When unset, no
+    /// span bodies are logged — only a metadata-only summary (span count +
+    /// trace id) is emitted at `debug`, since spans may carry prompt/reply
+    /// content and must never be logged at `info` (issue #4454). Set a path to
+    /// persist the full NDJSON.
     pub export_path: Option<String>,
 
     /// Opt-in: include the turn's prompt (`input`) and the model's reply

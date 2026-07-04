@@ -183,15 +183,24 @@ fn apply_usage_fields(body: &mut Value, span: &TraceSpan) -> bool {
     }
     let input = input.unwrap_or(0);
     let output = output.unwrap_or(0);
-    let mut usage = Map::new();
-    usage.insert("input".to_string(), json!(input));
-    usage.insert("output".to_string(), json!(output));
-    usage.insert("total".to_string(), json!(input.saturating_add(output)));
-    if let Some(cached) = attrs
+    // `input_tokens` is INCLUSIVE of cached input (see cost.rs) but Langfuse
+    // treats every `usageDetails` key as DISJOINT and sums them for aggregation
+    // (issue #4454). Emitting the full `input` alongside `cache_read_input_tokens`
+    // double-counts the cached slice and makes the components disagree with
+    // `total`. Emit the uncached remainder as `input` so the parts are disjoint
+    // and `input + cache_read + output == total`.
+    let cached = attrs
         .get("gen_ai.usage.cached_input_tokens")
         .and_then(Value::as_u64)
-        .filter(|c| *c > 0)
-    {
+        .unwrap_or(0)
+        // Defensive: never let a bad `cached > input` underflow.
+        .min(input);
+    let total = input.saturating_add(output);
+    let mut usage = Map::new();
+    usage.insert("input".to_string(), json!(input.saturating_sub(cached)));
+    usage.insert("output".to_string(), json!(output));
+    usage.insert("total".to_string(), json!(total));
+    if cached > 0 {
         usage.insert("cache_read_input_tokens".to_string(), json!(cached));
     }
     body["usageDetails"] = Value::Object(usage);
@@ -441,6 +450,70 @@ mod tests {
         assert_eq!(obs["body"]["input"], "what is 2+2?");
         assert_eq!(obs["body"]["output"], "4");
         assert_eq!(obs["body"]["costDetails"]["total"], 0.0123);
+    }
+
+    #[test]
+    fn usage_details_components_are_disjoint_and_sum_to_total() {
+        // `input_tokens` is inclusive of cached input; Langfuse sums the
+        // usageDetails keys, so the emitted `input` must exclude the cached
+        // slice to avoid double-counting (issue #4454).
+        let mut turn = span(
+            "trace-1",
+            "root",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        turn.attributes.clear();
+        turn.attributes
+            .insert("gen_ai.usage.input_tokens".into(), json!(100));
+        turn.attributes
+            .insert("gen_ai.usage.output_tokens".into(), json!(20));
+        turn.attributes
+            .insert("gen_ai.usage.cached_input_tokens".into(), json!(30));
+
+        let batch = spans_to_langfuse_batch(&[turn], false);
+        let usage = &batch["batch"][1]["body"]["usageDetails"];
+        // input excludes cached; cached reported separately; total unchanged.
+        assert_eq!(usage["input"], 70, "input must be non-cached remainder");
+        assert_eq!(usage["cache_read_input_tokens"], 30);
+        assert_eq!(usage["output"], 20);
+        assert_eq!(usage["total"], 120, "total is original input + output");
+        // Disjoint components sum exactly to total.
+        let sum = usage["input"].as_u64().unwrap()
+            + usage["cache_read_input_tokens"].as_u64().unwrap()
+            + usage["output"].as_u64().unwrap();
+        assert_eq!(sum, usage["total"].as_u64().unwrap());
+    }
+
+    #[test]
+    fn usage_details_omits_cache_key_when_no_cached_tokens() {
+        // With zero cached tokens, `input` is the full input and there is no
+        // cache_read key — components still sum to total.
+        let mut turn = span(
+            "trace-1",
+            "root",
+            None,
+            "agent.turn",
+            SpanKind::Turn,
+            SpanStatus::Ok,
+            1_000,
+            Some(2_000),
+        );
+        turn.attributes.clear();
+        turn.attributes
+            .insert("gen_ai.usage.input_tokens".into(), json!(100));
+        turn.attributes
+            .insert("gen_ai.usage.output_tokens".into(), json!(20));
+
+        let batch = spans_to_langfuse_batch(&[turn], false);
+        let usage = &batch["batch"][1]["body"]["usageDetails"];
+        assert_eq!(usage["input"], 100);
+        assert!(usage.get("cache_read_input_tokens").is_none());
+        assert_eq!(usage["total"], 120);
     }
 
     #[test]

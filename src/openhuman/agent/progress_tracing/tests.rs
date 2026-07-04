@@ -663,27 +663,62 @@ async fn export_run_trace_otel_backend_uses_local_sink() {
 // ── Route A: content + grouping + span-id uniqueness ────────────────────────
 
 #[test]
-fn turn_content_attaches_input_output_to_turn_span() {
-    let c = collect(&[
-        (AgentProgress::TurnStarted, 1_000),
-        (
-            AgentProgress::TurnContent {
-                input: Some("what is your favorite color?".to_string()),
-                output: Some("i'm partial to teal".to_string()),
-            },
-            1_100,
-        ),
-    ]);
+fn turn_content_attaches_input_output_when_capture_enabled() {
+    let mut c = SpanCollector::new(ctx()).with_capture_content(true);
+    c.record(&AgentProgress::TurnStarted, 1_000);
+    c.record(
+        &AgentProgress::TurnContent {
+            input: Some("what is your favorite color?".to_string()),
+            output: Some("i'm partial to teal".to_string()),
+        },
+        1_100,
+    );
     let turn = find(c.spans(), "agent.turn");
     assert_eq!(
         turn.input.as_ref().and_then(|v| v.as_str()),
         Some("what is your favorite color?"),
-        "TurnContent input must land on the turn span"
+        "TurnContent input must land on the turn span when capture_content is on"
     );
     assert_eq!(
         turn.output.as_ref().and_then(|v| v.as_str()),
         Some("i'm partial to teal")
     );
+}
+
+/// Storage-level `capture_content` gate (issue #4454): with the gate OFF (the
+/// default), prompt/reply text must never land on a span, and therefore must
+/// never appear in the NDJSON export for ANY backend.
+#[test]
+fn turn_content_is_dropped_and_absent_from_ndjson_when_capture_disabled() {
+    const PROMPT: &str = "what is your favorite color?";
+    const REPLY: &str = "i'm partial to teal";
+
+    // Default collector (capture_content = false).
+    let c = collect(&[
+        (AgentProgress::TurnStarted, 1_000),
+        (
+            AgentProgress::TurnContent {
+                input: Some(PROMPT.to_string()),
+                output: Some(REPLY.to_string()),
+            },
+            1_100,
+        ),
+        (AgentProgress::TurnCompleted { iterations: 1 }, 1_200),
+    ]);
+    let turn = find(c.spans(), "agent.turn");
+    assert!(
+        turn.input.is_none() && turn.output.is_none(),
+        "content must NOT be stored on the span when capture_content is off"
+    );
+
+    // And the exporter serialization for both backends is content-free.
+    for backend in [AgentTracingBackend::Otel, AgentTracingBackend::Langfuse] {
+        let ndjson = spans_to_ndjson(backend, c.spans());
+        assert!(
+            !ndjson.contains(PROMPT) && !ndjson.contains(REPLY),
+            "NDJSON ({backend:?}) leaked prompt/reply text with capture_content off:\n{ndjson}"
+        );
+    }
 }
 
 #[test]

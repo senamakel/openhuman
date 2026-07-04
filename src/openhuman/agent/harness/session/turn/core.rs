@@ -1122,9 +1122,13 @@ impl Agent {
         .await;
 
         // Content (prompt + reply) rides its own event so a tracing consumer can
-        // attach it to the turn span. Transmission off-device stays gated by the
-        // exporter's opt-in `capture_content` flag; here it is only surfaced onto
-        // the in-memory span.
+        // attach it to the turn span. The privacy gate is enforced at the span
+        // STORAGE level (issue #4454): the `SpanCollector` drops this content
+        // unless `observability.agent_tracing.capture_content` is on, so with the
+        // gate off (the default) it never lands on a span and no exporter (NDJSON
+        // file, app log, or Langfuse push) can leak it. Every other consumer of
+        // this event ignores its content. Emitting unconditionally keeps that
+        // single choke point (which owns the config flag) authoritative.
         self.emit_progress(AgentProgress::TurnContent {
             input: Some(user_message.to_string()),
             output: Some(reply.clone()),

@@ -165,10 +165,16 @@ pub(crate) fn spawn_progress_bridge(
             // conversation's per-turn traces still group under one session.
             let base = trace_session_id(metadata.session_id, &thread_id);
             let trace_id = format!("{base}:{request_id}");
-            Some(SpanCollector::new(
-                TraceContext::new(trace_id, Some(client_id.clone()))
-                    .with_session_group(thread_id.clone()),
-            ))
+            // Storage-level content gate (issue #4454): only attach prompt/reply
+            // to spans when the operator opted into `capture_content`. Off by
+            // default, keeping every exporter (NDJSON, app log, Langfuse) content-free.
+            Some(
+                SpanCollector::new(
+                    TraceContext::new(trace_id, Some(client_id.clone()))
+                        .with_session_group(thread_id.clone()),
+                )
+                .with_capture_content(config.observability.agent_tracing.capture_content),
+            )
         } else {
             None
         };

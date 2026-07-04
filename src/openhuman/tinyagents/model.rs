@@ -19,10 +19,13 @@ use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolDelta};
 use tinyagents::harness::usage::Usage;
 use tokio::sync::mpsc::{Sender, UnboundedSender};
 
-use super::observability::{IterationCursor, SubagentScope, ToolNameMap};
+use super::abort_guard::AbortOnDrop;
+use super::observability::{IterationCursor, ProviderUsageCarry, SubagentScope, ToolNameMap};
 use crate::openhuman::agent::progress::AgentProgress;
+use crate::openhuman::inference::provider::thread_context::{current_thread_id, with_thread_id};
 use crate::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, ChatResponse, Provider, ProviderDelta,
+    current_route_slot, with_route_slot, ChatMessage, ChatRequest, ChatResponse, Provider,
+    ProviderDelta,
 };
 use crate::openhuman::tools::ToolSpec;
 
@@ -149,6 +152,31 @@ fn build_chat_inputs(
     (messages, specs)
 }
 
+/// Build a [`PFormatRegistry`](crate::openhuman::agent::pformat::PFormatRegistry)
+/// from the tool schemas advertised on a [`ModelRequest`] (issue #4465).
+///
+/// The text-mode fallback parse needs each tool's positional parameter layout
+/// to reconstruct named JSON arguments from a P-Format `name[a|b]` body. The
+/// harness always populates `request.tools` (schemas are rendered into the
+/// prompt for prompt-guided providers, or advertised natively otherwise), so
+/// the registry is available in both modes. An empty registry (no tools
+/// advertised) makes the P-Format-aware parser short-circuit to the canonical
+/// grammar, so this is behaviour-neutral when there are no tools.
+fn pformat_registry_from_request(
+    request: &ModelRequest,
+) -> crate::openhuman::agent::pformat::PFormatRegistry {
+    request
+        .tools
+        .iter()
+        .map(|t| {
+            (
+                t.name.clone(),
+                crate::openhuman::agent::pformat::PFormatToolParams::from_schema(&t.parameters),
+            )
+        })
+        .collect()
+}
+
 /// Translate an openhuman [`ChatResponse`] into a harness [`ModelResponse`]
 /// (visible text + tool calls + token usage).
 ///
@@ -157,9 +185,18 @@ fn build_chat_inputs(
 /// dispatcher — so text-mode models drive the tinyagents loop too. The visible
 /// text is the prose with any tool-call markup stripped.
 ///
+/// `pformat_registry` carries the advertised tools' positional layouts so the
+/// text-mode fallback can recover P-Format (`name[a|b]`) calls that ~10 builtin
+/// prompts still teach — the migrated parse path had dropped that grammar and
+/// silently lost those calls (issue #4465). It is empty for the native-tool
+/// path (where `response.tool_calls` is used directly) and for tool-less turns.
+///
 /// Unknown-tool recovery is handled by `RunPolicy::unknown_tool`, so the model
 /// adapter preserves the provider-requested tool name.
-fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
+fn response_to_model_response(
+    response: &ChatResponse,
+    pformat_registry: &crate::openhuman::agent::pformat::PFormatRegistry,
+) -> ModelResponse {
     let (visible_text, tool_calls): (String, Vec<TaToolCall>) = if !response.tool_calls.is_empty() {
         let calls = response
             .tool_calls
@@ -172,7 +209,8 @@ fn response_to_model_response(response: &ChatResponse) -> ModelResponse {
             .collect();
         (response.text.clone().unwrap_or_default(), calls)
     } else if let Some(text) = response.text.as_deref() {
-        let (prose, parsed) = crate::openhuman::agent::harness::parse_tool_calls(text);
+        let (prose, parsed) =
+            crate::openhuman::agent::harness::parse_tool_calls_with_pformat(text, pformat_registry);
         if parsed.is_empty() {
             (text.to_string(), Vec::new())
         } else {
@@ -313,6 +351,12 @@ pub(super) struct ProviderModel {
     thinking: Option<ThinkingForwarder>,
     /// Preserves the last original provider error for the runner to re-surface.
     error_slot: ProviderErrorSlot,
+    /// FIFO side-channel shared with the event bridge: on each successful chat
+    /// response the adapter pushes the provider `UsageInfo` (which carries the
+    /// backend-charged USD + context window + cache-creation/reasoning tokens
+    /// the crate `Usage` mapping drops), and the bridge pops it when recording
+    /// that call's usage — restoring charged-USD precedence (#4467, item 1).
+    usage_carry: ProviderUsageCarry,
     /// Capability profile derived from the wrapped provider (issue #4249,
     /// Phase 2): lets the crate validate a request against the model's actual
     /// capabilities (vision, tool calling, streaming, token limits) *before*
@@ -368,6 +412,7 @@ impl ProviderModel {
             max_tokens: None,
             thinking: None,
             error_slot: Arc::new(Mutex::new(None)),
+            usage_carry: Arc::default(),
             profile,
         }
     }
@@ -376,6 +421,14 @@ impl ProviderModel {
     /// harness, so the runner can recover the typed provider error on failure).
     pub(super) fn error_slot(&self) -> ProviderErrorSlot {
         self.error_slot.clone()
+    }
+
+    /// Attach the shared provider-usage carry the event bridge drains, so the
+    /// backend-charged USD + context window this adapter observes reach the cost
+    /// accounting (#4467, item 1). Clone the same handle into the bridge.
+    pub(super) fn with_usage_carry(mut self, carry: ProviderUsageCarry) -> Self {
+        self.usage_carry = carry;
+        self
     }
 
     /// Cap the output tokens requested from the provider for every call.
@@ -436,6 +489,9 @@ impl ChatModel<()> for ProviderModel {
     ) -> tinyagents::Result<ModelResponse> {
         let native = self.provider.supports_native_tools();
         let (messages, specs) = build_chat_inputs(&request, native);
+        // Positional layouts for the text-mode P-Format fallback (issue #4465);
+        // empty (and thus behaviour-neutral) when no tools are advertised.
+        let pformat_registry = pformat_registry_from_request(&request);
         let chat_request = ChatRequest {
             messages: &messages,
             // Only advertise structured tool specs to native providers. Prompt-
@@ -459,7 +515,21 @@ impl ChatModel<()> for ProviderModel {
             .chat(chat_request, &self.model, self.temperature)
             .await
         {
-            Ok(response) => response,
+            Ok(response) => {
+                // #4457 (defect B): the error slot preserves the last provider
+                // error for the runner to re-surface as the typed turn failure.
+                // A call that *succeeds* — including one the provider fallback
+                // chain recovered after an inner error — must clear any stale
+                // error so a later, unrelated run failure (e.g. the model-call
+                // cap) is not misclassified as that recovered provider error.
+                if self.error_slot.lock().unwrap().take().is_some() {
+                    tracing::debug!(
+                        model = %self.model,
+                        "[models] provider chat succeeded; cleared stale error_slot — #4457 defect B"
+                    );
+                }
+                response
+            }
             Err(e) => {
                 // Classify with OpenHuman's product error taxonomy (issue #4249,
                 // Workstream 02.2): a permanent config/auth rejection, billing/quota
@@ -499,7 +569,17 @@ impl ChatModel<()> for ProviderModel {
                 forwarder.emit(reasoning.clone());
             }
         }
-        Ok(response_to_model_response(&response))
+        // Push this call's provider usage onto the shared carry so the event
+        // bridge records charged USD / context window with provider precedence
+        // (#4467, item 1). One push per successful response, matching the single
+        // `UsageRecorded` the crate emits for this call.
+        if let Some(u) = &response.usage {
+            self.usage_carry
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .push_back(u.clone());
+        }
+        Ok(response_to_model_response(&response, &pformat_registry))
     }
 
     /// Stream the model response, forwarding openhuman's `ProviderDelta` events
@@ -514,19 +594,48 @@ impl ChatModel<()> for ProviderModel {
     async fn stream(&self, _state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
         let native = self.provider.supports_native_tools();
         let (messages, specs) = build_chat_inputs(&request, native);
+        // Positional layouts for the text-mode P-Format fallback (issue #4465);
+        // built here so it can move into the `'static` producer task below.
+        let pformat_registry = pformat_registry_from_request(&request);
         let provider = self.provider.clone();
         let model = self.model.clone();
         let temperature = self.temperature;
         let max_tokens = self.max_tokens;
         let thinking = self.thinking.clone();
         let error_slot = self.error_slot.clone();
+        // Captured for the spawned producer (task-locals/`self` do not cross the
+        // spawn): the streaming path pushes provider usage onto the same carry
+        // the buffered path uses, so charged USD reaches the bridge (#4467, item 1).
+        let usage_carry = self.usage_carry.clone();
 
         let (item_tx, item_rx) = tokio::sync::mpsc::unbounded_channel::<ModelStreamItem>();
+
+        // #4460: the producer below runs in a detached `tokio::spawn`, and
+        // `tokio::task_local`s do NOT propagate across a spawn boundary. Capture
+        // the two ambient task-locals the provider call depends on *here*, on the
+        // caller's task, and re-establish them inside the spawn:
+        //   - `thread_id`  → the managed backend's `thread_id` extension
+        //     (`compatible_request::outbound_thread_id`) so streamed requests stay
+        //     attributed to the right chat / prompt-cache group.
+        //   - resolved-route audit slot → so `record_resolved_provider_route`
+        //     calls inside `provider.chat` write back to the caller's scope and the
+        //     channel audit reports the *resolved* route, not the requested one.
+        let thread_id = current_thread_id();
+        let route_slot = current_route_slot();
+        // Label for the abort-on-drop debug log; the moved-in `model` clone is
+        // consumed by the producer body.
+        let abort_label = model.clone();
+        tracing::debug!(
+            model = %model,
+            thread_id = thread_id.as_deref().unwrap_or("<none>"),
+            route_slot = route_slot.is_some(),
+            "[tinyagents] spawning streamed provider producer; re-establishing task-locals across spawn — #4460"
+        );
 
         // Producer: run the provider call while forwarding its incremental
         // deltas, then emit the terminal item. Everything captured is owned, so
         // the task is `'static`.
-        tokio::spawn(async move {
+        let producer = async move {
             let _ = item_tx.send(ModelStreamItem::Started);
             let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel::<ProviderDelta>(64);
             let chat_fut = async {
@@ -563,6 +672,16 @@ impl ChatModel<()> for ProviderModel {
 
             let terminal = match response {
                 Ok(resp) => {
+                    // #4457 (defect B): a successful streaming call — including
+                    // one recovered by the provider fallback chain — clears any
+                    // stale error preserved in the slot so a later unrelated run
+                    // failure is not misclassified as that recovered error.
+                    if error_slot.lock().unwrap().take().is_some() {
+                        tracing::debug!(
+                            model = %model,
+                            "[models] streaming provider chat succeeded; cleared stale error_slot — #4457 defect B"
+                        );
+                    }
                     // Fallback for streaming providers that return reasoning only
                     // on the aggregated response (no incremental thinking
                     // deltas): emit it once through the native crate stream so
@@ -576,7 +695,16 @@ impl ChatModel<()> for ProviderModel {
                             ));
                         }
                     }
-                    ModelStreamItem::Completed(response_to_model_response(&resp))
+                    // Push provider usage onto the shared carry (#4467, item 1),
+                    // mirroring the buffered path — before building the terminal
+                    // item, so it is queued ahead of the crate `UsageRecorded`.
+                    if let Some(u) = &resp.usage {
+                        usage_carry
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner())
+                            .push_back(u.clone());
+                    }
+                    ModelStreamItem::Completed(response_to_model_response(&resp, &pformat_registry))
                 }
                 Err(e) => {
                     // Streaming failures ride `ModelStreamItem::Failed(String)`, which
@@ -599,10 +727,28 @@ impl ChatModel<()> for ProviderModel {
                 }
             };
             let _ = item_tx.send(terminal);
+        };
+
+        // Re-establish the captured task-locals inside the spawned task (#4460).
+        // `with_thread_id` normalizes an absent id to `None`, so it is a no-op
+        // when there was no ambient thread; the route slot is only re-scoped when
+        // an enclosing `with_resolved_provider_route_scope` supplied one.
+        let handle = tokio::spawn(async move {
+            let scoped = with_thread_id(thread_id.unwrap_or_default(), producer);
+            match route_slot {
+                Some(slot) => with_route_slot(slot, scoped).await,
+                None => scoped.await,
+            }
         });
 
-        let stream = futures_util::stream::unfold(item_rx, |mut rx| async move {
-            rx.recv().await.map(|item| (item, rx))
+        // #4460: tie the producer's lifetime to the consumer. Moving the
+        // abort-on-drop guard into the stream state means that dropping the
+        // stream (the turn future being hard-cancelled via `AbortHandle`, or
+        // dropped for any other reason) aborts the in-flight `provider.chat` call
+        // instead of letting it run — and bill — to completion in the background.
+        let guard = AbortOnDrop::new(handle, abort_label);
+        let stream = futures_util::stream::unfold((item_rx, guard), |(mut rx, guard)| async move {
+            rx.recv().await.map(|item| (item, (rx, guard)))
         });
         Ok(Box::pin(stream))
     }

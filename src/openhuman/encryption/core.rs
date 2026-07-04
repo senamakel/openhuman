@@ -314,4 +314,14 @@ mod tests {
         let payload = k.encrypt(b"").expect("encrypt empty");
         assert_eq!(k.decrypt(&payload).expect("decrypt empty"), b"");
     }
+
+    // NOTE: an `encrypt_decrypt_round_trips_for_arbitrary_input` proptest was
+    // trialled here but removed: under coverage instrumentation Argon2id runs
+    // ~2.5s/case, so a 24-case property held the lib-test binary for ~60s and
+    // deterministically widened a pre-existing env-var race in the unrelated
+    // `config::schema::load` env-overlay tests (they mutate process-global env
+    // without per-test serialization). The round-trip is already covered by the
+    // fixed-input tests above (round-trip, tamper, KDF determinism); the
+    // property-based *fuzzing* value lives in the fast, panic-focused
+    // `security::policy::proptest_tests` instead.
 }

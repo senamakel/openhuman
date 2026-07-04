@@ -46,7 +46,9 @@ mod tool_prep;
 mod types;
 
 // Public API — the entry point and the shapes it returns.
-pub use autonomous::{autonomous_iter_cap, with_autonomous_iter_cap};
+pub use autonomous::{
+    autonomous_iter_cap, subagent_iter_cap_with_autonomous_lift, with_autonomous_iter_cap,
+};
 pub use ops::run_subagent;
 pub use types::{
     SubagentCheckpointData, SubagentMode, SubagentRunError, SubagentRunOptions, SubagentRunOutcome,

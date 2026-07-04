@@ -434,9 +434,22 @@ P0, most P1 "untested" claims were **inaccurate against current `main`**. Verifi
   the ~20 controller domains with no `tests/` reference (the Phase 0 inventory allowlist to burn
   down). Approval×turn integration, journey spec, and the Playwright approval mirror need WDIO/PW.
 
-**Phase 4 — new dimensions (ongoing)**
-- proptest + cargo-fuzz targets; scoped cargo-mutants; jest-axe lane; migration fixture;
-  duration report; mock chaos modes + contract tests.
+**Phase 4 — new dimensions** — ⏳ partial (PR: `test/phase4-new-dimensions`). Unlike the §4 backlog,
+these are genuinely greenfield (the suite had zero of them), so they were built and validated:
+- [x] **proptest** (was absent): added as a dev-dep; property suite for the command classifier +
+  path check (never-panic on arbitrary/unicode input; fail-closed redirect floor). NOTE: an
+  encryption round-trip property was trialled but dropped — under coverage Argon2id is ~2.5s/case,
+  so it held the lib-test binary ~60s and deterministically exposed a pre-existing env-var race in
+  the unrelated `config::schema::load` env-overlay tests; the round-trip stays covered by the
+  Phase 1 fixed-input tests.
+- [x] **Mock chaos modes** (§5.3): `httpFaultRules` gains `mode: "reset"` (connection reset) and
+  `mode: "malformed"` (non-JSON 200) beyond clean statuses; `scripts/mock-api/chaos.test.mjs`
+  drives the real server (auto-run by the Phase 0 `test:scripts` job).
+- [x] **jest-axe a11y smoke lane** (§7 — the frontend had zero a11y assertions): axe-core over
+  ArtifactCard + ApprovalRequestCard asserting no violations.
+- [ ] Still open (larger tooling / own PRs): cargo-fuzz targets, scoped cargo-mutants on the P0
+  zones, criterion micro-benches, migration snapshot fixture, per-suite duration report,
+  mock↔backend contract test.
 
 ---
 

@@ -12,7 +12,7 @@
 //! them to the sub-agent prompt so the (vision-capable) sub-agent's turn
 //! rehydrates the image from the on-disk sidecar.
 //!
-//! Mirrors [`super::model_vision_context`]. Scoped around the orchestrator's
+//! A task-local carrier scoped around the orchestrator's
 //! turn future (`run_turn_via_tinyagents_shared`);
 //! [`current_turn_image_placeholders`] returns an empty vec when no scope is
 //! active (CLI / direct invocation / tests) — strictly additive.

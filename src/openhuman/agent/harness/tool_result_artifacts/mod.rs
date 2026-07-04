@@ -17,6 +17,17 @@ use tinyagents::harness::store::Store;
 
 const ARTIFACT_ROOT: &str = "artifacts/tool-results";
 const AGGREGATE_PREVIEW_BUDGET_BYTES: usize = 512;
+/// #4469 item 6: floor for how tightly a persisted `[tool_result_preview]`
+/// envelope may be bounded during aggregate spill. `allowed_len` can saturate to
+/// `0` (or a handful of bytes) once earlier-spilled results have already consumed
+/// the aggregate budget; bounding the envelope to that would return `""` — or a
+/// header cut mid-line — discarding the `artifact_path` pointer the model needs
+/// to `file_read` the full output. This floor keeps the envelope header (through
+/// the `artifact_path` / `read_with` lines) intact even when the raw budget math
+/// says zero; `apply_tool_result_budget` retains the head, so the pointer always
+/// survives. Slightly overshooting the aggregate budget here is the correct
+/// trade — a valid pointer is worth a few hundred bytes.
+const MIN_ENVELOPE_ALLOWANCE_BYTES: usize = 512;
 pub(crate) const TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE: &str = "openhuman_tool_result_artifacts";
 const TRAILER_RESERVED: usize = 256;
 
@@ -264,8 +275,13 @@ pub(crate) async fn apply_per_result_persistence(
             Ok(persisted) => {
                 let (output, final_bytes) = bound_text_to_budget(persisted.output, budget_bytes);
                 if final_bytes >= original_bytes {
+                    // #4469 item 9: this branch does NOT fall back to inline
+                    // truncation — the envelope is returned regardless, because it
+                    // carries the `artifact_path` pointer to the full stored output
+                    // (worth keeping even when the preview text nets no byte saving
+                    // vs. the raw result). Log it as an observation only.
                     log::debug!(
-                        "[agent][tool-result-artifacts] persisted envelope too large tool={} original_bytes={} final_bytes={} budget_bytes={} -- falling back to inline truncation",
+                        "[agent][tool-result-artifacts] persisted envelope not smaller than raw result tool={} original_bytes={} final_bytes={} budget_bytes={} -- keeping envelope for its artifact_path pointer",
                         tool_name,
                         original_bytes,
                         final_bytes,
@@ -362,7 +378,14 @@ pub(crate) async fn spill_aggregate_tool_results(
         };
         match persisted_output {
             Ok(persisted) => {
-                let (output, final_bytes) = bound_text_to_budget(persisted.output, allowed_len);
+                // #4469 item 6: never bound the preview envelope below the minimum
+                // that preserves its `[tool_result_preview]` header + artifact
+                // pointer — `allowed_len` can be 0 here, which would blank the
+                // result and strip the `artifact_path` the model reads to recover
+                // the full output.
+                let envelope_allowance = allowed_len.max(MIN_ENVELOPE_ALLOWANCE_BYTES);
+                let (output, final_bytes) =
+                    bound_text_to_budget(persisted.output, envelope_allowance);
                 total = total
                     .saturating_sub(original_len)
                     .saturating_add(final_bytes);
@@ -579,7 +602,21 @@ mod tests {
         spill_aggregate_tool_results(&mut results, Some(&store), 500).await;
 
         let total: usize = results.iter().map(|result| result.output.len()).sum();
-        assert!(total <= 500, "total={total}");
+        // #4469 item 6: the aggregate spill now floors each persisted envelope at
+        // MIN_ENVELOPE_ALLOWANCE_BYTES so the `[tool_result_preview]` header +
+        // `artifact_path` pointer always survives (previously an exhausted budget
+        // could blank a result to ""). That is a documented trade — the total may
+        // slightly overshoot the raw aggregate budget — so the invariant is now:
+        // (a) no envelope is blanked, and (b) the total stays bounded by the
+        // per-result floor rather than the raw budget.
+        assert!(
+            results.iter().all(|result| !result.output.is_empty()),
+            "no persisted envelope may be blanked — the artifact pointer must survive"
+        );
+        assert!(
+            total <= results.len() * MIN_ENVELOPE_ALLOWANCE_BYTES,
+            "total={total} exceeds the per-result envelope floor bound"
+        );
         assert!(tmp
             .path()
             .join("artifacts/tool-results/session/one/one.txt")

@@ -49,13 +49,16 @@ pub(crate) type IterationCursor = Arc<AtomicU32>;
 /// `tool_name` contract without the forwarder emitting those fragments itself.
 pub(crate) type ToolNameMap = Arc<Mutex<std::collections::HashMap<String, String>>>;
 
-/// Shared `call_id → (success, classified failure)` side-channel. The crate's
-/// `AgentEvent::ToolCompleted` carries only `call_id` + `tool_name` (no
-/// success/error), so `ToolOutcomeCaptureMiddleware::after_tool` — which does
-/// see the `ToolResult` — classifies each outcome and writes it here; the bridge
-/// reads it when projecting the live `ToolCallCompleted` event, so a failed tool
-/// surfaces real `success: false` + a user-facing `failure`. Absent entry (event
-/// projected before the middleware ran) falls back to `(true, None)`.
+/// Shared `call_id → (success, classified failure, elapsed_ms, output_chars)`
+/// side-channel. The crate's `AgentEvent::ToolCompleted` carries only `call_id`
+/// + `tool_name` (no success/error, duration, or output size), so
+/// `ToolOutcomeCaptureMiddleware::after_tool` — which does see the `ToolResult`
+/// (including the executor-measured `elapsed_ms` and the rendered content) —
+/// classifies each outcome and writes it here; the bridge reads it when
+/// projecting the live `ToolCallCompleted` event, so a failed tool surfaces real
+/// `success: false` + a user-facing `failure`, and a completed tool surfaces its
+/// real duration + output size instead of `0`/`0` (#4467, item 4). Absent entry
+/// (event projected before the middleware ran) falls back to `(true, None, 0, 0)`.
 pub(crate) type ToolFailureMap = Arc<
     Mutex<
         std::collections::HashMap<
@@ -63,10 +66,26 @@ pub(crate) type ToolFailureMap = Arc<
             (
                 bool,
                 Option<crate::openhuman::tool_status::ClassifiedFailure>,
+                u64,
+                usize,
             ),
         >,
     >,
 >;
+
+/// Shared FIFO carry of the per-call provider [`UsageInfo`] the model adapter
+/// observed, drained by the bridge when it records that call's usage. The crate
+/// `Usage` the harness surfaces on `AgentEvent::UsageRecorded` carries only token
+/// counts, so the backend-charged USD, the model's context window, and the
+/// cache-creation/reasoning token breakdown have no crate home — the model
+/// adapter pushes the full provider `UsageInfo` here (one push per provider
+/// response) and the bridge pops it (one pop per recorded model call, after the
+/// duplicate-usage dedupe guard) to restore charged-USD precedence and the full
+/// accounting (#4467, item 1). A pop that finds nothing (a fallback-route call
+/// that did not push, or an out-of-band usage event) degrades gracefully to a
+/// catalogue estimate.
+pub(crate) type ProviderUsageCarry =
+    Arc<Mutex<std::collections::VecDeque<crate::openhuman::inference::provider::UsageInfo>>>;
 
 /// An [`EventListener`] that pauses the run once `cap` model calls have
 /// completed, so the loop stops gracefully at the iteration budget (returning
@@ -124,6 +143,17 @@ struct BridgeState {
     cache_misses: u64,
 }
 
+/// Per-model-call figures `record_usage` resolved from the provider-usage
+/// carry (charged>estimate cost precedence + cache/reasoning breakdown),
+/// keyed by iteration so the subsequent `ModelCompleted` projection reports
+/// the same numbers as the wallet accounting.
+#[derive(Clone, Copy, Debug)]
+struct ResolvedCallFigures {
+    cost_usd: f64,
+    cache_creation_tokens: u64,
+    reasoning_tokens: u64,
+}
+
 /// An [`EventListener`] that mirrors harness events onto openhuman's progress
 /// sink and cost tracker.
 pub(crate) struct OpenhumanEventBridge {
@@ -144,9 +174,14 @@ pub(crate) struct OpenhumanEventBridge {
     /// `ThinkingForwarder` on tool-call start; read here to label the
     /// incremental tool-argument fragments projected off the crate stream.
     tool_names: ToolNameMap,
-    /// Shared `call_id → (success, failure)` side-channel written by
-    /// `ToolOutcomeCaptureMiddleware`; read when projecting `ToolCallCompleted`.
+    /// Shared `call_id → (success, failure, elapsed_ms, output_chars)`
+    /// side-channel written by `ToolOutcomeCaptureMiddleware`; read when
+    /// projecting `ToolCallCompleted`.
     failure_map: ToolFailureMap,
+    /// Shared FIFO carry of the per-call provider `UsageInfo` the model adapter
+    /// observed; drained in `record_usage` to restore backend-charged USD +
+    /// context-window + cache-creation/reasoning tokens the crate `Usage` drops.
+    usage_carry: ProviderUsageCarry,
     /// Model-call iterations whose `UsageRecorded` has already been folded into
     /// the global cost tracker (W2-budget-dedupe). A single model call can now
     /// surface **two** `UsageRecorded` events — one from the harness runtime
@@ -156,6 +191,9 @@ pub(crate) struct OpenhumanEventBridge {
     /// iteration cursor, bumped once per `ModelStarted`) so a given call's usage
     /// is recorded exactly once. See [`OpenhumanEventBridge::record_usage`].
     recorded_iterations: Mutex<std::collections::HashSet<u32>>,
+    /// Per-iteration figures resolved by `record_usage` (see
+    /// [`ResolvedCallFigures`]); taken by the `ModelCompleted` arm.
+    resolved_calls: Mutex<std::collections::HashMap<u32, ResolvedCallFigures>>,
     /// `call_id → start instant` for in-flight tool calls, written on
     /// `ToolStarted` and taken on `ToolCompleted` so the projected completion
     /// event carries a real `elapsed_ms` (the crate event has no timing).
@@ -179,6 +217,7 @@ impl OpenhumanEventBridge {
             Arc::default(),
             Arc::default(),
             Arc::default(),
+            Arc::default(),
         )
     }
 
@@ -194,6 +233,7 @@ impl OpenhumanEventBridge {
         cursor: IterationCursor,
         tool_names: ToolNameMap,
         failure_map: ToolFailureMap,
+        usage_carry: ProviderUsageCarry,
     ) -> Arc<Self> {
         Arc::new(Self {
             on_progress,
@@ -204,7 +244,9 @@ impl OpenhumanEventBridge {
             cursor,
             tool_names,
             failure_map,
+            usage_carry,
             recorded_iterations: Mutex::new(std::collections::HashSet::new()),
+            resolved_calls: Mutex::new(std::collections::HashMap::new()),
             tool_started_at: Mutex::new(std::collections::HashMap::new()),
             state: Mutex::new(BridgeState::default()),
         })
@@ -238,11 +280,40 @@ impl OpenhumanEventBridge {
         (s.cache_hits, s.cache_misses)
     }
 
-    /// Best-effort, non-blocking progress emit (drops on a full channel, like
-    /// the legacy streaming path).
+    /// Forward a progress event without ever silently dropping it under
+    /// backpressure (#4466). The crate `EventListener::on_event` callback is
+    /// **synchronous**, so we cannot `.await` a bounded `send()` inline the way
+    /// the legacy streaming path did. Fast path: `try_send`, which succeeds (and
+    /// stays fully synchronous + ordered) whenever the downstream channel has
+    /// room — the common case. Only when the channel is momentarily **full** do
+    /// we fall back to an awaited `send()` on a spawned task so the delta is
+    /// delivered under backpressure instead of being dropped (the old bug). A
+    /// `Closed` channel means the receiver is gone (turn tore down), where
+    /// dropping is correct.
     fn send(&self, progress: AgentProgress) {
-        if let Some(tx) = &self.on_progress {
-            let _ = tx.try_send(progress);
+        use tokio::sync::mpsc::error::TrySendError;
+        let Some(tx) = &self.on_progress else {
+            return;
+        };
+        match tx.try_send(progress) {
+            Ok(()) => {}
+            Err(TrySendError::Closed(_)) => {}
+            Err(TrySendError::Full(progress)) => {
+                // Backpressure, not capacity loss: hand the delta to an awaited
+                // `send()` on a spawned task rather than dropping it. Guard on a
+                // live runtime so a non-async construction path can't panic.
+                if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                    let tx = tx.clone();
+                    handle.spawn(async move {
+                        let _ = tx.send(progress).await;
+                    });
+                } else {
+                    tracing::debug!(
+                        model = %self.model,
+                        "[tinyagents] progress channel full and no runtime to defer send; dropping one delta"
+                    );
+                }
+            }
         }
     }
 
@@ -280,12 +351,79 @@ impl OpenhumanEventBridge {
                 return;
             }
         }
-        // Provider-reported charged USD has no home in the crate `Usage` (all
-        // token counts), so estimate this call's cost from catalogued per-MTok
-        // rates. Fixes the long-standing $0 cost on the tinyagents path, where a
-        // provider genuinely charges (credit-metered backends) preserving that
-        // exact amount needs an out-of-band carry — tracked as a follow-up.
-        let call_cost = Self::estimate_call_cost(&self.model, usage);
+        // Drain the provider-usage side-channel the model adapter fed for this
+        // model call (FIFO, one push per provider response). The crate `Usage`
+        // the harness surfaces carries only token counts, so the backend-charged
+        // USD, the model's context window, and the cache-creation/reasoning
+        // breakdown ride this out-of-band carry instead (#4467, item 1). Popped
+        // AFTER the dedupe guard above so the duplicate `UsageRecorded` re-emit
+        // (crate `BudgetMiddleware`) does not consume a second entry.
+        let carried = self
+            .usage_carry
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .pop_front();
+
+        // Estimate as the floor via the tier-aware `agent::cost` table (managed
+        // handles like `chat-v1`/`burst-v1` + the vendor catalog + heuristics —
+        // the catalog-only lookup priced every managed-tier call as $0); prefer
+        // the provider's own charged amount when it reported one (charged >
+        // estimate precedence, so credit-metered backends surface real billing
+        // rather than a token-rate estimate).
+        let estimate = Self::estimate_call_cost(&self.model, usage);
+        let call_cost = carried
+            .as_ref()
+            .map(|u| u.charged_amount_usd)
+            .filter(|c| c.is_finite() && *c > 0.0)
+            .unwrap_or(estimate);
+        // The context window + cache-creation/reasoning breakdown only exist on
+        // the carried provider usage (the crate `Usage` mapping drops them); fall
+        // back to the catalogue window and the crate token counts when absent.
+        let context_window = carried
+            .as_ref()
+            .map(|u| u.context_window)
+            .filter(|w| *w > 0)
+            .unwrap_or_else(|| {
+                crate::openhuman::cost::catalog::lookup(&self.model)
+                    .map(|p| u64::from(p.context_window))
+                    .unwrap_or(0)
+            });
+        let cache_creation_tokens = carried
+            .as_ref()
+            .map(|u| u.cache_creation_tokens)
+            .filter(|t| *t > 0)
+            .unwrap_or(usage.cache_creation_tokens);
+        let reasoning_tokens = carried
+            .as_ref()
+            .map(|u| u.reasoning_tokens)
+            .filter(|t| *t > 0)
+            .unwrap_or(usage.reasoning_tokens);
+        tracing::trace!(
+            model = %self.model,
+            iteration,
+            charged_from_provider = carried
+                .as_ref()
+                .map(|u| u.charged_amount_usd > 0.0)
+                .unwrap_or(false),
+            call_cost,
+            context_window,
+            "[cost] recording per-call usage (charged>estimate precedence via provider carry)"
+        );
+        // Stash the resolved per-call figures so the `ModelCompleted` arm (which
+        // fires right after this event and emits the `ModelCallCompleted`
+        // generation telemetry) reports the SAME cost/cache/reasoning numbers as
+        // the wallet accounting, instead of re-deriving a bare estimate.
+        self.resolved_calls
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .insert(
+                iteration,
+                ResolvedCallFigures {
+                    cost_usd: call_cost,
+                    cache_creation_tokens,
+                    reasoning_tokens,
+                },
+            );
         let (input, output, cached, charged) = {
             let mut s = self.state.lock().unwrap();
             s.input_tokens += usage.input_tokens;
@@ -305,18 +443,18 @@ impl OpenhumanEventBridge {
         let usage_info = UsageInfo {
             input_tokens: usage.input_tokens,
             output_tokens: usage.output_tokens,
-            context_window: 0,
+            context_window,
             cached_input_tokens: usage.cache_read_tokens,
-            cache_creation_tokens: usage.cache_creation_tokens,
-            reasoning_tokens: usage.reasoning_tokens,
+            cache_creation_tokens,
+            reasoning_tokens,
             charged_amount_usd: call_cost,
         };
-        if usage.reasoning_tokens > 0 || usage.cache_creation_tokens > 0 {
+        if reasoning_tokens > 0 || cache_creation_tokens > 0 {
             log::debug!(
                 "[cost] recording reasoning/cache-creation tokens model={} reasoning_tokens={} cache_creation_tokens={}",
                 self.model,
-                usage.reasoning_tokens,
-                usage.cache_creation_tokens
+                reasoning_tokens,
+                cache_creation_tokens
             );
         }
         crate::openhuman::cost::record_provider_usage(&self.model, &usage_info);
@@ -420,10 +558,15 @@ impl EventListener for OpenhumanEventBridge {
                 // shared map the forwarder populated on the tool-call start
                 // event (empty until the start marker lands — matching the
                 // legacy forwarder's own default). There is no `Subagent*`
-                // tool-arg variant, so child runs ride the top-level event too
-                // (parity with the forwarder's prior behavior).
+                // tool-arg variant, and an UNSCOPED top-level `ToolCallArgsDelta`
+                // emitted from a child run would render the child's argument
+                // composition as the *parent's* own timeline activity (#4467,
+                // item 6). v0.58.7 dropped child arg fragments, so restore that:
+                // only a parent/top-level turn projects these fragments; a child
+                // run drops them (its Started/Completed rows already carry the
+                // final arguments under the `Subagent*` scope).
                 if let Some(tool_call) = &delta.tool_call {
-                    if !tool_call.content.is_empty() {
+                    if self.scope.is_none() && !tool_call.content.is_empty() {
                         let tool_name = self
                             .tool_names
                             .lock()
@@ -467,7 +610,28 @@ impl EventListener for OpenhumanEventBridge {
             } => {
                 let iteration = self.iteration();
                 let usage = usage.unwrap_or_default();
-                let call_cost = Self::estimate_call_cost(&self.model, &usage);
+                // Prefer the figures `record_usage` resolved for this call
+                // (charged>estimate cost + carried cache/reasoning breakdown —
+                // `UsageRecorded` fires before `ModelCompleted`), so the
+                // generation telemetry matches the wallet accounting exactly;
+                // fall back to a bare tier-aware estimate when absent.
+                let resolved = self
+                    .resolved_calls
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .remove(&iteration);
+                let call_cost = resolved
+                    .as_ref()
+                    .map(|r| r.cost_usd)
+                    .unwrap_or_else(|| Self::estimate_call_cost(&self.model, &usage));
+                let cache_creation_tokens = resolved
+                    .as_ref()
+                    .map(|r| r.cache_creation_tokens)
+                    .unwrap_or(usage.cache_creation_tokens);
+                let reasoning_tokens = resolved
+                    .as_ref()
+                    .map(|r| r.reasoning_tokens)
+                    .unwrap_or(usage.reasoning_tokens);
                 log::debug!(
                     "[tinyagents][usage] model_call_completed model={} provider={} iteration={} \
                      child={} in={} out={} cache_read={} cache_write={} reasoning={} \
@@ -479,8 +643,8 @@ impl EventListener for OpenhumanEventBridge {
                     usage.input_tokens,
                     usage.output_tokens,
                     usage.cache_read_tokens,
-                    usage.cache_creation_tokens,
-                    usage.reasoning_tokens,
+                    cache_creation_tokens,
+                    reasoning_tokens,
                     call_cost,
                     input.is_some(),
                     output.is_some(),
@@ -495,8 +659,8 @@ impl EventListener for OpenhumanEventBridge {
                     input_tokens: usage.input_tokens,
                     output_tokens: usage.output_tokens,
                     cached_input_tokens: usage.cache_read_tokens,
-                    cache_creation_tokens: usage.cache_creation_tokens,
-                    reasoning_tokens: usage.reasoning_tokens,
+                    cache_creation_tokens,
+                    reasoning_tokens,
                     cost_usd: call_cost,
                 });
             }
@@ -655,6 +819,7 @@ impl EventListener for OpenhumanEventBridge {
                             arguments: Some(arguments.clone()),
                             elapsed_ms: 0,
                             iteration,
+                            failure,
                         });
                     }
                 }
@@ -711,16 +876,23 @@ impl EventListener for OpenhumanEventBridge {
                     .lock()
                     .ok()
                     .and_then(|mut m| m.remove(call_id.as_str()));
-                let success = outcome.as_ref().map(|(ok, _)| *ok).unwrap_or(true);
-                // Real timing from the ToolStarted stamp; 0 only if the start
-                // event was somehow never observed (defensive).
-                let elapsed_ms = self
+                let success = outcome.as_ref().map(|(ok, ..)| *ok).unwrap_or(true);
+                // Real execution duration + output size the capture middleware
+                // recorded off the `ToolResult` (#4467, item 4). Fall back to
+                // the bridge's own ToolStarted stamp for duration, and to the
+                // captured payload for size, when the middleware ran late.
+                let stamped_elapsed = self
                     .tool_started_at
                     .lock()
                     .unwrap_or_else(|p| p.into_inner())
                     .remove(call_id.as_str())
                     .map(|t| t.elapsed().as_millis() as u64)
                     .unwrap_or(0);
+                let elapsed_ms = outcome
+                    .as_ref()
+                    .map(|(_, _, e, _)| *e)
+                    .filter(|e| *e > 0)
+                    .unwrap_or(stamped_elapsed);
                 // Tool result text, captured by the harness when
                 // `RunPolicy.capture.tool_io` is on (the loop emits it as a
                 // JSON string). Empty when capture is off.
@@ -729,22 +901,27 @@ impl EventListener for OpenhumanEventBridge {
                     Some(v) => v.to_string(),
                     None => String::new(),
                 };
-                let output_chars = output_text.chars().count();
+                let output_chars = outcome
+                    .as_ref()
+                    .map(|(_, _, _, c)| *c)
+                    .filter(|c| *c > 0)
+                    .unwrap_or_else(|| output_text.chars().count());
+                // Carry the classified failure onto whichever completion event
+                // this projects — main-agent OR sub-agent (#4459). Previously
+                // the sub-agent branch dropped it on the floor.
+                let failure = outcome.and_then(|(_, f, _, _)| f);
                 match &self.scope {
-                    None => {
-                        let failure = outcome.and_then(|(_, f)| f);
-                        self.send(AgentProgress::ToolCallCompleted {
-                            call_id: call_id.as_str().to_string(),
-                            tool_name: tool_name.clone(),
-                            success,
-                            output_chars,
-                            output: output_text,
-                            arguments: input.clone(),
-                            elapsed_ms,
-                            iteration,
-                            failure,
-                        })
-                    }
+                    None => self.send(AgentProgress::ToolCallCompleted {
+                        call_id: call_id.as_str().to_string(),
+                        tool_name: tool_name.clone(),
+                        success,
+                        output_chars,
+                        output: output_text,
+                        arguments: input.clone(),
+                        elapsed_ms,
+                        iteration,
+                        failure,
+                    }),
                     Some(s) => self.send(AgentProgress::SubagentToolCallCompleted {
                         agent_id: s.agent_id.clone(),
                         task_id: s.task_id.clone(),
@@ -756,6 +933,7 @@ impl EventListener for OpenhumanEventBridge {
                         arguments: input.clone(),
                         elapsed_ms,
                         iteration,
+                        failure,
                     }),
                 }
             }
@@ -906,6 +1084,7 @@ mod tests {
             Arc::default(),
             Arc::default(),
             Arc::default(),
+            Arc::default(),
         );
         let sink = EventSink::new();
         sink.subscribe(bridge.clone());
@@ -973,6 +1152,7 @@ mod tests {
                 task_id: "ctx-1".to_string(),
                 extended_policy: true,
             }),
+            Arc::default(),
             Arc::default(),
             Arc::default(),
             Arc::default(),

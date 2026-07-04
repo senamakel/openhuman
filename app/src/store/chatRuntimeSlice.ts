@@ -174,6 +174,9 @@ export interface SubagentToolCallEntry {
   displayName?: string;
   /** Server-computed contextual detail (path / recipient / query). */
   detail?: string;
+  /** Plain-language explanation for a FAILED child call (#4459). Mirrors the
+   *  parent {@link ToolTimelineEntry.failure}; absent on successful rows. */
+  failure?: ToolFailureExplanation;
 }
 
 /**
@@ -677,6 +680,8 @@ function subagentToolCallFromPersisted(call: PersistedSubagentToolCall): Subagen
     outputChars: call.outputChars,
     displayName: call.displayName,
     detail: call.detail,
+    // Carry the persisted failure explanation across the round-trip (#4459).
+    failure: parseToolFailure(call.failure),
   };
 }
 

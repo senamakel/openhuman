@@ -75,7 +75,13 @@ fn tool_records_from_conversation(
         if let ConversationMessage::AssistantToolCalls { tool_calls, .. } = msg {
             for call in tool_calls {
                 let outcome = tool_outcomes.iter().find(|o| o.call_id == call.id);
-                let success = outcome.map(|o| o.success).unwrap_or(true);
+                // Default a MISSING outcome to `false` (#4467, item 7): a call
+                // with no captured outcome is a hallucinated/unknown tool the
+                // crate recovered via `ReturnToolError` without running
+                // `after_tool` (so the capture sink never saw it). Recording it as
+                // succeeded misreports the timeline; real executed tools always
+                // have an outcome, so this only flips the genuinely-unknown case.
+                let success = outcome.map(|o| o.success).unwrap_or(false);
                 let output_summary = outcome
                     .map(|o| hooks::sanitize_tool_output(&o.content, &call.name, success))
                     .unwrap_or_default();
@@ -689,10 +695,13 @@ impl Agent {
         // read the parent's provider, tools, model, and workspace via
         // the PARENT_CONTEXT task-local.
         // Arm the thread-goal budget stop hook for this turn when an active,
-        // budgeted goal exists — it hard-stops the loop the moment running usage
-        // would exceed the cap (so an autonomous run can't blow past it between
-        // accounting points). Merge with any ambient stop hooks rather than
-        // clobbering them. No budgeted active goal → no extra hook, no wrap.
+        // budgeted goal exists — it votes to stop the loop as soon as running
+        // usage would exceed the cap. #4469 item 1: the stop is a graceful pause
+        // drained at the next iteration boundary, not an instantaneous abort, so
+        // the current tool round + one wrap-up summary call can still run past the
+        // cap (a small, bounded overshoot) before the partial transcript returns.
+        // Merge with any ambient stop hooks rather than clobbering them. No
+        // budgeted active goal → no extra hook, no wrap.
         let mut turn_stop_hooks = crate::openhuman::agent::stop_hooks::current_stop_hooks();
         if let Some(ref goal) = active_goal {
             if let Some(hook) =
@@ -900,6 +909,9 @@ impl Agent {
             // Progressive-disclosure handoff is a sub-agent (integrations_agent)
             // concern; the top-level chat turn never sets it.
             handoff: None,
+            // Live transcript snapshotting is a sub-agent error-recovery concern
+            // (#4466); the chat path persists its transcript post-run.
+            transcript_snapshot: None,
         };
 
         // Gather any sub-agent spend delegated during this turn (synchronous
@@ -989,6 +1001,28 @@ impl Agent {
             // A completion with no text and no tool calls is never a valid final
             // answer — surface it as an error instead of wedging the thread on a
             // blank reply (bug-report-2026-05-26 A1, defect B).
+            //
+            // #4457 (defect A): the empty terminal assistant response was already
+            // folded into `self.history` via `outcome.conversation` at the
+            // `history.extend` above (an empty `Chat(assistant(""))`). The #4093
+            // branch below pops that dangling blank row before re-prompting, but
+            // this `tool_calls == 0` path returned the error with the empty row
+            // still in history — so the *next* request carried an empty-content
+            // assistant message and strict providers (Anthropic: "text content
+            // blocks must be non-empty") 400 the whole thread, not just this turn.
+            // Pop the trailing empty assistant row before returning so a retry
+            // sends a clean transcript.
+            if matches!(
+                self.history.last(),
+                Some(ConversationMessage::Chat(msg))
+                    if msg.role == "assistant" && msg.content.trim().is_empty()
+            ) {
+                log::debug!(
+                    "[agent_loop] EmptyProviderResponse at iteration {}: popping dangling empty assistant row before returning — #4457 defect A",
+                    outcome.model_calls
+                );
+                self.history.pop();
+            }
             return Err(anyhow::Error::new(
                 crate::openhuman::agent::error::AgentError::EmptyProviderResponse {
                     iteration: outcome.model_calls,
@@ -1122,14 +1156,32 @@ impl Agent {
         .await;
 
         // Content (prompt + reply) rides its own event so a tracing consumer can
-        // attach it to the turn span. Transmission off-device stays gated by the
-        // exporter's opt-in `capture_content` flag; here it is only surfaced onto
-        // the in-memory span.
-        self.emit_progress(AgentProgress::TurnContent {
-            input: Some(user_message.to_string()),
-            output: Some(reply.clone()),
-        })
-        .await;
+        // attach it to the turn span. Gated on the opt-in
+        // `observability.agent_tracing.capture_content` flag (#4454): with the
+        // default off, we don't even emit the content event, so prompt/reply text
+        // never reaches the span store or any exporter. The collector applies the
+        // same storage-level gate as defense in depth.
+        let capture_content = self
+            .integration_runtime_config
+            .as_ref()
+            .map(|c| c.observability.agent_tracing.capture_content)
+            .unwrap_or(false);
+        if capture_content {
+            log::debug!(
+                target: "agent-tracing",
+                "[agent-tracing] emitting TurnContent (capture_content=true)"
+            );
+            self.emit_progress(AgentProgress::TurnContent {
+                input: Some(user_message.to_string()),
+                output: Some(reply.clone()),
+            })
+            .await;
+        } else {
+            log::debug!(
+                target: "agent-tracing",
+                "[agent-tracing] skipping TurnContent emit (capture_content=false)"
+            );
+        }
 
         self.emit_progress(AgentProgress::TurnCompleted {
             iterations: outcome.model_calls as u32,

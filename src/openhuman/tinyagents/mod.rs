@@ -19,6 +19,7 @@
 //! `ask_user_clarification` early-exit pause are all re-wired onto the
 //! tinyagents harness.
 
+mod abort_guard;
 mod convert;
 pub(crate) mod delegation;
 mod embeddings;
@@ -33,6 +34,7 @@ pub(crate) mod replay;
 pub(crate) mod retriever;
 mod routes;
 mod run_cancellation_context;
+mod steering_forwarder;
 pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;
 mod summarize;
@@ -45,16 +47,14 @@ use anyhow::Result;
 use tinyagents::harness::cache::InMemoryResponseCache;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
-use tinyagents::harness::message::Message as TaMessage;
 use tinyagents::harness::middleware::{
-    BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware, MessageTrimMiddleware,
-    PromptCacheGuardMiddleware, ToolPolicyMiddleware as TaToolPolicyMiddleware,
+    BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware, PromptCacheGuardMiddleware,
+    ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
-use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
+use tinyagents::harness::steering::SteeringHandle;
 use tinyagents::harness::store::StoreRegistry;
-use tinyagents::harness::summarization::TrimStrategy;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
 use tinyagents::registry::{
     CapabilityRegistry, ComponentKind, DiagnosticSeverity, RegistryDiagnostic, RegistrySnapshot,
@@ -70,11 +70,14 @@ use model::ThinkingForwarder;
 
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
-pub(crate) use middleware::{HandoffConfig, SuperContextConfig, TurnContextMiddleware};
+pub(crate) use middleware::{
+    HandoffConfig, SuperContextConfig, TranscriptSnapshotSink, TurnContextMiddleware,
+};
 use model::ProviderModel;
 pub(crate) use observability::SubagentScope;
 use observability::{
-    CapPauser, IterationCursor, OpenhumanEventBridge, ToolFailureMap, ToolNameMap,
+    CapPauser, IterationCursor, OpenhumanEventBridge, ProviderUsageCarry, ToolFailureMap,
+    ToolNameMap,
 };
 pub(crate) use run_cancellation_context::{current_run_cancellation, with_run_cancellation};
 #[cfg(test)]
@@ -100,34 +103,6 @@ pub(crate) struct ToolPolicyEnforcement {
     pub session_id: String,
     pub channel: String,
     pub agent_definition_id: String,
-}
-
-/// Drain the run queue's pending steer messages and forward them to the
-/// tinyagents [`SteeringHandle`] as injected user turns (the harness applies
-/// them to the working transcript at the next iteration checkpoint). This is the
-/// bridge behind the `steer_subagent` / mid-flight-steering feature.
-async fn forward_steers(queue: &RunQueue, handle: &SteeringHandle) {
-    for msg in queue.drain_steers().await {
-        handle.send(SteeringCommand::InjectMessage(TaMessage::user(format!(
-            "[User steering message]: {}",
-            msg.text
-        ))));
-    }
-}
-
-/// Forward any queued **collect** messages (orchestrator/monitor lines enqueued
-/// via `QueueMode::Collect`) into the run as injected user turns so they reach the
-/// next LLM call as additional context. The in-house loop drained these each
-/// iteration (`drain_collects`); the tinyagents rewrite wired only `forward_steers`
-/// (issue #4249), so monitor lines never reached the model. Mirrors the legacy
-/// `[Additional context from user]:` framing the model was taught to read.
-async fn forward_collects(queue: &RunQueue, handle: &SteeringHandle) {
-    for msg in queue.drain_collects().await {
-        handle.send(SteeringCommand::InjectMessage(TaMessage::user(format!(
-            "[Additional context from user]: {}",
-            msg.text
-        ))));
-    }
 }
 
 /// Build the harness [`RunPolicy`] for an openhuman turn.
@@ -252,6 +227,13 @@ pub(crate) struct TinyagentsTurnOutcome {
     /// should summarize a resumable checkpoint rather than treat `text` as a
     /// final answer — the tinyagents analogue of the legacy cap checkpoint seam.
     pub hit_cap: bool,
+    /// Set (with the root-cause halt summary) when the repeated-tool-failure /
+    /// repeat-progress circuit breaker halted the run before a natural finish.
+    /// The sub-agent runner surfaces this as `SubagentRunStatus::Incomplete`
+    /// (#4466) so a parent does NOT treat a halted child as a clean completion.
+    /// `text` already carries this same summary; the flag lets the status mapper
+    /// distinguish a breaker halt from a genuine final answer.
+    pub breaker_halt: Option<String>,
     /// Per-tool-call execution outcomes (success + raw result content), keyed by
     /// provider call id, captured at the tool boundary. The harness folds a tool
     /// result into a `Message::tool` that drops its `error` flag, so this is the
@@ -331,11 +313,28 @@ pub(crate) async fn run_turn_via_tinyagents(
     );
 
     let input = convert::history_to_messages(&history);
+    // Explicit persistence boundary (issue #4455): the request transcript length,
+    // captured *before* the run consumes `input`. Everything the harness appends
+    // after this index — assistant/tool rounds plus any mid-turn steer messages —
+    // is this turn's persisted `conversation`. Anchoring on this index instead of
+    // the last-user-message suffix keeps injected steers (which move that
+    // boundary) from truncating persisted history.
+    let request_base_len = input.len();
     // Box the (large) harness drive future — see `run_turn_via_tinyagents_shared`.
     let run = match Box::pin(harness.invoke(&(), (), config, input)).await {
         Ok(run) => run,
         Err(e) => {
-            if let Some(original) = error_slot.lock().unwrap().take() {
+            // #4469 item 3: recover from a poisoned slot instead of panicking.
+            // A thread that panicked mid-run while holding this mutex would
+            // otherwise turn every subsequent error-recovery read into a second
+            // panic, masking the original provider failure. `into_inner` yields
+            // the guarded value regardless of poison so we still re-surface the
+            // typed error.
+            if let Some(original) = error_slot
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take()
+            {
                 return Err(original);
             }
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
@@ -344,8 +343,16 @@ pub(crate) async fn run_turn_via_tinyagents(
 
     let text = run.text().unwrap_or_default();
     let out_history = convert::messages_to_history(&run.messages);
-    let conversation =
-        convert::messages_to_conversation(convert::messages_since_last_user(&run.messages));
+    let conversation = convert::messages_to_conversation(convert::messages_since_request(
+        &run.messages,
+        request_base_len,
+    ));
+    tracing::debug!(
+        request_base_len,
+        transcript_len = run.messages.len(),
+        persisted_messages = run.messages.len().saturating_sub(request_base_len),
+        "[tinyagents] persisting post-request transcript (thin path; steer-safe boundary)"
+    );
 
     Ok(TinyagentsTurnOutcome {
         text,
@@ -364,6 +371,8 @@ pub(crate) async fn run_turn_via_tinyagents(
         ),
         early_exit_tool: None,
         hit_cap: false,
+        // This thin (test-only) variant does not install the breaker middleware.
+        breaker_halt: None,
         // This thin variant carries no per-call outcome capture middleware.
         tool_outcomes: Vec::new(),
     })
@@ -378,8 +387,14 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// advertised spec so the same `Arc`-shared tools the legacy loop runs are
 /// reused without cloning.
 ///
-/// `allowed` is the callable tool-name whitelist (empty = every tool visible in
-/// `tool_sets`); each callable tool is advertised via its own `spec()`.
+/// `allowed` is the callable tool-name whitelist. Its semantics are
+/// **fail-closed** (issue #4452): `None` means "no filter supplied" → every tool
+/// visible in `tool_sets` is registered; `Some(set)` registers *exactly* the
+/// named tools, so `Some(empty)` is an explicit **deny-all** (zero tools). This
+/// distinction is what stops a tool-less sub-agent (`ToolScope::Named([])`, a
+/// zero-match `skill_filter`, or a `named` list that resolves to nothing) from
+/// silently inheriting the parent's full tool surface (shell/file-write/spawn).
+/// Each registered tool is advertised via its own `spec()`.
 ///
 /// When `on_progress` is `Some`, the run streams (`invoke_streaming_in_context`)
 /// and a [`OpenhumanEventBridge`] mirrors the harness event stream onto
@@ -388,13 +403,29 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// produced. Pass `None` for fire-and-forget turns (channel/sub-agent) that
 /// only need the final text.
 ///
-/// When `context_window` is known, a [`MessageTrimMiddleware`] keeps history
-/// under budget (autocompaction parity).
+/// When `context_window` is known, an
+/// [`ImageAwareMessageTrimMiddleware`](middleware::ImageAwareMessageTrimMiddleware)
+/// keeps history under budget (autocompaction parity).
 ///
 /// `run_queue` forwards mid-flight steer messages into the run; `subagent_scope`
 /// re-scopes progress to the `Subagent*` variants (child runs); `early_exit_tools`
 /// name the tools that pause the loop (e.g. `ask_user_clarification`) and surface
 /// the question via [`TinyagentsTurnOutcome::early_exit_tool`].
+/// True when `name` is a sub-agent spawn/delegation tool that a **child** run
+/// must never be able to invoke (issue #4452). Mirrors the caller-side strip in
+/// `subagent_runner::tool_prep::is_subagent_spawn_tool` plus the worker-thread
+/// spawn, re-asserted at registration as defense-in-depth so a misconfigured
+/// allowlist cannot reintroduce sub-agent spawning into a nested run. Kept local
+/// to this seam (rather than importing the `pub(super)` runner helper) so the
+/// invariant travels with the registration site that enforces it.
+fn is_subagent_spawn_or_delegate_tool(name: &str) -> bool {
+    name == "spawn_subagent"
+        || name.starts_with("delegate_")
+        || name == "use_tinyplace"
+        || name == "agent_prepare_context"
+        || name == "spawn_worker_thread"
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_turn_via_tinyagents_shared(
     provider: Arc<dyn Provider>,
@@ -402,7 +433,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     temperature: f64,
     history: Vec<ChatMessage>,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
-    allowed: HashSet<String>,
+    allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
@@ -415,6 +446,15 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     tool_policy: Option<ToolPolicyEnforcement>,
     workspace_descriptor: Option<WorkspaceDescriptor>,
     deterministic_cacheable: bool,
+    // #4457 (defect C): when `true`, the seam does NOT emit the terminal
+    // `TurnCompleted` — the caller emits it itself *after* its post-run wrap-up
+    // (e.g. the chat/session path streams a cap/#4093 checkpoint via
+    // `summarize_turn_wrapup` after this seam returns, so a seam-level emit here
+    // would land `turn_active = false` before that checkpoint finishes
+    // streaming, and the web bridge would record two ledger events + two
+    // Completed upserts). Callers with no post-run streaming (channel/CLI) pass
+    // `false` and rely on this seam's emit for parity with the legacy engine.
+    defer_turn_completed_to_caller: bool,
 ) -> Result<TinyagentsTurnOutcome> {
     // `0` means "unset" → the legacy default (a native-bus / test convention);
     // otherwise the harness model-call cap would be zero and abort the run before
@@ -429,6 +469,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         cursor,
         tool_names,
         failure_map,
+        provider_usage_carry,
         error_slot,
         halt_summary,
         tool_outcome_sink,
@@ -527,6 +568,14 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     );
 
     let input = convert::history_to_messages(&history);
+    // Explicit persistence boundary (issue #4455): the request transcript length,
+    // captured *before* the run consumes `input`. The turn's persisted
+    // `conversation` is everything appended past this index — assistant/tool
+    // rounds plus any mid-turn steer/collect messages injected as user turns.
+    // Anchoring here (instead of the last-user-message suffix) keeps injected
+    // steers from moving the boundary and truncating persisted history on both
+    // the parent (`session/turn/core.rs`) and subagent (`subagent_runner`) paths.
+    let request_base_len = input.len();
 
     // Build the run context: an optional event sink feeds the progress/cost
     // bridge (streaming) and/or the model-call-cap pauser; the shared steering
@@ -575,8 +624,11 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // `TurnCompleted` after the run (the harness event stream the bridge mirrors
     // has no run-completed event). Parent turns only — a sub-agent turn reports
     // via its `Subagent*` events, not a top-level `TurnCompleted`.
-    let turn_completed_sink = subagent_scope
-        .is_none()
+    //
+    // #4457 (defect C): suppressed entirely when `defer_turn_completed_to_caller`
+    // is set — the caller (chat/session path) emits the single terminal
+    // `TurnCompleted` itself, after its post-run wrap-up finishes streaming.
+    let turn_completed_sink = (subagent_scope.is_none() && !defer_turn_completed_to_caller)
         .then(|| on_progress.clone())
         .flatten();
     // A sink is needed to mirror progress (bridge), to observe model-call
@@ -593,23 +645,31 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     let journal_run_id = journal::mint_run_id();
     let events = Some(EventSink::with_stream_id(journal_run_id.as_str()));
 
-    let bridge = match (&events, on_progress) {
-        (Some(events), Some(tx)) => {
-            let bridge = OpenhumanEventBridge::with_scope(
-                Some(tx),
-                model,
-                provider_id.clone(),
-                max_iterations,
-                subagent_scope.clone(),
-                cursor.clone(),
-                tool_names.clone(),
-                failure_map.clone(),
-            );
-            events.subscribe(bridge.clone());
-            Some(bridge)
-        }
-        _ => None,
-    };
+    // Attach the event bridge for EVERY turn — including an unobserved
+    // (`on_progress = None`) background/cron turn (#4467, item 3). The bridge's
+    // `record_usage` feeds the global cost tracker on each `UsageRecorded` event
+    // *during* the run, so a run that burns N model calls and then fails still
+    // contributes that spend to the wallet/cost surfaces — the post-run
+    // `record_unobserved_turn_usage` fallback below only runs on the success path
+    // and never sees a failed run's usage. With `on_progress = None` the bridge
+    // still records cost but its progress `send`s are inert no-ops, so there is
+    // no spurious streaming. `events` is created unconditionally above, so the
+    // bridge is always present.
+    let bridge = events.as_ref().map(|events| {
+        let bridge = OpenhumanEventBridge::with_scope(
+            on_progress,
+            model,
+            provider_id.clone(),
+            max_iterations,
+            subagent_scope.clone(),
+            cursor.clone(),
+            tool_names.clone(),
+            failure_map.clone(),
+            provider_usage_carry.clone(),
+        );
+        events.subscribe(bridge.clone());
+        bridge
+    });
 
     // Cap pauser: stop gracefully at the model-call budget (returning the partial
     // transcript) so the caller can summarize a checkpoint instead of erroring.
@@ -644,33 +704,62 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
 
     // Steering: attach the shared handle (when present), drain any already-queued
     // steer messages into it (so a pre-run steer lands before the first model
-    // call), and forward mid-flight steers via a poller aborted when the run
-    // returns. The same handle carries the early-exit `Pause`.
-    let mut registered_steering_task_id = None;
-    let steering_forwarder = if let Some(handle) = handle {
-        if let Some(scope) = &subagent_scope {
+    // call), and forward mid-flight steers via a poll loop. The same handle
+    // carries the early-exit `Pause`.
+    //
+    // Best-effort thread label for the delivery/requeue observability events and
+    // the metadata on any requeued steer: a sub-agent uses its task id; the
+    // interactive/channel parent turn reads the task-local turn origin.
+    let steer_thread_label = subagent_scope
+        .as_ref()
+        .map(|s| s.task_id.clone())
+        .or_else(|| match crate::openhuman::agent::turn_origin::current() {
+            Some(crate::openhuman::agent::turn_origin::AgentTurnOrigin::WebChat {
+                thread_id,
+                ..
+            }) => Some(thread_id),
+            Some(crate::openhuman::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+                reply_target,
+                ..
+            }) => Some(reply_target),
+            _ => None,
+        })
+        .unwrap_or_default();
+
+    // The forwarder is wrapped in an abort-on-drop RAII guard (issue #4456): its
+    // `Drop` aborts the poll task, deregisters the sub-agent steering handle, and
+    // drains residual (delivered-but-unapplied) steers back into the session run
+    // queue. Because the guard is held across the drive future, that cleanup runs
+    // identically on normal return, error, AND drop-cancellation — the previous
+    // manual `forwarder.abort()` after the drive future only ran on normal
+    // return, so a cancelled turn (web interrupt / sub-agent abort, both
+    // drop-based) leaked a forwarder task that looped forever and raced the next
+    // turn for the shared run queue.
+    let steering_forwarder_guard = if let Some(handle) = handle {
+        let registry_task_id = if let Some(scope) = &subagent_scope {
             let task_id = orchestration::TaskId::new(scope.task_id.clone());
             orchestration::shared_steering_registry().register(task_id.clone(), handle.clone());
             tracing::debug!(
                 task_id = scope.task_id.as_str(),
                 "[tinyagents] registered subagent steering handle"
             );
-            registered_steering_task_id = Some(task_id);
-        }
+            Some(task_id)
+        } else {
+            None
+        };
+        // Pre-run drain so a steer/collect queued before the turn started lands
+        // ahead of the first model call.
         if let Some(queue) = run_queue.clone() {
-            forward_steers(&queue, &handle).await;
-            forward_collects(&queue, &handle).await;
+            steering_forwarder::forward_steers(&queue, &handle, &steer_thread_label).await;
+            steering_forwarder::forward_collects(&queue, &handle, &steer_thread_label).await;
         }
         ctx = ctx.with_steering(handle.clone());
-        run_queue.map(|queue| {
-            tokio::spawn(async move {
-                loop {
-                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-                    forward_steers(&queue, &handle).await;
-                    forward_collects(&queue, &handle).await;
-                }
-            })
-        })
+        Some(steering_forwarder::SteeringForwarderGuard::new(
+            handle,
+            run_queue,
+            registry_task_id,
+            steer_thread_label.clone(),
+        ))
     } else {
         None
     };
@@ -688,16 +777,12 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         }
     })
     .await;
-    if let Some(forwarder) = steering_forwarder {
-        forwarder.abort();
-    }
-    if let Some(task_id) = registered_steering_task_id {
-        orchestration::shared_steering_registry().deregister(&task_id);
-        tracing::debug!(
-            task_id = task_id.as_str(),
-            "[tinyagents] deregistered subagent steering handle"
-        );
-    }
+    // Drive future returned: run cleanup now (abort poll task + deregister +
+    // requeue residual steers) rather than deferring to end-of-scope so the poll
+    // loop cannot deliver into the no-longer-drained handle during post-run
+    // journal/mapping work. On a *cancelled* turn this line is never reached; the
+    // guard's `Drop` fires as the turn future unwinds, giving identical cleanup.
+    drop(steering_forwarder_guard);
     let run = match run_result {
         Ok(run) => run,
         Err(e) => {
@@ -706,11 +791,18 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             if let Some(journal) = &turn_journal {
                 journal.finish_failed(&e.to_string()).await;
             }
-            // Prefer the original typed provider error (preserves `AgentError`
-            // downcasts the caller relies on) over the harness's string wrap.
-            if let Some(original) = error_slot.lock().unwrap().take() {
-                return Err(original);
-            }
+            // #4457 (defect B): map the run's *own* definitively-non-provider
+            // failure kinds FIRST, before consulting `error_slot`. The slot
+            // preserves the last provider error the model adapter saw — but the
+            // adapter now clears it on every successful call (see
+            // `ProviderModel::chat`/`stream`), so a stale slot should not exist
+            // here. Ordering the cap/depth mappings ahead of the slot is
+            // defense-in-depth: a run that failed on the model-call cap or a
+            // spawn-depth limit is not a provider error, so it must surface as
+            // `MaxIterationsExceeded` / the depth error rather than a leftover
+            // provider error (wrong classification, wrong Sentry suppression,
+            // wrong user message).
+            //
             // The model-call cap (when not pausing gracefully — the channel/CLI
             // path) maps to the typed `AgentError::MaxIterationsExceeded` so
             // callers downcast it (Sentry skip) and render the canonical
@@ -718,6 +810,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             // legacy `ErrorCheckpoint`.
             if let tinyagents::TinyAgentsError::LimitExceeded(msg) = &e {
                 if msg.contains("model call") {
+                    tracing::debug!(
+                        model,
+                        "[tinyagents] run hit the model-call cap; mapping to MaxIterationsExceeded (not consulting error_slot) — #4457 defect B"
+                    );
                     return Err(anyhow::Error::new(
                         crate::openhuman::agent::error::AgentError::MaxIterationsExceeded {
                             max: max_iterations,
@@ -727,6 +823,24 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             }
             if let Some(depth_err) = tinyagents_depth_error(&e) {
                 return Err(anyhow::Error::new(depth_err));
+            }
+            // Otherwise prefer the original typed provider error (preserves
+            // `AgentError` downcasts the caller relies on) over the harness's
+            // string wrap — this is where a genuine model/provider failure that
+            // halted the run is re-surfaced with its real classification.
+            // #4469 item 3: `into_inner` recovers a poisoned slot so a panic in
+            // one run can't cascade into a second panic here that would mask the
+            // original typed provider error.
+            if let Some(original) = error_slot
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take()
+            {
+                tracing::debug!(
+                    model,
+                    "[tinyagents] re-surfacing typed provider error from error_slot as the run failure — #4457 defect B"
+                );
+                return Err(original);
             }
             return Err(anyhow::anyhow!("tinyagents harness run failed: {e}"));
         }
@@ -796,6 +910,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // Terminal turn event (parity with the legacy engine's `progress::emit`): the
     // harness stream has no run-completed event, so emit `TurnCompleted` here with
     // the model-call count as the iteration total. Parent turns only; best-effort.
+    // `turn_completed_sink` is `None` for sub-agent turns AND when the caller
+    // opted to emit the terminal event itself after its post-run wrap-up
+    // (`defer_turn_completed_to_caller`, #4457 defect C) — so this is the single
+    // emission point for callers with no post-run streaming (channel/CLI).
     if let Some(sink) = &turn_completed_sink {
         let _ = sink.try_send(AgentProgress::TurnCompleted {
             iterations: run.model_calls as u32,
@@ -873,8 +991,17 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         None => (None, run.text().unwrap_or_default()),
     };
 
-    if let Some(summary) = breaker_halt {
-        text = summary;
+    // Carry the breaker halt onto the outcome so the sub-agent runner can report
+    // `Incomplete` (#4466). `text` is overridden with the same root-cause summary
+    // so callers with no breaker-awareness still surface the cause, not an empty
+    // last-model reply.
+    if let Some(summary) = &breaker_halt {
+        tracing::info!(
+            model,
+            subagent = subagent_scope.is_some(),
+            "[tinyagents] run halted by circuit breaker; surfacing as breaker_halt (#4466)"
+        );
+        text = summary.clone();
     }
 
     let tool_outcomes = tool_outcome_sink
@@ -882,12 +1009,23 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         .map(|guard| guard.clone())
         .unwrap_or_default();
 
+    let conversation = convert::messages_to_conversation(convert::messages_since_request(
+        &run.messages,
+        request_base_len,
+    ));
+    tracing::debug!(
+        model,
+        request_base_len,
+        transcript_len = run.messages.len(),
+        persisted_messages = run.messages.len().saturating_sub(request_base_len),
+        subagent = subagent_scope.is_some(),
+        "[tinyagents] persisting post-request transcript (shared path; steer-safe boundary)"
+    );
+
     Ok(TinyagentsTurnOutcome {
         text,
         history: convert::messages_to_history(&run.messages),
-        conversation: convert::messages_to_conversation(convert::messages_since_last_user(
-            &run.messages,
-        )),
+        conversation,
         model_calls: run.model_calls,
         tool_calls: run.tool_calls,
         input_tokens,
@@ -896,6 +1034,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         charged_amount_usd,
         early_exit_tool,
         hit_cap,
+        breaker_halt,
         tool_outcomes,
     })
 }
@@ -931,10 +1070,15 @@ struct AssembledTurnHarness {
     /// writes it on tool-call start; the event bridge reads it to label the
     /// tool-argument fragments it now projects off the crate stream.
     tool_names: ToolNameMap,
-    /// Shared `call_id → (success, failure)` side-channel: the tool-outcome
-    /// capture middleware classifies each outcome; the event bridge reads it to
-    /// project real success + a user-facing failure onto `ToolCallCompleted`.
+    /// Shared `call_id → (success, failure, elapsed_ms, output_chars)`
+    /// side-channel: the tool-outcome capture middleware classifies each outcome
+    /// + records its duration/output size; the event bridge reads it to project
+    /// real success + a user-facing failure + timing onto `ToolCallCompleted`.
     failure_map: ToolFailureMap,
+    /// Shared FIFO carry of per-call provider `UsageInfo` (charged USD + context
+    /// window): the model adapter pushes, the event bridge pops when recording
+    /// usage — restores charged-USD precedence on the tinyagents path (#4467).
+    provider_usage_carry: ProviderUsageCarry,
     /// Recovers the original (downcastable) provider error on run failure.
     error_slot: crate::openhuman::tinyagents::model::ProviderErrorSlot,
     /// Root-cause summary recorded by the repeated-tool-failure breaker.
@@ -980,7 +1124,7 @@ fn assemble_turn_harness(
     model: &str,
     temperature: f64,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
-    allowed: HashSet<String>,
+    allowed: Option<HashSet<String>>,
     max_iterations: usize,
     on_progress: Option<Sender<AgentProgress>>,
     subagent_scope: Option<SubagentScope>,
@@ -1028,10 +1172,16 @@ fn assemble_turn_harness(
     // tool-call start (the crate `ToolDelta` carries none), the bridge reads it
     // to label the argument fragments now streamed via `MessageDelta.tool_call`.
     let tool_names: ToolNameMap = Arc::default();
+    // Shared FIFO carry of per-call provider `UsageInfo`: the model adapter
+    // pushes each successful response's usage (charged USD + context window +
+    // cache-creation/reasoning tokens the crate `Usage` drops), the event bridge
+    // pops it when recording that call's usage (#4467, item 1).
+    let provider_usage_carry: ProviderUsageCarry = Arc::default();
     // Keep a provider handle for the context-window summarizer (the run consumes
     // the other clone into the `ProviderModel`).
     let summary_provider = provider.clone();
-    let mut provider_model = ProviderModel::new(provider, model, temperature);
+    let mut provider_model = ProviderModel::new(provider, model, temperature)
+        .with_usage_carry(provider_usage_carry.clone());
     // Cap the model's per-call output budget (parity with the legacy engine,
     // which bounded the main agent at `AGENT_TURN_MAX_OUTPUT_TOKENS` and each
     // sub-agent at its `max_turn_output_tokens`). Without this the tinyagents
@@ -1155,6 +1305,19 @@ fn assemble_turn_harness(
         )));
     }
 
+    // Repeat-progress breaker (issue #4463, restoring #4088 / #4095): the failure
+    // breaker above resets on every success, so a model looping on a *successful*
+    // no-op tool or re-emitting an identical narration+call never trips it. This
+    // guard halts on identical successful `(tool, args)` batches / identical
+    // outputs, sharing the same halt-summary slot + steering handle. Polling tools
+    // (`wait_subagent`) stay exempt.
+    if let Some(handle) = &handle {
+        harness.push_middleware(Arc::new(middleware::RepeatProgressMiddleware::new(
+            handle.clone(),
+            halt_summary.clone(),
+        )));
+    }
+
     // Policy-driven stop hooks (budget cap, thread-goal budget, ad-hoc iteration
     // ceiling): fire after each model call and pause the run on the first stop
     // vote. Replaces the legacy tool-call-loop firing point.
@@ -1177,7 +1340,23 @@ fn assemble_turn_harness(
         .map(|h| EarlyExitHook::new(h.clone()));
 
     // Register one adapter per unique callable tool name found across the shared
-    // sets (newest set wins on a name clash; `allowed` empty = all visible).
+    // sets (newest set wins on a name clash). Allowlist semantics are
+    // **fail-closed** (issue #4452): `allowed == None` → no filter, every visible
+    // tool registers; `allowed == Some(set)` → register *exactly* the named
+    // tools, so `Some(empty)` denies all. This is what keeps a deliberately
+    // tool-less sub-agent (`ToolScope::Named([])`, a zero-match `skill_filter`,
+    // or a `named` list that resolves to nothing) from silently inheriting the
+    // parent's full tool surface (shell/file-write/spawn) — the old
+    // `allowed.is_empty() || allowed.contains(name)` predicate was fail-open.
+    let is_subagent_run = subagent_scope.is_some();
+    if let Some(set) = &allowed {
+        if set.is_empty() {
+            tracing::warn!(
+                subagent = is_subagent_run,
+                "[subagent] tool allowlist resolved empty — registering no tools"
+            );
+        }
+    }
     let mut seen_candidates: HashSet<String> = HashSet::new();
     let candidate_names: Vec<String> = tool_sets
         .iter()
@@ -1191,7 +1370,25 @@ fn assemble_turn_harness(
         .collect();
     let mut registered: HashSet<String> = HashSet::new();
     for name in candidate_names.iter().map(String::as_str) {
-        if !registered.contains(name) && (allowed.is_empty() || allowed.contains(name)) {
+        // Fail-closed allowlist: `None` admits everything, `Some(set)` admits only
+        // its members (empty set → nothing).
+        let admitted = match &allowed {
+            None => true,
+            Some(set) => set.contains(name),
+        };
+        // Defense-in-depth (issue #4452): a sub-agent must NEVER be handed a
+        // spawn/delegate tool, regardless of what the resolved allowlist contains.
+        // Re-assert the invariant here at registration time (not just on the
+        // caller's `allowed_indices`) so a misbuilt allowlist can't reintroduce
+        // `spawn_subagent`/`delegate_*`/worker-thread spawning into a child run.
+        let spawn_stripped = is_subagent_run && is_subagent_spawn_or_delegate_tool(name);
+        if spawn_stripped {
+            tracing::warn!(
+                tool = name,
+                "[subagent] refusing to register spawn/delegate tool on sub-agent run"
+            );
+        }
+        if !registered.contains(name) && admitted && !spawn_stripped {
             if let Some(mut adapter) = SharedToolAdapter::for_name(tool_sets.clone(), name) {
                 if early_exit_set.contains(name) {
                     if let Some(hook) = &early_exit_hook {
@@ -1325,7 +1522,7 @@ fn assemble_turn_harness(
     harness.push_middleware(Arc::new(
         middleware::OpenHumanToolExposureShadowMiddleware::new(
             &candidate_names,
-            &allowed,
+            allowed.as_ref(),
             exposure_tags,
         ),
     ));
@@ -1351,6 +1548,26 @@ fn assemble_turn_harness(
     // by the crate `PromptCacheGuardMiddleware`; the warn-only CacheAlign shadow
     // was deleted in C3.) Tool-result caps read the SDK registry policy snapshot,
     // not the OpenHuman-side tool lookup.
+    // Capture each tool call's real success + content before the harness folds the
+    // result into a `Message::tool` that drops the failure flag, so the turn can
+    // build honest per-call `ToolCallRecord`s (post-turn hooks + cap checkpoint).
+    //
+    // REVERSE-ORDER RULE (issue #4464): the crate runs `after_tool` in REVERSE
+    // registration order, so the LATER a middleware is pushed the EARLIER its
+    // `after_tool` runs. This capture must observe the FINAL (summarized/capped)
+    // content, so it is pushed BEFORE `context_mw.install` (which registers the
+    // handoff + tool-output budget/caps) — that way its `after_tool` runs AFTER
+    // those caps, not before. Registering it after `install` (the pre-#4464 bug)
+    // made its `after_tool` run first and record the full raw payload of every
+    // call, bloating the per-turn sink and feeding failure classification /
+    // `ToolCallRecord.output_summary` pre-cap content.
+    let tool_outcome_sink: ToolOutcomeSink = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let failure_map: ToolFailureMap = Arc::default();
+    harness.push_middleware(Arc::new(middleware::ToolOutcomeCaptureMiddleware::new(
+        tool_outcome_sink.clone(),
+        failure_map.clone(),
+    )));
+
     let tool_policies = harness.tools().policies();
     context_mw.install(&mut harness, tool_policies);
 
@@ -1409,10 +1626,12 @@ fn assemble_turn_harness(
     //    transcript into a single LLM-generated system summary (keeping system
     //    messages + the recent window verbatim). This is keyed to whatever model
     //    the turn is running on, preserving the legacy context threshold.
-    // 2. `MessageTrimMiddleware` — a deterministic, no-extra-LLM-call hard cap.
+    // 2. `ImageAwareMessageTrimMiddleware` — a deterministic, no-extra-LLM-call
+    //    hard cap (issue #4462; replaces the crate `MessageTrimMiddleware`).
     //    Pushed **after** compression (so `before_model` runs compression first),
-    //    it front-trims to budget only as a last resort when even the summary +
-    //    recent window still overflow.
+    //    it front-trims to the legacy proportional budget only as a last resort
+    //    when even the summary + recent window still overflow — image markers
+    //    priced flat, system messages never dropped, evictions logged.
     //
     // The LLM summarization step honors the `[context].enabled` /
     // `autocompact_enabled` opt-outs (a disabled config must not spend summarizer
@@ -1426,24 +1645,40 @@ fn assemble_turn_harness(
     let mut compression_mw: Option<Arc<ContextCompressionMiddleware>> = None;
     if let Some(window) = context_window.filter(|w| *w > 0) {
         if autocompact_enabled {
-            let mw = Arc::new(ContextCompressionMiddleware::with_summarizer(
-                summarize::summarization_policy(window),
+            let policy = summarize::summarization_policy(window);
+            // Wrap the LLM-backed summarizer in a fault-tolerant, per-turn-caching
+            // adapter (issue #4461): a summarizer failure must no longer abort the
+            // turn (warn + circuit-breaker + deterministic trim instead), and an
+            // identical re-issued input slice must not re-run the summarizer LLM.
+            let summarizer = summarize::FaultTolerantCachingSummarizer::new(
                 Box::new(summarize::ProviderModelSummarizer::new(
                     summary_provider,
                     model,
                     temperature,
                 )),
+                &policy,
+            );
+            let mw = Arc::new(ContextCompressionMiddleware::with_summarizer(
+                policy,
+                Box::new(summarizer),
             ));
             harness.push_middleware(mw.clone());
             compression_mw = Some(mw);
         }
 
-        let budget = window.saturating_sub(
-            crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS as u64,
-        );
-        harness.push_middleware(Arc::new(MessageTrimMiddleware::new(
-            TrimStrategy::MaxTokens(budget.max(1024)),
-        )));
+        // Deterministic hard-cap trim (issue #4462). The crate
+        // `MessageTrimMiddleware` regressed three legacy `token_budget.rs`
+        // guards: it priced a base64 image at ~2M tokens (chars/4) and could
+        // evict system messages, it reordered system messages to the front, and
+        // its budget was the fixed `window − AGENT_TURN_MAX_OUTPUT_TOKENS`
+        // (floored 1024) that collapses an 8k local model's input budget from
+        // ~7373 to 1024. Our seam-owned `ImageAwareMessageTrimMiddleware`
+        // restores all three: image markers priced at a flat cost, the
+        // proportional reply reserve, system messages always kept in place, and a
+        // grep-able warn with drop/token counts on any eviction.
+        harness.push_middleware(Arc::new(
+            middleware::ImageAwareMessageTrimMiddleware::for_context_window(window),
+        ));
     }
 
     // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration
@@ -1456,6 +1691,20 @@ fn assemble_turn_harness(
     harness.push_middleware(Arc::new(
         TaToolPolicyMiddleware::new(harness.tools().policies()).require_sandbox(true),
     ));
+
+    // Schema-guard (issue #4451): the crate runs a **fatal** JSON-schema gate on
+    // every tool call between `before_tool` and the tool-wrap onion — a missing
+    // required field / wrong type / bad enum returns `TinyAgentsError::Validation`
+    // and aborts the whole turn (`chat_error`). This middleware re-runs the same
+    // validation in `before_tool`; on failure it records a descriptive error and
+    // rewrites the args to a schema-satisfying stub (so the crate gate passes),
+    // then its `wrap_tool` hook short-circuits the flagged call with a synthetic
+    // failed `ToolResult` before the stub can reach the tool — restoring the
+    // legacy engine's "bad args → recoverable tool error the model self-corrects
+    // on" behaviour. Installed as the **outermost** tool wrap so an invalid call
+    // becomes a tool error before approval/policy wraps ever see the stub args.
+    let schema_guard = Arc::new(middleware::SchemaGuardMiddleware::new(tool_sets.clone()));
+    harness.push_tool_middleware(schema_guard.clone());
 
     // Human-in-the-loop approval as a named tool middleware (issue #4249,
     // Phase 1): an external-effect tool intercepts through the global
@@ -1471,16 +1720,6 @@ fn assemble_turn_harness(
     // every path (channel/session/sub-agent).
     harness.push_tool_middleware(Arc::new(middleware::CliRpcOnlyMiddleware::new(
         tool_sets.clone(),
-    )));
-
-    // Capture each tool call's real success + content before the harness folds the
-    // result into a `Message::tool` that drops the failure flag, so the turn can
-    // build honest per-call `ToolCallRecord`s (post-turn hooks + cap checkpoint).
-    let tool_outcome_sink: ToolOutcomeSink = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-    let failure_map: ToolFailureMap = Arc::default();
-    harness.push_middleware(Arc::new(middleware::ToolOutcomeCaptureMiddleware::new(
-        tool_outcome_sink.clone(),
-        failure_map.clone(),
     )));
 
     // Builder-configured tool policy (`.tool_policy()`), enforced at the tool
@@ -1499,17 +1738,40 @@ fn assemble_turn_harness(
         )));
     }
 
-    // Malformed-argument recovery (`before_tool`): coerce a call's non-object
-    // arguments (invalid JSON parses to Null) to `{}` so a single bad tool call is
-    // recoverable — the harness would otherwise reject it against an object schema
-    // and abort the whole turn. Engine parity.
-    harness.push_middleware(Arc::new(middleware::ArgRecoveryMiddleware));
+    // Credential scrubbing (issue #4453): redact credential-shaped secrets out of
+    // every tool result. The legacy engine ran `scrub_credentials` over every
+    // tool output before it entered model context; the tinyagents path dropped
+    // that call site. Installed as the **innermost** tool wrap (pushed last) so
+    // it scrubs the RAW tool result before any outer wrap, the `after_tool`
+    // chain (summarization/caps), the transcript push, or the tool-outcome
+    // capture sink can observe the unredacted content — covering the parent,
+    // sub-agent, persisted-transcript, and `ToolCallOutcome` surfaces by
+    // construction since every path shares this seam.
+    harness.push_tool_middleware(Arc::new(middleware::CredentialScrubMiddleware::new()));
+
+    // Malformed-argument recovery (`before_tool`): repair a call's non-object
+    // arguments before the crate's schema gate — decode JSON-encoded-string args
+    // (optionally markdown-fenced) to an object, or coerce to `{}` only when the
+    // tool schema has no required fields (engine parity). A non-object against a
+    // required-field schema is left untouched so the schema-guard tool-error path
+    // handles it instead of forcing a fatal `"<field> is required"` abort. Runs
+    // before `SchemaGuardMiddleware::before_tool` (registered next) validates.
+    harness.push_middleware(Arc::new(middleware::ArgRecoveryMiddleware::new(
+        tool_sets.clone(),
+    )));
+
+    // Schema-guard `before_tool` (see the tool-wrap registration above): runs the
+    // crate's schema validation and, on failure, flags the call + stubs its args
+    // so the fatal gate passes and `wrap_tool` can short-circuit it. Registered
+    // last so it validates the arguments `ArgRecoveryMiddleware` just repaired.
+    harness.push_middleware(schema_guard);
 
     AssembledTurnHarness {
         harness,
         cursor,
         tool_names,
         failure_map,
+        provider_usage_carry,
         error_slot,
         halt_summary,
         tool_outcome_sink,

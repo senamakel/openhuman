@@ -24,7 +24,7 @@
 pub mod agent_graph;
 pub mod archivist;
 pub(crate) mod builtin_definitions;
-mod credentials;
+pub(crate) mod credentials;
 pub mod definition;
 pub(crate) mod definition_loader;
 pub mod fork_context;
@@ -62,7 +62,7 @@ pub use task_recency_context::{current_task_recency_window, with_task_recency_wi
 
 pub(crate) use graph::run_channel_turn_via_graph;
 pub(crate) use instructions::build_tool_instructions_filtered;
-pub(crate) use parse::parse_tool_calls;
+pub(crate) use parse::{parse_tool_calls, parse_tool_calls_with_pformat};
 
 #[cfg(test)]
 mod harness_gap_tests;

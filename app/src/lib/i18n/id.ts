@@ -65,6 +65,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.timeout.cause': 'Tindakan memakan waktu terlalu lama dan dihentikan.',
   'conversations.toolFailure.timeout.next':
     'OpenHuman akan mencoba lagi, atau Anda dapat mengulanginya secara manual.',
+  'conversations.toolFailure.denied.cause': 'Anda menolak tindakan ini.',
+  'conversations.toolFailure.denied.next':
+    'Tidak ada yang perlu dilakukan — tindakan ini tidak dijalankan. Minta lagi jika Anda berubah pikiran.',
+  'conversations.toolFailure.approvalExpired.cause':
+    'Permintaan persetujuan kedaluwarsa sebelum ada yang merespons.',
+  'conversations.toolFailure.approvalExpired.next':
+    'Minta lagi untuk menjalankannya — OpenHuman tidak akan mencobanya sendiri.',
   'conversations.toolFailure.unknown.cause': 'Terjadi kesalahan pada tindakan ini.',
   'conversations.toolFailure.unknown.next':
     'Coba lagi; jika terus gagal, jalankan diagnostik dari Pengaturan.',

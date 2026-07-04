@@ -1150,6 +1150,7 @@ fn thread_title_error_and_turn_state_helpers_cover_wire_shapes() {
         name: "memory.search".into(),
         round: 1,
         status: ToolTimelineStatus::Success,
+        failure: None,
         args_buffer: Some("{\"q\":\"coverage\"}".into()),
         display_name: Some("Memory Search".into()),
         detail: Some("2 results".into()),
@@ -3215,6 +3216,7 @@ fn turn_state_mirror_persists_progress_edges_from_public_events() {
         arguments: None,
         elapsed_ms: 22,
         iteration: 1,
+        failure: None,
     }));
     assert!(mirror.observe(&AgentProgress::SubagentFailed {
         agent_id: "researcher".into(),
@@ -3455,6 +3457,7 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
         name: "subagent:research".into(),
         round: 2,
         status: ToolTimelineStatus::Running,
+        failure: None,
         args_buffer: None,
         display_name: Some("Research".into()),
         detail: None,
@@ -3480,6 +3483,7 @@ fn turn_state_store_persists_lists_marks_and_clears_snapshots() {
                 output_chars: Some(10),
                 display_name: None,
                 detail: None,
+                failure: None,
             }],
             transcript: vec![],
         }),

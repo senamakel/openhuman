@@ -3,11 +3,89 @@
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock, Mutex};
 use tinyagents::harness::tool::ToolExecutionContext;
 
 /// Allowed workspace markdown files this tool may modify.
 const ALLOWED_FILES: &[&str] = &["MEMORY.md", "SKILL.md"];
+
+/// Process-global registry of per-workspace write locks (#4458).
+///
+/// `update_memory_md` performs a read-modify-write on `MEMORY.md`/`SKILL.md`.
+/// The per-run `MemoryProtocolTracker` has zero cross-run awareness, so two
+/// concurrent runs (parallel forks, cron) racing the same workspace file would
+/// otherwise clobber each other's append. We serialize every write to a given
+/// workspace directory through a shared async mutex, keyed by the canonicalized
+/// (falling back to raw) workspace path, so concurrent index updates queue
+/// instead of racing. Combined with the temp-file + atomic-rename write below,
+/// a killed process can never leave a truncated file.
+static WORKSPACE_WRITE_LOCKS: LazyLock<Mutex<HashMap<PathBuf, Arc<tokio::sync::Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Monotonic counter for temp-file uniqueness within a process.
+static TEMP_FILE_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Return (creating if needed) the shared async write lock for `workspace_dir`.
+///
+/// The lock key is the canonicalized workspace path when it resolves (so two
+/// spellings of the same directory share one lock), else the raw path.
+fn workspace_write_lock(workspace_dir: &Path) -> Arc<tokio::sync::Mutex<()>> {
+    let key = workspace_dir
+        .canonicalize()
+        .unwrap_or_else(|_| workspace_dir.to_path_buf());
+    let mut map = WORKSPACE_WRITE_LOCKS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    Arc::clone(
+        map.entry(key)
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(()))),
+    )
+}
+
+/// Atomically replace `path`'s contents with `content`.
+///
+/// Writes to a sibling temp file in the same directory (so the rename stays on
+/// one filesystem and is atomic) and `rename`s it over the target. A crash
+/// mid-write leaves either the old file or the complete new file — never a
+/// half-written truncation. Callers MUST hold the per-workspace write lock so
+/// the read-modify-write is serialized end-to-end.
+async fn atomic_write(path: &Path, file: &str, content: &str) -> anyhow::Result<()> {
+    let dir = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("target path has no parent directory"))?;
+    let seq = TEMP_FILE_SEQ.fetch_add(1, Ordering::Relaxed);
+    let tmp_name = format!(".{file}.{}.{seq}.tmp", std::process::id());
+    let tmp_path = dir.join(tmp_name);
+
+    tracing::debug!(
+        tmp = %tmp_path.display(),
+        target = %path.display(),
+        bytes = content.len(),
+        "[update_memory_md] atomic write: staging temp file"
+    );
+
+    if let Err(e) = tokio::fs::write(&tmp_path, content).await {
+        // Clean up a partially-written temp file so a failed stage doesn't
+        // litter the workspace (CodeRabbit: temp not cleaned on initial write).
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(anyhow::anyhow!("Failed to stage temp file for {file}: {e}"));
+    }
+
+    if let Err(e) = tokio::fs::rename(&tmp_path, path).await {
+        // Best-effort cleanup so a failed rename doesn't litter the workspace.
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(anyhow::anyhow!("Failed to atomically write {file}: {e}"));
+    }
+
+    tracing::debug!(
+        target = %path.display(),
+        "[update_memory_md] atomic write: rename committed"
+    );
+    Ok(())
+}
 
 /// Appends or replaces a named section in MEMORY.md or SKILL.md.
 ///
@@ -135,6 +213,16 @@ impl Tool for UpdateMemoryMdTool {
 
         tracing::debug!("[update_memory_md] action={action} file={file} path={target_path:?}");
 
+        // #4458: serialize the whole read-modify-write against concurrent runs
+        // targeting the same workspace. The guard is held across read + atomic
+        // write so no interleaving append can be lost.
+        let lock = workspace_write_lock(&workspace_dir);
+        let _guard = lock.lock().await;
+        tracing::debug!(
+            workspace = %workspace_dir.display(),
+            "[update_memory_md] acquired per-workspace write lock"
+        );
+
         match action {
             "append" => self.do_append(&target_path, file, content).await,
             "replace_section" => {
@@ -172,9 +260,7 @@ impl UpdateMemoryMdTool {
         };
         let new_content = format!("{existing}{separator}{content}\n");
 
-        tokio::fs::write(path, &new_content)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to write {file}: {e}"))?;
+        atomic_write(path, file, &new_content).await?;
 
         let bytes = new_content.len();
         tracing::info!(
@@ -242,8 +328,7 @@ impl UpdateMemoryMdTool {
             format!("{existing}{separator}{heading}\n{content}\n")
         };
 
-        std::fs::write(path, &new_file_content)
-            .map_err(|e| anyhow::anyhow!("Failed to write {file}: {e}"))?;
+        atomic_write(path, file, &new_file_content).await?;
 
         tracing::info!(
             "[update_memory_md] replaced section '{}' in {file} ({} bytes written)",

@@ -526,21 +526,27 @@ impl EnvLookup for HashMapEnv {
 
 #[test]
 fn env_overlay_toggles_agent_tracing_capture_content() {
-    // Off by default; the opt-in env var enables prompt/reply export.
+    // Serialize with the sibling env-overlay tests (TEST_ENV_LOCK note at the
+    // top of the file) so a concurrent test's env mutation can't race in.
+    let _g = env_lock();
+
+    // ON by default since #4498 (`default_capture_content() == true` — traces
+    // without content aren't actionable in Langfuse). This assertion was left
+    // asserting the pre-#4498 `false` default and is corrected here.
     let mut cfg = Config::default();
-    assert!(!cfg.observability.agent_tracing.capture_content);
-    cfg.apply_env_overlay_with(
-        &HashMapEnv::new().with("OPENHUMAN_AGENT_TRACING_CAPTURE_CONTENT", "true"),
-    );
     assert!(cfg.observability.agent_tracing.capture_content);
 
-    // An explicit falsy value turns it back off.
-    let mut cfg = Config::default();
-    cfg.observability.agent_tracing.capture_content = true;
+    // An explicit falsy env value turns it off.
     cfg.apply_env_overlay_with(
         &HashMapEnv::new().with("OPENHUMAN_AGENT_TRACING_CAPTURE_CONTENT", "off"),
     );
     assert!(!cfg.observability.agent_tracing.capture_content);
+
+    // A truthy value turns it back on.
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_AGENT_TRACING_CAPTURE_CONTENT", "true"),
+    );
+    assert!(cfg.observability.agent_tracing.capture_content);
 }
 
 #[test]

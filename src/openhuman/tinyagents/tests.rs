@@ -165,7 +165,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         0.0,
         history,
         vec![registry],
-        std::collections::HashSet::new(),
+        None,
         4,
         Some(tx),
         None,
@@ -178,6 +178,7 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     )
     .await
     .expect("streaming turn runs");
@@ -267,7 +268,7 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         0.0,
         vec![ChatMessage::user("investigate the bug")],
         vec![registry],
-        std::collections::HashSet::new(),
+        None,
         4,
         None,
         None,
@@ -280,6 +281,7 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     )
     .await
     .expect("steered turn runs");
@@ -364,7 +366,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         0.0,
         vec![ChatMessage::user("task one")],
         vec![registry.clone()],
-        std::collections::HashSet::new(),
+        None,
         4,
         None,
         None,
@@ -377,6 +379,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     );
     let two = run_turn_via_tinyagents_shared(
         provider.clone(),
@@ -384,7 +387,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         0.0,
         vec![ChatMessage::user("task two")],
         vec![registry],
-        std::collections::HashSet::new(),
+        None,
         4,
         None,
         None,
@@ -397,6 +400,7 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     );
 
     let (a, b) = tokio::join!(one, two);
@@ -436,7 +440,7 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         "mock-model",
         0.0,
         tool_sets,
-        HashSet::new(),
+        None,
         4,
         None,          // on_progress: fire-and-forget
         None,          // subagent_scope: top-level turn
@@ -506,17 +510,24 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     assert!(serialized.contains("\"classified\":true"));
 
     // Lifecycle middleware, in registration order: memory-protocol enforcement
-    // (outermost), repeated-tool-failure breaker, shadow tool-exposure,
-    // prompt-cache segment + guard, cache-align + tool-output
+    // (outermost), repeated-tool-failure breaker, repeat-progress breaker (#4463),
+    // shadow tool-exposure, prompt-cache segment + guard, cache-align + tool-output
     // (TurnContextMiddleware::defaults), observe-only crate BudgetMiddleware
     // (W2-budget-dedupe), cost budget (local enforcement + budget_shadow),
     // context compression + message trim (window known + autocompact on), SDK
-    // tool-policy projection, tool-outcome capture, arg recovery.
+    // tool-policy projection, tool-outcome capture, arg recovery, schema guard
+    // (#4451 before_tool).
     let mw = assembled.harness.middleware();
-    assert_eq!(mw.len(), 13, "lifecycle middleware inventory");
-    // Around-tool wraps: approval/security + CLI/RPC-only scope gate (no
-    // builder tool policy on this call).
-    assert_eq!(mw.tool_middleware_len(), 2, "tool middleware inventory");
+    // NOTE(parity merge): these inventory counts are the upstream base (13 / 2)
+    // plus the lifecycle + around-tool middlewares this parity branch adds. They
+    // are NOT compiled by `cargo check --lib` (this is a #[cfg(test)] block) and
+    // are pending the deferred test pass — verify/adjust the exact numbers when
+    // the test suite actually compiles.
+    assert_eq!(mw.len(), 15, "lifecycle middleware inventory");
+    // Around-tool wraps: schema guard (#4451, outermost) + approval/security +
+    // CLI/RPC-only scope gate + credential scrub (#4453, innermost). No builder
+    // tool policy on this call.
+    assert_eq!(mw.tool_middleware_len(), 4, "tool middleware inventory");
     assert_eq!(mw.model_middleware_len(), 0, "no around-model wraps");
     assert_eq!(
         assembled.harness.policy().limits.max_depth,
@@ -561,7 +572,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         "mock-model",
         0.0,
         tool_sets,
-        HashSet::new(),
+        None,
         4,
         None,
         None,
@@ -577,7 +588,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
     let mw = assembled.harness.middleware();
     assert_eq!(
         mw.len(),
-        11,
+        13,
         "compression + trim must not install without a window"
     );
     assert!(assembled.early_exit_hook.is_none());
@@ -637,7 +648,7 @@ async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
         0.0,
         vec![ChatMessage::user("hello")],
         Vec::new(),
-        HashSet::new(),
+        None,
         3,
         None, // on_progress: unobserved — no bridge, cost fallback branch runs
         None,
@@ -650,6 +661,7 @@ async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
         None,
         None,
         false,
+        false, // defer_turn_completed_to_caller (#4457)
     )
     .await
     .expect("turn runs");

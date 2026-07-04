@@ -18,8 +18,8 @@ use crate::openhuman::agent::progress::AgentProgress;
 
 use super::store::TurnStateStore;
 use super::types::{
-    SubagentActivity, SubagentToolCall, SubagentTranscriptItem, ToolTimelineEntry,
-    ToolTimelineStatus, TranscriptItem, TurnLifecycle, TurnPhase, TurnState,
+    PersistedToolFailure, SubagentActivity, SubagentToolCall, SubagentTranscriptItem,
+    ToolTimelineEntry, ToolTimelineStatus, TranscriptItem, TurnLifecycle, TurnPhase, TurnState,
 };
 
 const MIRROR_LOG_PREFIX: &str = "[threads:turn_state:mirror]";
@@ -130,13 +130,17 @@ impl TurnStateMirror {
                         detail: display_detail.clone(),
                         source_tool_name: None,
                         subagent: None,
+                        failure: None,
                     });
                 }
                 self.flush();
                 true
             }
             AgentProgress::ToolCallCompleted {
-                call_id, success, ..
+                call_id,
+                success,
+                failure,
+                ..
             } => {
                 if let Some(entry) = self
                     .state
@@ -150,6 +154,10 @@ impl TurnStateMirror {
                     } else {
                         ToolTimelineStatus::Error
                     };
+                    // Persist the plain-language failure so the explanation
+                    // survives a thread switch / cold boot (#4459). Clear it on
+                    // a (re-)success so a retried row doesn't keep stale copy.
+                    entry.failure = failure.as_ref().map(PersistedToolFailure::from);
                 }
                 if self.state.active_tool.is_some() {
                     self.state.active_tool = None;
@@ -193,6 +201,7 @@ impl TurnStateMirror {
                         tool_calls: Vec::new(),
                         transcript: Vec::new(),
                     }),
+                    failure: None,
                 });
                 self.flush();
                 true
@@ -269,6 +278,7 @@ impl TurnStateMirror {
                             output_chars: None,
                             display_name: display_label.clone(),
                             detail: display_detail.clone(),
+                            failure: None,
                         });
                         // Mirror the call into the ordered transcript so the
                         // rehydrated thoughts interleave it at the right spot.
@@ -296,6 +306,7 @@ impl TurnStateMirror {
                 success,
                 output_chars,
                 elapsed_ms,
+                failure,
                 ..
             } => {
                 if let Some(entry) = self.find_subagent_entry_mut(task_id) {
@@ -305,6 +316,7 @@ impl TurnStateMirror {
                         } else {
                             ToolTimelineStatus::Error
                         };
+                        let persisted_failure = failure.as_ref().map(PersistedToolFailure::from);
                         if let Some(call) = activity
                             .tool_calls
                             .iter_mut()
@@ -314,6 +326,9 @@ impl TurnStateMirror {
                             call.status = status;
                             call.elapsed_ms = Some(*elapsed_ms);
                             call.output_chars = Some(*output_chars);
+                            // Carry the child failure so a failed sub-agent row
+                            // keeps its explanation across a round-trip (#4459).
+                            call.failure = persisted_failure;
                         }
                         // Keep the transcript's Tool item in lockstep so the
                         // rehydrated row shows the terminal status + timing.
@@ -399,6 +414,7 @@ impl TurnStateMirror {
                         detail: None,
                         source_tool_name: None,
                         subagent: None,
+                        failure: None,
                     });
                 }
                 false

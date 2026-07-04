@@ -60,6 +60,12 @@ const messages: TranslationMap = {
     'تحقّق من اتصالك أو إعدادات النموذج؛ سيعيد OpenHuman المحاولة.',
   'conversations.toolFailure.timeout.cause': 'استغرق الإجراء وقتًا طويلاً وتم إيقافه.',
   'conversations.toolFailure.timeout.next': 'سيعيد OpenHuman المحاولة، أو يمكنك إعادتها يدويًا.',
+  'conversations.toolFailure.denied.cause': 'لقد رفضت هذا الإجراء.',
+  'conversations.toolFailure.denied.next':
+    'لا حاجة لأي شيء — لم يُنفَّذ. اطلبه مجددًا إذا غيّرت رأيك.',
+  'conversations.toolFailure.approvalExpired.cause': 'انتهت صلاحية طلب الموافقة قبل أن يردّ أحد.',
+  'conversations.toolFailure.approvalExpired.next':
+    'اطلبه مجددًا لتشغيله — لن يعيد OpenHuman المحاولة من تلقاء نفسه.',
   'conversations.toolFailure.unknown.cause': 'حدث خطأ ما في هذا الإجراء.',
   'conversations.toolFailure.unknown.next':
     'حاول مرة أخرى؛ وإذا استمر الفشل، شغّل التشخيص من الإعدادات.',

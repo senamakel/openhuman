@@ -60,6 +60,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.timeout.cause': '작업이 너무 오래 걸려 중지되었습니다.',
   'conversations.toolFailure.timeout.next':
     'OpenHuman이 다시 시도하거나 수동으로 다시 실행할 수 있습니다.',
+  'conversations.toolFailure.denied.cause': '이 작업을 거부했습니다.',
+  'conversations.toolFailure.denied.next':
+    '할 일이 없습니다 — 실행되지 않았습니다. 마음이 바뀌면 다시 요청하세요.',
+  'conversations.toolFailure.approvalExpired.cause':
+    '아무도 응답하기 전에 승인 요청이 만료되었습니다.',
+  'conversations.toolFailure.approvalExpired.next':
+    '실행하려면 다시 요청하세요 — OpenHuman이 스스로 재시도하지 않습니다.',
   'conversations.toolFailure.unknown.cause': '이 작업에서 문제가 발생했습니다.',
   'conversations.toolFailure.unknown.next':
     '다시 시도하세요. 계속 실패하면 설정에서 진단을 실행하세요.',

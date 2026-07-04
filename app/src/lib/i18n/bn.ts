@@ -64,6 +64,12 @@ const messages: TranslationMap = {
   'conversations.toolFailure.timeout.cause': 'কাজটি অনেক বেশি সময় নেওয়ায় থামিয়ে দেওয়া হয়েছে।',
   'conversations.toolFailure.timeout.next':
     'OpenHuman আবার চেষ্টা করবে, অথবা আপনি নিজে আবার চেষ্টা করতে পারেন।',
+  'conversations.toolFailure.denied.cause': 'আপনি এই কাজটি প্রত্যাখ্যান করেছেন।',
+  'conversations.toolFailure.denied.next': 'কিছু করার নেই — এটি চালানো হয়নি। মত বদলালে আবার বলুন।',
+  'conversations.toolFailure.approvalExpired.cause':
+    'কেউ সাড়া দেওয়ার আগেই অনুমোদনের অনুরোধের মেয়াদ শেষ হয়ে গেছে।',
+  'conversations.toolFailure.approvalExpired.next':
+    'এটি চালাতে আবার বলুন — OpenHuman নিজে থেকে পুনরায় চেষ্টা করবে না।',
   'conversations.toolFailure.unknown.cause': 'এই কাজটিতে কিছু ভুল হয়েছে।',
   'conversations.toolFailure.unknown.next':
     'আবার চেষ্টা করুন; বারবার ব্যর্থ হলে সেটিংস থেকে ডায়াগনস্টিকস চালান।',

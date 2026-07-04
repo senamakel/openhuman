@@ -55,10 +55,18 @@ pub(crate) async fn run_channel_turn_via_graph(
 ) -> Result<String> {
     let extra_arc = Arc::new(extra_tools);
 
-    // The callable set is the visibility whitelist (empty = every tool visible
-    // across the registry + per-turn extras). The runner advertises each via its
-    // own `spec()`, deduped by name (extras shadow the registry).
-    let allowed = visible_tool_names.cloned().unwrap_or_default();
+    // The callable set is the visibility whitelist. The runner advertises each via
+    // its own `spec()`, deduped by name (extras shadow the registry).
+    // Fail-closed allowlist plumbing (issue #4452): the shared seam takes an
+    // `Option<HashSet<String>>` where `None` = no filter (all visible tools) and
+    // `Some(set)` = exactly those tools. The channel/CLI path's historical
+    // convention is "no filter / empty set = every visible tool", so map both a
+    // missing filter and an empty set to `None`; only a populated set is treated
+    // as an explicit whitelist.
+    let allowed: Option<HashSet<String>> = match visible_tool_names {
+        Some(set) if !set.is_empty() => Some(set.clone()),
+        _ => None,
+    };
 
     // Capture native-tool support before `provider` is moved into the runner: the
     // durable history append below serializes this turn's typed suffix with the
@@ -131,6 +139,10 @@ pub(crate) async fn run_channel_turn_via_graph(
         // Channel turns do not yet carry SDK workspace descriptors.
         None,
         // Interactive channel/CLI turn — never serve a cached model response.
+        false,
+        // #4457 (defect C): the channel/CLI path has no post-run wrap-up and does
+        // NOT emit `TurnCompleted` itself, so let the seam emit the single
+        // terminal event (legacy-engine parity).
         false,
     )
     .await?;

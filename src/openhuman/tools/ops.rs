@@ -273,6 +273,19 @@ pub fn all_tools_with_runtime(
         Box::new(MemoryStoreTool::new(memory.clone(), security.clone())),
         Box::new(MemoryRecallTool::new(memory.clone())),
         Box::new(MemoryForgetTool::new(memory.clone(), security.clone())),
+        // #4458: the memory read→dedupe→write→update-index protocol
+        // (`agent::harness::memory_protocol`) can only close its write cycle via a
+        // successful `update_memory_md` call, and the archivist's `[tools] named`
+        // allowlist selects it — but subagents only filter the *parent* tool set,
+        // so if this tool is absent from the registry the archivist silently loses
+        // it and the model hits a permanent unsatisfiable "call update_memory_md"
+        // nag loop (unknown-tool error → the tracker never sees IndexUpdate). It is
+        // always registered here (same as the other memory tools); per-agent
+        // visibility is governed by each agent's `named` allowlist. Targets the
+        // workspace `MEMORY.md`/`SKILL.md` (where `channels_prompt`/`session_memory`
+        // read them from), and prefers the live TinyAgents workspace descriptor at
+        // execution time when one is present.
+        Box::new(UpdateMemoryMdTool::new(root_config.workspace_dir.clone())),
         // #002: read-only self-diagnosis of the memory pipeline so the agent
         // can explain an empty/stalled wiki + the fix.
         Box::new(MemoryDoctorTool::new(config.clone())),

@@ -68,6 +68,13 @@ const messages: TranslationMap = {
     'Действие заняло слишком много времени и было остановлено.',
   'conversations.toolFailure.timeout.next':
     'OpenHuman повторит попытку, или вы можете повторить её вручную.',
+  'conversations.toolFailure.denied.cause': 'Вы отклонили это действие.',
+  'conversations.toolFailure.denied.next':
+    'Ничего делать не нужно — оно не было выполнено. Попросите снова, если передумаете.',
+  'conversations.toolFailure.approvalExpired.cause':
+    'Срок запроса на подтверждение истёк, прежде чем кто-либо ответил.',
+  'conversations.toolFailure.approvalExpired.next':
+    'Попросите снова, чтобы выполнить его — OpenHuman не повторит попытку сам.',
   'conversations.toolFailure.unknown.cause': 'С этим действием что-то пошло не так.',
   'conversations.toolFailure.unknown.next':
     'Повторите попытку; если ошибка повторяется, запустите диагностику в Настройках.',

@@ -79,13 +79,23 @@ pub(crate) struct ChatTurnGraph {
 /// ([`core`](super::core) folds usage, persists the conversation, and handles a
 /// cap-hit checkpoint).
 pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<TinyagentsTurnOutcome> {
+    // Fail-closed allowlist plumbing (issue #4452): the shared seam now takes an
+    // `Option<HashSet<String>>` where `None` = no filter (all visible tools) and
+    // `Some(set)` = exactly those tools. The chat path's historical convention is
+    // "empty `visible_tool_names` = every visible tool", so map an empty set to
+    // `None` to preserve that behavior; a populated set stays an explicit filter.
+    let visible_tool_names = if graph.visible_tool_names.is_empty() {
+        None
+    } else {
+        Some(graph.visible_tool_names)
+    };
     run_turn_via_tinyagents_shared(
         graph.provider,
         &graph.model,
         graph.temperature,
         graph.messages,
         vec![graph.tools],
-        graph.visible_tool_names,
+        visible_tool_names,
         graph.max_iterations,
         // Mirror the harness event stream onto this session's progress sink.
         graph.on_progress,
@@ -112,6 +122,12 @@ pub(crate) async fn run_chat_turn_graph(graph: ChatTurnGraph) -> Result<Tinyagen
         // Interactive chat turn — response caching MUST stay off so a live user
         // turn is never served a cached model response (correctness/safety).
         false,
+        // #4457 (defect C): defer the terminal `TurnCompleted` to the caller.
+        // The session path (`run_turn_impl` in `turn/core.rs`) runs its cap/#4093
+        // wrap-up (`summarize_turn_wrapup`) *after* this seam returns and then
+        // emits the single `TurnCompleted` itself — a seam-level emit here would
+        // fire before that checkpoint streams and duplicate the event.
+        true,
     )
     .await
 }

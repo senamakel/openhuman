@@ -65,6 +65,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.timeout.cause': 'A ação demorou demais e foi interrompida.',
   'conversations.toolFailure.timeout.next':
     'O OpenHuman tentará novamente, ou você pode tentar manualmente.',
+  'conversations.toolFailure.denied.cause': 'Você recusou esta ação.',
+  'conversations.toolFailure.denied.next':
+    'Nada a fazer — ela não foi executada. Peça novamente se mudar de ideia.',
+  'conversations.toolFailure.approvalExpired.cause':
+    'A solicitação de aprovação expirou antes que alguém respondesse.',
+  'conversations.toolFailure.approvalExpired.next':
+    'Peça novamente para executá-la — o OpenHuman não tentará de novo sozinho.',
   'conversations.toolFailure.unknown.cause': 'Algo deu errado com esta ação.',
   'conversations.toolFailure.unknown.next':
     'Tente novamente; se continuar falhando, execute o diagnóstico nas Configurações.',

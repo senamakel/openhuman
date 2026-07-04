@@ -259,16 +259,22 @@ fn apply_usage_fields(body: &mut Value, span: &TraceSpan) -> bool {
     }
     let input = input.unwrap_or(0);
     let output = output.unwrap_or(0);
-    let mut usage = Map::new();
-    usage.insert("input".to_string(), json!(input));
-    usage.insert("output".to_string(), json!(output));
-    usage.insert("total".to_string(), json!(input.saturating_add(output)));
-    // Cache reads always flow into usageDetails (0 included) so the figure is
-    // explicit rather than absent when no cache was hit.
     let cached = attrs
         .get("gen_ai.usage.cached_input_tokens")
         .and_then(Value::as_u64)
         .unwrap_or(0);
+    // #4454: `input_tokens` is INCLUSIVE of cached prompt tokens (cost.rs treats
+    // cached as a subset of input). Langfuse sums `usageDetails` components as
+    // disjoint buckets, so emit the NON-cached input (input - cached) — the
+    // components (non_cached_input + cache_read + output) are then disjoint and
+    // reconcile to `total` = input_tokens + output_tokens.
+    let non_cached_input = input.saturating_sub(cached);
+    let mut usage = Map::new();
+    usage.insert("input".to_string(), json!(non_cached_input));
+    usage.insert("output".to_string(), json!(output));
+    usage.insert("total".to_string(), json!(input.saturating_add(output)));
+    // Cache reads always flow into usageDetails (0 included) so the figure is
+    // explicit rather than absent when no cache was hit.
     usage.insert("cache_read_input_tokens".to_string(), json!(cached));
     // Reasoning + cache-write tokens ride along whenever the span carries them
     // (the collector stamps them when > 0). Langfuse accepts arbitrary

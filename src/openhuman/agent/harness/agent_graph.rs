@@ -62,6 +62,11 @@ pub struct AgentTurnRequest {
     pub provider_label: String,
     pub(crate) handoff_cache:
         Option<Arc<crate::openhuman::agent::harness::subagent_runner::ResultHandoffCache>>,
+    /// Agent-level TokenJuice compaction profile
+    /// (`definition.effective_tokenjuice_compression()`), threaded into the
+    /// sub-agent `TurnContextMiddleware` so tool outputs compact like the chat
+    /// path instead of taking a blunt byte-cap truncation (#4466).
+    pub tokenjuice_compression: crate::openhuman::tokenjuice::AgentTokenjuiceCompression,
 }
 
 /// Token/cost totals a custom runner reports back. Mirrors the runner's internal
@@ -85,6 +90,9 @@ pub struct AgentTurnResult {
     pub early_exit_tool: Option<String>,
     /// `true` when the run stopped at the model-call cap with work still pending.
     pub hit_cap: bool,
+    /// Set (with the halt reason) when the repeated-failure / repeat-progress
+    /// circuit breaker halted the run; the runner reports `Incomplete` (#4466).
+    pub breaker_halt: Option<String>,
 }
 
 /// A per-agent custom turn-graph runner: given the assembled [`AgentTurnRequest`],

@@ -308,12 +308,53 @@ pub(super) fn messages_to_conversation(messages: &[Message]) -> Vec<Conversation
 /// The suffix of `messages` produced *after* the most recent user turn — i.e.
 /// the assistant/tool messages a single turn appended. Robust to front-trimming
 /// middleware (which drops old messages but keeps the current user turn).
+///
+/// Retired from the persistence path in favour of [`messages_since_request`]
+/// (issue #4455) because an injected mid-turn steer moves the last-user boundary
+/// and truncates persisted history; kept only as a documented, test-covered
+/// reference to the legacy convention. `allow(dead_code)` off the test build
+/// since it now has no non-test caller.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn messages_since_last_user(messages: &[Message]) -> &[Message] {
     let start = messages
         .iter()
         .rposition(|m| matches!(m, Message::User(_)))
         .map(|i| i + 1)
         .unwrap_or(0);
+    &messages[start..]
+}
+
+/// The transcript suffix appended during a single turn, sliced at an **explicit
+/// boundary** captured *before* the run — `base_len` is the length of the
+/// request's `input` transcript (`history_to_messages(&history).len()`).
+///
+/// This replaces the fragile "suffix after the last `Message::User`" convention
+/// ([`messages_since_last_user`]) on the persistence path. Mid-turn steer/collect
+/// messages are injected as `Message::user(...)` (`forward_steers` /
+/// `forward_collects`), which *moves* the last-user boundary — so slicing on it
+/// silently dropped every pre-steer assistant/tool round **and** the steer text
+/// itself from persisted history, the next-turn KV-cache prefix, and subagent
+/// checkpoints (issue #4455). Anchoring on the pre-run request length instead
+/// captures the full post-request transcript, injected steers included, in
+/// execution order.
+///
+/// The crate returns the full transcript in `run.messages`: the agent loop seeds
+/// its working transcript from `input` (`messages = input`) and only ever
+/// *appends* (assistant/tool rounds + applied steers); the compression/trim
+/// middleware rewrites the per-call `request.messages.clone()`, never the loop's
+/// working transcript. So `messages` always starts with the `base_len` request
+/// messages as a prefix. `base_len` is clamped defensively in case a future
+/// crate change ever front-trims the persisted transcript.
+pub(super) fn messages_since_request(messages: &[Message], base_len: usize) -> &[Message] {
+    let start = base_len.min(messages.len());
+    if start != base_len {
+        tracing::warn!(
+            base_len,
+            transcript_len = messages.len(),
+            "[tinyagents] messages_since_request boundary exceeds transcript length; \
+             clamping (transcript may have been front-trimmed) — persisting full transcript"
+        );
+    }
     &messages[start..]
 }
 

@@ -63,6 +63,13 @@ const messages: TranslationMap = {
   'conversations.toolFailure.timeout.cause': 'कार्य में बहुत अधिक समय लगा और इसे रोक दिया गया।',
   'conversations.toolFailure.timeout.next':
     'OpenHuman फिर से प्रयास करेगा, या आप इसे मैन्युअल रूप से दोबारा कर सकते हैं।',
+  'conversations.toolFailure.denied.cause': 'आपने इस क्रिया को अस्वीकार कर दिया।',
+  'conversations.toolFailure.denied.next':
+    'कुछ नहीं करना है — यह चलाई नहीं गई। मन बदलें तो फिर से कहें।',
+  'conversations.toolFailure.approvalExpired.cause':
+    'किसी के जवाब देने से पहले ही अनुमोदन अनुरोध की समय-सीमा समाप्त हो गई।',
+  'conversations.toolFailure.approvalExpired.next':
+    'इसे चलाने के लिए फिर से कहें — OpenHuman इसे स्वयं दोबारा नहीं आज़माएगा।',
   'conversations.toolFailure.unknown.cause': 'इस कार्य में कुछ गड़बड़ हो गई।',
   'conversations.toolFailure.unknown.next':
     'दोबारा प्रयास करें; यदि यह बार-बार विफल हो, तो सेटिंग्स से डायग्नोस्टिक्स चलाएँ।',

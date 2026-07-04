@@ -63,6 +63,10 @@ export interface PersistedSubagentToolCall {
   displayName?: string;
   /** Server-computed contextual detail (path / recipient / query). */
   detail?: string;
+  /** Plain-language failure explanation for a FAILED child call (#4459).
+   *  Mirrors the parent {@link PersistedToolTimelineEntry.failure}; absent on
+   *  successful rows and on snapshots written before this field. */
+  failure?: PersistedToolFailure;
 }
 
 /**

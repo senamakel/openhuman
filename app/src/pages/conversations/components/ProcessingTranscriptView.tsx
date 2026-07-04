@@ -114,7 +114,7 @@ function ToolGroupBlock({ summary, entries }: { summary: string; entries: ToolTi
 }
 
 /**
- * The 8 failure classes the UI has localized copy for (#4254), keyed by the
+ * The failure classes the UI has localized copy for (#4254 / #4459), keyed by the
  * camelCase form of the wire's PascalCase `class`. Any class not in this set
  * falls back to the English `causePlain` / `nextAction` carried on the payload.
  */
@@ -126,6 +126,8 @@ const LOCALIZED_FAILURE_CLASSES: ReadonlySet<string> = new Set([
   'blockedByPolicy',
   'modelConnection',
   'timeout',
+  'denied',
+  'approvalExpired',
   'unknown',
 ]);
 

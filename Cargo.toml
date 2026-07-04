@@ -61,7 +61,9 @@ tinyjuice = { version = "0.1", default-features = false }
 # aligned to 0.40, avoiding duplicate `links = "sqlite3"` native bindings.
 # Durable graph checkpoints still use `SqlRunLedgerCheckpointer` until the
 # migration re-points those rows to the crate checkpointer.
-tinyagents = { version = "1.5.0", features = ["sqlite"] }
+# The `repl` feature adds the embedded Rhai `.ragsh` session runtime powering
+# the `rlm` language-workflow tool (`src/openhuman/rlm/`).
+tinyagents = { version = "1.5.0", features = ["sqlite", "repl"] }
 # TinyCortex — Rust core for the memory engine (store/chunks/tree/retrieval/
 # queue/ingest/score + long tail), vendored as a git submodule and patched
 # below to `vendor/tinycortex`. OpenHuman's memory subsystem migrates onto this

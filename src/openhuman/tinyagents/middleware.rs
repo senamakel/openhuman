@@ -1200,6 +1200,25 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
         _state: &(),
         result: &mut TaToolResult,
     ) -> TaResult<()> {
+        // Enrich a raw security-policy / autonomy block (issue #4094): the ~20
+        // `[policy-blocked]` denials emitted deep in `SecurityPolicy` / the tools
+        // return a bare marker line with no workaround and no relay directive, so
+        // the agent dead-ends. Rewrite the content into the structured
+        // `Blocked / Reason / Workaround / relay` shape here — the last `after_tool`
+        // hook, so the enriched text is what the transcript keeps. The marker is
+        // preserved, and already-structured `ToolPolicyMiddleware` denials (which
+        // carry a `Workaround:` suffix) are left untouched. This runs before
+        // classification below, which still recognises the preserved marker.
+        if let Some(enriched) =
+            super::policy_denial::maybe_enrich_policy_block(&result.name, &result.content)
+        {
+            tracing::debug!(
+                tool = result.name.as_str(),
+                "[tinyagents::mw] enriched raw security-policy block with workaround + relay"
+            );
+            result.content = enriched;
+        }
+
         let success = result.error.is_none();
         // Classify the failure so the live `ToolCallCompleted` event and the
         // persisted timeline can explain it in plain language. A hard
@@ -1784,6 +1803,52 @@ mod tests {
             error: None,
             elapsed_ms: 0,
         }
+    }
+
+    // ── ToolOutcomeCaptureMiddleware policy-block enrichment (issue #4094) ───
+
+    fn outcome_capture_mw() -> ToolOutcomeCaptureMiddleware {
+        ToolOutcomeCaptureMiddleware::new(
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+        )
+    }
+
+    #[tokio::test]
+    async fn raw_security_policy_block_is_enriched_with_workaround_and_relay() {
+        let mw = outcome_capture_mw();
+        let mut result = tool_result(
+            "run_command",
+            "[policy-blocked] Security policy: read-only mode — only read commands are allowed",
+        );
+        result.error = Some(result.content.clone());
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        // The bare denial now carries a workaround + relay directive, and keeps the
+        // marker so classification / the loop-breaker still recognise it.
+        assert!(result.content.contains("Workaround:"), "{}", result.content);
+        assert!(result.content.contains("Relay this to the user"));
+        assert!(result
+            .content
+            .contains(crate::openhuman::security::POLICY_BLOCKED_MARKER));
+        assert!(result.content.contains("read-only mode"));
+    }
+
+    #[tokio::test]
+    async fn already_structured_denial_is_not_double_wrapped() {
+        // A ToolPolicyMiddleware-style denial already has "Workaround:"; the capture
+        // middleware must leave it untouched (no second Workaround block).
+        let mw = outcome_capture_mw();
+        let structured =
+            "Blocked: Tool 'x' denied. Reason: nope. Workaround: do y. Relay this to the user: ...";
+        let mut result = tool_result("x", structured);
+        result.error = Some(result.content.clone());
+        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+        assert_eq!(
+            result.content.matches("Workaround:").count(),
+            1,
+            "must not double-wrap: {}",
+            result.content
+        );
     }
 
     // ── TurnContextMiddleware config ────────────────────────────────────────

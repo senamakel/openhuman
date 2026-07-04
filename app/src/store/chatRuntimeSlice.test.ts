@@ -403,6 +403,37 @@ describe('chatRuntimeSlice queue status', () => {
     expect(byId['subagent:sub-completed']).toBe('success');
   });
 
+  it('does not duplicate a live subagent row whose taskId is already on screen', () => {
+    const store = makeStore();
+    // Live row created by the socket path — a different entry id scheme than
+    // the ledger's `subagent:<runId>`, but the same delegation taskId.
+    store.dispatch(
+      setToolTimelineForThread({
+        threadId: 't-dup',
+        entries: [
+          {
+            id: 't-dup:subagent:run-1:spawn_subagent',
+            name: 'subagent:tinyplace_agent',
+            round: 1,
+            status: 'running',
+            subagent: { taskId: 'run-1', agentId: 'tinyplace_agent', toolCalls: [] },
+          },
+        ],
+      })
+    );
+    store.dispatch(
+      hydrateRuntimeFromRunLedger({
+        threadId: 't-dup',
+        runs: [makeRun('run-1', 'running'), makeRun('run-2', 'completed')],
+      })
+    );
+    const timeline = store.getState().chatRuntime.toolTimelineByThread['t-dup'];
+    // run-1 is already represented by the live row; only run-2 is added.
+    expect(timeline).toHaveLength(2);
+    expect(timeline.filter(e => e.subagent?.taskId === 'run-1')).toHaveLength(1);
+    expect(timeline.some(e => e.id === 'subagent:run-2')).toBe(true);
+  });
+
   it('settles the parent row but preserves an awaiting_user subagent on interrupt', () => {
     const store = makeStore();
     store.dispatch(

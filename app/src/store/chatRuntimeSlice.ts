@@ -1584,9 +1584,16 @@ const chatRuntimeSlice = createSlice({
       const { threadId, runs } = action.payload;
       const existing = state.toolTimelineByThread[threadId] ?? [];
       const byId = new Map(existing.map(entry => [entry.id, entry]));
+      // Live rows key their id differently from ledger rows
+      // (`<thread>:subagent:<task>:<tool>` vs `subagent:<runId>`), so also
+      // dedupe on the sub-agent taskId — otherwise a ledger hydrate during a
+      // live turn would add a second row for a delegation already on screen.
+      const liveTaskIds = new Set(
+        existing.map(entry => entry.subagent?.taskId).filter(Boolean) as string[]
+      );
       for (const run of runs) {
         const entry = timelineEntryFromRun(run);
-        if (!entry || byId.has(entry.id)) continue;
+        if (!entry || byId.has(entry.id) || liveTaskIds.has(run.id)) continue;
         byId.set(entry.id, entry);
       }
       state.toolTimelineByThread[threadId] = Array.from(byId.values());

@@ -94,7 +94,12 @@ impl EventHandler for ChannelInboundSubscriber {
             None,
             None,
             None,
-            crate::openhuman::channels::providers::web::ChatRequestMetadata::default(),
+            crate::openhuman::channels::providers::web::ChatRequestMetadata {
+                // Tag inbound provider messages so traces classify as
+                // run:channel_inbound instead of interactive chat.
+                source: Some("channel_inbound".to_string()),
+                ..Default::default()
+            },
         )
         .await
         {

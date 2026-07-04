@@ -120,6 +120,15 @@ const PRICING_TABLE: &[ModelPricing] = &[
     },
 ];
 
+/// Whether `model` is one of the managed OpenHuman tier handles (routed and
+/// billed by the OpenHuman backend). Anything else — concrete vendor ids
+/// (`claude-*`, `gpt-*`, OpenRouter slugs) or local model names — is a
+/// custom/BYO-provider model. Used by trace exporters to stamp model
+/// provenance (`gen_ai.provider` = "managed" | "custom").
+pub(crate) fn is_managed_tier(model: &str) -> bool {
+    PRICING_TABLE.iter().any(|row| row.model == model)
+}
+
 /// Look up pricing for a model name, falling back to [`FALLBACK_PRICING`].
 ///
 /// Resolution order:

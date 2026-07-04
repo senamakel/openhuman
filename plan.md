@@ -363,12 +363,32 @@ Dimensions the suite (and this audit) currently have **zero** coverage of:
 - [x] Resolve the Release CI Gate Playwright `continue-on-error` bypass (§5bis item 1, #3615):
   `playwright-e2e` excluded from the gate's `needs`/results with an explanatory comment.
 
-**Phase 1 — P0 coverage (1–2 weeks)**
-- Security gate-matrix suite (command_checks/path_checks). 
-- Encryption core round-trip + tamper suite; RPC-integrated variant.
-- `delete_source_rpc` cascade suite.
-- Event-bus panic isolation; webhook flood behavior (or file the product gap).
-- `stop_core_process` debug command + crash-recovery E2E; RPC auth-failure E2E.
+**Phase 1 — P0 coverage** — ⏳ partial (PR: `test/phase1-p0-coverage`). Each item was
+**re-verified against current source first** (the §4 backlog was never skeptic-verified); three
+of the five "ZERO tests" claims turned out **already covered**, so only the genuine gaps were filled.
+- [x] **Encryption core round-trip + tamper suite** — GENUINE GAP (verified 0 prior tests in
+  `encryption/core.rs`). Added 11 tests: bytes/string round-trip, KDF determinism (behavioural —
+  key_bytes is private), wrong-password / different-salt rejection, tampered-ciphertext and
+  tampered-nonce GCM auth failure, fresh-random-nonce-per-call, salt length+randomness,
+  malformed-JSON and empty-plaintext edge cases.
+- [x] **Event-bus panic isolation** — GENUINE GAP (verified: `catch_unwind` in `bus.rs` had no
+  test; only `publish_without_subscribers`). Added a two-subscriber test: one handler panics on its
+  first event then recovers; asserts the panicked handler's own loop survives AND a peer keeps
+  receiving every event.
+- [~] **Security gate-matrix (command_checks/path_checks)** — ALREADY COVERED. `policy_tests.rs`
+  comprehensively tests `classify_command` (unknown⇒Write, redirect-lifts, highest-segment-wins,
+  all classes), `gate_decision` (all tiers × classes + Install), `is_always_forbidden`, and
+  `is_workspace_internal_path`. Plan's "ZERO tests" was inaccurate; no suite added (would duplicate).
+- [~] **`delete_source_rpc` cascade** — ALREADY COVERED. `memory_store/chunks/store_tests.rs` has
+  `delete_source_rpc_purges_document_source_fully`, `_unknown_id_is_idempotent`,
+  `_rejects_empty_source_id`, `_cleans_legacy_partial_delete`, plus the cascade (shared-tree
+  preserved while referenced, orphan cascade, escape-path/symlink rejection, per-owner scoping).
+- [~] **Webhook flood** — PRODUCT GAP (verified: no rate-limit/backpressure/throttle anywhere in
+  `webhooks/router.rs`; it is registration/routing/logging only). Filed as a product gap, not a test.
+- [ ] **core-process crash/recovery E2E** and **RPC bearer-auth-failure E2E** — deferred: both need
+  the Tauri crate (blocked locally by missing system `glib-2.0`) and/or the WDIO desktop harness.
+  `tests/json_rpc_e2e.rs` already covers RPC bearer auth/401s at the transport layer; the remaining
+  gap is the frontend `core_rpc_relay` E2E. To be done in the CI-capable environment.
 
 **Phase 2 — deletions & rewrites (parallel with Phase 1, low risk)** — ✅ landed (PR: `test/phase2-drops-rewrites`)
 - [x] §2.1 deletions applied (⚠️ items re-verified against source before deleting):
@@ -394,10 +414,25 @@ Dimensions the suite (and this audit) currently have **zero** coverage of:
   tests as load-bearing boot guards, so they were left intact rather than risk an unvalidated
   E2E change).
 
-**Phase 3 — P1 backlog (2–4 weeks, interleave with feature work)**
-- Approval×turn integration, TransportManager race, socket backoff, hostile webhook payloads,
-  path_scope invariant, web3 tool wiring, threadSlice/accountsSlice, journey spec, Playwright
-  approval mirror.
+**Phase 3 — P1 backlog** — ⏳ partial (PR: `test/phase3-p1-gaps`). Verification-first pass: like §4
+P0, most P1 "untested" claims were **inaccurate against current `main`**. Verified state:
+- [x] **`TransportManager.raceLanAndTunnel`** — GENUINE GAP (the sibling test only covered profile
+  *selection*, never the race). Added a dedicated `TransportManager.race.test.ts`: LAN-wins /
+  tunnel-wins (loser closed), both-fail throws, `reset()` re-race, and winner-caching. Surfaced a
+  real timing quirk: when the first `isHealthy()` to settle is `false`, the
+  `Promise.race`→`Promise.any` fallback grabs that already-fulfilled `null` and throws instead of
+  waiting for a later-healthy peer — worth a production follow-up.
+- [~] ALREADY COVERED (no gap): `composerInteractionBlocked` (ChatComposer + composerSendDecision
+  tests), `threadSlice`/`accountsSlice` (multiple `__tests__`), CustomInference/CustomSearch
+  onboarding pages, AgentAccessPanel (23 tests), and every P2 slice reducer
+  (socket/channelConnections/ptt/providerSurface) + TeamInvites. web3 tool layer has `web3_tests.rs`.
+- [~] NOT A GAP: primary socket-client backoff is delegated to socket.io
+  (`reconnectionAttempts: Infinity`), not custom logic — nothing bespoke to unit-test.
+- [ ] Genuine-but-deferred (need a full Rust build + deep store/parser fixtures, high iteration cost
+  in the authoring env): memory two-source-one-tree `path_scope` invariant; broad hostile-webhook
+  payload matrix (wrong types / deep nesting / oversized) beyond the current missing-field tests;
+  the ~20 controller domains with no `tests/` reference (the Phase 0 inventory allowlist to burn
+  down). Approval×turn integration, journey spec, and the Playwright approval mirror need WDIO/PW.
 
 **Phase 4 — new dimensions (ongoing)**
 - proptest + cargo-fuzz targets; scoped cargo-mutants; jest-axe lane; migration fixture;

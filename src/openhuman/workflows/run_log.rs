@@ -229,6 +229,7 @@ pub fn format_event(ev: &AgentProgress) -> Option<String> {
         | AgentProgress::ThinkingDelta { .. }
         | AgentProgress::ToolCallArgsDelta { .. }
         | AgentProgress::TurnCostUpdated { .. }
+        | AgentProgress::ModelCallCompleted { .. }
         | AgentProgress::TaskBoardUpdated { .. }
         | AgentProgress::SubagentTextDelta { .. }
         | AgentProgress::SubagentThinkingDelta { .. }

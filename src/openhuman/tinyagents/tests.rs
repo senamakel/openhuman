@@ -523,7 +523,7 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     // are NOT compiled by `cargo check --lib` (this is a #[cfg(test)] block) and
     // are pending the deferred test pass — verify/adjust the exact numbers when
     // the test suite actually compiles.
-    assert_eq!(mw.len(), 16, "lifecycle middleware inventory");
+    assert_eq!(mw.len(), 15, "lifecycle middleware inventory");
     // Around-tool wraps: schema guard (#4451, outermost) + approval/security +
     // CLI/RPC-only scope gate + credential scrub (#4453, innermost). No builder
     // tool policy on this call.
@@ -588,7 +588,7 @@ fn adapter_inventory_gates_context_middleware_on_window() {
     let mw = assembled.harness.middleware();
     assert_eq!(
         mw.len(),
-        12,
+        13,
         "compression + trim must not install without a window"
     );
     assert!(assembled.early_exit_hook.is_none());

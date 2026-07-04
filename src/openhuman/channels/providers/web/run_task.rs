@@ -203,13 +203,17 @@ pub(crate) async fn run_chat_task(
     agent.set_on_progress(Some(progress_tx));
     agent.set_run_queue(Some(run_queue));
     let turn_state_store = TurnStateStore::new(config.workspace_dir.clone());
+    // Stamp the resolved agent onto the bridge metadata so the trace exporter
+    // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
+    let mut bridge_metadata = metadata.clone();
+    bridge_metadata.agent_id = Some(target_agent_id.clone());
     spawn_progress_bridge(
         progress_rx,
         client_id.to_string(),
         thread_id.to_string(),
         request_id.to_string(),
         turn_state_store,
-        metadata.clone(),
+        bridge_metadata,
         config.clone(),
     );
 

@@ -82,6 +82,11 @@ pub struct ChatRequestMetadata {
     pub speak_reply: Option<bool>,
     pub source: Option<String>,
     pub session_id: Option<u64>,
+    /// Resolved agent definition id driving this turn (e.g. `"orchestrator"`,
+    /// a task executor's agent). Stamped by the run entrypoint once the agent
+    /// is resolved — used purely for trace attribution (Langfuse `agent.id` /
+    /// `agent.turn:<id>` trace name), never for routing.
+    pub agent_id: Option<String>,
 }
 
 impl ChatRequestMetadata {
@@ -97,6 +102,7 @@ impl ChatRequestMetadata {
             speak_reply: None,
             source: Some("agentbox".to_string()),
             session_id: None,
+            agent_id: None,
         }
     }
 }

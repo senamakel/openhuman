@@ -602,7 +602,21 @@ mod tests {
         spill_aggregate_tool_results(&mut results, Some(&store), 500).await;
 
         let total: usize = results.iter().map(|result| result.output.len()).sum();
-        assert!(total <= 500, "total={total}");
+        // #4469 item 6: the aggregate spill now floors each persisted envelope at
+        // MIN_ENVELOPE_ALLOWANCE_BYTES so the `[tool_result_preview]` header +
+        // `artifact_path` pointer always survives (previously an exhausted budget
+        // could blank a result to ""). That is a documented trade — the total may
+        // slightly overshoot the raw aggregate budget — so the invariant is now:
+        // (a) no envelope is blanked, and (b) the total stays bounded by the
+        // per-result floor rather than the raw budget.
+        assert!(
+            results.iter().all(|result| !result.output.is_empty()),
+            "no persisted envelope may be blanked — the artifact pointer must survive"
+        );
+        assert!(
+            total <= results.len() * MIN_ENVELOPE_ALLOWANCE_BYTES,
+            "total={total} exceeds the per-result envelope floor bound"
+        );
         assert!(tmp
             .path()
             .join("artifacts/tool-results/session/one/one.txt")

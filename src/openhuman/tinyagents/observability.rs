@@ -423,6 +423,32 @@ impl OpenhumanEventBridge {
         // cost tracker feed above is the authoritative accounting and the parent
         // emits its own footer, so suppress the per-child `TurnCostUpdated`.
         if self.scope.is_none() {
+            // Per-call telemetry first (exact model/usage/cost for THIS call —
+            // trace exporters turn it into a Langfuse generation), then the
+            // cumulative footer rollup. Child-scoped calls carry no task
+            // attribution on this event, so they stay cumulative-only.
+            log::debug!(
+                "[tinyagents][usage] model_call_completed model={} iteration={} in={} out={} \
+                 cache_read={} cache_write={} reasoning={} cost_usd={:.6}",
+                self.model,
+                iteration,
+                usage.input_tokens,
+                usage.output_tokens,
+                usage.cache_read_tokens,
+                usage.cache_creation_tokens,
+                usage.reasoning_tokens,
+                call_cost,
+            );
+            self.send(AgentProgress::ModelCallCompleted {
+                model: self.model.clone(),
+                iteration,
+                input_tokens: usage.input_tokens,
+                output_tokens: usage.output_tokens,
+                cached_input_tokens: usage.cache_read_tokens,
+                cache_creation_tokens: usage.cache_creation_tokens,
+                reasoning_tokens: usage.reasoning_tokens,
+                cost_usd: call_cost,
+            });
             self.send(AgentProgress::TurnCostUpdated {
                 model: self.model.clone(),
                 iteration,
@@ -716,7 +742,9 @@ impl EventListener for OpenhumanEventBridge {
                     }),
                 }
             }
-            AgentEvent::ToolCompleted { call_id, tool_name } => {
+            AgentEvent::ToolCompleted {
+                call_id, tool_name, ..
+            } => {
                 let iteration = self.iteration();
                 // The crate event carries no success/error, so read what the
                 // outcome-capture middleware classified for this call. Absent →
@@ -867,6 +895,8 @@ mod tests {
         sink.emit(AgentEvent::ToolCompleted {
             call_id: "c1".into(),
             tool_name: "echo".to_string(),
+            input: None,
+            output: None,
         });
         sink.emit(AgentEvent::UsageRecorded {
             usage: Usage::new(100, 40),

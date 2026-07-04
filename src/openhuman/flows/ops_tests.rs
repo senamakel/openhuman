@@ -160,9 +160,14 @@ async fn flows_run_completes_trigger_only_graph() {
         .await
         .unwrap();
 
-    let outcome = flows_run(&config, &created.value.id, json!({ "hello": "world" }))
-        .await
-        .unwrap();
+    let outcome = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "hello": "world" }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     assert_eq!(outcome.value["pending_approvals"], json!([]));
     assert_eq!(
@@ -197,9 +202,14 @@ async fn flows_run_reports_pending_approval_and_blocks_downstream() {
         .await
         .unwrap();
 
-    let outcome = flows_run(&config, &created.value.id, json!({ "x": 1 }))
-        .await
-        .unwrap();
+    let outcome = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
 
     let pending = outcome.value["pending_approvals"].as_array().unwrap();
     assert!(pending.iter().any(|v| v == "gate"));
@@ -224,7 +234,7 @@ async fn flows_get_missing_flow_errors() {
 async fn flows_run_missing_flow_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let err = flows_run(&config, "missing", json!({}))
+    let err = flows_run(&config, "missing", json!({}), FlowRunTrigger::Rpc)
         .await
         .expect_err("must error");
     assert!(err.contains("not found"));
@@ -251,7 +261,7 @@ async fn flows_run_records_failed_status_when_a_node_errors() {
         .await
         .unwrap();
 
-    let err = flows_run(&config, &created.value.id, json!({}))
+    let err = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
         .await
         .expect_err("a run whose node errors under on_error:stop must fail");
     assert!(!err.is_empty());
@@ -452,9 +462,14 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({ "x": 1 }))
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
     let pending: Vec<String> =
         serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
@@ -516,9 +531,14 @@ async fn flows_resume_with_empty_approvals_is_rejected_and_does_not_complete_the
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({ "x": 1 }))
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let err = flows_resume(&config, &created.value.id, &thread_id, vec![])
@@ -550,9 +570,14 @@ async fn flows_resume_with_mismatched_approvals_is_rejected() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({ "x": 1 }))
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     // Names a node id that is not actually pending for this run.
@@ -575,9 +600,14 @@ async fn flows_resume_with_the_correct_gate_completes_and_runs_downstream() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({ "x": 1 }))
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let resumed = flows_resume(
@@ -608,7 +638,7 @@ async fn flows_resume_of_a_non_paused_run_errors_clearly() {
 
     // This run completes outright (no approval gate) — its recorded status
     // is "completed", not "pending_approval".
-    let run = flows_run(&config, &created.value.id, json!({}))
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
         .await
         .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
@@ -651,9 +681,14 @@ async fn flows_run_persists_a_flow_run_row_queryable_via_list_and_get() {
         .await
         .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({ "hello": "world" }))
-        .await
-        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "hello": "world" }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
     let runs = flows_list_runs(&config, &created.value.id, 20)
@@ -699,7 +734,7 @@ async fn flows_run_emits_pending_approval_notification() {
     .await
     .unwrap();
 
-    let run = flows_run(&config, &created.value.id, json!({}))
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
         .await
         .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
@@ -752,7 +787,7 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
         .unwrap();
     let created_id = created.value.id.clone();
 
-    flows_run(&config, &created.value.id, json!({}))
+    flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
         .await
         .unwrap();
 

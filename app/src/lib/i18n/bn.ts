@@ -3718,7 +3718,8 @@ const messages: TranslationMap = {
   'flows.canvas.loading': 'ওয়ার্কফ্লো লোড হচ্ছে…',
   'flows.canvas.loadError': 'এই ওয়ার্কফ্লোটি লোড করা যায়নি। আবার চেষ্টা করুন।',
   'flows.canvas.notFound': 'এই ওয়ার্কফ্লোটি পাওয়া যায়নি।',
-  'flows.canvas.draftMissing': 'খোলার জন্য কোনো ওয়ার্কফ্লো খসড়া নেই। প্রথমে চ্যাট থেকে একটি প্রস্তাব করুন।',
+  'flows.canvas.draftMissing':
+    'খোলার জন্য কোনো ওয়ার্কফ্লো খসড়া নেই। প্রথমে চ্যাট থেকে একটি প্রস্তাব করুন।',
   'flows.canvas.backToList': 'ওয়ার্কফ্লো তালিকায় ফিরে যান',
   'flows.nodeKind.trigger': 'ট্রিগার',
   'flows.nodeKind.agent': 'এজেন্ট',
@@ -3750,7 +3751,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'সতর্কতা',
   'flows.editor.saveFailedTitle': 'সংরক্ষণ করা যায়নি',
   'flows.editor.leaveTitle': 'সংরক্ষণ না করে চলে যাবেন?',
-  'flows.editor.leaveBody': 'এই ওয়ার্কফ্লোতে আপনার অসংরক্ষিত পরিবর্তন রয়েছে। এখন চলে গেলে সেগুলো হারিয়ে যাবে।',
+  'flows.editor.leaveBody':
+    'এই ওয়ার্কফ্লোতে আপনার অসংরক্ষিত পরিবর্তন রয়েছে। এখন চলে গেলে সেগুলো হারিয়ে যাবে।',
   'flows.editor.leaveStay': 'থাকুন',
   'flows.editor.leaveDiscard': 'চলে যান',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3807,6 +3809,46 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'সোর্স কোড',
+
+  'flows.chooser.title': 'ওয়ার্কফ্লো তৈরি করুন',
+  'flows.chooser.subtitle': 'আপনি কীভাবে শুরু করতে চান তা বেছে নিন।',
+  'flows.chooser.scratchTitle': 'একদম শুরু থেকে',
+  'flows.chooser.scratchDescription':
+    'একটি খালি ক্যানভাস এবং একটি একক ম্যানুয়াল ট্রিগার দিয়ে শুরু করুন।',
+  'flows.chooser.templateTitle': 'টেমপ্লেট থেকে',
+  'flows.chooser.templateDescription':
+    'একটি প্রস্তুত উদাহরণ থেকে শুরু করুন এবং এটি কাস্টমাইজ করুন।',
+  'flows.chooser.describeTitle': 'বর্ণনা করুন',
+  'flows.chooser.describeDescription':
+    'সহকারীকে বলুন আপনি কী চান এবং তাকে ওয়ার্কফ্লোর খসড়া তৈরি করতে দিন।',
+  'flows.chooser.creating': 'ওয়ার্কফ্লো তৈরি হচ্ছে…',
+  'flows.chooser.createError': 'ওয়ার্কফ্লো তৈরি করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
+  'flows.templates.title': 'টেমপ্লেট থেকে শুরু করুন',
+  'flows.templates.subtitle': 'একটি শুরুর বিন্দু বেছে নিন এবং সম্পাদকে এটি কাস্টমাইজ করুন।',
+  'flows.templates.use': 'টেমপ্লেট ব্যবহার করুন',
+  'flows.templates.back': 'পিছনে',
+  'flows.templates.empty': 'কোনো টেমপ্লেট উপলব্ধ নেই।',
+  'flows.templates.category.scheduled': 'নির্ধারিত',
+  'flows.templates.category.triggered': 'ট্রিগারড',
+  'flows.templates.category.onDemand': 'চাহিদা অনুযায়ী',
+  'flows.templates.daily-digest.name': 'চ্যানেলে দৈনিক সারসংক্ষেপ',
+  'flows.templates.daily-digest.description':
+    'একটি সময়সূচি অনুযায়ী, একটি এজেন্ট একটি সংক্ষিপ্ত সারসংক্ষেপ লেখে এবং তা চ্যানেলে পোস্ট করে।',
+  'flows.templates.scheduled-scrape.name': 'নির্ধারিত স্ক্র্যাপ মেমরিতে',
+  'flows.templates.scheduled-scrape.description':
+    'সময়সূচি অনুযায়ী একটি উৎস আনুন, ফলাফল পুনর্গঠন করুন এবং মেমরিতে সংরক্ষণ করুন।',
+  'flows.templates.webhook-triage.name': 'ওয়েবহুক ট্রায়াজ এবং বিজ্ঞপ্তি',
+  'flows.templates.webhook-triage.description':
+    'একটি আগত ওয়েবহুক একটি এজেন্ট দ্বারা ট্রায়াজ করা হয়, তারপর আপনাকে জানানো হয়।',
+  'flows.templates.app-event-route.name': 'অ্যাপ ইভেন্ট থেকে শর্তসাপেক্ষ ক্রিয়া',
+  'flows.templates.app-event-route.description':
+    'একটি সংযুক্ত অ্যাপের ইভেন্ট একটি পরীক্ষা চালায়, তারপর মিললে ক্রিয়া সম্পাদন করে।',
+  'flows.templates.http-fetch-parse.name': 'API আনুন এবং পার্স করুন',
+  'flows.templates.http-fetch-parse.description':
+    'চাহিদা অনুযায়ী একটি HTTP এন্ডপয়েন্ট কল করুন এবং প্রতিক্রিয়া ব্যবহারযোগ্য রূপে পার্স করুন।',
+  'flows.templates.ask-agent.name': 'এজেন্টকে জিজ্ঞাসা করুন',
+  'flows.templates.ask-agent.description':
+    'একটি সরল ম্যানুয়াল ট্রিগার যা একটি কাজ এজেন্টকে হস্তান্তর করে।',
 
   'oauth.button.connecting': 'সংযোগ হচ্ছে...',
   'oauth.button.loopbackTimeout':

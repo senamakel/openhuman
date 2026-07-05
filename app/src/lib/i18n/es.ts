@@ -3782,7 +3782,8 @@ const messages: TranslationMap = {
   'flows.canvas.loading': 'Cargando flujo de trabajo…',
   'flows.canvas.loadError': 'No se pudo cargar este flujo de trabajo. Inténtalo de nuevo.',
   'flows.canvas.notFound': 'No se pudo encontrar este flujo de trabajo.',
-  'flows.canvas.draftMissing': 'No hay ningún borrador de flujo para abrir. Propón uno desde el chat primero.',
+  'flows.canvas.draftMissing':
+    'No hay ningún borrador de flujo para abrir. Propón uno desde el chat primero.',
   'flows.canvas.backToList': 'Volver a los flujos de trabajo',
   'flows.nodeKind.trigger': 'Disparador',
   'flows.nodeKind.agent': 'Agente',
@@ -3814,7 +3815,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'Advertencias',
   'flows.editor.saveFailedTitle': 'No se pudo guardar',
   'flows.editor.leaveTitle': '¿Salir sin guardar?',
-  'flows.editor.leaveBody': 'Tienes cambios sin guardar en este flujo de trabajo. Si sales ahora, se perderán.',
+  'flows.editor.leaveBody':
+    'Tienes cambios sin guardar en este flujo de trabajo. Si sales ahora, se perderán.',
   'flows.editor.leaveStay': 'Quedarme',
   'flows.editor.leaveDiscard': 'Salir',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3872,6 +3874,45 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Código fuente',
+
+  'flows.chooser.title': 'Crear un flujo de trabajo',
+  'flows.chooser.subtitle': 'Elige cómo quieres empezar.',
+  'flows.chooser.scratchTitle': 'Empezar desde cero',
+  'flows.chooser.scratchDescription':
+    'Comienza con un lienzo en blanco y un único disparador manual.',
+  'flows.chooser.templateTitle': 'Desde una plantilla',
+  'flows.chooser.templateDescription': 'Empieza con un ejemplo listo y personalízalo.',
+  'flows.chooser.describeTitle': 'Descríbelo',
+  'flows.chooser.describeDescription':
+    'Dile al asistente lo que quieres y deja que redacte el flujo de trabajo.',
+  'flows.chooser.creating': 'Creando el flujo de trabajo…',
+  'flows.chooser.createError': 'No se pudo crear el flujo de trabajo. Inténtalo de nuevo.',
+  'flows.templates.title': 'Empezar desde una plantilla',
+  'flows.templates.subtitle': 'Elige un punto de partida y personalízalo en el editor.',
+  'flows.templates.use': 'Usar plantilla',
+  'flows.templates.back': 'Atrás',
+  'flows.templates.empty': 'No hay plantillas disponibles.',
+  'flows.templates.category.scheduled': 'Programado',
+  'flows.templates.category.triggered': 'Activado',
+  'flows.templates.category.onDemand': 'Bajo demanda',
+  'flows.templates.daily-digest.name': 'Resumen diario al canal',
+  'flows.templates.daily-digest.description':
+    'Según una programación, un agente escribe un breve resumen y lo publica en un canal.',
+  'flows.templates.scheduled-scrape.name': 'Extracción programada a la memoria',
+  'flows.templates.scheduled-scrape.description':
+    'Obtén una fuente según una programación, transforma los resultados y guárdalos en la memoria.',
+  'flows.templates.webhook-triage.name': 'Clasificación de webhook y aviso',
+  'flows.templates.webhook-triage.description':
+    'Un agente clasifica un webhook entrante y luego recibes un aviso.',
+  'flows.templates.app-event-route.name': 'Evento de app a acción condicional',
+  'flows.templates.app-event-route.description':
+    'Un evento de una app conectada ejecuta una comprobación y actúa cuando coincide.',
+  'flows.templates.http-fetch-parse.name': 'Obtener y analizar una API',
+  'flows.templates.http-fetch-parse.description':
+    'Llama a un extremo HTTP bajo demanda y analiza la respuesta a una forma utilizable.',
+  'flows.templates.ask-agent.name': 'Preguntar al agente',
+  'flows.templates.ask-agent.description':
+    'Un disparador manual sencillo que entrega una tarea a un agente.',
 
   'oauth.button.connecting': 'Conectando...',
   'oauth.button.loopbackTimeout':

@@ -3797,7 +3797,8 @@ const messages: TranslationMap = {
   'flows.canvas.loading': 'Chargement du workflow…',
   'flows.canvas.loadError': 'Impossible de charger ce workflow. Veuillez réessayer.',
   'flows.canvas.notFound': 'Ce workflow est introuvable.',
-  'flows.canvas.draftMissing': 'Aucun brouillon de flux à ouvrir. Proposez-en un depuis la discussion d’abord.',
+  'flows.canvas.draftMissing':
+    'Aucun brouillon de flux à ouvrir. Proposez-en un depuis la discussion d’abord.',
   'flows.canvas.backToList': 'Retour aux workflows',
   'flows.nodeKind.trigger': 'Déclencheur',
   'flows.nodeKind.agent': 'Agent',
@@ -3829,7 +3830,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'Avertissements',
   'flows.editor.saveFailedTitle': 'Échec de l’enregistrement',
   'flows.editor.leaveTitle': 'Quitter sans enregistrer ?',
-  'flows.editor.leaveBody': 'Vous avez des modifications non enregistrées sur ce workflow. Si vous partez maintenant, elles seront perdues.',
+  'flows.editor.leaveBody':
+    'Vous avez des modifications non enregistrées sur ce workflow. Si vous partez maintenant, elles seront perdues.',
   'flows.editor.leaveStay': 'Rester',
   'flows.editor.leaveDiscard': 'Quitter',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3889,6 +3891,45 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Code source',
+
+  'flows.chooser.title': 'Créer un workflow',
+  'flows.chooser.subtitle': 'Choisissez comment commencer.',
+  'flows.chooser.scratchTitle': 'Partir de zéro',
+  'flows.chooser.scratchDescription':
+    'Commencez avec une toile vierge et un seul déclencheur manuel.',
+  'flows.chooser.templateTitle': "À partir d'un modèle",
+  'flows.chooser.templateDescription': "Partez d'un exemple prêt à l'emploi et personnalisez-le.",
+  'flows.chooser.describeTitle': 'Décrivez-le',
+  'flows.chooser.describeDescription':
+    "Dites à l'assistant ce que vous voulez et laissez-le rédiger le workflow.",
+  'flows.chooser.creating': 'Création du workflow…',
+  'flows.chooser.createError': 'Impossible de créer le workflow. Veuillez réessayer.',
+  'flows.templates.title': "Partir d'un modèle",
+  'flows.templates.subtitle': "Choisissez un point de départ et personnalisez-le dans l'éditeur.",
+  'flows.templates.use': 'Utiliser le modèle',
+  'flows.templates.back': 'Retour',
+  'flows.templates.empty': 'Aucun modèle disponible.',
+  'flows.templates.category.scheduled': 'Planifié',
+  'flows.templates.category.triggered': 'Déclenché',
+  'flows.templates.category.onDemand': 'À la demande',
+  'flows.templates.daily-digest.name': 'Résumé quotidien vers un canal',
+  'flows.templates.daily-digest.description':
+    'Selon une planification, un agent rédige un court résumé et le publie dans un canal.',
+  'flows.templates.scheduled-scrape.name': 'Extraction planifiée vers la mémoire',
+  'flows.templates.scheduled-scrape.description':
+    'Récupère une source selon une planification, remodèle les résultats et les enregistre en mémoire.',
+  'flows.templates.webhook-triage.name': 'Tri du webhook et notification',
+  'flows.templates.webhook-triage.description':
+    'Un webhook entrant est trié par un agent, puis vous êtes notifié.',
+  'flows.templates.app-event-route.name': "Événement d'app vers action conditionnelle",
+  'flows.templates.app-event-route.description':
+    "Un événement d'une app connectée exécute une vérification, puis agit en cas de correspondance.",
+  'flows.templates.http-fetch-parse.name': 'Récupérer et analyser une API',
+  'flows.templates.http-fetch-parse.description':
+    'Appelez un point de terminaison HTTP à la demande et analysez la réponse en une forme exploitable.',
+  'flows.templates.ask-agent.name': "Demander à l'agent",
+  'flows.templates.ask-agent.description':
+    'Un simple déclencheur manuel qui confie une tâche à un agent.',
 
   'oauth.button.connecting': 'Connexion en cours…',
   'oauth.button.loopbackTimeout':

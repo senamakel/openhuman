@@ -3810,7 +3810,8 @@ const messages: TranslationMap = {
   'flows.canvas.loadError':
     'Dieser Workflow konnte nicht geladen werden. Bitte versuche es erneut.',
   'flows.canvas.notFound': 'Dieser Workflow wurde nicht gefunden.',
-  'flows.canvas.draftMissing': 'Kein Workflow-Entwurf zum Öffnen. Schlage zuerst einen im Chat vor.',
+  'flows.canvas.draftMissing':
+    'Kein Workflow-Entwurf zum Öffnen. Schlage zuerst einen im Chat vor.',
   'flows.canvas.backToList': 'Zurück zu den Workflows',
   'flows.nodeKind.trigger': 'Auslöser',
   'flows.nodeKind.agent': 'Agent',
@@ -3842,7 +3843,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'Warnungen',
   'flows.editor.saveFailedTitle': 'Speichern fehlgeschlagen',
   'flows.editor.leaveTitle': 'Ohne Speichern verlassen?',
-  'flows.editor.leaveBody': 'Sie haben nicht gespeicherte Änderungen an diesem Workflow. Wenn Sie jetzt gehen, gehen sie verloren.',
+  'flows.editor.leaveBody':
+    'Sie haben nicht gespeicherte Änderungen an diesem Workflow. Wenn Sie jetzt gehen, gehen sie verloren.',
   'flows.editor.leaveStay': 'Bleiben',
   'flows.editor.leaveDiscard': 'Verlassen',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3901,6 +3903,45 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Quellcode',
+
+  'flows.chooser.title': 'Workflow erstellen',
+  'flows.chooser.subtitle': 'Wählen Sie, wie Sie beginnen möchten.',
+  'flows.chooser.scratchTitle': 'Bei null anfangen',
+  'flows.chooser.scratchDescription':
+    'Mit einer leeren Arbeitsfläche und einem einzelnen manuellen Auslöser starten.',
+  'flows.chooser.templateTitle': 'Aus einer Vorlage',
+  'flows.chooser.templateDescription': 'Mit einem fertigen Beispiel starten und anpassen.',
+  'flows.chooser.describeTitle': 'Beschreiben',
+  'flows.chooser.describeDescription':
+    'Sagen Sie dem Assistenten, was Sie möchten, und lassen Sie ihn den Workflow entwerfen.',
+  'flows.chooser.creating': 'Workflow wird erstellt…',
+  'flows.chooser.createError': 'Der Workflow konnte nicht erstellt werden. Bitte erneut versuchen.',
+  'flows.templates.title': 'Mit einer Vorlage beginnen',
+  'flows.templates.subtitle': 'Wählen Sie einen Ausgangspunkt und passen Sie ihn im Editor an.',
+  'flows.templates.use': 'Vorlage verwenden',
+  'flows.templates.back': 'Zurück',
+  'flows.templates.empty': 'Keine Vorlagen verfügbar.',
+  'flows.templates.category.scheduled': 'Geplant',
+  'flows.templates.category.triggered': 'Ausgelöst',
+  'flows.templates.category.onDemand': 'Bei Bedarf',
+  'flows.templates.daily-digest.name': 'Tägliche Zusammenfassung an Kanal',
+  'flows.templates.daily-digest.description':
+    'Nach Zeitplan schreibt ein Agent eine kurze Zusammenfassung und postet sie in einen Kanal.',
+  'flows.templates.scheduled-scrape.name': 'Geplantes Scraping ins Gedächtnis',
+  'flows.templates.scheduled-scrape.description':
+    'Eine Quelle nach Zeitplan abrufen, die Ergebnisse umformen und im Gedächtnis speichern.',
+  'flows.templates.webhook-triage.name': 'Webhook-Triage und Benachrichtigung',
+  'flows.templates.webhook-triage.description':
+    'Ein eingehender Webhook wird von einem Agenten sortiert, dann werden Sie benachrichtigt.',
+  'flows.templates.app-event-route.name': 'App-Ereignis zu bedingter Aktion',
+  'flows.templates.app-event-route.description':
+    'Ein Ereignis einer verbundenen App führt eine Prüfung aus und handelt bei Übereinstimmung.',
+  'flows.templates.http-fetch-parse.name': 'API abrufen und auswerten',
+  'flows.templates.http-fetch-parse.description':
+    'Einen HTTP-Endpunkt bei Bedarf aufrufen und die Antwort in eine nutzbare Form bringen.',
+  'flows.templates.ask-agent.name': 'Den Agenten fragen',
+  'flows.templates.ask-agent.description':
+    'Ein einfacher manueller Auslöser, der einem Agenten eine Aufgabe übergibt.',
 
   'oauth.button.connecting': 'Verbinden...',
   'oauth.button.loopbackTimeout':

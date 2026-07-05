@@ -4400,7 +4400,8 @@ const en: TranslationMap = {
   'flows.editor.warningsTitle': 'Warnings',
   'flows.editor.saveFailedTitle': 'Could not save',
   'flows.editor.leaveTitle': 'Leave without saving?',
-  'flows.editor.leaveBody': 'You have unsaved changes to this workflow. If you leave now, they will be lost.',
+  'flows.editor.leaveBody':
+    'You have unsaved changes to this workflow. If you leave now, they will be lost.',
   'flows.editor.leaveStay': 'Stay',
   'flows.editor.leaveDiscard': 'Leave',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -4457,6 +4458,46 @@ const en: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Source',
+
+  // Phase 4a "New workflow" chooser + Phase 4c templates gallery. The chooser
+  // offers scratch / template / describe; the gallery lists the curated
+  // `WorkflowGraph` templates bundled under `lib/flows/templates/`.
+  'flows.chooser.title': 'Create a workflow',
+  'flows.chooser.subtitle': 'Choose how you want to start.',
+  'flows.chooser.scratchTitle': 'Start from scratch',
+  'flows.chooser.scratchDescription': 'Begin with a blank canvas and a single manual trigger.',
+  'flows.chooser.templateTitle': 'From a template',
+  'flows.chooser.templateDescription': 'Start from a ready-made example and customize it.',
+  'flows.chooser.describeTitle': 'Describe it',
+  'flows.chooser.describeDescription':
+    'Tell the assistant what you want and let it draft the workflow.',
+  'flows.chooser.creating': 'Creating workflow…',
+  'flows.chooser.createError': 'Could not create the workflow. Please try again.',
+  'flows.templates.title': 'Start from a template',
+  'flows.templates.subtitle': 'Pick a starting point and customize it in the editor.',
+  'flows.templates.use': 'Use template',
+  'flows.templates.back': 'Back',
+  'flows.templates.empty': 'No templates available.',
+  'flows.templates.category.scheduled': 'Scheduled',
+  'flows.templates.category.triggered': 'Triggered',
+  'flows.templates.category.onDemand': 'On demand',
+  'flows.templates.daily-digest.name': 'Daily digest to channel',
+  'flows.templates.daily-digest.description':
+    'On a schedule, an agent writes a short summary and posts it to a channel.',
+  'flows.templates.scheduled-scrape.name': 'Scheduled scrape to memory',
+  'flows.templates.scheduled-scrape.description':
+    'Fetch a source on a schedule, reshape the results, and store them in memory.',
+  'flows.templates.webhook-triage.name': 'Webhook triage and notify',
+  'flows.templates.webhook-triage.description':
+    'An incoming webhook is triaged by an agent, then you get notified.',
+  'flows.templates.app-event-route.name': 'App event to conditional action',
+  'flows.templates.app-event-route.description':
+    'A connected-app event runs a check, then takes an action when it matches.',
+  'flows.templates.http-fetch-parse.name': 'Fetch and parse an API',
+  'flows.templates.http-fetch-parse.description':
+    'Call an HTTP endpoint on demand and parse the response into a usable shape.',
+  'flows.templates.ask-agent.name': 'Ask the agent',
+  'flows.templates.ask-agent.description': 'A simple manual trigger that hands a task to an agent.',
 
   'oauth.button.connecting': 'Connecting...',
   'oauth.button.loopbackTimeout':

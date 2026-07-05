@@ -3763,7 +3763,8 @@ const messages: TranslationMap = {
   'flows.canvas.loading': 'Wczytywanie przepływu pracy…',
   'flows.canvas.loadError': 'Nie można wczytać tego przepływu pracy. Spróbuj ponownie.',
   'flows.canvas.notFound': 'Nie znaleziono tego przepływu pracy.',
-  'flows.canvas.draftMissing': 'Brak wersji roboczej przepływu do otwarcia. Najpierw zaproponuj ją na czacie.',
+  'flows.canvas.draftMissing':
+    'Brak wersji roboczej przepływu do otwarcia. Najpierw zaproponuj ją na czacie.',
   'flows.canvas.backToList': 'Powrót do listy przepływów pracy',
   'flows.nodeKind.trigger': 'Wyzwalacz',
   'flows.nodeKind.agent': 'Agent',
@@ -3795,7 +3796,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'Ostrzeżenia',
   'flows.editor.saveFailedTitle': 'Nie udało się zapisać',
   'flows.editor.leaveTitle': 'Wyjść bez zapisywania?',
-  'flows.editor.leaveBody': 'Masz niezapisane zmiany w tym przepływie pracy. Jeśli teraz wyjdziesz, zostaną utracone.',
+  'flows.editor.leaveBody':
+    'Masz niezapisane zmiany w tym przepływie pracy. Jeśli teraz wyjdziesz, zostaną utracone.',
   'flows.editor.leaveStay': 'Zostań',
   'flows.editor.leaveDiscard': 'Wyjdź',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3854,6 +3856,45 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Kod źródłowy',
+
+  'flows.chooser.title': 'Utwórz przepływ pracy',
+  'flows.chooser.subtitle': 'Wybierz, jak chcesz zacząć.',
+  'flows.chooser.scratchTitle': 'Zacznij od zera',
+  'flows.chooser.scratchDescription':
+    'Rozpocznij od pustego obszaru i pojedynczego ręcznego wyzwalacza.',
+  'flows.chooser.templateTitle': 'Z szablonu',
+  'flows.chooser.templateDescription': 'Zacznij od gotowego przykładu i dostosuj go.',
+  'flows.chooser.describeTitle': 'Opisz',
+  'flows.chooser.describeDescription':
+    'Powiedz asystentowi, czego chcesz, i pozwól mu naszkicować przepływ pracy.',
+  'flows.chooser.creating': 'Tworzenie przepływu pracy…',
+  'flows.chooser.createError': 'Nie udało się utworzyć przepływu pracy. Spróbuj ponownie.',
+  'flows.templates.title': 'Zacznij od szablonu',
+  'flows.templates.subtitle': 'Wybierz punkt wyjścia i dostosuj go w edytorze.',
+  'flows.templates.use': 'Użyj szablonu',
+  'flows.templates.back': 'Wstecz',
+  'flows.templates.empty': 'Brak dostępnych szablonów.',
+  'flows.templates.category.scheduled': 'Zaplanowane',
+  'flows.templates.category.triggered': 'Wyzwalane',
+  'flows.templates.category.onDemand': 'Na żądanie',
+  'flows.templates.daily-digest.name': 'Codzienne podsumowanie na kanał',
+  'flows.templates.daily-digest.description':
+    'Zgodnie z harmonogramem agent pisze krótkie podsumowanie i publikuje je na kanale.',
+  'flows.templates.scheduled-scrape.name': 'Zaplanowane pobieranie do pamięci',
+  'flows.templates.scheduled-scrape.description':
+    'Pobierz źródło zgodnie z harmonogramem, przekształć wyniki i zapisz je w pamięci.',
+  'flows.templates.webhook-triage.name': 'Segregacja webhooka i powiadomienie',
+  'flows.templates.webhook-triage.description':
+    'Przychodzący webhook jest segregowany przez agenta, a następnie otrzymujesz powiadomienie.',
+  'flows.templates.app-event-route.name': 'Zdarzenie aplikacji do akcji warunkowej',
+  'flows.templates.app-event-route.description':
+    'Zdarzenie z połączonej aplikacji uruchamia sprawdzenie, a następnie działa przy dopasowaniu.',
+  'flows.templates.http-fetch-parse.name': 'Pobierz i przeanalizuj API',
+  'flows.templates.http-fetch-parse.description':
+    'Wywołaj punkt końcowy HTTP na żądanie i przeanalizuj odpowiedź do użytecznej postaci.',
+  'flows.templates.ask-agent.name': 'Zapytaj agenta',
+  'flows.templates.ask-agent.description':
+    'Prosty ręczny wyzwalacz, który przekazuje zadanie agentowi.',
 
   'oauth.button.connecting': 'Łączenie...',
   'oauth.button.loopbackTimeout':

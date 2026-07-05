@@ -3727,7 +3727,8 @@ const messages: TranslationMap = {
   'flows.canvas.loading': 'Memuat alur kerja…',
   'flows.canvas.loadError': 'Alur kerja ini tidak dapat dimuat. Silakan coba lagi.',
   'flows.canvas.notFound': 'Alur kerja ini tidak ditemukan.',
-  'flows.canvas.draftMissing': 'Tidak ada draf alur kerja untuk dibuka. Ajukan satu dari obrolan dahulu.',
+  'flows.canvas.draftMissing':
+    'Tidak ada draf alur kerja untuk dibuka. Ajukan satu dari obrolan dahulu.',
   'flows.canvas.backToList': 'Kembali ke daftar alur kerja',
   'flows.nodeKind.trigger': 'Pemicu',
   'flows.nodeKind.agent': 'Agen',
@@ -3759,7 +3760,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'Peringatan',
   'flows.editor.saveFailedTitle': 'Gagal menyimpan',
   'flows.editor.leaveTitle': 'Keluar tanpa menyimpan?',
-  'flows.editor.leaveBody': 'Anda memiliki perubahan yang belum disimpan pada alur kerja ini. Jika keluar sekarang, perubahan akan hilang.',
+  'flows.editor.leaveBody':
+    'Anda memiliki perubahan yang belum disimpan pada alur kerja ini. Jika keluar sekarang, perubahan akan hilang.',
   'flows.editor.leaveStay': 'Tetap di sini',
   'flows.editor.leaveDiscard': 'Keluar',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3817,6 +3819,44 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Kode sumber',
+
+  'flows.chooser.title': 'Buat alur kerja',
+  'flows.chooser.subtitle': 'Pilih cara Anda ingin memulai.',
+  'flows.chooser.scratchTitle': 'Mulai dari awal',
+  'flows.chooser.scratchDescription': 'Mulai dengan kanvas kosong dan satu pemicu manual.',
+  'flows.chooser.templateTitle': 'Dari templat',
+  'flows.chooser.templateDescription': 'Mulai dari contoh siap pakai dan sesuaikan.',
+  'flows.chooser.describeTitle': 'Jelaskan',
+  'flows.chooser.describeDescription':
+    'Beri tahu asisten apa yang Anda inginkan dan biarkan ia menyusun alur kerja.',
+  'flows.chooser.creating': 'Membuat alur kerja…',
+  'flows.chooser.createError': 'Tidak dapat membuat alur kerja. Silakan coba lagi.',
+  'flows.templates.title': 'Mulai dari templat',
+  'flows.templates.subtitle': 'Pilih titik awal dan sesuaikan di editor.',
+  'flows.templates.use': 'Gunakan templat',
+  'flows.templates.back': 'Kembali',
+  'flows.templates.empty': 'Tidak ada templat tersedia.',
+  'flows.templates.category.scheduled': 'Terjadwal',
+  'flows.templates.category.triggered': 'Terpicu',
+  'flows.templates.category.onDemand': 'Sesuai permintaan',
+  'flows.templates.daily-digest.name': 'Ringkasan harian ke saluran',
+  'flows.templates.daily-digest.description':
+    'Sesuai jadwal, agen menulis ringkasan singkat dan mengirimkannya ke saluran.',
+  'flows.templates.scheduled-scrape.name': 'Pengambilan terjadwal ke memori',
+  'flows.templates.scheduled-scrape.description':
+    'Ambil sumber sesuai jadwal, ubah bentuk hasilnya, dan simpan di memori.',
+  'flows.templates.webhook-triage.name': 'Triase webhook dan pemberitahuan',
+  'flows.templates.webhook-triage.description':
+    'Webhook masuk ditriase oleh agen, lalu Anda diberi tahu.',
+  'flows.templates.app-event-route.name': 'Peristiwa aplikasi ke tindakan bersyarat',
+  'flows.templates.app-event-route.description':
+    'Peristiwa dari aplikasi terhubung menjalankan pemeriksaan, lalu bertindak saat cocok.',
+  'flows.templates.http-fetch-parse.name': 'Ambil dan urai API',
+  'flows.templates.http-fetch-parse.description':
+    'Panggil endpoint HTTP sesuai permintaan dan urai respons menjadi bentuk yang dapat digunakan.',
+  'flows.templates.ask-agent.name': 'Tanya agen',
+  'flows.templates.ask-agent.description':
+    'Pemicu manual sederhana yang menyerahkan tugas ke agen.',
 
   'oauth.button.connecting': 'Menghubungkan...',
   'oauth.button.loopbackTimeout':

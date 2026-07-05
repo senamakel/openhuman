@@ -3808,7 +3808,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'Avvisi',
   'flows.editor.saveFailedTitle': 'Impossibile salvare',
   'flows.editor.leaveTitle': 'Uscire senza salvare?',
-  'flows.editor.leaveBody': 'Hai modifiche non salvate in questo flusso di lavoro. Se esci ora, andranno perse.',
+  'flows.editor.leaveBody':
+    'Hai modifiche non salvate in questo flusso di lavoro. Se esci ora, andranno perse.',
   'flows.editor.leaveStay': 'Resta',
   'flows.editor.leaveDiscard': 'Esci',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3868,6 +3869,45 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Codice sorgente',
+
+  'flows.chooser.title': 'Crea un flusso di lavoro',
+  'flows.chooser.subtitle': 'Scegli come iniziare.',
+  'flows.chooser.scratchTitle': 'Parti da zero',
+  'flows.chooser.scratchDescription':
+    "Inizia con un'area di lavoro vuota e un singolo trigger manuale.",
+  'flows.chooser.templateTitle': 'Da un modello',
+  'flows.chooser.templateDescription': 'Parti da un esempio pronto e personalizzalo.',
+  'flows.chooser.describeTitle': 'Descrivilo',
+  'flows.chooser.describeDescription':
+    "Di' all'assistente cosa vuoi e lascia che rediga il flusso di lavoro.",
+  'flows.chooser.creating': 'Creazione del flusso di lavoro…',
+  'flows.chooser.createError': 'Impossibile creare il flusso di lavoro. Riprova.',
+  'flows.templates.title': 'Parti da un modello',
+  'flows.templates.subtitle': "Scegli un punto di partenza e personalizzalo nell'editor.",
+  'flows.templates.use': 'Usa modello',
+  'flows.templates.back': 'Indietro',
+  'flows.templates.empty': 'Nessun modello disponibile.',
+  'flows.templates.category.scheduled': 'Pianificato',
+  'flows.templates.category.triggered': 'Attivato',
+  'flows.templates.category.onDemand': 'Su richiesta',
+  'flows.templates.daily-digest.name': 'Riepilogo giornaliero al canale',
+  'flows.templates.daily-digest.description':
+    'In base a una pianificazione, un agente scrive un breve riepilogo e lo pubblica in un canale.',
+  'flows.templates.scheduled-scrape.name': 'Scraping pianificato in memoria',
+  'flows.templates.scheduled-scrape.description':
+    'Recupera una fonte in base a una pianificazione, rimodella i risultati e salvali in memoria.',
+  'flows.templates.webhook-triage.name': 'Smistamento webhook e notifica',
+  'flows.templates.webhook-triage.description':
+    'Un webhook in arrivo viene smistato da un agente, poi ricevi una notifica.',
+  'flows.templates.app-event-route.name': 'Evento app verso azione condizionale',
+  'flows.templates.app-event-route.description':
+    "Un evento di un'app collegata esegue un controllo, poi agisce quando corrisponde.",
+  'flows.templates.http-fetch-parse.name': "Recupera e analizza un'API",
+  'flows.templates.http-fetch-parse.description':
+    'Chiama un endpoint HTTP su richiesta e analizza la risposta in una forma utilizzabile.',
+  'flows.templates.ask-agent.name': "Chiedi all'agente",
+  'flows.templates.ask-agent.description':
+    'Un semplice trigger manuale che affida un compito a un agente.',
 
   'oauth.button.connecting': 'Connessione...',
   'oauth.button.loopbackTimeout':

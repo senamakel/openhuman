@@ -3722,6 +3722,42 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'الكود المصدري',
 
+  'flows.chooser.title': 'إنشاء سير عمل',
+  'flows.chooser.subtitle': 'اختر كيف تريد أن تبدأ.',
+  'flows.chooser.scratchTitle': 'ابدأ من الصفر',
+  'flows.chooser.scratchDescription': 'ابدأ بلوحة فارغة ومشغّل يدوي واحد.',
+  'flows.chooser.templateTitle': 'من قالب',
+  'flows.chooser.templateDescription': 'ابدأ من مثال جاهز وخصّصه.',
+  'flows.chooser.describeTitle': 'صِفه',
+  'flows.chooser.describeDescription': 'أخبر المساعد بما تريد ودعه يصيغ سير العمل.',
+  'flows.chooser.creating': 'جارٍ إنشاء سير العمل…',
+  'flows.chooser.createError': 'تعذّر إنشاء سير العمل. يرجى المحاولة مرة أخرى.',
+  'flows.templates.title': 'ابدأ من قالب',
+  'flows.templates.subtitle': 'اختر نقطة بداية وخصّصها في المحرّر.',
+  'flows.templates.use': 'استخدام القالب',
+  'flows.templates.back': 'رجوع',
+  'flows.templates.empty': 'لا توجد قوالب متاحة.',
+  'flows.templates.category.scheduled': 'مجدول',
+  'flows.templates.category.triggered': 'مُشغَّل',
+  'flows.templates.category.onDemand': 'عند الطلب',
+  'flows.templates.daily-digest.name': 'ملخص يومي إلى قناة',
+  'flows.templates.daily-digest.description':
+    'وفق جدول زمني، يكتب وكيل ملخصًا قصيرًا وينشره في قناة.',
+  'flows.templates.scheduled-scrape.name': 'استخراج مجدول إلى الذاكرة',
+  'flows.templates.scheduled-scrape.description':
+    'اجلب مصدرًا وفق جدول زمني، وأعد تشكيل النتائج، واحفظها في الذاكرة.',
+  'flows.templates.webhook-triage.name': 'فرز الويب هوك والإشعار',
+  'flows.templates.webhook-triage.description':
+    'يُفرز الويب هوك الوارد بواسطة وكيل، ثم يصلك إشعار.',
+  'flows.templates.app-event-route.name': 'حدث تطبيق إلى إجراء شرطي',
+  'flows.templates.app-event-route.description':
+    'يشغّل حدث من تطبيق متصل فحصًا، ثم ينفّذ إجراءً عند التطابق.',
+  'flows.templates.http-fetch-parse.name': 'جلب واجهة API وتحليلها',
+  'flows.templates.http-fetch-parse.description':
+    'استدعِ نقطة نهاية HTTP عند الطلب وحلّل الاستجابة إلى شكل قابل للاستخدام.',
+  'flows.templates.ask-agent.name': 'اسأل الوكيل',
+  'flows.templates.ask-agent.description': 'مشغّل يدوي بسيط يسلّم مهمة إلى وكيل.',
+
   'oauth.button.connecting': 'جارٍ الاتصال...',
   'oauth.button.loopbackTimeout':
     'انتهت مهلة تسجيل الدخول — لم يكتمل المتصفح إعادة توجيه OAuth. يرجى المحاولة مرة أخرى.',

@@ -3713,7 +3713,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': '경고',
   'flows.editor.saveFailedTitle': '저장할 수 없음',
   'flows.editor.leaveTitle': '저장하지 않고 나가시겠습니까?',
-  'flows.editor.leaveBody': '이 워크플로에 저장되지 않은 변경 사항이 있습니다. 지금 나가면 변경 사항이 사라집니다.',
+  'flows.editor.leaveBody':
+    '이 워크플로에 저장되지 않은 변경 사항이 있습니다. 지금 나가면 변경 사항이 사라집니다.',
   'flows.editor.leaveStay': '머무르기',
   'flows.editor.leaveDiscard': '나가기',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3769,6 +3770,43 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': '소스 코드',
+
+  'flows.chooser.title': '워크플로 만들기',
+  'flows.chooser.subtitle': '시작 방법을 선택하세요.',
+  'flows.chooser.scratchTitle': '처음부터 시작',
+  'flows.chooser.scratchDescription': '빈 캔버스와 단일 수동 트리거로 시작합니다.',
+  'flows.chooser.templateTitle': '템플릿에서 시작',
+  'flows.chooser.templateDescription': '완성된 예제로 시작하여 맞춤 설정하세요.',
+  'flows.chooser.describeTitle': '설명하기',
+  'flows.chooser.describeDescription':
+    '원하는 것을 어시스턴트에게 알려주면 워크플로 초안을 작성합니다.',
+  'flows.chooser.creating': '워크플로 생성 중…',
+  'flows.chooser.createError': '워크플로를 만들 수 없습니다. 다시 시도해 주세요.',
+  'flows.templates.title': '템플릿에서 시작',
+  'flows.templates.subtitle': '시작점을 선택하고 편집기에서 맞춤 설정하세요.',
+  'flows.templates.use': '템플릿 사용',
+  'flows.templates.back': '뒤로',
+  'flows.templates.empty': '사용 가능한 템플릿이 없습니다.',
+  'flows.templates.category.scheduled': '예약됨',
+  'flows.templates.category.triggered': '트리거됨',
+  'flows.templates.category.onDemand': '요청 시',
+  'flows.templates.daily-digest.name': '채널로 일일 요약',
+  'flows.templates.daily-digest.description':
+    '일정에 따라 에이전트가 짧은 요약을 작성해 채널에 게시합니다.',
+  'flows.templates.scheduled-scrape.name': '예약된 스크랩을 메모리로',
+  'flows.templates.scheduled-scrape.description':
+    '일정에 따라 소스를 가져와 결과를 재구성하고 메모리에 저장합니다.',
+  'flows.templates.webhook-triage.name': '웹훅 분류 및 알림',
+  'flows.templates.webhook-triage.description':
+    '수신 웹훅을 에이전트가 분류한 다음 알림을 받습니다.',
+  'flows.templates.app-event-route.name': '앱 이벤트에서 조건부 작업으로',
+  'flows.templates.app-event-route.description':
+    '연결된 앱의 이벤트가 검사를 실행하고 일치하면 작업을 수행합니다.',
+  'flows.templates.http-fetch-parse.name': 'API 가져오기 및 파싱',
+  'flows.templates.http-fetch-parse.description':
+    '요청 시 HTTP 엔드포인트를 호출하고 응답을 사용 가능한 형태로 파싱합니다.',
+  'flows.templates.ask-agent.name': '에이전트에게 묻기',
+  'flows.templates.ask-agent.description': '작업을 에이전트에 넘기는 간단한 수동 트리거입니다.',
 
   'oauth.button.connecting': '연결 중...',
   'oauth.button.loopbackTimeout':

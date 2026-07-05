@@ -3718,7 +3718,8 @@ const messages: TranslationMap = {
   'flows.canvas.loading': 'वर्कफ़्लो लोड हो रहा है…',
   'flows.canvas.loadError': 'यह वर्कफ़्लो लोड नहीं हो सका। कृपया पुनः प्रयास करें।',
   'flows.canvas.notFound': 'यह वर्कफ़्लो नहीं मिला।',
-  'flows.canvas.draftMissing': 'खोलने के लिए कोई वर्कफ़्लो ड्राफ़्ट नहीं है। पहले चैट से एक प्रस्तावित करें।',
+  'flows.canvas.draftMissing':
+    'खोलने के लिए कोई वर्कफ़्लो ड्राफ़्ट नहीं है। पहले चैट से एक प्रस्तावित करें।',
   'flows.canvas.backToList': 'वर्कफ़्लो सूची पर वापस जाएं',
   'flows.nodeKind.trigger': 'ट्रिगर',
   'flows.nodeKind.agent': 'एजेंट',
@@ -3750,7 +3751,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'चेतावनियाँ',
   'flows.editor.saveFailedTitle': 'सहेजा नहीं जा सका',
   'flows.editor.leaveTitle': 'बिना सहेजे छोड़ें?',
-  'flows.editor.leaveBody': 'इस वर्कफ़्लो में आपके बिना सहेजे परिवर्तन हैं। अभी छोड़ने पर वे खो जाएँगे।',
+  'flows.editor.leaveBody':
+    'इस वर्कफ़्लो में आपके बिना सहेजे परिवर्तन हैं। अभी छोड़ने पर वे खो जाएँगे।',
   'flows.editor.leaveStay': 'रुकें',
   'flows.editor.leaveDiscard': 'छोड़ें',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3807,6 +3809,44 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'सोर्स कोड',
+
+  'flows.chooser.title': 'वर्कफ़्लो बनाएँ',
+  'flows.chooser.subtitle': 'चुनें कि आप कैसे शुरू करना चाहते हैं।',
+  'flows.chooser.scratchTitle': 'शुरू से शुरू करें',
+  'flows.chooser.scratchDescription': 'एक खाली कैनवास और एकल मैन्युअल ट्रिगर के साथ शुरू करें।',
+  'flows.chooser.templateTitle': 'टेम्पलेट से',
+  'flows.chooser.templateDescription': 'तैयार उदाहरण से शुरू करें और उसे अनुकूलित करें।',
+  'flows.chooser.describeTitle': 'इसका वर्णन करें',
+  'flows.chooser.describeDescription':
+    'सहायक को बताएँ कि आप क्या चाहते हैं और उसे वर्कफ़्लो का मसौदा बनाने दें।',
+  'flows.chooser.creating': 'वर्कफ़्लो बनाया जा रहा है…',
+  'flows.chooser.createError': 'वर्कफ़्लो नहीं बनाया जा सका। कृपया पुनः प्रयास करें।',
+  'flows.templates.title': 'टेम्पलेट से शुरू करें',
+  'flows.templates.subtitle': 'एक प्रारंभिक बिंदु चुनें और संपादक में उसे अनुकूलित करें।',
+  'flows.templates.use': 'टेम्पलेट उपयोग करें',
+  'flows.templates.back': 'वापस',
+  'flows.templates.empty': 'कोई टेम्पलेट उपलब्ध नहीं।',
+  'flows.templates.category.scheduled': 'निर्धारित',
+  'flows.templates.category.triggered': 'ट्रिगर किया गया',
+  'flows.templates.category.onDemand': 'माँग पर',
+  'flows.templates.daily-digest.name': 'चैनल पर दैनिक सारांश',
+  'flows.templates.daily-digest.description':
+    'एक शेड्यूल पर, एजेंट एक छोटा सारांश लिखता है और उसे चैनल पर पोस्ट करता है।',
+  'flows.templates.scheduled-scrape.name': 'निर्धारित स्क्रैप मेमोरी में',
+  'flows.templates.scheduled-scrape.description':
+    'शेड्यूल पर एक स्रोत प्राप्त करें, परिणामों को पुनः आकार दें, और उन्हें मेमोरी में संग्रहीत करें।',
+  'flows.templates.webhook-triage.name': 'वेबहुक ट्राइएज और सूचना',
+  'flows.templates.webhook-triage.description':
+    'आने वाले वेबहुक को एक एजेंट द्वारा छाँटा जाता है, फिर आपको सूचित किया जाता है।',
+  'flows.templates.app-event-route.name': 'ऐप इवेंट से सशर्त क्रिया',
+  'flows.templates.app-event-route.description':
+    'किसी जुड़े ऐप की घटना एक जाँच चलाती है, फिर मिलान होने पर कार्रवाई करती है।',
+  'flows.templates.http-fetch-parse.name': 'API प्राप्त करें और पार्स करें',
+  'flows.templates.http-fetch-parse.description':
+    'माँग पर एक HTTP एंडपॉइंट को कॉल करें और प्रतिक्रिया को उपयोगी रूप में पार्स करें।',
+  'flows.templates.ask-agent.name': 'एजेंट से पूछें',
+  'flows.templates.ask-agent.description':
+    'एक सरल मैन्युअल ट्रिगर जो किसी कार्य को एजेंट को सौंपता है।',
 
   'oauth.button.connecting': 'कनेक्ट हो रहा है...',
   'oauth.button.loopbackTimeout':

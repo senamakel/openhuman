@@ -3752,7 +3752,8 @@ const messages: TranslationMap = {
   'flows.canvas.loading': 'Загрузка рабочего процесса…',
   'flows.canvas.loadError': 'Не удалось загрузить этот рабочий процесс. Повторите попытку.',
   'flows.canvas.notFound': 'Этот рабочий процесс не найден.',
-  'flows.canvas.draftMissing': 'Нет черновика рабочего процесса для открытия. Сначала предложите его в чате.',
+  'flows.canvas.draftMissing':
+    'Нет черновика рабочего процесса для открытия. Сначала предложите его в чате.',
   'flows.canvas.backToList': 'Назад к рабочим процессам',
   'flows.nodeKind.trigger': 'Триггер',
   'flows.nodeKind.agent': 'Агент',
@@ -3784,7 +3785,8 @@ const messages: TranslationMap = {
   'flows.editor.warningsTitle': 'Предупреждения',
   'flows.editor.saveFailedTitle': 'Не удалось сохранить',
   'flows.editor.leaveTitle': 'Выйти без сохранения?',
-  'flows.editor.leaveBody': 'В этом рабочем процессе есть несохранённые изменения. Если выйти сейчас, они будут потеряны.',
+  'flows.editor.leaveBody':
+    'В этом рабочем процессе есть несохранённые изменения. Если выйти сейчас, они будут потеряны.',
   'flows.editor.leaveStay': 'Остаться',
   'flows.editor.leaveDiscard': 'Выйти',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
@@ -3843,6 +3845,43 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.language_javascript': 'JavaScript',
   'flows.nodeConfig.code.language_python': 'Python',
   'flows.nodeConfig.code.sourceLabel': 'Исходный код',
+
+  'flows.chooser.title': 'Создать рабочий процесс',
+  'flows.chooser.subtitle': 'Выберите, с чего начать.',
+  'flows.chooser.scratchTitle': 'Начать с нуля',
+  'flows.chooser.scratchDescription': 'Начните с пустого холста и единственного ручного триггера.',
+  'flows.chooser.templateTitle': 'Из шаблона',
+  'flows.chooser.templateDescription': 'Начните с готового примера и настройте его.',
+  'flows.chooser.describeTitle': 'Описать',
+  'flows.chooser.describeDescription':
+    'Скажите ассистенту, что вам нужно, и позвольте ему составить рабочий процесс.',
+  'flows.chooser.creating': 'Создание рабочего процесса…',
+  'flows.chooser.createError': 'Не удалось создать рабочий процесс. Пожалуйста, попробуйте снова.',
+  'flows.templates.title': 'Начать с шаблона',
+  'flows.templates.subtitle': 'Выберите отправную точку и настройте её в редакторе.',
+  'flows.templates.use': 'Использовать шаблон',
+  'flows.templates.back': 'Назад',
+  'flows.templates.empty': 'Нет доступных шаблонов.',
+  'flows.templates.category.scheduled': 'По расписанию',
+  'flows.templates.category.triggered': 'По событию',
+  'flows.templates.category.onDemand': 'По запросу',
+  'flows.templates.daily-digest.name': 'Ежедневная сводка в канал',
+  'flows.templates.daily-digest.description':
+    'По расписанию агент пишет краткую сводку и публикует её в канале.',
+  'flows.templates.scheduled-scrape.name': 'Плановый сбор в память',
+  'flows.templates.scheduled-scrape.description':
+    'Получайте источник по расписанию, преобразуйте результаты и сохраняйте их в память.',
+  'flows.templates.webhook-triage.name': 'Разбор вебхука и уведомление',
+  'flows.templates.webhook-triage.description':
+    'Входящий вебхук разбирается агентом, затем вы получаете уведомление.',
+  'flows.templates.app-event-route.name': 'Событие приложения к условному действию',
+  'flows.templates.app-event-route.description':
+    'Событие подключённого приложения выполняет проверку и действует при совпадении.',
+  'flows.templates.http-fetch-parse.name': 'Получить и разобрать API',
+  'flows.templates.http-fetch-parse.description':
+    'Вызовите конечную точку HTTP по запросу и разберите ответ в удобную форму.',
+  'flows.templates.ask-agent.name': 'Спросить агента',
+  'flows.templates.ask-agent.description': 'Простой ручной триггер, передающий задачу агенту.',
 
   'oauth.button.connecting': 'Подключение...',
   'oauth.button.loopbackTimeout':

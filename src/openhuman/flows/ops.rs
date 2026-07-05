@@ -14,7 +14,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::flows::bus;
 use crate::openhuman::flows::run_registry;
 use crate::openhuman::flows::store;
-use crate::openhuman::flows::types::{FlowRunStep, FlowRunTrigger};
+use crate::openhuman::flows::types::{FlowConnection, FlowRunStep, FlowRunTrigger};
 use crate::openhuman::flows::{Flow, FlowRun};
 use crate::rpc::RpcOutcome;
 
@@ -207,6 +207,181 @@ pub async fn flows_get(config: &Config, id: &str) -> Result<RpcOutcome<Flow>, St
 pub async fn flows_list(config: &Config) -> Result<RpcOutcome<Vec<Flow>>, String> {
     let flows = store::list_flows(config).map_err(|e| e.to_string())?;
     Ok(RpcOutcome::single_log(flows, "flows listed"))
+}
+
+/// Lists the connection sources a flow node's `connection_ref` can attach to:
+/// Composio connected accounts (`kind = "composio"`) and stored HTTP
+/// credentials (`kind = "http"`). This is the picker source for the Workflows
+/// UI (and the agent's flow-authoring surface) — it returns ids + display
+/// labels + kind ONLY, never any secret material.
+///
+/// The two sources are aggregated independently and are individually
+/// fault-tolerant: a transient Composio backend/network failure (or an
+/// unconfigured Direct-mode key) yields zero Composio entries but still returns
+/// the HTTP credential half, and vice-versa. A failure in one source never
+/// fails the whole picker.
+pub async fn flows_list_connections(
+    config: &Config,
+) -> Result<RpcOutcome<Vec<FlowConnection>>, String> {
+    tracing::debug!(
+        "[flows] rpc flows_list_connections: aggregating composio + http_cred picker sources"
+    );
+    let mut logs = Vec::new();
+
+    // 1. Composio connected accounts. Direct mode without a configured key
+    //    already short-circuits to an empty list (a valid setup state, not an
+    //    error); a backend outage returns Err — tolerate it so the picker still
+    //    surfaces HTTP credentials.
+    let composio_conns =
+        match crate::openhuman::composio::ops::composio_list_connections(config).await {
+            Ok(outcome) => {
+                tracing::debug!(
+                    count = outcome.value.connections.len(),
+                    "[flows] flows_list_connections: composio source returned connections"
+                );
+                outcome.value.connections
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "[flows] flows_list_connections: composio source unavailable — \
+                     returning http_cred entries only"
+                );
+                logs.push(format!(
+                    "flows_list_connections: composio source unavailable ({e})"
+                ));
+                Vec::new()
+            }
+        };
+
+    // 2. Named HTTP credentials — secret-free summaries (the store never hands
+    //    out secret material here; injection happens server-side in
+    //    `tinyflows::caps::OpenHumanHttp`).
+    let http_creds =
+        match crate::openhuman::credentials::HttpCredentialsStore::from_config(config).list() {
+            Ok(list) => {
+                tracing::debug!(
+                    count = list.len(),
+                    "[flows] flows_list_connections: http_cred store returned summaries"
+                );
+                list
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "[flows] flows_list_connections: http_cred store read failed — \
+                     returning composio entries only"
+                );
+                logs.push(format!(
+                    "flows_list_connections: http_cred store unavailable ({e})"
+                ));
+                Vec::new()
+            }
+        };
+
+    let connections = build_flow_connections(composio_conns, http_creds);
+    tracing::debug!(
+        total = connections.len(),
+        "[flows] flows_list_connections: aggregated picker sources"
+    );
+    logs.push(format!(
+        "flows_list_connections: {} connection(s)",
+        connections.len()
+    ));
+    Ok(RpcOutcome::new(connections, logs))
+}
+
+/// Fold Composio connected accounts + named HTTP credentials into the flat,
+/// secret-free [`FlowConnection`] picker list. Only ACTIVE Composio connections
+/// are surfaced — a pending/expired OAuth account cannot execute a tool, so it
+/// would be a dead pick. Pure (no I/O) so the aggregation shape is
+/// unit-testable without a live backend.
+fn build_flow_connections(
+    composio: Vec<crate::openhuman::composio::ComposioConnection>,
+    http: Vec<crate::openhuman::credentials::HttpCredentialSummary>,
+) -> Vec<FlowConnection> {
+    let mut out = Vec::with_capacity(composio.len() + http.len());
+    for conn in composio {
+        if !conn.is_active() {
+            tracing::debug!(
+                toolkit = %conn.toolkit,
+                connection_id = %conn.id,
+                status = %conn.status,
+                "[flows] flows_list_connections: skipping non-active composio connection"
+            );
+            continue;
+        }
+        let toolkit = conn.normalized_toolkit();
+        out.push(FlowConnection {
+            // Exactly the shape `tinyflows::caps::composio_connection_id` parses.
+            connection_ref: format!("composio:{}:{}", toolkit, conn.id),
+            kind: "composio".to_string(),
+            display: composio_connection_display(&toolkit, &conn),
+            toolkit: Some(toolkit),
+            scheme: None,
+        });
+    }
+    for cred in http {
+        out.push(FlowConnection {
+            // Exactly the shape `tinyflows::caps::http_cred_name` parses.
+            connection_ref: format!("http_cred:{}", cred.name),
+            kind: "http".to_string(),
+            display: http_credential_display(&cred),
+            toolkit: None,
+            scheme: Some(cred.scheme),
+        });
+    }
+    out
+}
+
+/// Human-readable picker label for a Composio connected account, e.g.
+/// `"Gmail · user@example.com"`. Prefers email, then workspace/team, then
+/// handle; falls back to the title-cased toolkit alone when no identity is
+/// cached. The identity fields are display metadata (already surfaced by
+/// `composio_list_connections`), never secret material.
+fn composio_connection_display(
+    toolkit: &str,
+    conn: &crate::openhuman::composio::ComposioConnection,
+) -> String {
+    let title = title_case_toolkit(toolkit);
+    let identity = conn
+        .account_email
+        .as_deref()
+        .or(conn.workspace.as_deref())
+        .or(conn.username.as_deref())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    match identity {
+        Some(id) => format!("{title} · {id}"),
+        None => title,
+    }
+}
+
+/// Human-readable picker label for a named HTTP credential, e.g.
+/// `"stripe (bearer)"`. Only the (non-secret) name + scheme — never the value.
+fn http_credential_display(cred: &crate::openhuman::credentials::HttpCredentialSummary) -> String {
+    format!("{} ({})", cred.name, cred.scheme)
+}
+
+/// Title-case a toolkit slug for display: `"gmail"` → `"Gmail"`,
+/// `"google_calendar"` → `"Google Calendar"`. Best-effort cosmetic only.
+fn title_case_toolkit(toolkit: &str) -> String {
+    let trimmed = toolkit.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    trimmed
+        .split(|c| c == '_' || c == '-' || c == ' ')
+        .filter(|w| !w.is_empty())
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Updates a flow's name, graph, and/or `require_approval` toggle.

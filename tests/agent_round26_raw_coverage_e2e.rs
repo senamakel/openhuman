@@ -21,7 +21,7 @@ use openhuman_core::openhuman::memory::{
 };
 use openhuman_core::openhuman::subconscious::SourceChunk;
 use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolResult};
-use openhuman_core::openhuman::workflows::ops_types::Workflow;
+use openhuman_core::openhuman::skills::ops_types::Workflow;
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};

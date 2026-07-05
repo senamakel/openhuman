@@ -2,10 +2,9 @@
 
 Status: execution plan (2026-07-04), written after a ground-truth code map of
 both the OpenHuman progress surface and the vendored crate observability
-primitives. This is the actionable plan for the C4 workstream in
-[`CONTINUATION-2026-07.md`](CONTINUATION-2026-07.md) §4, and it is the gated
-prerequisite for **doc 03 (V3) Step 5** — deleting the `ProviderDelta` bridge
-and `progress_tracing`.
+primitives. This is the actionable plan for the C4 workstream's July 2026
+continuation notes, and it is the gated prerequisite for **doc 03 (V3) Step
+5** — deleting the `ProviderDelta` bridge and `progress_tracing`.
 
 ## 1. Corrected architecture (what the map found)
 

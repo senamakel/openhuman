@@ -44,13 +44,15 @@ Companion docs in the tinychannels repo:
   `channels.connect` and `channels.set_default` preserve their public log/value
   envelopes after manager dispatch, and the managed Telegram/Discord link
   controllers route through the manager while preserving their no-log typed
-  responses. The no-log reaction/thread controllers now dispatch through the
-  manager and unwrap the backend `raw` payload to preserve legacy top-level JSON
-  shapes. Discord guild/channel/permission discovery also dispatches through
-  the manager while restoring the old log strings and top-level provider JSON.
-  The remaining OpenHuman work is still the rest of the controller routing,
-  envelope/session migration, idempotency adoption, and the planned test split
-  below.
+  responses. The no-log send/reaction/thread controllers now dispatch through
+  the manager and unwrap the backend `raw` payload to preserve legacy top-level
+  JSON shapes. `channels.disconnect` also routes through the manager while
+  preserving the old log string and extra fields such as
+  `memory_chunks_deleted`. Discord guild/channel/permission discovery dispatches
+  through the manager while restoring the old log strings and top-level provider
+  JSON. The remaining OpenHuman work is still envelope/session migration,
+  idempotency adoption, relay runtime adoption, provider extraction, and the
+  planned test split below.
 
 ## Step 1 — Add the dependency, delete duplicates
 
@@ -83,22 +85,19 @@ Companion docs in the tinychannels repo:
   method to the existing ops functions:
   - `send_message` → `messaging.rs::channel_send_message` (already composes
     `effective_backend_api_url` + `jwt::get_session_token` +
-    `BackendOAuthClient`).
+    `BackendOAuthClient`), with `send_message_value` preserving OpenHuman's
+    arbitrary rich-message JSON for the public RPC controller.
   - `connect_channel` / `disconnect_channel` → `connect.rs` flows plus
     `credentials::ops::{store,remove}_provider_credentials` (keyed
-    `"channel:<slug>"`).
+    `"channel:<slug>"`), with disconnect returning the raw legacy payload for
+    fields such as `memory_chunks_deleted`.
   - `channel_status` / `test_channel` → existing status/test ops plus
     `health::snapshot`.
   - Telegram login and Discord link/guild/permission methods → the existing
     `telegram.rs` / `discord.rs` ops.
-- Still pending: route the remaining controller entry points through
-  `ChannelManager<OpenHumanChannelBackend>`, so credential validation
-  (`ChannelDefinition::validate_credentials`) and operation dispatch happen in
-  one place. Route `channels.disconnect` carefully: it currently returns log
-  entries plus extra disconnect fields such as `memory_chunks_deleted`. Route
-  `channels.send_message` only after the manager API can carry OpenHuman's
-  arbitrary rich-message JSON without collapsing it into the portable
-  `SendMessage` shape.
+- **Landed:** The current `channels.*` controller entry points dispatch through
+  `ChannelManager<OpenHumanChannelBackend>` where they cross this crate seam,
+  while preserving the legacy public JSON/log envelopes.
 - The event bus, health bus, and dispatch engine stay app-side and *drive*
   tinychannels. Never add a tinychannels → openhuman dependency; the
   `runtime/` dispatch engine and the `web` provider are consumers of the

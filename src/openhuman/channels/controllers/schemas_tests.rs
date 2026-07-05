@@ -337,6 +337,14 @@ fn connect_logs_preserve_legacy_envelope_cases() {
 }
 
 #[test]
+fn credential_provider_matches_legacy_channel_key() {
+    assert_eq!(
+        credential_provider("telegram", ChannelAuthMode::BotToken),
+        "channel:telegram:bot_token"
+    );
+}
+
+#[test]
 fn raw_or_typed_prefers_raw_payload() {
     let raw = json!({"legacy": true});
     let typed = json!({"typed": true});

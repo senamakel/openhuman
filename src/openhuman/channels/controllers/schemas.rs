@@ -12,7 +12,6 @@ use crate::rpc::RpcOutcome;
 
 use super::backend::OpenHumanChannelBackend;
 use super::definitions::ChannelAuthMode;
-use super::ops;
 use tinychannels::{ChannelManager, ChannelsConfig};
 
 // ---------------------------------------------------------------------------
@@ -542,11 +541,23 @@ fn handle_disconnect(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<DisconnectParams>(params)?;
+        let channel = p.channel.trim();
         let mode: ChannelAuthMode = p
             .auth_mode
             .parse()
             .map_err(|e: String| format!("invalid authMode: {e}"))?;
-        to_json(ops::disconnect_channel(&config, p.channel.trim(), mode, p.clear_memory).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .disconnect(channel, mode, p.clear_memory)
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::single_log(
+            raw_or_typed(result.raw.clone(), &result)?,
+            format!(
+                "removed credentials for {}",
+                credential_provider(channel, mode)
+            ),
+        ))
     })
 }
 
@@ -724,7 +735,15 @@ fn handle_send_message(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<SendMessageParams>(params)?;
-        to_json(ops::channel_send_message(&config, p.channel.trim(), p.message).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .send_message_value(p.channel.trim(), p.message)
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(
+            raw_or_typed(result.raw.clone(), &result)?,
+            vec![],
+        ))
     })
 }
 
@@ -815,6 +834,10 @@ fn connect_logs(channel: &str, mode: ChannelAuthMode, pending_auth: bool) -> Vec
     } else {
         vec![format!("stored credentials for channel:{channel}:{mode}")]
     }
+}
+
+fn credential_provider(channel: &str, mode: ChannelAuthMode) -> String {
+    format!("channel:{channel}:{mode}")
 }
 
 fn raw_or_typed<T: serde::Serialize>(raw: Option<Value>, typed: &T) -> Result<Value, String> {

@@ -9,11 +9,11 @@ use crate::rpc::RpcOutcome;
 
 use super::ops;
 use tinychannels::controllers::{
-    ChannelAuthMode, ChannelConnectionResult, ChannelReactionResult, ChannelSendMessageResult,
-    ChannelStatusEntry, ChannelTestResult, ChannelThreadListResult, ChannelThreadResult,
-    DiscordChannelEntry, DiscordChannelListResult, DiscordGuildEntry, DiscordGuildListResult,
-    DiscordLinkCheckResult, DiscordLinkStartResult, DiscordPermissionCheckResult,
-    TelegramLoginCheckResult, TelegramLoginStartResult,
+    ChannelAuthMode, ChannelConnectionResult, ChannelDisconnectResult, ChannelReactionResult,
+    ChannelSendMessageResult, ChannelStatusEntry, ChannelTestResult, ChannelThreadListResult,
+    ChannelThreadResult, DiscordChannelEntry, DiscordChannelListResult, DiscordGuildEntry,
+    DiscordGuildListResult, DiscordLinkCheckResult, DiscordLinkStartResult,
+    DiscordPermissionCheckResult, TelegramLoginCheckResult, TelegramLoginStartResult,
 };
 use tinychannels::{ChannelBackend, SendMessage};
 
@@ -138,16 +138,33 @@ fn send_message_payload(message: SendMessage) -> Value {
     })
 }
 
-fn disconnect_result(channel: &str, value: Value) -> ChannelConnectionResult {
+fn disconnect_result(
+    channel: &str,
+    auth_mode: ChannelAuthMode,
+    value: Value,
+) -> ChannelDisconnectResult {
+    let channel = value
+        .get("channel")
+        .and_then(Value::as_str)
+        .unwrap_or(channel)
+        .to_string();
+    let disconnected = value
+        .get("disconnected")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
     let restart_required = value
         .get("restart_required")
         .and_then(Value::as_bool)
         .unwrap_or(true);
-    ChannelConnectionResult {
-        status: "disconnected".to_string(),
+    let memory_chunks_deleted = value.get("memory_chunks_deleted").and_then(Value::as_u64);
+    ChannelDisconnectResult {
+        channel,
+        auth_mode,
+        disconnected,
         restart_required,
-        auth_action: None,
-        message: Some(format!("Channel '{channel}' disconnected.")),
+        memory_chunks_deleted,
+        message: Some("Channel disconnected.".to_string()),
+        raw: Some(value),
     }
 }
 
@@ -170,11 +187,11 @@ impl ChannelBackend for OpenHumanChannelBackend {
         channel: &str,
         auth_mode: ChannelAuthMode,
         clear_memory: bool,
-    ) -> anyhow::Result<ChannelConnectionResult> {
+    ) -> anyhow::Result<ChannelDisconnectResult> {
         let config = self.config_with_channels(channels_config);
         let value =
             into_anyhow(ops::disconnect_channel(&config, channel, auth_mode, clear_memory).await)?;
-        Ok(disconnect_result(channel, value))
+        Ok(disconnect_result(channel, auth_mode, value))
     }
 
     async fn channel_status(
@@ -207,6 +224,17 @@ impl ChannelBackend for OpenHumanChannelBackend {
         let value = into_anyhow(
             ops::channel_send_message(&config, channel, send_message_payload(message)).await,
         )?;
+        Ok(parse_or_raw(value))
+    }
+
+    async fn send_message_value(
+        &self,
+        channels_config: &ChannelsConfig,
+        channel: &str,
+        message: Value,
+    ) -> anyhow::Result<ChannelSendMessageResult> {
+        let config = self.config_with_channels(channels_config);
+        let value = into_anyhow(ops::channel_send_message(&config, channel, message).await)?;
         Ok(parse_or_raw(value))
     }
 
@@ -396,9 +424,14 @@ mod tests {
 
     #[test]
     fn disconnect_result_projects_restart_flag() {
-        let result = disconnect_result("telegram", json!({"restart_required": false}));
-        assert_eq!(result.status, "disconnected");
+        let payload =
+            json!({"channel": "telegram", "restart_required": false, "memory_chunks_deleted": 2});
+        let result = disconnect_result("telegram", ChannelAuthMode::BotToken, payload.clone());
+        assert_eq!(result.channel, "telegram");
+        assert_eq!(result.auth_mode, ChannelAuthMode::BotToken);
+        assert!(result.disconnected);
         assert!(!result.restart_required);
-        assert!(result.message.unwrap().contains("telegram"));
+        assert_eq!(result.memory_chunks_deleted, Some(2));
+        assert_eq!(result.raw, Some(payload));
     }
 }

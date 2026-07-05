@@ -98,6 +98,27 @@ describe('FlowCanvas (editable)', () => {
     expect(screen.getByTestId('flow-editor-delete')).toBeDisabled();
   });
 
+  it('undoes and redoes a palette add', () => {
+    renderCanvas(<FlowCanvas editable nodes={[triggerNode()]} edges={[]} />);
+    // Undo starts disabled (empty history); redo too.
+    expect(screen.getByTestId('flow-editor-undo')).toBeDisabled();
+    expect(screen.getByTestId('flow-editor-redo')).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
+    expect(screen.getAllByTestId('flow-node')).toHaveLength(2);
+    expect(screen.getByTestId('flow-editor-undo')).not.toBeDisabled();
+
+    // Undo removes the added node and enables redo.
+    fireEvent.click(screen.getByTestId('flow-editor-undo'));
+    expect(screen.getAllByTestId('flow-node')).toHaveLength(1);
+    expect(screen.getByTestId('flow-editor-undo')).toBeDisabled();
+    expect(screen.getByTestId('flow-editor-redo')).not.toBeDisabled();
+
+    // Redo brings it back.
+    fireEvent.click(screen.getByTestId('flow-editor-redo'));
+    expect(screen.getAllByTestId('flow-node')).toHaveLength(2);
+  });
+
   it('exposes no Save button when onSave is not provided', () => {
     renderCanvas(<FlowCanvas editable nodes={[triggerNode()]} edges={[] as FlowEdge[]} />);
     expect(screen.queryByTestId('flow-editor-save')).not.toBeInTheDocument();

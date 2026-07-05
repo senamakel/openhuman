@@ -4444,6 +4444,8 @@ const en: TranslationMap = {
   'flows.editor.running': 'Running…',
   'flows.editor.runFailed': 'Could not start run',
   'flows.editor.deleteSelected': 'Delete selected',
+  'flows.editor.undo': 'Undo',
+  'flows.editor.redo': 'Redo',
   // ── Validation UX + draft/dirty state (issue B5b / Phase 3c–3d)
   'flows.editor.validate': 'Validate',
   'flows.editor.validating': 'Validating…',

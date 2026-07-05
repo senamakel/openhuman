@@ -59,6 +59,24 @@ import { useFlowValidation } from './useFlowValidation';
 
 const log = createDebug('app:flows:canvas:edit');
 
+function UndoIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14L4 9l5-5" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h11a5 5 0 010 10h-1" />
+    </svg>
+  );
+}
+
+function RedoIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 14l5-5-5-5" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 9H9a5 5 0 000 10h1" />
+    </svg>
+  );
+}
+
 const NODE_TYPES = { [FLOW_NODE_TYPE]: FlowNodeComponent };
 const DELETE_KEYS = ['Backspace', 'Delete'];
 
@@ -152,6 +170,70 @@ function EditableFlowCanvas({
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(initialEdges);
   const rfRef = useRef<ReactFlowInstance<FlowNode, FlowEdge> | null>(null);
+
+  // ── Undo / redo history ───────────────────────────────────────────────────
+  // A bounded past/future stack of {nodes, edges} snapshots so structural edits
+  // (add / connect / delete / move) and config edits are recoverable without
+  // nuking ALL edits via Discard. Every mutating action snapshots the PRE-change
+  // state via `pushHistory` before it mutates; undo/redo swap the current state
+  // with the neighbouring snapshot. Consecutive config edits to the same node
+  // coalesce into one history entry (see `lastConfigNodeRef`) so typing in the
+  // config drawer doesn't produce a per-keystroke undo trail.
+  type FlowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
+  const HISTORY_LIMIT = 50;
+  const [history, setHistory] = useState<{ past: FlowSnapshot[]; future: FlowSnapshot[] }>({
+    past: [],
+    future: [],
+  });
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  nodesRef.current = nodes;
+  edgesRef.current = edges;
+  // Node id whose config edits are currently being coalesced into one entry, or
+  // `null` when the last snapshot was any other kind of change.
+  const lastConfigNodeRef = useRef<string | null>(null);
+  // True while a drag is in flight so we snapshot the pre-drag positions exactly
+  // once per drag, not on every intermediate position change.
+  const draggingRef = useRef(false);
+
+  const pushHistory = useCallback((kind: 'config' | 'structural', nodeId?: string) => {
+    // Coalesce a run of config edits to the same node into a single undo step.
+    if (kind === 'config' && lastConfigNodeRef.current === nodeId) return;
+    lastConfigNodeRef.current = kind === 'config' ? (nodeId ?? null) : null;
+    setHistory(h => ({
+      past: [...h.past, { nodes: nodesRef.current, edges: edgesRef.current }].slice(-HISTORY_LIMIT),
+      future: [],
+    }));
+  }, []);
+
+  const undo = useCallback(() => {
+    lastConfigNodeRef.current = null;
+    setHistory(h => {
+      if (h.past.length === 0) return h;
+      const previous = h.past[h.past.length - 1];
+      const current = { nodes: nodesRef.current, edges: edgesRef.current };
+      setNodes(previous.nodes);
+      setEdges(previous.edges);
+      log('undo: restored snapshot nodes=%d edges=%d', previous.nodes.length, previous.edges.length);
+      return { past: h.past.slice(0, -1), future: [...h.future, current].slice(-HISTORY_LIMIT) };
+    });
+  }, [setNodes, setEdges]);
+
+  const redo = useCallback(() => {
+    lastConfigNodeRef.current = null;
+    setHistory(h => {
+      if (h.future.length === 0) return h;
+      const next = h.future[h.future.length - 1];
+      const current = { nodes: nodesRef.current, edges: edgesRef.current };
+      setNodes(next.nodes);
+      setEdges(next.edges);
+      log('redo: restored snapshot nodes=%d edges=%d', next.nodes.length, next.edges.length);
+      return { past: [...h.past, current].slice(-HISTORY_LIMIT), future: h.future.slice(0, -1) };
+    });
+  }, [setNodes, setEdges]);
+
+  const canUndo = history.past.length > 0;
+  const canRedo = history.future.length > 0;
   const addCounter = useRef(0);
   const [selectionCount, setSelectionCount] = useState(0);
   // Id of the single selected node whose config the drawer edits (`null` when
@@ -270,6 +352,35 @@ function EditableFlowCanvas({
     return `new-${kind}-${addCounter.current++}`;
   }, []);
 
+  // Snapshot on structural node/edge removals (covers xyflow's own
+  // Backspace/Delete path, which bypasses `handleDeleteSelected`) and once at
+  // the start of a drag (pre-drag positions), so both are undoable.
+  const handleNodesChange = useCallback(
+    (changes: Parameters<typeof onNodesChange>[0]) => {
+      if (changes.some(c => c.type === 'remove')) {
+        pushHistory('structural');
+      } else {
+        const dragging = changes.some(c => c.type === 'position' && c.dragging === true);
+        const dragEnded = changes.some(c => c.type === 'position' && c.dragging === false);
+        if (dragging && !draggingRef.current) {
+          draggingRef.current = true;
+          pushHistory('structural');
+        }
+        if (dragEnded) draggingRef.current = false;
+      }
+      onNodesChange(changes);
+    },
+    [onNodesChange, pushHistory]
+  );
+
+  const handleEdgesChange = useCallback(
+    (changes: Parameters<typeof onEdgesChange>[0]) => {
+      if (changes.some(c => c.type === 'remove')) pushHistory('structural');
+      onEdgesChange(changes);
+    },
+    [onEdgesChange, pushHistory]
+  );
+
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!isValidFlowConnection(connection, nodes, edges)) {
@@ -278,9 +389,10 @@ function EditableFlowCanvas({
         return;
       }
       log('onConnect: accepted %o', connection);
+      pushHistory('structural');
       setEdges(current => addEdge(connection, current));
     },
-    [nodes, edges, setEdges, onInvalidConnection]
+    [nodes, edges, setEdges, onInvalidConnection, pushHistory]
   );
 
   // Live drag feedback: React Flow calls this while dragging a new connection
@@ -297,9 +409,10 @@ function EditableFlowCanvas({
       const name = t(`flows.nodeKind.${kind}`, kind);
       const node = createFlowNode(kind, position, id, name);
       log('addNode: kind=%s id=%s at %o', kind, id, position);
+      pushHistory('structural');
       setNodes(current => [...current, node]);
     },
-    [nextNodeId, setNodes, t]
+    [nextNodeId, setNodes, t, pushHistory]
   );
 
   const handlePaletteAdd = useCallback(
@@ -334,6 +447,7 @@ function EditableFlowCanvas({
     const removedEdgeIds = new Set(edges.filter(e => e.selected).map(e => e.id));
     if (removedNodeIds.size === 0 && removedEdgeIds.size === 0) return;
     log('deleteSelected: nodes=%d edges=%d', removedNodeIds.size, removedEdgeIds.size);
+    pushHistory('structural');
     setNodes(current => current.filter(n => !removedNodeIds.has(n.id)));
     // Drop explicitly-selected edges AND any edge left dangling by a removed node.
     setEdges(current =>
@@ -344,7 +458,7 @@ function EditableFlowCanvas({
           !removedNodeIds.has(e.target)
       )
     );
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [nodes, edges, setNodes, setEdges, pushHistory]);
 
   const handleSave = useCallback(async () => {
     // Hard errors block Save (warnings are allowed through). Belt-and-braces:
@@ -380,12 +494,14 @@ function EditableFlowCanvas({
       baseline.nodes.length,
       baseline.edges.length
     );
+    // Snapshot pre-discard so Discard itself is undoable.
+    pushHistory('structural');
     setNodes(baseline.nodes);
     setEdges(baseline.edges);
     setConfigNodeId(null);
     setSaveError(null);
     setForcedDirty(false);
-  }, [baseline, setNodes, setEdges]);
+  }, [baseline, setNodes, setEdges, pushHistory]);
 
   const handleValidate = useCallback(() => {
     log('validate: manual trigger');
@@ -418,6 +534,8 @@ function EditableFlowCanvas({
         patch.name ?? '(unchanged)',
         patch.config ? 'present' : '(unchanged)'
       );
+      // Coalesce consecutive edits to the same node into one undo step.
+      pushHistory('config', nodeId);
       setNodes(current =>
         current.map(n =>
           n.id === nodeId
@@ -433,7 +551,29 @@ function EditableFlowCanvas({
         )
       );
     },
-    [setNodes]
+    [setNodes, pushHistory]
+  );
+
+  // Keyboard undo/redo: Cmd/Ctrl+Z undoes, Cmd/Ctrl+Shift+Z (or Ctrl+Y) redoes.
+  // Ignored while typing in the config drawer / any field so text-edit undo in a
+  // focused input isn't hijacked.
+  const handleCanvasKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      } else if ((key === 'z' && event.shiftKey) || key === 'y') {
+        event.preventDefault();
+        redo();
+      }
+    },
+    [undo, redo]
   );
 
   // Close the drawer AND clear the selection, so re-clicking the same node
@@ -454,7 +594,8 @@ function EditableFlowCanvas({
       data-testid="flow-canvas"
       data-editable="true"
       onDrop={handleDrop}
-      onDragOver={handleDragOver}>
+      onDragOver={handleDragOver}
+      onKeyDown={handleCanvasKeyDown}>
       <NodePalette onAdd={handlePaletteAdd} />
 
       {/* Two clusters: editing tools (Delete / Validate) on the left, then the
@@ -462,7 +603,33 @@ function EditableFlowCanvas({
           divider so the commit action reads as its own unit, not one of five
           equal-weight buttons. */}
       <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex items-center gap-1">
+          <Button
+            type="button"
+            variant="tertiary"
+            size="xs"
+            iconOnly
+            data-testid="flow-editor-undo"
+            aria-label={t('flows.editor.undo')}
+            title={t('flows.editor.undo')}
+            disabled={!canUndo}
+            onClick={undo}>
+            <UndoIcon />
+          </Button>
+          <Button
+            type="button"
+            variant="tertiary"
+            size="xs"
+            iconOnly
+            data-testid="flow-editor-redo"
+            aria-label={t('flows.editor.redo')}
+            title={t('flows.editor.redo')}
+            disabled={!canRedo}
+            onClick={redo}>
+            <RedoIcon />
+          </Button>
+        </div>
+        <div className="pointer-events-auto flex items-center gap-2 border-l border-line pl-2">
           <Button
             type="button"
             variant="secondary"
@@ -528,8 +695,8 @@ function EditableFlowCanvas({
         onInit={instance => {
           rfRef.current = instance;
         }}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
         isValidConnection={isValidConnection}
         onSelectionChange={onSelectionChange}

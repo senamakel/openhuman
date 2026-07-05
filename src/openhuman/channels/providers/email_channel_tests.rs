@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn default_smtp_port_uses_tls_port() {
-    assert_eq!(default_smtp_port(), 465);
+    assert_eq!(EmailConfig::default().smtp_port, 465);
 }
 
 #[test]
@@ -14,7 +14,7 @@ fn email_config_default_uses_tls_smtp_defaults() {
 
 #[test]
 fn default_idle_timeout_is_29_minutes() {
-    assert_eq!(default_idle_timeout(), 1740);
+    assert_eq!(EmailConfig::default().idle_timeout_secs, 1740);
 }
 
 #[tokio::test]
@@ -334,22 +334,22 @@ fn strip_html_special_characters() {
 
 #[test]
 fn default_imap_port_returns_993() {
-    assert_eq!(default_imap_port(), 993);
+    assert_eq!(EmailConfig::default().imap_port, 993);
 }
 
 #[test]
 fn default_smtp_port_returns_465() {
-    assert_eq!(default_smtp_port(), 465);
+    assert_eq!(EmailConfig::default().smtp_port, 465);
 }
 
 #[test]
 fn default_imap_folder_returns_inbox() {
-    assert_eq!(default_imap_folder(), "INBOX");
+    assert_eq!(EmailConfig::default().imap_folder, "INBOX");
 }
 
 #[test]
 fn default_true_returns_true() {
-    assert!(default_true());
+    assert!(EmailConfig::default().smtp_tls);
 }
 
 // EmailConfig serialization tests

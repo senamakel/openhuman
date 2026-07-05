@@ -117,6 +117,7 @@ fn all_variants_have_correct_domain() {
                 reply_target: "r".into(),
                 content: "hi".into(),
                 thread_ts: None,
+                inbound_envelope: None,
                 workspace_dir: std::path::PathBuf::from("/test"),
             },
             "channel",

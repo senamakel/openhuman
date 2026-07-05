@@ -73,6 +73,7 @@ tinyagents = { version = "1.7", features = ["sqlite", "repl"] }
 # aligned to the host pins (=0.40 / 0.21) so one bundled SQLite + one libgit2
 # link. Keep the version pin in lockstep with the submodule tag.
 tinycortex = "0.1"
+tinychannels = { git = "https://github.com/tinyhumansai/tinychannels.git", branch = "feat/phase-0-hygiene", features = ["relay-websocket"] }
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.

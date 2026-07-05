@@ -5662,6 +5662,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tinyagents",
+ "tinychannels",
  "tinycortex",
  "tinyflows",
  "tinyjuice",
@@ -9174,6 +9175,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinychannels"
+version = "0.1.0"
+source = "git+https://github.com/tinyhumansai/tinychannels.git?branch=feat%2Fphase-0-hygiene#5bcc2f3f80643dd519959064b83c96ae8473f149"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "futures-util",
+ "hmac 0.12.1",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite 0.29.0",
+ "tracing",
+]
+
+[[package]]
 name = "tinycortex"
 version = "0.1.1"
 dependencies = [
@@ -9396,8 +9417,12 @@ checksum = "8f72a05e828585856dacd553fba484c242c46e391fb0e58917c942ee9202915c"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
+ "rustls-pki-types",
  "tokio",
+ "tokio-rustls",
  "tungstenite 0.29.0",
+ "webpki-roots 0.26.11",
 ]
 
 [[package]]
@@ -9721,6 +9746,8 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.9.4",
+ "rustls",
+ "rustls-pki-types",
  "sha1",
  "thiserror 2.0.18",
 ]

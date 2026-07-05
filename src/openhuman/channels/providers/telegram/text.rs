@@ -1,53 +1,27 @@
 //! Text chunking and tool-call tag stripping for Telegram.
 
+use tinychannels::channel::LengthUnit;
+use tinychannels::text::{chunk_text_with_options, ChunkMode, TextChunkOptions};
+
 /// Telegram's maximum message length for text messages
 pub(crate) const TELEGRAM_MAX_MESSAGE_LENGTH: usize = 4096;
 pub(crate) const TELEGRAM_BIND_COMMAND: &str = "/bind";
 pub(crate) const TELEGRAM_START_COMMAND: &str = "/start";
 
 pub(crate) fn split_message_for_telegram(message: &str) -> Vec<String> {
-    if message.chars().count() <= TELEGRAM_MAX_MESSAGE_LENGTH {
-        return vec![message.to_string()];
+    if message.is_empty() {
+        return vec![String::new()];
     }
-
-    let mut chunks = Vec::new();
-    let mut remaining = message;
-
-    while !remaining.is_empty() {
-        // Find the byte offset for the Nth character boundary.
-        let hard_split = remaining
-            .char_indices()
-            .nth(TELEGRAM_MAX_MESSAGE_LENGTH)
-            .map_or(remaining.len(), |(idx, _)| idx);
-
-        let chunk_end = if hard_split == remaining.len() {
-            hard_split
-        } else {
-            // Try to find a good break point (newline, then space)
-            let search_area = &remaining[..hard_split];
-
-            // Prefer splitting at newline
-            if let Some(pos) = search_area.rfind('\n') {
-                // Don't split if the newline is too close to the start
-                if search_area[..pos].chars().count() >= TELEGRAM_MAX_MESSAGE_LENGTH / 2 {
-                    pos + 1
-                } else {
-                    // Try space as fallback
-                    search_area.rfind(' ').unwrap_or(hard_split) + 1
-                }
-            } else if let Some(pos) = search_area.rfind(' ') {
-                pos + 1
-            } else {
-                // Hard split at character boundary
-                hard_split
-            }
-        };
-
-        chunks.push(remaining[..chunk_end].to_string());
-        remaining = &remaining[chunk_end..];
-    }
-
-    chunks
+    chunk_text_with_options(
+        message,
+        TextChunkOptions {
+            limit: TELEGRAM_MAX_MESSAGE_LENGTH,
+            length_unit: LengthUnit::Utf16Units,
+            mode: ChunkMode::Length,
+            markdown: true,
+            indicators: false,
+        },
+    )
 }
 
 pub(crate) fn strip_tool_call_tags(message: &str) -> String {

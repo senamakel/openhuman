@@ -335,6 +335,29 @@ pub async fn flows_get(config: &Config, id: &str) -> Result<RpcOutcome<Flow>, St
     Ok(RpcOutcome::single_log(flow, format!("flow loaded: {id}")))
 }
 
+/// Loads a saved flow's portable [`WorkflowGraph`] by id, for the
+/// `sub_workflow`-by-`workflow_id` resolver capability
+/// (`tinyflows::caps::WorkflowResolver`, implemented in
+/// `src/openhuman/tinyflows/caps.rs`).
+///
+/// Returns `Ok(None)` when no flow with that id exists (the resolver turns that
+/// into a capability error naming the missing id), and `Err` only on a store
+/// failure. Kept sync (the underlying [`store::get_flow`] is sync) so the
+/// resolver can call it directly from its async method without a runtime hop.
+pub fn load_flow_graph(config: &Config, id: &str) -> Result<Option<WorkflowGraph>, String> {
+    tracing::debug!(target: "flows", flow_id = %id, "[flows] load_flow_graph: loading saved flow graph for sub_workflow resolver");
+    let graph = store::get_flow(config, id)
+        .map_err(|e| e.to_string())?
+        .map(|flow| flow.graph);
+    tracing::debug!(
+        target: "flows",
+        flow_id = %id,
+        found = graph.is_some(),
+        "[flows] load_flow_graph: resolver lookup complete"
+    );
+    Ok(graph)
+}
+
 /// Lists every saved flow.
 pub async fn flows_list(config: &Config) -> Result<RpcOutcome<Vec<Flow>>, String> {
     let flows = store::list_flows(config).map_err(|e| e.to_string())?;

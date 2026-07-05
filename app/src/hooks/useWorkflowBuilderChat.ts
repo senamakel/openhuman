@@ -101,8 +101,13 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
       }
       setLocalSending(true);
       setError(null);
+      // Declared outside the try so the catch block can see a thread created
+      // during THIS call — `threadId` state doesn't update synchronously
+      // within the same closure invocation, so a failure after creation (but
+      // before this call returns) would otherwise see the stale `null` and
+      // skip cleanup, leaving that new thread's active markers dangling.
+      let targetThreadId = threadId;
       try {
-        let targetThreadId = threadId;
         if (!targetThreadId) {
           log('send: creating dedicated builder thread');
           const thread = await dispatch(createNewThread(['workflow-builder'])).unwrap();
@@ -135,11 +140,11 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
         log('send: failed err=%o', err);
         setError(msg);
         // The runtime never got a turn to end, so release the active markers we
-        // optimistically set (guarded: threadId may still be null on a create
-        // failure, in which case there's nothing to clear).
-        if (threadId) {
-          dispatch(clearRuntimeForThread({ threadId }));
-          dispatch(clearThreadInferenceActive(threadId));
+        // optimistically set (guarded: targetThreadId is still null only when
+        // thread creation itself failed, in which case there's nothing to clear).
+        if (targetThreadId) {
+          dispatch(clearRuntimeForThread({ threadId: targetThreadId }));
+          dispatch(clearThreadInferenceActive(targetThreadId));
         }
       } finally {
         setLocalSending(false);

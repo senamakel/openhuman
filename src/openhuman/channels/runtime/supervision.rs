@@ -1,13 +1,12 @@
 //! Supervisor helpers for channel listeners.
 
-use super::super::context::{
-    CHANNEL_MAX_IN_FLIGHT_MESSAGES, CHANNEL_MIN_IN_FLIGHT_MESSAGES, CHANNEL_PARALLELISM_PER_CHANNEL,
-};
 use super::super::traits;
 use super::super::Channel;
 use crate::core::event_bus::{publish_global, DomainEvent};
 use std::sync::Arc;
 use std::time::Duration;
+
+pub(crate) use tinychannels::runtime::compute_max_in_flight_messages;
 
 pub(crate) fn spawn_supervised_listener(
     ch: Arc<dyn Channel>,
@@ -81,18 +80,10 @@ pub(crate) fn spawn_supervised_listener(
     })
 }
 
-pub(crate) fn compute_max_in_flight_messages(channel_count: usize) -> usize {
-    channel_count
-        .saturating_mul(CHANNEL_PARALLELISM_PER_CHANNEL)
-        .clamp(
-            CHANNEL_MIN_IN_FLIGHT_MESSAGES,
-            CHANNEL_MAX_IN_FLIGHT_MESSAGES,
-        )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tinychannels::context::{CHANNEL_MAX_IN_FLIGHT_MESSAGES, CHANNEL_MIN_IN_FLIGHT_MESSAGES};
 
     #[test]
     fn compute_max_in_flight_messages_zero_channels() {

@@ -209,7 +209,7 @@ Fix-in-place candidates (independent of the port; several become moot as phases 
 
 **agent_orchestration/**
 - `ops.rs:138-168` — `message_agent` records metadata only and never injects into the running loop; a real functional hole that `agent_teams/runtime.rs` and `command_center` inherit.
-- `subagent_control.rs:186-190` — `SteerError::NotOwned` arm is dead (no ownership check performed).
+- `subagent_control.rs` — the `SteerError::NotOwned` arm is unreachable on the trusted RPC `steer_control` path (which performs no parent-ownership check), but the variant is **not dead**: the agent-tool `running_subagents::steer` path enforces ownership and returns it (guarded by `steer_rejects_cross_parent_and_unknown`). Real RPC-path enforcement is deferred to Phase 4 (`SteeringRegistry` ownership consolidation).
 - `ops.rs:559-562` — in-memory session path hardcodes `worktree_path: None, changed_files: []` on completion even for worktree-isolated workers (inconsistent with `spawn_parallel_graph`).
 - `delegation.rs:120-127` — human-approval interrupt permanently disabled; the durable interrupt path in the seam is wired but unreachable until a review surface exists.
 - Two parallel status enums (`AgentStatus` vs `OrchestrationTaskStatus`) — latent drift hazard (§2.5).

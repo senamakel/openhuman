@@ -93,7 +93,12 @@ pub fn skills_schemas(function: &str) -> ControllerSchema {
                 required: false,
             }],
             outputs: vec![FieldSchema {
-                name: "skills",
+                // Wire field name is deliberately unchanged from the pre-rename
+                // `workflows_list` RPC (`WorkflowsListResult { workflows }` in
+                // wire_types.rs) — only the RPC method name and Rust module
+                // path were renamed to `skills`, not this JSON key. The schema
+                // must advertise the field clients actually receive.
+                name: "workflows",
                 ty: TypeSchema::Array(Box::new(TypeSchema::Ref("WorkflowSummary"))),
                 comment: "Discovered skills (sorted by name, project-scope shadows user-scope).",
                 required: true,

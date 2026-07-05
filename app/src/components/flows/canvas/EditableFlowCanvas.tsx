@@ -234,6 +234,11 @@ function EditableFlowCanvas({
 
   const canUndo = history.past.length > 0;
   const canRedo = history.future.length > 0;
+
+  // First-run hint visibility: a near-empty canvas (≤1 node, no edges, and no
+  // copilot diff preview in flight) is almost certainly a fresh scratch flow.
+  const showOnboarding =
+    nodes.length <= 1 && edges.length === 0 && addedNodeIds.size === 0 && removedNodeIds.size === 0;
   const addCounter = useRef(0);
   const [selectionCount, setSelectionCount] = useState(0);
   // Id of the single selected node whose config the drawer edits (`null` when
@@ -681,6 +686,24 @@ function EditableFlowCanvas({
           )}
         </div>
       </div>
+
+      {/* First-run hint: a near-empty canvas (a fresh scratch flow opens with
+          just its trigger) gets a non-blocking nudge toward the palette. Hides
+          itself as soon as a second node lands. */}
+      {showOnboarding && (
+        <div
+          className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center px-6"
+          data-testid="flow-editor-onboarding">
+          <div className="max-w-xs rounded-2xl border border-dashed border-line bg-surface/70 px-5 py-4 text-center backdrop-blur-sm">
+            <p className="text-sm font-semibold text-content">
+              {t('flows.editor.onboardingTitle')}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-content-muted">
+              {t('flows.editor.onboardingBody')}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center">
         <div className="pointer-events-auto w-full max-w-md">

@@ -4451,6 +4451,9 @@ const en: TranslationMap = {
   'flows.editor.deleteSelected': 'Delete selected',
   'flows.editor.undo': 'Undo',
   'flows.editor.redo': 'Redo',
+  'flows.editor.onboardingTitle': 'Build your workflow',
+  'flows.editor.onboardingBody':
+    'Add a node from the palette on the left, then drag between the dots on each card to connect them.',
   // ── Validation UX + draft/dirty state (issue B5b / Phase 3c–3d)
   'flows.editor.validate': 'Validate',
   'flows.editor.validating': 'Validating…',

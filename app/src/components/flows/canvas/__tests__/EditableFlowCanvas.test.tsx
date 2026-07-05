@@ -109,6 +109,13 @@ describe('FlowCanvas (editable)', () => {
     expect(screen.getByTestId('flow-editor-delete')).toBeDisabled();
   });
 
+  it('shows the onboarding hint on a near-empty canvas and hides it after a node is added', () => {
+    renderCanvas(<FlowCanvas editable nodes={[triggerNode()]} edges={[]} />);
+    expect(screen.getByTestId('flow-editor-onboarding')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
+    expect(screen.queryByTestId('flow-editor-onboarding')).not.toBeInTheDocument();
+  });
+
   it('undoes and redoes a palette add', () => {
     renderCanvas(<FlowCanvas editable nodes={[triggerNode()]} edges={[]} />);
     // Undo starts disabled (empty history); redo too.

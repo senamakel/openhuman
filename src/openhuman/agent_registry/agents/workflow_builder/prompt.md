@@ -106,12 +106,19 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
 
 1. **`trigger`** — the entry point (`config.trigger_kind`, see triggers below).
 2. **`agent`** — an LLM step. `config.prompt` (may use `=` expressions).
+   **If the agent's output feeds a `tool_call`, it MUST declare an output
+   schema** — set `config.output_parser.schema` (a JSON Schema object) — so
+   its emitted item is a structured object whose fields downstream nodes can
+   address (`=nodes.<agent_id>.item.<field>`). Without a schema the agent
+   emits `{text: "..."}` and `=item.to`-style bindings resolve to null.
 3. **`tool_call`** — an action. Two flavours by `config.slug`:
    - **Composio app action** — `config.slug` = a real action slug (from
      `search_tool_catalog`, e.g. `GMAIL_SEND_EMAIL`) + `config.connection_ref`
-     for the account. Wire every REQUIRED arg in `config.args` — e.g. an email
-     send needs `to`/`recipient_email`, usually an `=`-expression pulling the
-     recipient from an upstream node's output.
+     for the account. **Wire every REQUIRED arg in `config.args` from a named
+     upstream node** — e.g. an email send needs `to`/`recipient_email`, usually
+     `"to": "=nodes.<upstream_id>.item.email"`. A required arg left unwired (or
+     whose expression misses) now fails BEFORE the provider call — both in
+     `dry_run_workflow` and in real runs — with an error naming the field.
    - **Native OpenHuman tool** — `config.slug` = `oh:<tool_name>` (e.g.
      `oh:web_search`) to call one of the assistant's own built-in tools (search,
      media generation, files, …). No `connection_ref`. Args go in `config.args`.
@@ -140,8 +147,39 @@ the run scope (`.`):
 - A string **without** a leading `=` is a literal. To emit a literal `=`, don't
   start the string with it.
 
+The scope exposes:
+
+- `item` / `items` — the **direct predecessor(s)'** output (first item / all
+  items, in edge order).
+- `run` — run metadata and the trigger payload.
+- `nodes` — **every completed node's output, keyed by node id**:
+  `nodes.<id>.item` (first item) and `nodes.<id>.items` (all items). Use this
+  to reference ANY upstream node — not just the immediate predecessor — and to
+  disambiguate a fan-in node's inputs. Dotted form: `"=nodes.fetch.item.email"`;
+  jq form: `"=.nodes[\"fetch\"].items[0].email"`. Ids (not names) are the key.
+
 Use expressions to thread data between steps (a `transform`'s `set`, an
-`agent`'s `prompt`, a `tool_call`'s `args`).
+`agent`'s `prompt`, a `tool_call`'s `args`). Prefer `=nodes.<id>.…` for
+`tool_call` args so the binding survives graph re-wiring.
+
+**Worked example — agent → Gmail send.** The agent must declare a schema, and
+the tool_call wires each required arg from the agent BY ID:
+
+```json
+{ "id": "extract", "kind": "agent", "config": {
+    "prompt": "=\"Extract the recipient and a reply from: \" + .item.text",
+    "output_parser": { "schema": { "type": "object",
+      "required": ["email", "subject", "body"],
+      "properties": { "email": {"type": "string"}, "subject": {"type": "string"}, "body": {"type": "string"} } } } } }
+{ "id": "send", "kind": "tool_call", "config": {
+    "slug": "GMAIL_SEND_EMAIL", "connection_ref": "composio:gmail:<conn_id>",
+    "args": { "to": "=nodes.extract.item.email",
+              "subject": "=nodes.extract.item.subject",
+              "body": "=nodes.extract.item.body" } } }
+```
+
+Without the schema, `=nodes.extract.item.email` would be null (the agent's
+item would be `{text: ...}`) and the send would fail preflight naming `to`.
 
 ### Trigger kinds — which ones actually fire
 

@@ -160,6 +160,56 @@ pub(crate) fn graph_trigger_warnings(graph: &WorkflowGraph) -> Vec<String> {
     )]
 }
 
+/// Author-time wiring warnings for Composio `tool_call` nodes: flags every
+/// **required** arg (per the action's schema, best-effort cached lookup) that
+/// is absent or a literal `null` in `config.args` — the exact mis-wiring that
+/// would later fail the run's required-arg preflight.
+///
+/// Static by design: an arg carrying an `=`-expression counts as wired (only
+/// the runtime preflight can tell whether it resolves), a `=`-derived slug is
+/// skipped (can't know the action), and native `oh:` tools are skipped (no
+/// Composio schema). Best-effort like the runtime preflight — no schema, no
+/// warning, never a block.
+pub(crate) async fn graph_wiring_warnings(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    use crate::openhuman::tinyflows::caps::{composio_required_args, missing_required_args};
+
+    let mut warnings = Vec::new();
+    for node in &graph.nodes {
+        if node.kind != tinyflows::model::NodeKind::ToolCall {
+            continue;
+        }
+        let Some(slug) = node.config.get("slug").and_then(Value::as_str) else {
+            continue;
+        };
+        // `=`-derived slugs are resolved at runtime; native tools have no
+        // Composio schema to check against.
+        if slug.starts_with('=') || slug.starts_with("oh:") {
+            continue;
+        }
+        let Some(required) = composio_required_args(config, slug).await else {
+            tracing::debug!(target: "flows", node = %node.id, %slug, "[flows] wiring check: no schema — skipping node");
+            continue;
+        };
+        let args = node.config.get("args").cloned().unwrap_or(Value::Null);
+        for missing in missing_required_args(&required, &args) {
+            tracing::warn!(
+                target: "flows",
+                node = %node.id,
+                %slug,
+                arg = %missing,
+                "[flows] wiring check: required arg not wired"
+            );
+            warnings.push(format!(
+                "Node '{}': required arg `{missing}` of `{slug}` is not wired — set \
+                 args.{missing}, e.g. \"=nodes.<upstream_id>.item.<field>\" (an agent feeding \
+                 this value needs an output schema so its fields are addressable).",
+                node.id
+            ));
+        }
+    }
+    warnings
+}
+
 /// Validates a candidate graph without persisting it — the same
 /// migrate/validate path `flows_create` and `ProposeWorkflowTool` use — and
 /// reports structural errors alongside non-fatal trigger warnings

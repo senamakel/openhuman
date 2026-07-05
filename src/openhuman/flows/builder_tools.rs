@@ -164,7 +164,10 @@ impl Tool for ReviseWorkflowTool {
         };
 
         let summary = super::tools::build_summary(&graph);
-        let warnings = ops::graph_trigger_warnings(&graph);
+        let mut warnings = ops::graph_trigger_warnings(&graph);
+        // Author-time wiring check: unwired REQUIRED Composio args come back
+        // as warnings naming the field, before the user ever saves.
+        warnings.extend(ops::graph_wiring_warnings(&self.config, &graph).await);
         let graph_value = serde_json::to_value(&graph)?;
 
         tracing::info!(

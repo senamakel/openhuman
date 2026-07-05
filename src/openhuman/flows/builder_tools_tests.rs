@@ -312,3 +312,50 @@ async fn dry_run_catches_unwired_required_composio_arg() {
         "wired flow must dry-run green: {parsed}"
     );
 }
+
+#[tokio::test]
+async fn revise_workflow_warns_on_unwired_required_composio_arg() {
+    let mut entries = std::collections::HashMap::new();
+    entries.insert(
+        "GMAIL_SEND_EMAIL".to_string(),
+        vec!["to".to_string(), "body".to_string()],
+    );
+    crate::openhuman::tinyflows::caps::seed_required_args_cache("gmail", entries);
+
+    let tmp = TempDir::new().unwrap();
+    let tool = ReviseWorkflowTool::new(test_config(&tmp));
+    let result = tool
+        .execute(json!({
+            "name": "Send mail",
+            "graph": {
+                "nodes": [
+                    { "id": "t", "kind": "trigger", "name": "Manual" },
+                    { "id": "send", "kind": "tool_call", "name": "Send",
+                      // `body` wired via expression (counts as wired); `to` absent.
+                      "config": { "slug": "GMAIL_SEND_EMAIL",
+                                  "args": { "body": "=item.text" } } }
+                ],
+                "edges": [ { "from_node": "t", "to_node": "send" } ]
+            }
+        }))
+        .await
+        .unwrap();
+
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    let warnings = parsed["warnings"].as_array().unwrap();
+    assert!(
+        warnings.iter().any(|w| {
+            let w = w.as_str().unwrap_or_default();
+            w.contains("`to`") && w.contains("send")
+        }),
+        "expected a warning naming node `send` and arg `to`: {warnings:?}"
+    );
+    // `body` is wired (expression) — no warning for it.
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| w.as_str().unwrap_or_default().contains("`body`")),
+        "wired arg must not warn: {warnings:?}"
+    );
+}

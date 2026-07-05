@@ -177,6 +177,13 @@ impl Tool for ProposeWorkflowTool {
         };
 
         let summary = build_summary(&graph);
+        // Author-time warnings: unfired trigger kinds + unwired REQUIRED
+        // Composio args (see `ops::graph_wiring_warnings`) — surfaced on the
+        // proposal so the builder fixes wiring before the user saves.
+        let mut warnings = crate::openhuman::flows::ops::graph_trigger_warnings(&graph);
+        warnings.extend(
+            crate::openhuman::flows::ops::graph_wiring_warnings(&self.config, &graph).await,
+        );
         let graph_value = serde_json::to_value(&graph)?;
 
         tracing::info!(
@@ -184,6 +191,7 @@ impl Tool for ProposeWorkflowTool {
             %name,
             node_count = graph.nodes.len(),
             require_approval,
+            warning_count = warnings.len(),
             "[flows] propose_workflow: proposal ready for user review"
         );
 
@@ -193,6 +201,7 @@ impl Tool for ProposeWorkflowTool {
             "graph": graph_value,
             "require_approval": require_approval,
             "summary": summary,
+            "warnings": warnings,
         }))?))
     }
 }

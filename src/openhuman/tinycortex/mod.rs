@@ -33,9 +33,11 @@
 //! See `docs/tinycortex-migration-spec.md` for the full ownership split,
 //! drift/gap/parity ledgers, and the workstream order.
 
+mod chat;
 mod config;
 mod embeddings;
 
+pub use chat::{build_chat_provider, SeamChatProvider};
 pub use config::memory_config_from;
 pub use embeddings::SeamEmbedder;
 

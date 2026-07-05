@@ -1,62 +1,23 @@
-//! # TokenJuice — terminal-output compaction engine
+//! OpenHuman adapter for the vendored TinyJuice compression engine.
 //!
-//! Rust port of [vincentkoc/tokenjuice](https://github.com/vincentkoc/tokenjuice).
-//!
-//! Compacts verbose tool output (git, npm, cargo, docker, …) using
-//! JSON-configured rules before it enters an LLM context window.
-//!
-//! ## Quick start
-//!
-//! ```rust
-//! use openhuman_core::openhuman::tokenjuice::{
-//!     reduce::reduce_execution_with_rules,
-//!     rules::load_builtin_rules,
-//!     types::{ReduceOptions, ToolExecutionInput},
-//! };
-//!
-//! let rules = load_builtin_rules();
-//! let input = ToolExecutionInput {
-//!     tool_name: "bash".to_owned(),
-//!     argv: Some(vec!["git".to_owned(), "status".to_owned()]),
-//!     stdout: Some("On branch main\n\tmodified:   src/lib.rs\n".to_owned()),
-//!     ..Default::default()
-//! };
-//! let result = reduce_execution_with_rules(input, &rules, &ReduceOptions::default());
-//! println!("{}", result.inline_text);
-//! // → "M: src/lib.rs"
-//! ```
-//!
-//! ## Scope (v1 — library only)
-//!
-//! This module is purely a library.  It has no JSON-RPC surface, no CLI, and
-//! no artifact store.  Those surfaces can be layered on later when a caller
-//! inside `openhuman` needs them.
-//!
-//! ## Three-layer rule overlay
-//!
-//! Rules are loaded from three sources in ascending priority order:
-//! 1. **Builtin** — vendored JSON files embedded via `include_str!`.
-//! 2. **User** — `~/.config/tokenjuice/rules/` (loaded from disk).
-//! 3. **Project** — `.tokenjuice/rules/` relative to `cwd` (loaded from disk).
-//!
-//! When two layers define the same rule `id`, the higher-priority layer wins.
+//! TinyJuice owns the host-agnostic TokenJuice engine: detection, compressors,
+//! CCR cache, rule loading, text helpers, and token estimates. This module keeps
+//! the OpenHuman-facing seam stable and owns only host concerns: config mapping,
+//! JSON-RPC controllers, settings patching, retrieve tool integration, savings
+//! pricing, and the Kompress runtime bridge.
 
-pub mod cache;
-pub mod classify;
-pub mod compress;
-pub mod compressors;
+use std::sync::Arc;
+
 pub mod config_patch;
-pub mod detect;
 pub mod ml;
-pub mod reduce;
-pub mod rules;
 pub mod savings;
 pub mod schemas;
-pub mod text;
-pub mod tokens;
-pub mod tool_integration;
 pub mod tools;
-pub mod types;
+
+pub use tinyjuice::{
+    cache, classify, compress, compressors, detect, reduce, rules, text, tokens, tool_integration,
+    types,
+};
 
 /// Install the full TokenJuice runtime from a [`Config`] in one call: router /
 /// compressor options + CCR cache limits + disk tier, savings attribution +
@@ -68,7 +29,7 @@ pub mod types;
 /// only changes on restart.
 pub fn install_from_config(config: &crate::openhuman::config::Config) {
     let tj = &config.tokenjuice;
-    let options = types::CompressOptions {
+    let options = tinyjuice::types::CompressOptions {
         router_enabled: tj.router_enabled,
         ccr_enabled: tj.ccr_enabled,
         search_enabled: tj.search_enabled,
@@ -82,7 +43,7 @@ pub fn install_from_config(config: &crate::openhuman::config::Config) {
     let disk_root = tj
         .ccr_disk_enabled
         .then(|| config.workspace_dir.join(".tokenjuice").join("ccr"));
-    install_config(
+    tinyjuice::tool_integration::install_config(
         options,
         tj.max_cache_entries,
         tj.max_cache_bytes,
@@ -96,7 +57,19 @@ pub fn install_from_config(config: &crate::openhuman::config::Config) {
             .unwrap_or_else(|| crate::openhuman::config::DEFAULT_MODEL.to_string()),
         &config.workspace_dir,
     );
+    tinyjuice::savings::configure_recorder(Some(Arc::new(
+        |content_kind, compressor, original_tokens, compacted_tokens| {
+            savings::record(content_kind, compressor, original_tokens, compacted_tokens);
+        },
+    )));
     ml::configure(config.clone());
+    tinyjuice::ml::configure_callback(Some(Arc::new(|text, opts| {
+        Box::pin(async move {
+            ml::compress(&text, &opts)
+                .await
+                .map_err(|err| format!("{err:#}"))
+        })
+    })));
 }
 
 /// All read-only TokenJuice debug controllers (detect / compress / cache_stats
@@ -109,10 +82,6 @@ pub fn all_tokenjuice_registered_controllers() -> Vec<crate::core::all::Register
 pub fn all_tokenjuice_controller_schemas() -> Vec<crate::core::ControllerSchema> {
     schemas::all_controller_schemas()
 }
-
-#[cfg(test)]
-#[path = "text_tests.rs"]
-mod text_tests;
 
 pub use cache::{
     is_recovery_tool, LEGACY_RETRIEVE_TOOL_NAME, NEVER_COMPACT_TOOLS, RECOVERY_TOOL_NAMES,

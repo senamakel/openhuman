@@ -47,6 +47,7 @@ dependencies = [
  "tauri-runtime-cef",
  "tempfile",
  "tiny-skia",
+ "tinyjuice",
  "tokio",
  "tokio-tungstenite 0.24.0",
  "tokio-util",
@@ -5636,6 +5637,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tinyagents",
  "tinyflows",
+ "tinyjuice",
  "tinyplace",
  "tokio",
  "tokio-rustls",
@@ -9104,6 +9106,25 @@ dependencies = [
  "thiserror 2.0.18",
  "tinyagents",
  "tracing",
+]
+
+[[package]]
+name = "tinyjuice"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "dirs 5.0.1",
+ "hex",
+ "log",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tokio",
+ "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]

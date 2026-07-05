@@ -46,6 +46,10 @@ tinyplace = "1.0.1"
 # (same version openhuman already uses — no conflict). Published on crates.io
 # and patched below to the vendored submodule.
 tinyflows = "0.3"
+# TinyJuice — host-agnostic TokenJuice compression engine. OpenHuman keeps
+# config/RPC/tool/runtime adapters in `src/openhuman/tokenjuice/` and patches
+# this dependency to the vendored submodule below.
+tinyjuice = { version = "0.1", default-features = false }
 # TinyAgents — Rust LLM orchestration framework (LangGraph/LangChain-style):
 # durable state graphs, agent-loop harness, model/tool registries, REPL +
 # `.rag` workflow language. openhuman's agent engine + orchestration run on this
@@ -57,7 +61,18 @@ tinyflows = "0.3"
 # aligned to 0.40, avoiding duplicate `links = "sqlite3"` native bindings.
 # Durable graph checkpoints still use `SqlRunLedgerCheckpointer` until the
 # migration re-points those rows to the crate checkpointer.
-tinyagents = { version = "1.5.0", features = ["sqlite"] }
+# The `repl` feature adds the embedded Rhai `.ragsh` session runtime powering
+# the `rlm` language-workflow tool (`src/openhuman/rlm/`).
+tinyagents = { version = "1.5.0", features = ["sqlite", "repl"] }
+# TinyCortex — Rust core for the memory engine (store/chunks/tree/retrieval/
+# queue/ingest/score + long tail), vendored as a git submodule and patched
+# below to `vendor/tinycortex`. OpenHuman's memory subsystem migrates onto this
+# crate through the adapter seam in `src/openhuman/tinycortex/` (mirroring the
+# tinyagents seam): engine logic in the crate; RPC, agent tools, live sync,
+# security gating, and the global singleton stay host-side. rusqlite/git2 are
+# aligned to the host pins (=0.40 / 0.21) so one bundled SQLite + one libgit2
+# link. Keep the version pin in lockstep with the submodule tag.
+tinycortex = "0.1"
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.
@@ -309,10 +324,7 @@ default = ["tokenjuice-treesitter"]
 # AST-aware code compression (tree-sitter Rust/TS/Python grammars; C build).
 # On by default; disable to fall back to the brace-depth heuristic.
 tokenjuice-treesitter = [
-    "dep:tree-sitter",
-    "dep:tree-sitter-rust",
-    "dep:tree-sitter-typescript",
-    "dep:tree-sitter-python",
+    "tinyjuice/tokenjuice-treesitter",
 ]
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
@@ -345,6 +357,7 @@ tinyagents = { path = "vendor/tinyagents" }
 # test workflow and memory-layer changes against OpenHuman before publishing.
 tinyflows = { path = "vendor/tinyflows" }
 tinycortex = { path = "vendor/tinycortex" }
+tinyjuice = { path = "vendor/tinyjuice" }
 
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the

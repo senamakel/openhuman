@@ -120,7 +120,9 @@ impl Tool<()> for ToolAdapter {
     }
 }
 
-fn tool_policy_from_openhuman_tool(tool: &dyn crate::openhuman::tools::Tool) -> ToolPolicy {
+pub(crate) fn tool_policy_from_openhuman_tool(
+    tool: &dyn crate::openhuman::tools::Tool,
+) -> ToolPolicy {
     use crate::openhuman::tools::traits::ToolTimeout;
     use crate::openhuman::tools::PermissionLevel;
 
@@ -181,7 +183,7 @@ const TINYAGENTS_TOOL_SESSION: &str = "tinyagents";
 /// Execute an openhuman [`Tool`](crate::openhuman::tools::Tool) for a harness
 /// [`TaToolCall`] and render the [`TaToolResult`] the way the LLM should see it
 /// (mirrors the live-path `HarnessToolExecutor`).
-async fn execute_openhuman_tool(
+pub(crate) async fn execute_openhuman_tool(
     tool: &dyn crate::openhuman::tools::Tool,
     call: TaToolCall,
     context: Option<&ToolExecutionContext>,

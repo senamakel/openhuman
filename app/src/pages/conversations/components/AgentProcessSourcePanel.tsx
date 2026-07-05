@@ -53,6 +53,11 @@ function AgentSourceRow({ source }: { source: AgentSource }) {
   );
 }
 
+function normalizeScopedBody(value: string | undefined | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 /**
  * The consolidated "Agent Process Source" side panel from the Figma Chat
  * design — slid in from the right (~600px) when the user clicks
@@ -106,7 +111,9 @@ export function AgentProcessSourcePanel({
   const subagentEntries = entries.filter(entry => entry.subagent);
   // For a scoped *non*-sub-agent step, the detail (args / output) to show.
   const scopedDetail = scopedEntry
-    ? (formatTimelineEntry(scopedEntry).detail ?? scopedEntry.argsBuffer)
+    ? (normalizeScopedBody(scopedEntry.result) ??
+      normalizeScopedBody(formatTimelineEntry(scopedEntry).detail) ??
+      normalizeScopedBody(scopedEntry.argsBuffer))
     : undefined;
 
   return (

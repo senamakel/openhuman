@@ -137,6 +137,61 @@ fn tool_call_start_and_complete_track_timeline() {
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);
     assert!(s.active_tool.is_none());
+    // Empty output (payload capture off) serializes away — no `Some("")`.
+    assert!(s.tool_timeline[0].output.is_none());
+}
+
+#[test]
+fn tool_call_completed_persists_capped_output() {
+    let (_d, mut m) = fresh("t");
+    m.observe(&AgentProgress::ToolCallStarted {
+        call_id: "tc-1".into(),
+        tool_name: "shell".into(),
+        arguments: serde_json::json!({}),
+        iteration: 1,
+        display_label: None,
+        display_detail: None,
+    });
+    m.observe(&AgentProgress::ToolCallCompleted {
+        call_id: "tc-1".into(),
+        tool_name: "shell".into(),
+        success: true,
+        output_chars: 11,
+        output: "hello world".into(),
+        arguments: None,
+        elapsed_ms: 50,
+        iteration: 1,
+        failure: None,
+    });
+    let s = m.snapshot();
+    assert_eq!(s.tool_timeline[0].output.as_deref(), Some("hello world"));
+
+    // Oversized output is truncated on a char boundary with a marker so the
+    // per-flush snapshot rewrite stays bounded.
+    m.observe(&AgentProgress::ToolCallStarted {
+        call_id: "tc-2".into(),
+        tool_name: "shell".into(),
+        arguments: serde_json::json!({}),
+        iteration: 2,
+        display_label: None,
+        display_detail: None,
+    });
+    let big = "é".repeat(80 * 1024); // 2 bytes per char > 64 KiB cap
+    m.observe(&AgentProgress::ToolCallCompleted {
+        call_id: "tc-2".into(),
+        tool_name: "shell".into(),
+        success: true,
+        output_chars: big.chars().count(),
+        output: big,
+        arguments: None,
+        elapsed_ms: 50,
+        iteration: 2,
+        failure: None,
+    });
+    let s = m.snapshot();
+    let persisted = s.tool_timeline[1].output.as_deref().unwrap();
+    assert!(persisted.len() <= 64 * 1024);
+    assert!(persisted.contains("truncated"));
 }
 
 #[test]
@@ -415,7 +470,7 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
         tool_name: "search".into(),
         success: true,
         output_chars: 5,
-        output: String::new(),
+        output: "3 hits".into(),
         arguments: None,
         elapsed_ms: 12,
         iteration: 1,
@@ -444,6 +499,9 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
         }
         other => panic!("expected tool, got {other:?}"),
     }
+    // The child tool's (capped) result text is persisted on the call so a
+    // rehydrated drawer can show what the tool returned.
+    assert_eq!(activity.tool_calls[0].output.as_deref(), Some("3 hits"));
     match &activity.transcript[2] {
         SubagentTranscriptItem::Text { text, .. } => assert_eq!(text, "Found it."),
         other => panic!("expected narration, got {other:?}"),

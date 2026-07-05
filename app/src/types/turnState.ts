@@ -67,6 +67,9 @@ export interface PersistedSubagentToolCall {
    *  Mirrors the parent {@link PersistedToolTimelineEntry.failure}; absent on
    *  successful rows and on snapshots written before this field. */
   failure?: PersistedToolFailure;
+  /** Size-capped child tool result text. Absent while running and on
+   *  snapshots written before this field. */
+  output?: string;
 }
 
 /**
@@ -150,6 +153,9 @@ export interface PersistedToolTimelineEntry {
   sourceToolName?: string;
   subagent?: PersistedSubagentActivity;
   failure?: PersistedToolFailure;
+  /** Size-capped tool result text. Absent while running and on snapshots
+   *  written before this field. */
+  output?: string;
 }
 
 export interface PersistedTurnState {

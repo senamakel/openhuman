@@ -119,6 +119,12 @@ pub struct ToolTimelineEntry {
     /// success and on legacy snapshots.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure: Option<PersistedToolFailure>,
+    /// Size-capped tool result text, persisted so the "View processing"
+    /// panel can show what a tool returned after a thread switch / cold
+    /// boot — the live socket forwards the same capped payload on
+    /// `tool_result`. `None` while running and on legacy snapshots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
 }
 
 /// Live sub-agent activity nested under a `subagent:*` timeline row.
@@ -188,6 +194,11 @@ pub struct SubagentToolCall {
     /// success and on legacy snapshots.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure: Option<PersistedToolFailure>,
+    /// Size-capped child tool result text, persisted for the same reason as
+    /// [`ToolTimelineEntry::output`]. `None` while running and on legacy
+    /// snapshots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
 }
 
 /// One ordered item in a sub-agent's processing transcript — its streamed

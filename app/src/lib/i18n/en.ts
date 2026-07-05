@@ -4320,6 +4320,9 @@ const en: TranslationMap = {
   'flowRuns.inspector.port': 'Port',
   'flowRuns.inspector.loading': 'Loading run…',
   'flowRuns.inspector.loadError': 'Could not load this run',
+  // Phase 5c — "Fix with agent" opens the canvas copilot preloaded with this
+  // failed run's context so the workflow builder can propose a fix.
+  'flowRuns.inspector.fixWithAgent': 'Fix with agent',
   'flowRuns.status.running': 'Running',
   'flowRuns.status.completed': 'Completed',
   'flowRuns.status.pending_approval': 'Awaiting approval',
@@ -4363,6 +4366,38 @@ const en: TranslationMap = {
   'flows.runs.loading': 'Loading runs…',
   'flows.runs.loadError': 'Could not load runs',
   'flows.runs.empty': 'No runs yet',
+
+  // ── Phase 5c: prompt-first authoring + canvas copilot ────────────────────
+  // The Flows prompt bar (describe a workflow → builder agent proposes it) and
+  // the canvas copilot (iterate on a draft with a diff overlay). Everything
+  // here only PROPOSES — saving/enabling stays behind explicit clicks.
+  'flows.promptBar.label': 'Describe a workflow',
+  'flows.promptBar.placeholder': 'Describe a workflow…',
+  'flows.promptBar.submit': 'Build',
+  'flows.promptBar.thinking': 'Building…',
+  'flows.promptBar.heroTitle': 'Describe a workflow',
+  'flows.promptBar.heroSubtitle': 'Tell the builder what to automate and review its proposal.',
+  'flows.promptBar.error': 'Could not reach the workflow builder. Please try again.',
+  'flows.promptBar.offline': 'You are offline. Reconnect to build a workflow.',
+  'flows.copilot.open': 'Copilot',
+  'flows.copilot.title': 'Workflow copilot',
+  'flows.copilot.subtitle': 'Ask for changes and review each proposal before applying it.',
+  'flows.copilot.close': 'Close copilot',
+  'flows.copilot.placeholder': 'Ask for a change…',
+  'flows.copilot.send': 'Send',
+  'flows.copilot.thinking': 'Thinking…',
+  'flows.copilot.error': 'Could not reach the workflow builder. Please try again.',
+  'flows.copilot.offline': 'You are offline. Reconnect to use the copilot.',
+  'flows.copilot.emptyState':
+    'Describe a change to this workflow and the builder will propose an update.',
+  'flows.copilot.proposalTitle': 'Proposed changes',
+  'flows.copilot.added': '{count} added',
+  'flows.copilot.removed': '{count} removed',
+  'flows.copilot.noChanges': 'No node changes in this proposal.',
+  'flows.copilot.accept': 'Apply to draft',
+  'flows.copilot.reject': 'Discard',
+  'flows.copilot.previewHint': 'Reviewing a proposed draft — nothing is saved yet.',
+  'flows.copilot.repairDisplay': 'A run failed — please look at it and propose a fix.',
 
   // ── Workflow Canvas (issue B5b.1) — the read-only graph view of a saved
   // flow at /flows/:id. `flows.nodeKind.*` labels the 12 tinyflows node

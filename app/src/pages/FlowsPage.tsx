@@ -19,6 +19,7 @@ import FlowRunsDrawer from '../components/flows/FlowRunsDrawer';
 import FlowTemplateGallery from '../components/flows/FlowTemplateGallery';
 import NewWorkflowModal from '../components/flows/NewWorkflowModal';
 import { useCreateFlow } from '../components/flows/useCreateFlow';
+import WorkflowPromptBar from '../components/flows/WorkflowPromptBar';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
@@ -57,6 +58,9 @@ export default function FlowsPage() {
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   // Whether the Phase 4a "New workflow" chooser modal is open.
   const [chooserOpen, setChooserOpen] = useState(false);
+  // Bumped by the chooser's "Describe it" action so the prompt bar remounts and
+  // takes focus (Phase 5c). Starts at 0 (no autofocus on initial page load).
+  const [describeNonce, setDescribeNonce] = useState(0);
   // Create-and-open logic for the empty-state inline template gallery. (The
   // chooser modal owns its own `useCreateFlow` instance.)
   const emptyCreate = useCreateFlow();
@@ -227,21 +231,16 @@ export default function FlowsPage() {
   }, []);
 
   /**
-   * "Describe it" hand-off: navigate to Chat so the user can invoke
-   * `propose_workflow`. There's no mechanism yet to prefill/auto-send an
-   * initial composer message from outside Chat (`Conversations.tsx` only reads
-   * `location.state.openThreadId`, and the composer text is local `useState`
-   * with no Redux draft slice — the same gap `ActionItemChecklist.tsx` hit), so
-   * we navigate with no prefill.
-   *
-   * TODO(phase-5): replace this Chat hand-off with the in-place prompt bar that
-   * runs `propose_workflow` directly on the canvas.
+   * "Describe it" hand-off (Phase 5c): rather than punting to Chat, focus the
+   * in-place prompt bar at the top of this page — it spawns a `workflow_builder`
+   * turn in a dedicated thread and renders the proposal inline. Bumping the
+   * nonce remounts the bar so it takes focus even though it's already visible.
    */
   const handleDescribe = useCallback(() => {
-    log('new workflow: describe — navigating to chat');
+    log('new workflow: describe — focusing the prompt bar');
     setChooserOpen(false);
-    navigate('/chat');
-  }, [navigate]);
+    setDescribeNonce(n => n + 1);
+  }, []);
 
   /** Create a flow from an empty-state gallery card and open its canvas. */
   const handleEmptyTemplate = useCallback(
@@ -286,6 +285,16 @@ export default function FlowsPage() {
         onChange={e => void handleImportFile(e)}
       />
       <div className="mx-auto w-full max-w-3xl space-y-4">
+        {/* Prompt-first authoring (Phase 5c): describe a workflow and let the
+            builder agent propose it. Hero presentation when the list is empty,
+            compact otherwise. Keyed by `describeNonce` so the chooser's
+            "Describe it" action remounts + focuses it. */}
+        <WorkflowPromptBar
+          key={`prompt-bar-${describeNonce}`}
+          variant={!loading && flows.length === 0 ? 'hero' : 'compact'}
+          autoFocus={describeNonce > 0}
+        />
+
         {error && (
           <div data-testid="flows-error">
             <ErrorBanner message={error} />

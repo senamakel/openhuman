@@ -183,14 +183,18 @@ describe('FlowsPage', () => {
     expect(screen.getByTestId('new-workflow-modal')).toBeInTheDocument();
   });
 
-  it('"describe it" in the chooser navigates to Chat', async () => {
+  it('"describe it" in the chooser focuses the in-place prompt bar (no Chat hand-off)', async () => {
     listFlows.mockResolvedValue([makeFlow()]);
     renderWithProviders(<FlowsPage />);
 
     fireEvent.click(await screen.findByTestId('flows-new-workflow'));
     fireEvent.click(screen.getByTestId('new-workflow-describe'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/chat');
+    // Phase 5c: no more /chat hand-off — the chooser closes and the prompt bar
+    // (already rendered at the top of the page) takes focus for authoring.
+    expect(mockNavigate).not.toHaveBeenCalledWith('/chat');
+    expect(screen.getByTestId('workflow-prompt-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('workflow-prompt-input')).toHaveFocus();
   });
 
   it('empty-state template gallery creates a flow and opens its canvas', async () => {

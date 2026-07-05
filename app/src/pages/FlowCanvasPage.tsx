@@ -19,16 +19,17 @@
  */
 import createDebug from 'debug';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
+import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import { workflowGraphToXyflow } from '../lib/flows/graphAdapter';
 import type { WorkflowGraph } from '../lib/flows/types';
 import { useT } from '../lib/i18n/I18nContext';
-import { type Flow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
+import { type Flow, createFlow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
 
 const log = createDebug('app:flows:canvas');
 
@@ -55,8 +56,22 @@ function BackIcon() {
   );
 }
 
+/**
+ * A flow ready for the editable canvas — either a persisted flow (`flowId` set)
+ * or an unsaved draft handed in from the chat `WorkflowProposalCard` "Open in
+ * canvas" action (`flowId === null`, Phase 4e).
+ */
+interface EditorFlow {
+  /** Persisted flow id, or `null` for an unsaved draft. */
+  flowId: string | null;
+  name: string;
+  graph: WorkflowGraph;
+  /** "Require approval" toggle carried into `flows_create` when saving a draft. */
+  requireApproval: boolean;
+}
+
 /** The editable canvas body — split out so its hooks only mount once a flow loads. */
-function FlowEditor({ flow }: { flow: Flow }) {
+function FlowEditor({ editorFlow }: { editorFlow: EditorFlow }) {
   const { t } = useT();
   const navigate = useNavigate();
   const [dirty, setDirty] = useState(false);
@@ -68,22 +83,36 @@ function FlowEditor({ flow }: { flow: Flow }) {
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
-  const graph = flow.graph as WorkflowGraph;
+  const { flowId, name, graph, requireApproval } = editorFlow;
+  // Draft (unsaved) canvases have no persisted id yet; Save creates the flow
+  // rather than updating one, and there is nothing runnable to run.
+  const isDraft = flowId === null;
   const { nodes, edges } = useMemo(() => workflowGraphToXyflow(graph), [graph]);
   const meta = useMemo(
-    () => ({ schema_version: graph.schema_version, id: flow.id, name: flow.name }),
-    [graph.schema_version, flow.id, flow.name]
+    () => ({ schema_version: graph.schema_version, id: flowId ?? undefined, name }),
+    [graph.schema_version, flowId, name]
   );
 
-  // Persist the live graph via `flows_update`. Rejections propagate so the
-  // canvas surfaces the failure inline (and leaves the draft dirty).
+  // Persist the live graph. A saved flow updates in place via `flows_update`; a
+  // draft is created via `flows_create` (the single persistence gate — an
+  // agent's `propose_workflow` never reaches this RPC), then we replace into
+  // the new flow's canonical `/flows/:id` canvas so further saves update it.
+  // Rejections propagate so the canvas surfaces the failure inline (and leaves
+  // the draft dirty).
   const handleSave = useCallback(
     async (next: WorkflowGraph) => {
-      log('save: flow id=%s nodes=%d edges=%d', flow.id, next.nodes.length, next.edges.length);
-      await updateFlow(flow.id, { graph: next });
-      log('save: flow id=%s persisted', flow.id);
+      if (isDraft) {
+        log('save: creating draft name=%s nodes=%d edges=%d', name, next.nodes.length, next.edges.length);
+        const created = await createFlow(name, next, requireApproval);
+        log('save: draft persisted as flow id=%s', created.id);
+        navigate(`/flows/${created.id}`, { replace: true });
+        return;
+      }
+      log('save: flow id=%s nodes=%d edges=%d', flowId, next.nodes.length, next.edges.length);
+      await updateFlow(flowId, { graph: next });
+      log('save: flow id=%s persisted', flowId);
     },
-    [flow.id]
+    [isDraft, flowId, name, requireApproval, navigate]
   );
 
   // Warn on hard tab close / reload while there are unsaved edits.
@@ -102,21 +131,22 @@ function FlowEditor({ flow }: { flow: Flow }) {
   // (possibly dirty) draft — matching the "Save is explicit, running is live"
   // model. The durable run row + poller remain the source of truth.
   const handleRun = useCallback(async () => {
+    if (flowId === null) return; // drafts aren't runnable until saved
     setRunning(true);
     setRunError(null);
     try {
-      log('run: starting flow id=%s', flow.id);
-      const result = await runFlow(flow.id);
-      log('run: started flow id=%s thread_id=%s', flow.id, result.thread_id);
+      log('run: starting flow id=%s', flowId);
+      const result = await runFlow(flowId);
+      log('run: started flow id=%s thread_id=%s', flowId, result.thread_id);
       setActiveRunId(result.thread_id);
     } catch (err) {
       const message = errorMessage(err);
-      log('run: failed id=%s err=%o', flow.id, err);
+      log('run: failed id=%s err=%o', flowId, err);
       setRunError(message);
     } finally {
       setRunning(false);
     }
-  }, [flow.id]);
+  }, [flowId]);
 
   const handleBack = useCallback(() => {
     if (dirty) {
@@ -140,7 +170,9 @@ function FlowEditor({ flow }: { flow: Flow }) {
     </Button>
   );
 
-  const runButton = (
+  // A draft has nothing persisted to run yet — the canvas's Save (which creates
+  // the flow) is the only gate, so no Run affordance until it's saved.
+  const runButton = isDraft ? undefined : (
     <Button
       type="button"
       variant="primary"
@@ -155,7 +187,7 @@ function FlowEditor({ flow }: { flow: Flow }) {
   return (
     <PanelPage
       testId="flow-canvas-page"
-      title={flow.name}
+      title={name}
       leading={backButton}
       action={runButton}
       contentClassName="h-full p-0">
@@ -272,7 +304,18 @@ export default function FlowCanvasPage() {
   if (state.status === 'ready') {
     // Keyed by flow id so switching flows cleanly re-seeds the editable canvas's
     // controlled node/edge state (which only reads its props at mount).
-    return <FlowEditor key={state.flow.id} flow={state.flow} />;
+    const flow = state.flow;
+    return (
+      <FlowEditor
+        key={flow.id}
+        editorFlow={{
+          flowId: flow.id,
+          name: flow.name,
+          graph: flow.graph as WorkflowGraph,
+          requireApproval: flow.require_approval,
+        }}
+      />
+    );
   }
 
   const backButton = (
@@ -313,6 +356,64 @@ export default function FlowCanvasPage() {
           </p>
         </div>
       )}
+    </PanelPage>
+  );
+}
+
+/**
+ * FlowCanvasDraftPage (Phase 4e) — the editable Workflow Canvas hosting an
+ * UNSAVED draft handed in from the chat `WorkflowProposalCard` "Open in canvas"
+ * action, at `/flows/draft`. The candidate graph rides in `location.state`
+ * (ephemeral — see `lib/flows/canvasDraft.ts`); NOTHING is fetched or persisted
+ * on open. The canvas's own Save button remains the single persistence gate
+ * (it calls `flows_create` for a draft), so opening a draft never touches
+ * `flows_create`/`flows_update`. If there's no draft in state (e.g. a hard
+ * reload dropped it, or the route was hit directly), we show an empty state
+ * rather than a broken canvas.
+ */
+export function FlowCanvasDraftPage() {
+  const { t } = useT();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const draft = useMemo(() => asFlowCanvasDraftState(location.state), [location.state]);
+
+  if (draft) {
+    return (
+      <FlowEditor
+        editorFlow={{
+          flowId: null,
+          name: draft.name,
+          graph: draft.graph,
+          requireApproval: draft.requireApproval,
+        }}
+      />
+    );
+  }
+
+  const backButton = (
+    <Button
+      type="button"
+      variant="tertiary"
+      size="xs"
+      iconOnly
+      data-testid="flow-canvas-back"
+      aria-label={t('flows.canvas.backToList')}
+      onClick={() => navigate('/flows')}>
+      <BackIcon />
+    </Button>
+  );
+
+  return (
+    <PanelPage
+      testId="flow-canvas-page"
+      title={t('flows.canvas.title')}
+      leading={backButton}
+      contentClassName="h-full p-0">
+      <div className="flex h-full items-center justify-center p-4">
+        <p className="text-sm text-content-muted" data-testid="flow-canvas-draft-missing">
+          {t('flows.canvas.draftMissing')}
+        </p>
+      </div>
     </PanelPage>
   );
 }

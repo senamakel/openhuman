@@ -3197,6 +3197,7 @@ const messages: TranslationMap = {
   'chat.flowProposal.requireApprovalHint': 'Jede ausgehende Aktion benötigt Ihre Genehmigung.',
   'chat.flowProposal.save': 'Speichern & aktivieren',
   'chat.flowProposal.saving': 'Wird gespeichert…',
+  'chat.flowProposal.openInCanvas': 'In der Leinwand öffnen',
   'chat.flowProposal.dismiss': 'Verwerfen',
   'chat.flowProposal.error':
     'Der Workflow konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
@@ -3809,6 +3810,7 @@ const messages: TranslationMap = {
   'flows.canvas.loadError':
     'Dieser Workflow konnte nicht geladen werden. Bitte versuche es erneut.',
   'flows.canvas.notFound': 'Dieser Workflow wurde nicht gefunden.',
+  'flows.canvas.draftMissing': 'Kein Workflow-Entwurf zum Öffnen. Schlage zuerst einen im Chat vor.',
   'flows.canvas.backToList': 'Zurück zu den Workflows',
   'flows.nodeKind.trigger': 'Auslöser',
   'flows.nodeKind.agent': 'Agent',

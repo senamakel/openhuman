@@ -10,15 +10,17 @@ import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Flow } from '../../services/api/flowsApi';
-import FlowCanvasPage from '../FlowCanvasPage';
+import FlowCanvasPage, { FlowCanvasDraftPage } from '../FlowCanvasPage';
 
 const getFlow = vi.hoisted(() => vi.fn());
 const updateFlow = vi.hoisted(() => vi.fn());
+const createFlow = vi.hoisted(() => vi.fn());
 const validateFlow = vi.hoisted(() => vi.fn());
 const listFlowConnections = vi.hoisted(() => vi.fn());
 vi.mock('../../services/api/flowsApi', () => ({
   getFlow,
   updateFlow,
+  createFlow,
   validateFlow,
   listFlowConnections,
 }));
@@ -67,11 +69,13 @@ describe('FlowCanvasPage', () => {
   beforeEach(() => {
     getFlow.mockReset();
     updateFlow.mockReset();
+    createFlow.mockReset();
     validateFlow.mockReset();
     listFlowConnections.mockReset();
     validateFlow.mockResolvedValue({ valid: true, errors: [], warnings: [] });
     listFlowConnections.mockResolvedValue([]);
     updateFlow.mockResolvedValue(makeFlow());
+    createFlow.mockResolvedValue(makeFlow({ id: 'created-id', name: 'Daily digest' }));
   });
 
   it('shows a loading state while the flow is being fetched', () => {
@@ -196,5 +200,65 @@ describe('FlowCanvasPage', () => {
     fireEvent.click(screen.getByTestId('flow-canvas-back'));
     fireEvent.click(screen.getByTestId('flow-leave-discard'));
     await waitFor(() => expect(screen.getByTestId('flows-list')).toBeInTheDocument());
+  });
+
+  // -------------------------------------------------------------------------
+  // Draft canvas (Phase 4e) — the chat "Open in canvas" action lands here with
+  // the proposed graph in router state. Opening it must NEVER persist.
+  // -------------------------------------------------------------------------
+  const draftGraph = {
+    schema_version: 1,
+    name: 'Proposed flow',
+    nodes: [
+      { id: 't', kind: 'trigger', name: 'Start', config: {}, ports: [], position: { x: 0, y: 0 } },
+    ],
+    edges: [],
+  };
+
+  function renderDraft(state: unknown) {
+    return render(
+      <MemoryRouter initialEntries={[{ pathname: '/flows/draft', state }]}>
+        <Routes>
+          <Route path="/flows/draft" element={<FlowCanvasDraftPage />} />
+          <Route path="/flows/:id" element={<FlowCanvasPage />} />
+          <Route path="/flows" element={<div data-testid="flows-list">Flows list</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  it('renders the draft canvas from router state without fetching or persisting', async () => {
+    renderDraft({ name: 'Proposed flow', graph: draftGraph, requireApproval: true });
+
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+    expect(screen.getByText('Proposed flow')).toBeInTheDocument();
+    // A draft is not fetched, is not runnable, and has persisted nothing.
+    expect(getFlow).not.toHaveBeenCalled();
+    expect(createFlow).not.toHaveBeenCalled();
+    expect(updateFlow).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('flow-canvas-run')).not.toBeInTheDocument();
+  });
+
+  it('creates (never updates) the flow when a draft is saved', async () => {
+    renderDraft({ name: 'Proposed flow', graph: draftGraph, requireApproval: true });
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    // Edit to make it dirty, then Save → the single persistence gate fires
+    // `flows_create` (with the require-approval flag), not `flows_update`.
+    fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
+    fireEvent.click(screen.getByTestId('flow-editor-save'));
+
+    await waitFor(() => expect(createFlow).toHaveBeenCalledTimes(1));
+    const [name, graph, requireApproval] = createFlow.mock.calls[0];
+    expect(name).toBe('Proposed flow');
+    expect(requireApproval).toBe(true);
+    expect(graph.nodes.map((n: { kind: string }) => n.kind).sort()).toEqual(['agent', 'trigger']);
+    expect(updateFlow).not.toHaveBeenCalled();
+  });
+
+  it('shows an empty state when the draft route is hit with no draft in state', () => {
+    renderDraft(null);
+    expect(screen.getByTestId('flow-canvas-draft-missing')).toBeInTheDocument();
+    expect(screen.queryByTestId('flow-canvas')).not.toBeInTheDocument();
   });
 });

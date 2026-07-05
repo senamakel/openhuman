@@ -3568,6 +3568,7 @@ const en: TranslationMap = {
   'chat.flowProposal.requireApprovalHint': 'Every outbound action will need your approval.',
   'chat.flowProposal.save': 'Save & enable',
   'chat.flowProposal.saving': 'Saving…',
+  'chat.flowProposal.openInCanvas': 'Open in canvas',
   'chat.flowProposal.dismiss': 'Dismiss',
   'chat.flowProposal.error': 'Could not save the workflow. Please try again.',
 
@@ -4364,6 +4365,7 @@ const en: TranslationMap = {
   'flows.canvas.loading': 'Loading workflow…',
   'flows.canvas.loadError': 'Could not load this workflow. Please try again.',
   'flows.canvas.notFound': 'This workflow could not be found.',
+  'flows.canvas.draftMissing': 'No workflow draft to open. Propose one from chat first.',
   'flows.canvas.backToList': 'Back to workflows',
   'flows.nodeKind.trigger': 'Trigger',
   'flows.nodeKind.agent': 'Agent',

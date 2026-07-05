@@ -12,7 +12,7 @@ import Accounts from './pages/Accounts';
 import Brain from './pages/Brain';
 import AgentInsightsPreview from './pages/dev/AgentInsightsPreview';
 import Feedback from './pages/Feedback';
-import FlowCanvasPage from './pages/FlowCanvasPage';
+import FlowCanvasPage, { FlowCanvasDraftPage } from './pages/FlowCanvasPage';
 import FlowsPage from './pages/FlowsPage';
 import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
@@ -110,6 +110,19 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
         element={
           <ProtectedRoute requireAuth={true}>
             <FlowsPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* Unsaved draft canvas (Phase 4e) — the chat WorkflowProposalCard's
+          "Open in canvas" action lands here with the proposed graph in
+          `location.state`. Declared BEFORE `/flows/:id` so it matches first;
+          otherwise `:id` would capture "draft" and try to `flows_get('draft')`.
+          Opening a draft never persists — the canvas's own Save is the gate. */}
+      <Route
+        path="/flows/draft"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <FlowCanvasDraftPage />
           </ProtectedRoute>
         }
       />

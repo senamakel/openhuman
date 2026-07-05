@@ -12730,6 +12730,104 @@ async fn json_rpc_flows_validate_reports_warnings_and_errors() {
     rpc_join.abort();
 }
 
+/// `openhuman.flows_import` over JSON-RPC (PHASE 4d): a native tinyflows graph
+/// imports clean (no warnings), and an n8n workflow export is mapped
+/// best-effort — an `if` node becomes a `condition`, an unmapped node type
+/// becomes an annotated placeholder, and the approximations come back as
+/// warnings — all WITHOUT persisting (the returned payload is a graph, not a
+/// saved Flow row; `flows_list` stays empty afterwards).
+#[tokio::test]
+async fn json_rpc_flows_import_native_and_n8n() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_base, _tmp, api_join, rpc_join, _guards) = boot_flows_rpc_env().await;
+
+    // 1. Native import — a valid tinyflows graph, warning-free.
+    let native = json!({
+        "name": "native-flow",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger", "config": { "trigger_kind": "manual" } }
+        ],
+        "edges": []
+    });
+    let imp = post_json_rpc(
+        &rpc_base,
+        9601,
+        "openhuman.flows_import",
+        json!({ "graph": native, "format": "native" }),
+    )
+    .await;
+    let out = peel_logs_envelope(assert_no_jsonrpc_error(&imp, "flows_import native"));
+    assert_eq!(
+        out.get("graph").and_then(|g| g.get("name")).and_then(Value::as_str),
+        Some("native-flow")
+    );
+    assert!(
+        out.get("warnings")
+            .and_then(Value::as_array)
+            .expect("warnings")
+            .is_empty(),
+        "a clean native import has no warnings"
+    );
+
+    // 2. n8n import (auto-detected) — IF → condition, unmapped → placeholder.
+    let n8n = json!({
+        "name": "n8n-flow",
+        "nodes": [
+            { "id": "s", "name": "Schedule Trigger", "type": "n8n-nodes-base.scheduleTrigger" },
+            { "id": "c", "name": "IF", "type": "n8n-nodes-base.if" },
+            { "id": "x", "name": "Airtable", "type": "n8n-nodes-base.airtable",
+              "parameters": { "table": "leads" } }
+        ],
+        "connections": {
+            "Schedule Trigger": { "main": [[{ "node": "IF", "type": "main", "index": 0 }]] },
+            "IF": { "main": [[{ "node": "Airtable", "type": "main", "index": 0 }]] }
+        }
+    });
+    let imp2 = post_json_rpc(
+        &rpc_base,
+        9602,
+        "openhuman.flows_import",
+        json!({ "graph": n8n }),
+    )
+    .await;
+    let out2 = peel_logs_envelope(assert_no_jsonrpc_error(&imp2, "flows_import n8n"));
+    let graph = out2.get("graph").expect("graph");
+    let nodes = graph.get("nodes").and_then(Value::as_array).expect("nodes");
+    let kind_of = |id: &str| {
+        nodes
+            .iter()
+            .find(|n| n.get("id").and_then(Value::as_str) == Some(id))
+            .and_then(|n| n.get("kind"))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    };
+    assert_eq!(kind_of("c").as_deref(), Some("condition"), "IF maps to condition");
+    assert_eq!(
+        kind_of("x").as_deref(),
+        Some("transform"),
+        "unmapped Airtable node becomes a placeholder transform"
+    );
+    let warnings = out2
+        .get("warnings")
+        .and_then(Value::as_array)
+        .expect("warnings");
+    assert!(
+        warnings.iter().any(|w| w.as_str().is_some_and(|s| s.contains("airtable"))),
+        "the unmapped node produces a warning, got: {warnings:?}"
+    );
+
+    // 3. Import never persists — no flow row was created by either call.
+    let list = post_json_rpc(&rpc_base, 9603, "openhuman.flows_list", json!({})).await;
+    let flows = peel_logs_envelope(assert_no_jsonrpc_error(&list, "flows_list"))
+        .as_array()
+        .expect("flows array")
+        .len();
+    assert_eq!(flows, 0, "flows_import must not persist a flow");
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
 /// `openhuman.flows_list_connections` (PHASE 2): the connection picker source.
 /// Aggregates Composio connected accounts + stored HTTP credentials into a flat
 /// list of `connection_ref` + display + kind — and NEVER any secret material.

@@ -188,7 +188,9 @@ jobs:
           CREATE_TAG: ${{ inputs.create_tag }}
         run: |
           git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
-          git commit -m "chore(staging): v${VERSION}"
+          # [skip ci]: the bump commit lands on an already-validated release
+          # tree — don't re-trigger the full suite (ci-full.yml, push:release).
+          git commit -m "chore(staging): v${VERSION} [skip ci]"
           git push origin HEAD:release
           if [ "$CREATE_TAG" = "true" ]; then
             git tag -a "$TAG" -m "Staging cut $TAG"
@@ -220,6 +222,18 @@ jobs:
             echo "build_ref=$SHA" >> "$GITHUB_OUTPUT"
           fi
           echo "base_url=https://staging-api.tinyhumans.ai/" >> "$GITHUB_OUTPUT"
+
+      # Keep main in sync: the version-bump commit (and anything else on
+      # release) flows back into main right after the cut — every release
+      # build back-merges, not just production. Runs in both create_tag
+      # variants because the bump commit lands on release in both.
+      # continue-on-error so a merge conflict never strands a cut that is
+      # already tagged — resolve the merge manually in that case.
+      - name: Merge release back into main
+        continue-on-error: true
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: bash scripts/release/merge-release-into-main.sh "chore(staging): merge release v${VERSION}-staging back into main"
 
   # =========================================================================
   # Phase 2: Build desktop artifacts (delegated to reusable workflow)

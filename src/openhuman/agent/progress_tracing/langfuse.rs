@@ -14,20 +14,22 @@
 //! never breaks a turn. Spans always carry metadata (names, kinds, timings,
 //! and non-PII token/cost figures — the latter promoted into Langfuse's native
 //! `usageDetails`/`costDetails`). Prompt/reply text and truncated tool I/O
-//! ride along while `observability.agent_tracing.capture_content` is on (its
-//! default); setting it to `false` withholds all content and falls back to
-//! the metadata-only posture.
+//! ride along only while `observability.agent_tracing.capture_content` is on;
+//! with the default off, content is withheld and export stays metadata-only.
 
+use std::borrow::Cow;
 use std::time::Duration;
 
 use serde_json::{json, Map, Value};
+use tinyagents::harness::events::AgentEvent;
+use tinyagents::harness::observability::{AgentObservation, LangfuseClient, LangfuseTraceConfig};
 
 use crate::api::config::effective_backend_api_url;
 use crate::api::jwt::bearer_authorization_value;
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::session_support::require_live_session_token;
 
-use super::{SpanStatus, TraceSpan};
+use super::{SpanStatus, TraceContext, TraceSpan};
 
 const LOG_TARGET: &str = "agent-tracing::langfuse";
 /// Backend proxy route for Langfuse ingestion (relative to the backend origin).
@@ -310,6 +312,119 @@ fn new_event_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
+fn trace_config_from_context(trace_ctx: &TraceContext, environment: &str) -> LangfuseTraceConfig {
+    let mut metadata = Map::new();
+    if let Some(client_id) = &trace_ctx.client_id {
+        metadata.insert("client.id".into(), json!(client_id));
+    }
+    if let Some(agent_id) = &trace_ctx.agent_id {
+        metadata.insert("agent.id".into(), json!(agent_id));
+    }
+    if let Some(source) = &trace_ctx.channel_source {
+        metadata.insert("channel.source".into(), json!(source));
+    }
+    metadata.insert("run_type".into(), json!(trace_ctx.run_type.as_str()));
+    metadata.insert("app.version".into(), json!(env!("CARGO_PKG_VERSION")));
+
+    let mut tags = vec![format!("run:{}", trace_ctx.run_type.as_str())];
+    if let Some(source) = &trace_ctx.channel_source {
+        tags.push(format!("source:{source}"));
+    }
+
+    LangfuseTraceConfig {
+        trace_id: Some(trace_ctx.session_id.clone()),
+        name: Some(match &trace_ctx.agent_id {
+            Some(agent_id) => format!("agent.turn:{agent_id}"),
+            None => "agent.turn".to_string(),
+        }),
+        user_id: trace_ctx.user_id.clone(),
+        session_id: trace_ctx
+            .session_group
+            .clone()
+            .or_else(|| Some(trace_ctx.session_id.clone())),
+        environment: Some(environment.to_string()),
+        release: Some(env!("CARGO_PKG_VERSION").to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        tags,
+        metadata: Value::Object(metadata),
+    }
+}
+
+fn observations_for_export<'a>(
+    trace_ctx: &TraceContext,
+    observations: &'a [AgentObservation],
+) -> Cow<'a, [AgentObservation]> {
+    if trace_ctx.capture_content {
+        return Cow::Borrowed(observations);
+    }
+
+    Cow::Owned(
+        observations
+            .iter()
+            .cloned()
+            .map(strip_observation_content)
+            .collect(),
+    )
+}
+
+fn strip_observation_content(mut observation: AgentObservation) -> AgentObservation {
+    match &mut observation.event {
+        AgentEvent::ModelCompleted { input, output, .. }
+        | AgentEvent::ToolCompleted { input, output, .. } => {
+            *input = None;
+            *output = None;
+        }
+        _ => {}
+    }
+    observation
+}
+
+/// Push durable journal observations through the tinyagents crate Langfuse
+/// exporter. The journal is already redacted before persistence, and this
+/// exporter additionally strips model/tool payloads unless `capture_content`
+/// is explicitly enabled.
+pub(crate) async fn push_observations(
+    config: &Config,
+    trace_ctx: &TraceContext,
+    observations: &[AgentObservation],
+) -> Result<(), String> {
+    if observations.is_empty() {
+        return Ok(());
+    }
+    let url = ingestion_url(config);
+    if !url.starts_with("http") {
+        return Err(format!(
+            "could not resolve Langfuse ingestion URL from backend host (got {url:?})"
+        ));
+    }
+    let token = require_live_session_token(config)?;
+    let environment = environment_for_base(&url);
+    let trace = trace_config_from_context(trace_ctx, environment);
+    let observation_count = observations.len();
+    let observations = observations_for_export(trace_ctx, observations);
+
+    tracing::debug!(
+        target: LOG_TARGET,
+        "[agent-tracing] pushing {observation_count} journal observations to Langfuse at {url}"
+    );
+
+    let client = LangfuseClient::proxy(url, token)
+        .map_err(|err| format!("Langfuse client setup failed: {err}"))?;
+    tokio::time::timeout(
+        PUSH_TIMEOUT,
+        client.send_observations(trace, observations.as_ref()),
+    )
+    .await
+    .map_err(|_| format!("Langfuse journal push timed out after {PUSH_TIMEOUT:?}"))?
+    .map_err(|err| format!("Langfuse journal ingestion failed: {err}"))?;
+
+    tracing::debug!(
+        target: LOG_TARGET,
+        "[agent-tracing] pushed {observation_count} journal observations to Langfuse"
+    );
+    Ok(())
+}
+
 /// Push `spans` to the co-hosted Langfuse server. Resolves the endpoint from the
 /// current backend host and authenticates with the live session bearer. Returns
 /// `Err` (for the caller to log + fall back) when there is no live session, the
@@ -386,6 +501,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use crate::openhuman::agent::progress_tracing::SpanKind;
+    use tinyagents::harness::ids::{CallId, EventId, RunId};
+    use tinyagents::harness::usage::Usage;
 
     fn span(
         trace: &str,
@@ -414,6 +531,18 @@ mod tests {
         }
     }
 
+    fn obs(offset: u64, event: AgentEvent) -> AgentObservation {
+        AgentObservation {
+            event_id: EventId::new(format!("run-1-evt-{offset}")),
+            run_id: RunId::new("run-1"),
+            parent_run_id: None,
+            root_run_id: RunId::new("run-1"),
+            offset,
+            ts_ms: 1_000 + offset,
+            event,
+        }
+    }
+
     #[test]
     fn ingestion_url_uses_backend_origin_and_ingestion_path() {
         let mut config = Config::default();
@@ -435,6 +564,94 @@ mod tests {
             ingestion_url(&with_inference_path),
             "https://api.tinyhumans.ai/telemetry/langfuse/ingestion"
         );
+    }
+
+    #[test]
+    fn trace_config_from_context_matches_span_trace_attribution() {
+        let ctx = TraceContext::new("trace:req-1", Some("user-1".to_string()))
+            .with_session_group("thread-abc")
+            .with_client_id("socket-abc")
+            .with_agent_id("researcher")
+            .with_channel_source("chat")
+            .with_run_type(crate::openhuman::agent::progress_tracing::RunType::InteractiveChat);
+
+        let trace = trace_config_from_context(&ctx, "staging");
+        assert_eq!(trace.trace_id.as_deref(), Some("trace:req-1"));
+        assert_eq!(trace.name.as_deref(), Some("agent.turn:researcher"));
+        assert_eq!(trace.user_id.as_deref(), Some("user-1"));
+        assert_eq!(trace.session_id.as_deref(), Some("thread-abc"));
+        assert_eq!(trace.environment.as_deref(), Some("staging"));
+        assert_eq!(trace.tags, vec!["run:interactive_chat", "source:chat"]);
+        assert_eq!(trace.metadata["client.id"], "socket-abc");
+        assert_eq!(trace.metadata["agent.id"], "researcher");
+        assert_eq!(trace.metadata["channel.source"], "chat");
+        assert_eq!(trace.metadata["run_type"], "interactive_chat");
+        assert_eq!(trace.metadata["app.version"], env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn journal_observation_content_follows_capture_gate() {
+        let observations = vec![
+            obs(
+                1,
+                AgentEvent::ModelCompleted {
+                    call_id: CallId::new("model-1"),
+                    started_at_ms: Some(1_000),
+                    usage: Some(Usage::new(10, 3)),
+                    input: Some(json!([{"role": "user", "content": "secret prompt"}])),
+                    output: Some(json!({"role": "assistant", "content": "secret reply"})),
+                },
+            ),
+            obs(
+                2,
+                AgentEvent::ToolCompleted {
+                    call_id: CallId::new("tool-1"),
+                    tool_name: "search".to_string(),
+                    started_at_ms: Some(1_010),
+                    input: Some(json!({"query": "secret"})),
+                    output: Some(json!("secret result")),
+                    duration_ms: Some(20),
+                    output_bytes: Some(13),
+                    error: None,
+                },
+            ),
+        ];
+
+        let off_ctx = TraceContext::new("trace:req-1", None);
+        let filtered = observations_for_export(&off_ctx, &observations);
+        assert!(matches!(filtered, Cow::Owned(_)));
+        match &filtered[0].event {
+            AgentEvent::ModelCompleted { input, output, .. } => {
+                assert!(input.is_none());
+                assert!(output.is_none());
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+        match &filtered[1].event {
+            AgentEvent::ToolCompleted { input, output, .. } => {
+                assert!(input.is_none());
+                assert!(output.is_none());
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+        match &observations[0].event {
+            AgentEvent::ModelCompleted { input, output, .. } => {
+                assert!(input.is_some(), "source journal observation stays intact");
+                assert!(output.is_some(), "source journal observation stays intact");
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        let on_ctx = TraceContext::new("trace:req-1", None).with_capture_content(true);
+        let passthrough = observations_for_export(&on_ctx, &observations);
+        assert!(matches!(passthrough, Cow::Borrowed(_)));
+        match &passthrough[1].event {
+            AgentEvent::ToolCompleted { input, output, .. } => {
+                assert_eq!(input.as_ref(), Some(&json!({"query": "secret"})));
+                assert_eq!(output.as_ref(), Some(&json!("secret result")));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
     }
 
     #[test]

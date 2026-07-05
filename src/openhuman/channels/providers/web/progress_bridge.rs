@@ -154,7 +154,7 @@ async fn shadow_compare_journal_projection(
     trace_ctx: crate::openhuman::agent::progress_tracing::TraceContext,
     max_iterations: u32,
     live_spans: &[crate::openhuman::agent::progress_tracing::TraceSpan],
-) {
+) -> Option<Vec<tinyagents::harness::observability::AgentObservation>> {
     let Some(journal_run_id) =
         crate::openhuman::tinyagents::journal::take_request_journal_run(request_id)
     else {
@@ -162,7 +162,7 @@ async fn shadow_compare_journal_projection(
             "[agent-tracing][journal-shadow] no journal run registered request_id={}",
             request_id
         );
-        return;
+        return None;
     };
 
     let observations = match crate::openhuman::tinyagents::journal::read_run_events(
@@ -178,7 +178,7 @@ async fn shadow_compare_journal_projection(
                     request_id,
                     journal_run_id
                 );
-            return;
+            return None;
         }
     };
     if observations.is_empty() {
@@ -187,7 +187,7 @@ async fn shadow_compare_journal_projection(
             request_id,
             journal_run_id
         );
-        return;
+        return None;
     }
 
     let projected =
@@ -218,6 +218,7 @@ async fn shadow_compare_journal_projection(
             projected_sig
         );
     }
+    Some(observations)
 }
 
 /// Spawn a background task that reads [`AgentProgress`] events from the
@@ -1316,16 +1317,30 @@ pub(crate) fn spawn_progress_bridge(
         if let Some(mut collector) = span_collector.take() {
             collector.finish(unix_epoch_ms());
             let live_spans = collector.spans().to_vec();
-            if let Some(trace_ctx) = journal_trace_ctx.take() {
+            let journal_export = if let Some(trace_ctx) = journal_trace_ctx.take() {
                 shadow_compare_journal_projection(
                     &request_id,
-                    trace_ctx,
+                    trace_ctx.clone(),
                     parent_max_iterations,
                     &live_spans,
                 )
+                .await
+                .map(|observations| (trace_ctx, observations))
+            } else {
+                None
+            };
+            if let Some((trace_ctx, observations)) = journal_export {
+                crate::openhuman::agent::progress_tracing::export_run_trace_from_journal(
+                    &config,
+                    &trace_ctx,
+                    &observations,
+                    &live_spans,
+                )
                 .await;
+            } else {
+                crate::openhuman::agent::progress_tracing::export_run_trace(&config, &live_spans)
+                    .await;
             }
-            crate::openhuman::agent::progress_tracing::export_run_trace(&config, &live_spans).await;
         }
 
         log::debug!(

@@ -25,12 +25,15 @@ import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
+import { ModalShell } from '../components/ui/ModalShell';
 import { FLOW_CANVAS_DRAFT_ROUTE, type FlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import { downloadFlowGraph } from '../lib/flows/exportFlow';
 import { type FlowTemplate, templateNameKey } from '../lib/flows/templates';
 import type { WorkflowGraph } from '../lib/flows/types';
 import { useT } from '../lib/i18n/I18nContext';
 import {
+  deleteFlow,
+  duplicateFlow,
   type Flow,
   importFlow,
   listFlows,
@@ -68,6 +71,10 @@ export default function FlowsPage() {
   // Create-and-open logic for the empty-state inline template gallery. (The
   // chooser modal owns its own `useCreateFlow` instance.)
   const emptyCreate = useCreateFlow();
+  // Flow queued for deletion behind the confirm dialog (`null` = closed), plus
+  // an in-flight flag so the confirm button can show progress + block re-entry.
+  const [deleteTarget, setDeleteTarget] = useState<Flow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
     setToasts(prev => [...prev, { ...toast, id: `toast-${Date.now()}-${Math.random()}` }]);
@@ -199,6 +206,43 @@ export default function FlowsPage() {
     },
     [addToast, t]
   );
+
+  /** Duplicate a flow (server creates a disabled copy), then refresh the list. */
+  const handleDuplicate = useCallback(
+    async (flow: Flow) => {
+      log('duplicate: id=%s', flow.id);
+      setError(null);
+      try {
+        const copy = await duplicateFlow(flow.id);
+        addToast({ type: 'success', title: t('flows.list.duplicated') });
+        log('duplicate: created id=%s', copy.id);
+        await loadFlows();
+      } catch (err) {
+        log('duplicate failed: id=%s err=%o', flow.id, err);
+        setError(errorMessage(err));
+      }
+    },
+    [addToast, loadFlows, t]
+  );
+
+  /** Confirm-gated delete: the row's Delete opens the dialog; this commits it. */
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setError(null);
+    log('delete: confirming id=%s', deleteTarget.id);
+    try {
+      await deleteFlow(deleteTarget.id);
+      addToast({ type: 'success', title: t('flows.list.deleted') });
+      setDeleteTarget(null);
+      await loadFlows();
+    } catch (err) {
+      log('delete failed: id=%s err=%o', deleteTarget.id, err);
+      setError(errorMessage(err));
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, addToast, loadFlows, t]);
 
   // Hidden file input backing the header "Import" action. Clicking the button
   // opens the OS file picker; the change handler reads + imports the file.
@@ -382,6 +426,8 @@ export default function FlowsPage() {
                 onViewRuns={handleViewRuns}
                 onView={handleView}
                 onExport={handleExport}
+                onDuplicate={f => void handleDuplicate(f)}
+                onDelete={setDeleteTarget}
               />
             ))}
           </div>
@@ -397,6 +443,37 @@ export default function FlowsPage() {
 
       {chooserOpen && (
         <NewWorkflowModal onClose={() => setChooserOpen(false)} onDescribe={handleDescribe} />
+      )}
+
+      {deleteTarget && (
+        <ModalShell
+          onClose={() => (deleting ? undefined : setDeleteTarget(null))}
+          title={t('flows.delete.title')}
+          subtitle={t('flows.delete.body').replace('{name}', deleteTarget.name)}
+          titleId="flow-delete-modal-title"
+          maxWidthClassName="max-w-sm">
+          <div className="flex justify-end gap-2" data-testid="flow-delete-confirm">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={deleting}
+              data-testid="flow-delete-cancel"
+              onClick={() => setDeleteTarget(null)}>
+              {t('flows.delete.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              tone="danger"
+              size="sm"
+              disabled={deleting}
+              data-testid="flow-delete-confirm-button"
+              onClick={() => void handleConfirmDelete()}>
+              {deleting ? t('flows.delete.deleting') : t('flows.delete.confirm')}
+            </Button>
+          </div>
+        </ModalShell>
       )}
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />

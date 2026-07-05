@@ -355,6 +355,41 @@ export async function runFlow(id: string, input?: unknown): Promise<FlowResumeRe
 }
 
 /**
+ * Permanently delete a saved flow via `openhuman.flows_delete`. The server
+ * unbinds any live trigger (schedule cron job / app-event binding) before
+ * removing the row, so deleting an enabled flow also stops it firing. Returns
+ * the removed id (the payload is `{ id, removed: true }`); callers typically
+ * just refetch the list.
+ */
+export async function deleteFlow(id: string): Promise<string> {
+  log('deleteFlow: request id=%s', id);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_delete',
+    params: { id },
+  });
+  const payload = unwrapCliEnvelope<{ id: string; removed: boolean }>(response);
+  log('deleteFlow: response id=%s removed=%s', payload.id, payload.removed);
+  return payload.id;
+}
+
+/**
+ * Duplicate a saved flow via `openhuman.flows_duplicate`. The copy is created
+ * DISABLED and unbound (no live trigger), with a derived name, so duplicating an
+ * enabled flow never silently starts a second live schedule. Returns the new
+ * `Flow` row.
+ */
+export async function duplicateFlow(id: string): Promise<Flow> {
+  log('duplicateFlow: request id=%s', id);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_duplicate',
+    params: { id },
+  });
+  const flow = unwrapCliEnvelope<Flow>(response);
+  log('duplicateFlow: response newId=%s name=%s', flow.id, flow.name);
+  return flow;
+}
+
+/**
  * Update a saved flow's name and/or graph via `openhuman.flows_update` (the
  * Workflow Canvas Save path, B5b.2 / Phase 3d). The server re-validates the
  * graph before persisting and rejects a structurally-invalid one, so callers
@@ -452,6 +487,8 @@ export const flowsApi = {
   setFlowEnabled,
   runFlow,
   updateFlow,
+  deleteFlow,
+  duplicateFlow,
   validateFlow,
   listFlowConnections,
 };

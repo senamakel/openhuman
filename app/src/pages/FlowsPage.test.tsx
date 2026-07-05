@@ -23,6 +23,8 @@ const runFlow = vi.hoisted(() => vi.fn());
 const listFlowRuns = vi.hoisted(() => vi.fn());
 const createFlow = vi.hoisted(() => vi.fn());
 const importFlow = vi.hoisted(() => vi.fn());
+const deleteFlow = vi.hoisted(() => vi.fn());
+const duplicateFlow = vi.hoisted(() => vi.fn());
 vi.mock('../services/api/flowsApi', () => ({
   listFlows,
   setFlowEnabled,
@@ -30,6 +32,8 @@ vi.mock('../services/api/flowsApi', () => ({
   listFlowRuns,
   createFlow,
   importFlow,
+  deleteFlow,
+  duplicateFlow,
 }));
 
 const downloadFlowGraph = vi.hoisted(() => vi.fn(() => true));
@@ -223,9 +227,37 @@ describe('FlowsPage', () => {
     listFlows.mockResolvedValue([makeFlow({ graph: { nodes: [], edges: [] } })]);
     renderWithProviders(<FlowsPage />);
 
+    // Export now lives behind the row's "⋯" overflow menu.
+    fireEvent.click(await screen.findByTestId('flow-menu-flow-1'));
     fireEvent.click(await screen.findByTestId('flow-export-flow-1'));
 
     expect(downloadFlowGraph).toHaveBeenCalledWith('Daily digest', { nodes: [], edges: [] });
+  });
+
+  it('deletes a flow via the overflow menu + confirm dialog', async () => {
+    listFlows.mockResolvedValueOnce([makeFlow()]).mockResolvedValueOnce([]);
+    deleteFlow.mockResolvedValue('flow-1');
+    renderWithProviders(<FlowsPage />);
+
+    fireEvent.click(await screen.findByTestId('flow-menu-flow-1'));
+    fireEvent.click(await screen.findByTestId('flow-delete-flow-1'));
+
+    // Confirm dialog gates the destructive call.
+    expect(deleteFlow).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByTestId('flow-delete-confirm-button'));
+
+    await waitFor(() => expect(deleteFlow).toHaveBeenCalledWith('flow-1'));
+  });
+
+  it('duplicates a flow via the overflow menu', async () => {
+    listFlows.mockResolvedValue([makeFlow()]);
+    duplicateFlow.mockResolvedValue(makeFlow({ id: 'flow-2', name: 'Daily digest copy' }));
+    renderWithProviders(<FlowsPage />);
+
+    fireEvent.click(await screen.findByTestId('flow-menu-flow-1'));
+    fireEvent.click(await screen.findByTestId('flow-duplicate-flow-1'));
+
+    await waitFor(() => expect(duplicateFlow).toHaveBeenCalledWith('flow-1'));
   });
 
   it('imports a picked JSON file and opens the result as a draft canvas', async () => {

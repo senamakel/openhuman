@@ -366,13 +366,29 @@ fn json_path_to_jq(tail: &str) -> Option<String> {
                 return None;
             }
             jq.push('.');
-            jq.push_str(key);
+            jq.push_str(&jq_field(key));
             rest = &after[close + 1..];
         } else {
             return None;
         }
     }
     Some(jq)
+}
+
+/// Renders a single jq field-access key: bare (`foo`) when `key` is a plain
+/// identifier (alphanumeric/underscore, not digit-leading), else quoted
+/// (`"first name"`) per jq's dot-plus-quoted-string syntax — required for any
+/// key containing spaces or punctuation, which `.foo bar` (unquoted) is not
+/// valid jq for.
+fn jq_field(key: &str) -> String {
+    let is_bare_identifier = !key.is_empty()
+        && !key.starts_with(|c: char| c.is_ascii_digit())
+        && key.chars().all(|c| c.is_alphanumeric() || c == '_');
+    if is_bare_identifier {
+        key.to_string()
+    } else {
+        format!("{:?}", key)
+    }
 }
 
 fn untranslated_warning(n8n_name: &str, raw: &str) -> String {
@@ -401,10 +417,22 @@ fn reconcile_triggers(nodes: &mut Vec<Node>, warnings: &mut Vec<String>) {
                  flow is runnable. Attach a schedule or app-event trigger to run it automatically."
                     .to_string(),
             );
+            // Collision-free synthetic id: an n8n graph may already have a
+            // (non-trigger) node literally named "trigger" — colliding with a
+            // hardcoded id would produce a duplicate-id graph and fail
+            // validation, turning an otherwise-recoverable import into a hard
+            // failure.
+            let mut trigger_id = "trigger".to_string();
+            let mut suffix = 2;
+            while nodes.iter().any(|n| n.id == trigger_id) {
+                trigger_id = format!("trigger_{suffix}");
+                suffix += 1;
+            }
+
             nodes.insert(
                 0,
                 Node {
-                    id: "trigger".to_string(),
+                    id: trigger_id,
                     kind: NodeKind::Trigger,
                     type_version: 1,
                     name: "Manual Trigger".to_string(),
@@ -659,6 +687,36 @@ mod tests {
     }
 
     #[test]
+    fn synthesized_trigger_id_avoids_colliding_with_an_existing_node() {
+        // The n8n graph already has a (non-trigger) node literally id'd
+        // "trigger" — the synthesized manual trigger must not collide with it.
+        let wf = json!({
+            "name": "id-collision",
+            "nodes": [
+                { "id": "trigger", "name": "HTTP", "type": "n8n-nodes-base.httpRequest" }
+            ],
+            "connections": {}
+        });
+        let result = map_n8n_workflow(&wf).expect("map");
+        let ids: Vec<&str> = result.graph.nodes.iter().map(|n| n.id.as_str()).collect();
+        // Both the original node and the synthesized trigger survive, under
+        // distinct ids.
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains(&"trigger"));
+        assert!(ids.iter().any(|id| *id != "trigger"));
+        assert_eq!(
+            result
+                .graph
+                .nodes
+                .iter()
+                .filter(|n| n.kind == NodeKind::Trigger)
+                .count(),
+            1
+        );
+        tinyflows::validate::validate(&result.graph).expect("valid graph");
+    }
+
+    #[test]
     fn demotes_extra_triggers_to_placeholders() {
         let wf = json!({
             "name": "two-triggers",
@@ -695,12 +753,26 @@ mod tests {
             translate_expr("={{ $json.user.name }}", &mut warnings, "n"),
             "=.user.name"
         );
+        // A bracket key with a space isn't a bare jq identifier — must come out
+        // quoted (`."first name"`), not `.first name` (invalid jq).
         assert_eq!(
             translate_expr("={{ $json[\"first name\"] }}", &mut warnings, "n"),
-            "=.first name"
+            "=.\"first name\""
         );
         assert_eq!(translate_expr("={{ $json }}", &mut warnings, "n"), "=.");
         assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn jq_field_quotes_non_bare_identifiers() {
+        // Plain identifiers stay bare.
+        assert_eq!(jq_field("foo"), "foo");
+        assert_eq!(jq_field("foo_bar"), "foo_bar");
+        // Spaces, punctuation, and digit-leading keys aren't bare jq
+        // identifiers — jq requires the dot-plus-quoted-string form for these.
+        assert_eq!(jq_field("first name"), "\"first name\"");
+        assert_eq!(jq_field("foo-bar"), "\"foo-bar\"");
+        assert_eq!(jq_field("123key"), "\"123key\"");
     }
 
     #[test]

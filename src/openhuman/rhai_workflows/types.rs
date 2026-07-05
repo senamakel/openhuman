@@ -1,6 +1,6 @@
-//! Serde domain types for the `rlm` language-workflow tool.
+//! Serde domain types for the `rhai` language-workflow tool.
 //!
-//! These cross the tool boundary (parsed from the `rlm` tool call, and rendered
+//! These cross the tool boundary (parsed from the `rhai_workflows` tool call, and rendered
 //! back into its [`ToolResult`](crate::openhuman::tools::ToolResult)). The
 //! runtime types that wire a session to openhuman's tools/models/subagents live
 //! in [`super::bridge`] and [`super::sessions`]; the tinyagents-side limit and
@@ -8,32 +8,32 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A caller-supplied RLM session id. Continuing a prior `session_id` reuses that
+/// A caller-supplied Rhai session id. Continuing a prior `session_id` reuses that
 /// session's persistent namespace (`let` bindings survive across cells); an
 /// absent id starts a fresh session. Namespaces are additionally scoped by the
 /// parent thread inside [`super::sessions`], so two chats never collide.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct RlmSessionId(pub String);
+pub struct RhaiSessionId(pub String);
 
-impl RlmSessionId {
+impl RhaiSessionId {
     /// The session id as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-impl std::fmt::Display for RlmSessionId {
+impl std::fmt::Display for RhaiSessionId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
 }
 
-/// Per-call limit overrides a caller may pass in the `rlm` tool's `limits`
+/// Per-call limit overrides a caller may pass in the `rhai_workflows` tool's `limits`
 /// argument. Each is clamped in [`super::policy`] to a hard ceiling (never
 /// unbounded); a `full`-tier caller may raise them, others are capped at the
 /// conservative defaults.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RlmLimitsOverride {
+pub struct RhaiLimitsOverride {
     /// Requested `max_tool_calls` for the session.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_tool_calls: Option<usize>,
@@ -48,9 +48,9 @@ pub struct RlmLimitsOverride {
     pub max_concurrency: Option<usize>,
 }
 
-/// A parsed `rlm` tool call — one cell to evaluate against a session.
+/// A parsed `rhai_workflows` tool call — one cell to evaluate against a session.
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct RlmEvalRequest {
+pub struct RhaiEvalRequest {
     /// The Rhai workflow cell to evaluate.
     pub script: String,
     /// Continue a prior session's namespace; `None` starts a fresh session.
@@ -61,7 +61,7 @@ pub struct RlmEvalRequest {
     pub timeout_secs: Option<u64>,
     /// Optional per-session limit overrides.
     #[serde(default)]
-    pub limits: Option<RlmLimitsOverride>,
+    pub limits: Option<RhaiLimitsOverride>,
     /// Close (drop) the session after this cell.
     #[serde(default)]
     pub close_session: bool,
@@ -72,7 +72,7 @@ pub struct RlmEvalRequest {
 /// level and on the live event stream), so a model-visible result cannot leak a
 /// large or sensitive payload back into the context window.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct RlmCallSummary {
+pub struct RhaiCallSummary {
     /// `model` | `tool` | `agent` | `graph` | `emit`.
     pub kind: String,
     /// The capability or event name.
@@ -87,7 +87,7 @@ pub struct RlmCallSummary {
 /// The remaining per-session budget after a cell, surfaced so the model can plan
 /// how much more fan-out it can do before splitting work across sessions.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
-pub struct RlmLimitsRemaining {
+pub struct RhaiLimitsRemaining {
     /// Cells left before `max_iterations`.
     pub cells: usize,
     /// `model_query` calls left.
@@ -98,10 +98,10 @@ pub struct RlmLimitsRemaining {
     pub agent_calls: usize,
 }
 
-/// The structured result of evaluating one RLM cell, rendered into the JSON
+/// The structured result of evaluating one Rhai cell, rendered into the JSON
 /// content of the tool result.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct RlmEvalResponse {
+pub struct RhaiEvalResponse {
     /// The session the cell ran in (echoed so a fresh session's generated id is
     /// discoverable, and a later cell can continue it).
     pub session_id: String,
@@ -113,7 +113,7 @@ pub struct RlmEvalResponse {
     /// Names of persistent variables the cell created or changed.
     pub variables_changed: Vec<String>,
     /// Summarized capability calls the cell performed.
-    pub calls: Vec<RlmCallSummary>,
+    pub calls: Vec<RhaiCallSummary>,
     /// The final answer, if the cell called `answer(...)`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub final_answer: Option<String>,
@@ -122,7 +122,7 @@ pub struct RlmEvalResponse {
     /// Number of cells this session has evaluated so far.
     pub cells_used: usize,
     /// Remaining per-session budget.
-    pub limits_remaining: RlmLimitsRemaining,
+    pub limits_remaining: RhaiLimitsRemaining,
     /// Whether the session was closed after this cell.
     #[serde(default)]
     pub closed: bool,

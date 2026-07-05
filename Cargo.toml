@@ -64,7 +64,7 @@ tinyjuice = { version = "0.1", default-features = false }
 # Durable graph checkpoints still use `SqlRunLedgerCheckpointer` until the
 # migration re-points those rows to the crate checkpointer.
 # The `repl` feature adds the embedded Rhai `.ragsh` session runtime powering
-# the `rlm` language-workflow tool (`src/openhuman/rlm/`).
+# the `rhai_workflows` language-workflow tool (`src/openhuman/rhai_workflows/`).
 tinyagents = { version = "1.7", features = ["sqlite", "repl"] }
 # TinyCortex — Rust core for the memory engine (store/chunks/tree/retrieval/
 # queue/ingest/score + long tail), vendored as a git submodule and patched

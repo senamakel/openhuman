@@ -622,11 +622,11 @@ pub(super) const CAPABILITIES: &[Capability] = &[
     },
     Capability {
         id: "intelligence.language_workflows",
-        name: "Language Workflows (RLM)",
+        name: "Language Workflows (Rhai)",
         domain: "intelligence",
         category: CapabilityCategory::Intelligence,
         description: "The orchestrator can author and run small Rhai workflow scripts to express ad-hoc control flow over delegated work — parallel fan-out, loops, and dedup-then-verify pipelines that fixed spawn/parallel primitives cannot. Each script runs bounded and fail-closed (per-cell timeout, per-session caps on tool/model/agent calls and recursion depth), and every effectful step still passes the same approval and permission gates as a direct tool call. Progress rides the existing tool-call timeline.",
-        how_to: "Runs automatically when the orchestrator chooses the `rlm` tool; disable with OPENHUMAN_RLM=0 or the read-only autonomy tier",
+        how_to: "Runs automatically when the orchestrator chooses the `rhai_workflows` tool; disable with OPENHUMAN_RHAI_WORKFLOWS=0 or the read-only autonomy tier",
         status: CapabilityStatus::Beta,
         privacy: DERIVED_TO_BACKEND,
     },

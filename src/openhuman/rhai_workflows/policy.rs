@@ -1,7 +1,7 @@
 //! Maps openhuman's autonomy tier and tool-timeout clamps onto a
 //! [`tinyagents::ReplPolicy`], fail-closed.
 //!
-//! Every RLM session is bounded: the resolved policy is always based on the
+//! Every Rhai session is bounded: the resolved policy is always based on the
 //! conservative crate default, the wall-clock timeout is always set (never
 //! unbounded), the `readonly` tier is refused outright, and caller-supplied
 //! limit overrides are clamped — a `full`-tier caller may raise call-count
@@ -14,38 +14,38 @@ use tinyagents::ReplPolicy;
 use crate::openhuman::security::policy::AutonomyLevel;
 use crate::openhuman::tool_timeout;
 
-use super::types::RlmLimitsOverride;
+use super::types::RhaiLimitsOverride;
 
 /// Default per-cell wall-clock timeout when the caller does not specify one.
-/// Matches the `rlm` tool's default `ToolTimeout::Secs(300)` so the inner
+/// Matches the `rhai_workflows` tool's default `ToolTimeout::Secs(300)` so the inner
 /// deadline and the harness backstop agree.
-pub const DEFAULT_RLM_TIMEOUT_SECS: u64 = 300;
+pub const DEFAULT_RHAI_TIMEOUT_SECS: u64 = 300;
 
 /// Hard upper bound on batched concurrency, regardless of tier or override.
-pub const MAX_RLM_CONCURRENCY: usize = 8;
+pub const MAX_RHAI_CONCURRENCY: usize = 8;
 
 /// Ceiling multiplier applied to the crate default call-count limits when a
 /// `full`-tier caller raises them via the tool's `limits` argument.
 pub const LIMIT_CEILING_MULTIPLIER: usize = 2;
 
-/// Maximum sub-agent recursion depth an RLM session may drive. Mirrors the
+/// Maximum sub-agent recursion depth an Rhai session may drive. Mirrors the
 /// harness `MAX_SPAWN_DEPTH` (kept in lock-step by intent; a divergence only
 /// tightens one side, never opens an unbounded path).
-pub const RLM_MAX_DEPTH: usize = 3;
+pub const RHAI_MAX_DEPTH: usize = 3;
 
 /// Resolves a [`ReplPolicy`] for a session opened at autonomy `tier`, with an
 /// optional caller `timeout_secs` and `overrides`.
 ///
 /// Returns `Err(reason)` — a model-consumable string — when the tier forbids
-/// RLM entirely (`readonly`). The `reason` is surfaced verbatim to the model.
+/// Rhai entirely (`readonly`). The `reason` is surfaced verbatim to the model.
 pub fn resolve_policy(
     tier: AutonomyLevel,
     timeout_secs: Option<u64>,
-    overrides: Option<&RlmLimitsOverride>,
+    overrides: Option<&RhaiLimitsOverride>,
 ) -> Result<ReplPolicy, String> {
     if tier == AutonomyLevel::ReadOnly {
         return Err(
-            "the `rlm` tool is disabled at the read-only autonomy tier (it can drive tools, \
+            "the `rhai_workflows` tool is disabled at the read-only autonomy tier (it can drive tools, \
              models, and sub-agents); raise autonomy to `supervised` or `full` to use it"
                 .to_string(),
         );
@@ -55,15 +55,15 @@ pub fn resolve_policy(
     let base = ReplPolicy::default();
 
     // Wall-clock timeout: clamp the caller's request to [1, 3600] and cap it,
-    // defaulting to DEFAULT_RLM_TIMEOUT_SECS. Never unbounded.
+    // defaulting to DEFAULT_RHAI_TIMEOUT_SECS. Never unbounded.
     let secs =
         tool_timeout::explicit_call_timeout_secs(timeout_secs, tool_timeout::MAX_TIMEOUT_SECS)
-            .unwrap_or(DEFAULT_RLM_TIMEOUT_SECS);
+            .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
 
     let ov = overrides.cloned().unwrap_or_default();
     let policy = ReplPolicy {
         timeout: Some(Duration::from_secs(secs)),
-        max_depth: base.max_depth.min(RLM_MAX_DEPTH),
+        max_depth: base.max_depth.min(RHAI_MAX_DEPTH),
         max_model_calls: clamp_limit(base.max_model_calls, ov.max_model_calls, allow_raise),
         max_agent_calls: clamp_limit(base.max_agent_calls, ov.max_agent_calls, allow_raise),
         max_tool_calls: clamp_limit(base.max_tool_calls, ov.max_tool_calls, allow_raise),
@@ -79,7 +79,7 @@ pub fn resolve_policy(
         max_tool_calls = policy.max_tool_calls,
         max_concurrency = policy.max_concurrency,
         max_depth = policy.max_depth,
-        "[rlm] resolved ReplPolicy"
+        "[rhai_workflows] resolved ReplPolicy"
     );
     Ok(policy)
 }
@@ -103,16 +103,16 @@ fn clamp_limit(default: usize, requested: Option<usize>, allow_raise: bool) -> u
     }
 }
 
-/// Clamps batched concurrency to `[1, MAX_RLM_CONCURRENCY]`, and to the default
+/// Clamps batched concurrency to `[1, MAX_RHAI_CONCURRENCY]`, and to the default
 /// unless the tier allows raising it.
 fn clamp_concurrency(default: usize, requested: Option<usize>, allow_raise: bool) -> usize {
     let ceiling = if allow_raise {
-        MAX_RLM_CONCURRENCY
+        MAX_RHAI_CONCURRENCY
     } else {
-        default.min(MAX_RLM_CONCURRENCY)
+        default.min(MAX_RHAI_CONCURRENCY)
     };
     match requested {
-        None => default.min(MAX_RLM_CONCURRENCY),
+        None => default.min(MAX_RHAI_CONCURRENCY),
         Some(n) => n.clamp(1, ceiling.max(1)),
     }
 }
@@ -136,7 +136,7 @@ mod tests {
         let p = resolve_policy(AutonomyLevel::Supervised, None, None).expect("policy");
         assert_eq!(
             p.timeout,
-            Some(Duration::from_secs(DEFAULT_RLM_TIMEOUT_SECS))
+            Some(Duration::from_secs(DEFAULT_RHAI_TIMEOUT_SECS))
         );
 
         // A caller request is clamped to [1, 3600].
@@ -145,14 +145,14 @@ mod tests {
         let p = resolve_policy(AutonomyLevel::Supervised, Some(0), None).expect("policy");
         assert_eq!(
             p.timeout,
-            Some(Duration::from_secs(DEFAULT_RLM_TIMEOUT_SECS))
+            Some(Duration::from_secs(DEFAULT_RHAI_TIMEOUT_SECS))
         );
     }
 
     #[test]
     fn supervised_may_only_tighten_limits() {
         let base = ReplPolicy::default();
-        let ov = RlmLimitsOverride {
+        let ov = RhaiLimitsOverride {
             max_tool_calls: Some(base.max_tool_calls * 10), // request a raise
             ..Default::default()
         };
@@ -162,7 +162,7 @@ mod tests {
             "supervised cannot raise above the default"
         );
 
-        let ov = RlmLimitsOverride {
+        let ov = RhaiLimitsOverride {
             max_tool_calls: Some(1),
             ..Default::default()
         };
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn full_may_raise_up_to_the_ceiling() {
         let base = ReplPolicy::default();
-        let ov = RlmLimitsOverride {
+        let ov = RhaiLimitsOverride {
             max_model_calls: Some(base.max_model_calls * 100), // way over ceiling
             ..Default::default()
         };
@@ -187,17 +187,17 @@ mod tests {
 
     #[test]
     fn concurrency_is_hard_capped() {
-        let ov = RlmLimitsOverride {
+        let ov = RhaiLimitsOverride {
             max_concurrency: Some(1000),
             ..Default::default()
         };
         let p = resolve_policy(AutonomyLevel::Full, None, Some(&ov)).expect("policy");
-        assert_eq!(p.max_concurrency, MAX_RLM_CONCURRENCY);
+        assert_eq!(p.max_concurrency, MAX_RHAI_CONCURRENCY);
     }
 
     #[test]
     fn depth_respects_the_spawn_ceiling() {
         let p = resolve_policy(AutonomyLevel::Full, None, None).expect("policy");
-        assert!(p.max_depth <= RLM_MAX_DEPTH);
+        assert!(p.max_depth <= RHAI_MAX_DEPTH);
     }
 }

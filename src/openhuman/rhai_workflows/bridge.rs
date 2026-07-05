@@ -4,7 +4,7 @@
 //!
 //! Three capability kinds are wired, each keeping openhuman's own gates:
 //!
-//! - **Tools** — one [`RlmToolAdapter`] per visible, non-excluded, agent-scoped
+//! - **Tools** — one [`RhaiToolAdapter`] per visible, non-excluded, agent-scoped
 //!   tool. Approval is **not** on the tinyagents repl path (it lives in the
 //!   harness `wrap_tool` middleware the REPL bypasses), so the adapter itself
 //!   invokes the [`ApprovalGate`] for any tool whose `external_effect_with_args`
@@ -15,7 +15,7 @@
 //!   `allowed_subagent_ids`, so `agent_query("<id>", ...)` spawns a real
 //!   openhuman sub-agent through `run_subagent`.
 //!
-//! Recursion/duplication hazards are **excluded** from the tool surface: `rlm`
+//! Recursion/duplication hazards are **excluded** from the tool surface: `rhai`
 //! itself (no REPL-in-REPL), `spawn_*` (use `agent_query`), and
 //! `run_workflow`/`await_workflow`. `ToolScope::CliRpcOnly` tools are excluded
 //! too.
@@ -49,7 +49,9 @@ use crate::openhuman::tools::Tool as OhTool;
 /// re-entering the REPL) and capability duplication (spawn/workflow primitives
 /// the script models with `agent_query` instead).
 fn is_excluded_tool(name: &str) -> bool {
-    name == "rlm"
+    name == "rhai_workflows"
+        || name == "rhai"
+        || name == "rlm"
         || name == "run_workflow"
         || name == "await_workflow"
         || name.starts_with("spawn_")
@@ -62,6 +64,8 @@ mod tests {
     #[test]
     fn recursion_and_duplication_hazards_are_excluded() {
         for name in [
+            "rhai",
+            "rhai_workflows",
             "rlm",
             "run_workflow",
             "await_workflow",
@@ -81,7 +85,7 @@ mod tests {
 /// turn's execution context.
 ///
 /// Reads the parent's visible tool set, provider/model, and sub-agent
-/// allowlist. The returned registry carries no `rlm`, `spawn_*`, or workflow
+/// allowlist. The returned registry carries no `rhai`, `spawn_*`, or workflow
 /// tools, and no `CliRpcOnly`-scoped tools.
 pub(super) fn build_capability_registry(parent: &ParentExecutionContext) -> CapabilityRegistry<()> {
     let mut registry = CapabilityRegistry::<()>::new();
@@ -107,7 +111,7 @@ pub(super) fn build_capability_registry(parent: &ParentExecutionContext) -> Capa
         if matches!(tool.scope(), ToolScope::CliRpcOnly) {
             continue;
         }
-        registry.replace_tool(Arc::new(RlmToolAdapter::new(
+        registry.replace_tool(Arc::new(RhaiToolAdapter::new(
             parent.all_tools.clone(),
             tool.as_ref(),
         )));
@@ -128,7 +132,7 @@ pub(super) fn build_capability_registry(parent: &ParentExecutionContext) -> Capa
         tools = tool_count,
         agents = agent_count,
         model = %parent.model_name,
-        "[rlm] built capability registry"
+        "[rhai_workflows] built capability registry"
     );
     registry
 }
@@ -137,7 +141,7 @@ pub(super) fn build_capability_registry(parent: &ParentExecutionContext) -> Capa
 /// in the parent's shared tool set on each call (the set is `Arc`-shared, not
 /// cloned). Adds the approval gate the harness `wrap_tool` middleware would
 /// otherwise apply — absent on the repl bridge path.
-pub(super) struct RlmToolAdapter {
+pub(super) struct RhaiToolAdapter {
     tools: Arc<Vec<Box<dyn OhTool>>>,
     name: String,
     description: String,
@@ -145,7 +149,7 @@ pub(super) struct RlmToolAdapter {
     policy: TaToolPolicy,
 }
 
-impl RlmToolAdapter {
+impl RhaiToolAdapter {
     fn new(tools: Arc<Vec<Box<dyn OhTool>>>, tool: &dyn OhTool) -> Self {
         let schema = TaToolSchema {
             name: tool.name().to_string(),
@@ -171,7 +175,7 @@ impl RlmToolAdapter {
         match found {
             Some(tool) => gated_execute(tool.as_ref(), call, context).await,
             None => {
-                tracing::warn!(tool = %self.name, "[rlm] bridged tool not found at call time");
+                tracing::warn!(tool = %self.name, "[rhai_workflows] bridged tool not found at call time");
                 TaToolResult {
                     call_id: call.id,
                     name: call.name,
@@ -186,7 +190,7 @@ impl RlmToolAdapter {
 }
 
 #[async_trait]
-impl TaTool<()> for RlmToolAdapter {
+impl TaTool<()> for RhaiToolAdapter {
     fn name(&self) -> &str {
         &self.name
     }
@@ -229,12 +233,12 @@ async fn gated_execute(
         if let Some(gate) = ApprovalGate::try_global() {
             let summary = summarize_action(&call.name, &call.arguments);
             let redacted = redact_args(&call.arguments);
-            tracing::debug!(tool = %call.name, "[rlm] external-effect tool — routing through approval gate");
+            tracing::debug!(tool = %call.name, "[rhai_workflows] external-effect tool — routing through approval gate");
             let (outcome, request_id) =
                 gate.intercept_audited(&call.name, &summary, redacted).await;
             match outcome {
                 GateOutcome::Deny { reason } => {
-                    tracing::info!(tool = %call.name, %reason, "[rlm] tool denied by approval gate");
+                    tracing::info!(tool = %call.name, %reason, "[rhai_workflows] tool denied by approval gate");
                     return TaToolResult {
                         content: format!("Denied by approval gate: {reason}"),
                         error: Some(format!("approval denied: {reason}")),
@@ -309,7 +313,7 @@ impl HarnessAgent for SubagentCapability {
             ..Default::default()
         };
 
-        tracing::debug!(agent = %self.agent_id, "[rlm] agent_query — spawning sub-agent");
+        tracing::debug!(agent = %self.agent_id, "[rhai_workflows] agent_query — spawning sub-agent");
         let outcome = with_parent_context(
             self.parent.clone(),
             run_subagent(definition, &input.prompt, options),

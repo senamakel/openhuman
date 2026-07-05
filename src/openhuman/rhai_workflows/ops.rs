@@ -17,9 +17,9 @@ use crate::openhuman::security::policy::AutonomyLevel;
 use crate::openhuman::tinyagents::run_cancellation_context::current_run_cancellation;
 
 use super::bridge::build_capability_registry;
-use super::policy::{resolve_policy, DEFAULT_RLM_TIMEOUT_SECS};
-use super::sessions::RlmSessionManager;
-use super::types::{RlmCallSummary, RlmEvalRequest, RlmEvalResponse, RlmLimitsRemaining};
+use super::policy::{resolve_policy, DEFAULT_RHAI_TIMEOUT_SECS};
+use super::sessions::RhaiSessionManager;
+use super::types::{RhaiCallSummary, RhaiEvalRequest, RhaiEvalResponse, RhaiLimitsRemaining};
 
 /// Grace added to the inner policy timeout for the outer `spawn_blocking`
 /// backstop — the inner deadline should always fire first; this defends against
@@ -28,12 +28,12 @@ const OUTER_TIMEOUT_GRACE: Duration = Duration::from_secs(5);
 
 /// Hard cap on the characters returned to the model in `stdout`, so a runaway
 /// print cannot flood the context window even within the byte policy.
-const MAX_RLM_RESULT_CHARS: usize = 24_000;
+const MAX_RHAI_RESULT_CHARS: usize = 24_000;
 
-/// A typed RLM failure, each mapped to a model-consumable tool result by
-/// [`RlmError::message`] (with a fix hint) and [`RlmError::kind`].
+/// A typed Rhai failure, each mapped to a model-consumable tool result by
+/// [`RhaiError::message`] (with a fix hint) and [`RhaiError::kind`].
 #[derive(Debug, Clone)]
-pub(crate) enum RlmError {
+pub(crate) enum RhaiError {
     /// The autonomy tier or policy refused the session.
     Denied(String),
     /// Script failed to compile or raised a runtime error.
@@ -56,60 +56,62 @@ pub(crate) enum RlmError {
     Internal(String),
 }
 
-impl RlmError {
+impl RhaiError {
     /// A stable, snake_case kind tag for logging and the tool result.
     pub(crate) fn kind(&self) -> &'static str {
         match self {
-            RlmError::Denied(_) => "denied",
-            RlmError::Script(_) => "script_error",
-            RlmError::Timeout(_) => "timeout",
-            RlmError::LimitExceeded(_) => "limit_exceeded",
-            RlmError::UnknownCapability(_) => "unknown_capability",
-            RlmError::Depth(_) => "recursion_depth",
-            RlmError::CapabilityError(_) => "capability_error",
-            RlmError::Cancelled => "cancelled",
-            RlmError::SessionBusy(_) => "session_busy",
-            RlmError::Internal(_) => "internal",
+            RhaiError::Denied(_) => "denied",
+            RhaiError::Script(_) => "script_error",
+            RhaiError::Timeout(_) => "timeout",
+            RhaiError::LimitExceeded(_) => "limit_exceeded",
+            RhaiError::UnknownCapability(_) => "unknown_capability",
+            RhaiError::Depth(_) => "recursion_depth",
+            RhaiError::CapabilityError(_) => "capability_error",
+            RhaiError::Cancelled => "cancelled",
+            RhaiError::SessionBusy(_) => "session_busy",
+            RhaiError::Internal(_) => "internal",
         }
     }
 
     /// The model-facing message, including a concrete fix hint.
     pub(crate) fn message(&self) -> String {
         match self {
-            RlmError::Denied(m) => m.clone(),
-            RlmError::Script(m) => {
-                format!("rlm script error: {m}\nFix the script and retry — reuse the same session_id to keep your bindings.")
+            RhaiError::Denied(m) => m.clone(),
+            RhaiError::Script(m) => {
+                format!("rhai_workflows script error: {m}\nFix the script and retry — reuse the same session_id to keep your bindings.")
             }
-            RlmError::Timeout(m) => {
-                format!("rlm cell timed out: {m}\nSplit the work across cells, lower fan-out, or raise timeout_secs.")
+            RhaiError::Timeout(m) => {
+                format!("rhai_workflows cell timed out: {m}\nSplit the work across cells, lower fan-out, or raise timeout_secs.")
             }
-            RlmError::LimitExceeded(m) => {
-                format!("rlm limit exceeded: {m}\nSplit the work across cells, or (full tier) raise the relevant limit in `limits`.")
+            RhaiError::LimitExceeded(m) => {
+                format!("rhai_workflows limit exceeded: {m}\nSplit the work across cells, or (full tier) raise the relevant limit in `limits`.")
             }
-            RlmError::UnknownCapability(m) => format!("rlm unknown capability: {m}"),
-            RlmError::Depth(m) => format!("rlm recursion depth exceeded: {m}"),
-            RlmError::CapabilityError(m) => {
-                format!("rlm capability call failed: {m}\nInspect the failing call's arguments and retry.")
+            RhaiError::UnknownCapability(m) => {
+                format!("rhai_workflows unknown capability: {m}")
             }
-            RlmError::Cancelled => {
-                "rlm cell was cancelled by the user. The session is intact and resumable."
+            RhaiError::Depth(m) => format!("rhai_workflows recursion depth exceeded: {m}"),
+            RhaiError::CapabilityError(m) => {
+                format!("rhai_workflows capability call failed: {m}\nInspect the failing call's arguments and retry.")
+            }
+            RhaiError::Cancelled => {
+                "rhai_workflows cell was cancelled by the user. The session is intact and resumable."
                     .to_string()
             }
-            RlmError::SessionBusy(m) => m.clone(),
-            RlmError::Internal(m) => format!("rlm internal error: {m}"),
+            RhaiError::SessionBusy(m) => m.clone(),
+            RhaiError::Internal(m) => format!("rhai_workflows internal error: {m}"),
         }
     }
 }
 
 /// The registered capability names, snapshotted for unknown-capability error
 /// messages so the model sees the live surface it can actually call.
-struct RlmAvailable {
+struct RhaiAvailable {
     tools: Vec<String>,
     agents: Vec<String>,
     models: Vec<String>,
 }
 
-impl RlmAvailable {
+impl RhaiAvailable {
     fn from_registry(registry: &CapabilityRegistry<()>) -> Self {
         Self {
             tools: registry.names(ComponentKind::Tool),
@@ -130,17 +132,18 @@ enum CellRun {
     Poisoned,
 }
 
-/// Evaluates one RLM cell against a (possibly new) session, fail-closed.
+/// Evaluates one Rhai cell against a (possibly new) session, fail-closed.
 ///
 /// Resolves the parent turn context, maps autonomy/timeout to a `ReplPolicy`,
 /// resolves or creates the session, wires user cancellation to a fresh per-cell
 /// flag, runs `eval_cell` on `spawn_blocking` under an outer `tokio::timeout`
-/// backstop, and maps every outcome to [`RlmEvalResponse`] or a typed
-/// [`RlmError`].
-pub(crate) async fn eval_rlm_cell(req: RlmEvalRequest) -> Result<RlmEvalResponse, RlmError> {
+/// backstop, and maps every outcome to [`RhaiEvalResponse`] or a typed
+/// [`RhaiError`].
+pub(crate) async fn eval_rhai_cell(req: RhaiEvalRequest) -> Result<RhaiEvalResponse, RhaiError> {
     let parent = current_parent().ok_or_else(|| {
-        RlmError::Internal(
-            "no parent execution context — the rlm tool must run inside an agent turn".to_string(),
+        RhaiError::Internal(
+            "no parent execution context — the rhai_workflows tool must run inside an agent turn"
+                .to_string(),
         )
     })?;
 
@@ -148,7 +151,7 @@ pub(crate) async fn eval_rlm_cell(req: RlmEvalRequest) -> Result<RlmEvalResponse
         .map(|p| p.autonomy)
         .unwrap_or(AutonomyLevel::Supervised);
     let policy =
-        resolve_policy(tier, req.timeout_secs, req.limits.as_ref()).map_err(RlmError::Denied)?;
+        resolve_policy(tier, req.timeout_secs, req.limits.as_ref()).map_err(RhaiError::Denied)?;
 
     let registry = build_capability_registry(&parent);
     run_cell(
@@ -156,35 +159,35 @@ pub(crate) async fn eval_rlm_cell(req: RlmEvalRequest) -> Result<RlmEvalResponse
         policy,
         registry,
         &parent.session_id,
-        RlmSessionManager::global(),
+        RhaiSessionManager::global(),
     )
     .await
 }
 
-/// The parent-independent core of [`eval_rlm_cell`]: given a resolved policy and
+/// The parent-independent core of [`eval_rhai_cell`]: given a resolved policy and
 /// a prebuilt capability registry, resolves/creates the session, runs the cell
 /// under the layered time bounds and cancellation wiring, and maps the outcome.
 ///
 /// Split out so the full evaluation path is unit-testable with a hand-built
 /// registry, without constructing a whole `ParentExecutionContext`.
 async fn run_cell(
-    req: RlmEvalRequest,
+    req: RhaiEvalRequest,
     policy: tinyagents::ReplPolicy,
     registry: CapabilityRegistry<()>,
     thread_scope: &str,
-    manager: &RlmSessionManager,
-) -> Result<RlmEvalResponse, RlmError> {
+    manager: &RhaiSessionManager,
+) -> Result<RhaiEvalResponse, RhaiError> {
     let session_id = req
         .session_id
         .clone()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| format!("rlm-{}", uuid::Uuid::new_v4()));
-    let key = RlmSessionManager::session_key(thread_scope, &session_id);
+        .unwrap_or_else(|| format!("rhai_workflows-{}", uuid::Uuid::new_v4()));
+    let key = RhaiSessionManager::session_key(thread_scope, &session_id);
 
     // Snapshot the registry's names for error messages, then hand it to the
     // session builder (used only on a fresh session; a reused session keeps its
     // own registry).
-    let available = RlmAvailable::from_registry(&registry);
+    let available = RhaiAvailable::from_registry(&registry);
     let policy_for_build = policy.clone();
 
     tracing::info!(
@@ -192,7 +195,7 @@ async fn run_cell(
         thread_id = %thread_scope,
         session_id = %session_id,
         script_bytes = req.script.len(),
-        "[rlm] eval_rlm_cell: start"
+        "[rhai_workflows] eval_rhai_cell: start"
     );
 
     let handle = manager.get_or_create(&key, move || {
@@ -209,7 +212,9 @@ async fn run_cell(
         let flag = cell_flag.clone();
         tokio::spawn(async move {
             token.cancelled().await;
-            tracing::debug!("[rlm] run cancellation observed — tripping cell cancel flag");
+            tracing::debug!(
+                "[rhai_workflows] run cancellation observed — tripping cell cancel flag"
+            );
             flag.cancel();
         });
     }
@@ -219,7 +224,7 @@ async fn run_cell(
     let flag_for_cell = cell_flag.clone();
     let outer_bound = policy
         .timeout
-        .unwrap_or(Duration::from_secs(DEFAULT_RLM_TIMEOUT_SECS))
+        .unwrap_or(Duration::from_secs(DEFAULT_RHAI_TIMEOUT_SECS))
         + OUTER_TIMEOUT_GRACE;
 
     let join = tokio::task::spawn_blocking(move || {
@@ -238,9 +243,9 @@ async fn run_cell(
         Ok(Err(join_err)) => {
             // The blocking task panicked — the session may be poisoned; drop it.
             manager.close(&key);
-            tracing::error!(session_key = %key, %join_err, "[rlm] cell task panicked — session dropped");
-            return Err(RlmError::Internal(format!(
-                "rlm cell task failed: {join_err}"
+            tracing::error!(session_key = %key, %join_err, "[rhai_workflows] cell task panicked — session dropped");
+            return Err(RhaiError::Internal(format!(
+                "rhai_workflows cell task failed: {join_err}"
             )));
         }
         Err(_elapsed) => {
@@ -250,10 +255,10 @@ async fn run_cell(
             tracing::error!(
                 session_key = %key,
                 outer_secs = outer_bound.as_secs(),
-                "[rlm] outer wall-clock backstop fired — session dropped (inner deadline should have fired first)"
+                "[rhai_workflows] outer wall-clock backstop fired — session dropped (inner deadline should have fired first)"
             );
-            return Err(RlmError::Timeout(
-                "the rlm cell exceeded its outer wall-clock backstop".to_string(),
+            return Err(RhaiError::Timeout(
+                "the rhai_workflows cell exceeded its outer wall-clock backstop".to_string(),
             ));
         }
     };
@@ -261,15 +266,15 @@ async fn run_cell(
     let eval = match run {
         CellRun::Completed(eval) => eval,
         CellRun::Busy => {
-            tracing::info!(session_key = %key, "[rlm] session busy — concurrent cell rejected");
-            return Err(RlmError::SessionBusy(format!(
-                "rlm session '{session_id}' is already evaluating a cell; wait for it to finish or use a different session_id"
+            tracing::info!(session_key = %key, "[rhai_workflows] session busy — concurrent cell rejected");
+            return Err(RhaiError::SessionBusy(format!(
+                "rhai_workflows session '{session_id}' is already evaluating a cell; wait for it to finish or use a different session_id"
             )));
         }
         CellRun::Poisoned => {
             manager.close(&key);
-            return Err(RlmError::Internal(
-                "the rlm session was poisoned by a prior panic and has been dropped; start a fresh session".to_string(),
+            return Err(RhaiError::Internal(
+                "the rhai_workflows session was poisoned by a prior panic and has been dropped; start a fresh session".to_string(),
             ));
         }
     };
@@ -278,7 +283,7 @@ async fn run_cell(
         Ok(result) => result,
         Err(err) => {
             let mapped = map_eval_error(err, &available);
-            tracing::info!(session_key = %key, kind = mapped.kind(), "[rlm] cell failed");
+            tracing::info!(session_key = %key, kind = mapped.kind(), "[rhai_workflows] cell failed");
             return Err(mapped);
         }
     };
@@ -288,16 +293,16 @@ async fn run_cell(
         manager.close(&key);
     }
 
-    let response = RlmEvalResponse {
+    let response = RhaiEvalResponse {
         session_id,
-        stdout: truncate_chars(&result.stdout, MAX_RLM_RESULT_CHARS),
+        stdout: truncate_chars(&result.stdout, MAX_RHAI_RESULT_CHARS),
         value: result.value.as_ref().map(|v| v.to_json()),
         variables_changed: result.variables_changed,
         calls: summarize_calls(&result.calls),
         final_answer: result.final_answer,
         elapsed_ms: result.elapsed.as_millis() as u64,
         cells_used: stats.cells,
-        limits_remaining: RlmLimitsRemaining {
+        limits_remaining: RhaiLimitsRemaining {
             cells: policy.max_iterations.saturating_sub(stats.cells),
             model_calls: policy.max_model_calls.saturating_sub(stats.model_calls),
             tool_calls: policy.max_tool_calls.saturating_sub(stats.tool_calls),
@@ -310,45 +315,45 @@ async fn run_cell(
         elapsed_ms = response.elapsed_ms,
         calls = response.calls.len(),
         cells_used = response.cells_used,
-        "[rlm] eval_rlm_cell: done"
+        "[rhai_workflows] eval_rhai_cell: done"
     );
     Ok(response)
 }
 
-/// Maps a raw `TinyAgentsError` from `eval_cell` onto a typed [`RlmError`],
+/// Maps a raw `TinyAgentsError` from `eval_cell` onto a typed [`RhaiError`],
 /// enriching unknown-capability errors with the live registered names.
-fn map_eval_error(err: TinyAgentsError, available: &RlmAvailable) -> RlmError {
+fn map_eval_error(err: TinyAgentsError, available: &RhaiAvailable) -> RhaiError {
     match err {
-        TinyAgentsError::Validation(m) => RlmError::Script(m),
-        TinyAgentsError::Timeout(m) => RlmError::Timeout(m),
-        TinyAgentsError::LimitExceeded(m) => RlmError::LimitExceeded(m),
-        TinyAgentsError::Cancelled => RlmError::Cancelled,
-        TinyAgentsError::SubAgentDepth(n) => RlmError::Depth(format!(
+        TinyAgentsError::Validation(m) => RhaiError::Script(m),
+        TinyAgentsError::Timeout(m) => RhaiError::Timeout(m),
+        TinyAgentsError::LimitExceeded(m) => RhaiError::LimitExceeded(m),
+        TinyAgentsError::Cancelled => RhaiError::Cancelled,
+        TinyAgentsError::SubAgentDepth(n) => RhaiError::Depth(format!(
             "sub-agent recursion exceeded the maximum depth of {n}"
         )),
-        TinyAgentsError::ModelNotFound(name) => RlmError::UnknownCapability(format!(
+        TinyAgentsError::ModelNotFound(name) => RhaiError::UnknownCapability(format!(
             "model `{name}` is not registered. Available models: {}",
             join_or_none(&available.models)
         )),
-        TinyAgentsError::ToolNotFound(name) => RlmError::UnknownCapability(format!(
+        TinyAgentsError::ToolNotFound(name) => RhaiError::UnknownCapability(format!(
             "tool `{name}` is not registered. Available tools: {}",
             join_or_none(&available.tools)
         )),
-        TinyAgentsError::Capability(m) => RlmError::UnknownCapability(format!(
+        TinyAgentsError::Capability(m) => RhaiError::UnknownCapability(format!(
             "{m}. Available agents: {}",
             join_or_none(&available.agents)
         )),
-        TinyAgentsError::Tool(m) => RlmError::CapabilityError(m),
-        other => RlmError::Script(other.to_string()),
+        TinyAgentsError::Tool(m) => RhaiError::CapabilityError(m),
+        other => RhaiError::Script(other.to_string()),
     }
 }
 
 /// Summarizes recorded calls into the model-visible shape — kind, name, timing,
 /// success only, never raw arguments/payloads.
-fn summarize_calls(calls: &[ReplCallRecord]) -> Vec<RlmCallSummary> {
+fn summarize_calls(calls: &[ReplCallRecord]) -> Vec<RhaiCallSummary> {
     calls
         .iter()
-        .map(|c| RlmCallSummary {
+        .map(|c| RhaiCallSummary {
             kind: call_kind_str(c.kind).to_string(),
             name: c.name.clone(),
             elapsed_ms: c.elapsed.as_millis() as u64,
@@ -383,7 +388,7 @@ fn truncate_chars(s: &str, max: usize) -> String {
         return s.to_string();
     }
     let mut out: String = s.chars().take(max).collect();
-    out.push_str("\n… (rlm output truncated)");
+    out.push_str("\n… (rhai_workflows output truncated)");
     out
 }
 
@@ -410,16 +415,16 @@ mod tests {
 
     #[test]
     fn error_kinds_are_stable() {
-        assert_eq!(RlmError::Cancelled.kind(), "cancelled");
-        assert_eq!(RlmError::Timeout("x".into()).kind(), "timeout");
-        assert!(RlmError::Script("boom".into())
+        assert_eq!(RhaiError::Cancelled.kind(), "cancelled");
+        assert_eq!(RhaiError::Timeout("x".into()).kind(), "timeout");
+        assert!(RhaiError::Script("boom".into())
             .message()
             .contains("Fix the script"));
     }
 
     #[test]
     fn every_taxonomy_variant_maps_to_the_right_kind() {
-        let avail = RlmAvailable {
+        let avail = RhaiAvailable {
             tools: vec!["read_file".into(), "grep".into()],
             agents: vec!["researcher".into()],
             models: vec!["chat".into()],
@@ -494,8 +499,8 @@ mod tests {
         registry
     }
 
-    fn req(script: &str) -> RlmEvalRequest {
-        RlmEvalRequest {
+    fn req(script: &str) -> RhaiEvalRequest {
+        RhaiEvalRequest {
             script: script.to_string(),
             ..Default::default()
         }
@@ -503,7 +508,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn happy_path_runs_a_tool_call_and_reports_usage() {
-        let manager = RlmSessionManager::new_for_test();
+        let manager = RhaiSessionManager::new_for_test();
         let resp = run_cell(
             req(r#"tool_call(#{ tool: "echo", arguments: #{ msg: "hi" } })"#),
             ReplPolicy::default(),
@@ -526,7 +531,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn parse_error_is_a_script_error() {
-        let manager = RlmSessionManager::new_for_test();
+        let manager = RhaiSessionManager::new_for_test();
         let err = run_cell(
             req("let x = ;"),
             ReplPolicy::default(),
@@ -541,7 +546,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn unknown_tool_lists_registered_names() {
-        let manager = RlmSessionManager::new_for_test();
+        let manager = RhaiSessionManager::new_for_test();
         let err = run_cell(
             req(r#"tool_call(#{ tool: "does_not_exist" })"#),
             ReplPolicy::default(),
@@ -557,7 +562,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn call_count_limit_fails_closed() {
-        let manager = RlmSessionManager::new_for_test();
+        let manager = RhaiSessionManager::new_for_test();
         let policy = ReplPolicy {
             max_tool_calls: 1,
             ..ReplPolicy::default()
@@ -576,7 +581,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn script_loop_times_out_within_the_bound() {
-        let manager = RlmSessionManager::new_for_test();
+        let manager = RhaiSessionManager::new_for_test();
         let policy = ReplPolicy {
             timeout: Some(Duration::from_millis(200)),
             max_operations: 0,
@@ -596,7 +601,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn oversized_output_fails_closed() {
-        let manager = RlmSessionManager::new_for_test();
+        let manager = RhaiSessionManager::new_for_test();
         let policy = ReplPolicy {
             max_output_bytes: 64,
             ..ReplPolicy::default()
@@ -615,9 +620,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn namespace_persists_and_close_session_drops_it() {
-        let manager = RlmSessionManager::new_for_test();
+        let manager = RhaiSessionManager::new_for_test();
         let first = run_cell(
-            RlmEvalRequest {
+            RhaiEvalRequest {
                 script: "let acc = 10; acc".into(),
                 session_id: Some("keep".into()),
                 ..Default::default()
@@ -632,7 +637,7 @@ mod tests {
         assert_eq!(first.session_id, "keep");
 
         let second = run_cell(
-            RlmEvalRequest {
+            RhaiEvalRequest {
                 script: "acc + 5".into(),
                 session_id: Some("keep".into()),
                 close_session: true,
@@ -652,14 +657,14 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn concurrent_cell_on_a_busy_session_is_rejected() {
-        let manager = RlmSessionManager::new_for_test();
-        let key = RlmSessionManager::session_key("t", "busy");
+        let manager = RhaiSessionManager::new_for_test();
+        let key = RhaiSessionManager::session_key("t", "busy");
         let handle = manager.get_or_create(&key, || tinyagents::ReplSession::<()>::new());
         // Hold the session lock to simulate an in-flight cell.
         let _guard = handle.session.lock().unwrap();
 
         let res = run_cell(
-            RlmEvalRequest {
+            RhaiEvalRequest {
                 script: "1".into(),
                 session_id: Some("busy".into()),
                 ..Default::default()
@@ -670,6 +675,6 @@ mod tests {
             &manager,
         )
         .await;
-        assert!(matches!(res, Err(RlmError::SessionBusy(_))), "got {res:?}");
+        assert!(matches!(res, Err(RhaiError::SessionBusy(_))), "got {res:?}");
     }
 }

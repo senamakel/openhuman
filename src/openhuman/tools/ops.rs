@@ -966,26 +966,28 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[lsp] capability gate off (set OPENHUMAN_LSP_ENABLED=1 to register)");
     }
 
-    // Language-workflow `rlm` tool (RLM / `.ragsh` REPL, `openhuman::rlm`): lets
+    // Language-workflow `rhai_workflows` tool (`.ragsh` REPL, `openhuman::rhai_workflows`): lets
     // the orchestrator author and run its own Rhai workflow cells (fan-out,
     // loops, dedup/verify pipelines). Registered on the `supervised`/`full`
     // tiers only — dark on `readonly` (it can drive effectful tools/sub-agents)
-    // and behind the `OPENHUMAN_RLM=0` kill switch. Every effectful inner call
-    // still re-gates itself in the RLM bridge, so this surface adds no new
+    // and behind the `OPENHUMAN_RHAI_WORKFLOWS=0` kill switch. Every effectful inner call
+    // still re-gates itself in the Rhai bridge, so this surface adds no new
     // ungated capability.
-    let rlm_enabled = std::env::var("OPENHUMAN_RLM")
+    let rhai_workflows_enabled = std::env::var("OPENHUMAN_RHAI_WORKFLOWS")
+        .or_else(|_| std::env::var("OPENHUMAN_RHAI"))
+        .or_else(|_| std::env::var("OPENHUMAN_RLM"))
         .map(|v| v != "0")
         .unwrap_or(true);
-    if rlm_enabled
+    if rhai_workflows_enabled
         && security.autonomy != crate::openhuman::security::policy::AutonomyLevel::ReadOnly
     {
-        tools.push(Box::new(crate::openhuman::rlm::RlmTool::new()));
-        tracing::debug!("[rlm] registered rlm language-workflow tool");
+        tools.push(Box::new(crate::openhuman::rhai_workflows::RhaiTool::new()));
+        tracing::debug!("[rhai_workflows] registered rhai_workflows language-workflow tool");
     } else {
         tracing::debug!(
-            rlm_enabled,
+            rhai_workflows_enabled,
             tier = ?security.autonomy,
-            "[rlm] rlm tool not registered (readonly tier or OPENHUMAN_RLM=0)"
+            "[rhai_workflows] rhai_workflows tool not registered (readonly tier or OPENHUMAN_RHAI_WORKFLOWS=0)"
         );
     }
 

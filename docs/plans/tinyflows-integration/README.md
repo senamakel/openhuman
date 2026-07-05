@@ -69,7 +69,7 @@ The repo has **three** "workflow" systems. This plan touches only the first:
 
 1. `flows::` / `openhuman.flows_*` — **tinyflows typed graphs** (this plan).
 2. `workflows::` / `openhuman.workflows_*` — WORKFLOW.md/SKILL.md bundle discovery/install (separate product surface under `/skills`). **Slated for decommission** — it is essentially the skills feature wearing the "workflows" name; see Phase 8. Retiring it frees the "Workflows" branding for tinyflows (the `/flows` nav tab already reads "Workflows").
-3. `rlm::` — Rhai `.ragsh` language workflows (`docs/plans/rlm-workflows/`), positioned in `gitbooks/features/orchestration.md` as the _next_ layer on the same substrate. tinyflows remains the shipping visual/typed product; rlm does not replace it.
+3. `rhai::` — Rhai `.ragsh` language workflows (`docs/plans/rlm-workflows/`), positioned in `gitbooks/features/orchestration.md` as the _next_ layer on the same substrate. tinyflows remains the shipping visual/typed product; Rhai workflows do not replace it.
 
 ---
 
@@ -113,16 +113,16 @@ Every workflow is, at run time, a **unique tinyagents state graph**: `compile()`
 Audit (2026-07-04):
 
 - ✅ **Single unified copy** — both Cargo worlds (`Cargo.toml:355`, `app/src-tauri/Cargo.toml:214`) patch `tinyagents` to `vendor/tinyagents`; exactly one `tinyagents 1.5.0` in both lockfiles. tinyflows' `tinyagents = "1.2"` requirement unifies onto the same copy (semver-compatible). No duplication, no type-identity risk.
-- ⚠️ **Not on a tag** — the submodule is pinned at `df391c4` = `v1.5.0-13-gdf391c4`: 13 untagged commits past v1.5.0 (REPL host-embedding / cancel work taken early for the rlm feature). The crate still self-reports `1.5.0`, so the version string understates the vendored code.
+- ⚠️ **Not on a tag** — the submodule is pinned at `df391c4` = `v1.5.0-13-gdf391c4`: 13 untagged commits past v1.5.0 (REPL host-embedding / cancel work taken early for the Rhai workflow feature). The crate still self-reports `1.5.0`, so the version string understates the vendored code.
 - ⚠️ **Two minor versions behind** — upstream is at **v1.7.1** (60 commits past v1.5.0). The 13 early-adopted commits all landed upstream (via PR #19 etc.; `ReplSession::set_cancel_flag` verified present in v1.7.1), so retagging loses nothing.
 - ⚠️ Same pattern on tinyflows itself: submodule at `v0.3.0-1-g438f8fc` (one commit past tag).
 
 Work items:
 
 1. Bump `vendor/tinyagents` submodule to the **v1.7.1 tag**; bump root requirement `tinyagents = { version = "1.7", features = ["sqlite", "repl"] }` (verify both features still exist in 1.7); `cargo update -p tinyagents` in both lockfiles.
-2. Review the v1.5→v1.7 changelog for API breaks in the seams we touch: `Checkpointer`/`DurabilityMode`, `GraphEventJournal`/`GraphObservation`, interrupt/resume semantics (used by `flows::ops` + `src/openhuman/tinyagents/` + rlm).
+2. Review the v1.5→v1.7 changelog for API breaks in the seams we touch: `Checkpointer`/`DurabilityMode`, `GraphEventJournal`/`GraphObservation`, interrupt/resume semantics (used by `flows::ops` + `src/openhuman/tinyagents/` + Rhai workflows).
 3. Retag `vendor/tinyflows` on a proper release (v0.3.1) whose `Cargo.toml` requires `tinyagents = "1.7"` so the version story is coherent end-to-end.
-4. Gate with `cargo check` both worlds, `pnpm test:rust`, and the flows/rlm unit suites; adopt a standing rule: **vendored tiny\* submodules pin release tags, never floating commits** (early-adopting an upstream PR requires a pre-release tag).
+4. Gate with `cargo check` both worlds, `pnpm test:rust`, and the flows/Rhai unit suites; adopt a standing rule: **vendored tiny\* submodules pin release tags, never floating commits** (early-adopting an upstream PR requires a pre-release tag).
 
 ### Phase 1 — Backend completion (triggers, lifecycle, observability)
 
@@ -255,7 +255,7 @@ Tracked separately since it's a submodule with its own release cadence (host pin
 
 The `workflows::` domain (WORKFLOW.md/SKILL.md bundle discovery/install, RPC `openhuman.workflows_*`) predates tinyflows and is functionally the **skills** feature under a different name. Keeping two things called "workflows" confuses users, agents, and contributors alike. Plan: fold what's unique into `skills`, delete the rest, and hand the name to tinyflows.
 
-- **Audit consumers first**: `agent/tools/run_workflow.rs` (agent tool that runs WORKFLOW.md bundles — decide: retire, or repoint to `flows_run`/skills), the `/skills` UI surfaces (`WorkflowsTab`, `CreateWorkflowForm`, `WorkflowRunnerBody`, `WorkflowNew.tsx`, `WorkflowsRun.tsx`, `DevWorkflowPanel`, `workflowsApi.ts`), `about_app`, gitbooks, and the rlm plan's references to `run_workflow` as a composition surface.
+- **Audit consumers first**: `agent/tools/run_workflow.rs` (agent tool that runs WORKFLOW.md bundles — decide: retire, or repoint to `flows_run`/skills), the `/skills` UI surfaces (`WorkflowsTab`, `CreateWorkflowForm`, `WorkflowRunnerBody`, `WorkflowNew.tsx`, `WorkflowsRun.tsx`, `DevWorkflowPanel`, `workflowsApi.ts`), `about_app`, gitbooks, and the Rhai workflow plan's references to `run_workflow` as a composition surface.
 - **Migrate**: bundle discovery/install semantics that skills doesn't already cover move into the `skills` domain (it is metadata-only post-QuickJS-removal, so this is mostly file-format and registry work).
 - **Deprecate then delete**: mark `openhuman.workflows_*` deprecated for one release (RPC responses carry a deprecation notice), then remove `src/openhuman/workflows/`, its controllers from `src/core/all.rs`, the frontend clients/pages, and the `/workflows/new`//`workflows/run` routes (bare `/workflows` already redirects to `/settings/automations`).
 - **Not in scope**: `openhuman.workflow_run_*` (`agent_orchestration`'s declarative run ledger) is a different system and untouched here — though its name should also be revisited once "Workflows" ≡ tinyflows.

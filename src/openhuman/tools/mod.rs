@@ -38,7 +38,7 @@ pub use crate::openhuman::monitor::tools::*;
 pub use crate::openhuman::orchestration::tools::*;
 pub use crate::openhuman::people::tools::*;
 pub use crate::openhuman::referral::tools::*;
-pub use crate::openhuman::rlm::tools::*;
+pub use crate::openhuman::rhai_workflows::tools::*;
 pub use crate::openhuman::screen_intelligence::tools::*;
 pub use crate::openhuman::search::tools::*;
 pub use crate::openhuman::security::tools::*;

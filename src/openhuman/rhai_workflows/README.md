@@ -1,7 +1,7 @@
-# `rlm` — language-based workflows (Rhai `.ragsh` REPL)
+# `rhai` — language-based workflows (Rhai `.ragsh` REPL)
 
 Exposes TinyAgents' Rhai-backed `.ragsh` session runtime (the `repl` cargo
-feature, `tinyagents::ReplSession`) as a first-class **`rlm` tool** so the
+feature, `tinyagents::ReplSession`) as a first-class **`rhai_workflows` tool** so the
 orchestrator model can author and execute its own workflow scripts — fan-out
 over subagents, batched tool/model calls, loops, dedup/verify pipelines — and
 run them deterministically, in the spirit of Claude Code Workflows and
@@ -17,12 +17,12 @@ the tool result. The orchestrator's own turn loop *is* the CodeAct driver loop.
 | File | Role |
 | ---- | ---- |
 | `mod.rs` | Exports only (no controller schemas in v1). |
-| `types.rs` | `RlmSessionId`, `RlmEvalRequest`/`RlmEvalResponse`, `RlmLimitsOverride`, `RlmCallSummary`, serde types. |
+| `types.rs` | `RhaiSessionId`, `RhaiEvalRequest`/`RhaiEvalResponse`, `RhaiLimitsOverride`, `RhaiCallSummary`, serde types. |
 | `policy.rs` | Maps openhuman autonomy tier + `tool_timeout` clamps → `tinyagents::ReplPolicy` (fail-closed, bounded). |
 | `bridge.rs` | Builds the `CapabilityRegistry<()>`: openhuman tools (approval-gated, scope-filtered) + provider models + subagents. |
-| `sessions.rs` | `RlmSessionManager`: LRU + idle-TTL bounded map of persistent `ReplSession`s, keyed `<thread>:<session_id>`, one cell at a time. |
-| `ops.rs` | `eval_rlm_cell`: spawn_blocking + outer timeout, cancellation wiring, event forwarding, error → model-consumable result. |
-| `tools.rs` | `RlmTool` (the `rlm` tool: schema, permission, scope, timeout, display). |
+| `sessions.rs` | `RhaiSessionManager`: LRU + idle-TTL bounded map of persistent `ReplSession`s, keyed `<thread>:<session_id>`, one cell at a time. |
+| `ops.rs` | `eval_rhai_cell`: spawn_blocking + outer timeout, cancellation wiring, event forwarding, error → model-consumable result. |
+| `tools.rs` | `RhaiTool` (the `rhai_workflows` tool: schema, permission, scope, timeout, display). |
 
 ## Fail-closed guarantees
 
@@ -47,8 +47,8 @@ never a hung turn:
 
 ## Approval & security (bridged tools keep their own gates)
 
-The RLM bridge restricts callable tools to the parent turn's
-`visible_tool_names`, and **excludes** recursion/duplication hazards: `rlm`
+The Rhai bridge restricts callable tools to the parent turn's
+`visible_tool_names`, and **excludes** recursion/duplication hazards: `rhai`
 itself, `spawn_subagent`/`spawn_parallel_agents` (use `agent_query` instead),
 and `run_workflow`/`await_workflow`. `ToolScope::CliRpcOnly` tools are denied.
 
@@ -66,5 +66,6 @@ and `answer`. Graph authoring/execution (`graph_*`) is **out of scope for v1**
 ## Kill switch & rollout
 
 The tool is **not registered** when the autonomy tier is `readonly` or when
-`OPENHUMAN_RLM=0`; default-on for `supervised`/`full`. Reverting the
-registration line disables the surface without touching the domain.
+`OPENHUMAN_RHAI_WORKFLOWS=0`; default-on for `supervised`/`full`.
+`OPENHUMAN_RHAI=0` and `OPENHUMAN_RLM=0` are still honoured as legacy aliases.
+Reverting the registration line disables the surface without touching the domain.

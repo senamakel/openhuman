@@ -60,16 +60,16 @@ pub(super) struct CellStats {
 }
 
 /// The process-global session manager.
-pub(super) struct RlmSessionManager {
+pub(super) struct RhaiSessionManager {
     inner: Mutex<HashMap<String, SessionSlot>>,
 }
 
-static MANAGER: OnceLock<RlmSessionManager> = OnceLock::new();
+static MANAGER: OnceLock<RhaiSessionManager> = OnceLock::new();
 
-impl RlmSessionManager {
+impl RhaiSessionManager {
     /// Returns the process-global manager, initialising it on first use.
-    pub(super) fn global() -> &'static RlmSessionManager {
-        MANAGER.get_or_init(|| RlmSessionManager {
+    pub(super) fn global() -> &'static RhaiSessionManager {
+        MANAGER.get_or_init(|| RhaiSessionManager {
             inner: Mutex::new(HashMap::new()),
         })
     }
@@ -97,7 +97,10 @@ impl RlmSessionManager {
         let now = Instant::now();
         if let Some(slot) = map.get_mut(key) {
             slot.last_access = now;
-            tracing::debug!(session_key = key, "[rlm] reusing existing session");
+            tracing::debug!(
+                session_key = key,
+                "[rhai_workflows] reusing existing session"
+            );
             return SlotHandle {
                 session: slot.session.clone(),
                 cancel: slot.cancel.clone(),
@@ -122,7 +125,7 @@ impl RlmSessionManager {
         tracing::debug!(
             session_key = key,
             live_sessions = map.len(),
-            "[rlm] created new session"
+            "[rhai_workflows] created new session"
         );
         SlotHandle {
             session,
@@ -159,7 +162,7 @@ impl RlmSessionManager {
     /// session that must never be reused).
     pub(super) fn close(&self, key: &str) {
         if self.lock().remove(key).is_some() {
-            tracing::debug!(session_key = key, "[rlm] closed session");
+            tracing::debug!(session_key = key, "[rhai_workflows] closed session");
         }
     }
 
@@ -171,7 +174,7 @@ impl RlmSessionManager {
         map.retain(|k, slot| {
             let keep = now.duration_since(slot.last_access) < IDLE_TTL;
             if !keep {
-                tracing::debug!(session_key = %k, "[rlm] evicting idle session (TTL)");
+                tracing::debug!(session_key = %k, "[rhai_workflows] evicting idle session (TTL)");
             }
             keep
         });
@@ -185,7 +188,7 @@ impl RlmSessionManager {
             .map(|(k, _)| k.clone())
         {
             map.remove(&lru_key);
-            tracing::debug!(session_key = %lru_key, "[rlm] evicting LRU session (cap)");
+            tracing::debug!(session_key = %lru_key, "[rhai_workflows] evicting LRU session (cap)");
         }
     }
 
@@ -199,7 +202,7 @@ impl RlmSessionManager {
     /// the process-global singleton and from each other.
     #[cfg(test)]
     pub(super) fn new_for_test() -> Self {
-        RlmSessionManager {
+        RhaiSessionManager {
             inner: Mutex::new(HashMap::new()),
         }
     }
@@ -216,8 +219,8 @@ mod tests {
 
     #[test]
     fn namespace_persists_across_cells_in_one_session() {
-        let manager = RlmSessionManager::new_for_test();
-        let key = RlmSessionManager::session_key("t", "s1");
+        let manager = RhaiSessionManager::new_for_test();
+        let key = RhaiSessionManager::session_key("t", "s1");
 
         let handle = manager.get_or_create(&key, build_session);
         assert!(handle.fresh);
@@ -243,20 +246,20 @@ mod tests {
 
     #[test]
     fn distinct_session_keys_are_isolated() {
-        let manager = RlmSessionManager::new_for_test();
-        let a = manager.get_or_create(&RlmSessionManager::session_key("t", "a"), build_session);
+        let manager = RhaiSessionManager::new_for_test();
+        let a = manager.get_or_create(&RhaiSessionManager::session_key("t", "a"), build_session);
         a.session.lock().unwrap().eval_cell("let x = 1;").unwrap();
 
         // A different key has its own namespace, so `x` is undefined there.
-        let b = manager.get_or_create(&RlmSessionManager::session_key("t", "b"), build_session);
+        let b = manager.get_or_create(&RhaiSessionManager::session_key("t", "b"), build_session);
         assert!(b.session.lock().unwrap().eval_cell("x").is_err());
     }
 
     #[test]
     fn thread_scope_isolates_the_same_session_id() {
-        let manager = RlmSessionManager::new_for_test();
-        let k1 = RlmSessionManager::session_key("thread-1", "shared");
-        let k2 = RlmSessionManager::session_key("thread-2", "shared");
+        let manager = RhaiSessionManager::new_for_test();
+        let k1 = RhaiSessionManager::session_key("thread-1", "shared");
+        let k2 = RhaiSessionManager::session_key("thread-2", "shared");
         assert_ne!(k1, k2);
         manager.get_or_create(&k1, build_session);
         let h2 = manager.get_or_create(&k2, build_session);
@@ -268,10 +271,10 @@ mod tests {
 
     #[test]
     fn lru_cap_bounds_the_number_of_live_sessions() {
-        let manager = RlmSessionManager::new_for_test();
+        let manager = RhaiSessionManager::new_for_test();
         for i in 0..(MAX_SESSIONS + 5) {
             manager.get_or_create(
-                &RlmSessionManager::session_key("t", &format!("s{i}")),
+                &RhaiSessionManager::session_key("t", &format!("s{i}")),
                 build_session,
             );
         }
@@ -284,8 +287,8 @@ mod tests {
 
     #[test]
     fn close_drops_the_session() {
-        let manager = RlmSessionManager::new_for_test();
-        let key = RlmSessionManager::session_key("t", "closeme");
+        let manager = RhaiSessionManager::new_for_test();
+        let key = RhaiSessionManager::session_key("t", "closeme");
         manager.get_or_create(&key, build_session);
         assert_eq!(manager.len(), 1);
         manager.close(&key);
@@ -296,8 +299,8 @@ mod tests {
 
     #[test]
     fn finish_cell_accumulates_and_bounds_are_reported() {
-        let manager = RlmSessionManager::new_for_test();
-        let key = RlmSessionManager::session_key("t", "stats");
+        let manager = RhaiSessionManager::new_for_test();
+        let key = RhaiSessionManager::session_key("t", "stats");
         let policy = ReplPolicy::default();
         let handle = manager.get_or_create(&key, || {
             ReplSession::<()>::new().with_policy(policy.clone())

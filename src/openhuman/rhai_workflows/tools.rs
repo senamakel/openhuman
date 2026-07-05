@@ -1,39 +1,39 @@
-//! The first-class `rlm` tool — the orchestrator's language-workflow surface.
+//! The first-class `rhai_workflows` tool — the orchestrator's language-workflow surface.
 //!
 //! One tool call evaluates one Rhai cell against a persistent session
 //! namespace. All effectful work a cell performs goes through the bridged inner
 //! tools/models/sub-agents (each carrying its own approval/permission gates in
-//! [`super::bridge`]), so the `rlm` tool itself declares no external effect.
+//! [`super::bridge`]), so the `rhai_workflows` tool itself declares no external effect.
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult, ToolScope, ToolTimeout};
 
-use super::policy::DEFAULT_RLM_TIMEOUT_SECS;
-use super::types::RlmEvalRequest;
+use super::policy::DEFAULT_RHAI_TIMEOUT_SECS;
+use super::types::RhaiEvalRequest;
 
-/// The `rlm` language-workflow tool. Stateless: it resolves the parent turn
+/// The `rhai_workflows` language-workflow tool. Stateless: it resolves the parent turn
 /// context, autonomy tier, and cancellation per call.
-pub struct RlmTool;
+pub struct RhaiTool;
 
-impl RlmTool {
+impl RhaiTool {
     /// Builds the tool.
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Default for RlmTool {
+impl Default for RhaiTool {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl Tool for RlmTool {
+impl Tool for RhaiTool {
     fn name(&self) -> &str {
-        "rlm"
+        "rhai_workflows"
     }
 
     fn description(&self) -> &str {
@@ -52,7 +52,7 @@ In-cell built-ins:\n\
 \n\
 Bounds (fail-closed): per-cell wall-clock timeout, and per-session caps on model/tool/agent \
 calls, iterations, output bytes, and recursion depth. Exceeding one returns an error you can \
-fix and retry in the same session. Excluded from cells: `rlm` itself, `spawn_*`, and workflow tools.\n\
+fix and retry in the same session. Excluded from cells: `rhai_workflows` itself, `spawn_*`, and workflow tools.\n\
 \n\
 Example — parallel fan-out over sub-agents, then reduce:\n\
 ```\n\
@@ -71,7 +71,7 @@ for r in reads { if r.ok && r.content.contains(\"TODO\") { hits.push(r.content);
 hits\n\
 ```\n\
 \n\
-Prefer `rlm` over spawn_parallel_agents when you need loops, conditionals, or a dedup/verify \
+Prefer `rhai_workflows` over spawn_parallel_agents when you need loops, conditionals, or a dedup/verify \
 pipeline over results. Pass a `session_id` to continue a prior cell's bindings; set \
 `close_session: true` when done."
     }
@@ -86,7 +86,7 @@ pipeline over results. Pass a `session_id` to continue a prior cell's bindings; 
                 },
                 "session_id": {
                     "type": "string",
-                    "description": "Continue a prior RLM session's namespace; omit for a fresh session (its generated id is returned)."
+                    "description": "Continue a prior Rhai session's namespace; omit for a fresh session (its generated id is returned)."
                 },
                 "timeout_secs": {
                     "type": "integer",
@@ -132,12 +132,12 @@ pipeline over results. Pass a `session_id` to continue a prior cell's bindings; 
             requested,
             crate::openhuman::tool_timeout::MAX_TIMEOUT_SECS,
         )
-        .unwrap_or(DEFAULT_RLM_TIMEOUT_SECS);
+        .unwrap_or(DEFAULT_RHAI_TIMEOUT_SECS);
         ToolTimeout::Secs(secs)
     }
 
     fn display_label(&self, _args: &Value) -> Option<String> {
-        Some("running RLM workflow".to_string())
+        Some("running Rhai workflow".to_string())
     }
 
     fn display_detail(&self, args: &Value) -> Option<String> {
@@ -155,30 +155,33 @@ pipeline over results. Pass a `session_id` to continue a prior cell's bindings; 
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        let req: RlmEvalRequest = match serde_json::from_value(args) {
+        let req: RhaiEvalRequest = match serde_json::from_value(args) {
             Ok(req) => req,
             Err(err) => {
                 return Ok(ToolResult::error(format!(
-                    "rlm: invalid arguments: {err}. Required: `script` (string). \
+                    "rhai_workflows: invalid arguments: {err}. Required: `script` (string). \
                      Optional: session_id, timeout_secs (1–3600), limits, close_session."
                 )));
             }
         };
         if req.script.trim().is_empty() {
             return Ok(ToolResult::error(
-                "rlm: `script` is required and must be a non-empty Rhai cell.",
+                "rhai_workflows: `script` is required and must be a non-empty Rhai cell.",
             ));
         }
 
-        match super::ops::eval_rlm_cell(req).await {
+        match super::ops::eval_rhai_cell(req).await {
             Ok(response) => match serde_json::to_value(&response) {
                 Ok(value) => Ok(ToolResult::json(value)),
                 Err(err) => Ok(ToolResult::error(format!(
-                    "rlm: internal error rendering result: {err}"
+                    "rhai_workflows: internal error rendering result: {err}"
                 ))),
             },
             Err(err) => {
-                log::info!("[rlm] tool returning error result (kind={})", err.kind());
+                log::info!(
+                    "[rhai_workflows] tool returning error result (kind={})",
+                    err.kind()
+                );
                 Ok(ToolResult::error(err.message()))
             }
         }
@@ -191,8 +194,8 @@ mod tests {
 
     #[test]
     fn metadata_is_stable() {
-        let tool = RlmTool::new();
-        assert_eq!(tool.name(), "rlm");
+        let tool = RhaiTool::new();
+        assert_eq!(tool.name(), "rhai_workflows");
         assert_eq!(tool.permission_level(), PermissionLevel::Execute);
         assert!(matches!(tool.scope(), ToolScope::AgentOnly));
         assert!(!tool.external_effect());
@@ -200,10 +203,10 @@ mod tests {
 
     #[test]
     fn timeout_is_always_bounded() {
-        let tool = RlmTool::new();
+        let tool = RhaiTool::new();
         assert_eq!(
             tool.timeout_policy(&json!({})),
-            ToolTimeout::Secs(DEFAULT_RLM_TIMEOUT_SECS)
+            ToolTimeout::Secs(DEFAULT_RHAI_TIMEOUT_SECS)
         );
         assert_eq!(
             tool.timeout_policy(&json!({ "timeout_secs": 42 })),
@@ -218,7 +221,7 @@ mod tests {
 
     #[test]
     fn display_detail_elides_first_script_line() {
-        let tool = RlmTool::new();
+        let tool = RhaiTool::new();
         let detail = tool
             .display_detail(&json!({ "script": "\n\nlet x = 1;\nlet y = 2;" }))
             .expect("detail");
@@ -227,7 +230,7 @@ mod tests {
 
     #[tokio::test]
     async fn empty_script_is_a_model_consumable_error() {
-        let tool = RlmTool::new();
+        let tool = RhaiTool::new();
         let result = tool
             .execute(json!({ "script": "   " }))
             .await
@@ -237,7 +240,7 @@ mod tests {
 
     #[tokio::test]
     async fn missing_script_is_a_model_consumable_error() {
-        let tool = RlmTool::new();
+        let tool = RhaiTool::new();
         // No `script` field at all → invalid arguments, not a panic.
         let result = tool
             .execute(json!({ "session_id": "x" }))
@@ -249,7 +252,7 @@ mod tests {
 
     #[test]
     fn schema_requires_script() {
-        let schema = RlmTool::new().parameters_schema();
+        let schema = RhaiTool::new().parameters_schema();
         assert_eq!(schema["required"], json!(["script"]));
     }
 }

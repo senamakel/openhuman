@@ -1,7 +1,7 @@
-//! `rlm` — language-based workflows over the TinyAgents Rhai `.ragsh` REPL.
+//! `rhai` — language-based workflows over the TinyAgents Rhai `.ragsh` REPL.
 //!
 //! Exposes `tinyagents::ReplSession` (the `repl` feature) as a first-class
-//! [`RlmTool`], so the orchestrator can author and run its own workflow scripts
+//! [`RhaiTool`], so the orchestrator can author and run its own workflow scripts
 //! — fan-out, batched calls, loops, dedup/verify pipelines — bounded and
 //! fail-closed. See [`README.md`](https://github.com/tinyhumansai/openhuman)
 //! (module `README.md`) for the design.
@@ -17,4 +17,4 @@ mod types;
 
 pub mod tools;
 
-pub use tools::RlmTool;
+pub use tools::RhaiTool;

@@ -38,7 +38,7 @@ Because the transport is plain Signal-encrypted messaging, the other side doesn'
 
 ## What's next: RLMs
 
-The direction we're building toward: **RLM-style language-based workflows**. These are agents that express orchestration as small programs in a sandboxed REPL, rather than a fixed graph, so control flow itself becomes something the model writes, inspects, and repairs. The graph engine, checkpointing, and trust model above are the substrate for it.
+The direction we're building toward: **Rhai-backed language workflows**. These are agents that express orchestration as small programs in a sandboxed REPL, rather than a fixed graph, so control flow itself becomes something the model writes, inspects, and repairs. The graph engine, checkpointing, and trust model above are the substrate for it.
 
 ***
 

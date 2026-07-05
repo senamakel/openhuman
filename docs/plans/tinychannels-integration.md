@@ -30,6 +30,10 @@ Companion docs in the tinychannels repo:
   `src/openhuman/channels/controllers/backend.rs` and implements
   `tinychannels::ChannelBackend` by delegating to the existing
   `channels/controllers/ops/{connect,messaging,discord,telegram}.rs` flows.
+- The crate-side Phase 5 relay contract now includes typed gateway/connector
+  relay frames. OpenHuman has not adopted the concrete relay transport yet; the
+  remaining OpenHuman work is still controller routing, envelope/session
+  migration, idempotency adoption, and the planned test split below.
 
 ## Step 1 — Add the dependency, delete duplicates
 

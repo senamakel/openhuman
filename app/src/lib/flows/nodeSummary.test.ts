@@ -37,7 +37,7 @@ describe('describeNode', () => {
   });
 
   it('falls back for tool_call / transform with empty config', () => {
-    expect(describeNode('tool_call', {})).toBe('Runs a tool (pick one)');
+    expect(describeNode('tool_call', {})).toBe('Runs an app action (pick one)');
     expect(describeNode('transform', { set: { a: '=1', b: '=2' } })).toBe(
       'Sets 2 fields on each item'
     );

@@ -26,6 +26,7 @@ use crate::openhuman::composio::client::{
     create_composio_client, direct_execute, ComposioClientKind,
 };
 use crate::openhuman::config::{Config, HttpRequestConfig};
+use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::flows;
 use crate::openhuman::inference::provider::{
     create_chat_provider, ChatMessage, ChatRequest, UsageInfo,
@@ -547,21 +548,128 @@ impl ToolInvoker for OpenHumanTools {
 ///
 /// **B2:** also routes through the OpenHuman `ApprovalGate` before dispatch
 /// (same rationale/shape as [`OpenHumanTools::invoke`] — closes the Codex P1
-/// finding that flow HTTP nodes bypassed the Network approval gate). A
-/// `"http_cred:<name>"` `connection_ref` is parsed but there is no HTTP
-/// credential store to resolve it against yet (documented stub, see
-/// `http_cred_name`) — the request proceeds without injecting stored
-/// credentials.
+/// finding that flow HTTP nodes bypassed the Network approval gate).
+///
+/// **Phase 2 — `http_cred:<name>` resolution:** a `"http_cred:<name>"`
+/// `connection_ref` is now resolved against the credentials domain's
+/// [`HttpCredentialsStore`] (encrypted-at-rest bearer/basic/header templates).
+/// The resolved auth header is injected **server-side** into the outbound
+/// request — after the approval gate has already computed its redacted audit
+/// summary — so the secret is never surfaced to the approval UI, the flow
+/// engine/graph, the node's output, or the logs (only the header *name* and
+/// scheme are logged; the value is redacted). A `connection_ref` that names an
+/// **unknown** credential fails the request closed (`EngineError::Capability`)
+/// rather than silently sending it unauthenticated.
 pub struct OpenHumanHttp {
     pub security: Arc<SecurityPolicy>,
     pub http_config: HttpRequestConfig,
+    pub http_creds: Arc<HttpCredentialsStore>,
+}
+
+/// Resolves an optional HTTP `connection_ref` to the stored credential to
+/// inject. Split out as a free function (over the store, not `&self`) so the
+/// resolve/fail-closed policy is unit-testable without constructing a full
+/// [`OpenHumanHttp`] adapter.
+///
+/// - `None` conn, or a `connection_ref` whose prefix isn't `http_cred:` →
+///   `Ok(None)` (no credential to inject; a non-`http_cred:` prefix is logged
+///   and ignored, matching the pre-Phase-2 behavior).
+/// - a `http_cred:<name>` naming a **known** credential → `Ok(Some(cred))`
+///   (secret-bearing — the caller injects it server-side, never logs it).
+/// - a `http_cred:<name>` naming an **unknown** credential, or a store error →
+///   `Err` — the request must fail closed, never proceed unauthenticated.
+fn resolve_http_credential(
+    store: &HttpCredentialsStore,
+    conn: Option<&str>,
+) -> Result<Option<HttpCredential>> {
+    let Some(name) = conn.and_then(http_cred_name) else {
+        if let Some(c) = conn {
+            tracing::debug!(target: "flows", conn = %c, "[flows] http conn: unrecognized connection_ref prefix (expected `http_cred:<name>`) — ignoring");
+        }
+        return Ok(None);
+    };
+
+    match store.get(name) {
+        Ok(Some(cred)) => {
+            tracing::debug!(
+                target: "flows",
+                cred = %name,
+                scheme = cred.scheme.as_str(),
+                "[flows] http_request: resolved http_cred (secret redacted)"
+            );
+            Ok(Some(cred))
+        }
+        Ok(None) => {
+            tracing::warn!(
+                target: "flows",
+                cred = %name,
+                "[flows] http_request: connection_ref names an unknown http_cred — failing the \
+                 request closed rather than sending it unauthenticated"
+            );
+            Err(EngineError::Capability(format!(
+                "http_request connection_ref names an unknown http_cred: {name}"
+            )))
+        }
+        Err(e) => {
+            tracing::error!(
+                target: "flows",
+                cred = %name,
+                error = %e,
+                "[flows] http_request: failed to resolve http_cred from the store"
+            );
+            Err(EngineError::Capability(format!(
+                "failed to resolve http_cred '{name}': {e}"
+            )))
+        }
+    }
+}
+
+/// Merges a resolved credential's auth header into the outbound `request`'s
+/// `headers` object (creating it when absent), returning the header **name**
+/// that was injected for redacted logging. The header value carries the secret
+/// and is placed only into the request handed to `HttpRequestTool` — it is
+/// never logged or returned. An explicit stored credential wins over any inline
+/// same-named header the flow author set.
+fn inject_http_credential(request: &mut Value, cred: &HttpCredential) -> Result<String> {
+    let (header_name, header_value) = cred
+        .to_header()
+        .map_err(|e| EngineError::Capability(e.to_string()))?;
+
+    let obj = request.as_object_mut().ok_or_else(|| {
+        EngineError::Capability("http_request config must be a JSON object".to_string())
+    })?;
+    let headers_entry = obj
+        .entry("headers")
+        .or_insert_with(|| Value::Object(serde_json::Map::new()));
+    // A flow author may leave `headers` unset (null) — coerce to an object so
+    // the credential still injects. A non-object, non-null `headers` is a
+    // malformed config we refuse rather than silently drop the credential.
+    if headers_entry.is_null() {
+        *headers_entry = Value::Object(serde_json::Map::new());
+    }
+    let headers_obj = headers_entry.as_object_mut().ok_or_else(|| {
+        EngineError::Capability("http_request `headers` must be a JSON object".to_string())
+    })?;
+    headers_obj.insert(header_name.clone(), Value::String(header_value));
+
+    tracing::info!(
+        target: "flows",
+        cred = %cred.name,
+        scheme = cred.scheme.as_str(),
+        header = %header_name,
+        "[flows] http_request: injected stored credential header (value redacted)"
+    );
+    Ok(header_name)
 }
 
 #[async_trait]
 impl HttpClient for OpenHumanHttp {
-    async fn request(&self, request: Value, conn: Option<&str>) -> Result<Value> {
+    async fn request(&self, mut request: Value, conn: Option<&str>) -> Result<Value> {
         const TOOL_NAME: &str = "flows_http_request";
 
+        // The approval gate summarizes/redacts the request BEFORE any credential
+        // is injected, so a stored secret never lands in the approval UI or
+        // audit trail. Injection happens strictly after this point.
         let mut audit_id: Option<String> = None;
         if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
             let summary = crate::openhuman::approval::summarize_action(TOOL_NAME, &request);
@@ -575,16 +683,11 @@ impl HttpClient for OpenHumanHttp {
             }
         }
 
-        if let Some(name) = conn.and_then(http_cred_name) {
-            tracing::warn!(
-                target: "flows",
-                cred = %name,
-                "[flows] http_request: connection_ref names an http_cred secret, but no HTTP \
-                 credential store exists yet — proceeding WITHOUT injecting stored credentials \
-                 (documented stub, see caps.rs's OpenHumanHttp doc)"
-            );
-        } else if let Some(c) = conn {
-            tracing::debug!(target: "flows", conn = %c, "[flows] http conn: unrecognized connection_ref prefix (expected `http_cred:<name>`) — ignoring");
+        // Resolve `http_cred:<name>` to a stored credential and inject its auth
+        // header server-side. An unknown name fails the request closed (see
+        // `resolve_http_credential`) — we never send it unauthenticated.
+        if let Some(cred) = resolve_http_credential(&self.http_creds, conn)? {
+            inject_http_credential(&mut request, &cred)?;
         }
 
         let tool = HttpRequestTool::new(
@@ -822,6 +925,7 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
         &config.action_dir,
     ));
     let http_config = config.http_request.clone();
+    let http_creds = Arc::new(HttpCredentialsStore::from_config(&config));
 
     Capabilities {
         llm: Arc::new(OpenHumanLlm {
@@ -833,6 +937,7 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
         http: Arc::new(OpenHumanHttp {
             security,
             http_config,
+            http_creds,
         }),
         code: Arc::new(OpenHumanCode {
             config: config.clone(),
@@ -966,6 +1071,126 @@ mod tests {
         // Case-insensitive match on the toolkit slug.
         assert!(
             flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["FlowsTestKit".to_string()])).await
+        );
+    }
+
+    fn http_cred_store() -> (tempfile::TempDir, HttpCredentialsStore) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // encrypt=true exercises the ChaCha20-Poly1305 at-rest path.
+        let store = HttpCredentialsStore::new(dir.path(), true);
+        (dir, store)
+    }
+
+    /// A `http_cred:<name>` ref resolves to the stored bearer credential and
+    /// injects `Authorization: Bearer <token>` onto the outbound request.
+    #[test]
+    fn http_cred_resolves_and_injects_bearer_header() {
+        let (_dir, store) = http_cred_store();
+        store
+            .upsert(&HttpCredential::bearer("stripe", "sk_live_secret"))
+            .unwrap();
+
+        let cred = resolve_http_credential(&store, Some("http_cred:stripe"))
+            .expect("resolve ok")
+            .expect("credential present");
+
+        let mut request = json!({ "method": "GET", "url": "https://api.example.com" });
+        let header = inject_http_credential(&mut request, &cred).unwrap();
+        assert_eq!(header, "Authorization");
+        assert_eq!(
+            request["headers"]["Authorization"],
+            json!("Bearer sk_live_secret")
+        );
+    }
+
+    /// A custom-header credential injects under its own header name while
+    /// preserving any headers the flow author already set.
+    #[test]
+    fn http_cred_injection_preserves_existing_headers() {
+        let (_dir, store) = http_cred_store();
+        store
+            .upsert(&HttpCredential::header("apikey", "X-API-Key", "topsecret"))
+            .unwrap();
+        let cred = resolve_http_credential(&store, Some("http_cred:apikey"))
+            .unwrap()
+            .unwrap();
+
+        let mut request = json!({
+            "method": "POST",
+            "url": "https://api.example.com",
+            "headers": { "Content-Type": "application/json" }
+        });
+        inject_http_credential(&mut request, &cred).unwrap();
+        assert_eq!(
+            request["headers"]["Content-Type"],
+            json!("application/json")
+        );
+        assert_eq!(request["headers"]["X-API-Key"], json!("topsecret"));
+    }
+
+    /// A basic credential injects `Authorization: Basic ...` even when the flow
+    /// author set no `headers` object at all.
+    #[test]
+    fn http_cred_injects_basic_into_absent_headers() {
+        let (_dir, store) = http_cred_store();
+        store
+            .upsert(&HttpCredential::basic("acme", "alice", "pw"))
+            .unwrap();
+        let cred = resolve_http_credential(&store, Some("http_cred:acme"))
+            .unwrap()
+            .unwrap();
+
+        let mut request = json!({ "method": "GET", "url": "https://x.example.com" });
+        inject_http_credential(&mut request, &cred).unwrap();
+        let value = request["headers"]["Authorization"]
+            .as_str()
+            .expect("Authorization header injected");
+        assert!(value.starts_with("Basic "), "unexpected basic header: {value}");
+    }
+
+    /// A `http_cred:<name>` naming a credential that does not exist FAILS the
+    /// request closed — it must never proceed silently unauthenticated.
+    #[test]
+    fn unknown_http_cred_fails_closed() {
+        let (_dir, store) = http_cred_store();
+        let result = resolve_http_credential(&store, Some("http_cred:ghost"));
+        assert!(result.is_err(), "unknown http_cred must fail closed");
+    }
+
+    /// No `connection_ref`, or a non-`http_cred:` prefix, injects nothing and
+    /// is not an error.
+    #[test]
+    fn no_http_cred_ref_injects_nothing() {
+        let (_dir, store) = http_cred_store();
+        assert!(resolve_http_credential(&store, None).unwrap().is_none());
+        assert!(resolve_http_credential(&store, Some("composio:gmail:conn_1"))
+            .unwrap()
+            .is_none());
+    }
+
+    /// The secret is server-side-only: the approval-gate redaction (computed on
+    /// the pre-injection request) never contains it, and after injection it
+    /// lives ONLY in the outbound `Authorization` header.
+    #[test]
+    fn injected_secret_never_reaches_the_audit_redaction() {
+        let (_dir, store) = http_cred_store();
+        let secret = "sk_live_never_log_me";
+        store
+            .upsert(&HttpCredential::bearer("stripe", secret))
+            .unwrap();
+        let cred = resolve_http_credential(&store, Some("http_cred:stripe"))
+            .unwrap()
+            .unwrap();
+
+        let mut request = json!({ "method": "GET", "url": "https://api.example.com" });
+        // Pre-injection redaction — what the approval UI / audit trail sees.
+        let redacted = crate::openhuman::approval::redact_args(&request);
+        assert!(!serde_json::to_string(&redacted).unwrap().contains(secret));
+
+        inject_http_credential(&mut request, &cred).unwrap();
+        assert_eq!(
+            request["headers"]["Authorization"],
+            json!(format!("Bearer {secret}"))
         );
     }
 }

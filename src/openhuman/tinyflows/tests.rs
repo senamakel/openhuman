@@ -90,6 +90,9 @@ fn http_adapter(allowed_domains: Vec<String>) -> OpenHumanHttp {
             allowed_domains,
             ..Default::default()
         },
+        http_creds: Arc::new(
+            crate::openhuman::credentials::HttpCredentialsStore::from_config(&config),
+        ),
     }
 }
 

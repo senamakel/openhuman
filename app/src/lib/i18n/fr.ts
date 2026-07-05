@@ -3813,6 +3813,63 @@ const messages: TranslationMap = {
   'flows.palette.addNode': 'Ajouter un nœud {kind}',
   'flows.editor.save': 'Enregistrer',
   'flows.editor.deleteSelected': 'Supprimer la sélection',
+  // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
+  'flows.nodeConfig.close': 'Fermer les réglages',
+  'flows.nodeConfig.nameLabel': 'Nom',
+  'flows.nodeConfig.namePlaceholder': 'Nom du nœud',
+  'flows.nodeConfig.editForm': 'Modifier en formulaire',
+  'flows.nodeConfig.editJson': 'Modifier en JSON',
+  'flows.nodeConfig.rawJsonLabel': 'Configuration au format JSON',
+  'flows.nodeConfig.rawJsonHint': 'Configuration libre pour ce nœud.',
+  'flows.nodeConfig.rawJsonInvalid':
+    "JSON invalide : les modifications ne sont appliquées qu'une fois valide.",
+  'flows.nodeConfig.expressionHint':
+    "Commencez par = pour calculer la valeur à partir de l'entrée du nœud, ex. =item.url",
+  'flows.nodeConfig.expressionBadge': 'Expression',
+  'flows.nodeConfig.keymapKeyPlaceholder': 'Clé',
+  'flows.nodeConfig.keymapValuePlaceholder': 'Valeur',
+  'flows.nodeConfig.keymapRemove': 'Supprimer la ligne',
+  'flows.nodeConfig.keymapAdd': 'Ajouter une ligne',
+  'flows.nodeConfig.credentialLabel': 'Identifiant',
+  'flows.nodeConfig.credentialHint':
+    'Choisissez un compte ou un identifiant connecté pour ce nœud.',
+  'flows.nodeConfig.credentialEmpty': 'Aucun identifiant connecté disponible.',
+  'flows.nodeConfig.credentialNone': 'Aucun',
+  'flows.nodeConfig.trigger.kindLabel': 'Type de déclencheur',
+  'flows.nodeConfig.trigger.kind_manual': 'Manuel',
+  'flows.nodeConfig.trigger.kind_schedule': 'Planification',
+  'flows.nodeConfig.trigger.kind_webhook': 'Webhook',
+  'flows.nodeConfig.trigger.kind_app_event': "Événement d'app",
+  'flows.nodeConfig.trigger.scheduleLabel': 'Planification cron',
+  'flows.nodeConfig.trigger.scheduleHint':
+    'Expression cron : minute heure jour mois jour de la semaine.',
+  'flows.nodeConfig.trigger.toolkitLabel': 'Boîte à outils',
+  'flows.nodeConfig.trigger.triggerSlugLabel': 'Slug du déclencheur',
+  'flows.nodeConfig.trigger.webhookHint':
+    'Les déclencheurs webhook sont enregistrés mais pas encore déclenchés automatiquement.',
+  'flows.nodeConfig.http.methodLabel': 'Méthode',
+  'flows.nodeConfig.http.urlLabel': 'URL',
+  'flows.nodeConfig.http.headersLabel': 'En-têtes',
+  'flows.nodeConfig.http.bodyLabel': 'Corps (JSON)',
+  'flows.nodeConfig.agent.promptLabel': 'Invite',
+  'flows.nodeConfig.agent.promptPlaceholder': "Instructions pour l'agent…",
+  'flows.nodeConfig.agent.modelLabel': 'Modèle',
+  'flows.nodeConfig.tool.slugLabel': "Slug de l'outil",
+  'flows.nodeConfig.tool.argsLabel': 'Paramètres (JSON)',
+  'flows.nodeConfig.condition.fieldLabel': 'Champ',
+  'flows.nodeConfig.condition.fieldHint':
+    "Clé de l'élément d'entrée à évaluer comme vraie. Achemine vers vrai ou faux.",
+  'flows.nodeConfig.switch.expressionLabel': 'Expression',
+  'flows.nodeConfig.switch.hint':
+    'La valeur obtenue sélectionne le port de sortie correspondant ; null va vers default.',
+  'flows.nodeConfig.switch.fieldLabel': 'Champ (repli)',
+  'flows.nodeConfig.transform.setLabel': 'Définir les champs',
+  'flows.nodeConfig.transform.setHint':
+    'Chaque valeur est une expression évaluée par élément, ex. =item.name',
+  'flows.nodeConfig.code.languageLabel': 'Langage',
+  'flows.nodeConfig.code.language_javascript': 'JavaScript',
+  'flows.nodeConfig.code.language_python': 'Python',
+  'flows.nodeConfig.code.sourceLabel': 'Code source',
 
   'oauth.button.connecting': 'Connexion en cours…',
   'oauth.button.loopbackTimeout':

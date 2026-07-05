@@ -3792,6 +3792,63 @@ const messages: TranslationMap = {
   'flows.palette.addNode': 'Aggiungi nodo {kind}',
   'flows.editor.save': 'Salva',
   'flows.editor.deleteSelected': 'Elimina selezione',
+  // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
+  'flows.nodeConfig.close': 'Chiudi impostazioni',
+  'flows.nodeConfig.nameLabel': 'Nome',
+  'flows.nodeConfig.namePlaceholder': 'Nome del nodo',
+  'flows.nodeConfig.editForm': 'Modifica come modulo',
+  'flows.nodeConfig.editJson': 'Modifica come JSON',
+  'flows.nodeConfig.rawJsonLabel': 'Configurazione (JSON)',
+  'flows.nodeConfig.rawJsonHint': 'Configurazione libera per questo nodo.',
+  'flows.nodeConfig.rawJsonInvalid':
+    'JSON non valido: le modifiche non vengono applicate finché non è valido.',
+  'flows.nodeConfig.expressionHint':
+    "Inizia con = per calcolare il valore dall'input del nodo, es. =item.url",
+  'flows.nodeConfig.expressionBadge': 'Espressione',
+  'flows.nodeConfig.keymapKeyPlaceholder': 'Chiave',
+  'flows.nodeConfig.keymapValuePlaceholder': 'Valore',
+  'flows.nodeConfig.keymapRemove': 'Rimuovi riga',
+  'flows.nodeConfig.keymapAdd': 'Aggiungi riga',
+  'flows.nodeConfig.credentialLabel': 'Credenziale',
+  'flows.nodeConfig.credentialHint':
+    'Scegli un account o una credenziale collegata per questo nodo.',
+  'flows.nodeConfig.credentialEmpty': 'Nessuna credenziale collegata disponibile.',
+  'flows.nodeConfig.credentialNone': 'Nessuna',
+  'flows.nodeConfig.trigger.kindLabel': 'Tipo di trigger',
+  'flows.nodeConfig.trigger.kind_manual': 'Manuale',
+  'flows.nodeConfig.trigger.kind_schedule': 'Pianificazione',
+  'flows.nodeConfig.trigger.kind_webhook': 'Webhook',
+  'flows.nodeConfig.trigger.kind_app_event': 'Evento app',
+  'flows.nodeConfig.trigger.scheduleLabel': 'Pianificazione cron',
+  'flows.nodeConfig.trigger.scheduleHint':
+    'Espressione cron: minuto ora giorno mese giorno della settimana.',
+  'flows.nodeConfig.trigger.toolkitLabel': 'Toolkit',
+  'flows.nodeConfig.trigger.triggerSlugLabel': 'Slug del trigger',
+  'flows.nodeConfig.trigger.webhookHint':
+    'I trigger webhook vengono salvati ma non ancora attivati automaticamente.',
+  'flows.nodeConfig.http.methodLabel': 'Metodo',
+  'flows.nodeConfig.http.urlLabel': 'URL',
+  'flows.nodeConfig.http.headersLabel': 'Intestazioni',
+  'flows.nodeConfig.http.bodyLabel': 'Corpo (JSON)',
+  'flows.nodeConfig.agent.promptLabel': 'Prompt',
+  'flows.nodeConfig.agent.promptPlaceholder': "Istruzioni per l'agente…",
+  'flows.nodeConfig.agent.modelLabel': 'Modello',
+  'flows.nodeConfig.tool.slugLabel': 'Slug dello strumento',
+  'flows.nodeConfig.tool.argsLabel': 'Argomenti (JSON)',
+  'flows.nodeConfig.condition.fieldLabel': 'Campo',
+  'flows.nodeConfig.condition.fieldHint':
+    "Chiave dell'elemento di input da valutare come vera. Instrada verso vero o falso.",
+  'flows.nodeConfig.switch.expressionLabel': 'Espressione',
+  'flows.nodeConfig.switch.hint':
+    'Il valore risultante seleziona la porta di uscita corrispondente; null va a default.',
+  'flows.nodeConfig.switch.fieldLabel': 'Campo (ripiego)',
+  'flows.nodeConfig.transform.setLabel': 'Imposta campi',
+  'flows.nodeConfig.transform.setHint':
+    "Ogni valore è un'espressione valutata per elemento, es. =item.name",
+  'flows.nodeConfig.code.languageLabel': 'Linguaggio',
+  'flows.nodeConfig.code.language_javascript': 'JavaScript',
+  'flows.nodeConfig.code.language_python': 'Python',
+  'flows.nodeConfig.code.sourceLabel': 'Codice sorgente',
 
   'oauth.button.connecting': 'Connessione...',
   'oauth.button.loopbackTimeout':

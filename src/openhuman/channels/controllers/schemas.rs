@@ -673,7 +673,15 @@ fn handle_discord_link_check(params: Map<String, Value>) -> ControllerFuture {
 fn handle_discord_list_guilds(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(ops::discord_list_guilds(&config).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .discord_list_guilds()
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::single_log(
+            raw_or_typed(result.raw.clone(), &result)?,
+            "discord guilds listed",
+        ))
     })
 }
 
@@ -681,7 +689,16 @@ fn handle_discord_list_channels(params: Map<String, Value>) -> ControllerFuture 
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<DiscordListChannelsParams>(params)?;
-        to_json(ops::discord_list_channels(&config, p.guild_id.trim()).await?)
+        let guild_id = p.guild_id.trim();
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .discord_list_channels(guild_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::single_log(
+            raw_or_typed(result.raw.clone(), &result)?,
+            format!("discord channels listed for guild {guild_id}"),
+        ))
     })
 }
 
@@ -689,9 +706,17 @@ fn handle_discord_check_permissions(params: Map<String, Value>) -> ControllerFut
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<DiscordCheckPermissionsParams>(params)?;
-        to_json(
-            ops::discord_check_permissions(&config, p.guild_id.trim(), p.channel_id.trim()).await?,
-        )
+        let guild_id = p.guild_id.trim();
+        let channel_id = p.channel_id.trim();
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .discord_check_permissions(guild_id, channel_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::single_log(
+            raw_or_typed(result.raw.clone(), &result)?,
+            format!("discord permissions checked for channel {channel_id}"),
+        ))
     })
 }
 

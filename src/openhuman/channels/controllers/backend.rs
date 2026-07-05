@@ -296,6 +296,7 @@ impl ChannelBackend for OpenHumanChannelBackend {
     ) -> anyhow::Result<DiscordGuildListResult> {
         let config = self.config_with_channels(channels_config);
         let guilds = into_anyhow(ops::discord_list_guilds(&config).await)?;
+        let raw = to_raw_value(&guilds);
         Ok(DiscordGuildListResult {
             guilds: guilds
                 .into_iter()
@@ -305,7 +306,7 @@ impl ChannelBackend for OpenHumanChannelBackend {
                     raw: to_raw_value(&guild),
                 })
                 .collect(),
-            raw: None,
+            raw,
         })
     }
 
@@ -316,6 +317,7 @@ impl ChannelBackend for OpenHumanChannelBackend {
     ) -> anyhow::Result<DiscordChannelListResult> {
         let config = self.config_with_channels(channels_config);
         let channels = into_anyhow(ops::discord_list_channels(&config, guild_id).await)?;
+        let raw = to_raw_value(&channels);
         Ok(DiscordChannelListResult {
             channels: channels
                 .into_iter()
@@ -326,7 +328,7 @@ impl ChannelBackend for OpenHumanChannelBackend {
                     raw: to_raw_value(&channel),
                 })
                 .collect(),
-            raw: None,
+            raw,
         })
     }
 

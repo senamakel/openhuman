@@ -43,6 +43,14 @@ export interface FlowCanvasProps {
   onDirtyChange?: (dirty: boolean) => void;
   /** Active run id (== thread_id) to overlay live per-node status on the canvas (editable only, Phase 3e). */
   activeRunId?: string | null;
+  /** Reports the live graph on every edit so the copilot has the current draft (editable only, Phase 5c). */
+  onGraphChange?: (graph: WorkflowGraph) => void;
+  /** Node ids the copilot proposal adds — ringed as a diff highlight (editable only, Phase 5c). */
+  addedNodeIds?: ReadonlySet<string>;
+  /** Node ids the copilot proposal removes — ghosted (editable only, Phase 5c). */
+  removedNodeIds?: ReadonlySet<string>;
+  /** Disable Save while a copilot proposal is under review (editable only, Phase 5c). */
+  saveDisabled?: boolean;
 }
 
 const NODE_TYPES = { [FLOW_NODE_TYPE]: FlowNodeComponent };
@@ -88,6 +96,10 @@ function FlowCanvas({
   onSave,
   onDirtyChange,
   activeRunId,
+  onGraphChange,
+  addedNodeIds,
+  removedNodeIds,
+  saveDisabled,
 }: FlowCanvasProps) {
   if (editable) {
     return (
@@ -98,6 +110,10 @@ function FlowCanvas({
         onSave={onSave}
         onDirtyChange={onDirtyChange}
         activeRunId={activeRunId}
+        onGraphChange={onGraphChange}
+        addedNodeIds={addedNodeIds}
+        removedNodeIds={removedNodeIds}
+        saveDisabled={saveDisabled}
       />
     );
   }

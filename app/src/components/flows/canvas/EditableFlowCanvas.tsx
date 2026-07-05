@@ -94,7 +94,32 @@ export interface EditableFlowCanvasProps {
    * `flow_runs` row + {@link useFlowRunPoller} remain the source of truth.
    */
   activeRunId?: string | null;
+  /**
+   * Reports the canvas's live graph on every edit (Phase 5c) so the host can
+   * feed the current draft to the copilot as context and diff a proposal
+   * against it. Fires with the same serialization Save uses.
+   */
+  onGraphChange?: (graph: WorkflowGraph) => void;
+  /**
+   * Node ids the copilot's pending proposal ADDS — ringed sage as a diff
+   * highlight (Phase 5c). Empty/absent when not previewing a proposal.
+   */
+  addedNodeIds?: ReadonlySet<string>;
+  /**
+   * Node ids the copilot's pending proposal REMOVES — ghosted (Phase 5c). These
+   * nodes are still rendered (carried over by the host) so the removal is
+   * visible before Accept/Reject.
+   */
+  removedNodeIds?: ReadonlySet<string>;
+  /**
+   * Force-disable Save (Phase 5c) — set while a copilot proposal is under
+   * review so the ghosted preview graph can't be persisted; Accept/Reject in
+   * the copilot panel is the gate instead.
+   */
+  saveDisabled?: boolean;
 }
+
+const EMPTY_ID_SET: ReadonlySet<string> = new Set();
 
 function EditableFlowCanvas({
   nodes: initialNodes,
@@ -104,6 +129,10 @@ function EditableFlowCanvas({
   onInvalidConnection,
   onDirtyChange,
   activeRunId = null,
+  onGraphChange,
+  addedNodeIds = EMPTY_ID_SET,
+  removedNodeIds = EMPTY_ID_SET,
+  saveDisabled = false,
 }: EditableFlowCanvasProps) {
   const { t } = useT();
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initialNodes);
@@ -132,6 +161,14 @@ function EditableFlowCanvas({
     [nodes, edges, meta]
   );
   const currentKey = useMemo(() => JSON.stringify(currentGraph), [currentGraph]);
+
+  // Report the live graph up (Phase 5c) so the copilot always has the current
+  // draft to build on. Keyed on `currentKey` so it fires once per real change,
+  // not on every render.
+  useEffect(() => {
+    onGraphChange?.(currentGraph);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentKey]);
   const baselineKey = useMemo(
     () => JSON.stringify(xyflowToWorkflowGraph(baseline.nodes, baseline.edges, meta)),
     [baseline, meta]
@@ -169,19 +206,23 @@ function EditableFlowCanvas({
   // tag errored nodes with the `flow-node-error` class the canvas CSS rings, and
   // overlay each node's live run status (`flow-node-running`/`-success`/`-failed`).
   const hasRunOverlay = Object.keys(runProgress).length > 0;
+  const hasDiffOverlay = addedNodeIds.size > 0 || removedNodeIds.size > 0;
   const displayNodes = useMemo(() => {
-    if (erroredIds.size === 0 && !hasRunOverlay) return nodes;
+    if (erroredIds.size === 0 && !hasRunOverlay && !hasDiffOverlay) return nodes;
     return nodes.map(n => {
       const extra: string[] = [];
       if (erroredIds.has(n.id)) extra.push('flow-node-error');
       const runClass = FLOW_RUN_NODE_STATUS_CLASS[runProgress[n.id]];
       if (runClass) extra.push(runClass);
+      // Copilot diff overlay (Phase 5c): sage ring on added, ghost on removed.
+      if (addedNodeIds.has(n.id)) extra.push('flow-node-added');
+      if (removedNodeIds.has(n.id)) extra.push('flow-node-removed');
       if (extra.length === 0) return n;
       return { ...n, className: `${n.className ?? ''} ${extra.join(' ')}`.trim() };
     });
     // `runProgress` is a stable-enough dependency (new object only on a real
     // status change, see the hook's setState guard).
-  }, [nodes, erroredIds, runProgress, hasRunOverlay]);
+  }, [nodes, erroredIds, runProgress, hasRunOverlay, hasDiffOverlay, addedNodeIds, removedNodeIds]);
 
   // Load the secret-free credential refs once for the node-config credential
   // picker (http_request / tool_call). Guarded: outside Tauri (or if the RPC
@@ -443,7 +484,7 @@ function EditableFlowCanvas({
             className="pointer-events-auto"
             data-testid="flow-editor-save"
             title={hasErrors ? t('flows.editor.saveBlocked') : undefined}
-            disabled={!dirty || hasErrors || saving}
+            disabled={!dirty || hasErrors || saving || saveDisabled}
             onClick={handleSave}>
             {saving ? t('flows.editor.saving') : t('flows.editor.save')}
           </Button>

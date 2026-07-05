@@ -104,6 +104,26 @@
   border-radius: 0.85rem;
 }
 
+/*
+ * Copilot diff overlay (Phase 5c): while the user reviews an agent proposal on
+ * the canvas, nodes the proposal ADDS get a sage ring (like a live-success
+ * highlight) and nodes it REMOVES are ghosted (dimmed + dashed coral ring) so
+ * the change reads diff-style before Accept/Reject. Applied via the node's
+ * `className` alongside the validation/run rings.
+ */
+.flow-canvas .react-flow__node.flow-node-added {
+  outline: 2px solid rgb(var(--sage-500));
+  outline-offset: 3px;
+  border-radius: 0.85rem;
+}
+
+.flow-canvas .react-flow__node.flow-node-removed {
+  outline: 2px dashed rgb(var(--coral-500));
+  outline-offset: 3px;
+  border-radius: 0.85rem;
+  opacity: 0.45;
+}
+
 @keyframes flow-node-run-pulse {
   0%,
   100% {

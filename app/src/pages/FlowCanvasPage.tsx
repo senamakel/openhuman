@@ -22,16 +22,48 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
+import WorkflowCopilotPanel from '../components/flows/WorkflowCopilotPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import { workflowGraphToXyflow } from '../lib/flows/graphAdapter';
+import { buildPreviewGraph, diffGraphs } from '../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../lib/flows/types';
+import { type RepairPromptContext } from '../lib/flows/workflowBuilderPrompt';
 import { useT } from '../lib/i18n/I18nContext';
 import { type Flow, createFlow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
+import type { WorkflowProposal } from '../store/chatRuntimeSlice';
 import type { ToastNotification } from '../types/intelligence';
+
+/**
+ * Seed for opening the canvas copilot preloaded from a failed run's "Fix with
+ * agent" action (Phase 5c). Rides in `location.state` (ephemeral). The graph is
+ * supplied by the editor itself, so only the run context travels here.
+ */
+export interface CopilotRepairSeed {
+  runId: string;
+  error?: string | null;
+  failingNodeIds?: string[];
+}
+
+/** Narrow an opaque `location.state` to a {@link CopilotRepairSeed}. */
+export function asCopilotRepairSeed(state: unknown): CopilotRepairSeed | null {
+  if (!state || typeof state !== 'object') return null;
+  const record = state as Record<string, unknown>;
+  const seed = record.copilotRepair;
+  if (!seed || typeof seed !== 'object') return null;
+  const s = seed as Record<string, unknown>;
+  if (typeof s.runId !== 'string') return null;
+  return {
+    runId: s.runId,
+    error: typeof s.error === 'string' ? s.error : null,
+    failingNodeIds: Array.isArray(s.failingNodeIds)
+      ? s.failingNodeIds.filter((v): v is string => typeof v === 'string')
+      : undefined,
+  };
+}
 
 const log = createDebug('app:flows:canvas');
 
@@ -73,7 +105,13 @@ interface EditorFlow {
 }
 
 /** The editable canvas body — split out so its hooks only mount once a flow loads. */
-function FlowEditor({ editorFlow }: { editorFlow: EditorFlow }) {
+function FlowEditor({
+  editorFlow,
+  initialCopilotSeed = null,
+}: {
+  editorFlow: EditorFlow;
+  initialCopilotSeed?: CopilotRepairSeed | null;
+}) {
   const { t } = useT();
   const navigate = useNavigate();
   const [dirty, setDirty] = useState(false);
@@ -89,10 +127,93 @@ function FlowEditor({ editorFlow }: { editorFlow: EditorFlow }) {
   // Draft (unsaved) canvases have no persisted id yet; Save creates the flow
   // rather than updating one, and there is nothing runnable to run.
   const isDraft = flowId === null;
-  const { nodes, edges } = useMemo(() => workflowGraphToXyflow(graph), [graph]);
+
+  // ── Canvas copilot + draft overlay (Phase 5c) ─────────────────────────────
+  // `draftGraph` is the current ACCEPTED draft (starts as the loaded graph),
+  // kept in sync with manual canvas edits via `onGraphChange`. A copilot
+  // proposal enters `preview`: the canvas re-seeds (bump `canvasVersion`) with
+  // the proposed graph plus ghosted removed nodes, painted diff-style. Accept
+  // commits the proposed graph into `draftGraph`; Reject reverts to the frozen
+  // base. NOTHING here persists — the canvas's own Save is the only gate.
+  const [copilotOpen, setCopilotOpen] = useState(initialCopilotSeed !== null);
+  const [draftGraph, setDraftGraph] = useState<WorkflowGraph>(graph);
+  const [preview, setPreview] = useState<{
+    proposal: WorkflowProposal;
+    base: WorkflowGraph;
+    addedNodeIds: Set<string>;
+    removedNodeIds: Set<string>;
+  } | null>(null);
+  const [canvasVersion, setCanvasVersion] = useState(0);
+
+  const handleGraphChange = useCallback(
+    (next: WorkflowGraph) => {
+      // Freeze the draft while a proposal is under review — the preview graph
+      // (with ghosts) must not overwrite the real draft.
+      if (preview) return;
+      setDraftGraph(next);
+    },
+    [preview]
+  );
+
+  const handleProposal = useCallback(
+    (proposal: WorkflowProposal) => {
+      const proposedGraph = proposal.graph as WorkflowGraph;
+      const d = diffGraphs(draftGraph, proposedGraph);
+      log('copilot proposal: added=%d removed=%d', d.addedNodeIds.size, d.removedNodeIds.size);
+      setPreview({
+        proposal,
+        base: draftGraph,
+        addedNodeIds: d.addedNodeIds,
+        removedNodeIds: d.removedNodeIds,
+      });
+      setCanvasVersion(v => v + 1);
+    },
+    [draftGraph]
+  );
+
+  const handleAcceptProposal = useCallback((proposal: WorkflowProposal) => {
+    log('copilot proposal accepted');
+    setDraftGraph(proposal.graph as WorkflowGraph);
+    setPreview(null);
+    setCanvasVersion(v => v + 1);
+  }, []);
+
+  const handleRejectProposal = useCallback(() => {
+    log('copilot proposal rejected');
+    setPreview(null);
+    setCanvasVersion(v => v + 1);
+  }, []);
+
+  // The graph the canvas renders: the proposed+ghosted preview while reviewing,
+  // else the accepted draft.
+  const editorGraph = useMemo(
+    () =>
+      preview
+        ? buildPreviewGraph(preview.base, preview.proposal.graph as WorkflowGraph, preview.removedNodeIds)
+        : draftGraph,
+    [preview, draftGraph]
+  );
+  const { nodes, edges } = useMemo(() => workflowGraphToXyflow(editorGraph), [editorGraph]);
   const meta = useMemo(
     () => ({ schema_version: graph.schema_version, id: flowId ?? undefined, name }),
     [graph.schema_version, flowId, name]
+  );
+
+  // Repair seed for the copilot: bind the run context to the CURRENT draft.
+  const copilotRepairSeed = useMemo<RepairPromptContext | null>(
+    () =>
+      initialCopilotSeed
+        ? {
+            runId: initialCopilotSeed.runId,
+            error: initialCopilotSeed.error,
+            failingNodeIds: initialCopilotSeed.failingNodeIds,
+            graph: draftGraph,
+          }
+        : null,
+    // Only seed once (on the initial draft) — a later draft edit must not
+    // re-fire the repair turn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [initialCopilotSeed]
   );
 
   // Persist the live graph. A saved flow updates in place via `flows_update`; a
@@ -186,23 +307,44 @@ function FlowEditor({ editorFlow }: { editorFlow: EditorFlow }) {
     </Button>
   );
 
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        variant={copilotOpen ? 'primary' : 'secondary'}
+        size="xs"
+        data-testid="flow-canvas-copilot-toggle"
+        aria-pressed={copilotOpen}
+        onClick={() => setCopilotOpen(open => !open)}>
+        {t('flows.copilot.open')}
+      </Button>
+      {runButton}
+    </div>
+  );
+
   return (
     <PanelPage
       testId="flow-canvas-page"
       title={name}
       leading={backButton}
-      action={runButton}
+      action={headerActions}
       contentClassName="h-full p-0">
-      <div className="relative h-full w-full">
-        <FlowCanvas
-          editable
-          nodes={nodes}
-          edges={edges}
-          meta={meta}
-          onSave={handleSave}
-          onDirtyChange={setDirty}
-          activeRunId={activeRunId}
-        />
+      <div className="flex h-full w-full">
+        <div className="relative h-full flex-1">
+          <FlowCanvas
+            key={`canvas-${canvasVersion}`}
+            editable
+            nodes={nodes}
+            edges={edges}
+            meta={meta}
+            onSave={handleSave}
+            onDirtyChange={setDirty}
+            activeRunId={activeRunId}
+            onGraphChange={handleGraphChange}
+            addedNodeIds={preview?.addedNodeIds}
+            removedNodeIds={preview?.removedNodeIds}
+            saveDisabled={preview !== null}
+          />
 
         {runError && (
           <div
@@ -248,6 +390,18 @@ function FlowEditor({ editorFlow }: { editorFlow: EditorFlow }) {
             </div>
           </div>
         )}
+        </div>
+
+        {copilotOpen && (
+          <WorkflowCopilotPanel
+            graph={preview?.base ?? draftGraph}
+            onProposal={handleProposal}
+            onAccept={handleAcceptProposal}
+            onReject={handleRejectProposal}
+            onClose={() => setCopilotOpen(false)}
+            repairSeed={copilotRepairSeed}
+          />
+        )}
       </div>
     </PanelPage>
   );
@@ -256,8 +410,12 @@ function FlowEditor({ editorFlow }: { editorFlow: EditorFlow }) {
 export default function FlowCanvasPage() {
   const { t } = useT();
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  // "Fix with agent" (Phase 5c) navigates here with a repair seed in
+  // `location.state` so the copilot opens preloaded with the failed run.
+  const copilotSeed = useMemo(() => asCopilotRepairSeed(location.state), [location.state]);
 
   useEffect(() => {
     // Guards a stale response from clobbering newer state: this effect
@@ -316,6 +474,7 @@ export default function FlowCanvasPage() {
           graph: flow.graph as WorkflowGraph,
           requireApproval: flow.require_approval,
         }}
+        initialCopilotSeed={copilotSeed}
       />
     );
   }

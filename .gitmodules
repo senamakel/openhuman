@@ -20,3 +20,6 @@
 [submodule "vendor/tinychannels"]
 	path = vendor/tinychannels
 	url = https://github.com/tinyhumansai/tinychannels
+[submodule "vendor/tinyplace"]
+	path = vendor/tinyplace
+	url = https://github.com/tinyhumansai/tiny.place.git

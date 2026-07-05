@@ -103,26 +103,29 @@ const FlowListRow = ({
           </button>
           <div className="mt-0.5 text-[11px] text-content-faint">{lastRunLabel}</div>
         </div>
-        <span
-          data-testid={`flow-status-${flow.id}`}
-          className={`flex-shrink-0 rounded-full border px-2 py-1 text-[11px] font-semibold uppercase ${
-            flow.enabled
-              ? 'border-sage-200 bg-sage-50 text-sage-700 dark:border-sage-500/30 dark:bg-sage-500/10 dark:text-sage-300'
-              : 'border-line bg-surface-subtle text-content-secondary'
-          }`}>
-          {flow.enabled ? t('flows.list.enabled') : t('flows.list.paused')}
-        </span>
+        {/* Enable/disable control paired with its state label as a single group,
+            so the toggle is self-describing (the bare switch was ambiguous) and
+            state isn't split between a top-right badge and a bottom-left switch. */}
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <span
+            data-testid={`flow-status-${flow.id}`}
+            className={`text-[11px] font-semibold uppercase tracking-wide ${
+              flow.enabled ? 'text-sage-700 dark:text-sage-300' : 'text-content-secondary'
+            }`}>
+            {flow.enabled ? t('flows.list.enabled') : t('flows.list.paused')}
+          </span>
+          <SettingsSwitch
+            id={`flow-toggle-${flow.id}`}
+            data-testid={`flow-toggle-${flow.id}`}
+            checked={flow.enabled}
+            disabled={toggleBusy}
+            aria-label={t('flows.list.toggleEnabled')}
+            onCheckedChange={() => onToggle(flow)}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <SettingsSwitch
-          id={`flow-toggle-${flow.id}`}
-          data-testid={`flow-toggle-${flow.id}`}
-          checked={flow.enabled}
-          disabled={toggleBusy}
-          aria-label={t('flows.list.toggleEnabled')}
-          onCheckedChange={() => onToggle(flow)}
-        />
         <Button
           type="button"
           variant="secondary"

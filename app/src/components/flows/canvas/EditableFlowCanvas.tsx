@@ -457,58 +457,62 @@ function EditableFlowCanvas({
       onDragOver={handleDragOver}>
       <NodePalette onAdd={handlePaletteAdd} />
 
+      {/* Two clusters: editing tools (Delete / Validate) on the left, then the
+          draft-state cluster (unsaved badge → Discard → Save) set apart by a
+          divider so the commit action reads as its own unit, not one of five
+          equal-weight buttons. */}
       <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
-        {dirty && (
-          <span
-            className="pointer-events-auto rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-            data-testid="flow-editor-dirty">
-            {t('flows.editor.unsaved')}
-          </span>
-        )}
-        <Button
-          type="button"
-          variant="secondary"
-          tone="danger"
-          size="xs"
-          className="pointer-events-auto"
-          data-testid="flow-editor-delete"
-          disabled={selectionCount === 0}
-          onClick={handleDeleteSelected}>
-          {t('flows.editor.deleteSelected')}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="xs"
-          className="pointer-events-auto"
-          data-testid="flow-editor-validate"
-          disabled={validating}
-          onClick={handleValidate}>
-          {validating ? t('flows.editor.validating') : t('flows.editor.validate')}
-        </Button>
-        <Button
-          type="button"
-          variant="tertiary"
-          size="xs"
-          className="pointer-events-auto"
-          data-testid="flow-editor-discard"
-          disabled={!dirty || saving}
-          onClick={handleDiscard}>
-          {t('flows.editor.discard')}
-        </Button>
-        {onSave && (
+        <div className="pointer-events-auto flex items-center gap-2">
           <Button
             type="button"
-            variant="primary"
+            variant="secondary"
+            tone="danger"
             size="xs"
-            className="pointer-events-auto"
-            data-testid="flow-editor-save"
-            title={hasErrors ? t('flows.editor.saveBlocked') : undefined}
-            disabled={!dirty || hasErrors || saving || saveDisabled}
-            onClick={handleSave}>
-            {saving ? t('flows.editor.saving') : t('flows.editor.save')}
+            data-testid="flow-editor-delete"
+            disabled={selectionCount === 0}
+            onClick={handleDeleteSelected}>
+            {t('flows.editor.deleteSelected')}
           </Button>
-        )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="xs"
+            data-testid="flow-editor-validate"
+            disabled={validating}
+            onClick={handleValidate}>
+            {validating ? t('flows.editor.validating') : t('flows.editor.validate')}
+          </Button>
+        </div>
+        <div className="pointer-events-auto flex items-center gap-2 border-l border-line pl-2">
+          {dirty && (
+            <span
+              className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+              data-testid="flow-editor-dirty">
+              {t('flows.editor.unsaved')}
+            </span>
+          )}
+          <Button
+            type="button"
+            variant="tertiary"
+            size="xs"
+            data-testid="flow-editor-discard"
+            disabled={!dirty || saving}
+            onClick={handleDiscard}>
+            {t('flows.editor.discard')}
+          </Button>
+          {onSave && (
+            <Button
+              type="button"
+              variant="primary"
+              size="xs"
+              data-testid="flow-editor-save"
+              title={hasErrors ? t('flows.editor.saveBlocked') : undefined}
+              disabled={!dirty || hasErrors || saving || saveDisabled}
+              onClick={handleSave}>
+              {saving ? t('flows.editor.saving') : t('flows.editor.save')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center">

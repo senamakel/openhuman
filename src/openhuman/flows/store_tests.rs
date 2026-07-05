@@ -396,7 +396,10 @@ fn insert_duplicate_flow_makes_a_disabled_copy_with_new_id_and_same_graph() {
     // New id, suffixed name, DISABLED, run history reset.
     assert_ne!(copy.id, source.id);
     assert_eq!(copy.name, "My Flow (copy)");
-    assert!(!copy.enabled, "duplicate must be disabled so it never fires");
+    assert!(
+        !copy.enabled,
+        "duplicate must be disabled so it never fires"
+    );
     assert!(copy.last_run_at.is_none());
     assert!(copy.last_status.is_none());
     // Same graph + require_approval carried over.
@@ -502,8 +505,14 @@ fn insert_flow_run_auto_prunes_beyond_retention_cap() {
     let cap = MAX_FLOW_RUNS_PER_FLOW;
     for i in 0..cap {
         let id = format!("run-{i:04}");
-        insert_flow_run(&config, &id, &flow.id, &id, &format!("2026-01-01T00:00:{i:02}Z"))
-            .unwrap();
+        insert_flow_run(
+            &config,
+            &id,
+            &flow.id,
+            &id,
+            &format!("2026-01-01T00:00:{i:02}Z"),
+        )
+        .unwrap();
         finish_flow_run(
             &config,
             &id,
@@ -515,7 +524,10 @@ fn insert_flow_run_auto_prunes_beyond_retention_cap() {
         )
         .unwrap();
     }
-    assert_eq!(list_flow_runs(&config, &flow.id, cap * 2).unwrap().len(), cap);
+    assert_eq!(
+        list_flow_runs(&config, &flow.id, cap * 2).unwrap().len(),
+        cap
+    );
 
     // One more insert should trigger the retention prune, keeping <= cap.
     let extra = "run-extra";

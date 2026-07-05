@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkflowProposal } from '../store/chatRuntimeSlice';
+import { useWorkflowBuilderChat } from './useWorkflowBuilderChat';
 
 const chatSend = vi.hoisted(() => vi.fn());
 vi.mock('../services/chatService', () => ({ chatSend }));
@@ -38,8 +39,6 @@ vi.mock('../store/chatRuntimeSlice', () => ({
   clearWorkflowProposalForThread: (p: unknown) => ({ type: 'clearProposal', p }),
   setToolTimelineForThread: (p: unknown) => ({ type: 'timeline', p }),
 }));
-
-import { useWorkflowBuilderChat } from './useWorkflowBuilderChat';
 
 describe('useWorkflowBuilderChat', () => {
   beforeEach(() => {

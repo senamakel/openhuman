@@ -33,7 +33,7 @@ import { buildPreviewGraph, diffGraphs } from '../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../lib/flows/types';
 import { type RepairPromptContext } from '../lib/flows/workflowBuilderPrompt';
 import { useT } from '../lib/i18n/I18nContext';
-import { type Flow, createFlow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
+import { createFlow, type Flow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
 import type { WorkflowProposal } from '../store/chatRuntimeSlice';
 import type { ToastNotification } from '../types/intelligence';
 
@@ -189,7 +189,11 @@ function FlowEditor({
   const editorGraph = useMemo(
     () =>
       preview
-        ? buildPreviewGraph(preview.base, preview.proposal.graph as WorkflowGraph, preview.removedNodeIds)
+        ? buildPreviewGraph(
+            preview.base,
+            preview.proposal.graph as WorkflowGraph,
+            preview.removedNodeIds
+          )
         : draftGraph,
     [preview, draftGraph]
   );
@@ -225,7 +229,12 @@ function FlowEditor({
   const handleSave = useCallback(
     async (next: WorkflowGraph) => {
       if (isDraft) {
-        log('save: creating draft name=%s nodes=%d edges=%d', name, next.nodes.length, next.edges.length);
+        log(
+          'save: creating draft name=%s nodes=%d edges=%d',
+          name,
+          next.nodes.length,
+          next.edges.length
+        );
         const created = await createFlow(name, next, requireApproval);
         log('save: draft persisted as flow id=%s', created.id);
         navigate(`/flows/${created.id}`, { replace: true });
@@ -346,50 +355,51 @@ function FlowEditor({
             saveDisabled={preview !== null}
           />
 
-        {runError && (
-          <div
-            className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center">
-            <div
-              role="alert"
-              data-testid="flow-canvas-run-error"
-              className="pointer-events-auto rounded-xl border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
-              {t('flows.editor.runFailed')}: {runError}
-            </div>
-          </div>
-        )}
-
-        {leaveConfirm && (
-          <div
-            className="absolute inset-0 z-30 flex items-center justify-center bg-black/30 p-4"
-            data-testid="flow-leave-confirm">
-            <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4 shadow-xl">
-              <h2 className="text-sm font-semibold text-content">{t('flows.editor.leaveTitle')}</h2>
-              <p className="mt-1 text-xs text-content-muted">{t('flows.editor.leaveBody')}</p>
-              <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  data-testid="flow-leave-stay"
-                  onClick={() => setLeaveConfirm(false)}>
-                  {t('flows.editor.leaveStay')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  tone="danger"
-                  size="sm"
-                  data-testid="flow-leave-discard"
-                  onClick={() => {
-                    log('back: confirmed leave — discarding unsaved edits');
-                    navigate('/flows');
-                  }}>
-                  {t('flows.editor.leaveDiscard')}
-                </Button>
+          {runError && (
+            <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center">
+              <div
+                role="alert"
+                data-testid="flow-canvas-run-error"
+                className="pointer-events-auto rounded-xl border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+                {t('flows.editor.runFailed')}: {runError}
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {leaveConfirm && (
+            <div
+              className="absolute inset-0 z-30 flex items-center justify-center bg-black/30 p-4"
+              data-testid="flow-leave-confirm">
+              <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4 shadow-xl">
+                <h2 className="text-sm font-semibold text-content">
+                  {t('flows.editor.leaveTitle')}
+                </h2>
+                <p className="mt-1 text-xs text-content-muted">{t('flows.editor.leaveBody')}</p>
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    data-testid="flow-leave-stay"
+                    onClick={() => setLeaveConfirm(false)}>
+                    {t('flows.editor.leaveStay')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    tone="danger"
+                    size="sm"
+                    data-testid="flow-leave-discard"
+                    onClick={() => {
+                      log('back: confirmed leave — discarding unsaved edits');
+                      navigate('/flows');
+                    }}>
+                    {t('flows.editor.leaveDiscard')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {copilotOpen && (

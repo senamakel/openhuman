@@ -730,14 +730,12 @@ impl Tool for DryRunWorkflowTool {
             Ok(Ok(outcome)) => outcome,
             Ok(Err(e)) => {
                 tracing::debug!(target: "flows", error = %e, "[flows] dry_run_workflow: sandbox run errored");
-                return Ok(ToolResult::success(serde_json::to_string_pretty(
-                    &json!({
-                        "sandbox": true,
-                        "ok": false,
-                        "error": e.to_string(),
-                        "note": "SANDBOX (mock) output — a node errored during simulation. No real side effects occurred.",
-                    }),
-                )?));
+                return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                    "sandbox": true,
+                    "ok": false,
+                    "error": e.to_string(),
+                    "note": "SANDBOX (mock) output — a node errored during simulation. No real side effects occurred.",
+                }))?));
             }
             Err(_elapsed) => {
                 return Ok(ToolResult::error(format!(

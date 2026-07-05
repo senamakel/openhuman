@@ -161,23 +161,41 @@ fn map_node(
         .unwrap_or(n8n_type);
 
     match short {
-        "if" => (NodeKind::Condition, translate_config(params, warnings, n8n_name)),
-        "switch" => (NodeKind::Switch, translate_config(params, warnings, n8n_name)),
-        "merge" => (NodeKind::Merge, translate_config(params, warnings, n8n_name)),
-        "splitOut" | "itemLists" => {
-            (NodeKind::SplitOut, translate_config(params, warnings, n8n_name))
-        }
-        "httpRequest" => (NodeKind::HttpRequest, map_http_request(params, warnings, n8n_name)),
+        "if" => (
+            NodeKind::Condition,
+            translate_config(params, warnings, n8n_name),
+        ),
+        "switch" => (
+            NodeKind::Switch,
+            translate_config(params, warnings, n8n_name),
+        ),
+        "merge" => (
+            NodeKind::Merge,
+            translate_config(params, warnings, n8n_name),
+        ),
+        "splitOut" | "itemLists" => (
+            NodeKind::SplitOut,
+            translate_config(params, warnings, n8n_name),
+        ),
+        "httpRequest" => (
+            NodeKind::HttpRequest,
+            map_http_request(params, warnings, n8n_name),
+        ),
         "code" | "function" | "functionItem" => {
             (NodeKind::Code, map_code(params, warnings, n8n_name))
         }
-        "scheduleTrigger" | "cron" | "interval" => {
-            (NodeKind::Trigger, trigger_config("schedule", params, warnings, n8n_name))
-        }
-        "webhook" => (NodeKind::Trigger, trigger_config("webhook", params, warnings, n8n_name)),
-        "manualTrigger" | "start" => {
-            (NodeKind::Trigger, trigger_config("manual", params, warnings, n8n_name))
-        }
+        "scheduleTrigger" | "cron" | "interval" => (
+            NodeKind::Trigger,
+            trigger_config("schedule", params, warnings, n8n_name),
+        ),
+        "webhook" => (
+            NodeKind::Trigger,
+            trigger_config("webhook", params, warnings, n8n_name),
+        ),
+        "manualTrigger" | "start" => (
+            NodeKind::Trigger,
+            trigger_config("manual", params, warnings, n8n_name),
+        ),
         _ => {
             warnings.push(format!(
                 "Node '{n8n_name}' has n8n type '{n8n_type}', which has no tinyflows equivalent — \
@@ -208,7 +226,10 @@ fn trigger_config(
         Value::Object(map) => map,
         _ => Map::new(),
     };
-    cfg.insert("trigger_kind".to_string(), Value::String(trigger_kind.to_string()));
+    cfg.insert(
+        "trigger_kind".to_string(),
+        Value::String(trigger_kind.to_string()),
+    );
     Value::Object(cfg)
 }
 
@@ -241,7 +262,11 @@ fn map_code(params: &Value, warnings: &mut Vec<String>, n8n_name: &str) -> Value
         Value::Object(map) => map,
         _ => Map::new(),
     };
-    for (src, lang) in [("jsCode", "javascript"), ("functionCode", "javascript"), ("pythonCode", "python")] {
+    for (src, lang) in [
+        ("jsCode", "javascript"),
+        ("functionCode", "javascript"),
+        ("pythonCode", "python"),
+    ] {
         if let Some(code) = cfg.remove(src) {
             cfg.entry("code".to_string()).or_insert(code);
             cfg.entry("language".to_string())
@@ -502,7 +527,13 @@ fn parse_position(value: Option<&Value>) -> Option<Position> {
 fn slug(name: &str) -> String {
     let s: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
         .collect();
     if s.is_empty() {
         "node".to_string()
@@ -592,7 +623,10 @@ mod tests {
         let result = map_n8n_workflow(&wf).expect("map");
         let node = result.graph.node("x").expect("placeholder node");
         assert_eq!(node.kind, NodeKind::Transform);
-        assert_eq!(node.config["_n8n_import"]["original_type"], json!("n8n-nodes-base.airtable"));
+        assert_eq!(
+            node.config["_n8n_import"]["original_type"],
+            json!("n8n-nodes-base.airtable")
+        );
         // Original parameters are preserved for editing.
         assert_eq!(node.config["parameters"]["table"], json!("leads"));
         // The unmapped type produced a warning.
@@ -610,7 +644,15 @@ mod tests {
             "connections": {}
         });
         let result = map_n8n_workflow(&wf).expect("map");
-        assert_eq!(result.graph.nodes.iter().filter(|n| n.kind == NodeKind::Trigger).count(), 1);
+        assert_eq!(
+            result
+                .graph
+                .nodes
+                .iter()
+                .filter(|n| n.kind == NodeKind::Trigger)
+                .count(),
+            1
+        );
         assert!(result.warnings.iter().any(|w| w.contains("manual trigger")));
         tinyflows::validate::validate(&result.graph).expect("valid graph");
     }
@@ -626,7 +668,15 @@ mod tests {
             "connections": {}
         });
         let result = map_n8n_workflow(&wf).expect("map");
-        assert_eq!(result.graph.nodes.iter().filter(|n| n.kind == NodeKind::Trigger).count(), 1);
+        assert_eq!(
+            result
+                .graph
+                .nodes
+                .iter()
+                .filter(|n| n.kind == NodeKind::Trigger)
+                .count(),
+            1
+        );
         // The demoted trigger is now a placeholder transform.
         let demoted = result.graph.node("w").expect("webhook node");
         assert_eq!(demoted.kind, NodeKind::Transform);

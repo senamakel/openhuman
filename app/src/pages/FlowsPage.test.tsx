@@ -235,20 +235,13 @@ describe('FlowsPage', () => {
     renderWithProviders(<FlowsPage />);
 
     const input = await screen.findByTestId('flows-import-input');
-    const file = new File([JSON.stringify({ nodes: [] })], 'wf.json', {
-      type: 'application/json',
-    });
+    const file = new File([JSON.stringify({ nodes: [] })], 'wf.json', { type: 'application/json' });
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => expect(importFlow).toHaveBeenCalledWith({ nodes: [] }, 'auto'));
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('/flows/draft', {
-        state: {
-          name: 'Imported',
-          graph,
-          requireApproval: true,
-          importWarnings: ['heads up'],
-        },
+        state: { name: 'Imported', graph, requireApproval: true, importWarnings: ['heads up'] },
       })
     );
   });

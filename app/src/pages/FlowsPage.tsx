@@ -25,15 +25,18 @@ import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
-import {
-  FLOW_CANVAS_DRAFT_ROUTE,
-  type FlowCanvasDraftState,
-} from '../lib/flows/canvasDraft';
+import { FLOW_CANVAS_DRAFT_ROUTE, type FlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import { downloadFlowGraph } from '../lib/flows/exportFlow';
 import { type FlowTemplate, templateNameKey } from '../lib/flows/templates';
 import type { WorkflowGraph } from '../lib/flows/types';
 import { useT } from '../lib/i18n/I18nContext';
-import { type Flow, importFlow, listFlows, runFlow, setFlowEnabled } from '../services/api/flowsApi';
+import {
+  type Flow,
+  importFlow,
+  listFlows,
+  runFlow,
+  setFlowEnabled,
+} from '../services/api/flowsApi';
 import type { ToastNotification } from '../types/intelligence';
 
 const log = createDebug('app:flows');

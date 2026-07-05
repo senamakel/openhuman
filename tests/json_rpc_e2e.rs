@@ -12758,7 +12758,9 @@ async fn json_rpc_flows_import_native_and_n8n() {
     .await;
     let out = peel_logs_envelope(assert_no_jsonrpc_error(&imp, "flows_import native"));
     assert_eq!(
-        out.get("graph").and_then(|g| g.get("name")).and_then(Value::as_str),
+        out.get("graph")
+            .and_then(|g| g.get("name"))
+            .and_then(Value::as_str),
         Some("native-flow")
     );
     assert!(
@@ -12801,7 +12803,11 @@ async fn json_rpc_flows_import_native_and_n8n() {
             .and_then(Value::as_str)
             .map(str::to_string)
     };
-    assert_eq!(kind_of("c").as_deref(), Some("condition"), "IF maps to condition");
+    assert_eq!(
+        kind_of("c").as_deref(),
+        Some("condition"),
+        "IF maps to condition"
+    );
     assert_eq!(
         kind_of("x").as_deref(),
         Some("transform"),
@@ -12812,7 +12818,9 @@ async fn json_rpc_flows_import_native_and_n8n() {
         .and_then(Value::as_array)
         .expect("warnings");
     assert!(
-        warnings.iter().any(|w| w.as_str().is_some_and(|s| s.contains("airtable"))),
+        warnings
+            .iter()
+            .any(|w| w.as_str().is_some_and(|s| s.contains("airtable"))),
         "the unmapped node produces a warning, got: {warnings:?}"
     );
 

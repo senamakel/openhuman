@@ -87,10 +87,7 @@ vi.mock('../../../services/api/skillsApi', async () => {
   const actual = await vi.importActual<typeof import('../../../services/api/skillsApi')>(
     '../../../services/api/skillsApi'
   );
-  return {
-    ...actual,
-    skillsApi: { ...actual.skillsApi, listWorkflows: () => listWorkflows() },
-  };
+  return { ...actual, skillsApi: { ...actual.skillsApi, listWorkflows: () => listWorkflows() } };
 });
 
 describe('WorkflowsTab', () => {

@@ -120,7 +120,9 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
           sender: 'user',
           createdAt: new Date().toISOString(),
         };
-        await dispatch(addMessageLocal({ threadId: targetThreadId, message: userMessage })).unwrap();
+        await dispatch(
+          addMessageLocal({ threadId: targetThreadId, message: userMessage })
+        ).unwrap();
 
         dispatch(setToolTimelineForThread({ threadId: targetThreadId, entries: [] }));
         dispatch(beginInferenceTurn({ threadId: targetThreadId }));

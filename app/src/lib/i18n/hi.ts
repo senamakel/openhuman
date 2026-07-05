@@ -3729,7 +3729,8 @@ const messages: TranslationMap = {
   'flows.promptBar.submit': 'बनाएँ',
   'flows.promptBar.thinking': 'बनाया जा रहा है…',
   'flows.promptBar.heroTitle': 'एक वर्कफ़्लो का वर्णन करें',
-  'flows.promptBar.heroSubtitle': 'बिल्डर को बताएँ कि क्या स्वचालित करना है और उसके प्रस्ताव की समीक्षा करें।',
+  'flows.promptBar.heroSubtitle':
+    'बिल्डर को बताएँ कि क्या स्वचालित करना है और उसके प्रस्ताव की समीक्षा करें।',
   'flows.promptBar.error': 'वर्कफ़्लो बिल्डर तक नहीं पहुँच सके। कृपया फिर से प्रयास करें।',
   'flows.promptBar.offline': 'आप ऑफ़लाइन हैं। वर्कफ़्लो बनाने के लिए फिर से कनेक्ट करें।',
   'flows.copilot.open': 'सहपायलट',
@@ -3748,7 +3749,8 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'यह प्रस्ताव किसी नोड को नहीं बदलता।',
   'flows.copilot.accept': 'ड्राफ़्ट पर लागू करें',
   'flows.copilot.reject': 'रद्द करें',
-  'flows.copilot.previewHint': 'एक प्रस्तावित ड्राफ़्ट की समीक्षा हो रही है — अभी कुछ सहेजा नहीं गया।',
+  'flows.copilot.previewHint':
+    'एक प्रस्तावित ड्राफ़्ट की समीक्षा हो रही है — अभी कुछ सहेजा नहीं गया।',
   'flows.copilot.repairDisplay': 'एक रन विफल हुआ; उसे देखें और सुधार सुझाएँ।',
   'flows.list.view': 'वर्कफ़्लो देखें',
   'flows.list.export': 'निर्यात',

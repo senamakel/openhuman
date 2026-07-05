@@ -67,7 +67,14 @@ const META = { schema_version: 1, id: 'wf_1', name: 'My flow' } as const;
 
 function renderCanvas(props: Partial<React.ComponentProps<typeof FlowCanvas>> = {}) {
   return render(
-    <FlowCanvas editable nodes={[triggerNode()]} edges={[]} meta={META} onSave={vi.fn()} {...props} />
+    <FlowCanvas
+      editable
+      nodes={[triggerNode()]}
+      edges={[]}
+      meta={META}
+      onSave={vi.fn()}
+      {...props}
+    />
   );
 }
 
@@ -90,7 +97,9 @@ describe('EditableFlowCanvas — live run overlay', () => {
     const { container } = renderCanvas({ activeRunId: 'run_1' });
 
     // The canvas subscribed to both event aliases for the active run.
-    await waitFor(() => expect(socketOn).toHaveBeenCalledWith('flow:run_progress', expect.any(Function)));
+    await waitFor(() =>
+      expect(socketOn).toHaveBeenCalledWith('flow:run_progress', expect.any(Function))
+    );
     expect(socketOn).toHaveBeenCalledWith('flow_run_progress', expect.any(Function));
 
     // No event yet → no run class.

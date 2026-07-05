@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkflowGraph, WorkflowNode } from '../../lib/flows/types';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
+import WorkflowCopilotPanel from './WorkflowCopilotPanel';
 
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
 
@@ -13,11 +14,7 @@ const hookState = vi.hoisted(() => ({
   send: vi.fn(),
   clearProposal: vi.fn(),
 }));
-vi.mock('../../hooks/useWorkflowBuilderChat', () => ({
-  useWorkflowBuilderChat: () => hookState,
-}));
-
-import WorkflowCopilotPanel from './WorkflowCopilotPanel';
+vi.mock('../../hooks/useWorkflowBuilderChat', () => ({ useWorkflowBuilderChat: () => hookState }));
 
 function node(id: string): WorkflowNode {
   return { id, kind: 'agent', name: id, config: {}, ports: [] };

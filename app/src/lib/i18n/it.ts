@@ -3740,7 +3740,7 @@ const messages: TranslationMap = {
   'flowRuns.inspector.port': 'Porta',
   'flowRuns.inspector.loading': 'Caricamento esecuzione…',
   'flowRuns.inspector.loadError': 'Impossibile caricare questa esecuzione',
-  'flowRuns.inspector.fixWithAgent': 'Correggi con l\'agente',
+  'flowRuns.inspector.fixWithAgent': "Correggi con l'agente",
   'flowRuns.inspector.dataTable': 'Tabella',
   'flowRuns.inspector.dataJson': 'JSON',
   'flowRuns.inspector.dataViewLabel': 'Vista di output',
@@ -3787,7 +3787,8 @@ const messages: TranslationMap = {
   'flows.promptBar.submit': 'Crea',
   'flows.promptBar.thinking': 'Creazione…',
   'flows.promptBar.heroTitle': 'Descrivi un flusso di lavoro',
-  'flows.promptBar.heroSubtitle': 'Indica al generatore cosa automatizzare ed esamina la sua proposta.',
+  'flows.promptBar.heroSubtitle':
+    'Indica al generatore cosa automatizzare ed esamina la sua proposta.',
   'flows.promptBar.error': 'Impossibile raggiungere il generatore di flussi. Riprova.',
   'flows.promptBar.offline': 'Sei offline. Riconnettiti per creare un flusso.',
   'flows.copilot.open': 'Copilota',
@@ -3799,7 +3800,8 @@ const messages: TranslationMap = {
   'flows.copilot.thinking': 'Sto pensando…',
   'flows.copilot.error': 'Impossibile raggiungere il generatore di flussi. Riprova.',
   'flows.copilot.offline': 'Sei offline. Riconnettiti per usare il copilota.',
-  'flows.copilot.emptyState': 'Descrivi una modifica a questo flusso e il generatore proporrà un aggiornamento.',
+  'flows.copilot.emptyState':
+    'Descrivi una modifica a questo flusso e il generatore proporrà un aggiornamento.',
   'flows.copilot.proposalTitle': 'Modifiche proposte',
   'flows.copilot.added': '{count} aggiunti',
   'flows.copilot.removed': '{count} rimossi',
@@ -3813,7 +3815,8 @@ const messages: TranslationMap = {
   'flows.list.exported': 'Flusso di lavoro esportato',
   'flows.page.import': 'Importa',
   'flows.import.invalidFile': 'Questo file non è un JSON di flusso di lavoro valido.',
-  'flows.import.error': 'Impossibile importare questo flusso di lavoro. Controlla il file e riprova.',
+  'flows.import.error':
+    'Impossibile importare questo flusso di lavoro. Controlla il file e riprova.',
   'flows.import.warningTitle': 'Avviso di importazione',
   'flows.canvas.title': 'Flusso di lavoro',
   'flows.canvas.loading': 'Caricamento flusso di lavoro…',

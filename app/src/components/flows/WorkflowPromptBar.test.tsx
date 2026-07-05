@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
+import WorkflowPromptBar from './WorkflowPromptBar';
 
 // Echo i18n keys.
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
@@ -23,11 +24,7 @@ const hookState = vi.hoisted(() => ({
   send: vi.fn(),
   clearProposal: vi.fn(),
 }));
-vi.mock('../../hooks/useWorkflowBuilderChat', () => ({
-  useWorkflowBuilderChat: () => hookState,
-}));
-
-import WorkflowPromptBar from './WorkflowPromptBar';
+vi.mock('../../hooks/useWorkflowBuilderChat', () => ({ useWorkflowBuilderChat: () => hookState }));
 
 describe('WorkflowPromptBar', () => {
   beforeEach(() => {
@@ -76,6 +73,8 @@ describe('WorkflowPromptBar', () => {
   it('shows the offline hint when the hook reports offline', () => {
     hookState.error = 'offline';
     render(<WorkflowPromptBar />);
-    expect(screen.getByTestId('workflow-prompt-error')).toHaveTextContent('flows.promptBar.offline');
+    expect(screen.getByTestId('workflow-prompt-error')).toHaveTextContent(
+      'flows.promptBar.offline'
+    );
   });
 });

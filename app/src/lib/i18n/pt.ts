@@ -3800,7 +3800,8 @@ const messages: TranslationMap = {
   'flows.copilot.thinking': 'Pensando…',
   'flows.copilot.error': 'Não foi possível contatar o gerador de fluxos. Tente novamente.',
   'flows.copilot.offline': 'Você está offline. Reconecte-se para usar o copiloto.',
-  'flows.copilot.emptyState': 'Descreva uma alteração neste fluxo e o gerador proporá uma atualização.',
+  'flows.copilot.emptyState':
+    'Descreva uma alteração neste fluxo e o gerador proporá uma atualização.',
   'flows.copilot.proposalTitle': 'Alterações propostas',
   'flows.copilot.added': '{count} adicionados',
   'flows.copilot.removed': '{count} removidos',
@@ -3814,7 +3815,8 @@ const messages: TranslationMap = {
   'flows.list.exported': 'Fluxo de trabalho exportado',
   'flows.page.import': 'Importar',
   'flows.import.invalidFile': 'Esse arquivo não é um JSON de fluxo de trabalho válido.',
-  'flows.import.error': 'Não foi possível importar este fluxo de trabalho. Verifique o arquivo e tente novamente.',
+  'flows.import.error':
+    'Não foi possível importar este fluxo de trabalho. Verifique o arquivo e tente novamente.',
   'flows.import.warningTitle': 'Aviso de importação',
   'flows.canvas.title': 'Fluxo de trabalho',
   'flows.canvas.loading': 'Carregando fluxo de trabalho…',

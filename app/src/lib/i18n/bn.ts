@@ -3729,7 +3729,8 @@ const messages: TranslationMap = {
   'flows.promptBar.submit': 'তৈরি করুন',
   'flows.promptBar.thinking': 'তৈরি হচ্ছে…',
   'flows.promptBar.heroTitle': 'একটি ওয়ার্কফ্লো বর্ণনা করুন',
-  'flows.promptBar.heroSubtitle': 'বিল্ডারকে বলুন কী স্বয়ংক্রিয় করতে হবে এবং তার প্রস্তাব পর্যালোচনা করুন।',
+  'flows.promptBar.heroSubtitle':
+    'বিল্ডারকে বলুন কী স্বয়ংক্রিয় করতে হবে এবং তার প্রস্তাব পর্যালোচনা করুন।',
   'flows.promptBar.error': 'ওয়ার্কফ্লো বিল্ডারে পৌঁছানো যায়নি। আবার চেষ্টা করুন।',
   'flows.promptBar.offline': 'আপনি অফলাইন। একটি ওয়ার্কফ্লো তৈরি করতে আবার সংযোগ করুন।',
   'flows.copilot.open': 'কো-পাইলট',
@@ -3741,14 +3742,16 @@ const messages: TranslationMap = {
   'flows.copilot.thinking': 'ভাবছে…',
   'flows.copilot.error': 'ওয়ার্কফ্লো বিল্ডারে পৌঁছানো যায়নি। আবার চেষ্টা করুন।',
   'flows.copilot.offline': 'আপনি অফলাইন। কো-পাইলট ব্যবহার করতে আবার সংযোগ করুন।',
-  'flows.copilot.emptyState': 'এই ওয়ার্কফ্লোতে একটি পরিবর্তন বর্ণনা করুন এবং বিল্ডার একটি আপডেট প্রস্তাব করবে।',
+  'flows.copilot.emptyState':
+    'এই ওয়ার্কফ্লোতে একটি পরিবর্তন বর্ণনা করুন এবং বিল্ডার একটি আপডেট প্রস্তাব করবে।',
   'flows.copilot.proposalTitle': 'প্রস্তাবিত পরিবর্তন',
   'flows.copilot.added': '{count}টি যোগ হয়েছে',
   'flows.copilot.removed': '{count}টি সরানো হয়েছে',
   'flows.copilot.noChanges': 'এই প্রস্তাব কোনো নোড পরিবর্তন করে না।',
   'flows.copilot.accept': 'খসড়ায় প্রয়োগ করুন',
   'flows.copilot.reject': 'বাতিল করুন',
-  'flows.copilot.previewHint': 'একটি প্রস্তাবিত খসড়া পর্যালোচনা হচ্ছে — এখনও কিছু সংরক্ষণ করা হয়নি।',
+  'flows.copilot.previewHint':
+    'একটি প্রস্তাবিত খসড়া পর্যালোচনা হচ্ছে — এখনও কিছু সংরক্ষণ করা হয়নি।',
   'flows.copilot.repairDisplay': 'একটি রান ব্যর্থ হয়েছে; এটি দেখুন এবং একটি সমাধান প্রস্তাব করুন।',
   'flows.list.view': 'ওয়ার্কফ্লো দেখুন',
   'flows.list.export': 'রপ্তানি',

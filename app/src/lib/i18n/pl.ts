@@ -3774,7 +3774,8 @@ const messages: TranslationMap = {
   'flows.promptBar.submit': 'Utwórz',
   'flows.promptBar.thinking': 'Tworzenie…',
   'flows.promptBar.heroTitle': 'Opisz przepływ pracy',
-  'flows.promptBar.heroSubtitle': 'Powiedz kreatorowi, co zautomatyzować, i sprawdź jego propozycję.',
+  'flows.promptBar.heroSubtitle':
+    'Powiedz kreatorowi, co zautomatyzować, i sprawdź jego propozycję.',
   'flows.promptBar.error': 'Nie można połączyć się z kreatorem przepływów. Spróbuj ponownie.',
   'flows.promptBar.offline': 'Jesteś offline. Połącz się ponownie, aby utworzyć przepływ.',
   'flows.copilot.open': 'Kopilot',
@@ -3793,14 +3794,17 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'Ta propozycja nie zmienia żadnego węzła.',
   'flows.copilot.accept': 'Zastosuj do wersji roboczej',
   'flows.copilot.reject': 'Odrzuć',
-  'flows.copilot.previewHint': 'Przeglądasz proponowaną wersję roboczą — nic nie zostało jeszcze zapisane.',
-  'flows.copilot.repairDisplay': 'Uruchomienie nie powiodło się; przejrzyj je i zaproponuj poprawkę.',
+  'flows.copilot.previewHint':
+    'Przeglądasz proponowaną wersję roboczą — nic nie zostało jeszcze zapisane.',
+  'flows.copilot.repairDisplay':
+    'Uruchomienie nie powiodło się; przejrzyj je i zaproponuj poprawkę.',
   'flows.list.view': 'Wyświetl przepływ pracy',
   'flows.list.export': 'Eksportuj',
   'flows.list.exported': 'Wyeksportowano przepływ pracy',
   'flows.page.import': 'Importuj',
   'flows.import.invalidFile': 'Ten plik nie jest prawidłowym plikiem JSON przepływu pracy.',
-  'flows.import.error': 'Nie udało się zaimportować tego przepływu pracy. Sprawdź plik i spróbuj ponownie.',
+  'flows.import.error':
+    'Nie udało się zaimportować tego przepływu pracy. Sprawdź plik i spróbuj ponownie.',
   'flows.import.warningTitle': 'Ostrzeżenie importu',
   'flows.canvas.title': 'Przepływ pracy',
   'flows.canvas.loading': 'Wczytywanie przepływu pracy…',

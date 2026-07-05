@@ -119,7 +119,9 @@ async fn get_flow_unknown_id_is_error() {
 
     let result = tool.execute(json!({ "id": "nope" })).await.unwrap();
     assert!(result.is_error);
-    assert!(result.output().to_lowercase().contains("not found") || result.output().contains("nope"));
+    assert!(
+        result.output().to_lowercase().contains("not found") || result.output().contains("nope")
+    );
 }
 
 #[tokio::test]
@@ -155,7 +157,11 @@ fn search_curated_catalog_finds_real_gmail_slug() {
     assert!(!results.is_empty(), "gmail catalog should have entries");
     for r in &results {
         assert_eq!(r["toolkit"], "gmail");
-        assert!(r["slug"].as_str().unwrap().to_ascii_uppercase().starts_with("GMAIL"));
+        assert!(r["slug"]
+            .as_str()
+            .unwrap()
+            .to_ascii_uppercase()
+            .starts_with("GMAIL"));
         assert!(r["scope"].is_string());
     }
 }
@@ -174,7 +180,10 @@ async fn search_tool_catalog_tool_is_read_only_and_grounds() {
     assert_eq!(tool.permission_level(), PermissionLevel::None);
     assert!(!tool.external_effect());
 
-    let result = tool.execute(json!({ "query": "send", "toolkit": "gmail" })).await.unwrap();
+    let result = tool
+        .execute(json!({ "query": "send", "toolkit": "gmail" }))
+        .await
+        .unwrap();
     assert!(!result.is_error, "{}", result.output());
     let parsed: Value = serde_json::from_str(&result.output()).unwrap();
     assert!(parsed["count"].as_u64().unwrap() >= 1);
@@ -221,7 +230,11 @@ async fn dry_run_supervised_runs_against_mock_and_labels_sandbox() {
     let parsed: Value = serde_json::from_str(&result.output()).unwrap();
     assert_eq!(parsed["sandbox"], true);
     assert_eq!(parsed["ok"], true);
-    assert!(parsed["note"].as_str().unwrap().to_lowercase().contains("sandbox"));
+    assert!(parsed["note"]
+        .as_str()
+        .unwrap()
+        .to_lowercase()
+        .contains("sandbox"));
 }
 
 #[tokio::test]

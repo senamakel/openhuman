@@ -234,12 +234,20 @@ pub fn flows_import(
 ) -> Result<RpcOutcome<crate::openhuman::flows::FlowImport>, String> {
     use crate::openhuman::flows::{n8n_import, FlowImport};
 
-    let requested = format.as_deref().unwrap_or("auto").trim().to_ascii_lowercase();
+    let requested = format
+        .as_deref()
+        .unwrap_or("auto")
+        .trim()
+        .to_ascii_lowercase();
     let is_n8n = match requested.as_str() {
         "n8n" => true,
         "native" | "tinyflows" => false,
         "auto" | "" => n8n_import::looks_like_n8n(&graph_json),
-        other => return Err(format!("unknown import format '{other}' (expected 'native' or 'n8n')")),
+        other => {
+            return Err(format!(
+                "unknown import format '{other}' (expected 'native' or 'n8n')"
+            ))
+        }
     };
     tracing::debug!(
         target: "flows",

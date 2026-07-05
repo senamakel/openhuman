@@ -9,6 +9,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useFlowRunProgress } from './useFlowRunProgress';
+
 const handlers = vi.hoisted(() => new Map<string, Set<(data: unknown) => void>>());
 const on = vi.hoisted(() =>
   vi.fn((event: string, cb: (data: unknown) => void) => {
@@ -23,8 +25,6 @@ const off = vi.hoisted(() =>
   })
 );
 vi.mock('../services/socketService', () => ({ socketService: { on, off } }));
-
-import { useFlowRunProgress } from './useFlowRunProgress';
 
 function emit(payload: unknown) {
   act(() => {

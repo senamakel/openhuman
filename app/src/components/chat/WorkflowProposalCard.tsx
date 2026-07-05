@@ -2,10 +2,7 @@ import debug from 'debug';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import {
-  FLOW_CANVAS_DRAFT_ROUTE,
-  type FlowCanvasDraftState,
-} from '../../lib/flows/canvasDraft';
+import { FLOW_CANVAS_DRAFT_ROUTE, type FlowCanvasDraftState } from '../../lib/flows/canvasDraft';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import { createFlow } from '../../services/api/flowsApi';

@@ -35,7 +35,7 @@ import '@xyflow/react/dist/style.css';
 import createDebug from 'debug';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFlowRunProgress, FLOW_RUN_NODE_STATUS_CLASS } from '../../../hooks/useFlowRunProgress';
+import { FLOW_RUN_NODE_STATUS_CLASS, useFlowRunProgress } from '../../../hooks/useFlowRunProgress';
 import { erroredNodeIds } from '../../../lib/flows/flowValidation';
 import {
   createFlowNode,

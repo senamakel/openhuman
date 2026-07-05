@@ -3738,7 +3738,8 @@ const messages: TranslationMap = {
   'flows.promptBar.submit': 'Buat',
   'flows.promptBar.thinking': 'Membuat…',
   'flows.promptBar.heroTitle': 'Jelaskan sebuah alur kerja',
-  'flows.promptBar.heroSubtitle': 'Beri tahu pembuat apa yang harus diotomatiskan lalu tinjau usulannya.',
+  'flows.promptBar.heroSubtitle':
+    'Beri tahu pembuat apa yang harus diotomatiskan lalu tinjau usulannya.',
   'flows.promptBar.error': 'Tidak dapat menghubungi pembuat alur kerja. Silakan coba lagi.',
   'flows.promptBar.offline': 'Anda sedang luring. Sambungkan kembali untuk membuat alur kerja.',
   'flows.copilot.open': 'Kopilot',
@@ -3750,7 +3751,8 @@ const messages: TranslationMap = {
   'flows.copilot.thinking': 'Sedang berpikir…',
   'flows.copilot.error': 'Tidak dapat menghubungi pembuat alur kerja. Silakan coba lagi.',
   'flows.copilot.offline': 'Anda sedang luring. Sambungkan kembali untuk memakai kopilot.',
-  'flows.copilot.emptyState': 'Jelaskan perubahan pada alur kerja ini dan pembuat akan mengusulkan pembaruan.',
+  'flows.copilot.emptyState':
+    'Jelaskan perubahan pada alur kerja ini dan pembuat akan mengusulkan pembaruan.',
   'flows.copilot.proposalTitle': 'Usulan perubahan',
   'flows.copilot.added': '{count} ditambahkan',
   'flows.copilot.removed': '{count} dihapus',

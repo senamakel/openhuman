@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { WorkflowGraph } from './types';
-import {
-  buildCreatePrompt,
-  buildRepairPrompt,
-  buildRevisePrompt,
-} from './workflowBuilderPrompt';
+import { buildCreatePrompt, buildRepairPrompt, buildRevisePrompt } from './workflowBuilderPrompt';
 
 const graph: WorkflowGraph = {
   schema_version: 1,

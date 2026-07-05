@@ -733,7 +733,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             tool: event.tool_name,
             name: mainProposal.name,
           });
-          dispatch(setWorkflowProposalForThread({ threadId: event.thread_id, proposal: mainProposal }));
+          dispatch(
+            setWorkflowProposalForThread({ threadId: event.thread_id, proposal: mainProposal })
+          );
         }
 
         const current = store.getState().chatRuntime.inferenceStatusByThread[event.thread_id];
@@ -979,10 +981,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             name: subagentProposal.name,
           });
           dispatch(
-            setWorkflowProposalForThread({
-              threadId: event.thread_id,
-              proposal: subagentProposal,
-            })
+            setWorkflowProposalForThread({ threadId: event.thread_id, proposal: subagentProposal })
           );
         }
       },

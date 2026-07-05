@@ -50,7 +50,11 @@ export function describeNode(
     }
     case 'tool_call': {
       const slug = str(config, 'slug');
-      return slug ? `Runs ${slug}` : 'Runs a tool (pick one)';
+      if (str(config, 'provider') === 'openhuman' || slug.startsWith('oh:')) {
+        const name = slug.replace(/^oh:/, '');
+        return name ? `Runs ${name}` : 'Runs an OpenHuman tool (pick one)';
+      }
+      return slug ? `Runs ${slug}` : 'Runs an app action (pick one)';
     }
     case 'http_request': {
       const method = str(config, 'method') || 'GET';

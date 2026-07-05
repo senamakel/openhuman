@@ -542,9 +542,51 @@ pub struct OpenHumanTools {
     pub config: Arc<Config>,
 }
 
+/// Prefix marking a `tool_call` node's slug as a NATIVE OpenHuman tool (the
+/// "Tool" node) rather than a Composio action (the "App action" node). e.g.
+/// `oh:web_search`. Native tools run through the same agent tool registry the
+/// assistant uses (`runtime_node::ops::execute_tool`), so a flow can call
+/// search / media generation / file / shell / etc. — the full toolset.
+pub(crate) const NATIVE_TOOL_PREFIX: &str = "oh:";
+
 #[async_trait]
 impl ToolInvoker for OpenHumanTools {
     async fn invoke(&self, slug: &str, args: Value, conn: Option<&str>) -> Result<Value> {
+        // Native OpenHuman tool path (the "Tool" node): `oh:<tool_name>`. Bypasses
+        // the Composio curation gate (it isn't a Composio slug) but still runs
+        // through the approval gate, then dispatches to the agent tool registry.
+        if let Some(tool_name) = slug.strip_prefix(NATIVE_TOOL_PREFIX) {
+            let tool_name = tool_name.trim();
+            if tool_name.is_empty() {
+                return Err(EngineError::Capability(
+                    "tool_call node: native tool slug is empty (expected `oh:<tool_name>`)"
+                        .to_string(),
+                ));
+            }
+            // Approval gate — same contract as the Composio path below.
+            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+                let summary = crate::openhuman::approval::summarize_action(tool_name, &args);
+                let redacted = crate::openhuman::approval::redact_args(&args);
+                let (outcome, _request_id) =
+                    gate.intercept_audited(tool_name, &summary, redacted).await;
+                if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
+                    return Err(EngineError::Capability(reason));
+                }
+            }
+            tracing::debug!(target: "flows", %tool_name, "[flows] tool_call: dispatching NATIVE OpenHuman tool");
+            let outcome = crate::openhuman::runtime_node::ops::execute_tool(
+                &self.config,
+                tool_name,
+                args,
+                false,
+            )
+            .await
+            .map_err(EngineError::Capability)?;
+            return serde_json::to_value(&outcome.result).map_err(|e| {
+                EngineError::Capability(format!("could not serialize tool result: {e}"))
+            });
+        }
+
         // Curation + scope gate — hard allowlist (see [`is_curated_flow_tool`]'s
         // doc for why this differs from the general agent tool-call path).
         // Runs before anything else — a rejected slug never reaches the

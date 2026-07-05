@@ -74,6 +74,65 @@ export const NODE_KINDS_BY_GROUP: Record<NodeGroup, NodeKind[]> = {
 };
 
 /**
+ * One palette entry. Usually 1:1 with a `NodeKind`, but `tool_call` splits into
+ * TWO entries — an "App action" (Composio OAuth) node and a "Tool" (native
+ * OpenHuman) node — distinguished by the `preset` config (`provider`) merged
+ * onto the new node. `key` is the palette/testid id; `labelKey` its i18n label.
+ */
+export interface PaletteEntry {
+  key: string;
+  kind: NodeKind;
+  group: NodeGroup;
+  emoji: string;
+  color: NodeColor;
+  labelKey: string;
+  /** Default config merged onto a node created from this entry. */
+  preset?: Record<string, unknown>;
+}
+
+export const PALETTE_ENTRIES: PaletteEntry[] = NODE_KINDS.flatMap((kind): PaletteEntry[] => {
+  const meta = NODE_KIND_META[kind];
+  if (kind === 'tool_call') {
+    return [
+      {
+        key: 'tool_call',
+        kind: 'tool_call',
+        group: 'actions',
+        emoji: '🔌',
+        color: 'amber',
+        labelKey: 'flows.palette.appAction',
+        preset: { provider: 'composio' },
+      },
+      {
+        key: 'oh_tool',
+        kind: 'tool_call',
+        group: 'actions',
+        emoji: '🛠️',
+        color: 'primary',
+        labelKey: 'flows.palette.ohTool',
+        preset: { provider: 'openhuman' },
+      },
+    ];
+  }
+  return [
+    {
+      key: kind,
+      kind,
+      group: meta.group,
+      emoji: meta.emoji,
+      color: meta.color,
+      labelKey: `flows.nodeKind.${kind}`,
+    },
+  ];
+});
+
+export const PALETTE_ENTRIES_BY_GROUP: Record<NodeGroup, PaletteEntry[]> = {
+  triggers: PALETTE_ENTRIES.filter(e => e.group === 'triggers'),
+  actions: PALETTE_ENTRIES.filter(e => e.group === 'actions'),
+  logic: PALETTE_ENTRIES.filter(e => e.group === 'logic'),
+};
+
+/**
  * Fallback for any `kind` outside {@link NODE_KIND_META} — a saved graph is
  * `unknown` on the wire (cast in `FlowCanvasPage.tsx`), so a future 13th
  * tinyflows kind, or any other value the backend ever emits, can reach the

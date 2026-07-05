@@ -60,7 +60,14 @@ function portPillClass(port: string): string {
 function FlowNodeComponent({ id, data, selected }: NodeProps<FlowNode>) {
   const { t } = useT();
   const actions = useCanvasActions();
-  const meta = nodeKindMeta(data.kind);
+  const baseMeta = nodeKindMeta(data.kind);
+  // A native "Tool" node (provider=openhuman / oh: slug) reads differently from
+  // the Composio "App action" node even though both are `tool_call`.
+  const isNativeTool =
+    data.kind === 'tool_call' &&
+    (data.config?.provider === 'openhuman' ||
+      (typeof data.config?.slug === 'string' && data.config.slug.startsWith('oh:')));
+  const meta = isNativeTool ? { ...baseMeta, emoji: '🛠️', color: 'primary' as const } : baseMeta;
   const colors = COLOR_CLASSES[meta.color];
   const kindLabel = t(`flows.nodeKind.${data.kind}`, data.kind);
   const summary = describeNode(data.kind, data.config ?? {}, data.outputPorts);

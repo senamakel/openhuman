@@ -46,6 +46,7 @@ import {
   type WorkflowGraphMeta,
   xyflowToWorkflowGraph,
 } from '../../../lib/flows/graphAdapter';
+import { PALETTE_ENTRIES, type PaletteEntry } from '../../../lib/flows/nodeKindMeta';
 import type { NodeKind, WorkflowGraph } from '../../../lib/flows/types';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { type FlowConnection, listFlowConnections } from '../../../services/api/flowsApi';
@@ -433,21 +434,26 @@ function EditableFlowCanvas({
   );
 
   const addNode = useCallback(
-    (kind: NodeKind, position: { x: number; y: number }) => {
-      const id = nextNodeId(kind);
-      const name = t(`flows.nodeKind.${kind}`, kind);
-      const node = createFlowNode(kind, position, id, name);
-      log('addNode: kind=%s id=%s at %o', kind, id, position);
+    (entry: PaletteEntry, position: { x: number; y: number }) => {
+      const id = nextNodeId(entry.kind);
+      const name = t(entry.labelKey, entry.kind);
+      const node = createFlowNode(entry.kind, position, id, name);
+      // Merge the palette entry's preset config (e.g. tool_call provider) so the
+      // two tool nodes (App action / Tool) start in the right mode.
+      const withPreset = entry.preset
+        ? { ...node, data: { ...node.data, config: { ...node.data.config, ...entry.preset } } }
+        : node;
+      log('addNode: key=%s kind=%s id=%s at %o', entry.key, entry.kind, id, position);
       pushHistory('structural');
-      setNodes(current => [...current, node]);
+      setNodes(current => [...current, withPreset]);
     },
     [nextNodeId, setNodes, t, pushHistory]
   );
 
   const handlePaletteAdd = useCallback(
-    (kind: NodeKind) => {
+    (entry: PaletteEntry) => {
       const step = addCounter.current * CLICK_ADD_STEP;
-      addNode(kind, { x: CLICK_ADD_ORIGIN.x + step, y: CLICK_ADD_ORIGIN.y + step });
+      addNode(entry, { x: CLICK_ADD_ORIGIN.x + step, y: CLICK_ADD_ORIGIN.y + step });
     },
     [addNode]
   );
@@ -455,13 +461,14 @@ function EditableFlowCanvas({
   const handleDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      const kind = event.dataTransfer.getData(PALETTE_DND_MIME) as NodeKind;
-      if (!kind) return;
+      const key = event.dataTransfer.getData(PALETTE_DND_MIME);
+      const entry = PALETTE_ENTRIES.find(e => e.key === key);
+      if (!entry) return;
       const instance = rfRef.current;
       const position = instance
         ? instance.screenToFlowPosition({ x: event.clientX, y: event.clientY })
         : { ...CLICK_ADD_ORIGIN };
-      addNode(kind, position);
+      addNode(entry, position);
     },
     [addNode]
   );

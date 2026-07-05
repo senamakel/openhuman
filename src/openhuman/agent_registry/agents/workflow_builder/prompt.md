@@ -106,9 +106,15 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
 
 1. **`trigger`** — the entry point (`config.trigger_kind`, see triggers below).
 2. **`agent`** — an LLM step. `config.prompt` (may use `=` expressions).
-3. **`tool_call`** — a Composio action. `config.slug` **REQUIRED** (from
-   `search_tool_catalog`) + `config.args`; `config.connection_ref` for the
-   account.
+3. **`tool_call`** — an action. Two flavours by `config.slug`:
+   - **Composio app action** — `config.slug` = a real action slug (from
+     `search_tool_catalog`, e.g. `GMAIL_SEND_EMAIL`) + `config.connection_ref`
+     for the account. Wire every REQUIRED arg in `config.args` — e.g. an email
+     send needs `to`/`recipient_email`, usually an `=`-expression pulling the
+     recipient from an upstream node's output.
+   - **Native OpenHuman tool** — `config.slug` = `oh:<tool_name>` (e.g.
+     `oh:web_search`) to call one of the assistant's own built-in tools (search,
+     media generation, files, …). No `connection_ref`. Args go in `config.args`.
 4. **`http_request`** — `config.method` + `config.url`, optional `headers` /
    `body`; `config.connection_ref` = an `http_cred:<name>` for auth.
 5. **`code`** — `config.language` (`"javascript"` | `"python"`) + `config.source`.

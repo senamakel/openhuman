@@ -19,6 +19,7 @@ import type { NodeKind } from '../../../../lib/flows/types';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { FlowConnection } from '../../../../services/api/flowsApi';
 import { ComposioActionField, ComposioToolkitField, ComposioTriggerField } from './composioFields';
+import { NATIVE_TOOL_PREFIX, NativeToolField } from './nativeToolFields';
 import {
   configString,
   configStringMap,
@@ -184,6 +185,32 @@ function AgentForm({ config, onChange, connections }: NodeConfigFormProps) {
 
 function ToolCallForm({ config, onChange, connections }: NodeConfigFormProps) {
   const { t } = useT();
+  const slug = configString(config, 'slug');
+  // Two flavours of tool_call: a native OpenHuman "Tool" (provider=openhuman /
+  // slug `oh:...`) vs a Composio "App action". The palette seeds `provider`.
+  const isNative =
+    configString(config, 'provider') === 'openhuman' || slug.startsWith(NATIVE_TOOL_PREFIX);
+
+  if (isNative) {
+    return (
+      <div className="space-y-3">
+        <NativeToolField
+          label={t('flows.nodeConfig.native.toolLabel')}
+          hint={t('flows.nodeConfig.native.toolHint')}
+          value={slug}
+          onChange={v => onChange({ slug: v })}
+          testId="node-config-tool-slug"
+        />
+        <JsonField
+          label={t('flows.nodeConfig.tool.argsLabel')}
+          value={config.args ?? null}
+          onChange={v => onChange({ args: v })}
+          testId="node-config-tool-args"
+        />
+      </div>
+    );
+  }
+
   // The connected account is chosen first; its toolkit scopes the action list.
   const connectionRef = configString(config, 'connection_ref');
   const toolkit = toolkitFromConnectionRef(connectionRef);

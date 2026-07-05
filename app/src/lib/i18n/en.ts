@@ -4457,6 +4457,8 @@ const en: TranslationMap = {
   'flows.palette.group.triggers': 'Triggers',
   'flows.palette.group.actions': 'Actions',
   'flows.palette.group.logic': 'Logic',
+  'flows.palette.appAction': 'App action',
+  'flows.palette.ohTool': 'Tool',
   'flows.editor.save': 'Save',
   'flows.editor.saving': 'Saving…',
   'flows.editor.run': 'Run',
@@ -4554,8 +4556,13 @@ const en: TranslationMap = {
   'flows.nodeConfig.agent.modelHints': 'Model hints',
   'flows.nodeConfig.agent.modelCustom': 'Custom model…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'e.g. gpt-4o-mini',
-  'flows.nodeConfig.tool.slugLabel': 'Tool slug',
+  'flows.nodeConfig.tool.slugLabel': 'Action',
   'flows.nodeConfig.tool.argsLabel': 'Arguments (JSON)',
+  'flows.nodeConfig.native.toolLabel': 'Tool',
+  'flows.nodeConfig.native.toolHint':
+    "One of the assistant's built-in tools (search, media, files, …).",
+  'flows.nodeConfig.native.select': 'Select a tool…',
+  'flows.nodeConfig.native.loading': 'Loading tools…',
   'flows.nodeConfig.condition.fieldLabel': 'Field',
   'flows.nodeConfig.condition.fieldHint':
     'Key on the input item to test for truthiness. Routes to true or false.',

@@ -5,12 +5,14 @@
  * "Workflow started" toast, and refetches the list, that "View runs" opens
  * `FlowRunsDrawer` for the clicked flow, that clicking a flow's name
  * navigates to its read-only Workflow Canvas (`/flows/:id`, issue B5b.1),
- * and that "New workflow" (header + empty state) navigates to Chat (no
- * canvas *builder* yet — bridges to B4's agent-proposal flow).
+ * and that "New workflow" (header + empty state) opens the Phase 4a chooser
+ * (start from scratch / template / describe), with the empty state also
+ * surfacing the Phase 4c template gallery inline.
  */
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { FLOW_TEMPLATES } from '../lib/flows/templates';
 import type { Flow } from '../services/api/flowsApi';
 import { renderWithProviders } from '../test/test-utils';
 import FlowsPage from './FlowsPage';
@@ -19,7 +21,14 @@ const listFlows = vi.hoisted(() => vi.fn());
 const setFlowEnabled = vi.hoisted(() => vi.fn());
 const runFlow = vi.hoisted(() => vi.fn());
 const listFlowRuns = vi.hoisted(() => vi.fn());
-vi.mock('../services/api/flowsApi', () => ({ listFlows, setFlowEnabled, runFlow, listFlowRuns }));
+const createFlow = vi.hoisted(() => vi.fn());
+vi.mock('../services/api/flowsApi', () => ({
+  listFlows,
+  setFlowEnabled,
+  runFlow,
+  listFlowRuns,
+  createFlow,
+}));
 
 const mockNavigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async importOriginal => {
@@ -147,7 +156,7 @@ describe('FlowsPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/flows/flow-1');
   });
 
-  it('renders a "New workflow" header button and navigates to /chat when clicked', async () => {
+  it('renders a "New workflow" header button that opens the chooser modal', async () => {
     listFlows.mockResolvedValue([makeFlow()]);
     renderWithProviders(<FlowsPage />);
 
@@ -155,16 +164,41 @@ describe('FlowsPage', () => {
     expect(newWorkflowButton).toHaveTextContent('New workflow');
     fireEvent.click(newWorkflowButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/chat');
+    expect(screen.getByTestId('new-workflow-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('new-workflow-scratch')).toBeInTheDocument();
   });
 
-  it('navigates to /chat when the empty-state "New workflow" action is clicked', async () => {
+  it('opens the chooser from the empty-state "New workflow" action', async () => {
     listFlows.mockResolvedValue([]);
     renderWithProviders(<FlowsPage />);
 
     const emptyStateButton = await screen.findByTestId('flows-empty-new-workflow');
     fireEvent.click(emptyStateButton);
 
+    expect(screen.getByTestId('new-workflow-modal')).toBeInTheDocument();
+  });
+
+  it('"describe it" in the chooser navigates to Chat', async () => {
+    listFlows.mockResolvedValue([makeFlow()]);
+    renderWithProviders(<FlowsPage />);
+
+    fireEvent.click(await screen.findByTestId('flows-new-workflow'));
+    fireEvent.click(screen.getByTestId('new-workflow-describe'));
+
     expect(mockNavigate).toHaveBeenCalledWith('/chat');
+  });
+
+  it('empty-state template gallery creates a flow and opens its canvas', async () => {
+    listFlows.mockResolvedValue([]);
+    createFlow.mockResolvedValue({ id: 'flow-created' });
+    renderWithProviders(<FlowsPage />);
+
+    await screen.findByTestId('flows-empty-templates');
+    const template = FLOW_TEMPLATES[0];
+    fireEvent.click(screen.getByTestId(`flow-template-${template.id}`));
+
+    await waitFor(() => expect(createFlow).toHaveBeenCalledTimes(1));
+    expect(createFlow.mock.calls[0][1]).toBe(template.graph);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/flows/flow-created'));
   });
 });

@@ -160,10 +160,10 @@ copies):
 
 - **Partly landed:** the portable `controllers/schemas_tests.rs` schema-catalog
   assertions, pure allowlist/key helper tests, catalog/request-shape halves of
-  `controllers/ops_tests.rs`, and backend-agnostic default-channel validation
-  now live in tinychannels. This repo keeps handler parity, adapter conversion,
-  params, legacy envelope helper tests, and app-side persistence/REST wiring
-  tests.
+  `controllers/ops_tests.rs`, backend-agnostic default-channel validation, and
+  config-backed channel status detection now live in tinychannels. This repo
+  keeps handler parity, adapter conversion, params, legacy envelope helper
+  tests, and app-side persistence/REST wiring tests.
 - **Still migrate to tinychannels:** any remaining backend-agnostic assertions
   from `controllers/ops_tests.rs`, rewritten against a mock `ChannelBackend`,
   plus the already-mirrored suites listed in Step 1.

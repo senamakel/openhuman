@@ -13,8 +13,6 @@ pub(crate) use crate::openhuman::channels::controllers::ChannelAuthMode;
 #[cfg(test)]
 pub(crate) use crate::openhuman::config::Config;
 #[cfg(test)]
-pub(crate) use connect::channel_config_connected;
-#[cfg(test)]
 pub(crate) use connect::merge_listener_health;
 
 // Re-export public ops functions.

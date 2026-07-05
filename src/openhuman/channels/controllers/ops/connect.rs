@@ -19,7 +19,8 @@ use super::yuanbao::{
     build_effective_yuanbao_config, require_yuanbao_field, verify_yuanbao_credentials,
 };
 pub(crate) use tinychannels::controllers::{
-    channel_credential_provider as credential_provider, parse_allowed_users,
+    channel_config_connected, channel_credential_provider as credential_provider,
+    parse_allowed_users,
 };
 
 /// Merge a channel's live supervised-listener health into its credential/config
@@ -47,32 +48,6 @@ pub(crate) fn merge_listener_health(
         Some("error") => (false, health_last_error.map(str::to_string)),
         Some("ok") => (true, None),
         _ => (presence_connected, None),
-    }
-}
-
-pub(crate) fn channel_config_connected(
-    config: &Config,
-    channel_id: &str,
-    mode: ChannelAuthMode,
-) -> bool {
-    let channels = &config.channels_config;
-    match (channel_id, mode) {
-        ("telegram", ChannelAuthMode::BotToken) => channels.telegram.is_some(),
-        ("discord", ChannelAuthMode::BotToken) => channels.discord.is_some(),
-        ("slack", _) => channels.slack.is_some(),
-        ("mattermost", _) => channels.mattermost.is_some(),
-        ("imessage", ChannelAuthMode::ManagedDm) => channels.imessage.is_some(),
-        ("matrix", _) => channels.matrix.is_some(),
-        ("signal", _) => channels.signal.is_some(),
-        ("whatsapp", _) => channels.whatsapp.is_some(),
-        ("linq", _) => channels.linq.is_some(),
-        ("email", _) => channels.email.is_some(),
-        ("irc", _) => channels.irc.is_some(),
-        ("lark", _) => channels.lark.is_some(),
-        ("dingtalk", _) => channels.dingtalk.is_some(),
-        ("qq", _) => channels.qq.is_some(),
-        ("yuanbao", ChannelAuthMode::ApiKey) => channels.yuanbao.is_some(),
-        _ => false,
     }
 }
 
@@ -721,7 +696,7 @@ pub async fn channel_status(
         for spec in &def.auth_modes {
             let provider_key = credential_provider(def.id, spec.mode);
             let has_creds = stored_providers.iter().any(|p| p == &provider_key);
-            let has_config = channel_config_connected(config, def.id, spec.mode);
+            let has_config = channel_config_connected(&config.channels_config, def.id, spec.mode);
             let presence_connected = has_creds || has_config;
             let (connected, error) = merge_listener_health(
                 presence_connected,

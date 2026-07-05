@@ -26,29 +26,31 @@ import {
   type Connection,
   Controls,
   MiniMap,
-  type ReactFlowInstance,
   ReactFlow,
+  type ReactFlowInstance,
   useEdgesState,
   useNodesState,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import createDebug from 'debug';
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   createFlowNode,
+  FLOW_NODE_TYPE,
   type FlowEdge,
   type FlowNode,
-  FLOW_NODE_TYPE,
   isValidFlowConnection,
   type WorkflowGraphMeta,
   xyflowToWorkflowGraph,
 } from '../../../lib/flows/graphAdapter';
 import type { NodeKind, WorkflowGraph } from '../../../lib/flows/types';
 import { useT } from '../../../lib/i18n/I18nContext';
+import { type FlowConnection, listFlowConnections } from '../../../services/api/flowsApi';
 import Button from '../../ui/Button';
-import FlowNodeComponent from './FlowNodeComponent';
 import './flowCanvasStyles.css';
+import FlowNodeComponent from './FlowNodeComponent';
+import NodeConfigDrawer, { type NodeConfigPatch } from './nodeConfig/NodeConfigDrawer';
 import NodePalette, { PALETTE_DND_MIME } from './NodePalette';
 
 const log = createDebug('app:flows:canvas:edit');
@@ -89,6 +91,31 @@ function EditableFlowCanvas({
   const rfRef = useRef<ReactFlowInstance<FlowNode, FlowEdge> | null>(null);
   const addCounter = useRef(0);
   const [selectionCount, setSelectionCount] = useState(0);
+  // Id of the single selected node whose config the drawer edits (`null` when
+  // zero or multiple nodes — or any edge — are selected).
+  const [configNodeId, setConfigNodeId] = useState<string | null>(null);
+  const [connections, setConnections] = useState<FlowConnection[]>([]);
+
+  // Load the secret-free credential refs once for the node-config credential
+  // picker (http_request / tool_call). Guarded: outside Tauri (or if the RPC
+  // fails) the picker just shows its empty state rather than throwing.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await listFlowConnections();
+        if (cancelled) return;
+        log('connections loaded: count=%d', list.length);
+        setConnections(list);
+      } catch (err) {
+        if (cancelled) return;
+        log('connections load failed (non-fatal): %o', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const nextNodeId = useCallback((kind: NodeKind): string => {
     // Prefix keeps palette-added ids from ever colliding with loaded graph ids
@@ -182,9 +209,58 @@ function EditableFlowCanvas({
   const onSelectionChange = useCallback(
     ({ nodes: selNodes, edges: selEdges }: { nodes: FlowNode[]; edges: FlowEdge[] }) => {
       setSelectionCount(selNodes.length + selEdges.length);
+      // Open the config drawer only for an unambiguous single-node selection;
+      // any edge in the selection, or 0/2+ nodes, closes it.
+      const nextId = selEdges.length === 0 && selNodes.length === 1 ? selNodes[0].id : null;
+      log(
+        'selectionChange: nodes=%d edges=%d configNode=%s',
+        selNodes.length,
+        selEdges.length,
+        nextId ?? 'none'
+      );
+      setConfigNodeId(nextId);
     },
     []
   );
+
+  // Apply a name/config edit from the drawer to the live node state (controlled).
+  const updateNode = useCallback(
+    (nodeId: string, patch: NodeConfigPatch) => {
+      log(
+        'updateNode: id=%s name=%s config=%s',
+        nodeId,
+        patch.name ?? '(unchanged)',
+        patch.config ? 'present' : '(unchanged)'
+      );
+      setNodes(current =>
+        current.map(n =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  ...(patch.name !== undefined ? { name: patch.name } : {}),
+                  ...(patch.config !== undefined ? { config: patch.config } : {}),
+                },
+              }
+            : n
+        )
+      );
+    },
+    [setNodes]
+  );
+
+  // Close the drawer AND clear the selection, so re-clicking the same node
+  // re-fires `onSelectionChange` and reopens it.
+  const handleCloseConfig = useCallback(() => {
+    log('closeConfig: deselecting all nodes');
+    setConfigNodeId(null);
+    setNodes(current =>
+      current.some(n => n.selected) ? current.map(n => ({ ...n, selected: false })) : current
+    );
+  }, [setNodes]);
+
+  const configNode = configNodeId ? (nodes.find(n => n.id === configNodeId) ?? null) : null;
 
   return (
     <div
@@ -243,6 +319,13 @@ function EditableFlowCanvas({
         <MiniMap pannable zoomable />
         <Controls showInteractive={false} />
       </ReactFlow>
+
+      <NodeConfigDrawer
+        node={configNode}
+        onClose={handleCloseConfig}
+        onChange={updateNode}
+        connections={connections}
+      />
     </div>
   );
 }

@@ -23,7 +23,6 @@
 //! init failures for 30 s so a broken install does not busy-loop.
 
 use anyhow::{Context, Result};
-use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use std::collections::{HashMap, HashSet};
 #[cfg(test)]
@@ -396,43 +395,7 @@ CREATE INDEX IF NOT EXISTS idx_mcp_writes_tool
 /// are replaced, making the operation idempotent for re-ingest of the same
 /// raw source.
 pub fn upsert_chunks(config: &Config, chunks: &[Chunk]) -> Result<usize> {
-    if chunks.is_empty() {
-        return Ok(0);
-    }
-    log::debug!(
-        "[memory::chunk_store] upsert_chunks: n={} first_id={}",
-        chunks.len(),
-        chunks[0].id
-    );
-    with_connection(config, |conn| {
-        let tx = conn.unchecked_transaction()?;
-        {
-            let mut stmt = tx.prepare(
-                "INSERT INTO mem_tree_chunks (
-                    id, source_kind, source_id, path_scope, source_ref, owner,
-                    timestamp_ms, time_range_start_ms, time_range_end_ms,
-                    tags_json, content, token_count, seq_in_source, created_at_ms
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
-                ON CONFLICT(id) DO UPDATE SET
-                    source_kind = excluded.source_kind,
-                    source_id = excluded.source_id,
-                    path_scope = excluded.path_scope,
-                    source_ref = excluded.source_ref,
-                    owner = excluded.owner,
-                    timestamp_ms = excluded.timestamp_ms,
-                    time_range_start_ms = excluded.time_range_start_ms,
-                    time_range_end_ms = excluded.time_range_end_ms,
-                    tags_json = excluded.tags_json,
-                    content = excluded.content,
-                    token_count = excluded.token_count,
-                    seq_in_source = excluded.seq_in_source,
-                    created_at_ms = excluded.created_at_ms",
-            )?;
-            upsert_chunks_with_statement(&mut stmt, chunks)?;
-        }
-        tx.commit()?;
-        Ok(chunks.len())
-    })
+    tinycortex::memory::chunks::upsert_chunks(&engine_config(config), chunks)
 }
 
 /// Upsert chunks using an existing transaction, preserving previously stored embeddings.
@@ -606,9 +569,7 @@ pub fn extraction_coverage(config: &Config) -> Result<f32> {
 
 /// Set the lifecycle status column for `chunk_id`. See `CHUNK_STATUS_*`.
 pub fn set_chunk_lifecycle_status(config: &Config, chunk_id: &str, status: &str) -> Result<()> {
-    with_connection(config, |conn| {
-        set_chunk_lifecycle_status_conn(conn, chunk_id, status)
-    })
+    tinycortex::memory::chunks::set_chunk_lifecycle_status(&engine_config(config), chunk_id, status)
 }
 
 pub(crate) fn set_chunk_lifecycle_status_tx(
@@ -621,9 +582,7 @@ pub(crate) fn set_chunk_lifecycle_status_tx(
 
 /// Read the lifecycle status column for `chunk_id`, or `None` if the row is absent.
 pub fn get_chunk_lifecycle_status(config: &Config, chunk_id: &str) -> Result<Option<String>> {
-    with_connection(config, |conn| {
-        get_chunk_lifecycle_status_conn(conn, chunk_id)
-    })
+    tinycortex::memory::chunks::get_chunk_lifecycle_status(&engine_config(config), chunk_id)
 }
 
 pub(crate) fn get_chunk_lifecycle_status_tx(
@@ -646,14 +605,7 @@ fn get_chunk_lifecycle_status_conn(conn: &Connection, chunk_id: &str) -> Result<
 
 /// Count chunks currently sitting at a given lifecycle status (test/diagnostic helper).
 pub fn count_chunks_by_lifecycle_status(config: &Config, status: &str) -> Result<u64> {
-    with_connection(config, |conn| {
-        let n: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM mem_tree_chunks WHERE lifecycle_status = ?1",
-            params![status],
-            |r| r.get(0),
-        )?;
-        Ok(n.max(0) as u64)
-    })
+    tinycortex::memory::chunks::count_chunks_by_lifecycle_status(&engine_config(config), status)
 }
 
 fn set_chunk_lifecycle_status_conn(conn: &Connection, chunk_id: &str, status: &str) -> Result<()> {
@@ -717,72 +669,22 @@ pub const RAW_FILE_GATE_KIND: &str = "raw_file";
 /// `<content_root>/`) are covered by a tree summary. Idempotent
 /// (`INSERT OR IGNORE`); returns the number of newly-recorded paths.
 pub fn mark_raw_paths_ingested(config: &Config, rel_paths: &[String]) -> Result<u64> {
-    if rel_paths.is_empty() {
-        return Ok(0);
-    }
-    let now_ms = Utc::now().timestamp_millis();
-    with_connection(config, |conn| {
-        let tx = conn.unchecked_transaction()?;
-        let mut inserted: u64 = 0;
-        {
-            let mut stmt = tx.prepare(
-                "INSERT OR IGNORE INTO mem_tree_ingested_sources \
-                    (source_kind, source_id, ingested_at_ms) \
-                 VALUES (?1, ?2, ?3)",
-            )?;
-            for path in rel_paths {
-                inserted += stmt.execute(params![RAW_FILE_GATE_KIND, path, now_ms])? as u64;
-            }
-        }
-        tx.commit()?;
-        log::debug!(
-            "[memory::chunk_store] mark_raw_paths_ingested: {} given, {} newly recorded",
-            rel_paths.len(),
-            inserted
-        );
-        Ok(inserted)
-    })
+    tinycortex::memory::chunks::mark_raw_paths_ingested(&engine_config(config), rel_paths)
 }
 
 /// Filter `rel_paths` down to the ones NOT yet recorded as ingested raw
 /// files. Order of the surviving paths is preserved.
 pub fn filter_raw_paths_not_ingested(config: &Config, rel_paths: &[String]) -> Result<Vec<String>> {
-    if rel_paths.is_empty() {
-        return Ok(Vec::new());
-    }
-    with_connection(config, |conn| {
-        let mut stmt = conn.prepare(
-            "SELECT COUNT(*) FROM mem_tree_ingested_sources \
-             WHERE source_kind = ?1 AND source_id = ?2",
-        )?;
-        let mut out: Vec<String> = Vec::new();
-        for path in rel_paths {
-            let n: i64 = stmt.query_row(params![RAW_FILE_GATE_KIND, path], |r| r.get(0))?;
-            if n == 0 {
-                out.push(path.clone());
-            }
-        }
-        Ok(out)
-    })
+    tinycortex::memory::chunks::filter_raw_paths_not_ingested(&engine_config(config), rel_paths)
 }
 
 /// Count raw-file gate rows whose path starts with `rel_prefix` (e.g.
 /// `raw/github-com-org-repo/`). Diagnostic helper for reconcile reporting.
 pub fn count_raw_paths_ingested_with_prefix(config: &Config, rel_prefix: &str) -> Result<u64> {
-    with_connection(config, |conn| {
-        // Rust-side prefix filter (not SQL LIKE) so `_` / `%` in slugs are
-        // treated literally — same convention as delete_chunks_by_source_prefix.
-        let mut stmt =
-            conn.prepare("SELECT source_id FROM mem_tree_ingested_sources WHERE source_kind = ?1")?;
-        let rows = stmt.query_map(params![RAW_FILE_GATE_KIND], |r| r.get::<_, String>(0))?;
-        let mut n: u64 = 0;
-        for row in rows {
-            if row?.starts_with(rel_prefix) {
-                n += 1;
-            }
-        }
-        Ok(n)
-    })
+    tinycortex::memory::chunks::count_raw_paths_ingested_with_prefix(
+        &engine_config(config),
+        rel_prefix,
+    )
 }
 
 /// Delete all chunk rows for one exact `(source_kind, source_id)` and clear
@@ -792,12 +694,10 @@ pub fn delete_chunks_by_source(
     source_kind: SourceKind,
     source_id: &str,
 ) -> Result<usize> {
-    delete_chunks_by_source_filter(
-        "delete_chunks_by_source",
-        config,
+    tinycortex::memory::chunks::delete_chunks_by_source(
+        &engine_config(config),
         source_kind,
-        |candidate, _owner| candidate == source_id,
-        |candidate| candidate == source_id,
+        source_id,
     )
 }
 
@@ -810,12 +710,10 @@ pub fn delete_chunks_by_source_prefix(
     source_kind: SourceKind,
     source_id_prefix: &str,
 ) -> Result<usize> {
-    delete_chunks_by_source_filter(
-        "delete_chunks_by_source_prefix",
-        config,
+    tinycortex::memory::chunks::delete_chunks_by_source_prefix(
+        &engine_config(config),
         source_kind,
-        |candidate, _owner| candidate.starts_with(source_id_prefix),
-        |candidate| candidate.starts_with(source_id_prefix),
+        source_id_prefix,
     )
 }
 
@@ -826,13 +724,7 @@ pub fn delete_chunks_by_owner(
     source_kind: SourceKind,
     owner: &str,
 ) -> Result<usize> {
-    delete_chunks_by_source_filter(
-        "delete_chunks_by_owner",
-        config,
-        source_kind,
-        |_source_id, candidate_owner| candidate_owner == owner,
-        |_source_id| false,
-    )
+    tinycortex::memory::chunks::delete_chunks_by_owner(&engine_config(config), source_kind, owner)
 }
 
 fn delete_chunks_by_source_filter(

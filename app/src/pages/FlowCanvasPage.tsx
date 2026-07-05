@@ -18,7 +18,7 @@
  *    the Back button is this page's only in-app navigation affordance.)
  */
 import createDebug from 'debug';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
@@ -145,6 +145,16 @@ function FlowEditor({
   } | null>(null);
   const [canvasVersion, setCanvasVersion] = useState(0);
 
+  // Last-persisted graph, independent of canvas remounts (fixes a P1: the
+  // editable canvas seeds its own dirty baseline from whatever graph it's
+  // mounted with, so bumping `canvasVersion` on Accept — remounting the
+  // canvas with the just-accepted proposal as its "initial" graph — made an
+  // unsaved accepted proposal instantly read as clean; the accepted change
+  // was then lost on back/reload instead of gating behind the required Save.
+  // Only ever updated by a real Save (`handleSave` below), so a diff against
+  // it survives any number of accept/reject/preview remounts.
+  const persistedGraphRef = useRef<WorkflowGraph>(graph);
+
   const handleGraphChange = useCallback(
     (next: WorkflowGraph) => {
       // Freeze the draft while a proposal is under review — the preview graph
@@ -202,6 +212,10 @@ function FlowEditor({
     () => ({ schema_version: graph.schema_version, id: flowId ?? undefined, name }),
     [graph.schema_version, flowId, name]
   );
+  const initialDirty = useMemo(
+    () => JSON.stringify(editorGraph) !== JSON.stringify(persistedGraphRef.current),
+    [editorGraph]
+  );
 
   // Repair seed for the copilot: bind the run context to the CURRENT draft.
   const copilotRepairSeed = useMemo<RepairPromptContext | null>(
@@ -242,6 +256,7 @@ function FlowEditor({
       }
       log('save: flow id=%s nodes=%d edges=%d', flowId, next.nodes.length, next.edges.length);
       await updateFlow(flowId, { graph: next });
+      persistedGraphRef.current = next;
       log('save: flow id=%s persisted', flowId);
     },
     [isDraft, flowId, name, requireApproval, navigate]
@@ -353,6 +368,7 @@ function FlowEditor({
             addedNodeIds={preview?.addedNodeIds}
             removedNodeIds={preview?.removedNodeIds}
             saveDisabled={preview !== null}
+            initialDirty={initialDirty}
           />
 
           {runError && (

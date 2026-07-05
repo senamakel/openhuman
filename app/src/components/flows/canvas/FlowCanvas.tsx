@@ -51,6 +51,14 @@ export interface FlowCanvasProps {
   removedNodeIds?: ReadonlySet<string>;
   /** Disable Save while a copilot proposal is under review (editable only, Phase 5c). */
   saveDisabled?: boolean;
+  /**
+   * Seed the editable canvas as already-dirty at mount (editable only, Phase
+   * 5c fix) — see `EditableFlowCanvas`'s `initialDirty` doc comment. The host
+   * computes this by diffing the incoming graph against its own
+   * last-persisted snapshot so a `key`-remount (e.g. accepting a copilot
+   * proposal) doesn't silently clear unsaved state.
+   */
+  initialDirty?: boolean;
 }
 
 const NODE_TYPES = { [FLOW_NODE_TYPE]: FlowNodeComponent };
@@ -100,6 +108,7 @@ function FlowCanvas({
   addedNodeIds,
   removedNodeIds,
   saveDisabled,
+  initialDirty,
 }: FlowCanvasProps) {
   if (editable) {
     return (
@@ -114,6 +123,7 @@ function FlowCanvas({
         addedNodeIds={addedNodeIds}
         removedNodeIds={removedNodeIds}
         saveDisabled={saveDisabled}
+        initialDirty={initialDirty}
       />
     );
   }

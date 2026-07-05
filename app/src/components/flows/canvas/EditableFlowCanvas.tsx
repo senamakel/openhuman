@@ -117,6 +117,19 @@ export interface EditableFlowCanvasProps {
    * the copilot panel is the gate instead.
    */
   saveDisabled?: boolean;
+  /**
+   * Seed the dirty flag as already-unsaved at mount (Phase 5c fix). This
+   * component's dirty baseline is seeded from `nodes`/`edges` at mount, so
+   * whenever the host remounts the canvas with a new key (e.g. accepting a
+   * copilot proposal, `FlowCanvasPage`'s `canvasVersion` bump) the freshly
+   * mounted graph would otherwise instantly read as "clean" even though it
+   * was never actually persisted via `onSave` — losing the accepted changes
+   * on back/reload instead of gating them behind Save. The host computes
+   * this by comparing the incoming graph against its own last-persisted
+   * snapshot and passes the result through, independent of any canvas
+   * remount.
+   */
+  initialDirty?: boolean;
 }
 
 const EMPTY_ID_SET: ReadonlySet<string> = new Set();
@@ -133,6 +146,7 @@ function EditableFlowCanvas({
   addedNodeIds = EMPTY_ID_SET,
   removedNodeIds = EMPTY_ID_SET,
   saveDisabled = false,
+  initialDirty = false,
 }: EditableFlowCanvasProps) {
   const { t } = useT();
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initialNodes);
@@ -155,6 +169,10 @@ function EditableFlowCanvas({
   }));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Host-computed "already unsaved at mount" override (Phase 5c fix, see
+  // `initialDirty`'s doc comment) — cleared once a real Save/Discard
+  // resolves this instance's baseline, same as the self-computed `dirty`.
+  const [forcedDirty, setForcedDirty] = useState(initialDirty);
 
   const currentGraph = useMemo(
     () => xyflowToWorkflowGraph(nodes, edges, meta),
@@ -173,7 +191,7 @@ function EditableFlowCanvas({
     () => JSON.stringify(xyflowToWorkflowGraph(baseline.nodes, baseline.edges, meta)),
     [baseline, meta]
   );
-  const dirty = currentKey !== baselineKey;
+  const dirty = forcedDirty || currentKey !== baselineKey;
 
   // Notify the host page so it can gate navigation-away while dirty.
   useEffect(() => {
@@ -344,6 +362,7 @@ function EditableFlowCanvas({
       // Advance the dirty baseline to the just-saved snapshot so the canvas
       // reads clean (and the nav guard stands down) until the next edit.
       setBaseline({ nodes, edges });
+      setForcedDirty(false);
       log('save: succeeded — baseline advanced');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -365,6 +384,7 @@ function EditableFlowCanvas({
     setEdges(baseline.edges);
     setConfigNodeId(null);
     setSaveError(null);
+    setForcedDirty(false);
   }, [baseline, setNodes, setEdges]);
 
   const handleValidate = useCallback(() => {

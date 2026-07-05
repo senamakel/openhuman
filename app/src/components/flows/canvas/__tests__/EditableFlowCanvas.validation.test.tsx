@@ -138,6 +138,21 @@ describe('EditableFlowCanvas — validation + dirty state', () => {
     expect(onDirtyChange).toHaveBeenLastCalledWith(false);
   });
 
+  it('starts dirty when the host passes initialDirty (a remount carrying unsaved content)', async () => {
+    validateFlow.mockResolvedValue({ valid: true, errors: [], warnings: [] });
+    const onDirtyChange = vi.fn();
+    // Mirrors `FlowCanvasPage` remounting the canvas (`key={canvasVersion}`)
+    // after accepting a copilot proposal: the incoming nodes/edges ARE the
+    // component's "initial" graph, so without `initialDirty` the canvas would
+    // seed its baseline from them and instantly read as clean even though
+    // nothing was persisted (the P1 this regression test guards against).
+    renderCanvas({ onDirtyChange, initialDirty: true });
+
+    expect(screen.getByTestId('flow-editor-dirty')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-editor-save')).not.toBeDisabled();
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+  });
+
   it('surfaces a Save failure inline and leaves the graph dirty', async () => {
     validateFlow.mockResolvedValue({ valid: true, errors: [], warnings: [] });
     const onSave = vi.fn().mockRejectedValue(new Error('core unreachable'));

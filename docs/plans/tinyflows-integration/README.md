@@ -14,20 +14,20 @@ The integration is **not greenfield**. Three layers already exist; each is at a 
 
 Host-agnostic library crate on the `tinyagents` state-graph runtime. Pipeline: `WorkflowGraph → migrate → validate → compile → engine::run`.
 
-| Area | State |
-| --- | --- |
-| Node kinds (12) | ✅ `trigger, agent, tool_call, http_request, code, condition, switch, merge, split_out, transform, output_parser, sub_workflow` |
-| Routing | ✅ linear, conditional (ports), parallel fan-out, merge fan-in barrier |
-| Data flow | ✅ n8n-style item arrays `{ json, binary?, paired_item? }`; `=`-expressions with **full jq** (`jaq-core`) already wired in `src/expr.rs` |
-| Error handling | ✅ per-node `on_error` (stop/continue/route), retry with fixed/exponential backoff, `node_timeout_secs` |
-| HITL | ✅ `requires_approval` → interrupt; in-process (`run_resumable`) and cross-process durable resume (`resume_with_checkpointer(thread_id)`) |
-| Observability | ✅ `RunObserver` trait (`on_run_start/on_step_finish/on_run_finish`), tracing spans, journaled variants (`GraphEventJournal`) for Langfuse |
-| Persistence | By design **none** — host injects `Checkpointer`, `StateStore`, and persists `Run`/`ExecutionStep` |
-| Capabilities | ✅ host-injected traits: `LlmProvider`, `ToolInvoker`, `HttpClient`, `CodeRunner`, `StateStore`; opaque `connection_ref` (host resolves secrets) |
-| Versioning | ✅ `schema_version` (graph) + per-node `type_version`, `migrate()` pre-parse |
-| Triggers | ⚠️ **declarative only** — `manual, schedule, webhook, app_event, form, execute_by_workflow, chat_message, evaluation, system`; the *host* must fire them |
+| Area            | State                                                                                                                                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node kinds (12) | ✅ `trigger, agent, tool_call, http_request, code, condition, switch, merge, split_out, transform, output_parser, sub_workflow`                          |
+| Routing         | ✅ linear, conditional (ports), parallel fan-out, merge fan-in barrier                                                                                   |
+| Data flow       | ✅ n8n-style item arrays `{ json, binary?, paired_item? }`; `=`-expressions with **full jq** (`jaq-core`) already wired in `src/expr.rs`                 |
+| Error handling  | ✅ per-node `on_error` (stop/continue/route), retry with fixed/exponential backoff, `node_timeout_secs`                                                  |
+| HITL            | ✅ `requires_approval` → interrupt; in-process (`run_resumable`) and cross-process durable resume (`resume_with_checkpointer(thread_id)`)                |
+| Observability   | ✅ `RunObserver` trait (`on_run_start/on_step_finish/on_run_finish`), tracing spans, journaled variants (`GraphEventJournal`) for Langfuse               |
+| Persistence     | By design **none** — host injects `Checkpointer`, `StateStore`, and persists `Run`/`ExecutionStep`                                                       |
+| Capabilities    | ✅ host-injected traits: `LlmProvider`, `ToolInvoker`, `HttpClient`, `CodeRunner`, `StateStore`; opaque `connection_ref` (host resolves secrets)         |
+| Versioning      | ✅ `schema_version` (graph) + per-node `type_version`, `migrate()` pre-parse                                                                             |
+| Triggers        | ⚠️ **declarative only** — `manual, schedule, webhook, app_event, form, execute_by_workflow, chat_message, evaluation, system`; the _host_ must fire them |
 
-Engine-side gaps (see Phase 6): `agent` node sub-ports (chat_model/memory/tool/output_parser) stubbed; `output_parser` is identity passthrough; README/Roadmap lag the code (claim jq and retry backoff are pending when both ship).
+Engine-side gaps (see Phase 7): `agent` node sub-ports (chat_model/memory/tool/output_parser) stubbed; `output_parser` is identity passthrough; README/Roadmap lag the code (claim jq and retry backoff are pending when both ship).
 
 ### 1.2 Rust core seam (`src/openhuman/flows/` + `src/openhuman/tinyflows/` — implemented, with holes)
 
@@ -38,14 +38,14 @@ Engine-side gaps (see Phase 6): `agent` node sub-ports (chat_model/memory/tool/o
 
 **Known core gaps** (each becomes a workstream below):
 
-| # | Gap | Evidence |
-| --- | --- | --- |
-| G1 | **Webhook triggers unwired** — enabling a webhook-trigger flow only logs a warning; `bus.rs` observes `WebhookIncomingRequest` but explicitly does not dispatch | `flows/ops.rs:298` (`log_webhook_trigger_deferred`), `flows/bus.rs:232-242` |
-| G2 | **No live run observer** — `NoopObserver`; `FlowRunStep`s reconstructed post-hoc from final state, no per-step timing/attempts, nothing streamed while running | `flows/types.rs:76`, `flows/ops.rs:781-783` (`TODO(0.3)`) |
-| G3 | **Credential / connected-account resolution stubbed** — Composio nodes fall back to the ambient signed-in account; toolkit allow-listing hard-rejects real toolkits; HTTP credential resolution unimplemented (`connection_ref` is accepted but unresolvable) | `tinyflows/caps.rs:193,235-261,330,376,408` |
-| G4 | **No cancel/deny** — a dismissed approval leaves the run parked `pending_approval` forever; no `flows_cancel`/`flows_deny` RPC | UI comment in `FlowApprovalCard.tsx` |
-| G5 | **No JSON-RPC E2E coverage** — zero `openhuman.flows_*` calls in `tests/json_rpc_e2e.rs` (unit tests only) | grep of `tests/*.rs` |
-| G6 | Unfired trigger kinds: `chat_message`, `form`, `execute_by_workflow` (as a *trigger*), `evaluation`, `system` have no host dispatcher | `flows/bus.rs` |
+| #   | Gap                                                                                                                                                                                                                                                           | Evidence                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| G1  | **Webhook triggers unwired** — enabling a webhook-trigger flow only logs a warning; `bus.rs` observes `WebhookIncomingRequest` but explicitly does not dispatch                                                                                               | `flows/ops.rs:298` (`log_webhook_trigger_deferred`), `flows/bus.rs:232-242` |
+| G2  | **No live run observer** — `NoopObserver`; `FlowRunStep`s reconstructed post-hoc from final state, no per-step timing/attempts, nothing streamed while running                                                                                                | `flows/types.rs:76`, `flows/ops.rs:781-783` (`TODO(0.3)`)                   |
+| G3  | **Credential / connected-account resolution stubbed** — Composio nodes fall back to the ambient signed-in account; toolkit allow-listing hard-rejects real toolkits; HTTP credential resolution unimplemented (`connection_ref` is accepted but unresolvable) | `tinyflows/caps.rs:193,235-261,330,376,408`                                 |
+| G4  | **No cancel/deny** — a dismissed approval leaves the run parked `pending_approval` forever; no `flows_cancel`/`flows_deny` RPC                                                                                                                                | UI comment in `FlowApprovalCard.tsx`                                        |
+| G5  | **No JSON-RPC E2E coverage** — zero `openhuman.flows_*` calls in `tests/json_rpc_e2e.rs` (unit tests only)                                                                                                                                                    | grep of `tests/*.rs`                                                        |
+| G6  | Unfired trigger kinds: `chat_message`, `form`, `execute_by_workflow` (as a _trigger_), `evaluation`, `system` have no host dispatcher                                                                                                                         | `flows/bus.rs`                                                              |
 
 ### 1.3 Frontend (`app/src/` — reachable, read-only)
 
@@ -53,14 +53,14 @@ Shipped: `/flows` nav tab (FlowsPage list: enable toggle, Run, last status), `/f
 
 **Known UI gaps**:
 
-| # | Gap | Evidence |
-| --- | --- | --- |
-| U1 | **No canvas editing** — `nodesDraggable/Connectable/elementsSelectable: false`; `xyflowToWorkflowGraph` in `graphAdapter.ts` is dead code awaiting the editor ("B5b.2+") | `components/flows/canvas/FlowCanvas.tsx` |
-| U2 | **No node config panel** — clicking a node does nothing; `config` shown only as truncated hint chips | — |
-| U3 | **No authoring entry** — "New workflow" navigates to `/chat` with a TODO; empty-state copy promises canvas creation that doesn't exist | `pages/FlowsPage.tsx` |
-| U4 | No trigger-config UI, no credentials picker, no template gallery, no import/export | — |
-| U5 | Approval "Dismiss" is client-only (blocked on G4) | `FlowApprovalCard.tsx` |
-| U6 | Run progress is poll-only; no socket push (blocked on G2) | `hooks/useFlowRunPoller.ts` |
+| #   | Gap                                                                                                                                                                      | Evidence                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| U1  | **No canvas editing** — `nodesDraggable/Connectable/elementsSelectable: false`; `xyflowToWorkflowGraph` in `graphAdapter.ts` is dead code awaiting the editor ("B5b.2+") | `components/flows/canvas/FlowCanvas.tsx` |
+| U2  | **No node config panel** — clicking a node does nothing; `config` shown only as truncated hint chips                                                                     | —                                        |
+| U3  | **No authoring entry** — "New workflow" navigates to `/chat` with a TODO; empty-state copy promises canvas creation that doesn't exist                                   | `pages/FlowsPage.tsx`                    |
+| U4  | No trigger-config UI, no credentials picker, no template gallery, no import/export                                                                                       | —                                        |
+| U5  | Approval "Dismiss" is client-only (blocked on G4)                                                                                                                        | `FlowApprovalCard.tsx`                   |
+| U6  | Run progress is poll-only; no socket push (blocked on G2)                                                                                                                | `hooks/useFlowRunPoller.ts`              |
 
 ### 1.4 Disambiguation (do not conflate)
 
@@ -68,7 +68,7 @@ The repo has **three** "workflow" systems. This plan touches only the first:
 
 1. `flows::` / `openhuman.flows_*` — **tinyflows typed graphs** (this plan).
 2. `workflows::` / `openhuman.workflows_*` — WORKFLOW.md/SKILL.md bundle discovery/install (separate product surface under `/skills`).
-3. `rlm::` — Rhai `.ragsh` language workflows (`docs/plans/rlm-workflows/`), positioned in `gitbooks/features/orchestration.md` as the *next* layer on the same substrate. tinyflows remains the shipping visual/typed product; rlm does not replace it.
+3. `rlm::` — Rhai `.ragsh` language workflows (`docs/plans/rlm-workflows/`), positioned in `gitbooks/features/orchestration.md` as the _next_ layer on the same substrate. tinyflows remains the shipping visual/typed product; rlm does not replace it.
 
 ---
 
@@ -76,28 +76,28 @@ The repo has **three** "workflow" systems. This plan touches only the first:
 
 What an n8n user would expect, mapped to our state:
 
-| n8n capability | tinyflows/OpenHuman today | Covered by |
-| --- | --- | --- |
-| Editable node canvas (drag, connect, add/delete) | Read-only viewer | Phase 3 |
-| Node config side-panel with schema-driven forms | Missing | Phase 3 |
-| Webhook trigger with live URL | Declared but never fired | Phase 1 |
-| Cron/interval trigger | ✅ shipped | — |
-| App-event trigger (≈ Zapier polling/instant triggers) | Wired via Composio `ComposioTriggerReceived`, but account resolution stubbed | Phase 1 (G3) |
-| Credentials store + per-node credential picker | `connection_ref` plumbing exists; resolution unimplemented; no UI | Phase 2 |
-| Executions list + live run view | List + inspector exist; polling, post-hoc steps only | Phase 1–2 |
-| Cancel a running/paused execution | Missing | Phase 1 |
-| Expressions (`={{ }}` in n8n) | ✅ `=`-prefix + full jq | — |
-| Error workflow / retry per node | ✅ on_error/retry/backoff | — |
-| Sub-workflows | ✅ `sub_workflow` node (inline graph); *by-id* reference missing | Phase 4 |
-| Templates gallery | Missing | Phase 4 |
-| Import/export workflow JSON, n8n import | Missing (feasible: model is deliberately n8n-shaped) | Phase 4 |
-| Partial execution / pin data / step-through debug | Missing | Phase 5 (stretch) |
-| Waiting/Wait node, human approval | ✅ HITL approval + durable resume | — |
-| AI Agent node with attached tools/memory | `agent` node = bare LLM call; sub-ports stubbed | Phase 6 |
-| Versioning of workflow definitions | ✅ schema_version + type_version + migrate | — |
-| Multi-user sharing/RBAC | Out of scope (desktop, single-user + team domain later) | — |
+| n8n capability                                        | tinyflows/OpenHuman today                                                    | Covered by        |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------- |
+| Editable node canvas (drag, connect, add/delete)      | Read-only viewer                                                             | Phase 3           |
+| Node config side-panel with schema-driven forms       | Missing                                                                      | Phase 3           |
+| Webhook trigger with live URL                         | Declared but never fired                                                     | Phase 1           |
+| Cron/interval trigger                                 | ✅ shipped                                                                   | —                 |
+| App-event trigger (≈ Zapier polling/instant triggers) | Wired via Composio `ComposioTriggerReceived`, but account resolution stubbed | Phase 1 (G3)      |
+| Credentials store + per-node credential picker        | `connection_ref` plumbing exists; resolution unimplemented; no UI            | Phase 2           |
+| Executions list + live run view                       | List + inspector exist; polling, post-hoc steps only                         | Phase 1–2         |
+| Cancel a running/paused execution                     | Missing                                                                      | Phase 1           |
+| Expressions (`={{ }}` in n8n)                         | ✅ `=`-prefix + full jq                                                      | —                 |
+| Error workflow / retry per node                       | ✅ on_error/retry/backoff                                                    | —                 |
+| Sub-workflows                                         | ✅ `sub_workflow` node (inline graph); _by-id_ reference missing             | Phase 4           |
+| Templates gallery                                     | Missing                                                                      | Phase 4           |
+| Import/export workflow JSON, n8n import               | Missing (feasible: model is deliberately n8n-shaped)                         | Phase 4           |
+| Partial execution / pin data / step-through debug     | Missing                                                                      | Phase 5 (stretch) |
+| Waiting/Wait node, human approval                     | ✅ HITL approval + durable resume                                            | —                 |
+| AI Agent node with attached tools/memory              | `agent` node = bare LLM call; sub-ports stubbed                              | Phase 6           |
+| Versioning of workflow definitions                    | ✅ schema_version + type_version + migrate                                   | —                 |
+| Multi-user sharing/RBAC                               | Out of scope (desktop, single-user + team domain later)                      | —                 |
 
-Our structural advantages to preserve: the agent can *author* workflows conversationally (`propose_workflow` → proposal card → single human "Save & enable" persistence gate), everything runs under the security policy/approval-gate substrate, and secrets never enter the engine (opaque `connection_ref`).
+Our structural advantages to preserve: the agent can _author_ workflows conversationally (`propose_workflow` → proposal card → single human "Save & enable" persistence gate), everything runs under the security policy/approval-gate substrate, and secrets never enter the engine (opaque `connection_ref`).
 
 ---
 
@@ -108,6 +108,7 @@ Ordering rationale: **backend correctness first** (triggers, cancellation, live 
 ### Phase 1 — Backend completion (triggers, lifecycle, observability)
 
 **1a. Webhook triggers (G1)** — the flagship Zapier-style gap.
+
 - On `flows_create`/`flows_update`/`set_enabled(true)` with a `webhook` trigger: provision an inbound route via `webhooks::ops` (incl. `create_tunnel` when remote reachability is needed), store `{ flow_id → webhook_route }` in the flow record, tear down on disable/delete.
 - In `flows/bus.rs`: implement dispatch on `DomainEvent::WebhookIncomingRequest` — match route → enabled flow, seed trigger payload `{ method, headers (allow-listed), query, body }`, run under `FlowRunTrigger::Webhook` (new variant).
 - Response semantics v1: fire-and-forget `202` with `run_id` (n8n "respond immediately"); "respond with last node output" deferred (needs request/response bridging — note as follow-up).
@@ -115,20 +116,24 @@ Ordering rationale: **backend correctness first** (triggers, cancellation, live 
 - RPC additions: `flows_get` returns `webhook_url` when applicable.
 
 **1b. Run lifecycle: cancel + deny (G4).**
+
 - New RPCs `openhuman.flows_cancel_run(run_id)` (terminal `cancelled` status; abort the tokio task / drop the checkpointed thread) and deny semantics on resume: `flows_resume(id, thread_id, approvals, rejections)` → rejected node routes to its `error` port or fails the run.
 - Sweep: TTL for parked `pending_approval` runs (align with the 10-min approval-gate TTL, configurable per flow).
 
 **1c. Live run observation (G2).**
+
 - Implement a real `RunObserver` in `src/openhuman/tinyflows/observability.rs`: `on_step_finish` → persist `FlowRunStep` incrementally (timing, attempt count, status, output) via `flows::store`, and publish a new `DomainEvent::FlowRunProgress { run_id, node_id, status }`.
 - Bridge to the frontend socket (`socket` domain) so the inspector can subscribe instead of polling (UI lands in Phase 2/3; keep polling as fallback).
 - Wire the journaled run variants so Langfuse export happens per-step, not only post-run.
 
 **1d. Remaining trigger kinds (G6).**
+
 - `chat_message`: dispatch from the channels/thread pipeline (opt-in per flow: channel filter in trigger config).
 - `execute_by_workflow`: `sub_workflow`-by-id + a `flows_run` call path from another flow (see 4b).
-- `form`, `evaluation`, `system`: explicitly document as *not yet fired*; validation should warn when a flow's trigger kind has no live dispatcher instead of silently never running.
+- `form`, `evaluation`, `system`: explicitly document as _not yet fired_; validation should warn when a flow's trigger kind has no live dispatcher instead of silently never running.
 
 **1e. E2E tests (G5).**
+
 - Extend `tests/json_rpc_e2e.rs` (+ `scripts/test-rust-with-mock.sh`): full lifecycle round-trip (create → run → steps → resume → cancel → delete), schedule-tick dispatch, webhook dispatch, approval park/deny. This is the merge gate for 1a–1d.
 
 **Deliverable**: every trigger kind either fires or loudly warns; runs can be cancelled/denied; run steps stream.
@@ -158,20 +163,61 @@ Largest UI phase; runs in parallel with Phase 2 once Phase 1c's RPCs exist.
 
 ### Phase 4 — Authoring entry points, templates, interop (U3–U4)
 
-- **4a. "New workflow"**: replace the `/chat` TODO with a chooser — *Start from scratch* (blank canvas with a trigger node), *Describe it* (prefill chat composer → `propose_workflow` path), *From template*.
+- **4a. "New workflow"**: replace the `/chat` TODO with a chooser — _Start from scratch_ (blank canvas with a trigger node), _Describe it_ (interim: prefill chat composer → `propose_workflow`; superseded by the Phase 5 in-place prompt bar), _From template_.
 - **4b. Sub-workflow by id**: extend `sub_workflow`/`execute_by_workflow` to reference a saved `flow_id` (engine currently only inlines a child graph) — engine change upstreamed to `vendor/tinyflows` + host resolver in `caps`/ops.
 - **4c. Templates**: ship 5–10 curated `WorkflowGraph` JSONs (bundled resources, like agent prompts): e.g. "Daily digest to channel", "Webhook → agent triage → notify", "Scheduled scrape → transform → memory". Gallery UI on FlowsPage empty state.
 - **4d. Import/export**: export flow JSON; import with `migrate()` + validate. **n8n importer** (host-side, best-effort): map n8n workflow JSON → `WorkflowGraph` for the overlapping vocabulary (IF→condition, Switch, Merge, SplitOut, HTTP Request, Code, Schedule/Webhook triggers; `={{...}}` → `=` jq where trivially translatable); unmapped nodes land as annotated placeholder nodes rather than failing the import.
 - **4e. Proposal card upgrade**: "Open in canvas" action on `WorkflowProposalCard` (review/edit before Save & enable) — keeps the single persistence gate.
 
-### Phase 5 — Polish & debug tooling (stretch)
+### Phase 5 — Prompt-first authoring: the Workflow Builder agent
+
+The product stance ("the agent builds it, you approve it") gets a first-class surface: users prompt **from the Workflows UI itself** — not by wandering into `/chat` — and a dedicated, tool-scoped agent designs and iterates on the graph in place. This is the differentiator over n8n, so it deserves its own phase rather than being a bullet under 4a.
+
+**5a. A dedicated `workflow-builder` agent definition.**
+
+The harness already supports exactly this shape: `AgentDefinition` (`src/openhuman/agent/harness/definition.rs`) with `ToolScope::Named`, registered as a builtin in `harness/builtin_definitions.rs` and overridable by user TOML via `definition_loader.rs`.
+
+- New builtin definition `workflow-builder` (Worker tier): system prompt specialized for workflow design — knows the 12 node kinds, `=`/jq expression semantics, port/edge rules, trigger kinds and which ones are live, error-handling config (`on_error`/`retry`), and the "propose, never persist" invariant. Prompt ships in `src/openhuman/agent/prompts/` like the other bundled prompts.
+- `ToolScope::Named` — deliberately narrow toolset (see 5b): no shell, no file writes, no channel sends. `external_effect = false` end-to-end; the only side effects it can cause are validated *proposals*.
+- Reachable two ways: (1) directly from the Flows UI prompt surface (5c), spawned with the flow/draft as context; (2) by delegation from the main agent via the existing delegation tools (`agent/tools/delegate_to_personality.rs`, archetype/skill delegation in `agent_orchestration::tools`) so "set up a workflow that…" in normal chat routes to the specialist automatically.
+
+**5b. The builder's tool belt** (new tools live in `flows/tools.rs` per the tool-ownership rule, registered in `tools/ops.rs`):
+
+| Tool | Status | Purpose |
+| --- | --- | --- |
+| `propose_workflow` | ✅ exists | Validate a full graph + emit proposal payload (unchanged invariant: never persists) |
+| `revise_workflow` | new | Take the current draft graph + an instruction diff → emit an updated proposal; enables iterative refinement instead of regenerate-from-scratch |
+| `list_workflows` / `get_workflow` | new (read-only) | Inspect existing flows so the agent can reference, clone, or avoid duplicating them |
+| `get_workflow_run` | new (read-only) | Read a failed run's steps so the agent can debug/repair a workflow from an error report |
+| `list_flow_connections` | new | Enumerate Composio connected accounts + stored HTTP credentials (ids/names only — Phase 2's RPC surfaced as a tool) so generated nodes carry valid `connection_ref`s |
+| `search_tool_catalog` | new | Search the Composio/tools registry for real tool slugs, so `tool_call` nodes are grounded in tools that actually exist (today the agent can hallucinate slugs) |
+| `dry_run_workflow` | new | Execute the *draft* graph against mock/sandboxed capabilities (`tinyflows` `mock` feature or capped real caps with `requires_approval` forced on) and return step results — lets the agent self-verify before proposing |
+
+All read-only tools return `PermissionLevel::None`; `dry_run_workflow` is gated by autonomy tier since `code`/`http_request` nodes could execute.
+
+**5c. Prompt surface in the Flows UI.**
+
+- **FlowsPage prompt bar**: a "Describe a workflow…" composer at the top of `/flows` (and as the empty-state hero). Submitting spawns a `workflow-builder` turn in a dedicated thread; the resulting proposal renders inline (reuse `WorkflowProposalCard`) with **Open in canvas** and **Save & enable**.
+- **Canvas copilot panel**: on `/flows/:id` (and on drafts), a side panel chat bound to the same agent with the current graph injected as context. Each agent proposal updates a **draft overlay** on the canvas (diff-style: added nodes highlighted, removed ones ghosted) — accept/reject applies it to the local draft from Phase 3d. This is `revise_workflow` in a loop: "add a Slack notification on failure", "make the schedule weekdays only", "split this into a sub-workflow".
+- **Repair entry point**: from a failed run in `FlowRunInspectorDrawer`, "Fix with agent" opens the copilot with the run's failing step context preloaded (`get_workflow_run`).
+- Plumbing reuses the existing chat runtime (`ChatRuntimeProvider` already parses `propose_workflow` outputs into `pendingWorkflowProposalsByThread`); the new work is thread scoping per draft/flow, the canvas diff overlay, and routing turns to the `workflow-builder` definition instead of the main agent.
+
+**5d. Invariants** (carry over from the current design, enforced in review):
+
+- The agent **never persists or enables** a flow — `flows_create`/`flows_update`/`set_enabled` remain UI-only actions behind an explicit user click.
+- Proposals are always re-validated server-side at save time (`flows_validate` path), never trusted from the client.
+- `dry_run_workflow` output is labeled as sandbox output in the UI so users don't mistake it for a live run.
+
+**Deliverable**: a user types "every Monday, summarize my unread Slack messages and email me" into the Flows page, watches the graph appear on the canvas, iterates in plain language, then clicks Save & enable.
+
+### Phase 6 — Polish & debug tooling (stretch)
 
 - Partial execution ("run from this node" with pinned upstream data) — needs engine support for seeding node state; scope with tinyflows maintainers.
 - Run diff/inspector niceties: per-item data browser (n8n's table/JSON toggle), input↔output pairing via `paired_item`.
 - `flows_duplicate`, run retention/pruning policy, per-flow run-history limits.
 - Desktop E2E (WDIO) spec: create → run → inspect happy path.
 
-### Phase 6 — Engine (vendor/tinyflows) upstream work
+### Phase 7 — Engine (vendor/tinyflows) upstream work
 
 Tracked separately since it's a submodule with its own release cadence (host pins `0.3`, patched to path):
 
@@ -189,6 +235,8 @@ Backend: ☐ webhook trigger provisioning+dispatch · ☐ `flows_cancel_run` · 
 
 Frontend: ☐ editable canvas (drag/connect/palette/delete) · ☐ node config panels · ☐ trigger config UI (cron builder, webhook URL display, app-event picker) · ☐ credentials picker · ☐ new-workflow chooser · ☐ template gallery · ☐ import/export + n8n import · ☐ live canvas run overlay (socket) · ☐ approval deny (real) · ☐ "Open in canvas" from proposal card · ☐ WDIO E2E spec.
 
+Agent authoring: ☐ `workflow-builder` builtin `AgentDefinition` + specialized prompt · ☐ `revise_workflow` tool · ☐ read-only `list_workflows`/`get_workflow`/`get_workflow_run` tools · ☐ `list_flow_connections` tool · ☐ `search_tool_catalog` tool · ☐ `dry_run_workflow` (sandboxed) · ☐ delegation routing from main agent · ☐ FlowsPage prompt bar · ☐ canvas copilot panel with draft diff overlay · ☐ "Fix with agent" from failed runs.
+
 Engine (upstream): ☐ agent sub-ports · ☐ output_parser validation · ☐ `workflow_id` sub-workflows · ☐ docs truth-up · ☐ cancellation.
 
 ---
@@ -200,15 +248,17 @@ Phase 1 (backend)      ██████        ~2–3 wk   unblocks everything
 Phase 2 (credentials)     ████       ~1–2 wk   parallel w/ Phase 3
 Phase 3 (canvas)          ████████   ~3–4 wk   largest UI lift
 Phase 4 (authoring)               ████  ~2 wk
-Phase 5 (polish)                    ██  opportunistic
-Phase 6 (engine)       ── continuous, PR'd to vendor submodule ──
+Phase 5 (builder agent)            ██████  ~2–3 wk  needs Phase 3 canvas + Phase 2 connections
+Phase 6 (polish)                      ██  opportunistic
+Phase 7 (engine)       ── continuous, PR'd to vendor submodule ──
 ```
 
 **Risks / decisions to confirm:**
+
 1. **Webhook exposure model** — desktop app behind NAT: v1 relies on `webhooks::ops::create_tunnel` (backend dependency); local-LAN-only webhooks as fallback. Needs product sign-off on URL lifetime/auth (per-flow secret token in the path).
 2. **Prompt-injection surface** — webhook/app_event payloads feeding `agent` nodes are untrusted; must go through the `prompt_injection` domain. Non-negotiable before G1 ships.
-3. **Editable canvas vs. agent-first authoring** — product stance so far is "the agent builds it, you approve it" (`gitbooks/features/workflows.md`). Phase 3 makes hand-editing first-class; keep the proposal-card path primary in onboarding copy so the two don't compete.
+3. **Editable canvas vs. agent-first authoring** — product stance so far is "the agent builds it, you approve it" (`gitbooks/features/workflows.md`). Phase 5 makes that stance first-class in the Flows UI itself (prompt bar + canvas copilot); the Phase 3 hand-editing canvas is the escape hatch, not the headline. Keep the prompt-first path primary in onboarding copy so the two don't compete.
 4. **GPL-3.0 licensing** of `vendor/tinyflows` — already vendored/linked; re-confirm distribution posture before expanding surface (flag for legal, not an engineering blocker).
-5. **Submodule cadence** — engine changes (Phase 6) must land in the tinyflows repo and re-vendor; keep host-side workarounds (e.g. by-id sub-workflow resolution in caps) so UI phases aren't blocked on vendor releases.
+5. **Submodule cadence** — engine changes (Phase 7) must land in the tinyflows repo and re-vendor; keep host-side workarounds (e.g. by-id sub-workflow resolution in caps) so UI phases aren't blocked on vendor releases.
 
 **Per-repo conventions that apply to all phases**: new RPCs go through domain `schemas.rs` + controller registry (no `dispatch.rs` branches); ≥80 % diff coverage gate; verbose `[flows]`-prefixed debug logging on every new path; i18n keys added to `en.ts` **and all 13 locales**; update `src/openhuman/about_app/` and `gitbooks/features/workflows.md` as features land.

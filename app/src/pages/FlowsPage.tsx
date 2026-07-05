@@ -19,6 +19,7 @@ import type { FlowRepairRequest } from '../components/flows/FlowRunInspectorDraw
 import FlowRunsDrawer from '../components/flows/FlowRunsDrawer';
 import FlowTemplateGallery from '../components/flows/FlowTemplateGallery';
 import NewWorkflowModal from '../components/flows/NewWorkflowModal';
+import SuggestedWorkflows from '../components/flows/SuggestedWorkflows';
 import { useCreateFlow } from '../components/flows/useCreateFlow';
 import WorkflowPromptBar from '../components/flows/WorkflowPromptBar';
 import { ToastContainer } from '../components/intelligence/Toast';
@@ -346,6 +347,11 @@ export default function FlowsPage() {
             compact otherwise. Always visible, so it's the single "describe a
             workflow" entry point (the chooser modal no longer duplicates it). */}
         <WorkflowPromptBar variant={!loading && flows.length === 0 ? 'hero' : 'compact'} />
+
+        {/* Flow Scout discovery: proactive, buildable workflow suggestions
+            grounded in how the user works. Read-only until they click "Build
+            this" (→ workflow_builder) and save. */}
+        <SuggestedWorkflows />
 
         {error && (
           <div data-testid="flows-error">

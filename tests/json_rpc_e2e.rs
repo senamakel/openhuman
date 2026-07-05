@@ -12534,6 +12534,77 @@ async fn json_rpc_flows_lifecycle_round_trip() {
     rpc_join.abort();
 }
 
+/// Flow Scout suggestion-lifecycle methods over JSON-RPC (no LLM involved):
+/// `flows_list_suggestions` starts empty, and `flows_dismiss_suggestion` /
+/// `flows_mark_suggestion_built` on an unknown id resolve cleanly and report
+/// `false`. This pins that the four new controllers are registered and dispatch
+/// end-to-end (schema + handler wiring), independent of the agent-backed
+/// `flows_discover`, which needs a provider.
+#[tokio::test]
+async fn json_rpc_flows_suggestion_lifecycle_methods_are_wired() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_base, _tmp, api_join, rpc_join, _guards) = boot_flows_rpc_env().await;
+
+    // Empty to start.
+    let list = post_json_rpc(
+        &rpc_base,
+        9501,
+        "openhuman.flows_list_suggestions",
+        json!({}),
+    )
+    .await;
+    assert!(
+        peel_logs_envelope(assert_no_jsonrpc_error(&list, "flows_list_suggestions"))
+            .as_array()
+            .expect("suggestions array")
+            .is_empty(),
+        "no suggestions before any discovery run"
+    );
+
+    // Filtered list also resolves (status param accepted).
+    let list_new = post_json_rpc(
+        &rpc_base,
+        9502,
+        "openhuman.flows_list_suggestions",
+        json!({ "status": "new" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&list_new, "flows_list_suggestions(status=new)");
+
+    // Dismiss/mark unknown ids resolve without error and report false.
+    let dismiss = post_json_rpc(
+        &rpc_base,
+        9503,
+        "openhuman.flows_dismiss_suggestion",
+        json!({ "id": "does-not-exist" }),
+    )
+    .await;
+    let dismiss_out = peel_logs_envelope(assert_no_jsonrpc_error(
+        &dismiss,
+        "flows_dismiss_suggestion",
+    ));
+    assert_eq!(
+        dismiss_out.get("dismissed").and_then(Value::as_bool),
+        Some(false)
+    );
+
+    let built = post_json_rpc(
+        &rpc_base,
+        9504,
+        "openhuman.flows_mark_suggestion_built",
+        json!({ "id": "does-not-exist" }),
+    )
+    .await;
+    let built_out = peel_logs_envelope(assert_no_jsonrpc_error(
+        &built,
+        "flows_mark_suggestion_built",
+    ));
+    assert_eq!(built_out.get("built").and_then(Value::as_bool), Some(false));
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
 /// Approval park + DENY over JSON-RPC (issue G4): a gate with both a `main`
 /// edge (→ `downstream`) and an `error` edge (→ `recover`). Resuming with the
 /// gate in `rejections` routes the denied gate's error item to `recover`, and

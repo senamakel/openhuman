@@ -1493,6 +1493,21 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: DERIVED_TO_BACKEND,
     },
     Capability {
+        id: "automation.discover_workflows",
+        name: "Suggested Workflows (Flow Scout)",
+        domain: "flows",
+        category: CapabilityCategory::Automation,
+        description: "A read-only discovery agent (\"Flow Scout\") reads your memory, past \
+                      conversations, known people, connected apps, and existing flows to figure \
+                      out which automations would actually help you, then proposes a handful of \
+                      concrete, buildable workflow suggestions. Each card explains why it was \
+                      suggested; \"Build this\" hands it to the workflow builder to author a real \
+                      flow you review and save. Discovery never creates, enables, or runs a flow.",
+        how_to: "Flows > Suggested for you > Discover",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+    Capability {
         id: "automation.view_cron_jobs",
         name: "View Cron Jobs",
         domain: "automation",

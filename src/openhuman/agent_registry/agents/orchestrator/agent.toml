@@ -161,6 +161,14 @@ allowlist = [
     # can sandbox dry-run a draft, and returns a workflow PROPOSAL for the user
     # to review and save. It never creates/enables/runs a real flow itself.
     "workflow_builder",
+    # Workflow-discovery specialist (the "Flow Scout"). Synthesised into a
+    # `discover_workflows` tool at agent-build time. Route "what workflows
+    # should I set up?", "suggest some automations", or "discover flows for me"
+    # here — it reads the user's memory/threads/connections/flows read-only and
+    # records concrete, buildable suggestions for the Flows page. It never
+    # creates/enables/runs a flow; picking a suggestion routes to
+    # `workflow_builder` to author it.
+    "flow_discovery",
     # NOTE: `summarizer` used to be listed here for the runtime-only
     # oversized-tool-result hook. That path is currently disabled
     # (`context.summarizer_payload_threshold_tokens = 0`) after recursive

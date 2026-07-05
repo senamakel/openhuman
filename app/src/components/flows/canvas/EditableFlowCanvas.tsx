@@ -559,18 +559,30 @@ function EditableFlowCanvas({
     [deleteNode, validateNow, validating]
   );
 
+  // Open the config drawer on an explicit node CLICK only. React Flow doesn't
+  // fire `onNodeClick` for a drag (dragging emits drag events instead), so
+  // grabbing a node to move it no longer pops the drawer open — the fix for
+  // "dragging the card opens the sidebar".
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: FlowNode) => {
+    log('nodeClick: id=%s — opening config', node.id);
+    setConfigNodeId(node.id);
+  }, []);
+
   const onSelectionChange = useCallback(
     ({ nodes: selNodes, edges: selEdges }: { nodes: FlowNode[]; edges: FlowEdge[] }) => {
-      // Open the config drawer only for an unambiguous single-node selection;
-      // any edge in the selection, or 0/2+ nodes, closes it.
-      const nextId = selEdges.length === 0 && selNodes.length === 1 ? selNodes[0].id : null;
-      log(
-        'selectionChange: nodes=%d edges=%d configNode=%s',
-        selNodes.length,
-        selEdges.length,
-        nextId ?? 'none'
-      );
-      setConfigNodeId(nextId);
+      // Selection only CLOSES the drawer now (opening is `onNodeClick`'s job):
+      // clicking empty canvas, selecting an edge, or multi-selecting drops the
+      // single-node config context. A lone node stays as-is (opened by a click,
+      // left closed after a drag).
+      const isSingleNode = selEdges.length === 0 && selNodes.length === 1;
+      if (!isSingleNode) {
+        log(
+          'selectionChange: nodes=%d edges=%d — closing config',
+          selNodes.length,
+          selEdges.length
+        );
+        setConfigNodeId(null);
+      }
     },
     []
   );
@@ -746,6 +758,7 @@ function EditableFlowCanvas({
           onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
           isValidConnection={isValidConnection}
+          onNodeClick={onNodeClick}
           onSelectionChange={onSelectionChange}
           deleteKeyCode={DELETE_KEYS}
           nodesDraggable

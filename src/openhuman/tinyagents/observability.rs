@@ -1094,7 +1094,6 @@ mod tests {
         sink.emit(AgentEvent::ToolCompleted {
             call_id: "c1".into(),
             tool_name: "echo".to_string(),
-            started_at_ms: None,
             input: None,
             output: None,
         });

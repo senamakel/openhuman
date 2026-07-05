@@ -39,6 +39,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tinychannels::ChannelHost;
 use tokio::sync::mpsc;
 
 /// How the channels runtime should construct its default chat provider.
@@ -532,6 +533,12 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         );
     }
 
+    // Assemble the ChannelHost capability surface (shutdown, STT/TTS, reaction
+    // gate, approvals, conversation store, event sink). Ported rich providers
+    // reach host capabilities through this instead of calling core internals.
+    let channel_host =
+        crate::openhuman::channels::host::build_channel_host(Arc::new(config.clone()));
+
     // Collect active channels
     let mut channels: Vec<Arc<dyn Channel>> = Vec::new();
 
@@ -648,12 +655,16 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
                 // Web mode: requires session_path
                 #[cfg(feature = "whatsapp-web")]
                 if wa.is_web_config() {
-                    channels.push(Arc::new(WhatsAppWebChannel::new(
+                    let mut wa_channel = WhatsAppWebChannel::new(
                         wa.session_path.clone().unwrap_or_default(),
                         wa.pair_phone.clone(),
                         wa.pair_code.clone(),
                         wa.allowed_numbers.clone(),
-                    )));
+                    );
+                    if let Some(lifecycle) = channel_host.lifecycle() {
+                        wa_channel = wa_channel.with_lifecycle(lifecycle);
+                    }
+                    channels.push(Arc::new(wa_channel));
                 } else {
                     tracing::warn!("WhatsApp Web configured but session_path not set");
                 }

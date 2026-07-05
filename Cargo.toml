@@ -246,16 +246,10 @@ coins-bip39 = "0.8"
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc"] }
 
 fantoccini = { version = "0.22.0", optional = true, default-features = false, features = ["rustls-tls"] }
-serde-big-array = { version = "0.5", optional = true }
 pdf-extract = "0.10"
-# WhatsApp Web — upstream `whatsapp-rust` 0.5. Its Diesel-backed sqlite-storage
-# feature links sqlite3 separately from rusqlite 0.40, so the TinyAgents 1.5
-# baseline compiles this provider against wacore's in-memory Backend until a
-# rusqlite-backed durable store lands.
-whatsapp-rust = { version = "0.5", optional = true, default-features = false, features = ["tokio-runtime"] }
-whatsapp-rust-tokio-transport = { version = "0.5", optional = true, default-features = false }
-whatsapp-rust-ureq-http-client = { version = "0.5", optional = true }
-wacore = { version = "0.5", optional = true, default-features = false }
+# The WhatsApp Web provider (and its `whatsapp-rust` / `wacore` / `serde-big-array`
+# stack) now lives in the tinychannels crate; the `whatsapp-web` feature forwards
+# to `tinychannels/whatsapp-web`.
 ppt-rs = "0.2.14"
 
 [target.'cfg(windows)'.dependencies]
@@ -335,7 +329,8 @@ peripheral-rpi = ["dep:rppal"]
 browser-native = ["dep:fantoccini"]
 fantoccini = ["browser-native"]
 landlock = ["sandbox-landlock"]
-whatsapp-web = ["dep:whatsapp-rust", "dep:whatsapp-rust-tokio-transport", "dep:whatsapp-rust-ureq-http-client", "dep:wacore", "serde-big-array"]
+# The WhatsApp Web provider now lives in tinychannels; forward to its feature.
+whatsapp-web = ["tinychannels/whatsapp-web"]
 # Exposes the destructive `openhuman.test_reset` RPC. Off by default; the E2E
 # build (app/scripts/e2e-build.sh) flips it on. Shipped binaries never have
 # this feature so the wipe RPC isn't even registered, let alone reachable.

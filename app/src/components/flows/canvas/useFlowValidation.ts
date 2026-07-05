@@ -63,13 +63,23 @@ export function useFlowValidation(
     };
   }, []);
 
+  // Monotonic request token: guards against an out-of-order completion (a
+  // debounced auto-validate and a manual `validateNow()`, or two rapid
+  // `validateNow()` calls, resolving out of issue order) applying a stale
+  // result over a fresher one — which could wrongly unblock or re-block Save
+  // after the user has made further edits. Also doubles as the correlation
+  // field for the debug log.
+  const requestIdRef = useRef(0);
+
   const run = useCallback(async (): Promise<FlowValidation | null> => {
+    const requestId = ++requestIdRef.current;
     setValidating(true);
     try {
       const result = await validateFlow(graphRef.current);
-      if (!mountedRef.current) return result;
+      if (!mountedRef.current || requestId !== requestIdRef.current) return result;
       log(
-        'validated: valid=%s errors=%d warnings=%d',
+        'validated (req=%d): valid=%s errors=%d warnings=%d',
+        requestId,
         result.valid,
         result.errors.length,
         result.warnings.length
@@ -80,7 +90,7 @@ export function useFlowValidation(
       log('validation failed (non-fatal): %o', err);
       return null;
     } finally {
-      if (mountedRef.current) setValidating(false);
+      if (mountedRef.current && requestId === requestIdRef.current) setValidating(false);
     }
   }, []);
 

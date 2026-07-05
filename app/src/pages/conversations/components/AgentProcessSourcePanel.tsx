@@ -111,9 +111,9 @@ export function AgentProcessSourcePanel({
   const subagentEntries = entries.filter(entry => entry.subagent);
   // For a scoped *non*-sub-agent step, the detail (args / output) to show.
   const scopedDetail = scopedEntry
-    ? (normalizeScopedBody(formatTimelineEntry(scopedEntry).detail) ??
-      normalizeScopedBody(scopedEntry.argsBuffer) ??
-      normalizeScopedBody(scopedEntry.result))
+    ? (normalizeScopedBody(scopedEntry.result) ??
+      normalizeScopedBody(formatTimelineEntry(scopedEntry).detail) ??
+      normalizeScopedBody(scopedEntry.argsBuffer))
     : undefined;
 
   return (

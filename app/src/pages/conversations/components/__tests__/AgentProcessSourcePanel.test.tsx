@@ -190,12 +190,13 @@ describe('AgentProcessSourcePanel', () => {
     expect(screen.queryByText('whole-run narration')).toBeNull();
   });
 
-  it('shows scoped tool result output when no detail or args were captured', () => {
+  it('prefers scoped tool result output over captured args/detail', () => {
     const scoped: ToolTimelineEntry = {
       id: 'tool-result-only',
       name: 'run_code',
       round: 1,
       status: 'success',
+      argsBuffer: '{"command":"pnpm test"}',
       result: 'exit 0\nAll checks passed.',
     };
     renderPanel(
@@ -203,6 +204,7 @@ describe('AgentProcessSourcePanel', () => {
     );
     expect(screen.getByText('Run Code')).toBeInTheDocument();
     expect(screen.getByText(/All checks passed/)).toBeInTheDocument();
+    expect(screen.queryByText(/pnpm test/)).toBeNull();
   });
 
   it('renders no source rows when no web tools were used', () => {

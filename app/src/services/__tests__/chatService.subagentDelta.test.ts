@@ -17,7 +17,7 @@ function fakeSocket() {
     on: vi.fn((event: string, cb: (payload: unknown) => void) => {
       handlers.set(event, cb);
     }),
-    off: vi.fn((event: string) => {
+    off: vi.fn((event: string, _cb?: (payload: unknown) => void) => {
       handlers.delete(event);
     }),
     emit: (event: string, payload: unknown) => handlers.get(event)?.(payload),

@@ -3764,6 +3764,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Преобразование',
   'flows.nodeKind.output_parser': 'Парсер вывода',
   'flows.nodeKind.sub_workflow': 'Подпроцесс',
+  'flows.palette.title': 'Узлы',
+  'flows.palette.addNode': 'Добавить узел {kind}',
+  'flows.editor.save': 'Сохранить',
+  'flows.editor.deleteSelected': 'Удалить выбранное',
 
   'oauth.button.connecting': 'Подключение...',
   'oauth.button.loopbackTimeout':

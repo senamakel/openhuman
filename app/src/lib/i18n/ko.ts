@@ -3693,6 +3693,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': '변환',
   'flows.nodeKind.output_parser': '출력 파서',
   'flows.nodeKind.sub_workflow': '하위 워크플로',
+  'flows.palette.title': '노드',
+  'flows.palette.addNode': '{kind} 노드 추가',
+  'flows.editor.save': '저장',
+  'flows.editor.deleteSelected': '선택 항목 삭제',
 
   'oauth.button.connecting': '연결 중...',
   'oauth.button.loopbackTimeout':

@@ -3822,6 +3822,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Transformation',
   'flows.nodeKind.output_parser': 'Ausgabe-Parser',
   'flows.nodeKind.sub_workflow': 'Unter-Workflow',
+  'flows.palette.title': 'Knoten',
+  'flows.palette.addNode': '{kind}-Knoten hinzufügen',
+  'flows.editor.save': 'Speichern',
+  'flows.editor.deleteSelected': 'Auswahl löschen',
 
   'oauth.button.connecting': 'Verbinden...',
   'oauth.button.loopbackTimeout':

@@ -3739,6 +3739,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Transformasi',
   'flows.nodeKind.output_parser': 'Pengurai keluaran',
   'flows.nodeKind.sub_workflow': 'Sub-alur kerja',
+  'flows.palette.title': 'Simpul',
+  'flows.palette.addNode': 'Tambah simpul {kind}',
+  'flows.editor.save': 'Simpan',
+  'flows.editor.deleteSelected': 'Hapus yang dipilih',
 
   'oauth.button.connecting': 'Menghubungkan...',
   'oauth.button.loopbackTimeout':

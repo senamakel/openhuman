@@ -140,7 +140,7 @@ export default function FlowCanvasPage() {
         (() => {
           const graph = state.flow.graph as WorkflowGraph;
           const { nodes, edges } = workflowGraphToXyflow(graph);
-          return <FlowCanvas nodes={nodes} edges={edges} readonly />;
+          return <FlowCanvas nodes={nodes} edges={edges} />;
         })()}
     </PanelPage>
   );

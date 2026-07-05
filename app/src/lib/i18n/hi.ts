@@ -3730,6 +3730,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'रूपांतरण',
   'flows.nodeKind.output_parser': 'आउटपुट पार्सर',
   'flows.nodeKind.sub_workflow': 'सब-वर्कफ़्लो',
+  'flows.palette.title': 'नोड',
+  'flows.palette.addNode': '{kind} नोड जोड़ें',
+  'flows.editor.save': 'सहेजें',
+  'flows.editor.deleteSelected': 'चयनित हटाएं',
 
   'oauth.button.connecting': 'कनेक्ट हो रहा है...',
   'oauth.button.loopbackTimeout':

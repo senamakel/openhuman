@@ -3775,6 +3775,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Transformacja',
   'flows.nodeKind.output_parser': 'Parser wyjścia',
   'flows.nodeKind.sub_workflow': 'Podprzepływ pracy',
+  'flows.palette.title': 'Węzły',
+  'flows.palette.addNode': 'Dodaj węzeł {kind}',
+  'flows.editor.save': 'Zapisz',
+  'flows.editor.deleteSelected': 'Usuń zaznaczone',
 
   'oauth.button.connecting': 'Łączenie...',
   'oauth.button.loopbackTimeout':

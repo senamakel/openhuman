@@ -3809,6 +3809,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'Transformation',
   'flows.nodeKind.output_parser': 'Analyseur de sortie',
   'flows.nodeKind.sub_workflow': 'Sous-workflow',
+  'flows.palette.title': 'Nœuds',
+  'flows.palette.addNode': 'Ajouter un nœud {kind}',
+  'flows.editor.save': 'Enregistrer',
+  'flows.editor.deleteSelected': 'Supprimer la sélection',
 
   'oauth.button.connecting': 'Connexion en cours…',
   'oauth.button.loopbackTimeout':

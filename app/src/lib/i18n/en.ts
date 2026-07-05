@@ -4378,6 +4378,13 @@ const en: TranslationMap = {
   'flows.nodeKind.output_parser': 'Output parser',
   'flows.nodeKind.sub_workflow': 'Sub-workflow',
 
+  // ── Editable Workflow Canvas (issue B5b.2 / Phase 3a) — the node palette
+  // and editor toolbar layered on top of the read-only canvas above.
+  'flows.palette.title': 'Nodes',
+  'flows.palette.addNode': 'Add {kind} node',
+  'flows.editor.save': 'Save',
+  'flows.editor.deleteSelected': 'Delete selected',
+
   'oauth.button.connecting': 'Connecting...',
   'oauth.button.loopbackTimeout':
     'Sign-in timed out — the browser did not complete the OAuth redirect. Please try again.',

@@ -3536,6 +3536,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': '转换',
   'flows.nodeKind.output_parser': '输出解析器',
   'flows.nodeKind.sub_workflow': '子工作流',
+  'flows.palette.title': '节点',
+  'flows.palette.addNode': '添加{kind}节点',
+  'flows.editor.save': '保存',
+  'flows.editor.deleteSelected': '删除所选',
 
   'oauth.button.connecting': '连接中...',
   'oauth.button.loopbackTimeout': '登录超时 — 浏览器未完成 OAuth 跳转。请重试。',

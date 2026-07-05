@@ -3647,6 +3647,10 @@ const messages: TranslationMap = {
   'flows.nodeKind.transform': 'التحويل',
   'flows.nodeKind.output_parser': 'محلل المخرجات',
   'flows.nodeKind.sub_workflow': 'سير عمل فرعي',
+  'flows.palette.title': 'العقد',
+  'flows.palette.addNode': 'إضافة عقدة {kind}',
+  'flows.editor.save': 'حفظ',
+  'flows.editor.deleteSelected': 'حذف المحدد',
 
   'oauth.button.connecting': 'جارٍ الاتصال...',
   'oauth.button.loopbackTimeout':

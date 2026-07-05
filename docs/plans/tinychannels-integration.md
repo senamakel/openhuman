@@ -61,7 +61,9 @@ Companion docs in the tinychannels repo:
   JSON. The remaining OpenHuman work is still envelope/session migration,
   relay runtime adoption, provider extraction, and the planned test split below;
   the first envelope slice is landed because the runtime now publishes a
-  TinyChannels `ChannelInboundEnvelope` on `ChannelMessageReceived` events.
+  TinyChannels `ChannelInboundEnvelope` on `ChannelMessageReceived` events, and
+  startup now has a relay inbound handler that can forward authenticated relay
+  envelopes onto the existing dispatch bus once the live socket is attached.
 
 ## Step 1 — Add the dependency, delete duplicates
 

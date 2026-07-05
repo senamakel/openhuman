@@ -36,8 +36,10 @@ use crate::openhuman::memory_store;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools;
 use anyhow::Result;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
 
 /// How the channels runtime should construct its default chat provider.
 ///
@@ -57,6 +59,36 @@ pub(super) enum ChatWorkloadResolution {
         provider_string: String,
         slug: String,
     },
+}
+
+pub(super) struct RelayInboundMessageHandler {
+    tx: mpsc::Sender<traits::ChannelMessage>,
+}
+
+impl RelayInboundMessageHandler {
+    pub(super) fn new(tx: mpsc::Sender<traits::ChannelMessage>) -> Self {
+        Self { tx }
+    }
+}
+
+#[async_trait]
+impl tinychannels::relay::RelayInboundHandler for RelayInboundMessageHandler {
+    async fn handle(
+        &self,
+        event: tinychannels::relay::AuthenticatedRelayInboundEvent,
+    ) -> Result<(), tinychannels::relay::RelayTransportError> {
+        let envelope: tinychannels::ChannelInboundEnvelope = serde_json::from_value(event.event)
+            .map_err(|error| {
+                tinychannels::relay::RelayTransportError::Handler(format!(
+                    "invalid inbound envelope: {error}"
+                ))
+            })?;
+        let msg = tinychannels::legacy_message_from_inbound_envelope(&envelope, 0);
+        self.tx
+            .send(msg)
+            .await
+            .map_err(|_| tinychannels::relay::RelayTransportError::Closed)
+    }
 }
 
 pub(super) fn resolve_chat_workload(config: &Config) -> ChatWorkloadResolution {

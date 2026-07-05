@@ -12,7 +12,8 @@ use async_trait::async_trait;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
     SandboxMode, Tool, ToolAccess, ToolCall as TaToolCall, ToolExecutionContext, ToolPolicy,
-    ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects, ToolTimeout,
+    ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects,
+    ToolTimeout as TaToolTimeout,
     WorkspaceAccess,
 };
 
@@ -154,7 +155,7 @@ pub(crate) fn tool_policy_from_openhuman_tool(
         })
         .with_runtime(ToolRuntime {
             timeout_ms,
-            timeout: ToolTimeout::Inherit,
+            timeout: TaToolTimeout::Inherit,
             max_retries: None,
             idempotent: tool.is_concurrency_safe(&serde_json::Value::Null),
             cancelable: true,

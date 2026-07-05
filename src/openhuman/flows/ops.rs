@@ -446,7 +446,8 @@ pub async fn flows_run(
 
     // Record a failed attempt so `last_run_at`/`last_status` reflect reality
     // (a stop-policy engine/capability failure or a timeout) rather than
-    // leaving the prior success/pending state on the flow.
+    // leaving the prior success/pending state on the flow. Preserve whatever
+    // steps the observer persisted live (don't wipe them back to `[]`).
     let record_failed = |error: &str| {
         if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
             tracing::warn!(
@@ -456,7 +457,8 @@ pub async fn flows_run(
                 "[flows] flows_run: failed to record failed run"
             );
         }
-        finish_flow_run_row(config, &thread_id, "failed", &[], &[], Some(error));
+        let observed = current_persisted_steps(config, &thread_id);
+        finish_flow_run_row(config, &thread_id, "failed", &observed, &[], Some(error));
     };
 
     let origin = workflow_origin(flow_id, flow.require_approval);
@@ -465,15 +467,25 @@ pub async fn flows_run(
     // post-run Langfuse export reads back. Process-local and dropped with the
     // run — never persisted.
     let journal = Arc::new(tinyflows::engine::InMemoryGraphEventJournal::new());
+    // Live run observer (issue G2): persists each finished step into the
+    // `flow_runs` row as it happens and streams a `FlowRunProgress` event to
+    // the frontend, so the durable + journaled path also reports live.
+    let observer: Arc<dyn tinyflows::observability::RunObserver> =
+        Arc::new(crate::openhuman::tinyflows::observability::FlowRunObserver::new(
+            Arc::new(config.clone()),
+            flow_id,
+            thread_id.clone(),
+        ));
     let run = with_origin(
         origin,
-        tinyflows::engine::run_with_checkpointer_journaled(
+        tinyflows::engine::run_with_checkpointer_journaled_observed(
             &compiled,
             input,
             &caps,
             checkpointer,
             &thread_id,
             journal.clone(),
+            &observer,
         ),
     );
     let journaled = match tokio::time::timeout(
@@ -507,7 +519,7 @@ pub async fn flows_run(
         config,
         &thread_id,
         status,
-        &reconstruct_steps(&outcome.output),
+        &settle_steps(config, &thread_id, &outcome.output),
         &outcome.pending_approvals,
         None,
     );
@@ -624,15 +636,25 @@ pub async fn flows_resume(
     // Same per-run journal as `flows_run`: the resumed execution mints a new
     // tinyagents run id, so its observation slice is read under that id.
     let journal = Arc::new(tinyflows::engine::InMemoryGraphEventJournal::new());
+    // Live observer (issue G2): the resumed run fires `on_step_finish` for each
+    // node that runs after the interrupt boundary, so downstream steps are
+    // persisted + streamed live too, keyed by the same `thread_id`/run row.
+    let observer: Arc<dyn tinyflows::observability::RunObserver> =
+        Arc::new(crate::openhuman::tinyflows::observability::FlowRunObserver::new(
+            Arc::new(config.clone()),
+            flow_id,
+            thread_id.to_string(),
+        ));
     let run = with_origin(
         origin,
-        tinyflows::engine::resume_with_checkpointer_journaled(
+        tinyflows::engine::resume_with_checkpointer_journaled_observed(
             &compiled,
             &caps,
             checkpointer,
             thread_id,
             approvals,
             journal.clone(),
+            &observer,
         ),
     );
 
@@ -645,14 +667,16 @@ pub async fn flows_resume(
         Ok(Ok(journaled)) => journaled,
         Ok(Err(e)) => {
             let _ = store::record_run(config, flow_id, "failed");
-            finish_flow_run_row(config, thread_id, "failed", &[], &[], Some(&e.to_string()));
+            let observed = current_persisted_steps(config, thread_id);
+            finish_flow_run_row(config, thread_id, "failed", &observed, &[], Some(&e.to_string()));
             tracing::warn!(target: "flows", flow_id = %flow_id, %thread_id, error = %e, "[flows] flows_resume: run failed");
             return Err(e.to_string());
         }
         Err(_elapsed) => {
             let msg = format!("flow resume timed out after {FLOW_RUN_TIMEOUT_SECS}s");
             let _ = store::record_run(config, flow_id, "failed");
-            finish_flow_run_row(config, thread_id, "failed", &[], &[], Some(&msg));
+            let observed = current_persisted_steps(config, thread_id);
+            finish_flow_run_row(config, thread_id, "failed", &observed, &[], Some(&msg));
             tracing::warn!(target: "flows", flow_id = %flow_id, %thread_id, timeout_secs = FLOW_RUN_TIMEOUT_SECS, "[flows] flows_resume: run timed out");
             return Err(msg);
         }
@@ -669,7 +693,7 @@ pub async fn flows_resume(
         config,
         thread_id,
         status,
-        &reconstruct_steps(&outcome.output),
+        &settle_steps(config, thread_id, &outcome.output),
         &outcome.pending_approvals,
         None,
     );
@@ -775,14 +799,14 @@ fn finish_flow_run_row(
 }
 
 /// Reconstructs a lean per-node step list from a settled run's
-/// `output["nodes"]` map. tinyflows 0.2's durable path installs a
-/// `NoopObserver` (see `tinyflows/observability.rs`), so there is no live
-/// step stream to persist — this is the B2 "good enough" substitute the
-/// spec calls for; a richer per-step `RunObserver` is a tinyflows 0.3 item.
+/// `output["nodes"]` map.
 ///
-/// // TODO(0.3): replace this reconstruction with a real `RunObserver` that
-/// // streams `node_id`/`status`/`output`/`duration_ms` as each node
-/// // finishes, once the durable run path supports installing one.
+/// As of issue G2 (live run observation) this is no longer the primary source
+/// of run steps — `flows::observability::FlowRunObserver` persists each step
+/// live as it finishes (with real `status`/`duration_ms`). This reconstruction
+/// is now only a **fallback**, used by [`settle_steps`] to fill in any node the
+/// observer didn't emit an `on_step_finish` for (notably the trigger node),
+/// and as the whole-run source when the observer saw nothing at all.
 fn reconstruct_steps(output: &Value) -> Vec<FlowRunStep> {
     let Some(nodes) = output.get("nodes").and_then(Value::as_object) else {
         return Vec::new();
@@ -793,8 +817,62 @@ fn reconstruct_steps(output: &Value) -> Vec<FlowRunStep> {
             node_id: node_id.clone(),
             output: slot.get("items").cloned().unwrap_or(Value::Null),
             port: slot.get("port").and_then(Value::as_str).map(str::to_string),
+            // Reconstructed post-hoc: no live status/timing (see FlowRunStep).
+            status: None,
+            duration_ms: None,
         })
         .collect()
+}
+
+/// Reads back whatever steps the live [`FlowRunObserver`] has already persisted
+/// onto the run's row. Best-effort: a read failure yields an empty list (the
+/// caller still writes a terminal row), never propagating an error into the
+/// run's settle path.
+///
+/// [`FlowRunObserver`]: crate::openhuman::tinyflows::observability::FlowRunObserver
+fn current_persisted_steps(config: &Config, run_id: &str) -> Vec<FlowRunStep> {
+    store::get_flow_run(config, run_id)
+        .ok()
+        .flatten()
+        .map(|run| run.steps)
+        .unwrap_or_default()
+}
+
+/// Assembles the final step list to persist at settle: the live steps the
+/// observer already recorded (carrying real `status`/`duration_ms`), plus any
+/// node present in the post-hoc [`reconstruct_steps`] projection that the
+/// observer never emitted a step for — the trigger node, or (defensively) an
+/// observer that missed a step. If the observer recorded nothing at all
+/// (e.g. a run that paused immediately at a gate before any node finished),
+/// falls back wholesale to the reconstruction.
+fn settle_steps(config: &Config, run_id: &str, output: &Value) -> Vec<FlowRunStep> {
+    let reconstructed = reconstruct_steps(output);
+    let persisted = current_persisted_steps(config, run_id);
+    if persisted.is_empty() {
+        tracing::debug!(
+            target: "flows",
+            run_id,
+            reconstructed = reconstructed.len(),
+            "[flows] settle_steps: no live-observed steps — using post-hoc reconstruction"
+        );
+        return reconstructed;
+    }
+    let mut merged = persisted;
+    let mut filled = 0usize;
+    for step in reconstructed {
+        if !merged.iter().any(|s| s.node_id == step.node_id) {
+            merged.push(step);
+            filled += 1;
+        }
+    }
+    tracing::debug!(
+        target: "flows",
+        run_id,
+        step_count = merged.len(),
+        filled_from_reconstruction = filled,
+        "[flows] settle_steps: merged live-observed steps with post-hoc reconstruction"
+    );
+    merged
 }
 
 /// Milliseconds since the Unix epoch, for `CoreNotificationEvent::timestamp_ms`.

@@ -808,3 +808,123 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
         "a fully-completed run must not publish a pending-approval notification"
     );
 }
+
+// ── Live run observation (issue G2) ───────────────────────────────────────
+
+use crate::openhuman::tinyflows::observability::FlowRunObserver;
+use std::sync::Arc as StdArc;
+// `RunObserver` must be in scope to call `on_step_finish` on the observer.
+use tinyflows::observability::{ExecutionStep, RunObserver as _, StepStatus};
+
+/// trigger -> output_parser passthrough: the parser is a non-trigger node, so
+/// the engine fires `on_step_finish` for it, exercising live persistence.
+fn passthrough_graph() -> Value {
+    json!({
+        "name": "passthrough",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "p", "kind": "output_parser", "name": "Parse" }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "p" } ]
+    })
+}
+
+#[tokio::test]
+async fn observer_persists_each_step_incrementally() {
+    // The observer no-ops until the run's start row exists (mirrors
+    // `start_flow_run_row`), so seed a flow + a running run row first.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "obs".to_string(), passthrough_graph(), false)
+        .await
+        .unwrap();
+    let run_id = format!("flow:{}:run-under-test", created.value.id);
+    store::insert_flow_run(&config, &run_id, &created.value.id, &run_id, "2026-01-01T00:00:00Z")
+        .unwrap();
+
+    let observer = FlowRunObserver::new(StdArc::new(config.clone()), created.value.id.clone(), &run_id);
+    observer.on_step_finish(&ExecutionStep {
+        node_id: "a".to_string(),
+        status: StepStatus::Success,
+        output: json!([{ "json": { "ok": true } }]),
+        duration_ms: 7,
+    });
+    observer.on_step_finish(&ExecutionStep {
+        node_id: "b".to_string(),
+        status: StepStatus::Error,
+        output: Value::Null,
+        duration_ms: 3,
+    });
+
+    // The store now holds both live steps with real status + timing — proof of
+    // incremental persistence (post-hoc reconstruction leaves status None).
+    let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
+    assert_eq!(row.steps.len(), 2, "both live steps should be persisted");
+    let a = row.steps.iter().find(|s| s.node_id == "a").unwrap();
+    assert_eq!(a.status.as_deref(), Some("success"));
+    assert_eq!(a.duration_ms, Some(7));
+    let b = row.steps.iter().find(|s| s.node_id == "b").unwrap();
+    assert_eq!(b.status.as_deref(), Some("error"));
+    assert_eq!(b.duration_ms, Some(3));
+
+    // Re-firing the same node id replaces its entry rather than duplicating it.
+    observer.on_step_finish(&ExecutionStep {
+        node_id: "a".to_string(),
+        status: StepStatus::Success,
+        output: json!([{ "json": { "ok": true } }]),
+        duration_ms: 42,
+    });
+    let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
+    assert_eq!(row.steps.len(), 2, "re-firing a node must not duplicate it");
+    let a = row.steps.iter().find(|s| s.node_id == "a").unwrap();
+    assert_eq!(a.duration_ms, Some(42), "the step should be replaced in place");
+}
+
+#[tokio::test]
+async fn flows_run_persists_live_steps_with_status_and_timing() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "passthrough".to_string(), passthrough_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(row.value.status, "completed");
+
+    // The non-trigger node 'p' was observed live: it carries a real status +
+    // timing that only the live observer (not post-hoc reconstruction) sets.
+    let p = row
+        .value
+        .steps
+        .iter()
+        .find(|s| s.node_id == "p")
+        .expect("the output_parser step should be persisted");
+    assert_eq!(p.status.as_deref(), Some("success"));
+    assert!(
+        p.duration_ms.is_some(),
+        "a live-observed step should carry executor timing"
+    );
+
+    // The trigger node emits no `on_step_finish`; `settle_steps` fills it in
+    // from the post-hoc reconstruction, so it carries no live status.
+    let t = row
+        .value
+        .steps
+        .iter()
+        .find(|s| s.node_id == "t")
+        .expect("the trigger step should be reconstructed at settle");
+    assert!(
+        t.status.is_none(),
+        "the trigger step is reconstructed post-hoc, not observed live"
+    );
+}

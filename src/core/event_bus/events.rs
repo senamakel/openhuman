@@ -451,6 +451,23 @@ pub enum DomainEvent {
         /// Identifier of the `flows::Flow` to run.
         flow_id: String,
     },
+    /// Live per-step progress of an in-flight `flows_run` / `flows_resume`
+    /// (issue G2, live run observation). Published from
+    /// `flows::observability::FlowRunObserver::on_step_finish` as each
+    /// non-trigger node settles, so the Workflows UI can show a run advancing
+    /// node-by-node instead of only polling the settled `flow_runs` row. The
+    /// durable `flow_runs` row (updated incrementally by the same observer and
+    /// finalized at settle) remains the source of truth — this event is a
+    /// best-effort progress feed (broadcast bridges drop on lag), which is why
+    /// the frontend keeps its 2s poller as a fallback.
+    FlowRunProgress {
+        /// The run's stable identifier (== the tinyflows checkpointer thread id).
+        run_id: String,
+        /// The node whose step just finished.
+        node_id: String,
+        /// Step outcome: `"success"` | `"error"`.
+        status: String,
+    },
 
     // ── Skills ──────────────────────────────────────────────────────────
     /// A skill was loaded into the runtime.
@@ -1309,7 +1326,8 @@ impl DomainEvent {
             | Self::CronJobCompleted { .. }
             | Self::CronDeliveryRequested { .. }
             | Self::ProactiveMessageRequested { .. }
-            | Self::FlowScheduleTick { .. } => "cron",
+            | Self::FlowScheduleTick { .. }
+            | Self::FlowRunProgress { .. } => "cron",
 
             Self::WorkflowLoaded { .. }
             | Self::WorkflowStopped { .. }
@@ -1470,6 +1488,7 @@ impl DomainEvent {
             Self::CronDeliveryRequested { .. } => "CronDeliveryRequested",
             Self::ProactiveMessageRequested { .. } => "ProactiveMessageRequested",
             Self::FlowScheduleTick { .. } => "FlowScheduleTick",
+            Self::FlowRunProgress { .. } => "FlowRunProgress",
             Self::WorkflowLoaded { .. } => "WorkflowLoaded",
             Self::WorkflowStopped { .. } => "WorkflowStopped",
             Self::WorkflowStartFailed { .. } => "WorkflowStartFailed",

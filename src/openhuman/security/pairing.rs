@@ -8,7 +8,7 @@ use std::io::Write as _;
 use std::path::Path;
 
 #[cfg(unix)]
-use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+use std::os::unix::fs::OpenOptionsExt as _;
 
 /// `PairingGuard`, `constant_time_eq`, and the pairing lockout constants now
 /// live in tinychannels (portable, self-contained); re-export them so existing

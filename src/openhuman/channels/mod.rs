@@ -3,6 +3,7 @@
 pub mod bus;
 pub mod cli;
 pub mod controllers;
+pub mod host;
 pub mod proactive;
 pub mod providers;
 pub(crate) mod relay_runtime;

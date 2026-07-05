@@ -28,6 +28,19 @@ import { useFlowRunPoller } from '../../hooks/useFlowRunPoller';
 import { type FlowNodeRunStatus, useFlowRunProgress } from '../../hooks/useFlowRunProgress';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { FlowRunStatus, FlowRunStep } from '../../services/api/flowsApi';
+import Button from '../ui/Button';
+
+/**
+ * Context handed to the "Fix with agent" action (Phase 5c) so the canvas
+ * copilot can open preloaded with the failed run. `flowId` routes to the flow's
+ * canvas; the rest seeds the repair prompt.
+ */
+export interface FlowRepairRequest {
+  flowId: string;
+  runId: string;
+  error?: string | null;
+  failingNodeIds?: string[];
+}
 
 const log = debug('flows:run-inspector-drawer');
 
@@ -155,6 +168,12 @@ interface Props {
   /** Run id (== thread_id) to inspect. Renders `null` (nothing) when absent. */
   runId: string | null;
   onClose: () => void;
+  /**
+   * "Fix with agent" (Phase 5c) — when provided and the run failed, a repair
+   * action surfaces that hands the run context up so the host can open the
+   * canvas copilot preloaded. Omitted where there's no copilot to route to.
+   */
+  onFixWithAgent?: (request: FlowRepairRequest) => void;
 }
 
 /**
@@ -162,12 +181,27 @@ interface Props {
  * unconditionally and just flip `runId` (same convention as
  * `SubagentDrawer`).
  */
-export function FlowRunInspectorDrawer({ runId, onClose }: Props) {
+export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props) {
   const { t } = useT();
   const { run, loading, error } = useFlowRunPoller(runId);
   // Live per-node status overlay (Phase 3e): the socket feed makes the poller's
   // durable step list feel live without replacing it as the source of truth.
   const liveStatuses = useFlowRunProgress(runId);
+
+  const handleFixWithAgent = () => {
+    if (!run || !onFixWithAgent) return;
+    // Best-effort failing-node hints from the live status feed (error/failed).
+    const failingNodeIds = Object.entries(liveStatuses)
+      .filter(([, status]) => status === 'error' || status === 'failed')
+      .map(([nodeId]) => nodeId);
+    log('fix-with-agent: flow=%s run=%s failing=%d', run.flow_id, run.thread_id, failingNodeIds.length);
+    onFixWithAgent({
+      flowId: run.flow_id,
+      runId: run.thread_id,
+      error: run.error,
+      failingNodeIds: failingNodeIds.length > 0 ? failingNodeIds : undefined,
+    });
+  };
 
   useEscapeKey(() => {
     log('escape: closing runId=%s', runId);
@@ -271,6 +305,21 @@ export function FlowRunInspectorDrawer({ runId, onClose }: Props) {
                   data-testid="flow-run-error-banner"
                   className="rounded-xl border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
                   {t('flowRuns.inspector.error')}: {run.error}
+                </div>
+              )}
+
+              {/* Repair entry point (Phase 5c): open the canvas copilot preloaded
+                  with this failed run so the workflow builder can propose a fix. */}
+              {run.status === 'failed' && onFixWithAgent && (
+                <div>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    data-testid="flow-run-fix-with-agent"
+                    onClick={handleFixWithAgent}>
+                    {t('flowRuns.inspector.fixWithAgent')}
+                  </Button>
                 </div>
               )}
 

@@ -140,4 +140,51 @@ describe('FlowRunInspectorDrawer', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  // ── "Fix with agent" repair entry point (Phase 5c) ────────────────────────
+  it('shows "Fix with agent" only for a failed run when the handler is provided', () => {
+    useFlowRunPoller.mockReturnValue({
+      run: makeRun({ status: 'failed', error: 'HTTP 500' }),
+      loading: false,
+      error: null,
+    });
+    render(
+      <Provider store={store}>
+        <FlowRunInspectorDrawer runId="thread-1" onClose={vi.fn()} onFixWithAgent={vi.fn()} />
+      </Provider>
+    );
+    expect(screen.getByTestId('flow-run-fix-with-agent')).toBeInTheDocument();
+  });
+
+  it('hides "Fix with agent" for a non-failed run', () => {
+    useFlowRunPoller.mockReturnValue({
+      run: makeRun({ status: 'completed' }),
+      loading: false,
+      error: null,
+    });
+    render(
+      <Provider store={store}>
+        <FlowRunInspectorDrawer runId="thread-1" onClose={vi.fn()} onFixWithAgent={vi.fn()} />
+      </Provider>
+    );
+    expect(screen.queryByTestId('flow-run-fix-with-agent')).not.toBeInTheDocument();
+  });
+
+  it('hands the failed run context up when "Fix with agent" is clicked', () => {
+    useFlowRunPoller.mockReturnValue({
+      run: makeRun({ status: 'failed', error: 'HTTP 500', flow_id: 'flow-42', thread_id: 'run-9' }),
+      loading: false,
+      error: null,
+    });
+    const onFixWithAgent = vi.fn();
+    render(
+      <Provider store={store}>
+        <FlowRunInspectorDrawer runId="run-9" onClose={vi.fn()} onFixWithAgent={onFixWithAgent} />
+      </Provider>
+    );
+    fireEvent.click(screen.getByTestId('flow-run-fix-with-agent'));
+    expect(onFixWithAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ flowId: 'flow-42', runId: 'run-9', error: 'HTTP 500' })
+    );
+  });
 });

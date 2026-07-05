@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 
 import EmptyStateCard from '../components/EmptyStateCard';
 import FlowListRow, { type FlowListRowBusy } from '../components/flows/FlowListRow';
+import type { FlowRepairRequest } from '../components/flows/FlowRunInspectorDrawer';
 import FlowRunsDrawer from '../components/flows/FlowRunsDrawer';
 import FlowTemplateGallery from '../components/flows/FlowTemplateGallery';
 import NewWorkflowModal from '../components/flows/NewWorkflowModal';
@@ -149,6 +150,29 @@ export default function FlowsPage() {
     log('view runs: id=%s', flow.id);
     setSelectedFlowId(flow.id);
   }, []);
+
+  /**
+   * "Fix with agent" (Phase 5c) from a failed run's inspector: open the flow's
+   * canvas with a copilot repair seed in `location.state` so the copilot opens
+   * preloaded, diagnosing the failed run. Never persists — the copilot only
+   * proposes.
+   */
+  const handleFixWithAgent = useCallback(
+    (request: FlowRepairRequest) => {
+      log('fix with agent: flow=%s run=%s', request.flowId, request.runId);
+      setSelectedFlowId(null);
+      navigate(`/flows/${request.flowId}`, {
+        state: {
+          copilotRepair: {
+            runId: request.runId,
+            error: request.error,
+            failingNodeIds: request.failingNodeIds,
+          },
+        },
+      });
+    },
+    [navigate]
+  );
 
   /** Opens the read-only Workflow Canvas for this flow (issue B5b.1). */
   const handleView = useCallback(
@@ -365,6 +389,7 @@ export default function FlowsPage() {
         flowId={selectedFlowId}
         flowName={selectedFlow?.name}
         onClose={() => setSelectedFlowId(null)}
+        onFixWithAgent={handleFixWithAgent}
       />
 
       {chooserOpen && (

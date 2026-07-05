@@ -54,6 +54,13 @@ export interface UseWorkflowBuilderChat {
   sending: boolean;
   /** The latest proposal the agent returned on this thread, or `null`. */
   proposal: WorkflowProposal | null;
+  /**
+   * The dedicated thread's transcript (user + agent turns) so a caller can
+   * render the full conversation, not just the latest proposal. Empty until the
+   * first send. Sourced from the same `messagesByThreadId` store the main chat
+   * transcript reads.
+   */
+  messages: ThreadMessage[];
   /** Last send error (thread create / RPC failure), or `null`. */
   error: string | null;
   /** Send a builder turn, creating the dedicated thread on first use. */
@@ -61,6 +68,8 @@ export interface UseWorkflowBuilderChat {
   /** Clear the current proposal (e.g. after Accept/Reject) without persisting. */
   clearProposal: () => void;
 }
+
+const EMPTY_MESSAGES: ThreadMessage[] = [];
 
 /**
  * @param seedThreadId Optional existing thread to bind to instead of creating a
@@ -78,10 +87,16 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
   const proposalsByThread = useAppSelector(
     state => state.chatRuntime.pendingWorkflowProposalsByThread
   );
+  const messagesByThreadId = useAppSelector(state => state.thread.messagesByThreadId);
 
   const proposal = useMemo(
     () => (threadId ? (proposalsByThread[threadId] ?? null) : null),
     [threadId, proposalsByThread]
+  );
+
+  const messages = useMemo(
+    () => (threadId ? (messagesByThreadId[threadId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES),
+    [threadId, messagesByThreadId]
   );
 
   // "Sending" = we're mid-dispatch OR the runtime still marks the thread active.
@@ -157,5 +172,5 @@ export function useWorkflowBuilderChat(seedThreadId?: string | null): UseWorkflo
     if (threadId) dispatch(clearWorkflowProposalForThread({ threadId }));
   }, [dispatch, threadId]);
 
-  return { threadId, sending, proposal, error, send, clearProposal };
+  return { threadId, sending, proposal, messages, error, send, clearProposal };
 }

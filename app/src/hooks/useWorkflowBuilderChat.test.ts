@@ -15,12 +15,16 @@ const dispatch = vi.hoisted(() => vi.fn());
 const selectorState = vi.hoisted(() => ({
   activeThreadIds: {} as Record<string, true>,
   proposals: {} as Record<string, WorkflowProposal>,
+  messagesByThreadId: {} as Record<string, unknown[]>,
 }));
 vi.mock('../store/hooks', () => ({
   useAppDispatch: () => dispatch,
   useAppSelector: (sel: (s: unknown) => unknown) =>
     sel({
-      thread: { activeThreadIds: selectorState.activeThreadIds },
+      thread: {
+        activeThreadIds: selectorState.activeThreadIds,
+        messagesByThreadId: selectorState.messagesByThreadId,
+      },
       chatRuntime: { pendingWorkflowProposalsByThread: selectorState.proposals },
     }),
 }));
@@ -45,6 +49,7 @@ describe('useWorkflowBuilderChat', () => {
     chatSend.mockReset().mockResolvedValue(undefined);
     selectorState.activeThreadIds = {};
     selectorState.proposals = {};
+    selectorState.messagesByThreadId = {};
     dispatch.mockReset().mockImplementation((action: { type: string }) => {
       if (action.type === 'createNewThread') {
         return { unwrap: () => Promise.resolve({ id: 'builder-1' }) };

@@ -10,6 +10,7 @@ vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) =
 const hookState = vi.hoisted(() => ({
   sending: false,
   proposal: null as WorkflowProposal | null,
+  messages: [] as Array<{ id: string; content: string; sender: 'user' | 'agent' }>,
   error: null as string | null,
   send: vi.fn(),
   clearProposal: vi.fn(),
@@ -38,6 +39,7 @@ describe('WorkflowCopilotPanel', () => {
   beforeEach(() => {
     hookState.sending = false;
     hookState.proposal = null;
+    hookState.messages = [];
     hookState.error = null;
     hookState.send = vi.fn().mockResolvedValue(undefined);
     hookState.clearProposal = vi.fn();
@@ -53,15 +55,39 @@ describe('WorkflowCopilotPanel', () => {
         onClose={vi.fn()}
       />
     );
-    fireEvent.change(screen.getByTestId('workflow-copilot-input'), {
+    // The copilot now uses the shared ChatComposer (textarea by placeholder,
+    // `send-message-button` for send).
+    fireEvent.change(screen.getByPlaceholderText('flows.copilot.placeholder'), {
       target: { value: 'add a Slack notification on failure' },
     });
-    fireEvent.click(screen.getByTestId('workflow-copilot-send'));
+    fireEvent.click(screen.getByTestId('send-message-button'));
 
     expect(hookState.send).toHaveBeenCalledTimes(1);
     const arg = hookState.send.mock.calls[0][0];
     expect(arg.displayText).toBe('add a Slack notification on failure');
     expect(arg.prompt).toContain(JSON.stringify(baseGraph));
+  });
+
+  it('renders the conversation transcript (user + agent turns)', () => {
+    hookState.messages = [
+      { id: 'm1', content: 'add a Slack step', sender: 'user' },
+      { id: 'm2', content: 'Done — proposed a Slack notification.', sender: 'agent' },
+    ];
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('workflow-copilot-user')).toHaveTextContent('add a Slack step');
+    expect(screen.getByTestId('workflow-copilot-agent')).toHaveTextContent(
+      'Done — proposed a Slack notification.'
+    );
+    // With a transcript present, the empty-state hint is gone.
+    expect(screen.queryByTestId('workflow-copilot-empty')).not.toBeInTheDocument();
   });
 
   it('surfaces a new proposal to the host and shows the added/removed diff', () => {

@@ -41,11 +41,11 @@ async fn reaction_gate_returns_default_when_runtime_disabled() {
     assert!(decision.emoji.is_none());
 }
 
-// --- WebChannelEventSink --------------------------------------------------
+// --- OpenHumanEventSink --------------------------------------------------
 
 #[tokio::test]
 async fn event_sink_accepts_web_channel_event_shape() {
-    let sink = WebChannelEventSink;
+    let sink = OpenHumanEventSink;
     let ok = sink
         .publish(
             "web",
@@ -64,11 +64,47 @@ async fn event_sink_accepts_web_channel_event_shape() {
 
 #[tokio::test]
 async fn event_sink_rejects_non_object_payload() {
-    let sink = WebChannelEventSink;
+    let sink = OpenHumanEventSink;
     let err = sink
         .publish("web", "bad", serde_json::json!([1, 2, 3]))
         .await;
     assert!(err.is_err());
+}
+
+#[tokio::test]
+async fn event_sink_routes_channel_reactions_to_domain_bus() {
+    let sink = OpenHumanEventSink;
+    assert!(sink
+        .publish(
+            "channel",
+            "reaction_received",
+            serde_json::json!({
+                "channel": "telegram", "sender": "u1",
+                "target_message_id": "telegram_1_2", "emoji": "👍"
+            }),
+        )
+        .await
+        .is_ok());
+    assert!(sink
+        .publish(
+            "channel",
+            "reaction_sent",
+            serde_json::json!({
+                "channel": "telegram", "target_message_id": "telegram_1_2",
+                "emoji": "👍", "success": true
+            }),
+        )
+        .await
+        .is_ok());
+    // Unknown domain/kind is a benign no-op.
+    assert!(sink
+        .publish("mystery", "x", serde_json::json!({}))
+        .await
+        .is_ok());
+    assert!(sink
+        .publish("channel", "unknown", serde_json::json!({}))
+        .await
+        .is_ok());
 }
 
 // --- ConversationHistoryStore --------------------------------------------
@@ -130,6 +166,7 @@ fn build_channel_host_advertises_expected_capabilities() {
     assert!(caps.approvals);
     assert!(caps.conversation_store);
     assert!(caps.event_sink);
+    assert!(caps.allowlist_store);
     // Not yet backed portably:
     assert!(!caps.turn_dispatch);
     assert!(!caps.run_ledger);

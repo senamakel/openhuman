@@ -12,8 +12,8 @@
 mod adapters;
 
 pub use adapters::{
-    ConversationHistoryStore, CoreApprovalGate, CoreShutdownRegistry, InferenceReactionGate,
-    VoiceSynthesizer, VoiceTranscriber, WebChannelEventSink,
+    ConfigAllowlistStore, ConversationHistoryStore, CoreApprovalGate, CoreShutdownRegistry,
+    InferenceReactionGate, OpenHumanEventSink, VoiceSynthesizer, VoiceTranscriber,
 };
 
 use std::sync::Arc;
@@ -46,7 +46,8 @@ pub fn build_channel_host(config: Arc<Config>) -> Arc<dyn ChannelHost> {
         .conversations(Arc::new(ConversationHistoryStore {
             workspace_dir: config.workspace_dir.clone(),
         }))
-        .events(Arc::new(WebChannelEventSink))
+        .events(Arc::new(OpenHumanEventSink))
+        .allowlist(Arc::new(ConfigAllowlistStore))
         .build()
 }
 

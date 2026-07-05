@@ -11,9 +11,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use tinychannels::host::{
-    ApprovalDecision, ApprovalGate, ConversationMessage, ConversationStore, EventSink,
-    LifecycleRegistry, ReactionDecision, ReactionGate, ReactionQuery, ShutdownHook, SpeechRequest,
-    SpeechResult, SpeechSynthesizer, Transcriber, TranscriptionRequest, TranscriptionResult,
+    AllowlistStore, ApprovalDecision, ApprovalGate, ConversationMessage, ConversationStore,
+    EventSink, LifecycleRegistry, ReactionDecision, ReactionGate, ReactionQuery, ShutdownHook,
+    SpeechRequest, SpeechResult, SpeechSynthesizer, Transcriber, TranscriptionRequest,
+    TranscriptionResult,
 };
 
 use crate::openhuman::config::Config;
@@ -256,29 +257,121 @@ impl ConversationStore for ConversationHistoryStore {
 }
 
 // ---------------------------------------------------------------------------
-// EventSink → web channel event bus
+// AllowlistStore → config.toml channel allowlist
 // ---------------------------------------------------------------------------
 
-/// Publishes provider events onto the web channel's `WebChannelEvent`
-/// broadcast bus. The `payload` must deserialize into a `WebChannelEvent`
-/// (the presentation provider builds that shape as JSON).
-pub struct WebChannelEventSink;
+/// Persists newly-authorized identities into the on-disk channel allowlist,
+/// replicating Telegram's former `persist_allowed_identity` (load
+/// `~/.openhuman/config.toml`, append to the channel's `allowed_users`, save).
+pub struct ConfigAllowlistStore;
 
 #[async_trait]
-impl EventSink for WebChannelEventSink {
+impl AllowlistStore for ConfigAllowlistStore {
+    async fn persist_allowed_identity(&self, channel: &str, identity: &str) -> anyhow::Result<()> {
+        use anyhow::Context;
+        let normalized = identity.trim().trim_start_matches('@').to_string();
+        if normalized.is_empty() {
+            anyhow::bail!("cannot persist empty identity");
+        }
+
+        let home = directories::UserDirs::new()
+            .map(|u| u.home_dir().to_path_buf())
+            .context("could not find home directory")?;
+        let openhuman_dir = home.join(".openhuman");
+        let config_path = openhuman_dir.join("config.toml");
+        let contents = tokio::fs::read_to_string(&config_path)
+            .await
+            .with_context(|| format!("failed to read config file: {}", config_path.display()))?;
+        let mut config: Config =
+            toml::from_str(&contents).context("failed to parse config.toml for allowlist")?;
+        config.config_path = config_path;
+        config.workspace_dir = openhuman_dir.join("workspace");
+
+        match channel {
+            "telegram" => {
+                let Some(telegram) = config.channels_config.telegram.as_mut() else {
+                    anyhow::bail!("telegram channel config is missing in config.toml");
+                };
+                if !telegram.allowed_users.iter().any(|u| u == &normalized) {
+                    telegram.allowed_users.push(normalized);
+                    config
+                        .save()
+                        .await
+                        .context("failed to persist allowlist to config.toml")?;
+                }
+            }
+            other => anyhow::bail!("allowlist persist unsupported for channel '{other}'"),
+        }
+        tracing::debug!("{LOG_PREFIX} persisted allowed identity for channel={channel}");
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// EventSink → routes provider events to the right OpenHuman bus
+// ---------------------------------------------------------------------------
+
+/// Routes provider events by `domain`:
+/// - `"web"`     → the web channel's `WebChannelEvent` broadcast bus (payload
+///   must deserialize into a `WebChannelEvent`; presentation builds that shape).
+/// - `"channel"` → the global `DomainEvent` bus (telegram reaction fan-out).
+///
+/// One capability, two backends — providers don't know which bus they hit.
+pub struct OpenHumanEventSink;
+
+fn json_str(payload: &serde_json::Value, key: &str) -> String {
+    payload
+        .get(key)
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string()
+}
+
+#[async_trait]
+impl EventSink for OpenHumanEventSink {
     async fn publish(
         &self,
         domain: &str,
         kind: &str,
         payload: serde_json::Value,
     ) -> anyhow::Result<()> {
-        let event: crate::core::socketio::WebChannelEvent = serde_json::from_value(payload)
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "{LOG_PREFIX} event payload not a WebChannelEvent ({domain}/{kind}): {e}"
-                )
-            })?;
-        crate::openhuman::channels::providers::web::publish_web_channel_event(event);
+        match domain {
+            "web" => {
+                let event: crate::core::socketio::WebChannelEvent = serde_json::from_value(payload)
+                    .map_err(|e| {
+                        anyhow::anyhow!(
+                            "{LOG_PREFIX} web event payload not a WebChannelEvent ({kind}): {e}"
+                        )
+                    })?;
+                crate::openhuman::channels::providers::web::publish_web_channel_event(event);
+            }
+            "channel" => {
+                use crate::core::event_bus::{publish_global, DomainEvent};
+                let event = match kind {
+                    "reaction_received" => DomainEvent::ChannelReactionReceived {
+                        channel: json_str(&payload, "channel"),
+                        sender: json_str(&payload, "sender"),
+                        target_message_id: json_str(&payload, "target_message_id"),
+                        emoji: json_str(&payload, "emoji"),
+                    },
+                    "reaction_sent" => DomainEvent::ChannelReactionSent {
+                        channel: json_str(&payload, "channel"),
+                        target_message_id: json_str(&payload, "target_message_id"),
+                        emoji: json_str(&payload, "emoji"),
+                        success: payload
+                            .get("success")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false),
+                    },
+                    other => {
+                        tracing::warn!("{LOG_PREFIX} unmapped channel event kind: {other}");
+                        return Ok(());
+                    }
+                };
+                publish_global(event);
+            }
+            other => tracing::warn!("{LOG_PREFIX} unmapped event domain: {other}"),
+        }
         Ok(())
     }
 }

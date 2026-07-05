@@ -551,19 +551,32 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
             draft_update_interval_ms = tg.draft_update_interval_ms,
             "[channels] telegram enabled in core config (bot token not logged)"
         );
-        channels.push(Arc::new(
-            TelegramChannel::new(
-                tg.bot_token.clone(),
-                tg.allowed_users.clone(),
-                tg.mention_only,
-            )
-            .with_streaming(
-                tg.stream_mode,
-                tg.draft_update_interval_ms,
-                tg.silent_streaming,
-            )
-            .with_chat_id(tg.chat_id.clone()),
+        let mut telegram = TelegramChannel::new(
+            tg.bot_token.clone(),
+            tg.allowed_users.clone(),
+            tg.mention_only,
+        )
+        .with_streaming(
+            tg.stream_mode,
+            tg.draft_update_interval_ms,
+            tg.silent_streaming,
+        )
+        .with_chat_id(tg.chat_id.clone())
+        .with_http_client(crate::openhuman::config::build_runtime_proxy_client(
+            "channel.telegram",
         ));
+        // Inject host capabilities: voice STT, persisted allowlist, reaction
+        // event fan-out. Each is optional — telegram degrades gracefully.
+        if let Some(transcriber) = channel_host.transcriber() {
+            telegram = telegram.with_transcriber(transcriber);
+        }
+        if let Some(allowlist) = channel_host.allowlist() {
+            telegram = telegram.with_allowlist(allowlist);
+        }
+        if let Some(events) = channel_host.events() {
+            telegram = telegram.with_events(events);
+        }
+        channels.push(Arc::new(telegram));
     } else {
         tracing::info!(
             "[channels] telegram not configured (no channels_config.telegram in saved config)"

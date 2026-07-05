@@ -12255,7 +12255,10 @@ async fn json_rpc_flows_lifecycle_round_trip() {
         .as_array()
         .expect("flows array");
     assert_eq!(flows.len(), 1, "exactly one flow after create");
-    assert_eq!(flows[0].get("id").and_then(Value::as_str), Some(flow_id.as_str()));
+    assert_eq!(
+        flows[0].get("id").and_then(Value::as_str),
+        Some(flow_id.as_str())
+    );
 
     // 3. Run — pauses at the approval gate. Capture the thread id.
     let run = post_json_rpc(
@@ -12295,7 +12298,10 @@ async fn json_rpc_flows_lifecycle_round_trip() {
         run_row.get("status").and_then(Value::as_str),
         Some("pending_approval")
     );
-    assert_eq!(run_row.get("thread_id").and_then(Value::as_str), Some(thread_id.as_str()));
+    assert_eq!(
+        run_row.get("thread_id").and_then(Value::as_str),
+        Some(thread_id.as_str())
+    );
     assert!(
         run_row.get("steps").and_then(Value::as_array).is_some(),
         "get_run returns a steps array"
@@ -12313,7 +12319,10 @@ async fn json_rpc_flows_lifecycle_round_trip() {
         .as_array()
         .expect("runs array");
     assert_eq!(runs.len(), 1, "exactly one run after a single flows_run");
-    assert_eq!(runs[0].get("id").and_then(Value::as_str), Some(thread_id.as_str()));
+    assert_eq!(
+        runs[0].get("id").and_then(Value::as_str),
+        Some(thread_id.as_str())
+    );
 
     // 6. Resume with the gate approved — completes and runs downstream.
     let resume = post_json_rpc(
@@ -12339,7 +12348,10 @@ async fn json_rpc_flows_lifecycle_round_trip() {
     )
     .await;
     let run_row2 = peel_logs_envelope(assert_no_jsonrpc_error(&get_run2, "flows_get_run"));
-    assert_eq!(run_row2.get("status").and_then(Value::as_str), Some("completed"));
+    assert_eq!(
+        run_row2.get("status").and_then(Value::as_str),
+        Some("completed")
+    );
 
     // 7. Run again to get a fresh parked run, then cancel it.
     let run2 = post_json_rpc(
@@ -12364,7 +12376,10 @@ async fn json_rpc_flows_lifecycle_round_trip() {
     )
     .await;
     let cancel_out = peel_logs_envelope(assert_no_jsonrpc_error(&cancel, "flows_cancel_run"));
-    assert_eq!(cancel_out.get("cancelled").and_then(Value::as_bool), Some(true));
+    assert_eq!(
+        cancel_out.get("cancelled").and_then(Value::as_bool),
+        Some(true)
+    );
     assert_eq!(
         cancel_out.get("run_id").and_then(Value::as_str),
         Some(thread_id_2.as_str())
@@ -12384,7 +12399,10 @@ async fn json_rpc_flows_lifecycle_round_trip() {
     )
     .await;
     let run_row3 = peel_logs_envelope(assert_no_jsonrpc_error(&get_run3, "flows_get_run"));
-    assert_eq!(run_row3.get("status").and_then(Value::as_str), Some("cancelled"));
+    assert_eq!(
+        run_row3.get("status").and_then(Value::as_str),
+        Some("cancelled")
+    );
 
     let resume_cancelled = post_json_rpc(
         &rpc_base,
@@ -12497,7 +12515,10 @@ async fn json_rpc_flows_resume_deny_routes_to_error_port() {
     )
     .await;
     let run_row = peel_logs_envelope(assert_no_jsonrpc_error(&get_run, "flows_get_run"));
-    assert_eq!(run_row.get("status").and_then(Value::as_str), Some("completed"));
+    assert_eq!(
+        run_row.get("status").and_then(Value::as_str),
+        Some("completed")
+    );
 
     api_join.abort();
     rpc_join.abort();
@@ -12531,11 +12552,21 @@ async fn json_rpc_flows_validate_reports_warnings_and_errors() {
     let v = peel_logs_envelope(assert_no_jsonrpc_error(&validate, "flows_validate"));
     assert_eq!(v.get("valid").and_then(Value::as_bool), Some(true));
     assert!(
-        v.get("errors").and_then(Value::as_array).expect("errors").is_empty(),
+        v.get("errors")
+            .and_then(Value::as_array)
+            .expect("errors")
+            .is_empty(),
         "a structurally valid webhook graph has no errors"
     );
-    let warnings = v.get("warnings").and_then(Value::as_array).expect("warnings");
-    assert_eq!(warnings.len(), 1, "webhook trigger emits exactly one warning");
+    let warnings = v
+        .get("warnings")
+        .and_then(Value::as_array)
+        .expect("warnings");
+    assert_eq!(
+        warnings.len(),
+        1,
+        "webhook trigger emits exactly one warning"
+    );
     assert!(
         warnings[0]
             .as_str()
@@ -12561,7 +12592,10 @@ async fn json_rpc_flows_validate_reports_warnings_and_errors() {
     let vs = peel_logs_envelope(assert_no_jsonrpc_error(&validate_sched, "flows_validate"));
     assert_eq!(vs.get("valid").and_then(Value::as_bool), Some(true));
     assert!(
-        vs.get("warnings").and_then(Value::as_array).expect("warnings").is_empty(),
+        vs.get("warnings")
+            .and_then(Value::as_array)
+            .expect("warnings")
+            .is_empty(),
         "a schedule trigger fires automatically — no unfired-kind warning"
     );
 
@@ -12581,11 +12615,17 @@ async fn json_rpc_flows_validate_reports_warnings_and_errors() {
     let vb = peel_logs_envelope(assert_no_jsonrpc_error(&validate_bad, "flows_validate"));
     assert_eq!(vb.get("valid").and_then(Value::as_bool), Some(false));
     assert!(
-        !vb.get("errors").and_then(Value::as_array).expect("errors").is_empty(),
+        !vb.get("errors")
+            .and_then(Value::as_array)
+            .expect("errors")
+            .is_empty(),
         "a graph without a trigger must report a structural error"
     );
     assert!(
-        vb.get("warnings").and_then(Value::as_array).expect("warnings").is_empty(),
+        vb.get("warnings")
+            .and_then(Value::as_array)
+            .expect("warnings")
+            .is_empty(),
         "an invalid graph reports errors, not warnings"
     );
 

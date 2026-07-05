@@ -733,7 +733,10 @@ async fn flows_resume_denying_a_gate_with_no_error_port_fails_the_run() {
     )
     .await
     .expect_err("denying a gate with no error port must fail the run");
-    assert!(err.contains("denied"), "expected a denial error, got: {err}");
+    assert!(
+        err.contains("denied"),
+        "expected a denial error, got: {err}"
+    );
 
     let reloaded = flows_get(&config, &created.value.id).await.unwrap();
     assert_eq!(reloaded.value.last_status.as_deref(), Some("failed"));
@@ -982,10 +985,20 @@ async fn observer_persists_each_step_incrementally() {
         .await
         .unwrap();
     let run_id = format!("flow:{}:run-under-test", created.value.id);
-    store::insert_flow_run(&config, &run_id, &created.value.id, &run_id, "2026-01-01T00:00:00Z")
-        .unwrap();
+    store::insert_flow_run(
+        &config,
+        &run_id,
+        &created.value.id,
+        &run_id,
+        "2026-01-01T00:00:00Z",
+    )
+    .unwrap();
 
-    let observer = FlowRunObserver::new(StdArc::new(config.clone()), created.value.id.clone(), &run_id);
+    let observer = FlowRunObserver::new(
+        StdArc::new(config.clone()),
+        created.value.id.clone(),
+        &run_id,
+    );
     observer.on_step_finish(&ExecutionStep {
         node_id: "a".to_string(),
         status: StepStatus::Success,
@@ -1020,16 +1033,25 @@ async fn observer_persists_each_step_incrementally() {
     let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
     assert_eq!(row.steps.len(), 2, "re-firing a node must not duplicate it");
     let a = row.steps.iter().find(|s| s.node_id == "a").unwrap();
-    assert_eq!(a.duration_ms, Some(42), "the step should be replaced in place");
+    assert_eq!(
+        a.duration_ms,
+        Some(42),
+        "the step should be replaced in place"
+    );
 }
 
 #[tokio::test]
 async fn flows_run_persists_live_steps_with_status_and_timing() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let created = flows_create(&config, "passthrough".to_string(), passthrough_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "passthrough".to_string(),
+        passthrough_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     let run = flows_run(
         &config,
@@ -1089,14 +1111,19 @@ async fn flows_cancel_run_cancels_a_parked_pending_approval_run() {
         .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
     assert_eq!(
-        flows_get_run(&config, &thread_id).await.unwrap().value.status,
+        flows_get_run(&config, &thread_id)
+            .await
+            .unwrap()
+            .value
+            .status,
         "pending_approval"
     );
 
     let cancelled = flows_cancel_run(&config, &thread_id).await.unwrap();
     assert_eq!(cancelled.value["cancelled"], json!(true));
     assert_eq!(
-        cancelled.value["was_in_flight"], json!(false),
+        cancelled.value["was_in_flight"],
+        json!(false),
         "a parked run has no live task, so the cancel settles the row directly"
     );
 
@@ -1283,9 +1310,14 @@ async fn flows_set_enabled_surfaces_unfired_trigger_warning_at_enable() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
-    let created = flows_create(&config, "hooked".to_string(), webhook_trigger_graph(), false)
-        .await
-        .unwrap();
+    let created = flows_create(
+        &config,
+        "hooked".to_string(),
+        webhook_trigger_graph(),
+        false,
+    )
+    .await
+    .unwrap();
 
     // Re-enable (create already enables) to exercise the enable path's warning.
     let enabled = flows_set_enabled(&config, &created.value.id, true)

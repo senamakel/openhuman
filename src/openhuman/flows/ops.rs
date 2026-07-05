@@ -616,12 +616,13 @@ pub async fn flows_run(
     // Live run observer (issue G2): persists each finished step into the
     // `flow_runs` row as it happens and streams a `FlowRunProgress` event to
     // the frontend, so the durable + journaled path also reports live.
-    let observer: Arc<dyn tinyflows::observability::RunObserver> =
-        Arc::new(crate::openhuman::tinyflows::observability::FlowRunObserver::new(
+    let observer: Arc<dyn tinyflows::observability::RunObserver> = Arc::new(
+        crate::openhuman::tinyflows::observability::FlowRunObserver::new(
             Arc::new(config.clone()),
             flow_id,
             thread_id.clone(),
-        ));
+        ),
+    );
     let run = with_origin(
         origin,
         tinyflows::engine::run_with_checkpointer_journaled_observed(
@@ -634,10 +635,7 @@ pub async fn flows_run(
             &observer,
         ),
     );
-    let timed = tokio::time::timeout(
-        std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS),
-        run,
-    );
+    let timed = tokio::time::timeout(std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS), run);
     tokio::pin!(timed);
     // Race the run against a cancellation signal (issue G4). `biased` checks the
     // cancel arm first so a `flows_cancel_run` that lands right as the run
@@ -825,12 +823,13 @@ pub async fn flows_resume(
     // Live observer (issue G2): the resumed run fires `on_step_finish` for each
     // node that runs after the interrupt boundary, so downstream steps are
     // persisted + streamed live too, keyed by the same `thread_id`/run row.
-    let observer: Arc<dyn tinyflows::observability::RunObserver> =
-        Arc::new(crate::openhuman::tinyflows::observability::FlowRunObserver::new(
+    let observer: Arc<dyn tinyflows::observability::RunObserver> = Arc::new(
+        crate::openhuman::tinyflows::observability::FlowRunObserver::new(
             Arc::new(config.clone()),
             flow_id,
             thread_id.to_string(),
-        ));
+        ),
+    );
     // `rejections` (issue G4 — deny semantics): a denied gate routes to its
     // `error` port (recovery branch) or, if it has none, fails the run. The
     // empty-rejections case is byte-for-byte the prior approve-only resume.
@@ -858,7 +857,14 @@ pub async fn flows_resume(
         Ok(Err(e)) => {
             let _ = store::record_run(config, flow_id, "failed");
             let observed = current_persisted_steps(config, thread_id);
-            finish_flow_run_row(config, thread_id, "failed", &observed, &[], Some(&e.to_string()));
+            finish_flow_run_row(
+                config,
+                thread_id,
+                "failed",
+                &observed,
+                &[],
+                Some(&e.to_string()),
+            );
             tracing::warn!(target: "flows", flow_id = %flow_id, %thread_id, error = %e, "[flows] flows_resume: run failed");
             return Err(e.to_string());
         }
@@ -1038,7 +1044,14 @@ pub async fn flows_cancel_run(config: &Config, run_id: &str) -> Result<RpcOutcom
         tracing::warn!(target: "flows", run_id, flow_id = %run.flow_id, error = %e, "[flows] flows_cancel_run: failed to record cancelled status on flow summary");
     }
     let observed = current_persisted_steps(config, run_id);
-    finish_flow_run_row(config, run_id, "cancelled", &observed, &[], Some("run cancelled"));
+    finish_flow_run_row(
+        config,
+        run_id,
+        "cancelled",
+        &observed,
+        &[],
+        Some("run cancelled"),
+    );
     drop_checkpoint(config, run_id).await;
 
     Ok(RpcOutcome::single_log(

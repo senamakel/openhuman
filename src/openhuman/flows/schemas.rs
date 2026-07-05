@@ -365,13 +365,15 @@ pub fn schemas(function: &str) -> ControllerSchema {
                         FieldSchema {
                             name: "cancelled",
                             ty: TypeSchema::Bool,
-                            comment: "True once the run is cancelled or its cancellation requested.",
+                            comment:
+                                "True once the run is cancelled or its cancellation requested.",
                             required: true,
                         },
                         FieldSchema {
                             name: "was_in_flight",
                             ty: TypeSchema::Bool,
-                            comment: "True when a live run task was signalled to abort; false when \
+                            comment:
+                                "True when a live run task was signalled to abort; false when \
                                       a parked/stale run row was settled directly.",
                             required: true,
                         },

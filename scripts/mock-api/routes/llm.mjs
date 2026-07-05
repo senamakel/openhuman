@@ -9,6 +9,17 @@ import {
 import { buildDynamicCompletion } from "./llm/dynamic.mjs";
 import { headerValue, pickProbeText, resolveThreadKey } from "./llm/shared.mjs";
 
+// The scripted `llmForcedResponses` FIFO models the *interactive* agent turn,
+// which always advertises tools (the orchestrator's delegate_* tools). Ancillary
+// completions that share the endpoint but carry no tools — thread-title/summary
+// generation via `chat_with_system` (tools: None), fired fire-and-forget and
+// racing the visible turn — must NOT drain the queue, or the scripted responses
+// desync and the turn falls through to the dynamic fallback
+// (tinyhumansai/openhuman#4517).
+function isPrimaryTurn(parsedBody) {
+  return Array.isArray(parsedBody?.tools) && parsedBody.tools.length > 0;
+}
+
 function requestRuleMatches(rule, ctx) {
   if (!rule || typeof rule !== "object") return false;
   const { url, parsedBody, req } = ctx;
@@ -242,14 +253,22 @@ function handleStreamingCompletion({
 
   if (!Array.isArray(script)) {
     // 2. Forced queue: pop the next entry and convert it into a script.
-    const forced = parseBehaviorJson("llmForcedResponses", []);
-    if (Array.isArray(forced) && forced.length > 0) {
-      const next = forced.shift();
-      setMockBehavior("llmForcedResponses", JSON.stringify(forced));
-      script = defaultStreamScript({
-        content: next.content,
-        toolCalls: next.toolCalls,
-      });
+    //    Only the primary *interactive* turn drains the queue. The agent
+    //    (orchestrator) always sends a `tools` array; ancillary completions
+    //    that race the turn — notably fire-and-forget thread-title generation
+    //    (`chat_with_system`, tools: None) dispatched on send — carry no tools
+    //    and must NOT consume a scripted response, or the queue desyncs and the
+    //    turn falls through to the dynamic fallback (tinyhumansai/openhuman#4517).
+    if (isPrimaryTurn(parsedBody)) {
+      const forced = parseBehaviorJson("llmForcedResponses", []);
+      if (Array.isArray(forced) && forced.length > 0) {
+        const next = forced.shift();
+        setMockBehavior("llmForcedResponses", JSON.stringify(forced));
+        script = defaultStreamScript({
+          content: next.content,
+          toolCalls: next.toolCalls,
+        });
+      }
     }
   }
 
@@ -620,8 +639,11 @@ export function handleLlmCompletions(ctx) {
   }
 
   // 1. Forced queue — replay exact ChatResponse objects in order.
+  //    Only the primary interactive turn drains the queue; ancillary no-tools
+  //    completions (e.g. fire-and-forget thread-title generation racing the
+  //    turn) must not consume a scripted response (tinyhumansai/openhuman#4517).
   const forced = parseBehaviorJson("llmForcedResponses", []);
-  if (Array.isArray(forced) && forced.length > 0) {
+  if (isPrimaryTurn(parsedBody) && Array.isArray(forced) && forced.length > 0) {
     const next = forced.shift();
     // Persist the shrunk queue back so subsequent requests advance.
     setMockBehavior("llmForcedResponses", JSON.stringify(forced));

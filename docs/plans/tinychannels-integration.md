@@ -86,8 +86,8 @@ Companion docs in the tinychannels repo:
     `channels::email_channel` / `providers::yuanbao` — repoint those two to
     the crate and delete the local definitions.
 - Still pending: delete migrated in-module tests once each suite is fully
-  represented in tinychannels. Keep everything provider- or app-specific (see
-  Step 4).
+  represented in tinychannels. The duplicate definitions suite has been
+  deleted; keep everything provider- or app-specific (see Step 4).
 - Do not remove sandbox/security config from this repo based on the crate's
   copy: the crate is dropping its unwired `SecurityConfig`/`SandboxConfig`
   cluster as scope creep; this repo's originals (if used) stay where they are.
@@ -161,9 +161,10 @@ copies):
 - **Partly landed:** the portable `controllers/schemas_tests.rs` schema-catalog
   assertions, pure allowlist/key helper tests, catalog/request-shape halves of
   `controllers/ops_tests.rs`, backend-agnostic default-channel validation, and
-  config-backed channel status detection now live in tinychannels. This repo
-  keeps handler parity, adapter conversion, params, legacy envelope helper
-  tests, and app-side persistence/REST wiring tests.
+  config-backed channel status detection now live in tinychannels. The
+  duplicate definitions suite and portable schema-catalog assertions were
+  deleted here. This repo keeps handler parity, adapter conversion, params,
+  legacy envelope helper tests, and app-side persistence/REST wiring tests.
 - **Still migrate to tinychannels:** any remaining backend-agnostic assertions
   from `controllers/ops_tests.rs`, rewritten against a mock `ChannelBackend`,
   plus the already-mirrored suites listed in Step 1.

@@ -76,6 +76,18 @@ describe('NodeConfigDrawer', () => {
     expect(screen.getByTestId('node-connections-empty')).toBeInTheDocument();
   });
 
+  it('shows a dynamic, config-derived description of the node', () => {
+    render(
+      <NodeConfigDrawer
+        node={makeNode({ config: { method: 'POST', url: 'https://x.test/hook' } })}
+        onClose={vi.fn()}
+        onChange={vi.fn()}
+        connections={[]}
+      />
+    );
+    expect(screen.getByTestId('node-config-summary')).toHaveTextContent('POST https://x.test/hook');
+  });
+
   it('emits a name patch when the name is edited', () => {
     const onChange = vi.fn();
     render(

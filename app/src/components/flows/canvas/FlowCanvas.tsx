@@ -63,6 +63,12 @@ export interface FlowCanvasProps {
 
 const NODE_TYPES = { [FLOW_NODE_TYPE]: FlowNodeComponent };
 
+// Stable fallback so an omitted `meta` doesn't allocate a new object every
+// render — `meta ?? { ... }` inline would defeat EditableFlowCanvas's
+// `useMemo(..., [meta])` dependency (a new referentially-distinct object each
+// render forces it to re-serialize the whole graph even with no real edit).
+const DEFAULT_META: WorkflowGraphMeta = { schema_version: 1, name: '' };
+
 /**
  * Read-only render path — unchanged from B5b.1. Kept a separate component so
  * its `useMemo` hook stays unconditional and the editable path's controlled
@@ -115,7 +121,7 @@ function FlowCanvas({
       <EditableFlowCanvas
         nodes={nodes}
         edges={edges}
-        meta={meta ?? { schema_version: 1, name: '' }}
+        meta={meta ?? DEFAULT_META}
         onSave={onSave}
         onDirtyChange={onDirtyChange}
         activeRunId={activeRunId}

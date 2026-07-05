@@ -260,9 +260,9 @@ function FragmentRow({
       <tr
         data-testid={`${testIdPrefix}-row-${index}`}
         className="border-b border-line last:border-b-0 align-top">
-        <td className="px-1.5 py-1 font-mono text-content-faint" scope="row">
+        <th scope="row" className="px-1.5 py-1 text-left font-mono font-normal text-content-faint">
           {index + 1}
-        </td>
+        </th>
         {useColumns ? (
           columns.map(column => {
             const text = formatCell(cellValue(item, column));

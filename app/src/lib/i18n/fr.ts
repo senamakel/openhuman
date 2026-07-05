@@ -6952,6 +6952,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'Copier',
   'codeBlock.copied': 'Copié !',
+  'flows.editor.undo': 'Annuler',
+  'flows.editor.redo': 'Rétablir',
+  'flows.editor.onboardingTitle': 'Créez votre workflow',
+  'flows.editor.onboardingBody':
+    'Ajoutez un nœud depuis la palette à gauche, puis faites glisser entre les points de chaque carte pour les connecter.',
+  'flows.palette.search': 'Rechercher des nœuds…',
+  'flows.palette.noResults': 'Aucun nœud correspondant',
+  'flows.palette.group.triggers': 'Déclencheurs',
+  'flows.palette.group.actions': 'Actions',
+  'flows.palette.group.logic': 'Logique',
+  'flows.list.duplicate': 'Dupliquer',
+  'flows.list.duplicated': 'Workflow dupliqué',
+  'flows.list.delete': 'Supprimer',
+  'flows.list.deleted': 'Workflow supprimé',
+  'flows.list.moreActions': "Plus d'actions",
+  'flows.delete.title': 'Supprimer le workflow ?',
+  'flows.delete.body':
+    '\"{name}\" et son historique d\'exécution seront définitivement supprimés. Cette action est irréversible.',
+  'flows.delete.cancel': 'Annuler',
+  'flows.delete.confirm': 'Supprimer',
+  'flows.delete.deleting': 'Suppression…',
+  'flows.canvas.renameLabel': 'Renommer le workflow',
 };
 
 export default messages;

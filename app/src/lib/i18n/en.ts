@@ -4376,7 +4376,8 @@ const en: TranslationMap = {
   'flows.list.deleted': 'Workflow deleted',
   'flows.list.moreActions': 'More actions',
   'flows.delete.title': 'Delete workflow?',
-  'flows.delete.body': '"{name}" and its run history will be permanently removed. This cannot be undone.',
+  'flows.delete.body':
+    '"{name}" and its run history will be permanently removed. This cannot be undone.',
   'flows.delete.cancel': 'Cancel',
   'flows.delete.confirm': 'Delete',
   'flows.delete.deleting': 'Deleting…',

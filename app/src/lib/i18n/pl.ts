@@ -3741,6 +3741,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'Zakończono',
   'flowRuns.status.pending_approval': 'Oczekuje na zatwierdzenie',
   'flowRuns.status.failed': 'Niepowodzenie',
+  'flowRuns.status.cancelled': 'Anulowano',
 
   'flows.page.title': 'Przepływy pracy',
   'flows.page.description':
@@ -6891,6 +6892,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'Kopiuj',
   'codeBlock.copied': 'Skopiowano!',
+  'flows.editor.undo': 'Cofnij',
+  'flows.editor.redo': 'Ponów',
+  'flows.editor.onboardingTitle': 'Zbuduj swój przepływ pracy',
+  'flows.editor.onboardingBody':
+    'Dodaj węzeł z palety po lewej stronie, a następnie przeciągnij między kropkami na każdej karcie, aby je połączyć.',
+  'flows.palette.search': 'Szukaj węzłów…',
+  'flows.palette.noResults': 'Brak pasujących węzłów',
+  'flows.palette.group.triggers': 'Wyzwalacze',
+  'flows.palette.group.actions': 'Akcje',
+  'flows.palette.group.logic': 'Logika',
+  'flows.list.duplicate': 'Duplikuj',
+  'flows.list.duplicated': 'Zduplikowano przepływ pracy',
+  'flows.list.delete': 'Usuń',
+  'flows.list.deleted': 'Usunięto przepływ pracy',
+  'flows.list.moreActions': 'Więcej akcji',
+  'flows.delete.title': 'Usunąć przepływ pracy?',
+  'flows.delete.body':
+    '„{name}” oraz jego historia uruchomień zostaną trwale usunięte. Tej operacji nie można cofnąć.',
+  'flows.delete.cancel': 'Anuluj',
+  'flows.delete.confirm': 'Usuń',
+  'flows.delete.deleting': 'Usuwanie…',
+  'flows.canvas.renameLabel': 'Zmień nazwę przepływu pracy',
 };
 
 export default messages;

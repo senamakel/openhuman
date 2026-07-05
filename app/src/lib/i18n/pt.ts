@@ -3756,6 +3756,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'Concluído',
   'flowRuns.status.pending_approval': 'Aguardando aprovação',
   'flowRuns.status.failed': 'Falhou',
+  'flowRuns.status.cancelled': 'Cancelado',
 
   'flows.page.title': 'Fluxos de trabalho',
   'flows.page.description': 'Automações salvas que você pode habilitar, executar e monitorar.',
@@ -6904,6 +6905,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'Copiar',
   'codeBlock.copied': 'Copiado!',
+  'flows.editor.undo': 'Desfazer',
+  'flows.editor.redo': 'Refazer',
+  'flows.editor.onboardingTitle': 'Crie seu fluxo de trabalho',
+  'flows.editor.onboardingBody':
+    'Adicione um nó a partir da paleta à esquerda e, em seguida, arraste entre os pontos de cada cartão para conectá-los.',
+  'flows.palette.search': 'Pesquisar nós…',
+  'flows.palette.noResults': 'Nenhum nó correspondente',
+  'flows.palette.group.triggers': 'Gatilhos',
+  'flows.palette.group.actions': 'Ações',
+  'flows.palette.group.logic': 'Lógica',
+  'flows.list.duplicate': 'Duplicar',
+  'flows.list.duplicated': 'Fluxo de trabalho duplicado',
+  'flows.list.delete': 'Excluir',
+  'flows.list.deleted': 'Fluxo de trabalho excluído',
+  'flows.list.moreActions': 'Mais ações',
+  'flows.delete.title': 'Excluir fluxo de trabalho?',
+  'flows.delete.body':
+    '"{name}" e seu histórico de execuções serão removidos permanentemente. Isso não pode ser desfeito.',
+  'flows.delete.cancel': 'Cancelar',
+  'flows.delete.confirm': 'Excluir',
+  'flows.delete.deleting': 'Excluindo…',
+  'flows.canvas.renameLabel': 'Renomear fluxo de trabalho',
 };
 
 export default messages;

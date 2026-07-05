@@ -6792,6 +6792,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'কপি করুন',
   'codeBlock.copied': 'কপি হয়েছে!',
+  'flows.editor.undo': 'পূর্বাবস্থায় ফিরুন',
+  'flows.editor.redo': 'পুনরায় করুন',
+  'flows.editor.onboardingTitle': 'আপনার ওয়ার্কফ্লো তৈরি করুন',
+  'flows.editor.onboardingBody':
+    'বাঁদিকের প্যালেট থেকে একটি নোড যোগ করুন, তারপর প্রতিটি কার্ডের বিন্দুগুলোর মধ্যে টেনে সেগুলো সংযুক্ত করুন।',
+  'flows.palette.search': 'নোড খুঁজুন…',
+  'flows.palette.noResults': 'কোনো মিলে যাওয়া নোড নেই',
+  'flows.palette.group.triggers': 'ট্রিগার',
+  'flows.palette.group.actions': 'ক্রিয়া',
+  'flows.palette.group.logic': 'লজিক',
+  'flows.list.duplicate': 'অনুলিপি করুন',
+  'flows.list.duplicated': 'ওয়ার্কফ্লো অনুলিপি হয়েছে',
+  'flows.list.delete': 'মুছুন',
+  'flows.list.deleted': 'ওয়ার্কফ্লো মুছে ফেলা হয়েছে',
+  'flows.list.moreActions': 'আরও ক্রিয়া',
+  'flows.delete.title': 'ওয়ার্কফ্লো মুছবেন?',
+  'flows.delete.body':
+    '"{name}" এবং এর রান ইতিহাস স্থায়ীভাবে মুছে ফেলা হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।',
+  'flows.delete.cancel': 'বাতিল করুন',
+  'flows.delete.confirm': 'মুছুন',
+  'flows.delete.deleting': 'মুছে ফেলা হচ্ছে…',
+  'flows.canvas.renameLabel': 'ওয়ার্কফ্লো পুনঃনামকরণ করুন',
 };
 
 export default messages;

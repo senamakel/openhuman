@@ -6916,6 +6916,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'Copia',
   'codeBlock.copied': 'Copiato!',
+  'flows.editor.undo': 'Annulla',
+  'flows.editor.redo': 'Ripristina',
+  'flows.editor.onboardingTitle': 'Crea il tuo flusso di lavoro',
+  'flows.editor.onboardingBody':
+    'Aggiungi un nodo dalla palette a sinistra, poi trascina tra i punti di ogni scheda per collegarli.',
+  'flows.palette.search': 'Cerca nodi…',
+  'flows.palette.noResults': 'Nessun nodo corrispondente',
+  'flows.palette.group.triggers': 'Trigger',
+  'flows.palette.group.actions': 'Azioni',
+  'flows.palette.group.logic': 'Logica',
+  'flows.list.duplicate': 'Duplica',
+  'flows.list.duplicated': 'Flusso di lavoro duplicato',
+  'flows.list.delete': 'Elimina',
+  'flows.list.deleted': 'Flusso di lavoro eliminato',
+  'flows.list.moreActions': 'Altre azioni',
+  'flows.delete.title': 'Eliminare il flusso di lavoro?',
+  'flows.delete.body':
+    '\"{name}\" e la relativa cronologia delle esecuzioni verranno rimossi definitivamente. Questa azione non può essere annullata.',
+  'flows.delete.cancel': 'Annulla',
+  'flows.delete.confirm': 'Elimina',
+  'flows.delete.deleting': 'Eliminazione…',
+  'flows.canvas.renameLabel': 'Rinomina flusso di lavoro',
 };
 
 export default messages;

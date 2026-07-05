@@ -3504,6 +3504,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': '已完成',
   'flowRuns.status.pending_approval': '等待批准',
   'flowRuns.status.failed': '失败',
+  'flowRuns.status.cancelled': '已取消',
 
   'flows.page.title': '工作流',
   'flows.page.description': '已保存的自动化流程，可启用、运行并监控。',
@@ -6423,6 +6424,26 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': '复制',
   'codeBlock.copied': '已复制！',
+  'flows.editor.undo': '撤销',
+  'flows.editor.redo': '重做',
+  'flows.editor.onboardingTitle': '构建你的工作流',
+  'flows.editor.onboardingBody': '从左侧面板添加节点，然后在各卡片的圆点之间拖动以连接它们。',
+  'flows.palette.search': '搜索节点…',
+  'flows.palette.noResults': '没有匹配的节点',
+  'flows.palette.group.triggers': '触发器',
+  'flows.palette.group.actions': '操作',
+  'flows.palette.group.logic': '逻辑',
+  'flows.list.duplicate': '复制',
+  'flows.list.duplicated': '工作流已复制',
+  'flows.list.delete': '删除',
+  'flows.list.deleted': '工作流已删除',
+  'flows.list.moreActions': '更多操作',
+  'flows.delete.title': '删除工作流？',
+  'flows.delete.body': '“{name}”及其运行历史将被永久删除。此操作无法撤销。',
+  'flows.delete.cancel': '取消',
+  'flows.delete.confirm': '删除',
+  'flows.delete.deleting': '正在删除…',
+  'flows.canvas.renameLabel': '重命名工作流',
 };
 
 export default messages;

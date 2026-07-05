@@ -6818,6 +6818,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'Salin',
   'codeBlock.copied': 'Disalin!',
+  'flows.editor.undo': 'Urungkan',
+  'flows.editor.redo': 'Ulangi',
+  'flows.editor.onboardingTitle': 'Bangun alur kerja Anda',
+  'flows.editor.onboardingBody':
+    'Tambahkan node dari palet di sebelah kiri, lalu seret di antara titik-titik pada setiap kartu untuk menghubungkannya.',
+  'flows.palette.search': 'Cari node…',
+  'flows.palette.noResults': 'Tidak ada node yang cocok',
+  'flows.palette.group.triggers': 'Pemicu',
+  'flows.palette.group.actions': 'Tindakan',
+  'flows.palette.group.logic': 'Logika',
+  'flows.list.duplicate': 'Duplikat',
+  'flows.list.duplicated': 'Alur kerja diduplikasi',
+  'flows.list.delete': 'Hapus',
+  'flows.list.deleted': 'Alur kerja dihapus',
+  'flows.list.moreActions': 'Tindakan lainnya',
+  'flows.delete.title': 'Hapus alur kerja?',
+  'flows.delete.body':
+    '"{name}" dan riwayat prosesnya akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.',
+  'flows.delete.cancel': 'Batal',
+  'flows.delete.confirm': 'Hapus',
+  'flows.delete.deleting': 'Menghapus…',
+  'flows.canvas.renameLabel': 'Ganti nama alur kerja',
 };
 
 export default messages;

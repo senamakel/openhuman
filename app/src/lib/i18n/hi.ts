@@ -6791,6 +6791,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'कॉपी करें',
   'codeBlock.copied': 'कॉपी हो गया!',
+  'flows.editor.undo': 'पूर्ववत करें',
+  'flows.editor.redo': 'फिर से करें',
+  'flows.editor.onboardingTitle': 'अपना वर्कफ़्लो बनाएं',
+  'flows.editor.onboardingBody':
+    'बाईं ओर के पैलेट से एक नोड जोड़ें, फिर उन्हें जोड़ने के लिए प्रत्येक कार्ड पर बिंदुओं के बीच खींचें।',
+  'flows.palette.search': 'नोड खोजें…',
+  'flows.palette.noResults': 'कोई मिलता-जुलता नोड नहीं',
+  'flows.palette.group.triggers': 'ट्रिगर',
+  'flows.palette.group.actions': 'क्रियाएं',
+  'flows.palette.group.logic': 'लॉजिक',
+  'flows.list.duplicate': 'डुप्लिकेट करें',
+  'flows.list.duplicated': 'वर्कफ़्लो डुप्लिकेट किया गया',
+  'flows.list.delete': 'हटाएं',
+  'flows.list.deleted': 'वर्कफ़्लो हटाया गया',
+  'flows.list.moreActions': 'और क्रियाएं',
+  'flows.delete.title': 'वर्कफ़्लो हटाएं?',
+  'flows.delete.body':
+    '"{name}" और इसका रन इतिहास स्थायी रूप से हटा दिया जाएगा। इसे पूर्ववत नहीं किया जा सकता।',
+  'flows.delete.cancel': 'रद्द करें',
+  'flows.delete.confirm': 'हटाएं',
+  'flows.delete.deleting': 'हटाया जा रहा है…',
+  'flows.canvas.renameLabel': 'वर्कफ़्लो का नाम बदलें',
 };
 
 export default messages;

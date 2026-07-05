@@ -3661,6 +3661,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': '완료됨',
   'flowRuns.status.pending_approval': '승인 대기 중',
   'flowRuns.status.failed': '실패',
+  'flowRuns.status.cancelled': '취소됨',
 
   'flows.page.title': '워크플로',
   'flows.page.description': '활성화, 실행, 모니터링할 수 있는 저장된 자동화입니다.',
@@ -6715,6 +6716,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': '복사',
   'codeBlock.copied': '복사됨!',
+  'flows.editor.undo': '실행 취소',
+  'flows.editor.redo': '다시 실행',
+  'flows.editor.onboardingTitle': '워크플로 만들기',
+  'flows.editor.onboardingBody':
+    '왼쪽 팔레트에서 노드를 추가한 다음 각 카드의 점 사이를 드래그하여 연결하세요.',
+  'flows.palette.search': '노드 검색…',
+  'flows.palette.noResults': '일치하는 노드가 없습니다',
+  'flows.palette.group.triggers': '트리거',
+  'flows.palette.group.actions': '작업',
+  'flows.palette.group.logic': '로직',
+  'flows.list.duplicate': '복제',
+  'flows.list.duplicated': '워크플로를 복제했습니다',
+  'flows.list.delete': '삭제',
+  'flows.list.deleted': '워크플로를 삭제했습니다',
+  'flows.list.moreActions': '추가 작업',
+  'flows.delete.title': '워크플로를 삭제할까요?',
+  'flows.delete.body':
+    '"{name}" 및 해당 실행 기록이 영구적으로 삭제됩니다. 이 작업은 취소할 수 없습니다.',
+  'flows.delete.cancel': '취소',
+  'flows.delete.confirm': '삭제',
+  'flows.delete.deleting': '삭제 중…',
+  'flows.canvas.renameLabel': '워크플로 이름 바꾸기',
 };
 
 export default messages;

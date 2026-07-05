@@ -6928,6 +6928,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'Copiar',
   'codeBlock.copied': '¡Copiado!',
+  'flows.editor.undo': 'Deshacer',
+  'flows.editor.redo': 'Rehacer',
+  'flows.editor.onboardingTitle': 'Crea tu flujo de trabajo',
+  'flows.editor.onboardingBody':
+    'Añade un nodo desde la paleta de la izquierda y luego arrastra entre los puntos de cada tarjeta para conectarlos.',
+  'flows.palette.search': 'Buscar nodos…',
+  'flows.palette.noResults': 'No hay nodos coincidentes',
+  'flows.palette.group.triggers': 'Disparadores',
+  'flows.palette.group.actions': 'Acciones',
+  'flows.palette.group.logic': 'Lógica',
+  'flows.list.duplicate': 'Duplicar',
+  'flows.list.duplicated': 'Flujo de trabajo duplicado',
+  'flows.list.delete': 'Eliminar',
+  'flows.list.deleted': 'Flujo de trabajo eliminado',
+  'flows.list.moreActions': 'Más acciones',
+  'flows.delete.title': '¿Eliminar el flujo de trabajo?',
+  'flows.delete.body':
+    '\"{name}\" y su historial de ejecuciones se eliminarán de forma permanente. Esta acción no se puede deshacer.',
+  'flows.delete.cancel': 'Cancelar',
+  'flows.delete.confirm': 'Eliminar',
+  'flows.delete.deleting': 'Eliminando…',
+  'flows.canvas.renameLabel': 'Cambiar el nombre del flujo de trabajo',
 };
 
 export default messages;

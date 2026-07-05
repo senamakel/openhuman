@@ -6643,6 +6643,27 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'نسخ',
   'codeBlock.copied': 'تم النسخ!',
+  'flows.editor.undo': 'تراجع',
+  'flows.editor.redo': 'إعادة',
+  'flows.editor.onboardingTitle': 'أنشئ سير عملك',
+  'flows.editor.onboardingBody':
+    'أضِف عقدة من اللوحة على اليسار، ثم اسحب بين النقاط على كل بطاقة لربطها.',
+  'flows.palette.search': 'البحث عن العقد…',
+  'flows.palette.noResults': 'لا توجد عقد مطابقة',
+  'flows.palette.group.triggers': 'المشغّلات',
+  'flows.palette.group.actions': 'الإجراءات',
+  'flows.palette.group.logic': 'المنطق',
+  'flows.list.duplicate': 'تكرار',
+  'flows.list.duplicated': 'تم تكرار سير العمل',
+  'flows.list.delete': 'حذف',
+  'flows.list.deleted': 'تم حذف سير العمل',
+  'flows.list.moreActions': 'المزيد من الإجراءات',
+  'flows.delete.title': 'حذف سير العمل؟',
+  'flows.delete.body': 'سيتم حذف "{name}" وسجل تشغيله نهائيًا. لا يمكن التراجع عن ذلك.',
+  'flows.delete.cancel': 'إلغاء',
+  'flows.delete.confirm': 'حذف',
+  'flows.delete.deleting': 'جارٍ الحذف…',
+  'flows.canvas.renameLabel': 'إعادة تسمية سير العمل',
 };
 
 export default messages;

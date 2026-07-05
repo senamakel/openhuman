@@ -3730,6 +3730,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'Завершено',
   'flowRuns.status.pending_approval': 'Ожидает подтверждения',
   'flowRuns.status.failed': 'Не удалось',
+  'flowRuns.status.cancelled': 'Отменено',
 
   'flows.page.title': 'Рабочие процессы',
   'flows.page.description':
@@ -6863,6 +6864,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'Копировать',
   'codeBlock.copied': 'Скопировано!',
+  'flows.editor.undo': 'Отменить',
+  'flows.editor.redo': 'Повторить',
+  'flows.editor.onboardingTitle': 'Создайте свой рабочий процесс',
+  'flows.editor.onboardingBody':
+    'Добавьте узел из палитры слева, затем перетащите линию между точками на карточках, чтобы соединить их.',
+  'flows.palette.search': 'Поиск узлов…',
+  'flows.palette.noResults': 'Нет подходящих узлов',
+  'flows.palette.group.triggers': 'Триггеры',
+  'flows.palette.group.actions': 'Действия',
+  'flows.palette.group.logic': 'Логика',
+  'flows.list.duplicate': 'Дублировать',
+  'flows.list.duplicated': 'Рабочий процесс продублирован',
+  'flows.list.delete': 'Удалить',
+  'flows.list.deleted': 'Рабочий процесс удалён',
+  'flows.list.moreActions': 'Дополнительные действия',
+  'flows.delete.title': 'Удалить рабочий процесс?',
+  'flows.delete.body':
+    '«{name}» и история его запусков будут удалены навсегда. Это действие нельзя отменить.',
+  'flows.delete.cancel': 'Отмена',
+  'flows.delete.confirm': 'Удалить',
+  'flows.delete.deleting': 'Удаление…',
+  'flows.canvas.renameLabel': 'Переименовать рабочий процесс',
 };
 
 export default messages;

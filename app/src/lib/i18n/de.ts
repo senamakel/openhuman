@@ -6981,6 +6981,28 @@ const messages: TranslationMap = {
   // Code block chrome
   'codeBlock.copy': 'Kopieren',
   'codeBlock.copied': 'Kopiert!',
+  'flows.editor.undo': 'Rückgängig',
+  'flows.editor.redo': 'Wiederherstellen',
+  'flows.editor.onboardingTitle': 'Workflow erstellen',
+  'flows.editor.onboardingBody':
+    'Füge über die Palette links einen Knoten hinzu und ziehe dann zwischen den Punkten auf den Karten, um sie zu verbinden.',
+  'flows.palette.search': 'Knoten suchen…',
+  'flows.palette.noResults': 'Keine passenden Knoten',
+  'flows.palette.group.triggers': 'Auslöser',
+  'flows.palette.group.actions': 'Aktionen',
+  'flows.palette.group.logic': 'Logik',
+  'flows.list.duplicate': 'Duplizieren',
+  'flows.list.duplicated': 'Workflow dupliziert',
+  'flows.list.delete': 'Löschen',
+  'flows.list.deleted': 'Workflow gelöscht',
+  'flows.list.moreActions': 'Weitere Aktionen',
+  'flows.delete.title': 'Workflow löschen?',
+  'flows.delete.body':
+    '\"{name}\" und der zugehörige Ausführungsverlauf werden dauerhaft entfernt. Dies kann nicht rückgängig gemacht werden.',
+  'flows.delete.cancel': 'Abbrechen',
+  'flows.delete.confirm': 'Löschen',
+  'flows.delete.deleting': 'Wird gelöscht…',
+  'flows.canvas.renameLabel': 'Workflow umbenennen',
 };
 
 export default messages;

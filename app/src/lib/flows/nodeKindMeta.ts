@@ -88,22 +88,29 @@ export function nodeKindMeta(kind: NodeKind): NodeKindMeta {
   return NODE_KIND_META[kind] ?? DEFAULT_NODE_META;
 }
 
-export const COLOR_CLASSES: Record<NodeColor, { border: string; chip: string }> = {
+// `tint` is a faint wash of the accent for the node card body, so the whole
+// node reads as gently colour-coded rather than a stark white box under the
+// stronger header `chip`.
+export const COLOR_CLASSES: Record<NodeColor, { border: string; chip: string; tint: string }> = {
   sage: {
     border: 'border-sage-400 dark:border-sage-500/60',
     chip: 'bg-sage-100 dark:bg-sage-500/20',
+    tint: 'bg-sage-50/60 dark:bg-sage-500/[0.07]',
   },
   primary: {
     border: 'border-primary-400 dark:border-primary-500/60',
     chip: 'bg-primary-100 dark:bg-primary-500/20',
+    tint: 'bg-primary-50/60 dark:bg-primary-500/[0.07]',
   },
   amber: {
     border: 'border-amber-400 dark:border-amber-500/60',
     chip: 'bg-amber-100 dark:bg-amber-500/20',
+    tint: 'bg-amber-50/60 dark:bg-amber-500/[0.07]',
   },
   coral: {
     border: 'border-coral-400 dark:border-coral-500/60',
     chip: 'bg-coral-100 dark:bg-coral-500/20',
+    tint: 'bg-coral-50/60 dark:bg-coral-500/[0.07]',
   },
-  neutral: { border: 'border-line-strong', chip: 'bg-surface-subtle' },
+  neutral: { border: 'border-line-strong', chip: 'bg-surface-subtle', tint: 'bg-surface' },
 };

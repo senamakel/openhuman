@@ -4461,6 +4461,7 @@ const en: TranslationMap = {
   'flows.editor.running': 'Running…',
   'flows.editor.runFailed': 'Could not start run',
   'flows.editor.deleteSelected': 'Delete selected',
+  'flows.editor.deleteNode': 'Delete',
   'flows.editor.undo': 'Undo',
   'flows.editor.redo': 'Redo',
   'flows.editor.onboardingTitle': 'Build your workflow',

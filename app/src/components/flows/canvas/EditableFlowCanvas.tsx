@@ -50,6 +50,7 @@ import type { NodeKind, WorkflowGraph } from '../../../lib/flows/types';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { type FlowConnection, listFlowConnections } from '../../../services/api/flowsApi';
 import Button from '../../ui/Button';
+import { type CanvasActions, CanvasActionsContext } from './canvasActions';
 import './flowCanvasStyles.css';
 import FlowNodeComponent from './FlowNodeComponent';
 import FlowValidationBanner from './FlowValidationBanner';
@@ -264,7 +265,6 @@ function EditableFlowCanvas({
   const showOnboarding =
     nodes.length <= 1 && edges.length === 0 && addedNodeIds.size === 0 && removedNodeIds.size === 0;
   const addCounter = useRef(0);
-  const [selectionCount, setSelectionCount] = useState(0);
   // Id of the single selected node whose config the drawer edits (`null` when
   // zero or multiple nodes — or any edge — are selected).
   const [configNodeId, setConfigNodeId] = useState<string | null>(null);
@@ -471,23 +471,19 @@ function EditableFlowCanvas({
     event.dataTransfer.dropEffect = 'copy';
   }, []);
 
-  const handleDeleteSelected = useCallback(() => {
-    const removedNodeIds = new Set(nodes.filter(n => n.selected).map(n => n.id));
-    const removedEdgeIds = new Set(edges.filter(e => e.selected).map(e => e.id));
-    if (removedNodeIds.size === 0 && removedEdgeIds.size === 0) return;
-    log('deleteSelected: nodes=%d edges=%d', removedNodeIds.size, removedEdgeIds.size);
-    pushHistory('structural');
-    setNodes(current => current.filter(n => !removedNodeIds.has(n.id)));
-    // Drop explicitly-selected edges AND any edge left dangling by a removed node.
-    setEdges(current =>
-      current.filter(
-        e =>
-          !removedEdgeIds.has(e.id) &&
-          !removedNodeIds.has(e.source) &&
-          !removedNodeIds.has(e.target)
-      )
-    );
-  }, [nodes, edges, setNodes, setEdges, pushHistory]);
+  // Delete a single node (the selected node card's Delete action) plus its
+  // incident edges. Keyboard Backspace/Delete still removes the multi-selection
+  // through React Flow's native `deleteKeyCode` (snapshotted for undo in
+  // `handleNodesChange`), so this is the only explicit delete affordance left.
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      log('deleteNode: id=%s', nodeId);
+      pushHistory('structural');
+      setNodes(current => current.filter(n => n.id !== nodeId));
+      setEdges(current => current.filter(e => e.source !== nodeId && e.target !== nodeId));
+    },
+    [setNodes, setEdges, pushHistory]
+  );
 
   const handleSave = useCallback(async () => {
     // Hard errors block Save (warnings are allowed through). Belt-and-braces:
@@ -532,14 +528,16 @@ function EditableFlowCanvas({
     setForcedDirty(false);
   }, [baseline, setNodes, setEdges, pushHistory]);
 
-  const handleValidate = useCallback(() => {
-    log('validate: manual trigger');
-    void validateNow();
-  }, [validateNow]);
+  // Canvas actions surfaced on the selected node card (delete this node /
+  // validate the graph) — see `canvasActions.ts`. Memoised so the context
+  // value is stable across renders that don't change validation state.
+  const canvasActions = useMemo<CanvasActions>(
+    () => ({ deleteNode, validate: () => void validateNow(), validating }),
+    [deleteNode, validateNow, validating]
+  );
 
   const onSelectionChange = useCallback(
     ({ nodes: selNodes, edges: selEdges }: { nodes: FlowNode[]; edges: FlowEdge[] }) => {
-      setSelectionCount(selNodes.length + selEdges.length);
       // Open the config drawer only for an unambiguous single-node selection;
       // any edge in the selection, or 0/2+ nodes, closes it.
       const nextId = selEdges.length === 0 && selNodes.length === 1 ? selNodes[0].id : null;
@@ -618,154 +616,134 @@ function EditableFlowCanvas({
   const configNode = configNodeId ? (nodes.find(n => n.id === configNodeId) ?? null) : null;
 
   return (
-    <div
-      className="flow-canvas relative h-full w-full"
-      data-testid="flow-canvas"
-      data-editable="true"
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onKeyDown={handleCanvasKeyDown}>
-      <NodePalette onAdd={handlePaletteAdd} />
+    <CanvasActionsContext.Provider value={canvasActions}>
+      <div
+        className="flow-canvas relative h-full w-full"
+        data-testid="flow-canvas"
+        data-editable="true"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onKeyDown={handleCanvasKeyDown}>
+        <NodePalette onAdd={handlePaletteAdd} />
 
-      {/* Two clusters: editing tools (Delete / Validate) on the left, then the
-          draft-state cluster (unsaved badge → Discard → Save) set apart by a
-          divider so the commit action reads as its own unit, not one of five
-          equal-weight buttons. */}
-      <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
-        <div className="pointer-events-auto flex items-center gap-1">
-          <Button
-            type="button"
-            variant="tertiary"
-            size="xs"
-            iconOnly
-            data-testid="flow-editor-undo"
-            aria-label={t('flows.editor.undo')}
-            title={t('flows.editor.undo')}
-            disabled={!canUndo}
-            onClick={undo}>
-            <UndoIcon />
-          </Button>
-          <Button
-            type="button"
-            variant="tertiary"
-            size="xs"
-            iconOnly
-            data-testid="flow-editor-redo"
-            aria-label={t('flows.editor.redo')}
-            title={t('flows.editor.redo')}
-            disabled={!canRedo}
-            onClick={redo}>
-            <RedoIcon />
-          </Button>
-        </div>
-        <div className="pointer-events-auto flex items-center gap-2 border-l border-line pl-2">
-          <Button
-            type="button"
-            variant="secondary"
-            tone="danger"
-            size="xs"
-            data-testid="flow-editor-delete"
-            disabled={selectionCount === 0}
-            onClick={handleDeleteSelected}>
-            {t('flows.editor.deleteSelected')}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="xs"
-            data-testid="flow-editor-validate"
-            disabled={validating}
-            onClick={handleValidate}>
-            {validating ? t('flows.editor.validating') : t('flows.editor.validate')}
-          </Button>
-        </div>
-        <div className="pointer-events-auto flex items-center gap-2 border-l border-line pl-2">
-          {dirty && (
-            <span
-              className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-              data-testid="flow-editor-dirty">
-              {t('flows.editor.unsaved')}
-            </span>
-          )}
-          <Button
-            type="button"
-            variant="tertiary"
-            size="xs"
-            data-testid="flow-editor-discard"
-            disabled={!dirty || saving}
-            onClick={handleDiscard}>
-            {t('flows.editor.discard')}
-          </Button>
-          {onSave && (
+        {/* Undo/redo on the left, then the draft-state cluster (unsaved badge →
+          Discard → Save). Per-node Validate/Delete now live on the selected node
+          card (see FlowNodeComponent), so they're no longer in this toolbar. */}
+        <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
+          <div className="pointer-events-auto flex items-center gap-1">
             <Button
               type="button"
-              variant="primary"
+              variant="tertiary"
               size="xs"
-              data-testid="flow-editor-save"
-              title={hasErrors ? t('flows.editor.saveBlocked') : undefined}
-              disabled={!dirty || hasErrors || saving || saveDisabled}
-              onClick={handleSave}>
-              {saving ? t('flows.editor.saving') : t('flows.editor.save')}
+              iconOnly
+              data-testid="flow-editor-undo"
+              aria-label={t('flows.editor.undo')}
+              title={t('flows.editor.undo')}
+              disabled={!canUndo}
+              onClick={undo}>
+              <UndoIcon />
             </Button>
-          )}
-        </div>
-      </div>
-
-      {/* First-run hint: a near-empty canvas (a fresh scratch flow opens with
-          just its trigger) gets a non-blocking nudge toward the palette. Hides
-          itself as soon as a second node lands. */}
-      {showOnboarding && (
-        <div
-          className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center px-6"
-          data-testid="flow-editor-onboarding">
-          <div className="max-w-xs rounded-2xl border border-dashed border-line bg-surface/70 px-5 py-4 text-center backdrop-blur-sm">
-            <p className="text-sm font-semibold text-content">
-              {t('flows.editor.onboardingTitle')}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-content-muted">
-              {t('flows.editor.onboardingBody')}
-            </p>
+            <Button
+              type="button"
+              variant="tertiary"
+              size="xs"
+              iconOnly
+              data-testid="flow-editor-redo"
+              aria-label={t('flows.editor.redo')}
+              title={t('flows.editor.redo')}
+              disabled={!canRedo}
+              onClick={redo}>
+              <RedoIcon />
+            </Button>
+          </div>
+          <div className="pointer-events-auto flex items-center gap-2 border-l border-line pl-2">
+            {dirty && (
+              <span
+                className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                data-testid="flow-editor-dirty">
+                {t('flows.editor.unsaved')}
+              </span>
+            )}
+            <Button
+              type="button"
+              variant="tertiary"
+              size="xs"
+              data-testid="flow-editor-discard"
+              disabled={!dirty || saving}
+              onClick={handleDiscard}>
+              {t('flows.editor.discard')}
+            </Button>
+            {onSave && (
+              <Button
+                type="button"
+                variant="primary"
+                size="xs"
+                data-testid="flow-editor-save"
+                title={hasErrors ? t('flows.editor.saveBlocked') : undefined}
+                disabled={!dirty || hasErrors || saving || saveDisabled}
+                onClick={handleSave}>
+                {saving ? t('flows.editor.saving') : t('flows.editor.save')}
+              </Button>
+            )}
           </div>
         </div>
-      )}
 
-      <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center">
-        <div className="pointer-events-auto w-full max-w-md">
-          <FlowValidationBanner validation={validation} saveError={saveError} />
+        {/* First-run hint: a near-empty canvas (a fresh scratch flow opens with
+          just its trigger) gets a non-blocking nudge toward the palette. Hides
+          itself as soon as a second node lands. */}
+        {showOnboarding && (
+          <div
+            className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center px-6"
+            data-testid="flow-editor-onboarding">
+            <div className="max-w-xs rounded-2xl border border-dashed border-line bg-surface/70 px-5 py-4 text-center backdrop-blur-sm">
+              <p className="text-sm font-semibold text-content">
+                {t('flows.editor.onboardingTitle')}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-content-muted">
+                {t('flows.editor.onboardingBody')}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center">
+          <div className="pointer-events-auto w-full max-w-md">
+            <FlowValidationBanner validation={validation} saveError={saveError} />
+          </div>
         </div>
+
+        <ReactFlow
+          nodes={displayNodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          onInit={instance => {
+            rfRef.current = instance;
+          }}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
+          onConnect={onConnect}
+          isValidConnection={isValidConnection}
+          onSelectionChange={onSelectionChange}
+          deleteKeyCode={DELETE_KEYS}
+          nodesDraggable
+          nodesConnectable
+          elementsSelectable
+          fitView
+          panOnScroll
+          zoomOnScroll>
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+          <MiniMap pannable zoomable />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+
+        <NodeConfigDrawer
+          node={configNode}
+          onClose={handleCloseConfig}
+          onChange={updateNode}
+          connections={connections}
+        />
       </div>
-
-      <ReactFlow
-        nodes={displayNodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        onInit={instance => {
-          rfRef.current = instance;
-        }}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        onConnect={onConnect}
-        isValidConnection={isValidConnection}
-        onSelectionChange={onSelectionChange}
-        deleteKeyCode={DELETE_KEYS}
-        nodesDraggable
-        nodesConnectable
-        elementsSelectable
-        fitView
-        panOnScroll
-        zoomOnScroll>
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-        <MiniMap pannable zoomable />
-        <Controls showInteractive={false} />
-      </ReactFlow>
-
-      <NodeConfigDrawer
-        node={configNode}
-        onClose={handleCloseConfig}
-        onChange={updateNode}
-        connections={connections}
-      />
-    </div>
+    </CanvasActionsContext.Provider>
   );
 }
 

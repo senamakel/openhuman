@@ -1,29 +1,31 @@
 /**
  * FlowNodeComponent — the custom xyflow node renderer for the Workflow Canvas
  * (issue B5b.1). Renders one rounded card per `WorkflowNode`: a per-kind emoji +
- * colored accent header, the node's name, and a labelled row per input port
- * (left) / output port (right) — see `graphAdapter.ts`'s `FlowNodeData` for why
- * "effective" ports aren't simply `data.ports`.
+ * colored accent header, the node's name, a dynamic one-line summary of what the
+ * node will do (derived from its live config via {@link describeNode}), and a
+ * labelled row per input port (left) / output port (right).
  *
  * Ports read as labelled handle rows rather than a plaintext list: each port's
  * `Handle` sits inline next to its name so it's unambiguous which dot carries
- * which input/output (e.g. a `condition`'s `true`/`false` outputs, a `switch`'s
- * case ports). Branch ports are colour-coded (true → sage, false/error → coral)
- * so the routing reads at a glance. A lone implicit `main` port shows just its
- * handle dot — left = input, right = output, the flow-editor convention — with
- * no redundant "main" label.
+ * which input/output (e.g. a `condition`'s `true`/`false` outputs). Branch ports
+ * are colour-coded (true → sage, false/error → coral). A lone implicit `main`
+ * port shows just its handle dot — left = input, right = output.
  *
- * Emoji (not an icon library) matches the repo's existing convention. An
- * unrecognized `kind` (not one of the 12 `NodeKind` values) renders as a plain
- * neutral node rather than throwing, since a thrown render error here has no
- * error boundary around `<ReactFlow>` and would take down the whole canvas.
+ * When the card is selected in the editable canvas, an in-card action row
+ * (Validate / Delete) appears via {@link useCanvasActions} — the read-only
+ * viewer has no actions context, so it never shows them.
+ *
+ * An unrecognized `kind` renders as a plain neutral node rather than throwing,
+ * since a thrown render error here has no error boundary around `<ReactFlow>`.
  */
 import { Handle, type NodeProps, Position } from '@xyflow/react';
 import { type CSSProperties, memo } from 'react';
 
 import type { FlowNode } from '../../../lib/flows/graphAdapter';
 import { COLOR_CLASSES, nodeKindMeta } from '../../../lib/flows/nodeKindMeta';
+import { describeNode } from '../../../lib/flows/nodeSummary';
 import { useT } from '../../../lib/i18n/I18nContext';
+import { useCanvasActions } from './canvasActions';
 
 /**
  * Inline the handle into the port row instead of React Flow's default absolute
@@ -55,11 +57,13 @@ function portPillClass(port: string): string {
   return `${base} bg-surface-subtle text-content-secondary`;
 }
 
-function FlowNodeComponent({ data, selected }: NodeProps<FlowNode>) {
+function FlowNodeComponent({ id, data, selected }: NodeProps<FlowNode>) {
   const { t } = useT();
+  const actions = useCanvasActions();
   const meta = nodeKindMeta(data.kind);
   const colors = COLOR_CLASSES[meta.color];
   const kindLabel = t(`flows.nodeKind.${data.kind}`, data.kind);
+  const summary = describeNode(data.kind, data.config ?? {}, data.outputPorts);
 
   // Only label ports when there's something to disambiguate: more than one port,
   // or a single explicitly-named (non-`main`) port. A lone implicit `main` shows
@@ -68,6 +72,7 @@ function FlowNodeComponent({ data, selected }: NodeProps<FlowNode>) {
   const labelOutputs =
     data.outputPorts.length > 1 || data.outputPorts.some(p => p !== IMPLICIT_PORT);
   const hasPorts = data.inputPorts.length > 0 || data.outputPorts.length > 0;
+  const showActions = Boolean(actions) && selected;
 
   return (
     <div
@@ -87,6 +92,15 @@ function FlowNodeComponent({ data, selected }: NodeProps<FlowNode>) {
           </div>
         </div>
       </div>
+
+      {/* Dynamic "what this does" line, derived from the node's live config. */}
+      {summary && (
+        <div
+          className="px-3 pt-2 text-[11px] leading-snug text-content-muted"
+          data-testid="flow-node-summary">
+          {summary}
+        </div>
+      )}
 
       {hasPorts && (
         <div className="flex items-start justify-between gap-4 px-2 py-2">
@@ -121,6 +135,27 @@ function FlowNodeComponent({ data, selected }: NodeProps<FlowNode>) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Per-node actions on the selected card (editable canvas only). */}
+      {showActions && actions && (
+        <div className="flex items-center justify-end gap-1 border-t border-line px-2 py-1.5">
+          <button
+            type="button"
+            data-testid="flow-node-validate"
+            disabled={actions.validating}
+            onClick={() => actions.validate()}
+            className="rounded-md px-2 py-1 text-[11px] font-medium text-content-secondary transition-colors hover:bg-surface-hover disabled:opacity-50">
+            {actions.validating ? t('flows.editor.validating') : t('flows.editor.validate')}
+          </button>
+          <button
+            type="button"
+            data-testid="flow-node-delete"
+            onClick={() => actions.deleteNode(id)}
+            className="rounded-md px-2 py-1 text-[11px] font-medium text-coral-600 transition-colors hover:bg-coral-50 dark:text-coral-400 dark:hover:bg-coral-500/10">
+            {t('flows.editor.deleteNode')}
+          </button>
         </div>
       )}
     </div>

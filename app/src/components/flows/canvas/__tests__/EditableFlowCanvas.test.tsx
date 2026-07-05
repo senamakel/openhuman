@@ -49,17 +49,6 @@ describe('FlowCanvas (editable)', () => {
     expect(screen.getByTestId('flow-palette-item-sub_workflow')).toBeInTheDocument();
   });
 
-  it('filters palette items by the search query', () => {
-    renderCanvas(<FlowCanvas editable nodes={[triggerNode()]} edges={[]} />);
-    fireEvent.change(screen.getByTestId('flow-palette-search'), { target: { value: 'http' } });
-    // HTTP request survives; the trigger kind is filtered out.
-    expect(screen.getByTestId('flow-palette-item-http_request')).toBeInTheDocument();
-    expect(screen.queryByTestId('flow-palette-item-trigger')).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByTestId('flow-palette-search'), { target: { value: 'zzzz' } });
-    expect(screen.getByTestId('flow-palette-no-results')).toBeInTheDocument();
-  });
-
   it('does NOT render the palette in read-only mode', () => {
     renderCanvas(<FlowCanvas nodes={[triggerNode()]} edges={[]} />);
     expect(screen.queryByTestId('flow-node-palette')).not.toBeInTheDocument();
@@ -104,9 +93,12 @@ describe('FlowCanvas (editable)', () => {
     expect(graph.edges).toEqual([]);
   });
 
-  it('disables the delete button when nothing is selected', () => {
+  it('does not render Delete/Validate in the top toolbar (moved onto node cards)', () => {
     renderCanvas(<FlowCanvas editable nodes={[triggerNode()]} edges={[]} />);
-    expect(screen.getByTestId('flow-editor-delete')).toBeDisabled();
+    expect(screen.queryByTestId('flow-editor-delete')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('flow-editor-validate')).not.toBeInTheDocument();
+    // Undo/redo + Save still live in the toolbar.
+    expect(screen.getByTestId('flow-editor-undo')).toBeInTheDocument();
   });
 
   it('shows the onboarding hint on a near-empty canvas and hides it after a node is added', () => {

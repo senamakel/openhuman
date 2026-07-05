@@ -67,8 +67,8 @@ describe('EditableFlowCanvas — validation + dirty state', () => {
 
     // Make an edit so the graph is dirty (Save is only ever enabled when dirty).
     fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
-    // Force validation immediately via the explicit button.
-    fireEvent.click(screen.getByTestId('flow-editor-validate'));
+    // Validation runs automatically on the debounce after the edit (the manual
+    // Validate button now lives on the selected node card).
 
     const errors = await screen.findByTestId('flow-editor-errors');
     expect(errors).toHaveTextContent('invalid config for node t: missing schedule');
@@ -93,7 +93,7 @@ describe('EditableFlowCanvas — validation + dirty state', () => {
     renderCanvas();
 
     fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
-    fireEvent.click(screen.getByTestId('flow-editor-validate'));
+    // Auto-validation (debounced) surfaces the warning.
 
     const warnings = await screen.findByTestId('flow-editor-warnings');
     expect(warnings).toHaveTextContent('does not fire automatically');

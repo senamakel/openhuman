@@ -10,6 +10,19 @@
  * *standalone Artifacts*, not this Tailwind `darkMode: 'class'` app.
  */
 
+/*
+ * Contain React Flow's internal stacking. The `.react-flow` container sets no
+ * z-index of its own, so its descendants' z-indexes (edges, and especially the
+ * dragged `.react-flow__connectionline` at z-index 1001) leak into the shared
+ * context and can paint OVER our sibling overlays (node palette, toolbar, and
+ * the node-config "edit box" drawer at z-20) — the drawer then reads as clipped
+ * / behind the canvas. Isolating the subtree keeps those z-indexes internal, so
+ * the overlays reliably sit above the whole canvas.
+ */
+.flow-canvas .react-flow {
+  isolation: isolate;
+}
+
 .flow-canvas .react-flow__background {
   background-color: rgb(var(--surface-canvas));
 }

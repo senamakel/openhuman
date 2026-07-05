@@ -9237,14 +9237,14 @@ name = "tinyjuice"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "dirs 5.0.1",
+ "dirs 6.0.0",
  "hex",
  "log",
  "once_cell",
  "regex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror 2.0.18",
  "tokio",
  "unicode-segmentation",

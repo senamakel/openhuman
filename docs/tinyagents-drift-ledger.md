@@ -55,7 +55,7 @@ work started. Counts include Rust files only.
 
 | # | Area | Status | Evidence / action |
 | --- | --- | --- | --- |
-| P1-1 | `SchemaCleanr` provider schema normalization | **UPSTREAM PR OPEN** | TinyAgents draft PR [tinyagents#20](https://github.com/tinyhumansai/tinyagents/pull/20) ports `SchemaCleanr` into `harness::tool` with crate-native errors and ported tests. Host submodule remains pinned to `v1.6.0` until the upstream PR merges/releases; no host call-site deletion yet. Local validation in the submodule: `cargo fmt`; `timeout 120s cargo test schema_`. |
+| P1-1 | `SchemaCleanr` provider schema normalization | **UPSTREAM PR OPEN** | TinyAgents draft PR [tinyagents#20](https://github.com/tinyhumansai/tinyagents/pull/20) ports `SchemaCleanr` into `harness::tool` with crate-native errors and ported tests. Host submodule remains pinned to `v1.6.0` until the upstream PR merges/releases; no host call-site deletion yet. Local validation in the submodule: `cargo fmt --check`; `timeout 180s cargo clippy --all-targets -- -D warnings`; `timeout 120s cargo test schema_`. |
 
 ## Phase Gates
 

@@ -547,7 +547,12 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
             .as_deref()
             .map(str::trim)
             .filter(|s| !s.is_empty());
-        to_json(ops::channel_status(&config, filter).await?)
+        let manager = ChannelManager::new(
+            config.channels_config.clone(),
+            OpenHumanChannelBackend::new(config),
+        );
+        let result = manager.status(filter).await.map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(result, vec![]))
     })
 }
 

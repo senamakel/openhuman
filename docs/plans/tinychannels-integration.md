@@ -34,12 +34,12 @@ Companion docs in the tinychannels repo:
   relay frames, the request/response frame transport loop, and a feature-gated
   WebSocket dialer with reconnect supervision. OpenHuman has not adopted the
   relay runtime yet.
-- The `channels.test` controller now routes through
+- The `channels.status` and `channels.test` controllers now route through
   `ChannelManager<OpenHumanChannelBackend>`, preserving the existing no-log
-  JSON response shape while using the crate manager for definition lookup and
-  credential validation. The remaining OpenHuman work is still the rest of the
-  controller routing, envelope/session migration, idempotency adoption, and the
-  planned test split below.
+  JSON response shapes while using the crate manager for definition lookup and
+  credential validation where applicable. The remaining OpenHuman work is still
+  the rest of the controller routing, envelope/session migration, idempotency
+  adoption, and the planned test split below.
 
 ## Step 1 — Add the dependency, delete duplicates
 
@@ -81,11 +81,11 @@ Companion docs in the tinychannels repo:
   - Telegram login and Discord link/guild/permission methods → the existing
     `telegram.rs` / `discord.rs` ops.
 - Still pending: route controller entry points through
-  `ChannelManager<OpenHumanChannelBackend>` beyond `channels.test` so
-  credential validation (`ChannelDefinition::validate_credentials`) and
-  operation dispatch happen in one place. Route `channels.connect` carefully:
-  it currently returns log entries in the public JSON envelope, unlike
-  `channels.test`.
+  `ChannelManager<OpenHumanChannelBackend>` beyond `channels.status` and
+  `channels.test` so credential validation
+  (`ChannelDefinition::validate_credentials`) and operation dispatch happen in
+  one place. Route `channels.connect` carefully: it currently returns log
+  entries in the public JSON envelope, unlike `channels.status`/`test`.
 - The event bus, health bus, and dispatch engine stay app-side and *drive*
   tinychannels. Never add a tinychannels → openhuman dependency; the
   `runtime/` dispatch engine and the `web` provider are consumers of the

@@ -59,6 +59,64 @@
   border-radius: 0.75rem;
 }
 
+/*
+ * MiniMap node + viewport mask: React Flow paints these with hard-coded light
+ * greys (an `#e2e2e2` node fill + a translucent light mask) that read wrong on
+ * the dark theme. CSS `fill` wins over the SVG presentation attribute React
+ * Flow sets, so route both through theme tokens instead. `.react-flow__minimap`
+ * itself is already themed above.
+ */
+.flow-canvas .react-flow__minimap-node {
+  fill: rgb(var(--line-strong));
+  stroke: none;
+}
+
+.flow-canvas .react-flow__minimap-mask {
+  fill: rgb(var(--surface-canvas) / 0.6);
+}
+
+/*
+ * Connection line: the ghost edge drawn while dragging a new connection. React
+ * Flow's default stroke is near-black; use the primary accent (matching a
+ * hovered/selected edge) so it's visible on both themes.
+ */
+.flow-canvas .react-flow__connectionline .react-flow__connection-path,
+.flow-canvas .react-flow__connectionline path {
+  stroke: rgb(var(--primary-500));
+  stroke-width: 1.5;
+}
+
+/*
+ * Drag-select rectangle + the bounding box around a multi-node selection: the
+ * defaults are a fixed blue; tint them with the primary accent at low opacity.
+ */
+.flow-canvas .react-flow__selection,
+.flow-canvas .react-flow__nodesselection-rect {
+  background: rgb(var(--primary-500) / 0.08);
+  border: 1px solid rgb(var(--primary-500) / 0.6);
+}
+
+/*
+ * Handle connection feedback: while dragging a new edge React Flow (v12) flags
+ * the source handle (`.connectingfrom`), the hovered target (`.connectingto`),
+ * and a target that would form a valid edge (`.valid`). Paint the source
+ * primary, an invalid hovered target coral, and a valid one sage — so the
+ * port-aware `isValidConnection` result reads at a glance on both themes. The
+ * `.valid` rules come last so they win over the coral `.connectingto` default.
+ */
+.flow-canvas .react-flow__handle.connectingfrom {
+  background: rgb(var(--primary-500));
+}
+
+.flow-canvas .react-flow__handle.connectingto {
+  background: rgb(var(--coral-500));
+}
+
+.flow-canvas .react-flow__handle.connectingto.valid,
+.flow-canvas .react-flow__handle.valid {
+  background: rgb(var(--sage-500));
+}
+
 .flow-canvas .react-flow__attribution {
   background: rgb(var(--surface) / 0.7);
   color: rgb(var(--content-muted));

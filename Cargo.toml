@@ -42,7 +42,7 @@ crate-type = ["rlib"]
 tinyplace = "1.0.1"
 # tinyflows — host-agnostic workflow engine (typed node graph → validate → compile →
 # run on tinyagents). Powers the "Workflows" feature via the seam in
-# `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.5 transitively
+# `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.6 transitively
 # (same version openhuman already uses — no conflict). Published on crates.io
 # and patched below to the vendored submodule.
 tinyflows = "0.3"
@@ -57,7 +57,7 @@ tinyflows = "0.3"
 # aligned to 0.40, avoiding duplicate `links = "sqlite3"` native bindings.
 # Durable graph checkpoints still use `SqlRunLedgerCheckpointer` until the
 # migration re-points those rows to the crate checkpointer.
-tinyagents = { version = "1.5.0", features = ["sqlite"] }
+tinyagents = { version = "1.6.0", features = ["sqlite"] }
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.

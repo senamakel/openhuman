@@ -1,6 +1,7 @@
 # TinyAgents Port — Plan & Audit (inference / tools / agent_orchestration)
 
-**Status:** draft plan — no code changes yet.
+**Status:** Phase 0 in progress — v1.6.0 alignment started; baseline/drift ledger
+in [`docs/tinyagents-drift-ledger.md`](tinyagents-drift-ledger.md).
 **Anchor precedent:** the TinyAgents harness migration (#4249 / #4399 / #4473) and the TinyCortex memory migration plan (`docs/tinycortex-memory-migration-plan.md`).
 **Target:** move the genuinely framework-shaped parts of `src/openhuman/inference/`, `src/openhuman/tools/`, and `src/openhuman/agent_orchestration/` down into the `tinyagents` crate (vendored git submodule at **`vendor/tinyagents`**, `https://github.com/tinyhumansai/tinyagents`), and delete the in-tree duplicates in favor of crate primitives.
 
@@ -45,6 +46,10 @@ So the correct plan has **three motions**, not one:
 - Sibling repo / upstream: **v1.6.0** (`e72036d`).
 - Host `Cargo.toml`: requires `tinyagents = { version = "1.5.0", features = ["sqlite"] }`, patched to `vendor/tinyagents`.
 - Submodule pin: `357bcc8` = **v1.5.0-11-g357bcc8** — 11 commits past the 1.5.0 tag, but **behind 1.6.0**. A plain `git submodule update` matches neither published version; pin explicitly.
+
+**Phase 0 update:** the host branch now pins `vendor/tinyagents` to `e72036d`
+(`v1.6.0`) and the root/Tauri lockfiles resolve `tinyagents` `1.6.0`; remaining
+Phase 0 seam follow-ups are tracked in the drift ledger.
 
 Missing between the pin and 1.6.0, all of which the seam actively wants: `invoke_stream` + sub-agent delta propagation (tinyagents#17), tool outcome on `ToolCompleted` (#18), REPL host-embedding cancellation (#19), concurrent independent tool calls per turn, `DurabilityMode::Async` checkpoint writes, SHA-256 prompt fingerprint (affects the seam's KV-cache drift guard), idempotent `RedactionMiddleware` (affects `journal.rs`), `InMemoryVectorStore` dim-validation/top-k, `Checkpointer::get_thread`/`copy_thread`.
 

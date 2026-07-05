@@ -1349,9 +1349,10 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
 /// raw payload.
 pub(crate) struct ToolOutcomeCaptureMiddleware {
     sink: super::ToolOutcomeSink,
-    /// `call_id → (success, classified failure)` side-channel read by the event
-    /// bridge when projecting `ToolCallCompleted` (the crate event lacks the
-    /// success/error the failure UI needs).
+    /// `call_id → (success, classified failure, elapsed, output chars)` fallback
+    /// read by the event bridge when projecting `ToolCallCompleted`. TinyAgents
+    /// 1.6 owns the raw outcome fields; the host still adds classified failure
+    /// metadata for the UI.
     failure_map: super::observability::ToolFailureMap,
 }
 
@@ -1423,9 +1424,9 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
             ))
         };
         if let Ok(mut map) = self.failure_map.lock() {
-            // Also carry the executor-measured duration + rendered output size so
-            // the event bridge can project real `elapsed_ms`/`output_chars` on
-            // `ToolCallCompleted` instead of `0`/`0` (#4467, item 4).
+            // Keep duration + rendered output size as a compatibility fallback
+            // for old/deserialized completion events; TinyAgents 1.6 supplies
+            // these fields directly on live `ToolCompleted` events.
             map.insert(
                 result.call_id.clone(),
                 (

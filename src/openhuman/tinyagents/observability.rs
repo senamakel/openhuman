@@ -50,15 +50,11 @@ pub(crate) type IterationCursor = Arc<AtomicU32>;
 pub(crate) type ToolNameMap = Arc<Mutex<std::collections::HashMap<String, String>>>;
 
 /// Shared `call_id → (success, classified failure, elapsed_ms, output_chars)`
-/// side-channel. The crate's `AgentEvent::ToolCompleted` carries only `call_id`
-/// + `tool_name` (no success/error, duration, or output size), so
-/// `ToolOutcomeCaptureMiddleware::after_tool` — which does see the `ToolResult`
-/// (including the executor-measured `elapsed_ms` and the rendered content) —
-/// classifies each outcome and writes it here; the bridge reads it when
-/// projecting the live `ToolCallCompleted` event, so a failed tool surfaces real
-/// `success: false` + a user-facing `failure`, and a completed tool surfaces its
-/// real duration + output size instead of `0`/`0` (#4467, item 4). Absent entry
-/// (event projected before the middleware ran) falls back to `(true, None, 0, 0)`.
+/// side-channel. TinyAgents 1.6 carries success/error, duration, and output size
+/// on `AgentEvent::ToolCompleted`; this map now only preserves OpenHuman's
+/// richer [`ClassifiedFailure`](crate::openhuman::tool_status::ClassifiedFailure)
+/// for the live UI and acts as a compatibility fallback for older/deserialized
+/// events whose outcome fields are absent.
 pub(crate) type ToolFailureMap = Arc<
     Mutex<
         std::collections::HashMap<
@@ -174,9 +170,9 @@ pub(crate) struct OpenhumanEventBridge {
     /// `ThinkingForwarder` on tool-call start; read here to label the
     /// incremental tool-argument fragments projected off the crate stream.
     tool_names: ToolNameMap,
-    /// Shared `call_id → (success, failure, elapsed_ms, output_chars)`
-    /// side-channel written by `ToolOutcomeCaptureMiddleware`; read when
-    /// projecting `ToolCallCompleted`.
+    /// Shared `call_id → (success, failure, elapsed_ms, output_chars)` fallback
+    /// written by `ToolOutcomeCaptureMiddleware`; read when projecting
+    /// `ToolCallCompleted` so the UI keeps OpenHuman's classified failure.
     failure_map: ToolFailureMap,
     /// Shared FIFO carry of the per-call provider `UsageInfo` the model adapter
     /// observed; drained in `record_usage` to restore backend-charged USD +
@@ -194,9 +190,9 @@ pub(crate) struct OpenhumanEventBridge {
     /// Per-iteration figures resolved by `record_usage` (see
     /// [`ResolvedCallFigures`]); taken by the `ModelCompleted` arm.
     resolved_calls: Mutex<std::collections::HashMap<u32, ResolvedCallFigures>>,
-    /// `call_id → start instant` for in-flight tool calls, written on
-    /// `ToolStarted` and taken on `ToolCompleted` so the projected completion
-    /// event carries a real `elapsed_ms` (the crate event has no timing).
+    /// `call_id → start instant` for in-flight tool calls. TinyAgents 1.6
+    /// normally supplies `duration_ms`; this is a fallback for older/deserialized
+    /// `ToolCompleted` events without duration metadata.
     tool_started_at: Mutex<std::collections::HashMap<String, std::time::Instant>>,
     state: Mutex<BridgeState>,
     /// Ordered overflow buffer for progress events that hit backpressure
@@ -884,8 +880,8 @@ impl EventListener for OpenhumanEventBridge {
                 // instead of a rewritten ToolStarted. So this arm fires only for
                 // real, model-visible tools and needs no sentinel guard.
                 let iteration = self.iteration();
-                // Stamp the start instant so the completion event carries a real
-                // elapsed_ms (the crate's ToolCompleted has no timing payload).
+                // Stamp the start instant as a fallback for old/deserialized
+                // completion events that do not carry TinyAgents 1.6 duration.
                 self.tool_started_at
                     .lock()
                     .unwrap_or_else(|p| p.into_inner())
@@ -914,24 +910,23 @@ impl EventListener for OpenhumanEventBridge {
             AgentEvent::ToolCompleted {
                 call_id,
                 tool_name,
+                started_at_ms: _,
                 input,
                 output,
+                duration_ms,
+                output_bytes,
+                error,
             } => {
                 let iteration = self.iteration();
-                // The crate event carries no success/error, so read what the
-                // outcome-capture middleware classified for this call. Absent →
-                // the event was projected before the middleware ran; assume
-                // success (never worse than the previous hardcoded `true`).
                 let outcome = self
                     .failure_map
                     .lock()
                     .ok()
                     .and_then(|mut m| m.remove(call_id.as_str()));
-                let success = outcome.as_ref().map(|(ok, ..)| *ok).unwrap_or(true);
-                // Real execution duration + output size the capture middleware
-                // recorded off the `ToolResult` (#4467, item 4). Fall back to
-                // the bridge's own ToolStarted stamp for duration, and to the
-                // captured payload for size, when the middleware ran late.
+                let success = error
+                    .as_ref()
+                    .map(|_| false)
+                    .unwrap_or_else(|| outcome.as_ref().map(|(ok, ..)| *ok).unwrap_or(true));
                 let stamped_elapsed = self
                     .tool_started_at
                     .lock()
@@ -939,11 +934,13 @@ impl EventListener for OpenhumanEventBridge {
                     .remove(call_id.as_str())
                     .map(|t| t.elapsed().as_millis() as u64)
                     .unwrap_or(0);
-                let elapsed_ms = outcome
-                    .as_ref()
-                    .map(|(_, _, e, _)| *e)
-                    .filter(|e| *e > 0)
-                    .unwrap_or(stamped_elapsed);
+                let elapsed_ms = duration_ms.unwrap_or_else(|| {
+                    outcome
+                        .as_ref()
+                        .map(|(_, _, e, _)| *e)
+                        .filter(|e| *e > 0)
+                        .unwrap_or(stamped_elapsed)
+                });
                 // Tool result text, captured by the harness when
                 // `RunPolicy.capture.tool_io` is on (the loop emits it as a
                 // JSON string). Empty when capture is off.
@@ -952,15 +949,31 @@ impl EventListener for OpenhumanEventBridge {
                     Some(v) => v.to_string(),
                     None => String::new(),
                 };
-                let output_chars = outcome
-                    .as_ref()
-                    .map(|(_, _, _, c)| *c)
-                    .filter(|c| *c > 0)
-                    .unwrap_or_else(|| output_text.chars().count());
+                let captured_chars = output_text.chars().count();
+                let output_chars = if captured_chars > 0 {
+                    captured_chars
+                } else if let Some(bytes) = output_bytes {
+                    usize::try_from(*bytes).unwrap_or(usize::MAX)
+                } else {
+                    outcome
+                        .as_ref()
+                        .map(|(_, _, _, c)| *c)
+                        .filter(|c| *c > 0)
+                        .unwrap_or(0)
+                };
                 // Carry the classified failure onto whichever completion event
                 // this projects — main-agent OR sub-agent (#4459). Previously
                 // the sub-agent branch dropped it on the floor.
-                let failure = outcome.and_then(|(_, f, _, _)| f);
+                let failure = outcome
+                    .and_then(|(_, f, _, _)| f)
+                    .or_else(|| {
+                        error.as_deref().map(|error_text| {
+                            crate::openhuman::tool_status::classify(
+                                error_text,
+                                error_text.contains("timed out"),
+                            )
+                        })
+                    });
                 match &self.scope {
                     None => self.send(AgentProgress::ToolCallCompleted {
                         call_id: call_id.as_str().to_string(),
@@ -1097,6 +1110,9 @@ mod tests {
             started_at_ms: None,
             input: None,
             output: None,
+            duration_ms: None,
+            output_bytes: None,
+            error: None,
         });
         sink.emit(AgentEvent::UsageRecorded {
             usage: Usage::new(100, 40),
@@ -1147,6 +1163,7 @@ mod tests {
         });
         sink.emit(AgentEvent::ModelCompleted {
             call_id: "m1".into(),
+            started_at_ms: None,
             usage: Some(Usage::new(1_000, 50)),
             input: Some(serde_json::json!([
                 {"role": "system", "content": "You are OpenHuman."}
@@ -1213,6 +1230,7 @@ mod tests {
         sink.subscribe(bridge.clone());
         sink.emit(AgentEvent::ModelCompleted {
             call_id: "m1".into(),
+            started_at_ms: None,
             usage: Some(Usage::new(10, 5)),
             input: None,
             output: None,
@@ -1247,8 +1265,12 @@ mod tests {
         sink.emit(AgentEvent::ToolCompleted {
             call_id: "t1".into(),
             tool_name: "echo".to_string(),
+            started_at_ms: None,
             input: Some(serde_json::json!({"text": "ping"})),
             output: Some(serde_json::Value::String("pong".to_string())),
+            duration_ms: Some(7),
+            output_bytes: Some(4),
+            error: None,
         });
 
         let mut seen = None;

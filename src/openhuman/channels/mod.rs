@@ -47,7 +47,7 @@ pub use qq::QQChannel;
 pub use signal::SignalChannel;
 pub use slack::SlackChannel;
 pub use telegram::TelegramChannel;
-pub use traits::{Channel, SendMessage};
+pub use traits::{Channel, ChannelSendExt, SendMessage};
 pub use whatsapp::WhatsAppChannel;
 #[cfg(feature = "whatsapp-web")]
 pub use whatsapp_web::WhatsAppWebChannel;

@@ -1,1 +1,1 @@
-pub use tinychannels::{Channel, ChannelMessage, SendMessage};
+pub use tinychannels::{Channel, ChannelMessage, ChannelSendExt, SendMessage};

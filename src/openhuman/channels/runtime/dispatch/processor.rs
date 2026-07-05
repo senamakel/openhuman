@@ -24,7 +24,7 @@ use crate::openhuman::channels::routes::{
     get_or_create_provider, get_route_selection, handle_runtime_command_if_needed,
 };
 use crate::openhuman::channels::traits;
-use crate::openhuman::channels::SendMessage;
+use crate::openhuman::channels::{ChannelSendExt, SendMessage};
 use crate::openhuman::inference::provider::{self, ChatMessage};
 use crate::openhuman::util::truncate_with_ellipsis;
 use std::sync::Arc;
@@ -176,7 +176,10 @@ pub(crate) async fn process_channel_message(
             let react_msg =
                 SendMessage::new(react_content, &msg.reply_target).in_thread(msg.thread_ts.clone());
             tokio::spawn(async move {
-                if let Err(e) = channel_for_react.send(&react_msg).await {
+                if let Err(e) = channel_for_react
+                    .send_with_outbound_intent(&react_msg)
+                    .await
+                {
                     tracing::debug!("[dispatch] Acknowledgment reaction failed: {e}");
                 }
             });
@@ -204,7 +207,7 @@ pub(crate) async fn process_channel_message(
             );
             if let Some(channel) = target_channel.as_ref() {
                 let _ = channel
-                    .send(
+                    .send_with_outbound_intent(
                         &SendMessage::new(message, &msg.reply_target)
                             .in_thread(msg.thread_ts.clone()),
                     )
@@ -556,14 +559,14 @@ pub(crate) async fn process_channel_message(
                     {
                         tracing::warn!("Failed to finalize draft: {e}; sending as new message");
                         let _ = channel
-                            .send(
+                            .send_with_outbound_intent(
                                 &SendMessage::new(&response_text, &msg.reply_target)
                                     .in_thread(msg.thread_ts.clone()),
                             )
                             .await;
                     }
                 } else if let Err(e) = channel
-                    .send(
+                    .send_with_outbound_intent(
                         &SendMessage::new(&response_text, &msg.reply_target)
                             .in_thread(msg.thread_ts.clone()),
                     )
@@ -599,7 +602,7 @@ pub(crate) async fn process_channel_message(
                             .await;
                     } else {
                         let _ = channel
-                            .send(
+                            .send_with_outbound_intent(
                                 &SendMessage::new(error_text, &msg.reply_target)
                                     .in_thread(msg.thread_ts.clone()),
                             )
@@ -688,7 +691,7 @@ pub(crate) async fn process_channel_message(
                         .await;
                 } else {
                     let _ = channel
-                        .send(
+                        .send_with_outbound_intent(
                             &SendMessage::new(&error_response, &msg.reply_target)
                                 .in_thread(msg.thread_ts.clone()),
                         )
@@ -732,7 +735,7 @@ pub(crate) async fn process_channel_message(
                         .await;
                 } else {
                     let _ = channel
-                        .send(
+                        .send_with_outbound_intent(
                             &SendMessage::new(&error_text, &msg.reply_target)
                                 .in_thread(msg.thread_ts.clone()),
                         )

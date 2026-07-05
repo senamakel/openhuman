@@ -124,6 +124,7 @@ pub mod text_input;
 pub mod thread_goals;
 pub mod threads;
 pub mod tinyagents;
+pub mod tinycortex;
 pub mod tinyflows;
 pub mod tinyplace;
 pub mod tls;

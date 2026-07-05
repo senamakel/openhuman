@@ -104,6 +104,16 @@ async function snapshotRuntime(threadId: string): Promise<RuntimeSnapshot> {
   }, threadId)) as RuntimeSnapshot;
 }
 
+async function hasRenderedSubagentTimeline(): Promise<boolean> {
+  return (await browser.execute(() => {
+    const rows = Array.from(document.querySelectorAll('[data-testid="agent-timeline-row"]'));
+    return rows.some(row => {
+      const text = row.textContent ?? '';
+      return /Research|Researching|subagent/i.test(text);
+    });
+  })) as boolean;
+}
+
 describe('Chat harness — orchestrator → subagent flow', () => {
   before(async function beforeSuite() {
     this.timeout(90_000);
@@ -114,6 +124,13 @@ describe('Chat harness — orchestrator → subagent flow', () => {
     // clean signed-in state rather than a polluted one (the source of the
     // intermittent "final canary never arrives" failures).
     await resetApp(USER_ID, { clearAuthSession: true });
+    const superContext = await callOpenhumanRpc('openhuman.config_set_super_context_enabled', {
+      value: false,
+    });
+    expect(superContext.ok).toBe(true);
+    console.log(
+      '[chat-harness-subagent] Disabled super context for deterministic scripted LLM calls'
+    );
 
     setMockBehavior('llmForcedResponses', JSON.stringify(FORCED_RESPONSES));
     // Faster streaming for non-tool-call responses so this spec doesn't
@@ -170,9 +187,14 @@ describe('Chat harness — orchestrator → subagent flow', () => {
         sawSubagentTimeline = true;
       }
       if (sawSubagentPhase && sawSubagentTimeline) break;
-      if (await textExists(CANARY_FINAL)) break;
+      if (await textExists(CANARY_FINAL)) {
+        sawSubagentTimeline = sawSubagentTimeline || (await hasRenderedSubagentTimeline());
+        break;
+      }
       await browser.pause(200);
     }
+
+    sawSubagentTimeline = sawSubagentTimeline || (await hasRenderedSubagentTimeline());
 
     // At least ONE of the two signals must have fired — the timeline
     // entry is the more durable check (the live phase can flip back to

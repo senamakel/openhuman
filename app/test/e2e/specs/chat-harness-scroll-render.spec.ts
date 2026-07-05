@@ -64,34 +64,27 @@ const STREAM_SCRIPT = [
   { finish: 'stop' },
 ];
 
-// The message column is the `<div ref={messagesContainerRef}
-// className="flex-1 min-h-0 overflow-y-auto ...">` in Conversations.tsx.
-// There's only one in /chat so the structural class predicate is enough.
 async function scrollMetrics(): Promise<{
   scrollTop: number;
   scrollHeight: number;
   clientHeight: number;
+  found: boolean;
 }> {
   return (await browser.execute(() => {
-    // The messages scroll container is `flex-1 min-h-0 overflow-y-auto`
-    // (Conversations.tsx). The former hardcoded `bg-[#f6f6f6]` class was
-    // replaced by a surface token, so match on the structural classes instead.
-    const el = document.querySelector('div.flex-1.min-h-0.overflow-y-auto') as HTMLElement | null;
-    if (!el) return { scrollTop: 0, scrollHeight: 0, clientHeight: 0 };
+    const el = document.querySelector('[data-testid="chat-messages-scroll"]') as HTMLElement | null;
+    if (!el) return { scrollTop: 0, scrollHeight: 0, clientHeight: 0, found: false };
     return {
       scrollTop: el.scrollTop,
       scrollHeight: el.scrollHeight,
       clientHeight: el.clientHeight,
+      found: true,
     };
-  })) as { scrollTop: number; scrollHeight: number; clientHeight: number };
+  })) as { scrollTop: number; scrollHeight: number; clientHeight: number; found: boolean };
 }
 
 async function scrollMessageColumn(top: number): Promise<void> {
   await browser.execute((y: number) => {
-    // The messages scroll container is `flex-1 min-h-0 overflow-y-auto`
-    // (Conversations.tsx). The former hardcoded `bg-[#f6f6f6]` class was
-    // replaced by a surface token, so match on the structural classes instead.
-    const el = document.querySelector('div.flex-1.min-h-0.overflow-y-auto') as HTMLElement | null;
+    const el = document.querySelector('[data-testid="chat-messages-scroll"]') as HTMLElement | null;
     if (el) el.scrollTo({ top: y, behavior: 'auto' });
   }, top);
 }
@@ -181,7 +174,18 @@ describe('Chat harness — scroll + markdown render', () => {
 
     // ── 3. Auto-scroll anchored to the bottom after the stream ─────
     // (within 40 px to absorb sub-pixel layout drift)
+    await browser.waitUntil(
+      async () => {
+        const metrics = await scrollMetrics();
+        if (!metrics.found) return false;
+        return metrics.scrollHeight > metrics.clientHeight;
+      },
+      { timeout: 10_000, timeoutMsg: 'chat messages scroll container never overflowed' }
+    );
     const atBottom = await scrollMetrics();
+    console.log(
+      `[chat-harness-scroll-render] bottom metrics: scrollTop=${atBottom.scrollTop}, scrollHeight=${atBottom.scrollHeight}, clientHeight=${atBottom.clientHeight}`
+    );
     expect(atBottom.scrollHeight).toBeGreaterThan(atBottom.clientHeight);
     expect(atBottom.scrollHeight - (atBottom.scrollTop + atBottom.clientHeight)).toBeLessThan(40);
 
@@ -190,6 +194,9 @@ describe('Chat harness — scroll + markdown render', () => {
     await scrollMessageColumn(targetTop);
     await browser.pause(500); // let the stick hook react
     const afterScrollUp = await scrollMetrics();
+    console.log(
+      `[chat-harness-scroll-render] after manual scroll: scrollTop=${afterScrollUp.scrollTop}, scrollHeight=${afterScrollUp.scrollHeight}, clientHeight=${afterScrollUp.clientHeight}, targetTop=${targetTop}`
+    );
     expect(Math.abs(afterScrollUp.scrollTop - targetTop)).toBeLessThan(40);
     expect(
       afterScrollUp.scrollHeight - (afterScrollUp.scrollTop + afterScrollUp.clientHeight)

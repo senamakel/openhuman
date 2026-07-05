@@ -12,7 +12,8 @@ use async_trait::async_trait;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
     SandboxMode, Tool, ToolAccess, ToolCall as TaToolCall, ToolExecutionContext, ToolPolicy,
-    ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects, WorkspaceAccess,
+    ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects, ToolTimeout,
+    WorkspaceAccess,
 };
 
 /// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.
@@ -153,6 +154,7 @@ pub(crate) fn tool_policy_from_openhuman_tool(
         })
         .with_runtime(ToolRuntime {
             timeout_ms,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: tool.is_concurrency_safe(&serde_json::Value::Null),
             cancelable: true,

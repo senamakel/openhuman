@@ -23,6 +23,11 @@ const runFlow = vi.hoisted(() => vi.fn());
 const listFlowRuns = vi.hoisted(() => vi.fn());
 const createFlow = vi.hoisted(() => vi.fn());
 const importFlow = vi.hoisted(() => vi.fn());
+// Flow Scout discovery clients — rendered via the SuggestedWorkflows section.
+const discoverWorkflows = vi.hoisted(() => vi.fn());
+const listSuggestions = vi.hoisted(() => vi.fn());
+const dismissSuggestion = vi.hoisted(() => vi.fn());
+const markSuggestionBuilt = vi.hoisted(() => vi.fn());
 vi.mock('../services/api/flowsApi', () => ({
   listFlows,
   setFlowEnabled,
@@ -30,6 +35,10 @@ vi.mock('../services/api/flowsApi', () => ({
   listFlowRuns,
   createFlow,
   importFlow,
+  discoverWorkflows,
+  listSuggestions,
+  dismissSuggestion,
+  markSuggestionBuilt,
 }));
 
 const downloadFlowGraph = vi.hoisted(() => vi.fn(() => true));
@@ -59,6 +68,12 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
 describe('FlowsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // SuggestedWorkflows loads persisted suggestions on mount; default to none
+    // so the section renders its (harmless) empty state in these flow-list tests.
+    listSuggestions.mockResolvedValue([]);
+    discoverWorkflows.mockResolvedValue([]);
+    dismissSuggestion.mockResolvedValue(true);
+    markSuggestionBuilt.mockResolvedValue(true);
   });
 
   it('shows a loading state while flows are being fetched', () => {

@@ -19,7 +19,7 @@
  * with cleanup on unmount / dependency change).
  */
 import debug from 'debug';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { socketService } from '../services/socketService';
 
@@ -78,6 +78,15 @@ function parsePayload(data: unknown): FlowRunProgressPayload | null {
 export function useFlowRunProgress(runId: string | null): FlowRunProgressMap {
   const [statuses, setStatuses] = useState<FlowRunProgressMap>({});
 
+  // Reset during render (not synchronously inside the effect below —
+  // `react-hooks/set-state-in-effect` disallows that) when `runId` changes, so
+  // a stale run's node states never bleed onto a newly-started one.
+  const prevRunIdRef = useRef(runId);
+  if (prevRunIdRef.current !== runId) {
+    prevRunIdRef.current = runId;
+    setStatuses({});
+  }
+
   const handleProgress = useCallback(
     (data: unknown) => {
       if (!runId) return;
@@ -100,9 +109,6 @@ export function useFlowRunProgress(runId: string | null): FlowRunProgressMap {
   );
 
   useEffect(() => {
-    // New target (or cleared): drop the previous run's node states so a stale
-    // run never paints onto the current one.
-    setStatuses({});
     if (!runId) return;
     log('subscribe: run=%s', runId);
     socketService.on(EVENT_COLON, handleProgress);

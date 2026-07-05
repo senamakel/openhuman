@@ -147,6 +147,11 @@ type ReplyMode = 'text' | 'voice';
 const AUTOCOMPLETE_POLL_DEBOUNCE_MS = 320;
 const AUTOCOMPLETE_MIN_CONTEXT_CHARS = 3;
 const debug = debugFactory('conversations');
+const SAFE_IMAGE_DATA_URI_RE = /^data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[a-z0-9+/=\s]+$/i;
+
+function isSafeAttachmentImageSrc(src: string): boolean {
+  return SAFE_IMAGE_DATA_URI_RE.test(src);
+}
 
 interface ConversationsProps {
   /**
@@ -2321,9 +2326,11 @@ const Conversations = ({
                           <div className="flex flex-col items-end gap-1">
                             {(() => {
                               const displayText = parsedContent.text;
-                              const dataUris = Array.isArray(msg.extraMetadata?.attachmentDataUris)
-                                ? (msg.extraMetadata.attachmentDataUris as string[])
-                                : parsedContent.dataUris;
+                              const dataUris = (
+                                Array.isArray(msg.extraMetadata?.attachmentDataUris)
+                                  ? (msg.extraMetadata.attachmentDataUris as string[])
+                                  : parsedContent.dataUris
+                              ).filter(isSafeAttachmentImageSrc);
                               const hasImages = dataUris.length > 0;
                               // Document attachments carry no image data-URI (only
                               // images do); surface them as filename chips from the

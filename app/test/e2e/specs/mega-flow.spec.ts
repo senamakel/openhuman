@@ -721,9 +721,14 @@ describe('Mega flow — login + Gmail OAuth + Composio in one session', () => {
     console.log(`${LOG} update.version: asset_prefix = ${prefix}`);
 
     // No outbound HTTP call should have been made — version is purely local.
-    const outbound = getRequestLog().find(
-      r => r.url.includes('github.com') || r.url.includes('update.openhuman.app')
-    );
+    const outbound = getRequestLog().find(r => {
+      try {
+        const url = new URL(r.url, 'http://mock.local');
+        return url.hostname === 'github.com' || url.hostname === 'update.openhuman.app';
+      } catch {
+        return false;
+      }
+    });
     expect(outbound).toBeUndefined();
 
     const ping = await callOpenhumanRpc('core.ping', {});

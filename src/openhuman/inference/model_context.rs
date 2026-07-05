@@ -79,6 +79,45 @@ pub fn context_window_for_model(model: &str) -> Option<u64> {
         return Some(window);
     }
 
+    // The crate's `context_window_for_model_id` resolves the canonical o1/o3
+    // ids (`o1`, `o1-mini`, `openai/o1-preview`, …) but does not match an
+    // `o1`/`o3` token embedded mid-name (e.g. `ollama/mistral-for-o1-benchmark`).
+    // OpenHuman keeps that segment heuristic host-side to preserve the
+    // pre-port behavior (regression guard from PR #2100) until the crate
+    // matcher covers internal segments.
+    if let Some(window) = o1_o3_segment_context(normalized) {
+        tracing::debug!(
+            model = normalized,
+            context_window = window,
+            "[model_context] matched host o1/o3 segment heuristic"
+        );
+        return Some(window);
+    }
+
+    None
+}
+
+/// Match a bounded `o1`/`o3` segment anywhere in the model id and map it to the
+/// OpenAI reasoning-model 200K window. The token must be delimited by a
+/// non-alphanumeric boundary (or string start/end) on both sides so substrings
+/// like `solo1-7b`, `proto3-chat`, or `octo3thing` do **not** over-match.
+fn o1_o3_segment_context(model: &str) -> Option<u64> {
+    const O_SERIES_CONTEXT: u64 = 200_000;
+    let bytes = model.as_bytes();
+    let n = bytes.len();
+    let mut i = 0;
+    while i + 1 < n {
+        let is_o = bytes[i] == b'o' || bytes[i] == b'O';
+        if is_o && (bytes[i + 1] == b'1' || bytes[i + 1] == b'3') {
+            let before_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
+            let after = i + 2;
+            let after_ok = after >= n || !bytes[after].is_ascii_alphanumeric();
+            if before_ok && after_ok {
+                return Some(O_SERIES_CONTEXT);
+            }
+        }
+        i += 1;
+    }
     None
 }
 

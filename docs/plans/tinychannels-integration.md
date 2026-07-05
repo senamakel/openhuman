@@ -44,7 +44,9 @@ Companion docs in the tinychannels repo:
   `channels.connect` and `channels.set_default` preserve their public log/value
   envelopes after manager dispatch, and the managed Telegram/Discord link
   controllers route through the manager while preserving their no-log typed
-  responses. The remaining OpenHuman work is still the rest of the controller
+  responses. The no-log reaction/thread controllers now dispatch through the
+  manager and unwrap the backend `raw` payload to preserve legacy top-level JSON
+  shapes. The remaining OpenHuman work is still the rest of the controller
   routing, envelope/session migration, idempotency adoption, and the planned
   test split below.
 
@@ -93,7 +95,9 @@ Companion docs in the tinychannels repo:
   one place. Route `channels.disconnect` and Discord guild/channel/permission
   discovery carefully: they currently return log entries, extra disconnect
   fields, or legacy top-level arrays in the public JSON envelope, unlike the
-  no-log manager-routed paths.
+  no-log manager-routed paths. Route `channels.send_message` only after the
+  manager API can carry OpenHuman's arbitrary rich-message JSON without
+  collapsing it into the portable `SendMessage` shape.
 - The event bus, health bus, and dispatch engine stay app-side and *drive*
   tinychannels. Never add a tinychannels → openhuman dependency; the
   `runtime/` dispatch engine and the `web` provider are consumers of the

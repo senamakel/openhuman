@@ -337,6 +337,14 @@ fn connect_logs_preserve_legacy_envelope_cases() {
 }
 
 #[test]
+fn raw_or_typed_prefers_raw_payload() {
+    let raw = json!({"legacy": true});
+    let typed = json!({"typed": true});
+    assert_eq!(raw_or_typed(Some(raw.clone()), &typed).unwrap(), raw);
+    assert_eq!(raw_or_typed(None, &typed).unwrap(), typed);
+}
+
+#[test]
 fn required_string_helper() {
     let f = required_string("channel", "channel name");
     assert!(f.required);

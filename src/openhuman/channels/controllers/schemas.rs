@@ -707,7 +707,15 @@ fn handle_send_reaction(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<SendReactionParams>(params)?;
-        to_json(ops::channel_send_reaction(&config, p.channel.trim(), p.reaction).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .send_reaction(p.channel.trim(), p.reaction)
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(
+            raw_or_typed(result.raw.clone(), &result)?,
+            vec![],
+        ))
     })
 }
 
@@ -715,7 +723,15 @@ fn handle_create_thread(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<CreateThreadParams>(params)?;
-        to_json(ops::channel_create_thread(&config, p.channel.trim(), p.title.trim()).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .create_thread(p.channel.trim(), p.title.trim())
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(
+            raw_or_typed(result.raw.clone(), &result)?,
+            vec![],
+        ))
     })
 }
 
@@ -723,15 +739,15 @@ fn handle_update_thread(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<UpdateThreadParams>(params)?;
-        to_json(
-            ops::channel_update_thread(
-                &config,
-                p.channel.trim(),
-                p.thread_id.trim(),
-                p.action.trim(),
-            )
-            .await?,
-        )
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .update_thread(p.channel.trim(), p.thread_id.trim(), p.action.trim())
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(
+            raw_or_typed(result.raw.clone(), &result)?,
+            vec![],
+        ))
     })
 }
 
@@ -739,7 +755,15 @@ fn handle_list_threads(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<ListThreadsParams>(params)?;
-        to_json(ops::channel_list_threads(&config, p.channel.trim(), p.active).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .list_threads(p.channel.trim(), p.active)
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(
+            raw_or_typed(result.raw.clone(), &result)?,
+            vec![],
+        ))
     })
 }
 
@@ -766,6 +790,11 @@ fn connect_logs(channel: &str, mode: ChannelAuthMode, pending_auth: bool) -> Vec
     } else {
         vec![format!("stored credentials for channel:{channel}:{mode}")]
     }
+}
+
+fn raw_or_typed<T: serde::Serialize>(raw: Option<Value>, typed: &T) -> Result<Value, String> {
+    raw.map(Ok)
+        .unwrap_or_else(|| serde_json::to_value(typed).map_err(|e| e.to_string()))
 }
 
 fn required_string(name: &'static str, comment: &'static str) -> FieldSchema {

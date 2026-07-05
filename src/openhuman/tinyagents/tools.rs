@@ -13,8 +13,7 @@ use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
     SandboxMode, Tool, ToolAccess, ToolCall as TaToolCall, ToolExecutionContext, ToolPolicy,
     ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects,
-    ToolTimeout as TaToolTimeout,
-    WorkspaceAccess,
+    ToolTimeout as TaToolTimeout, WorkspaceAccess,
 };
 
 /// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.

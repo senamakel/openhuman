@@ -644,6 +644,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           const nextEntries = [...existing];
           let changed = false;
 
+          // The core forwards the (size-capped) tool result text on `output`;
+          // keep it on the row so the timeline can show what the tool
+          // returned. Older cores sent a metadata stub here — accept only
+          // non-empty payloads so a stub-less row stays `undefined`.
+          const result = event.output && event.output.length > 0 ? event.output : undefined;
+
           if (event.tool_call_id) {
             const idx = nextEntries.findIndex(entry => entry.id === event.tool_call_id);
             if (idx >= 0) {
@@ -651,6 +657,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 ...nextEntries[idx],
                 status: event.success ? 'success' : 'error',
                 failure,
+                result,
               };
               changed = true;
             }
@@ -664,7 +671,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 entry.name === event.tool_name &&
                 entry.round === event.round
               ) {
-                nextEntries[i] = { ...entry, status: event.success ? 'success' : 'error', failure };
+                nextEntries[i] = {
+                  ...entry,
+                  status: event.success ? 'success' : 'error',
+                  failure,
+                  result,
+                };
                 changed = true;
                 break;
               }

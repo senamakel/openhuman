@@ -182,6 +182,7 @@ function routeReadySelector(hash) {
     '/settings/migration': '[data-testid="migration-form"]',
     '/settings/voice': '[data-testid="voice-providers-section"]',
     '/settings/memory-data': '[data-testid="memory-workspace"]',
+    '/settings/recovery-phrase': '[data-testid="recovery-phrase-panel"]',
   };
   return selectors[path] || null;
 }
@@ -796,7 +797,16 @@ export async function walkOnboarding(logPrefix = '[E2E]', maxSteps = 12): Promis
  */
 export async function completeOnboardingIfVisible(logPrefix = '[E2E]') {
   await walkOnboarding(logPrefix);
-  await waitForHomePage(15_000);
+  const marker = await waitForHomePage(15_000);
+  if (marker) return;
+  if (supportsExecuteScript()) {
+    const onChat = await browser.execute(() => window.location.hash.startsWith('#/chat'));
+    if (onChat) {
+      console.log(`${logPrefix} Onboarding complete; chat route accepted without home marker`);
+      return;
+    }
+  }
+  throw new Error('Onboarding completed but neither home nor chat became ready');
 }
 
 export async function waitForLoggedOutState(timeout = 10_000): Promise<string | null> {

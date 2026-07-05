@@ -936,7 +936,8 @@ mod tests {
 
     #[test]
     fn build_worker_thread_title_collapses_whitespace_and_caps_length() {
-        let prompt = "  draft\n a very long\tplan that\nrambles ".to_string() + &"x".repeat(200);
+        let prompt =
+            "  draft\n a very long\tplan that\nrambles ".to_string() + "x".repeat(200).as_str();
         let title = build_worker_thread_title(&prompt);
         assert!(title.starts_with("draft a very long plan"));
         assert!(title.chars().count() <= WORKER_THREAD_TITLE_MAX_CHARS + 1);

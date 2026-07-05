@@ -29,6 +29,7 @@ fn put_then_get_roundtrips_state() {
         source_tool_name: None,
         subagent: None,
         failure: None,
+        output: None,
     });
 
     store.put(&state).expect("put");

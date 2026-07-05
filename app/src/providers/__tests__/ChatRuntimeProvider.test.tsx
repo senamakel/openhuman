@@ -163,6 +163,66 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(timeline[0]?.status).toBe('running');
     });
 
+    it('attaches the tool_result output to the timeline row as its result', () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onToolCall?.({
+          thread_id: 't-res',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'web_search',
+          skill_id: 'web_channel',
+          args: {},
+          tool_call_id: 'call-res',
+        });
+        listeners.onToolResult?.({
+          thread_id: 't-res',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'web_search',
+          skill_id: 'web_channel',
+          output: 'Top hit: openhuman.dev',
+          success: true,
+          tool_call_id: 'call-res',
+        });
+      });
+
+      const row = store.getState().chatRuntime.toolTimelineByThread['t-res']?.[0];
+      expect(row?.status).toBe('success');
+      expect(row?.result).toBe('Top hit: openhuman.dev');
+    });
+
+    it('leaves result unset when the tool_result carries no output text', () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onToolCall?.({
+          thread_id: 't-res2',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'web_search',
+          skill_id: 'web_channel',
+          args: {},
+          tool_call_id: 'call-res2',
+        });
+        listeners.onToolResult?.({
+          thread_id: 't-res2',
+          request_id: 'r1',
+          round: 0,
+          tool_name: 'web_search',
+          skill_id: 'web_channel',
+          output: '',
+          success: true,
+          tool_call_id: 'call-res2',
+        });
+      });
+
+      const row = store.getState().chatRuntime.toolTimelineByThread['t-res2']?.[0];
+      expect(row?.status).toBe('success');
+      expect(row?.result).toBeUndefined();
+    });
+
     it('collapses a spawn_subagent tool-call row into the subagent row', () => {
       const listeners = renderProvider();
 

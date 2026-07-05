@@ -409,7 +409,8 @@ async fn integrations_text_mode_handoffs_oversized_result_and_extracts_from_cach
     assert!(
         requests[0].messages[0]
             .content
-            .contains("To use a tool, wrap a JSON object in <tool_call></tool_call> tags"),
+            .contains("Tool calls use **P-Format**")
+            && requests[0].messages[0].content.contains("<tool_call>"),
         "text-mode protocol should be injected into the system prompt"
     );
     let second_request = requests[1]

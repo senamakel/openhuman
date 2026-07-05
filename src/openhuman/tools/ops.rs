@@ -966,6 +966,29 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[lsp] capability gate off (set OPENHUMAN_LSP_ENABLED=1 to register)");
     }
 
+    // Language-workflow `rlm` tool (RLM / `.ragsh` REPL, `openhuman::rlm`): lets
+    // the orchestrator author and run its own Rhai workflow cells (fan-out,
+    // loops, dedup/verify pipelines). Registered on the `supervised`/`full`
+    // tiers only — dark on `readonly` (it can drive effectful tools/sub-agents)
+    // and behind the `OPENHUMAN_RLM=0` kill switch. Every effectful inner call
+    // still re-gates itself in the RLM bridge, so this surface adds no new
+    // ungated capability.
+    let rlm_enabled = std::env::var("OPENHUMAN_RLM")
+        .map(|v| v != "0")
+        .unwrap_or(true);
+    if rlm_enabled
+        && security.autonomy != crate::openhuman::security::policy::AutonomyLevel::ReadOnly
+    {
+        tools.push(Box::new(crate::openhuman::rlm::RlmTool::new()));
+        tracing::debug!("[rlm] registered rlm language-workflow tool");
+    } else {
+        tracing::debug!(
+            rlm_enabled,
+            tier = ?security.autonomy,
+            "[rlm] rlm tool not registered (readonly tier or OPENHUMAN_RLM=0)"
+        );
+    }
+
     tools
 }
 

@@ -447,11 +447,12 @@ export function ToolTimelineBlock({
             normalizeToolBody(formatted.detail) ?? normalizeToolBody(entry.argsBuffer);
           const workerRef = parseWorkerThreadRef(formatted.detail ?? entry.detail);
           const subagent = entry.subagent;
+          const resultContent = normalizeToolBody(entry.result);
           // A subagent row should always render the expandable details so
           // its live activity is visible — even when there is no prompt
           // detail to show. Mirrors the rule that a non-subagent row only
-          // expands when it has detail content.
-          const expandable = detailContent != null || subagent != null;
+          // expands when it has detail content (or a result to show).
+          const expandable = detailContent != null || subagent != null || resultContent != null;
           const isLatestRunning = latestRunningEntryId != null && latestRunningEntryId === entry.id;
           const shouldAutoExpand = expandAllRows || isLatestRunning;
           const nameTone = agentNameTone(entry.status);
@@ -470,19 +471,28 @@ export function ToolTimelineBlock({
                 // opens the full-run panel scoped to this step. A collapsed row
                 // is backgrounded, so it never pulses — only the single active
                 // (expanded) step blinks. Strip `animate-pulse` from the tone.
-                <button
-                  type="button"
-                  onClick={() => onViewDetails(entry)}
-                  data-testid="view-details"
-                  className="group/details flex items-center gap-1.5 text-left">
-                  <span
-                    className={`text-[13px] font-medium ${nameTone.replace('animate-pulse ', '')} group-hover/details:underline`}>
-                    {formatted.title}
-                  </span>
-                  <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
-                    →
-                  </span>
-                </button>
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => onViewDetails(entry)}
+                    data-testid="view-details"
+                    className="group/details flex items-center gap-1.5 text-left">
+                    <span
+                      className={`text-[13px] font-medium ${nameTone.replace('animate-pulse ', '')} group-hover/details:underline`}>
+                      {formatted.title}
+                    </span>
+                    <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
+                      →
+                    </span>
+                  </button>
+                  {resultContent ? (
+                    <pre
+                      data-testid="tool-result-output"
+                      className={`max-h-40 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-content-secondary ${BODY_SURFACE}`}>
+                      {resultContent}
+                    </pre>
+                  ) : null}
+                </div>
               ) : expandable ? (
                 <details open={shouldAutoExpand} className="group/row">
                   <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
@@ -510,6 +520,16 @@ export function ToolTimelineBlock({
                     <pre
                       className={`mt-1 max-h-24 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-content-secondary ${BODY_SURFACE}`}>
                       {detailContent}
+                    </pre>
+                  ) : null}
+                  {resultContent ? (
+                    // What the tool returned (size-capped upstream). Scrolls
+                    // inside its own box so a long result never floods the
+                    // timeline.
+                    <pre
+                      data-testid="tool-result-output"
+                      className={`mt-1 max-h-40 overflow-y-auto rounded px-2 py-1 font-mono text-[12px] whitespace-pre-wrap break-all text-content-secondary ${BODY_SURFACE}`}>
+                      {resultContent}
                     </pre>
                   ) : null}
                   {subagent ? (

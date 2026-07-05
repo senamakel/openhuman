@@ -24,6 +24,39 @@ use super::types::{
 
 const MIRROR_LOG_PREFIX: &str = "[threads:turn_state:mirror]";
 
+/// Upper bound on the tool result text persisted per timeline row. The
+/// snapshot file is rewritten in full at every tool boundary, so this is
+/// deliberately tighter than the 256 KiB live-socket cap — it bounds the
+/// per-flush rewrite while still giving the rehydrated "View processing"
+/// panel a meaningful result preview.
+const MAX_PERSISTED_TOOL_OUTPUT: usize = 64 * 1024;
+
+/// Bytes reserved within the cap for the truncation marker so the final
+/// persisted payload (content + marker) never exceeds
+/// [`MAX_PERSISTED_TOOL_OUTPUT`].
+const TRUNCATION_MARKER_BUDGET: usize = 80;
+
+/// Cap `output` for snapshot persistence, slicing on a char boundary and
+/// appending a truncation marker when content was dropped. Returns `None`
+/// for empty output (payload capture off) so the field serializes away.
+fn cap_persisted_output(output: &str) -> Option<String> {
+    if output.is_empty() {
+        return None;
+    }
+    if output.len() <= MAX_PERSISTED_TOOL_OUTPUT {
+        return Some(output.to_string());
+    }
+    let mut end = MAX_PERSISTED_TOOL_OUTPUT.saturating_sub(TRUNCATION_MARKER_BUDGET);
+    while end > 0 && !output.is_char_boundary(end) {
+        end -= 1;
+    }
+    let omitted = output.len() - end;
+    Some(format!(
+        "{}\n…[truncated {omitted} bytes of tool output]",
+        &output[..end]
+    ))
+}
+
 /// In-process cursor that keeps the authoritative [`TurnState`] in sync
 /// with the agent loop and writes it through to a [`TurnStateStore`].
 pub struct TurnStateMirror {
@@ -131,6 +164,7 @@ impl TurnStateMirror {
                         source_tool_name: None,
                         subagent: None,
                         failure: None,
+                        output: None,
                     });
                 }
                 self.flush();
@@ -140,6 +174,7 @@ impl TurnStateMirror {
                 call_id,
                 success,
                 failure,
+                output,
                 ..
             } => {
                 if let Some(entry) = self
@@ -158,6 +193,10 @@ impl TurnStateMirror {
                     // survives a thread switch / cold boot (#4459). Clear it on
                     // a (re-)success so a retried row doesn't keep stale copy.
                     entry.failure = failure.as_ref().map(PersistedToolFailure::from);
+                    // Persist the (capped) result text so the rehydrated
+                    // timeline can show what the tool returned, matching the
+                    // live `tool_result` socket payload.
+                    entry.output = cap_persisted_output(output);
                 }
                 if self.state.active_tool.is_some() {
                     self.state.active_tool = None;
@@ -202,6 +241,7 @@ impl TurnStateMirror {
                         transcript: Vec::new(),
                     }),
                     failure: None,
+                    output: None,
                 });
                 self.flush();
                 true
@@ -279,6 +319,7 @@ impl TurnStateMirror {
                             display_name: display_label.clone(),
                             detail: display_detail.clone(),
                             failure: None,
+                            output: None,
                         });
                         // Mirror the call into the ordered transcript so the
                         // rehydrated thoughts interleave it at the right spot.
@@ -304,6 +345,7 @@ impl TurnStateMirror {
                 task_id,
                 call_id,
                 success,
+                output,
                 output_chars,
                 elapsed_ms,
                 failure,
@@ -329,6 +371,7 @@ impl TurnStateMirror {
                             // Carry the child failure so a failed sub-agent row
                             // keeps its explanation across a round-trip (#4459).
                             call.failure = persisted_failure;
+                            call.output = cap_persisted_output(output);
                         }
                         // Keep the transcript's Tool item in lockstep so the
                         // rehydrated row shows the terminal status + timing.
@@ -415,6 +458,7 @@ impl TurnStateMirror {
                         source_tool_name: None,
                         subagent: None,
                         failure: None,
+                        output: None,
                     });
                 }
                 false

@@ -143,6 +143,54 @@ async function clickOnboardingNext(): Promise<void> {
   }
 }
 
+async function advanceFromWelcomeToCustomInference(phase: string): Promise<void> {
+  await clickOnboardingNext();
+
+  const reachedChoiceOrInference = await browser
+    .waitUntil(
+      async () =>
+        (await testIdExists('onboarding-runtime-choice-step', 250)) ||
+        (await testIdExists('onboarding-custom-inference-step', 250)),
+      {
+        timeout: 15_000,
+        interval: 300,
+        timeoutMsg: `${phase}: neither runtime choice nor custom inference mounted`,
+      }
+    )
+    .catch(() => false);
+  if (!reachedChoiceOrInference) {
+    stepLog(`${phase}: hash while waiting for runtime/custom inference = ${await currentHash()}`);
+  }
+  expect(reachedChoiceOrInference).toBe(true);
+
+  if (await testIdExists('onboarding-runtime-choice-step', 500)) {
+    await pause(800);
+    const runtimeHash = await browser.execute(() => window.location.hash);
+    if (String(runtimeHash).includes('/onboarding/runtime-choice')) {
+      expect(await clickTestId('onboarding-runtime-choice-custom')).toBe(true);
+      const customSelected = await browser.execute(() => {
+        const el = document.querySelector('[data-testid="onboarding-runtime-choice-custom"]');
+        return el?.getAttribute('aria-pressed') === 'true';
+      });
+      if (!customSelected) {
+        stepLog(`${phase}: Custom card click did not register — retrying`);
+        await pause(500);
+        await clickTestId('onboarding-runtime-choice-custom');
+        await pause(300);
+      }
+    }
+    if (await testIdExists('onboarding-runtime-choice-step', 500)) {
+      await clickOnboardingNext();
+    }
+  }
+
+  const inferenceVisible = await testIdExists('onboarding-custom-inference-step', 15_000);
+  if (!inferenceVisible) {
+    stepLog(`${phase}: hash before custom inference assertion = ${await currentHash()}`);
+  }
+  expect(inferenceVisible).toBe(true);
+}
+
 async function waitForHome(timeout = 20_000): Promise<boolean> {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -234,42 +282,9 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
     this.timeout(90_000);
     await resetOnboardingFlagAndReload();
 
-    // Step 0 — Welcome.
-    await clickOnboardingNext();
-
-    // Step 1 — Runtime choice → Custom.
-    // In local E2E mode (VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE=local), the
-    // RuntimeChoicePage auto-redirects to custom/inference once the session
-    // snapshot loads — skip this block when that redirect has already fired.
-    if (await testIdExists('onboarding-runtime-choice-step', 5_000)) {
-      await pause(800);
-      const runtimeHash = await browser.execute(() => window.location.hash);
-      if (String(runtimeHash).includes('/onboarding/runtime-choice')) {
-        expect(await clickTestId('onboarding-runtime-choice-custom')).toBe(true);
-        // Verify the Custom card registered the click; retry if swallowed.
-        const customB = await browser.execute(() => {
-          const el = document.querySelector('[data-testid="onboarding-runtime-choice-custom"]');
-          return el?.getAttribute('aria-pressed') === 'true';
-        });
-        if (!customB) {
-          stepLog('Phase B: Custom card click did not register — retrying');
-          await pause(500);
-          await clickTestId('onboarding-runtime-choice-custom');
-          await pause(300);
-        }
-        // Only advance past RuntimeChoice if we're still on that step. In local
-        // session mode RuntimeChoicePage auto-redirects to custom/inference, so
-        // an unconditional Next here over-advances inference→voice (matches the
-        // Phase C guard below).
-        if (await testIdExists('onboarding-runtime-choice-step', 500)) {
-          await clickOnboardingNext();
-        }
-      }
-    }
-    // else: local session mode — already redirected to custom/inference, continue there.
+    await advanceFromWelcomeToCustomInference('Phase B');
 
     // Step 2 — Custom Inference (Default).
-    expect(await testIdExists('onboarding-custom-inference-step', 10_000)).toBe(true);
     expect(await clickTestId('onboarding-custom-inference-step-default')).toBe(true);
     await pause(400);
     await clickOnboardingNext();
@@ -305,11 +320,17 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
     await pause(400);
     await clickOnboardingNext();
 
-    // Step 8 — Custom Vault. Final step → Finish. VaultSetupStep auto-selects
-    // "configure" and hides the choice cards for local sessions (the default
-    // option is disabled when no cloud account backs the vault), so there is no
-    // -default button to click — just advance.
+    // Step 8 — Custom Vault. Final step → Finish. VaultSetupStep hides the
+    // choice cards and auto-selects "configure" only for LOCAL sessions
+    // (`defaultDisabled={isLocalSession}`); the E2E logs in via the cloud-auth
+    // deep link, so the session is non-local — the choice cards ARE shown with
+    // an enabled default, and the Finish button stays disabled (`choice === null`)
+    // until one is picked. Select the default when the card is present; a local
+    // session (cards hidden) just advances.
     expect(await testIdExists('onboarding-custom-vault-step', 10_000)).toBe(true);
+    if (await testIdExists('onboarding-custom-vault-step-default', 2_000)) {
+      await clickTestId('onboarding-custom-vault-step-default');
+    }
     await pause(400);
     await clickOnboardingNext();
 
@@ -338,32 +359,8 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
     await resetOnboardingFlagAndReload();
 
     // Welcome → Runtime choice (Custom) → Inference (Default).
-    await clickOnboardingNext();
-    // In local E2E mode, RuntimeChoicePage auto-redirects to custom/inference.
-    if (await testIdExists('onboarding-runtime-choice-step', 5_000)) {
-      await pause(800);
-      const runtimeHash = await browser.execute(() => window.location.hash);
-      if (String(runtimeHash).includes('/onboarding/runtime-choice')) {
-        expect(await clickTestId('onboarding-runtime-choice-custom')).toBe(true);
-      }
-    }
-    // Verify the Custom card registered the click (aria-pressed="true") if still visible.
-    const customSelected = await browser.execute(() => {
-      const el = document.querySelector('[data-testid="onboarding-runtime-choice-custom"]');
-      return el ? el?.getAttribute('aria-pressed') === 'true' : true; // not visible = already at inference
-    });
-    if (!customSelected) {
-      stepLog('Custom card click did not register — retrying');
-      await pause(500);
-      await clickTestId('onboarding-runtime-choice-custom');
-      await pause(300);
-    }
-    // Only advance past RuntimeChoice if we were actually on that step.
-    if (await testIdExists('onboarding-runtime-choice-step', 500)) {
-      await clickOnboardingNext();
-    }
+    await advanceFromWelcomeToCustomInference('Phase C');
 
-    expect(await testIdExists('onboarding-custom-inference-step', 10_000)).toBe(true);
     expect(await clickTestId('onboarding-custom-inference-step-default')).toBe(true);
     await pause(400);
     await clickOnboardingNext();
@@ -381,28 +378,39 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
     expect(await testIdExists('stt-provider-select', 10_000)).toBe(true);
 
     const before = readSectionString(readConfigToml(), 'local_ai', 'stt_provider');
-    const want = before === 'whisper' ? 'cloud' : 'whisper';
-    stepLog(`stt_provider before=${before ?? '<unset>'} → want=${want}`);
 
-    // Drive the same onChange path the user would. The `<option disabled>`
-    // attribute blocks click/keyboard selection in the UI, but doesn't stop a
-    // synthetic change event from React's perspective once we set `.value`.
-    const dispatched = await browser.execute(next => {
+    // Flip to a genuinely SELECTABLE provider. Local STT providers
+    // (whisper/piper) render as `<option disabled>` in the CI container (no
+    // local assets), so a synthetic change to them reverts and never persists —
+    // asserting `stt_provider === 'whisper'` can never pass here. Pick an
+    // enabled option whose value differs from the current selection and read
+    // back the value the control actually committed to.
+    const want = await browser.execute(() => {
       const el = document.querySelector<HTMLSelectElement>('[data-testid="stt-provider-select"]');
-      if (!el) return false;
+      if (!el) return null;
+      const current = el.value;
+      const candidate = Array.from(el.options).find(
+        o => !o.disabled && o.value && o.value !== current
+      );
+      if (!candidate) return null;
       const setter = Object.getOwnPropertyDescriptor(
         window.HTMLSelectElement.prototype,
         'value'
       )?.set;
-      if (setter) {
-        setter.call(el, next);
-      } else {
-        el.value = next;
-      }
+      if (setter) setter.call(el, candidate.value);
+      else el.value = candidate.value;
       el.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    }, want);
-    expect(dispatched).toBe(true);
+      // A disabled option would revert; an enabled one sticks.
+      return el.value === candidate.value ? candidate.value : null;
+    });
+
+    if (!want) {
+      stepLog(
+        'No alternate selectable STT provider in this environment — skipping the provider-flip persistence assertion'
+      );
+      return;
+    }
+    stepLog(`stt_provider before=${before ?? '<unset>'} → want=${want}`);
 
     // Voice Routing was decoupled into staged edit + explicit Save: the select's
     // onChange only stages `sttProvider` (VoicePanel `onSttProviderChange`);
@@ -452,10 +460,13 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', () => {
     await pause(400);
     await clickOnboardingNext();
 
-    // Step 8 — Custom Vault. Final step → Finish. VaultSetupStep auto-selects
-    // "configure" and hides the choice cards for local sessions, so there is no
-    // -default button to click — just advance.
+    // Step 8 — Custom Vault. Final step → Finish. Choice cards are hidden/auto-
+    // configured only for LOCAL sessions; the E2E's cloud-auth session shows the
+    // cards with an enabled default that must be picked before Finish enables.
     expect(await testIdExists('onboarding-custom-vault-step', 10_000)).toBe(true);
+    if (await testIdExists('onboarding-custom-vault-step-default', 2_000)) {
+      await clickTestId('onboarding-custom-vault-step-default');
+    }
     await pause(400);
     await clickOnboardingNext();
 

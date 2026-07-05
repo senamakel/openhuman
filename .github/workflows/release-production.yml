@@ -24,11 +24,21 @@ on:
         required: false
         type: boolean
         default: true
+      skip_ci_gate:
+        description:
+          Skip the green-CI-Full-Gate requirement on the commit being cut.
+          Operator recovery only — never the default release path.
+        required: false
+        type: boolean
+        default: false
 permissions:
   # `actions: read` lets scripts/ci-cancel-aware.sh poll the run status so
   # cancelled builds inside container jobs stop themselves (docker exec
   # swallows the runner's signals).
   actions: read
+  # `checks: read` lets scripts/release/require-ci-full-gate.sh verify the
+  # "CI Full Gate" check run on the commit being cut.
+  checks: read
   contents: write
   packages: write
 concurrency:
@@ -166,6 +176,15 @@ jobs:
             git checkout release
             git pull origin release --ff-only
           fi
+      # Direct App-token pushes bypass the PR merge gate, so nothing else
+      # guarantees the commit being cut passed the full suite. Fail unless
+      # the latest "CI Full Gate" check run on it (skipping [skip ci] bump
+      # commits) concluded success.
+      - name: Require green CI Full Gate
+        if: ${{ !inputs.skip_ci_gate }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release/require-ci-full-gate.sh "$(git rev-parse HEAD)"
       - name: Compute next version and sync release files
         id: bump
         run: node scripts/release/bump-version.js "${{ inputs.release_type }}"
@@ -196,7 +215,9 @@ jobs:
           CREATE_RELEASE: ${{ inputs.create_release }}
         run: |
           git add app/package.json app/src-tauri/tauri.conf.json app/src-tauri/Cargo.toml Cargo.toml app/src-tauri/Cargo.lock Cargo.lock
-          git commit -m "chore(release): v${VERSION}"
+          # [skip ci]: the bump commit lands on an already-validated release
+          # tree — don't re-trigger the full suite (ci-full.yml, push:release).
+          git commit -m "chore(release): v${VERSION} [skip ci]"
           git push origin HEAD:release
           if [ "$CREATE_RELEASE" = "true" ]; then
             git tag -a "$TAG" -m "Release $TAG"
@@ -237,24 +258,7 @@ jobs:
         env:
           VERSION: ${{ steps.bump.outputs.version }}
         run: |
-          set -euo pipefail
-          echo "[release-production] merging release back into main"
-          RELEASE_SHA="$(git rev-parse HEAD)"
-          git fetch origin main
-          git checkout -B main origin/main
-          # Fast-forward when main hasn't moved since the cut — this leaves
-          # main == release, so prepare-release-pr sees ahead_by=0 and does
-          # NOT open a no-op main→release PR for the back-merge commit.
-          if git merge --ff-only "$RELEASE_SHA" 2>/dev/null; then
-            git push origin HEAD:main
-            echo "[release-production] fast-forwarded main to $RELEASE_SHA"
-          elif git merge --no-ff "$RELEASE_SHA" -m "chore(release): merge release v${VERSION} back into main"; then
-            git push origin HEAD:main
-            echo "[release-production] merged $RELEASE_SHA into main (merge commit)"
-          else
-            echo "::warning::Automatic release→main back-merge hit conflicts. Merge branch 'release' into 'main' manually."
-            exit 1
-          fi
+          bash scripts/release/merge-release-into-main.sh "chore(release): merge release v${VERSION} back into main"
 
   # =========================================================================
   # Phase 2: Create draft GitHub release
@@ -418,7 +422,7 @@ jobs:
       # fork the core image doesn't need. The Dockerfile COPYs vendor/ because
       # [patch.crates-io] resolves Rust SDK crates from vendor/.
       - name: Init vendored Rust submodules
-        run: git submodule update --init vendor/tinyagents vendor/tinyflows vendor/tinycortex
+        run: git submodule update --init vendor/tinyagents vendor/tinyflows vendor/tinycortex vendor/tinyjuice
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR

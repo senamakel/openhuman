@@ -57,7 +57,7 @@ tinyflows = "0.3"
 # aligned to 0.40, avoiding duplicate `links = "sqlite3"` native bindings.
 # Durable graph checkpoints still use `SqlRunLedgerCheckpointer` until the
 # migration re-points those rows to the crate checkpointer.
-tinyagents = { version = "1.6.0", features = ["sqlite"] }
+tinyagents = { version = "1.7.1", features = ["sqlite"] }
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.

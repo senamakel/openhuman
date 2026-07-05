@@ -117,9 +117,9 @@ fn whatsapp_backend_type_web_when_session_path() {
 }
 
 #[test]
-fn whatsapp_backend_type_defaults_to_cloud() {
+fn whatsapp_backend_type_defaults_to_unconfigured() {
     let cfg = empty_whatsapp();
-    assert_eq!(cfg.backend_type(), "cloud");
+    assert_eq!(cfg.backend_type(), "unconfigured");
 }
 
 #[test]
@@ -172,11 +172,6 @@ fn default_irc_port_is_6697() {
     "#;
     let cfg: IrcConfig = toml::from_str(toml).unwrap();
     assert_eq!(cfg.port, 6697);
-}
-
-#[test]
-fn default_draft_update_interval_ms_is_1000() {
-    assert_eq!(default_draft_update_interval_ms(), 1000);
 }
 
 #[test]

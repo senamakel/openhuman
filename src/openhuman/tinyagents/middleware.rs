@@ -3487,6 +3487,7 @@ mod tests {
             "big".to_string(),
             TaToolPolicy::classified().with_runtime(tinyagents::harness::tool::ToolRuntime {
                 timeout_ms: None,
+                timeout: tinyagents::harness::tool::ToolTimeout::Inherit,
                 max_retries: None,
                 idempotent: false,
                 cancelable: true,
@@ -3516,6 +3517,7 @@ mod tests {
             "capped".to_string(),
             TaToolPolicy::classified().with_runtime(tinyagents::harness::tool::ToolRuntime {
                 timeout_ms: None,
+                timeout: tinyagents::harness::tool::ToolTimeout::Inherit,
                 max_retries: None,
                 idempotent: false,
                 cancelable: true,

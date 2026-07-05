@@ -1111,8 +1111,12 @@ mod tests {
         sink.emit(AgentEvent::ToolCompleted {
             call_id: "c1".into(),
             tool_name: "echo".to_string(),
+            started_at_ms: None,
             input: None,
             output: None,
+            duration_ms: None,
+            output_bytes: None,
+            error: None,
         });
         sink.emit(AgentEvent::UsageRecorded {
             usage: Usage::new(100, 40),
@@ -1163,6 +1167,7 @@ mod tests {
         });
         sink.emit(AgentEvent::ModelCompleted {
             call_id: "m1".into(),
+            started_at_ms: None,
             usage: Some(Usage::new(1_000, 50)),
             input: Some(serde_json::json!([
                 {"role": "system", "content": "You are OpenHuman."}
@@ -1229,6 +1234,7 @@ mod tests {
         sink.subscribe(bridge.clone());
         sink.emit(AgentEvent::ModelCompleted {
             call_id: "m1".into(),
+            started_at_ms: None,
             usage: Some(Usage::new(10, 5)),
             input: None,
             output: None,
@@ -1263,8 +1269,12 @@ mod tests {
         sink.emit(AgentEvent::ToolCompleted {
             call_id: "t1".into(),
             tool_name: "echo".to_string(),
+            started_at_ms: None,
             input: Some(serde_json::json!({"text": "ping"})),
             output: Some(serde_json::Value::String("pong".to_string())),
+            duration_ms: None,
+            output_bytes: None,
+            error: None,
         });
 
         let mut seen = None;

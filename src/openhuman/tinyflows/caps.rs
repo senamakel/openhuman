@@ -198,12 +198,60 @@ fn escalated_origin_for_prompt(
     }
 }
 
+/// Returns true when an agent-node completion `request` asked for structured
+/// output: an `output_parser.schema` is configured on the node, or the config
+/// sets `response_format: "json"`.
+///
+/// This is the host-side contract for **agent → tool wiring**: downstream
+/// `=item.<field>` bindings only work when the agent's emitted item is a
+/// structured object, so an agent feeding a `tool_call` should declare an
+/// output schema (or `response_format: "json"`).
+fn structured_output_requested(request: &Value) -> bool {
+    let has_schema = request
+        .get("output_parser")
+        .and_then(|p| p.get("schema"))
+        .is_some_and(|s| !s.is_null());
+    let json_format = request.get("response_format").and_then(Value::as_str) == Some("json");
+    has_schema || json_format
+}
+
+/// Best-effort parse of an LLM completion as structured JSON.
+///
+/// Accepts a bare JSON object/array or one wrapped in a markdown code fence
+/// (```json … ``` or ``` … ```). Returns `None` for anything that doesn't
+/// parse to an object or array — scalars pass through the legacy `{text}`
+/// shape instead, since `item.<field>` addressing is meaningless on them.
+pub(crate) fn parse_llm_json(text: &str) -> Option<Value> {
+    let trimmed = text.trim();
+    let candidate = match trimmed.strip_prefix("```") {
+        Some(rest) => {
+            let rest = rest.strip_prefix("json").unwrap_or(rest);
+            match rest.rsplit_once("```") {
+                Some((inner, _)) => inner.trim(),
+                None => trimmed,
+            }
+        }
+        None => trimmed,
+    };
+    let parsed = serde_json::from_str::<Value>(candidate).ok()?;
+    matches!(parsed, Value::Object(_) | Value::Array(_)).then_some(parsed)
+}
+
 /// [`LlmProvider`] adapter over OpenHuman's inference stack
 /// (`src/openhuman/inference/provider/`).
 ///
 /// The `agent` node is single-completion in tinyflows 0.2 (no tool-calling
 /// loop, no sub-ports), so `complete` performs exactly one `provider.chat`
 /// call and returns its result — no agent loop is driven here.
+///
+/// **Structured output**: when the node requested it (an
+/// `output_parser.schema` or `response_format: "json"` in the config), the
+/// completion text is parsed as JSON and the **parsed object** is returned as
+/// the response value — so a downstream node can bind `=item.<field>` (or
+/// `=nodes.<agent_id>.item.<field>`) instead of receiving an opaque
+/// `{text: "..."}` blob. A completion that doesn't parse falls back to the
+/// legacy shape, where the agent node's `output_parser` sub-port can still
+/// coerce it via the schema auto-fix path.
 pub struct OpenHumanLlm {
     pub config: Arc<Config>,
 }
@@ -230,7 +278,10 @@ impl LlmProvider for OpenHumanLlm {
             .and_then(Value::as_u64)
             .and_then(|n| u32::try_from(n).ok());
 
-        let messages: Vec<ChatMessage> = match request.get("messages").and_then(Value::as_array) {
+        let structured = structured_output_requested(&request);
+
+        let mut messages: Vec<ChatMessage> = match request.get("messages").and_then(Value::as_array)
+        {
             Some(entries) if !entries.is_empty() => entries
                 .iter()
                 .filter_map(|entry| {
@@ -253,10 +304,29 @@ impl LlmProvider for OpenHumanLlm {
             }
         };
 
+        // Structured mode: steer the model toward parseable JSON. The schema
+        // (when configured) rides along so the model knows the exact shape.
+        if structured {
+            let mut instruction = "Respond with a single JSON object only — no prose, no \
+                                   markdown code fences."
+                .to_string();
+            if let Some(schema) = request
+                .get("output_parser")
+                .and_then(|p| p.get("schema"))
+                .filter(|s| !s.is_null())
+            {
+                instruction.push_str(&format!(
+                    " The object must match this JSON Schema:\n{schema}"
+                ));
+            }
+            messages.insert(0, ChatMessage::system(instruction));
+        }
+
         tracing::debug!(
             target: "flows",
             role,
             message_count = messages.len(),
+            structured,
             "[flows] llm.complete: dispatching agent-node completion"
         );
 
@@ -276,6 +346,26 @@ impl LlmProvider for OpenHumanLlm {
             )
             .await
             .map_err(|e| EngineError::Capability(e.to_string()))?;
+
+        // Structured mode: surface the parsed object itself so downstream
+        // `=item.<field>` / `=nodes.<id>.item.<field>` bindings work. The
+        // agent node's output_parser sub-port then validates it against the
+        // configured schema (and auto-fixes when it doesn't parse here).
+        if structured {
+            if let Some(parsed) = response.text.as_deref().and_then(parse_llm_json) {
+                tracing::debug!(
+                    target: "flows",
+                    "[flows] llm.complete: structured output parsed from completion text"
+                );
+                return Ok(parsed);
+            }
+            tracing::warn!(
+                target: "flows",
+                "[flows] llm.complete: structured output requested but the completion did not \
+                 parse as JSON — falling back to the {{text}} shape (the output_parser sub-port \
+                 may still coerce it)"
+            );
+        }
 
         Ok(json!({
             "text": response.text,
@@ -549,6 +639,158 @@ pub struct OpenHumanTools {
 /// search / media generation / file / shell / etc. — the full toolset.
 pub(crate) const NATIVE_TOOL_PREFIX: &str = "oh:";
 
+/// Process-level cache for [`composio_required_args`]: toolkit → (uppercase
+/// action slug → required top-level arg names). One `list_tools` fetch per
+/// toolkit per process; schemas are effectively static within a session.
+static REQUIRED_ARGS_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<
+        std::collections::HashMap<String, std::collections::HashMap<String, Vec<String>>>,
+    >,
+> = std::sync::OnceLock::new();
+
+/// Seeds the required-args cache for a toolkit — test hook so preflight
+/// behavior can be exercised without a live Composio backend.
+#[cfg(test)]
+pub(crate) fn seed_required_args_cache(
+    toolkit: &str,
+    entries: std::collections::HashMap<String, Vec<String>>,
+) {
+    REQUIRED_ARGS_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .expect("required-args cache poisoned")
+        .insert(toolkit.to_string(), entries);
+}
+
+/// Best-effort lookup of a Composio action's **required** top-level parameter
+/// names, from the toolkit's tool schemas (`parameters.required`).
+///
+/// Returns `None` when the schema is unavailable — unknown toolkit, client
+/// construction failure, or a failed/empty listing — so callers can skip the
+/// preflight rather than block execution on a catalog hiccup. Results are
+/// cached per toolkit for the life of the process.
+pub(crate) async fn composio_required_args(config: &Config, slug: &str) -> Option<Vec<String>> {
+    let toolkit = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)?;
+    let slug_key = slug.to_ascii_uppercase();
+
+    if let Some(by_slug) = REQUIRED_ARGS_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .ok()?
+        .get(&toolkit)
+    {
+        return by_slug.get(&slug_key).cloned();
+    }
+
+    tracing::debug!(target: "flows", %toolkit, %slug, "[flows] preflight: fetching tool schemas for toolkit");
+    let resp = crate::openhuman::composio::ops::composio_list_tools(
+        config,
+        Some(vec![toolkit.clone()]),
+        None,
+    )
+    .await
+    .map_err(|e| {
+        tracing::debug!(target: "flows", %toolkit, error = %e, "[flows] preflight: schema fetch failed — skipping check");
+        e
+    })
+    .ok()?;
+
+    let mut by_slug = std::collections::HashMap::new();
+    for tool in &resp.value.tools {
+        let required: Vec<String> = tool
+            .function
+            .parameters
+            .as_ref()
+            .and_then(|p| p.get("required"))
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        by_slug.insert(tool.function.name.to_ascii_uppercase(), required);
+    }
+    let found = by_slug.get(&slug_key).cloned();
+    if let Ok(mut cache) = REQUIRED_ARGS_CACHE.get_or_init(Default::default).lock() {
+        cache.insert(toolkit, by_slug);
+    }
+    found
+}
+
+/// Returns the names in `required` that are absent or `null` in `args`.
+pub(crate) fn missing_required_args(required: &[String], args: &Value) -> Vec<String> {
+    required
+        .iter()
+        .filter(|name| match args.get(name.as_str()) {
+            None => true,
+            Some(v) => v.is_null(),
+        })
+        .cloned()
+        .collect()
+}
+
+/// Required-arg preflight for a Composio `tool_call`: fails **before** the
+/// Composio dispatch when a required arg is missing or resolved to `null`,
+/// with a message that names the field and the likely fix — instead of letting
+/// the raw provider error surface from deep inside the call.
+///
+/// Best-effort by design: when the action's schema cannot be looked up the
+/// check is skipped (never blocks on catalog availability).
+pub(crate) async fn preflight_composio_args(
+    config: &Config,
+    slug: &str,
+    args: &Value,
+) -> Result<()> {
+    let Some(required) = composio_required_args(config, slug).await else {
+        tracing::debug!(target: "flows", %slug, "[flows] preflight: no schema for action — skipping required-arg check");
+        return Ok(());
+    };
+    let missing = missing_required_args(&required, args);
+    if missing.is_empty() {
+        tracing::debug!(target: "flows", %slug, "[flows] preflight: all required args present");
+        return Ok(());
+    }
+    tracing::warn!(target: "flows", %slug, ?missing, "[flows] preflight: required arg(s) missing or null — failing before dispatch");
+    let list = missing
+        .iter()
+        .map(|m| format!("`{m}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let first = &missing[0];
+    Err(EngineError::Capability(format!(
+        "tool_call `{slug}`: required arg(s) {list} missing or resolved to null — wire each from \
+         an upstream node's output, e.g. \"{first}\": \"=nodes.<node_id>.item.<field>\". If the \
+         value comes from an agent node, give that agent an output schema \
+         (config.output_parser.schema) so its fields are addressable."
+    )))
+}
+
+/// A [`ToolInvoker`] decorator that runs the host's Composio required-arg
+/// preflight before delegating to `inner`.
+///
+/// Used by `dry_run_workflow`: the dry-run path executes against tinyflows'
+/// echo mocks, which would happily accept a `null` required arg — wrapping
+/// the mock invoker with this makes the wiring check actually check wiring,
+/// so an unwired required arg fails the dry run with the same actionable
+/// message a real run would produce.
+pub struct PreflightToolInvoker {
+    /// Host config, for the Composio schema lookup.
+    pub config: Arc<Config>,
+    /// The delegate that performs the actual invocation (e.g. the mock).
+    pub inner: Arc<dyn ToolInvoker>,
+}
+
+#[async_trait]
+impl ToolInvoker for PreflightToolInvoker {
+    async fn invoke(&self, slug: &str, args: Value, conn: Option<&str>) -> Result<Value> {
+        if !slug.starts_with(NATIVE_TOOL_PREFIX) {
+            preflight_composio_args(&self.config, slug, &args).await?;
+        }
+        self.inner.invoke(slug, args, conn).await
+    }
+}
+
 #[async_trait]
 impl ToolInvoker for OpenHumanTools {
     async fn invoke(&self, slug: &str, args: Value, conn: Option<&str>) -> Result<Value> {
@@ -602,6 +844,12 @@ impl ToolInvoker for OpenHumanTools {
                 "tool not permitted: {slug}"
             )));
         }
+
+        // Required-arg preflight — fail with an actionable, field-naming error
+        // BEFORE the approval gate and the Composio dispatch, so a mis-wired
+        // arg (`=`-expression that resolved to null) never reaches the
+        // provider or asks the user to approve a call that cannot succeed.
+        preflight_composio_args(&self.config, slug, &args).await?;
 
         // Approval gate (see the struct doc). Mirrors
         // `tinyagents/middleware.rs::ApprovalSecurityMiddleware::wrap_tool`'s

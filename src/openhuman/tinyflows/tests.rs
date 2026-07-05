@@ -354,3 +354,137 @@ fn http_cred_name_returns_none_for_non_http_cred_ref_or_empty_name() {
     assert_eq!(super::caps::http_cred_name("composio:slack:acct_1"), None);
     assert_eq!(super::caps::http_cred_name("http_cred:"), None);
 }
+
+// ── structured agent output (parse_llm_json) ────────────────────────────
+
+#[test]
+fn parse_llm_json_accepts_bare_and_fenced_objects() {
+    let obj = super::caps::parse_llm_json(r#"{ "to": "a@b.com", "subject": "hi" }"#)
+        .expect("bare object parses");
+    assert_eq!(obj["to"], "a@b.com");
+
+    let fenced = "```json\n{ \"to\": \"a@b.com\" }\n```";
+    let obj = super::caps::parse_llm_json(fenced).expect("fenced object parses");
+    assert_eq!(obj["to"], "a@b.com");
+
+    let fenced_plain = "```\n[1, 2]\n```";
+    assert_eq!(
+        super::caps::parse_llm_json(fenced_plain),
+        Some(serde_json::json!([1, 2]))
+    );
+}
+
+#[test]
+fn parse_llm_json_rejects_prose_and_scalars() {
+    // Prose is not JSON.
+    assert_eq!(super::caps::parse_llm_json("Sure! Here's the email."), None);
+    // Scalars parse as JSON but are not addressable — legacy shape instead.
+    assert_eq!(super::caps::parse_llm_json("42"), None);
+    assert_eq!(super::caps::parse_llm_json("\"just a string\""), None);
+}
+
+// ── tool_call required-arg preflight ─────────────────────────────────────
+
+#[test]
+fn missing_required_args_flags_absent_and_null() {
+    let required = vec!["to".to_string(), "subject".to_string(), "body".to_string()];
+    let args = json!({ "to": null, "subject": "hi" });
+    assert_eq!(
+        super::caps::missing_required_args(&required, &args),
+        vec!["to".to_string(), "body".to_string()]
+    );
+    let full = json!({ "to": "a@b.com", "subject": "hi", "body": "text" });
+    assert!(super::caps::missing_required_args(&required, &full).is_empty());
+}
+
+#[tokio::test]
+async fn preflight_fails_before_dispatch_naming_the_missing_field() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // Seed the schema cache so no live Composio backend is needed.
+    let mut entries = std::collections::HashMap::new();
+    entries.insert(
+        "GMAIL_SEND_EMAIL".to_string(),
+        vec!["to".to_string(), "subject".to_string(), "body".to_string()],
+    );
+    super::caps::seed_required_args_cache("gmail", entries);
+
+    // `to` resolved to null (the classic mis-wired agent → tool_call case).
+    let err = super::caps::preflight_composio_args(
+        &config,
+        "GMAIL_SEND_EMAIL",
+        &json!({ "to": null, "subject": "hi", "body": "text" }),
+    )
+    .await
+    .expect_err("null required arg must fail preflight");
+    let msg = err.to_string();
+    assert!(msg.contains("`to`"), "error must name the field: {msg}");
+    assert!(
+        msg.contains("=nodes.<node_id>.item.<field>"),
+        "error must suggest the wiring fix: {msg}"
+    );
+    assert!(
+        msg.contains("output schema"),
+        "error must mention the agent output schema rule: {msg}"
+    );
+
+    // Fully-wired args pass.
+    super::caps::preflight_composio_args(
+        &config,
+        "GMAIL_SEND_EMAIL",
+        &json!({ "to": "a@b.com", "subject": "hi", "body": "text" }),
+    )
+    .await
+    .expect("wired args must pass preflight");
+}
+
+#[tokio::test]
+async fn preflight_skips_when_no_schema_is_available() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // A slug whose toolkit is unknown to the curation catalog has no schema
+    // source at all — the preflight must skip, never block.
+    super::caps::preflight_composio_args(&config, "NOT_A_REAL_TOOLKIT_ACTION", &json!({}))
+        .await
+        .expect("preflight must be best-effort when no schema is available");
+}
+
+#[tokio::test]
+async fn preflight_invoker_gates_the_mock_tool_path() {
+    use tinyflows::caps::ToolInvoker as _;
+
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let mut entries = std::collections::HashMap::new();
+    entries.insert("GMAIL_SEND_EMAIL".to_string(), vec!["to".to_string()]);
+    super::caps::seed_required_args_cache("gmail", entries);
+
+    let mock = tinyflows::caps::mock::mock_capabilities();
+    let invoker = super::caps::PreflightToolInvoker {
+        config,
+        inner: mock.tools.clone(),
+    };
+
+    // Unwired required arg: fails with the named field even though the inner
+    // mock would echo anything.
+    let err = invoker
+        .invoke("GMAIL_SEND_EMAIL", json!({ "to": null }), None)
+        .await
+        .expect_err("dry-run preflight must catch the unwired arg");
+    assert!(err.to_string().contains("`to`"));
+
+    // Wired arg: delegates to the mock echo.
+    let ok = invoker
+        .invoke("GMAIL_SEND_EMAIL", json!({ "to": "a@b.com" }), None)
+        .await
+        .expect("wired arg passes through to the mock");
+    assert_eq!(ok["tool"], "GMAIL_SEND_EMAIL");
+
+    // Native `oh:` slugs bypass the Composio preflight (no Composio schema).
+    // The mock echoes them unchecked.
+    let ok = invoker
+        .invoke("oh:web_search", json!({}), None)
+        .await
+        .expect("native slug bypasses composio preflight");
+    assert_eq!(ok["tool"], "oh:web_search");
+}

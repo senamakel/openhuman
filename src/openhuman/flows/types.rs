@@ -141,6 +141,13 @@ pub struct FlowRunStep {
     /// observed incrementally. `None` for a step recovered post-hoc.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<u64>,
+    /// Data-binding diagnostics from the engine: each config `=`-expression
+    /// that resolved to `null` during this step, as
+    /// `{ "location": "args.to", "expression": "=item.to" }`. Lets the run
+    /// view point at the exact unresolved wiring. Empty for clean steps and
+    /// for steps recovered post-hoc.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<serde_json::Value>,
 }
 
 /// A resolvable connection the flows UI / agent picker can attach to a node's

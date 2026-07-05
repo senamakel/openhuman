@@ -621,13 +621,20 @@ impl Tool for SearchToolCatalogTool {
 /// Autonomy-tier gated (issue: Phase 2 node gating): read-only tier refuses,
 /// mirroring the `SecurityPolicy` contract that a read-only session cannot
 /// exercise executable capability even in simulation.
+///
+/// **Wiring preflight:** the mock tool invoker is wrapped in the host's
+/// [`PreflightToolInvoker`](crate::openhuman::tinyflows::caps::PreflightToolInvoker),
+/// so a Composio `tool_call` whose required arg is missing or `=`-resolved to
+/// null fails the dry run with the same actionable, field-naming error a real
+/// run would produce — the echo mocks alone would happily accept a null `to`.
 pub struct DryRunWorkflowTool {
     security: Arc<SecurityPolicy>,
+    config: Arc<Config>,
 }
 
 impl DryRunWorkflowTool {
-    pub fn new(security: Arc<SecurityPolicy>) -> Self {
-        Self { security }
+    pub fn new(security: Arc<SecurityPolicy>, config: Arc<Config>) -> Self {
+        Self { security, config }
     }
 }
 
@@ -727,7 +734,13 @@ impl Tool for DryRunWorkflowTool {
             }
         };
 
-        let caps = tinyflows::caps::mock::mock_capabilities();
+        let mut caps = tinyflows::caps::mock::mock_capabilities();
+        // Wiring preflight over the echo mocks (see the struct doc): required
+        // Composio args must be present and non-null even in the sandbox.
+        caps.tools = std::sync::Arc::new(crate::openhuman::tinyflows::caps::PreflightToolInvoker {
+            config: self.config.clone(),
+            inner: caps.tools.clone(),
+        });
         let run = tinyflows::engine::run(&compiled, input, &caps);
         let outcome = match tokio::time::timeout(
             std::time::Duration::from_secs(DRY_RUN_TIMEOUT_SECS),

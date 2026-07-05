@@ -286,7 +286,7 @@ pub fn all_tools_with_runtime(
         Box::new(GetFlowRunTool::new(config.clone())),
         Box::new(ListFlowConnectionsTool::new(config.clone())),
         Box::new(SearchToolCatalogTool::new()),
-        Box::new(DryRunWorkflowTool::new(security.clone())),
+        Box::new(DryRunWorkflowTool::new(security.clone(), config.clone())),
         // Real end-to-end test run of a SAVED flow (Write / external-effect). The
         // workflow-builder prompt requires it to ask the user for confirmation
         // first, and the flow's own approval gate still pauses outbound nodes.

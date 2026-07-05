@@ -1504,6 +1504,7 @@ fn reconstruct_steps(output: &Value) -> Vec<FlowRunStep> {
             // Reconstructed post-hoc: no live status/timing (see FlowRunStep).
             status: None,
             duration_ms: None,
+            diagnostics: Vec::new(),
         })
         .collect()
 }

@@ -125,12 +125,27 @@ impl RunObserver for FlowRunObserver {
         // Persist the live step. `duration_ms` is `u128` on the engine side;
         // clamp into `u64` (a node executor taking > 584 million years is not a
         // real concern, but never panic on cast).
+        if !step.diagnostics.is_empty() {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %self.flow_id,
+                run_id = %self.run_id,
+                node = %step.node_id,
+                diagnostics = ?step.diagnostics,
+                "[flows] observer: step reported null-resolved expression(s) — persisting for the run view"
+            );
+        }
         let flow_step = FlowRunStep {
             node_id: step.node_id.clone(),
             output: step.output.clone(),
             port: None,
             status: Some(status.to_string()),
             duration_ms: Some(u64::try_from(step.duration_ms).unwrap_or(u64::MAX)),
+            diagnostics: step
+                .diagnostics
+                .iter()
+                .map(|d| serde_json::to_value(d).unwrap_or(serde_json::Value::Null))
+                .collect(),
         };
         if let Err(e) = upsert_flow_run_step(&self.config, &self.run_id, &flow_step) {
             tracing::warn!(
@@ -191,6 +206,7 @@ mod tests {
             status: StepStatus::Success,
             output: Value::Null,
             duration_ms: 5,
+            diagnostics: Vec::new(),
         });
         observer.on_run_finish(&Run {
             id: "run-1".to_string(),

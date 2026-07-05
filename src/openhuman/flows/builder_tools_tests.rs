@@ -201,7 +201,10 @@ async fn search_tool_catalog_missing_query_is_error() {
 
 #[test]
 fn dry_run_is_execute_permission() {
-    let tool = DryRunWorkflowTool::new(policy(AutonomyLevel::Supervised));
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
     assert_eq!(tool.name(), "dry_run_workflow");
     assert_eq!(tool.permission_level(), PermissionLevel::Execute);
     // Mock-backed: no real outbound effect.
@@ -210,7 +213,10 @@ fn dry_run_is_execute_permission() {
 
 #[tokio::test]
 async fn dry_run_refused_under_readonly_tier() {
-    let tool = DryRunWorkflowTool::new(policy(AutonomyLevel::ReadOnly));
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::ReadOnly),
+        test_config(&TempDir::new().unwrap()),
+    );
     let result = tool
         .execute(json!({ "graph": valid_graph() }))
         .await
@@ -221,7 +227,10 @@ async fn dry_run_refused_under_readonly_tier() {
 
 #[tokio::test]
 async fn dry_run_supervised_runs_against_mock_and_labels_sandbox() {
-    let tool = DryRunWorkflowTool::new(policy(AutonomyLevel::Supervised));
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
     let result = tool
         .execute(json!({ "graph": valid_graph(), "input": { "x": 1 } }))
         .await
@@ -239,10 +248,67 @@ async fn dry_run_supervised_runs_against_mock_and_labels_sandbox() {
 
 #[tokio::test]
 async fn dry_run_invalid_graph_is_error() {
-    let tool = DryRunWorkflowTool::new(policy(AutonomyLevel::Full));
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Full),
+        test_config(&TempDir::new().unwrap()),
+    );
     let result = tool
         .execute(json!({ "graph": { "nodes": [], "edges": [] } }))
         .await
         .unwrap();
     assert!(result.is_error);
+}
+
+#[tokio::test]
+async fn dry_run_catches_unwired_required_composio_arg() {
+    // Seed the preflight schema cache so no live Composio backend is needed:
+    // GMAIL_SEND_EMAIL requires `to`.
+    let mut entries = std::collections::HashMap::new();
+    entries.insert("GMAIL_SEND_EMAIL".to_string(), vec!["to".to_string()]);
+    crate::openhuman::tinyflows::caps::seed_required_args_cache("gmail", entries);
+
+    let tmp = TempDir::new().unwrap();
+    let tool = DryRunWorkflowTool::new(policy(AutonomyLevel::Supervised), test_config(&tmp));
+
+    let graph_with = |args: Value| {
+        json!({
+            "nodes": [
+                { "id": "t", "kind": "trigger", "name": "Manual" },
+                { "id": "send", "kind": "tool_call", "name": "Send email",
+                  "config": { "slug": "GMAIL_SEND_EMAIL", "args": args } }
+            ],
+            "edges": [ { "from_node": "t", "to_node": "send" } ]
+        })
+    };
+
+    // `to` is a `=`-expression that misses (trigger input has no `email`):
+    // the dry run must fail BEFORE the (mock) tool call, naming the field.
+    let result = tool
+        .execute(json!({
+            "graph": graph_with(json!({ "to": "=item.email" })),
+            "input": {}
+        }))
+        .await
+        .unwrap();
+    let out = result.output();
+    assert!(
+        out.contains("`to`") && out.contains("required"),
+        "dry run must name the unwired required arg: {out}"
+    );
+
+    // The same flow with `to` wired from the trigger passes the preflight.
+    let result = tool
+        .execute(json!({
+            "graph": graph_with(json!({ "to": "=item.email" })),
+            "input": { "email": "a@b.com" }
+        }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["sandbox"], true);
+    assert_eq!(
+        parsed["ok"], true,
+        "wired flow must dry-run green: {parsed}"
+    );
 }

@@ -256,16 +256,15 @@ impl Tool for RunFlowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
-            Some(id) if !id.is_empty() => id.to_string(),
-            _ => {
-                return Ok(ToolResult::error(
+        let flow_id =
+            match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+                Some(id) if !id.is_empty() => id.to_string(),
+                _ => return Ok(ToolResult::error(
                     "Missing 'flow_id' — run_workflow only works on a SAVED flow. Ask the user \
                      to Save the workflow first, then run it by id."
                         .to_string(),
-                ))
-            }
-        };
+                )),
+            };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
 
         tracing::info!(

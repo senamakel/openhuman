@@ -59,7 +59,9 @@ Companion docs in the tinychannels repo:
   `memory_chunks_deleted`. Discord guild/channel/permission discovery dispatches
   through the manager while restoring the old log strings and top-level provider
   JSON. The remaining OpenHuman work is still envelope/session migration,
-  relay runtime adoption, provider extraction, and the planned test split below.
+  relay runtime adoption, provider extraction, and the planned test split below;
+  the first envelope slice is landed because the runtime now publishes a
+  TinyChannels `ChannelInboundEnvelope` on `ChannelMessageReceived` events.
 
 ## Step 1 — Add the dependency, delete duplicates
 
@@ -121,8 +123,10 @@ copies):
    preservation.
 2. **Landed for existing helper semantics: Telegram history keys.**
    `channels/context.rs` now delegates to the crate helper, preserving
-   OpenHuman's current Telegram topic behavior. Deeper envelope/session
-   migration still needs the planned scope/topic fields.
+   OpenHuman's current Telegram topic behavior. Runtime received-message events
+   now also carry the crate's normalized inbound envelope, with Telegram
+   `thread_ts` projected as `topic_id`; deeper session-key adoption still needs
+   provider-sourced `scope_id`.
 3. **Deferred until envelope/session migration: workspace/tenant
    discriminator.** Session keys
    (`channels/bus.rs:1005-1042`) omit guild/team/tenant; Slack channel ids are

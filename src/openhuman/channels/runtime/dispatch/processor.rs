@@ -129,6 +129,7 @@ pub(crate) async fn process_channel_message(
         reply_target: msg.reply_target.clone(),
         content: msg.content.clone(),
         thread_ts: msg.thread_ts.clone(),
+        inbound_envelope: Some(tinychannels::inbound_envelope_from_legacy_message(&msg)),
         workspace_dir: ctx.workspace_dir.as_ref().clone(),
     });
 

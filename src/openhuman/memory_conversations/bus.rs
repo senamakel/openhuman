@@ -99,6 +99,7 @@ impl EventHandler for ConversationPersistenceSubscriber {
                 content,
                 thread_ts,
                 workspace_dir,
+                ..
             } => {
                 let my_workspace = match self.workspace_dir_snapshot() {
                     Ok(d) => d,
@@ -366,6 +367,7 @@ mod tests {
                 reply_target: "general".into(),
                 content: "hello".into(),
                 thread_ts: Some("thread-1".into()),
+                inbound_envelope: None,
                 workspace_dir: temp.path().to_path_buf(),
             })
             .await;
@@ -416,6 +418,7 @@ mod tests {
                 reply_target: "chat-1".into(),
                 content: "hello".into(),
                 thread_ts: Some("100".into()),
+                inbound_envelope: None,
                 workspace_dir: temp.path().to_path_buf(),
             })
             .await;
@@ -427,6 +430,7 @@ mod tests {
                 reply_target: "chat-1".into(),
                 content: "follow-up".into(),
                 thread_ts: Some("200".into()),
+                inbound_envelope: None,
                 workspace_dir: temp.path().to_path_buf(),
             })
             .await;
@@ -448,6 +452,7 @@ mod tests {
             reply_target: "room-1".into(),
             content: "hello".into(),
             thread_ts: None,
+            inbound_envelope: None,
             workspace_dir: temp.path().to_path_buf(),
         };
 
@@ -504,6 +509,7 @@ mod tests {
                 reply_target: "dev".into(),
                 content: "hello".into(),
                 thread_ts: None,
+                inbound_envelope: None,
                 workspace_dir: temp.path().to_path_buf(),
             })
             .await;
@@ -531,6 +537,7 @@ mod tests {
                 reply_target: "general".into(),
                 content: "should not persist".into(),
                 thread_ts: None,
+                inbound_envelope: None,
                 workspace_dir: stale.path().to_path_buf(),
             })
             .await;
@@ -559,6 +566,7 @@ mod tests {
                 reply_target: "general".into(),
                 content: "hello".into(),
                 thread_ts: None,
+                inbound_envelope: None,
                 workspace_dir: temp.path().to_path_buf(),
             })
             .await;
@@ -605,6 +613,7 @@ mod tests {
                 reply_target: "general".into(),
                 content: "hello".into(),
                 thread_ts: None,
+                inbound_envelope: None,
                 workspace_dir: temp.path().to_path_buf(),
             })
             .await;
@@ -656,6 +665,7 @@ mod tests {
                 reply_target: "chat-1".into(),
                 content: "hello".into(),
                 thread_ts: None,
+                inbound_envelope: None,
                 workspace_dir: workspace_a.path().to_path_buf(),
             })
             .await;
@@ -730,6 +740,7 @@ mod tests {
                     reply_target: "room-1".into(),
                     content: format!("msg {i}"),
                     thread_ts: None,
+                    inbound_envelope: None,
                     workspace_dir: stale.path().to_path_buf(),
                 })
                 .await;
@@ -759,6 +770,7 @@ mod tests {
                 reply_target: "general".into(),
                 content: "stale".into(),
                 thread_ts: None,
+                inbound_envelope: None,
                 workspace_dir: stale.path().to_path_buf(),
             })
             .await;
@@ -772,6 +784,7 @@ mod tests {
                 reply_target: "general".into(),
                 content: "valid".into(),
                 thread_ts: None,
+                inbound_envelope: None,
                 workspace_dir: temp.path().to_path_buf(),
             })
             .await;

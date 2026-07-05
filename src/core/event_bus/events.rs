@@ -364,6 +364,9 @@ pub enum DomainEvent {
         reply_target: String,
         content: String,
         thread_ts: Option<String>,
+        /// Provider-neutral envelope projected from the inbound channel message.
+        /// Legacy publishers may omit it until they adopt TinyChannels.
+        inbound_envelope: Option<tinychannels::ChannelInboundEnvelope>,
         /// Workspace directory active when this event was published.
         /// Subscribers that persist data must reject events whose
         /// `workspace_dir` does not match their own workspace binding.

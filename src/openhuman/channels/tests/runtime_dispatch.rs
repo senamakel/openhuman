@@ -1,4 +1,5 @@
 use super::super::context::{ChannelRuntimeContext, CHANNEL_MESSAGE_TIMEOUT_SECS};
+use super::super::runtime::test_support::{run_dispatch_harness, DispatchHarnessOptions};
 use super::super::runtime::{process_channel_message, run_message_dispatch_loop};
 use super::super::{traits, Channel};
 use super::common::{use_real_agent_handler, NoopMemory, RecordingChannel, SlowProvider};
@@ -9,6 +10,26 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+#[tokio::test]
+async fn dispatch_publishes_tinychannels_inbound_envelope() {
+    let observation = run_dispatch_harness(DispatchHarnessOptions {
+        channel_name: "telegram".to_string(),
+        thread_ts: Some("topic-99".to_string()),
+        ..Default::default()
+    })
+    .await;
+
+    let envelope = observation
+        .received_event_envelope
+        .expect("dispatch should publish inbound envelope");
+    assert_eq!(envelope.channel.id, "telegram");
+    assert_eq!(envelope.message_id, "m1");
+    assert_eq!(envelope.conversation.id, "reply");
+    assert_eq!(envelope.conversation.thread_id, None);
+    assert_eq!(envelope.conversation.topic_id.as_deref(), Some("topic-99"));
+    assert_eq!(envelope.sender.id, "alice");
+}
 
 #[tokio::test]
 async fn message_dispatch_processes_messages_in_parallel() {

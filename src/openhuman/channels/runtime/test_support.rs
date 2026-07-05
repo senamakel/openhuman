@@ -5,7 +5,7 @@ pub use super::dispatch::test_support::{
     build_channel_context_block_for_test, select_acknowledgment_reaction_for_test,
 };
 pub use super::startup::test_support::resolve_yuanbao_app_secret_for_test;
-use crate::core::event_bus::{init_global, register_native_global, DEFAULT_CAPACITY};
+use crate::core::event_bus::{init_global, register_native_global, DomainEvent, DEFAULT_CAPACITY};
 use crate::openhuman::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::channels::context::{ChannelRuntimeContext, CHANNEL_MESSAGE_TIMEOUT_SECS};
@@ -76,6 +76,7 @@ pub struct DispatchHarnessObservation {
     pub sends: Vec<ObservedSend>,
     pub start_typing_calls: usize,
     pub stop_typing_calls: usize,
+    pub received_event_envelope: Option<tinychannels::ChannelInboundEnvelope>,
     pub handler_history_roles: Vec<String>,
     pub handler_history_text: String,
     pub handler_provider_name: String,
@@ -314,7 +315,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
     // observation capture) behind the shared agent-handler lock.
     let _harness_guard = lock_agent_handler().await;
 
-    init_global(DEFAULT_CAPACITY);
+    let mut event_rx = init_global(DEFAULT_CAPACITY).raw_receiver();
     let _ =
         crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins(
         );
@@ -458,6 +459,8 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
         multimodal_files: MultimodalFileConfig::default(),
     });
 
+    let expected_event_channel = options.channel_name.clone();
+
     process_channel_message(
         Arc::clone(&ctx),
         ChannelMessage {
@@ -471,6 +474,21 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
         },
     )
     .await;
+
+    let received_event_envelope = loop {
+        match event_rx.try_recv() {
+            Ok(DomainEvent::ChannelMessageReceived {
+                channel,
+                message_id,
+                inbound_envelope,
+                ..
+            }) if channel == expected_event_channel && message_id == "m1" => {
+                break inbound_envelope;
+            }
+            Ok(_) => {}
+            Err(_) => break None,
+        }
+    };
 
     let sends = state.sends.lock().await.clone();
     let handler_history_roles = handler_roles.lock().expect("roles lock").clone();
@@ -488,6 +506,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
         sends,
         start_typing_calls: state.start_typing_calls.load(Ordering::SeqCst),
         stop_typing_calls: state.stop_typing_calls.load(Ordering::SeqCst),
+        received_event_envelope,
         handler_history_roles,
         handler_history_text,
         handler_provider_name,

@@ -4,10 +4,11 @@
 # Runs quality checks per changed area and unit tests ONLY for the files the
 # PR changed (vitest related / domain-scoped cargo-llvm-cov), with diff-cover
 # enforcing >= 80% coverage on changed lines. Integration and E2E suites do
-# NOT run here — they run in full on every push to `release` via ci-full.yml
-# (release is advanced by the maintainer-dispatched
-# promote-main-to-release.yml and by merged fix PRs against release, which
-# get this fast lane for quick feedback).
+# NOT run here — they run in full via ci-full.yml on PRs targeting `release`
+# and on every push to `release` (the maintainer-dispatched
+# promote-main-to-release.yml merge and fix-PR merges). Fix PRs against
+# release get this fast lane too, for quick lint/coverage feedback alongside
+# the full suite.
 #
 # The gate job keeps its historical "PR CI Gate" check name so the main
 # ruleset's required-status-check reference stays valid.

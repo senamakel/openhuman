@@ -1,15 +1,16 @@
 ---
-# CI Full — the slow lane. Runs EVERYTHING on every push to the long-lived
-# `release` branch: full frontend + Rust unit suites, Rust mock-backend E2E,
-# Playwright web E2E, and the full desktop E2E matrix on Linux/macOS/Windows.
+# CI Full — the slow lane. Runs EVERYTHING against the long-lived `release`
+# branch: full frontend + Rust unit suites, Rust mock-backend E2E, Playwright
+# web E2E, and the full desktop E2E matrix on Linux/macOS/Windows.
 #
 # Two-lane model:
 #   - ci-lite.yml (quick): pushes to main + PRs to main/release — quality
 #     checks + unit tests scoped to the changed files only.
-#   - ci-full.yml (this file, slow): pushes to `release` — i.e. the
-#     maintainer-dispatched promotion merge from main
-#     (promote-main-to-release.yml) and every merged fix PR against release.
-#     Once the "CI Full Gate" is green a release is cut from `release` via
+#   - ci-full.yml (this file, slow): PRs targeting `release` (fix PRs opened
+#     while stabilising a cut — the "CI Full Gate" check gates their merge)
+#     and pushes to `release` (the maintainer-dispatched promotion merge from
+#     promote-main-to-release.yml, which has no PR, plus each fix-PR merge
+#     commit). Once the gate is green on release HEAD a release is cut via
 #     release-staging.yml / release-production.yml.
 #
 # The release workflows' version-bump commits carry [skip ci] so cutting a
@@ -18,6 +19,8 @@ name: CI Full
 
 on:
   push:
+    branches: [release]
+  pull_request:
     branches: [release]
   workflow_dispatch: {}
 
@@ -34,10 +37,10 @@ env:
   GH_TOKEN: ${{ github.token }}
   NPM_CONFIG_STORE_DIR: .pnpm-store
 
-# A newer push to release supersedes the in-flight run; the gate result is
-# per-commit, so cancelling the stale run loses nothing.
+# Keep only the newest run per PR (or per ref for release pushes); the gate
+# result is per-commit, so cancelling the superseded run loses nothing.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 defaults:

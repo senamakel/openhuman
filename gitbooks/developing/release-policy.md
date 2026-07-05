@@ -44,16 +44,16 @@ Implementation: `app/src/utils/oauthAppVersionGate.ts`, `app/src/utils/desktopDe
 Two long-lived branches, two CI lanes:
 
 - **`main`** — where all feature/fix PRs land. Every PR (and push to main) runs **CI Lite** ([`ci-lite.yml`](../../.github/workflows/ci-lite.yml)): quality checks per changed area plus unit tests scoped to the changed files, gated at ≥ 80% diff coverage by the `PR CI Gate` check.
-- **`release`** — a maintainer-promoted snapshot of `main` that releases are cut from. Every push to `release` runs **CI Full** ([`ci-full.yml`](../../.github/workflows/ci-full.yml)): complete unit suites, Rust mock-backend E2E, Playwright web E2E, and the full desktop E2E matrix on Linux/macOS/Windows. The `CI Full Gate` check aggregates every lane **except the Playwright spec run**, which is non-blocking signal for now (`continue-on-error`, flaky under CI contention — #3615): a green gate does not prove Playwright specs passed, so check that lane's result in the run before cutting. Only the Playwright artifact *build* is gated.
+- **`release`** — a maintainer-promoted snapshot of `main` that releases are cut from. PRs targeting `release` and every push to `release` run **CI Full** ([`ci-full.yml`](../../.github/workflows/ci-full.yml)): complete unit suites, Rust mock-backend E2E, Playwright web E2E, and the full desktop E2E matrix on Linux/macOS/Windows. The `CI Full Gate` check aggregates every lane **except the Playwright spec run**, which is non-blocking signal for now (`continue-on-error`, flaky under CI contention — #3615): a green gate does not prove Playwright specs passed, so check that lane's result in the run before cutting. Only the Playwright artifact *build* is gated.
 
 The cycle:
 
 1. A maintainer dispatches [`promote-main-to-release.yml`](../../.github/workflows/promote-main-to-release.yml), which pushes a **merge commit from `main` into `release`** (no PR). Re-dispatching refreshes `release` with main's latest while preserving fix commits already on `release`; when `release` already contains `main` it's a no-op.
-2. CI Full runs on the promotion push. If it finds breakage, anyone with write access opens a **fix PR directly against `release`**; fix PRs get the CI Lite fast lane, and the post-merge push re-runs CI Full.
-3. Once CI Full is green on `release` HEAD (check the commit status / Actions tab — the gate is informational, not merge-blocking), cut a build with `release-staging.yml` or `release-production.yml`.
+2. CI Full runs on the promotion push. If it finds breakage, anyone with write access opens a **fix PR directly against `release`**; fix PRs run both lanes — CI Lite for quick lint/coverage feedback and CI Full as the merge-blocking `CI Full Gate` check — and the post-merge push re-runs CI Full on the merge result.
+3. Once CI Full is green on `release` HEAD (check the commit status / Actions tab), cut a build with `release-staging.yml` or `release-production.yml`.
 4. **Every cut back-merges `release` into `main`** (`scripts/release/merge-release-into-main.sh`: fast-forward when possible, else a versioned merge commit such as `chore(release): merge release v1.2.4 back into main`), so bump commits and fix commits flow back. Version-bump commits carry `[skip ci]` so cutting a build does not re-run CI Full on the already-validated tree.
 
-Required GitHub settings for this model (repo **Settings → Rules**): `main` requires the `PR CI Gate` status check on PRs; `release` requires PRs for non-bypass actors but has **no** required status check (CI Full is push-triggered, so a required check would deadlock fix-PR merges); the release GitHub App's identity sits on the bypass list of both rulesets so the promote/release workflows can push.
+Required GitHub settings for this model (repo **Settings → Rules**): `main` requires the `PR CI Gate` status check on PRs; `release` requires PRs for non-bypass actors with the `CI Full Gate` status check required (it runs on PRs targeting release); the release GitHub App's identity sits on the bypass list of both rulesets so the promote/release workflows can push directly.
 
 ## Workflows: staging vs. production
 

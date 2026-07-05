@@ -5,9 +5,10 @@
 # a merge commit from main into `release` directly (no PR). CI Full
 # (ci-full.yml) then runs the complete test + E2E matrix on that push. Fix
 # PRs for anything the full suite catches are opened directly against
-# `release` (they get the ci-lite fast lane; the post-merge push re-runs the
-# full suite). Releases are cut from `release` via release-staging.yml /
-# release-production.yml, both of which merge release back into main.
+# `release` (they run ci-lite for quick feedback plus ci-full, whose
+# "CI Full Gate" check gates the merge). Releases are cut from `release` via
+# release-staging.yml / release-production.yml, both of which merge release
+# back into main.
 #
 # Merge, not reset: re-dispatching refreshes release with main's latest while
 # preserving fix commits already on release. When release already contains

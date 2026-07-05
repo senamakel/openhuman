@@ -59,12 +59,14 @@ Companion docs in the tinychannels repo:
   `memory_chunks_deleted`. Discord guild/channel/permission discovery dispatches
   through the manager while restoring the old log strings and top-level provider
   JSON. Outbound sends now use the live relay transport for configured relay
-  identities. The remaining OpenHuman work is still deeper envelope/session
-  migration, provider extraction, and the planned test split below; the first
+  identities. The remaining OpenHuman work is still full session identity
+  switchover, provider extraction, and the planned test split below; the first
   envelope slice is landed because the runtime now publishes a TinyChannels
-  `ChannelInboundEnvelope` on `ChannelMessageReceived` events, and startup now
-  has a relay inbound handler that can forward authenticated relay envelopes
-  from the live relay socket onto the existing dispatch bus.
+  `ChannelInboundEnvelope` on `ChannelMessageReceived` events, memory
+  conversation persistence records the TinyChannels session key as migration
+  metadata, and startup now has a relay inbound handler that can forward
+  authenticated relay envelopes from the live relay socket onto the existing
+  dispatch bus.
 
 ## Step 1 — Add the dependency, delete duplicates
 
@@ -128,8 +130,9 @@ copies):
    `channels/context.rs` now delegates to the crate helper, preserving
    OpenHuman's current Telegram topic behavior. Runtime received-message events
    now also carry the crate's normalized inbound envelope, with Telegram
-   `thread_ts` projected as `topic_id`; deeper session-key adoption still needs
-   provider-sourced `scope_id`.
+   `thread_ts` projected as `topic_id`; conversation persistence records the
+   TinyChannels session key when an event carries an envelope. Full session
+   identity switchover still needs provider-sourced `scope_id`.
 3. **Deferred until envelope/session migration: workspace/tenant
    discriminator.** Session keys
    (`channels/bus.rs:1005-1042`) omit guild/team/tenant; Slack channel ids are

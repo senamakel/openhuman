@@ -98,8 +98,8 @@ impl EventHandler for ConversationPersistenceSubscriber {
                 reply_target,
                 content,
                 thread_ts,
+                inbound_envelope,
                 workspace_dir,
-                ..
             } => {
                 let my_workspace = match self.workspace_dir_snapshot() {
                     Ok(d) => d,
@@ -125,6 +125,9 @@ impl EventHandler for ConversationPersistenceSubscriber {
                         sender,
                         reply_target,
                         thread_ts: thread_ts.as_deref(),
+                        tinychannels_session_key: inbound_envelope
+                            .as_ref()
+                            .map(tinychannels_session_key),
                         content,
                         role: "user",
                         success: None,
@@ -180,6 +183,7 @@ impl EventHandler for ConversationPersistenceSubscriber {
                         sender,
                         reply_target,
                         thread_ts: thread_ts.as_deref(),
+                        tinychannels_session_key: None,
                         content: response,
                         role: "assistant",
                         success: Some(*success),
@@ -208,6 +212,7 @@ struct ChannelTurnDescriptor<'a> {
     sender: &'a str,
     reply_target: &'a str,
     thread_ts: Option<&'a str>,
+    tinychannels_session_key: Option<String>,
     content: &'a str,
     role: &'a str,
     success: Option<bool>,
@@ -273,6 +278,7 @@ fn persist_channel_turn(
                 "channelSender": descriptor.sender,
                 "replyTarget": descriptor.reply_target,
                 "threadTs": descriptor.thread_ts,
+                "tinychannelsSessionKey": descriptor.tinychannels_session_key,
                 "sourceEvent": descriptor.source,
                 "success": descriptor.success,
                 "elapsedMs": descriptor.elapsed_ms,
@@ -292,6 +298,14 @@ fn persist_channel_turn(
         descriptor.role
     );
     Ok(())
+}
+
+fn tinychannels_session_key(envelope: &tinychannels::ChannelInboundEnvelope) -> String {
+    tinychannels::build_session_key_for_inbound_envelope(
+        "main",
+        envelope,
+        tinychannels::channel::SessionKeyPolicy::default(),
+    )
 }
 
 fn persisted_channel_thread_id(
@@ -358,6 +372,18 @@ mod tests {
     async fn persists_inbound_and_processed_turns_into_workspace_thread() {
         let temp = TempDir::new().expect("tempdir");
         let subscriber = ConversationPersistenceSubscriber::new(temp.path().to_path_buf());
+        let mut inbound_envelope =
+            tinychannels::inbound_envelope_from_legacy_message(&ChannelMessage {
+                channel: "slack".into(),
+                id: "m1".into(),
+                sender: "alice".into(),
+                reply_target: "general".into(),
+                content: "hello".into(),
+                thread_ts: Some("thread-1".into()),
+                timestamp: 0,
+            });
+        inbound_envelope.conversation.kind = tinychannels::channel::ConversationKind::Channel;
+        inbound_envelope.conversation.scope_id = Some("T123".into());
 
         subscriber
             .handle(&DomainEvent::ChannelMessageReceived {
@@ -367,7 +393,7 @@ mod tests {
                 reply_target: "general".into(),
                 content: "hello".into(),
                 thread_ts: Some("thread-1".into()),
-                inbound_envelope: None,
+                inbound_envelope: Some(inbound_envelope),
                 workspace_dir: temp.path().to_path_buf(),
             })
             .await;
@@ -397,6 +423,10 @@ mod tests {
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0].id, "user:m1");
         assert_eq!(messages[0].sender, "user");
+        assert_eq!(
+            messages[0].extra_metadata["tinychannelsSessionKey"],
+            "main:slack:default:channel:T123:general:thread-1"
+        );
         assert_eq!(messages[1].id, "assistant:m1");
         assert_eq!(messages[1].sender, "assistant");
         assert_eq!(messages[1].extra_metadata["elapsedMs"], 42);

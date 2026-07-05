@@ -978,12 +978,14 @@ mod tests {
     fn workflow_builder_is_registered_worker_with_narrow_propose_or_read_scope() {
         // Phase 5a/5b: the workflow-builder must be a Worker-tier leaf whose
         // tool scope is EXACTLY the propose-or-read + Composio discovery/connect
-        // belt — no persistence (flows_create/update/set_enabled), no shell, no
-        // file writes, no channel sends, and no composio_execute (it can list
-        // toolkits/connections and raise the inline connect card, but never
-        // performs a real integration action). This pins the "propose + connect,
-        // never persist or execute" invariant in the agent definition itself,
-        // not just the tool implementations.
+        // + confirmed test-run belt — no persistence (flows_create/update/
+        // set_enabled), no shell, no file writes, no channel sends, and no
+        // composio_execute. It can list toolkits/connections, raise the inline
+        // connect card, and `run_workflow` a flow the user already SAVED to test
+        // it (a real run the prompt gates behind user confirmation), but it can
+        // never persist/enable a flow or perform a raw integration action. This
+        // pins the invariant in the agent definition itself, not just the tool
+        // implementations.
         let def = find("workflow_builder");
         assert_eq!(def.agent_tier, AgentTier::Worker);
         assert_eq!(def.delegate_name.as_deref(), Some("build_workflow"));
@@ -1004,6 +1006,7 @@ mod tests {
                     "list_flow_connections",
                     "search_tool_catalog",
                     "dry_run_workflow",
+                    "run_workflow",
                     "composio_list_toolkits",
                     "composio_list_connections",
                     "composio_connect",

@@ -23,6 +23,14 @@ import type { WorkflowGraph } from './types';
 const DELEGATE_DIRECTIVE =
   'Use the workflow builder to design a tinyflows automation and return a workflow proposal for me to review. Do not save, enable, or run anything.';
 
+/**
+ * Revise variant: still "propose, never persist" for saving/enabling, but the
+ * copilot may run an ALREADY-SAVED flow to test it — only when I ask and after
+ * confirming with me first (the specialist's own prompt enforces the ask).
+ */
+const DELEGATE_DIRECTIVE_REVISE =
+  'Use the workflow builder to revise this tinyflows automation and return the revised proposal. Do not save or enable anything (I save via the UI). You may run_workflow the SAVED flow to test it, but ONLY if I ask and only after you confirm with me first.';
+
 /** Serialize a graph compactly for injection as agent context. */
 function serializeGraph(graph: WorkflowGraph): string {
   try {
@@ -47,19 +55,28 @@ export function buildCreatePrompt(description: string): string {
  * than starting over. `instruction` is the user's change request ("add a Slack
  * notification on failure", "make the schedule weekdays only").
  */
-export function buildRevisePrompt(instruction: string, graph: WorkflowGraph): string {
+export function buildRevisePrompt(
+  instruction: string,
+  graph: WorkflowGraph,
+  flowId?: string | null
+): string {
   const trimmed = instruction.trim();
-  return [
-    DELEGATE_DIRECTIVE,
+  const lines = [
+    DELEGATE_DIRECTIVE_REVISE,
     '',
     'Here is the current workflow draft (tinyflows WorkflowGraph JSON):',
     '```json',
     serializeGraph(graph),
     '```',
-    '',
-    'Revise it as follows and return the full revised proposal:',
-    trimmed,
-  ].join('\n');
+  ];
+  if (flowId) {
+    lines.push(
+      '',
+      `This workflow is saved with flow id \`${flowId}\` — if I ask you to run/test it, you may run_workflow that id, but confirm with me first.`
+    );
+  }
+  lines.push('', 'Revise it as follows and return the full revised proposal:', trimmed);
+  return lines.join('\n');
 }
 
 /** Context for a repair turn opened from a failed run's inspector. */

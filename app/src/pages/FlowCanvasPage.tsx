@@ -505,6 +505,7 @@ function FlowEditor({
         {copilotOpen && (
           <WorkflowCopilotPanel
             graph={preview?.base ?? draftGraph}
+            flowId={flowId}
             onProposal={handleProposal}
             onAccept={handleAcceptProposal}
             onReject={handleRejectProposal}

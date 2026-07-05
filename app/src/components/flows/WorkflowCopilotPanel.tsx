@@ -36,6 +36,11 @@ interface Props {
   /** The current draft graph, injected as context for each revise turn. */
   graph: WorkflowGraph;
   /**
+   * The saved flow's id (or `null`/absent for an unsaved draft), injected into
+   * revise turns so the agent can `run_workflow` it to test — with confirmation.
+   */
+  flowId?: string | null;
+  /**
    * Fires when the agent returns a fresh proposal, so the host can enter its
    * diff-preview overlay. The host computes/holds the preview; this panel only
    * reflects it.
@@ -63,6 +68,7 @@ interface Props {
 
 export default function WorkflowCopilotPanel({
   graph,
+  flowId = null,
   onProposal,
   onAccept,
   onReject,
@@ -119,9 +125,9 @@ export default function WorkflowCopilotPanel({
       const trimmed = (raw ?? text).trim();
       if (!trimmed || sending) return;
       setText('');
-      await send({ displayText: trimmed, prompt: buildRevisePrompt(trimmed, graph) });
+      await send({ displayText: trimmed, prompt: buildRevisePrompt(trimmed, graph, flowId) });
     },
-    [text, sending, send, graph]
+    [text, sending, send, graph, flowId]
   );
 
   const handleInputKeyDown = useCallback(

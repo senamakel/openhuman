@@ -197,6 +197,106 @@ impl Tool for ProposeWorkflowTool {
     }
 }
 
+/// Runs a **saved** workflow by id so the `workflow-builder` agent can *test*
+/// it end-to-end. Unlike [`crate::openhuman::flows::builder_tools::DryRunWorkflowTool`]
+/// (a MOCK sandbox), this is a **real** run — so it is `PermissionLevel::Write`
+/// with `external_effect() == true`. Two safety layers remain: the flow's own
+/// `require_approval` gate still pauses outbound-action nodes mid-run, and the
+/// agent prompt requires it to ASK THE USER for confirmation before ever
+/// calling this. It only runs an already-persisted flow (no `flow_id`, no run).
+pub struct RunFlowTool {
+    config: Arc<Config>,
+}
+
+impl RunFlowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for RunFlowTool {
+    fn name(&self) -> &str {
+        "run_workflow"
+    }
+
+    fn description(&self) -> &str {
+        "Run a SAVED workflow by id to TEST it end-to-end. This is a REAL run, not a \
+         simulation — real effects can fire (use dry_run_workflow for a safe MOCK run \
+         instead). It only works on a flow the user has already saved; pass its `flow_id`. \
+         You MUST ask the user to confirm and wait for an explicit 'yes' before calling this \
+         — never run a workflow unprompted. The flow's own approval gate still pauses \
+         outbound-action nodes. Params: { flow_id (required), input? }. Returns the run's \
+         status + any nodes paused for approval."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": {
+                    "type": "string",
+                    "description": "Id of the SAVED flow to run (the user must have saved it first)."
+                },
+                "input": {
+                    "description": "Optional trigger input passed to the run (defaults to {})."
+                }
+            },
+            "required": ["flow_id"]
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        // A real run with real effects — gated like a Write-class action.
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        true
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => {
+                return Ok(ToolResult::error(
+                    "Missing 'flow_id' — run_workflow only works on a SAVED flow. Ask the user \
+                     to Save the workflow first, then run it by id."
+                        .to_string(),
+                ))
+            }
+        };
+        let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
+
+        tracing::info!(
+            target: "flows",
+            %flow_id,
+            "[flows] run_workflow: agent-initiated test run starting"
+        );
+
+        match crate::openhuman::flows::ops::flows_run(
+            &self.config,
+            &flow_id,
+            input,
+            crate::openhuman::flows::types::FlowRunTrigger::Rpc,
+        )
+        .await
+        {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                "type": "workflow_run_result",
+                "flow_id": flow_id,
+                "result": outcome.value,
+            }))?)),
+            Err(e) => {
+                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] run_workflow: failed");
+                Ok(ToolResult::error(format!(
+                    "Could not run flow '{flow_id}': {e}"
+                )))
+            }
+        }
+    }
+}
+
 /// Builds the `{ trigger, steps }` summary surfaced to both the LLM (in the
 /// tool result) and the chat UI's `WorkflowProposalCard`.
 ///

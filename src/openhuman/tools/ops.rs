@@ -287,6 +287,10 @@ pub fn all_tools_with_runtime(
         Box::new(ListFlowConnectionsTool::new(config.clone())),
         Box::new(SearchToolCatalogTool::new()),
         Box::new(DryRunWorkflowTool::new(security.clone())),
+        // Real end-to-end test run of a SAVED flow (Write / external-effect). The
+        // workflow-builder prompt requires it to ask the user for confirmation
+        // first, and the flow's own approval gate still pauses outbound nodes.
+        Box::new(RunFlowTool::new(config.clone())),
         // Wallet tools — expose wallet operations to the agent tool-call pipeline
         // so the crypto sub-agent can prepare transfers, check status, etc.
         Box::new(WalletStatusTool::new()),

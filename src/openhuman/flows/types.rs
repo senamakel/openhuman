@@ -214,6 +214,111 @@ pub struct FlowRun {
     pub error: Option<String>,
 }
 
+/// Lifecycle status of a [`FlowSuggestion`] discovery card.
+///
+/// A freshly discovered suggestion starts `New`. The user can `Dismiss` it (it
+/// stays persisted so a later discovery run can dedupe against it and won't
+/// re-surface a rejected idea) or act on it — once the suggestion's flow is
+/// actually saved via `flows_create`, the frontend marks it `Built`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SuggestionStatus {
+    /// Freshly discovered, awaiting the user's decision. The default.
+    New,
+    /// The user dismissed the card; kept for dedupe, never re-surfaced.
+    Dismissed,
+    /// The user built (saved) a flow from this suggestion.
+    Built,
+}
+
+impl Default for SuggestionStatus {
+    fn default() -> Self {
+        Self::New
+    }
+}
+
+impl SuggestionStatus {
+    /// The stable lowercase token persisted in SQLite / crossed over RPC.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::New => "new",
+            Self::Dismissed => "dismissed",
+            Self::Built => "built",
+        }
+    }
+
+    /// Parse a persisted/RPC token back into a status. Unknown tokens fall
+    /// back to [`SuggestionStatus::New`] (forward-compatible with any status a
+    /// newer build might persist), so a stale row never hard-errors a read.
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s {
+            "dismissed" => Self::Dismissed,
+            "built" => Self::Built,
+            _ => Self::New,
+        }
+    }
+}
+
+/// A concrete, buildable workflow idea proposed by the `flow_discovery` agent
+/// (the "Flow Scout"). Persisted to the `flow_suggestions` table and surfaced
+/// as a card in the Flows page "Suggested for you" section.
+///
+/// **Not a graph.** A suggestion is a *pitch* the user can accept, not a
+/// validated [`WorkflowGraph`]. Its [`Self::build_prompt`] is the natural-language
+/// brief handed to the `workflow_builder` agent when the user clicks "Build
+/// this"; that agent turns it into a real graph proposal for the user to save.
+/// This keeps the discovery agent read-only and the authoring pipeline unchanged.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FlowSuggestion {
+    /// Stable identifier (a content hash of the normalized title, so re-running
+    /// discovery dedupes identical ideas rather than piling duplicates).
+    pub id: String,
+    /// Short, human-friendly title, e.g. `"Auto-file email receipts"`.
+    pub title: String,
+    /// One-sentence description of what the workflow would do, e.g.
+    /// `"When a Gmail receipt arrives, add a row to your expenses sheet."`
+    pub one_liner: String,
+    /// Why this is being suggested to *this* user — grounded in what the agent
+    /// observed (a recurring thread, a stated goal in memory, a connected app),
+    /// e.g. `"You forward receipts to yourself most weeks."`
+    pub rationale: String,
+    /// Which trigger the workflow would likely use, as a hint for the card and
+    /// the builder: `"schedule"` | `"app_event"` | `"manual"` (free-form; only
+    /// those three self-fire in this host).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger_hint: Option<String>,
+    /// Plain-language outline of the steps, one per element, e.g.
+    /// `["Watch Gmail for receipts", "Extract amount + vendor", "Append a Sheet row"]`.
+    #[serde(default)]
+    pub steps_outline: Vec<String>,
+    /// `connection_ref` values the agent grounded against real
+    /// `flows_list_connections` output (never invented), so the card can show
+    /// "uses your Gmail" and the builder can stamp them verbatim.
+    #[serde(default)]
+    pub suggested_connections: Vec<String>,
+    /// Real Composio action slugs the agent grounded via `search_tool_catalog`
+    /// (never hallucinated). Empty when the workflow is HTTP/agent-only.
+    #[serde(default)]
+    pub suggested_slugs: Vec<String>,
+    /// The natural-language brief handed to `workflow_builder` on "Build this".
+    /// Self-contained: trigger + steps + connections, enough for the builder to
+    /// author a graph without re-deriving the idea.
+    pub build_prompt: String,
+    /// Agent's self-rated confidence in `[0.0, 1.0]` that this is a genuinely
+    /// useful, buildable automation for the user — used to rank cards.
+    #[serde(default)]
+    pub confidence: f64,
+    /// Lifecycle status (see [`SuggestionStatus`]).
+    #[serde(default)]
+    pub status: SuggestionStatus,
+    /// RFC3339 timestamp when the suggestion was first discovered.
+    pub created_at: String,
+    /// The `flows_discover` run that produced this suggestion (correlation for
+    /// observability); `None` for suggestions authored outside a tracked run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_run_id: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,5 +413,70 @@ mod tests {
         };
         let v = serde_json::to_value(&step).unwrap();
         assert!(v.get("port").is_none());
+    }
+
+    #[test]
+    fn suggestion_status_token_round_trips() {
+        for st in [
+            SuggestionStatus::New,
+            SuggestionStatus::Dismissed,
+            SuggestionStatus::Built,
+        ] {
+            assert_eq!(SuggestionStatus::from_str_lossy(st.as_str()), st);
+        }
+        // Unknown tokens fall back to New rather than erroring.
+        assert_eq!(
+            SuggestionStatus::from_str_lossy("something_new"),
+            SuggestionStatus::New
+        );
+        assert_eq!(SuggestionStatus::default(), SuggestionStatus::New);
+    }
+
+    #[test]
+    fn flow_suggestion_round_trips_through_json() {
+        let s = FlowSuggestion {
+            id: "sug_abc".to_string(),
+            title: "Auto-file email receipts".to_string(),
+            one_liner: "When a Gmail receipt arrives, add a row to your expenses sheet."
+                .to_string(),
+            rationale: "You forward receipts to yourself most weeks.".to_string(),
+            trigger_hint: Some("app_event".to_string()),
+            steps_outline: vec![
+                "Watch Gmail for receipts".to_string(),
+                "Extract amount + vendor".to_string(),
+            ],
+            suggested_connections: vec!["composio:gmail:conn_1".to_string()],
+            suggested_slugs: vec!["GMAIL_NEW_GMAIL_MESSAGE".to_string()],
+            build_prompt: "Build a workflow that…".to_string(),
+            confidence: 0.82,
+            status: SuggestionStatus::New,
+            created_at: "2026-07-05T00:00:00Z".to_string(),
+            source_run_id: Some("run-1".to_string()),
+        };
+        let json = serde_json::to_string(&s).expect("serialize");
+        let back: FlowSuggestion = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, s);
+    }
+
+    #[test]
+    fn flow_suggestion_defaults_optional_fields() {
+        // A minimal pitch (no trigger/steps/connections/slugs/status/run) must
+        // deserialize with safe defaults.
+        let json = serde_json::json!({
+            "id": "sug_min",
+            "title": "Daily digest",
+            "one_liner": "Summarize your unread mail each morning.",
+            "rationale": "You check mail first thing.",
+            "build_prompt": "Build a scheduled digest…",
+            "created_at": "2026-07-05T00:00:00Z",
+        });
+        let s: FlowSuggestion = serde_json::from_value(json).expect("deserialize");
+        assert!(s.trigger_hint.is_none());
+        assert!(s.steps_outline.is_empty());
+        assert!(s.suggested_connections.is_empty());
+        assert!(s.suggested_slugs.is_empty());
+        assert_eq!(s.confidence, 0.0);
+        assert_eq!(s.status, SuggestionStatus::New);
+        assert!(s.source_run_id.is_none());
     }
 }

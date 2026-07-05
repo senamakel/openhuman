@@ -308,6 +308,18 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::workflow_builder::prompt::build,
         graph_fn: None,
     },
+    // Workflow-discovery specialist (the "Flow Scout"): reads the user's
+    // memory/threads/people/connections/flows read-only and ends by calling
+    // `suggest_workflows` to record concrete, buildable automation ideas for
+    // the Flows page "Suggested for you" section. It never persists or enables
+    // a flow — the read-only counterpart to `workflow_builder`, which turns a
+    // picked suggestion into a real graph proposal.
+    BuiltinAgent {
+        id: "flow_discovery",
+        toml: include_str!("flow_discovery/agent.toml"),
+        prompt_fn: super::flow_discovery::prompt::build,
+        graph_fn: None,
+    },
 ];
 
 /// Parse every entry in [`BUILTINS`] into an [`AgentDefinition`].
@@ -1041,6 +1053,80 @@ mod tests {
                 |entry| matches!(entry, SubagentEntry::AgentId(id) if id == "workflow_builder")
             ),
             "orchestrator must allow `workflow_builder` so build_workflow can spawn it"
+        );
+    }
+
+    #[test]
+    fn flow_discovery_is_registered_readonly_reasoning_scout() {
+        // The Flow Scout must be a read-only reasoning leaf: it reads the
+        // user's data and ends by emitting `suggest_workflows`. It must NOT
+        // carry any tool that persists/enables/runs a flow, sends a message,
+        // writes memory, or mutates the workspace — it can run on
+        // prompt-injectable content, so a write tool would be an injection
+        // foothold.
+        let def = find("flow_discovery");
+        assert_eq!(def.agent_tier, AgentTier::Reasoning);
+        assert_eq!(def.delegate_name.as_deref(), Some("discover_workflows"));
+        assert_eq!(def.sandbox_mode, SandboxMode::ReadOnly);
+        assert!(
+            def.subagents.is_empty(),
+            "flow_discovery is a leaf and must not list subagents"
+        );
+        match &def.tools {
+            ToolScope::Named(names) => {
+                // The one write it is allowed: its terminal emit sink.
+                assert!(
+                    names.iter().any(|n| n == "suggest_workflows"),
+                    "flow_discovery must have its `suggest_workflows` emit sink"
+                );
+                // A representative slice of the read-only gathering surface.
+                for required in [
+                    "memory_recall",
+                    "transcript_search",
+                    "thread_list",
+                    "list_flows",
+                    "list_flow_connections",
+                    "search_tool_catalog",
+                    "web_search_tool",
+                ] {
+                    assert!(
+                        names.iter().any(|n| n == required),
+                        "flow_discovery tool list missing read tool `{required}`"
+                    );
+                }
+                // Hard exclusions: nothing that persists, executes, sends, or
+                // writes user data.
+                for forbidden in [
+                    "flows_create",
+                    "flows_update",
+                    "flows_set_enabled",
+                    "flows_run",
+                    "propose_workflow",
+                    "shell",
+                    "file_write",
+                    "edit",
+                    "memory_store",
+                    "thread_message_append",
+                    "spawn_subagent",
+                ] {
+                    assert!(
+                        !names.iter().any(|n| n == forbidden),
+                        "flow_discovery must NOT have `{forbidden}` — read + suggest only"
+                    );
+                }
+            }
+            ToolScope::Wildcard => panic!("flow_discovery must have a Named tool scope"),
+        }
+
+        // Reachable by delegation from the orchestrator so `discover_workflows`
+        // can spawn it.
+        let orchestrator = find("orchestrator");
+        assert!(
+            orchestrator
+                .subagents
+                .iter()
+                .any(|entry| matches!(entry, SubagentEntry::AgentId(id) if id == "flow_discovery")),
+            "orchestrator must allow `flow_discovery` so discover_workflows can spawn it"
         );
     }
 
@@ -1860,14 +1946,19 @@ mod tests {
         for def in load_builtins().unwrap() {
             if matches!(
                 def.id.as_str(),
-                "orchestrator" | "planner" | "subconscious" | "frontend_agent" | "reasoning_agent"
+                "orchestrator"
+                    | "planner"
+                    | "subconscious"
+                    | "frontend_agent"
+                    | "reasoning_agent"
+                    | "flow_discovery"
             ) {
                 continue;
             }
             assert_eq!(
                 def.agent_tier,
                 AgentTier::Worker,
-                "{} should default to worker tier (only orchestrator/planner/subconscious/frontend_agent/reasoning_agent are non-worker today)",
+                "{} should default to worker tier (only orchestrator/planner/subconscious/frontend_agent/reasoning_agent/flow_discovery are non-worker today)",
                 def.id
             );
         }

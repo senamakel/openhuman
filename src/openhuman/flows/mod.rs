@@ -9,6 +9,7 @@
 
 pub mod builder_tools;
 pub mod bus;
+pub mod discovery_tools;
 mod n8n_import;
 pub mod ops;
 mod run_registry;
@@ -32,5 +33,6 @@ pub use schemas::{
 // the `flow_runs` row through this function as the run executes.
 pub use store::{kv_get, kv_set, upsert_flow_run_step};
 pub use types::{
-    Flow, FlowConnection, FlowImport, FlowRun, FlowRunStep, FlowRunTrigger, FlowValidation,
+    Flow, FlowConnection, FlowImport, FlowRun, FlowRunStep, FlowRunTrigger, FlowSuggestion,
+    FlowValidation, SuggestionStatus,
 };

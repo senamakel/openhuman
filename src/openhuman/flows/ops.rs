@@ -14,7 +14,9 @@ use crate::openhuman::config::Config;
 use crate::openhuman::flows::bus;
 use crate::openhuman::flows::run_registry;
 use crate::openhuman::flows::store;
-use crate::openhuman::flows::types::{FlowConnection, FlowRunStep, FlowRunTrigger};
+use crate::openhuman::flows::types::{
+    FlowConnection, FlowRunStep, FlowRunTrigger, FlowSuggestion, SuggestionStatus,
+};
 use crate::openhuman::flows::{Flow, FlowRun};
 use crate::rpc::RpcOutcome;
 
@@ -1614,6 +1616,130 @@ fn notify_pending_approval(flow: &Flow, thread_id: &str, pending_approvals: &[St
             payload: Some(action_payload),
         }]),
     });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Flow Scout — workflow discovery + suggestion lifecycle
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Overall safety bound on one `flows_discover` run. The `flow_discovery` agent
+/// reasons read-only over the user's data and ends by emitting
+/// `suggest_workflows`; its own `max_iterations` caps the loop, but a hung
+/// LLM/tool call must never let the RPC block indefinitely.
+const FLOW_DISCOVER_TIMEOUT_SECS: u64 = 300;
+
+/// The canned brief handed to the `flow_discovery` agent. The agent's own
+/// archetype prompt teaches the read → correlate → ground → emit loop; this is
+/// just the kick-off instruction for the on-demand "Discover" action.
+const FLOW_DISCOVER_PROMPT: &str = "Discover the most useful automations you could set up for me. \
+     Read what you can about how I work — my goals, recurring conversations, the people and apps I \
+     deal with, and the flows I already have — then propose a few concrete, buildable workflows. \
+     Ground each in something you actually observed about me, and end by calling suggest_workflows.";
+
+/// Runs the read-only `flow_discovery` agent ("Flow Scout") on demand: it reads
+/// the user's memory/threads/people/connections/existing flows, grounds a few
+/// automation ideas, and records them via the `suggest_workflows` tool (which
+/// persists to the `flow_suggestions` table). Returns the current set of active
+/// (`New`) suggestions after the run.
+///
+/// The agent is strictly read-only — its only write is `suggest_workflows`
+/// (`PermissionLevel::None`) — so this never persists, enables, or runs a flow.
+/// Turning a suggestion into a real flow is the user's separate "Build this"
+/// action, which routes to `workflow_builder`.
+pub async fn flows_discover(config: &Config) -> Result<RpcOutcome<Vec<FlowSuggestion>>, String> {
+    use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin};
+    use crate::openhuman::agent::Agent;
+
+    tracing::info!(target: "flows", "[flows] flows_discover: starting Flow Scout discovery run");
+
+    // The registry must be initialised before building a named builtin agent
+    // (mirrors `agent_registry::ops::available_tools`); it is idempotent, so a
+    // second call from an already-booted core is a cheap no-op.
+    crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
+        .map_err(|e| format!("failed to initialise agent registry: {e}"))?;
+
+    let mut agent = Agent::from_config_for_agent(config, "flow_discovery")
+        .map_err(|e| format!("failed to build flow_discovery agent: {e:#}"))?;
+    agent.set_agent_definition_name("flow_discovery".to_string());
+
+    // Run to completion under a CLI origin (an internal, user-initiated action —
+    // the approval gate must not fail-closed on it), bounded by a wall-clock
+    // timeout so a hung provider call can't wedge the RPC.
+    let run = with_origin(AgentTurnOrigin::Cli, agent.run_single(FLOW_DISCOVER_PROMPT));
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(FLOW_DISCOVER_TIMEOUT_SECS),
+        run,
+    )
+    .await
+    {
+        Ok(Ok(_summary)) => {
+            tracing::debug!(target: "flows", "[flows] flows_discover: agent run completed");
+        }
+        Ok(Err(e)) => {
+            // The agent errored. Surface it, but still return whatever
+            // suggestions may already be persisted (a prior run's active set)
+            // rather than hard-failing the UI.
+            tracing::warn!(target: "flows", error = %e, "[flows] flows_discover: agent run failed");
+        }
+        Err(_) => {
+            tracing::warn!(
+                target: "flows",
+                timeout_secs = FLOW_DISCOVER_TIMEOUT_SECS,
+                "[flows] flows_discover: agent run timed out"
+            );
+        }
+    }
+
+    let suggestions = store::list_suggestions(config, Some(SuggestionStatus::New), 50)
+        .map_err(|e| e.to_string())?;
+    tracing::info!(
+        target: "flows",
+        count = suggestions.len(),
+        "[flows] flows_discover: returning active suggestions"
+    );
+    Ok(RpcOutcome::single_log(
+        suggestions,
+        "flow discovery complete",
+    ))
+}
+
+/// Lists persisted workflow suggestions. `status` filters to one lifecycle
+/// state (the UI passes `New` for the active "Suggested for you" cards); `None`
+/// returns every status.
+pub async fn flows_list_suggestions(
+    config: &Config,
+    status: Option<SuggestionStatus>,
+) -> Result<RpcOutcome<Vec<FlowSuggestion>>, String> {
+    let suggestions = store::list_suggestions(config, status, 100).map_err(|e| e.to_string())?;
+    Ok(RpcOutcome::single_log(suggestions, "suggestions listed"))
+}
+
+/// Marks a suggestion `dismissed` (the user rejected the card). The row is kept
+/// so a later discovery run dedupes against it and won't re-surface the idea.
+pub async fn flows_dismiss_suggestion(
+    config: &Config,
+    id: &str,
+) -> Result<RpcOutcome<Value>, String> {
+    let found = store::set_suggestion_status(config, id, SuggestionStatus::Dismissed)
+        .map_err(|e| e.to_string())?;
+    Ok(RpcOutcome::single_log(
+        json!({ "id": id, "dismissed": found }),
+        "suggestion dismissed",
+    ))
+}
+
+/// Marks a suggestion `built` — called by the frontend after the user saves a
+/// flow authored from this suggestion, so it drops out of the active cards.
+pub async fn flows_mark_suggestion_built(
+    config: &Config,
+    id: &str,
+) -> Result<RpcOutcome<Value>, String> {
+    let found = store::set_suggestion_status(config, id, SuggestionStatus::Built)
+        .map_err(|e| e.to_string())?;
+    Ok(RpcOutcome::single_log(
+        json!({ "id": id, "built": found }),
+        "suggestion marked built",
+    ))
 }
 
 #[cfg(test)]

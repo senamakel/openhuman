@@ -1540,3 +1540,74 @@ async fn flows_list_connections_aggregates_http_creds_and_tolerates_composio() {
         "secret leaked into flows_list_connections payload: {json}"
     );
 }
+
+// ── Flow Scout suggestion lifecycle ──────────────────────────────────────────
+
+fn seed_suggestion(config: &Config, id: &str) {
+    let s = crate::openhuman::flows::FlowSuggestion {
+        id: id.to_string(),
+        title: format!("Idea {id}"),
+        one_liner: "does a thing".to_string(),
+        rationale: "grounded".to_string(),
+        trigger_hint: Some("schedule".to_string()),
+        steps_outline: vec!["a".to_string()],
+        suggested_connections: vec![],
+        suggested_slugs: vec![],
+        build_prompt: "Build a workflow…".to_string(),
+        confidence: 0.5,
+        status: crate::openhuman::flows::SuggestionStatus::New,
+        created_at: "2026-07-05T00:00:00Z".to_string(),
+        source_run_id: None,
+    };
+    crate::openhuman::flows::store::upsert_suggestions(config, &[s]).unwrap();
+}
+
+#[tokio::test]
+async fn list_suggestions_filters_by_status() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    seed_suggestion(&config, "s1");
+    seed_suggestion(&config, "s2");
+
+    let active = flows_list_suggestions(
+        &config,
+        Some(crate::openhuman::flows::SuggestionStatus::New),
+    )
+    .await
+    .unwrap();
+    assert_eq!(active.value.len(), 2);
+
+    // Unfiltered returns all too.
+    let all = flows_list_suggestions(&config, None).await.unwrap();
+    assert_eq!(all.value.len(), 2);
+}
+
+#[tokio::test]
+async fn dismiss_and_mark_built_move_suggestions_out_of_active() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    seed_suggestion(&config, "s1");
+    seed_suggestion(&config, "s2");
+
+    let d = flows_dismiss_suggestion(&config, "s1").await.unwrap();
+    assert_eq!(d.value["dismissed"], json!(true));
+    let b = flows_mark_suggestion_built(&config, "s2").await.unwrap();
+    assert_eq!(b.value["built"], json!(true));
+
+    // Neither is in the active (New) set anymore.
+    let active = flows_list_suggestions(
+        &config,
+        Some(crate::openhuman::flows::SuggestionStatus::New),
+    )
+    .await
+    .unwrap();
+    assert!(active.value.is_empty());
+}
+
+#[tokio::test]
+async fn dismiss_unknown_suggestion_reports_not_found() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let d = flows_dismiss_suggestion(&config, "missing").await.unwrap();
+    assert_eq!(d.value["dismissed"], json!(false));
+}

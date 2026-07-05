@@ -32,6 +32,105 @@ fn flow_output() -> FieldSchema {
     }
 }
 
+/// Output field for the suggestion-returning controllers (`discover`,
+/// `list_suggestions`). Kept in one place so the schema mirrors
+/// `flows::types::FlowSuggestion`.
+fn suggestions_output() -> FieldSchema {
+    FieldSchema {
+        name: "suggestions",
+        ty: TypeSchema::Array(Box::new(TypeSchema::Object {
+            fields: flow_suggestion_fields(),
+        })),
+        comment: "Discovered workflow suggestions (pitches, not graphs) for the Flows page.",
+        required: true,
+    }
+}
+
+/// Per-field schema for one `FlowSuggestion`, mirroring
+/// `flows::types::FlowSuggestion` exactly.
+fn flow_suggestion_fields() -> Vec<FieldSchema> {
+    vec![
+        FieldSchema {
+            name: "id",
+            ty: TypeSchema::String,
+            comment: "Stable content-hash id (dedupes identical ideas across runs).",
+            required: true,
+        },
+        FieldSchema {
+            name: "title",
+            ty: TypeSchema::String,
+            comment: "Short, human-friendly title.",
+            required: true,
+        },
+        FieldSchema {
+            name: "one_liner",
+            ty: TypeSchema::String,
+            comment: "One-sentence description of what the workflow would do.",
+            required: true,
+        },
+        FieldSchema {
+            name: "rationale",
+            ty: TypeSchema::String,
+            comment: "Why this is suggested to this user, grounded in observed signals.",
+            required: true,
+        },
+        FieldSchema {
+            name: "trigger_hint",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Likely trigger: `schedule` | `app_event` | `manual`.",
+            required: false,
+        },
+        FieldSchema {
+            name: "steps_outline",
+            ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+            comment: "Plain-language step outline, one per element.",
+            required: true,
+        },
+        FieldSchema {
+            name: "suggested_connections",
+            ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+            comment: "Real connection_ref values grounded via list_flow_connections.",
+            required: true,
+        },
+        FieldSchema {
+            name: "suggested_slugs",
+            ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+            comment: "Real Composio action slugs grounded via search_tool_catalog.",
+            required: true,
+        },
+        FieldSchema {
+            name: "build_prompt",
+            ty: TypeSchema::String,
+            comment: "Self-contained brief handed to workflow_builder on 'Build this'.",
+            required: true,
+        },
+        FieldSchema {
+            name: "confidence",
+            ty: TypeSchema::F64,
+            comment: "Agent's confidence in [0,1] that this is useful + buildable.",
+            required: true,
+        },
+        FieldSchema {
+            name: "status",
+            ty: TypeSchema::String,
+            comment: "Lifecycle: `new` | `dismissed` | `built`.",
+            required: true,
+        },
+        FieldSchema {
+            name: "created_at",
+            ty: TypeSchema::String,
+            comment: "RFC3339 timestamp when first discovered.",
+            required: true,
+        },
+        FieldSchema {
+            name: "source_run_id",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "The discovery run that produced this suggestion, if tracked.",
+            required: false,
+        },
+    ]
+}
+
 fn require_approval_input() -> FieldSchema {
     FieldSchema {
         name: "require_approval",
@@ -125,6 +224,10 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("list_runs"),
         schemas("get_run"),
         schemas("prune_runs"),
+        schemas("discover"),
+        schemas("list_suggestions"),
+        schemas("dismiss_suggestion"),
+        schemas("mark_suggestion_built"),
     ]
 }
 
@@ -193,6 +296,22 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("prune_runs"),
             handler: handle_prune_runs,
+        },
+        RegisteredController {
+            schema: schemas("discover"),
+            handler: handle_discover,
+        },
+        RegisteredController {
+            schema: schemas("list_suggestions"),
+            handler: handle_list_suggestions,
+        },
+        RegisteredController {
+            schema: schemas("dismiss_suggestion"),
+            handler: handle_dismiss_suggestion,
+        },
+        RegisteredController {
+            schema: schemas("mark_suggestion_built"),
+            handler: handle_mark_suggestion_built,
         },
     ]
 }
@@ -592,6 +711,59 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "discover" => ControllerSchema {
+            namespace: "flows",
+            function: "discover",
+            description: "Run the read-only Flow Scout: it reads the user's \
+                          memory/threads/people/connections/existing flows and records a handful \
+                          of concrete, buildable workflow suggestions for the Flows page. It never \
+                          creates, enables, or runs a flow — turning a suggestion into a real flow \
+                          is the user's separate 'Build this' action. Returns the active (new) \
+                          suggestions after the run.",
+            inputs: vec![],
+            outputs: vec![suggestions_output()],
+        },
+        "list_suggestions" => ControllerSchema {
+            namespace: "flows",
+            function: "list_suggestions",
+            description: "List persisted workflow suggestions. Filter by lifecycle `status` \
+                          (`new` | `dismissed` | `built`); omit to return every status.",
+            inputs: vec![FieldSchema {
+                name: "status",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Lifecycle filter: `new` (active cards) | `dismissed` | `built`. \
+                          Omit for all.",
+                required: false,
+            }],
+            outputs: vec![suggestions_output()],
+        },
+        "dismiss_suggestion" => ControllerSchema {
+            namespace: "flows",
+            function: "dismiss_suggestion",
+            description: "Dismiss a workflow suggestion (the user rejected the card). The row is \
+                          kept so a later discovery run dedupes against it and won't re-surface \
+                          the idea.",
+            inputs: vec![id_input("Identifier of the suggestion to dismiss.")],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "`{ id, dismissed }` — `dismissed` is false if the id was unknown.",
+                required: true,
+            }],
+        },
+        "mark_suggestion_built" => ControllerSchema {
+            namespace: "flows",
+            function: "mark_suggestion_built",
+            description: "Mark a suggestion as built — called after the user saves a flow authored \
+                          from it, so it drops out of the active cards.",
+            inputs: vec![id_input("Identifier of the suggestion that was built.")],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "`{ id, built }` — `built` is false if the id was unknown.",
+                required: true,
+            }],
+        },
         _other => ControllerSchema {
             namespace: "flows",
             function: "unknown",
@@ -794,6 +966,42 @@ fn handle_prune_runs(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_discover(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(ops::flows_discover(&config).await?)
+    })
+}
+
+fn handle_list_suggestions(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let status = params
+            .get("status")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(crate::openhuman::flows::SuggestionStatus::from_str_lossy);
+        to_json(ops::flows_list_suggestions(&config, status).await?)
+    })
+}
+
+fn handle_dismiss_suggestion(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        to_json(ops::flows_dismiss_suggestion(&config, id.trim()).await?)
+    })
+}
+
+fn handle_mark_suggestion_built(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        to_json(ops::flows_mark_suggestion_built(&config, id.trim()).await?)
+    })
+}
+
 fn read_required<T: DeserializeOwned>(params: &Map<String, Value>, key: &str) -> Result<T, String> {
     let value = params
         .get(key)
@@ -835,6 +1043,10 @@ mod tests {
                 "list_runs",
                 "get_run",
                 "prune_runs",
+                "discover",
+                "list_suggestions",
+                "dismiss_suggestion",
+                "mark_suggestion_built",
             ]
         );
     }
@@ -842,7 +1054,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 16);
+        assert_eq!(controllers.len(), 20);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -863,6 +1075,10 @@ mod tests {
                 "list_runs",
                 "get_run",
                 "prune_runs",
+                "discover",
+                "list_suggestions",
+                "dismiss_suggestion",
+                "mark_suggestion_built",
             ]
         );
     }

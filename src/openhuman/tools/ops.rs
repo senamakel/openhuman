@@ -287,6 +287,12 @@ pub fn all_tools_with_runtime(
         Box::new(ListFlowConnectionsTool::new(config.clone())),
         Box::new(SearchToolCatalogTool::new()),
         Box::new(DryRunWorkflowTool::new(security.clone())),
+        // Flow Scout discovery: the `flow_discovery` agent's terminal emit
+        // sink. Read-only reasoning over the user's data ends by calling
+        // `suggest_workflows`, which persists workflow ideas for the Flows page
+        // "Suggested for you" section. `PermissionLevel::None`, no external
+        // effect — writes only to the agent's own suggestions store.
+        Box::new(SuggestWorkflowsTool::new(config.clone())),
         // Wallet tools — expose wallet operations to the agent tool-call pipeline
         // so the crypto sub-agent can prepare transfers, check status, etc.
         Box::new(WalletStatusTool::new()),

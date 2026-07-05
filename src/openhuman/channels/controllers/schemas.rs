@@ -9,8 +9,10 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::rpc as config_rpc;
 use crate::rpc::RpcOutcome;
 
+use super::backend::OpenHumanChannelBackend;
 use super::definitions::ChannelAuthMode;
 use super::ops;
+use tinychannels::ChannelManager;
 
 // ---------------------------------------------------------------------------
 // Param structs
@@ -572,7 +574,15 @@ fn handle_test(params: Map<String, Value>) -> ControllerFuture {
             .auth_mode
             .parse()
             .map_err(|e: String| format!("invalid authMode: {e}"))?;
-        to_json(ops::test_channel(&config, p.channel.trim(), mode, p.credentials).await?)
+        let manager = ChannelManager::new(
+            config.channels_config.clone(),
+            OpenHumanChannelBackend::new(config),
+        );
+        let result = manager
+            .test(p.channel.trim(), mode, p.credentials)
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(result, vec![]))
     })
 }
 

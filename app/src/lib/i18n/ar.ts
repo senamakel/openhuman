@@ -3614,6 +3614,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'مكتمل',
   'flowRuns.status.pending_approval': 'بانتظار الموافقة',
   'flowRuns.status.failed': 'فشل',
+  'flowRuns.status.cancelled': 'ملغى',
 
   'flows.page.title': 'سير العمل',
   'flows.page.description': 'أتمتة محفوظة يمكنك تفعيلها وتشغيلها ومتابعتها.',

@@ -3698,6 +3698,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'पूर्ण',
   'flowRuns.status.pending_approval': 'अनुमोदन की प्रतीक्षा में',
   'flowRuns.status.failed': 'विफल',
+  'flowRuns.status.cancelled': 'रद्द किया गया',
 
   'flows.page.title': 'वर्कफ़्लो',
   'flows.page.description': 'सहेजे गए ऑटोमेशन जिन्हें आप सक्षम, चला और मॉनिटर कर सकते हैं।',

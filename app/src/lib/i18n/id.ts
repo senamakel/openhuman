@@ -3706,6 +3706,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'Selesai',
   'flowRuns.status.pending_approval': 'Menunggu persetujuan',
   'flowRuns.status.failed': 'Gagal',
+  'flowRuns.status.cancelled': 'Dibatalkan',
 
   'flows.page.title': 'Alur Kerja',
   'flows.page.description': 'Otomatisasi tersimpan yang dapat Anda aktifkan, jalankan, dan pantau.',

@@ -3775,6 +3775,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'Terminé',
   'flowRuns.status.pending_approval': "En attente d'approbation",
   'flowRuns.status.failed': 'Échoué',
+  'flowRuns.status.cancelled': 'Annulé',
 
   'flows.page.title': 'Workflows',
   'flows.page.description':

@@ -3697,6 +3697,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'সম্পন্ন',
   'flowRuns.status.pending_approval': 'অনুমোদনের অপেক্ষায়',
   'flowRuns.status.failed': 'ব্যর্থ',
+  'flowRuns.status.cancelled': 'বাতিল করা হয়েছে',
 
   'flows.page.title': 'ওয়ার্কফ্লো',
   'flows.page.description': 'সংরক্ষিত অটোমেশন যা আপনি সক্ষম, চালাতে এবং পর্যবেক্ষণ করতে পারেন।',

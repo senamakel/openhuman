@@ -3787,6 +3787,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'Abgeschlossen',
   'flowRuns.status.pending_approval': 'Wartet auf Genehmigung',
   'flowRuns.status.failed': 'Fehlgeschlagen',
+  'flowRuns.status.cancelled': 'Abgebrochen',
 
   'flows.page.title': 'Workflows',
   'flows.page.description':

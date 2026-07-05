@@ -3760,6 +3760,7 @@ const messages: TranslationMap = {
   'flowRuns.status.completed': 'Completado',
   'flowRuns.status.pending_approval': 'Esperando aprobación',
   'flowRuns.status.failed': 'Fallido',
+  'flowRuns.status.cancelled': 'Cancelado',
 
   'flows.page.title': 'Flujos de trabajo',
   'flows.page.description':

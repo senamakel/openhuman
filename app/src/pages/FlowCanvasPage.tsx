@@ -22,9 +22,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
+import FlowRunsSidebar from '../components/flows/FlowRunsSidebar';
 import WorkflowCopilotPanel from '../components/flows/WorkflowCopilotPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
+import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
@@ -411,6 +413,13 @@ function FlowEditor({
       leading={backButton}
       action={headerActions}
       contentClassName="h-full p-0">
+      {/* Project this flow's run history into the left shell sidebar while it's
+          open (persisted flows only — a draft has no runs yet). */}
+      {!isDraft && flowId && (
+        <SidebarContent>
+          <FlowRunsSidebar flowId={flowId} />
+        </SidebarContent>
+      )}
       <div className="flex h-full w-full">
         <div className="relative h-full flex-1">
           <FlowCanvas

@@ -4390,6 +4390,8 @@ const en: TranslationMap = {
   'flows.runs.loading': 'Loading runs…',
   'flows.runs.loadError': 'Could not load runs',
   'flows.runs.empty': 'No runs yet',
+  'flows.runs.sidebarTitle': 'Runs',
+  'flows.runs.refresh': 'Refresh runs',
 
   // ── Phase 5c: prompt-first authoring + canvas copilot ────────────────────
   // The Flows prompt bar (describe a workflow → builder agent proposes it) and

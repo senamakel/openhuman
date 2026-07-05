@@ -26,7 +26,6 @@ import {
   clickByTitle,
   clickSend,
   getSelectedThreadId,
-  hexEncodeThreadId,
   typeIntoComposer,
   waitForSocketConnected,
 } from '../helpers/chat-harness';
@@ -249,21 +248,22 @@ describe('Chat harness — wallet flow', () => {
     // Orchestrator + sub-agent make at least 2 LLM calls.
     expect(llmHits.length).toBeGreaterThanOrEqual(2);
 
-    const relPath = `memory/conversations/threads/${hexEncodeThreadId(threadId)}.jsonl`;
-    let threadContent = '';
+    let listedMessages: unknown[] = [];
     await browser.waitUntil(
       async () => {
-        const read = await callOpenhumanRpc<{ result: { content_utf8: string } }>(
-          'openhuman.test_support_read_workspace_file',
-          { rel_path: relPath, max_bytes: 131_072 }
+        const listed = await callOpenhumanRpc<{ data?: { messages?: unknown[] } }>(
+          'openhuman.threads_messages_list',
+          { thread_id: threadId }
         );
-        if (!read.ok) return false;
-        threadContent = read.result?.result?.content_utf8 ?? '';
-        return threadContent.includes(CANARY) && threadContent.includes(WALLET_PROMPT);
+        if (!listed.ok) return false;
+        listedMessages = listed.result?.data?.messages ?? [];
+        const serialized = JSON.stringify(listedMessages);
+        return serialized.includes(CANARY) && serialized.includes(WALLET_PROMPT);
       },
-      { timeout: 15_000, timeoutMsg: 'wallet chat thread file never contained the exchange' }
+      { timeout: 15_000, timeoutMsg: 'wallet chat messages list never contained the exchange' }
     );
-    expect(threadContent).toContain(CANARY);
-    expect(threadContent).toContain(WALLET_PROMPT);
+    const serializedMessages = JSON.stringify(listedMessages);
+    expect(serializedMessages).toContain(CANARY);
+    expect(serializedMessages).toContain(WALLET_PROMPT);
   });
 });

@@ -1,7 +1,7 @@
 //! Integration tests for the TokenJuice module.
 //!
 //! Iterates vendored TinyJuice `*.fixture.json` files under
-//! `vendor/tinyjuice/src/tests/fixtures/` and asserts that
+//! `vendor/tinyjuice/tests/fixtures/` and asserts that
 //! `reduce_execution_with_rules` produces the expected output.
 
 use openhuman_core::openhuman::tokenjuice::{
@@ -17,7 +17,7 @@ const KNOWN_DRIFT_FIXTURES: &[&str] = &[
 
 fn fixtures_dir() -> std::path::PathBuf {
     let manifest = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
-    std::path::PathBuf::from(manifest).join("vendor/tinyjuice/src/tests/fixtures")
+    std::path::PathBuf::from(manifest).join("vendor/tinyjuice/tests/fixtures")
 }
 
 #[test]

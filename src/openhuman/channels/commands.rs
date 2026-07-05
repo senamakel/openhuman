@@ -78,10 +78,11 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
     if let Some(ref sl) = config.channels_config.slack {
         channels.push((
             "Slack",
-            Arc::new(SlackChannel::new(
+            Arc::new(SlackChannel::with_http_client(
                 sl.bot_token.clone(),
                 sl.channel_id.clone(),
                 sl.allowed_users.clone(),
+                crate::openhuman::config::build_runtime_proxy_client("channel.slack"),
             )),
         ));
     }
@@ -102,13 +103,19 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
     if let Some(ref sig) = config.channels_config.signal {
         channels.push((
             "Signal",
-            Arc::new(SignalChannel::new(
+            Arc::new(SignalChannel::with_http_client(
                 sig.http_url.clone(),
                 sig.account.clone(),
                 sig.group_id.clone(),
                 sig.allowed_from.clone(),
                 sig.ignore_attachments,
                 sig.ignore_stories,
+                crate::openhuman::config::apply_runtime_proxy_to_builder(
+                    reqwest::Client::builder().connect_timeout(std::time::Duration::from_secs(10)),
+                    "channel.signal",
+                )
+                .build()
+                .expect("Signal HTTP client should build"),
             )),
         ));
     }
@@ -121,11 +128,14 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
                 if wa.is_cloud_config() {
                     channels.push((
                         "WhatsApp",
-                        Arc::new(WhatsAppChannel::new(
+                        Arc::new(WhatsAppChannel::with_http_client(
                             wa.access_token.clone().unwrap_or_default(),
                             wa.phone_number_id.clone().unwrap_or_default(),
                             wa.verify_token.clone().unwrap_or_default(),
                             wa.allowed_numbers.clone(),
+                            crate::openhuman::config::build_runtime_proxy_client(
+                                "channel.whatsapp",
+                            ),
                         )),
                     ));
                 } else {

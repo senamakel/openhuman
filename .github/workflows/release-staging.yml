@@ -233,7 +233,8 @@ jobs:
         continue-on-error: true
         env:
           VERSION: ${{ steps.bump.outputs.version }}
-        run: bash scripts/release/merge-release-into-main.sh "chore(staging): merge release v${VERSION}-staging back into main"
+        run: |
+          bash scripts/release/merge-release-into-main.sh "chore(staging): merge release v${VERSION}-staging back into main"
 
   # =========================================================================
   # Phase 2: Build desktop artifacts (delegated to reusable workflow)

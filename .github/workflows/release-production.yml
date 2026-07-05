@@ -238,7 +238,8 @@ jobs:
         continue-on-error: true
         env:
           VERSION: ${{ steps.bump.outputs.version }}
-        run: bash scripts/release/merge-release-into-main.sh "chore(release): merge release v${VERSION} back into main"
+        run: |
+          bash scripts/release/merge-release-into-main.sh "chore(release): merge release v${VERSION} back into main"
 
   # =========================================================================
   # Phase 2: Create draft GitHub release

@@ -13,30 +13,31 @@ Companion docs in the tinychannels repo:
 
 ## Current State
 
-- This repo does **not** depend on tinychannels. Every ported surface is a
-  duplicated copy that is already drifting (rustfmt/edition diffs today,
-  semantic drift tomorrow):
+- This repo now depends on `tinychannels` through `tinychannels = { path =
+  "../tinychannels" }`. The first duplicate-removal pass has landed:
 
   | openhuman-4 file | tinychannels file |
   | --- | --- |
-  | `src/openhuman/channels/traits.rs` | `src/traits.rs` |
-  | `src/openhuman/channels/controllers/definitions.rs` | `src/controllers/definitions.rs` |
-  | `src/openhuman/channels/controllers/ops/types.rs` | `src/controllers/types.rs` |
-  | `src/openhuman/config/schema/channels.rs` | `src/config.rs` |
-  | `src/openhuman/channels/context.rs` (key/memory helpers) | `src/context.rs` |
-  | `src/openhuman/channels/runtime/supervision.rs:84` (`compute_max_in_flight_messages`) | `src/runtime.rs` |
+  | `src/openhuman/channels/traits.rs` | re-exports `src/traits.rs` |
+  | `src/openhuman/channels/controllers/definitions.rs` | re-exports `src/controllers/definitions.rs` |
+  | `src/openhuman/channels/controllers/ops/types.rs` | re-exports `src/controllers/types.rs` |
+  | `src/openhuman/config/schema/channels.rs` | re-exports provider config from `src/config.rs`, while keeping OpenHuman-owned security/sandbox config local |
+  | `src/openhuman/channels/context.rs` key/constants helpers | calls/re-exports `src/context.rs` where type-compatible |
+  | `src/openhuman/channels/runtime/supervision.rs` in-flight sizing | re-exports `src/runtime.rs::compute_max_in_flight_messages` |
+  | Telegram/Discord text splitting | calls `src/text.rs` chunker with UTF-16 measurement |
 
-- The `ChannelBackend` trait (`tinychannels/src/backend.rs`) has no
-  implementation here yet; its methods map 1:1 onto the existing free
-  functions in `channels/controllers/ops/{connect,messaging,discord,
-  telegram}.rs`.
+- `OpenHumanChannelBackend` now lives in
+  `src/openhuman/channels/controllers/backend.rs` and implements
+  `tinychannels::ChannelBackend` by delegating to the existing
+  `channels/controllers/ops/{connect,messaging,discord,telegram}.rs` flows.
 
 ## Step 1 — Add the dependency, delete duplicates
 
-- Add `tinychannels = { path = "../tinychannels" }` to `Cargo.toml`
+- **Landed:** Add `tinychannels = { path = "../tinychannels" }` to `Cargo.toml`
   (single crate, not a workspace; edition 2021 depending on an edition-2024
   crate is fine).
-- Delete the duplicated definitions/types/traits/config-schema/helper code and
+- **Landed for the first slice:** Delete the duplicated
+  definitions/types/traits/config-schema/helper code and
   re-export from the old paths so the 100+ call sites keep compiling:
   - `src/openhuman/channels/mod.rs`: `pub use tinychannels::{Channel,
     ChannelMessage, SendMessage, ...};`
@@ -47,20 +48,17 @@ Companion docs in the tinychannels repo:
     `YuanbaoConfig`, which this repo currently sources from
     `channels::email_channel` / `providers::yuanbao` — repoint those two to
     the crate and delete the local definitions.
-- Delete the migrated in-module tests along with the code (they already run in
-  tinychannels): definitions tests, config schema tests, traits tests,
-  context key/memory tests, `compute_max_in_flight_messages` tests, plus
-  `tests/memory.rs` key tests and the key assertions in
-  `tests/runtime_dispatch.rs`. Keep everything provider- or app-specific
-  (see Step 4).
+- Still pending: delete migrated in-module tests once each suite is fully
+  represented in tinychannels. Keep everything provider- or app-specific (see
+  Step 4).
 - Do not remove sandbox/security config from this repo based on the crate's
   copy: the crate is dropping its unwired `SecurityConfig`/`SandboxConfig`
   cluster as scope creep; this repo's originals (if used) stay where they are.
 
 ## Step 2 — Implement `ChannelBackend`
 
-- New `OpenHumanChannelBackend` in
-  `src/openhuman/channels/controllers/backend_impl.rs`, delegating each trait
+- **Landed:** New `OpenHumanChannelBackend` in
+  `src/openhuman/channels/controllers/backend.rs`, delegating each trait
   method to the existing ops functions:
   - `send_message` → `messaging.rs::channel_send_message` (already composes
     `effective_backend_api_url` + `jwt::get_session_token` +
@@ -72,9 +70,9 @@ Companion docs in the tinychannels repo:
     `health::snapshot`.
   - Telegram login and Discord link/guild/permission methods → the existing
     `telegram.rs` / `discord.rs` ops.
-- Route controller entry points through `ChannelManager<OpenHumanChannelBackend>`
-  so credential validation (`ChannelDefinition::validate_credentials`) happens
-  in one place.
+- Still pending: route controller entry points through
+  `ChannelManager<OpenHumanChannelBackend>` so credential validation
+  (`ChannelDefinition::validate_credentials`) happens in one place.
 - The event bus, health bus, and dispatch engine stay app-side and *drive*
   tinychannels. Never add a tinychannels → openhuman dependency; the
   `runtime/` dispatch engine and the `web` provider are consumers of the
@@ -86,17 +84,13 @@ Fix these here in lockstep with tinychannels Phase 1/2 (same semantics, one
 implementation — prefer calling the crate's new helpers over patching local
 copies):
 
-1. **UTF-16 chunking.** `providers/telegram/text.rs:4-50` and
-   `providers/discord/channel.rs:111-154` split by `.chars().count()`;
-   Telegram (4096) and Discord (2000) count UTF-16 code units, so emoji-heavy
-   messages can exceed the platform limit. Replace both with the crate's
-   Phase 2 chunker (which also adds fence preservation and `(i/N)`
-   indicators).
-2. **Telegram forum-topic session collapse.**
-   `channels/context.rs:76-90` drops `thread_ts` for telegram, so all topics
-   in a supergroup share one history/memory session. Adopt the crate's fixed
-   session-key helper; plan a one-time legacy-key migration (the crate ships
-   a canonicalization helper) so existing conversations keep their history.
+1. **Landed: UTF-16 chunking.** Telegram and Discord splitting now call the
+   crate's Phase 2 chunker with UTF-16 code-unit measurement and markdown fence
+   preservation.
+2. **Landed for existing helper semantics: Telegram history keys.**
+   `channels/context.rs` now delegates to the crate helper, preserving
+   OpenHuman's current Telegram topic behavior. Deeper envelope/session
+   migration still needs the planned scope/topic fields.
 3. **Workspace/tenant discriminator.** Session keys
    (`channels/bus.rs:1005-1042`) omit guild/team/tenant; Slack channel ids are
    only workspace-unique. Thread the new `scope_id` through inbound event

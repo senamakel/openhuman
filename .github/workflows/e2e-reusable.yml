@@ -718,13 +718,16 @@ jobs:
 
       - name: Package build artifact
         run: |
-          # The macOS .app is self-contained (frontend assets + CEF Frameworks +
-          # the OpenHuman Helper.app are embedded by tauri-bundler), so the .app
-          # bundle alone is everything a shard needs. tar preserves the bundle's
-          # internal symlinks + executable bits; each shard re-signs after
-          # extraction (adhoc codesign is required on every runner regardless).
-          tar -czf e2e-build-macos.tar.gz \
-            -C app/src-tauri/target/debug/bundle/macos OpenHuman.app
+          # Stage the same runner-visible layout Linux/Windows use. The .app is
+          # self-contained for runtime, but e2e-run-session.sh also validates the
+          # built frontend bundle before launching so shards need app/dist too.
+          STAGE="$(mktemp -d)"
+          mkdir -p "$STAGE/repo/app/src-tauri/target/debug/bundle/macos"
+          mkdir -p "$STAGE/repo/app/dist"
+          cp -a app/src-tauri/target/debug/bundle/macos/OpenHuman.app \
+            "$STAGE/repo/app/src-tauri/target/debug/bundle/macos/"
+          cp -a app/dist/. "$STAGE/repo/app/dist/"
+          tar -czf e2e-build-macos.tar.gz -C "$STAGE" repo
           ls -lh e2e-build-macos.tar.gz
 
       - name: Upload build artifact
@@ -794,11 +797,15 @@ jobs:
 
       - name: Restore .app bundle into workspace
         run: |
+          tar -xzf e2e-build-macos.tar.gz
           mkdir -p app/src-tauri/target/debug/bundle/macos
-          tar -xzf e2e-build-macos.tar.gz \
-            -C app/src-tauri/target/debug/bundle/macos
-          rm -f e2e-build-macos.tar.gz
+          mkdir -p app/dist
+          cp -a repo/app/src-tauri/target/debug/bundle/macos/OpenHuman.app \
+            app/src-tauri/target/debug/bundle/macos/
+          cp -a repo/app/dist/. app/dist/
+          rm -rf repo e2e-build-macos.tar.gz
           ls -la app/src-tauri/target/debug/bundle/macos/OpenHuman.app | head
+          ls -la app/dist | head
 
       # macOS rejects dynamic-framework loads from unsigned bundles — adhoc
       # signing satisfies the loader without a real developer-ID cert. A

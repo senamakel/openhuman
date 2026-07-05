@@ -130,7 +130,7 @@ Each phase is a coherent PR set: tinyagents PR(s) → release/tag → host `chor
 
 Land these as separate small PRs against tinyagents (each with its ported tests re-expressed in crate conventions):
 
-1. `SchemaCleanr` (+ its 15-test suite) → provider-layer schema cleaning. Zero-dep, highest value/effort ratio.
+1. `SchemaCleanr` (+ its 15-test suite) → provider-layer schema cleaning. Zero-dep, highest value/effort ratio. **Status:** draft upstream PR [tinyagents#20](https://github.com/tinyhumansai/tinyagents/pull/20) is open; host submodule bump and call-site swap wait for merge/release.
 2. `error_classify.rs` classifiers → retry/HTTP-error classification (strip openhuman-backend phrase matches into a host-side extension table; keep the generic HTTP/status logic).
 3. `model_context.rs` pattern-match table (substring-vs-segment matching, incl. the o1/o3 regression guard) → `ModelProfile` context resolution. OH tier aliases and cost-catalog arms stay host-side.
 4. First-class **reasoning channel** on `AssistantMessage` → delete the `ProviderExtension` smuggling in seam `convert.rs`.

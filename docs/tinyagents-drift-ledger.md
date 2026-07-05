@@ -51,12 +51,18 @@ work started. Counts include Rust files only.
 | P0-5 | SHA-256 prompt fingerprint / prompt-cache drift guard | **CLOSED** | `src/openhuman/tinyagents/middleware.rs` now stamps `PromptCacheSegmentMiddleware` segment ids and `ModelRequest::prompt_fingerprint` with SHA-256 over canonical JSON. Tool-cache identity includes the full serialized `ToolSchema` list, not just tool names, matching TinyAgents 1.6 `PromptBuilder::fingerprint` expectations. Added `prompt_cache_segments_fingerprint_full_tool_schema` as the local regression guard. |
 | P0-6 | Idempotent redaction middleware vs `journal.rs` double-redaction | **CLOSED** | Audit found no OpenHuman install of TinyAgents `RedactionMiddleware`. Model-facing tool output is scrubbed once by `CredentialScrubMiddleware`; durable event persistence is separately wrapped by `journal.rs` `RedactingSink` over `openhuman_redaction_secrets()`. These protect different surfaces, so there is no crate/host double-redaction seam to collapse in Phase 0. |
 
+## Phase 1 Drift Rows
+
+| # | Area | Status | Evidence / action |
+| --- | --- | --- | --- |
+| P1-1 | `SchemaCleanr` provider schema normalization | **UPSTREAM PR OPEN** | TinyAgents draft PR [tinyagents#20](https://github.com/tinyhumansai/tinyagents/pull/20) ports `SchemaCleanr` into `harness::tool` with crate-native errors and ported tests. Host submodule remains pinned to `v1.6.0` until the upstream PR merges/releases; no host call-site deletion yet. Local validation in the submodule: `cargo fmt`; `timeout 120s cargo test schema_`. |
+
 ## Phase Gates
 
 | Phase | Gate rows | Status |
 | --- | --- | --- |
 | Phase 0 - version alignment | P0-1, P0-2, P0-3, P0-4, P0-5, P0-6 | **OPEN** |
-| Phase 1 - quick upstream ports | SchemaCleanr, error classification, model context, reasoning channel, worktree isolation, display metadata, time tools | **NOT STARTED** |
+| Phase 1 - quick upstream ports | SchemaCleanr, error classification, model context, reasoning channel, worktree isolation, display metadata, time tools | **IN PROGRESS** |
 | Phase 2 - tool model and builtin families | ToolResult structure, permission model, ToolAccess, edit tracking, filesystem/network/time tools | **NOT STARTED** |
 | Phase 3 - provider consolidation | OpenAI-compatible provider cutover, retry ownership, backend envelope split | **NOT STARTED** |
 | Phase 4 - orchestration consolidation | TaskStore/SteeringRegistry lifecycle, status vocabulary, session durability | **NOT STARTED** |

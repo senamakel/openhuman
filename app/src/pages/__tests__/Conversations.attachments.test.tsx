@@ -4,7 +4,7 @@
  * attachment-only sends, and user bubble image rendering.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -300,6 +300,7 @@ describe('Conversations — attachment feature', () => {
   });
 
   afterEach(() => {
+    cleanup();
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
       value: originalCreateObjectURL,

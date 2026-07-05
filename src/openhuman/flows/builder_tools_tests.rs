@@ -261,10 +261,15 @@ async fn dry_run_invalid_graph_is_error() {
 
 #[tokio::test]
 async fn dry_run_catches_unwired_required_composio_arg() {
-    // Seed the preflight schema cache so no live Composio backend is needed:
-    // GMAIL_SEND_EMAIL requires `to`.
+    // Seed the preflight schema cache so no live Composio backend is needed.
+    // NOTE: the cache is process-global and other tests seed the `gmail`
+    // toolkit too — keep every seeding of GMAIL_SEND_EMAIL identical
+    // (`to` + `body`) so test order can't change the outcome.
     let mut entries = std::collections::HashMap::new();
-    entries.insert("GMAIL_SEND_EMAIL".to_string(), vec!["to".to_string()]);
+    entries.insert(
+        "GMAIL_SEND_EMAIL".to_string(),
+        vec!["to".to_string(), "body".to_string()],
+    );
     crate::openhuman::tinyflows::caps::seed_required_args_cache("gmail", entries);
 
     let tmp = TempDir::new().unwrap();
@@ -285,7 +290,7 @@ async fn dry_run_catches_unwired_required_composio_arg() {
     // the dry run must fail BEFORE the (mock) tool call, naming the field.
     let result = tool
         .execute(json!({
-            "graph": graph_with(json!({ "to": "=item.email" })),
+            "graph": graph_with(json!({ "to": "=item.email", "body": "hello" })),
             "input": {}
         }))
         .await
@@ -299,7 +304,7 @@ async fn dry_run_catches_unwired_required_composio_arg() {
     // The same flow with `to` wired from the trigger passes the preflight.
     let result = tool
         .execute(json!({
-            "graph": graph_with(json!({ "to": "=item.email" })),
+            "graph": graph_with(json!({ "to": "=item.email", "body": "hello" })),
             "input": { "email": "a@b.com" }
         }))
         .await

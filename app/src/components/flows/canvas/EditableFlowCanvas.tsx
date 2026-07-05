@@ -35,6 +35,7 @@ import '@xyflow/react/dist/style.css';
 import createDebug from 'debug';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFlowRunProgress, FLOW_RUN_NODE_STATUS_CLASS } from '../../../hooks/useFlowRunProgress';
 import { erroredNodeIds } from '../../../lib/flows/flowValidation';
 import {
   createFlowNode,
@@ -86,6 +87,13 @@ export interface EditableFlowCanvasProps {
    * so the host page can gate navigation-away (Phase 3d).
    */
   onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * Id of the currently-executing run (== thread_id) to overlay live per-node
+   * status on the canvas (Phase 3e). `null`/absent means no run is in flight,
+   * so no overlay is drawn. The live feed is best-effort — the durable
+   * `flow_runs` row + {@link useFlowRunPoller} remain the source of truth.
+   */
+  activeRunId?: string | null;
 }
 
 function EditableFlowCanvas({
@@ -95,6 +103,7 @@ function EditableFlowCanvas({
   onSave,
   onInvalidConnection,
   onDirtyChange,
+  activeRunId = null,
 }: EditableFlowCanvasProps) {
   const { t } = useT();
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initialNodes);
@@ -149,19 +158,30 @@ function EditableFlowCanvas({
       ),
     [validation, nodes]
   );
+  // ── Live run overlay (Phase 3e) ───────────────────────────────────────────
+  // Subscribe to the core's per-step progress feed for the active run and map
+  // each node id to a live-status ring class. This CLOSES Phase 1's deferred
+  // "frontend consumes FlowRunProgress" follow-up. The 2s poller in
+  // `useFlowRunPoller` stays as the durable fallback; this just makes it live.
+  const runProgress = useFlowRunProgress(activeRunId);
+
   // Derive the render array (never stored in draft, so it can't dirty the graph):
-  // tag errored nodes with the `flow-node-error` class the canvas CSS rings.
-  const displayNodes = useMemo(
-    () =>
-      erroredIds.size === 0
-        ? nodes
-        : nodes.map(n =>
-            erroredIds.has(n.id)
-              ? { ...n, className: `${n.className ?? ''} flow-node-error`.trim() }
-              : n
-          ),
-    [nodes, erroredIds]
-  );
+  // tag errored nodes with the `flow-node-error` class the canvas CSS rings, and
+  // overlay each node's live run status (`flow-node-running`/`-success`/`-failed`).
+  const hasRunOverlay = Object.keys(runProgress).length > 0;
+  const displayNodes = useMemo(() => {
+    if (erroredIds.size === 0 && !hasRunOverlay) return nodes;
+    return nodes.map(n => {
+      const extra: string[] = [];
+      if (erroredIds.has(n.id)) extra.push('flow-node-error');
+      const runClass = FLOW_RUN_NODE_STATUS_CLASS[runProgress[n.id]];
+      if (runClass) extra.push(runClass);
+      if (extra.length === 0) return n;
+      return { ...n, className: `${n.className ?? ''} ${extra.join(' ')}`.trim() };
+    });
+    // `runProgress` is a stable-enough dependency (new object only on a real
+    // status change, see the hook's setState guard).
+  }, [nodes, erroredIds, runProgress, hasRunOverlay]);
 
   // Load the secret-free credential refs once for the node-config credential
   // picker (http_request / tool_call). Guarded: outside Tauri (or if the RPC

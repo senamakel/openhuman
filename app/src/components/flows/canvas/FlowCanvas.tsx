@@ -41,6 +41,8 @@ export interface FlowCanvasProps {
   onSave?: (graph: WorkflowGraph) => void | Promise<void>;
   /** Reports the editable draft's dirty state so the host can guard navigation (editable only). */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Active run id (== thread_id) to overlay live per-node status on the canvas (editable only, Phase 3e). */
+  activeRunId?: string | null;
 }
 
 const NODE_TYPES = { [FLOW_NODE_TYPE]: FlowNodeComponent };
@@ -85,6 +87,7 @@ function FlowCanvas({
   meta,
   onSave,
   onDirtyChange,
+  activeRunId,
 }: FlowCanvasProps) {
   if (editable) {
     return (
@@ -94,6 +97,7 @@ function FlowCanvas({
         meta={meta ?? { schema_version: 1, name: '' }}
         onSave={onSave}
         onDirtyChange={onDirtyChange}
+        activeRunId={activeRunId}
       />
     );
   }

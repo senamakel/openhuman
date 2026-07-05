@@ -76,3 +76,48 @@
   border-radius: 0.85rem;
 }
 
+/*
+ * Live run overlay (Phase 3e): while a run is in flight the canvas rings each
+ * node with its live status from `useFlowRunProgress` — n8n's signature
+ * running/success/error interaction. Classes are applied to the outer
+ * `.react-flow__node` wrapper via the node's `className` (composed alongside the
+ * validation `.flow-node-error` ring). `flow-node-failed` is kept distinct from
+ * the validation `.flow-node-error` so a *runtime* failure reads differently
+ * from a *config* error.
+ */
+.flow-canvas .react-flow__node.flow-node-running {
+  outline: 2px solid rgb(var(--primary-500));
+  outline-offset: 3px;
+  border-radius: 0.85rem;
+  animation: flow-node-run-pulse 1.2s ease-in-out infinite;
+}
+
+.flow-canvas .react-flow__node.flow-node-success {
+  outline: 2px solid rgb(var(--sage-500));
+  outline-offset: 3px;
+  border-radius: 0.85rem;
+}
+
+.flow-canvas .react-flow__node.flow-node-failed {
+  outline: 2px solid rgb(var(--coral-500));
+  outline-offset: 3px;
+  border-radius: 0.85rem;
+}
+
+@keyframes flow-node-run-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--primary-500) / 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(var(--primary-500) / 0);
+  }
+}
+
+/* Respect reduced-motion: keep the ring, drop the pulse. */
+@media (prefers-reduced-motion: reduce) {
+  .flow-canvas .react-flow__node.flow-node-running {
+    animation: none;
+  }
+}
+

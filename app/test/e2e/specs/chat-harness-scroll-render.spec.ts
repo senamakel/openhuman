@@ -146,27 +146,34 @@ describe('Chat harness — scroll + markdown render', () => {
     });
 
     // ── 2. Markdown renders to the expected DOM tags ───────────────
-    const tags = await browser.execute(
-      (boldCanary: string, codeCanary: string, linkUrl: string) => {
-        const strongs = Array.from(document.querySelectorAll('strong')).map(
-          s => s.textContent ?? ''
+    let tags = { hasBold: false, hasCode: false, hasLink: false };
+    await browser.waitUntil(
+      async () => {
+        tags = await browser.execute(
+          (boldCanary: string, codeCanary: string, linkUrl: string) => {
+            const strongs = Array.from(document.querySelectorAll('strong')).map(
+              s => s.textContent ?? ''
+            );
+            const codes = Array.from(document.querySelectorAll('pre code, pre')).map(
+              c => c.textContent ?? ''
+            );
+            const anchors = Array.from(document.querySelectorAll('a[href]')).map(a => ({
+              href: (a as HTMLAnchorElement).getAttribute('href') ?? '',
+              text: a.textContent ?? '',
+            }));
+            return {
+              hasBold: strongs.some(t => t.includes(boldCanary)),
+              hasCode: codes.some(t => t.includes(codeCanary)),
+              hasLink: anchors.some(a => a.href === linkUrl),
+            };
+          },
+          CANARY_BOLD,
+          CANARY_CODE,
+          LINK_URL
         );
-        const codes = Array.from(document.querySelectorAll('pre code, pre')).map(
-          c => c.textContent ?? ''
-        );
-        const anchors = Array.from(document.querySelectorAll('a[href]')).map(a => ({
-          href: (a as HTMLAnchorElement).getAttribute('href') ?? '',
-          text: a.textContent ?? '',
-        }));
-        return {
-          hasBold: strongs.some(t => t.includes(boldCanary)),
-          hasCode: codes.some(t => t.includes(codeCanary)),
-          hasLink: anchors.some(a => a.href === linkUrl),
-        };
+        return tags.hasBold && tags.hasCode && tags.hasLink;
       },
-      CANARY_BOLD,
-      CANARY_CODE,
-      LINK_URL
+      { timeout: 10_000, timeoutMsg: 'markdown tags never rendered after stream completion' }
     );
     expect(tags.hasBold).toBe(true);
     expect(tags.hasCode).toBe(true);

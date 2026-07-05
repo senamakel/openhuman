@@ -268,6 +268,7 @@ fn flow_run_insert_finish_get_round_trip() {
         node_id: "t".to_string(),
         output: serde_json::json!([{"json": {"x": 1}}]),
         port: None,
+        ..Default::default()
     }];
     finish_flow_run(
         &config,

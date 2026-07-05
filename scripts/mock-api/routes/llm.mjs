@@ -9,6 +9,8 @@ import {
 import { buildDynamicCompletion } from "./llm/dynamic.mjs";
 import { headerValue, pickProbeText, resolveThreadKey } from "./llm/shared.mjs";
 
+const MAX_STREAM_DELAY_MS = 30_000;
+
 // The scripted `llmForcedResponses` FIFO models the *interactive* agent turn,
 // which always advertises tools (the orchestrator's delegate_* tools). Ancillary
 // completions that share the endpoint but carry no tools — thread-title/summary
@@ -175,6 +177,12 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function safeDelayMs(raw, fallback = 0) {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, MAX_STREAM_DELAY_MS);
+}
+
 // Split a string into N-character windows so we can stream tool-call
 // argument JSON the same way real providers do — clients accumulate the
 // partial fragments and JSON-parse at the end.
@@ -312,11 +320,7 @@ function handleStreamingCompletion({
     }
   }
 
-  const defaultDelayMs = Number.isFinite(
-    parseFloat(mockBehavior.llmStreamChunkDelayMs),
-  )
-    ? Math.max(0, parseFloat(mockBehavior.llmStreamChunkDelayMs))
-    : 25;
+  const defaultDelayMs = safeDelayMs(mockBehavior.llmStreamChunkDelayMs, 25);
 
   // Fire-and-forget — the dispatcher only cares that the handler
   // claimed the request. Errors mid-stream are surfaced through SSE.
@@ -344,9 +348,7 @@ async function streamScriptToResponse({ res, model, script, defaultDelayMs }) {
   let trailingUsage = null;
   for (let i = 0; i < script.length; i += 1) {
     const entry = script[i] ?? {};
-    const delay = Number.isFinite(entry.delayMs)
-      ? entry.delayMs
-      : defaultDelayMs;
+    const delay = safeDelayMs(entry.delayMs, defaultDelayMs);
     if (delay > 0) await sleep(delay);
 
     if (entry.error) {

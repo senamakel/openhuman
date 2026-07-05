@@ -1,5 +1,9 @@
 use super::*;
 
+fn discord_units(text: &str) -> usize {
+    text.encode_utf16().count()
+}
+
 #[test]
 fn discord_channel_name() {
     let ch = DiscordChannel::new("fake".into(), None, None, vec![], false, false);
@@ -169,11 +173,12 @@ fn split_message_just_over_limit() {
 fn split_very_long_message() {
     let msg = "word ".repeat(2000); // 10000 characters (5 chars per "word ")
     let chunks = split_message_for_discord(&msg);
-    // Should split into 5 chunks of <= 2000 chars
-    assert_eq!(chunks.len(), 5);
+    // The shared chunker prefers whitespace boundaries, so it may produce more
+    // than the mathematical minimum while preserving Discord's UTF-16 limit.
+    assert!(chunks.len() > 1);
     assert!(chunks
         .iter()
-        .all(|chunk| chunk.chars().count() <= DISCORD_MAX_MESSAGE_LENGTH));
+        .all(|chunk| discord_units(chunk) <= DISCORD_MAX_MESSAGE_LENGTH));
     // Verify total content is preserved
     let reconstructed = chunks.concat();
     assert_eq!(reconstructed, msg);
@@ -185,8 +190,8 @@ fn split_prefer_newline_break() {
     let chunks = split_message_for_discord(&msg);
     // Should split at the newline
     assert_eq!(chunks.len(), 2);
-    assert!(chunks[0].ends_with('\n'));
-    assert!(chunks[1].starts_with('b'));
+    assert!(chunks[1].starts_with('\n'));
+    assert!(chunks[1].trim_start_matches('\n').starts_with('b'));
 }
 
 #[test]
@@ -257,9 +262,10 @@ fn split_newline_too_close_to_end() {
 fn split_multibyte_only_content_without_panics() {
     let msg = "🦀".repeat(2500);
     let chunks = split_message_for_discord(&msg);
-    assert_eq!(chunks.len(), 2);
-    assert_eq!(chunks[0].chars().count(), DISCORD_MAX_MESSAGE_LENGTH);
-    assert_eq!(chunks[1].chars().count(), 500);
+    assert_eq!(chunks.len(), 3);
+    assert!(chunks
+        .iter()
+        .all(|chunk| discord_units(chunk) <= DISCORD_MAX_MESSAGE_LENGTH));
     let reconstructed = chunks.concat();
     assert_eq!(reconstructed, msg);
 }

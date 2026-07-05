@@ -916,10 +916,11 @@ impl EventListener for OpenhumanEventBridge {
                 tool_name,
                 input,
                 output,
-                // `duration_ms`/`output_bytes`/`error` now ride the crate event
-                // (tinyagents#18); the live bridge still reads its richer
-                // outcome side-channels here, so ignore them. Consuming them
-                // (and shrinking the side-channels) is C4 slice S1.
+                // `started_at_ms`/`duration_ms`/`output_bytes`/`error` now ride
+                // the crate event (tinyagents 1.7 / tinyagents#18). The bridge
+                // still reads its richer side channels below to preserve current
+                // success/duration/size behavior; adopting crate fields directly
+                // is C4 slice S1.
                 ..
             } => {
                 let iteration = self.iteration();

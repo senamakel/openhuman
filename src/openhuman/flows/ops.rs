@@ -12,6 +12,7 @@ use tinyflows::model::{TriggerKind, WorkflowGraph};
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::bus;
+use crate::openhuman::flows::run_registry;
 use crate::openhuman::flows::store;
 use crate::openhuman::flows::types::{FlowRunStep, FlowRunTrigger};
 use crate::openhuman::flows::{Flow, FlowRun};
@@ -21,6 +22,16 @@ use crate::rpc::RpcOutcome;
 /// capabilities have their own timeouts (HTTP, sandbox), but a hung LLM/tool
 /// call must never let the RPC block indefinitely — this caps the whole run.
 const FLOW_RUN_TIMEOUT_SECS: u64 = 600;
+
+/// How long a run may sit parked at a human-in-the-loop approval gate
+/// (`pending_approval`) before the TTL sweep expires it to a terminal
+/// `"cancelled"` (issue G4). Aligned with the agent tool-call `ApprovalGate`'s
+/// 10-minute fail-closed TTL (`src/openhuman/approval/`), so a flow HITL gate a
+/// human never answers doesn't wedge a run — and its durable checkpoint —
+/// forever. The two are distinct mechanisms (flow runs execute as
+/// `TrustedAutomation { Workflow }`, which the tool-call gate lets through), so
+/// this is a dedicated flows-side TTL, not a reuse of the approval store's.
+const FLOW_PARKED_TTL_SECS: i64 = 600;
 
 /// Runs a raw graph JSON value through `tinyflows::migrate::migrate` (upgrade
 /// an older-schema definition to current), deserializes it, and rejects a
@@ -38,6 +49,122 @@ pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGr
     let graph: WorkflowGraph = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
     tinyflows::validate::validate(&graph).map_err(|e| e.to_string())?;
     Ok(graph)
+}
+
+/// Stable snake_case label for a [`TriggerKind`], matching its serde wire
+/// discriminator — used in loud author-facing warnings (not derived via serde
+/// so the exact human string is unmistakable at the call site).
+fn trigger_kind_label(kind: &TriggerKind) -> &'static str {
+    match kind {
+        TriggerKind::Manual => "manual",
+        TriggerKind::Schedule => "schedule",
+        TriggerKind::Webhook => "webhook",
+        TriggerKind::AppEvent => "app_event",
+        TriggerKind::Form => "form",
+        TriggerKind::ExecuteByWorkflow => "execute_by_workflow",
+        TriggerKind::ChatMessage => "chat_message",
+        TriggerKind::Evaluation => "evaluation",
+        TriggerKind::System => "system",
+    }
+}
+
+/// Whether a flow's trigger kind currently produces *automatic* runs in this
+/// host. Only three kinds fire today:
+/// - `manual` — runnable on demand via `flows_run` (no automatic dispatch, but
+///   that's the whole contract of a manual trigger — never a surprise).
+/// - `schedule` — a `cron` job drives `FlowScheduleTick` (see
+///   [`bind_schedule_trigger`]).
+/// - `app_event` — matched against `ComposioTriggerReceived` at dispatch time
+///   (see `flows::bus::FlowTriggerSubscriber`).
+///
+/// Everything else (`webhook`, `chat_message`, `form`, `execute_by_workflow`,
+/// `evaluation`, `system`) is *accepted and saved* but has no wired dispatch
+/// path yet — enabling such a flow silently produces a flow that never runs
+/// itself. [`graph_trigger_warnings`] turns that silence into a loud warning.
+fn trigger_kind_fires(kind: &TriggerKind) -> bool {
+    matches!(
+        kind,
+        TriggerKind::Manual | TriggerKind::Schedule | TriggerKind::AppEvent
+    )
+}
+
+/// Produces host-side, **non-fatal** validation warnings for a graph — today
+/// exactly one: "this trigger kind does not fire automatically yet". Returns
+/// an empty vec when the trigger fires (`manual`/`schedule`/`app_event`), when
+/// the graph has no single resolvable trigger node, or when the trigger has no
+/// `trigger_kind` discriminator (a legacy/manual-only graph authored before
+/// B2 simply never self-fires — not a warnable surprise, matching
+/// `bus::extract_trigger_kind`'s "no automatic binding" treatment).
+///
+/// This lives host-side (NOT in `tinyflows::validate`, which is host-agnostic
+/// and only does structural checks) because "which trigger kinds this host has
+/// wired" is an OpenHuman fact, not a property of the portable graph.
+pub(crate) fn graph_trigger_warnings(graph: &WorkflowGraph) -> Vec<String> {
+    let Some(trigger) = graph.trigger() else {
+        return Vec::new();
+    };
+    let Some(kind_value) = trigger.config.get("trigger_kind") else {
+        return Vec::new();
+    };
+    let kind: TriggerKind = match serde_json::from_value(kind_value.clone()) {
+        Ok(k) => k,
+        Err(_) => return Vec::new(),
+    };
+    if trigger_kind_fires(&kind) {
+        return Vec::new();
+    }
+    let label = trigger_kind_label(&kind);
+    vec![format!(
+        "Trigger kind '{label}' does not fire automatically yet — this flow will be saved and \
+         can be enabled, but nothing will run it on its own until that trigger is wired up. Run \
+         it manually with flows_run, or switch to a `schedule` or `app_event` trigger."
+    )]
+}
+
+/// Validates a candidate graph without persisting it — the same
+/// migrate/validate path `flows_create` and `ProposeWorkflowTool` use — and
+/// reports structural errors alongside non-fatal trigger warnings
+/// ([`graph_trigger_warnings`]). Backs `openhuman.flows_validate` (PHASE 3c):
+/// an authoring surface can call this to preview validity + warnings before a
+/// save. Pure (no persistence, no config) — `valid == false` is a normal
+/// result, NOT an `Err`; `Err` is reserved for internal serialization faults
+/// (there are none on this path today).
+pub fn flows_validate(graph_json: Value) -> RpcOutcome<crate::openhuman::flows::FlowValidation> {
+    use crate::openhuman::flows::FlowValidation;
+    tracing::debug!(target: "flows", "[flows] flows_validate: validating candidate graph");
+    match validate_and_migrate_graph(graph_json) {
+        Ok(graph) => {
+            let warnings = graph_trigger_warnings(&graph);
+            for warning in &warnings {
+                tracing::warn!(target: "flows", warning = %warning, "[flows] flows_validate: non-fatal validation warning");
+            }
+            tracing::debug!(
+                target: "flows",
+                node_count = graph.nodes.len(),
+                warning_count = warnings.len(),
+                "[flows] flows_validate: graph is structurally valid"
+            );
+            RpcOutcome::single_log(
+                FlowValidation {
+                    valid: true,
+                    errors: Vec::new(),
+                    warnings,
+                },
+                "flow validated",
+            )
+        }
+        Err(error) => {
+            tracing::debug!(target: "flows", %error, "[flows] flows_validate: graph is structurally invalid");
+            RpcOutcome::single_log(
+                FlowValidation {
+                    valid: false,
+                    errors: vec![error],
+                    warnings: Vec::new(),
+                },
+                "flow validation failed",
+            )
+        }
+    }
 }
 
 /// Creates a new flow from a name and a raw graph JSON value.
@@ -195,10 +322,24 @@ pub async fn flows_set_enabled(
         unbind_trigger(config, &flow);
     }
 
-    Ok(RpcOutcome::single_log(
-        flow,
-        format!("flow {id} enabled={enabled}"),
-    ))
+    let mut logs = vec![format!("flow {id} enabled={enabled}")];
+    // When enabling, loudly surface any unfired-trigger-kind warning in the
+    // result (a structured `warning:`-prefixed log), not just a silent tracing
+    // line — so an enable of a flow that will never fire itself (webhook,
+    // chat_message, form, …) is impossible to miss at the call site.
+    if enabled {
+        for warning in graph_trigger_warnings(&flow.graph) {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %id,
+                warning = %warning,
+                "[flows] flows_set_enabled: enabling a flow whose trigger kind does not fire yet"
+            );
+            logs.push(format!("warning: {warning}"));
+        }
+    }
+
+    Ok(RpcOutcome::new(flow, logs))
 }
 
 /// Registers the automatic-dispatch side effect for `flow`'s trigger kind, if
@@ -444,9 +585,15 @@ pub async fn flows_run(
 
     start_flow_run_row(config, &thread_id, flow_id);
 
+    // Register this run as in-flight (issue G4) so a concurrent
+    // `flows_cancel_run` can signal it to abort. The guard deregisters on any
+    // exit from this fn (including the early returns below).
+    let (cancel_token, _run_guard) = run_registry::register(&thread_id);
+
     // Record a failed attempt so `last_run_at`/`last_status` reflect reality
     // (a stop-policy engine/capability failure or a timeout) rather than
-    // leaving the prior success/pending state on the flow.
+    // leaving the prior success/pending state on the flow. Preserve whatever
+    // steps the observer persisted live (don't wipe them back to `[]`).
     let record_failed = |error: &str| {
         if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
             tracing::warn!(
@@ -456,7 +603,8 @@ pub async fn flows_run(
                 "[flows] flows_run: failed to record failed run"
             );
         }
-        finish_flow_run_row(config, &thread_id, "failed", &[], &[], Some(error));
+        let observed = current_persisted_steps(config, &thread_id);
+        finish_flow_run_row(config, &thread_id, "failed", &observed, &[], Some(error));
     };
 
     let origin = workflow_origin(flow_id, flow.require_approval);
@@ -465,35 +613,67 @@ pub async fn flows_run(
     // post-run Langfuse export reads back. Process-local and dropped with the
     // run — never persisted.
     let journal = Arc::new(tinyflows::engine::InMemoryGraphEventJournal::new());
+    // Live run observer (issue G2): persists each finished step into the
+    // `flow_runs` row as it happens and streams a `FlowRunProgress` event to
+    // the frontend, so the durable + journaled path also reports live.
+    let observer: Arc<dyn tinyflows::observability::RunObserver> = Arc::new(
+        crate::openhuman::tinyflows::observability::FlowRunObserver::new(
+            Arc::new(config.clone()),
+            flow_id,
+            thread_id.clone(),
+        ),
+    );
     let run = with_origin(
         origin,
-        tinyflows::engine::run_with_checkpointer_journaled(
+        tinyflows::engine::run_with_checkpointer_journaled_observed(
             &compiled,
             input,
             &caps,
             checkpointer,
             &thread_id,
             journal.clone(),
+            &observer,
         ),
     );
-    let journaled = match tokio::time::timeout(
-        std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS),
-        run,
-    )
-    .await
-    {
-        Ok(Ok(journaled)) => journaled,
-        Ok(Err(e)) => {
-            record_failed(&e.to_string());
-            tracing::warn!(target: "flows", flow_id = %flow_id, error = %e, "[flows] flows_run: run failed");
-            return Err(e.to_string());
+    let timed = tokio::time::timeout(std::time::Duration::from_secs(FLOW_RUN_TIMEOUT_SECS), run);
+    tokio::pin!(timed);
+    // Race the run against a cancellation signal (issue G4). `biased` checks the
+    // cancel arm first so a `flows_cancel_run` that lands right as the run
+    // settles still wins deterministically.
+    let journaled = tokio::select! {
+        biased;
+        _ = cancel_token.cancelled() => {
+            tracing::info!(target: "flows", flow_id = %flow_id, thread_id = %thread_id, "[flows] flows_run: cancelled mid-run");
+            if let Err(e) = store::record_run(config, flow_id, "cancelled") {
+                tracing::warn!(target: "flows", flow_id = %flow_id, error = %e, "[flows] flows_run: failed to record cancelled run");
+            }
+            let observed = current_persisted_steps(config, &thread_id);
+            finish_flow_run_row(config, &thread_id, "cancelled", &observed, &[], Some("run cancelled"));
+            drop_checkpoint(config, &thread_id).await;
+            return Ok(RpcOutcome::single_log(
+                json!({
+                    "output": Value::Null,
+                    "pending_approvals": Vec::<String>::new(),
+                    "thread_id": thread_id,
+                    "cancelled": true,
+                }),
+                format!("flow run cancelled: {thread_id}"),
+            ));
         }
-        Err(_elapsed) => {
-            let msg = format!("flow run timed out after {FLOW_RUN_TIMEOUT_SECS}s");
-            record_failed(&msg);
-            tracing::warn!(target: "flows", flow_id = %flow_id, timeout_secs = FLOW_RUN_TIMEOUT_SECS, "[flows] flows_run: run timed out");
-            return Err(msg);
-        }
+        result = &mut timed => match result {
+            Ok(Ok(journaled)) => journaled,
+            Ok(Err(e)) => {
+                record_failed(&e.to_string());
+                tracing::warn!(target: "flows", flow_id = %flow_id, error = %e, "[flows] flows_run: run failed");
+                return Err(e.to_string());
+            }
+            Err(_elapsed) => {
+                let msg = format!("flow run timed out after {FLOW_RUN_TIMEOUT_SECS}s");
+                record_failed(&msg);
+                tracing::warn!(target: "flows", flow_id = %flow_id, timeout_secs = FLOW_RUN_TIMEOUT_SECS, "[flows] flows_run: run timed out");
+                return Err(msg);
+            }
+        },
     };
     let outcome = journaled.outcome;
 
@@ -507,7 +687,7 @@ pub async fn flows_run(
         config,
         &thread_id,
         status,
-        &reconstruct_steps(&outcome.output),
+        &settle_steps(config, &thread_id, &outcome.output),
         &outcome.pending_approvals,
         None,
     );
@@ -564,6 +744,7 @@ pub async fn flows_resume(
     flow_id: &str,
     thread_id: &str,
     approvals: Vec<String>,
+    rejections: Vec<String>,
 ) -> Result<RpcOutcome<Value>, String> {
     let flow = store::get_flow(config, flow_id)
         .map_err(|e| e.to_string())?
@@ -586,8 +767,21 @@ pub async fn flows_resume(
             run_record.status
         ));
     }
+    // A gate can't be both approved and denied in the same resume — that's an
+    // ambiguous instruction, reject it up front.
+    if let Some(dup) = approvals.iter().find(|a| rejections.contains(a)) {
+        return Err(format!(
+            "gate '{dup}' cannot be both approved and rejected in the same resume"
+        ));
+    }
+    // Same host-side guard the approvals path uses (see this fn's doc): the
+    // engine trusts whatever the resume delivers, so require that the caller's
+    // approvals/rejections actually name a currently-pending gate before ever
+    // touching the engine. A denial (issue G4) is enforced the same way — a
+    // rejection naming a pending gate is a valid resume just as an approval is.
     let matches_pending = approvals
         .iter()
+        .chain(rejections.iter())
         .any(|a| run_record.pending_approvals.contains(a));
     if !matches_pending {
         tracing::warn!(
@@ -595,12 +789,13 @@ pub async fn flows_resume(
             flow_id = %flow_id,
             %thread_id,
             ?approvals,
+            ?rejections,
             pending = ?run_record.pending_approvals,
-            "[flows] flows_resume: rejected — caller approvals name none of the pending gates"
+            "[flows] flows_resume: rejected — caller approvals/rejections name none of the pending gates"
         );
         return Err(format!(
-            "no pending approval matches: approvals {approvals:?} do not name any of the \
-             currently pending gates {:?} for run '{thread_id}'",
+            "no pending approval matches: approvals {approvals:?} / rejections {rejections:?} do \
+             not name any of the currently pending gates {:?} for run '{thread_id}'",
             run_record.pending_approvals
         ));
     }
@@ -617,6 +812,7 @@ pub async fn flows_resume(
         flow_id = %flow_id,
         %thread_id,
         approval_count = approvals.len(),
+        rejection_count = rejections.len(),
         "[flows] flows_resume: resuming checkpointed run"
     );
 
@@ -624,15 +820,30 @@ pub async fn flows_resume(
     // Same per-run journal as `flows_run`: the resumed execution mints a new
     // tinyagents run id, so its observation slice is read under that id.
     let journal = Arc::new(tinyflows::engine::InMemoryGraphEventJournal::new());
+    // Live observer (issue G2): the resumed run fires `on_step_finish` for each
+    // node that runs after the interrupt boundary, so downstream steps are
+    // persisted + streamed live too, keyed by the same `thread_id`/run row.
+    let observer: Arc<dyn tinyflows::observability::RunObserver> = Arc::new(
+        crate::openhuman::tinyflows::observability::FlowRunObserver::new(
+            Arc::new(config.clone()),
+            flow_id,
+            thread_id.to_string(),
+        ),
+    );
+    // `rejections` (issue G4 — deny semantics): a denied gate routes to its
+    // `error` port (recovery branch) or, if it has none, fails the run. The
+    // empty-rejections case is byte-for-byte the prior approve-only resume.
     let run = with_origin(
         origin,
-        tinyflows::engine::resume_with_checkpointer_journaled(
+        tinyflows::engine::resume_with_checkpointer_journaled_observed(
             &compiled,
             &caps,
             checkpointer,
             thread_id,
             approvals,
+            rejections,
             journal.clone(),
+            &observer,
         ),
     );
 
@@ -645,14 +856,23 @@ pub async fn flows_resume(
         Ok(Ok(journaled)) => journaled,
         Ok(Err(e)) => {
             let _ = store::record_run(config, flow_id, "failed");
-            finish_flow_run_row(config, thread_id, "failed", &[], &[], Some(&e.to_string()));
+            let observed = current_persisted_steps(config, thread_id);
+            finish_flow_run_row(
+                config,
+                thread_id,
+                "failed",
+                &observed,
+                &[],
+                Some(&e.to_string()),
+            );
             tracing::warn!(target: "flows", flow_id = %flow_id, %thread_id, error = %e, "[flows] flows_resume: run failed");
             return Err(e.to_string());
         }
         Err(_elapsed) => {
             let msg = format!("flow resume timed out after {FLOW_RUN_TIMEOUT_SECS}s");
             let _ = store::record_run(config, flow_id, "failed");
-            finish_flow_run_row(config, thread_id, "failed", &[], &[], Some(&msg));
+            let observed = current_persisted_steps(config, thread_id);
+            finish_flow_run_row(config, thread_id, "failed", &observed, &[], Some(&msg));
             tracing::warn!(target: "flows", flow_id = %flow_id, %thread_id, timeout_secs = FLOW_RUN_TIMEOUT_SECS, "[flows] flows_resume: run timed out");
             return Err(msg);
         }
@@ -669,7 +889,7 @@ pub async fn flows_resume(
         config,
         thread_id,
         status,
-        &reconstruct_steps(&outcome.output),
+        &settle_steps(config, thread_id, &outcome.output),
         &outcome.pending_approvals,
         None,
     );
@@ -706,12 +926,15 @@ pub async fn flows_resume(
 }
 
 /// Lists the most recent runs for a flow (newest first), for the B3
-/// run-history inspector.
+/// run-history inspector. Runs a lazy parked-run TTL sweep first (see
+/// [`sweep_expired_parked_runs`]) so the listing reflects any run that has now
+/// aged out of `pending_approval`.
 pub async fn flows_list_runs(
     config: &Config,
     flow_id: &str,
     limit: usize,
 ) -> Result<RpcOutcome<Vec<FlowRun>>, String> {
+    sweep_expired_parked_runs(config).await;
     let runs = store::list_flow_runs(config, flow_id, limit).map_err(|e| e.to_string())?;
     Ok(RpcOutcome::single_log(
         runs,
@@ -719,8 +942,11 @@ pub async fn flows_list_runs(
     ))
 }
 
-/// Loads a single flow run record by id (== `thread_id`).
+/// Loads a single flow run record by id (== `thread_id`). Runs the lazy
+/// parked-run TTL sweep first so a stale parked run is reported as `cancelled`
+/// rather than perpetually `pending_approval`.
 pub async fn flows_get_run(config: &Config, run_id: &str) -> Result<RpcOutcome<FlowRun>, String> {
+    sweep_expired_parked_runs(config).await;
     let run = store::get_flow_run(config, run_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("flow run '{run_id}' not found"))?;
@@ -728,6 +954,133 @@ pub async fn flows_get_run(config: &Config, run_id: &str) -> Result<RpcOutcome<F
         run,
         format!("flow run loaded: {run_id}"),
     ))
+}
+
+/// Lazy TTL sweep (issue G4): expires every parked `pending_approval` run older
+/// than [`FLOW_PARKED_TTL_SECS`] to a terminal `"cancelled"`, updates the flow
+/// summary, and drops each expired run's durable checkpoint so it can't be
+/// resumed. Mirrors the `approval` domain's expire-on-read idiom
+/// (`approval::store::expire_stale`): called at the top of the run-read paths
+/// rather than from a dedicated background timer, so it needs no scheduler.
+///
+/// Best-effort by construction — a sweep failure is logged and swallowed, never
+/// failing the read that triggered it. The `flows_resume` status guard already
+/// rejects any non-`pending_approval` run, so a swept run is unresumable the
+/// instant its row flips, independent of the checkpoint drop.
+pub async fn sweep_expired_parked_runs(config: &Config) -> usize {
+    let now = Utc::now();
+    let cutoff = (now - chrono::Duration::seconds(FLOW_PARKED_TTL_SECS)).to_rfc3339();
+    let now_str = now.to_rfc3339();
+    let error_msg = format!("parked run expired after {FLOW_PARKED_TTL_SECS}s awaiting approval");
+
+    let swept = match store::expire_parked_runs(config, &cutoff, &now_str, &error_msg) {
+        Ok(swept) => swept,
+        Err(e) => {
+            tracing::warn!(target: "flows", error = %e, "[flows] parked-run TTL sweep failed (read continues)");
+            return 0;
+        }
+    };
+    for (run_id, flow_id) in &swept {
+        if let Err(e) = store::record_run(config, flow_id, "cancelled") {
+            tracing::warn!(target: "flows", run_id, flow_id, error = %e, "[flows] TTL sweep: failed to update flow summary for expired run");
+        }
+        drop_checkpoint(config, run_id).await;
+    }
+    if !swept.is_empty() {
+        tracing::info!(target: "flows", count = swept.len(), ttl_secs = FLOW_PARKED_TTL_SECS, "[flows] parked-run TTL sweep expired stale runs");
+    }
+    swept.len()
+}
+
+/// Cancels a flow run (issue G4), settling it to a terminal `"cancelled"`
+/// status and dropping its durable checkpoint so the aborted thread can never
+/// be resumed.
+///
+/// Two cases, distinguished by [`run_registry::cancel`]:
+/// - **In-flight** (a `flows_run` / `flows_resume` currently executing its run
+///   future): the token is signalled and that run's own cancellation arm writes
+///   the terminal row + drops the checkpoint as it unwinds — we don't write the
+///   row here, to avoid two writers racing the same `flow_runs` row.
+/// - **Parked / stale** (a `pending_approval` run awaiting a human decision, or
+///   a `running` row whose task is gone): no live task exists to unwind, so
+///   this settles the row terminally itself and drops the checkpoint.
+///
+/// A run that is already terminal (`completed` / `failed` / `cancelled`) is a
+/// clear error, not a silent no-op.
+pub async fn flows_cancel_run(config: &Config, run_id: &str) -> Result<RpcOutcome<Value>, String> {
+    let run = store::get_flow_run(config, run_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("flow run '{run_id}' not found"))?;
+
+    if matches!(run.status.as_str(), "completed" | "failed" | "cancelled") {
+        return Err(format!(
+            "flow run '{run_id}' is already terminal (status: {}) — nothing to cancel",
+            run.status
+        ));
+    }
+
+    let signalled = run_registry::cancel(run_id);
+    tracing::info!(
+        target: "flows",
+        run_id,
+        flow_id = %run.flow_id,
+        signalled,
+        prior_status = %run.status,
+        "[flows] flows_cancel_run: cancelling run"
+    );
+
+    if signalled {
+        // The in-flight run's cancellation arm owns the terminal write + the
+        // checkpoint drop; we've signalled it and return. Its settle is
+        // eventual (the run future unwinds), so report "requested".
+        return Ok(RpcOutcome::single_log(
+            json!({ "run_id": run_id, "cancelled": true, "was_in_flight": true }),
+            format!("flow run {run_id} cancellation requested"),
+        ));
+    }
+
+    // Not in flight: settle the row terminally and drop the checkpoint here.
+    if let Err(e) = store::record_run(config, &run.flow_id, "cancelled") {
+        tracing::warn!(target: "flows", run_id, flow_id = %run.flow_id, error = %e, "[flows] flows_cancel_run: failed to record cancelled status on flow summary");
+    }
+    let observed = current_persisted_steps(config, run_id);
+    finish_flow_run_row(
+        config,
+        run_id,
+        "cancelled",
+        &observed,
+        &[],
+        Some("run cancelled"),
+    );
+    drop_checkpoint(config, run_id).await;
+
+    Ok(RpcOutcome::single_log(
+        json!({ "run_id": run_id, "cancelled": true, "was_in_flight": false }),
+        format!("flow run {run_id} cancelled"),
+    ))
+}
+
+/// Best-effort drop of a run's durable tinyagents checkpoint thread, so a
+/// cancelled (or expired) run can never be resumed from its persisted interrupt
+/// boundary. Logged, never fatal — the `flow_runs` row's terminal status is the
+/// authoritative "not resumable" signal (the `flows_resume` guard already
+/// rejects any non-`pending_approval` status); dropping the checkpoint is
+/// belt-and-suspenders that also reclaims the storage.
+async fn drop_checkpoint(config: &Config, thread_id: &str) {
+    use tinyflows::engine::Checkpointer as _;
+    match crate::openhuman::tinyflows::open_flow_checkpointer(config) {
+        Ok(checkpointer) => match checkpointer.delete_thread(thread_id).await {
+            Ok(()) => {
+                tracing::debug!(target: "flows", thread_id, "[flows] dropped durable checkpoint for cancelled/expired run")
+            }
+            Err(e) => {
+                tracing::warn!(target: "flows", thread_id, error = %e, "[flows] failed to drop durable checkpoint")
+            }
+        },
+        Err(e) => {
+            tracing::warn!(target: "flows", thread_id, error = %e, "[flows] could not open checkpointer to drop checkpoint");
+        }
+    }
 }
 
 /// Builds the `TrustedAutomation { Workflow }` origin scoped around every
@@ -775,14 +1128,14 @@ fn finish_flow_run_row(
 }
 
 /// Reconstructs a lean per-node step list from a settled run's
-/// `output["nodes"]` map. tinyflows 0.2's durable path installs a
-/// `NoopObserver` (see `tinyflows/observability.rs`), so there is no live
-/// step stream to persist — this is the B2 "good enough" substitute the
-/// spec calls for; a richer per-step `RunObserver` is a tinyflows 0.3 item.
+/// `output["nodes"]` map.
 ///
-/// // TODO(0.3): replace this reconstruction with a real `RunObserver` that
-/// // streams `node_id`/`status`/`output`/`duration_ms` as each node
-/// // finishes, once the durable run path supports installing one.
+/// As of issue G2 (live run observation) this is no longer the primary source
+/// of run steps — `flows::observability::FlowRunObserver` persists each step
+/// live as it finishes (with real `status`/`duration_ms`). This reconstruction
+/// is now only a **fallback**, used by [`settle_steps`] to fill in any node the
+/// observer didn't emit an `on_step_finish` for (notably the trigger node),
+/// and as the whole-run source when the observer saw nothing at all.
 fn reconstruct_steps(output: &Value) -> Vec<FlowRunStep> {
     let Some(nodes) = output.get("nodes").and_then(Value::as_object) else {
         return Vec::new();
@@ -793,8 +1146,62 @@ fn reconstruct_steps(output: &Value) -> Vec<FlowRunStep> {
             node_id: node_id.clone(),
             output: slot.get("items").cloned().unwrap_or(Value::Null),
             port: slot.get("port").and_then(Value::as_str).map(str::to_string),
+            // Reconstructed post-hoc: no live status/timing (see FlowRunStep).
+            status: None,
+            duration_ms: None,
         })
         .collect()
+}
+
+/// Reads back whatever steps the live [`FlowRunObserver`] has already persisted
+/// onto the run's row. Best-effort: a read failure yields an empty list (the
+/// caller still writes a terminal row), never propagating an error into the
+/// run's settle path.
+///
+/// [`FlowRunObserver`]: crate::openhuman::tinyflows::observability::FlowRunObserver
+fn current_persisted_steps(config: &Config, run_id: &str) -> Vec<FlowRunStep> {
+    store::get_flow_run(config, run_id)
+        .ok()
+        .flatten()
+        .map(|run| run.steps)
+        .unwrap_or_default()
+}
+
+/// Assembles the final step list to persist at settle: the live steps the
+/// observer already recorded (carrying real `status`/`duration_ms`), plus any
+/// node present in the post-hoc [`reconstruct_steps`] projection that the
+/// observer never emitted a step for — the trigger node, or (defensively) an
+/// observer that missed a step. If the observer recorded nothing at all
+/// (e.g. a run that paused immediately at a gate before any node finished),
+/// falls back wholesale to the reconstruction.
+fn settle_steps(config: &Config, run_id: &str, output: &Value) -> Vec<FlowRunStep> {
+    let reconstructed = reconstruct_steps(output);
+    let persisted = current_persisted_steps(config, run_id);
+    if persisted.is_empty() {
+        tracing::debug!(
+            target: "flows",
+            run_id,
+            reconstructed = reconstructed.len(),
+            "[flows] settle_steps: no live-observed steps — using post-hoc reconstruction"
+        );
+        return reconstructed;
+    }
+    let mut merged = persisted;
+    let mut filled = 0usize;
+    for step in reconstructed {
+        if !merged.iter().any(|s| s.node_id == step.node_id) {
+            merged.push(step);
+            filled += 1;
+        }
+    }
+    tracing::debug!(
+        target: "flows",
+        run_id,
+        step_count = merged.len(),
+        filled_from_reconstruction = filled,
+        "[flows] settle_steps: merged live-observed steps with post-hoc reconstruction"
+    );
+    merged
 }
 
 /// Milliseconds since the Unix epoch, for `CoreNotificationEvent::timestamp_ms`.

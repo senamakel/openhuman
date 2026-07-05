@@ -475,7 +475,7 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
         serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
     assert_eq!(pending, vec!["gate".to_string()]);
 
-    let resumed = flows_resume(&config, &created.value.id, &thread_id, pending)
+    let resumed = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
         .await
         .unwrap();
     assert_eq!(resumed.value["pending_approvals"], json!([]));
@@ -506,7 +506,7 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
 async fn flows_resume_missing_flow_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let err = flows_resume(&config, "missing", "thread-1", vec![])
+    let err = flows_resume(&config, "missing", "thread-1", vec![], vec![])
         .await
         .expect_err("must error");
     assert!(err.contains("not found"));
@@ -541,7 +541,7 @@ async fn flows_resume_with_empty_approvals_is_rejected_and_does_not_complete_the
     .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
-    let err = flows_resume(&config, &created.value.id, &thread_id, vec![])
+    let err = flows_resume(&config, &created.value.id, &thread_id, vec![], vec![])
         .await
         .expect_err("an empty approvals list must not silently approve the pending gate");
     assert!(
@@ -586,6 +586,7 @@ async fn flows_resume_with_mismatched_approvals_is_rejected() {
         &created.value.id,
         &thread_id,
         vec!["not-a-real-gate".to_string()],
+        vec![],
     )
     .await
     .expect_err("approvals naming no actually-pending gate must be rejected");
@@ -615,6 +616,7 @@ async fn flows_resume_with_the_correct_gate_completes_and_runs_downstream() {
         &created.value.id,
         &thread_id,
         vec!["gate".to_string()],
+        vec![],
     )
     .await
     .unwrap();
@@ -626,6 +628,149 @@ async fn flows_resume_with_the_correct_gate_completes_and_runs_downstream() {
 
     let reloaded = flows_get(&config, &created.value.id).await.unwrap();
     assert_eq!(reloaded.value.last_status.as_deref(), Some("completed"));
+}
+
+// ── flows_resume deny semantics (issue G4) ────────────────────────────────
+
+/// A gate with BOTH a `main` edge (to `downstream`) and an `error` edge (to
+/// `recover`): denying the gate routes to `recover`, not `downstream`.
+fn approval_gated_graph_with_error_port() -> Value {
+    json!({
+        "name": "approval-gated-error-port",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "gate", "kind": "output_parser", "name": "Gate", "config": { "requires_approval": true } },
+            { "id": "downstream", "kind": "output_parser", "name": "Downstream" },
+            { "id": "recover", "kind": "output_parser", "name": "Recover" }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "gate" },
+            { "from_node": "gate", "from_port": "main", "to_node": "downstream" },
+            { "from_node": "gate", "from_port": "error", "to_node": "recover" }
+        ]
+    })
+}
+
+#[tokio::test]
+async fn flows_resume_denying_a_gate_routes_to_its_error_port() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "gated-deny".to_string(),
+        approval_gated_graph_with_error_port(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    // Deny the gate: no approvals, `gate` in rejections.
+    let resumed = flows_resume(
+        &config,
+        &created.value.id,
+        &thread_id,
+        vec![],
+        vec!["gate".to_string()],
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(resumed.value["pending_approvals"], json!([]));
+    assert_eq!(
+        resumed.value["output"]["nodes"]["recover"]["items"][0]["json"]["error"]["node"],
+        json!("gate"),
+        "a denied gate must route its error item to the `error`-port recovery node"
+    );
+    assert!(
+        resumed.value["output"]["nodes"]["downstream"].is_null(),
+        "the main branch must not run when the gate is denied"
+    );
+
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert_eq!(reloaded.value.last_status.as_deref(), Some("completed"));
+
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "completed");
+    assert!(run_row.value.pending_approvals.is_empty());
+}
+
+#[tokio::test]
+async fn flows_resume_denying_a_gate_with_no_error_port_fails_the_run() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // `approval_gated_graph()` has only a `main` edge out of the gate — no
+    // `error` port to route a denial to, so the whole run must fail.
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let err = flows_resume(
+        &config,
+        &created.value.id,
+        &thread_id,
+        vec![],
+        vec!["gate".to_string()],
+    )
+    .await
+    .expect_err("denying a gate with no error port must fail the run");
+    assert!(
+        err.contains("denied"),
+        "expected a denial error, got: {err}"
+    );
+
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert_eq!(reloaded.value.last_status.as_deref(), Some("failed"));
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "failed");
+}
+
+#[tokio::test]
+async fn flows_resume_rejects_a_gate_named_in_both_approvals_and_rejections() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let err = flows_resume(
+        &config,
+        &created.value.id,
+        &thread_id,
+        vec!["gate".to_string()],
+        vec!["gate".to_string()],
+    )
+    .await
+    .expect_err("a gate cannot be both approved and rejected");
+    assert!(err.contains("cannot be both approved and rejected"));
+
+    // The run must be untouched (still pending), never half-resumed.
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "pending_approval");
 }
 
 #[tokio::test]
@@ -643,7 +788,7 @@ async fn flows_resume_of_a_non_paused_run_errors_clearly() {
         .unwrap();
     let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
 
-    let err = flows_resume(&config, &created.value.id, &thread_id, vec![])
+    let err = flows_resume(&config, &created.value.id, &thread_id, vec![], vec![])
         .await
         .expect_err("resuming an already-completed run must be a clear error, not a silent no-op");
     assert!(
@@ -664,6 +809,7 @@ async fn flows_resume_with_no_recorded_run_for_thread_id_errors_clearly() {
         &config,
         &created.value.id,
         "thread-that-was-never-started",
+        vec![],
         vec![],
     )
     .await
@@ -806,5 +952,408 @@ async fn flows_run_does_not_notify_when_run_completes_without_pending_approvals(
     assert!(
         !saw_notification,
         "a fully-completed run must not publish a pending-approval notification"
+    );
+}
+
+// ── Live run observation (issue G2) ───────────────────────────────────────
+
+use crate::openhuman::tinyflows::observability::FlowRunObserver;
+use std::sync::Arc as StdArc;
+// `RunObserver` must be in scope to call `on_step_finish` on the observer.
+use tinyflows::observability::{ExecutionStep, RunObserver as _, StepStatus};
+
+/// trigger -> output_parser passthrough: the parser is a non-trigger node, so
+/// the engine fires `on_step_finish` for it, exercising live persistence.
+fn passthrough_graph() -> Value {
+    json!({
+        "name": "passthrough",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "p", "kind": "output_parser", "name": "Parse" }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "p" } ]
+    })
+}
+
+#[tokio::test]
+async fn observer_persists_each_step_incrementally() {
+    // The observer no-ops until the run's start row exists (mirrors
+    // `start_flow_run_row`), so seed a flow + a running run row first.
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "obs".to_string(), passthrough_graph(), false)
+        .await
+        .unwrap();
+    let run_id = format!("flow:{}:run-under-test", created.value.id);
+    store::insert_flow_run(
+        &config,
+        &run_id,
+        &created.value.id,
+        &run_id,
+        "2026-01-01T00:00:00Z",
+    )
+    .unwrap();
+
+    let observer = FlowRunObserver::new(
+        StdArc::new(config.clone()),
+        created.value.id.clone(),
+        &run_id,
+    );
+    observer.on_step_finish(&ExecutionStep {
+        node_id: "a".to_string(),
+        status: StepStatus::Success,
+        output: json!([{ "json": { "ok": true } }]),
+        duration_ms: 7,
+    });
+    observer.on_step_finish(&ExecutionStep {
+        node_id: "b".to_string(),
+        status: StepStatus::Error,
+        output: Value::Null,
+        duration_ms: 3,
+    });
+
+    // The store now holds both live steps with real status + timing — proof of
+    // incremental persistence (post-hoc reconstruction leaves status None).
+    let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
+    assert_eq!(row.steps.len(), 2, "both live steps should be persisted");
+    let a = row.steps.iter().find(|s| s.node_id == "a").unwrap();
+    assert_eq!(a.status.as_deref(), Some("success"));
+    assert_eq!(a.duration_ms, Some(7));
+    let b = row.steps.iter().find(|s| s.node_id == "b").unwrap();
+    assert_eq!(b.status.as_deref(), Some("error"));
+    assert_eq!(b.duration_ms, Some(3));
+
+    // Re-firing the same node id replaces its entry rather than duplicating it.
+    observer.on_step_finish(&ExecutionStep {
+        node_id: "a".to_string(),
+        status: StepStatus::Success,
+        output: json!([{ "json": { "ok": true } }]),
+        duration_ms: 42,
+    });
+    let row = store::get_flow_run(&config, &run_id).unwrap().unwrap();
+    assert_eq!(row.steps.len(), 2, "re-firing a node must not duplicate it");
+    let a = row.steps.iter().find(|s| s.node_id == "a").unwrap();
+    assert_eq!(
+        a.duration_ms,
+        Some(42),
+        "the step should be replaced in place"
+    );
+}
+
+#[tokio::test]
+async fn flows_run_persists_live_steps_with_status_and_timing() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(
+        &config,
+        "passthrough".to_string(),
+        passthrough_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(row.value.status, "completed");
+
+    // The non-trigger node 'p' was observed live: it carries a real status +
+    // timing that only the live observer (not post-hoc reconstruction) sets.
+    let p = row
+        .value
+        .steps
+        .iter()
+        .find(|s| s.node_id == "p")
+        .expect("the output_parser step should be persisted");
+    assert_eq!(p.status.as_deref(), Some("success"));
+    assert!(
+        p.duration_ms.is_some(),
+        "a live-observed step should carry executor timing"
+    );
+
+    // The trigger node emits no `on_step_finish`; `settle_steps` fills it in
+    // from the post-hoc reconstruction, so it carries no live status.
+    let t = row
+        .value
+        .steps
+        .iter()
+        .find(|s| s.node_id == "t")
+        .expect("the trigger step should be reconstructed at settle");
+    assert!(
+        t.status.is_none(),
+        "the trigger step is reconstructed post-hoc, not observed live"
+    );
+}
+
+// ── flows_cancel_run (issue G4) ───────────────────────────────────────────
+
+#[tokio::test]
+async fn flows_cancel_run_cancels_a_parked_pending_approval_run() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    // Run pauses at the gate → a durable `pending_approval` row with no live
+    // task (the run future already returned): the not-in-flight cancel path.
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    assert_eq!(
+        flows_get_run(&config, &thread_id)
+            .await
+            .unwrap()
+            .value
+            .status,
+        "pending_approval"
+    );
+
+    let cancelled = flows_cancel_run(&config, &thread_id).await.unwrap();
+    assert_eq!(cancelled.value["cancelled"], json!(true));
+    assert_eq!(
+        cancelled.value["was_in_flight"],
+        json!(false),
+        "a parked run has no live task, so the cancel settles the row directly"
+    );
+
+    // The run row and the flow summary both reach the terminal `cancelled`.
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap();
+    assert_eq!(run_row.value.status, "cancelled");
+    assert!(run_row.value.pending_approvals.is_empty());
+    assert_eq!(run_row.value.error.as_deref(), Some("run cancelled"));
+
+    let reloaded = flows_get(&config, &created.value.id).await.unwrap();
+    assert_eq!(reloaded.value.last_status.as_deref(), Some("cancelled"));
+
+    // A cancelled run can no longer be resumed — the status guard rejects it.
+    let err = flows_resume(
+        &config,
+        &created.value.id,
+        &thread_id,
+        vec!["gate".to_string()],
+        vec![],
+    )
+    .await
+    .expect_err("a cancelled run must not be resumable");
+    assert!(err.contains("not pending approval") || err.contains("no paused run"));
+}
+
+#[tokio::test]
+async fn flows_cancel_run_of_an_already_completed_run_errors() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "demo".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    let run = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+
+    let err = flows_cancel_run(&config, &thread_id)
+        .await
+        .expect_err("cancelling an already-completed run must be a clear error");
+    assert!(err.contains("already terminal"), "got: {err}");
+}
+
+#[tokio::test]
+async fn flows_cancel_run_missing_run_errors() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let err = flows_cancel_run(&config, "no-such-run")
+        .await
+        .expect_err("must error for an unknown run");
+    assert!(err.contains("not found"));
+}
+
+// ── parked-run TTL sweep (issue G4) ───────────────────────────────────────
+
+#[tokio::test]
+async fn parked_run_ttl_sweep_expires_stale_runs_but_spares_fresh_ones() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+
+    // Seed a parked run whose "parked since" (finished_at) is far in the past,
+    // so it is well beyond the TTL.
+    let stale_id = format!("flow:{}:stale-run", created.value.id);
+    let ancient = "2000-01-01T00:00:00+00:00";
+    store::insert_flow_run(&config, &stale_id, &created.value.id, &stale_id, ancient).unwrap();
+    store::finish_flow_run(
+        &config,
+        &stale_id,
+        "pending_approval",
+        ancient,
+        &[],
+        &["gate".to_string()],
+        None,
+    )
+    .unwrap();
+
+    // A genuinely fresh parked run (just paused now) must survive the sweep.
+    let fresh = flows_run(&config, &created.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let fresh_id = fresh.value["thread_id"].as_str().unwrap().to_string();
+
+    let swept = sweep_expired_parked_runs(&config).await;
+    assert_eq!(swept, 1, "only the stale parked run should be swept");
+
+    let stale_row = store::get_flow_run(&config, &stale_id).unwrap().unwrap();
+    assert_eq!(stale_row.status, "cancelled");
+    assert!(
+        stale_row.error.unwrap_or_default().contains("expired"),
+        "an expired run's error must note the TTL expiry"
+    );
+
+    let fresh_row = store::get_flow_run(&config, &fresh_id).unwrap().unwrap();
+    assert_eq!(
+        fresh_row.status, "pending_approval",
+        "a run parked within the TTL must not be swept"
+    );
+
+    // The swept run is no longer resumable.
+    let err = flows_resume(
+        &config,
+        &created.value.id,
+        &stale_id,
+        vec!["gate".to_string()],
+        vec![],
+    )
+    .await
+    .expect_err("an expired parked run must not be resumable");
+    assert!(err.contains("not pending approval") || err.contains("no paused run"));
+}
+
+// ---------------------------------------------------------------------------
+// Unfired-trigger-kind warnings (PHASE 1a validation + PHASE 3c flows_validate)
+// ---------------------------------------------------------------------------
+
+fn webhook_trigger_graph() -> Value {
+    json!({
+        "name": "hooked",
+        "nodes": [
+            {
+                "id": "t",
+                "kind": "trigger",
+                "name": "Trigger",
+                "config": { "trigger_kind": "webhook" }
+            }
+        ],
+        "edges": []
+    })
+}
+
+#[test]
+fn flows_validate_warns_on_unfired_webhook_trigger() {
+    let outcome = flows_validate(webhook_trigger_graph());
+    assert!(outcome.value.valid, "a webhook graph is structurally valid");
+    assert!(outcome.value.errors.is_empty());
+    assert_eq!(
+        outcome.value.warnings.len(),
+        1,
+        "an unfired webhook trigger must produce exactly one warning: {:?}",
+        outcome.value.warnings
+    );
+    assert!(
+        outcome.value.warnings[0].contains("webhook")
+            && outcome.value.warnings[0].contains("does not fire"),
+        "warning must name the kind and explain it does not fire: {:?}",
+        outcome.value.warnings
+    );
+}
+
+#[test]
+fn flows_validate_does_not_warn_on_schedule_trigger() {
+    let outcome = flows_validate(schedule_trigger_graph("0 9 * * *"));
+    assert!(outcome.value.valid);
+    assert!(
+        outcome.value.warnings.is_empty(),
+        "a schedule trigger fires — it must not warn: {:?}",
+        outcome.value.warnings
+    );
+}
+
+#[test]
+fn flows_validate_reports_error_for_graph_without_trigger() {
+    let graph = json!({
+        "name": "bad",
+        "nodes": [ { "id": "a", "kind": "output_parser", "name": "A" } ],
+        "edges": []
+    });
+    let outcome = flows_validate(graph);
+    assert!(!outcome.value.valid);
+    assert_eq!(outcome.value.errors.len(), 1);
+    assert!(outcome.value.errors[0].contains("trigger"));
+    assert!(
+        outcome.value.warnings.is_empty(),
+        "an invalid graph reports no warnings"
+    );
+}
+
+#[tokio::test]
+async fn flows_set_enabled_surfaces_unfired_trigger_warning_at_enable() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "hooked".to_string(),
+        webhook_trigger_graph(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    // Re-enable (create already enables) to exercise the enable path's warning.
+    let enabled = flows_set_enabled(&config, &created.value.id, true)
+        .await
+        .unwrap();
+    assert!(enabled.value.enabled);
+    assert!(
+        enabled
+            .logs
+            .iter()
+            .any(|l| l.starts_with("warning:") && l.contains("webhook")),
+        "enabling a webhook-trigger flow must surface a loud warning log, got: {:?}",
+        enabled.logs
+    );
+}
+
+#[tokio::test]
+async fn flows_set_enabled_schedule_flow_has_no_warning() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "scheduled".to_string(),
+        schedule_trigger_graph("0 9 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let enabled = flows_set_enabled(&config, &created.value.id, true)
+        .await
+        .unwrap();
+    assert!(
+        !enabled.logs.iter().any(|l| l.starts_with("warning:")),
+        "a schedule-trigger flow must not surface an unfired-trigger warning: {:?}",
+        enabled.logs
     );
 }

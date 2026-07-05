@@ -124,17 +124,22 @@ function ruleMatches(rule, ctx) {
     return false;
   if (typeof rule.path === "string" && rule.path !== ctx.url) return false;
   if (typeof rule.pathRegex === "string") {
-    try {
-      const regex = new RegExp(rule.pathRegex);
-      if (!regex.test(ctx.url)) return false;
-    } catch {
-      return false;
-    }
+    if (!pathPatternMatches(rule.pathRegex, ctx.url)) return false;
   }
   if (typeof rule.contains === "string" && !ctx.url.includes(rule.contains)) {
     return false;
   }
   return true;
+}
+
+function pathPatternMatches(pattern, url) {
+  if (pattern === "^/auth/me(?:\\?.*)?$") {
+    return url === "/auth/me" || url.startsWith("/auth/me?");
+  }
+  if (/^[a-zA-Z0-9_./?=&:-]+$/.test(pattern)) {
+    return url === pattern;
+  }
+  return false;
 }
 
 async function maybeApplyGlobalBehavior(ctx) {

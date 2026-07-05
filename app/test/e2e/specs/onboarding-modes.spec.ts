@@ -143,14 +143,30 @@ async function clickOnboardingNext(): Promise<void> {
   }
 }
 
-async function advanceFromWelcomeToCustomInference(phase: string): Promise<void> {
-  await clickOnboardingNext();
+async function waitForCustomSelection(timeout = 5_000): Promise<boolean> {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const selected = await browser.execute(() => {
+      const el = document.querySelector('[data-testid="onboarding-runtime-choice-custom"]');
+      return el?.getAttribute('aria-pressed') === 'true';
+    });
+    if (selected) return true;
+    await pause(250);
+  }
+  return false;
+}
 
+async function advanceFromWelcomeToCustomInference(phase: string): Promise<void> {
   const reachedChoiceOrInference = await browser
     .waitUntil(
-      async () =>
-        (await testIdExists('onboarding-runtime-choice-step', 250)) ||
-        (await testIdExists('onboarding-custom-inference-step', 250)),
+      async () => {
+        if (await testIdExists('onboarding-runtime-choice-step', 250)) return true;
+        if (await testIdExists('onboarding-custom-inference-step', 250)) return true;
+        if (await testIdExists('onboarding-welcome-step', 250)) {
+          await clickOnboardingNext();
+        }
+        return false;
+      },
       {
         timeout: 15_000,
         interval: 300,
@@ -164,24 +180,32 @@ async function advanceFromWelcomeToCustomInference(phase: string): Promise<void>
   expect(reachedChoiceOrInference).toBe(true);
 
   if (await testIdExists('onboarding-runtime-choice-step', 500)) {
-    await pause(800);
-    const runtimeHash = await browser.execute(() => window.location.hash);
-    if (String(runtimeHash).includes('/onboarding/runtime-choice')) {
-      expect(await clickTestId('onboarding-runtime-choice-custom')).toBe(true);
-      const customSelected = await browser.execute(() => {
-        const el = document.querySelector('[data-testid="onboarding-runtime-choice-custom"]');
-        return el?.getAttribute('aria-pressed') === 'true';
-      });
-      if (!customSelected) {
-        stepLog(`${phase}: Custom card click did not register — retrying`);
-        await pause(500);
-        await clickTestId('onboarding-runtime-choice-custom');
-        await pause(300);
-      }
-    }
-    if (await testIdExists('onboarding-runtime-choice-step', 500)) {
-      await clickOnboardingNext();
-    }
+    const inferenceReached = await browser
+      .waitUntil(
+        async () => {
+          if (await testIdExists('onboarding-custom-inference-step', 250)) return true;
+          if (!(await testIdExists('onboarding-runtime-choice-step', 250))) return false;
+
+          if (!(await clickTestId('onboarding-runtime-choice-custom', 2_000))) {
+            return false;
+          }
+          const customSelected = await waitForCustomSelection(2_000);
+          if (!customSelected) {
+            stepLog(`${phase}: Custom card click did not register — retrying`);
+            return false;
+          }
+
+          await clickOnboardingNext();
+          return await testIdExists('onboarding-custom-inference-step', 1_000);
+        },
+        {
+          timeout: 15_000,
+          interval: 500,
+          timeoutMsg: `${phase}: custom inference did not mount after runtime choice`,
+        }
+      )
+      .catch(() => false);
+    expect(inferenceReached).toBe(true);
   }
 
   const inferenceVisible = await testIdExists('onboarding-custom-inference-step', 15_000);

@@ -154,6 +154,9 @@ pub(crate) fn tool_policy_from_openhuman_tool(
         })
         .with_runtime(ToolRuntime {
             timeout_ms,
+            // tinyagents 1.7 added a structured timeout field alongside the
+            // numeric timeout_ms. Inherit the run/global policy and keep the
+            // numeric timeout_ms above as the only per-tool deadline signal.
             timeout: TaToolTimeout::Inherit,
             max_retries: None,
             idempotent: tool.is_concurrency_safe(&serde_json::Value::Null),

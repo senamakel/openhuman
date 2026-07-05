@@ -7,6 +7,7 @@ use serde_json::{Map, Value};
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::config::Config;
 use crate::rpc::RpcOutcome;
 
 use super::backend::OpenHumanChannelBackend;
@@ -555,10 +556,7 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
             .as_deref()
             .map(str::trim)
             .filter(|s| !s.is_empty());
-        let manager = ChannelManager::new(
-            config.channels_config.clone(),
-            OpenHumanChannelBackend::new(config),
-        );
+        let manager = openhuman_channel_manager(config);
         let result = manager.status(filter).await.map_err(|e| e.to_string())?;
         to_json(RpcOutcome::new(result, vec![]))
     })
@@ -575,10 +573,7 @@ fn handle_set_default(params: Map<String, Value>) -> ControllerFuture {
 fn handle_get_default(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        let manager = ChannelManager::new(
-            config.channels_config.clone(),
-            OpenHumanChannelBackend::new(config),
-        );
+        let manager = openhuman_channel_manager(config);
         let active = manager
             .get_default_channel()
             .await
@@ -599,10 +594,7 @@ fn handle_test(params: Map<String, Value>) -> ControllerFuture {
             .auth_mode
             .parse()
             .map_err(|e: String| format!("invalid authMode: {e}"))?;
-        let manager = ChannelManager::new(
-            config.channels_config.clone(),
-            OpenHumanChannelBackend::new(config),
-        );
+        let manager = openhuman_channel_manager(config);
         let result = manager
             .test(p.channel.trim(), mode, p.credentials)
             .await
@@ -614,7 +606,12 @@ fn handle_test(params: Map<String, Value>) -> ControllerFuture {
 fn handle_telegram_login_start(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(ops::telegram_login_start(&config).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .telegram_login_start()
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(result, vec![]))
     })
 }
 
@@ -622,14 +619,24 @@ fn handle_telegram_login_check(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<TelegramLoginCheckParams>(params)?;
-        to_json(ops::telegram_login_check(&config, p.link_token.trim()).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .telegram_login_check(p.link_token.trim())
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(result, vec![]))
     })
 }
 
 fn handle_discord_link_start(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(ops::discord_link_start(&config).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .discord_link_start()
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(result, vec![]))
     })
 }
 
@@ -637,7 +644,12 @@ fn handle_discord_link_check(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<DiscordLinkCheckParams>(params)?;
-        to_json(ops::discord_link_check(&config, p.link_token.trim()).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .discord_link_check(p.link_token.trim())
+            .await
+            .map_err(|e| e.to_string())?;
+        to_json(RpcOutcome::new(result, vec![]))
     })
 }
 
@@ -720,6 +732,13 @@ fn handle_list_threads(params: Map<String, Value>) -> ControllerFuture {
 
 fn deserialize_params<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
     serde_json::from_value(Value::Object(params)).map_err(|e| format!("invalid params: {e}"))
+}
+
+fn openhuman_channel_manager(config: Config) -> ChannelManager<OpenHumanChannelBackend> {
+    ChannelManager::new(
+        config.channels_config.clone(),
+        OpenHumanChannelBackend::new(config),
+    )
 }
 
 fn required_string(name: &'static str, comment: &'static str) -> FieldSchema {

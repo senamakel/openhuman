@@ -7,15 +7,9 @@ mod telegram;
 mod types;
 mod yuanbao;
 
-// Re-export public types.
-pub use types::{
-    ChannelConnectionResult, ChannelStatusEntry, ChannelTestResult, DiscordLinkCheckResult,
-    DiscordLinkStartResult, TelegramLoginCheckResult, TelegramLoginStartResult,
-};
-
 // Re-export types needed by tests.
 #[cfg(test)]
-pub(crate) use crate::openhuman::channels::controllers::{ChannelAuthMode, ChannelDefinition};
+pub(crate) use crate::openhuman::channels::controllers::ChannelAuthMode;
 #[cfg(test)]
 pub(crate) use crate::openhuman::config::Config;
 #[cfg(test)]

@@ -3542,6 +3542,9 @@ const messages: TranslationMap = {
   'flows.editor.deleteSelected': '删除所选',
   // ── Validation UX + draft/dirty state (issue B5b / Phase 3c–3d)
   'flows.editor.saving': '正在保存…',
+  'flows.editor.run': '运行',
+  'flows.editor.running': '运行中…',
+  'flows.editor.runFailed': '无法开始运行',
   'flows.editor.validate': '验证',
   'flows.editor.validating': '正在验证…',
   'flows.editor.discard': '放弃更改',

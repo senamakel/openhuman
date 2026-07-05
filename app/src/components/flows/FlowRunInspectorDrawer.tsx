@@ -25,6 +25,7 @@ import debug from 'debug';
 
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useFlowRunPoller } from '../../hooks/useFlowRunPoller';
+import { type FlowNodeRunStatus, useFlowRunProgress } from '../../hooks/useFlowRunProgress';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { FlowRunStatus, FlowRunStep } from '../../services/api/flowsApi';
 
@@ -87,16 +88,44 @@ function formatStepOutput(output: unknown): string {
   }
 }
 
-function StepRow({ step, index }: { step: FlowRunStep; index: number }) {
+/**
+ * Live per-node status dot colour, keyed off the socket `flow:run_progress`
+ * feed (Phase 3e). Mirrors the run-level {@link FLOW_RUN_STATUS_DOT} language:
+ * ocean (running, pulsing), sage (success), coral (error). Falls back to the
+ * faint dot when the node has no live status yet (the poller stays the source
+ * of truth for the durable step list).
+ */
+const FLOW_STEP_LIVE_DOT: Record<string, string> = {
+  running: 'bg-ocean-500 animate-pulse',
+  success: 'bg-sage-500',
+  error: 'bg-coral-500',
+  failed: 'bg-coral-500',
+};
+
+function StepRow({
+  step,
+  index,
+  liveStatus,
+}: {
+  step: FlowRunStep;
+  index: number;
+  liveStatus?: FlowNodeRunStatus;
+}) {
   const { t } = useT();
   const outputText = formatStepOutput(step.output);
+  const dotClass =
+    (liveStatus && FLOW_STEP_LIVE_DOT[liveStatus]) ?? 'bg-content-faint';
 
   return (
     <li
       data-testid={`flow-run-step-${index}`}
       className="rounded-lg border border-line bg-surface-muted p-2.5 text-xs">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="h-1.5 w-1.5 flex-none rounded-full bg-content-faint" aria-hidden />
+        <span
+          data-testid={`flow-run-step-dot-${index}`}
+          className={`h-1.5 w-1.5 flex-none rounded-full ${dotClass}`}
+          aria-hidden
+        />
         <span className="truncate font-mono font-medium text-content-secondary">
           {step.node_id}
         </span>
@@ -136,6 +165,9 @@ interface Props {
 export function FlowRunInspectorDrawer({ runId, onClose }: Props) {
   const { t } = useT();
   const { run, loading, error } = useFlowRunPoller(runId);
+  // Live per-node status overlay (Phase 3e): the socket feed makes the poller's
+  // durable step list feel live without replacing it as the source of truth.
+  const liveStatuses = useFlowRunProgress(runId);
 
   useEscapeKey(() => {
     log('escape: closing runId=%s', runId);
@@ -266,7 +298,12 @@ export function FlowRunInspectorDrawer({ runId, onClose }: Props) {
                 ) : (
                   <ol className="space-y-2" data-testid="flow-run-steps">
                     {run.steps.map((step, idx) => (
-                      <StepRow key={`${step.node_id}-${idx}`} step={step} index={idx} />
+                      <StepRow
+                        key={`${step.node_id}-${idx}`}
+                        step={step}
+                        index={idx}
+                        liveStatus={liveStatuses[step.node_id]}
+                      />
                     ))}
                   </ol>
                 )}

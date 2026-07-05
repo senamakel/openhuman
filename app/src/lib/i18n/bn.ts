@@ -3736,6 +3736,9 @@ const messages: TranslationMap = {
   'flows.editor.deleteSelected': 'নির্বাচিত মুছুন',
   // ── Validation UX + draft/dirty state (issue B5b / Phase 3c–3d)
   'flows.editor.saving': 'সংরক্ষণ করা হচ্ছে…',
+  'flows.editor.run': 'চালান',
+  'flows.editor.running': 'চলছে…',
+  'flows.editor.runFailed': 'রান শুরু করা যায়নি',
   'flows.editor.validate': 'যাচাই করুন',
   'flows.editor.validating': 'যাচাই করা হচ্ছে…',
   'flows.editor.discard': 'পরিবর্তন বাতিল করুন',

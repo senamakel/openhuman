@@ -4384,6 +4384,9 @@ const en: TranslationMap = {
   'flows.palette.addNode': 'Add {kind} node',
   'flows.editor.save': 'Save',
   'flows.editor.saving': 'Saving…',
+  'flows.editor.run': 'Run',
+  'flows.editor.running': 'Running…',
+  'flows.editor.runFailed': 'Could not start run',
   'flows.editor.deleteSelected': 'Delete selected',
   // ── Validation UX + draft/dirty state (issue B5b / Phase 3c–3d)
   'flows.editor.validate': 'Validate',

@@ -3828,6 +3828,9 @@ const messages: TranslationMap = {
   'flows.editor.deleteSelected': 'Auswahl löschen',
   // ── Validation UX + draft/dirty state (issue B5b / Phase 3c–3d)
   'flows.editor.saving': 'Wird gespeichert…',
+  'flows.editor.run': 'Ausführen',
+  'flows.editor.running': 'Läuft…',
+  'flows.editor.runFailed': 'Ausführung konnte nicht gestartet werden',
   'flows.editor.validate': 'Prüfen',
   'flows.editor.validating': 'Wird geprüft…',
   'flows.editor.discard': 'Änderungen verwerfen',

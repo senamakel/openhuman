@@ -3699,6 +3699,9 @@ const messages: TranslationMap = {
   'flows.editor.deleteSelected': '선택 항목 삭제',
   // ── Validation UX + draft/dirty state (issue B5b / Phase 3c–3d)
   'flows.editor.saving': '저장 중…',
+  'flows.editor.run': '실행',
+  'flows.editor.running': '실행 중…',
+  'flows.editor.runFailed': '실행을 시작할 수 없습니다',
   'flows.editor.validate': '검증',
   'flows.editor.validating': '검증 중…',
   'flows.editor.discard': '변경 사항 취소',

@@ -28,7 +28,7 @@ import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState
 import { workflowGraphToXyflow } from '../lib/flows/graphAdapter';
 import type { WorkflowGraph } from '../lib/flows/types';
 import { useT } from '../lib/i18n/I18nContext';
-import { type Flow, getFlow, updateFlow } from '../services/api/flowsApi';
+import { type Flow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
 
 const log = createDebug('app:flows:canvas');
 
@@ -61,6 +61,12 @@ function FlowEditor({ flow }: { flow: Flow }) {
   const navigate = useNavigate();
   const [dirty, setDirty] = useState(false);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
+  // Active run id (== thread_id) driving the canvas's live per-node overlay
+  // (Phase 3e). Set when the user runs the flow; the canvas subscribes to the
+  // `flow:run_progress` feed for it via `useFlowRunProgress`.
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
 
   const graph = flow.graph as WorkflowGraph;
   const { nodes, edges } = useMemo(() => workflowGraphToXyflow(graph), [graph]);
@@ -91,6 +97,27 @@ function FlowEditor({ flow }: { flow: Flow }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
+  // Run the *persisted* flow and hand its thread_id to the canvas so it can
+  // overlay live per-node status (Phase 3e). Runs the saved version — not the
+  // (possibly dirty) draft — matching the "Save is explicit, running is live"
+  // model. The durable run row + poller remain the source of truth.
+  const handleRun = useCallback(async () => {
+    setRunning(true);
+    setRunError(null);
+    try {
+      log('run: starting flow id=%s', flow.id);
+      const result = await runFlow(flow.id);
+      log('run: started flow id=%s thread_id=%s', flow.id, result.thread_id);
+      setActiveRunId(result.thread_id);
+    } catch (err) {
+      const message = errorMessage(err);
+      log('run: failed id=%s err=%o', flow.id, err);
+      setRunError(message);
+    } finally {
+      setRunning(false);
+    }
+  }, [flow.id]);
+
   const handleBack = useCallback(() => {
     if (dirty) {
       log('back: dirty — prompting for confirmation');
@@ -113,11 +140,24 @@ function FlowEditor({ flow }: { flow: Flow }) {
     </Button>
   );
 
+  const runButton = (
+    <Button
+      type="button"
+      variant="primary"
+      size="xs"
+      data-testid="flow-canvas-run"
+      disabled={running}
+      onClick={() => void handleRun()}>
+      {running ? t('flows.editor.running') : t('flows.editor.run')}
+    </Button>
+  );
+
   return (
     <PanelPage
       testId="flow-canvas-page"
       title={flow.name}
       leading={backButton}
+      action={runButton}
       contentClassName="h-full p-0">
       <div className="relative h-full w-full">
         <FlowCanvas
@@ -127,7 +167,20 @@ function FlowEditor({ flow }: { flow: Flow }) {
           meta={meta}
           onSave={handleSave}
           onDirtyChange={setDirty}
+          activeRunId={activeRunId}
         />
+
+        {runError && (
+          <div
+            className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center">
+            <div
+              role="alert"
+              data-testid="flow-canvas-run-error"
+              className="pointer-events-auto rounded-xl border border-coral-200 bg-coral-50 px-3 py-2 text-xs text-coral-700 dark:border-coral-500/30 dark:bg-coral-500/10 dark:text-coral-300">
+              {t('flows.editor.runFailed')}: {runError}
+            </div>
+          </div>
+        )}
 
         {leaveConfirm && (
           <div

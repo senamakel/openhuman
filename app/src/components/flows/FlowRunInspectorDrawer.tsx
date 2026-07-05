@@ -26,9 +26,11 @@ import debug from 'debug';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { useFlowRunPoller } from '../../hooks/useFlowRunPoller';
 import { type FlowNodeRunStatus, useFlowRunProgress } from '../../hooks/useFlowRunProgress';
+import { type FlowRunItem, normalizeItems } from '../../lib/flows/runItems';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { FlowRunStatus, FlowRunStep } from '../../services/api/flowsApi';
 import Button from '../ui/Button';
+import { RunItemDataBrowser } from './RunItemDataBrowser';
 
 /**
  * Context handed to the "Fix with agent" action (Phase 5c) so the canvas
@@ -90,17 +92,6 @@ function formatTimestamp(value: string | null | undefined): string | null {
   }).format(new Date(parsed));
 }
 
-/** Render a step's `output` — pretty-printed JSON for objects/arrays, verbatim for strings. */
-function formatStepOutput(output: unknown): string {
-  if (output == null) return '';
-  if (typeof output === 'string') return output;
-  try {
-    return JSON.stringify(output, null, 2);
-  } catch {
-    return String(output);
-  }
-}
-
 /**
  * Live per-node status dot colour, keyed off the socket `flow:run_progress`
  * feed (Phase 3e). Mirrors the run-level {@link FLOW_RUN_STATUS_DOT} language:
@@ -119,15 +110,21 @@ function StepRow({
   step,
   index,
   liveStatus,
+  inputItems,
 }: {
   step: FlowRunStep;
   index: number;
   liveStatus?: FlowNodeRunStatus;
+  /**
+   * Normalized items of this step's *input* (the upstream step's output) so the
+   * data browser can resolve `paired_item` back to a source input item.
+   * Omitted for the first step, which has no upstream producer here.
+   */
+  inputItems?: FlowRunItem[];
 }) {
   const { t } = useT();
-  const outputText = formatStepOutput(step.output);
-  const dotClass =
-    (liveStatus && FLOW_STEP_LIVE_DOT[liveStatus]) ?? 'bg-content-faint';
+  const items = normalizeItems(step.output);
+  const dotClass = (liveStatus && FLOW_STEP_LIVE_DOT[liveStatus]) ?? 'bg-content-faint';
 
   return (
     <li
@@ -150,14 +147,18 @@ function StepRow({
           </span>
         )}
       </div>
-      {outputText.length > 0 && (
+      {items.length > 0 && (
         <details className="mt-1.5">
           <summary className="cursor-pointer text-[11px] font-medium text-content-faint hover:text-content-secondary">
             {t('flowRuns.inspector.output')}
           </summary>
-          <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-surface px-2 py-1.5 font-mono text-[11px] leading-relaxed text-content-secondary">
-            {outputText}
-          </pre>
+          <div className="mt-1.5">
+            <RunItemDataBrowser
+              items={items}
+              inputItems={inputItems}
+              testIdPrefix={`flow-run-step-${index}`}
+            />
+          </div>
         </details>
       )}
     </li>
@@ -194,7 +195,12 @@ export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props
     const failingNodeIds = Object.entries(liveStatuses)
       .filter(([, status]) => status === 'error' || status === 'failed')
       .map(([nodeId]) => nodeId);
-    log('fix-with-agent: flow=%s run=%s failing=%d', run.flow_id, run.thread_id, failingNodeIds.length);
+    log(
+      'fix-with-agent: flow=%s run=%s failing=%d',
+      run.flow_id,
+      run.thread_id,
+      failingNodeIds.length
+    );
     onFixWithAgent({
       flowId: run.flow_id,
       runId: run.thread_id,
@@ -352,6 +358,7 @@ export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props
                         step={step}
                         index={idx}
                         liveStatus={liveStatuses[step.node_id]}
+                        inputItems={idx > 0 ? normalizeItems(run.steps[idx - 1].output) : undefined}
                       />
                     ))}
                   </ol>

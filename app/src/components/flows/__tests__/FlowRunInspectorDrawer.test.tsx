@@ -74,15 +74,23 @@ describe('FlowRunInspectorDrawer', () => {
     expect(screen.getByTestId('flow-run-step-port-1')).toHaveTextContent('true');
   });
 
-  it('expands a step to reveal its output', () => {
+  it('expands a step to reveal its output in the per-item data browser', () => {
     useFlowRunPoller.mockReturnValue({ run: makeRun(), loading: false, error: null });
     renderDrawer('thread-1', vi.fn());
 
-    const step = screen.getByTestId('flow-run-step-0');
-    expect(step.querySelector('pre')).not.toBeVisible();
+    // Data browser lives inside a collapsed <details> until expanded.
+    expect(screen.queryByTestId('flow-run-step-0-data-browser')).not.toBeVisible();
     fireEvent.click(screen.getAllByText('Output')[0]);
-    expect(step.querySelector('pre')).toBeVisible();
-    expect(step.querySelector('pre')?.textContent).toContain('"rows": 3');
+
+    // Default table view shows the `rows` column and its value.
+    const browser = screen.getByTestId('flow-run-step-0-data-browser');
+    expect(browser).toBeVisible();
+    expect(screen.getByTestId('flow-run-step-0-table')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-run-step-0-row-0')).toHaveTextContent('3');
+
+    // Toggling to JSON shows the pretty-printed payload.
+    fireEvent.click(screen.getByTestId('flow-run-step-0-view-json'));
+    expect(screen.getByTestId('flow-run-step-0-json').textContent).toContain('"rows": 3');
   });
 
   it('shows an error state when the poller reports an error', () => {

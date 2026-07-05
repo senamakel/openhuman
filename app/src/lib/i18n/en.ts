@@ -4323,6 +4323,18 @@ const en: TranslationMap = {
   // Phase 5c — "Fix with agent" opens the canvas copilot preloaded with this
   // failed run's context so the workflow builder can propose a fix.
   'flowRuns.inspector.fixWithAgent': 'Fix with agent',
+  // Phase 6 — per-item data browser (n8n-style table ⟷ JSON toggle) for a
+  // step's output items, plus the input↔output pairing affordance.
+  'flowRuns.inspector.dataTable': 'Table',
+  'flowRuns.inspector.dataJson': 'JSON',
+  'flowRuns.inspector.dataViewLabel': 'Output view',
+  'flowRuns.inspector.itemCount': '{count} item(s)',
+  'flowRuns.inspector.noItems': 'No output items',
+  'flowRuns.inspector.emptyValue': '(empty)',
+  'flowRuns.inspector.binaryLabel': 'Binary',
+  'flowRuns.inspector.showSource': 'Source',
+  'flowRuns.inspector.hideSource': 'Hide source',
+  'flowRuns.inspector.sourceInputTitle': 'Source input item',
   'flowRuns.status.running': 'Running',
   'flowRuns.status.completed': 'Completed',
   'flowRuns.status.pending_approval': 'Awaiting approval',

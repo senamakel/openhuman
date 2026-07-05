@@ -1,17 +1,23 @@
 ---
-# PR fast lane (PRs targeting main + pushes to main).
+# CI Lite — the quick lane (pushes to main + PRs targeting main or release).
 #
 # Runs quality checks per changed area and unit tests ONLY for the files the
 # PR changed (vitest related / domain-scoped cargo-llvm-cov), with diff-cover
 # enforcing >= 80% coverage on changed lines. Integration and E2E suites do
-# NOT run here — they run in full on main→release PRs via release-ci.yml.
-name: PR CI
+# NOT run here — they run in full on every push to `release` via ci-full.yml
+# (release is advanced by the maintainer-dispatched
+# promote-main-to-release.yml and by merged fix PRs against release, which
+# get this fast lane for quick feedback).
+#
+# The gate job keeps its historical "PR CI Gate" check name so the main
+# ruleset's required-status-check reference stays valid.
+name: CI Lite
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, release]
 
 permissions:
   # `actions: read` lets scripts/ci-cancel-aware.sh poll the run status so
@@ -77,7 +83,7 @@ jobs:
           list-files: shell
           filters: |
             frontend:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               # The changed-files runner itself must trigger the lane that
               # runs it (it is also in frontend-full → full-suite mode).
               - 'scripts/ci/vitest-changed-coverage.sh'
@@ -95,7 +101,7 @@ jobs:
               - 'app/postcss.config.*'
             # Changes here invalidate per-file test scoping → full Vitest run.
             frontend-full:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               - 'scripts/ci/vitest-changed-coverage.sh'
               - 'package.json'
               - 'pnpm-lock.yaml'
@@ -112,17 +118,17 @@ jobs:
               - 'app/src/**/*.ts'
               - 'app/src/**/*.tsx'
             i18n:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               - 'app/src/**'
             docs:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               - 'app/src/App.tsx'
               - 'scripts/generate-architecture-docs.mjs'
               - 'scripts/__tests__/generate-architecture-docs.test.mjs'
               - 'gitbooks/developing/architecture/frontend.md'
               - 'package.json'
             rust-core:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               # The changed-files runner itself must trigger the lane that
               # runs it (it is also in rust-core-full → full-suite mode).
               - 'scripts/ci/rust-coverage-changed.sh'
@@ -136,7 +142,7 @@ jobs:
               - 'scripts/test-rust-with-mock.sh'
             # Changes here invalidate per-module test scoping → full suite.
             rust-core-full:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               - 'scripts/ci/rust-coverage-changed.sh'
               - 'Cargo.toml'
               - 'Cargo.lock'
@@ -146,7 +152,7 @@ jobs:
               - 'src/**'
               - 'tests/**'
             rust-tauri:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               - 'Cargo.lock'
               - 'rust-toolchain.toml'
               - 'app/src-tauri/**'
@@ -156,7 +162,7 @@ jobs:
             # own socket-auth tests never ran in CI) — arm the scripts
             # self-test job on any mock/script change.
             scripts:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               - 'scripts/mock-api/**'
               - 'scripts/*.mjs'
               - 'scripts/__tests__/**'
@@ -172,7 +178,7 @@ jobs:
               - 'scripts/generate-test-inventory.mjs'
             # Windows installer + its Pester unit test.
             install_ps1:
-              - '.github/workflows/pr-ci.yml'
+              - '.github/workflows/ci-lite.yml'
               - 'scripts/install.ps1'
               - 'scripts/tests/OpenHumanWindowsInstall.Tests.ps1'
 

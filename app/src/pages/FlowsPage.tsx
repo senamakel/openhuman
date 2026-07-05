@@ -65,9 +65,6 @@ export default function FlowsPage() {
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   // Whether the Phase 4a "New workflow" chooser modal is open.
   const [chooserOpen, setChooserOpen] = useState(false);
-  // Bumped by the chooser's "Describe it" action so the prompt bar remounts and
-  // takes focus (Phase 5c). Starts at 0 (no autofocus on initial page load).
-  const [describeNonce, setDescribeNonce] = useState(0);
   // Create-and-open logic for the empty-state inline template gallery. (The
   // chooser modal owns its own `useCreateFlow` instance.)
   const emptyCreate = useCreateFlow();
@@ -301,18 +298,6 @@ export default function FlowsPage() {
     setChooserOpen(true);
   }, []);
 
-  /**
-   * "Describe it" hand-off (Phase 5c): rather than punting to Chat, focus the
-   * in-place prompt bar at the top of this page — it spawns a `workflow_builder`
-   * turn in a dedicated thread and renders the proposal inline. Bumping the
-   * nonce remounts the bar so it takes focus even though it's already visible.
-   */
-  const handleDescribe = useCallback(() => {
-    log('new workflow: describe — focusing the prompt bar');
-    setChooserOpen(false);
-    setDescribeNonce(n => n + 1);
-  }, []);
-
   /** Create a flow from an empty-state gallery card and open its canvas. */
   const handleEmptyTemplate = useCallback(
     (template: FlowTemplate) => {
@@ -358,13 +343,9 @@ export default function FlowsPage() {
       <div className="mx-auto w-full max-w-3xl space-y-4">
         {/* Prompt-first authoring (Phase 5c): describe a workflow and let the
             builder agent propose it. Hero presentation when the list is empty,
-            compact otherwise. Keyed by `describeNonce` so the chooser's
-            "Describe it" action remounts + focuses it. */}
-        <WorkflowPromptBar
-          key={`prompt-bar-${describeNonce}`}
-          variant={!loading && flows.length === 0 ? 'hero' : 'compact'}
-          autoFocus={describeNonce > 0}
-        />
+            compact otherwise. Always visible, so it's the single "describe a
+            workflow" entry point (the chooser modal no longer duplicates it). */}
+        <WorkflowPromptBar variant={!loading && flows.length === 0 ? 'hero' : 'compact'} />
 
         {error && (
           <div data-testid="flows-error">
@@ -442,7 +423,7 @@ export default function FlowsPage() {
       />
 
       {chooserOpen && (
-        <NewWorkflowModal onClose={() => setChooserOpen(false)} onDescribe={handleDescribe} />
+        <NewWorkflowModal onClose={() => setChooserOpen(false)} />
       )}
 
       {deleteTarget && (

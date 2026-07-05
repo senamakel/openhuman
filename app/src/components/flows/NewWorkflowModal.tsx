@@ -6,8 +6,10 @@
  *    `manual` trigger, then open it in the editable canvas.
  *  - **From a template** — switch to the {@link FlowTemplateGallery} view;
  *    picking a card creates a flow from that template's graph and opens it.
- *  - **Describe it** — interim: seed the intent in Chat so the user can invoke
- *    `propose_workflow`. Superseded by the Phase 5 in-place prompt bar.
+ *
+ * The old "Describe it" option was dropped: the Flows page already shows the
+ * `WorkflowPromptBar` at all times (hero when empty, compact otherwise), so a
+ * modal option that only re-focused that same bar was redundant.
  *
  * Create + navigate is delegated to {@link useCreateFlow}; this component only
  * owns which view is showing and assembles the name/graph for each path.
@@ -24,12 +26,6 @@ import { BLANK_FLOW_KEY, useCreateFlow } from './useCreateFlow';
 
 interface NewWorkflowModalProps {
   onClose: () => void;
-  /**
-   * "Describe it" handler — navigates to Chat with the workflow-building intent.
-   * TODO(phase-5): replace this Chat hand-off with the in-place prompt bar that
-   * runs `propose_workflow` directly on the canvas.
-   */
-  onDescribe: () => void;
 }
 
 type View = 'chooser' | 'gallery';
@@ -63,7 +59,7 @@ function ChooserOption({
 
 const log = createDebug('app:flows:new');
 
-export default function NewWorkflowModal({ onClose, onDescribe }: NewWorkflowModalProps) {
+export default function NewWorkflowModal({ onClose }: NewWorkflowModalProps) {
   const { t } = useT();
   const [view, setView] = useState<View>('chooser');
   const { create, busyKey, error, clearError } = useCreateFlow();
@@ -127,13 +123,6 @@ export default function NewWorkflowModal({ onClose, onDescribe }: NewWorkflowMod
               description={t('flows.chooser.templateDescription')}
               disabled={busy}
               onClick={openGallery}
-            />
-            <ChooserOption
-              testId="new-workflow-describe"
-              title={t('flows.chooser.describeTitle')}
-              description={t('flows.chooser.describeDescription')}
-              disabled={busy}
-              onClick={onDescribe}
             />
           </>
         ) : (

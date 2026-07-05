@@ -4418,7 +4418,7 @@ const en: TranslationMap = {
   'flows.copilot.removed': '{count} removed',
   'flows.copilot.noChanges': 'No node changes in this proposal.',
   'flows.copilot.accept': 'Apply to draft',
-  'flows.copilot.reject': 'Discard',
+  'flows.copilot.reject': 'Dismiss',
   'flows.copilot.previewHint': 'Reviewing a proposed draft — nothing is saved yet.',
   'flows.copilot.repairDisplay': 'A run failed — please look at it and propose a fix.',
 
@@ -4431,6 +4431,7 @@ const en: TranslationMap = {
   'flows.canvas.notFound': 'This workflow could not be found.',
   'flows.canvas.draftMissing': 'No workflow draft to open. Propose one from chat first.',
   'flows.canvas.backToList': 'Back to workflows',
+  'flows.canvas.renameLabel': 'Rename workflow',
   'flows.nodeKind.trigger': 'Trigger',
   'flows.nodeKind.agent': 'Agent',
   'flows.nodeKind.tool_call': 'Tool call',

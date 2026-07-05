@@ -6,7 +6,6 @@
  *    trigger node and no edges, then navigates into the new flow's canvas.
  *  - "From a template" reveals the gallery; picking a card calls `flows_create`
  *    with that template's exact graph and navigates into the canvas.
- *  - "Describe it" invokes the `onDescribe` hand-off (Chat).
  *  - A `flows_create` rejection surfaces the localized error banner.
  *
  * `react-router-dom`'s `useNavigate` and `flowsApi.createFlow` are mocked so the
@@ -29,9 +28,8 @@ vi.mock('../../services/api/flowsApi', () => ({ createFlow }));
 
 function renderModal() {
   const onClose = vi.fn();
-  const onDescribe = vi.fn();
-  render(<NewWorkflowModal onClose={onClose} onDescribe={onDescribe} />);
-  return { onClose, onDescribe };
+  render(<NewWorkflowModal onClose={onClose} />);
+  return { onClose };
 }
 
 describe('NewWorkflowModal', () => {
@@ -72,13 +70,9 @@ describe('NewWorkflowModal', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/flows/flow-tpl'));
   });
 
-  it('describe it triggers the onDescribe hand-off and does not create a flow', () => {
-    const { onDescribe } = renderModal();
-
-    fireEvent.click(screen.getByTestId('new-workflow-describe'));
-
-    expect(onDescribe).toHaveBeenCalledTimes(1);
-    expect(createFlow).not.toHaveBeenCalled();
+  it('does not offer a redundant "Describe it" option (the prompt bar covers it)', () => {
+    renderModal();
+    expect(screen.queryByTestId('new-workflow-describe')).not.toBeInTheDocument();
   });
 
   it('can navigate from the gallery back to the chooser', () => {

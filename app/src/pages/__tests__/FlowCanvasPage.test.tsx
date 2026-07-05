@@ -91,7 +91,21 @@ describe('FlowCanvasPage', () => {
 
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
     expect(getFlow).toHaveBeenCalledWith('test-id');
-    expect(screen.getByText('Daily digest')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Daily digest');
+  });
+
+  it('renames a persisted flow via the editable title (metadata-only update)', async () => {
+    getFlow.mockResolvedValue(makeFlow());
+    updateFlow.mockResolvedValue(makeFlow({ name: 'Renamed' }));
+    renderAtFlowId('test-id');
+
+    const title = await screen.findByTestId('flow-canvas-title');
+    fireEvent.change(title, { target: { value: 'Renamed' } });
+    fireEvent.blur(title);
+
+    await waitFor(() => expect(updateFlow).toHaveBeenCalledWith('test-id', { name: 'Renamed' }));
+    // Name-only update — no graph in the payload, so it can't fire a schedule.
+    expect(updateFlow.mock.calls[0][1]).not.toHaveProperty('graph');
   });
 
   it('shows a not-found state when the flow does not exist', async () => {
@@ -128,7 +142,7 @@ describe('FlowCanvasPage', () => {
 
     // Navigate away before the old id's fetch resolves.
     router.navigate('/flows/new-id');
-    await waitFor(() => expect(screen.getByText('New flow')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('flow-canvas-title')).toHaveValue('New flow'));
 
     // Now let the stale old-id fetch resolve — it must not clobber the
     // already-rendered new-id state.
@@ -136,8 +150,8 @@ describe('FlowCanvasPage', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(screen.getByText('New flow')).toBeInTheDocument();
-    expect(screen.queryByText('Old flow (stale)')).not.toBeInTheDocument();
+    expect(screen.getByTestId('flow-canvas-title')).toHaveValue('New flow');
+    expect(screen.queryByDisplayValue('Old flow (stale)')).not.toBeInTheDocument();
   });
 
   function renderEditor(id = 'test-id') {
@@ -231,7 +245,7 @@ describe('FlowCanvasPage', () => {
     renderDraft({ name: 'Proposed flow', graph: draftGraph, requireApproval: true });
 
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
-    expect(screen.getByText('Proposed flow')).toBeInTheDocument();
+    expect(screen.getByTestId('flow-canvas-title')).toHaveValue('Proposed flow');
     // A draft is not fetched, is not runnable, and has persisted nothing.
     expect(getFlow).not.toHaveBeenCalled();
     expect(createFlow).not.toHaveBeenCalled();

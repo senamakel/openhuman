@@ -187,18 +187,17 @@ describe('FlowsPage', () => {
     expect(screen.getByTestId('new-workflow-modal')).toBeInTheDocument();
   });
 
-  it('"describe it" in the chooser focuses the in-place prompt bar (no Chat hand-off)', async () => {
+  it('always shows the in-place prompt bar and the chooser no longer duplicates it', async () => {
     listFlows.mockResolvedValue([makeFlow()]);
     renderWithProviders(<FlowsPage />);
 
-    fireEvent.click(await screen.findByTestId('flows-new-workflow'));
-    fireEvent.click(screen.getByTestId('new-workflow-describe'));
+    // The prompt bar is the single "describe a workflow" entry point.
+    expect(await screen.findByTestId('workflow-prompt-bar')).toBeInTheDocument();
 
-    // Phase 5c: no more /chat hand-off — the chooser closes and the prompt bar
-    // (already rendered at the top of the page) takes focus for authoring.
-    expect(mockNavigate).not.toHaveBeenCalledWith('/chat');
-    expect(screen.getByTestId('workflow-prompt-bar')).toBeInTheDocument();
-    expect(screen.getByTestId('workflow-prompt-input')).toHaveFocus();
+    // The chooser modal offers scratch + template only — no redundant describe.
+    fireEvent.click(await screen.findByTestId('flows-new-workflow'));
+    expect(screen.getByTestId('new-workflow-scratch')).toBeInTheDocument();
+    expect(screen.queryByTestId('new-workflow-describe')).not.toBeInTheDocument();
   });
 
   it('empty-state template gallery creates a flow and opens its canvas', async () => {

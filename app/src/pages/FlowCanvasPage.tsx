@@ -123,10 +123,44 @@ function FlowEditor({
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
-  const { flowId, name, graph, requireApproval } = editorFlow;
+  const { flowId, graph, requireApproval } = editorFlow;
   // Draft (unsaved) canvases have no persisted id yet; Save creates the flow
   // rather than updating one, and there is nothing runnable to run.
   const isDraft = flowId === null;
+
+  // Editable flow name. `name` is the committed value (used by Save + the run
+  // header); `titleDraft` is the in-progress input buffer. Renaming a persisted
+  // flow is metadata-only (`flows_update({ name })`) — it never touches the
+  // graph, so it can't fire a schedule, and is safe to persist on blur/Enter
+  // without the graph's explicit-Save gate. A draft just updates locally; the
+  // name rides into `flows_create` when the draft is first Saved.
+  const [name, setName] = useState(editorFlow.name);
+  const [titleDraft, setTitleDraft] = useState(editorFlow.name);
+  const [renaming, setRenaming] = useState(false);
+
+  const commitRename = useCallback(async () => {
+    const trimmed = titleDraft.trim();
+    if (!trimmed || trimmed === name) {
+      setTitleDraft(name);
+      return;
+    }
+    if (isDraft) {
+      log('rename (draft): %s', trimmed);
+      setName(trimmed);
+      return;
+    }
+    setRenaming(true);
+    try {
+      log('rename: flow id=%s name=%s', flowId, trimmed);
+      await updateFlow(flowId, { name: trimmed });
+      setName(trimmed);
+    } catch (err) {
+      log('rename failed: id=%s err=%o', flowId, err);
+      setTitleDraft(name);
+    } finally {
+      setRenaming(false);
+    }
+  }, [titleDraft, name, isDraft, flowId]);
 
   // ── Canvas copilot + draft overlay (Phase 5c) ─────────────────────────────
   // `draftGraph` is the current ACCEPTED draft (starts as the loaded graph),
@@ -346,10 +380,34 @@ function FlowEditor({
     </div>
   );
 
+  // Editable title: an unstyled input that reads as the page heading until
+  // focused, so renaming is discoverable without a separate edit affordance.
+  const titleNode = (
+    <input
+      type="text"
+      value={titleDraft}
+      disabled={renaming}
+      data-testid="flow-canvas-title"
+      aria-label={t('flows.canvas.renameLabel')}
+      onChange={e => setTitleDraft(e.target.value)}
+      onBlur={() => void commitRename()}
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        } else if (e.key === 'Escape') {
+          setTitleDraft(name);
+          e.currentTarget.blur();
+        }
+      }}
+      className="w-full max-w-md truncate rounded-md border border-transparent bg-transparent px-1 py-0.5 text-base font-semibold text-content hover:border-line focus:border-primary-400 focus:outline-none disabled:opacity-60"
+    />
+  );
+
   return (
     <PanelPage
       testId="flow-canvas-page"
-      title={name}
+      title={titleNode}
       leading={backButton}
       action={headerActions}
       contentClassName="h-full p-0">

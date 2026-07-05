@@ -1,10 +1,11 @@
 /**
- * FlowCanvasPage (issue B5b.1) — the read-only Workflow Canvas view at
- * `/flows/:id`. Asserts the loading → canvas happy path, the not-found state
- * (mirrors the Rust `flows_get` "not found" error), and the generic error
- * state for any other failure.
+ * FlowCanvasPage (issue B5b / Phase 3) — the editable Workflow Canvas builder
+ * at `/flows/:id`. Asserts the loading → canvas happy path, the not-found state
+ * (mirrors the Rust `flows_get` "not found" error), the generic error state,
+ * and the Phase 3d host wiring: Save persists via `flows_update`, and the
+ * unsaved-changes guard intercepts the Back button while dirty.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,7 +13,15 @@ import type { Flow } from '../../services/api/flowsApi';
 import FlowCanvasPage from '../FlowCanvasPage';
 
 const getFlow = vi.hoisted(() => vi.fn());
-vi.mock('../../services/api/flowsApi', () => ({ getFlow }));
+const updateFlow = vi.hoisted(() => vi.fn());
+const validateFlow = vi.hoisted(() => vi.fn());
+const listFlowConnections = vi.hoisted(() => vi.fn());
+vi.mock('../../services/api/flowsApi', () => ({
+  getFlow,
+  updateFlow,
+  validateFlow,
+  listFlowConnections,
+}));
 
 function makeFlow(overrides: Partial<Flow> = {}): Flow {
   return {
@@ -57,6 +66,12 @@ function renderAtFlowId(id: string) {
 describe('FlowCanvasPage', () => {
   beforeEach(() => {
     getFlow.mockReset();
+    updateFlow.mockReset();
+    validateFlow.mockReset();
+    listFlowConnections.mockReset();
+    validateFlow.mockResolvedValue({ valid: true, errors: [], warnings: [] });
+    listFlowConnections.mockResolvedValue([]);
+    updateFlow.mockResolvedValue(makeFlow());
   });
 
   it('shows a loading state while the flow is being fetched', () => {
@@ -119,5 +134,67 @@ describe('FlowCanvasPage', () => {
 
     expect(screen.getByText('New flow')).toBeInTheDocument();
     expect(screen.queryByText('Old flow (stale)')).not.toBeInTheDocument();
+  });
+
+  function renderEditor(id = 'test-id') {
+    return render(
+      <MemoryRouter initialEntries={[`/flows/${id}`]}>
+        <Routes>
+          <Route path="/flows/:id" element={<FlowCanvasPage />} />
+          <Route path="/flows" element={<div data-testid="flows-list">Flows list</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  it('persists the live graph via flows_update when Save is clicked', async () => {
+    getFlow.mockResolvedValue(makeFlow());
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    // Edit the graph (add a node) so it is dirty, then Save.
+    fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
+    fireEvent.click(screen.getByTestId('flow-editor-save'));
+
+    await waitFor(() => expect(updateFlow).toHaveBeenCalledTimes(1));
+    const [calledId, update] = updateFlow.mock.calls[0];
+    expect(calledId).toBe('test-id');
+    expect(update.graph.nodes.map((n: { kind: string }) => n.kind).sort()).toEqual([
+      'agent',
+      'trigger',
+    ]);
+  });
+
+  it('does not prompt when navigating Back with no unsaved changes', async () => {
+    getFlow.mockResolvedValue(makeFlow());
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('flow-canvas-back'));
+    // Pristine → straight to the list, no confirmation dialog.
+    await waitFor(() => expect(screen.getByTestId('flows-list')).toBeInTheDocument());
+    expect(screen.queryByTestId('flow-leave-confirm')).not.toBeInTheDocument();
+  });
+
+  it('prompts before leaving when dirty, and discards to navigate away', async () => {
+    getFlow.mockResolvedValue(makeFlow());
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+
+    // Make it dirty, then click Back — a confirmation dialog blocks navigation.
+    fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
+    fireEvent.click(screen.getByTestId('flow-canvas-back'));
+    expect(screen.getByTestId('flow-leave-confirm')).toBeInTheDocument();
+    expect(screen.queryByTestId('flows-list')).not.toBeInTheDocument();
+
+    // Staying dismisses the dialog and keeps the editor mounted.
+    fireEvent.click(screen.getByTestId('flow-leave-stay'));
+    expect(screen.queryByTestId('flow-leave-confirm')).not.toBeInTheDocument();
+    expect(screen.getByTestId('flow-canvas')).toBeInTheDocument();
+
+    // Re-open the prompt and confirm leaving → navigates to the list.
+    fireEvent.click(screen.getByTestId('flow-canvas-back'));
+    fireEvent.click(screen.getByTestId('flow-leave-discard'));
+    await waitFor(() => expect(screen.getByTestId('flows-list')).toBeInTheDocument());
   });
 });

@@ -38,7 +38,9 @@ export interface FlowCanvasProps {
   /** Graph-level metadata needed to re-serialize on save (editable only). */
   meta?: WorkflowGraphMeta;
   /** Save callback: receives the live canvas as a `WorkflowGraph` (editable only). */
-  onSave?: (graph: WorkflowGraph) => void;
+  onSave?: (graph: WorkflowGraph) => void | Promise<void>;
+  /** Reports the editable draft's dirty state so the host can guard navigation (editable only). */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const NODE_TYPES = { [FLOW_NODE_TYPE]: FlowNodeComponent };
@@ -76,7 +78,14 @@ function ReadonlyFlowCanvas({ nodes, edges }: { nodes: FlowNode[]; edges: FlowEd
  * Fills its parent's box (`h-full w-full` — the page decides how tall/wide
  * that is; `FlowCanvasPage` gives it the full panel body).
  */
-function FlowCanvas({ nodes, edges, editable = false, meta, onSave }: FlowCanvasProps) {
+function FlowCanvas({
+  nodes,
+  edges,
+  editable = false,
+  meta,
+  onSave,
+  onDirtyChange,
+}: FlowCanvasProps) {
   if (editable) {
     return (
       <EditableFlowCanvas
@@ -84,6 +93,7 @@ function FlowCanvas({ nodes, edges, editable = false, meta, onSave }: FlowCanvas
         edges={edges}
         meta={meta ?? { schema_version: 1, name: '' }}
         onSave={onSave}
+        onDirtyChange={onDirtyChange}
       />
     );
   }

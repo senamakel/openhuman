@@ -1,8 +1,9 @@
 # TinyAgents Port — Plan & Audit (inference / tools / agent_orchestration)
 
 **Status:** Phase 0 in progress — v1.6.0 alignment landed; prompt-cache and
-redaction seams audited; `invoke_stream` cutover remains open in the drift
-ledger ([`docs/tinyagents-drift-ledger.md`](tinyagents-drift-ledger.md)).
+redaction seams audited; `invoke_stream` cutover is waiting on upstream
+TinyAgents PR [tinyagents#21](https://github.com/tinyhumansai/tinyagents/pull/21)
+in the drift ledger ([`docs/tinyagents-drift-ledger.md`](tinyagents-drift-ledger.md)).
 **Anchor precedent:** the TinyAgents harness migration (#4249 / #4399 / #4473) and the TinyCortex memory migration plan (`docs/tinycortex-memory-migration-plan.md`).
 **Target:** move the genuinely framework-shaped parts of `src/openhuman/inference/`, `src/openhuman/tools/`, and `src/openhuman/agent_orchestration/` down into the `tinyagents` crate (vendored git submodule at **`vendor/tinyagents`**, `https://github.com/tinyhumansai/tinyagents`), and delete the in-tree duplicates in favor of crate primitives.
 
@@ -52,7 +53,8 @@ So the correct plan has **three motions**, not one:
 (`v1.6.0`) and the root/Tauri lockfiles resolve `tinyagents` `1.6.0`.
 `ToolCompleted` outcome projection, SHA-256 prompt-cache fingerprinting, and
 the redaction-layer audit are closed in the drift ledger; `invoke_stream`
-adoption remains the outstanding Phase 0 seam.
+adoption is now tracked by upstream TinyAgents PR
+[tinyagents#21](https://github.com/tinyhumansai/tinyagents/pull/21).
 
 Historical follow-up inventory from the old pre-1.6 pin: `ToolCompleted`
 outcome fields, SHA-256 prompt fingerprinting, and the redaction audit are now

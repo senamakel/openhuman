@@ -38,8 +38,10 @@ name = "openhuman_core"
 crate-type = ["rlib"]
 
 [dependencies]
-# tiny.place A2A social network SDK — published on crates.io (tinyhumansai/tiny.place)
-tinyplace = "1.0.1"
+# tiny.place A2A social network SDK — published on crates.io and patched below
+# to the vendored tiny.place submodule so OpenHuman can test SDK changes before
+# publishing.
+tinyplace = "2.0"
 # tinyflows — host-agnostic workflow engine (typed node graph → validate → compile →
 # run on tinyagents). Powers the "Workflows" feature via the seam in
 # `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.7 transitively
@@ -359,6 +361,7 @@ tinyagents = { path = "vendor/tinyagents" }
 tinyflows = { path = "vendor/tinyflows" }
 tinycortex = { path = "vendor/tinycortex" }
 tinyjuice = { path = "vendor/tinyjuice" }
+tinyplace = { path = "vendor/tinyplace/sdk/rust" }
 
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the

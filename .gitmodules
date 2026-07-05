@@ -17,3 +17,6 @@
 [submodule "vendor/tinyjuice"]
 	path = vendor/tinyjuice
 	url = https://github.com/tinyhumansai/tinyjuice
+[submodule "vendor/tinyplace"]
+	path = vendor/tinyplace
+	url = https://github.com/tinyhumansai/tiny.place.git

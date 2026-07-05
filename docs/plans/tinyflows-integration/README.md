@@ -148,9 +148,13 @@ Product decision: **Composio triggers are the webhook story.** `app_event` dispa
 
 **1d. Remaining trigger kinds (G6).**
 
-- `chat_message`: dispatch from the channels/thread pipeline (opt-in per flow: channel filter in trigger config).
-- `execute_by_workflow`: `sub_workflow`-by-id + a `flows_run` call path from another flow (see 4b).
-- `form`, `evaluation`, `system`: explicitly document as _not yet fired_; validation should warn when a flow's trigger kind has no live dispatcher instead of silently never running.
+Full taxonomy, the generic event-dispatcher design, and the **cron → workflows migration** live in the companion doc **[triggers.md](triggers.md)**. Summary:
+
+- `form` + one-shot/interval schedule sugar first (cheap wins).
+- A **trigger catalog** (curated allowlist of `DomainEvent`s with stable payload schemas + jq filters) feeding one generic `system`-kind dispatcher in `FlowTriggerSubscriber` — instead of a bespoke handler per event. Guardrails: loop prevention via run provenance depth, per-flow rate limits, payload hygiene/risk classes.
+- `chat_message` from the channels pipeline (untrusted-input guardrails required first).
+- **Cron unification**: legacy `JobType::Shell`/`Agent` cron jobs become one-node scheduled flows (dual-write bridge, then backfill migration); cron remains only as the internal tick engine. "Everything automated is a workflow."
+- Until a kind's dispatcher ships, validation warns loudly at save/enable instead of silently never firing.
 
 **1e. E2E tests (G5).**
 

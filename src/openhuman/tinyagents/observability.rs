@@ -964,16 +964,14 @@ impl EventListener for OpenhumanEventBridge {
                 // Carry the classified failure onto whichever completion event
                 // this projects — main-agent OR sub-agent (#4459). Previously
                 // the sub-agent branch dropped it on the floor.
-                let failure = outcome
-                    .and_then(|(_, f, _, _)| f)
-                    .or_else(|| {
-                        error.as_deref().map(|error_text| {
-                            crate::openhuman::tool_status::classify(
-                                error_text,
-                                error_text.contains("timed out"),
-                            )
-                        })
-                    });
+                let failure = outcome.and_then(|(_, f, _, _)| f).or_else(|| {
+                    error.as_deref().map(|error_text| {
+                        crate::openhuman::tool_status::classify(
+                            error_text,
+                            error_text.contains("timed out"),
+                        )
+                    })
+                });
                 match &self.scope {
                     None => self.send(AgentProgress::ToolCallCompleted {
                         call_id: call_id.as_str().to_string(),

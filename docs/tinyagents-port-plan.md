@@ -1,7 +1,8 @@
 # TinyAgents Port — Plan & Audit (inference / tools / agent_orchestration)
 
-**Status:** Phase 0 in progress — v1.6.0 alignment started; baseline/drift ledger
-in [`docs/tinyagents-drift-ledger.md`](tinyagents-drift-ledger.md).
+**Status:** Phase 0 in progress — v1.6.0 alignment landed; prompt-cache and
+redaction seams audited; `invoke_stream` cutover remains open in the drift
+ledger ([`docs/tinyagents-drift-ledger.md`](tinyagents-drift-ledger.md)).
 **Anchor precedent:** the TinyAgents harness migration (#4249 / #4399 / #4473) and the TinyCortex memory migration plan (`docs/tinycortex-memory-migration-plan.md`).
 **Target:** move the genuinely framework-shaped parts of `src/openhuman/inference/`, `src/openhuman/tools/`, and `src/openhuman/agent_orchestration/` down into the `tinyagents` crate (vendored git submodule at **`vendor/tinyagents`**, `https://github.com/tinyhumansai/tinyagents`), and delete the in-tree duplicates in favor of crate primitives.
 
@@ -48,10 +49,19 @@ So the correct plan has **three motions**, not one:
 - Submodule pin: `357bcc8` = **v1.5.0-11-g357bcc8** — 11 commits past the 1.5.0 tag, but **behind 1.6.0**. A plain `git submodule update` matches neither published version; pin explicitly.
 
 **Phase 0 update:** the host branch now pins `vendor/tinyagents` to `e72036d`
-(`v1.6.0`) and the root/Tauri lockfiles resolve `tinyagents` `1.6.0`; remaining
-Phase 0 seam follow-ups are tracked in the drift ledger.
+(`v1.6.0`) and the root/Tauri lockfiles resolve `tinyagents` `1.6.0`.
+`ToolCompleted` outcome projection, SHA-256 prompt-cache fingerprinting, and
+the redaction-layer audit are closed in the drift ledger; `invoke_stream`
+adoption remains the outstanding Phase 0 seam.
 
-Missing between the pin and 1.6.0, all of which the seam actively wants: `invoke_stream` + sub-agent delta propagation (tinyagents#17), tool outcome on `ToolCompleted` (#18), REPL host-embedding cancellation (#19), concurrent independent tool calls per turn, `DurabilityMode::Async` checkpoint writes, SHA-256 prompt fingerprint (affects the seam's KV-cache drift guard), idempotent `RedactionMiddleware` (affects `journal.rs`), `InMemoryVectorStore` dim-validation/top-k, `Checkpointer::get_thread`/`copy_thread`.
+Historical follow-up inventory from the old pre-1.6 pin: `ToolCompleted`
+outcome fields, SHA-256 prompt fingerprinting, and the redaction audit are now
+closed in the host seam; `invoke_stream` + sub-agent delta propagation
+(tinyagents#17) remains the Phase 0 cutover item. Other 1.6 additions now
+available to later phases include REPL host-embedding cancellation (#19),
+concurrent independent tool calls per turn, `DurabilityMode::Async` checkpoint
+writes, `InMemoryVectorStore` dim-validation/top-k, and
+`Checkpointer::get_thread`/`copy_thread`.
 
 ### 0.4 Contribution workflow (same convention as tinycortex)
 

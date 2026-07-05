@@ -154,12 +154,16 @@ function NodeConfigDrawer({
             {meta.emoji}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-content-faint">
-              {kindLabel}
-            </div>
+            {/* Kind eyebrow — hidden when it just repeats the name (a default,
+                unrenamed node), so the header doesn't show the title twice. */}
+            {node.data.name.trim() !== kindLabel && (
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-content-faint">
+                {kindLabel}
+              </div>
+            )}
             <input
               type="text"
-              className="mt-0.5 w-full border-0 bg-transparent p-0 text-sm font-semibold text-content focus:outline-none focus:ring-0"
+              className="w-full border-0 bg-transparent p-0 text-sm font-semibold text-content focus:outline-none focus:ring-0"
               value={node.data.name}
               aria-label={t('flows.nodeConfig.nameLabel')}
               placeholder={t('flows.nodeConfig.namePlaceholder')}

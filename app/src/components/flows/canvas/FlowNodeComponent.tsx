@@ -85,22 +85,18 @@ function FlowNodeComponent({ id, data, selected }: NodeProps<FlowNode>) {
         <span className="text-base leading-none" aria-hidden="true">
           {meta.emoji}
         </span>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-content">{data.name}</div>
-          <div className="truncate text-[10px] uppercase tracking-wide text-content-faint">
-            {kindLabel}
-          </div>
-        </div>
+        <div className="min-w-0 truncate text-sm font-semibold text-content">{data.name}</div>
       </div>
 
-      {/* Dynamic "what this does" line, derived from the node's live config. */}
-      {summary && (
-        <div
-          className="px-3 pt-2 text-[11px] leading-snug text-content-muted"
-          data-testid="flow-node-summary">
-          {summary}
-        </div>
-      )}
+      {/* Dynamic "what this does" line, derived from the node's live config. The
+          emoji already conveys the kind, so we show the description here rather
+          than repeating the kind label (which duplicates a default node's name).
+          Falls back to the kind label only when there's no config summary. */}
+      <div
+        className="px-3 pt-2 text-[11px] leading-snug text-content-muted"
+        data-testid="flow-node-summary">
+        {summary || kindLabel}
+      </div>
 
       {hasPorts && (
         <div className="flex items-start justify-between gap-4 px-2 py-2">

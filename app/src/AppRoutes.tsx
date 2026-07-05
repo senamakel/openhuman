@@ -22,7 +22,6 @@ import Rewards from './pages/Rewards';
 import Skills from './pages/Skills';
 import WebCallbackPage from './pages/WebCallbackPage';
 import Welcome from './pages/Welcome';
-import WorkflowNew from './pages/WorkflowNew';
 import WorkflowsRun from './pages/WorkflowsRun';
 
 interface AppRoutesProps {
@@ -143,19 +142,9 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
           The old /skills path is kept as a back-compat redirect so bookmarks
           and deep links continue to work.  `?tab=` query params are preserved
           by Navigate (replace) so existing deep links still land on the right
-          sub-tab.
-          `/workflows/new` is the create-a-skill authoring page.
-          Order matters: keep `/workflows/new` before `/connections` so it wins
-          the prefix match. */}
-      <Route
-        path="/workflows/new"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <WorkflowNew />
-          </ProtectedRoute>
-        }
-      />
-
+          sub-tab. */}
+      {/* `/workflows/run` is the single-purpose Skill runner page — the live
+          destination of the Run button in the Automations tab (WorkflowsTab). */}
       <Route
         path="/workflows/run"
         element={

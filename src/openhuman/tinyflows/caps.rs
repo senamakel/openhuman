@@ -32,7 +32,7 @@ use crate::openhuman::inference::provider::{
     create_chat_provider, ChatMessage, ChatRequest, UsageInfo,
 };
 use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
-use crate::openhuman::security::SecurityPolicy;
+use crate::openhuman::security::{CommandClass, GateDecision, SecurityPolicy, POLICY_BLOCKED_MARKER};
 use crate::openhuman::tools::traits::Tool as _;
 use crate::openhuman::tools::HttpRequestTool;
 
@@ -52,6 +52,56 @@ fn usage_to_json(usage: &Option<UsageInfo>) -> Value {
             "charged_amount_usd": u.charged_amount_usd,
         }),
     }
+}
+
+/// Hard autonomy-tier gate for an *acting* flow node (Phase 2).
+///
+/// A flow run scopes a `TrustedAutomation { Workflow }` origin, but the acting
+/// power of a run is still bounded by the user's `[autonomy]` tier — the same
+/// [`SecurityPolicy`] the agent tool-loop honors (`SecurityPolicy::from_config`
+/// off the `[autonomy]` block). Before an `http_request` (Network-class) or
+/// `code` (Write-class) node dispatches, we consult
+/// [`SecurityPolicy::gate_decision`] for that node's [`CommandClass`] and refuse
+/// outright when the tier `Block`s it — mirroring how `curl`/`shell` acting
+/// tools gate (`policy.gate_decision(CommandClass::Network)`), so a read-only
+/// run can never reach the network or run arbitrary code.
+///
+/// `Allow`/`Prompt` return `Ok(())`: this function only enforces the
+/// non-negotiable `Block` floor. The actual `Prompt` round-trip is performed by
+/// the process-global `ApprovalGate` immediately after (identical to the agent
+/// tool-loop), so we don't duplicate the human-in-the-loop here. The error is
+/// prefixed with [`POLICY_BLOCKED_MARKER`] so the harness's repeated-failure
+/// middleware recognizes it as a permanent, don't-retry refusal.
+fn enforce_node_tier_gate(
+    security: &SecurityPolicy,
+    class: CommandClass,
+    node: &str,
+) -> Result<()> {
+    let decision = security.gate_decision(class);
+    tracing::debug!(
+        target: "flows",
+        node,
+        ?class,
+        ?decision,
+        tier = ?security.autonomy,
+        "[flows] node tier gate: evaluating autonomy-tier decision"
+    );
+    if decision == GateDecision::Block {
+        tracing::warn!(
+            target: "flows",
+            node,
+            ?class,
+            tier = ?security.autonomy,
+            "[flows] node tier gate: BLOCKED by autonomy tier — refusing before dispatch"
+        );
+        return Err(EngineError::Capability(format!(
+            "{POLICY_BLOCKED_MARKER} flows {node} node is not permitted under the current \
+             autonomy tier ({:?}): {class:?}-class actions are blocked. Raise the [autonomy] \
+             tier to run this node.",
+            security.autonomy
+        )));
+    }
+    Ok(())
 }
 
 /// [`LlmProvider`] adapter over OpenHuman's inference stack
@@ -667,6 +717,12 @@ impl HttpClient for OpenHumanHttp {
     async fn request(&self, mut request: Value, conn: Option<&str>) -> Result<Value> {
         const TOOL_NAME: &str = "flows_http_request";
 
+        // Autonomy-tier gate (Phase 2): an http_request node reaches the network,
+        // so it is Network-class. A read-only run `Block`s here and never
+        // dispatches; Supervised/Full fall through to the ApprovalGate below,
+        // which performs the Prompt round-trip.
+        enforce_node_tier_gate(&self.security, CommandClass::Network, "http_request")?;
+
         // The approval gate summarizes/redacts the request BEFORE any credential
         // is injected, so a stored secret never lands in the approval UI or
         // audit trail. Injection happens strictly after this point.
@@ -756,8 +812,17 @@ impl HttpClient for OpenHumanHttp {
 /// Requires `node`/`python3` on the `PATH` the sandbox backend runs under;
 /// there is no managed toolchain wiring here (unlike `node_exec`'s
 /// `NodeBootstrap`).
+///
+/// **Phase 2 — autonomy-tier gating:** a `code` node runs arbitrary user code
+/// in a sandbox, so it is treated as [`CommandClass::Write`] (state-changing but
+/// sandbox-bounded — not inherently catastrophic). Before dispatch it consults
+/// [`enforce_node_tier_gate`]: a read-only run `Block`s and never executes; a
+/// Supervised run then routes through the `ApprovalGate` (Write ⇒ `Prompt`); a
+/// Full run executes silently. This closes the prior gap where the code node had
+/// no policy check and no approval gate at all.
 pub struct OpenHumanCode {
     pub config: Arc<Config>,
+    pub security: Arc<SecurityPolicy>,
 }
 
 const CODE_RUN_TIMEOUT_SECS: u64 = 60;
@@ -765,6 +830,33 @@ const CODE_RUN_TIMEOUT_SECS: u64 = 60;
 #[async_trait]
 impl CodeRunner for OpenHumanCode {
     async fn run(&self, language: CodeLanguage, source: &str, input: Value) -> Result<Value> {
+        // Autonomy-tier gate (Phase 2): sandboxed arbitrary-code execution is
+        // Write-class. A read-only run `Block`s here and never spawns anything;
+        // Supervised/Full fall through to the ApprovalGate below.
+        enforce_node_tier_gate(&self.security, CommandClass::Write, "code")?;
+
+        // Approval gate (mirrors OpenHumanTools/OpenHumanHttp): under a
+        // Supervised tier the ApprovalGate turns the Write `Prompt` decision into
+        // a real human round-trip before any code runs; a Deny short-circuits.
+        // The audit summary is computed on a redacted view of the request, never
+        // the raw source secrets, matching the other acting adapters.
+        let mut audit_id: Option<String> = None;
+        if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+            let action = json!({ "language": format!("{language:?}"), "source": source });
+            let summary = crate::openhuman::approval::summarize_action("flows_code", &action);
+            let redacted = crate::openhuman::approval::redact_args(&action);
+            let (outcome, request_id) = gate
+                .intercept_audited("flows_code", &summary, redacted)
+                .await;
+            match outcome {
+                crate::openhuman::approval::GateOutcome::Deny { reason } => {
+                    return Err(EngineError::Capability(reason));
+                }
+                crate::openhuman::approval::GateOutcome::Allow => audit_id = request_id,
+            }
+        }
+
+        let outcome: Result<Value> = async {
         let policy = resolve_sandbox_policy(
             SandboxMode::Sandboxed,
             &self.config.action_dir,
@@ -850,6 +942,27 @@ impl CodeRunner for OpenHumanCode {
 
         serde_json::from_str(result.stdout.trim())
             .map_err(|e| EngineError::Capability(format!("code output was not valid JSON: {e}")))
+        }
+        .await;
+
+        // Close out the approval audit with the run's success/failure (mirrors
+        // OpenHumanTools/OpenHumanHttp).
+        if let Some(id) = audit_id {
+            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+                let exec = if outcome.is_ok() {
+                    crate::openhuman::approval::ExecutionOutcome::Success
+                } else {
+                    crate::openhuman::approval::ExecutionOutcome::Failure
+                };
+                gate.record_execution(
+                    &id,
+                    exec,
+                    outcome.as_ref().err().map(ToString::to_string).as_deref(),
+                );
+            }
+        }
+
+        outcome
     }
 }
 
@@ -935,12 +1048,13 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
             config: config.clone(),
         }),
         http: Arc::new(OpenHumanHttp {
-            security,
+            security: security.clone(),
             http_config,
             http_creds,
         }),
         code: Arc::new(OpenHumanCode {
             config: config.clone(),
+            security,
         }),
         state: Arc::new(FlowStateStore {
             config,
@@ -1192,5 +1306,95 @@ mod tests {
             request["headers"]["Authorization"],
             json!(format!("Bearer {secret}"))
         );
+    }
+
+    // ── Phase 2: autonomy-tier gating of acting nodes ──────────────────────
+
+    fn policy(level: crate::openhuman::security::AutonomyLevel) -> SecurityPolicy {
+        SecurityPolicy {
+            autonomy: level,
+            ..SecurityPolicy::default()
+        }
+    }
+
+    /// The tier gate an `http_request` (Network-class) node calls: BLOCKED under
+    /// a read-only tier, and passed through (to the ApprovalGate) under
+    /// supervised/full.
+    #[test]
+    fn http_request_node_tier_gate_blocks_readonly_allows_higher() {
+        use crate::openhuman::security::AutonomyLevel;
+
+        let err =
+            enforce_node_tier_gate(&policy(AutonomyLevel::ReadOnly), CommandClass::Network, "http_request")
+                .expect_err("read-only must block a Network-class http_request node");
+        if let EngineError::Capability(msg) = err {
+            assert!(
+                msg.contains(POLICY_BLOCKED_MARKER),
+                "read-only block must carry the policy-blocked marker: {msg}"
+            );
+        } else {
+            panic!("expected EngineError::Capability for a blocked node");
+        }
+
+        // Supervised/full do not hard-block — they fall through to the
+        // ApprovalGate (which performs the Prompt round-trip).
+        assert!(enforce_node_tier_gate(
+            &policy(AutonomyLevel::Supervised),
+            CommandClass::Network,
+            "http_request"
+        )
+        .is_ok());
+        assert!(
+            enforce_node_tier_gate(&policy(AutonomyLevel::Full), CommandClass::Network, "http_request")
+                .is_ok()
+        );
+    }
+
+    /// The tier gate a `code` (Write-class) node calls: BLOCKED under read-only,
+    /// allowed under full, prompt-able (not blocked) under supervised.
+    #[test]
+    fn code_node_tier_gate_blocks_readonly_allows_full() {
+        use crate::openhuman::security::AutonomyLevel;
+
+        assert!(
+            enforce_node_tier_gate(&policy(AutonomyLevel::ReadOnly), CommandClass::Write, "code")
+                .is_err()
+        );
+        assert!(
+            enforce_node_tier_gate(&policy(AutonomyLevel::Supervised), CommandClass::Write, "code")
+                .is_ok()
+        );
+        assert!(
+            enforce_node_tier_gate(&policy(AutonomyLevel::Full), CommandClass::Write, "code").is_ok()
+        );
+    }
+
+    /// End-to-end at the adapter: an `http_request` node under a read-only tier
+    /// is refused BEFORE any network egress (the tier gate fires ahead of the
+    /// approval gate, credential resolution, and dispatch).
+    #[tokio::test]
+    async fn http_adapter_blocks_under_readonly_tier() {
+        use crate::openhuman::security::AutonomyLevel;
+
+        let (_dir, creds) = http_cred_store();
+        let http = OpenHumanHttp {
+            security: Arc::new(policy(AutonomyLevel::ReadOnly)),
+            http_config: HttpRequestConfig::default(),
+            http_creds: Arc::new(creds),
+        };
+
+        let request = json!({ "method": "GET", "url": "https://example.com" });
+        let err = http
+            .request(request, None)
+            .await
+            .expect_err("read-only http_request node must be blocked");
+        if let EngineError::Capability(msg) = err {
+            assert!(
+                msg.contains(POLICY_BLOCKED_MARKER),
+                "expected a policy-blocked refusal, got: {msg}"
+            );
+        } else {
+            panic!("expected EngineError::Capability");
+        }
     }
 }

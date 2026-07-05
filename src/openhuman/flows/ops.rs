@@ -33,6 +33,45 @@ const FLOW_RUN_TIMEOUT_SECS: u64 = 600;
 /// this is a dedicated flows-side TTL, not a reuse of the approval store's.
 const FLOW_PARKED_TTL_SECS: i64 = 600;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 — autonomy-tier gating of acting flow nodes
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// A `flows_run` / `flows_resume` executes under a `TrustedAutomation { Workflow }`
+// origin (see `workflow_origin` below), but the *acting power* of a run is still
+// bounded by the user's `[autonomy]` tier — the same `SecurityPolicy`
+// (`src/openhuman/security/`) the agent tool-loop honors, built via
+// `SecurityPolicy::from_config(&config.autonomy, …)` inside
+// `tinyflows::caps::build_capabilities`.
+//
+// Before an acting node dispatches, its capability adapter
+// (`src/openhuman/tinyflows/caps.rs::enforce_node_tier_gate`) maps the node to a
+// `CommandClass` and consults `SecurityPolicy::gate_decision`. `Block` refuses
+// outright (`[policy-blocked]` error, no dispatch); `Prompt`/`Allow` fall through
+// to the process-global `ApprovalGate`, which performs the human round-trip for
+// `Prompt` exactly as the agent tool-loop does. Node → class → per-tier decision:
+//
+//   Flow node        CommandClass   read-only     supervised    full
+//   ────────────     ────────────   ──────────    ──────────    ──────────
+//   http_request     Network        BLOCK         Prompt        Prompt
+//   code             Write          BLOCK         Prompt        Allow
+//   tool_call        (curation +    (curated +    Prompt        Prompt/Allow¹
+//                     ApprovalGate)   scope gate)
+//   agent (llm)      — (no acting side effect; not tier-gated, only the
+//                        inference/privacy chokepoint applies)
+//   state (kv)       — (host-internal flow KV; not an outbound act)
+//
+//   ¹ tool_call routes through the deny-by-default curation/scope gate plus the
+//     ApprovalGate rather than `gate_decision`; a Network-class Composio action
+//     still prompts under supervised/full and the curation gate is the hard
+//     allowlist. See `caps.rs::OpenHumanTools`.
+//
+// `Network` is never `Allow` in any tier (always `Prompt` when not blocked), so
+// even a full-tier http_request node prompts unless a pre-declared trust root /
+// `auto_approve` short-circuits the ApprovalGate — matching `curl`/`shell`.
+// `Write` (code) is `Allow` under full, so trusted automations run sandboxed
+// code unattended; read-only blocks both outright.
+
 /// Runs a raw graph JSON value through `tinyflows::migrate::migrate` (upgrade
 /// an older-schema definition to current), deserializes it, and rejects a
 /// structurally invalid graph via `tinyflows::validate::validate` — so a bad

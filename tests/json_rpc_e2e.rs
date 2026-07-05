@@ -12159,6 +12159,440 @@ async fn json_rpc_workflows_lifecycle_round_trip() {
     rpc_join.abort();
 }
 
+// ── openhuman.flows_* (tinyflows) JSON-RPC E2E — PHASE 1e (G5) ─────────────
+//
+// These exercise the tinyflows `flows_*` controller surface end-to-end over
+// HTTP JSON-RPC (distinct from the legacy markdown `workflows_*` namespace
+// covered above). Flows persist to a SQLite store + durable checkpoint under
+// the temp `$HOME/.openhuman` workspace, so each test isolates `HOME`.
+//
+// All flows ops wrap their value with a log line, so `into_cli_compatible_json`
+// emits `{ "result": <value>, "logs": [...] }` — peel that envelope with
+// `peel_logs_envelope` before asserting on the inner payload.
+
+/// Shared boot for a flows E2E: isolates `HOME`, seeds a minimal config against
+/// a mock upstream, and stands up the core HTTP router. Returns the rpc base
+/// URL plus the join handles + tempdir the caller must keep alive/abort.
+async fn boot_flows_rpc_env() -> (
+    String,
+    tempfile::TempDir,
+    tokio::task::JoinHandle<std::io::Result<()>>,
+    tokio::task::JoinHandle<std::io::Result<()>>,
+    Vec<EnvVarGuard>,
+) {
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let guards = vec![
+        EnvVarGuard::set_to_path("HOME", home),
+        EnvVarGuard::unset("OPENHUMAN_WORKSPACE"),
+        EnvVarGuard::unset("BACKEND_URL"),
+        EnvVarGuard::unset("VITE_BACKEND_URL"),
+        EnvVarGuard::unset("OPENHUMAN_API_URL"),
+    ];
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    (rpc_base, tmp, api_join, rpc_join, guards)
+}
+
+/// The smallest valid graph with a human-in-the-loop approval gate:
+/// `trigger → gate(requires_approval) → downstream`. A run pauses at `gate`;
+/// approving it via `flows_resume` runs `downstream`.
+fn approval_gated_graph_json() -> Value {
+    json!({
+        "name": "approval-gated",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "gate", "kind": "output_parser", "name": "Gate", "config": { "requires_approval": true } },
+            { "id": "downstream", "kind": "output_parser", "name": "Downstream" }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "gate" },
+            { "from_node": "gate", "to_node": "downstream" }
+        ]
+    })
+}
+
+/// Full flows lifecycle over JSON-RPC:
+/// create → run (park on approval) → inspect steps via get_run/list_runs →
+/// resume (approve) to completion → run again → cancel_run the parked run →
+/// delete. Note: there is no dedicated `flows_cancel` for an in-flight run;
+/// cancel operates on a run id (checkpoint thread id), so we cancel a *fresh*
+/// parked run rather than the already-completed one (cancelling a terminal run
+/// is an error).
+#[tokio::test]
+async fn json_rpc_flows_lifecycle_round_trip() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_base, _tmp, api_join, rpc_join, _guards) = boot_flows_rpc_env().await;
+
+    // 1. Create an approval-gated flow.
+    let create = post_json_rpc(
+        &rpc_base,
+        9301,
+        "openhuman.flows_create",
+        json!({ "name": "Gated Demo", "graph": approval_gated_graph_json() }),
+    )
+    .await;
+    let flow = peel_logs_envelope(assert_no_jsonrpc_error(&create, "flows_create"));
+    let flow_id = flow
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("flow id in create result")
+        .to_string();
+    assert_eq!(flow.get("name").and_then(Value::as_str), Some("Gated Demo"));
+    assert_eq!(flow.get("enabled").and_then(Value::as_bool), Some(true));
+
+    // 2. List reflects exactly the new flow.
+    let list = post_json_rpc(&rpc_base, 9302, "openhuman.flows_list", json!({})).await;
+    let flows = peel_logs_envelope(assert_no_jsonrpc_error(&list, "flows_list"))
+        .as_array()
+        .expect("flows array");
+    assert_eq!(flows.len(), 1, "exactly one flow after create");
+    assert_eq!(flows[0].get("id").and_then(Value::as_str), Some(flow_id.as_str()));
+
+    // 3. Run — pauses at the approval gate. Capture the thread id.
+    let run = post_json_rpc(
+        &rpc_base,
+        9303,
+        "openhuman.flows_run",
+        json!({ "id": flow_id, "input": { "x": 1 } }),
+    )
+    .await;
+    let run_out = peel_logs_envelope(assert_no_jsonrpc_error(&run, "flows_run"));
+    let thread_id = run_out
+        .get("thread_id")
+        .and_then(Value::as_str)
+        .expect("thread_id in run result")
+        .to_string();
+    let pending = run_out
+        .get("pending_approvals")
+        .and_then(Value::as_array)
+        .expect("pending_approvals array");
+    assert!(
+        pending.iter().any(|v| v == "gate"),
+        "run must park on the `gate` approval, got: {pending:?}"
+    );
+    // Downstream must NOT have run while the gate is pending.
+    assert!(run_out["output"]["nodes"]["downstream"].is_null());
+
+    // 4. Inspect the run via get_run — status pending_approval, steps recorded.
+    let get_run = post_json_rpc(
+        &rpc_base,
+        9304,
+        "openhuman.flows_get_run",
+        json!({ "run_id": thread_id }),
+    )
+    .await;
+    let run_row = peel_logs_envelope(assert_no_jsonrpc_error(&get_run, "flows_get_run"));
+    assert_eq!(
+        run_row.get("status").and_then(Value::as_str),
+        Some("pending_approval")
+    );
+    assert_eq!(run_row.get("thread_id").and_then(Value::as_str), Some(thread_id.as_str()));
+    assert!(
+        run_row.get("steps").and_then(Value::as_array).is_some(),
+        "get_run returns a steps array"
+    );
+
+    // 5. list_runs surfaces the same single run.
+    let list_runs = post_json_rpc(
+        &rpc_base,
+        9305,
+        "openhuman.flows_list_runs",
+        json!({ "id": flow_id }),
+    )
+    .await;
+    let runs = peel_logs_envelope(assert_no_jsonrpc_error(&list_runs, "flows_list_runs"))
+        .as_array()
+        .expect("runs array");
+    assert_eq!(runs.len(), 1, "exactly one run after a single flows_run");
+    assert_eq!(runs[0].get("id").and_then(Value::as_str), Some(thread_id.as_str()));
+
+    // 6. Resume with the gate approved — completes and runs downstream.
+    let resume = post_json_rpc(
+        &rpc_base,
+        9306,
+        "openhuman.flows_resume",
+        json!({ "id": flow_id, "thread_id": thread_id, "approvals": ["gate"] }),
+    )
+    .await;
+    let resume_out = peel_logs_envelope(assert_no_jsonrpc_error(&resume, "flows_resume"));
+    assert_eq!(resume_out["pending_approvals"], json!([]));
+    assert!(
+        !resume_out["output"]["nodes"]["downstream"]["items"].is_null(),
+        "downstream should run once the gate is approved via resume"
+    );
+
+    // The persisted run row must now be terminal `completed`.
+    let get_run2 = post_json_rpc(
+        &rpc_base,
+        9307,
+        "openhuman.flows_get_run",
+        json!({ "run_id": thread_id }),
+    )
+    .await;
+    let run_row2 = peel_logs_envelope(assert_no_jsonrpc_error(&get_run2, "flows_get_run"));
+    assert_eq!(run_row2.get("status").and_then(Value::as_str), Some("completed"));
+
+    // 7. Run again to get a fresh parked run, then cancel it.
+    let run2 = post_json_rpc(
+        &rpc_base,
+        9308,
+        "openhuman.flows_run",
+        json!({ "id": flow_id, "input": { "x": 2 } }),
+    )
+    .await;
+    let run2_out = peel_logs_envelope(assert_no_jsonrpc_error(&run2, "flows_run"));
+    let thread_id_2 = run2_out
+        .get("thread_id")
+        .and_then(Value::as_str)
+        .expect("thread_id in second run")
+        .to_string();
+
+    let cancel = post_json_rpc(
+        &rpc_base,
+        9309,
+        "openhuman.flows_cancel_run",
+        json!({ "run_id": thread_id_2 }),
+    )
+    .await;
+    let cancel_out = peel_logs_envelope(assert_no_jsonrpc_error(&cancel, "flows_cancel_run"));
+    assert_eq!(cancel_out.get("cancelled").and_then(Value::as_bool), Some(true));
+    assert_eq!(
+        cancel_out.get("run_id").and_then(Value::as_str),
+        Some(thread_id_2.as_str())
+    );
+    // A parked run has no live task, so cancel settles the row directly.
+    assert_eq!(
+        cancel_out.get("was_in_flight").and_then(Value::as_bool),
+        Some(false)
+    );
+
+    // The cancelled run is terminal and no longer resumable.
+    let get_run3 = post_json_rpc(
+        &rpc_base,
+        9310,
+        "openhuman.flows_get_run",
+        json!({ "run_id": thread_id_2 }),
+    )
+    .await;
+    let run_row3 = peel_logs_envelope(assert_no_jsonrpc_error(&get_run3, "flows_get_run"));
+    assert_eq!(run_row3.get("status").and_then(Value::as_str), Some("cancelled"));
+
+    let resume_cancelled = post_json_rpc(
+        &rpc_base,
+        9311,
+        "openhuman.flows_resume",
+        json!({ "id": flow_id, "thread_id": thread_id_2, "approvals": ["gate"] }),
+    )
+    .await;
+    assert_jsonrpc_error(&resume_cancelled, "resume of a cancelled run must error");
+
+    // 8. Delete the flow; the list is empty again.
+    let delete = post_json_rpc(
+        &rpc_base,
+        9312,
+        "openhuman.flows_delete",
+        json!({ "id": flow_id }),
+    )
+    .await;
+    let del_out = peel_logs_envelope(assert_no_jsonrpc_error(&delete, "flows_delete"));
+    assert_eq!(del_out.get("removed").and_then(Value::as_bool), Some(true));
+
+    let after = post_json_rpc(&rpc_base, 9313, "openhuman.flows_list", json!({})).await;
+    assert!(
+        peel_logs_envelope(assert_no_jsonrpc_error(&after, "flows_list"))
+            .as_array()
+            .expect("flows array")
+            .is_empty(),
+        "no flows after delete"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+/// Approval park + DENY over JSON-RPC (issue G4): a gate with both a `main`
+/// edge (→ `downstream`) and an `error` edge (→ `recover`). Resuming with the
+/// gate in `rejections` routes the denied gate's error item to `recover`, and
+/// `downstream` must not run.
+#[tokio::test]
+async fn json_rpc_flows_resume_deny_routes_to_error_port() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_base, _tmp, api_join, rpc_join, _guards) = boot_flows_rpc_env().await;
+
+    let graph = json!({
+        "name": "approval-gated-error-port",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "gate", "kind": "output_parser", "name": "Gate", "config": { "requires_approval": true } },
+            { "id": "downstream", "kind": "output_parser", "name": "Downstream" },
+            { "id": "recover", "kind": "output_parser", "name": "Recover" }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "gate" },
+            { "from_node": "gate", "from_port": "main", "to_node": "downstream" },
+            { "from_node": "gate", "from_port": "error", "to_node": "recover" }
+        ]
+    });
+
+    let create = post_json_rpc(
+        &rpc_base,
+        9401,
+        "openhuman.flows_create",
+        json!({ "name": "Deny Demo", "graph": graph }),
+    )
+    .await;
+    let flow_id = peel_logs_envelope(assert_no_jsonrpc_error(&create, "flows_create"))
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("flow id")
+        .to_string();
+
+    let run = post_json_rpc(
+        &rpc_base,
+        9402,
+        "openhuman.flows_run",
+        json!({ "id": flow_id, "input": { "x": 1 } }),
+    )
+    .await;
+    let thread_id = peel_logs_envelope(assert_no_jsonrpc_error(&run, "flows_run"))
+        .get("thread_id")
+        .and_then(Value::as_str)
+        .expect("thread_id")
+        .to_string();
+
+    // Deny the gate: no approvals, `gate` in rejections.
+    let resume = post_json_rpc(
+        &rpc_base,
+        9403,
+        "openhuman.flows_resume",
+        json!({ "id": flow_id, "thread_id": thread_id, "rejections": ["gate"] }),
+    )
+    .await;
+    let resume_out = peel_logs_envelope(assert_no_jsonrpc_error(&resume, "flows_resume"));
+    assert_eq!(resume_out["pending_approvals"], json!([]));
+    assert_eq!(
+        resume_out["output"]["nodes"]["recover"]["items"][0]["json"]["error"]["node"],
+        json!("gate"),
+        "a denied gate must route its error item to the `error`-port recovery node"
+    );
+    assert!(
+        resume_out["output"]["nodes"]["downstream"].is_null(),
+        "the main branch must not run when the gate is denied"
+    );
+
+    let get_run = post_json_rpc(
+        &rpc_base,
+        9404,
+        "openhuman.flows_get_run",
+        json!({ "run_id": thread_id }),
+    )
+    .await;
+    let run_row = peel_logs_envelope(assert_no_jsonrpc_error(&get_run, "flows_get_run"));
+    assert_eq!(run_row.get("status").and_then(Value::as_str), Some("completed"));
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+/// `openhuman.flows_validate` over JSON-RPC (PHASE 3c): a structurally valid
+/// graph whose trigger kind does not fire automatically (`webhook`) validates
+/// clean but returns a loud, non-fatal warning; a `schedule` trigger (which
+/// does fire) warns nothing; a graph with no trigger is `valid: false` with a
+/// structural error and no warnings.
+#[tokio::test]
+async fn json_rpc_flows_validate_reports_warnings_and_errors() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_base, _tmp, api_join, rpc_join, _guards) = boot_flows_rpc_env().await;
+
+    // 1. Webhook trigger — structurally valid, but does not fire yet → warning.
+    let webhook_graph = json!({
+        "name": "webhook-flow",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger", "config": { "trigger_kind": "webhook" } }
+        ],
+        "edges": []
+    });
+    let validate = post_json_rpc(
+        &rpc_base,
+        9501,
+        "openhuman.flows_validate",
+        json!({ "graph": webhook_graph }),
+    )
+    .await;
+    let v = peel_logs_envelope(assert_no_jsonrpc_error(&validate, "flows_validate"));
+    assert_eq!(v.get("valid").and_then(Value::as_bool), Some(true));
+    assert!(
+        v.get("errors").and_then(Value::as_array).expect("errors").is_empty(),
+        "a structurally valid webhook graph has no errors"
+    );
+    let warnings = v.get("warnings").and_then(Value::as_array).expect("warnings");
+    assert_eq!(warnings.len(), 1, "webhook trigger emits exactly one warning");
+    assert!(
+        warnings[0]
+            .as_str()
+            .is_some_and(|w| w.contains("does not fire automatically")),
+        "webhook warning must explain the trigger will not fire on its own, got: {warnings:?}"
+    );
+
+    // 2. Schedule trigger — fires automatically → no warning.
+    let schedule_graph = json!({
+        "name": "scheduled-flow",
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger", "config": { "trigger_kind": "schedule", "schedule": "0 9 * * *" } }
+        ],
+        "edges": []
+    });
+    let validate_sched = post_json_rpc(
+        &rpc_base,
+        9502,
+        "openhuman.flows_validate",
+        json!({ "graph": schedule_graph }),
+    )
+    .await;
+    let vs = peel_logs_envelope(assert_no_jsonrpc_error(&validate_sched, "flows_validate"));
+    assert_eq!(vs.get("valid").and_then(Value::as_bool), Some(true));
+    assert!(
+        vs.get("warnings").and_then(Value::as_array).expect("warnings").is_empty(),
+        "a schedule trigger fires automatically — no unfired-kind warning"
+    );
+
+    // 3. No trigger node — structurally invalid.
+    let invalid_graph = json!({
+        "name": "no-trigger",
+        "nodes": [ { "id": "a", "kind": "output_parser", "name": "A" } ],
+        "edges": []
+    });
+    let validate_bad = post_json_rpc(
+        &rpc_base,
+        9503,
+        "openhuman.flows_validate",
+        json!({ "graph": invalid_graph }),
+    )
+    .await;
+    let vb = peel_logs_envelope(assert_no_jsonrpc_error(&validate_bad, "flows_validate"));
+    assert_eq!(vb.get("valid").and_then(Value::as_bool), Some(false));
+    assert!(
+        !vb.get("errors").and_then(Value::as_array).expect("errors").is_empty(),
+        "a graph without a trigger must report a structural error"
+    );
+    assert!(
+        vb.get("warnings").and_then(Value::as_array).expect("warnings").is_empty(),
+        "an invalid graph reports errors, not warnings"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
 /// Task 4 / #3090: when a web-chat request is sent with
 /// `speak_reply: true`, `run_chat_task` should drive the agent's final text
 /// through `voice::reply_speech::synthesize_reply` after the turn completes.

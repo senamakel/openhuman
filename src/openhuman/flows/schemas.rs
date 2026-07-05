@@ -110,6 +110,7 @@ fn flow_connection_fields() -> Vec<FieldSchema> {
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("create"),
+        schemas("duplicate"),
         schemas("validate"),
         schemas("import"),
         schemas("get"),
@@ -123,6 +124,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("cancel_run"),
         schemas("list_runs"),
         schemas("get_run"),
+        schemas("prune_runs"),
     ]
 }
 
@@ -131,6 +133,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("create"),
             handler: handle_create,
+        },
+        RegisteredController {
+            schema: schemas("duplicate"),
+            handler: handle_duplicate,
         },
         RegisteredController {
             schema: schemas("validate"),
@@ -184,6 +190,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
             schema: schemas("get_run"),
             handler: handle_get_run,
         },
+        RegisteredController {
+            schema: schemas("prune_runs"),
+            handler: handle_prune_runs,
+        },
     ]
 }
 
@@ -209,6 +219,16 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 },
                 require_approval_input(),
             ],
+            outputs: vec![flow_output()],
+        },
+        "duplicate" => ControllerSchema {
+            namespace: "flows",
+            function: "duplicate",
+            description: "Duplicate a saved flow: create an independent copy of its graph under a \
+                          new id, with the name suffixed \" (copy)\". The copy is created DISABLED \
+                          and is NOT schedule/trigger-bound, so it never immediately fires — the \
+                          user enables it explicitly once reviewed. Run history does not carry over.",
+            inputs: vec![id_input("Identifier of the flow to duplicate.")],
             outputs: vec![flow_output()],
         },
         "validate" => ControllerSchema {
@@ -535,6 +555,43 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "prune_runs" => ControllerSchema {
+            namespace: "flows",
+            function: "prune_runs",
+            description: "Manually prune a flow's run history down to the retention cap, deleting \
+                          only terminal runs (completed/failed/cancelled) outside the newest-N \
+                          window. Never removes a running or pending_approval run. Pruning also \
+                          happens automatically on every new run; this is an explicit on-demand \
+                          sweep.",
+            inputs: vec![id_input("Identifier of the flow whose run history to prune.")],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Object {
+                    fields: vec![
+                        FieldSchema {
+                            name: "flow_id",
+                            ty: TypeSchema::String,
+                            comment: "Identifier of the flow whose runs were pruned.",
+                            required: true,
+                        },
+                        FieldSchema {
+                            name: "pruned",
+                            ty: TypeSchema::U64,
+                            comment: "Number of run records removed.",
+                            required: true,
+                        },
+                        FieldSchema {
+                            name: "kept",
+                            ty: TypeSchema::U64,
+                            comment: "The retention cap (most-recent runs kept).",
+                            required: true,
+                        },
+                    ],
+                },
+                comment: "Prune result payload.",
+                required: true,
+            }],
+        },
         _other => ControllerSchema {
             namespace: "flows",
             function: "unknown",
@@ -587,6 +644,14 @@ fn handle_import(params: Map<String, Value>) -> ControllerFuture {
             .transpose()
             .map_err(|e| format!("invalid 'format': {e}"))?;
         to_json(ops::flows_import(graph, format)?)
+    })
+}
+
+fn handle_duplicate(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        to_json(ops::flows_duplicate(&config, id.trim()).await?)
     })
 }
 
@@ -721,6 +786,14 @@ fn handle_get_run(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_prune_runs(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        to_json(ops::flows_prune_runs(&config, id.trim()).await?)
+    })
+}
+
 fn read_required<T: DeserializeOwned>(params: &Map<String, Value>, key: &str) -> Result<T, String> {
     let value = params
         .get(key)
@@ -747,6 +820,7 @@ mod tests {
             names,
             vec![
                 "create",
+                "duplicate",
                 "validate",
                 "import",
                 "get",
@@ -760,6 +834,7 @@ mod tests {
                 "cancel_run",
                 "list_runs",
                 "get_run",
+                "prune_runs",
             ]
         );
     }
@@ -767,12 +842,13 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 14);
+        assert_eq!(controllers.len(), 16);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
             vec![
                 "create",
+                "duplicate",
                 "validate",
                 "import",
                 "get",
@@ -786,6 +862,7 @@ mod tests {
                 "cancel_run",
                 "list_runs",
                 "get_run",
+                "prune_runs",
             ]
         );
     }
@@ -864,6 +941,35 @@ mod tests {
             .find(|f| f.name == "require_approval")
             .unwrap();
         assert!(!field.required);
+    }
+
+    #[test]
+    fn schemas_duplicate_requires_id_and_outputs_flow() {
+        let s = schemas("duplicate");
+        assert_eq!(s.namespace, "flows");
+        let required: Vec<_> = s
+            .inputs
+            .iter()
+            .filter(|f| f.required)
+            .map(|f| f.name)
+            .collect();
+        assert_eq!(required, vec!["id"]);
+        assert_eq!(s.outputs.len(), 1);
+        assert_eq!(s.outputs[0].name, "flow");
+    }
+
+    #[test]
+    fn schemas_prune_runs_requires_id_and_reports_counts() {
+        let s = schemas("prune_runs");
+        assert_eq!(s.namespace, "flows");
+        let required: Vec<_> = s
+            .inputs
+            .iter()
+            .filter(|f| f.required)
+            .map(|f| f.name)
+            .collect();
+        assert_eq!(required, vec!["id"]);
+        assert_eq!(s.outputs[0].name, "result");
     }
 
     #[test]

@@ -303,6 +303,30 @@ pub async fn flows_create(
     Ok(RpcOutcome::single_log(flow, "flow created"))
 }
 
+/// Duplicates a saved flow: creates an independent copy of its graph under a
+/// new id/timestamps, with the name suffixed `" (copy)"`. The copy is created
+/// **disabled** (`enabled = false`) and therefore **not** schedule/app_event
+/// trigger-bound — unlike [`flows_create`], which binds a trigger for an
+/// enabled flow, this deliberately calls no [`bind_trigger`], so a duplicate
+/// can never immediately fire. Run history does not carry over. The user
+/// enables it explicitly (via `flows_set_enabled`) once they've reviewed the
+/// copy, at which point its trigger binds like any other flow.
+pub async fn flows_duplicate(config: &Config, id: &str) -> Result<RpcOutcome<Flow>, String> {
+    let source = store::get_flow(config, id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("flow '{id}' not found"))?;
+    let new_name = format!("{} (copy)", source.name);
+    tracing::debug!(target: "flows", source_id = %id, %new_name, "[flows] flows_duplicate: creating disabled, unbound copy");
+    let flow =
+        store::insert_duplicate_flow(config, &source, new_name).map_err(|e| e.to_string())?;
+    // Intentionally NO bind_trigger: a duplicate is disabled and must stay
+    // inert (no schedule/trigger dispatch) until the user enables it.
+    Ok(RpcOutcome::single_log(
+        flow,
+        format!("flow duplicated from {id}"),
+    ))
+}
+
 /// Loads one flow by id.
 pub async fn flows_get(config: &Config, id: &str) -> Result<RpcOutcome<Flow>, String> {
     let flow = store::get_flow(config, id)
@@ -1222,6 +1246,23 @@ pub async fn flows_list_runs(
     Ok(RpcOutcome::single_log(
         runs,
         format!("flow runs listed: {flow_id}"),
+    ))
+}
+
+/// Manually prunes a flow's run history down to the retention cap
+/// ([`store::MAX_FLOW_RUNS_PER_FLOW`]), deleting only terminal runs outside the
+/// newest-N window. Never removes a `running` or `pending_approval` run — a
+/// parked run must survive for a later `flows_resume`. Pruning also happens
+/// automatically on every new-run insert; this RPC exposes it for an explicit
+/// on-demand sweep (e.g. a maintenance action). Returns the number of runs
+/// pruned.
+pub async fn flows_prune_runs(config: &Config, flow_id: &str) -> Result<RpcOutcome<Value>, String> {
+    let keep = store::MAX_FLOW_RUNS_PER_FLOW;
+    let pruned = store::prune_flow_runs(config, flow_id, keep).map_err(|e| e.to_string())?;
+    tracing::info!(target: "flows", flow_id, pruned, keep, "[flows] flows_prune_runs: manual retention sweep");
+    Ok(RpcOutcome::single_log(
+        json!({ "flow_id": flow_id, "pruned": pruned, "kept": keep }),
+        format!("flow runs pruned: {flow_id} ({pruned} removed)"),
     ))
 }
 

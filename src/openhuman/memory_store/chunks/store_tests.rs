@@ -11,8 +11,11 @@
 //! that don't need it.
 
 use super::*;
-use crate::openhuman::memory_store::chunks::types::chunk_id;
-use chrono::TimeZone;
+// Imported directly (no longer via `super::*`) now that store.rs's own code
+// delegates to the crate and dropped these imports — the tests still build
+// chunk fixtures with them.
+use crate::openhuman::memory_store::chunks::types::{chunk_id, Metadata, SourceRef};
+use chrono::{TimeZone, Utc};
 use rusqlite::params;
 use tempfile::TempDir;
 

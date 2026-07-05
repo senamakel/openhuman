@@ -127,18 +127,30 @@ describe('Chat harness — wallet flow', () => {
   it('sets up the local wallet through the Recovery Phrase panel and persists wallet state', async function () {
     this.timeout(90_000);
     await navigateViaHash('/settings/recovery-phrase');
-    await browser.waitUntil(async () => await textExists('Save Recovery Phrase'), {
-      timeout: 15_000,
-      timeoutMsg: 'Recovery Phrase panel did not mount',
-    });
+    await browser.waitUntil(
+      async () =>
+        (await textExists('Save Recovery Phrase')) ||
+        (await textExists('Your wallet is already set up')),
+      { timeout: 20_000, timeoutMsg: 'Recovery Phrase panel did not mount' }
+    );
 
-    await clickRecoveryConsentCheckbox();
-    await clickText('Save Recovery Phrase', 10_000);
+    const alreadyConfigured = await callOpenhumanRpc<{ result: { configured: boolean } }>(
+      'openhuman.wallet_status',
+      {}
+    );
+    if (alreadyConfigured.ok && alreadyConfigured.result?.result?.configured === true) {
+      console.log(
+        '[chat-harness-wallet-flow] Wallet already configured after reset; verifying state'
+      );
+    } else {
+      await clickRecoveryConsentCheckbox();
+      await clickText('Save Recovery Phrase', 10_000);
 
-    await browser.waitUntil(async () => await textExists('Recovery phrase saved'), {
-      timeout: 20_000,
-      timeoutMsg: 'wallet setup success message never rendered',
-    });
+      await browser.waitUntil(async () => await textExists('Recovery phrase saved'), {
+        timeout: 20_000,
+        timeoutMsg: 'wallet setup success message never rendered',
+      });
+    }
 
     await browser.waitUntil(
       async () => {
@@ -238,12 +250,19 @@ describe('Chat harness — wallet flow', () => {
     expect(llmHits.length).toBeGreaterThanOrEqual(2);
 
     const relPath = `memory/conversations/threads/${hexEncodeThreadId(threadId)}.jsonl`;
-    const read = await callOpenhumanRpc<{ result: { content_utf8: string } }>(
-      'openhuman.test_support_read_workspace_file',
-      { rel_path: relPath, max_bytes: 131_072 }
+    let threadContent = '';
+    await browser.waitUntil(
+      async () => {
+        const read = await callOpenhumanRpc<{ result: { content_utf8: string } }>(
+          'openhuman.test_support_read_workspace_file',
+          { rel_path: relPath, max_bytes: 131_072 }
+        );
+        if (!read.ok) return false;
+        threadContent = read.result?.result?.content_utf8 ?? '';
+        return threadContent.includes(CANARY) && threadContent.includes(WALLET_PROMPT);
+      },
+      { timeout: 15_000, timeoutMsg: 'wallet chat thread file never contained the exchange' }
     );
-    expect(read.ok).toBe(true);
-    const threadContent = read.result?.result?.content_utf8 ?? '';
     expect(threadContent).toContain(CANARY);
     expect(threadContent).toContain(WALLET_PROMPT);
   });

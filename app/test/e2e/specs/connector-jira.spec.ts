@@ -38,6 +38,22 @@ const CONNECTOR_NAME = 'Jira';
 const TOOLKIT_SLUG = 'jira';
 const AUTH_TOKEN = 'e2e-connector-jira-token';
 
+async function waitForJiraDisconnected(timeout = 15_000): Promise<void> {
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const tile = document.querySelector<HTMLElement>(
+          '[data-testid="skill-install-composio-jira"]'
+        );
+        if (!tile) return false;
+        const label = tile.getAttribute('aria-label') ?? '';
+        const text = tile.textContent ?? '';
+        return !label.includes('Connected') && !text.includes('Connected');
+      }),
+    { timeout, interval: 300, timeoutMsg: 'Jira tile did not settle to disconnected state' }
+  );
+}
+
 describe('Jira Composio connector flow', () => {
   before(async function () {
     this.timeout(90_000);
@@ -87,6 +103,7 @@ describe('Jira Composio connector flow', () => {
     });
     await navigateToSkills();
     await waitForText(CONNECTOR_NAME, 10_000);
+    await waitForJiraDisconnected(20_000);
     const modal = await openConnectorModal(CONNECTOR_NAME);
     expect(modal).toBeTruthy();
     // The Jira connect modal should render a subdomain input per toolkitRequiredFields.ts

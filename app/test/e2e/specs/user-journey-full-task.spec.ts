@@ -188,12 +188,22 @@ describe('User journey — full research task', () => {
       timeoutMsg: 'Conversations panel did not remount',
     });
 
-    // The thread we created should still be in the sidebar / visible.
-    // We look for the canary text which should still be rendered for the active thread.
-    await browser.waitUntil(async () => await textExists(CANARY_FINAL), {
-      timeout: 15_000,
-      timeoutMsg: `canary "${CANARY_FINAL}" not visible after navigate back to /chat`,
-    });
+    // The thread we created should still be visible after route churn. Use a
+    // direct DOM text scan here: the failure artifact from Release CI showed
+    // the canary in the rendered page while the element-level lookup timed out
+    // under the shared CEF session.
+    await browser.waitUntil(
+      async () =>
+        browser.execute(
+          (canary: string) => document.body.textContent?.includes(canary) ?? false,
+          CANARY_FINAL
+        ),
+      {
+        timeout: 20_000,
+        interval: 300,
+        timeoutMsg: `canary "${CANARY_FINAL}" not visible after navigate back to /chat`,
+      }
+    );
 
     console.log(`${LOG_PREFIX} J1.4: passed — conversation persists across navigation`);
   });

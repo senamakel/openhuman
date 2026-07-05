@@ -76,6 +76,33 @@ describe('TransformForm', () => {
   });
 });
 
+describe('AgentForm', () => {
+  it('offers model hints and patches config.model with the chosen hint', () => {
+    const { onChange } = renderForm('agent', {});
+    fireEvent.change(screen.getByTestId('node-config-agent-model'), {
+      target: { value: 'hint:coding' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({ model: 'hint:coding' });
+  });
+
+  it('reveals a custom model input when Custom is selected', () => {
+    const { onChange } = renderForm('agent', {});
+    // No custom text box until Custom is picked.
+    expect(screen.queryByTestId('node-config-agent-model-custom')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('node-config-agent-model'), {
+      target: { value: '__custom__' },
+    });
+    const custom = screen.getByTestId('node-config-agent-model-custom');
+    fireEvent.change(custom, { target: { value: 'gpt-4o-mini' } });
+    expect(onChange).toHaveBeenLastCalledWith({ model: 'gpt-4o-mini' });
+  });
+
+  it('opens in custom mode when config.model is a raw model id', () => {
+    renderForm('agent', { config: { model: 'claude-sonnet-5' } });
+    expect(screen.getByTestId('node-config-agent-model-custom')).toHaveValue('claude-sonnet-5');
+  });
+});
+
 describe('TriggerForm', () => {
   it('reveals the cron schedule field only for the schedule kind and patches it', () => {
     const { onChange } = renderForm('trigger', {});

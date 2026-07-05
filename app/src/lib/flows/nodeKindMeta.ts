@@ -107,9 +107,3 @@ export const COLOR_CLASSES: Record<NodeColor, { border: string; chip: string }> 
   },
   neutral: { border: 'border-line-strong', chip: 'bg-surface-subtle' },
 };
-
-/** Even vertical offsets (in %) for `count` handles along one side of a card. */
-export function handleOffsets(count: number): number[] {
-  if (count <= 1) return [50];
-  return Array.from({ length: count }, (_, i) => ((i + 1) / (count + 1)) * 100);
-}

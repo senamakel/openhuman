@@ -63,6 +63,31 @@ describe('FlowCanvas', () => {
     expect(screen.getByText('Reply')).toBeInTheDocument();
   });
 
+  it("labels named output ports (e.g. a condition's true/false) instead of a plaintext dump", () => {
+    const conditionNode: FlowNode = {
+      id: 'c',
+      type: 'flowNode',
+      position: { x: 0, y: 0 },
+      data: {
+        kind: 'condition',
+        name: 'Check status',
+        config: {},
+        ports: [],
+        inputPorts: ['main'],
+        outputPorts: ['true', 'false'],
+      } satisfies FlowNodeData,
+    };
+    render(<FlowCanvas nodes={[conditionNode]} edges={[]} />);
+    expect(screen.getByText('true')).toBeInTheDocument();
+    expect(screen.getByText('false')).toBeInTheDocument();
+  });
+
+  it('does not label a lone implicit main port (just its handle dot)', () => {
+    render(<FlowCanvas nodes={sampleNodes()} edges={sampleEdges()} />);
+    // A plain agent/trigger node with a single `main` in/out shows no "main" text.
+    expect(screen.queryByText('main')).not.toBeInTheDocument();
+  });
+
   it('renders the minimap and zoom/pan controls', () => {
     const { container } = render(<FlowCanvas nodes={sampleNodes()} edges={sampleEdges()} />);
     expect(container.querySelector('.react-flow__minimap')).not.toBeNull();

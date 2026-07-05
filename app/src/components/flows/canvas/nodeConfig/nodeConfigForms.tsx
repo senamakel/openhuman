@@ -25,6 +25,7 @@ import {
   ExpressionField,
   JsonField,
   KeyMapField,
+  ModelHintField,
   SelectField,
   TextAreaField,
   TextField,
@@ -153,11 +154,11 @@ function AgentForm({ config, onChange, connections }: NodeConfigFormProps) {
         rows={5}
         testId="node-config-agent-prompt"
       />
-      <TextField
+      <ModelHintField
         label={t('flows.nodeConfig.agent.modelLabel')}
+        hint={t('flows.nodeConfig.agent.modelHint')}
         value={configString(config, 'model')}
         onChange={v => onChange({ model: v })}
-        placeholder="gpt-4o-mini"
         testId="node-config-agent-model"
       />
       <CredentialPickerField

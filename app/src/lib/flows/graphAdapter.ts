@@ -151,6 +151,111 @@ export function workflowGraphToXyflow(graph: WorkflowGraph): {
   return { nodes, edges };
 }
 
+/**
+ * A React-Flow connection candidate (what `onConnect` / `isValidConnection`
+ * receive). `sourceHandle`/`targetHandle` are the `Handle` ids — i.e. the
+ * effective port names `FlowNodeComponent` renders — and may be `null` when a
+ * node exposes a single unnamed handle, in which case they default to `main`.
+ */
+export interface FlowConnectionCandidate {
+  source?: string | null;
+  target?: string | null;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+}
+
+/**
+ * Port-aware validity check for a candidate connection on the editable canvas.
+ * Rejects (returns `false`) when:
+ *  - either endpoint is missing;
+ *  - the connection is a self-loop (`source === target`) — tinyflows graphs
+ *    are DAG-ish and a node wiring to itself is never meaningful here;
+ *  - either endpoint node isn't in `nodes`;
+ *  - the source handle isn't one of the source node's effective *output*
+ *    ports, or the target handle isn't one of the target node's effective
+ *    *input* ports (reusing the same `inputPorts`/`outputPorts` the canvas
+ *    already derived in {@link workflowGraphToXyflow} / {@link createFlowNode});
+ *  - an identical edge (same 4-tuple) already exists in `edges` — React Flow
+ *    would happily add a duplicate otherwise.
+ *
+ * Pure and dependency-free so both `<ReactFlow isValidConnection>` (live drag
+ * feedback) and `onConnect` (the commit) can share one source of truth, and so
+ * it's trivially unit-testable.
+ */
+export function isValidFlowConnection(
+  connection: FlowConnectionCandidate,
+  nodes: FlowNode[],
+  edges: FlowEdge[] = []
+): boolean {
+  const { source, target } = connection;
+  if (!source || !target) {
+    log('isValidFlowConnection: reject — missing endpoint');
+    return false;
+  }
+  if (source === target) {
+    log('isValidFlowConnection: reject — self-loop on %s', source);
+    return false;
+  }
+  const sourceNode = nodes.find(n => n.id === source);
+  const targetNode = nodes.find(n => n.id === target);
+  if (!sourceNode || !targetNode) {
+    log('isValidFlowConnection: reject — endpoint node not found');
+    return false;
+  }
+  const sourceHandle = connection.sourceHandle || DEFAULT_PORT;
+  const targetHandle = connection.targetHandle || DEFAULT_PORT;
+  if (!sourceNode.data.outputPorts.includes(sourceHandle)) {
+    log('isValidFlowConnection: reject — %s has no output port %s', source, sourceHandle);
+    return false;
+  }
+  if (!targetNode.data.inputPorts.includes(targetHandle)) {
+    log('isValidFlowConnection: reject — %s has no input port %s', target, targetHandle);
+    return false;
+  }
+  const duplicate = edges.some(
+    e =>
+      e.source === source &&
+      e.target === target &&
+      (e.sourceHandle || DEFAULT_PORT) === sourceHandle &&
+      (e.targetHandle || DEFAULT_PORT) === targetHandle
+  );
+  if (duplicate) {
+    log('isValidFlowConnection: reject — duplicate edge');
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Build a fresh xyflow node for a palette-added `kind` at `position`. Newly
+ * dropped nodes start with a single default `main` input + `main` output
+ * handle (no declared `ports`, empty `config`) — exactly what
+ * {@link effectiveInputPorts}/{@link effectiveOutputPorts} would derive for a
+ * node with no edges yet — so it round-trips cleanly through
+ * {@link xyflowToWorkflowGraph} and immediately accepts connections. `id` must
+ * be unique within the canvas; `name` defaults to `kind` when omitted.
+ */
+export function createFlowNode(
+  kind: NodeKind,
+  position: Point,
+  id: string,
+  name?: string
+): FlowNode {
+  return {
+    id,
+    type: FLOW_NODE_TYPE,
+    position,
+    data: {
+      kind,
+      name: name ?? kind,
+      config: {},
+      ports: [],
+      inputPorts: [DEFAULT_PORT],
+      outputPorts: [DEFAULT_PORT],
+    },
+  };
+}
+
 /** Metadata not carried by xyflow nodes/edges, needed to reassemble a full `WorkflowGraph`. */
 export interface WorkflowGraphMeta {
   schema_version: number;

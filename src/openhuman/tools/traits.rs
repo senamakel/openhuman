@@ -11,8 +11,10 @@ pub use crate::openhuman::workflows::types::{ToolContent, ToolResult};
 pub enum ToolScope {
     /// Available in agent loop, CLI, and RPC.
     All,
-    /// Only available in the autonomous agent loop.
-    #[allow(dead_code)]
+    /// Intended to mark tools available only in the autonomous agent loop.
+    /// NOTE: not yet gated — no execution path filters on `AgentOnly`, so it
+    /// currently behaves like `All`. The `AgentOnly` vs `All` reconciliation is
+    /// deferred to the Phase 2 tool-model work (docs/tinyagents-port-plan.md §5).
     AgentOnly,
     /// Only available via explicit CLI/RPC invocation (not autonomous agent).
     CliRpcOnly,

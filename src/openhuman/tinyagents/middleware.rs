@@ -25,6 +25,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use sha2::{Digest, Sha256};
 
 use tinyagents::error::{Result as TaResult, TinyAgentsError};
 use tinyagents::harness::context::RunContext;
@@ -623,21 +624,20 @@ fn parse_context_bundle_has_enough_context(bundle: &str) -> Option<bool> {
     }
 }
 
-/// Seed-free FNV-1a fingerprint (matches the crate's own prompt-layout hash
-/// approach) so a segment id is stable across process restarts — unlike Rust's
-/// randomly-seeded `SipHash`. Used to build content-fingerprinted prompt-cache
-/// segment ids: an unchanged system prompt / tool set keeps the same id (stable
-/// prefix), while injected volatile content flips it and surfaces as a
-/// `CacheLayoutEvent`.
-fn stable_prefix_fingerprint(data: &str) -> String {
-    const OFFSET_BASIS: u64 = 14_695_981_039_346_656_037;
-    const PRIME: u64 = 1_099_511_628_211;
-    let mut hash = OFFSET_BASIS;
-    for &byte in data.as_bytes() {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(PRIME);
+/// Stable SHA-256 fingerprint over canonical JSON. TinyAgents' prompt builder
+/// uses the same shape for `ModelRequest::prompt_fingerprint`; OpenHuman builds
+/// requests directly, so this adapter must stamp equivalent content-derived
+/// segment ids and request fingerprints.
+fn stable_prefix_fingerprint(value: &serde_json::Value) -> String {
+    let mut hasher = Sha256::new();
+    if serde_json::to_writer(&mut hasher, value).is_err() {
+        hasher = Sha256::new();
     }
-    format!("{hash:016x}")
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 /// `before_model`: declare the turn's stable prompt prefix (system prompt + tool
@@ -645,10 +645,11 @@ fn stable_prefix_fingerprint(data: &str) -> String {
 ///
 /// OpenHuman assembles the request's messages/tools directly rather than through
 /// the crate prompt builder, so `cache_segments` would otherwise stay empty and
-/// the crate `PromptCacheGuardMiddleware` (installed immediately after this) would
-/// have no prefix to protect. This stamps the segments with **content-fingerprint
-/// ids**: an unchanged system prompt + tool set yields a stable prefix, while an
-/// injected timestamp/uuid/etc. changes the fingerprint and the guard records a
+/// the crate `PromptCacheGuardMiddleware` (installed immediately after this)
+/// would have no prefix to protect. This stamps the segments with
+/// **content-fingerprint ids**: an unchanged system prompt + full tool-schema set
+/// yields a stable prefix, while an injected timestamp/uuid/etc. or changed tool
+/// schema flips it and the guard records a
 /// [`CacheLayoutEvent`](tinyagents::harness::cache::CacheLayoutEvent). This is
 /// the structured, crate-native replacement for the deleted warn-only
 /// `CacheAlignMiddleware` volatile-token scan (C3): the crate
@@ -676,24 +677,25 @@ impl Middleware<()> for PromptCacheSegmentMiddleware {
             .iter()
             .find(|m| matches!(m, TaMessage::System(_)))
         {
-            let fp = stable_prefix_fingerprint(&sys.text());
+            let fp = stable_prefix_fingerprint(&serde_json::json!({
+                "role": "system",
+                "messages": [sys],
+            }));
             segments.push(PromptSegment {
                 id: format!("system:{fp}"),
                 role: SegmentRole::System,
                 cacheable: true,
             });
         }
-        // 2. Tool schemas — advertised tool *set* identity (names, in registration
-        //    order) forms the next stable prefix segment. A changed tool surface
-        //    legitimately busts the prefix; an unchanged one keeps it stable.
+        // 2. Tool schemas — advertised tool surface identity (full schemas, in
+        //    registration order) forms the next stable prefix segment. A changed
+        //    tool surface legitimately busts the prefix; an unchanged one keeps
+        //    it stable.
         if !request.tools.is_empty() {
-            let joined = request
-                .tools
-                .iter()
-                .map(|t| t.name.as_str())
-                .collect::<Vec<_>>()
-                .join(",");
-            let fp = stable_prefix_fingerprint(&joined);
+            let fp = stable_prefix_fingerprint(&serde_json::json!({
+                "role": "tools",
+                "tools": &request.tools,
+            }));
             segments.push(PromptSegment {
                 id: format!("tools:{fp}"),
                 role: SegmentRole::Tools,
@@ -701,12 +703,10 @@ impl Middleware<()> for PromptCacheSegmentMiddleware {
             });
         }
         if !segments.is_empty() {
-            let joined_ids = segments
-                .iter()
-                .map(|s| s.id.as_str())
-                .collect::<Vec<_>>()
-                .join("|");
-            request.prompt_fingerprint = Some(stable_prefix_fingerprint(&joined_ids));
+            request.prompt_fingerprint = Some(stable_prefix_fingerprint(&serde_json::json!({
+                "segments": &segments,
+                "tools": &request.tools,
+            })));
             tracing::debug!(
                 segment_count = segments.len(),
                 fingerprint = request.prompt_fingerprint.as_deref().unwrap_or(""),
@@ -1349,9 +1349,10 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
 /// raw payload.
 pub(crate) struct ToolOutcomeCaptureMiddleware {
     sink: super::ToolOutcomeSink,
-    /// `call_id → (success, classified failure)` side-channel read by the event
-    /// bridge when projecting `ToolCallCompleted` (the crate event lacks the
-    /// success/error the failure UI needs).
+    /// `call_id → (success, classified failure, elapsed, output chars)` fallback
+    /// read by the event bridge when projecting `ToolCallCompleted`. TinyAgents
+    /// 1.6 owns the raw outcome fields; the host still adds classified failure
+    /// metadata for the UI.
     failure_map: super::observability::ToolFailureMap,
 }
 
@@ -1423,9 +1424,9 @@ impl Middleware<()> for ToolOutcomeCaptureMiddleware {
             ))
         };
         if let Ok(mut map) = self.failure_map.lock() {
-            // Also carry the executor-measured duration + rendered output size so
-            // the event bridge can project real `elapsed_ms`/`output_chars` on
-            // `ToolCallCompleted` instead of `0`/`0` (#4467, item 4).
+            // Keep duration + rendered output size as a compatibility fallback
+            // for old/deserialized completion events; TinyAgents 1.6 supplies
+            // these fields directly on live `ToolCompleted` events.
             map.insert(
                 result.call_id.clone(),
                 (
@@ -3186,6 +3187,58 @@ mod tests {
 
     fn ctx() -> RunContext<()> {
         RunContext::new(RunConfig::new("mw-test"), ())
+    }
+
+    #[tokio::test]
+    async fn prompt_cache_segments_fingerprint_full_tool_schema() {
+        let mw = PromptCacheSegmentMiddleware;
+        let mut first =
+            ModelRequest::new(vec![TaMessage::system("sys")]).with_tools(vec![ToolSchema::new(
+                "lookup",
+                "lookup a user",
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "string" }
+                    },
+                }),
+            )]);
+        mw.before_model(&mut ctx(), &(), &mut first).await.unwrap();
+
+        let mut second =
+            ModelRequest::new(vec![TaMessage::system("sys")]).with_tools(vec![ToolSchema::new(
+                "lookup",
+                "lookup a user",
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "integer" }
+                    },
+                }),
+            )]);
+        mw.before_model(&mut ctx(), &(), &mut second).await.unwrap();
+
+        let first_tool_segment = first
+            .cache_segments
+            .iter()
+            .find(|segment| segment.role == SegmentRole::Tools)
+            .expect("tool segment");
+        let second_tool_segment = second
+            .cache_segments
+            .iter()
+            .find(|segment| segment.role == SegmentRole::Tools)
+            .expect("tool segment");
+
+        assert_ne!(
+            first_tool_segment.id, second_tool_segment.id,
+            "same-name tools with different schemas must bust the stable prefix"
+        );
+        assert_ne!(first.prompt_fingerprint, second.prompt_fingerprint);
+        assert_eq!(
+            first.prompt_fingerprint.as_deref().unwrap().len(),
+            64,
+            "request prompt fingerprints use TinyAgents' SHA-256 shape"
+        );
     }
 
     /// A minimal openhuman [`Tool`] for the tool-set–backed middlewares. Its

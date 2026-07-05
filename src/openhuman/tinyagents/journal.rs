@@ -45,10 +45,12 @@
 //!
 //! [`EventSink::with_stream_id`]: tinyagents::harness::events::EventSink::with_stream_id
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use once_cell::sync::Lazy;
 
 use tinyagents::error::Result as TaResult;
 use tinyagents::harness::events::{EventSink, HarnessRunStatus};
@@ -66,6 +68,12 @@ use crate::openhuman::session_import::ops::open_session_stores;
 /// it round-trips the crate [`FileStore`] name sanitizer.
 const STATUS_NS: &str = "run_status";
 
+/// Best-effort live request → durable tinyagents journal stream map. The web
+/// progress bridge uses this at turn end to shadow-project spans from the
+/// journal and compare them against the live `SpanCollector` path during C4 S3.
+static REQUEST_JOURNAL_RUNS: Lazy<Mutex<HashMap<String, String>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
 /// Mints a fresh, slash-free, process-unique run id (`run.<32-hex>`), used three
 /// ways for one turn: the [`EventSink::with_stream_id`] prefix (so persisted
 /// `event_id`s are the restart-stable `{run_id}-evt-{offset}`), the journal
@@ -79,6 +87,32 @@ const STATUS_NS: &str = "run_status";
 /// [`EventSink::with_stream_id`]: tinyagents::harness::events::EventSink::with_stream_id
 pub(crate) fn mint_run_id() -> RunId {
     RunId::new(format!("run.{}", uuid::Uuid::new_v4().simple()))
+}
+
+pub(crate) fn register_request_journal_run(request_id: &str, run_id: &str) {
+    match REQUEST_JOURNAL_RUNS.lock() {
+        Ok(mut runs) => {
+            runs.insert(request_id.to_string(), run_id.to_string());
+            log::debug!(
+                "[journal] registered request journal request_id={} run_id={}",
+                request_id,
+                run_id
+            );
+        }
+        Err(err) => {
+            log::debug!(
+                "[journal] request journal registry poisoned request_id={} err={err}",
+                request_id
+            );
+        }
+    }
+}
+
+pub(crate) fn take_request_journal_run(request_id: &str) -> Option<String> {
+    REQUEST_JOURNAL_RUNS
+        .lock()
+        .ok()
+        .and_then(|mut runs| runs.remove(request_id))
 }
 
 /// Resolve the internal workspace directory (`{workspace}`) whose

@@ -1357,3 +1357,146 @@ async fn flows_set_enabled_schedule_flow_has_no_warning() {
         enabled.logs
     );
 }
+
+// ── flows_list_connections (picker source) ──────────────────────────────
+
+use crate::openhuman::composio::ComposioConnection;
+use crate::openhuman::credentials::{HttpCredential, HttpCredentialSummary, HttpCredentialsStore};
+
+fn composio_conn(id: &str, toolkit: &str, status: &str, email: Option<&str>) -> ComposioConnection {
+    ComposioConnection {
+        id: id.to_string(),
+        toolkit: toolkit.to_string(),
+        status: status.to_string(),
+        created_at: None,
+        account_email: email.map(str::to_string),
+        workspace: None,
+        username: None,
+    }
+}
+
+fn http_summary(name: &str, scheme: &str) -> HttpCredentialSummary {
+    HttpCredentialSummary {
+        name: name.to_string(),
+        scheme: scheme.to_string(),
+        header_name: None,
+        username: None,
+        updated_at: "2026-01-01T00:00:00Z".to_string(),
+    }
+}
+
+#[test]
+fn build_flow_connections_emits_parseable_refs_for_both_kinds() {
+    let composio = vec![composio_conn(
+        "ca_abc",
+        "Gmail",
+        "ACTIVE",
+        Some("user@example.com"),
+    )];
+    let http = vec![http_summary("stripe", "bearer")];
+
+    let out = build_flow_connections(composio, http);
+    assert_eq!(out.len(), 2);
+
+    let gmail = &out[0];
+    assert_eq!(gmail.kind, "composio");
+    // Toolkit is normalized (lowercased) and the ref round-trips through the
+    // exact parser the caps seam uses on execution.
+    assert_eq!(gmail.connection_ref, "composio:gmail:ca_abc");
+    assert_eq!(
+        crate::openhuman::tinyflows::caps::composio_connection_id(&gmail.connection_ref),
+        Some("ca_abc")
+    );
+    assert_eq!(gmail.toolkit.as_deref(), Some("gmail"));
+    assert_eq!(gmail.display, "Gmail · user@example.com");
+    assert!(gmail.scheme.is_none());
+
+    let stripe = &out[1];
+    assert_eq!(stripe.kind, "http");
+    assert_eq!(stripe.connection_ref, "http_cred:stripe");
+    assert_eq!(
+        crate::openhuman::tinyflows::caps::http_cred_name(&stripe.connection_ref),
+        Some("stripe")
+    );
+    assert_eq!(stripe.scheme.as_deref(), Some("bearer"));
+    assert_eq!(stripe.display, "stripe (bearer)");
+    assert!(stripe.toolkit.is_none());
+}
+
+#[test]
+fn build_flow_connections_skips_non_active_composio_accounts() {
+    let composio = vec![
+        composio_conn("ca_ok", "notion", "ACTIVE", None),
+        composio_conn("ca_pending", "slack", "PENDING", None),
+    ];
+    let out = build_flow_connections(composio, Vec::new());
+    assert_eq!(out.len(), 1, "only the ACTIVE connection is surfaced");
+    assert_eq!(out[0].connection_ref, "composio:notion:ca_ok");
+    // No cached identity → title-cased toolkit alone.
+    assert_eq!(out[0].display, "Notion");
+}
+
+#[test]
+fn build_flow_connections_never_carries_secret_fields() {
+    let out = build_flow_connections(
+        vec![composio_conn("ca_abc", "gmail", "ACTIVE", Some("u@x.io"))],
+        vec![http_summary("stripe", "header")],
+    );
+    let json = serde_json::to_string(&out).unwrap();
+    // The serialized picker payload must expose only ref/kind/display/toolkit/
+    // scheme — no secret-bearing key names at all.
+    for banned in [
+        "secret", "token", "password", "\"key\"", "apiKey", "api_key",
+    ] {
+        assert!(
+            !json
+                .to_ascii_lowercase()
+                .contains(&banned.to_ascii_lowercase()),
+            "serialized FlowConnection leaked a secret-bearing field ({banned}): {json}"
+        );
+    }
+}
+
+#[test]
+fn title_case_toolkit_handles_underscores_and_dashes() {
+    assert_eq!(title_case_toolkit("gmail"), "Gmail");
+    assert_eq!(title_case_toolkit("google_calendar"), "Google Calendar");
+    assert_eq!(title_case_toolkit("google-sheets"), "Google Sheets");
+    assert_eq!(title_case_toolkit(""), "");
+}
+
+#[tokio::test]
+async fn flows_list_connections_aggregates_http_creds_and_tolerates_composio() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    // Force Direct mode with no key so the composio source short-circuits to an
+    // empty list offline (no network) — proving the aggregation still returns
+    // the HTTP-credential half.
+    config.composio.mode = crate::openhuman::config::schema::COMPOSIO_MODE_DIRECT.to_string();
+    // Secrets in the clear at rest for the test (mirrors the E2E config).
+    config.secrets.encrypt = false;
+
+    // Seed one HTTP credential through the same store the op reads.
+    let store = HttpCredentialsStore::from_config(&config);
+    store
+        .upsert(&HttpCredential::bearer("stripe", "sk_live_seed_secret"))
+        .unwrap();
+
+    let outcome = flows_list_connections(&config).await.unwrap();
+    let refs: Vec<_> = outcome
+        .value
+        .iter()
+        .map(|c| c.connection_ref.as_str())
+        .collect();
+    assert!(
+        refs.contains(&"http_cred:stripe"),
+        "http_cred must be surfaced: {refs:?}"
+    );
+
+    // The secret must never appear anywhere in the RPC payload.
+    let json = serde_json::to_string(&outcome.value).unwrap();
+    assert!(
+        !json.contains("sk_live_seed_secret"),
+        "secret leaked into flows_list_connections payload: {json}"
+    );
+}

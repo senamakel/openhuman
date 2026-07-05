@@ -26,12 +26,15 @@ use crate::openhuman::composio::client::{
     create_composio_client, direct_execute, ComposioClientKind,
 };
 use crate::openhuman::config::{Config, HttpRequestConfig};
+use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::flows;
 use crate::openhuman::inference::provider::{
     create_chat_provider, ChatMessage, ChatRequest, UsageInfo,
 };
 use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
-use crate::openhuman::security::SecurityPolicy;
+use crate::openhuman::security::{
+    CommandClass, GateDecision, SecurityPolicy, POLICY_BLOCKED_MARKER,
+};
 use crate::openhuman::tools::traits::Tool as _;
 use crate::openhuman::tools::HttpRequestTool;
 
@@ -50,6 +53,146 @@ fn usage_to_json(usage: &Option<UsageInfo>) -> Value {
             "reasoning_tokens": u.reasoning_tokens,
             "charged_amount_usd": u.charged_amount_usd,
         }),
+    }
+}
+
+/// Hard autonomy-tier gate for an *acting* flow node (Phase 2).
+///
+/// A flow run scopes a `TrustedAutomation { Workflow }` origin, but the acting
+/// power of a run is still bounded by the user's `[autonomy]` tier — the same
+/// [`SecurityPolicy`] the agent tool-loop honors (`SecurityPolicy::from_config`
+/// off the `[autonomy]` block). Before an `http_request` (Network-class) or
+/// `code` (Write-class) node dispatches, we consult
+/// [`SecurityPolicy::gate_decision`] for that node's [`CommandClass`] and refuse
+/// outright when the tier `Block`s it — mirroring how `curl`/`shell` acting
+/// tools gate (`policy.gate_decision(CommandClass::Network)`), so a read-only
+/// run can never reach the network or run arbitrary code.
+///
+/// `Allow`/`Prompt` return `Ok(decision)`: this function only enforces the
+/// non-negotiable `Block` floor itself. The caller uses the returned
+/// [`GateDecision`] to drive [`gate_call_for_tier`] immediately after, which is
+/// what actually performs the `Prompt` round-trip (see that function's doc for
+/// why this is not automatic — a saved workflow's own `require_approval` flag
+/// would otherwise silently override the tier's `Prompt` decision). The error
+/// is prefixed with [`POLICY_BLOCKED_MARKER`] so the harness's repeated-failure
+/// middleware recognizes it as a permanent, don't-retry refusal.
+fn enforce_node_tier_gate(
+    security: &SecurityPolicy,
+    class: CommandClass,
+    node: &str,
+) -> Result<GateDecision> {
+    let decision = security.gate_decision(class);
+    tracing::debug!(
+        target: "flows",
+        node,
+        ?class,
+        ?decision,
+        tier = ?security.autonomy,
+        "[flows] node tier gate: evaluating autonomy-tier decision"
+    );
+    if decision == GateDecision::Block {
+        tracing::warn!(
+            target: "flows",
+            node,
+            ?class,
+            tier = ?security.autonomy,
+            "[flows] node tier gate: BLOCKED by autonomy tier — refusing before dispatch"
+        );
+        return Err(EngineError::Capability(format!(
+            "{POLICY_BLOCKED_MARKER} flows {node} node is not permitted under the current \
+             autonomy tier ({:?}): {class:?}-class actions are blocked. Raise the [autonomy] \
+             tier to run this node.",
+            security.autonomy
+        )));
+    }
+    Ok(decision)
+}
+
+/// Dispatches to the process-global [`ApprovalGate`](crate::openhuman::approval::ApprovalGate),
+/// escalating a `Prompt`-tier decision into a forced human-in-the-loop round
+/// trip regardless of the running flow's own `require_approval` toggle.
+///
+/// **Why this is needed (Codex P1 finding):** `ApprovalGate::intercept_audited`
+/// branches on the scoped [`AgentTurnOrigin`](crate::openhuman::agent::turn_origin::AgentTurnOrigin) —
+/// for a `TrustedAutomation { source: Workflow { require_approval: false }, .. }`
+/// origin (the default for every saved flow unless the author opts in) it
+/// returns `Allow` unconditionally, the same pre-declared-trust-root shortcut a
+/// user-authorized cron job gets. That shortcut is correct when the node's
+/// autonomy-tier decision was itself `Allow`, but it silently defeats a
+/// Supervised-tier `Prompt` decision: without this escalation, a Supervised
+/// user's `http_request`/`code` node would run unattended purely because the
+/// flow's `require_approval` defaults to `false` — the tier's "ask me" was
+/// never actually enforced.
+///
+/// When `tier_decision` is [`GateDecision::Prompt`] and the current origin is a
+/// `Workflow { require_approval: false }` trust root, this scopes a *for this
+/// call only* `Workflow { require_approval: true }` origin around
+/// `intercept_audited`, forcing the real parking/HITL flow. `GateDecision::Allow`
+/// (and any other origin shape) passes through unchanged — existing behavior.
+async fn gate_call_for_tier(
+    tier_decision: GateDecision,
+    tool_name: &str,
+    action_summary: &str,
+    args_redacted: Value,
+) -> (crate::openhuman::approval::GateOutcome, Option<String>) {
+    use crate::openhuman::agent::turn_origin;
+
+    let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() else {
+        return (crate::openhuman::approval::GateOutcome::Allow, None);
+    };
+
+    match escalated_origin_for_prompt(tier_decision, turn_origin::current()) {
+        Some(escalated) => {
+            tracing::debug!(
+                target: "flows",
+                tool_name,
+                "[flows] node tier gate: tier decision is Prompt — escalating this dispatch to a \
+                 forced approval round-trip regardless of the flow's require_approval toggle"
+            );
+            turn_origin::with_origin(
+                escalated,
+                gate.intercept_audited(tool_name, action_summary, args_redacted),
+            )
+            .await
+        }
+        None => {
+            gate.intercept_audited(tool_name, action_summary, args_redacted)
+                .await
+        }
+    }
+}
+
+/// Pure decision core of [`gate_call_for_tier`]: when `tier_decision` is
+/// [`GateDecision::Prompt`] and `origin` is a `Workflow { require_approval:
+/// false }` trust root, returns a clone of that origin with `require_approval`
+/// flipped to `true` (the forced escalation). Otherwise returns `None` — the
+/// caller then dispatches through the unmodified origin, matching prior
+/// behavior. Split out as a free function over plain values (no gate, no
+/// task-local read) so the escalation policy is unit-testable without a live
+/// `ApprovalGate`.
+fn escalated_origin_for_prompt(
+    tier_decision: GateDecision,
+    origin: Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin>,
+) -> Option<crate::openhuman::agent::turn_origin::AgentTurnOrigin> {
+    use crate::openhuman::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
+
+    if tier_decision != GateDecision::Prompt {
+        return None;
+    }
+    match origin {
+        Some(AgentTurnOrigin::TrustedAutomation {
+            job_id,
+            source:
+                TrustedAutomationSource::Workflow {
+                    require_approval: false,
+                },
+        }) => Some(AgentTurnOrigin::TrustedAutomation {
+            job_id,
+            source: TrustedAutomationSource::Workflow {
+                require_approval: true,
+            },
+        }),
+        _ => None,
     }
 }
 
@@ -190,34 +333,162 @@ pub(crate) fn http_cred_name(conn: &str) -> Option<&str> {
 /// - otherwise, apply the same per-user read/write/admin scope preference
 ///   the agent loop uses (`UserScopePref::allows`).
 ///
-/// // TODO(0.3): this hard-rejects any *real* Composio toolkit that simply
-/// // isn't in the static `catalog_for_toolkit` map yet (there is no
-/// // host-side, offline way to ask "is this actually a valid Composio
-/// // toolkit/action" beyond the curated catalogs OpenHuman ships). That's
-/// // an accepted trade-off for a genuine allowlist rather than a residual
-/// // gap to silently work around — extending `catalog_for_toolkit` (or, if
-/// // a live catalog lookup becomes available, consulting it here) is how a
-/// // newly-supported toolkit gets flow tool-call support.
-async fn is_curated_flow_tool(slug: &str) -> bool {
+/// // (0.3) The former hard-reject of any *real* Composio toolkit not in the
+/// // static `catalog_for_toolkit` map is now lifted for toolkits the user has
+/// // actually connected: when a slug's toolkit has no static curated catalog,
+/// // the gate consults the user's **live connected-toolkit set** (from the
+/// // composio domain) and allows the call iff the user holds an ACTIVE
+/// // connection for that toolkit. A genuinely-unknown/made-up toolkit is never
+/// // connected, so it still rejects. Toolkits OpenHuman *does* ship a static
+/// // catalog for keep their stricter curated-action + per-user scope gating
+/// // unchanged (a connected-but-uncurated action on a cataloged toolkit is
+/// // still rejected — the catalog is the tighter allowlist there).
+///
+/// Returns whether `slug` may be invoked as a flow `tool_call`, given (only when
+/// needed) the user's live connected-toolkit slug set.
+///
+/// Split out from [`is_curated_flow_tool`] as a pure function so the two decision
+/// paths are unit-testable without a live Composio backend: `connected_toolkits`
+/// is `None` when the toolkit has a static catalog (the connected set is never
+/// consulted then) or when the connected set could not be fetched (fail-closed).
+async fn flow_tool_allowed(slug: &str, connected_toolkits: Option<&[String]>) -> bool {
     use crate::openhuman::memory_sync::composio::providers::{
         catalog_for_toolkit, find_curated, get_provider, load_user_scope_or_default,
         toolkit_from_slug,
     };
 
     let Some(toolkit) = toolkit_from_slug(slug) else {
+        tracing::debug!(target: "flows", %slug, "[flows] tool_call curation: reject — slug has no extractable toolkit prefix");
         return false;
     };
-    let catalog = get_provider(&toolkit)
+
+    // Path A: a toolkit OpenHuman ships a static curated catalog for keeps its
+    // strict curated-action + per-user scope gating (unchanged from B2).
+    if let Some(catalog) = get_provider(&toolkit)
         .and_then(|p| p.curated_tools())
-        .or_else(|| catalog_for_toolkit(&toolkit));
-    let Some(catalog) = catalog else {
-        return false;
+        .or_else(|| catalog_for_toolkit(&toolkit))
+    {
+        let Some(curated) = find_curated(catalog, slug) else {
+            tracing::debug!(target: "flows", %slug, %toolkit, "[flows] tool_call curation: reject — slug is not a curated action of this toolkit");
+            return false;
+        };
+        let pref = load_user_scope_or_default(&toolkit).await;
+        let allowed = pref.allows(curated.scope);
+        tracing::debug!(target: "flows", %slug, %toolkit, allowed, "[flows] tool_call curation: static curated catalog decision");
+        return allowed;
+    }
+
+    // Path B (0.3): no static catalog — allow iff the user has a live ACTIVE
+    // Composio connection for this toolkit. Made-up toolkits are never connected.
+    match connected_toolkits {
+        Some(toolkits) => {
+            let connected = toolkits.iter().any(|t| t.eq_ignore_ascii_case(&toolkit));
+            tracing::debug!(target: "flows", %slug, %toolkit, connected, "[flows] tool_call curation: live connected-toolkit allowlist decision");
+            connected
+        }
+        None => {
+            tracing::warn!(target: "flows", %slug, %toolkit, "[flows] tool_call curation: reject — no static catalog and the connected-toolkit set was unavailable (fail-closed)");
+            false
+        }
+    }
+}
+
+/// Whether `slug`'s toolkit lacks a static curated catalog, i.e. the curation
+/// decision must consult the user's live connected-toolkit set. Kept cheap and
+/// offline (a static `match`) so the common cataloged-toolkit path never pays
+/// for a connected-set fetch.
+fn slug_needs_connected_set(slug: &str) -> bool {
+    use crate::openhuman::memory_sync::composio::providers::{
+        catalog_for_toolkit, get_provider, toolkit_from_slug,
     };
-    let Some(curated) = find_curated(catalog, slug) else {
-        return false;
+    match toolkit_from_slug(slug) {
+        Some(toolkit) => get_provider(&toolkit)
+            .and_then(|p| p.curated_tools())
+            .or_else(|| catalog_for_toolkit(&toolkit))
+            .is_none(),
+        None => false,
+    }
+}
+
+/// The user's live set of ACTIVE-connected Composio toolkit slugs (lowercased),
+/// or `None` when the backend is unreachable and no cached snapshot exists.
+///
+/// Uses [`fetch_connected_integrations_status`] so a transient backend failure
+/// (`Unavailable`) is distinguished from "confirmed zero connections" — on
+/// `Unavailable` we fall back to the last-known (even expired) cache rather than
+/// collapse the allowlist to empty, and only return `None` when there is truly
+/// nothing to go on (the caller then fails closed).
+async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
+    use crate::openhuman::composio::{
+        cached_active_integrations_including_expired, fetch_connected_integrations_status,
+        FetchConnectedIntegrationsStatus,
     };
-    let pref = load_user_scope_or_default(&toolkit).await;
-    pref.allows(curated.scope)
+
+    let integrations = match fetch_connected_integrations_status(config).await {
+        FetchConnectedIntegrationsStatus::Authoritative(v) => v,
+        FetchConnectedIntegrationsStatus::Unavailable => {
+            match cached_active_integrations_including_expired(config) {
+                Some(v) => {
+                    tracing::warn!(target: "flows", "[flows] connected-toolkit lookup: backend unavailable — using last-known (possibly stale) cached connections for the tool_call allowlist");
+                    v
+                }
+                None => {
+                    tracing::warn!(target: "flows", "[flows] connected-toolkit lookup: backend unavailable and no cached snapshot — connected-toolkit allowlist is empty this call");
+                    return None;
+                }
+            }
+        }
+    };
+
+    Some(
+        integrations
+            .into_iter()
+            .filter(|i| i.connected)
+            .map(|i| i.toolkit.to_ascii_lowercase())
+            .collect(),
+    )
+}
+
+/// Deny-by-default curation gate for a flow `tool_call` slug (see
+/// [`flow_tool_allowed`] for the decision matrix). Fetches the user's live
+/// connected-toolkit set only when the slug's toolkit has no static catalog.
+async fn is_curated_flow_tool(config: &Config, slug: &str) -> bool {
+    let connected = if slug_needs_connected_set(slug) {
+        connected_toolkit_slugs(config).await
+    } else {
+        None
+    };
+    flow_tool_allowed(slug, connected.as_deref()).await
+}
+
+/// Finds the connected account a Composio `connection_id` refers to within a
+/// live connected-integrations snapshot, returning `(toolkit, display_label)`.
+/// UI-safe: the label is the pre-derived [`IntegrationConnection::label`], never
+/// a raw account-identity field. Pure over the snapshot so it is unit-testable.
+fn resolve_account<'a>(
+    integrations: &'a [crate::openhuman::composio::ConnectedIntegration],
+    connection_id: &str,
+) -> Option<(&'a str, Option<&'a str>)> {
+    integrations.iter().find_map(|integ| {
+        integ
+            .connections
+            .iter()
+            .find(|c| c.connection_id == connection_id)
+            .map(|c| (integ.toolkit.as_str(), c.label.as_deref()))
+    })
+}
+
+/// Resolves a Composio `connection_id` to the specific connected account it
+/// targets, for logging "which account was used". Best-effort: `None` when the
+/// id isn't found in the user's live connected accounts (stale cache / foreign
+/// id) or the backend is unreachable.
+async fn resolve_composio_account(
+    config: &Config,
+    connection_id: &str,
+) -> Option<(String, Option<String>)> {
+    let integrations = crate::openhuman::composio::fetch_connected_integrations(config).await;
+    resolve_account(&integrations, connection_id)
+        .map(|(toolkit, label)| (toolkit.to_string(), label.map(str::to_string)))
 }
 
 /// [`ToolInvoker`] adapter over Composio (`src/openhuman/composio/client.rs`).
@@ -276,7 +547,7 @@ impl ToolInvoker for OpenHumanTools {
         // doc for why this differs from the general agent tool-call path).
         // Runs before anything else — a rejected slug never reaches the
         // composio client at all.
-        if !is_curated_flow_tool(slug).await {
+        if !is_curated_flow_tool(&self.config, slug).await {
             tracing::warn!(
                 target: "flows",
                 %slug,
@@ -311,6 +582,15 @@ impl ToolInvoker for OpenHumanTools {
         let args_opt = if args.is_null() { None } else { Some(args) };
         let connection_id = conn.and_then(composio_connection_id);
 
+        // Resolve the connection_ref to the SPECIFIC connected account it names,
+        // so we can log which account executes and validate it against the
+        // user's live connected set. Ambient-session fallback is used ONLY when
+        // no connection_ref was supplied.
+        let resolved_account = match connection_id {
+            Some(id) => Some((id, resolve_composio_account(&self.config, id).await)),
+            None => None,
+        };
+
         tracing::debug!(
             target: "flows",
             %slug,
@@ -321,29 +601,68 @@ impl ToolInvoker for OpenHumanTools {
 
         let response = match kind {
             ComposioClientKind::Backend(client) => {
-                if connection_id.is_some() {
-                    tracing::warn!(
-                        target: "flows",
-                        %slug,
-                        "[flows] tool_call: connection_ref set but backend mode has no per-call \
-                         account-scoping path yet — using the ambient session account \
-                         (documented stub, see caps.rs's OpenHumanTools doc)"
-                    );
+                if let Some((id, resolved)) = &resolved_account {
+                    match resolved {
+                        Some((toolkit, label)) => tracing::warn!(
+                            target: "flows",
+                            %slug,
+                            connection_id = %id,
+                            %toolkit,
+                            account = label.as_deref().unwrap_or("<unlabeled>"),
+                            "[flows] tool_call: connection_ref resolves to a specific account, but \
+                             backend mode has no per-call account-scoping path yet — using the \
+                             ambient session account instead (documented stub, see caps.rs's \
+                             OpenHumanTools doc)"
+                        ),
+                        None => tracing::warn!(
+                            target: "flows",
+                            %slug,
+                            connection_id = %id,
+                            "[flows] tool_call: connection_ref set but backend mode has no per-call \
+                             account-scoping path yet — using the ambient session account \
+                             (documented stub, see caps.rs's OpenHumanTools doc)"
+                        ),
+                    }
                 }
                 client
                     .execute_tool(slug, args_opt)
                     .await
                     .map_err(|e| EngineError::Capability(e.to_string()))
             }
-            ComposioClientKind::Direct(tool) => direct_execute(
-                &tool,
-                slug,
-                args_opt,
-                &self.config.composio.entity_id,
-                connection_id,
-            )
-            .await
-            .map_err(|e| EngineError::Capability(e.to_string())),
+            ComposioClientKind::Direct(tool) => {
+                match &resolved_account {
+                    Some((id, Some((toolkit, label)))) => tracing::info!(
+                        target: "flows",
+                        %slug,
+                        connection_id = %id,
+                        %toolkit,
+                        account = label.as_deref().unwrap_or("<unlabeled>"),
+                        "[flows] tool_call: executing against the resolved connected account"
+                    ),
+                    Some((id, None)) => tracing::warn!(
+                        target: "flows",
+                        %slug,
+                        connection_id = %id,
+                        "[flows] tool_call: connection_ref connection_id not found among the user's \
+                         live connected accounts (stale cache or foreign id) — forwarding to \
+                         Composio Direct mode as-is"
+                    ),
+                    None => tracing::debug!(
+                        target: "flows",
+                        %slug,
+                        "[flows] tool_call: no connection_ref — using the ambient signed-in account"
+                    ),
+                }
+                direct_execute(
+                    &tool,
+                    slug,
+                    args_opt,
+                    &self.config.composio.entity_id,
+                    connection_id,
+                )
+                .await
+                .map_err(|e| EngineError::Capability(e.to_string()))
+            }
         };
 
         if let Some(id) = audit_id {
@@ -371,44 +690,167 @@ impl ToolInvoker for OpenHumanTools {
 ///
 /// **B2:** also routes through the OpenHuman `ApprovalGate` before dispatch
 /// (same rationale/shape as [`OpenHumanTools::invoke`] — closes the Codex P1
-/// finding that flow HTTP nodes bypassed the Network approval gate). A
-/// `"http_cred:<name>"` `connection_ref` is parsed but there is no HTTP
-/// credential store to resolve it against yet (documented stub, see
-/// `http_cred_name`) — the request proceeds without injecting stored
-/// credentials.
+/// finding that flow HTTP nodes bypassed the Network approval gate).
+///
+/// **Phase 2 — `http_cred:<name>` resolution:** a `"http_cred:<name>"`
+/// `connection_ref` is now resolved against the credentials domain's
+/// [`HttpCredentialsStore`] (encrypted-at-rest bearer/basic/header templates).
+/// The resolved auth header is injected **server-side** into the outbound
+/// request — after the approval gate has already computed its redacted audit
+/// summary — so the secret is never surfaced to the approval UI, the flow
+/// engine/graph, the node's output, or the logs (only the header *name* and
+/// scheme are logged; the value is redacted). A `connection_ref` that names an
+/// **unknown** credential fails the request closed (`EngineError::Capability`)
+/// rather than silently sending it unauthenticated.
 pub struct OpenHumanHttp {
     pub security: Arc<SecurityPolicy>,
     pub http_config: HttpRequestConfig,
+    pub http_creds: Arc<HttpCredentialsStore>,
+}
+
+/// Resolves an optional HTTP `connection_ref` to the stored credential to
+/// inject. Split out as a free function (over the store, not `&self`) so the
+/// resolve/fail-closed policy is unit-testable without constructing a full
+/// [`OpenHumanHttp`] adapter.
+///
+/// - `None` conn, or a `connection_ref` whose prefix isn't `http_cred:` →
+///   `Ok(None)` (no credential to inject; a non-`http_cred:` prefix is logged
+///   and ignored, matching the pre-Phase-2 behavior).
+/// - a `http_cred:<name>` naming a **known** credential → `Ok(Some(cred))`
+///   (secret-bearing — the caller injects it server-side, never logs it).
+/// - a `http_cred:<name>` naming an **unknown** credential, a malformed
+///   (empty/whitespace-only) name, or a store error → `Err` — the request
+///   must fail closed, never proceed unauthenticated. Distinguishing "no
+///   `http_cred:` prefix at all" from "`http_cred:` prefix with a malformed
+///   name" matters: [`http_cred_name`] collapses both to `None`, which would
+///   otherwise let a typo'd or data-derived empty ref (e.g. `"http_cred:"`)
+///   silently fall through to an unauthenticated request (Codex P2 finding).
+fn resolve_http_credential(
+    store: &HttpCredentialsStore,
+    conn: Option<&str>,
+) -> Result<Option<HttpCredential>> {
+    let Some(conn) = conn else {
+        return Ok(None);
+    };
+    if conn.strip_prefix("http_cred:").is_none() {
+        tracing::debug!(target: "flows", %conn, "[flows] http conn: unrecognized connection_ref prefix (expected `http_cred:<name>`) — ignoring");
+        return Ok(None);
+    }
+    let Some(name) = http_cred_name(conn) else {
+        tracing::warn!(
+            target: "flows",
+            %conn,
+            "[flows] http_request: connection_ref has the `http_cred:` prefix but no credential \
+             name — failing the request closed rather than sending it unauthenticated"
+        );
+        return Err(EngineError::Capability(format!(
+            "http_request connection_ref has a malformed http_cred name: {conn:?}"
+        )));
+    };
+
+    match store.get(name) {
+        Ok(Some(cred)) => {
+            tracing::debug!(
+                target: "flows",
+                cred = %name,
+                scheme = cred.scheme.as_str(),
+                "[flows] http_request: resolved http_cred (secret redacted)"
+            );
+            Ok(Some(cred))
+        }
+        Ok(None) => {
+            tracing::warn!(
+                target: "flows",
+                cred = %name,
+                "[flows] http_request: connection_ref names an unknown http_cred — failing the \
+                 request closed rather than sending it unauthenticated"
+            );
+            Err(EngineError::Capability(format!(
+                "http_request connection_ref names an unknown http_cred: {name}"
+            )))
+        }
+        Err(e) => {
+            tracing::error!(
+                target: "flows",
+                cred = %name,
+                error = %e,
+                "[flows] http_request: failed to resolve http_cred from the store"
+            );
+            Err(EngineError::Capability(format!(
+                "failed to resolve http_cred '{name}': {e}"
+            )))
+        }
+    }
+}
+
+/// Merges a resolved credential's auth header into the outbound `request`'s
+/// `headers` object (creating it when absent), returning the header **name**
+/// that was injected for redacted logging. The header value carries the secret
+/// and is placed only into the request handed to `HttpRequestTool` — it is
+/// never logged or returned. An explicit stored credential wins over any inline
+/// same-named header the flow author set.
+fn inject_http_credential(request: &mut Value, cred: &HttpCredential) -> Result<String> {
+    let (header_name, header_value) = cred
+        .to_header()
+        .map_err(|e| EngineError::Capability(e.to_string()))?;
+
+    let obj = request.as_object_mut().ok_or_else(|| {
+        EngineError::Capability("http_request config must be a JSON object".to_string())
+    })?;
+    let headers_entry = obj
+        .entry("headers")
+        .or_insert_with(|| Value::Object(serde_json::Map::new()));
+    // A flow author may leave `headers` unset (null) — coerce to an object so
+    // the credential still injects. A non-object, non-null `headers` is a
+    // malformed config we refuse rather than silently drop the credential.
+    if headers_entry.is_null() {
+        *headers_entry = Value::Object(serde_json::Map::new());
+    }
+    let headers_obj = headers_entry.as_object_mut().ok_or_else(|| {
+        EngineError::Capability("http_request `headers` must be a JSON object".to_string())
+    })?;
+    headers_obj.insert(header_name.clone(), Value::String(header_value));
+
+    tracing::info!(
+        target: "flows",
+        cred = %cred.name,
+        scheme = cred.scheme.as_str(),
+        header = %header_name,
+        "[flows] http_request: injected stored credential header (value redacted)"
+    );
+    Ok(header_name)
 }
 
 #[async_trait]
 impl HttpClient for OpenHumanHttp {
-    async fn request(&self, request: Value, conn: Option<&str>) -> Result<Value> {
+    async fn request(&self, mut request: Value, conn: Option<&str>) -> Result<Value> {
         const TOOL_NAME: &str = "flows_http_request";
 
-        let mut audit_id: Option<String> = None;
-        if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
-            let summary = crate::openhuman::approval::summarize_action(TOOL_NAME, &request);
-            let redacted = crate::openhuman::approval::redact_args(&request);
-            let (outcome, request_id) = gate.intercept_audited(TOOL_NAME, &summary, redacted).await;
-            match outcome {
-                crate::openhuman::approval::GateOutcome::Deny { reason } => {
-                    return Err(EngineError::Capability(reason));
-                }
-                crate::openhuman::approval::GateOutcome::Allow => audit_id = request_id,
-            }
+        // Autonomy-tier gate (Phase 2): an http_request node reaches the network,
+        // so it is Network-class. A read-only run `Block`s here and never
+        // dispatches; Supervised/Full fall through to the ApprovalGate below.
+        // `gate_call_for_tier` is what actually performs the `Prompt` round-trip
+        // — it escalates a Supervised `Prompt` decision into a forced approval
+        // regardless of the flow's own `require_approval` toggle (Codex P1).
+        let tier_decision =
+            enforce_node_tier_gate(&self.security, CommandClass::Network, "http_request")?;
+
+        // The approval gate summarizes/redacts the request BEFORE any credential
+        // is injected, so a stored secret never lands in the approval UI or
+        // audit trail. Injection happens strictly after this point.
+        let summary = crate::openhuman::approval::summarize_action(TOOL_NAME, &request);
+        let redacted = crate::openhuman::approval::redact_args(&request);
+        let (outcome, audit_id) =
+            gate_call_for_tier(tier_decision, TOOL_NAME, &summary, redacted).await;
+        if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
+            return Err(EngineError::Capability(reason));
         }
 
-        if let Some(name) = conn.and_then(http_cred_name) {
-            tracing::warn!(
-                target: "flows",
-                cred = %name,
-                "[flows] http_request: connection_ref names an http_cred secret, but no HTTP \
-                 credential store exists yet — proceeding WITHOUT injecting stored credentials \
-                 (documented stub, see caps.rs's OpenHumanHttp doc)"
-            );
-        } else if let Some(c) = conn {
-            tracing::debug!(target: "flows", conn = %c, "[flows] http conn: unrecognized connection_ref prefix (expected `http_cred:<name>`) — ignoring");
+        // Resolve `http_cred:<name>` to a stored credential and inject its auth
+        // header server-side. An unknown name fails the request closed (see
+        // `resolve_http_credential`) — we never send it unauthenticated.
+        if let Some(cred) = resolve_http_credential(&self.http_creds, conn)? {
+            inject_http_credential(&mut request, &cred)?;
         }
 
         let tool = HttpRequestTool::new(
@@ -477,8 +919,17 @@ impl HttpClient for OpenHumanHttp {
 /// Requires `node`/`python3` on the `PATH` the sandbox backend runs under;
 /// there is no managed toolchain wiring here (unlike `node_exec`'s
 /// `NodeBootstrap`).
+///
+/// **Phase 2 — autonomy-tier gating:** a `code` node runs arbitrary user code
+/// in a sandbox, so it is treated as [`CommandClass::Write`] (state-changing but
+/// sandbox-bounded — not inherently catastrophic). Before dispatch it consults
+/// [`enforce_node_tier_gate`]: a read-only run `Block`s and never executes; a
+/// Supervised run then routes through the `ApprovalGate` (Write ⇒ `Prompt`); a
+/// Full run executes silently. This closes the prior gap where the code node had
+/// no policy check and no approval gate at all.
 pub struct OpenHumanCode {
     pub config: Arc<Config>,
+    pub security: Arc<SecurityPolicy>,
 }
 
 const CODE_RUN_TIMEOUT_SECS: u64 = 60;
@@ -486,6 +937,28 @@ const CODE_RUN_TIMEOUT_SECS: u64 = 60;
 #[async_trait]
 impl CodeRunner for OpenHumanCode {
     async fn run(&self, language: CodeLanguage, source: &str, input: Value) -> Result<Value> {
+        // Autonomy-tier gate (Phase 2): sandboxed arbitrary-code execution is
+        // Write-class. A read-only run `Block`s here and never spawns anything;
+        // Supervised/Full fall through to the ApprovalGate below.
+        let tier_decision = enforce_node_tier_gate(&self.security, CommandClass::Write, "code")?;
+
+        // Approval gate (mirrors OpenHumanTools/OpenHumanHttp): `gate_call_for_tier`
+        // is what turns a Supervised-tier `Prompt` decision into a real human
+        // round-trip before any code runs — escalating past the flow's own
+        // `require_approval` toggle when the tier itself says "ask me" (Codex P1).
+        // A Deny short-circuits. The audit summary is computed on a redacted view
+        // of the request, never the raw source secrets, matching the other
+        // acting adapters.
+        let action = json!({ "language": format!("{language:?}"), "source": source });
+        let summary = crate::openhuman::approval::summarize_action("flows_code", &action);
+        let redacted = crate::openhuman::approval::redact_args(&action);
+        let (gate_outcome, audit_id) =
+            gate_call_for_tier(tier_decision, "flows_code", &summary, redacted).await;
+        if let crate::openhuman::approval::GateOutcome::Deny { reason } = gate_outcome {
+            return Err(EngineError::Capability(reason));
+        }
+
+        let outcome: Result<Value> = async {
         let policy = resolve_sandbox_policy(
             SandboxMode::Sandboxed,
             &self.config.action_dir,
@@ -571,6 +1044,27 @@ impl CodeRunner for OpenHumanCode {
 
         serde_json::from_str(result.stdout.trim())
             .map_err(|e| EngineError::Capability(format!("code output was not valid JSON: {e}")))
+        }
+        .await;
+
+        // Close out the approval audit with the run's success/failure (mirrors
+        // OpenHumanTools/OpenHumanHttp).
+        if let Some(id) = audit_id {
+            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
+                let exec = if outcome.is_ok() {
+                    crate::openhuman::approval::ExecutionOutcome::Success
+                } else {
+                    crate::openhuman::approval::ExecutionOutcome::Failure
+                };
+                gate.record_execution(
+                    &id,
+                    exec,
+                    outcome.as_ref().err().map(ToString::to_string).as_deref(),
+                );
+            }
+        }
+
+        outcome
     }
 }
 
@@ -646,6 +1140,7 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
         &config.action_dir,
     ));
     let http_config = config.http_request.clone();
+    let http_creds = Arc::new(HttpCredentialsStore::from_config(&config));
 
     Capabilities {
         llm: Arc::new(OpenHumanLlm {
@@ -655,11 +1150,13 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
             config: config.clone(),
         }),
         http: Arc::new(OpenHumanHttp {
-            security,
+            security: security.clone(),
             http_config,
+            http_creds,
         }),
         code: Arc::new(OpenHumanCode {
             config: config.clone(),
+            security,
         }),
         state: Arc::new(FlowStateStore {
             config,
@@ -690,4 +1187,408 @@ pub fn open_flow_checkpointer(
         SqliteCheckpointer::<serde_json::Value>::open(&db_path)
             .with_context(|| format!("Failed to open flows checkpointer: {}", db_path.display()))?,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::openhuman::agent::prompts::types::IntegrationConnection;
+    use crate::openhuman::composio::ConnectedIntegration;
+
+    fn integration(
+        toolkit: &str,
+        connected: bool,
+        connections: Vec<IntegrationConnection>,
+    ) -> ConnectedIntegration {
+        ConnectedIntegration {
+            toolkit: toolkit.to_string(),
+            description: String::new(),
+            tools: Vec::new(),
+            gated_tools: Vec::new(),
+            connected,
+            connections,
+            non_active_status: None,
+        }
+    }
+
+    fn connection(id: &str, label: Option<&str>, is_default: bool) -> IntegrationConnection {
+        IntegrationConnection {
+            connection_id: id.to_string(),
+            label: label.map(str::to_string),
+            is_default,
+        }
+    }
+
+    /// A `composio:<toolkit>:<connection_id>` ref parses to its id and that id
+    /// resolves to the SPECIFIC connected account (toolkit + display label) —
+    /// not the toolkit's default connection.
+    #[test]
+    fn connection_ref_resolves_to_the_chosen_account() {
+        let integrations = vec![integration(
+            "gmail",
+            true,
+            vec![
+                connection("conn_work", Some("work@example.com"), true),
+                connection("conn_home", Some("home@example.com"), false),
+            ],
+        )];
+
+        let id = composio_connection_id("composio:gmail:conn_home")
+            .expect("well-formed composio connection_ref should parse");
+        assert_eq!(id, "conn_home");
+
+        let (toolkit, label) =
+            resolve_account(&integrations, id).expect("id should resolve to a connected account");
+        assert_eq!(toolkit, "gmail");
+        // The non-default account was chosen — resolution is by id, not default.
+        assert_eq!(label, Some("home@example.com"));
+
+        // An id the user does not hold resolves to nothing (best-effort log path).
+        assert!(resolve_account(&integrations, "conn_unknown").is_none());
+    }
+
+    /// A made-up toolkit that OpenHuman ships no static catalog for and the user
+    /// has NOT connected still rejects — even when the connected set is present
+    /// but simply doesn't contain it.
+    #[tokio::test]
+    async fn unknown_toolkit_still_rejects() {
+        use crate::openhuman::memory_sync::composio::providers::{
+            catalog_for_toolkit, get_provider,
+        };
+        // Precondition: `flowstestkit` is genuinely uncatalogued, so the decision
+        // flows through the connected-set path (not the static curated path).
+        assert!(catalog_for_toolkit("flowstestkit").is_none());
+        assert!(get_provider("flowstestkit").is_none());
+
+        // No connected set at all → fail-closed reject.
+        assert!(!flow_tool_allowed("FLOWSTESTKIT_DO_THING", None).await);
+        // Connected set present but does not include this toolkit → reject.
+        assert!(!flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["gmail".to_string()])).await);
+        // A blank slug is always rejected.
+        assert!(!flow_tool_allowed("", Some(&["flowstestkit".to_string()])).await);
+    }
+
+    /// A real Composio toolkit OpenHuman ships no static catalog for now PASSES
+    /// once the user has an ACTIVE connection for it (the TODO(0.3) fix) — the
+    /// exact same slug that rejects above.
+    #[tokio::test]
+    async fn connected_uncatalogued_toolkit_now_passes() {
+        use crate::openhuman::memory_sync::composio::providers::{
+            catalog_for_toolkit, get_provider,
+        };
+        assert!(catalog_for_toolkit("flowstestkit").is_none());
+        assert!(get_provider("flowstestkit").is_none());
+
+        assert!(
+            flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["flowstestkit".to_string()])).await
+        );
+        // Case-insensitive match on the toolkit slug.
+        assert!(
+            flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["FlowsTestKit".to_string()])).await
+        );
+    }
+
+    fn http_cred_store() -> (tempfile::TempDir, HttpCredentialsStore) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // encrypt=true exercises the ChaCha20-Poly1305 at-rest path.
+        let store = HttpCredentialsStore::new(dir.path(), true);
+        (dir, store)
+    }
+
+    /// A `http_cred:<name>` ref resolves to the stored bearer credential and
+    /// injects `Authorization: Bearer <token>` onto the outbound request.
+    #[test]
+    fn http_cred_resolves_and_injects_bearer_header() {
+        let (_dir, store) = http_cred_store();
+        store
+            .upsert(&HttpCredential::bearer("stripe", "sk_live_secret"))
+            .unwrap();
+
+        let cred = resolve_http_credential(&store, Some("http_cred:stripe"))
+            .expect("resolve ok")
+            .expect("credential present");
+
+        let mut request = json!({ "method": "GET", "url": "https://api.example.com" });
+        let header = inject_http_credential(&mut request, &cred).unwrap();
+        assert_eq!(header, "Authorization");
+        assert_eq!(
+            request["headers"]["Authorization"],
+            json!("Bearer sk_live_secret")
+        );
+    }
+
+    /// A custom-header credential injects under its own header name while
+    /// preserving any headers the flow author already set.
+    #[test]
+    fn http_cred_injection_preserves_existing_headers() {
+        let (_dir, store) = http_cred_store();
+        store
+            .upsert(&HttpCredential::header("apikey", "X-API-Key", "topsecret"))
+            .unwrap();
+        let cred = resolve_http_credential(&store, Some("http_cred:apikey"))
+            .unwrap()
+            .unwrap();
+
+        let mut request = json!({
+            "method": "POST",
+            "url": "https://api.example.com",
+            "headers": { "Content-Type": "application/json" }
+        });
+        inject_http_credential(&mut request, &cred).unwrap();
+        assert_eq!(
+            request["headers"]["Content-Type"],
+            json!("application/json")
+        );
+        assert_eq!(request["headers"]["X-API-Key"], json!("topsecret"));
+    }
+
+    /// A basic credential injects `Authorization: Basic ...` even when the flow
+    /// author set no `headers` object at all.
+    #[test]
+    fn http_cred_injects_basic_into_absent_headers() {
+        let (_dir, store) = http_cred_store();
+        store
+            .upsert(&HttpCredential::basic("acme", "alice", "pw"))
+            .unwrap();
+        let cred = resolve_http_credential(&store, Some("http_cred:acme"))
+            .unwrap()
+            .unwrap();
+
+        let mut request = json!({ "method": "GET", "url": "https://x.example.com" });
+        inject_http_credential(&mut request, &cred).unwrap();
+        let value = request["headers"]["Authorization"]
+            .as_str()
+            .expect("Authorization header injected");
+        assert!(
+            value.starts_with("Basic "),
+            "unexpected basic header: {value}"
+        );
+    }
+
+    /// A `http_cred:<name>` naming a credential that does not exist FAILS the
+    /// request closed — it must never proceed silently unauthenticated.
+    #[test]
+    fn unknown_http_cred_fails_closed() {
+        let (_dir, store) = http_cred_store();
+        let result = resolve_http_credential(&store, Some("http_cred:ghost"));
+        assert!(result.is_err(), "unknown http_cred must fail closed");
+    }
+
+    /// A malformed `http_cred:` ref (empty or whitespace-only name) must fail
+    /// closed the same as an unknown credential name — it must never be
+    /// treated as "no connection_ref" and silently sent unauthenticated
+    /// (Codex P2 finding).
+    #[test]
+    fn malformed_http_cred_name_fails_closed() {
+        let (_dir, store) = http_cred_store();
+        assert!(
+            resolve_http_credential(&store, Some("http_cred:")).is_err(),
+            "an empty http_cred name must fail closed, not fall through as no-op"
+        );
+        assert!(
+            resolve_http_credential(&store, Some("http_cred:   ")).is_err(),
+            "a whitespace-only http_cred name must fail closed, not fall through as no-op"
+        );
+    }
+
+    /// No `connection_ref`, or a non-`http_cred:` prefix, injects nothing and
+    /// is not an error.
+    #[test]
+    fn no_http_cred_ref_injects_nothing() {
+        let (_dir, store) = http_cred_store();
+        assert!(resolve_http_credential(&store, None).unwrap().is_none());
+        assert!(
+            resolve_http_credential(&store, Some("composio:gmail:conn_1"))
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    /// The secret is server-side-only: the approval-gate redaction (computed on
+    /// the pre-injection request) never contains it, and after injection it
+    /// lives ONLY in the outbound `Authorization` header.
+    #[test]
+    fn injected_secret_never_reaches_the_audit_redaction() {
+        let (_dir, store) = http_cred_store();
+        let secret = "sk_live_never_log_me";
+        store
+            .upsert(&HttpCredential::bearer("stripe", secret))
+            .unwrap();
+        let cred = resolve_http_credential(&store, Some("http_cred:stripe"))
+            .unwrap()
+            .unwrap();
+
+        let mut request = json!({ "method": "GET", "url": "https://api.example.com" });
+        // Pre-injection redaction — what the approval UI / audit trail sees.
+        let redacted = crate::openhuman::approval::redact_args(&request);
+        assert!(!serde_json::to_string(&redacted).unwrap().contains(secret));
+
+        inject_http_credential(&mut request, &cred).unwrap();
+        assert_eq!(
+            request["headers"]["Authorization"],
+            json!(format!("Bearer {secret}"))
+        );
+    }
+
+    // ── Phase 2: autonomy-tier gating of acting nodes ──────────────────────
+
+    fn policy(level: crate::openhuman::security::AutonomyLevel) -> SecurityPolicy {
+        SecurityPolicy {
+            autonomy: level,
+            ..SecurityPolicy::default()
+        }
+    }
+
+    /// The tier gate an `http_request` (Network-class) node calls: BLOCKED under
+    /// a read-only tier, and passed through (to the ApprovalGate) under
+    /// supervised/full.
+    #[test]
+    fn http_request_node_tier_gate_blocks_readonly_allows_higher() {
+        use crate::openhuman::security::AutonomyLevel;
+
+        let err = enforce_node_tier_gate(
+            &policy(AutonomyLevel::ReadOnly),
+            CommandClass::Network,
+            "http_request",
+        )
+        .expect_err("read-only must block a Network-class http_request node");
+        if let EngineError::Capability(msg) = err {
+            assert!(
+                msg.contains(POLICY_BLOCKED_MARKER),
+                "read-only block must carry the policy-blocked marker: {msg}"
+            );
+        } else {
+            panic!("expected EngineError::Capability for a blocked node");
+        }
+
+        // Supervised/full do not hard-block — they fall through to the
+        // ApprovalGate (which performs the Prompt round-trip).
+        assert!(enforce_node_tier_gate(
+            &policy(AutonomyLevel::Supervised),
+            CommandClass::Network,
+            "http_request"
+        )
+        .is_ok());
+        assert!(enforce_node_tier_gate(
+            &policy(AutonomyLevel::Full),
+            CommandClass::Network,
+            "http_request"
+        )
+        .is_ok());
+    }
+
+    /// The tier gate a `code` (Write-class) node calls: BLOCKED under read-only,
+    /// allowed under full, prompt-able (not blocked) under supervised.
+    #[test]
+    fn code_node_tier_gate_blocks_readonly_allows_full() {
+        use crate::openhuman::security::AutonomyLevel;
+
+        assert!(enforce_node_tier_gate(
+            &policy(AutonomyLevel::ReadOnly),
+            CommandClass::Write,
+            "code"
+        )
+        .is_err());
+        assert!(enforce_node_tier_gate(
+            &policy(AutonomyLevel::Supervised),
+            CommandClass::Write,
+            "code"
+        )
+        .is_ok());
+        assert!(
+            enforce_node_tier_gate(&policy(AutonomyLevel::Full), CommandClass::Write, "code")
+                .is_ok()
+        );
+    }
+
+    /// End-to-end at the adapter: an `http_request` node under a read-only tier
+    /// is refused BEFORE any network egress (the tier gate fires ahead of the
+    /// approval gate, credential resolution, and dispatch).
+    #[tokio::test]
+    async fn http_adapter_blocks_under_readonly_tier() {
+        use crate::openhuman::security::AutonomyLevel;
+
+        let (_dir, creds) = http_cred_store();
+        let http = OpenHumanHttp {
+            security: Arc::new(policy(AutonomyLevel::ReadOnly)),
+            http_config: HttpRequestConfig::default(),
+            http_creds: Arc::new(creds),
+        };
+
+        let request = json!({ "method": "GET", "url": "https://example.com" });
+        let err = http
+            .request(request, None)
+            .await
+            .expect_err("read-only http_request node must be blocked");
+        if let EngineError::Capability(msg) = err {
+            assert!(
+                msg.contains(POLICY_BLOCKED_MARKER),
+                "expected a policy-blocked refusal, got: {msg}"
+            );
+        } else {
+            panic!("expected EngineError::Capability");
+        }
+    }
+
+    // ── Codex P1: Prompt-tier decisions must escalate past a workflow's own
+    // require_approval=false default, never silently auto-allow ────────────
+
+    use crate::openhuman::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
+
+    fn workflow_origin(job_id: &str, require_approval: bool) -> AgentTurnOrigin {
+        AgentTurnOrigin::TrustedAutomation {
+            job_id: job_id.to_string(),
+            source: TrustedAutomationSource::Workflow { require_approval },
+        }
+    }
+
+    /// A `Prompt` tier decision on a default (`require_approval: false`)
+    /// workflow trust root escalates to `require_approval: true` — the forced
+    /// human-in-the-loop round trip that closes the Codex P1 finding.
+    #[test]
+    fn prompt_decision_escalates_default_workflow_origin() {
+        let escalated = escalated_origin_for_prompt(
+            GateDecision::Prompt,
+            Some(workflow_origin("flow-1", false)),
+        )
+        .expect("a Prompt decision on require_approval=false must escalate");
+        assert!(matches!(
+            escalated,
+            AgentTurnOrigin::TrustedAutomation {
+                source: TrustedAutomationSource::Workflow {
+                    require_approval: true
+                },
+                ..
+            }
+        ));
+    }
+
+    /// A flow that already opted into `require_approval: true` needs no
+    /// escalation — it's already forced through the parking flow.
+    #[test]
+    fn prompt_decision_does_not_re_escalate_already_gated_workflow() {
+        assert!(escalated_origin_for_prompt(
+            GateDecision::Prompt,
+            Some(workflow_origin("flow-1", true))
+        )
+        .is_none());
+    }
+
+    /// An `Allow` tier decision never escalates, regardless of the workflow's
+    /// `require_approval` toggle — Full-tier runs keep running unattended.
+    #[test]
+    fn allow_decision_never_escalates() {
+        assert!(escalated_origin_for_prompt(
+            GateDecision::Allow,
+            Some(workflow_origin("flow-1", false))
+        )
+        .is_none());
+    }
+
+    /// No scoped origin (or a non-Workflow origin) never escalates — there is
+    /// nothing to force through the workflow-specific parking flow.
+    #[test]
+    fn prompt_decision_does_not_escalate_without_a_workflow_origin() {
+        assert!(escalated_origin_for_prompt(GateDecision::Prompt, None).is_none());
+    }
 }

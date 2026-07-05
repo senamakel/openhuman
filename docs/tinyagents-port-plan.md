@@ -1,6 +1,8 @@
 # TinyAgents Port — Plan & Audit (inference / tools / agent_orchestration)
 
-**Status:** draft plan — no code changes yet.
+**Status:** Phase 1 partial host cutover — TinyAgents `v1.7.1` is tagged and
+the host now pins it; `SchemaCleanr`, the generic model-context table, and the
+context-preserving `invoke_stream` path are crate-backed.
 **Anchor precedent:** the TinyAgents harness migration (#4249 / #4399 / #4473) and the TinyCortex memory migration plan (`docs/tinycortex-memory-migration-plan.md`).
 **Target:** move the genuinely framework-shaped parts of `src/openhuman/inference/`, `src/openhuman/tools/`, and `src/openhuman/agent_orchestration/` down into the `tinyagents` crate (vendored git submodule at **`vendor/tinyagents`**, `https://github.com/tinyhumansai/tinyagents`), and delete the in-tree duplicates in favor of crate primitives.
 
@@ -17,7 +19,7 @@
 | `src/openhuman/agent_orchestration/` | ~25,800 | Product control plane over sub-agents: in-memory session, detached-run registry, workflow runs, agent teams, command center, worktree isolation, RPC/tools surface |
 | `src/openhuman/tinyagents/` (the seam) | ~15,200 (25 files) | Adapters implementing tinyagents traits over openhuman services — where all ported code plugs back in |
 
-**TinyAgents** (sibling repo, v1.6.0, ~71.5k LOC, edition 2024, GPL-3.0-only, published to crates.io) already provides: `harness/` (`ChatModel`, `Tool<State>`, agent loop, middleware, retry/fallback, usage/cost, cache, embeddings + vector store, summarization, steering, `SubAgent`/`SubAgentSession`/`SubAgentTool`, observability journals, `WorkspaceIsolation`, testkit), `graph/` (durable typed graphs, checkpointers incl. SQLite, recursion policy, `map_reduce`, `orchestration::TaskStore`/`SteeringRegistry`, topology export), `registry/`, and the `.rag`/`.ragsh` languages. ~30 public traits are the extension points.
+**TinyAgents** (sibling repo, v1.7.1, edition 2024, GPL-3.0-only, published to crates.io) already provides: `harness/` (`ChatModel`, `Tool<State>`, agent loop, middleware, retry/fallback, usage/cost, cache, embeddings + vector store, summarization, steering, `SubAgent`/`SubAgentSession`/`SubAgentTool`, observability journals, `WorkspaceIsolation`, testkit), `graph/` (durable typed graphs, checkpointers incl. SQLite, recursion policy, `map_reduce`, `orchestration::TaskStore`/`SteeringRegistry`, topology export), `registry/`, and the `.rag`/`.ragsh` languages. ~30 public traits are the extension points.
 
 **License:** both repos are GPL-3.0 — moving code down is license-clean. But tinyagents is publicly redistributed on crates.io, so only genuinely generic code moves (no product policy, backend phrases as load-bearing API, or keys).
 
@@ -40,13 +42,20 @@ So the correct plan has **three motions**, not one:
 2. **True ports (net-new upstream)** — a short list of clean, generic pieces tinyagents lacks (§2).
 3. **Stays in openhuman** — RPC/controllers, config/credentials/policy glue, local runtime + voice, product tools, UI surfaces (§3).
 
-### 0.3 Version drift (must be resolved first)
+### 0.3 Version status
 
-- Sibling repo / upstream: **v1.6.0** (`e72036d`).
-- Host `Cargo.toml`: requires `tinyagents = { version = "1.5.0", features = ["sqlite"] }`, patched to `vendor/tinyagents`.
-- Submodule pin: `357bcc8` = **v1.5.0-11-g357bcc8** — 11 commits past the 1.5.0 tag, but **behind 1.6.0**. A plain `git submodule update` matches neither published version; pin explicitly.
+**Phase 0 closed:** the host branch first aligned `vendor/tinyagents` to
+`v1.6.0` and closed the baseline seam fallout: `ToolCompleted` outcome
+projection, SHA-256 prompt-cache fingerprinting, and the redaction-layer audit.
 
-Missing between the pin and 1.6.0, all of which the seam actively wants: `invoke_stream` + sub-agent delta propagation (tinyagents#17), tool outcome on `ToolCompleted` (#18), REPL host-embedding cancellation (#19), concurrent independent tool calls per turn, `DurabilityMode::Async` checkpoint writes, SHA-256 prompt fingerprint (affects the seam's KV-cache drift guard), idempotent `RedactionMiddleware` (affects `journal.rs`), `InMemoryVectorStore` dim-validation/top-k, `Checkpointer::get_thread`/`copy_thread`.
+**Phase 1 partial cutover:** TinyAgents `v1.7.1` is tagged at
+`3e81e493`, and the host now pins both lockfiles plus `vendor/tinyagents` to
+that release. `SchemaCleanr` is crate-backed through the stable OpenHuman
+import path; `model_context.rs` delegates generic raw-model hints to
+`tinyagents::harness::model::context_window_for_model_id` after checking
+OpenHuman tier aliases and the cost catalog; and the observed run path now
+drives `invoke_stream_in_context`, whose `Send` stream fix shipped in
+[tinyagents#28](https://github.com/tinyhumansai/tinyagents/pull/28).
 
 ### 0.4 Contribution workflow (same convention as tinycortex)
 
@@ -75,7 +84,7 @@ Engine changes are made **inside `vendor/tinyagents`**, committed on a branch th
 | `agent_orchestration/ops.rs` (`AgentOrchestrationSession`) + `running_subagents.rs` (1.9k L) | **delete** in favor of `graph::orchestration::TaskStore` + `SteeringRegistry` + `SubAgentSession`; route the live control path through the crate (today only re-exported, per seam `orchestration.rs:23-33`) | n/a |
 | `agent_orchestration/types.rs` `AgentStatus` vocabulary | reconcile into `OrchestrationTaskStatus` (two parallel status enums today) | `graph/orchestration/types` |
 | `agent_orchestration/workflow_runs/` phase-DAG validation + `agent_teams/` dependency-DAG/atomic-claim/quality-gate logic | evaluate upstreaming the *validation/scheduling slices* as graph extensions; durability (`session_db::run_ledger`) and RPC stay host-side | `graph/` |
-| Reasoning-content channel (today smuggled via `ContentBlock::ProviderExtension`, seam `convert.rs:26-30`) | port the *concept*: first-class reasoning channel on `AssistantMessage` | `harness/message/` |
+| Reasoning-content channel (historically smuggled via `ContentBlock::ProviderExtension`; host now writes `ContentBlock::Thinking` for new messages and only reads legacy `ProviderExtension` from persisted transcripts — seam `convert.rs`) | **largely done** — the crate's first-class typed reasoning channel (`ContentBlock::Thinking`) is live per Phase 1.4 / ledger P1-5 | `harness/message/` |
 
 ### 1.2 Stays in OpenHuman (product policy, I/O, surfaces)
 
@@ -106,23 +115,23 @@ Each phase is a coherent PR set: tinyagents PR(s) → release/tag → host `chor
 
 ### Phase 0 — Version alignment & baseline (no behavior change)
 
-1. Bump `vendor/tinyagents` to **v1.6.0** and the host requirement `1.5.0` → `1.6.0` (both root and `app/src-tauri` manifests; keep the `[patch.crates-io]` path entries).
-2. Fix seam fallout from the bump: SHA-256 prompt fingerprint vs the seam's KV-cache drift guard (`tinyagents/middleware.rs`), idempotent `RedactionMiddleware` vs `journal.rs` double-redaction, adopt `ToolCompleted` outcome fields in `observability.rs` (retire `ToolFailureMap` reconstruction), adopt `invoke_stream` in `model.rs`.
+1. **Done:** bump `vendor/tinyagents` to **v1.6.0** and the host requirement `1.5.0` → `1.6.0` (both root and `app/src-tauri` manifests; keep the `[patch.crates-io]` path entries).
+2. **Done:** fix seam fallout from the bump: SHA-256 prompt fingerprint vs the seam's KV-cache drift guard (`tinyagents/middleware.rs`), idempotent `RedactionMiddleware` vs `journal.rs` double-redaction, adopt `ToolCompleted` outcome fields in `observability.rs` (retire `ToolFailureMap` reconstruction). The context-preserving `invoke_stream` host path is now closed by the `Send` stream follow-up released in TinyAgents `v1.7.1`.
 3. Record a baseline: LOC per module, test counts, and the duplication map (§0.2) as the drift ledger for this migration (mirroring `docs/tinycortex-drift-ledger.md`).
-4. **Exit:** host builds and full release lane passes on tinyagents 1.6.0 with zero in-tree deletions yet.
+4. **Exit:** host builds and full release lane passes on tinyagents 1.6.0 with zero in-tree deletions yet. The host has since moved on to the Phase 1 `v1.7.1` partial cutover.
 
 ### Phase 1 — Quick wins upstream (small tinyagents PRs, no host deletions)
 
 Land these as separate small PRs against tinyagents (each with its ported tests re-expressed in crate conventions):
 
-1. `SchemaCleanr` (+ its 15-test suite) → provider-layer schema cleaning. Zero-dep, highest value/effort ratio.
-2. `error_classify.rs` classifiers → retry/HTTP-error classification (strip openhuman-backend phrase matches into a host-side extension table; keep the generic HTTP/status logic).
-3. `model_context.rs` pattern-match table (substring-vs-segment matching, incl. the o1/o3 regression guard) → `ModelProfile` context resolution. OH tier aliases and cost-catalog arms stay host-side.
-4. First-class **reasoning channel** on `AssistantMessage` → delete the `ProviderExtension` smuggling in seam `convert.rs`.
-5. Git-worktree `WorkspaceIsolation` provider from `agent_orchestration/worktree.rs` (+ `worktree_tests.rs`, which exercises real git repos — fits the crate's offline test policy). The single `publish_global` event becomes a host-side wrapper.
-6. Tool display metadata (`humanize_tool_name`, `display_label`/`display_detail`, `ToolTimeout` semantics) → `harness/tool/`.
-7. `current_time` / `resolve_time` as the first two builtin tools (pilot for the `tools` feature layout).
-8. **Exit:** tinyagents 1.7.0 tagged; host bumps and swaps call sites (`SchemaCleanr` imports, worktree isolation, convert.rs reasoning path); duplicated host copies deleted where the swap is complete.
+1. `SchemaCleanr` (+ its 15-test suite) → provider-layer schema cleaning. Zero-dep, highest value/effort ratio. **Status:** released in TinyAgents `v1.7.0`; host `tools/schema.rs` re-exports the crate implementation so existing import paths keep working.
+2. `error_classify.rs` classifiers → retry/HTTP-error classification (strip openhuman-backend phrase matches into a host-side extension table; keep the generic HTTP/status logic). **Status:** released in TinyAgents `v1.7.0`; host retry/failure call-site swaps remain pending because OpenHuman-specific backend phrase and billing-envelope rules must stay host-side.
+3. `model_context.rs` pattern-match table (substring-vs-segment matching, incl. the o1/o3 regression guard) → `ModelProfile` context resolution. OH tier aliases and cost-catalog arms stay host-side. **Status:** released in TinyAgents `v1.7.0`; host now delegates generic fallback lookup to the crate after checking tiers and the OpenHuman cost catalog.
+4. First-class **reasoning channel** on `AssistantMessage` → delete the `ProviderExtension` smuggling in seam `convert.rs`. **Status:** closed for new messages: TinyAgents `v1.6.0` provides typed thinking blocks, and the host now writes `reasoning_content` to `ContentBlock::Thinking` while retaining legacy `ProviderExtension` reads.
+5. Git-worktree `WorkspaceIsolation` provider from `agent_orchestration/worktree.rs` (+ `worktree_tests.rs`, which exercises real git repos — fits the crate's offline test policy). The single `publish_global` event becomes a host-side wrapper. **Status:** released in TinyAgents `v1.7.0`; OpenHuman's wrapper stays for event-bus emissions, `OutsideWorkspace`, and host policy mapping until a safer adapter pass.
+6. Tool display metadata (`humanize_tool_name`, `display_label`/`display_detail`, `ToolTimeout` semantics) → `harness/tool/`. **Status:** released in TinyAgents `v1.7.0`; host adjusted `ToolRuntime.timeout`, but the OpenHuman `Tool` trait still owns richer legacy metadata until Phase 2 reconciles the tool model.
+7. `current_time` / `resolve_time` as the first two builtin tools (pilot for the `tools` feature layout). **Status:** released in TinyAgents `v1.7.0` behind the optional `tools` feature; host wrappers stay until the Phase 2 tool model reconciliation adopts crate builtins.
+8. **Exit:** TinyAgents `v1.7.1` tagged and host bumped. `SchemaCleanr`, generic model-context lookup, reasoning, and the context-preserving observed stream path are crate-backed; worktree/time/error-classification/display APIs are available but host deletion waits for their adapter/model reconciliation steps.
 
 ### Phase 2 — Tool model reconciliation + builtin tool families
 
@@ -190,7 +199,7 @@ Fix-in-place candidates (independent of the port; several become moot as phases 
 - `provider/factory.rs:404` — `NO_MODEL_CONFIGURED_ANCHOR` correctness depends on a string literal matched by a separate classifier in `provider/ops.rs:19`; fragile cross-file coupling.
 
 **tools/**
-- `tools/ops.rs` — `all_tools` takes 12 positional args (`#[allow(clippy::too_many_arguments)]`); a builder is overdue. The `Vec<Box<dyn Tool>>` container doesn't dedupe (a test exists *because* of this); the crate's `ToolRegistry` fixes it structurally.
+- `tools/ops.rs` — `all_tools_with_runtime` takes 12 positional args (`#[allow(clippy::too_many_arguments)]`; the thin `all_tools` shim forwards 9); a builder is overdue. The `Vec<Box<dyn Tool>>` container doesn't dedupe (a test exists *because* of this); the crate's `ToolRegistry` fixes it structurally.
 - `tools/traits.rs:15` — `ToolScope::AgentOnly` is a dead variant; `ToolCategory::Workflow` is pinned to wire `"skill"` (documented tech-debt to resolve before porting the type).
 - `tools/traits.rs:367-372` — `is_concurrency_safe` is advisory-only (harness runs tools serially); tinyagents 1.6 has concurrent independent tool calls — adopting it makes the flag real.
 - `orchestrator_tools.rs:38-41,87-89` — dead `SpawnWorkerThreadTool` registration (pending #1624); mis-attached doc-comment at lines 592-603 describes a different test than the one it precedes.
@@ -200,7 +209,7 @@ Fix-in-place candidates (independent of the port; several become moot as phases 
 
 **agent_orchestration/**
 - `ops.rs:138-168` — `message_agent` records metadata only and never injects into the running loop; a real functional hole that `agent_teams/runtime.rs` and `command_center` inherit.
-- `subagent_control.rs:186-190` — `SteerError::NotOwned` arm is dead (no ownership check performed).
+- `subagent_control.rs` — the `SteerError::NotOwned` arm is unreachable on the trusted RPC `steer_control` path (which performs no parent-ownership check), but the variant is **not dead**: the agent-tool `running_subagents::steer` path enforces ownership and returns it (guarded by `steer_rejects_cross_parent_and_unknown`). Real RPC-path enforcement is deferred to Phase 4 (`SteeringRegistry` ownership consolidation).
 - `ops.rs:559-562` — in-memory session path hardcodes `worktree_path: None, changed_files: []` on completion even for worktree-isolated workers (inconsistent with `spawn_parallel_graph`).
 - `delegation.rs:120-127` — human-approval interrupt permanently disabled; the durable interrupt path in the seam is wired but unreachable until a review surface exists.
 - Two parallel status enums (`AgentStatus` vs `OrchestrationTaskStatus`) — latent drift hazard (§2.5).

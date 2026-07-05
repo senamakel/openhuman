@@ -27,6 +27,10 @@ pub enum AgentTurnOrigin {
     WebChat {
         thread_id: String,
         client_id: String,
+        /// Per-turn request id, when the caller has one. Used by internal
+        /// observers to correlate a live progress bridge with the durable
+        /// tinyagents journal stream for the same turn.
+        request_id: Option<String>,
     },
     /// Inbound message from a non-web channel (Telegram / Discord / Slack /
     /// Yuanbao / etc.). External-effect tools must persist a
@@ -161,6 +165,7 @@ mod tests {
             AgentTurnOrigin::WebChat {
                 thread_id: "outer".into(),
                 client_id: "c-outer".into(),
+                request_id: Some("req-outer".into()),
             },
             async {
                 with_origin(

@@ -65,12 +65,55 @@ fn run_output_fields() -> Vec<FieldSchema> {
     ]
 }
 
+/// Field schema for one `FlowConnection` element of `flows_list_connections`'s
+/// output. Kept in one place so the schema mirrors
+/// `flows::types::FlowConnection` exactly — and documents that no secret field
+/// exists on the wire.
+fn flow_connection_fields() -> Vec<FieldSchema> {
+    vec![
+        FieldSchema {
+            name: "connection_ref",
+            ty: TypeSchema::String,
+            comment: "Ready-to-use `connection_ref` to stamp onto a node: \
+                      `composio:<toolkit>:<connection_id>` or `http_cred:<name>`.",
+            required: true,
+        },
+        FieldSchema {
+            name: "kind",
+            ty: TypeSchema::String,
+            comment: "Source kind: `composio` | `http`.",
+            required: true,
+        },
+        FieldSchema {
+            name: "display",
+            ty: TypeSchema::String,
+            comment: "Human-readable picker label (e.g. `Gmail · user@example.com`). \
+                      Never secret material.",
+            required: true,
+        },
+        FieldSchema {
+            name: "toolkit",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Composio toolkit slug (kind `composio` only).",
+            required: false,
+        },
+        FieldSchema {
+            name: "scheme",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "HTTP credential injection scheme (kind `http` only): \
+                      `bearer` | `basic` | `header`.",
+            required: false,
+        },
+    ]
+}
+
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("create"),
         schemas("validate"),
         schemas("get"),
         schemas("list"),
+        schemas("list_connections"),
         schemas("update"),
         schemas("delete"),
         schemas("set_enabled"),
@@ -99,6 +142,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("list"),
             handler: handle_list,
+        },
+        RegisteredController {
+            schema: schemas("list_connections"),
+            handler: handle_list_connections,
         },
         RegisteredController {
             schema: schemas("update"),
@@ -209,6 +256,25 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 name: "flows",
                 ty: TypeSchema::Array(Box::new(TypeSchema::Ref("Flow"))),
                 comment: "Flows currently stored in the workspace.",
+                required: true,
+            }],
+        },
+        "list_connections" => ControllerSchema {
+            namespace: "flows",
+            function: "list_connections",
+            description: "List the connection sources a flow node's `connection_ref` can attach \
+                          to: Composio connected accounts (kind `composio`) and stored HTTP \
+                          credentials (kind `http`). Returns ids + display labels + kind ONLY — \
+                          never any secret material (OAuth/bearer tokens, passwords, and API \
+                          keys stay server-side and are injected only at execution time).",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "connections",
+                ty: TypeSchema::Array(Box::new(TypeSchema::Object {
+                    fields: flow_connection_fields(),
+                })),
+                comment: "Resolvable connections for the flows picker (composio + http), \
+                          secret-free.",
                 required: true,
             }],
         },
@@ -476,6 +542,13 @@ fn handle_list(_params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_list_connections(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(ops::flows_list_connections(&config).await?)
+    })
+}
+
 fn handle_update(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -614,6 +687,7 @@ mod tests {
                 "validate",
                 "get",
                 "list",
+                "list_connections",
                 "update",
                 "delete",
                 "set_enabled",
@@ -629,7 +703,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 12);
+        assert_eq!(controllers.len(), 13);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -638,6 +712,7 @@ mod tests {
                 "validate",
                 "get",
                 "list",
+                "list_connections",
                 "update",
                 "delete",
                 "set_enabled",
@@ -648,6 +723,41 @@ mod tests {
                 "get_run",
             ]
         );
+    }
+
+    #[test]
+    fn schemas_list_connections_has_no_inputs_and_secret_free_outputs() {
+        let s = schemas("list_connections");
+        assert_eq!(s.namespace, "flows");
+        assert!(s.inputs.is_empty());
+        // The only output is the `connections` array.
+        assert_eq!(s.outputs.len(), 1);
+        assert_eq!(s.outputs[0].name, "connections");
+        // No field on a FlowConnection element may resemble secret material.
+        if let TypeSchema::Array(inner) = &s.outputs[0].ty {
+            if let TypeSchema::Object { fields } = inner.as_ref() {
+                let names: Vec<_> = fields.iter().map(|f| f.name).collect();
+                assert_eq!(
+                    names,
+                    vec!["connection_ref", "kind", "display", "toolkit", "scheme"]
+                );
+                for f in fields {
+                    let n = f.name.to_ascii_lowercase();
+                    assert!(
+                        !n.contains("secret")
+                            && !n.contains("token")
+                            && !n.contains("password")
+                            && !n.contains("key"),
+                        "flow_connection field '{}' looks secret-bearing",
+                        f.name
+                    );
+                }
+            } else {
+                panic!("connections element type is not an Object");
+            }
+        } else {
+            panic!("connections output is not an Array");
+        }
     }
 
     #[test]

@@ -129,6 +129,98 @@ fn session_profile_user_attribution(config: &crate::openhuman::config::Config) -
         .or(state.user_id)
 }
 
+fn span_projection_signature(
+    spans: &[crate::openhuman::agent::progress_tracing::TraceSpan],
+) -> Vec<String> {
+    spans
+        .iter()
+        .map(|span| {
+            let attr_keys = span
+                .attributes
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{:?}|{}|{:?}|attrs:[{}]",
+                span.kind, span.name, span.status, attr_keys
+            )
+        })
+        .collect()
+}
+
+async fn shadow_compare_journal_projection(
+    request_id: &str,
+    trace_ctx: crate::openhuman::agent::progress_tracing::TraceContext,
+    max_iterations: u32,
+    live_spans: &[crate::openhuman::agent::progress_tracing::TraceSpan],
+) -> Option<Vec<tinyagents::harness::observability::AgentObservation>> {
+    let Some(journal_run_id) =
+        crate::openhuman::tinyagents::journal::take_request_journal_run(request_id)
+    else {
+        log::debug!(
+            "[agent-tracing][journal-shadow] no journal run registered request_id={}",
+            request_id
+        );
+        return None;
+    };
+
+    let observations = match crate::openhuman::tinyagents::journal::read_run_events(
+        &journal_run_id,
+        0,
+    )
+    .await
+    {
+        Ok(observations) => observations,
+        Err(err) => {
+            log::warn!(
+                    "[agent-tracing][journal-shadow] read failed request_id={} journal_run_id={} err={err}",
+                    request_id,
+                    journal_run_id
+                );
+            return None;
+        }
+    };
+    if observations.is_empty() {
+        log::warn!(
+            "[agent-tracing][journal-shadow] journal empty request_id={} journal_run_id={}",
+            request_id,
+            journal_run_id
+        );
+        return None;
+    }
+
+    let projected =
+        crate::openhuman::agent::progress_tracing::journal_projection::spans_from_observations(
+            trace_ctx,
+            max_iterations,
+            &observations,
+        );
+    let live_sig = span_projection_signature(live_spans);
+    let projected_sig = span_projection_signature(&projected);
+    if live_sig == projected_sig {
+        log::debug!(
+            "[agent-tracing][journal-shadow] parity ok request_id={} journal_run_id={} spans={} observations={}",
+            request_id,
+            journal_run_id,
+            live_spans.len(),
+            observations.len()
+        );
+    } else {
+        log::warn!(
+            "[agent-tracing][journal-shadow] parity divergence request_id={} journal_run_id={} live_spans={} journal_spans={} observations={} live_sig={:?} journal_sig={:?}",
+            request_id,
+            journal_run_id,
+            live_spans.len(),
+            projected.len(),
+            observations.len(),
+            live_sig,
+            projected_sig
+        );
+    }
+    Some(observations)
+}
+
 /// Spawn a background task that reads [`AgentProgress`] events from the
 /// agent turn loop and translates them into [`WebChannelEvent`]s tagged
 /// with the correct client/thread/request IDs. The task runs until the
@@ -159,6 +251,7 @@ pub(crate) fn spawn_progress_bridge(
             metadata.session_id,
         );
         let mut round: u32 = 0;
+        let mut parent_max_iterations: u32 = 0;
         let mut events_seen: u64 = 0;
         let mut parent_completed = false;
         let mut parent_tool_count: u64 = 0;
@@ -170,6 +263,7 @@ pub(crate) fn spawn_progress_bridge(
         // progress stream into OTel/Langfuse-style spans correlated by session
         // id (falling back to the thread id for headless/autonomous runs).
         // `None` (disabled) is zero-cost.
+        let mut journal_trace_ctx = None;
         let mut span_collector = if config.observability.share_usage_data
             || config.observability.agent_tracing.enabled
         {
@@ -226,6 +320,7 @@ pub(crate) fn spawn_progress_bridge(
             if let Some(agent_id) = metadata.agent_id.clone() {
                 trace_ctx = trace_ctx.with_agent_id(agent_id);
             }
+            journal_trace_ctx = Some(trace_ctx.clone());
             Some(SpanCollector::new(trace_ctx))
         } else {
             None
@@ -411,6 +506,7 @@ pub(crate) fn spawn_progress_bridge(
                     max_iterations,
                 } => {
                     round = iteration;
+                    parent_max_iterations = max_iterations;
                     publish_web_channel_event(WebChannelEvent {
                         event: "iteration_start".to_string(),
                         client_id: client_id.clone(),
@@ -1220,8 +1316,31 @@ pub(crate) fn spawn_progress_bridge(
         // never affects the turn outcome.
         if let Some(mut collector) = span_collector.take() {
             collector.finish(unix_epoch_ms());
-            crate::openhuman::agent::progress_tracing::export_run_trace(&config, collector.spans())
+            let live_spans = collector.spans().to_vec();
+            let journal_export = if let Some(trace_ctx) = journal_trace_ctx.take() {
+                shadow_compare_journal_projection(
+                    &request_id,
+                    trace_ctx.clone(),
+                    parent_max_iterations,
+                    &live_spans,
+                )
+                .await
+                .map(|observations| (trace_ctx, observations))
+            } else {
+                None
+            };
+            if let Some((trace_ctx, observations)) = journal_export {
+                crate::openhuman::agent::progress_tracing::export_run_trace_from_journal(
+                    &config,
+                    &trace_ctx,
+                    &observations,
+                    &live_spans,
+                )
                 .await;
+            } else {
+                crate::openhuman::agent::progress_tracing::export_run_trace(&config, &live_spans)
+                    .await;
+            }
         }
 
         log::debug!(

@@ -90,6 +90,9 @@ fn http_adapter(allowed_domains: Vec<String>) -> OpenHumanHttp {
             allowed_domains,
             ..Default::default()
         },
+        http_creds: Arc::new(
+            crate::openhuman::credentials::HttpCredentialsStore::from_config(&config),
+        ),
     }
 }
 
@@ -203,7 +206,12 @@ async fn engine_run_drives_trigger_to_http_request_through_the_real_seam() {
 async fn code_adapter_javascript_passthrough_round_trips_json() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let runner = OpenHumanCode { config };
+    let security = Arc::new(SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+        &config.action_dir,
+    ));
+    let runner = OpenHumanCode { config, security };
 
     let input = json!([{ "json": { "n": 7 } }]);
     let result = runner

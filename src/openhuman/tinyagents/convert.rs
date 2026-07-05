@@ -23,30 +23,29 @@ use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolSchema};
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, ToolResultMessage};
 use crate::openhuman::tools::ToolSpec;
 
-/// Key under which a thinking model's `reasoning_content` is stashed on an
-/// assistant [`Message`]'s content blocks (as a [`ContentBlock::ProviderExtension`])
-/// and echoed back through openhuman [`ChatMessage::extra_metadata`]. tinyagents'
-/// `AssistantMessage` has no reasoning channel of its own, so we carry it here so
-/// it survives the round-trip and can be replayed verbatim on the next turn
-/// (thinking-mode providers reject a multi-turn request that drops it).
+/// Key under which a thinking model's `reasoning_content` is echoed through
+/// openhuman [`ChatMessage::extra_metadata`]. New harness transcripts carry
+/// reasoning as [`ContentBlock::Thinking`]; legacy persisted transcripts may
+/// still have the same key inside [`ContentBlock::ProviderExtension`].
 pub(super) const REASONING_EXT_KEY: &str = "reasoning_content";
 
-/// Build the [`ContentBlock`] that stashes a response's `reasoning_content` on an
-/// assistant message, if any.
+/// Build the [`ContentBlock`] that carries a response's `reasoning_content` on
+/// an assistant message, if any.
 pub(super) fn reasoning_content_block(reasoning: Option<&str>) -> Option<ContentBlock> {
     let reasoning = reasoning?;
     // Store verbatim (only gate on non-empty after a trim): thinking-mode
     // providers validate the prior reasoning block byte-for-byte on a resumed
     // multi-turn request, so trimming boundary whitespace could break replay.
-    (!reasoning.trim().is_empty()).then(|| {
-        ContentBlock::ProviderExtension(serde_json::json!({ REASONING_EXT_KEY: reasoning }))
+    (!reasoning.trim().is_empty()).then(|| ContentBlock::Thinking {
+        text: reasoning.to_string(),
+        signature: None,
     })
 }
 
-/// Recover the stashed `reasoning_content` from an assistant message's content
-/// blocks (see [`reasoning_content_block`]).
+/// Recover `reasoning_content` from an assistant message's content blocks.
 fn reasoning_from_content(content: &[ContentBlock]) -> Option<String> {
     content.iter().find_map(|block| match block {
+        ContentBlock::Thinking { text, .. } => Some(text.clone()),
         ContentBlock::ProviderExtension(value) => value
             .get(REASONING_EXT_KEY)
             .and_then(serde_json::Value::as_str)
@@ -55,7 +54,7 @@ fn reasoning_from_content(content: &[ContentBlock]) -> Option<String> {
     })
 }
 
-/// The `extra_metadata` an assistant [`ChatMessage`] should carry so a stashed
+/// The `extra_metadata` an assistant [`ChatMessage`] should carry so
 /// `reasoning_content` replays on the next provider request.
 fn reasoning_extra_metadata(content: &[ContentBlock]) -> Option<serde_json::Value> {
     reasoning_from_content(content)
@@ -484,6 +483,63 @@ mod tests {
         };
         assert!(am.tool_calls.is_empty());
         assert_eq!(a.text(), "just a normal reply");
+    }
+
+    #[test]
+    fn reasoning_content_uses_typed_thinking_block_and_round_trips_metadata() {
+        let mut chat = ChatMessage::assistant("visible answer");
+        chat.extra_metadata = Some(serde_json::json!({ REASONING_EXT_KEY: "private thoughts" }));
+
+        let msg = chat_message_to_message(&chat);
+        let Message::Assistant(assistant) = &msg else {
+            panic!("expected Assistant, got {msg:?}");
+        };
+        assert_eq!(msg.text(), "visible answer");
+        assert!(assistant.content.iter().any(|block| {
+            matches!(
+                block,
+                ContentBlock::Thinking { text, signature: None } if text == "private thoughts"
+            )
+        }));
+        assert!(!assistant
+            .content
+            .iter()
+            .any(|block| matches!(block, ContentBlock::ProviderExtension(_))));
+
+        let back = message_to_chat_message(&msg);
+        assert_eq!(back.content, "visible answer");
+        assert_eq!(
+            back.extra_metadata
+                .as_ref()
+                .and_then(|meta| meta.get(REASONING_EXT_KEY))
+                .and_then(serde_json::Value::as_str),
+            Some("private thoughts")
+        );
+    }
+
+    #[test]
+    fn legacy_provider_extension_reasoning_still_round_trips() {
+        let msg = Message::Assistant(AssistantMessage {
+            id: None,
+            content: vec![
+                ContentBlock::Text("visible answer".into()),
+                ContentBlock::ProviderExtension(
+                    serde_json::json!({ REASONING_EXT_KEY: "legacy thoughts" }),
+                ),
+            ],
+            tool_calls: vec![],
+            usage: None,
+        });
+
+        let back = message_to_chat_message(&msg);
+        assert_eq!(back.content, "visible answer");
+        assert_eq!(
+            back.extra_metadata
+                .as_ref()
+                .and_then(|meta| meta.get(REASONING_EXT_KEY))
+                .and_then(serde_json::Value::as_str),
+            Some("legacy thoughts")
+        );
     }
 
     #[test]

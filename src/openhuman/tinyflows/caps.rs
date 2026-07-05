@@ -32,7 +32,9 @@ use crate::openhuman::inference::provider::{
     create_chat_provider, ChatMessage, ChatRequest, UsageInfo,
 };
 use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
-use crate::openhuman::security::{CommandClass, GateDecision, SecurityPolicy, POLICY_BLOCKED_MARKER};
+use crate::openhuman::security::{
+    CommandClass, GateDecision, SecurityPolicy, POLICY_BLOCKED_MARKER,
+};
 use crate::openhuman::tools::traits::Tool as _;
 use crate::openhuman::tools::HttpRequestTool;
 
@@ -1161,9 +1163,7 @@ mod tests {
         // No connected set at all → fail-closed reject.
         assert!(!flow_tool_allowed("FLOWSTESTKIT_DO_THING", None).await);
         // Connected set present but does not include this toolkit → reject.
-        assert!(
-            !flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["gmail".to_string()])).await
-        );
+        assert!(!flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["gmail".to_string()])).await);
         // A blank slug is always rejected.
         assert!(!flow_tool_allowed("", Some(&["flowstestkit".to_string()])).await);
     }
@@ -1259,7 +1259,10 @@ mod tests {
         let value = request["headers"]["Authorization"]
             .as_str()
             .expect("Authorization header injected");
-        assert!(value.starts_with("Basic "), "unexpected basic header: {value}");
+        assert!(
+            value.starts_with("Basic "),
+            "unexpected basic header: {value}"
+        );
     }
 
     /// A `http_cred:<name>` naming a credential that does not exist FAILS the
@@ -1277,9 +1280,11 @@ mod tests {
     fn no_http_cred_ref_injects_nothing() {
         let (_dir, store) = http_cred_store();
         assert!(resolve_http_credential(&store, None).unwrap().is_none());
-        assert!(resolve_http_credential(&store, Some("composio:gmail:conn_1"))
-            .unwrap()
-            .is_none());
+        assert!(
+            resolve_http_credential(&store, Some("composio:gmail:conn_1"))
+                .unwrap()
+                .is_none()
+        );
     }
 
     /// The secret is server-side-only: the approval-gate redaction (computed on
@@ -1324,9 +1329,12 @@ mod tests {
     fn http_request_node_tier_gate_blocks_readonly_allows_higher() {
         use crate::openhuman::security::AutonomyLevel;
 
-        let err =
-            enforce_node_tier_gate(&policy(AutonomyLevel::ReadOnly), CommandClass::Network, "http_request")
-                .expect_err("read-only must block a Network-class http_request node");
+        let err = enforce_node_tier_gate(
+            &policy(AutonomyLevel::ReadOnly),
+            CommandClass::Network,
+            "http_request",
+        )
+        .expect_err("read-only must block a Network-class http_request node");
         if let EngineError::Capability(msg) = err {
             assert!(
                 msg.contains(POLICY_BLOCKED_MARKER),
@@ -1344,10 +1352,12 @@ mod tests {
             "http_request"
         )
         .is_ok());
-        assert!(
-            enforce_node_tier_gate(&policy(AutonomyLevel::Full), CommandClass::Network, "http_request")
-                .is_ok()
-        );
+        assert!(enforce_node_tier_gate(
+            &policy(AutonomyLevel::Full),
+            CommandClass::Network,
+            "http_request"
+        )
+        .is_ok());
     }
 
     /// The tier gate a `code` (Write-class) node calls: BLOCKED under read-only,
@@ -1356,16 +1366,21 @@ mod tests {
     fn code_node_tier_gate_blocks_readonly_allows_full() {
         use crate::openhuman::security::AutonomyLevel;
 
+        assert!(enforce_node_tier_gate(
+            &policy(AutonomyLevel::ReadOnly),
+            CommandClass::Write,
+            "code"
+        )
+        .is_err());
+        assert!(enforce_node_tier_gate(
+            &policy(AutonomyLevel::Supervised),
+            CommandClass::Write,
+            "code"
+        )
+        .is_ok());
         assert!(
-            enforce_node_tier_gate(&policy(AutonomyLevel::ReadOnly), CommandClass::Write, "code")
-                .is_err()
-        );
-        assert!(
-            enforce_node_tier_gate(&policy(AutonomyLevel::Supervised), CommandClass::Write, "code")
+            enforce_node_tier_gate(&policy(AutonomyLevel::Full), CommandClass::Write, "code")
                 .is_ok()
-        );
-        assert!(
-            enforce_node_tier_gate(&policy(AutonomyLevel::Full), CommandClass::Write, "code").is_ok()
         );
     }
 

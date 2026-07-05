@@ -127,7 +127,10 @@ impl HttpCredential {
                     "http_cred '{}': bearer token is empty",
                     self.name
                 );
-                Ok(("Authorization".to_string(), format!("Bearer {}", self.secret)))
+                Ok((
+                    "Authorization".to_string(),
+                    format!("Bearer {}", self.secret),
+                ))
             }
             HttpCredentialScheme::Basic => {
                 let username = self.username.as_deref().unwrap_or_default();
@@ -255,8 +258,9 @@ impl HttpCredentialsStore {
             return Ok(None);
         };
 
-        let scheme = parse_scheme(&rec.scheme)
-            .with_context(|| format!("http_cred '{key}' has unrecognized scheme {:?}", rec.scheme))?;
+        let scheme = parse_scheme(&rec.scheme).with_context(|| {
+            format!("http_cred '{key}' has unrecognized scheme {:?}", rec.scheme)
+        })?;
         let secret = self
             .secret_store
             .decrypt(&rec.secret)
@@ -334,7 +338,10 @@ impl HttpCredentialsStore {
             return Ok(PersistedHttpCredentials::default());
         }
         let bytes = fs::read(&self.path).with_context(|| {
-            format!("failed to read http-credentials store at {}", self.path.display())
+            format!(
+                "failed to read http-credentials store at {}",
+                self.path.display()
+            )
         })?;
         if bytes.is_empty() {
             return Ok(PersistedHttpCredentials::default());
@@ -350,7 +357,10 @@ impl HttpCredentialsStore {
     fn write_persisted(&self, persisted: &PersistedHttpCredentials) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).with_context(|| {
-                format!("failed to create http-credentials dir at {}", parent.display())
+                format!(
+                    "failed to create http-credentials dir at {}",
+                    parent.display()
+                )
             })?;
         }
         let json = serde_json::to_vec_pretty(persisted)
@@ -368,7 +378,10 @@ impl HttpCredentialsStore {
         if let Err(e) = fs::rename(&tmp_path, &self.path) {
             let _ = fs::remove_file(&tmp_path);
             return Err(e).with_context(|| {
-                format!("failed to replace http-credentials store at {}", self.path.display())
+                format!(
+                    "failed to replace http-credentials store at {}",
+                    self.path.display()
+                )
             });
         }
         Ok(())
@@ -481,7 +494,10 @@ mod tests {
         // The summary type has no secret field at all — assert via serialization
         // that "topsecret" never appears.
         let json = serde_json::to_string(&summaries).unwrap();
-        assert!(!json.contains("topsecret"), "secret leaked into summary: {json}");
+        assert!(
+            !json.contains("topsecret"),
+            "secret leaked into summary: {json}"
+        );
     }
 
     #[test]
@@ -493,7 +509,9 @@ mod tests {
     #[test]
     fn remove_deletes_record() {
         let (_dir, store) = temp_store();
-        store.upsert(&HttpCredential::bearer("stripe", "tok")).unwrap();
+        store
+            .upsert(&HttpCredential::bearer("stripe", "tok"))
+            .unwrap();
         assert!(store.remove("stripe").unwrap());
         assert!(store.get("stripe").unwrap().is_none());
         assert!(!store.remove("stripe").unwrap());

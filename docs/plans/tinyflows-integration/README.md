@@ -105,6 +105,24 @@ Our structural advantages to preserve: the agent can _author_ workflows conversa
 
 Ordering rationale: **backend correctness first** (triggers, cancellation, live observation, credentials) because every UI phase consumes those RPCs; the editable canvas is the largest UI lift and is independent of trigger work, so it proceeds in parallel from Phase 3.
 
+### Phase 0 — Substrate hygiene: tinyagents pin & tags
+
+Every workflow is, at run time, a **unique tinyagents state graph**: `compile()` wraps the `WorkflowGraph`, and the engine lowers it per run into a tinyagents graph (nodes → graph nodes, output ports → conditional edges, fan-in → waiting edges); run state (`MergeReducer` over a single JSON value), durable checkpointing, HITL interrupts, and the event journal are all tinyagents primitives, keyed per run by `thread_id`/`run_id`. So the health of the tinyagents pin is the health of the whole feature.
+
+Audit (2026-07-04):
+
+- ✅ **Single unified copy** — both Cargo worlds (`Cargo.toml:355`, `app/src-tauri/Cargo.toml:214`) patch `tinyagents` to `vendor/tinyagents`; exactly one `tinyagents 1.5.0` in both lockfiles. tinyflows' `tinyagents = "1.2"` requirement unifies onto the same copy (semver-compatible). No duplication, no type-identity risk.
+- ⚠️ **Not on a tag** — the submodule is pinned at `df391c4` = `v1.5.0-13-gdf391c4`: 13 untagged commits past v1.5.0 (REPL host-embedding / cancel work taken early for the rlm feature). The crate still self-reports `1.5.0`, so the version string understates the vendored code.
+- ⚠️ **Two minor versions behind** — upstream is at **v1.7.1** (60 commits past v1.5.0). The 13 early-adopted commits all landed upstream (via PR #19 etc.; `ReplSession::set_cancel_flag` verified present in v1.7.1), so retagging loses nothing.
+- ⚠️ Same pattern on tinyflows itself: submodule at `v0.3.0-1-g438f8fc` (one commit past tag).
+
+Work items:
+
+1. Bump `vendor/tinyagents` submodule to the **v1.7.1 tag**; bump root requirement `tinyagents = { version = "1.7", features = ["sqlite", "repl"] }` (verify both features still exist in 1.7); `cargo update -p tinyagents` in both lockfiles.
+2. Review the v1.5→v1.7 changelog for API breaks in the seams we touch: `Checkpointer`/`DurabilityMode`, `GraphEventJournal`/`GraphObservation`, interrupt/resume semantics (used by `flows::ops` + `src/openhuman/tinyagents/` + rlm).
+3. Retag `vendor/tinyflows` on a proper release (v0.3.1) whose `Cargo.toml` requires `tinyagents = "1.7"` so the version story is coherent end-to-end.
+4. Gate with `cargo check` both worlds, `pnpm test:rust`, and the flows/rlm unit suites; adopt a standing rule: **vendored tiny\* submodules pin release tags, never floating commits** (early-adopting an upstream PR requires a pre-release tag).
+
 ### Phase 1 — Backend completion (triggers, lifecycle, observability)
 
 **1a. Webhook triggers (G1)** — the flagship Zapier-style gap.
@@ -231,6 +249,8 @@ Tracked separately since it's a submodule with its own release cadence (host pin
 
 ## 4. Missing-features summary (checklist)
 
+Substrate: ☐ tinyagents submodule → v1.7.1 tag (+ root req bump, both lockfiles) · ☐ v1.5→v1.7 API-break review · ☐ tinyflows retag (v0.3.1, `tinyagents = "1.7"`) · ☐ tags-only submodule policy.
+
 Backend: ☐ webhook trigger provisioning+dispatch · ☐ `flows_cancel_run` · ☐ resume-with-rejection/deny · ☐ live `RunObserver` + incremental step persistence · ☐ `FlowRunProgress` socket events · ☐ `flows_validate` RPC · ☐ `flows_list_connections` · ☐ Composio connected-account resolution · ☐ HTTP credential resolution · ☐ toolkit allow-list fix · ☐ `chat_message` trigger dispatch · ☐ sub-workflow by id · ☐ parked-run TTL sweep · ☐ JSON-RPC E2E suite.
 
 Frontend: ☐ editable canvas (drag/connect/palette/delete) · ☐ node config panels · ☐ trigger config UI (cron builder, webhook URL display, app-event picker) · ☐ credentials picker · ☐ new-workflow chooser · ☐ template gallery · ☐ import/export + n8n import · ☐ live canvas run overlay (socket) · ☐ approval deny (real) · ☐ "Open in canvas" from proposal card · ☐ WDIO E2E spec.
@@ -244,6 +264,7 @@ Engine (upstream): ☐ agent sub-ports · ☐ output_parser validation · ☐ `w
 ## 5. Sequencing, estimates, risks
 
 ```
+Phase 0 (tinyagents pin) ██          ~2–3 d    do first; touches both lockfiles
 Phase 1 (backend)      ██████        ~2–3 wk   unblocks everything
 Phase 2 (credentials)     ████       ~1–2 wk   parallel w/ Phase 3
 Phase 3 (canvas)          ████████   ~3–4 wk   largest UI lift

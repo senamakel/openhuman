@@ -352,6 +352,13 @@ describe('graphAdapter', () => {
       const created = createFlowNode('http_request', { x: 0, y: 0 }, 'id1');
       expect(created.data.name).toBe('http_request');
     });
+
+    it('seeds a condition node with declared true/false output ports (fixed runtime routing)', () => {
+      const created = createFlowNode('condition', { x: 0, y: 0 }, 'cond-0', 'Branch');
+      expect(created.data.ports).toEqual([{ name: 'true' }, { name: 'false' }]);
+      expect(created.data.inputPorts).toEqual(['main']);
+      expect(created.data.outputPorts).toEqual(['true', 'false']);
+    });
   });
 
   describe('isValidFlowConnection', () => {

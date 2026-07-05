@@ -227,13 +227,33 @@ export function isValidFlowConnection(
 }
 
 /**
+ * Declared output `ports` a freshly-added node of `kind` needs at creation
+ * time, for kinds whose runtime routing is fixed and NOT derivable from
+ * config or wired edges. A `condition` node always routes through `true`/
+ * `false` (`vendor/tinyflows/src/nodes/control_flow/condition.rs`), but the
+ * config drawer has no port editor — so unlike `switch` (whose case ports
+ * are config-driven and materialize once the author wires an edge, per
+ * {@link effectiveOutputPorts}'s doc comment), a new `condition` node must be
+ * seeded with both ports up front or its second branch is never wireable
+ * from the canvas.
+ */
+function defaultPortsForKind(kind: NodeKind): Port[] {
+  if (kind === 'condition') {
+    return [{ name: 'true' }, { name: 'false' }];
+  }
+  return [];
+}
+
+/**
  * Build a fresh xyflow node for a palette-added `kind` at `position`. Newly
- * dropped nodes start with a single default `main` input + `main` output
- * handle (no declared `ports`, empty `config`) — exactly what
- * {@link effectiveInputPorts}/{@link effectiveOutputPorts} would derive for a
- * node with no edges yet — so it round-trips cleanly through
- * {@link xyflowToWorkflowGraph} and immediately accepts connections. `id` must
- * be unique within the canvas; `name` defaults to `kind` when omitted.
+ * dropped nodes start with a single default `main` input handle (no wired
+ * edges yet) plus whatever {@link defaultPortsForKind} declares for `kind` —
+ * empty for most kinds, which fall back to the single default `main` output
+ * handle exactly as {@link effectiveInputPorts}/{@link effectiveOutputPorts}
+ * would derive for a node with no edges yet — so it round-trips cleanly
+ * through {@link xyflowToWorkflowGraph} and immediately accepts connections.
+ * `id` must be unique within the canvas; `name` defaults to `kind` when
+ * omitted.
  */
 export function createFlowNode(
   kind: NodeKind,
@@ -241,18 +261,13 @@ export function createFlowNode(
   id: string,
   name?: string
 ): FlowNode {
+  const ports = defaultPortsForKind(kind);
+  const outputPorts = ports.length > 0 ? ports.map(p => p.name) : [DEFAULT_PORT];
   return {
     id,
     type: FLOW_NODE_TYPE,
     position,
-    data: {
-      kind,
-      name: name ?? kind,
-      config: {},
-      ports: [],
-      inputPorts: [DEFAULT_PORT],
-      outputPorts: [DEFAULT_PORT],
-    },
+    data: { kind, name: name ?? kind, config: {}, ports, inputPorts: [DEFAULT_PORT], outputPorts },
   };
 }
 

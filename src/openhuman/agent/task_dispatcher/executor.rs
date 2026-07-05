@@ -227,7 +227,7 @@ pub(super) async fn run_autonomous(
     if let Some(thread_id) = session_thread_id.as_deref() {
         match &result {
             Ok(response) => {
-                crate::openhuman::channels::providers::presentation::deliver_response(
+                crate::openhuman::channels::providers::web::presentation::deliver_response(
                     "system",
                     thread_id,
                     run_id,

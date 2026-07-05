@@ -13,7 +13,7 @@ use crate::core::socketio::{SubagentUsagePayload, TurnUsagePayload, WebChannelEv
 use crate::openhuman::agent::harness::turn_subagent_usage::LastTurnUsage;
 use crate::openhuman::config::rpc as config_rpc;
 
-use super::web::publish_web_channel_event;
+use super::publish_web_channel_event;
 
 const MIN_SEGMENT_CHARS: usize = 40;
 const MAX_SEGMENTS: usize = 5;

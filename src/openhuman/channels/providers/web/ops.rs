@@ -603,7 +603,7 @@ pub async fn start_chat(
 
         match result {
             Ok(chat_result) => {
-                crate::openhuman::channels::providers::presentation::deliver_response(
+                crate::openhuman::channels::providers::web::presentation::deliver_response(
                     &client_id_task,
                     &thread_id_task,
                     &request_id_task,
@@ -809,7 +809,7 @@ async fn spawn_parallel_turn(
 
         match result {
             Some(Ok(chat_result)) => {
-                crate::openhuman::channels::providers::presentation::deliver_response(
+                crate::openhuman::channels::providers::web::presentation::deliver_response(
                     &client_id_task,
                     &thread_id_task,
                     &request_id_task,

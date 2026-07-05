@@ -111,6 +111,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("create"),
         schemas("validate"),
+        schemas("import"),
         schemas("get"),
         schemas("list"),
         schemas("list_connections"),
@@ -134,6 +135,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("validate"),
             handler: handle_validate,
+        },
+        RegisteredController {
+            schema: schemas("import"),
+            handler: handle_import,
         },
         RegisteredController {
             schema: schemas("get"),
@@ -236,6 +241,50 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     ty: TypeSchema::Array(Box::new(TypeSchema::String)),
                     comment: "Non-fatal warnings (e.g. an unfired trigger kind); the graph is \
                               still saveable/enable-able.",
+                    required: true,
+                },
+            ],
+        },
+        "import" => ControllerSchema {
+            namespace: "flows",
+            function: "import",
+            description: "Import a workflow definition WITHOUT saving it: parse a native tinyflows \
+                          graph or an n8n workflow export, migrate + validate it, and return the \
+                          normalized WorkflowGraph plus non-fatal import warnings. The caller opens \
+                          the result on the canvas as a draft and Saves via the normal gate — \
+                          import never persists or enables anything.",
+            inputs: vec![
+                FieldSchema {
+                    name: "graph",
+                    ty: TypeSchema::Json,
+                    comment: "The workflow JSON to import: a tinyflows WorkflowGraph (native) or \
+                              an n8n workflow export.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "format",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Enum {
+                        variants: vec!["native", "n8n", "auto"],
+                    })),
+                    comment: "Source format: `native` (tinyflows), `n8n`, or `auto` (default — \
+                              detect by shape).",
+                    required: false,
+                },
+            ],
+            outputs: vec![
+                FieldSchema {
+                    name: "graph",
+                    ty: TypeSchema::Json,
+                    comment: "The normalized, migrated + validated WorkflowGraph, ready to open \
+                              as an editable draft.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "warnings",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Non-fatal import warnings (unmapped n8n node types, untranslated \
+                              expressions, a synthesized/demoted trigger). Empty for a clean \
+                              native import.",
                     required: true,
                 },
             ],
@@ -527,6 +576,20 @@ fn handle_validate(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_import(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        // No config load: import is pure (no persistence, no workspace).
+        let graph = read_required::<Value>(&params, "graph")?;
+        let format = params
+            .get("format")
+            .filter(|v| !v.is_null())
+            .map(|v| serde_json::from_value::<String>(v.clone()))
+            .transpose()
+            .map_err(|e| format!("invalid 'format': {e}"))?;
+        to_json(ops::flows_import(graph, format)?)
+    })
+}
+
 fn handle_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -685,6 +748,7 @@ mod tests {
             vec![
                 "create",
                 "validate",
+                "import",
                 "get",
                 "list",
                 "list_connections",
@@ -703,13 +767,14 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 13);
+        assert_eq!(controllers.len(), 14);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
             vec![
                 "create",
                 "validate",
+                "import",
                 "get",
                 "list",
                 "list_connections",
@@ -723,6 +788,23 @@ mod tests {
                 "get_run",
             ]
         );
+    }
+
+    #[test]
+    fn schemas_import_requires_graph_and_optional_format() {
+        let s = schemas("import");
+        assert_eq!(s.namespace, "flows");
+        let required: Vec<_> = s
+            .inputs
+            .iter()
+            .filter(|f| f.required)
+            .map(|f| f.name)
+            .collect();
+        assert_eq!(required, vec!["graph"]);
+        let format = s.inputs.iter().find(|f| f.name == "format").unwrap();
+        assert!(!format.required);
+        let names: Vec<_> = s.outputs.iter().map(|f| f.name).collect();
+        assert_eq!(names, vec!["graph", "warnings"]);
     }
 
     #[test]

@@ -8,6 +8,7 @@
 //! controller surface in `schemas` (private, re-exported below).
 
 pub mod bus;
+mod n8n_import;
 pub mod ops;
 mod run_registry;
 mod schemas;
@@ -29,4 +30,6 @@ pub use schemas::{
 // lives in the sibling `tinyflows` domain and persists each finished step onto
 // the `flow_runs` row through this function as the run executes.
 pub use store::{kv_get, kv_set, upsert_flow_run_step};
-pub use types::{Flow, FlowConnection, FlowRun, FlowRunStep, FlowRunTrigger, FlowValidation};
+pub use types::{
+    Flow, FlowConnection, FlowImport, FlowRun, FlowRunStep, FlowRunTrigger, FlowValidation,
+};

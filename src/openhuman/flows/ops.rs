@@ -206,6 +206,75 @@ pub fn flows_validate(graph_json: Value) -> RpcOutcome<crate::openhuman::flows::
     }
 }
 
+/// Imports a workflow definition WITHOUT persisting it (PHASE 4d), normalizing
+/// it into a migrated + validated [`WorkflowGraph`] the UI opens as an editable
+/// canvas *draft*. Two source formats, selected by `format`:
+///
+/// - `"native"` — a tinyflows `WorkflowGraph` JSON (the same shape
+///   `flows_create` accepts). Run straight through [`validate_and_migrate_graph`].
+/// - `"n8n"` — an n8n workflow export, mapped best-effort by
+///   [`crate::openhuman::flows::n8n_import`] into a `WorkflowGraph` (unmapped
+///   node types become annotated placeholders, expressions translated where
+///   trivial) and THEN run through the same migrate + validate path, so the
+///   host engine is the authority on the result's validity.
+/// - `None`/`"auto"` — auto-detect: n8n exports carry a `connections` object /
+///   `type`-discriminated nodes ([`n8n_import::looks_like_n8n`]); everything
+///   else is treated as native.
+///
+/// Returns `Err` when the (post-mapping) graph is structurally invalid or the
+/// JSON is unparseable — import declines rather than handing the canvas a graph
+/// that can't be saved. On success the `warnings` carry every non-fatal import
+/// approximation (n8n only; native import is warning-free).
+///
+/// Like `flows_validate`, this is pure: NO persistence, NO enablement. The
+/// user's later Save (the existing `flows_create` gate) is the only write.
+pub fn flows_import(
+    graph_json: Value,
+    format: Option<String>,
+) -> Result<RpcOutcome<crate::openhuman::flows::FlowImport>, String> {
+    use crate::openhuman::flows::{n8n_import, FlowImport};
+
+    let requested = format.as_deref().unwrap_or("auto").trim().to_ascii_lowercase();
+    let is_n8n = match requested.as_str() {
+        "n8n" => true,
+        "native" | "tinyflows" => false,
+        "auto" | "" => n8n_import::looks_like_n8n(&graph_json),
+        other => return Err(format!("unknown import format '{other}' (expected 'native' or 'n8n')")),
+    };
+    tracing::debug!(
+        target: "flows",
+        requested_format = %requested,
+        resolved = if is_n8n { "n8n" } else { "native" },
+        "[flows] flows_import: importing workflow definition"
+    );
+
+    let (candidate, mut warnings) = if is_n8n {
+        let mapped = n8n_import::map_n8n_workflow(&graph_json)?;
+        // Re-serialize the mapped graph so it re-enters the exact same
+        // migrate + validate path a native import takes (single source of truth
+        // for validity), rather than trusting the mapper's in-memory graph.
+        let value = serde_json::to_value(&mapped.graph).map_err(|e| e.to_string())?;
+        (value, mapped.warnings)
+    } else {
+        (graph_json, Vec::new())
+    };
+
+    let graph = validate_and_migrate_graph(candidate)?;
+    // Host-side trigger warnings apply to both formats (e.g. an imported
+    // webhook trigger that this host does not yet self-fire).
+    warnings.extend(graph_trigger_warnings(&graph));
+    tracing::debug!(
+        target: "flows",
+        node_count = graph.nodes.len(),
+        warning_count = warnings.len(),
+        "[flows] flows_import: import normalized and validated"
+    );
+    Ok(RpcOutcome::single_log(
+        FlowImport { graph, warnings },
+        "flow imported",
+    ))
+}
+
 /// Creates a new flow from a name and a raw graph JSON value.
 ///
 /// `store::create_flow` defaults new flows to `enabled = true` — this binds

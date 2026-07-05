@@ -3,7 +3,7 @@
 // Generalises across every bundled skill (`github-issue-crusher`,
 // `pr-review-shepherd`, `dev-workflow`, plus anything the user installs
 // later) — pick one from the dropdown, fill the dynamically-rendered
-// inputs (loaded from `openhuman.workflows_describe`), Run Now to
+// inputs (loaded from `openhuman.skills_describe`), Run Now to
 // fire-and-forget a background autonomous run, or Save as a recurring
 // cron schedule. Recent runs are listed below with an inline log
 // viewer (click-to-expand, auto-tail for in-flight runs).
@@ -454,7 +454,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     return () => clearTimeout(timer);
   }, [searchParams, selectedSkillId]);
 
-  // ── Initial load: workflows_list ──────────────────────────────────────
+  // ── Initial load: skills_list ──────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setSkillsLoading(true);
@@ -483,7 +483,7 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
     };
   }, []);
 
-  // ── On selection: workflows_describe ──────────────────────────────────
+  // ── On selection: skills_describe ──────────────────────────────────
   useEffect(() => {
     if (!selectedSkillId) {
       setDescription(null);

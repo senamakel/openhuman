@@ -14,7 +14,7 @@ export type WorkflowScope = 'user' | 'project' | 'legacy';
 
 /**
  * Wire-format representation of a discovered skill returned by
- * `openhuman.workflows_list`.
+ * `openhuman.skills_list`.
  *
  * Paths are intentionally serialized as strings (not URLs) to avoid lossy
  * conversions on non-UTF-8 filesystems.
@@ -67,7 +67,7 @@ type RawWorkflowSummary = Omit<WorkflowSummary, 'platforms' | 'relatedSkills' | 
 };
 
 /**
- * Result of `openhuman.workflows_read_resource`.
+ * Result of `openhuman.skills_read_resource`.
  */
 export interface WorkflowResourceContent {
   /** Echo of the requested skill id. */
@@ -88,7 +88,7 @@ interface RawWorkflowsReadResourceResult {
 }
 
 /**
- * Parameters accepted by `openhuman.workflows_create`.
+ * Parameters accepted by `openhuman.skills_create`.
  *
  * Matches the wire shape defined in `src/openhuman/skills/schemas.rs`
  * (`SkillsCreateParams`) — `allowedTools` is rekeyed to `allowed-tools` on
@@ -138,7 +138,7 @@ interface RawWorkflowsCreateResult {
 }
 
 /**
- * Parameters accepted by `openhuman.workflows_install_from_url`.
+ * Parameters accepted by `openhuman.skills_install_from_url`.
  *
  * `timeoutSecs` is optional — the Rust side defaults to 60s and caps at
  * 600s. Values outside that range are clamped server-side.
@@ -149,7 +149,7 @@ export interface InstallWorkflowFromUrlInput {
 }
 
 /**
- * Result of `openhuman.workflows_install_from_url`.
+ * Result of `openhuman.skills_install_from_url`.
  *
  * `newWorkflows` lists skill ids that appeared post-install (diff vs the
  * pre-install snapshot). `stdout` holds a human-readable diagnostic summary
@@ -264,7 +264,7 @@ export const workflowsApi = {
   listWorkflows: async (opts?: ListWorkflowsOptions): Promise<WorkflowSummary[]> => {
     log('listWorkflows: request includeSkills=%s', opts?.includeSkills ?? false);
     const response = await callCoreRpc<Envelope<WorkflowsListResult> | WorkflowsListResult>({
-      method: 'openhuman.workflows_list',
+      method: 'openhuman.skills_list',
       params: opts?.includeSkills ? { include_skills: true } : undefined,
     });
     const result = unwrapEnvelope(response);
@@ -289,7 +289,7 @@ export const workflowsApi = {
     const response = await callCoreRpc<
       Envelope<RawWorkflowsReadResourceResult> | RawWorkflowsReadResourceResult
     >({
-      method: 'openhuman.workflows_read_resource',
+      method: 'openhuman.skills_read_resource',
       params: { workflow_id: workflowId, relative_path: relativePath },
     });
     const raw = unwrapEnvelope(response);
@@ -304,7 +304,7 @@ export const workflowsApi = {
   },
 
   /**
-   * Scaffold a new SKILL.md skill via `openhuman.workflows_create`.
+   * Scaffold a new SKILL.md skill via `openhuman.skills_create`.
    *
    * The Rust side slugifies the name, writes `SKILL.md` with the supplied
    * frontmatter, and returns the freshly-discovered `WorkflowSummary` so the
@@ -315,7 +315,7 @@ export const workflowsApi = {
     const response = await callCoreRpc<
       Envelope<RawWorkflowsCreateResult> | RawWorkflowsCreateResult
     >({
-      method: 'openhuman.workflows_create',
+      method: 'openhuman.skills_create',
       params: {
         name: input.name,
         description: input.description,
@@ -337,7 +337,7 @@ export const workflowsApi = {
   },
 
   /**
-   * Edit an existing workflow via `openhuman.workflows_update`. Same payload
+   * Edit an existing workflow via `openhuman.skills_update`. Same payload
    * shape as create; the Rust side overwrites the workflow at the resolved
    * slug — rewriting frontmatter + workflow.toml while preserving the
    * hand-authored SKILL.md/WORKFLOW.md body.
@@ -347,7 +347,7 @@ export const workflowsApi = {
     const response = await callCoreRpc<
       Envelope<RawWorkflowsCreateResult> | RawWorkflowsCreateResult
     >({
-      method: 'openhuman.workflows_update',
+      method: 'openhuman.skills_update',
       params: {
         name: input.name,
         description: input.description,
@@ -369,7 +369,7 @@ export const workflowsApi = {
   },
 
   /**
-   * Install a remote SKILL.md by URL via `openhuman.workflows_install_from_url`.
+   * Install a remote SKILL.md by URL via `openhuman.skills_install_from_url`.
    *
    * The Rust side fetches the SKILL.md directly over HTTPS (no subprocess,
    * no Node toolchain required), validates the frontmatter, and writes it
@@ -385,7 +385,7 @@ export const workflowsApi = {
     const response = await callCoreRpc<
       Envelope<RawInstallWorkflowFromUrlResult> | RawInstallWorkflowFromUrlResult
     >({
-      method: 'openhuman.workflows_install_from_url',
+      method: 'openhuman.skills_install_from_url',
       params: {
         url: input.url,
         ...(input.timeoutSecs !== undefined ? { timeout_secs: input.timeoutSecs } : {}),
@@ -446,7 +446,7 @@ export const workflowsApi = {
   describeWorkflow: async (workflowId: string): Promise<WorkflowDescription> => {
     log('describeWorkflow: request workflowId=%s', workflowId);
     const response = await callCoreRpc<Envelope<WorkflowDescription> | WorkflowDescription>({
-      method: 'openhuman.workflows_describe',
+      method: 'openhuman.skills_describe',
       params: { workflow_id: workflowId },
     });
     const raw = unwrapEnvelope(response);
@@ -574,7 +574,7 @@ export const workflowsApi = {
 
 /**
  * One input declaration from a skill's `[[inputs]]` block, returned by
- * `openhuman.workflows_describe`. The FE renders one form control per entry:
+ * `openhuman.skills_describe`. The FE renders one form control per entry:
  * `string`/`integer`/`boolean` map to text/number/checkbox controls.
  */
 export interface WorkflowInputDescription {
@@ -585,7 +585,7 @@ export interface WorkflowInputDescription {
   type: string;
 }
 
-/** Wire shape returned by `openhuman.workflows_describe`. */
+/** Wire shape returned by `openhuman.skills_describe`. */
 export interface WorkflowDescription {
   id: string;
   display_name: string;

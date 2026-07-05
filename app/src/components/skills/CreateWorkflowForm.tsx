@@ -107,7 +107,7 @@ export interface CreateSkillFormProps {
   /**
    * When set, the form is in EDIT mode for this workflow: fields are
    * pre-filled (name read-only — the slug is identity), and submit calls
-   * `workflows_update` instead of `workflows_create`. Tags / author /
+   * `skills_update` instead of `skills_create`. Tags / author /
    * allowed-tools (not exposed as editable fields) are carried through so
    * they're preserved on save.
    */
@@ -143,7 +143,7 @@ const CreateWorkflowForm = forwardRef<CreateSkillFormHandle, CreateSkillFormProp
     const { t } = useT();
     const isEdit = !!editing;
     // Fields the form doesn't expose but must preserve across an edit
-    // (otherwise workflows_update would regenerate frontmatter without them).
+    // (otherwise skills_update would regenerate frontmatter without them).
     const preservedRef = useRef<{ tags?: string[]; author?: string; allowedTools?: string[] }>({});
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');

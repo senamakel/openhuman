@@ -4,7 +4,7 @@
  *
  * The Intelligence page's "Workflows" tab — the single home for installed
  * workflows (the unified primitive: a goal + the procedure to reach it,
- * authored as SKILL.md bundles and served by the `workflows_*` JSON-RPC via
+ * authored as SKILL.md bundles and served by the `skills_*` JSON-RPC via
  * `workflowsApi`).
  *
  * Owns the full workflow surface that used to live on the Connections page:

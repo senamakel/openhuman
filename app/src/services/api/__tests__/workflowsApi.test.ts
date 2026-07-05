@@ -10,7 +10,7 @@ describe('workflowsApi.createWorkflow', () => {
     vi.mocked(callCoreRpc).mockReset();
   });
 
-  it('forwards inputs to workflows_create and rekeys allowedTools', async () => {
+  it('forwards inputs to skills_create and rekeys allowedTools', async () => {
     const { callCoreRpc } = await import('../../coreRpcClient');
     vi.mocked(callCoreRpc).mockResolvedValueOnce({
       workflow: {
@@ -39,7 +39,7 @@ describe('workflowsApi.createWorkflow', () => {
     });
 
     expect(callCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.workflows_create',
+      method: 'openhuman.skills_create',
       params: {
         name: 'My Skill',
         description: 'does stuff',
@@ -126,7 +126,7 @@ describe('workflowsApi.installWorkflowFromUrl', () => {
     });
 
     expect(callCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.workflows_install_from_url',
+      method: 'openhuman.skills_install_from_url',
       params: { url: 'https://example.com/my-skill.tgz', timeout_secs: 120 },
     });
     expect(result.newWorkflows).toEqual(['my-skill']);
@@ -190,7 +190,7 @@ describe('workflowsApi.updateWorkflow', () => {
     });
 
     expect(callCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.workflows_update',
+      method: 'openhuman.skills_update',
       params: {
         name: 'WF',
         description: 'd',
@@ -223,7 +223,7 @@ describe('workflowsApi.listWorkflows', () => {
 
     const result = await workflowsApi.listWorkflows();
 
-    expect(callCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.workflows_list' });
+    expect(callCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.skills_list' });
     expect(result.map(w => w.id)).toEqual(['a', 'b']);
   });
 
@@ -275,7 +275,7 @@ describe('workflowsApi.listWorkflows', () => {
 
     const result = await workflowsApi.listWorkflows();
 
-    expect(callCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.workflows_list' });
+    expect(callCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.skills_list' });
     expect(result[0].relatedSkills).toEqual(['browser-automation']);
     expect(result[0].sourceFormat).toBe('hermes');
     expect(result[0].platforms).toEqual([]);
@@ -287,7 +287,7 @@ describe('workflowsApi.listWorkflows', () => {
     vi.mocked(callCoreRpc).mockResolvedValueOnce({ workflows: [] });
     await workflowsApi.listWorkflows();
     const call = vi.mocked(callCoreRpc).mock.calls[0][0];
-    expect(call.method).toBe('openhuman.workflows_list');
+    expect(call.method).toBe('openhuman.skills_list');
     expect(call.params).toBeUndefined();
   });
 
@@ -296,7 +296,7 @@ describe('workflowsApi.listWorkflows', () => {
     vi.mocked(callCoreRpc).mockResolvedValueOnce({ workflows: [] });
     await workflowsApi.listWorkflows({ includeSkills: true });
     expect(callCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.workflows_list',
+      method: 'openhuman.skills_list',
       params: { include_skills: true },
     });
   });
@@ -323,7 +323,7 @@ describe('workflowsApi.readWorkflowResource', () => {
     });
 
     expect(callCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.workflows_read_resource',
+      method: 'openhuman.skills_read_resource',
       params: { workflow_id: 'wf', relative_path: 'scripts/run.sh' },
     });
     expect(result).toEqual({

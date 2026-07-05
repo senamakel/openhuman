@@ -3,7 +3,7 @@
  * ----------------
  *
  * Centered white modal that scaffolds a new SKILL.md skill via the
- * `openhuman.workflows_create` JSON-RPC method. Matches the settings-modal
+ * `openhuman.skills_create` JSON-RPC method. Matches the settings-modal
  * design rules (clean white, 520px desktop, 16px radius, backdrop + blur,
  * Escape/click-out to close, focus capture) — see
  * `.claude/rules/15-settings-modal-system.md`.

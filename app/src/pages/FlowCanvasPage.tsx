@@ -24,6 +24,10 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
 import FlowRunsSidebar from '../components/flows/FlowRunsSidebar';
 import WorkflowCopilotPanel from '../components/flows/WorkflowCopilotPanel';
+import {
+  getCopilotThreadId,
+  setCopilotThreadId as setCopilotThreadIdCache,
+} from '../components/flows/workflowCopilotThreads';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
@@ -172,6 +176,19 @@ function FlowEditor({
   // commits the proposed graph into `draftGraph`; Reject reverts to the frozen
   // base. NOTHING here persists — the canvas's own Save is the only gate.
   const [copilotOpen, setCopilotOpen] = useState(initialCopilotSeed !== null);
+  // Per-workflow copilot thread: seeded from the session cache so opening/closing
+  // the panel (or switching flows and back) resumes the same conversation
+  // instead of starting a fresh `workflow_builder` thread each time.
+  const [copilotThreadId, setCopilotThreadId] = useState<string | null>(() =>
+    getCopilotThreadId(flowId)
+  );
+  const handleCopilotThreadId = useCallback(
+    (id: string | null) => {
+      setCopilotThreadId(id);
+      setCopilotThreadIdCache(flowId, id);
+    },
+    [flowId]
+  );
   const [draftGraph, setDraftGraph] = useState<WorkflowGraph>(graph);
   const [preview, setPreview] = useState<{
     proposal: WorkflowProposal;
@@ -493,6 +510,8 @@ function FlowEditor({
             onReject={handleRejectProposal}
             onClose={() => setCopilotOpen(false)}
             repairSeed={copilotRepairSeed}
+            seedThreadId={copilotThreadId}
+            onThreadIdChange={handleCopilotThreadId}
           />
         )}
       </div>

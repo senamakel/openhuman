@@ -52,6 +52,13 @@ interface Props {
    * repair turn once on mount so the copilot opens already diagnosing.
    */
   repairSeed?: RepairPromptContext | null;
+  /**
+   * The workflow's persisted copilot thread id (from the per-flow cache), so
+   * reopening the panel resumes the same conversation instead of starting fresh.
+   */
+  seedThreadId?: string | null;
+  /** Reports the live thread id up so the host can persist it per workflow. */
+  onThreadIdChange?: (threadId: string | null) => void;
 }
 
 export default function WorkflowCopilotPanel({
@@ -61,10 +68,19 @@ export default function WorkflowCopilotPanel({
   onReject,
   onClose,
   repairSeed = null,
+  seedThreadId = null,
+  onThreadIdChange,
 }: Props) {
   const { t } = useT();
-  const { sending, proposal, messages, error, send, clearProposal } = useWorkflowBuilderChat();
+  const { threadId, sending, proposal, messages, error, send, clearProposal } =
+    useWorkflowBuilderChat(seedThreadId);
   const [text, setText] = useState('');
+
+  // Report the (lazily-created) thread id up so the host persists it per flow —
+  // reopening the copilot then resumes this same conversation.
+  useEffect(() => {
+    onThreadIdChange?.(threadId);
+  }, [threadId, onThreadIdChange]);
 
   // ChatComposer plumbing (mic/attachments are off, so most refs are inert).
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);

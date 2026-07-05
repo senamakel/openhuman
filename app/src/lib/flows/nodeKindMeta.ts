@@ -15,9 +15,17 @@ import type { NodeKind } from './types';
 
 export type NodeColor = 'sage' | 'primary' | 'amber' | 'coral' | 'neutral';
 
+/**
+ * Palette grouping for the node kinds: `triggers` (what starts a run),
+ * `actions` (do work / call out), `logic` (route, branch, reshape data). Used
+ * by {@link NodePalette} to render labelled sections instead of a flat list.
+ */
+export type NodeGroup = 'triggers' | 'actions' | 'logic';
+
 export interface NodeKindMeta {
   emoji: string;
   color: NodeColor;
+  group: NodeGroup;
 }
 
 /**
@@ -40,20 +48,29 @@ export const NODE_KINDS: NodeKind[] = [
   'sub_workflow',
 ];
 
-/** Per-kind emoji + border/chip color. See the module doc for the color model. */
+/** Per-kind emoji + border/chip color + palette group. See the module doc. */
 export const NODE_KIND_META: Record<NodeKind, NodeKindMeta> = {
-  trigger: { emoji: '⚡', color: 'sage' },
-  agent: { emoji: '🤖', color: 'primary' },
-  tool_call: { emoji: '🔧', color: 'amber' },
-  http_request: { emoji: '🌐', color: 'coral' },
-  code: { emoji: '📝', color: 'sage' },
-  condition: { emoji: '🔀', color: 'primary' },
-  switch: { emoji: '🔁', color: 'amber' },
-  merge: { emoji: '🔗', color: 'coral' },
-  split_out: { emoji: '📤', color: 'sage' },
-  transform: { emoji: '♻️', color: 'primary' },
-  output_parser: { emoji: '📋', color: 'amber' },
-  sub_workflow: { emoji: '🧩', color: 'coral' },
+  trigger: { emoji: '⚡', color: 'sage', group: 'triggers' },
+  agent: { emoji: '🤖', color: 'primary', group: 'actions' },
+  tool_call: { emoji: '🔧', color: 'amber', group: 'actions' },
+  http_request: { emoji: '🌐', color: 'coral', group: 'actions' },
+  code: { emoji: '📝', color: 'sage', group: 'actions' },
+  sub_workflow: { emoji: '🧩', color: 'coral', group: 'actions' },
+  condition: { emoji: '🔀', color: 'primary', group: 'logic' },
+  switch: { emoji: '🔁', color: 'amber', group: 'logic' },
+  merge: { emoji: '🔗', color: 'coral', group: 'logic' },
+  split_out: { emoji: '📤', color: 'sage', group: 'logic' },
+  transform: { emoji: '♻️', color: 'primary', group: 'logic' },
+  output_parser: { emoji: '📋', color: 'amber', group: 'logic' },
+};
+
+/** Palette group render order + the kinds in each, derived from NODE_KIND_META. */
+export const NODE_GROUP_ORDER: NodeGroup[] = ['triggers', 'actions', 'logic'];
+
+export const NODE_KINDS_BY_GROUP: Record<NodeGroup, NodeKind[]> = {
+  triggers: NODE_KINDS.filter(k => NODE_KIND_META[k].group === 'triggers'),
+  actions: NODE_KINDS.filter(k => NODE_KIND_META[k].group === 'actions'),
+  logic: NODE_KINDS.filter(k => NODE_KIND_META[k].group === 'logic'),
 };
 
 /**
@@ -64,7 +81,11 @@ export const NODE_KIND_META: Record<NodeKind, NodeKindMeta> = {
  * here so an unrecognized kind renders as a plain neutral node instead of
  * crashing the whole canvas (there's no error boundary around `<ReactFlow>`).
  */
-export const DEFAULT_NODE_META: NodeKindMeta = { emoji: '❔', color: 'neutral' };
+export const DEFAULT_NODE_META: NodeKindMeta = {
+  emoji: '❔',
+  color: 'neutral',
+  group: 'actions',
+};
 
 /** Resolve a kind's metadata, falling back to {@link DEFAULT_NODE_META}. */
 export function nodeKindMeta(kind: NodeKind): NodeKindMeta {

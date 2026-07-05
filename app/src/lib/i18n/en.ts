@@ -4438,6 +4438,11 @@ const en: TranslationMap = {
   // and editor toolbar layered on top of the read-only canvas above.
   'flows.palette.title': 'Nodes',
   'flows.palette.addNode': 'Add {kind} node',
+  'flows.palette.search': 'Search nodes…',
+  'flows.palette.noResults': 'No matching nodes',
+  'flows.palette.group.triggers': 'Triggers',
+  'flows.palette.group.actions': 'Actions',
+  'flows.palette.group.logic': 'Logic',
   'flows.editor.save': 'Save',
   'flows.editor.saving': 'Saving…',
   'flows.editor.run': 'Run',

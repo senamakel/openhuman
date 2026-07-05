@@ -49,6 +49,17 @@ describe('FlowCanvas (editable)', () => {
     expect(screen.getByTestId('flow-palette-item-sub_workflow')).toBeInTheDocument();
   });
 
+  it('filters palette items by the search query', () => {
+    renderCanvas(<FlowCanvas editable nodes={[triggerNode()]} edges={[]} />);
+    fireEvent.change(screen.getByTestId('flow-palette-search'), { target: { value: 'http' } });
+    // HTTP request survives; the trigger kind is filtered out.
+    expect(screen.getByTestId('flow-palette-item-http_request')).toBeInTheDocument();
+    expect(screen.queryByTestId('flow-palette-item-trigger')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('flow-palette-search'), { target: { value: 'zzzz' } });
+    expect(screen.getByTestId('flow-palette-no-results')).toBeInTheDocument();
+  });
+
   it('does NOT render the palette in read-only mode', () => {
     renderCanvas(<FlowCanvas nodes={[triggerNode()]} edges={[]} />);
     expect(screen.queryByTestId('flow-node-palette')).not.toBeInTheDocument();

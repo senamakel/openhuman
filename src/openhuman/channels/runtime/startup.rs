@@ -91,6 +91,48 @@ impl tinychannels::relay::RelayInboundHandler for RelayInboundMessageHandler {
     }
 }
 
+struct RelayRuntimeHandle {
+    _transport: Arc<tinychannels::relay::RelayTransport>,
+    _reconnect: tinychannels::relay::RelayReconnectHandle,
+}
+
+async fn start_relay_runtime(
+    relay: &tinychannels::config::RelayRuntimeConfig,
+    tx: mpsc::Sender<traits::ChannelMessage>,
+) -> Result<RelayRuntimeHandle> {
+    anyhow::ensure!(
+        relay.is_listener_configured(),
+        "relay runtime requires non-empty url and at least one identity"
+    );
+
+    let websocket_config = tinychannels::relay::WebSocketRelayConfig::from(relay);
+    let io = tinychannels::relay::connect_websocket_relay_io(&websocket_config).await?;
+    let transport = Arc::new(tinychannels::relay::RelayTransport::new(
+        relay.relay_identities(),
+        Arc::new(io),
+        relay.timeouts,
+    ));
+    transport
+        .set_inbound_handler(Arc::new(RelayInboundMessageHandler::new(tx)))
+        .await;
+    transport.connect().await?;
+    let descriptor = transport.handshake().await?;
+    tracing::info!(
+        label = %descriptor.label,
+        max_message_length = descriptor.max_message_length,
+        "[channels][relay] connected relay runtime"
+    );
+
+    let dialer = Arc::new(tinychannels::relay::WebSocketRelayDialer::new(
+        websocket_config,
+    ));
+    let reconnect = transport.spawn_reconnect_supervisor(dialer, relay.reconnect);
+    Ok(RelayRuntimeHandle {
+        _transport: transport,
+        _reconnect: reconnect,
+    })
+}
+
 pub(super) fn resolve_chat_workload(config: &Config) -> ChatWorkloadResolution {
     let resolved = provider::provider_for_role("chat", config);
     let trimmed = resolved.trim();
@@ -671,7 +713,13 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         }
     }
 
-    if channels.is_empty() {
+    let relay_config = config
+        .channels_config
+        .relay
+        .clone()
+        .filter(tinychannels::config::RelayRuntimeConfig::is_listener_configured);
+
+    if channels.is_empty() && relay_config.is_none() {
         println!("No channels configured. Set up channels in the web UI.");
         return Ok(());
     }
@@ -692,6 +740,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         channels
             .iter()
             .map(|c| c.name())
+            .chain(relay_config.as_ref().map(|_| "relay"))
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -714,6 +763,16 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
 
     // Single message bus — all channels send messages here
     let (tx, rx) = tokio::sync::mpsc::channel::<traits::ChannelMessage>(100);
+
+    let mut relay_handles = Vec::new();
+    if let Some(ref relay) = relay_config {
+        match start_relay_runtime(relay, tx.clone()).await {
+            Ok(handle) => relay_handles.push(handle),
+            Err(error) => {
+                tracing::warn!("[channels][relay] failed to start relay runtime: {error}")
+            }
+        }
+    }
 
     // Spawn a listener for each channel
     let mut handles = Vec::new();
@@ -789,7 +848,8 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         crate::openhuman::memory_tree::tree_runtime::bus::TreeSummarizerEventSubscriber::new(),
     ));
 
-    let max_in_flight_messages = compute_max_in_flight_messages(channels.len());
+    let listener_count = channels.len() + relay_config.as_ref().map(|_| 1).unwrap_or_default();
+    let max_in_flight_messages = compute_max_in_flight_messages(listener_count);
 
     println!("  🚦 In-flight message limit: {max_in_flight_messages}");
 

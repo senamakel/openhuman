@@ -202,7 +202,7 @@ fn channels_config_deserializes_relay_runtime_config() {
     assert_eq!(relay.url, "https://relay.example.test");
     assert_eq!(relay.gateway_id.as_deref(), Some("gateway-1"));
     assert_eq!(relay.relay_identities()[0].bot_id, "bot-1");
-    assert!(!cfg.has_listening_integrations());
+    assert!(cfg.has_listening_integrations());
 }
 
 #[test]

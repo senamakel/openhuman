@@ -260,7 +260,10 @@ mod tests {
         assert_ne!(k1, k2);
         manager.get_or_create(&k1, build_session);
         let h2 = manager.get_or_create(&k2, build_session);
-        assert!(h2.fresh, "same session_id under a different thread is a fresh namespace");
+        assert!(
+            h2.fresh,
+            "same session_id under a different thread is a fresh namespace"
+        );
     }
 
     #[test]

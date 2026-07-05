@@ -23,7 +23,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tinyagents::TinyAgentsError;
 use tinyagents::graph::subagent_node::{HarnessAgent, SubAgentInput, SubAgentOutput};
 use tinyagents::harness::events::EventSink;
 use tinyagents::harness::tool::{
@@ -31,15 +30,20 @@ use tinyagents::harness::tool::{
     ToolResult as TaToolResult, ToolSchema as TaToolSchema,
 };
 use tinyagents::registry::CapabilityRegistry;
+use tinyagents::TinyAgentsError;
 
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
-use crate::openhuman::agent::harness::fork_context::{ParentExecutionContext, with_parent_context};
-use crate::openhuman::agent::harness::subagent_runner::{SubagentRunOptions, run_subagent};
-use crate::openhuman::approval::{ApprovalGate, ExecutionOutcome, GateOutcome, redact_args, summarize_action};
+use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::openhuman::agent::harness::subagent_runner::{run_subagent, SubagentRunOptions};
+use crate::openhuman::approval::{
+    redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
+};
 use crate::openhuman::tinyagents::model::provider_chat_model;
-use crate::openhuman::tinyagents::tools::{execute_openhuman_tool, tool_policy_from_openhuman_tool};
-use crate::openhuman::tools::Tool as OhTool;
+use crate::openhuman::tinyagents::tools::{
+    execute_openhuman_tool, tool_policy_from_openhuman_tool,
+};
 use crate::openhuman::tools::traits::ToolScope;
+use crate::openhuman::tools::Tool as OhTool;
 
 /// Tools never exposed to a `.ragsh` script, to prevent recursion (a script
 /// re-entering the REPL) and capability duplication (spawn/workflow primitives
@@ -79,9 +83,7 @@ mod tests {
 /// Reads the parent's visible tool set, provider/model, and sub-agent
 /// allowlist. The returned registry carries no `rlm`, `spawn_*`, or workflow
 /// tools, and no `CliRpcOnly`-scoped tools.
-pub(super) fn build_capability_registry(
-    parent: &ParentExecutionContext,
-) -> CapabilityRegistry<()> {
+pub(super) fn build_capability_registry(parent: &ParentExecutionContext) -> CapabilityRegistry<()> {
     let mut registry = CapabilityRegistry::<()>::new();
 
     // ── Model: the turn's provider, under its registered name. ──
@@ -228,7 +230,8 @@ async fn gated_execute(
             let summary = summarize_action(&call.name, &call.arguments);
             let redacted = redact_args(&call.arguments);
             tracing::debug!(tool = %call.name, "[rlm] external-effect tool — routing through approval gate");
-            let (outcome, request_id) = gate.intercept_audited(&call.name, &summary, redacted).await;
+            let (outcome, request_id) =
+                gate.intercept_audited(&call.name, &summary, redacted).await;
             match outcome {
                 GateOutcome::Deny { reason } => {
                     tracing::info!(tool = %call.name, %reason, "[rlm] tool denied by approval gate");
@@ -312,9 +315,7 @@ impl HarnessAgent for SubagentCapability {
             run_subagent(definition, &input.prompt, options),
         )
         .await
-        .map_err(|e| {
-            TinyAgentsError::Tool(format!("sub-agent `{}` failed: {e}", self.agent_id))
-        })?;
+        .map_err(|e| TinyAgentsError::Tool(format!("sub-agent `{}` failed: {e}", self.agent_id)))?;
 
         Ok(SubAgentOutput {
             text: outcome.output,

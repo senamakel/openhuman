@@ -17,11 +17,9 @@ use crate::openhuman::security::policy::AutonomyLevel;
 use crate::openhuman::tinyagents::run_cancellation_context::current_run_cancellation;
 
 use super::bridge::build_capability_registry;
-use super::policy::{DEFAULT_RLM_TIMEOUT_SECS, resolve_policy};
+use super::policy::{resolve_policy, DEFAULT_RLM_TIMEOUT_SECS};
 use super::sessions::RlmSessionManager;
-use super::types::{
-    RlmCallSummary, RlmEvalRequest, RlmEvalResponse, RlmLimitsRemaining,
-};
+use super::types::{RlmCallSummary, RlmEvalRequest, RlmEvalResponse, RlmLimitsRemaining};
 
 /// Grace added to the inner policy timeout for the outer `spawn_blocking`
 /// backstop — the inner deadline should always fire first; this defends against
@@ -94,7 +92,8 @@ impl RlmError {
                 format!("rlm capability call failed: {m}\nInspect the failing call's arguments and retry.")
             }
             RlmError::Cancelled => {
-                "rlm cell was cancelled by the user. The session is intact and resumable.".to_string()
+                "rlm cell was cancelled by the user. The session is intact and resumable."
+                    .to_string()
             }
             RlmError::SessionBusy(m) => m.clone(),
             RlmError::Internal(m) => format!("rlm internal error: {m}"),
@@ -148,7 +147,8 @@ pub(crate) async fn eval_rlm_cell(req: RlmEvalRequest) -> Result<RlmEvalResponse
     let tier = live_policy::current()
         .map(|p| p.autonomy)
         .unwrap_or(AutonomyLevel::Supervised);
-    let policy = resolve_policy(tier, req.timeout_secs, req.limits.as_ref()).map_err(RlmError::Denied)?;
+    let policy =
+        resolve_policy(tier, req.timeout_secs, req.limits.as_ref()).map_err(RlmError::Denied)?;
 
     let registry = build_capability_registry(&parent);
     run_cell(
@@ -239,7 +239,9 @@ async fn run_cell(
             // The blocking task panicked — the session may be poisoned; drop it.
             manager.close(&key);
             tracing::error!(session_key = %key, %join_err, "[rlm] cell task panicked — session dropped");
-            return Err(RlmError::Internal(format!("rlm cell task failed: {join_err}")));
+            return Err(RlmError::Internal(format!(
+                "rlm cell task failed: {join_err}"
+            )));
         }
         Err(_elapsed) => {
             // The inner deadline should always fire first; if the outer backstop
@@ -321,9 +323,9 @@ fn map_eval_error(err: TinyAgentsError, available: &RlmAvailable) -> RlmError {
         TinyAgentsError::Timeout(m) => RlmError::Timeout(m),
         TinyAgentsError::LimitExceeded(m) => RlmError::LimitExceeded(m),
         TinyAgentsError::Cancelled => RlmError::Cancelled,
-        TinyAgentsError::SubAgentDepth(n) => {
-            RlmError::Depth(format!("sub-agent recursion exceeded the maximum depth of {n}"))
-        }
+        TinyAgentsError::SubAgentDepth(n) => RlmError::Depth(format!(
+            "sub-agent recursion exceeded the maximum depth of {n}"
+        )),
         TinyAgentsError::ModelNotFound(name) => RlmError::UnknownCapability(format!(
             "model `{name}` is not registered. Available models: {}",
             join_or_none(&available.models)
@@ -389,11 +391,11 @@ fn truncate_chars(s: &str, max: usize) -> String {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tinyagents::ReplPolicy;
     use tinyagents::harness::tool::{
         Tool as TaTool, ToolCall as TaToolCall, ToolResult as TaToolResult, ToolSchema,
     };
     use tinyagents::registry::CapabilityRegistry;
+    use tinyagents::ReplPolicy;
 
     // ── Pure-function tests (mapping / helpers) ──────────────────────────────
 
@@ -410,7 +412,9 @@ mod tests {
     fn error_kinds_are_stable() {
         assert_eq!(RlmError::Cancelled.kind(), "cancelled");
         assert_eq!(RlmError::Timeout("x".into()).kind(), "timeout");
-        assert!(RlmError::Script("boom".into()).message().contains("Fix the script"));
+        assert!(RlmError::Script("boom".into())
+            .message()
+            .contains("Fix the script"));
     }
 
     #[test]
@@ -426,9 +430,18 @@ mod tests {
             (TinyAgentsError::LimitExceeded("l".into()), "limit_exceeded"),
             (TinyAgentsError::Cancelled, "cancelled"),
             (TinyAgentsError::SubAgentDepth(3), "recursion_depth"),
-            (TinyAgentsError::ModelNotFound("m".into()), "unknown_capability"),
-            (TinyAgentsError::ToolNotFound("x".into()), "unknown_capability"),
-            (TinyAgentsError::Capability("agent nope".into()), "unknown_capability"),
+            (
+                TinyAgentsError::ModelNotFound("m".into()),
+                "unknown_capability",
+            ),
+            (
+                TinyAgentsError::ToolNotFound("x".into()),
+                "unknown_capability",
+            ),
+            (
+                TinyAgentsError::Capability("agent nope".into()),
+                "unknown_capability",
+            ),
             (TinyAgentsError::Tool("boom".into()), "capability_error"),
         ];
         for (err, expected) in cases {
@@ -465,7 +478,11 @@ mod tests {
                 .get("msg")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            Ok(TaToolResult::text(call.id, call.name, format!("echo:{msg}")))
+            Ok(TaToolResult::text(
+                call.id,
+                call.name,
+                format!("echo:{msg}"),
+            ))
         }
     }
 
@@ -510,9 +527,15 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn parse_error_is_a_script_error() {
         let manager = RlmSessionManager::new_for_test();
-        let err = run_cell(req("let x = ;"), ReplPolicy::default(), echo_registry(), "t", &manager)
-            .await
-            .expect_err("parse error");
+        let err = run_cell(
+            req("let x = ;"),
+            ReplPolicy::default(),
+            echo_registry(),
+            "t",
+            &manager,
+        )
+        .await
+        .expect_err("parse error");
         assert_eq!(err.kind(), "script_error");
     }
 
@@ -564,7 +587,11 @@ mod tests {
             .await
             .expect_err("timeout");
         assert_eq!(err.kind(), "timeout");
-        assert!(start.elapsed() < Duration::from_secs(4), "took {:?}", start.elapsed());
+        assert!(
+            start.elapsed() < Duration::from_secs(4),
+            "took {:?}",
+            start.elapsed()
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

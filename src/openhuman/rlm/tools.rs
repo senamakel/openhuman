@@ -6,11 +6,9 @@
 //! [`super::bridge`]), so the `rlm` tool itself declares no external effect.
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
-use crate::openhuman::tools::traits::{
-    PermissionLevel, Tool, ToolResult, ToolScope, ToolTimeout,
-};
+use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult, ToolScope, ToolTimeout};
 
 use super::policy::DEFAULT_RLM_TIMEOUT_SECS;
 use super::types::RlmEvalRequest;
@@ -230,7 +228,10 @@ mod tests {
     #[tokio::test]
     async fn empty_script_is_a_model_consumable_error() {
         let tool = RlmTool::new();
-        let result = tool.execute(json!({ "script": "   " })).await.expect("ok result");
+        let result = tool
+            .execute(json!({ "script": "   " }))
+            .await
+            .expect("ok result");
         assert!(result.is_error);
     }
 
@@ -238,7 +239,10 @@ mod tests {
     async fn missing_script_is_a_model_consumable_error() {
         let tool = RlmTool::new();
         // No `script` field at all → invalid arguments, not a panic.
-        let result = tool.execute(json!({ "session_id": "x" })).await.expect("ok result");
+        let result = tool
+            .execute(json!({ "session_id": "x" }))
+            .await
+            .expect("ok result");
         assert!(result.is_error);
         assert!(result.output_for_llm(false).contains("script"));
     }

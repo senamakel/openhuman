@@ -56,8 +56,9 @@ pub fn resolve_policy(
 
     // Wall-clock timeout: clamp the caller's request to [1, 3600] and cap it,
     // defaulting to DEFAULT_RLM_TIMEOUT_SECS. Never unbounded.
-    let secs = tool_timeout::explicit_call_timeout_secs(timeout_secs, tool_timeout::MAX_TIMEOUT_SECS)
-        .unwrap_or(DEFAULT_RLM_TIMEOUT_SECS);
+    let secs =
+        tool_timeout::explicit_call_timeout_secs(timeout_secs, tool_timeout::MAX_TIMEOUT_SECS)
+            .unwrap_or(DEFAULT_RLM_TIMEOUT_SECS);
 
     let ov = overrides.cloned().unwrap_or_default();
     let policy = ReplPolicy {
@@ -122,20 +123,30 @@ mod tests {
 
     #[test]
     fn readonly_tier_is_refused() {
-        let err = resolve_policy(AutonomyLevel::ReadOnly, None, None).expect_err("readonly refused");
-        assert!(err.contains("read-only"), "reason should name the tier: {err}");
+        let err =
+            resolve_policy(AutonomyLevel::ReadOnly, None, None).expect_err("readonly refused");
+        assert!(
+            err.contains("read-only"),
+            "reason should name the tier: {err}"
+        );
     }
 
     #[test]
     fn default_timeout_when_unset_and_bounded_when_set() {
         let p = resolve_policy(AutonomyLevel::Supervised, None, None).expect("policy");
-        assert_eq!(p.timeout, Some(Duration::from_secs(DEFAULT_RLM_TIMEOUT_SECS)));
+        assert_eq!(
+            p.timeout,
+            Some(Duration::from_secs(DEFAULT_RLM_TIMEOUT_SECS))
+        );
 
         // A caller request is clamped to [1, 3600].
         let p = resolve_policy(AutonomyLevel::Supervised, Some(10_000), None).expect("policy");
         assert_eq!(p.timeout, Some(Duration::from_secs(3600)));
         let p = resolve_policy(AutonomyLevel::Supervised, Some(0), None).expect("policy");
-        assert_eq!(p.timeout, Some(Duration::from_secs(DEFAULT_RLM_TIMEOUT_SECS)));
+        assert_eq!(
+            p.timeout,
+            Some(Duration::from_secs(DEFAULT_RLM_TIMEOUT_SECS))
+        );
     }
 
     #[test]

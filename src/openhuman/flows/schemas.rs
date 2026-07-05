@@ -68,6 +68,7 @@ fn run_output_fields() -> Vec<FieldSchema> {
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("create"),
+        schemas("validate"),
         schemas("get"),
         schemas("list"),
         schemas("update"),
@@ -75,6 +76,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("set_enabled"),
         schemas("run"),
         schemas("resume"),
+        schemas("cancel_run"),
         schemas("list_runs"),
         schemas("get_run"),
     ]
@@ -85,6 +87,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("create"),
             handler: handle_create,
+        },
+        RegisteredController {
+            schema: schemas("validate"),
+            handler: handle_validate,
         },
         RegisteredController {
             schema: schemas("get"),
@@ -113,6 +119,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("resume"),
             handler: handle_resume,
+        },
+        RegisteredController {
+            schema: schemas("cancel_run"),
+            handler: handle_cancel_run,
         },
         RegisteredController {
             schema: schemas("list_runs"),
@@ -148,6 +158,40 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 require_approval_input(),
             ],
             outputs: vec![flow_output()],
+        },
+        "validate" => ControllerSchema {
+            namespace: "flows",
+            function: "validate",
+            description: "Validate a tinyflows graph without saving it: reports structural \
+                          validity plus non-fatal warnings (e.g. a trigger kind that does not \
+                          fire automatically yet).",
+            inputs: vec![FieldSchema {
+                name: "graph",
+                ty: TypeSchema::Json,
+                comment: "A tinyflows WorkflowGraph (nodes + edges) to validate and migrate.",
+                required: true,
+            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "valid",
+                    ty: TypeSchema::Bool,
+                    comment: "True when the graph is structurally valid.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "errors",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Structural validation errors; empty when `valid`.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "warnings",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Non-fatal warnings (e.g. an unfired trigger kind); the graph is \
+                              still saveable/enable-able.",
+                    required: true,
+                },
+            ],
         },
         "get" => ControllerSchema {
             namespace: "flows",
@@ -277,6 +321,15 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Node ids being approved; defaults to an empty list.",
                     required: false,
                 },
+                FieldSchema {
+                    name: "rejections",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
+                        TypeSchema::String,
+                    )))),
+                    comment: "Node ids being denied; each routes to its `error` port (or fails \
+                              the run if it has none). Defaults to an empty list.",
+                    required: false,
+                },
             ],
             outputs: vec![FieldSchema {
                 name: "result",
@@ -284,6 +337,49 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     fields: run_output_fields(),
                 },
                 comment: "Resume outcome payload (same shape as `run`'s).",
+                required: true,
+            }],
+        },
+        "cancel_run" => ControllerSchema {
+            namespace: "flows",
+            function: "cancel_run",
+            description: "Cancel a flow run: settle it to a terminal `cancelled` status, abort \
+                          the in-flight run task if one is executing, and drop its durable \
+                          checkpoint so it can't be resumed.",
+            inputs: vec![FieldSchema {
+                name: "run_id",
+                ty: TypeSchema::String,
+                comment: "Identifier of the run to cancel (== its checkpoint thread id).",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Object {
+                    fields: vec![
+                        FieldSchema {
+                            name: "run_id",
+                            ty: TypeSchema::String,
+                            comment: "Identifier of the run that was cancelled.",
+                            required: true,
+                        },
+                        FieldSchema {
+                            name: "cancelled",
+                            ty: TypeSchema::Bool,
+                            comment:
+                                "True once the run is cancelled or its cancellation requested.",
+                            required: true,
+                        },
+                        FieldSchema {
+                            name: "was_in_flight",
+                            ty: TypeSchema::Bool,
+                            comment:
+                                "True when a live run task was signalled to abort; false when \
+                                      a parked/stale run row was settled directly.",
+                            required: true,
+                        },
+                    ],
+                },
+                comment: "Cancellation result payload.",
                 required: true,
             }],
         },
@@ -354,6 +450,14 @@ fn handle_create(params: Map<String, Value>) -> ControllerFuture {
             .and_then(Value::as_bool)
             .unwrap_or(false);
         to_json(ops::flows_create(&config, name, graph, require_approval).await?)
+    })
+}
+
+fn handle_validate(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        // No config load: validation is pure (no persistence, no workspace).
+        let graph = read_required::<Value>(&params, "graph")?;
+        to_json(ops::flows_validate(graph))
     })
 }
 
@@ -438,7 +542,25 @@ fn handle_resume(params: Map<String, Value>) -> ControllerFuture {
             .transpose()
             .map_err(|e| format!("invalid 'approvals': {e}"))?
             .unwrap_or_default();
-        to_json(ops::flows_resume(&config, id.trim(), thread_id.trim(), approvals).await?)
+        let rejections: Vec<String> = params
+            .get("rejections")
+            .filter(|v| !v.is_null())
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| format!("invalid 'rejections': {e}"))?
+            .unwrap_or_default();
+        to_json(
+            ops::flows_resume(&config, id.trim(), thread_id.trim(), approvals, rejections).await?,
+        )
+    })
+}
+
+fn handle_cancel_run(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let run_id = read_required::<String>(&params, "run_id")?;
+        to_json(ops::flows_cancel_run(&config, run_id.trim()).await?)
     })
 }
 
@@ -489,6 +611,7 @@ mod tests {
             names,
             vec![
                 "create",
+                "validate",
                 "get",
                 "list",
                 "update",
@@ -496,6 +619,7 @@ mod tests {
                 "set_enabled",
                 "run",
                 "resume",
+                "cancel_run",
                 "list_runs",
                 "get_run",
             ]
@@ -505,12 +629,13 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 10);
+        assert_eq!(controllers.len(), 12);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
             vec![
                 "create",
+                "validate",
                 "get",
                 "list",
                 "update",
@@ -518,6 +643,7 @@ mod tests {
                 "set_enabled",
                 "run",
                 "resume",
+                "cancel_run",
                 "list_runs",
                 "get_run",
             ]

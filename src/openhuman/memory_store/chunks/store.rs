@@ -34,6 +34,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::util::redact::{self, redact as redact_value};
 use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata, SourceKind, SourceRef};
 use crate::openhuman::memory_store::content::StagedChunk;
+use crate::openhuman::tinycortex::memory_config_from;
 
 const DB_DIR: &str = "memory_tree";
 const DB_FILE: &str = "chunks.db";
@@ -557,20 +558,15 @@ fn upsert_chunks_with_statement(
 }
 
 /// Fetch one chunk by its id.
+/// Map the host `Config` to the engine `MemoryConfig` addressing the same
+/// `<workspace_dir>/memory_tree/chunks.db` (only `workspace` is load-bearing for
+/// these delegating DB reads). W3 store-op flip.
+fn engine_config(config: &Config) -> tinycortex::memory::MemoryConfig {
+    memory_config_from(config, config.workspace_dir.clone())
+}
+
 pub fn get_chunk(config: &Config, id: &str) -> Result<Option<Chunk>> {
-    with_connection(config, |conn| {
-        let mut stmt = conn.prepare(
-            "SELECT id, source_kind, source_id, path_scope, source_ref, owner,
-                    timestamp_ms, time_range_start_ms, time_range_end_ms,
-                    tags_json, content, token_count, seq_in_source, created_at_ms
-               FROM mem_tree_chunks WHERE id = ?1",
-        )?;
-        let row = stmt
-            .query_row(params![id], row_to_chunk)
-            .optional()
-            .context("Failed to query chunk by id")?;
-        Ok(row)
-    })
+    tinycortex::memory::chunks::get_chunk(&engine_config(config), id)
 }
 
 /// Defensive cap for batched `IN (?,?,…)` reads.
@@ -751,10 +747,7 @@ pub fn list_chunks(config: &Config, query: &ListChunksQuery) -> Result<Vec<Chunk
 
 /// Count total chunks in the store (useful for tests / diagnostics).
 pub fn count_chunks(config: &Config) -> Result<u64> {
-    with_connection(config, |conn| {
-        let n: i64 = conn.query_row("SELECT COUNT(*) FROM mem_tree_chunks", [], |r| r.get(0))?;
-        Ok(n.max(0) as u64)
-    })
+    tinycortex::memory::chunks::count_chunks(&engine_config(config))
 }
 
 /// #002 (FR-010 / US5): extraction coverage — the fraction of chunks that have
@@ -767,22 +760,7 @@ pub fn count_chunks(config: &Config) -> Result<u64> {
 /// numerator is node-kind-agnostic (we only count entity rows whose `node_id`
 /// is an actual chunk). Returns `0.0` when there are no chunks.
 pub fn extraction_coverage(config: &Config) -> Result<f32> {
-    with_connection(config, |conn| {
-        let total: i64 =
-            conn.query_row("SELECT COUNT(*) FROM mem_tree_chunks", [], |r| r.get(0))?;
-        if total <= 0 {
-            return Ok(0.0);
-        }
-        let covered: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM mem_tree_chunks c
-              WHERE EXISTS (
-                  SELECT 1 FROM mem_tree_entity_index e WHERE e.node_id = c.id
-              )",
-            [],
-            |r| r.get(0),
-        )?;
-        Ok((covered.max(0) as f32) / (total as f32))
-    })
+    tinycortex::memory::chunks::extraction_coverage(&engine_config(config))
 }
 
 /// Set the lifecycle status column for `chunk_id`. See `CHUNK_STATUS_*`.
@@ -862,15 +840,7 @@ pub fn is_source_ingested(
     source_kind: SourceKind,
     source_id: &str,
 ) -> Result<bool> {
-    with_connection(config, |conn| {
-        let n: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM mem_tree_ingested_sources \
-             WHERE source_kind = ?1 AND source_id = ?2",
-            params![source_kind.as_str(), source_id],
-            |r| r.get(0),
-        )?;
-        Ok(n > 0)
-    })
+    tinycortex::memory::chunks::is_source_ingested(&engine_config(config), source_kind, source_id)
 }
 
 /// Atomically claim `(source_kind, source_id)` for ingestion. Returns

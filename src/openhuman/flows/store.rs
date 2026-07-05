@@ -450,6 +450,98 @@ pub fn finish_flow_run(
     })
 }
 
+/// Incrementally upserts a single [`FlowRunStep`] onto a live `flow_runs`
+/// row's `steps_json`, keyed by `node_id` — used by the run observer
+/// (`flows::observability::FlowRunObserver`) to persist each node's step **as
+/// it finishes** (issue G2, live run observation) rather than only rebuilding
+/// the whole step list at settle.
+///
+/// Read-modify-write under a single connection (the WAL + `busy_timeout=5000`
+/// this store opens with tolerates the concurrent settle write). A re-run of
+/// the same `node_id` (a retry, or a resumed run re-touching a node) replaces
+/// its prior entry rather than duplicating it, so the persisted list stays one
+/// entry per node. No-op if the run's start row hasn't been inserted yet
+/// (nothing to update) — mirrors the best-effort contract of the run-row
+/// writers in `flows::ops`.
+pub fn upsert_flow_run_step(config: &Config, run_id: &str, step: &FlowRunStep) -> Result<()> {
+    use rusqlite::OptionalExtension;
+    with_connection(config, |conn| {
+        let existing: Option<String> = conn
+            .query_row(
+                "SELECT steps_json FROM flow_runs WHERE id = ?1",
+                params![run_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .context("Failed to read flow run steps for incremental upsert")?;
+        let Some(raw) = existing else {
+            tracing::debug!(target: "flows", run_id, node = %step.node_id, "[flows] upsert_flow_run_step: no run row yet — skipping incremental step persist");
+            return Ok(());
+        };
+        let mut steps: Vec<FlowRunStep> =
+            serde_json::from_str(&raw).context("Failed to deserialize existing flow run steps")?;
+        match steps.iter_mut().find(|s| s.node_id == step.node_id) {
+            Some(slot) => *slot = step.clone(),
+            None => steps.push(step.clone()),
+        }
+        let steps_json =
+            serde_json::to_string(&steps).context("Failed to serialize flow run steps")?;
+        conn.execute(
+            "UPDATE flow_runs SET steps_json = ?1 WHERE id = ?2",
+            params![steps_json, run_id],
+        )
+        .context("Failed to persist incremental flow run step")?;
+        tracing::debug!(target: "flows", run_id, node = %step.node_id, step_count = steps.len(), "[flows] persisted incremental flow run step");
+        Ok(())
+    })
+}
+
+/// Expires every parked `pending_approval` run whose "parked since" timestamp
+/// (`COALESCE(finished_at, started_at)` — a run's `finished_at` is stamped when
+/// it pauses at a gate) is strictly older than `cutoff` (an RFC3339 instant),
+/// transitioning it to a terminal `"cancelled"` status stamped `now` with
+/// `error_msg`. Returns the `(run_id, flow_id)` of each swept run so the caller
+/// can update the flow summary + drop the durable checkpoint (issue G4 —
+/// parked-run TTL).
+///
+/// RFC3339 timestamps produced by `chrono::Utc::…to_rfc3339()` all carry the
+/// same `+00:00` offset, so a lexicographic `<` is a valid chronological
+/// comparison here. Best-effort by contract at the call site: the update runs
+/// under the same WAL + `busy_timeout` connection as every other write.
+pub fn expire_parked_runs(
+    config: &Config,
+    cutoff: &str,
+    now: &str,
+    error_msg: &str,
+) -> Result<Vec<(String, String)>> {
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, flow_id FROM flow_runs
+             WHERE status = 'pending_approval'
+               AND COALESCE(finished_at, started_at) < ?1",
+        )?;
+        let stale: Vec<(String, String)> = stmt
+            .query_map(params![cutoff], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        drop(stmt);
+
+        for (run_id, _flow_id) in &stale {
+            // Re-check the status in the WHERE so a run resumed/cancelled
+            // between the SELECT and here is not clobbered.
+            conn.execute(
+                "UPDATE flow_runs SET status = 'cancelled', finished_at = ?1, error = ?2 \
+                 WHERE id = ?3 AND status = 'pending_approval'",
+                params![now, error_msg, run_id],
+            )
+            .context("Failed to expire parked flow run")?;
+        }
+        if !stale.is_empty() {
+            tracing::info!(target: "flows", swept = stale.len(), "[flows] expired parked pending_approval runs past TTL");
+        }
+        Ok(stale)
+    })
+}
+
 /// Loads one flow run by id (== thread_id).
 pub fn get_flow_run(config: &Config, id: &str) -> Result<Option<FlowRun>> {
     with_connection(config, |conn| {

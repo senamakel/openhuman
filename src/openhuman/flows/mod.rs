@@ -9,6 +9,7 @@
 
 pub mod bus;
 pub mod ops;
+mod run_registry;
 mod schemas;
 mod store;
 pub mod tools;
@@ -23,5 +24,9 @@ pub use schemas::{
 // (`src/openhuman/tinyflows/caps.rs`) lives in a sibling domain and needs
 // them to implement `tinyflows::caps::StateStore` without duplicating the
 // `flow_state` table's persistence logic.
-pub use store::{kv_get, kv_set};
-pub use types::{Flow, FlowRun, FlowRunStep, FlowRunTrigger};
+// `upsert_flow_run_step` is likewise re-exported for the tinyflows seam: the
+// live run observer (`tinyflows::observability::FlowRunObserver`, issue G2)
+// lives in the sibling `tinyflows` domain and persists each finished step onto
+// the `flow_runs` row through this function as the run executes.
+pub use store::{kv_get, kv_set, upsert_flow_run_step};
+pub use types::{Flow, FlowRun, FlowRunStep, FlowRunTrigger, FlowValidation};

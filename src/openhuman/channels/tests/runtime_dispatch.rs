@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tokio::sync::Barrier;
 
 #[tokio::test]
 async fn dispatch_publishes_tinychannels_inbound_envelope() {
@@ -83,15 +84,21 @@ async fn message_dispatch_processes_messages_in_parallel() {
     // without relying on wall-clock thresholds that can wobble in CI.
     let in_flight = Arc::new(AtomicUsize::new(0));
     let peak_in_flight = Arc::new(AtomicUsize::new(0));
+    let handler_barrier = Arc::new(Barrier::new(2));
     let _bus_guard = mock_agent_run_turn({
         let in_flight = in_flight.clone();
         let peak_in_flight = peak_in_flight.clone();
+        let handler_barrier = handler_barrier.clone();
         move |_req: AgentTurnRequest| {
             let in_flight = in_flight.clone();
             let peak_in_flight = peak_in_flight.clone();
+            let handler_barrier = handler_barrier.clone();
             async move {
                 let current = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
                 peak_in_flight.fetch_max(current, Ordering::SeqCst);
+                tokio::time::timeout(Duration::from_secs(2), handler_barrier.wait())
+                    .await
+                    .map_err(|_| "parallel dispatch handler barrier timed out".to_string())?;
                 tokio::time::sleep(Duration::from_millis(250)).await;
                 in_flight.fetch_sub(1, Ordering::SeqCst);
                 Ok(AgentTurnResponse::new("echo: stub"))

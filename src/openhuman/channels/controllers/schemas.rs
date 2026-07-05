@@ -12,7 +12,7 @@ use crate::rpc::RpcOutcome;
 use super::backend::OpenHumanChannelBackend;
 use super::definitions::ChannelAuthMode;
 use super::ops;
-use tinychannels::ChannelManager;
+use tinychannels::{ChannelManager, ChannelsConfig};
 
 // ---------------------------------------------------------------------------
 // Param structs
@@ -499,13 +499,21 @@ pub fn schemas(function: &str) -> ControllerSchema {
 // ---------------------------------------------------------------------------
 
 fn handle_list(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move { to_json(ops::list_channels().await?) })
+    Box::pin(async move {
+        let manager = ChannelManager::new(ChannelsConfig::default(), ());
+        to_json(RpcOutcome::new(manager.list_definitions(), vec![]))
+    })
 }
 
 fn handle_describe(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<DescribeParams>(params)?;
-        to_json(ops::describe_channel(p.channel.trim()).await?)
+        let channel = p.channel.trim();
+        let manager = ChannelManager::new(ChannelsConfig::default(), ());
+        let definition = manager
+            .describe(channel)
+            .ok_or_else(|| format!("unknown channel: {channel}"))?;
+        to_json(RpcOutcome::new(definition, vec![]))
     })
 }
 

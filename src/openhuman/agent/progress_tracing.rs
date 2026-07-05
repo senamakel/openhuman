@@ -60,8 +60,13 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::config::schema::{AgentTracingBackend, AgentTracingConfig};
 use crate::openhuman::config::Config;
 
+/// Journal-backed projection from durable tinyagents observations.
+pub(crate) mod journal_projection;
 /// Langfuse ingestion exporter (remote push to the co-hosted staging server).
 pub(crate) mod langfuse;
+
+#[cfg(test)]
+mod journal_projection_tests;
 
 /// Kind of run a trace belongs to, rendered as stable snake_case strings for
 /// Langfuse trace tags (`run:<type>`) and metadata (`run_type`) so runs can be

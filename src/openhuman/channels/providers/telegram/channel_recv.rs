@@ -5,7 +5,7 @@ use super::channel_types::{
     TelegramChannel, TelegramReactionEvent, TelegramVoiceAttachment, APPROVAL_PROMPT_DEBOUNCE_SECS,
     TELEGRAM_MAX_VOICE_FILE_BYTES,
 };
-use crate::openhuman::channels::traits::{Channel, ChannelMessage, SendMessage};
+use crate::openhuman::channels::traits::{ChannelMessage, ChannelSendExt, SendMessage};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::time::Instant;
 
@@ -364,7 +364,7 @@ impl TelegramChannel {
                 }
                 None => {
                     let _ = self
-                        .send(&SendMessage::new(
+                        .send_with_outbound_intent(&SendMessage::new(
                             "❌ Could not identify your Telegram account from /start. Ensure your account has a username or stable user ID, then try again.",
                             &chat_id,
                         ))
@@ -392,7 +392,7 @@ impl TelegramChannel {
                             }
                             None => {
                                 let _ = self
-                                    .send(&SendMessage::new(
+                                    .send_with_outbound_intent(&SendMessage::new(
                                         "❌ Could not identify your Telegram account. Ensure your account has a username or stable user ID, then retry.",
                                         &chat_id,
                                     ))
@@ -402,7 +402,7 @@ impl TelegramChannel {
                     }
                     Ok(None) => {
                         let _ = self
-                            .send(&SendMessage::new(
+                            .send_with_outbound_intent(&SendMessage::new(
                                 "❌ Invalid binding code. Ask operator for the latest code and retry.",
                                 &chat_id,
                             ))
@@ -410,7 +410,7 @@ impl TelegramChannel {
                     }
                     Err(lockout_secs) => {
                         let _ = self
-                            .send(&SendMessage::new(
+                            .send_with_outbound_intent(&SendMessage::new(
                                 format!("⏳ Too many invalid attempts. Retry in {lockout_secs}s."),
                                 &chat_id,
                             ))
@@ -419,7 +419,7 @@ impl TelegramChannel {
                 }
             } else {
                 let _ = self
-                    .send(&SendMessage::new(
+                    .send_with_outbound_intent(&SendMessage::new(
                         "ℹ️ Telegram pairing is not active. Ask operator to update allowlist in config.toml.",
                         &chat_id,
                     ))
@@ -467,7 +467,7 @@ impl TelegramChannel {
                 "[telegram][approval] pairing pending — sending /start onboarding prompt"
             );
             let _ = self
-                .send(&SendMessage::new(
+                .send_with_outbound_intent(&SendMessage::new(
                     "🔐 This bot isn't set up yet.\n\nIf you're the operator, send /start to finish connecting your bot. \
                      Otherwise ask the operator to add your Telegram username (without '@') or numeric user ID to the bot's Allowed Users, then message again.\n\n\
                      If the operator gave you a one-time pairing code, run `/bind <code>`.".to_string(),
@@ -476,7 +476,7 @@ impl TelegramChannel {
                 .await;
         } else {
             let _ = self
-                .send(&SendMessage::new(
+                .send_with_outbound_intent(&SendMessage::new(
                     "🔐 This bot requires operator approval.\n\nAsk the operator to add your Telegram username (without '@') or numeric user ID to the bot's Allowed Users, then send your message again.".to_string(),
                     &chat_id,
                 ))
@@ -508,7 +508,7 @@ impl TelegramChannel {
         match self.persist_allowed_identity(identity).await {
             Ok(()) => {
                 let _ = self
-                    .send(&SendMessage::new(
+                    .send_with_outbound_intent(&SendMessage::new(
                         "✅ You're all set — OpenHuman is connected. Send me a message and I'll take it from here.",
                         chat_id,
                     ))
@@ -526,7 +526,7 @@ impl TelegramChannel {
                     "[telegram][approval] failed to persist allowlist after approval"
                 );
                 let _ = self
-                    .send(&SendMessage::new(
+                    .send_with_outbound_intent(&SendMessage::new(
                         "⚠️ Connected for now, but I couldn't save it — access may be lost after a restart. Check the config file permissions.",
                         chat_id,
                     ))
@@ -888,7 +888,7 @@ impl TelegramChannel {
         ctx: &TelegramIncomingMessageContext,
     ) {
         let _ = self
-            .send(
+            .send_with_outbound_intent(
                 &SendMessage::new(
                     "Voice transcription failed. Please try again or send text.",
                     &ctx.reply_target,

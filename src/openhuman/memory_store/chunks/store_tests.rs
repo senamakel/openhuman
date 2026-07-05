@@ -11,7 +11,7 @@
 //! that don't need it.
 
 use super::*;
-use crate::openhuman::memory_store::chunks::types::chunk_id;
+use crate::openhuman::memory_store::chunks::types::{chunk_id, Metadata, SourceRef};
 use chrono::TimeZone;
 use rusqlite::params;
 use tempfile::TempDir;

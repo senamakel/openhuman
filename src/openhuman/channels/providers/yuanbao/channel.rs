@@ -72,7 +72,7 @@ impl YuanbaoChannel {
     /// at startup, not on the first inbound message).
     pub fn new(mut config: YuanbaoConfig) -> anyhow::Result<Self> {
         config.apply_env_defaults();
-        config.validate()?;
+        config.validate().map_err(anyhow::Error::msg)?;
         let (shutdown_tx, _shutdown_rx) = watch::channel(false);
         let (inbound_tx, inbound_rx) = mpsc::unbounded_channel::<InboundEvent>();
 

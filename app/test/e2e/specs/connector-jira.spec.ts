@@ -114,10 +114,18 @@ describe('Jira Composio connector flow', () => {
         return (
           document.querySelector('[data-testid="composio-required-subdomain"]') !== null ||
           document.querySelector('input[placeholder*="subdomain"]') !== null ||
-          // fallback: any .atlassian.net suffix label
-          Array.from(document.querySelectorAll('*')).some(el =>
-            (el.textContent ?? '').includes('.atlassian.net')
-          )
+          // fallback: any visible Jira tenant URL label
+          Array.from(document.querySelectorAll('*')).some(el => {
+            const text = el.textContent ?? '';
+            const matches = text.match(/https?:\/\/[^\s"'<>]+/g) ?? [];
+            return matches.some(candidate => {
+              try {
+                return new URL(candidate).hostname.endsWith('.atlassian.net');
+              } catch {
+                return false;
+              }
+            });
+          })
         );
       })
       .catch(() => false);

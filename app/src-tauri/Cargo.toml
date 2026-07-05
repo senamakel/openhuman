@@ -217,6 +217,7 @@ tinyagents = { path = "../../vendor/tinyagents" }
 tinyflows = { path = "../../vendor/tinyflows" }
 tinycortex = { path = "../../vendor/tinycortex" }
 tinyjuice = { path = "../../vendor/tinyjuice" }
+tinyplace = { path = "../../vendor/tinyplace/sdk/rust" }
 
 # CEF support lives on the `feat/cef` branch of tauri-apps/tauri. We carry our
 # own fork at tinyhumansai/tauri-cef on `feat/cef-notification-intercept` which

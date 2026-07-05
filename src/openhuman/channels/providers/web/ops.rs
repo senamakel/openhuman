@@ -550,6 +550,7 @@ pub async fn start_chat(
         let origin = crate::openhuman::agent::turn_origin::AgentTurnOrigin::WebChat {
             thread_id: thread_id_task.clone(),
             client_id: client_id_task.clone(),
+            request_id: Some(request_id_task.clone()),
         };
         // `None` => the turn was cancelled cooperatively before producing a
         // result; the interrupting/cancelling side already emitted the
@@ -780,6 +781,7 @@ async fn spawn_parallel_turn(
         let origin = crate::openhuman::agent::turn_origin::AgentTurnOrigin::WebChat {
             thread_id: thread_id_task.clone(),
             client_id: client_id_task.clone(),
+            request_id: Some(request_id_task.clone()),
         };
         let result = tokio::select! {
             biased;

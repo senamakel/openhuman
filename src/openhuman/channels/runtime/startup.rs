@@ -1,6 +1,6 @@
 //! Channel startup wiring.
 
-use super::dispatch::run_message_dispatch_loop;
+use super::dispatch::{run_message_dispatch_loop, RuntimeChannelMessage};
 use super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
 use crate::core::event_bus::{self, DomainEvent, TracingSubscriber, DEFAULT_CAPACITY};
 use crate::openhuman::agent::harness::build_tool_instructions_filtered;
@@ -36,8 +36,10 @@ use crate::openhuman::memory_store;
 use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools;
 use anyhow::Result;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
 
 /// How the channels runtime should construct its default chat provider.
 ///
@@ -57,6 +59,79 @@ pub(super) enum ChatWorkloadResolution {
         provider_string: String,
         slug: String,
     },
+}
+
+pub(super) struct RelayInboundMessageHandler {
+    tx: mpsc::Sender<RuntimeChannelMessage>,
+}
+
+impl RelayInboundMessageHandler {
+    pub(super) fn new(tx: mpsc::Sender<RuntimeChannelMessage>) -> Self {
+        Self { tx }
+    }
+}
+
+#[async_trait]
+impl tinychannels::relay::RelayInboundHandler for RelayInboundMessageHandler {
+    async fn handle(
+        &self,
+        event: tinychannels::relay::AuthenticatedRelayInboundEvent,
+    ) -> Result<(), tinychannels::relay::RelayTransportError> {
+        let envelope: tinychannels::ChannelInboundEnvelope = serde_json::from_value(event.event)
+            .map_err(|error| {
+                tinychannels::relay::RelayTransportError::Handler(format!(
+                    "invalid inbound envelope: {error}"
+                ))
+            })?;
+        let msg = tinychannels::legacy_message_from_inbound_envelope(&envelope, 0);
+        self.tx
+            .send(RuntimeChannelMessage::with_inbound_envelope(msg, envelope))
+            .await
+            .map_err(|_| tinychannels::relay::RelayTransportError::Closed)
+    }
+}
+
+struct RelayRuntimeHandle {
+    _transport: Arc<tinychannels::relay::RelayTransport>,
+    _reconnect: tinychannels::relay::RelayReconnectHandle,
+}
+
+async fn start_relay_runtime(
+    relay: &tinychannels::config::RelayRuntimeConfig,
+    tx: mpsc::Sender<RuntimeChannelMessage>,
+) -> Result<RelayRuntimeHandle> {
+    anyhow::ensure!(
+        relay.is_listener_configured(),
+        "relay runtime requires non-empty url and at least one identity"
+    );
+
+    let websocket_config = tinychannels::relay::WebSocketRelayConfig::from(relay);
+    let io = tinychannels::relay::connect_websocket_relay_io(&websocket_config).await?;
+    let transport = Arc::new(tinychannels::relay::RelayTransport::new(
+        relay.relay_identities(),
+        Arc::new(io),
+        relay.timeouts,
+    ));
+    transport
+        .set_inbound_handler(Arc::new(RelayInboundMessageHandler::new(tx)))
+        .await;
+    transport.connect().await?;
+    let descriptor = transport.handshake().await?;
+    tracing::info!(
+        label = %descriptor.label,
+        max_message_length = descriptor.max_message_length,
+        "[channels][relay] connected relay runtime"
+    );
+    crate::openhuman::channels::relay_runtime::register_relay_transport(transport.clone());
+
+    let dialer = Arc::new(tinychannels::relay::WebSocketRelayDialer::new(
+        websocket_config,
+    ));
+    let reconnect = transport.spawn_reconnect_supervisor(dialer, relay.reconnect);
+    Ok(RelayRuntimeHandle {
+        _transport: transport,
+        _reconnect: reconnect,
+    })
 }
 
 pub(super) fn resolve_chat_workload(config: &Config) -> ChatWorkloadResolution {
@@ -639,7 +714,13 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         }
     }
 
-    if channels.is_empty() {
+    let relay_config = config
+        .channels_config
+        .relay
+        .clone()
+        .filter(tinychannels::config::RelayRuntimeConfig::is_listener_configured);
+
+    if channels.is_empty() && relay_config.is_none() {
         println!("No channels configured. Set up channels in the web UI.");
         return Ok(());
     }
@@ -660,6 +741,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         channels
             .iter()
             .map(|c| c.name())
+            .chain(relay_config.as_ref().map(|_| "relay"))
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -680,20 +762,46 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         .channel_max_backoff_secs
         .max(DEFAULT_CHANNEL_MAX_BACKOFF_SECS);
 
-    // Single message bus — all channels send messages here
-    let (tx, rx) = tokio::sync::mpsc::channel::<traits::ChannelMessage>(100);
+    // Providers still publish legacy `ChannelMessage`s through the public
+    // channel trait. The runtime dispatch queue wraps those messages so relay
+    // inbound can carry its original TinyChannels envelope through processing.
+    let (provider_tx, mut provider_rx) = tokio::sync::mpsc::channel::<traits::ChannelMessage>(100);
+    let (dispatch_tx, rx) = tokio::sync::mpsc::channel::<RuntimeChannelMessage>(100);
+    let provider_dispatch_tx = dispatch_tx.clone();
+    let provider_bridge = tokio::spawn(async move {
+        while let Some(msg) = provider_rx.recv().await {
+            if provider_dispatch_tx
+                .send(RuntimeChannelMessage::from(msg))
+                .await
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
+
+    let mut relay_handles = Vec::new();
+    if let Some(ref relay) = relay_config {
+        match start_relay_runtime(relay, dispatch_tx.clone()).await {
+            Ok(handle) => relay_handles.push(handle),
+            Err(error) => {
+                tracing::warn!("[channels][relay] failed to start relay runtime: {error}")
+            }
+        }
+    }
 
     // Spawn a listener for each channel
     let mut handles = Vec::new();
     for ch in &channels {
         handles.push(spawn_supervised_listener(
             ch.clone(),
-            tx.clone(),
+            provider_tx.clone(),
             initial_backoff_secs,
             max_backoff_secs,
         ));
     }
-    drop(tx); // Drop our copy so rx closes when all channels stop
+    drop(provider_tx); // Drop our copy so provider_rx closes when all channels stop.
+    drop(dispatch_tx); // Drop startup's copy; relay/bridge clones keep dispatch alive.
 
     let channels_by_name = Arc::new(
         channels
@@ -757,7 +865,8 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         crate::openhuman::memory_tree::tree_runtime::bus::TreeSummarizerEventSubscriber::new(),
     ));
 
-    let max_in_flight_messages = compute_max_in_flight_messages(channels.len());
+    let listener_count = channels.len() + relay_config.as_ref().map(|_| 1).unwrap_or_default();
+    let max_in_flight_messages = compute_max_in_flight_messages(listener_count);
 
     println!("  🚦 In-flight message limit: {max_in_flight_messages}");
 
@@ -797,6 +906,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     for h in handles {
         let _ = h.await;
     }
+    let _ = provider_bridge.await;
 
     Ok(())
 }

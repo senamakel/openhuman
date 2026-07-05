@@ -3,6 +3,8 @@ use async_trait::async_trait;
 use futures_util::{SinkExt, StreamExt};
 use parking_lot::Mutex;
 use serde_json::json;
+use tinychannels::channel::LengthUnit;
+use tinychannels::text::{chunk_text_with_options, ChunkMode, TextChunkOptions};
 use tokio_tungstenite::tungstenite::Message;
 use uuid::Uuid;
 
@@ -113,49 +115,19 @@ const DISCORD_MAX_MESSAGE_LENGTH: usize = 2000;
 /// Split a message into chunks that respect Discord's 2000-character limit.
 /// Tries to split at word boundaries when possible.
 fn split_message_for_discord(message: &str) -> Vec<String> {
-    if message.chars().count() <= DISCORD_MAX_MESSAGE_LENGTH {
-        return vec![message.to_string()];
+    if message.is_empty() {
+        return vec![String::new()];
     }
-
-    let mut chunks = Vec::new();
-    let mut remaining = message;
-
-    while !remaining.is_empty() {
-        // Find the byte offset for the 2000th character boundary.
-        // If there are fewer than 2000 chars left, we can emit the tail directly.
-        let hard_split = remaining
-            .char_indices()
-            .nth(DISCORD_MAX_MESSAGE_LENGTH)
-            .map_or(remaining.len(), |(idx, _)| idx);
-
-        let chunk_end = if hard_split == remaining.len() {
-            hard_split
-        } else {
-            // Try to find a good break point (newline, then space)
-            let search_area = &remaining[..hard_split];
-
-            // Prefer splitting at newline
-            if let Some(pos) = search_area.rfind('\n') {
-                // Don't split if the newline is too close to the end
-                if search_area[..pos].chars().count() >= DISCORD_MAX_MESSAGE_LENGTH / 2 {
-                    pos + 1
-                } else {
-                    // Try space as fallback
-                    search_area.rfind(' ').map_or(hard_split, |space| space + 1)
-                }
-            } else if let Some(pos) = search_area.rfind(' ') {
-                pos + 1
-            } else {
-                // Hard split at the limit
-                hard_split
-            }
-        };
-
-        chunks.push(remaining[..chunk_end].to_string());
-        remaining = &remaining[chunk_end..];
-    }
-
-    chunks
+    chunk_text_with_options(
+        message,
+        TextChunkOptions {
+            limit: DISCORD_MAX_MESSAGE_LENGTH,
+            length_unit: LengthUnit::Utf16Units,
+            mode: ChunkMode::Length,
+            markdown: true,
+            indicators: false,
+        },
+    )
 }
 
 fn mention_tags(bot_user_id: &str) -> [String; 2] {

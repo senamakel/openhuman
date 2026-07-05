@@ -56,10 +56,10 @@ pub use autocomplete::AutocompleteConfig;
 pub use autonomy::AutonomyConfig;
 pub use capability_providers::{CapabilityProviderConfig, CapabilityProviderTrustState};
 pub use channels::{
-    AuditConfig, ChannelsConfig, DingTalkConfig, DiscordConfig, IMessageConfig, IrcConfig,
-    LarkConfig, LarkReceiveMode, MatrixConfig, MattermostConfig, QQConfig, ResourceLimitsConfig,
-    SandboxBackend, SandboxConfig, SecurityConfig, SignalConfig, SlackConfig, StreamMode,
-    TelegramConfig, WebhookConfig, WhatsAppConfig,
+    AuditConfig, ChannelsConfig, DingTalkConfig, DiscordConfig, EmailConfig, IMessageConfig,
+    IrcConfig, LarkConfig, LarkReceiveMode, LinqConfig, MatrixConfig, MattermostConfig, QQConfig,
+    ResourceLimitsConfig, SandboxBackend, SandboxConfig, SecurityConfig, SignalConfig, SlackConfig,
+    StreamMode, TelegramConfig, WebhookConfig, WhatsAppConfig, YuanbaoConfig,
 };
 pub use context::ContextConfig;
 pub use dashboard::{DashboardConfig, DiagramViewerConfig, EventStreamConfig, ModelHealthConfig};

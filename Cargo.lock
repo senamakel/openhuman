@@ -4439,6 +4439,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tinyagents",
+ "tinychannels",
  "tinycortex",
  "tinyflows",
  "tinyjuice",
@@ -6820,6 +6821,23 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "tinychannels"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "hmac 0.12.1",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

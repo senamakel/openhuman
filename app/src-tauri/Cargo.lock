@@ -9177,7 +9177,6 @@ dependencies = [
 [[package]]
 name = "tinychannels"
 version = "0.1.0"
-source = "git+https://github.com/tinyhumansai/tinychannels.git?branch=port-channel-implementations#0ea90687439a0c44eb983f421d57a2e17d2185d1"
 dependencies = [
  "anyhow",
  "async-trait",

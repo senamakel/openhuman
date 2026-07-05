@@ -41,10 +41,12 @@ Companion docs in the tinychannels repo:
   JSON response shapes while using the crate manager for definition lookup and
   credential validation where applicable. `channels.get_default` also routes
   through the manager while preserving the public `{ active_channel }` response,
-  and the managed Telegram/Discord link controllers route through the manager
-  while preserving their no-log typed responses. The remaining OpenHuman work is
-  still the rest of the controller routing, envelope/session migration,
-  idempotency adoption, and the planned test split below.
+  `channels.connect` and `channels.set_default` preserve their public log/value
+  envelopes after manager dispatch, and the managed Telegram/Discord link
+  controllers route through the manager while preserving their no-log typed
+  responses. The remaining OpenHuman work is still the rest of the controller
+  routing, envelope/session migration, idempotency adoption, and the planned
+  test split below.
 
 ## Step 1 — Add the dependency, delete duplicates
 
@@ -88,10 +90,10 @@ Companion docs in the tinychannels repo:
 - Still pending: route the remaining controller entry points through
   `ChannelManager<OpenHumanChannelBackend>`, so credential validation
   (`ChannelDefinition::validate_credentials`) and operation dispatch happen in
-  one place. Route `channels.connect`, `channels.disconnect`,
-  `channels.set_default`, and Discord guild/channel/permission discovery
-  carefully: they currently return log entries or legacy top-level arrays in the
-  public JSON envelope, unlike the no-log manager-routed paths.
+  one place. Route `channels.disconnect` and Discord guild/channel/permission
+  discovery carefully: they currently return log entries, extra disconnect
+  fields, or legacy top-level arrays in the public JSON envelope, unlike the
+  no-log manager-routed paths.
 - The event bus, health bus, and dispatch engine stay app-side and *drive*
   tinychannels. Never add a tinychannels → openhuman dependency; the
   `runtime/` dispatch engine and the `web` provider are consumers of the

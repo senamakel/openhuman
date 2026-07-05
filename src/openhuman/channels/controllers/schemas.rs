@@ -522,12 +522,19 @@ fn handle_connect(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<ConnectParams>(params)?;
+        let channel = p.channel.trim();
         let mode: ChannelAuthMode = p
             .auth_mode
             .parse()
             .map_err(|e: String| format!("invalid authMode: {e}"))?;
         let creds = p.credentials.unwrap_or(Value::Object(Map::new()));
-        to_json(ops::connect_channel(&config, p.channel.trim(), mode, creds).await?)
+        let manager = openhuman_channel_manager(config);
+        let result = manager
+            .connect(channel, mode, creds)
+            .await
+            .map_err(|e| e.to_string())?;
+        let logs = connect_logs(channel, mode, result.auth_action.is_some());
+        to_json(RpcOutcome::new(result, logs))
     })
 }
 
@@ -564,9 +571,19 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_set_default(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let mut config = config_rpc::load_config_with_timeout().await?;
+        let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<SetDefaultParams>(params)?;
-        to_json(ops::set_default_channel(&mut config, p.channel.trim()).await?)
+        let channel = p.channel.trim();
+        let manager = openhuman_channel_manager(config);
+        manager
+            .set_default_channel(channel)
+            .await
+            .map_err(|e| e.to_string())?;
+        let canonical = channel.to_ascii_lowercase();
+        to_json(RpcOutcome::single_log(
+            serde_json::json!({ "active_channel": canonical, "restart_required": false }),
+            format!("default messaging channel set to {canonical}"),
+        ))
     })
 }
 
@@ -739,6 +756,16 @@ fn openhuman_channel_manager(config: Config) -> ChannelManager<OpenHumanChannelB
         config.channels_config.clone(),
         OpenHumanChannelBackend::new(config),
     )
+}
+
+fn connect_logs(channel: &str, mode: ChannelAuthMode, pending_auth: bool) -> Vec<String> {
+    if pending_auth {
+        vec![]
+    } else if mode == ChannelAuthMode::ManagedDm && channel == "imessage" {
+        vec!["stored imessage channel config (local-only)".to_string()]
+    } else {
+        vec![format!("stored credentials for channel:{channel}:{mode}")]
+    }
 }
 
 fn required_string(name: &'static str, comment: &'static str) -> FieldSchema {

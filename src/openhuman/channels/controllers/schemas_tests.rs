@@ -324,6 +324,19 @@ fn to_json_helper() {
 }
 
 #[test]
+fn connect_logs_preserve_legacy_envelope_cases() {
+    assert!(connect_logs("discord", ChannelAuthMode::OAuth, true).is_empty());
+    assert_eq!(
+        connect_logs("imessage", ChannelAuthMode::ManagedDm, false),
+        vec!["stored imessage channel config (local-only)".to_string()]
+    );
+    assert_eq!(
+        connect_logs("telegram", ChannelAuthMode::BotToken, false),
+        vec!["stored credentials for channel:telegram:bot_token".to_string()]
+    );
+}
+
+#[test]
 fn required_string_helper() {
     let f = required_string("channel", "channel name");
     assert!(f.required);

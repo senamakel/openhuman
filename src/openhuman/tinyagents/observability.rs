@@ -916,6 +916,12 @@ impl EventListener for OpenhumanEventBridge {
                 tool_name,
                 input,
                 output,
+                // tinyagents 1.7 added started_at_ms/duration_ms/output_bytes/error
+                // to this event. The bridge keeps sourcing success/duration/size
+                // from its own capture side channel (failure_map/tool_started_at)
+                // below, so the new crate-provided fields are intentionally ignored
+                // here to preserve existing behavior. TODO: adopt them directly.
+                ..
             } => {
                 let iteration = self.iteration();
                 // The crate event carries no success/error, so read what the

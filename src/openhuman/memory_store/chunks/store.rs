@@ -694,10 +694,12 @@ pub fn delete_chunks_by_source(
     source_kind: SourceKind,
     source_id: &str,
 ) -> Result<usize> {
-    tinycortex::memory::chunks::delete_chunks_by_source(
-        &engine_config(config),
+    delete_chunks_by_source_filter(
+        "delete_chunks_by_source",
+        config,
         source_kind,
-        source_id,
+        |candidate, _owner| candidate == source_id,
+        |candidate| candidate == source_id,
     )
 }
 
@@ -710,10 +712,12 @@ pub fn delete_chunks_by_source_prefix(
     source_kind: SourceKind,
     source_id_prefix: &str,
 ) -> Result<usize> {
-    tinycortex::memory::chunks::delete_chunks_by_source_prefix(
-        &engine_config(config),
+    delete_chunks_by_source_filter(
+        "delete_chunks_by_source_prefix",
+        config,
         source_kind,
-        source_id_prefix,
+        |candidate, _owner| candidate.starts_with(source_id_prefix),
+        |candidate| candidate.starts_with(source_id_prefix),
     )
 }
 
@@ -724,7 +728,13 @@ pub fn delete_chunks_by_owner(
     source_kind: SourceKind,
     owner: &str,
 ) -> Result<usize> {
-    tinycortex::memory::chunks::delete_chunks_by_owner(&engine_config(config), source_kind, owner)
+    delete_chunks_by_source_filter(
+        "delete_chunks_by_owner",
+        config,
+        source_kind,
+        |_source_id, candidate_owner| candidate_owner == owner,
+        |_source_id| false,
+    )
 }
 
 fn delete_chunks_by_source_filter(

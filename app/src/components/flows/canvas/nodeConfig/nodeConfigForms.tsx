@@ -18,6 +18,7 @@
 import type { NodeKind } from '../../../../lib/flows/types';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { FlowConnection } from '../../../../services/api/flowsApi';
+import { ComposioActionField, ComposioToolkitField, ComposioTriggerField } from './composioFields';
 import {
   configString,
   configStringMap,
@@ -32,6 +33,12 @@ import {
 } from './nodeConfigFields';
 import { ScheduleField } from './ScheduleField';
 
+/** Derive the toolkit slug from a `composio:<toolkit>:<conn>` connection ref. */
+function toolkitFromConnectionRef(ref: string): string {
+  const parts = ref.split(':');
+  return parts[0] === 'composio' && parts.length >= 2 ? parts[1] : '';
+}
+
 export interface NodeConfigFormProps {
   config: Record<string, unknown>;
   /** Shallow-merge patch into the node's config (undefined values are still set). */
@@ -45,9 +52,10 @@ export type NodeConfigForm = (props: NodeConfigFormProps) => React.ReactElement;
 
 const TRIGGER_KINDS = ['manual', 'schedule', 'webhook', 'app_event'] as const;
 
-function TriggerForm({ config, onChange }: NodeConfigFormProps) {
+function TriggerForm({ config, onChange, connections }: NodeConfigFormProps) {
   const { t } = useT();
   const kind = configString(config, 'trigger_kind') || 'manual';
+  const toolkit = configString(config, 'toolkit');
   return (
     <div className="space-y-3">
       <SelectField
@@ -69,17 +77,20 @@ function TriggerForm({ config, onChange }: NodeConfigFormProps) {
       )}
       {kind === 'app_event' && (
         <>
-          <TextField
+          <ComposioToolkitField
             label={t('flows.nodeConfig.trigger.toolkitLabel')}
-            value={configString(config, 'toolkit')}
-            onChange={v => onChange({ toolkit: v })}
-            placeholder="github"
+            value={toolkit}
+            // Changing the app clears a now-mismatched trigger slug.
+            onChange={v => onChange({ toolkit: v, trigger_slug: '' })}
+            connections={connections}
+            testId="node-config-trigger-toolkit"
           />
-          <TextField
+          <ComposioTriggerField
             label={t('flows.nodeConfig.trigger.triggerSlugLabel')}
             value={configString(config, 'trigger_slug')}
             onChange={v => onChange({ trigger_slug: v })}
-            placeholder="GITHUB_STAR_ADDED"
+            toolkit={toolkit}
+            testId="node-config-trigger-slug"
           />
         </>
       )}
@@ -173,20 +184,25 @@ function AgentForm({ config, onChange, connections }: NodeConfigFormProps) {
 
 function ToolCallForm({ config, onChange, connections }: NodeConfigFormProps) {
   const { t } = useT();
+  // The connected account is chosen first; its toolkit scopes the action list.
+  const connectionRef = configString(config, 'connection_ref');
+  const toolkit = toolkitFromConnectionRef(connectionRef);
   return (
     <div className="space-y-3">
-      <TextField
+      <CredentialPickerField
+        value={connectionRef}
+        // Changing the account can change the toolkit → clear a stale action.
+        onChange={v => onChange({ connection_ref: v, slug: '' })}
+        connections={connections}
+        kinds={['composio']}
+        testId="node-config-tool-credential"
+      />
+      <ComposioActionField
         label={t('flows.nodeConfig.tool.slugLabel')}
         value={configString(config, 'slug')}
         onChange={v => onChange({ slug: v })}
-        placeholder="GITHUB_CREATE_ISSUE"
+        toolkit={toolkit}
         testId="node-config-tool-slug"
-      />
-      <CredentialPickerField
-        value={configString(config, 'connection_ref')}
-        onChange={v => onChange({ connection_ref: v })}
-        connections={connections}
-        testId="node-config-tool-credential"
       />
       <JsonField
         label={t('flows.nodeConfig.tool.argsLabel')}

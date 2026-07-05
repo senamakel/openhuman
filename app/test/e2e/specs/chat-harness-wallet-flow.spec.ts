@@ -31,7 +31,7 @@ import {
   waitForSocketConnected,
 } from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { clickText, clickToggle, textExists } from '../helpers/element-helpers';
+import { clickText, textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import {
@@ -53,7 +53,7 @@ const FORCED_RESPONSES = [
     toolCalls: [
       {
         id: 'call_delegate_do_crypto_1',
-        name: 'delegate_do_crypto',
+        name: 'do_crypto',
         arguments: JSON.stringify({
           prompt: `Prepare a $5 EVM transfer to John at ${JOHN_ADDRESS}.`,
         }),
@@ -87,14 +87,17 @@ const FORCED_RESPONSES = [
 ];
 
 async function clickRecoveryConsentCheckbox(): Promise<void> {
-  const checkbox = await browser.$('input[type="checkbox"]');
+  const checkbox = await browser.$('#mnemonic-confirm-checkbox');
   if (!(await checkbox.isExisting())) {
     throw new Error('Recovery phrase consent checkbox not found');
   }
   if (!(await checkbox.isSelected())) {
-    await clickToggle();
+    await checkbox.click();
   }
-  await expect(checkbox).toBeSelected();
+  await browser.waitUntil(async () => await checkbox.isSelected(), {
+    timeout: 5_000,
+    timeoutMsg: 'Recovery phrase consent checkbox did not become selected',
+  });
 }
 
 describe('Chat harness — wallet flow', () => {
@@ -106,6 +109,13 @@ describe('Chat harness — wallet flow', () => {
     // so the crypto sub-agent run starts from a clean signed-in state (a
     // polluted session was the source of the intermittent quote-store failures).
     await resetApp(USER_ID, { clearAuthSession: true });
+    const superContext = await callOpenhumanRpc('openhuman.config_set_super_context_enabled', {
+      value: false,
+    });
+    expect(superContext.ok).toBe(true);
+    console.log(
+      '[chat-harness-wallet-flow] Disabled super context for deterministic scripted LLM calls'
+    );
   });
 
   after(async () => {

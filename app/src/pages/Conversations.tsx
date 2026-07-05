@@ -2099,6 +2099,7 @@ const Conversations = ({
       }>
       <div
         ref={messagesContainerRef}
+        data-testid="chat-messages-scroll"
         // Full-width scroll (scrollbar hugs the window edge); inner content is
         // centered and width-capped per branch below. `min-h-0` lets this
         // basis-0 flex child shrink to 0 so the composer footer can take the

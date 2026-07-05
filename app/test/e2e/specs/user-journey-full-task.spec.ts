@@ -61,6 +61,11 @@ describe('User journey — full research task', () => {
     await startMockServer();
     await waitForApp();
     await resetApp(USER_ID);
+    const superContext = await callOpenhumanRpc('openhuman.config_set_super_context_enabled', {
+      value: false,
+    });
+    expect(superContext.ok).toBe(true);
+    console.log(`${LOG_PREFIX} Disabled super context for deterministic scripted LLM calls`);
 
     setMockBehavior('llmForcedResponses', JSON.stringify(FORCED_RESPONSES));
     setMockBehavior('llmStreamChunkDelayMs', '10');
@@ -111,7 +116,8 @@ describe('User journey — full research task', () => {
     console.log(`${LOG_PREFIX} J1.1: passed — user message visible`);
   });
 
-  it('J1.2 — tool call timeline appears during execution', async () => {
+  it('J1.2 — tool call timeline appears during execution', async function () {
+    this.timeout(60_000);
     console.log(`${LOG_PREFIX} J1.2: watching for tool timeline entry`);
     let sawToolTimeline = false;
     const deadline = Date.now() + 45_000;
@@ -142,7 +148,8 @@ describe('User journey — full research task', () => {
     console.log(`${LOG_PREFIX} J1.2: passed`);
   });
 
-  it('J1.3 — final answer with canary text renders', async () => {
+  it('J1.3 — final answer with canary text renders', async function () {
+    this.timeout(60_000);
     console.log(`${LOG_PREFIX} J1.3: waiting for canary`);
     await browser.waitUntil(async () => await textExists(CANARY_FINAL), {
       timeout: 45_000,
@@ -151,7 +158,8 @@ describe('User journey — full research task', () => {
     console.log(`${LOG_PREFIX} J1.3: passed — canary visible`);
   });
 
-  it('J1.4 — after navigate away + back, thread messages still visible', async () => {
+  it('J1.4 — after navigate away + back, thread messages still visible', async function () {
+    this.timeout(60_000);
     console.log(`${LOG_PREFIX} J1.4: navigating away to /home`);
 
     // Ensure the IN_FLIGHT map cleared (turn is fully done) before navigating.

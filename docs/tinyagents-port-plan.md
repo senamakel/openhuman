@@ -133,7 +133,7 @@ Each phase is a coherent PR set: tinyagents PR(s) → release/tag → host `chor
 Land these as separate small PRs against tinyagents (each with its ported tests re-expressed in crate conventions):
 
 1. `SchemaCleanr` (+ its 15-test suite) → provider-layer schema cleaning. Zero-dep, highest value/effort ratio. **Status:** draft upstream PR [tinyagents#20](https://github.com/tinyhumansai/tinyagents/pull/20) is open; host submodule bump and call-site swap wait for merge/release.
-2. `error_classify.rs` classifiers → retry/HTTP-error classification (strip openhuman-backend phrase matches into a host-side extension table; keep the generic HTTP/status logic).
+2. `error_classify.rs` classifiers → retry/HTTP-error classification (strip openhuman-backend phrase matches into a host-side extension table; keep the generic HTTP/status logic). **Status:** draft upstream PR [tinyagents#24](https://github.com/tinyhumansai/tinyagents/pull/24) is open; host retry/failure call-site swaps wait for merge/release.
 3. `model_context.rs` pattern-match table (substring-vs-segment matching, incl. the o1/o3 regression guard) → `ModelProfile` context resolution. OH tier aliases and cost-catalog arms stay host-side. **Status:** draft upstream PR [tinyagents#23](https://github.com/tinyhumansai/tinyagents/pull/23) is open; host context-resolution call-site swaps wait for merge/release.
 4. First-class **reasoning channel** on `AssistantMessage` → delete the `ProviderExtension` smuggling in seam `convert.rs`.
 5. Git-worktree `WorkspaceIsolation` provider from `agent_orchestration/worktree.rs` (+ `worktree_tests.rs`, which exercises real git repos — fits the crate's offline test policy). The single `publish_global` event becomes a host-side wrapper.

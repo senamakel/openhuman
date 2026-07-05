@@ -13,8 +13,9 @@ Companion docs in the tinychannels repo:
 
 ## Current State
 
-- This repo now depends on `tinychannels` through `tinychannels = { path =
-  "../tinychannels" }`. The first duplicate-removal pass has landed:
+- This repo now depends on `tinychannels` through the TinyChannels
+  `feat/phase-0-hygiene` branch while the companion PR lands. The first
+  duplicate-removal pass has landed:
 
   | openhuman-4 file | tinychannels file |
   | --- | --- |
@@ -70,9 +71,9 @@ Companion docs in the tinychannels repo:
 
 ## Step 1 — Add the dependency, delete duplicates
 
-- **Landed:** Add `tinychannels = { path = "../tinychannels" }` to `Cargo.toml`
-  (single crate, not a workspace; edition 2021 depending on an edition-2024
-  crate is fine).
+- **Landed:** Add the `tinychannels` git dependency to `Cargo.toml` (single
+  crate, not a workspace; edition 2021 depending on an edition-2024 crate is
+  fine).
 - **Landed for the first slice:** Delete the duplicated
   definitions/types/traits/config-schema/helper code and
   re-export from the old paths so the 100+ call sites keep compiling:

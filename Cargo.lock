@@ -6826,6 +6826,7 @@ dependencies = [
 [[package]]
 name = "tinychannels"
 version = "0.1.0"
+source = "git+https://github.com/tinyhumansai/tinychannels.git?branch=feat%2Fphase-0-hygiene#5bcc2f3f80643dd519959064b83c96ae8473f149"
 dependencies = [
  "anyhow",
  "async-trait",

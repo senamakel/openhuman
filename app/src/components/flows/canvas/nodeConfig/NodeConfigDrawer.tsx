@@ -19,12 +19,13 @@ import createDebug from 'debug';
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useEscapeKey } from '../../../../hooks/useEscapeKey';
-import type { FlowNode } from '../../../../lib/flows/graphAdapter';
+import type { FlowEdge, FlowNode } from '../../../../lib/flows/graphAdapter';
 import { nodeKindMeta } from '../../../../lib/flows/nodeKindMeta';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { FlowConnection } from '../../../../services/api/flowsApi';
 import { JsonField } from './nodeConfigFields';
 import { NODE_CONFIG_FORMS } from './nodeConfigForms';
+import { NodeConnections } from './NodeConnections';
 
 const log = createDebug('app:flows:nodeConfig:drawer');
 
@@ -41,6 +42,12 @@ export interface NodeConfigDrawerProps {
   onChange: (nodeId: string, patch: NodeConfigPatch) => void;
   /** Secret-free credential refs for the picker (loaded once by the canvas). */
   connections: FlowConnection[];
+  /** All graph edges — the drawer shows the selected node's incident ones. */
+  edges?: FlowEdge[];
+  /** Node id → display name, for labelling the other end of each connection. */
+  nodeLabelById?: Record<string, string>;
+  /** Remove a single edge by id (from the connections list). */
+  onRemoveEdge?: (edgeId: string) => void;
 }
 
 function NodeConfigBody({
@@ -109,7 +116,15 @@ function NodeConfigBody({
   );
 }
 
-function NodeConfigDrawer({ node, onClose, onChange, connections }: NodeConfigDrawerProps) {
+function NodeConfigDrawer({
+  node,
+  onClose,
+  onChange,
+  connections,
+  edges = [],
+  nodeLabelById = {},
+  onRemoveEdge = () => {},
+}: NodeConfigDrawerProps) {
   const { t } = useT();
 
   useEscapeKey(() => {
@@ -158,7 +173,14 @@ function NodeConfigDrawer({ node, onClose, onChange, connections }: NodeConfigDr
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-3.5 py-3.5">
+        <div className="flex-1 space-y-4 overflow-y-auto px-3.5 py-3.5">
+          {/* Incoming/outgoing edge connections — inspect + remove them here. */}
+          <NodeConnections
+            nodeId={node.id}
+            edges={edges}
+            nodeLabelById={nodeLabelById}
+            onRemoveEdge={onRemoveEdge}
+          />
           {/* Keyed by node id so the JSON editor's local buffer re-seeds on switch. */}
           <NodeConfigBody key={node.id} node={node} onChange={onChange} connections={connections} />
         </div>

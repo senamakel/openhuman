@@ -45,6 +45,37 @@ describe('NodeConfigDrawer', () => {
     expect(screen.getByTestId('node-config-http-method')).toBeInTheDocument();
   });
 
+  it("lists the node's input/output connections and removes one", () => {
+    const onRemoveEdge = vi.fn();
+    render(
+      <NodeConfigDrawer
+        node={makeNode()}
+        onClose={vi.fn()}
+        onChange={vi.fn()}
+        connections={[]}
+        edges={[
+          { id: 'e-in', source: 't', target: 'n1', sourceHandle: 'main', targetHandle: 'main' },
+          { id: 'e-out', source: 'n1', target: 'a', sourceHandle: 'main', targetHandle: 'main' },
+        ]}
+        nodeLabelById={{ t: 'Start', n1: 'Fetch data', a: 'Reply' }}
+        onRemoveEdge={onRemoveEdge}
+      />
+    );
+    // Incoming edge shows the source node; outgoing shows the target node.
+    expect(screen.getByTestId('node-connections-inputs')).toHaveTextContent('Start');
+    expect(screen.getByTestId('node-connections-outputs')).toHaveTextContent('Reply');
+
+    fireEvent.click(screen.getByTestId('node-connection-remove-e-out'));
+    expect(onRemoveEdge).toHaveBeenCalledWith('e-out');
+  });
+
+  it('shows an empty connections state for an unconnected node', () => {
+    render(
+      <NodeConfigDrawer node={makeNode()} onClose={vi.fn()} onChange={vi.fn()} connections={[]} />
+    );
+    expect(screen.getByTestId('node-connections-empty')).toBeInTheDocument();
+  });
+
   it('emits a name patch when the name is edited', () => {
     const onChange = vi.fn();
     render(

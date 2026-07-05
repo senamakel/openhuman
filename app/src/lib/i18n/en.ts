@@ -4483,6 +4483,11 @@ const en: TranslationMap = {
   'flows.editor.leaveDiscard': 'Leave',
   // ── Node config drawer (issue B5b / Phase 3b) — per-kind config forms
   'flows.nodeConfig.close': 'Close settings',
+  'flows.nodeConfig.connections.title': 'Connections',
+  'flows.nodeConfig.connections.inputs': 'Inputs',
+  'flows.nodeConfig.connections.outputs': 'Outputs',
+  'flows.nodeConfig.connections.none': 'Not connected to any other node yet.',
+  'flows.nodeConfig.connections.remove': 'Remove connection',
   'flows.nodeConfig.nameLabel': 'Name',
   'flows.nodeConfig.namePlaceholder': 'Node name',
   'flows.nodeConfig.editForm': 'Edit as form',

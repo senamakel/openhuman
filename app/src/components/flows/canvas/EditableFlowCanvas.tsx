@@ -485,6 +485,22 @@ function EditableFlowCanvas({
     [setNodes, setEdges, pushHistory]
   );
 
+  // Detach a single edge (from the config drawer's connections list).
+  const removeEdge = useCallback(
+    (edgeId: string) => {
+      log('removeEdge: id=%s', edgeId);
+      pushHistory('structural');
+      setEdges(current => current.filter(e => e.id !== edgeId));
+    },
+    [setEdges, pushHistory]
+  );
+
+  // Node id → display name, for labelling the other end of each connection.
+  const nodeLabelById = useMemo(
+    () => Object.fromEntries(nodes.map(n => [n.id, n.data.name])),
+    [nodes]
+  );
+
   const handleSave = useCallback(async () => {
     // Hard errors block Save (warnings are allowed through). Belt-and-braces:
     // the button is also disabled in this state.
@@ -741,6 +757,9 @@ function EditableFlowCanvas({
           onClose={handleCloseConfig}
           onChange={updateNode}
           connections={connections}
+          edges={edges}
+          nodeLabelById={nodeLabelById}
+          onRemoveEdge={removeEdge}
         />
       </div>
     </CanvasActionsContext.Provider>

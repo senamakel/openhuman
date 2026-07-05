@@ -1048,6 +1048,30 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     });
                     let _ = io_memory_sync.emit("init:completed", &payload);
                 }
+                // Live per-step progress of an in-flight flow run (issue G2).
+                // Best-effort: the durable `flow_runs` row is the source of
+                // truth and the Workflows UI keeps a 2s poller as fallback, so
+                // a dropped event here (broadcast lag) only delays the live
+                // update, never corrupts run history.
+                crate::core::event_bus::DomainEvent::FlowRunProgress {
+                    run_id,
+                    node_id,
+                    status,
+                } => {
+                    let payload = serde_json::json!({
+                        "run_id": run_id,
+                        "node_id": node_id,
+                        "status": status,
+                    });
+                    log::debug!(
+                        "[socketio] broadcast flow_run_progress run_id={} node_id={} status={}",
+                        run_id,
+                        node_id,
+                        status
+                    );
+                    let _ = io_memory_sync.emit("flow:run_progress", &payload);
+                    let _ = io_memory_sync.emit("flow_run_progress", &payload);
+                }
                 _ => {}
             }
         }

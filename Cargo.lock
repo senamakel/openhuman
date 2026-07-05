@@ -6809,9 +6809,10 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "1.5.0"
+version = "1.7.1"
 dependencies = [
  "async-trait",
+ "bytes",
  "futures",
  "reqwest 0.12.28",
  "rhai",
@@ -6866,7 +6867,7 @@ dependencies = [
 
 [[package]]
 name = "tinyflows"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "async-trait",
  "futures-timer",
@@ -8246,7 +8247,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

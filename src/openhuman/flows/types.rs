@@ -35,6 +35,29 @@ impl FlowRunTrigger {
     }
 }
 
+/// The result of validating a candidate `tinyflows` graph without persisting
+/// it — returned by `openhuman.flows_validate` (PHASE 3c) and used to surface
+/// structural errors and non-fatal warnings (e.g. "this trigger kind never
+/// fires automatically yet") to an authoring surface *before* a flow is saved.
+///
+/// A graph is `valid` when it passes `tinyflows::validate::validate` after
+/// migration; `errors` carries the single structural error when it does not.
+/// `warnings` is orthogonal to validity — a `valid` graph can still carry
+/// warnings (it saves and enables fine, it just won't behave as an author
+/// might expect), and an invalid graph reports no warnings (there's nothing to
+/// warn about a graph that won't compile).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct FlowValidation {
+    /// True when the graph is structurally valid (migrates + validates).
+    pub valid: bool,
+    /// Structural validation errors (empty when `valid`). Today at most one —
+    /// `tinyflows::validate::validate` returns the first error it hits.
+    pub errors: Vec<String>,
+    /// Non-fatal warnings: the graph is accepted, but something about it is
+    /// worth flagging (e.g. an unfired trigger kind). Never blocks save/enable.
+    pub warnings: Vec<String>,
+}
+
 /// A saved automation workflow: a `tinyflows` graph plus OpenHuman-side
 /// bookkeeping (enablement, run history summary).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,28 +88,37 @@ pub struct Flow {
     pub require_approval: bool,
 }
 
-/// One reconstructed step of a persisted [`FlowRun`] (issue B2, run-history
-/// inspector). tinyflows 0.2's durable path installs a `NoopObserver` (see
-/// `src/openhuman/tinyflows/observability.rs`), so there is no live per-step
-/// stream to persist — instead, `flows::ops` reconstructs a lean step list
-/// straight from `RunOutcome.output["nodes"]` after the run settles: each
-/// entry is a node id plus its emitted items and the output port it took, if
-/// any. There is no per-step timing or input/attempt data in 0.2.
+/// One step of a persisted [`FlowRun`] (run-history inspector).
 ///
-/// // TODO(0.3): a richer `RunObserver` that streams per-step
-/// // node_id/status/output/duration_ms live (see
-/// // `tinyflows::observability::ExecutionStep`) would let this type carry
-/// // real timing/attempt data instead of being reconstructed post-hoc.
+/// As of issue G2 (live run observation) these are persisted **incrementally**
+/// as each non-trigger node finishes, by
+/// `flows::observability::FlowRunObserver::on_step_finish`, which maps a live
+/// `tinyflows::observability::ExecutionStep` (carrying real `status` +
+/// `duration_ms`) onto this type. The prior post-hoc reconstruction from
+/// `RunOutcome.output["nodes"]` (see `flows::ops::reconstruct_steps`) now only
+/// fills in steps the observer missed (e.g. a trigger node, which does not
+/// emit an `on_step_finish`) — those carry no `status`/`duration_ms` and keep
+/// the `port` the reconstruction recovers.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct FlowRunStep {
     /// The node's id within the flow's graph.
     pub node_id: String,
-    /// The node's emitted items for this run (`output["nodes"][id]["items"]`).
+    /// The node's emitted items for this run (`output["nodes"][id]["items"]`,
+    /// or the live `ExecutionStep.output` when observed incrementally).
     pub output: serde_json::Value,
     /// The output port the node routed on, if it picked one (branching /
-    /// switch nodes) — `output["nodes"][id]["port"]`.
+    /// switch nodes) — `output["nodes"][id]["port"]`. Only recovered by the
+    /// post-hoc reconstruction; the live observer does not carry a port.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<String>,
+    /// Live step outcome, when this step was observed incrementally:
+    /// `"success"` | `"error"`. `None` for a step recovered post-hoc.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Wall-clock duration of the node's executor in milliseconds, when
+    /// observed incrementally. `None` for a step recovered post-hoc.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
 }
 
 /// A persisted record of one `flows_run` / `flows_resume` invocation, for the
@@ -100,7 +132,12 @@ pub struct FlowRun {
     pub flow_id: String,
     /// The tinyflows checkpointer thread id (needed to `flows_resume`).
     pub thread_id: String,
-    /// `"running"` | `"completed"` | `"pending_approval"` | `"failed"`.
+    /// Run status. Not an enum (kept a free-form `String` for forward-compat
+    /// with statuses added by newer builds), but the vocabulary is fixed:
+    /// `"running"` | `"completed"` | `"pending_approval"` | `"failed"` |
+    /// `"cancelled"` (issue G4 — a run cancelled via `flows_cancel_run`, or a
+    /// parked `pending_approval` run swept by the TTL expiry). All of
+    /// `completed` / `failed` / `cancelled` are terminal.
     pub status: String,
     /// RFC3339 timestamp when the run started.
     pub started_at: String,
@@ -190,6 +227,7 @@ mod tests {
                 node_id: "t".to_string(),
                 output: serde_json::json!([{"json": {"hello": "world"}}]),
                 port: None,
+                ..Default::default()
             }],
             pending_approvals: Vec::new(),
             error: None,
@@ -208,6 +246,7 @@ mod tests {
             node_id: "n".to_string(),
             output: serde_json::Value::Null,
             port: None,
+            ..Default::default()
         };
         let v = serde_json::to_value(&step).unwrap();
         assert!(v.get("port").is_none());

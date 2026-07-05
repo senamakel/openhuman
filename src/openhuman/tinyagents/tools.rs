@@ -153,6 +153,12 @@ pub(crate) fn tool_policy_from_openhuman_tool(
         })
         .with_runtime(ToolRuntime {
             timeout_ms,
+            // tinyagents 1.7 added a structured `timeout: ToolTimeout` field
+            // alongside the numeric `timeout_ms`. Inherit the run/global policy
+            // to preserve prior behavior (the numeric `timeout_ms` above stays
+            // the only per-tool deadline signal). Fully-qualified because the
+            // local `ToolTimeout` import here is openhuman's, not the harness's.
+            timeout: tinyagents::harness::tool::ToolTimeout::Inherit,
             max_retries: None,
             idempotent: tool.is_concurrency_safe(&serde_json::Value::Null),
             cancelable: true,

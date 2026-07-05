@@ -120,6 +120,7 @@ describe('User journey — full research task', () => {
     this.timeout(60_000);
     console.log(`${LOG_PREFIX} J1.2: watching for tool timeline entry`);
     let sawToolTimeline = false;
+    let sawFinalAnswer = false;
     const deadline = Date.now() + 45_000;
     while (Date.now() < deadline) {
       const snap = (await browser.execute((tid: string) => {
@@ -137,15 +138,18 @@ describe('User journey — full research task', () => {
         break;
       }
       if (await textExists(CANARY_FINAL)) {
+        sawFinalAnswer = true;
         console.log(`${LOG_PREFIX} J1.2: canary arrived (turn may have completed before poll)`);
         break;
       }
       await browser.pause(200);
     }
 
-    const canaryVisible = await textExists(CANARY_FINAL);
+    const canaryVisible = sawFinalAnswer || (await textExists(CANARY_FINAL));
     expect(sawToolTimeline || canaryVisible).toBe(true);
-    console.log(`${LOG_PREFIX} J1.2: passed`);
+    console.log(
+      `${LOG_PREFIX} J1.2: passed (sawTimeline=${sawToolTimeline}, canaryVisible=${canaryVisible})`
+    );
   });
 
   it('J1.3 — final answer with canary text renders', async function () {

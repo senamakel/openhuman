@@ -12730,6 +12730,68 @@ async fn json_rpc_flows_validate_reports_warnings_and_errors() {
     rpc_join.abort();
 }
 
+/// `openhuman.flows_list_connections` (PHASE 2): the connection picker source.
+/// Aggregates Composio connected accounts + stored HTTP credentials into a flat
+/// list of `connection_ref` + display + kind — and NEVER any secret material.
+///
+/// We seed one named HTTP credential (a bearer token) through the same
+/// host-side store the RPC reads, then assert the RPC surfaces it as
+/// `http_cred:<name>` with `kind = "http"` and that the token value never
+/// appears anywhere in the RPC payload. The Composio half is exercised for
+/// fault-tolerance: the mock upstream has no connected-accounts route, so the
+/// Composio source fails and is tolerated (the RPC still returns the HTTP half
+/// rather than erroring).
+#[tokio::test]
+async fn json_rpc_flows_list_connections_aggregates_secret_free() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let (rpc_base, _tmp, api_join, rpc_join, _guards) = boot_flows_rpc_env().await;
+
+    // Seed an HTTP credential through the same encrypted-at-rest store the op
+    // reads (config resolves under the guarded HOME set by boot_flows_rpc_env).
+    let seed_config = openhuman_core::openhuman::config::load_config_with_timeout()
+        .await
+        .expect("load config to seed http_cred");
+    const SECRET: &str = "sk_live_flows_list_connections_seed";
+    openhuman_core::openhuman::credentials::HttpCredentialsStore::from_config(&seed_config)
+        .upsert(&openhuman_core::openhuman::credentials::HttpCredential::bearer("stripe", SECRET))
+        .expect("seed http_cred");
+
+    let resp = post_json_rpc(
+        &rpc_base,
+        9330,
+        "openhuman.flows_list_connections",
+        json!({}),
+    )
+    .await;
+    let raw = assert_no_jsonrpc_error(&resp, "flows_list_connections");
+
+    // The seeded secret must never appear anywhere in the RPC response.
+    let raw_str = raw.to_string();
+    assert!(
+        !raw_str.contains(SECRET),
+        "secret leaked into flows_list_connections payload: {raw_str}"
+    );
+
+    let connections = peel_logs_envelope(raw)
+        .as_array()
+        .expect("connections is an array")
+        .clone();
+
+    let stripe = connections
+        .iter()
+        .find(|c| c.get("connection_ref").and_then(Value::as_str) == Some("http_cred:stripe"))
+        .expect("seeded http_cred surfaced in picker");
+    assert_eq!(stripe.get("kind").and_then(Value::as_str), Some("http"));
+    assert_eq!(stripe.get("scheme").and_then(Value::as_str), Some("bearer"));
+    assert!(
+        stripe.get("display").and_then(Value::as_str).is_some(),
+        "http_cred entry must carry a display label"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
 /// Task 4 / #3090: when a web-chat request is sent with
 /// `speak_reply: true`, `run_chat_task` should drive the agent's final text
 /// through `voice::reply_speech::synthesize_reply` after the turn completes.

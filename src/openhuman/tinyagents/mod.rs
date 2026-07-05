@@ -697,6 +697,15 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         }
         None => None,
     };
+    if subagent_scope.is_none() {
+        if let Some(crate::openhuman::agent::turn_origin::AgentTurnOrigin::WebChat {
+            request_id: Some(request_id),
+            ..
+        }) = crate::openhuman::agent::turn_origin::current()
+        {
+            journal::register_request_journal_run(&request_id, journal_run_id.as_str());
+        }
+    }
 
     if let Some(events) = &events {
         ctx = ctx.with_events(events.clone());

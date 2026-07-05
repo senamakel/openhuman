@@ -912,6 +912,7 @@ mod tests {
         AgentTurnOrigin::WebChat {
             thread_id: "t-test".into(),
             client_id: "c-test".into(),
+            request_id: Some("req-test".into()),
         }
     }
 
@@ -1248,6 +1249,7 @@ mod tests {
         let origin = AgentTurnOrigin::WebChat {
             thread_id: "thread-42".into(),
             client_id: "client-1".into(),
+            request_id: Some("req-42".into()),
         };
         let handle = tokio::spawn(async move {
             turn_origin::with_origin(

@@ -121,6 +121,42 @@ pub struct FlowRunStep {
     pub duration_ms: Option<u64>,
 }
 
+/// A resolvable connection the flows UI / agent picker can attach to a node's
+/// `connection_ref`. Aggregated by `openhuman.flows_list_connections` from two
+/// host-side sources:
+///
+/// - **Composio connected accounts** (`kind = "composio"`) — each active OAuth
+///   integration instance, emitted as a ready-to-use
+///   `"composio:<toolkit>:<connection_id>"` ref (the exact shape
+///   `tinyflows::caps::composio_connection_id` parses back on execution).
+/// - **Named HTTP credentials** (`kind = "http"`) — each stored injection
+///   template, emitted as `"http_cred:<name>"` (the shape
+///   `tinyflows::caps::http_cred_name` parses).
+///
+/// **Security contract:** carries only non-secret identity — the
+/// `connection_ref` string plus a display label (and toolkit/scheme hints).
+/// It NEVER carries secret material (OAuth tokens, bearer tokens, passwords,
+/// API keys). Those stay server-side and are injected only inside the
+/// `tinyflows::caps` adapters at execution time.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FlowConnection {
+    /// The ready-to-use `connection_ref` value to stamp onto a node:
+    /// `"composio:<toolkit>:<connection_id>"` or `"http_cred:<name>"`.
+    pub connection_ref: String,
+    /// Source kind: `"composio"` | `"http"`.
+    pub kind: String,
+    /// Human-readable label for the picker, e.g. `"Gmail · user@example.com"`
+    /// or `"stripe (bearer)"`. Never contains secret material.
+    pub display: String,
+    /// Composio toolkit slug (`kind = "composio"` only), e.g. `"gmail"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toolkit: Option<String>,
+    /// HTTP credential injection scheme (`kind = "http"` only):
+    /// `"bearer"` | `"basic"` | `"header"`. Not a secret.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scheme: Option<String>,
+}
+
 /// A persisted record of one `flows_run` / `flows_resume` invocation, for the
 /// B3 run-history inspector. Written by `flows::store` from `flows::ops`.
 #[derive(Debug, Clone, Serialize, Deserialize)]

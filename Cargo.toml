@@ -38,8 +38,10 @@ name = "openhuman_core"
 crate-type = ["rlib"]
 
 [dependencies]
-# tiny.place A2A social network SDK — published on crates.io (tinyhumansai/tiny.place)
-tinyplace = "1.0.1"
+# tiny.place A2A social network SDK — published on crates.io and patched below
+# to the vendored tiny.place submodule so OpenHuman can test SDK changes before
+# publishing.
+tinyplace = "2.0"
 # tinyflows — host-agnostic workflow engine (typed node graph → validate → compile →
 # run on tinyagents). Powers the "Workflows" feature via the seam in
 # `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.7 transitively
@@ -73,7 +75,7 @@ tinyagents = { version = "1.7", features = ["sqlite", "repl"] }
 # aligned to the host pins (=0.40 / 0.21) so one bundled SQLite + one libgit2
 # link. Keep the version pin in lockstep with the submodule tag.
 tinycortex = "0.1"
-tinychannels = { git = "https://github.com/tinyhumansai/tinychannels.git", branch = "feat/phase-0-hygiene", features = ["relay-websocket"] }
+tinychannels = { version = "0.1", features = ["relay-websocket"] }
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to
 # the language-agnostic brace-depth heuristic. See src/openhuman/tokenjuice/compressors/code.rs.
@@ -354,11 +356,14 @@ whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", b
 # version in lockstep with the `tinyagents` requirement above. After cloning:
 # `git submodule update --init vendor/tinyagents` (worktrees included).
 tinyagents = { path = "vendor/tinyagents" }
-# TinyFlows and TinyCortex are vendored beside TinyAgents so integration work can
-# test workflow and memory-layer changes against OpenHuman before publishing.
+# TinyFlows, TinyCortex, TinyJuice, TinyChannels, and TinyPlace are vendored beside
+# TinyAgents so integration work can test crate changes against OpenHuman before
+# publishing.
 tinyflows = { path = "vendor/tinyflows" }
 tinycortex = { path = "vendor/tinycortex" }
 tinyjuice = { path = "vendor/tinyjuice" }
+tinychannels = { path = "vendor/tinychannels" }
+tinyplace = { path = "vendor/tinyplace/sdk/rust" }
 
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the

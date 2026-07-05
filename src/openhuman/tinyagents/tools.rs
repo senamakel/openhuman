@@ -12,7 +12,8 @@ use async_trait::async_trait;
 use tinyagents::harness::steering::{SteeringCommand, SteeringHandle};
 use tinyagents::harness::tool::{
     SandboxMode, Tool, ToolAccess, ToolCall as TaToolCall, ToolExecutionContext, ToolPolicy,
-    ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects, WorkspaceAccess,
+    ToolResult as TaToolResult, ToolRuntime, ToolSchema, ToolSideEffects,
+    ToolTimeout as TaToolTimeout, WorkspaceAccess,
 };
 
 /// A captured early-exit: a sub-agent invoked an early-exit tool (e.g.
@@ -153,12 +154,10 @@ pub(crate) fn tool_policy_from_openhuman_tool(
         })
         .with_runtime(ToolRuntime {
             timeout_ms,
-            // tinyagents 1.7 added a structured `timeout: ToolTimeout` field
-            // alongside the numeric `timeout_ms`. Inherit the run/global policy
-            // to preserve prior behavior (the numeric `timeout_ms` above stays
-            // the only per-tool deadline signal). Fully-qualified because the
-            // local `ToolTimeout` import here is openhuman's, not the harness's.
-            timeout: tinyagents::harness::tool::ToolTimeout::Inherit,
+            // tinyagents 1.7 added a structured timeout field alongside the
+            // numeric timeout_ms. Inherit the run/global policy and keep the
+            // numeric timeout_ms above as the only per-tool deadline signal.
+            timeout: TaToolTimeout::Inherit,
             max_retries: None,
             idempotent: tool.is_concurrency_safe(&serde_json::Value::Null),
             cancelable: true,

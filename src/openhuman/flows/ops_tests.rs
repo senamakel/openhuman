@@ -1211,3 +1211,117 @@ async fn parked_run_ttl_sweep_expires_stale_runs_but_spares_fresh_ones() {
     .expect_err("an expired parked run must not be resumable");
     assert!(err.contains("not pending approval") || err.contains("no paused run"));
 }
+
+// ---------------------------------------------------------------------------
+// Unfired-trigger-kind warnings (PHASE 1a validation + PHASE 3c flows_validate)
+// ---------------------------------------------------------------------------
+
+fn webhook_trigger_graph() -> Value {
+    json!({
+        "name": "hooked",
+        "nodes": [
+            {
+                "id": "t",
+                "kind": "trigger",
+                "name": "Trigger",
+                "config": { "trigger_kind": "webhook" }
+            }
+        ],
+        "edges": []
+    })
+}
+
+#[test]
+fn flows_validate_warns_on_unfired_webhook_trigger() {
+    let outcome = flows_validate(webhook_trigger_graph());
+    assert!(outcome.value.valid, "a webhook graph is structurally valid");
+    assert!(outcome.value.errors.is_empty());
+    assert_eq!(
+        outcome.value.warnings.len(),
+        1,
+        "an unfired webhook trigger must produce exactly one warning: {:?}",
+        outcome.value.warnings
+    );
+    assert!(
+        outcome.value.warnings[0].contains("webhook")
+            && outcome.value.warnings[0].contains("does not fire"),
+        "warning must name the kind and explain it does not fire: {:?}",
+        outcome.value.warnings
+    );
+}
+
+#[test]
+fn flows_validate_does_not_warn_on_schedule_trigger() {
+    let outcome = flows_validate(schedule_trigger_graph("0 9 * * *"));
+    assert!(outcome.value.valid);
+    assert!(
+        outcome.value.warnings.is_empty(),
+        "a schedule trigger fires — it must not warn: {:?}",
+        outcome.value.warnings
+    );
+}
+
+#[test]
+fn flows_validate_reports_error_for_graph_without_trigger() {
+    let graph = json!({
+        "name": "bad",
+        "nodes": [ { "id": "a", "kind": "output_parser", "name": "A" } ],
+        "edges": []
+    });
+    let outcome = flows_validate(graph);
+    assert!(!outcome.value.valid);
+    assert_eq!(outcome.value.errors.len(), 1);
+    assert!(outcome.value.errors[0].contains("trigger"));
+    assert!(
+        outcome.value.warnings.is_empty(),
+        "an invalid graph reports no warnings"
+    );
+}
+
+#[tokio::test]
+async fn flows_set_enabled_surfaces_unfired_trigger_warning_at_enable() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(&config, "hooked".to_string(), webhook_trigger_graph(), false)
+        .await
+        .unwrap();
+
+    // Re-enable (create already enables) to exercise the enable path's warning.
+    let enabled = flows_set_enabled(&config, &created.value.id, true)
+        .await
+        .unwrap();
+    assert!(enabled.value.enabled);
+    assert!(
+        enabled
+            .logs
+            .iter()
+            .any(|l| l.starts_with("warning:") && l.contains("webhook")),
+        "enabling a webhook-trigger flow must surface a loud warning log, got: {:?}",
+        enabled.logs
+    );
+}
+
+#[tokio::test]
+async fn flows_set_enabled_schedule_flow_has_no_warning() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let created = flows_create(
+        &config,
+        "scheduled".to_string(),
+        schedule_trigger_graph("0 9 * * *"),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let enabled = flows_set_enabled(&config, &created.value.id, true)
+        .await
+        .unwrap();
+    assert!(
+        !enabled.logs.iter().any(|l| l.starts_with("warning:")),
+        "a schedule-trigger flow must not surface an unfired-trigger warning: {:?}",
+        enabled.logs
+    );
+}

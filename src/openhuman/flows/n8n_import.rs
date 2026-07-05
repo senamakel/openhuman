@@ -254,8 +254,9 @@ fn map_http_request(params: &Value, warnings: &mut Vec<String>, n8n_name: &str) 
 }
 
 /// Maps n8n `code`/`function` parameters onto tinyflows' code config, pulling
-/// the source out of n8n's `jsCode`/`functionCode`/`pythonCode` fields into a
-/// `code` key while preserving the language hint.
+/// the source out of n8n's `jsCode`/`functionCode`/`pythonCode` fields into the
+/// `source` key tinyflows' `code` node actually reads (`vendor/tinyflows/src/nodes/integration/code.rs`)
+/// while preserving the language hint.
 fn map_code(params: &Value, warnings: &mut Vec<String>, n8n_name: &str) -> Value {
     let translated = translate_config(params, warnings, n8n_name);
     let mut cfg = match translated {
@@ -268,7 +269,7 @@ fn map_code(params: &Value, warnings: &mut Vec<String>, n8n_name: &str) -> Value
         ("pythonCode", "python"),
     ] {
         if let Some(code) = cfg.remove(src) {
-            cfg.entry("code".to_string()).or_insert(code);
+            cfg.entry("source".to_string()).or_insert(code);
             cfg.entry("language".to_string())
                 .or_insert_with(|| Value::String(lang.to_string()));
         }
@@ -742,7 +743,7 @@ mod tests {
     fn code_node_pulls_source_and_language() {
         let mut warnings = Vec::new();
         let cfg = map_code(&json!({ "jsCode": "return items;" }), &mut warnings, "Code");
-        assert_eq!(cfg["code"], json!("return items;"));
+        assert_eq!(cfg["source"], json!("return items;"));
         assert_eq!(cfg["language"], json!("javascript"));
     }
 

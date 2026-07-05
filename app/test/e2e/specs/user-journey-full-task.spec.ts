@@ -10,7 +10,7 @@
  *   3. Ask: "Fetch the contents of example.com for me"
  *   4. Agent calls web_fetch tool (mocked)
  *   5. Final answer with canary text appears
- *   6. Navigate away to /home, then back to /chat
+ *   6. Navigate away to settings, then back to /chat
  *   7. Thread conversation history is still visible
  *
  * Tests:
@@ -31,7 +31,7 @@ import {
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
-import { navigateToHome, navigateViaHash, waitForHomePage } from '../helpers/shared-flows';
+import { navigateViaHash } from '../helpers/shared-flows';
 import { clearRequestLog, setMockBehavior, startMockServer, stopMockServer } from '../mock-server';
 
 const LOG_PREFIX = '[user-journey-full-task]';
@@ -160,7 +160,7 @@ describe('User journey — full research task', () => {
 
   it('J1.4 — after navigate away + back, thread messages still visible', async function () {
     this.timeout(60_000);
-    console.log(`${LOG_PREFIX} J1.4: navigating away to /home`);
+    console.log(`${LOG_PREFIX} J1.4: navigating away to /settings/privacy`);
 
     // Ensure the IN_FLIGHT map cleared (turn is fully done) before navigating.
     await browser.waitUntil(
@@ -174,10 +174,18 @@ describe('User journey — full research task', () => {
       { timeout: 15_000, timeoutMsg: 'IN_FLIGHT never cleared before navigate-away' }
     );
 
-    await navigateToHome();
-    const homeText = await waitForHomePage(10_000);
-    expect(homeText).toBeTruthy();
-    console.log(`${LOG_PREFIX} J1.4: on /home — "${homeText}"`);
+    await navigateViaHash('/settings/privacy');
+    await browser.waitUntil(
+      async () =>
+        browser.execute(() =>
+          Boolean(document.querySelector('[data-testid="settings-privacy-panel"]'))
+        ),
+      {
+        timeout: 15_000,
+        timeoutMsg: 'Privacy settings panel did not mount before returning to chat',
+      }
+    );
+    console.log(`${LOG_PREFIX} J1.4: on /settings/privacy`);
 
     await browser.pause(500);
 
@@ -188,12 +196,22 @@ describe('User journey — full research task', () => {
       timeoutMsg: 'Conversations panel did not remount',
     });
 
-    // The thread we created should still be in the sidebar / visible.
-    // We look for the canary text which should still be rendered for the active thread.
-    await browser.waitUntil(async () => await textExists(CANARY_FINAL), {
-      timeout: 15_000,
-      timeoutMsg: `canary "${CANARY_FINAL}" not visible after navigate back to /chat`,
-    });
+    // The thread we created should still be visible after route churn. Use a
+    // direct DOM text scan here: the failure artifact from Release CI showed
+    // the canary in the rendered page while the element-level lookup timed out
+    // under the shared CEF session.
+    await browser.waitUntil(
+      async () =>
+        browser.execute(
+          (canary: string) => document.body.textContent?.includes(canary) ?? false,
+          CANARY_FINAL
+        ),
+      {
+        timeout: 20_000,
+        interval: 300,
+        timeoutMsg: `canary "${CANARY_FINAL}" not visible after navigate back to /chat`,
+      }
+    );
 
     console.log(`${LOG_PREFIX} J1.4: passed — conversation persists across navigation`);
   });

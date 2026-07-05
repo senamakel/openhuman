@@ -18,7 +18,7 @@ It began as a port of [vincentkoc/tokenjuice](https://github.com/vincentkoc/toke
 ## The pipeline, step by step
 
 Every blob that flows through the policy-aware TokenJuice tool-output adapters
-takes the same path (`src/openhuman/tokenjuice/compress.rs`):
+takes the same path through the vendored TinyJuice router (`vendor/tinyjuice/src/compress.rs`):
 
 ```text
 raw tool result
@@ -60,7 +60,7 @@ raw tool result
 
 ## The compressors
 
-Each content kind has a purpose-built compressor (`src/openhuman/tokenjuice/compressors/`):
+Each content kind has a purpose-built compressor (`vendor/tinyjuice/src/compressors/`):
 
 | Compressor       | Kind        | What it does                                                                                              |
 | ---------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
@@ -79,7 +79,7 @@ Multi-byte text (CJK, emoji, combining marks) is handled grapheme-by-grapheme th
 
 ## ML compression (opt-in)
 
-Beyond the deterministic compressors, TokenJuice can route plain text through a **ModernBERT** token-salience model that scores and drops low-information spans (`src/openhuman/tokenjuice/ml/`).
+Beyond the deterministic compressors, TokenJuice can route plain text through a **ModernBERT** token-salience model that scores and drops low-information spans. The TinyJuice compressor exposes the optional ML slot, and OpenHuman bridges it to Kompress in `src/openhuman/tokenjuice/ml/`.
 
 * **Off by default.** Enable with `ml_compression_enabled = true` in `[tokenjuice]`.
 * **Runs locally** as the `kompress` backend of the shared Python runtime sidecar. No data leaves your machine.
@@ -90,7 +90,7 @@ Beyond the deterministic compressors, TokenJuice can route plain text through a 
 
 ## Nothing is lost: CCR cache & retrieval
 
-Lossy compression would normally mean throwing data away. TokenJuice instead **offloads** the full original into the **Compress-Cache-Retrieve (CCR)** store and leaves a breadcrumb (`src/openhuman/tokenjuice/cache/`).
+Lossy compression would normally mean throwing data away. TokenJuice instead **offloads** the full original into the **Compress-Cache-Retrieve (CCR)** store and leaves a breadcrumb (`vendor/tinyjuice/src/cache/`).
 
 * **In-memory tier** (always on): a process-global store keyed by SHA-256 hash, bounded by entry count (`max_cache_entries`, default 256) and total bytes (`max_cache_bytes`, default 64 MiB), FIFO eviction.
 * **On-disk tier** (optional): `<workspace>/.tokenjuice/ccr/`, enabled with `ccr_disk_enabled`, survives memory eviction. Optional TTL via `ccr_ttl_secs`.
@@ -103,7 +103,7 @@ So the agent gets the cheap compacted view by default, and can transparently "zo
 
 ## Savings tracking
 
-Every compression is metered (`src/openhuman/tokenjuice/savings.rs`). TokenJuice tracks events, original vs. compacted tokens, tokens saved, and **estimated cost saved in USD** (using per-model input pricing), aggregated as `total`, `by_model`, and `by_compressor`. Stats persist to `<workspace>/state/tokenjuice_savings.json` and survive restarts.
+Every compression is metered by an OpenHuman savings callback (`src/openhuman/tokenjuice/savings.rs`). TokenJuice reports events and token deltas; OpenHuman applies per-model input pricing, aggregates `total`, `by_model`, and `by_compressor`, and persists stats to `<workspace>/state/tokenjuice_savings.json`.
 
 Read them over RPC with `openhuman.tokenjuice_savings_stats`; clear them with `openhuman.tokenjuice_savings_reset`.
 

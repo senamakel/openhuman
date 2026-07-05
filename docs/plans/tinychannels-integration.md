@@ -48,14 +48,15 @@ Companion docs in the tinychannels repo:
   controllers route through the manager while preserving their no-log typed
   responses. The no-log send/reaction/thread controllers now dispatch through
   the manager and unwrap the backend `raw` payload to preserve legacy top-level
-  JSON shapes; `channels.send_message` now crosses that seam as a
-  `ChannelOutboundIntent` and gets a deterministic idempotency key before the
-  legacy backend API call. `channels.disconnect` also routes through the manager
-  while preserving the old log string and extra fields such as
+  JSON shapes; `channels.send_message` and direct channel-bus backend sends now
+  cross the crate intent bridge as `ChannelOutboundIntent`s and get
+  deterministic idempotency keys before legacy backend API calls.
+  `channels.disconnect` also routes through the manager while preserving the old
+  log string and extra fields such as
   `memory_chunks_deleted`. Discord guild/channel/permission discovery dispatches
   through the manager while restoring the old log strings and top-level provider
   JSON. The remaining OpenHuman work is still envelope/session migration,
-  bus/proactive outbound-intent adoption, relay runtime adoption, provider
+  proactive/provider outbound-intent adoption, relay runtime adoption, provider
   extraction, and the planned test split below.
 
 ## Step 1 — Add the dependency, delete duplicates
@@ -127,13 +128,13 @@ copies):
    construction when moving to the crate's envelope. Deferral reason: adding
    scope to the current legacy string keys would change conversation identity
    without the envelope migration that can preserve compatibility aliases.
-4. **Partly landed for controller sends; bus/proactive sends remain.** No
-   idempotency key exists on legacy sends; a retry after a transport error
+4. **Partly landed for controller and bus REST sends; provider sends remain.**
+   No idempotency key exists on legacy sends; a retry after a transport error
    double-posts. `channels.send_message` now routes through a crate
    `ChannelOutboundIntent` at the `ChannelBackend` seam while preserving the
-   legacy public RPC response and backend JSON shape. The channel bus and
-   proactive outbound paths still call the backend API directly and need the
-   same intent/idempotency adoption.
+   legacy public RPC response and backend JSON shape. The direct channel bus
+   backend sends use the same crate bridge. Proactive/provider `Channel::send`
+   paths still need intent/idempotency adoption.
 5. **Deferred pending product decision: `conversation_memory_key` intent
    check.** It keys on `msg.id`
    (per-message, not per-conversation) and this repo's tests assert that

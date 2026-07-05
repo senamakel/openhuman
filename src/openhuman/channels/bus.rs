@@ -6,7 +6,7 @@
 
 use crate::core::event_bus::{DomainEvent, EventHandler};
 use async_trait::async_trait;
-use serde_json::json;
+use serde_json::{json, Value};
 
 /// Subscribes to `ChannelInboundMessage` events and runs the agent loop,
 /// sending replies back to the originating channel via the backend REST API.
@@ -16,6 +16,11 @@ impl Default for ChannelInboundSubscriber {
     fn default() -> Self {
         Self::new()
     }
+}
+
+fn channel_message_body_with_idempotency(channel: &str, body: Value) -> Value {
+    let intent = tinychannels::outbound_intent_from_legacy_message(channel, body);
+    tinychannels::legacy_message_value_from_outbound_intent(&intent)
 }
 
 impl ChannelInboundSubscriber {
@@ -538,7 +543,7 @@ async fn flush_streaming_edit(channel: &str, state: &mut StreamingState) {
             }
         }
     } else {
-        let body = json!({ "text": draft });
+        let body = channel_message_body_with_idempotency(channel, json!({ "text": draft }));
         match client.send_channel_message(channel, &jwt, body).await {
             Ok(resp) => {
                 // A message was posted to the user — record that fact
@@ -652,7 +657,7 @@ async fn flush_thinking_message(channel: &str, state: &mut StreamingState) {
         }
     } else {
         // Send initial thinking message.
-        let body = json!({ "text": text });
+        let body = channel_message_body_with_idempotency(channel, json!({ "text": text }));
         match client.send_channel_message(channel, &jwt, body).await {
             Ok(resp) => {
                 state.thinking_sent = true;
@@ -733,7 +738,7 @@ async fn send_filler_message(channel: &str, state: &mut StreamingState) {
     let Some((client, jwt)) = build_channel_client().await else {
         return;
     };
-    let body = json!({ "text": text });
+    let body = channel_message_body_with_idempotency(channel, json!({ "text": text }));
     match client.send_channel_message(channel, &jwt, body).await {
         Ok(resp) => {
             state.filler_failures = 0;
@@ -972,7 +977,7 @@ async fn send_channel_reply(channel: &str, text: &str) {
         }
     };
 
-    let body = json!({ "text": text });
+    let body = channel_message_body_with_idempotency(channel, json!({ "text": text }));
     match client.send_channel_message(channel, &jwt, body).await {
         Ok(resp) => {
             tracing::info!(
@@ -1077,8 +1082,10 @@ fn channel_is_telegram(channel: &str) -> bool {
 #[cfg(test)]
 mod inbound_thread_id_tests {
     use super::{
-        channel_supports_progressive_ui, derive_inbound_client_id, derive_inbound_thread_id,
+        channel_message_body_with_idempotency, channel_supports_progressive_ui,
+        derive_inbound_client_id, derive_inbound_thread_id,
     };
+    use serde_json::json;
 
     #[test]
     fn progressive_ui_is_an_allowlist_failing_safe_for_unknown_channels() {
@@ -1094,6 +1101,36 @@ mod inbound_thread_id_tests {
         // Unknown/new adapters fail safe (allowlist, not denylist).
         assert!(!channel_supports_progressive_ui("slack"));
         assert!(!channel_supports_progressive_ui("whatsapp:123"));
+    }
+
+    #[test]
+    fn channel_message_body_adds_deterministic_idempotency_key() {
+        let left = channel_message_body_with_idempotency(
+            "telegram",
+            json!({ "text": "hello", "threadId": "topic-1" }),
+        );
+        let right = channel_message_body_with_idempotency(
+            "telegram",
+            json!({ "threadId": "topic-1", "text": "hello" }),
+        );
+
+        assert_eq!(left["text"], "hello");
+        assert_eq!(left["threadId"], "topic-1");
+        assert_eq!(left["idempotencyKey"], right["idempotencyKey"]);
+        assert!(left["idempotencyKey"]
+            .as_str()
+            .expect("idempotency key")
+            .starts_with("legacy-send:telegram:"));
+    }
+
+    #[test]
+    fn channel_message_body_preserves_caller_idempotency_key() {
+        let body = channel_message_body_with_idempotency(
+            "discord",
+            json!({ "text": "hello", "idempotencyKey": "caller-key" }),
+        );
+
+        assert_eq!(body["idempotencyKey"], "caller-key");
     }
 
     #[test]

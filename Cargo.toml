@@ -52,7 +52,7 @@ tinyplace = "2.0"
 # deterministic in-memory capability bundle the flows `dry_run_workflow` agent
 # tool (Phase 5b) runs a *draft* graph against so the workflow-builder agent can
 # self-verify a proposal without any real side effects (no real LLM/tool/HTTP/code).
-tinyflows = { version = "0.4", features = ["mock"] }
+tinyflows = { version = "0.5", features = ["mock"] }
 # TinyJuice — host-agnostic TokenJuice compression engine. OpenHuman keeps
 # config/RPC/tool/runtime adapters in `src/openhuman/tokenjuice/` and patches
 # this dependency to the vendored submodule below.

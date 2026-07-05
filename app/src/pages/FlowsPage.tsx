@@ -10,7 +10,7 @@
  * point.
  */
 import createDebug from 'debug';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import EmptyStateCard from '../components/EmptyStateCard';
@@ -23,9 +23,15 @@ import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
+import {
+  FLOW_CANVAS_DRAFT_ROUTE,
+  type FlowCanvasDraftState,
+} from '../lib/flows/canvasDraft';
+import { downloadFlowGraph } from '../lib/flows/exportFlow';
 import { type FlowTemplate, templateNameKey } from '../lib/flows/templates';
+import type { WorkflowGraph } from '../lib/flows/types';
 import { useT } from '../lib/i18n/I18nContext';
-import { type Flow, listFlows, runFlow, setFlowEnabled } from '../services/api/flowsApi';
+import { type Flow, importFlow, listFlows, runFlow, setFlowEnabled } from '../services/api/flowsApi';
 import type { ToastNotification } from '../types/intelligence';
 
 const log = createDebug('app:flows');
@@ -151,6 +157,69 @@ export default function FlowsPage() {
 
   const selectedFlow = flows.find(f => f.id === selectedFlowId) ?? null;
 
+  /** Downloads a flow's `WorkflowGraph` as a JSON file (Phase 4d export). */
+  const handleExport = useCallback(
+    (flow: Flow) => {
+      log('export: id=%s', flow.id);
+      const ok = downloadFlowGraph(flow.name, flow.graph);
+      if (ok) {
+        addToast({ type: 'success', title: t('flows.list.exported') });
+      }
+    },
+    [addToast, t]
+  );
+
+  // Hidden file input backing the header "Import" action. Clicking the button
+  // opens the OS file picker; the change handler reads + imports the file.
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleImportClick = useCallback(() => {
+    log('import: opening file picker');
+    importInputRef.current?.click();
+  }, []);
+
+  /**
+   * Reads the picked JSON file and runs it through `flows_import` (host-side
+   * migrate + validate + best-effort n8n mapping). On success, opens the
+   * normalized graph on the editable canvas as an UNSAVED draft — nothing is
+   * persisted until the user Saves via the canvas's existing gate. Auto-detect
+   * handles native vs n8n, so no format prompt is needed.
+   */
+  const handleImportFile = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      // Reset the input so re-picking the same file fires `change` again.
+      event.target.value = '';
+      if (!file) return;
+      setError(null);
+      log('import: reading file name=%s size=%d', file.name, file.size);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(await file.text());
+      } catch (err) {
+        log('import: invalid JSON: %o', err);
+        setError(t('flows.import.invalidFile'));
+        return;
+      }
+      try {
+        const result = await importFlow(parsed, 'auto');
+        const graph = result.graph as WorkflowGraph;
+        log('import: ok warnings=%d', result.warnings.length);
+        const draft: FlowCanvasDraftState = {
+          name: graph.name || file.name.replace(/\.[^.]+$/, ''),
+          graph,
+          requireApproval: true,
+          importWarnings: result.warnings,
+        };
+        navigate(FLOW_CANVAS_DRAFT_ROUTE, { state: draft });
+      } catch (err) {
+        log('import failed: %o', err);
+        setError(t('flows.import.error'));
+      }
+    },
+    [navigate, t]
+  );
+
   /** "New workflow" opens the Phase 4a chooser (scratch / template / describe). */
   const handleNewWorkflow = useCallback(() => {
     log('new workflow: opening chooser');
@@ -189,15 +258,33 @@ export default function FlowsPage() {
       title={t('flows.page.title')}
       description={t('flows.page.description')}
       action={
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          data-testid="flows-new-workflow"
-          onClick={handleNewWorkflow}>
-          {t('flows.page.newWorkflow')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            data-testid="flows-import"
+            onClick={handleImportClick}>
+            {t('flows.page.import')}
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            data-testid="flows-new-workflow"
+            onClick={handleNewWorkflow}>
+            {t('flows.page.newWorkflow')}
+          </Button>
+        </div>
       }>
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        data-testid="flows-import-input"
+        onChange={e => void handleImportFile(e)}
+      />
       <div className="mx-auto w-full max-w-3xl space-y-4">
         {error && (
           <div data-testid="flows-error">
@@ -258,6 +345,7 @@ export default function FlowsPage() {
                 onRun={f => void handleRun(f)}
                 onViewRuns={handleViewRuns}
                 onView={handleView}
+                onExport={handleExport}
               />
             ))}
           </div>

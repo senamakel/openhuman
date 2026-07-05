@@ -3805,6 +3805,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'Ausführungen konnten nicht geladen werden',
   'flows.runs.empty': 'Noch keine Ausführungen',
   'flows.list.view': 'Workflow anzeigen',
+  'flows.list.export': 'Exportieren',
+  'flows.list.exported': 'Workflow exportiert',
+  'flows.page.import': 'Importieren',
+  'flows.import.invalidFile': 'Diese Datei ist kein gültiges Workflow-JSON.',
+  'flows.import.error': 'Dieser Workflow konnte nicht importiert werden. Überprüfe die Datei und versuche es erneut.',
+  'flows.import.warningTitle': 'Importwarnung',
   'flows.canvas.title': 'Workflow',
   'flows.canvas.loading': 'Workflow wird geladen…',
   'flows.canvas.loadError':

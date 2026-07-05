@@ -31,6 +31,13 @@ export interface FlowCanvasDraftState {
   graph: WorkflowGraph;
   /** "Require approval for outbound actions" toggle to carry into `flows_create`. */
   requireApproval: boolean;
+  /**
+   * Non-fatal import warnings (Phase 4d) — surfaced as toasts over the draft
+   * canvas when a graph was imported via `flows_import` (unmapped n8n node
+   * types, untranslated expressions, a synthesized/demoted trigger). Absent for
+   * a chat-proposal draft (which carries no import notes).
+   */
+  importWarnings?: string[];
 }
 
 /** Narrow an opaque `location.state` to a {@link FlowCanvasDraftState}. */
@@ -46,9 +53,13 @@ export function asFlowCanvasDraftState(state: unknown): FlowCanvasDraftState | n
   ) {
     return null;
   }
+  const importWarnings = Array.isArray(record.importWarnings)
+    ? record.importWarnings.filter((w): w is string => typeof w === 'string')
+    : undefined;
   return {
     name: record.name,
     graph: graph as WorkflowGraph,
     requireApproval: record.requireApproval,
+    ...(importWarnings ? { importWarnings } : {}),
   };
 }

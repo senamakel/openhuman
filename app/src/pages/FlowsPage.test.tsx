@@ -22,13 +22,18 @@ const setFlowEnabled = vi.hoisted(() => vi.fn());
 const runFlow = vi.hoisted(() => vi.fn());
 const listFlowRuns = vi.hoisted(() => vi.fn());
 const createFlow = vi.hoisted(() => vi.fn());
+const importFlow = vi.hoisted(() => vi.fn());
 vi.mock('../services/api/flowsApi', () => ({
   listFlows,
   setFlowEnabled,
   runFlow,
   listFlowRuns,
   createFlow,
+  importFlow,
 }));
+
+const downloadFlowGraph = vi.hoisted(() => vi.fn(() => true));
+vi.mock('../lib/flows/exportFlow', () => ({ downloadFlowGraph }));
 
 const mockNavigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async importOriginal => {
@@ -200,5 +205,61 @@ describe('FlowsPage', () => {
     await waitFor(() => expect(createFlow).toHaveBeenCalledTimes(1));
     expect(createFlow.mock.calls[0][1]).toBe(template.graph);
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/flows/flow-created'));
+  });
+
+  it('renders an Import button in the header', async () => {
+    listFlows.mockResolvedValue([makeFlow()]);
+    renderWithProviders(<FlowsPage />);
+
+    const importButton = await screen.findByTestId('flows-import');
+    expect(importButton).toHaveTextContent('Import');
+  });
+
+  it('exports a flow row as JSON via downloadFlowGraph', async () => {
+    listFlows.mockResolvedValue([makeFlow({ graph: { nodes: [], edges: [] } })]);
+    renderWithProviders(<FlowsPage />);
+
+    fireEvent.click(await screen.findByTestId('flow-export-flow-1'));
+
+    expect(downloadFlowGraph).toHaveBeenCalledWith('Daily digest', { nodes: [], edges: [] });
+  });
+
+  it('imports a picked JSON file and opens the result as a draft canvas', async () => {
+    listFlows.mockResolvedValue([]);
+    const graph = { schema_version: 1, name: 'Imported', nodes: [], edges: [] };
+    importFlow.mockResolvedValue({ graph, warnings: ['heads up'] });
+    renderWithProviders(<FlowsPage />);
+
+    const input = await screen.findByTestId('flows-import-input');
+    const file = new File([JSON.stringify({ nodes: [] })], 'wf.json', {
+      type: 'application/json',
+    });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(importFlow).toHaveBeenCalledWith({ nodes: [] }, 'auto'));
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/flows/draft', {
+        state: {
+          name: 'Imported',
+          graph,
+          requireApproval: true,
+          importWarnings: ['heads up'],
+        },
+      })
+    );
+  });
+
+  it('shows an error when the picked file is not valid JSON', async () => {
+    listFlows.mockResolvedValue([]);
+    renderWithProviders(<FlowsPage />);
+
+    const input = await screen.findByTestId('flows-import-input');
+    const file = new File(['not json{'], 'wf.json', { type: 'application/json' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByTestId('flows-error')).toHaveTextContent(
+      'That file is not valid workflow JSON.'
+    );
+    expect(importFlow).not.toHaveBeenCalled();
   });
 });

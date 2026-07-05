@@ -126,6 +126,25 @@ export interface FlowValidation {
 }
 
 /**
+ * Source format for {@link importFlow}. `native` is a tinyflows `WorkflowGraph`
+ * JSON; `n8n` is an n8n workflow export (mapped best-effort host-side); `auto`
+ * (the default) detects the shape.
+ */
+export type FlowImportFormat = 'native' | 'n8n' | 'auto';
+
+/**
+ * Result of `openhuman.flows_import` (`src/openhuman/flows/types.rs::FlowImport`).
+ * The `graph` is the normalized, migrated + validated `WorkflowGraph` ready to
+ * open on the canvas as an unsaved draft; `warnings` carries non-fatal import
+ * notes (unmapped n8n node types, untranslated expressions, a synthesized or
+ * demoted trigger). Import NEVER persists — the user Saves via the normal gate.
+ */
+export interface FlowImport {
+  graph: unknown;
+  warnings: string[];
+}
+
+/**
  * A secret-free credential reference for the node-config credential picker
  * (`src/openhuman/flows/types.rs::FlowConnection`). `connection_ref` is
  * `"composio:<toolkit>:<connection_id>"` (composio) or `"http_cred:<name>"`
@@ -399,8 +418,32 @@ export async function listFlowConnections(): Promise<FlowConnection[]> {
   return connections;
 }
 
+/**
+ * Import a workflow definition (native tinyflows JSON or an n8n export) via
+ * `openhuman.flows_import`. The server migrates + validates it host-side and
+ * returns the normalized graph plus non-fatal warnings WITHOUT persisting — the
+ * caller opens the result on the canvas as a draft and Saves via the existing
+ * `flows_create` gate. Rejects (throws) when the definition is structurally
+ * invalid or unparseable server-side, so the UI can surface a load error
+ * instead of opening a broken canvas.
+ */
+export async function importFlow(
+  graph: unknown,
+  format: FlowImportFormat = 'auto'
+): Promise<FlowImport> {
+  log('importFlow: request format=%s', format);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_import',
+    params: { graph, format },
+  });
+  const result = unwrapCliEnvelope<FlowImport>(response);
+  log('importFlow: response warnings=%d', result.warnings?.length ?? 0);
+  return result;
+}
+
 export const flowsApi = {
   createFlow,
+  importFlow,
   resumeFlow,
   listFlowRuns,
   getFlowRun,

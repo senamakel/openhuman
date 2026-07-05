@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
+import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
@@ -30,6 +31,7 @@ import { workflowGraphToXyflow } from '../lib/flows/graphAdapter';
 import type { WorkflowGraph } from '../lib/flows/types';
 import { useT } from '../lib/i18n/I18nContext';
 import { type Flow, createFlow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
+import type { ToastNotification } from '../types/intelligence';
 
 const log = createDebug('app:flows:canvas');
 
@@ -377,16 +379,34 @@ export function FlowCanvasDraftPage() {
   const location = useLocation();
   const draft = useMemo(() => asFlowCanvasDraftState(location.state), [location.state]);
 
+  // Non-fatal import warnings (Phase 4d) shown as dismissible toasts over the
+  // draft canvas. Seeded once from the draft state so unmapped n8n node types /
+  // untranslated expressions aren't silently lost on the way in.
+  const [toasts, setToasts] = useState<ToastNotification[]>(() =>
+    (draft?.importWarnings ?? []).map((message, i) => ({
+      id: `import-warning-${i}`,
+      type: 'warning',
+      title: t('flows.import.warningTitle'),
+      message,
+    }))
+  );
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(item => item.id !== id));
+  }, []);
+
   if (draft) {
     return (
-      <FlowEditor
-        editorFlow={{
-          flowId: null,
-          name: draft.name,
-          graph: draft.graph,
-          requireApproval: draft.requireApproval,
-        }}
-      />
+      <>
+        <FlowEditor
+          editorFlow={{
+            flowId: null,
+            name: draft.name,
+            graph: draft.graph,
+            requireApproval: draft.requireApproval,
+          }}
+        />
+        <ToastContainer notifications={toasts} onRemove={removeToast} />
+      </>
     );
   }
 

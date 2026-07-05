@@ -777,6 +777,7 @@ function EditableFlowCanvas({
           onClose={handleCloseConfig}
           onChange={updateNode}
           connections={connections}
+          nodes={nodes}
           edges={edges}
           nodeLabelById={nodeLabelById}
           onRemoveEdge={removeEdge}

@@ -6986,7 +6986,7 @@ const messages: TranslationMap = {
   'flows.list.moreActions': "Plus d'actions",
   'flows.delete.title': 'Supprimer le workflow ?',
   'flows.delete.body':
-    '\"{name}\" et son historique d\'exécution seront définitivement supprimés. Cette action est irréversible.',
+    '"{name}" et son historique d\'exécution seront définitivement supprimés. Cette action est irréversible.',
   'flows.delete.cancel': 'Annuler',
   'flows.delete.confirm': 'Supprimer',
   'flows.delete.deleting': 'Suppression…',

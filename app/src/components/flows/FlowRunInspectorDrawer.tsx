@@ -147,6 +147,23 @@ function StepRow({
           </span>
         )}
       </div>
+      {/* Null-resolution diagnostics: each config `=`-expression that resolved
+          to null during this step (a wiring smell, not a hard failure). */}
+      {step.diagnostics && step.diagnostics.length > 0 && (
+        <div
+          data-testid={`flow-run-step-diagnostics-${index}`}
+          className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          <div className="font-medium">{t('flowRuns.inspector.diagnosticsTitle')}</div>
+          <ul className="mt-0.5 space-y-0.5">
+            {step.diagnostics.map((diag, diagIdx) => (
+              <li key={`${diag.location}-${diagIdx}`} className="break-all font-mono">
+                {diag.location} ← {diag.expression}{' '}
+                <span className="font-sans">{t('flowRuns.inspector.diagnosticResolvedNull')}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {items.length > 0 && (
         <details className="mt-1.5">
           <summary className="cursor-pointer text-[11px] font-medium text-content-faint hover:text-content-secondary">

@@ -220,6 +220,66 @@ async function fetchActionSlugs(toolkit: string): Promise<string[]> {
     .filter((name): name is string => typeof name === 'string' && name.length > 0);
 }
 
+/** Parsed argument schema of one Composio action (from its JSON-schema `parameters`). */
+export interface ComposioActionSchema {
+  /** Argument names the action requires (`parameters.required`). */
+  required: string[];
+  /** The remaining declared argument names (`parameters.properties` minus required). */
+  optional: string[];
+  /** Raw per-argument JSON-schema fragments (`parameters.properties`). */
+  properties: Record<string, unknown>;
+}
+
+/** Extract a {@link ComposioActionSchema} from a tool's raw `parameters` object. */
+function parseActionSchema(parameters: Record<string, unknown> | undefined): ComposioActionSchema {
+  const rawProps = parameters?.properties;
+  const properties =
+    rawProps && typeof rawProps === 'object' && !Array.isArray(rawProps)
+      ? (rawProps as Record<string, unknown>)
+      : {};
+  const rawRequired = parameters?.required;
+  const required = Array.isArray(rawRequired)
+    ? rawRequired.filter((name): name is string => typeof name === 'string')
+    : [];
+  const optional = Object.keys(properties).filter(name => !required.includes(name));
+  return { required, optional, properties };
+}
+
+/**
+ * Per-toolkit cache of the action → schema map, sharing one in-flight
+ * `composio_list_tools` call per toolkit across all consumers. Failed fetches
+ * are evicted so a transient error doesn't poison the session.
+ */
+const actionSchemaCache = new Map<string, Promise<Map<string, ComposioActionSchema>>>();
+
+/**
+ * Fetch the argument schema of one Composio action (`toolkit` + action `slug`)
+ * from the live catalog. Returns `null` when the action isn't in the catalog
+ * (e.g. a custom slug); rejects when the catalog fetch itself fails — callers
+ * degrade to the raw args editor in both cases.
+ */
+export async function fetchActionSchema(
+  toolkit: string,
+  slug: string
+): Promise<ComposioActionSchema | null> {
+  let promise = actionSchemaCache.get(toolkit);
+  if (!promise) {
+    promise = listTools([toolkit]).then(res => {
+      const bySlug = new Map<string, ComposioActionSchema>();
+      for (const tool of res.tools) {
+        const name = tool.function?.name;
+        if (typeof name !== 'string' || name.length === 0) continue;
+        bySlug.set(name, parseActionSchema(tool.function.parameters));
+      }
+      return bySlug;
+    });
+    actionSchemaCache.set(toolkit, promise);
+    promise.catch(() => actionSchemaCache.delete(toolkit));
+  }
+  const bySlug = await promise;
+  return bySlug.get(slug) ?? null;
+}
+
 export function ComposioActionField(props: {
   label: string;
   hint?: string;

@@ -6950,7 +6950,7 @@ const messages: TranslationMap = {
   'flows.list.moreActions': 'Altre azioni',
   'flows.delete.title': 'Eliminare il flusso di lavoro?',
   'flows.delete.body':
-    '\"{name}\" e la relativa cronologia delle esecuzioni verranno rimossi definitivamente. Questa azione non può essere annullata.',
+    '"{name}" e la relativa cronologia delle esecuzioni verranno rimossi definitivamente. Questa azione non può essere annullata.',
   'flows.delete.cancel': 'Annulla',
   'flows.delete.confirm': 'Elimina',
   'flows.delete.deleting': 'Eliminazione…',

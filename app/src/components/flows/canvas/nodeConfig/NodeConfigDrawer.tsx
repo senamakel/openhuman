@@ -27,6 +27,7 @@ import type { FlowConnection } from '../../../../services/api/flowsApi';
 import { JsonField } from './nodeConfigFields';
 import { NODE_CONFIG_FORMS } from './nodeConfigForms';
 import { NodeConnections } from './NodeConnections';
+import { type UpstreamExpressionOption, upstreamExpressionOptions } from './upstreamOptions';
 
 const log = createDebug('app:flows:nodeConfig:drawer');
 
@@ -43,6 +44,8 @@ export interface NodeConfigDrawerProps {
   onChange: (nodeId: string, patch: NodeConfigPatch) => void;
   /** Secret-free credential refs for the picker (loaded once by the canvas). */
   connections: FlowConnection[];
+  /** All graph nodes — used to derive the upstream `=nodes.…` picker options. */
+  nodes?: FlowNode[];
   /** All graph edges — the drawer shows the selected node's incident ones. */
   edges?: FlowEdge[];
   /** Node id → display name, for labelling the other end of each connection. */
@@ -55,10 +58,12 @@ function NodeConfigBody({
   node,
   onChange,
   connections,
+  upstreamOptions,
 }: {
   node: FlowNode;
   onChange: (nodeId: string, patch: NodeConfigPatch) => void;
   connections: FlowConnection[];
+  upstreamOptions: UpstreamExpressionOption[];
 }) {
   const { t } = useT();
   const config = useMemo(() => node.data.config ?? {}, [node.data.config]);
@@ -102,7 +107,12 @@ function NodeConfigBody({
       )}
 
       {Form && !rawMode ? (
-        <Form config={config} onChange={mergeConfig} connections={connections} />
+        <Form
+          config={config}
+          onChange={mergeConfig}
+          connections={connections}
+          upstreamOptions={upstreamOptions}
+        />
       ) : (
         <JsonField
           label={t('flows.nodeConfig.rawJsonLabel')}
@@ -122,6 +132,7 @@ function NodeConfigDrawer({
   onClose,
   onChange,
   connections,
+  nodes = [],
   edges = [],
   nodeLabelById = {},
   onRemoveEdge = () => {},
@@ -132,6 +143,13 @@ function NodeConfigDrawer({
     log('escape: closing');
     onClose();
   }, node !== null);
+
+  // Upstream `=nodes.…` picker options for the selected node's expression
+  // fields — its transitive ancestors' outputs (Feature: `nodes` scope).
+  const upstreamOptions = useMemo(
+    () => (node ? upstreamExpressionOptions(node.id, nodes, edges) : []),
+    [node, nodes, edges]
+  );
 
   if (!node) return null;
 
@@ -198,7 +216,13 @@ function NodeConfigDrawer({
             onRemoveEdge={onRemoveEdge}
           />
           {/* Keyed by node id so the JSON editor's local buffer re-seeds on switch. */}
-          <NodeConfigBody key={node.id} node={node} onChange={onChange} connections={connections} />
+          <NodeConfigBody
+            key={node.id}
+            node={node}
+            onChange={onChange}
+            connections={connections}
+            upstreamOptions={upstreamOptions}
+          />
         </div>
       </aside>
     </div>

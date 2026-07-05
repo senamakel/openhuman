@@ -55,6 +55,11 @@ export interface FlowRunStep {
   output: unknown;
   /** Output port the node routed on, if any (branching/switch nodes). Omitted when absent. */
   port?: string;
+  /**
+   * Config `=`-expressions that resolved to `null` while running this step
+   * (`location` is the config path, e.g. `args.to`). Empty/absent when clean.
+   */
+  diagnostics?: Array<{ location: string; expression: string }>;
 }
 
 /** A persisted flow run record (`src/openhuman/flows/types.rs::FlowRun`). */

@@ -6962,7 +6962,7 @@ const messages: TranslationMap = {
   'flows.list.moreActions': 'Más acciones',
   'flows.delete.title': '¿Eliminar el flujo de trabajo?',
   'flows.delete.body':
-    '\"{name}\" y su historial de ejecuciones se eliminarán de forma permanente. Esta acción no se puede deshacer.',
+    '"{name}" y su historial de ejecuciones se eliminarán de forma permanente. Esta acción no se puede deshacer.',
   'flows.delete.cancel': 'Cancelar',
   'flows.delete.confirm': 'Eliminar',
   'flows.delete.deleting': 'Eliminando…',

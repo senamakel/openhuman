@@ -7015,7 +7015,7 @@ const messages: TranslationMap = {
   'flows.list.moreActions': 'Weitere Aktionen',
   'flows.delete.title': 'Workflow löschen?',
   'flows.delete.body':
-    '\"{name}\" und der zugehörige Ausführungsverlauf werden dauerhaft entfernt. Dies kann nicht rückgängig gemacht werden.',
+    '"{name}" und der zugehörige Ausführungsverlauf werden dauerhaft entfernt. Dies kann nicht rückgängig gemacht werden.',
   'flows.delete.cancel': 'Abbrechen',
   'flows.delete.confirm': 'Löschen',
   'flows.delete.deleting': 'Wird gelöscht…',

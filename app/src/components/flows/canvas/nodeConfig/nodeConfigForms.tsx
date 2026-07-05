@@ -15,10 +15,19 @@
  *  - `transform`    → `set` (key → =-expression map)
  *  - `trigger`      → `trigger_kind` + kind-specific (`schedule`, `toolkit`/`trigger_slug`)
  */
+import createDebug from 'debug';
+import { useEffect, useState } from 'react';
+
 import type { NodeKind } from '../../../../lib/flows/types';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { FlowConnection } from '../../../../services/api/flowsApi';
-import { ComposioActionField, ComposioToolkitField, ComposioTriggerField } from './composioFields';
+import {
+  ComposioActionField,
+  type ComposioActionSchema,
+  ComposioToolkitField,
+  ComposioTriggerField,
+  fetchActionSchema,
+} from './composioFields';
 import { NATIVE_TOOL_PREFIX, NativeToolField } from './nativeToolFields';
 import {
   configString,
@@ -31,8 +40,12 @@ import {
   SelectField,
   TextAreaField,
   TextField,
+  UpstreamInsertSelect,
 } from './nodeConfigFields';
 import { ScheduleField } from './ScheduleField';
+import type { UpstreamExpressionOption } from './upstreamOptions';
+
+const log = createDebug('app:flows:nodeConfig:forms');
 
 /** Derive the toolkit slug from a `composio:<toolkit>:<conn>` connection ref. */
 function toolkitFromConnectionRef(ref: string): string {
@@ -45,6 +58,12 @@ export interface NodeConfigFormProps {
   /** Shallow-merge patch into the node's config (undefined values are still set). */
   onChange: (patch: Record<string, unknown>) => void;
   connections: FlowConnection[];
+  /**
+   * `=nodes.…` expressions referencing this node's upstream ancestors, for the
+   * insert pickers on expression-bearing fields. Optional — absent (or empty)
+   * simply hides the pickers.
+   */
+  upstreamOptions?: UpstreamExpressionOption[];
 }
 
 export type NodeConfigForm = (props: NodeConfigFormProps) => React.ReactElement;
@@ -108,7 +127,7 @@ function TriggerForm({ config, onChange, connections }: NodeConfigFormProps) {
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
-function HttpRequestForm({ config, onChange, connections }: NodeConfigFormProps) {
+function HttpRequestForm({ config, onChange, connections, upstreamOptions }: NodeConfigFormProps) {
   const { t } = useT();
   return (
     <div className="space-y-3">
@@ -124,6 +143,7 @@ function HttpRequestForm({ config, onChange, connections }: NodeConfigFormProps)
         value={configString(config, 'url')}
         onChange={v => onChange({ url: v })}
         placeholder="https://api.example.com/v1/resource"
+        upstreamOptions={upstreamOptions}
         testId="node-config-http-url"
       />
       <CredentialPickerField
@@ -152,18 +172,31 @@ function HttpRequestForm({ config, onChange, connections }: NodeConfigFormProps)
 
 // ── agent ────────────────────────────────────────────────────────────────────
 
-function AgentForm({ config, onChange, connections }: NodeConfigFormProps) {
+function AgentForm({ config, onChange, connections, upstreamOptions }: NodeConfigFormProps) {
   const { t } = useT();
+  const prompt = configString(config, 'prompt');
   return (
     <div className="space-y-3">
       <TextAreaField
         label={t('flows.nodeConfig.agent.promptLabel')}
-        value={configString(config, 'prompt')}
+        value={prompt}
         onChange={v => onChange({ prompt: v })}
         placeholder={t('flows.nodeConfig.agent.promptPlaceholder')}
         rows={5}
         testId="node-config-agent-prompt"
       />
+      {upstreamOptions && upstreamOptions.length > 0 && (
+        // Appends the picked `=nodes.…` expression to the prompt (a prompt is
+        // prose, so inserting must not clobber what's already written).
+        <div className="-mt-2 flex justify-end">
+          <UpstreamInsertSelect
+            options={upstreamOptions}
+            onInsert={expr => onChange({ prompt: prompt ? `${prompt} ${expr}` : expr })}
+            testId="node-config-agent-prompt-upstream"
+            className="cursor-pointer rounded-md border border-line-strong bg-surface-muted px-1.5 py-1 text-[11px] text-content-muted focus:outline-none"
+          />
+        </div>
+      )}
       <ModelHintField
         label={t('flows.nodeConfig.agent.modelLabel')}
         hint={t('flows.nodeConfig.agent.modelHint')}
@@ -183,13 +216,67 @@ function AgentForm({ config, onChange, connections }: NodeConfigFormProps) {
 
 // ── tool_call ─────────────────────────────────────────────────────────────────
 
-function ToolCallForm({ config, onChange, connections }: NodeConfigFormProps) {
+/** Read `config.args` as a plain object (Composio args are a JSON object). */
+function configArgs(config: Record<string, unknown>): Record<string, unknown> {
+  const args = config.args;
+  return args && typeof args === 'object' && !Array.isArray(args)
+    ? (args as Record<string, unknown>)
+    : {};
+}
+
+function ToolCallForm({ config, onChange, connections, upstreamOptions }: NodeConfigFormProps) {
   const { t } = useT();
   const slug = configString(config, 'slug');
   // Two flavours of tool_call: a native OpenHuman "Tool" (provider=openhuman /
   // slug `oh:...`) vs a Composio "App action". The palette seeds `provider`.
   const isNative =
     configString(config, 'provider') === 'openhuman' || slug.startsWith(NATIVE_TOOL_PREFIX);
+
+  // The connected account is chosen first; its toolkit scopes the action list.
+  const connectionRef = configString(config, 'connection_ref');
+  const toolkit = toolkitFromConnectionRef(connectionRef);
+
+  // Required-arg preflight rows (Composio only): once an action is selected,
+  // fetch its JSON-schema `parameters` so each required arg gets its own
+  // labeled ExpressionField row. `null` (fetch failed / unknown action /
+  // native tool) degrades gracefully to just the raw JsonField below. The
+  // fetched schema is tagged with its toolkit/slug key so switching action
+  // discards a stale schema without a synchronous setState in the effect.
+  const schemaKey = `${toolkit} ${slug}`;
+  const [fetchedSchema, setFetchedSchema] = useState<{
+    key: string;
+    schema: ComposioActionSchema | null;
+  } | null>(null);
+  const actionSchema = fetchedSchema?.key === schemaKey ? fetchedSchema.schema : null;
+  // Remount key for the raw args JsonField: it holds a local text buffer that
+  // is seeded once, so row edits bump this to re-seed it with the merged args.
+  const [argsSeed, setArgsSeed] = useState(0);
+  useEffect(() => {
+    if (isNative || !toolkit || !slug) return;
+    const key = `${toolkit} ${slug}`;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const schema = await fetchActionSchema(toolkit, slug);
+        if (!cancelled) {
+          log(
+            'ToolCallForm: schema %s/%s → required=%d optional=%d',
+            toolkit,
+            slug,
+            schema?.required.length ?? -1,
+            schema?.optional.length ?? -1
+          );
+          setFetchedSchema({ key, schema });
+        }
+      } catch {
+        // Catalog fetch failed — keep `null` and fall back to the raw editor.
+        log('ToolCallForm: schema fetch failed for %s/%s — raw args only', toolkit, slug);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isNative, toolkit, slug]);
 
   if (isNative) {
     return (
@@ -211,9 +298,21 @@ function ToolCallForm({ config, onChange, connections }: NodeConfigFormProps) {
     );
   }
 
-  // The connected account is chosen first; its toolkit scopes the action list.
-  const connectionRef = configString(config, 'connection_ref');
-  const toolkit = toolkitFromConnectionRef(connectionRef);
+  const args = configArgs(config);
+  const requiredArgs = actionSchema?.required ?? [];
+  const setArg = (name: string, value: string) => {
+    const next = { ...args };
+    if (value === '') {
+      delete next[name];
+    } else {
+      next[name] = value;
+    }
+    log('ToolCallForm: setArg %s (empty=%s)', name, value === '');
+    onChange({ args: next });
+    // Re-seed the raw editor so it reflects the row edit.
+    setArgsSeed(s => s + 1);
+  };
+
   return (
     <div className="space-y-3">
       <CredentialPickerField
@@ -226,13 +325,39 @@ function ToolCallForm({ config, onChange, connections }: NodeConfigFormProps) {
       />
       <ComposioActionField
         label={t('flows.nodeConfig.tool.slugLabel')}
-        value={configString(config, 'slug')}
+        value={slug}
         onChange={v => onChange({ slug: v })}
         toolkit={toolkit}
         testId="node-config-tool-slug"
       />
+      {requiredArgs.map(name => {
+        const raw = args[name];
+        const value = typeof raw === 'string' ? raw : raw == null ? '' : JSON.stringify(raw);
+        const missing = value.trim() === '';
+        return (
+          <ExpressionField
+            key={name}
+            label={`${name} · ${t('flows.nodeConfig.tool.requiredMark', 'required')}`}
+            hint=""
+            value={value}
+            onChange={v => setArg(name, v)}
+            upstreamOptions={upstreamOptions}
+            warning={
+              missing
+                ? t('flows.nodeConfig.tool.requiredMissing', 'Required — not wired')
+                : undefined
+            }
+            testId={`node-config-tool-arg-${name}`}
+          />
+        );
+      })}
       <JsonField
-        label={t('flows.nodeConfig.tool.argsLabel')}
+        key={argsSeed}
+        label={
+          requiredArgs.length > 0
+            ? t('flows.nodeConfig.tool.argsAdvancedLabel', 'All args (advanced)')
+            : t('flows.nodeConfig.tool.argsLabel')
+        }
         value={config.args ?? null}
         onChange={v => onChange({ args: v })}
         testId="node-config-tool-args"
@@ -261,7 +386,7 @@ function ConditionForm({ config, onChange }: NodeConfigFormProps) {
 
 // ── switch ────────────────────────────────────────────────────────────────────
 
-function SwitchForm({ config, onChange }: NodeConfigFormProps) {
+function SwitchForm({ config, onChange, upstreamOptions }: NodeConfigFormProps) {
   const { t } = useT();
   return (
     <div className="space-y-3">
@@ -271,6 +396,7 @@ function SwitchForm({ config, onChange }: NodeConfigFormProps) {
         value={configString(config, 'expression')}
         onChange={v => onChange({ expression: v })}
         placeholder="item.type"
+        upstreamOptions={upstreamOptions}
         testId="node-config-switch-expression"
       />
       <TextField
@@ -286,7 +412,7 @@ function SwitchForm({ config, onChange }: NodeConfigFormProps) {
 
 // ── transform ─────────────────────────────────────────────────────────────────
 
-function TransformForm({ config, onChange }: NodeConfigFormProps) {
+function TransformForm({ config, onChange, upstreamOptions }: NodeConfigFormProps) {
   const { t } = useT();
   return (
     <div className="space-y-3">
@@ -296,6 +422,7 @@ function TransformForm({ config, onChange }: NodeConfigFormProps) {
         value={configStringMap(config, 'set')}
         onChange={v => onChange({ set: v })}
         monoValues
+        upstreamOptions={upstreamOptions}
         testId="node-config-transform-set"
       />
     </div>

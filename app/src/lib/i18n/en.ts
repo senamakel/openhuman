@@ -4318,6 +4318,10 @@ const en: TranslationMap = {
   'flowRuns.inspector.noSteps': 'No steps recorded yet.',
   'flowRuns.inspector.output': 'Output',
   'flowRuns.inspector.port': 'Port',
+  // Null-resolution diagnostics: `=`-expressions in a step's config that
+  // resolved to null during the run (likely a mis-wired reference).
+  'flowRuns.inspector.diagnosticsTitle': 'Expression warnings',
+  'flowRuns.inspector.diagnosticResolvedNull': 'resolved to null',
   'flowRuns.inspector.loading': 'Loading run…',
   'flowRuns.inspector.loadError': 'Could not load this run',
   // Phase 5c — "Fix with agent" opens the canvas copilot preloaded with this
@@ -4574,6 +4578,14 @@ const en: TranslationMap = {
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'e.g. gpt-4o-mini',
   'flows.nodeConfig.tool.slugLabel': 'Action',
   'flows.nodeConfig.tool.argsLabel': 'Arguments (JSON)',
+  // Required-arg preflight rows for Composio actions (per-arg ExpressionField
+  // rows above the raw JSON editor, which stays as the advanced escape hatch).
+  'flows.nodeConfig.tool.requiredMark': 'required',
+  'flows.nodeConfig.tool.requiredMissing': 'Required — not wired',
+  'flows.nodeConfig.tool.argsAdvancedLabel': 'All args (advanced)',
+  // Upstream-output picker (`=nodes.<id>.item…` insert menu on expression fields).
+  'flows.nodeConfig.upstream.insert': 'Insert…',
+  'flows.nodeConfig.upstream.insertLabel': 'Insert a value from a previous step',
   'flows.nodeConfig.native.toolLabel': 'Tool',
   'flows.nodeConfig.native.toolHint':
     "One of the assistant's built-in tools (search, media, files, …).",

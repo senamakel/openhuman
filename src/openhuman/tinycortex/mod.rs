@@ -36,6 +36,8 @@
 mod chat;
 mod config;
 mod embeddings;
+#[cfg(test)]
+mod parity;
 
 pub use chat::{build_chat_provider, SeamChatProvider};
 pub use config::memory_config_from;

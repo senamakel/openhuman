@@ -37,6 +37,33 @@ use super::helpers::{
 };
 use super::routing::resolve_target_agent;
 
+#[derive(Debug, Clone)]
+pub(crate) struct RuntimeChannelMessage {
+    pub(crate) message: traits::ChannelMessage,
+    pub(crate) inbound_envelope: Option<tinychannels::ChannelInboundEnvelope>,
+}
+
+impl RuntimeChannelMessage {
+    pub(crate) fn with_inbound_envelope(
+        message: traits::ChannelMessage,
+        inbound_envelope: tinychannels::ChannelInboundEnvelope,
+    ) -> Self {
+        Self {
+            message,
+            inbound_envelope: Some(inbound_envelope),
+        }
+    }
+}
+
+impl From<traits::ChannelMessage> for RuntimeChannelMessage {
+    fn from(message: traits::ChannelMessage) -> Self {
+        Self {
+            message,
+            inbound_envelope: None,
+        }
+    }
+}
+
 /// Whether a channel currently has a registered approval surface — i.e.
 /// a subscriber that turns `ApprovalRequested` events into chat messages
 /// and a way for the user's reply to flow back into the
@@ -115,6 +142,18 @@ pub(crate) async fn process_channel_message(
     ctx: Arc<ChannelRuntimeContext>,
     msg: traits::ChannelMessage,
 ) {
+    process_channel_runtime_message(ctx, RuntimeChannelMessage::from(msg)).await;
+}
+
+pub(crate) async fn process_channel_runtime_message(
+    ctx: Arc<ChannelRuntimeContext>,
+    runtime_msg: RuntimeChannelMessage,
+) {
+    let RuntimeChannelMessage {
+        message: msg,
+        inbound_envelope,
+    } = runtime_msg;
+
     println!(
         "  💬 [{}] from {}: {}",
         msg.channel,
@@ -129,7 +168,10 @@ pub(crate) async fn process_channel_message(
         reply_target: msg.reply_target.clone(),
         content: msg.content.clone(),
         thread_ts: msg.thread_ts.clone(),
-        inbound_envelope: Some(tinychannels::inbound_envelope_from_legacy_message(&msg)),
+        inbound_envelope: Some(
+            inbound_envelope
+                .unwrap_or_else(|| tinychannels::inbound_envelope_from_legacy_message(&msg)),
+        ),
         workspace_dir: ctx.workspace_dir.as_ref().clone(),
     });
 
@@ -769,7 +811,7 @@ pub(crate) async fn process_channel_message(
 }
 
 pub(crate) async fn run_message_dispatch_loop(
-    mut rx: tokio::sync::mpsc::Receiver<traits::ChannelMessage>,
+    mut rx: tokio::sync::mpsc::Receiver<RuntimeChannelMessage>,
     ctx: Arc<ChannelRuntimeContext>,
     max_in_flight_messages: usize,
 ) {
@@ -785,7 +827,7 @@ pub(crate) async fn run_message_dispatch_loop(
         let worker_ctx = Arc::clone(&ctx);
         workers.spawn(async move {
             let _permit = permit;
-            process_channel_message(worker_ctx, msg).await;
+            process_channel_runtime_message(worker_ctx, msg).await;
         });
 
         while let Some(result) = workers.try_join_next() {

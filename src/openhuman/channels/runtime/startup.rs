@@ -1,6 +1,6 @@
 //! Channel startup wiring.
 
-use super::dispatch::run_message_dispatch_loop;
+use super::dispatch::{run_message_dispatch_loop, RuntimeChannelMessage};
 use super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
 use crate::core::event_bus::{self, DomainEvent, TracingSubscriber, DEFAULT_CAPACITY};
 use crate::openhuman::agent::harness::build_tool_instructions_filtered;
@@ -62,11 +62,11 @@ pub(super) enum ChatWorkloadResolution {
 }
 
 pub(super) struct RelayInboundMessageHandler {
-    tx: mpsc::Sender<traits::ChannelMessage>,
+    tx: mpsc::Sender<RuntimeChannelMessage>,
 }
 
 impl RelayInboundMessageHandler {
-    pub(super) fn new(tx: mpsc::Sender<traits::ChannelMessage>) -> Self {
+    pub(super) fn new(tx: mpsc::Sender<RuntimeChannelMessage>) -> Self {
         Self { tx }
     }
 }
@@ -85,7 +85,7 @@ impl tinychannels::relay::RelayInboundHandler for RelayInboundMessageHandler {
             })?;
         let msg = tinychannels::legacy_message_from_inbound_envelope(&envelope, 0);
         self.tx
-            .send(msg)
+            .send(RuntimeChannelMessage::with_inbound_envelope(msg, envelope))
             .await
             .map_err(|_| tinychannels::relay::RelayTransportError::Closed)
     }
@@ -98,7 +98,7 @@ struct RelayRuntimeHandle {
 
 async fn start_relay_runtime(
     relay: &tinychannels::config::RelayRuntimeConfig,
-    tx: mpsc::Sender<traits::ChannelMessage>,
+    tx: mpsc::Sender<RuntimeChannelMessage>,
 ) -> Result<RelayRuntimeHandle> {
     anyhow::ensure!(
         relay.is_listener_configured(),
@@ -762,12 +762,27 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         .channel_max_backoff_secs
         .max(DEFAULT_CHANNEL_MAX_BACKOFF_SECS);
 
-    // Single message bus — all channels send messages here
-    let (tx, rx) = tokio::sync::mpsc::channel::<traits::ChannelMessage>(100);
+    // Providers still publish legacy `ChannelMessage`s through the public
+    // channel trait. The runtime dispatch queue wraps those messages so relay
+    // inbound can carry its original TinyChannels envelope through processing.
+    let (provider_tx, mut provider_rx) = tokio::sync::mpsc::channel::<traits::ChannelMessage>(100);
+    let (dispatch_tx, rx) = tokio::sync::mpsc::channel::<RuntimeChannelMessage>(100);
+    let provider_dispatch_tx = dispatch_tx.clone();
+    let provider_bridge = tokio::spawn(async move {
+        while let Some(msg) = provider_rx.recv().await {
+            if provider_dispatch_tx
+                .send(RuntimeChannelMessage::from(msg))
+                .await
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
 
     let mut relay_handles = Vec::new();
     if let Some(ref relay) = relay_config {
-        match start_relay_runtime(relay, tx.clone()).await {
+        match start_relay_runtime(relay, dispatch_tx.clone()).await {
             Ok(handle) => relay_handles.push(handle),
             Err(error) => {
                 tracing::warn!("[channels][relay] failed to start relay runtime: {error}")
@@ -780,12 +795,13 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     for ch in &channels {
         handles.push(spawn_supervised_listener(
             ch.clone(),
-            tx.clone(),
+            provider_tx.clone(),
             initial_backoff_secs,
             max_backoff_secs,
         ));
     }
-    drop(tx); // Drop our copy so rx closes when all channels stop
+    drop(provider_tx); // Drop our copy so provider_rx closes when all channels stop.
+    drop(dispatch_tx); // Drop startup's copy; relay/bridge clones keep dispatch alive.
 
     let channels_by_name = Arc::new(
         channels
@@ -890,6 +906,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     for h in handles {
         let _ = h.await;
     }
+    let _ = provider_bridge.await;
 
     Ok(())
 }

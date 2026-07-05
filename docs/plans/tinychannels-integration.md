@@ -64,9 +64,9 @@ Companion docs in the tinychannels repo:
   envelope slice is landed because the runtime now publishes a TinyChannels
   `ChannelInboundEnvelope` on `ChannelMessageReceived` events, memory
   conversation persistence records the TinyChannels session key as migration
-  metadata, and startup now has a relay inbound handler that can forward
-  authenticated relay envelopes from the live relay socket onto the existing
-  dispatch bus.
+  metadata, and startup now has a relay inbound handler that preserves the
+  original authenticated relay envelope, including `scope_id`, from the live
+  relay socket through dispatch.
 
 ## Step 1 — Add the dependency, delete duplicates
 
@@ -132,15 +132,19 @@ copies):
    OpenHuman's current Telegram topic behavior. Runtime received-message events
    now also carry the crate's normalized inbound envelope, with Telegram
    `thread_ts` projected as `topic_id`; conversation persistence records the
-   TinyChannels session key when an event carries an envelope. Full session
-   identity switchover still needs provider-sourced `scope_id`.
-3. **Deferred until envelope/session migration: workspace/tenant
-   discriminator.** Session keys
+   TinyChannels session key when an event carries an envelope. Relay inbound now
+   preserves the relay-supplied envelope and `scope_id` through dispatch. Full
+   non-relay session identity switchover still needs provider-sourced
+   `scope_id`.
+3. **Partially landed for relay inbound; non-relay providers still deferred:
+   workspace/tenant discriminator.** Session keys
    (`channels/bus.rs:1005-1042`) omit guild/team/tenant; Slack channel ids are
-   only workspace-unique. Thread the new `scope_id` through inbound event
-   construction when moving to the crate's envelope. Deferral reason: adding
-   scope to the current legacy string keys would change conversation identity
-   without the envelope migration that can preserve compatibility aliases.
+   only workspace-unique. Relay inbound carries the relay envelope's `scope_id`
+   through received-message events; provider-originated legacy messages still
+   need native envelope construction with provider-sourced scope. Deferral
+   reason: adding scope to the current legacy string keys would change
+   conversation identity without the envelope migration that can preserve
+   compatibility aliases.
 4. **Landed for portable send boundaries; provider wire enforcement remains
    platform-specific.**
    No idempotency key exists on legacy sends; a retry after a transport error

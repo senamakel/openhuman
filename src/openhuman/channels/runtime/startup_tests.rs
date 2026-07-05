@@ -146,13 +146,20 @@ async fn relay_inbound_handler_forwards_envelopes_to_dispatch_bus() {
         .await
         .expect("handle relay inbound");
 
-    let msg = rx.recv().await.expect("forwarded channel message");
+    let runtime_msg = rx.recv().await.expect("forwarded channel message");
+    let msg = runtime_msg.message;
     assert_eq!(msg.channel, "telegram");
     assert_eq!(msg.id, "relay-msg-1");
     assert_eq!(msg.reply_target, "chat-1");
     assert_eq!(msg.sender, "alice");
     assert_eq!(msg.content, "hello from relay");
     assert_eq!(msg.thread_ts.as_deref(), Some("topic-1"));
+    let forwarded = runtime_msg
+        .inbound_envelope
+        .expect("relay envelope should stay attached for dispatch");
+    assert_eq!(forwarded.message_id, "relay-msg-1");
+    assert_eq!(forwarded.conversation.id, "chat-1");
+    assert_eq!(forwarded.conversation.topic_id.as_deref(), Some("topic-1"));
 }
 
 #[tokio::test]

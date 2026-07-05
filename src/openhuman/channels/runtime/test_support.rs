@@ -1,8 +1,10 @@
 //! Debug-build harnesses for raw integration coverage of the channel runtime.
 
-use super::dispatch::process_channel_message;
 pub use super::dispatch::test_support::{
     build_channel_context_block_for_test, select_acknowledgment_reaction_for_test,
+};
+use super::dispatch::{
+    process_channel_message, process_channel_runtime_message, RuntimeChannelMessage,
 };
 pub use super::startup::test_support::resolve_yuanbao_app_secret_for_test;
 use crate::core::event_bus::{init_global, register_native_global, DomainEvent, DEFAULT_CAPACITY};
@@ -28,6 +30,7 @@ pub struct DispatchHarnessOptions {
     pub channel_name: String,
     pub content: String,
     pub thread_ts: Option<String>,
+    pub inbound_envelope: Option<tinychannels::ChannelInboundEnvelope>,
     pub streaming: bool,
     pub supports_reactions: bool,
     pub response_text: Option<String>,
@@ -44,6 +47,7 @@ impl Default for DispatchHarnessOptions {
             channel_name: "test-channel".to_string(),
             content: "hello".to_string(),
             thread_ts: None,
+            inbound_envelope: None,
             streaming: false,
             supports_reactions: false,
             response_text: Some("dispatch ok".to_string()),
@@ -461,19 +465,24 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
 
     let expected_event_channel = options.channel_name.clone();
 
-    process_channel_message(
-        Arc::clone(&ctx),
-        ChannelMessage {
-            id: "m1".to_string(),
-            sender: "alice".to_string(),
-            reply_target: "reply".to_string(),
-            content: options.content,
-            channel: options.channel_name,
-            timestamp: 1,
-            thread_ts: options.thread_ts,
-        },
-    )
-    .await;
+    let message = ChannelMessage {
+        id: "m1".to_string(),
+        sender: "alice".to_string(),
+        reply_target: "reply".to_string(),
+        content: options.content,
+        channel: options.channel_name,
+        timestamp: 1,
+        thread_ts: options.thread_ts,
+    };
+    if let Some(inbound_envelope) = options.inbound_envelope {
+        process_channel_runtime_message(
+            Arc::clone(&ctx),
+            RuntimeChannelMessage::with_inbound_envelope(message, inbound_envelope),
+        )
+        .await;
+    } else {
+        process_channel_message(Arc::clone(&ctx), message).await;
+    }
 
     let received_event_envelope = loop {
         match event_rx.try_recv() {

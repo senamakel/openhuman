@@ -30,6 +30,7 @@ import {
   TextAreaField,
   TextField,
 } from './nodeConfigFields';
+import { ScheduleField } from './ScheduleField';
 
 export interface NodeConfigFormProps {
   config: Record<string, unknown>;
@@ -60,12 +61,9 @@ function TriggerForm({ config, onChange }: NodeConfigFormProps) {
         }))}
       />
       {kind === 'schedule' && (
-        <TextField
-          label={t('flows.nodeConfig.trigger.scheduleLabel')}
-          hint={t('flows.nodeConfig.trigger.scheduleHint')}
+        <ScheduleField
           value={configString(config, 'schedule')}
           onChange={v => onChange({ schedule: v })}
-          placeholder="0 9 * * 1"
           testId="node-config-trigger-schedule"
         />
       )}

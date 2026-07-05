@@ -115,10 +115,12 @@ describe('TriggerForm', () => {
     expect(onChange).toHaveBeenLastCalledWith({ trigger_kind: 'schedule' });
   });
 
-  it('shows the schedule input when config already has a schedule trigger_kind', () => {
-    const { onChange } = renderForm('trigger', { config: { trigger_kind: 'schedule' } });
-    const schedule = screen.getByTestId('node-config-trigger-schedule');
-    fireEvent.change(schedule, { target: { value: '0 9 * * 1' } });
-    expect(onChange).toHaveBeenLastCalledWith({ schedule: '0 9 * * 1' });
+  it('shows the friendly schedule builder (with summary) for a schedule trigger', () => {
+    renderForm('trigger', { config: { trigger_kind: 'schedule', schedule: '*/5 * * * 3' } });
+    expect(screen.getByTestId('node-config-trigger-schedule')).toBeInTheDocument();
+    // Compiled plain-English summary instead of a raw cron box.
+    expect(screen.getByTestId('node-config-trigger-schedule-summary')).toHaveTextContent(
+      'Every 5 minutes on Wed'
+    );
   });
 });

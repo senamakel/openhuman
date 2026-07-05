@@ -28,6 +28,7 @@ use crate::api::config::effective_backend_api_url;
 use crate::api::jwt::bearer_authorization_value;
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::session_support::require_live_session_token;
+use crate::openhuman::session_db::run_ledger::RunTelemetry;
 
 use super::{SpanStatus, TraceContext, TraceSpan};
 
@@ -379,6 +380,86 @@ fn strip_observation_content(mut observation: AgentObservation) -> AgentObservat
     observation
 }
 
+fn insert_run_telemetry_generation(payload: &mut Value, telemetry: Option<&RunTelemetry>) -> bool {
+    let Some(telemetry) = telemetry else {
+        return false;
+    };
+    if telemetry.input_tokens == 0 && telemetry.output_tokens == 0 && telemetry.cost_usd == 0.0 {
+        return false;
+    }
+
+    let Some(batch) = payload.get_mut("batch").and_then(Value::as_array_mut) else {
+        return false;
+    };
+    let Some(trace_id) = batch
+        .first()
+        .and_then(|event| event.get("body"))
+        .and_then(|body| body.get("id"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
+        return false;
+    };
+    let start_time = batch
+        .first()
+        .and_then(|event| event.get("timestamp"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let end_time = batch
+        .last()
+        .and_then(|event| event.get("timestamp"))
+        .and_then(Value::as_str)
+        .unwrap_or(start_time.as_str())
+        .to_string();
+
+    let non_cached_input = telemetry
+        .input_tokens
+        .saturating_sub(telemetry.cached_input_tokens);
+    let mut body = json!({
+        "id": format!("{trace_id}:openhuman-run-telemetry"),
+        "traceId": trace_id,
+        "name": "run.total",
+        "startTime": start_time,
+        "endTime": end_time,
+        "usageDetails": {
+            "input": non_cached_input,
+            "output": telemetry.output_tokens,
+            "total": telemetry.input_tokens.saturating_add(telemetry.output_tokens),
+            "cache_read_input_tokens": telemetry.cached_input_tokens,
+        },
+        "costDetails": {
+            "total": telemetry.cost_usd,
+        },
+        "metadata": {
+            "source": "openhuman.run_telemetry",
+            "run_id": telemetry.run_id.as_str(),
+            "tool_count": telemetry.tool_count,
+        },
+    });
+    if let Some(model) = &telemetry.model {
+        body["model"] = json!(model);
+    }
+    if let Some(provider) = &telemetry.provider {
+        body["metadata"]["provider"] = json!(provider);
+    }
+    if let Some(error) = &telemetry.error {
+        body["level"] = json!("ERROR");
+        body["statusMessage"] = json!(error);
+    }
+
+    batch.insert(
+        1,
+        json!({
+            "id": new_event_id(),
+            "type": "generation-create",
+            "timestamp": body["startTime"].clone(),
+            "body": body,
+        }),
+    );
+    true
+}
+
 /// Push durable journal observations through the tinyagents crate Langfuse
 /// exporter. The journal is already redacted before persistence, and this
 /// exporter additionally strips model/tool payloads unless `capture_content`
@@ -387,6 +468,7 @@ pub(crate) async fn push_observations(
     config: &Config,
     trace_ctx: &TraceContext,
     observations: &[AgentObservation],
+    run_telemetry: Option<&RunTelemetry>,
 ) -> Result<(), String> {
     if observations.is_empty() {
         return Ok(());
@@ -410,13 +492,24 @@ pub(crate) async fn push_observations(
 
     let client = LangfuseClient::proxy(url, token)
         .map_err(|err| format!("Langfuse client setup failed: {err}"))?;
-    tokio::time::timeout(
-        PUSH_TIMEOUT,
-        client.send_observations(trace, observations.as_ref()),
-    )
-    .await
-    .map_err(|_| format!("Langfuse journal push timed out after {PUSH_TIMEOUT:?}"))?
-    .map_err(|err| format!("Langfuse journal ingestion failed: {err}"))?;
+    let mut payload = client
+        .build_ingestion_batch(trace, observations.as_ref())
+        .map_err(|err| format!("Langfuse journal batch build failed: {err}"))?;
+    if insert_run_telemetry_generation(&mut payload, run_telemetry) {
+        tracing::debug!(
+            target: LOG_TARGET,
+            "[agent-tracing] added run telemetry aggregate to Langfuse journal batch"
+        );
+    } else {
+        tracing::debug!(
+            target: LOG_TARGET,
+            "[agent-tracing] no run telemetry aggregate added to Langfuse journal batch"
+        );
+    }
+    tokio::time::timeout(PUSH_TIMEOUT, client.send_batch(payload))
+        .await
+        .map_err(|_| format!("Langfuse journal push timed out after {PUSH_TIMEOUT:?}"))?
+        .map_err(|err| format!("Langfuse journal ingestion failed: {err}"))?;
 
     tracing::debug!(
         target: LOG_TARGET,
@@ -652,6 +745,61 @@ mod tests {
             }
             other => panic!("unexpected event: {other:?}"),
         }
+    }
+
+    #[test]
+    fn run_telemetry_inserts_aggregate_generation() {
+        let observations = vec![obs(
+            1,
+            AgentEvent::ModelCompleted {
+                call_id: CallId::new("model-1"),
+                started_at_ms: Some(1_000),
+                usage: Some(Usage::new(100, 20)),
+                input: None,
+                output: None,
+            },
+        )];
+        let client =
+            LangfuseClient::proxy("https://api.tinyhumans.ai", "token").expect("proxy client");
+        let trace =
+            trace_config_from_context(&TraceContext::new("trace:req-1", None), "production");
+        let mut payload = client
+            .build_ingestion_batch(trace, &observations)
+            .expect("batch");
+        let telemetry = RunTelemetry {
+            run_id: "req-1".to_string(),
+            input_tokens: 120,
+            output_tokens: 30,
+            cached_input_tokens: 40,
+            cost_usd: 0.0123,
+            elapsed_ms: Some(900),
+            tool_count: 2,
+            model: Some("managed.chat-v1".to_string()),
+            provider: Some("managed".to_string()),
+            error: None,
+            updated_at: None,
+        };
+
+        assert!(insert_run_telemetry_generation(
+            &mut payload,
+            Some(&telemetry)
+        ));
+        let batch = payload["batch"].as_array().expect("batch array");
+        assert_eq!(batch[1]["type"], "generation-create");
+        let body = &batch[1]["body"];
+        assert_eq!(body["id"], "trace:req-1:openhuman-run-telemetry");
+        assert_eq!(body["name"], "run.total");
+        assert_eq!(body["traceId"], "trace:req-1");
+        assert_eq!(body["model"], "managed.chat-v1");
+        assert_eq!(body["usageDetails"]["input"], 80);
+        assert_eq!(body["usageDetails"]["output"], 30);
+        assert_eq!(body["usageDetails"]["total"], 150);
+        assert_eq!(body["usageDetails"]["cache_read_input_tokens"], 40);
+        assert_eq!(body["costDetails"]["total"], 0.0123);
+        assert_eq!(body["metadata"]["source"], "openhuman.run_telemetry");
+        assert_eq!(body["metadata"]["run_id"], "req-1");
+        assert_eq!(body["metadata"]["tool_count"], 2);
+        assert_eq!(body["metadata"]["provider"], "managed");
     }
 
     #[test]

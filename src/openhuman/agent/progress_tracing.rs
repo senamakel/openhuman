@@ -1428,6 +1428,7 @@ pub(crate) async fn export_run_trace_from_journal(
     config: &Config,
     trace_ctx: &TraceContext,
     observations: &[tinyagents::harness::observability::AgentObservation],
+    run_telemetry: Option<&crate::openhuman::session_db::run_ledger::RunTelemetry>,
     live_spans: &[TraceSpan],
 ) {
     if observations.is_empty() && live_spans.is_empty() {
@@ -1436,7 +1437,9 @@ pub(crate) async fn export_run_trace_from_journal(
     let observability = &config.observability;
 
     if observability.share_usage_data && !observations.is_empty() {
-        if let Err(err) = langfuse::push_observations(config, trace_ctx, observations).await {
+        if let Err(err) =
+            langfuse::push_observations(config, trace_ctx, observations, run_telemetry).await
+        {
             log::warn!("[agent-tracing] Langfuse journal usage-data push failed ({err})");
         }
     } else if observability.share_usage_data {

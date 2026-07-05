@@ -165,7 +165,10 @@ span-projection slice.
    web bridge can read a durable run journal for S3 shadow comparison, the
    remote `share_usage_data` push now sends those `AgentObservation`s through
    the crate `LangfuseClient`; live spans remain the local tracing sink and
-   fallback until S3 shadow parity is release-proven. Later delete
+   fallback until S3 shadow parity is release-proven. The OpenHuman wrapper also
+   injects aggregate `run.total` usage/cost from the durable run ledger so
+   journal-backed Langfuse export preserves the top-level cost signal while
+   per-call charged USD awaits a journal-native event. Later delete
    `progress_tracing/langfuse.rs` (~825 + tests).
 5. **S5 — delete `progress_tracing.rs` + `SpanCollector`** once S3 shadow shows
    no divergence for one release **and** V3 projection parity holds (the doc 07

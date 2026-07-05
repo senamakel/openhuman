@@ -13,8 +13,8 @@ use crate::rpc::RpcOutcome;
 use super::backend::OpenHumanChannelBackend;
 use super::definitions::ChannelAuthMode;
 use tinychannels::controllers::{
-    all_channel_controller_schemas, channel_controller_schema, ChannelControllerField,
-    ChannelControllerFieldType, ChannelControllerSchema,
+    all_channel_controller_schemas, channel_controller_schema, channel_credential_provider,
+    ChannelControllerField, ChannelControllerFieldType, ChannelControllerSchema,
 };
 use tinychannels::{ChannelManager, ChannelsConfig};
 
@@ -294,7 +294,7 @@ fn handle_disconnect(params: Map<String, Value>) -> ControllerFuture {
             raw_or_typed(result.raw.clone(), &result)?,
             format!(
                 "removed credentials for {}",
-                credential_provider(channel, mode)
+                channel_credential_provider(channel, mode)
             ),
         ))
     })
@@ -573,10 +573,6 @@ fn connect_logs(channel: &str, mode: ChannelAuthMode, pending_auth: bool) -> Vec
     } else {
         vec![format!("stored credentials for channel:{channel}:{mode}")]
     }
-}
-
-fn credential_provider(channel: &str, mode: ChannelAuthMode) -> String {
-    format!("channel:{channel}:{mode}")
 }
 
 fn raw_or_typed<T: serde::Serialize>(raw: Option<Value>, typed: &T) -> Result<Value, String> {

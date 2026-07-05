@@ -21,6 +21,7 @@ Companion docs in the tinychannels repo:
   | `src/openhuman/channels/traits.rs` | re-exports `src/traits.rs` |
   | `src/openhuman/channels/controllers/definitions.rs` | re-exports `src/controllers/definitions.rs` |
   | `src/openhuman/channels/controllers/schemas.rs` schema declarations | converts from `src/controllers/schemas.rs` |
+  | `src/openhuman/channels/controllers/ops/connect.rs` allowlist/key helpers | calls `src/controllers/credentials.rs` |
   | `src/openhuman/channels/controllers/ops/types.rs` | re-exports `src/controllers/types.rs` |
   | `src/openhuman/config/schema/channels.rs` | re-exports provider config from `src/config.rs`, while keeping OpenHuman-owned security/sandbox config local |
   | `src/openhuman/channels/context.rs` key/constants helpers | calls/re-exports `src/context.rs` where type-compatible |
@@ -139,8 +140,9 @@ copies):
 ## Step 4 — Test split
 
 - **Partly landed:** the portable `controllers/schemas_tests.rs` schema-catalog
-  assertions now live in tinychannels. This repo keeps handler parity, adapter
-  conversion, params, and legacy envelope helper tests.
+  assertions and pure allowlist/key helper tests now live in tinychannels. This
+  repo keeps handler parity, adapter conversion, params, legacy envelope helper
+  tests, and app-side persistence/REST wiring tests.
 - **Still migrate to tinychannels:** the type-shape halves of
   `controllers/ops_tests.rs` (47, rewritten against a mock `ChannelBackend`) and
   the already-mirrored suites listed in Step 1.

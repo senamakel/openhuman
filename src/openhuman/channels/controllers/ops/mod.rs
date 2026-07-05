@@ -15,13 +15,7 @@ pub(crate) use crate::openhuman::config::Config;
 #[cfg(test)]
 pub(crate) use connect::channel_config_connected;
 #[cfg(test)]
-pub(crate) use connect::credential_provider;
-#[cfg(test)]
 pub(crate) use connect::merge_listener_health;
-#[cfg(test)]
-pub(crate) use connect::parse_allowed_users;
-#[cfg(test)]
-pub(crate) use connect::{describe_channel, list_channels};
 
 // Re-export public ops functions.
 pub use connect::{

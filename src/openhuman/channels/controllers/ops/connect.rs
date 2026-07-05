@@ -18,11 +18,9 @@ use super::types::{ChannelConnectionResult, ChannelStatusEntry, ChannelTestResul
 use super::yuanbao::{
     build_effective_yuanbao_config, require_yuanbao_field, verify_yuanbao_credentials,
 };
-
-/// Credential provider key for channel connections: `"channel:{id}:{mode}"`.
-pub(crate) fn credential_provider(channel_id: &str, mode: ChannelAuthMode) -> String {
-    format!("channel:{}:{}", channel_id, mode)
-}
+pub(crate) use tinychannels::controllers::{
+    channel_credential_provider as credential_provider, parse_allowed_users,
+};
 
 /// Merge a channel's live supervised-listener health into its credential/config
 /// derived `connected` flag (issue #3712).
@@ -76,48 +74,6 @@ pub(crate) fn channel_config_connected(
         ("yuanbao", ChannelAuthMode::ApiKey) => channels.yuanbao.is_some(),
         _ => false,
     }
-}
-
-pub(crate) fn parse_allowed_users(value: Option<&Value>) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-
-    let mut push_identity = |raw: &str| {
-        let trimmed = raw.trim();
-        if trimmed.is_empty() {
-            return;
-        }
-        let normalized = trimmed.trim_start_matches('@').trim();
-        if normalized.is_empty() {
-            return;
-        }
-        let canonical = normalized.to_lowercase();
-        if !out
-            .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(&canonical))
-        {
-            out.push(canonical);
-        }
-    };
-
-    match value {
-        Some(Value::String(s)) => {
-            for part in s.split([',', '\n', '\r']) {
-                push_identity(part);
-            }
-        }
-        Some(Value::Array(items)) => {
-            for item in items {
-                if let Some(s) = item.as_str() {
-                    for part in s.split([',', '\n', '\r']) {
-                        push_identity(part);
-                    }
-                }
-            }
-        }
-        _ => {}
-    }
-
-    out
 }
 
 pub(super) fn parse_optional_bool(value: Option<&Value>) -> Option<bool> {

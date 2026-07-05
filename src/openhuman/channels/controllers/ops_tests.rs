@@ -1,3 +1,4 @@
+use super::connect::{describe_channel, list_channels};
 use super::*;
 use crate::openhuman::channels::email_channel::EmailConfig;
 use crate::openhuman::channels::providers::yuanbao::YuanbaoConfig;
@@ -519,82 +520,6 @@ async fn test_channel_validates_fields() {
     )
     .await;
     assert!(err.is_err());
-}
-
-// ── parse_allowed_users / credential_provider ─────────────────
-
-#[test]
-fn parse_allowed_users_handles_string_csv() {
-    let v = serde_json::json!("alice,bob,@carol");
-    let out = parse_allowed_users(Some(&v));
-    assert_eq!(out, vec!["alice", "bob", "carol"]);
-}
-
-#[test]
-fn parse_allowed_users_handles_newline_separated_string() {
-    let v = serde_json::json!("alice\nbob\r\ncarol");
-    let out = parse_allowed_users(Some(&v));
-    assert_eq!(out, vec!["alice", "bob", "carol"]);
-}
-
-#[test]
-fn parse_allowed_users_dedups_case_insensitively() {
-    let v = serde_json::json!("Alice,ALICE,alice,@Alice");
-    let out = parse_allowed_users(Some(&v));
-    assert_eq!(out, vec!["alice"]);
-}
-
-#[test]
-fn parse_allowed_users_normalises_at_prefix_and_whitespace() {
-    let v = serde_json::json!("  @Alice  ");
-    let out = parse_allowed_users(Some(&v));
-    assert_eq!(out, vec!["alice"]);
-}
-
-#[test]
-fn parse_allowed_users_rejects_empty_and_at_only() {
-    let v = serde_json::json!(",  ,@,@ ,@@@, ,");
-    let out = parse_allowed_users(Some(&v));
-    // Normalisation: split on `,` / `\n` / `\r`, trim whitespace, strip
-    // *all* leading '@' via `trim_start_matches('@')`, then trim again.
-    // Every token here reduces to "" at some step, so the whole input
-    // produces an empty result.
-    let expected: Vec<String> = Vec::new();
-    assert_eq!(out, expected);
-}
-
-#[test]
-fn parse_allowed_users_accepts_array_of_strings() {
-    let v = serde_json::json!(["a", "b,c", "@d\ne"]);
-    let out = parse_allowed_users(Some(&v));
-    for expected in ["a", "b", "c", "d", "e"] {
-        assert!(
-            out.contains(&expected.to_string()),
-            "missing `{expected}` in {out:?}"
-        );
-    }
-}
-
-#[test]
-fn parse_allowed_users_returns_empty_for_none_or_non_string_value() {
-    assert!(parse_allowed_users(None).is_empty());
-    assert!(parse_allowed_users(Some(&serde_json::json!(42))).is_empty());
-    assert!(parse_allowed_users(Some(&serde_json::json!({}))).is_empty());
-    assert!(parse_allowed_users(Some(&serde_json::Value::Null)).is_empty());
-}
-
-#[test]
-fn credential_provider_combines_channel_id_and_mode() {
-    // Format: `channel:{channel_id}:{mode}` with mode rendered via
-    // `ChannelAuthMode`'s Display impl (`bot_token` / `oauth`).
-    assert_eq!(
-        credential_provider("telegram", ChannelAuthMode::BotToken),
-        "channel:telegram:bot_token"
-    );
-    assert_eq!(
-        credential_provider("discord", ChannelAuthMode::OAuth),
-        "channel:discord:oauth"
-    );
 }
 
 // ── connect_channel validation ─────────────────────────────────

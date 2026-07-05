@@ -190,34 +190,162 @@ pub(crate) fn http_cred_name(conn: &str) -> Option<&str> {
 /// - otherwise, apply the same per-user read/write/admin scope preference
 ///   the agent loop uses (`UserScopePref::allows`).
 ///
-/// // TODO(0.3): this hard-rejects any *real* Composio toolkit that simply
-/// // isn't in the static `catalog_for_toolkit` map yet (there is no
-/// // host-side, offline way to ask "is this actually a valid Composio
-/// // toolkit/action" beyond the curated catalogs OpenHuman ships). That's
-/// // an accepted trade-off for a genuine allowlist rather than a residual
-/// // gap to silently work around — extending `catalog_for_toolkit` (or, if
-/// // a live catalog lookup becomes available, consulting it here) is how a
-/// // newly-supported toolkit gets flow tool-call support.
-async fn is_curated_flow_tool(slug: &str) -> bool {
+/// // (0.3) The former hard-reject of any *real* Composio toolkit not in the
+/// // static `catalog_for_toolkit` map is now lifted for toolkits the user has
+/// // actually connected: when a slug's toolkit has no static curated catalog,
+/// // the gate consults the user's **live connected-toolkit set** (from the
+/// // composio domain) and allows the call iff the user holds an ACTIVE
+/// // connection for that toolkit. A genuinely-unknown/made-up toolkit is never
+/// // connected, so it still rejects. Toolkits OpenHuman *does* ship a static
+/// // catalog for keep their stricter curated-action + per-user scope gating
+/// // unchanged (a connected-but-uncurated action on a cataloged toolkit is
+/// // still rejected — the catalog is the tighter allowlist there).
+///
+/// Returns whether `slug` may be invoked as a flow `tool_call`, given (only when
+/// needed) the user's live connected-toolkit slug set.
+///
+/// Split out from [`is_curated_flow_tool`] as a pure function so the two decision
+/// paths are unit-testable without a live Composio backend: `connected_toolkits`
+/// is `None` when the toolkit has a static catalog (the connected set is never
+/// consulted then) or when the connected set could not be fetched (fail-closed).
+async fn flow_tool_allowed(slug: &str, connected_toolkits: Option<&[String]>) -> bool {
     use crate::openhuman::memory_sync::composio::providers::{
         catalog_for_toolkit, find_curated, get_provider, load_user_scope_or_default,
         toolkit_from_slug,
     };
 
     let Some(toolkit) = toolkit_from_slug(slug) else {
+        tracing::debug!(target: "flows", %slug, "[flows] tool_call curation: reject — slug has no extractable toolkit prefix");
         return false;
     };
-    let catalog = get_provider(&toolkit)
+
+    // Path A: a toolkit OpenHuman ships a static curated catalog for keeps its
+    // strict curated-action + per-user scope gating (unchanged from B2).
+    if let Some(catalog) = get_provider(&toolkit)
         .and_then(|p| p.curated_tools())
-        .or_else(|| catalog_for_toolkit(&toolkit));
-    let Some(catalog) = catalog else {
-        return false;
+        .or_else(|| catalog_for_toolkit(&toolkit))
+    {
+        let Some(curated) = find_curated(catalog, slug) else {
+            tracing::debug!(target: "flows", %slug, %toolkit, "[flows] tool_call curation: reject — slug is not a curated action of this toolkit");
+            return false;
+        };
+        let pref = load_user_scope_or_default(&toolkit).await;
+        let allowed = pref.allows(curated.scope);
+        tracing::debug!(target: "flows", %slug, %toolkit, allowed, "[flows] tool_call curation: static curated catalog decision");
+        return allowed;
+    }
+
+    // Path B (0.3): no static catalog — allow iff the user has a live ACTIVE
+    // Composio connection for this toolkit. Made-up toolkits are never connected.
+    match connected_toolkits {
+        Some(toolkits) => {
+            let connected = toolkits.iter().any(|t| t.eq_ignore_ascii_case(&toolkit));
+            tracing::debug!(target: "flows", %slug, %toolkit, connected, "[flows] tool_call curation: live connected-toolkit allowlist decision");
+            connected
+        }
+        None => {
+            tracing::warn!(target: "flows", %slug, %toolkit, "[flows] tool_call curation: reject — no static catalog and the connected-toolkit set was unavailable (fail-closed)");
+            false
+        }
+    }
+}
+
+/// Whether `slug`'s toolkit lacks a static curated catalog, i.e. the curation
+/// decision must consult the user's live connected-toolkit set. Kept cheap and
+/// offline (a static `match`) so the common cataloged-toolkit path never pays
+/// for a connected-set fetch.
+fn slug_needs_connected_set(slug: &str) -> bool {
+    use crate::openhuman::memory_sync::composio::providers::{
+        catalog_for_toolkit, get_provider, toolkit_from_slug,
     };
-    let Some(curated) = find_curated(catalog, slug) else {
-        return false;
+    match toolkit_from_slug(slug) {
+        Some(toolkit) => get_provider(&toolkit)
+            .and_then(|p| p.curated_tools())
+            .or_else(|| catalog_for_toolkit(&toolkit))
+            .is_none(),
+        None => false,
+    }
+}
+
+/// The user's live set of ACTIVE-connected Composio toolkit slugs (lowercased),
+/// or `None` when the backend is unreachable and no cached snapshot exists.
+///
+/// Uses [`fetch_connected_integrations_status`] so a transient backend failure
+/// (`Unavailable`) is distinguished from "confirmed zero connections" — on
+/// `Unavailable` we fall back to the last-known (even expired) cache rather than
+/// collapse the allowlist to empty, and only return `None` when there is truly
+/// nothing to go on (the caller then fails closed).
+async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
+    use crate::openhuman::composio::{
+        cached_active_integrations_including_expired, fetch_connected_integrations_status,
+        FetchConnectedIntegrationsStatus,
     };
-    let pref = load_user_scope_or_default(&toolkit).await;
-    pref.allows(curated.scope)
+
+    let integrations = match fetch_connected_integrations_status(config).await {
+        FetchConnectedIntegrationsStatus::Authoritative(v) => v,
+        FetchConnectedIntegrationsStatus::Unavailable => {
+            match cached_active_integrations_including_expired(config) {
+                Some(v) => {
+                    tracing::warn!(target: "flows", "[flows] connected-toolkit lookup: backend unavailable — using last-known (possibly stale) cached connections for the tool_call allowlist");
+                    v
+                }
+                None => {
+                    tracing::warn!(target: "flows", "[flows] connected-toolkit lookup: backend unavailable and no cached snapshot — connected-toolkit allowlist is empty this call");
+                    return None;
+                }
+            }
+        }
+    };
+
+    Some(
+        integrations
+            .into_iter()
+            .filter(|i| i.connected)
+            .map(|i| i.toolkit.to_ascii_lowercase())
+            .collect(),
+    )
+}
+
+/// Deny-by-default curation gate for a flow `tool_call` slug (see
+/// [`flow_tool_allowed`] for the decision matrix). Fetches the user's live
+/// connected-toolkit set only when the slug's toolkit has no static catalog.
+async fn is_curated_flow_tool(config: &Config, slug: &str) -> bool {
+    let connected = if slug_needs_connected_set(slug) {
+        connected_toolkit_slugs(config).await
+    } else {
+        None
+    };
+    flow_tool_allowed(slug, connected.as_deref()).await
+}
+
+/// Finds the connected account a Composio `connection_id` refers to within a
+/// live connected-integrations snapshot, returning `(toolkit, display_label)`.
+/// UI-safe: the label is the pre-derived [`IntegrationConnection::label`], never
+/// a raw account-identity field. Pure over the snapshot so it is unit-testable.
+fn resolve_account<'a>(
+    integrations: &'a [crate::openhuman::composio::ConnectedIntegration],
+    connection_id: &str,
+) -> Option<(&'a str, Option<&'a str>)> {
+    integrations.iter().find_map(|integ| {
+        integ
+            .connections
+            .iter()
+            .find(|c| c.connection_id == connection_id)
+            .map(|c| (integ.toolkit.as_str(), c.label.as_deref()))
+    })
+}
+
+/// Resolves a Composio `connection_id` to the specific connected account it
+/// targets, for logging "which account was used". Best-effort: `None` when the
+/// id isn't found in the user's live connected accounts (stale cache / foreign
+/// id) or the backend is unreachable.
+async fn resolve_composio_account(
+    config: &Config,
+    connection_id: &str,
+) -> Option<(String, Option<String>)> {
+    let integrations = crate::openhuman::composio::fetch_connected_integrations(config).await;
+    resolve_account(&integrations, connection_id)
+        .map(|(toolkit, label)| (toolkit.to_string(), label.map(str::to_string)))
 }
 
 /// [`ToolInvoker`] adapter over Composio (`src/openhuman/composio/client.rs`).
@@ -276,7 +404,7 @@ impl ToolInvoker for OpenHumanTools {
         // doc for why this differs from the general agent tool-call path).
         // Runs before anything else — a rejected slug never reaches the
         // composio client at all.
-        if !is_curated_flow_tool(slug).await {
+        if !is_curated_flow_tool(&self.config, slug).await {
             tracing::warn!(
                 target: "flows",
                 %slug,
@@ -311,6 +439,15 @@ impl ToolInvoker for OpenHumanTools {
         let args_opt = if args.is_null() { None } else { Some(args) };
         let connection_id = conn.and_then(composio_connection_id);
 
+        // Resolve the connection_ref to the SPECIFIC connected account it names,
+        // so we can log which account executes and validate it against the
+        // user's live connected set. Ambient-session fallback is used ONLY when
+        // no connection_ref was supplied.
+        let resolved_account = match connection_id {
+            Some(id) => Some((id, resolve_composio_account(&self.config, id).await)),
+            None => None,
+        };
+
         tracing::debug!(
             target: "flows",
             %slug,
@@ -321,29 +458,68 @@ impl ToolInvoker for OpenHumanTools {
 
         let response = match kind {
             ComposioClientKind::Backend(client) => {
-                if connection_id.is_some() {
-                    tracing::warn!(
-                        target: "flows",
-                        %slug,
-                        "[flows] tool_call: connection_ref set but backend mode has no per-call \
-                         account-scoping path yet — using the ambient session account \
-                         (documented stub, see caps.rs's OpenHumanTools doc)"
-                    );
+                if let Some((id, resolved)) = &resolved_account {
+                    match resolved {
+                        Some((toolkit, label)) => tracing::warn!(
+                            target: "flows",
+                            %slug,
+                            connection_id = %id,
+                            %toolkit,
+                            account = label.as_deref().unwrap_or("<unlabeled>"),
+                            "[flows] tool_call: connection_ref resolves to a specific account, but \
+                             backend mode has no per-call account-scoping path yet — using the \
+                             ambient session account instead (documented stub, see caps.rs's \
+                             OpenHumanTools doc)"
+                        ),
+                        None => tracing::warn!(
+                            target: "flows",
+                            %slug,
+                            connection_id = %id,
+                            "[flows] tool_call: connection_ref set but backend mode has no per-call \
+                             account-scoping path yet — using the ambient session account \
+                             (documented stub, see caps.rs's OpenHumanTools doc)"
+                        ),
+                    }
                 }
                 client
                     .execute_tool(slug, args_opt)
                     .await
                     .map_err(|e| EngineError::Capability(e.to_string()))
             }
-            ComposioClientKind::Direct(tool) => direct_execute(
-                &tool,
-                slug,
-                args_opt,
-                &self.config.composio.entity_id,
-                connection_id,
-            )
-            .await
-            .map_err(|e| EngineError::Capability(e.to_string())),
+            ComposioClientKind::Direct(tool) => {
+                match &resolved_account {
+                    Some((id, Some((toolkit, label)))) => tracing::info!(
+                        target: "flows",
+                        %slug,
+                        connection_id = %id,
+                        %toolkit,
+                        account = label.as_deref().unwrap_or("<unlabeled>"),
+                        "[flows] tool_call: executing against the resolved connected account"
+                    ),
+                    Some((id, None)) => tracing::warn!(
+                        target: "flows",
+                        %slug,
+                        connection_id = %id,
+                        "[flows] tool_call: connection_ref connection_id not found among the user's \
+                         live connected accounts (stale cache or foreign id) — forwarding to \
+                         Composio Direct mode as-is"
+                    ),
+                    None => tracing::debug!(
+                        target: "flows",
+                        %slug,
+                        "[flows] tool_call: no connection_ref — using the ambient signed-in account"
+                    ),
+                }
+                direct_execute(
+                    &tool,
+                    slug,
+                    args_opt,
+                    &self.config.composio.entity_id,
+                    connection_id,
+                )
+                .await
+                .map_err(|e| EngineError::Capability(e.to_string()))
+            }
         };
 
         if let Some(id) = audit_id {
@@ -690,4 +866,106 @@ pub fn open_flow_checkpointer(
         SqliteCheckpointer::<serde_json::Value>::open(&db_path)
             .with_context(|| format!("Failed to open flows checkpointer: {}", db_path.display()))?,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::openhuman::agent::prompts::types::IntegrationConnection;
+    use crate::openhuman::composio::ConnectedIntegration;
+
+    fn integration(
+        toolkit: &str,
+        connected: bool,
+        connections: Vec<IntegrationConnection>,
+    ) -> ConnectedIntegration {
+        ConnectedIntegration {
+            toolkit: toolkit.to_string(),
+            description: String::new(),
+            tools: Vec::new(),
+            gated_tools: Vec::new(),
+            connected,
+            connections,
+            non_active_status: None,
+        }
+    }
+
+    fn connection(id: &str, label: Option<&str>, is_default: bool) -> IntegrationConnection {
+        IntegrationConnection {
+            connection_id: id.to_string(),
+            label: label.map(str::to_string),
+            is_default,
+        }
+    }
+
+    /// A `composio:<toolkit>:<connection_id>` ref parses to its id and that id
+    /// resolves to the SPECIFIC connected account (toolkit + display label) —
+    /// not the toolkit's default connection.
+    #[test]
+    fn connection_ref_resolves_to_the_chosen_account() {
+        let integrations = vec![integration(
+            "gmail",
+            true,
+            vec![
+                connection("conn_work", Some("work@example.com"), true),
+                connection("conn_home", Some("home@example.com"), false),
+            ],
+        )];
+
+        let id = composio_connection_id("composio:gmail:conn_home")
+            .expect("well-formed composio connection_ref should parse");
+        assert_eq!(id, "conn_home");
+
+        let (toolkit, label) =
+            resolve_account(&integrations, id).expect("id should resolve to a connected account");
+        assert_eq!(toolkit, "gmail");
+        // The non-default account was chosen — resolution is by id, not default.
+        assert_eq!(label, Some("home@example.com"));
+
+        // An id the user does not hold resolves to nothing (best-effort log path).
+        assert!(resolve_account(&integrations, "conn_unknown").is_none());
+    }
+
+    /// A made-up toolkit that OpenHuman ships no static catalog for and the user
+    /// has NOT connected still rejects — even when the connected set is present
+    /// but simply doesn't contain it.
+    #[tokio::test]
+    async fn unknown_toolkit_still_rejects() {
+        use crate::openhuman::memory_sync::composio::providers::{
+            catalog_for_toolkit, get_provider,
+        };
+        // Precondition: `flowstestkit` is genuinely uncatalogued, so the decision
+        // flows through the connected-set path (not the static curated path).
+        assert!(catalog_for_toolkit("flowstestkit").is_none());
+        assert!(get_provider("flowstestkit").is_none());
+
+        // No connected set at all → fail-closed reject.
+        assert!(!flow_tool_allowed("FLOWSTESTKIT_DO_THING", None).await);
+        // Connected set present but does not include this toolkit → reject.
+        assert!(
+            !flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["gmail".to_string()])).await
+        );
+        // A blank slug is always rejected.
+        assert!(!flow_tool_allowed("", Some(&["flowstestkit".to_string()])).await);
+    }
+
+    /// A real Composio toolkit OpenHuman ships no static catalog for now PASSES
+    /// once the user has an ACTIVE connection for it (the TODO(0.3) fix) — the
+    /// exact same slug that rejects above.
+    #[tokio::test]
+    async fn connected_uncatalogued_toolkit_now_passes() {
+        use crate::openhuman::memory_sync::composio::providers::{
+            catalog_for_toolkit, get_provider,
+        };
+        assert!(catalog_for_toolkit("flowstestkit").is_none());
+        assert!(get_provider("flowstestkit").is_none());
+
+        assert!(
+            flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["flowstestkit".to_string()])).await
+        );
+        // Case-insensitive match on the toolkit slug.
+        assert!(
+            flow_tool_allowed("FLOWSTESTKIT_DO_THING", Some(&["FlowsTestKit".to_string()])).await
+        );
+    }
 }

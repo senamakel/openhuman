@@ -23,9 +23,14 @@ hint = "burst"
 
 [tools]
 # DELIBERATELY NARROW: propose/revise (validate-only) + read (flows, runs,
-# connections, tool catalog) + sandbox dry-run. NO shell, NO file writes, NO
-# channel sends, NO flows_create/update/set_enabled — the agent can never
-# persist or enable a flow.
+# connections, tool catalog) + sandbox dry-run + Composio discovery/connect.
+# NO shell, NO file writes, NO channel sends, NO composio_execute, and NO
+# flows_create/update/set_enabled — the agent can never persist or enable a
+# flow, or perform a real integration action. Composio access is limited to
+# LISTING toolkits/connections and raising the inline CONNECT card (an
+# approval-gated OAuth hand-off), so the builder can wire a node to an app the
+# user hasn't linked yet and walk them through connecting it — without ever
+# executing an action itself.
 named = [
     "propose_workflow",
     "revise_workflow",
@@ -35,4 +40,7 @@ named = [
     "list_flow_connections",
     "search_tool_catalog",
     "dry_run_workflow",
+    "composio_list_toolkits",
+    "composio_list_connections",
+    "composio_connect",
 ]

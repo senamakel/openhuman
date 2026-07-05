@@ -21,6 +21,14 @@
 //! executes against `tinyflows`' deterministic **mock** capabilities so no real
 //! LLM / tool / HTTP / code side effect can fire. Only the user's own
 //! "Save & enable" click (→ `openhuman.flows_create`) writes anything.
+//!
+//! The agent's full tool scope (see `agent_registry/agents/workflow_builder/
+//! agent.toml`) also grants the Composio **discovery/connect** tools —
+//! `composio_list_toolkits`, `composio_list_connections`, `composio_connect`
+//! (defined in `composio/tools.rs`) — so the builder can link an app the
+//! workflow needs before proposing. Those stay within the invariant: connect
+//! is an approval-gated OAuth hand-off, and `composio_execute` (running a real
+//! action) remains deliberately OUT of scope.
 
 use std::sync::Arc;
 

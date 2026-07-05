@@ -21,8 +21,8 @@ vi.mock('../lib/i18n/I18nContext', () => ({ useT: () => ({ t: stableT }) }));
 
 const hoisted = vi.hoisted(() => ({ createWorkflow: vi.fn() }));
 
-vi.mock('../services/api/workflowsApi', () => ({
-  workflowsApi: { createWorkflow: hoisted.createWorkflow },
+vi.mock('../services/api/skillsApi', () => ({
+  skillsApi: { createWorkflow: hoisted.createWorkflow },
 }));
 
 const renderPage = () =>

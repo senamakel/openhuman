@@ -51,8 +51,8 @@ vi.mock('../../../utils/tauriCommands/cron', () => ({
   openhumanCronRuns: hoisted.cronRuns,
 }));
 
-vi.mock('../../../services/api/workflowsApi', () => ({
-  workflowsApi: {
+vi.mock('../../../services/api/skillsApi', () => ({
+  skillsApi: {
     listWorkflows: hoisted.listWorkflows,
     describeWorkflow: hoisted.describeWorkflow,
     runWorkflow: hoisted.runWorkflow,

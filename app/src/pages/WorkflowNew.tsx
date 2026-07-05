@@ -23,7 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import CreateWorkflowForm from '../components/skills/CreateWorkflowForm';
 import Button from '../components/ui/Button';
 import { useT } from '../lib/i18n/I18nContext';
-import { type WorkflowSummary } from '../services/api/workflowsApi';
+import { type WorkflowSummary } from '../services/api/skillsApi';
 
 const PAGE_FORM_ID = 'create-skill-page-form';
 

@@ -2,7 +2,7 @@ import debug from 'debug';
 
 import { callCoreRpc } from '../coreRpcClient';
 
-const log = debug('workflowsApi');
+const log = debug('skillsApi');
 
 /**
  * Scope a skill was discovered in.
@@ -243,7 +243,7 @@ function normalizeWorkflowSummary(raw: RawWorkflowSummary): WorkflowSummary {
   };
 }
 
-/** Options for {@link workflowsApi.listWorkflows}. */
+/** Options for {@link skillsApi.listWorkflows}. */
 export interface ListWorkflowsOptions {
   /**
    * When `true`, also include capability skills under the `skills/` roots
@@ -252,7 +252,7 @@ export interface ListWorkflowsOptions {
   includeSkills?: boolean;
 }
 
-export const workflowsApi = {
+export const skillsApi = {
   /**
    * Enumerate SKILL.md / legacy skills visible in the active workspace.
    *

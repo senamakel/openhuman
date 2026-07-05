@@ -20,7 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import { type WorkflowSummary } from '../../services/api/workflowsApi';
+import { type WorkflowSummary } from '../../services/api/skillsApi';
 import Button from '../ui/Button';
 import CreateWorkflowForm from './CreateWorkflowForm';
 

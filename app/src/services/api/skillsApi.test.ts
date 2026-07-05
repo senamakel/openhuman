@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { workflowsApi } from './workflowsApi';
+import { skillsApi } from './skillsApi';
 
 const mockCallCoreRpc = vi.fn();
 vi.mock('../coreRpcClient', () => ({ callCoreRpc: (...a: unknown[]) => mockCallCoreRpc(...a) }));
 
-describe('workflowsApi', () => {
+describe('skillsApi', () => {
   beforeEach(() => {
     mockCallCoreRpc.mockReset();
   });
@@ -15,7 +15,7 @@ describe('workflowsApi', () => {
       mockCallCoreRpc.mockResolvedValue({
         workflow: { id: 's', name: 'S', description: '', scope: 'user' as const },
       });
-      await workflowsApi.createWorkflow({
+      await skillsApi.createWorkflow({
         name: 'S',
         description: 'desc',
         inputs: [{ name: 'repo', type: 'string' as const, description: 'repo', required: true }],
@@ -34,7 +34,7 @@ describe('workflowsApi', () => {
         description: 'Auto dev',
         inputs: [],
       });
-      const result = await workflowsApi.describeWorkflow('dev-workflow');
+      const result = await skillsApi.describeWorkflow('dev-workflow');
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'openhuman.skills_describe',
@@ -48,7 +48,7 @@ describe('workflowsApi', () => {
       mockCallCoreRpc.mockResolvedValue({
         data: { id: 'x', name: 'X', description: '', inputs: [], workflow_id: 'x' },
       });
-      const result = await workflowsApi.describeWorkflow('x');
+      const result = await skillsApi.describeWorkflow('x');
       expect(result.id).toBe('x');
     });
   });
@@ -61,7 +61,7 @@ describe('workflowsApi', () => {
         skill_id: 's',
         log: '/tmp/log',
       });
-      const result = await workflowsApi.runWorkflow('s', { repo: 'owner/repo' });
+      const result = await skillsApi.runWorkflow('s', { repo: 'owner/repo' });
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'openhuman.skill_runtime_run',
@@ -82,7 +82,7 @@ describe('workflowsApi', () => {
         content: 'log line',
         offset: 100,
       });
-      const result = await workflowsApi.readRunLog('run-1');
+      const result = await skillsApi.readRunLog('run-1');
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'openhuman.skill_runtime_read_run_log',
@@ -100,7 +100,7 @@ describe('workflowsApi', () => {
         content: '',
         offset: 500,
       });
-      await workflowsApi.readRunLog('run-2', 200, 4096);
+      await skillsApi.readRunLog('run-2', 200, 4096);
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
           params: expect.objectContaining({ run_id: 'run-2', offset: 200, max_bytes: 4096 }),
@@ -112,13 +112,13 @@ describe('workflowsApi', () => {
   describe('recentRuns', () => {
     it('returns scanned runs array', async () => {
       mockCallCoreRpc.mockResolvedValue({ runs: [] });
-      const result = await workflowsApi.recentRuns();
+      const result = await skillsApi.recentRuns();
       expect(Array.isArray(result)).toBe(true);
     });
 
     it('passes workflow_id filter when provided', async () => {
       mockCallCoreRpc.mockResolvedValue({ runs: [] });
-      await workflowsApi.recentRuns('dev-workflow', 5);
+      await skillsApi.recentRuns('dev-workflow', 5);
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'openhuman.skill_runtime_recent_runs',
@@ -133,7 +133,7 @@ describe('workflowsApi', () => {
       mockCallCoreRpc.mockResolvedValue({
         workflow: { id: 's', name: 'S', description: '', scope: 'user' as const },
       });
-      await workflowsApi.createWorkflow({
+      await skillsApi.createWorkflow({
         name: 'S',
         description: 'desc',
         whenToUse: 'when asked',
@@ -162,7 +162,7 @@ describe('workflowsApi', () => {
       mockCallCoreRpc.mockResolvedValue({
         workflow: { id: 's', name: 'S', description: '', scope: 'user' as const },
       });
-      await workflowsApi.createWorkflow({ name: 'S', description: 'd', whenToUse: '   ' });
+      await skillsApi.createWorkflow({ name: 'S', description: 'd', whenToUse: '   ' });
       const params = mockCallCoreRpc.mock.calls[0][0].params;
       expect(params).not.toHaveProperty('when_to_use');
     });
@@ -173,7 +173,7 @@ describe('workflowsApi', () => {
       mockCallCoreRpc.mockResolvedValue({
         workflow: { id: 'wf', name: 'WF', description: 'd', scope: 'user' as const },
       });
-      const result = await workflowsApi.updateWorkflow({
+      const result = await skillsApi.updateWorkflow({
         name: 'WF',
         description: 'd',
         whenToUse: 'edit trigger',
@@ -196,7 +196,7 @@ describe('workflowsApi', () => {
       mockCallCoreRpc.mockResolvedValue({
         data: { workflow: { id: 'wf2', name: 'WF2', description: '', scope: 'user' as const } },
       });
-      const result = await workflowsApi.updateWorkflow({ name: 'WF2', description: 'd' });
+      const result = await skillsApi.updateWorkflow({ name: 'WF2', description: 'd' });
       expect(result.id).toBe('wf2');
     });
   });
@@ -204,7 +204,7 @@ describe('workflowsApi', () => {
   describe('cancelRun', () => {
     it('calls openhuman.skill_runtime_cancel with run_id and returns cancelled', async () => {
       mockCallCoreRpc.mockResolvedValue({ cancelled: true });
-      const result = await workflowsApi.cancelRun('run-9');
+      const result = await skillsApi.cancelRun('run-9');
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'openhuman.skill_runtime_cancel',
@@ -216,7 +216,7 @@ describe('workflowsApi', () => {
 
     it('returns false when the run was not live (envelope shape)', async () => {
       mockCallCoreRpc.mockResolvedValue({ data: { cancelled: false } });
-      const result = await workflowsApi.cancelRun('gone');
+      const result = await skillsApi.cancelRun('gone');
       expect(result).toBe(false);
     });
   });
@@ -224,7 +224,7 @@ describe('workflowsApi', () => {
   describe('uninstallWorkflow', () => {
     it('calls openhuman.skill_registry_uninstall and normalizes removed_path', async () => {
       mockCallCoreRpc.mockResolvedValue({ name: 'demo', removed_path: '/tmp/demo', scope: 'user' });
-      const result = await workflowsApi.uninstallWorkflow('demo');
+      const result = await skillsApi.uninstallWorkflow('demo');
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'openhuman.skill_registry_uninstall',
@@ -251,7 +251,7 @@ describe('workflowsApi', () => {
           },
         ],
       });
-      const result = await workflowsApi.resolveRuntimes('node');
+      const result = await skillsApi.resolveRuntimes('node');
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'openhuman.skill_runtime_resolve_runtimes',
@@ -264,7 +264,7 @@ describe('workflowsApi', () => {
     it('uses empty params object when runtime is "all" (the default)', async () => {
       mockCallCoreRpc.mockResolvedValue({ runtimes: [] });
 
-      await workflowsApi.resolveRuntimes('all');
+      await skillsApi.resolveRuntimes('all');
 
       expect(mockCallCoreRpc).toHaveBeenCalledWith(
         expect.objectContaining({ method: 'openhuman.skill_runtime_resolve_runtimes', params: {} })
@@ -274,7 +274,7 @@ describe('workflowsApi', () => {
     it('uses empty params when called with no argument (default = all)', async () => {
       mockCallCoreRpc.mockResolvedValue({ runtimes: [] });
 
-      await workflowsApi.resolveRuntimes();
+      await skillsApi.resolveRuntimes();
 
       const call = mockCallCoreRpc.mock.calls[0][0];
       expect(call.params).toEqual({});

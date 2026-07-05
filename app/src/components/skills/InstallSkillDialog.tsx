@@ -36,9 +36,9 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { trackEvent } from '../../services/analytics';
 import {
   type InstallWorkflowFromUrlResult,
-  workflowsApi,
+  skillsApi,
   type WorkflowSummary,
-} from '../../services/api/workflowsApi';
+} from '../../services/api/skillsApi';
 import Button from '../ui/Button';
 
 const log = debug('skills:install-dialog');
@@ -202,7 +202,7 @@ export default function InstallSkillDialog({ onClose, onInstalled }: Props) {
       setSubmitting(true);
       setError(null);
       try {
-        const installed = await workflowsApi.installWorkflowFromUrl(payload);
+        const installed = await skillsApi.installWorkflowFromUrl(payload);
         log(
           'submit-ok new=%d stdout=%d stderr=%d',
           installed.newWorkflows.length,

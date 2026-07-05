@@ -64,7 +64,9 @@ describe('FlowListRow', () => {
   });
 
   it('shows the capitalized status and "Just now" for a run seconds ago', () => {
-    renderRow({ flow: makeFlow({ last_run_at: new Date().toISOString(), last_status: 'completed' }) });
+    renderRow({
+      flow: makeFlow({ last_run_at: new Date().toISOString(), last_status: 'completed' }),
+    });
     expect(screen.getByText('Completed · Just now')).toBeInTheDocument();
   });
 

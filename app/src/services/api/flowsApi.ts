@@ -363,10 +363,7 @@ export async function runFlow(id: string, input?: unknown): Promise<FlowResumeRe
  */
 export async function deleteFlow(id: string): Promise<string> {
   log('deleteFlow: request id=%s', id);
-  const response = await callCoreRpc<unknown>({
-    method: 'openhuman.flows_delete',
-    params: { id },
-  });
+  const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_delete', params: { id } });
   const payload = unwrapCliEnvelope<{ id: string; removed: boolean }>(response);
   log('deleteFlow: response id=%s removed=%s', payload.id, payload.removed);
   return payload.id;

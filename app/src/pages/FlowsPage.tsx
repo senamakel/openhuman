@@ -422,9 +422,7 @@ export default function FlowsPage() {
         onFixWithAgent={handleFixWithAgent}
       />
 
-      {chooserOpen && (
-        <NewWorkflowModal onClose={() => setChooserOpen(false)} />
-      )}
+      {chooserOpen && <NewWorkflowModal onClose={() => setChooserOpen(false)} />}
 
       {deleteTarget && (
         <ModalShell

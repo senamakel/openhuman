@@ -86,9 +86,7 @@ export default function FlowRowMenu({ items, rowId }: FlowRowMenuProps) {
               data-testid={item.testId}
               onClick={() => select(item.onSelect)}
               className={`block w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-hover ${
-                item.danger
-                  ? 'text-coral-600 dark:text-coral-400'
-                  : 'text-content-secondary'
+                item.danger ? 'text-coral-600 dark:text-coral-400' : 'text-content-secondary'
               }`}>
               {item.label}
             </button>

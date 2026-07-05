@@ -27,8 +27,8 @@ import {
   type RepairPromptContext,
 } from '../../lib/flows/workflowBuilderPrompt';
 import { useT } from '../../lib/i18n/I18nContext';
-import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import { BubbleMarkdown } from '../../pages/conversations/components/AgentMessageBubble';
+import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import ChatComposer from '../chat/ChatComposer';
 import Button from '../ui/Button';
 

@@ -81,11 +81,7 @@ export const NODE_KINDS_BY_GROUP: Record<NodeGroup, NodeKind[]> = {
  * here so an unrecognized kind renders as a plain neutral node instead of
  * crashing the whole canvas (there's no error boundary around `<ReactFlow>`).
  */
-export const DEFAULT_NODE_META: NodeKindMeta = {
-  emoji: '❔',
-  color: 'neutral',
-  group: 'actions',
-};
+export const DEFAULT_NODE_META: NodeKindMeta = { emoji: '❔', color: 'neutral', group: 'actions' };
 
 /** Resolve a kind's metadata, falling back to {@link DEFAULT_NODE_META}. */
 export function nodeKindMeta(kind: NodeKind): NodeKindMeta {

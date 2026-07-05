@@ -36,10 +36,7 @@ function NodePalette({ onAdd }: NodePaletteProps) {
   const [query, setQuery] = useState('');
 
   // Label each kind once (memoised) so filtering matches on the localized name.
-  const labelFor = useMemo(
-    () => (kind: NodeKind) => t(`flows.nodeKind.${kind}`, kind),
-    [t]
-  );
+  const labelFor = useMemo(() => (kind: NodeKind) => t(`flows.nodeKind.${kind}`, kind), [t]);
 
   const needle = query.trim().toLowerCase();
   // Groups with their matching kinds; groups that filter down to nothing are

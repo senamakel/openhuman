@@ -61,18 +61,38 @@ const log = createDebug('app:flows:canvas:edit');
 
 function UndoIcon() {
   return (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14L4 9l5-5" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h11a5 5 0 010 10h-1" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 9h11a5 5 0 010 10h-1"
+      />
     </svg>
   );
 }
 
 function RedoIcon() {
   return (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 14l5-5-5-5" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 9H9a5 5 0 000 10h1" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M20 9H9a5 5 0 000 10h1"
+      />
     </svg>
   );
 }
@@ -214,7 +234,11 @@ function EditableFlowCanvas({
       const current = { nodes: nodesRef.current, edges: edgesRef.current };
       setNodes(previous.nodes);
       setEdges(previous.edges);
-      log('undo: restored snapshot nodes=%d edges=%d', previous.nodes.length, previous.edges.length);
+      log(
+        'undo: restored snapshot nodes=%d edges=%d',
+        previous.nodes.length,
+        previous.edges.length
+      );
       return { past: h.past.slice(0, -1), future: [...h.future, current].slice(-HISTORY_LIMIT) };
     });
   }, [setNodes, setEdges]);

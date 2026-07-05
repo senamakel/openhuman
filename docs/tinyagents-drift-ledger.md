@@ -56,6 +56,7 @@ work started. Counts include Rust files only.
 | # | Area | Status | Evidence / action |
 | --- | --- | --- | --- |
 | P1-1 | `SchemaCleanr` provider schema normalization | **UPSTREAM PR OPEN** | TinyAgents draft PR [tinyagents#20](https://github.com/tinyhumansai/tinyagents/pull/20) ports `SchemaCleanr` into `harness::tool` with crate-native errors and ported tests. Host submodule remains pinned to `v1.6.0` until the upstream PR merges/releases; no host call-site deletion yet. Local validation in the submodule: `cargo fmt --check`; `timeout 180s cargo clippy --all-targets -- -D warnings`; `timeout 120s cargo test schema_`. |
+| P1-2 | `current_time` / `resolve_time` builtin tool pilot | **UPSTREAM PR OPEN** | TinyAgents draft PR [tinyagents#22](https://github.com/tinyhumansai/tinyagents/pull/22) adds an optional `tools` feature and `harness::tools::{CurrentTimeTool, ResolveTimeTool, time_tools, register_time_tools}`. `chrono` / `chrono-tz` stay feature-gated and out of the default dependency set. Host wrappers remain in place until the upstream PR merges/releases and the host bumps the submodule. Local validation in the submodule: `cargo fmt --check`; `timeout 240s cargo clippy --features tools --all-targets -- -D warnings`; `timeout 180s cargo test --features tools time_`. |
 
 ## Phase Gates
 

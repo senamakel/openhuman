@@ -138,7 +138,7 @@ Land these as separate small PRs against tinyagents (each with its ported tests 
 4. First-class **reasoning channel** on `AssistantMessage` → delete the `ProviderExtension` smuggling in seam `convert.rs`.
 5. Git-worktree `WorkspaceIsolation` provider from `agent_orchestration/worktree.rs` (+ `worktree_tests.rs`, which exercises real git repos — fits the crate's offline test policy). The single `publish_global` event becomes a host-side wrapper.
 6. Tool display metadata (`humanize_tool_name`, `display_label`/`display_detail`, `ToolTimeout` semantics) → `harness/tool/`.
-7. `current_time` / `resolve_time` as the first two builtin tools (pilot for the `tools` feature layout).
+7. `current_time` / `resolve_time` as the first two builtin tools (pilot for the `tools` feature layout). **Status:** draft upstream PR [tinyagents#22](https://github.com/tinyhumansai/tinyagents/pull/22) is open with the new optional `tools` feature; host wrappers stay until merge/release and a submodule bump.
 8. **Exit:** tinyagents 1.7.0 tagged; host bumps and swaps call sites (`SchemaCleanr` imports, worktree isolation, convert.rs reasoning path); duplicated host copies deleted where the swap is complete.
 
 ### Phase 2 — Tool model reconciliation + builtin tool families

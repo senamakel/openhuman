@@ -58,12 +58,13 @@ Companion docs in the tinychannels repo:
   log string and extra fields such as
   `memory_chunks_deleted`. Discord guild/channel/permission discovery dispatches
   through the manager while restoring the old log strings and top-level provider
-  JSON. The remaining OpenHuman work is still envelope/session migration,
-  outbound relay usage, provider extraction, and the planned test split below;
-  the first envelope slice is landed because the runtime now publishes a
-  TinyChannels `ChannelInboundEnvelope` on `ChannelMessageReceived` events, and
-  startup now has a relay inbound handler that can forward authenticated relay
-  envelopes from the live relay socket onto the existing dispatch bus.
+  JSON. Outbound sends now use the live relay transport for configured relay
+  identities. The remaining OpenHuman work is still deeper envelope/session
+  migration, provider extraction, and the planned test split below; the first
+  envelope slice is landed because the runtime now publishes a TinyChannels
+  `ChannelInboundEnvelope` on `ChannelMessageReceived` events, and startup now
+  has a relay inbound handler that can forward authenticated relay envelopes
+  from the live relay socket onto the existing dispatch bus.
 
 ## Step 1 — Add the dependency, delete duplicates
 

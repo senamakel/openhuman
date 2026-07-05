@@ -15,7 +15,7 @@ use tinychannels::controllers::{
     DiscordGuildListResult, DiscordLinkCheckResult, DiscordLinkStartResult,
     DiscordPermissionCheckResult, TelegramLoginCheckResult, TelegramLoginStartResult,
 };
-use tinychannels::{ChannelBackend, SendMessage};
+use tinychannels::{ChannelBackend, ChannelOutboundIntent, SendMessage};
 
 /// OpenHuman-owned implementation of the TinyChannels backend contract.
 #[derive(Debug, Clone)]
@@ -236,6 +236,31 @@ impl ChannelBackend for OpenHumanChannelBackend {
         let config = self.config_with_channels(channels_config);
         let value = into_anyhow(ops::channel_send_message(&config, channel, message).await)?;
         Ok(parse_or_raw(value))
+    }
+
+    async fn send_outbound_intent(
+        &self,
+        channels_config: &ChannelsConfig,
+        intent: ChannelOutboundIntent,
+    ) -> anyhow::Result<ChannelSendMessageResult> {
+        if crate::openhuman::channels::relay_runtime::relay_runtime_fronts_channel(
+            channels_config,
+            &intent.channel_id,
+        ) {
+            if let Some(result) =
+                crate::openhuman::channels::relay_runtime::send_outbound_intent(&intent).await?
+            {
+                return Ok(result);
+            }
+        }
+
+        let channel = intent.channel_id.clone();
+        self.send_message_value(
+            channels_config,
+            &channel,
+            tinychannels::legacy_message_value_from_outbound_intent(&intent),
+        )
+        .await
     }
 
     async fn send_reaction(

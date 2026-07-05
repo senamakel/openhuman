@@ -122,6 +122,7 @@ async fn start_relay_runtime(
         max_message_length = descriptor.max_message_length,
         "[channels][relay] connected relay runtime"
     );
+    crate::openhuman::channels::relay_runtime::register_relay_transport(transport.clone());
 
     let dialer = Arc::new(tinychannels::relay::WebSocketRelayDialer::new(
         websocket_config,

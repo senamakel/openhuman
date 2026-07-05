@@ -5,6 +5,7 @@ pub mod cli;
 pub mod controllers;
 pub mod proactive;
 pub mod providers;
+pub(crate) mod relay_runtime;
 pub mod traits;
 
 mod commands;

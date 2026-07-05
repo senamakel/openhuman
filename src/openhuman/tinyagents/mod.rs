@@ -44,6 +44,8 @@ mod topology;
 use std::sync::Arc;
 
 use anyhow::Result;
+use futures::StreamExt;
+use tinyagents::harness::agent_loop::AgentStreamItem;
 use tinyagents::harness::cache::InMemoryResponseCache;
 use tinyagents::harness::context::{RunConfig, RunContext};
 use tinyagents::harness::events::EventSink;
@@ -396,7 +398,7 @@ pub(crate) async fn run_turn_via_tinyagents(
 /// silently inheriting the parent's full tool surface (shell/file-write/spawn).
 /// Each registered tool is advertised via its own `spec()`.
 ///
-/// When `on_progress` is `Some`, the run streams (`invoke_streaming_in_context`)
+/// When `on_progress` is `Some`, the run streams (`invoke_stream_in_context`)
 /// and a [`OpenhumanEventBridge`] mirrors the harness event stream onto
 /// `AgentProgress` (live tool timeline, text deltas, cost/token footer) and the
 /// global cost tracker — restoring the seams the legacy `run_turn_engine`
@@ -780,7 +782,26 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // pointer on the stack at each level.
     let run_result = with_run_cancellation(cancellation.clone(), async {
         if streaming {
-            Box::pin(harness.invoke_streaming_in_context(&(), ctx, input)).await
+            let mut stream = Box::pin(harness.invoke_stream_in_context(&(), ctx, input));
+            let mut terminal = None;
+            while let Some(item) = stream.next().await {
+                match item {
+                    AgentStreamItem::Event(_) => {}
+                    AgentStreamItem::Completed(run) => {
+                        terminal = Some(Ok(*run));
+                        break;
+                    }
+                    AgentStreamItem::Failed(error) => {
+                        terminal = Some(Err(tinyagents::TinyAgentsError::Model(error)));
+                        break;
+                    }
+                }
+            }
+            terminal.unwrap_or_else(|| {
+                Err(tinyagents::TinyAgentsError::Model(
+                    "tinyagents stream ended without terminal run".to_string(),
+                ))
+            })
         } else {
             Box::pin(harness.invoke_in_context(&(), ctx, input)).await
         }

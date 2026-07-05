@@ -161,7 +161,11 @@ span-projection slice.
    (log divergences), matching the C1 `session_shadow_reads` pattern. **STARTED**
    — the web bridge now keeps live export as-is and logs a structural
    journal-projection shadow comparison keyed by the durable journal run id.
-4. **S4 — Langfuse swap** to the crate exporter (§3); delete
+4. **S4 — Langfuse swap** to the crate exporter (§3). **STARTED** — when the
+   web bridge can read a durable run journal for S3 shadow comparison, the
+   remote `share_usage_data` push now sends those `AgentObservation`s through
+   the crate `LangfuseClient`; live spans remain the local tracing sink and
+   fallback until S3 shadow parity is release-proven. Later delete
    `progress_tracing/langfuse.rs` (~825 + tests).
 5. **S5 — delete `progress_tracing.rs` + `SpanCollector`** once S3 shadow shows
    no divergence for one release **and** V3 projection parity holds (the doc 07

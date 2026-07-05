@@ -1395,7 +1395,9 @@ pub(crate) fn export_spans(config: &AgentTracingConfig, spans: &[TraceSpan]) {
 ///    the current backend host, authed with the session bearer (see
 ///    [`langfuse::push_spans`]). A failure (no live session, network, rejected
 ///    batch) just logs; there is no local fallback, since sharing and local
-///    export are distinct opt-ins.
+///    export are distinct opt-ins. Web-channel turns that successfully read a
+///    durable tinyagents journal should call [`export_run_trace_from_journal`]
+///    instead, so the remote push uses the crate-owned observation exporter.
 /// 2. **Local exporter** (`observability.agent_tracing.enabled`, opt-in): append
 ///    OTel/Langfuse-format NDJSON to the configured file or the app log via
 ///    [`export_spans`].
@@ -1415,6 +1417,34 @@ pub(crate) async fn export_run_trace(config: &Config, spans: &[TraceSpan]) {
 
     if observability.agent_tracing.enabled {
         export_spans(&observability.agent_tracing, spans);
+    }
+}
+
+/// Export a completed run when durable tinyagents observations are available.
+/// Remote usage-data sharing uses the crate Langfuse exporter over the journal;
+/// local tracing still writes the live spans until the migration deletes the
+/// legacy span collector/exporter path.
+pub(crate) async fn export_run_trace_from_journal(
+    config: &Config,
+    trace_ctx: &TraceContext,
+    observations: &[tinyagents::harness::observability::AgentObservation],
+    live_spans: &[TraceSpan],
+) {
+    if observations.is_empty() && live_spans.is_empty() {
+        return;
+    }
+    let observability = &config.observability;
+
+    if observability.share_usage_data && !observations.is_empty() {
+        if let Err(err) = langfuse::push_observations(config, trace_ctx, observations).await {
+            log::warn!("[agent-tracing] Langfuse journal usage-data push failed ({err})");
+        }
+    } else if observability.share_usage_data {
+        log::debug!("[agent-tracing] no journal observations for Langfuse usage-data push");
+    }
+
+    if observability.agent_tracing.enabled && !live_spans.is_empty() {
+        export_spans(&observability.agent_tracing, live_spans);
     }
 }
 

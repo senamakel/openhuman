@@ -564,13 +564,14 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     }
 
     if let Some(ref dc) = config.channels_config.discord {
-        channels.push(Arc::new(DiscordChannel::new(
+        channels.push(Arc::new(DiscordChannel::with_http_client(
             dc.bot_token.clone(),
             dc.guild_id.clone(),
             dc.channel_id.clone(),
             dc.allowed_users.clone(),
             dc.listen_to_bots,
             dc.mention_only,
+            crate::openhuman::config::build_runtime_proxy_client("channel.discord"),
         )));
     }
 
@@ -588,13 +589,14 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     }
 
     if let Some(ref mm) = config.channels_config.mattermost {
-        channels.push(Arc::new(MattermostChannel::new(
+        channels.push(Arc::new(MattermostChannel::with_http_client(
             mm.url.clone(),
             mm.bot_token.clone(),
             mm.channel_id.clone(),
             mm.allowed_users.clone(),
             mm.thread_replies.unwrap_or(true),
             mm.mention_only.unwrap_or(false),
+            crate::openhuman::config::build_runtime_proxy_client("channel.mattermost"),
         )));
     }
 
@@ -699,18 +701,20 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     }
 
     if let Some(ref dt) = config.channels_config.dingtalk {
-        channels.push(Arc::new(DingTalkChannel::new(
+        channels.push(Arc::new(DingTalkChannel::with_http_client(
             dt.client_id.clone(),
             dt.client_secret.clone(),
             dt.allowed_users.clone(),
+            crate::openhuman::config::build_runtime_proxy_client("channel.dingtalk"),
         )));
     }
 
     if let Some(ref qq) = config.channels_config.qq {
-        channels.push(Arc::new(QQChannel::new(
+        channels.push(Arc::new(QQChannel::with_http_client(
             qq.app_id.clone(),
             qq.app_secret.clone(),
             qq.allowed_users.clone(),
+            crate::openhuman::config::build_runtime_proxy_client("channel.qq"),
         )));
     }
 

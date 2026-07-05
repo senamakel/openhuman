@@ -64,13 +64,14 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
     if let Some(ref dc) = config.channels_config.discord {
         channels.push((
             "Discord",
-            Arc::new(DiscordChannel::new(
+            Arc::new(DiscordChannel::with_http_client(
                 dc.bot_token.clone(),
                 dc.guild_id.clone(),
                 dc.channel_id.clone(),
                 dc.allowed_users.clone(),
                 dc.listen_to_bots,
                 dc.mention_only,
+                crate::openhuman::config::build_runtime_proxy_client("channel.discord"),
             )),
         ));
     }
@@ -209,10 +210,11 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
     if let Some(ref dt) = config.channels_config.dingtalk {
         channels.push((
             "DingTalk",
-            Arc::new(DingTalkChannel::new(
+            Arc::new(DingTalkChannel::with_http_client(
                 dt.client_id.clone(),
                 dt.client_secret.clone(),
                 dt.allowed_users.clone(),
+                crate::openhuman::config::build_runtime_proxy_client("channel.dingtalk"),
             )),
         ));
     }
@@ -220,10 +222,11 @@ pub async fn doctor_channels(config: Config) -> Result<()> {
     if let Some(ref qq) = config.channels_config.qq {
         channels.push((
             "QQ",
-            Arc::new(QQChannel::new(
+            Arc::new(QQChannel::with_http_client(
                 qq.app_id.clone(),
                 qq.app_secret.clone(),
                 qq.allowed_users.clone(),
+                crate::openhuman::config::build_runtime_proxy_client("channel.qq"),
             )),
         ));
     }

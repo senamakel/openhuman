@@ -33,7 +33,7 @@ pub(super) fn handle_skills_list(params: Map<String, Value>) -> ControllerFuture
     Box::pin(async move {
         let params = deserialize_params::<WorkflowsListParams>(params)?;
         let include_skills = params.include_skills;
-        tracing::debug!(include_skills, "[workflows][rpc] list automations");
+        tracing::debug!(include_skills, "[skills][rpc] list automations");
         let workspace = resolve_workspace_dir().await;
         let trusted = is_workspace_trusted(&workspace);
         let home = dirs::home_dir();
@@ -53,7 +53,7 @@ pub(super) fn handle_skills_list(params: Map<String, Value>) -> ControllerFuture
             include_skills,
             workspace = %workspace.display(),
             trusted,
-            "[workflows][rpc] list result"
+            "[skills][rpc] list result"
         );
         let summaries = listed.into_iter().map(WorkflowSummary::from).collect();
         to_json(RpcOutcome::new(
@@ -179,7 +179,7 @@ pub(super) fn handle_skills_cancel(params: Map<String, Value>) -> ControllerFutu
     Box::pin(async move {
         let payload = deserialize_params::<WorkflowsCancelParams>(params)?;
         let cancelled = run_log::cancel_run(&payload.run_id);
-        tracing::info!(run_id = %payload.run_id, cancelled, "[workflows][rpc] cancel");
+        tracing::info!(run_id = %payload.run_id, cancelled, "[skills][rpc] cancel");
         to_json(RpcOutcome::new(
             serde_json::json!({ "run_id": payload.run_id, "cancelled": cancelled }),
             Vec::new(),
@@ -261,7 +261,7 @@ pub(super) fn handle_skills_update(params: Map<String, Value>) -> ControllerFutu
         tracing::debug!(
             name = %payload.name,
             scope = ?payload.scope,
-            "[workflows][rpc] update"
+            "[skills][rpc] update"
         );
         let workspace = resolve_workspace_dir().await;
         let mut create_params: CreateWorkflowParams = payload.into();
@@ -274,7 +274,7 @@ pub(super) fn handle_skills_update(params: Map<String, Value>) -> ControllerFutu
                 Vec::new(),
             )),
             Err(err) => {
-                tracing::debug!(error = %err, "[workflows][rpc] update: rejected");
+                tracing::debug!(error = %err, "[skills][rpc] update: rejected");
                 Err(err)
             }
         }

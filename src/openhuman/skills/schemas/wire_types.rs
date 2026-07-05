@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::openhuman::workflows::ops::{
+use crate::openhuman::skills::ops::{
     CreateWorkflowParams, InstallWorkflowFromUrlParams, Workflow, WorkflowCreateInputDef,
     WorkflowScope,
 };
@@ -249,5 +249,5 @@ pub(super) struct WorkflowsDescribeResult {
 
 #[derive(serde::Serialize)]
 pub(super) struct WorkflowsRecentRunsResult {
-    pub(super) runs: Vec<crate::openhuman::workflows::run_log::ScannedRun>,
+    pub(super) runs: Vec<crate::openhuman::skills::run_log::ScannedRun>,
 }

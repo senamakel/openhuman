@@ -48,7 +48,7 @@ pub enum IdentityMatch {
 
 /// `[github]` block in `skill.toml`. Optional; absent ⇒ no GitHub
 /// preflight gate runs for this skill. Present + `required = true` ⇒
-/// the preflight described in [`crate::openhuman::workflows::schemas`]'s
+/// the preflight described in [`crate::openhuman::skills::schemas`]'s
 /// `preflight_github_gate` runs before the orchestrator boots.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorkflowGithubConfig {
@@ -195,7 +195,7 @@ pub fn load_workflows(workspace_dir: &Path) -> Vec<WorkflowDefinition> {
         // of which key on `dir_name`. A SKILL.md-only install whose frontmatter
         // `name` differs from its install slug (e.g. `name: My Cool Workflow` in
         // `my-cool-workflow/`) would otherwise build `definition.id` from the
-        // name and be unresolvable by `workflows_describe` / `workflows_run`
+        // name and be unresolvable by `skills_describe` / `skills_run`
         // ("unknown skill"). Falls back to `name` for legacy `Workflow` values
         // that predate `dir_name`. (#3987 codex review.)
         let slug = if wf.dir_name.is_empty() {

@@ -1524,7 +1524,7 @@ fn uninstall_skill_rejects_symlinked_skills_root() {
 
 #[test]
 fn skill_create_input_def_deserializes_full_row_from_json() {
-    let row: crate::openhuman::workflows::ops_create::WorkflowCreateInputDef =
+    let row: crate::openhuman::skills::ops_create::WorkflowCreateInputDef =
         serde_json::from_value(serde_json::json!({
             "name": "repo",
             "description": "owner/name slug",
@@ -1543,7 +1543,7 @@ fn skill_create_input_def_required_defaults_to_true() {
     // The form sends `required` per row, but other callers (CLI, future
     // RPC clients) may omit it. The serde default keeps the safer
     // semantic — a row the user bothered to declare is required.
-    let row: crate::openhuman::workflows::ops_create::WorkflowCreateInputDef =
+    let row: crate::openhuman::skills::ops_create::WorkflowCreateInputDef =
         serde_json::from_value(serde_json::json!({
             "name": "topic",
         }))
@@ -1599,19 +1599,19 @@ fn skill_create_input_def_round_trips_through_registry_skill_input() {
     // body, parse it back through the registry's `WorkflowDefinition`,
     // and check every field survived.
     let rows = vec![
-        crate::openhuman::workflows::ops_create::WorkflowCreateInputDef {
+        crate::openhuman::skills::ops_create::WorkflowCreateInputDef {
             name: "repo".into(),
             description: Some("owner/name slug".into()),
             required: true,
             type_: Some("string".into()),
         },
-        crate::openhuman::workflows::ops_create::WorkflowCreateInputDef {
+        crate::openhuman::skills::ops_create::WorkflowCreateInputDef {
             name: "issue".into(),
             description: Some("issue #".into()),
             required: true,
             type_: Some("integer".into()),
         },
-        crate::openhuman::workflows::ops_create::WorkflowCreateInputDef {
+        crate::openhuman::skills::ops_create::WorkflowCreateInputDef {
             name: "pr_base".into(),
             description: None,
             required: false,
@@ -1634,7 +1634,7 @@ fn skill_create_input_def_round_trips_through_registry_skill_input() {
         }
     }
 
-    let parsed: crate::openhuman::workflows::registry::WorkflowDefinition =
+    let parsed: crate::openhuman::skills::registry::WorkflowDefinition =
         toml::from_str(&toml).expect("registry must accept what the form emits");
     assert_eq!(parsed.inputs.len(), 3);
     assert_eq!(parsed.inputs[0].name, "repo");

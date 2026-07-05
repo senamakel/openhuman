@@ -122,7 +122,7 @@ pub(crate) fn discover_workflows_inner(
 }
 
 /// Discover only *automation* bundles — those under the `workflows/` roots —
-/// for the Automations UI list (`openhuman.workflows_list`).
+/// for the Automations UI list (`openhuman.skills_list`).
 ///
 /// Capability skills (under the `skills/` / `.agents/skills/` / legacy
 /// `<workspace>/skills/` roots) are deliberately excluded so they don't show up
@@ -574,7 +574,7 @@ mod include_skills_tests {
 
     /// `discover_automations` lists only `workflows/`-root automations, while
     /// `discover_workflows` additionally surfaces `skills/`-root installs. This
-    /// is exactly the branch `handle_workflows_list` selects on `include_skills`
+    /// is exactly the branch `handle_skills_list` selects on `include_skills`
     /// so the Skills Explorer's Installed tab can show registry installs (#3954).
     #[test]
     fn automations_excludes_skill_roots_but_full_discover_includes_them() {
@@ -593,7 +593,7 @@ mod include_skills_tests {
             "WORKFLOW.md",
         );
 
-        // Automations-only view (the default `workflows_list` path) hides the skill.
+        // Automations-only view (the default `skills_list` path) hides the skill.
         let automations = discover_automations(Some(home_path), None, false);
         let auto_names: Vec<&str> = automations.iter().map(|w| w.name.as_str()).collect();
         assert_eq!(

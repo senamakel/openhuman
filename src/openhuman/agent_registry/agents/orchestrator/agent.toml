@@ -305,7 +305,7 @@ named = [
     # what's installed and learn a workflow's inputs before running it; the
     # `*_run*` read tools let it inspect a run's status + log. All route
     # through `workflows::schemas::spawn_skill_run_background` +
-    # `await_run_outcome` — the same spawn path the `openhuman.workflows_run`
+    # `await_run_outcome` — the same spawn path the `openhuman.skills_run`
     # JSON-RPC controller uses (iter cap, transcript isolation,
     # degenerate-response detector all apply).
     "list_workflows",

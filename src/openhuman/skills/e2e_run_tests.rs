@@ -39,11 +39,11 @@ use crate::openhuman::inference::provider::traits::{
 };
 use crate::openhuman::inference::provider::{Provider, ToolCall};
 use crate::openhuman::skill_runtime::{await_run_outcome, spawn_workflow_run_background};
+use crate::openhuman::skills::schemas::resolve_workspace_dir;
 use crate::openhuman::todos::ops as board_ops;
 use crate::openhuman::todos::ops::{BoardLocation, CardPatch};
 use crate::openhuman::tools::policy::DefaultToolPolicy;
 use crate::openhuman::tools::traits::Tool;
-use crate::openhuman::workflows::schemas::resolve_workspace_dir;
 
 /// Serialize this module's tests (each touches process-global state).
 fn serial() -> &'static tokio::sync::Mutex<()> {
@@ -186,7 +186,7 @@ async fn inner_workflow_run_executes_via_mock_llm_and_reaches_done() {
     let _env = WorkspaceEnv::set(ws_root.path());
     // Seed exactly where the run path resolves the workspace to (the env maps
     // OPENHUMAN_WORKSPACE → <root>/workspace), so get_workflow/load_workflow_metadata finds it.
-    let workspace = crate::openhuman::workflows::schemas::resolve_workspace_dir().await;
+    let workspace = crate::openhuman::skills::schemas::resolve_workspace_dir().await;
     seed_runnable_workflow(&workspace, "triage-inbox");
     let _guard = test_provider_override::install(Arc::new(MockLlm {
         workflow_id: Some("triage-inbox".into()),
@@ -225,7 +225,7 @@ async fn orchestrator_runs_workflow_tool_and_gets_inner_result() {
     let _serial = serial().lock().await;
     let ws_root = tempfile::tempdir().unwrap();
     let _env = WorkspaceEnv::set(ws_root.path());
-    let workspace = crate::openhuman::workflows::schemas::resolve_workspace_dir().await;
+    let workspace = crate::openhuman::skills::schemas::resolve_workspace_dir().await;
     seed_runnable_workflow(&workspace, "triage-inbox");
     // The inner run (spawned by the run_workflow tool) builds its provider from
     // config → needs the global override. The outer loop gets the mock directly.
@@ -427,7 +427,7 @@ async fn task_with_no_workflow_runs_directly_and_resolves_done() {
     );
     // And NO workflow run was spawned — run_workflow was never called, so the
     // run-log dir stays empty.
-    let runs = crate::openhuman::workflows::run_log::scan_runs(&workspace, None, 10);
+    let runs = crate::openhuman::skills::run_log::scan_runs(&workspace, None, 10);
     assert!(
         runs.is_empty(),
         "no workflow should have run for a no-workflow task; got: {runs:?}"

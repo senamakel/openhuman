@@ -13,7 +13,7 @@ use super::ops_types::{
 /// Create-a-Workflow form.
 ///
 /// Wire shape (kebab-case-free, mirrors what
-/// `crate::openhuman::workflows::registry::WorkflowInput` expects when the
+/// `crate::openhuman::skills::registry::WorkflowInput` expects when the
 /// emitted `skill.toml` is parsed back at run time):
 ///
 /// ```json
@@ -83,7 +83,7 @@ pub struct CreateWorkflowParams {
     /// Edit mode: when `true`, an existing workflow at the resolved slug is
     /// overwritten (frontmatter + `skill.toml` rewritten) instead of rejected,
     /// and the existing `SKILL.md` body (hand-authored instructions) is
-    /// preserved. Set by the `workflows_update` path; `false` for create.
+    /// preserved. Set by the `skills_update` path; `false` for create.
     #[serde(default)]
     pub overwrite: bool,
 }

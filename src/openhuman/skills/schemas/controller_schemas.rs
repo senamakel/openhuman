@@ -1,89 +1,89 @@
-//! Controller schema definitions for every `openhuman.workflows_*` RPC method.
+//! Controller schema definitions for every `openhuman.skills_*` RPC method.
 //!
-//! `workflows_schemas(function)` returns the [`ControllerSchema`] for the
-//! named function. `all_workflows_controller_schemas` and
-//! `all_workflows_registered_controllers` wire everything into the global
+//! `skills_schemas(function)` returns the [`ControllerSchema`] for the
+//! named function. `all_skills_controller_schemas` and
+//! `all_skills_registered_controllers` wire everything into the global
 //! registry in `src/core/all.rs`.
 
 use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::handlers::{
-    handle_workflows_cancel, handle_workflows_create, handle_workflows_describe,
-    handle_workflows_install_from_url, handle_workflows_list, handle_workflows_read_resource,
-    handle_workflows_read_run_log, handle_workflows_recent_runs, handle_workflows_run,
-    handle_workflows_uninstall, handle_workflows_update,
+    handle_skills_cancel, handle_skills_create, handle_skills_describe,
+    handle_skills_install_from_url, handle_skills_list, handle_skills_read_resource,
+    handle_skills_read_run_log, handle_skills_recent_runs, handle_skills_run,
+    handle_skills_uninstall, handle_skills_update,
 };
 
-pub fn all_workflows_controller_schemas() -> Vec<ControllerSchema> {
+pub fn all_skills_controller_schemas() -> Vec<ControllerSchema> {
     vec![
-        workflows_schemas("workflows_list"),
-        workflows_schemas("workflows_describe"),
-        workflows_schemas("workflows_recent_runs"),
-        workflows_schemas("workflows_read_run_log"),
-        workflows_schemas("workflows_read_resource"),
-        workflows_schemas("workflows_create"),
-        workflows_schemas("workflows_update"),
-        workflows_schemas("workflows_install_from_url"),
-        workflows_schemas("workflows_uninstall"),
-        workflows_schemas("workflows_run"),
-        workflows_schemas("workflows_cancel"),
+        skills_schemas("skills_list"),
+        skills_schemas("skills_describe"),
+        skills_schemas("skills_recent_runs"),
+        skills_schemas("skills_read_run_log"),
+        skills_schemas("skills_read_resource"),
+        skills_schemas("skills_create"),
+        skills_schemas("skills_update"),
+        skills_schemas("skills_install_from_url"),
+        skills_schemas("skills_uninstall"),
+        skills_schemas("skills_run"),
+        skills_schemas("skills_cancel"),
     ]
 }
 
-pub fn all_workflows_registered_controllers() -> Vec<RegisteredController> {
+pub fn all_skills_registered_controllers() -> Vec<RegisteredController> {
     vec![
         RegisteredController {
-            schema: workflows_schemas("workflows_list"),
-            handler: handle_workflows_list,
+            schema: skills_schemas("skills_list"),
+            handler: handle_skills_list,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_describe"),
-            handler: handle_workflows_describe,
+            schema: skills_schemas("skills_describe"),
+            handler: handle_skills_describe,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_recent_runs"),
-            handler: handle_workflows_recent_runs,
+            schema: skills_schemas("skills_recent_runs"),
+            handler: handle_skills_recent_runs,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_read_run_log"),
-            handler: handle_workflows_read_run_log,
+            schema: skills_schemas("skills_read_run_log"),
+            handler: handle_skills_read_run_log,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_read_resource"),
-            handler: handle_workflows_read_resource,
+            schema: skills_schemas("skills_read_resource"),
+            handler: handle_skills_read_resource,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_create"),
-            handler: handle_workflows_create,
+            schema: skills_schemas("skills_create"),
+            handler: handle_skills_create,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_update"),
-            handler: handle_workflows_update,
+            schema: skills_schemas("skills_update"),
+            handler: handle_skills_update,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_install_from_url"),
-            handler: handle_workflows_install_from_url,
+            schema: skills_schemas("skills_install_from_url"),
+            handler: handle_skills_install_from_url,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_uninstall"),
-            handler: handle_workflows_uninstall,
+            schema: skills_schemas("skills_uninstall"),
+            handler: handle_skills_uninstall,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_run"),
-            handler: handle_workflows_run,
+            schema: skills_schemas("skills_run"),
+            handler: handle_skills_run,
         },
         RegisteredController {
-            schema: workflows_schemas("workflows_cancel"),
-            handler: handle_workflows_cancel,
+            schema: skills_schemas("skills_cancel"),
+            handler: handle_skills_cancel,
         },
     ]
 }
 
-pub fn workflows_schemas(function: &str) -> ControllerSchema {
+pub fn skills_schemas(function: &str) -> ControllerSchema {
     match function {
-        "workflows_list" => ControllerSchema {
-            namespace: "workflows",
+        "skills_list" => ControllerSchema {
+            namespace: "skills",
             function: "list",
             description: "List SKILL.md and legacy skills discovered in the user home and workspace.",
             inputs: vec![FieldSchema {
@@ -99,8 +99,8 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
-        "workflows_run" => ControllerSchema {
-            namespace: "workflows",
+        "skills_run" => ControllerSchema {
+            namespace: "skills",
             function: "run",
             description: "Start a skill in the background: run the orchestrator agent focused by the skill's SKILL.md + the given inputs, streaming every step to a per-run log file. Validates required inputs and returns immediately with a run id and the log path.",
             inputs: vec![
@@ -144,14 +144,14 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
-        "workflows_cancel" => ControllerSchema {
-            namespace: "workflows",
+        "skills_cancel" => ControllerSchema {
+            namespace: "skills",
             function: "cancel",
             description: "Request cancellation of an in-flight workflow run by run_id. The run stops at its next await point and records a CANCELLED footer. Returns cancelled=false if the run id is unknown (already finished or never existed).",
             inputs: vec![FieldSchema {
                 name: "run_id",
                 ty: TypeSchema::String,
-                comment: "Id of the running workflow run to cancel (from workflows_run).",
+                comment: "Id of the running workflow run to cancel (from skills_run).",
                 required: true,
             }],
             outputs: vec![
@@ -169,8 +169,8 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
-        "workflows_read_resource" => ControllerSchema {
-            namespace: "workflows",
+        "skills_read_resource" => ControllerSchema {
+            namespace: "skills",
             function: "read_resource",
             description: "Read a single bundled SKILL resource file, hardened against traversal, symlink escape, and oversized payloads.",
             inputs: vec![
@@ -214,8 +214,8 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
-        "workflows_create" => ControllerSchema {
-            namespace: "workflows",
+        "skills_create" => ControllerSchema {
+            namespace: "skills",
             function: "create",
             description: "Scaffold a new SKILL.md skill under the user or workspace scope.",
             inputs: vec![
@@ -283,15 +283,15 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
         },
         // Same wire shape as create; overwrites the workflow at the resolved
         // slug (frontmatter + workflow.toml) while preserving the body.
-        "workflows_update" => {
-            let mut s = workflows_schemas("workflows_create");
+        "skills_update" => {
+            let mut s = skills_schemas("skills_create");
             s.function = "update";
             s.description =
                 "Edit an existing workflow: overwrite frontmatter + workflow.toml at the resolved slug, preserving the hand-authored body.";
             s
         }
-        "workflows_install_from_url" => ControllerSchema {
-            namespace: "workflows",
+        "skills_install_from_url" => ControllerSchema {
+            namespace: "skills",
             function: "install_from_url",
             description: "Install a remote skill by fetching its SKILL.md over HTTPS and writing it into the user-scope skills directory. URL must be https, resolve to a public host, and point at a single `.md` file (`github.com/.../blob/...` auto-rewrites to raw). Default 60s timeout, max 600s.",
             inputs: vec![
@@ -335,8 +335,8 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
-        "workflows_read_run_log" => ControllerSchema {
-            namespace: "workflows",
+        "skills_read_run_log" => ControllerSchema {
+            namespace: "skills",
             function: "read_run_log",
             description: "Read a slice of a skill run's streaming log file by run_id. The FE Skills Runner panel opens this on click of a Recent Runs row and re-calls it every 2s while the run's `status` is RUNNING to tail new bytes (use the returned `offset` as the next call's `offset`). The run id resolves to a path internally — callers don't supply a path, so no traversal surface. `max_bytes` is clamped to 262144 (256 KiB) per call; pages by re-issuing with the returned `offset`.",
             inputs: vec![
@@ -392,8 +392,8 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
-        "workflows_recent_runs" => ControllerSchema {
-            namespace: "workflows",
+        "skills_recent_runs" => ControllerSchema {
+            namespace: "skills",
             function: "recent_runs",
             description: "List recent autonomous skill runs by scanning `<workspace>/skills/.runs/`. Returns one entry per log file (header: workflow_id, run_id, started; footer: status, duration_ms, finished) sorted by `started` descending. `status` is `RUNNING` while the footer hasn't landed yet, then `DONE` / `DEGENERATE` / `FAILED`. Optionally filter by `workflow_id` to scope to one skill; `limit` (default 20, max 100) caps the result. Cheap: reads the files top-to-bottom and short-circuits — no schema parsing of the streaming body.",
             inputs: vec![
@@ -413,12 +413,12 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
             outputs: vec![FieldSchema {
                 name: "runs",
                 ty: TypeSchema::Json,
-                comment: "Array of `{ run_id, workflow_id, started, status, duration_ms, finished, log_path }` — see crate::openhuman::workflows::run_log::ScannedRun.",
+                comment: "Array of `{ run_id, workflow_id, started, status, duration_ms, finished, log_path }` — see crate::openhuman::skills::run_log::ScannedRun.",
                 required: true,
             }],
         },
-        "workflows_describe" => ControllerSchema {
-            namespace: "workflows",
+        "skills_describe" => ControllerSchema {
+            namespace: "skills",
             function: "describe",
             description: "Describe a single skill by id — returns its display name, summary, and the declared `[[inputs]]` block. Used by the Settings → Skills Runner panel to render dynamic input controls and let the user fill in the right fields before clicking Run Now or scheduling a cron. `skills_list` does NOT carry `inputs` (it stays the lightweight enumeration); call this once per skill the user picks.",
             inputs: vec![FieldSchema {
@@ -446,7 +446,7 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
                     comment: "Short one-line summary from skill.toml `when_to_use` — what the skill does and when to pick it.",
                     required: true,
                 },
-                // Wire shape: array of objects. `handle_workflows_describe`
+                // Wire shape: array of objects. `handle_skills_describe`
                 // serialises this as a real array of `WorkflowInputDescription`
                 // objects — `{name, description, required, type}` per entry —
                 // so the controller-catalog type is `Json`, matching the
@@ -459,8 +459,8 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
-        "workflows_uninstall" => ControllerSchema {
-            namespace: "workflows",
+        "skills_uninstall" => ControllerSchema {
+            namespace: "skills",
             function: "uninstall",
             description: "Remove an installed user-scope SKILL.md skill from `~/.openhuman/skills/<name>/`. Only user-scope installs are supported; project-scope and legacy skills are read-only. Rejects path separators and traversal; canonicalises before delete.",
             inputs: vec![FieldSchema {
@@ -491,7 +491,7 @@ pub fn workflows_schemas(function: &str) -> ControllerSchema {
             ],
         },
         _ => ControllerSchema {
-            namespace: "workflows",
+            namespace: "skills",
             function: "unknown",
             description: "Unknown skills controller.",
             inputs: vec![],

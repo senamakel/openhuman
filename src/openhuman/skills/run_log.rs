@@ -23,7 +23,7 @@ use crate::openhuman::agent::progress::AgentProgress;
 
 /// Registry of in-flight workflow runs → their cancellation token. A run
 /// registers itself before executing and removes itself when it finishes; the
-/// `workflows_cancel` RPC looks a run up by id and fires its token, which the
+/// `skills_cancel` RPC looks a run up by id and fires its token, which the
 /// run's `tokio::select!` observes to stop the agent and write a `CANCELLED`
 /// footer.
 static RUN_CANCELS: Lazy<Mutex<HashMap<String, CancellationToken>>> =
@@ -284,7 +284,7 @@ pub fn detect_repeated_line(
 }
 
 /// One run extracted from a `.runs/<skill>_<utc>_<run>.log` file. Built by
-/// [`scan_runs`] for the `openhuman.workflows_recent_runs` RPC + the Skills
+/// [`scan_runs`] for the `openhuman.skills_recent_runs` RPC + the Skills
 /// Runner panel's "Recent runs" section. Status is `RUNNING` until the
 /// footer block (`--- result ---` + `status: …` + `duration: … ms`) lands.
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
@@ -406,7 +406,7 @@ pub fn scan_runs(workspace: &Path, workflow_id: Option<&str>, limit: usize) -> V
 
 /// Look up the on-disk log path for a given `run_id` by scanning the
 /// `<workspace>/skills/.runs/` directory. Used by
-/// `openhuman.workflows_read_run_log` to resolve a stable id back to a path
+/// `openhuman.skills_read_run_log` to resolve a stable id back to a path
 /// without trusting the caller to send one (no path-traversal surface).
 pub fn find_run_log_path(workspace: &Path, run_id: &str) -> Option<PathBuf> {
     if run_id.is_empty() {
@@ -501,7 +501,7 @@ pub fn read_terminal_outcome(path: &Path) -> Option<RunOutcome> {
 /// forward, capped at `max_bytes`, plus `eof` (true if we hit end-of-
 /// file) and a flag indicating whether the `--- result ---` footer is
 /// present in the file as a whole (so the FE can stop polling). Used by
-/// `openhuman.workflows_read_run_log` for the chat-style log viewer's
+/// `openhuman.skills_read_run_log` for the chat-style log viewer's
 /// scroll + tail behaviour.
 pub fn read_run_log_slice(
     path: &Path,

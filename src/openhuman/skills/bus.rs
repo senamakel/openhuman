@@ -12,7 +12,7 @@
 //! in without touching the bus machinery.
 
 use crate::core::event_bus::{subscribe_global, DomainEvent, EventHandler, SubscriptionHandle};
-use crate::openhuman::workflows::Workflow;
+use crate::openhuman::skills::Workflow;
 use async_trait::async_trait;
 use std::sync::{Arc, OnceLock};
 
@@ -250,7 +250,7 @@ static TRIGGERED_WORKFLOW_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLoc
 /// enables matching, not yet activation.
 pub fn ensure_triggered_workflow_subscriber(workspace: &std::path::Path) {
     TRIGGERED_WORKFLOW_HANDLE.get_or_init(|| {
-        let workflows = crate::openhuman::workflows::load_workflow_metadata(workspace);
+        let workflows = crate::openhuman::skills::load_workflow_metadata(workspace);
         register_triggered_workflow_subscriber(&workflows)
     });
 }
@@ -262,7 +262,7 @@ pub fn register_workflow_cleanup_subscriber() {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::workflows::ops_types::{Workflow, WorkflowFrontmatter};
+    use crate::openhuman::skills::ops_types::{Workflow, WorkflowFrontmatter};
 
     fn skill_with_triggers(name: &str, triggers: Vec<&str>) -> Workflow {
         Workflow {

@@ -273,6 +273,20 @@ pub fn all_tools_with_runtime(
         // flow itself. Only the chat UI's WorkflowProposalCard "Save &
         // enable" action calls `flows_create`.
         Box::new(ProposeWorkflowTool::new(config.clone())),
+        // workflow-builder agent tool belt (Phase 5b). A deliberately narrow,
+        // propose-or-read surface: revise a draft (validate-only), read saved
+        // flows/runs/connections, ground tool_call slugs in the real catalog,
+        // and dry-run a draft against MOCK capabilities. None of these persist
+        // or enable a flow (only the user's own `flows_create` click does); the
+        // read tools are `PermissionLevel::None`, and `dry_run_workflow` is
+        // autonomy-tier gated + wired to deterministic mock capabilities.
+        Box::new(ReviseWorkflowTool::new(config.clone())),
+        Box::new(ListFlowsTool::new(config.clone())),
+        Box::new(GetFlowTool::new(config.clone())),
+        Box::new(GetFlowRunTool::new(config.clone())),
+        Box::new(ListFlowConnectionsTool::new(config.clone())),
+        Box::new(SearchToolCatalogTool::new()),
+        Box::new(DryRunWorkflowTool::new(security.clone())),
         // Wallet tools — expose wallet operations to the agent tool-call pipeline
         // so the crypto sub-agent can prepare transfers, check status, etc.
         Box::new(WalletStatusTool::new()),

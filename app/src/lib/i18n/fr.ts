@@ -3818,9 +3818,9 @@ const messages: TranslationMap = {
     'Des automatisations que le Flow Scout juge utiles, selon votre façon de travailler.',
   'flows.suggest.discover': 'Découvrir',
   'flows.suggest.rediscover': 'Actualiser',
-  'flows.suggest.discovering': 'Recherche d\'automatisations…',
+  'flows.suggest.discovering': "Recherche d'automatisations…",
   'flows.suggest.empty':
-    'Aucune suggestion pour l\'instant. Lancez la découverte et le Flow Scout parcourra votre travail pour trouver des automatisations à mettre en place.',
+    "Aucune suggestion pour l'instant. Lancez la découverte et le Flow Scout parcourra votre travail pour trouver des automatisations à mettre en place.",
   'flows.suggest.error': 'Impossible de lancer la découverte. Veuillez réessayer.',
   'flows.suggest.why': 'Pourquoi',
   'flows.suggest.build': 'Créer ceci',

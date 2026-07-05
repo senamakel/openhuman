@@ -3793,8 +3793,7 @@ const messages: TranslationMap = {
   'flows.promptBar.error': 'Impossibile raggiungere il generatore di flussi. Riprova.',
   'flows.promptBar.offline': 'Sei offline. Riconnettiti per creare un flusso.',
   'flows.suggest.title': 'Consigliati per te',
-  'flows.suggest.subtitle':
-    'Automazioni che il Flow Scout ritiene utili, in base a come lavori.',
+  'flows.suggest.subtitle': 'Automazioni che il Flow Scout ritiene utili, in base a come lavori.',
   'flows.suggest.discover': 'Scopri',
   'flows.suggest.rediscover': 'Aggiorna',
   'flows.suggest.discovering': 'Ricerca di automazioni…',

@@ -575,7 +575,19 @@ fn handle_set_default(params: Map<String, Value>) -> ControllerFuture {
 fn handle_get_default(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(ops::get_default_channel(&config)?)
+        let manager = ChannelManager::new(
+            config.channels_config.clone(),
+            OpenHumanChannelBackend::new(config),
+        );
+        let active = manager
+            .get_default_channel()
+            .await
+            .map_err(|e| e.to_string())?
+            .unwrap_or_else(|| "web".to_string());
+        to_json(RpcOutcome::new(
+            serde_json::json!({ "active_channel": active }),
+            vec![],
+        ))
     })
 }
 

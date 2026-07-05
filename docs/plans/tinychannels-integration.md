@@ -39,9 +39,11 @@ Companion docs in the tinychannels repo:
   `channels.test` controllers now route through
   `ChannelManager<OpenHumanChannelBackend>`, preserving the existing no-log
   JSON response shapes while using the crate manager for definition lookup and
-  credential validation where applicable. The remaining OpenHuman work is still
-  the rest of the controller routing, envelope/session migration, idempotency
-  adoption, and the planned test split below.
+  credential validation where applicable. `channels.get_default` also routes
+  through the manager while preserving the public `{ active_channel }` response.
+  The remaining OpenHuman work is still the rest of the controller routing,
+  envelope/session migration, idempotency adoption, and the planned test split
+  below.
 
 ## Step 1 — Add the dependency, delete duplicates
 
@@ -85,10 +87,11 @@ Companion docs in the tinychannels repo:
 - Still pending: route controller entry points through
   `ChannelManager<OpenHumanChannelBackend>` beyond `channels.status` and
   `channels.test`, and finish metadata-style routing beyond
-  `channels.list`/`describe` where applicable, so credential validation
-  (`ChannelDefinition::validate_credentials`) and operation dispatch happen in
-  one place. Route `channels.connect` carefully: it currently returns log
-  entries in the public JSON envelope, unlike `channels.status`/`test`.
+  `channels.list`/`describe` and `channels.get_default` where applicable, so
+  credential validation (`ChannelDefinition::validate_credentials`) and
+  operation dispatch happen in one place. Route `channels.connect` and
+  `channels.set_default` carefully: they currently return log entries in the
+  public JSON envelope, unlike `channels.status`/`test`/`get_default`.
 - The event bus, health bus, and dispatch engine stay app-side and *drive*
   tinychannels. Never add a tinychannels → openhuman dependency; the
   `runtime/` dispatch engine and the `web` provider are consumers of the

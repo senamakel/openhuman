@@ -63,3 +63,16 @@
   background: rgb(var(--surface) / 0.7);
   color: rgb(var(--content-muted));
 }
+
+/*
+ * Validation highlight (Phase 3c): a node named by a hard validation error
+ * (invalid config / cycle / duplicate / unknown-node) gets a coral ring so the
+ * inline banner's message points at a visible culprit on the canvas. `.flow-node-error`
+ * is applied to the outer `.react-flow__node` wrapper via the node's `className`.
+ */
+.flow-canvas .react-flow__node.flow-node-error {
+  outline: 2px solid rgb(var(--coral-500));
+  outline-offset: 3px;
+  border-radius: 0.85rem;
+}
+

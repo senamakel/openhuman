@@ -35,6 +35,29 @@ impl FlowRunTrigger {
     }
 }
 
+/// The result of validating a candidate `tinyflows` graph without persisting
+/// it — returned by `openhuman.flows_validate` (PHASE 3c) and used to surface
+/// structural errors and non-fatal warnings (e.g. "this trigger kind never
+/// fires automatically yet") to an authoring surface *before* a flow is saved.
+///
+/// A graph is `valid` when it passes `tinyflows::validate::validate` after
+/// migration; `errors` carries the single structural error when it does not.
+/// `warnings` is orthogonal to validity — a `valid` graph can still carry
+/// warnings (it saves and enables fine, it just won't behave as an author
+/// might expect), and an invalid graph reports no warnings (there's nothing to
+/// warn about a graph that won't compile).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct FlowValidation {
+    /// True when the graph is structurally valid (migrates + validates).
+    pub valid: bool,
+    /// Structural validation errors (empty when `valid`). Today at most one —
+    /// `tinyflows::validate::validate` returns the first error it hits.
+    pub errors: Vec<String>,
+    /// Non-fatal warnings: the graph is accepted, but something about it is
+    /// worth flagging (e.g. an unfired trigger kind). Never blocks save/enable.
+    pub warnings: Vec<String>,
+}
+
 /// A saved automation workflow: a `tinyflows` graph plus OpenHuman-side
 /// bookkeeping (enablement, run history summary).
 #[derive(Debug, Clone, Serialize, Deserialize)]

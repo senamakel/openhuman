@@ -51,6 +51,122 @@ pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGr
     Ok(graph)
 }
 
+/// Stable snake_case label for a [`TriggerKind`], matching its serde wire
+/// discriminator — used in loud author-facing warnings (not derived via serde
+/// so the exact human string is unmistakable at the call site).
+fn trigger_kind_label(kind: &TriggerKind) -> &'static str {
+    match kind {
+        TriggerKind::Manual => "manual",
+        TriggerKind::Schedule => "schedule",
+        TriggerKind::Webhook => "webhook",
+        TriggerKind::AppEvent => "app_event",
+        TriggerKind::Form => "form",
+        TriggerKind::ExecuteByWorkflow => "execute_by_workflow",
+        TriggerKind::ChatMessage => "chat_message",
+        TriggerKind::Evaluation => "evaluation",
+        TriggerKind::System => "system",
+    }
+}
+
+/// Whether a flow's trigger kind currently produces *automatic* runs in this
+/// host. Only three kinds fire today:
+/// - `manual` — runnable on demand via `flows_run` (no automatic dispatch, but
+///   that's the whole contract of a manual trigger — never a surprise).
+/// - `schedule` — a `cron` job drives `FlowScheduleTick` (see
+///   [`bind_schedule_trigger`]).
+/// - `app_event` — matched against `ComposioTriggerReceived` at dispatch time
+///   (see `flows::bus::FlowTriggerSubscriber`).
+///
+/// Everything else (`webhook`, `chat_message`, `form`, `execute_by_workflow`,
+/// `evaluation`, `system`) is *accepted and saved* but has no wired dispatch
+/// path yet — enabling such a flow silently produces a flow that never runs
+/// itself. [`graph_trigger_warnings`] turns that silence into a loud warning.
+fn trigger_kind_fires(kind: &TriggerKind) -> bool {
+    matches!(
+        kind,
+        TriggerKind::Manual | TriggerKind::Schedule | TriggerKind::AppEvent
+    )
+}
+
+/// Produces host-side, **non-fatal** validation warnings for a graph — today
+/// exactly one: "this trigger kind does not fire automatically yet". Returns
+/// an empty vec when the trigger fires (`manual`/`schedule`/`app_event`), when
+/// the graph has no single resolvable trigger node, or when the trigger has no
+/// `trigger_kind` discriminator (a legacy/manual-only graph authored before
+/// B2 simply never self-fires — not a warnable surprise, matching
+/// `bus::extract_trigger_kind`'s "no automatic binding" treatment).
+///
+/// This lives host-side (NOT in `tinyflows::validate`, which is host-agnostic
+/// and only does structural checks) because "which trigger kinds this host has
+/// wired" is an OpenHuman fact, not a property of the portable graph.
+pub(crate) fn graph_trigger_warnings(graph: &WorkflowGraph) -> Vec<String> {
+    let Some(trigger) = graph.trigger() else {
+        return Vec::new();
+    };
+    let Some(kind_value) = trigger.config.get("trigger_kind") else {
+        return Vec::new();
+    };
+    let kind: TriggerKind = match serde_json::from_value(kind_value.clone()) {
+        Ok(k) => k,
+        Err(_) => return Vec::new(),
+    };
+    if trigger_kind_fires(&kind) {
+        return Vec::new();
+    }
+    let label = trigger_kind_label(&kind);
+    vec![format!(
+        "Trigger kind '{label}' does not fire automatically yet — this flow will be saved and \
+         can be enabled, but nothing will run it on its own until that trigger is wired up. Run \
+         it manually with flows_run, or switch to a `schedule` or `app_event` trigger."
+    )]
+}
+
+/// Validates a candidate graph without persisting it — the same
+/// migrate/validate path `flows_create` and `ProposeWorkflowTool` use — and
+/// reports structural errors alongside non-fatal trigger warnings
+/// ([`graph_trigger_warnings`]). Backs `openhuman.flows_validate` (PHASE 3c):
+/// an authoring surface can call this to preview validity + warnings before a
+/// save. Pure (no persistence, no config) — `valid == false` is a normal
+/// result, NOT an `Err`; `Err` is reserved for internal serialization faults
+/// (there are none on this path today).
+pub fn flows_validate(graph_json: Value) -> RpcOutcome<crate::openhuman::flows::FlowValidation> {
+    use crate::openhuman::flows::FlowValidation;
+    tracing::debug!(target: "flows", "[flows] flows_validate: validating candidate graph");
+    match validate_and_migrate_graph(graph_json) {
+        Ok(graph) => {
+            let warnings = graph_trigger_warnings(&graph);
+            for warning in &warnings {
+                tracing::warn!(target: "flows", warning = %warning, "[flows] flows_validate: non-fatal validation warning");
+            }
+            tracing::debug!(
+                target: "flows",
+                node_count = graph.nodes.len(),
+                warning_count = warnings.len(),
+                "[flows] flows_validate: graph is structurally valid"
+            );
+            RpcOutcome::single_log(
+                FlowValidation {
+                    valid: true,
+                    errors: Vec::new(),
+                    warnings,
+                },
+                "flow validated",
+            )
+        }
+        Err(error) => {
+            tracing::debug!(target: "flows", %error, "[flows] flows_validate: graph is structurally invalid");
+            RpcOutcome::single_log(
+                FlowValidation {
+                    valid: false,
+                    errors: vec![error],
+                    warnings: Vec::new(),
+                },
+                "flow validation failed",
+            )
+        }
+    }
+}
+
 /// Creates a new flow from a name and a raw graph JSON value.
 ///
 /// `store::create_flow` defaults new flows to `enabled = true` — this binds
@@ -206,10 +322,24 @@ pub async fn flows_set_enabled(
         unbind_trigger(config, &flow);
     }
 
-    Ok(RpcOutcome::single_log(
-        flow,
-        format!("flow {id} enabled={enabled}"),
-    ))
+    let mut logs = vec![format!("flow {id} enabled={enabled}")];
+    // When enabling, loudly surface any unfired-trigger-kind warning in the
+    // result (a structured `warning:`-prefixed log), not just a silent tracing
+    // line — so an enable of a flow that will never fire itself (webhook,
+    // chat_message, form, …) is impossible to miss at the call site.
+    if enabled {
+        for warning in graph_trigger_warnings(&flow.graph) {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %id,
+                warning = %warning,
+                "[flows] flows_set_enabled: enabling a flow whose trigger kind does not fire yet"
+            );
+            logs.push(format!("warning: {warning}"));
+        }
+    }
+
+    Ok(RpcOutcome::new(flow, logs))
 }
 
 /// Registers the automatic-dispatch side effect for `flow`'s trigger kind, if

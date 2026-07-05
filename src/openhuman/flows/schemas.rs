@@ -68,6 +68,7 @@ fn run_output_fields() -> Vec<FieldSchema> {
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("create"),
+        schemas("validate"),
         schemas("get"),
         schemas("list"),
         schemas("update"),
@@ -86,6 +87,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("create"),
             handler: handle_create,
+        },
+        RegisteredController {
+            schema: schemas("validate"),
+            handler: handle_validate,
         },
         RegisteredController {
             schema: schemas("get"),
@@ -153,6 +158,40 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 require_approval_input(),
             ],
             outputs: vec![flow_output()],
+        },
+        "validate" => ControllerSchema {
+            namespace: "flows",
+            function: "validate",
+            description: "Validate a tinyflows graph without saving it: reports structural \
+                          validity plus non-fatal warnings (e.g. a trigger kind that does not \
+                          fire automatically yet).",
+            inputs: vec![FieldSchema {
+                name: "graph",
+                ty: TypeSchema::Json,
+                comment: "A tinyflows WorkflowGraph (nodes + edges) to validate and migrate.",
+                required: true,
+            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "valid",
+                    ty: TypeSchema::Bool,
+                    comment: "True when the graph is structurally valid.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "errors",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Structural validation errors; empty when `valid`.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "warnings",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Non-fatal warnings (e.g. an unfired trigger kind); the graph is \
+                              still saveable/enable-able.",
+                    required: true,
+                },
+            ],
         },
         "get" => ControllerSchema {
             namespace: "flows",
@@ -412,6 +451,14 @@ fn handle_create(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_validate(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        // No config load: validation is pure (no persistence, no workspace).
+        let graph = read_required::<Value>(&params, "graph")?;
+        to_json(ops::flows_validate(graph))
+    })
+}
+
 fn handle_get(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -562,6 +609,7 @@ mod tests {
             names,
             vec![
                 "create",
+                "validate",
                 "get",
                 "list",
                 "update",
@@ -579,12 +627,13 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 11);
+        assert_eq!(controllers.len(), 12);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
             vec![
                 "create",
+                "validate",
                 "get",
                 "list",
                 "update",

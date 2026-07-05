@@ -3812,6 +3812,23 @@ const messages: TranslationMap = {
     'Indiquez au générateur quoi automatiser et examinez sa proposition.',
   'flows.promptBar.error': 'Impossible de joindre le générateur de flux. Veuillez réessayer.',
   'flows.promptBar.offline': 'Vous êtes hors ligne. Reconnectez-vous pour créer un flux.',
+  'flows.suggest.title': 'Suggéré pour vous',
+  'flows.suggest.subtitle':
+    'Des automatisations que le Flow Scout juge utiles, selon votre façon de travailler.',
+  'flows.suggest.discover': 'Découvrir',
+  'flows.suggest.rediscover': 'Actualiser',
+  'flows.suggest.discovering': 'Recherche d\'automatisations…',
+  'flows.suggest.empty':
+    'Aucune suggestion pour l\'instant. Lancez la découverte et le Flow Scout parcourra votre travail pour trouver des automatisations à mettre en place.',
+  'flows.suggest.error': 'Impossible de lancer la découverte. Veuillez réessayer.',
+  'flows.suggest.why': 'Pourquoi',
+  'flows.suggest.build': 'Créer ceci',
+  'flows.suggest.building': 'Création…',
+  'flows.suggest.dismiss': 'Ignorer',
+  'flows.suggest.uses': 'Utilise',
+  'flows.suggest.trigger.schedule': 'Planifié',
+  'flows.suggest.trigger.app_event': 'Sur événement',
+  'flows.suggest.trigger.manual': 'À la demande',
   'flows.copilot.open': 'Copilote',
   'flows.copilot.title': 'Copilote de flux',
   'flows.copilot.subtitle':

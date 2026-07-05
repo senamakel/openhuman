@@ -3825,6 +3825,23 @@ const messages: TranslationMap = {
   'flows.promptBar.error': 'Der Workflow-Generator ist nicht erreichbar. Bitte erneut versuchen.',
   'flows.promptBar.offline':
     'Du bist offline. Verbinde dich erneut, um einen Workflow zu erstellen.',
+  'flows.suggest.title': 'Für dich vorgeschlagen',
+  'flows.suggest.subtitle':
+    'Automatisierungen, die der Flow Scout basierend auf deiner Arbeitsweise für hilfreich hält.',
+  'flows.suggest.discover': 'Entdecken',
+  'flows.suggest.rediscover': 'Aktualisieren',
+  'flows.suggest.discovering': 'Suche nach Automatisierungen…',
+  'flows.suggest.empty':
+    'Noch keine Vorschläge. Starte die Entdeckung und der Flow Scout durchsucht deine Arbeit nach Automatisierungen, die sich lohnen.',
+  'flows.suggest.error': 'Entdeckung konnte nicht ausgeführt werden. Bitte versuche es erneut.',
+  'flows.suggest.why': 'Warum',
+  'flows.suggest.build': 'Diese erstellen',
+  'flows.suggest.building': 'Wird erstellt…',
+  'flows.suggest.dismiss': 'Verwerfen',
+  'flows.suggest.uses': 'Verwendet',
+  'flows.suggest.trigger.schedule': 'Geplant',
+  'flows.suggest.trigger.app_event': 'Bei Ereignis',
+  'flows.suggest.trigger.manual': 'Auf Abruf',
   'flows.copilot.open': 'Assistent',
   'flows.copilot.title': 'Workflow-Assistent',
   'flows.copilot.subtitle':

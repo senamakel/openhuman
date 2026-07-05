@@ -18,6 +18,13 @@ const log = debug('openhuman:chat:workflow-proposal-card');
 interface Props {
   threadId: string;
   proposal: WorkflowProposal;
+  /**
+   * Optional callback fired after a successful "Save & enable" (the flow was
+   * persisted via `flows_create`). The Flows page "Suggested for you" section
+   * uses this to mark the originating suggestion as built so it drops out of
+   * the active cards. Unused by the default chat/prompt-bar placements.
+   */
+  onSaved?: () => void;
 }
 
 /**
@@ -33,7 +40,7 @@ interface Props {
  * the tool-timeline `StatusTag`/detail-chip visual language for the
  * node-kind badges + config hints in the step list.
  */
-export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal }) => {
+export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSaved }) => {
   const { t } = useT();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -76,6 +83,7 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal }) =>
     try {
       await createFlow(proposal.name, proposal.graph, proposal.requireApproval);
       dispatch(clearWorkflowProposalForThread({ threadId }));
+      onSaved?.();
     } catch (e) {
       log('createFlow failed: %o', e);
       setErrorMsg(t('chat.flowProposal.error'));

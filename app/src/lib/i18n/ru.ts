@@ -3767,6 +3767,23 @@ const messages: TranslationMap = {
     'Скажите конструктору, что автоматизировать, и просмотрите его предложение.',
   'flows.promptBar.error': 'Не удалось связаться с конструктором процессов. Повторите попытку.',
   'flows.promptBar.offline': 'Вы не в сети. Переподключитесь, чтобы создать процесс.',
+  'flows.suggest.title': 'Рекомендуется для вас',
+  'flows.suggest.subtitle':
+    'Автоматизации, которые Flow Scout считает полезными, исходя из того, как вы работаете.',
+  'flows.suggest.discover': 'Найти',
+  'flows.suggest.rediscover': 'Обновить',
+  'flows.suggest.discovering': 'Поиск автоматизаций…',
+  'flows.suggest.empty':
+    'Пока нет предложений. Запустите поиск, и Flow Scout просмотрит вашу работу в поисках автоматизаций, которые стоит настроить.',
+  'flows.suggest.error': 'Не удалось выполнить поиск. Попробуйте ещё раз.',
+  'flows.suggest.why': 'Почему',
+  'flows.suggest.build': 'Создать это',
+  'flows.suggest.building': 'Создание…',
+  'flows.suggest.dismiss': 'Скрыть',
+  'flows.suggest.uses': 'Использует',
+  'flows.suggest.trigger.schedule': 'По расписанию',
+  'flows.suggest.trigger.app_event': 'По событию',
+  'flows.suggest.trigger.manual': 'По запросу',
   'flows.copilot.open': 'Второй пилот',
   'flows.copilot.title': 'Второй пилот процессов',
   'flows.copilot.subtitle':

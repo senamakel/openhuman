@@ -166,6 +166,32 @@ export interface FlowUpdate {
   requireApproval?: boolean;
 }
 
+/** Lifecycle status of a {@link FlowSuggestion} (`src/openhuman/flows/types.rs::SuggestionStatus`). */
+export type SuggestionStatus = 'new' | 'dismissed' | 'built';
+
+/**
+ * A Flow Scout workflow suggestion (`src/openhuman/flows/types.rs::FlowSuggestion`)
+ * — a *pitch*, not a graph. Rendered as a card in the Flows page "Suggested for
+ * you" section. `build_prompt` is the natural-language brief handed to the
+ * `workflow_builder` agent when the user clicks "Build this".
+ */
+export interface FlowSuggestion {
+  id: string;
+  title: string;
+  one_liner: string;
+  rationale: string;
+  /** `schedule` | `app_event` | `manual` — omitted when the agent didn't set one. */
+  trigger_hint?: string | null;
+  steps_outline: string[];
+  suggested_connections: string[];
+  suggested_slugs: string[];
+  build_prompt: string;
+  confidence: number;
+  status: SuggestionStatus;
+  created_at: string;
+  source_run_id?: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // CLI-compatible envelope unwrapping.
 // ---------------------------------------------------------------------------
@@ -441,9 +467,88 @@ export async function importFlow(
   return result;
 }
 
+/**
+ * `openhuman.flows_discover` runs the read-only Flow Scout agent, which reasons
+ * over the user's memory/threads/connections/flows and can take up to ~300s
+ * server-side (`FLOW_DISCOVER_TIMEOUT_SECS` in `src/openhuman/flows/ops.rs`).
+ * Give the client a matching budget so a slow discovery run doesn't time out
+ * client-side while the agent is still thinking.
+ */
+const FLOW_DISCOVER_TIMEOUT_MS = 310_000;
+
+/**
+ * Run the Flow Scout discovery agent via `openhuman.flows_discover` and return
+ * the active (new) suggestions it produced. Read-only server-side — it never
+ * creates, enables, or runs a flow. Returns the `FlowSuggestion[]` directly
+ * (same no-wrapper shape as `flows_list`).
+ */
+export async function discoverWorkflows(): Promise<FlowSuggestion[]> {
+  log('discoverWorkflows: request');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_discover',
+    params: {},
+    timeoutMs: FLOW_DISCOVER_TIMEOUT_MS,
+  });
+  const suggestions = unwrapCliEnvelope<FlowSuggestion[]>(response);
+  log('discoverWorkflows: response count=%d', suggestions.length);
+  return suggestions;
+}
+
+/**
+ * List persisted workflow suggestions via `openhuman.flows_list_suggestions`.
+ * `status` filters to one lifecycle state (`new` for the active cards); omit
+ * for all. Returns the `FlowSuggestion[]` directly.
+ */
+export async function listSuggestions(status?: SuggestionStatus): Promise<FlowSuggestion[]> {
+  log('listSuggestions: request status=%s', status ?? 'all');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_list_suggestions',
+    params: status === undefined ? {} : { status },
+  });
+  const suggestions = unwrapCliEnvelope<FlowSuggestion[]>(response);
+  log('listSuggestions: response count=%d', suggestions.length);
+  return suggestions;
+}
+
+/**
+ * Dismiss a suggestion via `openhuman.flows_dismiss_suggestion` (the user
+ * rejected the card). The row is kept server-side so a later discovery run
+ * dedupes against it and won't re-surface the idea.
+ */
+export async function dismissSuggestion(id: string): Promise<boolean> {
+  log('dismissSuggestion: request id=%s', id);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_dismiss_suggestion',
+    params: { id },
+  });
+  const result = unwrapCliEnvelope<{ id: string; dismissed: boolean }>(response);
+  log('dismissSuggestion: response dismissed=%s', result.dismissed);
+  return result.dismissed;
+}
+
+/**
+ * Mark a suggestion as built via `openhuman.flows_mark_suggestion_built` —
+ * called after the user saves a flow authored from it, so it drops out of the
+ * active cards.
+ */
+export async function markSuggestionBuilt(id: string): Promise<boolean> {
+  log('markSuggestionBuilt: request id=%s', id);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_mark_suggestion_built',
+    params: { id },
+  });
+  const result = unwrapCliEnvelope<{ id: string; built: boolean }>(response);
+  log('markSuggestionBuilt: response built=%s', result.built);
+  return result.built;
+}
+
 export const flowsApi = {
   createFlow,
   importFlow,
+  discoverWorkflows,
+  listSuggestions,
+  dismissSuggestion,
+  markSuggestionBuilt,
   resumeFlow,
   listFlowRuns,
   getFlowRun,

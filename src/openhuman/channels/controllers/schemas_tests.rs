@@ -353,21 +353,16 @@ fn raw_or_typed_prefers_raw_payload() {
 }
 
 #[test]
-fn required_string_helper() {
-    let f = required_string("channel", "channel name");
-    assert!(f.required);
-    assert!(matches!(f.ty, TypeSchema::String));
-}
-
-#[test]
-fn optional_string_helper() {
-    let f = optional_string("auth_mode", "auth");
-    assert!(!f.required);
-}
-
-#[test]
-fn json_output_helper() {
-    let f = json_output("result", "the result");
-    assert!(f.required);
-    assert!(matches!(f.ty, TypeSchema::Json));
+fn schema_adapter_preserves_optional_field_type() {
+    let schema = schemas("list_threads");
+    let active = schema
+        .inputs
+        .iter()
+        .find(|field| field.name == "active")
+        .expect("active input");
+    assert!(!active.required);
+    assert!(matches!(
+        &active.ty,
+        TypeSchema::Option(inner) if matches!(inner.as_ref(), TypeSchema::Bool)
+    ));
 }

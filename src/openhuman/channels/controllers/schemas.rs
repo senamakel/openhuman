@@ -12,6 +12,10 @@ use crate::rpc::RpcOutcome;
 
 use super::backend::OpenHumanChannelBackend;
 use super::definitions::ChannelAuthMode;
+use tinychannels::controllers::{
+    all_channel_controller_schemas, channel_controller_schema, ChannelControllerField,
+    ChannelControllerFieldType, ChannelControllerSchema,
+};
 use tinychannels::{ChannelManager, ChannelsConfig};
 
 // ---------------------------------------------------------------------------
@@ -130,28 +134,10 @@ struct ListThreadsParams {
 // ---------------------------------------------------------------------------
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    vec![
-        schemas("list"),
-        schemas("describe"),
-        schemas("connect"),
-        schemas("disconnect"),
-        schemas("status"),
-        schemas("set_default"),
-        schemas("get_default"),
-        schemas("test"),
-        schemas("telegram_login_start"),
-        schemas("telegram_login_check"),
-        schemas("discord_link_start"),
-        schemas("discord_link_check"),
-        schemas("discord_list_guilds"),
-        schemas("discord_list_channels"),
-        schemas("discord_check_permissions"),
-        schemas("send_message"),
-        schemas("send_reaction"),
-        schemas("create_thread"),
-        schemas("update_thread"),
-        schemas("list_threads"),
-    ]
+    all_channel_controller_schemas()
+        .into_iter()
+        .map(from_channel_controller_schema)
+        .collect()
 }
 
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
@@ -244,254 +230,7 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 // ---------------------------------------------------------------------------
 
 pub fn schemas(function: &str) -> ControllerSchema {
-    match function {
-        "list" => ControllerSchema {
-            namespace: "channels",
-            function: "list",
-            description: "List all available channel definitions.",
-            inputs: vec![],
-            outputs: vec![json_output("channels", "Array of channel definitions.")],
-        },
-        "describe" => ControllerSchema {
-            namespace: "channels",
-            function: "describe",
-            description: "Get the full definition for a single channel.",
-            inputs: vec![required_string(
-                "channel",
-                "Channel identifier (e.g. telegram).",
-            )],
-            outputs: vec![json_output(
-                "definition",
-                "Channel definition with auth modes and capabilities.",
-            )],
-        },
-        "connect" => ControllerSchema {
-            namespace: "channels",
-            function: "connect",
-            description: "Initiate a channel connection.",
-            inputs: vec![
-                required_string("channel", "Channel identifier."),
-                required_string(
-                    "authMode",
-                    "Auth mode (api_key, bot_token, oauth, managed_dm).",
-                ),
-                optional_json("credentials", "Credential fields for the chosen auth mode."),
-            ],
-            outputs: vec![json_output(
-                "result",
-                "Connection result with status and optional auth action.",
-            )],
-        },
-        "disconnect" => ControllerSchema {
-            namespace: "channels",
-            function: "disconnect",
-            description: "Disconnect a channel and optionally remove source-scoped memory.",
-            inputs: vec![
-                required_string("channel", "Channel identifier."),
-                required_string("authMode", "Auth mode to disconnect."),
-                FieldSchema {
-                    name: "clearMemory",
-                    ty: TypeSchema::Bool,
-                    comment: "When true, delete memory chunks ingested from this channel.",
-                    required: false,
-                },
-            ],
-            outputs: vec![json_output("result", "Disconnect result.")],
-        },
-        "status" => ControllerSchema {
-            namespace: "channels",
-            function: "status",
-            description: "Get connection status for one or all channels.",
-            inputs: vec![optional_string("channel", "Optional channel filter.")],
-            outputs: vec![json_output(
-                "entries",
-                "Array of status entries per channel and auth mode.",
-            )],
-        },
-        "set_default" => ControllerSchema {
-            namespace: "channels",
-            function: "set_default",
-            description: "Set the default messaging channel for proactive agent \
-                          delivery (persists active_channel + applies live).",
-            inputs: vec![required_string(
-                "channel",
-                "Channel identifier to make default (e.g. telegram, discord, web).",
-            )],
-            outputs: vec![json_output(
-                "result",
-                "Object with the new active_channel and restart_required flag.",
-            )],
-        },
-        "get_default" => ControllerSchema {
-            namespace: "channels",
-            function: "get_default",
-            description: "Get the persisted default messaging channel.",
-            inputs: vec![],
-            outputs: vec![json_output(
-                "result",
-                "Object with the current active_channel.",
-            )],
-        },
-        "test" => ControllerSchema {
-            namespace: "channels",
-            function: "test",
-            description: "Test a channel connection without persisting credentials.",
-            inputs: vec![
-                required_string("channel", "Channel identifier."),
-                required_string("authMode", "Auth mode to test."),
-                required_json("credentials", "Credential fields to test."),
-            ],
-            outputs: vec![json_output(
-                "result",
-                "Test result with success flag and message.",
-            )],
-        },
-        "telegram_login_start" => ControllerSchema {
-            namespace: "channels",
-            function: "telegram_login_start",
-            description:
-                "Create a Telegram link token and return the deep link URL for managed DM login.",
-            inputs: vec![],
-            outputs: vec![json_output(
-                "result",
-                "Object with linkToken, telegramUrl, and botUsername.",
-            )],
-        },
-        "telegram_login_check" => ControllerSchema {
-            namespace: "channels",
-            function: "telegram_login_check",
-            description: "Check whether the Telegram managed DM link has been completed.",
-            inputs: vec![required_string(
-                "linkToken",
-                "The link token returned by telegram_login_start.",
-            )],
-            outputs: vec![json_output(
-                "result",
-                "Object with linked (bool) and optional details.",
-            )],
-        },
-        "discord_link_start" => ControllerSchema {
-            namespace: "channels",
-            function: "discord_link_start",
-            description: "Create a Discord link token the user pastes into Discord as `!start <token>` to link their account.",
-            inputs: vec![],
-            outputs: vec![json_output(
-                "result",
-                "Object with linkToken and instructions.",
-            )],
-        },
-        "discord_link_check" => ControllerSchema {
-            namespace: "channels",
-            function: "discord_link_check",
-            description: "Check whether the Discord managed link has been completed (discordId set on user profile).",
-            inputs: vec![required_string(
-                "linkToken",
-                "The link token returned by discord_link_start.",
-            )],
-            outputs: vec![json_output(
-                "result",
-                "Object with linked (bool) and optional details.",
-            )],
-        },
-        "discord_list_guilds" => ControllerSchema {
-            namespace: "channels",
-            function: "discord_list_guilds",
-            description: "List Discord servers (guilds) the connected bot is a member of.",
-            inputs: vec![],
-            outputs: vec![json_output("guilds", "Array of guild objects with id, name, and icon.")],
-        },
-        "discord_list_channels" => ControllerSchema {
-            namespace: "channels",
-            function: "discord_list_channels",
-            description: "List text channels in a Discord guild.",
-            inputs: vec![required_string("guildId", "The Discord guild (server) ID.")],
-            outputs: vec![json_output("channels", "Array of text channel objects with id, name, position, and parentId.")],
-        },
-        "discord_check_permissions" => ControllerSchema {
-            namespace: "channels",
-            function: "discord_check_permissions",
-            description: "Check bot permissions in a Discord channel.",
-            inputs: vec![
-                required_string("guildId", "The Discord guild (server) ID."),
-                required_string("channelId", "The Discord channel ID to check."),
-            ],
-            outputs: vec![json_output("permissions", "Permission check result with flags and missing permissions.")],
-        },
-        "send_message" => ControllerSchema {
-            namespace: "channels",
-            function: "send_message",
-            description: "Send a rich message to a channel (text, photo, sticker, animation, buttons, reply).",
-            inputs: vec![
-                required_string("channel", "Channel identifier (e.g. telegram)."),
-                required_json(
-                    "message",
-                    "Message body with optional fields: text, parseMode, photoUrl, stickerFileId, animationUrl, buttons, replyToMessageId, threadId.",
-                ),
-            ],
-            outputs: vec![json_output("result", "Object with success flag and optional messageId.")],
-        },
-        "send_reaction" => ControllerSchema {
-            namespace: "channels",
-            function: "send_reaction",
-            description: "React to a message in a channel with an emoji.",
-            inputs: vec![
-                required_string("channel", "Channel identifier (e.g. telegram)."),
-                required_json(
-                    "reaction",
-                    "Reaction body: { messageId, emoji, chatId? }.",
-                ),
-            ],
-            outputs: vec![json_output("result", "Object with success flag.")],
-        },
-        "create_thread" => ControllerSchema {
-            namespace: "channels",
-            function: "create_thread",
-            description: "Create a new thread in a channel.",
-            inputs: vec![
-                required_string("channel", "Channel identifier (e.g. telegram)."),
-                required_string("title", "Thread title."),
-            ],
-            outputs: vec![json_output("result", "Object with success flag and optional threadId.")],
-        },
-        "update_thread" => ControllerSchema {
-            namespace: "channels",
-            function: "update_thread",
-            description: "Close or reopen a thread in a channel.",
-            inputs: vec![
-                required_string("channel", "Channel identifier (e.g. telegram)."),
-                required_string("threadId", "Thread identifier to update."),
-                required_string("action", "Action to perform: 'close' or 'reopen'."),
-            ],
-            outputs: vec![json_output("result", "Object with success flag.")],
-        },
-        "list_threads" => ControllerSchema {
-            namespace: "channels",
-            function: "list_threads",
-            description: "List threads in a channel, optionally filtered by active status.",
-            inputs: vec![
-                required_string("channel", "Channel identifier (e.g. telegram)."),
-                FieldSchema {
-                    name: "active",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
-                    comment: "Optional filter: true for active threads, false for closed threads.",
-                    required: false,
-                },
-            ],
-            outputs: vec![json_output("result", "Array of thread objects.")],
-        },
-        _ => ControllerSchema {
-            namespace: "channels",
-            function: "unknown",
-            description: "Unknown channels controller function.",
-            inputs: vec![],
-            outputs: vec![FieldSchema {
-                name: "error",
-                ty: TypeSchema::String,
-                comment: "Lookup error details.",
-                required: true,
-            }],
-        },
-    }
+    from_channel_controller_schema(channel_controller_schema(function))
 }
 
 // ---------------------------------------------------------------------------
@@ -845,53 +584,49 @@ fn raw_or_typed<T: serde::Serialize>(raw: Option<Value>, typed: &T) -> Result<Va
         .unwrap_or_else(|| serde_json::to_value(typed).map_err(|e| e.to_string()))
 }
 
-fn required_string(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::String,
-        comment,
-        required: true,
-    }
-}
-
-fn optional_string(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-        comment,
-        required: false,
-    }
-}
-
-fn optional_json(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
-        comment,
-        required: false,
-    }
-}
-
-fn required_json(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Json,
-        comment,
-        required: true,
-    }
-}
-
-fn json_output(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Json,
-        comment,
-        required: true,
-    }
-}
-
 fn to_json<T: serde::Serialize>(outcome: RpcOutcome<T>) -> Result<Value, String> {
     outcome.into_cli_compatible_json()
+}
+
+fn from_channel_controller_schema(schema: ChannelControllerSchema) -> ControllerSchema {
+    ControllerSchema {
+        namespace: schema.namespace,
+        function: schema.function,
+        description: schema.description,
+        inputs: schema
+            .inputs
+            .into_iter()
+            .map(from_channel_controller_field)
+            .collect(),
+        outputs: schema
+            .outputs
+            .into_iter()
+            .map(from_channel_controller_field)
+            .collect(),
+    }
+}
+
+fn from_channel_controller_field(field: ChannelControllerField) -> FieldSchema {
+    FieldSchema {
+        name: field.name,
+        ty: from_channel_controller_field_type(field.ty),
+        comment: field.comment,
+        required: field.required,
+    }
+}
+
+fn from_channel_controller_field_type(ty: ChannelControllerFieldType) -> TypeSchema {
+    match ty {
+        ChannelControllerFieldType::Bool => TypeSchema::Bool,
+        ChannelControllerFieldType::I64 => TypeSchema::I64,
+        ChannelControllerFieldType::U64 => TypeSchema::U64,
+        ChannelControllerFieldType::F64 => TypeSchema::F64,
+        ChannelControllerFieldType::String => TypeSchema::String,
+        ChannelControllerFieldType::Json => TypeSchema::Json,
+        ChannelControllerFieldType::Option(inner) => {
+            TypeSchema::Option(Box::new(from_channel_controller_field_type(*inner)))
+        }
+    }
 }
 
 #[cfg(test)]

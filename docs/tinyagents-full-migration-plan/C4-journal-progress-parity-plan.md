@@ -151,11 +151,17 @@ span-projection slice.
    driver over it. No behavior change; existing bridge/`observability` tests are
    the gate. *No deletion.*
 2. **S2 — `spans_from_observations`** journal projection + parity harness vs
-   `SpanCollector`. Additive module; *no deletion, live path untouched.*
+   `SpanCollector`. **IN PROGRESS** — additive projection module now covers the
+   single-agent spine, S0 tool outcomes, root `TurnContent` from captured model
+   I/O, and sub-agent lifecycle/scoped child tool/model spans. Remaining known
+   gap: per-call charged USD/cache-creation is still zero until export-time cost
+   store reconciliation lands.
 3. **S3 — flip the web progress bridge** to build spans from the journal at run
    end (`spans_from_observations`) instead of the live `AgentProgress`
    side-observer; keep the old path behind a shadow-compare for one release
-   (log divergences), matching the C1 `session_shadow_reads` pattern.
+   (log divergences), matching the C1 `session_shadow_reads` pattern. **STARTED**
+   — the web bridge now keeps live export as-is and logs a structural
+   journal-projection shadow comparison keyed by the durable journal run id.
 4. **S4 — Langfuse swap** to the crate exporter (§3); delete
    `progress_tracing/langfuse.rs` (~825 + tests).
 5. **S5 — delete `progress_tracing.rs` + `SpanCollector`** once S3 shadow shows

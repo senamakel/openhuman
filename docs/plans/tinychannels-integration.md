@@ -33,9 +33,11 @@ Companion docs in the tinychannels repo:
   `tinychannels::ChannelBackend` by delegating to the existing
   `channels/controllers/ops/{connect,messaging,discord,telegram}.rs` flows.
 - The crate-side Phase 5 relay contract now includes typed gateway/connector
-  relay frames, the request/response frame transport loop, and a feature-gated
-  WebSocket dialer with reconnect supervision. OpenHuman has not adopted the
-  relay runtime yet.
+  relay frames, the request/response frame transport loop, a feature-gated
+  WebSocket dialer with reconnect supervision, and a portable relay runtime
+  config shape under `channels_config.relay`. OpenHuman can deserialize that
+  config through its adopted `ChannelsConfig`, but has not adopted live relay
+  startup yet.
 - The metadata controllers (`channels.list` / `channels.describe`) now use
   `ChannelManager` for definition lookup. The `channels.status` and
   `channels.test` controllers now route through

@@ -184,6 +184,28 @@ fn channels_config_serde_roundtrip() {
 }
 
 #[test]
+fn channels_config_deserializes_relay_runtime_config() {
+    let toml = r#"
+        [relay]
+        url = "https://relay.example.test"
+        gateway_id = "gateway-1"
+        upgrade_secret = "secret"
+
+        [[relay.identities]]
+        platform = "telegram"
+        bot_id = "bot-1"
+    "#;
+
+    let cfg: ChannelsConfig = toml::from_str(toml).unwrap();
+    let relay = cfg.relay.as_ref().expect("relay config");
+
+    assert_eq!(relay.url, "https://relay.example.test");
+    assert_eq!(relay.gateway_id.as_deref(), Some("gateway-1"));
+    assert_eq!(relay.relay_identities()[0].bot_id, "bot-1");
+    assert!(!cfg.has_listening_integrations());
+}
+
+#[test]
 fn discord_config_roundtrip_json() {
     let config = DiscordConfig {
         bot_token: "tok".into(),

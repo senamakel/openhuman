@@ -95,15 +95,21 @@ copies):
    `channels/context.rs` now delegates to the crate helper, preserving
    OpenHuman's current Telegram topic behavior. Deeper envelope/session
    migration still needs the planned scope/topic fields.
-3. **Workspace/tenant discriminator.** Session keys
+3. **Deferred until envelope/session migration: workspace/tenant
+   discriminator.** Session keys
    (`channels/bus.rs:1005-1042`) omit guild/team/tenant; Slack channel ids are
    only workspace-unique. Thread the new `scope_id` through inbound event
-   construction (Discord guild id, Slack team id, Matrix homeserver) when
-   moving to the crate's envelope.
-4. **Send idempotency.** No idempotency key exists on sends; a retry after a
-   transport error double-posts. Adopt the crate's
-   `ChannelOutboundIntent.idempotency_key` at the `ChannelBackend` seam.
-5. **`conversation_memory_key` intent check.** It keys on `msg.id`
+   construction when moving to the crate's envelope. Deferral reason: adding
+   scope to the current legacy string keys would change conversation identity
+   without the envelope migration that can preserve compatibility aliases.
+4. **Deferred until outbound-intent adoption: send idempotency.** No
+   idempotency key exists on legacy sends; a retry after a transport error
+   double-posts. Adopt the crate's `ChannelOutboundIntent.idempotency_key` at
+   the `ChannelBackend` seam when controller sends route through outbound
+   intents. Deferral reason: the current public RPC response shape still uses
+   legacy `SendMessage`/raw backend JSON.
+5. **Deferred pending product decision: `conversation_memory_key` intent
+   check.** It keys on `msg.id`
    (per-message, not per-conversation) and this repo's tests assert that
    behavior (`tests/memory.rs`). Confirm whether per-turn keying is intended;
    the crate will rename or fix accordingly — this repo should follow.

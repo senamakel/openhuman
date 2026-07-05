@@ -109,7 +109,12 @@ pub struct FlowRun {
     pub flow_id: String,
     /// The tinyflows checkpointer thread id (needed to `flows_resume`).
     pub thread_id: String,
-    /// `"running"` | `"completed"` | `"pending_approval"` | `"failed"`.
+    /// Run status. Not an enum (kept a free-form `String` for forward-compat
+    /// with statuses added by newer builds), but the vocabulary is fixed:
+    /// `"running"` | `"completed"` | `"pending_approval"` | `"failed"` |
+    /// `"cancelled"` (issue G4 — a run cancelled via `flows_cancel_run`, or a
+    /// parked `pending_approval` run swept by the TTL expiry). All of
+    /// `completed` / `failed` / `cancelled` are terminal.
     pub status: String,
     /// RFC3339 timestamp when the run started.
     pub started_at: String,

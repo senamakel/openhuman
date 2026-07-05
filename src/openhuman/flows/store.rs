@@ -496,6 +496,52 @@ pub fn upsert_flow_run_step(config: &Config, run_id: &str, step: &FlowRunStep) -
     })
 }
 
+/// Expires every parked `pending_approval` run whose "parked since" timestamp
+/// (`COALESCE(finished_at, started_at)` — a run's `finished_at` is stamped when
+/// it pauses at a gate) is strictly older than `cutoff` (an RFC3339 instant),
+/// transitioning it to a terminal `"cancelled"` status stamped `now` with
+/// `error_msg`. Returns the `(run_id, flow_id)` of each swept run so the caller
+/// can update the flow summary + drop the durable checkpoint (issue G4 —
+/// parked-run TTL).
+///
+/// RFC3339 timestamps produced by `chrono::Utc::…to_rfc3339()` all carry the
+/// same `+00:00` offset, so a lexicographic `<` is a valid chronological
+/// comparison here. Best-effort by contract at the call site: the update runs
+/// under the same WAL + `busy_timeout` connection as every other write.
+pub fn expire_parked_runs(
+    config: &Config,
+    cutoff: &str,
+    now: &str,
+    error_msg: &str,
+) -> Result<Vec<(String, String)>> {
+    with_connection(config, |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, flow_id FROM flow_runs
+             WHERE status = 'pending_approval'
+               AND COALESCE(finished_at, started_at) < ?1",
+        )?;
+        let stale: Vec<(String, String)> = stmt
+            .query_map(params![cutoff], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        drop(stmt);
+
+        for (run_id, _flow_id) in &stale {
+            // Re-check the status in the WHERE so a run resumed/cancelled
+            // between the SELECT and here is not clobbered.
+            conn.execute(
+                "UPDATE flow_runs SET status = 'cancelled', finished_at = ?1, error = ?2 \
+                 WHERE id = ?3 AND status = 'pending_approval'",
+                params![now, error_msg, run_id],
+            )
+            .context("Failed to expire parked flow run")?;
+        }
+        if !stale.is_empty() {
+            tracing::info!(target: "flows", swept = stale.len(), "[flows] expired parked pending_approval runs past TTL");
+        }
+        Ok(stale)
+    })
+}
+
 /// Loads one flow run by id (== thread_id).
 pub fn get_flow_run(config: &Config, id: &str) -> Result<Option<FlowRun>> {
     with_connection(config, |conn| {

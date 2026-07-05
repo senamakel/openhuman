@@ -75,6 +75,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("set_enabled"),
         schemas("run"),
         schemas("resume"),
+        schemas("cancel_run"),
         schemas("list_runs"),
         schemas("get_run"),
     ]
@@ -113,6 +114,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("resume"),
             handler: handle_resume,
+        },
+        RegisteredController {
+            schema: schemas("cancel_run"),
+            handler: handle_cancel_run,
         },
         RegisteredController {
             schema: schemas("list_runs"),
@@ -277,6 +282,15 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Node ids being approved; defaults to an empty list.",
                     required: false,
                 },
+                FieldSchema {
+                    name: "rejections",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
+                        TypeSchema::String,
+                    )))),
+                    comment: "Node ids being denied; each routes to its `error` port (or fails \
+                              the run if it has none). Defaults to an empty list.",
+                    required: false,
+                },
             ],
             outputs: vec![FieldSchema {
                 name: "result",
@@ -284,6 +298,47 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     fields: run_output_fields(),
                 },
                 comment: "Resume outcome payload (same shape as `run`'s).",
+                required: true,
+            }],
+        },
+        "cancel_run" => ControllerSchema {
+            namespace: "flows",
+            function: "cancel_run",
+            description: "Cancel a flow run: settle it to a terminal `cancelled` status, abort \
+                          the in-flight run task if one is executing, and drop its durable \
+                          checkpoint so it can't be resumed.",
+            inputs: vec![FieldSchema {
+                name: "run_id",
+                ty: TypeSchema::String,
+                comment: "Identifier of the run to cancel (== its checkpoint thread id).",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Object {
+                    fields: vec![
+                        FieldSchema {
+                            name: "run_id",
+                            ty: TypeSchema::String,
+                            comment: "Identifier of the run that was cancelled.",
+                            required: true,
+                        },
+                        FieldSchema {
+                            name: "cancelled",
+                            ty: TypeSchema::Bool,
+                            comment: "True once the run is cancelled or its cancellation requested.",
+                            required: true,
+                        },
+                        FieldSchema {
+                            name: "was_in_flight",
+                            ty: TypeSchema::Bool,
+                            comment: "True when a live run task was signalled to abort; false when \
+                                      a parked/stale run row was settled directly.",
+                            required: true,
+                        },
+                    ],
+                },
+                comment: "Cancellation result payload.",
                 required: true,
             }],
         },
@@ -438,7 +493,25 @@ fn handle_resume(params: Map<String, Value>) -> ControllerFuture {
             .transpose()
             .map_err(|e| format!("invalid 'approvals': {e}"))?
             .unwrap_or_default();
-        to_json(ops::flows_resume(&config, id.trim(), thread_id.trim(), approvals).await?)
+        let rejections: Vec<String> = params
+            .get("rejections")
+            .filter(|v| !v.is_null())
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| format!("invalid 'rejections': {e}"))?
+            .unwrap_or_default();
+        to_json(
+            ops::flows_resume(&config, id.trim(), thread_id.trim(), approvals, rejections).await?,
+        )
+    })
+}
+
+fn handle_cancel_run(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let run_id = read_required::<String>(&params, "run_id")?;
+        to_json(ops::flows_cancel_run(&config, run_id.trim()).await?)
     })
 }
 
@@ -496,6 +569,7 @@ mod tests {
                 "set_enabled",
                 "run",
                 "resume",
+                "cancel_run",
                 "list_runs",
                 "get_run",
             ]
@@ -505,7 +579,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 10);
+        assert_eq!(controllers.len(), 11);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -518,6 +592,7 @@ mod tests {
                 "set_enabled",
                 "run",
                 "resume",
+                "cancel_run",
                 "list_runs",
                 "get_run",
             ]

@@ -9,6 +9,7 @@
 
 pub mod bus;
 pub mod ops;
+mod run_registry;
 mod schemas;
 mod store;
 pub mod tools;

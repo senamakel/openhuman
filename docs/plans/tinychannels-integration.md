@@ -140,12 +140,13 @@ copies):
 ## Step 4 — Test split
 
 - **Partly landed:** the portable `controllers/schemas_tests.rs` schema-catalog
-  assertions and pure allowlist/key helper tests now live in tinychannels. This
-  repo keeps handler parity, adapter conversion, params, legacy envelope helper
-  tests, and app-side persistence/REST wiring tests.
-- **Still migrate to tinychannels:** the type-shape halves of
-  `controllers/ops_tests.rs` (47, rewritten against a mock `ChannelBackend`) and
-  the already-mirrored suites listed in Step 1.
+  assertions, pure allowlist/key helper tests, and catalog/request-shape halves
+  of `controllers/ops_tests.rs` now live in tinychannels. This repo keeps
+  handler parity, adapter conversion, params, legacy envelope helper tests, and
+  app-side persistence/REST wiring tests.
+- **Still migrate to tinychannels:** any remaining backend-agnostic assertions
+  from `controllers/ops_tests.rs`, rewritten against a mock `ChannelBackend`,
+  plus the already-mirrored suites listed in Step 1.
 - **Stay here:** all `providers/*_tests.rs` (telegram 148, web 93, imessage
   58, discord 55+23, email 50, lark 42, whatsapp 41+29, irc 37, mattermost
   33, signal 32, presentation 29, linq 23, qq 11), `bus_tests.rs`,

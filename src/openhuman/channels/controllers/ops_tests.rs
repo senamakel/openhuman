@@ -1,4 +1,3 @@
-use super::connect::{describe_channel, list_channels};
 use super::*;
 use crate::openhuman::channels::email_channel::EmailConfig;
 use crate::openhuman::channels::providers::yuanbao::YuanbaoConfig;
@@ -195,73 +194,6 @@ from_phone = "+15550101"
         "unknown",
         ChannelAuthMode::ApiKey
     ));
-}
-
-#[tokio::test]
-async fn list_channels_returns_definitions() {
-    let result = list_channels().await.unwrap();
-    assert!(result.value.len() >= 2);
-    let ids: Vec<&str> = result.value.iter().map(|d| d.id).collect();
-    assert!(ids.contains(&"telegram"));
-    assert!(ids.contains(&"discord"));
-}
-
-#[tokio::test]
-async fn describe_known_channel() {
-    let result = describe_channel("telegram").await.unwrap();
-    assert_eq!(result.value.id, "telegram");
-}
-
-#[tokio::test]
-async fn describe_unknown_channel_errors() {
-    let err = describe_channel("nonexistent").await.unwrap_err();
-    assert!(
-        err.contains("unknown channel"),
-        "expected 'unknown channel' in error, got: {err}"
-    );
-}
-
-#[tokio::test]
-async fn connect_oauth_returns_pending_auth() {
-    let config = Config::default();
-    let result = connect_channel(
-        &config,
-        "discord",
-        ChannelAuthMode::OAuth,
-        serde_json::json!({}),
-    )
-    .await
-    .unwrap();
-
-    assert_eq!(result.value.status, "pending_auth");
-    assert_eq!(result.value.auth_action.as_deref(), Some("discord_oauth"));
-}
-
-#[tokio::test]
-async fn connect_rejects_unknown_channel() {
-    let config = Config::default();
-    let result = connect_channel(
-        &config,
-        "nonexistent",
-        ChannelAuthMode::BotToken,
-        serde_json::json!({}),
-    )
-    .await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn connect_rejects_missing_required_fields() {
-    let config = Config::default();
-    let result = connect_channel(
-        &config,
-        "telegram",
-        ChannelAuthMode::BotToken,
-        serde_json::json!({}),
-    )
-    .await;
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("bot_token"));
 }
 
 #[tokio::test]
@@ -496,63 +428,6 @@ async fn disconnect_channel_clear_memory_deletes_matching_chat_sources() {
     .expect("chunks should list");
     assert_eq!(remaining.len(), 1);
     assert_eq!(remaining[0].metadata.source_id, "telegram:chat-1");
-}
-
-#[tokio::test]
-async fn test_channel_validates_fields() {
-    let config = Config::default();
-
-    let ok = test_channel(
-        &config,
-        "telegram",
-        ChannelAuthMode::BotToken,
-        serde_json::json!({"bot_token": "123:abc"}),
-    )
-    .await
-    .unwrap();
-    assert!(ok.value.success);
-
-    let err = test_channel(
-        &config,
-        "telegram",
-        ChannelAuthMode::BotToken,
-        serde_json::json!({}),
-    )
-    .await;
-    assert!(err.is_err());
-}
-
-// ── connect_channel validation ─────────────────────────────────
-// (list_channels / describe_channel catalog coverage lives in the
-// earlier `list_channels_returns_definitions`, `describe_known_channel`,
-// and `describe_unknown_channel_errors` tests.)
-
-#[tokio::test]
-async fn connect_channel_errors_for_unknown_channel() {
-    let config = Config::default();
-    let err = connect_channel(
-        &config,
-        "__unknown__",
-        ChannelAuthMode::BotToken,
-        serde_json::json!({}),
-    )
-    .await
-    .unwrap_err();
-    assert!(err.contains("unknown channel"));
-}
-
-#[tokio::test]
-async fn connect_channel_rejects_non_object_credentials_for_credential_modes() {
-    let config = Config::default();
-    let err = connect_channel(
-        &config,
-        "telegram",
-        ChannelAuthMode::BotToken,
-        serde_json::json!("not an object"),
-    )
-    .await
-    .unwrap_err();
-    assert!(err.contains("credentials must be a JSON object"));
 }
 
 // ── iMessage channel ───────────────────────────────────────────

@@ -84,7 +84,7 @@ Engine changes are made **inside `vendor/tinyagents`**, committed on a branch th
 | `agent_orchestration/ops.rs` (`AgentOrchestrationSession`) + `running_subagents.rs` (1.9k L) | **delete** in favor of `graph::orchestration::TaskStore` + `SteeringRegistry` + `SubAgentSession`; route the live control path through the crate (today only re-exported, per seam `orchestration.rs:23-33`) | n/a |
 | `agent_orchestration/types.rs` `AgentStatus` vocabulary | reconcile into `OrchestrationTaskStatus` (two parallel status enums today) | `graph/orchestration/types` |
 | `agent_orchestration/workflow_runs/` phase-DAG validation + `agent_teams/` dependency-DAG/atomic-claim/quality-gate logic | evaluate upstreaming the *validation/scheduling slices* as graph extensions; durability (`session_db::run_ledger`) and RPC stay host-side | `graph/` |
-| Reasoning-content channel (today smuggled via `ContentBlock::ProviderExtension`, seam `convert.rs:26-30`) | port the *concept*: first-class reasoning channel on `AssistantMessage` | `harness/message/` |
+| Reasoning-content channel (historically smuggled via `ContentBlock::ProviderExtension`; host now writes `ContentBlock::Thinking` for new messages and only reads legacy `ProviderExtension` from persisted transcripts — seam `convert.rs`) | **largely done** — the crate's first-class typed reasoning channel (`ContentBlock::Thinking`) is live per Phase 1.4 / ledger P1-5 | `harness/message/` |
 
 ### 1.2 Stays in OpenHuman (product policy, I/O, surfaces)
 
@@ -199,7 +199,7 @@ Fix-in-place candidates (independent of the port; several become moot as phases 
 - `provider/factory.rs:404` — `NO_MODEL_CONFIGURED_ANCHOR` correctness depends on a string literal matched by a separate classifier in `provider/ops.rs:19`; fragile cross-file coupling.
 
 **tools/**
-- `tools/ops.rs` — `all_tools` takes 12 positional args (`#[allow(clippy::too_many_arguments)]`); a builder is overdue. The `Vec<Box<dyn Tool>>` container doesn't dedupe (a test exists *because* of this); the crate's `ToolRegistry` fixes it structurally.
+- `tools/ops.rs` — `all_tools_with_runtime` takes 12 positional args (`#[allow(clippy::too_many_arguments)]`; the thin `all_tools` shim forwards 9); a builder is overdue. The `Vec<Box<dyn Tool>>` container doesn't dedupe (a test exists *because* of this); the crate's `ToolRegistry` fixes it structurally.
 - `tools/traits.rs:15` — `ToolScope::AgentOnly` is a dead variant; `ToolCategory::Workflow` is pinned to wire `"skill"` (documented tech-debt to resolve before porting the type).
 - `tools/traits.rs:367-372` — `is_concurrency_safe` is advisory-only (harness runs tools serially); tinyagents 1.6 has concurrent independent tool calls — adopting it makes the flag real.
 - `orchestrator_tools.rs:38-41,87-89` — dead `SpawnWorkerThreadTool` registration (pending #1624); mis-attached doc-comment at lines 592-603 describes a different test than the one it precedes.

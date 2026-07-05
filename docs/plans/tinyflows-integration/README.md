@@ -35,12 +35,13 @@ Engine-side gaps (see Phase 7): `agent` node sub-ports (chat_model/memory/tool/o
 - **RPC surface** (10 methods, wired in `src/core/all.rs`): `openhuman.flows_{create,get,list,update,delete,set_enabled,run,resume,list_runs,get_run}`.
 - **Capability seam** `src/openhuman/tinyflows/`: `caps.rs` (LLM/Composio-tools/HTTP/code/state adapters), `observability.rs` (currently `NoopObserver`), `langfuse_export.rs` (post-run trace export).
 - **Schedule triggers work end-to-end**: `flows::ops::bind_schedule_trigger` registers a cron `JobType::Flow` → scheduler publishes `DomainEvent::FlowScheduleTick` → `FlowTriggerSubscriber` runs the flow.
+- **Composio `app_event` triggers also work end-to-end**: `flows/bus.rs::handle_app_event` matches `DomainEvent::ComposioTriggerReceived { toolkit, trigger }` against enabled `app_event` flows (case-insensitive toolkit/slug match, per-flow concurrency guard) and runs them under `FlowRunTrigger::AppEvent`. Since Composio triggers are delivered by the platform, this **is** our webhook story for third-party apps — no tunnel needed.
 
 **Known core gaps** (each becomes a workstream below):
 
 | #   | Gap                                                                                                                                                                                                                                                           | Evidence                                                                    |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| G1  | **Webhook triggers unwired** — enabling a webhook-trigger flow only logs a warning; `bus.rs` observes `WebhookIncomingRequest` but explicitly does not dispatch                                                                                               | `flows/ops.rs:298` (`log_webhook_trigger_deferred`), `flows/bus.rs:232-242` |
+| G1  | **Raw `webhook` triggers unwired** (mitigated: Composio `app_event` triggers already cover third-party apps) — enabling a webhook-trigger flow only logs a warning; `bus.rs` observes `WebhookIncomingRequest` but explicitly does not dispatch; Composio trigger *subscriptions* are not auto-provisioned on enable                                                                                               | `flows/ops.rs:298` (`log_webhook_trigger_deferred`), `flows/bus.rs:232-242` |
 | G2  | **No live run observer** — `NoopObserver`; `FlowRunStep`s reconstructed post-hoc from final state, no per-step timing/attempts, nothing streamed while running                                                                                                | `flows/types.rs:76`, `flows/ops.rs:781-783` (`TODO(0.3)`)                   |
 | G3  | **Credential / connected-account resolution stubbed** — Composio nodes fall back to the ambient signed-in account; toolkit allow-listing hard-rejects real toolkits; HTTP credential resolution unimplemented (`connection_ref` is accepted but unresolvable) | `tinyflows/caps.rs:193,235-261,330,376,408`                                 |
 | G4  | **No cancel/deny** — a dismissed approval leaves the run parked `pending_approval` forever; no `flows_cancel`/`flows_deny` RPC                                                                                                                                | UI comment in `FlowApprovalCard.tsx`                                        |
@@ -67,7 +68,7 @@ Shipped: `/flows` nav tab (FlowsPage list: enable toggle, Run, last status), `/f
 The repo has **three** "workflow" systems. This plan touches only the first:
 
 1. `flows::` / `openhuman.flows_*` — **tinyflows typed graphs** (this plan).
-2. `workflows::` / `openhuman.workflows_*` — WORKFLOW.md/SKILL.md bundle discovery/install (separate product surface under `/skills`).
+2. `workflows::` / `openhuman.workflows_*` — WORKFLOW.md/SKILL.md bundle discovery/install (separate product surface under `/skills`). **Slated for decommission** — it is essentially the skills feature wearing the "workflows" name; see Phase 8. Retiring it frees the "Workflows" branding for tinyflows (the `/flows` nav tab already reads "Workflows").
 3. `rlm::` — Rhai `.ragsh` language workflows (`docs/plans/rlm-workflows/`), positioned in `gitbooks/features/orchestration.md` as the _next_ layer on the same substrate. tinyflows remains the shipping visual/typed product; rlm does not replace it.
 
 ---
@@ -125,13 +126,14 @@ Work items:
 
 ### Phase 1 — Backend completion (triggers, lifecycle, observability)
 
-**1a. Webhook triggers (G1)** — the flagship Zapier-style gap.
+**1a. External event triggers — Composio-first (G1).**
 
-- On `flows_create`/`flows_update`/`set_enabled(true)` with a `webhook` trigger: provision an inbound route via `webhooks::ops` (incl. `create_tunnel` when remote reachability is needed), store `{ flow_id → webhook_route }` in the flow record, tear down on disable/delete.
-- In `flows/bus.rs`: implement dispatch on `DomainEvent::WebhookIncomingRequest` — match route → enabled flow, seed trigger payload `{ method, headers (allow-listed), query, body }`, run under `FlowRunTrigger::Webhook` (new variant).
-- Response semantics v1: fire-and-forget `202` with `run_id` (n8n "respond immediately"); "respond with last node output" deferred (needs request/response bridging — note as follow-up).
-- Security: webhook-triggered runs are `TrustedAutomation → Workflow` origin like schedule ticks; payload is untrusted input — route through `prompt_injection` screening before any `agent` node consumes it.
-- RPC additions: `flows_get` returns `webhook_url` when applicable.
+Product decision: **Composio triggers are the webhook story.** `app_event` dispatch already works end-to-end (see §1.2) and the platform handles inbound delivery, auth, and NAT traversal — so we do *not* build our own tunnel/webhook infrastructure for third-party app events. Remaining work is lifecycle and coverage, not plumbing:
+
+- **Trigger subscription lifecycle**: enabling an `app_event` flow should ensure the corresponding Composio trigger subscription exists upstream (create on `set_enabled(true)` via the `composio` domain, tear down on disable/delete when no other flow uses it) instead of assuming the user pre-configured it in Composio. Reconcile at boot like `bind_schedule_trigger` does.
+- **Payload hygiene**: trigger payloads are untrusted input — route through `prompt_injection` screening before any `agent` node consumes them (applies to all external-event runs).
+- **Trigger catalog surfacing**: expose the Composio trigger catalog (toolkit → available trigger slugs + payload schemas) over RPC so the UI (Phase 3 trigger config) and the builder agent (Phase 5 `search_tool_catalog`) offer real, connectable events instead of free-text slugs.
+- **Raw `webhook` trigger kind → demoted**: for arbitrary custom HTTP callers not covered by a Composio toolkit, keep the `webhook` kind but defer implementation (generic inbound via `webhooks::ops`/`create_tunnel` stays a backlog item). Until then, validation must **warn loudly** at save/enable time that a `webhook`-trigger flow will not fire, instead of today's silent log line (`flows/ops.rs:298`).
 
 **1b. Run lifecycle: cancel + deny (G4).**
 
@@ -245,19 +247,31 @@ Tracked separately since it's a submodule with its own release cadence (host pin
 4. Docs truth-up: README/Roadmap still claim jq and retry backoff are pending; both are implemented (`src/expr.rs` routes to jaq; `engine.rs` has fixed/exponential backoff + `node_timeout_secs`).
 5. Optional: cancellation token support in `engine::run` (cleaner than task-abort for 1b).
 
+### Phase 8 — Decommission the legacy `workflows::` bundle domain
+
+The `workflows::` domain (WORKFLOW.md/SKILL.md bundle discovery/install, RPC `openhuman.workflows_*`) predates tinyflows and is functionally the **skills** feature under a different name. Keeping two things called "workflows" confuses users, agents, and contributors alike. Plan: fold what's unique into `skills`, delete the rest, and hand the name to tinyflows.
+
+- **Audit consumers first**: `agent/tools/run_workflow.rs` (agent tool that runs WORKFLOW.md bundles — decide: retire, or repoint to `flows_run`/skills), the `/skills` UI surfaces (`WorkflowsTab`, `CreateWorkflowForm`, `WorkflowRunnerBody`, `WorkflowNew.tsx`, `WorkflowsRun.tsx`, `DevWorkflowPanel`, `workflowsApi.ts`), `about_app`, gitbooks, and the rlm plan's references to `run_workflow` as a composition surface.
+- **Migrate**: bundle discovery/install semantics that skills doesn't already cover move into the `skills` domain (it is metadata-only post-QuickJS-removal, so this is mostly file-format and registry work).
+- **Deprecate then delete**: mark `openhuman.workflows_*` deprecated for one release (RPC responses carry a deprecation notice), then remove `src/openhuman/workflows/`, its controllers from `src/core/all.rs`, the frontend clients/pages, and the `/workflows/new`//`workflows/run` routes (bare `/workflows` already redirects to `/settings/automations`).
+- **Not in scope**: `openhuman.workflow_run_*` (`agent_orchestration`'s declarative run ledger) is a different system and untouched here — though its name should also be revisited once "Workflows" ≡ tinyflows.
+- **Naming end-state**: one user-facing concept — **Workflows = tinyflows graphs** at `/flows`; skills are skills.
+
 ---
 
 ## 4. Missing-features summary (checklist)
 
 Substrate: ☐ tinyagents submodule → v1.7.1 tag (+ root req bump, both lockfiles) · ☐ v1.5→v1.7 API-break review · ☐ tinyflows retag (v0.3.1, `tinyagents = "1.7"`) · ☐ tags-only submodule policy.
 
-Backend: ☐ webhook trigger provisioning+dispatch · ☐ `flows_cancel_run` · ☐ resume-with-rejection/deny · ☐ live `RunObserver` + incremental step persistence · ☐ `FlowRunProgress` socket events · ☐ `flows_validate` RPC · ☐ `flows_list_connections` · ☐ Composio connected-account resolution · ☐ HTTP credential resolution · ☐ toolkit allow-list fix · ☐ `chat_message` trigger dispatch · ☐ sub-workflow by id · ☐ parked-run TTL sweep · ☐ JSON-RPC E2E suite.
+Backend: ☐ Composio trigger-subscription lifecycle (auto-provision on enable) · ☐ trigger catalog RPC · ☐ loud validation warning for unfired trigger kinds · ☐ raw-webhook dispatch (deferred backlog) · ☐ `flows_cancel_run` · ☐ resume-with-rejection/deny · ☐ live `RunObserver` + incremental step persistence · ☐ `FlowRunProgress` socket events · ☐ `flows_validate` RPC · ☐ `flows_list_connections` · ☐ Composio connected-account resolution · ☐ HTTP credential resolution · ☐ toolkit allow-list fix · ☐ `chat_message` trigger dispatch · ☐ sub-workflow by id · ☐ parked-run TTL sweep · ☐ JSON-RPC E2E suite.
 
 Frontend: ☐ editable canvas (drag/connect/palette/delete) · ☐ node config panels · ☐ trigger config UI (cron builder, webhook URL display, app-event picker) · ☐ credentials picker · ☐ new-workflow chooser · ☐ template gallery · ☐ import/export + n8n import · ☐ live canvas run overlay (socket) · ☐ approval deny (real) · ☐ "Open in canvas" from proposal card · ☐ WDIO E2E spec.
 
 Agent authoring: ☐ `workflow-builder` builtin `AgentDefinition` + specialized prompt · ☐ `revise_workflow` tool · ☐ read-only `list_workflows`/`get_workflow`/`get_workflow_run` tools · ☐ `list_flow_connections` tool · ☐ `search_tool_catalog` tool · ☐ `dry_run_workflow` (sandboxed) · ☐ delegation routing from main agent · ☐ FlowsPage prompt bar · ☐ canvas copilot panel with draft diff overlay · ☐ "Fix with agent" from failed runs.
 
 Engine (upstream): ☐ agent sub-ports · ☐ output_parser validation · ☐ `workflow_id` sub-workflows · ☐ docs truth-up · ☐ cancellation.
+
+Decommission: ☐ `run_workflow` tool disposition · ☐ bundle semantics folded into `skills` · ☐ `workflows_*` RPC deprecation release · ☐ delete `src/openhuman/workflows/` + frontend pages/clients · ☐ docs/about_app rename sweep.
 
 ---
 
@@ -272,11 +286,12 @@ Phase 4 (authoring)               ████  ~2 wk
 Phase 5 (builder agent)            ██████  ~2–3 wk  needs Phase 3 canvas + Phase 2 connections
 Phase 6 (polish)                      ██  opportunistic
 Phase 7 (engine)       ── continuous, PR'd to vendor submodule ──
+Phase 8 (decommission)   ── independent; audit early, delete after a deprecation release ──
 ```
 
 **Risks / decisions to confirm:**
 
-1. **Webhook exposure model** — desktop app behind NAT: v1 relies on `webhooks::ops::create_tunnel` (backend dependency); local-LAN-only webhooks as fallback. Needs product sign-off on URL lifetime/auth (per-flow secret token in the path).
+1. **External-event delivery model** — decided: Composio triggers are the webhook story (platform handles delivery/auth/NAT). Raw custom webhooks (own tunnel via `webhooks::ops::create_tunnel`) stay deferred; revisit only if users need non-Composio HTTP callers.
 2. **Prompt-injection surface** — webhook/app_event payloads feeding `agent` nodes are untrusted; must go through the `prompt_injection` domain. Non-negotiable before G1 ships.
 3. **Editable canvas vs. agent-first authoring** — product stance so far is "the agent builds it, you approve it" (`gitbooks/features/workflows.md`). Phase 5 makes that stance first-class in the Flows UI itself (prompt bar + canvas copilot); the Phase 3 hand-editing canvas is the escape hatch, not the headline. Keep the prompt-first path primary in onboarding copy so the two don't compete.
 4. **GPL-3.0 licensing** of `vendor/tinyflows` — already vendored/linked; re-confirm distribution posture before expanding surface (flag for legal, not an engineering blocker).

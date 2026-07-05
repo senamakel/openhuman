@@ -732,9 +732,11 @@ function preserveLiveSubagentProse(
 }
 
 function subagentTranscriptItemFromPersisted(
-  item: PersistedSubagentTranscriptItem
+  item: PersistedSubagentTranscriptItem,
+  toolCallsById?: Map<string, PersistedSubagentToolCall>
 ): SubagentTranscriptItem {
   if (item.kind === 'tool') {
+    const matchingCall = toolCallsById?.get(item.callId);
     return {
       kind: 'tool',
       iteration: item.iteration,
@@ -746,12 +748,14 @@ function subagentTranscriptItemFromPersisted(
       displayName: item.displayName,
       detail: item.detail,
       failure: item.failure,
+      result: matchingCall?.output,
     };
   }
   return { kind: item.kind, iteration: item.iteration, text: item.text };
 }
 
 function subagentActivityFromPersisted(activity: PersistedSubagentActivity): SubagentActivity {
+  const toolCallsById = new Map(activity.toolCalls.map(call => [call.callId, call]));
   return {
     taskId: activity.taskId,
     agentId: activity.agentId,
@@ -771,7 +775,7 @@ function subagentActivityFromPersisted(activity: PersistedSubagentActivity): Sub
     // persisted (the `transcript` field is absent there).
     transcript:
       activity.transcript && activity.transcript.length > 0
-        ? activity.transcript.map(subagentTranscriptItemFromPersisted)
+        ? activity.transcript.map(item => subagentTranscriptItemFromPersisted(item, toolCallsById))
         : activity.toolCalls.map(call => ({
             kind: 'tool' as const,
             iteration: call.iteration,
@@ -780,6 +784,10 @@ function subagentActivityFromPersisted(activity: PersistedSubagentActivity): Sub
             status: call.status,
             elapsedMs: call.elapsedMs,
             outputChars: call.outputChars,
+            displayName: call.displayName,
+            detail: call.detail,
+            failure: call.failure,
+            result: call.output,
           })),
   };
 }

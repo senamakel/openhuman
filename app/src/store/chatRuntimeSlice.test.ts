@@ -719,6 +719,16 @@ describe('hydrateRuntimeFromSnapshot — persisted tool result output', () => {
             toolCalls: [
               { callId: 'cc1', toolName: 'read_file', status: 'success', output: 'file body' },
             ],
+            transcript: [
+              { kind: 'thinking', iteration: 1, text: 'checking the file' },
+              {
+                kind: 'tool',
+                iteration: 1,
+                callId: 'cc1',
+                toolName: 'read_file',
+                status: 'success',
+              },
+            ],
           },
         },
       ],
@@ -731,5 +741,8 @@ describe('hydrateRuntimeFromSnapshot — persisted tool result output', () => {
     const timeline = store.getState().chatRuntime.toolTimelineByThread['t-out'];
     expect(timeline[0].result).toBe('top hit: openhuman.dev');
     expect(timeline[1].subagent?.toolCalls[0]?.result).toBe('file body');
+    expect(timeline[1].subagent?.transcript?.find(item => item.kind === 'tool')?.result).toBe(
+      'file body'
+    );
   });
 });

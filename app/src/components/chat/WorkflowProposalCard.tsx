@@ -53,10 +53,17 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal }) =>
    * loses nothing.
    */
   const openInCanvas = () => {
-    log('openInCanvas: threadId=%s name=%s', threadId, proposal.name);
+    const graph = proposal.graph as WorkflowGraph;
+    // Log shape, not the user-authored `proposal.name` (no secrets/PII in logs).
+    log(
+      'openInCanvas: threadId=%s node_count=%d edge_count=%d',
+      threadId,
+      graph.nodes.length,
+      graph.edges.length
+    );
     const draft: FlowCanvasDraftState = {
       name: proposal.name,
-      graph: proposal.graph as WorkflowGraph,
+      graph,
       requireApproval: proposal.requireApproval,
     };
     navigate(FLOW_CANVAS_DRAFT_ROUTE, { state: draft });

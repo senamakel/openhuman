@@ -7,17 +7,23 @@ import { WorkflowProposalCard } from './WorkflowProposalCard';
 // Echo i18n keys so we can assert on the stable key string.
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
 
-const mockCreateFlow = vi.fn();
-const mockUpdateFlow = vi.fn();
+// `vi.mock` factories are hoisted above the module's top-level statements, so
+// every handle a factory closes over must be declared via `vi.hoisted` rather
+// than a plain top-level `const` — otherwise it'd be a TDZ reference at the
+// time the (hoisted) factory runs. (These specific names happened to work
+// without it, since Vitest's compiler special-cases `mock`-prefixed
+// identifiers, but that's an incidental heuristic, not a guarantee.)
+const { mockCreateFlow, mockUpdateFlow, mockDispatch, mockNavigate } = vi.hoisted(() => ({
+  mockCreateFlow: vi.fn(),
+  mockUpdateFlow: vi.fn(),
+  mockDispatch: vi.fn(),
+  mockNavigate: vi.fn(),
+}));
 vi.mock('../../services/api/flowsApi', () => ({
   createFlow: (...args: unknown[]) => mockCreateFlow(...args),
   updateFlow: (...args: unknown[]) => mockUpdateFlow(...args),
 }));
-
-const mockDispatch = vi.fn();
 vi.mock('../../store/hooks', () => ({ useAppDispatch: () => mockDispatch }));
-
-const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }));
 
 function proposal(partial: Partial<WorkflowProposal> = {}): WorkflowProposal {

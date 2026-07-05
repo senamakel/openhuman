@@ -1,20 +1,23 @@
 ---
-# Release CI — full-suite gate for PRs targeting the long-lived `release`
-# branch (normally the auto-prepared main→release PR).
+# CI Full — the slow lane. Runs EVERYTHING on every push to the long-lived
+# `release` branch: full frontend + Rust unit suites, Rust mock-backend E2E,
+# Playwright web E2E, and the full desktop E2E matrix on Linux/macOS/Windows.
 #
-# Two-branch model:
-#   - PRs → main run the fast lane (pr-ci.yml): quality checks + unit tests
-#     scoped to the changed files only.
-#   - main → release PRs run EVERYTHING here: full frontend + Rust unit
-#     suites, Rust mock-backend E2E, Playwright web E2E, and the full desktop
-#     E2E matrix on Linux/macOS/Windows. Maintainers can push fixups directly
-#     to the PR until it greens up; releases are then cut from `release`.
+# Two-lane model:
+#   - ci-lite.yml (quick): pushes to main + PRs to main/release — quality
+#     checks + unit tests scoped to the changed files only.
+#   - ci-full.yml (this file, slow): pushes to `release` — i.e. the
+#     maintainer-dispatched promotion merge from main
+#     (promote-main-to-release.yml) and every merged fix PR against release.
+#     Once the "CI Full Gate" is green a release is cut from `release` via
+#     release-staging.yml / release-production.yml.
 #
-# Branch protection on `release` requires the "Release CI Gate" check below.
-name: Release CI
+# The release workflows' version-bump commits carry [skip ci] so cutting a
+# build does not re-trigger this suite on an already-validated tree.
+name: CI Full
 
 on:
-  pull_request:
+  push:
     branches: [release]
   workflow_dispatch: {}
 
@@ -25,15 +28,16 @@ permissions:
   actions: read
   contents: read
   packages: read
-  pull-requests: read
 
 env:
   # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
   GH_TOKEN: ${{ github.token }}
   NPM_CONFIG_STORE_DIR: .pnpm-store
 
+# A newer push to release supersedes the in-flight run; the gate result is
+# per-commit, so cancelling the stale run loses nothing.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -46,8 +50,8 @@ jobs:
   # pretest gate uses.
   unit-tests:
     name: Full Unit Suites
-    # No `secrets: inherit` — the called workflow uses no secrets, and this
-    # workflow is pull_request-triggered; keep its runs secret-free.
+    # No `secrets: inherit` — the called workflow uses no secrets; keep this
+    # workflow's runs secret-free.
     uses: ./.github/workflows/test-reusable.yml
     with:
       run_unit: true
@@ -95,7 +99,7 @@ jobs:
         with:
           workspaces: . -> target
           cache-on-failure: true
-          # Shared with pr-ci's former key so warm caches carry over between
+          # Shared with ci-lite's former key so warm caches carry over between
           # the fast lane and this full lane on the same dependency tree.
           shared-key: pr-rust-core
 
@@ -294,8 +298,8 @@ jobs:
   # shards — see e2e-reusable.yml).
   e2e-desktop:
     name: Desktop E2E (full suite, 3 OS)
-    # No `secrets: inherit` — the called workflow uses no secrets, and this
-    # workflow is pull_request-triggered; keep its runs secret-free.
+    # No `secrets: inherit` — the called workflow uses no secrets; keep this
+    # workflow's runs secret-free.
     uses: ./.github/workflows/e2e-reusable.yml
     with:
       run_linux: true
@@ -303,8 +307,8 @@ jobs:
       run_windows: true
       full: true
 
-  release-ci-gate:
-    name: Release CI Gate
+  ci-full-gate:
+    name: CI Full Gate
     needs:
       - unit-tests
       - rust-e2e
@@ -322,7 +326,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Require all Release CI jobs to pass
+      - name: Require all CI Full jobs to pass
         run: |
           set -euo pipefail
           # NOTE: "Playwright E2E" is deliberately absent — see the needs:

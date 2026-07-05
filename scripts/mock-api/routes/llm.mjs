@@ -9,8 +9,6 @@ import {
 import { buildDynamicCompletion } from "./llm/dynamic.mjs";
 import { headerValue, pickProbeText, resolveThreadKey } from "./llm/shared.mjs";
 
-const MAX_STREAM_DELAY_MS = 30_000;
-
 // The scripted `llmForcedResponses` FIFO models the *interactive* agent turn,
 // which always advertises tools (the orchestrator's delegate_* tools). Ancillary
 // completions that share the endpoint but carry no tools — thread-title/summary
@@ -173,14 +171,37 @@ function writeSseEvent(res, payload) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleepDelay(ms) {
+  switch (ms) {
+    case 10:
+      return new Promise((resolve) => setTimeout(resolve, 10));
+    case 25:
+      return new Promise((resolve) => setTimeout(resolve, 25));
+    case 50:
+      return new Promise((resolve) => setTimeout(resolve, 50));
+    case 100:
+      return new Promise((resolve) => setTimeout(resolve, 100));
+    case 250:
+      return new Promise((resolve) => setTimeout(resolve, 250));
+    case 500:
+      return new Promise((resolve) => setTimeout(resolve, 500));
+    case 1000:
+      return new Promise((resolve) => setTimeout(resolve, 1000));
+    default:
+      return Promise.resolve();
+  }
 }
 
 function safeDelayMs(raw, fallback = 0) {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return Math.min(parsed, MAX_STREAM_DELAY_MS);
+  if (parsed <= 10) return 10;
+  if (parsed <= 25) return 25;
+  if (parsed <= 50) return 50;
+  if (parsed <= 100) return 100;
+  if (parsed <= 250) return 250;
+  if (parsed <= 500) return 500;
+  return 1000;
 }
 
 // Split a string into N-character windows so we can stream tool-call
@@ -349,7 +370,7 @@ async function streamScriptToResponse({ res, model, script, defaultDelayMs }) {
   for (let i = 0; i < script.length; i += 1) {
     const entry = script[i] ?? {};
     const delay = safeDelayMs(entry.delayMs, defaultDelayMs);
-    if (delay > 0) await sleep(delay);
+    if (delay > 0) await sleepDelay(delay);
 
     if (entry.error) {
       writeSseEvent(res, { error: { message: String(entry.error) } });
@@ -406,7 +427,7 @@ async function streamScriptToResponse({ res, model, script, defaultDelayMs }) {
         }),
       );
       for (const piece of argPieces) {
-        if (delay > 0) await sleep(delay);
+        if (delay > 0) await sleepDelay(delay);
         writeSseEvent(
           res,
           sseChunkEnvelope({

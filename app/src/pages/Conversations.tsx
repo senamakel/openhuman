@@ -147,10 +147,44 @@ type ReplyMode = 'text' | 'voice';
 const AUTOCOMPLETE_POLL_DEBOUNCE_MS = 320;
 const AUTOCOMPLETE_MIN_CONTEXT_CHARS = 3;
 const debug = debugFactory('conversations');
-const SAFE_IMAGE_DATA_URI_RE = /^data:image\/(?:png|jpe?g|gif|webp|bmp);base64,[a-z0-9+/=\s]+$/i;
+const SAFE_IMAGE_DATA_URI_RE =
+  /^data:(image\/(?:png|jpe?g|gif|webp|bmp));base64,([a-z0-9+/=\s]+)$/i;
+const EMPTY_IMAGE_SRC = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
-function isSafeAttachmentImageSrc(src: string): boolean {
-  return SAFE_IMAGE_DATA_URI_RE.test(src);
+function imageDataUriToObjectUrl(src: string): string | null {
+  const match = SAFE_IMAGE_DATA_URI_RE.exec(src);
+  if (!match) return null;
+  try {
+    const mime = match[1];
+    const binary = atob(match[2].replace(/\s/g, ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return URL.createObjectURL(new Blob([bytes], { type: mime }));
+  } catch {
+    return null;
+  }
+}
+
+function AttachmentImage({ dataUri }: { dataUri: string }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const nextUrl = imageDataUriToObjectUrl(dataUri);
+    setObjectUrl(nextUrl);
+    return () => {
+      if (nextUrl) URL.revokeObjectURL(nextUrl);
+    };
+  }, [dataUri]);
+
+  return (
+    <img
+      src={objectUrl ?? EMPTY_IMAGE_SRC}
+      alt=""
+      className="max-w-[200px] max-h-[200px] rounded-2xl object-cover"
+    />
+  );
 }
 
 interface ConversationsProps {
@@ -2330,7 +2364,7 @@ const Conversations = ({
                                 Array.isArray(msg.extraMetadata?.attachmentDataUris)
                                   ? (msg.extraMetadata.attachmentDataUris as string[])
                                   : parsedContent.dataUris
-                              ).filter(isSafeAttachmentImageSrc);
+                              ).filter(src => SAFE_IMAGE_DATA_URI_RE.test(src));
                               const hasImages = dataUris.length > 0;
                               // Document attachments carry no image data-URI (only
                               // images do); surface them as filename chips from the
@@ -2362,12 +2396,7 @@ const Conversations = ({
                                   {hasImages && (
                                     <div className="flex flex-wrap gap-1.5 justify-end">
                                       {dataUris.map((uri, i) => (
-                                        <img
-                                          key={i}
-                                          src={uri}
-                                          alt=""
-                                          className="max-w-[200px] max-h-[200px] rounded-2xl object-cover"
-                                        />
+                                        <AttachmentImage key={i} dataUri={uri} />
                                       ))}
                                     </div>
                                   )}

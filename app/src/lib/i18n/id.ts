@@ -3969,6 +3969,9 @@ const messages: TranslationMap = {
   'flows.templates.ask-agent.name': 'Tanya agen',
   'flows.templates.ask-agent.description':
     'Pemicu manual sederhana yang menyerahkan tugas ke agen.',
+  'flows.templates.opus-sonnet-brief.name': 'Ringkasan riset (Opus merencanakan, Sonnet menyusun)',
+  'flows.templates.opus-sonnet-brief.description':
+    'Agen tingkat penalaran merencanakan ringkasan, agen tingkat obrolan menyusunnya, lalu hasilnya dibentuk untuk Anda.',
 
   'oauth.button.connecting': 'Menghubungkan...',
   'oauth.button.loopbackTimeout':

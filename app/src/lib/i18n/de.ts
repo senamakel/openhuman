@@ -4061,6 +4061,9 @@ const messages: TranslationMap = {
   'flows.templates.ask-agent.name': 'Den Agenten fragen',
   'flows.templates.ask-agent.description':
     'Ein einfacher manueller Auslöser, der einem Agenten eine Aufgabe übergibt.',
+  'flows.templates.opus-sonnet-brief.name': 'Recherche-Briefing (Opus plant, Sonnet verfasst)',
+  'flows.templates.opus-sonnet-brief.description':
+    'Ein Reasoning-Agent plant das Briefing, ein Chat-Agent verfasst es, dann wird das Ergebnis für dich aufbereitet.',
 
   'oauth.button.connecting': 'Verbinden...',
   'oauth.button.loopbackTimeout':

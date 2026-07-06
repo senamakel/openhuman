@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "name": "Research brief (Opus plans, Sonnet drafts)",
+  "nodes": [
+    {
+      "id": "trigger",
+      "kind": "trigger",
+      "name": "Run manually with a topic",
+      "config": { "trigger_kind": "manual" },
+      "ports": [],
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "planner",
+      "kind": "agent",
+      "name": "Plan the brief (reasoning tier)",
+      "config": {
+        "model": "reasoning-v1",
+        "prompt": "=\"You are a research lead. Draft a concise research plan (3-5 steps) and pick one distinctive angle for a brief on: \" + (.run.trigger.topic // \"the requested topic\")",
+        "output_parser": {
+          "schema": {
+            "type": "object",
+            "required": ["plan", "angle"],
+            "properties": {
+              "plan": { "type": "string" },
+              "angle": { "type": "string" }
+            }
+          }
+        }
+      },
+      "ports": [],
+      "position": { "x": 0, "y": 160 }
+    },
+    {
+      "id": "drafter",
+      "kind": "agent",
+      "name": "Draft the brief (chat tier)",
+      "config": {
+        "model": "chat-v1",
+        "prompt": "=\"Using the plan and angle below, write a polished research brief (~300 words).\\n\\nPlan:\\n\" + (.nodes.planner.item.json.plan // \"\") + \"\\n\\nAngle:\\n\" + (.nodes.planner.item.json.angle // \"\")"
+      },
+      "ports": [],
+      "position": { "x": 0, "y": 320 }
+    },
+    {
+      "id": "shape",
+      "kind": "transform",
+      "name": "Shape the result",
+      "config": {
+        "set": {
+          "topic": "=run.trigger.topic",
+          "plan": "=nodes.planner.item.json.plan",
+          "draft": "=nodes.drafter.item.text"
+        }
+      },
+      "ports": [],
+      "position": { "x": 0, "y": 480 }
+    }
+  ],
+  "edges": [
+    { "from_node": "trigger", "from_port": "main", "to_node": "planner", "to_port": "main" },
+    { "from_node": "planner", "from_port": "main", "to_node": "drafter", "to_port": "main" },
+    { "from_node": "drafter", "from_port": "main", "to_node": "shape", "to_port": "main" }
+  ]
+}

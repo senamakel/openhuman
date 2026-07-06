@@ -4645,6 +4645,9 @@ const en: TranslationMap = {
     'Call an HTTP endpoint on demand and parse the response into a usable shape.',
   'flows.templates.ask-agent.name': 'Ask the agent',
   'flows.templates.ask-agent.description': 'A simple manual trigger that hands a task to an agent.',
+  'flows.templates.opus-sonnet-brief.name': 'Research brief (Opus plans, Sonnet drafts)',
+  'flows.templates.opus-sonnet-brief.description':
+    'A reasoning-tier agent plans the brief, a chat-tier agent drafts it, then the result is shaped for you.',
 
   'oauth.button.connecting': 'Connecting...',
   'oauth.button.loopbackTimeout':

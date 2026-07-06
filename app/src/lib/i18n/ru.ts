@@ -3999,6 +3999,9 @@ const messages: TranslationMap = {
     'Вызовите конечную точку HTTP по запросу и разберите ответ в удобную форму.',
   'flows.templates.ask-agent.name': 'Спросить агента',
   'flows.templates.ask-agent.description': 'Простой ручной триггер, передающий задачу агенту.',
+  'flows.templates.opus-sonnet-brief.name': 'Исследовательская сводка (Opus планирует, Sonnet пишет)',
+  'flows.templates.opus-sonnet-brief.description':
+    'Агент уровня рассуждений планирует сводку, агент уровня чата составляет черновик, затем результат оформляется для вас.',
 
   'oauth.button.connecting': 'Подключение...',
   'oauth.button.loopbackTimeout':

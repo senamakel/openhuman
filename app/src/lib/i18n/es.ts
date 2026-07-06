@@ -4027,6 +4027,9 @@ const messages: TranslationMap = {
   'flows.templates.ask-agent.name': 'Preguntar al agente',
   'flows.templates.ask-agent.description':
     'Un disparador manual sencillo que entrega una tarea a un agente.',
+  'flows.templates.opus-sonnet-brief.name': 'Informe de investigación (Opus planifica, Sonnet redacta)',
+  'flows.templates.opus-sonnet-brief.description':
+    'Un agente de nivel razonamiento planifica el informe, un agente de nivel chat lo redacta y luego se da forma al resultado para ti.',
 
   'oauth.button.connecting': 'Conectando...',
   'oauth.button.loopbackTimeout':

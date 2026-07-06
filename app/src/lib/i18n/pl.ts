@@ -4010,6 +4010,9 @@ const messages: TranslationMap = {
   'flows.templates.ask-agent.name': 'Zapytaj agenta',
   'flows.templates.ask-agent.description':
     'Prosty ręczny wyzwalacz, który przekazuje zadanie agentowi.',
+  'flows.templates.opus-sonnet-brief.name': 'Brief badawczy (Opus planuje, Sonnet redaguje)',
+  'flows.templates.opus-sonnet-brief.description':
+    'Agent klasy rozumowania planuje brief, agent klasy czatu go redaguje, a następnie wynik zostaje ukształtowany dla Ciebie.',
 
   'oauth.button.connecting': 'Łączenie...',
   'oauth.button.loopbackTimeout':

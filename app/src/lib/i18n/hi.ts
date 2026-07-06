@@ -3959,6 +3959,9 @@ const messages: TranslationMap = {
   'flows.templates.ask-agent.name': 'एजेंट से पूछें',
   'flows.templates.ask-agent.description':
     'एक सरल मैन्युअल ट्रिगर जो किसी कार्य को एजेंट को सौंपता है।',
+  'flows.templates.opus-sonnet-brief.name': 'शोध सारांश (Opus योजना बनाता है, Sonnet मसौदा तैयार करता है)',
+  'flows.templates.opus-sonnet-brief.description':
+    'एक रीज़निंग-टियर एजेंट सारांश की योजना बनाता है, एक चैट-टियर एजेंट उसका मसौदा तैयार करता है, फिर परिणाम आपके लिए आकार दिया जाता है।',
 
   'oauth.button.connecting': 'कनेक्ट हो रहा है...',
   'oauth.button.loopbackTimeout':

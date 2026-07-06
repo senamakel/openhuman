@@ -3866,6 +3866,9 @@ const messages: TranslationMap = {
     'استدعِ نقطة نهاية HTTP عند الطلب وحلّل الاستجابة إلى شكل قابل للاستخدام.',
   'flows.templates.ask-agent.name': 'اسأل الوكيل',
   'flows.templates.ask-agent.description': 'مشغّل يدوي بسيط يسلّم مهمة إلى وكيل.',
+  'flows.templates.opus-sonnet-brief.name': 'موجز بحثي (Opus يخطّط، Sonnet يصيغ)',
+  'flows.templates.opus-sonnet-brief.description':
+    'وكيل من فئة الاستدلال يخطّط الموجز، ووكيل من فئة الدردشة يصيغه، ثم تُشكَّل النتيجة من أجلك.',
 
   'oauth.button.connecting': 'جارٍ الاتصال...',
   'oauth.button.loopbackTimeout':

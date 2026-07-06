@@ -24,6 +24,7 @@ import appEventRoute from './app-event-route.json';
 import askAgent from './ask-agent.json';
 import dailyDigest from './daily-digest.json';
 import httpFetchParse from './http-fetch-parse.json';
+import opusSonnetBrief from './opus-sonnet-brief.json';
 import scheduledScrape from './scheduled-scrape.json';
 import webhookTriage from './webhook-triage.json';
 
@@ -57,6 +58,7 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
   { id: 'app-event-route', category: 'triggered', graph: appEventRoute as WorkflowGraph },
   { id: 'http-fetch-parse', category: 'onDemand', graph: httpFetchParse as WorkflowGraph },
   { id: 'ask-agent', category: 'onDemand', graph: askAgent as WorkflowGraph },
+  { id: 'opus-sonnet-brief', category: 'onDemand', graph: opusSonnetBrief as WorkflowGraph },
 ];
 
 /** i18n key for a template's display name (`flows.templates.<id>.name`). */

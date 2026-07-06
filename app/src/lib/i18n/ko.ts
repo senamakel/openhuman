@@ -3917,6 +3917,9 @@ const messages: TranslationMap = {
     '요청 시 HTTP 엔드포인트를 호출하고 응답을 사용 가능한 형태로 파싱합니다.',
   'flows.templates.ask-agent.name': '에이전트에게 묻기',
   'flows.templates.ask-agent.description': '작업을 에이전트에 넘기는 간단한 수동 트리거입니다.',
+  'flows.templates.opus-sonnet-brief.name': '리서치 브리프 (Opus가 계획하고 Sonnet이 작성)',
+  'flows.templates.opus-sonnet-brief.description':
+    '추론 등급 에이전트가 브리프를 계획하고, 채팅 등급 에이전트가 초안을 작성한 다음, 결과가 사용자를 위해 정리됩니다.',
 
   'oauth.button.connecting': '연결 중...',
   'oauth.button.loopbackTimeout':

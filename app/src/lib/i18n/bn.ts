@@ -3962,6 +3962,9 @@ const messages: TranslationMap = {
   'flows.templates.ask-agent.name': 'এজেন্টকে জিজ্ঞাসা করুন',
   'flows.templates.ask-agent.description':
     'একটি সরল ম্যানুয়াল ট্রিগার যা একটি কাজ এজেন্টকে হস্তান্তর করে।',
+  'flows.templates.opus-sonnet-brief.name': 'গবেষণা সারসংক্ষেপ (Opus পরিকল্পনা করে, Sonnet খসড়া করে)',
+  'flows.templates.opus-sonnet-brief.description':
+    'একটি রিজনিং-টিয়ার এজেন্ট সারসংক্ষেপ পরিকল্পনা করে, একটি চ্যাট-টিয়ার এজেন্ট খসড়া তৈরি করে, তারপর ফলাফলটি আপনার জন্য সাজানো হয়।',
 
   'oauth.button.connecting': 'সংযোগ হচ্ছে...',
   'oauth.button.loopbackTimeout':

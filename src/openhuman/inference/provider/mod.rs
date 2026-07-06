@@ -46,7 +46,8 @@ pub use error_code::{
     BackendErrorCode,
 };
 pub use factory::{
-    create_chat_provider, provider_for_role, role_for_model_tier, BYOK_INCOMPLETE_SENTINEL,
+    create_chat_model, create_chat_model_from_string, create_chat_provider, provider_for_role,
+    role_for_model_tier, BYOK_INCOMPLETE_SENTINEL,
 };
 pub use ops::*;
 pub use resolved_route::{

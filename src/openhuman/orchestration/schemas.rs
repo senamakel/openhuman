@@ -13,6 +13,7 @@ use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::{rpc as config_rpc, Config};
 
+use super::attention;
 use super::store;
 use super::types::{ChatKind, OrchestrationMessage, OrchestrationSession, SessionEnvelopeV1};
 
@@ -28,6 +29,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schema_for("orchestration_send_master_message"),
         schema_for("orchestration_mark_read"),
         schema_for("orchestration_status"),
+        schema_for("orchestration_attention"),
         schema_for("orchestration_self_identity"),
         schema_for("orchestration_relay_info"),
     ]
@@ -58,6 +60,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schema_for("orchestration_status"),
             handler: handle_status,
+        },
+        RegisteredController {
+            schema: schema_for("orchestration_attention"),
+            handler: handle_attention,
         },
         RegisteredController {
             schema: schema_for("orchestration_self_identity"),
@@ -129,6 +135,13 @@ fn schema_for(function: &str) -> ControllerSchema {
             description: "Current steering directive, last subconscious tick, and ingest health.",
             inputs: vec![],
             outputs: vec![json_output("result", "OrchestrationStatus.")],
+        },
+        "orchestration_attention" => ControllerSchema {
+            namespace: "orchestration",
+            function: "attention",
+            description: "Aggregate the \"needs you\" signals across the hub — pending tool approvals, agent runs awaiting input, and instances with unread messages — into one priority-ordered queue.",
+            inputs: vec![],
+            outputs: vec![json_output("result", "AttentionQueue { items: AttentionItem[], counts }.")],
         },
         "orchestration_self_identity" => ControllerSchema {
             namespace: "orchestration",
@@ -602,6 +615,52 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_attention(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = load_config("attention").await?;
+
+        // 1. Pending tool approvals (global gate; empty when the gate is not
+        //    installed — never an error path). Mapping is the unit-tested pure
+        //    `attention::approval_signals`.
+        let approvals = attention::approval_signals(
+            crate::openhuman::approval::rpc::approval_list_pending()
+                .await
+                .map_err(|e| format!("attention.approvals: {e}"))?
+                .value,
+        );
+
+        // 2. Agent runs blocked awaiting user input (command-center NeedsInput).
+        //    Best-effort: a command-center read failure must not sink the whole
+        //    queue — approvals + unread still surface.
+        let needs_input = super::ops::command_center_needs_input(&config);
+
+        // 3. Per-instance unread (non-pinned orchestration sessions). Best-effort
+        //    like the command-center read: a transient local-DB hiccup must not
+        //    sink the approvals + needs-input signals that already resolved.
+        let unread = match store::with_connection(
+            &config.workspace_dir,
+            super::ops::gather_unread_signals,
+        ) {
+            Ok(unread) => unread,
+            Err(e) => {
+                log::warn!(target: LOG, "[orchestration_rpc] attention.unread_failed: {e}");
+                Vec::new()
+            }
+        };
+
+        let queue = attention::assemble_attention(approvals, needs_input, unread);
+        log::debug!(
+            target: LOG,
+            "[orchestration_rpc] attention.exit total={} approvals={} needs_input={} unread={}",
+            queue.counts.total,
+            queue.counts.approvals,
+            queue.counts.needs_input,
+            queue.counts.unread,
+        );
+        to_json(queue)
+    })
+}
+
 /// Own tiny.place identity + discoverability, composed from the internal
 /// tinyplace signal/directory reads. Delegates like `send_master` does
 /// (`crate::openhuman::tinyplace::handle_tinyplace_*`), so there is no new
@@ -746,8 +805,9 @@ mod tests {
     #[test]
     fn schemas_use_orchestration_namespace() {
         let schemas = all_controller_schemas();
-        assert_eq!(schemas.len(), 8);
+        assert_eq!(schemas.len(), 9);
         assert!(schemas.iter().all(|s| s.namespace == "orchestration"));
+        assert_eq!(schema_for("orchestration_attention").function, "attention");
         assert_eq!(
             schema_for("orchestration_self_identity").function,
             "self_identity"

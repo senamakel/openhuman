@@ -1294,6 +1294,132 @@ pub(crate) async fn composio_required_args(config: &Config, slug: &str) -> Optio
     found
 }
 
+/// Process-level cache for [`composio_response_fields`]: toolkit → (uppercase
+/// action slug → top-level output/response field names). A sibling of
+/// [`REQUIRED_ARGS_CACHE`] — same keying and one-fetch-per-toolkit-per-process
+/// lifetime — but kept as its own `OnceLock` so seeding one cache in tests
+/// never leaks into the other.
+static RESPONSE_FIELDS_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<
+        std::collections::HashMap<String, std::collections::HashMap<String, Vec<String>>>,
+    >,
+> = std::sync::OnceLock::new();
+
+/// Seeds the response-fields cache for a toolkit — test hook so
+/// `search_tool_catalog`'s grounding can be exercised without a live Composio
+/// backend. Mirrors [`seed_required_args_cache`].
+#[cfg(test)]
+pub(crate) fn seed_response_fields_cache(
+    toolkit: &str,
+    entries: std::collections::HashMap<String, Vec<String>>,
+) {
+    RESPONSE_FIELDS_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .expect("response-fields cache poisoned")
+        .insert(toolkit.to_string(), entries);
+}
+
+/// Best-effort lookup of a Composio action's **response/output** top-level
+/// field names — the output-side analogue of [`composio_required_args`]'s
+/// input-side lookup, so `search_tool_catalog` can ground a downstream
+/// binding (`=nodes.<id>.item.json.<field>`) in a real field name instead of
+/// guessing one.
+///
+/// Source: Composio v3 `/tools` publishes an `output_parameters` JSON Schema
+/// per action alongside `input_parameters` — documented as "Schema
+/// definition of return values from the tool"
+/// (<https://docs.composio.dev/reference/api-reference/tools/getTools>).
+/// `direct_list_tools` (Composio Direct mode) threads that schema through as
+/// [`crate::openhuman::composio::types::ComposioToolFunction::output_parameters`].
+/// The backend-proxied path forwards whatever its own
+/// `/agent-integrations/composio/tools` response carries under the same
+/// field — opaque to this crate, so it may legitimately be absent there.
+///
+/// Returns `None` when no output schema is known for the slug — unknown
+/// toolkit, client construction failure, a failed/empty listing, or an
+/// action whose listing doesn't publish `output_parameters` — so callers
+/// degrade to "output shape unknown" (e.g. suggest a dry-run) rather than
+/// blocking or guessing. `Some(vec![])` means the schema was found but names
+/// no top-level properties. Cached per toolkit for the life of the process.
+pub(crate) async fn composio_response_fields(config: &Config, slug: &str) -> Option<Vec<String>> {
+    let toolkit = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)?;
+    let slug_key = slug.to_ascii_uppercase();
+
+    if let Some(by_slug) = RESPONSE_FIELDS_CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .ok()?
+        .get(&toolkit)
+    {
+        return by_slug.get(&slug_key).cloned();
+    }
+
+    tracing::debug!(target: "flows", %toolkit, %slug, "[flows] catalog: fetching output schemas for toolkit");
+    let resp = crate::openhuman::composio::ops::composio_list_tools(
+        config,
+        Some(vec![toolkit.clone()]),
+        None,
+    )
+    .await
+    .map_err(|e| {
+        tracing::debug!(target: "flows", %toolkit, error = %e, "[flows] catalog: output-schema fetch failed — skipping");
+        e
+    })
+    .ok()?;
+
+    let mut by_slug = std::collections::HashMap::new();
+    for tool in &resp.value.tools {
+        // Only cache an entry when the listing actually published an output
+        // schema — an absent `output_parameters` must stay "unknown" (no
+        // entry, so lookups fall through to `None`) rather than collapsing
+        // into `Some(vec![])`, which would mean "schema present, no fields".
+        if let Some(schema) = tool.function.output_parameters.as_ref() {
+            let fields = response_fields_from_schema(Some(schema));
+            by_slug.insert(tool.function.name.to_ascii_uppercase(), fields);
+        }
+    }
+    let found = by_slug.get(&slug_key).cloned();
+    if let Ok(mut cache) = RESPONSE_FIELDS_CACHE.get_or_init(Default::default).lock() {
+        cache.insert(toolkit, by_slug);
+    }
+    found
+}
+
+/// Extracts top-level field names from a Composio `output_parameters` JSON
+/// Schema value. Composio shapes this as a standard object schema —
+/// `{"type": "object", "properties": {...}}` — same convention as
+/// `input_parameters`, so this reads `.properties`'s keys when present. Falls
+/// back to the schema's own top-level keys (minus common JSON-Schema
+/// keywords) for a looser/legacy shape. Empty when the schema is
+/// absent/unrecognized — never fails.
+fn response_fields_from_schema(schema: Option<&Value>) -> Vec<String> {
+    const SCHEMA_KEYWORDS: &[&str] = &[
+        "type",
+        "required",
+        "additionalProperties",
+        "$schema",
+        "description",
+        "title",
+        "examples",
+    ];
+
+    let Some(obj) = schema.and_then(Value::as_object) else {
+        return Vec::new();
+    };
+    let mut fields: Vec<String> =
+        if let Some(props) = obj.get("properties").and_then(Value::as_object) {
+            props.keys().cloned().collect()
+        } else {
+            obj.keys()
+                .filter(|k| !SCHEMA_KEYWORDS.contains(&k.as_str()))
+                .cloned()
+                .collect()
+        };
+    fields.sort();
+    fields
+}
+
 /// Returns the names in `required` that are absent or `null` in `args`.
 pub(crate) fn missing_required_args(required: &[String], args: &Value) -> Vec<String> {
     required
@@ -2791,5 +2917,64 @@ mod tests {
             ),
             other => panic!("expected a capability error, got: {other:?}"),
         }
+    }
+
+    // ── response_fields_from_schema ─────────────────────────────────────────
+    // Direct unit tests for the pure schema-extraction step inside
+    // `composio_response_fields`'s live-fetch loop — cheaper and more
+    // targeted than exercising the whole `composio_list_tools` round trip,
+    // and covers the schema shapes that loop actually has to handle.
+
+    #[test]
+    fn response_fields_from_schema_reads_standard_properties_object() {
+        let schema = json!({
+            "type": "object",
+            "properties": { "id": {"type": "string"}, "threadId": {"type": "string"} }
+        });
+        assert_eq!(
+            response_fields_from_schema(Some(&schema)),
+            vec!["id".to_string(), "threadId".to_string()]
+        );
+    }
+
+    #[test]
+    fn response_fields_from_schema_reads_nested_data_error_wrapper_as_top_level_keys() {
+        // A `{data, error}` envelope has no special unwrapping — the function
+        // documents (and this test locks in) that it reports the schema's own
+        // top-level property names, not the fields nested inside `data`.
+        let schema = json!({
+            "type": "object",
+            "properties": {
+                "data": {"type": "object", "properties": {"id": {"type": "string"}}},
+                "error": {"type": "string"}
+            }
+        });
+        assert_eq!(
+            response_fields_from_schema(Some(&schema)),
+            vec!["data".to_string(), "error".to_string()]
+        );
+    }
+
+    #[test]
+    fn response_fields_from_schema_falls_back_to_top_level_keys_minus_schema_keywords() {
+        // Legacy/loose shape with no `properties` wrapper: falls back to the
+        // schema object's own keys, filtering out JSON-Schema keywords.
+        let schema = json!({
+            "type": "object",
+            "description": "legacy shape",
+            "id": {"type": "string"},
+            "threadId": {"type": "string"}
+        });
+        assert_eq!(
+            response_fields_from_schema(Some(&schema)),
+            vec!["id".to_string(), "threadId".to_string()]
+        );
+    }
+
+    #[test]
+    fn response_fields_from_schema_empty_for_none_or_non_object() {
+        assert!(response_fields_from_schema(None).is_empty());
+        assert!(response_fields_from_schema(Some(&json!("not an object"))).is_empty());
+        assert!(response_fields_from_schema(Some(&json!({}))).is_empty());
     }
 }

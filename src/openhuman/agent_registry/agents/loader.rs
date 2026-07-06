@@ -1031,7 +1031,7 @@ mod tests {
         // + confirmed test-run + save-onto-existing belt — no flow creation
         // (flows_create/set_enabled), no shell, no file writes, no channel
         // sends, and no composio_execute. It can list toolkits/connections,
-        // raise the inline connect card, `run_workflow` a flow the user already
+        // raise the inline connect card, `run_flow` a flow the user already
         // SAVED to test it (a real run the prompt gates behind user
         // confirmation), and `save_workflow` a built graph onto a flow the host
         // ALREADY created (the prompt bar's instant-create path) — but it can
@@ -1065,7 +1065,7 @@ mod tests {
                     "search_tool_catalog",
                     "list_agent_profiles",
                     "dry_run_workflow",
-                    "run_workflow",
+                    "run_flow",
                     "composio_list_toolkits",
                     "composio_list_connections",
                     "composio_connect",

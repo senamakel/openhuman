@@ -501,17 +501,19 @@ impl Tool for ListFlowConnectionsTool {
 /// `search_tool_catalog`: search OpenHuman's curated Composio catalog for REAL
 /// action slugs so `tool_call` nodes are grounded in slugs that actually exist
 /// (rather than a hallucinated slug that fails the save-time curation gate).
-pub struct SearchToolCatalogTool;
-
-impl SearchToolCatalogTool {
-    pub fn new() -> Self {
-        Self
-    }
+///
+/// Also grounds the OUTPUT side: each result carries a best-effort
+/// `response_fields` list — the action's real top-level response field names
+/// (see [`crate::openhuman::tinyflows::caps::composio_response_fields`]) — so
+/// a downstream binding (`=nodes.<id>.item.json.<field>`) can be wired to a
+/// field that actually exists instead of a guessed one.
+pub struct SearchToolCatalogTool {
+    config: Arc<Config>,
 }
 
-impl Default for SearchToolCatalogTool {
-    fn default() -> Self {
-        Self::new()
+impl SearchToolCatalogTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
     }
 }
 
@@ -580,8 +582,14 @@ impl Tool for SearchToolCatalogTool {
         "Search the curated Composio tool catalog for REAL action slugs to use on \
          `tool_call` nodes. Read-only. Query by keyword (e.g. 'send email', \
          'slack message'); optionally scope to one `toolkit` (e.g. 'gmail'). \
-         Returns matching { slug, toolkit, scope } entries. ALWAYS ground a \
-         tool_call node's `slug` in a real result here — do not invent slugs."
+         Returns matching { slug, toolkit, scope, response_fields } entries. \
+         ALWAYS ground a tool_call node's `slug` in a real result here — do not \
+         invent slugs. `response_fields` names the action's REAL top-level \
+         output field names (from Composio's own schema) — use THOSE, not a \
+         guess, when a downstream node reads this tool's output via \
+         `=nodes.<id>.item.json.<field>`. When `response_fields` is empty a \
+         `response_fields_note` explains the output shape is unknown — \
+         dry_run_workflow the binding to verify it resolves before proposing."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -622,7 +630,57 @@ impl Tool for SearchToolCatalogTool {
             toolkit = toolkit.unwrap_or("(any)"),
             "[flows] search_tool_catalog: searching curated Composio catalog (read-only)"
         );
-        let results = search_curated_catalog(&query, toolkit, MAX_CATALOG_RESULTS);
+        let mut results = search_curated_catalog(&query, toolkit, MAX_CATALOG_RESULTS);
+
+        // Resolve each *distinct* slug's output fields concurrently rather
+        // than awaiting one `composio_response_fields` call per matched
+        // result in sequence — a broad query spanning several toolkits would
+        // otherwise pay for their catalog round trips back-to-back (the
+        // per-toolkit cache only helps repeat lookups, not the first one).
+        let mut unique_slugs: Vec<String> = results
+            .iter()
+            .filter_map(|r| r.get("slug").and_then(Value::as_str).map(str::to_string))
+            .collect();
+        unique_slugs.sort();
+        unique_slugs.dedup();
+        let fetched = futures::future::join_all(unique_slugs.into_iter().map(|slug| {
+            let config = self.config.clone();
+            async move {
+                let fields =
+                    crate::openhuman::tinyflows::caps::composio_response_fields(&config, &slug)
+                        .await;
+                (slug, fields)
+            }
+        }))
+        .await;
+        let response_fields_by_slug: std::collections::HashMap<String, Option<Vec<String>>> =
+            fetched.into_iter().collect();
+
+        for result in &mut results {
+            let Some(slug) = result
+                .get("slug")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+            else {
+                continue;
+            };
+            let response_fields = response_fields_by_slug.get(&slug).cloned().flatten();
+            let Value::Object(map) = result else {
+                continue;
+            };
+            match response_fields {
+                Some(fields) => {
+                    map.insert("response_fields".to_string(), json!(fields));
+                }
+                None => {
+                    map.insert("response_fields".to_string(), json!(Vec::<String>::new()));
+                    map.insert(
+                        "response_fields_note".to_string(),
+                        json!("output shape unknown — dry-run to verify the binding resolves"),
+                    );
+                }
+            }
+        }
         Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
             "query": query,
             "count": results.len(),

@@ -175,7 +175,8 @@ fn search_curated_catalog_all_terms_must_match() {
 
 #[tokio::test]
 async fn search_tool_catalog_tool_is_read_only_and_grounds() {
-    let tool = SearchToolCatalogTool::new();
+    let tmp = TempDir::new().unwrap();
+    let tool = SearchToolCatalogTool::new(test_config(&tmp));
     assert_eq!(tool.name(), "search_tool_catalog");
     assert_eq!(tool.permission_level(), PermissionLevel::None);
     assert!(!tool.external_effect());
@@ -191,10 +192,77 @@ async fn search_tool_catalog_tool_is_read_only_and_grounds() {
 
 #[tokio::test]
 async fn search_tool_catalog_missing_query_is_error() {
-    let tool = SearchToolCatalogTool::new();
+    let tmp = TempDir::new().unwrap();
+    let tool = SearchToolCatalogTool::new(test_config(&tmp));
     let result = tool.execute(json!({})).await.unwrap();
     assert!(result.is_error);
     assert!(result.output().contains("Missing 'query'"));
+}
+
+#[tokio::test]
+async fn search_tool_catalog_grounds_response_fields_from_seeded_output_schema() {
+    // A known action's output schema (seeded, standing in for a live
+    // Composio fetch) surfaces as real `response_fields` on the match.
+    let tmp = TempDir::new().unwrap();
+    let mut entries = std::collections::HashMap::new();
+    entries.insert(
+        "GMAIL_SEND_EMAIL".to_string(),
+        vec!["id".to_string(), "threadId".to_string()],
+    );
+    crate::openhuman::tinyflows::caps::seed_response_fields_cache("gmail", entries);
+
+    let tool = SearchToolCatalogTool::new(test_config(&tmp));
+    let result = tool
+        .execute(json!({ "query": "send", "toolkit": "gmail" }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    let results = parsed["results"].as_array().unwrap();
+    let send_email = results
+        .iter()
+        .find(|r| r["slug"] == "GMAIL_SEND_EMAIL")
+        .expect("GMAIL_SEND_EMAIL should be in the curated catalog");
+    let fields: Vec<&str> = send_email["response_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(fields, vec!["id", "threadId"]);
+    assert!(send_email.get("response_fields_note").is_none());
+}
+
+#[tokio::test]
+async fn search_tool_catalog_degrades_gracefully_when_output_schema_unknown() {
+    // No cache entry seeded for this toolkit and no live Composio backend
+    // configured in tests, so the fetch fails/returns nothing — the tool
+    // must still succeed, with an empty `response_fields` + explanatory note
+    // rather than erroring or blocking the search.
+    let tmp = TempDir::new().unwrap();
+    // Seed an entry for a *different* action so the toolkit's cache is
+    // populated but this slug is absent from it — the "known toolkit,
+    // unknown action" branch of the degrade path.
+    let mut entries = std::collections::HashMap::new();
+    entries.insert("SLACK_SOMETHING_ELSE".to_string(), vec!["ok".to_string()]);
+    crate::openhuman::tinyflows::caps::seed_response_fields_cache("slack", entries);
+
+    let tool = SearchToolCatalogTool::new(test_config(&tmp));
+    let result = tool
+        .execute(json!({ "query": "send", "toolkit": "slack" }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    let results = parsed["results"].as_array().unwrap();
+    assert!(!results.is_empty(), "slack catalog should have entries");
+    for r in results {
+        assert!(r["response_fields"].as_array().unwrap().is_empty());
+        assert_eq!(
+            r["response_fields_note"],
+            "output shape unknown — dry-run to verify the binding resolves"
+        );
+    }
 }
 
 // ── dry_run_workflow ─────────────────────────────────────────────────────────

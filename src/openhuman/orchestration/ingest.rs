@@ -92,53 +92,51 @@ fn persist_message(
     now: &str,
 ) -> Result<bool, String> {
     store::with_connection(workspace_dir, |c| {
-        // Invariant guard (session windows only): the wake cursor keys on `session_id`
-        // while `seq` (= `env.message.line`) is monotonic only within one emitting
-        // harness. `upsert_session` clamps `last_seq` with `MAX(..)` and the wake fires
-        // only on `last_seq > cursor`, so a non-monotonic inbound `seq` (a peer reusing
-        // one `wrapper_session_id` across harness sessions, or a plugin-composed message
-        // whose line is 0) is persisted + acked but can SILENTLY skip the graph. Log it
-        // so the break surfaces in prod instead of dropping quietly. Robust fix (a
-        // per-wrapper monotonic ingest cursor) tracked in #4583.
-        if classified.chat_kind == ChatKind::Session {
-            if let Ok(Some(existing_last_seq)) =
-                store::session_last_seq(c, agent_id, &classified.session_id)
-            {
-                if classified.seq <= existing_last_seq {
-                    log::warn!(
-                        target: LOG,
-                        "[orchestration] wrapper session {} got seq {} <= last_seq {} — possible cross-harness reuse; wake may skip",
-                        classified.session_id, classified.seq, existing_last_seq
-                    );
-                }
-            }
-        }
-        store::upsert_session(
-            c,
-            &OrchestrationSession {
-                session_id: classified.session_id.clone(),
-                agent_id: agent_id.to_string(),
-                source: classified.source.clone(),
-                label: classified.label.clone(),
-                workspace: classified.workspace.clone(),
-                last_seq: classified.seq,
-                created_at: now.to_string(),
-                last_message_at: classified.timestamp.clone(),
-            },
-        )?;
-        store::insert_message(
-            c,
-            &OrchestrationMessage {
-                id: msg_id.to_string(),
-                agent_id: agent_id.to_string(),
-                session_id: classified.session_id.clone(),
-                chat_kind: classified.chat_kind,
-                role: classified.role.clone(),
-                body: classified.body.clone(),
-                timestamp: classified.timestamp.clone(),
-                seq: classified.seq,
-            },
-        )
+        // Wake idempotence keys on a per-session `seq` being monotonic, but the
+        // harness `message.line` we classify into `seq` is NOT reliable: a wrapped
+        // Claude harness stamps `line = 0` on every DM, and a peer reusing one
+        // `wrapper_session_id` across harness sessions can reset it. Under the
+        // shared per-pair session key that collapses every message into one
+        // session whose `last_seq`/wake cursor then pins at 0, so after the first
+        // message the graph is skipped and the DM is silently dropped (#4583).
+        //
+        // Fix: ignore the wire `line` for ordering and stamp a store-assigned,
+        // strictly-increasing per-(agent, session) ingest ordinal. Messages are
+        // append-only and deduped-by-id upstream, so `MAX(seq)+1` is monotonic and
+        // every genuinely-new DM advances `last_seq` past the cursor → wakes the graph.
+        //
+        // Allocate the ordinal and write both rows in one IMMEDIATE txn so a
+        // concurrent writer on the same session (the drain here vs the graph's
+        // `send_dm` reply persist) can't read the same `MAX(seq)` and duplicate it.
+        store::in_immediate_txn(c, |c| {
+            let ingest_seq = store::next_session_seq(c, agent_id, &classified.session_id)?;
+            store::upsert_session(
+                c,
+                &OrchestrationSession {
+                    session_id: classified.session_id.clone(),
+                    agent_id: agent_id.to_string(),
+                    source: classified.source.clone(),
+                    label: classified.label.clone(),
+                    workspace: classified.workspace.clone(),
+                    last_seq: ingest_seq,
+                    created_at: now.to_string(),
+                    last_message_at: classified.timestamp.clone(),
+                },
+            )?;
+            store::insert_message(
+                c,
+                &OrchestrationMessage {
+                    id: msg_id.to_string(),
+                    agent_id: agent_id.to_string(),
+                    session_id: classified.session_id.clone(),
+                    chat_kind: classified.chat_kind,
+                    role: classified.role.clone(),
+                    body: classified.body.clone(),
+                    timestamp: classified.timestamp.clone(),
+                    seq: ingest_seq,
+                },
+            )
+        })
     })
     .map_err(|e| format!("persist: {e}"))
 }
@@ -343,24 +341,38 @@ mod tests {
     }
 
     #[test]
-    fn persist_still_stores_a_lower_seq_in_the_same_wrapper_session() {
-        // The non-monotonic-seq guard only WARNS — it must never block persistence.
-        // A later message on the same wrapper session with a LOWER seq (e.g. a
-        // plugin-composed line 0, or a different emitting harness) still lands.
+    fn persist_stamps_monotonic_ingest_seq_so_line_zero_dms_still_wake() {
+        // Regression for the silent drop (#4583). A wrapped Claude harness stamps
+        // `line = 0` on EVERY DM, so pre-fix both messages classified to seq 0;
+        // under the shared wrapper-session key the wake cursor pinned at 0 and the
+        // second message was persisted + acked but never woke the graph (no reply).
+        // Persist must ignore the wire `line` and stamp a strictly-increasing
+        // per-(agent, session) ingest ordinal so `last_seq` advances past the cursor.
         let tmp = tempfile::tempdir().unwrap();
-        let hi = classify_message(ENVELOPE.to_string(), "2026-07-02T09:00:00Z"); // seq 7
-        assert!(persist_message(tmp.path(), "m1", "@peer", &hi, "now").unwrap());
+        let line_zero = || {
+            classify_message(
+                ENVELOPE.replace("\"line\": 7", "\"line\": 0"),
+                "2026-07-02T09:00:00Z",
+            )
+        };
+        let first = line_zero();
+        let second = line_zero();
+        assert_eq!(first.seq, 0); // wire line is 0 for both …
+        assert_eq!(second.seq, 0);
 
-        let lo = classify_message(
-            ENVELOPE.replace("\"line\": 7", "\"line\": 3"),
-            "2026-07-02T09:00:00Z",
-        );
-        assert_eq!(lo.session_id, "w1");
-        assert_eq!(lo.seq, 3); // lower than the stored last_seq (7) → guard warns
-        assert!(persist_message(tmp.path(), "m9", "@peer", &lo, "now").unwrap());
+        assert!(persist_message(tmp.path(), "mA", "@peer", &first, "now").unwrap());
+        assert!(persist_message(tmp.path(), "mB", "@peer", &second, "now").unwrap());
 
         store::with_connection(tmp.path(), |c| {
-            assert_eq!(store::count_messages(c, "@peer", "w1")?, 2); // both stored despite the warn
+            // … but the persisted seqs are monotonic ingest ordinals 1 and 2, and
+            // last_seq advanced to 2 — so a wake cursor left at 1 sees new work.
+            assert_eq!(store::count_messages(c, "@peer", "w1")?, 2);
+            assert_eq!(store::session_last_seq(c, "@peer", "w1")?, Some(2));
+            let seqs: Vec<i64> = store::list_recent_messages(c, "@peer", "w1", 10)?
+                .iter()
+                .map(|m| m.seq)
+                .collect();
+            assert_eq!(seqs, vec![1, 2]);
             Ok(())
         })
         .unwrap();

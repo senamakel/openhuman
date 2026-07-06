@@ -510,7 +510,12 @@ impl IntegrationClient {
     /// the inline closures in [`Self::post`] / [`Self::get`]) and route it
     /// through the observability classifier so network-environment failures
     /// skip Sentry.
-    fn report_transport_error(e: reqwest::Error, method: &str, path: &str, url: &str) -> anyhow::Error {
+    fn report_transport_error(
+        e: reqwest::Error,
+        method: &str,
+        path: &str,
+        url: &str,
+    ) -> anyhow::Error {
         let mut chain = format!("{e}");
         let mut src: Option<&(dyn std::error::Error + 'static)> = e.source();
         while let Some(s) = src {
@@ -709,9 +714,10 @@ impl IntegrationClient {
             .and_then(|v| v.to_str().ok())
             .and_then(parse_content_disposition_filename);
 
-        let body = resp.bytes().await.map_err(|e| {
-            anyhow::anyhow!("failed to read response body for GET {}: {}", url, e)
-        })?;
+        let body = resp
+            .bytes()
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to read response body for GET {}: {}", url, e))?;
         tracing::debug!(
             "[integrations] GET(bytes) {} → {} bytes (content_type={:?})",
             url,

@@ -52,12 +52,18 @@ fn resolve_upload_path(action_dir: &Path, raw: &str) -> Result<PathBuf, String> 
             action_dir.join(p)
         }
     };
-    let root = action_dir
-        .canonicalize()
-        .map_err(|e| format!("workspace dir {} is not accessible: {e}", action_dir.display()))?;
-    let resolved = candidate
-        .canonicalize()
-        .map_err(|e| format!("path {} does not exist or is not readable: {e}", candidate.display()))?;
+    let root = action_dir.canonicalize().map_err(|e| {
+        format!(
+            "workspace dir {} is not accessible: {e}",
+            action_dir.display()
+        )
+    })?;
+    let resolved = candidate.canonicalize().map_err(|e| {
+        format!(
+            "path {} does not exist or is not readable: {e}",
+            candidate.display()
+        )
+    })?;
     if !resolved.starts_with(&root) {
         return Err(format!(
             "path {} escapes the agent workspace ({}) — only files inside the workspace can be uploaded",
@@ -705,7 +711,10 @@ impl Tool for StorageSetVisibilityTool {
         tracing::debug!("[file_storage] setting visibility={visibility} for file_id={file_id}");
         match self
             .client
-            .patch::<FileMeta>(&file_path(&file_id, ""), &json!({ "visibility": visibility }))
+            .patch::<FileMeta>(
+                &file_path(&file_id, ""),
+                &json!({ "visibility": visibility }),
+            )
             .await
         {
             Ok(meta) => {

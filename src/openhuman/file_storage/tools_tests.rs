@@ -127,7 +127,10 @@ async fn upload_rejects_path_escaping_workspace() {
     assert!(res.output().contains("escapes"), "got: {}", res.output());
 
     // Relative traversal out of the workspace.
-    let rel = format!("../{}/secret.txt", outside.path().file_name().unwrap().to_str().unwrap());
+    let rel = format!(
+        "../{}/secret.txt",
+        outside.path().file_name().unwrap().to_str().unwrap()
+    );
     let res = tool.execute(json!({ "path": rel })).await.unwrap();
     assert!(res.is_error, "relative escape must be rejected: {res:?}");
 }
@@ -136,7 +139,10 @@ async fn upload_rejects_path_escaping_workspace() {
 async fn upload_rejects_nonexistent_file() {
     let tmp = tempfile::tempdir().unwrap();
     let tool = StorageUploadFileTool::new(dummy_client(), tmp.path().to_path_buf());
-    let res = tool.execute(json!({ "path": "missing.txt" })).await.unwrap();
+    let res = tool
+        .execute(json!({ "path": "missing.txt" }))
+        .await
+        .unwrap();
     assert!(res.is_error);
 }
 
@@ -212,7 +218,10 @@ fn resolve_upload_path_accepts_inside_and_rejects_outside() {
 
     // Traversal escaping the root is rejected.
     let err = resolve_upload_path(&inner, "../../etc/hosts").unwrap_err();
-    assert!(err.contains("escapes") || err.contains("not exist"), "got: {err}");
+    assert!(
+        err.contains("escapes") || err.contains("not exist"),
+        "got: {err}"
+    );
 
     // A directory is not uploadable.
     let err = resolve_upload_path(tmp.path(), "sub").unwrap_err();
@@ -221,8 +230,14 @@ fn resolve_upload_path_accepts_inside_and_rejects_outside() {
 
 #[test]
 fn sanitize_filename_strips_separators_and_traversal() {
-    assert_eq!(sanitize_filename("report.pdf").as_deref(), Some("report.pdf"));
-    assert_eq!(sanitize_filename("../../evil.sh").as_deref(), Some("evil.sh"));
+    assert_eq!(
+        sanitize_filename("report.pdf").as_deref(),
+        Some("report.pdf")
+    );
+    assert_eq!(
+        sanitize_filename("../../evil.sh").as_deref(),
+        Some("evil.sh")
+    );
     assert_eq!(sanitize_filename("a/b\\c.txt").as_deref(), Some("c.txt"));
     assert_eq!(sanitize_filename("..").is_none(), true);
     assert_eq!(sanitize_filename("  ").is_none(), true);
@@ -277,7 +292,10 @@ async fn upload_tool_posts_multipart_and_reports_file_id() {
     assert!(!res.is_error, "expected success, got {res:?}");
     let out = res.output();
     assert!(out.contains("file-1"), "output should carry file_id: {out}");
-    assert!(out.contains("public"), "output should carry public url/visibility: {out}");
+    assert!(
+        out.contains("public"),
+        "output should carry public url/visibility: {out}"
+    );
 }
 
 #[tokio::test]
@@ -287,7 +305,9 @@ async fn download_tool_follows_redirect_and_persists_file() {
     // this test, but the redirect-following behavior is what's exercised).
     let presigned = format!("{}/s3/blob", server.uri());
     Mock::given(method("GET"))
-        .and(path("/agent-integrations/file-storage/files/file-2/download"))
+        .and(path(
+            "/agent-integrations/file-storage/files/file-2/download",
+        ))
         .and(header("authorization", "Bearer tok"))
         .respond_with(ResponseTemplate::new(302).insert_header("Location", presigned.as_str()))
         .mount(&server)
@@ -316,7 +336,9 @@ async fn download_tool_follows_redirect_and_persists_file() {
 async fn download_tool_honors_explicit_filename() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path("/agent-integrations/file-storage/files/file-3/download"))
+        .and(path(
+            "/agent-integrations/file-storage/files/file-3/download",
+        ))
         .respond_with(ResponseTemplate::new(200).set_body_raw(b"BYTES".to_vec(), "application/pdf"))
         .mount(&server)
         .await;
@@ -439,7 +461,12 @@ async fn delete_tool_deletes_and_confirms() {
     let tool = StorageDeleteFileTool::new(client_for(&server));
     let res = tool.execute(json!({ "file_id": "file-1" })).await.unwrap();
     assert!(!res.is_error, "expected success, got {res:?}");
-    assert!(res.output().contains("Deleted"));
+    assert!(
+        res.output().contains("\"deleted\": true"),
+        "got: {}",
+        res.output()
+    );
+    assert!(res.output_for_llm(true).contains("Deleted"));
 }
 
 #[tokio::test]
@@ -459,5 +486,9 @@ async fn tools_surface_backend_envelope_errors() {
     let tool = StorageUploadFileTool::new(client_for(&server), tmp.path().to_path_buf());
     let res = tool.execute(json!({ "path": "a.txt" })).await.unwrap();
     assert!(res.is_error);
-    assert!(res.output().contains("Insufficient balance"), "got: {}", res.output());
+    assert!(
+        res.output().contains("Insufficient balance"),
+        "got: {}",
+        res.output()
+    );
 }

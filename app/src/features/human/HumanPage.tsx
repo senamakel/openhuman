@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import Conversations from '../../pages/Conversations';
+import Conversations from '../conversations/Conversations';
 import { useAppSelector } from '../../store/hooks';
 import {
   selectCustomMascotGifUrl,

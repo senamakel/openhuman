@@ -48,7 +48,7 @@ vi.mock('../../store/mascotSlice', () => ({
   selectCustomSecondaryColor: () => '#111111',
   selectMascotColor: () => 'blue',
 }));
-vi.mock('../Conversations', () => ({
+vi.mock('../../features/conversations/Conversations', () => ({
   default: ({ variant }: { variant: string }) => <div data-testid="conversations">{variant}</div>,
   ConversationsPage: () => <div data-testid="agent-chat-panel" />,
 }));

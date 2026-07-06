@@ -223,7 +223,7 @@ function makeThread(overrides: Partial<Thread> = {}): Thread {
 
 async function renderConversations(preload: Record<string, unknown> = {}) {
   const store = buildStore(preload);
-  const { default: Conversations } = await import('../Conversations');
+  const { default: Conversations } = await import('../../features/conversations/Conversations');
 
   render(
     <Provider store={store}>
@@ -243,7 +243,7 @@ async function renderConversations(preload: Record<string, unknown> = {}) {
 
 async function renderConversationsRoute(route: string, preload: Record<string, unknown> = {}) {
   const store = buildStore(preload);
-  const { default: Conversations } = await import('../Conversations');
+  const { default: Conversations } = await import('../../features/conversations/Conversations');
 
   render(
     <Provider store={store}>
@@ -274,7 +274,7 @@ async function renderEmbeddedConversationsRoute(
   preload: Record<string, unknown> = {}
 ) {
   const store = buildStore(preload);
-  const { default: Conversations } = await import('../Conversations');
+  const { default: Conversations } = await import('../../features/conversations/Conversations');
 
   render(
     <Provider store={store}>
@@ -1184,7 +1184,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     const thread = makeThread({ id: 'mic-cancel-thread', title: 'Mic' });
     mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
     mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
-    const { default: Conversations } = await import('../Conversations');
+    const { default: Conversations } = await import('../../features/conversations/Conversations');
     const store = buildStore({
       thread: selectedThreadState(thread),
       socket: socketState('connected'),
@@ -2178,7 +2178,7 @@ describe('Conversations — open-session resume (View work)', () => {
     mockGetThreads.mockResolvedValue({ threads: [taskThread], count: 1 });
 
     const store = buildStore({ thread: emptyThreadState });
-    const { default: Conversations } = await import('../Conversations');
+    const { default: Conversations } = await import('../../features/conversations/Conversations');
 
     await act(async () => {
       render(
@@ -2204,7 +2204,7 @@ describe('Conversations — open-session resume (View work)', () => {
 
     const store = buildStore({ thread: selectedThreadState(thread) });
 
-    const { default: Conversations } = await import('../Conversations');
+    const { default: Conversations } = await import('../../features/conversations/Conversations');
     await act(async () => {
       render(
         <Provider store={store}>

@@ -22,7 +22,7 @@ import {
 } from '../store/mascotSlice';
 import type { Account } from '../types/accounts';
 import { AGENT_ACCOUNT_ID as AGENT_ID } from '../utils/accountsFullscreen';
-import Conversations, { ConversationsPage } from './Conversations';
+import Conversations, { ConversationsPage } from '../features/conversations/Conversations';
 
 // Persistence key for face-toggle state across sessions.
 const FACE_MODE_KEY = 'chat.faceMode';

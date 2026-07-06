@@ -3,6 +3,7 @@
 //! Isolates config under a temp `HOME` so auth profiles and the OpenHuman provider resolve
 //! the same state directory. Run with: `cargo test --test json_rpc_e2e`
 
+use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -120,6 +121,127 @@ fn with_chat_completion_requests<T>(f: impl FnOnce(&mut Vec<Value>) -> T) -> T {
             f(&mut guard)
         }
     }
+}
+
+// ── Scripted chat-completion FIFO (in-process, node-mock-free) ───────────────
+//
+// The heuristic `chat_completions` mock can't script tool calls, so agent-driven
+// flows (`flows_build` / `flows_discover`) and agent-node flow runs had no way to
+// exercise a deterministic tool_call / planner-drafter arc in-process. This FIFO
+// mirrors the node mock's `llmForcedResponses` (`scripts/mock-api/routes/llm.mjs`)
+// without pulling in a node dependency: a test pushes OpenAI-shape response
+// bodies, and the chat-completions handler pops the first *matching* one before
+// falling back to its heuristic.
+//
+// Entries are optionally gated on a marker substring appearing in the serialized
+// request body (`when_contains`). That gate is what makes the arc robust against
+// the "FIFO-drain" hazard the plan flags: a builder/scout turn may emit side
+// completions (memory summarization, etc.) that don't carry the marker, so they
+// hit the heuristic fallback instead of consuming a scripted response meant for a
+// different node. Matching entries are still served in strict FIFO order among
+// themselves, so a two-turn tool loop (tool_call turn, then terminal-text turn)
+// stays ordered.
+static FORCED_CHAT_COMPLETIONS: OnceLock<Mutex<VecDeque<ForcedChatCompletion>>> = OnceLock::new();
+
+#[derive(Clone)]
+struct ForcedChatCompletion {
+    /// When `Some`, only serve this entry if the serialized request body contains
+    /// this marker. `None` matches any request (strict FIFO).
+    when_contains: Option<String>,
+    /// The OpenAI-shape chat-completion body to return verbatim.
+    body: Value,
+}
+
+fn with_forced_chat_completions<T>(f: impl FnOnce(&mut VecDeque<ForcedChatCompletion>) -> T) -> T {
+    let mutex = FORCED_CHAT_COMPLETIONS.get_or_init(|| Mutex::new(VecDeque::new()));
+    match mutex.lock() {
+        Ok(mut guard) => f(&mut guard),
+        Err(poisoned) => {
+            let mut guard = poisoned.into_inner();
+            f(&mut guard)
+        }
+    }
+}
+
+/// Drop every queued scripted completion. Call between test sections so a leftover
+/// entry can never bleed into an unrelated arc.
+#[allow(dead_code)]
+fn clear_forced_chat_completions() {
+    with_forced_chat_completions(|q| q.clear());
+}
+
+/// Queue an unconditional scripted completion (strict FIFO — matches any request).
+#[allow(dead_code)]
+fn push_forced_chat_completion(body: Value) {
+    with_forced_chat_completions(|q| {
+        q.push_back(ForcedChatCompletion {
+            when_contains: None,
+            body,
+        })
+    });
+}
+
+/// Queue a scripted completion gated on `marker` appearing in the request body.
+#[allow(dead_code)]
+fn push_forced_chat_completion_when(marker: &str, body: Value) {
+    with_forced_chat_completions(|q| {
+        q.push_back(ForcedChatCompletion {
+            when_contains: Some(marker.to_string()),
+            body,
+        })
+    });
+}
+
+/// Pop the first queued completion whose marker matches `request_body`
+/// (unconditional entries always match), preserving FIFO order among matches.
+fn take_forced_chat_completion(request_body: &Value) -> Option<Value> {
+    let haystack = request_body.to_string();
+    with_forced_chat_completions(|q| {
+        let idx = q.iter().position(|entry| match &entry.when_contains {
+            Some(marker) => haystack.contains(marker.as_str()),
+            None => true,
+        })?;
+        q.remove(idx).map(|entry| entry.body)
+    })
+}
+
+/// A scripted plain-text assistant completion in the OpenAI shape the managed
+/// backend parses (mirrors the node mock's non-streaming `makeChoice`).
+#[allow(dead_code)]
+fn forced_text_completion(content: &str) -> Value {
+    json!({
+        "choices": [{
+            "index": 0,
+            "message": { "role": "assistant", "content": content },
+            "finish_reason": "stop"
+        }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20 }
+    })
+}
+
+/// A scripted single-tool-call assistant completion. `arguments` is serialized to
+/// the JSON string the OpenAI tool-calling contract (and the harness) expects.
+#[allow(dead_code)]
+fn forced_tool_call_completion(tool_name: &str, arguments: Value) -> Value {
+    json!({
+        "choices": [{
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [{
+                    "id": format!("call_{tool_name}"),
+                    "type": "function",
+                    "function": {
+                        "name": tool_name,
+                        "arguments": arguments.to_string()
+                    }
+                }]
+            },
+            "finish_reason": "tool_calls"
+        }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20 }
+    })
 }
 
 fn mock_upstream_router() -> Router {
@@ -242,6 +364,11 @@ fn mock_upstream_router() -> Router {
                 "body": body.clone(),
             }))
         });
+        // A scripted response (tool_call or plain completion) wins over the
+        // heuristic when one is queued and matches this request.
+        if let Some(forced) = take_forced_chat_completion(&body) {
+            return Json(forced);
+        }
         let is_triage_turn = body
             .get("messages")
             .and_then(Value::as_array)

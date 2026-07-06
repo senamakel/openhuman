@@ -16,13 +16,19 @@ const dispatch = vi.hoisted(() => vi.fn());
 const selectorState = vi.hoisted(() => ({
   proposals: {} as Record<string, WorkflowProposal>,
   messagesByThreadId: {} as Record<string, unknown[]>,
+  toolTimelineByThread: {} as Record<string, unknown[]>,
+  streamingAssistantByThread: {} as Record<string, { content: string }>,
 }));
 vi.mock('../store/hooks', () => ({
   useAppDispatch: () => dispatch,
   useAppSelector: (sel: (s: unknown) => unknown) =>
     sel({
       thread: { messagesByThreadId: selectorState.messagesByThreadId },
-      chatRuntime: { pendingWorkflowProposalsByThread: selectorState.proposals },
+      chatRuntime: {
+        pendingWorkflowProposalsByThread: selectorState.proposals,
+        toolTimelineByThread: selectorState.toolTimelineByThread,
+        streamingAssistantByThread: selectorState.streamingAssistantByThread,
+      },
     }),
 }));
 
@@ -47,6 +53,8 @@ describe('useWorkflowBuilderChat', () => {
     buildWorkflow.mockReset().mockResolvedValue(okResult());
     selectorState.proposals = {};
     selectorState.messagesByThreadId = {};
+    selectorState.toolTimelineByThread = {};
+    selectorState.streamingAssistantByThread = {};
     dispatch.mockReset().mockImplementation((action: { type: string }) => {
       if (action.type === 'createNewThread') {
         return { unwrap: () => Promise.resolve({ id: 'builder-1' }) };
@@ -73,10 +81,12 @@ describe('useWorkflowBuilderChat', () => {
     expect(dispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'createNewThread', labels: ['workflow-builder'] })
     );
-    expect(buildWorkflow).toHaveBeenCalledWith({
-      mode: 'create',
-      instruction: 'email me a digest',
-    });
+    // The builder turn streams onto the dedicated thread — its id is threaded
+    // into `flows_build` as the second arg.
+    expect(buildWorkflow).toHaveBeenCalledWith(
+      { mode: 'create', instruction: 'email me a digest' },
+      'builder-1'
+    );
     await waitFor(() => expect(result.current.threadId).toBe('builder-1'));
   });
 
@@ -99,14 +109,11 @@ describe('useWorkflowBuilderChat', () => {
 
     // The proposal is written into the shared store slice via setProposal.
     expect(dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'setProposal',
-        p: { threadId: 'builder-1', proposal },
-      })
+      expect.objectContaining({ type: 'setProposal', p: { threadId: 'builder-1', proposal } })
     );
   });
 
-  it('appends the agent assistant text as its turn in the transcript', async () => {
+  it('appends only the user turn locally — the runtime owns the agent reply', async () => {
     buildWorkflow.mockResolvedValue(okResult({ assistantText: 'Here is your workflow.' }));
     const { result } = renderHook(() => useWorkflowBuilderChat());
     await act(async () => {
@@ -115,12 +122,15 @@ describe('useWorkflowBuilderChat', () => {
         request: { mode: 'create', instruction: 'x' },
       });
     });
-    const agentMsg = dispatch.mock.calls.find(
-      ([a]) =>
-        (a as { type: string; p?: { message?: { sender?: string } } }).type === 'addMessageLocal' &&
-        (a as { p?: { message?: { sender?: string } } }).p?.message?.sender === 'agent'
-    );
-    expect(agentMsg).toBeTruthy();
+    const appended = dispatch.mock.calls
+      .map(([a]) => a as { type: string; p?: { message?: { sender?: string } } })
+      .filter(a => a.type === 'addMessageLocal');
+    // The web channel never persists user messages, so the hook appends the
+    // user turn itself...
+    expect(appended.some(a => a.p?.message?.sender === 'user')).toBe(true);
+    // ...but NOT the agent reply — `ChatRuntimeProvider` appends that on the
+    // streamed `chat_done`, so appending here too would double it.
+    expect(appended.some(a => a.p?.message?.sender === 'agent')).toBe(false);
   });
 
   it('reuses the same dedicated thread across sends (creates it once)', async () => {
@@ -141,7 +151,28 @@ describe('useWorkflowBuilderChat', () => {
       ([a]) => (a as { type: string }).type === 'createNewThread'
     );
     expect(createCalls).toHaveLength(1);
-    expect(buildWorkflow).toHaveBeenLastCalledWith({ mode: 'revise', instruction: 'b' });
+    expect(buildWorkflow).toHaveBeenLastCalledWith(
+      { mode: 'revise', instruction: 'b' },
+      'builder-1'
+    );
+  });
+
+  it('surfaces the streamed tool timeline + live response for the dedicated thread', async () => {
+    const { result } = renderHook(() => useWorkflowBuilderChat());
+    await act(async () => {
+      await result.current.send({
+        displayText: 'hi',
+        request: { mode: 'create', instruction: 'x' },
+      });
+    });
+    // Simulate the runtime streaming onto this thread, then re-render.
+    selectorState.toolTimelineByThread = {
+      'builder-1': [{ id: 't1', name: 'propose_workflow', round: 0, status: 'running' }],
+    };
+    selectorState.streamingAssistantByThread = { 'builder-1': { content: 'drafting…' } };
+    const { result: result2 } = renderHook(() => useWorkflowBuilderChat('builder-1'));
+    expect(result2.current.toolTimeline).toHaveLength(1);
+    expect(result2.current.liveResponse).toBe('drafting…');
   });
 
   it('sets an error when the builder run fails without a proposal', async () => {

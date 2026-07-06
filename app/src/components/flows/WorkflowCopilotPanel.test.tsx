@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkflowGraph, WorkflowNode } from '../../lib/flows/types';
-import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
+import type { ToolTimelineEntry, WorkflowProposal } from '../../store/chatRuntimeSlice';
 import WorkflowCopilotPanel from './WorkflowCopilotPanel';
 
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
@@ -11,6 +11,8 @@ const hookState = vi.hoisted(() => ({
   sending: false,
   proposal: null as WorkflowProposal | null,
   messages: [] as Array<{ id: string; content: string; sender: 'user' | 'agent' }>,
+  toolTimeline: [] as ToolTimelineEntry[],
+  liveResponse: '',
   error: null as string | null,
   send: vi.fn(),
   clearProposal: vi.fn(),
@@ -40,6 +42,8 @@ describe('WorkflowCopilotPanel', () => {
     hookState.sending = false;
     hookState.proposal = null;
     hookState.messages = [];
+    hookState.toolTimeline = [];
+    hookState.liveResponse = '';
     hookState.error = null;
     hookState.send = vi.fn().mockResolvedValue(undefined);
     hookState.clearProposal = vi.fn();
@@ -92,6 +96,49 @@ describe('WorkflowCopilotPanel', () => {
     );
     // With a transcript present, the empty-state hint is gone.
     expect(screen.queryByTestId('workflow-copilot-empty')).not.toBeInTheDocument();
+  });
+
+  it('renders the shared tool timeline + streaming reply during a builder turn', () => {
+    hookState.sending = true;
+    hookState.toolTimeline = [
+      { id: 'call-1', name: 'propose_workflow', round: 0, status: 'running' } as ToolTimelineEntry,
+    ];
+    hookState.liveResponse = 'Drafting your workflow…';
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    // The shared ToolTimelineBlock renders (not the bespoke transcript), and the
+    // one-shot "thinking" placeholder is suppressed once activity is streaming.
+    expect(screen.getByTestId('workflow-copilot-timeline')).toBeInTheDocument();
+    expect(screen.queryByTestId('workflow-copilot-thinking')).not.toBeInTheDocument();
+  });
+
+  it('shows the live reply as a bubble before the first tool call streams', () => {
+    hookState.sending = true;
+    hookState.toolTimeline = [];
+    hookState.liveResponse = 'Thinking about your Slack digest…';
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('workflow-copilot-streaming')).toHaveTextContent(
+      'Thinking about your Slack digest…'
+    );
+    // No tool timeline yet, and the plain "thinking" line is replaced by the
+    // streamed text.
+    expect(screen.queryByTestId('workflow-copilot-timeline')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('workflow-copilot-thinking')).not.toBeInTheDocument();
   });
 
   it('surfaces a new proposal to the host and shows the added/removed diff', () => {

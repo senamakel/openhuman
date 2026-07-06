@@ -908,8 +908,22 @@ pub fn create_chat_model(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    Ok(create_chat_model_with_model_id(role, config, temperature)?.0)
+}
+
+/// Like [`create_chat_model`], but also returns the resolved model id.
+///
+/// One-shot callers that persist or log the concrete model (e.g. the memory
+/// summarise audit) need the id the role resolved to; the plain
+/// [`create_chat_model`] drops it.
+pub fn create_chat_model_with_model_id(
+    role: &str,
+    config: &Config,
+    temperature: f64,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     let (provider, model) = create_chat_provider(role, config)?;
-    Ok(chat_model_from_boxed_provider(provider, model, temperature))
+    let chat = chat_model_from_boxed_provider(provider, model.clone(), temperature);
+    Ok((chat, model))
 }
 
 /// Build an `Arc<dyn ChatModel>` from an explicit provider string and config.

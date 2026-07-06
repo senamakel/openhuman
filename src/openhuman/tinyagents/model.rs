@@ -569,6 +569,12 @@ impl ChatModel<()> for ProviderModel {
     ) -> tinyagents::Result<ModelResponse> {
         let native = self.provider.supports_native_tools();
         let (messages, specs) = build_chat_inputs(&request, native);
+        // Honor a per-request temperature when the caller sets one (e.g. one-shot
+        // inference callers that reuse a single model across prompts of differing
+        // temperature), else fall back to the temperature pinned at construction.
+        // The agent-loop seam leaves `request.temperature` `None`, so the pinned
+        // value still governs every turn — behaviour-neutral for the harness path.
+        let temperature = request.temperature.unwrap_or(self.temperature);
         // Positional layouts for the text-mode P-Format fallback (issue #4465);
         // empty (and thus behaviour-neutral) when no tools are advertised.
         let pformat_registry = pformat_registry_from_request(&request);
@@ -580,7 +586,12 @@ impl ChatModel<()> for ProviderModel {
             // payload would defeat the opt-out and get rejected/ignored.
             tools: (native && !specs.is_empty()).then_some(&specs),
             stream: None,
-            max_tokens: self.max_tokens,
+            // Prefer a per-request output cap when the caller set one, else the
+            // cap pinned at construction. The agent-loop seam pins via
+            // `with_max_tokens` and leaves `request.max_tokens` `None`
+            // (openhuman never sets the crate `RunConfig.max_turn_output_tokens`),
+            // so the pinned cap still governs every turn.
+            max_tokens: request.max_tokens.or(self.max_tokens),
         };
 
         tracing::debug!(
@@ -592,7 +603,7 @@ impl ChatModel<()> for ProviderModel {
 
         let response = match self
             .provider
-            .chat(chat_request, &self.model, self.temperature)
+            .chat(chat_request, &self.model, temperature)
             .await
         {
             Ok(response) => {
@@ -679,8 +690,11 @@ impl ChatModel<()> for ProviderModel {
         let pformat_registry = pformat_registry_from_request(&request);
         let provider = self.provider.clone();
         let model = self.model.clone();
-        let temperature = self.temperature;
-        let max_tokens = self.max_tokens;
+        // Per-request temperature when set (see `invoke`), else the pinned value;
+        // the agent-loop seam leaves it `None`, so streamed turns are unchanged.
+        let temperature = request.temperature.unwrap_or(self.temperature);
+        // Same precedence for the output cap (see `invoke`).
+        let max_tokens = request.max_tokens.or(self.max_tokens);
         let thinking = self.thinking.clone();
         let error_slot = self.error_slot.clone();
         // Captured for the spawned producer (task-locals/`self` do not cross the
@@ -916,5 +930,79 @@ mod g1_usage_tests {
         };
         let model_response = response_to_model_response(&chat, &empty_registry());
         assert!(usage_info_from_response(&model_response).is_none());
+    }
+}
+
+#[cfg(test)]
+mod adapter_param_tests {
+    //! The adapter honors a per-request temperature / output cap when the caller
+    //! sets one (one-shot callers reuse a model across differing prompts), and
+    //! otherwise the value pinned at construction (the agent-loop seam path).
+    use super::*;
+    use tinyagents::harness::message::Message;
+
+    #[derive(Default)]
+    struct CaptureProvider {
+        seen: Arc<Mutex<Vec<(f64, Option<u32>)>>>,
+    }
+
+    #[async_trait]
+    impl Provider for CaptureProvider {
+        async fn chat_with_system(
+            &self,
+            _system_prompt: Option<&str>,
+            _message: &str,
+            _model: &str,
+            _temperature: f64,
+        ) -> anyhow::Result<String> {
+            unreachable!("chat() is overridden")
+        }
+
+        async fn chat(
+            &self,
+            request: ChatRequest<'_>,
+            _model: &str,
+            temperature: f64,
+        ) -> anyhow::Result<ChatResponse> {
+            self.seen
+                .lock()
+                .unwrap()
+                .push((temperature, request.max_tokens));
+            Ok(ChatResponse {
+                text: Some("ok".to_string()),
+                ..Default::default()
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn per_request_overrides_win_else_pinned() {
+        let seen: Arc<Mutex<Vec<(f64, Option<u32>)>>> = Arc::default();
+        let provider: Arc<dyn Provider> = Arc::new(CaptureProvider { seen: seen.clone() });
+        let model = ProviderModel::new(provider, "m", 0.7).with_max_tokens(100);
+
+        // Request carries its own temperature + cap → those win.
+        model
+            .invoke(
+                &(),
+                ModelRequest::new(vec![Message::user("x")])
+                    .with_temperature(0.1)
+                    .with_max_tokens(42),
+            )
+            .await
+            .unwrap();
+        // Request leaves both unset → pinned construction values apply.
+        model
+            .invoke(&(), ModelRequest::new(vec![Message::user("x")]))
+            .await
+            .unwrap();
+
+        let seen = seen.lock().unwrap();
+        assert_eq!(
+            seen[0],
+            (0.1, Some(42)),
+            "per-request temperature + cap win"
+        );
+        assert_eq!(seen[1], (0.7, Some(100)), "unset falls back to pinned");
     }
 }

@@ -58,6 +58,12 @@ interface Props {
    */
   repairSeed?: RepairPromptContext | null;
   /**
+   * Optional build seed (from the Flows prompt bar's instant-create path) —
+   * auto-sends the user's workflow description once on mount so the copilot
+   * opens already building it against the just-created blank flow.
+   */
+  buildSeed?: { description: string } | null;
+  /**
    * The workflow's persisted copilot thread id (from the per-flow cache), so
    * reopening the panel resumes the same conversation instead of starting fresh.
    */
@@ -74,6 +80,7 @@ export default function WorkflowCopilotPanel({
   onReject,
   onClose,
   repairSeed = null,
+  buildSeed = null,
   seedThreadId = null,
   onThreadIdChange,
 }: Props) {
@@ -113,6 +120,23 @@ export default function WorkflowCopilotPanel({
       prompt: buildRepairPrompt(repairSeed),
     });
   }, [repairSeed, send, t]);
+
+  // Auto-send the build turn once when opened from the prompt bar's
+  // instant-create path: the user's description becomes the first user turn on
+  // this thread, phrased as a revise of the just-created blank graph so the
+  // proposal lands as the usual Accept/Reject diff preview.
+  const buildSentRef = useRef(false);
+  useEffect(() => {
+    if (!buildSeed || buildSentRef.current) return;
+    buildSentRef.current = true;
+    void send({
+      displayText: buildSeed.description,
+      prompt: buildRevisePrompt(buildSeed.description, graph, flowId),
+    });
+    // `graph`/`flowId` are read once for the seed turn — later edits must not
+    // re-fire it (guarded by the ref regardless).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildSeed, send]);
 
   // Keep the transcript pinned to the newest message / thinking indicator.
   // `scrollTo` is optional-chained: jsdom (tests) doesn't implement it.

@@ -5,7 +5,12 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { BLANK_TRIGGER_NODE_ID, createBlankWorkflowGraph } from './newFlow';
+import {
+  BLANK_TRIGGER_NODE_ID,
+  createBlankWorkflowGraph,
+  deriveWorkflowName,
+  MAX_DERIVED_NAME_LENGTH,
+} from './newFlow';
 
 describe('createBlankWorkflowGraph', () => {
   it('produces a single manual trigger and no edges', () => {
@@ -27,5 +32,25 @@ describe('createBlankWorkflowGraph', () => {
     const ids = graph.nodes.map(n => n.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(graph.nodes.filter(n => n.kind === 'trigger')).toHaveLength(1);
+  });
+});
+
+describe('deriveWorkflowName', () => {
+  it('uses the first line, collapsing whitespace', () => {
+    expect(deriveWorkflowName('  digest   my Slack \nand more detail', 'fallback')).toBe(
+      'digest my Slack'
+    );
+  });
+
+  it('truncates long descriptions with an ellipsis', () => {
+    const long = 'a'.repeat(2 * MAX_DERIVED_NAME_LENGTH);
+    const name = deriveWorkflowName(long, 'fallback');
+    expect(name.length).toBeLessThanOrEqual(MAX_DERIVED_NAME_LENGTH);
+    expect(name.endsWith('…')).toBe(true);
+  });
+
+  it('falls back when the description is blank', () => {
+    expect(deriveWorkflowName('   \n whatever', 'New workflow')).toBe('New workflow');
+    expect(deriveWorkflowName('', 'New workflow')).toBe('New workflow');
   });
 });

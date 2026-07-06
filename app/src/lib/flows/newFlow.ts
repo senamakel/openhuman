@@ -18,6 +18,23 @@ export const BLANK_TRIGGER_NODE_ID = 'trigger';
  * and the graph's own `name`; `triggerName` is the human label shown on the
  * starter node in the canvas.
  */
+/** Longest flow name we derive from a free-text prompt before truncating. */
+export const MAX_DERIVED_NAME_LENGTH = 60;
+
+/**
+ * Derive a human-readable flow name from a free-text workflow description
+ * (the prompt-bar's instant-create path names the flow before the builder
+ * agent has proposed anything). First line only, whitespace-collapsed, and
+ * truncated with an ellipsis past {@link MAX_DERIVED_NAME_LENGTH}. Falls back
+ * to `fallback` (the localized "New workflow") when the description is blank.
+ */
+export function deriveWorkflowName(description: string, fallback: string): string {
+  const firstLine = (description.split('\n', 1)[0] ?? '').replace(/\s+/g, ' ').trim();
+  if (!firstLine) return fallback;
+  if (firstLine.length <= MAX_DERIVED_NAME_LENGTH) return firstLine;
+  return `${firstLine.slice(0, MAX_DERIVED_NAME_LENGTH - 1).trimEnd()}…`;
+}
+
 export function createBlankWorkflowGraph(name: string, triggerName: string): WorkflowGraph {
   return {
     schema_version: 1,

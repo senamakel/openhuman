@@ -161,4 +161,40 @@ describe('WorkflowCopilotPanel', () => {
     expect(arg.prompt).toContain('run-7');
     expect(arg.prompt).toContain('get_flow_run');
   });
+
+  it('auto-sends a build turn once when opened with a prompt-bar build seed', () => {
+    const { rerender } = render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        flowId="flow-1"
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+        buildSeed={{ description: 'digest my Slack every morning' }}
+      />
+    );
+    expect(hookState.send).toHaveBeenCalledTimes(1);
+    const arg = hookState.send.mock.calls[0][0];
+    // The user's description reads as their own first turn in the transcript,
+    // while the real prompt injects the blank graph + flow id for the builder.
+    expect(arg.displayText).toBe('digest my Slack every morning');
+    expect(arg.prompt).toContain('digest my Slack every morning');
+    expect(arg.prompt).toContain(JSON.stringify(baseGraph));
+    expect(arg.prompt).toContain('flow-1');
+
+    // A re-render (e.g. a graph edit) must not re-fire the seed turn.
+    rerender(
+      <WorkflowCopilotPanel
+        graph={graph(['a', 'b', 'c'])}
+        flowId="flow-1"
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+        buildSeed={{ description: 'digest my Slack every morning' }}
+      />
+    );
+    expect(hookState.send).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,80 +1,72 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import WorkflowPromptBar from './WorkflowPromptBar';
 
 // Echo i18n keys.
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
 
-// Stub the proposal card so we only assert it renders with the right props.
-vi.mock('../chat/WorkflowProposalCard', () => ({
-  default: ({ threadId, proposal }: { threadId: string; proposal: WorkflowProposal }) => (
-    <div data-testid="stub-proposal-card">
-      {threadId}:{proposal.name}
-    </div>
-  ),
-}));
+const navigateMock = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigateMock }));
 
-const hookState = vi.hoisted(() => ({
-  threadId: null as string | null,
-  sending: false,
-  proposal: null as WorkflowProposal | null,
-  error: null as string | null,
-  send: vi.fn(),
-  clearProposal: vi.fn(),
+const createFlowMock = vi.hoisted(() => vi.fn());
+vi.mock('../../services/api/flowsApi', () => ({
+  createFlow: (...args: unknown[]) => createFlowMock(...args),
 }));
-vi.mock('../../hooks/useWorkflowBuilderChat', () => ({ useWorkflowBuilderChat: () => hookState }));
 
 describe('WorkflowPromptBar', () => {
   beforeEach(() => {
-    hookState.threadId = null;
-    hookState.sending = false;
-    hookState.proposal = null;
-    hookState.error = null;
-    hookState.send = vi.fn().mockResolvedValue(undefined);
-    hookState.clearProposal = vi.fn();
+    navigateMock.mockReset();
+    createFlowMock.mockReset();
+    createFlowMock.mockResolvedValue({ id: 'flow-1', name: 'digest my Slack every morning' });
   });
 
-  it('submits a builder turn with a delegation prompt containing the description', async () => {
+  it('creates a flow named from the prompt and opens its canvas with a build seed', async () => {
     render(<WorkflowPromptBar />);
     fireEvent.change(screen.getByTestId('workflow-prompt-input'), {
       target: { value: 'digest my Slack every morning' },
     });
     fireEvent.click(screen.getByTestId('workflow-prompt-submit'));
 
-    expect(hookState.send).toHaveBeenCalledTimes(1);
-    const arg = hookState.send.mock.calls[0][0];
-    expect(arg.displayText).toBe('digest my Slack every morning');
-    expect(arg.prompt).toContain('digest my Slack every morning');
-    expect(arg.prompt.toLowerCase()).toContain('workflow builder');
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1));
+    expect(createFlowMock).toHaveBeenCalledTimes(1);
+    const [name, graph] = createFlowMock.mock.calls[0];
+    expect(name).toBe('digest my Slack every morning');
+    // The created flow is the standard blank graph (single manual trigger).
+    expect(graph.nodes).toHaveLength(1);
+    expect(graph.nodes[0].kind).toBe('trigger');
+    expect(navigateMock).toHaveBeenCalledWith('/flows/flow-1', {
+      state: { copilotBuild: { description: 'digest my Slack every morning' } },
+    });
+  });
+
+  it('submits on Enter (Shift+Enter reserved for newlines)', async () => {
+    render(<WorkflowPromptBar />);
+    const input = screen.getByTestId('workflow-prompt-input');
+    fireEvent.change(input, { target: { value: 'ping me daily' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(createFlowMock).toHaveBeenCalledTimes(1));
   });
 
   it('does not submit empty/whitespace input', () => {
     render(<WorkflowPromptBar />);
     fireEvent.change(screen.getByTestId('workflow-prompt-input'), { target: { value: '   ' } });
     fireEvent.click(screen.getByTestId('workflow-prompt-submit'));
-    expect(hookState.send).not.toHaveBeenCalled();
+    expect(createFlowMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
-  it('renders the resulting proposal inline via WorkflowProposalCard', () => {
-    hookState.threadId = 'builder-thread-1';
-    hookState.proposal = {
-      name: 'Morning digest',
-      graph: { nodes: [], edges: [] },
-      requireApproval: true,
-      summary: { trigger: 'schedule', steps: [] },
-    };
+  it('shows an error and re-enables the composer when create fails', async () => {
+    createFlowMock.mockRejectedValue(new Error('boom'));
     render(<WorkflowPromptBar />);
-    const card = screen.getByTestId('stub-proposal-card');
-    expect(card).toHaveTextContent('builder-thread-1:Morning digest');
-  });
+    fireEvent.change(screen.getByTestId('workflow-prompt-input'), {
+      target: { value: 'digest my Slack every morning' },
+    });
+    fireEvent.click(screen.getByTestId('workflow-prompt-submit'));
 
-  it('shows the offline hint when the hook reports offline', () => {
-    hookState.error = 'offline';
-    render(<WorkflowPromptBar />);
-    expect(screen.getByTestId('workflow-prompt-error')).toHaveTextContent(
-      'flows.promptBar.offline'
-    );
+    const error = await screen.findByTestId('workflow-prompt-error');
+    expect(error).toHaveTextContent('flows.promptBar.error');
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('workflow-prompt-input')).not.toBeDisabled();
   });
 });

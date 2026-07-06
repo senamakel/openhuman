@@ -54,6 +54,27 @@ export interface CopilotRepairSeed {
   failingNodeIds?: string[];
 }
 
+/**
+ * Seed for opening the canvas copilot preloaded from the Flows prompt bar
+ * (instant-create): the flow was just created blank, and the copilot should
+ * open already building the described workflow. Rides in `location.state`
+ * (ephemeral — lost on hard reload, which just leaves a blank flow to edit).
+ */
+export interface CopilotBuildSeed {
+  /** The user's free-text workflow description from the prompt bar. */
+  description: string;
+}
+
+/** Narrow an opaque `location.state` to a {@link CopilotBuildSeed}. */
+export function asCopilotBuildSeed(state: unknown): CopilotBuildSeed | null {
+  if (!state || typeof state !== 'object') return null;
+  const seed = (state as Record<string, unknown>).copilotBuild;
+  if (!seed || typeof seed !== 'object') return null;
+  const description = (seed as Record<string, unknown>).description;
+  if (typeof description !== 'string' || description.trim().length === 0) return null;
+  return { description };
+}
+
 /** Narrow an opaque `location.state` to a {@link CopilotRepairSeed}. */
 export function asCopilotRepairSeed(state: unknown): CopilotRepairSeed | null {
   if (!state || typeof state !== 'object') return null;
@@ -114,9 +135,12 @@ interface EditorFlow {
 function FlowEditor({
   editorFlow,
   initialCopilotSeed = null,
+  initialBuildSeed = null,
 }: {
   editorFlow: EditorFlow;
   initialCopilotSeed?: CopilotRepairSeed | null;
+  /** Prompt-bar instant-create seed: open the copilot already building this. */
+  initialBuildSeed?: CopilotBuildSeed | null;
 }) {
   const { t } = useT();
   const navigate = useNavigate();
@@ -175,7 +199,9 @@ function FlowEditor({
   // the proposed graph plus ghosted removed nodes, painted diff-style. Accept
   // commits the proposed graph into `draftGraph`; Reject reverts to the frozen
   // base. NOTHING here persists — the canvas's own Save is the only gate.
-  const [copilotOpen, setCopilotOpen] = useState(initialCopilotSeed !== null);
+  const [copilotOpen, setCopilotOpen] = useState(
+    initialCopilotSeed !== null || initialBuildSeed !== null
+  );
   // Per-workflow copilot thread: seeded from the session cache so opening/closing
   // the panel (or switching flows and back) resumes the same conversation
   // instead of starting a fresh `workflow_builder` thread each time.
@@ -511,6 +537,7 @@ function FlowEditor({
             onReject={handleRejectProposal}
             onClose={() => setCopilotOpen(false)}
             repairSeed={copilotRepairSeed}
+            buildSeed={initialBuildSeed}
             seedThreadId={copilotThreadId}
             onThreadIdChange={handleCopilotThreadId}
           />
@@ -529,6 +556,9 @@ export default function FlowCanvasPage() {
   // "Fix with agent" (Phase 5c) navigates here with a repair seed in
   // `location.state` so the copilot opens preloaded with the failed run.
   const copilotSeed = useMemo(() => asCopilotRepairSeed(location.state), [location.state]);
+  // The Flows prompt bar's instant-create path navigates here with a build
+  // seed so the copilot opens already building the described workflow.
+  const buildSeed = useMemo(() => asCopilotBuildSeed(location.state), [location.state]);
 
   useEffect(() => {
     // Guards a stale response from clobbering newer state: this effect
@@ -588,6 +618,7 @@ export default function FlowCanvasPage() {
           requireApproval: flow.require_approval,
         }}
         initialCopilotSeed={copilotSeed}
+        initialBuildSeed={buildSeed}
       />
     );
   }

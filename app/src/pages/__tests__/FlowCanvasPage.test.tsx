@@ -10,7 +10,7 @@ import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Flow } from '../../services/api/flowsApi';
-import FlowCanvasPage, { FlowCanvasDraftPage } from '../FlowCanvasPage';
+import FlowCanvasPage, { asCopilotBuildSeed, FlowCanvasDraftPage } from '../FlowCanvasPage';
 
 const getFlow = vi.hoisted(() => vi.fn());
 const updateFlow = vi.hoisted(() => vi.fn());
@@ -23,6 +23,17 @@ vi.mock('../../services/api/flowsApi', () => ({
   createFlow,
   validateFlow,
   listFlowConnections,
+}));
+
+// Stub the copilot panel: it drives the real chat runtime (redux + socket),
+// which is out of scope here — we only assert the host opens it and hands the
+// right seed through.
+const copilotPanelProps = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+vi.mock('../../components/flows/WorkflowCopilotPanel', () => ({
+  default: (props: Record<string, unknown>) => {
+    copilotPanelProps.current = props;
+    return <div data-testid="stub-copilot-panel" />;
+  },
 }));
 
 function makeFlow(overrides: Partial<Flow> = {}): Flow {
@@ -274,5 +285,59 @@ describe('FlowCanvasPage', () => {
     renderDraft(null);
     expect(screen.getByTestId('flow-canvas-draft-missing')).toBeInTheDocument();
     expect(screen.queryByTestId('flow-canvas')).not.toBeInTheDocument();
+  });
+});
+
+describe('asCopilotBuildSeed', () => {
+  it('accepts a copilotBuild state with a non-empty description', () => {
+    expect(asCopilotBuildSeed({ copilotBuild: { description: 'digest my Slack' } })).toEqual({
+      description: 'digest my Slack',
+    });
+  });
+
+  it('rejects missing, malformed, or blank seeds', () => {
+    expect(asCopilotBuildSeed(null)).toBeNull();
+    expect(asCopilotBuildSeed({})).toBeNull();
+    expect(asCopilotBuildSeed({ copilotBuild: 'digest' })).toBeNull();
+    expect(asCopilotBuildSeed({ copilotBuild: { description: 42 } })).toBeNull();
+    expect(asCopilotBuildSeed({ copilotBuild: { description: '   ' } })).toBeNull();
+  });
+});
+
+describe('FlowCanvasPage copilot build seed (prompt-bar instant create)', () => {
+  beforeEach(() => {
+    copilotPanelProps.current = null;
+    getFlow.mockReset();
+    getFlow.mockResolvedValue(makeFlow());
+  });
+
+  it('opens the copilot preloaded with the build seed from location.state', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/flows/test-id', state: { copilotBuild: { description: 'digest it' } } },
+        ]}>
+        <Routes>
+          <Route path="/flows/:id" element={<FlowCanvasPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('stub-copilot-panel')).toBeInTheDocument());
+    expect(copilotPanelProps.current?.buildSeed).toEqual({ description: 'digest it' });
+    expect(copilotPanelProps.current?.flowId).toBe('test-id');
+  });
+
+  it('keeps the copilot closed without a seed', async () => {
+    render(
+      <MemoryRouter initialEntries={['/flows/test-id']}>
+        <Routes>
+          <Route path="/flows/:id" element={<FlowCanvasPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
+    expect(screen.queryByTestId('stub-copilot-panel')).not.toBeInTheDocument();
   });
 });

@@ -2575,16 +2575,15 @@ const Conversations = ({
                     )}
                     {selectedStreamingAssistant.content.length > 0 && (
                       <div className="rounded-2xl rounded-bl-md px-3 py-1.5 bg-surface-strong/80 dark:bg-surface-muted text-content">
-                          <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
-                            {selectedStreamingAssistant.content.length >
-                              STREAMING_PREVIEW_CHARS && (
-                              <span className="text-content-faint">…</span>
-                            )}
-                            {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
-                            <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
-                          </p>
-                        </div>
-                      )}
+                        <p className="text-xs text-content-secondary font-mono whitespace-pre-wrap break-words leading-snug">
+                          {selectedStreamingAssistant.content.length > STREAMING_PREVIEW_CHARS && (
+                            <span className="text-content-faint">…</span>
+                          )}
+                          {selectedStreamingAssistant.content.slice(-STREAMING_PREVIEW_CHARS)}
+                          <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-primary-400 animate-pulse" />
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

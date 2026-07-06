@@ -13,10 +13,10 @@ import {
   type ChatDoneEvent,
   type ChatInferenceHeartbeatEvent,
   type ChatInferenceStartEvent,
+  type ChatInterimEvent,
   type ChatIterationStartEvent,
   type ChatPlanReviewRequestEvent,
   type ChatSegmentEvent,
-  type ChatInterimEvent,
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
   type ChatSubagentThinkingDeltaEvent,
@@ -1065,7 +1065,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           dispatch(
             setStreamingAssistantForThread({
               threadId: event.thread_id,
-              streaming: { requestId: existing.requestId, content: '', thinking: existing.thinking },
+              streaming: {
+                requestId: existing.requestId,
+                content: '',
+                thinking: existing.thinking,
+              },
             })
           );
         }

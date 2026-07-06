@@ -858,7 +858,13 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
   if (listeners.onInterim) {
     const cb = (payload: unknown) => {
       const e = payload as ChatInterimEvent;
-      chatLog('%s thread_id=%s request_id=%s round=%d', EVENTS.interim, e.thread_id, e.request_id, e.round);
+      chatLog(
+        '%s thread_id=%s request_id=%s round=%d',
+        EVENTS.interim,
+        e.thread_id,
+        e.request_id,
+        e.round
+      );
       listeners.onInterim?.(e);
     };
     socket.on(EVENTS.interim, cb);

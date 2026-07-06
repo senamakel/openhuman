@@ -363,8 +363,7 @@ function normalizeToolBody(value?: string): string | undefined {
  */
 function entryHasUniqueBody(entry: ToolTimelineEntry): boolean {
   const formatted = formatTimelineEntry(entry);
-  const detailContent =
-    normalizeToolBody(formatted.detail) ?? normalizeToolBody(entry.argsBuffer);
+  const detailContent = normalizeToolBody(formatted.detail) ?? normalizeToolBody(entry.argsBuffer);
   const resultContent = normalizeToolBody(entry.result);
   return (
     detailContent != null ||

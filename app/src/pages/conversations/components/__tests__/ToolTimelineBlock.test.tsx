@@ -329,6 +329,35 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
     expect(container.querySelector('[data-testid="agent-task-insights"]')).toBeNull();
   });
 
+  it('stays open while running and collapses once settled so a finished run does not dominate', () => {
+    const running: ToolTimelineEntry[] = [
+      { id: 'r', name: 'web_search', round: 1, status: 'running' },
+    ];
+    const { rerender } = renderInStore(<ToolTimelineBlock entries={running} />);
+    // In flight → the group is open so the live activity is visible.
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+
+    // Settled (no running row) → collapsed by default; the rows stay in the DOM
+    // one click away, but no longer flood the conversation.
+    const settled: ToolTimelineEntry[] = [
+      { id: 'r', name: 'web_search', round: 1, status: 'success' },
+    ];
+    rerender(
+      <Provider store={store}>
+        <ToolTimelineBlock entries={settled} />
+      </Provider>
+    );
+    expect(screen.getByTestId('agent-task-insights')).not.toHaveAttribute('open');
+
+    // The side panel still forces every row open via expandAllRows.
+    rerender(
+      <Provider store={store}>
+        <ToolTimelineBlock entries={settled} expandAllRows />
+      </Provider>
+    );
+    expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('open');
+  });
+
   it('renders the tool result output inside the expanded row', () => {
     const entries: ToolTimelineEntry[] = [
       {

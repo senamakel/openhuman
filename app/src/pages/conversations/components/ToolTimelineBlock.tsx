@@ -630,40 +630,19 @@ export function ToolTimelineBlock({
 
   // The group header is a static section label — the live "working" state is
   // conveyed by the pulsing agent-name rows, so it never repeats a "Working…"
-  // string. While the run is in flight the group is collapsible; once it
-  // settles the chevron/collapse is dropped and the header renders static —
-  // matching the finished sub-agent steps, which also drop their collapse when
-  // done.
-  if (!isRunning) {
-    return (
-      <div className="mb-2 px-1 py-0" data-testid="agent-task-insights">
-        <div className="mb-1.5 flex items-center">
-          {onViewWholeRun ? (
-            // Settled: the whole title is the link — "Agentic task insights →"
-            // opens the full-run panel (matches the collapsed step rows).
-            <button
-              type="button"
-              onClick={onViewWholeRun}
-              data-testid="view-process-source"
-              className="group/insights-link flex items-center gap-1.5 text-left">
-              <span className="text-[13px] font-medium text-content-muted group-hover/insights-link:underline">
-                {t('conversations.agentTaskInsights.title')}
-              </span>
-              <span className="text-[13px] font-medium text-primary-600 dark:text-primary-300">
-                →
-              </span>
-            </button>
-          ) : (
-            titleLabel
-          )}
-        </div>
-        {body}
-      </div>
-    );
-  }
+  // string. The group is always collapsible: while the run is in flight it is
+  // open so the live activity is visible; once it settles it collapses to a
+  // single-line opener by default so a finished run (which can be dozens of
+  // steps) never dominates the conversation — the rows stay one click away, and
+  // the whole-run side panel is still reachable via the header link. The full
+  // "Agent Process Source" panel forces every row open via `expandAllRows`.
+  const open = isRunning || expandAllRows;
 
   return (
-    <details open className="group/insights mb-2 px-1 py-0" data-testid="agent-task-insights">
+    <details
+      open={open}
+      className="group/insights mb-2 px-1 py-0"
+      data-testid="agent-task-insights">
       <summary className="mb-1.5 flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
         {titleLabel}
         <span className="text-[11px] text-content-faint transition-transform group-open/insights:rotate-90">

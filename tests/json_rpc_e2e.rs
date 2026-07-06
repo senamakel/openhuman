@@ -170,6 +170,20 @@ fn clear_forced_chat_completions() {
     with_forced_chat_completions(|q| q.clear());
 }
 
+/// RAII guard that drains the process-global scripted-completion FIFO on drop —
+/// including on an assertion panic mid-test. A trailing `clear_forced_chat_completions()`
+/// call only runs on the happy path; if an `assert!` unwinds first, the leftover
+/// scripted entries would otherwise be consumed by a later test sharing this
+/// binary. Hold one for the whole body of any test that queues completions.
+#[allow(dead_code)]
+struct ScriptedFifoGuard;
+
+impl Drop for ScriptedFifoGuard {
+    fn drop(&mut self) {
+        clear_forced_chat_completions();
+    }
+}
+
 /// Queue an unconditional scripted completion (strict FIFO — matches any request).
 #[allow(dead_code)]
 fn push_forced_chat_completion(body: Value) {
@@ -12861,6 +12875,9 @@ fn json_rpc_flows_full_arc_discover_build_create_run() {
 
 async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
+    // Drain the scripted-completion FIFO even if an assertion below panics, so a
+    // leftover entry can't bleed into another test sharing this binary.
+    let _fifo_guard = ScriptedFifoGuard;
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
     let openhuman_home = home.join(".openhuman");

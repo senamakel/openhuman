@@ -63,6 +63,29 @@ pub struct BuilderRequest {
     pub failing_node_ids: Vec<String>,
 }
 
+impl BuilderRequest {
+    /// Validates a builder-turn request before prompt rendering.
+    ///
+    /// [`BuildMode::Build`] acts on an existing saved flow — its brief tells the
+    /// agent to `save_workflow` onto `flow_id`. A missing or blank `flow_id`
+    /// would otherwise render `The flow's id is ``.` into the brief and let the
+    /// agent save onto nothing, so reject it here (the RPC path deserializes
+    /// `BuilderRequest` directly, where only `mode` is required).
+    pub fn validate(&self) -> Result<(), String> {
+        if self.mode == BuildMode::Build
+            && self
+                .flow_id
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or("")
+                .is_empty()
+        {
+            return Err("flows_build: `flow_id` is required for build mode".to_string());
+        }
+        Ok(())
+    }
+}
+
 /// A leading directive that frames the turn's persistence contract.
 const DIRECTIVE_PROPOSE: &str =
     "Design a tinyflows automation and return a workflow proposal for me to review. \
@@ -249,5 +272,34 @@ mod tests {
                 .expect("deserialize");
         assert_eq!(r.mode, BuildMode::Build);
         assert_eq!(r.flow_id.as_deref(), Some("f1"));
+    }
+
+    #[test]
+    fn validate_rejects_build_without_flow_id() {
+        // Missing entirely.
+        let missing = req(BuildMode::Build);
+        assert!(missing.validate().is_err());
+
+        // Present but blank / whitespace-only.
+        let mut blank = req(BuildMode::Build);
+        blank.flow_id = Some("   ".into());
+        assert!(blank.validate().is_err());
+
+        // A real id passes.
+        let mut ok = req(BuildMode::Build);
+        ok.flow_id = Some("flow_9".into());
+        assert!(ok.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_allows_non_build_modes_without_flow_id() {
+        // Only `build` requires a flow id; the propose/revise/repair turns may run
+        // without one.
+        for mode in [BuildMode::Create, BuildMode::Revise, BuildMode::Repair] {
+            assert!(
+                req(mode).validate().is_ok(),
+                "{mode:?} should not require flow_id"
+            );
+        }
     }
 }

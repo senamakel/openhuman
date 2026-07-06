@@ -1953,6 +1953,10 @@ pub async fn flows_build(
     use crate::openhuman::agent::Agent;
     use crate::openhuman::flows::agents::workflow_builder::builder_prompt::render_prompt;
 
+    // Reject invalid turns (e.g. a `build` with no `flow_id`) before we render a
+    // brief that would tell the agent to save onto nothing.
+    req.validate()?;
+
     let prompt = render_prompt(&req);
     tracing::info!(
         target: "flows",

@@ -9,8 +9,21 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { AgentRegistryEntry } from '../../../../../services/api/agentRegistryApi';
 import type { FlowConnection } from '../../../../../services/api/flowsApi';
 import { NODE_CONFIG_FORMS, type NodeConfigFormProps } from '../nodeConfigForms';
+
+// AgentForm now renders AgentNodeInspector, which fetches the agent registry on
+// mount. Stub it so the form renders offline with a deterministic agent list.
+const AGENTS: AgentRegistryEntry[] = [
+  { id: 'researcher', name: 'Researcher', description: '', source: 'default', enabled: true },
+  { id: 'drafter', name: 'Drafter', description: '', source: 'custom', enabled: true },
+];
+const agentListMock = vi.hoisted(() => vi.fn());
+vi.mock('../../../../../services/api/agentRegistryApi', () => ({
+  agentRegistryApi: { list: agentListMock },
+}));
+agentListMock.mockResolvedValue(AGENTS);
 
 function renderForm(kind: keyof typeof NODE_CONFIG_FORMS, props: Partial<NodeConfigFormProps>) {
   const Form = NODE_CONFIG_FORMS[kind]!;
@@ -77,12 +90,12 @@ describe('TransformForm', () => {
 });
 
 describe('AgentForm', () => {
-  it('offers model hints and patches config.model with the chosen hint', () => {
+  it('offers managed tiers and patches config.model with the chosen tier', () => {
     const { onChange } = renderForm('agent', {});
     fireEvent.change(screen.getByTestId('node-config-agent-model'), {
-      target: { value: 'hint:coding' },
+      target: { value: 'reasoning-v1' },
     });
-    expect(onChange).toHaveBeenLastCalledWith({ model: 'hint:coding' });
+    expect(onChange).toHaveBeenLastCalledWith({ model: 'reasoning-v1' });
   });
 
   it('reveals a custom model input when Custom is selected', () => {
@@ -100,6 +113,21 @@ describe('AgentForm', () => {
   it('opens in custom mode when config.model is a raw model id', () => {
     renderForm('agent', { config: { model: 'claude-sonnet-5' } });
     expect(screen.getByTestId('node-config-agent-model-custom')).toHaveValue('claude-sonnet-5');
+  });
+
+  it('lists registered agents and patches config.agent_ref on select', async () => {
+    const { onChange } = renderForm('agent', {});
+    // The agent list loads from the (mocked) registry after mount.
+    await screen.findByRole('option', { name: 'Researcher' });
+    fireEvent.change(screen.getByTestId('node-config-agent-ref'), { target: { value: 'drafter' } });
+    expect(onChange).toHaveBeenLastCalledWith({ agent_ref: 'drafter' });
+  });
+
+  it('preserves an out-of-list agent_ref as a selectable option', async () => {
+    renderForm('agent', { config: { agent_ref: 'ghost-agent' } });
+    await screen.findByRole('option', { name: 'Researcher' });
+    // A ref that isn't in the fetched list is kept so the value never drops.
+    expect(screen.getByTestId('node-config-agent-ref')).toHaveValue('ghost-agent');
   });
 });
 

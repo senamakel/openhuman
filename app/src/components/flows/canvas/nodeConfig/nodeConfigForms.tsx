@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import type { NodeKind } from '../../../../lib/flows/types';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { FlowConnection } from '../../../../services/api/flowsApi';
+import AgentNodeInspector from '../AgentNodeInspector';
 import {
   ComposioActionField,
   type ComposioActionSchema,
@@ -36,7 +37,6 @@ import {
   ExpressionField,
   JsonField,
   KeyMapField,
-  ModelHintField,
   SelectField,
   TextAreaField,
   TextField,
@@ -197,13 +197,10 @@ function AgentForm({ config, onChange, connections, upstreamOptions }: NodeConfi
           />
         </div>
       )}
-      <ModelHintField
-        label={t('flows.nodeConfig.agent.modelLabel')}
-        hint={t('flows.nodeConfig.agent.modelHint')}
-        value={configString(config, 'model')}
-        onChange={v => onChange({ model: v })}
-        testId="node-config-agent-model"
-      />
+      {/* Harness knobs: which registered agent runs this node (Phase A routes an
+          `agent_ref` node through the full tool loop) + its managed model tier.
+          Both write onto the node config via the same shallow-merge patch. */}
+      <AgentNodeInspector config={config} onChange={onChange} />
       <CredentialPickerField
         value={configString(config, 'connection_ref')}
         onChange={v => onChange({ connection_ref: v })}

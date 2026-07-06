@@ -3937,6 +3937,10 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.modelHint':
     'Choisissez un niveau de capacité — l’espace de travail résout le modèle.',
   'flows.nodeConfig.agent.modelInherit': 'Par défaut (hériter)',
+  'flows.nodeConfig.agent.agentRefLabel': 'Agent',
+  'flows.nodeConfig.agent.agentRefHint': 'Exécuter ce nœud comme un agent enregistré : ses outils et garde-fous s\'appliquent.',
+  'flows.nodeConfig.agent.agentRefInherit': 'Par défaut (constructeur de workflow)',
+  'flows.nodeConfig.agent.modelManagedTiers': 'Niveaux gérés',
   'flows.nodeConfig.agent.modelHints': 'Indications de modèle',
   'flows.nodeConfig.agent.modelCustom': 'Modèle personnalisé…',
   'flows.nodeConfig.agent.modelCustomPlaceholder': 'p. ex. gpt-4o-mini',

@@ -17,6 +17,11 @@ const h = vi.hoisted(() => ({
   useRiveParams: null as Record<string, unknown> | null,
   enumCalls: {} as Record<string, unknown[]>,
   colorCalls: {} as Record<string, unknown[]>,
+  enumValuesByPath: {
+    pose: ['idle', 'look_around', 'pointing'],
+    mouthVisemeCode: ['sil', 'PP', 'aa'],
+    eyes: ['blink', 'look_left', 'look_right'],
+  } as Record<string, string[]>,
 }));
 
 vi.mock('@rive-app/react-webgl2', () => ({
@@ -35,7 +40,7 @@ vi.mock('@rive-app/react-webgl2', () => ({
   useViewModelInstanceEnum: (path: string) => ({
     setValue: (v: string) => (h.enumCalls[path] ??= []).push(v),
     value: null,
-    values: [],
+    values: h.enumValuesByPath[path] ?? [],
   }),
   useViewModelInstanceColor: (path: string) => ({
     setValue: (v: number) => (h.colorCalls[path] ??= []).push(v),

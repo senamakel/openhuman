@@ -226,15 +226,15 @@ impl RunFlowTool {
 #[async_trait]
 impl Tool for RunFlowTool {
     fn name(&self) -> &str {
-        "run_workflow"
+        "run_flow"
     }
 
     fn description(&self) -> &str {
-        "Run a SAVED workflow by id to TEST it end-to-end. This is a REAL run, not a \
+        "Run a SAVED flow by id to TEST it end-to-end. This is a REAL run, not a \
          simulation — real effects can fire (use dry_run_workflow for a safe MOCK run \
          instead). It only works on a flow the user has already saved; pass its `flow_id`. \
          You MUST ask the user to confirm and wait for an explicit 'yes' before calling this \
-         — never run a workflow unprompted. The flow's own approval gate still pauses \
+         — never run a flow unprompted. The flow's own approval gate still pauses \
          outbound-action nodes. Params: { flow_id (required), input? }. Returns the run's \
          status + any nodes paused for approval."
     }
@@ -265,21 +265,22 @@ impl Tool for RunFlowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        let flow_id =
-            match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
-                Some(id) if !id.is_empty() => id.to_string(),
-                _ => return Ok(ToolResult::error(
-                    "Missing 'flow_id' — run_workflow only works on a SAVED flow. Ask the user \
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => {
+                return Ok(ToolResult::error(
+                    "Missing 'flow_id' — run_flow only works on a SAVED flow. Ask the user \
                      to Save the workflow first, then run it by id."
                         .to_string(),
-                )),
-            };
+                ))
+            }
+        };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
 
         tracing::info!(
             target: "flows",
             %flow_id,
-            "[flows] run_workflow: agent-initiated test run starting"
+            "[flows] run_flow: agent-initiated test run starting"
         );
 
         match crate::openhuman::flows::ops::flows_run(
@@ -296,7 +297,7 @@ impl Tool for RunFlowTool {
                 "result": outcome.value,
             }))?)),
             Err(e) => {
-                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] run_workflow: failed");
+                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] run_flow: failed");
                 Ok(ToolResult::error(format!(
                     "Could not run flow '{flow_id}': {e}"
                 )))

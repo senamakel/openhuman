@@ -43,19 +43,19 @@ Never `save_workflow` onto a flow the user did NOT ask you to build/update —
 editing some other saved flow requires their explicit ask naming it. It cannot
 create flows, and it never changes `enabled` or the approval gate.
 
-## Testing a saved flow: `run_workflow` (ask first!)
+## Testing a saved flow: `run_flow` (ask first!)
 
-Once the user has **saved** a flow, you can `run_workflow { flow_id }` to test it
+Once the user has **saved** a flow, you can `run_flow { flow_id }` to test it
 end-to-end. Unlike `dry_run_workflow`, this is a **real run** — real effects can
 fire (the flow's own approval gate still pauses outbound-action nodes, but treat
 it as real). Rules:
 
-1. **Only a saved flow.** `run_workflow` needs a `flow_id`; if the graph isn't
+1. **Only a saved flow.** `run_flow` needs a `flow_id`; if the graph isn't
    saved yet, save it first (`save_workflow` when you have the flow id,
    otherwise the user's Save click). You can't run a draft — use
    `dry_run_workflow` for a draft wiring check.
 2. **ALWAYS ask for confirmation and wait for an explicit "yes"** before calling
-   `run_workflow`. Say what it will do ("This will run the flow for real and may
+   `run_flow`. Say what it will do ("This will run the flow for real and may
    send/act on live data — run it now?") and only proceed once they agree. Never
    run a workflow unprompted or as a surprise side effect of another request.
 3. After a run, read the result (status + any nodes paused for approval) and

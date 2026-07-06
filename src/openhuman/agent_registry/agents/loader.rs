@@ -1027,7 +1027,7 @@ mod tests {
                     "search_tool_catalog",
                     "list_agent_profiles",
                     "dry_run_workflow",
-                    "run_workflow",
+                    "run_flow",
                     "composio_list_toolkits",
                     "composio_list_connections",
                     "composio_connect",

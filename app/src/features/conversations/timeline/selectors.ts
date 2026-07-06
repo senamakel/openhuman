@@ -50,6 +50,16 @@ function isHidden(message: ThreadMessage): boolean {
   return Boolean(message.extraMetadata?.hidden);
 }
 
+/**
+ * The turn a message belongs to. Assistant/user messages produced after the
+ * Phase 4 rollout carry `extraMetadata.requestId`; older messages have none and
+ * fall back to the single `legacy` turn (today's single-anchor behavior).
+ */
+function messageTurnId(message: ThreadMessage): string {
+  const requestId = message.extraMetadata?.requestId;
+  return typeof requestId === 'string' && requestId.length > 0 ? requestId : LEGACY_TURN_ID;
+}
+
 /** Map one runtime tool-timeline row onto a `toolCall`/`subagentActivity` item. */
 function toProcessItem(
   entry: ToolTimelineEntry,
@@ -106,7 +116,7 @@ export function buildThreadTimeline(input: BuildThreadTimelineInput): TimelineIt
       items.push({
         kind: 'userMessage',
         id: message.id,
-        turnId: LEGACY_TURN_ID,
+        turnId: messageTurnId(message),
         seq,
         threadId,
         message,
@@ -115,7 +125,7 @@ export function buildThreadTimeline(input: BuildThreadTimelineInput): TimelineIt
       items.push({
         kind: 'assistantMessage',
         id: message.id,
-        turnId: LEGACY_TURN_ID,
+        turnId: messageTurnId(message),
         seq,
         threadId,
         message,

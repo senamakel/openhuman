@@ -175,6 +175,39 @@ describe('buildThreadTimeline — streaming previews', () => {
   });
 });
 
+describe('buildThreadTimeline — requestId grouping (Phase 4 anchoring)', () => {
+  it('derives turnId from extraMetadata.requestId when present', () => {
+    const items = build({
+      messages: [
+        userMsg('u1', 'q1', { requestId: 'req-1' }),
+        agentMsg('a1', 'ans1', { requestId: 'req-1' }),
+        userMsg('u2', 'q2', { requestId: 'req-2' }),
+        agentMsg('a2', 'ans2', { requestId: 'req-2' }),
+      ],
+    });
+    expect(items.map(i => i.turnId)).toEqual(['req-1', 'req-1', 'req-2', 'req-2']);
+  });
+
+  it('falls back to the legacy turn for messages without a requestId', () => {
+    const items = build({ messages: [userMsg('u1'), agentMsg('a1', 'ans', { requestId: 'req-9' })] });
+    expect(items.map(i => i.turnId)).toEqual([LEGACY_TURN_ID, 'req-9']);
+  });
+
+  it('groups a mixed thread into per-request turns', () => {
+    const items = build({
+      messages: [
+        userMsg('u1', 'q1', { requestId: 'req-1' }),
+        agentMsg('a1', 'ans1', { requestId: 'req-1' }),
+        userMsg('u2', 'q2', { requestId: 'req-2' }),
+        agentMsg('a2', 'ans2', { requestId: 'req-2' }),
+      ],
+    });
+    const turns = groupTimelineIntoTurns(items);
+    expect(turns.map(t => t.turnId)).toEqual(['req-1', 'req-2']);
+    expect(turns.map(t => t.items.length)).toEqual([2, 2]);
+  });
+});
+
 describe('groupTimelineIntoTurns', () => {
   it('groups a single legacy turn into one group', () => {
     const items = build({ messages: [userMsg('u1'), agentMsg('a1')], toolTimeline: [tool('c1', 'x')] });

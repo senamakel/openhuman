@@ -207,7 +207,13 @@ function hasCompleteSegmentDelivery(
 }
 
 function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | undefined {
-  return event.citations?.length ? { citations: event.citations } : undefined;
+  // Stamp the producing turn's request id so the final answer can be grouped
+  // with its per-turn process trail (Phase 4 anchoring, Option B — see the
+  // companion plan). `citations` is merged in when present.
+  const meta: Record<string, unknown> = {};
+  if (event.citations?.length) meta.citations = event.citations;
+  if (event.request_id) meta.requestId = event.request_id;
+  return Object.keys(meta).length > 0 ? meta : undefined;
 }
 
 /**
@@ -1037,7 +1043,14 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           addInferenceResponse({
             content,
             threadId: event.thread_id,
-            extraMetadata: event.citations?.length ? { citations: event.citations } : undefined,
+            // Stamp the producing turn's request id so the timeline projection
+            // can group this answer with its per-turn process trail (Phase 4
+            // anchoring, Option B — see the companion plan). `citations` is
+            // merged in when present.
+            extraMetadata: {
+              ...(event.citations?.length ? { citations: event.citations } : {}),
+              ...(event.request_id ? { requestId: event.request_id } : {}),
+            },
           })
         );
       },
@@ -1052,8 +1065,15 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         const content = event.full_response?.trim() ?? '';
         if (!content) return;
-        // Persist this round's leading narration as its own interleaved bubble.
-        void dispatch(addInferenceResponse({ content, threadId: event.thread_id }));
+        // Persist this round's leading narration as its own interleaved bubble,
+        // stamped with the producing turn's request id (Phase 4 anchoring).
+        void dispatch(
+          addInferenceResponse({
+            content,
+            threadId: event.thread_id,
+            extraMetadata: event.request_id ? { requestId: event.request_id } : undefined,
+          })
+        );
         // The narration has now become a bubble, so drop it from the live
         // streaming preview (which accumulates across the whole turn under one
         // request_id) — otherwise the same text lingers in the preview tail and
@@ -1215,7 +1235,14 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               request: event.request_id,
             });
             await dispatch(
-              addInferenceResponse({ content: event.full_response, threadId: targetThreadId })
+              addInferenceResponse({
+                content: event.full_response,
+                threadId: targetThreadId,
+                // Stamp the producing turn's request id when present (Phase 4
+                // anchoring); proactive events may omit it, in which case the
+                // message falls back to the legacy single-anchor turn.
+                extraMetadata: event.request_id ? { requestId: event.request_id } : undefined,
+              })
             );
           } catch (error) {
             rtLog('proactive_dispatch_failed', {

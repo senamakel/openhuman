@@ -90,6 +90,37 @@ pub(super) fn ledger_upsert_telemetry(
     }
 }
 
+pub(super) fn ledger_get_telemetry(
+    config: &crate::openhuman::config::Config,
+    run_id: &str,
+) -> Option<crate::openhuman::session_db::run_ledger::RunTelemetry> {
+    match crate::openhuman::session_db::run_ledger::get_agent_run(config, run_id) {
+        Ok(Some(run)) => {
+            let telemetry = run.telemetry;
+            log::debug!(
+                "[run_ledger][web_channel] read telemetry run_id={} present={}",
+                run_id,
+                telemetry.is_some()
+            );
+            telemetry
+        }
+        Ok(None) => {
+            log::debug!(
+                "[run_ledger][web_channel] telemetry unavailable; run missing run_id={}",
+                run_id
+            );
+            None
+        }
+        Err(err) => {
+            log::warn!(
+                "[run_ledger][web_channel] failed to read telemetry run_id={} err={err}",
+                run_id
+            );
+            None
+        }
+    }
+}
+
 /// Build the worktree-isolation slice of a `subagent_completed`
 /// [`SubagentProgressDetail`] (#3376). An empty `changed_files` collapses to
 /// `None` so the renderer omits an empty "changed files" list rather than
@@ -1330,10 +1361,12 @@ pub(crate) fn spawn_progress_bridge(
                 None
             };
             if let Some((trace_ctx, observations)) = journal_export {
+                let run_telemetry = ledger_get_telemetry(&config, &request_id);
                 crate::openhuman::agent::progress_tracing::export_run_trace_from_journal(
                     &config,
                     &trace_ctx,
                     &observations,
+                    run_telemetry.as_ref(),
                     &live_spans,
                 )
                 .await;

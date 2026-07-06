@@ -105,36 +105,36 @@ import {
   AgentMessageBubble,
   AgentMessageText,
   BubbleMarkdown,
-} from './conversations/components/AgentMessageBubble';
-import { AgentProcessSourcePanel } from './conversations/components/AgentProcessSourcePanel';
+} from '../features/conversations/components/AgentMessageBubble';
+import { AgentProcessSourcePanel } from '../features/conversations/components/AgentProcessSourcePanel';
 import {
   BackgroundProcessesPanel,
   selectBackgroundProcesses,
-} from './conversations/components/BackgroundProcessesPanel';
-import { CitationChips, type MessageCitation } from './conversations/components/CitationChips';
-import { PlanReviewCard } from './conversations/components/PlanReviewCard';
-import { SubagentDrawer } from './conversations/components/SubagentDrawer';
+} from '../features/conversations/components/BackgroundProcessesPanel';
+import { CitationChips, type MessageCitation } from '../features/conversations/components/CitationChips';
+import { PlanReviewCard } from '../features/conversations/components/PlanReviewCard';
+import { SubagentDrawer } from '../features/conversations/components/SubagentDrawer';
 import {
   ThreadGoalEditorPanel,
   ThreadGoalFooterTrigger,
   useThreadGoal,
-} from './conversations/components/ThreadGoalChip';
-import { ThreadTodoStrip } from './conversations/components/ThreadTodoStrip';
-import { ToolTimelineBlock } from './conversations/components/ToolTimelineBlock';
+} from '../features/conversations/components/ThreadGoalChip';
+import { ThreadTodoStrip } from '../features/conversations/components/ThreadTodoStrip';
+import { ToolTimelineBlock } from '../features/conversations/components/ToolTimelineBlock';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
-} from './conversations/composerSendDecision';
-import { useMemorySyncActive } from './conversations/hooks/useBackgroundActivity';
+} from '../features/conversations/composerSendDecision';
+import { useMemorySyncActive } from '../features/conversations/hooks/useBackgroundActivity';
 import {
   type AgentBubblePosition,
   buildAcceptedInlineCompletion,
   formatRelativeTime,
   formatResetTime,
   getInlineCompletionSuffix,
-} from './conversations/utils/format';
-import { GENERAL_TAB_VALUE, isThreadVisibleInTab } from './conversations/utils/threadFilter';
+} from '../features/conversations/utils/format';
+import { GENERAL_TAB_VALUE, isThreadVisibleInTab } from '../features/conversations/utils/threadFilter';
 
 const CHAT_MODEL_HINT = 'hint:chat';
 /** Maximum trailing characters rendered in the live-streaming assistant

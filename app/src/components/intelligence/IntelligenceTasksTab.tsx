@@ -27,8 +27,8 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import { TaskKanbanBoard } from '../../pages/conversations/components/TaskKanbanBoard';
-import { isTaskThread } from '../../pages/conversations/utils/threadFilter';
+import { TaskKanbanBoard } from '../../features/conversations/components/TaskKanbanBoard';
+import { isTaskThread } from '../../features/conversations/utils/threadFilter';
 import { threadApi } from '../../services/api/threadApi';
 import {
   TASK_SOURCES_THREAD_ID,

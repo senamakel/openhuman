@@ -15,7 +15,7 @@ import {
   RiveMascot,
 } from '../../features/human/Mascot';
 import { useT } from '../../lib/i18n/I18nContext';
-import { BubbleMarkdown } from '../../pages/conversations/components/AgentMessageBubble';
+import { BubbleMarkdown } from '../../features/conversations/components/AgentMessageBubble';
 import {
   listProviderModels,
   loadAISettings,

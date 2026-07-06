@@ -1,7 +1,7 @@
 import { useUsageState } from '../../hooks/useUsageState';
 import { useT } from '../../lib/i18n/I18nContext';
-import { LimitPill } from '../../pages/conversations/components/LimitPill';
-import { formatResetTime } from '../../pages/conversations/utils/format';
+import { LimitPill } from '../../features/conversations/components/LimitPill';
+import { formatResetTime } from '../../features/conversations/utils/format';
 
 /**
  * Self-contained cycle usage indicator for the composer toolbar.

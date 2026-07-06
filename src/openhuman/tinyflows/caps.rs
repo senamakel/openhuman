@@ -796,7 +796,8 @@ impl ToolInvoker for OpenHumanTools {
     async fn invoke(&self, slug: &str, args: Value, conn: Option<&str>) -> Result<Value> {
         // Native OpenHuman tool path (the "Tool" node): `oh:<tool_name>`. Bypasses
         // the Composio curation gate (it isn't a Composio slug) but still runs
-        // through the approval gate, then dispatches to the agent tool registry.
+        // through the autonomy-tier + approval gates, then dispatches to the
+        // agent tool registry.
         if let Some(tool_name) = slug.strip_prefix(NATIVE_TOOL_PREFIX) {
             let tool_name = tool_name.trim();
             if tool_name.is_empty() {
@@ -805,17 +806,33 @@ impl ToolInvoker for OpenHumanTools {
                         .to_string(),
                 ));
             }
-            // Approval gate — same contract as the Composio path below.
-            if let Some(gate) = crate::openhuman::approval::ApprovalGate::try_global() {
-                let summary = crate::openhuman::approval::summarize_action(tool_name, &args);
-                let redacted = crate::openhuman::approval::redact_args(&args);
-                let (outcome, _request_id) =
-                    gate.intercept_audited(tool_name, &summary, redacted).await;
-                if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
-                    return Err(EngineError::Capability(reason));
-                }
+
+            let security = SecurityPolicy::from_config(
+                &self.config.autonomy,
+                &self.config.workspace_dir,
+                &self.config.action_dir,
+            );
+            let class = crate::openhuman::runtime_node::ops::classify_tool_call(
+                &self.config,
+                tool_name,
+                &args,
+            )
+            .map_err(EngineError::Capability)?;
+            let tier_decision = enforce_node_tier_gate(&security, class, "tool_call")?;
+            let summary = crate::openhuman::approval::summarize_action(tool_name, &args);
+            let redacted = crate::openhuman::approval::redact_args(&args);
+            let (outcome, _request_id) =
+                gate_call_for_tier(tier_decision, tool_name, &summary, redacted).await;
+            if let crate::openhuman::approval::GateOutcome::Deny { reason } = outcome {
+                return Err(EngineError::Capability(reason));
             }
-            tracing::debug!(target: "flows", %tool_name, "[flows] tool_call: dispatching NATIVE OpenHuman tool");
+            tracing::debug!(
+                target: "flows",
+                %tool_name,
+                ?class,
+                ?tier_decision,
+                "[flows] tool_call: dispatching NATIVE OpenHuman tool"
+            );
             let outcome = crate::openhuman::runtime_node::ops::execute_tool(
                 &self.config,
                 tool_name,

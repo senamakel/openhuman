@@ -25,7 +25,7 @@ use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::thread_context::{current_thread_id, with_thread_id};
 use crate::openhuman::inference::provider::{
     current_route_slot, with_route_slot, ChatMessage, ChatRequest, ChatResponse, Provider,
-    ProviderDelta,
+    ProviderDelta, UsageInfo,
 };
 use crate::openhuman::tools::ToolSpec;
 
@@ -245,13 +245,14 @@ fn response_to_model_response(
         content.push(block);
     }
     let usage = response.usage.as_ref().map(|u| {
-        // Carry the provider's cached-prefix input count through the crate
-        // `Usage` (it has a `cache_read_tokens` field) so downstream cost
-        // accounting can price it at the cached rate. `Usage::new` seeds
-        // input/output/total; set the cache field on top. (`charged_amount_usd`
-        // has no crate home; the event bridge estimates cost from token counts.)
+        // Carry every token breakdown the crate `Usage` can express so a
+        // standalone `invoke` is usage-faithful (gap G1): cache reads/writes and
+        // reasoning tokens all have crate homes as of tinyagents 1.7. `Usage::new`
+        // seeds input/output/total; set the detail fields on top.
         let mut usage = Usage::new(u.input_tokens, u.output_tokens);
         usage.cache_read_tokens = u.cached_input_tokens;
+        usage.cache_creation_tokens = u.cache_creation_tokens;
+        usage.reasoning_tokens = u.reasoning_tokens;
         usage
     });
     let finish_reason = if tool_calls.is_empty() {
@@ -268,9 +269,76 @@ fn response_to_model_response(
         },
         usage,
         finish_reason: Some(finish_reason.to_string()),
-        raw: None,
+        // The crate `Usage` has no field for the provider's **charged USD** or the
+        // model's **context window**, but `ModelResponse.raw` is exactly "raw
+        // provider metadata preserved for callers who need it" — so stash them
+        // there (gap G1). A standalone `invoke` then round-trips the OpenHuman
+        // managed backend's charged amount + window via
+        // [`usage_info_from_response`], no crate change required. Omitted when the
+        // provider reported neither (keeps non-managed responses byte-clean).
+        raw: openhuman_usage_meta_raw(response.usage.as_ref()),
         resolved_model: None,
     }
+}
+
+/// JSON key under which the model adapter stashes the provider-reported
+/// billing/context metadata that the crate [`Usage`] has no field for
+/// (gap G1). Consumed by [`usage_info_from_response`].
+const OPENHUMAN_USAGE_META_KEY: &str = "openhuman_usage_meta";
+
+/// The two host [`UsageInfo`] fields with no crate [`Usage`] home, ferried
+/// through [`ModelResponse::raw`] so a standalone `invoke` stays usage-faithful.
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+struct OpenhumanUsageMeta {
+    /// Provider-charged amount in USD (`UsageInfo::charged_amount_usd`).
+    #[serde(default)]
+    charged_amount_usd: f64,
+    /// Model context window in tokens (`UsageInfo::context_window`).
+    #[serde(default)]
+    context_window: u64,
+}
+
+/// Build the `ModelResponse.raw` value carrying charged-USD + context-window
+/// metadata, or `None` when the provider reported neither (so responses from
+/// providers that don't surface billing stay `raw: None`).
+fn openhuman_usage_meta_raw(usage: Option<&UsageInfo>) -> Option<serde_json::Value> {
+    let u = usage?;
+    if u.charged_amount_usd <= 0.0 && u.context_window == 0 {
+        return None;
+    }
+    let meta = OpenhumanUsageMeta {
+        charged_amount_usd: u.charged_amount_usd,
+        context_window: u.context_window,
+    };
+    Some(serde_json::json!({ OPENHUMAN_USAGE_META_KEY: meta }))
+}
+
+/// Reconstruct a host [`UsageInfo`] from a crate [`ModelResponse`], recovering
+/// the provider-charged USD + context window the adapter stashed in
+/// [`ModelResponse::raw`] (gap G1). Returns `None` when the response carried no
+/// usage at all.
+///
+/// This is the seam one-shot inference callers use once they move off
+/// `Box<dyn Provider>` (`chat` → `UsageInfo`) onto `Arc<dyn ChatModel>`
+/// (`invoke` → `ModelResponse`): the full host usage record — real token
+/// counts *and* backend-charged USD — survives the crossing.
+pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<UsageInfo> {
+    let usage = response.usage.as_ref()?;
+    let meta = response
+        .raw
+        .as_ref()
+        .and_then(|v| v.get(OPENHUMAN_USAGE_META_KEY))
+        .and_then(|v| serde_json::from_value::<OpenhumanUsageMeta>(v.clone()).ok())
+        .unwrap_or_default();
+    Some(UsageInfo {
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        context_window: meta.context_window,
+        cached_input_tokens: usage.cache_read_tokens,
+        cache_creation_tokens: usage.cache_creation_tokens,
+        reasoning_tokens: usage.reasoning_tokens,
+        charged_amount_usd: meta.charged_amount_usd,
+    })
 }
 
 /// Forward one openhuman [`ProviderDelta`]. Visible text, reasoning, and
@@ -763,5 +831,90 @@ impl ChatModel<()> for ProviderModel {
             rx.recv().await.map(|item| (item, (rx, guard)))
         });
         Ok(Box::pin(stream))
+    }
+}
+
+#[cfg(test)]
+mod g1_usage_tests {
+    //! Gap G1: a standalone `invoke` must stay usage-faithful — token
+    //! breakdowns ride the crate `Usage`, and the two host fields with no crate
+    //! home (charged USD + context window) ride `ModelResponse.raw` and
+    //! reconstruct exactly via [`usage_info_from_response`].
+    use super::*;
+
+    fn empty_registry() -> crate::openhuman::agent::pformat::PFormatRegistry {
+        crate::openhuman::agent::pformat::PFormatRegistry::default()
+    }
+
+    #[test]
+    fn usage_round_trips_charged_usd_and_all_token_breakdowns() {
+        let chat = ChatResponse {
+            text: Some("hi".to_string()),
+            tool_calls: Vec::new(),
+            usage: Some(UsageInfo {
+                input_tokens: 100,
+                output_tokens: 20,
+                context_window: 128_000,
+                cached_input_tokens: 40,
+                cache_creation_tokens: 10,
+                reasoning_tokens: 7,
+                charged_amount_usd: 0.0123,
+            }),
+            reasoning_content: None,
+        };
+        let model_response = response_to_model_response(&chat, &empty_registry());
+
+        // Crate Usage carries every token breakdown natively.
+        let usage = model_response.usage.expect("usage present");
+        assert_eq!(usage.input_tokens, 100);
+        assert_eq!(usage.output_tokens, 20);
+        assert_eq!(usage.cache_read_tokens, 40);
+        assert_eq!(usage.cache_creation_tokens, 10);
+        assert_eq!(usage.reasoning_tokens, 7);
+
+        // Charged USD + context window ride raw and reconstruct exactly.
+        let recovered = usage_info_from_response(&model_response).expect("usage info");
+        assert_eq!(recovered.input_tokens, 100);
+        assert_eq!(recovered.output_tokens, 20);
+        assert_eq!(recovered.context_window, 128_000);
+        assert_eq!(recovered.cached_input_tokens, 40);
+        assert_eq!(recovered.cache_creation_tokens, 10);
+        assert_eq!(recovered.reasoning_tokens, 7);
+        assert!((recovered.charged_amount_usd - 0.0123).abs() < 1e-9);
+    }
+
+    #[test]
+    fn no_billing_metadata_leaves_raw_clean() {
+        let chat = ChatResponse {
+            text: Some("hi".to_string()),
+            tool_calls: Vec::new(),
+            usage: Some(UsageInfo {
+                input_tokens: 5,
+                output_tokens: 3,
+                ..Default::default()
+            }),
+            reasoning_content: None,
+        };
+        let model_response = response_to_model_response(&chat, &empty_registry());
+        assert!(
+            model_response.raw.is_none(),
+            "no charged USD / window ⇒ raw stays None"
+        );
+        let recovered = usage_info_from_response(&model_response).expect("usage info");
+        assert_eq!(recovered.charged_amount_usd, 0.0);
+        assert_eq!(recovered.context_window, 0);
+        assert_eq!(recovered.input_tokens, 5);
+    }
+
+    #[test]
+    fn no_usage_reconstructs_to_none() {
+        let chat = ChatResponse {
+            text: Some("hi".to_string()),
+            tool_calls: Vec::new(),
+            usage: None,
+            reasoning_content: None,
+        };
+        let model_response = response_to_model_response(&chat, &empty_registry());
+        assert!(usage_info_from_response(&model_response).is_none());
     }
 }

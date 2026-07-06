@@ -138,7 +138,7 @@ jobs:
           cache-on-failure: true
           key: core
       - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
       - name: Test core crate (openhuman)
         run: bash scripts/ci-cancel-aware.sh cargo test -p openhuman
 
@@ -166,7 +166,7 @@ jobs:
           cache-on-failure: true
           key: core-windows
       - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
       - name: Run Windows-specific secrets tests
         # Runs the keyring::encrypted_store suite (keyring::encrypted_store::tests),
         # which contains the #[cfg(windows)] tests:
@@ -215,6 +215,6 @@ jobs:
           restore-keys: |
             cef-ubuntu-22.04-
       - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
       - name: Test Tauri shell (OpenHuman)
         run: bash scripts/ci-cancel-aware.sh cargo test --manifest-path app/src-tauri/Cargo.toml

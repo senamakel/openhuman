@@ -144,7 +144,7 @@ jobs:
           echo "[build-desktop] tag=${{ inputs.tag }} build_ref=${{ inputs.build_ref }}"
       - name: Set Xcode version
         if: matrix.settings.platform == 'macos-latest'
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@v1.7.0
         with:
           xcode-version: latest-stable
       - name: Setup pnpm

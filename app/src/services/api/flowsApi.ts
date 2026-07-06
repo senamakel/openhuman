@@ -28,6 +28,8 @@
  */
 import debug from 'debug';
 
+import type { WorkflowGraph } from '../../lib/flows/types';
+import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import { callCoreRpc } from '../coreRpcClient';
 
 const log = debug('flowsApi');
@@ -545,6 +547,119 @@ export async function listSuggestions(status?: SuggestionStatus): Promise<FlowSu
   const suggestions = unwrapCliEnvelope<FlowSuggestion[]>(response);
   log('listSuggestions: response count=%d', suggestions.length);
   return suggestions;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// flows_build — run the workflow_builder agent for one authoring turn.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Which authoring turn to run (mirrors the Rust `BuildMode`). The server renders
+ * the agent's natural-language brief from this — the frontend no longer crafts
+ * delegate prompts.
+ */
+export type BuilderTurnMode = 'create' | 'revise' | 'repair' | 'build';
+
+/** A structured workflow-builder turn request. */
+export interface BuilderTurnRequest {
+  /** Which kind of turn to run. */
+  mode: BuilderTurnMode;
+  /** The user's ask: description (create/build) or change instruction (revise). */
+  instruction: string;
+  /** The current draft graph, injected as context for revise/repair/build. */
+  graph?: WorkflowGraph | null;
+  /** Saved flow id (required for `build`; optional elsewhere for run-to-test). */
+  flowId?: string | null;
+  /** Failed run id (== thread id) for `repair`. */
+  runId?: string | null;
+  /** Run-level error message for `repair`, if known. */
+  error?: string | null;
+  /** Node ids implicated in the failure, for `repair`. */
+  failingNodeIds?: string[];
+}
+
+/** The result of one builder turn. */
+export interface BuilderTurnResult {
+  /** The proposal the agent produced (mapped to the store shape), or null. */
+  proposal: WorkflowProposal | null;
+  /** The agent's final assistant text (rendered as its chat turn). */
+  assistantText: string;
+  /** A run error, if the turn failed but a prior proposal was still captured. */
+  error: string | null;
+}
+
+/**
+ * The `workflow_builder` agent can take up to ~300s server-side
+ * (`FLOW_BUILD_TIMEOUT_SECS` in `src/openhuman/flows/ops.rs`); match it so a slow
+ * authoring turn doesn't time out client-side while the agent is still working.
+ */
+const FLOW_BUILD_TIMEOUT_MS = 310_000;
+
+/**
+ * Map a raw `{ type: 'workflow_proposal', … }` payload (from the agent's
+ * propose/revise/save tool) to the store {@link WorkflowProposal} shape. Kept in
+ * lockstep with `parseWorkflowProposal` in `ChatRuntimeProvider` (the streamed
+ * path); returns null if the payload isn't a valid proposal.
+ */
+export function mapWorkflowProposal(payload: unknown): WorkflowProposal | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const obj = payload as Record<string, unknown>;
+  if (obj.type !== 'workflow_proposal') return null;
+  if (typeof obj.name !== 'string' || obj.graph == null) return null;
+
+  const summary = (obj.summary ?? {}) as Record<string, unknown>;
+  const rawSteps = Array.isArray(summary.steps) ? summary.steps : [];
+  const steps = rawSteps
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object')
+    .map(s => ({
+      kind: typeof s.kind === 'string' ? s.kind : 'unknown',
+      name: typeof s.name === 'string' ? s.name : '',
+      config_hint: typeof s.config_hint === 'string' ? s.config_hint : undefined,
+    }));
+
+  return {
+    name: obj.name,
+    graph: obj.graph,
+    // The Rust tool defaults `require_approval` to true when omitted, so treat
+    // anything other than an explicit false as true — in lockstep with the server.
+    requireApproval: obj.require_approval !== false,
+    summary: { trigger: typeof summary.trigger === 'string' ? summary.trigger : '', steps },
+  };
+}
+
+/**
+ * Run one `workflow_builder` authoring turn via `openhuman.flows_build`. The
+ * server renders the agent's brief from `request`, runs the agent to completion,
+ * and returns its proposal + final assistant text. This is the backend-agent
+ * path that replaces the frontend's old "craft a delegate prompt and route it
+ * through the chat orchestrator" approach.
+ */
+export async function buildWorkflow(request: BuilderTurnRequest): Promise<BuilderTurnResult> {
+  log('buildWorkflow: request mode=%s flowId=%s', request.mode, request.flowId ?? '<none>');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_build',
+    params: {
+      mode: request.mode,
+      instruction: request.instruction,
+      graph: request.graph ?? null,
+      flow_id: request.flowId ?? null,
+      run_id: request.runId ?? null,
+      error: request.error ?? null,
+      failing_node_ids: request.failingNodeIds ?? [],
+    },
+    timeoutMs: FLOW_BUILD_TIMEOUT_MS,
+  });
+  const result = unwrapCliEnvelope<{
+    proposal: unknown;
+    assistant_text: string;
+    error: string | null;
+  }>(response);
+  log('buildWorkflow: response hasProposal=%s', result.proposal != null);
+  return {
+    proposal: mapWorkflowProposal(result.proposal),
+    assistantText: result.assistant_text ?? '',
+    error: result.error ?? null,
+  };
 }
 
 /**

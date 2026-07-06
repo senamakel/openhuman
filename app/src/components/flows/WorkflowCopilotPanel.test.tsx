@@ -65,7 +65,11 @@ describe('WorkflowCopilotPanel', () => {
     expect(hookState.send).toHaveBeenCalledTimes(1);
     const arg = hookState.send.mock.calls[0][0];
     expect(arg.displayText).toBe('add a Slack notification on failure');
-    expect(arg.prompt).toContain(JSON.stringify(baseGraph));
+    // The brief is rendered server-side now; the panel sends a structured
+    // revise request carrying the current graph as context.
+    expect(arg.request.mode).toBe('revise');
+    expect(arg.request.instruction).toBe('add a Slack notification on failure');
+    expect(arg.request.graph).toEqual(baseGraph);
   });
 
   it('renders the conversation transcript (user + agent turns)', () => {
@@ -158,8 +162,10 @@ describe('WorkflowCopilotPanel', () => {
     );
     expect(hookState.send).toHaveBeenCalledTimes(1);
     const arg = hookState.send.mock.calls[0][0];
-    expect(arg.prompt).toContain('run-7');
-    expect(arg.prompt).toContain('get_flow_run');
+    expect(arg.request.mode).toBe('repair');
+    expect(arg.request.runId).toBe('run-7');
+    expect(arg.request.error).toBe('boom');
+    expect(arg.request.graph).toEqual(baseGraph);
   });
 
   it('auto-sends a build turn once when opened with a prompt-bar build seed', () => {
@@ -180,11 +186,13 @@ describe('WorkflowCopilotPanel', () => {
     // while the real prompt injects the blank graph + flow id and asks for the
     // full build → dry-run → save arc onto the already-created flow.
     expect(arg.displayText).toBe('digest my Slack every morning');
-    expect(arg.prompt).toContain('digest my Slack every morning');
-    expect(arg.prompt).toContain(JSON.stringify(baseGraph));
-    expect(arg.prompt).toContain('flow-1');
-    expect(arg.prompt).toContain('save_workflow');
-    expect(arg.prompt).toContain('dry_run_workflow');
+    // The user's description reads as their own first turn; the structured
+    // build request carries the blank graph + flow id so the server's brief
+    // asks for the full build → dry-run → save arc onto the created flow.
+    expect(arg.request.mode).toBe('build');
+    expect(arg.request.instruction).toBe('digest my Slack every morning');
+    expect(arg.request.graph).toEqual(baseGraph);
+    expect(arg.request.flowId).toBe('flow-1');
 
     // A re-render (e.g. a graph edit) must not re-fire the seed turn.
     rerender(

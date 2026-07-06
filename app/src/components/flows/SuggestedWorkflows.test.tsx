@@ -121,7 +121,10 @@ describe('SuggestedWorkflows', () => {
     await waitFor(() => expect(hookState.send).toHaveBeenCalledTimes(1));
     const arg = hookState.send.mock.calls[0][0];
     expect(arg.displayText).toBe('Auto-file receipts');
-    expect(arg.prompt).toContain('Build a workflow that files receipts.');
+    // The build_prompt is now the instruction of a structured create request;
+    // the server renders the agent brief from it.
+    expect(arg.request.mode).toBe('create');
+    expect(arg.request.instruction).toBe('Build a workflow that files receipts.');
   });
 
   it('marks the suggestion built when the inline proposal is saved', async () => {

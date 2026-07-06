@@ -22,7 +22,6 @@ import createDebug from 'debug';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useWorkflowBuilderChat } from '../../hooks/useWorkflowBuilderChat';
-import { buildCreatePrompt } from '../../lib/flows/workflowBuilderPrompt';
 import { useT } from '../../lib/i18n/I18nContext';
 import {
   discoverWorkflows,
@@ -155,7 +154,7 @@ export default function SuggestedWorkflows() {
       setBuildingId(suggestion.id);
       await send({
         displayText: suggestion.title,
-        prompt: buildCreatePrompt(suggestion.build_prompt),
+        request: { mode: 'create', instruction: suggestion.build_prompt },
       });
     },
     [sending, send]

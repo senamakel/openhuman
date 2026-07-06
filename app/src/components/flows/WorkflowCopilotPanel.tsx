@@ -21,17 +21,26 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWorkflowBuilderChat } from '../../hooks/useWorkflowBuilderChat';
 import { diffGraphs } from '../../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../../lib/flows/types';
-import {
-  buildRepairPrompt,
-  buildRevisePrompt,
-  buildSeededBuildPrompt,
-  type RepairPromptContext,
-} from '../../lib/flows/workflowBuilderPrompt';
 import { useT } from '../../lib/i18n/I18nContext';
 import { BubbleMarkdown } from '../../pages/conversations/components/AgentMessageBubble';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import ChatComposer from '../chat/ChatComposer';
 import Button from '../ui/Button';
+
+/**
+ * Context for a repair turn opened from a failed run's inspector ("Fix with
+ * agent"). Maps directly onto a `repair`-mode builder request.
+ */
+export interface RepairPromptContext {
+  /** The failed run id (== thread_id) so the agent can `get_flow_run` it. */
+  runId: string;
+  /** The run-level error message, if any. */
+  error?: string | null;
+  /** Node ids that failed / are implicated, if known. */
+  failingNodeIds?: string[];
+  /** The flow's current graph, injected so the fix builds on the real draft. */
+  graph: WorkflowGraph;
+}
 
 interface Props {
   /** The current draft graph, injected as context for each revise turn. */
@@ -118,7 +127,14 @@ export default function WorkflowCopilotPanel({
     repairSentRef.current = true;
     void send({
       displayText: t('flows.copilot.repairDisplay'),
-      prompt: buildRepairPrompt(repairSeed),
+      request: {
+        mode: 'repair',
+        instruction: '',
+        graph: repairSeed.graph,
+        runId: repairSeed.runId,
+        error: repairSeed.error ?? null,
+        failingNodeIds: repairSeed.failingNodeIds ?? [],
+      },
     });
   }, [repairSeed, send, t]);
 
@@ -134,9 +150,9 @@ export default function WorkflowCopilotPanel({
     buildSentRef.current = true;
     void send({
       displayText: buildSeed.description,
-      prompt: flowId
-        ? buildSeededBuildPrompt(buildSeed.description, graph, flowId)
-        : buildRevisePrompt(buildSeed.description, graph, flowId),
+      request: flowId
+        ? { mode: 'build', instruction: buildSeed.description, graph, flowId }
+        : { mode: 'revise', instruction: buildSeed.description, graph, flowId },
     });
     // `graph`/`flowId` are read once for the seed turn — later edits must not
     // re-fire it (guarded by the ref regardless).
@@ -154,7 +170,10 @@ export default function WorkflowCopilotPanel({
       const trimmed = (raw ?? text).trim();
       if (!trimmed || sending) return;
       setText('');
-      await send({ displayText: trimmed, prompt: buildRevisePrompt(trimmed, graph, flowId) });
+      await send({
+        displayText: trimmed,
+        request: { mode: 'revise', instruction: trimmed, graph, flowId },
+      });
     },
     [text, sending, send, graph, flowId]
   );

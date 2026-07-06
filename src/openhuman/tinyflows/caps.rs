@@ -17,8 +17,8 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tinyagents::graph::SqliteCheckpointer;
 use tinyflows::caps::{
-    Capabilities, CodeLanguage, CodeRunner, HttpClient, LlmProvider, StateStore, ToolInvoker,
-    WorkflowResolver,
+    AgentRunner, Capabilities, CodeLanguage, CodeRunner, HttpClient, LlmProvider, StateStore,
+    ToolInvoker, WorkflowResolver,
 };
 use tinyflows::error::{EngineError, Result};
 use tinyflows::model::WorkflowGraph;
@@ -247,11 +247,14 @@ pub(crate) fn parse_llm_json(text: &str) -> Option<Value> {
 /// **Structured output**: when the node requested it (an
 /// `output_parser.schema` or `response_format: "json"` in the config), the
 /// completion text is parsed as JSON and the **parsed object** is returned as
-/// the response value — so a downstream node can bind `=item.<field>` (or
-/// `=nodes.<agent_id>.item.<field>`) instead of receiving an opaque
-/// `{text: "..."}` blob. A completion that doesn't parse falls back to the
-/// legacy shape, where the agent node's `output_parser` sub-port can still
-/// coerce it via the schema auto-fix path.
+/// the response value; otherwise the `{text: "..."}` shape is returned. Either
+/// way the tinyflows `agent` node wraps this in its stable output **envelope**
+/// `{ json, text, raw }`, so a downstream node binds `=item.json.<field>` for
+/// structured output or `=item.text` for prose (or
+/// `=nodes.<agent_id>.item.json.<field>` across nodes) — the parsed-vs-`{text}`
+/// shape is no longer visible to consumers. A completion that doesn't parse
+/// still lets the agent node's `output_parser` sub-port coerce it via the
+/// schema auto-fix path before enveloping.
 pub struct OpenHumanLlm {
     pub config: Arc<Config>,
 }
@@ -373,6 +376,105 @@ impl LlmProvider for OpenHumanLlm {
             "usage": usage_to_json(&response.usage),
             "reasoning_content": response.reasoning_content,
         }))
+    }
+}
+
+/// [`AgentRunner`] backing an `agent` node's `agent_ref`: selects a **registered
+/// agent kind** from OpenHuman's agent registry (researcher, code_executor,
+/// crypto_agent, …) and runs the completion shaped by that agent's persona.
+///
+/// **Scope of this first cut**: the registry entry's `system_prompt` (and, when
+/// present, its model) is applied on top of the node's request, so choosing
+/// "researcher" vs "code_executor" changes how the turn behaves. It does **not**
+/// yet spin up the agent's *private tool loop* (`run_subagent`), because that
+/// requires a full [`ParentExecutionContext`](crate::openhuman::agent::harness::fork_context)
+/// — provider, tool registry, memory, session — which a standalone flow run does
+/// not establish. Tool access for an agent-kind node therefore still comes from
+/// the node's own inline `tools` sub-port (single hop). Wiring the full tool loop
+/// is the next increment; when it lands, `agent_ref` nodes gain their agent's
+/// curated toolset with no graph change.
+///
+/// `agent_ref` is resolved from trusted node config (never model output), so a
+/// prompt-injected completion cannot pick an arbitrary agent kind.
+pub struct OpenHumanAgentRunner {
+    pub config: Arc<Config>,
+}
+
+#[async_trait]
+impl AgentRunner for OpenHumanAgentRunner {
+    async fn run_agent(
+        &self,
+        agent_ref: &str,
+        request: Value,
+        conn: Option<&str>,
+    ) -> Result<Value> {
+        // Resolve + validate the requested agent kind against the registry.
+        let entry = crate::openhuman::agent_registry::get_agent(agent_ref)
+            .await
+            .map_err(EngineError::Capability)?
+            .ok_or_else(|| {
+                EngineError::Capability(format!(
+                    "agent node: unknown agent_ref '{agent_ref}' (not in the agent registry)"
+                ))
+            })?;
+        if !entry.enabled {
+            return Err(EngineError::Capability(format!(
+                "agent node: agent_ref '{agent_ref}' is disabled"
+            )));
+        }
+
+        tracing::debug!(
+            target: "flows",
+            agent_ref,
+            has_system_prompt = entry.system_prompt.is_some(),
+            model = entry.model.as_deref().unwrap_or("<role-default>"),
+            "[flows] agent_runner: applying registered agent-kind persona to the completion"
+        );
+
+        // Shape the completion by the agent kind: prepend the agent's system
+        // prompt (its persona) ahead of the node's messages, and adopt its model
+        // when the node didn't pin one. The completion itself runs through the
+        // same provider path as a plain agent turn (OpenHumanLlm::complete), so
+        // structured-output / envelope behavior is identical.
+        let mut request = request;
+        if let Some(system_prompt) = entry.system_prompt.as_deref().filter(|s| !s.is_empty()) {
+            prepend_system_message(&mut request, system_prompt);
+        }
+        if let Some(model) = entry.model.as_deref().filter(|s| !s.is_empty()) {
+            if request.get("model").and_then(Value::as_str).is_none() {
+                if let Value::Object(map) = &mut request {
+                    map.insert("model".to_string(), Value::String(model.to_string()));
+                }
+            }
+        }
+
+        OpenHumanLlm {
+            config: self.config.clone(),
+        }
+        .complete(request, conn)
+        .await
+    }
+}
+
+/// Inserts `system_prompt` as the first `system` message of a completion
+/// `request`, creating the `messages` array (seeded from any `prompt` string)
+/// when the request doesn't already carry one. Mirrors how
+/// [`OpenHumanLlm::complete`] reads `messages`/`prompt`.
+fn prepend_system_message(request: &mut Value, system_prompt: &str) {
+    let Value::Object(map) = request else {
+        return;
+    };
+    let system_msg = json!({ "role": "system", "content": system_prompt });
+    match map.get_mut("messages").and_then(Value::as_array_mut) {
+        Some(messages) => messages.insert(0, system_msg),
+        None => {
+            // No `messages`: build one from the `prompt` string (if any).
+            let mut messages = vec![system_msg];
+            if let Some(prompt) = map.get("prompt").and_then(Value::as_str) {
+                messages.push(json!({ "role": "user", "content": prompt }));
+            }
+            map.insert("messages".to_string(), Value::Array(messages));
+        }
     }
 }
 
@@ -1530,6 +1632,9 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
             config: config.clone(),
             namespace: state_namespace.into(),
         }),
+        agent: Some(Arc::new(OpenHumanAgentRunner {
+            config: config.clone(),
+        })),
         resolver: Arc::new(OpenHumanWorkflowResolver { config }),
     }
 }
@@ -1563,6 +1668,39 @@ mod tests {
     use super::*;
     use crate::openhuman::agent::prompts::types::IntegrationConnection;
     use crate::openhuman::composio::ConnectedIntegration;
+
+    #[test]
+    fn prepend_system_message_builds_messages_from_prompt() {
+        // An agent-node request that carries only a `prompt` gets a `messages`
+        // array seeded with the agent-kind system prompt then the user prompt.
+        let mut req = json!({ "prompt": "fix the bug" });
+        prepend_system_message(&mut req, "You are a coding agent.");
+        let messages = req["messages"].as_array().expect("messages");
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0]["role"], "system");
+        assert_eq!(messages[0]["content"], "You are a coding agent.");
+        assert_eq!(messages[1]["role"], "user");
+        assert_eq!(messages[1]["content"], "fix the bug");
+    }
+
+    #[test]
+    fn prepend_system_message_inserts_ahead_of_existing_messages() {
+        let mut req = json!({ "messages": [{ "role": "user", "content": "hi" }] });
+        prepend_system_message(&mut req, "persona");
+        let messages = req["messages"].as_array().expect("messages");
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0]["role"], "system");
+        assert_eq!(messages[0]["content"], "persona");
+        assert_eq!(messages[1]["content"], "hi");
+    }
+
+    #[test]
+    fn prepend_system_message_ignores_non_object_request() {
+        // A non-object request is left untouched rather than panicking.
+        let mut req = json!("just a string");
+        prepend_system_message(&mut req, "persona");
+        assert_eq!(req, json!("just a string"));
+    }
 
     fn integration(
         toolkit: &str,

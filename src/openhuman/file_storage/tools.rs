@@ -487,6 +487,14 @@ impl Tool for StorageDownloadFileTool {
         ToolCategory::Workflow
     }
 
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        true
+    }
+
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
         self.run(args, &self.action_dir).await
     }

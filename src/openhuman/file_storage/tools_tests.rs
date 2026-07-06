@@ -40,9 +40,9 @@ fn upload_tool_schema_and_metadata() {
 fn download_tool_schema_and_metadata() {
     let tool = StorageDownloadFileTool::new(dummy_client(), PathBuf::from("/tmp"));
     assert_eq!(tool.name(), "storage_download_file");
-    assert_eq!(tool.permission_level(), PermissionLevel::ReadOnly);
+    assert_eq!(tool.permission_level(), PermissionLevel::Write);
     assert_eq!(tool.category(), ToolCategory::Workflow);
-    assert!(!tool.external_effect());
+    assert!(tool.external_effect());
 
     let schema = tool.parameters_schema();
     assert_eq!(schema["required"], json!(["file_id"]));

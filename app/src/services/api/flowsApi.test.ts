@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  buildWorkflow,
   discoverWorkflows,
   dismissSuggestion,
   type FlowSuggestion,
@@ -299,6 +300,18 @@ describe('flowsApi', () => {
       expect(result).toEqual([suggestion]);
     });
 
+    it('discoverWorkflows passes thread_id when a chat thread is given', async () => {
+      mockCallCoreRpc.mockResolvedValue(cliEnvelope([suggestion]));
+
+      await discoverWorkflows('scout-thread-1');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_discover',
+        params: { thread_id: 'scout-thread-1' },
+        timeoutMs: 310_000,
+      });
+    });
+
     it('listSuggestions omits status when not provided', async () => {
       mockCallCoreRpc.mockResolvedValue(cliEnvelope([]));
 
@@ -350,6 +363,64 @@ describe('flowsApi', () => {
       mockCallCoreRpc.mockRejectedValue(new Error('boom'));
 
       await expect(discoverWorkflows()).rejects.toThrow('boom');
+    });
+  });
+
+  describe('buildWorkflow', () => {
+    const proposalPayload = {
+      type: 'workflow_proposal',
+      name: 'Digest',
+      graph: { schema_version: 1, name: 'g', nodes: [], edges: [] },
+      require_approval: true,
+      summary: { trigger: 'manual', steps: [] },
+    };
+
+    it('calls flows_build with the structured request and no thread_id when omitted', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({ proposal: proposalPayload, assistant_text: 'here you go', error: null })
+      );
+
+      const result = await buildWorkflow({ mode: 'create', instruction: 'email me a digest' });
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_build',
+        params: {
+          mode: 'create',
+          instruction: 'email me a digest',
+          graph: null,
+          flow_id: null,
+          run_id: null,
+          error: null,
+          failing_node_ids: [],
+        },
+        timeoutMs: 310_000,
+      });
+      expect(result.assistantText).toBe('here you go');
+      expect(result.proposal?.name).toBe('Digest');
+      expect(result.error).toBeNull();
+    });
+
+    it('threads the chat thread_id into flows_build params when provided', async () => {
+      mockCallCoreRpc.mockResolvedValue(
+        cliEnvelope({ proposal: null, assistant_text: '', error: null })
+      );
+
+      await buildWorkflow({ mode: 'revise', instruction: 'add a Slack step' }, 'builder-thread-9');
+
+      expect(mockCallCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.flows_build',
+        params: {
+          mode: 'revise',
+          instruction: 'add a Slack step',
+          graph: null,
+          flow_id: null,
+          run_id: null,
+          error: null,
+          failing_node_ids: [],
+          thread_id: 'builder-thread-9',
+        },
+        timeoutMs: 310_000,
+      });
     });
   });
 });

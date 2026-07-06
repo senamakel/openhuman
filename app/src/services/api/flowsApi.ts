@@ -521,11 +521,18 @@ const FLOW_DISCOVER_TIMEOUT_MS = 310_000;
  * creates, enables, or runs a flow. Returns the `FlowSuggestion[]` directly
  * (same no-wrapper shape as `flows_list`).
  */
-export async function discoverWorkflows(): Promise<FlowSuggestion[]> {
-  log('discoverWorkflows: request');
+export async function discoverWorkflows(threadId?: string | null): Promise<FlowSuggestion[]> {
+  log('discoverWorkflows: request thread=%s', threadId ?? '<none>');
+  // When a caller passes a chat thread id, the server streams the Flow Scout
+  // turn's text/tool events onto that thread (Phase B) so a shared chat pane can
+  // render them live. The param name matches the `thread_id` convention in
+  // `src/openhuman/flows/schemas.rs` (a per-turn `request_id` is minted
+  // server-side when omitted). Omitting it keeps the headless behaviour.
+  const params: Record<string, unknown> = {};
+  if (threadId) params.thread_id = threadId;
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_discover',
-    params: {},
+    params,
     timeoutMs: FLOW_DISCOVER_TIMEOUT_MS,
   });
   const suggestions = unwrapCliEnvelope<FlowSuggestion[]>(response);
@@ -634,19 +641,35 @@ export function mapWorkflowProposal(payload: unknown): WorkflowProposal | null {
  * path that replaces the frontend's old "craft a delegate prompt and route it
  * through the chat orchestrator" approach.
  */
-export async function buildWorkflow(request: BuilderTurnRequest): Promise<BuilderTurnResult> {
-  log('buildWorkflow: request mode=%s flowId=%s', request.mode, request.flowId ?? '<none>');
+export async function buildWorkflow(
+  request: BuilderTurnRequest,
+  threadId?: string | null
+): Promise<BuilderTurnResult> {
+  log(
+    'buildWorkflow: request mode=%s flowId=%s thread=%s',
+    request.mode,
+    request.flowId ?? '<none>',
+    threadId ?? '<none>'
+  );
+  const params: Record<string, unknown> = {
+    mode: request.mode,
+    instruction: request.instruction,
+    graph: request.graph ?? null,
+    flow_id: request.flowId ?? null,
+    run_id: request.runId ?? null,
+    error: request.error ?? null,
+    failing_node_ids: request.failingNodeIds ?? [],
+  };
+  // When the copilot passes its dedicated chat thread id, the server streams the
+  // builder turn's text/thinking/tool events onto that thread (Phase B) so the
+  // shared chat pane renders them live and `ChatRuntimeProvider` appends the
+  // final assistant message on `chat_done`. Param name matches the `thread_id`
+  // convention in `src/openhuman/flows/schemas.rs`; a per-turn `request_id` is
+  // minted server-side when omitted. Omitting it keeps the headless behaviour.
+  if (threadId) params.thread_id = threadId;
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_build',
-    params: {
-      mode: request.mode,
-      instruction: request.instruction,
-      graph: request.graph ?? null,
-      flow_id: request.flowId ?? null,
-      run_id: request.runId ?? null,
-      error: request.error ?? null,
-      failing_node_ids: request.failingNodeIds ?? [],
-    },
+    params,
     timeoutMs: FLOW_BUILD_TIMEOUT_MS,
   });
   const result = unwrapCliEnvelope<{

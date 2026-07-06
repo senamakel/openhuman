@@ -12732,6 +12732,366 @@ async fn json_rpc_flows_suggestion_lifecycle_methods_are_wired() {
     rpc_join.abort();
 }
 
+/// Minimal config for the agent-backed flows arc: like `write_min_config` but
+/// pins `default_model = "chat-v1"` so an agent node on the **chat** tier
+/// resolves to `chat-v1` on the managed backend while a **reasoning**-tier node
+/// resolves to `reasoning-v1` — letting the full-arc test assert the two nodes
+/// routed to distinct managed tiers.
+fn write_flows_tier_config(openhuman_dir: &Path, api_origin: &str) {
+    let cfg = format!(
+        r#"api_url = "{api_origin}"
+default_model = "chat-v1"
+default_temperature = 0.7
+chat_onboarding_completed = true
+
+[secrets]
+encrypt = false
+
+# Keep tool-result content raw: the workflow_builder agent runs the reasoning
+# tier with Full TokenJuice compaction, which CCR-compresses a large
+# `propose_workflow` result into a `tinyjuice_retrieve` reference. `flows_build`
+# extracts the proposal from the agent's tool history by JSON-parsing that
+# content, so compaction must stay off for the arc to be observable in-test.
+[context]
+compaction_enabled = false
+"#
+    );
+    fn write_config_file(config_dir: &Path, cfg: &str) {
+        std::fs::create_dir_all(config_dir).expect("mkdir openhuman");
+        std::fs::write(config_dir.join("config.toml"), cfg).expect("write config");
+    }
+    write_config_file(openhuman_dir, &cfg);
+    if openhuman_dir
+        .file_name()
+        .is_some_and(|name| name == std::ffi::OsStr::new(".openhuman"))
+    {
+        write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
+    }
+    let _: openhuman_core::openhuman::config::Config =
+        toml::from_str(&cfg).expect("config toml must match Config schema");
+}
+
+/// The canonical "Research brief (Opus plans, Sonnet drafts)" demo graph — the
+/// same shape as `app/src/lib/flows/templates/opus-sonnet-brief.json`, inlined so
+/// the e2e test doesn't depend on reading the frontend template at runtime. A
+/// `trigger` feeds a reasoning-tier `planner` (structured `{plan, angle}`) into a
+/// chat-tier `drafter` that references `nodes.planner.item.json.plan`, then a
+/// `transform` shapes `{topic, plan, draft}`.
+fn opus_sonnet_demo_graph() -> Value {
+    json!({
+        "schema_version": 1,
+        "name": "Research brief (Opus plans, Sonnet drafts)",
+        "nodes": [
+            {
+                "id": "trigger",
+                "kind": "trigger",
+                "name": "Run manually with a topic",
+                "config": { "trigger_kind": "manual" }
+            },
+            {
+                "id": "planner",
+                "kind": "agent",
+                "name": "Plan the brief (reasoning tier)",
+                "config": {
+                    "model": "reasoning-v1",
+                    "prompt": "=\"You are a research lead. Draft a concise research plan (3-5 steps) and pick one distinctive angle for a brief on: \" + (.run.trigger.topic // \"the requested topic\")",
+                    "output_parser": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["plan", "angle"],
+                            "properties": {
+                                "plan": { "type": "string" },
+                                "angle": { "type": "string" }
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "id": "drafter",
+                "kind": "agent",
+                "name": "Draft the brief (chat tier)",
+                "config": {
+                    "model": "chat-v1",
+                    "prompt": "=\"Using the plan and angle below, write a polished research brief (~300 words).\\n\\nPlan:\\n\" + (.nodes.planner.item.json.plan // \"\") + \"\\n\\nAngle:\\n\" + (.nodes.planner.item.json.angle // \"\")"
+                }
+            },
+            {
+                "id": "shape",
+                "kind": "transform",
+                "name": "Shape the result",
+                "config": {
+                    "set": {
+                        "topic": "=run.trigger.topic",
+                        "plan": "=nodes.planner.item.json.plan",
+                        "draft": "=nodes.drafter.item.text"
+                    }
+                }
+            }
+        ],
+        "edges": [
+            { "from_node": "trigger", "from_port": "main", "to_node": "planner", "to_port": "main" },
+            { "from_node": "planner", "from_port": "main", "to_node": "drafter", "to_port": "main" },
+            { "from_node": "drafter", "from_port": "main", "to_node": "shape", "to_port": "main" }
+        ]
+    })
+}
+
+/// Full flows arc over JSON-RPC, driven entirely by the scripted-completion FIFO:
+///
+/// 1. `flows_discover` — the Flow Scout scripts a `suggest_workflows` tool call;
+///    the recorded suggestion is asserted via `flows_list_suggestions`.
+/// 2. `flows_build` — the workflow_builder scripts a `propose_workflow` tool call
+///    carrying the Opus+Sonnet demo graph; the returned proposal is asserted.
+/// 3. `flows_create` + `flows_run` — the saved demo graph runs with two scripted
+///    plain completions (planner structured JSON, then drafter text). We assert
+///    the run completed, the planner's structured plan flowed into the drafter's
+///    prompt (data passing), and the two agent nodes routed to the expected
+///    managed tiers (`reasoning-v1` / `chat-v1`).
+///
+/// Runs on the agent-sized worker stack because the builder/scout turns and the
+/// agent-node run drive the full harness (deep async stacks).
+#[test]
+fn json_rpc_flows_full_arc_discover_build_create_run() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_flows_full_arc_discover_build_create_run",
+        json_rpc_flows_full_arc_discover_build_create_run_inner,
+    );
+}
+
+async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{mock_addr}");
+    write_flows_tier_config(&openhuman_home, &mock_origin);
+    let user_scoped_dir = openhuman_home.join("users").join("e2e-user");
+    write_flows_tier_config(&user_scoped_dir, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // The managed backend needs an active session JWT to build agent-node /
+    // builder / scout completions; the mock validates it via GET /auth/me.
+    let store = post_json_rpc(
+        &rpc_base,
+        71_000,
+        "openhuman.auth_store_session",
+        json!({ "token": "e2e-test-jwt", "user_id": "e2e-user" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store, "store_session");
+
+    // ── 1. flows_discover: the scout scripts a suggest_workflows tool call ──
+    clear_forced_chat_completions();
+    with_chat_completion_requests(|requests| requests.clear());
+    // Turn 1: emit the terminal `suggest_workflows` tool call. Turn 2: a plain
+    // reply ends the scout's tool loop. Both gate on "suggest_workflows" (present
+    // in the scout's tool schema every turn, absent from every other agent).
+    push_forced_chat_completion_when(
+        "suggest_workflows",
+        forced_tool_call_completion(
+            "suggest_workflows",
+            json!({
+                "suggestions": [{
+                    "title": "Weekly research brief",
+                    "one_liner": "Plan then draft a research brief on a topic each week.",
+                    "rationale": "Your recent threads keep asking for structured research briefs.",
+                    "build_prompt": "Build a workflow where a reasoning model plans a research brief and a chat model drafts it."
+                }]
+            }),
+        ),
+    );
+    push_forced_chat_completion_when(
+        "suggest_workflows",
+        forced_text_completion("Recorded one workflow suggestion for you."),
+    );
+
+    let discover = post_json_rpc(&rpc_base, 71_001, "openhuman.flows_discover", json!({})).await;
+    let discovered = peel_logs_envelope(assert_no_jsonrpc_error(&discover, "flows_discover"))
+        .as_array()
+        .cloned()
+        .expect("flows_discover returns a suggestions array");
+    assert!(
+        discovered
+            .iter()
+            .any(|s| s.get("title").and_then(Value::as_str) == Some("Weekly research brief")),
+        "scripted suggestion should be returned by flows_discover: {discovered:?}"
+    );
+
+    // The suggestion must have persisted — assert via the independent list path.
+    let listed = post_json_rpc(
+        &rpc_base,
+        71_002,
+        "openhuman.flows_list_suggestions",
+        json!({ "status": "new" }),
+    )
+    .await;
+    let listed = peel_logs_envelope(assert_no_jsonrpc_error(&listed, "flows_list_suggestions"))
+        .as_array()
+        .cloned()
+        .expect("flows_list_suggestions returns an array");
+    assert!(
+        listed
+            .iter()
+            .any(|s| s.get("title").and_then(Value::as_str) == Some("Weekly research brief")),
+        "scripted suggestion should be persisted: {listed:?}"
+    );
+
+    // ── 2. flows_build: the builder scripts a propose_workflow tool call ──
+    clear_forced_chat_completions();
+    with_chat_completion_requests(|requests| requests.clear());
+    let demo_graph = opus_sonnet_demo_graph();
+    // Turn 1: propose the demo graph. Turn 2: a plain reply ends the builder's
+    // loop. Both gate on "propose_workflow" (in the builder's tool schema every
+    // turn, absent from the scout / plain agent nodes).
+    push_forced_chat_completion_when(
+        "propose_workflow",
+        forced_tool_call_completion(
+            "propose_workflow",
+            json!({
+                "name": "Research brief (Opus plans, Sonnet drafts)",
+                "graph": demo_graph.clone()
+            }),
+        ),
+    );
+    push_forced_chat_completion_when(
+        "propose_workflow",
+        forced_text_completion("Here's a research-brief workflow: Opus plans, Sonnet drafts."),
+    );
+
+    let build = post_json_rpc(
+        &rpc_base,
+        71_010,
+        "openhuman.flows_build",
+        json!({
+            "mode": "create",
+            "instruction": "Build a research brief workflow where a reasoning model plans and a chat model drafts."
+        }),
+    )
+    .await;
+    let build_out = peel_logs_envelope(assert_no_jsonrpc_error(&build, "flows_build"));
+    let proposal = build_out
+        .get("proposal")
+        .filter(|p| !p.is_null())
+        .expect("flows_build returns a non-null proposal");
+    assert_eq!(
+        proposal.get("type").and_then(Value::as_str),
+        Some("workflow_proposal")
+    );
+    let proposed_ids: Vec<&str> = proposal
+        .pointer("/graph/nodes")
+        .and_then(Value::as_array)
+        .expect("proposal graph has nodes")
+        .iter()
+        .filter_map(|n| n.get("id").and_then(Value::as_str))
+        .collect();
+    assert!(
+        proposed_ids.contains(&"planner") && proposed_ids.contains(&"drafter"),
+        "proposal graph must carry the agent nodes: {proposed_ids:?}"
+    );
+
+    // ── 3. flows_create + flows_run: the saved graph runs its agent nodes ──
+    clear_forced_chat_completions();
+    with_chat_completion_requests(|requests| requests.clear());
+    with_chat_completion_models(|models| models.clear());
+
+    let create = post_json_rpc(
+        &rpc_base,
+        71_020,
+        "openhuman.flows_create",
+        json!({ "name": "Research brief (e2e)", "graph": demo_graph.clone() }),
+    )
+    .await;
+    let flow_id = peel_logs_envelope(assert_no_jsonrpc_error(&create, "flows_create"))
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("flow id from flows_create")
+        .to_string();
+
+    // Planner (reasoning tier, structured): return the `{plan, angle}` object.
+    // The plan carries a marker so the drafter request can be proven to reference
+    // it. Gated on "research lead" — unique to the planner's rendered prompt.
+    push_forced_chat_completion_when(
+        "research lead",
+        forced_text_completion(
+            "{\"plan\":\"PLAN_MARKER: interview 3 experts, survey the literature, synthesize findings.\",\"angle\":\"a contrarian systems view\"}",
+        ),
+    );
+    // Drafter (chat tier, plain text). Gated on "polished research brief" — unique
+    // to the drafter's rendered prompt.
+    push_forced_chat_completion_when(
+        "polished research brief",
+        forced_text_completion("DRAFT_MARKER: a polished research brief distilled from the plan."),
+    );
+
+    let run = post_json_rpc(
+        &rpc_base,
+        71_021,
+        "openhuman.flows_run",
+        json!({ "id": flow_id, "input": { "topic": "renewable microgrids" } }),
+    )
+    .await;
+    let run_out = peel_logs_envelope(assert_no_jsonrpc_error(&run, "flows_run"));
+    assert!(
+        run_out
+            .get("pending_approvals")
+            .and_then(Value::as_array)
+            .is_some_and(|a| a.is_empty()),
+        "run should complete with no pending approvals: {run_out}"
+    );
+    let output_str = run_out.get("output").expect("run output present").to_string();
+    assert!(
+        output_str.contains("PLAN_MARKER") && output_str.contains("DRAFT_MARKER"),
+        "run output should carry the planner's plan and the drafter's text: {output_str}"
+    );
+
+    // Assert the two agent-node completions routed to the expected managed tiers
+    // and that the planner's structured plan flowed into the drafter's prompt.
+    let requests = with_chat_completion_requests(|requests| requests.clone());
+    let body_of = |r: &Value| r.get("body").map(Value::to_string).unwrap_or_default();
+    let planner_req = requests
+        .iter()
+        .find(|r| body_of(r).contains("research lead"))
+        .cloned()
+        .expect("planner completion should have been captured");
+    assert_eq!(
+        planner_req.get("model").and_then(Value::as_str),
+        Some("reasoning-v1"),
+        "planner node (reasoning tier) must resolve to reasoning-v1"
+    );
+    let drafter_req = requests
+        .iter()
+        .find(|r| body_of(r).contains("polished research brief"))
+        .cloned()
+        .expect("drafter completion should have been captured");
+    assert_eq!(
+        drafter_req.get("model").and_then(Value::as_str),
+        Some("chat-v1"),
+        "drafter node (chat tier) must resolve to chat-v1"
+    );
+    assert!(
+        body_of(&drafter_req).contains("PLAN_MARKER"),
+        "drafter prompt must reference the planner's structured plan (graph data passing)"
+    );
+
+    // Hygiene: never let a leftover scripted completion bleed into another test
+    // sharing this process (the FIFO is a process-global static).
+    clear_forced_chat_completions();
+    mock_join.abort();
+    rpc_join.abort();
+}
+
 /// Approval park + DENY over JSON-RPC (issue G4): a gate with both a `main`
 /// edge (→ `downstream`) and an `error` edge (→ `recover`). Resuming with the
 /// gate in `rejections` routes the denied gate's error item to `recover`, and

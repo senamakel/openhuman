@@ -53,12 +53,12 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
       - name: Cache pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -78,7 +78,7 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
@@ -92,7 +92,7 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git submodule update --init vendor/tinychannels
       - name: Cache pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -106,7 +106,7 @@ jobs:
           NODE_ENV: test
       - name: Upload coverage reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage
@@ -125,7 +125,7 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
@@ -148,12 +148,12 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     env:
-      CARGO_INCREMENTAL: '0'
-      SCCACHE_GHA_ENABLED: 'true'
+      CARGO_INCREMENTAL: "0"
+      SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: sccache
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
@@ -192,7 +192,7 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
@@ -208,7 +208,7 @@ jobs:
           cache-on-failure: true
           key: tauri
       - name: Cache CEF binary distribution
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/tauri-cef
           key: cef-ubuntu-22.04-${{ hashFiles('app/src-tauri/Cargo.toml') }}

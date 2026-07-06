@@ -814,6 +814,12 @@ pub fn all_tools_with_runtime(
         action_dir,
     ));
 
+    // Managed cloud file storage (S3 via the backend). Skipped when no
+    // integration client is configured; downloads land under `action_dir`.
+    tools.extend(
+        crate::openhuman::file_storage::build_file_storage_tools(root_config, action_dir),
+    );
+
     // High-level web3 tools (swaps / bridges / dapp calls) built on the wallet.
     // They call the backend deBridge proxy per-invocation and error gracefully
     // when the user is not signed in, so they register unconditionally.

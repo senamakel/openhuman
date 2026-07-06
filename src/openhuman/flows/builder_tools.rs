@@ -809,9 +809,18 @@ impl Tool for ListAgentProfilesTool {
 /// diagnostic on a **`tool_call` node's `args.*` location** is collected; any
 /// hit fails the dry run with `ok: false` and the offending
 /// `{ node_id, location, expression }` list, rather than reporting `ok: true`
-/// for a graph that would silently no-op. Diagnostics on `agent`-node prompt
-/// expressions (or any non-`tool_call` node) are NOT fatal here — a null in
-/// prose is not execution-breaking the way a null tool arg is.
+/// for a graph that would silently no-op. Diagnostics on any OTHER
+/// `agent`-node config subfield are NOT fatal here — a null there degrades
+/// output quality but doesn't break execution the way a null tool arg does.
+///
+/// **Agent-prompt null check:** the ONE `agent`-node diagnostic that IS fatal
+/// is a null-resolved **`prompt` itself** (`location == "prompt"`) — `prompt`
+/// is the node's only input channel to the completion, so a `null` there
+/// means the agent runs with a completely EMPTY prompt (the root-cause bug
+/// `config.input_context` and `ops::validate_binding_resolvability`'s static
+/// gate both exist to prevent). Collected separately into
+/// `agent_prompt_nulls` (`{ node_id, location, expression, suggestion }`) and
+/// added to the same `ok: false` condition as `null_resolutions`.
 ///
 /// **`on_error: continue`/`route` does not mask a `tool_call` failure either.**
 /// Those policies convert an executor error (e.g. the required-arg preflight
@@ -959,6 +968,18 @@ impl Tool for DryRunWorkflowTool {
             .map(|node| node.id.as_str())
             .collect();
 
+        // Which node ids are `agent` nodes — scoped narrowly to the ONE
+        // execution-breaking agent diagnostic: a null-resolved `prompt`
+        // itself (see the struct doc's "agent prompt nulls" section). Every
+        // OTHER agent-config subfield (e.g. a null inside `tools` args) stays
+        // non-fatal here, same as before.
+        let agent_node_ids: std::collections::HashSet<&str> = graph
+            .nodes
+            .iter()
+            .filter(|node| node.kind == tinyflows::model::NodeKind::Agent)
+            .map(|node| node.id.as_str())
+            .collect();
+
         // Capture every node's execution diagnostics (null-resolved
         // `=`-expressions the engine itself traced — see
         // `tinyflows::expr::resolve_traced`) as the sandbox run executes, so
@@ -1010,6 +1031,34 @@ impl Tool for DryRunWorkflowTool {
             })
             .collect();
 
+        // Collect every null-resolved `agent`-node `prompt` — execution-
+        // breaking in the same way a null `tool_call` arg is: `prompt` is the
+        // node's ONLY input channel to the completion, so a `null` there
+        // means the agent runs with an EMPTY prompt (the exact root-cause bug
+        // `input_context` — and the static gate in
+        // `ops::validate_binding_resolvability` — exist to prevent). Scoped
+        // to the `location == "prompt"` diagnostic specifically: other
+        // agent-config subfields (e.g. a null buried in `tools` args) stay
+        // non-fatal here, same as before this check existed.
+        let agent_prompt_nulls: Vec<Value> = observer
+            .steps()
+            .iter()
+            .filter(|step| agent_node_ids.contains(step.node_id.as_str()))
+            .flat_map(|step| {
+                step.diagnostics.iter().filter_map(|diag| {
+                    (diag.location == "prompt").then(|| {
+                        json!({
+                            "node_id": step.node_id,
+                            "location": diag.location,
+                            "expression": diag.expression,
+                            "suggestion": "Feed upstream data via input_context:\"=item\" and \
+                                make the prompt a plain instruction.",
+                        })
+                    })
+                })
+            })
+            .collect();
+
         // Collect every `tool_call` node whose EXECUTOR errored (e.g. the
         // Composio required-arg preflight rejecting a missing/null arg) —
         // regardless of that node's `on_error` policy. A `"continue"`/`"route"`
@@ -1052,26 +1101,34 @@ impl Tool for DryRunWorkflowTool {
             node_count = graph.nodes.len(),
             pending_approvals = outcome.pending_approvals.len(),
             null_resolution_count = null_resolutions.len(),
+            agent_prompt_null_count = agent_prompt_nulls.len(),
             node_error_count = node_errors.len(),
             "[flows] dry_run_workflow: sandbox run finished"
         );
 
-        if !null_resolutions.is_empty() || !node_errors.is_empty() {
+        if !null_resolutions.is_empty() || !agent_prompt_nulls.is_empty() || !node_errors.is_empty()
+        {
             tracing::debug!(
                 target: "flows",
                 ?null_resolutions,
+                ?agent_prompt_nulls,
                 ?node_errors,
-                "[flows] dry_run_workflow: tool_call issue(s) found — failing the dry run"
+                "[flows] dry_run_workflow: tool_call/agent-prompt issue(s) found — failing the \
+                 dry run"
             );
             return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
                 "sandbox": true,
                 "ok": false,
                 "null_resolutions": null_resolutions,
+                "agent_prompt_nulls": agent_prompt_nulls,
                 "node_errors": node_errors,
-                "message": "These tool_call args resolved to null, or a tool_call node failed \
-                    during the sandbox run (even one recovered via on_error: continue/route) — \
-                    wire null-resolved args from an upstream node's real output (give any agent \
-                    node an output_parser.schema so its fields are addressable), and fix or \
+                "message": "These tool_call args resolved to null, an agent node's prompt \
+                    resolved to null (an EMPTY prompt — see agent_prompt_nulls), or a tool_call \
+                    node failed during the sandbox run (even one recovered via on_error: \
+                    continue/route) — wire null-resolved args from an upstream node's real \
+                    output (give any agent node an output_parser.schema so its fields are \
+                    addressable), feed upstream data into a null-resolved agent prompt via \
+                    input_context instead of a jq expression inside the prompt text, and fix or \
                     rewire whatever tool_call node_errors names.",
             }))?));
         }
@@ -1082,6 +1139,7 @@ impl Tool for DryRunWorkflowTool {
             "output": outcome.output,
             "pending_approvals": outcome.pending_approvals,
             "null_resolutions": null_resolutions,
+            "agent_prompt_nulls": agent_prompt_nulls,
             "node_errors": node_errors,
             "note": "SANDBOX (mock) output — LLM/tool/HTTP/code nodes returned deterministic echoes; NO real side effects occurred. This checks wiring/routing only, not whether real integrations work.",
         }))?))

@@ -119,10 +119,16 @@ connected, `list_flow_connections` → build the `tool_call` node with the real
      `=nodes.<agent_id>.item.json.<field>` binding reads MUST declare
      `config.output_parser.schema` naming that field under `properties`. No
      schema ⇒ the agent's item is `{text: "..."}` and the binding is null.
-   - If `dry_run_workflow` reports `"ok": false` with a `null_resolutions`
-     list, **fix every one** before proposing — add the missing schema, or
-     rewire the expression to a real upstream field. Don't propose/save a
-     graph `dry_run_workflow` flagged.
+   - Every `agent` node needs its data fed via `config.input_context`
+     (`"=item"` / `"=items"` / `"=nodes.<id>.item.json"`), with `config.prompt`
+     left as a plain instruction — never a `.item`/`nodes.` reference woven
+     into prose. `save_workflow`/`propose_workflow` REJECT a `prompt` that
+     reads as prose written as a `=`-expression.
+   - If `dry_run_workflow` reports `"ok": false` with a `null_resolutions` or
+     `agent_prompt_nulls` list, **fix every one** before proposing — add the
+     missing schema, move data into `input_context`, or rewire the expression
+     to a real upstream field. Don't propose/save a graph `dry_run_workflow`
+     flagged.
 5. **`propose_workflow`** (first draft) or **`revise_workflow`** (iterating on a
    prior draft — apply the change to the existing graph, don't regenerate from
    scratch). If validation fails, read the error, fix the graph, call again.
@@ -142,7 +148,35 @@ A `WorkflowGraph` is `{ name?, nodes: [...], edges: [...] }`.
 ### The 12 node kinds
 
 1. **`trigger`** — the entry point (`config.trigger_kind`, see triggers below).
-2. **`agent`** — an LLM step. `config.prompt` (may use `=` expressions).
+2. **`agent`** — an LLM step. **`config.input_context` carries the DATA;
+   `config.prompt` stays a PLAIN instruction — never a `=` expression.**
+   The agent has no automatic access to the upstream item; `input_context` is
+   its one data-input channel, an explicit `=`-binding you set alongside the
+   prompt:
+   - `"input_context": "=item"` — the direct predecessor's output (the common
+     case).
+   - `"input_context": "=items"` — every input item, for a fan-in/merge node
+     feeding the agent.
+   - `"input_context": "=nodes.<id>.item.json"` — a SPECIFIC upstream node by
+     id, not just the direct predecessor.
+
+   `config.prompt` is then just the instruction — "Classify the email as
+   urgent, normal, or low priority." — with **no leading `=` and no `.item`
+   woven into the sentence**. **Never embed `.item`/`nodes.<id>` in prose
+   inside `prompt`** — a jq `=`-expression built out of natural-language text
+   (e.g. `"=You are given an email: .item. Classify it..."`) is not a valid
+   jq program, silently resolves to `null`, and hands the agent an EMPTY
+   prompt. This is enforced: a `prompt` that reads as prose written as a
+   `=`-expression is REJECTED at `propose_workflow`/`save_workflow` (the
+   binding-resolvability gate) and flagged by `dry_run_workflow` as an
+   `agent_prompt_nulls` entry — fix it by moving the data into
+   `input_context` and rewriting `prompt` as plain text.
+
+   (A jq expression built from real jq syntax — e.g.
+   `"prompt": "=\"Reply to \" + .item.name"` — still works as a legacy/
+   advanced escape hatch and is not rejected; but prefer `input_context` +
+   plain prompt for anything a person would read as a sentence.)
+
    **If the agent's output feeds a `tool_call`, it MUST declare an output
    schema** — set `config.output_parser.schema` (a JSON Schema object) — so
    its emitted item is a structured object whose fields downstream nodes can
@@ -229,12 +263,14 @@ resolves to `null` silently rather than erroring. `dry_run_workflow` catches a
 null-resolved `tool_call` arg and fails with `null_resolutions`; if you see
 one, check first whether the upstream node needs `.json.` inserted.
 
-**Worked example — agent → Gmail send.** The agent must declare a schema, and
-the tool_call wires each required arg from the agent BY ID, through `.json.`:
+**Worked example — agent → Gmail send.** The agent gets its data via
+`input_context` (not woven into `prompt`), must declare a schema, and the
+tool_call wires each required arg from the agent BY ID, through `.json.`:
 
 ```json
 { "id": "extract", "kind": "agent", "config": {
-    "prompt": "=\"Extract the recipient and a reply from: \" + .item.text",
+    "input_context": "=item",
+    "prompt": "Extract the recipient email, a subject, and a reply body from the message above.",
     "output_parser": { "schema": { "type": "object",
       "required": ["email", "subject", "body"],
       "properties": { "email": {"type": "string"}, "subject": {"type": "string"}, "body": {"type": "string"} } } } } }
@@ -248,6 +284,10 @@ the tool_call wires each required arg from the agent BY ID, through `.json.`:
 Without the schema, `=nodes.extract.item.json.email` would be null (the
 agent's `.json` has no `email` key — it's just `{text: "...", ...}`) and
 `dry_run_workflow` would report it as a `null_resolutions` entry naming `to`.
+And without `input_context`, don't reach for a jq expression woven into
+`prompt` to smuggle the message in (`"=You are given an email: .item. ..."`)
+— that's prose, not jq, resolves to `null`, and both the `save_workflow` gate
+and `dry_run_workflow`'s `agent_prompt_nulls` will reject it.
 
 ### Trigger kinds — which ones actually fire
 

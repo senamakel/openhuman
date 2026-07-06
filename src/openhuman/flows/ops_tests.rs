@@ -1969,9 +1969,13 @@ fn literal_args_unaffected() {
 
 #[test]
 fn agent_prompt_binding_unaffected() {
-    // The check is scoped to `tool_call` `args` only — an agent's own
-    // config (its prompt) is never inspected, even if it references a
-    // dangling/unschemad node path.
+    // The field-addressability checks are scoped to `tool_call` `args` only
+    // — an agent's own `prompt` referencing a dangling/unschemad node path is
+    // NOT inspected for that, even though it IS inspected for the narrower
+    // "reads as prose, not jq" case (see the tests below). A simple dotted
+    // path — even one pointing at a missing node — is a real, valid
+    // expression (it just resolves to `null` at runtime, same as any other
+    // dangling reference), so it's accepted here.
     let g = graph(json!({
         "nodes": [
             { "id": "t", "kind": "trigger", "name": "Manual" },
@@ -1981,6 +1985,135 @@ fn agent_prompt_binding_unaffected() {
         "edges": [ { "from_node": "t", "to_node": "summarize" } ]
     }));
     assert!(validate_binding_resolvability(&g).is_empty());
+}
+
+// ── agent-prompt invalid-jq gate (PR C) ─────────────────────────────────────
+
+#[test]
+fn agent_prompt_prose_written_as_expression_is_rejected() {
+    // The exact live-failure shape: a builder smuggled upstream data into the
+    // prompt via a jq `=`-expression, but the result is prose, not a valid jq
+    // program — it resolves to `null` at runtime, handing the agent an empty
+    // prompt (the root-cause bug `input_context` exists to fix).
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": { "prompt": "=You are given an email: .item. Classify the following \
+                  email as urgent/normal/low priority. Return JSON with fields \"priority\" and \
+                  \"reason\"." } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    }));
+    let errors = validate_binding_resolvability(&g);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("classify"), "{}", errors[0]);
+    assert!(errors[0].contains("input_context"), "{}", errors[0]);
+}
+
+#[test]
+fn agent_prompt_jq_concatenation_is_accepted() {
+    // A real jq program built from string-literal concatenation is a
+    // legitimate, resolvable expression — not the prose failure mode above.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "greet", "kind": "agent", "name": "Greet",
+              "config": { "prompt": "=\"Hi \" + .item.name" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "greet" } ]
+    }));
+    assert!(
+        validate_binding_resolvability(&g).is_empty(),
+        "{:?}",
+        validate_binding_resolvability(&g)
+    );
+}
+
+#[test]
+fn agent_plain_prompt_is_accepted() {
+    // No leading `=` at all — an ordinary instruction string, never inspected
+    // by this gate regardless of content.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": { "prompt": "Classify the email as urgent, normal, or low priority.",
+                "input_context": "=item" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    }));
+    assert!(validate_binding_resolvability(&g).is_empty());
+}
+
+#[test]
+fn agent_prompt_with_escaped_quote_inside_jq_string_is_accepted() {
+    // Regression for the quote-toggle desync: an escaped quote (`\"`) inside
+    // a jq string literal must not flip the strip pass's `in_str` state.
+    // Before the fix, the text between the escaped quote and the string's
+    // real closing quote ("hello world") leaked out of the string-stripping
+    // pass as if it were bare jq code, tripping the "two consecutive
+    // barewords" prose heuristic and rejecting this otherwise-valid
+    // concatenation expression.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "greet", "kind": "agent", "name": "Greet",
+              "config": { "prompt": "=\"Say \\\"hello world\\\" nicely\" + .item.name" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "greet" } ]
+    }));
+    assert!(
+        validate_binding_resolvability(&g).is_empty(),
+        "{:?}",
+        validate_binding_resolvability(&g)
+    );
+}
+
+#[test]
+fn agent_prose_prompt_with_populated_messages_is_accepted() {
+    // Both runtime paths (`build_completion_messages` /
+    // `node_request_to_prompt` in `tinyflows/caps.rs`) fall through to a
+    // populated `messages` array once `prompt` resolves to `null` — exactly
+    // what this prose-as-`=`-expression prompt does. So a node with real
+    // `messages` never actually runs on the null prompt; this gate must not
+    // reject the graph for a vestigial/unused `prompt` field alongside it.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": {
+                  "prompt": "=You are given an email: .item. Classify the following email.",
+                  "messages": [ { "role": "user", "content": "Classify this email." } ]
+              } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    }));
+    assert!(
+        validate_binding_resolvability(&g).is_empty(),
+        "{:?}",
+        validate_binding_resolvability(&g)
+    );
+}
+
+#[test]
+fn agent_prose_prompt_with_empty_messages_is_still_rejected() {
+    // An empty `messages` array doesn't supply the turn at runtime (both
+    // `build_completion_messages` and `node_request_to_prompt` treat an empty
+    // array the same as absent) — the prose-prompt gate must still apply.
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": {
+                  "prompt": "=You are given an email: .item. Classify the following email.",
+                  "messages": []
+              } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    }));
+    let errors = validate_binding_resolvability(&g);
+    assert_eq!(errors.len(), 1, "{errors:?}");
 }
 
 #[test]

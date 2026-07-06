@@ -687,6 +687,86 @@ async fn dry_run_passes_when_agent_enum_schema_binds_to_tool_call() {
 }
 
 #[tokio::test]
+async fn dry_run_flags_null_resolved_agent_prompt() {
+    // The exact root-cause bug PR A/B/C exist to catch: `prompt` itself is a
+    // `=`-expression that reads as prose, not a valid jq program — the
+    // vendored engine's own `resolve_traced` records it as a null resolution
+    // at `location: "prompt"`, meaning the agent would run with an EMPTY
+    // prompt. Unlike other agent-config nulls, this one must fail the dry run.
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": { "prompt": "=You are given an email: .item. Classify the following \
+                  email as urgent/normal/low priority." } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    });
+
+    let result = tool.execute(json!({ "graph": graph })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(
+        parsed["ok"], false,
+        "a null-resolved agent prompt must fail the dry run: {parsed}"
+    );
+    let agent_prompt_nulls = parsed["agent_prompt_nulls"]
+        .as_array()
+        .expect("agent_prompt_nulls array");
+    assert_eq!(agent_prompt_nulls.len(), 1, "{parsed}");
+    assert_eq!(agent_prompt_nulls[0]["node_id"], "classify");
+    assert_eq!(agent_prompt_nulls[0]["location"], "prompt");
+    assert!(
+        agent_prompt_nulls[0]["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("input_context"),
+        "{parsed}"
+    );
+    assert!(
+        parsed["message"]
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .contains("input_context"),
+        "{parsed}"
+    );
+}
+
+#[tokio::test]
+async fn dry_run_passes_when_agent_uses_input_context_instead_of_prompt_expression() {
+    // The FALSE-POSITIVE-PREVENTION case: the same data need, wired the
+    // correct way — `input_context` carries the upstream item, `prompt`
+    // stays a plain instruction with no leading `=`. This must dry-run green.
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "classify", "kind": "agent", "name": "Classify",
+              "config": { "prompt": "Classify the email as urgent, normal, or low priority.",
+                "input_context": "=item" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "classify" } ]
+    });
+
+    let result = tool.execute(json!({ "graph": graph })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["ok"], true, "{parsed}");
+    assert!(
+        parsed["agent_prompt_nulls"].as_array().unwrap().is_empty(),
+        "{parsed}"
+    );
+}
+
+#[tokio::test]
 async fn revise_workflow_warns_on_unwired_required_composio_arg() {
     let mut entries = std::collections::HashMap::new();
     entries.insert(

@@ -135,6 +135,7 @@ import {
   getInlineCompletionSuffix,
 } from '../../features/conversations/utils/format';
 import { GENERAL_TAB_VALUE, isThreadVisibleInTab } from '../../features/conversations/utils/threadFilter';
+import { buildThreadTimeline } from './timeline/selectors';
 
 const CHAT_MODEL_HINT = 'hint:chat';
 /** Maximum trailing characters rendered in the live-streaming assistant
@@ -1667,6 +1668,27 @@ const Conversations = ({
   const latestVisibleAgentMessage = [...visibleMessages]
     .reverse()
     .find(msg => msg.sender === 'agent');
+  // Message list sourced from the unified timeline projection — the single
+  // source of render order (see `docs/plans/conversations-timeline-refactor.md`
+  // Phase 2). With the streaming/tool inputs omitted the projection yields
+  // exactly the visible messages in order; the tool-timeline block and streaming
+  // previews stay anchored inline below, so the rendered DOM is unchanged. This
+  // routes the live render loop through the projection ahead of the per-turn
+  // grouping in Phase 5.
+  const timelineMessages = useMemo(
+    () =>
+      buildThreadTimeline({
+        threadId: selectedThreadId ?? '',
+        messages: visibleMessages,
+        toolTimeline: [],
+        streaming: null,
+        parallelStreams: [],
+        hideAgentInsights: false,
+      })
+        .map(item => ('message' in item ? item.message : null))
+        .filter((message): message is ThreadMessage => message !== null),
+    [selectedThreadId, visibleMessages]
+  );
   const activeSubagentTimelineEntry = selectedThreadToolTimeline.find(
     entry => entry.status === 'running' && entry.name.startsWith('subagent:')
   );
@@ -2208,7 +2230,7 @@ const Conversations = ({
             // queued-followups panel and other dynamic footer content never
             // overlap the last message (#4268).
             style={!isSidebar ? { paddingBottom: composerFooterHeight + 16 } : undefined}>
-            {visibleMessages.map(msg => {
+            {timelineMessages.map(msg => {
               const isAgentTextMode = msg.sender === 'agent' && agentMessageViewMode === 'text';
               // Parsed once per message: for current messages (extraMetadata
               // present, or agent messages) msg.content already has no markers,

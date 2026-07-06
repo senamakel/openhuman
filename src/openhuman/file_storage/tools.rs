@@ -620,6 +620,10 @@ impl Tool for StorageGetLinkTool {
         ToolCategory::Workflow
     }
 
+    fn external_effect(&self) -> bool {
+        true
+    }
+
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
         let file_id = match validate_file_id(&args) {
             Ok(id) => id,

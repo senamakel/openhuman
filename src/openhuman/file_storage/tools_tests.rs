@@ -67,6 +67,7 @@ fn get_link_tool_schema_and_metadata() {
     assert_eq!(tool.name(), "storage_get_link");
     assert_eq!(tool.permission_level(), PermissionLevel::ReadOnly);
     assert_eq!(tool.category(), ToolCategory::Workflow);
+    assert!(tool.external_effect());
 
     let schema = tool.parameters_schema();
     assert_eq!(schema["required"], json!(["file_id"]));

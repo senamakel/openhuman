@@ -273,7 +273,10 @@ async fn dry_run_exercises_agent_ref_node_via_mock_agent_runner() {
     assert!(!result.is_error, "{}", result.output());
     let parsed: Value = serde_json::from_str(&result.output()).unwrap();
     assert_eq!(parsed["sandbox"], true);
-    assert_eq!(parsed["ok"], true, "agent_ref dry-run must be green: {parsed}");
+    assert_eq!(
+        parsed["ok"], true,
+        "agent_ref dry-run must be green: {parsed}"
+    );
 }
 
 #[tokio::test]

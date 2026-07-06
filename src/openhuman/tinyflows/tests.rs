@@ -564,10 +564,7 @@ fn harness_model_default_override_normalises_tiers_to_hint_roles() {
         "hint:reasoning"
     );
     // Unrecognised strings map to the chat workload (matches OpenHumanLlm).
-    assert_eq!(
-        harness_model_default_override("openai:gpt-4o"),
-        "hint:chat"
-    );
+    assert_eq!(harness_model_default_override("openai:gpt-4o"), "hint:chat");
 }
 
 #[test]
@@ -623,7 +620,9 @@ fn build_agent_result_shapes_structured_vs_prose() {
 fn route_for_agent_ref_selects_harness_for_definitions_else_fallback() {
     // Ensure the global registry is populated (idempotent no-op if another test
     // already initialised it; builtins are always present either way).
-    let _ = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
+    let _ =
+        crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins(
+        );
 
     // A shipped harness definition → full-loop harness path.
     assert_eq!(route_for_agent_ref("workflow_builder"), AgentRoute::Harness);

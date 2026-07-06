@@ -13050,7 +13050,10 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
             .is_some_and(|a| a.is_empty()),
         "run should complete with no pending approvals: {run_out}"
     );
-    let output_str = run_out.get("output").expect("run output present").to_string();
+    let output_str = run_out
+        .get("output")
+        .expect("run output present")
+        .to_string();
     assert!(
         output_str.contains("PLAN_MARKER") && output_str.contains("DRAFT_MARKER"),
         "run output should carry the planner's plan and the drafter's text: {output_str}"

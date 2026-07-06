@@ -268,7 +268,9 @@ async fn live_flows_demo_discover_build_save_run() {
     for s in &suggestions {
         println!(
             "  • {}  —  {}",
-            s.get("title").and_then(Value::as_str).unwrap_or("<untitled>"),
+            s.get("title")
+                .and_then(Value::as_str)
+                .unwrap_or("<untitled>"),
             s.get("one_liner").and_then(Value::as_str).unwrap_or("")
         );
     }
@@ -301,7 +303,10 @@ async fn live_flows_demo_discover_build_save_run() {
                 .unwrap_or_default();
             println!(
                 "builder proposed '{}' with nodes {:?}",
-                proposal.get("name").and_then(Value::as_str).unwrap_or("<unnamed>"),
+                proposal
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("<unnamed>"),
                 node_kinds
             );
         }
@@ -366,7 +371,10 @@ async fn live_flows_demo_discover_build_save_run() {
                 .cloned()
                 .unwrap_or(Value::Null);
             println!("\n[node {node_id}]");
-            println!("  {}", serde_json::to_string_pretty(&item).unwrap_or_default());
+            println!(
+                "  {}",
+                serde_json::to_string_pretty(&item).unwrap_or_default()
+            );
         }
     }
     println!("\nmodels used: planner→reasoning-v1, drafter→chat-v1 (per node config.model)");
@@ -382,7 +390,10 @@ async fn live_flows_demo_discover_build_save_run() {
     let run_row = peel_logs_envelope(assert_no_jsonrpc_error(&run_row, "flows_get_run"));
     println!(
         "\nrun status: {}",
-        run_row.get("status").and_then(Value::as_str).unwrap_or("<unknown>")
+        run_row
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("<unknown>")
     );
 
     println!("\n=== live flows demo complete ===\n");

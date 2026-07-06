@@ -567,7 +567,9 @@ pub(crate) fn structured_output_instruction(request: &Value) -> Option<String> {
         .and_then(|p| p.get("schema"))
         .filter(|s| !s.is_null())
     {
-        instruction.push_str(&format!(" The object must match this JSON Schema:\n{schema}"));
+        instruction.push_str(&format!(
+            " The object must match this JSON Schema:\n{schema}"
+        ));
     }
     Some(instruction)
 }
@@ -642,7 +644,8 @@ impl AgentRunner for OpenHumanAgentRunner {
                     "[flows] agent_runner: FALLBACK path — persona-shaping single completion for a \
                      custom registry entry"
                 );
-                self.run_via_registry_fallback(agent_ref, request, conn).await
+                self.run_via_registry_fallback(agent_ref, request, conn)
+                    .await
             }
         }
     }

@@ -1720,7 +1720,9 @@ impl FlowStreamTarget {
     /// is filled with a fresh uuid so the turn is always correlatable. Returns
     /// `None` (headless run, prior behaviour) when no usable `thread_id`.
     pub fn from_params(thread_id: Option<String>, request_id: Option<String>) -> Option<Self> {
-        let thread_id = thread_id.map(|t| t.trim().to_string()).filter(|t| !t.is_empty())?;
+        let thread_id = thread_id
+            .map(|t| t.trim().to_string())
+            .filter(|t| !t.is_empty())?;
         let request_id = request_id
             .map(|r| r.trim().to_string())
             .filter(|r| !r.is_empty())
@@ -1775,7 +1777,11 @@ fn attach_flow_progress_bridge(
 /// path, so segmentation/reaction match a normal turn), a failure publishes a
 /// `chat_error`. Broadcast as `"system"` so any viewer of the thread receives
 /// it (frontend keys by `thread_id`).
-async fn finalize_flow_stream(target: &FlowStreamTarget, result: &Result<String, String>, prompt: &str) {
+async fn finalize_flow_stream(
+    target: &FlowStreamTarget,
+    result: &Result<String, String>,
+    prompt: &str,
+) {
     match result {
         Ok(text) => {
             crate::openhuman::channels::providers::web::presentation::deliver_response(

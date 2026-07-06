@@ -697,18 +697,27 @@ impl Agent {
                 // For cloud reflection, wrap the provider in an Arc.
                 // For local, no provider needed.
                 let reflection_provider: Option<
-                    Arc<dyn crate::openhuman::inference::provider::Provider>,
+                    Arc<dyn tinyagents::harness::model::ChatModel<()>>,
                 > = if config.learning.reflection_source
                     == crate::openhuman::config::ReflectionSource::Cloud
                 {
-                    Some(Arc::from(provider::create_routed_provider(
+                    // Reflection always calls with the `hint:reasoning` route +
+                    // 0.3 temperature (formerly `simple_chat(prompt,
+                    // "hint:reasoning", 0.3)`), so bake both into the wrapped
+                    // model. The routed provider still resolves the hint per call.
+                    let routed = provider::create_routed_provider(
                         config.inference_url.as_deref(),
                         config.api_url.as_deref(),
                         config.api_key.as_deref(),
                         &config.reliability,
                         &config.model_routes,
                         &model_name,
-                    )?))
+                    )?;
+                    Some(provider::chat_model_from_provider(
+                        routed,
+                        "hint:reasoning".to_string(),
+                        0.3,
+                    ))
                 } else {
                     None
                 };

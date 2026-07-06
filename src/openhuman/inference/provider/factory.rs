@@ -922,7 +922,7 @@ pub fn create_chat_model_with_model_id(
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     let (provider, model) = create_chat_provider(role, config)?;
-    let chat = chat_model_from_boxed_provider(provider, model.clone(), temperature);
+    let chat = chat_model_from_provider(provider, model.clone(), temperature);
     Ok((chat, model))
 }
 
@@ -937,18 +937,20 @@ pub fn create_chat_model_from_string(
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
     let (provider, model) = create_chat_provider_from_string(role, provider, config)?;
-    Ok(chat_model_from_boxed_provider(provider, model, temperature))
+    Ok(chat_model_from_provider(provider, model, temperature))
 }
 
 /// Wrap an owned [`Provider`] as an `Arc<dyn ChatModel>` pinned to
 /// `model`/`temperature`.
 ///
 /// The single seam where a boxed provider becomes the crate model interface.
-/// As consumers migrate off `Box<dyn Provider>` this stays the only conversion
-/// point, shrinking toward the Phase 1 exit criterion (`ProviderModel`
-/// constructed in exactly one place) and, ultimately, the `Provider` trait's
-/// deletion in Phase 4.
-fn chat_model_from_boxed_provider(
+/// As consumers migrate off `Box<dyn Provider>` this stays the conversion point,
+/// shrinking toward the Phase 1 exit criterion (`ProviderModel` constructed in
+/// exactly one place) and, ultimately, the `Provider` trait's deletion in
+/// Phase 4. Exposed `pub(crate)` so a caller that must build a specific provider
+/// itself (e.g. the LinkedIn enrichment path, which deliberately forces the
+/// managed backend) can still hand back a `ChatModel` without naming the trait.
+pub(crate) fn chat_model_from_provider(
     provider: Box<dyn Provider>,
     model: String,
     temperature: f64,

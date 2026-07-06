@@ -88,7 +88,6 @@ pub(super) fn build_route_models(
     provider: &Arc<dyn Provider>,
     temperature: f64,
     skip_model: &str,
-    max_output_tokens: Option<u32>,
     // Shared provider-usage carry (#4467): fallback route models must drain the
     // SAME carry the bridge reads, or a successful fallback call never feeds its
     // backend-charged USD / context-window / cache-creation-reasoning breakdown
@@ -115,9 +114,10 @@ pub(super) fn build_route_models(
             .with_vision(vision)
             .with_reasoning(reasoning)
             .with_usage_carry(usage_carry.clone());
-        if let Some(cap) = max_output_tokens {
-            model = model.with_max_tokens(cap);
-        }
+        // The per-turn output cap now rides `RunConfig.max_turn_output_tokens`
+        // (Phase 5 groundwork): the loop stamps it onto every `ModelRequest`, so
+        // route models no longer bake it in — they carry only model identity +
+        // capability profile.
         if let Some(window) = window.filter(|w| *w > 0) {
             model = model.with_context_window(window);
         }

@@ -446,7 +446,6 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         None,          // subagent_scope: top-level turn
         Some(200_000), // known context window → compression + trim install
         &["ask_user_clarification"],
-        Some(1024),
         TurnContextMiddleware::defaults(),
         None,  // no builder tool policy on this path
         None,  // no per-turn required capabilities
@@ -553,7 +552,13 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     assert!(profile.tool_calling, "EchoThenDone supports native tools");
     assert!(!profile.modalities.image_in, "no vision on the mock");
     assert_eq!(profile.max_input_tokens, Some(200_000), "context window");
-    assert_eq!(profile.max_output_tokens, Some(1024), "output cap");
+    // The per-turn output cap now rides `RunConfig.max_turn_output_tokens`
+    // (Phase 5 groundwork), not the model profile, so the profile carries no
+    // output cap.
+    assert_eq!(
+        profile.max_output_tokens, None,
+        "output cap rides RunConfig"
+    );
 }
 
 /// The context-management middlewares gate on a known context window: without
@@ -578,7 +583,6 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         None,
         None, // unknown context window
         &[],  // no early-exit tools
-        None,
         TurnContextMiddleware::defaults(),
         None,
         None,  // no per-turn required capabilities

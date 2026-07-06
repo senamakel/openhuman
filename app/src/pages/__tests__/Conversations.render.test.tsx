@@ -28,6 +28,7 @@ import chatRuntimeReducer, {
   setPendingPlanReviewForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
+  setTurnTimelinesForThread,
 } from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
 import socketReducer from '../../store/socketSlice';
@@ -77,6 +78,7 @@ vi.mock('../../services/api/threadApi', () => ({
     getThreads: mockGetThreads,
     getThreadMessages: mockGetThreadMessages,
     getTurnState: vi.fn().mockResolvedValue(null),
+    getTurnStateHistory: vi.fn().mockResolvedValue([]),
     getTaskBoard: vi
       .fn()
       .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
@@ -598,6 +600,79 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       'Long agent output with enough structure to prefer a text view.'
     );
     expect(screen.getByText('Can you summarize this?')).toBeInTheDocument();
+  });
+
+  it('renders a past turn\'s process trail above the answer it produced (Phase 5)', async () => {
+    const thread = makeThread({ id: 'multi-turn-thread', title: 'Multi Turn' });
+    // Two turns: req-1 (older) and req-2 (latest). Only the older turn has a
+    // hydrated past-turn timeline (the latest renders as the live anchor).
+    const messages: ThreadMessage[] = [
+      {
+        id: 'u1',
+        sender: 'user',
+        type: 'text',
+        content: 'first question',
+        extraMetadata: { requestId: 'req-1' },
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'a1',
+        sender: 'agent',
+        type: 'text',
+        content: 'first answer',
+        extraMetadata: { requestId: 'req-1' },
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+      {
+        id: 'u2',
+        sender: 'user',
+        type: 'text',
+        content: 'second question',
+        extraMetadata: { requestId: 'req-2' },
+        createdAt: '2026-01-01T00:02:00.000Z',
+      },
+      {
+        id: 'a2',
+        sender: 'agent',
+        type: 'text',
+        content: 'second answer',
+        extraMetadata: { requestId: 'req-2' },
+        createdAt: '2026-01-01T00:03:00.000Z',
+      },
+    ];
+    mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
+    mockGetThreadMessages.mockResolvedValue({ messages, count: messages.length });
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...selectedThreadState(thread),
+          messagesByThreadId: { [thread.id]: messages },
+          messages,
+        },
+        socket: socketState('connected'),
+      });
+    });
+
+    // No past-turn trail before hydration.
+    expect(screen.queryByTestId('past-turn-insights')).not.toBeInTheDocument();
+
+    // Hydrate the older turn's timeline (as fetchAndHydrateTurnHistory would).
+    await act(async () => {
+      store!.dispatch(
+        setTurnTimelinesForThread({
+          threadId: thread.id,
+          timelines: {
+            'req-1': [{ id: 'tc-1', name: 'read_file', round: 0, status: 'success' }],
+          },
+        })
+      );
+    });
+
+    // The past turn's block now renders exactly once, above its answer.
+    const blocks = await screen.findAllByTestId('past-turn-insights');
+    expect(blocks).toHaveLength(1);
   });
 
   it('keeps bubble mode interactions for assistant citations, copy, and reactions', async () => {

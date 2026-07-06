@@ -566,6 +566,15 @@ interface ChatRuntimeState {
   parallelRequestThreads: Record<string, string>;
   toolTimelineByThread: Record<string, ToolTimelineEntry[]>;
   /**
+   * Per-turn tool timelines for *past* (settled) turns of a thread, keyed
+   * `threadId -> requestId -> entries`. Hydrated from `turn_state_history` on
+   * thread open so each past answer keeps its own process trail (Phase 4/5),
+   * instead of only the latest turn's live timeline in
+   * {@link toolTimelineByThread}. The live turn is intentionally excluded (its
+   * rows live in `toolTimelineByThread` and are driven by the socket stream).
+   */
+  turnTimelinesByThread: Record<string, Record<string, ToolTimelineEntry[]>>;
+  /**
    * Ordered narration/thinking/tool transcript per thread for the
    * "View processing" panel — the interleaved Hermes-style record. Hydrated
    * from the persisted turn-state snapshot (which is now KEPT on completion),
@@ -649,6 +658,7 @@ const initialState: ChatRuntimeState = {
   parallelStreamsByThread: {},
   parallelRequestThreads: {},
   toolTimelineByThread: {},
+  turnTimelinesByThread: {},
   processingByThread: {},
   taskBoardByThread: {},
   inferenceTurnLifecycleByThread: {},
@@ -979,6 +989,17 @@ const chatRuntimeSlice = createSlice({
     clearToolTimelineForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.toolTimelineByThread[action.payload.threadId];
       delete state.processingByThread[action.payload.threadId];
+    },
+    /**
+     * Replace the hydrated past-turn timelines for a thread (Phase 5). The live
+     * turn's rows stay in {@link toolTimelineByThread}; this holds only the
+     * settled turns, keyed by their producing `requestId`.
+     */
+    setTurnTimelinesForThread: (
+      state,
+      action: PayloadAction<{ threadId: string; timelines: Record<string, ToolTimelineEntry[]> }>
+    ) => {
+      state.turnTimelinesByThread[action.payload.threadId] = action.payload.timelines;
     },
     /** Reset the live processing transcript at the start of a fresh turn so a
      *  new turn's narration/steps don't append onto the previous turn's. */
@@ -1391,6 +1412,7 @@ const chatRuntimeSlice = createSlice({
       state.parallelStreamsByThread = {};
       state.parallelRequestThreads = {};
       state.toolTimelineByThread = {};
+      state.turnTimelinesByThread = {};
       state.processingByThread = {};
       state.taskBoardByThread = {};
       state.inferenceTurnLifecycleByThread = {};
@@ -1617,6 +1639,7 @@ export const {
   clearParallelRequest,
   setToolTimelineForThread,
   clearToolTimelineForThread,
+  setTurnTimelinesForThread,
   clearProcessingForThread,
   appendProcessingProse,
   recordProcessingTool,
@@ -1690,6 +1713,43 @@ export const fetchAndHydrateTurnState = createAsyncThunk(
       return snapshot;
     } catch (error) {
       turnStateLog('fetch failed thread=%s err=%O', threadId, error);
+      return null;
+    }
+  }
+);
+
+/**
+ * Fetch the per-turn history for a thread and populate
+ * {@link ChatRuntimeState.turnTimelinesByThread} so each *past* answer renders
+ * its own process trail (Phase 5). Only settled turns (completed / interrupted)
+ * are stored — the live turn's rows are driven by the socket stream into
+ * `toolTimelineByThread`. Failures are swallowed: missing history must never
+ * block thread navigation.
+ */
+export const fetchAndHydrateTurnHistory = createAsyncThunk(
+  'chatRuntime/fetchAndHydrateTurnHistory',
+  async (threadId: string, { dispatch }) => {
+    try {
+      const history = await threadApi.getTurnStateHistory(threadId);
+      const timelines: Record<string, ToolTimelineEntry[]> = {};
+      // History is newest-first; the newest turn is the one `getTurnState`
+      // hydrates into `toolTimelineByThread` (rendered as the live/anchored
+      // "agent insights"), so skip it here to avoid rendering it twice — this
+      // field holds only the *older* settled turns.
+      for (const turn of history.slice(1)) {
+        if (turn.lifecycle !== 'completed' && turn.lifecycle !== 'interrupted') continue;
+        if (!turn.requestId || turn.toolTimeline.length === 0) continue;
+        timelines[turn.requestId] = turn.toolTimeline.map(toolTimelineFromPersisted);
+      }
+      turnStateLog(
+        'hydrated turn history thread=%s turns=%d',
+        threadId,
+        Object.keys(timelines).length
+      );
+      dispatch(setTurnTimelinesForThread({ threadId, timelines }));
+      return timelines;
+    } catch (error) {
+      turnStateLog('history fetch failed thread=%s err=%O', threadId, error);
       return null;
     }
   }

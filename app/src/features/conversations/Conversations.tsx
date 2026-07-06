@@ -59,6 +59,7 @@ import {
   clearRuntimeForThread,
   clearThreadSendPending,
   enqueueFollowup,
+  fetchAndHydrateTurnHistory,
   fetchAndHydrateTurnState,
   hydrateThreadUsage,
   markSubagentCancelled,
@@ -224,6 +225,10 @@ const EMPTY_ACTIVE_THREADS: Record<string, true> = {};
 // the same identity when the slice field is absent (narrow test stores).
 const EMPTY_QUEUED_FOLLOWUPS: Record<string, QueuedFollowup[]> = {};
 
+// Stable empty reference for the per-thread past-turn timelines map, so the
+// derived value keeps the same identity when the slice field is absent.
+const EMPTY_TURN_TIMELINES: Record<string, ToolTimelineEntry[]> = {};
+
 export function isComposerInteractionBlocked(args: {
   /** Whether the *currently selected* thread has an in-flight inference turn. */
   selectedThreadActive: boolean;
@@ -381,6 +386,9 @@ const Conversations = ({
   // behaviour stays intact.
   const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
+  const turnTimelinesByThread = useAppSelector(
+    state => state.chatRuntime.turnTimelinesByThread
+  );
   const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
   const taskBoardByThread = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const inferenceStatusByThread = useAppSelector(
@@ -724,6 +732,8 @@ const Conversations = ({
     if (selectedThreadId) {
       void dispatch(loadThreadMessages(selectedThreadId));
       void dispatch(fetchAndHydrateTurnState(selectedThreadId));
+      // Per-turn history: each past answer's own process trail (Phase 5).
+      void dispatch(fetchAndHydrateTurnHistory(selectedThreadId));
       void threadApi
         .getTaskBoard(selectedThreadId)
         .then(board => {
@@ -1689,6 +1699,29 @@ const Conversations = ({
         .filter((message): message is ThreadMessage => message !== null),
     [selectedThreadId, visibleMessages]
   );
+  // Past-turn tool timelines (Phase 5): map the first assistant message of each
+  // older settled turn to that turn's timeline, so each past answer renders its
+  // own collapsed process trail above it. The latest turn is excluded upstream
+  // (it renders as the live "agent insights" anchor), so there is no double
+  // render. Empty for legacy messages without a `requestId`.
+  const selectedThreadTurnTimelines = selectedThreadId
+    ? (turnTimelinesByThread[selectedThreadId] ?? EMPTY_TURN_TIMELINES)
+    : EMPTY_TURN_TIMELINES;
+  const pastTurnAnchors = useMemo(() => {
+    const anchors: Record<string, ToolTimelineEntry[]> = {};
+    const seen = new Set<string>();
+    for (const msg of timelineMessages) {
+      if (msg.sender !== 'agent') continue;
+      const requestId = msg.extraMetadata?.requestId;
+      if (typeof requestId !== 'string' || seen.has(requestId)) continue;
+      const entries = selectedThreadTurnTimelines[requestId];
+      if (entries && entries.length > 0) {
+        anchors[msg.id] = entries;
+        seen.add(requestId);
+      }
+    }
+    return anchors;
+  }, [timelineMessages, selectedThreadTurnTimelines]);
   const activeSubagentTimelineEntry = selectedThreadToolTimeline.find(
     entry => entry.status === 'running' && entry.name.startsWith('subagent:')
   );
@@ -2239,8 +2272,16 @@ const Conversations = ({
               // what keeps the marker text out of both the rendered bubble and
               // the copy-to-clipboard action.
               const parsedContent = parseMessageImages(msg.content ?? '');
+              const pastTurnEntries = pastTurnAnchors[msg.id];
               return (
                 <Fragment key={msg.id}>
+                  {/* Past-turn process trail (Phase 5): each older settled turn's
+                      tool timeline, collapsed, above the answer it produced. */}
+                  {pastTurnEntries ? (
+                    <div data-testid="past-turn-insights">
+                      <ToolTimelineBlock entries={pastTurnEntries} />
+                    </div>
+                  ) : null}
                   <div>
                     <div
                       className={`group/msg flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>

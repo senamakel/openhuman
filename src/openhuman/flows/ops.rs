@@ -1754,6 +1754,134 @@ pub async fn flows_discover(config: &Config) -> Result<RpcOutcome<Vec<FlowSugges
     ))
 }
 
+/// Overall safety bound on one `flows_build` run. The `workflow_builder` agent's
+/// own `max_iterations` caps its loop, but a hung LLM/tool call must never let
+/// the RPC block indefinitely.
+const FLOW_BUILD_TIMEOUT_SECS: u64 = 300;
+
+/// Runs the `workflow_builder` agent for one authoring turn and returns its
+/// proposal, invoking it as a first-class backend agent (exactly like the Flow
+/// Scout `flows_discover`) rather than routing a hand-crafted delegate prompt
+/// through the chat orchestrator.
+///
+/// The turn's natural-language brief is rendered **server-side** from the
+/// structured [`BuilderRequest`](crate::openhuman::flows::agents::workflow_builder::builder_prompt::BuilderRequest)
+/// (create / revise / repair / build). The agent ends by calling
+/// `propose_workflow` / `revise_workflow` / `save_workflow`; we capture the
+/// resulting `{ type: "workflow_proposal", … }` payload from the run's tool
+/// history and return it alongside the agent's final assistant text.
+///
+/// Persistence stays with the agent's tools: `propose`/`revise` never persist;
+/// `save_workflow` (only reachable in `build` mode with a real `flow_id`)
+/// writes onto an existing flow. This op never enables or runs a flow.
+pub async fn flows_build(
+    config: &Config,
+    req: crate::openhuman::flows::agents::workflow_builder::builder_prompt::BuilderRequest,
+) -> Result<RpcOutcome<Value>, String> {
+    use crate::openhuman::agent::Agent;
+    use crate::openhuman::flows::agents::workflow_builder::builder_prompt::render_prompt;
+
+    let prompt = render_prompt(&req);
+    tracing::info!(
+        target: "flows",
+        mode = ?req.mode,
+        has_graph = req.graph.is_some(),
+        flow_id = req.flow_id.as_deref().unwrap_or("<none>"),
+        "[flows] flows_build: starting workflow_builder turn"
+    );
+
+    // The registry must be initialised before building a named builtin agent
+    // (idempotent — mirrors `flows_discover`).
+    crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
+        .map_err(|e| format!("failed to initialise agent registry: {e}"))?;
+
+    let mut agent = Agent::from_config_for_agent(config, "workflow_builder")
+        .map_err(|e| format!("failed to build workflow_builder agent: {e:#}"))?;
+    agent.set_agent_definition_name("workflow_builder".to_string());
+
+    // Run to completion under a CLI origin (internal, user-initiated — the
+    // approval gate must not fail-closed), bounded by a wall-clock timeout.
+    let run = with_origin(AgentTurnOrigin::Cli, agent.run_single(&prompt));
+    let (assistant_text, run_error) = match tokio::time::timeout(
+        std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS),
+        run,
+    )
+    .await
+    {
+        Ok(Ok(text)) => (text, None),
+        Ok(Err(e)) => {
+            tracing::warn!(target: "flows", error = %e, "[flows] flows_build: agent run failed");
+            (
+                String::new(),
+                Some(format!("workflow_builder run failed: {e:#}")),
+            )
+        }
+        Err(_) => {
+            tracing::warn!(
+                target: "flows",
+                timeout_secs = FLOW_BUILD_TIMEOUT_SECS,
+                "[flows] flows_build: agent run timed out"
+            );
+            (
+                String::new(),
+                Some(format!(
+                    "workflow_builder run timed out after {FLOW_BUILD_TIMEOUT_SECS}s"
+                )),
+            )
+        }
+    };
+
+    // Capture the proposal from the run's tool history (propose/revise/save all
+    // emit the same self-describing `{ type: "workflow_proposal", … }` payload).
+    let proposal = extract_workflow_proposal(agent.history());
+
+    // A run that both errored AND produced no proposal is a hard failure; a run
+    // that proposed before erroring still returns the proposal for review.
+    if proposal.is_none() {
+        if let Some(err) = &run_error {
+            return Err(format!("workflow_builder produced no proposal: {err}"));
+        }
+    }
+
+    tracing::info!(
+        target: "flows",
+        has_proposal = proposal.is_some(),
+        "[flows] flows_build: workflow_builder turn complete"
+    );
+    Ok(RpcOutcome::single_log(
+        json!({
+            "proposal": proposal,
+            "assistant_text": assistant_text,
+            "error": run_error,
+        }),
+        "workflow builder turn complete",
+    ))
+}
+
+/// Scans an agent run's conversation history for the workflow proposal a builder
+/// tool emitted. `propose_workflow` / `revise_workflow` / `save_workflow` all
+/// return a self-describing `{ "type": "workflow_proposal", … }` JSON string as
+/// their tool result, so we match on that (the same gate the frontend uses) and
+/// return the LAST one — the most recent proposal in the turn.
+fn extract_workflow_proposal(
+    history: &[crate::openhuman::inference::provider::ConversationMessage],
+) -> Option<Value> {
+    use crate::openhuman::inference::provider::ConversationMessage;
+    let mut latest = None;
+    for message in history {
+        if let ConversationMessage::ToolResults(results) = message {
+            for result in results {
+                if let Ok(value) = serde_json::from_str::<Value>(&result.content) {
+                    if value.get("type").and_then(Value::as_str) == Some("workflow_proposal") {
+                        latest = Some(value);
+                    }
+                }
+            }
+        }
+    }
+    latest
+}
+
 /// Lists persisted workflow suggestions. `status` filters to one lifecycle
 /// state (the UI passes `New` for the active "Suggested for you" cards); `None`
 /// returns every status.

@@ -224,6 +224,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("list_runs"),
         schemas("get_run"),
         schemas("prune_runs"),
+        schemas("build"),
         schemas("discover"),
         schemas("list_suggestions"),
         schemas("dismiss_suggestion"),
@@ -296,6 +297,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("prune_runs"),
             handler: handle_prune_runs,
+        },
+        RegisteredController {
+            schema: schemas("build"),
+            handler: handle_build,
         },
         RegisteredController {
             schema: schemas("discover"),
@@ -711,6 +716,75 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "build" => ControllerSchema {
+            namespace: "flows",
+            function: "build",
+            description: "Run the workflow_builder agent for one authoring turn. `mode` selects \
+                          create (first draft from `instruction`), revise (refine the injected \
+                          `graph`), repair (diagnose a failed `run_id` and fix), or build \
+                          (instant-create: build + dry-run + save_workflow onto `flow_id`). The \
+                          server renders the agent's brief — the frontend no longer crafts prompts. \
+                          Returns `{ proposal, assistant_text, error }`, where `proposal` is the \
+                          `{ type: 'workflow_proposal', name, graph, require_approval, summary, \
+                          warnings }` the agent produced (or null). Only `build` may persist (via \
+                          save_workflow onto an existing flow); it never enables or runs a flow.",
+            inputs: vec![
+                FieldSchema {
+                    name: "mode",
+                    ty: TypeSchema::String,
+                    comment: "One of: `create` | `revise` | `repair` | `build`.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "instruction",
+                    ty: TypeSchema::String,
+                    comment: "The user's ask: description (create/build) or change instruction \
+                              (revise); optional note for repair.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "graph",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "The current draft WorkflowGraph, injected as context for \
+                              revise/repair/build.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "flow_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Saved flow id — required for `build` (save target); optional \
+                              elsewhere (lets the agent run_workflow it to test, with confirmation).",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "run_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Failed run id (== thread id) for `repair`, so the agent can \
+                              get_flow_run it.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "error",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Run-level error message for `repair`, if known.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "failing_node_ids",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "Node ids implicated in the failure, for `repair` (array of strings).",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "`{ proposal, assistant_text, error }` — `proposal` is the workflow \
+                          proposal the agent produced (or null); `error` is set if the run failed \
+                          but a prior proposal was still captured.",
+                required: true,
+            }],
+        },
         "discover" => ControllerSchema {
             namespace: "flows",
             function: "discover",
@@ -966,6 +1040,18 @@ fn handle_prune_runs(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_build(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        // Deserialize the whole param object into the structured BuilderRequest
+        // (mode/instruction/graph/flow_id/run_id/error/failing_node_ids).
+        let req: crate::openhuman::flows::agents::workflow_builder::builder_prompt::BuilderRequest =
+            serde_json::from_value(Value::Object(params))
+                .map_err(|e| format!("invalid flows.build params: {e}"))?;
+        to_json(ops::flows_build(&config, req).await?)
+    })
+}
+
 fn handle_discover(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -1043,6 +1129,7 @@ mod tests {
                 "list_runs",
                 "get_run",
                 "prune_runs",
+                "build",
                 "discover",
                 "list_suggestions",
                 "dismiss_suggestion",
@@ -1054,7 +1141,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 20);
+        assert_eq!(controllers.len(), 21);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -1075,6 +1162,7 @@ mod tests {
                 "list_runs",
                 "get_run",
                 "prune_runs",
+                "build",
                 "discover",
                 "list_suggestions",
                 "dismiss_suggestion",

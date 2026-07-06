@@ -41,7 +41,7 @@ describe('SelfIdentityCard', () => {
     expect(status).toHaveAttribute('data-discoverable', 'true');
   });
 
-  it('flags an un-messageable identity and shows the register hint', () => {
+  it('flags an un-messageable identity as undiscoverable without nagging to register', () => {
     const undiscoverable: SelfIdentity = {
       agentId: 'addrWithNoCardPublishedYet',
       handles: [],
@@ -55,9 +55,11 @@ describe('SelfIdentityCard', () => {
       'data-discoverable',
       'false'
     );
+    // The prescriptive "register a handle" hint is intentionally gone — a handle
+    // is optional, so the card reports status without nagging.
     expect(
-      screen.getByText('tinyplaceOrchestration.identity.undiscoverableHint')
-    ).toBeInTheDocument();
+      screen.queryByText('tinyplaceOrchestration.identity.undiscoverableHint')
+    ).not.toBeInTheDocument();
   });
 
   it('copies the address to the clipboard on click', async () => {

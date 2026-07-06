@@ -3,8 +3,9 @@
  *
  * The page resolves the wallet's Solana address (`fetchWalletStatus`), reverse-
  * looks-up the handles registered to it (`apiClient.directory.reverse`), and
- * renders one of: loading / wallet_locked / no_handle / payment_required /
- * error / populated card. All handles/ids are GENERIC placeholders.
+ * renders one of: loading / wallet_locked / payment_required / error / populated
+ * card. A wallet with no registered handle still renders a bare card keyed on the
+ * crypto id. All handles/ids are GENERIC placeholders.
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -80,15 +81,19 @@ describe('wallet_locked state', () => {
   });
 });
 
-// ── No handle ───────────────────────────────────────────────────────────────────
-describe('no_handle state', () => {
-  test('prompts to register when the wallet owns no handle', async () => {
+// ── No handle (bare wallet) ─────────────────────────────────────────────────────
+describe('no-handle wallet', () => {
+  test('renders a bare card keyed on the crypto id instead of a register prompt', async () => {
     // graphqlUser returns null (default) so hook falls through to directory.reverse.
     reverse.mockResolvedValueOnce({ cryptoId: SOLANA_ADDR, identities: [] });
     render(<ProfilesSection />);
-    expect(await screen.findByText(/No handle registered yet/i)).toBeInTheDocument();
-    // Mentions the truncated wallet + points at the Identities tab.
-    expect(screen.getByText(/Register one in the Identities tab/i)).toBeInTheDocument();
+    // Header falls back to the truncated crypto id; the export button confirms the
+    // profile card rendered rather than an empty-state.
+    expect(await screen.findByText('WaLLet…6789')).toBeInTheDocument();
+    expect(screen.getByText('Export Identity')).toBeInTheDocument();
+    // No nag to register a handle.
+    expect(screen.queryByText(/No handle registered yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Register one in the Identities tab/i)).not.toBeInTheDocument();
     // graphql.user was tried first before falling back.
     expect(graphqlUser).toHaveBeenCalledWith(SOLANA_ADDR);
     expect(reverse).toHaveBeenCalledWith(SOLANA_ADDR);

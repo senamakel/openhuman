@@ -3,9 +3,9 @@
  *
  * Shows **your own** agent profile: it resolves the wallet's Solana address
  * (`wallet_status`), reverse-looks-up the identities registered to it
- * (`directory.reverse`), and renders the primary handle. Falls back to a
- * "register a handle" prompt when the wallet owns none, and a wallet-locked
- * notice when the wallet isn't set up.
+ * (`directory.reverse`), and renders the primary handle. A wallet that owns no
+ * handle still renders a bare profile card keyed on the crypto id (registering a
+ * @handle is optional, not a gate) — only a locked/unconfigured wallet blocks.
  */
 import { useCallback, useEffect, useState } from 'react';
 
@@ -70,7 +70,6 @@ type ProfileData =
 type ProfileState =
   | { status: 'loading' }
   | { status: 'wallet_locked' }
-  | { status: 'no_handle'; cryptoId: string }
   | { status: 'payment_required'; challenge: unknown }
   | { status: 'error'; message: string }
   | { status: 'ok'; data: ProfileData };
@@ -141,13 +140,11 @@ function useMyIdentity(reloadKey: number): ProfileState {
       try {
         const res = await apiClient.directory.reverse(cryptoId);
         const identities = (res.identities ?? []) as OwnedIdentity[];
-        const mine = pickPrimary(identities);
+        // Fall back to a bare identity keyed on the crypto id when the wallet
+        // owns no @handle — a handle is optional, so the profile still renders.
+        const mine = pickPrimary(identities) ?? { cryptoId };
         if (cancelled) return;
-        setState(
-          mine
-            ? { status: 'ok', data: { source: 'directory', identity: mine } }
-            : { status: 'no_handle', cryptoId }
-        );
+        setState({ status: 'ok', data: { source: 'directory', identity: mine } });
       } catch (err: unknown) {
         if (cancelled) return;
         if (err instanceof PaymentRequiredError) {
@@ -198,10 +195,14 @@ function AgentProfileCard({ data, onSwitched }: { data: ProfileData; onSwitched?
     : (identity!.username ?? '');
   // Strip leading @ if present so we can re-add it uniformly when there IS a handle.
   const usernameClean = rawUsername.replace(/^@+/, '');
-  // When graphql has no registered identity, displayName is shown as-is (not as a @handle).
-  const handle = hasHandle ? `@${usernameClean}` : usernameClean;
 
   const cryptoId = isGraphql ? profile!.cryptoId : (identity!.cryptoId ?? '');
+  // When graphql has no registered identity, displayName is shown as-is (not as a
+  // @handle). A bare wallet with neither handle nor display name falls back to its
+  // truncated crypto id so the header is never empty.
+  const handle = hasHandle
+    ? `@${usernameClean}`
+    : usernameClean || (cryptoId ? truncateCryptoId(cryptoId) : '');
   const bio = isGraphql ? profile!.bio : '';
   const displayName = isGraphql ? profile!.displayName : '';
   const avatarUrl = isGraphql ? (profile!.avatarUrl ?? '') : '';
@@ -303,7 +304,7 @@ function AgentProfileCard({ data, onSwitched }: { data: ProfileData; onSwitched?
               </span>
             )}
           </h3>
-          {cryptoId && (
+          {cryptoId && handle !== truncateCryptoId(cryptoId) && (
             <p className="mt-0.5 font-mono text-xs text-content-muted" title={cryptoId}>
               {truncateCryptoId(cryptoId)}
             </p>
@@ -459,14 +460,6 @@ export default function ProfilesSection() {
         tone="text-content-secondary"
         title="Unlock your wallet to use Agent World"
         body="Agent World uses your wallet identity. Import your recovery phrase in Settings to continue."
-      />
-    );
-  } else if (state.status === 'no_handle') {
-    body = (
-      <StatusBlock
-        tone="text-content-secondary"
-        title="No handle registered yet"
-        body={`Your wallet (${truncateCryptoId(state.cryptoId)}) doesn't own a @handle yet. Register one in the Identities tab to claim your profile.`}
       />
     );
   } else if (state.status === 'payment_required') {

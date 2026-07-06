@@ -123,12 +123,6 @@ export default function SelfIdentityCard({
             : t('tinyplaceOrchestration.identity.notPublished')}
         </span>
       </div>
-
-      {!identity.discoverable ? (
-        <p className="mt-2 rounded-md bg-coral-50 px-2 py-1 text-[10px] text-coral-700 dark:bg-coral-500/10 dark:text-coral-300">
-          {t('tinyplaceOrchestration.identity.undiscoverableHint')}
-        </p>
-      ) : null}
     </section>
   );
 }

@@ -31,7 +31,7 @@ use crate::openhuman::config::{Config, HttpRequestConfig};
 use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::flows;
 use crate::openhuman::inference::provider::{
-    create_chat_provider, ChatMessage, ChatRequest, UsageInfo,
+    create_chat_provider, role_for_model_tier, ChatMessage, ChatRequest, UsageInfo,
 };
 use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
 use crate::openhuman::security::{
@@ -272,6 +272,32 @@ impl LlmProvider for OpenHumanLlm {
             .get("role")
             .and_then(Value::as_str)
             .unwrap_or("summarization");
+
+        // Per-node model selection: an `agent` node may pin a **managed tier**
+        // (`config.model = "reasoning-v1"` / `"chat-v1"`, or a `hint:*` alias).
+        // Map that tier back to the workload role whose provider serves it so
+        // the completion routes to that tier on the managed backend (or the
+        // role's BYOK model) instead of the node's default `role`. Unknown /
+        // absent model strings leave the role untouched. `config.model` is
+        // trusted node config, never model output.
+        let node_model = request
+            .get("model")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let role = match node_model {
+            Some(model) => {
+                let mapped = role_for_model_tier(model);
+                tracing::debug!(
+                    target: "flows",
+                    node_model = model,
+                    mapped_role = mapped,
+                    "[flows] llm.complete: node pinned a model tier — routing by mapped role"
+                );
+                mapped
+            }
+            None => role,
+        };
         let temperature = request
             .get("temperature")
             .and_then(Value::as_f64)

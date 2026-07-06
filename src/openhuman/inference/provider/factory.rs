@@ -176,6 +176,52 @@ pub fn resolve_model_for_hint(hint_or_tier: &str, config: &Config) -> String {
     }
 }
 
+/// Map a managed tier name (or `hint:*` string) to the workload **role** whose
+/// configured provider serves it.
+///
+/// This is the inverse of the role→tier routing `create_chat_provider` does:
+/// callers that select a model *per unit of work by tier* (e.g. a tinyflows
+/// `agent` node pinning `config.model = "reasoning-v1"`) use this to turn that
+/// tier back into the role, then call [`create_chat_provider`] with it — so the
+/// completion routes to that tier on the managed backend (or the role's BYOK
+/// model) instead of some caller default. Unknown strings fall back to `"chat"`.
+///
+/// Kept deliberately small and standalone (no `Config`) — it is a pure lookup
+/// over the tier constants, mirroring the `tier_to_role` table inside
+/// [`resolve_model_for_hint`].
+pub fn role_for_model_tier(hint_or_tier: &str) -> &'static str {
+    use crate::openhuman::config::{
+        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
+        MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
+    };
+
+    // Normalise a `hint:*` alias to its concrete tier first.
+    let tier = match hint_or_tier.strip_prefix("hint:") {
+        Some("reasoning") => MODEL_REASONING_V1,
+        Some("chat") => MODEL_CHAT_V1,
+        Some("agentic") => MODEL_AGENTIC_V1,
+        Some("burst") => MODEL_BURST_V1,
+        Some("coding") => MODEL_CODING_V1,
+        Some("vision") => MODEL_VISION_V1,
+        Some("summarization") => MODEL_SUMMARIZATION_V1,
+        // Background subconscious rides the chat tier for its model.
+        Some("subconscious") => MODEL_CHAT_V1,
+        Some(_) => hint_or_tier,
+        None => hint_or_tier,
+    };
+
+    match tier {
+        MODEL_REASONING_V1 => "reasoning",
+        MODEL_CHAT_V1 | MODEL_REASONING_QUICK_V1 => "chat",
+        MODEL_AGENTIC_V1 => "agentic",
+        MODEL_BURST_V1 => "burst",
+        MODEL_CODING_V1 => "coding",
+        MODEL_VISION_V1 => "vision",
+        MODEL_SUMMARIZATION_V1 => "summarization",
+        _ => "chat",
+    }
+}
+
 /// Return whether `model` is a recognized OpenHuman backend tier name.
 ///
 /// Used to guard against stale `default_model` values (e.g. set by older UI

@@ -2372,6 +2372,39 @@ fn resolve_model_for_hint_subconscious_reads_subconscious_provider() {
     );
 }
 
+// ── role_for_model_tier ─────────────────────────────────────────────────
+
+#[test]
+fn role_for_model_tier_maps_tier_names_to_roles() {
+    // The demo flow pins these two tiers on its agent nodes; they must route to
+    // the reasoning and chat workloads respectively.
+    assert_eq!(role_for_model_tier("reasoning-v1"), "reasoning");
+    assert_eq!(role_for_model_tier("chat-v1"), "chat");
+    assert_eq!(role_for_model_tier("agentic-v1"), "agentic");
+    assert_eq!(role_for_model_tier("burst-v1"), "burst");
+    assert_eq!(role_for_model_tier("coding-v1"), "coding");
+    assert_eq!(role_for_model_tier("vision-v1"), "vision");
+    assert_eq!(role_for_model_tier("summarization-v1"), "summarization");
+    // The quick reasoning tier shares the chat workload for its model.
+    assert_eq!(role_for_model_tier("reasoning-quick-v1"), "chat");
+}
+
+#[test]
+fn role_for_model_tier_normalises_hint_aliases() {
+    assert_eq!(role_for_model_tier("hint:reasoning"), "reasoning");
+    assert_eq!(role_for_model_tier("hint:chat"), "chat");
+    assert_eq!(role_for_model_tier("hint:coding"), "coding");
+    // Subconscious rides the chat tier's model.
+    assert_eq!(role_for_model_tier("hint:subconscious"), "chat");
+}
+
+#[test]
+fn role_for_model_tier_unknown_falls_back_to_chat() {
+    assert_eq!(role_for_model_tier("gpt-4o"), "chat");
+    assert_eq!(role_for_model_tier("hint:unknown_tier"), "chat");
+    assert_eq!(role_for_model_tier(""), "chat");
+}
+
 #[test]
 fn omlx_provider_builds_with_bearer_key() {
     let mut config = crate::openhuman::config::Config::default();

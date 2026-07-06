@@ -45,7 +45,9 @@ pub use error_code::{
     is_backend_malformed_bad_request, is_managed_backend_envelope, managed_error_skips_sentry,
     BackendErrorCode,
 };
-pub use factory::{create_chat_provider, provider_for_role, BYOK_INCOMPLETE_SENTINEL};
+pub use factory::{
+    create_chat_provider, provider_for_role, role_for_model_tier, BYOK_INCOMPLETE_SENTINEL,
+};
 pub use ops::*;
 pub use resolved_route::{
     current_resolved_provider_route, current_route_slot, record_resolved_provider_route,

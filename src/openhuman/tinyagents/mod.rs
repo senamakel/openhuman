@@ -54,6 +54,7 @@ use tinyagents::harness::middleware::{
     ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents::harness::model::CapabilitySet;
+use tinyagents::harness::retry::RetryPolicy;
 use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::SteeringHandle;
 use tinyagents::harness::store::StoreRegistry;
@@ -114,14 +115,24 @@ pub(crate) struct ToolPolicyEnforcement {
 /// the tinyagents default of 25 — far more than openhuman's `max_iterations`.
 /// The recursion depth cap is also set here so TinyAgents uses OpenHuman's
 /// existing sub-agent spawn depth instead of the SDK default.
-/// Retry is set to a single attempt: the openhuman [`Provider`] already does its
-/// own internal retry/backoff (via the still-wrapped `ReliableProvider`), so a
-/// second harness-level retry layer would double-retry transient errors and,
-/// worse, swallow a deterministic provider error when a mock/test provider yields
-/// a different result on the retry. This pin stays until `ReliableProvider` is
-/// un-wrapped in the 02.2 conformance pass (Workstream 11); the crate's
-/// exp-backoff [`RetryPolicy`](tinyagents::harness::retry::RetryPolicy) fields
-/// stay at the default schedule so raising `max_attempts` later is a one-line flip.
+/// Retry is now owned by the crate [`RetryPolicy`] (issue #4249, Phase 3a): the
+/// turn path no longer wraps its provider in `ReliableProvider` (removed in
+/// `session/builder/factory.rs`), so the single retry layer is here, at the
+/// harness model call. The schedule mirrors the former `ReliableProvider`
+/// defaults — 2 retries (3 attempts) with 500 ms exponential backoff — so
+/// transient 429/5xx behavior is preserved. Retryability is decided by the crate
+/// `is_retryable`, which the [`ProviderModel`](super::model) adapter feeds
+/// correctly: a permanent config/auth/quota/context error is mapped to a
+/// non-retryable `TinyAgentsError::Validation`, a transient blip to a retryable
+/// `Model` error. The crate caps `max_attempts` at
+/// `RunLimits::max_retries_per_call + 1` (default 3 retries), so this stays
+/// within the loop's own bound.
+///
+/// (Config parity note: the former `config.reliability.provider_retries` /
+/// `provider_backoff_ms` / `model_fallbacks` no longer drive the turn path —
+/// retry is the fixed schedule below and cross-route fallback is the crate
+/// registry `FallbackPolicy` from [`routes::route_fallback_policy`]. Those config
+/// knobs still apply to the non-seam `ReliableProvider` paths.)
 ///
 /// Cross-route **fallback** (`RunPolicy.fallback`) is orthogonal to retry and is
 /// populated per-turn by the caller ([`assemble_turn_harness`] via
@@ -133,7 +144,17 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     policy.limits.max_model_calls = max_iterations;
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
-    policy.retry.max_attempts = 1;
+    // Crate-owned retry (Phase 3a): mirror the former `ReliableProvider` schedule
+    // (2 retries, 500 ms exponential backoff). `backoff_sleep` is on so a
+    // transient 429/5xx actually waits before retrying, as it did before.
+    policy.retry = RetryPolicy {
+        max_attempts: 3,
+        initial_backoff_ms: 500,
+        max_backoff_ms: 30_000,
+        multiplier: 2.0,
+        jitter: false,
+        backoff_sleep: true,
+    };
     // Unknown-tool recovery (01.2 / C3): the crate policy owns this end to end —
     // the `__openhuman_unknown_tool__` sentinel tool + `UnknownToolRewriteMiddleware`
     // were already deleted. We deliberately keep `ReturnToolError` rather than

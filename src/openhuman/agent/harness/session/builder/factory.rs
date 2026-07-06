@@ -469,23 +469,15 @@ impl Agent {
         // `chat_provider` selection. Subagents still set their own role
         // through `ModelSpec::Hint(...)` in the subagent runner.
         let provider_role = provider_role_for(agent_id, config.default_model.as_deref());
-        let (raw_provider, mut model_name): (Box<dyn Provider>, String) =
+        // Retry/backoff is now owned by the crate `RetryPolicy` at the harness
+        // model call (issue #4249, Phase 3a) — see `tinyagents::run_policy_for`.
+        // The turn path therefore no longer wraps the resolved provider in
+        // `ReliableProvider`; wrapping it here plus the crate retry would
+        // double-retry every transient error. Cross-route fallback is likewise
+        // the crate registry `FallbackPolicy`, so `config.reliability.*` no longer
+        // layers on the turn path (it still governs the non-seam provider paths).
+        let (provider, mut model_name): (Box<dyn Provider>, String) =
             crate::openhuman::inference::provider::create_chat_provider(provider_role, config)?;
-        // Re-layer the ReliableProvider retry/backoff + model-fallback wrapper on
-        // top of the factory's resolved backend (issue #4249, 1c). The migration to
-        // `create_chat_provider` dropped this; restore it so rate-limit/5xx retries
-        // and the user's `model_fallbacks` apply to the main chat turn exactly as
-        // the legacy `create_intelligent_routing_provider` path did. Capability
-        // probes (`supports_native_tools` / `supports_vision`) forward to the inner
-        // backend, so downstream dispatcher/vision selection is unchanged.
-        let provider: Box<dyn Provider> = Box::new(
-            crate::openhuman::inference::provider::reliable::ReliableProvider::new(
-                vec![(provider_role.to_string(), raw_provider)],
-                config.reliability.provider_retries,
-                config.reliability.provider_backoff_ms,
-            )
-            .with_model_fallbacks(config.reliability.model_fallbacks.clone()),
-        );
         log::info!(
             "[session-builder] agent_id={} provider_role={} resolved_model={} supports_native_tools={}",
             agent_id,

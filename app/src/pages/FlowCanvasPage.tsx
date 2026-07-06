@@ -23,7 +23,9 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
 import FlowRunsSidebar from '../components/flows/FlowRunsSidebar';
-import WorkflowCopilotPanel from '../components/flows/WorkflowCopilotPanel';
+import WorkflowCopilotPanel, {
+  type RepairPromptContext,
+} from '../components/flows/WorkflowCopilotPanel';
 import {
   getCopilotThreadId,
   setCopilotThreadId as setCopilotThreadIdCache,
@@ -37,7 +39,6 @@ import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
 import { workflowGraphToXyflow } from '../lib/flows/graphAdapter';
 import { buildPreviewGraph, diffGraphs } from '../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../lib/flows/types';
-import { type RepairPromptContext } from '../components/flows/WorkflowCopilotPanel';
 import { useT } from '../lib/i18n/I18nContext';
 import { createFlow, type Flow, getFlow, runFlow, updateFlow } from '../services/api/flowsApi';
 import type { WorkflowProposal } from '../store/chatRuntimeSlice';

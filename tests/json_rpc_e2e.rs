@@ -3541,7 +3541,9 @@ async fn json_rpc_thread_turn_state_lifecycle() {
         .expect("turnStates array");
     assert_eq!(turns.len(), 2, "both turns retained");
     assert_eq!(
-        turns[0].get("requestId").and_then(serde_json::Value::as_str),
+        turns[0]
+            .get("requestId")
+            .and_then(serde_json::Value::as_str),
         Some("req-turn-2"),
         "newest turn first"
     );

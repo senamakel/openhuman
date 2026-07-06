@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
 import Button from '../../components/ui/Button';
-import type { ToolTimelineEntry } from '../../store/chatRuntimeSlice';
 import { AgentProcessSourcePanel } from '../../features/conversations/components/AgentProcessSourcePanel';
 import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
+import type { ToolTimelineEntry } from '../../store/chatRuntimeSlice';
 
 /**
  * Dev-only visual preview of the "Agentic task insights" Chat surface.

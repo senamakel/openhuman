@@ -7,8 +7,8 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useT } from '../../../lib/i18n/I18nContext';
 import { BubbleMarkdown } from '../../../features/conversations/components/AgentMessageBubble';
+import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import Button from '../../ui/Button';
 

@@ -3,22 +3,45 @@ import { describe, expect, it } from 'vitest';
 import type { StreamingAssistantState, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import type { RootState } from '../../../store/index';
 import type { ThreadMessage } from '../../../types/thread';
-import {
-  buildThreadTimeline,
-  groupTimelineIntoTurns,
-  selectTimelineForThread,
-} from './selectors';
+import { buildThreadTimeline, groupTimelineIntoTurns, selectTimelineForThread } from './selectors';
 import { LEGACY_TURN_ID, type TimelineItem } from './types';
 
 const THREAD = 't1';
 
-function userMsg(id: string, content = `u-${id}`, extra: Record<string, unknown> = {}): ThreadMessage {
-  return { id, content, type: 'text', extraMetadata: extra, sender: 'user', createdAt: '2026-01-01T00:00:00Z' };
+function userMsg(
+  id: string,
+  content = `u-${id}`,
+  extra: Record<string, unknown> = {}
+): ThreadMessage {
+  return {
+    id,
+    content,
+    type: 'text',
+    extraMetadata: extra,
+    sender: 'user',
+    createdAt: '2026-01-01T00:00:00Z',
+  };
 }
-function agentMsg(id: string, content = `a-${id}`, extra: Record<string, unknown> = {}): ThreadMessage {
-  return { id, content, type: 'text', extraMetadata: extra, sender: 'agent', createdAt: '2026-01-01T00:00:01Z' };
+function agentMsg(
+  id: string,
+  content = `a-${id}`,
+  extra: Record<string, unknown> = {}
+): ThreadMessage {
+  return {
+    id,
+    content,
+    type: 'text',
+    extraMetadata: extra,
+    sender: 'agent',
+    createdAt: '2026-01-01T00:00:01Z',
+  };
 }
-function tool(id: string, name: string, round = 0, status: ToolTimelineEntry['status'] = 'success'): ToolTimelineEntry {
+function tool(
+  id: string,
+  name: string,
+  round = 0,
+  status: ToolTimelineEntry['status'] = 'success'
+): ToolTimelineEntry {
   return { id, name, round, status };
 }
 function subagentRow(id: string, taskId: string, round = 0): ToolTimelineEntry {
@@ -80,10 +103,18 @@ describe('buildThreadTimeline — ordering', () => {
   it('preserves tool-timeline array order and maps success→ok', () => {
     const items = build({
       messages: [userMsg('u1')],
-      toolTimeline: [tool('c1', 'a', 0, 'success'), tool('c2', 'b', 0, 'error'), tool('c3', 'c', 1, 'running')],
+      toolTimeline: [
+        tool('c1', 'a', 0, 'success'),
+        tool('c2', 'b', 0, 'error'),
+        tool('c3', 'c', 1, 'running'),
+      ],
     });
     const calls = items.filter(i => i.kind === 'toolCall');
-    expect(calls.map(c => (c.kind === 'toolCall' ? c.status : null))).toEqual(['ok', 'error', 'running']);
+    expect(calls.map(c => (c.kind === 'toolCall' ? c.status : null))).toEqual([
+      'ok',
+      'error',
+      'running',
+    ]);
     expect(calls.map(c => c.id)).toEqual(['c1', 'c2', 'c3']);
   });
 
@@ -189,7 +220,9 @@ describe('buildThreadTimeline — requestId grouping (Phase 4 anchoring)', () =>
   });
 
   it('falls back to the legacy turn for messages without a requestId', () => {
-    const items = build({ messages: [userMsg('u1'), agentMsg('a1', 'ans', { requestId: 'req-9' })] });
+    const items = build({
+      messages: [userMsg('u1'), agentMsg('a1', 'ans', { requestId: 'req-9' })],
+    });
     expect(items.map(i => i.turnId)).toEqual([LEGACY_TURN_ID, 'req-9']);
   });
 
@@ -210,7 +243,10 @@ describe('buildThreadTimeline — requestId grouping (Phase 4 anchoring)', () =>
 
 describe('groupTimelineIntoTurns', () => {
   it('groups a single legacy turn into one group', () => {
-    const items = build({ messages: [userMsg('u1'), agentMsg('a1')], toolTimeline: [tool('c1', 'x')] });
+    const items = build({
+      messages: [userMsg('u1'), agentMsg('a1')],
+      toolTimeline: [tool('c1', 'x')],
+    });
     const turns = groupTimelineIntoTurns(items);
     expect(turns).toHaveLength(1);
     expect(turns[0].turnId).toBe(LEGACY_TURN_ID);
@@ -223,7 +259,10 @@ describe('groupTimelineIntoTurns', () => {
 });
 
 describe('selectTimelineForThread (memoized)', () => {
-  function stateWith(over: Partial<RootState['chatRuntime']> = {}, theme = { hideAgentInsights: false }): RootState {
+  function stateWith(
+    over: Partial<RootState['chatRuntime']> = {},
+    theme = { hideAgentInsights: false }
+  ): RootState {
     return {
       thread: { messagesByThreadId: { [THREAD]: [userMsg('u1'), agentMsg('a1')] } },
       chatRuntime: {

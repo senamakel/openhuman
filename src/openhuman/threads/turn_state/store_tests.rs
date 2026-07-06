@@ -195,7 +195,10 @@ fn keeps_a_separate_snapshot_per_turn_and_get_returns_latest() {
     assert_eq!(latest.request_id, "req-2");
 
     // get_turn fetches a specific earlier turn.
-    let earlier = store.get_turn("t", "req-1").expect("get_turn").expect("present");
+    let earlier = store
+        .get_turn("t", "req-1")
+        .expect("get_turn")
+        .expect("present");
     assert_eq!(earlier.request_id, "req-1");
     assert!(store.get_turn("t", "nope").expect("get_turn").is_none());
 
@@ -211,7 +214,11 @@ fn completed_turns_are_pruned_to_the_retention_window() {
     let store = TurnStateStore::new(dir.path().to_path_buf());
     // Write 25 completed turns; only the newest COMPLETED_RETENTION (20) survive.
     for i in 0..25 {
-        let mut s = turn("t", &format!("req-{i:02}"), &format!("2026-05-04T10:{i:02}:00Z"));
+        let mut s = turn(
+            "t",
+            &format!("req-{i:02}"),
+            &format!("2026-05-04T10:{i:02}:00Z"),
+        );
         s.lifecycle = TurnLifecycle::Completed;
         s.updated_at = format!("2026-05-04T10:{i:02}:00Z");
         store.put(&s).expect("put");
@@ -230,7 +237,11 @@ fn a_live_turn_is_not_pruned_alongside_completed_history() {
     let dir = tempdir().expect("tempdir");
     let store = TurnStateStore::new(dir.path().to_path_buf());
     for i in 0..COMPLETED_RETENTION_PLUS {
-        let mut s = turn("t", &format!("done-{i:02}"), &format!("2026-05-04T10:{i:02}:00Z"));
+        let mut s = turn(
+            "t",
+            &format!("done-{i:02}"),
+            &format!("2026-05-04T10:{i:02}:00Z"),
+        );
         s.lifecycle = TurnLifecycle::Completed;
         s.updated_at = format!("2026-05-04T10:{i:02}:00Z");
         store.put(&s).expect("put completed");
@@ -240,7 +251,10 @@ fn a_live_turn_is_not_pruned_alongside_completed_history() {
     live.lifecycle = TurnLifecycle::Streaming;
     store.put(&live).expect("put live");
     assert!(store.get_turn("t", "live").expect("get_turn").is_some());
-    assert_eq!(store.get("t").expect("get").expect("present").request_id, "live");
+    assert_eq!(
+        store.get("t").expect("get").expect("present").request_id,
+        "live"
+    );
 }
 
 #[test]
@@ -262,15 +276,25 @@ fn migrates_a_legacy_flat_snapshot_into_the_per_turn_layout() {
     // First access migrates it into the dir and removes the flat file.
     let loaded = store.get("legacy-thread").expect("get").expect("present");
     assert_eq!(loaded.request_id, "req-legacy");
-    assert!(!flat_path.exists(), "flat file must be removed after migration");
+    assert!(
+        !flat_path.exists(),
+        "flat file must be removed after migration"
+    );
     let per_turn = root
         .join(hex::encode("legacy-thread".as_bytes()))
         .join(format!("{}.json", hex::encode("req-legacy".as_bytes())));
-    assert!(per_turn.exists(), "snapshot must live under the per-turn path");
+    assert!(
+        per_turn.exists(),
+        "snapshot must live under the per-turn path"
+    );
 
     // Migration is idempotent — a second access is a no-op.
     assert_eq!(
-        store.get("legacy-thread").expect("get2").expect("present").request_id,
+        store
+            .get("legacy-thread")
+            .expect("get2")
+            .expect("present")
+            .request_id,
         "req-legacy"
     );
 }

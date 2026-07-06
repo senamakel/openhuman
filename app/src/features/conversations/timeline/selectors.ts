@@ -61,11 +61,7 @@ function messageTurnId(message: ThreadMessage): string {
 }
 
 /** Map one runtime tool-timeline row onto a `toolCall`/`subagentActivity` item. */
-function toProcessItem(
-  entry: ToolTimelineEntry,
-  threadId: string,
-  seq: number
-): TimelineItem {
+function toProcessItem(entry: ToolTimelineEntry, threadId: string, seq: number): TimelineItem {
   const base = {
     id: entry.id,
     turnId: LEGACY_TURN_ID,
@@ -212,8 +208,7 @@ export const selectTimelineForThread = createSelector(
       state.chatRuntime.toolTimelineByThread[threadId] ?? EMPTY_TIMELINE,
     (state: RootState, threadId: string) =>
       state.chatRuntime.streamingAssistantByThread[threadId] ?? null,
-    (state: RootState, threadId: string) =>
-      state.chatRuntime.parallelStreamsByThread[threadId],
+    (state: RootState, threadId: string) => state.chatRuntime.parallelStreamsByThread[threadId],
     (state: RootState) => state.theme?.hideAgentInsights ?? false,
     (_state: RootState, threadId: string) => threadId,
   ],

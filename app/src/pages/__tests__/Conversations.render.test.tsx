@@ -602,7 +602,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(screen.getByText('Can you summarize this?')).toBeInTheDocument();
   });
 
-  it('renders a past turn\'s process trail above the answer it produced (Phase 5)', async () => {
+  it("renders a past turn's process trail above the answer it produced (Phase 5)", async () => {
     const thread = makeThread({ id: 'multi-turn-thread', title: 'Multi Turn' });
     // Two turns: req-1 (older) and req-2 (latest). Only the older turn has a
     // hydrated past-turn timeline (the latest renders as the live anchor).
@@ -663,9 +663,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       store!.dispatch(
         setTurnTimelinesForThread({
           threadId: thread.id,
-          timelines: {
-            'req-1': [{ id: 'tc-1', name: 'read_file', round: 0, status: 'success' }],
-          },
+          timelines: { 'req-1': [{ id: 'tc-1', name: 'read_file', round: 0, status: 'success' }] },
         })
       );
     });

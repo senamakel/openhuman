@@ -21,12 +21,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { BubbleMarkdown } from '../../features/conversations/components/AgentMessageBubble';
+import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
 import { useWorkflowBuilderChat } from '../../hooks/useWorkflowBuilderChat';
 import { diffGraphs } from '../../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import { useT } from '../../lib/i18n/I18nContext';
-import { BubbleMarkdown } from '../../features/conversations/components/AgentMessageBubble';
-import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import ChatComposer from '../chat/ChatComposer';
 import Button from '../ui/Button';

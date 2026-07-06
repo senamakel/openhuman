@@ -1,17 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { describe, expect, it, vi } from 'vitest';
 
-import reducer, {
-  fetchAndHydrateTurnHistory,
-  fetchAndHydrateTurnState,
-} from '../chatRuntimeSlice';
+import reducer, { fetchAndHydrateTurnHistory, fetchAndHydrateTurnState } from '../chatRuntimeSlice';
 
 const { mockThreadApi } = vi.hoisted(() => ({
-  mockThreadApi: {
-    getTurnState: vi.fn(),
-    listRuns: vi.fn(),
-    getTurnStateHistory: vi.fn(),
-  },
+  mockThreadApi: { getTurnState: vi.fn(), listRuns: vi.fn(), getTurnStateHistory: vi.fn() },
 }));
 
 vi.mock('../../services/api/threadApi', () => ({ threadApi: mockThreadApi }));

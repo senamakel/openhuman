@@ -13,16 +13,36 @@ function renderInStore(ui: React.ReactNode) {
 }
 
 function userMsg(id: string, content: string): ThreadMessage {
-  return { id, content, type: 'text', extraMetadata: {}, sender: 'user', createdAt: '2026-01-01T00:00:00Z' };
+  return {
+    id,
+    content,
+    type: 'text',
+    extraMetadata: {},
+    sender: 'user',
+    createdAt: '2026-01-01T00:00:00Z',
+  };
 }
 function agentMsg(id: string, content: string): ThreadMessage {
-  return { id, content, type: 'text', extraMetadata: {}, sender: 'agent', createdAt: '2026-01-01T00:00:01Z' };
+  return {
+    id,
+    content,
+    type: 'text',
+    extraMetadata: {},
+    sender: 'agent',
+    createdAt: '2026-01-01T00:00:01Z',
+  };
 }
 function tool(id: string, name: string, round = 0): ToolTimelineEntry {
   return { id, name, round, status: 'success' };
 }
 function subagentRow(id: string, taskId: string): ToolTimelineEntry {
-  return { id, name: 'subagent:researcher', round: 0, status: 'running', subagent: { taskId, agentId: 'researcher', toolCalls: [] } };
+  return {
+    id,
+    name: 'subagent:researcher',
+    round: 0,
+    status: 'running',
+    subagent: { taskId, agentId: 'researcher', toolCalls: [] },
+  };
 }
 function stream(requestId: string, content: string, thinking = ''): StreamingAssistantState {
   return { requestId, content, thinking };

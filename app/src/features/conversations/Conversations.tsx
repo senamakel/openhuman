@@ -21,6 +21,46 @@ import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { settingsNavState } from '../../components/settings/modal/settingsOverlay';
 import UpsellBanner from '../../components/upsell/UpsellBanner';
 import { dismissBanner, shouldShowBanner } from '../../components/upsell/upsellDismissState';
+import {
+  AgentMessageBubble,
+  AgentMessageText,
+  BubbleMarkdown,
+} from '../../features/conversations/components/AgentMessageBubble';
+import { AgentProcessSourcePanel } from '../../features/conversations/components/AgentProcessSourcePanel';
+import {
+  BackgroundProcessesPanel,
+  selectBackgroundProcesses,
+} from '../../features/conversations/components/BackgroundProcessesPanel';
+import {
+  CitationChips,
+  type MessageCitation,
+} from '../../features/conversations/components/CitationChips';
+import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
+import { SubagentDrawer } from '../../features/conversations/components/SubagentDrawer';
+import {
+  ThreadGoalEditorPanel,
+  ThreadGoalFooterTrigger,
+  useThreadGoal,
+} from '../../features/conversations/components/ThreadGoalChip';
+import { ThreadTodoStrip } from '../../features/conversations/components/ThreadTodoStrip';
+import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
+import {
+  evaluateComposerSend,
+  getComposerBlockedSendFeedback,
+  handleComposerSlashCommand,
+} from '../../features/conversations/composerSendDecision';
+import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
+import {
+  type AgentBubblePosition,
+  buildAcceptedInlineCompletion,
+  formatRelativeTime,
+  formatResetTime,
+  getInlineCompletionSuffix,
+} from '../../features/conversations/utils/format';
+import {
+  GENERAL_TAB_VALUE,
+  isThreadVisibleInTab,
+} from '../../features/conversations/utils/threadFilter';
 import MicComposer from '../../features/human/MicComposer';
 import { useStickToBottom } from '../../hooks/useStickToBottom';
 import { useUsageState } from '../../hooks/useUsageState';
@@ -102,40 +142,6 @@ import {
   openhumanVoiceTts,
 } from '../../utils/tauriCommands';
 import { formatTimelineEntry } from '../../utils/toolTimelineFormatting';
-import {
-  AgentMessageBubble,
-  AgentMessageText,
-  BubbleMarkdown,
-} from '../../features/conversations/components/AgentMessageBubble';
-import { AgentProcessSourcePanel } from '../../features/conversations/components/AgentProcessSourcePanel';
-import {
-  BackgroundProcessesPanel,
-  selectBackgroundProcesses,
-} from '../../features/conversations/components/BackgroundProcessesPanel';
-import { CitationChips, type MessageCitation } from '../../features/conversations/components/CitationChips';
-import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
-import { SubagentDrawer } from '../../features/conversations/components/SubagentDrawer';
-import {
-  ThreadGoalEditorPanel,
-  ThreadGoalFooterTrigger,
-  useThreadGoal,
-} from '../../features/conversations/components/ThreadGoalChip';
-import { ThreadTodoStrip } from '../../features/conversations/components/ThreadTodoStrip';
-import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
-import {
-  evaluateComposerSend,
-  getComposerBlockedSendFeedback,
-  handleComposerSlashCommand,
-} from '../../features/conversations/composerSendDecision';
-import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
-import {
-  type AgentBubblePosition,
-  buildAcceptedInlineCompletion,
-  formatRelativeTime,
-  formatResetTime,
-  getInlineCompletionSuffix,
-} from '../../features/conversations/utils/format';
-import { GENERAL_TAB_VALUE, isThreadVisibleInTab } from '../../features/conversations/utils/threadFilter';
 import { buildThreadTimeline } from './timeline/selectors';
 
 const CHAT_MODEL_HINT = 'hint:chat';
@@ -386,9 +392,7 @@ const Conversations = ({
   // behaviour stays intact.
   const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
-  const turnTimelinesByThread = useAppSelector(
-    state => state.chatRuntime.turnTimelinesByThread
-  );
+  const turnTimelinesByThread = useAppSelector(state => state.chatRuntime.turnTimelinesByThread);
   const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
   const taskBoardByThread = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const inferenceStatusByThread = useAppSelector(

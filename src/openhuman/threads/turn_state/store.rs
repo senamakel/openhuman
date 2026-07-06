@@ -107,11 +107,7 @@ impl TurnStateStore {
     }
 
     /// Return a specific turn by `request_id`, or `None` if absent.
-    pub fn get_turn(
-        &self,
-        thread_id: &str,
-        request_id: &str,
-    ) -> Result<Option<TurnState>, String> {
+    pub fn get_turn(&self, thread_id: &str, request_id: &str) -> Result<Option<TurnState>, String> {
         let _guard = TURN_STATE_LOCK.lock();
         self.migrate_thread_locked(thread_id);
         let path = self.turn_path(thread_id, request_id);
@@ -346,7 +342,10 @@ impl TurnStateStore {
             }
             let name = entry.file_name();
             let Some(name) = name.to_str() else { continue };
-            match hex::decode(name).ok().and_then(|b| String::from_utf8(b).ok()) {
+            match hex::decode(name)
+                .ok()
+                .and_then(|b| String::from_utf8(b).ok())
+            {
                 Some(thread_id) => ids.push(thread_id),
                 None => warn!("{LOG_PREFIX} skip non-hex thread dir {name}"),
             }

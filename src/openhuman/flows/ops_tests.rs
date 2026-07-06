@@ -1614,3 +1614,43 @@ async fn dismiss_unknown_suggestion_reports_not_found() {
     let d = flows_dismiss_suggestion(&config, "missing").await.unwrap();
     assert_eq!(d.value["dismissed"], json!(false));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FlowStreamTarget (Phase B copilot/scout streaming) — pure param plumbing.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn flow_stream_target_none_without_thread_id() {
+    // No thread → headless run, regardless of request_id.
+    assert!(FlowStreamTarget::from_params(None, None).is_none());
+    assert!(FlowStreamTarget::from_params(None, Some("r-1".to_string())).is_none());
+}
+
+#[test]
+fn flow_stream_target_blank_thread_id_is_absent() {
+    // Whitespace-only thread id is treated as no thread (callers pass raw input).
+    assert!(FlowStreamTarget::from_params(Some("   ".to_string()), None).is_none());
+    assert!(FlowStreamTarget::from_params(Some(String::new()), None).is_none());
+}
+
+#[test]
+fn flow_stream_target_trims_and_keeps_request_id() {
+    let t = FlowStreamTarget::from_params(Some("  t-1  ".to_string()), Some("  r-1  ".to_string()))
+        .expect("stream target");
+    assert_eq!(t.thread_id, "t-1");
+    assert_eq!(t.request_id, "r-1");
+}
+
+#[test]
+fn flow_stream_target_generates_request_id_when_absent_or_blank() {
+    // Absent request id → a fresh uuid is minted.
+    let a = FlowStreamTarget::from_params(Some("t-1".to_string()), None).expect("target");
+    assert!(!a.request_id.is_empty());
+    assert_ne!(a.request_id, a.thread_id);
+    // Blank request id is treated the same way.
+    let b = FlowStreamTarget::from_params(Some("t-1".to_string()), Some("  ".to_string()))
+        .expect("target");
+    assert!(!b.request_id.is_empty());
+    // Two mints are distinct uuids.
+    assert_ne!(a.request_id, b.request_id);
+}

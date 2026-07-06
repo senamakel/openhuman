@@ -1687,6 +1687,133 @@ const FLOW_DISCOVER_PROMPT: &str = "Discover the most useful automations you cou
      deal with, and the flows I already have — then propose a few concrete, buildable workflows. \
      Ground each in something you actually observed about me, and end by calling suggest_workflows.";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Copilot / scout streaming (Phase B) — bridge a builder/scout turn's live
+// AgentProgress onto the web-channel socket, keyed by a chat thread, exactly
+// like an interactive chat turn. Blueprint: `agent/task_dispatcher/executor.rs`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Where to stream a `flows_build` / `flows_discover` turn. When present, the
+/// agent's progress events (`text_delta` / `thinking_delta` / `tool_call` /
+/// `tool_result` / terminal `chat_done`) are published as `WebChannelEvent`s
+/// tagged with this `thread_id` — the same room the shared chat pane already
+/// subscribes to and decodes — so the copilot/scout UI renders streamed text,
+/// tool cards, and workflow-proposal cards live instead of spinning for the
+/// whole (up to 300s) headless run.
+///
+/// Broadcast client id is always `"system"` (like cron / task-session runs), so
+/// any client viewing the thread receives the events (the frontend keys by
+/// `thread_id`). The blocking `{ proposal, assistant_text }` return is
+/// unchanged — streaming is purely additive, opt-in per call.
+#[derive(Debug, Clone)]
+pub struct FlowStreamTarget {
+    /// The chat thread the copilot/scout turn streams into.
+    pub thread_id: String,
+    /// Per-turn correlation id (matches the frontend `request_id`). Generated
+    /// when the caller doesn't supply one.
+    pub request_id: String,
+}
+
+impl FlowStreamTarget {
+    /// Build a streaming target from optional RPC params. Streaming is enabled
+    /// only when a non-empty `thread_id` is given; a missing/blank `request_id`
+    /// is filled with a fresh uuid so the turn is always correlatable. Returns
+    /// `None` (headless run, prior behaviour) when no usable `thread_id`.
+    pub fn from_params(thread_id: Option<String>, request_id: Option<String>) -> Option<Self> {
+        let thread_id = thread_id.map(|t| t.trim().to_string()).filter(|t| !t.is_empty())?;
+        let request_id = request_id
+            .map(|r| r.trim().to_string())
+            .filter(|r| !r.is_empty())
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        Some(Self {
+            thread_id,
+            request_id,
+        })
+    }
+}
+
+/// Attach the web-channel progress bridge to `agent` for a builder/scout turn.
+/// Wires an mpsc channel into the agent's progress sink and spawns the bridge
+/// task that translates each [`AgentProgress`] into a socket event keyed by the
+/// target thread (and mirrors a `TurnStateStore` so the tool timeline replays
+/// on reopen). The bridge task lives until the agent drops its progress sender
+/// (turn end). `source` is a short trace-attribution label (e.g.
+/// `"flows_build"`).
+fn attach_flow_progress_bridge(
+    agent: &mut crate::openhuman::agent::Agent,
+    target: &FlowStreamTarget,
+    source: &str,
+    config: &Config,
+) {
+    let (progress_tx, progress_rx) = tokio::sync::mpsc::channel(64);
+    agent.set_on_progress(Some(progress_tx));
+    tracing::info!(
+        target: "flows",
+        thread_id = %target.thread_id,
+        request_id = %target.request_id,
+        source = %source,
+        "[flows] progress bridge: attaching (streaming copilot/scout turn)"
+    );
+    crate::openhuman::channels::providers::web::spawn_progress_bridge(
+        progress_rx,
+        "system".to_string(),
+        target.thread_id.clone(),
+        target.request_id.clone(),
+        crate::openhuman::threads::turn_state::TurnStateStore::new(config.workspace_dir.clone()),
+        crate::openhuman::channels::providers::web::ChatRequestMetadata {
+            source: Some(source.to_string()),
+            ..Default::default()
+        },
+        config.clone(),
+    );
+}
+
+/// Emit the terminal chat event a streamed builder/scout turn owes its viewers.
+/// The progress bridge only streams intermediate deltas; without this the live
+/// session spins forever. Mirrors how `task_dispatcher/executor.rs` finalizes a
+/// streamed run: a success delivers a `chat_done` (via the shared presentation
+/// path, so segmentation/reaction match a normal turn), a failure publishes a
+/// `chat_error`. Broadcast as `"system"` so any viewer of the thread receives
+/// it (frontend keys by `thread_id`).
+async fn finalize_flow_stream(target: &FlowStreamTarget, result: &Result<String, String>, prompt: &str) {
+    match result {
+        Ok(text) => {
+            crate::openhuman::channels::providers::web::presentation::deliver_response(
+                "system",
+                &target.thread_id,
+                &target.request_id,
+                text,
+                prompt,
+                &[],
+                // Builder/scout turns don't surface in the chat footer; their
+                // token/cost spend is still captured by the global cost tracker.
+                None,
+            )
+            .await;
+        }
+        Err(err) => {
+            crate::openhuman::channels::providers::web::publish_web_channel_event(
+                crate::core::socketio::WebChannelEvent {
+                    event: "chat_error".to_string(),
+                    client_id: "system".to_string(),
+                    thread_id: target.thread_id.clone(),
+                    request_id: target.request_id.clone(),
+                    message: Some(err.clone()),
+                    error_type: Some("agent_error".to_string()),
+                    ..Default::default()
+                },
+            );
+        }
+    }
+    tracing::info!(
+        target: "flows",
+        thread_id = %target.thread_id,
+        request_id = %target.request_id,
+        ok = result.is_ok(),
+        "[flows] progress bridge: detached (terminal chat event emitted)"
+    );
+}
+
 /// Runs the read-only `flow_discovery` agent ("Flow Scout") on demand: it reads
 /// the user's memory/threads/people/connections/existing flows, grounds a few
 /// automation ideas, and records them via the `suggest_workflows` tool (which
@@ -1697,11 +1824,18 @@ const FLOW_DISCOVER_PROMPT: &str = "Discover the most useful automations you cou
 /// (`PermissionLevel::None`) — so this never persists, enables, or runs a flow.
 /// Turning a suggestion into a real flow is the user's separate "Build this"
 /// action, which routes to `workflow_builder`.
-pub async fn flows_discover(config: &Config) -> Result<RpcOutcome<Vec<FlowSuggestion>>, String> {
+pub async fn flows_discover(
+    config: &Config,
+    stream: Option<FlowStreamTarget>,
+) -> Result<RpcOutcome<Vec<FlowSuggestion>>, String> {
     use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin};
     use crate::openhuman::agent::Agent;
 
-    tracing::info!(target: "flows", "[flows] flows_discover: starting Flow Scout discovery run");
+    tracing::info!(
+        target: "flows",
+        streaming = stream.is_some(),
+        "[flows] flows_discover: starting Flow Scout discovery run"
+    );
 
     // The registry must be initialised before building a named builtin agent
     // (mirrors `agent_registry::ops::available_tools`); it is idempotent, so a
@@ -1713,24 +1847,46 @@ pub async fn flows_discover(config: &Config) -> Result<RpcOutcome<Vec<FlowSugges
         .map_err(|e| format!("failed to build flow_discovery agent: {e:#}"))?;
     agent.set_agent_definition_name("flow_discovery".to_string());
 
+    // When a chat thread is attached, stream the scout turn into it exactly like
+    // an interactive turn (see `FlowStreamTarget`). Best-effort — with no target
+    // the run stays headless, exactly as before.
+    if let Some(target) = &stream {
+        attach_flow_progress_bridge(&mut agent, target, "flows_discover", config);
+    }
+
     // Run to completion under a CLI origin (an internal, user-initiated action —
     // the approval gate must not fail-closed on it), bounded by a wall-clock
-    // timeout so a hung provider call can't wedge the RPC.
+    // timeout so a hung provider call can't wedge the RPC. When streaming, the
+    // run is wrapped in the thread-id scope so descendant turns tag their trace
+    // and socket events with this thread.
     let run = with_origin(AgentTurnOrigin::Cli, agent.run_single(FLOW_DISCOVER_PROMPT));
-    match tokio::time::timeout(
+    let run = tokio::time::timeout(
         std::time::Duration::from_secs(FLOW_DISCOVER_TIMEOUT_SECS),
         run,
-    )
-    .await
-    {
-        Ok(Ok(_summary)) => {
+    );
+    let timed = match &stream {
+        Some(target) => {
+            crate::openhuman::inference::provider::thread_context::with_thread_id(
+                target.thread_id.clone(),
+                run,
+            )
+            .await
+        }
+        None => run.await,
+    };
+    // Reduce the (timeout, run) result to a single `Result<summary, error>` so
+    // the terminal chat event can be emitted uniformly for the streamed case.
+    let outcome: Result<String, String> = match timed {
+        Ok(Ok(summary)) => {
             tracing::debug!(target: "flows", "[flows] flows_discover: agent run completed");
+            Ok(summary)
         }
         Ok(Err(e)) => {
             // The agent errored. Surface it, but still return whatever
             // suggestions may already be persisted (a prior run's active set)
             // rather than hard-failing the UI.
             tracing::warn!(target: "flows", error = %e, "[flows] flows_discover: agent run failed");
+            Err(format!("flow_discovery run failed: {e:#}"))
         }
         Err(_) => {
             tracing::warn!(
@@ -1738,7 +1894,16 @@ pub async fn flows_discover(config: &Config) -> Result<RpcOutcome<Vec<FlowSugges
                 timeout_secs = FLOW_DISCOVER_TIMEOUT_SECS,
                 "[flows] flows_discover: agent run timed out"
             );
+            Err(format!(
+                "flow_discovery run timed out after {FLOW_DISCOVER_TIMEOUT_SECS}s"
+            ))
         }
+    };
+
+    // Emit the terminal chat event so a client viewing the thread finalizes the
+    // assistant bubble instead of spinning (the bridge only streams deltas).
+    if let Some(target) = &stream {
+        finalize_flow_stream(target, &outcome, FLOW_DISCOVER_PROMPT).await;
     }
 
     let suggestions = store::list_suggestions(config, Some(SuggestionStatus::New), 50)
@@ -1777,6 +1942,7 @@ const FLOW_BUILD_TIMEOUT_SECS: u64 = 300;
 pub async fn flows_build(
     config: &Config,
     req: crate::openhuman::flows::agents::workflow_builder::builder_prompt::BuilderRequest,
+    stream: Option<FlowStreamTarget>,
 ) -> Result<RpcOutcome<Value>, String> {
     use crate::openhuman::agent::Agent;
     use crate::openhuman::flows::agents::workflow_builder::builder_prompt::render_prompt;
@@ -1787,6 +1953,7 @@ pub async fn flows_build(
         mode = ?req.mode,
         has_graph = req.graph.is_some(),
         flow_id = req.flow_id.as_deref().unwrap_or("<none>"),
+        streaming = stream.is_some(),
         "[flows] flows_build: starting workflow_builder turn"
     );
 
@@ -1799,15 +1966,31 @@ pub async fn flows_build(
         .map_err(|e| format!("failed to build workflow_builder agent: {e:#}"))?;
     agent.set_agent_definition_name("workflow_builder".to_string());
 
+    // When a chat thread is attached (the copilot pane), stream the builder turn
+    // into it exactly like an interactive turn — text/tool deltas and the
+    // `propose_workflow` tool result the frontend renders as a proposal card.
+    // Best-effort — with no target the run stays headless (CLI / tests).
+    if let Some(target) = &stream {
+        attach_flow_progress_bridge(&mut agent, target, "flows_build", config);
+    }
+
     // Run to completion under a CLI origin (internal, user-initiated — the
-    // approval gate must not fail-closed), bounded by a wall-clock timeout.
+    // approval gate must not fail-closed), bounded by a wall-clock timeout. When
+    // streaming, wrap the run in the thread-id scope so descendant turns tag
+    // their trace + socket events with this thread.
     let run = with_origin(AgentTurnOrigin::Cli, agent.run_single(&prompt));
-    let (assistant_text, run_error) = match tokio::time::timeout(
-        std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS),
-        run,
-    )
-    .await
-    {
+    let run = tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run);
+    let timed = match &stream {
+        Some(target) => {
+            crate::openhuman::inference::provider::thread_context::with_thread_id(
+                target.thread_id.clone(),
+                run,
+            )
+            .await
+        }
+        None => run.await,
+    };
+    let (assistant_text, run_error) = match timed {
         Ok(Ok(text)) => (text, None),
         Ok(Err(e)) => {
             tracing::warn!(target: "flows", error = %e, "[flows] flows_build: agent run failed");
@@ -1830,6 +2013,18 @@ pub async fn flows_build(
             )
         }
     };
+
+    // Emit the terminal chat event so a client viewing the copilot thread stops
+    // "processing" and finalizes the assistant bubble (the bridge streams only
+    // intermediate deltas). Success delivers `chat_done`; a run error delivers
+    // `chat_error`. The blocking return below is unchanged.
+    if let Some(target) = &stream {
+        let terminal: Result<String, String> = match &run_error {
+            None => Ok(assistant_text.clone()),
+            Some(err) => Err(err.clone()),
+        };
+        finalize_flow_stream(target, &terminal, &prompt).await;
+    }
 
     // Capture the proposal from the run's tool history (propose/revise/save all
     // emit the same self-describing `{ type: "workflow_proposal", … }` payload).

@@ -131,6 +131,32 @@ fn flow_suggestion_fields() -> Vec<FieldSchema> {
     ]
 }
 
+/// Optional `thread_id` streaming param shared by `build` + `discover`. When
+/// the copilot/scout passes a chat thread id, the turn streams live
+/// text/thinking/tool/proposal socket events into that thread (Phase B) instead
+/// of running headless; omitting it keeps the prior blocking-only behaviour.
+fn stream_thread_id_input() -> FieldSchema {
+    FieldSchema {
+        name: "thread_id",
+        ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+        comment: "Chat thread to stream this turn into (copilot/scout live view). \
+                  Omit for a headless run — the blocking result is returned either way.",
+        required: false,
+    }
+}
+
+/// Optional `request_id` streaming param (per-turn correlation id). Only
+/// meaningful alongside `thread_id`; a fresh uuid is generated when absent.
+fn stream_request_id_input() -> FieldSchema {
+    FieldSchema {
+        name: "request_id",
+        ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+        comment: "Per-turn correlation id for the streamed events (matches the \
+                  frontend request_id). Generated when omitted; ignored without `thread_id`.",
+        required: false,
+    }
+}
+
 fn require_approval_input() -> FieldSchema {
     FieldSchema {
         name: "require_approval",
@@ -775,6 +801,8 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     comment: "Node ids implicated in the failure, for `repair` (array of strings).",
                     required: false,
                 },
+                stream_thread_id_input(),
+                stream_request_id_input(),
             ],
             outputs: vec![FieldSchema {
                 name: "result",
@@ -794,7 +822,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                           creates, enables, or runs a flow — turning a suggestion into a real flow \
                           is the user's separate 'Build this' action. Returns the active (new) \
                           suggestions after the run.",
-            inputs: vec![],
+            inputs: vec![stream_thread_id_input(), stream_request_id_input()],
             outputs: vec![suggestions_output()],
         },
         "list_suggestions" => ControllerSchema {
@@ -1043,20 +1071,45 @@ fn handle_prune_runs(params: Map<String, Value>) -> ControllerFuture {
 fn handle_build(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        // Deserialize the whole param object into the structured BuilderRequest
-        // (mode/instruction/graph/flow_id/run_id/error/failing_node_ids).
+        // Optional streaming target: when the copilot passes its chat `thread_id`
+        // the builder turn streams live text/tool/proposal events into that
+        // thread (Phase B). Read + strip the transport-only keys before the rest
+        // of the object is deserialized into the structured BuilderRequest.
+        let stream = read_flow_stream_target(&params);
+        // Deserialize the remaining param object into the structured BuilderRequest
+        // (mode/instruction/graph/flow_id/run_id/error/failing_node_ids). The
+        // stream keys are ignored (BuilderRequest doesn't declare them).
         let req: crate::openhuman::flows::agents::workflow_builder::builder_prompt::BuilderRequest =
             serde_json::from_value(Value::Object(params))
                 .map_err(|e| format!("invalid flows.build params: {e}"))?;
-        to_json(ops::flows_build(&config, req).await?)
+        to_json(ops::flows_build(&config, req, stream).await?)
     })
 }
 
-fn handle_discover(_params: Map<String, Value>) -> ControllerFuture {
+fn handle_discover(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        to_json(ops::flows_discover(&config).await?)
+        // Optional streaming target for the Flow Scout run (Phase B) — same
+        // `thread_id`/`request_id` convention as `flows.build`.
+        let stream = read_flow_stream_target(&params);
+        to_json(ops::flows_discover(&config, stream).await?)
     })
+}
+
+/// Read the optional `thread_id` / `request_id` streaming params shared by
+/// `flows.build` and `flows.discover` into an [`ops::FlowStreamTarget`].
+/// Returns `None` (headless run) when no usable `thread_id` is present; a
+/// missing `request_id` is filled with a fresh uuid inside `from_params`.
+fn read_flow_stream_target(params: &Map<String, Value>) -> Option<ops::FlowStreamTarget> {
+    let thread_id = params
+        .get("thread_id")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let request_id = params
+        .get("request_id")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    ops::FlowStreamTarget::from_params(thread_id, request_id)
 }
 
 fn handle_list_suggestions(params: Map<String, Value>) -> ControllerFuture {
@@ -1314,6 +1367,67 @@ mod tests {
             .map(|f| f.name)
             .collect();
         assert_eq!(required, vec!["run_id"]);
+    }
+
+    #[test]
+    fn schemas_build_exposes_optional_stream_params() {
+        let s = schemas("build");
+        assert_eq!(s.namespace, "flows");
+        // The only structurally required build input is `mode`.
+        let required: Vec<_> = s
+            .inputs
+            .iter()
+            .filter(|f| f.required)
+            .map(|f| f.name)
+            .collect();
+        assert_eq!(required, vec!["mode"]);
+        // The streaming params are present and optional.
+        let thread = s.inputs.iter().find(|f| f.name == "thread_id").unwrap();
+        assert!(!thread.required);
+        let request = s.inputs.iter().find(|f| f.name == "request_id").unwrap();
+        assert!(!request.required);
+    }
+
+    #[test]
+    fn schemas_discover_exposes_optional_stream_params() {
+        let s = schemas("discover");
+        assert_eq!(s.namespace, "flows");
+        // Discover has no required inputs — the two stream params are optional.
+        assert!(s.inputs.iter().all(|f| !f.required));
+        let names: Vec<_> = s.inputs.iter().map(|f| f.name).collect();
+        assert_eq!(names, vec!["thread_id", "request_id"]);
+    }
+
+    #[test]
+    fn read_flow_stream_target_none_without_thread_id() {
+        let mut params = Map::new();
+        // request_id alone is not enough — streaming needs a thread.
+        params.insert("request_id".to_string(), Value::String("r-1".to_string()));
+        assert!(read_flow_stream_target(&params).is_none());
+        // Blank thread id is also treated as absent.
+        params.insert("thread_id".to_string(), Value::String("   ".to_string()));
+        assert!(read_flow_stream_target(&params).is_none());
+    }
+
+    #[test]
+    fn read_flow_stream_target_uses_thread_and_request() {
+        let mut params = Map::new();
+        params.insert("thread_id".to_string(), Value::String("t-42".to_string()));
+        params.insert("request_id".to_string(), Value::String("r-9".to_string()));
+        let target = read_flow_stream_target(&params).expect("stream target");
+        assert_eq!(target.thread_id, "t-42");
+        assert_eq!(target.request_id, "r-9");
+    }
+
+    #[test]
+    fn read_flow_stream_target_generates_request_id_when_absent() {
+        let mut params = Map::new();
+        params.insert("thread_id".to_string(), Value::String("t-7".to_string()));
+        let target = read_flow_stream_target(&params).expect("stream target");
+        assert_eq!(target.thread_id, "t-7");
+        // A uuid was minted — non-empty and not the thread id.
+        assert!(!target.request_id.is_empty());
+        assert_ne!(target.request_id, target.thread_id);
     }
 
     #[test]

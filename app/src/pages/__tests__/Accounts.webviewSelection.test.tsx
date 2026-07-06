@@ -50,7 +50,7 @@ vi.mock('../../store/mascotSlice', () => ({
 }));
 vi.mock('../Conversations', () => ({
   default: ({ variant }: { variant: string }) => <div data-testid="conversations">{variant}</div>,
-  AgentChatPanel: () => <div data-testid="agent-chat-panel" />,
+  ConversationsPage: () => <div data-testid="agent-chat-panel" />,
 }));
 
 describe('Accounts provider selection', () => {

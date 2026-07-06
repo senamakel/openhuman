@@ -3955,7 +3955,8 @@ const messages: TranslationMap = {
     'Wähle eine Fähigkeitsstufe — der Workspace löst das Modell auf.',
   'flows.nodeConfig.agent.modelInherit': 'Standard (erben)',
   'flows.nodeConfig.agent.agentRefLabel': 'Agent',
-  'flows.nodeConfig.agent.agentRefHint': 'Diesen Knoten als registrierten Agenten ausführen — dessen Tools und Schutzmechanismen gelten.',
+  'flows.nodeConfig.agent.agentRefHint':
+    'Diesen Knoten als registrierten Agenten ausführen — dessen Tools und Schutzmechanismen gelten.',
   'flows.nodeConfig.agent.agentRefInherit': 'Standard (Workflow-Builder)',
   'flows.nodeConfig.agent.modelManagedTiers': 'Verwaltete Stufen',
   'flows.nodeConfig.agent.modelHints': 'Modellhinweise',

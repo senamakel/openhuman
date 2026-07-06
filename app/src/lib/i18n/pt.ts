@@ -3917,7 +3917,8 @@ const messages: TranslationMap = {
     'Escolha um nível de capacidade — o workspace resolve o modelo.',
   'flows.nodeConfig.agent.modelInherit': 'Padrão (herdar)',
   'flows.nodeConfig.agent.agentRefLabel': 'Agente',
-  'flows.nodeConfig.agent.agentRefHint': 'Executar este nó como um agente registrado — suas ferramentas e proteções se aplicam.',
+  'flows.nodeConfig.agent.agentRefHint':
+    'Executar este nó como um agente registrado — suas ferramentas e proteções se aplicam.',
   'flows.nodeConfig.agent.agentRefInherit': 'Padrão (construtor de fluxos)',
   'flows.nodeConfig.agent.modelManagedTiers': 'Níveis gerenciados',
   'flows.nodeConfig.agent.modelHints': 'Dicas de modelo',

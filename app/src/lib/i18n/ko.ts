@@ -3817,7 +3817,8 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.modelHint': '기능 등급을 선택하세요. 작업 공간이 모델을 결정합니다.',
   'flows.nodeConfig.agent.modelInherit': '기본값 (상속)',
   'flows.nodeConfig.agent.agentRefLabel': '에이전트',
-  'flows.nodeConfig.agent.agentRefHint': '이 노드를 등록된 에이전트로 실행합니다 — 해당 에이전트의 도구와 가드레일이 적용됩니다.',
+  'flows.nodeConfig.agent.agentRefHint':
+    '이 노드를 등록된 에이전트로 실행합니다 — 해당 에이전트의 도구와 가드레일이 적용됩니다.',
   'flows.nodeConfig.agent.agentRefInherit': '기본값 (워크플로 빌더)',
   'flows.nodeConfig.agent.modelManagedTiers': '관리형 등급',
   'flows.nodeConfig.agent.modelHints': '모델 힌트',

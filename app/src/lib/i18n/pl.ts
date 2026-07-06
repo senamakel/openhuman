@@ -3904,7 +3904,8 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.modelHint': 'Wybierz poziom możliwości — obszar roboczy rozwiąże model.',
   'flows.nodeConfig.agent.modelInherit': 'Domyślnie (dziedzicz)',
   'flows.nodeConfig.agent.agentRefLabel': 'Agent',
-  'flows.nodeConfig.agent.agentRefHint': 'Uruchom ten węzeł jako zarejestrowanego agenta — obowiązują jego narzędzia i zabezpieczenia.',
+  'flows.nodeConfig.agent.agentRefHint':
+    'Uruchom ten węzeł jako zarejestrowanego agenta — obowiązują jego narzędzia i zabezpieczenia.',
   'flows.nodeConfig.agent.agentRefInherit': 'Domyślny (kreator przepływów)',
   'flows.nodeConfig.agent.modelManagedTiers': 'Zarządzane poziomy',
   'flows.nodeConfig.agent.modelHints': 'Wskazówki modelu',

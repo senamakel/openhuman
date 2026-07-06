@@ -3895,7 +3895,8 @@ const messages: TranslationMap = {
     'Выберите уровень возможностей — рабочая область определит модель.',
   'flows.nodeConfig.agent.modelInherit': 'По умолчанию (наследовать)',
   'flows.nodeConfig.agent.agentRefLabel': 'Агент',
-  'flows.nodeConfig.agent.agentRefHint': 'Запускать этот узел как зарегистрированного агента — применяются его инструменты и ограничения.',
+  'flows.nodeConfig.agent.agentRefHint':
+    'Запускать этот узел как зарегистрированного агента — применяются его инструменты и ограничения.',
   'flows.nodeConfig.agent.agentRefInherit': 'По умолчанию (конструктор рабочих процессов)',
   'flows.nodeConfig.agent.modelManagedTiers': 'Управляемые уровни',
   'flows.nodeConfig.agent.modelHints': 'Подсказки модели',
@@ -4003,7 +4004,8 @@ const messages: TranslationMap = {
     'Вызовите конечную точку HTTP по запросу и разберите ответ в удобную форму.',
   'flows.templates.ask-agent.name': 'Спросить агента',
   'flows.templates.ask-agent.description': 'Простой ручной триггер, передающий задачу агенту.',
-  'flows.templates.opus-sonnet-brief.name': 'Исследовательская сводка (Opus планирует, Sonnet пишет)',
+  'flows.templates.opus-sonnet-brief.name':
+    'Исследовательская сводка (Opus планирует, Sonnet пишет)',
   'flows.templates.opus-sonnet-brief.description':
     'Агент уровня рассуждений планирует сводку, агент уровня чата составляет черновик, затем результат оформляется для вас.',
 

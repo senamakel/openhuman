@@ -3858,7 +3858,8 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.modelHint': 'ক্ষমতার স্তর বেছে নিন — ওয়ার্কস্পেস মডেল নির্ধারণ করবে।',
   'flows.nodeConfig.agent.modelInherit': 'ডিফল্ট (উত্তরাধিকার)',
   'flows.nodeConfig.agent.agentRefLabel': 'এজেন্ট',
-  'flows.nodeConfig.agent.agentRefHint': 'এই নোডটি একটি নিবন্ধিত এজেন্ট হিসেবে চালান — এর সরঞ্জাম ও সুরক্ষা প্রযোজ্য।',
+  'flows.nodeConfig.agent.agentRefHint':
+    'এই নোডটি একটি নিবন্ধিত এজেন্ট হিসেবে চালান — এর সরঞ্জাম ও সুরক্ষা প্রযোজ্য।',
   'flows.nodeConfig.agent.agentRefInherit': 'ডিফল্ট (ওয়ার্কফ্লো বিল্ডার)',
   'flows.nodeConfig.agent.modelManagedTiers': 'পরিচালিত স্তর',
   'flows.nodeConfig.agent.modelHints': 'মডেল ইঙ্গিত',
@@ -3966,7 +3967,8 @@ const messages: TranslationMap = {
   'flows.templates.ask-agent.name': 'এজেন্টকে জিজ্ঞাসা করুন',
   'flows.templates.ask-agent.description':
     'একটি সরল ম্যানুয়াল ট্রিগার যা একটি কাজ এজেন্টকে হস্তান্তর করে।',
-  'flows.templates.opus-sonnet-brief.name': 'গবেষণা সারসংক্ষেপ (Opus পরিকল্পনা করে, Sonnet খসড়া করে)',
+  'flows.templates.opus-sonnet-brief.name':
+    'গবেষণা সারসংক্ষেপ (Opus পরিকল্পনা করে, Sonnet খসড়া করে)',
   'flows.templates.opus-sonnet-brief.description':
     'একটি রিজনিং-টিয়ার এজেন্ট সারসংক্ষেপ পরিকল্পনা করে, একটি চ্যাট-টিয়ার এজেন্ট খসড়া তৈরি করে, তারপর ফলাফলটি আপনার জন্য সাজানো হয়।',
 

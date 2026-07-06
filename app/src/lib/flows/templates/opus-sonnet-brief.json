@@ -21,10 +21,7 @@
           "schema": {
             "type": "object",
             "required": ["plan", "angle"],
-            "properties": {
-              "plan": { "type": "string" },
-              "angle": { "type": "string" }
-            }
+            "properties": { "plan": { "type": "string" }, "angle": { "type": "string" } }
           }
         }
       },

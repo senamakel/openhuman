@@ -3857,7 +3857,8 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.modelHint': 'क्षमता स्तर चुनें — वर्कस्पेस मॉडल तय करेगा।',
   'flows.nodeConfig.agent.modelInherit': 'डिफ़ॉल्ट (विरासत में)',
   'flows.nodeConfig.agent.agentRefLabel': 'एजेंट',
-  'flows.nodeConfig.agent.agentRefHint': 'इस नोड को एक पंजीकृत एजेंट के रूप में चलाएँ — इसके उपकरण और सुरक्षा उपाय लागू होते हैं।',
+  'flows.nodeConfig.agent.agentRefHint':
+    'इस नोड को एक पंजीकृत एजेंट के रूप में चलाएँ — इसके उपकरण और सुरक्षा उपाय लागू होते हैं।',
   'flows.nodeConfig.agent.agentRefInherit': 'डिफ़ॉल्ट (वर्कफ़्लो बिल्डर)',
   'flows.nodeConfig.agent.modelManagedTiers': 'प्रबंधित स्तर',
   'flows.nodeConfig.agent.modelHints': 'मॉडल संकेत',
@@ -3963,7 +3964,8 @@ const messages: TranslationMap = {
   'flows.templates.ask-agent.name': 'एजेंट से पूछें',
   'flows.templates.ask-agent.description':
     'एक सरल मैन्युअल ट्रिगर जो किसी कार्य को एजेंट को सौंपता है।',
-  'flows.templates.opus-sonnet-brief.name': 'शोध सारांश (Opus योजना बनाता है, Sonnet मसौदा तैयार करता है)',
+  'flows.templates.opus-sonnet-brief.name':
+    'शोध सारांश (Opus योजना बनाता है, Sonnet मसौदा तैयार करता है)',
   'flows.templates.opus-sonnet-brief.description':
     'एक रीज़निंग-टियर एजेंट सारांश की योजना बनाता है, एक चैट-टियर एजेंट उसका मसौदा तैयार करता है, फिर परिणाम आपके लिए आकार दिया जाता है।',
 

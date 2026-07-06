@@ -3866,7 +3866,8 @@ const messages: TranslationMap = {
   'flows.nodeConfig.agent.modelHint': 'Pilih tingkat kemampuan — workspace akan menentukan model.',
   'flows.nodeConfig.agent.modelInherit': 'Default (warisi)',
   'flows.nodeConfig.agent.agentRefLabel': 'Agen',
-  'flows.nodeConfig.agent.agentRefHint': 'Jalankan node ini sebagai agen terdaftar — alat dan pengamannya berlaku.',
+  'flows.nodeConfig.agent.agentRefHint':
+    'Jalankan node ini sebagai agen terdaftar — alat dan pengamannya berlaku.',
   'flows.nodeConfig.agent.agentRefInherit': 'Bawaan (pembuat alur kerja)',
   'flows.nodeConfig.agent.modelManagedTiers': 'Tingkat terkelola',
   'flows.nodeConfig.agent.modelHints': 'Petunjuk model',

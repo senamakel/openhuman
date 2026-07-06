@@ -39,6 +39,10 @@ pub fn install_from_config(config: &crate::openhuman::config::Config) {
         min_bytes_to_compress: tj.min_bytes_to_compress,
         ccr_min_tokens: tj.ccr_min_tokens,
         max_inline_chars: None,
+        // New tinyjuice 0.2 knobs (log floor, lossy-without-CCR, code target
+        // ratio, chars-per-token) are not yet surfaced in the OpenHuman
+        // config; keep the engine defaults.
+        ..Default::default()
     };
     let disk_root = tj
         .ccr_disk_enabled

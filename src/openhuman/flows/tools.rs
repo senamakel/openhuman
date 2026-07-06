@@ -226,7 +226,7 @@ impl RunFlowTool {
 #[async_trait]
 impl Tool for RunFlowTool {
     fn name(&self) -> &str {
-        "run_workflow"
+        "flows_run"
     }
 
     fn description(&self) -> &str {
@@ -265,21 +265,22 @@ impl Tool for RunFlowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        let flow_id =
-            match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
-                Some(id) if !id.is_empty() => id.to_string(),
-                _ => return Ok(ToolResult::error(
-                    "Missing 'flow_id' — run_workflow only works on a SAVED flow. Ask the user \
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => {
+                return Ok(ToolResult::error(
+                    "Missing 'flow_id' — flows_run only works on a SAVED flow. Ask the user \
                      to Save the workflow first, then run it by id."
                         .to_string(),
-                )),
-            };
+                ))
+            }
+        };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
 
         tracing::info!(
             target: "flows",
             %flow_id,
-            "[flows] run_workflow: agent-initiated test run starting"
+            "[flows] flows_run: agent-initiated test run starting"
         );
 
         match crate::openhuman::flows::ops::flows_run(
@@ -296,7 +297,7 @@ impl Tool for RunFlowTool {
                 "result": outcome.value,
             }))?)),
             Err(e) => {
-                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] run_workflow: failed");
+                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] flows_run: failed");
                 Ok(ToolResult::error(format!(
                     "Could not run flow '{flow_id}': {e}"
                 )))

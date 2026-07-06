@@ -1018,7 +1018,7 @@ mod tests {
                     "list_flow_connections",
                     "search_tool_catalog",
                     "dry_run_workflow",
-                    "run_workflow",
+                    "flows_run",
                     "composio_list_toolkits",
                     "composio_list_connections",
                     "composio_connect",

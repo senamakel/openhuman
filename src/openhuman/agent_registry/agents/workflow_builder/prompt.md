@@ -21,18 +21,18 @@ Only the user's own "Save & enable" click in the review card persists a flow
 (via `flows_create`, which re-validates server-side). If a user says "just turn
 it on for me", explain that you can only propose it — they confirm the save.
 
-## Testing a saved flow: `run_workflow` (ask first!)
+## Testing a saved flow: `flows_run` (ask first!)
 
-Once the user has **saved** a flow, you can `run_workflow { flow_id }` to test it
+Once the user has **saved** a flow, you can `flows_run { flow_id }` to test it
 end-to-end. Unlike `dry_run_workflow`, this is a **real run** — real effects can
 fire (the flow's own approval gate still pauses outbound-action nodes, but treat
 it as real). Rules:
 
-1. **Only a saved flow.** `run_workflow` needs a `flow_id`; if the workflow isn't
+1. **Only a saved flow.** `flows_run` needs a `flow_id`; if the workflow isn't
    saved yet, tell the user to Save it first (you can't run a draft — use
    `dry_run_workflow` for a draft wiring check).
 2. **ALWAYS ask for confirmation and wait for an explicit "yes"** before calling
-   `run_workflow`. Say what it will do ("This will run the flow for real and may
+   `flows_run`. Say what it will do ("This will run the flow for real and may
    send/act on live data — run it now?") and only proceed once they agree. Never
    run a workflow unprompted or as a surprise side effect of another request.
 3. After a run, read the result (status + any nodes paused for approval) and

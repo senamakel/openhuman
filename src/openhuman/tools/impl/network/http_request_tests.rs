@@ -184,6 +184,7 @@ fn redirect_policy_is_none() {
 #[test]
 fn supervised_http_request_is_external_effect_for_approval_gate() {
     let tool = test_tool(vec!["example.com"]);
+    assert_eq!(tool.permission_level(), PermissionLevel::Write);
     assert!(tool.external_effect_with_args(&json!({
         "url": "https://example.com/api",
         "method": "POST",

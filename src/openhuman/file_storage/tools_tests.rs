@@ -65,7 +65,7 @@ fn list_tool_metadata() {
 fn get_link_tool_schema_and_metadata() {
     let tool = StorageGetLinkTool::new(dummy_client());
     assert_eq!(tool.name(), "storage_get_link");
-    assert_eq!(tool.permission_level(), PermissionLevel::ReadOnly);
+    assert_eq!(tool.permission_level(), PermissionLevel::Write);
     assert_eq!(tool.category(), ToolCategory::Workflow);
     assert!(tool.external_effect());
 

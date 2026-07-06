@@ -620,6 +620,10 @@ impl Tool for StorageGetLinkTool {
         ToolCategory::Workflow
     }
 
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
     fn external_effect(&self) -> bool {
         true
     }

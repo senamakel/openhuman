@@ -825,7 +825,15 @@ impl Tool for DryRunWorkflowTool {
             }
         };
 
-        let mut caps = tinyflows::caps::mock::mock_capabilities();
+        // Wire the mock `AgentRunner` (echoes `agent_ref`/request/conn) so a
+        // draft with `agent` nodes exercises the agent-node path during the
+        // dry run instead of erroring on a missing capability — the plain
+        // `mock_capabilities()` leaves `agent: None`. No real agent turn fires;
+        // the mock runner is a deterministic echo, same contract as the other
+        // sandbox mocks.
+        let mut caps = tinyflows::caps::mock::mock_capabilities_with_agent(
+            tinyflows::caps::mock::MockAgentRunner,
+        );
         // Wiring preflight over the echo mocks (see the struct doc): required
         // Composio args must be present and non-null even in the sandbox.
         caps.tools = std::sync::Arc::new(crate::openhuman::tinyflows::caps::PreflightToolInvoker {

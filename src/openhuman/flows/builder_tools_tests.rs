@@ -247,6 +247,36 @@ async fn dry_run_supervised_runs_against_mock_and_labels_sandbox() {
 }
 
 #[tokio::test]
+async fn dry_run_exercises_agent_ref_node_via_mock_agent_runner() {
+    // A draft whose `agent` node selects a named agent kind (`agent_ref`) routes
+    // to the `AgentRunner` capability, not the plain LLM. Before wiring the mock
+    // runner the sandbox left `agent: None`, so such a draft errored on a missing
+    // capability; now `mock_capabilities_with_agent(MockAgentRunner)` echoes the
+    // ref and the dry run goes green — proving the builder can self-test drafts
+    // that use agent-kind nodes.
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Plan",
+              "config": { "agent_ref": "researcher", "prompt": "outline it" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    });
+    let result = tool
+        .execute(json!({ "graph": graph, "input": { "topic": "x" } }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["sandbox"], true);
+    assert_eq!(parsed["ok"], true, "agent_ref dry-run must be green: {parsed}");
+}
+
+#[tokio::test]
 async fn dry_run_invalid_graph_is_error() {
     let tool = DryRunWorkflowTool::new(
         policy(AutonomyLevel::Full),

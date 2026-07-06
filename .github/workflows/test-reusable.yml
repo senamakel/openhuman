@@ -88,7 +88,9 @@ jobs:
       # `submodules: recursive`, which would also pull the large tauri-cef fork
       # this job never builds.
       - name: Init tinychannels submodule (drift-guard test reads its schemas)
-        run: git submodule update --init vendor/tinychannels
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git submodule update --init vendor/tinychannels
       - name: Cache pnpm store
         uses: actions/cache@v5
         with:

@@ -396,6 +396,52 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
   });
 });
 
+describe('ToolTimelineBlock — coalescing repeated rows', () => {
+  it('collapses consecutive identical body-less rows into one ×N row', () => {
+    // A retry loop that spawns the same integrations step five times, each
+    // surfacing the generic "Checking your connected app" label with no
+    // distinguishing detail/result/subagent.
+    const entries: ToolTimelineEntry[] = Array.from({ length: 5 }, (_, i) => ({
+      id: `dup-${i}`,
+      name: 'integrations_agent',
+      round: 1,
+      status: 'success' as const,
+    }));
+    renderInStore(<ToolTimelineBlock entries={entries} />);
+    // Five entries render as a single rail row carrying an ×5 badge.
+    expect(screen.getAllByTestId('agent-timeline-row')).toHaveLength(1);
+    expect(screen.getByTestId('timeline-repeat-count').textContent).toBe('×5');
+  });
+
+  it('does not merge across differing status or the live running row', () => {
+    const entries: ToolTimelineEntry[] = [
+      { id: 'a', name: 'integrations_agent', round: 1, status: 'success' },
+      { id: 'b', name: 'integrations_agent', round: 1, status: 'success' },
+      // Different status breaks the run.
+      { id: 'c', name: 'integrations_agent', round: 1, status: 'error' },
+      // The live running row is never folded away.
+      { id: 'd', name: 'integrations_agent', round: 1, status: 'running' },
+    ];
+    renderInStore(<ToolTimelineBlock entries={entries} />);
+    // success×2 (merged) + error (single) + running (single) = 3 rows.
+    expect(screen.getAllByTestId('agent-timeline-row')).toHaveLength(3);
+    const counts = screen.getAllByTestId('timeline-repeat-count');
+    expect(counts).toHaveLength(1);
+    expect(counts[0].textContent).toBe('×2');
+  });
+
+  it('never merges rows that carry a unique result body', () => {
+    const entries: ToolTimelineEntry[] = [
+      { id: 'a', name: 'run_code', round: 1, status: 'success', result: 'exit 0' },
+      { id: 'b', name: 'run_code', round: 1, status: 'success', result: 'exit 1' },
+    ];
+    renderInStore(<ToolTimelineBlock entries={entries} expandAllRows />);
+    // Both keep their own row — distinct results are never coalesced.
+    expect(screen.getAllByTestId('agent-timeline-row')).toHaveLength(2);
+    expect(screen.queryByTestId('timeline-repeat-count')).toBeNull();
+  });
+});
+
 describe('ToolTimelineBlock — subagent rendering', () => {
   it('expands a subagent row even without prompt detail and shows child tool calls', () => {
     const entry: ToolTimelineEntry = {

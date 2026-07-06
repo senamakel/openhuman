@@ -39,6 +39,7 @@ pub fn install_from_config(config: &crate::openhuman::config::Config) {
         min_bytes_to_compress: tj.min_bytes_to_compress,
         ccr_min_tokens: tj.ccr_min_tokens,
         max_inline_chars: None,
+        ..Default::default()
     };
     let disk_root = tj
         .ccr_disk_enabled
@@ -63,13 +64,15 @@ pub fn install_from_config(config: &crate::openhuman::config::Config) {
         },
     )));
     ml::configure(config.clone());
-    tinyjuice::ml::configure_callback(Some(Arc::new(|text, opts| {
-        Box::pin(async move {
-            ml::compress(&text, &opts)
-                .await
-                .map_err(|err| format!("{err:#}"))
-        })
-    })));
+    tinyjuice::ml::configure_callback(Some(Arc::new(
+        |text: String, opts: tinyjuice::types::CompressOptions| {
+            Box::pin(async move {
+                ml::compress(&text, &opts)
+                    .await
+                    .map_err(|err| format!("{err:#}"))
+            })
+        },
+    )));
 }
 
 /// All read-only TokenJuice debug controllers (detect / compress / cache_stats

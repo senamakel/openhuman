@@ -24,6 +24,7 @@ import type { WorkflowGraph } from '../../lib/flows/types';
 import {
   buildRepairPrompt,
   buildRevisePrompt,
+  buildSeededBuildPrompt,
   type RepairPromptContext,
 } from '../../lib/flows/workflowBuilderPrompt';
 import { useT } from '../../lib/i18n/I18nContext';
@@ -123,15 +124,19 @@ export default function WorkflowCopilotPanel({
 
   // Auto-send the build turn once when opened from the prompt bar's
   // instant-create path: the user's description becomes the first user turn on
-  // this thread, phrased as a revise of the just-created blank graph so the
-  // proposal lands as the usual Accept/Reject diff preview.
+  // this thread, and the prompt asks for the full build → dry-run → save arc
+  // against the just-created flow (its proposal still lands as the usual
+  // Accept/Reject diff preview). Falls back to a propose-only revise turn if
+  // the flow id is somehow missing (a draft canvas has nothing to save onto).
   const buildSentRef = useRef(false);
   useEffect(() => {
     if (!buildSeed || buildSentRef.current) return;
     buildSentRef.current = true;
     void send({
       displayText: buildSeed.description,
-      prompt: buildRevisePrompt(buildSeed.description, graph, flowId),
+      prompt: flowId
+        ? buildSeededBuildPrompt(buildSeed.description, graph, flowId)
+        : buildRevisePrompt(buildSeed.description, graph, flowId),
     });
     // `graph`/`flowId` are read once for the seed turn — later edits must not
     // re-fire it (guarded by the ref regardless).

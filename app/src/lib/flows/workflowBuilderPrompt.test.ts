@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { WorkflowGraph } from './types';
-import { buildCreatePrompt, buildRepairPrompt, buildRevisePrompt } from './workflowBuilderPrompt';
+import {
+  buildCreatePrompt,
+  buildRepairPrompt,
+  buildRevisePrompt,
+  buildSeededBuildPrompt,
+} from './workflowBuilderPrompt';
 
 const graph: WorkflowGraph = {
   schema_version: 1,
@@ -16,6 +21,20 @@ describe('buildCreatePrompt', () => {
     expect(p).toContain('email me new Slack messages');
     expect(p.toLowerCase()).toContain('workflow builder');
     expect(p.toLowerCase()).toContain('do not save');
+  });
+});
+
+describe('buildSeededBuildPrompt', () => {
+  it('asks for the full build → dry-run → save arc onto the existing flow', () => {
+    const p = buildSeededBuildPrompt('digest my Slack every morning', graph, 'flow-42');
+    expect(p).toContain('digest my Slack every morning');
+    expect(p).toContain('flow-42');
+    expect(p).toContain(JSON.stringify(graph));
+    expect(p).toContain('save_workflow');
+    expect(p).toContain('dry_run_workflow');
+    // Enabling and unconfirmed real runs stay out of scope.
+    expect(p.toLowerCase()).toContain('do not enable or disable');
+    expect(p).toContain('run_workflow a real test unless I explicitly confirm');
   });
 });
 

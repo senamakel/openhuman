@@ -990,18 +990,25 @@ mod tests {
     fn workflow_builder_is_registered_worker_with_narrow_propose_or_read_scope() {
         // Phase 5a/5b: the workflow-builder must be a Worker-tier leaf whose
         // tool scope is EXACTLY the propose-or-read + Composio discovery/connect
-        // + confirmed test-run belt — no persistence (flows_create/update/
-        // set_enabled), no shell, no file writes, no channel sends, and no
-        // composio_execute. It can list toolkits/connections, raise the inline
-        // connect card, and `run_workflow` a flow the user already SAVED to test
-        // it (a real run the prompt gates behind user confirmation), but it can
-        // never persist/enable a flow or perform a raw integration action. This
+        // + confirmed test-run + save-onto-existing belt — no flow creation
+        // (flows_create/set_enabled), no shell, no file writes, no channel
+        // sends, and no composio_execute. It can list toolkits/connections,
+        // raise the inline connect card, `run_workflow` a flow the user already
+        // SAVED to test it (a real run the prompt gates behind user
+        // confirmation), and `save_workflow` a built graph onto a flow the host
+        // ALREADY created (the prompt bar's instant-create path) — but it can
+        // never create/enable a flow or perform a raw integration action. This
         // pins the invariant in the agent definition itself, not just the tool
         // implementations.
         let def = find("workflow_builder");
         assert_eq!(def.agent_tier, AgentTier::Worker);
         assert_eq!(def.delegate_name.as_deref(), Some("build_workflow"));
         assert_eq!(def.sandbox_mode, SandboxMode::None);
+        // Graph authoring is multi-step structured reasoning — reasoning tier.
+        assert!(
+            matches!(def.model, ModelSpec::Hint(ref h) if h == "reasoning"),
+            "workflow_builder should use the reasoning tier"
+        );
         // Worker leaf: no onward delegation.
         assert!(
             def.subagents.is_empty(),
@@ -1012,11 +1019,13 @@ mod tests {
                 let expected = [
                     "propose_workflow",
                     "revise_workflow",
+                    "save_workflow",
                     "list_flows",
                     "get_flow",
                     "get_flow_run",
                     "list_flow_connections",
                     "search_tool_catalog",
+                    "list_agent_profiles",
                     "dry_run_workflow",
                     "run_workflow",
                     "composio_list_toolkits",
@@ -1034,7 +1043,11 @@ mod tests {
                     expected.len(),
                     "workflow_builder scope must be EXACTLY the propose-or-read belt (got {names:?})"
                 );
-                // Hard exclusions: nothing that persists, executes, or sends.
+                // Hard exclusions: nothing that creates/enables a flow,
+                // executes raw integration actions, or touches the host.
+                // (Persistence onto an EXISTING flow is the deliberate
+                // `save_workflow` carve-out above; raw `flows_update` — which
+                // could also rename/re-gate arbitrary flows — stays out.)
                 for forbidden in [
                     "flows_create",
                     "flows_update",

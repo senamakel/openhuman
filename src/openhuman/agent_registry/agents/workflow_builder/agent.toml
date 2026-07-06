@@ -1,12 +1,14 @@
 id = "workflow_builder"
 display_name = "Workflow Builder"
 delegate_name = "build_workflow"
-when_to_use = "Workflow authoring specialist — owns building tinyflows automation graphs from a natural-language description. Route any request to 'set up a workflow that…', 'automate…', 'when X happens do Y', 'build/create/edit an automation or flow', or to iterate on a proposed workflow here. It grounds nodes in real tool slugs + connections, can dry-run a draft in a sandbox to self-check, and returns a workflow PROPOSAL for the user to review and save — it NEVER creates, enables, or runs a real flow itself. Not for running an already-saved flow (that is a direct flows_run) and not for the legacy skill 'workflows'."
+when_to_use = "Workflow authoring specialist — owns building tinyflows automation graphs from a natural-language description. Route any request to 'set up a workflow that…', 'automate…', 'when X happens do Y', 'build/create/edit an automation or flow', or to iterate on a proposed workflow here. It grounds nodes in real tool slugs + connections, dry-runs a draft in a sandbox to self-check, and returns a workflow PROPOSAL for review. When the host hands it an existing flow id it may also SAVE the built graph onto that flow (save_workflow) and, with the user's explicit confirmation, test-run it — but it can never create a new flow or enable/disable one. Not for running an already-saved flow (that is a direct flows_run) and not for the legacy skill 'workflows'."
 temperature = 0.2
 max_iterations = 12
 iteration_policy = "extended"
 max_result_chars = 12000
-# No sandbox filter needed: every tool in scope is propose-or-read, and
+# No sandbox filter needed: the belt is propose/read/dry-run plus two
+# explicitly-bounded writes (save_workflow onto an existing flow;
+# run_workflow of a saved flow behind a confirm-first prompt rule), and
 # dry_run_workflow runs against tinyflows MOCK capabilities (no real effects).
 sandbox_mode = "none"
 omit_identity = true
@@ -18,28 +20,32 @@ omit_safety_preamble = true
 omit_skills_catalog = true
 
 [model]
-# Structured authoring on the cheap, high-throughput worker tier.
-hint = "burst"
+# Graph authoring is multi-step structured reasoning (ground slugs, wire
+# expressions, self-check a dry run, then save) — worth the reasoning tier.
+hint = "reasoning"
 
 [tools]
 # DELIBERATELY NARROW: propose/revise (validate-only) + read (flows, runs,
 # connections, tool catalog) + sandbox dry-run + Composio discovery/connect +
-# a confirmed real test-run of a SAVED flow. NO shell, NO file writes, NO
-# channel sends, NO composio_execute, and NO flows_create/update/set_enabled —
-# the agent can never persist or enable a flow, or perform a real integration
-# action directly. Composio access is limited to LISTING toolkits/connections
-# and raising the inline CONNECT card (an approval-gated OAuth hand-off).
+# a confirmed real test-run of a SAVED flow + save_workflow (persist a graph
+# onto an EXISTING flow only). NO shell, NO file writes, NO channel sends, NO
+# composio_execute, and NO flows_create/set_enabled — the agent can never
+# create or enable a flow, or perform a real integration action directly.
+# Composio access is limited to LISTING toolkits/connections and raising the
+# inline CONNECT card (an approval-gated OAuth hand-off).
 # `run_workflow` executes a flow the user has ALREADY saved to test it — a real
 # run, but the prompt requires asking the user to confirm first, and the flow's
 # own approval gate still pauses outbound-action nodes.
 named = [
     "propose_workflow",
     "revise_workflow",
+    "save_workflow",
     "list_flows",
     "get_flow",
     "get_flow_run",
     "list_flow_connections",
     "search_tool_catalog",
+    "list_agent_profiles",
     "dry_run_workflow",
     "run_workflow",
     "composio_list_toolkits",

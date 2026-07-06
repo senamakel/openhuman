@@ -177,11 +177,14 @@ describe('WorkflowCopilotPanel', () => {
     expect(hookState.send).toHaveBeenCalledTimes(1);
     const arg = hookState.send.mock.calls[0][0];
     // The user's description reads as their own first turn in the transcript,
-    // while the real prompt injects the blank graph + flow id for the builder.
+    // while the real prompt injects the blank graph + flow id and asks for the
+    // full build → dry-run → save arc onto the already-created flow.
     expect(arg.displayText).toBe('digest my Slack every morning');
     expect(arg.prompt).toContain('digest my Slack every morning');
     expect(arg.prompt).toContain(JSON.stringify(baseGraph));
     expect(arg.prompt).toContain('flow-1');
+    expect(arg.prompt).toContain('save_workflow');
+    expect(arg.prompt).toContain('dry_run_workflow');
 
     // A re-render (e.g. a graph edit) must not re-fire the seed turn.
     rerender(

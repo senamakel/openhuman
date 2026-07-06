@@ -12,10 +12,12 @@
  * the specialist ends its turn by calling `propose_workflow` / `revise_workflow`
  * — the runtime then surfaces the returned proposal as a `WorkflowProposalCard`.
  *
- * Every builder here keeps the "propose, never persist" invariant: the prompts
- * ask for a PROPOSAL only. Saving/enabling stays behind the explicit
- * `WorkflowProposalCard` "Save & enable" click; nothing here can reach
- * `flows_create`/`flows_update`/`set_enabled`.
+ * Persistence contract: the create/revise/repair prompts ask for a PROPOSAL
+ * only — saving stays behind the user's explicit click. The one exception is
+ * {@link buildSeededBuildPrompt} (the prompt bar's instant-create path): the
+ * host has ALREADY created the flow, so that prompt tells the agent to finish
+ * the job — build, dry-run, and `save_workflow` onto that existing flow id.
+ * Enabling/disabling a flow is never in scope for any prompt here.
  */
 import type { WorkflowGraph } from './types';
 
@@ -29,7 +31,7 @@ const DELEGATE_DIRECTIVE =
  * confirming with me first (the specialist's own prompt enforces the ask).
  */
 const DELEGATE_DIRECTIVE_REVISE =
-  'Use the workflow builder to revise this tinyflows automation and return the revised proposal. Do not save or enable anything (I save via the UI). You may run_workflow the SAVED flow to test it, but ONLY if I ask and only after you confirm with me first.';
+  'Use the workflow builder to revise this tinyflows automation and return the revised proposal. Do not save unless I explicitly ask you to (when I do, use save_workflow on the saved flow id), and never enable or disable anything. You may run_workflow the SAVED flow to test it, but ONLY if I ask and only after you confirm with me first.';
 
 /** Serialize a graph compactly for injection as agent context. */
 function serializeGraph(graph: WorkflowGraph): string {
@@ -47,6 +49,45 @@ function serializeGraph(graph: WorkflowGraph): string {
 export function buildCreatePrompt(description: string): string {
   const trimmed = description.trim();
   return `${DELEGATE_DIRECTIVE}\n\nBuild a workflow that does this:\n${trimmed}`;
+}
+
+/**
+ * End-to-end variant for the instant-create path: the host has ALREADY created
+ * a blank flow (saved, with `flowId`), so the agent is asked to finish the job
+ * — design the graph, self-check with a sandbox dry run, return the proposal,
+ * and PERSIST it onto that flow via `save_workflow`. Enabling/disabling stays
+ * out of scope, and a real `run_workflow` test still requires the user's
+ * explicit confirmation.
+ */
+const DELEGATE_DIRECTIVE_BUILD_AND_SAVE =
+  'Use the workflow builder to build this tinyflows automation END-TO-END. The flow already ' +
+  'exists (created blank just now) — design the graph, verify it with dry_run_workflow, return ' +
+  'the workflow proposal, and then SAVE it onto the flow id below with save_workflow. Do not ' +
+  'enable or disable anything, and do not run_workflow a real test unless I explicitly confirm ' +
+  'first. Tell me what you saved when you are done.';
+
+/**
+ * Seeded build prompt for the canvas copilot opened from the prompt bar's
+ * instant-create navigation: injects the just-created blank graph + flow id and
+ * the user's description.
+ */
+export function buildSeededBuildPrompt(
+  description: string,
+  graph: WorkflowGraph,
+  flowId: string
+): string {
+  const trimmed = description.trim();
+  return [
+    DELEGATE_DIRECTIVE_BUILD_AND_SAVE,
+    '',
+    `The flow's id is \`${flowId}\`. Its current (blank) graph is:`,
+    '```json',
+    serializeGraph(graph),
+    '```',
+    '',
+    'Build a workflow that does this:',
+    trimmed,
+  ].join('\n');
 }
 
 /**

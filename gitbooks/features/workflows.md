@@ -20,7 +20,9 @@ You don't drag boxes to get started. Describe the automation in chat, for exampl
 Two design guarantees make this safe:
 
 * The `propose_workflow` tool **only validates and describes** a candidate graph. It can never create or enable a flow by itself.
-* The **only** path from a proposal to a saved workflow is you clicking **Save & enable** on the card. That calls the `flows_create` RPC directly from the app, not from the agent.
+* The **only** path from a proposal to a *new* saved workflow is you clicking **Save & enable** on the card. That calls the `flows_create` RPC directly from the app, not from the agent.
+
+One deliberate carve-out: when *you* start the build (the Workflows page prompt bar creates the flow first and opens the copilot on it), the builder agent may finish the job with its `save_workflow` tool — it writes the built graph onto that **already-existing** flow after a sandbox dry run. It still cannot create a flow of its own, enable or disable one, or change the approval gate, and a real test run always requires your explicit confirmation first.
 
 ## What a workflow is made of
 

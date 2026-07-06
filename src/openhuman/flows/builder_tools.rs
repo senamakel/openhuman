@@ -12,15 +12,19 @@
 //! | [`GetFlowRunTool`]      | `None`                  | read: fetch a run's steps                 |
 //! | [`ListFlowConnectionsTool`] | `None`              | read: connection refs (ids/names only)    |
 //! | [`SearchToolCatalogTool`]   | `None`              | read: real Composio tool slugs            |
+//! | [`ListAgentProfilesTool`]   | `None`              | read: selectable agent kinds (`agent_ref`)|
 //! | [`DryRunWorkflowTool`]  | `Execute` (tier-gated)  | run a *draft* against MOCK capabilities   |
+//! | [`SaveWorkflowTool`]    | `Write`                 | persist a graph onto an EXISTING flow     |
 //!
-//! **Human-in-the-loop invariant (shared with [`super::tools::ProposeWorkflowTool`]):**
-//! nothing here EVER persists or enables a flow. `revise_workflow` only
-//! validates and returns a proposal payload (identical contract to
-//! `propose_workflow`); the read tools are pure reads; `dry_run_workflow`
-//! executes against `tinyflows`' deterministic **mock** capabilities so no real
-//! LLM / tool / HTTP / code side effect can fire. Only the user's own
-//! "Save & enable" click (→ `openhuman.flows_create`) writes anything.
+//! **Human-in-the-loop invariant (shared with [`super::tools::ProposeWorkflowTool`]),
+//! with one deliberate carve-out:** `revise_workflow` only validates and
+//! returns a proposal payload (identical contract to `propose_workflow`); the
+//! read tools are pure reads; `dry_run_workflow` executes against `tinyflows`'
+//! deterministic **mock** capabilities so no real LLM / tool / HTTP / code side
+//! effect can fire. The carve-out is [`SaveWorkflowTool`]: it persists a graph
+//! onto a flow that ALREADY exists (the Flows prompt bar's instant-create path
+//! makes the flow first and hands the agent its id) — but the agent still
+//! cannot *create* a flow, and never touches `enabled`/`require_approval`.
 //!
 //! The agent's full tool scope (see `agent_registry/agents/workflow_builder/
 //! agent.toml`) also grants the Composio **discovery/connect** tools —
@@ -609,6 +613,90 @@ impl Tool for SearchToolCatalogTool {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// list_agent_profiles — read-only: selectable agent kinds for an `agent` node
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `list_agent_profiles`: read-only listing of the agent **kinds** an `agent`
+/// node can select via `agent_ref` (researcher, code_executor, crypto_agent, …).
+///
+/// Grounds the builder's `agent_ref` choice in real registry ids — the agent
+/// analogue of `search_tool_catalog` for `tool_call` slugs — so it never
+/// hallucinates an agent kind. Returns `{ id, name, description, model, tools,
+/// tags }` for every enabled registered agent.
+pub struct ListAgentProfilesTool;
+
+impl ListAgentProfilesTool {
+    /// Builds the tool (no configuration — reads the process-global registry).
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for ListAgentProfilesTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Tool for ListAgentProfilesTool {
+    fn name(&self) -> &str {
+        "list_agent_profiles"
+    }
+
+    fn description(&self) -> &str {
+        "List the agent KINDS an `agent` node can run via its `agent_ref` config \
+         field (e.g. researcher, code_executor, crypto_agent). Read-only. Returns \
+         a JSON array of { id, name, description, model, tools, tags }. Use this to \
+         pick a real agent_ref — a coding step should reference the coding agent, a \
+         research step the researcher — instead of guessing an id. Note: an \
+         agent_ref applies that agent's persona/model to the step; its private \
+         tool loop is a follow-up, so a step still gets tools from the node's own \
+         inline `tools` list for now."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({ "type": "object", "properties": {}, "additionalProperties": false })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
+        tracing::debug!(target: "flows", "[flows] list_agent_profiles: listing registered agent kinds (read-only)");
+        match crate::openhuman::agent_registry::list_agents(false).await {
+            Ok(agents) => {
+                let profiles: Vec<Value> = agents
+                    .iter()
+                    .map(|a| {
+                        json!({
+                            "id": a.id,
+                            "name": a.name,
+                            "description": a.description,
+                            "model": a.model,
+                            "tools": a.tool_allowlist,
+                            "tags": a.tags,
+                        })
+                    })
+                    .collect();
+                Ok(ToolResult::success(serde_json::to_string_pretty(
+                    &json!({ "agent_profiles": profiles }),
+                )?))
+            }
+            Err(e) => Ok(ToolResult::error(format!(
+                "Failed to list agent profiles: {e}"
+            ))),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // dry_run_workflow — execute a DRAFT against MOCK capabilities (tier-gated)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -782,6 +870,151 @@ impl Tool for DryRunWorkflowTool {
             "pending_approvals": outcome.pending_approvals,
             "note": "SANDBOX (mock) output — LLM/tool/HTTP/code nodes returned deterministic echoes; NO real side effects occurred. This checks wiring/routing only, not whether real integrations work.",
         }))?))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// save_workflow — persist a built graph onto an EXISTING saved flow
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `save_workflow`: persist a validated graph (and optionally a new name) onto
+/// an **existing, already-saved** flow via [`ops::flows_update`] — the same
+/// validate-and-migrate path the UI's Save uses.
+///
+/// This is the deliberate, narrow exception to the belt's original
+/// "propose, never persist" invariant (added for the Flows prompt bar's
+/// instant-create path, where the host creates the flow *before* delegating and
+/// hands the agent its `flow_id`). The boundaries that remain:
+///
+/// - **Update-only.** It requires an existing `flow_id`; there is still no tool
+///   to *create* a flow, so the agent can only write where the host (or user)
+///   already made a flow.
+/// - **Never touches enablement or the approval gate.** `enabled` and
+///   `require_approval` are not parameters; whatever the user set stays.
+/// - **Real persistence, real consequences.** Saving a `schedule`/`app_event`
+///   trigger onto an ENABLED flow arms it (the trigger binds and will fire on
+///   its own) — hence `PermissionLevel::Write`. The description tells the agent
+///   to dry-run first and to say what it saved.
+pub struct SaveWorkflowTool {
+    config: Arc<Config>,
+}
+
+impl SaveWorkflowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for SaveWorkflowTool {
+    fn name(&self) -> &str {
+        "save_workflow"
+    }
+
+    fn description(&self) -> &str {
+        "Save a workflow graph onto an EXISTING saved flow (by `flow_id`), persisting it. \
+         Use this after the user asked you to build/update a workflow and you have \
+         dry-run-verified the graph: it validates and writes the graph (and optional new \
+         `name`) to that flow. It can NOT create a new flow, and it never changes the \
+         flow's enabled state or its approval gate. NOTE: if the flow is enabled and the \
+         graph has a schedule/app_event trigger, saving arms it — it will start firing on \
+         its own. Always tell the user what you saved. Params: { flow_id, graph, name? }."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": {
+                    "type": "string",
+                    "description": "Id of the EXISTING saved flow to write the graph to."
+                },
+                "graph": {
+                    "type": "object",
+                    "description": "The full tinyflows WorkflowGraph to persist: { name?, nodes: [...], edges: [...] }. Same shape as propose_workflow.",
+                    "properties": {
+                        "nodes": { "type": "array" },
+                        "edges": { "type": "array" }
+                    },
+                    "required": ["nodes", "edges"]
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Optional new human-readable name for the flow."
+                }
+            },
+            "required": ["flow_id", "graph"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        // Persists a flow definition; on an enabled flow this can arm a
+        // self-firing trigger — gate like a Write-class action.
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        // Persistence is local (no message/HTTP/code fires at save time); the
+        // flow's own runs — and their approval gate — govern real effects.
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => {
+                return Ok(ToolResult::error(
+                    "Missing 'flow_id' — save_workflow only updates an EXISTING saved flow. \
+                     If there is no flow yet, return the proposal and let the user save it."
+                        .to_string(),
+                ))
+            }
+        };
+        let graph_json = match args.get("graph") {
+            Some(v) if !v.is_null() => v.clone(),
+            _ => return Ok(ToolResult::error("Missing 'graph' parameter".to_string())),
+        };
+        let name = args
+            .get("name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+
+        tracing::info!(
+            target: "flows",
+            %flow_id,
+            renaming = name.is_some(),
+            "[flows] save_workflow: agent-initiated save to existing flow"
+        );
+
+        match ops::flows_update(&self.config, &flow_id, name, Some(graph_json), None).await {
+            Ok(outcome) => {
+                let flow = outcome.value;
+                tracing::info!(
+                    target: "flows",
+                    %flow_id,
+                    node_count = flow.graph.nodes.len(),
+                    enabled = flow.enabled,
+                    "[flows] save_workflow: persisted"
+                );
+                Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                    "type": "workflow_saved",
+                    "flow_id": flow.id,
+                    "name": flow.name,
+                    "enabled": flow.enabled,
+                    "require_approval": flow.require_approval,
+                    "node_count": flow.graph.nodes.len(),
+                }))?))
+            }
+            Err(e) => {
+                tracing::debug!(target: "flows", %flow_id, error = %e, "[flows] save_workflow: failed");
+                Ok(ToolResult::error(format!(
+                    "Could not save workflow to flow '{flow_id}': {e}"
+                )))
+            }
+        }
     }
 }
 

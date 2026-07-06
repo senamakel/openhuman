@@ -286,11 +286,21 @@ pub fn all_tools_with_runtime(
         Box::new(GetFlowRunTool::new(config.clone())),
         Box::new(ListFlowConnectionsTool::new(config.clone())),
         Box::new(SearchToolCatalogTool::new()),
+        // Ground an `agent` node's `agent_ref` in real registered agent-kind ids
+        // (researcher / code_executor / …) — the agent analogue of
+        // search_tool_catalog. Read-only.
+        Box::new(ListAgentProfilesTool::new()),
         Box::new(DryRunWorkflowTool::new(security.clone(), config.clone())),
         // Real end-to-end test run of a SAVED flow (Write / external-effect). The
         // workflow-builder prompt requires it to ask the user for confirmation
         // first, and the flow's own approval gate still pauses outbound nodes.
         Box::new(RunFlowTool::new(config.clone())),
+        // Persist a built graph onto an EXISTING saved flow (Write). The one
+        // deliberate carve-out from the belt's propose-only origin: the Flows
+        // prompt bar creates the flow first and hands the agent its id, so the
+        // copilot can finish the "build → dry-run → save" arc itself. It can
+        // never create a flow or change enabled/require_approval.
+        Box::new(SaveWorkflowTool::new(config.clone())),
         // Flow Scout discovery: the `flow_discovery` agent's terminal emit
         // sink. Read-only reasoning over the user's data ends by calling
         // `suggest_workflows`, which persists workflow ideas for the Flows page

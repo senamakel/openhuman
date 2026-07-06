@@ -7,6 +7,7 @@
 //! [`crate::openhuman::tinyflows::caps::FlowStateStore`]); the RPC/CLI
 //! controller surface in `schemas` (private, re-exported below).
 
+pub mod agents;
 pub mod builder_tools;
 pub mod bus;
 pub mod discovery_tools;

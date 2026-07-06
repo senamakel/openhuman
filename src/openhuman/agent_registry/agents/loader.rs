@@ -304,8 +304,8 @@ pub const BUILTINS: &[BuiltinAgent] = &[
     // persists or enables a flow. Deliberately narrow propose-or-read tool belt.
     BuiltinAgent {
         id: "workflow_builder",
-        toml: include_str!("workflow_builder/agent.toml"),
-        prompt_fn: super::workflow_builder::prompt::build,
+        toml: include_str!("../../flows/agents/workflow_builder/agent.toml"),
+        prompt_fn: crate::openhuman::flows::agents::workflow_builder::prompt::build,
         graph_fn: None,
     },
     // Workflow-discovery specialist (the "Flow Scout"): reads the user's
@@ -316,8 +316,8 @@ pub const BUILTINS: &[BuiltinAgent] = &[
     // picked suggestion into a real graph proposal.
     BuiltinAgent {
         id: "flow_discovery",
-        toml: include_str!("flow_discovery/agent.toml"),
-        prompt_fn: super::flow_discovery::prompt::build,
+        toml: include_str!("../../flows/agents/flow_discovery/agent.toml"),
+        prompt_fn: crate::openhuman::flows::agents::flow_discovery::prompt::build,
         graph_fn: None,
     },
 ];

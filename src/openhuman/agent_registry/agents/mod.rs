@@ -11,7 +11,6 @@ pub mod context_scout;
 pub mod critic;
 pub mod crypto_agent;
 pub mod desktop_control_agent;
-pub mod flow_discovery;
 pub mod goals_agent;
 pub mod help;
 pub mod image_agent;
@@ -37,6 +36,5 @@ pub mod trigger_reactor;
 pub mod trigger_triage;
 pub mod video_agent;
 pub mod vision_agent;
-pub mod workflow_builder;
 
 pub use loader::{load_builtins, validate_tier_hierarchy, BuiltinAgent, BUILTINS};

@@ -989,6 +989,68 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(streaming?.content).toBe('bbb');
     });
 
+    it('persists interim narration as a bubble and clears it from the live preview', async () => {
+      const listeners = renderProvider();
+
+      // Round-0 narration streams into the live preview…
+      act(() => {
+        listeners.onTextDelta?.({
+          thread_id: 't-interim',
+          request_id: 'r1',
+          round: 0,
+          delta: 'Let me check your calendar first.',
+        });
+      });
+      expect(store.getState().chatRuntime.streamingAssistantByThread['t-interim']?.content).toBe(
+        'Let me check your calendar first.'
+      );
+
+      // …then a tool call closes the round → interim flush.
+      act(() => {
+        listeners.onInterim?.({
+          thread_id: 't-interim',
+          request_id: 'r1',
+          round: 0,
+          full_response: 'Let me check your calendar first.',
+        });
+      });
+
+      // The narration is persisted as its own bubble…
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          't-interim',
+          expect.objectContaining({
+            content: 'Let me check your calendar first.',
+            sender: 'agent',
+          })
+        )
+      );
+      // …and cleared from the live preview so it isn't shown twice.
+      expect(store.getState().chatRuntime.streamingAssistantByThread['t-interim']?.content).toBe('');
+    });
+
+    it('dedupes a re-delivered interim event by round', async () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onInterim?.({
+          thread_id: 't-interim-dup',
+          request_id: 'r1',
+          round: 1,
+          full_response: 'Working on it now — pulling the data.',
+        });
+        // Reconnect/replay re-delivers the same round.
+        listeners.onInterim?.({
+          thread_id: 't-interim-dup',
+          request_id: 'r1',
+          round: 1,
+          full_response: 'Working on it now — pulling the data.',
+        });
+      });
+
+      await waitFor(() => expect(threadApi.appendMessage).toHaveBeenCalledTimes(1));
+    });
+
     it('sets inference status to thinking on inference_start and clears it on chat_done', () => {
       const listeners = renderProvider();
 

@@ -16,6 +16,7 @@ import {
   type ChatIterationStartEvent,
   type ChatPlanReviewRequestEvent,
   type ChatSegmentEvent,
+  type ChatInterimEvent,
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
   type ChatSubagentThinkingDeltaEvent,
@@ -1039,6 +1040,35 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             extraMetadata: event.citations?.length ? { citations: event.citations } : undefined,
           })
         );
+      },
+      onInterim: (event: ChatInterimEvent) => {
+        // One interim per round — `round` is a stable per-turn dedup key that
+        // survives socket reconnect/replay (a re-delivered frame must not
+        // append the narration bubble twice).
+        const eventKey = `interim:${event.thread_id}:${event.request_id}:${event.round}`;
+        if (
+          !markChatEventSeen(eventKey, { threadId: event.thread_id, requestId: event.request_id })
+        )
+          return;
+        const content = event.full_response?.trim() ?? '';
+        if (!content) return;
+        // Persist this round's leading narration as its own interleaved bubble.
+        void dispatch(addInferenceResponse({ content, threadId: event.thread_id }));
+        // The narration has now become a bubble, so drop it from the live
+        // streaming preview (which accumulates across the whole turn under one
+        // request_id) — otherwise the same text lingers in the preview tail and
+        // reads as a duplicate for the full duration of the tool call. Reset
+        // synchronously so the next round's deltas start from an empty buffer.
+        const cr = store.getState().chatRuntime;
+        const existing = cr.streamingAssistantByThread[event.thread_id];
+        if (existing && existing.requestId === event.request_id) {
+          dispatch(
+            setStreamingAssistantForThread({
+              threadId: event.thread_id,
+              streaming: { requestId: existing.requestId, content: '', thinking: existing.thinking },
+            })
+          );
+        }
       },
       onTextDelta: event => {
         const cr = store.getState().chatRuntime;

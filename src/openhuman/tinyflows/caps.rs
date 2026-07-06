@@ -405,30 +405,358 @@ impl LlmProvider for OpenHumanLlm {
     }
 }
 
-/// [`AgentRunner`] backing an `agent` node's `agent_ref`: selects a **registered
-/// agent kind** from OpenHuman's agent registry (researcher, code_executor,
-/// crypto_agent, …) and runs the completion shaped by that agent's persona.
+/// [`AgentRunner`] backing an `agent` node's `agent_ref`. It runs the selected
+/// agent kind by one of two paths, chosen by [`route_for_agent_ref`]:
 ///
-/// **Scope of this first cut**: the registry entry's `system_prompt` (and, when
-/// present, its model) is applied on top of the node's request, so choosing
-/// "researcher" vs "code_executor" changes how the turn behaves. It does **not**
-/// yet spin up the agent's *private tool loop* (`run_subagent`), because that
-/// requires a full [`ParentExecutionContext`](crate::openhuman::agent::harness::fork_context)
-/// — provider, tool registry, memory, session — which a standalone flow run does
-/// not establish. Tool access for an agent-kind node therefore still comes from
-/// the node's own inline `tools` sub-port (single hop). Wiring the full tool loop
-/// is the next increment; when it lands, `agent_ref` nodes gain their agent's
-/// curated toolset with no graph change.
+/// 1. **Full harness turn** (the common case, Phase A). When `agent_ref` names a
+///    harness [`AgentDefinition`](crate::openhuman::agent::harness::definition::AgentDefinition),
+///    the node builds a real session agent
+///    ([`Agent::from_config_for_agent`](crate::openhuman::agent::Agent::from_config_for_agent)
+///    + `set_agent_definition_name`) and drives one full turn via
+///    [`Agent::run_single`](crate::openhuman::agent::Agent::run_single) — the
+///    complete tool loop. The definition's `ToolScope` / `sandbox_mode` /
+///    `max_iterations` govern the turn, so an agent node gains its curated
+///    toolset with no graph change. This is the same harness pattern
+///    `flows_build` / `flows_discover` / cron / subconscious use, so "every node
+///    is a tinyagents graph" still holds: `run_single` itself routes through the
+///    default agent graph, i.e. a nested tinyagents graph (the agent turn) inside
+///    the flow's tinyagents graph.
+/// 2. **Persona-shaping completion fallback** (no regression for custom agents).
+///    When `agent_ref` only resolves to a custom
+///    [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+///    (no harness definition), the node keeps the original single-completion
+///    behavior: the entry's `system_prompt` / `model` are shaped on top of the
+///    node request and run through [`OpenHumanLlm::complete`].
 ///
-/// `agent_ref` is resolved from trusted node config (never model output), so a
-/// prompt-injected completion cannot pick an arbitrary agent kind.
+/// **Security.** No new origin is scoped here: the engine future already runs
+/// under the flow's `Workflow` origin (`turn_origin`), so the user's autonomy
+/// tier + approval gate apply to the inner turn automatically, and the agent
+/// definition's `ToolScope`/sandbox is the inner gate. `agent_ref` is resolved
+/// from trusted node config (never model output), so a prompt-injected
+/// completion cannot pick an arbitrary agent kind.
+///
+/// **Per-item cost.** In per-item execution mode the engine calls
+/// [`run_agent`](AgentRunner::run_agent) once per input item, so a full harness
+/// turn (with memory injection) fans out one `Agent` per item. The batch size is
+/// not visible inside a single `run_agent` call (the engine drives the fan-out),
+/// so a "> 25 items" warning is not reachable here; it belongs to a future
+/// host-side per-item guard. Memory injection per node turn is accepted for this
+/// first cut (skip-memory is a follow-up).
 pub struct OpenHumanAgentRunner {
     pub config: Arc<Config>,
+}
+
+/// Which execution path an `agent_ref` routes to (see [`OpenHumanAgentRunner`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentRoute {
+    /// A harness `AgentDefinition` exists — run the full agent tool loop.
+    Harness,
+    /// No definition; fall back to the custom-registry persona completion.
+    RegistryFallback,
+}
+
+/// Decides the route for `agent_ref` by consulting the (already-initialised)
+/// global `AgentDefinitionRegistry`: a harness definition wins; otherwise the
+/// custom-registry fallback. Pure over the global registry so the selection is
+/// unit-testable with `init_global_builtins`.
+pub(crate) fn route_for_agent_ref(agent_ref: &str) -> AgentRoute {
+    let has_definition =
+        crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
+            .map(|reg| reg.get(agent_ref).is_some())
+            .unwrap_or(false);
+    if has_definition {
+        AgentRoute::Harness
+    } else {
+        AgentRoute::RegistryFallback
+    }
+}
+
+/// The wall-clock timeout for one agent-node harness turn: the node's requested
+/// `timeout_secs` clamped to `10..=600`, defaulting to `240` when unset. A hung
+/// provider/tool call must never wedge the flow run.
+pub(crate) fn clamp_run_timeout_secs(requested: Option<u64>) -> u64 {
+    requested.map(|s| s.clamp(10, 600)).unwrap_or(240)
+}
+
+/// Renders an agent-node completion `request` into the single user message
+/// [`Agent::run_single`](crate::openhuman::agent::Agent::run_single) takes: the
+/// `prompt` string when present and non-empty, else the `messages` array
+/// flattened to `"<role>: <content>"` lines (blank entries skipped). Empty
+/// string when neither yields content. Mirrors how [`OpenHumanLlm::complete`]
+/// reads `prompt`/`messages`, collapsed to one string because the harness turn
+/// entry point is single-message.
+pub(crate) fn node_request_to_prompt(request: &Value) -> String {
+    if let Some(prompt) = request.get("prompt").and_then(Value::as_str) {
+        let prompt = prompt.trim();
+        if !prompt.is_empty() {
+            return prompt.to_string();
+        }
+    }
+    if let Some(entries) = request.get("messages").and_then(Value::as_array) {
+        let parts: Vec<String> = entries
+            .iter()
+            .filter_map(|entry| {
+                let content = entry.get("content").and_then(Value::as_str)?.trim();
+                if content.is_empty() {
+                    return None;
+                }
+                let role = entry.get("role").and_then(Value::as_str).unwrap_or("user");
+                Some(format!("{role}: {content}"))
+            })
+            .collect();
+        if !parts.is_empty() {
+            return parts.join("\n\n");
+        }
+    }
+    String::new()
+}
+
+/// Model precedence for an agent node, returning the raw model string as
+/// written:
+/// 1. node `config.model` — a managed tier (`reasoning-v1`, `chat-v1`, …) or a
+///    `hint:*` alias;
+/// 2. the registry `entry_model` (custom agents);
+/// 3. `None` — no override, so the harness definition's / role default stands.
+///
+/// Routing translation (tier → workload) happens at application time via
+/// [`harness_model_default_override`]; this function is only the precedence pick,
+/// so it stays config-free and trivially testable.
+pub(crate) fn resolve_node_model(request: &Value, entry_model: Option<&str>) -> Option<String> {
+    if let Some(node_model) = request
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|m| !m.is_empty())
+    {
+        return Some(node_model.to_string());
+    }
+    entry_model
+        .map(str::trim)
+        .filter(|m| !m.is_empty())
+        .map(str::to_string)
+}
+
+/// Translates a managed tier / `hint:*` / model string into the `default_model`
+/// value that routes a freshly-built harness [`Agent`](crate::openhuman::agent::Agent)
+/// to the workload serving that tier. The session builder's `provider_role_for`
+/// only routes the `hint:<role>` form to a specialised workload, so a bare tier
+/// name (`reasoning-v1`) must be normalised to `hint:reasoning` here — otherwise
+/// it would silently fall through to the chat workload. Mirrors the per-node
+/// routing [`OpenHumanLlm::complete`] applies via
+/// [`role_for_model_tier`](crate::openhuman::inference::provider::role_for_model_tier);
+/// an unrecognised string maps to the chat workload, same as there.
+pub(crate) fn harness_model_default_override(node_model: &str) -> String {
+    format!("hint:{}", role_for_model_tier(node_model))
+}
+
+/// Builds the JSON-steering instruction that a structured-output node needs (an
+/// `output_parser.schema` or `response_format: "json"`), or `None` when the node
+/// didn't request structured output. Shared shape with
+/// [`OpenHumanLlm::complete`]'s inline steering; the harness path appends it to
+/// the run prompt (rather than inserting a system message) because `run_single`
+/// takes a single user message.
+pub(crate) fn structured_output_instruction(request: &Value) -> Option<String> {
+    if !structured_output_requested(request) {
+        return None;
+    }
+    let mut instruction = "Respond with a single JSON object only — no prose, no \
+                           markdown code fences."
+        .to_string();
+    if let Some(schema) = request
+        .get("output_parser")
+        .and_then(|p| p.get("schema"))
+        .filter(|s| !s.is_null())
+    {
+        instruction.push_str(&format!(" The object must match this JSON Schema:\n{schema}"));
+    }
+    Some(instruction)
+}
+
+/// Shapes an agent-node harness turn's final text into the node's output value,
+/// mirroring [`OpenHumanLlm::complete`]: when the node requested structured
+/// output and the text parses as JSON, the parsed object/array is returned so
+/// downstream `=item.<field>` / `=nodes.<id>.item.<field>` bindings work;
+/// otherwise `{ text, agent_ref }`. The vendor `agent` node then folds this into
+/// the stable `{ json, text, raw }` envelope, and the `output_parser` sub-port
+/// still applies.
+pub(crate) fn build_agent_result(agent_ref: &str, final_text: &str, request: &Value) -> Value {
+    if structured_output_requested(request) {
+        if let Some(parsed) = parse_llm_json(final_text) {
+            tracing::debug!(
+                target: "flows",
+                agent_ref,
+                "[flows] agent_runner: structured output parsed from harness turn"
+            );
+            return parsed;
+        }
+        tracing::warn!(
+            target: "flows",
+            agent_ref,
+            "[flows] agent_runner: structured output requested but the harness turn did not parse \
+             as JSON — falling back to the {{text}} shape (the output_parser sub-port may still \
+             coerce it)"
+        );
+    }
+    json!({ "text": final_text, "agent_ref": agent_ref })
 }
 
 #[async_trait]
 impl AgentRunner for OpenHumanAgentRunner {
     async fn run_agent(
+        &self,
+        agent_ref: &str,
+        request: Value,
+        conn: Option<&str>,
+    ) -> Result<Value> {
+        // The harness definition registry must be initialised before we can
+        // build a named agent. Idempotent: a booted core already did this at
+        // startup; a bare flow run (tests, standalone) has not. A failure here
+        // is non-fatal — we log and fall through to the registry-entry route.
+        if let Err(e) =
+            crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global(
+                &self.config.workspace_dir,
+            )
+        {
+            tracing::warn!(
+                target: "flows",
+                agent_ref,
+                error = %e,
+                "[flows] agent_runner: agent definition registry init failed — will attempt the \
+                 custom registry-entry fallback"
+            );
+        }
+
+        match route_for_agent_ref(agent_ref) {
+            AgentRoute::Harness => {
+                tracing::info!(
+                    target: "flows",
+                    agent_ref,
+                    "[flows] agent_runner: HARNESS path — running the full agent tool loop"
+                );
+                self.run_via_harness(agent_ref, request, conn).await
+            }
+            AgentRoute::RegistryFallback => {
+                tracing::info!(
+                    target: "flows",
+                    agent_ref,
+                    "[flows] agent_runner: FALLBACK path — persona-shaping single completion for a \
+                     custom registry entry"
+                );
+                self.run_via_registry_fallback(agent_ref, request, conn).await
+            }
+        }
+    }
+}
+
+impl OpenHumanAgentRunner {
+    /// Full harness turn: build a real session agent for `agent_ref` and drive
+    /// one `run_single` under the node's model override + timeout. See
+    /// [`OpenHumanAgentRunner`] for the security/origin contract.
+    async fn run_via_harness(
+        &self,
+        agent_ref: &str,
+        request: Value,
+        conn: Option<&str>,
+    ) -> Result<Value> {
+        use crate::openhuman::agent::Agent;
+
+        if let Some(c) = conn {
+            tracing::debug!(
+                target: "flows",
+                conn = %c,
+                "[flows] agent_runner: connection_ref present but not resolved to a BYOK account \
+                 for the harness turn (matches OpenHumanLlm)"
+            );
+        }
+
+        // Model precedence for a harness node: node `config.model` > the
+        // definition's own default. There is no custom registry `entry_model` on
+        // this path.
+        let node_model = resolve_node_model(&request, None);
+
+        // Apply the override the cron way (`run_agent_job`): a cloned `Config`
+        // with a new `default_model`, so we never mutate the shared config or
+        // invent a new Agent setter API. The tier is normalised to the
+        // `hint:<role>` form the session builder routes on.
+        let mut effective = (*self.config).clone();
+        if let Some(model) = node_model.as_deref() {
+            effective.default_model = Some(harness_model_default_override(model));
+        }
+
+        let mut agent = Agent::from_config_for_agent(&effective, agent_ref).map_err(|e| {
+            EngineError::Capability(format!(
+                "agent node: failed to build harness agent '{agent_ref}': {e:#}"
+            ))
+        })?;
+        agent.set_agent_definition_name(agent_ref.to_string());
+
+        // The run message: the node prompt (or flattened messages), with the
+        // JSON-steering instruction appended when the node asked for structured
+        // output (run_single takes a single user message, so we can't inject a
+        // system message the way OpenHumanLlm::complete does).
+        let mut prompt = node_request_to_prompt(&request);
+        if let Some(instruction) = structured_output_instruction(&request) {
+            prompt = if prompt.is_empty() {
+                instruction
+            } else {
+                format!("{instruction}\n\n{prompt}")
+            };
+        }
+
+        let timeout_secs =
+            clamp_run_timeout_secs(request.get("timeout_secs").and_then(Value::as_u64));
+
+        tracing::debug!(
+            target: "flows",
+            agent_ref,
+            node_model = node_model.as_deref().unwrap_or("<definition-default>"),
+            default_model = effective.default_model.as_deref().unwrap_or("<config-default>"),
+            timeout_secs,
+            prompt_len = prompt.len(),
+            "[flows] agent_runner: dispatching full harness turn"
+        );
+
+        // No origin wrapper: the engine future already runs under the flow's
+        // Workflow origin, so the inner turn inherits the autonomy tier +
+        // approval gate; the definition's ToolScope/sandbox is the inner gate.
+        // Cancellation: the run_registry token aborts the engine future, and the
+        // inner turn drops with it.
+        let run = agent.run_single(&prompt);
+        let final_text =
+            match tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), run).await {
+                Ok(Ok(text)) => text,
+                Ok(Err(e)) => {
+                    tracing::warn!(
+                        target: "flows",
+                        agent_ref,
+                        error = %e,
+                        "[flows] agent_runner: harness turn failed"
+                    );
+                    return Err(EngineError::Capability(format!(
+                        "agent node '{agent_ref}' turn failed: {e:#}"
+                    )));
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        target: "flows",
+                        agent_ref,
+                        timeout_secs,
+                        "[flows] agent_runner: harness turn timed out"
+                    );
+                    return Err(EngineError::Capability(format!(
+                        "agent node '{agent_ref}' timed out after {timeout_secs}s"
+                    )));
+                }
+            };
+
+        Ok(build_agent_result(agent_ref, &final_text, &request))
+    }
+
+    /// Persona-shaping single-completion fallback for a custom
+    /// [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+    /// with no harness definition — the pre-Phase-A behavior, kept so custom
+    /// agents don't regress.
+    async fn run_via_registry_fallback(
         &self,
         agent_ref: &str,
         request: Value,
@@ -440,7 +768,8 @@ impl AgentRunner for OpenHumanAgentRunner {
             .map_err(EngineError::Capability)?
             .ok_or_else(|| {
                 EngineError::Capability(format!(
-                    "agent node: unknown agent_ref '{agent_ref}' (not in the agent registry)"
+                    "agent node: unknown agent_ref '{agent_ref}' (neither a harness definition nor \
+                     a custom agent registry entry)"
                 ))
             })?;
         if !entry.enabled {
@@ -454,7 +783,7 @@ impl AgentRunner for OpenHumanAgentRunner {
             agent_ref,
             has_system_prompt = entry.system_prompt.is_some(),
             model = entry.model.as_deref().unwrap_or("<role-default>"),
-            "[flows] agent_runner: applying registered agent-kind persona to the completion"
+            "[flows] agent_runner: applying custom registered agent-kind persona to the completion"
         );
 
         // Shape the completion by the agent kind: prepend the agent's system

@@ -488,3 +488,150 @@ async fn preflight_invoker_gates_the_mock_tool_path() {
         .expect("native slug bypasses composio preflight");
     assert_eq!(ok["tool"], "oh:web_search");
 }
+
+// ── OpenHumanAgentRunner: routing + request/model mapping (Phase A) ───────────
+
+use super::caps::{
+    build_agent_result, clamp_run_timeout_secs, harness_model_default_override,
+    node_request_to_prompt, resolve_node_model, route_for_agent_ref, structured_output_instruction,
+    AgentRoute,
+};
+
+#[test]
+fn node_request_to_prompt_prefers_prompt_string() {
+    let req = json!({ "prompt": "  summarize this  " });
+    assert_eq!(node_request_to_prompt(&req), "summarize this");
+}
+
+#[test]
+fn node_request_to_prompt_flattens_messages_when_no_prompt() {
+    let req = json!({
+        "messages": [
+            { "role": "system", "content": "be terse" },
+            { "role": "user", "content": "hello" },
+            { "role": "assistant", "content": "" }
+        ]
+    });
+    // Blank content is skipped; each surviving entry is `role: content`.
+    assert_eq!(
+        node_request_to_prompt(&req),
+        "system: be terse\n\nuser: hello"
+    );
+}
+
+#[test]
+fn node_request_to_prompt_empty_when_nothing_usable() {
+    assert_eq!(node_request_to_prompt(&json!({})), "");
+    assert_eq!(node_request_to_prompt(&json!({ "prompt": "   " })), "");
+    assert_eq!(node_request_to_prompt(&json!({ "messages": [] })), "");
+}
+
+#[test]
+fn resolve_node_model_precedence() {
+    // 1. Node config.model wins over the registry entry model (raw passthrough).
+    let req = json!({ "model": "reasoning-v1" });
+    assert_eq!(
+        resolve_node_model(&req, Some("chat-v1")).as_deref(),
+        Some("reasoning-v1")
+    );
+
+    // 2. No node model → the registry entry model is used.
+    let req = json!({ "prompt": "hi" });
+    assert_eq!(
+        resolve_node_model(&req, Some("custom-model")).as_deref(),
+        Some("custom-model")
+    );
+
+    // 3. Neither → None (the definition/role default stands).
+    assert_eq!(resolve_node_model(&req, None), None);
+    // Blank/whitespace strings are treated as absent.
+    let req = json!({ "model": "   " });
+    assert_eq!(resolve_node_model(&req, Some("  ")), None);
+}
+
+#[test]
+fn harness_model_default_override_normalises_tiers_to_hint_roles() {
+    // Bare managed tiers → the `hint:<role>` form the session builder routes on
+    // (a bare tier would otherwise fall through to the chat workload).
+    assert_eq!(
+        harness_model_default_override("reasoning-v1"),
+        "hint:reasoning"
+    );
+    assert_eq!(harness_model_default_override("chat-v1"), "hint:chat");
+    // `hint:*` aliases pass through their role.
+    assert_eq!(
+        harness_model_default_override("hint:reasoning"),
+        "hint:reasoning"
+    );
+    // Unrecognised strings map to the chat workload (matches OpenHumanLlm).
+    assert_eq!(
+        harness_model_default_override("openai:gpt-4o"),
+        "hint:chat"
+    );
+}
+
+#[test]
+fn clamp_run_timeout_secs_bounds_and_default() {
+    assert_eq!(clamp_run_timeout_secs(None), 240);
+    assert_eq!(clamp_run_timeout_secs(Some(0)), 10); // below floor
+    assert_eq!(clamp_run_timeout_secs(Some(5)), 10);
+    assert_eq!(clamp_run_timeout_secs(Some(120)), 120);
+    assert_eq!(clamp_run_timeout_secs(Some(600)), 600);
+    assert_eq!(clamp_run_timeout_secs(Some(10_000)), 600); // above ceiling
+}
+
+#[test]
+fn structured_output_instruction_only_when_requested() {
+    // Plain prose node — no steering.
+    assert!(structured_output_instruction(&json!({ "prompt": "hi" })).is_none());
+
+    // response_format: "json" triggers steering.
+    let inst = structured_output_instruction(&json!({ "response_format": "json" }))
+        .expect("json response_format requests structured output");
+    assert!(inst.contains("single JSON object"));
+
+    // An output_parser.schema is echoed into the instruction.
+    let inst = structured_output_instruction(&json!({
+        "output_parser": { "schema": { "type": "object", "required": ["plan"] } }
+    }))
+    .expect("output_parser.schema requests structured output");
+    assert!(inst.contains("JSON Schema"));
+    assert!(inst.contains("\"plan\""));
+}
+
+#[test]
+fn build_agent_result_shapes_structured_vs_prose() {
+    // Prose node: `{ text, agent_ref }`.
+    let out = build_agent_result("researcher", "just prose", &json!({ "prompt": "x" }));
+    assert_eq!(out["text"], "just prose");
+    assert_eq!(out["agent_ref"], "researcher");
+
+    // Structured node whose text is JSON: the parsed object is returned (no
+    // agent_ref wrapper) so `=item.<field>` bindings work downstream.
+    let req = json!({ "response_format": "json" });
+    let out = build_agent_result("planner", "{\"plan\": \"do it\"}", &req);
+    assert_eq!(out["plan"], "do it");
+    assert!(out.get("agent_ref").is_none());
+
+    // Structured requested but unparseable text → `{text}` fallback shape.
+    let out = build_agent_result("planner", "not json", &req);
+    assert_eq!(out["text"], "not json");
+    assert_eq!(out["agent_ref"], "planner");
+}
+
+#[test]
+fn route_for_agent_ref_selects_harness_for_definitions_else_fallback() {
+    // Ensure the global registry is populated (idempotent no-op if another test
+    // already initialised it; builtins are always present either way).
+    let _ = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
+
+    // A shipped harness definition → full-loop harness path.
+    assert_eq!(route_for_agent_ref("workflow_builder"), AgentRoute::Harness);
+    assert_eq!(route_for_agent_ref("researcher"), AgentRoute::Harness);
+
+    // An id with no harness definition → the custom-registry completion fallback.
+    assert_eq!(
+        route_for_agent_ref("totally_unknown_custom_agent_xyz"),
+        AgentRoute::RegistryFallback
+    );
+}

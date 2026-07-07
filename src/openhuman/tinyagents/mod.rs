@@ -450,9 +450,9 @@ fn is_subagent_spawn_or_delegate_tool(name: &str) -> bool {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_turn_via_tinyagents_shared(
-    provider: Arc<dyn Provider>,
+    turn_models: TurnModels,
+    provider_id: String,
     model: &str,
-    temperature: f64,
     history: Vec<ChatMessage>,
     tool_sets: Vec<Arc<Vec<Box<dyn crate::openhuman::tools::Tool>>>>,
     allowed: Option<HashSet<String>>,
@@ -482,15 +482,10 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // otherwise the harness model-call cap would be zero and abort the run before
     // the first provider call.
     let max_iterations = effective_max_iterations(max_iterations);
-    // Snapshot the provider's telemetry id before `provider` moves into the
-    // harness assembly — the event bridge stamps it on every per-call
-    // generation event (`{provider_id}.{model}` in Langfuse).
-    let provider_id = provider.telemetry_provider_id();
-    // Build the turn's crate `ChatModel` set (primary + workload routes +
-    // summarizer + error_slot) from the provider — the single `ProviderModel`
-    // construction site. `assemble_turn_harness` then works purely in crate model
-    // types (issue #4249, Phase 5).
-    let turn_models = build_turn_models(provider, model, temperature, context_window);
+    // The turn's crate `ChatModel` set (`turn_models`) and the provider telemetry
+    // id are built by the caller via `build_turn_models` — the seam entry is
+    // crate-native and no longer names `Provider` (issue #4249, Phase 5). The
+    // telemetry id (`{provider_id}.{model}` in Langfuse) rides in as a param.
     let AssembledTurnHarness {
         harness,
         cursor,

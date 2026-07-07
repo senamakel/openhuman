@@ -159,10 +159,13 @@ async fn streaming_path_forwards_text_deltas_and_cost() {
     let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
     let history = vec![ChatMessage::user("hi")];
 
+    let provider: Arc<dyn Provider> = Arc::new(StreamingProvider);
+    let provider_id = provider.telemetry_provider_id();
+    let turn_models = build_turn_models(provider, "mock-model", 0.0, None);
     let outcome = run_turn_via_tinyagents_shared(
-        Arc::new(StreamingProvider),
+        turn_models,
+        provider_id,
         "mock-model",
-        0.0,
         history,
         vec![registry],
         None,
@@ -262,10 +265,12 @@ async fn pre_queued_steer_message_is_injected_into_the_request() {
         .await;
 
     let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
+    let provider_id = provider.telemetry_provider_id();
+    let turn_models = build_turn_models(provider.clone(), "mock-model", 0.0, None);
     let outcome = run_turn_via_tinyagents_shared(
-        provider.clone(),
+        turn_models,
+        provider_id,
         "mock-model",
-        0.0,
         vec![ChatMessage::user("investigate the bug")],
         vec![registry],
         None,
@@ -360,10 +365,11 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
     });
     let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
 
+    let provider_id = provider.telemetry_provider_id();
     let one = run_turn_via_tinyagents_shared(
-        provider.clone(),
+        build_turn_models(provider.clone(), "mock-model", 0.0, None),
+        provider_id.clone(),
         "mock-model",
-        0.0,
         vec![ChatMessage::user("task one")],
         vec![registry.clone()],
         None,
@@ -382,9 +388,9 @@ async fn concurrent_shared_turns_each_get_a_distinct_result() {
         false, // defer_turn_completed_to_caller (#4457)
     );
     let two = run_turn_via_tinyagents_shared(
-        provider.clone(),
+        build_turn_models(provider.clone(), "mock-model", 0.0, None),
+        provider_id,
         "mock-model",
-        0.0,
         vec![ChatMessage::user("task two")],
         vec![registry],
         None,
@@ -651,10 +657,13 @@ async fn unobserved_turn_reports_aggregate_usage_for_the_cost_fallback() {
         }
     }
 
+    let provider: Arc<dyn Provider> = Arc::new(DoneWithUsage);
+    let provider_id = provider.telemetry_provider_id();
+    let turn_models = build_turn_models(provider, "mock-model", 0.0, None);
     let outcome = run_turn_via_tinyagents_shared(
-        Arc::new(DoneWithUsage),
+        turn_models,
+        provider_id,
         "mock-model",
-        0.0,
         vec![ChatMessage::user("hello")],
         Vec::new(),
         None,

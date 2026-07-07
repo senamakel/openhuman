@@ -4,7 +4,10 @@
 //! websocket recv loop), filtered to conversation/DM streams. Never logs message
 //! bodies or seeds.
 
+use std::collections::HashSet;
 use std::path::Path;
+
+use base64::Engine as _;
 
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
@@ -14,6 +17,49 @@ use super::store;
 use super::types::{ChatKind, OrchestrationMessage, OrchestrationSession, SessionEnvelopeV1};
 
 const LOG: &str = "orchestration";
+
+/// True when the DM sender `from` is one of the linked (paired) agents.
+///
+/// tiny.place identifies the *same* Ed25519 key two ways: the orchestration
+/// pairing store keeps the **base58** Solana address (that's what the
+/// contacts/directory API returns and what the pairing UI stores), while an
+/// inbound `MessageEnvelope.from` carries the **base64** Ed25519 public key (the
+/// relay's raw-key form). A plain string compare therefore treats a
+/// legitimately-linked agent as unpaired and silently drops every DM it sends —
+/// so the message never lands in the orchestration view. Compare by the decoded
+/// 32-byte key so the two encodings unify. Fall back to the exact-string check
+/// first (cheap, and covers ids that aren't 32-byte keys, e.g. a handle).
+fn agent_id_in_linked_set(from: &str, linked: &HashSet<String>) -> bool {
+    if linked.contains(from) {
+        return true;
+    }
+    let Some(from_key) = decode_agent_key(from) else {
+        return false;
+    };
+    linked
+        .iter()
+        .any(|id| decode_agent_key(id) == Some(from_key))
+}
+
+/// Decode a tiny.place agent identifier to its raw 32-byte Ed25519 public key,
+/// accepting either the base64 (envelope `from`) or base58 (pairing store)
+/// encoding. Returns `None` for anything that isn't a 32-byte key (handles,
+/// malformed ids) so callers fall back to a string compare.
+fn decode_agent_key(value: &str) -> Option<[u8; 32]> {
+    // base64 (Ed25519 raw key) — the inbound `MessageEnvelope.from` form.
+    if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(value) {
+        if let Ok(arr) = <[u8; 32]>::try_from(bytes.as_slice()) {
+            return Some(arr);
+        }
+    }
+    // base58 (Solana address) — the pairing-store form.
+    if let Ok(bytes) = bs58::decode(value).into_vec() {
+        if let Ok(arr) = <[u8; 32]>::try_from(bytes.as_slice()) {
+            return Some(arr);
+        }
+    }
+    None
+}
 
 /// A decrypted DM turned into the fields we persist. Pure result of
 /// [`classify_message`] — no IO, so it is unit-testable without a live client.
@@ -201,8 +247,12 @@ async fn ingest_one(
     //    Messaging UI via messages.list / signal.decryptMessage.
     let linked =
         crate::openhuman::agent_orchestration::pairing::linked_agent_ids(&workspace_dir).await;
-    if !linked.contains(&agent_id) {
-        log::debug!(target: LOG, "[orchestration] ingest.skip_unpaired from={agent_id}");
+    if !agent_id_in_linked_set(&agent_id, &linked) {
+        log::debug!(
+            target: LOG,
+            "[orchestration] ingest.skip_unpaired from={agent_id} linked_count={}",
+            linked.len()
+        );
         return Ok(());
     }
 
@@ -334,6 +384,46 @@ mod tests {
         assert!(is_dm_stream("DM", "x"));
         assert!(is_dm_stream("other", "conversation:abc"));
         assert!(!is_dm_stream("inbox", "inbox"));
+    }
+
+    #[test]
+    fn linked_gate_unifies_base58_and_base64_of_same_key() {
+        // Real pair observed in the wild: the pairing store holds the base58
+        // Solana address; the inbound `MessageEnvelope.from` holds the base64
+        // Ed25519 public key. Both are the same 32-byte key, so a linked agent
+        // must be recognised regardless of which encoding arrives.
+        let base58 = "7jr5FKYETssD6T1MCzsR4aT4dnjjyJCE2SANYYX1R5vm";
+        let base64 = "ZCAAuA+2GVoRrT08Gt8JUVnxnISTelSxnDuyScze334=";
+        assert_eq!(
+            decode_agent_key(base58),
+            decode_agent_key(base64),
+            "base58 and base64 forms must decode to the same key"
+        );
+
+        // Pairing store keeps the base58 address; the DM arrives base64.
+        let linked: HashSet<String> = [base58.to_string()].into_iter().collect();
+        assert!(
+            agent_id_in_linked_set(base64, &linked),
+            "a base64 `from` must match a base58-stored linked agent"
+        );
+
+        // Exact-string match still works (both base58), and the reverse too.
+        assert!(agent_id_in_linked_set(base58, &linked));
+        let linked_b64: HashSet<String> = [base64.to_string()].into_iter().collect();
+        assert!(agent_id_in_linked_set(base58, &linked_b64));
+
+        // An unrelated key is still rejected.
+        let other = "De6RHrMj6eDqX1WBTXk11sks4WXHMaqEX9A6oQ3ZEmsg";
+        assert!(!agent_id_in_linked_set(other, &linked));
+    }
+
+    #[test]
+    fn linked_gate_falls_back_to_string_for_non_key_ids() {
+        // A handle (not a 32-byte key) can only match by exact string.
+        let linked: HashSet<String> = ["@codex-handle".to_string()].into_iter().collect();
+        assert!(agent_id_in_linked_set("@codex-handle", &linked));
+        assert!(!agent_id_in_linked_set("@other-handle", &linked));
+        assert!(decode_agent_key("@codex-handle").is_none());
     }
 
     #[tokio::test]

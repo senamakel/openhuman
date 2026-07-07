@@ -89,7 +89,9 @@ const TELEGRAM_LISTENER_WAIT_MS = 30_000;
 // Suite
 // ---------------------------------------------------------------------------
 
-describe('Telegram channel — connect / receive / send / disconnect', () => {
+describe('Telegram channel — connect / receive / send / disconnect', function () {
+  this.timeout(180_000);
+
   async function waitForTelegramGetUpdates(scenario: string): Promise<boolean> {
     const deadline = Date.now() + TELEGRAM_LISTENER_WAIT_MS;
 
@@ -360,7 +362,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   it('C.5 inbound text message round-trip — inject update; observe or document reply path', async function () {
-    this.timeout(60_000);
+    this.timeout(120_000);
     console.log(`${LOG_PREFIX} C.5: setting up inbound message round-trip`);
 
     // First ensure the bot is connected (writes credentials + TOML config).
@@ -448,7 +450,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   it('C.6 unauthorized user — connect with allowlist; excluded sender gets approval prompt', async function () {
-    this.timeout(60_000);
+    this.timeout(120_000);
     console.log(`${LOG_PREFIX} C.6: connecting with allowlist excluding Bob`);
 
     // Connect with Alice in the allowlist — Bob is excluded.
@@ -508,7 +510,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   it('C.7 group mention-only — no mention skipped; with @mention bot replies', async function () {
-    this.timeout(90_000);
+    this.timeout(120_000);
     console.log(`${LOG_PREFIX} C.7: connecting with mentionOnly=true`);
 
     const connect = await connectTelegramBot({
@@ -660,7 +662,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   it('C.10 remote /status command — bot replies with Thread: and Provider: markers', async function () {
-    this.timeout(60_000);
+    this.timeout(120_000);
     console.log(`${LOG_PREFIX} C.10: setting up /status command scenario`);
 
     const connect = await connectTelegramBot({

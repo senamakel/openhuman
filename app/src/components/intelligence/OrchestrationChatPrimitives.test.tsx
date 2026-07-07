@@ -22,7 +22,9 @@ const chat = (over: Partial<ChatWindow>): ChatWindow =>
 
 describe('ChatListButton', () => {
   it('renders unread count + active badge for an active unread session', () => {
-    render(<ChatListButton chat={chat({ unread: 4, active: true })} selected onSelect={() => {}} />);
+    render(
+      <ChatListButton chat={chat({ unread: 4, active: true })} selected onSelect={() => {}} />
+    );
     expect(screen.getByText('4')).toBeInTheDocument();
     expect(screen.getByText('tinyplaceOrchestration.active')).toBeInTheDocument();
   });
@@ -42,7 +44,9 @@ describe('ChatListButton', () => {
 
   it('shows the subconscious badge and fires onSelect', () => {
     const onSelect = vi.fn();
-    render(<ChatListButton chat={chat({ kind: 'subconscious' })} selected={false} onSelect={onSelect} />);
+    render(
+      <ChatListButton chat={chat({ kind: 'subconscious' })} selected={false} onSelect={onSelect} />
+    );
     expect(screen.getByText('tinyplaceOrchestration.subconsciousBadge')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('tinyplace-chat-sess-1'));
     expect(onSelect).toHaveBeenCalled();

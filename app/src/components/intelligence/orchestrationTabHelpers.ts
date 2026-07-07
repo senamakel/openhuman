@@ -3,10 +3,7 @@
  * contact-address resolution, and derived badge keys. Extracted so the tab
  * container and its presentational siblings share one implementation.
  */
-import type {
-  ContactRequestsResponse,
-  ContactView,
-} from '../../lib/agentworld/invokeApiClient';
+import type { ContactRequestsResponse, ContactView } from '../../lib/agentworld/invokeApiClient';
 import type { ChatWindow } from '../../lib/orchestration/useOrchestrationChats';
 
 export function formatTime(timestamp: string | null): string {

@@ -32,6 +32,7 @@ import reducer, {
   subagentSpawned,
   subagentToolCallReceived,
   subagentToolResultReceived,
+  toolArgsDeltaReceived,
   toolCallReceived,
   toolResultReceived,
   upsertArtifactFailedForThread,
@@ -1199,5 +1200,47 @@ describe('subagent event reducers (Phase 3)', () => {
     // Second done cannot re-settle (row no longer running).
     const again = reducer(state, subagentDone({ threadId: 't1', rowId: row, success: false }));
     expect(again.toolTimelineByThread['t1'][0].status).toBe('success');
+  });
+});
+
+describe('toolArgsDeltaReceived (Phase 3 reducer-side merge)', () => {
+  it('creates a running row when args arrive before the tool_call, then appends', () => {
+    let state = reducer(
+      undefined,
+      toolArgsDeltaReceived({
+        threadId: 't1',
+        round: 0,
+        delta: '{"q":',
+        toolName: 'search',
+        toolCallId: 'c1',
+      })
+    );
+    state = reducer(
+      state,
+      toolArgsDeltaReceived({ threadId: 't1', round: 0, delta: '"hi"}', toolCallId: 'c1' })
+    );
+    const rows = state.toolTimelineByThread['t1'];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: 'c1',
+      name: 'search',
+      status: 'running',
+      argsBuffer: '{"q":"hi"}',
+    });
+  });
+
+  it('falls back to the newest running row of the same name+round when no id matches', () => {
+    let state = reducer(
+      undefined,
+      setToolTimelineForThread({
+        threadId: 't1',
+        entries: [{ id: 'r1', name: 'search', round: 0, status: 'running', argsBuffer: '{' }],
+      })
+    );
+    state = reducer(
+      state,
+      toolArgsDeltaReceived({ threadId: 't1', round: 0, delta: '}', toolName: 'search' })
+    );
+    expect(state.toolTimelineByThread['t1'][0].argsBuffer).toBe('{}');
   });
 });

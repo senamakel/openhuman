@@ -57,9 +57,9 @@ import {
   subagentSpawned,
   subagentToolCallReceived,
   subagentToolResultReceived,
+  toolArgsDeltaReceived,
   toolCallReceived,
   toolResultReceived,
-  type ToolTimelineEntry,
   upsertArtifactFailedForThread,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
@@ -77,7 +77,6 @@ import {
   setSelectedThread,
 } from '../store/threadSlice';
 import { IS_PROD } from '../utils/config';
-import { formatTimelineEntry, isKnownClientTool } from '../utils/toolTimelineFormatting';
 
 const logChatRuntime = debug('openhuman:chat-runtime');
 const USER_FACING_AGENT_ERROR_MESSAGE =
@@ -464,22 +463,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (socketStatus !== 'connected') return;
-
-    const decorateEntry = (entry: ToolTimelineEntry): ToolTimelineEntry => {
-      const formatted = formatTimelineEntry(entry);
-      // The server now attaches a human label/detail for dynamic
-      // Composio/MCP/integration tools the client can't know. Trust it for
-      // those; for the fixed set of built-ins the client formatter labels
-      // well (with args-aware detail), the client label stays authoritative.
-      if (entry.displayName && !isKnownClientTool(entry.name)) {
-        return {
-          ...entry,
-          displayName: entry.displayName,
-          detail: entry.detail ?? formatted.detail,
-        };
-      }
-      return { ...entry, displayName: formatted.title, detail: formatted.detail ?? entry.detail };
-    };
 
     // When a turn ends, any follow-ups the user queued behind it are about to be
     // dispatched by the backend as fresh turns. Nothing else persists their
@@ -957,45 +940,16 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         );
       },
       onToolArgsDelta: event => {
-        const cr = store.getState().chatRuntime;
-        const existing = cr.toolTimelineByThread[event.thread_id] ?? [];
-        let matchIdx = -1;
-        if (event.tool_call_id) {
-          matchIdx = existing.findIndex(entry => entry.id === event.tool_call_id);
-        }
-        if (matchIdx < 0 && event.tool_name) {
-          matchIdx = existing.findIndex(
-            entry =>
-              entry.status === 'running' &&
-              entry.name === event.tool_name &&
-              entry.round === event.round
-          );
-        }
-
-        let entries: ToolTimelineEntry[];
-        if (matchIdx >= 0) {
-          entries = [...existing];
-          entries[matchIdx] = decorateEntry({
-            ...entries[matchIdx],
-            argsBuffer: `${entries[matchIdx].argsBuffer ?? ''}${event.delta}`,
-            name:
-              entries[matchIdx].name.length === 0 && event.tool_name
-                ? event.tool_name
-                : entries[matchIdx].name,
-          });
-        } else {
-          entries = [
-            ...existing,
-            decorateEntry({
-              id: event.tool_call_id,
-              name: event.tool_name ?? '',
-              round: event.round,
-              status: 'running',
-              argsBuffer: event.delta,
-            }),
-          ];
-        }
-        dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
+        // Match + append + decorate now live in the reducer (Phase 3).
+        dispatch(
+          toolArgsDeltaReceived({
+            threadId: event.thread_id,
+            round: event.round,
+            delta: event.delta,
+            toolName: event.tool_name,
+            toolCallId: event.tool_call_id,
+          })
+        );
       },
       onTaskBoardUpdated: (event: ChatTaskBoardUpdatedEvent) => {
         if (!event.task_board) return;

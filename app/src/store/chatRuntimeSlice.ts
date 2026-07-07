@@ -1240,6 +1240,50 @@ const chatRuntimeSlice = createSlice({
       }
     },
     /**
+     * Reducer-side merge for a `tool_args_delta` socket event (Phase 3).
+     * Appends the streamed args to the matching row (by `toolCallId`, else the
+     * newest running row of the same name+round), or creates a running row when
+     * the args arrive before the tool-call event. Re-decorates each time.
+     */
+    toolArgsDeltaReceived: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        round: number;
+        delta: string;
+        toolName?: string;
+        toolCallId?: string;
+      }>
+    ) => {
+      const { threadId, round, delta, toolName, toolCallId } = action.payload;
+      const entries = (state.toolTimelineByThread[threadId] ??= []);
+      let matchIdx = -1;
+      if (toolCallId) matchIdx = entries.findIndex(e => e.id === toolCallId);
+      if (matchIdx < 0 && toolName) {
+        matchIdx = entries.findIndex(
+          e => e.status === 'running' && e.name === toolName && e.round === round
+        );
+      }
+      if (matchIdx >= 0) {
+        const prev = entries[matchIdx];
+        entries[matchIdx] = decorateEntry({
+          ...prev,
+          argsBuffer: `${prev.argsBuffer ?? ''}${delta}`,
+          name: prev.name.length === 0 && toolName ? toolName : prev.name,
+        });
+      } else {
+        entries.push(
+          decorateEntry({
+            id: toolCallId ?? '',
+            name: toolName ?? '',
+            round,
+            status: 'running',
+            argsBuffer: delta,
+          })
+        );
+      }
+    },
+    /**
      * Reducer-side merges for the sub-agent event family (Phase 3). Each locates
      * the delegation's timeline row by its precomputed `rowId` and updates the
      * nested `subagent` activity in place — no `getState()` / full-array rebuild
@@ -2024,6 +2068,7 @@ export const {
   subagentSpawned,
   subagentToolCallReceived,
   subagentToolResultReceived,
+  toolArgsDeltaReceived,
   toolCallReceived,
   toolResultReceived,
   clearProcessingForThread,

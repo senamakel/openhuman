@@ -527,7 +527,14 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
     // CLI/RPC-only scope gate + credential scrub (#4453, innermost). No builder
     // tool policy on this call.
     assert_eq!(mw.tool_middleware_len(), 4, "tool middleware inventory");
-    assert_eq!(mw.model_middleware_len(), 0, "no around-model wraps");
+    // One around-model wrap: the cost `UsageCarryMiddleware` (always installed).
+    // RequiredCapabilities/FallbackObserver are not installed on this call
+    // (no required caps; `mock-model` is not a tier, so no fallback chain).
+    assert_eq!(
+        mw.model_middleware_len(),
+        1,
+        "usage-carry around-model wrap"
+    );
     assert_eq!(
         assembled.harness.policy().limits.max_depth,
         crate::openhuman::agent::harness::MAX_SPAWN_DEPTH,

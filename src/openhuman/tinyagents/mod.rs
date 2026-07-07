@@ -1228,16 +1228,17 @@ fn assemble_turn_harness(
     // tool-call start (the crate `ToolDelta` carries none), the bridge reads it
     // to label the argument fragments now streamed via `MessageDelta.tool_call`.
     let tool_names: ToolNameMap = Arc::default();
-    // Shared FIFO carry of per-call provider `UsageInfo`: the model adapter
-    // pushes each successful response's usage (charged USD + context window +
-    // cache-creation/reasoning tokens the crate `Usage` drops), the event bridge
-    // pops it when recording that call's usage (#4467, item 1).
+    // Shared FIFO carry of per-call provider `UsageInfo`: `UsageCarryMiddleware`
+    // pushes each response's usage (charged USD + context window +
+    // cache-creation/reasoning tokens, read off the response via G1), the event
+    // bridge pops it when recording that call's usage (#4467, item 1). The carry
+    // is produced by a wrap-model middleware now, not the adapter, so route models
+    // carry no usage side-channel (Phase 5).
     let provider_usage_carry: ProviderUsageCarry = Arc::default();
     // Keep a provider handle for the context-window summarizer (the run consumes
     // the other clone into the `ProviderModel`).
     let summary_provider = provider.clone();
-    let mut provider_model = ProviderModel::new(provider, model, temperature)
-        .with_usage_carry(provider_usage_carry.clone());
+    let mut provider_model = ProviderModel::new(provider, model, temperature);
     // The per-call output cap now rides `RunConfig.max_turn_output_tokens`
     // (Phase 5 groundwork), set by the caller: the loop stamps it onto every
     // `ModelRequest` and the adapter honors `request.max_tokens`, so the cap no
@@ -1272,9 +1273,7 @@ fn assemble_turn_harness(
     // the retained provider handle (the other clone was consumed into the
     // primary `ProviderModel`); `build_route_models` clones it per route and
     // skips the turn's own model so we don't shadow the default.
-    for route in
-        routes::build_route_models(&summary_provider, temperature, model, &provider_usage_carry)
-    {
+    for route in routes::build_route_models(&summary_provider, temperature, model) {
         let routes::RouteModel {
             name,
             model: route_model,
@@ -1282,6 +1281,15 @@ fn assemble_turn_harness(
         capability_registry.replace_model(name.as_str(), route_model.clone());
         harness.register_model(name, route_model);
     }
+
+    // Cost usage capture (issue #4249, Phase 5): feed the event bridge's usage
+    // carry from a wrap-model middleware that reads the full `UsageInfo` off each
+    // response, instead of every `ProviderModel` pushing it. Installed
+    // unconditionally — usage flows on every turn — and shares the same carry the
+    // bridge drains on `UsageRecorded`.
+    harness.push_model_middleware(Arc::new(routes::UsageCarryMiddleware::new(
+        provider_usage_carry.clone(),
+    )));
 
     // Per-call capability gate (issue #4249, Workstream 02.1): when the turn has
     // derivable capability needs (today: vision for a `vision-v1` turn), stamp

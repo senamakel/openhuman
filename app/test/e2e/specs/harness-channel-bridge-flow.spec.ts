@@ -510,7 +510,7 @@ describe('Harness — Cross-channel bridge flow', () => {
           {
             id: 'call_memory_recall_cb3',
             name: 'memory_recall',
-            arguments: JSON.stringify({ query: 'Atlas' }),
+            arguments: JSON.stringify({ namespace: 'global', query: 'Atlas' }),
           },
         ],
       },

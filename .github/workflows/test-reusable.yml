@@ -116,12 +116,24 @@ jobs:
     if: inputs.run_rust_core
     name: Rust Core Tests + Quality
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     env:
       CARGO_INCREMENTAL: "0"
+      # Keep the full core test binary link under hosted-runner memory/disk
+      # pressure. Tests do not need full DWARF; file/line backtraces remain.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_BUILD_JOBS: "1"
     steps:
+      - name: Free disk space
+        run: |
+          # Reclaim space on the build partition before compiling/linking the
+          # full Rust core test binary. The hosted toolcache is bind-mounted at
+          # /__t inside the container.
+          rm -rf /__t/* || true
+          df -h /__w || true
+
       - name: Checkout code
         uses: actions/checkout@v7
         with:

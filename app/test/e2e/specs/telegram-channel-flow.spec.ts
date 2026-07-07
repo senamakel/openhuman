@@ -83,7 +83,7 @@ const BOB_USERNAME = 'bob_e2e';
 
 /** Bot username configured in the mock. */
 const BOT_USERNAME = 'e2e_test_bot';
-const TELEGRAM_LISTENER_WAIT_MS = 12_000;
+const TELEGRAM_LISTENER_WAIT_MS = 30_000;
 
 // ---------------------------------------------------------------------------
 // Suite

@@ -436,9 +436,8 @@ fn adapter_inventory_registers_model_tools_and_middleware() {
         vec![Arc::new(vec![Box::new(EchoTool) as Box<dyn Tool>])];
 
     let assembled = assemble_turn_harness(
-        provider,
+        build_turn_models(provider, "mock-model", 0.0, Some(200_000)),
         "mock-model",
-        0.0,
         tool_sets,
         None,
         4,
@@ -580,9 +579,8 @@ fn adapter_inventory_gates_context_middleware_on_window() {
         vec![Arc::new(vec![Box::new(EchoTool) as Box<dyn Tool>])];
 
     let assembled = assemble_turn_harness(
-        provider,
+        build_turn_models(provider, "mock-model", 0.0, None),
         "mock-model",
-        0.0,
         tool_sets,
         None,
         4,

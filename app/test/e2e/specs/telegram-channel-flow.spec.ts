@@ -83,12 +83,31 @@ const BOB_USERNAME = 'bob_e2e';
 
 /** Bot username configured in the mock. */
 const BOT_USERNAME = 'e2e_test_bot';
+const TELEGRAM_LISTENER_WAIT_MS = 12_000;
 
 // ---------------------------------------------------------------------------
 // Suite
 // ---------------------------------------------------------------------------
 
 describe('Telegram channel — connect / receive / send / disconnect', () => {
+  async function waitForTelegramGetUpdates(scenario: string): Promise<boolean> {
+    const deadline = Date.now() + TELEGRAM_LISTENER_WAIT_MS;
+
+    while (Date.now() < deadline) {
+      const log = getRequestLog() as Array<{ method: string; url: string }>;
+      if (log.some(r => r.url.includes('getUpdates'))) {
+        console.log(`${LOG_PREFIX} ${scenario}: getUpdates observed`);
+        return true;
+      }
+      await browser.pause(500);
+    }
+
+    console.warn(
+      `${LOG_PREFIX} ${scenario}: getUpdates not observed within ${TELEGRAM_LISTENER_WAIT_MS}ms`
+    );
+    return false;
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // Suite setup
   // ──────────────────────────────────────────────────────────────────────────
@@ -350,8 +369,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
       allowedUsers: [ALICE_USERNAME],
     });
     if (connect.restartRequired) {
-      console.warn(`${LOG_PREFIX} C.5: listener requires restart — skipping live receive path`);
-      return;
+      console.warn(`${LOG_PREFIX} C.5: connect requested listener restart; checking live fallback`);
     }
 
     // Configure the mock LLM to respond deterministically.
@@ -379,16 +397,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
 
     // Wait for the mock to receive a getUpdates call (confirms the channel
     // polling loop is active against the mock server).
-    const getUpdatesDeadline = Date.now() + 30_000;
-    let getUpdatesObserved = false;
-    while (Date.now() < getUpdatesDeadline) {
-      const log = getRequestLog() as Array<{ method: string; url: string }>;
-      if (log.some(r => r.url.includes('getUpdates'))) {
-        getUpdatesObserved = true;
-        break;
-      }
-      await browser.pause(500);
-    }
+    const getUpdatesObserved = await waitForTelegramGetUpdates('C.5');
 
     if (!getUpdatesObserved) {
       // TODO(channels): The Telegram polling loop did not observe getUpdates
@@ -448,8 +457,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
       allowedUsers: [ALICE_USERNAME],
     });
     if (connect.restartRequired) {
-      console.warn(`${LOG_PREFIX} C.6: listener requires restart — skipping live receive path`);
-      return;
+      console.warn(`${LOG_PREFIX} C.6: connect requested listener restart; checking live fallback`);
     }
 
     // Inject a message from Bob (not in the allowlist).
@@ -465,16 +473,7 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
     console.log(`${LOG_PREFIX} C.6: Bob's update injected`);
 
     // Wait for getUpdates poll to confirm listener is active.
-    const getUpdatesDeadline = Date.now() + 30_000;
-    let getUpdatesObserved = false;
-    while (Date.now() < getUpdatesDeadline) {
-      const log = getRequestLog() as Array<{ method: string; url: string }>;
-      if (log.some(r => r.url.includes('getUpdates'))) {
-        getUpdatesObserved = true;
-        break;
-      }
-      await browser.pause(500);
-    }
+    const getUpdatesObserved = await waitForTelegramGetUpdates('C.6');
 
     if (!getUpdatesObserved) {
       // TODO(channels): Same listener-restart caveat as C.5.
@@ -518,21 +517,11 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
       mentionOnly: true,
     });
     if (connect.restartRequired) {
-      console.warn(`${LOG_PREFIX} C.7: listener requires restart — skipping live receive path`);
-      return;
+      console.warn(`${LOG_PREFIX} C.7: connect requested listener restart; checking live fallback`);
     }
 
     // Wait for listener to start (getUpdates poll) before injecting.
-    const listenerDeadline = Date.now() + 30_000;
-    let listenerActive = false;
-    while (Date.now() < listenerDeadline) {
-      const log = getRequestLog() as Array<{ method: string; url: string }>;
-      if (log.some(r => r.url.includes('getUpdates'))) {
-        listenerActive = true;
-        break;
-      }
-      await browser.pause(500);
-    }
+    const listenerActive = await waitForTelegramGetUpdates('C.7');
 
     if (!listenerActive) {
       // TODO(channels): Listener not active — see C.5 gap note.
@@ -679,21 +668,13 @@ describe('Telegram channel — connect / receive / send / disconnect', () => {
       allowedUsers: [ALICE_USERNAME],
     });
     if (connect.restartRequired) {
-      console.warn(`${LOG_PREFIX} C.10: listener requires restart — skipping live receive path`);
-      return;
+      console.warn(
+        `${LOG_PREFIX} C.10: connect requested listener restart; checking live fallback`
+      );
     }
 
     // Wait for listener.
-    const listenerDeadline = Date.now() + 30_000;
-    let listenerActive = false;
-    while (Date.now() < listenerDeadline) {
-      const log = getRequestLog() as Array<{ method: string; url: string }>;
-      if (log.some(r => r.url.includes('getUpdates'))) {
-        listenerActive = true;
-        break;
-      }
-      await browser.pause(500);
-    }
+    const listenerActive = await waitForTelegramGetUpdates('C.10');
 
     if (!listenerActive) {
       // TODO(channels): Listener not active — see C.5 gap note.

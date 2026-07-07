@@ -29,7 +29,6 @@ import {
 } from '../services/chatService';
 import { store } from '../store';
 import {
-  appendProcessingProse,
   appendSubagentStreamDelta,
   bumpInferenceHeartbeatForThread,
   clearInferenceStatusForThread,
@@ -45,14 +44,13 @@ import {
   recordSubagentTranscriptTool,
   resolveSubagentTranscriptTool,
   setInferenceStatusForThread,
-  setParallelStream,
   setPendingApprovalForThread,
   setPendingPlanReviewForThread,
   setStreamingAssistantForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
   setWorkflowProposalForThread,
-  type StreamingAssistantState,
+  streamDeltaReceived,
   toolCallReceived,
   toolResultReceived,
   type ToolTimelineEntry,
@@ -1029,80 +1027,26 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         }
       },
       onTextDelta: event => {
-        const cr = store.getState().chatRuntime;
-        // A parallel (forked) turn streams into its own lane so it doesn't
-        // clobber the primary turn's stream on the same thread.
-        if (cr.parallelRequestThreads[event.request_id] !== undefined) {
-          const prev = cr.parallelStreamsByThread[event.thread_id]?.[event.request_id];
-          dispatch(
-            setParallelStream({
-              threadId: event.thread_id,
-              streaming: {
-                requestId: event.request_id,
-                content: `${prev?.content ?? ''}${event.delta}`,
-                thinking: prev?.thinking ?? '',
-              },
-            })
-          );
-          return;
-        }
-        const existing = cr.streamingAssistantByThread[event.thread_id];
-        let streaming: StreamingAssistantState;
-        if (existing && existing.requestId !== event.request_id) {
-          streaming = { requestId: event.request_id, content: event.delta, thinking: '' };
-        } else {
-          streaming = {
-            requestId: event.request_id,
-            content: `${existing?.content ?? ''}${event.delta}`,
-            thinking: existing?.thinking ?? '',
-          };
-        }
-        dispatch(setStreamingAssistantForThread({ threadId: event.thread_id, streaming }));
-        // Build the live interleaved processing transcript so a mid-turn
-        // "View processing" isn't empty (the persisted one lands on settle).
+        // Parallel-vs-primary routing + processing transcript now live in the
+        // reducer (Phase 3) — no getState() in the provider.
         dispatch(
-          appendProcessingProse({
+          streamDeltaReceived({
             threadId: event.thread_id,
-            kind: 'narration',
+            requestId: event.request_id,
             round: event.round,
             delta: event.delta,
+            channel: 'content',
           })
         );
       },
       onThinkingDelta: event => {
-        const cr = store.getState().chatRuntime;
-        if (cr.parallelRequestThreads[event.request_id] !== undefined) {
-          const prev = cr.parallelStreamsByThread[event.thread_id]?.[event.request_id];
-          dispatch(
-            setParallelStream({
-              threadId: event.thread_id,
-              streaming: {
-                requestId: event.request_id,
-                content: prev?.content ?? '',
-                thinking: `${prev?.thinking ?? ''}${event.delta}`,
-              },
-            })
-          );
-          return;
-        }
-        const existing = cr.streamingAssistantByThread[event.thread_id];
-        let streaming: StreamingAssistantState;
-        if (existing && existing.requestId !== event.request_id) {
-          streaming = { requestId: event.request_id, content: '', thinking: event.delta };
-        } else {
-          streaming = {
-            requestId: event.request_id,
-            content: existing?.content ?? '',
-            thinking: `${existing?.thinking ?? ''}${event.delta}`,
-          };
-        }
-        dispatch(setStreamingAssistantForThread({ threadId: event.thread_id, streaming }));
         dispatch(
-          appendProcessingProse({
+          streamDeltaReceived({
             threadId: event.thread_id,
-            kind: 'thinking',
+            requestId: event.request_id,
             round: event.round,
             delta: event.delta,
+            channel: 'thinking',
           })
         );
       },

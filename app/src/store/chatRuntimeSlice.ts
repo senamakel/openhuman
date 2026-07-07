@@ -1156,6 +1156,59 @@ const chatRuntimeSlice = createSlice({
       }
     },
     /**
+     * Reducer-side merge for a `text_delta` / `thinking_delta` socket event
+     * (Phase 3 — replaces the provider's `getState()` + parallel-vs-primary
+     * routing). Forked (parallel) turns append into their own lane and skip the
+     * processing transcript; the primary turn appends to the streaming preview
+     * and coalesces a narration/thinking block into the live processing panel.
+     * A `requestId` change starts a fresh preview (drops the prior turn's tail).
+     */
+    streamDeltaReceived: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        requestId: string;
+        round: number;
+        delta: string;
+        channel: 'content' | 'thinking';
+      }>
+    ) => {
+      const { threadId, requestId, round, delta, channel } = action.payload;
+      // A parallel (forked) turn streams into its own lane so it doesn't clobber
+      // the primary turn's stream on the same thread.
+      if (state.parallelRequestThreads[requestId] !== undefined) {
+        const lane = (state.parallelStreamsByThread[threadId] ??= {});
+        const prev = lane[requestId];
+        lane[requestId] = {
+          requestId,
+          content: channel === 'content' ? `${prev?.content ?? ''}${delta}` : (prev?.content ?? ''),
+          thinking:
+            channel === 'thinking' ? `${prev?.thinking ?? ''}${delta}` : (prev?.thinking ?? ''),
+        };
+        return;
+      }
+      const existing = state.streamingAssistantByThread[threadId];
+      const sameTurn = existing != null && existing.requestId === requestId;
+      const carryContent = sameTurn ? existing.content : '';
+      const carryThinking = sameTurn ? existing.thinking : '';
+      state.streamingAssistantByThread[threadId] = {
+        requestId,
+        content: channel === 'content' ? `${carryContent}${delta}` : carryContent,
+        thinking: channel === 'thinking' ? `${carryThinking}${delta}` : carryThinking,
+      };
+      // Live interleaved processing transcript so a mid-turn "View processing"
+      // isn't empty — coalesce into the trailing same-kind, same-round block.
+      if (!delta) return;
+      const kind = channel === 'content' ? 'narration' : 'thinking';
+      const list = (state.processingByThread[threadId] ??= []);
+      const last = list[list.length - 1];
+      if (last && last.kind === kind && last.round === round) {
+        last.text += delta;
+      } else {
+        list.push({ kind, round, seq: list.length, text: delta });
+      }
+    },
+    /**
      * Optimistically mark a detached background sub-agent as cancelled after the
      * user confirms a cancel via `openhuman.subagent_cancel`. The aborted run
      * emits no terminal socket event, so without this the row would keep showing
@@ -1754,6 +1807,7 @@ export const {
   setToolTimelineForThread,
   clearToolTimelineForThread,
   setTurnTimelinesForThread,
+  streamDeltaReceived,
   toolCallReceived,
   toolResultReceived,
   clearProcessingForThread,

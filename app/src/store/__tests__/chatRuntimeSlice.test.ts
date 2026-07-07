@@ -25,6 +25,7 @@ import reducer, {
   setStreamingAssistantForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
+  streamDeltaReceived,
   toolCallReceived,
   toolResultReceived,
   upsertArtifactFailedForThread,
@@ -983,5 +984,91 @@ describe('toolResultReceived (Phase 3 reducer-side merge)', () => {
       toolResultReceived({ threadId: 't1', round: 9, toolName: 'other', success: true })
     );
     expect(after.toolTimelineByThread['t1']).toEqual(before.toolTimelineByThread['t1']);
+  });
+});
+
+describe('streamDeltaReceived (Phase 3 reducer-side merge)', () => {
+  it('appends a content delta to the primary stream and coalesces processing narration', () => {
+    let state = reducer(
+      undefined,
+      streamDeltaReceived({
+        threadId: 't1',
+        requestId: 'r1',
+        round: 0,
+        delta: 'Hel',
+        channel: 'content',
+      })
+    );
+    state = reducer(
+      state,
+      streamDeltaReceived({
+        threadId: 't1',
+        requestId: 'r1',
+        round: 0,
+        delta: 'lo',
+        channel: 'content',
+      })
+    );
+    expect(state.streamingAssistantByThread['t1']).toEqual({
+      requestId: 'r1',
+      content: 'Hello',
+      thinking: '',
+    });
+    // Two deltas coalesce into one narration block.
+    expect(state.processingByThread['t1']).toEqual([
+      { kind: 'narration', round: 0, seq: 0, text: 'Hello' },
+    ]);
+  });
+
+  it('starts a fresh preview when the requestId changes (drops the prior tail)', () => {
+    let state = reducer(
+      undefined,
+      streamDeltaReceived({
+        threadId: 't1',
+        requestId: 'r1',
+        round: 0,
+        delta: 'old',
+        channel: 'content',
+      })
+    );
+    state = reducer(
+      state,
+      streamDeltaReceived({
+        threadId: 't1',
+        requestId: 'r2',
+        round: 0,
+        delta: 'new',
+        channel: 'thinking',
+      })
+    );
+    expect(state.streamingAssistantByThread['t1']).toEqual({
+      requestId: 'r2',
+      content: '',
+      thinking: 'new',
+    });
+  });
+
+  it('routes a forked (parallel) turn into its own lane without touching the primary or processing', () => {
+    let state = reducer(
+      undefined,
+      registerParallelRequest({ threadId: 't1', requestId: 'branch' })
+    );
+    state = reducer(
+      state,
+      streamDeltaReceived({
+        threadId: 't1',
+        requestId: 'branch',
+        round: 0,
+        delta: 'B',
+        channel: 'content',
+      })
+    );
+    expect(state.parallelStreamsByThread['t1']['branch']).toEqual({
+      requestId: 'branch',
+      content: 'B',
+      thinking: '',
+    });
+    expect(state.streamingAssistantByThread['t1']).toBeUndefined();
+    expect(state.processingByThread['t1']).toBeUndefined();
   });
 });

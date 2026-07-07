@@ -193,7 +193,10 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        # Pinned to the v7 commit SHA for supply-chain hardening (CodeRabbit
+        # review on #3892). The combined frontend lane keeps that hardening
+        # from the former docs-drift job.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 1
           persist-credentials: false
@@ -219,7 +222,7 @@ jobs:
       - name: Cache pnpm store
         id: pnpm-cache
         if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.i18n == 'true'
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -232,7 +235,7 @@ jobs:
 
       - name: Save pnpm store cache
         if: always() && (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.i18n == 'true') && steps.pnpm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
@@ -478,7 +481,7 @@ jobs:
 
       - name: Cache CEF binary distribution
         id: cef-cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/Library/Caches/tauri-cef
@@ -500,7 +503,7 @@ jobs:
 
       - name: Save CEF binary distribution cache
         if: always() && steps.cef-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ~/Library/Caches/tauri-cef
@@ -532,7 +535,7 @@ jobs:
 
       - name: Cache pnpm store
         id: pnpm-cache
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .pnpm-store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -546,7 +549,7 @@ jobs:
 
       - name: Save pnpm store cache
         if: always() && steps.pnpm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .pnpm-store
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}

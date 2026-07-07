@@ -2,9 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChatWindow } from '../../lib/orchestration/useOrchestrationChats';
-import OrchestrationFocusPane, {
-  type OrchestrationFocusPaneProps,
-} from './OrchestrationFocusPane';
+import OrchestrationFocusPane, { type OrchestrationFocusPaneProps } from './OrchestrationFocusPane';
 
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (k: string) => k }) }));
 
@@ -51,7 +49,9 @@ describe('OrchestrationFocusPane', () => {
   });
 
   it('renders the payment-required state', () => {
-    render(<OrchestrationFocusPane {...props({ sessionsState: { status: 'payment_required' } })} />);
+    render(
+      <OrchestrationFocusPane {...props({ sessionsState: { status: 'payment_required' } })} />
+    );
     expect(screen.getByText('tinyplaceOrchestration.paymentRequired')).toBeInTheDocument();
   });
 
@@ -109,9 +109,7 @@ describe('OrchestrationFocusPane', () => {
   });
 
   it('surfaces a composer send error when composing', () => {
-    render(
-      <OrchestrationFocusPane {...props({ canCompose: true, masterError: 'send failed' })} />
-    );
+    render(<OrchestrationFocusPane {...props({ canCompose: true, masterError: 'send failed' })} />);
     expect(screen.getByTestId('tinyplace-master-composer-input')).toBeInTheDocument();
     expect(screen.getByText(/send failed/)).toBeInTheDocument();
   });

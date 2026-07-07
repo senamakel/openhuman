@@ -9,13 +9,14 @@ import { store } from '../../store';
 import {
   clearAllChatRuntime,
   enqueueFollowup,
+  findPendingDelegationContext,
   registerParallelRequest,
   resetSessionTokenUsage,
   setPendingPlanReviewForThread,
 } from '../../store/chatRuntimeSlice';
 import { setStatusForUser } from '../../store/socketSlice';
 import { clearAllThreads, loadThreads, setSelectedThread } from '../../store/threadSlice';
-import ChatRuntimeProvider, { findPendingDelegationContext } from '../ChatRuntimeProvider';
+import ChatRuntimeProvider from '../ChatRuntimeProvider';
 
 vi.mock('../../services/chatService', async () => {
   const actual = await vi.importActual<typeof chatService>('../../services/chatService');

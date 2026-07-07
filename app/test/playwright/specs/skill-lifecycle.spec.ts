@@ -28,6 +28,10 @@ test.describe('Skill lifecycle smoke', () => {
       root && typeof root === 'object' && 'result' in root
         ? (root.result as Record<string, unknown>)
         : root;
-    expect(Array.isArray(payload.flows ?? payload)).toBe(true);
+    const flows =
+      payload && typeof payload === 'object' && 'result' in payload
+        ? (payload.result as unknown)
+        : ((payload as Record<string, unknown>).flows ?? payload);
+    expect(Array.isArray(flows)).toBe(true);
   });
 });

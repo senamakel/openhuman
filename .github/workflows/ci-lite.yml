@@ -290,7 +290,7 @@ jobs:
 
       - name: Upload frontend lcov
         if: needs.changes.outputs.frontend == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lcov-frontend
           path: app/coverage/lcov.info
@@ -420,7 +420,7 @@ jobs:
           df -h /__w || true
 
       - name: Upload core lcov
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lcov-rust-core
           path: lcov-core.info
@@ -511,7 +511,7 @@ jobs:
           key: ${{ steps.cef-cache.outputs.cache-primary-key }}
 
       - name: Upload tauri lcov
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lcov-rust-tauri
           path: lcov-tauri.info
@@ -737,7 +737,7 @@ jobs:
 
       - name: Upload diff-cover report
         if: always() && needs.changes.outputs.coverage == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: diff-coverage-report
           path: |

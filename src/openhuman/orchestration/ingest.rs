@@ -37,6 +37,24 @@ fn is_dm_stream(kind: &str, stream_id: &str) -> bool {
         || stream_id.starts_with("conversation:")
 }
 
+/// True when a `decrypt_envelope` error is a permanent Signal-layer decryption
+/// failure (no session, bad MAC, malformed ciphertext) rather than a transient
+/// one (key-bundle fetch, network, store IO). `decrypt_envelope` prefixes every
+/// Signal decrypt error with `"decryption failed: "`, so that marker is the
+/// discriminator. Permanent failures are dead-lettered so a single unreadable
+/// envelope can't poison the drain loop forever. Pure.
+fn is_unrecoverable_decrypt_error(err: &str) -> bool {
+    err.contains("decryption failed")
+}
+
+/// Stable-sort a batch of envelopes so session-establishing PREKEY_BUNDLE
+/// messages are processed before CIPHERTEXT ones. Pure.
+fn order_prekey_bundles_first(messages: &mut [tinyplace::types::MessageEnvelope]) {
+    messages.sort_by_key(|m| {
+        u8::from(m.envelope_type != tinyplace::signal::session::TYPE_PREKEY_BUNDLE)
+    });
+}
+
 /// Classify a decrypted DM: a harness envelope becomes a per-session message,
 /// anything else becomes a message in the peer's Master window. Pure.
 fn classify_message(plaintext: String, fallback_timestamp: &str) -> ClassifiedMessage {
@@ -203,7 +221,31 @@ async fn ingest_one(
     }
 
     // 2. Decrypt exactly once, then classify + persist.
-    let plaintext = decrypt_envelope(&envelope).await?;
+    //
+    // A Signal-layer decryption failure ("No session", bad MAC, malformed body)
+    // is PERMANENT for this envelope: the ratchet state needed to read it is
+    // gone or was never established (e.g. a CIPHERTEXT whose establishing
+    // PREKEY_BUNDLE was lost, or a session reset on our side). Because we only
+    // acknowledge on success (stage 3), leaving such an envelope in the mailbox
+    // makes every subsequent drain re-fetch, re-attempt, and re-log it forever —
+    // a poison message that also grows the mailbox unboundedly. So dead-letter
+    // it: acknowledge (consume) once and move on. Transient errors (bundle
+    // fetch, network, store IO) are NOT swallowed — they are returned so the
+    // envelope is retried on the next drain.
+    let plaintext = match decrypt_envelope(&envelope).await {
+        Ok(plaintext) => plaintext,
+        Err(e) if is_unrecoverable_decrypt_error(&e) => {
+            log::warn!(
+                target: LOG,
+                "[orchestration] ingest.drop_undecryptable from={agent_id} id={msg_id}: {e}"
+            );
+            if let Err(ack) = acknowledge_message(&msg_id).await {
+                log::warn!(target: LOG, "[orchestration] ingest.ack_failed_drop id={msg_id}: {ack}");
+            }
+            return Ok(());
+        }
+        Err(e) => return Err(e),
+    };
     let classified = classify_message(plaintext, &envelope.timestamp);
     let now = chrono::Utc::now().to_rfc3339();
     let landed = persist_message(&workspace_dir, &msg_id, &agent_id, &classified, &now)?;
@@ -251,11 +293,19 @@ pub async fn drain_mailbox_once(config: &Config) -> Result<usize, String> {
         .list(&agent_id, Some(100))
         .await
         .map_err(|e| format!("messages.list: {e}"))?;
-    let count = resp.messages.len();
+    let mut messages = resp.messages;
+    let count = messages.len();
     if count > 0 {
         log::debug!(target: LOG, "[orchestration] drain.fetched count={count}");
     }
-    for envelope in resp.messages {
+    // Process session-establishing PREKEY_BUNDLE envelopes before CIPHERTEXT
+    // ones: relay list order is not guaranteed chronological, so a first-contact
+    // batch could otherwise hand a CIPHERTEXT to `ingest_one` before the
+    // PREKEY_BUNDLE that sets up its Signal session, needlessly failing (and,
+    // now, dead-lettering) a message that was about to become decryptable. The
+    // sort is stable, so same-type envelopes keep their delivered order.
+    order_prekey_bundles_first(&mut messages);
+    for envelope in messages {
         if let Err(e) = ingest_one(config, envelope).await {
             log::warn!(target: LOG, "[orchestration] drain.ingest_error: {e}");
         }
@@ -376,5 +426,42 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    #[test]
+    fn unrecoverable_decrypt_errors_are_dead_lettered_but_transient_ones_are_not() {
+        // Signal-layer failures (prefixed "decryption failed:" by decrypt_envelope)
+        // are permanent for the envelope and must be dropped so they can't poison
+        // the drain loop forever — this is the "No session" case from the bug.
+        assert!(is_unrecoverable_decrypt_error(
+            "decryption failed: invalid argument: No session for De6RHrMj6eDqX1WBTXk11sks"
+        ));
+        assert!(is_unrecoverable_decrypt_error("decryption failed: bad MAC"));
+        // Transient failures must be retried, not swallowed.
+        assert!(!is_unrecoverable_decrypt_error(
+            "HTTP 503: /keys/abc/bundle"
+        ));
+        assert!(!is_unrecoverable_decrypt_error(
+            "identity key: store unavailable"
+        ));
+        assert!(!is_unrecoverable_decrypt_error("messages.list: timeout"));
+    }
+
+    #[test]
+    fn prekey_bundles_are_ordered_before_ciphertext_preserving_relative_order() {
+        let env = |id: &str, ty: &str| -> tinyplace::types::MessageEnvelope {
+            serde_json::from_value(serde_json::json!({ "id": id, "type": ty })).unwrap()
+        };
+        // Delivered order interleaves a CIPHERTEXT before the PREKEY_BUNDLE that
+        // establishes its session — the ordering race the fix removes.
+        let mut batch = vec![
+            env("c1", "CIPHERTEXT"),
+            env("pk", "PREKEY_BUNDLE"),
+            env("c2", "CIPHERTEXT"),
+        ];
+        order_prekey_bundles_first(&mut batch);
+        let ids: Vec<&str> = batch.iter().map(|m| m.id.as_str()).collect();
+        // PREKEY_BUNDLE first; CIPHERTEXT keep their delivered order (stable sort).
+        assert_eq!(ids, vec!["pk", "c1", "c2"]);
     }
 }

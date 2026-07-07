@@ -452,6 +452,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.10.0
 
       - name: Setup Node.js 24.x
         uses: actions/setup-node@v6
@@ -565,6 +567,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.10.0
 
       - name: Setup Node.js 24.x
         uses: actions/setup-node@v6
@@ -658,6 +662,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.10.0
 
       - name: Setup Node.js 24.x
         uses: actions/setup-node@v6
@@ -766,6 +772,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.10.0
 
       - name: Setup Node.js 24.x
         uses: actions/setup-node@v6
@@ -876,6 +884,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.10.0
 
       - name: Setup Node.js 24.x
         uses: actions/setup-node@v6
@@ -971,6 +981,8 @@ jobs:
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.10.0
 
       - name: Setup Node.js 24.x
         uses: actions/setup-node@v6

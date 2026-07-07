@@ -180,6 +180,8 @@ jobs:
           fetch-depth: 1
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.10.0
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:

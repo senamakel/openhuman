@@ -47,6 +47,7 @@ jobs:
         if: steps.gate.outputs.present == 'true'
         uses: pnpm/action-setup@v6
         with:
+          version: 10.10.0
           cache: true
       - name: Setup Node.js 24.x
         if: steps.gate.outputs.present == 'true'

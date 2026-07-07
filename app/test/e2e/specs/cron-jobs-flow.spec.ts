@@ -219,15 +219,14 @@ describe('Cron jobs settings panel (real UI flow)', () => {
     // Home.tsx renders t('home.askAssistant') = 'Ask your assistant anything...' as the stable
     // CTA button. Old strings ('Good morning', 'Message OpenHuman', etc.) are no longer rendered.
     const home = await waitForAnyText(
-      ['Ask your assistant anything', 'Your device is connected'],
+      [
+        'Ask your assistant anything',
+        'Your device is connected',
+        'Your assistant is ready when you are',
+      ],
       15_000
     );
-    if (!home) {
-      stepLog(
-        'home text not visible after reset; continuing because provider shard resets shared state'
-      );
-    }
-    expect(true).toBe(true);
+    expect(home).toBeTruthy();
   });
 
   it('the seeded morning_briefing job appears in the Cron Jobs panel', async function () {

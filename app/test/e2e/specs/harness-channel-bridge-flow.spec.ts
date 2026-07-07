@@ -404,7 +404,7 @@ describe('Harness — Cross-channel bridge flow', () => {
           `Telegram listener requires a core restart after channels_connect. The web-chat ` +
           `Composio path is covered by harness-composio-tool-flow in this shard.`
       );
-      return;
+      this.skip();
     }
 
     // Canned Gmail messages the mock Composio execute will return.

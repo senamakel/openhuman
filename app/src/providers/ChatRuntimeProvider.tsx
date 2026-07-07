@@ -51,10 +51,15 @@ import {
   setToolTimelineForThread,
   setWorkflowProposalForThread,
   streamDeltaReceived,
+  subagentAwaitingUser,
+  subagentDone,
+  subagentIterationStarted,
+  subagentSpawned,
+  subagentToolCallReceived,
+  subagentToolResultReceived,
   toolCallReceived,
   toolResultReceived,
   type ToolTimelineEntry,
-  type ToolTimelineEntryStatus,
   upsertArtifactFailedForThread,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
@@ -72,11 +77,7 @@ import {
   setSelectedThread,
 } from '../store/threadSlice';
 import { IS_PROD } from '../utils/config';
-import {
-  formatTimelineEntry,
-  isKnownClientTool,
-  promptFromArgsBuffer,
-} from '../utils/toolTimelineFormatting';
+import { formatTimelineEntry, isKnownClientTool } from '../utils/toolTimelineFormatting';
 
 const logChatRuntime = debug('openhuman:chat-runtime');
 const USER_FACING_AGENT_ERROR_MESSAGE =
@@ -330,27 +331,6 @@ function parseWorkflowProposal(output: string): WorkflowProposal | null {
     requireApproval: obj.require_approval !== false,
     summary: { trigger: typeof summary.trigger === 'string' ? summary.trigger : '', steps },
   };
-}
-
-export function findPendingDelegationContext(
-  entries: ToolTimelineEntry[],
-  round: number
-): { sourceToolName?: string; prompt?: string; spawnEntryId?: string } {
-  for (let i = entries.length - 1; i >= 0; i -= 1) {
-    const entry = entries[i];
-    if (entry.status !== 'running' || entry.round !== round) continue;
-    if (
-      ['spawn_subagent', 'spawn_async_subagent'].includes(entry.name) ||
-      entry.name.startsWith('delegate_')
-    ) {
-      return {
-        sourceToolName: entry.name,
-        prompt: entry.detail ?? promptFromArgsBuffer(entry.argsBuffer),
-        spawnEntryId: entry.id,
-      };
-    }
-  }
-  return {};
 }
 
 const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
@@ -699,88 +679,47 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           })
         );
 
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        const pendingContext = findPendingDelegationContext(existing, event.round);
-        // Collapse the parent's `spawn_subagent`/`spawn_async_subagent`/`delegate_*` tool-call row into
-        // the subagent row so the timeline shows ONE entry per delegation
-        // instead of "Research" (the tool call) + "Researching" (the child).
-        // The tool call's prompt is carried onto the subagent as the parent's
-        // delegation message, which the drawer renders as the opening turn.
-        const base = pendingContext.spawnEntryId
-          ? existing.filter(e => e.id !== pendingContext.spawnEntryId)
-          : existing;
+        // Collapse the parent spawn/delegate row into the subagent row (one
+        // entry per delegation) — merge now lives in the reducer (Phase 3).
         dispatch(
-          setToolTimelineForThread({
+          subagentSpawned({
             threadId: event.thread_id,
-            entries: [
-              ...base,
-              decorateEntry({
-                id: `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`,
-                name: `subagent:${event.tool_name}`,
-                round: event.round,
-                status: 'running',
-                detail: pendingContext.prompt,
-                sourceToolName: pendingContext.sourceToolName,
-                subagent: {
-                  taskId: event.skill_id,
-                  agentId: event.tool_name,
-                  displayName: event.subagent?.display_name,
-                  workerThreadId: event.subagent?.worker_thread_id,
-                  mode: event.subagent?.mode,
-                  dedicatedThread: event.subagent?.dedicated_thread,
-                  prompt: pendingContext.prompt,
-                  toolCalls: [],
-                  transcript: [],
-                },
-              }),
-            ],
+            round: event.round,
+            rowId: `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`,
+            taskId: event.skill_id,
+            agentId: event.tool_name,
+            displayName: event.subagent?.display_name,
+            workerThreadId: event.subagent?.worker_thread_id,
+            mode: event.subagent?.mode,
+            dedicatedThread: event.subagent?.dedicated_thread,
           })
         );
       },
       onSubagentAwaitingUser: (event: ChatSubagentDoneEvent) => {
-        const subagentRowId = `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`;
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        if (existing.length > 0) {
-          const entries = existing.map(entry => {
-            if (entry.id !== subagentRowId || entry.status !== 'running') return entry;
-            return decorateEntry({
-              ...entry,
-              status: 'awaiting_user' as ToolTimelineEntryStatus,
-              subagent: entry.subagent
-                ? { ...entry.subagent, status: 'awaiting_user' }
-                : entry.subagent,
-            });
-          });
-          dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
-        }
+        dispatch(
+          subagentAwaitingUser({
+            threadId: event.thread_id,
+            rowId: `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`,
+          })
+        );
       },
       onSubagentDone: (event: ChatSubagentDoneEvent) => {
-        const subagentRowId = `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`;
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        if (existing.length > 0) {
-          const entries = existing.map(entry => {
-            if (entry.id !== subagentRowId || entry.status !== 'running') return entry;
-            return decorateEntry({
-              ...entry,
-              status: (event.success ? 'success' : 'error') as ToolTimelineEntryStatus,
-              subagent: entry.subagent
-                ? {
-                    ...entry.subagent,
-                    iterations: event.subagent?.iterations ?? entry.subagent.iterations,
-                    elapsedMs: event.subagent?.elapsed_ms ?? entry.subagent.elapsedMs,
-                    outputChars: event.subagent?.output_chars ?? entry.subagent.outputChars,
-                    // Worktree isolation metadata (#3376) — present only for
-                    // workers that ran with `isolation = "worktree"`. Drives the
-                    // inline worktree row's open/diff/remove affordances.
-                    worktreePath: event.subagent?.worktree_path ?? entry.subagent.worktreePath,
-                    changedFiles: event.subagent?.changed_files ?? entry.subagent.changedFiles,
-                    isDirty: event.subagent?.dirty_status ?? entry.subagent.isDirty,
-                  }
-                : entry.subagent,
-            });
-          });
-          dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
-        }
+        // Worktree isolation metadata (#3376) — present only for workers that ran
+        // with `isolation = "worktree"`; drives the inline worktree row's
+        // open/diff/remove affordances. Undefined fields leave the row untouched.
+        dispatch(
+          subagentDone({
+            threadId: event.thread_id,
+            rowId: `${event.thread_id}:subagent:${event.skill_id}:${event.tool_name}`,
+            success: event.success,
+            iterations: event.subagent?.iterations,
+            elapsedMs: event.subagent?.elapsed_ms,
+            outputChars: event.subagent?.output_chars,
+            worktreePath: event.subagent?.worktree_path,
+            changedFiles: event.subagent?.changed_files,
+            isDirty: event.subagent?.dirty_status,
+          })
+        );
 
         const current = store.getState().chatRuntime.inferenceStatusByThread[event.thread_id];
         if (!current) return;
@@ -794,59 +733,35 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       onSubagentIterationStart: event => {
         const taskId = event.subagent?.task_id ?? event.skill_id;
         const agentId = event.subagent?.agent_id ?? event.tool_name;
-        const rowId = `${event.thread_id}:subagent:${taskId}:${agentId}`;
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        const idx = existing.findIndex(entry => entry.id === rowId);
-        if (idx < 0) return;
-        const entry = existing[idx];
-        if (!entry.subagent) return;
-        const next = [...existing];
-        next[idx] = {
-          ...entry,
-          subagent: {
-            ...entry.subagent,
-            childIteration: event.subagent?.child_iteration ?? entry.subagent.childIteration,
-            childMaxIterations:
-              event.subagent?.child_max_iterations ?? entry.subagent.childMaxIterations,
-          },
-        };
-        dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries: next }));
+        dispatch(
+          subagentIterationStarted({
+            threadId: event.thread_id,
+            rowId: `${event.thread_id}:subagent:${taskId}:${agentId}`,
+            childIteration: event.subagent?.child_iteration,
+            childMaxIterations: event.subagent?.child_max_iterations,
+          })
+        );
       },
       onSubagentToolCall: event => {
         const taskId = event.subagent?.task_id ?? event.skill_id;
         const agentId = event.subagent?.agent_id;
         if (!agentId) return;
         const rowId = `${event.thread_id}:subagent:${taskId}:${agentId}`;
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        const idx = existing.findIndex(entry => entry.id === rowId);
-        if (idx < 0) return;
-        const entry = existing[idx];
-        if (!entry.subagent) return;
-        // De-dupe on call_id — the same call should not append twice if
-        // the socket layer redelivers (e.g. on reconnect during a run).
-        if (entry.subagent.toolCalls.some(c => c.callId === event.tool_call_id)) return;
-        const next = [...existing];
-        next[idx] = {
-          ...entry,
-          subagent: {
-            ...entry.subagent,
-            toolCalls: [
-              ...entry.subagent.toolCalls,
-              {
-                callId: event.tool_call_id,
-                toolName: event.tool_name,
-                status: 'running',
-                iteration: event.subagent?.child_iteration,
-                args: event.args,
-                displayName: event.tool_display_label,
-                detail: event.tool_display_detail,
-              },
-            ],
-          },
-        };
-        dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries: next }));
-        // Mirror the call into the ordered transcript so the drawer renders
-        // it right after the text that triggered it (chronological view).
+        // Reducer owns the toolCalls upsert (dedup on call_id) — no getState().
+        dispatch(
+          subagentToolCallReceived({
+            threadId: event.thread_id,
+            rowId,
+            callId: event.tool_call_id,
+            toolName: event.tool_name,
+            iteration: event.subagent?.child_iteration,
+            args: event.args,
+            displayName: event.tool_display_label,
+            detail: event.tool_display_detail,
+          })
+        );
+        // Mirror the call into the ordered transcript so the drawer renders it
+        // right after the text that triggered it (self-guarded / self-deduped).
         dispatch(
           recordSubagentTranscriptTool({
             threadId: event.thread_id,
@@ -898,28 +813,19 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         const agentId = event.subagent?.agent_id;
         if (!agentId) return;
         const rowId = `${event.thread_id}:subagent:${taskId}:${agentId}`;
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        const idx = existing.findIndex(entry => entry.id === rowId);
-        if (idx < 0) return;
-        const entry = existing[idx];
-        if (!entry.subagent) return;
-        const callIdx = entry.subagent.toolCalls.findIndex(c => c.callId === event.tool_call_id);
-        if (callIdx < 0) return;
-        const updatedCalls = [...entry.subagent.toolCalls];
-        updatedCalls[callIdx] = {
-          ...updatedCalls[callIdx],
-          status: event.success ? 'success' : 'error',
-          elapsedMs: event.subagent?.elapsed_ms ?? updatedCalls[callIdx].elapsedMs,
-          outputChars: event.subagent?.output_chars ?? updatedCalls[callIdx].outputChars,
-          result: event.output ?? updatedCalls[callIdx].result,
-          // Carry the structured failure so the child row keeps its "why / next"
-          // copy live instead of losing it until a snapshot reload (#4459). A
-          // successful result clears any stale failure on the row.
-          failure: event.success ? undefined : parseToolFailure(event.failure),
-        };
-        const next = [...existing];
-        next[idx] = { ...entry, subagent: { ...entry.subagent, toolCalls: updatedCalls } };
-        dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries: next }));
+        // Reducer owns the nested toolCall settle (no-op if the call is absent).
+        dispatch(
+          subagentToolResultReceived({
+            threadId: event.thread_id,
+            rowId,
+            callId: event.tool_call_id,
+            success: event.success,
+            elapsedMs: event.subagent?.elapsed_ms,
+            outputChars: event.subagent?.output_chars,
+            result: event.output,
+            failure: event.failure,
+          })
+        );
         dispatch(
           resolveSubagentTranscriptTool({
             threadId: event.thread_id,

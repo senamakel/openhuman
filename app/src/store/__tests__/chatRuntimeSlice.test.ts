@@ -26,6 +26,12 @@ import reducer, {
   setTaskBoardForThread,
   setToolTimelineForThread,
   streamDeltaReceived,
+  subagentAwaitingUser,
+  subagentDone,
+  subagentIterationStarted,
+  subagentSpawned,
+  subagentToolCallReceived,
+  subagentToolResultReceived,
   toolCallReceived,
   toolResultReceived,
   upsertArtifactFailedForThread,
@@ -1070,5 +1076,128 @@ describe('streamDeltaReceived (Phase 3 reducer-side merge)', () => {
     });
     expect(state.streamingAssistantByThread['t1']).toBeUndefined();
     expect(state.processingByThread['t1']).toBeUndefined();
+  });
+});
+
+describe('subagent event reducers (Phase 3)', () => {
+  const spawn = (threadId = 't1') =>
+    reducer(
+      undefined,
+      subagentSpawned({
+        threadId,
+        round: 0,
+        rowId: 't1:subagent:task-1:researcher',
+        taskId: 'task-1',
+        agentId: 'researcher',
+        displayName: 'Researcher',
+      })
+    );
+
+  it('subagentSpawned collapses the parent spawn row into the subagent row', () => {
+    // Seed a running parent delegate row for round 0.
+    let state = reducer(
+      undefined,
+      setToolTimelineForThread({
+        threadId: 't1',
+        entries: [
+          {
+            id: 'spawn-1',
+            name: 'spawn_subagent',
+            round: 0,
+            status: 'running',
+            detail: 'go research',
+          },
+        ],
+      })
+    );
+    state = reducer(
+      state,
+      subagentSpawned({
+        threadId: 't1',
+        round: 0,
+        rowId: 't1:subagent:task-1:researcher',
+        taskId: 'task-1',
+        agentId: 'researcher',
+      })
+    );
+    const rows = state.toolTimelineByThread['t1'];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: 't1:subagent:task-1:researcher',
+      name: 'subagent:researcher',
+      status: 'running',
+      detail: 'go research', // carried from the collapsed spawn row's prompt
+    });
+    expect(rows[0].subagent).toMatchObject({ taskId: 'task-1', agentId: 'researcher' });
+  });
+
+  it('subagentToolCallReceived appends and de-dupes on callId; result settles it', () => {
+    let state = spawn();
+    const row = 't1:subagent:task-1:researcher';
+    state = reducer(
+      state,
+      subagentToolCallReceived({ threadId: 't1', rowId: row, callId: 'c1', toolName: 'grep' })
+    );
+    // Redelivery is a no-op.
+    state = reducer(
+      state,
+      subagentToolCallReceived({ threadId: 't1', rowId: row, callId: 'c1', toolName: 'grep' })
+    );
+    let sub = state.toolTimelineByThread['t1'][0].subagent!;
+    expect(sub.toolCalls).toHaveLength(1);
+    expect(sub.toolCalls[0].status).toBe('running');
+
+    state = reducer(
+      state,
+      subagentToolResultReceived({
+        threadId: 't1',
+        rowId: row,
+        callId: 'c1',
+        success: true,
+        result: 'ok',
+      })
+    );
+    sub = state.toolTimelineByThread['t1'][0].subagent!;
+    expect(sub.toolCalls[0]).toMatchObject({ status: 'success', result: 'ok' });
+  });
+
+  it('subagentDone settles the row + metadata; awaiting/iteration update in place', () => {
+    let state = spawn();
+    const row = 't1:subagent:task-1:researcher';
+    state = reducer(
+      state,
+      subagentIterationStarted({
+        threadId: 't1',
+        rowId: row,
+        childIteration: 2,
+        childMaxIterations: 5,
+      })
+    );
+    expect(state.toolTimelineByThread['t1'][0].subagent).toMatchObject({
+      childIteration: 2,
+      childMaxIterations: 5,
+    });
+
+    const awaiting = reducer(state, subagentAwaitingUser({ threadId: 't1', rowId: row }));
+    expect(awaiting.toolTimelineByThread['t1'][0].status).toBe('awaiting_user');
+
+    const done = reducer(
+      state,
+      subagentDone({ threadId: 't1', rowId: row, success: true, iterations: 3, elapsedMs: 42 })
+    );
+    expect(done.toolTimelineByThread['t1'][0]).toMatchObject({ status: 'success' });
+    expect(done.toolTimelineByThread['t1'][0].subagent).toMatchObject({
+      iterations: 3,
+      elapsedMs: 42,
+    });
+  });
+
+  it('done/awaiting are no-ops when the row is not running', () => {
+    let state = spawn();
+    const row = 't1:subagent:task-1:researcher';
+    state = reducer(state, subagentDone({ threadId: 't1', rowId: row, success: true }));
+    // Second done cannot re-settle (row no longer running).
+    const again = reducer(state, subagentDone({ threadId: 't1', rowId: row, success: false }));
+    expect(again.toolTimelineByThread['t1'][0].status).toBe('success');
   });
 });

@@ -286,6 +286,7 @@ jobs:
           - { name: foundation, suites: "auth,navigation,system" }
           - { name: chat, suites: "chat,skills,journeys" }
           - { name: providers, suites: "providers,notifications" }
+          - { name: provider-web, suites: "provider-web" }
           - { name: webhooks, suites: "webhooks" }
           - { name: connectors, suites: "connectors" }
           - { name: commerce, suites: "payments,settings" }
@@ -751,6 +752,7 @@ jobs:
           - { name: foundation, suites: "auth,navigation,system" }
           - { name: chat, suites: "chat,skills,journeys" }
           - { name: providers, suites: "providers,notifications" }
+          - { name: provider-web, suites: "provider-web" }
           - { name: webhooks, suites: "webhooks" }
           - { name: connectors, suites: "connectors" }
           - { name: commerce, suites: "payments,settings" }
@@ -955,6 +957,7 @@ jobs:
           - { name: foundation, suites: "auth,navigation,system" }
           - { name: chat, suites: "chat,skills,journeys" }
           - { name: providers, suites: "providers,notifications" }
+          - { name: provider-web, suites: "provider-web" }
           - { name: webhooks, suites: "webhooks" }
           - { name: connectors, suites: "connectors" }
           - { name: commerce, suites: "payments,settings" }

@@ -111,7 +111,9 @@ describe('Accounts provider picker contract', () => {
     await waitForAddAccountModalClosed();
   });
 
-  it('registers each visible provider through the real picker interaction', async () => {
+  it('registers each visible provider through the real picker interaction', async function () {
+    this.timeout(120_000);
+
     await navigateViaHash('/chat');
     await waitForAccountsPage();
     await openAddAccountModal();

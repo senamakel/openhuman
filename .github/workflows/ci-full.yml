@@ -262,7 +262,7 @@ jobs:
           key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}
 
       - name: Download Playwright E2E artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: e2e-playwright-linux-${{ github.run_id }}
           path: .

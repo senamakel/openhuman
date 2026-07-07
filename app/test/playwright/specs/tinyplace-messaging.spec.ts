@@ -16,11 +16,11 @@
 // Requires the web session harness (app/scripts/e2e-web-session.sh) with
 // TINYPLACE_API_BASE_URL exported so the core hits a real backend. The
 // messaging e2e runner (e2e/tinyplace-messaging/run-ui.sh) wires this up.
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-import { bootAuthenticatedPage } from '../helpers/core-rpc';
 // The core-launch helper is shared with the core-level suite (plain ESM).
 import { launchAgent, receiveMessage } from '../../../../e2e/tinyplace-messaging/lib/core.mjs';
+import { bootAuthenticatedPage } from '../helpers/core-rpc';
 
 const CORE_RPC_URL = process.env.PW_CORE_RPC_URL || 'http://127.0.0.1:17788/rpc';
 const CORE_RPC_TOKEN = process.env.PW_CORE_RPC_TOKEN || 'openhuman-playwright-token';
@@ -37,10 +37,26 @@ async function freshMnemonic(): Promise<string> {
 }
 
 const PLACEHOLDER_ACCOUNTS = [
-  { chain: 'evm', address: '0x0000000000000000000000000000000000000001', derivationPath: "m/44'/60'/0'/0/0" },
-  { chain: 'btc', address: 'bc1qplaceholderplaceholderplaceholderplac0000', derivationPath: "m/84'/0'/0'/0/0" },
-  { chain: 'solana', address: '11111111111111111111111111111111', derivationPath: "m/44'/501'/0'/0'" },
-  { chain: 'tron', address: 'T0000000000000000000000000000000001', derivationPath: "m/44'/195'/0'/0/0" },
+  {
+    chain: 'evm',
+    address: '0x0000000000000000000000000000000000000001',
+    derivationPath: "m/44'/60'/0'/0/0",
+  },
+  {
+    chain: 'btc',
+    address: 'bc1qplaceholderplaceholderplaceholderplac0000',
+    derivationPath: "m/84'/0'/0'/0/0",
+  },
+  {
+    chain: 'solana',
+    address: '11111111111111111111111111111111',
+    derivationPath: "m/44'/501'/0'/0'",
+  },
+  {
+    chain: 'tron',
+    address: 'T0000000000000000000000000000000001',
+    derivationPath: "m/44'/195'/0'/0/0",
+  },
 ];
 
 /** Call Alice's (the app's) core over JSON-RPC and unwrap the {logs,result}. */
@@ -68,7 +84,9 @@ test.describe('tiny.place direct messaging (UI)', () => {
   test.beforeAll(async () => {
     // 1) Give the app's core a fresh tiny.place identity + published Signal keys.
     const mnemonic = await freshMnemonic();
-    const encryptedMnemonic = await aliceRpc<string>('openhuman.encrypt_secret', { plaintext: mnemonic });
+    const encryptedMnemonic = await aliceRpc<string>('openhuman.encrypt_secret', {
+      plaintext: mnemonic,
+    });
     await aliceRpc('openhuman.wallet_setup', {
       consentGranted: true,
       source: 'imported',
@@ -94,7 +112,9 @@ test.describe('tiny.place direct messaging (UI)', () => {
     bob?.stop();
   });
 
-  test('sends an encrypted DM from the UI that the peer decrypts, and renders the peer reply', async ({ page }) => {
+  test('sends an encrypted DM from the UI that the peer decrypts, and renders the peer reply', async ({
+    page,
+  }) => {
     await bootAuthenticatedPage(page, 'pw-messaging-user', '/agent-world/messaging');
 
     // The DM composer: enter the peer's cryptoId and open the thread.
@@ -122,7 +142,10 @@ test.describe('tiny.place direct messaging (UI)', () => {
 
     // Now the peer replies; the plaintext must render in the UI thread.
     const reply = `peer → ui @ ${Date.now()}`;
-    await bob.rpc('openhuman.tinyplace_signal_send_message', { recipient: aliceCryptoId, plaintext: reply });
+    await bob.rpc('openhuman.tinyplace_signal_send_message', {
+      recipient: aliceCryptoId,
+      plaintext: reply,
+    });
 
     // Wait until the reply envelope is actually in Alice's mailbox — inspected,
     // not decrypted (decrypt advances the ratchet and can only run once, so we
@@ -131,10 +154,10 @@ test.describe('tiny.place direct messaging (UI)', () => {
       .poll(
         async () => {
           const list = await aliceRpc<any>('openhuman.tinyplace_messages_list', { limit: 50 });
-          const envelopes = Array.isArray(list) ? list : list?.messages ?? [];
+          const envelopes = Array.isArray(list) ? list : (list?.messages ?? []);
           return envelopes.some((e: any) => e.from === bob.cryptoId);
         },
-        { timeout: 15_000, intervals: [500, 1000] },
+        { timeout: 15_000, intervals: [500, 1000] }
       )
       .toBe(true);
 

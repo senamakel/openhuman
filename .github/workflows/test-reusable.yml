@@ -125,6 +125,9 @@ jobs:
       # pressure. Tests do not need full DWARF; file/line backtraces remain.
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       CARGO_BUILD_JOBS: "1"
+      # Deep async agent-harness tests can overflow libtest's default ~2 MB
+      # per-test thread stack. Match ci-lite's core coverage stack setting.
+      RUST_MIN_STACK: "67108864"
     steps:
       - name: Free disk space
         run: |

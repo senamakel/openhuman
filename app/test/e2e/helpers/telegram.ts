@@ -324,9 +324,9 @@ export async function waitForTelegramReply(opts: {
       const matchesBodyChat = String(body.chat_id ?? '') === String(chatId);
 
       if (!matchesChat && !matchesBodyChat) return false;
-      if (!contains) return true;
-
       const text = String(entry.text ?? entry.message ?? body.text ?? '');
+      if (!text) return false;
+      if (!contains) return true;
       return text.includes(contains);
     });
 

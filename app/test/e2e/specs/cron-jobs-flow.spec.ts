@@ -176,16 +176,33 @@ async function ensureMorningBriefingJob(): Promise<CronJobSummary> {
   const existing = await findMorningBriefingJob(2_000);
   if (existing) return existing;
 
-  stepLog('morning_briefing missing — seeding via cron_create');
-  const seed = await callOpenhumanRpc('openhuman.cron_create', {
+  stepLog('morning_briefing missing — seeding via cron_add');
+  const seed = await callOpenhumanRpc('openhuman.cron_add', {
     name: MORNING_BRIEFING,
-    schedule: '0 8 * * *',
-    enabled: true,
+    schedule: { kind: 'cron', expr: '0 8 * * *' },
+    job_type: 'agent',
+    prompt: 'Prepare the user morning briefing.',
+    agent_id: MORNING_BRIEFING,
+    session_target: 'main',
   });
   expect(seed.ok).toBe(true);
   const created = await findMorningBriefingJob(10_000);
   expect(created).not.toBeNull();
   return created as CronJobSummary;
+}
+
+async function ensureCronJobEnabledInPanel(job: CronJobSummary): Promise<void> {
+  if (job.enabled === false || (await textExists('Resume'))) {
+    stepLog('morning_briefing disabled — enabling through the UI before pause assertions', {
+      id: job.id,
+      enabled: job.enabled,
+    });
+    await clickCronJobAction(job, 'toggle', 'Resume', 8_000);
+    await waitForText('Pause', 10_000);
+    return;
+  }
+
+  await waitForCronJobAction(job, 'toggle', 'Pause', 10_000);
 }
 
 /** Open the Cron Jobs settings panel via the same Settings entry-point a user clicks. */
@@ -252,7 +269,7 @@ describe('Cron jobs settings panel (real UI flow)', () => {
       }
     }
     expect(await textExists(MORNING_BRIEFING)).toBe(true);
-    await waitForCronJobAction(job, 'toggle', 'Pause', 10_000);
+    await ensureCronJobEnabledInPanel(job);
   });
 
   it('clicking Pause flips the row to Resume and persists across Refresh', async function () {
@@ -261,9 +278,9 @@ describe('Cron jobs settings panel (real UI flow)', () => {
     const job = await ensureMorningBriefingJob();
     await openCronJobsPanel();
 
-    // The cron job.id is a generated UUID, not the job name. Use text-based
-    // matching for action buttons since data-testid uses job.id.
-    await waitForCronJobAction(job, 'toggle', 'Pause', 15_000);
+    // The auto-seeded morning_briefing job is disabled by default. Normalize
+    // it through the UI so the next toggle click is the Pause path.
+    await ensureCronJobEnabledInPanel(job);
     await clickCronJobAction(job, 'toggle', 'Pause', 8_000);
 
     await waitForText('Resume', 10_000);

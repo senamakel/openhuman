@@ -1193,13 +1193,38 @@ describe('subagent event reducers (Phase 3)', () => {
     });
   });
 
-  it('done/awaiting are no-ops when the row is not running', () => {
+  it('settles an awaiting_user row on done (it must not stay stuck)', () => {
+    let state = spawn();
+    const row = 't1:subagent:task-1:researcher';
+    state = reducer(state, subagentAwaitingUser({ threadId: 't1', rowId: row }));
+    expect(state.toolTimelineByThread['t1'][0].status).toBe('awaiting_user');
+    state = reducer(state, subagentDone({ threadId: 't1', rowId: row, success: true }));
+    expect(state.toolTimelineByThread['t1'][0].status).toBe('success');
+  });
+
+  it('done is a no-op once the row is terminal (already settled)', () => {
     let state = spawn();
     const row = 't1:subagent:task-1:researcher';
     state = reducer(state, subagentDone({ threadId: 't1', rowId: row, success: true }));
-    // Second done cannot re-settle (row no longer running).
+    // A second done cannot re-settle a terminal row.
     const again = reducer(state, subagentDone({ threadId: 't1', rowId: row, success: false }));
     expect(again.toolTimelineByThread['t1'][0].status).toBe('success');
+  });
+
+  it('subagentSpawned is idempotent — a redelivered event does not duplicate the row', () => {
+    let state = spawn();
+    const before = state.toolTimelineByThread['t1'].length;
+    state = reducer(
+      state,
+      subagentSpawned({
+        threadId: 't1',
+        round: 0,
+        rowId: 't1:subagent:task-1:researcher',
+        taskId: 'task-1',
+        agentId: 'researcher',
+      })
+    );
+    expect(state.toolTimelineByThread['t1']).toHaveLength(before);
   });
 });
 

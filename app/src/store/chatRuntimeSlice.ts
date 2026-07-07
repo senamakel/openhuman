@@ -1315,6 +1315,10 @@ const chatRuntimeSlice = createSlice({
         dedicatedThread,
       } = action.payload;
       const entries = (state.toolTimelineByThread[threadId] ??= []);
+      // Idempotent: a socket redelivery must not append a second row with the
+      // same id (later updates find only the first). Not gated by the provider's
+      // event-seen map, so guard here.
+      if (entries.some(e => e.id === rowId)) return;
       const pending = findPendingDelegationContext(entries, round);
       // Collapse the parent spawn/delegate row into the subagent row so the
       // timeline shows one entry per delegation.
@@ -1377,8 +1381,11 @@ const chatRuntimeSlice = createSlice({
         changedFiles,
         isDirty,
       } = action.payload;
+      // Settle a still-in-flight row: `running`, or `awaiting_user` (a subagent
+      // paused for input that then completes must not stay stuck at
+      // awaiting_user). Already-terminal rows are left as-is.
       const entry = state.toolTimelineByThread[threadId]?.find(
-        e => e.id === rowId && e.status === 'running'
+        e => e.id === rowId && (e.status === 'running' || e.status === 'awaiting_user')
       );
       if (!entry) return;
       entry.status = success ? 'success' : 'error';

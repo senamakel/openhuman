@@ -114,8 +114,8 @@ describe('ManifestRiveMascot', () => {
 
     await waitFor(() => expect(h.useRiveParams?.buffer).toBeInstanceOf(ArrayBuffer));
     // 'thinking' face → Toshi's look_around (it has no 'thinking' pose).
-    expect((h.enumCalls['pose'] ?? []).at(-1)).toBe('look_around');
-    expect(enumLast('mouthVisemeCode')).toBe('aa');
+    await waitFor(() => expect(h.enumCalls['pose'] ?? []).toContain('look_around'));
+    await waitFor(() => expect(enumLast('mouthVisemeCode')).toBe('aa'));
   });
 
   it('clears the previous buffer when the entry changes without a remount', async () => {

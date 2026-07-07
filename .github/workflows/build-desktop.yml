@@ -148,7 +148,7 @@ jobs:
         with:
           xcode-version: latest-stable
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v5
         with:
           cache: true
       - name: Setup Node.js 24.x

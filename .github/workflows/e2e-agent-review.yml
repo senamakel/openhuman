@@ -45,7 +45,7 @@ jobs:
           fi
       - name: Setup pnpm
         if: steps.gate.outputs.present == 'true'
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v5
         with:
           cache: true
       - name: Setup Node.js 24.x

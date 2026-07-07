@@ -69,7 +69,6 @@ use crate::openhuman::agent::harness::tool_result_artifacts::{
 use crate::openhuman::agent::harness::{run_queue::RunQueue, MAX_SPAWN_DEPTH};
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
-use model::ThinkingForwarder;
 
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
@@ -1247,14 +1246,6 @@ fn assemble_turn_harness(
     // Phase 2) so the crate can validate input capacity before dispatch.
     if let Some(window) = context_window.filter(|w| *w > 0) {
         provider_model = provider_model.with_context_window(window);
-    }
-    if let Some(tx) = &on_progress {
-        provider_model = provider_model.with_thinking(ThinkingForwarder::new(
-            tx.clone(),
-            subagent_scope.clone(),
-            cursor.clone(),
-            tool_names.clone(),
-        ));
     }
     // Recover the original (downcastable) provider error if the run fails — the
     // harness only carries a stringified copy.

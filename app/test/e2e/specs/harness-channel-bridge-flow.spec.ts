@@ -125,6 +125,13 @@ async function connectTelegramChannel(): Promise<boolean> {
     console.log(
       `${LOG_PREFIX} connectTelegramChannel: connected (restartRequired=${result.restartRequired})`
     );
+    if (result.restartRequired) {
+      console.warn(
+        `${LOG_PREFIX} connectTelegramChannel: config saved but live listener requires a core restart; ` +
+          `using web-chat fallback for Telegram inbound assertions`
+      );
+      return false;
+    }
     return true;
   } catch (err) {
     console.warn(`${LOG_PREFIX} connectTelegramChannel: threw — ${err}`);

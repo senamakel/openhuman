@@ -297,11 +297,17 @@ export async function waitForTelegramReply(opts: {
         String(entry.chat_id) === String(chatId) ||
         // Some mock implementations nest the chat_id inside a request body JSON.
         String((entry as Record<string, unknown>).body_chat_id ?? '') === String(chatId);
+      const body =
+        typeof (entry as Record<string, unknown>).body === 'object' &&
+        (entry as Record<string, unknown>).body !== null
+          ? ((entry as Record<string, unknown>).body as Record<string, unknown>)
+          : {};
+      const matchesBodyChat = String(body.chat_id ?? '') === String(chatId);
 
-      if (!matchesChat) return false;
+      if (!matchesChat && !matchesBodyChat) return false;
       if (!contains) return true;
 
-      const text = String(entry.text ?? entry.message ?? '');
+      const text = String(entry.text ?? entry.message ?? body.text ?? '');
       return text.includes(contains);
     });
 

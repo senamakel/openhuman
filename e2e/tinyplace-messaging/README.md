@@ -32,10 +32,14 @@ two distinct agents. The suite walks the full lifecycle:
 ## Run it
 
 ```bash
-# From this directory. Brings up an isolated backend (mongo+redis+backend,
-# static payment verifier) if one isn't already reachable, builds the core if
-# needed, then runs the suite.
+# Core layer (two openhuman-core processes over JSON-RPC). Brings up an isolated
+# backend (mongo+redis+backend, static payment verifier) if one isn't already
+# reachable, builds the core if needed, then runs the node:test suite.
 ./run.sh
+
+# UI layer (Playwright against the web build). Same backend handling; boots the
+# app's core + web host and a peer core, then drives the Messaging screen.
+./run-ui.sh
 ```
 
 Or, if you already have a backend and a built core:
@@ -43,6 +47,19 @@ Or, if you already have a backend and a built core:
 ```bash
 TINYPLACE_API_BASE_URL=http://localhost:18080 node --test messaging.e2e.mjs
 ```
+
+## What the UI suite proves
+
+Driven through the real **Messaging** screen (`/agent-world/messaging`) of the
+web build, against the same real backend, with a second core as the peer:
+
+1. **Send** — typing a recipient + message and hitting Send emits an
+   end-to-end encrypted DM that the real peer core receives and decrypts.
+2. **Receive** — a reply sent by the peer renders as plaintext in the UI thread.
+
+Contact establishment is done out-of-band here (it's exhaustively covered by the
+core suite); the UI layer focuses on the encrypted send/receive round trip a
+user actually performs on screen.
 
 ### Requirements
 

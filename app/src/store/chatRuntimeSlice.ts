@@ -13,6 +13,7 @@ import type {
   PersistedTurnState,
   TaskBoard,
 } from '../types/turnState';
+import { formatTimelineEntry, isKnownClientTool } from '../utils/toolTimelineFormatting';
 import { resetUserScopedState } from './resetActions';
 
 const turnStateLog = debug('chatRuntime.turnState');
@@ -234,6 +235,21 @@ export function parseToolFailure(raw: unknown): ToolFailureExplanation | undefin
     causePlain,
     nextAction,
   };
+}
+
+/**
+ * Attach a human label/detail to a tool-timeline row. The server supplies a
+ * label/detail for dynamic Composio/MCP/integration tools the client can't know
+ * — trust it for those; for the fixed set of built-ins the client formatter
+ * (args-aware) stays authoritative. Pure — shared by the live reducers and any
+ * caller that materialises a row.
+ */
+function decorateEntry(entry: ToolTimelineEntry): ToolTimelineEntry {
+  const formatted = formatTimelineEntry(entry);
+  if (entry.displayName && !isKnownClientTool(entry.name)) {
+    return { ...entry, displayName: entry.displayName, detail: entry.detail ?? formatted.detail };
+  }
+  return { ...entry, displayName: formatted.title, detail: formatted.detail ?? entry.detail };
 }
 
 export interface ToolTimelineEntry {
@@ -1042,6 +1058,104 @@ const chatRuntimeSlice = createSlice({
       list.push({ kind: 'toolCall', round, seq: list.length, callId });
     },
     /**
+     * Reducer-side merge for a `tool_call` socket event (Phase 3 — replaces the
+     * provider's `getState()` + find-row + full-array-rebuild). Upserts the row
+     * by `toolCallId` (falling back to a generated stable id), decorates its
+     * label/detail, and records the processing-transcript pointer in one pass.
+     */
+    toolCallReceived: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        round: number;
+        toolName: string;
+        toolCallId?: string;
+        displayLabel?: string;
+        displayDetail?: string;
+      }>
+    ) => {
+      const { threadId, round, toolName, toolCallId, displayLabel, displayDetail } = action.payload;
+      const entries = (state.toolTimelineByThread[threadId] ??= []);
+      const existingIdx = toolCallId ? entries.findIndex(e => e.id === toolCallId) : -1;
+      // Stable row id, shared with the processing-transcript tool pointer so the
+      // panel can resolve the row by `callId`.
+      const rowId = toolCallId ?? `${threadId}:${round}:${entries.length}:${toolName}`;
+      if (existingIdx >= 0) {
+        const prev = entries[existingIdx];
+        entries[existingIdx] = decorateEntry({
+          ...prev,
+          name: toolName,
+          round,
+          status: 'running',
+          displayName: displayLabel ?? prev.displayName,
+          detail: displayDetail ?? prev.detail,
+        });
+      } else {
+        entries.push(
+          decorateEntry({
+            id: rowId,
+            name: toolName,
+            round,
+            status: 'running',
+            displayName: displayLabel,
+            detail: displayDetail,
+          })
+        );
+      }
+      // Fold the processing-transcript pointer (was a second dispatch).
+      const list = (state.processingByThread[threadId] ??= []);
+      if (!list.some(i => i.kind === 'toolCall' && i.callId === rowId)) {
+        list.push({ kind: 'toolCall', round, seq: list.length, callId: rowId });
+      }
+    },
+    /**
+     * Reducer-side merge for a `tool_result` socket event (Phase 3). Settles the
+     * matching row by `toolCallId`, else the newest still-running row with the
+     * same name+round. A no-op when no row matches (mirrors the provider's
+     * `changed` guard). `failure` is the raw socket payload, parsed here.
+     */
+    toolResultReceived: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        round: number;
+        toolName: string;
+        toolCallId?: string;
+        success: boolean;
+        output?: string;
+        failure?: unknown;
+      }>
+    ) => {
+      const { threadId, round, toolName, toolCallId, success, output, failure } = action.payload;
+      const entries = state.toolTimelineByThread[threadId];
+      if (!entries || entries.length === 0) return;
+      const status: ToolTimelineEntryStatus = success ? 'success' : 'error';
+      // On failure, parse the optional structured explanation (#4254); a
+      // successful result clears any stale failure carried on the row.
+      const parsedFailure = success ? undefined : parseToolFailure(failure);
+      // The core forwards the (size-capped) tool result text on `output`; accept
+      // only non-empty payloads so a stub-less row stays `undefined`.
+      const result = output && output.length > 0 ? output : undefined;
+      if (toolCallId) {
+        const entry = entries.find(e => e.id === toolCallId);
+        if (entry) {
+          entry.status = status;
+          entry.failure = parsedFailure;
+          entry.result = result;
+          return;
+        }
+      }
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        const entry = entries[i];
+        if (entry.status === 'running' && entry.name === toolName && entry.round === round) {
+          entry.status = status;
+          entry.failure = parsedFailure;
+          entry.result = result;
+          return;
+        }
+      }
+    },
+    /**
      * Optimistically mark a detached background sub-agent as cancelled after the
      * user confirms a cancel via `openhuman.subagent_cancel`. The aborted run
      * emits no terminal socket event, so without this the row would keep showing
@@ -1640,6 +1754,8 @@ export const {
   setToolTimelineForThread,
   clearToolTimelineForThread,
   setTurnTimelinesForThread,
+  toolCallReceived,
+  toolResultReceived,
   clearProcessingForThread,
   appendProcessingProse,
   recordProcessingTool,

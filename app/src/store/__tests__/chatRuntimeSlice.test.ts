@@ -25,6 +25,8 @@ import reducer, {
   setStreamingAssistantForThread,
   setTaskBoardForThread,
   setToolTimelineForThread,
+  toolCallReceived,
+  toolResultReceived,
   upsertArtifactFailedForThread,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
@@ -903,5 +905,83 @@ describe('chatRuntimeSlice', () => {
       expect(state.parallelStreamsByThread).toEqual({});
       expect(state.parallelRequestThreads).toEqual({});
     });
+  });
+});
+
+describe('toolCallReceived (Phase 3 reducer-side merge)', () => {
+  it('appends a new running row with a generated id and records the processing pointer', () => {
+    const state = reducer(
+      undefined,
+      toolCallReceived({ threadId: 't1', round: 0, toolName: 'shell' })
+    );
+    const rows = state.toolTimelineByThread['t1'];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: 't1:0:0:shell', name: 'shell', status: 'running' });
+    // Fold-in of the processing-transcript pointer (was a second dispatch).
+    expect(state.processingByThread['t1']).toEqual([
+      { kind: 'toolCall', round: 0, seq: 0, callId: 't1:0:0:shell' },
+    ]);
+  });
+
+  it('upserts an existing row by toolCallId instead of duplicating', () => {
+    let state = reducer(
+      undefined,
+      toolCallReceived({ threadId: 't1', round: 0, toolName: 'shell', toolCallId: 'call-1' })
+    );
+    state = reducer(
+      state,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'call-1' })
+    );
+    const rows = state.toolTimelineByThread['t1'];
+    expect(rows).toHaveLength(1);
+    expect(rows[0].round).toBe(1);
+    // Processing pointer is recorded once for the stable callId.
+    expect(state.processingByThread['t1']).toHaveLength(1);
+  });
+});
+
+describe('toolResultReceived (Phase 3 reducer-side merge)', () => {
+  const withRunningRow = () =>
+    reducer(
+      undefined,
+      setToolTimelineForThread({
+        threadId: 't1',
+        entries: [{ id: 'call-1', name: 'shell', round: 0, status: 'running' }],
+      })
+    );
+
+  it('settles the row matched by toolCallId, attaching output', () => {
+    const state = reducer(
+      withRunningRow(),
+      toolResultReceived({
+        threadId: 't1',
+        round: 0,
+        toolName: 'shell',
+        toolCallId: 'call-1',
+        success: true,
+        output: 'done',
+      })
+    );
+    expect(state.toolTimelineByThread['t1'][0]).toMatchObject({
+      status: 'success',
+      result: 'done',
+    });
+  });
+
+  it('falls back to the newest running row of the same name+round when no id matches', () => {
+    const state = reducer(
+      withRunningRow(),
+      toolResultReceived({ threadId: 't1', round: 0, toolName: 'shell', success: false })
+    );
+    expect(state.toolTimelineByThread['t1'][0].status).toBe('error');
+  });
+
+  it('is a no-op when nothing matches (mirrors the provider changed-guard)', () => {
+    const before = withRunningRow();
+    const after = reducer(
+      before,
+      toolResultReceived({ threadId: 't1', round: 9, toolName: 'other', success: true })
+    );
+    expect(after.toolTimelineByThread['t1']).toEqual(before.toolTimelineByThread['t1']);
   });
 });

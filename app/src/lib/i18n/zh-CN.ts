@@ -159,6 +159,7 @@ const messages: TranslationMap = {
   'nav.activity': '动态',
   'nav.brain': '大脑',
   'nav.flows': '工作流',
+  'nav.orchestration': '编排',
   'nav.agentWorld': 'Tiny Place',
   'nav.wallet': '钱包',
   'agentWorld.description':

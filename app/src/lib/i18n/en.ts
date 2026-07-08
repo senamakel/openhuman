@@ -26,6 +26,7 @@ const en: TranslationMap = {
   'nav.activity': 'Activity',
   'nav.brain': 'Brain',
   'nav.flows': 'Workflows',
+  'nav.orchestration': 'Orchestration',
   'nav.agentWorld': 'Tiny Place',
   'nav.wallet': 'Wallet',
   // Agent World section sub-navigation labels

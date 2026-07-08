@@ -173,6 +173,7 @@ const messages: TranslationMap = {
   'nav.activity': '활동',
   'nav.brain': '브레인',
   'nav.flows': '워크플로',
+  'nav.orchestration': '오케스트레이션',
   'nav.agentWorld': 'Tiny Place',
   'nav.wallet': '지갑',
   'agentWorld.description':

@@ -176,6 +176,7 @@ const messages: TranslationMap = {
   'nav.activity': 'गतिविधि',
   'nav.brain': 'ब्रेन',
   'nav.flows': 'वर्कफ़्लो',
+  'nav.orchestration': 'ऑर्केस्ट्रेशन',
   'nav.agentWorld': 'Tiny Place',
   'nav.wallet': 'वॉलेट',
   'agentWorld.description':

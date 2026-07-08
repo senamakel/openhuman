@@ -182,6 +182,7 @@ const messages: TranslationMap = {
   'nav.activity': 'Aktivität',
   'nav.brain': 'Gehirn',
   'nav.flows': 'Workflows',
+  'nav.orchestration': 'Orchestrierung',
   'nav.agentWorld': 'Tiny Place',
   'nav.wallet': 'Wallet',
   'agentWorld.description':

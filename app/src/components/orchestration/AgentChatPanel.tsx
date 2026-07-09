@@ -1,10 +1,14 @@
 /**
  * AgentChatPanel — chat with the main agent, styled like the app's normal chat.
  *
- * A ThreadList-style rail (Main agent / Subconscious) beside a centered message
- * pane rendered with the shared {@link SessionTranscript} (chat-window bubbles +
- * inline harness activity), plus the subconscious steering header and the Master
- * composer.
+ * Reuses the app's normal chat window look: a single centered message pane
+ * rendered with the shared {@link SessionTranscript} (chat-window bubbles +
+ * inline harness activity), the {@link ChatNewWindowHero} welcome panel on an
+ * empty conscious thread, the Master composer, and — in place of the generic
+ * chat's super-context / quick-reasoning controls — a bottom **Conscious /
+ * Subconscious** toggle. "Conscious" is the orchestration master session;
+ * "Subconscious" is the subconscious steering loop (which adds a steering
+ * header and drops the composer, since you watch it rather than message it).
  *
  * When the agent engages a fleet session (a session parked on an approval), an
  * inline **View session** card surfaces below the thread; opening it slides in a
@@ -29,6 +33,7 @@ import {
   useSessionTranscript,
 } from '../../lib/orchestration/useOrchestrationSessions';
 import { subconsciousTrigger } from '../../utils/tauriCommands/subconscious';
+import ChatNewWindowHero from '../chat/ChatNewWindowHero';
 import Button from '../ui/Button';
 import SessionTranscript from './SessionTranscript';
 
@@ -205,65 +210,12 @@ export default function AgentChatPanel() {
   // Sessions the agent has engaged that are parked on an approval → "needs you".
   const pinged = contactSessions.sessions.filter(s => s.status === 'waiting-approval');
   const openSession = contactSessions.sessions.find(s => s.sessionId === openSessionId) ?? null;
+  // Empty conscious thread → show the shared welcome hero (reuses the generic
+  // chat's "new window" panel) instead of the bare "no messages" line.
+  const showHero = isMasterSelected && (selected?.messages.length ?? 0) === 0;
 
   return (
-    <div className="relative flex h-full min-h-[520px] overflow-hidden rounded-xl border border-line bg-surface shadow-soft">
-      {/* Thread rail — mirrors the normal chat's ThreadList. */}
-      <aside className="flex w-56 flex-none flex-col border-r border-line bg-surface-muted/40">
-        <div className="border-b border-line-subtle px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-content-muted">
-          {t('orchPage.agent.mainTab')}
-        </div>
-        <div
-          className="min-h-0 flex-1 overflow-y-auto"
-          role="tablist"
-          aria-label={t('orchPage.agent.description')}>
-          {rail.map(chat => {
-            const active = selectedId === chat.id;
-            return (
-              <button
-                key={chat.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                data-testid={`orch-agent-tab-${chat.id}`}
-                onClick={() => selectChat(chat.id)}
-                className={`flex w-full items-center gap-2.5 border-b border-line-subtle/60 px-3 py-2.5 text-left transition-colors dark:border-line/60 ${
-                  active
-                    ? 'border-l-2 border-l-primary-500 bg-primary-50 dark:bg-primary-900/30'
-                    : 'hover:bg-surface-hover'
-                }`}>
-                <span
-                  className={`flex h-7 w-7 flex-none items-center justify-center rounded-lg text-[11px] font-semibold ${
-                    active
-                      ? 'bg-primary-500 text-white'
-                      : 'border border-line bg-surface-strong text-content-secondary'
-                  }`}>
-                  {chat.id === SUBCONSCIOUS_CHAT_KEY ? 'S' : 'M'}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block truncate text-sm ${
-                      active
-                        ? 'font-medium text-primary-700 dark:text-primary-200'
-                        : 'text-content-secondary'
-                    }`}>
-                    {chat.title}
-                  </span>
-                  <span className="block truncate text-[11px] text-content-faint">
-                    {chat.subtitle}
-                  </span>
-                </span>
-                {chat.unread > 0 ? (
-                  <span className="flex-none rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-content-inverted">
-                    {chat.unread}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      </aside>
-
+    <div className="relative flex h-full min-h-[520px] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-soft">
       {/* Message pane. */}
       <main className="relative flex min-w-0 flex-1 flex-col bg-surface/70 dark:bg-black/40">
         {/* Subconscious steering header. */}
@@ -311,12 +263,19 @@ export default function AgentChatPanel() {
               {t('common.retry')}
             </Button>
           </div>
+        ) : showHero && pinged.length === 0 ? (
+          // Empty conscious thread: reuse the generic chat's welcome hero. It
+          // sizes to h-full and centers, so give it the whole pane. Skipped when
+          // there are View-session cards to surface (they need the list layout).
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <ChatNewWindowHero />
+          </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto w-full max-w-[48.75rem] space-y-3 px-5 py-5">
               {selected?.messages.length ? (
                 <SessionTranscript messages={selected.messages} />
-              ) : (
+              ) : showHero ? null : (
                 <p className="py-10 text-center text-sm text-content-faint">
                   {t('tinyplaceOrchestration.noMessages')}
                 </p>
@@ -380,6 +339,46 @@ export default function AgentChatPanel() {
             </div>
           </form>
         ) : null}
+
+        {/* Conscious / Subconscious toggle — reuses the generic chat's footer
+            control-row slot (where super-context + quick/reasoning live), but
+            here it switches the master vs subconscious orchestration session. */}
+        <div
+          className={`flex items-center gap-2 px-5 py-3 ${isMasterSelected ? '' : 'border-t border-line'}`}>
+          <div
+            className="flex h-7 items-center rounded-full border border-line bg-surface-subtle p-0.5"
+            role="radiogroup"
+            aria-label={t('orchPage.agent.modeLabel')}>
+            {rail.map(chat => {
+              const active = selectedId === chat.id;
+              const label =
+                chat.id === SUBCONSCIOUS_CHAT_KEY
+                  ? t('orchPage.agent.subconsciousTab')
+                  : t('orchPage.agent.consciousTab');
+              return (
+                <button
+                  key={chat.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  data-testid={`orch-agent-tab-${chat.id}`}
+                  onClick={() => selectChat(chat.id)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-medium transition-all ${
+                    active
+                      ? 'bg-surface text-content shadow-sm'
+                      : 'text-content-muted hover:text-content-secondary'
+                  }`}>
+                  {label}
+                  {chat.unread > 0 ? (
+                    <span className="inline-flex min-w-4 items-center justify-center rounded-full bg-primary-500 px-1 text-[10px] font-semibold text-content-inverted">
+                      {chat.unread}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </main>
 
       {/* Session side-tab (opens on demand from a View-session card). */}

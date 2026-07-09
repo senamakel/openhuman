@@ -35,8 +35,12 @@ const LABEL_KEY: Record<ConnState, string> = {
 };
 
 function sessionState(session: SessionSummary): ConnState {
+  // Work-state semantics win (they carry their own colour).
   if (session.status === 'waiting-approval') return 'waiting';
   if (session.status === 'errored') return 'error';
+  // Live peer presence when the core is confident; else the recency heuristic.
+  if (session.peerOnline === true) return 'connected';
+  if (session.peerOnline === false) return 'disconnected';
   if (session.active || session.status === 'running') return 'connected';
   return 'disconnected';
 }

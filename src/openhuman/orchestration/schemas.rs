@@ -14,6 +14,7 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::{rpc as config_rpc, Config};
 
 use super::attention;
+use super::presence;
 use super::store;
 use super::types::{
     ChatKind, OrchestrationMessage, OrchestrationSession, SessionEnvelopeV1, LOCAL_MASTER_AGENT,
@@ -210,6 +211,15 @@ struct SessionSummary {
     message_count: i64,
     active: bool,
     pinned: bool,
+    /// Live peer reachability from the in-memory presence map (`presence.rs`).
+    /// `Some(true)` = confidently online (heard from within the TTL);
+    /// `Some(false)` = confidently offline (heartbeat, once landed); `None` =
+    /// unknown → the UI falls back to the recency-based `active`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    peer_online: Option<bool>,
+    /// ISO-8601 last time we heard from this peer, if ever.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_seen_at: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -342,6 +352,16 @@ fn summarize(
     let active = pinned || is_active(&session.last_message_at);
     let harness_type = harness_type_for(&session.source);
     let status = derive_status(session.status_state.as_deref(), active).to_string();
+    // Overlay live peer presence for real peer sessions only (the pinned
+    // master/subconscious windows have no remote peer).
+    let (peer_online, last_seen_at) = if pinned {
+        (None, None)
+    } else {
+        (
+            presence::is_online(&session.agent_id),
+            presence::last_seen_iso(&session.agent_id),
+        )
+    };
     SessionSummary {
         chat_kind: chat_kind.as_str().to_string(),
         active,
@@ -351,6 +371,8 @@ fn summarize(
         harness_type,
         status,
         current_task,
+        peer_online,
+        last_seen_at,
         session_id: session.session_id,
         agent_id: session.agent_id,
         source: session.source,
@@ -486,6 +508,8 @@ fn pinned_placeholder(session_id: &str) -> SessionSummary {
         message_count: 0,
         active: true,
         pinned: true,
+        peer_online: None,
+        last_seen_at: None,
     }
 }
 

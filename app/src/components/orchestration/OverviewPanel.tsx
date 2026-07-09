@@ -34,11 +34,15 @@ function sessionLabel(session: SessionSummary): string {
   return session.label?.trim() || session.sessionId;
 }
 
-/** A session is "connected" when it's active, running, or awaiting input. */
+/**
+ * A session/agent is "connected" when the core reports live peer presence; when
+ * presence is unknown, fall back to the recency heuristic (active / running /
+ * awaiting input).
+ */
 function isConnected(session: SessionSummary): boolean {
-  return (
-    session.active || session.status === 'running' || session.status === 'waiting-approval'
-  );
+  if (session.peerOnline === true) return true;
+  if (session.peerOnline === false) return false;
+  return session.active || session.status === 'running' || session.status === 'waiting-approval';
 }
 
 export default function OverviewPanel() {

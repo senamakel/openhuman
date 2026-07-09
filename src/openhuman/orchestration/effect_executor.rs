@@ -42,17 +42,76 @@ pub fn effect_result_frame(call_id: &str, ok: bool, error: Option<&str>) -> Valu
 }
 
 /// The device-tool manifest declared to the hosted brain on socket connect
-/// (`orch:register_tools`). Phase 1 exposes only the E2E Signal send that must
-/// stay device-side; Phase 2 grows this with local-workspace tools.
+/// (`orch:register_tools`). These are **queryable** tools the reasoning loop may
+/// call mid-cycle (results feed back), distinct from the terminal `send_dm`
+/// effect. Phase 2 seeds it with a read-only status probe; local-workspace tools
+/// grow this list as they are wired to the device tool dispatcher.
 pub fn device_tool_manifest() -> Value {
     json!({
         "tools": [
             {
-                "name": "signal_send",
-                "description": "Send an end-to-end encrypted tiny.place DM from this device."
+                "name": "device_status",
+                "description": "Report this device's app version and platform.",
+                "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
             }
         ]
     })
+}
+
+/// A device tool call pushed by the hosted brain (`orch:tool_call`). Run it
+/// locally and return the result over `orch:tool_result`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCallFrame {
+    #[serde(default)]
+    pub cycle_id: String,
+    pub call_id: String,
+    pub name: String,
+    #[serde(default)]
+    pub args: Value,
+}
+
+/// Parse an `orch:tool_call` frame. Pure.
+pub fn parse_tool_call(data: &Value) -> Result<ToolCallFrame, String> {
+    serde_json::from_value(data.clone()).map_err(|e| format!("parse tool_call: {e}"))
+}
+
+/// Build the `orch:tool_result` frame returned to the hosted brain. Pure.
+pub fn tool_result_frame(call_id: &str, ok: bool, result: Value, error: Option<&str>) -> Value {
+    json!({ "callId": call_id, "ok": ok, "result": result, "error": error })
+}
+
+/// Run a device-declared tool locally. Read-only and side-effect-free for now;
+/// local-workspace tools plug in here as they are added to the manifest.
+pub fn dispatch_device_tool(name: &str, _args: &Value) -> Result<Value, String> {
+    match name {
+        "device_status" => Ok(json!({
+            "version": env!("CARGO_PKG_VERSION"),
+            "platform": std::env::consts::OS,
+        })),
+        other => Err(format!("unknown device tool: {other}")),
+    }
+}
+
+/// Handle an inbound `orch:tool_call` frame end-to-end: parse → dispatch →
+/// build the result frame. Returns `(callId, resultFrame)` to emit, or `None`
+/// when the frame is unparseable.
+pub fn handle_tool_call(data: &Value) -> Option<(String, Value)> {
+    let frame = match parse_tool_call(data) {
+        Ok(f) => f,
+        Err(e) => {
+            log::warn!(target: LOG, "[orchestration] tool_call.parse_failed: {e}");
+            return None;
+        }
+    };
+    let (ok, result, error) = match dispatch_device_tool(&frame.name, &frame.args) {
+        Ok(value) => (true, value, None),
+        Err(e) => (false, Value::Null, Some(e)),
+    };
+    Some((
+        frame.call_id.clone(),
+        tool_result_frame(&frame.call_id, ok, result, error.as_deref()),
+    ))
 }
 
 // ── callId dedupe (at-least-once delivery guard) ──────────────────────────────

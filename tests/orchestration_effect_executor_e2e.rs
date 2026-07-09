@@ -5,7 +5,8 @@
 //! unrelated stale test modules at this checkout.
 
 use openhuman_core::openhuman::orchestration::effect_executor::{
-    device_tool_manifest, effect_result_frame, is_duplicate_call, parse_send_dm,
+    device_tool_manifest, dispatch_device_tool, effect_result_frame, handle_tool_call,
+    is_duplicate_call, parse_send_dm, parse_tool_call, tool_result_frame,
 };
 use serde_json::json;
 
@@ -52,8 +53,47 @@ fn dedupe_reports_first_call_new_and_repeat_duplicate() {
 }
 
 #[test]
-fn manifest_declares_the_device_signal_send_tool() {
+fn manifest_declares_a_queryable_device_tool() {
     let manifest = device_tool_manifest();
     let tools = manifest["tools"].as_array().expect("tools array");
-    assert!(tools.iter().any(|t| t["name"] == "signal_send"));
+    assert!(tools.iter().any(|t| t["name"] == "device_status"));
+}
+
+#[test]
+fn parses_a_tool_call_frame() {
+    let frame = json!({
+        "cycleId": "c",
+        "callId": "c:tool_call:0",
+        "name": "device_status",
+        "args": {}
+    });
+    let parsed = parse_tool_call(&frame).expect("parse");
+    assert_eq!(parsed.call_id, "c:tool_call:0");
+    assert_eq!(parsed.name, "device_status");
+}
+
+#[test]
+fn dispatches_device_status_and_rejects_unknown_tools() {
+    let status = dispatch_device_tool("device_status", &json!({})).expect("ok");
+    assert!(status["version"].is_string());
+    assert!(status["platform"].is_string());
+
+    assert!(dispatch_device_tool("rm_rf", &json!({})).is_err());
+}
+
+#[test]
+fn handle_tool_call_builds_result_frame() {
+    let frame = json!({ "callId": "c:tool_call:0", "name": "device_status", "args": {} });
+    let (call_id, result) = handle_tool_call(&frame).expect("handled");
+    assert_eq!(call_id, "c:tool_call:0");
+    assert_eq!(result["ok"], json!(true));
+    assert!(result["result"]["platform"].is_string());
+}
+
+#[test]
+fn tool_result_frame_shapes_error_case() {
+    assert_eq!(
+        tool_result_frame("c1", false, json!(null), Some("boom")),
+        json!({ "callId": "c1", "ok": false, "result": null, "error": "boom" })
+    );
 }

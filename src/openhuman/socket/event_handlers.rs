@@ -89,6 +89,16 @@ pub(super) fn handle_sio_event(
                 }
             });
         }
+        // Hosted-brain device tool call: run a local (read-only) device tool and
+        // return the result so the reasoning loop can continue.
+        "orch:tool_call" => {
+            if let Some((call_id, result)) =
+                crate::openhuman::orchestration::effect_executor::handle_tool_call(&data)
+            {
+                log::debug!("[socket] orch:tool_call result call_id={call_id}");
+                emit_via_channel(emit_tx, "orch:tool_result", result);
+            }
+        }
         // Webhook tunnel — publish to event bus for routing by WebhookRequestSubscriber
         "webhook:request" => {
             log::info!("[socket] Publishing webhook:request to event bus");

@@ -57,6 +57,7 @@ export function levelColor(level: number | null | undefined): string {
 }
 
 export function nodeColor(node: GraphNode): string {
+  if (node.color) return node.color; // UI override (e.g. dimmed offline agents)
   if (node.kind === 'root') return ROOT_COLOR;
   if (node.kind === 'source') return SOURCE_COLOR;
   if (node.kind === 'summary') return levelColor(node.level);

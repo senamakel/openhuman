@@ -129,20 +129,20 @@ export default function OrchestrationPage() {
             onSelect={value => setActiveTab(value as OrchestrationTab)}
             groups={[
               {
-                // Flat list — no category headers.
+                // Flat list — no category headers: Chat · Agent graph · Network.
                 items: [
-                  {
-                    value: 'overview',
-                    label: t('orchPage.overview.nav'),
-                    icon: navIcon(
-                      'M4 5a2 2 0 012-2h12a2 2 0 012 2M9 12a2 2 0 11-4 0 2 2 0 014 0zm10 4a2 2 0 11-4 0 2 2 0 014 0zM7 12l7 4'
-                    ),
-                  },
                   {
                     value: 'agent',
                     label: t('orchPage.agent.nav'),
                     icon: navIcon(
                       'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z'
+                    ),
+                  },
+                  {
+                    value: 'overview',
+                    label: t('orchPage.overview.nav'),
+                    icon: navIcon(
+                      'M4 5a2 2 0 012-2h12a2 2 0 012 2M9 12a2 2 0 11-4 0 2 2 0 014 0zm10 4a2 2 0 11-4 0 2 2 0 014 0zM7 12l7 4'
                     ),
                   },
                   {

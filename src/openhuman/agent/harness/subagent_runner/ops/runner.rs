@@ -665,7 +665,7 @@ async fn run_typed_mode(
         };
         dynamic_tools.push(Box::new(ExtractFromResultTool::new(
             cache.clone(),
-            extract_provider,
+            crate::openhuman::tinyagents::TurnModelSource::new(extract_provider),
             extract_model,
             parent.workspace_dir.clone(),
             parent_chain,

@@ -1260,6 +1260,13 @@ impl TurnModelSource {
         self.provider.effective_context_window(model).await
     }
 
+    /// Whether the underlying provider is a local runtime (Ollama / LM Studio).
+    /// A passthrough so callers (e.g. the sub-agent summarization-route decision)
+    /// can branch on locality without naming the `Provider` trait.
+    pub(crate) fn is_local_provider(&self) -> bool {
+        self.provider.is_local_provider()
+    }
+
     /// Build this turn's [`TurnModels`] (primary + tier routes + summarizer),
     /// capturing provider telemetry id + capabilities onto the bundle.
     pub(crate) fn build(&self, model: &str, temperature: f64, context_window: Option<u64>) -> TurnModels {

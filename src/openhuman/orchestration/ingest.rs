@@ -13,6 +13,7 @@ use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
 use crate::openhuman::tinyplace::{acknowledge_message, decrypt_envelope};
 
+use super::presence;
 use super::store;
 use super::types::{
     ChatKind, HarnessEventKind, OrchestrationMessage, OrchestrationSession, SessionEnvelopeV1,
@@ -648,6 +649,9 @@ async fn ingest_one(
         }
         Err(e) => return Err(e),
     };
+    // A decryptable inbound envelope proves the peer is reachable right now —
+    // feed the live presence map (drives the online/offline indicator).
+    presence::mark_seen(&agent_id);
     let classified = classify_message(plaintext, &envelope.timestamp);
     let now = chrono::Utc::now().to_rfc3339();
     let landed = persist_message(&workspace_dir, &msg_id, &agent_id, &classified, &now)?;

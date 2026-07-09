@@ -55,12 +55,12 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
       - name: Cache pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -80,7 +80,7 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
@@ -90,9 +90,11 @@ jobs:
       # `submodules: recursive`, which would also pull the large tauri-cef fork
       # this job never builds.
       - name: Init tinychannels submodule (drift-guard test reads its schemas)
-        run: git submodule update --init vendor/tinychannels
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git submodule update --init vendor/tinychannels
       - name: Cache pnpm store
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
@@ -106,7 +108,7 @@ jobs:
           NODE_ENV: test
       - name: Upload coverage reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage
@@ -116,14 +118,29 @@ jobs:
     if: inputs.run_rust_core
     name: Rust Core Tests + Quality
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 60
     container:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     env:
       CARGO_INCREMENTAL: "0"
+      # Keep the full core test binary link under hosted-runner memory/disk
+      # pressure. Tests do not need full DWARF; file/line backtraces remain.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_BUILD_JOBS: "1"
+      # Deep async agent-harness tests can overflow libtest's default ~2 MB
+      # per-test thread stack. Match ci-lite's core coverage stack setting.
+      RUST_MIN_STACK: "67108864"
     steps:
+      - name: Free disk space
+        run: |
+          # Reclaim space on the build partition before compiling/linking the
+          # full Rust core test binary. The hosted toolcache is bind-mounted at
+          # /__t inside the container.
+          rm -rf /__t/* || true
+          df -h /__w || true
+
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
@@ -145,12 +162,12 @@ jobs:
     if: inputs.run_rust_core
     name: Rust Core Tests (Windows — secrets ACL)
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
-      CARGO_INCREMENTAL: '0'
+      CARGO_INCREMENTAL: "0"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
@@ -186,7 +203,7 @@ jobs:
       CARGO_INCREMENTAL: "0"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
@@ -203,7 +220,7 @@ jobs:
           cache-on-failure: true
           key: tauri
       - name: Cache CEF binary distribution
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/tauri-cef
           key: cef-ubuntu-22.04-${{ hashFiles('app/src-tauri/Cargo.toml') }}

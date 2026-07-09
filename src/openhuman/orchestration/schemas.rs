@@ -14,6 +14,7 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::{rpc as config_rpc, Config};
 
 use super::attention;
+use super::presence;
 use super::store;
 use super::types::{
     ChatKind, OrchestrationMessage, OrchestrationSession, SessionEnvelopeV1, LOCAL_MASTER_AGENT,
@@ -210,6 +211,15 @@ struct SessionSummary {
     message_count: i64,
     active: bool,
     pinned: bool,
+    /// Live peer reachability from the in-memory presence map (`presence.rs`).
+    /// `Some(true)` = confidently online (heard from within the TTL);
+    /// `Some(false)` = confidently offline (heartbeat, once landed); `None` =
+    /// unknown → the UI falls back to the recency-based `active`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    peer_online: Option<bool>,
+    /// ISO-8601 last time we heard from this peer, if ever.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_seen_at: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -342,6 +352,16 @@ fn summarize(
     let active = pinned || is_active(&session.last_message_at);
     let harness_type = harness_type_for(&session.source);
     let status = derive_status(session.status_state.as_deref(), active).to_string();
+    // Overlay live peer presence for real peer sessions only (the pinned
+    // master/subconscious windows have no remote peer).
+    let (peer_online, last_seen_at) = if pinned {
+        (None, None)
+    } else {
+        (
+            presence::is_online(&session.agent_id),
+            presence::last_seen_iso(&session.agent_id),
+        )
+    };
     SessionSummary {
         chat_kind: chat_kind.as_str().to_string(),
         active,
@@ -351,6 +371,8 @@ fn summarize(
         harness_type,
         status,
         current_task,
+        peer_online,
+        last_seen_at,
         session_id: session.session_id,
         agent_id: session.agent_id,
         source: session.source,
@@ -429,7 +451,7 @@ fn handle_sessions_list(_params: Map<String, Value>) -> ControllerFuture {
             }
             Ok(out)
         })
-        .map_err(|e| format!("sessions_list: {e}"))?;
+        .map_err(|e| format!("sessions_list: {e:#}"))?;
         to_json(serde_json::json!({ "sessions": sessions }))
     })
 }
@@ -464,7 +486,7 @@ fn handle_sessions_create(params: Map<String, Value>) -> ControllerFuture {
         store::with_connection(&config.workspace_dir, |conn| {
             store::upsert_session(conn, &session)
         })
-        .map_err(|e| format!("sessions_create: {e}"))?;
+        .map_err(|e| format!("sessions_create: {e:#}"))?;
         super::bus::notify_orchestration_message(&agent_id, &session_id, "session");
         to_json(serde_json::json!({ "session": summarize(session, 0, false, None, 0) }))
     })
@@ -486,6 +508,8 @@ fn pinned_placeholder(session_id: &str) -> SessionSummary {
         message_count: 0,
         active: true,
         pinned: true,
+        peer_online: None,
+        last_seen_at: None,
     }
 }
 
@@ -507,7 +531,7 @@ fn handle_messages_list(params: Map<String, Value>) -> ControllerFuture {
             store::with_connection(&config.workspace_dir, |conn| {
                 store::list_messages_by_session(conn, &session_id, limit, before.as_deref())
             })
-            .map_err(|e| format!("messages_list: {e}"))?;
+            .map_err(|e| format!("messages_list: {e:#}"))?;
         to_json(serde_json::json!({ "messages": messages }))
     })
 }
@@ -618,12 +642,12 @@ fn handle_send_master_message(params: Map<String, Value>) -> ControllerFuture {
                 store::with_connection(&config.workspace_dir, move |conn| {
                     store::session_agent_id(conn, &sid)
                 })
-                .map_err(|e| format!("resolve session recipient: {e}"))?
+                .map_err(|e| format!("resolve session recipient: {e:#}"))?
                 .ok_or_else(|| "unknown session — specify a recipient".to_string())?
             }
             (None, None) => {
                 store::with_connection(&config.workspace_dir, store::latest_master_peer)
-                    .map_err(|e| format!("resolve recipient: {e}"))?
+                    .map_err(|e| format!("resolve recipient: {e:#}"))?
                     .ok_or_else(|| "no Master counterpart yet — specify a recipient".to_string())?
             }
         };
@@ -705,7 +729,7 @@ fn handle_mark_read(params: Map<String, Value>) -> ControllerFuture {
         store::with_connection(&config.workspace_dir, |conn| {
             store::mark_chat_read(conn, &session_id)
         })
-        .map_err(|e| format!("mark_read: {e}"))?;
+        .map_err(|e| format!("mark_read: {e:#}"))?;
         to_json(serde_json::json!({ "ok": true }))
     })
 }
@@ -741,7 +765,7 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
             let last_error = store::kv_get(conn, "orchestration:last_error")?;
             Ok((steering, ingest_last, lag, last_error))
         })
-        .map_err(|e| format!("status: {e}"))?;
+        .map_err(|e| format!("status: {e:#}"))?;
 
         // Last subconscious tick (best-effort — subconscious store is separate).
         let last_tick_at =

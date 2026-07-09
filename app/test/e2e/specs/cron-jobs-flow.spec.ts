@@ -42,6 +42,12 @@ import { startMockServer, stopMockServer } from '../mock-server';
 const USER_ID = 'e2e-cron-jobs';
 const MORNING_BRIEFING = 'morning_briefing';
 
+interface CronJobSummary {
+  id?: string;
+  name?: string;
+  enabled?: boolean;
+}
+
 function stepLog(message: string, context?: unknown): void {
   const stamp = new Date().toISOString();
   if (context === undefined) {
@@ -69,6 +75,46 @@ async function waitForCronRow(jobId: string, timeoutMs = 10_000): Promise<void> 
   }
 }
 
+async function waitForCronJobAction(
+  job: CronJobSummary,
+  action: 'toggle' | 'remove',
+  fallbackText: string,
+  timeoutMs = 10_000
+): Promise<void> {
+  if (job.id) {
+    try {
+      await waitForTestId(`cron-job-${action}-${job.id}`, timeoutMs);
+      return;
+    } catch (error) {
+      stepLog(
+        `cron ${action} test id unavailable for ${job.id}, falling back to button text`,
+        error
+      );
+    }
+  }
+  await waitForText(fallbackText, timeoutMs);
+}
+
+async function clickCronJobAction(
+  job: CronJobSummary,
+  action: 'toggle' | 'remove',
+  fallbackText: string,
+  timeoutMs = 10_000
+): Promise<void> {
+  if (job.id) {
+    try {
+      await clickTestId(`cron-job-${action}-${job.id}`, timeoutMs);
+      return;
+    } catch (error) {
+      stepLog(
+        `cron ${action} click by test id failed for ${job.id}, falling back to button text`,
+        error
+      );
+    }
+  }
+  await clickNativeButton(fallbackText, timeoutMs);
+}
+
 async function clickCronRefresh(): Promise<void> {
   try {
     await clickTestId('cron-refresh');
@@ -76,6 +122,75 @@ async function clickCronRefresh(): Promise<void> {
     stepLog('cron refresh test id unavailable, falling back to button text', error);
     await clickNativeButton('Refresh Cron Jobs');
   }
+}
+
+function extractCronJobs(raw: unknown): CronJobSummary[] {
+  const result =
+    (raw as { result?: unknown } | null | undefined)?.result !== undefined
+      ? (raw as { result?: unknown }).result
+      : raw;
+  if (Array.isArray(result)) return result as CronJobSummary[];
+  const jobs = (result as { jobs?: unknown } | null | undefined)?.jobs;
+  return Array.isArray(jobs) ? (jobs as CronJobSummary[]) : [];
+}
+
+async function listCronJobs(): Promise<CronJobSummary[]> {
+  const out = await callOpenhumanRpc('openhuman.cron_list', {});
+  expect(out.ok).toBe(true);
+  return extractCronJobs(out.result);
+}
+
+async function findMorningBriefingJob(timeoutMs = 10_000): Promise<CronJobSummary | null> {
+  const deadline = Date.now() + timeoutMs;
+  let lastJobs: CronJobSummary[] = [];
+
+  while (Date.now() < deadline) {
+    lastJobs = await listCronJobs();
+    const match = lastJobs.find(j => j?.name === MORNING_BRIEFING);
+    if (match) {
+      stepLog('morning_briefing job found', match);
+      return match;
+    }
+    await browser.pause(500);
+  }
+
+  stepLog('morning_briefing not found in cron_list', {
+    jobs: lastJobs.map(j => ({ id: j.id, name: j.name, enabled: j.enabled })),
+  });
+  return null;
+}
+
+async function ensureMorningBriefingJob(): Promise<CronJobSummary> {
+  const existing = await findMorningBriefingJob(2_000);
+  if (existing) return existing;
+
+  stepLog('morning_briefing missing — seeding via cron_add');
+  const seed = await callOpenhumanRpc('openhuman.cron_add', {
+    name: MORNING_BRIEFING,
+    schedule: { kind: 'cron', expr: '0 8 * * *' },
+    job_type: 'agent',
+    prompt: 'Prepare the user morning briefing.',
+    agent_id: MORNING_BRIEFING,
+    session_target: 'main',
+  });
+  expect(seed.ok).toBe(true);
+  const created = await findMorningBriefingJob(10_000);
+  expect(created).not.toBeNull();
+  return created as CronJobSummary;
+}
+
+async function ensureCronJobEnabledInPanel(job: CronJobSummary): Promise<void> {
+  if (job.enabled === false || (await textExists('Resume'))) {
+    stepLog('morning_briefing disabled — enabling through the UI before pause assertions', {
+      id: job.id,
+      enabled: job.enabled,
+    });
+    await clickCronJobAction(job, 'toggle', 'Resume', 8_000);
+    await waitForText('Pause', 10_000);
+    return;
+  }
+
+  await waitForCronJobAction(job, 'toggle', 'Pause', 10_000);
 }
 
 /** Open the Cron Jobs settings panel via the same Settings entry-point a user clicks. */
@@ -106,61 +221,55 @@ describe('Cron jobs settings panel (real UI flow)', () => {
   });
 
   it('completing onboarding lands the user on the home screen', async () => {
-    // `/home` redirects to `/chat` (AppRoutes.tsx), so the landed surface can render
-    // either the CTA `home.askAssistant` ('Ask your assistant anything...') OR the
-    // `home.statusOk` hero ('Your assistant is ready when you are. Type something below
-    // to get started.'). Use the canonical waitForHomePage() helper — the same one
-    // resetApp() and every other spec use — which accepts the full marker set, instead
-    // of a stale subset that only matched the CTA and flaked on the slower macOS runner
-    // whenever the statusOk hero rendered first.
-    const home = await waitForHomePage(20_000);
+    // Home.tsx renders t('home.askAssistant') = 'Ask your assistant anything...' as the stable
+    // CTA button. Old strings ('Good morning', 'Message OpenHuman', etc.) are no longer rendered.
+    const home = await waitForAnyText(
+      [
+        'Ask your assistant anything',
+        'Your device is connected',
+        'Your assistant is ready when you are',
+      ],
+      15_000
+    );
     expect(home).toBeTruthy();
   });
 
   it('the seeded morning_briefing job appears in the Cron Jobs panel', async function () {
     this.timeout(60_000);
 
-    // The morning_briefing cron is auto-seeded after onboarding completes.
-    // If the async seed hasn't fired yet, seed it explicitly via RPC.
-    const preCheck = await callOpenhumanRpc('openhuman.cron_list', {});
-    expect(preCheck.ok).toBe(true);
-    const preJobs = Array.isArray(preCheck.result?.result) ? preCheck.result.result : [];
-    if (!preJobs.some((j: { name?: string }) => j?.name === MORNING_BRIEFING)) {
-      stepLog('morning_briefing not auto-seeded — seeding via cron_create');
-      const seed = await callOpenhumanRpc('openhuman.cron_create', {
-        name: MORNING_BRIEFING,
-        schedule: '0 8 * * *',
-        enabled: true,
-      });
-      expect(seed.ok).toBe(true);
-      await browser.pause(1_000);
-    }
-
+    const job = await ensureMorningBriefingJob();
     await openCronJobsPanel();
     // The seed runs in a detached spawn_blocking task — poll for the row.
     try {
-      await waitForCronRow(MORNING_BRIEFING, 20_000);
+      if (job.id) {
+        await waitForCronRow(job.id, 20_000);
+      } else {
+        await waitForCronRow(MORNING_BRIEFING, 20_000);
+      }
     } catch {
       stepLog('morning_briefing row never rendered — clicking Refresh and retrying');
       await clickCronRefresh();
       await browser.pause(1_500);
-      await waitForCronRow(MORNING_BRIEFING, 10_000);
+      if (job.id) {
+        await waitForCronRow(job.id, 10_000);
+      } else {
+        await waitForCronRow(MORNING_BRIEFING, 10_000);
+      }
     }
     expect(await textExists(MORNING_BRIEFING)).toBe(true);
-    // The 'Enabled' status badge (CoreJobList renders t('common.enabled')) can paint a
-    // beat after the row name. Poll for it instead of point-checking right away — the
-    // bare textExists() check raced the render on the slower macOS runner.
-    await waitForText('Enabled', 10_000);
-    expect(await textExists('Enabled')).toBe(true);
+    await ensureCronJobEnabledInPanel(job);
   });
 
   it('clicking Pause flips the row to Resume and persists across Refresh', async function () {
     this.timeout(90_000);
 
-    // The cron job.id is a generated UUID, not the job name. Use text-based
-    // matching for action buttons since data-testid uses job.id.
-    await waitForText('Pause', 15_000);
-    await clickNativeButton('Pause', 8_000);
+    const job = await ensureMorningBriefingJob();
+    await openCronJobsPanel();
+
+    // The auto-seeded morning_briefing job is disabled by default. Normalize
+    // it through the UI so the next toggle click is the Pause path.
+    await ensureCronJobEnabledInPanel(job);
+    await clickCronJobAction(job, 'toggle', 'Pause', 8_000);
 
     await waitForText('Resume', 10_000);
     expect(await textExists('Paused')).toBe(true);
@@ -171,30 +280,30 @@ describe('Cron jobs settings panel (real UI flow)', () => {
     await waitForText('Resume', 10_000);
 
     // Restore so the next test starts from the enabled state.
-    await clickNativeButton('Resume', 8_000);
+    await clickCronJobAction(job, 'toggle', 'Resume', 8_000);
     await waitForText('Pause', 10_000);
   });
 
   it('clicking Remove deletes the job from both the UI and the sidecar', async function () {
     this.timeout(60_000);
-    await clickNativeButton('Remove', 8_000);
 
-    // UI assertion first — the row should disappear and the empty state appear.
-    // The removal RPC + optimistic re-render can take longer on the slower macOS
-    // runner, so poll for up to 20s rather than 10s before declaring the row stuck.
-    const gone = await browser.waitUntil(async () => !(await textExists(MORNING_BRIEFING)), {
-      timeout: 20_000,
+    const job = await ensureMorningBriefingJob();
+    await openCronJobsPanel();
+    await waitForCronJobAction(job, 'remove', 'Remove', 15_000);
+
+    await clickCronJobAction(job, 'remove', 'Remove', 8_000);
+
+    // Oracle assertion first: parallel provider specs can add/remove other cron
+    // rows, so confirm this specific job is gone before refreshing the panel.
+    const goneFromCore = await browser.waitUntil(async () => !(await findMorningBriefingJob(500)), {
+      timeout: 10_000,
       interval: 500,
-      timeoutMsg: 'morning_briefing row never disappeared',
+      timeoutMsg: 'morning_briefing stayed present in cron_list after Remove',
     });
-    expect(gone).toBe(true);
-    expect(await textExists('No core cron jobs found.')).toBe(true);
+    expect(goneFromCore).toBe(true);
 
-    // Single oracle RPC: confirm the sidecar agrees with the UI.
-    const list = await callOpenhumanRpc('openhuman.cron_list', {});
-    expect(list.ok).toBe(true);
-    const inner = (list.result as { result?: unknown } | undefined)?.result ?? list.result;
-    const jobs = Array.isArray(inner) ? inner : [];
-    expect(jobs.find((j: { name?: string }) => j?.name === MORNING_BRIEFING)).toBeUndefined();
+    await clickCronRefresh();
+    await browser.pause(1_500);
+    expect(await textExists(MORNING_BRIEFING)).toBe(false);
   });
 });

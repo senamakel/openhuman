@@ -224,7 +224,7 @@ const messages: TranslationMap = {
   'orchPage.connections.replyPlaceholder': 'Répondre…',
   'orchPage.connections.initTitle': 'Initialiser un agent ou une instance',
   'orchPage.connections.initDesc':
-    'Lancez un nouveau sous-agent pour travailler à vos côtés. Ouvrez le chat de l\'agent et décrivez son rôle, son objectif et ses outils — OpenHuman provisionne une instance dédiée que vous pilotez d\'ici.',
+    "Lancez un nouveau sous-agent pour travailler à vos côtés. Ouvrez le chat de l'agent et décrivez son rôle, son objectif et ses outils — OpenHuman provisionne une instance dédiée que vous pilotez d'ici.",
   'orchPage.connections.initCta': 'Commencer dans le chat',
   'orchPage.connections.status.needsYou': 'Requiert votre attention',
   'orchPage.connections.status.running': 'En cours',

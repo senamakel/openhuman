@@ -222,9 +222,9 @@ const messages: TranslationMap = {
   'orchPage.connections.messageCount': '{n} messaggi',
   'orchPage.connections.back': 'Connessioni',
   'orchPage.connections.replyPlaceholder': 'Rispondi…',
-  'orchPage.connections.initTitle': 'Inizializza un agente o un\'istanza',
+  'orchPage.connections.initTitle': "Inizializza un agente o un'istanza",
   'orchPage.connections.initDesc':
-    'Avvia un nuovo sotto-agente che lavori al tuo fianco. Apri la chat dell\'agente e descrivi ruolo, obiettivo e strumenti — OpenHuman fornisce un\'istanza dedicata che puoi guidare da qui.',
+    "Avvia un nuovo sotto-agente che lavori al tuo fianco. Apri la chat dell'agente e descrivi ruolo, obiettivo e strumenti — OpenHuman fornisce un'istanza dedicata che puoi guidare da qui.",
   'orchPage.connections.initCta': 'Inizia nella chat',
   'orchPage.connections.status.needsYou': 'Richiede la tua attenzione',
   'orchPage.connections.status.running': 'In esecuzione',

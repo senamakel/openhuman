@@ -44,10 +44,12 @@ pub fn mark_seen(agent_id: &str) {
         return;
     }
     log::debug!(target: "orchestration", "[presence] mark_seen agent_id={agent_id}");
-    PEER_STATUS
-        .lock()
-        .unwrap()
-        .insert(agent_id.to_string(), PeerPresence { last_seen_ms: now_ms() });
+    PEER_STATUS.lock().unwrap().insert(
+        agent_id.to_string(),
+        PeerPresence {
+            last_seen_ms: now_ms(),
+        },
+    );
 }
 
 /// Whether `agent_id` is currently online.

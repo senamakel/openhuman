@@ -20,8 +20,8 @@ import type { SessionSummary } from '../../lib/orchestration/orchestrationClient
 import { useContactSessions } from '../../lib/orchestration/useOrchestrationSessions';
 import { usePairing } from '../../lib/orchestration/usePairing';
 import type { GraphEdge, GraphNode } from '../../utils/tauriCommands';
-import { contactAddress } from '../intelligence/orchestrationTabHelpers';
 import { MemoryGraph } from '../intelligence/MemoryGraph';
+import { contactAddress } from '../intelligence/orchestrationTabHelpers';
 
 /** Muted grey for offline agents / disconnected sub-agents. */
 const OFFLINE_COLOR = '#6B7280';

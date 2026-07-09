@@ -141,7 +141,9 @@ export default function ActiveSubagentsRail({
                   <span className="min-w-0 flex-1 truncate font-mono text-[12px]">
                     {shortAddress(address)}
                   </span>
-                  <span className="flex-none text-[10px] text-content-faint">{sessions.length}</span>
+                  <span className="flex-none text-[10px] text-content-faint">
+                    {sessions.length}
+                  </span>
                 </button>
 
                 {/* Sub-agents nested under the instance. */}

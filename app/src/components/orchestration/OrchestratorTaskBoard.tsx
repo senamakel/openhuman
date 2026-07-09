@@ -23,11 +23,7 @@ import Button from '../ui/Button';
 
 const debug = debugFactory('orchestration:task-board');
 
-const EMPTY_BOARD: TaskBoard = {
-  threadId: ORCHESTRATOR_TASKS_THREAD_ID,
-  cards: [],
-  updatedAt: '',
-};
+const EMPTY_BOARD: TaskBoard = { threadId: ORCHESTRATOR_TASKS_THREAD_ID, cards: [], updatedAt: '' };
 
 /** The orchestrator board is a simple 4-column board. */
 const ORCHESTRATOR_COLUMNS: ColumnDef[] = [
@@ -71,22 +67,19 @@ export default function OrchestratorTaskBoard() {
   }, [load]);
 
   // Every todos_* mutation returns the fresh board — apply it directly.
-  const runMutation = useCallback(
-    async (cardId: string | null, op: () => Promise<TaskBoard>) => {
-      setMutatingCardId(cardId);
-      setError(null);
-      try {
-        const next = await op();
-        if (mountedRef.current) setBoard(next);
-      } catch (err) {
-        debug('mutation failed card=%s: %o', cardId, err);
-        if (mountedRef.current) setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        if (mountedRef.current) setMutatingCardId(null);
-      }
-    },
-    []
-  );
+  const runMutation = useCallback(async (cardId: string | null, op: () => Promise<TaskBoard>) => {
+    setMutatingCardId(cardId);
+    setError(null);
+    try {
+      const next = await op();
+      if (mountedRef.current) setBoard(next);
+    } catch (err) {
+      debug('mutation failed card=%s: %o', cardId, err);
+      if (mountedRef.current) setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (mountedRef.current) setMutatingCardId(null);
+    }
+  }, []);
 
   const handleAdd = useCallback(async () => {
     const content = draft.trim();

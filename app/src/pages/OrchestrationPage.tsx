@@ -120,7 +120,12 @@ export default function OrchestrationPage() {
     [updateParams]
   );
 
-  console.debug('[orchestration] page mount tab=%s sub=%s session=%s', activeTab, networkSub, openSessionId);
+  console.debug(
+    '[orchestration] page mount tab=%s sub=%s session=%s',
+    activeTab,
+    networkSub,
+    openSessionId
+  );
 
   return (
     <div className="h-full">

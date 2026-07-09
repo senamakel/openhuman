@@ -2863,7 +2863,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -6928,7 +6928,7 @@ dependencies = [
 
 [[package]]
 name = "tinyplace"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "aes",
  "async-trait",

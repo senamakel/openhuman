@@ -285,7 +285,7 @@ fn commands_catalog() -> String {
 
     for (domain, commands) in by_domain {
         md.subheading(humanize_key(&domain));
-        md.kv(commands.into_iter());
+        md.kv(commands);
     }
     md.build()
 }

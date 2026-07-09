@@ -13,7 +13,6 @@
 // Env vars (e.g. VITE_OPENHUMAN_TARGET set via cross-env) are inherited by both
 // children. `shell: true` resolves the `tsc`/`vite` shims from node_modules/.bin
 // on every platform, including the `.cmd` wrappers on Windows.
-
 import { spawn } from 'node:child_process';
 
 const viteArgs = process.argv.slice(2);
@@ -24,12 +23,12 @@ const jobs = [
 ];
 
 function run({ name, cmd, args }) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const child = spawn(cmd, args, { stdio: 'inherit', shell: true });
     child.on('exit', (code, signal) => {
       resolve({ name, code: code ?? (signal ? 1 : 0) });
     });
-    child.on('error', (err) => {
+    child.on('error', err => {
       console.error(`[build-parallel] failed to start ${name}: ${err.message}`);
       resolve({ name, code: 1 });
     });
@@ -37,8 +36,8 @@ function run({ name, cmd, args }) {
 }
 
 const results = await Promise.all(jobs.map(run));
-const failed = results.filter((r) => r.code !== 0);
+const failed = results.filter(r => r.code !== 0);
 if (failed.length > 0) {
-  console.error(`[build-parallel] failed: ${failed.map((f) => f.name).join(', ')}`);
+  console.error(`[build-parallel] failed: ${failed.map(f => f.name).join(', ')}`);
   process.exit(1);
 }

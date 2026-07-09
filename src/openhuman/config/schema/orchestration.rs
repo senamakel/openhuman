@@ -38,6 +38,14 @@ pub struct OrchestrationConfig {
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 
+    /// Phase 0 shadow migration: in addition to running the local wake graph,
+    /// mirror each ingested event up to the hosted brain via
+    /// `POST /orchestration/v1/events` (best-effort, fire-and-forget). The local
+    /// brain stays authoritative; this only dual-writes server-side state.
+    /// Default: `false` (opt-in until the hosted graph is the source of truth).
+    #[serde(default)]
+    pub cloud_shadow: bool,
+
     /// Coalesce a burst of DMs for one session into a single graph run: after a
     /// session message lands, wait this many milliseconds for the burst to
     /// settle before invoking the wake graph. Default: `750`.
@@ -96,6 +104,7 @@ impl Default for OrchestrationConfig {
     fn default() -> Self {
         Self {
             enabled: default_enabled(),
+            cloud_shadow: false,
             debounce_ms: default_debounce_ms(),
             max_supersteps: default_max_supersteps(),
             message_window: default_message_window(),

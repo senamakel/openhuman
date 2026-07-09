@@ -12,6 +12,7 @@
 
 pub mod attention;
 pub mod bus;
+pub mod cloud;
 pub mod frontend_agent;
 pub mod graph;
 pub mod ingest;
@@ -25,6 +26,7 @@ pub mod steering;
 pub mod store;
 pub mod tools;
 pub mod types;
+pub mod wire;
 
 pub use bus::{
     notify_orchestration_message, register_orchestration_ingest_subscriber,

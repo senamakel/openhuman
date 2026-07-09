@@ -49,7 +49,22 @@ pub use schemas::{
 pub(crate) use ops::{event_session_id_for, key_for};
 pub(crate) use progress_bridge::spawn_progress_bridge;
 
-// Schema field helpers re-exported for tests
+// Schema field helpers + session/error helpers re-exported for the `web_tests`
+// integration module (they moved into submodules during the module split but
+// the sibling test file still imports them via `super::`).
+#[cfg(test)]
+pub(crate) use schemas::{json_output, optional_f64, optional_string, required_string};
+#[cfg(test)]
+pub(crate) use session::{
+    compose_system_prompt_suffix, locale_reply_directive, normalize_model_override,
+    provider_role_for_model_override,
+};
+#[cfg(test)]
+pub(crate) use types::WebChatParams;
+#[cfg(test)]
+pub(crate) use web_errors::{
+    inference_budget_exceeded_user_message, is_inference_budget_exceeded_error,
+};
 
 // Test helpers (debug/test builds only)
 #[cfg(any(test, debug_assertions))]

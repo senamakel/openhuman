@@ -208,7 +208,8 @@ async fn run_turn(
     request_native_global::<AgentTurnRequest, AgentTurnResponse>(
         AGENT_RUN_TURN_METHOD,
         AgentTurnRequest {
-            provider,
+            turn_model_source:
+                openhuman_core::openhuman::tinyagents::TurnModelSource::new(provider),
             history: vec![
                 ChatMessage::system("round22 system"),
                 ChatMessage::user("round22 run"),

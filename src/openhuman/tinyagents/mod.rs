@@ -1129,6 +1129,44 @@ pub(crate) struct TurnModels {
     summarizer: Arc<dyn tinyagents::harness::model::ChatModel<()>>,
     /// Recovers the primary's original (downcastable) provider error on failure.
     error_slot: crate::openhuman::tinyagents::model::ProviderErrorSlot,
+    /// Provider telemetry id (`{provider_id}.{model}` in Langfuse), captured from
+    /// the source `Provider` at build time. Carried here (issue #4249, Phase 3 /
+    /// Motion A) so the harness turn path no longer reads it off a raw
+    /// `Provider` — the harness holds crate model types only.
+    provider_id: String,
+    /// The primary model's effective context window (drives the context-window
+    /// summarization step). Resolved by the producer/factory before build so the
+    /// harness graph no longer makes the async `effective_context_window` call.
+    context_window: Option<u64>,
+    /// Whether the source provider does native tool-calling — the harness uses
+    /// this only to pick the history-suffix dispatcher (native envelope vs
+    /// prompt-guided text). Captured from the provider at build time.
+    native_tools: bool,
+    /// Whether the source provider is vision-capable — the harness uses this to
+    /// gate multimodal placeholder rehydration. Captured at build time.
+    supports_vision: bool,
+}
+
+impl TurnModels {
+    /// Provider telemetry id for this turn (`{provider_id}.{model}`).
+    pub(crate) fn provider_id(&self) -> &str {
+        &self.provider_id
+    }
+
+    /// The primary model's effective context window, if known.
+    pub(crate) fn context_window(&self) -> Option<u64> {
+        self.context_window
+    }
+
+    /// Whether the source provider does native tool-calling.
+    pub(crate) fn native_tools(&self) -> bool {
+        self.native_tools
+    }
+
+    /// Whether the source provider is vision-capable.
+    pub(crate) fn supports_vision(&self) -> bool {
+        self.supports_vision
+    }
 }
 
 /// Build the per-turn [`TurnModels`] from an openhuman [`Provider`] — the sole
@@ -1142,6 +1180,13 @@ pub(crate) fn build_turn_models(
     temperature: f64,
     context_window: Option<u64>,
 ) -> TurnModels {
+    // Capture the provider metadata the harness turn path used to read directly
+    // off the raw `Provider` (issue #4249, Phase 3 / Motion A). Recording it on
+    // `TurnModels` is what lets `AgentTurnRequest`/`Agent`/the harness graph hold
+    // crate model types only — no `dyn Provider` above the seam.
+    let provider_id = provider.telemetry_provider_id();
+    let native_tools = provider.supports_native_tools();
+    let supports_vision = provider.supports_vision();
     let summary_provider = provider.clone();
     let mut primary = ProviderModel::new(provider, model, temperature);
     // Record the model's context window on its capability profile (issue #4249,
@@ -1171,6 +1216,54 @@ pub(crate) fn build_turn_models(
         routes,
         summarizer,
         error_slot,
+        provider_id,
+        context_window,
+        native_tools,
+        supports_vision,
+    }
+}
+
+/// A model-agnostic source of per-turn [`TurnModels`] — the seam-owned handle the
+/// agent harness holds instead of a raw `Arc<dyn Provider>` (issue #4249, Phase 3
+/// / Motion A).
+///
+/// An [`Agent`](crate::openhuman::agent::Agent) (and each channel/subagent turn
+/// request) is model-agnostic: it holds one provider and builds a *tiered* crate
+/// [`ChatModel`] set (primary + workload-tier fallback routes + summarizer) per
+/// turn via [`build_turn_models`]. That per-turn re-projection needs the
+/// underlying `Provider` (route aliases are re-instantiated with distinct model
+/// strings + per-route capability flags), so the harness cannot simply hold a
+/// single `Arc<dyn ChatModel>`. `TurnModelSource` confines that `Provider` to the
+/// seam: the harness names only this type, and every `Provider` method it needs
+/// (context-window resolution, the model build) is exposed here. Constructed in
+/// exactly one place — [`create_turn_model_source`](crate::openhuman::inference::provider::factory::create_turn_model_source).
+#[derive(Clone)]
+pub struct TurnModelSource {
+    provider: Arc<dyn Provider>,
+}
+
+impl TurnModelSource {
+    /// Wrap a resolved provider. The host↔seam boundary: the inference factory
+    /// (or a producer holding a resolved provider) builds a source here; the
+    /// agent harness above the seam then names only `TurnModelSource`, never the
+    /// `Provider` trait. `pub` so the native-bus request type
+    /// ([`AgentTurnRequest`](crate::openhuman::agent::bus::AgentTurnRequest)) and
+    /// its integration tests can construct one.
+    pub fn new(provider: Arc<dyn Provider>) -> Self {
+        Self { provider }
+    }
+
+    /// Resolve the model's effective context window (async provider probe) — the
+    /// value that drives the context-window summarization step. Resolved before
+    /// [`build`](Self::build) so the harness graph makes no async `Provider` call.
+    pub(crate) async fn effective_context_window(&self, model: &str) -> Option<u64> {
+        self.provider.effective_context_window(model).await
+    }
+
+    /// Build this turn's [`TurnModels`] (primary + tier routes + summarizer),
+    /// capturing provider telemetry id + capabilities onto the bundle.
+    pub(crate) fn build(&self, model: &str, temperature: f64, context_window: Option<u64>) -> TurnModels {
+        build_turn_models(self.provider.clone(), model, temperature, context_window)
     }
 }
 
@@ -1303,6 +1396,9 @@ fn assemble_turn_harness(
         routes,
         summarizer: summarizer_model,
         error_slot,
+        // Provider metadata (id/context-window/caps) is consumed by the turn-path
+        // caller before dispatch, not by harness assembly.
+        ..
     } = turn_models;
     capability_registry.replace_model(model, primary.clone());
     harness

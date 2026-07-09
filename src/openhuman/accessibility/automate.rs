@@ -727,12 +727,9 @@ impl AutomateBackend for RealBackend {
         // grounding, and the fallback only fires when AX is empty (rare). The
         // crate `ChatModel` bakes the resolved model + temperature; the vision
         // request pins temperature 0.0 itself.
-        let model = crate::openhuman::inference::provider::create_chat_model(
-            "chat",
-            &self.config,
-            0.0,
-        )
-        .map_err(|e| format!("vision provider unavailable: {e}"))?;
+        let model =
+            crate::openhuman::inference::provider::create_chat_model("chat", &self.config, 0.0)
+                .map_err(|e| format!("vision provider unavailable: {e}"))?;
         let coords =
             super::vision_click::locate_via_vision(&model, screenshot, description).await?;
         Ok(coords.map(|(px, py)| super::vision_click::image_to_screen(geom, px, py)))

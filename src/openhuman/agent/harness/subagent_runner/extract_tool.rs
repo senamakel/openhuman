@@ -34,9 +34,9 @@ use crate::openhuman::agent::harness::session::transcript::{
 };
 use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::tinyagents::TurnModelSource;
+use crate::openhuman::tools::{Tool, ToolCategory, ToolResult};
 use tinyagents::harness::message::Message;
 use tinyagents::harness::model::ModelRequest;
-use crate::openhuman::tools::{Tool, ToolCategory, ToolResult};
 
 // ── Tunables ──────────────────────────────────────────────────────────
 
@@ -283,7 +283,9 @@ impl Tool for ExtractFromResultTool {
         // future clones the Arc (issue #4249, Phase 3 / Motion A). Model +
         // temperature are baked into the model, so the per-call request only
         // carries the messages.
-        let chat = self.source.build_summarizer(&self.model, EXTRACT_TEMPERATURE);
+        let chat = self
+            .source
+            .build_summarizer(&self.model, EXTRACT_TEMPERATURE);
         // Model id for the per-chunk transcript metadata (the chat call itself
         // bakes it into `chat`).
         let model = self.model.clone();

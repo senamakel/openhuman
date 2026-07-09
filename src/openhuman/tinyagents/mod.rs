@@ -1279,7 +1279,12 @@ impl TurnModelSource {
 
     /// Build this turn's [`TurnModels`] (primary + tier routes + summarizer),
     /// capturing provider telemetry id + capabilities onto the bundle.
-    pub(crate) fn build(&self, model: &str, temperature: f64, context_window: Option<u64>) -> TurnModels {
+    pub(crate) fn build(
+        &self,
+        model: &str,
+        temperature: f64,
+        context_window: Option<u64>,
+    ) -> TurnModels {
         build_turn_models(self.provider.clone(), model, temperature, context_window)
     }
 
@@ -1293,7 +1298,11 @@ impl TurnModelSource {
         model: &str,
         temperature: f64,
     ) -> Arc<dyn tinyagents::harness::model::ChatModel<()>> {
-        Arc::new(ProviderModel::new(self.provider.clone(), model, temperature))
+        Arc::new(ProviderModel::new(
+            self.provider.clone(),
+            model,
+            temperature,
+        ))
     }
 }
 

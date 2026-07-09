@@ -636,7 +636,10 @@ async fn run_typed_mode(
                 let r = route.trim();
                 let route_is_managed = r.is_empty() || r == "cloud" || r == "openhuman";
                 if route_is_managed && !parent.turn_model_source.is_local_provider() {
-                    (parent.turn_model_source.provider(), summarization_tier.clone())
+                    (
+                        parent.turn_model_source.provider(),
+                        summarization_tier.clone(),
+                    )
                 } else {
                     match crate::openhuman::inference::provider::create_chat_provider(
                         "summarization",
@@ -649,7 +652,10 @@ async fn run_typed_mode(
                                 error = %e,
                                 "[subagent_runner:typed] extract summarization provider build failed; falling back to parent provider"
                             );
-                            (parent.turn_model_source.provider(), summarization_tier.clone())
+                            (
+                                parent.turn_model_source.provider(),
+                                summarization_tier.clone(),
+                            )
                         }
                     }
                 }
@@ -660,7 +666,10 @@ async fn run_typed_mode(
                     error = %e,
                     "[subagent_runner:typed] config load failed for extract provider; falling back to parent provider + summarization-v1"
                 );
-                (parent.turn_model_source.provider(), summarization_tier.clone())
+                (
+                    parent.turn_model_source.provider(),
+                    summarization_tier.clone(),
+                )
             }
         };
         dynamic_tools.push(Box::new(ExtractFromResultTool::new(

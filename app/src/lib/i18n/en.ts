@@ -35,6 +35,7 @@ const en: TranslationMap = {
   'orchPage.group.insights': 'Insights',
   'orchPage.overview.nav': 'Agent graph',
   'orchPage.tasks.nav': 'Tasks',
+  'orchPage.tasks.subtitle': "The orchestrator's global task board",
   'orchPage.overview.core': 'Agent core',
   'orchPage.overview.empty': 'No sub-agents to visualize yet',
   'orchPage.agent.nav': 'Chat',

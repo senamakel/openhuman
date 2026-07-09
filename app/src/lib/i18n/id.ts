@@ -184,6 +184,7 @@ const messages: TranslationMap = {
   'orchPage.group.insights': 'Wawasan',
   'orchPage.overview.nav': 'Grafik agen',
   'orchPage.tasks.nav': 'Tugas',
+  'orchPage.tasks.subtitle': 'Papan tugas global orkestrator',
   'orchPage.overview.core': 'Inti agen',
   'orchPage.overview.empty': 'Belum ada sub-agen untuk divisualisasikan',
   'orchPage.agent.nav': 'Obrolan',

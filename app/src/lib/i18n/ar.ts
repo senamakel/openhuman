@@ -178,6 +178,7 @@ const messages: TranslationMap = {
   'orchPage.group.insights': 'رؤى',
   'orchPage.overview.nav': 'رسم الوكلاء',
   'orchPage.tasks.nav': 'المهام',
+  'orchPage.tasks.subtitle': 'لوحة مهام المنسق العامة',
   'orchPage.overview.core': 'نواة الوكيل',
   'orchPage.overview.empty': 'لا توجد وكلاء فرعيون لعرضهم بعد',
   'orchPage.agent.nav': 'محادثة',

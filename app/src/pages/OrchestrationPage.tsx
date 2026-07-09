@@ -17,7 +17,6 @@
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import IntelligenceTasksTab from '../components/intelligence/IntelligenceTasksTab';
 import ChipTabs from '../components/layout/ChipTabs';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
@@ -26,6 +25,7 @@ import ActiveSubagentsRail from '../components/orchestration/ActiveSubagentsRail
 import AgentChatPanel from '../components/orchestration/AgentChatPanel';
 import ConnectionsPanel from '../components/orchestration/ConnectionsPanel';
 import DiscoverPanel from '../components/orchestration/DiscoverPanel';
+import OrchestratorTaskBoard from '../components/orchestration/OrchestratorTaskBoard';
 import OverviewPanel from '../components/orchestration/OverviewPanel';
 import UsagePanel from '../components/orchestration/UsagePanel';
 import { useT } from '../lib/i18n/I18nContext';
@@ -187,11 +187,11 @@ export default function OrchestrationPage() {
           <AgentChatPanel openSessionId={openSessionId} onOpenSession={setOpenSessionId} />
         </div>
       ) : activeTab === 'tasks' ? (
-        // The agent task board (Kanban), relocated from Brain → Intelligence.
+        // One global Kanban board owned by the orchestrator (not per-thread).
         <div className="mx-auto h-full w-full max-w-5xl">
           <PanelPage contentClassName="p-4">
             <div className="animate-fade-up">
-              <IntelligenceTasksTab />
+              <OrchestratorTaskBoard />
             </div>
           </PanelPage>
         </div>

@@ -183,6 +183,7 @@ const messages: TranslationMap = {
   'orchPage.group.insights': 'अंतर्दृष्टि',
   'orchPage.overview.nav': 'एजेंट ग्राफ़',
   'orchPage.tasks.nav': 'कार्य',
+  'orchPage.tasks.subtitle': 'ऑर्केस्ट्रेटर का वैश्विक कार्य बोर्ड',
   'orchPage.overview.core': 'एजेंट कोर',
   'orchPage.overview.empty': 'विज़ुअलाइज़ करने के लिए अभी कोई सब-एजेंट नहीं',
   'orchPage.agent.nav': 'चैट',

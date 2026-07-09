@@ -186,6 +186,7 @@ const messages: TranslationMap = {
   'orchPage.group.insights': 'Estadísticas',
   'orchPage.overview.nav': 'Grafo de agentes',
   'orchPage.tasks.nav': 'Tareas',
+  'orchPage.tasks.subtitle': 'El tablero de tareas global del orquestador',
   'orchPage.overview.core': 'Núcleo del agente',
   'orchPage.overview.empty': 'Aún no hay subagentes para visualizar',
   'orchPage.agent.nav': 'Chat',

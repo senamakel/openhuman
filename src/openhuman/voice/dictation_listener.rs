@@ -14,6 +14,12 @@ use tokio::task::JoinHandle;
 
 use crate::openhuman::config::Config;
 
+// The rdev-based listener path only compiles on non-macOS (macOS skips rdev,
+// see `start_rdev_listener` below), so gate the hotkey imports to match — on
+// macOS these symbols are unused and would warn.
+#[cfg(not(target_os = "macos"))]
+use super::hotkey::{self, ActivationMode, HotkeyEvent};
+
 const LOG_PREFIX: &str = "[dictation_listener]";
 
 // ── Listener task handle (for stop support) ─────────────────────────

@@ -50,7 +50,7 @@ use parking_lot::Mutex as ParkingMutex;
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
-static ROUND16_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ROUND16_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

@@ -38,7 +38,7 @@ use openhuman_core::openhuman::tool_registry::{
 };
 use openhuman_core::openhuman::tools::ToolSpec;
 
-static OWNED_DOMAIN_ENV_LOCK: Mutex<()> = Mutex::new(());
+static OWNED_DOMAIN_ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Default)]
 struct ProviderMockState {
@@ -867,7 +867,7 @@ async fn tool_registry_controller_handlers_cover_list_get_and_validation_paths()
         .handler;
     let dir = tempdir().expect("tempdir");
     let previous_workspace = {
-        let _env_guard = OWNED_DOMAIN_ENV_LOCK.lock().expect("env lock");
+        let _env_guard = OWNED_DOMAIN_ENV_LOCK.get_or_init(|| Mutex::new(())).lock().expect("env lock");
         let previous_workspace = std::env::var_os("OPENHUMAN_WORKSPACE");
         std::env::set_var("OPENHUMAN_WORKSPACE", dir.path());
         previous_workspace
@@ -876,7 +876,7 @@ async fn tool_registry_controller_handlers_cover_list_get_and_validation_paths()
         .await
         .expect("diagnostics value");
     {
-        let _env_guard = OWNED_DOMAIN_ENV_LOCK.lock().expect("env lock");
+        let _env_guard = OWNED_DOMAIN_ENV_LOCK.get_or_init(|| Mutex::new(())).lock().expect("env lock");
         match previous_workspace {
             Some(value) => std::env::set_var("OPENHUMAN_WORKSPACE", value),
             None => std::env::remove_var("OPENHUMAN_WORKSPACE"),

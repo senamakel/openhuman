@@ -26,7 +26,7 @@ use openhuman_core::openhuman::composio::{
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::tools::{ComposioListToolsTool, Tool, ToolCallOptions};
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {

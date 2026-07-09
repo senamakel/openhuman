@@ -47,7 +47,7 @@ use openhuman_core::openhuman::memory_sync::composio::providers::{
 };
 use openhuman_core::openhuman::memory_tree::tree::bucket_seal::LabelStrategy;
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     ENV_LOCK

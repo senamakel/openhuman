@@ -44,7 +44,7 @@ use openhuman_core::openhuman::tool_registry::{
 const TEST_RPC_TOKEN: &str = "tool-registry-approval-raw-e2e-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvVarGuard {
     key: &'static str,

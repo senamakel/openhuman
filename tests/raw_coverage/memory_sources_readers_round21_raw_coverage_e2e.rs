@@ -7,7 +7,7 @@ use openhuman_core::openhuman::memory_sources::{ContentType, MemorySourceEntry, 
 use tempfile::{Builder, TempDir};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

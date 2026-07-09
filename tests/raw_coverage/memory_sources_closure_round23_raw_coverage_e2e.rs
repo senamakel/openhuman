@@ -8,7 +8,7 @@ use openhuman_core::openhuman::memory_sources::{
 };
 use tempfile::{Builder, TempDir};
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

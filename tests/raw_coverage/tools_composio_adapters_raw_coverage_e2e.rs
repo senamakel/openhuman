@@ -32,7 +32,7 @@ use openhuman_core::openhuman::tools::{
     all_tools, all_tools_registered_controllers, ComposioExecuteTool, PolymarketTool, Tool,
 };
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {

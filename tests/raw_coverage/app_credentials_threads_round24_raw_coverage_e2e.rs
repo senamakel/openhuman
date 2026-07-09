@@ -27,7 +27,7 @@ use openhuman_core::openhuman::threads::ops::{
     thread_update_labels, thread_update_title, threads_list, threads_purge,
 };
 
-static ROUND24_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ROUND24_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

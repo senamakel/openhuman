@@ -50,7 +50,7 @@ struct RecordedRequest {
     body: Value,
 }
 
-static COMPOSIO_OPS_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static COMPOSIO_OPS_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

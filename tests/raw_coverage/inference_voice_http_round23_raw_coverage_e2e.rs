@@ -80,7 +80,7 @@ impl Drop for EnvVarGuard {
 /// by default. These tests mutate `OPENHUMAN_WORKSPACE`, `OPENHUMAN_OLLAMA_BASE_URL`,
 /// and binary path env vars, so every test takes this guard before reading or
 /// writing config that may be influenced by process env.
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     ENV_LOCK

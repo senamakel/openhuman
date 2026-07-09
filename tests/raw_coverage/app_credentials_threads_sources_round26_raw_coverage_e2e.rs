@@ -25,7 +25,7 @@ use openhuman_core::openhuman::threads::ops::{
 };
 use openhuman_core::openhuman::threads::welcome_migration::migrate_welcome_agent_artifacts;
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

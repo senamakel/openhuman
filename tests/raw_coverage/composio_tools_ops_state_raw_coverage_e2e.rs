@@ -39,7 +39,7 @@ use openhuman_core::openhuman::tools::{
     Tool, ToolCallOptions,
 };
 
-static ROUND17_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ROUND17_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Default)]
 struct MockState {

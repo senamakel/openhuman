@@ -25,7 +25,7 @@ use openhuman_core::openhuman::tools::{
     ComposioListToolsTool, ComposioTool, PolymarketTool, SpawnSubagentTool, Tool, ToolCallOptions,
 };
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {

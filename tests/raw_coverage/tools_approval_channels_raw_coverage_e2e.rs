@@ -115,7 +115,7 @@ use openhuman_core::openhuman::tools::{
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvVarGuard {
     key: &'static str,

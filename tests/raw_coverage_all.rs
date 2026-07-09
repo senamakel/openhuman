@@ -17,4 +17,20 @@
 // production code, so silence the noise rather than churn 76 files.
 #![allow(dead_code, unused_imports)]
 
+use std::sync::{Mutex, OnceLock};
+
+/// Process-global env lock shared by every aggregated suite that mutates
+/// process-global env (`OPENHUMAN_WORKSPACE`, `HOME`, `BACKEND_URL`, …).
+///
+/// Before these files were collapsed into this single binary they ran as
+/// separate processes, so each file's own env lock was sufficient — different
+/// files could never race because they had independent environments. Now that
+/// they share one process, libtest runs them concurrently and per-file locks no
+/// longer mutually exclude. Each file's local env lock is redefined to a
+/// `&`-reference to this one static, so all env mutations across all aggregated
+/// suites serialize on a single mutex while non-env tests keep running in
+/// parallel. Poison is recovered (`into_inner`) at the guard sites, so a
+/// panicking test cannot wedge the whole suite.
+pub static SHARED_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
 include!(concat!(env!("OUT_DIR"), "/raw_coverage_mods.rs"));

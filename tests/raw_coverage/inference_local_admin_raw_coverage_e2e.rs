@@ -86,7 +86,7 @@ impl Drop for EnvVarGuard {
 /// Each env-mutating test holds this guard for its whole body; declaring it
 /// before any `EnvVarGuard` makes it drop last, after the env is restored.
 fn env_lock() -> MutexGuard<'static, ()> {
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
     ENV_LOCK
         .get_or_init(|| Mutex::new(()))
         .lock()

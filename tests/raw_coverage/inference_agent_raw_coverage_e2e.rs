@@ -180,7 +180,7 @@ use openhuman_core::openhuman::todos::ops::BoardLocation;
 use openhuman_core::openhuman::tokenjuice::AgentTokenjuiceCompression;
 use openhuman_core::openhuman::tools::{Tool, ToolResult, ToolSpec};
 
-static ENV_LOCK: Mutex<()> = Mutex::new(());
+static ENV_LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvVarGuard {
     key: &'static str,
@@ -877,7 +877,7 @@ fn base_agent_builder() -> openhuman_core::openhuman::agent::AgentBuilder {
 
 #[tokio::test]
 async fn inference_registry_drives_config_oauth_models_and_provider_chat() {
-    let _lock = ENV_LOCK
+    let _lock = ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();
@@ -1103,7 +1103,7 @@ async fn inference_registry_drives_config_oauth_models_and_provider_chat() {
 
 #[tokio::test]
 async fn agent_registry_and_profile_controllers_cover_success_and_errors() {
-    let _lock = ENV_LOCK
+    let _lock = ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();
@@ -1977,7 +1977,7 @@ async fn agent_memory_loader_public_paths_cover_working_prior_cross_and_citation
 
 #[tokio::test]
 async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
-    let _lock = ENV_LOCK
+    let _lock = ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();
@@ -2447,7 +2447,7 @@ fn provider_factory_error(role: &str, provider: &str, config: &Config) -> String
 
 #[tokio::test]
 async fn inference_http_models_router_uses_isolated_config_and_dedupes_entries() {
-    let _lock = ENV_LOCK
+    let _lock = ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();
@@ -2569,7 +2569,7 @@ fn inference_voice_and_triage_parsers_cover_public_error_shapes() {
 
 #[tokio::test]
 async fn inference_voice_stt_and_tts_frontdoors_cover_validation_and_mocked_runtime_paths() {
-    let _lock = ENV_LOCK
+    let _lock = ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();
@@ -2985,7 +2985,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
 
 #[tokio::test]
 async fn inference_local_controllers_and_presets_cover_public_paths() {
-    let _lock = ENV_LOCK
+    let _lock = ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();
@@ -4027,7 +4027,7 @@ async fn agent_multimodal_helpers_cover_normalization_and_error_paths() {
 
 #[test]
 fn inference_openai_oauth_store_covers_persist_lookup_and_empty_profiles() {
-    let _lock = ENV_LOCK
+    let _lock = ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();
@@ -4488,7 +4488,7 @@ async fn inference_reliable_provider_covers_retry_fallback_and_aggregate_errors(
 
 #[tokio::test]
 async fn agent_debug_prompt_dump_and_identity_rendering_cover_file_layouts() {
-    let _lock = ENV_LOCK
+    let _lock = ENV_LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _env = isolated_env();

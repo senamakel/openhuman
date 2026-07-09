@@ -30,7 +30,7 @@ use openhuman_core::openhuman::socket::{set_global_socket_manager, SocketManager
 const TEST_RPC_TOKEN: &str = "connectivity-raw-coverage-e2e-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvVarGuard {
     key: &'static str,

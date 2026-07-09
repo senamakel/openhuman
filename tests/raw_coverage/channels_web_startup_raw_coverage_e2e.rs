@@ -87,7 +87,7 @@ fn web_error_debug_export_covers_provider_config_and_retry_branches() {
 /// run, crossing their expected error types (e.g. `rate_limited` vs
 /// `cancelled`) under cargo-llvm-cov's multi-threaded execution.
 fn web_chat_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    static LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
     LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|e| e.into_inner())

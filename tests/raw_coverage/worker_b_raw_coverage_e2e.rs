@@ -34,7 +34,7 @@ use openhuman_core::openhuman::credentials::{
 const TEST_RPC_TOKEN: &str = "worker-b-raw-coverage-e2e-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Default)]
 struct MockState {

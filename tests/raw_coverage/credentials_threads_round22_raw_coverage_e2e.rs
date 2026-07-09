@@ -16,7 +16,7 @@ use openhuman_core::openhuman::threads::ops as thread_ops;
 use serde_json::json;
 use tempfile::{Builder, TempDir};
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

@@ -52,7 +52,7 @@ use openhuman_core::openhuman::tools::{
     ComposioListToolsTool, Tool, ToolCallOptions,
 };
 
-static ROUND15_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ROUND15_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

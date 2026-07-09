@@ -89,7 +89,7 @@ impl Drop for EnvVarGuard {
 /// other's env (e.g. one test's workspace/ollama base leaking into another),
 /// producing order-dependent failures. One lock makes the env sections atomic.
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    static LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
     LOCK.get_or_init(|| std::sync::Mutex::new(()))
         .lock()
         .unwrap_or_else(|e| e.into_inner())

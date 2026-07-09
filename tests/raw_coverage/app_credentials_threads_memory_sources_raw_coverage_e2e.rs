@@ -29,7 +29,7 @@ use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-static ROUND19_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ROUND19_ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct EnvGuard {
     key: &'static str,

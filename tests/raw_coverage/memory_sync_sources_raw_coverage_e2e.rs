@@ -41,7 +41,7 @@ use openhuman_core::openhuman::memory_sync::composio::{
     all_composio_sync_providers, get_composio_sync_provider, init_default_composio_sync_providers,
 };
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     ENV_LOCK

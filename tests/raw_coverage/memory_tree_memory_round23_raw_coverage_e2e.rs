@@ -50,7 +50,7 @@ impl Drop for EnvVarGuard {
     }
 }
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     ENV_LOCK

@@ -39,7 +39,7 @@ use openhuman_core::openhuman::memory_tree::score::embed::{pack_embedding, EMBED
 use openhuman_core::openhuman::memory_tree::tree::store as tree_store;
 use openhuman_core::openhuman::memory_tree::tree::TreeStatus;
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     ENV_LOCK

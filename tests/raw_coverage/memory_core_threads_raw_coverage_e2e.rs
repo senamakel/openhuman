@@ -188,8 +188,20 @@ fn daily_node(id: &str, tree_id: &str, day: chrono::DateTime<Utc>) -> SummaryNod
     }
 }
 
+// Serialize env mutation against every other aggregated suite via the
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// that does not itself hold a lock). Poison is recovered so a panic
+// elsewhere cannot wedge the suite.
+fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[tokio::test]
 async fn memory_read_rpc_filters_graphs_scores_reset_and_wipe_seeded_rows() {
+    let _env_lock = __shared_env_lock();
     let tmp = TempDir::new().unwrap();
     let cfg = config_in(&tmp);
     let ts0 = Utc.with_ymd_and_hms(2026, 5, 20, 9, 0, 0).unwrap();
@@ -406,6 +418,7 @@ async fn memory_read_rpc_filters_graphs_scores_reset_and_wipe_seeded_rows() {
 
 #[tokio::test]
 async fn thread_ops_welcome_migration_and_turn_state_cover_error_and_cleanup_paths() {
+    let _env_lock = __shared_env_lock();
     let tmp = TempDir::new().unwrap();
     let _env = EnvGuard::set_path("OPENHUMAN_WORKSPACE", tmp.path());
     let workspace = Config::load_or_init().await.unwrap().workspace_dir;

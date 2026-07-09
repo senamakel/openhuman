@@ -19,18 +19,25 @@ use std::path::Path;
 
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set");
-    let raw_dir = Path::new(&manifest_dir).join("tests").join("raw_coverage");
+    let tests_dir = Path::new(&manifest_dir).join("tests");
+    let raw_dir = tests_dir.join("raw_coverage");
 
     // Re-run whenever a file is added to / removed from the directory.
     println!("cargo:rerun-if-changed={}", raw_dir.display());
 
-    // Fail loudly rather than silently generating an empty module list: if the
-    // directory is missing/unreadable, aggregating "all raw-coverage tests"
-    // would otherwise drop every one of them with no error.
-    let read_dir = fs::read_dir(&raw_dir)
-        .unwrap_or_else(|e| panic!("failed to read {}: {e}", raw_dir.display()));
     let mut entries: Vec<(String, String)> = Vec::new();
-    for entry in read_dir.flatten() {
+    let read_dir = match fs::read_dir(&raw_dir) {
+        Ok(rd) => Some(rd),
+        // Source-only builds (e.g. the Docker image copies `src/` but not
+        // `tests/`) never compile the integration targets, so there is nothing
+        // to aggregate — emit an empty module list rather than breaking the
+        // build. But if `tests/` IS present and only `raw_coverage/` is missing,
+        // that's an accidental deletion: fail loudly so the suite can't be
+        // silently dropped.
+        Err(_) if !tests_dir.exists() => None,
+        Err(e) => panic!("failed to read {}: {e}", raw_dir.display()),
+    };
+    for entry in read_dir.into_iter().flatten().flatten() {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("rs") {
             continue;

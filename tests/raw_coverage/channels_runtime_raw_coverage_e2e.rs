@@ -134,8 +134,20 @@ impl Drop for EnvGuard {
     }
 }
 
+// Serialize env mutation against every other aggregated suite via the
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// that does not itself hold a lock). Poison is recovered so a panic
+// elsewhere cannot wedge the suite.
+fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[tokio::test]
 async fn telegram_outbound_uses_mock_api_for_reactions_markdown_fallback_drafts_and_typing() {
+    let _env_lock = __shared_env_lock();
     let (base, state, server) = spawn_telegram_mock().await;
     let _api_base = EnvGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", &base);
     let _legacy_base = EnvGuard::set("OPENHUMAN_TELEGRAM_API_BASE", "");
@@ -222,6 +234,7 @@ async fn telegram_outbound_uses_mock_api_for_reactions_markdown_fallback_drafts_
 
 #[test]
 fn lark_parse_event_payload_covers_text_post_filters_and_config_defaults() {
+    let _env_lock = __shared_env_lock();
     let mut cfg = LarkConfig {
         app_id: "app".into(),
         app_secret: "secret".into(),
@@ -315,6 +328,7 @@ fn lark_parse_event_payload_covers_text_post_filters_and_config_defaults() {
 
 #[tokio::test]
 async fn yuanbao_public_channel_and_config_paths_are_isolated_from_network() {
+    let _env_lock = __shared_env_lock();
     let mut prod = YuanbaoConfig::default();
     prod.apply_env_defaults();
     assert!(prod.api_domain.contains("bot.yuanbao.tencent.com"));
@@ -372,6 +386,7 @@ async fn yuanbao_public_channel_and_config_paths_are_isolated_from_network() {
 
 #[tokio::test]
 async fn web_channel_validation_cancel_and_event_subscription_are_fast() {
+    let _env_lock = __shared_env_lock();
     assert!(start_chat(
         "",
         "thread",
@@ -444,6 +459,7 @@ async fn web_channel_validation_cancel_and_event_subscription_are_fast() {
 
 #[tokio::test]
 async fn channel_inbound_subscriber_metadata_and_non_channel_events_are_noops() {
+    let _env_lock = __shared_env_lock();
     let subscriber = ChannelInboundSubscriber::new();
     assert_eq!(subscriber.name(), "channel::inbound_handler");
     assert_eq!(subscriber.domains(), Some(&["channel"][..]));
@@ -457,6 +473,7 @@ async fn channel_inbound_subscriber_metadata_and_non_channel_events_are_noops() 
 
 #[test]
 fn temporary_workspace_artifact_scope_is_round14_only() {
+    let _env_lock = __shared_env_lock();
     let tmp = TempDir::with_prefix("channels-runtime-round14-").expect("round14 tempdir");
     assert!(tmp
         .path()

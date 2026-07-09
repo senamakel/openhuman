@@ -68,8 +68,20 @@ impl Drop for EnvVarGuard {
     }
 }
 
+// Serialize env mutation against every other aggregated suite via the
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// that does not itself hold a lock). Poison is recovered so a panic
+// elsewhere cannot wedge the suite.
+fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[tokio::test]
 async fn compatible_provider_covers_chat_responses_streaming_tools_and_errors() {
+    let _env_lock = __shared_env_lock();
     let (base, state) = serve_mock().await;
     let provider = OpenAiCompatibleProvider::new_with_user_agent(
         "custom_openai",
@@ -189,6 +201,7 @@ async fn compatible_provider_covers_chat_responses_streaming_tools_and_errors() 
 
 #[tokio::test]
 async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes() {
+    let _env_lock = __shared_env_lock();
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -344,6 +357,7 @@ async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes
 
 #[tokio::test]
 async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama() {
+    let _env_lock = __shared_env_lock();
     let (base, _state) = serve_mock().await;
     let _ollama_env = EnvVarGuard::set("OPENHUMAN_OLLAMA_BASE_URL", &base);
     let tmp = tempdir().expect("tempdir");

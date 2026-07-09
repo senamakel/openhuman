@@ -73,8 +73,20 @@ impl Drop for EnvVarGuard {
     }
 }
 
+// Serialize env mutation against every other aggregated suite via the
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// that does not itself hold a lock). Poison is recovered so a panic
+// elsewhere cannot wedge the suite.
+fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[tokio::test]
 async fn compatible_streaming_covers_tool_deltas_json_fallback_and_retry_without_tools() {
+    let _env_lock = __shared_env_lock();
     let (base, state) = serve_mock().await;
     let provider = OpenAiCompatibleProvider::new(
         "round26-compatible",
@@ -209,6 +221,7 @@ async fn compatible_streaming_covers_tool_deltas_json_fallback_and_retry_without
 
 #[tokio::test]
 async fn local_service_covers_mocked_bootstrap_assets_diagnostics_and_embed() {
+    let _env_lock = __shared_env_lock();
     let tmp = tempdir().expect("tempdir");
     let fake_bin_dir = tmp.path().join("fake-bin");
     std::fs::create_dir_all(&fake_bin_dir).expect("fake bin dir");

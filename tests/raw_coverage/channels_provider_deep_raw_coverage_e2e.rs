@@ -131,8 +131,20 @@ impl Drop for EnvGuard {
     }
 }
 
+// Serialize env mutation against every other aggregated suite via the
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// that does not itself hold a lock). Poison is recovered so a panic
+// elsewhere cannot wedge the suite.
+fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[tokio::test]
 async fn dispatch_harness_covers_streaming_reactions_memory_and_success_events() {
+    let _env_lock = __shared_env_lock();
     let observed = run_dispatch_harness(DispatchHarnessOptions {
         channel_name: "telegram".to_string(),
         content: "thanks for checking the rust build?".to_string(),
@@ -186,6 +198,7 @@ async fn dispatch_harness_covers_streaming_reactions_memory_and_success_events()
 
 #[tokio::test]
 async fn dispatch_harness_covers_error_context_compaction_and_timeout_paths() {
+    let _env_lock = __shared_env_lock();
     let context_overflow = run_dispatch_harness(DispatchHarnessOptions {
         channel_name: "discord".to_string(),
         content: "please continue".to_string(),
@@ -229,6 +242,7 @@ async fn dispatch_harness_covers_error_context_compaction_and_timeout_paths() {
 
 #[tokio::test]
 async fn web_channel_validation_cancel_and_classifier_snapshots_are_publicly_exercised() {
+    let _env_lock = __shared_env_lock();
     assert!(start_chat(
         "",
         "thread",
@@ -345,6 +359,7 @@ async fn web_channel_validation_cancel_and_classifier_snapshots_are_publicly_exe
 
 #[tokio::test]
 async fn telegram_loopback_covers_reactions_markdown_fallback_drafts_typing_and_health() {
+    let _env_lock = __shared_env_lock();
     let (base, state, server) = spawn_telegram_mock().await;
     let _api_base = EnvGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", &base);
     let _legacy_base = EnvGuard::set("OPENHUMAN_TELEGRAM_API_BASE", "");
@@ -410,6 +425,7 @@ async fn telegram_loopback_covers_reactions_markdown_fallback_drafts_typing_and_
 
 #[test]
 fn lark_and_yuanbao_public_paths_cover_parsing_config_and_no_network_fallbacks() {
+    let _env_lock = __shared_env_lock();
     let mut cfg = LarkConfig {
         app_id: "app".into(),
         app_secret: "secret".into(),
@@ -511,6 +527,7 @@ fn lark_and_yuanbao_public_paths_cover_parsing_config_and_no_network_fallbacks()
 
 #[test]
 fn round16_artifact_scope_uses_requested_target_prefix() {
+    let _env_lock = __shared_env_lock();
     let tmp = TempDir::with_prefix("channels-provider-deep-round16-").expect("round16 tempdir");
     assert!(tmp
         .path()

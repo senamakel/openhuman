@@ -209,8 +209,20 @@ impl Drop for EnvGuard {
     }
 }
 
+// Serialize env mutation against every other aggregated suite via the
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// that does not itself hold a lock). Poison is recovered so a panic
+// elsewhere cannot wedge the suite.
+fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[tokio::test]
 async fn telegram_round19_covers_mention_filter_typing_fallback_and_attachment_forms() {
+    let _env_lock = __shared_env_lock();
     let (base, state, server) = spawn_telegram_mock().await;
     let _api_base = EnvGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", &base);
     let _legacy_base = EnvGuard::set("OPENHUMAN_TELEGRAM_API_BASE", "");
@@ -312,6 +324,7 @@ async fn telegram_round19_covers_mention_filter_typing_fallback_and_attachment_f
 
 #[tokio::test]
 async fn web_round19_covers_classifier_variants_and_cancel_cleanup() {
+    let _env_lock = __shared_env_lock();
     let auth = web_test_support::classify_error_for_test(
         "custom_openai API error (401 Unauthorized): invalid api key",
     );
@@ -377,6 +390,7 @@ async fn web_round19_covers_classifier_variants_and_cancel_cleanup() {
 
 #[test]
 fn lark_round19_covers_parse_leftovers_and_config_defaults() {
+    let _env_lock = __shared_env_lock();
     let mut cfg = LarkConfig {
         app_id: "round19-app".into(),
         app_secret: "round19-secret".into(),
@@ -445,6 +459,7 @@ fn lark_round19_covers_parse_leftovers_and_config_defaults() {
 
 #[tokio::test]
 async fn lark_round19_listen_http_missing_port_and_ephemeral_bind_paths() {
+    let _env_lock = __shared_env_lock();
     let missing_port = LarkChannel::from_config(&LarkConfig {
         app_id: "round19-app".into(),
         app_secret: "round19-secret".into(),
@@ -481,6 +496,7 @@ async fn lark_round19_listen_http_missing_port_and_ephemeral_bind_paths() {
 
 #[tokio::test]
 async fn yuanbao_round19_connection_run_shutdown_and_channel_error_paths() {
+    let _env_lock = __shared_env_lock();
     let cfg = YuanbaoConfig {
         app_key: "round19-ak".into(),
         token: "round19-token".into(),
@@ -555,6 +571,7 @@ async fn yuanbao_round19_connection_run_shutdown_and_channel_error_paths() {
 
 #[tokio::test]
 async fn round19_artifact_target_prefix_is_used() {
+    let _env_lock = __shared_env_lock();
     let dir = tempfile::Builder::new()
         .prefix("channels-provider-leftovers-round19-")
         .tempdir_in("target")

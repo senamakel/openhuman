@@ -93,7 +93,7 @@ fn triage_run(action: TriageAction) -> TriageRun {
 
 #[tokio::test]
 async fn drop_and_acknowledge_gate_pending_linked_cards_without_dispatch() {
-    let _env_lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().expect("env lock should not be poisoned");
+    let _env_lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = tempfile::tempdir().expect("temp workspace");
     let _env = WorkspaceEnvGuard::set(workspace.path());
     let location = board_location(workspace.path());
@@ -122,7 +122,7 @@ async fn drop_and_acknowledge_gate_pending_linked_cards_without_dispatch() {
 
 #[tokio::test]
 async fn react_on_linked_todo_card_parks_for_plan_approval() {
-    let _env_lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().expect("env lock should not be poisoned");
+    let _env_lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = tempfile::tempdir().expect("temp workspace");
     let _env = WorkspaceEnvGuard::set(workspace.path());
     let _ = init_global(32);
@@ -142,7 +142,7 @@ async fn react_on_linked_todo_card_parks_for_plan_approval() {
 
 #[tokio::test]
 async fn dispatcher_rejects_missing_and_stale_non_claimable_cards() {
-    let _env_lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().expect("env lock should not be poisoned");
+    let _env_lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = tempfile::tempdir().expect("temp workspace");
     let _env = WorkspaceEnvGuard::set(workspace.path());
     let location = board_location(workspace.path());
@@ -182,7 +182,7 @@ async fn dispatcher_rejects_missing_and_stale_non_claimable_cards() {
 
 #[tokio::test]
 async fn dispatch_card_returns_awaiting_approval_before_agent_spawn() {
-    let _env_lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().expect("env lock should not be poisoned");
+    let _env_lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = tempfile::tempdir().expect("temp workspace");
     let _env = WorkspaceEnvGuard::set(workspace.path());
     let _ = init_global(32);

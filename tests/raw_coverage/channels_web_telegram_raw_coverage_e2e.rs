@@ -241,8 +241,20 @@ impl Drop for EnvGuard {
     }
 }
 
+// Serialize env mutation against every other aggregated suite via the
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// that does not itself hold a lock). Poison is recovered so a panic
+// elsewhere cannot wedge the suite.
+fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[tokio::test]
 async fn web_channel_approval_bridge_forced_errors_and_newer_request_cancellation() {
+    let _env_lock = __shared_env_lock();
     init_global(64);
     register_approval_surface_subscriber();
     let mut rx = subscribe_web_channel_events();
@@ -374,6 +386,7 @@ async fn web_channel_approval_bridge_forced_errors_and_newer_request_cancellatio
 
 #[tokio::test]
 async fn telegram_loopback_covers_polling_recovery_inbound_reaction_and_send_errors() {
+    let _env_lock = __shared_env_lock();
     let (base, state, server) = spawn_telegram_mock().await;
     let _api_base = EnvGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", &base);
     let _legacy_base = EnvGuard::set("OPENHUMAN_TELEGRAM_API_BASE", "");
@@ -492,6 +505,7 @@ async fn telegram_loopback_covers_polling_recovery_inbound_reaction_and_send_err
 
 #[test]
 fn lark_and_yuanbao_accessible_config_and_parser_branches() {
+    let _env_lock = __shared_env_lock();
     let mut lark_cfg = LarkConfig {
         app_id: "round18-app".to_string(),
         app_secret: "round18-secret".to_string(),

@@ -187,8 +187,20 @@ fn isolated_config() -> (tempfile::TempDir, Config) {
     (tmp, config)
 }
 
+// Serialize env mutation against every other aggregated suite via the
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// that does not itself hold a lock). Poison is recovered so a panic
+// elsewhere cannot wedge the suite.
+fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 #[tokio::test]
 async fn web_start_chat_validation_forced_error_and_cancel_paths_are_structured() {
+    let _env_lock = __shared_env_lock();
     assert_eq!(
         start_chat(
             " ",
@@ -263,6 +275,7 @@ async fn web_start_chat_validation_forced_error_and_cancel_paths_are_structured(
 
 #[tokio::test]
 async fn yuanbao_cos_credentials_signing_and_connection_debug_paths() {
+    let _env_lock = __shared_env_lock();
     let (cos_base, cos_state, cos_server) = spawn_cos_mock().await;
     let http = reqwest::Client::new();
     let creds = get_cos_credentials(
@@ -339,6 +352,7 @@ async fn yuanbao_cos_credentials_signing_and_connection_debug_paths() {
 
 #[tokio::test]
 async fn startup_yuanbao_secret_hydration_respects_matching_app_key() {
+    let _env_lock = __shared_env_lock();
     let (_tmp, config) = isolated_config();
     let auth = AuthService::from_config(&config);
     auth.store_provider_token(
@@ -378,6 +392,7 @@ async fn startup_yuanbao_secret_hydration_respects_matching_app_key() {
 
 #[tokio::test]
 async fn telegram_send_reaction_attachment_and_media_url_paths_use_loopback_api() {
+    let _env_lock = __shared_env_lock();
     let (base, state, server) = spawn_telegram_mock().await;
     let _base_guard = EnvGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", base);
     let channel = TelegramChannel::new("TEST:TOKEN".to_string(), vec!["*".to_string()], false);

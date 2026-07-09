@@ -742,6 +742,16 @@ fn is_local_provider_unreachable_failure_matches_when_only_output_carries_signal
     ));
 }
 
+#[test]
+fn is_local_provider_unreachable_failure_matches_short_loopback_send_error() {
+    let wire = "error sending request for url (http://localhost:1234/v1/chat/completions)";
+    assert!(is_local_provider_unreachable_failure(
+        &JobType::Agent,
+        Some(wire),
+        AGENT_JOB_USER_FAILURE_MESSAGE
+    ));
+}
+
 // Negative guard: a transient REMOTE provider / backend network error must NOT
 // halt — it may recover on retry and stays actionable in Sentry. Narrowing to
 // loopback is what keeps this guard from blinding real outages.

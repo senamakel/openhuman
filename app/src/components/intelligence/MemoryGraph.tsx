@@ -112,6 +112,8 @@ interface MemoryGraphProps {
   fitScale?: number;
   /** Fit the whole graph tightly to the viewport instead of a fixed zoom. */
   fitToBounds?: boolean;
+  /** Draw an always-on text label under each node. */
+  showLabels?: boolean;
   /**
    * Fired exactly once when the graph's force layout first settles (SVG
    * worker `end`, the synchronous relax fallback, or the Pixi sim cooling).
@@ -212,6 +214,7 @@ export function MemoryGraph({
   fill,
   fitScale,
   fitToBounds,
+  showLabels,
   onReady,
 }: MemoryGraphProps) {
   const { t } = useT();
@@ -421,6 +424,7 @@ export function MemoryGraph({
   // of re-rendering up to 10k elements through React every frame.
   const circleEls = useRef<(SVGCircleElement | null)[]>([]);
   const lineEls = useRef<(SVGLineElement | null)[]>([]);
+  const textEls = useRef<(SVGTextElement | null)[]>([]);
 
   // Progressive DOM mount for the SVG path: reveal nodes in per-frame batches
   // so a large graph never blocks building thousands of elements in one commit.
@@ -436,6 +440,7 @@ export function MemoryGraph({
     simIdRef.current = sim;
     circleEls.current = [];
     lineEls.current = [];
+    textEls.current = [];
     setSvgVisible(sim ? Math.min(sim.sim.length, FIRST_BATCH) : 0);
   }
 
@@ -455,6 +460,11 @@ export function MemoryGraph({
       if (el) {
         el.setAttribute('cx', String(ns[i].x));
         el.setAttribute('cy', String(ns[i].y));
+      }
+      const tel = textEls.current[i];
+      if (tel) {
+        tel.setAttribute('x', String(ns[i].x));
+        tel.setAttribute('y', String(ns[i].y + nodeRadius(ns[i]) + 12));
       }
     }
     for (let e = 0; e < s.edges.length; e++) {
@@ -653,6 +663,7 @@ export function MemoryGraph({
           fill={fill}
           fitScale={fitScale}
           fitToBounds={fitToBounds}
+          showLabels={showLabels}
           dark={
             typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
           }
@@ -742,6 +753,29 @@ export function MemoryGraph({
                 );
               })}
             </g>
+            {showLabels && (
+              <g>
+                {sim.sim.slice(0, svgVisible).map((n, i) => {
+                  const label = (n.label ?? '').trim();
+                  const text = label.length > 22 ? `${label.slice(0, 21)}…` : label;
+                  return (
+                    <text
+                      key={n.id}
+                      ref={el => {
+                        textEls.current[i] = el;
+                      }}
+                      x={n.x}
+                      y={n.y + nodeRadius(n) + 12}
+                      textAnchor="middle"
+                      fontSize={13}
+                      fill={isDark ? '#e2e8f0' : '#334155'}
+                      style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                      {text}
+                    </text>
+                  );
+                })}
+              </g>
+            )}
           </g>
         </svg>
       )}

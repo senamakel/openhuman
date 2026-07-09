@@ -103,6 +103,7 @@ export default function OverviewPanel() {
         emptyHint={t('orchPage.overview.empty')}
         fill
         fitToBounds
+        showLabels
       />
     </div>
   );

@@ -25,6 +25,8 @@ interface PixiGraphProps {
   fitScale?: number;
   /** Fit the whole node cloud tightly to the viewport instead of a fixed zoom. */
   fitToBounds?: boolean;
+  /** Draw an always-on text label under each node. */
+  showLabels?: boolean;
   /** Bump to recentre the view (Reset view button). */
   resetSignal: number;
   onHover: (node: GraphNode | null) => void;
@@ -45,6 +47,7 @@ export function PixiGraph({
   fill,
   fitScale,
   fitToBounds,
+  showLabels,
   resetSignal,
   onHover,
   onOpen,
@@ -89,6 +92,7 @@ export function PixiGraph({
       dark: darkRef.current,
       fitScale,
       fitToBounds,
+      showLabels,
       onHover: n => onHoverRef.current(n),
       onOpen: n => onOpenRef.current(n),
       onReady: () => onReadyRef.current?.(),
@@ -113,7 +117,7 @@ export function PixiGraph({
       mountedModeRef.current = null;
       void pending.then(handle => handle?.destroy());
     };
-  }, [nodes, edges, mode, rootLabel, fitScale, fitToBounds]);
+  }, [nodes, edges, mode, rootLabel, fitScale, fitToBounds, showLabels]);
 
   useEffect(() => {
     handleRef.current?.setTheme(dark);

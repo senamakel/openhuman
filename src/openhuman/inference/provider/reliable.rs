@@ -243,18 +243,20 @@ impl Provider for ReliableProvider {
                             );
 
                             // On rate-limit, try rotating API key
-                            if rate_limited && !non_retryable_rate_limit
-                                && self.rotate_key().is_some() {
-                                    tracing::info!(
-                                        provider = provider_name,
-                                        error = %error_detail,
-                                        key_slot = %rotated_key_log_detail(
-                                            self.key_index.load(Ordering::Relaxed),
-                                            self.api_keys.len()
-                                        ),
-                                        "Rate limited, rotated API key"
-                                    );
-                                }
+                            if rate_limited
+                                && !non_retryable_rate_limit
+                                && self.rotate_key().is_some()
+                            {
+                                tracing::info!(
+                                    provider = provider_name,
+                                    error = %error_detail,
+                                    key_slot = %rotated_key_log_detail(
+                                        self.key_index.load(Ordering::Relaxed),
+                                        self.api_keys.len()
+                                    ),
+                                    "Rate limited, rotated API key"
+                                );
+                            }
 
                             if non_retryable {
                                 tracing::warn!(
@@ -378,18 +380,20 @@ impl Provider for ReliableProvider {
                                 &error_detail,
                             );
 
-                            if rate_limited && !non_retryable_rate_limit
-                                && self.rotate_key().is_some() {
-                                    tracing::info!(
-                                        provider = provider_name,
-                                        error = %error_detail,
-                                        key_slot = %rotated_key_log_detail(
-                                            self.key_index.load(Ordering::Relaxed),
-                                            self.api_keys.len()
-                                        ),
-                                        "Rate limited, rotated API key"
-                                    );
-                                }
+                            if rate_limited
+                                && !non_retryable_rate_limit
+                                && self.rotate_key().is_some()
+                            {
+                                tracing::info!(
+                                    provider = provider_name,
+                                    error = %error_detail,
+                                    key_slot = %rotated_key_log_detail(
+                                        self.key_index.load(Ordering::Relaxed),
+                                        self.api_keys.len()
+                                    ),
+                                    "Rate limited, rotated API key"
+                                );
+                            }
 
                             if non_retryable {
                                 tracing::warn!(
@@ -542,18 +546,20 @@ impl Provider for ReliableProvider {
                                 &error_detail,
                             );
 
-                            if rate_limited && !non_retryable_rate_limit
-                                && self.rotate_key().is_some() {
-                                    tracing::info!(
-                                        provider = provider_name,
-                                        error = %error_detail,
-                                        key_slot = %rotated_key_log_detail(
-                                            self.key_index.load(Ordering::Relaxed),
-                                            self.api_keys.len()
-                                        ),
-                                        "Rate limited, rotated API key"
-                                    );
-                                }
+                            if rate_limited
+                                && !non_retryable_rate_limit
+                                && self.rotate_key().is_some()
+                            {
+                                tracing::info!(
+                                    provider = provider_name,
+                                    error = %error_detail,
+                                    key_slot = %rotated_key_log_detail(
+                                        self.key_index.load(Ordering::Relaxed),
+                                        self.api_keys.len()
+                                    ),
+                                    "Rate limited, rotated API key"
+                                );
+                            }
 
                             if non_retryable {
                                 tracing::warn!(
@@ -670,18 +676,20 @@ impl Provider for ReliableProvider {
                                 &error_detail,
                             );
 
-                            if rate_limited && !non_retryable_rate_limit
-                                && self.rotate_key().is_some() {
-                                    tracing::info!(
-                                        provider = provider_name,
-                                        error = %error_detail,
-                                        key_slot = %rotated_key_log_detail(
-                                            self.key_index.load(Ordering::Relaxed),
-                                            self.api_keys.len()
-                                        ),
-                                        "Rate limited, rotated API key"
-                                    );
-                                }
+                            if rate_limited
+                                && !non_retryable_rate_limit
+                                && self.rotate_key().is_some()
+                            {
+                                tracing::info!(
+                                    provider = provider_name,
+                                    error = %error_detail,
+                                    key_slot = %rotated_key_log_detail(
+                                        self.key_index.load(Ordering::Relaxed),
+                                        self.api_keys.len()
+                                    ),
+                                    "Rate limited, rotated API key"
+                                );
+                            }
 
                             if non_retryable {
                                 tracing::warn!(

@@ -27,7 +27,6 @@ pub struct DashboardConfig {
     pub diagram_viewer: DiagramViewerConfig,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct EventStreamConfig {

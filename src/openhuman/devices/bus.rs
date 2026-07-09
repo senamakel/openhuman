@@ -256,7 +256,8 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
                 aead.decrypt(nonce, &inner_frame[24..])
                     .map_err(|_| "[devices/bus] AEAD decrypt failed on handshake frame".to_string())
             }
-        }; match res {
+        };
+        match res {
             Ok(plaintext_bytes) => match String::from_utf8(plaintext_bytes) {
                 Ok(s) => parse_handshake_payload(&s),
                 Err(_) => {

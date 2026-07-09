@@ -29,7 +29,6 @@ pub struct LocalAiUsage {
     pub subconscious: bool,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct LocalAiConfig {

@@ -594,7 +594,7 @@ pub(crate) fn build_evm_payment_with_signer(
     req: &PaymentRequirements,
 ) -> Result<PaymentPayload, X402Error> {
     use ethers_core::types::{Address, U256};
-    
+
     use std::str::FromStr;
 
     let chain_id = req

@@ -245,7 +245,6 @@ pub enum SuggestionStatus {
     Built,
 }
 
-
 impl SuggestionStatus {
     /// The stable lowercase token persisted in SQLite / crossed over RPC.
     pub fn as_str(self) -> &'static str {

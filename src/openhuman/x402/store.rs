@@ -50,7 +50,6 @@ pub struct SpendingSummary {
     pub monthly_count: usize,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpendingBudget {

@@ -13,7 +13,6 @@ pub enum ArtifactKind {
     Other,
 }
 
-
 impl ArtifactKind {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -46,7 +45,6 @@ pub enum ArtifactStatus {
     Ready,
     Failed,
 }
-
 
 impl ArtifactStatus {
     pub fn as_str(&self) -> &'static str {

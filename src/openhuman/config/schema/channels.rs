@@ -59,7 +59,6 @@ pub enum SandboxBackend {
 #[derive(Default)]
 pub struct ResourceLimitsConfig {}
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct AuditConfig {

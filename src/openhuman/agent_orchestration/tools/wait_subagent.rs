@@ -273,7 +273,9 @@ impl Tool for WaitSubagentTool {
                     "[wait_subagent] outcome=not_owned task_id={}",
                     resolved_task_id
                 );
-                Ok(ToolResult::error("wait_subagent: that sub-agent was not started by this agent.".to_string()))
+                Ok(ToolResult::error(
+                    "wait_subagent: that sub-agent was not started by this agent.".to_string(),
+                ))
             }
         }
     }

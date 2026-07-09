@@ -47,4 +47,3 @@ pub enum CapabilityProviderTrustState {
     /// Provider is explicitly trusted by local config.
     Trusted,
 }
-

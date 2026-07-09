@@ -25,7 +25,6 @@ pub enum AutoJoinPolicy {
     Never,
 }
 
-
 /// Controls whether post-call summaries are generated automatically.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -40,7 +39,6 @@ pub enum AutoSummarizePolicy {
     Never,
 }
 
-
 /// Which calendar data source feeds Google Meet detection and auto-join.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -52,7 +50,6 @@ pub enum CalendarProvider {
     /// Recall.ai Calendar V1 OAuth (less-invasive: read-only events + email).
     Recall,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]

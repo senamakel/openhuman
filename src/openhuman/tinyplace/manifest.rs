@@ -642,9 +642,8 @@ pub(crate) fn handle_tinyplace_registry_register(params: Map<String, Value>) -> 
                     log::debug!(
                         "{LOG_PREFIX} registry_register settled username={username} attempt={attempt}"
                     );
-                    let _ =
-                        publish_directory_card_for_identity(client, signer.as_ref(), &identity)
-                            .await;
+                    let _ = publish_directory_card_for_identity(client, signer.as_ref(), &identity)
+                        .await;
                     return to_value(serde_json::json!({
                         "identity": identity,
                         "payment": { "onChainTx": on_chain_tx },
@@ -680,9 +679,8 @@ pub(crate) fn handle_tinyplace_registry_register(params: Map<String, Value>) -> 
                     log::debug!(
                         "{LOG_PREFIX} registry_register recovered owned identity username={username}"
                     );
-                    let _ =
-                        publish_directory_card_for_identity(client, signer.as_ref(), &identity)
-                            .await;
+                    let _ = publish_directory_card_for_identity(client, signer.as_ref(), &identity)
+                        .await;
                     return to_value(serde_json::json!({
                         "identity": identity,
                         "payment": { "onChainTx": on_chain_tx },

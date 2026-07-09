@@ -160,10 +160,7 @@ pub(super) fn skip_env_assignments(s: &str) -> &str {
 }
 
 pub(super) fn command_basename(command: &str) -> &str {
-    command
-        .split(['/', '\\'])
-        .next_back()
-        .unwrap_or(command)
+    command.split(['/', '\\']).next_back().unwrap_or(command)
 }
 
 pub(super) fn normalized_command_name(command: &str) -> String {
@@ -372,10 +369,9 @@ pub(super) fn contains_unquoted_single_ampersand(command: &str) -> bool {
                 match ch {
                     '\'' => quote = QuoteState::Single,
                     '"' => quote = QuoteState::Double,
-                    '&'
-                        if chars.next_if_eq(&'&').is_none() => {
-                            return true;
-                        }
+                    '&' if chars.next_if_eq(&'&').is_none() => {
+                        return true;
+                    }
                     _ => {}
                 }
             }

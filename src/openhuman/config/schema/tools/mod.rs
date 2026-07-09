@@ -15,7 +15,8 @@ pub use integrations::{
     COMPOSIO_MODE_DIRECT,
 };
 pub use mcp::{
-    GitbooksConfig, HttpHeader, McpAuthConfig, McpClientConfig, McpClientIdentityConfig, McpServerConfig,
+    GitbooksConfig, HttpHeader, McpAuthConfig, McpClientConfig, McpClientIdentityConfig,
+    McpServerConfig,
 };
 pub use multimodal::{MultimodalConfig, MultimodalFileConfig};
 pub use search::{

@@ -1380,9 +1380,8 @@ impl AuthProfilesStore {
         // `create_new` and the write, so anything older is abandoned. If mtime
         // is unreadable (clock skew, platform limitation) default to stale —
         // no legitimate in-flight writer would be undetectable for that long.
-        let malformed_too_old = age.is_none_or(|a| {
-            a >= Duration::from_millis(MALFORMED_LOCK_GRACE_MS)
-        });
+        let malformed_too_old =
+            age.is_none_or(|a| a >= Duration::from_millis(MALFORMED_LOCK_GRACE_MS));
 
         let content = match fs::read_to_string(&self.lock_path) {
             Ok(s) => s,

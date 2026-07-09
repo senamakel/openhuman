@@ -420,9 +420,10 @@ fn extract_employer_pattern(s: &str) -> Option<String> {
     ];
     for suffix in corp_suffixes {
         if (lower.ends_with(suffix) || lower.contains(&format!("{suffix} ")))
-            && is_plausible_employer(t) {
-                return Some(clean_employer(t));
-            }
+            && is_plausible_employer(t)
+        {
+            return Some(clean_employer(t));
+        }
     }
     None
 }

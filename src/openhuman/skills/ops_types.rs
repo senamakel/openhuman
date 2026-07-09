@@ -53,7 +53,6 @@ pub enum WorkflowScope {
     Legacy,
 }
 
-
 /// Parsed frontmatter of a `SKILL.md` file.
 ///
 /// Matches the agentskills.io SKILL.md spec: `name` and `description` are

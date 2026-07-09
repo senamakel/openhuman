@@ -26,7 +26,6 @@ pub enum QueueMode {
     Parallel,
 }
 
-
 impl fmt::Display for QueueMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

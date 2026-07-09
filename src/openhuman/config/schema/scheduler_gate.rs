@@ -28,7 +28,6 @@ impl SchedulerGateMode {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct SchedulerGateConfig {

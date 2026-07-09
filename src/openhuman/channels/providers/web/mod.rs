@@ -57,7 +57,6 @@ pub use ops::set_test_forced_run_chat_task_error;
 #[cfg(any(test, debug_assertions))]
 pub use ops::{set_test_run_chat_task_block, TestRunChatTaskBlock};
 
-
 #[cfg(any(test, debug_assertions))]
 pub mod test_support {
     #[derive(Debug, Clone, PartialEq, Eq)]

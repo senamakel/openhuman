@@ -37,7 +37,6 @@ pub enum ToolMemoryPriority {
     Critical,
 }
 
-
 impl ToolMemoryPriority {
     /// True for priorities that must be eagerly surfaced to the agent
     /// (Critical/High rules are both pinned into the system prompt and
@@ -64,7 +63,6 @@ pub enum ToolMemorySource {
     #[default]
     Programmatic,
 }
-
 
 /// A single tool-scoped memory rule.
 ///

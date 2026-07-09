@@ -170,7 +170,8 @@ impl PolymarketTool {
 
         let cached_credentials = config
             .derived_clob_credentials
-            .clone().filter(PolymarketClobCredentials::is_complete);
+            .clone()
+            .filter(PolymarketClobCredentials::is_complete);
 
         Self {
             gamma_base_url: normalize_base_url(

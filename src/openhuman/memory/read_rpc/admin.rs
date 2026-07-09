@@ -245,7 +245,7 @@ pub async fn flush_source_tree_rpc(
     source_scope: &str,
 ) -> Result<RpcOutcome<FlushSourceTreeResponse>, String> {
     use crate::openhuman::memory::tree_source::get_or_create_source_tree;
-    
+
     use crate::openhuman::memory_tree::tree::flush::force_flush_tree;
     use crate::openhuman::memory_tree::tree::TreeFactory;
     use std::collections::HashSet;

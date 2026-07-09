@@ -15,7 +15,6 @@ pub enum UpdateRestartStrategy {
     Supervisor,
 }
 
-
 /// Configuration for periodic self-update checks against GitHub Releases.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]

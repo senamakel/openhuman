@@ -126,7 +126,6 @@ pub enum SourceTarget {
     TodoOnly,
 }
 
-
 /// Why a fetch ran — mirrors the provider `SyncReason` semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

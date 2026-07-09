@@ -26,7 +26,6 @@ pub struct StorageProviderConfig {
     pub provider: String,
 }
 
-
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[allow(clippy::struct_excessive_bools)]
 #[serde(default)]
@@ -197,7 +196,6 @@ impl LlmBackend {
         }
     }
 }
-
 
 fn default_llm_backend() -> LlmBackend {
     LlmBackend::default()

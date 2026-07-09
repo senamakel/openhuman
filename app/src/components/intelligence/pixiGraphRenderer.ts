@@ -36,6 +36,10 @@ export interface PixiGraphOptions {
   onOpen: (node: SimNode) => void;
   /** Fired once the force simulation first cools (graph is laid out). */
   onReady?: () => void;
+  /** Initial auto-fit zoom (world scale). Defaults to 0.17. */
+  fitScale?: number;
+  /** Fit the whole node cloud tightly to the viewport instead of a fixed zoom. */
+  fitToBounds?: boolean;
 }
 
 export interface PixiGraphHandle {
@@ -96,13 +100,44 @@ export async function mountPixiGraph(
   // so the initial frame is zoomed out to show as much as possible.
   let userInteracted = false;
 
-  /** Centre on the root node at a fixed comfortable zoom. */
+  /**
+   * Frame the graph. With `fitToBounds`, scale so the whole node cloud fits the
+   * viewport as tightly as possible (a little margin for node radii/labels);
+   * otherwise centre on the root at a fixed comfortable zoom (`fitScale`).
+   */
   const fitToView = () => {
     if (opts.simNodes.length === 0) return;
+
+    if (opts.fitToBounds) {
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const n of opts.simNodes) {
+        const r = nodeRadius(n) + 8; // pad for the node radius + a little label room
+        minX = Math.min(minX, n.x - r);
+        minY = Math.min(minY, n.y - r);
+        maxX = Math.max(maxX, n.x + r);
+        maxY = Math.max(maxY, n.y + r);
+      }
+      const w = Math.max(1, maxX - minX);
+      const h = Math.max(1, maxY - minY);
+      const margin = 0.92; // leave ~8% breathing room around the content
+      const scale = Math.min(
+        ZOOM_MAX,
+        Math.max(ZOOM_MIN, Math.min(app.screen.width / w, app.screen.height / h) * margin)
+      );
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      world.scale.set(scale);
+      world.position.set(app.screen.width / 2 - cx * scale, app.screen.height / 2 - cy * scale);
+      return;
+    }
+
     const root = opts.simNodes.find(n => n.kind === 'root');
     const cx = root?.x ?? 0;
     const cy = root?.y ?? 0;
-    const scale = 0.17;
+    const scale = opts.fitScale ?? 0.17;
     world.scale.set(scale);
     world.position.set(app.screen.width / 2 - cx * scale, app.screen.height / 2 - cy * scale);
   };

@@ -104,6 +104,14 @@ interface MemoryGraphProps {
   mode: GraphMode;
   /** Optional override for the empty-state message. */
   emptyHint?: string;
+  /** Optional label for the central hub node (WebGL path). Defaults to "Memory". */
+  rootLabel?: string;
+  /** Fill the parent's height (full-screen) instead of the fixed 640px card. */
+  fill?: boolean;
+  /** Initial auto-fit zoom. Lower = more zoomed out. Defaults to 0.17. */
+  fitScale?: number;
+  /** Fit the whole graph tightly to the viewport instead of a fixed zoom. */
+  fitToBounds?: boolean;
   /**
    * Fired exactly once when the graph's force layout first settles (SVG
    * worker `end`, the synchronous relax fallback, or the Pixi sim cooling).
@@ -195,7 +203,17 @@ function relaxLayout(nodes: SimNode[], edges: Array<[number, number]>, iteration
   }
 }
 
-export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGraphProps) {
+export function MemoryGraph({
+  nodes,
+  edges,
+  mode,
+  emptyHint,
+  rootLabel,
+  fill,
+  fitScale,
+  fitToBounds,
+  onReady,
+}: MemoryGraphProps) {
   const { t } = useT();
   const themeMode = useAppSelector(state => state.theme?.mode ?? 'system') as ThemeMode;
   const isDark = resolveTheme(themeMode) === 'dark';
@@ -462,12 +480,35 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
     const ns = s.sim;
     if (ns.length === 0) return;
     // Center on the root node at a fixed comfortable zoom.
+    if (fitToBounds) {
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const n of ns) {
+        const r = nodeRadius(n) + 8;
+        minX = Math.min(minX, n.x - r);
+        minY = Math.min(minY, n.y - r);
+        maxX = Math.max(maxX, n.x + r);
+        maxY = Math.max(maxY, n.y + r);
+      }
+      const w = Math.max(1, maxX - minX);
+      const h = Math.max(1, maxY - minY);
+      const scale = Math.min(
+        ZOOM_MAX,
+        Math.max(ZOOM_MIN, Math.min(VIEWPORT_W / w, VIEWPORT_H / h) * 0.92)
+      );
+      const bx = (minX + maxX) / 2;
+      const by = (minY + maxY) / 2;
+      setView({ scale, tx: VIEWPORT_W / 2 - bx * scale, ty: VIEWPORT_H / 2 - by * scale });
+      return;
+    }
     const root = ns.find(n => n.kind === 'root');
     const cx = root?.x ?? 0;
     const cy = root?.y ?? 0;
-    const scale = 0.17;
+    const scale = fitScale ?? 0.17;
     setView({ scale, tx: VIEWPORT_W / 2 - cx * scale, ty: VIEWPORT_H / 2 - cy * scale });
-  }, []);
+  }, [fitScale, fitToBounds]);
   fitRef.current = fitToView;
 
   // Coalesce worker ticks to one DOM write per frame.
@@ -565,9 +606,11 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
 
   return (
     <div
-      className="memory-graph rounded-lg border border-line-subtle bg-surface"
+      className={`memory-graph rounded-lg border border-line-subtle bg-surface ${
+        fill ? 'flex h-full flex-col overflow-hidden' : ''
+      }`}
       onMouseLeave={() => setHovered(null)}>
-      <div className="flex items-center justify-between gap-4 border-b border-line-subtle px-4 py-2">
+      <div className="flex flex-none items-center justify-between gap-4 border-b border-line-subtle px-4 py-2">
         <div className="flex items-center gap-3 text-xs text-content-muted">
           <span>
             {nodes.length} {t('graph.nodes')}
@@ -606,6 +649,10 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
           nodes={nodes}
           edges={edges}
           mode={mode}
+          rootLabel={rootLabel}
+          fill={fill}
+          fitScale={fitScale}
+          fitToBounds={fitToBounds}
           dark={
             typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
           }
@@ -621,9 +668,9 @@ export function MemoryGraph({ nodes, edges, mode, emptyHint, onReady }: MemoryGr
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VIEWPORT_W} ${VIEWPORT_H}`}
-          className="block w-full touch-none select-none"
+          className={`block w-full touch-none select-none ${fill ? 'min-h-0 flex-1' : ''}`}
           style={{
-            height: 'min(640px, calc(100vh - 22rem))',
+            height: fill ? '100%' : 'min(640px, calc(100vh - 22rem))',
             cursor: grabbing ? 'grabbing' : 'grab',
           }}
           onPointerDown={onBackgroundPointerDown}

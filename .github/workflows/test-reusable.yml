@@ -156,7 +156,36 @@ jobs:
           cache-on-failure: true
           key: core
       - name: Test core crate (openhuman)
-        run: bash scripts/ci-cancel-aware.sh cargo test -p openhuman
+        run: |
+          set -euo pipefail
+
+          integration_test_targets() {
+            find tests -maxdepth 1 -type f -name '*.rs' -print |
+              sed -e 's#^tests/##' -e 's#\.rs$##' |
+              sort
+          }
+
+          raw_coverage_modules() {
+            find tests/raw_coverage -maxdepth 1 -type f -name '*.rs' -print |
+              sed -e 's#^tests/raw_coverage/##' -e 's#\.rs$##' |
+              sort
+          }
+
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --bins
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman --doc
+
+          while IFS= read -r target; do
+            [ -n "${target}" ] || continue
+            if [ "${target}" = "raw_coverage_all" ]; then
+              while IFS= read -r module; do
+                [ -n "${module}" ] || continue
+                echo "[test-reusable] raw coverage module: ${module}"
+                bash scripts/ci-cancel-aware.sh cargo test -p openhuman --test "${target}" -- "${module}::" --test-threads=1
+              done < <(raw_coverage_modules)
+            else
+              bash scripts/ci-cancel-aware.sh cargo test -p openhuman --test "${target}"
+            fi
+          done < <(integration_test_targets)
 
   rust-core-tests-windows:
     if: inputs.run_rust_core

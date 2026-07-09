@@ -95,6 +95,7 @@ jobs:
               - 'app/index.html'
               - 'app/public/**'
               - 'app/src/**'
+              - 'app/scripts/**'
               - 'app/test/vitest.config.ts'
               - 'app/tsconfig*.json'
               - 'app/vite.config.*'
@@ -114,6 +115,7 @@ jobs:
               - 'app/vite.config.*'
               - 'app/tailwind.config.*'
               - 'app/postcss.config.*'
+              - 'app/scripts/**'
               - 'app/src/test/**'
             frontend-src:
               - 'app/src/**/*.ts'
@@ -135,6 +137,8 @@ jobs:
               - 'scripts/ci/rust-coverage-changed.sh'
               - 'Cargo.toml'
               - 'Cargo.lock'
+              - 'build.rs'
+              - '.cargo/config.toml'
               - 'rust-toolchain.toml'
               - 'src/**'
               - 'tests/**'
@@ -147,6 +151,8 @@ jobs:
               - 'scripts/ci/rust-coverage-changed.sh'
               - 'Cargo.toml'
               - 'Cargo.lock'
+              - 'build.rs'
+              - '.cargo/config.toml'
               - 'rust-toolchain.toml'
               - 'scripts/ci-cancel-aware.sh'
             rust-core-src:
@@ -155,6 +161,7 @@ jobs:
             rust-tauri:
               - '.github/workflows/ci-lite.yml'
               - 'Cargo.lock'
+              - '.cargo/config.toml'
               - 'rust-toolchain.toml'
               - 'app/src-tauri/**'
               - 'scripts/ci-cancel-aware.sh'

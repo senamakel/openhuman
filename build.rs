@@ -24,25 +24,28 @@ fn main() {
     // Re-run whenever a file is added to / removed from the directory.
     println!("cargo:rerun-if-changed={}", raw_dir.display());
 
+    // Fail loudly rather than silently generating an empty module list: if the
+    // directory is missing/unreadable, aggregating "all raw-coverage tests"
+    // would otherwise drop every one of them with no error.
+    let read_dir = fs::read_dir(&raw_dir)
+        .unwrap_or_else(|e| panic!("failed to read {}: {e}", raw_dir.display()));
     let mut entries: Vec<(String, String)> = Vec::new();
-    if let Ok(read_dir) = fs::read_dir(&raw_dir) {
-        for entry in read_dir.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) != Some("rs") {
-                continue;
-            }
-            let stem = match path.file_stem().and_then(|s| s.to_str()) {
-                Some(s) => s.to_string(),
-                None => continue,
-            };
-            // Re-run if any individual test file's contents change.
-            println!("cargo:rerun-if-changed={}", path.display());
-            // Rust `#[path]` accepts forward slashes on every platform; the
-            // absolute path keeps resolution independent of where the generated
-            // file is `include!`d from.
-            let abs = path.display().to_string().replace('\\', "/");
-            entries.push((stem, abs));
+    for entry in read_dir.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
         }
+        let stem = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+        // Re-run if any individual test file's contents change.
+        println!("cargo:rerun-if-changed={}", path.display());
+        // Rust `#[path]` accepts forward slashes on every platform; the
+        // absolute path keeps resolution independent of where the generated
+        // file is `include!`d from.
+        let abs = path.display().to_string().replace('\\', "/");
+        entries.push((stem, abs));
     }
 
     // Deterministic order keeps the generated file stable across builds.

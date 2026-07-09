@@ -12,7 +12,10 @@
 import debugFactory from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { TaskKanbanBoard } from '../../features/conversations/components/TaskKanbanBoard';
+import {
+  type ColumnDef,
+  TaskKanbanBoard,
+} from '../../features/conversations/components/TaskKanbanBoard';
 import { useT } from '../../lib/i18n/I18nContext';
 import { ORCHESTRATOR_TASKS_THREAD_ID, todosApi } from '../../services/api/todosApi';
 import type { TaskBoard, TaskBoardCard, TaskBoardCardStatus } from '../../types/turnState';
@@ -25,6 +28,14 @@ const EMPTY_BOARD: TaskBoard = {
   cards: [],
   updatedAt: '',
 };
+
+/** The orchestrator board is a simple 4-column board. */
+const ORCHESTRATOR_COLUMNS: ColumnDef[] = [
+  { status: 'todo', labelKey: 'orchPage.tasks.colPending' },
+  { status: 'in_progress', labelKey: 'orchPage.tasks.colActive' },
+  { status: 'blocked', labelKey: 'orchPage.tasks.colBlocked' },
+  { status: 'done', labelKey: 'orchPage.tasks.colCompleted' },
+];
 
 export default function OrchestratorTaskBoard() {
   const { t } = useT();
@@ -175,6 +186,7 @@ export default function OrchestratorTaskBoard() {
 
       <TaskKanbanBoard
         board={board ?? EMPTY_BOARD}
+        columns={ORCHESTRATOR_COLUMNS}
         onMove={handleMove}
         onUpdateCard={handleUpdate}
         onDeleteCard={handleDelete}

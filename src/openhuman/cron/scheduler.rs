@@ -835,8 +835,16 @@ async fn run_agent_job(config: &Config, job: &CronJob) -> (bool, String, Option<
                     .unwrap_or_else(|| crate::openhuman::config::DEFAULT_MODEL.to_string());
                 let resolved_model = match &def.model {
                     ModelSpec::Hint(workload) => {
-                        match crate::openhuman::inference::provider::create_chat_provider(
-                            workload, &effective,
+                        // Resolve the workload's configured model id via the crate
+                        // `ChatModel` factory (#4249 Phase 1). We only need the
+                        // resolved model string here, so the built model is
+                        // discarded — `create_chat_model_with_model_id` wraps the
+                        // same `create_chat_provider` resolution, so the model id is
+                        // identical; temperature is irrelevant to id resolution.
+                        match crate::openhuman::inference::provider::create_chat_model_with_model_id(
+                            workload,
+                            &effective,
+                            effective.default_temperature,
                         ) {
                             Ok((_, m)) => {
                                 tracing::debug!(

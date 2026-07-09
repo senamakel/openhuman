@@ -111,6 +111,16 @@ for f in "${files[@]}"; do
 "
       log "${f} → libtest filter '${key}' (embedded asset)"
       ;;
+    tests/raw_coverage/*.rs)
+      # The ~76 *_raw_coverage_e2e.rs suites are aggregated into the single
+      # `raw_coverage_all` target (see tests/raw_coverage_all.rs + build.rs), so
+      # a change to any of them scopes to that one target rather than the full
+      # suite. libtest filters within the aggregate binary still work, but the
+      # simplest correct scope is running the whole aggregate target.
+      test_targets_raw="${test_targets_raw}raw_coverage_all
+"
+      log "${f} → aggregated integration target '--test raw_coverage_all'"
+      ;;
     tests/*.rs)
       name="${f#tests/}"
       name="${name%.rs}"

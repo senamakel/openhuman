@@ -1,4 +1,7 @@
-#[path = "config_auth_app_state_connectivity_e2e.rs"]
+// `config_auth_app_state_connectivity_e2e.rs` remains a top-level integration
+// target (it is not a `*_raw_coverage_e2e` file), so reach one directory up
+// out of `tests/raw_coverage/` to include it as the `base_coverage` helper.
+#[path = "../config_auth_app_state_connectivity_e2e.rs"]
 mod base_coverage;
 
 use std::path::{Path, PathBuf};

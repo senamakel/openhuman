@@ -122,8 +122,15 @@ impl Agent {
             (None, None)
         };
 
+        // The cap-hit checkpoint summary streams text deltas to the session
+        // progress sink (draft updates), which the crate `ChatModel::invoke` path
+        // doesn't expose — so this one call resolves the raw provider off the
+        // source inline (issue #4249, Phase 3 / Motion A). The `Agent` struct
+        // itself holds no `Provider`; this stays a `.provider()` escape hatch until
+        // the streaming checkpoint moves onto the crate stream API (Motion B).
         let result = self
-            .provider
+            .turn_model_source
+            .provider()
             .chat(
                 ChatRequest {
                     messages: &messages,

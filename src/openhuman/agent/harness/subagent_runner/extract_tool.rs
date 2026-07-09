@@ -35,7 +35,7 @@ use crate::openhuman::agent::harness::session::transcript::{
 use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::tinyagents::TurnModelSource;
 use tinyagents::harness::message::Message;
-use tinyagents::harness::model::{ChatModel, ModelRequest};
+use tinyagents::harness::model::ModelRequest;
 use crate::openhuman::tools::{Tool, ToolCategory, ToolResult};
 
 // ── Tunables ──────────────────────────────────────────────────────────

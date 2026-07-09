@@ -935,7 +935,7 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
         ]
         .into_iter()
         .collect(),
-        provider: provider.clone(),
+        turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::new(provider.clone()),
         all_tools: Arc::new(all_tools),
         all_tool_specs: Arc::new(all_specs),
         visible_tool_names: std::collections::HashSet::new(),
@@ -1010,7 +1010,7 @@ async fn subagent_runner_parent_context_filters_tools_caps_output_and_reports_er
             && message.content.contains("delegate this")));
 
     let error_parent = ParentExecutionContext {
-        provider: ScriptedProvider::failing("subagent provider offline"),
+        turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::new(ScriptedProvider::failing("subagent provider offline")),
         ..parent
     };
     let provider_err = with_parent_context(error_parent, async {

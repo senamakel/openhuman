@@ -1267,6 +1267,16 @@ impl TurnModelSource {
         self.provider.is_local_provider()
     }
 
+    /// The underlying provider handle. An escape hatch for the few seam-boundary
+    /// sites that still resolve/inherit a raw provider (sub-agent provider
+    /// resolution + its unit tests, the rhai-workflow model build): they consume
+    /// it inline rather than holding it, so no agent-harness *struct* carries an
+    /// `Arc<dyn Provider>`. Shrinks further as those callers move to the crate
+    /// `ModelRegistry` (Motion B).
+    pub(crate) fn provider(&self) -> Arc<dyn Provider> {
+        self.provider.clone()
+    }
+
     /// Build this turn's [`TurnModels`] (primary + tier routes + summarizer),
     /// capturing provider telemetry id + capabilities onto the bundle.
     pub(crate) fn build(&self, model: &str, temperature: f64, context_window: Option<u64>) -> TurnModels {

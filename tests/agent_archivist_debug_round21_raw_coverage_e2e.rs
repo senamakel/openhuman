@@ -280,7 +280,7 @@ fn parent_context(workspace: &Path, provider: Arc<ScriptedProvider>) -> ParentEx
         ]
         .into_iter()
         .collect(),
-        provider,
+        turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::new(provider),
         all_tools: Arc::new(tools),
         all_tool_specs: Arc::new(specs),
         visible_tool_names: std::collections::HashSet::new(),

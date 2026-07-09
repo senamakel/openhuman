@@ -92,7 +92,7 @@ pub(super) fn build_capability_registry(parent: &ParentExecutionContext) -> Capa
 
     // ── Model: the turn's provider, under its registered name. ──
     let model = provider_chat_model(
-        parent.provider.clone(),
+        parent.turn_model_source.provider(),
         parent.model_name.clone(),
         parent.temperature,
     );

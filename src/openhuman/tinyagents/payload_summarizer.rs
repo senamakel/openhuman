@@ -265,7 +265,7 @@ impl SubagentPayloadSummarizer {
             &self.definition.model,
             &self.definition.id,
             config_loaded.as_ref().ok(),
-            parent.provider.clone(),
+            parent.turn_model_source.provider(),
             parent.model_name.clone(),
             false,
             None,

@@ -83,33 +83,12 @@ const BOB_USERNAME = 'bob_e2e';
 
 /** Bot username configured in the mock. */
 const BOT_USERNAME = 'e2e_test_bot';
-const TELEGRAM_LISTENER_WAIT_MS = 30_000;
 
 // ---------------------------------------------------------------------------
 // Suite
 // ---------------------------------------------------------------------------
 
-describe('Telegram channel — connect / receive / send / disconnect', function () {
-  this.timeout(180_000);
-
-  async function waitForTelegramGetUpdates(scenario: string): Promise<boolean> {
-    const deadline = Date.now() + TELEGRAM_LISTENER_WAIT_MS;
-
-    while (Date.now() < deadline) {
-      const log = getRequestLog() as Array<{ method: string; url: string }>;
-      if (log.some(r => r.url.includes('getUpdates'))) {
-        console.log(`${LOG_PREFIX} ${scenario}: getUpdates observed`);
-        return true;
-      }
-      await browser.pause(500);
-    }
-
-    console.warn(
-      `${LOG_PREFIX} ${scenario}: getUpdates not observed within ${TELEGRAM_LISTENER_WAIT_MS}ms`
-    );
-    return false;
-  }
-
+describe('Telegram channel — connect / receive / send / disconnect', () => {
   // ──────────────────────────────────────────────────────────────────────────
   // Suite setup
   // ──────────────────────────────────────────────────────────────────────────
@@ -362,17 +341,17 @@ describe('Telegram channel — connect / receive / send / disconnect', function 
   // ──────────────────────────────────────────────────────────────────────────
 
   it('C.5 inbound text message round-trip — inject update; observe or document reply path', async function () {
-    this.timeout(120_000);
+    // Internal budget is up to 30s (getUpdates poll) + 25s (reply) + connect/LLM
+    // overhead — that sums past a 60s ceiling on the slower macOS runner, so the
+    // working round-trip blew the Mocha `it` timeout instead of asserting. 90s
+    // (matching C.7) gives the observed flow headroom without masking a real hang:
+    // the getUpdates soft-pass at line ~386 still short-circuits if the listener
+    // never polls.
+    this.timeout(90_000);
     console.log(`${LOG_PREFIX} C.5: setting up inbound message round-trip`);
 
     // First ensure the bot is connected (writes credentials + TOML config).
-    const connect = await connectTelegramBot({
-      botToken: BOT_TOKEN,
-      allowedUsers: [ALICE_USERNAME],
-    });
-    if (connect.restartRequired) {
-      console.warn(`${LOG_PREFIX} C.5: connect requested listener restart; checking live fallback`);
-    }
+    await connectTelegramBot({ botToken: BOT_TOKEN, allowedUsers: [ALICE_USERNAME] });
 
     // Configure the mock LLM to respond deterministically.
     setMockBehavior(
@@ -399,7 +378,16 @@ describe('Telegram channel — connect / receive / send / disconnect', function 
 
     // Wait for the mock to receive a getUpdates call (confirms the channel
     // polling loop is active against the mock server).
-    const getUpdatesObserved = await waitForTelegramGetUpdates('C.5');
+    const getUpdatesDeadline = Date.now() + 30_000;
+    let getUpdatesObserved = false;
+    while (Date.now() < getUpdatesDeadline) {
+      const log = getRequestLog() as Array<{ method: string; url: string }>;
+      if (log.some(r => r.url.includes('getUpdates'))) {
+        getUpdatesObserved = true;
+        break;
+      }
+      await browser.pause(500);
+    }
 
     if (!getUpdatesObserved) {
       // TODO(channels): The Telegram polling loop did not observe getUpdates
@@ -450,17 +438,14 @@ describe('Telegram channel — connect / receive / send / disconnect', function 
   // ──────────────────────────────────────────────────────────────────────────
 
   it('C.6 unauthorized user — connect with allowlist; excluded sender gets approval prompt', async function () {
-    this.timeout(120_000);
+    // 30s getUpdates poll + 20s reply wait + connect/LLM overhead exceeds 60s on the
+    // slower macOS runner; 90s fits the working flow. The getUpdates soft-pass still
+    // guards against a genuinely dead listener.
+    this.timeout(90_000);
     console.log(`${LOG_PREFIX} C.6: connecting with allowlist excluding Bob`);
 
     // Connect with Alice in the allowlist — Bob is excluded.
-    const connect = await connectTelegramBot({
-      botToken: BOT_TOKEN,
-      allowedUsers: [ALICE_USERNAME],
-    });
-    if (connect.restartRequired) {
-      console.warn(`${LOG_PREFIX} C.6: connect requested listener restart; checking live fallback`);
-    }
+    await connectTelegramBot({ botToken: BOT_TOKEN, allowedUsers: [ALICE_USERNAME] });
 
     // Inject a message from Bob (not in the allowlist).
     const update = buildTelegramUpdate({
@@ -475,7 +460,16 @@ describe('Telegram channel — connect / receive / send / disconnect', function 
     console.log(`${LOG_PREFIX} C.6: Bob's update injected`);
 
     // Wait for getUpdates poll to confirm listener is active.
-    const getUpdatesObserved = await waitForTelegramGetUpdates('C.6');
+    const getUpdatesDeadline = Date.now() + 30_000;
+    let getUpdatesObserved = false;
+    while (Date.now() < getUpdatesDeadline) {
+      const log = getRequestLog() as Array<{ method: string; url: string }>;
+      if (log.some(r => r.url.includes('getUpdates'))) {
+        getUpdatesObserved = true;
+        break;
+      }
+      await browser.pause(500);
+    }
 
     if (!getUpdatesObserved) {
       // TODO(channels): Same listener-restart caveat as C.5.
@@ -510,20 +504,26 @@ describe('Telegram channel — connect / receive / send / disconnect', function 
   // ──────────────────────────────────────────────────────────────────────────
 
   it('C.7 group mention-only — no mention skipped; with @mention bot replies', async function () {
-    this.timeout(120_000);
+    this.timeout(90_000);
     console.log(`${LOG_PREFIX} C.7: connecting with mentionOnly=true`);
 
-    const connect = await connectTelegramBot({
+    await connectTelegramBot({
       botToken: BOT_TOKEN,
       allowedUsers: [ALICE_USERNAME],
       mentionOnly: true,
     });
-    if (connect.restartRequired) {
-      console.warn(`${LOG_PREFIX} C.7: connect requested listener restart; checking live fallback`);
-    }
 
     // Wait for listener to start (getUpdates poll) before injecting.
-    const listenerActive = await waitForTelegramGetUpdates('C.7');
+    const listenerDeadline = Date.now() + 30_000;
+    let listenerActive = false;
+    while (Date.now() < listenerDeadline) {
+      const log = getRequestLog() as Array<{ method: string; url: string }>;
+      if (log.some(r => r.url.includes('getUpdates'))) {
+        listenerActive = true;
+        break;
+      }
+      await browser.pause(500);
+    }
 
     if (!listenerActive) {
       // TODO(channels): Listener not active — see C.5 gap note.
@@ -662,21 +662,25 @@ describe('Telegram channel — connect / receive / send / disconnect', function 
   // ──────────────────────────────────────────────────────────────────────────
 
   it('C.10 remote /status command — bot replies with Thread: and Provider: markers', async function () {
-    this.timeout(120_000);
+    // 30s listener poll + 20s reply wait + connect/LLM overhead exceeds 60s on the
+    // slower macOS runner; 90s fits the working flow. The getUpdates soft-pass still
+    // guards against a genuinely dead listener.
+    this.timeout(90_000);
     console.log(`${LOG_PREFIX} C.10: setting up /status command scenario`);
 
-    const connect = await connectTelegramBot({
-      botToken: BOT_TOKEN,
-      allowedUsers: [ALICE_USERNAME],
-    });
-    if (connect.restartRequired) {
-      console.warn(
-        `${LOG_PREFIX} C.10: connect requested listener restart; checking live fallback`
-      );
-    }
+    await connectTelegramBot({ botToken: BOT_TOKEN, allowedUsers: [ALICE_USERNAME] });
 
     // Wait for listener.
-    const listenerActive = await waitForTelegramGetUpdates('C.10');
+    const listenerDeadline = Date.now() + 30_000;
+    let listenerActive = false;
+    while (Date.now() < listenerDeadline) {
+      const log = getRequestLog() as Array<{ method: string; url: string }>;
+      if (log.some(r => r.url.includes('getUpdates'))) {
+        listenerActive = true;
+        break;
+      }
+      await browser.pause(500);
+    }
 
     if (!listenerActive) {
       // TODO(channels): Listener not active — see C.5 gap note.

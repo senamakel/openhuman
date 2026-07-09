@@ -640,7 +640,7 @@ fn shell_command_needs_python_runtime(command: &str) -> bool {
 }
 
 fn segment_starts_with_python_command(segment: &str) -> bool {
-    let mut tokens = segment.split_whitespace().peekable();
+    let tokens = segment.split_whitespace().peekable();
     for token in tokens {
         let token = token.trim_matches(|ch| matches!(ch, '(' | ')' | '<' | '>'));
         if token.is_empty() {

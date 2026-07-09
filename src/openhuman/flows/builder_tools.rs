@@ -1321,7 +1321,7 @@ impl Tool for DryRunWorkflowTool {
             .flat_map(|step| {
                 step.diagnostics
                     .iter()
-                    .filter(|&diag| (diag.location == "args" || diag.location.starts_with("args.")))
+                    .filter(|&diag| diag.location == "args" || diag.location.starts_with("args."))
                     .map(|diag| {
                         json!({
                             "node_id": step.node_id,
@@ -1348,7 +1348,7 @@ impl Tool for DryRunWorkflowTool {
             .flat_map(|step| {
                 step.diagnostics
                     .iter()
-                    .filter(|&diag| (diag.location == "prompt"))
+                    .filter(|&diag| diag.location == "prompt")
                     .map(|diag| {
                         json!({
                             "node_id": step.node_id,
@@ -1374,7 +1374,7 @@ impl Tool for DryRunWorkflowTool {
             .flat_map(|step| {
                 step.diagnostics
                     .iter()
-                    .filter(|&diag| (diag.location == "input_context"))
+                    .filter(|&diag| diag.location == "input_context")
                     .map(|diag| {
                         json!({
                             "node_id": step.node_id,

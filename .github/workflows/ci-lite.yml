@@ -76,6 +76,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Detect changed paths
         id: filter
@@ -688,6 +690,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Resolve coverage compare ref
         if: needs.changes.outputs.coverage == 'true'

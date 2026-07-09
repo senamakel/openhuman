@@ -20,6 +20,7 @@ use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
 use openhuman_core::core::all::RegisteredController;
+use openhuman_core::core::event_bus::testing::BUS_HANDLER_LOCK;
 use openhuman_core::core::event_bus::{register_native_global, request_native_global};
 use openhuman_core::openhuman::agent::bus::{
     register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
@@ -2842,6 +2843,7 @@ async fn agent_runtime_policy_cost_and_triage_helpers_cover_public_edges() {
 async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_paths() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    let _bus_lock = BUS_HANDLER_LOCK.lock().await;
     AgentDefinitionRegistry::init_global_builtins().expect("init builtins");
 
     register_agent_handlers();

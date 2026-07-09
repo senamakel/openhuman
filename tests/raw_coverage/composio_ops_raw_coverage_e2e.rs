@@ -83,6 +83,7 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 
 #[tokio::test]
 async fn composio_ops_use_loopback_backend_for_happy_and_error_paths() {
+    let _lock = env_lock();
     let state = MockState::default();
     let app = Router::new()
         .fallback(any(composio_backend_handler))

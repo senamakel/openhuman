@@ -31,8 +31,7 @@ use crate::openhuman::config::{Config, HttpRequestConfig};
 use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::flows;
 use crate::openhuman::inference::provider::{
-    create_chat_provider, is_raw_passthrough_model, role_for_model_tier, ChatMessage, ChatRequest,
-    UsageInfo,
+    is_raw_passthrough_model, role_for_model_tier, ChatMessage, UsageInfo,
 };
 use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
 use crate::openhuman::security::{
@@ -516,25 +515,42 @@ impl LlmProvider for OpenHumanLlm {
             "[flows] llm.complete: dispatching agent-node completion"
         );
 
-        let (provider, model) = create_chat_provider(role, &self.config)
+        // Build the completion model on the crate `ChatModel` interface (issue
+        // #4249, Motion B — replaces the raw `provider.chat`). `create_chat_model_*`
+        // resolves the role's provider + default model; if the node pinned a
+        // raw/BYOK id, rebuild the model pinned to it verbatim (issue #4598).
+        let (chat, factory_model) =
+            crate::openhuman::inference::provider::create_chat_model_with_model_id(
+                role,
+                &self.config,
+                temperature,
+            )
             .map_err(|e| EngineError::Capability(e.to_string()))?;
-        // `create_chat_provider` handed back the role's default model. If the node
-        // pinned a raw/BYOK id, forward it verbatim instead (issue #4598).
-        let model = resolve_completion_model(node_model, model);
-
-        let response = provider
-            .chat(
-                ChatRequest {
-                    messages: &messages,
-                    tools: None,
-                    stream: None,
-                    max_tokens,
-                },
+        let model = resolve_completion_model(node_model, factory_model.clone());
+        let chat = if model == factory_model {
+            chat
+        } else {
+            crate::openhuman::inference::provider::factory::create_chat_model_pinned(
+                role,
+                &self.config,
                 &model,
                 temperature,
             )
-            .await
-            .map_err(|e| EngineError::Capability(e.to_string()))?;
+            .map_err(|e| EngineError::Capability(e.to_string()))?
+        };
+
+        let mut model_request = tinyagents::harness::model::ModelRequest::new(
+            crate::openhuman::tinyagents::chat_messages_to_model_messages(&messages),
+        );
+        if let Some(cap) = max_tokens {
+            model_request = model_request.with_max_tokens(cap);
+        }
+        let response = crate::openhuman::tinyagents::model_response_to_chat_response(
+            &chat
+                .invoke(&(), model_request)
+                .await
+                .map_err(|e| EngineError::Capability(e.to_string()))?,
+        );
 
         // Structured mode: surface the parsed object itself so downstream
         // `=item.<field>` / `=nodes.<id>.item.<field>` bindings work. The

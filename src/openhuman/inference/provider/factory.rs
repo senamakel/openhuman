@@ -978,6 +978,22 @@ pub(crate) fn chat_model_from_provider(
     )
 }
 
+/// Build an `Arc<dyn ChatModel>` for `role`, pinned to an explicit `model` id
+/// rather than the role's default (issue #4249, Motion B).
+///
+/// Used by completion callers (the flows `agent` node) that resolve the role's
+/// provider but pin a node-specified raw/BYOK model id verbatim (issue #4598).
+/// The provider is the role's provider; only the baked model differs.
+pub fn create_chat_model_pinned(
+    role: &str,
+    config: &Config,
+    model: &str,
+    temperature: f64,
+) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    let (provider, _default_model) = create_chat_provider(role, config)?;
+    Ok(chat_model_from_provider(provider, model.to_string(), temperature))
+}
+
 /// Build a local-runtime provider without applying the custom-provider session gate.
 ///
 /// Used by setup/probe flows that need to validate an endpoint before the

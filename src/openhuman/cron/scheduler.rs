@@ -466,15 +466,7 @@ fn is_local_provider_unreachable_failure(
     }
     let signal = last_agent_error.unwrap_or(last_output);
     crate::core::observability::is_local_provider_unreachable_message(signal)
-        || is_local_provider_loopback_chat_send_failure(signal)
         || is_local_provider_no_model_loaded_message(signal)
-}
-
-fn is_local_provider_loopback_chat_send_failure(signal: &str) -> bool {
-    let lower = signal.to_ascii_lowercase();
-    lower.contains("error sending request for url")
-        && lower.contains("/v1/chat/completions")
-        && (lower.contains("(http://localhost:") || lower.contains("(http://127.0.0.1:"))
 }
 
 fn is_local_provider_no_model_loaded_message(signal: &str) -> bool {

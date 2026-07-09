@@ -743,13 +743,16 @@ fn is_local_provider_unreachable_failure_matches_when_only_output_carries_signal
 }
 
 #[test]
-fn is_local_provider_unreachable_failure_matches_short_loopback_send_error() {
+fn is_local_provider_unreachable_failure_keeps_short_loopback_send_error_retryable() {
     let wire = "error sending request for url (http://localhost:1234/v1/chat/completions)";
-    assert!(is_local_provider_unreachable_failure(
-        &JobType::Agent,
-        Some(wire),
-        AGENT_JOB_USER_FAILURE_MESSAGE
-    ));
+    assert!(
+        !is_local_provider_unreachable_failure(
+            &JobType::Agent,
+            Some(wire),
+            AGENT_JOB_USER_FAILURE_MESSAGE
+        ),
+        "short reqwest send errors can represent transient timeout/reset shapes and must stay retryable without a refused errno/tcp-connect signal"
+    );
 }
 
 // Negative guard: a transient REMOTE provider / backend network error must NOT

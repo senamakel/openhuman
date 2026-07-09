@@ -13,12 +13,6 @@ use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
 use crate::openhuman::config::Config;
-// The rdev hotkey listener (and its ActivationMode/HotkeyEvent/parse_hotkey use)
-// is only compiled off macOS; gate the import the same way to avoid an
-// unused-import warning on macOS.
-#[cfg(not(target_os = "macos"))]
-use crate::openhuman::voice::hotkey::{self, ActivationMode, HotkeyEvent};
-
 // The rdev-based listener (non-macOS) resolves the hotkey combo + activation mode
 // against the cross-platform `hotkey` module. macOS uses a separate path and
 // never compiles `start_rdev_listener`, so gate the import to avoid an unused

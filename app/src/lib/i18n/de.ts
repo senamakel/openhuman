@@ -188,6 +188,7 @@ const messages: TranslationMap = {
   'orchPage.group.network': 'Netzwerk',
   'orchPage.group.insights': 'Einblicke',
   'orchPage.overview.nav': 'Agenten-Graph',
+  'orchPage.tasks.nav': 'Aufgaben',
   'orchPage.overview.core': 'Agent-Kern',
   'orchPage.overview.empty': 'Noch keine Sub-Agenten zum Visualisieren',
   'orchPage.agent.nav': 'Chat',

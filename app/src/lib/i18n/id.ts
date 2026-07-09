@@ -183,6 +183,7 @@ const messages: TranslationMap = {
   'orchPage.group.network': 'Jaringan',
   'orchPage.group.insights': 'Wawasan',
   'orchPage.overview.nav': 'Grafik agen',
+  'orchPage.tasks.nav': 'Tugas',
   'orchPage.overview.core': 'Inti agen',
   'orchPage.overview.empty': 'Belum ada sub-agen untuk divisualisasikan',
   'orchPage.agent.nav': 'Obrolan',

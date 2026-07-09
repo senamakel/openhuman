@@ -165,6 +165,7 @@ const messages: TranslationMap = {
   'orchPage.group.network': '网络',
   'orchPage.group.insights': '洞察',
   'orchPage.overview.nav': '智能体图谱',
+  'orchPage.tasks.nav': '任务',
   'orchPage.overview.core': '智能体核心',
   'orchPage.overview.empty': '暂无可可视化的子智能体',
   'orchPage.agent.nav': '聊天',

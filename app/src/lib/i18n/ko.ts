@@ -179,6 +179,7 @@ const messages: TranslationMap = {
   'orchPage.group.network': '네트워크',
   'orchPage.group.insights': '인사이트',
   'orchPage.overview.nav': '에이전트 그래프',
+  'orchPage.tasks.nav': '작업',
   'orchPage.overview.core': '에이전트 코어',
   'orchPage.overview.empty': '아직 시각화할 서브 에이전트가 없습니다',
   'orchPage.agent.nav': '채팅',

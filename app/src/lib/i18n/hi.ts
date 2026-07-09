@@ -182,6 +182,7 @@ const messages: TranslationMap = {
   'orchPage.group.network': 'नेटवर्क',
   'orchPage.group.insights': 'अंतर्दृष्टि',
   'orchPage.overview.nav': 'एजेंट ग्राफ़',
+  'orchPage.tasks.nav': 'कार्य',
   'orchPage.overview.core': 'एजेंट कोर',
   'orchPage.overview.empty': 'विज़ुअलाइज़ करने के लिए अभी कोई सब-एजेंट नहीं',
   'orchPage.agent.nav': 'चैट',

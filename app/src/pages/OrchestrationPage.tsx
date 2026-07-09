@@ -17,6 +17,7 @@
 import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import IntelligenceTasksTab from '../components/intelligence/IntelligenceTasksTab';
 import ChipTabs from '../components/layout/ChipTabs';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
@@ -30,7 +31,7 @@ import UsagePanel from '../components/orchestration/UsagePanel';
 import { useT } from '../lib/i18n/I18nContext';
 import { useContactSessions } from '../lib/orchestration/useOrchestrationSessions';
 
-type OrchestrationTab = 'overview' | 'agent' | 'network';
+type OrchestrationTab = 'overview' | 'agent' | 'tasks' | 'network';
 type NetworkSub = 'connections' | 'discover' | 'usage';
 
 const NETWORK_SUBS: readonly NetworkSub[] = ['connections', 'discover', 'usage'];
@@ -57,9 +58,11 @@ export default function OrchestrationPage() {
   const activeTab: OrchestrationTab =
     rawTab === 'overview'
       ? 'overview'
-      : rawTab === 'network' || NETWORK_SUBS.includes(rawTab as NetworkSub)
-        ? 'network'
-        : 'agent';
+      : rawTab === 'tasks'
+        ? 'tasks'
+        : rawTab === 'network' || NETWORK_SUBS.includes(rawTab as NetworkSub)
+          ? 'network'
+          : 'agent';
 
   const networkSub: NetworkSub = NETWORK_SUBS.includes(rawTab as NetworkSub)
     ? (rawTab as NetworkSub)
@@ -146,6 +149,13 @@ export default function OrchestrationPage() {
                     ),
                   },
                   {
+                    value: 'tasks',
+                    label: t('orchPage.tasks.nav'),
+                    icon: navIcon(
+                      'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'
+                    ),
+                  },
+                  {
                     value: 'network',
                     label: t('orchPage.group.network'),
                     icon: navIcon('M13 10V3L4 14h7v7l9-11h-7z M17 8a3 3 0 100-6 3 3 0 000 6z'),
@@ -175,6 +185,15 @@ export default function OrchestrationPage() {
         // background, floating composer, one vertical scroll) — no card/gutter.
         <div className="h-full">
           <AgentChatPanel openSessionId={openSessionId} onOpenSession={setOpenSessionId} />
+        </div>
+      ) : activeTab === 'tasks' ? (
+        // The agent task board (Kanban), relocated from Brain → Intelligence.
+        <div className="mx-auto h-full w-full max-w-5xl">
+          <PanelPage contentClassName="p-4">
+            <div className="animate-fade-up">
+              <IntelligenceTasksTab />
+            </div>
+          </PanelPage>
         </div>
       ) : (
         <div className="mx-auto h-full w-full max-w-5xl">

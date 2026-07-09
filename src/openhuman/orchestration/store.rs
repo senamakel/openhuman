@@ -139,6 +139,15 @@ pub fn with_connection<T>(
     // `MAX(seq)+1 → INSERT` so `seq` stays unique per `(agent_id, session_id)`.
     conn.busy_timeout(std::time::Duration::from_secs(5))
         .context("set orchestration busy_timeout")?;
+    // WAL lets readers run concurrently with the single writer, so the one-time,
+    // schema-modifying `migrate()` ALTERs (first open after an upgrade) can't be
+    // starved into `SQLITE_BUSY` by the drain/`send_dm` writers this store is
+    // explicitly shared between — a rollback-journal `ALTER TABLE` needs an
+    // EXCLUSIVE lock that any concurrent reader blocks, and a `busy_timeout`
+    // expiry there surfaces as the opaque "migrate orchestration schema" failure.
+    // `query_row` because `PRAGMA journal_mode` returns the resulting mode.
+    conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))
+        .context("set orchestration journal_mode=WAL")?;
     conn.execute_batch(SCHEMA_DDL)
         .context("initialise orchestration schema")?;
     migrate(&conn).context("migrate orchestration schema")?;
@@ -1755,6 +1764,68 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    #[test]
+    fn with_connection_enables_wal_journal_mode() {
+        // WAL is what lets the one-time `migrate()` ALTERs run without being
+        // starved into SQLITE_BUSY by a concurrent reader (see with_connection).
+        let tmp = tempfile::tempdir().unwrap();
+        with_connection(tmp.path(), |conn| {
+            let mode: String = conn.query_row("PRAGMA journal_mode", [], |r| r.get(0))?;
+            assert_eq!(mode.to_lowercase(), "wal", "orchestration DB runs in WAL");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn migrates_pre_v2_schema_while_a_reader_is_open() {
+        // Reproduces the "migrate orchestration schema" failure: a legacy store
+        // missing the v2 columns is opened while another connection holds a read
+        // lock (the drain loop). Under WAL the schema-modifying ADD COLUMNs must
+        // still succeed instead of timing out on the reader's lock.
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("orchestration").join("orchestration.db");
+        std::fs::create_dir_all(db_path.parent().unwrap()).unwrap();
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE sessions (
+                     session_id TEXT NOT NULL, agent_id TEXT NOT NULL, source TEXT NOT NULL,
+                     label TEXT, workspace TEXT, last_seq INTEGER NOT NULL DEFAULT 0,
+                     created_at TEXT NOT NULL, last_message_at TEXT NOT NULL,
+                     PRIMARY KEY (agent_id, session_id));
+                 CREATE TABLE messages (
+                     id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, session_id TEXT NOT NULL,
+                     chat_kind TEXT NOT NULL, role TEXT NOT NULL, body TEXT NOT NULL,
+                     timestamp TEXT NOT NULL, seq INTEGER NOT NULL DEFAULT 0);",
+            )
+            .unwrap();
+        }
+
+        // A second connection sitting on an open read transaction, mimicking the
+        // drain having the DB open when the UI's sessions_list triggers migrate.
+        let reader = Connection::open(&db_path).unwrap();
+        reader
+            .busy_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        reader
+            .query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))
+            .unwrap();
+        reader
+            .execute_batch("BEGIN; SELECT COUNT(*) FROM messages;")
+            .unwrap();
+
+        // Migration through with_connection must not be starved by the reader.
+        with_connection(tmp.path(), |conn| {
+            assert!(column_exists(conn, "messages", "ok")?);
+            assert!(column_exists(conn, "sessions", "capabilities")?);
+            Ok(())
+        })
+        .expect("migration succeeds despite a concurrently-held reader");
+
+        reader.execute_batch("COMMIT").unwrap();
     }
 
     #[test]

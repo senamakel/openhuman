@@ -429,7 +429,7 @@ fn handle_sessions_list(_params: Map<String, Value>) -> ControllerFuture {
             }
             Ok(out)
         })
-        .map_err(|e| format!("sessions_list: {e}"))?;
+        .map_err(|e| format!("sessions_list: {e:#}"))?;
         to_json(serde_json::json!({ "sessions": sessions }))
     })
 }
@@ -464,7 +464,7 @@ fn handle_sessions_create(params: Map<String, Value>) -> ControllerFuture {
         store::with_connection(&config.workspace_dir, |conn| {
             store::upsert_session(conn, &session)
         })
-        .map_err(|e| format!("sessions_create: {e}"))?;
+        .map_err(|e| format!("sessions_create: {e:#}"))?;
         super::bus::notify_orchestration_message(&agent_id, &session_id, "session");
         to_json(serde_json::json!({ "session": summarize(session, 0, false, None, 0) }))
     })
@@ -507,7 +507,7 @@ fn handle_messages_list(params: Map<String, Value>) -> ControllerFuture {
             store::with_connection(&config.workspace_dir, |conn| {
                 store::list_messages_by_session(conn, &session_id, limit, before.as_deref())
             })
-            .map_err(|e| format!("messages_list: {e}"))?;
+            .map_err(|e| format!("messages_list: {e:#}"))?;
         to_json(serde_json::json!({ "messages": messages }))
     })
 }
@@ -618,12 +618,12 @@ fn handle_send_master_message(params: Map<String, Value>) -> ControllerFuture {
                 store::with_connection(&config.workspace_dir, move |conn| {
                     store::session_agent_id(conn, &sid)
                 })
-                .map_err(|e| format!("resolve session recipient: {e}"))?
+                .map_err(|e| format!("resolve session recipient: {e:#}"))?
                 .ok_or_else(|| "unknown session — specify a recipient".to_string())?
             }
             (None, None) => {
                 store::with_connection(&config.workspace_dir, store::latest_master_peer)
-                    .map_err(|e| format!("resolve recipient: {e}"))?
+                    .map_err(|e| format!("resolve recipient: {e:#}"))?
                     .ok_or_else(|| "no Master counterpart yet — specify a recipient".to_string())?
             }
         };
@@ -705,7 +705,7 @@ fn handle_mark_read(params: Map<String, Value>) -> ControllerFuture {
         store::with_connection(&config.workspace_dir, |conn| {
             store::mark_chat_read(conn, &session_id)
         })
-        .map_err(|e| format!("mark_read: {e}"))?;
+        .map_err(|e| format!("mark_read: {e:#}"))?;
         to_json(serde_json::json!({ "ok": true }))
     })
 }
@@ -741,7 +741,7 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
             let last_error = store::kv_get(conn, "orchestration:last_error")?;
             Ok((steering, ingest_last, lag, last_error))
         })
-        .map_err(|e| format!("status: {e}"))?;
+        .map_err(|e| format!("status: {e:#}"))?;
 
         // Last subconscious tick (best-effort — subconscious store is separate).
         let last_tick_at =

@@ -9,9 +9,10 @@
 use std::time::Duration;
 
 use openhuman_core::api::rest::BackendOAuthClient;
-use openhuman_core::openhuman::orchestration::cloud::push_event_with;
+use openhuman_core::openhuman::orchestration::cloud::{push_event_with, push_world_diff_with};
 use openhuman_core::openhuman::orchestration::wire::{
-    parse_ts_ms, OrchestrationEventEnvelopeWire, ORCH_WIRE_PROTOCOL,
+    parse_ts_ms, OrchestrationEventEnvelopeWire, WorldDiffBatchWire, WorldDiffEntryWire,
+    ORCH_WIRE_PROTOCOL,
 };
 use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -130,6 +131,52 @@ async fn push_posts_sanitized_event_with_bearer_and_accepts_202() {
 
     let client = BackendOAuthClient::new(&server.uri()).unwrap();
     let res = push_event_with(&client, "test-token", &envelope(), &[]).await;
+    assert!(res.is_ok(), "expected ok, got {res:?}");
+}
+
+#[test]
+fn world_diff_batch_has_exactly_the_allowlisted_keys() {
+    let batch = WorldDiffBatchWire::build(
+        "sess-1",
+        vec![WorldDiffEntryWire::build(0, "peer online", 1)],
+    );
+    let value = batch.to_value();
+    let obj = value.as_object().unwrap();
+    let mut top: Vec<&str> = obj.keys().map(String::as_str).collect();
+    top.sort_unstable();
+    assert_eq!(top, ["entries", "protocol", "sessionId"]);
+
+    let entry = obj["entries"][0].as_object().unwrap();
+    let mut ek: Vec<&str> = entry.keys().map(String::as_str).collect();
+    ek.sort_unstable();
+    assert_eq!(ek, ["note", "seq", "ts"]);
+    assert_eq!(obj["protocol"], serde_json::json!(ORCH_WIRE_PROTOCOL));
+}
+
+#[tokio::test]
+async fn push_world_diff_posts_the_batch() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/orchestration/v1/world-diff"))
+        .and(header("authorization", "Bearer test-token"))
+        .and(body_json(serde_json::json!({
+            "protocol": 1,
+            "sessionId": "sess-1",
+            "entries": [{ "seq": 0, "note": "peer online", "ts": 1i64 }]
+        })))
+        .respond_with(ResponseTemplate::new(202).set_body_json(serde_json::json!({
+            "success": true, "data": { "accepted": 1, "duplicates": 0, "tickScheduled": false }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = BackendOAuthClient::new(&server.uri()).unwrap();
+    let batch = WorldDiffBatchWire::build(
+        "sess-1",
+        vec![WorldDiffEntryWire::build(0, "peer online", 1)],
+    );
+    let res = push_world_diff_with(&client, "test-token", &batch, &[]).await;
     assert!(res.is_ok(), "expected ok, got {res:?}");
 }
 

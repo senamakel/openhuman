@@ -104,6 +104,49 @@ pub fn parse_ts_ms(ts: &str) -> Option<i64> {
         .map(|dt| dt.timestamp_millis())
 }
 
+/// One world-state-diff entry crossing to `POST /orchestration/v1/world-diff`.
+/// `note` is a short derived observation (never a local path or key material).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WorldDiffEntryWire {
+    pub seq: i64,
+    pub note: String,
+    pub ts: i64,
+}
+
+impl WorldDiffEntryWire {
+    pub fn build(seq: i64, note: &str, ts: i64) -> Self {
+        Self {
+            seq: seq.max(0),
+            note: note.to_string(),
+            ts: ts.max(0),
+        }
+    }
+}
+
+/// The full `POST /orchestration/v1/world-diff` request body. Same allowlist
+/// discipline as the event envelope — only these fields are constructed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldDiffBatchWire {
+    pub protocol: u8,
+    pub session_id: String,
+    pub entries: Vec<WorldDiffEntryWire>,
+}
+
+impl WorldDiffBatchWire {
+    pub fn build(session_id: &str, entries: Vec<WorldDiffEntryWire>) -> Self {
+        Self {
+            protocol: ORCH_WIRE_PROTOCOL,
+            session_id: session_id.to_string(),
+            entries,
+        }
+    }
+
+    pub fn to_value(&self) -> Value {
+        serde_json::to_value(self).expect("orchestration world-diff batch serializes")
+    }
+}
+
 // The wire allowlist is guarded by the golden key-set test in
 // `tests/orchestration_shadow_push_e2e.rs` (integration crate): the root
 // crate's `cfg(test)` build is currently blocked by unrelated stale test

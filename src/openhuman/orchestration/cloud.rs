@@ -19,10 +19,11 @@ use crate::api::config::effective_backend_api_url;
 use crate::api::BackendOAuthClient;
 use crate::openhuman::config::Config;
 
-use super::wire::OrchestrationEventEnvelopeWire;
+use super::wire::{OrchestrationEventEnvelopeWire, WorldDiffBatchWire};
 
 const LOG: &str = "orchestration";
 const EVENTS_PATH: &str = "/orchestration/v1/events";
+const WORLD_DIFF_PATH: &str = "/orchestration/v1/world-diff";
 
 /// Jittered retry schedule for a transient push failure (3 retries after the
 /// first attempt). Matches the plan's 1s/4s/10s cadence.
@@ -45,6 +46,31 @@ pub async fn push_event(
     push_event_with(&client, &token, envelope, &DEFAULT_BACKOFFS).await
 }
 
+/// Upload a batch of world-diff entries — the subconscious tier's primary
+/// trigger. Same auth/base/retry plumbing as [`push_event`]. Returns `Err` only
+/// after the retry budget is exhausted (or the session is signed out).
+pub async fn push_world_diff(config: &Config, batch: &WorldDiffBatchWire) -> Result<(), String> {
+    if batch.entries.is_empty() {
+        return Ok(());
+    }
+    let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
+    let api_url = effective_backend_api_url(&config.api_url);
+    let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
+    post_with_retry(
+        &client,
+        &token,
+        WORLD_DIFF_PATH,
+        batch.to_value(),
+        &DEFAULT_BACKOFFS,
+        &format!(
+            "world-diff session={} entries={}",
+            batch.session_id,
+            batch.entries.len()
+        ),
+    )
+    .await
+}
+
 /// Inner push with an injectable client, token, and backoff schedule so the
 /// transport can be exercised against a mock server without real credentials or
 /// real sleeps (`backoffs = &[]` → single attempt). Public for integration
@@ -55,47 +81,76 @@ pub async fn push_event_with(
     envelope: &OrchestrationEventEnvelopeWire,
     backoffs: &[Duration],
 ) -> Result<(), String> {
-    let body = envelope.to_value();
+    let label = format!(
+        "event session={} seq={}",
+        envelope.session_id, envelope.event.seq
+    );
+    post_with_retry(
+        client,
+        token,
+        EVENTS_PATH,
+        envelope.to_value(),
+        backoffs,
+        &label,
+    )
+    .await
+}
+
+/// Generic authed POST with bounded jittered-backoff retry. Shared by every
+/// orchestration uplink (`events`, `world-diff`). `backoffs = &[]` → one attempt.
+async fn post_with_retry(
+    client: &BackendOAuthClient,
+    token: &str,
+    path: &str,
+    body: serde_json::Value,
+    backoffs: &[Duration],
+    label: &str,
+) -> Result<(), String> {
     let mut attempt: usize = 0;
     loop {
         match client
-            .authed_json(token, Method::POST, EVENTS_PATH, Some(body.clone()))
+            .authed_json(token, Method::POST, path, Some(body.clone()))
             .await
         {
             Ok(_) => {
-                log::debug!(
-                    target: LOG,
-                    "[orchestration] cloud.push.ok session={} seq={} attempt={}",
-                    envelope.session_id,
-                    envelope.event.seq,
-                    attempt + 1
-                );
+                log::debug!(target: LOG, "[orchestration] cloud.push.ok {label} attempt={}", attempt + 1);
                 return Ok(());
             }
             Err(err) => {
                 let msg = crate::api::flatten_authed_error(err);
                 if attempt >= backoffs.len() {
-                    log::warn!(
-                        target: LOG,
-                        "[orchestration] cloud.push.give_up session={} seq={} attempts={} err={msg}",
-                        envelope.session_id,
-                        envelope.event.seq,
-                        attempt + 1
-                    );
+                    log::warn!(target: LOG, "[orchestration] cloud.push.give_up {label} attempts={} err={msg}", attempt + 1);
                     return Err(msg);
                 }
-                log::warn!(
-                    target: LOG,
-                    "[orchestration] cloud.push.retry session={} seq={} attempt={} err={msg}",
-                    envelope.session_id,
-                    envelope.event.seq,
-                    attempt + 1
-                );
+                log::warn!(target: LOG, "[orchestration] cloud.push.retry {label} attempt={} err={msg}", attempt + 1);
                 tokio::time::sleep(backoffs[attempt]).await;
                 attempt += 1;
             }
         }
     }
+}
+
+/// World-diff uploader with injectable client/token/backoffs for tests.
+pub async fn push_world_diff_with(
+    client: &BackendOAuthClient,
+    token: &str,
+    batch: &WorldDiffBatchWire,
+    backoffs: &[Duration],
+) -> Result<(), String> {
+    let label = format!(
+        "world-diff session={} entries={}",
+        batch.session_id,
+        batch.entries.len()
+    );
+    post_with_retry(
+        client,
+        token,
+        WORLD_DIFF_PATH,
+        batch.to_value(),
+        backoffs,
+        &label,
+    )
+    .await
 }
 
 // Transport tests live in `tests/orchestration_shadow_push_e2e.rs` (integration

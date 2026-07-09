@@ -1265,6 +1265,19 @@ impl TurnModelSource {
     pub(crate) fn build(&self, model: &str, temperature: f64, context_window: Option<u64>) -> TurnModels {
         build_turn_models(self.provider.clone(), model, temperature, context_window)
     }
+
+    /// Build a standalone summarizer [`ChatModel`](tinyagents::harness::model::ChatModel)
+    /// over this source's provider — a fresh adapter (own error slot) for one-off
+    /// summary calls outside the main turn (e.g. the sub-agent cap-hit checkpoint),
+    /// so the caller can `invoke` without naming the `Provider` trait. The output
+    /// cap rides the per-call `ModelRequest`, not the model.
+    pub(crate) fn build_summarizer(
+        &self,
+        model: &str,
+        temperature: f64,
+    ) -> Arc<dyn tinyagents::harness::model::ChatModel<()>> {
+        Arc::new(ProviderModel::new(self.provider.clone(), model, temperature))
+    }
 }
 
 /// Everything [`assemble_turn_harness`] wires up for one turn: the configured

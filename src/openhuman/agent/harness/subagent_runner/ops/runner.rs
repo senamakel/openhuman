@@ -963,7 +963,7 @@ async fn run_typed_mode(
         match &definition.graph {
             AgentGraph::Default => {
                 super::graph::run_subagent_via_graph(
-                    subagent_provider.clone(),
+                    crate::openhuman::tinyagents::TurnModelSource::new(subagent_provider.clone()),
                     &model,
                     temperature,
                     &mut history,
@@ -999,7 +999,9 @@ async fn run_typed_mode(
             }
             AgentGraph::Custom(run) => {
                 let req = AgentTurnRequest {
-                    provider: subagent_provider.clone(),
+                    turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(
+                        subagent_provider.clone(),
+                    ),
                     model: model.clone(),
                     temperature,
                     history: std::mem::take(&mut history),

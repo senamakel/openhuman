@@ -35,6 +35,7 @@ struct ScriptedProvider {
     requests: Mutex<Vec<String>>,
     native_tools: bool,
     delay: Option<Duration>,
+    always_fail: Option<String>,
 }
 
 impl ScriptedProvider {
@@ -44,15 +45,17 @@ impl ScriptedProvider {
             requests: Mutex::new(Vec::new()),
             native_tools: true,
             delay: None,
+            always_fail: None,
         })
     }
 
     fn failing(message: &str) -> Arc<Self> {
         Arc::new(Self {
-            responses: Mutex::new(VecDeque::from([Err(anyhow::anyhow!(message.to_string()))])),
+            responses: Mutex::new(VecDeque::new()),
             requests: Mutex::new(Vec::new()),
             native_tools: true,
             delay: None,
+            always_fail: Some(message.to_string()),
         })
     }
 
@@ -62,6 +65,7 @@ impl ScriptedProvider {
             requests: Mutex::new(Vec::new()),
             native_tools: true,
             delay: Some(delay),
+            always_fail: None,
         })
     }
 
@@ -86,6 +90,9 @@ impl Provider for ScriptedProvider {
         _model: &str,
         _temperature: f64,
     ) -> Result<String> {
+        if let Some(message) = &self.always_fail {
+            anyhow::bail!(message.clone());
+        }
         Ok(format!("summary: {message}"))
     }
 
@@ -105,6 +112,9 @@ impl Provider for ScriptedProvider {
         );
         if let Some(delay) = self.delay {
             tokio::time::sleep(delay).await;
+        }
+        if let Some(message) = &self.always_fail {
+            anyhow::bail!(message.clone());
         }
         self.responses
             .lock()

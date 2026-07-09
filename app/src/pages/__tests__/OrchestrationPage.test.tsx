@@ -49,9 +49,13 @@ describe('OrchestrationPage shell', () => {
       renderWithProviders(<OrchestrationPage />, { initialEntries: ['/orchestration'] });
     });
     // Sub-nav renders via the sidebar portal once the outlet mounts.
-    const usageNav = await screen.findByTestId('two-pane-nav-usage');
+    const networkNav = await screen.findByTestId('two-pane-nav-network');
     await act(async () => {
-      fireEvent.click(usageNav);
+      fireEvent.click(networkNav);
+    });
+    const usageTab = await screen.findByTestId('orch-network-usage');
+    await act(async () => {
+      fireEvent.click(usageTab);
     });
     await waitFor(() => expect(screen.getByTestId('panel-usage')).toBeInTheDocument());
   });

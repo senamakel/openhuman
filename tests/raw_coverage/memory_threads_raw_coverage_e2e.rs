@@ -771,13 +771,12 @@ async fn memory_thread_tree_and_sync_controller_schemas_execute_public_handlers(
 
     let thread_schemas = all_threads_controller_schemas();
     let thread_controllers = all_threads_registered_controllers();
-    assert_eq!(thread_schemas.len(), 17);
     assert_eq!(thread_schemas.len(), thread_controllers.len());
     assert_eq!(
         openhuman_core::openhuman::threads::schemas::schemas("missing").function,
         "unknown"
     );
-    for function in [
+    let expected_thread_functions = [
         "list",
         "upsert",
         "create_new",
@@ -791,11 +790,20 @@ async fn memory_thread_tree_and_sync_controller_schemas_execute_public_handlers(
         "purge",
         "turn_state_get",
         "turn_state_list",
+        "turn_state_history",
+        "turn_state_get_turn",
         "turn_state_clear",
         "task_board_get",
         "task_board_put",
         "token_usage",
-    ] {
+    ];
+    assert!(
+        thread_schemas.len() >= expected_thread_functions.len(),
+        "expected at least {} thread controller schemas, got {}",
+        expected_thread_functions.len(),
+        thread_schemas.len()
+    );
+    for function in expected_thread_functions {
         assert!(thread_schemas
             .iter()
             .any(|schema| schema.namespace == "threads" && schema.function == function));

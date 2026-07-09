@@ -1164,7 +1164,7 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
     assert!(decide_handler(invalid_decision)
         .await
         .expect_err("invalid decision")
-        .contains("approve_once|approve_always_for_tool|deny"));
+        .contains("approve_once|approve_always_for_tool|approve_always_for_flow|deny"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

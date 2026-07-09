@@ -326,6 +326,8 @@ async fn connectivity_diag_rpc_reports_live_listener_port_and_process() {
 #[tokio::test]
 async fn connectivity_diag_direct_path_prefers_rpc_url_and_handles_invalid_port_env() {
     let _lock = env_lock();
+    let _clean_rpc_url = EnvVarGuard::unset("OPENHUMAN_CORE_RPC_URL");
+    let _clean_core_port = EnvVarGuard::unset("OPENHUMAN_CORE_PORT");
     let listener = reserve_port();
     let port = listener.local_addr().expect("reserved addr").port();
     let _rpc_url = EnvVarGuard::set(
@@ -399,6 +401,8 @@ async fn connectivity_diag_direct_path_prefers_rpc_url_and_handles_invalid_port_
 #[tokio::test]
 async fn connectivity_ops_schema_and_socket_snapshot_paths_are_exercised() {
     let _lock = env_lock();
+    let _clean_rpc_url = EnvVarGuard::unset("OPENHUMAN_CORE_RPC_URL");
+    let _clean_core_port = EnvVarGuard::unset("OPENHUMAN_CORE_PORT");
     let reserved = reserve_port();
     let port = reserved.local_addr().expect("reserved addr").port();
     assert!(is_port_in_use(port));

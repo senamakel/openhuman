@@ -34,6 +34,7 @@ struct ScriptedProvider {
     native_tools: bool,
     vision: bool,
     stream_events: Vec<ProviderDelta>,
+    always_fail: Option<String>,
 }
 
 impl ScriptedProvider {
@@ -45,10 +46,8 @@ impl ScriptedProvider {
     }
 
     fn failing(message: &str) -> Arc<Self> {
-        let mut responses = VecDeque::new();
-        responses.push_back(Err(anyhow::anyhow!(message.to_string())));
         Arc::new(Self {
-            responses: Mutex::new(responses),
+            always_fail: Some(message.to_string()),
             ..Self::default()
         })
     }
@@ -74,6 +73,9 @@ impl Provider for ScriptedProvider {
         _model: &str,
         _temperature: f64,
     ) -> anyhow::Result<String> {
+        if let Some(message) = &self.always_fail {
+            anyhow::bail!(message.clone());
+        }
         Ok(message.to_string())
     }
 
@@ -94,6 +96,9 @@ impl Provider for ScriptedProvider {
             for event in &self.stream_events {
                 stream.send(event.clone()).await.ok();
             }
+        }
+        if let Some(message) = &self.always_fail {
+            anyhow::bail!(message.clone());
         }
         self.responses
             .lock()
@@ -405,6 +410,7 @@ async fn bus_turn_native_tools_dedups_streams_and_records_tool_messages() {
         turns: Mutex::new(Vec::new()),
         native_tools: true,
         vision: false,
+        always_fail: None,
         stream_events: vec![
             ProviderDelta::TextDelta {
                 delta: "draft ".to_string(),

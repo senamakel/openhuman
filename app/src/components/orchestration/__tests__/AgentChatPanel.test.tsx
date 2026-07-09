@@ -108,8 +108,10 @@ describe('AgentChatPanel', () => {
 
   it('sends a master message from the composer', async () => {
     render(<AgentChatPanel />);
-    fireEvent.change(screen.getByTestId('orch-agent-composer-input'), { target: { value: 'go' } });
-    fireEvent.click(screen.getByTestId('orch-agent-composer-send'));
+    fireEvent.change(screen.getByPlaceholderText('tinyplaceOrchestration.composer.placeholder'), {
+      target: { value: 'go' },
+    });
+    fireEvent.click(screen.getByTestId('send-message-button'));
     await waitFor(() =>
       expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({ id: 'master' }), 'go')
     );
@@ -122,22 +124,22 @@ describe('AgentChatPanel', () => {
       selected: { id: 'subconscious', title: 'Subconscious', messages: [] },
     };
     render(<AgentChatPanel />);
-    expect(screen.getByTestId('orch-agent-steering-header')).toBeInTheDocument();
+    expect(screen.getByTestId('orch-agent-steering')).toBeInTheDocument();
     fireEvent.click(screen.getByText('tinyplaceOrchestration.steeringHeader.runReview'));
     expect(subconsciousTrigger).toHaveBeenCalledWith('tinyplace');
   });
 
-  it('opens a session side-tab from a View-session card and replies (no auto-open)', async () => {
+  it('opens a session page from a View-session card and replies (no auto-open)', async () => {
     contactSessions.current = [pinged];
     render(<AgentChatPanel />);
-    expect(screen.queryByTestId('orch-agent-session-drawer')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('orch-session-header')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('orch-agent-view-session-s-auth'));
-    expect(screen.getByTestId('orch-agent-session-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('orch-session-header')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByTestId('orch-agent-drawer-reply'), { target: { value: 'hi' } });
-    fireEvent.click(
-      screen.getByTestId('orch-agent-session-drawer').querySelector('button[type="submit"]')!
-    );
+    fireEvent.change(screen.getByPlaceholderText('orchPage.connections.replyPlaceholder'), {
+      target: { value: 'hi' },
+    });
+    fireEvent.click(screen.getByTestId('send-message-button'));
     await waitFor(() =>
       expect(sendMasterMessage).toHaveBeenCalledWith({
         body: 'hi',
@@ -145,9 +147,6 @@ describe('AgentChatPanel', () => {
         sessionId: 's-auth',
       })
     );
-
-    fireEvent.click(screen.getByTestId('orch-agent-drawer-close'));
-    expect(screen.queryByTestId('orch-agent-session-drawer')).not.toBeInTheDocument();
   });
 
   it('surfaces a drawer reply failure', async () => {
@@ -155,11 +154,11 @@ describe('AgentChatPanel', () => {
     sendMasterMessage.mockRejectedValueOnce(new Error('boom'));
     render(<AgentChatPanel />);
     fireEvent.click(screen.getByTestId('orch-agent-view-session-s-auth'));
-    fireEvent.change(screen.getByTestId('orch-agent-drawer-reply'), { target: { value: 'hi' } });
-    fireEvent.click(
-      screen.getByTestId('orch-agent-session-drawer').querySelector('button[type="submit"]')!
-    );
-    expect(await screen.findByTestId('orch-agent-drawer-reply-error')).toHaveTextContent('boom');
+    fireEvent.change(screen.getByPlaceholderText('orchPage.connections.replyPlaceholder'), {
+      target: { value: 'hi' },
+    });
+    fireEvent.click(screen.getByTestId('send-message-button'));
+    expect(await screen.findByTestId('orch-session-reply-error')).toHaveTextContent('boom');
   });
 
   it('shows an error state when the transcript fails to load', () => {

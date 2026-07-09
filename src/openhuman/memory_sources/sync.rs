@@ -435,7 +435,7 @@ async fn sync_items_individually(
 
                 let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
                 let new = ingested.load(Ordering::Relaxed);
-                if done % 10 == 0 || done == total {
+                if done.is_multiple_of(10) || done == total {
                     emit_sync_stage(
                         MemorySyncTrigger::Manual,
                         MemorySyncStage::Ingesting,

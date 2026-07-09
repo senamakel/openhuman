@@ -40,6 +40,7 @@ pub enum PaymentStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct SpendingSummary {
     pub session_total_atomic: u64,
     pub daily_total_atomic: u64,
@@ -49,18 +50,6 @@ pub struct SpendingSummary {
     pub monthly_count: usize,
 }
 
-impl Default for SpendingSummary {
-    fn default() -> Self {
-        Self {
-            session_total_atomic: 0,
-            daily_total_atomic: 0,
-            monthly_total_atomic: 0,
-            session_count: 0,
-            daily_count: 0,
-            monthly_count: 0,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

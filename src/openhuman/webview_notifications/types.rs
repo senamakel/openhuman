@@ -28,12 +28,8 @@ pub struct WebviewNotificationEvent {
 /// release doesn't suddenly start firing OS toasts for every
 /// background DM in an idle Slack tab.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[derive(Default)]
 pub struct NotificationSettings {
     pub enabled: bool,
 }
 
-impl Default for NotificationSettings {
-    fn default() -> Self {
-        Self { enabled: false }
-    }
-}

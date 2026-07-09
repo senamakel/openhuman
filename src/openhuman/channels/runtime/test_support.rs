@@ -444,7 +444,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
         inference_url: None,
         reliability: Arc::new(ReliabilityConfig::default()),
         provider_runtime_options: ProviderRuntimeOptions::default(),
-        workspace_dir: Arc::new(PathBuf::from(std::env::temp_dir())),
+        workspace_dir: Arc::new(std::env::temp_dir()),
         message_timeout_secs: options.timeout_secs,
         multimodal: MultimodalConfig::default(),
         multimodal_files: MultimodalFileConfig::default(),

@@ -186,11 +186,10 @@ pub(crate) async fn process_channel_runtime_message(
     // a fresh agent turn would cancel the parked tool call. Any other text
     // falls through to the normal dispatch (the user is redirecting). Mirrors
     // the same intercept in `channels/providers/web.rs:493-525`.
-    if channel_has_approval_surface(&msg.channel) {
-        if try_route_approval_reply(&msg).await {
+    if channel_has_approval_surface(&msg.channel)
+        && try_route_approval_reply(&msg).await {
             return;
         }
-    }
 
     // Fire typing indicator as early as possible — before any async I/O — so the
     // user sees feedback immediately regardless of how fast the LLM responds.
@@ -385,8 +384,8 @@ pub(crate) async fn process_channel_runtime_message(
                             }
                         }
                     }
-                    AgentProgress::ToolCallStarted { tool_name, .. } => {
-                        if accumulated.is_empty() {
+                    AgentProgress::ToolCallStarted { tool_name, .. }
+                        if accumulated.is_empty() => {
                             let _ = channel
                                 .update_draft(
                                     &reply_target,
@@ -395,7 +394,6 @@ pub(crate) async fn process_channel_runtime_message(
                                 )
                                 .await;
                         }
-                    }
                     _ => {}
                 }
             }

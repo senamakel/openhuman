@@ -5,8 +5,10 @@ use std::fmt;
 /// How a message arriving during an active agent turn should be handled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum QueueMode {
     /// Abort the in-flight turn and start fresh (default, backward-compatible).
+    #[default]
     Interrupt,
     /// Inject the message at the next safe iteration boundary so the agent
     /// sees it mid-turn without restarting.
@@ -24,11 +26,6 @@ pub enum QueueMode {
     Parallel,
 }
 
-impl Default for QueueMode {
-    fn default() -> Self {
-        Self::Interrupt
-    }
-}
 
 impl fmt::Display for QueueMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -7,8 +7,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SchedulerGateMode {
     /// Decide based on power + CPU + deployment-mode signals.
+    #[default]
     Auto,
     /// Always run background AI flat-out (server / power-user setting).
     AlwaysOn,
@@ -26,11 +28,6 @@ impl SchedulerGateMode {
     }
 }
 
-impl Default for SchedulerGateMode {
-    fn default() -> Self {
-        Self::Auto
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]

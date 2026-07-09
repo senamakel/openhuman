@@ -13,7 +13,7 @@
 //! spawned command runs sandboxed.
 
 use super::types::{
-    DockerOverrides, SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest,
+    SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest,
     SandboxExecResult, SandboxPolicy, SandboxStatus,
 };
 use std::process::Stdio;

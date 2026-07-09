@@ -122,7 +122,9 @@ pub struct HttpHeader {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(Default)]
 pub enum McpAuthConfig {
+    #[default]
     None,
     BearerToken {
         token: String,
@@ -146,11 +148,6 @@ pub enum McpAuthConfig {
     },
 }
 
-impl Default for McpAuthConfig {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]

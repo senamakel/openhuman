@@ -211,8 +211,8 @@ fn last_balanced_brace_object(text: &str) -> Option<String> {
                 }
                 depth += 1;
             }
-            b'}' => {
-                if depth > 0 {
+            b'}'
+                if depth > 0 => {
                     depth -= 1;
                     if depth == 0 {
                         if let Some(s) = start.take() {
@@ -220,7 +220,6 @@ fn last_balanced_brace_object(text: &str) -> Option<String> {
                         }
                     }
                 }
-            }
             _ => {}
         }
     }

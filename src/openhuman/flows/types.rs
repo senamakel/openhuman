@@ -234,8 +234,10 @@ pub struct FlowRun {
 /// actually saved via `flows_create`, the frontend marks it `Built`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SuggestionStatus {
     /// Freshly discovered, awaiting the user's decision. The default.
+    #[default]
     New,
     /// The user dismissed the card; kept for dedupe, never re-surfaced.
     Dismissed,
@@ -243,11 +245,6 @@ pub enum SuggestionStatus {
     Built,
 }
 
-impl Default for SuggestionStatus {
-    fn default() -> Self {
-        Self::New
-    }
-}
 
 impl SuggestionStatus {
     /// The stable lowercase token persisted in SQLite / crossed over RPC.

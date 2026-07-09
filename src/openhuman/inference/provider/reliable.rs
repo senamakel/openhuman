@@ -21,7 +21,7 @@
 //! wrapper stays authoritative for single-attempt retry on the live path.
 
 use super::traits::{
-    ChatMessage, ChatRequest, ChatResponse, StreamChunk, StreamError, StreamOptions, StreamResult,
+    ChatMessage, ChatRequest, ChatResponse, StreamChunk, StreamOptions, StreamResult,
 };
 use super::Provider;
 use crate::openhuman::inference::provider::record_resolved_provider_route;
@@ -243,8 +243,8 @@ impl Provider for ReliableProvider {
                             );
 
                             // On rate-limit, try rotating API key
-                            if rate_limited && !non_retryable_rate_limit {
-                                if self.rotate_key().is_some() {
+                            if rate_limited && !non_retryable_rate_limit
+                                && self.rotate_key().is_some() {
                                     tracing::info!(
                                         provider = provider_name,
                                         error = %error_detail,
@@ -255,7 +255,6 @@ impl Provider for ReliableProvider {
                                         "Rate limited, rotated API key"
                                     );
                                 }
-                            }
 
                             if non_retryable {
                                 tracing::warn!(
@@ -379,8 +378,8 @@ impl Provider for ReliableProvider {
                                 &error_detail,
                             );
 
-                            if rate_limited && !non_retryable_rate_limit {
-                                if self.rotate_key().is_some() {
+                            if rate_limited && !non_retryable_rate_limit
+                                && self.rotate_key().is_some() {
                                     tracing::info!(
                                         provider = provider_name,
                                         error = %error_detail,
@@ -391,7 +390,6 @@ impl Provider for ReliableProvider {
                                         "Rate limited, rotated API key"
                                     );
                                 }
-                            }
 
                             if non_retryable {
                                 tracing::warn!(
@@ -544,8 +542,8 @@ impl Provider for ReliableProvider {
                                 &error_detail,
                             );
 
-                            if rate_limited && !non_retryable_rate_limit {
-                                if self.rotate_key().is_some() {
+                            if rate_limited && !non_retryable_rate_limit
+                                && self.rotate_key().is_some() {
                                     tracing::info!(
                                         provider = provider_name,
                                         error = %error_detail,
@@ -556,7 +554,6 @@ impl Provider for ReliableProvider {
                                         "Rate limited, rotated API key"
                                     );
                                 }
-                            }
 
                             if non_retryable {
                                 tracing::warn!(
@@ -673,8 +670,8 @@ impl Provider for ReliableProvider {
                                 &error_detail,
                             );
 
-                            if rate_limited && !non_retryable_rate_limit {
-                                if self.rotate_key().is_some() {
+                            if rate_limited && !non_retryable_rate_limit
+                                && self.rotate_key().is_some() {
                                     tracing::info!(
                                         provider = provider_name,
                                         error = %error_detail,
@@ -685,7 +682,6 @@ impl Provider for ReliableProvider {
                                         "Rate limited, rotated API key"
                                     );
                                 }
-                            }
 
                             if non_retryable {
                                 tracing::warn!(

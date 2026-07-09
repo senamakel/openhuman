@@ -252,7 +252,7 @@ fn ownership_file_paths(ownership: Option<&str>) -> Result<Vec<PathBuf>, String>
     for raw in rest.split([',', '\n']) {
         let trimmed = raw
             .trim()
-            .trim_start_matches(|c: char| c == '-' || c == '*')
+            .trim_start_matches(['-', '*'])
             .trim();
         if trimmed.is_empty() {
             continue;

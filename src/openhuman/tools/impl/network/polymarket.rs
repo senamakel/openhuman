@@ -170,9 +170,7 @@ impl PolymarketTool {
 
         let cached_credentials = config
             .derived_clob_credentials
-            .clone()
-            .map(PolymarketClobCredentials::from)
-            .filter(PolymarketClobCredentials::is_complete);
+            .clone().filter(PolymarketClobCredentials::is_complete);
 
         Self {
             gamma_base_url: normalize_base_url(
@@ -613,7 +611,7 @@ impl PolymarketTool {
             .map_err(anyhow::Error::msg)
             .context("Failed to load config for persisting Polymarket credentials")?;
 
-        config.integrations.polymarket.derived_clob_credentials = Some(creds.clone().into());
+        config.integrations.polymarket.derived_clob_credentials = Some(creds.clone());
         config
             .save()
             .await

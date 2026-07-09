@@ -1319,15 +1319,11 @@ impl Tool for DryRunWorkflowTool {
             .iter()
             .filter(|step| tool_call_node_ids.contains(step.node_id.as_str()))
             .flat_map(|step| {
-                step.diagnostics.iter().filter_map(|diag| {
-                    (diag.location == "args" || diag.location.starts_with("args.")).then(|| {
-                        json!({
+                step.diagnostics.iter().filter(|&diag| (diag.location == "args" || diag.location.starts_with("args."))).map(|diag| json!({
                             "node_id": step.node_id,
                             "location": diag.location,
                             "expression": diag.expression,
-                        })
-                    })
-                })
+                        }))
             })
             .collect();
 
@@ -1345,17 +1341,13 @@ impl Tool for DryRunWorkflowTool {
             .iter()
             .filter(|step| agent_node_ids.contains(step.node_id.as_str()))
             .flat_map(|step| {
-                step.diagnostics.iter().filter_map(|diag| {
-                    (diag.location == "prompt").then(|| {
-                        json!({
+                step.diagnostics.iter().filter(|&diag| (diag.location == "prompt")).map(|diag| json!({
                             "node_id": step.node_id,
                             "location": diag.location,
                             "expression": diag.expression,
                             "suggestion": "Feed upstream data via input_context:\"=item\" and \
                                 make the prompt a plain instruction.",
-                        })
-                    })
-                })
+                        }))
             })
             .collect();
 
@@ -1370,18 +1362,14 @@ impl Tool for DryRunWorkflowTool {
             .iter()
             .filter(|step| agent_node_ids.contains(step.node_id.as_str()))
             .flat_map(|step| {
-                step.diagnostics.iter().filter_map(|diag| {
-                    (diag.location == "input_context").then(|| {
-                        json!({
+                step.diagnostics.iter().filter(|&diag| (diag.location == "input_context")).map(|diag| json!({
                             "node_id": step.node_id,
                             "location": diag.location,
                             "expression": diag.expression,
                             "suggestion": "Wire input_context from a real upstream field, e.g. \
                                 \"=nodes.<node_id>.item.json.<field>\" (or \"=item\" off the \
                                 trigger), not an expression that resolves to null.",
-                        })
-                    })
-                })
+                        }))
             })
             .collect();
 

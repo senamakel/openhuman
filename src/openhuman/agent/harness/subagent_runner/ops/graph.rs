@@ -854,8 +854,8 @@ fn mirror_worker_thread(
                     );
                 }
             }
-            ConversationMessage::Chat(c) if c.role == "assistant" => {
-                if !c.content.trim().is_empty() {
+            ConversationMessage::Chat(c) if c.role == "assistant"
+                && !c.content.trim().is_empty() => {
                     iteration += 1;
                     append_worker_message(
                         workspace_dir,
@@ -870,7 +870,6 @@ fn mirror_worker_thread(
                         }),
                     );
                 }
-            }
             _ => {}
         }
     }

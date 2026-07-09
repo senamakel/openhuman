@@ -22,14 +22,37 @@ const jobs = [
   { name: 'vite', cmd: 'vite', args: ['build', ...viteArgs] },
 ];
 
+const active = new Map();
+let firstFailure = null;
+
+function stopSiblings(failedName) {
+  for (const [name, child] of active) {
+    if (name !== failedName && !child.killed) {
+      child.kill();
+    }
+  }
+}
+
 function run({ name, cmd, args }) {
   return new Promise(resolve => {
     const child = spawn(cmd, args, { stdio: 'inherit', shell: true });
+    active.set(name, child);
     child.on('exit', (code, signal) => {
-      resolve({ name, code: code ?? (signal ? 1 : 0) });
+      active.delete(name);
+      const exitCode = code ?? (signal ? 1 : 0);
+      if (exitCode !== 0 && firstFailure === null) {
+        firstFailure = name;
+        stopSiblings(name);
+      }
+      resolve({ name, code: exitCode });
     });
     child.on('error', err => {
+      active.delete(name);
       console.error(`[build-parallel] failed to start ${name}: ${err.message}`);
+      if (firstFailure === null) {
+        firstFailure = name;
+        stopSiblings(name);
+      }
       resolve({ name, code: 1 });
     });
   });

@@ -9,8 +9,7 @@ use super::compatible_parse::{
     parse_tool_calls_from_content_json,
 };
 use super::compatible_types::{
-    ApiChatResponse, Message, MessageContent, NativeChatRequest, NativeMessage, ResponsesRequest,
-    ToolCall,
+    ApiChatResponse, MessageContent, NativeMessage, ResponsesRequest, ToolCall,
 };
 use super::OpenAiCompatibleProvider;
 

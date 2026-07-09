@@ -600,7 +600,7 @@ fn apply_claim(
         .find(|c| c.id == card_id)
         .ok_or_else(|| format!("[todos][ops] claim_card: card '{card_id}' not found on board"))?;
 
-    if !expected.iter().any(|s| *s == card.status) {
+    if !expected.contains(&card.status) {
         let current = card.status.as_str();
         return Err(format!(
             "[todos][ops] claim_card: card '{card_id}' status is '{current}', \

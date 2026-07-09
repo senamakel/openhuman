@@ -1159,7 +1159,7 @@ impl Agent {
                     // of agent-conversation recall, suppress the prior-chat and
                     // cross-chat blocks. Defaults to on for None / unset.
                     .with_agent_conversations(
-                        profile.map_or(true, |p| p.include_agent_conversations),
+                        profile.is_none_or(|p| p.include_agent_conversations),
                     ),
             ))
             .prompt_builder(prompt_builder)

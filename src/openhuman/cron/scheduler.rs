@@ -636,9 +636,7 @@ async fn execute_job_with_retry(
         && !local_unreachable
         && !permanent_config_halt
     {
-        let report_message = last_agent_error
-            .as_deref()
-            .unwrap_or_else(|| last_output.as_str());
+        let report_message = last_agent_error.as_deref().unwrap_or(last_output.as_str());
         crate::core::observability::report_error(
             report_message,
             "cron",
@@ -1188,29 +1186,28 @@ async fn deliver_if_configured(
 
         // Announce delivery — the cron job specifies the exact channel
         // and target. Used for explicit channel-targeted output.
-        "announce" => {
-            if deliver_to_chat {
-                let channel = delivery.channel.as_deref().ok_or_else(|| {
-                    anyhow::anyhow!("delivery.channel is required for announce mode")
-                })?;
-                let target = delivery
-                    .to
-                    .as_deref()
-                    .ok_or_else(|| anyhow::anyhow!("delivery.to is required for announce mode"))?;
+        "announce" if deliver_to_chat => {
+            let channel = delivery
+                .channel
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("delivery.channel is required for announce mode"))?;
+            let target = delivery
+                .to
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("delivery.to is required for announce mode"))?;
 
-                tracing::debug!(
-                    job_id = %job.id,
-                    channel = %channel,
-                    target = %target,
-                    "[cron] publishing CronDeliveryRequested event"
-                );
-                publish_global(DomainEvent::CronDeliveryRequested {
-                    job_id: job.id.clone(),
-                    channel: channel.to_string(),
-                    target: target.to_string(),
-                    output: output.to_string(),
-                });
-            }
+            tracing::debug!(
+                job_id = %job.id,
+                channel = %channel,
+                target = %target,
+                "[cron] publishing CronDeliveryRequested event"
+            );
+            publish_global(DomainEvent::CronDeliveryRequested {
+                job_id: job.id.clone(),
+                channel: channel.to_string(),
+                target: target.to_string(),
+                output: output.to_string(),
+            });
         }
 
         // No delivery configured — output is stored in last_output only.

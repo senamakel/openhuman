@@ -20,17 +20,10 @@ pub struct StorageProviderSection {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
+#[derive(Default)]
 pub struct StorageProviderConfig {
     #[serde(default)]
     pub provider: String,
-}
-
-impl Default for StorageProviderConfig {
-    fn default() -> Self {
-        Self {
-            provider: String::new(),
-        }
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
@@ -175,8 +168,10 @@ impl std::fmt::Debug for MemoryConfig {
 /// local-only and isn't governed by this enum.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum LlmBackend {
     /// Route through the OpenHuman backend (default).
+    #[default]
     Cloud,
     /// Use the local Ollama path configured via `llm_extractor_*` /
     /// `llm_summariser_*`.
@@ -199,12 +194,6 @@ impl LlmBackend {
             "local" => Ok(Self::Local),
             other => Err(format!("unknown llm (expected cloud|local): {other}")),
         }
-    }
-}
-
-impl Default for LlmBackend {
-    fn default() -> Self {
-        Self::Cloud
     }
 }
 

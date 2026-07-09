@@ -2,9 +2,11 @@
 # Reusable test workflow — frontend unit tests, Rust core tests, Rust Tauri
 # shell tests. Used by PR/push (`test.yml`).
 #
-# Caching: pnpm store, Swatinem rust-cache, CEF runtime, and sccache backed
-# by the GitHub Actions cache. Cache keys mirror what the release build
-# matrix uses so warm caches survive across workflows on the same SHA.
+# Caching: pnpm store, Swatinem rust-cache (full target/), and CEF runtime,
+# backed by the GitHub Actions cache. Cache keys mirror what the release build
+# matrix uses so warm caches survive across workflows on the same SHA. sccache
+# is intentionally not layered on top — under a warm rust-cache it logged 0%
+# additional hits (see ci-lite.yml) and only doubled the cache footprint.
 name: Test (reusable)
 
 on:
@@ -119,8 +121,6 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     env:
       CARGO_INCREMENTAL: "0"
-      RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -129,14 +129,15 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
           submodules: recursive
+      # Single dep-cache strategy repo-wide: Swatinem rust-cache (full target/).
+      # sccache was removed here to match the ci-lite lanes — layered on a warm
+      # rust-cache it logged 0% additional hits and just doubled cache footprint.
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: . -> target
           cache-on-failure: true
           key: core
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Test core crate (openhuman)
         run: bash scripts/ci-cancel-aware.sh cargo test -p openhuman
 
@@ -147,8 +148,6 @@ jobs:
     timeout-minutes: 30
     env:
       CARGO_INCREMENTAL: '0'
-      SCCACHE_GHA_ENABLED: 'true'
-      RUSTC_WRAPPER: sccache
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -157,14 +156,13 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
           submodules: recursive
+      # See rust-core-tests: rust-cache only, sccache dropped (0% hits warm).
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: . -> target
           cache-on-failure: true
           key: core-windows
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Run Windows-specific secrets tests
         # Runs the keyring::encrypted_store suite (keyring::encrypted_store::tests),
         # which contains the #[cfg(windows)] tests:
@@ -186,8 +184,6 @@ jobs:
       image: ghcr.io/tinyhumansai/openhuman_ci:rust-1.93.0
     env:
       CARGO_INCREMENTAL: "0"
-      RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -197,6 +193,7 @@ jobs:
           # Required for app/src-tauri/vendor/tauri-cef.
           persist-credentials: false
           submodules: recursive
+      # See rust-core-tests: rust-cache only, sccache dropped (0% hits warm).
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
         with:
@@ -212,7 +209,5 @@ jobs:
           key: cef-ubuntu-22.04-${{ hashFiles('app/src-tauri/Cargo.toml') }}
           restore-keys: |
             cef-ubuntu-22.04-
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Test Tauri shell (OpenHuman)
         run: bash scripts/ci-cancel-aware.sh cargo test --manifest-path app/src-tauri/Cargo.toml

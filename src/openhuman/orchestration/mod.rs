@@ -13,6 +13,7 @@
 pub mod attention;
 pub mod bus;
 pub mod cloud;
+pub mod effect_executor;
 pub mod frontend_agent;
 pub mod graph;
 pub mod ingest;

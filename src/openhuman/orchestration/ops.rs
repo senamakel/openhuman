@@ -1343,7 +1343,7 @@ impl OrchestrationRuntime for ProductionRuntime {
 /// Wire body for an agent reply into `session_id`: a v1 session envelope for a
 /// real harness session (so the peer threads its reply under the same id), or
 /// the plain body for the pinned Master / subconscious windows.
-fn session_send_plaintext(session_id: &str, body: &str) -> anyhow::Result<String> {
+pub(crate) fn session_send_plaintext(session_id: &str, body: &str) -> anyhow::Result<String> {
     if session_id == "master" || session_id == "subconscious" {
         return Ok(body.to_string());
     }

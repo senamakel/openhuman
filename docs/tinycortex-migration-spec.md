@@ -118,11 +118,23 @@ verification below were validated **locally** against the branch to prove the ba
 
 ### The adapter seam: `src/openhuman/tinycortex/` (W1, mirrors `src/openhuman/tinyagents/`)
 
+**W1 seam files** (all against seam traits already present in the crate, §0.2):
 `embeddings.rs` (`EmbeddingBackend`/`Embedder`), `chat.rs` (`ChatProvider`/`Summariser`×2/
 `EntityExtractor`/`GoalsGenerator`), `queue_driver.rs` (`QueueDelegates` + tokio worker loop +
 Sentry/bus), `config.rs` (`Config`→`MemoryConfig`), `sinks.rs` (`TreeJobSink`/`TreeLeafSink`/
 `SnapshotItemSource`/`EntityOccurrenceIndex`), `bus.rs` (engine outcomes → `DomainEvent`),
-`mod.rs` (facade re-exports + boundary doc). All 17 seam traits confirmed present (§0.2).
+`mod.rs` (facade re-exports + boundary doc). All 17 W1 seam traits confirmed present (§0.2).
+
+**Later seam additions (amended 2026-07-09):**
+
+- **W-EMB rebridge** — `embeddings.rs` is re-pointed from `openhuman::embeddings` to
+  `tinyagents::harness::embeddings::EmbeddingModel` (crate bridges `EmbeddingBackend` to that trait,
+  plan §8.2 / gap-audit roster). Seam file stays; its backing implementation moves upstream.
+- **W-SYNC seam file** — `sync_sink.rs` adds the host adapters for **two new crate traits** landing
+  with W-SYNC.1 (not among the 17 above; they do not exist in the crate at the Phase-0 SHA):
+  `SyncEventSink` (→ `MemorySyncStage` bus events) and `SkillDocSink` (→
+  `MemoryClient::store_skill_sync`, the host-retained namespace-document tier). See plan §8.1 and the
+  gap-audit roster.
 
 ---
 

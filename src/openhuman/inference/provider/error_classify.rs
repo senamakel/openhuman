@@ -62,6 +62,17 @@ pub(crate) fn is_non_retryable(err: &anyhow::Error) -> bool {
     if crate::openhuman::inference::provider::body_indicates_quota_exhausted(&msg) {
         return true;
     }
+    // A local LLM server refusing the loopback connection (LM Studio / Ollama not
+    // running) will not recover within the retry/backoff window — retrying only
+    // adds ~1.5s of pointless backoff before the identical connect-refused, then
+    // surfaces the same failure. Fail fast so the offline-provider signal reaches
+    // the caller immediately, matching the cron halt guard's same-shape treatment
+    // (TAURI-RUST-12K). The `connection refused (os error N)` errno lives in the
+    // cause chain, so classify over the full alternate (`{:#}`) rendering, not the
+    // outer `error sending request for url (...)` Display.
+    if crate::core::observability::is_local_provider_unreachable_message(&format!("{err:#}")) {
+        return true;
+    }
 
     if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>() {
         if let Some(status) = reqwest_err.status() {

@@ -771,7 +771,10 @@ async fn memory_thread_tree_and_sync_controller_schemas_execute_public_handlers(
 
     let thread_schemas = all_threads_controller_schemas();
     let thread_controllers = all_threads_registered_controllers();
-    assert_eq!(thread_schemas.len(), 17);
+    // The threads controller set now exposes 19 schemas; the schema/controller
+    // parity assert below is the invariant that actually matters (no orphan
+    // schema or handler), the exact count just tracks the registered surface.
+    assert_eq!(thread_schemas.len(), 19);
     assert_eq!(thread_schemas.len(), thread_controllers.len());
     assert_eq!(
         openhuman_core::openhuman::threads::schemas::schemas("missing").function,

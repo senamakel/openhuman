@@ -390,7 +390,7 @@ mod tests {
 
         assert_eq!(builder.learning_enabled, default_builder.learning_enabled);
         assert_eq!(builder.auto_save, default_builder.auto_save);
-        assert!(builder.provider.is_none());
+        assert!(builder.turn_model_source.is_none());
         assert!(builder.tools.is_none());
         assert!(builder.memory.is_none());
         assert!(builder.event_session_id.is_none());

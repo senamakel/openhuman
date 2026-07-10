@@ -27,7 +27,7 @@ be upstreamed, retained, or deleted before each phase cuts over.
 | Plan commit | `24f200e49` (`docs: TinyAgents port plan`) |
 | TinyAgents submodule | `vendor/tinyagents` -> `tinyhumansai/tinyagents` |
 | Phase 0 target | `v1.6.0` / `e72036d847b589044aa9a4add1b34544b92a293d` |
-| Current host pin | `v1.7.1-19-g1057acf` (`harness/openai-capability-toggles`, [tinyagents#49](https://github.com/tinyhumansai/tinyagents/pull/49)) |
+| Current host pin | `v1.8.0-1-g7c6e81a` ([tinyagents#49](https://github.com/tinyhumansai/tinyagents/pull/49) **merged** onto v1.8.0 main) |
 | Verification PR | [openhuman#4769](https://github.com/tinyhumansai/openhuman/pull/4769) — Motion A + Motion B checkpoint |
 
 ## Baseline Snapshot
@@ -86,8 +86,16 @@ site is crate-backed (the migration's scaffold → flip → delete pattern).
 adds `OpenAiModel::{with_native_tool_calling, with_vision, with_default_provider_options}`
 + a pure `merge_provider_options` (baked defaults merged under per-call
 options; a non-object override passes through so validation still rejects it).
-Crate tests: 55 openai unit tests pass; `cargo fmt --check` + `cargo clippy
---lib -- -D warnings` clean. Host pin bumped to `1057acf`.
+Merged onto crate `v1.8.0` main as `7c6e81a`; crate tests: 61 openai unit tests
+pass (55 + v1.8.0's #45/#46); `cargo fmt --check` clean. Host pin `7c6e81a`.
+
+**Motion A deferred-test debt (found via PR #4769 CI):** Motion A renamed
+`ParentExecutionContext.provider → turn_model_source` (+ the `AgentBuilder`
+field) but ~8 `agent_orchestration`/`harness` **test** modules still built the
+struct with the old field. Because no PR existed pre-#4769, this was never
+CI-tested; the lib-test target (`cargo test --lib`) did not compile, which would
+fail CI `rust-core-coverage`. Fixed by wrapping each site in
+`TurnModelSource::new(provider)` and correcting the `AgentBuilder` field access.
 
 **Codex-oauth / responses-fallback parity gap (cloud Bearer slugs):** the host
 `make_cloud_provider_by_slug` Bearer branch layers on `/v1/responses`

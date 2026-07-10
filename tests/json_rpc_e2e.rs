@@ -5831,7 +5831,7 @@ async fn json_rpc_subconscious_status_exposes_instances_and_trigger_takes_kind()
         &rpc_base,
         1102,
         "openhuman.subconscious_trigger",
-        json!({ "kind": "tinyplace" }),
+        json!({ "kind": "memory" }),
     )
     .await;
     let trig_result = assert_no_jsonrpc_error(&trig, "subconscious_trigger");
@@ -5843,7 +5843,7 @@ async fn json_rpc_subconscious_status_exposes_instances_and_trigger_takes_kind()
     );
     assert_eq!(
         trig_body.get("kind").and_then(Value::as_str),
-        Some("tinyplace"),
+        Some("memory"),
         "trigger echoes the requested kind: {trig_body}"
     );
 
@@ -5852,7 +5852,7 @@ async fn json_rpc_subconscious_status_exposes_instances_and_trigger_takes_kind()
         &rpc_base,
         1103,
         "openhuman.subconscious_trigger",
-        json!({ "kind": "nope" }),
+        json!({ "kind": "tinyplace" }),
     )
     .await;
     assert!(

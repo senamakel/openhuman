@@ -188,6 +188,42 @@ mod tests {
         }
     }
 
+    /// P10 — the embedding-space **signature** string that keys every persisted
+    /// vector. Host (`embeddings::format_embedding_signature`) and crate
+    /// (`store::vectors::format_embedding_signature`) each own their **own** copy
+    /// of this formatter, so a change to either would silently split one
+    /// embedding space into two — every existing vector would look stale under
+    /// the new signature and trigger a full re-embed storm on the next open.
+    /// Pin both to the golden `provider={name};model={model};dims={dims}` form
+    /// over a corpus (real provider triples plus empties / special chars).
+    #[test]
+    fn embedding_signature_host_crate_byte_parity() {
+        use crate::openhuman::embeddings::format_embedding_signature as host_sig;
+        use tinycortex::memory::store::vectors::format_embedding_signature as cortex_sig;
+
+        // (name, model_id, dims, expected golden)
+        let corpus: &[(&str, &str, usize, &str)] = &[
+            ("voyage", "voyage-3", 1024, "provider=voyage;model=voyage-3;dims=1024"),
+            ("openai", "text-embedding-3-small", 1536, "provider=openai;model=text-embedding-3-small;dims=1536"),
+            ("ollama", "nomic-embed-text", 768, "provider=ollama;model=nomic-embed-text;dims=768"),
+            ("cohere", "embed-english-v3.0", 1024, "provider=cohere;model=embed-english-v3.0;dims=1024"),
+            ("inert", "none", 0, "provider=inert;model=none;dims=0"),
+            // Edge shapes: empty model, punctuation in model id.
+            ("noop", "", 3, "provider=noop;model=;dims=3"),
+            ("x", "m-1_2.3", 42, "provider=x;model=m-1_2.3;dims=42"),
+        ];
+
+        for (name, model, dims, golden) in corpus {
+            let h = host_sig(name, model, *dims);
+            let c = cortex_sig(name, model, *dims);
+            assert_eq!(
+                h, c,
+                "signature diverged for (name={name}, model={model}, dims={dims}): host={h} crate={c}"
+            );
+            assert_eq!(&h, golden, "signature format drifted from the golden form");
+        }
+    }
+
     fn hex(bytes: &[u8]) -> String {
         use std::fmt::Write;
         bytes

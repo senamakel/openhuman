@@ -62,19 +62,24 @@ two layers.
 
 ### Layer 1 — schema/format asserters (host-side unit tests, cheap, run every PR)
 
-A `tests/tinycortex_parity/` module with pure-function comparators (no disk):
+Pure-function comparators (no disk), implemented in **`src/openhuman/tinycortex/parity.rs`**
+(`#[cfg(test)]`). Status ✅ = landed & green; ⏳ = pending.
 
-- **`chunk_id_parity`** — table of `(source_kind, source_id, seq, content)` → assert host `chunk_id`
-  == `tinycortex::memory::chunks::chunk_id` (covers P1). *(After W3 both resolve to the crate; keep
-  the vector as a regression pin.)*
-- **`vector_roundtrip_parity`** — random `Vec<f32>` → `vec_to_bytes` → `bytes_to_vec` byte-equal
-  across both (P2).
-- **`content_path_parity`** — corpus of adversarial ids (colons, unicode, >255 chars, `email`
-  source) → assert identical `chunk_rel_path`/`summary_rel_path` (P6).
-- **`frontmatter_parity`** — compose a fixed chunk+summary → byte-compare markdown incl. frontmatter
-  key order (P7).
-- **`embedding_signature_parity`** — assert the W1 seam's `signature()` string == the format the
-  store persisted into `store_meta` (P10).
+- ✅ **`chunk_id_matches_historical_golden` / `chunk_id_is_sensitive_to_every_field`** — golden +
+  every-field sensitivity for the deterministic `chunk_id` (covers P1). *(After W3 both resolve to the
+  crate; the golden vector stays as a regression pin.)*
+- ✅ **`vector_encoding_is_le_packed_f32`** — `vec_to_bytes`/`bytes_to_vec` LE-packed-f32 round-trip
+  + golden bytes (P2).
+- ✅ **`chunk_rel_path_host_crate_byte_parity` / `summary_rel_path_host_crate_byte_parity`** —
+  adversarial id corpus (colons, all Windows-illegal chars, unicode, >255 chars, gmail participant
+  slugs, malformed email; every summary-id shape × 3 tree kinds × levels) → assert host
+  `chunk_rel_path`/`summary_rel_path` **byte-equal** the crate's (P6). *(Landed; verified identical.)*
+- ✅ **`embedding_signature_host_crate_byte_parity`** — assert host
+  `embeddings::format_embedding_signature` == crate `store::vectors::format_embedding_signature` and
+  both == the golden `provider={name};model={model};dims={dims}` over a provider corpus (P10). The
+  seam's own `signature()` pass-through is separately pinned in `tinycortex/embeddings.rs`.
+- ⏳ **`frontmatter_parity`** — compose a fixed chunk+summary → byte-compare markdown incl.
+  frontmatter key order (P7). *(Not yet landed — needs the host/crate compose types aligned.)*
 
 ### Layer 2 — golden-workspace differential harness (the flip gate)
 

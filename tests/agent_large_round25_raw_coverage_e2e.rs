@@ -117,9 +117,33 @@ impl Provider for ScriptedProvider {
     async fn chat(
         &self,
         request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
+        model: &str,
+        temperature: f64,
     ) -> Result<ChatResponse> {
+        // The `extract_from_result` tool now runs its per-chunk extraction through
+        // the crate `ChatModel` (`build_summarizer().invoke()` → this `chat`),
+        // not the legacy `provider.chat_with_system`. Route those calls — identified
+        // by the extraction system prompt — to the fixed extracted answer so they
+        // do not consume the agent-turn response queue, and record them separately
+        // (the old `chat_with_system` extraction path is dead on this seam). The
+        // recorded shape mirrors the former `chat_with_system` capture so the
+        // `model=…` / `temperature=…` assertions below still hold.
+        let is_extraction = request
+            .messages
+            .iter()
+            .any(|m| m.role == "system" && m.content.contains("extraction assistant"));
+        if is_extraction {
+            self.extraction_prompts.lock().push(format!(
+                "model={model}\ntemperature={temperature}\n{}",
+                request
+                    .messages
+                    .iter()
+                    .map(|m| format!("{}:{}", m.role, m.content))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ));
+            return Ok(text_response("round25 extracted: NEEDLE-42"));
+        }
         self.requests.lock().push(CapturedRequest {
             messages: request.messages.to_vec(),
             tools_sent: request.tools.is_some(),

@@ -34,6 +34,12 @@ struct ScriptedProvider {
     native_tools: bool,
     vision: bool,
     stream_events: Vec<ProviderDelta>,
+    // When set, every `chat` call fails with this message regardless of the
+    // scripted queue. Models a *persistently* unreachable provider so the
+    // crate-owned retry schedule (`RunPolicy.retry`, max 3 attempts) exhausts
+    // and the turn genuinely fails — a single queued error would otherwise be
+    // "recovered" on retry by the empty-queue default response below.
+    always_fail: Option<String>,
 }
 
 impl ScriptedProvider {
@@ -45,10 +51,8 @@ impl ScriptedProvider {
     }
 
     fn failing(message: &str) -> Arc<Self> {
-        let mut responses = VecDeque::new();
-        responses.push_back(Err(anyhow::anyhow!(message.to_string())));
         Arc::new(Self {
-            responses: Mutex::new(responses),
+            always_fail: Some(message.to_string()),
             ..Self::default()
         })
     }
@@ -90,6 +94,9 @@ impl Provider for ScriptedProvider {
                 .map(|tools| tools.iter().map(|tool| tool.name.clone()).collect())
                 .unwrap_or_default(),
         });
+        if let Some(message) = &self.always_fail {
+            return Err(anyhow::anyhow!(message.clone()));
+        }
         if let Some(stream) = request.stream {
             for event in &self.stream_events {
                 stream.send(event.clone()).await.ok();
@@ -423,6 +430,7 @@ async fn bus_turn_native_tools_dedups_streams_and_records_tool_messages() {
                 delta: "{\"value\"".to_string(),
             },
         ],
+        always_fail: None,
     });
     let response = run_bus_turn(
         provider.clone(),

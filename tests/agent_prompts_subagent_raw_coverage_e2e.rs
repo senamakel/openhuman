@@ -35,6 +35,12 @@ struct ScriptedProvider {
     requests: Mutex<Vec<String>>,
     native_tools: bool,
     delay: Option<Duration>,
+    // When set, every `chat` call fails with this message regardless of the
+    // scripted queue — models a *persistently* unreachable provider so the
+    // crate-owned retry schedule (`RunPolicy.retry`, max 3 attempts) exhausts
+    // and the run genuinely fails, rather than a single queued error being
+    // "recovered" on retry by the empty-queue `fallback final` default.
+    always_fail: Option<String>,
 }
 
 impl ScriptedProvider {
@@ -44,15 +50,17 @@ impl ScriptedProvider {
             requests: Mutex::new(Vec::new()),
             native_tools: true,
             delay: None,
+            always_fail: None,
         })
     }
 
     fn failing(message: &str) -> Arc<Self> {
         Arc::new(Self {
-            responses: Mutex::new(VecDeque::from([Err(anyhow::anyhow!(message.to_string()))])),
+            responses: Mutex::new(VecDeque::new()),
             requests: Mutex::new(Vec::new()),
             native_tools: true,
             delay: None,
+            always_fail: Some(message.to_string()),
         })
     }
 
@@ -62,6 +70,7 @@ impl ScriptedProvider {
             requests: Mutex::new(Vec::new()),
             native_tools: true,
             delay: Some(delay),
+            always_fail: None,
         })
     }
 
@@ -105,6 +114,9 @@ impl Provider for ScriptedProvider {
         );
         if let Some(delay) = self.delay {
             tokio::time::sleep(delay).await;
+        }
+        if let Some(message) = &self.always_fail {
+            return Err(anyhow::anyhow!(message.clone()));
         }
         self.responses
             .lock()

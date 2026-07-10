@@ -2047,10 +2047,14 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
         Some(0.3)
     );
 
+    // An unrecognised non-empty `default_model` is a raw/BYOK model the user
+    // pinned; the managed backend forwards it verbatim (issue #4598) instead of
+    // silently collapsing it onto `reasoning-v1`, so the selected model actually
+    // reaches the backend (which validates it).
     config.default_model = Some("stale-provider-model".into());
     let (_, openhuman_model) =
         create_chat_provider_from_string("chat", "openhuman", &config).expect("openhuman provider");
-    assert_eq!(openhuman_model, "reasoning-v1");
+    assert_eq!(openhuman_model, "stale-provider-model");
 
     let byok_err = provider_factory_error("chat", BYOK_INCOMPLETE_SENTINEL, &config);
     assert!(byok_err.contains("BYOK_INCOMPLETE"));

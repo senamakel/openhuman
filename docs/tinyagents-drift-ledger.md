@@ -104,6 +104,28 @@ signatures after #4753 made them `async`/3-arg — broken identically on
 `upstream/main`. Fixed the two tests to `#[tokio::test]` + `.await` + the
 `cycle_id` arg (gate-bypassed for non-local-exec tools).
 
+**Behavior-level test failures (5, surfaced once the suite compiled): all stale
+tests, no code regression.** Motion A's "zero behavior change" holds for the
+actual runtime contract — the failing tests were written against pre-migration
+internals and were never CI-run:
+
+- `bus_turn` / `run_subagent` *surfaces_provider_error* — the crate-owned retry
+  (`RunPolicy.retry` max 3, mirroring the old `ReliableProvider`) rides a
+  single-shot `ScriptedProvider::failing` through to its empty-queue default `Ok`.
+  Fix: `always_fail` field so the mock fails **persistently** (all 3 attempts) —
+  a genuinely-down provider still surfaces its error.
+- `agent_large_round25` extraction — `extract_from_result` now runs its per-chunk
+  extraction through the crate `ChatModel` (`build_summarizer().invoke()`, commit
+  `6106ced83`), not the legacy `chat_with_system`; 6 chunk calls hit `chat` and
+  drained the agent-turn queue. Fix: route extraction calls (detected by the
+  extraction system prompt) to the fixed result in the mock's `chat`.
+- `inference…user_state_edges` — expected an unknown model to collapse to
+  `reasoning-v1`; the managed backend forwards it verbatim (#4598). Fix: assertion.
+- `cron…local_provider_offline_trips_halt_guard` — the **one code fix**:
+  `run_agent_job` surfaced `raw` as `e.to_string()` (outer message only), dropping
+  the `connection refused (os error N)` cause the halt-guard classifier needs.
+  Changed to `{e:#}` (full anyhow chain).
+
 **Codex-oauth / responses-fallback parity gap (cloud Bearer slugs):** the host
 `make_cloud_provider_by_slug` Bearer branch layers on `/v1/responses`
 fallback, `openai-codex` OAuth headers, user-agent, query params, and

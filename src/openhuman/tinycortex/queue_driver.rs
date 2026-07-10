@@ -42,12 +42,14 @@ use tinycortex::memory::MemoryConfig;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::tree_source::get_or_create_source_tree;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
-use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata};
+use crate::openhuman::memory_store::chunks::types::{truncate_to_conservative_tokens, Chunk, Metadata};
 use crate::openhuman::memory_store::content as content_store;
 use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory_store::content::tags as content_tags;
 use crate::openhuman::memory_store::trees::store as trees_store;
+use crate::openhuman::memory_tree::health;
 use crate::openhuman::memory_tree::score;
+use crate::openhuman::memory_tree::score::embed::{build_write_embedder, pack_checked, Embedder};
 use crate::openhuman::memory_tree::score::store as score_store;
 use crate::openhuman::memory_tree::tree::{bucket_seal, TreeFactory};
 
@@ -87,6 +89,111 @@ fn uses_document_subtree(chunk: &Chunk) -> bool {
             .path_scope
             .as_deref()
             .is_some_and(|s| s.starts_with(DOC_SUBTREE_PREFIX))
+}
+
+// ── Re-embed backfill helpers (ported from `memory_queue::handlers`) ──────────
+
+/// Texts per re-embed batch — sized to the batch API (Voyage: 1000/req).
+const REEMBED_BACKFILL_BATCH: usize = 1000;
+/// Conservative per-text embed token budget; caps any body that reaches an embed
+/// call so no single input overflows the embedder's context and fails the batch.
+const EMBED_SAFE_TOKENS: u32 = 7500;
+
+fn cap_embed_text(text: &str) -> &str {
+    truncate_to_conservative_tokens(text, EMBED_SAFE_TOKENS)
+}
+
+fn try_mark_chunk_reembed_skipped(config: &Config, chunk_id: &str, sig: &str, reason: &str) {
+    if let Err(e) = chunk_store::mark_chunk_reembed_skipped(config, chunk_id, sig, reason) {
+        log::warn!(
+            "[tinycortex::queue_driver] reembed: failed to persist chunk tombstone chunk_id={chunk_id} sig={sig}: {e}"
+        );
+    }
+}
+
+fn try_mark_summary_reembed_skipped(config: &Config, summary_id: &str, sig: &str, reason: &str) {
+    if let Err(e) = trees_store::mark_summary_reembed_skipped(config, summary_id, sig, reason) {
+        log::warn!(
+            "[tinycortex::queue_driver] reembed: failed to persist summary tombstone summary_id={summary_id} sig={sig}: {e}"
+        );
+    }
+}
+
+/// Read each row's source text, embed the readable bodies in one batched call,
+/// and classify per position (ported verbatim from `handlers::reembed_collect`,
+/// preserving the #1574 §6 failure semantics: body-read/wrong-dim/unrecoverable
+/// → persistent tombstone; cloud `AuthMissing` → fail without tombstone so rows
+/// stay re-embeddable after login; other transient → propagate).
+async fn reembed_collect(
+    config: &Config,
+    embedder: &dyn Embedder,
+    active_sig: &str,
+    ids: &[String],
+    label: &str,
+    read_body: impl Fn(&Config, &str) -> anyhow::Result<String>,
+    mark_skipped: impl Fn(&Config, &str, &str, &str),
+) -> anyhow::Result<Vec<(String, Vec<f32>)>> {
+    let mut readable: Vec<(&String, String)> = Vec::with_capacity(ids.len());
+    for id in ids {
+        match read_body(config, id) {
+            Ok(body) => readable.push((id, body)),
+            Err(e) => {
+                log::warn!(
+                    "[tinycortex::queue_driver] reembed: {label} {id} body read failed: {e}; skipping (sig={active_sig})"
+                );
+                mark_skipped(config, id, active_sig, &format!("body read failed: {e}"));
+            }
+        }
+    }
+    if readable.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let results = {
+        let texts: Vec<&str> = readable
+            .iter()
+            .map(|(_, body)| cap_embed_text(body))
+            .collect();
+        embedder.embed_batch(&texts).await
+    };
+    if results.len() != readable.len() {
+        anyhow::bail!(
+            "reembed: {label} embed_batch returned {} results for {} texts (sig={active_sig})",
+            results.len(),
+            readable.len()
+        );
+    }
+
+    let mut out: Vec<(String, Vec<f32>)> = Vec::with_capacity(readable.len());
+    for ((id, _body), result) in readable.into_iter().zip(results) {
+        match result {
+            Ok(v) if pack_checked(&v).is_ok() => out.push((id.clone(), v)),
+            Ok(_) => {
+                log::warn!(
+                    "[tinycortex::queue_driver] reembed: {label} {id} embed wrong dim, skipping (sig={active_sig})"
+                );
+                mark_skipped(config, id, active_sig, "embed wrong dim");
+            }
+            Err(e) => {
+                let failure = health::classify_embed_error(&e);
+                if matches!(failure.code, health::FailureCode::AuthMissing) {
+                    return Err(anyhow::Error::new(failure).context(format!(
+                        "reembed: {label} {id} cloud auth missing (sig={active_sig}): {e:#}"
+                    )));
+                }
+                if !failure.is_unrecoverable() {
+                    return Err(anyhow::Error::new(failure).context(format!(
+                        "reembed: {label} {id} transient embed failed (sig={active_sig}): {e:#}"
+                    )));
+                }
+                log::warn!(
+                    "[tinycortex::queue_driver] reembed: {label} {id} embed failed unrecoverably: {e}; skipping (sig={active_sig})"
+                );
+                mark_skipped(config, id, active_sig, &format!("embed failed: {e}"));
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// How the host worker loop should report an errored `run_once` poll to Sentry.
@@ -199,13 +306,15 @@ pub fn classify_worker_error(err: &anyhow::Error) -> WorkerErrorAction {
 /// the existing host engine, holding the host [`Config`] the calls need (the
 /// `&MemoryConfig` the crate passes is derived from this same workspace).
 ///
-/// **Brick 2 status (additive — the driver is not flipped to this yet):** the
-/// self-contained methods are wired to the real host engine; the LLM/embedding/
-/// tree-mutation-heavy methods (`extract_chunk`, `append_node`, `seal_level`,
-/// `seal_document`, `reembed_batch`) — which restructure the host handlers'
-/// atomic-tx bodies into the crate's decision-returning shape — are staged for
-/// brick 2b. They return an error rather than a silent no-op so a premature flip
-/// fails loudly instead of dropping work.
+/// **Brick 2 status (additive — the driver is not flipped to this yet):** all 8
+/// delegate methods are wired to the real host engine (`memory_tree` / score /
+/// embed / `memory_store`), porting the `memory_queue::handlers` bodies into the
+/// crate's decision-returning shape — the delegate does only the heavy engine
+/// work and returns the outcome; the crate's `handle_job` owns payload parsing,
+/// follow-up enqueues, and `Done`/`Defer`, so the delegate must never enqueue.
+/// Nothing is flipped: the live queue still runs on `memory_queue` until brick 3
+/// re-points `global.rs`/enqueue onto the crate store and deletes the legacy
+/// engine.
 pub struct HostQueueDelegates {
     config: Config,
 }
@@ -474,12 +583,119 @@ impl QueueDelegates for HostQueueDelegates {
         Ok(())
     }
 
+    /// Ported from `handle_reembed_backfill`: embed one bounded batch of
+    /// chunks/summaries lacking a vector at `signature`. Maps the host handler's
+    /// control flow onto [`ReembedProgress`] (the crate's `handle_reembed_backfill`
+    /// turns `Wrote{more_pending:true}` into `Defer` and the terminal variants
+    /// into `Done`).
     async fn reembed_batch(
         &self,
         _config: &MemoryConfig,
-        _signature: &str,
+        signature: &str,
     ) -> anyhow::Result<ReembedProgress> {
-        anyhow::bail!("W4 brick 2b: reembed_batch engine bridge not yet ported")
+        let config = &self.config;
+        let active_sig = chunk_store::tree_active_signature(config);
+        if active_sig != signature {
+            // The embedder changed since this chain started — a fresh chain for
+            // the new signature supersedes it.
+            return Ok(ReembedProgress::StaleSignature);
+        }
+
+        // Phase 1: up to BATCH ids lacking a sidecar vector at the active
+        // signature (excluding persistently-tombstoned rows) — chunks first,
+        // then summaries to fill the batch.
+        let (chunk_ids, summary_ids): (Vec<String>, Vec<String>) =
+            chunk_store::with_connection(config, |conn| {
+                let chunks: Vec<String> = {
+                    let mut stmt = conn.prepare(
+                        "SELECT id FROM mem_tree_chunks c
+                          WHERE NOT EXISTS (
+                              SELECT 1 FROM mem_tree_chunk_embeddings e
+                               WHERE e.chunk_id = c.id AND e.model_signature = ?1)
+                            AND NOT EXISTS (
+                              SELECT 1 FROM mem_tree_chunk_reembed_skipped s
+                               WHERE s.chunk_id = c.id AND s.model_signature = ?1)
+                          LIMIT ?2",
+                    )?;
+                    let ids = stmt
+                        .query_map(
+                            rusqlite::params![active_sig, REEMBED_BACKFILL_BATCH as i64],
+                            |r| r.get::<_, String>(0),
+                        )?
+                        .collect::<rusqlite::Result<Vec<String>>>()?;
+                    ids
+                };
+                let remaining = REEMBED_BACKFILL_BATCH.saturating_sub(chunks.len());
+                let summaries: Vec<String> = if remaining == 0 {
+                    Vec::new()
+                } else {
+                    let mut stmt = conn.prepare(
+                        "SELECT id FROM mem_tree_summaries s
+                          WHERE s.deleted = 0
+                            AND NOT EXISTS (
+                              SELECT 1 FROM mem_tree_summary_embeddings e
+                               WHERE e.summary_id = s.id AND e.model_signature = ?1)
+                            AND NOT EXISTS (
+                              SELECT 1 FROM mem_tree_summary_reembed_skipped sk
+                               WHERE sk.summary_id = s.id AND sk.model_signature = ?1)
+                          LIMIT ?2",
+                    )?;
+                    let ids = stmt
+                        .query_map(rusqlite::params![active_sig, remaining as i64], |r| {
+                            r.get::<_, String>(0)
+                        })?
+                        .collect::<rusqlite::Result<Vec<String>>>()?;
+                    ids
+                };
+                Ok((chunks, summaries))
+            })?;
+
+        if chunk_ids.is_empty() && summary_ids.is_empty() {
+            return Ok(ReembedProgress::Covered);
+        }
+
+        // Phase 2: WRITE-path embedder. A missing/unusable provider skips (rows
+        // stay re-embeddable) rather than poisoning recall with inert vectors.
+        let embedder = match build_write_embedder(config).context("build embedder in reembed")? {
+            Some(e) => e,
+            None => return Ok(ReembedProgress::NoProvider),
+        };
+        let chunk_vecs = reembed_collect(
+            config,
+            embedder.as_ref(),
+            &active_sig,
+            &chunk_ids,
+            "chunk",
+            content_read::read_chunk_body,
+            try_mark_chunk_reembed_skipped,
+        )
+        .await?;
+        let summary_vecs = reembed_collect(
+            config,
+            embedder.as_ref(),
+            &active_sig,
+            &summary_ids,
+            "summary",
+            content_read::read_summary_body,
+            try_mark_summary_reembed_skipped,
+        )
+        .await?;
+
+        // Phase 3: persist all collected vectors to the sidecars in one tx.
+        chunk_store::with_connection(config, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            for (id, v) in &chunk_vecs {
+                chunk_store::set_chunk_embedding_for_signature_tx(&tx, id, &active_sig, v)?;
+            }
+            for (id, v) in &summary_vecs {
+                trees_store::set_summary_embedding_for_signature_tx(&tx, id, &active_sig, v)?;
+            }
+            tx.commit()?;
+            Ok(())
+        })?;
+
+        // This batch was bounded — more rows may remain; revisit.
+        Ok(ReembedProgress::Wrote { more_pending: true })
     }
 
     /// The active embedding-space signature the queue re-embed switch-path keys
@@ -724,16 +940,19 @@ mod tests {
             .is_none());
     }
 
-    /// The last staged method (`reembed_batch`, brick 2c) fails loudly — not a
-    /// silent no-op — so a premature flip cannot drop work.
+    /// `reembed_batch` is ported: a job signature that differs from the config's
+    /// active embedding signature is superseded (`StaleSignature`), exactly as
+    /// the legacy `handle_reembed_backfill` finished a stale chain — and this
+    /// path returns before touching the worklist SQL.
     #[tokio::test]
-    async fn host_delegates_reembed_batch_still_staged() {
+    async fn host_delegates_reembed_batch_supersedes_stale_signature() {
         let (tmp, d) = host_delegates_on_tempdir();
         let mc = MemoryConfig::new(tmp.path());
-        assert!(d
-            .reembed_batch(&mc, "provider=x;model=y;dims=3")
+        let progress = d
+            .reembed_batch(&mc, "provider=stale-does-not-match;model=old;dims=1")
             .await
-            .is_err());
+            .expect("reembed_batch stale path");
+        assert!(matches!(progress, ReembedProgress::StaleSignature));
     }
 
     /// The ported seal methods handle empty/missing state without error: an

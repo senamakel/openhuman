@@ -115,6 +115,19 @@ flip preserves *existing* data, not just that the API still functions.
 **W3** (store+chunks), **W5** (tree+retrieval+score), **W6** (ingest). W4 (queue) additionally asserts
 job payload_json parity (P4/P9). Any red = upstream fix in tinycortex, re-bump submodule, re-run.
 
+**W-SYNC gates (amendment 2026-07-09, plan §8):**
+- **P13 sync-status parity** — `memory_sync_status_list` output (per-`source_kind` freshness rows)
+  byte-equal pre/post flip on a golden workspace; asserter added to
+  `src/openhuman/tinycortex/parity.rs`.
+- **P14 Composio sync test pair** — the crate's mocked-HTTP gmail pipeline test
+  (`vendor/tinycortex/tests/composio_sync_mock.rs`, wiremock, always-on) green in crate CI before
+  the W-SYNC.3 flip; the live `#[ignore]` test (`composio_sync_live.rs`, `COMPOSIO_API_KEY`) run
+  manually at least once per flip wave.
+
+**W-EMB gate:** the existing **P10 `embedding_signature_parity`** asserter is the regression pin —
+the tinyagents-backed provider stack must emit byte-identical
+`provider={name};model={model};dims={dims}` signatures, or existing vector spaces split.
+
 ## Open divergences to resolve upstream before their flip
 
 | Item | Flip gated | Resolution |

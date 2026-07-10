@@ -43,7 +43,9 @@ mod parity;
 pub use chat::{build_chat_provider, SeamChatProvider};
 pub use config::memory_config_from;
 pub use embeddings::SeamEmbedder;
-pub use queue_driver::{classify_worker_error, WorkerErrorAction, WorkerReport};
+pub use queue_driver::{
+    classify_worker_error, HostQueueDelegates, WorkerErrorAction, WorkerReport,
+};
 
 // Facade re-exports — the rest of the host imports memory-engine types through
 // this one seam so consumer import paths stay stable as the internals flip to

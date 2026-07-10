@@ -27,9 +27,19 @@
 
 use std::time::Duration;
 
+use async_trait::async_trait;
 use tinycortex::memory::queue::worker::{
     is_host_io_error, is_sqlite_busy, is_sqlite_corrupt, is_sqlite_disk_full, is_sqlite_io_transient,
 };
+use tinycortex::memory::queue::{
+    AppendDecision, AppendTarget, ExtractDecision, NodeRef, QueueDelegates, ReembedProgress,
+    SealDocumentPayload, SealPayload, StaleBuffer,
+};
+use tinycortex::memory::MemoryConfig;
+
+use crate::openhuman::config::Config;
+use crate::openhuman::memory_store::chunks::store as chunk_store;
+use crate::openhuman::memory_store::trees::store as trees_store;
 
 /// How the host worker loop should report an errored `run_once` poll to Sentry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,16 +140,122 @@ pub fn classify_worker_error(err: &anyhow::Error) -> WorkerErrorAction {
     }
 }
 
+/// Host implementation of the crate's [`QueueDelegates`] — the engine seam the
+/// crate queue pushes its heavy per-job work through.
+///
+/// TinyCortex owns the job store + dispatch (`handle_job` parses payloads,
+/// enqueues follow-ups, decides `Done`/`Defer`) but delegates the parts it
+/// cannot do itself — scoring/admission, buffer pushes, sealing, embedding —
+/// because they need `memory_tree` / `memory_store` internals that are host
+/// (and, for tree/score, host until W5). This bridges each delegate method to
+/// the existing host engine, holding the host [`Config`] the calls need (the
+/// `&MemoryConfig` the crate passes is derived from this same workspace).
+///
+/// **Brick 2 status (additive — the driver is not flipped to this yet):** the
+/// self-contained methods are wired to the real host engine; the LLM/embedding/
+/// tree-mutation-heavy methods (`extract_chunk`, `append_node`, `seal_level`,
+/// `seal_document`, `reembed_batch`) — which restructure the host handlers'
+/// atomic-tx bodies into the crate's decision-returning shape — are staged for
+/// brick 2b. They return an error rather than a silent no-op so a premature flip
+/// fails loudly instead of dropping work.
+pub struct HostQueueDelegates {
+    config: Config,
+}
+
+impl HostQueueDelegates {
+    /// Build the delegates over the host [`Config`] whose workspace the crate
+    /// queue is driving.
+    pub fn new(config: Config) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl QueueDelegates for HostQueueDelegates {
+    async fn extract_chunk(
+        &self,
+        _config: &MemoryConfig,
+        _chunk_id: &str,
+    ) -> anyhow::Result<Option<ExtractDecision>> {
+        anyhow::bail!("W4 brick 2b: extract_chunk engine bridge not yet ported")
+    }
+
+    async fn append_node(
+        &self,
+        _config: &MemoryConfig,
+        _node: &NodeRef,
+        _target: &AppendTarget,
+    ) -> anyhow::Result<Option<AppendDecision>> {
+        anyhow::bail!("W4 brick 2b: append_node engine bridge not yet ported")
+    }
+
+    async fn seal_level(
+        &self,
+        _config: &MemoryConfig,
+        _payload: &SealPayload,
+    ) -> anyhow::Result<Option<SealPayload>> {
+        anyhow::bail!("W4 brick 2b: seal_level engine bridge not yet ported")
+    }
+
+    /// Ported from `handle_flush_stale`: list L0/summary buffers older than
+    /// `max_age_secs` that the crate should force-seal.
+    async fn list_stale_buffers(
+        &self,
+        _config: &MemoryConfig,
+        max_age_secs: i64,
+    ) -> anyhow::Result<Vec<StaleBuffer>> {
+        let cutoff = chrono::Utc::now() - chrono::Duration::seconds(max_age_secs);
+        let buffers = trees_store::list_stale_buffers(&self.config, cutoff)?;
+        Ok(buffers
+            .into_iter()
+            .map(|b| StaleBuffer {
+                tree_id: b.tree_id,
+                level: b.level,
+            })
+            .collect())
+    }
+
+    async fn seal_document(
+        &self,
+        _config: &MemoryConfig,
+        _payload: &SealDocumentPayload,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!("W4 brick 2b: seal_document engine bridge not yet ported")
+    }
+
+    async fn reembed_batch(
+        &self,
+        _config: &MemoryConfig,
+        _signature: &str,
+    ) -> anyhow::Result<ReembedProgress> {
+        anyhow::bail!("W4 brick 2b: reembed_batch engine bridge not yet ported")
+    }
+
+    /// The active embedding-space signature the queue re-embed switch-path keys
+    /// on — the config-derived `provider={};model={};dims={}` string (P10).
+    fn active_signature(&self, _config: &MemoryConfig) -> String {
+        chunk_store::tree_active_signature(&self.config)
+    }
+
+    /// Whether any chunk/summary still lacks a vector at `signature` — the
+    /// coverage probe the re-embed backfill trigger uses (ported from
+    /// `memory_queue::ops::ensure_reembed_backfill`).
+    fn has_uncovered_reembed_work(
+        &self,
+        _config: &MemoryConfig,
+        signature: &str,
+    ) -> anyhow::Result<bool> {
+        chunk_store::with_connection(&self.config, |conn| {
+            Ok(chunk_store::has_uncovered_reembed_work(conn, signature)?)
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    // Engine/queue types (`QueueDelegates`, `MemoryConfig`, the payload types,
+    // `async_trait`) come through `super::*` from the module-level imports.
     use super::*;
-
-    use async_trait::async_trait;
-    use tinycortex::memory::queue::{
-        AppendDecision, AppendTarget, ExtractDecision, NodeRef, QueueDelegates, ReembedProgress,
-        SealDocumentPayload, SealPayload, StaleBuffer,
-    };
-    use tinycortex::memory::MemoryConfig;
 
     fn sqlite_failure(code: rusqlite::ErrorCode, extended: i32, msg: &str) -> anyhow::Error {
         anyhow::Error::from(rusqlite::Error::SqliteFailure(
@@ -295,5 +411,63 @@ mod tests {
             .await
             .expect("run_once on empty queue");
         assert!(!processed, "empty queue processes nothing");
+    }
+
+    fn host_delegates_on_tempdir() -> (tempfile::TempDir, HostQueueDelegates) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut config = crate::openhuman::config::Config::default();
+        config.workspace_dir = tmp.path().to_path_buf();
+        (tmp, HostQueueDelegates::new(config))
+    }
+
+    /// The self-contained `HostQueueDelegates` methods bind to the real host
+    /// engine and run on a fresh workspace: the signature is non-empty, and an
+    /// empty workspace reports no uncovered re-embed work and no stale buffers.
+    #[tokio::test]
+    async fn host_delegates_selfcontained_methods_bind_and_run() {
+        let (tmp, d) = host_delegates_on_tempdir();
+        let mc = MemoryConfig::new(tmp.path());
+
+        let sig = d.active_signature(&mc);
+        assert!(!sig.is_empty(), "active signature should be non-empty");
+
+        assert!(
+            !d.has_uncovered_reembed_work(&mc, &sig)
+                .expect("coverage probe"),
+            "a fresh workspace has no uncovered re-embed work"
+        );
+
+        assert!(
+            d.list_stale_buffers(&mc, 3600)
+                .await
+                .expect("list stale buffers")
+                .is_empty(),
+            "a fresh workspace has no stale buffers"
+        );
+    }
+
+    /// The methods staged for brick 2b fail loudly (not a silent no-op) so a
+    /// premature flip cannot drop work.
+    #[tokio::test]
+    async fn host_delegates_staged_methods_error_until_2b() {
+        let (tmp, d) = host_delegates_on_tempdir();
+        let mc = MemoryConfig::new(tmp.path());
+        assert!(d.extract_chunk(&mc, "chunk-1").await.is_err());
+        assert!(d
+            .append_node(
+                &mc,
+                &NodeRef::Leaf {
+                    chunk_id: "c".into()
+                },
+                &AppendTarget::Source {
+                    source_id: "s".into()
+                },
+            )
+            .await
+            .is_err());
+        assert!(d
+            .reembed_batch(&mc, "provider=x;model=y;dims=3")
+            .await
+            .is_err());
     }
 }

@@ -73,7 +73,7 @@ impl OpenHumanBackendProvider {
         })
     }
 
-    fn resolve_bearer(&self) -> anyhow::Result<String> {
+    pub(super) fn resolve_bearer(&self) -> anyhow::Result<String> {
         // Fail fast when the scheduler-gate signed-out override is set
         // (sidecar saw a 401 from this backend, the user logged out, or
         // boot detected no JWT). Without this guard, every background
@@ -102,7 +102,7 @@ impl OpenHumanBackendProvider {
         anyhow::bail!("No backend session: store a JWT via auth (app-session)")
     }
 
-    fn base_url(&self) -> anyhow::Result<String> {
+    pub(super) fn base_url(&self) -> anyhow::Result<String> {
         let u = effective_api_url(&self.api_url);
         // Match app `inferenceApi` and onboard model list: `{api}/openai/v1/...`
         Ok(format!("{}/openai/v1", u.trim_end_matches('/')))

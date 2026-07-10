@@ -1827,21 +1827,19 @@ fn publish_cron_user_error_broadcasts_metadata_only_for_each_kind() {
 }
 
 // TAURI-RUST-12K (end-to-end) — the predicate tests above key on hand-written
-// wire strings; this test proves the REAL provider-generated error reaches and
-// trips the guard. A cron agent job is routed to a keyless local provider
-// (`AuthStyle::None`, LM Studio shape) whose server is offline: the chat
-// workload skips the credential guard, attempts the loopback HTTP connect, and
-// the OS refuses it. The resulting `last_agent_error` (the aggregated provider
-// fallback chain carrying `…localhost:1234… tcp connect error … Connection
-// refused (os error N)`) must classify as local-provider-unreachable so the
-// cron loop halts and skips the bypassing `failure=retries_exhausted` report.
+// wire strings; this test proves the REAL provider-generated error remains
+// retryable when it only preserves reqwest's short send-error prefix. A cron
+// agent job is routed to a keyless local provider (`AuthStyle::None`, LM Studio
+// shape) whose server is offline: the chat workload skips the credential guard
+// and attempts loopback HTTP. If the provider layer surfaces only
+// `error sending request for url (...)`, without the refused errno/tcp-connect
+// chain, cron must not treat it as a permanent local-provider halt because the
+// same short prefix is also used for transient timeout/reset shapes.
 #[tokio::test]
-async fn cron_agent_job_local_provider_offline_trips_halt_guard() {
+async fn cron_agent_job_short_loopback_send_error_stays_retryable() {
     use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     let tmp = TempDir::new().unwrap();
     let mut config = test_config(&tmp).await;
-    config.reliability.scheduler_retries = 5;
-    config.reliability.provider_backoff_ms = 1;
     // Keyless local provider (`AuthStyle::None` → no credential requirement, so
     // the request proceeds to the HTTP connect). `chat_provider` routes the
     // chat workload to it; the slug resolves to LM Studio's default endpoint.
@@ -1855,38 +1853,17 @@ async fn cron_agent_job_local_provider_offline_trips_halt_guard() {
     }];
     config.default_model = Some("lmstudio:local-model".into());
     config.chat_provider = Some("lmstudio:local-model".into());
-    let security = SecurityPolicy::from_config(
-        &config.autonomy,
-        &config.workspace_dir,
-        &config.workspace_dir,
-    );
     let mut job = test_job("");
     job.job_type = JobType::Agent;
     job.prompt = Some("Say hello".into());
 
-    // Primary (deterministic): the real provider-generated failure trips the
-    // guard — the link the string-based predicate tests cannot prove.
     let (success, output, raw) = run_agent_job(&config, &job).await;
     assert!(
         !success,
         "a cron agent job against an offline local provider must fail"
     );
     assert!(
-        is_local_provider_unreachable_failure(&JobType::Agent, raw.as_deref(), &output),
-        "provider-generated loopback connect-refused must trip the halt guard; got raw={raw:?}"
-    );
-
-    // Secondary (coarse): the full retry loop halts on the first occurrence
-    // rather than exhausting all 5 retries. Not halting would add the cron
-    // backoff sleeps (200ms floor, doubling → >6s total) on top of five extra
-    // agent runs; halting skips every cron-level sleep. A generous bound keeps
-    // this robust to agent-build jitter while still catching a regressed halt.
-    let start = std::time::Instant::now();
-    let (loop_success, _out) = execute_job_with_retry(&config, &security, &job).await;
-    let elapsed = start.elapsed();
-    assert!(!loop_success);
-    assert!(
-        elapsed < std::time::Duration::from_secs(5),
-        "loop must halt on the first loopback failure, not burn 5 retries with backoff (elapsed {elapsed:?})"
+        !is_local_provider_unreachable_failure(&JobType::Agent, raw.as_deref(), &output),
+        "provider-generated short loopback send error must stay retryable without refused errno/tcp-connect evidence; got raw={raw:?}"
     );
 }

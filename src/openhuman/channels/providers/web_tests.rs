@@ -4,9 +4,9 @@ use super::{
     extract_provider_error_detail, generic_inference_error_user_message,
     in_flight_entries_for_test, inference_budget_exceeded_user_message,
     is_inference_budget_exceeded_error, json_output, key_for, locale_reply_directive,
-    normalize_model_override, optional_bool, optional_f64, optional_string, optional_u64,
-    parallel_in_flight_entries_for_test, provider_role_for_model_override, required_string,
-    schemas, set_test_forced_run_chat_task_error, set_test_run_chat_task_block, start_chat,
+    normalize_model_override, optional_f64, optional_string, parallel_in_flight_entries_for_test,
+    provider_role_for_model_override, required_string, schemas,
+    set_test_forced_run_chat_task_error, set_test_run_chat_task_block, start_chat,
     subscribe_web_channel_events, ChatRequestMetadata, ClassifiedError, TestRunChatTaskBlock,
     WebChatParams,
 };

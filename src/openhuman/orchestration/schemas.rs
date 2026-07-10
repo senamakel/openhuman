@@ -583,37 +583,46 @@ fn handle_send_master_message(params: Map<String, Value>) -> ControllerFuture {
         if explicit.is_none() && session_id.is_none() {
             let now = chrono::Utc::now().to_rfc3339();
             let message_id = format!("master-ask:{now}");
+            // Allocate the ordinal and write both rows in ONE IMMEDIATE txn so a
+            // concurrent master writer (a rapid double-send, or this ask racing the
+            // graph's reply-persist on the same `(local, "master")` key) can't read
+            // the same `MAX(seq)` and duplicate it. A duplicate `seq` collides on the
+            // backend idempotency key `(user, counterpart, session, seq)` and the wake
+            // is silently 202-deduped with no inference. Mirrors the DM ingest path
+            // (`ingest.rs` — the sole other writer on this key also uses IMMEDIATE).
             let persisted: Result<i64, _> = store::with_connection(&config.workspace_dir, |conn| {
-                let seq = store::next_session_seq(conn, LOCAL_MASTER_AGENT, "master")?;
-                store::upsert_session(
-                    conn,
-                    &OrchestrationSession {
-                        session_id: "master".to_string(),
-                        agent_id: LOCAL_MASTER_AGENT.to_string(),
-                        source: "master".to_string(),
-                        label: None,
-                        workspace: None,
-                        last_seq: seq,
-                        created_at: now.clone(),
-                        last_message_at: now.clone(),
-                        ..Default::default()
-                    },
-                )?;
-                store::insert_message(
-                    conn,
-                    &OrchestrationMessage {
-                        id: message_id.clone(),
-                        agent_id: LOCAL_MASTER_AGENT.to_string(),
-                        session_id: "master".to_string(),
-                        chat_kind: ChatKind::Master,
-                        role: "user".to_string(),
-                        body: body.clone(),
-                        timestamp: now.clone(),
-                        seq,
-                        ..Default::default()
-                    },
-                )?;
-                Ok(seq)
+                store::in_immediate_txn(conn, |conn| {
+                    let seq = store::next_session_seq(conn, LOCAL_MASTER_AGENT, "master")?;
+                    store::upsert_session(
+                        conn,
+                        &OrchestrationSession {
+                            session_id: "master".to_string(),
+                            agent_id: LOCAL_MASTER_AGENT.to_string(),
+                            source: "master".to_string(),
+                            label: None,
+                            workspace: None,
+                            last_seq: seq,
+                            created_at: now.clone(),
+                            last_message_at: now.clone(),
+                            ..Default::default()
+                        },
+                    )?;
+                    store::insert_message(
+                        conn,
+                        &OrchestrationMessage {
+                            id: message_id.clone(),
+                            agent_id: LOCAL_MASTER_AGENT.to_string(),
+                            session_id: "master".to_string(),
+                            chat_kind: ChatKind::Master,
+                            role: "user".to_string(),
+                            body: body.clone(),
+                            timestamp: now.clone(),
+                            seq,
+                            ..Default::default()
+                        },
+                    )?;
+                    Ok(seq)
+                })
             });
             let seq = match persisted {
                 Ok(seq) => seq,

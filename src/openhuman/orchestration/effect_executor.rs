@@ -63,7 +63,8 @@ pub fn device_tool_manifest() -> Value {
                     "properties": {
                         "agent_id": { "type": "string", "description": "Local sub-agent id, e.g. code_executor, researcher, tools_agent." },
                         "prompt": { "type": "string", "description": "Clear, self-contained instruction for the sub-agent." },
-                        "context": { "type": "string", "description": "Optional context blob from prior results." }
+                        "context": { "type": "string", "description": "Optional context blob from prior results." },
+                        "toolkit": { "type": "string", "description": "Composio toolkit to scope to (e.g. gmail, notion). REQUIRED when agent_id is integrations_agent; ignored otherwise." }
                     },
                     "additionalProperties": false
                 }
@@ -177,6 +178,91 @@ async fn run_local_agent(args: &Value, cycle_id: &str) -> Result<Value, String> 
     }))
 }
 
+/// Run the requested local sub-agent to completion and return `(ok, output)`.
+///
+/// The device tool bridge fires this from a bare `tokio::spawn` task, so there is
+/// no agent turn on the stack and `current_parent()` is `None`. We install a
+/// background root [`ParentExecutionContext`] via the blessed [`with_root_parent`]
+/// (provider / tools / memory / model / workspace harvested from a `Config`-built
+/// agent) and dispatch through [`run_subagent`] directly — the same pattern every
+/// other turn-less surface uses (delegation, workflow runs, agent teams,
+/// subconscious). This is what lets a Master-chat cycle actually run a local
+/// sub-agent; without it the nested spawn failed `NoParentContext`
+/// ("spawn_async_subagent called outside of an agent turn").
+///
+/// We call `run_subagent` (synchronous, real `output`) rather than the
+/// `spawn_async_subagent` tool wrapper on purpose: the wrapper defaults to the
+/// async path (returning a `[async_subagent_ref]`, not the answer) and gates on
+/// the root parent's empty `allowed_subagent_ids`; `run_subagent` has neither
+/// footgun. Every failure (unknown agent id, provider/parent build, run error)
+/// becomes `(false, message)` — never a bail — so the caller always forwards a
+/// `tool_completion` and the hosted brain always learns the outcome.
+async fn run_local_subagent(
+    config: &crate::openhuman::config::Config,
+    agent_id: &str,
+    prompt: &str,
+    context: Option<String>,
+    toolkit: Option<String>,
+) -> (bool, String) {
+    use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
+    use crate::openhuman::agent::harness::subagent_runner::{
+        run_subagent, SubagentRunOptions, SubagentRunStatus,
+    };
+    use crate::openhuman::agent_orchestration::parent_context::with_root_parent;
+
+    // `integrations_agent` MUST be scoped to a single Composio toolkit — mirror the
+    // `SpawnSubagentTool` pre-flight so a device run can't reason over the full,
+    // unscoped integration surface. `run_subagent` only narrows tools + the
+    // Connected-Integrations section when `toolkit_override` is set, so reject a
+    // toolkit-less request rather than run it unscoped.
+    if agent_id == "integrations_agent" && toolkit.is_none() {
+        return (
+            false,
+            "run_local_agent(integrations_agent): a `toolkit` argument is required".to_string(),
+        );
+    }
+
+    let definition = match AgentDefinitionRegistry::global().and_then(|r| r.get(agent_id).cloned())
+    {
+        Some(def) => def,
+        None => {
+            return (
+                false,
+                format!("run_local_agent: unknown agent_id '{agent_id}'"),
+            )
+        }
+    };
+    let options = SubagentRunOptions {
+        context,
+        toolkit_override: toolkit,
+        ..Default::default()
+    };
+    let run = async move {
+        match run_subagent(&definition, prompt, options).await {
+            Ok(outcome) => {
+                let output = outcome.output;
+                match outcome.status {
+                    // A clarification question / stop-reason lives in `status`, not
+                    // `output` — surface it so the brain sees more than empty text.
+                    SubagentRunStatus::Completed => (true, output),
+                    SubagentRunStatus::AwaitingUser { question, .. } => {
+                        (false, format!("{output}\n[awaiting user] {question}"))
+                    }
+                    SubagentRunStatus::Incomplete { reason } => {
+                        (false, format!("{output}\n[incomplete] {reason}"))
+                    }
+                }
+            }
+            Err(e) => (false, format!("sub-agent invocation error: {e}")),
+        }
+    };
+    // Bare background task → no ambient parent, so a root is built from config.
+    // (Tests install a mock parent and hit `with_root_parent`'s reuse branch.)
+    with_root_parent(config, "local_exec", "local_exec", "localexec", run)
+        .await
+        .unwrap_or_else(|e| (false, format!("build local-exec parent: {e}")))
+}
+
 /// Background half of `run_local_agent`: run the local sub-agent to completion,
 /// then forward its result up as a `tool_completion` event on the originating
 /// session (which the backend wakes a fresh cycle for).
@@ -187,16 +273,34 @@ async fn run_local_agent_and_forward(
     agent_id: &str,
     run_args: Value,
 ) -> Result<(), String> {
-    use crate::openhuman::tools::traits::Tool;
-    // 1. Run the local sub-agent synchronously to completion (real output).
-    let tool = crate::openhuman::agent_orchestration::tools::SpawnSubagentTool::new();
-    // Convert an invocation error into a failure completion rather than bailing:
-    // the hosted brain must always learn the outcome (success OR failure) via the
-    // forwarded `tool_completion`, never be left with no follow-up at all.
-    let (ok, output) = match tool.execute(run_args).await {
-        Ok(result) => (!result.is_error, result.output()),
-        Err(e) => (false, format!("sub-agent invocation error: {e}")),
-    };
+    // Config is needed both to build the background parent context for the
+    // sub-agent run and to persist + forward the completion — load it once.
+    let config = crate::openhuman::config::Config::load_or_init()
+        .await
+        .map_err(|e| format!("config load: {e}"))?;
+
+    // 1. Run the local sub-agent to completion (real output) under a background
+    //    root parent context. A failed run still yields `(false, msg)` so the
+    //    hosted brain always learns the outcome via the forwarded `tool_completion`.
+    let prompt = run_args
+        .get("prompt")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let context = run_args
+        .get("context")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let toolkit = run_args
+        .get("toolkit")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let (ok, output) = run_local_subagent(&config, agent_id, &prompt, context, toolkit).await;
+
     let body = format!(
         "[local sub-agent `{agent_id}` task {task_id} {}]\n{output}",
         if ok { "completed" } else { "failed" }
@@ -204,9 +308,6 @@ async fn run_local_agent_and_forward(
 
     // 2. Persist the completion into the render cache (allocates a monotonic seq)
     //    and forward it as a `tool_completion` event → backend wakes a new cycle.
-    let config = crate::openhuman::config::Config::load_or_init()
-        .await
-        .map_err(|e| format!("config load: {e}"))?;
     let now = chrono::Utc::now().to_rfc3339();
     let seq = super::store::with_connection(&config.workspace_dir, |conn| {
         let seq = super::store::next_session_seq(conn, counterpart, session_id)?;
@@ -650,4 +751,30 @@ pub async fn handle_evict(data: &Value) -> Option<(String, Value)> {
         effect.call_id.clone(),
         effect_result_frame(&effect.call_id, ok, error.as_deref()),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::openhuman::config::Config;
+
+    #[tokio::test]
+    async fn integrations_agent_without_toolkit_is_rejected() {
+        // The toolkit guard fires before any registry/provider/network work, so a
+        // toolkit-less integrations_agent request is a failure completion rather
+        // than an unscoped run over the full Composio surface.
+        let (ok, msg) = run_local_subagent(
+            &Config::default(),
+            "integrations_agent",
+            "check gmail",
+            None,
+            None,
+        )
+        .await;
+        assert!(!ok);
+        assert!(
+            msg.contains("toolkit"),
+            "expected toolkit error, got: {msg}"
+        );
+    }
 }

@@ -49,7 +49,9 @@ pub use schemas::{
 pub(crate) use ops::{event_session_id_for, key_for};
 pub(crate) use progress_bridge::spawn_progress_bridge;
 
-// Schema field helpers re-exported for tests
+// Schema field helpers + session/error helpers re-exported for the `web_tests`
+// integration module (they moved into submodules during the module split but
+// the sibling test file still imports them via `super::`).
 #[cfg(any(test, debug_assertions))]
 #[allow(unused_imports)]
 pub(crate) use schemas::{

@@ -44,7 +44,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![optional_field(
                 "kind",
                 TypeSchema::String,
-                "Which world to tick: \"memory\" (default), \"tinyplace\", or \"all\".",
+                "Which world to tick: \"memory\" (default) or \"all\".",
             )],
             outputs: vec![field("result", TypeSchema::Json, "Tick result.")],
         },

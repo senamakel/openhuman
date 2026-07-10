@@ -4,6 +4,11 @@ version = "0.58.14"
 edition = "2021"
 description = "OpenHuman core business logic and RPC server"
 autobins = false
+# build.rs globs tests/raw_coverage/*.rs into the single `raw_coverage_all`
+# integration target (see tests/raw_coverage_all.rs). Those files used to be ~76
+# individual `tests/*.rs` targets, each statically relinking the whole crate —
+# collapsing them into one target removes ~75 full-crate link steps per test run.
+build = "build.rs"
 
 [[bin]]
 name = "openhuman-core"

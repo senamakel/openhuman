@@ -5854,7 +5854,7 @@ async fn json_rpc_subconscious_status_exposes_instances_and_trigger_takes_kind()
         &rpc_base,
         1103,
         "openhuman.subconscious_trigger",
-        json!({ "kind": "nope" }),
+        json!({ "kind": "tinyplace" }),
     )
     .await;
     assert!(

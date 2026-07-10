@@ -1447,17 +1447,20 @@ mod tests {
         // from several threads and assert every seq is distinct and contiguous.
         use std::sync::Arc;
         let tmp = Arc::new(tempfile::tempdir().unwrap());
+        with_connection(tmp.path(), |_| Ok(())).expect("initialise orchestration store");
+        let db_path = Arc::new(tmp.path().join("orchestration").join("orchestration.db"));
         let n = 8usize;
         let handles: Vec<_> = (0..n)
             .map(|i| {
-                let tmp = Arc::clone(&tmp);
+                let db_path = Arc::clone(&db_path);
                 std::thread::spawn(move || {
-                    with_connection(tmp.path(), |c| {
-                        in_immediate_txn(c, |c| {
-                            let seq = next_session_seq(c, "@peer", "s1")?;
-                            insert_message(c, &msg(&format!("m{i}"), "@peer", "s1", seq))?;
-                            Ok(seq)
-                        })
+                    let c = Connection::open(&*db_path).expect("open orchestration db");
+                    c.busy_timeout(std::time::Duration::from_secs(5))
+                        .expect("set busy timeout");
+                    in_immediate_txn(&c, |c| {
+                        let seq = next_session_seq(c, "@peer", "s1")?;
+                        insert_message(c, &msg(&format!("m{i}"), "@peer", "s1", seq))?;
+                        Ok(seq)
                     })
                     .expect("txn ok")
                 })

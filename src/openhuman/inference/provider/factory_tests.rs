@@ -2862,23 +2862,37 @@ fn create_chat_model_routes_managed_backend_to_crate_native() {
 }
 
 #[test]
-fn create_chat_model_routes_local_runtime_through_provider_model() {
+fn create_chat_model_routes_local_runtime_to_crate_native() {
     use tinyagents::harness::model::ChatModel;
 
     let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.chat_provider = Some("ollama:qwen2.5".to_string());
-    let (model, _model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
+    let (model, model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
         .expect("local create_chat_model must build");
-    // A BYOK/local role still flows through the `ProviderModel` wrapper, which
-    // carries a concrete capability profile derived from the provider. The
-    // adapter reports the neutral `"local"`/`"remote"` origin (not the slug),
-    // and the Ollama provider disables native tools + vision — the same knobs
-    // the crate-native `make_crate_local_runtime_chat_model` will carry post-flip.
+    assert_eq!(model_id, "qwen2.5");
+    // Motion B (#4727): a local runtime now builds a crate-native `OpenAiModel`
+    // (not a `ProviderModel` wrapper), so its profile carries the concrete
+    // provider slug — `ollama`, not the adapter's neutral `local`/`remote` — and
+    // native tools + vision are forced off (Ollama rejects the OpenAI `tools`
+    // param and is text-only here).
     let profile = model
         .profile()
-        .expect("ProviderModel-wrapped local provider exposes a profile");
-    assert_eq!(profile.provider.as_deref(), Some("local"));
+        .expect("crate-native local model exposes a profile");
+    assert_eq!(profile.provider.as_deref(), Some("ollama"));
     assert!(!profile.tool_calling, "Ollama disables native tool calling");
     assert!(!profile.modalities.image_in, "Ollama is text-only here");
+}
+
+#[test]
+fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    // Default config resolves to the managed backend, not a local runtime.
+    assert!(try_create_local_runtime_chat_model("chat", &Config::default()).is_none());
+    // A BYOK cloud slug is not a local runtime either — it falls through to the
+    // `Provider` path.
+    let mut cloud = Config::default();
+    cloud.cloud_providers.push(openai_entry("p_oai", "openai"));
+    cloud.chat_provider = Some("openai:gpt-4o-mini".to_string());
+    assert!(try_create_local_runtime_chat_model("chat", &cloud).is_none());
 }

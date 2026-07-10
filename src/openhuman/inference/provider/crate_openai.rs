@@ -95,6 +95,41 @@ pub(crate) fn build_crate_openai_model(config: CrateOpenAiConfig<'_>) -> Arc<dyn
     Arc::new(model)
 }
 
+/// Factory-level crate-native builder — the drop-in parallel to the host
+/// `make_openai_compatible_provider_with_config`, taking the same resolved
+/// inputs (provider slug, endpoint, credential, host auth style, model, the
+/// config temperature-suppression list + per-workload override) and returning a
+/// crate `ChatModel` instead of a `Box<dyn Provider>`.
+///
+/// The cutover swaps each generic OpenAI-compatible construction site over to
+/// this. `merge_system_into_user` is threaded per-provider (the catalog knows
+/// which endpoints reject a `system` role); `supports_responses_fallback` has no
+/// crate equivalent — providers that need `/v1/responses` (only `openai_codex`)
+/// stay host-side and never call here.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn make_crate_openai_chat_model(
+    provider_name: &str,
+    endpoint: &str,
+    api_key: &str,
+    auth_style: HostAuthStyle,
+    model: &str,
+    temperature_unsupported_models: &[String],
+    temperature_override: Option<f64>,
+    merge_system_into_user: bool,
+) -> Arc<dyn ChatModel<()>> {
+    build_crate_openai_model(CrateOpenAiConfig {
+        provider_name,
+        endpoint,
+        api_key,
+        auth_style,
+        model,
+        temperature_unsupported_models,
+        temperature_override,
+        merge_system_into_user,
+        extra_headers: &[],
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -132,6 +167,23 @@ mod tests {
         assert_eq!(profile.provider.as_deref(), Some("deepseek"));
         assert_eq!(profile.model.as_deref(), Some("deepseek-chat"));
         assert!(profile.tool_calling);
+    }
+
+    #[test]
+    fn factory_level_builder_carries_provider_and_model() {
+        let model = make_crate_openai_chat_model(
+            "groq",
+            "https://api.groq.com/openai/v1",
+            "secret",
+            HostAuthStyle::Bearer,
+            "llama-3.3-70b-versatile",
+            &["o1*".to_string()],
+            None,
+            false,
+        );
+        let profile = model.profile().expect("openai models expose a profile");
+        assert_eq!(profile.provider.as_deref(), Some("groq"));
+        assert_eq!(profile.model.as_deref(), Some("llama-3.3-70b-versatile"));
     }
 
     #[test]

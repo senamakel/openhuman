@@ -1,10 +1,11 @@
 # TinyCortex Memory Migration — Spec (Phase 0.5 / 0.6)
 
 **Status:** Phase 0 baseline **+ execution underway** — #59 (native-dep alignment) merged and the dep
-is active (§0.4); W1 seam + W2 type re-export landed; drift closure in progress (**D3 closed**, **D1/D2
-implemented** on submodule branches pending merge — see the drift ledger). Anchors the migration to
-exact reviewed SHAs and ties together the drift, gap, and parity ledgers. Modeled on
-`docs/tinyagents-migration-spec.md` + its deletion ledger.
+is active (§0.4); W1 seam + W2 type re-export + W3-chunks partial landed; **drift closure COMPLETE**
+(**D3** via #59, **D2** via tinycortex#63, **D1** via tinycortex#64; gitlink `a8e10f7`) — so **W4
+(queue) and W7 (conversations) are unblocked**. Anchors the migration to exact reviewed SHAs and ties
+together the drift, gap, and parity ledgers. Modeled on `docs/tinyagents-migration-spec.md` + its
+deletion ledger.
 
 **Companion plan:** [`tinycortex-memory-migration-plan.md`](tinycortex-memory-migration-plan.md)
 **Ledgers:** [`tinycortex-drift-ledger.md`](tinycortex-drift-ledger.md) ·
@@ -17,7 +18,8 @@ exact reviewed SHAs and ties together the drift, gap, and parity ledgers. Modele
 | --- | --- | --- |
 | `tinyhumansai/openhuman` | `7850cf363559bcbb7ba688cbc4fccdb6bd9ce754` | host audit base (`main`, 2026-07-04) |
 | `tinyhumansai/tinycortex` | `d1a8c7be2babc8fff7a72ed93861f459f3d6fa58` | crate audit base (v0.1.1) |
-| `tinyhumansai/tinycortex` | `33dda943053e61ef585fc39647cf1854344b6323` | **current pinned gitlink** — audit base **+ #59** (native-dep alignment, §0.4) **merged**; dep now active |
+| `tinyhumansai/tinycortex` | `33dda943053e61ef585fc39647cf1854344b6323` | audit base **+ #59** (native-dep alignment, §0.4) merged |
+| `tinyhumansai/tinycortex` | `a8e10f7dd8ebdb9b0905e1380fefcc6bf5a65207` | **current pinned gitlink** — **+ #63/#64** (D2/D1 drift closure) merged; all drift rows CLOSED |
 
 Port line (derived by content, §0.1): **after 2026-06-25, before 2026-06-28** for engine features.
 

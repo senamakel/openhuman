@@ -601,8 +601,20 @@ fn forward_event(
     );
     let config = config.clone();
     tokio::spawn(async move {
-        if let Err(e) = super::cloud::push_event(&config, &envelope).await {
-            log::warn!(target: LOG, "[orchestration] cloud.shadow_push_failed: {e}");
+        match super::cloud::push_event(&config, &envelope).await {
+            Ok(cycle_id) => {
+                // Device-authoritative origin: record the cycle → counterpart we
+                // forwarded, so the local-execution trust gate can resolve this
+                // cycle's origin without trusting the backend (see `exec_gate`).
+                if let Some(cid) = cycle_id {
+                    super::exec_gate::record_cycle_origin(
+                        &cid,
+                        &envelope.counterpart_agent_id,
+                        &envelope.session_id,
+                    );
+                }
+            }
+            Err(e) => log::warn!(target: LOG, "[orchestration] cloud.shadow_push_failed: {e}"),
         }
     });
 }

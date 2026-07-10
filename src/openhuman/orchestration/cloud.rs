@@ -40,7 +40,7 @@ const DEFAULT_BACKOFFS: [Duration; 3] = [
 pub async fn push_event(
     config: &Config,
     envelope: &OrchestrationEventEnvelopeWire,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
     let api_url = effective_backend_api_url(&config.api_url);
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
@@ -70,6 +70,7 @@ pub async fn push_world_diff(config: &Config, batch: &WorldDiffBatchWire) -> Res
         ),
     )
     .await
+    .map(|_| ())
 }
 
 /// Inner push with an injectable client, token, and backoff schedule so the
@@ -81,12 +82,12 @@ pub async fn push_event_with(
     token: &str,
     envelope: &OrchestrationEventEnvelopeWire,
     backoffs: &[Duration],
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     let label = format!(
         "event session={} seq={}",
         envelope.session_id, envelope.event.seq
     );
-    post_with_retry(
+    let resp = post_with_retry(
         client,
         token,
         EVENTS_PATH,
@@ -94,7 +95,13 @@ pub async fn push_event_with(
         backoffs,
         &label,
     )
-    .await
+    .await?;
+    // `202 { accepted, cycleId }` — return the cycleId so the caller can record
+    // the cycle's device-authoritative origin (see `exec_gate`).
+    Ok(resp
+        .get("cycleId")
+        .and_then(|v| v.as_str())
+        .map(str::to_string))
 }
 
 /// Generic authed POST with bounded jittered-backoff retry. Shared by every
@@ -106,16 +113,16 @@ async fn post_with_retry(
     body: serde_json::Value,
     backoffs: &[Duration],
     label: &str,
-) -> Result<(), String> {
+) -> Result<Value, String> {
     let mut attempt: usize = 0;
     loop {
         match client
             .authed_json(token, Method::POST, path, Some(body.clone()))
             .await
         {
-            Ok(_) => {
+            Ok(data) => {
                 log::debug!(target: LOG, "[orchestration] cloud.push.ok {label} attempt={}", attempt + 1);
-                return Ok(());
+                return Ok(data);
             }
             Err(err) => {
                 let msg = crate::api::flatten_authed_error(err);
@@ -152,6 +159,7 @@ pub async fn push_world_diff_with(
         &label,
     )
     .await
+    .map(|_| ())
 }
 
 // ── Hosted read surface (GET) ─────────────────────────────────────────────────

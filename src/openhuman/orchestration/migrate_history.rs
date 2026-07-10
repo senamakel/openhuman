@@ -86,9 +86,19 @@ async fn resume_pending(config: &Config) -> Result<usize, String> {
             ts,
             msg.event_kind.as_deref().unwrap_or("message"),
         );
-        super::cloud::push_event(config, &envelope)
+        let cycle_id = super::cloud::push_event(config, &envelope)
             .await
             .map_err(|e| format!("replay session={} seq={}: {e}", session.session_id, msg.seq))?;
+        // Record the resumed cycle's device-authoritative origin so a Master-chat
+        // turn resumed by the migration can still authorize `run_local_agent`
+        // (otherwise the gate sees an unknown cycle and denies local execution).
+        if let Some(cid) = cycle_id {
+            super::exec_gate::record_cycle_origin(
+                &cid,
+                &envelope.counterpart_agent_id,
+                &envelope.session_id,
+            );
+        }
         resumed += 1;
     }
     Ok(resumed)

@@ -642,8 +642,21 @@ fn handle_send_master_message(params: Map<String, Value>) -> ControllerFuture {
             );
             let forward_cfg = config.clone();
             tokio::spawn(async move {
-                if let Err(e) = super::cloud::push_event(&forward_cfg, &envelope).await {
-                    log::warn!(target: LOG, "[orchestration_rpc] master_ask.forward_failed: {e}");
+                match super::cloud::push_event(&forward_cfg, &envelope).await {
+                    Ok(cycle_id) => {
+                        // Record this Master-chat cycle's origin so the local-exec
+                        // trust gate authorizes it (counterpart == LOCAL_MASTER_AGENT).
+                        if let Some(cid) = cycle_id {
+                            super::exec_gate::record_cycle_origin(
+                                &cid,
+                                &envelope.counterpart_agent_id,
+                                &envelope.session_id,
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!(target: LOG, "[orchestration_rpc] master_ask.forward_failed: {e}")
+                    }
                 }
             });
             log::debug!(target: LOG, "[orchestration_rpc] master_ask.forwarded id={message_id} seq={seq}");

@@ -92,12 +92,15 @@ pub(super) fn handle_sio_event(
         // Hosted-brain device tool call: run a local (read-only) device tool and
         // return the result so the reasoning loop can continue.
         "orch:tool_call" => {
-            if let Some((call_id, result)) =
-                crate::openhuman::orchestration::effect_executor::handle_tool_call(&data)
-            {
-                log::debug!("[socket] orch:tool_call result call_id={call_id}");
-                emit_via_channel(emit_tx, "orch:tool_result", result);
-            }
+            let tx = emit_tx.clone();
+            tokio::spawn(async move {
+                if let Some((call_id, result)) =
+                    crate::openhuman::orchestration::effect_executor::handle_tool_call(&data).await
+                {
+                    log::debug!("[socket] orch:tool_call result call_id={call_id}");
+                    emit_via_channel(&tx, "orch:tool_result", result);
+                }
+            });
         }
         // Hosted-brain context-guard eviction: fold the evicted compressed
         // summaries into local memory RAG so they stay retrievable offline, then

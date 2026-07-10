@@ -53,6 +53,20 @@ pub fn device_tool_manifest() -> Value {
                 "name": "device_status",
                 "description": "Report this device's app version and platform.",
                 "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+            },
+            {
+                "name": "run_local_agent",
+                "description": "Spawn a local device sub-agent (e.g. code_executor for repo/shell/file work, researcher, tools_agent) on the user's own machine for background work, and return an acknowledgement. LOCAL-EXECUTION: only runs for a Master-chat cycle (the human ↔ their own OpenHuman); it is refused for any agent-to-agent cycle.",
+                "inputSchema": {
+                    "type": "object",
+                    "required": ["agent_id", "prompt"],
+                    "properties": {
+                        "agent_id": { "type": "string", "description": "Local sub-agent id, e.g. code_executor, researcher, tools_agent." },
+                        "prompt": { "type": "string", "description": "Clear, self-contained instruction for the sub-agent." },
+                        "context": { "type": "string", "description": "Optional context blob from prior results." }
+                    },
+                    "additionalProperties": false
+                }
             }
         ]
     })
@@ -81,22 +95,162 @@ pub fn tool_result_frame(call_id: &str, ok: bool, result: Value, error: Option<&
     json!({ "callId": call_id, "ok": ok, "result": result, "error": error })
 }
 
-/// Run a device-declared tool locally. Read-only and side-effect-free for now;
-/// local-workspace tools plug in here as they are added to the manifest.
-pub fn dispatch_device_tool(name: &str, _args: &Value) -> Result<Value, String> {
+/// Run a device-declared tool locally and return its result. `device_status` is
+/// read-only; `run_local_agent` executes local workspace work and is therefore
+/// **gated**: it runs only when `cycle_id` belongs to a Master-chat cycle
+/// (device-authoritative origin, see [`super::exec_gate`]). The gate is enforced
+/// here — on the device that holds the capability — so a prompt-injected or
+/// compromised cloud brain cannot induce local execution for an A2A cycle.
+pub async fn dispatch_device_tool(
+    name: &str,
+    args: &Value,
+    cycle_id: &str,
+) -> Result<Value, String> {
+    if super::exec_gate::is_local_execution_tool(name)
+        && !super::exec_gate::cycle_is_master(cycle_id)
+    {
+        log::warn!(
+            target: LOG,
+            "[orchestration] device_tool.denied name={name} cycle={cycle_id} reason=non_master_origin"
+        );
+        return Err(format!(
+            "device tool '{name}' denied: local execution is restricted to the Master chat"
+        ));
+    }
     match name {
         "device_status" => Ok(json!({
             "version": env!("CARGO_PKG_VERSION"),
             "platform": std::env::consts::OS,
         })),
+        "run_local_agent" => run_local_agent(args, cycle_id).await,
         other => Err(format!("unknown device tool: {other}")),
     }
 }
 
+/// The gated `run_local_agent` device tool. Reached only after the Master-chat
+/// gate in [`dispatch_device_tool`] has passed.
+///
+/// **Async model:** we do NOT block the wake cycle on a (potentially long) local
+/// sub-agent. We fire it in the background and return an immediate `accepted`
+/// ack — which the hosted brain sees as `orch:tool_result` well inside the
+/// device-tool timeout. When the sub-agent finishes, [`run_local_agent_and_forward`]
+/// pushes its result up as a fresh `tool_completion` event, which wakes a NEW
+/// cycle that reasons over the result. So the original cycle is never blocked,
+/// and the result still lands back in the brain via the follow-up cycle.
+async fn run_local_agent(args: &Value, cycle_id: &str) -> Result<Value, String> {
+    let (counterpart, session_id) = super::exec_gate::cycle_target(cycle_id)
+        .ok_or_else(|| "run_local_agent: unknown cycle origin".to_string())?;
+    let agent_id = args
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let prompt = args
+        .get("prompt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if agent_id.is_empty() || prompt.is_empty() {
+        return Err("run_local_agent: `agent_id` and `prompt` are required".to_string());
+    }
+    let task_id = cycle_id.to_string();
+    let run_args = args.clone();
+    let bg_task_id = task_id.clone();
+    tokio::spawn(async move {
+        if let Err(e) =
+            run_local_agent_and_forward(&counterpart, &session_id, &bg_task_id, &agent_id, run_args)
+                .await
+        {
+            log::warn!(
+                target: LOG,
+                "[orchestration] run_local_agent.forward_failed task={bg_task_id}: {e}"
+            );
+        }
+    });
+    Ok(json!({
+        "accepted": true,
+        "taskId": task_id,
+        "status": "running",
+        "note": "local sub-agent started; its result will arrive as a follow-up tool_completion event."
+    }))
+}
+
+/// Background half of `run_local_agent`: run the local sub-agent to completion,
+/// then forward its result up as a `tool_completion` event on the originating
+/// session (which the backend wakes a fresh cycle for).
+async fn run_local_agent_and_forward(
+    counterpart: &str,
+    session_id: &str,
+    task_id: &str,
+    agent_id: &str,
+    run_args: Value,
+) -> Result<(), String> {
+    use crate::openhuman::tools::traits::Tool;
+    // 1. Run the local sub-agent synchronously to completion (real output).
+    let tool = crate::openhuman::agent_orchestration::tools::SpawnSubagentTool::new();
+    // Convert an invocation error into a failure completion rather than bailing:
+    // the hosted brain must always learn the outcome (success OR failure) via the
+    // forwarded `tool_completion`, never be left with no follow-up at all.
+    let (ok, output) = match tool.execute(run_args).await {
+        Ok(result) => (!result.is_error, result.output()),
+        Err(e) => (false, format!("sub-agent invocation error: {e}")),
+    };
+    let body = format!(
+        "[local sub-agent `{agent_id}` task {task_id} {}]\n{output}",
+        if ok { "completed" } else { "failed" }
+    );
+
+    // 2. Persist the completion into the render cache (allocates a monotonic seq)
+    //    and forward it as a `tool_completion` event → backend wakes a new cycle.
+    let config = crate::openhuman::config::Config::load_or_init()
+        .await
+        .map_err(|e| format!("config load: {e}"))?;
+    let now = chrono::Utc::now().to_rfc3339();
+    let seq = super::store::with_connection(&config.workspace_dir, |conn| {
+        let seq = super::store::next_session_seq(conn, counterpart, session_id)?;
+        super::store::insert_message(
+            conn,
+            &super::types::OrchestrationMessage {
+                id: format!("tool-completion:{task_id}:{seq}"),
+                agent_id: counterpart.to_string(),
+                session_id: session_id.to_string(),
+                chat_kind: super::types::ChatKind::Master,
+                role: "system".to_string(),
+                body: body.clone(),
+                timestamp: now.clone(),
+                seq,
+                ..Default::default()
+            },
+        )?;
+        Ok(seq)
+    })
+    .map_err(|e| format!("persist completion: {e}"))?;
+
+    let ts = super::wire::parse_ts_ms(&now).unwrap_or(0);
+    let envelope = super::wire::OrchestrationEventEnvelopeWire::build(
+        counterpart,
+        session_id,
+        seq,
+        "system",
+        counterpart,
+        &body,
+        ts,
+        "tool_completion",
+    );
+    super::cloud::push_event(&config, &envelope).await?;
+    log::debug!(
+        target: LOG,
+        "[orchestration] run_local_agent.forwarded task={task_id} session={session_id} seq={seq} ok={ok}"
+    );
+    Ok(())
+}
+
 /// Handle an inbound `orch:tool_call` frame end-to-end: parse → dispatch →
 /// build the result frame. Returns `(callId, resultFrame)` to emit, or `None`
-/// when the frame is unparseable.
-pub fn handle_tool_call(data: &Value) -> Option<(String, Value)> {
+/// when the frame is unparseable. Async because a local sub-agent spawn is.
+pub async fn handle_tool_call(data: &Value) -> Option<(String, Value)> {
     let frame = match parse_tool_call(data) {
         Ok(f) => f,
         Err(e) => {
@@ -104,10 +258,11 @@ pub fn handle_tool_call(data: &Value) -> Option<(String, Value)> {
             return None;
         }
     };
-    let (ok, result, error) = match dispatch_device_tool(&frame.name, &frame.args) {
-        Ok(value) => (true, value, None),
-        Err(e) => (false, Value::Null, Some(e)),
-    };
+    let (ok, result, error) =
+        match dispatch_device_tool(&frame.name, &frame.args, &frame.cycle_id).await {
+            Ok(value) => (true, value, None),
+            Err(e) => (false, Value::Null, Some(e)),
+        };
     Some((
         frame.call_id.clone(),
         tool_result_frame(&frame.call_id, ok, result, error.as_deref()),

@@ -126,13 +126,24 @@ internals and were never CI-run:
   the `connection refused (os error N)` cause the halt-guard classifier needs.
   Changed to `{e:#}` (full anyhow chain).
 
-**Codex-oauth / responses-fallback parity gap (cloud Bearer slugs):** the host
-`make_cloud_provider_by_slug` Bearer branch layers on `/v1/responses`
-fallback, `openai-codex` OAuth headers, user-agent, query params, and
+**BYOK cloud-slug cutover — deferred to Phase 3 (deliberate).** The host
+`make_cloud_provider_by_slug` Bearer branch (where the common cloud providers —
+openai, deepseek, groq, mistral, … — live) layers on `/v1/responses` fallback,
+`openai-codex` OAuth headers, user-agent, query params, and
 `with_responses_api_primary`. The crate `OpenAiModel` speaks Chat Completions
-only. So only cloud slugs with simple auth (None/Anthropic/plain Bearer, no
-responses-fallback, no codex-oauth) are crate-native-eligible today; the rest
-stay host-side until a crate `/responses` port (a later phase).
+only, so the Bearer path cannot flip without a crate `/responses` port. The only
+crate-native-eligible cloud slugs today are the **rare** None-auth / Anthropic-auth
+branches, and even those carry `supports_responses_fallback = true`. Flipping just
+that sliver would (a) split cloud routing across two clients for marginal coverage
+and (b) touch real-billing paths the ledger requires **per-provider wire-parity
+validation** for — validation that needs a live cloud test environment this box
+cannot provide. So the BYOK cloud cutover stays with **Phase 3 (provider
+consolidation)**: it lands together with the crate `/responses` support + the
+router → crate `ModelRegistry` migration, where the whole cloud surface moves
+coherently. `compatible*.rs` (host `OpenAiCompatibleProvider`) therefore remains —
+it still serves every Bearer cloud slug, `openai_codex`, and the `create_chat_provider`
+callers that have not moved to `create_chat_model` — and cannot be deleted until
+Phase 3 completes.
 
 ## Host Validation Notes
 

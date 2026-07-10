@@ -1,7 +1,10 @@
 # TinyCortex Memory Migration — Spec (Phase 0.5 / 0.6)
 
-**Status:** Phase 0 baseline. Anchors the migration to exact reviewed SHAs and ties together the
-drift, gap, and parity ledgers. Modeled on `docs/tinyagents-migration-spec.md` + its deletion ledger.
+**Status:** Phase 0 baseline **+ execution underway** — #59 (native-dep alignment) merged and the dep
+is active (§0.4); W1 seam + W2 type re-export landed; drift closure in progress (**D3 closed**, **D1/D2
+implemented** on submodule branches pending merge — see the drift ledger). Anchors the migration to
+exact reviewed SHAs and ties together the drift, gap, and parity ledgers. Modeled on
+`docs/tinyagents-migration-spec.md` + its deletion ledger.
 
 **Companion plan:** [`tinycortex-memory-migration-plan.md`](tinycortex-memory-migration-plan.md)
 **Ledgers:** [`tinycortex-drift-ledger.md`](tinycortex-drift-ledger.md) ·
@@ -14,7 +17,7 @@ drift, gap, and parity ledgers. Modeled on `docs/tinyagents-migration-spec.md` +
 | --- | --- | --- |
 | `tinyhumansai/openhuman` | `7850cf363559bcbb7ba688cbc4fccdb6bd9ce754` | host audit base (`main`, 2026-07-04) |
 | `tinyhumansai/tinycortex` | `d1a8c7be2babc8fff7a72ed93861f459f3d6fa58` | crate audit base (v0.1.1) |
-| `tinyhumansai/tinycortex` | `35f9518` (branch `chore/align-native-deps-for-openhuman`) | **first required upstream PR** — native-dep alignment (§0.4); host may not activate the dep until this merges |
+| `tinyhumansai/tinycortex` | `33dda943053e61ef585fc39647cf1854344b6323` | **current pinned gitlink** — audit base **+ #59** (native-dep alignment, §0.4) **merged**; dep now active |
 
 Port line (derived by content, §0.1): **after 2026-06-25, before 2026-06-28** for engine features.
 
@@ -64,18 +67,19 @@ ledger. Re-export covers the data types (`MemoryEntry`, `MemoryCategory`, `Memor
 | Crate edition | 2021 (matches host) ✅ |
 | `[patch.crates-io] tinycortex = { path = "vendor/tinycortex" }` | pre-staged in **both** worlds (root + `app/src-tauri`) ✅ |
 | CI submodule checkout | recursive on all build/test lanes; covers `vendor/tinycortex` ✅ (verify release lanes in W1, as tinyagents needed) |
-| **rusqlite alignment** | ⚠️ **blocker resolved upstream.** Crate pinned `0.32` (bundled), host pins `=0.40.0` (bundled). Two `links = "sqlite3"` = hard Cargo error. Fixed in the crate PR (bump to `0.40` + `usize`→`i64`/`try_from`). |
-| **git2 alignment** | ⚠️ **blocker resolved upstream.** Crate pinned `0.19`, host `0.21` (vendored-libgit2). Two `links = "git2"`. Fixed in the crate PR (bump to `0.21` + API deltas: `Tag::message`, `StringArray::Iter`, `Buf::as_str`). |
+| **rusqlite alignment** | ✅ **resolved & merged (#59).** Crate was pinned `0.32` (bundled), host pins `=0.40.0` (bundled). Two `links = "sqlite3"` = hard Cargo error. Fixed in #59 (bump to `0.40` + `usize`→`i64`/`try_from` — the same sweep that closed drift **D3**). |
+| **git2 alignment** | ✅ **resolved & merged (#59).** Crate was pinned `0.19`, host `0.21` (vendored-libgit2). Two `links = "git2"`. Fixed in #59 (bump to `0.21` + API deltas: `Tag::message`, `StringArray::Iter`, `Buf::as_str`). |
 | Crate compiles with aligned deps | ✅ `cargo check --all-targets` clean; 38 diff/checkpoint tests pass. |
-| **Host root world compiles with dep active** | ✅ `cargo check --manifest-path Cargo.toml --lib` **exit 0** with `tinycortex = "0.1"` active + submodule at `35f9518`. **No `multiple packages link to native library` error** — one bundled SQLite + one libgit2 confirmed. (Verified locally; the Cargo.toml/lock activation is reverted from the Phase-0 docs branch and re-lands in W1 post-upstream-merge.) |
+| **Host root world compiles with dep active** | ✅ `cargo check --manifest-path Cargo.toml --lib` **exit 0** with `tinycortex = "0.1"` active (`Cargo.toml:82`) + submodule at `33dda94`. **No `multiple packages link to native library` error** — one bundled SQLite + one libgit2 confirmed. **Now landed** (post-#59-merge): the `[dependencies]` line and gitlink are committed on the working branch, not reverted. Re-verified 2026-07-09. |
 | Host `app/src-tauri` world | to verify in W1 (separate Cargo world / lockfile). |
 | `GGML_NATIVE=OFF` macOS ARM | to verify on a macOS runner in W1 (no macOS host here). |
 
-**Activation is deferred to W1.** Per the submodule rule, the host may only bump the gitlink to a
-**merged** upstream SHA. The native-dep alignment is committed on the crate branch and ready to PR;
-once it merges and is published, W1 lands: (a) `chore(vendor): bump tinycortex`, (b)
-`[dependencies] tinycortex = "0.1"` in both worlds. The `[dependencies]` line and the compile
-verification below were validated **locally** against the branch to prove the baseline is sound.
+**Activation landed (post-#59).** The native-dep alignment merged upstream as **#59** and the host
+gitlink was bumped to `33dda94`, so — per the submodule rule (bump only to a **merged** SHA) — W1's
+activation is now in place: `[dependencies] tinycortex = "0.1"` is active in the root world
+(`Cargo.toml:82`), the seam (`src/openhuman/tinycortex/`) is wired (`src/openhuman/mod.rs:130`), and
+`cargo check --lib` is **exit 0**. Remaining §0.4 follow-ups: the `app/src-tauri` world and the
+`GGML_NATIVE=OFF` macOS-runner check still verify in W1 (see rows above).
 
 ---
 

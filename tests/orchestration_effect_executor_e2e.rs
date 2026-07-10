@@ -72,19 +72,25 @@ fn parses_a_tool_call_frame() {
     assert_eq!(parsed.name, "device_status");
 }
 
-#[test]
-fn dispatches_device_status_and_rejects_unknown_tools() {
-    let status = dispatch_device_tool("device_status", &json!({})).expect("ok");
+#[tokio::test]
+async fn dispatches_device_status_and_rejects_unknown_tools() {
+    // `device_status` / unknown tools are not local-execution tools, so the
+    // Master-chat exec gate is bypassed regardless of the cycle id.
+    let status = dispatch_device_tool("device_status", &json!({}), "c")
+        .await
+        .expect("ok");
     assert!(status["version"].is_string());
     assert!(status["platform"].is_string());
 
-    assert!(dispatch_device_tool("rm_rf", &json!({})).is_err());
+    assert!(dispatch_device_tool("rm_rf", &json!({}), "c")
+        .await
+        .is_err());
 }
 
-#[test]
-fn handle_tool_call_builds_result_frame() {
+#[tokio::test]
+async fn handle_tool_call_builds_result_frame() {
     let frame = json!({ "callId": "c:tool_call:0", "name": "device_status", "args": {} });
-    let (call_id, result) = handle_tool_call(&frame).expect("handled");
+    let (call_id, result) = handle_tool_call(&frame).await.expect("handled");
     assert_eq!(call_id, "c:tool_call:0");
     assert_eq!(result["ok"], json!(true));
     assert!(result["result"]["platform"].is_string());

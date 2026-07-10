@@ -96,8 +96,16 @@ verification below were validated **locally** against the branch to prove the ba
 
 - **RPC surfaces:** `memory/{ops,schemas,schema,read_rpc}`, `rpc_models.rs`. Method names/payloads unchanged.
 - **Agent tools:** `memory/tools/`, `memory/query/`, `memory_search/tools/`, `memory_tools`(tool surface) — thin wrappers over crate retrieval + `SecurityPolicy` gating.
-- **Live sync:** all of `memory_sync/`, `memory/sync.rs` lifecycle + bus stage events.
-- **Process glue:** `memory/global.rs` singleton + queue worker; `memory/source_scope.rs` task-locals; `memory/chat.rs`; embeddings provider wiring.
+- **Live sync (amended 2026-07-09, plan §8 / W-SYNC):** the sync **engine** (pipelines, per-toolkit
+  Composio providers + HTTP client, canonicalize, sync_state, audit/rebuild, sync_status query,
+  dispatcher) **moves to the crate** behind an optional `sync` cargo feature. The crate's
+  "never makes a network call" invariant becomes **feature-scoped**: the default build stays
+  network-free; the `sync` feature adds an HTTP Composio client whose credentials are injected by
+  the host. Host retains: scheduler loops (tick-driven crate, like `queue::run_once`),
+  credentials/OAuth (keychain `composio-direct`), event-bus bridges via a new **`SyncEventSink`**
+  seam trait, RPC wrappers (`memory/{ops,schemas}/sync.rs`, `memory_sources/rpc.rs`), and the
+  UnifiedMemory writeback via a new **`SkillDocSink`** seam trait. MCP transport stays host.
+- **Process glue:** `memory/global.rs` singleton + queue worker; `memory/source_scope.rs` task-locals; `memory/chat.rs`; embeddings provider wiring. *(Amended, plan §8 / W-EMB: the provider **implementations** in `src/openhuman/embeddings/` migrate upstream into `tinyagents::harness::embeddings` — trait gains `name`/`model_id`/`signature` byte-pinned to `provider={name};model={model};dims={dims}` (P10) — and tinycortex bridges `EmbeddingBackend` to that trait; the host keeps factory/config/RPC wiring only.)*
 - **Policy/UX:** `preferences.rs`, `remember.rs`, `tree_policy.rs`, `util/redact.rs`, config mapping.
 - **Host-retained `UnifiedMemory` namespace-document tier** (0.3 key finding) — the 10 tables that
   coexist in the shared DB but **do not move**: `memory_docs`, `graph_global`, `graph_namespace`,
@@ -135,21 +143,26 @@ audit SHA.
 | `memory_graph/` | 3 (0) | W7 | gap **G2** resolved (derive-on-read parity vs host-retained `graph_*`) |
 | `memory_goals/` | 7 (0) | W7 | seam `GoalsGenerator` wired |
 | `memory_archivist/` | 6 (0) | W7 | `TreeLeafSink` seam wired |
-| `memory_sources/` | 16 (0) | W7 | registry + local readers move; **live sync stays host** |
+| `memory_sources/` | 16 (0) | W7 / W-SYNC | registry + local readers move (W7); `sync.rs` dispatcher + `reconcile.rs` move in W-SYNC; `rpc.rs` kept host |
+| `memory_sync/` (engine) | — | **W-SYNC.3** | drift **D4** closed; W6 landed (crate ingest live); mocked + live Composio test pair green; sync-status parity green; schedulers/bus/RPC/keychain kept host |
+| `src/openhuman/embeddings/` (provider impls) | — | **W-EMB.3** | tinyagents provider port merged; signature parity (P10) green; `factory.rs`(thin)/`rpc.rs`/`schemas.rs`/catalog kept host |
 | `memory_tools/` | 10 (1) | W7 | engine → `tool_memory/`; tool surface kept host |
 | `memory_search/` | 8 (0) | W5 | `vector`/`scoring` → crate `retrieval`/`score`; `tools/` kept host |
 | `memory/ingest_pipeline.rs` internals | (thin entry points kept) | W6 | `ingest_chat`/`ingest_document_with_scope` signatures unchanged; 11 call sites untouched |
 
 **Kept host (never deleted):** `memory/{ops,schemas,schema,read_rpc,tools,query,tree_source,
 ingestion,util}`, `memory/{global,source_scope,chat,sync,preferences,remember,tree_policy,rpc_models,
-traits(→re-exports)}.rs`, all of `memory_sync/`, `memory_store/unified/*` (the namespace-document
+traits(→re-exports)}.rs`, `memory_sync/`'s host-retained shell only (schedulers `periodic.rs`,
+`bus.rs` subscribers, RPC registration — the engine moves in W-SYNC, plan §8), `memory_store/unified/*` (the namespace-document
 tier), `memory_store/content/{wiki_git,obsidian,obsidian_registry}`, `memory_tree/health/`, and the
 new `src/openhuman/tinycortex/` seam.
 
 ## 3. Workstream order (one workstream ≈ one host PR)
 
 W1 seam scaffolding → W2 types/trait re-export → W3 store+chunks → W4 queue → W5 tree+retrieval+score
-→ W6 ingest → W7 long tail → W8 test-port + golden parity sweep + deletion-ledger close-out.
+→ W6 ingest → **W-SYNC** (sync engine + Composio client, plan §8) → W7 long tail → W8 test-port +
+golden parity sweep + deletion-ledger close-out. **W-EMB** (embeddings inheritance from tinyagents,
+plan §8.2) runs in parallel; W-EMB.2 must land before the W-SYNC.3 flip.
 
 Each risky workstream is a sandwich (plan §4): (a) tinycortex PR(s) closing that module's drift/gap
 ledger, (b) host `chore(vendor): bump tinycortex`, (c) host cutover PR (adapter flip + legacy
@@ -161,3 +174,10 @@ deletion + host-side tests in the same PR for the ≥80% diff-coverage gate).
 2. **`source_scope` per-turn allowlist** — must survive the W5 retrieval cutover; the retrieval
    primitives (`query_source`/`query_topic`/`drill_down`) run inside the host's task-local scope, and
    a W5 seam test must assert an out-of-allowlist source is not returned.
+3. **Composio credential handling (W-SYNC)** — the crate holds the key only as a redacted
+   `SecretString` (`Debug`/`Display` masked, serialization skipped); production resolution stays in
+   the host keychain (`composio-direct`), the `COMPOSIO_API_KEY` env fallback is test-only; a seam
+   test asserts the key never appears in `MemoryConfig` `Debug` output or client error messages
+   (401 path included).
+4. **Sync taint provenance (W-SYNC)** — every crate-side sync ingest must stamp
+   `MemoryTaint::ExternalSync`; the mocked Composio pipeline test pins this.

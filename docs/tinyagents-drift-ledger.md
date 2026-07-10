@@ -28,7 +28,7 @@ be upstreamed, retained, or deleted before each phase cuts over.
 | TinyAgents submodule | `vendor/tinyagents` -> `tinyhumansai/tinyagents` |
 | Phase 0 target | `v1.6.0` / `e72036d847b589044aa9a4add1b34544b92a293d` |
 | Current host pin | `v1.8.0-1-g7c6e81a` ([tinyagents#49](https://github.com/tinyhumansai/tinyagents/pull/49) **merged** onto v1.8.0 main) |
-| Verification PR | [openhuman#4769](https://github.com/tinyhumansai/openhuman/pull/4769) — Motion A + Motion B checkpoint |
+| Verification PR | [openhuman#4769](https://github.com/tinyhumansai/openhuman/pull/4769) — Motion A + Motion B checkpoint. **CI fully green** (`PR CI Gate` + `Rust Core Coverage` + fmt/clippy); 14,437 Rust tests pass. First full CI verification of this branch. |
 
 ## Baseline Snapshot
 

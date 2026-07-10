@@ -92,8 +92,8 @@ run_raw_coverage_modules() {
 }
 
 run_full_suite() {
-  cargo_test --lib --bins
-  cargo_test --doc
+  cargo_test --lib --bins -- "$@"
+  cargo_test --doc -- "$@"
 
   while IFS= read -r target; do
     [ -n "$target" ] || continue
@@ -101,15 +101,18 @@ run_full_suite() {
       # These suites used to run as separate integration-test binaries. Run
       # each generated module filter in its own cargo process so local
       # `pnpm test:rust` preserves the same process-global isolation as CI.
-      run_raw_coverage_modules
+      run_raw_coverage_modules "$@"
     else
-      cargo_test --test "$target"
+      cargo_test --test "$target" -- "$@"
     fi
   done < <(integration_test_targets)
 }
 
 if [ "$#" -eq 0 ]; then
   run_full_suite
+elif [ "$1" = "--" ]; then
+  shift
+  run_full_suite "$@"
 elif [ "$#" -ge 2 ] && [ "$1" = "--test" ] && [ "$2" = "raw_coverage_all" ]; then
   shift 2
   if [ "${1:-}" = "--" ]; then

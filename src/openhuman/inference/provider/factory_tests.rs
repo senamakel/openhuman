@@ -2809,3 +2809,63 @@ async fn create_chat_model_wraps_provider_and_round_trips() {
         .expect("invoke must succeed");
     assert_eq!(response.text(), "echo: hi there");
 }
+
+// ── Motion B (#4727): managed-backend crate-native routing ──────────────────
+// `create_chat_model` must route the managed OpenHuman backend through the
+// crate-native `OpenHumanBackendModel` (which advertises no static profile),
+// while BYOK/local roles keep the `ProviderModel`-wrapped path (profile
+// `Some`). The `profile()` discriminant is the cheapest observable that tells
+// the two construction paths apart without a network round-trip.
+
+#[test]
+fn resolves_to_managed_backend_for_default_config_but_not_for_local() {
+    // A default config has no BYOK/cloud providers, so every chat-tier role
+    // resolves to the managed OpenHuman backend.
+    let managed = Config::default();
+    assert!(resolves_to_managed_backend("chat", &managed));
+    assert!(resolves_to_managed_backend("reasoning", &managed));
+
+    // Pointing the chat role at a local runtime opts it out of the managed path.
+    let mut local = Config::default();
+    local.chat_provider = Some("ollama:qwen2.5".to_string());
+    assert!(!resolves_to_managed_backend("chat", &local));
+}
+
+#[test]
+fn create_chat_model_routes_managed_backend_to_crate_native() {
+    use tinyagents::harness::model::ChatModel;
+
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    // No test-provider override installed → the managed short-circuit engages.
+    let config = Config::default();
+    let (model, _model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
+        .expect("managed create_chat_model must build");
+    // The crate-native `OpenHumanBackendModel` serves every tier via
+    // `request.model`, so it advertises no single static profile.
+    assert!(
+        model.profile().is_none(),
+        "managed backend must build the crate-native OpenHumanBackendModel (profile None)"
+    );
+}
+
+#[test]
+fn create_chat_model_routes_local_runtime_through_provider_model() {
+    use tinyagents::harness::model::ChatModel;
+
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let mut config = Config::default();
+    config.chat_provider = Some("ollama:qwen2.5".to_string());
+    let (model, _model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
+        .expect("local create_chat_model must build");
+    // A BYOK/local role still flows through the `ProviderModel` wrapper, which
+    // carries a concrete capability profile derived from the provider. The
+    // adapter reports the neutral `"local"`/`"remote"` origin (not the slug),
+    // and the Ollama provider disables native tools + vision — the same knobs
+    // the crate-native `make_crate_local_runtime_chat_model` will carry post-flip.
+    let profile = model
+        .profile()
+        .expect("ProviderModel-wrapped local provider exposes a profile");
+    assert_eq!(profile.provider.as_deref(), Some("local"));
+    assert!(!profile.tool_calling, "Ollama disables native tool calling");
+    assert!(!profile.modalities.image_in, "Ollama is text-only here");
+}

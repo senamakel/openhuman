@@ -382,6 +382,7 @@ fn workload_override_respected() {
 
 #[test]
 fn create_chat_provider_uses_role() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(openai_entry("p_oai", "openai"));
     config.reasoning_provider = Some("openai:gpt-4o-mini".to_string());
@@ -463,6 +464,7 @@ fn managed_backend_summarization_ignores_default_model() {
 // run summarization on a BYOK/local `memory_provider` instead.
 #[test]
 fn managed_backend_summarization_ignores_cloud_llm_model_override() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.memory_tree.cloud_llm_model = Some("chat-v1".to_string());
     let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
@@ -482,6 +484,7 @@ fn managed_backend_summarization_ignores_cloud_llm_model_override() {
 // `code_executor` agent (`hint = "coding"`) makes when it spawns.
 #[test]
 fn subagent_hint_resolves_to_tier_on_managed_backend() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     use crate::openhuman::config::{
         MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
     };
@@ -527,6 +530,7 @@ fn managed_backend_chat_role_inherits_default_model() {
 // `provider_for_role` resolves the per-workload route before the managed path.
 #[test]
 fn coding_workload_byok_route_wins_over_managed_pin() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config
         .cloud_providers
@@ -729,12 +733,14 @@ async fn cloud_provider_with_malformed_endpoint_surfaces_url_error() {
 
 #[test]
 fn primary_cloud_defaults_to_openhuman_when_no_providers() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let config = Config::default();
     assert!(create_chat_provider("reasoning", &config).is_ok());
 }
 
 #[test]
 fn cloud_sentinel_resolves_to_primary_custom_provider() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = config_with_providers(vec![oh_entry("p_oh"), openai_entry("p_oai", "openai")]);
     config.primary_cloud = Some("p_oai".to_string());
 
@@ -835,6 +841,7 @@ fn unknown_workload_falls_back_to_openhuman() {
 
 #[test]
 fn openhuman_backend_uses_config_path_parent_as_state_dir() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.config_path = std::path::PathBuf::from("/tmp/oh-test-workspace/config.toml");
     let (_provider, model) = create_chat_provider("reasoning", &config)
@@ -1191,6 +1198,7 @@ fn managed_backend_pins_subconscious_role_to_chat_tier() {
 
 #[test]
 fn create_chat_provider_subconscious_managed_resolves_chat_v1() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
     // End-to-end of the managed tick path: provider role `subconscious` with the
     // hint default_model, no BYOK subconscious_provider → managed backend, model
     // pinned to chat-v1 (no regression vs the pre-change chat-role behaviour).
@@ -1206,6 +1214,11 @@ fn create_chat_provider_subconscious_honours_byok_route() {
     // When the user pins a concrete cloud provider for the subconscious workload
     // in Connections → API keys → LLM, the factory builds that provider and returns
     // its exact model id.
+    // Serialize with the process-global `test_provider_override` (installed by the
+    // `create_chat_model` seam tests): while an override is active, every
+    // `create_chat_provider` returns the sentinel `mock-model`, so an unguarded
+    // read here can race it and see `mock-model` instead of the resolved BYOK id.
+    let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(openai_entry("p_oai", "openai"));
     config.subconscious_provider = Some("openai:gpt-4o-mini".to_string());

@@ -755,6 +755,35 @@ fn is_local_provider_unreachable_failure_keeps_short_loopback_send_error_retryab
     );
 }
 
+#[test]
+fn is_local_provider_unreachable_failure_matches_raw_no_models_loaded_body() {
+    let raw = "LM Studio API error (400 Bad Request): {\"error\":\"No models loaded. \
+               Please load a model in the developer page first.\"}";
+    assert!(
+        is_local_provider_unreachable_failure(
+            &JobType::Agent,
+            Some(raw),
+            AGENT_JOB_USER_FAILURE_MESSAGE
+        ),
+        "raw OpenAI-compatible no-model body should halt without retries"
+    );
+}
+
+#[test]
+fn is_local_provider_unreachable_failure_checks_output_when_raw_is_generic() {
+    let output =
+        "Your local inference server (e.g. LM Studio) is running but has no model loaded. \
+                  Load a model, then try again.";
+    assert!(
+        is_local_provider_unreachable_failure(
+            &JobType::Agent,
+            Some(AGENT_JOB_USER_FAILURE_MESSAGE),
+            output
+        ),
+        "friendly no-model output should halt even when raw agent error is generic"
+    );
+}
+
 // Negative guard: a transient REMOTE provider / backend network error must NOT
 // halt — it may recover on retry and stays actionable in Sentry. Narrowing to
 // loopback is what keeps this guard from blinding real outages.

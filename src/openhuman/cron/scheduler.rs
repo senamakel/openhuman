@@ -453,8 +453,9 @@ fn is_api_key_unset_failure(
 /// the wording cannot drift from the classifier emit site. Also recognizes the
 /// inference provider's stable local-runtime "no model loaded" user message.
 /// Narrow by design: a transient *remote* provider / backend network error
-/// still retries and still reports. Routes on `last_agent_error` first (the
-/// raw anyhow chain carrying the wire message), falling back to `last_output`.
+/// still retries and still reports. Checks both `last_agent_error` (the raw
+/// anyhow chain carrying the wire message) and `last_output` (the surfaced user
+/// message), because some provider paths preserve only one of those shapes.
 /// Restricted to `JobType::Agent`.
 fn is_local_provider_unreachable_failure(
     job_type: &JobType,
@@ -464,14 +465,17 @@ fn is_local_provider_unreachable_failure(
     if !matches!(job_type, JobType::Agent) {
         return false;
     }
-    let signal = last_agent_error.unwrap_or(last_output);
-    crate::core::observability::is_local_provider_unreachable_message(signal)
-        || is_local_provider_no_model_loaded_message(signal)
+    let raw_signal = last_agent_error.unwrap_or("");
+    crate::core::observability::is_local_provider_unreachable_message(raw_signal)
+        || crate::core::observability::is_local_provider_unreachable_message(last_output)
+        || is_local_provider_no_model_loaded_message(raw_signal)
+        || is_local_provider_no_model_loaded_message(last_output)
 }
 
 fn is_local_provider_no_model_loaded_message(signal: &str) -> bool {
     let lower = signal.to_ascii_lowercase();
-    lower.contains("local inference server") && lower.contains("no model loaded")
+    (lower.contains("local inference server") && lower.contains("no model loaded"))
+        || lower.contains("no models loaded")
 }
 
 async fn execute_job_with_retry(

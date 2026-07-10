@@ -119,6 +119,29 @@ not as drift. See `tinycortex-api-gap-audit.md`.
 tinycortex PR. Nothing else drifted. `memory_search` is a mixed module not in the plan's move table —
 its `tools/` stay host (agent tools), its `vector`/`scoring` are engine (W5) — flagged for the gap audit.
 
+## D4 — memory_sync corpus (2026-07-09 reclassification, W-SYNC)
+
+The plan's §8 amendment moves the sync engine into the crate, so the blanket **HOST-OWNED
+"live sync"** classification above is superseded for engine-mapping sync code. Unlike D1–D3 there
+is **no existing crate port to diff against** — the entire `memory_sync/` engine (plus the
+`memory_sources` dispatcher/reconcile parts) is port scope. The port baseline for W-SYNC is taken
+**fresh from host `main` at W-SYNC.1 branch time**, so ordinary drift cannot accumulate; this entry
+exists to (a) record the reclassification and (b) pin the post-port-line commits that already
+touched the corpus, so the W-SYNC.1 port provably includes them:
+
+| # | Host commit | Files in corpus | Note |
+| --- | --- | --- | --- |
+| D4.1 | `c43f79641` (07-03) | `composio/providers/{sync_state,traits}.rs` | TinyAgents-cutover import churn |
+| D4.2 | `27b00b539` (07-05) | `sources/rebuild.rs` | test-parity cleanup (1 line) |
+| D4.3 | `653e6e143` (07-06) | `memory_sources/sync.rs` (+312) | self-heal drifted content-sha tokens + prune vanished folder items |
+| D4.4 | `e456b7799` (07-07) | `memory_sources/{rpc,sync}.rs`, `canonicalize/email.rs`, `composio/providers/{gmail/post_process,notion/source,orchestrator}.rs`, `sources/github.rs` | orchestration-fixes wave |
+
+**Gate:** W-SYNC.1 (crate scaffolding PR) requires this enumeration current as of its branch point
+(re-run the scan: `git log --since=2026-06-25 --oneline -- src/openhuman/memory_sync
+src/openhuman/memory_sources`); the W-SYNC.3 host flip requires D4 **CLOSED** — every listed commit
+(and any accrued since) verifiably contained in the crate port or explicitly waived. Host-retained
+parts (schedulers, bus subscribers, RPC wrappers, keychain/OAuth) remain HOST-OWNED as before.
+
 ## Closing the ledger (procedure)
 
 For each open row:

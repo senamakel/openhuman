@@ -27,7 +27,9 @@
 
 use std::time::Duration;
 
+use anyhow::Context;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use tinycortex::memory::queue::worker::{
     is_host_io_error, is_sqlite_busy, is_sqlite_corrupt, is_sqlite_disk_full, is_sqlite_io_transient,
 };
@@ -40,9 +42,52 @@ use tinycortex::memory::MemoryConfig;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::tree_source::get_or_create_source_tree;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
+use crate::openhuman::memory_store::chunks::types::{Chunk, Metadata};
 use crate::openhuman::memory_store::content as content_store;
+use crate::openhuman::memory_store::content::read as content_read;
+use crate::openhuman::memory_store::content::tags as content_tags;
 use crate::openhuman::memory_store::trees::store as trees_store;
+use crate::openhuman::memory_tree::score;
+use crate::openhuman::memory_tree::score::store as score_store;
 use crate::openhuman::memory_tree::tree::{bucket_seal, TreeFactory};
+
+// ── Pure scope helpers (ported verbatim from `memory_queue::handlers`) ────────
+// These pin the SAME source→tree mapping the append-buffer path uses, so reads
+// look up the tree the seal worker wrote to. Copied (not imported) because
+// `memory_queue` is deleted at the W4 flip and these belong with the seam.
+
+/// Derive the tree scope from a source_id. GitHub per-item ids like
+/// `github:owner/repo:commit:sha` collapse to `github:owner/repo` so a repo's
+/// items share one tree; other ids pass through.
+fn derive_tree_scope(source_id: &str) -> String {
+    if let Some(rest) = source_id.strip_prefix("github:") {
+        if let Some(idx) = rest.find(':') {
+            return format!("github:{}", &rest[..idx]);
+        }
+    }
+    source_id.to_string()
+}
+
+/// The source-tree scope a chunk appends under: its `path_scope` when set
+/// (shared-directory sources like Notion), else the GitHub-aware scope.
+fn chunk_tree_scope(metadata: &Metadata) -> String {
+    metadata
+        .path_scope
+        .clone()
+        .unwrap_or_else(|| derive_tree_scope(&metadata.source_id))
+}
+
+/// Whether a chunk's source uses the per-document rollup/versioning path
+/// (Notion) — those skip the flat L0 buffer; their tree is built by SealDocument.
+fn uses_document_subtree(chunk: &Chunk) -> bool {
+    const DOC_SUBTREE_PREFIX: &str = "notion:";
+    chunk.metadata.source_id.starts_with(DOC_SUBTREE_PREFIX)
+        || chunk
+            .metadata
+            .path_scope
+            .as_deref()
+            .is_some_and(|s| s.starts_with(DOC_SUBTREE_PREFIX))
+}
 
 /// How the host worker loop should report an errored `run_once` poll to Sentry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -175,21 +220,180 @@ impl HostQueueDelegates {
 
 #[async_trait]
 impl QueueDelegates for HostQueueDelegates {
+    /// Ported from `prepare_extract` + `finalize_extract`: score + admit one
+    /// chunk and persist its score/lifecycle. Returns the admission decision;
+    /// the crate's `handle_extract` enqueues the append-buffer follow-up and arms
+    /// the re-embed backfill from it (so this must NOT enqueue — that would
+    /// double-enqueue). `Ok(None)` when the chunk row vanished.
     async fn extract_chunk(
         &self,
         _config: &MemoryConfig,
-        _chunk_id: &str,
+        chunk_id: &str,
     ) -> anyhow::Result<Option<ExtractDecision>> {
-        anyhow::bail!("W4 brick 2b: extract_chunk engine bridge not yet ported")
+        let config = &self.config;
+        let Some(mut chunk) = chunk_store::get_chunk(config, chunk_id)? else {
+            return Ok(None);
+        };
+
+        // The `content` column is a ≤500-char preview after the MD-on-disk
+        // migration; the scorer needs the full body. Swap it in for scoring,
+        // then restore the preview (avoids retaining the full body afterward).
+        let body = content_read::read_chunk_body(config, &chunk.id)
+            .with_context(|| format!("read full body for extract chunk_id={}", chunk.id))?;
+        let preview = std::mem::replace(&mut chunk.content, body);
+        let scoring_cfg = score::ScoringConfig::from_config(config);
+        let result = score::score_chunk(&chunk, &scoring_cfg).await?;
+        chunk.content = preview;
+
+        let kept = result.kept;
+        let uses_doc = uses_document_subtree(&chunk);
+        let tree_scope = chunk_tree_scope(&chunk.metadata);
+        let timestamp_ms = chunk.metadata.timestamp.timestamp_millis();
+
+        // Persist score + lifecycle atomically. No follow-up enqueue here.
+        chunk_store::with_connection(config, |conn| {
+            let tx = conn.unchecked_transaction()?;
+            score::persist_score_tx(&tx, &result, timestamp_ms, None)?;
+            let status = if kept {
+                chunk_store::CHUNK_STATUS_ADMITTED
+            } else {
+                chunk_store::CHUNK_STATUS_DROPPED
+            };
+            tx.execute(
+                "UPDATE mem_tree_chunks SET lifecycle_status = ?1 WHERE id = ?2",
+                rusqlite::params![status, chunk.id],
+            )?;
+            tx.commit()?;
+            Ok(())
+        })?;
+
+        // Best-effort: rewrite the on-disk chunk file's obsidian tags from the
+        // extracted entities (visible after the tx commits). Non-fatal.
+        if kept {
+            if let Some(content_path) = chunk_store::get_chunk_content_path(config, &chunk.id)? {
+                let content_root = config.memory_tree_content_root();
+                let entity_ids = score_store::list_entity_ids_for_node(config, &chunk.id)?;
+                let obsidian_tags: Vec<String> = entity_ids
+                    .iter()
+                    .filter_map(|eid| {
+                        let (kind, surface) = eid.split_once(':')?;
+                        Some(content_tags::entity_tag(kind, surface))
+                    })
+                    .collect();
+                let mut abs_path = content_root;
+                for component in content_path.split('/') {
+                    abs_path.push(component);
+                }
+                if let Err(e) = content_tags::update_chunk_tags(&abs_path, &obsidian_tags) {
+                    log::warn!(
+                        "[tinycortex::queue_driver] update_chunk_tags failed chunk_id={}: {e}",
+                        chunk.id
+                    );
+                }
+            }
+        }
+
+        Ok(Some(ExtractDecision {
+            kept,
+            uses_document_subtree: uses_doc,
+            tree_scope,
+        }))
     }
 
+    /// Ported from `handle_append_buffer`: push a leaf/summary node into its
+    /// target tree's L0 buffer and report whether the buffer crossed its seal
+    /// gate. The crate's `handle_append_buffer` enqueues the seal from the
+    /// returned `should_seal` (so this must NOT enqueue). `Ok(None)` when the
+    /// node or target tree is missing.
     async fn append_node(
         &self,
         _config: &MemoryConfig,
-        _node: &NodeRef,
-        _target: &AppendTarget,
+        node: &NodeRef,
+        target: &AppendTarget,
     ) -> anyhow::Result<Option<AppendDecision>> {
-        anyhow::bail!("W4 brick 2b: append_node engine bridge not yet ported")
+        let config = &self.config;
+
+        // Buffer accounting needs only (item_id, token_count, timestamp); the
+        // full body/entities are re-read from disk at seal time, so — unlike the
+        // legacy handler's `LeafRef` — we don't read them here.
+        let (item_id, token_count, timestamp, lifecycle_chunk_id): (
+            String,
+            i64,
+            DateTime<Utc>,
+            Option<String>,
+        ) = match node {
+            NodeRef::Leaf { chunk_id } => {
+                let Some(chunk) = chunk_store::get_chunk(config, chunk_id)? else {
+                    return Ok(None);
+                };
+                let id = chunk.id.clone();
+                (
+                    id.clone(),
+                    chunk.token_count as i64,
+                    chunk.metadata.timestamp,
+                    Some(id),
+                )
+            }
+            NodeRef::Summary { summary_id } => {
+                let Some(summary) = trees_store::get_summary(config, summary_id)? else {
+                    return Ok(None);
+                };
+                // Summaries carry no chunk lifecycle to update.
+                (
+                    summary.id,
+                    summary.token_count as i64,
+                    summary.time_range_start,
+                    None,
+                )
+            }
+        };
+
+        let tree = match target {
+            AppendTarget::Source { source_id } => {
+                Some(get_or_create_source_tree(config, source_id)?)
+            }
+            AppendTarget::Topic { tree_id } => trees_store::get_tree(config, tree_id)?,
+        };
+        let Some(tree) = tree else {
+            // Target topic tree archived between route and append — drop.
+            return Ok(None);
+        };
+        let is_source_target = matches!(target, AppendTarget::Source { .. });
+        let tree_id = tree.id.clone();
+
+        // ATOMIC: buffer push + lifecycle update. (The seal enqueue that the
+        // legacy handler did in this same tx is now the crate's job, driven by
+        // the returned `should_seal`.)
+        let should_seal = chunk_store::with_connection(config, move |conn| {
+            let tx = conn.unchecked_transaction()?;
+            let mut buf = trees_store::get_buffer_conn(&tx, &tree.id, 0)?;
+            if !buf.item_ids.iter().any(|x| x == &item_id) {
+                buf.item_ids.push(item_id.clone());
+                buf.token_sum = buf.token_sum.saturating_add(token_count);
+                buf.oldest_at = match buf.oldest_at {
+                    Some(existing) => Some(existing.min(timestamp)),
+                    None => Some(timestamp),
+                };
+                trees_store::upsert_buffer_tx(&tx, &buf)?;
+            }
+            let should_seal = bucket_seal::should_seal(&buf);
+            if is_source_target {
+                if let Some(cid) = lifecycle_chunk_id.as_deref() {
+                    chunk_store::set_chunk_lifecycle_status_tx(
+                        &tx,
+                        cid,
+                        chunk_store::CHUNK_STATUS_BUFFERED,
+                    )?;
+                }
+            }
+            tx.commit()?;
+            Ok(should_seal)
+        })?;
+
+        Ok(Some(AppendDecision {
+            tree_id,
+            should_seal,
+        }))
     }
 
     /// Ported from `handle_seal`: seal exactly one buffer level. Returns `None`
@@ -493,25 +697,39 @@ mod tests {
         );
     }
 
-    /// The methods staged for brick 2b fail loudly (not a silent no-op) so a
-    /// premature flip cannot drop work.
+    /// `extract_chunk` / `append_node` are ported: on a missing chunk row they
+    /// are a no-op (`Ok(None)`), matching the legacy handlers' "row vanished
+    /// between enqueue and claim" path.
     #[tokio::test]
-    async fn host_delegates_staged_methods_error_until_2b() {
+    async fn host_delegates_extract_and_append_missing_chunk_are_noop() {
         let (tmp, d) = host_delegates_on_tempdir();
         let mc = MemoryConfig::new(tmp.path());
-        assert!(d.extract_chunk(&mc, "chunk-1").await.is_err());
+        assert!(d
+            .extract_chunk(&mc, "nonexistent")
+            .await
+            .expect("extract_chunk")
+            .is_none());
         assert!(d
             .append_node(
                 &mc,
                 &NodeRef::Leaf {
-                    chunk_id: "c".into()
+                    chunk_id: "nonexistent".into()
                 },
                 &AppendTarget::Source {
                     source_id: "s".into()
                 },
             )
             .await
-            .is_err());
+            .expect("append_node")
+            .is_none());
+    }
+
+    /// The last staged method (`reembed_batch`, brick 2c) fails loudly — not a
+    /// silent no-op — so a premature flip cannot drop work.
+    #[tokio::test]
+    async fn host_delegates_reembed_batch_still_staged() {
+        let (tmp, d) = host_delegates_on_tempdir();
+        let mc = MemoryConfig::new(tmp.path());
         assert!(d
             .reembed_batch(&mc, "provider=x;model=y;dims=3")
             .await

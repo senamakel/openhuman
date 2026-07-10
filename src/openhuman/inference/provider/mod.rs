@@ -9,13 +9,13 @@ pub mod billing_error;
 pub mod claude_agent_sdk;
 pub mod claude_code;
 pub mod compatible;
-/// Crate-native OpenAI-compatible client construction (issue #4727, Motion B).
-pub mod crate_openai;
 pub mod compatible_dump;
 pub mod compatible_parse;
 pub mod compatible_stream;
 pub mod compatible_types;
 pub mod config_rejection;
+/// Crate-native OpenAI-compatible client construction (issue #4727, Motion B).
+pub mod crate_openai;
 pub mod error_classify;
 pub mod error_code;
 pub mod factory;

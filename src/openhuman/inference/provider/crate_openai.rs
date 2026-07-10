@@ -64,6 +64,21 @@ pub(crate) struct CrateOpenAiConfig<'a> {
     pub merge_system_into_user: bool,
     /// Static headers attached to every request (e.g. provider attribution).
     pub extra_headers: &'a [(String, String)],
+    /// Override the model's advertised **native** tool-calling capability.
+    /// `None` keeps the crate default (`true`); `Some(false)` is required for
+    /// local runtimes (Ollama et al.) that reject the OpenAI `tools` parameter,
+    /// so the harness embeds tool specs in the prompt instead. Maps to the crate
+    /// `OpenAiModel::with_native_tool_calling`.
+    pub native_tool_calling: Option<bool>,
+    /// Override the model's advertised vision (image-in) capability. `None` keeps
+    /// the crate default; `Some(false)` marks a text-only local model. Maps to
+    /// `OpenAiModel::with_vision`.
+    pub vision: Option<bool>,
+    /// Provider options baked onto every request (e.g. Ollama's
+    /// `{"options": {"num_ctx": 8192}}`), merged under each call's own
+    /// `provider_options`. `None` bakes nothing. Maps to
+    /// `OpenAiModel::with_default_provider_options`.
+    pub default_provider_options: Option<serde_json::Value>,
 }
 
 /// Build a crate-native `OpenAiModel` (`ChatModel`) for the given OpenAI-compatible
@@ -79,8 +94,8 @@ pub(crate) fn build_crate_openai_model(config: CrateOpenAiConfig<'_>) -> Arc<dyn
     .with_auth_style(map_auth_style(config.auth_style));
 
     if !config.temperature_unsupported_models.is_empty() {
-        model =
-            model.with_temperature_unsupported_models(config.temperature_unsupported_models.to_vec());
+        model = model
+            .with_temperature_unsupported_models(config.temperature_unsupported_models.to_vec());
     }
     if config.temperature_override.is_some() {
         model = model.with_temperature_override(config.temperature_override);
@@ -90,6 +105,18 @@ pub(crate) fn build_crate_openai_model(config: CrateOpenAiConfig<'_>) -> Arc<dyn
     }
     for (name, value) in config.extra_headers {
         model = model.with_header(name.clone(), value.clone());
+    }
+    // Capability toggles must be applied *after* provider/model are set (which
+    // `compatible_provider` above already did), because those re-derive the
+    // profile the toggles mutate.
+    if let Some(enabled) = config.native_tool_calling {
+        model = model.with_native_tool_calling(enabled);
+    }
+    if let Some(enabled) = config.vision {
+        model = model.with_vision(enabled);
+    }
+    if let Some(options) = config.default_provider_options {
+        model = model.with_default_provider_options(options);
     }
 
     Arc::new(model)
@@ -127,6 +154,49 @@ pub(crate) fn make_crate_openai_chat_model(
         temperature_override,
         merge_system_into_user,
         extra_headers: &[],
+        native_tool_calling: None,
+        vision: None,
+        default_provider_options: None,
+    })
+}
+
+/// Build a crate-native `ChatModel` for a **local OpenAI-compatible runtime**
+/// (Ollama, LM Studio, MLX, OMLX, local-openai) — the crate-native counterpart
+/// of the host `make_*_provider` local builders. Local runtimes reject the
+/// OpenAI `tools` parameter and are text-only, so native tool calling and vision
+/// are forced off; `num_ctx` (Ollama) rides baked provider options as
+/// `{"options": {"num_ctx": N}}`, matching the host provider's wire shape.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn make_crate_local_runtime_chat_model(
+    provider_name: &str,
+    endpoint: &str,
+    api_key: &str,
+    auth_style: HostAuthStyle,
+    model: &str,
+    temperature_unsupported_models: &[String],
+    temperature_override: Option<f64>,
+    num_ctx: Option<u32>,
+) -> Arc<dyn ChatModel<()>> {
+    let default_provider_options = num_ctx.map(|n| {
+        serde_json::json!({
+            "options": { "num_ctx": n }
+        })
+    });
+    build_crate_openai_model(CrateOpenAiConfig {
+        provider_name,
+        endpoint,
+        api_key,
+        auth_style,
+        model,
+        temperature_unsupported_models,
+        temperature_override,
+        // Local runtimes have a native `system` role; no merge needed.
+        merge_system_into_user: false,
+        extra_headers: &[],
+        // Parity with the host local providers, which set these off.
+        native_tool_calling: Some(false),
+        vision: Some(false),
+        default_provider_options,
     })
 }
 
@@ -137,8 +207,14 @@ mod tests {
     #[test]
     fn maps_every_host_auth_style_one_to_one() {
         assert_eq!(map_auth_style(HostAuthStyle::None), CrateAuthStyle::None);
-        assert_eq!(map_auth_style(HostAuthStyle::Bearer), CrateAuthStyle::Bearer);
-        assert_eq!(map_auth_style(HostAuthStyle::XApiKey), CrateAuthStyle::XApiKey);
+        assert_eq!(
+            map_auth_style(HostAuthStyle::Bearer),
+            CrateAuthStyle::Bearer
+        );
+        assert_eq!(
+            map_auth_style(HostAuthStyle::XApiKey),
+            CrateAuthStyle::XApiKey
+        );
         assert_eq!(
             map_auth_style(HostAuthStyle::Anthropic),
             CrateAuthStyle::Anthropic
@@ -161,6 +237,9 @@ mod tests {
             temperature_override: None,
             merge_system_into_user: false,
             extra_headers: &[],
+            native_tool_calling: None,
+            vision: None,
+            default_provider_options: None,
         });
         // The built model carries the configured provider + model on its profile.
         let profile = model.profile().expect("openai models expose a profile");
@@ -199,6 +278,29 @@ mod tests {
             temperature_override: Some(0.0),
             merge_system_into_user: true,
             extra_headers: &[("X-Attr".to_string(), "openhuman".to_string())],
+            native_tool_calling: Some(false),
+            vision: Some(false),
+            default_provider_options: None,
         });
+    }
+
+    #[test]
+    fn local_runtime_builder_disables_native_tools_and_vision() {
+        let model = make_crate_local_runtime_chat_model(
+            "ollama",
+            "http://localhost:11434/v1",
+            "",
+            HostAuthStyle::None,
+            "qwen2.5",
+            &[],
+            None,
+            Some(8192),
+        );
+        let profile = model.profile().expect("openai models expose a profile");
+        assert_eq!(profile.provider.as_deref(), Some("ollama"));
+        assert_eq!(profile.model.as_deref(), Some("qwen2.5"));
+        // Local runtimes must not advertise native tools or vision.
+        assert!(!profile.tool_calling);
+        assert!(!profile.modalities.image_in);
     }
 }

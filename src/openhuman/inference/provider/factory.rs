@@ -1315,7 +1315,10 @@ fn make_openhuman_backend(
 pub(crate) fn make_openhuman_backend_model(
     role: &str,
     config: &Config,
-) -> anyhow::Result<(std::sync::Arc<dyn tinyagents::harness::model::ChatModel<()>>, String)> {
+) -> anyhow::Result<(
+    std::sync::Arc<dyn tinyagents::harness::model::ChatModel<()>>,
+    String,
+)> {
     let (provider, model) = resolve_managed_backend(role, config)?;
     let chat: std::sync::Arc<dyn tinyagents::harness::model::ChatModel<()>> = std::sync::Arc::new(
         super::openhuman_backend_model::OpenHumanBackendModel::new(provider, model.clone()),

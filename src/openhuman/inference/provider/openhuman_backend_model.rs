@@ -23,7 +23,9 @@
 use async_trait::async_trait;
 use serde_json::Value;
 
-use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream};
+use tinyagents::harness::model::{
+    ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream,
+};
 use tinyagents::harness::providers::openai::OpenAiModel;
 use tinyagents::{Result as TaResult, TinyAgentsError};
 

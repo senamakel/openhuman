@@ -85,6 +85,18 @@ Pure-function comparators (no disk), implemented in **`src/openhuman/tinycortex/
 
 The core mechanism from plan §0.3: **one on-disk workspace, opened by both engines, outputs compared.**
 
+> **Status (2026-07-10).** First cut landed as **`tests/memory_golden_parity_e2e.rs`** —
+> comparator **1** (schema composition) and comparator **5** (idempotent re-open) are green:
+> a real workspace is stood up through the host production surface (`memory::ops`), the crate
+> substrate init is forced deterministically, and **all `*.db` files under the workspace are scanned
+> path-agnostically** (union of tables). It asserts the crate chunk-DB substrate (15 `chunks/schema.rs`
+> tables) and the host `UnifiedMemory` tier (10 tables) **coexist without collision** (P3/P5/P11/P12),
+> and that re-running the flow adds/drops no tables (comparator 5). Still TODO: `vectors`/`store_meta`/
+> `kv_*` (created by the chunk/embed pipeline, need a widened ingest flow), the seeded golden fixture +
+> `scripts/gen-golden-workspace.sh`, and comparators **2** (recall/retrieval snapshot), **3** (tree
+> read), **4** (byte-compare vault) — these require a populated, sealed fixture and the W5 retrieval
+> surface, so they land alongside the W3/W5 flips.
+
 **Fixture.** Check in a small, deterministic `tests/fixtures/golden-workspace/` produced by the
 *pre-migration* build: a real `chunks.db` + content vault + diff `.git`, seeded via a fixed script
 (`scripts/gen-golden-workspace.sh`) with: a handful of chat + document + email sources across ≥2

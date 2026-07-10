@@ -1,0 +1,152 @@
+//! Crate-native OpenAI-compatible client construction (issue #4727, Motion B).
+//!
+//! The cutover replaces the in-house [`OpenAiCompatibleProvider`] wire client with
+//! the vendored `tinyagents` crate's `OpenAiModel` — a `ChatModel` that speaks the
+//! OpenAI Chat Completions wire and, since tinyagents #44/#47/#48, carries the
+//! host-parity config the OpenHuman provider catalog needs: configurable auth
+//! styles + static headers, per-model temperature suppression/override, and
+//! system→user merging. `num_ctx` and other Ollama `options` ride
+//! `ModelRequest.provider_options` (already supported upstream).
+//!
+//! This module is the **single boundary** where the host's resolved provider
+//! config becomes a crate-native `ChatModel`. Bespoke providers that the crate
+//! can't serve — the managed OpenHuman backend (session JWT + billing envelope),
+//! `claude_code` / `claude_agent_sdk` (subprocess), and `openai_codex`
+//! (`/v1/responses` + query-param auth) — stay as host `ChatModel` impls and do
+//! **not** route through here.
+//!
+//! **Status: scaffolding.** The builder + auth mapping are complete and
+//! unit-tested; wiring it as the factory's default construction path (and the
+//! per-provider wire-parity validation that must precede deleting
+//! `compatible*.rs`) is the follow-up within this cutover.
+
+use std::sync::Arc;
+
+use tinyagents::harness::model::ChatModel;
+use tinyagents::harness::providers::openai::{AuthStyle as CrateAuthStyle, OpenAiModel};
+
+use super::compatible::AuthStyle as HostAuthStyle;
+
+/// Map the host [`AuthStyle`](HostAuthStyle) to the crate's `AuthStyle`. The
+/// variants are 1:1 (both were derived from the same OpenHuman provider catalog).
+pub(crate) fn map_auth_style(host: HostAuthStyle) -> CrateAuthStyle {
+    match host {
+        HostAuthStyle::None => CrateAuthStyle::None,
+        HostAuthStyle::Bearer => CrateAuthStyle::Bearer,
+        HostAuthStyle::XApiKey => CrateAuthStyle::XApiKey,
+        HostAuthStyle::Anthropic => CrateAuthStyle::Anthropic,
+        HostAuthStyle::Custom(header) => CrateAuthStyle::Custom(header),
+    }
+}
+
+/// The resolved config for one OpenAI-compatible provider, mirroring the inputs
+/// the host [`build_compatible_provider`](super::factory) helper takes. Kept as a
+/// struct (rather than a long positional arg list) so the factory maps its
+/// resolved provider string + credentials + catalog flags in one place.
+pub(crate) struct CrateOpenAiConfig<'a> {
+    /// Provider family id (telemetry + normalized errors), e.g. `"openai"`.
+    pub provider_name: &'a str,
+    /// Base URL (no trailing slash needed; the crate trims it).
+    pub endpoint: &'a str,
+    /// API credential; empty is fine for [`AuthStyle::None`] (local runtimes).
+    pub api_key: &'a str,
+    /// How the credential is sent.
+    pub auth_style: HostAuthStyle,
+    /// Default model id baked onto the client (a per-call `ModelRequest.model`
+    /// still overrides it).
+    pub model: &'a str,
+    /// Model-id `*`-glob patterns whose targets reject a `temperature` param.
+    pub temperature_unsupported_models: &'a [String],
+    /// Fixed temperature override for every call, when set.
+    pub temperature_override: Option<f64>,
+    /// Fold system messages into the first user message (endpoints w/o a
+    /// `system` role).
+    pub merge_system_into_user: bool,
+    /// Static headers attached to every request (e.g. provider attribution).
+    pub extra_headers: &'a [(String, String)],
+}
+
+/// Build a crate-native `OpenAiModel` (`ChatModel`) for the given OpenAI-compatible
+/// provider config — the cutover replacement for constructing an
+/// `OpenAiCompatibleProvider`.
+pub(crate) fn build_crate_openai_model(config: CrateOpenAiConfig<'_>) -> Arc<dyn ChatModel<()>> {
+    let mut model = OpenAiModel::compatible_provider(
+        config.provider_name,
+        config.api_key,
+        config.endpoint,
+        config.model,
+    )
+    .with_auth_style(map_auth_style(config.auth_style));
+
+    if !config.temperature_unsupported_models.is_empty() {
+        model =
+            model.with_temperature_unsupported_models(config.temperature_unsupported_models.to_vec());
+    }
+    if config.temperature_override.is_some() {
+        model = model.with_temperature_override(config.temperature_override);
+    }
+    if config.merge_system_into_user {
+        model = model.with_merge_system_into_user();
+    }
+    for (name, value) in config.extra_headers {
+        model = model.with_header(name.clone(), value.clone());
+    }
+
+    Arc::new(model)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_every_host_auth_style_one_to_one() {
+        assert_eq!(map_auth_style(HostAuthStyle::None), CrateAuthStyle::None);
+        assert_eq!(map_auth_style(HostAuthStyle::Bearer), CrateAuthStyle::Bearer);
+        assert_eq!(map_auth_style(HostAuthStyle::XApiKey), CrateAuthStyle::XApiKey);
+        assert_eq!(
+            map_auth_style(HostAuthStyle::Anthropic),
+            CrateAuthStyle::Anthropic
+        );
+        assert_eq!(
+            map_auth_style(HostAuthStyle::Custom("x-key".to_string())),
+            CrateAuthStyle::Custom("x-key".to_string())
+        );
+    }
+
+    #[test]
+    fn builds_a_chat_model_with_the_configured_profile() {
+        let model = build_crate_openai_model(CrateOpenAiConfig {
+            provider_name: "deepseek",
+            endpoint: "https://api.deepseek.com/v1",
+            api_key: "secret",
+            auth_style: HostAuthStyle::Bearer,
+            model: "deepseek-chat",
+            temperature_unsupported_models: &[],
+            temperature_override: None,
+            merge_system_into_user: false,
+            extra_headers: &[],
+        });
+        // The built model carries the configured provider + model on its profile.
+        let profile = model.profile().expect("openai models expose a profile");
+        assert_eq!(profile.provider.as_deref(), Some("deepseek"));
+        assert_eq!(profile.model.as_deref(), Some("deepseek-chat"));
+        assert!(profile.tool_calling);
+    }
+
+    #[test]
+    fn builder_applies_local_none_auth_without_panicking() {
+        // Local runtime shape: no auth, empty key, merge-system on.
+        let _model = build_crate_openai_model(CrateOpenAiConfig {
+            provider_name: "ollama",
+            endpoint: "http://localhost:11434/v1",
+            api_key: "",
+            auth_style: HostAuthStyle::None,
+            model: "llama3.2",
+            temperature_unsupported_models: &["o1*".to_string()],
+            temperature_override: Some(0.0),
+            merge_system_into_user: true,
+            extra_headers: &[("X-Attr".to_string(), "openhuman".to_string())],
+        });
+    }
+}

@@ -1,0 +1,299 @@
+//! Queue worker-loop driver seam (migration W4).
+//!
+//! TinyCortex owns the job *store* and the single-step engine
+//! (`queue::run_once` claims one `mem_tree_jobs` row, dispatches it through
+//! [`QueueDelegates`], and settles it) but deliberately drops the tokio worker
+//! pool, the wall-clock scheduler, Sentry reporting, and the storage-degraded
+//! state machine — those are host concerns (plan §1, deletion ledger: "host
+//! worker loop + Sentry/degraded wiring kept host"). This seam is where the
+//! host drives the crate queue.
+//!
+//! **This module is the first W4 brick: the host-retained error policy.** When
+//! `run_once` returns an error, the legacy `memory_queue::worker` loop applied a
+//! carefully-tuned "back off, don't page" policy per failure class — the product
+//! of several Sentry floods (OPENHUMAN-TAURI-BP, #2206, TAURI-RUST-4R8/E93,
+//! CORE-RUST-19J). [`classify_worker_error`] ports that decision table verbatim
+//! on top of the crate's now-merged classifiers
+//! ([`is_host_io_error`] etc., tinycortex#63), so the crate-driven loop
+//! reproduces it exactly. It is a pure function so the policy is unit-tested
+//! without spinning a live loop.
+//!
+//! Still to land in W4 (tracked in the migration spec): the real
+//! `HostQueueDelegates` that bridges the 8 delegate methods to the host
+//! `memory_tree` engine (paired with W5), the tokio worker-loop + scheduler that
+//! applies this policy while driving `run_once`, re-pointing `memory/global.rs`
+//! and the enqueue call sites onto `queue::store`, and deleting the legacy
+//! `memory_queue` engine. This brick is additive: nothing is flipped yet.
+
+use std::time::Duration;
+
+use tinycortex::memory::queue::worker::{
+    is_host_io_error, is_sqlite_busy, is_sqlite_corrupt, is_sqlite_disk_full, is_sqlite_io_transient,
+};
+
+/// How the host worker loop should report an errored `run_once` poll to Sentry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkerReport {
+    /// Do not page — the condition is transient, or persistent-but-user-only-
+    /// fixable and flood-prone (re-polling every second would bury the
+    /// dashboard). The `log::warn!` breadcrumb is enough.
+    Silent,
+    /// Report exactly once via a process-wide latch keyed by this reason tag,
+    /// then stay silent until the condition clears (so a genuinely-new later
+    /// failure can still page once).
+    Once(&'static str),
+    /// Report every occurrence — a genuinely unexpected error that should keep
+    /// surfacing.
+    Always(&'static str),
+}
+
+/// The host-retained decision for an errored `run_once` poll: how long to back
+/// off, whether/how to page, whether to flip the storage-degraded flag, and
+/// whether to drive corrupt-DB quarantine+rebuild recovery.
+///
+/// Ported verbatim from the `memory_queue::worker` error arms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorkerErrorAction {
+    /// How long the worker sleeps before the next poll.
+    pub backoff: Duration,
+    /// Sentry reporting policy for this failure class.
+    pub report: WorkerReport,
+    /// Mark the memory_tree storage-degraded (`StorageUnavailable`) so the status
+    /// panel shows the user an actionable "check your disk" banner — a persistent
+    /// host-FS failure only the user can clear.
+    pub mark_degraded: bool,
+    /// Drive the corrupt-DB quarantine+rebuild recovery path (which owns its own
+    /// report-once latch), rather than paging directly.
+    pub recover_corrupt: bool,
+}
+
+/// Classify a `run_once` error into the host's back-off/report/degrade policy.
+///
+/// Mirrors the legacy `memory_queue::worker` arms exactly, on the crate's
+/// classifiers:
+/// - **busy/locked** (`SQLITE_BUSY`/`LOCKED`): 1s, silent — transient write-lock
+///   contention that `busy_timeout` + the next poll almost always clears.
+/// - **transient I/O** (`-shm` family, `CANTOPEN`, `IOERR_TRUNCATE`, breaker):
+///   30s, silent (#2206 flooded ~19k events/4d).
+/// - **disk full** (`SQLITE_FULL`): 300s, silent — persistent, user-only-fixable
+///   (TAURI-RUST-4R8: ~95k events).
+/// - **corrupt** (`SQLITE_CORRUPT`/`NOTADB`): 300s + quarantine/rebuild recovery
+///   (which reports once) — never clears on its own (TAURI-RUST-E93).
+/// - **host-FS** (EIO/ENOSPC/EROFS): 300s + storage-degraded + report-once —
+///   failing/read-only storage (CORE-RUST-19J: ~10k events/50min).
+/// - **anything else**: 1s + report-always — a genuine, unexpected error.
+pub fn classify_worker_error(err: &anyhow::Error) -> WorkerErrorAction {
+    if is_sqlite_busy(err) {
+        WorkerErrorAction {
+            backoff: Duration::from_secs(1),
+            report: WorkerReport::Silent,
+            mark_degraded: false,
+            recover_corrupt: false,
+        }
+    } else if is_sqlite_io_transient(err) {
+        WorkerErrorAction {
+            backoff: Duration::from_secs(30),
+            report: WorkerReport::Silent,
+            mark_degraded: false,
+            recover_corrupt: false,
+        }
+    } else if is_sqlite_disk_full(err) {
+        WorkerErrorAction {
+            backoff: Duration::from_secs(300),
+            report: WorkerReport::Silent,
+            mark_degraded: false,
+            recover_corrupt: false,
+        }
+    } else if is_sqlite_corrupt(err) {
+        WorkerErrorAction {
+            backoff: Duration::from_secs(300),
+            // The recovery path owns the report-once latch, so the classifier
+            // itself stays silent and just requests recovery.
+            report: WorkerReport::Silent,
+            mark_degraded: false,
+            recover_corrupt: true,
+        }
+    } else if is_host_io_error(err) {
+        WorkerErrorAction {
+            backoff: Duration::from_secs(300),
+            report: WorkerReport::Once("tree_jobs_worker_host_io"),
+            mark_degraded: true,
+            recover_corrupt: false,
+        }
+    } else {
+        WorkerErrorAction {
+            backoff: Duration::from_secs(1),
+            report: WorkerReport::Always("tree_jobs_worker"),
+            mark_degraded: false,
+            recover_corrupt: false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use async_trait::async_trait;
+    use tinycortex::memory::queue::{
+        AppendDecision, AppendTarget, ExtractDecision, NodeRef, QueueDelegates, ReembedProgress,
+        SealDocumentPayload, SealPayload, StaleBuffer,
+    };
+    use tinycortex::memory::MemoryConfig;
+
+    fn sqlite_failure(code: rusqlite::ErrorCode, extended: i32, msg: &str) -> anyhow::Error {
+        anyhow::Error::from(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error {
+                code,
+                extended_code: extended,
+            },
+            Some(msg.into()),
+        ))
+    }
+
+    #[test]
+    fn busy_backs_off_one_second_silently() {
+        let a = classify_worker_error(&sqlite_failure(
+            rusqlite::ErrorCode::DatabaseBusy,
+            5,
+            "database is locked",
+        ));
+        assert_eq!(a.backoff, Duration::from_secs(1));
+        assert_eq!(a.report, WorkerReport::Silent);
+        assert!(!a.mark_degraded && !a.recover_corrupt);
+    }
+
+    #[test]
+    fn transient_io_backs_off_thirty_seconds_silently() {
+        let a = classify_worker_error(&sqlite_failure(
+            rusqlite::ErrorCode::SystemIoFailure,
+            1546,
+            "disk I/O error",
+        ));
+        assert_eq!(a.backoff, Duration::from_secs(30));
+        assert_eq!(a.report, WorkerReport::Silent);
+    }
+
+    #[test]
+    fn disk_full_backs_off_long_and_silent() {
+        let a = classify_worker_error(&sqlite_failure(
+            rusqlite::ErrorCode::DiskFull,
+            13,
+            "database or disk is full",
+        ));
+        assert_eq!(a.backoff, Duration::from_secs(300));
+        assert_eq!(a.report, WorkerReport::Silent);
+        assert!(!a.mark_degraded && !a.recover_corrupt);
+    }
+
+    #[test]
+    fn corrupt_drives_recovery_not_a_direct_page() {
+        let a = classify_worker_error(&sqlite_failure(
+            rusqlite::ErrorCode::DatabaseCorrupt,
+            11,
+            "database disk image is malformed",
+        ));
+        assert_eq!(a.backoff, Duration::from_secs(300));
+        assert!(a.recover_corrupt, "corrupt must drive quarantine+rebuild");
+        assert_eq!(
+            a.report,
+            WorkerReport::Silent,
+            "recovery owns the report-once latch"
+        );
+        assert!(!a.mark_degraded);
+    }
+
+    #[test]
+    fn host_io_marks_degraded_and_reports_once() {
+        let a = classify_worker_error(&anyhow::Error::from(std::io::Error::from_raw_os_error(5)));
+        assert_eq!(a.backoff, Duration::from_secs(300));
+        assert!(a.mark_degraded, "host-FS failure must flip storage-degraded");
+        assert_eq!(a.report, WorkerReport::Once("tree_jobs_worker_host_io"));
+        assert!(!a.recover_corrupt);
+    }
+
+    #[test]
+    fn unknown_error_reports_every_time_short_backoff() {
+        let a = classify_worker_error(&anyhow::anyhow!("upstream returned 500"));
+        assert_eq!(a.backoff, Duration::from_secs(1));
+        assert_eq!(a.report, WorkerReport::Always("tree_jobs_worker"));
+        assert!(!a.mark_degraded && !a.recover_corrupt);
+    }
+
+    /// A minimal host-side [`QueueDelegates`] — proves the host can satisfy the
+    /// crate trait (all delegate arg/return types resolve) and that the host can
+    /// drive `queue::run_once` end-to-end. The real engine bridge lands with the
+    /// W4 delegates brick; this no-op stands in so the driver integration is
+    /// exercised now.
+    struct NoopDelegates;
+
+    #[async_trait]
+    impl QueueDelegates for NoopDelegates {
+        async fn extract_chunk(
+            &self,
+            _config: &MemoryConfig,
+            _chunk_id: &str,
+        ) -> anyhow::Result<Option<ExtractDecision>> {
+            Ok(None)
+        }
+        async fn append_node(
+            &self,
+            _config: &MemoryConfig,
+            _node: &NodeRef,
+            _target: &AppendTarget,
+        ) -> anyhow::Result<Option<AppendDecision>> {
+            Ok(None)
+        }
+        async fn seal_level(
+            &self,
+            _config: &MemoryConfig,
+            _payload: &SealPayload,
+        ) -> anyhow::Result<Option<SealPayload>> {
+            Ok(None)
+        }
+        async fn list_stale_buffers(
+            &self,
+            _config: &MemoryConfig,
+            _max_age_secs: i64,
+        ) -> anyhow::Result<Vec<StaleBuffer>> {
+            Ok(Vec::new())
+        }
+        async fn seal_document(
+            &self,
+            _config: &MemoryConfig,
+            _payload: &SealDocumentPayload,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+        async fn reembed_batch(
+            &self,
+            _config: &MemoryConfig,
+            _signature: &str,
+        ) -> anyhow::Result<ReembedProgress> {
+            Ok(ReembedProgress::Covered)
+        }
+        fn active_signature(&self, _config: &MemoryConfig) -> String {
+            "provider=inert;model=none;dims=0".to_string()
+        }
+        fn has_uncovered_reembed_work(
+            &self,
+            _config: &MemoryConfig,
+            _signature: &str,
+        ) -> anyhow::Result<bool> {
+            Ok(false)
+        }
+    }
+
+    /// End-to-end smoke: the host can drive the crate queue. An empty workspace
+    /// queue → `run_once` claims nothing → `Ok(false)`, and initialising the
+    /// chunk DB along the way does not error.
+    #[tokio::test]
+    async fn host_drives_run_once_on_empty_queue() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mc = MemoryConfig::new(tmp.path());
+        let processed = tinycortex::memory::queue::run_once(&mc, &NoopDelegates)
+            .await
+            .expect("run_once on empty queue");
+        assert!(!processed, "empty queue processes nothing");
+    }
+}

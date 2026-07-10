@@ -937,9 +937,42 @@ pub fn create_chat_model_with_model_id(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    // Managed OpenHuman backend → crate-native host `ChatModel`
+    // ([`OpenHumanBackendModel`], issue #4727 Motion B) instead of a
+    // `ProviderModel`-wrapped provider. A test-provider override (below, inside
+    // `create_chat_provider`) must still win, so only take this path when no
+    // override is installed. Temperature rides the per-call `ModelRequest` on the
+    // crate path (the managed model is reused across prompts of differing temp).
+    let test_override_active = {
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        {
+            test_provider_override::current().is_some()
+        }
+        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        {
+            false
+        }
+    };
+    if !test_override_active && resolves_to_managed_backend(role, config) {
+        return make_openhuman_backend_model(role, config);
+    }
     let (provider, model) = create_chat_provider(role, config)?;
     let chat = chat_model_from_provider(provider, model.clone(), temperature);
     Ok((chat, model))
+}
+
+/// Whether `role` resolves to the managed OpenHuman backend (vs BYOK / local /
+/// claude-code). Mirrors the empty/`cloud`/`openhuman` resolution in
+/// [`create_chat_provider_from_string`] so the crate-native managed cutover in
+/// [`create_chat_model_with_model_id`] routes exactly the same set of roles the
+/// `Provider` path would have sent to [`make_openhuman_backend`].
+fn resolves_to_managed_backend(role: &str, config: &Config) -> bool {
+    let mut resolved = provider_for_role(role, config);
+    let trimmed = resolved.trim();
+    if trimmed.is_empty() || trimmed == "cloud" {
+        resolved = resolve_primary_cloud_provider_string(config);
+    }
+    resolved.trim() == PROVIDER_OPENHUMAN
 }
 
 /// Build an `Arc<dyn ChatModel>` from an explicit provider string and config.
@@ -1157,10 +1190,15 @@ pub(crate) fn summarization_tier_model() -> &'static str {
 /// [`summarization_tier_model`] (fixed at `summarization-v1`) so they never
 /// collapse to `default_model`. The generic `chat` role (and background roles)
 /// keep inheriting `config.default_model`.
-fn make_openhuman_backend(
+/// Resolve the managed OpenHuman backend for `role` — the model id (tier /
+/// summarization / default, with `hint:<tier>` translation) plus a configured
+/// [`OpenHumanBackendProvider`]. Shared by both the `Provider` path
+/// ([`make_openhuman_backend`]) and the crate `ChatModel` path
+/// ([`make_openhuman_backend_model`], issue #4727 Motion B).
+fn resolve_managed_backend(
     role: &str,
     config: &Config,
-) -> anyhow::Result<(Box<dyn Provider>, String)> {
+) -> anyhow::Result<(OpenHumanBackendProvider, String)> {
     let model = if let Some(tier) = managed_tier_for_role(role) {
         log::debug!(
             "[providers][chat-factory] role={} pinned to managed tier model={}",
@@ -1254,11 +1292,35 @@ fn make_openhuman_backend(
             }
         }
     };
-    let p = Box::new(OpenHumanBackendProvider::new(
-        config.api_url.as_deref(),
-        &options,
-    ));
-    Ok((p, model))
+    Ok((
+        OpenHumanBackendProvider::new(config.api_url.as_deref(), &options),
+        model,
+    ))
+}
+
+/// The managed OpenHuman backend as a `Box<dyn Provider>` (legacy path).
+fn make_openhuman_backend(
+    role: &str,
+    config: &Config,
+) -> anyhow::Result<(Box<dyn Provider>, String)> {
+    let (provider, model) = resolve_managed_backend(role, config)?;
+    Ok((Box::new(provider), model))
+}
+
+/// The managed OpenHuman backend as a crate-native host `ChatModel`
+/// ([`OpenHumanBackendModel`], issue #4727 Motion B) — the cutover replacement
+/// for the `Provider` path. Same resolution; wraps the backend so the harness
+/// holds a crate `ChatModel` and the dynamic JWT + `thread_id` + billing envelope
+/// are bridged onto the crate wire client per call.
+pub(crate) fn make_openhuman_backend_model(
+    role: &str,
+    config: &Config,
+) -> anyhow::Result<(std::sync::Arc<dyn tinyagents::harness::model::ChatModel<()>>, String)> {
+    let (provider, model) = resolve_managed_backend(role, config)?;
+    let chat: std::sync::Arc<dyn tinyagents::harness::model::ChatModel<()>> = std::sync::Arc::new(
+        super::openhuman_backend_model::OpenHumanBackendModel::new(provider, model.clone()),
+    );
+    Ok((chat, model))
 }
 
 /// Verify the user has an active OpenHuman backend session.

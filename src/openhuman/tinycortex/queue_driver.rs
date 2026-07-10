@@ -38,8 +38,11 @@ use tinycortex::memory::queue::{
 use tinycortex::memory::MemoryConfig;
 
 use crate::openhuman::config::Config;
+use crate::openhuman::memory::tree_source::get_or_create_source_tree;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
+use crate::openhuman::memory_store::content as content_store;
 use crate::openhuman::memory_store::trees::store as trees_store;
+use crate::openhuman::memory_tree::tree::{bucket_seal, TreeFactory};
 
 /// How the host worker loop should report an errored `run_once` poll to Sentry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -189,12 +192,39 @@ impl QueueDelegates for HostQueueDelegates {
         anyhow::bail!("W4 brick 2b: append_node engine bridge not yet ported")
     }
 
+    /// Ported from `handle_seal`: seal exactly one buffer level. Returns `None`
+    /// for the crate to enqueue as the parent — the host `seal_one_level`
+    /// (called with `enqueue_follow_ups = true`) drives the cascade itself by
+    /// enqueuing the summary's append + parent seal into the shared
+    /// `mem_tree_jobs` table, which the crate's `run_once` then claims (identical
+    /// schema, parity P4). A no-op (missing tree, empty buffer, gate not met)
+    /// also returns `None`. *(Transitional: once the crate tree cascade is
+    /// adopted in W5 this should switch to `enqueue_follow_ups = false` and
+    /// return the parent `SealPayload` for the crate to enqueue.)*
     async fn seal_level(
         &self,
         _config: &MemoryConfig,
-        _payload: &SealPayload,
+        payload: &SealPayload,
     ) -> anyhow::Result<Option<SealPayload>> {
-        anyhow::bail!("W4 brick 2b: seal_level engine bridge not yet ported")
+        let Some(tree) = trees_store::get_tree(&self.config, &payload.tree_id)? else {
+            return Ok(None);
+        };
+        let buf = trees_store::get_buffer(&self.config, &tree.id, payload.level)?;
+        let forced = payload.force_now_ms.is_some();
+        if buf.is_empty() || (!forced && !bucket_seal::should_seal(&buf)) {
+            return Ok(None);
+        }
+        let strategy = TreeFactory::from_tree(&tree).label_strategy(&self.config);
+        let summary_id =
+            bucket_seal::seal_one_level(&self.config, &tree, &buf, &strategy, true).await?;
+        // Best-effort: rewrite the sealed summary's on-disk obsidian tags. Entity
+        // rows were committed inside seal_one_level, so they are visible here.
+        if let Err(e) = content_store::update_summary_tags(&self.config, &summary_id) {
+            log::warn!(
+                "[tinycortex::queue_driver] update_summary_tags failed for summary_id={summary_id}: {e:#}"
+            );
+        }
+        Ok(None)
     }
 
     /// Ported from `handle_flush_stale`: list L0/summary buffers older than
@@ -215,12 +245,29 @@ impl QueueDelegates for HostQueueDelegates {
             .collect())
     }
 
+    /// Ported from `handle_seal_document`: build/rebuild one document version's
+    /// per-doc subtree and merge its doc-root into the connection tree.
     async fn seal_document(
         &self,
         _config: &MemoryConfig,
-        _payload: &SealDocumentPayload,
+        payload: &SealDocumentPayload,
     ) -> anyhow::Result<()> {
-        anyhow::bail!("W4 brick 2b: seal_document engine bridge not yet ported")
+        if payload.chunk_ids.is_empty() {
+            return Ok(());
+        }
+        // One physical tree per connection scope (e.g. notion:{connection_id}).
+        let tree = get_or_create_source_tree(&self.config, &payload.tree_scope)?;
+        let strategy = TreeFactory::from_tree(&tree).label_strategy(&self.config);
+        bucket_seal::seal_document_subtree(
+            &self.config,
+            &tree,
+            &payload.doc_id,
+            payload.version_ms,
+            &payload.chunk_ids,
+            &strategy,
+        )
+        .await?;
+        Ok(())
     }
 
     async fn reembed_batch(
@@ -469,5 +516,39 @@ mod tests {
             .reembed_batch(&mc, "provider=x;model=y;dims=3")
             .await
             .is_err());
+    }
+
+    /// The ported seal methods handle empty/missing state without error: an
+    /// empty document version is a no-op, and sealing a level of a tree that
+    /// doesn't exist yields no parent to cascade.
+    #[tokio::test]
+    async fn host_delegates_seal_methods_handle_empty_state() {
+        let (tmp, d) = host_delegates_on_tempdir();
+        let mc = MemoryConfig::new(tmp.path());
+
+        d.seal_document(
+            &mc,
+            &SealDocumentPayload {
+                tree_scope: "notion:conn".into(),
+                doc_id: "notion:conn:page".into(),
+                version_ms: Some(1),
+                chunk_ids: vec![],
+            },
+        )
+        .await
+        .expect("seal_document on an empty version is a no-op");
+
+        let parent = d
+            .seal_level(
+                &mc,
+                &SealPayload {
+                    tree_id: "nonexistent-tree".into(),
+                    level: 0,
+                    force_now_ms: None,
+                },
+            )
+            .await
+            .expect("seal_level on a missing tree");
+        assert!(parent.is_none(), "missing tree has no parent to cascade");
     }
 }

@@ -70,14 +70,6 @@ mod edge_auth {
         pub fn user_for(&self, token: &str) -> Option<&str> {
             self.tokens.get(token).map(String::as_str)
         }
-
-        pub fn len(&self) -> usize {
-            self.tokens.len()
-        }
-
-        pub fn is_empty(&self) -> bool {
-            self.tokens.is_empty()
-        }
     }
 }
 
@@ -306,17 +298,19 @@ struct Args {
     users: Vec<String>,
 }
 
+type ProvisionedFleet = (
+    HashMap<String, CoreInstance>,
+    EdgeAuth,
+    Vec<(String, String)>,
+);
+
 /// Provision the in-memory tenant table + edge tokens for `users`. Pure w.r.t.
 /// the filesystem/network so it is unit-testable; spawning happens separately.
 fn provision(
     users: &[String],
     workspaces_root: &Path,
     base_core_port: u16,
-) -> anyhow::Result<(
-    HashMap<String, CoreInstance>,
-    EdgeAuth,
-    Vec<(String, String)>,
-)> {
+) -> anyhow::Result<ProvisionedFleet> {
     let mut instances = HashMap::new();
     let mut edge_auth = EdgeAuth::new();
     let mut minted = Vec::new();

@@ -269,90 +269,25 @@ pub fn start(config: Config) {
 /// Claim and run a single job. Returns `true` when work was processed,
 /// `false` when no eligible row was available.
 pub async fn run_once(config: &Config) -> Result<bool> {
-    // Cooperative throttle BEFORE `claim_next()`. Holding the DB claim
-    // across an awaited `wait_for_capacity()` would let `Paused` mode
-    // sit on the row past `DEFAULT_LOCK_DURATION_MS`, after which
-    // `recover_stale_locks()` would requeue it for another worker to
-    // pick up — duplicating side effects. Throttling here means
-    // non-LLM jobs (AppendBuffer/FlushStale) also experience the same
-    // gate delay, but that's fine: in Throttled mode the host is
-    // already overloaded and a 30s breather between any DB-write batch
-    // is welcome; in Paused mode the user has explicitly asked us to
-    // stand down. Returns immediately in Aggressive/Normal so plugged-in
-    // desktops with headroom pay zero cost.
-    //
-    // For LLM-bound jobs the returned `LlmPermit` reserves the global
-    // single slot for the lifetime of `handle_job`. Non-LLM jobs
-    // (`AppendBuffer`, `FlushStale`) drop the permit before the
-    // handler runs so they don't block the slot.
-    let gate_permit = crate::openhuman::scheduler_gate::wait_for_capacity().await;
+    // Cooperative throttle BEFORE claiming, so memory queue work still yields to
+    // voice/autocomplete/triage under load (Throttled/Paused modes), exactly as
+    // the legacy pool did. Held across the single crate step below; returns
+    // immediately in Aggressive/Normal so idle desktops pay zero cost.
+    let _gate_permit = crate::openhuman::scheduler_gate::wait_for_capacity().await;
 
-    let Some(job) = claim_next(config, DEFAULT_LOCK_DURATION_MS)? else {
-        return Ok(false);
-    };
-
-    let llm_permit = if job.kind.is_llm_bound() {
-        // Local Ollama loads ~1.3 GB resident per concurrent call —
-        // hold the gate to enforce process-wide single-slot RAM
-        // safety. Cloud calls are bandwidth-bound, not RAM-bound:
-        // drop the permit so multiple workers can run cloud
-        // extract/summarise calls in parallel (the worker pool
-        // itself, sized to `WORKER_COUNT`, is the upstream bound).
-        let memory_uses_local = config.workload_uses_local("memory");
-        log::trace!(
-            "[memory::jobs] llm permit routing job_id={} kind={} memory_uses_local={}",
-            job.id,
-            job.kind.as_str(),
-            memory_uses_local
-        );
-        if memory_uses_local {
-            gate_permit
-        } else {
-            drop(gate_permit);
-            None
-        }
-    } else {
-        // Non-LLM jobs don't need the global slot; release it so an
-        // LLM-bound caller waiting elsewhere in the process can run.
-        drop(gate_permit);
-        None
-    };
-
-    let mut jobs = vec![job];
-    if jobs[0].kind == JobKind::ExtractChunk {
-        let extra_limit = handlers::EXTRACT_EMBED_BATCH.saturating_sub(1);
-        let mut extra = claim_ready_extract_batch(config, DEFAULT_LOCK_DURATION_MS, extra_limit)?;
-        if !extra.is_empty() {
-            log::debug!(
-                "[memory::jobs] running extract batch count={}",
-                extra.len() + 1
-            );
-            jobs.append(&mut extra);
-        }
-    }
-
-    let results = if jobs.len() > 1 && jobs[0].kind == JobKind::ExtractChunk {
-        handlers::handle_extract_batch(config, &jobs).await?
-    } else {
-        let job = jobs
-            .pop()
-            .expect("worker has exactly one claimed job in non-batch path");
-        let result = handlers::handle_job(config, &job).await;
-        vec![(job, result)]
-    };
-    drop(llm_permit);
-
-    // A failed settle (`mark_done` / `mark_failed` / `mark_deferred` below)
-    // can also return `SQLITE_BUSY`. The worker's outer `Err` arm in
-    // `start` reclassifies those into a warn-log + backoff (no Sentry
-    // report) via [`is_sqlite_busy`]. On a stale settle the row's
-    // `locked_until_ms` eventually elapses and `recover_stale_locks`
-    // requeues it, so dropping the error here is at-most a re-run.
-    for (job, result) in results {
-        settle_job(config, &job, result)?;
-    }
-
-    Ok(true)
+    // W4 flip: TinyCortex now owns claim → dispatch → settle. `queue::run_once`
+    // claims one `mem_tree_jobs` row (the same table host producers enqueue
+    // into — identical schema, parity P4) and runs it through the crate's
+    // `handle_job` + `HostQueueDelegates`, which bridge each heavy step
+    // (score/admit, buffer push, seal, seal-document, re-embed) back to the host
+    // `memory_tree`/score/embed engine, then settles the row itself. The crate's
+    // single-slot LLM gate serialises llm-bound jobs; the legacy per-job
+    // local/cloud permit routing and the extract-batch coalescing are
+    // intentionally dropped here (perf, not correctness — W4 follow-up).
+    let mc =
+        crate::openhuman::tinycortex::memory_config_from(config, config.workspace_dir.clone());
+    let delegates = crate::openhuman::tinycortex::HostQueueDelegates::new(config.clone());
+    tinycortex::memory::queue::run_once(&mc, &delegates).await
 }
 
 fn settle_job(config: &Config, job: &Job, result: Result<JobOutcome>) -> Result<()> {

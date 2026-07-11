@@ -626,24 +626,24 @@ async fn run_typed_mode(
         // id rather than dead-ending extraction.
         let summarization_tier =
             crate::openhuman::inference::provider::factory::summarization_tier_model().to_string();
-        // Resolve the extract summarizer crate-natively (Phase 3 P3-B): when config
-        // loads, the source is built via `new_crate_native("summarization", cfg)` so
-        // `build_summarizer` constructs a crate `ChatModel`; the resolved provider is
-        // retained for the escape-hatch + crate-native-failure fallback. A config-load
-        // failure degrades to the parent provider on the `Provider` path.
-        let (extract_source, extract_model): (
-            crate::openhuman::tinyagents::TurnModelSource,
+        // The extract summarizer stays on the resolved `Provider` (the extract's own
+        // summarization resolution, incl. test-injected mocks + the managed-vs-local
+        // decision). It is NOT flipped to a role-resolved crate-native source: that
+        // would re-resolve "summarization" from config and bypass the resolved
+        // provider — production stays managed either way, but a test mock injected on
+        // the parent/extract provider would no longer be observed (issue #4249 P3-B:
+        // the extract flip is deferred; the turn-path flip goes through the primary
+        // producers instead).
+        let (extract_provider, extract_model): (
+            Arc<dyn crate::openhuman::inference::provider::Provider>,
             String,
         ) = match crate::openhuman::config::Config::load_or_init().await {
             Ok(cfg) => {
-                let cfg = std::sync::Arc::new(cfg);
                 let route =
                     crate::openhuman::inference::provider::provider_for_role("summarization", &cfg);
                 let r = route.trim();
                 let route_is_managed = r.is_empty() || r == "cloud" || r == "openhuman";
-                let (provider, model) = if route_is_managed
-                    && !parent.turn_model_source.is_local_provider()
-                {
+                if route_is_managed && !parent.turn_model_source.is_local_provider() {
                     (
                         parent.turn_model_source.provider(),
                         summarization_tier.clone(),
@@ -666,15 +666,7 @@ async fn run_typed_mode(
                             )
                         }
                     }
-                };
-                (
-                    crate::openhuman::tinyagents::TurnModelSource::new_crate_native(
-                        provider,
-                        "summarization",
-                        cfg,
-                    ),
-                    model,
-                )
+                }
             }
             Err(e) => {
                 tracing::warn!(
@@ -683,16 +675,14 @@ async fn run_typed_mode(
                     "[subagent_runner:typed] config load failed for extract provider; falling back to parent provider + summarization-v1"
                 );
                 (
-                    crate::openhuman::tinyagents::TurnModelSource::new(
-                        parent.turn_model_source.provider(),
-                    ),
+                    parent.turn_model_source.provider(),
                     summarization_tier.clone(),
                 )
             }
         };
         dynamic_tools.push(Box::new(ExtractFromResultTool::new(
             cache.clone(),
-            extract_source,
+            crate::openhuman::tinyagents::TurnModelSource::new(extract_provider),
             extract_model,
             parent.workspace_dir.clone(),
             parent_chain,

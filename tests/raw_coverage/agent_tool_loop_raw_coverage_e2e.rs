@@ -374,7 +374,7 @@ async fn run_bus_turn(
     request_native_global::<AgentTurnRequest, AgentTurnResponse>(
         AGENT_RUN_TURN_METHOD,
         AgentTurnRequest {
-            provider,
+            turn_model_source: openhuman_core::openhuman::tinyagents::TurnModelSource::new(provider),
             history: vec![ChatMessage::system("system"), ChatMessage::user("run")],
             tools_registry: Arc::new(tools),
             provider_name: "round15".to_string(),

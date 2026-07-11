@@ -1140,13 +1140,14 @@ impl Agent {
             None
         };
 
-        // Crate-native turn models (Phase 3 P3-B): the production main-turn agent
-        // builds crate `ChatModel`s from `(provider_role, config)` instead of a
-        // `ProviderModel`-wrapped provider. `provider` is retained for sub-agent
-        // inheritance + fallback + metadata parity. Tests that inject a mock use the
-        // plain `.provider()` setter (Provider path), so they are unaffected.
+        // NOTE (Phase 3 P3-B): the main-turn session builder is NOT yet flipped to
+        // crate-native. A `.crate_native_provider(...)` flip here breaks the
+        // `agent_harness_e2e` turn tests, which drive this production factory path
+        // and inject a `ScriptedProvider` the crate-native re-resolution bypasses
+        // (the harness/RPC flow, not `test_provider_override`). The flip needs that
+        // injection routed through the crate-native builder first.
         let mut builder = Agent::builder()
-            .crate_native_provider(provider, provider_role, std::sync::Arc::new(config.clone()))
+            .provider(provider)
             .tools(tools)
             .visible_tool_names(visible)
             .memory(memory)

@@ -554,21 +554,16 @@ async fn clear_memory_delete_cascades_orphaned_source_tree_and_settles_queued_jo
     .unwrap();
 
     // ---- the queued Seal job settles to Done (tree missing), not stuck pending ----
-    let claimed = queue_store::claim_next(&cfg, queue_store::DEFAULT_LOCK_DURATION_MS)
-        .unwrap()
-        .expect("seal job claimable");
-    assert_eq!(claimed.kind, queue_types::JobKind::Seal);
-    let outcome = crate::openhuman::memory_queue::handlers::handle_job(&cfg, &claimed)
+    // Drive the crate queue engine end-to-end through the seam
+    // (`drain_until_idle` → `worker::run_once` → crate claim/dispatch/settle),
+    // the flipped W4 production path — rather than the deleted host engine.
+    crate::openhuman::memory_queue::drain_until_idle(&cfg)
         .await
-        .expect("handle_job ok");
-    assert!(
-        matches!(outcome, queue_types::JobOutcome::Done),
-        "seal over a deleted tree must no-op to Done, got {outcome:?}"
-    );
-    queue_store::mark_done(&cfg, &claimed).unwrap();
+        .expect("drain queue");
     assert_eq!(
         queue_store::get_job(&cfg, &job_id).unwrap().unwrap().status,
-        queue_types::JobStatus::Done
+        queue_types::JobStatus::Done,
+        "seal over a deleted tree must settle to Done, not stuck pending"
     );
 }
 
@@ -757,15 +752,16 @@ async fn queued_jobs_for_deleted_chunk_settle_to_done() {
     delete_chunks_by_source(&cfg, SourceKind::Chat, "slack:#eng").unwrap();
     assert!(get_chunk(&cfg, &c.id).unwrap().is_none());
 
-    queue_store::enqueue(
+    let extract_id = queue_store::enqueue(
         &cfg,
         &queue_types::NewJob::extract_chunk(&queue_types::ExtractChunkPayload {
             chunk_id: c.id.clone(),
         })
         .unwrap(),
     )
-    .unwrap();
-    queue_store::enqueue(
+    .unwrap()
+    .expect("extract_chunk job enqueued");
+    let append_id = queue_store::enqueue(
         &cfg,
         &queue_types::NewJob::append_buffer(&queue_types::AppendBufferPayload {
             node: queue_types::NodeRef::Leaf {
@@ -777,21 +773,21 @@ async fn queued_jobs_for_deleted_chunk_settle_to_done() {
         })
         .unwrap(),
     )
-    .unwrap();
+    .unwrap()
+    .expect("append_buffer job enqueued");
 
-    for _ in 0..2 {
-        let job = queue_store::claim_next(&cfg, queue_store::DEFAULT_LOCK_DURATION_MS)
-            .unwrap()
-            .expect("job claimable");
-        let outcome = crate::openhuman::memory_queue::handlers::handle_job(&cfg, &job)
-            .await
-            .expect("handle_job ok");
-        assert!(
-            matches!(outcome, queue_types::JobOutcome::Done),
-            "{:?} over a deleted chunk must settle Done, got {outcome:?}",
-            job.kind
+    // Drive both queued jobs through the flipped crate engine (via the host
+    // `drain_until_idle` → `worker::run_once` seam). Each must settle to Done
+    // (warn-and-skip over the deleted chunk), not stay stuck pending.
+    crate::openhuman::memory_queue::drain_until_idle(&cfg)
+        .await
+        .expect("drain queue");
+    for id in [extract_id, append_id] {
+        assert_eq!(
+            queue_store::get_job(&cfg, &id).unwrap().unwrap().status,
+            queue_types::JobStatus::Done,
+            "job {id} over a deleted chunk must settle to Done"
         );
-        queue_store::mark_done(&cfg, &job).unwrap();
     }
 }
 

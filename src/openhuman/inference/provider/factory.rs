@@ -1342,6 +1342,72 @@ pub(crate) fn make_openhuman_backend_model(
     Ok((chat, model))
 }
 
+/// Build a crate-native [`ChatModel`] for the **turn path**, pinned to an explicit
+/// `model` string — the turn's effective/dispatched model after any config-level
+/// agent pin (issue #4249, Phase 3 P3-B). The per-`(role, model)` analogue of
+/// [`create_chat_model_with_model_id`] used by the crate-native
+/// [`TurnModelSource`](crate::openhuman::tinyagents::TurnModelSource) to construct
+/// the primary + each workload-tier route without a host `Provider`.
+///
+/// - **Managed** → [`OpenHumanBackendModel`](super::openhuman_backend_model::OpenHumanBackendModel)
+///   pinned to `model`; the backend resolves the tier from `request.model`, so a
+///   tier alias / agent-model pin dispatches directly.
+/// - **Local / cloud** → the crate builders; the model rides the role's resolved
+///   provider string. A config-level *primary-model pin* on a local/cloud provider
+///   is not re-pinned here (pins are tier selection on the managed backend); the
+///   `Provider` path had the same behaviour via the role's resolved model.
+/// - **Bespoke** (claude-code / claude_agent_sdk) → a `ProviderModel` over the
+///   resolved `Provider`, pinned to `model` — no crate-native client yet.
+///
+/// Respects the test-provider override (routes through `create_chat_provider`, so
+/// an installed mock still wins), exactly as [`create_chat_model_with_model_id`].
+// Wired into the crate-native `TurnModelSource::build` in the next P3-B increment;
+// additive here so the factory foundation lands + CI-verifies on its own.
+#[allow(dead_code)]
+pub(crate) fn create_turn_chat_model(
+    role: &str,
+    config: &Config,
+    model: &str,
+    temperature: f64,
+) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    let test_override_active = {
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        {
+            test_provider_override::current().is_some()
+        }
+        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        {
+            false
+        }
+    };
+    if !test_override_active {
+        if resolves_to_managed_backend(role, config) {
+            let (backend, _resolved_model) = resolve_managed_backend(role, config)?;
+            return Ok(Arc::new(
+                super::openhuman_backend_model::OpenHumanBackendModel::new(
+                    backend,
+                    model.to_string(),
+                ),
+            ));
+        }
+        if let Some(result) = try_create_local_runtime_chat_model(role, config) {
+            return result.map(|(chat, _model)| chat);
+        }
+        if let Some(result) = try_create_cloud_slug_chat_model(role, config) {
+            return result.map(|(chat, _model)| chat);
+        }
+    }
+    // Bespoke subprocess providers (claude-code / claude_agent_sdk) — and the test
+    // override — have no crate-native client: wrap the resolved `Provider` as a
+    // `ProviderModel` pinned to `model`, exactly as `create_chat_model`'s fallback.
+    let (provider, _resolved_model) = create_chat_provider(role, config)?;
+    Ok(crate::openhuman::tinyagents::model::provider_chat_model(
+        Arc::from(provider),
+        model,
+        temperature,
+    ))
+}
+
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
 /// local-openai) as a crate-native [`ChatModel`] — the Motion B cutover of the
 /// `make_*_provider` local builders (issue #4727).

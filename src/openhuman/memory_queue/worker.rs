@@ -1,5 +1,7 @@
-//! Worker pool: claims jobs from `mem_tree_jobs`, dispatches them through
-//! [`handlers::handle_job`], and settles the row.
+//! Worker pool: drives the crate queue engine (W4 flip). Each `run_once`
+//! delegates claim → dispatch → settle to `tinycortex::memory::queue::run_once`
+//! via [`crate::openhuman::tinycortex::HostQueueDelegates`]; the legacy host
+//! `handlers` engine that used to own dispatch was deleted at the flip.
 //!
 //! Concurrency control for LLM-bound work is delegated to
 //! [`crate::openhuman::scheduler_gate`] — its global single-slot

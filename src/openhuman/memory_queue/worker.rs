@@ -16,15 +16,13 @@ use anyhow::Result;
 use tokio::sync::Notify;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_queue::handlers;
-use crate::openhuman::memory_queue::redact::scrub_for_log;
-use crate::openhuman::memory_queue::store::{
-    claim_next, claim_ready_extract_batch, mark_deferred, mark_done, mark_failed_typed,
-    recover_stale_locks, release_running_locks, DEFAULT_LOCK_DURATION_MS,
-};
-use crate::openhuman::memory_queue::types::{Job, JobKind, JobOutcome};
+// W4 flip: `run_once` now delegates claim/dispatch/settle to the crate, so the
+// legacy `handlers`, per-job settle (`mark_*`/`scrub_for_log`), and claim
+// helpers are gone from this module. Only startup lock recovery + the loop's
+// storage-degraded signalling remain host.
+use crate::openhuman::memory_queue::store::{recover_stale_locks, release_running_locks};
 use crate::openhuman::memory_tree::health::{
-    clear_storage_degraded, mark_storage_degraded, FailureCode, PipelineFailure,
+    clear_storage_degraded, mark_storage_degraded, FailureCode,
 };
 
 /// Number of concurrent job-worker tasks. Each worker claims one job
@@ -288,61 +286,6 @@ pub async fn run_once(config: &Config) -> Result<bool> {
         crate::openhuman::tinycortex::memory_config_from(config, config.workspace_dir.clone());
     let delegates = crate::openhuman::tinycortex::HostQueueDelegates::new(config.clone());
     tinycortex::memory::queue::run_once(&mc, &delegates).await
-}
-
-fn settle_job(config: &Config, job: &Job, result: Result<JobOutcome>) -> Result<()> {
-    match result {
-        Ok(JobOutcome::Done) => {
-            log::debug!(
-                "[memory::jobs] done id={} kind={}",
-                job.id,
-                job.kind.as_str()
-            );
-            mark_done(config, job)?;
-        }
-        Ok(JobOutcome::Defer { until_ms, reason }) => {
-            // Defer is normal operation (transient blocker, e.g. rate
-            // limit) — log at info, not warn — and do NOT count this
-            // claim toward the failure-attempt budget. `mark_deferred`
-            // reverts the bump applied by `claim_next` so the row's
-            // attempts counter stays where it was before this claim.
-            //
-            // `reason` is handler-supplied free-form text and may
-            // include upstream provider responses; scrub for log
-            // emission while keeping the original in DB state.
-            log::info!(
-                "[memory::jobs] deferred id={} kind={} until_ms={} reason={}",
-                job.id,
-                job.kind.as_str(),
-                until_ms,
-                scrub_for_log(&reason)
-            );
-            mark_deferred(config, job, until_ms, &reason)?;
-        }
-        Err(err) => {
-            // Preserve the full anyhow cause chain in the persisted
-            // last_error so a reader of mem_tree_jobs can see the root
-            // cause, not just the top-level message. The log line gets
-            // the same chain after `scrub_for_log`, since anyhow chains
-            // commonly embed upstream HTTP bodies / auth headers.
-            let message = format!("{err:#}");
-            // #002: if the error chain carries a typed `PipelineFailure`
-            // (attached at the embed/extract boundary), pass it through so
-            // `mark_failed_typed` can fail fast on unrecoverable causes
-            // (budget/auth/dim) instead of burning the retry budget, and
-            // persist the typed reason for the status/doctor surface.
-            let typed = err.downcast_ref::<PipelineFailure>();
-            log::warn!(
-                "[memory::jobs] job failed id={} kind={} reason={:?} err={}",
-                job.id,
-                job.kind.as_str(),
-                typed.map(|f| f.code.as_str()),
-                scrub_for_log(&message)
-            );
-            mark_failed_typed(config, job, &message, typed)?;
-        }
-    }
-    Ok(())
 }
 
 /// Classify whether an error is a transient I/O failure that should be

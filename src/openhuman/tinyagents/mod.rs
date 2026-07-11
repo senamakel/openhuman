@@ -1364,11 +1364,8 @@ impl TurnModelSource {
     /// than wrapping `provider` in `ProviderModel`s. `provider` is still supplied
     /// (built once by the producer) so the escape-hatch consumers and the
     /// crate-native-failure fallback keep working while producers migrate
-    /// incrementally (Phase 3 P3-B).
-    // Wired into the producers (sub-agent extract → … → session builder) in the
-    // following P3-B increments; the build/summarizer dispatch above is exercised
-    // by the crate-native unit test meanwhile.
-    #[allow(dead_code)]
+    /// incrementally (Phase 3 P3-B). First producer: the sub-agent extract
+    /// summarizer (`subagent_runner/ops/runner.rs`).
     pub(crate) fn new_crate_native(
         provider: Arc<dyn Provider>,
         role: impl Into<String>,

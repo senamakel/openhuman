@@ -1419,6 +1419,14 @@ impl TurnModelSource {
         self.provider.is_local_provider()
     }
 
+    /// The crate-native workload role this source builds from, when it is
+    /// crate-native (Phase 3 P3-B). Lets a sub-agent inheriting the parent's model
+    /// stay crate-native by reusing the parent's role. `None` for a `Provider`-path
+    /// source.
+    pub(crate) fn crate_native_role(&self) -> Option<&str> {
+        self.crate_native.as_ref().map(|cn| cn.role.as_str())
+    }
+
     /// The underlying provider handle. An escape hatch for the few seam-boundary
     /// sites that still resolve/inherit a raw provider (sub-agent provider
     /// resolution + its unit tests, the rhai-workflow model build): they consume

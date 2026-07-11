@@ -892,6 +892,32 @@ async fn run_typed_mode(
             subagent_provider
         };
 
+    // Crate-native sub-agent turn models (Phase 3 P3-B): a workload `Hint` resolves
+    // to that role; any other spec (Inherit/Exact/override) reuses the parent's role
+    // when the parent is crate-native, so the sub-agent stays crate-native too. The
+    // resolved provider is retained for the fallback + metadata parity. Falls back to
+    // the `Provider` path when no role is derivable or config failed to load.
+    let subagent_source = {
+        use crate::openhuman::agent::harness::definition::ModelSpec;
+        let role = match &definition.model {
+            ModelSpec::Hint(workload) => Some(workload.clone()),
+            _ => parent
+                .turn_model_source
+                .crate_native_role()
+                .map(str::to_string),
+        };
+        match (role, config_loaded.as_ref().ok()) {
+            (Some(role), Some(cfg)) => {
+                crate::openhuman::tinyagents::TurnModelSource::new_crate_native(
+                    subagent_provider.clone(),
+                    role,
+                    std::sync::Arc::new(cfg.clone()),
+                )
+            }
+            _ => crate::openhuman::tinyagents::TurnModelSource::new(subagent_provider.clone()),
+        }
+    };
+
     // ── Run the inner tool-call loop ───────────────────────────────────
     // Resolve the sub-agent model's user-configured vision flag; defaults to
     // `false` when config can't be loaded. Combined with the provider capability
@@ -980,7 +1006,7 @@ async fn run_typed_mode(
         match &definition.graph {
             AgentGraph::Default => {
                 super::graph::run_subagent_via_graph(
-                    crate::openhuman::tinyagents::TurnModelSource::new(subagent_provider.clone()),
+                    subagent_source.clone(),
                     &model,
                     temperature,
                     &mut history,
@@ -1016,9 +1042,7 @@ async fn run_typed_mode(
             }
             AgentGraph::Custom(run) => {
                 let req = AgentTurnRequest {
-                    turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(
-                        subagent_provider.clone(),
-                    ),
+                    turn_model_source: subagent_source.clone(),
                     model: model.clone(),
                     temperature,
                     history: std::mem::take(&mut history),

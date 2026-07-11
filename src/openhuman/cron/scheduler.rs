@@ -975,15 +975,7 @@ async fn run_agent_job(config: &Config, job: &CronJob) -> (bool, String, Option<
             // and provider URLs are appropriate; it must NOT reach the
             // user-visible notification body.
             let user_message = classify_agent_anyhow_for_user(&e);
-            // Preserve the *full* anyhow cause chain (alternate `{:#}`), not just
-            // the outermost message: a provider transport failure renders its
-            // top-level context as reqwest's `error sending request for url (...)`
-            // while the actionable `connection refused (os error N)` errno lives
-            // one link down the chain. The halt-guard classifier
-            // (`is_local_provider_unreachable_message`) and the observability
-            // pipeline both consult this raw string, so dropping the chain hides
-            // the loopback-offline signal an offline local provider must trip.
-            (false, user_message.to_string(), Some(format!("{e:#}")))
+            (false, user_message.to_string(), Some(e.to_string()))
         }
     }
 }

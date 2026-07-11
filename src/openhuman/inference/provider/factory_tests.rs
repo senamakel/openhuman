@@ -2956,17 +2956,26 @@ fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
 }
 
 #[test]
-fn try_create_cloud_slug_declines_openai_and_non_cloud() {
+fn try_create_cloud_slug_flips_openai_but_declines_non_cloud() {
+    use tinyagents::harness::model::ChatModel;
+
     let _guard = crate::openhuman::inference::inference_test_guard();
-    // `openai` exposes the Responses API, so its Bearer branch keeps the
-    // `/v1/responses` fallback — it is NOT wire-equivalent and stays host-side.
+    // `openai` (API-key Bearer, no codex OAuth) now flips crate-native on Chat
+    // Completions — the legacy `/v1/responses` fallback is not replicated.
     let mut openai = Config::default();
     openai.cloud_providers.push(openai_entry("p_oai", "openai"));
     openai.chat_provider = Some("openai:gpt-4o-mini".to_string());
-    assert!(try_create_cloud_slug_chat_model("chat", &openai).is_none());
+    let (model, model_id) = try_create_cloud_slug_chat_model("chat", &openai)
+        .expect("openai should flip crate-native")
+        .expect("build");
+    assert_eq!(model_id, "gpt-4o-mini");
+    assert_eq!(
+        model.profile().and_then(|p| p.provider.as_deref()),
+        Some("openai")
+    );
 
     // Managed (default), local runtimes, and unconfigured slugs are not cloud
-    // slugs — they fall through to their own paths.
+    // slugs — they decline and fall through to their own paths.
     assert!(try_create_cloud_slug_chat_model("chat", &Config::default()).is_none());
     let mut local = Config::default();
     local.chat_provider = Some("ollama:qwen2.5".to_string());

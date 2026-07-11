@@ -2236,22 +2236,23 @@ fn make_cloud_provider_by_slug(
 }
 
 /// A `<slug>:<model>` BYOK cloud provider as a crate-native [`ChatModel`] — the
-/// Motion B cutover of the wire-equivalent [`make_cloud_provider_by_slug`]
-/// branches (issue #4727 Phase 3, conservative subset).
+/// Motion B cutover of every [`make_cloud_provider_by_slug`] branch except the
+/// managed `OpenhumanJwt` entry (issue #4727 Phase 3).
 ///
 /// Returns `None` (fall through to the `Provider` path) unless the role resolves
-/// to a **configured** cloud slug whose auth style the crate `OpenAiModel` serves
-/// with byte-identical wire semantics:
-/// - `Anthropic` / `None` auth → always eligible (their endpoints have no
-///   `/v1/responses`, so the host's dormant responses-fallback is behavior-neutral);
-/// - `Bearer` → eligible **only** when there is no `/v1/responses` fallback, no
-///   `openai-codex` OAuth, and no codex account header — i.e. a plain
-///   chat-completions Bearer provider (DeepSeek, Groq, Mistral, xAI, …).
+/// to a **configured** cloud slug. When it does:
+/// - `Anthropic` / `None` / plain `Bearer` → crate `OpenAiModel` Chat Completions;
+/// - `Bearer` with OpenAI **Codex OAuth** → crate `OpenAiModel` on the Responses
+///   API (`with_responses_api_primary`), with the codex account/originator
+///   headers, user-agent, `client_version` query param, and `max_output_tokens`
+///   omitted (the crate `/v1/responses` support, tinyagents#51);
+/// - `OpenhumanJwt` → `None` (routed to the managed backend elsewhere).
 ///
-/// Everything else — `openai` (codex-oauth + Responses API), custom slugs whose
-/// endpoint may proxy `/v1/responses`, and the managed `OpenhumanJwt` entry —
-/// stays on the `Provider` path (deferred to the crate `/responses` port). The
-/// resolution is shared via [`resolve_cloud_slug`], so eligible slugs resolve
+/// The legacy host's rare chat-completions-404 → `/v1/responses` **fallback** for
+/// non-codex slugs is not replicated (the crate has responses-*primary*, not
+/// fallback); chat completions is the primary path those slugs use in practice.
+///
+/// The resolution is shared via [`resolve_cloud_slug`], so slugs resolve
 /// identically to the legacy path; only the wire client differs. The **same**
 /// access gate the `Provider` path applies (`enforce_local_only_inference` +
 /// `verify_session_active`) runs before building. Temperature rides the per-call
@@ -2311,36 +2312,69 @@ fn try_create_cloud_slug_chat_model(
         Err(e) => return Some(Err(e)),
     };
 
-    // Only flip the wire-equivalent auth styles; codex-oauth, the `/v1/responses`
-    // fallback, and the managed `OpenhumanJwt` entry stay on the `Provider` path.
+    // Every configured cloud slug except the managed `OpenhumanJwt` entry builds
+    // a crate-native client. Codex OAuth routes to the Responses API with its
+    // headers / UA / query; every other Bearer/Anthropic/None slug uses Chat
+    // Completions (its primary path — the legacy host's rare 404 → `/v1/responses`
+    // fallback for non-codex slugs is not replicated).
+    let mut endpoint = entry.endpoint.clone();
+    let mut extra_headers: Vec<(String, String)> = Vec::new();
+    let mut extra_query_params: Vec<(String, String)> = Vec::new();
+    let mut user_agent: Option<String> = None;
+    let mut responses_api_primary = false;
+    let mut responses_omit_max_output_tokens = false;
+
     let auth = match entry.auth_style {
         AuthStyle::Anthropic => CompatAuthStyle::Anthropic,
         AuthStyle::None => CompatAuthStyle::None,
         AuthStyle::OpenhumanJwt => return None,
         AuthStyle::Bearer => {
-            let responses_fallback = (!is_builtin_cloud_slug(&slug)
-                || builtin_cloud_supports_responses_api(&slug))
-                && !endpoint_host_is_chat_completions_only(&codex.endpoint);
-            if responses_fallback || codex.using_oauth || codex.account_id.is_some() {
-                return None;
+            // The codex routing may re-target the endpoint (OAuth backend).
+            endpoint = codex.endpoint.clone();
+            if let Some(account_id) = codex.account_id.as_deref() {
+                extra_headers.push((
+                    OPENAI_CODEX_ACCOUNT_HEADER.to_string(),
+                    account_id.to_string(),
+                ));
+            }
+            if codex.using_oauth {
+                // Codex OAuth → Responses API primary + the codex request shape.
+                extra_headers.push((
+                    OPENAI_CODEX_ORIGINATOR_HEADER.to_string(),
+                    OPENAI_CODEX_ORIGINATOR.to_string(),
+                ));
+                user_agent = Some(openai_codex_user_agent());
+                extra_query_params
+                    .push(("client_version".to_string(), openai_codex_client_version()));
+                responses_api_primary = true;
+                responses_omit_max_output_tokens = true;
             }
             CompatAuthStyle::Bearer
         }
     };
 
-    let unsupported = &config.temperature_unsupported_models;
-    let chat = super::crate_openai::make_crate_openai_chat_model(
-        &slug,
-        &entry.endpoint,
-        &key,
-        auth,
-        &effective_model,
-        unsupported,
-        temperature_override,
-        // Cloud OpenAI-compatible providers accept a `system` role — no merge
-        // (parity with `OpenAiCompatibleProvider::new`).
-        false,
-    );
+    let unsupported = config.temperature_unsupported_models.clone();
+    let chat =
+        super::crate_openai::build_crate_openai_model(super::crate_openai::CrateOpenAiConfig {
+            provider_name: slug.as_str(),
+            endpoint: endpoint.as_str(),
+            api_key: key.as_str(),
+            auth_style: auth,
+            model: effective_model.as_str(),
+            temperature_unsupported_models: unsupported.as_slice(),
+            temperature_override,
+            // Cloud OpenAI-compatible providers accept a `system` role — no merge
+            // (parity with `OpenAiCompatibleProvider::new`).
+            merge_system_into_user: false,
+            extra_headers: extra_headers.as_slice(),
+            native_tool_calling: None,
+            vision: None,
+            default_provider_options: None,
+            responses_api_primary,
+            responses_omit_max_output_tokens,
+            extra_query_params: extra_query_params.as_slice(),
+            user_agent: user_agent.as_deref(),
+        });
     Some(Ok((chat, effective_model)))
 }
 

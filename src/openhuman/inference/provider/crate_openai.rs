@@ -79,6 +79,19 @@ pub(crate) struct CrateOpenAiConfig<'a> {
     /// `provider_options`. `None` bakes nothing. Maps to
     /// `OpenAiModel::with_default_provider_options`.
     pub default_provider_options: Option<serde_json::Value>,
+    /// Route calls to the OpenAI **Responses API** (`/v1/responses`) instead of
+    /// Chat Completions — the OpenAI Codex OAuth backend. Maps to
+    /// `OpenAiModel::with_responses_api_primary`.
+    pub responses_api_primary: bool,
+    /// (Responses path) omit `max_output_tokens`, which the Codex backend
+    /// rejects. Maps to `OpenAiModel::with_responses_omit_max_output_tokens`.
+    pub responses_omit_max_output_tokens: bool,
+    /// Static query parameters appended to every request URL (e.g. the Codex
+    /// `client_version`). Maps to `OpenAiModel::with_extra_query_param`.
+    pub extra_query_params: &'a [(String, String)],
+    /// `User-Agent` header override (e.g. the Codex CLI UA). Maps to
+    /// `OpenAiModel::with_user_agent`.
+    pub user_agent: Option<&'a str>,
 }
 
 /// Build a crate-native `OpenAiModel` (`ChatModel`) for the given OpenAI-compatible
@@ -117,6 +130,18 @@ pub(crate) fn build_crate_openai_model(config: CrateOpenAiConfig<'_>) -> Arc<dyn
     }
     if let Some(options) = config.default_provider_options {
         model = model.with_default_provider_options(options);
+    }
+    for (name, value) in config.extra_query_params {
+        model = model.with_extra_query_param(name.clone(), value.clone());
+    }
+    if let Some(user_agent) = config.user_agent {
+        model = model.with_user_agent(user_agent);
+    }
+    if config.responses_api_primary {
+        model = model.with_responses_api_primary();
+    }
+    if config.responses_omit_max_output_tokens {
+        model = model.with_responses_omit_max_output_tokens();
     }
 
     Arc::new(model)
@@ -157,6 +182,10 @@ pub(crate) fn make_crate_openai_chat_model(
         native_tool_calling: None,
         vision: None,
         default_provider_options: None,
+        responses_api_primary: false,
+        responses_omit_max_output_tokens: false,
+        extra_query_params: &[],
+        user_agent: None,
     })
 }
 
@@ -197,6 +226,10 @@ pub(crate) fn make_crate_local_runtime_chat_model(
         native_tool_calling: Some(false),
         vision: Some(false),
         default_provider_options,
+        responses_api_primary: false,
+        responses_omit_max_output_tokens: false,
+        extra_query_params: &[],
+        user_agent: None,
     })
 }
 
@@ -240,6 +273,10 @@ mod tests {
             native_tool_calling: None,
             vision: None,
             default_provider_options: None,
+            responses_api_primary: false,
+            responses_omit_max_output_tokens: false,
+            extra_query_params: &[],
+            user_agent: None,
         });
         // The built model carries the configured provider + model on its profile.
         let profile = model.profile().expect("openai models expose a profile");
@@ -281,6 +318,10 @@ mod tests {
             native_tool_calling: Some(false),
             vision: Some(false),
             default_provider_options: None,
+            responses_api_primary: false,
+            responses_omit_max_output_tokens: false,
+            extra_query_params: &[],
+            user_agent: None,
         });
     }
 

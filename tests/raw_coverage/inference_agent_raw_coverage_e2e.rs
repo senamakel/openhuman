@@ -2906,6 +2906,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
         provider_name: "cloud-mock".into(),
         model: "triage-cloud".into(),
         used_local: false,
+        crate_native: None,
     };
     let envelope = TriggerEnvelope::from_webhook(
         "tunnel-coverage",
@@ -2932,6 +2933,7 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
             provider_name: "cloud-mock".into(),
             model: "triage-cloud".into(),
             used_local: false,
+            crate_native: None,
         },
         None,
         &TriggerEnvelope::from_cron("job-coverage", "daily", "done"),
@@ -2972,12 +2974,14 @@ async fn agent_triage_evaluator_covers_native_dispatch_decision_and_deferred_pat
             provider_name: "cloud-mock".into(),
             model: "triage-cloud".into(),
             used_local: false,
+            crate_native: None,
         },
         Some(ResolvedProvider {
             provider: Arc::new(EchoProvider),
             provider_name: "local-mock".into(),
             model: "triage-local".into(),
             used_local: true,
+            crate_native: None,
         }),
         &TriggerEnvelope::from_external("caller", "manual replay", json!({ "x": 1 })),
     )

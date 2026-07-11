@@ -35,8 +35,8 @@ fn validate_registry_rejects_duplicate_namespace_function() {
         },
     ];
 
-    let err = validate_registry(&registered, &declared).expect_err("expected duplicate error");
-    assert!(err.contains("duplicate declared controller `dup.fn`"));
+    let err = validate_registry(&registered).expect_err("expected duplicate error");
+    assert!(err.contains("duplicate registered controller `dup.fn`"));
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn validate_registry_rejects_duplicate_required_inputs() {
         handler: noop_handler,
     }];
 
-    let err = validate_registry(&registered, &declared).expect_err("expected duplicate input");
+    let err = validate_registry(&registered).expect_err("expected duplicate input");
     assert!(err.contains("duplicate required input `use_cache` in `doctor.models`"));
 }
 
@@ -82,7 +82,7 @@ fn validate_registry_accepts_valid_registry() {
             handler: noop_handler,
         })
         .collect::<Vec<_>>();
-    assert!(validate_registry(&registered, &declared).is_ok());
+    assert!(validate_registry(&registered).is_ok());
 }
 
 #[test]
@@ -522,7 +522,7 @@ fn validate_registry_rejects_empty_namespace() {
         schema: declared[0].clone(),
         handler: noop_handler,
     }];
-    let err = validate_registry(&registered, &declared).unwrap_err();
+    let err = validate_registry(&registered).unwrap_err();
     assert!(err.contains("namespace must not be empty"));
 }
 
@@ -533,7 +533,7 @@ fn validate_registry_rejects_empty_function() {
         schema: declared[0].clone(),
         handler: noop_handler,
     }];
-    let err = validate_registry(&registered, &declared).unwrap_err();
+    let err = validate_registry(&registered).unwrap_err();
     assert!(err.contains("function must not be empty"));
 }
 
@@ -546,33 +546,17 @@ fn validate_registry_rejects_whitespace_only_namespace() {
         schema: declared[0].clone(),
         handler: noop_handler,
     }];
-    let err = validate_registry(&registered, &declared).unwrap_err();
+    let err = validate_registry(&registered).unwrap_err();
     assert!(err.contains("namespace must not be empty"));
 }
 
-#[test]
-fn validate_registry_rejects_declared_without_registered() {
-    let declared = vec![schema("a", "b", vec![])];
-    let registered: Vec<RegisteredController> = vec![];
-    let err = validate_registry(&registered, &declared).unwrap_err();
-    assert!(err.contains("declared controller `a.b` has no registered handler"));
-}
-
-#[test]
-fn validate_registry_rejects_registered_without_declared() {
-    let declared: Vec<ControllerSchema> = vec![];
-    let registered = vec![RegisteredController {
-        schema: schema("a", "b", vec![]),
-        handler: noop_handler,
-    }];
-    let err = validate_registry(&registered, &declared).unwrap_err();
-    assert!(err.contains("registered controller `a.b` has no declared schema"));
-}
+// Note: the previous `declared_without_registered` / `registered_without_declared`
+// drift tests were removed with the registry collapse (Phase 2) — schemas are now
+// derived from the registered controllers, so the two lists cannot drift.
 
 #[test]
 fn validate_registry_rejects_duplicate_registered_controllers() {
     let s = schema("a", "b", vec![]);
-    let declared = vec![s.clone()];
     let registered = vec![
         RegisteredController {
             schema: s.clone(),
@@ -583,7 +567,7 @@ fn validate_registry_rejects_duplicate_registered_controllers() {
             handler: noop_handler,
         },
     ];
-    let err = validate_registry(&registered, &declared).unwrap_err();
+    let err = validate_registry(&registered).unwrap_err();
     assert!(err.contains("duplicate registered controller `a.b`"));
 }
 

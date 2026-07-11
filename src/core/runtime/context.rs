@@ -14,18 +14,39 @@
 //! including the deliberate wrong-workspace guard (never seed against a
 //! `Config::default` fallback — Sentry OPENHUMAN-CORE-48 / TAURI-RUST-8NM).
 
-use std::sync::Arc;
+use std::future::Future;
+use std::sync::{Arc, OnceLock};
 
 use crate::core::runtime::TokenSource;
 use crate::core::types::HostKind;
 
+/// The process-wide default context — the first one built. Callers that dispatch
+/// RPC without an explicit per-call context (the desktop shell, the CLI, tests)
+/// resolve to this. Multi-tenant hosts override it per dispatch via
+/// [`CoreContext::scope`].
+static DEFAULT_CONTEXT: OnceLock<Arc<CoreContext>> = OnceLock::new();
+
+tokio::task_local! {
+    /// The context active for the current dispatch, set by [`CoreContext::scope`]
+    /// at the `try_invoke_registered_rpc` chokepoint. Absent outside a scope —
+    /// [`CoreContext::current`] then falls back to [`DEFAULT_CONTEXT`].
+    static CURRENT_CONTEXT: Arc<CoreContext>;
+}
+
 /// A built, initialized core context. Holds the identity of the host and the
 /// resolved workspace directory; created by [`CoreContext::init`].
 ///
-/// Stage A: state that today still lives in process globals is reached through
-/// the globals as before. Later stages migrate per-domain store handles onto
-/// this type so multiple contexts can coexist. Treat the accessors as the
-/// forward-compatible way to reach that state.
+/// Handlers reach the context for the current dispatch through
+/// [`CoreContext::current`] rather than a threaded parameter — the ambient
+/// context is established once per RPC at the dispatch chokepoint. This keeps
+/// controller handlers as bare `fn` pointers (no per-handler signature churn)
+/// while giving every handler a path to per-context state.
+///
+/// Stage A/B: state that today still lives in process globals is reached through
+/// the globals as before; a domain migrates by reading its store handle off the
+/// context ([`CoreContext::current`]) instead of the global. Once a domain's
+/// state lives on the context, two contexts dispatched under distinct
+/// [`CoreContext::scope`]s read isolated state — the Phase 3 exit criterion.
 pub struct CoreContext {
     host_kind: HostKind,
     workspace_dir: std::path::PathBuf,
@@ -103,13 +124,16 @@ impl CoreContext {
         //    gate, socket manager. Idempotent (Once-guarded internally).
         crate::core::jsonrpc::bootstrap_core_runtime(host_kind).await;
 
-        Ok((
-            Arc::new(CoreContext {
-                host_kind,
-                workspace_dir,
-            }),
-            has_operator_token,
-        ))
+        let ctx = Arc::new(CoreContext {
+            host_kind,
+            workspace_dir,
+        });
+
+        // Register the process default context (first build wins). Dispatch
+        // resolves to this when no per-call context is scoped.
+        let _ = DEFAULT_CONTEXT.set(ctx.clone());
+
+        Ok((ctx, has_operator_token))
     }
 
     /// The host that constructed this context (Tauri shell / CLI / Docker).
@@ -120,6 +144,32 @@ impl CoreContext {
     /// The resolved per-user workspace directory this context is bound to.
     pub fn workspace_dir(&self) -> &std::path::Path {
         &self.workspace_dir
+    }
+
+    /// The context for the current dispatch: the one scoped by
+    /// [`CoreContext::scope`] if inside a scope, else the process
+    /// [`DEFAULT_CONTEXT`]. Returns `None` only before any context is built
+    /// (e.g. a unit test that dispatches without initializing the core).
+    ///
+    /// Handlers migrating off process globals read their state through this.
+    pub fn current() -> Option<Arc<CoreContext>> {
+        CURRENT_CONTEXT
+            .try_with(|ctx| ctx.clone())
+            .ok()
+            .or_else(|| DEFAULT_CONTEXT.get().cloned())
+    }
+
+    /// The process default context (first built), independent of any active
+    /// scope. Used by the dispatch chokepoint to establish the ambient scope.
+    pub fn default_context() -> Option<Arc<CoreContext>> {
+        DEFAULT_CONTEXT.get().cloned()
+    }
+
+    /// Run `fut` with `ctx` as the ambient [`CoreContext::current`]. The dispatch
+    /// layer wraps each handler invocation in this; multi-tenant hosts pass the
+    /// tenant's context here so the handler's `current()` reads isolated state.
+    pub async fn scope<F: Future>(ctx: Arc<CoreContext>, fut: F) -> F::Output {
+        CURRENT_CONTEXT.scope(ctx, fut).await
     }
 }
 
@@ -222,5 +272,58 @@ pub async fn init_stores() {
                  writable path, then restart."
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn ctx(dir: &str) -> Arc<CoreContext> {
+        Arc::new(CoreContext {
+            host_kind: HostKind::Cli,
+            workspace_dir: PathBuf::from(dir),
+        })
+    }
+
+    // The ambient-scope primitive is the mechanism Phase 3 multi-tenant
+    // isolation is built on: a dispatch scoped to context A must see A's state,
+    // not the process default or another tenant's. These assert the primitive
+    // directly (independent of the process DEFAULT_CONTEXT global, since
+    // `current()` inside a scope resolves the scoped value).
+
+    #[tokio::test]
+    async fn scope_sets_current_context() {
+        let a = ctx("/tmp/ctx-a");
+        let seen = CoreContext::scope(a, async {
+            CoreContext::current().map(|c| c.workspace_dir().to_path_buf())
+        })
+        .await;
+        assert_eq!(seen, Some(PathBuf::from("/tmp/ctx-a")));
+    }
+
+    #[tokio::test]
+    async fn nested_scope_overrides_then_restores() {
+        let a = ctx("/tmp/ctx-a");
+        let b = ctx("/tmp/ctx-b");
+        let (inner, outer) = CoreContext::scope(a, async {
+            let inner = CoreContext::scope(b, async {
+                CoreContext::current()
+                    .unwrap()
+                    .workspace_dir()
+                    .to_path_buf()
+            })
+            .await;
+            let outer = CoreContext::current()
+                .unwrap()
+                .workspace_dir()
+                .to_path_buf();
+            (inner, outer)
+        })
+        .await;
+        // Inner dispatch sees tenant B; the outer scope is restored to A after.
+        assert_eq!(inner, PathBuf::from("/tmp/ctx-b"));
+        assert_eq!(outer, PathBuf::from("/tmp/ctx-a"));
     }
 }

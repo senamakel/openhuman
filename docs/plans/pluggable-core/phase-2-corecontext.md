@@ -1,35 +1,47 @@
-# Phase 2 — `CoreContext` ownership, handler signature, registry collapse, store traits
+# Phase 2 — `CoreContext` ownership, ambient context, registry collapse, store traits
 
-**Status:** planned.
+**Status:** Stage A + ambient-context + registry-collapse **DONE**; per-domain
+store-trait migration remains.
 **Goal:** make state reachable _through_ a context instead of _only_ through
-process globals, without a big-bang DI rewrite. Three landable sub-series:
-(a) signature-only sweep, (b) registry collapse, (c) per-domain migration
-with store-trait extraction — tracked in a drift ledger
-(`pluggable-core-drift-ledger.md`, created with the first migrated domain,
-per the tinyagents/tinycortex convention).
+process globals, without a big-bang DI rewrite.
 
-## 2.a Handler signature (Stage B — mechanical)
+## 2.a Handler context access — ambient scope, not a signature sweep (Stage B)
 
-```rust
-// src/core/all.rs:21 today:
-pub type ControllerHandler =
-    fn(Map<String, Value>) -> Pin<Box<dyn Future<Output = Result<Value, String>> + Send>>;
+**Implemented (deviation from the original plan, with rationale below):** the
+literal signature change to `ControllerHandler` was rejected after measuring its
+true cost. `ControllerHandler` fn pointers appear at **846 handler definitions
+across 109 files, plus ~381 direct call sites** — a change of that type must
+land atomically to compile, needs a default-context `OnceLock` with fallbacks
+for the many callers that never build a runtime (CLI one-shots, tests, MCP
+dispatch), and yields **zero** functional value until each domain later reads
+`ctx` (Stage C). That is disproportionate churn and a high risk of a
+non-compiling tree.
 
-// after:
-pub type ControllerHandler =
-    fn(Arc<CoreContext>, Map<String, Value>) -> Pin<Box<dyn Future<Output = Result<Value, String>> + Send>>;
-```
+Instead, the **goal** — every handler can reach the `CoreContext` for the
+current dispatch — is delivered with a `tokio::task_local!` ambient context:
 
-- Stays a **plain `fn` pointer** — handlers need no captured state, so the
-  sweep is mechanical: every `handle_*` in every domain `schemas.rs` gains a
-  leading `_ctx: Arc<CoreContext>` and the PR compiles **without touching
-  handler bodies**. `invoke_method` (`src/core/jsonrpc.rs:230`) threads the
-  context; `default_state()` becomes "the context of the default runtime"
-  (an `OnceLock<Arc<CoreContext>>` set by the first `CoreBuilder::build`,
-  so old global paths and new context paths read the same state during the
-  migration window).
-- Land as one signature-only PR. Coverage gate: the diff is signatures, so
-  existing tests carry it.
+- `CoreContext::init` registers the first-built context as the process
+  `DEFAULT_CONTEXT` (`OnceLock<Arc<CoreContext>>`).
+- The dispatch chokepoint `all::try_invoke_registered_rpc` wraps each handler
+  future in `CoreContext::scope(ctx, fut)`, where `ctx` is
+  `CoreContext::current()` — the active scope if any (so nested dispatches stay
+  in the same tenant context), else the default.
+- Handlers reach it via `CoreContext::current() -> Option<Arc<CoreContext>>`.
+  Controller handlers stay **bare `fn` pointers** — zero per-handler churn.
+- A domain migrates off a process global by reading its store handle from
+  `CoreContext::current()` instead. Once its state lives on the context, two
+  contexts dispatched under distinct `CoreContext::scope`s read isolated state —
+  exactly the Phase 3 exit criterion, verified by the unit tests in
+  `src/core/runtime/context.rs` (`scope_sets_current_context`,
+  `nested_scope_overrides_then_restores`).
+
+One implementation note: the extra future layer at the chokepoint pushed the
+`Send` auto-trait solver past the default depth on the deepest axum→tinyagents
+routes; the scoped future is re-boxed into a `ControllerFuture` and the crate
+sets `#![recursion_limit = "256"]` (both in `src/lib.rs` / `src/core/all.rs`).
+
+This is strictly a better realization of Stage B's intent; the explicit-param
+approach is not planned.
 
 ## 2.b Registry collapse
 
@@ -47,14 +59,22 @@ pub struct DomainRegistration {
 fn all_domains() -> Vec<DomainRegistration> { vec![about_app::domain(), /* … one line per domain … */] }
 ```
 
-- Schemas derive from `controllers`, so `validate_registry`'s panic-on-drift
-  check (`all.rs:886`) becomes true by construction and is deleted.
-- The hard-coded `namespace_description` match dies as a side effect.
+**Implemented (partial — the drift-elimination half):**
+
+- `all_controller_schemas()` now **derives** the schema list from the
+  registered controllers (`registry().iter().map(|c| c.schema.clone())`), so the
+  parallel `build_declared_controller_schemas()` list is deleted and
+  `validate_registry`'s declared-vs-registered cross-check is removed —
+  the two lists can no longer drift. `validate_registry` keeps the
+  duplicate-method / empty-namespace / duplicate-required-input checks on the
+  registered set. Obsolete drift unit tests were removed.
 - **Explicitly rejected:** `inventory`/linkme link-section auto-registration.
-  One explicit `all_domains()` list matches this repo's ledger culture and
-  keeps controller exposure auditable ("controller-only exposure" rule).
-- Done in the same sweep window as 2.a since both touch every registration
-  site — one churn pass, two PRs.
+
+**Deferred (cosmetic, no correctness value):** folding the per-domain
+`all_X_controller_schemas()` fns and the `namespace_description` match into a
+single `DomainRegistration` struct. The per-domain schema fns still exist but
+are no longer aggregated centrally; collapsing them further is churn across 109
+domains for no behavior change, tracked as a follow-up.
 
 ## 2.c Per-domain migration + store traits
 

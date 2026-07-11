@@ -5,6 +5,14 @@
 //! - Core system services (CLI, configuration, monitoring).
 //! - Domain-specific logic for the OpenHuman agent runtime.
 
+// The RPC dispatch chokepoint wraps each handler future in an ambient
+// `CoreContext` scope (Phase 2). Combined with the already very deep async type
+// stacks in the axum routes that fan out into the tinyagents harness, the extra
+// future layer pushes the compiler's `Send` auto-trait solver past the default
+// depth of 128 (E0275). Raising the limit is the standard remedy for deep async
+// type recursion and costs nothing at runtime.
+#![recursion_limit = "256"]
+
 pub mod api;
 pub mod core;
 pub mod openhuman;

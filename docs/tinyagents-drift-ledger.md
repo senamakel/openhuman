@@ -146,6 +146,28 @@ it still serves every Bearer cloud slug, `openai_codex`, and the `create_chat_pr
 callers that have not moved to `create_chat_model` — and cannot be deleted until
 Phase 3 completes.
 
+## Phase 3 — RouterProvider → crate registry (host-only)
+
+Per `docs/tinyagents-phase3-router-registry-design.md` §1, Phase 3 is **host-only**
+— the crate `ModelRegistry` projection is already wired in `assemble_turn_harness`,
+so there is **no upstream gap** (this corrects the earlier "upstream-gated" reading
+of P1-9). Two sub-motions:
+
+- **P3-A** (harness holds `TurnModels`, not `Provider`): effectively complete —
+  `agent/harness/graph.rs` holds the seam `TurnModelSource` (names no `Provider`
+  trait) and `TurnModels` carries the `provider_id`/`context_window`/`native_tools`/
+  `supports_vision` accessors; the per-turn route re-projection that needs the raw
+  `Provider` is confined inside the seam newtype.
+- **P3-B** (registered tier models become crate-native, deletes `compatible*.rs`):
+  the hot turn path still builds `ProviderModel`-over-`Provider` via
+  `build_turn_models`/`build_route_models`. Cutting it to crate-native tiered
+  models from config is the remaining work.
+
+| Step | Status | Evidence |
+| --- | --- | --- |
+| Crate high-level router | **DONE** | [tinyagents#54](https://github.com/tinyhumansai/tinyagents/pull/54) `registry::router::{ModelRouter, WorkloadRoute}` (merged `4fc8cd8`) — declarative workload-tier table (alias→model, `CapabilitySet` gate, same-family fallbacks) filling the long-declared `ComponentKind::Router`; holds no models, no I/O. |
+| Host adopts `ModelRouter` for fallback + capability | **IN PROGRESS** | `tinyagents/routes.rs`: `OH_WORKLOAD_ROUTER` (`LazyLock<ModelRouter>`) now backs `route_fallback_policy` + `turn_required_capabilities`; deleted the hand-rolled `same_family_fallbacks`. Behavior-neutral (parity tests pin the exact chains + vision gate incl. `hint:vision`). `build_route_models`' per-tier `ProviderModel` construction (the P3-B client swap) is untouched. Host pin bumped `8e57665` → `4fc8cd8` (adds #53 langfuse run-tree + #54 router). |
+
 ## Host Validation Notes
 
 Local host validation is intentionally bounded because full suites are deferred

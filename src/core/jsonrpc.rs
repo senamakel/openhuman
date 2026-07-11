@@ -1785,112 +1785,13 @@ async fn run_server_inner(
         crate::core::auth::init_rpc_token(&token_dir)?;
     }
 
-    // Initialize the global MemoryClient so composio providers
-    // (gmail/slack/notion) can persist their sync_state via kv_get/kv_set,
-    // and so any subsystem that calls `memory::global::client_if_ready()`
-    // gets a live handle. Without this, every periodic sync bails with
-    // "[composio:gmail] memory client not ready".
-    {
-        // A `Config::load_or_init` failure here is operator-visible and
-        // serious (corrupt toml, bad permissions, missing/unwritable
-        // OPENHUMAN_WORKSPACE — common on headless/containerised deploys
-        // with no writable $HOME). Previously we fell back to
-        // `Config::default()` and initialised the memory + whatsapp_data
-        // stores against the *wrong* workspace dir, silently causing chunk
-        // loss / cross-workspace bleed-over while the app looked healthy
-        // (Sentry OPENHUMAN-CORE-48). Instead: skip the workspace-bound
-        // init entirely so memory stays explicitly *uninitialised* —
-        // callers then get a clear "memory client not ready" error rather
-        // than reading/writing the wrong workspace. The server still comes
-        // up; the operator sees the loud error and fixes their config or
-        // sets OPENHUMAN_WORKSPACE to a writable path, then restarts.
-        match crate::openhuman::config::Config::load_or_init().await {
-            Ok(cfg) => {
-                let keyring_dir =
-                    crate::openhuman::keyring::store::workspace_dir_for_file_backend();
-                log::info!(
-                    "[boot] paths: config={} workspace={} keyring_dir={} keyring_backend={}",
-                    cfg.config_path.display(),
-                    cfg.workspace_dir.display(),
-                    keyring_dir.display(),
-                    crate::openhuman::keyring::backend_name(),
-                );
-                match crate::openhuman::memory::global::init(cfg.workspace_dir.clone()) {
-                    Ok(_) => log::info!(
-                        "[boot] memory::global initialized (workspace={})",
-                        cfg.workspace_dir.display()
-                    ),
-                    Err(e) => log::warn!("[boot] memory::global init failed: {e}"),
-                }
-                // Install the on-disk image-attachment sidecar dir so inbound
-                // image markers persist under <workspace>/attachments/ instead
-                // of an in-memory FIFO (survives restarts + delegation hops).
-                // Also fires a best-effort stale-file sweep.
-                crate::openhuman::agent::multimodal::init_attachments_dir(
-                    cfg.workspace_dir.join("attachments"),
-                );
-                log::info!(
-                    "[boot] image attachments sidecar dir = {}",
-                    cfg.workspace_dir.join("attachments").display()
-                );
-                // Initialize the WhatsApp data store so scanner ingest calls
-                // can write data without requiring a lazy-init fallback.
-                match crate::openhuman::whatsapp_data::global::init(cfg.workspace_dir.clone()) {
-                    Ok(_) => log::info!(
-                        "[boot] whatsapp_data::global initialized (workspace={})",
-                        cfg.workspace_dir.display()
-                    ),
-                    Err(e) => log::warn!("[boot] whatsapp_data::global init failed: {e}"),
-                }
-                // Seed the people store so people controllers + `people_*`
-                // tools can read/write. Without this the process-global stays
-                // empty and every call fails with "people store not
-                // initialised" (Sentry TAURI-RUST-8NM). Sits inside this
-                // Ok(cfg) arm so it inherits the wrong-workspace guard above
-                // (never seed against a Config::default fallback).
-                match crate::openhuman::people::store::init_from_workspace(&cfg.workspace_dir) {
-                    Ok(_) => log::info!(
-                        "[boot] people::store initialized (workspace={})",
-                        cfg.workspace_dir.display()
-                    ),
-                    Err(e) => log::warn!("[boot] people::store init failed: {e}"),
-                }
-                // Prune legacy bundled skills (dev-workflow / github-issue-crusher
-                // / pr-review-shepherd) that older builds seeded into
-                // <workspace>/skills/. OpenHuman no longer ships bundled defaults;
-                // this removes the stale dirs on upgrade. Idempotent.
-                crate::openhuman::skills::registry::prune_legacy_default_workflows(
-                    &cfg.workspace_dir,
-                );
-                // Boot-time Sentry user binding — issue #3135. If the user is
-                // already signed in (typical desktop restart), the auth-profile
-                // store has their `user_id` *now*, before any background loop
-                // (Composio sync tick, heartbeat, etc.) fires its first event.
-                // Reading from the store here means subsequent events carry
-                // `user.id` even when no `app_state_snapshot` RPC has run yet.
-                match crate::openhuman::credentials::session_support::build_session_state(&cfg) {
-                    Ok(state) => {
-                        if let Some(uid) = state.user_id.as_deref() {
-                            crate::openhuman::credentials::sentry_scope::bind(uid);
-                        }
-                    }
-                    Err(e) => log::debug!(
-                        "[boot] sentry scope user bind skipped — build_session_state failed: {e}"
-                    ),
-                }
-            }
-            Err(e) => {
-                log::error!(
-                    "[boot] memory::global + whatsapp_data init SKIPPED — \
-                     Config::load_or_init failed ({e:#}). Memory persistence is \
-                     DISABLED for this run; no silent fallback to the default \
-                     workspace (which would cause chunk loss / cross-workspace \
-                     bleed-over). Fix config.toml or set OPENHUMAN_WORKSPACE to a \
-                     writable path, then restart."
-                );
-            }
-        }
-    }
+    // Initialize the global MemoryClient and the other workspace-bound stores
+    // so composio providers (gmail/slack/notion) can persist their sync_state,
+    // and so any subsystem that calls `memory::global::client_if_ready()` gets a
+    // live handle. Extracted to `runtime::context::init_stores` (Phase 0) —
+    // preserves the wrong-workspace guard and ordering; see that module for the
+    // full rationale.
+    crate::core::runtime::context::init_stores().await;
 
     let (resolved_port, port_source) = match port {
         Some(p) => (p, "CLI --port"),
@@ -2041,154 +1942,16 @@ async fn run_server_inner(
         });
     }
 
-    // Background bootstrap for services — gated on login state.
-    //
-    // Heavy services (local AI, voice, screen intelligence, autocomplete)
-    // are only started when a user is logged in. If no user session exists
-    // on disk, startup is deferred until the login handler in
-    // `credentials::ops::store_session()` triggers it.
-    tokio::spawn(async move {
-        match crate::openhuman::config::Config::load_or_init().await {
-            Ok(config) => {
-                if embedded_core {
-                    log::debug!("[core] embedded core startup");
-                } else {
-                    log::debug!("[core] desktop core startup");
-                }
-
-                // Register autocomplete shutdown hook so the engine (and its
-                // Swift overlay helper) are stopped cleanly on process exit.
-                // This is unconditional — the hook should fire regardless of
-                // whether the user is currently logged in.
-                crate::core::shutdown::register(|| async {
-                    let engine = crate::openhuman::autocomplete::global_engine();
-                    let status = engine.status().await;
-                    if status.running {
-                        log::info!(
-                            "[core] stopping autocomplete engine (phase={})",
-                            status.phase
-                        );
-                        engine.stop(None).await;
-                        log::info!("[core] autocomplete engine stopped");
-                    }
-                });
-
-                // Check if a user is already logged in from a previous session.
-                let already_logged_in = crate::openhuman::config::default_root_openhuman_dir()
-                    .ok()
-                    .and_then(|root| crate::openhuman::config::read_active_user_id(&root))
-                    .is_some();
-
-                if already_logged_in {
-                    // User has an active session — start all services now.
-                    log::info!("[services] existing session found, starting services");
-                    crate::openhuman::credentials::ops::start_login_gated_services(&config).await;
-
-                    // Subconscious engine + heartbeat.
-                    if !config.heartbeat.enabled {
-                        log::info!("[subconscious] disabled by config (heartbeat.enabled = false)");
-                    } else {
-                        match crate::openhuman::subconscious::registry::bootstrap_after_login()
-                            .await
-                        {
-                            Ok(()) => log::info!(
-                                "[subconscious] bootstrapped on startup (existing session)"
-                            ),
-                            Err(e) => log::warn!("[subconscious] startup bootstrap failed: {e}"),
-                        }
-                    }
-                } else {
-                    log::info!(
-                        "[services] no active session — deferring service startup until login"
-                    );
-                }
-            }
-            Err(err) => {
-                log::warn!("[core] config load failed, skipping service startup: {err}");
-            }
-        }
-    });
-
-    // Periodic self-update checker (default: every 1 hour).
-    tokio::spawn(async {
-        match crate::openhuman::config::Config::load_or_init().await {
-            Ok(config) => {
-                crate::openhuman::update::scheduler::run(config.update).await;
-            }
-            Err(err) => {
-                log::warn!("[core] config load failed, skipping update scheduler: {err}");
-            }
-        }
-    });
-
-    // Cron scheduler — polls due_jobs() every ~5s and executes them automatically.
-    tokio::spawn(async {
-        match crate::openhuman::config::Config::load_or_init().await {
-            Ok(config) => {
-                if !config.cron.enabled {
-                    log::info!("[cron] scheduler disabled via config; skipping");
-                    return;
-                }
-                log::info!("[cron] spawning scheduler polling loop");
-                // Ensure proactive agent jobs (e.g. the autonomous bounty job)
-                // exist for already-onboarded users upgrading from a build that
-                // predates them — otherwise their Settings toggle stays hidden.
-                // Idempotent; no-op until onboarding is complete.
-                if let Err(e) = crate::openhuman::cron::seed::seed_proactive_agents_on_boot(&config)
-                {
-                    log::warn!("[cron] boot seed of proactive agent jobs failed: {e}");
-                }
-                // Re-register the cron job for every enabled, schedule-trigger
-                // flow (issue B2) — idempotent, so a flow whose binding
-                // predates this feature (or was otherwise lost) gets its
-                // schedule re-registered without the user re-toggling it.
-                if let Err(e) =
-                    crate::openhuman::flows::ops::reconcile_schedule_triggers_on_boot(&config).await
-                {
-                    log::warn!(
-                        "[flows] boot reconciliation of schedule-trigger cron jobs failed: {e}"
-                    );
-                }
-                if let Err(e) = crate::openhuman::cron::scheduler::run(config).await {
-                    log::error!("[cron] scheduler loop ended with error: {e}");
-                }
-            }
-            Err(err) => {
-                log::warn!("[core] config load failed, skipping cron scheduler: {err}");
-            }
-        }
-    });
-
-    // Realtime channel listeners (Telegram getUpdates, Discord gateway, etc.) live in
-    // `start_channels`. Without this task, `openhuman run` would only expose RPC while
-    // inbound bot messages are never polled.
-    if std::env::var("OPENHUMAN_DISABLE_CHANNEL_LISTENERS")
-        .ok()
-        .filter(|s| s == "1" || s.eq_ignore_ascii_case("true"))
-        .is_none()
-    {
-        tokio::spawn(async move {
-            let config = match crate::openhuman::config::Config::load_or_init().await {
-                Ok(c) => c,
-                Err(e) => {
-                    log::warn!("[channels] could not load config for listeners: {e}");
-                    return;
-                }
-            };
-            if !config.channels_config.has_listening_integrations() {
-                log::debug!(
-                    "[channels] no channel integrations configured; not spawning listeners"
-                );
-                return;
-            }
-            log::info!("[channels] spawning in-process realtime listeners (Telegram, Discord, …)");
-            if let Err(e) = crate::openhuman::channels::start_channels(config).await {
-                log::error!("[channels] start_channels ended with error: {e}");
-            }
-        });
-    } else {
-        log::info!("[channels] OPENHUMAN_DISABLE_CHANNEL_LISTENERS set — skipping start_channels");
-    }
+    // Background bootstrap for services. Each spawn is extracted to
+    // `runtime::services` (Phase 0); behavior and per-service config gates are
+    // unchanged. Login-gated services (local AI, voice, screen intelligence,
+    // autocomplete, subconscious + heartbeat) only start when a user session
+    // exists on disk — otherwise startup defers to the login handler in
+    // `credentials::ops::store_session()`.
+    crate::core::runtime::services::spawn_login_gated_services(embedded_core);
+    crate::core::runtime::services::spawn_update_scheduler();
+    crate::core::runtime::services::spawn_cron_service();
+    crate::core::runtime::services::spawn_channels_service();
 
     if let Some(shutdown_token) = shutdown_token {
         log::info!("[core] embedded server waiting on cancellation token for graceful shutdown");

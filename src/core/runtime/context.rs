@@ -1,16 +1,127 @@
-//! Workspace-bound store initialization.
+//! Core initialization context.
 //!
-//! Extracted verbatim (Phase 0 — pure motion) from the inline block that used
-//! to live in `run_server_inner` (`src/core/jsonrpc.rs`, ~lines 1788-1893). It
-//! initializes the process-global stores that are bound to a single resolved
-//! workspace directory: memory, image attachments, WhatsApp data, and people —
-//! plus the boot-time Sentry user binding.
+//! [`CoreContext`] owns the core's initialization *order* (Phase 2, Stage A):
+//! register controllers, load the master key, seed the RPC bearer, initialize
+//! the workspace-bound stores, and run `bootstrap_core_runtime`. Today it is a
+//! facade — the store init still targets the process globals — but centralizing
+//! the sequence here is the seam the later stages build on (handler-threaded
+//! context, per-context stores). See `docs/plans/pluggable-core/phase-2-corecontext.md`.
 //!
-//! Keeping this as a standalone step is the first move toward a `CoreContext`
-//! that *owns* store init order (Phase 2). For now it preserves the exact
-//! behavior and ordering of the original inline block, including the
-//! deliberate wrong-workspace guard (never seed against a `Config::default`
-//! fallback — Sentry OPENHUMAN-CORE-48 / TAURI-RUST-8NM).
+//! [`init_stores`] initializes the process-global stores bound to a single
+//! resolved workspace directory (memory, image attachments, WhatsApp data,
+//! people) plus the boot-time Sentry user binding. It preserves the exact
+//! behavior and ordering of the original inline `run_server_inner` block,
+//! including the deliberate wrong-workspace guard (never seed against a
+//! `Config::default` fallback — Sentry OPENHUMAN-CORE-48 / TAURI-RUST-8NM).
+
+use std::sync::Arc;
+
+use crate::core::runtime::TokenSource;
+use crate::core::types::HostKind;
+
+/// A built, initialized core context. Holds the identity of the host and the
+/// resolved workspace directory; created by [`CoreContext::init`].
+///
+/// Stage A: state that today still lives in process globals is reached through
+/// the globals as before. Later stages migrate per-domain store handles onto
+/// this type so multiple contexts can coexist. Treat the accessors as the
+/// forward-compatible way to reach that state.
+pub struct CoreContext {
+    host_kind: HostKind,
+    workspace_dir: std::path::PathBuf,
+}
+
+impl CoreContext {
+    /// Run the core initialization sequence and return the context plus whether
+    /// an operator-supplied RPC bearer exists (for the public-bind safety check
+    /// in `CoreRuntime::serve`). Order is load-bearing and mirrors the original
+    /// `run_server_inner` sequence:
+    ///
+    /// 1. register controllers, 2. master key, 3. AgentBox GMI provider,
+    /// 4. seed RPC bearer, 5. workspace stores ([`init_stores`]),
+    /// 6. `bootstrap_core_runtime`.
+    pub async fn init(
+        host_kind: HostKind,
+        token: &TokenSource,
+    ) -> anyhow::Result<(Arc<CoreContext>, bool)> {
+        // 1. Ensure all controllers are registered before anything dispatches.
+        let _ = crate::core::all::all_registered_controllers();
+
+        // 2. Load the master encryption key before any config/credential op that
+        //    needs to decrypt secrets. No-op if already called (e.g. from
+        //    run_core_from_args for the CLI).
+        crate::openhuman::keyring::init_master_key();
+
+        // 3. AgentBox GMI MaaS provider bridge — no-op when env vars absent. Must
+        //    run before the router mounts the AgentBox routes so the inference
+        //    catalog knows about "gmi-maas" by the time `/run` accepts traffic.
+        crate::openhuman::agentbox::register_gmi_provider_if_present();
+
+        // 4. Seed the per-process RPC bearer. `Fixed` seeds the in-memory value
+        //    directly (never touches the env); `EnvOrFile` reads
+        //    OPENHUMAN_CORE_TOKEN or generates + writes {root}/core.token.
+        //
+        //    `has_operator_token` records whether an OPERATOR-supplied bearer
+        //    exists (in-memory handoff or env var). The self-generated core.token
+        //    file does NOT count — remote clients cannot read it — so it must not
+        //    satisfy the public-bind safety check in `serve`.
+        let has_operator_token = match token {
+            TokenSource::Fixed(token) => {
+                crate::core::auth::init_rpc_token_with_value(token)?;
+                !token.trim().is_empty()
+            }
+            TokenSource::EnvOrFile => {
+                let token_dir = crate::openhuman::config::default_root_openhuman_dir()
+                    .unwrap_or_else(|_| {
+                        dirs::home_dir()
+                            .unwrap_or_else(|| std::path::PathBuf::from("."))
+                            .join(".openhuman")
+                    });
+                crate::core::auth::init_rpc_token(&token_dir)?;
+                std::env::var(crate::core::auth::CORE_TOKEN_ENV_VAR)
+                    .ok()
+                    .filter(|s| !s.trim().is_empty())
+                    .is_some()
+            }
+        };
+
+        // 5. Initialize workspace-bound stores (memory, attachments, whatsapp,
+        //    people) with the wrong-workspace guard.
+        init_stores().await;
+
+        // Resolve the workspace dir for the context handle. Best-effort: on a
+        // config-load failure the stores above stayed uninitialised and this
+        // falls back to the default root so the context still carries a path.
+        let workspace_dir = match crate::openhuman::config::Config::load_or_init().await {
+            Ok(cfg) => cfg.workspace_dir,
+            Err(_) => crate::openhuman::config::default_root_openhuman_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from(".")),
+        };
+
+        // 6. Long-lived runtime infrastructure: event bus, domain subscribers,
+        //    ledgers, agent-definition registry, live security policy, approval
+        //    gate, socket manager. Idempotent (Once-guarded internally).
+        crate::core::jsonrpc::bootstrap_core_runtime(host_kind).await;
+
+        Ok((
+            Arc::new(CoreContext {
+                host_kind,
+                workspace_dir,
+            }),
+            has_operator_token,
+        ))
+    }
+
+    /// The host that constructed this context (Tauri shell / CLI / Docker).
+    pub fn host_kind(&self) -> HostKind {
+        self.host_kind
+    }
+
+    /// The resolved per-user workspace directory this context is bound to.
+    pub fn workspace_dir(&self) -> &std::path::Path {
+        &self.workspace_dir
+    }
+}
 
 /// Initialize the global `MemoryClient` and the other workspace-bound stores so
 /// composio providers (gmail/slack/notion) can persist their `sync_state`, and

@@ -23,6 +23,7 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 
 use crate::core::jsonrpc::{self, EmbeddedReadySignal};
+use crate::core::runtime::context::CoreContext;
 use crate::core::types::HostKind;
 
 /// Selects which background services and transports a [`CoreRuntime`] runs.
@@ -150,59 +151,14 @@ impl CoreBuilder {
     /// Initialize the core: register controllers, load the master key, seed the
     /// RPC bearer, initialize workspace-bound stores, and run
     /// [`bootstrap_core_runtime`]. Binds no port and starts no transport.
+    ///
+    /// The init sequence itself is owned by [`CoreContext::init`] (Phase 2,
+    /// Stage A).
     pub async fn build(self) -> anyhow::Result<CoreRuntime> {
-        // Ensure all controllers are registered before anything dispatches.
-        let _ = crate::core::all::all_registered_controllers();
-
-        // Load the master encryption key before any config/credential op that
-        // needs to decrypt secrets. No-op if already called (e.g. from
-        // run_core_from_args for the CLI).
-        crate::openhuman::keyring::init_master_key();
-
-        // AgentBox GMI MaaS provider bridge — no-op when env vars absent. Must
-        // run before the router mounts the AgentBox routes so the inference
-        // catalog knows about "gmi-maas" by the time `/run` accepts traffic.
-        crate::openhuman::agentbox::register_gmi_provider_if_present();
-
-        // Seed the per-process RPC bearer. `Fixed` seeds the in-memory value
-        // directly (never touches the env); `EnvOrFile` reads
-        // OPENHUMAN_CORE_TOKEN or generates + writes {root}/core.token.
-        //
-        // `has_operator_token` records whether an OPERATOR-supplied bearer
-        // exists (in-memory handoff or env var). The self-generated core.token
-        // file does NOT count — remote clients cannot read it — so it must not
-        // satisfy the public-bind safety check in `serve`.
-        let has_operator_token = match &self.token {
-            TokenSource::Fixed(token) => {
-                crate::core::auth::init_rpc_token_with_value(token)?;
-                !token.trim().is_empty()
-            }
-            TokenSource::EnvOrFile => {
-                let token_dir = crate::openhuman::config::default_root_openhuman_dir()
-                    .unwrap_or_else(|_| {
-                        dirs::home_dir()
-                            .unwrap_or_else(|| std::path::PathBuf::from("."))
-                            .join(".openhuman")
-                    });
-                crate::core::auth::init_rpc_token(&token_dir)?;
-                std::env::var(crate::core::auth::CORE_TOKEN_ENV_VAR)
-                    .ok()
-                    .filter(|s| !s.trim().is_empty())
-                    .is_some()
-            }
-        };
-
-        // Initialize workspace-bound stores (memory, attachments, whatsapp,
-        // people) with the wrong-workspace guard. See `runtime::context`.
-        crate::core::runtime::context::init_stores().await;
-
-        // Long-lived runtime infrastructure: event bus, domain subscribers,
-        // ledgers, agent-definition registry, live security policy, approval
-        // gate, socket manager. Idempotent (Once-guarded internally).
-        jsonrpc::bootstrap_core_runtime(self.host_kind).await;
+        let (ctx, has_operator_token) = CoreContext::init(self.host_kind, &self.token).await?;
 
         Ok(CoreRuntime {
-            host_kind: self.host_kind,
+            ctx,
             services: self.services,
             has_operator_token,
             host: self.host,
@@ -214,7 +170,7 @@ impl CoreBuilder {
 /// A built, initialized core. Dispatch RPC in-process with [`CoreRuntime::invoke`],
 /// or run the selected transport + background services with [`CoreRuntime::serve`].
 pub struct CoreRuntime {
-    host_kind: HostKind,
+    ctx: Arc<CoreContext>,
     services: ServiceSet,
     has_operator_token: bool,
     host: Option<String>,
@@ -225,6 +181,11 @@ impl CoreRuntime {
     /// The services/transports this runtime is configured to run.
     pub fn services(&self) -> ServiceSet {
         self.services
+    }
+
+    /// The initialized core context (host identity + resolved workspace).
+    pub fn context(&self) -> &Arc<CoreContext> {
+        &self.ctx
     }
 
     /// Dispatch an RPC method in-process — the same path the HTTP `/rpc` handler
@@ -408,7 +369,7 @@ impl CoreRuntime {
     fn spawn_background_services(&self) {
         use crate::core::runtime::services;
         if self.services.heartbeat {
-            services::spawn_login_gated_services(self.host_kind.is_desktop_shell());
+            services::spawn_login_gated_services(self.ctx.host_kind().is_desktop_shell());
         }
         if self.services.update_scheduler {
             services::spawn_update_scheduler();

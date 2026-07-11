@@ -1,7 +1,7 @@
 # Phase 2 — `CoreContext` ownership, handler signature, registry collapse, store traits
 
 **Status:** planned.
-**Goal:** make state reachable *through* a context instead of *only* through
+**Goal:** make state reachable _through_ a context instead of _only_ through
 process globals, without a big-bang DI rewrite. Three landable sub-series:
 (a) signature-only sweep, (b) registry collapse, (c) per-domain migration
 with store-trait extraction — tracked in a drift ledger
@@ -83,18 +83,18 @@ pub enum StorageBackend { WorkspaceFs }   // CoreBuilder::storage(..); only impl
 - Host-owned stores only (people, attachments, cost/x402 ledgers, config
   state, run ledgers). `tinyagents` (`StoreRegistry`, checkpointers) and
   `tinycortex` already own their internal store interfaces — the context
-  holds *handles to* those seams, it does not re-abstract them.
+  holds _handles to_ those seams, it does not re-abstract them.
 - Adding a remote backend (e.g. Postgres) must become "new `StorageBackend`
   impl", but shipping one is out of scope.
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-| ---- | ---------- |
-| Sweep-size diff unreviewable | three PR series: signature-only → registry collapse → per-domain |
-| Global facade and context handle diverge | facade delegates to default context (single instance); parity asserts in debug builds |
-| Store trait too narrow, churns later | extract traits from *observed* handler usage per domain, not speculatively |
-| Coverage gate on mechanical diffs | signature/registry PRs carry existing tests; per-domain PRs add store-trait unit tests |
+| Risk                                     | Mitigation                                                                             |
+| ---------------------------------------- | -------------------------------------------------------------------------------------- |
+| Sweep-size diff unreviewable             | three PR series: signature-only → registry collapse → per-domain                       |
+| Global facade and context handle diverge | facade delegates to default context (single instance); parity asserts in debug builds  |
+| Store trait too narrow, churns later     | extract traits from _observed_ handler usage per domain, not speculatively             |
+| Coverage gate on mechanical diffs        | signature/registry PRs carry existing tests; per-domain PRs add store-trait unit tests |
 
 ## Verification
 

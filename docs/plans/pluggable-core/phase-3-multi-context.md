@@ -10,21 +10,21 @@ documented instead of refactored.
 
 ### 3.1 Per-context state
 
-| Item | Today | After |
-| ---- | ----- | ----- |
-| RPC bearer | `RPC_TOKEN: OnceLock<String>` (`src/core/auth.rs:75`) | field on `CoreContext` — it gates a per-runtime HTTP listener; `auth::get_rpc_token` facade reads the default context |
-| Workspace / active user | resolved once from `OPENHUMAN_WORKSPACE` → `active_user.toml` → `"local"` (`config/schema/load/dirs.rs:299`, `load_user_state.rs:21`) | resolution runs in `CoreBuilder::build` and the result is a `CoreContext` field; the marker-file chain remains the *default* when the embedder passes no workspace |
-| Event-bus domain subscribers | `register_domain_subscribers` under `std::sync::Once` (`src/core/jsonrpc.rs:2232`) | registration keyed per context (subscription handles owned by `CoreContext`, dropped on shutdown); process-level dedupe kept only for genuinely process-global targets |
-| Stores migrated in phase 2.c | global facade → default context | second context constructs its own `StorageBackend::WorkspaceFs` instance over its own workspace dir |
+| Item                         | Today                                                                                                                                 | After                                                                                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RPC bearer                   | `RPC_TOKEN: OnceLock<String>` (`src/core/auth.rs:75`)                                                                                 | field on `CoreContext` — it gates a per-runtime HTTP listener; `auth::get_rpc_token` facade reads the default context                                                  |
+| Workspace / active user      | resolved once from `OPENHUMAN_WORKSPACE` → `active_user.toml` → `"local"` (`config/schema/load/dirs.rs:299`, `load_user_state.rs:21`) | resolution runs in `CoreBuilder::build` and the result is a `CoreContext` field; the marker-file chain remains the _default_ when the embedder passes no workspace     |
+| Event-bus domain subscribers | `register_domain_subscribers` under `std::sync::Once` (`src/core/jsonrpc.rs:2232`)                                                    | registration keyed per context (subscription handles owned by `CoreContext`, dropped on shutdown); process-level dedupe kept only for genuinely process-global targets |
+| Stores migrated in phase 2.c | global facade → default context                                                                                                       | second context constructs its own `StorageBackend::WorkspaceFs` instance over its own workspace dir                                                                    |
 
 ### 3.2 Permanently process-scoped (documented, not refactored)
 
-| Item | Why it stays global |
-| ---- | ------------------- |
-| Keyring / master key (`keyring::init_master_key`, `src/lib.rs`) | OS keychain is per-process/user by nature |
-| Sentry (`src/main.rs`) | binary concern, not library concern — embedders bring their own |
-| `NativeRegistry` (`event_bus/native_request.rs:329`) | internal typed dispatch; handlers are stateless routers to context-owned state |
-| Env vars (`OPENHUMAN_CORE_RPC_URL` set_var, `jsonrpc.rs:2010`; `OPENHUMAN_WORKSPACE` reads) | child-process contract; this is exactly why multi-*tenant* hosting is process-per-user (phase 4), and it is documented as a single-runtime-per-process constraint |
+| Item                                                                                        | Why it stays global                                                                                                                                               |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keyring / master key (`keyring::init_master_key`, `src/lib.rs`)                             | OS keychain is per-process/user by nature                                                                                                                         |
+| Sentry (`src/main.rs`)                                                                      | binary concern, not library concern — embedders bring their own                                                                                                   |
+| `NativeRegistry` (`event_bus/native_request.rs:329`)                                        | internal typed dispatch; handlers are stateless routers to context-owned state                                                                                    |
+| Env vars (`OPENHUMAN_CORE_RPC_URL` set_var, `jsonrpc.rs:2010`; `OPENHUMAN_WORKSPACE` reads) | child-process contract; this is exactly why multi-_tenant_ hosting is process-per-user (phase 4), and it is documented as a single-runtime-per-process constraint |
 
 This table ships in the README of this plan (or the drift ledger) as the
 authoritative "what is process-scoped and why" inventory for embedders.
@@ -43,8 +43,8 @@ consumer until in-process multi-workspace is deliberately productized.
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-| ---- | ---------- |
-| Double-firing subscribers when two contexts register | subscription handles owned per context; bus events carry context/workspace identity where a handler writes to stores |
-| Hidden global discovered late (some `*::global()` not in the phase-2 ledger) | the exit test is the detector; fix-forward per store, ledger updated |
-| `Once` removal regresses single-context boot | keep `Once` semantics for the default context; per-context path only activates for non-default contexts |
+| Risk                                                                         | Mitigation                                                                                                           |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Double-firing subscribers when two contexts register                         | subscription handles owned per context; bus events carry context/workspace identity where a handler writes to stores |
+| Hidden global discovered late (some `*::global()` not in the phase-2 ledger) | the exit test is the detector; fix-forward per store, ledger updated                                                 |
+| `Once` removal regresses single-context boot                                 | keep `Once` semantics for the default context; per-context path only activates for non-default contexts              |

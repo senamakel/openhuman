@@ -46,7 +46,7 @@ Key properties:
   stdout or a ready file — decide during implementation).
 - **Teams**: membership/roles/invites remain in `tinyhumansai/backend`
   (`src/openhuman/team/` proxy untouched). The supervisor consumes the same
-  backend API to decide *which* cores exist and who may reach them; it adds
+  backend API to decide _which_ cores exist and who may reach them; it adds
   hosting, not authorization semantics.
 - **Secrets**: per-tenant token + per-tenant keyfile/env in the child's
   environment — no shared keyring across tenants (phase 3 inventory item).
@@ -70,12 +70,12 @@ Key properties:
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-| ---- | ---------- |
+| Risk                                                               | Mitigation                                                                                                                                   |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Token confusion between edge session tokens and core bearer tokens | supervisor is the only holder of core bearers; clients only ever see edge tokens; naming kept distinct in code (`EdgeToken` vs `CoreBearer`) |
-| Resource blow-up (N cores × background services) | default `ServiceSet::headless_api()`; cron/heartbeat opt-in per plan tier |
-| Backend membership drift vs running fleet | reconcile loop (same pattern as cron scheduler); deprovision = stop core, retain volume per retention policy |
-| Supervisor as SPOF | stateless proxy + externalized tenant registry; ops concern, out of scope for v1 doc beyond noting it |
+| Resource blow-up (N cores × background services)                   | default `ServiceSet::headless_api()`; cron/heartbeat opt-in per plan tier                                                                    |
+| Backend membership drift vs running fleet                          | reconcile loop (same pattern as cron scheduler); deprovision = stop core, retain volume per retention policy                                 |
+| Supervisor as SPOF                                                 | stateless proxy + externalized tenant registry; ops concern, out of scope for v1 doc beyond noting it                                        |
 
 ## Out of scope (v1)
 

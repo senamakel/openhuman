@@ -56,7 +56,7 @@ impl AgentRuntime {
 }
 ```
 
-Its required bootstrap subset *defines* what `ServiceSet::none()` must still
+Its required bootstrap subset _defines_ what `ServiceSet::none()` must still
 initialize: config, workspace, master key, event bus,
 `AgentDefinitionRegistry`, memory/tinycortex stores, cost/x402 ledgers,
 security live-policy + approval gate, tool registry. Explicitly not required:
@@ -69,14 +69,14 @@ bound.
 
 ## Porting the consumers
 
-| Consumer | Change |
-| -------- | ------ |
-| `run_server` / `run_server_embedded*` (`jsonrpc.rs:1682-1737`) | become `#[deprecated]` shims over the builder; deleted one release later |
-| Tauri (`app/src-tauri/src/core_process.rs:289`) | `CoreProcessHandle::ensure_running` builds `CoreBuilder::new(HostKind::TauriShell).token(TokenSource::Fixed(..)).services(ServiceSet::desktop()).ready(tx)`; `CancellationToken` / restart / port-takeover logic unchanged |
-| CLI `run`/`serve` (`src/core/cli.rs:66`) | maps flags → `ServiceSet` (`--jsonrpc-only` → `socketio: false`) |
-| CLI `call` + namespace dispatch (`cli.rs:354,435`) | `ServiceSet::none()` build → `runtime.invoke()`; one-shot calls stop constructing server state |
-| MCP stdio (`cli.rs` `mcp`) | adapter over `runtime.invoke()` |
-| `src/lib.rs` | re-export the new surface; keep `run_core_from_args` |
+| Consumer                                                       | Change                                                                                                                                                                                                                     |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run_server` / `run_server_embedded*` (`jsonrpc.rs:1682-1737`) | become `#[deprecated]` shims over the builder; deleted one release later                                                                                                                                                   |
+| Tauri (`app/src-tauri/src/core_process.rs:289`)                | `CoreProcessHandle::ensure_running` builds `CoreBuilder::new(HostKind::TauriShell).token(TokenSource::Fixed(..)).services(ServiceSet::desktop()).ready(tx)`; `CancellationToken` / restart / port-takeover logic unchanged |
+| CLI `run`/`serve` (`src/core/cli.rs:66`)                       | maps flags → `ServiceSet` (`--jsonrpc-only` → `socketio: false`)                                                                                                                                                           |
+| CLI `call` + namespace dispatch (`cli.rs:354,435`)             | `ServiceSet::none()` build → `runtime.invoke()`; one-shot calls stop constructing server state                                                                                                                             |
+| MCP stdio (`cli.rs` `mcp`)                                     | adapter over `runtime.invoke()`                                                                                                                                                                                            |
+| `src/lib.rs`                                                   | re-export the new surface; keep `run_core_from_args`                                                                                                                                                                       |
 
 Plus `examples/embed_headless.rs` (build + `start()` with
 `ServiceSet::headless_api()`, call `openhuman.ping` over HTTP) and
@@ -84,12 +84,12 @@ Plus `examples/embed_headless.rs` (build + `start()` with
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-| ---- | ---------- |
-| Init-order regression (master key before stores; policy before approval gate) | single `CoreContext::init` encoding the order, line-ref comments, startup-sequence test |
-| Tauri port-fallback / ready semantics drift | `EmbeddedReadySignal` unchanged; e2e boot test in CI Full already covers |
-| `set_var` timing change breaks child tools | timing preserved inside `spawn_rpc_http_service`; grep test for env presence after ready |
-| Double-bootstrap when shims + builder both run in tests | builder guards with the same idempotent `Once`s during this phase (removed in phase 3) |
+| Risk                                                                          | Mitigation                                                                               |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Init-order regression (master key before stores; policy before approval gate) | single `CoreContext::init` encoding the order, line-ref comments, startup-sequence test  |
+| Tauri port-fallback / ready semantics drift                                   | `EmbeddedReadySignal` unchanged; e2e boot test in CI Full already covers                 |
+| `set_var` timing change breaks child tools                                    | timing preserved inside `spawn_rpc_http_service`; grep test for env presence after ready |
+| Double-bootstrap when shims + builder both run in tests                       | builder guards with the same idempotent `Once`s during this phase (removed in phase 3)   |
 
 ## Verification
 

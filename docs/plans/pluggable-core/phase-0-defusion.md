@@ -19,22 +19,22 @@ registry is authoritative). Remove the module and its tier-3 call site in
 Each inline `tokio::spawn` block in `run_server_inner` becomes a named
 function in a new `src/core/runtime/services.rs`:
 
-| Service | Today (approx.) | Extracted fn |
-| ------- | --------------- | ------------ |
-| Heartbeat + subconscious bootstrap | `jsonrpc.rs:~2083-2110` | `spawn_heartbeat_service(cancel, config)` |
-| Update scheduler | `:~2113` | `spawn_update_scheduler(cancel)` |
-| Cron scheduler (+ proactive-agent seeding, flow schedule-trigger reconcile) | `:~2124-2160` | `spawn_cron_service(cancel, config)` |
-| Channel listeners | `:~2162-2191` | `spawn_channels_service(cancel, config)` |
+| Service                                                                     | Today (approx.)         | Extracted fn                              |
+| --------------------------------------------------------------------------- | ----------------------- | ----------------------------------------- |
+| Heartbeat + subconscious bootstrap                                          | `jsonrpc.rs:~2083-2110` | `spawn_heartbeat_service(cancel, config)` |
+| Update scheduler                                                            | `:~2113`                | `spawn_update_scheduler(cancel)`          |
+| Cron scheduler (+ proactive-agent seeding, flow schedule-trigger reconcile) | `:~2124-2160`           | `spawn_cron_service(cancel, config)`      |
+| Channel listeners                                                           | `:~2162-2191`           | `spawn_channels_service(cancel, config)`  |
 
 Rules:
 
 - Every extracted fn takes the `CancellationToken` explicitly (today some
   blocks capture it, some don't — normalize).
-- Existing gates stay *inside* the fns for now (`config.cron.enabled`,
+- Existing gates stay _inside_ the fns for now (`config.cron.enabled`,
   `config.heartbeat.enabled`, `OPENHUMAN_DISABLE_CHANNEL_LISTENERS`,
   `has_listening_integrations()`), so call sites don't change semantics.
-  Phase 1 lifts the *selection* (should this service exist) to `ServiceSet`
-  while the fns keep their *config* gates (is it enabled for this user).
+  Phase 1 lifts the _selection_ (should this service exist) to `ServiceSet`
+  while the fns keep their _config_ gates (is it enabled for this user).
 - Keep the deliberate asymmetry documented at `jsonrpc.rs:2259-2264`: the
   flows trigger subscriber registers at unconditional core boot, not under
   channels — that stays in `bootstrap_core_runtime`, not in

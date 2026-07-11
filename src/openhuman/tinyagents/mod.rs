@@ -1223,6 +1223,94 @@ pub(crate) fn build_turn_models(
     }
 }
 
+/// Build the per-turn [`TurnModels`] **crate-natively** from `(role, config)` —
+/// the Phase 3 P3-B cutover of [`build_turn_models`]: instead of wrapping one host
+/// `Provider` per tier in a [`ProviderModel`], each tier is built as a crate-native
+/// [`ChatModel`] via [`factory::create_turn_chat_model`] (managed →
+/// `OpenHumanBackendModel`, local/cloud → crate `OpenAiModel`).
+///
+/// The `TurnModels` shape is identical to [`build_turn_models`] so
+/// [`assemble_turn_harness`] is unchanged. Provider metadata that the crate model
+/// can't self-report is derived without a `Provider`:
+/// - `native_tools` / `supports_vision` from the primary's [`ModelProfile`], with
+///   the managed backend (profile `None`) falling back to `true` /
+///   [`factory::oh_tier_supports_vision`] respectively;
+/// - `provider_id` from the resolved provider slug (`managed` for the backend);
+/// - `error_slot` is a fresh empty slot — crate-native models surface
+///   `TinyAgentsError` directly (no downcastable `anyhow` to preserve), so typed
+///   provider-error *recovery* is unused here (Sentry suppression is unaffected —
+///   both `skips_sentry` cases are raised in the host turn loop).
+fn build_turn_models_crate(
+    role: &str,
+    config: &crate::openhuman::config::Config,
+    model: &str,
+    temperature: f64,
+    context_window: Option<u64>,
+) -> anyhow::Result<TurnModels> {
+    use crate::openhuman::inference::provider::factory;
+
+    let primary = factory::create_turn_chat_model(role, config, model, temperature)?;
+
+    // Derive the capability flags the harness reads off `TurnModels` (history-suffix
+    // dispatcher + multimodal rehydration) from the primary's profile, with the
+    // managed backend (no static profile) falling back to its known capabilities.
+    let native_tools = primary.profile().map(|p| p.tool_calling).unwrap_or(true);
+    let supports_vision = primary
+        .profile()
+        .map(|p| p.modalities.image_in)
+        .unwrap_or_else(|| factory::oh_tier_supports_vision(model));
+
+    // Langfuse telemetry id (`{provider_id}.{model}`): the resolved provider slug,
+    // or `managed` for the backend / abstract-tier resolution.
+    let provider_id = {
+        let resolved = factory::provider_for_role(role, config);
+        let slug = resolved.split(':').next().unwrap_or("").trim();
+        if slug.is_empty() || slug == "cloud" {
+            "managed".to_string()
+        } else {
+            slug.to_string()
+        }
+    };
+
+    // Additive workload-tier routes: one crate-native model per tier (skipping the
+    // turn's own model, which is registered as the default primary), each pinned to
+    // the tier alias so the crate registry resolves cross-route fallback across them.
+    let mut routes: Vec<(String, Arc<dyn tinyagents::harness::model::ChatModel<()>>)> = Vec::new();
+    for &tier in routes::WORKLOAD_ROUTE_TIERS {
+        if tier == model {
+            continue;
+        }
+        let tier_role = factory::role_for_model_tier(tier);
+        match factory::create_turn_chat_model(tier_role, config, tier, temperature) {
+            Ok(route_model) => routes.push((tier.to_string(), route_model)),
+            Err(e) => {
+                // A route that can't be built (e.g. an unconfigured BYOK tier) is
+                // skipped, not fatal — the primary still dispatches (parity with the
+                // `Provider` path, where an unresolved tier simply isn't registered).
+                tracing::debug!(
+                    route = tier,
+                    error = %e,
+                    "[models] skipping crate-native workload route that failed to build"
+                );
+            }
+        }
+    }
+
+    // The summarizer is a distinct adapter instance (own empty error slot).
+    let summarizer = factory::create_turn_chat_model(role, config, model, temperature)?;
+
+    Ok(TurnModels {
+        primary,
+        routes,
+        summarizer,
+        error_slot: Arc::new(std::sync::Mutex::new(None)),
+        provider_id,
+        context_window,
+        native_tools,
+        supports_vision,
+    })
+}
+
 /// A model-agnostic source of per-turn [`TurnModels`] — the seam-owned handle the
 /// agent harness holds instead of a raw `Arc<dyn Provider>` (issue #4249, Phase 3
 /// / Motion A).
@@ -1240,6 +1328,21 @@ pub(crate) fn build_turn_models(
 #[derive(Clone)]
 pub struct TurnModelSource {
     provider: Arc<dyn Provider>,
+    /// When set, [`build`](Self::build) / [`build_summarizer`](Self::build_summarizer)
+    /// construct **crate-native** models from `(role, config)` (Phase 3 P3-B) via
+    /// [`build_turn_models_crate`]. The `provider` above is retained for the
+    /// escape-hatch consumers (sub-agent inheritance, rhai) and as a graceful
+    /// fallback if crate-native construction fails, so this flip is safe to land
+    /// per-producer before those consumers migrate.
+    crate_native: Option<CrateNativeSource>,
+}
+
+/// The `(role, config)` a crate-native [`TurnModelSource`] builds its tiered
+/// [`TurnModels`] from per turn.
+#[derive(Clone)]
+struct CrateNativeSource {
+    role: String,
+    config: Arc<crate::openhuman::config::Config>,
 }
 
 impl TurnModelSource {
@@ -1250,7 +1353,34 @@ impl TurnModelSource {
     /// ([`AgentTurnRequest`](crate::openhuman::agent::bus::AgentTurnRequest)) and
     /// its integration tests can construct one.
     pub fn new(provider: Arc<dyn Provider>) -> Self {
-        Self { provider }
+        Self {
+            provider,
+            crate_native: None,
+        }
+    }
+
+    /// Build a crate-native source: [`build`](Self::build) constructs the tiered
+    /// [`TurnModels`] from `(role, config)` via [`build_turn_models_crate`] rather
+    /// than wrapping `provider` in `ProviderModel`s. `provider` is still supplied
+    /// (built once by the producer) so the escape-hatch consumers and the
+    /// crate-native-failure fallback keep working while producers migrate
+    /// incrementally (Phase 3 P3-B).
+    // Wired into the producers (sub-agent extract → … → session builder) in the
+    // following P3-B increments; the build/summarizer dispatch above is exercised
+    // by the crate-native unit test meanwhile.
+    #[allow(dead_code)]
+    pub(crate) fn new_crate_native(
+        provider: Arc<dyn Provider>,
+        role: impl Into<String>,
+        config: Arc<crate::openhuman::config::Config>,
+    ) -> Self {
+        Self {
+            provider,
+            crate_native: Some(CrateNativeSource {
+                role: role.into(),
+                config,
+            }),
+        }
     }
 
     /// Resolve the model's effective context window (async provider probe) — the
@@ -1285,6 +1415,23 @@ impl TurnModelSource {
         temperature: f64,
         context_window: Option<u64>,
     ) -> TurnModels {
+        if let Some(cn) = &self.crate_native {
+            match build_turn_models_crate(&cn.role, &cn.config, model, temperature, context_window)
+            {
+                Ok(turn_models) => return turn_models,
+                Err(e) => {
+                    // Never fail a turn on the crate-native build: fall back to the
+                    // proven `Provider` path (the source still holds the resolved
+                    // provider) and log so the divergence is visible.
+                    tracing::warn!(
+                        role = cn.role,
+                        model,
+                        error = %e,
+                        "[models] crate-native turn build failed; falling back to the Provider path"
+                    );
+                }
+            }
+        }
         build_turn_models(self.provider.clone(), model, temperature, context_window)
     }
 
@@ -1298,6 +1445,24 @@ impl TurnModelSource {
         model: &str,
         temperature: f64,
     ) -> Arc<dyn tinyagents::harness::model::ChatModel<()>> {
+        if let Some(cn) = &self.crate_native {
+            match crate::openhuman::inference::provider::factory::create_turn_chat_model(
+                &cn.role,
+                &cn.config,
+                model,
+                temperature,
+            ) {
+                Ok(summarizer) => return summarizer,
+                Err(e) => {
+                    tracing::warn!(
+                        role = cn.role,
+                        model,
+                        error = %e,
+                        "[models] crate-native summarizer build failed; falling back to ProviderModel"
+                    );
+                }
+            }
+        }
         Arc::new(ProviderModel::new(
             self.provider.clone(),
             model,

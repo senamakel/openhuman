@@ -1361,9 +1361,6 @@ pub(crate) fn make_openhuman_backend_model(
 ///
 /// Respects the test-provider override (routes through `create_chat_provider`, so
 /// an installed mock still wins), exactly as [`create_chat_model_with_model_id`].
-// Wired into the crate-native `TurnModelSource::build` in the next P3-B increment;
-// additive here so the factory foundation lands + CI-verifies on its own.
-#[allow(dead_code)]
 pub(crate) fn create_turn_chat_model(
     role: &str,
     config: &Config,

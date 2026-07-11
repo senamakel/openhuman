@@ -159,6 +159,7 @@ async fn process_channel_message_restores_per_sender_history_on_follow_ups() {
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::openhuman::config::MultimodalConfig::default(),
         multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+        config: None,
     });
 
     process_channel_message(
@@ -243,6 +244,7 @@ async fn process_channel_message_uses_autosaved_memory_after_history_is_cleared(
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::openhuman::config::MultimodalConfig::default(),
         multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+        config: None,
     });
 
     let first = traits::ChannelMessage {

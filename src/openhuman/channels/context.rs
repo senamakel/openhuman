@@ -51,6 +51,9 @@ pub(crate) struct ChannelRuntimeContext {
     pub(crate) message_timeout_secs: u64,
     pub(crate) multimodal: crate::openhuman::config::MultimodalConfig,
     pub(crate) multimodal_files: crate::openhuman::config::MultimodalFileConfig,
+    /// Full config for building crate-native turn models (Phase 3 P3-B). `Some` in
+    /// production; `None` in tests keeps the channel turn on the `Provider` path.
+    pub(crate) config: Option<Arc<crate::openhuman::config::Config>>,
 }
 
 pub(crate) fn conversation_memory_key(msg: &super::traits::ChannelMessage) -> String {
@@ -305,6 +308,7 @@ mod tests {
             message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
             multimodal: crate::openhuman::config::MultimodalConfig::default(),
             multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+            config: None,
         }
     }
 

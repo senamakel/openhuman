@@ -139,6 +139,7 @@ async fn message_dispatch_processes_messages_in_parallel() {
             message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
             multimodal: crate::openhuman::config::MultimodalConfig::default(),
             multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+            config: None,
         });
 
         (channel_impl, runtime_ctx)
@@ -211,6 +212,7 @@ async fn process_channel_message_cancels_scoped_typing_task() {
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::openhuman::config::MultimodalConfig::default(),
         multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+        config: None,
     });
 
     process_channel_message(
@@ -298,6 +300,7 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::openhuman::config::MultimodalConfig::default(),
         multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+        config: None,
     });
 
     process_channel_message(
@@ -380,6 +383,7 @@ async fn channel_processed_event_records_resolved_agent_route() {
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::openhuman::config::MultimodalConfig::default(),
         multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+        config: None,
     });
 
     process_channel_message(
@@ -491,6 +495,7 @@ async fn process_channel_message_hardens_multimodal_files_against_smuggled_marke
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::openhuman::config::MultimodalConfig::default(),
         multimodal_files: permissive_operator_default,
+        config: None,
     });
 
     // Attacker-shaped message: an absolute-path FILE marker dropped
@@ -573,6 +578,7 @@ async fn process_channel_message_hardens_against_relative_path_markers() {
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::openhuman::config::MultimodalConfig::default(),
         multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+        config: None,
     });
 
     process_channel_message(

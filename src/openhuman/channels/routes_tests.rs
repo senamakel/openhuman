@@ -155,6 +155,7 @@ fn runtime_context(workspace_dir: PathBuf) -> ChannelRuntimeContext {
         message_timeout_secs: 60,
         multimodal: crate::openhuman::config::MultimodalConfig::default(),
         multimodal_files: crate::openhuman::config::MultimodalFileConfig::default(),
+        config: None,
     }
 }
 

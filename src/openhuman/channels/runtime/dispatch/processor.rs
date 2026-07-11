@@ -459,13 +459,24 @@ pub(crate) async fn process_channel_runtime_message(
     };
 
     let turn_request = AgentTurnRequest {
-        // Wrap the channel's cached provider into the seam turn-model source at
-        // the bus boundary (issue #4249, Phase 3 / Motion A) so the harness holds
-        // crate model types only. The channel provider cache stays provider-typed
-        // (a producer concern) until Motion B swaps in crate-native clients.
-        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(
-            &active_provider,
-        )),
+        // Crate-native channel turn models (Phase 3 P3-B): when the runtime carries
+        // the full config, build crate `ChatModel`s from `("chat", route.provider,
+        // config)` — `route.provider` is the effective provider string (parity with
+        // the cached provider's resolution). The cached provider is retained for the
+        // escape-hatch + fallback. Tests (no `config`) stay on the `Provider` path.
+        turn_model_source: match &ctx.config {
+            Some(cfg) => {
+                crate::openhuman::tinyagents::TurnModelSource::new_crate_native_from_string(
+                    Arc::clone(&active_provider),
+                    "chat",
+                    route.provider.clone(),
+                    cfg.clone(),
+                )
+            }
+            None => {
+                crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(&active_provider))
+            }
+        },
         history: std::mem::take(&mut history),
         tools_registry: Arc::clone(&ctx.tools_registry),
         provider_name: route.provider.clone(),

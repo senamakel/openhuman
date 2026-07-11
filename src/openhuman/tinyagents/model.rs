@@ -217,6 +217,47 @@ fn openhuman_usage_meta_raw(usage: Option<&UsageInfo>) -> Option<serde_json::Val
     Some(serde_json::json!({ OPENHUMAN_USAGE_META_KEY: meta }))
 }
 
+/// Merge the host billing/context metadata the crate [`Usage`] cannot carry into
+/// a crate [`ModelResponse::raw`] under [`OPENHUMAN_USAGE_META_KEY`], so
+/// [`usage_info_from_response`] recovers the charged-USD + context window from a
+/// crate-native model (e.g. [`OpenHumanBackendModel`](crate::openhuman::inference::provider::OpenHumanBackendModel))
+/// exactly as it does from a [`ProviderModel`].
+///
+/// The crate `OpenAiModel` leaves the managed backend's `openhuman.{billing,usage}`
+/// envelope only on the raw wire JSON — it has no field for charged USD — so the
+/// crate-native managed path would otherwise report `$0` charged and fall back to
+/// the catalog estimate (issue #4249, Phase 3 usage-parity). This is the symmetric
+/// writer for [`usage_info_from_response`]'s reader.
+///
+/// No-op when both values are zero (keeps billing-free responses `raw`-clean);
+/// otherwise inserts the meta key into the existing raw object (preserving the
+/// wire JSON) or creates a fresh object.
+pub(crate) fn merge_openhuman_usage_meta(
+    raw: Option<serde_json::Value>,
+    charged_amount_usd: f64,
+    context_window: u64,
+) -> Option<serde_json::Value> {
+    if charged_amount_usd <= 0.0 && context_window == 0 {
+        return raw;
+    }
+    let meta = match serde_json::to_value(OpenhumanUsageMeta {
+        charged_amount_usd,
+        context_window,
+    }) {
+        Ok(v) => v,
+        Err(_) => return raw,
+    };
+    match raw {
+        Some(serde_json::Value::Object(mut obj)) => {
+            obj.insert(OPENHUMAN_USAGE_META_KEY.to_string(), meta);
+            Some(serde_json::Value::Object(obj))
+        }
+        // A non-object (or absent) raw can't hold the key alongside wire fields —
+        // stash the meta on its own so the reader still recovers it.
+        _ => Some(serde_json::json!({ OPENHUMAN_USAGE_META_KEY: meta })),
+    }
+}
+
 /// Reconstruct a host [`UsageInfo`] from a crate [`ModelResponse`], recovering
 /// the provider-charged USD + context window the adapter stashed in
 /// [`ModelResponse::raw`] (gap G1). Returns `None` when the response carried no

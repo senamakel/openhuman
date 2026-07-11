@@ -31,7 +31,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tinycortex::memory::queue::worker::{
-    is_host_io_error, is_sqlite_busy, is_sqlite_corrupt, is_sqlite_disk_full, is_sqlite_io_transient,
+    is_host_io_error, is_sqlite_busy, is_sqlite_corrupt, is_sqlite_disk_full,
+    is_sqlite_io_transient,
 };
 use tinycortex::memory::queue::{
     AppendDecision, AppendTarget, ExtractDecision, NodeRef, QueueDelegates, ReembedProgress,
@@ -42,7 +43,9 @@ use tinycortex::memory::MemoryConfig;
 use crate::openhuman::config::Config;
 use crate::openhuman::memory::tree_source::get_or_create_source_tree;
 use crate::openhuman::memory_store::chunks::store as chunk_store;
-use crate::openhuman::memory_store::chunks::types::{truncate_to_conservative_tokens, Chunk, Metadata};
+use crate::openhuman::memory_store::chunks::types::{
+    truncate_to_conservative_tokens, Chunk, Metadata,
+};
 use crate::openhuman::memory_store::content as content_store;
 use crate::openhuman::memory_store::content::read as content_read;
 use crate::openhuman::memory_store::content::tags as content_tags;
@@ -795,7 +798,10 @@ mod tests {
     fn host_io_marks_degraded_and_reports_once() {
         let a = classify_worker_error(&anyhow::Error::from(std::io::Error::from_raw_os_error(5)));
         assert_eq!(a.backoff, Duration::from_secs(300));
-        assert!(a.mark_degraded, "host-FS failure must flip storage-degraded");
+        assert!(
+            a.mark_degraded,
+            "host-FS failure must flip storage-degraded"
+        );
         assert_eq!(a.report, WorkerReport::Once("tree_jobs_worker_host_io"));
         assert!(!a.recover_corrupt);
     }

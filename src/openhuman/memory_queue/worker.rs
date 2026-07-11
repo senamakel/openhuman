@@ -284,8 +284,7 @@ pub async fn run_once(config: &Config) -> Result<bool> {
     // single-slot LLM gate serialises llm-bound jobs; the legacy per-job
     // local/cloud permit routing and the extract-batch coalescing are
     // intentionally dropped here (perf, not correctness — W4 follow-up).
-    let mc =
-        crate::openhuman::tinycortex::memory_config_from(config, config.workspace_dir.clone());
+    let mc = crate::openhuman::tinycortex::memory_config_from(config, config.workspace_dir.clone());
     let delegates = crate::openhuman::tinycortex::HostQueueDelegates::new(config.clone());
     tinycortex::memory::queue::run_once(&mc, &delegates).await
 }

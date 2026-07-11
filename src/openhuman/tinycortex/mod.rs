@@ -36,9 +36,9 @@
 mod chat;
 mod config;
 mod embeddings;
-mod queue_driver;
 #[cfg(test)]
 mod parity;
+mod queue_driver;
 
 pub use chat::{build_chat_provider, SeamChatProvider};
 pub use config::memory_config_from;

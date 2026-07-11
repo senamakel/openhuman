@@ -167,10 +167,10 @@ mod tests {
         let summary_ids: &[&str] = &[
             "summary:1700000000000:L2-abc-uuid",
             "summary:L3:legacy-uuid",
-            "summary:1700000000000:L2-a/b",     // illegal tail → sanitized
-            "summary:notms:L1-tail",            // non-13-digit ms → fallback
-            "raw-unknown-shape:with:colons",    // unknown → sanitize_filename
-            "东京-summary",                      // unicode
+            "summary:1700000000000:L2-a/b", // illegal tail → sanitized
+            "summary:notms:L1-tail",        // non-13-digit ms → fallback
+            "raw-unknown-shape:with:colons", // unknown → sanitize_filename
+            "东京-summary",                 // unicode
         ];
 
         for (hk, ck, scope) in kinds {
@@ -203,10 +203,30 @@ mod tests {
 
         // (name, model_id, dims, expected golden)
         let corpus: &[(&str, &str, usize, &str)] = &[
-            ("voyage", "voyage-3", 1024, "provider=voyage;model=voyage-3;dims=1024"),
-            ("openai", "text-embedding-3-small", 1536, "provider=openai;model=text-embedding-3-small;dims=1536"),
-            ("ollama", "nomic-embed-text", 768, "provider=ollama;model=nomic-embed-text;dims=768"),
-            ("cohere", "embed-english-v3.0", 1024, "provider=cohere;model=embed-english-v3.0;dims=1024"),
+            (
+                "voyage",
+                "voyage-3",
+                1024,
+                "provider=voyage;model=voyage-3;dims=1024",
+            ),
+            (
+                "openai",
+                "text-embedding-3-small",
+                1536,
+                "provider=openai;model=text-embedding-3-small;dims=1536",
+            ),
+            (
+                "ollama",
+                "nomic-embed-text",
+                768,
+                "provider=ollama;model=nomic-embed-text;dims=768",
+            ),
+            (
+                "cohere",
+                "embed-english-v3.0",
+                1024,
+                "provider=cohere;model=embed-english-v3.0;dims=1024",
+            ),
             ("inert", "none", 0, "provider=inert;model=none;dims=0"),
             // Edge shapes: empty model, punctuation in model id.
             ("noop", "", 3, "provider=noop;model=;dims=3"),

@@ -31,7 +31,6 @@ use std::collections::{HashMap, HashSet};
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::tinycortex::chunk_tree_scope;
 use crate::openhuman::memory_store::chunks::store::{list_chunks, ListChunksQuery};
 use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
 use crate::openhuman::memory_store::content::read as content_read;
@@ -40,6 +39,7 @@ use crate::openhuman::memory_tree::retrieval::types::{
     hit_from_chunk, hit_from_summary, QueryResponse, RetrievalHit,
 };
 use crate::openhuman::memory_tree::tree::store;
+use crate::openhuman::tinycortex::chunk_tree_scope;
 
 /// Default cap on returned cover items when the caller passes `limit = 0`.
 const DEFAULT_LIMIT: usize = 200;

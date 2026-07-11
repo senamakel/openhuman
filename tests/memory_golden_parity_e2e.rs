@@ -143,15 +143,14 @@ fn tables_in_workspace(ws: &Path) -> BTreeSet<String> {
 
     let mut tables = BTreeSet::new();
     for db in dbs {
-        let Ok(conn) = rusqlite::Connection::open_with_flags(
-            &db,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-        ) else {
+        let Ok(conn) =
+            rusqlite::Connection::open_with_flags(&db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        else {
             continue;
         };
-        let Ok(mut stmt) = conn
-            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-        else {
+        let Ok(mut stmt) = conn.prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+        ) else {
             continue;
         };
         let Ok(rows) = stmt.query_map([], |row| row.get::<_, String>(0)) else {
@@ -208,8 +207,7 @@ async fn init_and_scan(ns: &str, workspace: &Path) -> BTreeSet<String> {
     // Force the crate chunk-DB substrate init (deterministic — creates the full
     // chunks/schema.rs table set regardless of what the ops above touched).
     let mc = memory_config_from(&Config::default(), workspace.to_path_buf());
-    tinycortex::memory::chunks::with_connection(&mc, |_conn| Ok(()))
-        .expect("crate chunk-DB init");
+    tinycortex::memory::chunks::with_connection(&mc, |_conn| Ok(())).expect("crate chunk-DB init");
 
     tables_in_workspace(workspace)
 }

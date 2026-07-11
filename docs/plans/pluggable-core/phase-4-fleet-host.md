@@ -1,13 +1,46 @@
 # Phase 4 — Fleet supervisor: team/cloud hosting
 
-**Status:** planned. Depends on phase 1 only — can run in parallel with
-phases 2/3, because the fleet model needs process-per-user, not context
-threading.
+**Status:** MVP **DONE** — `openhuman-fleet` binary (`src/bin/fleet.rs`,
+`[[bin]] name = "openhuman-fleet"`). Remaining: backend membership sync,
+ready-file port discovery, admin API for edge tokens (see "MVP vs production").
 
-**Goal:** a supervisor (`openhuman-fleet`, new crate or repo) that hosts one
-core per team member and fronts them behind a single endpoint, so a team
-admin can provision/manage members' assistants while every existing client
+**Goal:** a supervisor (`openhuman-fleet`) that hosts one core per team member
+and fronts them behind a single endpoint, so a team admin can
+provision/manage members' assistants while every existing client
 (`CloudHttpTransport`) keeps working unchanged.
+
+## Delivered (MVP)
+
+`src/bin/fleet.rs` — a self-contained binary (separate compile target, zero
+weight on the shipped desktop/lib build, matching the `slack-backfill` bin
+pattern):
+
+- **Process-per-user**: spawns `openhuman-core run --jsonrpc-only` per tenant
+  with a per-user `OPENHUMAN_WORKSPACE`, a minted `OPENHUMAN_CORE_TOKEN`, and
+  `OPENHUMAN_DISABLE_CHANNEL_LISTENERS=1` (this is the `ServiceSet::headless_api`
+  shape from Phase 1). Waits on each core's `/health` before serving.
+- **Reverse proxy**: axum `POST /{user_id}/rpc` forwards the JSON-RPC body
+  verbatim to that tenant's core, swapping the client's **edge token** for the
+  tenant's **core bearer** — the wire contract is unchanged end to end, so
+  `CloudHttpTransport` works against `http://<fleet>/<user_id>/rpc`.
+- **Edge auth / isolation**: distinct `EdgeToken` (client-facing) vs
+  `CoreBearer` (fleet-only) types; the proxy rejects a token whose user does not
+  match the path segment, so tenant A cannot reach tenant B's core. User ids are
+  validated as single `[A-Za-z0-9_-]` segments (no path escape).
+- **Tests**: pure logic unit-tested (port assignment + overflow, user-scoped
+  workspace derivation, user-id validation, provisioning distinct
+  ports/bearers/edge-tokens, edge-token→user round-trip, bearer parsing).
+
+### MVP vs production (tracked follow-ups, logged not silently dropped)
+
+- Ports are assigned sequentially from `--base-core-port`; production should read
+  each core's actually-bound port from a ready file / `EmbeddedReadySignal`
+  (Phase 1) rather than assume the port is free.
+- Tenants come from `--users`; production reconciles membership against
+  `tinyhumansai/backend` on a loop (same pattern as the cron scheduler).
+- Minted edge tokens are printed to stdout; production exposes them via an admin
+  API, not the console.
+- Container packaging (`HostKind::Docker`) and restart/backoff are not yet wired.
 
 ## Decision recap (README §2.3)
 

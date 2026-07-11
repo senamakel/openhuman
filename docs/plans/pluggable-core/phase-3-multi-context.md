@@ -1,10 +1,35 @@
 # Phase 3 — Bounded multi-context readiness (Stage C)
 
-**Status:** planned.
+**Status:** exit criterion **demonstrated for the first domain** (`people`);
+remaining domains + `RPC_TOKEN`/subscriber relocation are follow-ups.
 **Goal:** two `CoreContext`s in one test process serve memory/people/config
 reads without cross-talk. That sentence is the exit criterion — **not** "zero
 `OnceLock`s". Anything not needed for it stays process-scoped and gets
 documented instead of refactored.
+
+## Delivered
+
+- **Isolation primitive** (Phase 2): `CoreContext::scope` / `current` +
+  `DEFAULT_CONTEXT`, scoped at the dispatch chokepoint. Unit-tested
+  (`scope_sets_current_context`, `nested_scope_overrides_then_restores`).
+- **First per-context store**: `people::store::for_workspace(dir)` opens/caches a
+  store per workspace, and `CoreContext::people()` resolves it for the context's
+  workspace — additive alongside the legacy `people::store::get()` global, so the
+  ~40 existing people handlers are untouched and migrate to
+  `CoreContext::current()?.people()` incrementally.
+- **Exit test (people)**: `people_store_is_isolated_per_context_workspace` — two
+  contexts over distinct workspaces resolve isolated stores; one context always
+  resolves the same cached store. This is the exit criterion, realized for the
+  first migrated domain.
+
+## Remaining (follow-ups)
+
+- Repeat the `for_workspace` + `CoreContext::<domain>()` pattern for `memory`,
+  `config`, `attachments`, then migrate their handlers to read through
+  `CoreContext::current()`.
+- Move `RPC_TOKEN` onto the context and make event-bus subscriber registration
+  per-context (below) — only needed once a host actually runs >1 context in a
+  process (the fleet uses process-per-user, so this is not on its path).
 
 ## Scope
 

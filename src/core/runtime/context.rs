@@ -146,6 +146,16 @@ impl CoreContext {
         &self.workspace_dir
     }
 
+    /// The people store for this context's workspace — the first per-domain
+    /// store handle carved off the process globals (Phase 2 Stage C /
+    /// store-trait seam). Two contexts over different workspaces get isolated
+    /// stores; the same context always gets the same cached store. Handlers
+    /// migrate off `people::store::get()` by reading through
+    /// `CoreContext::current()?.people()` instead.
+    pub fn people(&self) -> Result<Arc<crate::openhuman::people::store::PeopleStore>, String> {
+        crate::openhuman::people::store::for_workspace(&self.workspace_dir)
+    }
+
     /// The context for the current dispatch: the one scoped by
     /// [`CoreContext::scope`] if inside a scope, else the process
     /// [`DEFAULT_CONTEXT`]. Returns `None` only before any context is built
@@ -325,5 +335,33 @@ mod tests {
         // Inner dispatch sees tenant B; the outer scope is restored to A after.
         assert_eq!(inner, PathBuf::from("/tmp/ctx-b"));
         assert_eq!(outer, PathBuf::from("/tmp/ctx-a"));
+    }
+
+    // The Phase 3 exit criterion, at the store level: two contexts over distinct
+    // workspaces resolve isolated per-domain stores, and one context always
+    // resolves the same cached store. This is the vertical proof that the
+    // ambient-context mechanism + a per-context store handle give real
+    // cross-context isolation (here for the first migrated domain, `people`).
+    #[test]
+    fn people_store_is_isolated_per_context_workspace() {
+        let dir_a = tempfile::tempdir().unwrap();
+        let dir_b = tempfile::tempdir().unwrap();
+        let a = Arc::new(CoreContext {
+            host_kind: HostKind::Cli,
+            workspace_dir: dir_a.path().to_path_buf(),
+        });
+        let b = Arc::new(CoreContext {
+            host_kind: HostKind::Cli,
+            workspace_dir: dir_b.path().to_path_buf(),
+        });
+
+        let store_a = a.people().expect("open people store for workspace A");
+        let store_b = b.people().expect("open people store for workspace B");
+        // Different workspaces → isolated stores.
+        assert!(!Arc::ptr_eq(&store_a, &store_b));
+
+        // Same context/workspace → same cached store (no per-call reopen).
+        let store_a_again = a.people().expect("reopen people store for workspace A");
+        assert!(Arc::ptr_eq(&store_a, &store_a_again));
     }
 }

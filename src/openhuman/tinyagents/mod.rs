@@ -1246,10 +1246,23 @@ fn build_turn_models_crate(
     model: &str,
     temperature: f64,
     context_window: Option<u64>,
+    primary_override: Option<&str>,
 ) -> anyhow::Result<TurnModels> {
     use crate::openhuman::inference::provider::factory;
 
-    let primary = factory::create_turn_chat_model(role, config, model, temperature)?;
+    // The primary honours an explicit provider-string override when the producer's
+    // effective provider differs from `provider_for_role(role)` (triage #1257).
+    let build_primary =
+        |m: &str| -> anyhow::Result<Arc<dyn tinyagents::harness::model::ChatModel<()>>> {
+            match primary_override {
+                Some(ps) => {
+                    factory::create_turn_chat_model_from_string(role, ps, config, m, temperature)
+                }
+                None => factory::create_turn_chat_model(role, config, m, temperature),
+            }
+        };
+
+    let primary = build_primary(model)?;
 
     // Derive the capability flags the harness reads off `TurnModels` (history-suffix
     // dispatcher + multimodal rehydration) from the primary's profile, with the
@@ -1297,7 +1310,7 @@ fn build_turn_models_crate(
     }
 
     // The summarizer is a distinct adapter instance (own empty error slot).
-    let summarizer = factory::create_turn_chat_model(role, config, model, temperature)?;
+    let summarizer = build_primary(model)?;
 
     Ok(TurnModels {
         primary,
@@ -1343,6 +1356,12 @@ pub struct TurnModelSource {
 struct CrateNativeSource {
     role: String,
     config: Arc<crate::openhuman::config::Config>,
+    /// An explicit provider string for the **primary** model, overriding the
+    /// role's default resolution. Set when a producer's effective provider differs
+    /// from `provider_for_role(role)` — e.g. triage's #1257 force-managed override
+    /// (`build_remote_provider`). `None` builds the primary from `role`. Routes
+    /// always use the standard workload tiers.
+    primary_override: Option<String>,
 }
 
 impl TurnModelSource {
@@ -1376,6 +1395,28 @@ impl TurnModelSource {
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
                 config,
+                primary_override: None,
+            }),
+        }
+    }
+
+    /// Build a crate-native source whose **primary** model is built from an explicit
+    /// `provider_string` (via [`factory::create_turn_chat_model_from_string`]) rather
+    /// than the role's default resolution — the triage path's #1257 force-managed
+    /// override (`build_remote_provider` picks the effective string). Routes still
+    /// use the standard workload tiers.
+    pub(crate) fn new_crate_native_from_string(
+        provider: Arc<dyn Provider>,
+        role: impl Into<String>,
+        provider_string: impl Into<String>,
+        config: Arc<crate::openhuman::config::Config>,
+    ) -> Self {
+        Self {
+            provider,
+            crate_native: Some(CrateNativeSource {
+                role: role.into(),
+                config,
+                primary_override: Some(provider_string.into()),
             }),
         }
     }
@@ -1413,8 +1454,14 @@ impl TurnModelSource {
         context_window: Option<u64>,
     ) -> TurnModels {
         if let Some(cn) = &self.crate_native {
-            match build_turn_models_crate(&cn.role, &cn.config, model, temperature, context_window)
-            {
+            match build_turn_models_crate(
+                &cn.role,
+                &cn.config,
+                model,
+                temperature,
+                context_window,
+                cn.primary_override.as_deref(),
+            ) {
                 Ok(turn_models) => return turn_models,
                 Err(e) => {
                     // Never fail a turn on the crate-native build: fall back to the
@@ -1443,12 +1490,18 @@ impl TurnModelSource {
         temperature: f64,
     ) -> Arc<dyn tinyagents::harness::model::ChatModel<()>> {
         if let Some(cn) = &self.crate_native {
-            match crate::openhuman::inference::provider::factory::create_turn_chat_model(
-                &cn.role,
-                &cn.config,
-                model,
-                temperature,
-            ) {
+            let built = match cn.primary_override.as_deref() {
+                Some(ps) => crate::openhuman::inference::provider::factory::create_turn_chat_model_from_string(
+                    &cn.role, ps, &cn.config, model, temperature,
+                ),
+                None => crate::openhuman::inference::provider::factory::create_turn_chat_model(
+                    &cn.role,
+                    &cn.config,
+                    model,
+                    temperature,
+                ),
+            };
+            match built {
                 Ok(summarizer) => return summarizer,
                 Err(e) => {
                     tracing::warn!(

@@ -31,6 +31,12 @@ pub struct ResolvedProvider {
     /// Preserved so existing telemetry subscribers that read this field do not
     /// need code changes.
     pub used_local: bool,
+    /// When `Some`, the triage turn builds crate-native models (Phase 3 P3-B): the
+    /// **effective** provider string (post-#1257 force-managed) + the loaded config,
+    /// handed to [`TurnModelSource::new_crate_native_from_string`](crate::openhuman::tinyagents::TurnModelSource).
+    /// `None` for the local arm, which stays on the `Provider` path until local
+    /// crate-native construction lands.
+    pub crate_native: Option<(String, Arc<Config>)>,
 }
 
 // ── Public API ──────────────────────────────────────────────────────────
@@ -130,6 +136,10 @@ pub fn build_local_provider_with_config(config: &Config) -> Option<ResolvedProvi
         provider_name: label.to_string(),
         model: local_cfg.chat_model_id.clone(),
         used_local: true,
+        // The local arm stays on the `Provider` path (no crate-native local build
+        // yet); flipping it to a role-resolved crate model would silently route to
+        // the managed backend and defeat the local fallback.
+        crate_native: None,
     })
 }
 
@@ -215,6 +225,9 @@ fn build_remote_provider(config: &Config) -> anyhow::Result<ResolvedProvider> {
             provider_name,
             model,
             used_local: false,
+            // The remote/managed arm is crate-native eligible: carry the effective
+            // provider string (`openhuman` in the #1257 force-managed case) + config.
+            crate_native: Some((provider_string.to_string(), Arc::new(config.clone()))),
         })
     };
 

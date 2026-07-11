@@ -1405,6 +1405,52 @@ pub(crate) fn create_turn_chat_model(
     ))
 }
 
+/// Like [`create_turn_chat_model`] but for an **explicit** `provider_string` — the
+/// crate-native analogue of [`create_chat_provider_from_string`], for producers
+/// whose effective provider differs from the role's default resolution.
+///
+/// The triage path needs this: [`build_remote_provider`](crate::openhuman::agent::triage::routing)
+/// forces the managed backend (`provider_string == `[`PROVIDER_OPENHUMAN`]) when the
+/// subconscious route is local / BYOK-incomplete — the #1257 *"triage never goes
+/// local"* invariant — which a plain [`create_turn_chat_model`] (role → `provider_for_role`)
+/// would violate by building the local model.
+///
+/// - `provider_string` empty / `"cloud"` / [`PROVIDER_OPENHUMAN`] → managed
+///   [`OpenHumanBackendModel`] pinned to `model` (the force-managed case).
+/// - Otherwise the string equals what the role resolves to (a BYOK cloud slug), so
+///   this delegates to [`create_turn_chat_model`] for `role`.
+///
+/// Respects the test-provider override (bespoke/`Provider` path), like its siblings.
+pub(crate) fn create_turn_chat_model_from_string(
+    role: &str,
+    provider_string: &str,
+    config: &Config,
+    model: &str,
+    temperature: f64,
+) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    let test_override_active = {
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        {
+            test_provider_override::current().is_some()
+        }
+        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        {
+            false
+        }
+    };
+    let p = provider_string.trim();
+    let is_managed = p.is_empty() || p == "cloud" || p == PROVIDER_OPENHUMAN;
+    if is_managed && !test_override_active {
+        let (backend, _resolved_model) = resolve_managed_backend(role, config)?;
+        return Ok(Arc::new(
+            super::openhuman_backend_model::OpenHumanBackendModel::new(backend, model.to_string()),
+        ));
+    }
+    // A concrete non-managed string equals the role's resolution (triage only
+    // honours a BYOK **cloud** route as-is), so the role-based builder matches.
+    create_turn_chat_model(role, config, model, temperature)
+}
+
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
 /// local-openai) as a crate-native [`ChatModel`] — the Motion B cutover of the
 /// `make_*_provider` local builders (issue #4727).

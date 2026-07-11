@@ -1230,16 +1230,17 @@ pub(crate) fn build_turn_models(
 /// `OpenHumanBackendModel`, local/cloud → crate `OpenAiModel`).
 ///
 /// The `TurnModels` shape is identical to [`build_turn_models`] so
-/// [`assemble_turn_harness`] is unchanged. Provider metadata that the crate model
-/// can't self-report is derived without a `Provider`:
-/// - `native_tools` / `supports_vision` from the primary's [`ModelProfile`], with
-///   the managed backend (profile `None`) falling back to `true` /
-///   [`factory::oh_tier_supports_vision`] respectively;
-/// - `provider_id` from the resolved provider slug (`managed` for the backend);
-/// - `error_slot` is a fresh empty slot — crate-native models surface
-///   `TinyAgentsError` directly (no downcastable `anyhow` to preserve), so typed
-///   provider-error *recovery* is unused here (Sentry suppression is unaffected —
-///   both `skips_sentry` cases are raised in the host turn loop).
+/// [`assemble_turn_harness`] is unchanged. The provider metadata
+/// (`provider_id` / `native_tools` / `supports_vision`) is derived by the caller
+/// ([`TurnModelSource::build`]) from the **retained resolved provider** — the same
+/// source the `Provider` path's [`build_turn_models`] used — so these fields are
+/// byte-for-byte identical to the pre-cutover path; only the models
+/// (primary / routes / summarizer) become crate-native. `error_slot` is a fresh
+/// empty slot — crate-native models surface `TinyAgentsError` directly (no
+/// downcastable `anyhow` to preserve), so typed provider-error *recovery* is unused
+/// here (Sentry suppression is unaffected — both `skips_sentry` cases are raised in
+/// the host turn loop).
+#[allow(clippy::too_many_arguments)]
 fn build_turn_models_crate(
     role: &str,
     config: &crate::openhuman::config::Config,
@@ -1247,6 +1248,9 @@ fn build_turn_models_crate(
     temperature: f64,
     context_window: Option<u64>,
     primary_override: Option<&str>,
+    provider_id: String,
+    native_tools: bool,
+    supports_vision: bool,
 ) -> anyhow::Result<TurnModels> {
     use crate::openhuman::inference::provider::factory;
 
@@ -1263,27 +1267,6 @@ fn build_turn_models_crate(
         };
 
     let primary = build_primary(model)?;
-
-    // Derive the capability flags the harness reads off `TurnModels` (history-suffix
-    // dispatcher + multimodal rehydration) from the primary's profile, with the
-    // managed backend (no static profile) falling back to its known capabilities.
-    let native_tools = primary.profile().map(|p| p.tool_calling).unwrap_or(true);
-    let supports_vision = primary
-        .profile()
-        .map(|p| p.modalities.image_in)
-        .unwrap_or_else(|| factory::oh_tier_supports_vision(model));
-
-    // Langfuse telemetry id (`{provider_id}.{model}`): the resolved provider slug,
-    // or `managed` for the backend / abstract-tier resolution.
-    let provider_id = {
-        let resolved = factory::provider_for_role(role, config);
-        let slug = resolved.split(':').next().unwrap_or("").trim();
-        if slug.is_empty() || slug == "cloud" {
-            "managed".to_string()
-        } else {
-            slug.to_string()
-        }
-    };
 
     // Additive workload-tier routes: one crate-native model per tier (skipping the
     // turn's own model, which is registered as the default primary), each pinned to
@@ -1383,13 +1366,9 @@ impl TurnModelSource {
     /// than wrapping `provider` in `ProviderModel`s. `provider` is still supplied
     /// (built once by the producer) so the escape-hatch consumers and the
     /// crate-native-failure fallback keep working while producers migrate
-    /// incrementally (Phase 3 P3-B). Used by the primary producers (session
-    /// builder / channels); the triage path uses
+    /// incrementally (Phase 3 P3-B). Used by the session-builder producer
+    /// (`crate_native_provider`); the triage path uses
     /// [`new_crate_native_from_string`](Self::new_crate_native_from_string).
-    // Not yet wired to a producer that resolves purely by role (the extract flip
-    // was reverted — it must keep its resolved provider for test-mock observability);
-    // the session-builder flip lands it next.
-    #[allow(dead_code)]
     pub(crate) fn new_crate_native(
         provider: Arc<dyn Provider>,
         role: impl Into<String>,
@@ -1459,6 +1438,13 @@ impl TurnModelSource {
         context_window: Option<u64>,
     ) -> TurnModels {
         if let Some(cn) = &self.crate_native {
+            // Derive the provider metadata from the retained resolved provider — the
+            // SAME source `build_turn_models` uses — so `provider_id`/`native_tools`/
+            // `supports_vision` are identical to the `Provider` path; only the models
+            // become crate-native (Phase 3 P3-B).
+            let provider_id = self.provider.telemetry_provider_id();
+            let native_tools = self.provider.supports_native_tools();
+            let supports_vision = self.provider.supports_vision();
             match build_turn_models_crate(
                 &cn.role,
                 &cn.config,
@@ -1466,6 +1452,9 @@ impl TurnModelSource {
                 temperature,
                 context_window,
                 cn.primary_override.as_deref(),
+                provider_id,
+                native_tools,
+                supports_vision,
             ) {
                 Ok(turn_models) => return turn_models,
                 Err(e) => {

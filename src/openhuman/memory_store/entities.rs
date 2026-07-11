@@ -24,8 +24,9 @@
 //! | [`clear_entity_index_for_node`] | `memory_tree::score::store::clear_entity_index_for_node` |
 //! | [`count_entity_index`]      | `memory_tree::score::store::count_entity_index` |
 //!
-//! See [`crate::openhuman::memory_graph`] for the derived co-occurrence
-//! query layer built on top of these primitives.
+//! The derived co-occurrence query layer built on these primitives lives in
+//! `tinycortex::memory::graph` (the host `memory_graph` placeholder was deleted
+//! in the W7 migration — it was an unused derive-on-read scaffold).
 
 pub use crate::openhuman::memory_tree::score::store::{
     clear_entity_index_for_node, count_entity_index, index_entities, index_entity,

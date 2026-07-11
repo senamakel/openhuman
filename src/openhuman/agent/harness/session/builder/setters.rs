@@ -88,9 +88,6 @@ impl AgentBuilder {
     /// the `Provider` path). Used by the production session factory; the plain
     /// [`provider`](Self::provider) setter (Provider path) stays for tests that
     /// inject a mock they observe.
-    // Wired once the main-turn flip routes the e2e `ScriptedProvider` injection
-    // through the crate-native builder (reverted; see `factory.rs`).
-    #[allow(dead_code)]
     pub fn crate_native_provider(
         mut self,
         provider: Box<dyn crate::openhuman::inference::provider::Provider>,

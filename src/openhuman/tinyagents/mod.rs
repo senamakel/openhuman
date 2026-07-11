@@ -1366,11 +1366,9 @@ impl TurnModelSource {
     /// than wrapping `provider` in `ProviderModel`s. `provider` is still supplied
     /// (built once by the producer) so the escape-hatch consumers and the
     /// crate-native-failure fallback keep working while producers migrate
-    /// incrementally (Phase 3 P3-B). The triage path uses
-    /// [`new_crate_native_from_string`](Self::new_crate_native_from_string); the
-    /// session-builder producer (which will use this) is reverted pending the e2e
-    /// `ScriptedProvider` injection routing.
-    #[allow(dead_code)]
+    /// incrementally (Phase 3 P3-B). Used by the session-builder producer
+    /// (`crate_native_provider`); the triage path uses
+    /// [`new_crate_native_from_string`](Self::new_crate_native_from_string).
     pub(crate) fn new_crate_native(
         provider: Arc<dyn Provider>,
         role: impl Into<String>,

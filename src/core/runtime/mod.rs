@@ -24,5 +24,8 @@
 //! on every multi-thread runtime that may host an agent turn.
 pub const AGENT_WORKER_STACK_BYTES: usize = 16 * 1024 * 1024;
 
+pub mod builder;
 pub mod context;
 pub mod services;
+
+pub use builder::{CoreBuilder, CoreRuntime, ServiceSet, TokenSource};

@@ -1652,7 +1652,7 @@ async fn not_found_handler() -> impl IntoResponse {
 }
 
 /// Resolves the port for the core server from environment variables or defaults.
-fn core_port() -> u16 {
+pub(crate) fn core_port() -> u16 {
     std::env::var("OPENHUMAN_CORE_PORT")
         .ok()
         .and_then(|v| v.parse::<u16>().ok())
@@ -1660,7 +1660,7 @@ fn core_port() -> u16 {
 }
 
 /// Resolves the bind address host for the core server from environment variables or defaults.
-fn core_host() -> String {
+pub(crate) fn core_host() -> String {
     std::env::var("OPENHUMAN_CORE_HOST")
         .ok()
         .filter(|s| !s.is_empty())
@@ -1744,248 +1744,36 @@ async fn run_server_inner(
     ready_tx: Option<tokio::sync::oneshot::Sender<EmbeddedReadySignal>>,
     rpc_token: Option<std::sync::Arc<String>>,
 ) -> anyhow::Result<()> {
-    // Ensure all controllers are registered before starting.
-    let _ = all::all_registered_controllers();
-
-    // Ensure the master encryption key is loaded from keychain before any
-    // config or credential operation that needs to decrypt secrets. This is
-    // a no-op if already called (e.g. from run_core_from_args for CLI).
-    crate::openhuman::keyring::init_master_key();
-
-    // AgentBox GMI MaaS provider bridge — no-op when env vars absent.
-    // Must run BEFORE `build_core_http_router` mounts the AgentBox routes so
-    // that by the time `/run` accepts traffic the inference catalog already
-    // knows about `"gmi-maas"`. Never panics; missing/blank env vars log a
-    // warning and leave the core booting in degraded mode.
-    crate::openhuman::agentbox::register_gmi_provider_if_present();
-
-    // Initialize the per-process RPC bearer token.
-    //
-    // Preferred path (in-process core spawned by the Tauri shell): the caller
-    // passes the bearer it already holds in `CoreProcessHandle.rpc_token` as
-    // `rpc_token: Some(_)`. The token is seeded directly into the auth
-    // subsystem without ever crossing `OPENHUMAN_CORE_TOKEN` on the process
-    // environment — closing the same-UID readback channel (sysctl
-    // KERN_PROCARGS2 / ps eww on macOS, /proc/<pid>/environ on Linux).
-    //
-    // Fallback (standalone CLI / docker / cloud `openhuman core run`):
-    // `rpc_token: None` lets `init_rpc_token` read `OPENHUMAN_CORE_TOKEN`
-    // from the environment when present (env-as-config — legit operator
-    // surface), or generate a fresh token and write `{workspace_dir}/core.token`
-    // (0o600 on Unix) so CLI callers can authenticate.
-    if let Some(token) = rpc_token.as_deref() {
-        crate::core::auth::init_rpc_token_with_value(token)?;
-    } else {
-        let token_dir =
-            crate::openhuman::config::default_root_openhuman_dir().unwrap_or_else(|_| {
-                dirs::home_dir()
-                    .unwrap_or_else(|| std::path::PathBuf::from("."))
-                    .join(".openhuman")
-            });
-        crate::core::auth::init_rpc_token(&token_dir)?;
-    }
-
-    // Initialize the global MemoryClient and the other workspace-bound stores
-    // so composio providers (gmail/slack/notion) can persist their sync_state,
-    // and so any subsystem that calls `memory::global::client_if_ready()` gets a
-    // live handle. Extracted to `runtime::context::init_stores` (Phase 0) —
-    // preserves the wrong-workspace guard and ordering; see that module for the
-    // full rationale.
-    crate::core::runtime::context::init_stores().await;
-
-    let (resolved_port, port_source) = match port {
-        Some(p) => (p, "CLI --port"),
-        None => (
-            core_port(),
-            if std::env::var("OPENHUMAN_CORE_PORT").is_ok() {
-                "env OPENHUMAN_CORE_PORT"
-            } else {
-                "default"
-            },
-        ),
-    };
-    let (resolved_host, host_source) = match host {
-        Some(h) => (h.to_string(), "CLI --host"),
-        None => (
-            core_host(),
-            if std::env::var("OPENHUMAN_CORE_HOST")
-                .ok()
-                .filter(|s| !s.is_empty())
-                .is_some()
-            {
-                "env OPENHUMAN_CORE_HOST"
-            } else {
-                "default"
-            },
-        ),
-    };
-
-    log::debug!(
-        "[core] Bind resolution: host={resolved_host} (from {host_source}), port={resolved_port} (from {port_source})"
-    );
-
-    // Safety check: refuse to bind on a non-loopback address without an
-    // explicit RPC token. Without this, the entire RPC surface (tool
-    // execution, file access, credentials) is unauthenticated and reachable
-    // from the network. See: https://github.com/tinyhumansai/openhuman/issues/1919
-    //
-    // "Explicit token" means any of:
-    //   - An in-memory bearer supplied by the embedded caller via the
-    //     `rpc_token` parameter (the Tauri shell hands its
-    //     `CoreProcessHandle.rpc_token` in this way — see
-    //     `init_rpc_token_with_value`). This never lands on the process env.
-    //   - `OPENHUMAN_CORE_TOKEN` set in the process environment (operator
-    //     config for standalone CLI / Docker / cloud).
-    //
-    // Checking only the env var would emit a false security warning whenever
-    // an embedded caller binds on a non-loopback host with an in-memory
-    // bearer — the server is already protected in that case.
-    if crate::openhuman::security::pairing::is_public_bind(&resolved_host) {
-        let has_in_memory_token = rpc_token
-            .as_deref()
-            .map(|s| !s.trim().is_empty())
-            .unwrap_or(false);
-        let has_env_token = std::env::var(crate::core::auth::CORE_TOKEN_ENV_VAR)
-            .ok()
-            .filter(|s| !s.trim().is_empty())
-            .is_some();
-        // Fail closed (#1919): a non-loopback bind exposes the entire RPC
-        // surface (tool execution, file access, credentials) to the network,
-        // so it must be guarded by an OPERATOR-supplied bearer. Only an
-        // explicit operator token counts here:
-        //   - in-memory handoff from the embedded caller (`rpc_token`), or
-        //   - `OPENHUMAN_CORE_TOKEN` in the process environment.
-        // The self-generated `core.token` file (which `init_rpc_token` may
-        // already have seeded into the auth subsystem above) does NOT satisfy
-        // this requirement: remote clients cannot read that file, so treating
-        // it as "explicit" would be fail-open. Refuse to bind instead of
-        // serving an effectively unauthenticated network surface.
-        let has_explicit_token = has_in_memory_token || has_env_token;
-        if !has_explicit_token {
-            log::error!(
-                "[core] SECURITY: refusing to bind on public address {resolved_host} without an \
-                 explicit operator-supplied RPC token. Set {} in your environment (or hand the \
-                 bearer in-memory via the embedded core handle) to secure the RPC endpoint.",
-                crate::core::auth::CORE_TOKEN_ENV_VAR
-            );
-            eprintln!(
-                "\n\x1b[1;31m[SECURITY]\x1b[0m Refusing to bind on {resolved_host} without {}.\n\
-                 The auto-generated {{workspace}}/core.token does NOT secure a public bind —\n\
-                 remote clients cannot read it. Set {} in your environment to secure the\n\
-                 RPC endpoint, or bind on a loopback address.\n",
-                crate::core::auth::CORE_TOKEN_ENV_VAR,
-                crate::core::auth::CORE_TOKEN_ENV_VAR
-            );
-            anyhow::bail!(
-                "refusing to bind on non-loopback address {resolved_host} without an explicit \
-                 operator-supplied RPC token ({})",
-                crate::core::auth::CORE_TOKEN_ENV_VAR
-            );
-        }
-    }
-
-    let preferred_port = resolved_port;
-    let host = resolved_host;
-    let pick = crate::openhuman::connectivity::rpc::pick_listen_port_for_host(
-        host.as_str(),
-        preferred_port,
-    )
-    .await
-    .map_err(|err| {
-        log::error!("[core] Failed to bind to {host}:{preferred_port}: {err}");
-        anyhow::Error::new(err)
-    })?;
-    let listen_port = pick.port;
-    let bind_addr = format!("{host}:{listen_port}");
-    let listener = pick.listener;
-
-    // Synchronize OPENHUMAN_CORE_RPC_URL with the actual bound port so
-    // connectivity::rpc::resolve_listen_port() (used by openhuman.connectivity_diag)
-    // reports the live listener instead of the originally-requested port when
-    // fallback engaged. Embedded path also calls this via apply_embedded_ready_signal,
-    // but the standalone CLI never did before — leaving diag stale on fallback.
-    //
-    // SAFETY: set_var is process-global; this runs once during bind and the
-    // standalone CLI doesn't share its env with concurrent test threads.
-    unsafe {
-        std::env::set_var("OPENHUMAN_CORE_RPC_URL", format!("http://{bind_addr}/rpc"));
-    }
-
-    let app = build_core_http_router(socketio_enabled);
-
-    // --- Core runtime bootstrap --------------------------------------------
-    // Map the legacy `embedded_core` boolean to the typed [`HostKind`] the
-    // bootstrap path now takes. Embedded == Tauri shell; standalone splits
-    // CLI / Docker via `HostKind::detect_standalone`.
+    // `run_server_inner` is now a thin shim over the CoreBuilder/CoreRuntime
+    // composition (Phase 1). It reproduces the legacy behavior exactly: all
+    // background services on (`ServiceSet::desktop`), Socket.IO per the caller
+    // flag, and the legacy `embedded_core` → `HostKind` mapping (embedded ==
+    // Tauri shell; standalone splits CLI / Docker via `detect_standalone`).
+    // See `docs/plans/pluggable-core/phase-1-corebuilder.md`.
     let host_kind = if embedded_core {
         crate::core::types::HostKind::TauriShell
     } else {
         crate::core::types::HostKind::detect_standalone()
     };
-    bootstrap_core_runtime(host_kind).await;
+    let token = match rpc_token {
+        Some(token) => crate::core::runtime::TokenSource::Fixed(token),
+        None => crate::core::runtime::TokenSource::EnvOrFile,
+    };
+    let mut services = crate::core::runtime::ServiceSet::desktop();
+    services.socketio = socketio_enabled;
 
-    log::info!(
-        "[core] OpenHuman core is ready — listening on http://{bind_addr} (version {})",
-        env!("CARGO_PKG_VERSION")
-    );
-    log::info!("[rpc:http] JSON-RPC — POST http://{bind_addr}/rpc (JSON-RPC 2.0)");
-    if socketio_enabled {
-        log::info!("[rpc:socketio] Socket.IO — ws://{bind_addr}/socket.io/ (same HTTP server)");
-    } else {
-        log::info!("[rpc:socketio] disabled (--jsonrpc-only)");
+    let mut builder = crate::core::runtime::CoreBuilder::new(host_kind)
+        .token(token)
+        .services(services);
+    if let Some(host) = host {
+        builder = builder.host(host);
+    }
+    if let Some(port) = port {
+        builder = builder.port(port);
     }
 
-    if let Some(tx) = ready_tx {
-        let _ = tx.send(EmbeddedReadySignal {
-            port: listen_port,
-            fallback_from: pick.fallback_from,
-        });
-    }
-
-    // Background bootstrap for services. Each spawn is extracted to
-    // `runtime::services` (Phase 0); behavior and per-service config gates are
-    // unchanged. Login-gated services (local AI, voice, screen intelligence,
-    // autocomplete, subconscious + heartbeat) only start when a user session
-    // exists on disk — otherwise startup defers to the login handler in
-    // `credentials::ops::store_session()`.
-    crate::core::runtime::services::spawn_login_gated_services(embedded_core);
-    crate::core::runtime::services::spawn_update_scheduler();
-    crate::core::runtime::services::spawn_cron_service();
-    crate::core::runtime::services::spawn_channels_service();
-
-    if let Some(shutdown_token) = shutdown_token {
-        log::info!("[core] embedded server waiting on cancellation token for graceful shutdown");
-        axum::serve(listener, app)
-            .with_graceful_shutdown(async move {
-                shutdown_token.cancelled().await;
-            })
-            .await?;
-    } else {
-        axum::serve(listener, app)
-            .with_graceful_shutdown(crate::core::shutdown::signal())
-            .await?;
-    }
-
-    // Server has stopped accepting and in-flight requests drained.
-    // Kill any `ollama serve` openhuman itself spawned (no-op when the
-    // daemon was externally managed) and clear the spawn marker so the
-    // next launch doesn't try to reclaim a daemon that's already dead.
-    // Bounded so a wedged Ollama can't hold up app shutdown.
-    if let Some(svc) = crate::openhuman::inference::local::try_global() {
-        let cfg = crate::openhuman::config::Config::load_or_init()
-            .await
-            .unwrap_or_default();
-        log::info!("[core] shutdown: cleaning up openhuman-owned ollama if any");
-        let shutdown_fut = svc.shutdown_owned_ollama(&cfg);
-        if tokio::time::timeout(std::time::Duration::from_secs(2), shutdown_fut)
-            .await
-            .is_err()
-        {
-            log::warn!("[core] shutdown: ollama cleanup exceeded 2s budget; proceeding with exit");
-        }
-    }
-
-    Ok(())
+    let runtime = builder.build().await?;
+    runtime.serve(ready_tx, shutdown_token).await
 }
 
 /// Registers all long-lived domain event-bus subscribers exactly once.

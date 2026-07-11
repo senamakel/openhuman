@@ -964,6 +964,13 @@ pub fn create_chat_model_with_model_id(
         if let Some(result) = try_create_local_runtime_chat_model(role, config) {
             return result;
         }
+        // Wire-equivalent BYOK cloud slugs (Anthropic / None / plain-Bearer, no
+        // codex-oauth or `/v1/responses` fallback) → crate-native `ChatModel`
+        // (issue #4727 Phase 3, conservative subset). `openai`/codex, custom
+        // proxy slugs, and the managed entry return `None` and fall through.
+        if let Some(result) = try_create_cloud_slug_chat_model(role, config) {
+            return result;
+        }
     }
     let (provider, model) = create_chat_provider(role, config)?;
     let chat = chat_model_from_provider(provider, model.clone(), temperature);
@@ -1993,13 +2000,26 @@ fn make_local_openai_provider(
 }
 
 /// Look up a `cloud_providers` entry by slug and build the provider.
-fn make_cloud_provider_by_slug(
+/// The shared resolution for a `<slug>:<model>` cloud provider — the cloud
+/// `cloud_providers` entry, the effective model id (with `default_model`
+/// fallback + abstract-tier remapping), the resolved API key, and the OpenAI
+/// codex-oauth routing. Extracted so the legacy [`Provider`] path
+/// ([`make_cloud_provider_by_slug`]) and the crate-native cutover
+/// ([`try_create_cloud_slug_chat_model`]) resolve **identically** — the only
+/// divergence between them is the wire client they build from this plan.
+struct CloudSlugResolution<'a> {
+    entry: &'a crate::openhuman::config::schema::cloud_providers::CloudProviderCreds,
+    effective_model: String,
+    key: String,
+    codex: crate::openhuman::inference::provider::openai_codex::OpenAiCodexRouting,
+}
+
+fn resolve_cloud_slug<'a>(
     role: &str,
     slug: &str,
     model: &str,
-    temperature_override: Option<f64>,
-    config: &Config,
-) -> anyhow::Result<(Box<dyn Provider>, String)> {
+    config: &'a Config,
+) -> anyhow::Result<CloudSlugResolution<'a>> {
     let entry = config.cloud_providers.iter().find(|e| e.slug == slug);
 
     let entry = entry.ok_or_else(|| {
@@ -2090,8 +2110,32 @@ fn make_cloud_provider_by_slug(
     );
 
     let key = lookup_key_for_slug(slug, config)?;
-    let openai_codex_routing = resolve_openai_codex_routing(config, slug, &entry.endpoint, &key)
+    let codex = resolve_openai_codex_routing(config, slug, &entry.endpoint, &key)
         .map_err(anyhow::Error::msg)?;
+
+    Ok(CloudSlugResolution {
+        entry,
+        effective_model,
+        key,
+        codex,
+    })
+}
+
+/// Look up a `cloud_providers` entry by slug and build the legacy
+/// [`Provider`] wire client for it.
+fn make_cloud_provider_by_slug(
+    role: &str,
+    slug: &str,
+    model: &str,
+    temperature_override: Option<f64>,
+    config: &Config,
+) -> anyhow::Result<(Box<dyn Provider>, String)> {
+    let CloudSlugResolution {
+        entry,
+        effective_model,
+        key,
+        codex: openai_codex_routing,
+    } = resolve_cloud_slug(role, slug, model, config)?;
 
     let unsupported = &config.temperature_unsupported_models;
     match entry.auth_style {
@@ -2189,6 +2233,115 @@ fn make_cloud_provider_by_slug(
             Ok((p, effective_model))
         }
     }
+}
+
+/// A `<slug>:<model>` BYOK cloud provider as a crate-native [`ChatModel`] — the
+/// Motion B cutover of the wire-equivalent [`make_cloud_provider_by_slug`]
+/// branches (issue #4727 Phase 3, conservative subset).
+///
+/// Returns `None` (fall through to the `Provider` path) unless the role resolves
+/// to a **configured** cloud slug whose auth style the crate `OpenAiModel` serves
+/// with byte-identical wire semantics:
+/// - `Anthropic` / `None` auth → always eligible (their endpoints have no
+///   `/v1/responses`, so the host's dormant responses-fallback is behavior-neutral);
+/// - `Bearer` → eligible **only** when there is no `/v1/responses` fallback, no
+///   `openai-codex` OAuth, and no codex account header — i.e. a plain
+///   chat-completions Bearer provider (DeepSeek, Groq, Mistral, xAI, …).
+///
+/// Everything else — `openai` (codex-oauth + Responses API), custom slugs whose
+/// endpoint may proxy `/v1/responses`, and the managed `OpenhumanJwt` entry —
+/// stays on the `Provider` path (deferred to the crate `/responses` port). The
+/// resolution is shared via [`resolve_cloud_slug`], so eligible slugs resolve
+/// identically to the legacy path; only the wire client differs. The **same**
+/// access gate the `Provider` path applies (`enforce_local_only_inference` +
+/// `verify_session_active`) runs before building. Temperature rides the per-call
+/// `ModelRequest` (managed/local parity; the `@<temp>` suffix still bakes a fixed
+/// override).
+fn try_create_cloud_slug_chat_model(
+    role: &str,
+    config: &Config,
+) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String)>> {
+    // Resolve the role's provider string, expanding the empty / "cloud" sentinel
+    // to the primary cloud target (mirroring create_chat_provider_from_string).
+    let mut resolved = provider_for_role(role, config);
+    if resolved.trim().is_empty() || resolved.trim() == "cloud" {
+        resolved = resolve_primary_cloud_provider_string(config);
+    }
+    let p = resolved.trim().to_string();
+
+    // Only the "<slug>:<model>[@temp]" cloud form routes here. The managed
+    // backend, BYOK-incomplete sentinel, and bespoke subprocess providers
+    // (claude-code / claude_agent_sdk) are handled on the `Provider` path.
+    if p == PROVIDER_OPENHUMAN
+        || p == BYOK_INCOMPLETE_SENTINEL
+        || p == CLAUDE_AGENT_SDK_PROVIDER
+        || p.starts_with(CLAUDE_AGENT_SDK_PREFIX)
+        || p.starts_with(crate::openhuman::inference::provider::claude_code::PROVIDER_PREFIX)
+    {
+        return None;
+    }
+    let colon = p.find(':')?;
+    let slug = p[..colon].trim().to_string();
+    if slug.is_empty() {
+        return None;
+    }
+    let (raw_model, temperature_override) = split_model_and_temperature(&p[colon + 1..]);
+    // Not a configured cloud slug → let the `Provider` path surface the precise
+    // "no cloud provider configured" error rather than silently no-op'ing.
+    if !config.cloud_providers.iter().any(|e| e.slug == slug) {
+        return None;
+    }
+
+    // Preserve the `Provider` path's gate for custom/cloud providers.
+    if let Err(e) = enforce_local_only_inference(role, &p) {
+        return Some(Err(e));
+    }
+    #[cfg(not(test))]
+    if let Err(e) = verify_session_active(config) {
+        return Some(Err(e));
+    }
+
+    let CloudSlugResolution {
+        entry,
+        effective_model,
+        key,
+        codex,
+    } = match resolve_cloud_slug(role, &slug, &raw_model, config) {
+        Ok(r) => r,
+        Err(e) => return Some(Err(e)),
+    };
+
+    // Only flip the wire-equivalent auth styles; codex-oauth, the `/v1/responses`
+    // fallback, and the managed `OpenhumanJwt` entry stay on the `Provider` path.
+    let auth = match entry.auth_style {
+        AuthStyle::Anthropic => CompatAuthStyle::Anthropic,
+        AuthStyle::None => CompatAuthStyle::None,
+        AuthStyle::OpenhumanJwt => return None,
+        AuthStyle::Bearer => {
+            let responses_fallback = (!is_builtin_cloud_slug(&slug)
+                || builtin_cloud_supports_responses_api(&slug))
+                && !endpoint_host_is_chat_completions_only(&codex.endpoint);
+            if responses_fallback || codex.using_oauth || codex.account_id.is_some() {
+                return None;
+            }
+            CompatAuthStyle::Bearer
+        }
+    };
+
+    let unsupported = &config.temperature_unsupported_models;
+    let chat = super::crate_openai::make_crate_openai_chat_model(
+        &slug,
+        &entry.endpoint,
+        &key,
+        auth,
+        &effective_model,
+        unsupported,
+        temperature_override,
+        // Cloud OpenAI-compatible providers accept a `system` role — no merge
+        // (parity with `OpenAiCompatibleProvider::new`).
+        false,
+    );
+    Some(Ok((chat, effective_model)))
 }
 
 /// Fetch the bearer token for a slug from the workspace `auth-profiles.json`.

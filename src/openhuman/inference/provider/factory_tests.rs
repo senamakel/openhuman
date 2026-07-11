@@ -2896,3 +2896,82 @@ fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
     cloud.chat_provider = Some("openai:gpt-4o-mini".to_string());
     assert!(try_create_local_runtime_chat_model("chat", &cloud).is_none());
 }
+
+// ── Motion B (#4727 Phase 3): wire-equivalent BYOK cloud-slug cutover ────────
+
+fn deepseek_entry(id: &str) -> CloudProviderCreds {
+    CloudProviderCreds {
+        id: id.to_string(),
+        slug: "deepseek".to_string(),
+        label: "DeepSeek".to_string(),
+        endpoint: "https://api.deepseek.com/v1".to_string(),
+        auth_style: AuthStyle::Bearer,
+        default_model: Some("deepseek-chat".to_string()),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
+    use tinyagents::harness::model::ChatModel;
+
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    // DeepSeek is a built-in chat-completions-only Bearer provider: no
+    // `/v1/responses` fallback and no codex-oauth, so it is wire-equivalent and
+    // flips crate-native.
+    let mut config = Config::default();
+    config.cloud_providers.push(deepseek_entry("p_ds"));
+    config.chat_provider = Some("deepseek:deepseek-reasoner".to_string());
+    let (model, model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
+        .expect("bearer cloud create_chat_model must build");
+    assert_eq!(model_id, "deepseek-reasoner");
+    let profile = model
+        .profile()
+        .expect("crate-native cloud model exposes a profile");
+    assert_eq!(profile.provider.as_deref(), Some("deepseek"));
+    // A generic cloud model keeps native tool calling + vision on (unlike the
+    // local runtimes), so this is the crate `OpenAiModel` default profile.
+    assert!(profile.tool_calling);
+}
+
+#[test]
+fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
+    use tinyagents::harness::model::ChatModel;
+
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    // Anthropic-auth cloud slugs are always wire-equivalent (their endpoints have
+    // no `/v1/responses`, so the host's dormant fallback is behavior-neutral).
+    let mut config = Config::default();
+    config
+        .cloud_providers
+        .push(anthropic_entry("p_anth", "anthropic"));
+    config.chat_provider = Some("anthropic:claude-sonnet-4-6".to_string());
+    let (model, model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
+        .expect("anthropic cloud create_chat_model must build");
+    assert_eq!(model_id, "claude-sonnet-4-6");
+    assert_eq!(
+        model.profile().and_then(|p| p.provider.as_deref()),
+        Some("anthropic")
+    );
+}
+
+#[test]
+fn try_create_cloud_slug_declines_openai_and_non_cloud() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    // `openai` exposes the Responses API, so its Bearer branch keeps the
+    // `/v1/responses` fallback — it is NOT wire-equivalent and stays host-side.
+    let mut openai = Config::default();
+    openai.cloud_providers.push(openai_entry("p_oai", "openai"));
+    openai.chat_provider = Some("openai:gpt-4o-mini".to_string());
+    assert!(try_create_cloud_slug_chat_model("chat", &openai).is_none());
+
+    // Managed (default), local runtimes, and unconfigured slugs are not cloud
+    // slugs — they fall through to their own paths.
+    assert!(try_create_cloud_slug_chat_model("chat", &Config::default()).is_none());
+    let mut local = Config::default();
+    local.chat_provider = Some("ollama:qwen2.5".to_string());
+    assert!(try_create_cloud_slug_chat_model("chat", &local).is_none());
+    let mut unconfigured = Config::default();
+    unconfigured.chat_provider = Some("deepseek:deepseek-chat".to_string());
+    assert!(try_create_cloud_slug_chat_model("chat", &unconfigured).is_none());
+}

@@ -155,7 +155,7 @@ No `UserProvider`/`AIProvider`/`SkillProvider` — auth lives in `CoreStateProvi
 
 **Routing** (`AppRoutes.tsx`, HashRouter): `/` (Welcome), `/auth`, `/onboarding/*`, `/chat/:threadId?`, `/human`, `/brain` (+ `/brain/tinyplace-orchestration`), `/orchestration`, `/connections`, `/flows` (+ `/flows/:id`, `/flows/draft`), `/agent-world/*`, `/invites`, `/notifications`, `/rewards`, `/settings/*`, `/feedback`. Back-compat redirects: `/home`→`/chat`, `/skills`→`/connections`, `/channels`→`/connections?tab=messaging`, `/intelligence` & `/activity`→`/settings/notifications`, `/routines` & `/workflows`→`/settings/automations`, `/webhooks`→`/settings/integrations#webhooks`. No `/login`, `/mnemonic`, `/agents`, `/conversations`.
 
-**AI config**: bundled prompts in `src/openhuman/agent/prompts/` (also via `tauri.conf.json` resources). Loaders in `app/src/lib/ai/` with `?raw` imports.
+**AI config**: bundled prompts in `src/openhuman/agent/prompts/` ship via `tauri.conf.json` resources and are read core-side (`app/src/lib/ai/` holds agent-context helpers, not prompt loaders).
 
 ---
 

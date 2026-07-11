@@ -31,7 +31,7 @@ use std::collections::{HashMap, HashSet};
 use anyhow::Result;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_queue::handlers::chunk_tree_scope;
+use crate::openhuman::tinycortex::chunk_tree_scope;
 use crate::openhuman::memory_store::chunks::store::{list_chunks, ListChunksQuery};
 use crate::openhuman::memory_store::chunks::types::{Chunk, SourceKind};
 use crate::openhuman::memory_store::content::read as content_read;

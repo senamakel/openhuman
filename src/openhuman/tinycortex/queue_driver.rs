@@ -72,7 +72,12 @@ fn derive_tree_scope(source_id: &str) -> String {
 
 /// The source-tree scope a chunk appends under: its `path_scope` when set
 /// (shared-directory sources like Notion), else the GitHub-aware scope.
-fn chunk_tree_scope(metadata: &Metadata) -> String {
+///
+/// `pub(crate)` and re-exported from [`crate::openhuman::tinycortex`] so read
+/// paths (e.g. `memory_tree::retrieval::cover`) look up the tree the seal
+/// worker actually wrote to. This is the single canonical host copy — the
+/// legacy `memory_queue::handlers` copy was deleted at the W4 flip.
+pub(crate) fn chunk_tree_scope(metadata: &Metadata) -> String {
     metadata
         .path_scope
         .clone()

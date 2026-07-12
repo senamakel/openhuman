@@ -123,9 +123,9 @@ use openhuman_core::openhuman::memory_sync::traits::{
 use openhuman_core::openhuman::memory_tools::tools::{MemoryToolsListTool, MemoryToolsPutTool};
 use openhuman_core::openhuman::memory_tools::{
     render_tool_memory_rules, tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule,
-    ToolMemoryRulesSection, ToolMemorySource, ToolMemoryStore, TOOL_MEMORY_HEADING,
-    TOOL_MEMORY_PROMPT_CAP,
+    ToolMemoryRulesSection, ToolMemorySource, TOOL_MEMORY_HEADING, TOOL_MEMORY_PROMPT_CAP,
 };
+use openhuman_core::openhuman::memory_tools::tool_memory_store;
 use openhuman_core::openhuman::memory_tree::score::embed::Embedder;
 use openhuman_core::openhuman::memory_tree::score::extract::{
     CompositeExtractor, EntityExtractor, EntityKind, ExtractedEntities, ExtractedEntity,
@@ -2486,7 +2486,7 @@ async fn memory_queue_and_tool_memory_public_stores_cover_persistence_edges() {
         UnifiedMemory::new(&tool_memory_dir, Arc::new(NoopEmbedding), None)
             .expect("tool memory backend"),
     );
-    let store = ToolMemoryStore::new(memory.clone());
+    let store = tool_memory_store(memory.clone());
     assert_eq!(tool_memory_namespace(" Shell "), "tool-shell");
     assert!(ToolMemoryPriority::Critical.is_eager());
     assert!(ToolMemoryPriority::High.is_eager());

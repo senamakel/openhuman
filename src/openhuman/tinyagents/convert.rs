@@ -43,7 +43,7 @@ pub(super) fn reasoning_content_block(reasoning: Option<&str>) -> Option<Content
 }
 
 /// Recover `reasoning_content` from an assistant message's content blocks.
-fn reasoning_from_content(content: &[ContentBlock]) -> Option<String> {
+pub(crate) fn reasoning_from_content(content: &[ContentBlock]) -> Option<String> {
     content.iter().find_map(|block| match block {
         ContentBlock::Thinking { text, .. } => Some(text.clone()),
         ContentBlock::ProviderExtension(value) => value
@@ -73,7 +73,7 @@ fn reasoning_extra_metadata(content: &[ContentBlock]) -> Option<serde_json::Valu
 /// messages and native providers reject the request (`assistant message with
 /// 'tool_calls' must be followed by tool messages`). A plain assistant/tool
 /// message that isn't an envelope maps straight through as text.
-pub(super) fn chat_message_to_message(msg: &ChatMessage) -> Message {
+pub(crate) fn chat_message_to_message(msg: &ChatMessage) -> Message {
     let text = msg.content.clone();
     match msg.role.as_str() {
         "system" => Message::System(SystemMessage {
@@ -392,7 +392,7 @@ pub(super) fn messages_to_text_mode_chat(messages: &[Message]) -> Vec<ChatMessag
 }
 
 /// Convert an openhuman [`ToolSpec`] into a harness [`ToolSchema`].
-pub(super) fn spec_to_schema(spec: &ToolSpec) -> ToolSchema {
+pub(crate) fn spec_to_schema(spec: &ToolSpec) -> ToolSchema {
     // `ToolSchema::new` sets the model-visible tool-call format to the JSON
     // default (tinyagents 1.0), which is what openhuman advertises.
     ToolSchema::new(
@@ -406,7 +406,7 @@ pub(super) fn spec_to_schema(spec: &ToolSpec) -> ToolSchema {
 ///
 /// The harness models arguments as parsed JSON; openhuman carries them as the
 /// raw JSON string the provider emitted, so we re-serialize.
-pub(super) fn ta_call_to_oh_call(
+pub(crate) fn ta_call_to_oh_call(
     call: &TaToolCall,
 ) -> crate::openhuman::inference::provider::ToolCall {
     crate::openhuman::inference::provider::ToolCall {

@@ -41,6 +41,8 @@ mod summarize;
 pub(crate) mod tools;
 mod topology;
 
+pub(crate) use convert::{chat_message_to_message, reasoning_from_content, ta_call_to_oh_call};
+
 use std::sync::Arc;
 
 use anyhow::Result;

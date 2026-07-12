@@ -264,7 +264,7 @@ async fn openai_compatible_matrix_covers_auth_requests_responses_and_streaming()
         .expect("native request")
         .2
         .clone();
-    assert_eq!(native_body["tools"].as_array().unwrap().len(), 1);
+    assert_eq!(native_body["tools"].as_array().unwrap().len(), 2);
     assert!(native_body.get("stream_options").is_none());
     let stream_body = seen
         .iter()

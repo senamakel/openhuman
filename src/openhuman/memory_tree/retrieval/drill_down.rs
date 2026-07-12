@@ -4,7 +4,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::source_scope::current_source_scope;
 use crate::openhuman::memory_tree::retrieval::engine::{config as engine_config, EmbedderBridge};
 use crate::openhuman::memory_tree::retrieval::types::RetrievalHit;
-use crate::openhuman::memory_tree::score::embed::build_embedder_from_config;
+use crate::openhuman::memory_tree::score::embed::{build_embedder_from_config, InertEmbedder};
 
 pub async fn drill_down(
     config: &Config,
@@ -19,7 +19,13 @@ pub async fn drill_down(
         query.is_some(),
         limit
     );
-    let embedder = build_embedder_from_config(config)?;
+    let embedder = if query.is_none() || max_depth == 0 {
+        log::debug!("[retrieval::drill_down] using inert embedder for non-semantic traversal");
+        Box::new(InertEmbedder::new())
+            as Box<dyn crate::openhuman::memory_tree::score::embed::Embedder>
+    } else {
+        build_embedder_from_config(config)?
+    };
     let bridge = EmbedderBridge(embedder.as_ref());
     let engine_limit = current_source_scope()
         .as_ref()

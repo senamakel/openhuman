@@ -141,37 +141,33 @@ pub async fn sync_source(source: MemorySourceEntry, config: Config) -> Result<()
                         Some(&source.id),
                     );
 
-                    // Write audit entry (GitHub writes its own with
-                    // token detail; other kinds get a simpler entry).
-                    if source.kind != SourceKind::GithubRepo {
-                        use crate::openhuman::memory_sync::sources::audit::{
-                            append_audit_entry, SyncAuditEntry,
-                        };
-                        append_audit_entry(
-                            &config,
-                            &SyncAuditEntry {
-                                timestamp: chrono::Utc::now(),
-                                source_id: source.id.clone(),
-                                source_kind: source.kind.as_str().to_string(),
-                                scope: source
-                                    .url
-                                    .clone()
-                                    .or(source.toolkit.clone())
-                                    .unwrap_or_else(|| source.id.clone()),
-                                items_fetched: items as u32,
-                                batches: 0,
-                                input_tokens: 0,
-                                output_tokens: 0,
-                                estimated_cost_usd: 0.0,
-                                composio_actions_called: composio_usage.actions_called,
-                                composio_cost_usd: composio_usage.cost_usd,
-                                actual_charged_usd: None,
-                                duration_ms,
-                                success: true,
-                                error: None,
-                            },
-                        );
-                    }
+                    use crate::openhuman::memory_sync::sources::audit::{
+                        append_audit_entry, SyncAuditEntry,
+                    };
+                    append_audit_entry(
+                        &config,
+                        &SyncAuditEntry {
+                            timestamp: chrono::Utc::now(),
+                            source_id: source.id.clone(),
+                            source_kind: source.kind.as_str().to_string(),
+                            scope: source
+                                .url
+                                .clone()
+                                .or(source.toolkit.clone())
+                                .unwrap_or_else(|| source.id.clone()),
+                            items_fetched: items as u32,
+                            batches: 0,
+                            input_tokens: 0,
+                            output_tokens: 0,
+                            estimated_cost_usd: 0.0,
+                            composio_actions_called: composio_usage.actions_called,
+                            composio_cost_usd: composio_usage.cost_usd,
+                            actual_charged_usd: None,
+                            duration_ms,
+                            success: true,
+                            error: None,
+                        },
+                    );
 
                     // Auto-rebuild: if raw files exist but the tree has
                     // no summaries, build the tree now.

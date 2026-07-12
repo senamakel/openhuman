@@ -6,12 +6,17 @@
 //! client remains.
 
 use async_trait::async_trait;
+use futures_util::StreamExt;
 
 pub use super::auth::AuthStyle;
 use super::crate_openai::{build_crate_openai_model, CrateOpenAiConfig};
 use super::crate_provider::CrateBackedProvider;
-use super::traits::{ChatMessage, ChatRequest, ChatResponse, Provider, ProviderCapabilities};
+use super::traits::{
+    ChatMessage, ChatRequest, ChatResponse, Provider, ProviderCapabilities, ProviderDelta,
+    StreamChunk, StreamOptions, StreamResult,
+};
 
+#[derive(Clone)]
 pub struct OpenAiCompatibleProvider {
     name: String,
     base_url: String,
@@ -265,6 +270,74 @@ impl Provider for OpenAiCompatibleProvider {
     }
 
     fn supports_streaming(&self) -> bool {
-        false
+        true
+    }
+
+    fn stream_chat_with_system(
+        &self,
+        system_prompt: Option<&str>,
+        message: &str,
+        model: &str,
+        temperature: f64,
+        options: StreamOptions,
+    ) -> futures_util::stream::BoxStream<'static, StreamResult<StreamChunk>> {
+        let provider = self.clone();
+        let system_prompt = system_prompt.map(str::to_string);
+        let message = message.to_string();
+        let model = model.to_string();
+        let (output_tx, output_rx) = tokio::sync::mpsc::unbounded_channel();
+
+        tokio::spawn(async move {
+            let mut messages = Vec::new();
+            if let Some(system) = system_prompt {
+                messages.push(ChatMessage::system(system));
+            }
+            messages.push(ChatMessage::user(message));
+            let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel(64);
+            let output_for_deltas = output_tx.clone();
+            let forwarder = tokio::spawn(async move {
+                while let Some(delta) = delta_rx.recv().await {
+                    let text = match delta {
+                        ProviderDelta::TextDelta { delta }
+                        | ProviderDelta::ThinkingDelta { delta } => Some(delta),
+                        ProviderDelta::ToolCallStart { .. }
+                        | ProviderDelta::ToolCallArgsDelta { .. } => None,
+                    };
+                    if let Some(text) = text {
+                        let mut chunk = StreamChunk::delta(text);
+                        if options.count_tokens {
+                            chunk = chunk.with_token_estimate();
+                        }
+                        let _ = output_for_deltas.send(Ok(chunk));
+                    }
+                }
+            });
+            let inner = provider.inner(&model);
+            let result = inner
+                .chat(
+                    ChatRequest {
+                        messages: &messages,
+                        tools: None,
+                        stream: Some(&delta_tx),
+                        max_tokens: None,
+                    },
+                    &model,
+                    temperature,
+                )
+                .await;
+            drop(delta_tx);
+            let _ = forwarder.await;
+            match result {
+                Ok(_) => {
+                    let _ = output_tx.send(Ok(StreamChunk::final_chunk()));
+                }
+                Err(error) => {
+                    let _ = output_tx
+                        .send(Err(super::traits::StreamError::Provider(error.to_string())));
+                }
+            }
+        });
+
+        tokio_stream::wrappers::UnboundedReceiverStream::new(output_rx).boxed()
     }
 }

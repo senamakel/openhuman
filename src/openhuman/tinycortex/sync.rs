@@ -459,7 +459,7 @@ impl LocalDocumentSink for HostSyncAdapter {
 impl SyncStateStore for HostSyncAdapter {
     async fn get(&self, namespace: &str, key: &str) -> anyhow::Result<Option<serde_json::Value>> {
         self.memory
-            .kv_get(Some(HOST_SYNC_STATE_NAMESPACE), &state_key(namespace, key))
+            .kv_get(Some(namespace), key)
             .await
             .map_err(anyhow::Error::msg)
     }
@@ -471,11 +471,7 @@ impl SyncStateStore for HostSyncAdapter {
         value: &serde_json::Value,
     ) -> anyhow::Result<()> {
         self.memory
-            .kv_set(
-                Some(HOST_SYNC_STATE_NAMESPACE),
-                &state_key(namespace, key),
-                value,
-            )
+            .kv_set(Some(namespace), key, value)
             .await
             .map_err(anyhow::Error::msg)
     }
@@ -496,10 +492,6 @@ impl SyncEventSink for HostSyncAdapter {
         );
         Ok(())
     }
-}
-
-fn state_key(namespace: &str, key: &str) -> String {
-    format!("{namespace}:{key}")
 }
 
 fn stage_name(stage: SyncStage) -> &'static str {

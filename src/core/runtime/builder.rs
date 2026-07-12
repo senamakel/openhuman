@@ -47,6 +47,14 @@ pub struct ServiceSet {
     pub heartbeat: bool,
     /// Spawn the periodic self-update checker.
     pub update_scheduler: bool,
+    /// Start memory queue workers during runtime bootstrap.
+    pub memory_queue: bool,
+    /// Run one-shot harness initialization during runtime bootstrap.
+    pub harness_init: bool,
+    /// Refresh the skill catalog during runtime bootstrap.
+    pub skill_catalog_refresh: bool,
+    /// Boot installed MCP servers and supervise reconnects during runtime bootstrap.
+    pub mcp_boot: bool,
 }
 
 impl ServiceSet {
@@ -59,6 +67,10 @@ impl ServiceSet {
             channels: true,
             heartbeat: true,
             update_scheduler: true,
+            memory_queue: true,
+            harness_init: true,
+            skill_catalog_refresh: true,
+            mcp_boot: true,
         }
     }
 
@@ -72,6 +84,10 @@ impl ServiceSet {
             channels: false,
             heartbeat: false,
             update_scheduler: false,
+            memory_queue: false,
+            harness_init: false,
+            skill_catalog_refresh: false,
+            mcp_boot: false,
         }
     }
 
@@ -85,14 +101,11 @@ impl ServiceSet {
             channels: false,
             heartbeat: false,
             update_scheduler: false,
+            memory_queue: false,
+            harness_init: false,
+            skill_catalog_refresh: false,
+            mcp_boot: false,
         }
-    }
-
-    /// Whether this service selection permits detached background jobs during
-    /// core bootstrap. HTTP transport alone is not enough — `headless_api()` is
-    /// deliberately request/response only.
-    pub(crate) fn bootstrap_background_jobs(self) -> bool {
-        self.cron || self.channels || self.heartbeat || self.update_scheduler
     }
 }
 
@@ -409,16 +422,20 @@ mod tests {
     use super::ServiceSet;
 
     #[test]
-    fn bootstrap_background_jobs_follow_background_service_flags() {
-        assert!(!ServiceSet::none().bootstrap_background_jobs());
-        assert!(!ServiceSet::headless_api().bootstrap_background_jobs());
-        assert!(ServiceSet::desktop().bootstrap_background_jobs());
-
+    fn boot_jobs_are_independent_from_runtime_service_flags() {
         let mut custom = ServiceSet::none();
         custom.rpc_http = true;
-        assert!(!custom.bootstrap_background_jobs());
+        custom.heartbeat = true;
+        custom.update_scheduler = true;
+        assert!(!custom.memory_queue);
+        assert!(!custom.harness_init);
+        assert!(!custom.skill_catalog_refresh);
+        assert!(!custom.mcp_boot);
 
-        custom.cron = true;
-        assert!(custom.bootstrap_background_jobs());
+        let desktop = ServiceSet::desktop();
+        assert!(desktop.memory_queue);
+        assert!(desktop.harness_init);
+        assert!(desktop.skill_catalog_refresh);
+        assert!(desktop.mcp_boot);
     }
 }

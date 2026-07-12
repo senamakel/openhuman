@@ -187,7 +187,7 @@ pub fn spawn_channels_service() {
 /// runtime can register handlers first without permanently suppressing a later
 /// desktop/runtime-with-services boot.
 pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
-    if services.bootstrap_background_jobs() {
+    if services.memory_queue {
         crate::openhuman::memory_queue::start(config.clone());
     } else {
         log::debug!("[runtime] memory queue workers disabled by ServiceSet");
@@ -217,21 +217,28 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
 
 /// Starts one-shot boot background work selected by [`ServiceSet`].
 pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
-    if services.bootstrap_background_jobs() {
+    if services.harness_init {
         let cfg_for_init = config.clone();
         tokio::spawn(async move {
             crate::openhuman::harness_init::run_harness_init(cfg_for_init).await;
         });
-        crate::openhuman::skill_registry::ops::start_boot_catalog_refresh();
+    } else {
+        log::debug!("[runtime] harness init disabled by ServiceSet");
+    }
 
+    if services.skill_catalog_refresh {
+        crate::openhuman::skill_registry::ops::start_boot_catalog_refresh();
+    } else {
+        log::debug!("[runtime] boot catalog refresh disabled by ServiceSet");
+    }
+
+    if services.mcp_boot {
         let cfg_for_mcp = config.clone();
         tokio::spawn(async move {
             crate::openhuman::mcp_registry::boot::spawn_installed_servers(&cfg_for_mcp).await;
         });
         spawn_mcp_reconnect_supervisor(config.clone());
     } else {
-        log::debug!("[runtime] harness init disabled by ServiceSet");
-        log::debug!("[runtime] boot catalog refresh disabled by ServiceSet");
         log::debug!("[runtime] MCP boot-spawn disabled by ServiceSet");
         log::debug!("[runtime] MCP reconnect supervisor disabled by ServiceSet");
     }

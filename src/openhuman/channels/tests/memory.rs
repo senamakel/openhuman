@@ -138,7 +138,7 @@ async fn process_channel_message_restores_per_sender_history_on_follow_ups() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: provider_impl.clone(),
+        provider: Some(provider_impl.clone()),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -223,7 +223,7 @@ async fn process_channel_message_uses_autosaved_memory_after_history_is_cleared(
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: provider_impl.clone(),
+        provider: Some(provider_impl.clone()),
         default_provider: Arc::new("test-provider".to_string()),
         memory,
         tools_registry: Arc::new(vec![]),

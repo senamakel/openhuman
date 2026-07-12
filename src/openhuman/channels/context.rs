@@ -29,7 +29,7 @@ pub(crate) type RouteSelectionMap = Arc<Mutex<HashMap<String, ChannelRouteSelect
 #[derive(Clone)]
 pub(crate) struct ChannelRuntimeContext {
     pub(crate) channels_by_name: Arc<HashMap<String, Arc<dyn super::Channel>>>,
-    pub(crate) provider: Arc<dyn Provider>,
+    pub(crate) provider: Option<Arc<dyn Provider>>,
     pub(crate) default_provider: Arc<String>,
     pub(crate) memory: Arc<dyn Memory>,
     pub(crate) tools_registry: Arc<Vec<Box<dyn Tool>>>,
@@ -284,7 +284,7 @@ mod tests {
     fn runtime_context() -> ChannelRuntimeContext {
         ChannelRuntimeContext {
             channels_by_name: Arc::new(HashMap::new()),
-            provider: Arc::new(DummyProvider),
+            provider: Some(Arc::new(DummyProvider)),
             default_provider: Arc::new("default".into()),
             memory: Arc::new(MockMemory {
                 entries: Vec::new(),

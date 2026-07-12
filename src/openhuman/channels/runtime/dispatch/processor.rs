@@ -229,33 +229,37 @@ pub(crate) async fn process_channel_runtime_message(
 
     let history_key = conversation_history_key(&msg);
     let route = get_route_selection(ctx.as_ref(), &history_key);
-    let active_provider = match get_or_create_provider(ctx.as_ref(), &route.provider).await {
-        Ok(provider) => provider,
-        Err(err) => {
-            crate::core::observability::report_error(
-                &err,
-                "channels",
-                "provider_init",
-                &[
-                    ("channel", msg.channel.as_str()),
-                    ("provider", route.provider.as_str()),
-                ],
-            );
-            let safe_err = provider::sanitize_api_error(&err.to_string());
-            let message = format!(
+    let active_provider = if ctx.config.is_none() {
+        match get_or_create_provider(ctx.as_ref(), &route.provider).await {
+            Ok(provider) => Some(provider),
+            Err(err) => {
+                crate::core::observability::report_error(
+                    &err,
+                    "channels",
+                    "provider_init",
+                    &[
+                        ("channel", msg.channel.as_str()),
+                        ("provider", route.provider.as_str()),
+                    ],
+                );
+                let safe_err = provider::sanitize_api_error(&err.to_string());
+                let message = format!(
                 "⚠️ Failed to initialize provider `{}`. Please run `/models` to choose another provider.\nDetails: {safe_err}",
                 route.provider
             );
-            if let Some(channel) = target_channel.as_ref() {
-                let _ = channel
-                    .send_with_outbound_intent(
-                        &SendMessage::new(message, &msg.reply_target)
-                            .in_thread(msg.thread_ts.clone()),
-                    )
-                    .await;
+                if let Some(channel) = target_channel.as_ref() {
+                    let _ = channel
+                        .send_with_outbound_intent(
+                            &SendMessage::new(message, &msg.reply_target)
+                                .in_thread(msg.thread_ts.clone()),
+                        )
+                        .await;
+                }
+                return;
             }
-            return;
         }
+    } else {
+        None
     };
 
     let memory_context =
@@ -471,9 +475,11 @@ pub(crate) async fn process_channel_runtime_message(
                     cfg.clone(),
                 )
             }
-            None => {
-                crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(&active_provider))
-            }
+            None => crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(
+                active_provider
+                    .as_ref()
+                    .expect("test channel context must inject a provider"),
+            )),
         },
         history: std::mem::take(&mut history),
         tools_registry: Arc::clone(&ctx.tools_registry),

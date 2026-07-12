@@ -171,7 +171,11 @@ pub(crate) async fn get_or_create_provider(
     provider_name: &str,
 ) -> anyhow::Result<Arc<dyn Provider>> {
     if provider_name == ctx.default_provider.as_str() {
-        return Ok(Arc::clone(&ctx.provider));
+        return ctx
+            .provider
+            .as_ref()
+            .map(Arc::clone)
+            .ok_or_else(|| anyhow::anyhow!("no injected channel provider for '{provider_name}'"));
     }
 
     if let Some(existing) = ctx

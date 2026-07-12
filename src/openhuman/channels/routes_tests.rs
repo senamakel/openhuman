@@ -133,7 +133,7 @@ impl Channel for RecordingChannel {
 fn runtime_context(workspace_dir: PathBuf) -> ChannelRuntimeContext {
     ChannelRuntimeContext {
         channels_by_name: Arc::new(HashMap::new()),
-        provider: Arc::new(DummyProvider),
+        provider: Some(Arc::new(DummyProvider)),
         default_provider: Arc::new("openai".into()),
         memory: Arc::new(DummyMemory),
         tools_registry: Arc::new(vec![Box::new(DummyTool) as Box<dyn Tool>]),

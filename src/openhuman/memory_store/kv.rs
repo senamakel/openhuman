@@ -25,8 +25,7 @@ impl UnifiedMemory {
         key: &str,
         value: &serde_json::Value,
     ) -> Result<(), String> {
-        self.tinycortex_kv()?
-            .set_namespace(&Self::sanitize_namespace(namespace), key, value)
+        self.tinycortex_kv()?.set_namespace(namespace, key, value)
     }
 
     pub async fn kv_get_namespace(
@@ -34,8 +33,7 @@ impl UnifiedMemory {
         namespace: &str,
         key: &str,
     ) -> Result<Option<serde_json::Value>, String> {
-        self.tinycortex_kv()?
-            .get_namespace(&Self::sanitize_namespace(namespace), key)
+        self.tinycortex_kv()?.get_namespace(namespace, key)
     }
 
     pub async fn kv_delete_global(&self, key: &str) -> Result<bool, String> {
@@ -43,16 +41,14 @@ impl UnifiedMemory {
     }
 
     pub async fn kv_delete_namespace(&self, namespace: &str, key: &str) -> Result<bool, String> {
-        self.tinycortex_kv()?
-            .delete_namespace(&Self::sanitize_namespace(namespace), key)
+        self.tinycortex_kv()?.delete_namespace(namespace, key)
     }
 
     pub async fn kv_list_namespace(
         &self,
         namespace: &str,
     ) -> Result<Vec<serde_json::Value>, String> {
-        self.tinycortex_kv()?
-            .list_namespace(&Self::sanitize_namespace(namespace))
+        self.tinycortex_kv()?.list_namespace(namespace)
     }
 
     pub(crate) async fn kv_records_for_scope(
@@ -60,7 +56,7 @@ impl UnifiedMemory {
         namespace: &str,
     ) -> Result<Vec<MemoryKvRecord>, String> {
         self.tinycortex_kv()?
-            .records_for_scope(&Self::sanitize_namespace(namespace))
+            .records_for_scope(namespace)
             .map(convert_records)
     }
 
@@ -69,7 +65,7 @@ impl UnifiedMemory {
         namespace: &str,
     ) -> Result<Vec<MemoryKvRecord>, String> {
         self.tinycortex_kv()?
-            .records_namespace(&Self::sanitize_namespace(namespace))
+            .records_namespace(namespace)
             .map(convert_records)
     }
 

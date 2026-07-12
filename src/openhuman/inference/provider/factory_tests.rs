@@ -2885,6 +2885,22 @@ fn create_chat_model_routes_local_runtime_to_crate_native() {
 }
 
 #[test]
+fn explicit_local_provider_string_routes_to_crate_native_model() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let config = Config::default();
+    let (model, model_id) =
+        create_chat_model_from_string_with_model_id("chat", "ollama:qwen2.5", &config, 0.7)
+            .expect("explicit local model must build");
+    assert_eq!(model_id, "qwen2.5");
+    assert_eq!(
+        model
+            .profile()
+            .and_then(|profile| profile.provider.as_deref()),
+        Some("ollama")
+    );
+}
+
+#[test]
 fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     // Default config resolves to the managed backend, not a local runtime.
@@ -2932,6 +2948,27 @@ fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
     // A generic cloud model keeps native tool calling + vision on (unlike the
     // local runtimes), so this is the crate `OpenAiModel` default profile.
     assert!(profile.tool_calling);
+}
+
+#[test]
+fn explicit_cloud_provider_string_routes_to_crate_native_model() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let mut config = Config::default();
+    config.cloud_providers.push(deepseek_entry("p_ds"));
+    let (model, model_id) = create_chat_model_from_string_with_model_id(
+        "chat",
+        "deepseek:deepseek-reasoner",
+        &config,
+        0.7,
+    )
+    .expect("explicit cloud model must build");
+    assert_eq!(model_id, "deepseek-reasoner");
+    assert_eq!(
+        model
+            .profile()
+            .and_then(|profile| profile.provider.as_deref()),
+        Some("deepseek")
+    );
 }
 
 #[test]

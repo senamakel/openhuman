@@ -1001,8 +1001,55 @@ pub fn create_chat_model_from_string(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    create_chat_model_from_string_with_model_id(role, provider, config, temperature)
+        .map(|(model, _)| model)
+}
+
+/// Build a crate [`ChatModel`] from an explicit provider string and return the
+/// concrete model id selected by that provider.
+///
+/// Managed, local-runtime, and configured cloud-slug strings construct their
+/// crate-native clients directly. Only test overrides and bespoke providers
+/// without a crate client fall back through the host [`Provider`] adapter.
+pub fn create_chat_model_from_string_with_model_id(
+    role: &str,
+    provider: &str,
+    config: &Config,
+    temperature: f64,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    let test_override_active = {
+        #[cfg(any(test, feature = "e2e-test-support"))]
+        {
+            test_provider_override::current().is_some()
+        }
+        #[cfg(not(any(test, feature = "e2e-test-support")))]
+        {
+            false
+        }
+    };
+    if !test_override_active {
+        let mut resolved = provider.trim().to_string();
+        if resolved.is_empty() || resolved == "cloud" {
+            resolved = resolve_primary_cloud_provider_string(config);
+        }
+        if resolved == PROVIDER_OPENHUMAN {
+            return make_openhuman_backend_model(role, config);
+        }
+        if let Some(result) =
+            try_create_local_runtime_chat_model_from_string(role, &resolved, config, true)
+        {
+            return result;
+        }
+        if let Some(result) = try_create_cloud_slug_chat_model_from_string(role, &resolved, config)
+        {
+            return result;
+        }
+    }
     let (provider, model) = create_chat_provider_from_string(role, provider, config)?;
-    Ok(chat_model_from_provider(provider, model, temperature))
+    Ok((
+        chat_model_from_provider(provider, model.clone(), temperature),
+        model,
+    ))
 }
 
 /// Wrap an owned [`Provider`] as an `Arc<dyn ChatModel>` pinned to
@@ -1478,12 +1525,21 @@ fn try_create_local_runtime_chat_model(
     role: &str,
     config: &Config,
 ) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String)>> {
+    let resolved = provider_for_role(role, config);
+    try_create_local_runtime_chat_model_from_string(role, &resolved, config, true)
+}
+
+fn try_create_local_runtime_chat_model_from_string(
+    role: &str,
+    provider: &str,
+    config: &Config,
+    require_session: bool,
+) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String)>> {
     use crate::openhuman::inference::local::profile::{
         LOCAL_OPENAI_PROFILE, MLX_PROFILE, OMLX_PROFILE,
     };
 
-    let resolved = provider_for_role(role, config);
-    let p = resolved.trim().to_string();
+    let p = provider.trim().to_string();
     let is_local = p.starts_with(OLLAMA_PROVIDER_PREFIX)
         || p.starts_with(LM_STUDIO_PROVIDER_PREFIX)
         || p.starts_with(MLX_PROVIDER_PREFIX)
@@ -1498,9 +1554,11 @@ fn try_create_local_runtime_chat_model(
     if let Err(e) = enforce_local_only_inference(role, &p) {
         return Some(Err(e));
     }
-    #[cfg(not(test))]
-    if let Err(e) = verify_session_active(config) {
-        return Some(Err(e));
+    if require_session {
+        #[cfg(not(test))]
+        if let Err(e) = verify_session_active(config) {
+            return Some(Err(e));
+        }
     }
 
     let unsupported = config.temperature_unsupported_models.clone();
@@ -1625,6 +1683,16 @@ fn try_create_local_runtime_chat_model(
         return Some(Ok((chat, model)));
     }
     None
+}
+
+/// Build a crate-native local-runtime model for setup/probe calls that run
+/// before the desktop session gate is established.
+pub(crate) fn create_local_chat_model_from_string(
+    provider: &str,
+    config: &Config,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    try_create_local_runtime_chat_model_from_string("chat", provider, config, false)
+        .ok_or_else(|| anyhow::anyhow!("unsupported local provider string '{provider}'"))?
 }
 
 /// Verify the user has an active OpenHuman backend session.
@@ -2377,7 +2445,15 @@ fn try_create_cloud_slug_chat_model(
     if resolved.trim().is_empty() || resolved.trim() == "cloud" {
         resolved = resolve_primary_cloud_provider_string(config);
     }
-    let p = resolved.trim().to_string();
+    try_create_cloud_slug_chat_model_from_string(role, &resolved, config)
+}
+
+fn try_create_cloud_slug_chat_model_from_string(
+    role: &str,
+    provider: &str,
+    config: &Config,
+) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String)>> {
+    let p = provider.trim().to_string();
 
     // Only the "<slug>:<model>[@temp]" cloud form routes here. The managed
     // backend, BYOK-incomplete sentinel, and bespoke subprocess providers

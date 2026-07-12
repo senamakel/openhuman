@@ -1251,6 +1251,7 @@ fn build_turn_models_crate(
     provider_id: String,
     native_tools: bool,
     supports_vision: bool,
+    force_text_mode: bool,
 ) -> anyhow::Result<TurnModels> {
     use crate::openhuman::inference::provider::factory;
 
@@ -1259,10 +1260,21 @@ fn build_turn_models_crate(
     let build_primary =
         |m: &str| -> anyhow::Result<Arc<dyn tinyagents::harness::model::ChatModel<()>>> {
             match primary_override {
-                Some(ps) => {
-                    factory::create_turn_chat_model_from_string(role, ps, config, m, temperature)
-                }
-                None => factory::create_turn_chat_model(role, config, m, temperature),
+                Some(ps) => factory::create_turn_chat_model_from_string_with_native_tools(
+                    role,
+                    ps,
+                    config,
+                    m,
+                    temperature,
+                    !force_text_mode,
+                ),
+                None => factory::create_turn_chat_model_with_native_tools(
+                    role,
+                    config,
+                    m,
+                    temperature,
+                    !force_text_mode,
+                ),
             }
         };
 
@@ -1340,6 +1352,7 @@ struct CrateNativeSource {
     /// (`build_remote_provider`). `None` builds the primary from `role`. Routes
     /// always use the standard workload tiers.
     primary_override: Option<String>,
+    force_text_mode: bool,
 }
 
 impl TurnModelSource {
@@ -1371,6 +1384,7 @@ impl TurnModelSource {
                 role: role.into(),
                 config,
                 primary_override: None,
+                force_text_mode: false,
             }),
         }
     }
@@ -1391,8 +1405,17 @@ impl TurnModelSource {
                 role: role.into(),
                 config,
                 primary_override: Some(provider_string.into()),
+                force_text_mode: false,
             }),
         }
+    }
+
+    /// Force prompt-guided tool calling without resolving a host provider.
+    pub(crate) fn with_text_mode(mut self) -> Self {
+        if let Some(source) = self.crate_native.as_mut() {
+            source.force_text_mode = true;
+        }
+        self
     }
 
     /// Resolve the model's effective context window (async provider probe) — the
@@ -1503,6 +1526,7 @@ impl TurnModelSource {
                 provider_id,
                 !is_local,
                 !is_local,
+                cn.force_text_mode,
             );
         }
         let provider = self.provider.as_ref().ok_or_else(|| {

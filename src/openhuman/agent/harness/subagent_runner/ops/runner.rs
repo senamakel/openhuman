@@ -874,7 +874,6 @@ async fn run_typed_mode(
     // rejected). Wrapping the provider clears `native_tool_calling`, which makes
     // the model adapter skip native advertisement and fall back to XML parsing.
     if is_integrations_agent_with_toolkit {
-        let provider = subagent_source.provider()?;
         if let Some(sys) = history.iter_mut().find(|m| m.role == "system") {
             sys.content.push_str("\n\n");
             sys.content.push_str(&build_text_mode_tool_instructions());
@@ -885,9 +884,7 @@ async fn run_typed_mode(
             tool_count = filtered_specs.len(),
             "[subagent_runner:text-mode] omitting native tool schemas; injected XML tool protocol into system prompt"
         );
-        subagent_source = crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-            TextModeProvider::new(provider),
-        ));
+        subagent_source = subagent_source.with_text_mode();
     }
 
     // ── Run the inner tool-call loop ───────────────────────────────────
@@ -1187,91 +1184,4 @@ async fn run_typed_mode(
         final_history: history,
         usage,
     })
-}
-
-/// A [`Provider`] decorator that reports **no native tool calling**, forcing the
-/// tinyagents model adapter to omit native tool schemas and fall back to
-/// prompt-guided (`<tool_call>` XML) parsing. Everything else delegates to the
-/// inner provider. Used to run `integrations_agent` in text mode (its large
-/// toolkit would otherwise blow the provider's native tool-grammar ceiling).
-struct TextModeProvider {
-    inner: Arc<dyn crate::openhuman::inference::provider::Provider>,
-}
-
-impl TextModeProvider {
-    fn new(inner: Arc<dyn crate::openhuman::inference::provider::Provider>) -> Self {
-        Self { inner }
-    }
-}
-
-#[async_trait::async_trait]
-impl crate::openhuman::inference::provider::Provider for TextModeProvider {
-    fn capabilities(&self) -> crate::openhuman::inference::provider::traits::ProviderCapabilities {
-        let mut caps = self.inner.capabilities();
-        // The whole point: hide native tool calling so the adapter advertises none.
-        caps.native_tool_calling = false;
-        caps
-    }
-
-    async fn chat_with_system(
-        &self,
-        system_prompt: Option<&str>,
-        message: &str,
-        model: &str,
-        temperature: f64,
-    ) -> anyhow::Result<String> {
-        self.inner
-            .chat_with_system(system_prompt, message, model, temperature)
-            .await
-    }
-
-    async fn chat(
-        &self,
-        request: crate::openhuman::inference::provider::ChatRequest<'_>,
-        model: &str,
-        temperature: f64,
-    ) -> anyhow::Result<crate::openhuman::inference::provider::ChatResponse> {
-        self.inner.chat(request, model, temperature).await
-    }
-
-    fn supports_vision(&self) -> bool {
-        self.inner.supports_vision()
-    }
-
-    fn supports_streaming(&self) -> bool {
-        self.inner.supports_streaming()
-    }
-
-    async fn effective_context_window(&self, model: &str) -> Option<u64> {
-        self.inner.effective_context_window(model).await
-    }
-
-    // #4469 item 2: forward the local-provider identity + cache passthroughs. This
-    // decorator only masks native tool calling (above); everything about *where*
-    // and *how* the inner provider runs must pass through unchanged. Without these
-    // the default trait impls report the inner as a remote, non-caching provider,
-    // so a local runtime behind text mode loses its `n_keep >= n_ctx` un-evictable
-    // prefix guard (`is_local_provider*` / `loaded_context_window`, #3550) and its
-    // KV-cache pricing/strategy (`prompt_cache_capabilities`, #3939).
-    fn is_local_provider(&self) -> bool {
-        self.inner.is_local_provider()
-    }
-
-    fn is_local_provider_for_model(&self, model: &str) -> bool {
-        self.inner.is_local_provider_for_model(model)
-    }
-
-    async fn loaded_context_window(&self, model: &str) -> Option<u64> {
-        self.inner.loaded_context_window(model).await
-    }
-
-    fn prompt_cache_capabilities(
-        &self,
-    ) -> crate::openhuman::inference::provider::traits::PromptCacheCapabilities {
-        self.inner.prompt_cache_capabilities()
-    }
-
-    async fn warmup(&self) -> anyhow::Result<()> {
-        self.inner.warmup().await
-    }
 }

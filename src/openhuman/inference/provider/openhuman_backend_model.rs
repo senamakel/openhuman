@@ -41,6 +41,7 @@ use super::thread_context;
 pub struct OpenHumanBackendModel {
     backend: OpenHumanBackendProvider,
     default_model: String,
+    native_tool_calling: bool,
 }
 
 impl OpenHumanBackendModel {
@@ -49,7 +50,15 @@ impl OpenHumanBackendModel {
         Self {
             backend,
             default_model: default_model.into(),
+            native_tool_calling: true,
         }
+    }
+
+    /// Force prompt-guided tool calling for toolsets that exceed the managed
+    /// backend's native grammar ceiling.
+    pub fn with_native_tool_calling(mut self, enabled: bool) -> Self {
+        self.native_tool_calling = enabled;
+        self
     }
 
     /// Resolve the current JWT + base URL and build a fresh crate `OpenAiModel`
@@ -66,12 +75,10 @@ impl OpenHumanBackendModel {
         // The hosted API is chat-completions only (no `/v1/responses`); auth is a
         // plain bearer JWT. The tier/model rides `request.model`, which the backend
         // resolves — the baked default only applies when a request omits it.
-        Ok(OpenAiModel::compatible_provider(
-            PROVIDER_LABEL,
-            token,
-            base_url,
-            &self.default_model,
-        ))
+        Ok(
+            OpenAiModel::compatible_provider(PROVIDER_LABEL, token, base_url, &self.default_model)
+                .with_native_tool_calling(self.native_tool_calling),
+        )
     }
 }
 

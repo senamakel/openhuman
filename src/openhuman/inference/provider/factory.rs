@@ -1414,6 +1414,16 @@ pub(crate) fn create_turn_chat_model(
     model: &str,
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    create_turn_chat_model_with_native_tools(role, config, model, temperature, true)
+}
+
+pub(crate) fn create_turn_chat_model_with_native_tools(
+    role: &str,
+    config: &Config,
+    model: &str,
+    temperature: f64,
+    native_tool_calling: bool,
+) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support"))]
         {
@@ -1431,13 +1441,16 @@ pub(crate) fn create_turn_chat_model(
                 super::openhuman_backend_model::OpenHumanBackendModel::new(
                     backend,
                     model.to_string(),
-                ),
+                )
+                .with_native_tool_calling(native_tool_calling),
             ));
         }
         if let Some(result) = try_create_local_runtime_chat_model(role, config) {
             return result.map(|(chat, _model)| chat);
         }
-        if let Some(result) = try_create_cloud_slug_chat_model(role, config) {
+        if let Some(result) =
+            try_create_cloud_slug_chat_model_with_native_tools(role, config, native_tool_calling)
+        {
             return result.map(|(chat, _model)| chat);
         }
     }
@@ -1475,6 +1488,24 @@ pub(crate) fn create_turn_chat_model_from_string(
     model: &str,
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
+    create_turn_chat_model_from_string_with_native_tools(
+        role,
+        provider_string,
+        config,
+        model,
+        temperature,
+        true,
+    )
+}
+
+pub(crate) fn create_turn_chat_model_from_string_with_native_tools(
+    role: &str,
+    provider_string: &str,
+    config: &Config,
+    model: &str,
+    temperature: f64,
+    native_tool_calling: bool,
+) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
     let test_override_active = {
         #[cfg(any(test, feature = "e2e-test-support"))]
         {
@@ -1490,12 +1521,13 @@ pub(crate) fn create_turn_chat_model_from_string(
     if is_managed && !test_override_active {
         let (backend, _resolved_model) = resolve_managed_backend(role, config)?;
         return Ok(Arc::new(
-            super::openhuman_backend_model::OpenHumanBackendModel::new(backend, model.to_string()),
+            super::openhuman_backend_model::OpenHumanBackendModel::new(backend, model.to_string())
+                .with_native_tool_calling(native_tool_calling),
         ));
     }
     // A concrete non-managed string equals the role's resolution (triage only
     // honours a BYOK **cloud** route as-is), so the role-based builder matches.
-    create_turn_chat_model(role, config, model, temperature)
+    create_turn_chat_model_with_native_tools(role, config, model, temperature, native_tool_calling)
 }
 
 /// Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
@@ -2440,19 +2472,41 @@ fn try_create_cloud_slug_chat_model(
     role: &str,
     config: &Config,
 ) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String)>> {
+    try_create_cloud_slug_chat_model_with_native_tools(role, config, true)
+}
+
+fn try_create_cloud_slug_chat_model_with_native_tools(
+    role: &str,
+    config: &Config,
+    native_tool_calling: bool,
+) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String)>> {
     // Resolve the role's provider string, expanding the empty / "cloud" sentinel
     // to the primary cloud target (mirroring create_chat_provider_from_string).
     let mut resolved = provider_for_role(role, config);
     if resolved.trim().is_empty() || resolved.trim() == "cloud" {
         resolved = resolve_primary_cloud_provider_string(config);
     }
-    try_create_cloud_slug_chat_model_from_string(role, &resolved, config)
+    try_create_cloud_slug_chat_model_from_string_with_native_tools(
+        role,
+        &resolved,
+        config,
+        native_tool_calling,
+    )
 }
 
 fn try_create_cloud_slug_chat_model_from_string(
     role: &str,
     provider: &str,
     config: &Config,
+) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String)>> {
+    try_create_cloud_slug_chat_model_from_string_with_native_tools(role, provider, config, true)
+}
+
+fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
+    role: &str,
+    provider: &str,
+    config: &Config,
+    native_tool_calling: bool,
 ) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String)>> {
     let p = provider.trim().to_string();
 
@@ -2553,7 +2607,7 @@ fn try_create_cloud_slug_chat_model_from_string(
             // (parity with `OpenAiCompatibleProvider::new`).
             merge_system_into_user: false,
             extra_headers: extra_headers.as_slice(),
-            native_tool_calling: None,
+            native_tool_calling: Some(native_tool_calling),
             vision: None,
             default_provider_options: None,
             responses_api_primary,

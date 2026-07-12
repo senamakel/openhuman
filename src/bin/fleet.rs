@@ -178,10 +178,16 @@ fn bearer_from_headers(headers: &HeaderMap) -> Option<EdgeToken> {
     headers
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(EdgeToken::new)
+        .and_then(|v| {
+            let mut parts = v.trim().splitn(2, char::is_whitespace);
+            let scheme = parts.next()?;
+            let token = parts.next()?.trim();
+            if scheme.eq_ignore_ascii_case("bearer") && !token.is_empty() {
+                Some(EdgeToken::new(token))
+            } else {
+                None
+            }
+        })
 }
 
 // ---------------------------------------------------------------------------
@@ -388,9 +394,9 @@ struct Args {
     /// Comma-separated user ids to provision at boot.
     #[arg(long, value_delimiter = ',')]
     users: Vec<String>,
-    /// Optional restricted file that receives minted edge tokens.
+    /// Restricted file that receives minted edge tokens.
     #[arg(long)]
-    edge_token_output: Option<PathBuf>,
+    edge_token_output: PathBuf,
 }
 
 type ProvisionedFleet = (
@@ -449,17 +455,16 @@ fn remove_tenant(
 }
 
 fn write_edge_tokens(path: &Path, minted: &[(String, EdgeToken)]) -> anyhow::Result<()> {
-    let mut output = String::new();
-    for (user_id, token) in minted {
-        output.push_str(user_id);
-        output.push(' ');
-        output.push_str(token.as_str());
-        output.push('\n');
-    }
-
     #[cfg(unix)]
     {
-        use std::os::unix::fs::OpenOptionsExt;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        let mut output = String::new();
+        for (user_id, token) in minted {
+            output.push_str(user_id);
+            output.push(' ');
+            output.push_str(token.as_str());
+            output.push('\n');
+        }
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
@@ -467,6 +472,8 @@ fn write_edge_tokens(path: &Path, minted: &[(String, EdgeToken)]) -> anyhow::Res
             .mode(0o600)
             .open(path)
             .with_context(|| format!("opening edge token output {}", path.display()))?;
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))
+            .with_context(|| format!("restricting edge token output {}", path.display()))?;
         use std::io::Write as _;
         file.write_all(output.as_bytes())
             .with_context(|| format!("writing edge token output {}", path.display()))?;
@@ -474,8 +481,11 @@ fn write_edge_tokens(path: &Path, minted: &[(String, EdgeToken)]) -> anyhow::Res
 
     #[cfg(not(unix))]
     {
-        std::fs::write(path, output)
-            .with_context(|| format!("writing edge token output {}", path.display()))?;
+        let _ = minted;
+        anyhow::bail!(
+            "edge token output {} requires restrictive file permissions; unsupported on this platform",
+            path.display()
+        );
     }
 
     Ok(())
@@ -540,19 +550,12 @@ async fn main() -> anyhow::Result<()> {
         anyhow::bail!("no tenant cores started successfully");
     }
 
-    if let Some(path) = &args.edge_token_output {
-        write_edge_tokens(path, &minted)?;
-        log::info!(
-            "[fleet] wrote {} edge token(s) to {}",
-            minted.len(),
-            path.display()
-        );
-    } else {
-        log::warn!(
-            "[fleet] {} edge token(s) minted but not printed; pass --edge-token-output <path> to write a restricted handoff file",
-            minted.len()
-        );
-    }
+    write_edge_tokens(&args.edge_token_output, &minted)?;
+    log::info!(
+        "[fleet] wrote {} edge token(s) to {}",
+        minted.len(),
+        args.edge_token_output.display()
+    );
 
     let fleet = Arc::new(RwLock::new(Fleet {
         instances,
@@ -667,6 +670,16 @@ mod tests {
             "Bearer edge-123".parse().unwrap(),
         );
         assert_eq!(bearer_from_headers(&h), Some(EdgeToken::new("edge-123")));
+
+        let mut lower = HeaderMap::new();
+        lower.insert(
+            axum::http::header::AUTHORIZATION,
+            "bearer edge-456".parse().unwrap(),
+        );
+        assert_eq!(
+            bearer_from_headers(&lower),
+            Some(EdgeToken::new("edge-456"))
+        );
 
         let mut h2 = HeaderMap::new();
         h2.insert(

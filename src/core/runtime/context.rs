@@ -123,8 +123,7 @@ impl CoreContext {
                      bleed-over). Fix config.toml or set OPENHUMAN_WORKSPACE to a \
                      writable path, then restart."
                 );
-                crate::openhuman::config::default_root_openhuman_dir()
-                    .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                return Err(e);
             }
         };
 

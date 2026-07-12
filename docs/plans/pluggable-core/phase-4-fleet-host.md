@@ -44,7 +44,7 @@ pattern):
 - Tenants come from `--users`; production reconciles membership against
   `tinyhumansai/backend` on a loop (same pattern as the cron scheduler).
 - Minted edge tokens are never printed to stdout. The MVP can write them to a
-  restricted operator-selected file with `--edge-token-output`; production
+  restricted operator-selected file with required `--edge-token-output`; production
   should expose them through an authenticated admin API.
 - Container packaging (`HostKind::Docker`) and restart/backoff are not yet wired.
 

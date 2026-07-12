@@ -203,7 +203,7 @@ async fn compatible_native_leftovers_cover_tool_history_function_call_and_stream
     ));
     assert!(deltas.iter().any(
         |d| matches!(d, ProviderDelta::ToolCallArgsDelta { call_id, delta }
-            if call_id == "call_late" && delta.contains("\"a\":1"))
+            if call_id == "call_late" && delta.contains("\"b\":2"))
     ));
     assert!(deltas
         .iter()

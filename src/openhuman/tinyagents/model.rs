@@ -517,6 +517,15 @@ impl ProviderModel {
         self.profile.reasoning = reasoning;
         self
     }
+
+    /// Override tool calling for this model without changing the underlying
+    /// provider. Text-mode sub-agents use this to preserve injected providers
+    /// while omitting native tool schemas from their requests.
+    pub(super) fn with_tool_calling(mut self, enabled: bool) -> Self {
+        self.profile.tool_calling = enabled;
+        self.profile.parallel_tool_calls = enabled;
+        self
+    }
 }
 
 #[async_trait]
@@ -530,7 +539,7 @@ impl ChatModel<()> for ProviderModel {
         _state: &(),
         request: ModelRequest,
     ) -> tinyagents::Result<ModelResponse> {
-        let native = self.provider.supports_native_tools();
+        let native = self.profile.tool_calling;
         let (messages, specs) = build_chat_inputs(&request, native);
         // Honor a per-request temperature when the caller sets one (e.g. one-shot
         // inference callers that reuse a single model across prompts of differing
@@ -634,7 +643,7 @@ impl ChatModel<()> for ProviderModel {
     /// aggregated response, which still arrives as the terminal `Completed`
     /// item. Native tool calls always ride on `Completed`.
     async fn stream(&self, _state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
-        let native = self.provider.supports_native_tools();
+        let native = self.profile.tool_calling;
         let (messages, specs) = build_chat_inputs(&request, native);
         // Positional layouts for the text-mode P-Format fallback (issue #4465);
         // built here so it can move into the `'static` producer task below.

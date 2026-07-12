@@ -1340,6 +1340,7 @@ pub struct TurnModelSource {
     /// `None`; build failures propagate instead of falling back to the host wire
     /// client.
     crate_native: Option<CrateNativeSource>,
+    force_text_mode: bool,
 }
 
 /// The `(role, config)` a crate-native [`TurnModelSource`] builds its tiered
@@ -1368,6 +1369,7 @@ impl TurnModelSource {
         Self {
             provider: Some(provider),
             crate_native: None,
+            force_text_mode: false,
         }
     }
 
@@ -1388,6 +1390,7 @@ impl TurnModelSource {
                 primary_override: None,
                 force_text_mode: false,
             }),
+            force_text_mode: false,
         }
     }
 
@@ -1409,11 +1412,13 @@ impl TurnModelSource {
                 primary_override: Some(provider_string.into()),
                 force_text_mode: false,
             }),
+            force_text_mode: false,
         }
     }
 
     /// Force prompt-guided tool calling without resolving a host provider.
     pub(crate) fn with_text_mode(mut self) -> Self {
+        self.force_text_mode = true;
         if let Some(source) = self.crate_native.as_mut() {
             source.force_text_mode = true;
         }
@@ -1534,12 +1539,20 @@ impl TurnModelSource {
         let provider = self.provider.as_ref().ok_or_else(|| {
             anyhow::anyhow!("provider-backed turn source is missing its provider")
         })?;
-        Ok(build_turn_models(
-            provider.clone(),
-            model,
-            temperature,
-            context_window,
-        ))
+        let mut models = build_turn_models(provider.clone(), model, temperature, context_window);
+        if self.force_text_mode {
+            let primary =
+                ProviderModel::new(provider.clone(), model, temperature).with_tool_calling(false);
+            let primary = if let Some(window) = context_window.filter(|w| *w > 0) {
+                primary.with_context_window(window)
+            } else {
+                primary
+            };
+            models.error_slot = primary.error_slot();
+            models.primary = Arc::new(primary);
+            models.native_tools = false;
+        }
+        Ok(models)
     }
 
     /// Build a standalone summarizer [`ChatModel`](tinyagents::harness::model::ChatModel)

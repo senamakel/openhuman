@@ -200,34 +200,42 @@ async fn rpc_proxy(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let fleet = fleet.read().await;
+    let (http, rpc_url, core_bearer) = {
+        let fleet = fleet.read().await;
 
-    // Edge auth: the bearer must map to a user, and that user must match the
-    // path segment — so tenant A's token cannot reach tenant B's core.
-    let authorized = fleet.user_for_bearer(&headers);
-    match authorized {
-        Some(u) if u == user_id => {}
-        Some(_) => {
-            log::warn!("[fleet] reject: edge token authorized a different user than /{user_id}");
-            return (StatusCode::FORBIDDEN, "token/user mismatch").into_response();
+        // Edge auth: the bearer must map to a user, and that user must match the
+        // path segment — so tenant A's token cannot reach tenant B's core.
+        let authorized = fleet.user_for_bearer(&headers);
+        match authorized {
+            Some(u) if u == user_id => {}
+            Some(_) => {
+                log::warn!(
+                    "[fleet] reject: edge token authorized a different user than /{user_id}"
+                );
+                return (StatusCode::FORBIDDEN, "token/user mismatch").into_response();
+            }
+            None => {
+                return (StatusCode::UNAUTHORIZED, "missing or unknown edge token").into_response();
+            }
         }
-        None => {
-            return (StatusCode::UNAUTHORIZED, "missing or unknown edge token").into_response();
-        }
-    }
 
-    let Some(instance) = fleet.instances.get(&user_id) else {
-        return (StatusCode::NOT_FOUND, "no such tenant").into_response();
+        let Some(instance) = fleet.instances.get(&user_id) else {
+            return (StatusCode::NOT_FOUND, "no such tenant").into_response();
+        };
+        (
+            fleet.http.clone(),
+            instance.rpc_url(),
+            instance.core_bearer.clone(),
+        )
     };
 
     // Forward verbatim to the tenant core, swapping the edge token for the
     // tenant's core bearer. The JSON-RPC body is passed through untouched.
-    let upstream = fleet
-        .http
-        .post(instance.rpc_url())
+    let upstream = http
+        .post(rpc_url)
         .header(
             axum::http::header::AUTHORIZATION,
-            format!("Bearer {}", instance.core_bearer.as_str()),
+            format!("Bearer {}", core_bearer.as_str()),
         )
         .header(axum::http::header::CONTENT_TYPE, "application/json")
         .body(body)
@@ -270,7 +278,7 @@ async fn rpc_proxy(
 // Core process lifecycle
 // ---------------------------------------------------------------------------
 
-/// Spawn one `openhuman-core run --jsonrpc-only` child bound to `instance.port`,
+/// Spawn one `openhuman-core run --headless-api` child bound to `instance.port`,
 /// scoped to the tenant's workspace and core bearer. Returns the child handle.
 async fn spawn_core(
     core_bin: &Path,
@@ -293,7 +301,7 @@ async fn spawn_core(
 
     let child = tokio::process::Command::new(core_bin)
         .arg("run")
-        .arg("--jsonrpc-only")
+        .arg("--headless-api")
         .arg("--host")
         .arg("127.0.0.1")
         .arg("--port")

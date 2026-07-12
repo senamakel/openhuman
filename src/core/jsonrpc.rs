@@ -1687,6 +1687,12 @@ pub async fn run_server(
     run_server_inner(host, port, socketio_enabled, false, None, None, None).await
 }
 
+/// Runs the request/response-only HTTP API without detached background jobs.
+pub async fn run_server_headless(host: Option<&str>, port: Option<u16>) -> anyhow::Result<()> {
+    let services = crate::core::runtime::ServiceSet::headless_api();
+    run_server_with_services(host, port, services, false, None, None, None).await
+}
+
 /// Like [`run_server`] but marks the instance as embedded.
 pub async fn run_server_embedded(
     host: Option<&str>,
@@ -1744,6 +1750,29 @@ async fn run_server_inner(
     ready_tx: Option<tokio::sync::oneshot::Sender<EmbeddedReadySignal>>,
     rpc_token: Option<std::sync::Arc<String>>,
 ) -> anyhow::Result<()> {
+    let mut services = crate::core::runtime::ServiceSet::desktop();
+    services.socketio = socketio_enabled;
+    run_server_with_services(
+        host,
+        port,
+        services,
+        embedded_core,
+        shutdown_token,
+        ready_tx,
+        rpc_token,
+    )
+    .await
+}
+
+async fn run_server_with_services(
+    host: Option<&str>,
+    port: Option<u16>,
+    services: crate::core::runtime::ServiceSet,
+    embedded_core: bool,
+    shutdown_token: Option<CancellationToken>,
+    ready_tx: Option<tokio::sync::oneshot::Sender<EmbeddedReadySignal>>,
+    rpc_token: Option<std::sync::Arc<String>>,
+) -> anyhow::Result<()> {
     // `run_server_inner` is now a thin shim over the CoreBuilder/CoreRuntime
     // composition (Phase 1). It reproduces the legacy behavior exactly: all
     // background services on (`ServiceSet::desktop`), Socket.IO per the caller
@@ -1759,9 +1788,6 @@ async fn run_server_inner(
         Some(token) => crate::core::runtime::TokenSource::Fixed(token),
         None => crate::core::runtime::TokenSource::EnvOrFile,
     };
-    let mut services = crate::core::runtime::ServiceSet::desktop();
-    services.socketio = socketio_enabled;
-
     let mut builder = crate::core::runtime::CoreBuilder::new(host_kind)
         .token(token)
         .services(services);

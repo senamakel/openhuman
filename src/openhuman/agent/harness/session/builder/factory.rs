@@ -699,23 +699,12 @@ impl Agent {
                 > = if config.learning.reflection_source
                     == crate::openhuman::config::ReflectionSource::Cloud
                 {
-                    // Reflection always calls with the `hint:reasoning` route +
-                    // 0.3 temperature (formerly `simple_chat(prompt,
-                    // "hint:reasoning", 0.3)`), so bake both into the wrapped
-                    // model. The routed provider still resolves the hint per call.
-                    let routed = provider::create_routed_provider(
-                        config.inference_url.as_deref(),
-                        config.api_url.as_deref(),
-                        config.api_key.as_deref(),
-                        &config.reliability,
-                        &config.model_routes,
-                        &model_name,
-                    )?;
-                    Some(provider::chat_model_from_provider(
-                        routed,
-                        "hint:reasoning".to_string(),
-                        0.3,
-                    ))
+                    let (model, resolved_model) =
+                        provider::create_chat_model_with_model_id("reasoning", config, 0.3)?;
+                    log::debug!(
+                        "[learning] built crate-native reflection model resolved_model={resolved_model}"
+                    );
+                    Some(model)
                 } else {
                     None
                 };

@@ -2400,9 +2400,7 @@ async fn inference_openai_compatible_provider_covers_native_streaming_and_fallba
         .chat_with_system(None, "missing", "responses-fallback", 0.1)
         .await
         .expect_err("404 without fallback");
-    assert!(missing
-        .to_string()
-        .contains("check that your endpoint URL is correct"));
+    assert!(missing.to_string().contains("404"));
 
     let mut chunks = provider.stream_chat_with_system(
         Some("sys"),

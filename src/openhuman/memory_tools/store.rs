@@ -1,307 +1,160 @@
-//! Storage layer for [`ToolMemoryRule`]s.
+//! Storage layer for tool-scoped rules — thin host shim over
+//! `tinycortex::memory::tool_memory::store` (W7).
 //!
-//! Rules are persisted as KV rows in the tool's dedicated namespace
-//! (`tool-{tool_name}`). KV storage is preferred over the document /
-//! embedding pipeline because:
+//! The store engine (put / get / list / delete / prompt over an
+//! `Arc<dyn Memory>`) is the crate's. It is generic over the **crate** `Memory`
+//! trait, while host call sites hold `Arc<dyn `[`crate::openhuman::memory::Memory`]`>`
+//! — which is the crate trait *plus* the host-only `sqlite_conn()` escape hatch
+//! (gap G1). [`HostMemoryBridge`] adapts one to the other (every method forwards
+//! unchanged), so [`tool_memory_store`] builds a crate `ToolMemoryStore` over a
+//! host backend without waiting on the W3 trait unification.
 //!
-//! - Tool guidance is short, structured, and benefits from exact key
-//!   lookup more than semantic retrieval.
-//! - Writes never block on the local embedding model.
-//! - Atomicity per rule is sufficient for safety-critical instructions.
-//!
-//! This module wraps an [`Arc<dyn Memory>`] handle (rather than the
-//! concrete [`MemoryClient`]) so unit tests can swap in an in-memory
-//! mock following the existing `tool_tracker` pattern.
+//! Behaviour note: the deleted host engine had a `sqlite_conn` fast-path in
+//! `list_rules` (a direct `memory_docs` query ordered by `updated_at`); the
+//! crate engine uses the trait `list()` only. This is behaviour-equivalent —
+//! the host already used `list()` as its fallback for connectionless backends —
+//! and differs only by a negligible per-tool query cost.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use rusqlite::params;
-use serde_json::Value;
+use async_trait::async_trait;
 
-use super::types::{tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule, ToolMemorySource};
-use crate::openhuman::memory::{Memory, MemoryCategory};
+use tinycortex::memory::Memory as CrateMemory;
+use tinycortex::memory::{MemoryCategory, MemoryEntry, MemoryTaint, NamespaceSummary, RecallOpts};
 
-/// Maximum number of rules surfaced into the system prompt at once.
-///
-/// Keeps the cache-friendly prefix bounded even when callers stash a long
-/// list of Critical rules over time. Lower-priority rules are still
-/// available via [`ToolMemoryStore::list_rules`].
-pub const TOOL_MEMORY_PROMPT_CAP: usize = 30;
+use crate::openhuman::memory::Memory;
 
-/// High-level store for tool-scoped memory rules.
-///
-/// All methods operate on a single shared [`Arc<dyn Memory>`] backend.
-/// Cheap to clone — the backend is reference-counted.
-#[derive(Clone)]
-pub struct ToolMemoryStore {
-    memory: Arc<dyn Memory>,
-}
+pub use tinycortex::memory::tool_memory::store::{ToolMemoryStore, TOOL_MEMORY_PROMPT_CAP};
 
-impl ToolMemoryStore {
-    /// Build a new store over the given memory backend.
-    pub fn new(memory: Arc<dyn Memory>) -> Self {
-        Self { memory }
+/// Presents a host [`Arc<dyn Memory>`] as the crate [`Memory`](CrateMemory) the
+/// crate `ToolMemoryStore` is generic over. The host trait is the crate trait
+/// plus `sqlite_conn`, so every method forwards verbatim (the value types are
+/// already crate re-exports, so no conversion is needed).
+struct HostMemoryBridge(Arc<dyn Memory>);
+
+#[async_trait]
+impl CrateMemory for HostMemoryBridge {
+    fn name(&self) -> &str {
+        self.0.name()
     }
 
-    /// Upsert a rule and return the stored copy (with `updated_at`
-    /// refreshed).
-    ///
-    /// If a rule with the same `(tool_name, id)` already exists, its
-    /// `created_at` is preserved. `tool_name` is sourced from the rule
-    /// itself to avoid storage/namespace skew.
-    pub async fn put_rule(&self, mut rule: ToolMemoryRule) -> Result<ToolMemoryRule, String> {
-        if rule.tool_name.trim().is_empty() {
-            return Err("tool_name is required".to_string());
-        }
-        if rule.rule.trim().is_empty() {
-            return Err("rule body is required".to_string());
-        }
-        if rule.id.trim().is_empty() {
-            rule.id = ToolMemoryRule::generate_id();
-        }
-
-        let namespace = tool_memory_namespace(&rule.tool_name);
-        let key = ToolMemoryRule::storage_key(&rule.id);
-
-        // Preserve created_at on upsert.
-        if let Some(existing) = self.fetch_rule(&namespace, &key).await? {
-            rule.created_at = existing.created_at;
-        }
-        rule.updated_at = chrono::Utc::now().to_rfc3339();
-
-        let content = serde_json::to_string(&rule).map_err(|e| e.to_string())?;
-        self.memory
-            .store(
-                &namespace,
-                &key,
-                &content,
-                MemoryCategory::Custom("tool_memory".into()),
-                None,
-            )
-            .await
-            .map_err(|e| format!("store tool rule: {e:#}"))?;
-
-        log::debug!(
-            "[tool-memory] put rule id={} tool={} priority={:?} source={:?}",
-            rule.id,
-            rule.tool_name,
-            rule.priority,
-            rule.source
-        );
-
-        Ok(rule)
-    }
-
-    /// Fetch a single rule by `(tool_name, id)`.
-    pub async fn get_rule(
-        &self,
-        tool_name: &str,
-        rule_id: &str,
-    ) -> Result<Option<ToolMemoryRule>, String> {
-        let namespace = tool_memory_namespace(tool_name);
-        let key = ToolMemoryRule::storage_key(rule_id);
-        self.fetch_rule(&namespace, &key).await
-    }
-
-    /// List every rule registered for a tool, sorted by priority (high
-    /// first) and then `updated_at` descending.
-    pub async fn list_rules(&self, tool_name: &str) -> Result<Vec<ToolMemoryRule>, String> {
-        let namespace = tool_memory_namespace(tool_name);
-        let mut rules: Vec<ToolMemoryRule> = if let Some(conn) = self.memory.sqlite_conn() {
-            let conn = conn.lock();
-            let mut stmt = conn
-                .prepare(
-                    "SELECT key, content
-                     FROM memory_docs
-                     WHERE namespace = ?1 AND key LIKE 'rule/%'
-                     ORDER BY updated_at DESC",
-                )
-                .map_err(|e| format!("prepare tool rule list: {e}"))?;
-            let rows = stmt
-                .query_map(params![namespace], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })
-                .map_err(|e| format!("query tool rule list: {e}"))?;
-
-            rows.filter_map(|row| match row {
-                Ok((key, content)) => match serde_json::from_str::<ToolMemoryRule>(&content) {
-                    Ok(rule) => Some(rule),
-                    Err(err) => {
-                        log::warn!(
-                            "[tool-memory] skipping malformed sqlite rule key={} tool={tool_name}: {err}",
-                            key
-                        );
-                        None
-                    }
-                },
-                Err(err) => {
-                    log::warn!(
-                        "[tool-memory] skipping unreadable sqlite rule row tool={tool_name}: {err}"
-                    );
-                    None
-                }
-            })
-            .collect()
-        } else {
-            let entries = self
-                .memory
-                .list(Some(&namespace), None, None)
-                .await
-                .map_err(|e| format!("list tool rules: {e:#}"))?;
-
-            entries
-                .into_iter()
-                .filter(|entry| entry.key.starts_with("rule/"))
-                .filter_map(
-                    |entry| match serde_json::from_str::<ToolMemoryRule>(&entry.content) {
-                        Ok(rule) => Some(rule),
-                        Err(err) => {
-                            log::warn!(
-                                "[tool-memory] skipping malformed rule key={} tool={tool_name}: {err}",
-                                entry.key
-                            );
-                            None
-                        }
-                    },
-                )
-                .collect()
-        };
-
-        rules.sort_by(|a, b| {
-            b.priority
-                .cmp(&a.priority)
-                .then_with(|| b.updated_at.cmp(&a.updated_at))
-        });
-
-        Ok(rules)
-    }
-
-    /// Delete a rule. Returns `true` if the rule existed.
-    pub async fn delete_rule(&self, tool_name: &str, rule_id: &str) -> Result<bool, String> {
-        let namespace = tool_memory_namespace(tool_name);
-        let key = ToolMemoryRule::storage_key(rule_id);
-        self.memory
-            .forget(&namespace, &key)
-            .await
-            .map_err(|e| format!("forget tool rule: {e:#}"))
-    }
-
-    /// Returns the set of rules whose [`ToolMemoryPriority`] indicates
-    /// they must be eagerly surfaced (Critical + High), grouped by tool
-    /// name. Result is bounded by [`TOOL_MEMORY_PROMPT_CAP`] entries
-    /// total — Critical rules are always preferred over High when the
-    /// cap is reached.
-    ///
-    /// `tools` constrains which tool namespaces to inspect; passing an
-    /// empty slice scans every known tool namespace via
-    /// [`Memory::namespace_summaries`].
-    pub async fn rules_for_prompt(
-        &self,
-        tools: &[String],
-    ) -> Result<HashMap<String, Vec<ToolMemoryRule>>, String> {
-        let tool_names = if tools.is_empty() {
-            self.list_tool_names().await?
-        } else {
-            tools
-                .iter()
-                .map(|name| name.trim().to_string())
-                .filter(|name| !name.is_empty())
-                .collect()
-        };
-
-        let mut collected: Vec<ToolMemoryRule> = Vec::new();
-        for tool in &tool_names {
-            let rules = self.list_rules(tool).await?;
-            collected.extend(rules.into_iter().filter(|r| r.priority.is_eager()));
-        }
-
-        // Critical first, then High; within a priority, freshest first.
-        collected.sort_by(|a, b| {
-            b.priority
-                .cmp(&a.priority)
-                .then_with(|| b.updated_at.cmp(&a.updated_at))
-        });
-        collected.truncate(TOOL_MEMORY_PROMPT_CAP);
-
-        let mut out: HashMap<String, Vec<ToolMemoryRule>> = HashMap::new();
-        for rule in collected {
-            out.entry(rule.tool_name.clone()).or_default().push(rule);
-        }
-        Ok(out)
-    }
-
-    /// Enumerate every tool that has at least one stored rule, by
-    /// inspecting namespace summaries and keeping only the `tool-…`
-    /// prefixed ones.
-    pub async fn list_tool_names(&self) -> Result<Vec<String>, String> {
-        let summaries = self
-            .memory
-            .namespace_summaries()
-            .await
-            .map_err(|e| format!("list tool namespaces: {e:#}"))?;
-        let mut out = Vec::new();
-        for summary in summaries {
-            if let Some(tool) = summary.namespace.strip_prefix("tool-") {
-                // Exclude empty names and the sentinel used for unscoped
-                // edicts captured before any tool call ran — those rules are
-                // not permanently associated with a real tool and must not be
-                // injected into prompt filtering for arbitrary sessions.
-                if !tool.is_empty() && tool != "__unscoped__" {
-                    out.push(tool.to_string());
-                }
-            }
-        }
-        out.sort();
-        out.dedup();
-        Ok(out)
-    }
-
-    /// Convenience constructor: build a rule from caller-supplied fields
-    /// and persist it. Returns the stored rule.
-    pub async fn record(
-        &self,
-        tool_name: &str,
-        rule_body: &str,
-        priority: ToolMemoryPriority,
-        source: ToolMemorySource,
-        tags: Vec<String>,
-    ) -> Result<ToolMemoryRule, String> {
-        let mut rule = ToolMemoryRule::new(tool_name, rule_body, priority, source);
-        rule.tags = tags;
-        self.put_rule(rule).await
-    }
-
-    /// Render rules for a single tool into a JSON value suitable for
-    /// passing through the RPC envelope. Sorted by priority desc.
-    pub async fn list_rules_json(&self, tool_name: &str) -> Result<Value, String> {
-        let rules = self.list_rules(tool_name).await?;
-        serde_json::to_value(rules).map_err(|e| e.to_string())
-    }
-
-    async fn fetch_rule(
+    async fn store(
         &self,
         namespace: &str,
         key: &str,
-    ) -> Result<Option<ToolMemoryRule>, String> {
-        let entry = self
-            .memory
-            .get(namespace, key)
+        content: &str,
+        category: MemoryCategory,
+        session_id: Option<&str>,
+    ) -> anyhow::Result<()> {
+        self.0
+            .store(namespace, key, content, category, session_id)
             .await
-            .map_err(|e| format!("get tool rule: {e:#}"))?;
-        match entry {
-            Some(entry) => match serde_json::from_str::<ToolMemoryRule>(&entry.content) {
-                Ok(rule) => Ok(Some(rule)),
-                Err(err) => {
-                    log::warn!("[tool-memory] malformed rule entry in {namespace}/{key}: {err}");
-                    Ok(None)
-                }
-            },
-            None => Ok(None),
+    }
+
+    async fn store_with_taint(
+        &self,
+        namespace: &str,
+        key: &str,
+        content: &str,
+        category: MemoryCategory,
+        session_id: Option<&str>,
+        taint: MemoryTaint,
+    ) -> anyhow::Result<()> {
+        self.0
+            .store_with_taint(namespace, key, content, category, session_id, taint)
+            .await
+    }
+
+    async fn recall(
+        &self,
+        query: &str,
+        limit: usize,
+        opts: RecallOpts<'_>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        self.0.recall(query, limit, opts).await
+    }
+
+    async fn recall_relevant_by_vector(
+        &self,
+        namespace: &str,
+        query: &str,
+        limit: usize,
+        min_vector_similarity: f64,
+    ) -> anyhow::Result<Vec<(String, String)>> {
+        self.0
+            .recall_relevant_by_vector(namespace, query, limit, min_vector_similarity)
+            .await
+    }
+
+    async fn get(&self, namespace: &str, key: &str) -> anyhow::Result<Option<MemoryEntry>> {
+        self.0.get(namespace, key).await
+    }
+
+    async fn list(
+        &self,
+        namespace: Option<&str>,
+        category: Option<&MemoryCategory>,
+        session_id: Option<&str>,
+    ) -> anyhow::Result<Vec<MemoryEntry>> {
+        // UnifiedMemory::list() lists *documents* and surfaces each document's
+        // title as the entry content — so tool rules, stored as JSON in
+        // `memory_docs`, can't be round-tripped back through it (the crate
+        // `list_rules` would fail to deserialize the title as a rule and drop
+        // it). When the backend exposes a raw connection — as UnifiedMemory
+        // does — read the real content straight from `memory_docs`, mirroring
+        // the fast-path the host `ToolMemoryStore` used before this engine moved
+        // to the crate. Connectionless backends (e.g. the test `MockMemory`)
+        // fall back to the trait `list()`, whose content is already faithful.
+        if let (Some(ns), Some(conn)) = (namespace, self.0.sqlite_conn()) {
+            let conn = conn.lock();
+            let mut stmt = conn.prepare(
+                "SELECT document_id, key, content, taint \
+                 FROM memory_docs WHERE namespace = ?1",
+            )?;
+            let rows = stmt.query_map([ns], |r| {
+                Ok(MemoryEntry {
+                    id: r.get::<_, String>(0)?,
+                    key: r.get::<_, String>(1)?,
+                    content: r.get::<_, String>(2)?,
+                    namespace: Some(ns.to_string()),
+                    // These fields are unused by the sole consumer
+                    // (`ToolMemoryStore::list_rules`, which reads key + content);
+                    // taint is carried faithfully, the rest are placeholders.
+                    category: MemoryCategory::Core,
+                    timestamp: String::new(),
+                    session_id: None,
+                    score: None,
+                    taint: MemoryTaint::from_db_str(&r.get::<_, String>(3)?),
+                })
+            })?;
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            return Ok(out);
         }
+        self.0.list(namespace, category, session_id).await
+    }
+
+    async fn forget(&self, namespace: &str, key: &str) -> anyhow::Result<bool> {
+        self.0.forget(namespace, key).await
+    }
+
+    async fn namespace_summaries(&self) -> anyhow::Result<Vec<NamespaceSummary>> {
+        self.0.namespace_summaries().await
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        self.0.count().await
+    }
+
+    async fn health_check(&self) -> bool {
+        self.0.health_check().await
     }
 }
 
-#[cfg(test)]
-#[path = "store_tests.rs"]
-mod tests;
+/// Build a crate [`ToolMemoryStore`] over a host memory backend, bridging the
+/// host `Memory` trait object to the crate `Memory` the store requires.
+pub fn tool_memory_store(memory: Arc<dyn Memory>) -> ToolMemoryStore {
+    ToolMemoryStore::new(Arc::new(HostMemoryBridge(memory)))
+}

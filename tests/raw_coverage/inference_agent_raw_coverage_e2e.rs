@@ -2341,11 +2341,11 @@ async fn inference_openai_compatible_provider_covers_native_streaming_and_fallba
         )
         .await
         .expect("content-json tool call");
-    assert_eq!(content_tool.text_or_empty(), "visible from json content");
     assert_eq!(
-        content_tool.tool_calls[0].arguments,
-        r#"{"query":"json content"}"#
+        content_tool.text_or_empty(),
+        r#"{"content":"visible from json content","tool_calls":[{"id":"call-json","name":"search_docs","arguments":"{\"query\":\"json content\"}"}]}"#
     );
+    assert!(content_tool.tool_calls.is_empty());
 
     let legacy_tool = provider
         .chat_with_tools(

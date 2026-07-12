@@ -6,7 +6,7 @@
 //! Phase 4 of the pluggable-core plan (`docs/plans/pluggable-core/phase-4-fleet-host.md`).
 //!
 //! Design (process-per-user, not in-process multi-tenancy):
-//! - Each tenant gets its own OS process (`openhuman-core run --jsonrpc-only`),
+//! - Each tenant gets its own OS process (`openhuman-core run --headless-api`),
 //!   its own workspace volume (`OPENHUMAN_WORKSPACE`), and its own core bearer
 //!   (`OPENHUMAN_CORE_TOKEN`). This MVP does not yet run tenants under
 //!   distinct OS users or containers, so it is not a production multi-tenant
@@ -32,7 +32,7 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use axum::{
     body::Bytes,
-    extract::{Path as AxumPath, State},
+    extract::{DefaultBodyLimit, Path as AxumPath, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
@@ -112,6 +112,11 @@ mod edge_auth {
 }
 
 use edge_auth::EdgeAuth;
+
+/// Keep the fleet proxy's `/rpc` request-body contract aligned with the core
+/// server. Chat image attachments are base64-inlined into JSON-RPC bodies, and
+/// direct core `/rpc` accepts up to 64 MiB for that path.
+const MAX_RPC_BODY_BYTES: usize = 64 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Tenant registry — pure derivation of per-user port / workspace / rpc url.
@@ -359,7 +364,27 @@ async fn wait_authenticated_ready(
             .send()
             .await
         {
-            Ok(resp) if resp.status().is_success() => return true,
+            Ok(resp) if resp.status().is_success() => {
+                match resp.json::<serde_json::Value>().await {
+                    Ok(value) if readiness_body_succeeded(&value) => return true,
+                    Ok(value) => {
+                        log::debug!(
+                            "[fleet] readiness probe tenant={} port={} returned JSON-RPC failure has_result={} has_error={}",
+                            instance.user_id,
+                            instance.port,
+                            value.get("result").is_some(),
+                            value.get("error").is_some()
+                        );
+                    }
+                    Err(e) => {
+                        log::debug!(
+                            "[fleet] readiness probe tenant={} port={} returned invalid JSON-RPC body: {e}",
+                            instance.user_id,
+                            instance.port
+                        );
+                    }
+                }
+            }
             Ok(resp) => log::debug!(
                 "[fleet] readiness probe tenant={} port={} returned status={}",
                 instance.user_id,
@@ -375,6 +400,10 @@ async fn wait_authenticated_ready(
         tokio::time::sleep(std::time::Duration::from_millis(250 * attempt as u64)).await;
     }
     false
+}
+
+fn readiness_body_succeeded(value: &serde_json::Value) -> bool {
+    value.get("error").is_none() && value.get("result").is_some()
 }
 
 // ---------------------------------------------------------------------------
@@ -588,7 +617,10 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let app = Router::new()
-        .route("/{user_id}/rpc", post(rpc_proxy))
+        .route(
+            "/{user_id}/rpc",
+            post(rpc_proxy).route_layer(DefaultBodyLimit::max(MAX_RPC_BODY_BYTES)),
+        )
         .with_state(fleet);
 
     let addr: SocketAddr = args
@@ -695,5 +727,25 @@ mod tests {
             "edge-123".parse().unwrap(),
         );
         assert_eq!(bearer_from_headers(&h2), None);
+    }
+
+    #[test]
+    fn readiness_body_requires_jsonrpc_result() {
+        assert!(readiness_body_succeeded(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "fleet-ready",
+            "result": {"tier": "supervised"}
+        })));
+
+        assert!(!readiness_body_succeeded(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "fleet-ready",
+            "error": {"code": -32000, "message": "config unavailable"}
+        })));
+
+        assert!(!readiness_body_succeeded(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "fleet-ready"
+        })));
     }
 }

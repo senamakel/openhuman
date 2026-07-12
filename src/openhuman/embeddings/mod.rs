@@ -25,17 +25,17 @@ pub mod ollama;
 pub mod openai;
 mod provider_trait;
 pub mod rate_limit {
-    pub use tinyagents::harness::embeddings::rate_limit::{
+    pub use tinyagents::harness::embeddings::{
         rate_limit as embedding_rate_limit, set_rate_limit as set_embedding_rate_limit,
         DEFAULT_REQUESTS_PER_MINUTE as DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN,
     };
 
     pub async fn acquire_embedding_slot(base_url: &str) {
-        tinyagents::harness::embeddings::rate_limit::acquire(base_url).await;
+        tinyagents::harness::embeddings::acquire(base_url).await;
     }
 }
 pub mod retry_after {
-    pub use tinyagents::harness::embeddings::retry_after::{
+    pub use tinyagents::harness::embeddings::{
         backoff_ms_for_attempt, parse_retry_after_ms, BASE_BACKOFF_MS, MAX_BACKOFF_MS,
         MAX_RETRIES as MAX_429_RETRIES,
     };

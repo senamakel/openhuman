@@ -507,6 +507,7 @@ fn write_edge_tokens(path: &Path, minted: &[(String, EdgeToken)]) -> anyhow::Res
             .write(true)
             .truncate(true)
             .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
             .open(path)
             .with_context(|| format!("opening edge token output {}", path.display()))?;
         file.set_permissions(std::fs::Permissions::from_mode(0o600))
@@ -540,10 +541,13 @@ async fn main() -> anyhow::Result<()> {
     let (mut instances, mut edge_auth, mut minted) =
         provision(&args.users, &args.workspaces_root, args.base_core_port)?;
 
-    let http = reqwest::Client::builder()
+    let proxy_http = reqwest::Client::builder()
+        .build()
+        .context("building fleet proxy HTTP client")?;
+    let readiness_http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
-        .context("building HTTP client")?;
+        .context("building readiness HTTP client")?;
 
     // Spawn each tenant core. Children are monitored for the lifetime of the
     // process; aborting a monitor drops the child with kill_on_drop(true).
@@ -555,7 +559,7 @@ async fn main() -> anyhow::Result<()> {
         };
         match spawn_result {
             Ok(mut child) => {
-                let healthy = wait_authenticated_ready(&http, &instance, 20).await;
+                let healthy = wait_authenticated_ready(&readiness_http, &instance, 20).await;
                 if healthy {
                     log::info!("[fleet] tenant {} core ready", instance.user_id);
                     children.push((instance.user_id.clone(), child));
@@ -597,7 +601,7 @@ async fn main() -> anyhow::Result<()> {
     let fleet = Arc::new(RwLock::new(Fleet {
         instances,
         edge_auth,
-        http,
+        http: proxy_http,
     }));
 
     let mut child_tasks = Vec::new();
@@ -768,5 +772,24 @@ mod tests {
             std::fs::read_to_string(path).unwrap(),
             "alice edge-secret\n"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn edge_token_output_rejects_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("attacker-readable.txt");
+        std::fs::write(&target, "unchanged").unwrap();
+        let output = dir.path().join("edge-tokens.txt");
+        symlink(&target, &output).unwrap();
+
+        assert!(write_edge_tokens(
+            &output,
+            &[("alice".to_string(), EdgeToken::new("edge-secret"))],
+        )
+        .is_err());
+        assert_eq!(std::fs::read_to_string(target).unwrap(), "unchanged");
     }
 }

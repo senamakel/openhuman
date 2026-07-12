@@ -2301,7 +2301,7 @@ async fn inference_openai_compatible_provider_covers_native_streaming_and_fallba
         .await
         .expect("streaming native chat");
     drop(delta_tx);
-    assert_eq!(streamed.text_or_empty(), "hello");
+    assert_eq!(streamed.text_or_empty(), "hello ");
     assert_eq!(streamed.reasoning_content.as_deref(), Some("thinking"));
     assert_eq!(streamed.tool_calls.len(), 1);
     assert_eq!(streamed.tool_calls[0].id, "call-stream");

@@ -1,7 +1,7 @@
 //! Legacy [`Provider`] boundary backed by a crate-native [`ChatModel`].
 
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use futures_util::StreamExt;
@@ -14,14 +14,26 @@ use super::traits::{
 use crate::openhuman::tools::ToolSpec;
 
 fn sanitize_model_error(message: &str) -> String {
-    if ["Bearer ", "sk-", "ghp_", "-----BEGIN"]
-        .iter()
-        .any(|marker| message.contains(marker))
-    {
-        "provider error contained sensitive content [redacted]".to_string()
-    } else {
-        message.to_string()
+    if message.contains("-----BEGIN") {
+        return "provider error contained sensitive content [redacted]".to_string();
     }
+
+    static PATTERNS: OnceLock<Vec<regex::Regex>> = OnceLock::new();
+    let patterns = PATTERNS.get_or_init(|| {
+        [
+            r"(?i)\bBearer\s+[^\s,;]+",
+            r"\bsk-[A-Za-z0-9_-]{8,}\b",
+            r"\bgh[pousr]_[A-Za-z0-9_]{8,}\b",
+        ]
+        .into_iter()
+        .map(|pattern| regex::Regex::new(pattern).expect("valid provider error redaction regex"))
+        .collect()
+    });
+    patterns
+        .iter()
+        .fold(message.to_string(), |sanitized, pattern| {
+            pattern.replace_all(&sanitized, "[REDACTED]").into_owned()
+        })
 }
 
 pub(crate) struct CrateBackedProvider {
@@ -305,7 +317,7 @@ mod tests {
     fn model_error_sanitizer_redacts_credentials_and_preserves_safe_errors() {
         assert_eq!(
             sanitize_model_error("HTTP 403: denied for sk-provider-secret"),
-            "provider error contained sensitive content [redacted]"
+            "HTTP 403: denied for [REDACTED]"
         );
         assert_eq!(
             sanitize_model_error("HTTP 404: missing"),

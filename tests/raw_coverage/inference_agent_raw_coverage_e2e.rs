@@ -2367,10 +2367,7 @@ async fn inference_openai_compatible_provider_covers_native_streaming_and_fallba
         legacy_tool.text_or_empty(),
         "<think>private</think> visible"
     );
-    assert_eq!(
-        legacy_tool.reasoning_content.as_deref(),
-        Some("  retained reasoning  ")
-    );
+    assert!(legacy_tool.reasoning_content.is_none());
     assert_eq!(
         legacy_tool
             .usage

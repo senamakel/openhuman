@@ -65,8 +65,7 @@ fn registry() -> &'static [RegisteredController] {
     REGISTRY
         .get_or_init(|| {
             let registered = build_registered_controllers();
-            let declared = build_declared_controller_schemas();
-            validate_registry(&registered, &declared).unwrap_or_else(|err| {
+            validate_registry(&registered).unwrap_or_else(|err| {
                 panic!("invalid controller registry: {err}");
             });
             registered
@@ -368,155 +367,16 @@ fn build_internal_only_controllers() -> Vec<RegisteredController> {
     controllers
 }
 
-/// Aggregates all controller schemas from across the codebase.
-///
-/// Similar to [`build_registered_controllers`], but only collects the metadata
-/// (schema) for each controller. This is used for discovery and validation.
-fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
-    let mut schemas = Vec::new();
-    schemas.extend(crate::openhuman::about_app::all_about_app_controller_schemas());
-    schemas.extend(crate::openhuman::agentbox::all_agentbox_controller_schemas());
-    schemas.extend(crate::openhuman::app_state::all_app_state_controller_schemas());
-    schemas.extend(crate::openhuman::audio_toolkit::all_audio_toolkit_controller_schemas());
-    schemas.extend(crate::openhuman::composio::all_composio_controller_schemas());
-    schemas.extend(crate::openhuman::recall_calendar::all_recall_calendar_controller_schemas());
-    schemas.extend(crate::openhuman::cron::all_cron_controller_schemas());
-    schemas.extend(crate::openhuman::flows::all_flows_controller_schemas());
-    schemas.extend(crate::openhuman::task_sources::all_task_sources_controller_schemas());
-    schemas.extend(crate::openhuman::dashboard::all_dashboard_controller_schemas());
-    schemas.extend(crate::openhuman::mcp_registry::all_mcp_registry_controller_schemas());
-    schemas.extend(crate::openhuman::webview_apis::all_webview_apis_controller_schemas());
-    schemas.extend(crate::openhuman::agent::all_agent_controller_schemas());
-    // Read-only agent run replay + status controllers (workstream 05.x).
-    schemas.extend(crate::openhuman::tinyagents::replay::all_agent_replay_controller_schemas());
-    schemas.extend(crate::openhuman::profiles::all_profiles_controller_schemas());
-    schemas.extend(crate::openhuman::agent_registry::all_agent_registry_controller_schemas());
-    schemas.extend(crate::openhuman::agent_experience::all_agent_experience_controller_schemas());
-    schemas.extend(crate::openhuman::health::all_health_controller_schemas());
-    schemas.extend(crate::openhuman::harness_init::all_harness_init_controller_schemas());
-    schemas.extend(crate::openhuman::doctor::all_doctor_controller_schemas());
-    schemas.extend(crate::openhuman::encryption::all_encryption_controller_schemas());
-    schemas.extend(crate::openhuman::keyring_consent::all_keyring_consent_controller_schemas());
-    schemas.extend(crate::openhuman::security::all_security_controller_schemas());
-    schemas.extend(crate::openhuman::approval::all_approval_controller_schemas());
-    schemas.extend(crate::openhuman::plan_review::all_plan_review_controller_schemas());
-    schemas.extend(crate::openhuman::artifacts::all_artifacts_controller_schemas());
-    schemas.extend(crate::openhuman::heartbeat::all_heartbeat_controller_schemas());
-    schemas.extend(crate::openhuman::http_host::all_http_host_controller_schemas());
-    schemas.extend(crate::openhuman::cost::all_cost_controller_schemas());
-    schemas.extend(crate::openhuman::x402::all_x402_controller_schemas());
-    schemas.extend(crate::openhuman::autocomplete::all_autocomplete_controller_schemas());
-    schemas
-        .extend(crate::openhuman::channels::providers::web::all_web_channel_controller_schemas());
-    schemas.extend(crate::openhuman::channels::controllers::all_channels_controller_schemas());
-    schemas.extend(crate::openhuman::config::all_config_controller_schemas());
-    schemas.extend(crate::openhuman::connectivity::all_connectivity_controller_schemas());
-    schemas.extend(crate::openhuman::credentials::all_credentials_controller_schemas());
-    schemas.extend(crate::openhuman::service::all_service_controller_schemas());
-    schemas.extend(crate::openhuman::migration::all_migration_controller_schemas());
-    schemas.extend(crate::openhuman::council_registry::all_council_registry_controller_schemas());
-    schemas.extend(crate::openhuman::model_council::all_model_council_controller_schemas());
-    schemas.extend(crate::openhuman::monitor::all_monitor_controller_schemas());
-    schemas.extend(crate::openhuman::inference::all_inference_controller_schemas());
-    schemas.extend(crate::openhuman::inference::all_local_inference_controller_schemas());
-    schemas.extend(crate::openhuman::embeddings::all_embeddings_controller_schemas());
-    schemas.extend(crate::openhuman::people::all_people_controller_schemas());
-    schemas.extend(
-        crate::openhuman::screen_intelligence::all_screen_intelligence_controller_schemas(),
-    );
-    schemas.extend(crate::openhuman::sandbox::all_sandbox_controller_schemas());
-    schemas.extend(crate::openhuman::socket::all_socket_controller_schemas());
-    schemas.extend(crate::openhuman::javascript::all_javascript_controller_schemas());
-    schemas.extend(crate::openhuman::skills::all_skills_controller_schemas());
-    schemas.extend(crate::openhuman::skill_runtime::all_skill_runtime_controller_schemas());
-    schemas.extend(crate::openhuman::skill_registry::all_skill_registry_controller_schemas());
-    schemas.extend(crate::openhuman::workspace::all_workspace_controller_schemas());
-    schemas.extend(crate::openhuman::tools::all_tools_controller_schemas());
-    schemas.extend(crate::openhuman::tool_registry::all_tool_registry_controller_schemas());
-    schemas.extend(crate::openhuman::memory::all_memory_controller_schemas());
-    schemas.extend(crate::openhuman::memory_goals::all_memory_goals_controller_schemas());
-    schemas.extend(crate::openhuman::thread_goals::all_thread_goals_controller_schemas());
-    schemas.extend(crate::openhuman::memory_tree::all_memory_tree_controller_schemas());
-    schemas.extend(crate::openhuman::memory_tree::all_retrieval_controller_schemas());
-    schemas.extend(
-        crate::openhuman::composio::providers::slack::all_slack_memory_controller_schemas(),
-    );
-    schemas.extend(
-        crate::openhuman::memory_sync::sync_status::all_memory_sync_status_controller_schemas(),
-    );
-    schemas.extend(crate::openhuman::memory_sources::all_memory_sources_controller_schemas());
-    schemas.extend(crate::openhuman::memory_diff::all_memory_diff_controller_schemas());
-    schemas.extend(crate::openhuman::redirect_links::all_redirect_links_controller_schemas());
-    schemas.extend(crate::openhuman::referral::all_referral_controller_schemas());
-    schemas.extend(crate::openhuman::billing::all_billing_controller_schemas());
-    schemas.extend(crate::openhuman::announcements::all_announcements_controller_schemas());
-    schemas.extend(crate::openhuman::team::all_team_controller_schemas());
-    #[cfg(feature = "e2e-test-support")]
-    schemas.extend(crate::openhuman::test_support::all_test_support_controller_schemas());
-    schemas.extend(crate::openhuman::wallet::all_wallet_controller_schemas());
-    schemas.extend(crate::openhuman::web3::all_web3_controller_schemas());
-    schemas.extend(crate::openhuman::provider_surfaces::all_provider_surfaces_controller_schemas());
-    schemas.extend(crate::openhuman::text_input::all_text_input_controller_schemas());
-    schemas.extend(crate::openhuman::voice::all_voice_controller_schemas());
-    schemas.extend(crate::openhuman::subconscious::all_subconscious_controller_schemas());
-    schemas.extend(
-        crate::openhuman::subconscious_triggers::all_subconscious_triggers_controller_schemas(),
-    );
-    schemas.extend(crate::openhuman::webhooks::all_webhooks_controller_schemas());
-    schemas.extend(crate::openhuman::update::all_update_controller_schemas());
-    schemas.extend(crate::openhuman::memory_tree::all_tree_summarizer_controller_schemas());
-    schemas.extend(crate::openhuman::learning::all_learning_controller_schemas());
-    // Conversation thread and message management
-    schemas.extend(crate::openhuman::threads::all_threads_controller_schemas());
-    // TokenJuice content-router debug controllers
-    schemas.extend(crate::openhuman::tokenjuice::all_tokenjuice_controller_schemas());
-    // Per-thread todo list (agent task board CRUD over RPC)
-    schemas.extend(crate::openhuman::todos::all_todos_controller_schemas());
-    // Embedded webview native notifications
-    schemas.extend(
-        crate::openhuman::webview_notifications::all_webview_notifications_controller_schemas(),
-    );
-    // Integration notification ingest, triage, and per-provider settings
-    schemas.extend(crate::openhuman::notifications::all_notifications_controller_schemas());
-    // Google Meet call-join request validation
-    schemas.extend(crate::openhuman::meet::all_meet_controller_schemas());
-    // Agent meetings — backend-delegated Meet bot via Socket.IO
-    schemas.extend(crate::openhuman::agent_meetings::all_agent_meetings_controller_schemas());
-    // Live meet-agent listening + speaking loop
-    schemas.extend(crate::openhuman::meet_agent::all_meet_agent_controller_schemas());
-    // Desktop companion — Clicky-style interaction loop.
-    schemas.extend(crate::openhuman::desktop_companion::all_desktop_companion_controller_schemas());
-    // Structured WhatsApp Web data — local SQLite store, agent-queryable
-    schemas.extend(crate::openhuman::whatsapp_data::all_whatsapp_data_controller_schemas());
-    // Mobile device pairing and management
-    schemas.extend(crate::openhuman::devices::all_devices_controller_schemas());
-    // Durable agent session database
-    schemas.extend(crate::openhuman::session_db::all_session_db_controller_schemas());
-    // One-time legacy session import into TinyAgents stores
-    schemas.extend(crate::openhuman::session_import::all_session_import_controller_schemas());
-    // Background agent command center
-    schemas.extend(crate::openhuman::agent_orchestration::all_command_center_controller_schemas());
-    // Durable dynamic workflow runs
-    schemas.extend(crate::openhuman::agent_orchestration::all_workflow_run_controller_schemas());
-    // Durable agent-team coordination
-    schemas.extend(crate::openhuman::agent_orchestration::all_agent_team_controller_schemas());
-    // Git-worktree isolation manager (#3376)
-    schemas.extend(crate::openhuman::agent_orchestration::all_worktree_controller_schemas());
-    // User-driven cancel of detached background sub-agents (#3711)
-    schemas
-        .extend(crate::openhuman::agent_orchestration::all_subagent_control_controller_schemas());
-    schemas
-}
-
 /// Returns a vector of all currently registered controllers.
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     registry().to_vec()
 }
 
-/// Returns a vector of all currently declared controller schemas.
+/// Returns a vector of all controller schemas, derived from the registered
+/// controllers (the single source of truth). Kept identical in content to the
+/// registered set — schemas can no longer drift from handlers (Phase 2).
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    let _ = registry();
-    build_declared_controller_schemas()
+    registry().iter().map(|c| c.schema.clone()).collect()
 }
 
 /// Generates a standardized RPC method name from a controller schema.
@@ -862,58 +722,71 @@ pub async fn try_invoke_registered_rpc(
     method: &str,
     params: Map<String, Value>,
 ) -> Option<Result<Value, String>> {
-    for controller in registry() {
-        if controller.rpc_method_name() == method {
-            return Some((controller.handler)(params).await);
-        }
-    }
-    for controller in internal_registry() {
-        if controller.rpc_method_name() == method {
-            return Some((controller.handler)(params).await);
-        }
-    }
-    None
+    let handler = registry()
+        .iter()
+        .chain(internal_registry().iter())
+        .find(|c| c.rpc_method_name() == method)
+        .map(|c| c.handler)?;
+
+    // Establish the ambient CoreContext for the duration of the handler so
+    // `CoreContext::current()` resolves inside handler bodies (Phase 2).
+    // `current()` inherits an already-active scope (so a handler that dispatches
+    // a nested RPC stays in the same tenant context) and otherwise resolves to
+    // the process default. Before any context is built (some unit tests) it is
+    // `None` and the handler runs unscoped.
+    //
+    // The scoped future is re-boxed back into a `ControllerFuture` so the
+    // concrete `TaskLocalFuture` type does not escape into this fn's future —
+    // without the type erasure the `Send` auto-trait solver overflows on the
+    // largest handler futures (E0275).
+    use crate::core::runtime::context::CoreContext;
+    let fut = handler(params);
+    let scoped: ControllerFuture = match CoreContext::current() {
+        Some(ctx) => Box::pin(CoreContext::scope(ctx, fut)),
+        None => fut,
+    };
+    Some(scoped.await)
 }
 
 /// Validates the consistency of the controller registry.
 ///
+/// The registry is the single source of truth: each [`RegisteredController`]
+/// carries its own schema, and the public schema list is *derived* from it
+/// (see [`all_controller_schemas`]). There is therefore no separate "declared"
+/// list to drift from — the previous declared-vs-registered cross-check is
+/// impossible by construction and has been removed (Phase 2 registry collapse).
+///
 /// Ensures that:
 /// - There are no duplicate controllers or RPC methods.
-/// - Every declared schema has a registered handler.
-/// - Every registered handler has a declared schema.
 /// - Namespaces and functions are not empty.
 /// - Required input names are unique within a controller.
-fn validate_registry(
-    registered: &[RegisteredController],
-    declared: &[ControllerSchema],
-) -> Result<(), String> {
+fn validate_registry(registered: &[RegisteredController]) -> Result<(), String> {
     use std::collections::{BTreeMap, BTreeSet};
 
     let mut errors: Vec<String> = Vec::new();
-    let mut declared_keys = BTreeSet::new();
-    let mut declared_rpc_methods = BTreeSet::new();
     let mut registered_keys = BTreeSet::new();
     let mut registered_rpc_methods = BTreeSet::new();
 
-    for schema in declared {
+    for controller in registered {
+        let schema = &controller.schema;
         let key = format!("{}.{}", schema.namespace, schema.function);
-        if !declared_keys.insert(key.clone()) {
-            errors.push(format!("duplicate declared controller `{key}`"));
+        if !registered_keys.insert(key.clone()) {
+            errors.push(format!("duplicate registered controller `{key}`"));
         }
 
-        let rpc_method = rpc_method_name(schema);
-        if !declared_rpc_methods.insert(rpc_method.clone()) {
-            errors.push(format!("duplicate declared rpc method `{rpc_method}`"));
+        let rpc_method = controller.rpc_method_name();
+        if !registered_rpc_methods.insert(rpc_method.clone()) {
+            errors.push(format!("duplicate registered rpc method `{rpc_method}`"));
         }
 
         if schema.namespace.trim().is_empty() {
             errors.push(format!(
-                "invalid declared controller `{key}`: namespace must not be empty"
+                "invalid registered controller `{key}`: namespace must not be empty"
             ));
         }
         if schema.function.trim().is_empty() {
             errors.push(format!(
-                "invalid declared controller `{key}`: function must not be empty"
+                "invalid registered controller `{key}`: function must not be empty"
             ));
         }
 
@@ -930,32 +803,6 @@ fn validate_registry(
                 schema.method_name()
             ));
         }
-    }
-
-    for controller in registered {
-        let key = format!(
-            "{}.{}",
-            controller.schema.namespace, controller.schema.function
-        );
-        if !registered_keys.insert(key.clone()) {
-            errors.push(format!("duplicate registered controller `{key}`"));
-        }
-
-        let rpc_method = controller.rpc_method_name();
-        if !registered_rpc_methods.insert(rpc_method.clone()) {
-            errors.push(format!("duplicate registered rpc method `{rpc_method}`"));
-        }
-    }
-
-    for key in declared_keys.difference(&registered_keys) {
-        errors.push(format!(
-            "declared controller `{key}` has no registered handler"
-        ));
-    }
-    for key in registered_keys.difference(&declared_keys) {
-        errors.push(format!(
-            "registered controller `{key}` has no declared schema"
-        ));
     }
 
     if errors.is_empty() {

@@ -119,7 +119,12 @@ fn publish_canonicalized(
     let Some(canonical) = canonical else {
         return;
     };
-    let body_preview = utf8_prefix(&canonical.markdown, 2048);
+    let source_kind = canonical.metadata.source_kind.as_str();
+    let body_preview = if matches!(source_kind, "email" | "document") {
+        utf8_suffix(&canonical.markdown, 2048)
+    } else {
+        utf8_prefix(&canonical.markdown, 2048)
+    };
     publish_global(DomainEvent::DocumentCanonicalized {
         source_id: source_id.into(),
         source_kind: canonical.metadata.source_kind.as_str().into(),
@@ -131,6 +136,19 @@ fn publish_canonicalized(
             .as_secs_f64(),
         body_preview: Some(body_preview),
     });
+}
+
+fn utf8_suffix(value: &str, max_bytes: usize) -> String {
+    if value.len() <= max_bytes {
+        return value.to_owned();
+    }
+    let target = value.len().saturating_sub(max_bytes);
+    let start = value
+        .char_indices()
+        .map(|(index, _)| index)
+        .find(|index| *index >= target)
+        .unwrap_or(value.len());
+    value[start..].to_owned()
 }
 
 fn utf8_prefix(value: &str, max_bytes: usize) -> String {
@@ -152,7 +170,7 @@ fn utf8_prefix(value: &str, max_bytes: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::utf8_prefix;
+    use super::{utf8_prefix, utf8_suffix};
 
     #[test]
     fn preview_keeps_short_text() {
@@ -163,5 +181,11 @@ mod tests {
     fn preview_respects_utf8_byte_boundary() {
         assert_eq!(utf8_prefix("aéb", 2), "a");
         assert_eq!(utf8_prefix("éb", 2), "é");
+    }
+
+    #[test]
+    fn suffix_preview_preserves_trailing_utf8() {
+        assert_eq!(utf8_suffix("aéb", 2), "b");
+        assert_eq!(utf8_suffix("aéb", 3), "éb");
     }
 }

@@ -44,6 +44,10 @@ use openhuman_core::openhuman::memory_store::content::read::{
     about = "Backfill last N days of Gmail into the memory-tree content store (.md files + SQLite)."
 )]
 struct Cli {
+    /// Composio Gmail connection id. Defaults to the configured Gmail source.
+    #[arg(long)]
+    connection_id: Option<String>,
+
     /// Lookback window in days. Default 3.
     #[arg(long, default_value_t = 3)]
     days: u32,
@@ -148,8 +152,27 @@ async fn main() -> Result<()> {
 
     // ─── Fetch + ingest through tinycortex ──────────────────────────────────
 
+    let connection_id = cli
+        .connection_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_owned)
+        .or_else(|| {
+            config.memory_sources.iter().find_map(|source| {
+                (source.kind == openhuman_core::openhuman::memory_sources::SourceKind::Composio
+                    && source.toolkit.as_deref() == Some("gmail"))
+                .then(|| source.connection_id.clone())
+                .flatten()
+            })
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "no Gmail connection configured; pass --connection-id or add a Gmail memory source"
+            )
+        })?;
     let outcome = openhuman_core::openhuman::tinycortex::run_gmail_backfill(
-        "default",
+        &connection_id,
         &query,
         cli.max_pages as usize,
         cli.page_size as usize,

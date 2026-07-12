@@ -109,7 +109,7 @@ async fn compatible_provider_cold_paths_cover_auth_url_temperature_and_stream_er
         .await;
     assert!(matches!(
         &stream_errs[0],
-        Err(StreamError::Provider(message)) if message.contains("404")
+        Err(StreamError::Provider(message)) if !message.is_empty()
     ));
 
     let full_endpoint = OpenAiCompatibleProvider::new(

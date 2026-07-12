@@ -15,7 +15,7 @@
 //! `Config::default` fallback — Sentry OPENHUMAN-CORE-48 / TAURI-RUST-8NM).
 
 use std::future::Future;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 use crate::core::runtime::TokenSource;
 use crate::core::types::HostKind;
@@ -49,7 +49,7 @@ tokio::task_local! {
 /// [`CoreContext::scope`]s read isolated state — the Phase 3 exit criterion.
 pub struct CoreContext {
     host_kind: HostKind,
-    workspace_dir: Option<std::path::PathBuf>,
+    workspace_dir: RwLock<Option<std::path::PathBuf>>,
 }
 
 impl CoreContext {
@@ -142,7 +142,7 @@ impl CoreContext {
 
         let ctx = Arc::new(CoreContext {
             host_kind,
-            workspace_dir,
+            workspace_dir: RwLock::new(workspace_dir),
         });
 
         // Register the process default context (first build wins). Dispatch
@@ -158,12 +158,16 @@ impl CoreContext {
     }
 
     /// The resolved per-user workspace directory this context is bound to.
-    pub fn workspace_dir(&self) -> Result<&std::path::Path, String> {
-        self.workspace_dir.as_deref().ok_or_else(|| {
-            "workspace unavailable: Config::load_or_init failed during core boot; \
-             fix config.toml or OPENHUMAN_WORKSPACE and restart"
-                .to_string()
-        })
+    pub fn workspace_dir(&self) -> Result<std::path::PathBuf, String> {
+        self.workspace_dir
+            .read()
+            .map_err(|e| format!("workspace unavailable: context lock poisoned: {e}"))?
+            .clone()
+            .ok_or_else(|| {
+                "workspace unavailable: Config::load_or_init failed during core boot; \
+                 fix config.toml or OPENHUMAN_WORKSPACE and restart"
+                    .to_string()
+            })
     }
 
     /// The people store for this context's workspace — the first per-domain
@@ -174,7 +178,7 @@ impl CoreContext {
     /// `CoreContext::current()?.people()` instead.
     pub fn people(&self) -> Result<Arc<crate::openhuman::people::store::PeopleStore>, String> {
         let workspace_dir = self.workspace_dir()?;
-        crate::openhuman::people::store::for_workspace(workspace_dir)
+        crate::openhuman::people::store::for_workspace(&workspace_dir)
     }
 
     /// The context for the current dispatch: the one scoped by
@@ -194,6 +198,42 @@ impl CoreContext {
     /// scope. Used by the dispatch chokepoint to establish the ambient scope.
     pub fn default_context() -> Option<Arc<CoreContext>> {
         DEFAULT_CONTEXT.get().cloned()
+    }
+
+    /// Rebind the process default context to the current active user's
+    /// workspace. Desktop login and pending-session revalidation can switch the
+    /// active workspace after boot without rebuilding the core. Scoped
+    /// multi-tenant dispatch is unaffected because tenant contexts are passed to
+    /// [`CoreContext::scope`] explicitly and are not the process default.
+    pub fn rebind_default_workspace_dir(workspace_dir: &std::path::Path) -> Result<(), String> {
+        let Some(ctx) = DEFAULT_CONTEXT.get() else {
+            log::debug!(
+                "[core-context] default context not initialized; skipped workspace rebind to {}",
+                workspace_dir.display()
+            );
+            return Ok(());
+        };
+        ctx.rebind_workspace_dir(workspace_dir)
+    }
+
+    fn rebind_workspace_dir(&self, workspace_dir: &std::path::Path) -> Result<(), String> {
+        let mut guard = self
+            .workspace_dir
+            .write()
+            .map_err(|e| format!("workspace rebind failed: context lock poisoned: {e}"))?;
+        if guard.as_deref() == Some(workspace_dir) {
+            log::debug!(
+                "[core-context] workspace already bound to {}",
+                workspace_dir.display()
+            );
+            return Ok(());
+        }
+        log::info!(
+            "[core-context] rebound default workspace to {}",
+            workspace_dir.display()
+        );
+        *guard = Some(workspace_dir.to_path_buf());
+        Ok(())
     }
 
     /// Run `fut` with `ctx` as the ambient [`CoreContext::current`]. The dispatch
@@ -300,7 +340,7 @@ mod tests {
     fn ctx(dir: &str) -> Arc<CoreContext> {
         Arc::new(CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: Some(PathBuf::from(dir)),
+            workspace_dir: RwLock::new(Some(PathBuf::from(dir))),
         })
     }
 
@@ -314,7 +354,7 @@ mod tests {
     async fn scope_sets_current_context() {
         let a = ctx("/tmp/ctx-a");
         let seen = CoreContext::scope(a, async {
-            CoreContext::current().map(|c| c.workspace_dir().unwrap().to_path_buf())
+            CoreContext::current().map(|c| c.workspace_dir().unwrap())
         })
         .await;
         assert_eq!(seen, Some(PathBuf::from("/tmp/ctx-a")));
@@ -326,18 +366,10 @@ mod tests {
         let b = ctx("/tmp/ctx-b");
         let (inner, outer) = CoreContext::scope(a, async {
             let inner = CoreContext::scope(b, async {
-                CoreContext::current()
-                    .unwrap()
-                    .workspace_dir()
-                    .unwrap()
-                    .to_path_buf()
+                CoreContext::current().unwrap().workspace_dir().unwrap()
             })
             .await;
-            let outer = CoreContext::current()
-                .unwrap()
-                .workspace_dir()
-                .unwrap()
-                .to_path_buf();
+            let outer = CoreContext::current().unwrap().workspace_dir().unwrap();
             (inner, outer)
         })
         .await;
@@ -357,11 +389,11 @@ mod tests {
         let dir_b = tempfile::tempdir().unwrap();
         let a = Arc::new(CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: Some(dir_a.path().to_path_buf()),
+            workspace_dir: RwLock::new(Some(dir_a.path().to_path_buf())),
         });
         let b = Arc::new(CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: Some(dir_b.path().to_path_buf()),
+            workspace_dir: RwLock::new(Some(dir_b.path().to_path_buf())),
         });
 
         let store_a = a.people().expect("open people store for workspace A");
@@ -374,6 +406,24 @@ mod tests {
         assert!(Arc::ptr_eq(&store_a, &store_a_again));
     }
 
+    #[test]
+    fn rebind_workspace_updates_context_store_resolution() {
+        let dir_a = tempfile::tempdir().unwrap();
+        let dir_b = tempfile::tempdir().unwrap();
+        let ctx = CoreContext {
+            host_kind: HostKind::Cli,
+            workspace_dir: RwLock::new(Some(dir_a.path().to_path_buf())),
+        };
+
+        let store_a = ctx.people().expect("open people store for workspace A");
+        ctx.rebind_workspace_dir(dir_b.path())
+            .expect("rebind context workspace");
+
+        assert_eq!(ctx.workspace_dir().unwrap(), dir_b.path());
+        let store_b = ctx.people().expect("open people store for workspace B");
+        assert!(!Arc::ptr_eq(&store_a, &store_b));
+    }
+
     #[tokio::test]
     async fn people_rpc_uses_scoped_context_store() {
         use crate::openhuman::people::types::Handle;
@@ -382,11 +432,11 @@ mod tests {
         let dir_b = tempfile::tempdir().unwrap();
         let a = Arc::new(CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: Some(dir_a.path().to_path_buf()),
+            workspace_dir: RwLock::new(Some(dir_a.path().to_path_buf())),
         });
         let b = Arc::new(CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: Some(dir_b.path().to_path_buf()),
+            workspace_dir: RwLock::new(Some(dir_b.path().to_path_buf())),
         });
 
         let params = serde_json::json!({
@@ -432,7 +482,7 @@ mod tests {
     fn degraded_context_rejects_workspace_bound_stores() {
         let ctx = CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: None,
+            workspace_dir: RwLock::new(None),
         };
 
         let err = match ctx.people() {

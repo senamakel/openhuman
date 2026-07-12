@@ -49,7 +49,7 @@ tokio::task_local! {
 /// [`CoreContext::scope`]s read isolated state — the Phase 3 exit criterion.
 pub struct CoreContext {
     host_kind: HostKind,
-    workspace_dir: std::path::PathBuf,
+    workspace_dir: Option<std::path::PathBuf>,
 }
 
 impl CoreContext {
@@ -113,7 +113,7 @@ impl CoreContext {
             Ok(cfg) => {
                 let workspace_dir = cfg.workspace_dir.clone();
                 init_stores(&cfg).await;
-                workspace_dir
+                Some(workspace_dir)
             }
             Err(e) => {
                 log::error!(
@@ -124,7 +124,7 @@ impl CoreContext {
                      bleed-over). Fix config.toml or set OPENHUMAN_WORKSPACE to a \
                      writable path, then restart."
                 );
-                return Err(e);
+                None
             }
         };
 
@@ -151,8 +151,12 @@ impl CoreContext {
     }
 
     /// The resolved per-user workspace directory this context is bound to.
-    pub fn workspace_dir(&self) -> &std::path::Path {
-        &self.workspace_dir
+    pub fn workspace_dir(&self) -> Result<&std::path::Path, String> {
+        self.workspace_dir.as_deref().ok_or_else(|| {
+            "workspace unavailable: Config::load_or_init failed during core boot; \
+             fix config.toml or OPENHUMAN_WORKSPACE and restart"
+                .to_string()
+        })
     }
 
     /// The people store for this context's workspace — the first per-domain
@@ -162,7 +166,8 @@ impl CoreContext {
     /// migrate off `people::store::get()` by reading through
     /// `CoreContext::current()?.people()` instead.
     pub fn people(&self) -> Result<Arc<crate::openhuman::people::store::PeopleStore>, String> {
-        crate::openhuman::people::store::for_workspace(&self.workspace_dir)
+        let workspace_dir = self.workspace_dir()?;
+        crate::openhuman::people::store::for_workspace(workspace_dir)
     }
 
     /// The context for the current dispatch: the one scoped by
@@ -288,7 +293,7 @@ mod tests {
     fn ctx(dir: &str) -> Arc<CoreContext> {
         Arc::new(CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: PathBuf::from(dir),
+            workspace_dir: Some(PathBuf::from(dir)),
         })
     }
 
@@ -302,7 +307,7 @@ mod tests {
     async fn scope_sets_current_context() {
         let a = ctx("/tmp/ctx-a");
         let seen = CoreContext::scope(a, async {
-            CoreContext::current().map(|c| c.workspace_dir().to_path_buf())
+            CoreContext::current().map(|c| c.workspace_dir().unwrap().to_path_buf())
         })
         .await;
         assert_eq!(seen, Some(PathBuf::from("/tmp/ctx-a")));
@@ -317,12 +322,14 @@ mod tests {
                 CoreContext::current()
                     .unwrap()
                     .workspace_dir()
+                    .unwrap()
                     .to_path_buf()
             })
             .await;
             let outer = CoreContext::current()
                 .unwrap()
                 .workspace_dir()
+                .unwrap()
                 .to_path_buf();
             (inner, outer)
         })
@@ -343,11 +350,11 @@ mod tests {
         let dir_b = tempfile::tempdir().unwrap();
         let a = Arc::new(CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: dir_a.path().to_path_buf(),
+            workspace_dir: Some(dir_a.path().to_path_buf()),
         });
         let b = Arc::new(CoreContext {
             host_kind: HostKind::Cli,
-            workspace_dir: dir_b.path().to_path_buf(),
+            workspace_dir: Some(dir_b.path().to_path_buf()),
         });
 
         let store_a = a.people().expect("open people store for workspace A");
@@ -358,5 +365,22 @@ mod tests {
         // Same context/workspace → same cached store (no per-call reopen).
         let store_a_again = a.people().expect("reopen people store for workspace A");
         assert!(Arc::ptr_eq(&store_a, &store_a_again));
+    }
+
+    #[test]
+    fn degraded_context_rejects_workspace_bound_stores() {
+        let ctx = CoreContext {
+            host_kind: HostKind::Cli,
+            workspace_dir: None,
+        };
+
+        let err = match ctx.people() {
+            Ok(_) => panic!("degraded context unexpectedly opened a people store"),
+            Err(err) => err,
+        };
+        assert!(
+            err.contains("workspace unavailable"),
+            "unexpected error: {err}"
+        );
     }
 }

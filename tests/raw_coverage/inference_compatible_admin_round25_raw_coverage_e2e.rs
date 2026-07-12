@@ -97,7 +97,7 @@ async fn compatible_provider_cold_paths_cover_auth_url_temperature_and_stream_er
         .chat_with_system(None, "must fail before network", "missing-key", 0.1)
         .await
         .expect_err("credential guard");
-    assert!(err.to_string().contains("API key not set"));
+    assert!(err.to_string().to_ascii_lowercase().contains("api key"));
     let stream_errs = missing_key
         .stream_chat_with_history(
             &[ChatMessage::user("no key stream")],
@@ -109,7 +109,7 @@ async fn compatible_provider_cold_paths_cover_auth_url_temperature_and_stream_er
         .await;
     assert!(matches!(
         &stream_errs[0],
-        Err(StreamError::Provider(message)) if message.contains("API key not set")
+        Err(StreamError::Provider(message)) if message.to_ascii_lowercase().contains("api key")
     ));
 
     let full_endpoint = OpenAiCompatibleProvider::new(

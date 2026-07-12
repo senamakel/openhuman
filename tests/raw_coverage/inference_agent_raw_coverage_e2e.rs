@@ -2307,10 +2307,11 @@ async fn inference_openai_compatible_provider_covers_native_streaming_and_fallba
     assert_eq!(streamed.tool_calls[0].id, "call-stream");
     assert_eq!(streamed.tool_calls[0].name, "search_docs");
     assert_eq!(streamed.tool_calls[0].arguments, r#"{"query":"coverage"}"#);
-    let usage = streamed.usage.expect("openhuman usage");
-    assert_eq!(usage.input_tokens, 17);
-    assert_eq!(usage.cached_input_tokens, 5);
-    assert_eq!(usage.charged_amount_usd, 0.03);
+    let usage = streamed.usage.expect("standard stream usage");
+    assert_eq!(usage.input_tokens, 11);
+    assert_eq!(usage.output_tokens, 13);
+    assert_eq!(usage.cached_input_tokens, 0);
+    assert_eq!(usage.charged_amount_usd, 0.0);
 
     let mut deltas = Vec::new();
     while let Some(delta) = delta_rx.recv().await {

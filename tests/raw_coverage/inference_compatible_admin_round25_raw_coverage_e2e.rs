@@ -107,10 +107,9 @@ async fn compatible_provider_cold_paths_cover_auth_url_temperature_and_stream_er
         )
         .collect::<Vec<_>>()
         .await;
-    assert!(matches!(
-        &stream_errs[0],
-        Err(StreamError::Provider(message)) if !message.is_empty()
-    ));
+    assert!(stream_errs[0].as_ref().is_ok_and(|chunk| {
+        chunk.is_final && chunk.delta.contains("does not support streaming")
+    }));
 
     let full_endpoint = OpenAiCompatibleProvider::new(
         "round25-full-endpoint",

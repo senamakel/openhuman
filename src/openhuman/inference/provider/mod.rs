@@ -4,18 +4,17 @@
 //! `inference/provider/` so all inference concerns (local runtime, cloud
 //! providers, HTTP endpoint) share a single domain root.
 
+pub mod auth;
 pub mod auth_error_registry;
 pub mod billing_error;
 pub mod claude_agent_sdk;
 pub mod claude_code;
-pub mod compatible;
-pub mod compatible_dump;
-pub mod compatible_parse;
-pub mod compatible_stream;
-pub mod compatible_types;
 pub mod config_rejection;
+pub mod legacy_provider;
+pub use legacy_provider as compatible;
 /// Crate-native OpenAI-compatible client construction (issue #4727, Motion B).
 pub mod crate_openai;
+pub(crate) mod crate_provider;
 pub mod error_classify;
 pub mod error_code;
 pub mod factory;
@@ -49,6 +48,7 @@ pub use error_code::{
     is_backend_malformed_bad_request, is_managed_backend_envelope, managed_error_skips_sentry,
     BackendErrorCode,
 };
+#[cfg(test)]
 pub(crate) use factory::chat_model_from_provider;
 pub(crate) use factory::is_raw_passthrough_model;
 pub use factory::{

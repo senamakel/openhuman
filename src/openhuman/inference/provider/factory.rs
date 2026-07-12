@@ -24,16 +24,11 @@
 //!
 //! Unknown slugs and missing-creds configurations produce actionable errors.
 
-use crate::openhuman::config::schema::cloud_providers::{
-    builtin_cloud_supports_responses_api, endpoint_host_is_chat_completions_only,
-    is_builtin_cloud_slug, AuthStyle,
-};
+use crate::openhuman::config::schema::cloud_providers::AuthStyle;
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::AuthService;
+use crate::openhuman::inference::provider::auth::AuthStyle as CompatAuthStyle;
 use crate::openhuman::inference::provider::claude_agent_sdk::subprocess::ClaudeAgentSdkProvider;
-use crate::openhuman::inference::provider::compatible::{
-    AuthStyle as CompatAuthStyle, OpenAiCompatibleProvider,
-};
 use crate::openhuman::inference::provider::openai_codex::{
     openai_codex_client_version, openai_codex_user_agent, resolve_openai_codex_routing,
     OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
@@ -1990,8 +1985,6 @@ fn make_ollama_provider(
     temperature_override: Option<f64>,
     config: &Config,
 ) -> anyhow::Result<(Box<dyn Provider>, String)> {
-    use crate::openhuman::inference::local::profile::LocalProviderKind;
-
     let base_url = crate::openhuman::inference::local::ollama_base_url_from_config(config);
     let normalized_base_url = base_url.trim_end_matches('/').trim_end_matches("/v1");
     // Ollama exposes an OpenAI-compatible endpoint at /v1.
@@ -2016,19 +2009,20 @@ fn make_ollama_provider(
     // out of the response text — a format any chat model can follow.
     // Skills that depend on tool invocations now work over Ollama
     // (sub-issue 3 of #3098).
-    let provider = OpenAiCompatibleProvider::new_no_responses_fallback(
+    let chat = super::crate_openai::make_crate_local_runtime_chat_model(
         "ollama",
         &endpoint,
-        None,
+        "",
         CompatAuthStyle::None,
-    )
-    .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
-    .with_temperature_override(temperature_override)
-    .with_native_tool_calling(false)
-    .with_vision(false)
-    .with_ollama_num_ctx(num_ctx)
-    .with_local_provider_kind(LocalProviderKind::Ollama);
-    Ok((Box::new(provider), model.to_string()))
+        model,
+        &config.temperature_unsupported_models,
+        temperature_override,
+        num_ctx,
+    );
+    Ok((
+        Box::new(super::crate_provider::CrateBackedProvider::new(chat, "ollama").with_local()),
+        model.to_string(),
+    ))
 }
 
 /// Build an LM Studio local provider.
@@ -2037,8 +2031,6 @@ fn make_lm_studio_provider(
     temperature_override: Option<f64>,
     config: &Config,
 ) -> anyhow::Result<(Box<dyn Provider>, String)> {
-    use crate::openhuman::inference::local::profile::LocalProviderKind;
-
     let endpoint = crate::openhuman::inference::local::lm_studio::lm_studio_base_url(config);
     let api_key = config.local_ai.api_key.as_deref().unwrap_or("");
     log::info!(
@@ -2053,22 +2045,20 @@ fn make_lm_studio_provider(
     } else {
         CompatAuthStyle::Bearer
     };
-    let provider = OpenAiCompatibleProvider::new_no_responses_fallback(
+    let chat = super::crate_openai::make_crate_local_runtime_chat_model(
         "lmstudio",
         &endpoint,
-        if api_key.trim().is_empty() {
-            None
-        } else {
-            Some(api_key)
-        },
+        api_key,
         auth,
-    )
-    .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
-    .with_temperature_override(temperature_override)
-    .with_native_tool_calling(false)
-    .with_vision(false)
-    .with_local_provider_kind(LocalProviderKind::LmStudio);
-    Ok((Box::new(provider), model.to_string()))
+        model,
+        &config.temperature_unsupported_models,
+        temperature_override,
+        None,
+    );
+    Ok((
+        Box::new(super::crate_provider::CrateBackedProvider::new(chat, "lmstudio").with_local()),
+        model.to_string(),
+    ))
 }
 
 /// Build an MLX-compatible local provider.
@@ -2081,7 +2071,7 @@ fn make_mlx_provider(
     temperature_override: Option<f64>,
     config: &Config,
 ) -> anyhow::Result<(Box<dyn Provider>, String)> {
-    use crate::openhuman::inference::local::profile::{LocalProviderKind, MLX_PROFILE};
+    use crate::openhuman::inference::local::profile::MLX_PROFILE;
 
     let endpoint = std::env::var("MLX_SERVER_URL")
         .ok()
@@ -2094,18 +2084,20 @@ fn make_mlx_provider(
         redact_endpoint(&endpoint),
         temperature_override
     );
-    let provider = OpenAiCompatibleProvider::new_no_responses_fallback(
+    let chat = super::crate_openai::make_crate_local_runtime_chat_model(
         "mlx",
         &endpoint,
-        None,
+        "",
         CompatAuthStyle::None,
-    )
-    .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
-    .with_temperature_override(temperature_override)
-    .with_native_tool_calling(false)
-    .with_vision(false)
-    .with_local_provider_kind(LocalProviderKind::Mlx);
-    Ok((Box::new(provider), model.to_string()))
+        model,
+        &config.temperature_unsupported_models,
+        temperature_override,
+        None,
+    );
+    Ok((
+        Box::new(super::crate_provider::CrateBackedProvider::new(chat, "mlx").with_local()),
+        model.to_string(),
+    ))
 }
 
 /// Build an OMLX local provider.
@@ -2118,7 +2110,7 @@ fn make_omlx_provider(
     temperature_override: Option<f64>,
     config: &Config,
 ) -> anyhow::Result<(Box<dyn Provider>, String)> {
-    use crate::openhuman::inference::local::profile::{LocalProviderKind, OMLX_PROFILE};
+    use crate::openhuman::inference::local::profile::OMLX_PROFILE;
 
     let endpoint = std::env::var("OMLX_SERVER_URL")
         .ok()
@@ -2143,22 +2135,20 @@ fn make_omlx_provider(
     } else {
         CompatAuthStyle::Bearer
     };
-    let provider = OpenAiCompatibleProvider::new_no_responses_fallback(
+    let chat = super::crate_openai::make_crate_local_runtime_chat_model(
         "omlx",
         &endpoint,
-        if api_key.trim().is_empty() {
-            None
-        } else {
-            Some(api_key)
-        },
+        api_key,
         auth,
-    )
-    .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
-    .with_temperature_override(temperature_override)
-    .with_native_tool_calling(false)
-    .with_vision(false)
-    .with_local_provider_kind(LocalProviderKind::Omlx);
-    Ok((Box::new(provider), model.to_string()))
+        model,
+        &config.temperature_unsupported_models,
+        temperature_override,
+        None,
+    );
+    Ok((
+        Box::new(super::crate_provider::CrateBackedProvider::new(chat, "omlx").with_local()),
+        model.to_string(),
+    ))
 }
 
 /// Build a generic local OpenAI-compatible provider.
@@ -2172,7 +2162,7 @@ fn make_local_openai_provider(
     temperature_override: Option<f64>,
     config: &Config,
 ) -> anyhow::Result<(Box<dyn Provider>, String)> {
-    use crate::openhuman::inference::local::profile::{LocalProviderKind, LOCAL_OPENAI_PROFILE};
+    use crate::openhuman::inference::local::profile::LOCAL_OPENAI_PROFILE;
 
     let endpoint = std::env::var("LOCAL_OPENAI_URL")
         .ok()
@@ -2191,22 +2181,22 @@ fn make_local_openai_provider(
     } else {
         CompatAuthStyle::Bearer
     };
-    let provider = OpenAiCompatibleProvider::new_no_responses_fallback(
+    let chat = super::crate_openai::make_crate_local_runtime_chat_model(
         "local-openai",
         &endpoint,
-        if api_key.trim().is_empty() {
-            None
-        } else {
-            Some(api_key)
-        },
+        api_key,
         auth,
-    )
-    .with_temperature_unsupported_models(config.temperature_unsupported_models.clone())
-    .with_temperature_override(temperature_override)
-    .with_native_tool_calling(false)
-    .with_vision(false)
-    .with_local_provider_kind(LocalProviderKind::LocalOpenai);
-    Ok((Box::new(provider), model.to_string()))
+        model,
+        &config.temperature_unsupported_models,
+        temperature_override,
+        None,
+    );
+    Ok((
+        Box::new(
+            super::crate_provider::CrateBackedProvider::new(chat, "local-openai").with_local(),
+        ),
+        model.to_string(),
+    ))
 }
 
 /// Look up a `cloud_providers` entry by slug and build the provider.
@@ -2391,55 +2381,46 @@ fn make_cloud_provider_by_slug(
                 redact_endpoint(&openai_codex_routing.endpoint),
                 openai_codex_routing.account_id.is_some()
             );
-            // Enable the chat-completions-404 → `/v1/responses` fallback only
-            // for providers that actually expose the Responses API. Built-in
-            // chat-completions-only providers (DeepSeek, Groq, Mistral, …) do
-            // not — hitting their non-existent `/responses` guarantees a second
-            // 404 and floods Sentry with an empty-body "<provider> Responses
-            // API error:" event (TAURI-RUST-5EN, same class as the
-            // local-provider TAURI-RUST-59Y fix). OpenAI keeps the fallback
-            // (genuine `/responses`), and so do custom / unknown slugs, whose
-            // endpoint may be a real OpenAI proxy.
-            //
-            // The builtin-slug gate alone leaks for a *custom* slug pointed at a
-            // known chat-only host (e.g. a user slug at
-            // `integrate.api.nvidia.com`): `is_builtin_cloud_slug` is false so
-            // the fallback stayed on and `/responses` 404'd (TAURI-RUST-5A1).
-            // Also consult the endpoint host so a chat-only host disables the
-            // fallback regardless of slug; an unknown proxy host still keeps it.
-            let responses_fallback = (!is_builtin_cloud_slug(slug)
-                || builtin_cloud_supports_responses_api(slug))
-                && !endpoint_host_is_chat_completions_only(&openai_codex_routing.endpoint);
-            let credential = (!key.trim().is_empty()).then_some(key.as_str());
-            let base_provider = if responses_fallback {
-                OpenAiCompatibleProvider::new(
-                    slug,
-                    &openai_codex_routing.endpoint,
-                    credential,
-                    CompatAuthStyle::Bearer,
-                )
-            } else {
-                OpenAiCompatibleProvider::new_no_responses_fallback(
-                    slug,
-                    &openai_codex_routing.endpoint,
-                    credential,
-                    CompatAuthStyle::Bearer,
-                )
-            };
-            let mut provider = base_provider
-                .with_temperature_unsupported_models(unsupported.to_vec())
-                .with_temperature_override(temperature_override);
+            let mut extra_headers = Vec::new();
             if let Some(account_id) = openai_codex_routing.account_id.as_deref() {
-                provider = provider.with_extra_header(OPENAI_CODEX_ACCOUNT_HEADER, account_id);
+                extra_headers.push((
+                    OPENAI_CODEX_ACCOUNT_HEADER.to_string(),
+                    account_id.to_string(),
+                ));
             }
+            let mut extra_query_params = Vec::new();
+            let mut user_agent = None;
             if openai_codex_routing.using_oauth {
-                provider = provider
-                    .with_extra_header(OPENAI_CODEX_ORIGINATOR_HEADER, OPENAI_CODEX_ORIGINATOR)
-                    .with_user_agent(openai_codex_user_agent())
-                    .with_extra_query_param("client_version", openai_codex_client_version())
-                    .with_responses_api_primary();
+                extra_headers.push((
+                    OPENAI_CODEX_ORIGINATOR_HEADER.to_string(),
+                    OPENAI_CODEX_ORIGINATOR.to_string(),
+                ));
+                user_agent = Some(openai_codex_user_agent());
+                extra_query_params
+                    .push(("client_version".to_string(), openai_codex_client_version()));
             }
-            let p: Box<dyn Provider> = Box::new(provider);
+            let model = super::crate_openai::build_crate_openai_model(
+                super::crate_openai::CrateOpenAiConfig {
+                    provider_name: slug,
+                    endpoint: &openai_codex_routing.endpoint,
+                    api_key: &key,
+                    auth_style: CompatAuthStyle::Bearer,
+                    model: &effective_model,
+                    temperature_unsupported_models: unsupported,
+                    temperature_override,
+                    merge_system_into_user: false,
+                    extra_headers: &extra_headers,
+                    native_tool_calling: None,
+                    vision: None,
+                    default_provider_options: None,
+                    responses_api_primary: openai_codex_routing.using_oauth,
+                    responses_omit_max_output_tokens: openai_codex_routing.using_oauth,
+                    extra_query_params: &extra_query_params,
+                    user_agent: user_agent.as_deref(),
+                },
+            );
+            let p: Box<dyn Provider> =
+                Box::new(super::crate_provider::CrateBackedProvider::new(model, slug));
             Ok((p, effective_model))
         }
     }
@@ -2742,33 +2723,36 @@ fn make_openai_compatible_provider_with_config(
     temperature_override: Option<f64>,
     supports_responses_fallback: bool,
 ) -> anyhow::Result<Box<dyn Provider>> {
-    let key = if api_key.trim().is_empty() {
-        None
-    } else {
-        Some(api_key)
-    };
     log::debug!(
-        "[providers][chat-factory] building compatible provider name={} endpoint_host={} responses_fallback={} temp_override={:?}",
+        "[providers][chat-factory] building crate-backed provider name={} endpoint_host={} responses_fallback={} temp_override={:?}",
         provider_name,
         redact_endpoint(endpoint),
         supports_responses_fallback,
         temperature_override
     );
-    let provider = if supports_responses_fallback {
-        OpenAiCompatibleProvider::new(provider_name, endpoint, key, auth_style)
-    } else {
-        OpenAiCompatibleProvider::new_no_responses_fallback(
+    let model =
+        super::crate_openai::build_crate_openai_model(super::crate_openai::CrateOpenAiConfig {
             provider_name,
             endpoint,
-            key,
+            api_key,
             auth_style,
-        )
-    };
-    Ok(Box::new(
-        provider
-            .with_temperature_unsupported_models(temperature_unsupported_models.to_vec())
-            .with_temperature_override(temperature_override),
-    ))
+            model: "",
+            temperature_unsupported_models,
+            temperature_override,
+            merge_system_into_user: false,
+            extra_headers: &[],
+            native_tool_calling: None,
+            vision: None,
+            default_provider_options: None,
+            responses_api_primary: false,
+            responses_omit_max_output_tokens: false,
+            extra_query_params: &[],
+            user_agent: None,
+        });
+    Ok(Box::new(super::crate_provider::CrateBackedProvider::new(
+        model,
+        provider_name,
+    )))
 }
 
 /// Return a safe-to-log representation of a URL endpoint: `scheme://host` only.

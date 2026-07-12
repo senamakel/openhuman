@@ -150,7 +150,10 @@ async fn compatible_native_leftovers_cover_tool_history_function_call_and_stream
         .expect("function call fallback");
     assert_eq!(response.text.as_deref(), Some("function text"));
     assert!(response.tool_calls.is_empty());
-    assert!(response.usage.is_none());
+    let usage = response.usage.expect("standard usage");
+    assert_eq!(usage.input_tokens, 11);
+    assert_eq!(usage.output_tokens, 7);
+    assert_eq!(usage.cached_input_tokens, 3);
 
     let content_json = provider
         .chat(

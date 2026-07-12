@@ -2,7 +2,7 @@
 //!
 //! [`CoreContext`] owns the core's initialization *order* (Phase 2, Stage A):
 //! register controllers, load the master key, seed the RPC bearer, initialize
-//! the workspace-bound stores, and run `bootstrap_core_runtime`. Today it is a
+//! the workspace-bound stores, and run pure `bootstrap_core_runtime` registration. Today it is a
 //! facade — the store init still targets the process globals — but centralizing
 //! the sequence here is the seam the later stages build on (handler-threaded
 //! context, per-context stores). See `docs/plans/pluggable-core/phase-2-corecontext.md`.
@@ -17,7 +17,7 @@
 use std::future::Future;
 use std::sync::{Arc, OnceLock};
 
-use crate::core::runtime::{ServiceSet, TokenSource};
+use crate::core::runtime::TokenSource;
 use crate::core::types::HostKind;
 
 /// The process-wide default context — the first one built. Callers that dispatch
@@ -55,17 +55,21 @@ pub struct CoreContext {
 impl CoreContext {
     /// Run the core initialization sequence and return the context plus whether
     /// an operator-supplied RPC bearer exists (for the public-bind safety check
-    /// in `CoreRuntime::serve`). Order is load-bearing and mirrors the original
+    /// in `CoreRuntime::serve`) plus the loaded config, when boot reached
+    /// workspace-bound init. Order is load-bearing and mirrors the original
     /// `run_server_inner` sequence:
     ///
     /// 1. register controllers, 2. master key, 3. AgentBox GMI provider,
     /// 4. seed RPC bearer, 5. workspace stores ([`init_stores`]),
-    /// 6. `bootstrap_core_runtime`.
+    /// 6. pure runtime registration.
     pub async fn init(
         host_kind: HostKind,
         token: &TokenSource,
-        services: ServiceSet,
-    ) -> anyhow::Result<(Arc<CoreContext>, bool)> {
+    ) -> anyhow::Result<(
+        Arc<CoreContext>,
+        bool,
+        Option<crate::openhuman::config::Config>,
+    )> {
         // 1. Ensure all controllers are registered before anything dispatches.
         let _ = crate::core::all::all_registered_controllers();
 
@@ -130,8 +134,11 @@ impl CoreContext {
 
         // 6. Long-lived runtime infrastructure: event bus, domain subscribers,
         //    ledgers, agent-definition registry, live security policy, approval
-        //    gate, socket manager. Idempotent (Once-guarded internally).
-        crate::core::jsonrpc::bootstrap_core_runtime(host_kind, services, config).await;
+        //    gate, socket manager. Idempotent (Once-guarded internally). Selected
+        //    background jobs start later, from CoreRuntime::serve(), after bind
+        //    succeeds.
+        let runtime_config = config.clone();
+        crate::core::jsonrpc::bootstrap_core_runtime(host_kind, config).await;
 
         let ctx = Arc::new(CoreContext {
             host_kind,
@@ -142,7 +149,7 @@ impl CoreContext {
         // resolves to this when no per-call context is scoped.
         let _ = DEFAULT_CONTEXT.set(ctx.clone());
 
-        Ok((ctx, has_operator_token))
+        Ok((ctx, has_operator_token, runtime_config))
     }
 
     /// The host that constructed this context (Tauri shell / CLI / Docker).
@@ -365,6 +372,60 @@ mod tests {
         // Same context/workspace → same cached store (no per-call reopen).
         let store_a_again = a.people().expect("reopen people store for workspace A");
         assert!(Arc::ptr_eq(&store_a, &store_a_again));
+    }
+
+    #[tokio::test]
+    async fn people_rpc_uses_scoped_context_store() {
+        use crate::openhuman::people::types::Handle;
+
+        let dir_a = tempfile::tempdir().unwrap();
+        let dir_b = tempfile::tempdir().unwrap();
+        let a = Arc::new(CoreContext {
+            host_kind: HostKind::Cli,
+            workspace_dir: Some(dir_a.path().to_path_buf()),
+        });
+        let b = Arc::new(CoreContext {
+            host_kind: HostKind::Cli,
+            workspace_dir: Some(dir_b.path().to_path_buf()),
+        });
+
+        let params = serde_json::json!({
+            "kind": "email",
+            "value": "tenant-a@example.com",
+            "create_if_missing": true
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+
+        let result = CoreContext::scope(
+            a.clone(),
+            crate::core::all::try_invoke_registered_rpc("openhuman.people_resolve", params),
+        )
+        .await
+        .expect("people_resolve registered")
+        .expect("people_resolve succeeds");
+
+        assert_eq!(result["created"], true);
+        let handle = Handle::Email("tenant-a@example.com".to_string());
+        assert!(
+            a.people()
+                .expect("workspace A store")
+                .lookup(&handle)
+                .await
+                .unwrap()
+                .is_some(),
+            "scoped RPC must write workspace A"
+        );
+        assert!(
+            b.people()
+                .expect("workspace B store")
+                .lookup(&handle)
+                .await
+                .unwrap()
+                .is_none(),
+            "scoped RPC must not write workspace B"
+        );
     }
 
     #[test]

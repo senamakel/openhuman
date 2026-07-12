@@ -26,6 +26,7 @@ use tokio_util::sync::CancellationToken;
 use crate::core::jsonrpc::{self, EmbeddedReadySignal};
 use crate::core::runtime::context::CoreContext;
 use crate::core::types::HostKind;
+use crate::openhuman::config::Config;
 
 /// Selects which background services and transports a [`CoreRuntime`] runs.
 ///
@@ -176,11 +177,12 @@ impl CoreBuilder {
     /// The init sequence itself is owned by [`CoreContext::init`] (Phase 2,
     /// Stage A).
     pub async fn build(self) -> anyhow::Result<CoreRuntime> {
-        let (ctx, has_operator_token) =
-            CoreContext::init(self.host_kind, &self.token, self.services).await?;
+        let (ctx, has_operator_token, config) =
+            CoreContext::init(self.host_kind, &self.token).await?;
 
         Ok(CoreRuntime {
             ctx,
+            config,
             services: self.services,
             has_operator_token,
             host: self.host,
@@ -193,6 +195,7 @@ impl CoreBuilder {
 /// or run the selected transport + background services with [`CoreRuntime::serve`].
 pub struct CoreRuntime {
     ctx: Arc<CoreContext>,
+    config: Option<Config>,
     services: ServiceSet,
     has_operator_token: bool,
     host: Option<String>,
@@ -238,7 +241,7 @@ impl CoreRuntime {
         if !self.services.rpc_http {
             // No transport: just spawn the selected background services and
             // return. The caller owns the process lifetime.
-            self.spawn_background_services();
+            self.start_selected_services();
             return Ok(());
         }
 
@@ -358,7 +361,7 @@ impl CoreRuntime {
         }
 
         // Background services — gated by the ServiceSet.
-        self.spawn_background_services();
+        self.start_selected_services();
 
         if let Some(shutdown_token) = shutdown_token {
             log::info!(
@@ -400,8 +403,10 @@ impl CoreRuntime {
 
     /// Spawn each selected background service. Selection is by [`ServiceSet`];
     /// each service keeps its own runtime config gate.
-    fn spawn_background_services(&self) {
+    fn start_selected_services(&self) {
         use crate::core::runtime::services;
+        jsonrpc::start_core_runtime_services(self.services, self.config.as_ref());
+
         if self.services.heartbeat {
             services::spawn_login_gated_services(self.ctx.host_kind().is_desktop_shell());
         }

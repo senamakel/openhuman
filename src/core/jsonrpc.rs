@@ -1982,7 +1982,6 @@ fn register_domain_subscribers(
 /// noisy log + a domain event so any connected dashboard can flag it).
 pub async fn bootstrap_core_runtime(
     host_kind: crate::core::types::HostKind,
-    services: crate::core::runtime::ServiceSet,
     config: Option<crate::openhuman::config::Config>,
 ) {
     use crate::openhuman::socket::{set_global_socket_manager, SocketManager};
@@ -2006,15 +2005,6 @@ pub async fn bootstrap_core_runtime(
     // Uses a Once guard so repeated calls to bootstrap_core_runtime()
     // cannot double-subscribe.
     register_domain_subscribers(workspace_dir.clone(), cfg.clone(), embedded_core);
-    crate::core::runtime::services::start_bootstrap_jobs(services, &cfg);
-
-    // One-time first-run initialization (managed Python runtime, spaCy model,
-    // managed Node runtime). Spawned AFTER subscribers are live but does NOT
-    // block the ready signal — the core becomes RPC-ready immediately and the
-    // frontend watches per-step progress via `openhuman.harness_init_status`.
-    // On a warm host every step's `is_done` probe passes and this settles
-    // instantly. See `crate::openhuman::harness_init`.
-    crate::core::runtime::services::start_boot_once_jobs(services, &cfg);
 
     // --- Turn-state recovery -------------------------------------------
     // Any per-thread turn snapshots left on disk from a previous process
@@ -2252,8 +2242,46 @@ pub async fn bootstrap_core_runtime(
     let socket_mgr = Arc::new(SocketManager::new());
     set_global_socket_manager(socket_mgr.clone());
     log::info!("[socket] SocketManager initialized and registered globally");
+}
 
-    crate::core::runtime::services::spawn_socket_auto_connect(services, socket_mgr);
+/// Starts selected background jobs after the runtime has entered `serve()`.
+///
+/// This deliberately sits outside [`bootstrap_core_runtime`]: embedders may call
+/// `CoreBuilder::build()` only to use in-process RPC, and a failed listener bind
+/// must not leave pollers, one-shot jobs, MCP processes, or socket reconnect work
+/// running without a live runtime.
+pub fn start_core_runtime_services(
+    services: crate::core::runtime::ServiceSet,
+    config: Option<&crate::openhuman::config::Config>,
+) {
+    let Some(cfg) = config else {
+        log::error!(
+            "[runtime] Config unavailable for runtime service startup; selected services skipped"
+        );
+        return;
+    };
+
+    // Long-lived bootstrap loops selected by ServiceSet.
+    crate::core::runtime::services::start_bootstrap_jobs(services, cfg);
+
+    // One-time first-run initialization (managed Python runtime, spaCy model,
+    // managed Node runtime). Spawned AFTER subscribers are live but does NOT
+    // block the ready signal — the core becomes RPC-ready immediately and the
+    // frontend watches per-step progress via `openhuman.harness_init_status`.
+    // On a warm host every step's `is_done` probe passes and this settles
+    // instantly. See `crate::openhuman::harness_init`.
+    crate::core::runtime::services::start_boot_once_jobs(services, cfg);
+
+    match crate::openhuman::socket::global_socket_manager() {
+        Some(socket_mgr) => {
+            crate::core::runtime::services::spawn_socket_auto_connect(services, socket_mgr.clone());
+        }
+        None => {
+            log::warn!(
+                "[socket] SocketManager unavailable during runtime service startup; auto-connect skipped"
+            );
+        }
+    }
 }
 
 /// JSON-serializable wrapper for the entire RPC schema dump.

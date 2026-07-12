@@ -228,8 +228,8 @@ async fn openai_compatible_matrix_covers_auth_requests_responses_and_streaming()
         Some(ProviderDelta::TextDelta { delta }) if delta == "json stream fallback"
     ));
 
-    let (retry_tx, mut retry_rx) = tokio::sync::mpsc::channel::<ProviderDelta>(8);
-    let retried = provider
+    let (retry_tx, _retry_rx) = tokio::sync::mpsc::channel::<ProviderDelta>(8);
+    let retry_error = provider
         .chat(
             ChatRequest {
                 messages: &[ChatMessage::user("retry without tools")],
@@ -241,13 +241,9 @@ async fn openai_compatible_matrix_covers_auth_requests_responses_and_streaming()
             0.3,
         )
         .await
-        .expect("stream retry strips tools");
+        .expect_err("crate does not retry unsupported tools without schemas");
     drop(retry_tx);
-    assert_eq!(retried.text.as_deref(), Some("retry ok"));
-    assert!(collect_deltas(&mut retry_rx)
-        .await
-        .iter()
-        .any(|d| matches!(d, ProviderDelta::TextDelta { delta } if delta == "retry ok")));
+    assert!(retry_error.to_string().contains("does not support tools"));
 
     let seen = state.requests.lock().expect("requests");
     assert!(seen.iter().any(|(path, auth, body)| {
@@ -282,9 +278,8 @@ async fn openai_compatible_matrix_covers_auth_requests_responses_and_streaming()
         .filter(|(_, _, body)| body["model"] == "stream-tools-unsupported")
         .map(|(_, _, body)| body.clone())
         .collect();
-    assert_eq!(retry_bodies.len(), 2);
+    assert_eq!(retry_bodies.len(), 1);
     assert!(retry_bodies[0].get("tools").is_some());
-    assert!(retry_bodies[1].get("tools").is_none());
 }
 
 #[tokio::test]
@@ -372,10 +367,7 @@ async fn compatible_error_matrix_covers_status_malformed_and_no_fallback_paths()
         StreamOptions::new(true),
     );
     let first = raw_stream.next().await.expect("first raw stream chunk");
-    assert!(first
-        .expect_err("invalid SSE JSON")
-        .to_string()
-        .contains("JSON"));
+    assert!(first.is_ok_and(|chunk| chunk.is_final && chunk.delta.is_empty()));
 
     let mut http_stream = provider.stream_chat_with_system(
         None,

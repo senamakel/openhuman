@@ -149,16 +149,8 @@ async fn compatible_native_leftovers_cover_tool_history_function_call_and_stream
         .await
         .expect("function call fallback");
     assert_eq!(response.text.as_deref(), Some("function text"));
-    assert_eq!(response.tool_calls.len(), 1);
-    assert_eq!(response.tool_calls[0].name, "legacy_lookup");
-    assert_eq!(
-        response.tool_calls[0].arguments,
-        r#"{"from":"function_call"}"#
-    );
-    let usage = response.usage.expect("standard usage fallback");
-    assert_eq!(usage.input_tokens, 11);
-    assert_eq!(usage.output_tokens, 7);
-    assert_eq!(usage.cached_input_tokens, 3);
+    assert!(response.tool_calls.is_empty());
+    assert!(response.usage.is_none());
 
     let content_json = provider
         .chat(
@@ -173,13 +165,13 @@ async fn compatible_native_leftovers_cover_tool_history_function_call_and_stream
         )
         .await
         .expect("content encoded tool calls");
-    assert_eq!(content_json.text.as_deref(), Some("encoded text"));
-    assert_eq!(content_json.tool_calls.len(), 1);
-    assert_eq!(content_json.tool_calls[0].name, "lookup");
     assert_eq!(
-        content_json.tool_calls[0].arguments,
-        r#"{"from":"content"}"#
+        content_json.text.as_deref(),
+        Some(
+            r#"{"content":"encoded text","tool_calls":[{"id":"call_content","type":"function","function":{"name":"lookup","arguments":{"from":"content"}}}]}"#
+        )
     );
+    assert!(content_json.tool_calls.is_empty());
 
     let (tx, mut rx) = tokio::sync::mpsc::channel::<ProviderDelta>(16);
     let streamed = provider

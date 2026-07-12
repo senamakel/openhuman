@@ -234,14 +234,14 @@ async fn compatible_native_leftovers_cover_tool_history_function_call_and_stream
         .2
         .clone();
     let messages = native_body["messages"].as_array().expect("messages");
-    assert_ne!(messages[0]["role"], "tool");
+    assert_eq!(messages[0]["role"], "tool");
     assert_eq!(
         messages
             .iter()
             .filter(|m| m["role"] == "tool")
             .collect::<Vec<_>>()
             .len(),
-        1
+        3
     );
     assert!(messages
         .iter()

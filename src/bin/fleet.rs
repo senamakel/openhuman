@@ -32,8 +32,10 @@ use std::sync::Arc;
 use anyhow::Context as _;
 use axum::{
     body::Bytes,
+    extract::Request,
     extract::{DefaultBodyLimit, Path as AxumPath, State},
-    http::{HeaderMap, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::post,
     Router,
@@ -503,9 +505,8 @@ fn write_edge_tokens(path: &Path, minted: &[(String, EdgeToken)]) -> anyhow::Res
             output.push('\n');
         }
         let mut file = std::fs::OpenOptions::new()
-            .create(true)
+            .create_new(true)
             .write(true)
-            .truncate(true)
             .mode(0o600)
             .custom_flags(libc::O_NOFOLLOW)
             .open(path)
@@ -527,6 +528,90 @@ fn write_edge_tokens(path: &Path, minted: &[(String, EdgeToken)]) -> anyhow::Res
     }
 
     Ok(())
+}
+
+const FLEET_ALLOWED_ORIGINS_ENV: &str = "OPENHUMAN_CORE_ALLOWED_ORIGINS";
+
+fn is_fleet_origin_allowed(origin: &str) -> bool {
+    is_fleet_origin_allowed_with_extra(
+        origin,
+        std::env::var(FLEET_ALLOWED_ORIGINS_ENV).ok().as_deref(),
+    )
+}
+
+fn is_fleet_origin_allowed_with_extra(origin: &str, extra_origins: Option<&str>) -> bool {
+    if matches!(
+        origin,
+        "tauri://localhost" | "http://tauri.localhost" | "https://tauri.localhost"
+    ) {
+        return true;
+    }
+
+    if let Some(rest) = origin.strip_prefix("http://") {
+        let authority = rest.split('/').next().unwrap_or("");
+        let host = if let Some(stripped) = authority.strip_prefix('[') {
+            stripped.split(']').next().unwrap_or("")
+        } else {
+            authority.split(':').next().unwrap_or("")
+        };
+        if matches!(host, "127.0.0.1" | "localhost" | "::1") {
+            return true;
+        }
+    }
+
+    if let Some(extra) = extra_origins {
+        for candidate in extra.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            if candidate == origin {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+async fn fleet_cors_middleware(req: Request, next: Next) -> Response {
+    let origin = req
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+
+    if req.method() == Method::OPTIONS {
+        return with_fleet_cors_headers(StatusCode::NO_CONTENT.into_response(), origin.as_deref());
+    }
+
+    let response = next.run(req).await;
+    with_fleet_cors_headers(response, origin.as_deref())
+}
+
+fn with_fleet_cors_headers(mut response: Response, origin: Option<&str>) -> Response {
+    let headers = response.headers_mut();
+    headers.append(header::VARY, HeaderValue::from_static("Origin"));
+
+    if let Some(origin) = origin {
+        if is_fleet_origin_allowed(origin) {
+            if let Ok(value) = HeaderValue::from_str(origin) {
+                headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
+            }
+        } else {
+            log::warn!("[fleet][cors] rejected disallowed origin: {origin}");
+        }
+    }
+
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_static("POST, OPTIONS"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_static("Content-Type, Authorization"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_MAX_AGE,
+        HeaderValue::from_static("86400"),
+    );
+    response
 }
 
 #[tokio::main]
@@ -625,6 +710,7 @@ async fn main() -> anyhow::Result<()> {
             "/{user_id}/rpc",
             post(rpc_proxy).route_layer(DefaultBodyLimit::max(MAX_RPC_BODY_BYTES)),
         )
+        .layer(middleware::from_fn(fleet_cors_middleware))
         .with_state(fleet);
 
     let addr: SocketAddr = args
@@ -791,5 +877,74 @@ mod tests {
         )
         .is_err());
         assert_eq!(std::fs::read_to_string(target).unwrap(), "unchanged");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn edge_token_output_rejects_preowned_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("edge-tokens.txt");
+        std::fs::write(&output, "attacker keeps this inode").unwrap();
+
+        assert!(write_edge_tokens(
+            &output,
+            &[("alice".to_string(), EdgeToken::new("edge-secret"))],
+        )
+        .is_err());
+        assert_eq!(
+            std::fs::read_to_string(output).unwrap(),
+            "attacker keeps this inode"
+        );
+    }
+
+    #[test]
+    fn fleet_cors_allows_tauri_loopback_and_extra_origins() {
+        assert!(is_fleet_origin_allowed_with_extra(
+            "tauri://localhost",
+            None
+        ));
+        assert!(is_fleet_origin_allowed_with_extra(
+            "http://127.0.0.1:1420",
+            None
+        ));
+        assert!(is_fleet_origin_allowed_with_extra(
+            "https://fleet.example",
+            Some("https://fleet.example")
+        ));
+        assert!(!is_fleet_origin_allowed_with_extra(
+            "https://evil.example",
+            Some("https://fleet.example")
+        ));
+    }
+
+    #[test]
+    fn fleet_cors_headers_echo_allowed_origin_only() {
+        let allowed = with_fleet_cors_headers(
+            StatusCode::NO_CONTENT.into_response(),
+            Some("tauri://localhost"),
+        );
+        assert_eq!(
+            allowed
+                .headers()
+                .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                .and_then(|value| value.to_str().ok()),
+            Some("tauri://localhost")
+        );
+        assert_eq!(
+            allowed
+                .headers()
+                .get(header::ACCESS_CONTROL_ALLOW_HEADERS)
+                .and_then(|value| value.to_str().ok()),
+            Some("Content-Type, Authorization")
+        );
+
+        let rejected = with_fleet_cors_headers(
+            StatusCode::NO_CONTENT.into_response(),
+            Some("https://evil.example"),
+        );
+        assert!(rejected
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+            .is_none());
     }
 }

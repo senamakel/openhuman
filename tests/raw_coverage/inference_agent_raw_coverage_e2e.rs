@@ -2363,12 +2363,15 @@ async fn inference_openai_compatible_provider_covers_native_streaming_and_fallba
         )
         .await
         .expect("legacy function_call response");
+    assert_eq!(legacy_tool.text_or_empty(), "visible");
     assert_eq!(
-        legacy_tool.text_or_empty(),
-        "<think>private</think> visible"
+        legacy_tool.reasoning_content.as_deref(),
+        Some("  retained reasoning  \nprivate")
     );
-    assert!(legacy_tool.reasoning_content.is_none());
-    assert!(legacy_tool.usage.is_none());
+    let usage = legacy_tool.usage.expect("standard usage");
+    assert_eq!(usage.input_tokens, 3);
+    assert_eq!(usage.output_tokens, 4);
+    assert_eq!(usage.cached_input_tokens, 2);
 
     let fallback = provider
         .chat_with_system(Some("sys"), "fallback", "responses-fallback", 0.1)

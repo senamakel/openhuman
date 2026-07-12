@@ -11,6 +11,19 @@ use super::*;
 use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider, ToolCall};
 use crate::openhuman::tools::{Tool, ToolResult};
 
+#[test]
+fn crate_native_turn_source_does_not_retain_host_provider() {
+    let source = TurnModelSource::new_crate_native(
+        "chat",
+        Arc::new(crate::openhuman::config::Config::default()),
+    );
+    assert!(
+        source.provider.is_none(),
+        "crate-native turn sources must not construct or retain a host Provider"
+    );
+    assert!(source.crate_native.is_some());
+}
+
 /// A real openhuman tool the harness will execute.
 struct EchoTool;
 

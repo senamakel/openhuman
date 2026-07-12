@@ -81,26 +81,17 @@ impl AgentBuilder {
     /// Sets the AI provider as a **crate-native** turn-model source (Phase 3 P3-B):
     /// `build`/`build_summarizer` construct crate `ChatModel`s from `(role, config)`
     /// via `create_turn_chat_model` (managed → `OpenHumanBackendModel`, local/cloud →
-    /// crate `OpenAiModel`) instead of wrapping `provider` in `ProviderModel`s. The
-    /// resolved `provider` is retained for the escape-hatch (sub-agent inheritance),
-    /// the crate-native-failure fallback, and provider-metadata parity
-    /// (`provider_id`/`native_tools`/`supports_vision` are read off it, identical to
-    /// the `Provider` path). Used by the production session factory; the plain
+    /// crate `OpenAiModel`) instead of wrapping `provider` in `ProviderModel`s.
+    /// Used by the production session factory; the plain
     /// [`provider`](Self::provider) setter (Provider path) stays for tests that
     /// inject a mock they observe.
     pub fn crate_native_provider(
         mut self,
-        provider: Box<dyn crate::openhuman::inference::provider::Provider>,
         role: impl Into<String>,
         config: Arc<crate::openhuman::config::Config>,
     ) -> Self {
-        self.turn_model_source = Some(
-            crate::openhuman::tinyagents::TurnModelSource::new_crate_native(
-                Arc::from(provider),
-                role,
-                config,
-            ),
-        );
+        self.turn_model_source =
+            Some(crate::openhuman::tinyagents::TurnModelSource::new_crate_native(role, config));
         self
     }
 

@@ -14,7 +14,7 @@ use crate::openhuman::agent::host_runtime;
 use crate::openhuman::agent_memory::memory_loader::DefaultMemoryLoader;
 use crate::openhuman::config::Config;
 use crate::openhuman::context::prompt::SystemPromptBuilder;
-use crate::openhuman::inference::provider::{self, Provider};
+use crate::openhuman::inference::provider;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::memory_store;
 use crate::openhuman::memory_tools::ToolMemoryCaptureHook;
@@ -476,14 +476,21 @@ impl Agent {
         // double-retry every transient error. Cross-route fallback is likewise
         // the crate registry `FallbackPolicy`, so `config.reliability.*` no longer
         // layers on the turn path (it still governs the non-seam provider paths).
-        let (provider, mut model_name): (Box<dyn Provider>, String) =
-            crate::openhuman::inference::provider::create_chat_provider(provider_role, config)?;
+        let (resolved_chat_model, mut model_name) =
+            crate::openhuman::inference::provider::create_chat_model_with_model_id(
+                provider_role,
+                config,
+                config.default_temperature,
+            )?;
+        let supports_native = resolved_chat_model
+            .profile()
+            .map_or(true, |profile| profile.tool_calling);
         log::info!(
             "[session-builder] agent_id={} provider_role={} resolved_model={} supports_native_tools={}",
             agent_id,
             provider_role,
             model_name,
-            provider.supports_native_tools()
+            supports_native
         );
         let target_agent_id = target_def
             .map(|def| def.id.as_str())
@@ -530,7 +537,6 @@ impl Agent {
         // the choice string now so the provider borrow doesn't conflict
         // with the later `provider` move into the builder.
         let dispatcher_choice = config.agent.tool_dispatcher.clone();
-        let supports_native = provider.supports_native_tools();
 
         // Build prompt builder — either the default "orchestrator /
         // main agent" layout that bootstraps from workspace identity
@@ -1141,12 +1147,12 @@ impl Agent {
         };
 
         // Crate-native turn models (Phase 3 P3-B): the production main-turn agent
-        // builds crate `ChatModel`s from `(provider_role, config)`. `provider` is
-        // retained for sub-agent inheritance + fallback + metadata parity. The
+        // builds crate `ChatModel`s from `(provider_role, config)` without retaining
+        // a host provider. The
         // `agent_harness_e2e` mock now serves SSE for streaming, so the crate-native
         // streaming path is exercised end-to-end.
         let mut builder = Agent::builder()
-            .crate_native_provider(provider, provider_role, std::sync::Arc::new(config.clone()))
+            .crate_native_provider(provider_role, std::sync::Arc::new(config.clone()))
             .tools(tools)
             .visible_tool_names(visible)
             .memory(memory)

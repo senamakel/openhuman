@@ -87,12 +87,14 @@ mod tests {
 /// Reads the parent's visible tool set, provider/model, and sub-agent
 /// allowlist. The returned registry carries no `rhai`, `spawn_*`, or workflow
 /// tools, and no `CliRpcOnly`-scoped tools.
-pub(super) fn build_capability_registry(parent: &ParentExecutionContext) -> CapabilityRegistry<()> {
+pub(super) fn build_capability_registry(
+    parent: &ParentExecutionContext,
+) -> anyhow::Result<CapabilityRegistry<()>> {
     let mut registry = CapabilityRegistry::<()>::new();
 
     // ── Model: the turn's provider, under its registered name. ──
     let model = provider_chat_model(
-        parent.turn_model_source.provider(),
+        parent.turn_model_source.provider()?,
         parent.model_name.clone(),
         parent.temperature,
     );
@@ -134,7 +136,7 @@ pub(super) fn build_capability_registry(parent: &ParentExecutionContext) -> Capa
         model = %parent.model_name,
         "[rhai_workflows] built capability registry"
     );
-    registry
+    Ok(registry)
 }
 
 /// A `tinyagents` tool backed by an openhuman [`Tool`](OhTool), located by name

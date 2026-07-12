@@ -128,9 +128,18 @@ impl Agent {
         // source inline (issue #4249, Phase 3 / Motion A). The `Agent` struct
         // itself holds no `Provider`; this stays a `.provider()` escape hatch until
         // the streaming checkpoint moves onto the crate stream API (Motion B).
-        let result = self
-            .turn_model_source
-            .provider()
+        let provider = match self.turn_model_source.provider() {
+            Ok(provider) => provider,
+            Err(error) => {
+                tracing::error!(
+                    error = %error,
+                    model = effective_model,
+                    "[agent::session] failed to build wrap-up provider"
+                );
+                return (String::new(), None);
+            }
+        };
+        let result = provider
             .chat(
                 ChatRequest {
                     messages: &messages,

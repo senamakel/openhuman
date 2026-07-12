@@ -1234,10 +1234,8 @@ pub(crate) fn build_turn_models(
 /// The `TurnModels` shape is identical to [`build_turn_models`] so
 /// [`assemble_turn_harness`] is unchanged. The provider metadata
 /// (`provider_id` / `native_tools` / `supports_vision`) is derived by the caller
-/// ([`TurnModelSource::build`]) from the **retained resolved provider** — the same
-/// source the `Provider` path's [`build_turn_models`] used — so these fields are
-/// byte-for-byte identical to the pre-cutover path; only the models
-/// (primary / routes / summarizer) become crate-native. `error_slot` is a fresh
+/// ([`TurnModelSource::build`]) from the resolved provider string and config.
+/// `error_slot` is a fresh
 /// empty slot — crate-native models surface `TinyAgentsError` directly (no
 /// downcastable `anyhow` to preserve), so typed provider-error *recovery* is unused
 /// here (Sentry suppression is unaffected — both `skips_sentry` cases are raised in
@@ -1314,24 +1312,19 @@ fn build_turn_models_crate(
 /// / Motion A).
 ///
 /// An [`Agent`](crate::openhuman::agent::Agent) (and each channel/subagent turn
-/// request) is model-agnostic: it holds one provider and builds a *tiered* crate
+/// request) is model-agnostic: it holds this source and builds a *tiered* crate
 /// [`ChatModel`] set (primary + workload-tier fallback routes + summarizer) per
-/// turn via [`build_turn_models`]. That per-turn re-projection needs the
-/// underlying `Provider` (route aliases are re-instantiated with distinct model
-/// strings + per-route capability flags), so the harness cannot simply hold a
-/// single `Arc<dyn ChatModel>`. `TurnModelSource` confines that `Provider` to the
-/// seam: the harness names only this type, and every `Provider` method it needs
-/// (context-window resolution, the model build) is exposed here. Constructed in
+/// turn. Production sources retain only crate-native role/config metadata;
+/// provider-backed sources remain for injected tests and bespoke clients. Constructed in
 /// exactly one place — [`create_turn_model_source`](crate::openhuman::inference::provider::factory::create_turn_model_source).
 #[derive(Clone)]
 pub struct TurnModelSource {
-    provider: Arc<dyn Provider>,
+    provider: Option<Arc<dyn Provider>>,
     /// When set, [`build`](Self::build) / [`build_summarizer`](Self::build_summarizer)
     /// construct **crate-native** models from `(role, config)` (Phase 3 P3-B) via
-    /// [`build_turn_models_crate`]. The `provider` above is retained for the
-    /// escape-hatch consumers (sub-agent inheritance, rhai) and as a graceful
-    /// fallback if crate-native construction fails, so this flip is safe to land
-    /// per-producer before those consumers migrate.
+    /// [`build_turn_models_crate`]. Crate-native sources keep `provider` as
+    /// `None`; build failures propagate instead of falling back to the host wire
+    /// client.
     crate_native: Option<CrateNativeSource>,
 }
 
@@ -1358,26 +1351,22 @@ impl TurnModelSource {
     /// its integration tests can construct one.
     pub fn new(provider: Arc<dyn Provider>) -> Self {
         Self {
-            provider,
+            provider: Some(provider),
             crate_native: None,
         }
     }
 
     /// Build a crate-native source: [`build`](Self::build) constructs the tiered
     /// [`TurnModels`] from `(role, config)` via [`build_turn_models_crate`] rather
-    /// than wrapping `provider` in `ProviderModel`s. `provider` is still supplied
-    /// (built once by the producer) so the escape-hatch consumers and the
-    /// crate-native-failure fallback keep working while producers migrate
-    /// incrementally (Phase 3 P3-B). Used by the session-builder producer
+    /// than wrapping a provider in `ProviderModel`s. Used by the session-builder producer
     /// (`crate_native_provider`); the triage path uses
     /// [`new_crate_native_from_string`](Self::new_crate_native_from_string).
     pub(crate) fn new_crate_native(
-        provider: Arc<dyn Provider>,
         role: impl Into<String>,
         config: Arc<crate::openhuman::config::Config>,
     ) -> Self {
         Self {
-            provider,
+            provider: None,
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
                 config,
@@ -1392,13 +1381,12 @@ impl TurnModelSource {
     /// override (`build_remote_provider` picks the effective string). Routes still
     /// use the standard workload tiers.
     pub(crate) fn new_crate_native_from_string(
-        provider: Arc<dyn Provider>,
         role: impl Into<String>,
         provider_string: impl Into<String>,
         config: Arc<crate::openhuman::config::Config>,
     ) -> Self {
         Self {
-            provider,
+            provider: None,
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
                 config,
@@ -1411,14 +1399,41 @@ impl TurnModelSource {
     /// value that drives the context-window summarization step. Resolved before
     /// [`build`](Self::build) so the harness graph makes no async `Provider` call.
     pub(crate) async fn effective_context_window(&self, model: &str) -> Option<u64> {
-        self.provider.effective_context_window(model).await
+        if let Some(provider) = &self.provider {
+            return provider.effective_context_window(model).await;
+        }
+        let provider_string = self.crate_native.as_ref().map(|source| {
+            source.primary_override.clone().unwrap_or_else(|| {
+                crate::openhuman::inference::provider::provider_for_role(
+                    &source.role,
+                    &source.config,
+                )
+            })
+        });
+        let local_kind = provider_string
+            .as_deref()
+            .and_then(crate::openhuman::inference::local::profile::kind_from_provider_string);
+        crate::openhuman::inference::model_context::context_window_for_model_with_local_fallback(
+            model, local_kind,
+        )
     }
 
     /// Whether the underlying provider is a local runtime (Ollama / LM Studio).
     /// A passthrough so callers (e.g. the sub-agent summarization-route decision)
     /// can branch on locality without naming the `Provider` trait.
     pub(crate) fn is_local_provider(&self) -> bool {
-        self.provider.is_local_provider()
+        if let Some(provider) = &self.provider {
+            return provider.is_local_provider();
+        }
+        self.crate_native.as_ref().is_some_and(|source| {
+            let provider = source.primary_override.clone().unwrap_or_else(|| {
+                crate::openhuman::inference::provider::provider_for_role(
+                    &source.role,
+                    &source.config,
+                )
+            });
+            crate::openhuman::inference::local::profile::is_local_provider_string(&provider)
+        })
     }
 
     /// The underlying provider handle. An escape hatch for the few seam-boundary
@@ -1427,8 +1442,28 @@ impl TurnModelSource {
     /// it inline rather than holding it, so no agent-harness *struct* carries an
     /// `Arc<dyn Provider>`. Shrinks further as those callers move to the crate
     /// `ModelRegistry` (Motion B).
-    pub(crate) fn provider(&self) -> Arc<dyn Provider> {
-        self.provider.clone()
+    pub(crate) fn provider(&self) -> anyhow::Result<Arc<dyn Provider>> {
+        if let Some(provider) = &self.provider {
+            return Ok(provider.clone());
+        }
+        let source = self
+            .crate_native
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("turn model source has no provider configuration"))?;
+        let built = match source.primary_override.as_deref() {
+            Some(provider) => {
+                crate::openhuman::inference::provider::factory::create_chat_provider_from_string(
+                    &source.role,
+                    provider,
+                    &source.config,
+                )
+            }
+            None => crate::openhuman::inference::provider::create_chat_provider(
+                &source.role,
+                &source.config,
+            ),
+        }?;
+        Ok(Arc::from(built.0))
     }
 
     /// Build this turn's [`TurnModels`] (primary + tier routes + summarizer),
@@ -1438,16 +1473,27 @@ impl TurnModelSource {
         model: &str,
         temperature: f64,
         context_window: Option<u64>,
-    ) -> TurnModels {
+    ) -> anyhow::Result<TurnModels> {
         if let Some(cn) = &self.crate_native {
-            // Derive the provider metadata from the retained resolved provider — the
-            // SAME source `build_turn_models` uses — so `provider_id`/`native_tools`/
-            // `supports_vision` are identical to the `Provider` path; only the models
-            // become crate-native (Phase 3 P3-B).
-            let provider_id = self.provider.telemetry_provider_id();
-            let native_tools = self.provider.supports_native_tools();
-            let supports_vision = self.provider.supports_vision();
-            match build_turn_models_crate(
+            let provider_string = cn.primary_override.clone().unwrap_or_else(|| {
+                crate::openhuman::inference::provider::provider_for_role(&cn.role, &cn.config)
+            });
+            let is_local = crate::openhuman::inference::local::profile::is_local_provider_string(
+                &provider_string,
+            );
+            let provider_id = if provider_string == "openhuman"
+                || provider_string.is_empty()
+                || provider_string == "cloud"
+            {
+                "managed".to_string()
+            } else {
+                provider_string
+                    .split(':')
+                    .next()
+                    .unwrap_or(&provider_string)
+                    .to_string()
+            };
+            return build_turn_models_crate(
                 &cn.role,
                 &cn.config,
                 model,
@@ -1455,24 +1501,19 @@ impl TurnModelSource {
                 context_window,
                 cn.primary_override.as_deref(),
                 provider_id,
-                native_tools,
-                supports_vision,
-            ) {
-                Ok(turn_models) => return turn_models,
-                Err(e) => {
-                    // Never fail a turn on the crate-native build: fall back to the
-                    // proven `Provider` path (the source still holds the resolved
-                    // provider) and log so the divergence is visible.
-                    tracing::warn!(
-                        role = cn.role,
-                        model,
-                        error = %e,
-                        "[models] crate-native turn build failed; falling back to the Provider path"
-                    );
-                }
-            }
+                !is_local,
+                !is_local,
+            );
         }
-        build_turn_models(self.provider.clone(), model, temperature, context_window)
+        let provider = self.provider.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("provider-backed turn source is missing its provider")
+        })?;
+        Ok(build_turn_models(
+            provider.clone(),
+            model,
+            temperature,
+            context_window,
+        ))
     }
 
     /// Build a standalone summarizer [`ChatModel`](tinyagents::harness::model::ChatModel)
@@ -1484,7 +1525,7 @@ impl TurnModelSource {
         &self,
         model: &str,
         temperature: f64,
-    ) -> Arc<dyn tinyagents::harness::model::ChatModel<()>> {
+    ) -> anyhow::Result<Arc<dyn tinyagents::harness::model::ChatModel<()>>> {
         if let Some(cn) = &self.crate_native {
             let built = match cn.primary_override.as_deref() {
                 Some(ps) => crate::openhuman::inference::provider::factory::create_turn_chat_model_from_string(
@@ -1497,23 +1538,16 @@ impl TurnModelSource {
                     temperature,
                 ),
             };
-            match built {
-                Ok(summarizer) => return summarizer,
-                Err(e) => {
-                    tracing::warn!(
-                        role = cn.role,
-                        model,
-                        error = %e,
-                        "[models] crate-native summarizer build failed; falling back to ProviderModel"
-                    );
-                }
-            }
+            return built;
         }
-        Arc::new(ProviderModel::new(
-            self.provider.clone(),
+        let provider = self.provider.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("provider-backed turn source is missing its provider")
+        })?;
+        Ok(Arc::new(ProviderModel::new(
+            provider.clone(),
             model,
             temperature,
-        ))
+        )))
     }
 }
 

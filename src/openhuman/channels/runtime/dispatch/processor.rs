@@ -461,13 +461,11 @@ pub(crate) async fn process_channel_runtime_message(
     let turn_request = AgentTurnRequest {
         // Crate-native channel turn models (Phase 3 P3-B): when the runtime carries
         // the full config, build crate `ChatModel`s from `("chat", route.provider,
-        // config)` — `route.provider` is the effective provider string (parity with
-        // the cached provider's resolution). The cached provider is retained for the
-        // escape-hatch + fallback. Tests (no `config`) stay on the `Provider` path.
+        // config)` — `route.provider` is the effective provider string. Tests (no
+        // `config`) stay on the injected `Provider` path.
         turn_model_source: match &ctx.config {
             Some(cfg) => {
                 crate::openhuman::tinyagents::TurnModelSource::new_crate_native_from_string(
-                    Arc::clone(&active_provider),
                     "chat",
                     route.provider.clone(),
                     cfg.clone(),

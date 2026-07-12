@@ -466,12 +466,10 @@ async fn try_arm(
     // Crate-native (Phase 3 P3-B) when the remote/managed arm carries the effective
     // provider string + config; the effective string preserves the #1257
     // force-managed invariant ("triage never goes local"). The local arm (no
-    // `crate_native`) stays on the `Provider` path, and the resolved provider is
-    // retained as the escape-hatch + crate-native-failure fallback either way.
+    // `crate_native`) stays on the `Provider` path.
     let turn_model_source = match &resolved.crate_native {
         Some((effective_provider, config)) => {
             crate::openhuman::tinyagents::TurnModelSource::new_crate_native_from_string(
-                Arc::clone(&resolved.provider),
                 "subconscious",
                 effective_provider.clone(),
                 config.clone(),

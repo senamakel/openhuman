@@ -337,7 +337,7 @@ async fn run_typed_mode(
         &definition.model,
         &definition.id,
         config_loaded.as_ref().ok(),
-        parent.turn_model_source.provider(),
+        parent.turn_model_source.provider()?,
         parent.model_name.clone(),
         !definition.subagents.is_empty(),
         options.model_override.as_deref(),
@@ -645,7 +645,7 @@ async fn run_typed_mode(
                 let route_is_managed = r.is_empty() || r == "cloud" || r == "openhuman";
                 if route_is_managed && !parent.turn_model_source.is_local_provider() {
                     (
-                        parent.turn_model_source.provider(),
+                        parent.turn_model_source.provider()?,
                         summarization_tier.clone(),
                     )
                 } else {
@@ -661,7 +661,7 @@ async fn run_typed_mode(
                                 "[subagent_runner:typed] extract summarization provider build failed; falling back to parent provider"
                             );
                             (
-                                parent.turn_model_source.provider(),
+                                parent.turn_model_source.provider()?,
                                 summarization_tier.clone(),
                             )
                         }
@@ -675,7 +675,7 @@ async fn run_typed_mode(
                     "[subagent_runner:typed] config load failed for extract provider; falling back to parent provider + summarization-v1"
                 );
                 (
-                    parent.turn_model_source.provider(),
+                    parent.turn_model_source.provider()?,
                     summarization_tier.clone(),
                 )
             }

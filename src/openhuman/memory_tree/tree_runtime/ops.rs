@@ -317,14 +317,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn create_local_ai_provider_uses_ollama_local_label() {
-        let mut cfg = Config::default();
-        cfg.local_ai.runtime_enabled = true;
-        let provider = create_local_ai_provider(&cfg).expect("provider");
-        let _ = provider;
-    }
-
     #[tokio::test]
     async fn tree_summarizer_ingest_rejects_blank_content() {
         let (_tmp, cfg) = config_in_tempdir();

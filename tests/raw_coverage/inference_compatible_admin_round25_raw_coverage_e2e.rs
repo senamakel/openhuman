@@ -113,7 +113,7 @@ async fn compatible_provider_cold_paths_cover_auth_url_temperature_and_stream_er
 
     let full_endpoint = OpenAiCompatibleProvider::new(
         "round25-full-endpoint",
-        &format!("{base}/direct/chat/completions"),
+        &format!("{base}/direct"),
         Some("sk-full"),
         CompatibleAuthStyle::Bearer,
     )

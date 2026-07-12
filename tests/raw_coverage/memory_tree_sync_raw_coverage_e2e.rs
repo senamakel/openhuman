@@ -447,22 +447,6 @@ async fn default_composio_provider_hooks_return_expected_noop_shapes() {
             })
         }
 
-        async fn sync(
-            &self,
-            ctx: &ProviderContext,
-            reason: SyncReason,
-        ) -> Result<SyncOutcome, String> {
-            Ok(SyncOutcome {
-                toolkit: ctx.toolkit.clone(),
-                connection_id: ctx.connection_id.clone(),
-                reason: reason.as_str().into(),
-                items_ingested: 3,
-                started_at_ms: 10,
-                finished_at_ms: 25,
-                summary: "synced".into(),
-                details: json!({"reason": reason.as_str()}),
-            })
-        }
     }
 
     let tmp = TempDir::new().expect("tempdir");

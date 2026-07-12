@@ -895,7 +895,8 @@ async fn notion_cleanup_targets_include_synced_page_sources() {
     let mut state = SyncState::new("notion", "conn-1");
     state.mark_synced("page-a@2026-01-01T00:00:00Z");
     state.mark_synced("page-b");
-    state.save(&memory).await.expect("sync state should save");
+    let adapter = crate::openhuman::tinycortex::HostSyncAdapter::new(memory);
+    state.save(&adapter).await.expect("sync state should save");
 
     let targets = composio_memory_targets_for_connection(&config, Some("notion"), "conn-1")
         .await

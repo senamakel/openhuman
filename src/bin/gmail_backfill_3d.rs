@@ -1,10 +1,8 @@
 //! Backfill the last N days of Gmail into the memory-tree content store.
 //!
 //! Authenticates via Composio (JWT from `<workspace>/auth-profiles.json`),
-//! fetches Gmail pages via `GMAIL_FETCH_EMAILS`, converts each thread into an
-//! [`EmailThread`], ingests it through `ingest_page_into_memory_tree` (which
-//! writes `.md` files via `content_store` and populates SQLite), then drains
-//! the async worker pool until idle.
+//! fetches and ingests Gmail pages through tinycortex, then drains the async
+//! worker pool until idle.
 //!
 //! After draining, the binary performs an integrity check: for every chunk
 //! that has a `content_path` in SQLite, it verifies the on-disk SHA-256
@@ -31,15 +29,6 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use serde_json::{json, Value};
-
-use openhuman_core::openhuman::composio::client::{
-    create_composio_client, direct_execute, ComposioClientKind,
-};
-use openhuman_core::openhuman::composio::providers::gmail::ingest::ingest_page_into_memory_tree;
-use openhuman_core::openhuman::composio::providers::registry::{
-    get_provider, init_default_providers,
-};
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory_queue::drain_until_idle;
 use openhuman_core::openhuman::memory_store::chunks::store::{
@@ -114,6 +103,9 @@ async fn main() -> Result<()> {
     if cli.days == 0 {
         anyhow::bail!("--days must be >= 1");
     }
+    if cli.owner.is_some() {
+        log::warn!("[gmail_backfill_3d] --owner is retained for compatibility but ignored");
+    }
 
     let config = Config::load_or_init()
         .await
@@ -123,29 +115,8 @@ async fn main() -> Result<()> {
         wipe_memory_tree_state(&config)?;
     }
 
-    // Resolve through the mode-aware factory so the backfill runs in
-    // EITHER backend mode (legacy JWT-driven path) OR direct mode (BYO
-    // Composio API key on the user's personal tenant) — #1710 Wave 2.
-    // Pre-fix this binary was hard-wired to backend mode via
-    // `build_composio_client`, so a direct-mode user couldn't run a
-    // gmail backfill even with a healthy personal connection.
-    let client_kind = create_composio_client(&config).map_err(|e| {
-        anyhow::anyhow!(
-            "No Composio client — user not signed in (backend session) and no direct-mode \
-             API key configured. Sign in via the desktop app or set a Composio API key, \
-             then re-run this binary. ({e})"
-        )
-    })?;
-
-    init_default_providers();
-    let provider = get_provider("gmail").ok_or_else(|| {
-        anyhow::anyhow!("GmailProvider not registered after init_default_providers")
-    })?;
-
-    let owner = cli
-        .owner
-        .clone()
-        .unwrap_or_else(|| "gmail-backfill".to_string());
+    openhuman_core::openhuman::memory::global::init(config.workspace_dir.clone())
+        .map_err(anyhow::Error::msg)?;
 
     let mut query = format!("in:inbox newer_than:{}d", cli.days);
     if !cli.include_spam_trash {
@@ -175,94 +146,23 @@ async fn main() -> Result<()> {
         content_root.display()
     );
 
-    // ─── Fetch + ingest ────────────────────────────────────────────────────
+    // ─── Fetch + ingest through tinycortex ──────────────────────────────────
 
-    let mut page_token: Option<String> = None;
-    let mut total_chunks = 0usize;
-    let mut total_pages = 0usize;
-    let mut total_cost: f64 = 0.0;
-
-    for page_num in 0..cli.max_pages {
-        let mut args = json!({
-            "max_results": cli.page_size,
-            "query": query,
-        });
-        if cli.include_spam_trash {
-            args["include_spam_trash"] = json!(true);
-        }
-        if let Some(token) = &page_token {
-            args["page_token"] = json!(token);
-        }
-
-        log::info!(
-            "[gmail_backfill_3d] fetching page {}{}…",
-            page_num,
-            page_token.as_ref().map(|_| " (paginated)").unwrap_or(""),
-        );
-
-        let mut resp = match &client_kind {
-            ComposioClientKind::Backend(client) => client
-                .execute_tool("GMAIL_FETCH_EMAILS", Some(args.clone()))
-                .await
-                .map_err(|e| anyhow::anyhow!("GMAIL_FETCH_EMAILS page {page_num}: {e:#}"))?,
-            ComposioClientKind::Direct(direct) => direct_execute(
-                direct,
-                "GMAIL_FETCH_EMAILS",
-                Some(args.clone()),
-                &config.composio.entity_id,
-                None,
-            )
-            .await
-            .map_err(|e| anyhow::anyhow!("GMAIL_FETCH_EMAILS (direct) page {page_num}: {e:#}"))?,
-        };
-        total_cost += resp.cost_usd;
-
-        if !resp.successful {
-            anyhow::bail!(
-                "GMAIL_FETCH_EMAILS page {page_num} failed: {:?}",
-                resp.error
-            );
-        }
-
-        provider.post_process_action_result("GMAIL_FETCH_EMAILS", Some(&args), &mut resp.data);
-
-        let (messages, next_token) = extract_envelope(&resp.data);
-        log::info!(
-            "[gmail_backfill_3d] page {} -> {} messages, next_token={}",
-            page_num,
-            messages.len(),
-            next_token.as_deref().unwrap_or("(none)"),
-        );
-
-        if messages.is_empty() {
-            break;
-        }
-
-        // CLI runs don't fetch the user profile, so pass `None` and
-        // let the ingest fall back to per-participants source ids.
-        let chunks_this_page =
-            ingest_page_into_memory_tree(&config, &owner, None, &messages).await?;
-        total_chunks += chunks_this_page;
-        total_pages += 1;
-
-        log::info!(
-            "[gmail_backfill_3d] page {} ingested chunks={} running_total={}",
-            page_num,
-            chunks_this_page,
-            total_chunks,
-        );
-
-        match next_token {
-            Some(tok) => page_token = Some(tok),
-            None => break,
-        }
-    }
-
+    let outcome = openhuman_core::openhuman::tinycortex::run_gmail_backfill(
+        "default",
+        &query,
+        cli.max_pages as usize,
+        cli.page_size as usize,
+        &config,
+    )
+    .await
+    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
     log::info!(
-        "[gmail_backfill_3d] fetch+ingest done pages={} total_chunks={} cost=~${:.4}",
-        total_pages,
-        total_chunks,
-        total_cost,
+        "[gmail_backfill_3d] fetch+ingest done records={} actions={} cost_usd={:.4} note={:?}",
+        outcome.records_ingested,
+        outcome.actions_called,
+        outcome.provider_cost_usd,
+        outcome.note,
     );
 
     // ─── Drain async worker pool ────────────────────────────────────────────
@@ -317,8 +217,8 @@ async fn main() -> Result<()> {
     }
 
     println!(
-        "\nBackfill complete. pages={} chunks_written={} cost=~${:.4}",
-        total_pages, total_chunks, total_cost,
+        "\nBackfill complete. records_ingested={} actions={} cost=~${:.4}",
+        outcome.records_ingested, outcome.actions_called, outcome.provider_cost_usd,
     );
     Ok(())
 }
@@ -478,20 +378,4 @@ fn verify_all_summary_files(config: &Config) -> Result<(usize, usize, usize, usi
     let no_pointer = 0usize;
 
     Ok((verified, mismatched, no_pointer, missing_file))
-}
-
-/// Extract the `messages` array and `nextPageToken` from a Composio response.
-fn extract_envelope(data: &Value) -> (Vec<Value>, Option<String>) {
-    let candidates: [Option<&Value>; 2] = [Some(data), data.get("data")];
-    for cand in candidates.into_iter().flatten() {
-        if let Some(arr) = cand.get("messages").and_then(|v| v.as_array()) {
-            let token = cand
-                .get("nextPageToken")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.trim().is_empty())
-                .map(str::to_string);
-            return (arr.clone(), token);
-        }
-    }
-    (Vec::new(), None)
 }

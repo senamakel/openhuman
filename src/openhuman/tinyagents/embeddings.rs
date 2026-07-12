@@ -64,6 +64,14 @@ impl ProviderEmbeddingModel {
 
 #[async_trait]
 impl TaEmbeddingModel for ProviderEmbeddingModel {
+    fn name(&self) -> &str {
+        self.provider.name()
+    }
+
+    fn model_id(&self) -> &str {
+        self.provider.model_id()
+    }
+
     async fn embed(&self, texts: &[String]) -> TaResult<Vec<Vec<f32>>> {
         tracing::debug!(
             provider = self.provider.name(),

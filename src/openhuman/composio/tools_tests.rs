@@ -2,7 +2,6 @@ use super::*;
 use crate::openhuman::composio::providers::tool_scope::{CuratedTool, ToolScope};
 use crate::openhuman::composio::providers::{
     registry::register_provider, ComposioProvider, ProviderContext, ProviderUserProfile,
-    SyncOutcome, SyncReason,
 };
 use async_trait::async_trait;
 use std::path::Path;
@@ -30,14 +29,6 @@ impl ComposioProvider for ProviderOnlyCatalog {
         _ctx: &ProviderContext,
     ) -> Result<ProviderUserProfile, String> {
         Ok(ProviderUserProfile::default())
-    }
-
-    async fn sync(
-        &self,
-        _ctx: &ProviderContext,
-        _reason: SyncReason,
-    ) -> Result<SyncOutcome, String> {
-        Ok(SyncOutcome::default())
     }
 }
 

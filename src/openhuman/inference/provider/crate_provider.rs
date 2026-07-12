@@ -13,6 +13,17 @@ use super::traits::{
 };
 use crate::openhuman::tools::ToolSpec;
 
+fn sanitize_model_error(message: &str) -> String {
+    if ["Bearer ", "sk-", "ghp_", "-----BEGIN"]
+        .iter()
+        .any(|marker| message.contains(marker))
+    {
+        "provider error contained sensitive content [redacted]".to_string()
+    } else {
+        message.to_string()
+    }
+}
+
 pub(crate) struct CrateBackedProvider {
     model: Arc<dyn ChatModel<()>>,
     provider_id: String,
@@ -84,7 +95,7 @@ impl CrateBackedProvider {
                         &message,
                     );
                 }
-                return Err(error.into());
+                return Err(anyhow::anyhow!(sanitize_model_error(&message)));
             }
         };
         Ok(Self::response(response))
@@ -195,7 +206,11 @@ impl Provider for CrateBackedProvider {
             return self.invoke(model_request).await;
         };
 
-        let mut stream = self.model.stream(&(), model_request).await?;
+        let mut stream = self
+            .model
+            .stream(&(), model_request)
+            .await
+            .map_err(|error| anyhow::anyhow!(sanitize_model_error(&error.to_string())))?;
         let mut completed = None;
         let mut started_tool_calls = HashSet::new();
         while let Some(item) = stream.next().await {
@@ -255,8 +270,12 @@ impl Provider for CrateBackedProvider {
                     }
                 }
                 ModelStreamItem::Completed(response) => completed = Some(response),
-                ModelStreamItem::Failed(error) => anyhow::bail!(error),
-                ModelStreamItem::ProviderFailed(error) => anyhow::bail!(error.to_string()),
+                ModelStreamItem::Failed(error) => {
+                    anyhow::bail!(sanitize_model_error(&error))
+                }
+                ModelStreamItem::ProviderFailed(error) => {
+                    anyhow::bail!(sanitize_model_error(&error.to_string()))
+                }
                 ModelStreamItem::Started | ModelStreamItem::UsageDelta(_) => {}
             }
         }
@@ -275,5 +294,22 @@ impl Provider for CrateBackedProvider {
 
     fn is_local_provider_for_model(&self, _model: &str) -> bool {
         self.local
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_model_error;
+
+    #[test]
+    fn model_error_sanitizer_redacts_credentials_and_preserves_safe_errors() {
+        assert_eq!(
+            sanitize_model_error("HTTP 403: denied for sk-provider-secret"),
+            "provider error contained sensitive content [redacted]"
+        );
+        assert_eq!(
+            sanitize_model_error("HTTP 404: missing"),
+            "HTTP 404: missing"
+        );
     }
 }

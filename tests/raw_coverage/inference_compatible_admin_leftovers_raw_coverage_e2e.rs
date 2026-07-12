@@ -245,7 +245,7 @@ async fn compatible_native_leftovers_cover_tool_history_function_call_and_stream
     );
     assert!(messages
         .iter()
-        .any(|message| message["reasoning_content"] == "metadata reasoning"));
+        .all(|message| message.get("reasoning_content").is_none()));
 }
 
 #[tokio::test]

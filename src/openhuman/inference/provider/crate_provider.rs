@@ -1,5 +1,6 @@
 //! Legacy [`Provider`] boundary backed by a crate-native [`ChatModel`].
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -196,6 +197,7 @@ impl Provider for CrateBackedProvider {
 
         let mut stream = self.model.stream(&(), model_request).await?;
         let mut completed = None;
+        let mut started_tool_calls = HashSet::new();
         while let Some(item) = stream.next().await {
             match item {
                 ModelStreamItem::MessageDelta(delta) => {
@@ -213,12 +215,14 @@ impl Provider for CrateBackedProvider {
                     }
                     if let Some(tool) = delta.tool_call {
                         if let Some(tool_name) = tool.tool_name {
-                            let _ = delta_tx
-                                .send(ProviderDelta::ToolCallStart {
-                                    call_id: tool.call_id.clone(),
-                                    tool_name,
-                                })
-                                .await;
+                            if started_tool_calls.insert(tool.call_id.clone()) {
+                                let _ = delta_tx
+                                    .send(ProviderDelta::ToolCallStart {
+                                        call_id: tool.call_id.clone(),
+                                        tool_name,
+                                    })
+                                    .await;
+                            }
                         }
                         if !tool.content.is_empty() {
                             let _ = delta_tx
@@ -232,12 +236,14 @@ impl Provider for CrateBackedProvider {
                 }
                 ModelStreamItem::ToolCallDelta(tool) => {
                     if let Some(tool_name) = tool.tool_name {
-                        let _ = delta_tx
-                            .send(ProviderDelta::ToolCallStart {
-                                call_id: tool.call_id.clone(),
-                                tool_name,
-                            })
-                            .await;
+                        if started_tool_calls.insert(tool.call_id.clone()) {
+                            let _ = delta_tx
+                                .send(ProviderDelta::ToolCallStart {
+                                    call_id: tool.call_id.clone(),
+                                    tool_name,
+                                })
+                                .await;
+                        }
                     }
                     if !tool.content.is_empty() {
                         let _ = delta_tx

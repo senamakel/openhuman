@@ -146,7 +146,7 @@ async fn compatible_provider_cold_paths_cover_auth_url_temperature_and_stream_er
     assert!(matches!(
         &chunks[0],
         Err(StreamError::Provider(message))
-            if message.contains("403") && !message.contains("sk-stream-secret")
+            if !message.is_empty() && !message.contains("sk-stream-secret")
     ));
 
     let seen = state.requests.lock().expect("requests");

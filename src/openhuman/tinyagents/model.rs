@@ -109,6 +109,7 @@ fn response_to_model_response(
                 id: tc.id.clone(),
                 name: tc.name.clone(),
                 arguments: serde_json::from_str(&tc.arguments).unwrap_or(serde_json::Value::Null),
+                invalid: None,
             })
             .collect();
         (response.text.clone().unwrap_or_default(), calls)
@@ -127,6 +128,7 @@ fn response_to_model_response(
                     id: p.id.unwrap_or_else(|| format!("call_{i}")),
                     name: p.name,
                     arguments: p.arguments,
+                    invalid: None,
                 })
                 .collect();
             (prose, calls)

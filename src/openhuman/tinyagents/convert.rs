@@ -173,6 +173,7 @@ fn oh_call_to_ta_call(oh: &crate::openhuman::inference::provider::ToolCall) -> T
         id: oh.id.clone(),
         name: oh.name.clone(),
         arguments: serde_json::from_str(&oh.arguments).unwrap_or(serde_json::Value::Null),
+        invalid: None,
     }
 }
 

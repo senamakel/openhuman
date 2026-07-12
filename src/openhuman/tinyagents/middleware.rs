@@ -1615,6 +1615,7 @@ impl Middleware<()> for SchemaGuardMiddleware {
             id: call.id.clone(),
             name: call.name.clone(),
             arguments: call.arguments.clone(),
+            invalid: None,
         };
         let Err(err) = schema.validate_call(&probe) else {
             return Ok(());

@@ -350,7 +350,7 @@ impl Memory for UnifiedMemory {
         category: Option<&MemoryCategory>,
         session_id: Option<&str>,
     ) -> anyhow::Result<Vec<MemoryEntry>> {
-        let ns = normalize_namespace(namespace);
+        let ns = UnifiedMemory::sanitize_namespace(normalize_namespace(namespace));
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
             "SELECT document_id, key, content, category, session_id, updated_at, taint
@@ -362,7 +362,7 @@ impl Memory for UnifiedMemory {
                 id: row.get(0)?,
                 key: row.get(1)?,
                 content: row.get(2)?,
-                namespace: Some(ns.to_string()),
+                namespace: Some(ns.clone()),
                 category: memory_category_from_stored(&stored_category),
                 session_id: row.get(4)?,
                 timestamp: timestamp_to_rfc3339(row.get(5)?),

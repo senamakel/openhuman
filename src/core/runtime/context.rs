@@ -17,7 +17,7 @@
 use std::future::Future;
 use std::sync::{Arc, OnceLock};
 
-use crate::core::runtime::TokenSource;
+use crate::core::runtime::{ServiceSet, TokenSource};
 use crate::core::types::HostKind;
 
 /// The process-wide default context — the first one built. Callers that dispatch
@@ -64,6 +64,7 @@ impl CoreContext {
     pub async fn init(
         host_kind: HostKind,
         token: &TokenSource,
+        services: ServiceSet,
     ) -> anyhow::Result<(Arc<CoreContext>, bool)> {
         // 1. Ensure all controllers are registered before anything dispatches.
         let _ = crate::core::all::all_registered_controllers();
@@ -130,7 +131,7 @@ impl CoreContext {
         // 6. Long-lived runtime infrastructure: event bus, domain subscribers,
         //    ledgers, agent-definition registry, live security policy, approval
         //    gate, socket manager. Idempotent (Once-guarded internally).
-        crate::core::jsonrpc::bootstrap_core_runtime(host_kind).await;
+        crate::core::jsonrpc::bootstrap_core_runtime(host_kind, services).await;
 
         let ctx = Arc::new(CoreContext {
             host_kind,

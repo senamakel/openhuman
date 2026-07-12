@@ -23,11 +23,12 @@ Public API per README §2.1. Additional decisions:
   and write the standalone `{root}/core.token` fallback 0600). `build()` seeds
   `auth::init_rpc_token*` exactly once, same precedence as today
   (`src/core/auth.rs`).
-- **`build()` is init-only**: no sockets, no `tokio::spawn`. It runs, in
+- **`build()` is init-only**: no sockets and no detached jobs for
+  `ServiceSet::none()` / `ServiceSet::headless_api()`. It runs, in
   order: controller registration (`all::all_registered_controllers`), master
   key init, token seeding, `Config::load_or_init`, `init_stores` (phase 0),
-  `bootstrap_core_runtime(host_kind)` — each step commented with the
-  `jsonrpc.rs` line range it came from. Init-order regressions are the top
+  `bootstrap_core_runtime(host_kind, services)` for pure registration plus
+  ServiceSet-gated legacy bootstrap jobs. Init-order regressions are the top
   risk; add a startup-sequence integration test asserting the order via log
   markers.
 - **`serve()`** spawns only the services selected by `ServiceSet`. The HTTP

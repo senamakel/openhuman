@@ -5,9 +5,10 @@
 //!
 //! 1. [`CoreBuilder::build`] — *initialization only*: register controllers, load
 //!    the master key, seed the RPC bearer, initialize workspace-bound stores,
-//!    and run [`bootstrap_core_runtime`]. No port is bound and no transport is
-//!    started. After `build`, [`CoreRuntime::invoke`] can dispatch any RPC
-//!    method in-process, and agent turns can run — so a harness-only embedder
+//!    and run the pure-registration part of [`bootstrap_core_runtime`]. No port
+//!    is bound and `ServiceSet::none` / `ServiceSet::headless_api` start no
+//!    background loops. After `build`, [`CoreRuntime::invoke`] can dispatch any
+//!    RPC method in-process, and agent turns can run — so a harness-only embedder
 //!    (`ServiceSet::none`) needs nothing more.
 //! 2. [`CoreRuntime::serve`] — *transport + background services*: bind the HTTP
 //!    listener, mount the router, fire the readiness signal, spawn the selected
@@ -86,6 +87,13 @@ impl ServiceSet {
             update_scheduler: false,
         }
     }
+
+    /// Whether this service selection permits detached background jobs during
+    /// core bootstrap. HTTP transport alone is not enough — `headless_api()` is
+    /// deliberately request/response only.
+    pub(crate) fn bootstrap_background_jobs(self) -> bool {
+        self.cron || self.channels || self.heartbeat || self.update_scheduler
+    }
 }
 
 /// How the per-process RPC bearer token is seeded.
@@ -155,7 +163,8 @@ impl CoreBuilder {
     /// The init sequence itself is owned by [`CoreContext::init`] (Phase 2,
     /// Stage A).
     pub async fn build(self) -> anyhow::Result<CoreRuntime> {
-        let (ctx, has_operator_token) = CoreContext::init(self.host_kind, &self.token).await?;
+        let (ctx, has_operator_token) =
+            CoreContext::init(self.host_kind, &self.token, self.services).await?;
 
         Ok(CoreRuntime {
             ctx,
@@ -392,5 +401,24 @@ impl CoreRuntime {
         if self.services.channels {
             services::spawn_channels_service();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ServiceSet;
+
+    #[test]
+    fn bootstrap_background_jobs_follow_background_service_flags() {
+        assert!(!ServiceSet::none().bootstrap_background_jobs());
+        assert!(!ServiceSet::headless_api().bootstrap_background_jobs());
+        assert!(ServiceSet::desktop().bootstrap_background_jobs());
+
+        let mut custom = ServiceSet::none();
+        custom.rpc_http = true;
+        assert!(!custom.bootstrap_background_jobs());
+
+        custom.cron = true;
+        assert!(custom.bootstrap_background_jobs());
     }
 }

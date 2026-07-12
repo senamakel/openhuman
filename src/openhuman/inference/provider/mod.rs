@@ -56,6 +56,8 @@ pub use factory::{
     create_chat_model_with_model_id, create_chat_provider, provider_for_role, role_for_model_tier,
     BYOK_INCOMPLETE_SENTINEL,
 };
+pub use openhuman_backend::OpenHumanBackendProvider;
+pub use openhuman_backend_model::OpenHumanBackendModel;
 pub use ops::*;
 pub use resolved_route::{
     current_resolved_provider_route, current_route_slot, record_resolved_provider_route,

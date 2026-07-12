@@ -4840,6 +4840,7 @@ mod tests {
                     id: "call-1".to_string(),
                     name: "lookup".to_string(),
                     arguments: json!({"query": "weather"}),
+                    invalid: None,
                 }],
                 usage: Some(usage),
             },

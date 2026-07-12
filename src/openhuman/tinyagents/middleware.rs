@@ -3932,6 +3932,7 @@ mod tests {
             id: "c1".into(),
             name: name.into(),
             arguments: args,
+            invalid: None,
         };
         mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
         let mut result = tool_result(name, content); // call_id "c1" matches

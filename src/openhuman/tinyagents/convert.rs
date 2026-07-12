@@ -587,6 +587,7 @@ mod tests {
                     id: "c1".into(),
                     name: "echo".into(),
                     arguments: serde_json::json!({"msg": "hi"}),
+                    invalid: None,
                 }],
                 usage: None,
             }),
@@ -644,6 +645,7 @@ mod tests {
             id: "c1".into(),
             name: "echo".into(),
             arguments: serde_json::json!({"msg": "hi"}),
+            invalid: None,
         };
         let oh = ta_call_to_oh_call(&ta);
         assert_eq!(oh.id, "c1");

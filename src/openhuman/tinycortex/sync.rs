@@ -13,7 +13,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory_sources::{MemorySourceEntry, SourceKind};
 use crate::openhuman::memory_store::MemoryClientRef;
 
-pub const HOST_SYNC_STATE_NAMESPACE: &str = "tinycortex-sync-state";
+pub const HOST_SYNC_STATE_NAMESPACE: &str = "composio-sync-state";
 
 pub struct HostSyncAdapter {
     memory: MemoryClientRef,
@@ -356,10 +356,7 @@ fn composio_config(
             entity_id: Some(config.composio.entity_id.clone()),
         })
     } else {
-        let bearer = config
-            .api_key
-            .clone()
-            .filter(|token| !token.trim().is_empty())
+        let bearer = crate::api::jwt::get_session_token(config)?
             .ok_or_else(|| "OpenHuman backend bearer token is not configured".to_string())?;
         Ok(ComposioSyncConfig {
             mode: ComposioMode::Proxied,

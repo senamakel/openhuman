@@ -389,6 +389,41 @@ pub(crate) fn provider_chat_model(
     Arc::new(ProviderModel::new(provider, model, temperature))
 }
 
+pub(super) struct MaxTokensModel {
+    inner: Arc<dyn ChatModel<()>>,
+    max_tokens: u32,
+}
+
+impl MaxTokensModel {
+    pub(super) fn new(inner: Arc<dyn ChatModel<()>>, max_tokens: u32) -> Self {
+        Self { inner, max_tokens }
+    }
+
+    fn cap(&self, mut request: ModelRequest) -> ModelRequest {
+        request.max_tokens = Some(
+            request
+                .max_tokens
+                .map_or(self.max_tokens, |current| current.min(self.max_tokens)),
+        );
+        request
+    }
+}
+
+#[async_trait]
+impl ChatModel<()> for MaxTokensModel {
+    fn profile(&self) -> Option<&ModelProfile> {
+        self.inner.profile()
+    }
+
+    async fn invoke(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelResponse> {
+        self.inner.invoke(state, self.cap(request)).await
+    }
+
+    async fn stream(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
+        self.inner.stream(state, self.cap(request)).await
+    }
+}
+
 impl ProviderModel {
     /// Build a model adapter for `provider`, pinned to `model`/`temperature`.
     ///

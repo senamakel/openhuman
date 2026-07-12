@@ -748,4 +748,25 @@ mod tests {
             "id": "fleet-ready"
         })));
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn edge_token_output_is_written_0600() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("edge-tokens.txt");
+        write_edge_tokens(
+            &path,
+            &[("alice".to_string(), EdgeToken::new("edge-secret"))],
+        )
+        .unwrap();
+
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+        assert_eq!(
+            std::fs::read_to_string(path).unwrap(),
+            "alice edge-secret\n"
+        );
+    }
 }

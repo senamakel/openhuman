@@ -109,11 +109,10 @@ impl CoreContext {
 
         // 5. Resolve config once, then initialize workspace-bound stores
         //    (memory, attachments, whatsapp, people) with that exact workspace.
-        let workspace_dir = match crate::openhuman::config::Config::load_or_init().await {
+        let config = match crate::openhuman::config::Config::load_or_init().await {
             Ok(cfg) => {
-                let workspace_dir = cfg.workspace_dir.clone();
                 init_stores(&cfg).await;
-                Some(workspace_dir)
+                Some(cfg)
             }
             Err(e) => {
                 log::error!(
@@ -127,11 +126,12 @@ impl CoreContext {
                 None
             }
         };
+        let workspace_dir = config.as_ref().map(|cfg| cfg.workspace_dir.clone());
 
         // 6. Long-lived runtime infrastructure: event bus, domain subscribers,
         //    ledgers, agent-definition registry, live security policy, approval
         //    gate, socket manager. Idempotent (Once-guarded internally).
-        crate::core::jsonrpc::bootstrap_core_runtime(host_kind, services).await;
+        crate::core::jsonrpc::bootstrap_core_runtime(host_kind, services, config).await;
 
         let ctx = Arc::new(CoreContext {
             host_kind,

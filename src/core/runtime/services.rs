@@ -12,6 +12,11 @@
 //! spawned at all) up to a `ServiceSet` chosen by the embedder, while these
 //! functions keep their config gates (is it enabled for this user).
 
+use std::sync::Once;
+
+use crate::core::runtime::ServiceSet;
+use crate::openhuman::config::Config;
+
 /// Background bootstrap for login-gated services (local AI, voice, screen
 /// intelligence, autocomplete) plus the subconscious engine + heartbeat.
 ///
@@ -173,5 +178,114 @@ pub fn spawn_channels_service() {
         });
     } else {
         log::info!("[channels] OPENHUMAN_DISABLE_CHANNEL_LISTENERS set — skipping start_channels");
+    }
+}
+
+/// Starts legacy bootstrap loops that predate [`ServiceSet`].
+///
+/// These are separated from pure subscriber registration so a no-background
+/// runtime can register handlers first without permanently suppressing a later
+/// desktop/runtime-with-services boot.
+pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
+    if services.bootstrap_background_jobs() {
+        crate::openhuman::memory_queue::start(config.clone());
+    } else {
+        log::debug!("[runtime] memory queue workers disabled by ServiceSet");
+    }
+
+    if services.channels {
+        crate::openhuman::composio::start_periodic_sync();
+        // Workspace-kind memory sources (GitHub repos, folders, RSS, web pages)
+        // get their own cadence loop; the Composio scheduler only walks
+        // Composio connections.
+        crate::openhuman::memory_sync::workspace::start_workspace_periodic_sync();
+        crate::openhuman::orchestration::start_message_drain_supervisor();
+        tokio::spawn(async {
+            crate::openhuman::memory_sources::reconcile::ensure_composio_sources().await;
+        });
+    } else {
+        log::debug!("[runtime] bootstrap channel/integration pollers disabled by ServiceSet");
+    }
+
+    if services.cron {
+        crate::openhuman::task_sources::start_periodic_poll();
+        crate::openhuman::agent::task_dispatcher::start_board_poller();
+    } else {
+        log::debug!("[runtime] bootstrap proactive task pollers disabled by ServiceSet");
+    }
+}
+
+/// Starts one-shot boot background work selected by [`ServiceSet`].
+pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
+    if services.bootstrap_background_jobs() {
+        let cfg_for_init = config.clone();
+        tokio::spawn(async move {
+            crate::openhuman::harness_init::run_harness_init(cfg_for_init).await;
+        });
+        crate::openhuman::skill_registry::ops::start_boot_catalog_refresh();
+
+        let cfg_for_mcp = config.clone();
+        tokio::spawn(async move {
+            crate::openhuman::mcp_registry::boot::spawn_installed_servers(&cfg_for_mcp).await;
+        });
+        spawn_mcp_reconnect_supervisor(config.clone());
+    } else {
+        log::debug!("[runtime] harness init disabled by ServiceSet");
+        log::debug!("[runtime] boot catalog refresh disabled by ServiceSet");
+        log::debug!("[runtime] MCP boot-spawn disabled by ServiceSet");
+        log::debug!("[runtime] MCP reconnect supervisor disabled by ServiceSet");
+    }
+}
+
+fn spawn_mcp_reconnect_supervisor(config: Config) {
+    static SUPERVISOR_SPAWNED: Once = Once::new();
+    SUPERVISOR_SPAWNED.call_once(|| {
+        tokio::spawn(async move {
+            crate::openhuman::mcp_registry::supervisor::run(config).await;
+        });
+    });
+}
+
+/// Auto-connect Socket.IO to the backend when enabled by the service selection.
+pub fn spawn_socket_auto_connect(
+    services: ServiceSet,
+    socket_mgr: std::sync::Arc<crate::openhuman::socket::SocketManager>,
+) {
+    if services.socketio {
+        tokio::spawn(async move {
+            log::info!("[socket] Checking for stored session to auto-connect...");
+            let config = match Config::load_or_init().await {
+                Ok(c) => c,
+                Err(e) => {
+                    log::debug!("[socket] Config not available for auto-connect: {e}");
+                    return;
+                }
+            };
+            let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
+            let token = match crate::api::jwt::get_session_token(&config) {
+                Ok(Some(t)) => t,
+                Ok(None) => {
+                    log::info!(
+                        "[socket] No session token stored — skipping auto-connect (will connect after login)"
+                    );
+                    return;
+                }
+                Err(e) => {
+                    log::warn!("[socket] Failed to read session token: {e}");
+                    return;
+                }
+            };
+            log::info!(
+                "[socket] Session token found — auto-connecting to {}",
+                api_url
+            );
+            if let Err(e) = socket_mgr.connect(&api_url, &token).await {
+                log::error!("[socket] Auto-connect failed: {e}");
+            } else {
+                log::info!("[socket] Auto-connect initiated successfully");
+            }
+        });
+    } else {
+        log::debug!("[socket] auto-connect disabled by ServiceSet");
     }
 }

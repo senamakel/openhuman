@@ -1972,50 +1972,6 @@ fn register_domain_subscribers(
     });
 }
 
-/// Starts legacy bootstrap loops that predate `ServiceSet`. Kept outside the
-/// subscriber `Once` so a no-background runtime can register pure handlers first
-/// without permanently suppressing a later desktop/runtime-with-services boot.
-fn start_bootstrap_background_jobs(
-    services: crate::core::runtime::ServiceSet,
-    config: &crate::openhuman::config::Config,
-) {
-    if services.bootstrap_background_jobs() {
-        crate::openhuman::memory_queue::start(config.clone());
-    } else {
-        log::debug!("[runtime] memory queue workers disabled by ServiceSet");
-    }
-
-    if services.channels {
-        crate::openhuman::composio::start_periodic_sync();
-        // Workspace-kind memory sources (GitHub repos, folders, RSS, web
-        // pages) get their own cadence loop — the Composio scheduler above
-        // only walks Composio connections, so without this they only sync
-        // on manual "Sync now" and silently go stale.
-        crate::openhuman::memory_sync::workspace::start_workspace_periodic_sync();
-        // Orchestration: relay DMs are poll-only (`/messages`) and never traverse
-        // `/inbox/stream`, so this poller is the delivery path that surfaces
-        // inbound DMs from paired agents; ingest forwards them to the hosted brain.
-        crate::openhuman::orchestration::start_message_drain_supervisor();
-        // Seed memory_sources with active Composio connections so the
-        // user sees their connected integrations as memory sources by
-        // default. Best-effort: failure is logged but does not block startup.
-        tokio::spawn(async {
-            crate::openhuman::memory_sources::reconcile::ensure_composio_sources().await;
-        });
-    } else {
-        log::debug!("[runtime] bootstrap channel/integration pollers disabled by ServiceSet");
-    }
-
-    if services.cron {
-        crate::openhuman::task_sources::start_periodic_poll();
-        // Board poller: dispatch the highest-urgency `todo` card on the
-        // task-sources board (catch-all for cards without a proactive trigger).
-        crate::openhuman::agent::task_dispatcher::start_board_poller();
-    } else {
-        log::debug!("[runtime] bootstrap proactive task pollers disabled by ServiceSet");
-    }
-}
-
 /// Initializes long-lived socket/event-bus infrastructure.
 ///
 /// `host_kind` identifies the embedding process (Tauri desktop shell vs
@@ -2027,18 +1983,18 @@ fn start_bootstrap_background_jobs(
 pub async fn bootstrap_core_runtime(
     host_kind: crate::core::types::HostKind,
     services: crate::core::runtime::ServiceSet,
+    config: Option<crate::openhuman::config::Config>,
 ) {
     use crate::openhuman::socket::{set_global_socket_manager, SocketManager};
     use std::sync::Arc;
     // `embedded_core` derived from host_kind so the rest of the function (which
     // already keys behavior off the boolean) stays unchanged.
     let embedded_core = host_kind.is_desktop_shell();
-    let mut cfg = match crate::openhuman::config::Config::load_or_init().await {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            log::error!("[runtime] Failed to load config for socket manager: {e}");
-            return;
-        }
+    let Some(mut cfg) = config else {
+        log::error!(
+            "[runtime] Config unavailable for runtime bootstrap; workspace-bound startup skipped"
+        );
+        return;
     };
     let workspace_dir = cfg.workspace_dir.clone();
 
@@ -2050,7 +2006,7 @@ pub async fn bootstrap_core_runtime(
     // Uses a Once guard so repeated calls to bootstrap_core_runtime()
     // cannot double-subscribe.
     register_domain_subscribers(workspace_dir.clone(), cfg.clone(), embedded_core);
-    start_bootstrap_background_jobs(services, &cfg);
+    crate::core::runtime::services::start_bootstrap_jobs(services, &cfg);
 
     // One-time first-run initialization (managed Python runtime, spaCy model,
     // managed Node runtime). Spawned AFTER subscribers are live but does NOT
@@ -2058,23 +2014,7 @@ pub async fn bootstrap_core_runtime(
     // frontend watches per-step progress via `openhuman.harness_init_status`.
     // On a warm host every step's `is_done` probe passes and this settles
     // instantly. See `crate::openhuman::harness_init`.
-    if services.bootstrap_background_jobs() {
-        let cfg_for_init = cfg.clone();
-        tokio::spawn(async move {
-            crate::openhuman::harness_init::run_harness_init(cfg_for_init).await;
-        });
-    } else {
-        log::debug!("[runtime] harness init disabled by ServiceSet");
-    }
-
-    // Warm the remote skills catalog on every core load. This updates the
-    // cached registry used by skill discovery/search, but runs best-effort in
-    // the background so Hermes/network latency cannot block core readiness.
-    if services.bootstrap_background_jobs() {
-        crate::openhuman::skill_registry::ops::start_boot_catalog_refresh();
-    } else {
-        log::debug!("[runtime] boot catalog refresh disabled by ServiceSet");
-    }
+    crate::core::runtime::services::start_boot_once_jobs(services, &cfg);
 
     // --- Turn-state recovery -------------------------------------------
     // Any per-thread turn snapshots left on disk from a previous process
@@ -2308,87 +2248,12 @@ pub async fn bootstrap_core_runtime(
     // --- Workspace migrations --------------------------------------------
     crate::openhuman::startup::run_workspace_migrations(&workspace_dir);
 
-    // --- MCP registry boot-spawn -----------------------------------------
-    // Bring up every locally-installed MCP server's stdio subprocess so its
-    // tools are available to the agent as soon as the core is ready.
-    // Errors are logged per-server and never block boot. Runs as a
-    // background task so a slow npx install can't gate startup.
-    if services.bootstrap_background_jobs() {
-        let cfg = cfg.clone();
-        tokio::spawn(async move {
-            crate::openhuman::mcp_registry::boot::spawn_installed_servers(&cfg).await;
-        });
-    } else {
-        log::debug!("[runtime] MCP boot-spawn disabled by ServiceSet");
-    }
-
-    // --- MCP registry reconnect supervisor (#3312) -----------------------
-    // Keep installed MCP servers connected for the life of the process:
-    // transports drop silently over long uptimes (subprocess exits, HTTP
-    // session expires) and the boot spawn above only runs once. The
-    // supervisor periodically probes each connection and reconnects dropped
-    // ones with per-server backoff. First tick is delayed so it doesn't race
-    // the boot spawn.
-    //
-    // Guarded by `Once`: `bootstrap_core_runtime` is documented idempotent, and
-    // unlike the one-shot boot spawn above the supervisor is an infinite tick
-    // loop — a second instance would race the first on the shared connections
-    // registry (duplicate probes, reconnect thrashing, nondeterministic backoff).
-    if services.bootstrap_background_jobs() {
-        use std::sync::Once;
-        static SUPERVISOR_SPAWNED: Once = Once::new();
-        SUPERVISOR_SPAWNED.call_once(|| {
-            let cfg = cfg.clone();
-            tokio::spawn(async move {
-                crate::openhuman::mcp_registry::supervisor::run(cfg).await;
-            });
-        });
-    } else {
-        log::debug!("[runtime] MCP reconnect supervisor disabled by ServiceSet");
-    }
-
     // --- Socket manager bootstrap ---
     let socket_mgr = Arc::new(SocketManager::new());
     set_global_socket_manager(socket_mgr.clone());
     log::info!("[socket] SocketManager initialized and registered globally");
 
-    // Auto-connect socket to backend if a session token is already stored.
-    // This runs in the background so it doesn't block server startup.
-    if services.socketio {
-        tokio::spawn(async move {
-            log::info!("[socket] Checking for stored session to auto-connect...");
-            let config = match crate::openhuman::config::Config::load_or_init().await {
-                Ok(c) => c,
-                Err(e) => {
-                    log::debug!("[socket] Config not available for auto-connect: {e}");
-                    return;
-                }
-            };
-            let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-            let token = match crate::api::jwt::get_session_token(&config) {
-                Ok(Some(t)) => t,
-                Ok(None) => {
-                    log::info!("[socket] No session token stored — skipping auto-connect (will connect after login)");
-                    return;
-                }
-                Err(e) => {
-                    log::warn!("[socket] Failed to read session token: {e}");
-                    return;
-                }
-            };
-            log::info!(
-                "[socket] Session token found — auto-connecting to {}",
-                api_url
-            );
-            if let Err(e) = socket_mgr.connect(&api_url, &token).await {
-                log::error!("[socket] Auto-connect failed: {e}");
-            } else {
-                log::info!("[socket] Auto-connect initiated successfully");
-            }
-        });
-    } else {
-        log::debug!("[socket] auto-connect disabled by ServiceSet");
-    }
+    crate::core::runtime::services::spawn_socket_auto_connect(services, socket_mgr);
 }
 
 /// JSON-serializable wrapper for the entire RPC schema dump.

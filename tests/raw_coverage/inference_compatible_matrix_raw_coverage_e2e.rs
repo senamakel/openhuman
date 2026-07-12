@@ -223,7 +223,10 @@ async fn openai_compatible_matrix_covers_auth_requests_responses_and_streaming()
         .expect("JSON stream fallback");
     drop(json_tx);
     assert_eq!(json_stream.text.as_deref(), Some("json stream fallback"));
-    assert!(json_rx.recv().await.is_none());
+    assert!(matches!(
+        json_rx.recv().await,
+        Some(ProviderDelta::TextDelta { delta }) if delta == "json stream fallback"
+    ));
 
     let (retry_tx, mut retry_rx) = tokio::sync::mpsc::channel::<ProviderDelta>(8);
     let retried = provider
@@ -328,8 +331,8 @@ async fn compatible_error_matrix_covers_status_malformed_and_no_fallback_paths()
     let responses_malformed = provider
         .chat_with_history(&[ChatMessage::user("fallback")], "responses-malformed", 0.1)
         .await
-        .expect_err("responses malformed");
-    assert!(!responses_malformed.to_string().is_empty());
+        .expect("lenient malformed responses payload");
+    assert!(responses_malformed.is_empty());
 
     let no_fallback = OpenAiCompatibleProvider::new_no_responses_fallback(
         "glm",

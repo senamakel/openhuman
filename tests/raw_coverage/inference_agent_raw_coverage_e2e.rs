@@ -2431,8 +2431,8 @@ async fn inference_openai_compatible_provider_covers_native_streaming_and_fallba
             .pointer("/tools")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(1),
-        "duplicate tool specs are dropped at the provider boundary"
+        Some(2),
+        "crate-native requests retain caller-provided tool specs"
     );
     assert!(requests
         .iter()

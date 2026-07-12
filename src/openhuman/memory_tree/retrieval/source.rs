@@ -28,18 +28,32 @@ pub async fn query_source(
         "[retrieval::source] tinycortex query has_source_id={} source_kind={:?} window_days={:?} has_query={} limit={}",
         source_id.is_some(), source_kind.map(|k| k.as_str()), time_window_days, query.is_some(), limit
     );
-    let embedder = build_embedder_from_config(config)?;
-    let bridge = EmbedderBridge(embedder.as_ref());
-    let mut response = tinycortex::memory::retrieval::query_source(
-        &engine_config(config),
-        source_id,
-        source_kind,
-        time_window_days,
-        query,
-        &bridge,
-        usize::MAX,
-    )
-    .await?;
+    let semantic_query = query.filter(|value| !value.trim().is_empty());
+    let mut response = if let Some(query) = semantic_query {
+        let embedder = build_embedder_from_config(config)?;
+        let bridge = EmbedderBridge(embedder.as_ref());
+        tinycortex::memory::retrieval::query_source(
+            &engine_config(config),
+            source_id,
+            source_kind,
+            time_window_days,
+            Some(query),
+            &bridge,
+            usize::MAX,
+        )
+        .await?
+    } else {
+        tinycortex::memory::retrieval::query_source(
+            &engine_config(config),
+            source_id,
+            source_kind,
+            time_window_days,
+            None,
+            &tinycortex::memory::score::embed::InertEmbedder::new(),
+            usize::MAX,
+        )
+        .await?
+    };
     if let Some(set) = scope {
         response.hits.retain(|hit| set.contains(&hit.tree_scope));
     }

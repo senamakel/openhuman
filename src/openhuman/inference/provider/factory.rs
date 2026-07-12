@@ -1579,9 +1579,10 @@ fn try_create_local_runtime_chat_model_from_string(
     };
     // First env override, else `local_ai.base_url`, else the profile default.
     let env_or_config_url = |env: &str, default: &str| {
-        std::env::var(env)
+        std::env::var("OPENHUMAN_LOCAL_INFERENCE_URL")
             .ok()
             .filter(|s| !s.trim().is_empty())
+            .or_else(|| std::env::var(env).ok().filter(|s| !s.trim().is_empty()))
             .or_else(|| config.local_ai.base_url.clone())
             .unwrap_or_else(|| default.to_string())
     };

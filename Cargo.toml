@@ -38,6 +38,10 @@ path = "src/bin/harness_subagent_audit.rs"
 name = "test-mcp-stub"
 path = "src/bin/test_mcp_stub.rs"
 
+[[bin]]
+name = "openhuman-fleet"
+path = "src/bin/fleet.rs"
+
 [lib]
 name = "openhuman_core"
 crate-type = ["rlib"]

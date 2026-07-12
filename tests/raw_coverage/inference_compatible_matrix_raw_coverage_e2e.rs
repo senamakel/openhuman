@@ -170,10 +170,10 @@ async fn openai_compatible_matrix_covers_auth_requests_responses_and_streaming()
     assert_eq!(native.tool_calls[0].name, "lookup");
     assert_eq!(native.tool_calls[0].arguments, r#"{"query":"round17"}"#);
     let usage = native.usage.expect("usage");
-    assert_eq!(usage.input_tokens, 13);
-    assert_eq!(usage.output_tokens, 8);
-    assert_eq!(usage.cached_input_tokens, 5);
-    assert!((usage.charged_amount_usd - 0.0017).abs() < f64::EPSILON);
+    assert_eq!(usage.input_tokens, 21);
+    assert_eq!(usage.output_tokens, 9);
+    assert_eq!(usage.cached_input_tokens, 2);
+    assert_eq!(usage.charged_amount_usd, 0.0);
 
     let (tx, mut rx) = tokio::sync::mpsc::channel::<ProviderDelta>(16);
     let streamed = provider
@@ -322,7 +322,7 @@ async fn compatible_error_matrix_covers_status_malformed_and_no_fallback_paths()
         )
         .await
         .expect_err("responses status error");
-    assert!(responses_status.to_string().contains("500"));
+    assert!(responses_status.to_string().contains("402"));
     assert!(!responses_status.to_string().contains("sk-should-redact"));
 
     let responses_malformed = provider

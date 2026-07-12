@@ -274,7 +274,7 @@ pub(crate) async fn handle_runtime_command_if_needed(
         ChannelRuntimeCommand::ShowProviders => build_providers_help_response(&current),
         ChannelRuntimeCommand::SetProvider(raw_provider) => {
             match resolve_provider_alias(&raw_provider) {
-                Some(provider_name) if ctx.config.is_some() => {
+                Some(provider_name) => {
                     tracing::debug!(
                         provider = %provider_name,
                         "[channels] validated crate-native provider route from catalog"
@@ -289,26 +289,6 @@ pub(crate) async fn handle_runtime_command_if_needed(
                         current.model
                     )
                 }
-                Some(provider_name) => match get_or_create_provider(ctx, &provider_name).await {
-                    Ok(_) => {
-                        if provider_name != current.provider {
-                            current.provider = provider_name.clone();
-                            set_route_selection(ctx, &sender_key, current.clone());
-                            clear_sender_history(ctx, &sender_key);
-                        }
-
-                        format!(
-                            "Provider switched to `{provider_name}` for this sender session. Current model is `{}`.\nUse `/model <model-id>` to set a provider-compatible model.",
-                            current.model
-                        )
-                    }
-                    Err(err) => {
-                        let safe_err = provider::sanitize_api_error(&err.to_string());
-                        format!(
-                            "Failed to initialize provider `{provider_name}`. Route unchanged.\nDetails: {safe_err}"
-                        )
-                    }
-                },
                 None => format!(
                     "Unknown provider `{raw_provider}`. Use `/models` to list valid providers."
                 ),

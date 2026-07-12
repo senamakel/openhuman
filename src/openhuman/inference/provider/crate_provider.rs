@@ -64,7 +64,28 @@ impl CrateBackedProvider {
             tool_count = request.tools.len(),
             "[inference][crate-provider] invoking crate-native model through legacy boundary"
         );
-        let response = self.model.invoke(&(), request).await?;
+        let response = match self.model.invoke(&(), request).await {
+            Ok(response) => response,
+            Err(error) => {
+                let message = error.to_string();
+                if self.provider_id.eq_ignore_ascii_case("openhuman")
+                    && (message.contains("HTTP 401") || message.contains("HTTP 403"))
+                {
+                    let status = if message.contains("HTTP 401") {
+                        reqwest::StatusCode::UNAUTHORIZED
+                    } else {
+                        reqwest::StatusCode::FORBIDDEN
+                    };
+                    super::ops::publish_backend_session_expired(
+                        "crate_model",
+                        &self.provider_id,
+                        status,
+                        &message,
+                    );
+                }
+                return Err(error.into());
+            }
+        };
         Ok(Self::response(response))
     }
 

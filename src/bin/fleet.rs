@@ -131,6 +131,7 @@ struct CoreInstance {
     port: u16,
     core_bearer: CoreBearer,
     workspace_dir: PathBuf,
+    action_dir: PathBuf,
 }
 
 impl CoreInstance {
@@ -151,6 +152,13 @@ fn port_for_index(base_port: u16, index: usize) -> Option<u16> {
 /// having validated `user_id` (see [`is_valid_user_id`]).
 fn workspace_for(root: &Path, user_id: &str) -> PathBuf {
     root.join(user_id)
+}
+
+/// Pure action sandbox derivation: `<root>/.tenant-action-dirs/<user_id>`.
+/// Keep this outside `workspace_dir`; core policy treats the workspace tree as
+/// internal state and blocks acting tools there.
+fn action_dir_for(root: &Path, user_id: &str) -> PathBuf {
+    root.join(".tenant-action-dirs").join(user_id)
 }
 
 /// A user id must be a single safe path segment — no separators, no `..`, non
@@ -298,12 +306,20 @@ async fn spawn_core(
             instance.user_id
         )
     })?;
+    std::fs::create_dir_all(&instance.action_dir).with_context(|| {
+        format!(
+            "creating action dir {} for tenant {}",
+            instance.action_dir.display(),
+            instance.user_id
+        )
+    })?;
 
     log::info!(
-        "[fleet] spawning core for tenant={} port={} workspace={}",
+        "[fleet] spawning core for tenant={} port={} workspace={} action_dir={}",
         instance.user_id,
         instance.port,
-        instance.workspace_dir.display()
+        instance.workspace_dir.display(),
+        instance.action_dir.display()
     );
 
     let child = tokio::process::Command::new(core_bin)
@@ -314,6 +330,7 @@ async fn spawn_core(
         .arg("--port")
         .arg(instance.port.to_string())
         .env("OPENHUMAN_WORKSPACE", &instance.workspace_dir)
+        .env("OPENHUMAN_ACTION_DIR", &instance.action_dir)
         .env("OPENHUMAN_CORE_TOKEN", instance.core_bearer.as_str())
         // Each tenant is a headless single-core; keep channel listeners off so a
         // fleet host doesn't poll every member's messaging integrations.
@@ -475,6 +492,7 @@ fn provision(
                 port,
                 core_bearer,
                 workspace_dir: workspace_for(workspaces_root, user_id),
+                action_dir: action_dir_for(workspaces_root, user_id),
             },
         );
     }
@@ -757,6 +775,19 @@ mod tests {
     }
 
     #[test]
+    fn action_dir_is_user_scoped_outside_workspace_tree() {
+        let root = Path::new("/srv/fleet");
+        let workspace = workspace_for(root, "alice");
+        let action_dir = action_dir_for(root, "alice");
+
+        assert_eq!(
+            action_dir,
+            PathBuf::from("/srv/fleet/.tenant-action-dirs/alice")
+        );
+        assert!(!action_dir.starts_with(&workspace));
+    }
+
+    #[test]
     fn user_id_validation_rejects_path_escapes() {
         assert!(is_valid_user_id("alice"));
         assert!(is_valid_user_id("user_42-x"));
@@ -775,6 +806,12 @@ mod tests {
         assert_eq!(instances.len(), 2);
         assert_eq!(instances["alice"].port, 7900);
         assert_eq!(instances["bob"].port, 7901);
+        assert_eq!(instances["alice"].workspace_dir, root.join("alice"));
+        assert_eq!(
+            instances["alice"].action_dir,
+            root.join(".tenant-action-dirs").join("alice")
+        );
+        assert_ne!(instances["alice"].action_dir, instances["bob"].action_dir);
         assert_ne!(instances["alice"].core_bearer, instances["bob"].core_bearer);
         assert_eq!(instances["alice"].rpc_url(), "http://127.0.0.1:7900/rpc");
 

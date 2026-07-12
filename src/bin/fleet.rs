@@ -18,10 +18,11 @@
 //!   core `http://127.0.0.1:<port>/rpc`, so the JSON-RPC wire contract is
 //!   unchanged end to end.
 //!
-//! MVP scope: explicit sequential port assignment (a production supervisor would
-//! read each core's bound port from a ready file / `EmbeddedReadySignal` and
-//! reconcile membership against `tinyhumansai/backend`). Limitations are logged,
-//! never silently swallowed.
+//! MVP scope: explicit sequential port assignment with an authenticated JSON-RPC
+//! readiness probe before registration (a production supervisor would read each
+//! core's bound port from a ready file / `EmbeddedReadySignal` and reconcile
+//! membership against `tinyhumansai/backend`). Limitations are logged, never
+//! silently swallowed.
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -317,15 +318,47 @@ async fn ensure_loopback_port_available(port: u16) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Poll a tenant core's `/health` until it responds or the attempt budget is
-/// exhausted. Best-effort — the proxy still starts even if a core is slow.
-async fn wait_healthy(http: &reqwest::Client, port: u16, attempts: u32) -> bool {
-    let url = format!("http://127.0.0.1:{port}/health");
+/// Poll a tenant core through authenticated JSON-RPC until it responds or the
+/// attempt budget is exhausted. This intentionally avoids unauthenticated
+/// `/health`: a stale OpenHuman process on the assigned port could look healthy
+/// but reject this tenant's core bearer, so authenticated readiness fails closed.
+async fn wait_authenticated_ready(
+    http: &reqwest::Client,
+    instance: &CoreInstance,
+    attempts: u32,
+) -> bool {
+    let url = instance.rpc_url();
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": "fleet-ready",
+        "method": "openhuman.security_policy_info",
+        "params": {}
+    });
     for attempt in 1..=attempts {
-        match http.get(&url).send().await {
+        match http
+            .post(&url)
+            .header(
+                axum::http::header::AUTHORIZATION,
+                format!("Bearer {}", instance.core_bearer.as_str()),
+            )
+            .json(&body)
+            .send()
+            .await
+        {
             Ok(resp) if resp.status().is_success() => return true,
-            _ => tokio::time::sleep(std::time::Duration::from_millis(250 * attempt as u64)).await,
+            Ok(resp) => log::debug!(
+                "[fleet] readiness probe tenant={} port={} returned status={}",
+                instance.user_id,
+                instance.port,
+                resp.status()
+            ),
+            Err(e) => log::trace!(
+                "[fleet] readiness probe tenant={} port={} failed attempt={attempt}: {e}",
+                instance.user_id,
+                instance.port
+            ),
         }
+        tokio::time::sleep(std::time::Duration::from_millis(250 * attempt as u64)).await;
     }
     false
 }
@@ -475,7 +508,7 @@ async fn main() -> anyhow::Result<()> {
         };
         match spawn_result {
             Ok(mut child) => {
-                let healthy = wait_healthy(&http, instance.port, 20).await;
+                let healthy = wait_authenticated_ready(&http, &instance, 20).await;
                 if healthy {
                     log::info!("[fleet] tenant {} core ready", instance.user_id);
                     children.push((instance.user_id.clone(), child));

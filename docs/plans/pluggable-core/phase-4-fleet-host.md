@@ -18,8 +18,10 @@ pattern):
 - **Process-per-tenant MVP**: spawns `openhuman-core run --jsonrpc-only` per tenant
   with a per-user `OPENHUMAN_WORKSPACE`, a minted `OPENHUMAN_CORE_TOKEN`, and
   `OPENHUMAN_DISABLE_CHANNEL_LISTENERS=1` (this is the `ServiceSet::headless_api`
-  shape from Phase 1). Waits on each core's `/health` before serving. Production
-  multi-tenant security still requires distinct OS users or containers.
+  shape from Phase 1). Before keeping a tenant registered, probes the assigned
+  port through authenticated JSON-RPC with that tenant's core bearer; stale or
+  fallback ports fail closed. Production multi-tenant security still requires
+  distinct OS users or containers.
 - **Reverse proxy**: axum `POST /{user_id}/rpc` forwards the JSON-RPC body
   verbatim to that tenant's core, swapping the client's **edge token** for the
   tenant's **core bearer** — the wire contract is unchanged end to end, so
@@ -36,7 +38,9 @@ pattern):
 
 - Ports are assigned sequentially from `--base-core-port`; production should read
   each core's actually-bound port from a ready file / `EmbeddedReadySignal`
-  (Phase 1) rather than assume the port is free.
+  (Phase 1). The MVP checks loopback availability before spawn and requires an
+  authenticated JSON-RPC readiness probe on the assigned port before keeping the
+  tenant registered.
 - Tenants come from `--users`; production reconciles membership against
   `tinyhumansai/backend` on a loop (same pattern as the cron scheduler).
 - Minted edge tokens are never printed to stdout. The MVP can write them to a

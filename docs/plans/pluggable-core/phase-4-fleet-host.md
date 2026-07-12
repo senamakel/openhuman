@@ -15,10 +15,11 @@ provision/manage members' assistants while every existing client
 weight on the shipped desktop/lib build, matching the `slack-backfill` bin
 pattern):
 
-- **Process-per-user**: spawns `openhuman-core run --jsonrpc-only` per tenant
+- **Process-per-tenant MVP**: spawns `openhuman-core run --jsonrpc-only` per tenant
   with a per-user `OPENHUMAN_WORKSPACE`, a minted `OPENHUMAN_CORE_TOKEN`, and
   `OPENHUMAN_DISABLE_CHANNEL_LISTENERS=1` (this is the `ServiceSet::headless_api`
-  shape from Phase 1). Waits on each core's `/health` before serving.
+  shape from Phase 1). Waits on each core's `/health` before serving. Production
+  multi-tenant security still requires distinct OS users or containers.
 - **Reverse proxy**: axum `POST /{user_id}/rpc` forwards the JSON-RPC body
   verbatim to that tenant's core, swapping the client's **edge token** for the
   tenant's **core bearer** — the wire contract is unchanged end to end, so
@@ -38,22 +39,23 @@ pattern):
   (Phase 1) rather than assume the port is free.
 - Tenants come from `--users`; production reconciles membership against
   `tinyhumansai/backend` on a loop (same pattern as the cron scheduler).
-- Minted edge tokens are printed to stdout; production exposes them via an admin
-  API, not the console.
+- Minted edge tokens are never printed to stdout. The MVP can write them to a
+  restricted operator-selected file with `--edge-token-output`; production
+  should expose them through an authenticated admin API.
 - Container packaging (`HostKind::Docker`) and restart/backoff are not yet wired.
 
 ## Decision recap (README §2.3)
 
-Process-per-user, not in-process multi-tenancy: it is the shape the
+Process-per-tenant, not in-process multi-tenancy: it is the shape the
 architecture already has (Tauri = one core per user), it sidesteps the
 process-scoped items inventoried in phase 3 (env mutation for child tools,
-keyring, Sentry), and it gives per-tenant **security** isolation for free —
-agents execute arbitrary tools, so tenant separation should be an OS/container
-boundary, not a Rust discipline.
+keyring, Sentry), and it keeps the production security boundary explicit:
+agents execute arbitrary tools, so real tenant separation must come from
+distinct OS users or containers, not from a same-user supervisor process.
 
 ## Architecture
 
-```
+```text
 client (CloudHttpTransport, per-user base URL + Bearer)
    │
    ▼

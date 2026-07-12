@@ -8,7 +8,7 @@ harness entry, thin CLI/Tauri.
 
 ## New modules
 
-```
+```text
 src/core/runtime/
 ├── mod.rs        # pub use CoreBuilder, CoreRuntime, ServiceSet, TokenSource
 ├── builder.rs    # CoreBuilder — validation + build()
@@ -19,8 +19,8 @@ src/core/runtime/
 Public API per README §2.1. Additional decisions:
 
 - **`TokenSource`**: `Fixed(Arc<String>)` (Tauri in-memory handoff),
-  `Env` (`OPENHUMAN_CORE_TOKEN`), `GeneratedToFile` (current standalone
-  fallback writing `{workspace}/core.token` 0600). `build()` seeds
+  `EnvOrFile` (read `OPENHUMAN_CORE_TOKEN` when present, otherwise generate
+  and write the standalone `{root}/core.token` fallback 0600). `build()` seeds
   `auth::init_rpc_token*` exactly once, same precedence as today
   (`src/core/auth.rs`).
 - **`build()` is init-only**: no sockets, no `tokio::spawn`. It runs, in
@@ -30,15 +30,15 @@ Public API per README §2.1. Additional decisions:
   `jsonrpc.rs` line range it came from. Init-order regressions are the top
   risk; add a startup-sequence integration test asserting the order via log
   markers.
-- **`start()`** spawns only the services selected by `ServiceSet`. The HTTP
+- **`serve()`** spawns only the services selected by `ServiceSet`. The HTTP
   listener (bind, port fallback, router from `build_core_http_router`,
   `axum::serve`) moves into `spawn_rpc_http_service`; **the
   `set_var OPENHUMAN_CORE_RPC_URL` call keeps its exact timing** (post-bind,
   `jsonrpc.rs:2010`) inside that service — child tools depend on it. It is
   flagged in the drift ledger as single-runtime-only.
 - **Ready signal**: `EmbeddedReadySignal` (port-fallback reporting) is kept
-  type-identical, relocated; the builder's `ready(oneshot::Sender<…>)` fires
-  after bind (when `rpc_http` selected) or after `build()` (when not).
+  type-identical, relocated; the readiness sender is supplied to
+  `CoreRuntime::serve` and fires after bind (when `rpc_http` selected).
 - **`invoke()`** delegates to the existing `invoke_method`
   (`jsonrpc.rs:230`) — same tiered dispatch, no second path.
 
@@ -72,13 +72,13 @@ bound.
 | Consumer                                                       | Change                                                                                                                                                                                                                     |
 | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `run_server` / `run_server_embedded*` (`jsonrpc.rs:1682-1737`) | become `#[deprecated]` shims over the builder; deleted one release later                                                                                                                                                   |
-| Tauri (`app/src-tauri/src/core_process.rs:289`)                | `CoreProcessHandle::ensure_running` builds `CoreBuilder::new(HostKind::TauriShell).token(TokenSource::Fixed(..)).services(ServiceSet::desktop()).ready(tx)`; `CancellationToken` / restart / port-takeover logic unchanged |
+| Tauri (`app/src-tauri/src/core_process.rs:289`)                | `CoreProcessHandle::ensure_running` builds `CoreBuilder::new(HostKind::TauriShell).token(TokenSource::Fixed(..)).services(ServiceSet::desktop())`, then passes readiness to `CoreRuntime::serve`; `CancellationToken` / restart / port-takeover logic unchanged |
 | CLI `run`/`serve` (`src/core/cli.rs:66`)                       | maps flags → `ServiceSet` (`--jsonrpc-only` → `socketio: false`)                                                                                                                                                           |
 | CLI `call` + namespace dispatch (`cli.rs:354,435`)             | `ServiceSet::none()` build → `runtime.invoke()`; one-shot calls stop constructing server state                                                                                                                             |
 | MCP stdio (`cli.rs` `mcp`)                                     | adapter over `runtime.invoke()`                                                                                                                                                                                            |
 | `src/lib.rs`                                                   | re-export the new surface; keep `run_core_from_args`                                                                                                                                                                       |
 
-Plus `examples/embed_headless.rs` (build + `start()` with
+Plus `examples/embed_headless.rs` (build + `serve()` with
 `ServiceSet::headless_api()`, call `openhuman.ping` over HTTP) and
 `examples/run_turn.rs` (above).
 

@@ -121,5 +121,6 @@ pub enum StorageBackend { WorkspaceFs }   // CoreBuilder::storage(..); only impl
 - `pnpm test:rust` + `json_rpc_e2e` green after each sub-series.
 - Drift ledger lists every domain with columns: signature migrated / context
   usage / store trait / notes.
-- `rg 'fn handle_.*Map<String, Value>' src/openhuman` shows no old-signature
-  stragglers after 2.a.
+- `all::try_invoke_registered_rpc` installs an ambient `CoreContext::scope`
+  around registered handler futures, and tests verify `CoreContext::current()`
+  propagation through registered RPC invocation.

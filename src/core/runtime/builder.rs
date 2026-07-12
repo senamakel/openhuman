@@ -195,7 +195,11 @@ impl CoreRuntime {
         method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value, String> {
-        jsonrpc::invoke_method(jsonrpc::default_state(), method, params).await
+        CoreContext::scope(
+            Arc::clone(&self.ctx),
+            jsonrpc::invoke_method(jsonrpc::default_state(), method, params),
+        )
+        .await
     }
 
     /// Spawn the selected background services and, when `rpc_http` is set, bind
@@ -303,7 +307,15 @@ impl CoreRuntime {
             std::env::set_var("OPENHUMAN_CORE_RPC_URL", format!("http://{bind_addr}/rpc"));
         }
 
-        let app = jsonrpc::build_core_http_router(self.services.socketio);
+        let ctx = Arc::clone(&self.ctx);
+        let app = jsonrpc::build_core_http_router(self.services.socketio).layer(
+            axum::middleware::from_fn(
+                move |req: axum::extract::Request, next: axum::middleware::Next| {
+                    let ctx = Arc::clone(&ctx);
+                    async move { CoreContext::scope(ctx, next.run(req)).await }
+                },
+            ),
+        );
 
         log::info!(
             "[core] OpenHuman core is ready — listening on http://{bind_addr} (version {})",

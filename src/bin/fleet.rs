@@ -8,8 +8,9 @@
 //! Design (process-per-user, not in-process multi-tenancy):
 //! - Each tenant gets its own OS process (`openhuman-core run --jsonrpc-only`),
 //!   its own workspace volume (`OPENHUMAN_WORKSPACE`), and its own core bearer
-//!   (`OPENHUMAN_CORE_TOKEN`) — so tenants are isolated at the OS boundary,
-//!   which matters because agents run arbitrary tools.
+//!   (`OPENHUMAN_CORE_TOKEN`). This MVP does not yet run tenants under
+//!   distinct OS users or containers, so it is not a production multi-tenant
+//!   security boundary for arbitrary agent tools.
 //! - The supervisor mints a distinct **edge token** per tenant for clients; it
 //!   is the only holder of the tenants' **core bearers**. `EdgeToken` and
 //!   `CoreBearer` are kept deliberately distinct so they cannot be confused.
@@ -43,7 +44,34 @@ use tokio::sync::RwLock;
 // Edge auth — maps opaque client-facing tokens to a user id.
 // ---------------------------------------------------------------------------
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct EdgeToken(String);
+
+impl EdgeToken {
+    fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CoreBearer(String);
+
+impl CoreBearer {
+    fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 mod edge_auth {
+    use super::EdgeToken;
     use std::collections::HashMap;
 
     /// Maps opaque, client-facing **edge tokens** to the user id they authorize.
@@ -51,7 +79,7 @@ mod edge_auth {
     /// ever see an edge token, which the proxy exchanges for the core bearer.
     #[derive(Default)]
     pub struct EdgeAuth {
-        tokens: HashMap<String, String>,
+        tokens: HashMap<EdgeToken, String>,
     }
 
     impl EdgeAuth {
@@ -62,13 +90,22 @@ mod edge_auth {
         /// Mint an edge token authorizing `user_id`. Deterministic prefix +
         /// caller-supplied unique suffix (a UUID at the call site) so this stays
         /// pure and unit-testable.
-        pub fn insert(&mut self, token: impl Into<String>, user_id: impl Into<String>) {
-            self.tokens.insert(token.into(), user_id.into());
+        pub fn insert(&mut self, token: EdgeToken, user_id: impl Into<String>) {
+            self.tokens.insert(token, user_id.into());
         }
 
         /// The user id an edge token authorizes, if any.
-        pub fn user_for(&self, token: &str) -> Option<&str> {
+        pub fn user_for(&self, token: &EdgeToken) -> Option<&str> {
             self.tokens.get(token).map(String::as_str)
+        }
+
+        pub fn remove_user(&mut self, user_id: &str) {
+            self.tokens.retain(|_, mapped_user| mapped_user != user_id);
+        }
+
+        #[cfg(test)]
+        pub fn len(&self) -> usize {
+            self.tokens.len()
         }
     }
 }
@@ -84,7 +121,7 @@ use edge_auth::EdgeAuth;
 struct CoreInstance {
     user_id: String,
     port: u16,
-    core_bearer: String,
+    core_bearer: CoreBearer,
     workspace_dir: PathBuf,
 }
 
@@ -136,14 +173,14 @@ impl Fleet {
 }
 
 /// Extract the bearer token from an `Authorization: Bearer <t>` header.
-fn bearer_from_headers(headers: &HeaderMap) -> Option<String> {
+fn bearer_from_headers(headers: &HeaderMap) -> Option<EdgeToken> {
     headers
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .map(str::to_string)
+        .map(EdgeToken::new)
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +220,7 @@ async fn rpc_proxy(
         .post(instance.rpc_url())
         .header(
             axum::http::header::AUTHORIZATION,
-            format!("Bearer {}", instance.core_bearer),
+            format!("Bearer {}", instance.core_bearer.as_str()),
         )
         .header(axum::http::header::CONTENT_TYPE, "application/json")
         .body(body)
@@ -194,8 +231,21 @@ async fn rpc_proxy(
         Ok(resp) => {
             let status =
                 StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+            let content_type = resp
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse().ok());
             match resp.bytes().await {
-                Ok(bytes) => (status, bytes).into_response(),
+                Ok(bytes) => {
+                    let mut response = (status, bytes).into_response();
+                    if let Some(content_type) = content_type {
+                        response
+                            .headers_mut()
+                            .insert(axum::http::header::CONTENT_TYPE, content_type);
+                    }
+                    response
+                }
                 Err(e) => {
                     log::error!("[fleet] upstream body read failed for /{user_id}: {e}");
                     (StatusCode::BAD_GATEWAY, "upstream body error").into_response()
@@ -242,10 +292,11 @@ async fn spawn_core(
         .arg("--port")
         .arg(instance.port.to_string())
         .env("OPENHUMAN_WORKSPACE", &instance.workspace_dir)
-        .env("OPENHUMAN_CORE_TOKEN", &instance.core_bearer)
+        .env("OPENHUMAN_CORE_TOKEN", instance.core_bearer.as_str())
         // Each tenant is a headless single-core; keep channel listeners off so a
         // fleet host doesn't poll every member's messaging integrations.
         .env("OPENHUMAN_DISABLE_CHANNEL_LISTENERS", "1")
+        .kill_on_drop(true)
         .spawn()
         .with_context(|| {
             format!(
@@ -256,6 +307,14 @@ async fn spawn_core(
         })?;
 
     Ok(child)
+}
+
+async fn ensure_loopback_port_available(port: u16) -> anyhow::Result<()> {
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
+        .await
+        .with_context(|| format!("tenant port {port} is not available on 127.0.0.1"))?;
+    drop(listener);
+    Ok(())
 }
 
 /// Poll a tenant core's `/health` until it responds or the attempt budget is
@@ -296,12 +355,15 @@ struct Args {
     /// Comma-separated user ids to provision at boot.
     #[arg(long, value_delimiter = ',')]
     users: Vec<String>,
+    /// Optional restricted file that receives minted edge tokens.
+    #[arg(long)]
+    edge_token_output: Option<PathBuf>,
 }
 
 type ProvisionedFleet = (
     HashMap<String, CoreInstance>,
     EdgeAuth,
-    Vec<(String, String)>,
+    Vec<(String, EdgeToken)>,
 );
 
 /// Provision the in-memory tenant table + edge tokens for `users`. Pure w.r.t.
@@ -324,8 +386,8 @@ fn provision(
         }
         let port = port_for_index(base_core_port, index)
             .with_context(|| format!("port overflow assigning tenant #{index}"))?;
-        let core_bearer = format!("core-{}", uuid::Uuid::new_v4());
-        let edge_token = format!("edge-{}", uuid::Uuid::new_v4());
+        let core_bearer = CoreBearer::new(format!("core-{}", uuid::Uuid::new_v4()));
+        let edge_token = EdgeToken::new(format!("edge-{}", uuid::Uuid::new_v4()));
         edge_auth.insert(edge_token.clone(), user_id.clone());
         minted.push((user_id.clone(), edge_token));
         instances.insert(
@@ -342,6 +404,50 @@ fn provision(
     Ok((instances, edge_auth, minted))
 }
 
+fn remove_tenant(
+    instances: &mut HashMap<String, CoreInstance>,
+    edge_auth: &mut EdgeAuth,
+    minted: &mut Vec<(String, EdgeToken)>,
+    user_id: &str,
+) {
+    instances.remove(user_id);
+    edge_auth.remove_user(user_id);
+    minted.retain(|(minted_user, _)| minted_user != user_id);
+}
+
+fn write_edge_tokens(path: &Path, minted: &[(String, EdgeToken)]) -> anyhow::Result<()> {
+    let mut output = String::new();
+    for (user_id, token) in minted {
+        output.push_str(user_id);
+        output.push(' ');
+        output.push_str(token.as_str());
+        output.push('\n');
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+            .with_context(|| format!("opening edge token output {}", path.display()))?;
+        use std::io::Write as _;
+        file.write_all(output.as_bytes())
+            .with_context(|| format!("writing edge token output {}", path.display()))?;
+    }
+
+    #[cfg(not(unix))]
+    {
+        std::fs::write(path, output)
+            .with_context(|| format!("writing edge token output {}", path.display()))?;
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let _ = env_logger::builder().is_test(false).try_init();
@@ -351,7 +457,7 @@ async fn main() -> anyhow::Result<()> {
         anyhow::bail!("no tenants: pass --users a,b,c");
     }
 
-    let (instances, edge_auth, minted) =
+    let (mut instances, mut edge_auth, mut minted) =
         provision(&args.users, &args.workspaces_root, args.base_core_port)?;
 
     let http = reqwest::Client::builder()
@@ -359,34 +465,60 @@ async fn main() -> anyhow::Result<()> {
         .build()
         .context("building HTTP client")?;
 
-    // Spawn each tenant core. Children are held for the lifetime of the process;
-    // dropping the supervisor drops the handles.
+    // Spawn each tenant core. Children are monitored for the lifetime of the
+    // process; aborting a monitor drops the child with kill_on_drop(true).
     let mut children = Vec::new();
-    for instance in instances.values() {
-        match spawn_core(&args.core_bin, instance).await {
-            Ok(child) => {
+    for instance in instances.values().cloned().collect::<Vec<_>>() {
+        let spawn_result = match ensure_loopback_port_available(instance.port).await {
+            Ok(()) => spawn_core(&args.core_bin, &instance).await,
+            Err(e) => Err(e),
+        };
+        match spawn_result {
+            Ok(mut child) => {
                 let healthy = wait_healthy(&http, instance.port, 20).await;
-                log::info!(
-                    "[fleet] tenant {} core {}",
-                    instance.user_id,
-                    if healthy {
-                        "ready"
-                    } else {
-                        "spawned (health probe timed out)"
-                    }
-                );
-                children.push(child);
+                if healthy {
+                    log::info!("[fleet] tenant {} core ready", instance.user_id);
+                    children.push((instance.user_id.clone(), child));
+                } else {
+                    log::error!("[fleet] tenant {} health probe timed out", instance.user_id);
+                    let _ = child.start_kill();
+                    let _ = child.wait().await;
+                    remove_tenant(
+                        &mut instances,
+                        &mut edge_auth,
+                        &mut minted,
+                        &instance.user_id,
+                    );
+                }
             }
             Err(e) => {
                 log::error!("[fleet] failed to spawn tenant {}: {e:#}", instance.user_id);
+                remove_tenant(
+                    &mut instances,
+                    &mut edge_auth,
+                    &mut minted,
+                    &instance.user_id,
+                );
             }
         }
     }
 
-    // Surface the minted edge tokens so the operator can hand them to clients.
-    // (A production supervisor would return these via an admin API, not stdout.)
-    for (user_id, token) in &minted {
-        println!("edge-token {user_id} {token}");
+    if instances.is_empty() {
+        anyhow::bail!("no tenant cores started successfully");
+    }
+
+    if let Some(path) = &args.edge_token_output {
+        write_edge_tokens(path, &minted)?;
+        log::info!(
+            "[fleet] wrote {} edge token(s) to {}",
+            minted.len(),
+            path.display()
+        );
+    } else {
+        log::warn!(
+            "[fleet] {} edge token(s) minted but not printed; pass --edge-token-output <path> to write a restricted handoff file",
+            minted.len()
+        );
     }
 
     let fleet = Arc::new(RwLock::new(Fleet {
@@ -394,6 +526,22 @@ async fn main() -> anyhow::Result<()> {
         edge_auth,
         http,
     }));
+
+    let mut child_tasks = Vec::new();
+    for (user_id, mut child) in children {
+        let fleet_for_child = Arc::clone(&fleet);
+        child_tasks.push(tokio::spawn(async move {
+            match child.wait().await {
+                Ok(status) => {
+                    log::warn!("[fleet] tenant {user_id} core exited with status {status}");
+                }
+                Err(e) => {
+                    log::warn!("[fleet] tenant {user_id} core wait failed: {e}");
+                }
+            }
+            fleet_for_child.write().await.instances.remove(&user_id);
+        }));
+    }
 
     let app = Router::new()
         .route("/{user_id}/rpc", post(rpc_proxy))
@@ -410,8 +558,10 @@ async fn main() -> anyhow::Result<()> {
 
     axum::serve(listener, app).await.context("serving proxy")?;
 
-    // Keep children owned until serve returns (shutdown).
-    drop(children);
+    for task in child_tasks {
+        task.abort();
+        let _ = task.await;
+    }
     Ok(())
 }
 
@@ -483,7 +633,7 @@ mod tests {
             axum::http::header::AUTHORIZATION,
             "Bearer edge-123".parse().unwrap(),
         );
-        assert_eq!(bearer_from_headers(&h), Some("edge-123".to_string()));
+        assert_eq!(bearer_from_headers(&h), Some(EdgeToken::new("edge-123")));
 
         let mut h2 = HeaderMap::new();
         h2.insert(

@@ -1,6 +1,8 @@
 # Pluggable Core — `openhuman_core` as an Embeddable Library
 
-**Status:** Draft — analysis + phased plan, no code landed yet.
+**Status:** In progress — `CoreBuilder`, `CoreRuntime`, `CoreContext`, the
+first per-context store plumbing, and the `openhuman-fleet` MVP are implemented
+in this branch. Remaining production work is tracked in the phase docs.
 
 **Goal:** make the Rust core pluggable into arbitrary hosts — the Tauri shell
 (today), a plain CLI, a stdio MCP server, cloud/team servers managing many
@@ -68,13 +70,13 @@ server; we do not reimplement team logic locally.**
 
 Bootstrap splits into three layers that are fused today:
 
-```
+```text
 CoreBuilder::build()                      ── layer 1: context init (pure — no
   └─ CoreContext                             sockets, no spawns): config,
        stores · event bus · registries       workspace, master key, stores,
        security policy · approval gate       subscribers, policy
 
-CoreRuntime::start()                      ── layer 2: services (each opt-in):
+CoreRuntime::serve()                      ── layer 2: services (each opt-in):
   ├─ rpc_http    (axum /rpc + Bearer)        selected by ServiceSet
   ├─ socketio
   ├─ cron · channels · heartbeat · update
@@ -100,18 +102,18 @@ impl ServiceSet {
     pub fn none() -> Self;          // library / harness-only
 }
 
-pub struct CoreBuilder { /* workspace, config, host_kind, token, bind, services, ready */ }
+pub struct CoreBuilder { /* config, host_kind, token, bind, services */ }
 impl CoreBuilder {
     pub fn new(host_kind: HostKind) -> Self;
-    pub fn workspace(self, dir: impl Into<PathBuf>) -> Self;
-    pub fn token(self, t: TokenSource) -> Self;      // Fixed | Generated | Keyring
+    pub fn token(self, t: TokenSource) -> Self;      // Fixed | EnvOrFile
     pub fn services(self, set: ServiceSet) -> Self;
     pub async fn build(self) -> anyhow::Result<CoreRuntime>;  // init only, no spawns
 }
 
 pub struct CoreRuntime { /* Arc<CoreContext>, CancellationToken, bound_addr */ }
 impl CoreRuntime {
-    pub async fn start(&self) -> anyhow::Result<()>;          // spawn selected services
+    pub async fn serve(&self, ready: Option<oneshot::Sender<EmbeddedReadySignal>>, shutdown: Option<CancellationToken>)
+        -> anyhow::Result<()>;                               // spawn selected services
     pub async fn invoke(&self, method: &str, params: Map<String, Value>)
         -> Result<Value, RpcError>;                           // same path as /rpc
     pub fn events(&self) -> broadcast::Receiver<CoreEvent>;
@@ -129,22 +131,23 @@ impl CoreRuntime {
 | Entry                                               | Today                               | After                                                                                                                           |
 | --------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `run_server` (`jsonrpc.rs:1682`)                    | wraps `run_server_inner`            | shim over `CoreBuilder` (deprecated, kept one release)                                                                          |
-| `run_server_embedded_with_ready` (`:1717`)          | same                                | Tauri `core_process.rs` calls `CoreBuilder` directly: `TokenSource::Fixed(in-memory)`, `ready(signal)`, `ServiceSet::desktop()` |
+| `run_server_embedded_with_ready` (`:1717`)          | same                                | Tauri `core_process.rs` calls `CoreBuilder` directly: `TokenSource::Fixed(in-memory)`, `ServiceSet::desktop()`; readiness is passed to `CoreRuntime::serve` |
 | CLI `call` / namespace dispatch (`src/core/cli.rs`) | `invoke_method(default_state(), …)` | `ServiceSet::none()` build → `runtime.invoke()` — no port bound for one-shot calls                                              |
 | MCP stdio (`src/core/cli.rs` `mcp`)                 | same funnel                         | transport adapter over `runtime.invoke()`                                                                                       |
 | Cloud/team host                                     | n/a                                 | fleet supervisor composing one core per user (phase 4)                                                                          |
 
 ### 2.3 Multi-tenancy: fleet of processes first
 
-**Decision: one OS process per user/workspace, orchestrated by a supervisor —
-not in-process multi-tenancy.** Rationale:
+**Decision: one supervised core process per user/workspace first — not
+in-process multi-tenancy.** Rationale:
 
 - It is the shape the architecture already has (Tauri = one embedded core for
   one user); a supervisor reuses it with zero correctness risk.
 - The blockers to in-process tenancy are real and slow: env-var mutation for
   child tools (#7), keyring/master-key process scope, `Once`-guarded
-  subscribers (#8), Sentry. Process isolation also gives _security_ isolation
-  for free — agents run arbitrary tools.
+  subscribers (#8), Sentry. Separate processes improve blast-radius and
+  lifecycle control, but production multi-tenant security still requires
+  distinct OS users or containers because agents run arbitrary tools.
 - The wire contract is unchanged, so `CloudHttpTransport` works as-is against
   a per-user base URL.
 
@@ -160,10 +163,10 @@ Three stages (detail in [phase-2](phase-2-corecontext.md) /
 - **Stage A (facade):** `CoreContext` _owns initialization order_ and hands
   out handles; existing `*::global::init` calls move inside it; handlers keep
   reading globals. Zero behavior change.
-- **Stage B (mechanical):** `ControllerHandler` gains an `Arc<CoreContext>`
-  parameter — still plain `fn` pointers, sweep compiles with `_ctx` untouched
-  bodies; domains then migrate off globals opportunistically, tracked in a
-  drift ledger.
+- **Stage B (mechanical):** registered RPC dispatch installs an ambient
+  task-local `CoreContext` while handlers remain plain `fn` pointers. Domains
+  then migrate off globals opportunistically by reading `CoreContext::current()`,
+  tracked in a drift ledger.
 - **Stage C (bounded):** only what multi-context isolation actually needs.
   **Exit criterion: two `CoreContext`s in one test process serve
   memory/people/config reads without cross-talk — not "zero `OnceLock`s".**

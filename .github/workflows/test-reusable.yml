@@ -156,6 +156,10 @@ jobs:
           cache-on-failure: true
           key: core
       - name: Test core crate (openhuman)
+        # This script uses Bash-only process substitution below. Reusable
+        # workflows do not inherit the caller's `defaults.run.shell`, and
+        # container jobs otherwise execute multiline steps with `sh`.
+        shell: bash
         run: |
           set -euo pipefail
 

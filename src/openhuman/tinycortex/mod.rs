@@ -57,9 +57,9 @@ pub use seal::{
 };
 pub use summariser::HostSummariser;
 pub use sync::{
-    load_composio_sync_state, run_composio_connection, run_gmail_backfill,
-    run_slack_search_backfill, run_source_pipeline, sync_context, HostSyncAdapter,
-    SourcePipelineFailure, HOST_SYNC_STATE_NAMESPACE,
+    load_composio_sync_state, run_composio_connection, run_composio_connection_with_budgets,
+    run_gmail_backfill, run_slack_search_backfill, run_source_pipeline, sync_context,
+    HostSyncAdapter, SourcePipelineFailure, HOST_SYNC_STATE_NAMESPACE,
 };
 // Facade re-exports — the rest of the host imports memory-engine types through
 // this one seam so consumer import paths stay stable as the internals flip to

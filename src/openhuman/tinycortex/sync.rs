@@ -168,7 +168,22 @@ pub async fn run_composio_connection(
     connection_id: &str,
     config: &Config,
 ) -> Result<SyncOutcome, SourcePipelineFailure> {
-    let source = config
+    run_composio_connection_with_budgets(toolkit, connection_id, config, None, None).await
+}
+
+/// Run a Composio connection with request-scoped budget overrides.
+///
+/// Provider RPCs carry these values in `ProviderContext`, before a source has
+/// necessarily been persisted in the registry. Explicit values therefore take
+/// precedence, while `None` preserves the registered/default source budget.
+pub async fn run_composio_connection_with_budgets(
+    toolkit: &str,
+    connection_id: &str,
+    config: &Config,
+    max_items: Option<u32>,
+    sync_depth_days: Option<u32>,
+) -> Result<SyncOutcome, SourcePipelineFailure> {
+    let mut source = config
         .memory_sources
         .iter()
         .find(|source| {
@@ -203,6 +218,9 @@ pub async fn run_composio_connection(
                 sync_depth_days,
             }
         });
+
+    source.max_items = max_items;
+    source.sync_depth_days = sync_depth_days;
 
     tracing::debug!(
         toolkit,

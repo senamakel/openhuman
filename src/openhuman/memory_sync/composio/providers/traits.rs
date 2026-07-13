@@ -59,10 +59,12 @@ pub trait ComposioProvider: Send + Sync {
             )
         })?;
         let started_at_ms = now_ms();
-        let outcome = crate::openhuman::tinycortex::run_composio_connection(
+        let outcome = crate::openhuman::tinycortex::run_composio_connection_with_budgets(
             self.toolkit_slug(),
             connection_id,
             ctx.config.as_ref(),
+            ctx.max_items,
+            ctx.sync_depth_days,
         )
         .await
         .map_err(|error| error.to_string())?;

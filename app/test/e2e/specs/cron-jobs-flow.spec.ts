@@ -69,6 +69,29 @@ async function clickCronRefresh(): Promise<void> {
   }
 }
 
+async function waitForCronToggleLabel(
+  jobId: string,
+  expectedLabel: 'Pause' | 'Resume',
+  timeoutMs = 10_000
+): Promise<void> {
+  const testId = `cron-job-toggle-${jobId}`;
+  stepLog('waiting for cron toggle label', { jobId, expectedLabel, timeoutMs });
+  await browser.waitUntil(
+    async () => {
+      // Reacquire on every poll because the toggle RPC replaces the job row
+      // in React state and WebDriver element references can become stale.
+      const toggle = await waitForTestId(testId, Math.min(timeoutMs, 2_000));
+      return (await toggle.getText()).trim() === expectedLabel;
+    },
+    {
+      timeout: timeoutMs,
+      interval: 500,
+      timeoutMsg: `${MORNING_BRIEFING} toggle never showed ${expectedLabel}`,
+    }
+  );
+  stepLog('cron toggle label reached expected state', { jobId, expectedLabel });
+}
+
 /** Open the Cron Jobs settings panel via the same Settings entry-point a user clicks. */
 async function openCronJobsPanel(): Promise<void> {
   await navigateToSettings();
@@ -161,13 +184,10 @@ describe('Cron jobs settings panel (real UI flow)', () => {
       await waitForTestId(`cron-job-row-${morningBriefingId}`, 10_000);
     }
     expect(await textExists(MORNING_BRIEFING)).toBe(true);
-    // The 'Enabled' status badge can paint a beat after the row name. Scope the
-    // assertion to this job because other core jobs may be paused or enabled.
-    const row = await waitForTestId(`cron-job-row-${morningBriefingId}`, 10_000);
-    await browser.waitUntil(async () => (await row.getText()).includes('Enabled'), {
-      timeout: 10_000,
-      timeoutMsg: 'morning_briefing row never showed Enabled state',
-    });
+    // Assert the user-facing action for the enabled state. Appium's getText()
+    // does not consistently aggregate descendant badge text from a row div,
+    // while the dedicated toggle button is stable across all three drivers.
+    await waitForCronToggleLabel(morningBriefingId, 'Pause');
   });
 
   it('clicking Pause flips the row to Resume and persists across Refresh', async function () {
@@ -177,28 +197,16 @@ describe('Cron jobs settings panel (real UI flow)', () => {
     // per-job test id so unrelated core jobs cannot receive the action.
     await clickTestId(`cron-job-toggle-${morningBriefingId}`, 15_000);
 
-    let row = await waitForTestId(`cron-job-row-${morningBriefingId}`, 10_000);
-    await browser.waitUntil(async () => (await row.getText()).includes('Paused'), {
-      timeout: 10_000,
-      timeoutMsg: 'morning_briefing row never showed Paused state',
-    });
+    await waitForCronToggleLabel(morningBriefingId, 'Resume');
 
     // Real UI persistence proof: refresh re-reads from the sidecar.
     await clickCronRefresh();
     await browser.pause(1_500);
-    row = await waitForTestId(`cron-job-row-${morningBriefingId}`, 10_000);
-    await browser.waitUntil(async () => (await row.getText()).includes('Resume'), {
-      timeout: 10_000,
-      timeoutMsg: 'morning_briefing row never showed Resume action after refresh',
-    });
+    await waitForCronToggleLabel(morningBriefingId, 'Resume');
 
     // Restore so the next test starts from the enabled state.
     await clickTestId(`cron-job-toggle-${morningBriefingId}`, 8_000);
-    row = await waitForTestId(`cron-job-row-${morningBriefingId}`, 10_000);
-    await browser.waitUntil(async () => (await row.getText()).includes('Pause'), {
-      timeout: 10_000,
-      timeoutMsg: 'morning_briefing row never returned to Pause action',
-    });
+    await waitForCronToggleLabel(morningBriefingId, 'Pause');
   });
 
   it('clicking Remove deletes the job from both the UI and the sidecar', async function () {

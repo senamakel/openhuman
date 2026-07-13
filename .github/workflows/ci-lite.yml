@@ -166,6 +166,8 @@ jobs:
             tinycortex:
               - '.github/workflows/ci-lite.yml'
               - '.github/workflows/test-reusable.yml'
+              - '.gitmodules'
+              - 'scripts/ci-cancel-aware.sh'
               - 'vendor/tinycortex'
             rust-tauri:
               - '.github/workflows/ci-lite.yml'

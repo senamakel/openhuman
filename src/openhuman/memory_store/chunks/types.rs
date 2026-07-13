@@ -14,11 +14,9 @@
 //! identical fields, derives, serde wire form, and `chunk_id` derivation, all
 //! pinned by `tinycortex::memory::chunks::types_tests`). Re-exporting keeps one source of truth and lets
 //! the chunk store operations delegate to the crate without host↔crate type
-//! conversions. `StagedChunk` (in `memory_store::content`) and `DataSource` stay
-//! host for now — `DataSource` is a provider taxonomy the chunk *store* never
-//! touches (it's used by ingest canonicalization + scoring), and re-exporting it
-//! would force `_` arms on the host's exhaustive matches of a now-foreign
-//! `#[non_exhaustive]` enum. It flips with the ingest module (W6).
+//! conversions. `DataSource` moved with the ingest cutover and is re-exported
+//! here alongside the chunk types. `StagedChunk` remains host-owned in
+//! `memory_store::content`.
 
 pub use tinycortex::memory::chunks::{
     approx_token_count, chunk_id, conservative_token_estimate, truncate_to_conservative_tokens,

@@ -25,12 +25,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BubbleMarkdown } from '../../features/conversations/components/AgentMessageBubble';
 import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
 import { useWorkflowBuilderChat } from '../../hooks/useWorkflowBuilderChat';
+import { unwrapToolCallEnvelope } from '../../lib/flows/copilotMessageSanitizer';
 import { diffGraphs } from '../../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import ChatComposer from '../chat/ChatComposer';
 import Button from '../ui/Button';
+import ToolActivityChip from './ToolActivityChip';
 
 const log = createDebug('app:flows:copilot-panel');
 
@@ -298,7 +300,11 @@ export default function WorkflowCopilotPanel({
 
   const diff = proposal ? diffGraphs(graph, proposal.graph as WorkflowGraph) : null;
   const hasTimeline = toolTimeline.length > 0;
-  const hasLiveText = liveResponse.trim().length > 0;
+  // B25: the in-flight streaming text can also carry the raw tool-call
+  // envelope mid-turn — unwrap once and reuse the clean text everywhere below
+  // (the pre-tool streaming bubble and the shared `ToolTimelineBlock`).
+  const liveResponseText = unwrapToolCallEnvelope(liveResponse).text;
+  const hasLiveText = liveResponseText.trim().length > 0;
   const isEmpty =
     displayMessages.length === 0 && !proposal && !sending && !error && !hasTimeline && !hasLiveText;
 
@@ -335,22 +341,34 @@ export default function WorkflowCopilotPanel({
             Renders `displayMessages` (interim narration bubbles filtered out —
             that narration already streams via the tool timeline / live text
             below it double-renders it as a bubble too, see B4). */}
-        {displayMessages.map(message =>
-          message.sender === 'user' ? (
-            <div key={message.id} className="flex justify-end" data-testid="workflow-copilot-user">
-              <div className="max-w-[85%] rounded-2xl bg-primary-500 px-3 py-1.5 text-sm text-content-inverted">
-                {message.content}
+        {displayMessages.map(message => {
+          if (message.sender === 'user') {
+            return (
+              <div
+                key={message.id}
+                className="flex justify-end"
+                data-testid="workflow-copilot-user">
+                <div className="max-w-[85%] rounded-2xl bg-primary-500 px-3 py-1.5 text-sm text-content-inverted">
+                  {message.content}
+                </div>
               </div>
-            </div>
-          ) : (
+            );
+          }
+          // B25: a turn that both talks and calls a tool can carry the
+          // provider wire-format `{ content, tool_calls }` envelope as this
+          // message's raw `content` — unwrap it so the bubble renders only
+          // the human text (+ a compact tool-activity chip), never raw JSON.
+          const { text, toolNames } = unwrapToolCallEnvelope(message.content);
+          return (
             <div
               key={message.id}
               className="max-w-[92%] rounded-2xl bg-surface-subtle px-3 py-1.5"
               data-testid="workflow-copilot-agent">
-              <BubbleMarkdown content={message.content} />
+              <BubbleMarkdown content={text} />
+              <ToolActivityChip toolNames={toolNames} />
             </div>
-          )
-        )}
+          );
+        })}
 
         {/* Live builder activity — the SHARED tool timeline (tool cards + the
             streaming reply) the main chat uses, fed from the runtime's streamed
@@ -360,7 +378,7 @@ export default function WorkflowCopilotPanel({
           <div data-testid="workflow-copilot-timeline">
             <ToolTimelineBlock
               entries={toolTimeline}
-              liveResponse={hasLiveText ? liveResponse : undefined}
+              liveResponse={hasLiveText ? liveResponseText : undefined}
             />
           </div>
         )}
@@ -372,7 +390,7 @@ export default function WorkflowCopilotPanel({
           <div
             className="max-w-[92%] rounded-2xl bg-surface-subtle px-3 py-1.5"
             data-testid="workflow-copilot-streaming">
-            <BubbleMarkdown content={liveResponse} />
+            <BubbleMarkdown content={liveResponseText} />
           </div>
         )}
 

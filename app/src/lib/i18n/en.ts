@@ -3660,6 +3660,8 @@ const en: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'Open in canvas',
   'chat.flowProposal.dismiss': 'Dismiss',
   'chat.flowProposal.error': 'Could not save the workflow. Please try again.',
+  'chat.flowProposal.enableError':
+    'Workflow saved, but could not enable it. Try again, or enable it from the Workflows page.',
 
   // Auth mode labels
   'channels.authMode.managed_dm': 'Login with OpenHuman',
@@ -4601,6 +4603,10 @@ const en: TranslationMap = {
   'flows.copilot.reject': 'Dismiss',
   'flows.copilot.previewHint': 'Reviewing a proposed draft — nothing is saved yet.',
   'flows.copilot.repairDisplay': 'A run failed — please look at it and propose a fix.',
+  'flows.copilot.tool.proposing': 'Proposing workflow…',
+  'flows.copilot.tool.dryRunning': 'Dry-running workflow…',
+  'flows.copilot.tool.saving': 'Saving workflow…',
+  'flows.copilot.tool.usingTools': 'Using tools…',
 
   // ── Workflow Canvas (issue B5b.1) — the read-only graph view of a saved
   // flow at /flows/:id. `flows.nodeKind.*` labels the 12 tinyflows node

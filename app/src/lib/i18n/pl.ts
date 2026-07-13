@@ -3281,6 +3281,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'Otwórz na kanwie',
   'chat.flowProposal.dismiss': 'Odrzuć',
   'chat.flowProposal.error': 'Nie udało się zapisać przepływu pracy. Spróbuj ponownie.',
+  'chat.flowProposal.enableError':
+    'Przepływ pracy zapisany, ale nie udało się go włączyć. Spróbuj ponownie lub włącz go na stronie Workflows.',
   'channels.authMode.managed_dm': 'Zaloguj się z OpenHuman',
   'channels.authMode.oauth': 'Logowanie OAuth',
   'channels.authMode.bot_token': 'Użyj własnego tokena bota',
@@ -3963,6 +3965,10 @@ const messages: TranslationMap = {
     'Przeglądasz proponowaną wersję roboczą — nic nie zostało jeszcze zapisane.',
   'flows.copilot.repairDisplay':
     'Uruchomienie nie powiodło się; przejrzyj je i zaproponuj poprawkę.',
+  'flows.copilot.tool.proposing': 'Proponowanie przepływu pracy…',
+  'flows.copilot.tool.dryRunning': 'Testowe uruchamianie przepływu pracy…',
+  'flows.copilot.tool.saving': 'Zapisywanie przepływu pracy…',
+  'flows.copilot.tool.usingTools': 'Używanie narzędzi…',
   'flows.list.view': 'Wyświetl przepływ pracy',
   'flows.list.export': 'Eksportuj',
   'flows.list.exported': 'Wyeksportowano przepływ pracy',

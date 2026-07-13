@@ -422,7 +422,11 @@ fn node_kind_str(kind: &NodeKind) -> String {
 /// One-line human description of a trigger node, for the summary's
 /// `"trigger"` field — e.g. `"schedule: 0 9 * * *"`, `"app event:
 /// gmail/GMAIL_NEW_GMAIL_MESSAGE"`, `"manual"`.
-fn describe_trigger(node: &Node) -> String {
+///
+/// `pub(crate)` so [`crate::openhuman::flows::builder_tools::SaveWorkflowTool`]
+/// reuses it verbatim for its enabled+auto-trigger arming warning (issue
+/// B29) instead of re-deriving the same human string.
+pub(crate) fn describe_trigger(node: &Node) -> String {
     let trigger_kind = node
         .config
         .get("trigger_kind")

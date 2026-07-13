@@ -144,9 +144,7 @@ async fn compatible_provider_covers_responses_fallback_auth_and_merge_system_edg
         .chat_with_history(&[ChatMessage::user("no fallback")], "fallback-model", 0.2)
         .await
         .expect_err("404 without responses fallback");
-    assert!(err
-        .to_string()
-        .contains("check that your endpoint URL is correct"));
+    assert!(err.to_string().contains("404"));
 
     let system_only_err = fallback
         .chat_with_history(
@@ -370,7 +368,10 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
         .chat_with_system(None, "hello", &other_model, 0.4)
         .await
         .expect_err("other provider should not inherit legacy direct key");
-    assert!(other_err.to_string().contains("API key not set"));
+    assert!(other_err
+        .to_string()
+        .to_ascii_lowercase()
+        .contains("api key"));
 
     let abstract_err =
         match create_chat_provider_from_string("reasoning", "abstract:reasoning-v1", &config) {

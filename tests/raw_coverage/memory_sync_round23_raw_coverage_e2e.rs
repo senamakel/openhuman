@@ -360,7 +360,7 @@ async fn notion_profile_prefers_bot_owner_and_sync_paginates_into_memory_tree() 
         .cloned()
         .collect();
     assert_eq!(fetch_calls.len(), 2);
-    assert_eq!(fetch_calls[0]["arguments"]["page_size"], 50);
+    assert_eq!(fetch_calls[0]["arguments"]["page_size"], 25);
     assert_eq!(fetch_calls[1]["arguments"]["start_cursor"], "page-2");
     server.abort();
 }

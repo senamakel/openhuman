@@ -149,7 +149,8 @@ fn alice_phoenix_thread() -> EmailThread {
 /// pre-turn pre-fetch. `agent_memory` is listed in the `[subagents]` allowlist
 /// (synthesised into a `delegate_retrieve_memory` tool), so the orchestrator
 /// walks the memory tree only when a message needs it — instead of spawning a
-/// full memory subagent before every turn.
+/// full memory subagent before every turn. Simple recall/store operations stay
+/// direct so they do not pay an agentic round-trip.
 ///
 /// History: #1141 consolidated 6 `memory_tree_*` tools into `memory_tree`;
 /// the agent_memory domain then unified `memory_tree` + `query_memory`
@@ -175,9 +176,20 @@ fn orchestrator_reaches_memory_agent_on_demand() {
             .any(|line| line == "\"agent_memory\"" || line == "\"agent_memory\","),
         "orchestrator must list `agent_memory` in its subagents allowlist for on-demand retrieval"
     );
-    // The orchestrator reaches the memory agent through delegation, not the
-    // direct `call_memory_agent` tool (that tool is forbidden on the
-    // orchestrator — see loader::tests::orchestrator_has_chat_hint_and_named_tools).
+    // Simple recall/store operations are direct (#4762); deep tree walks still
+    // reach the memory agent through delegation. The broad `call_memory_agent`
+    // tool remains forbidden on the orchestrator — see
+    // loader::tests::orchestrator_has_chat_hint_and_named_tools.
+    for direct_name in ["memory_recall", "memory_store"] {
+        let entry = format!("\"{direct_name}\"");
+        let entry_comma = format!("\"{direct_name}\",");
+        assert!(
+            toml.lines()
+                .map(str::trim)
+                .any(|line| line == entry || line == entry_comma),
+            "orchestrator agent.toml must expose direct '{direct_name}'"
+        );
+    }
     let has_call_memory_agent = toml
         .lines()
         .map(str::trim)
@@ -190,7 +202,6 @@ fn orchestrator_reaches_memory_agent_on_demand() {
     for old_name in [
         "memory_tree",
         "query_memory",
-        "memory_recall",
         "memory_tree_search_entities",
         "memory_tree_query_topic",
         "memory_tree_query_source",

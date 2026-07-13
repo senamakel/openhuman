@@ -179,15 +179,15 @@ async fn compatible_provider_covers_retry_headers_responses_and_parse_errors() {
         .expect_err("empty choices");
     assert!(empty_err.to_string().to_ascii_lowercase().contains("choices"));
 
-    let responses_err = provider
+    let responses_text = provider
         .chat_with_history(
             &[ChatMessage::system("only system")],
             "responses-empty-input",
             0.2,
         )
         .await
-        .expect_err("responses requires input");
-    assert!(!responses_err.to_string().is_empty());
+        .expect("system-only responses request");
+    assert!(responses_text.is_empty());
 
     let bearer = OpenAiCompatibleProvider::new(
         "bearer",

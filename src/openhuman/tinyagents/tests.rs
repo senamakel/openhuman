@@ -11,6 +11,37 @@ use super::*;
 use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider, ToolCall};
 use crate::openhuman::tools::{Tool, ToolResult};
 
+#[test]
+fn crate_native_turn_source_does_not_retain_host_provider() {
+    let source = TurnModelSource::new_crate_native(
+        "chat",
+        Arc::new(crate::openhuman::config::Config::default()),
+    );
+    assert!(
+        source.provider.is_none(),
+        "crate-native turn sources must not construct or retain a host Provider"
+    );
+    assert!(source.crate_native.is_some());
+}
+
+#[test]
+fn crate_native_text_mode_does_not_resolve_host_provider() {
+    let source = TurnModelSource::new_crate_native(
+        "chat",
+        Arc::new(crate::openhuman::config::Config::default()),
+    )
+    .with_text_mode();
+
+    assert!(source.provider.is_none());
+    assert!(
+        source
+            .crate_native
+            .as_ref()
+            .is_some_and(|native| native.force_text_mode),
+        "text mode must be represented on the crate-native source"
+    );
+}
+
 /// A real openhuman tool the harness will execute.
 struct EchoTool;
 

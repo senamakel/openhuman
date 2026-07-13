@@ -166,6 +166,8 @@ mod tests {
         let adapter = ProviderEmbeddingModel::new(provider);
 
         // dimensions() is forwarded from the underlying provider.
+        assert_eq!(TaEmbeddingModel::name(&adapter), "stub");
+        assert_eq!(TaEmbeddingModel::model_id(&adapter), "stub-model");
         assert_eq!(TaEmbeddingModel::dimensions(&adapter), 4);
 
         // embed() bridges `&[String]` -> `&[&str]` and returns one vector per

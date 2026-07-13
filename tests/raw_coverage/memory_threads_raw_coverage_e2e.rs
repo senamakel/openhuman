@@ -122,11 +122,10 @@ use openhuman_core::openhuman::memory_sync::traits::{
 };
 use openhuman_core::openhuman::memory_tools::tools::{MemoryToolsListTool, MemoryToolsPutTool};
 use openhuman_core::openhuman::memory_tools::{
-    render_tool_memory_rules, tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule,
-    ToolMemoryRulesSection, ToolMemorySource, ToolMemoryStore, TOOL_MEMORY_HEADING,
+    render_tool_memory_rules, tool_memory_namespace, tool_memory_store, ToolMemoryPriority,
+    ToolMemoryRule, ToolMemoryRulesSection, ToolMemorySource, TOOL_MEMORY_HEADING,
     TOOL_MEMORY_PROMPT_CAP,
 };
-use openhuman_core::openhuman::memory_tools::tool_memory_store;
 use openhuman_core::openhuman::memory_tree::score::embed::Embedder;
 use openhuman_core::openhuman::memory_tree::score::extract::{
     CompositeExtractor, EntityExtractor, EntityKind, ExtractedEntities, ExtractedEntity,

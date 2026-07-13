@@ -42,7 +42,7 @@ use tinyagents::harness::workspace::WorkspaceDescriptor;
 
 use super::prompt::{append_subagent_role_contract, dedup_tool_specs_by_name};
 use super::provider::{
-    resolve_subagent_provider, user_is_signed_in_to_composio, LazyToolkitResolver,
+    resolve_subagent_source, user_is_signed_in_to_composio, LazyToolkitResolver,
 };
 
 /// Runtime spawn-hierarchy gate decision for one delegation hop.
@@ -328,19 +328,20 @@ async fn run_typed_mode(
         }
     }
 
-    // Resolve provider + model. See `resolve_subagent_provider` for the
+    // Resolve model source + model. See `resolve_subagent_source` for the
     // semantics of each ModelSpec variant. `Config::load_or_init()` is
     // async so the load is hoisted out of the helper — the helper itself
     // is sync and unit-tested.
     let config_loaded = crate::openhuman::config::Config::load_or_init().await;
-    let (subagent_provider, model) = resolve_subagent_provider(
+    let (mut subagent_source, model) = resolve_subagent_source(
         &definition.model,
         &definition.id,
         config_loaded.as_ref().ok(),
-        parent.turn_model_source.provider(),
+        parent.turn_model_source.clone(),
         parent.model_name.clone(),
         !definition.subagents.is_empty(),
         options.model_override.as_deref(),
+        definition.temperature,
     );
     let temperature = definition.temperature;
     let max_output_tokens = definition
@@ -626,36 +627,44 @@ async fn run_typed_mode(
         // id rather than dead-ending extraction.
         let summarization_tier =
             crate::openhuman::inference::provider::factory::summarization_tier_model().to_string();
-        let (extract_provider, extract_model): (
-            Arc<dyn crate::openhuman::inference::provider::Provider>,
-            String,
-        ) = match crate::openhuman::config::Config::load_or_init().await {
+        // The extract summarizer stays on the resolved `Provider` (the extract's own
+        // summarization resolution, incl. test-injected mocks + the managed-vs-local
+        // decision). It is NOT flipped to a role-resolved crate-native source: that
+        // would re-resolve "summarization" from config and bypass the resolved
+        // provider — production stays managed either way, but a test mock injected on
+        // the parent/extract provider would no longer be observed (issue #4249 P3-B:
+        // the extract flip is deferred; the turn-path flip goes through the primary
+        // producers instead).
+        let (extract_source, extract_model) = match crate::openhuman::config::Config::load_or_init()
+            .await
+        {
             Ok(cfg) => {
                 let route =
                     crate::openhuman::inference::provider::provider_for_role("summarization", &cfg);
                 let r = route.trim();
                 let route_is_managed = r.is_empty() || r == "cloud" || r == "openhuman";
                 if route_is_managed && !parent.turn_model_source.is_local_provider() {
-                    (
-                        parent.turn_model_source.provider(),
-                        summarization_tier.clone(),
-                    )
+                    (parent.turn_model_source.clone(), summarization_tier.clone())
                 } else {
-                    match crate::openhuman::inference::provider::create_chat_provider(
+                    match crate::openhuman::inference::provider::create_chat_model_with_model_id(
                         "summarization",
                         &cfg,
+                        parent.temperature,
                     ) {
-                        Ok((p, m)) => (Arc::from(p), m),
+                        Ok((_model, resolved_model)) => (
+                            crate::openhuman::tinyagents::TurnModelSource::new_crate_native(
+                                "summarization",
+                                Arc::new(cfg.clone()),
+                            ),
+                            resolved_model,
+                        ),
                         Err(e) => {
                             tracing::warn!(
                                 agent_id = %definition.id,
                                 error = %e,
                                 "[subagent_runner:typed] extract summarization provider build failed; falling back to parent provider"
                             );
-                            (
-                                parent.turn_model_source.provider(),
-                                summarization_tier.clone(),
-                            )
+                            (parent.turn_model_source.clone(), summarization_tier.clone())
                         }
                     }
                 }
@@ -666,15 +675,12 @@ async fn run_typed_mode(
                     error = %e,
                     "[subagent_runner:typed] config load failed for extract provider; falling back to parent provider + summarization-v1"
                 );
-                (
-                    parent.turn_model_source.provider(),
-                    summarization_tier.clone(),
-                )
+                (parent.turn_model_source.clone(), summarization_tier.clone())
             }
         };
         dynamic_tools.push(Box::new(ExtractFromResultTool::new(
             cache.clone(),
-            crate::openhuman::tinyagents::TurnModelSource::new(extract_provider),
+            extract_source,
             extract_model,
             parent.workspace_dir.clone(),
             parent_chain,
@@ -867,22 +873,19 @@ async fn run_typed_mode(
     // dropped it, so integrations turns advertised native schemas the backend then
     // rejected). Wrapping the provider clears `native_tool_calling`, which makes
     // the model adapter skip native advertisement and fall back to XML parsing.
-    let subagent_provider: Arc<dyn crate::openhuman::inference::provider::Provider> =
-        if is_integrations_agent_with_toolkit {
-            if let Some(sys) = history.iter_mut().find(|m| m.role == "system") {
-                sys.content.push_str("\n\n");
-                sys.content.push_str(&build_text_mode_tool_instructions());
-            }
-            tracing::info!(
-                agent_id = %definition.id,
-                task_id = %task_id,
-                tool_count = filtered_specs.len(),
-                "[subagent_runner:text-mode] omitting native tool schemas; injected XML tool protocol into system prompt"
-            );
-            Arc::new(TextModeProvider::new(subagent_provider))
-        } else {
-            subagent_provider
-        };
+    if is_integrations_agent_with_toolkit {
+        if let Some(sys) = history.iter_mut().find(|m| m.role == "system") {
+            sys.content.push_str("\n\n");
+            sys.content.push_str(&build_text_mode_tool_instructions());
+        }
+        tracing::info!(
+            agent_id = %definition.id,
+            task_id = %task_id,
+            tool_count = filtered_specs.len(),
+            "[subagent_runner:text-mode] omitting native tool schemas; injected XML tool protocol into system prompt"
+        );
+        subagent_source = subagent_source.with_text_mode();
+    }
 
     // ── Run the inner tool-call loop ───────────────────────────────────
     // Resolve the sub-agent model's user-configured vision flag; defaults to
@@ -972,7 +975,7 @@ async fn run_typed_mode(
         match &definition.graph {
             AgentGraph::Default => {
                 super::graph::run_subagent_via_graph(
-                    crate::openhuman::tinyagents::TurnModelSource::new(subagent_provider.clone()),
+                    subagent_source.clone(),
                     &model,
                     temperature,
                     &mut history,
@@ -1008,9 +1011,7 @@ async fn run_typed_mode(
             }
             AgentGraph::Custom(run) => {
                 let req = AgentTurnRequest {
-                    turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(
-                        subagent_provider.clone(),
-                    ),
+                    turn_model_source: subagent_source.clone(),
                     model: model.clone(),
                     temperature,
                     history: std::mem::take(&mut history),
@@ -1183,91 +1184,4 @@ async fn run_typed_mode(
         final_history: history,
         usage,
     })
-}
-
-/// A [`Provider`] decorator that reports **no native tool calling**, forcing the
-/// tinyagents model adapter to omit native tool schemas and fall back to
-/// prompt-guided (`<tool_call>` XML) parsing. Everything else delegates to the
-/// inner provider. Used to run `integrations_agent` in text mode (its large
-/// toolkit would otherwise blow the provider's native tool-grammar ceiling).
-struct TextModeProvider {
-    inner: Arc<dyn crate::openhuman::inference::provider::Provider>,
-}
-
-impl TextModeProvider {
-    fn new(inner: Arc<dyn crate::openhuman::inference::provider::Provider>) -> Self {
-        Self { inner }
-    }
-}
-
-#[async_trait::async_trait]
-impl crate::openhuman::inference::provider::Provider for TextModeProvider {
-    fn capabilities(&self) -> crate::openhuman::inference::provider::traits::ProviderCapabilities {
-        let mut caps = self.inner.capabilities();
-        // The whole point: hide native tool calling so the adapter advertises none.
-        caps.native_tool_calling = false;
-        caps
-    }
-
-    async fn chat_with_system(
-        &self,
-        system_prompt: Option<&str>,
-        message: &str,
-        model: &str,
-        temperature: f64,
-    ) -> anyhow::Result<String> {
-        self.inner
-            .chat_with_system(system_prompt, message, model, temperature)
-            .await
-    }
-
-    async fn chat(
-        &self,
-        request: crate::openhuman::inference::provider::ChatRequest<'_>,
-        model: &str,
-        temperature: f64,
-    ) -> anyhow::Result<crate::openhuman::inference::provider::ChatResponse> {
-        self.inner.chat(request, model, temperature).await
-    }
-
-    fn supports_vision(&self) -> bool {
-        self.inner.supports_vision()
-    }
-
-    fn supports_streaming(&self) -> bool {
-        self.inner.supports_streaming()
-    }
-
-    async fn effective_context_window(&self, model: &str) -> Option<u64> {
-        self.inner.effective_context_window(model).await
-    }
-
-    // #4469 item 2: forward the local-provider identity + cache passthroughs. This
-    // decorator only masks native tool calling (above); everything about *where*
-    // and *how* the inner provider runs must pass through unchanged. Without these
-    // the default trait impls report the inner as a remote, non-caching provider,
-    // so a local runtime behind text mode loses its `n_keep >= n_ctx` un-evictable
-    // prefix guard (`is_local_provider*` / `loaded_context_window`, #3550) and its
-    // KV-cache pricing/strategy (`prompt_cache_capabilities`, #3939).
-    fn is_local_provider(&self) -> bool {
-        self.inner.is_local_provider()
-    }
-
-    fn is_local_provider_for_model(&self, model: &str) -> bool {
-        self.inner.is_local_provider_for_model(model)
-    }
-
-    async fn loaded_context_window(&self, model: &str) -> Option<u64> {
-        self.inner.loaded_context_window(model).await
-    }
-
-    fn prompt_cache_capabilities(
-        &self,
-    ) -> crate::openhuman::inference::provider::traits::PromptCacheCapabilities {
-        self.inner.prompt_cache_capabilities()
-    }
-
-    async fn warmup(&self) -> anyhow::Result<()> {
-        self.inner.warmup().await
-    }
 }

@@ -144,6 +144,13 @@ describe('Cron jobs settings panel (real UI flow)', () => {
     expect(morningBriefingId).toBeTruthy();
 
     await openCronJobsPanel();
+    // resetApp reloads the renderer without clearing the current hash. When a
+    // previous spec left the app on this panel, its mount-time cron_list can
+    // race ahead of the setup cron_update above and leave a stale paused row
+    // in React state. Refresh explicitly so the UI reads the state we just
+    // established before asserting or driving the toggle.
+    await clickCronRefresh();
+    await browser.pause(1_000);
     // The seed runs in a detached spawn_blocking task — poll for the row.
     try {
       await waitForTestId(`cron-job-row-${morningBriefingId}`, 20_000);

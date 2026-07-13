@@ -93,15 +93,11 @@ describe('Chat tool-error recovery', () => {
       })
     ).toBe(true);
 
-    // Wait for the partial text to arrive (confirms streaming started).
-    await browser.waitUntil(async () => await textExists('Starting to answer'), {
-      timeout: TIMEOUT,
-      timeoutMsg: '"Starting to answer" partial text never appeared in stream',
-    });
-
     // After the error is injected, the UI should surface an error indicator.
-    // The exact text varies by implementation: could be "error", "failed",
-    // "retry", or a generic error message. We poll broadly.
+    // Do not require the partial chunk to remain visible first: the terminal
+    // error can replace that transient render before WebDriver samples it.
+    // The durable error/lifecycle state proves that the streamed turn ran.
+    // The exact text varies by implementation, so poll broadly.
     const errorIndicators = [
       'error',
       'Error',

@@ -32,7 +32,9 @@ const TIMEOUT = 20_000;
 // First turn: stream partial text then inject an error.
 const ERROR_STREAM_SCRIPT = JSON.stringify([
   { text: 'Starting to answer', delayMs: 30 },
-  { error: 'upstream LLM error' },
+  // Keep the partial chunk visible long enough for the desktop renderer to
+  // paint it before the injected terminal error clears the streaming state.
+  { error: 'upstream LLM error', delayMs: 1_000 },
 ]);
 
 // Second turn: a clean response for the recovery assertion.

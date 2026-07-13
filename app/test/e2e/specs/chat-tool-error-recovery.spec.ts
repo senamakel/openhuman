@@ -60,7 +60,10 @@ describe('Chat tool-error recovery', () => {
     console.log(`${LOG_PREFIX} Teardown complete`);
   });
 
-  it('T3.1 — error state surfaces in chat after stream error', async () => {
+  it('T3.1 — error state surfaces in chat after stream error', async function () {
+    // macOS needs extra headroom for reset/navigation plus the two streaming
+    // observation windows; the default 30s budget can expire mid-assertion.
+    this.timeout(60_000);
     console.log(`${LOG_PREFIX} T3.1: configuring error stream script`);
     setMockBehavior('llmStreamScript', ERROR_STREAM_SCRIPT);
 

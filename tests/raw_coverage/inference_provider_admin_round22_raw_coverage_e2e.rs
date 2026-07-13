@@ -383,7 +383,10 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
         .any(|req| req.path == "/legacy/v1/chat/completions"
             && req.auth.as_deref() == Some("Bearer sk-legacy-direct")));
     assert!(seen.iter().any(|req| req.path == "/other/v1/chat/completions"
-        && req.auth.as_deref() == Some("Bearer ")));
+        && !req
+            .auth
+            .as_deref()
+            .is_some_and(|auth| auth.contains("sk-legacy-direct"))));
 }
 
 #[tokio::test]

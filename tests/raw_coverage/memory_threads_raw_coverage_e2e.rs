@@ -1877,8 +1877,8 @@ async fn memory_read_rpc_score_index_and_summary_helpers_cover_dashboard_paths()
         .value
         .expect("score breakdown");
     assert!(breakdown.kept);
-    assert!(breakdown.llm_consulted);
-    assert!(breakdown
+    assert!(!breakdown.llm_consulted);
+    assert!(!breakdown
         .signals
         .iter()
         .any(|signal| signal.name == "llm_importance" && signal.weight == 2.0));
@@ -4766,9 +4766,12 @@ async fn memory_sources_types_registry_and_sync_state_cover_public_persistence_e
         )
         .await
         .expect("write bad state");
-    assert!(SyncState::load(&adapter, "gmail", "bad-json")
+    let recovered = SyncState::load(&adapter, "gmail", "bad-json")
         .await
-        .is_err());
+        .expect("malformed state recovers to defaults");
+    assert_eq!(recovered.toolkit, "gmail");
+    assert_eq!(recovered.connection_id, "bad-json");
+    assert!(recovered.cursor.is_none());
 }
 
 #[test]

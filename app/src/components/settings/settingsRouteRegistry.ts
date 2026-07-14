@@ -678,15 +678,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     devOnly: true,
     navGroup: 'automationIntegrations',
   },
-  // Agent debug — agent-chat moved to Connections → Agent Chat.
-  {
-    id: 'local-model-debug',
-    titleKey: 'settings.developerMenu.localModelDebug.title',
-    descriptionKey: 'settings.developerMenu.localModelDebug.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'agentsAutonomy',
-  },
+  // Agent Chat + Local Model Debug are now chips on the Connections → LLM page.
   {
     id: 'skills-runner',
     titleKey: 'settings.developerMenu.skillsRunner.title',

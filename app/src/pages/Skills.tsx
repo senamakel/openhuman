@@ -16,10 +16,9 @@ import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import MeetingsPage from '../components/meetings/MeetingsPage';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
-import AgentChatPanel from '../components/settings/panels/AgentChatPanel';
-import AIPanel from '../components/settings/panels/AIPanel';
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
+import LlmConnectionsPanel from '../components/settings/panels/LlmConnectionsPanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
@@ -445,7 +444,6 @@ type ConnectionsTab =
   | 'skills'
   | 'meetings'
   | 'llm'
-  | 'agent-chat'
   | 'voice'
   | 'embeddings'
   | 'search'
@@ -455,7 +453,6 @@ type ConnectionsTab =
 /** Tabs that render a relocated settings panel (the "API keys" group). */
 const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'llm',
-  'agent-chat',
   'voice',
   'embeddings',
   'search',
@@ -483,7 +480,6 @@ export default function Skills() {
       raw === 'skills' ||
       raw === 'meetings' ||
       raw === 'llm' ||
-      raw === 'agent-chat' ||
       raw === 'voice' ||
       raw === 'embeddings' ||
       raw === 'search' ||
@@ -985,15 +981,6 @@ export default function Skills() {
                     ),
                   },
                   {
-                    // Raw agent-chat tester relocated from Settings → Developer
-                    // Options; lives directly under the LLM provider settings.
-                    value: 'agent-chat',
-                    label: t('settings.developerMenu.agentChat.title'),
-                    icon: navIcon(
-                      'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z'
-                    ),
-                  },
-                  {
                     value: 'composio-key',
                     label: t('connections.tabs.composioKey'),
                     icon: navIcon(
@@ -1046,8 +1033,7 @@ export default function Skills() {
           <div className="h-full p-4">
             <div className="h-full overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
               <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
-                {activeTab === 'llm' && <AIPanel />}
-                {activeTab === 'agent-chat' && <AgentChatPanel />}
+                {activeTab === 'llm' && <LlmConnectionsPanel />}
                 {activeTab === 'voice' && <VoicePanel />}
                 {activeTab === 'embeddings' && <EmbeddingsPanel />}
                 {activeTab === 'search' && <SearchPanel />}

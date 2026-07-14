@@ -25,7 +25,6 @@ import DevWorkflowPanel from './panels/DevWorkflowPanel';
 import EventLogPanel from './panels/EventLogPanel';
 import IntegrationsPanel from './panels/IntegrationsPanel';
 import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
-import LocalModelDebugPanel from './panels/LocalModelDebugPanel';
 import McpServerPanel from './panels/McpServerPanel';
 import MeetingSettingsPanel from './panels/MeetingSettingsPanel';
 import MigrationPanel from './panels/MigrationPanel';
@@ -170,7 +169,8 @@ export function settingsRouteElements(): ReactNode {
       {/* Search engine settings moved to the Connections page. */}
       <Route path="search" element={<Navigate to="/connections?tab=search" replace />} />
       {/* Agent Chat debug tester moved to the Connections page. */}
-      <Route path="agent-chat" element={<Navigate to="/connections?tab=agent-chat" replace />} />
+      {/* Agent Chat is a chip on the Connections → LLM page. */}
+      <Route path="agent-chat" element={<Navigate to="/connections?tab=llm" replace />} />
       <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
       {/* Tasks now live on the Orchestration page's Kanban board. */}
       <Route path="tasks" element={<Navigate to="/orchestration?tab=tasks" replace />} />
@@ -185,7 +185,8 @@ export function settingsRouteElements(): ReactNode {
       />
       <Route path="autocomplete-debug" element={wrapSettingsPage(<AutocompleteDebugPanel />)} />
       <Route path="voice-debug" element={wrapSettingsPage(<VoiceDebugPanel />)} />
-      <Route path="local-model-debug" element={wrapSettingsPage(<LocalModelDebugPanel />)} />
+      {/* Local Model Debug is a chip on the Connections → LLM page. */}
+      <Route path="local-model-debug" element={<Navigate to="/connections?tab=llm" replace />} />
       {/* Webhooks were retired from the UI — bounce old debug/trigger deep
           links to the Integrations page. */}
       <Route path="webhooks-debug" element={<SettingsRedirect to="/settings/integrations" />} />

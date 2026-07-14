@@ -480,7 +480,6 @@ const CONNECTIONS_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; de
 /** Canonical header (title + description) for each relocated settings panel. */
 const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; descKey: string }>> =
   {
-    llm: { titleKey: 'pages.settings.ai.llm', descKey: 'connections.header.llm' },
     'composio-key': {
       titleKey: 'connections.tabs.composioKey',
       descKey: 'connections.header.composioKey',
@@ -492,10 +491,6 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
     },
     search: { titleKey: 'settings.search.title', descKey: 'connections.header.search' },
     usage: { titleKey: 'settings.usage.title', descKey: 'settings.usage.menuDesc' },
-    wallet: {
-      titleKey: 'pages.settings.account.walletBalances',
-      descKey: 'connections.header.wallet',
-    },
     'screen-intelligence': {
       titleKey: 'pages.settings.features.screenAwareness',
       descKey: 'connections.header.screen',
@@ -509,6 +504,10 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
       descKey: 'connections.header.companion',
     },
   };
+
+/** Intelligence tabs whose panel renders its own header card (with chip tabs in
+ *  it), so the Connections pane skips the shared header + card wrapper. */
+const SELF_HEADER_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>(['llm', 'wallet']);
 
 const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'llm',
@@ -1189,28 +1188,37 @@ export default function Skills() {
           // them a card surface (the integrations/skills grids below already
           // have their own card layouts, so they stay flush).
           <div className="flex h-full flex-col gap-4 p-4">
-            {INTELLIGENCE_HEADERS[activeTab] && (
-              <PageSectionHeader
-                title={t(INTELLIGENCE_HEADERS[activeTab]!.titleKey)}
-                description={t(INTELLIGENCE_HEADERS[activeTab]!.descKey)}
-              />
-            )}
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
-              {/* Panels render headerless (the header card above owns the title
-                  + description) to avoid a doubled header in the Connections pane. */}
+            {/* Panels render headerless (the header card owns the title +
+                description) to avoid a doubled header in the Connections pane.
+                LLM and Wallet render their OWN header card (with chip tabs in
+                it), so they skip the Connections-level header + card wrapper. */}
+            {SELF_HEADER_TABS.has(activeTab) ? (
               <SettingsLayoutProvider value={{ inTwoPaneShell: true, headerless: true }}>
                 {activeTab === 'llm' && <LlmConnectionsPanel />}
-                {activeTab === 'voice' && <VoicePanel />}
-                {activeTab === 'embeddings' && <EmbeddingsPanel />}
-                {activeTab === 'search' && <SearchPanel />}
-                {activeTab === 'usage' && <UsagePanel />}
-                {activeTab === 'composio-key' && <ComposioPanel />}
                 {activeTab === 'wallet' && <WalletPanel />}
-                {activeTab === 'screen-intelligence' && <ScreenIntelligencePanel />}
-                {activeTab === 'desktop-agent' && <DesktopAgentPanel />}
-                {activeTab === 'companion' && <CompanionPanel />}
               </SettingsLayoutProvider>
-            </div>
+            ) : (
+              <>
+                {INTELLIGENCE_HEADERS[activeTab] && (
+                  <PageSectionHeader
+                    title={t(INTELLIGENCE_HEADERS[activeTab]!.titleKey)}
+                    description={t(INTELLIGENCE_HEADERS[activeTab]!.descKey)}
+                  />
+                )}
+                <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
+                  <SettingsLayoutProvider value={{ inTwoPaneShell: true, headerless: true }}>
+                    {activeTab === 'voice' && <VoicePanel />}
+                    {activeTab === 'embeddings' && <EmbeddingsPanel />}
+                    {activeTab === 'search' && <SearchPanel />}
+                    {activeTab === 'usage' && <UsagePanel />}
+                    {activeTab === 'composio-key' && <ComposioPanel />}
+                    {activeTab === 'screen-intelligence' && <ScreenIntelligencePanel />}
+                    {activeTab === 'desktop-agent' && <DesktopAgentPanel />}
+                    {activeTab === 'companion' && <CompanionPanel />}
+                  </SettingsLayoutProvider>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <PanelPage contentClassName="p-4">

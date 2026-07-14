@@ -7069,6 +7069,10 @@ const en: TranslationMap = {
   // Settings > Account > Wallet Balances
   'pages.settings.account.walletBalances': 'Wallet Balances',
   'pages.settings.account.walletBalancesDesc': 'View multi-chain balances for your local wallet',
+  // Wallet tabbed view (Connections → Wallet)
+  'wallet.tabs.balance': 'Wallet balance',
+  'wallet.tabs.recovery': 'Recovery',
+  'wallet.ariaLabel': 'Wallet views',
   // WalletBalancesPanel strings
   'walletBalances.title': 'Wallet Balances',
   'walletBalances.refresh': 'Refresh',

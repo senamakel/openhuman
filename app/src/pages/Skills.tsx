@@ -28,7 +28,7 @@ import ScreenIntelligencePanel from '../components/settings/panels/ScreenIntelli
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
-import WalletBalancesPanel from '../components/settings/panels/WalletBalancesPanel';
+import WalletPanel from '../components/settings/panels/WalletPanel';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
 import UnifiedSkillCard from '../components/skills/SkillCard';
@@ -1164,7 +1164,7 @@ export default function Skills() {
                 {activeTab === 'search' && <SearchPanel />}
                 {activeTab === 'usage' && <UsagePanel />}
                 {activeTab === 'composio-key' && <ComposioPanel />}
-                {activeTab === 'wallet' && <WalletBalancesPanel />}
+                {activeTab === 'wallet' && <WalletPanel />}
                 {activeTab === 'screen-intelligence' && <ScreenIntelligencePanel />}
                 {activeTab === 'desktop-agent' && <DesktopAgentPanel />}
                 {activeTab === 'companion' && <CompanionPanel />}

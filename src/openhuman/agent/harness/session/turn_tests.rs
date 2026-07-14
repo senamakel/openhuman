@@ -1,6 +1,8 @@
 use super::*;
 use crate::core::event_bus::{global, init_global, DomainEvent};
-use crate::openhuman::agent::dispatcher::XmlToolDispatcher;
+use crate::openhuman::agent::dispatcher::{
+    PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
+};
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use crate::openhuman::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
@@ -343,6 +345,26 @@ fn make_agent_with_builder(
     config: crate::openhuman::config::AgentConfig,
     context_config: crate::openhuman::config::ContextConfig,
 ) -> Agent {
+    make_agent_with_builder_and_dispatcher(
+        provider,
+        tools,
+        memory_loader,
+        post_turn_hooks,
+        config,
+        context_config,
+        Box::new(XmlToolDispatcher),
+    )
+}
+
+fn make_agent_with_builder_and_dispatcher(
+    provider: Arc<dyn Provider>,
+    tools: Vec<Box<dyn Tool>>,
+    memory_loader: Box<dyn MemoryLoader>,
+    post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
+    config: crate::openhuman::config::AgentConfig,
+    context_config: crate::openhuman::config::ContextConfig,
+    tool_dispatcher: Box<dyn ToolDispatcher>,
+) -> Agent {
     let workspace = tempfile::TempDir::new().expect("temp workspace");
     let workspace_path = workspace.path().to_path_buf();
     std::mem::forget(workspace);
@@ -359,7 +381,7 @@ fn make_agent_with_builder(
         .tools(tools)
         .memory(mem)
         .memory_loader(memory_loader)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(tool_dispatcher)
         .post_turn_hooks(post_turn_hooks)
         .config(config)
         .context_config(context_config)
@@ -1035,6 +1057,63 @@ async fn turn_checkpoint_falls_back_to_deterministic_summary_when_model_summary_
     assert!(
         reply.contains("echo"),
         "fallback should list the tool that ran, got: {reply}"
+    );
+}
+
+#[tokio::test]
+async fn turn_checkpoint_rejects_pformat_wrapup_without_streaming_it() {
+    let provider: Arc<dyn Provider> = Arc::new(SequenceProvider {
+        responses: AsyncMutex::new(vec![
+            Ok(ChatResponse {
+                text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
+                ..ChatResponse::default()
+            }),
+            Ok(ChatResponse {
+                text: Some("<tool_call>echo[]</tool_call>".into()),
+                ..ChatResponse::default()
+            }),
+        ]),
+        requests: AsyncMutex::new(Vec::new()),
+    });
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(EchoTool)];
+    let registry = crate::openhuman::agent::pformat::build_registry(&tools);
+    let mut agent = make_agent_with_builder_and_dispatcher(
+        provider,
+        tools,
+        Box::new(FixedMemoryLoader {
+            context: String::new(),
+        }),
+        vec![],
+        crate::openhuman::config::AgentConfig {
+            max_tool_iterations: 1,
+            ..crate::openhuman::config::AgentConfig::default()
+        },
+        crate::openhuman::config::ContextConfig::default(),
+        Box::new(PFormatToolDispatcher::new(registry)),
+    );
+    let (progress_tx, mut progress_rx) = tokio::sync::mpsc::channel(16);
+    agent.set_on_progress(Some(progress_tx));
+
+    let reply = agent
+        .turn("hello")
+        .await
+        .expect("P-Format wrap-up call should use the deterministic checkpoint");
+    assert!(
+        reply.contains("tool-call limit"),
+        "P-Format wrap-up must be rejected, got: {reply}"
+    );
+
+    agent.set_on_progress(None);
+    let mut rendered_invalid_wrapup = false;
+    while let Ok(progress) = progress_rx.try_recv() {
+        if let crate::openhuman::agent::progress::AgentProgress::TextDelta { delta, .. } = progress
+        {
+            rendered_invalid_wrapup |= delta.contains("echo[]");
+        }
+    }
+    assert!(
+        !rendered_invalid_wrapup,
+        "rejected P-Format wrap-up must not be emitted to the progress sink"
     );
 }
 

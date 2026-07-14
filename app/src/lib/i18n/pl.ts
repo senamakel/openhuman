@@ -7357,6 +7357,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Sesje programistyczne wczytane',
   'memorySources.codingSessions.completeMessage':
     '{processed} sesji utworzyło {observations} obserwacji persony.',
+  'memorySources.codingSessions.partialFailure':
+    'Nie udało się przetworzyć {failed} sesji, a {processed} przetworzono. Uruchom import ponownie, aby spróbować jeszcze raz.',
   'memorySources.codingSessions.moreRemaining':
     'Osiągnięto limit sesji w partii. Uruchom import ponownie, aby kontynuować wczytywanie historii.',
   'memorySources.codingSessions.failed': 'Nie udało się wczytać sesji programistycznych',

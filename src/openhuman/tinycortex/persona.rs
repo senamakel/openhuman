@@ -106,8 +106,10 @@ fn discover_session_files(
     is_candidate: impl Fn(&Path) -> bool,
 ) -> (Vec<PathBuf>, bool) {
     let mut files = Vec::with_capacity(max_files.min(64));
+    // Keep traversal unsorted: `sort_by_file_name` buffers and sorts every
+    // directory before yielding its first entry, which defeats `max_files`
+    // for users with very large Codex day or Claude project directories.
     for entry in WalkDir::new(root)
-        .sort_by_file_name()
         .into_iter()
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_file())
@@ -343,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn bounded_discovery_stops_after_finding_one_extra_candidate() {
+    fn bounded_discovery_stops_after_finding_one_extra_candidate_without_ordering() {
         let temp = tempdir().unwrap();
         fs::write(temp.path().join("a.jsonl"), "").unwrap();
         fs::write(temp.path().join("b.jsonl"), "").unwrap();
@@ -352,7 +354,7 @@ mod tests {
         let (files, truncated) = discover_claude_sessions(temp.path(), 1);
 
         assert_eq!(files.len(), 1);
-        assert_eq!(files[0].file_name().unwrap(), "a.jsonl");
+        assert_eq!(files[0].extension().unwrap(), "jsonl");
         assert!(truncated);
     }
 }

@@ -7585,6 +7585,8 @@ const en: TranslationMap = {
   'memorySources.codingSessions.complete': 'Coding sessions ingested',
   'memorySources.codingSessions.completeMessage':
     '{processed} sessions produced {observations} persona observations.',
+  'memorySources.codingSessions.partialFailure':
+    '{failed} sessions failed while {processed} were processed. Run ingestion again to retry them.',
   'memorySources.codingSessions.moreRemaining':
     'The session batch limit was reached. Run ingestion again to continue importing your history.',
   'memorySources.codingSessions.failed': 'Coding-session ingestion failed',

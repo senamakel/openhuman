@@ -7248,6 +7248,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'কোডিং সেশন গ্রহণ সম্পন্ন',
   'memorySources.codingSessions.completeMessage':
     '{processed}টি সেশন থেকে {observations}টি পারসোনা পর্যবেক্ষণ তৈরি হয়েছে।',
+  'memorySources.codingSessions.partialFailure':
+    '{processed}টি সেশন প্রক্রিয়া করার সময় {failed}টি ব্যর্থ হয়েছে। আবার চেষ্টা করতে গ্রহণ পুনরায় চালান।',
   'memorySources.codingSessions.moreRemaining':
     'সেশন ব্যাচের সীমা পূর্ণ হয়েছে। আপনার ইতিহাস আমদানি চালিয়ে যেতে আবার গ্রহণ চালান।',
   'memorySources.codingSessions.failed': 'কোডিং সেশন গ্রহণ ব্যর্থ হয়েছে',

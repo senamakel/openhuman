@@ -108,6 +108,33 @@ describe('CodingSessionsCard', () => {
     );
   });
 
+  it('reports partial session failures in the warning toast', async () => {
+    mockedIngest.mockResolvedValue({
+      mode: 'incremental',
+      files_seen: 5,
+      sessions_processed: 3,
+      sessions_skipped: 0,
+      sessions_failed: 2,
+      evidence_units: 8,
+      observations: 4,
+      budget_hit: false,
+      pack_path: '/workspace/persona/PERSONA.md',
+    });
+    const onToast = vi.fn();
+    renderWithProviders(<CodingSessionsCard onToast={onToast} />);
+
+    fireEvent.click(await screen.findByTestId('coding-sessions-ingest'));
+
+    await waitFor(() =>
+      expect(onToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          message: '2 sessions failed while 3 were processed. Run ingestion again to retry them.',
+        })
+      )
+    );
+  });
+
   it('shows status failures as an alert', async () => {
     mockedStatus.mockRejectedValue(new Error('session scan failed'));
     renderWithProviders(<CodingSessionsCard />);
@@ -145,5 +172,21 @@ describe('CodingSessionsCard', () => {
     renderWithProviders(<CodingSessionsCard />);
 
     expect(await screen.findByText('Scan limited to the first 1,000 session files.')).toBeVisible();
+  });
+
+  it('keeps ingestion enabled when a capped scan has not found evidence yet', async () => {
+    mockedStatus.mockResolvedValue([
+      {
+        kind: 'codex',
+        available: true,
+        session_files: 1000,
+        evidence_units: 0,
+        invalid_files: 1000,
+        scan_truncated: true,
+      },
+    ]);
+    renderWithProviders(<CodingSessionsCard />);
+
+    expect(await screen.findByTestId('coding-sessions-ingest')).toBeEnabled();
   });
 });

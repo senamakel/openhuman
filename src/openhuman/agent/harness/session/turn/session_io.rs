@@ -5,7 +5,9 @@ use super::super::types::Agent;
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::context::ARCHIVIST_EXTRACTION_PROMPT;
-use crate::openhuman::inference::provider::{ChatMessage, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS};
+use crate::openhuman::inference::provider::{
+    ChatMessage, ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
+};
 use futures::StreamExt;
 use tinyagents::harness::model::{ModelRequest, ModelStreamItem};
 
@@ -133,14 +135,6 @@ impl Agent {
             match item {
                 ModelStreamItem::MessageDelta(delta) if !delta.text.is_empty() => {
                     streamed_text.push_str(&delta.text);
-                    if let Some(sink) = &self.on_progress {
-                        let _ = sink
-                            .send(AgentProgress::TextDelta {
-                                delta: delta.text,
-                                iteration: iteration_for_stream,
-                            })
-                            .await;
-                    }
                 }
                 ModelStreamItem::Completed(response) => completed = Some(response),
                 ModelStreamItem::Failed(error) => {
@@ -161,24 +155,83 @@ impl Agent {
         let usage = crate::openhuman::tinyagents::model::usage_info_from_response(&response);
         let text = response.text();
         // Tools are disabled for wrap-up calls, but text-protocol models can
-        // still ignore that instruction and emit an XML tool call in the
-        // response body. Treat both native and text-parsed calls as an invalid
-        // wrap-up so the caller uses its deterministic fallback.
-        let (_, parsed_tool_calls) = crate::openhuman::agent::harness::parse_tool_calls(&text);
+        // still ignore that instruction. Parse through the active dispatcher
+        // so XML/JSON and registry-backed P-Format calls are all rejected. The
+        // completed response and buffered deltas are checked independently:
+        // some providers only preserve one of those representations.
+        let parsed_call_count = |candidate: &str| {
+            self.tool_dispatcher
+                .parse_response(&ChatResponse {
+                    text: Some(candidate.to_string()),
+                    ..ChatResponse::default()
+                })
+                .1
+                .len()
+        };
+        let parsed_response_calls = parsed_call_count(&text);
+        let parsed_stream_calls = if streamed_text == text {
+            parsed_response_calls
+        } else {
+            parsed_call_count(&streamed_text)
+        };
+        let native_tool_calls = response.tool_calls().len();
         let attempted_tool_call =
-            !response.tool_calls().is_empty() || !parsed_tool_calls.is_empty();
+            native_tool_calls > 0 || parsed_response_calls > 0 || parsed_stream_calls > 0;
         let checkpoint = if attempted_tool_call {
             tracing::warn!(
-                native_tool_calls = response.tool_calls().len(),
-                parsed_tool_calls = parsed_tool_calls.len(),
+                model = effective_model,
+                iteration = iteration_for_stream,
+                native_tool_calls,
+                parsed_response_calls,
+                parsed_stream_calls,
                 "[agent::session] wrap-up attempted a tool call; using deterministic fallback"
             );
             String::new()
         } else if !text.trim().is_empty() {
+            tracing::debug!(
+                model = effective_model,
+                iteration = iteration_for_stream,
+                text_len = text.len(),
+                "[agent::session] wrap-up selected completed response text"
+            );
             text
         } else {
+            tracing::debug!(
+                model = effective_model,
+                iteration = iteration_for_stream,
+                text_len = streamed_text.len(),
+                "[agent::session] wrap-up selected buffered stream text"
+            );
             streamed_text
         };
+        // Hold wrap-up deltas until protocol validation completes. Otherwise a
+        // rejected XML/P-Format tool call briefly renders in chat even though
+        // the caller subsequently replaces it with a deterministic fallback.
+        if !checkpoint.is_empty() {
+            if let Some(sink) = &self.on_progress {
+                if let Err(error) = sink
+                    .send(AgentProgress::TextDelta {
+                        delta: checkpoint.clone(),
+                        iteration: iteration_for_stream,
+                    })
+                    .await
+                {
+                    tracing::debug!(
+                        model = effective_model,
+                        iteration = iteration_for_stream,
+                        error = %error,
+                        "[agent::session] wrap-up progress sink closed"
+                    );
+                }
+            }
+        }
+        tracing::debug!(
+            model = effective_model,
+            iteration = iteration_for_stream,
+            checkpoint_len = checkpoint.len(),
+            used_deterministic_fallback = attempted_tool_call,
+            "[agent::session] wrap-up checkpoint selection complete"
+        );
         (checkpoint, usage)
     }
 

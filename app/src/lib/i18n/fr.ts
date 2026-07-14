@@ -7432,6 +7432,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Sessions de programmation ingérées',
   'memorySources.codingSessions.completeMessage':
     '{processed} sessions ont produit {observations} observations de persona.',
+  'memorySources.codingSessions.partialFailure':
+    '{failed} sessions ont échoué tandis que {processed} ont été traitées. Relancez l’ingestion pour réessayer.',
   'memorySources.codingSessions.moreRemaining':
     'La limite de sessions du lot a été atteinte. Relancez l’ingestion pour continuer à importer votre historique.',
   'memorySources.codingSessions.failed': 'Échec de l’ingestion des sessions de programmation',

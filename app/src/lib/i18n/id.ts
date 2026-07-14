@@ -7280,6 +7280,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Sesi pemrograman telah diserap',
   'memorySources.codingSessions.completeMessage':
     '{processed} sesi menghasilkan {observations} pengamatan persona.',
+  'memorySources.codingSessions.partialFailure':
+    '{failed} sesi gagal sementara {processed} berhasil diproses. Jalankan penyerapan lagi untuk mencoba ulang.',
   'memorySources.codingSessions.moreRemaining':
     'Batas batch sesi tercapai. Jalankan penyerapan lagi untuk melanjutkan impor riwayat Anda.',
   'memorySources.codingSessions.failed': 'Gagal menyerap sesi pemrograman',

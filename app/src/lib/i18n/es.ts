@@ -7398,6 +7398,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Sesiones de programación ingeridas',
   'memorySources.codingSessions.completeMessage':
     '{processed} sesiones produjeron {observations} observaciones de personalidad.',
+  'memorySources.codingSessions.partialFailure':
+    'Fallaron {failed} sesiones mientras se procesaron {processed}. Ejecuta la ingesta de nuevo para reintentarlas.',
   'memorySources.codingSessions.moreRemaining':
     'Se alcanzó el límite de sesiones del lote. Ejecuta la ingesta de nuevo para seguir importando tu historial.',
   'memorySources.codingSessions.failed': 'Falló la ingesta de sesiones de programación',

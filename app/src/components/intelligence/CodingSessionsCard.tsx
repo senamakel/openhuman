@@ -51,6 +51,8 @@ export function CodingSessionsCard({ onToast }: CodingSessionsCardProps) {
     }),
     [sources]
   );
+  const hasImportableHistory =
+    totals.files > 0 || sources.some(source => source.scan_truncated === true);
 
   const ingest = useCallback(async () => {
     console.debug('[coding-sessions] ingest: entry');
@@ -68,11 +70,16 @@ export function CodingSessionsCard({ onToast }: CodingSessionsCardProps) {
       onToast?.({
         type: incomplete ? 'warning' : 'success',
         title: t('memorySources.codingSessions.complete'),
-        message: result.budget_hit
-          ? t('memorySources.codingSessions.moreRemaining')
-          : t('memorySources.codingSessions.completeMessage')
-              .replace('{processed}', String(result.sessions_processed))
-              .replace('{observations}', String(result.observations)),
+        message:
+          result.sessions_failed > 0
+            ? t('memorySources.codingSessions.partialFailure')
+                .replace('{failed}', String(result.sessions_failed))
+                .replace('{processed}', String(result.sessions_processed))
+            : result.budget_hit
+              ? t('memorySources.codingSessions.moreRemaining')
+              : t('memorySources.codingSessions.completeMessage')
+                  .replace('{processed}', String(result.sessions_processed))
+                  .replace('{observations}', String(result.observations)),
       });
       await load();
     } catch (cause) {
@@ -101,7 +108,7 @@ export function CodingSessionsCard({ onToast }: CodingSessionsCardProps) {
         <Button
           size="sm"
           onClick={() => void ingest()}
-          disabled={loading || ingesting || totals.evidence === 0}
+          disabled={loading || ingesting || !hasImportableHistory}
           data-testid="coding-sessions-ingest">
           {ingesting
             ? t('memorySources.codingSessions.ingesting')

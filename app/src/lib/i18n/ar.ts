@@ -7084,6 +7084,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'تم استيعاب جلسات البرمجة',
   'memorySources.codingSessions.completeMessage':
     'أنتجت {processed} جلسات {observations} ملاحظات شخصية.',
+  'memorySources.codingSessions.partialFailure':
+    'فشلت {failed} جلسات بينما تمت معالجة {processed}. شغّل الاستيعاب مرة أخرى لإعادة المحاولة.',
   'memorySources.codingSessions.moreRemaining':
     'تم بلوغ حد دفعة الجلسات. شغّل الاستيعاب مرة أخرى لمتابعة استيراد سجلك.',
   'memorySources.codingSessions.failed': 'فشل استيعاب جلسات البرمجة',

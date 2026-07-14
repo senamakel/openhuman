@@ -367,8 +367,12 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     // deep-link compatibility but no longer in the settings sidebar.
   },
   {
-    // usage: merged Usage & Limits page (formerly heartbeat, ledger-usage and
-    // cost-dashboard — those slugs redirect here).
+    // usage: merged Usage & Limits surface — cost dashboard, Tokenjuice token
+    // savings (formerly the standalone token-usage page), and background loops
+    // (formerly heartbeat / ledger-usage). Surfaced on the Connections page
+    // (API-keys group); the route redirects there and it's no longer in the
+    // settings sidebar. Legacy heartbeat / ledger-usage / cost-dashboard /
+    // token-usage slugs redirect here.
     id: 'usage',
     titleKey: 'settings.usage.title',
     descriptionKey: 'settings.usage.menuDesc',
@@ -376,6 +380,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     searchKeywords: [
       'usage',
       'tokens',
+      'tokenjuice',
+      'savings',
       'ledger',
       'cost',
       'spend',
@@ -385,10 +391,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
       'loops',
       'background',
     ],
-    // Usage & Limits now lives in the General group (was a sub-page of LLM,
-    // which has moved to the Connections page).
-    navGroup: 'general',
-    navOrder: 2,
   },
 
   // --- Agent profiles (top-level sidebar destination, Assistant group) ---
@@ -712,26 +714,9 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'diagnosticsLogs',
   },
 
-  // Token & Cost — TokenJuice compression settings + savings statistics.
-  {
-    id: 'token-usage',
-    titleKey: 'settings.tokenUsage.title',
-    descriptionKey: 'settings.tokenUsage.menuDesc',
-    section: 'ai',
-    navGroup: 'modelsInference',
-    navOrder: 5,
-    searchKeywords: [
-      'token',
-      'tokens',
-      'cost',
-      'compression',
-      'compaction',
-      'tokenjuice',
-      'cache',
-      'ccr',
-      'savings',
-    ],
-  },
+  // Token & Cost (TokenJuice compression settings + savings) is now the
+  // "Token savings" tab of the merged Usage & limits surface on Connections —
+  // the standalone token-usage entry was retired (route redirects there).
 
   // =========================================================================
   // INTENTIONALLY HIDDEN / DEEP-LINK ONLY (not surfaced in any menu)

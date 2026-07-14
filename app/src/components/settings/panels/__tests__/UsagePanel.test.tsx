@@ -23,6 +23,12 @@ vi.mock('../AIPanel', () => ({
   ),
 }));
 
+vi.mock('../TokenUsagePanel', () => ({
+  default: ({ embedded }: { embedded?: boolean }) => (
+    <div data-testid="stub-token-usage" data-embedded={String(embedded ?? false)} />
+  ),
+}));
+
 vi.mock('../../../../services/api/aiSettingsApi', async () => {
   const actual = await vi.importActual<typeof import('../../../../services/api/aiSettingsApi')>(
     '../../../../services/api/aiSettingsApi'
@@ -58,6 +64,14 @@ describe('UsagePanel', () => {
     expect(screen.getByTestId('stub-cost-dashboard')).toHaveAttribute('data-embedded', 'true');
     // Costs tab must not pay for the AI-settings snapshot.
     expect(mockLoad).not.toHaveBeenCalled();
+  });
+
+  test('#tokens hash selects the Token savings tab with the embedded TokenJuice panel', () => {
+    renderWithProviders(<UsagePanel />, { initialEntries: ['/settings/usage#tokens'] });
+
+    expect(screen.getByTestId('usage-tab-tokens')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('stub-token-usage')).toHaveAttribute('data-embedded', 'true');
+    expect(screen.queryByTestId('stub-cost-dashboard')).not.toBeInTheDocument();
   });
 
   test('#background hash selects the Background tab and renders the loop controls', async () => {

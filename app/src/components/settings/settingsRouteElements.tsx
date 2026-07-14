@@ -46,10 +46,8 @@ import TeamManagementPanel from './panels/TeamManagementPanel';
 import TeamMembersPanel from './panels/TeamMembersPanel';
 import TeamPanel from './panels/TeamPanel';
 import ThemeStudioPanel from './panels/ThemeStudioPanel';
-import TokenUsagePanel from './panels/TokenUsagePanel';
 import ToolPolicyDiagnosticsPanel from './panels/ToolPolicyDiagnosticsPanel';
 import ToolsPanel from './panels/ToolsPanel';
-import UsagePanel from './panels/UsagePanel';
 import VoiceDebugPanel from './panels/VoiceDebugPanel';
 import WalletBalancesPanel from './panels/WalletBalancesPanel';
 import WorkflowRunnerPanel from './panels/WorkflowRunnerPanel';
@@ -120,7 +118,9 @@ export function settingsRouteElements(): ReactNode {
       {/* LLM / Voice / Embeddings moved to the Connections page. */}
       <Route path="llm" element={<Navigate to="/connections?tab=llm" replace />} />
       <Route path="embeddings" element={<Navigate to="/connections?tab=embeddings" replace />} />
-      <Route path="usage" element={wrapSettingsPage(<UsagePanel />)} />
+      {/* Usage & limits moved to the Connections page (cost / token savings /
+          background loops as tabs). */}
+      <Route path="usage" element={<Navigate to="/connections?tab=usage" replace />} />
       <Route path="voice" element={<Navigate to="/connections?tab=voice" replace />} />
       <Route path="personality" element={wrapSettingsPage(<PersonalityPanel />)} />
       <Route path="agents" element={wrapSettingsPage(<AgentsPanel />)} />
@@ -156,7 +156,8 @@ export function settingsRouteElements(): ReactNode {
       <Route path="core" element={wrapSettingsPage(<CoreConnectionPanel />)} />
       <Route path="keyboard-shortcuts" element={wrapSettingsPage(<KeyboardShortcutsPanel />)} />
       <Route path="developer-options" element={wrapSettingsPage(<DeveloperOptionsPanel />)} />
-      <Route path="token-usage" element={wrapSettingsPage(<TokenUsagePanel />)} />
+      {/* Token savings merged into the Usage & limits surface on Connections. */}
+      <Route path="token-usage" element={<Navigate to="/connections?tab=usage#tokens" replace />} />
       <Route path="about" element={wrapSettingsPage(<AboutPanel />)} />
 
       {/* ── Developer & Diagnostics leaf panels ─────────────────── */}
@@ -208,10 +209,16 @@ export function settingsRouteElements(): ReactNode {
       <Route path="notifications-hub" element={<SettingsRedirect to="/settings/notifications" />} />
       {/* Composio (API key + routing) moved to Connections → API keys. */}
       <Route path="composio" element={<Navigate to="/connections?tab=composio-key" replace />} />
-      {/* Merged Usage & Limits page */}
-      <Route path="heartbeat" element={<SettingsRedirect to="/settings/usage#background" />} />
-      <Route path="ledger-usage" element={<SettingsRedirect to="/settings/usage#background" />} />
-      <Route path="cost-dashboard" element={<SettingsRedirect to="/settings/usage" />} />
+      {/* Merged Usage & Limits surface (now on Connections) */}
+      <Route
+        path="heartbeat"
+        element={<Navigate to="/connections?tab=usage#background" replace />}
+      />
+      <Route
+        path="ledger-usage"
+        element={<Navigate to="/connections?tab=usage#background" replace />}
+      />
+      <Route path="cost-dashboard" element={<Navigate to="/connections?tab=usage" replace />} />
       {/* Autonomy rate-limit lives inside Agent access now */}
       <Route path="autonomy" element={<SettingsRedirect to="/settings/agent-access" />} />
       {/* Merged Personality & Face page */}

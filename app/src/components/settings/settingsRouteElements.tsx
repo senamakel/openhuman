@@ -8,7 +8,6 @@ import AccountPanel from './panels/AccountPanel';
 import AgentAccessPanel from './panels/AgentAccessPanel';
 import AgentActivityPanel from './panels/AgentActivityPanel';
 import AgentBoxPanel from './panels/AgentBoxPanel';
-import AgentChatPanel from './panels/AgentChatPanel';
 import AgentEditorPage from './panels/AgentEditorPage';
 import AgentsPanel from './panels/AgentsPanel';
 import AppearancePanel from './panels/AppearancePanel';
@@ -171,7 +170,8 @@ export function settingsRouteElements(): ReactNode {
       <Route path="mcp-server" element={wrapSettingsPage(<McpServerPanel />)} />
       {/* Search engine settings moved to the Connections page. */}
       <Route path="search" element={<Navigate to="/connections?tab=search" replace />} />
-      <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
+      {/* Agent Chat debug tester moved to the Connections page. */}
+      <Route path="agent-chat" element={<Navigate to="/connections?tab=agent-chat" replace />} />
       <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
       {/* Tasks now live on the Orchestration page's Kanban board. */}
       <Route path="tasks" element={<Navigate to="/orchestration?tab=tasks" replace />} />

@@ -704,15 +704,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     devOnly: true,
     navGroup: 'automationIntegrations',
   },
-  // Agent debug
-  {
-    id: 'agent-chat',
-    titleKey: 'settings.developerMenu.agentChat.title',
-    descriptionKey: 'settings.developerMenu.agentChat.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'agentsAutonomy',
-  },
+  // Agent debug — agent-chat moved to Connections → Agent Chat.
   {
     id: 'local-model-debug',
     titleKey: 'settings.developerMenu.localModelDebug.title',

@@ -36,7 +36,6 @@ export type SettingsRoute =
   | 'recovery-phrase'
   | 'wallet-balances'
   | 'webhooks-debug'
-  | 'agent-chat'
   | 'screen-awareness-debug'
   | 'autocomplete-debug'
   | 'voice-debug'

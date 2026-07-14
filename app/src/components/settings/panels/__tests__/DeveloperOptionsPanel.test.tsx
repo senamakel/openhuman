@@ -130,8 +130,9 @@ describe('DeveloperOptionsPanel — CoreModeBadge', () => {
     // Two screen-awareness rows now exist (the moved settings row + the debug
     // panel), which collapse to the same zh-CN label — assert at least one.
     expect(screen.getAllByText('屏幕感知').length).toBeGreaterThan(0);
-    // The messaging tile was removed; composio replaced it as a single destination.
-    expect(screen.getByText('Composio')).toBeInTheDocument();
+    // Composio triggers moved to the Connections Composio page — assert a
+    // destination that IS still present: MCP 服务器 (MCP Server).
+    expect(screen.getByText('MCP 服务器')).toBeInTheDocument();
   });
 });
 

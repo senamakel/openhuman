@@ -150,7 +150,6 @@ export const SETTINGS_NAV_ICONS: Record<string, ReactNode> = {
     )
   ),
   'cron-jobs': icon(stroke('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z')),
-  'composio-triggers': icon(stroke('M13 10V3L4 14h7v7l9-11h-7z')),
   'mcp-server': icon(
     stroke('M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z')
   ),

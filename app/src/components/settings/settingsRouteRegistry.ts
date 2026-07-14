@@ -669,15 +669,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'automationIntegrations',
     searchKeywords: ['cron', 'schedule', 'jobs'],
   },
-  {
-    // composio-triggers: renders ComposioTriagePanel — debug alias kept under Developer Options.
-    id: 'composio-triggers',
-    titleKey: 'settings.developerMenu.composio.title',
-    descriptionKey: 'settings.developerMenu.composio.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'automationIntegrations',
-  },
+  // Composio trigger-triage config merged into the Connections Composio page.
   // Agent Chat + Local Model Debug are now chips on the Connections → LLM page.
   {
     id: 'skills-runner',

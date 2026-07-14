@@ -15,7 +15,6 @@ import AutocompleteDebugPanel from './panels/AutocompleteDebugPanel';
 import AutocompletePanel from './panels/AutocompletePanel';
 import BillingPanel from './panels/BillingPanel';
 import CompanionPanel from './panels/CompanionPanel';
-import ComposioTriagePanel from './panels/ComposioTriagePanel';
 import CoreConnectionPanel from './panels/CoreConnectionPanel';
 import CronJobsPanel from './panels/CronJobsPanel';
 import DesktopAgentPanel from './panels/DesktopAgentPanel';
@@ -198,7 +197,11 @@ export function settingsRouteElements(): ReactNode {
       <Route path="memory-debug" element={<Navigate to="/brain" replace />} />
       <Route path="analysis-views" element={<Navigate to="/brain" replace />} />
       <Route path="intelligence" element={<Navigate to="/brain" replace />} />
-      <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />
+      {/* Composio trigger-triage config merged into the Connections Composio page. */}
+      <Route
+        path="composio-triggers"
+        element={<Navigate to="/connections?tab=composio-key" replace />}
+      />
       <Route path="permissions" element={wrapSettingsPage(<PermissionsPanel />)} />
 
       {/* ── Legacy slugs → redirects (deep-link compatibility) ──── */}

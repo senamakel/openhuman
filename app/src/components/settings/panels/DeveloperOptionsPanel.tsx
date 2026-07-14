@@ -224,22 +224,6 @@ const automationDebugGroup: DevGroup = {
       ),
     },
     {
-      id: 'composio-triggers',
-      titleKey: 'settings.developerMenu.composio.title',
-      descriptionKey: 'settings.developerMenu.composio.desc',
-      route: 'composio-triggers',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13 10V3L4 14h7v7l9-11h-7z"
-          />
-        </svg>
-      ),
-    },
-    {
       id: 'mcp-server',
       titleKey: 'settings.developerMenu.mcpServer.title',
       descriptionKey: 'settings.developerMenu.mcpServer.desc',

@@ -160,12 +160,24 @@ impl Agent {
         };
         let usage = crate::openhuman::tinyagents::model::usage_info_from_response(&response);
         let text = response.text();
-        let checkpoint = if !text.trim().is_empty() {
-            text
-        } else if response.tool_calls().is_empty() {
-            streamed_text
-        } else {
+        // Tools are disabled for wrap-up calls, but text-protocol models can
+        // still ignore that instruction and emit an XML/P-format call in the
+        // response body. Treat both native and dispatcher-parsed calls as an
+        // invalid wrap-up so the caller uses its deterministic fallback.
+        let (_, parsed_tool_calls) = self.tool_dispatcher.parse_response(&response);
+        let attempted_tool_call =
+            !response.tool_calls().is_empty() || !parsed_tool_calls.is_empty();
+        let checkpoint = if attempted_tool_call {
+            tracing::warn!(
+                native_tool_calls = response.tool_calls().len(),
+                parsed_tool_calls = parsed_tool_calls.len(),
+                "[agent::session] wrap-up attempted a tool call; using deterministic fallback"
+            );
             String::new()
+        } else if !text.trim().is_empty() {
+            text
+        } else {
+            streamed_text
         };
         (checkpoint, usage)
     }

@@ -1,5 +1,5 @@
 import debug from 'debug';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
@@ -43,7 +43,13 @@ const AUTO_SUMMARIZE_LABEL_KEY: Record<MeetAutoSummarizePolicy, string> = {
  * transcript ingestion. The orchestrator-handoff privacy gate stays in the
  * Privacy panel and is intentionally not duplicated here.
  */
-const MeetingSettingsPanel = () => {
+interface MeetingSettingsPanelProps {
+  /** When true, render without the SettingsPanel chrome (used when embedded in
+   *  the Connections meetings tab under the meetings list). */
+  embedded?: boolean;
+}
+
+const MeetingSettingsPanel = ({ embedded = false }: MeetingSettingsPanelProps = {}) => {
   const { t } = useT();
 
   const [isLoading, setIsLoading] = useState(isTauri());
@@ -140,26 +146,28 @@ const MeetingSettingsPanel = () => {
     void persist({ ingest_backend_transcripts: next }, () => setIngestTranscripts(prev));
   };
 
-  if (!isTauri()) {
-    return (
-      <SettingsPanel description={t('settings.meetings.menuDesc')}>
-        <p className="text-sm text-content-muted">{t('settings.meetings.desktopOnly')}</p>
+  const wrap = (node: ReactNode, testId?: string) =>
+    embedded ? (
+      <div data-testid={testId ? `${testId}-embedded` : undefined}>{node}</div>
+    ) : (
+      <SettingsPanel description={t('settings.meetings.menuDesc')} testId={testId}>
+        {node}
       </SettingsPanel>
+    );
+
+  if (!isTauri()) {
+    return wrap(
+      <p className="text-sm text-content-muted">{t('settings.meetings.desktopOnly')}</p>
     );
   }
 
   if (isLoading) {
-    return (
-      <SettingsPanel description={t('settings.meetings.menuDesc')}>
-        <p className="text-sm text-content-muted">{t('settings.meetings.loading')}</p>
-      </SettingsPanel>
-    );
+    return wrap(<p className="text-sm text-content-muted">{t('settings.meetings.loading')}</p>);
   }
 
-  return (
-    <SettingsPanel description={t('settings.meetings.menuDesc')} testId="meeting-settings-panel">
-      <>
-        {/* Auto-join policy */}
+  return wrap(
+    <>
+      {/* Auto-join policy */}
         <SettingsSection
           title={t('settings.meetings.autoJoin.title')}
           description={t('settings.meetings.autoJoin.desc')}>
@@ -231,15 +239,15 @@ const MeetingSettingsPanel = () => {
           />
         </SettingsSection>
 
-        {/* Status line */}
-        <SettingsStatusLine
-          saving={isSaving}
-          savedNote={savedNote}
-          error={error}
-          savingLabel={t('settings.meetings.saving')}
-        />
-      </>
-    </SettingsPanel>
+      {/* Status line */}
+      <SettingsStatusLine
+        saving={isSaving}
+        savedNote={savedNote}
+        error={error}
+        savingLabel={t('settings.meetings.saving')}
+      />
+    </>,
+    'meeting-settings-panel'
   );
 };
 

@@ -19,6 +19,7 @@ import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLa
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import LlmConnectionsPanel from '../components/settings/panels/LlmConnectionsPanel';
+import MeetingSettingsPanel from '../components/settings/panels/MeetingSettingsPanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
@@ -1274,7 +1275,15 @@ export default function Skills() {
                     </div>
                   )}
 
-                  {activeTab === 'meetings' && <MeetingsPage onToast={addToast} />}
+                  {activeTab === 'meetings' && (
+                    <div className="space-y-4">
+                      <MeetingsPage onToast={addToast} />
+                      {/* Meeting connection settings (auto-join, summary,
+                          listen-only, transcript ingestion) relocated from
+                          Settings → Meetings. */}
+                      <MeetingSettingsPanel embedded />
+                    </div>
+                  )}
                 </>
               }
             </div>

@@ -26,7 +26,6 @@ import EventLogPanel from './panels/EventLogPanel';
 import IntegrationsPanel from './panels/IntegrationsPanel';
 import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
 import McpServerPanel from './panels/McpServerPanel';
-import MeetingSettingsPanel from './panels/MeetingSettingsPanel';
 import MigrationPanel from './panels/MigrationPanel';
 import ModelHealthPanel from './panels/ModelHealthPanel';
 import NotificationsTabbedPanel from './panels/NotificationsTabbedPanel';
@@ -146,7 +145,8 @@ export function settingsRouteElements(): ReactNode {
       <Route path="desktop-agent" element={wrapSettingsPage(<DesktopAgentPanel />)} />
       <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
       <Route path="companion" element={wrapSettingsPage(<CompanionPanel />)} />
-      <Route path="meetings" element={wrapSettingsPage(<MeetingSettingsPanel />)} />
+      {/* Meeting settings moved to the Connections page (meetings tab). */}
+      <Route path="meetings" element={<Navigate to="/connections?tab=meetings" replace />} />
       <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
 
       {/* ── System ──────────────────────────────────────────────── */}

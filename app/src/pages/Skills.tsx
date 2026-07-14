@@ -11,6 +11,7 @@ import {
 } from '../components/composio/toolkitMeta';
 import EmptyStateCard from '../components/EmptyStateCard';
 import { ToastContainer } from '../components/intelligence/Toast';
+import PageWelcome from '../components/layout/PageWelcome';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
@@ -443,6 +444,7 @@ interface SkillItem {
  * normalised to the new values so existing deep links continue to work.
  */
 type ConnectionsTab =
+  | 'welcome'
   | 'composio'
   | 'channels'
   | 'mcp'
@@ -491,6 +493,7 @@ export default function Skills() {
     const raw = params.get('tab');
     // New canonical values
     if (
+      raw === 'welcome' ||
       raw === 'composio' ||
       raw === 'channels' ||
       raw === 'mcp' ||
@@ -514,7 +517,8 @@ export default function Skills() {
     if (raw === 'tools') return 'mcp';
     if (raw === 'talents') return 'meetings';
     if (raw === 'explorer') return 'skills';
-    return 'composio';
+    // Default landing is the Welcome overview for the Connections page.
+    return 'welcome';
   }, [location.search]);
 
   const handleTabChange = useCallback(
@@ -954,6 +958,15 @@ export default function Skills() {
             onSelect={value => handleTabChange(value as ConnectionsTab)}
             groups={[
               {
+                items: [
+                  {
+                    value: 'welcome',
+                    label: t('connections.welcome.nav'),
+                    icon: navIcon('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'),
+                  },
+                ],
+              },
+              {
                 label: t('connections.groups.integrations'),
                 items: [
                   {
@@ -1076,11 +1089,58 @@ export default function Skills() {
         </div>
       </SidebarContent>
       <div className="mx-auto h-full w-full max-w-5xl">
-        {/* Intelligence panels relocated from Settings are themselves PanelPage
+        {/* Welcome landing — the first destination; pitches the page and offers
+            a few immediate actions into the functional views. */}
+        {activeTab === 'welcome' ? (
+          <PageWelcome
+            testId="connections-welcome"
+            accent="ocean"
+            icon="🔗"
+            eyebrow={t('connections.welcome.eyebrow')}
+            title={t('connections.welcome.title')}
+            description={t('connections.welcome.body')}
+            ctas={[
+              {
+                label: t('connections.welcome.ctaChannel'),
+                icon: '🔌',
+                onClick: () => handleTabChange('channels'),
+                testId: 'connections-welcome-cta-channel',
+              },
+              {
+                label: t('connections.welcome.ctaApps'),
+                icon: '🧩',
+                onClick: () => handleTabChange('composio'),
+              },
+              {
+                label: t('connections.welcome.ctaSkills'),
+                icon: '✨',
+                onClick: () => handleTabChange('skills'),
+              },
+            ]}
+            featuresHeading={t('connections.welcome.featsLabel')}
+            features={[
+              {
+                icon: '📥',
+                title: t('connections.welcome.feat1Title'),
+                description: t('connections.welcome.feat1Body'),
+              },
+              {
+                icon: '🤖',
+                title: t('connections.welcome.feat2Title'),
+                description: t('connections.welcome.feat2Body'),
+              },
+              {
+                icon: '🔒',
+                title: t('connections.welcome.feat3Title'),
+                description: t('connections.welcome.feat3Body'),
+              },
+            ]}
+          />
+        ) : /* Intelligence panels relocated from Settings are themselves PanelPage
             panels (description, no title; the back button hides because the
             Connections sidebar owns navigation), so they fill the content pane
-            and own their scroll directly. */}
-        {INTELLIGENCE_TABS.has(activeTab) ? (
+            and own their scroll directly. */
+        INTELLIGENCE_TABS.has(activeTab) ? (
           // API-keys / provider panels were orphaned flush on the shell — give
           // them a card surface (the integrations/skills grids below already
           // have their own card layouts, so they stay flush).

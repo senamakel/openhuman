@@ -760,6 +760,25 @@ const en: TranslationMap = {
   'connections.groups.integrations': 'Integrations',
   'connections.groups.desktop': 'Desktop',
   'connections.groups.intelligence': 'Intelligence',
+  // Welcome landing (first destination)
+  'connections.welcome.nav': 'Welcome',
+  'connections.welcome.eyebrow': 'Connections',
+  'connections.welcome.title': 'Everything you use, in one place',
+  'connections.welcome.body':
+    'Connect your messaging apps, email, calendar, and tools so your agent can read context and take action across all of them — without copy-pasting between a dozen tabs. You stay in control of what it can touch.',
+  'connections.welcome.ctaChannel': 'Connect a channel',
+  'connections.welcome.ctaApps': 'Connect apps',
+  'connections.welcome.ctaSkills': 'Browse skills',
+  'connections.welcome.featsLabel': 'What you can do here',
+  'connections.welcome.feat1Title': 'Bring channels in',
+  'connections.welcome.feat1Body':
+    'Slack, WhatsApp, Telegram, Gmail and more — linked in a couple of clicks.',
+  'connections.welcome.feat2Title': 'Let your agent act',
+  'connections.welcome.feat2Body':
+    'It reads, drafts, and replies with full context from everything connected.',
+  'connections.welcome.feat3Title': 'Stay in control',
+  'connections.welcome.feat3Body':
+    'Grant or revoke access per channel, any time. Nothing runs without your say.',
   'connections.groups.apiKeys': 'API keys',
   // Intelligence / Memory
   'memory.title': 'Memory',

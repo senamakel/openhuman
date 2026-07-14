@@ -84,19 +84,6 @@ vi.mock('../../components/intelligence/SyncAuditPanel', async () => {
   };
 });
 
-// The remaining Knowledge & Memory tab renders a relocated settings panel — stub
-// it so the Brain page's per-tab branch is exercised without its deep dependency tree.
-vi.mock('../../components/settings/panels/MemoryDebugPanel', async () => {
-  const React = await import('react');
-  return { default: () => React.createElement('div', { 'data-testid': 'brain-memory-debug' }) };
-});
-vi.mock('../../components/settings/layout/SettingsLayoutContext', async () => {
-  const React = await import('react');
-  return {
-    SettingsLayoutProvider: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement(React.Fragment, null, children),
-  };
-});
 const makeGraph = (n: number) => ({
   nodes: Array.from({ length: n }, (_, i) => ({ id: `n${i}`, kind: 'summary', label: `N${i}` })),
   edges: [],
@@ -167,11 +154,9 @@ describe('Brain page', () => {
     });
   });
 
-  // The Knowledge & Memory tab renders a relocated settings panel inside the
-  // two-pane shell; the bespoke tabs share the standard scaffold. Drive each via
-  // the `?tab=` query param so every per-tab branch is exercised.
+  // All tabs share the standard scaffold. Drive each via the `?tab=` query
+  // param so every per-tab branch is exercised.
   it.each([
-    ['memory-debug', 'brain-memory-debug'],
     ['sources', 'brain-sources'],
     ['sync', 'brain-sync'],
     ['subconscious', 'brain-subconscious'],

@@ -116,8 +116,6 @@ export const SETTINGS_NAV_ICONS: Record<string, ReactNode> = {
   ),
 
   // --- Developer & Diagnostics groups (paths mirror DeveloperOptionsPanel) ---
-  // Knowledge & Memory
-  'memory-debug': icon(stroke('M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4')),
   // Agents & Autonomy
   'tool-policy-diagnostics': icon(
     stroke(

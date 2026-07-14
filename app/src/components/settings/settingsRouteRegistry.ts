@@ -607,15 +607,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     devOnly: true,
     searchKeywords: ['developer', 'diagnostics', 'debug'],
   },
-  // Knowledge & Memory — intelligence / memory-data / analysis-views removed;
-  // sync history now lives on Brain → Sync and the rest was retired.
-  {
-    id: 'memory-debug',
-    titleKey: 'devOptions.debugPanels',
-    descriptionKey: 'devOptions.debugPanelsDesc',
-    section: 'developer',
-    devOnly: true,
-  },
+  // Knowledge & Memory group retired entirely — memory surfaces live on the
+  // Brain page (graph / goals / sources / sync / subconscious).
   // Diagnostics & Logs
   {
     id: 'voice-debug',

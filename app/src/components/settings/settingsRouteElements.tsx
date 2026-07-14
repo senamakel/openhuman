@@ -188,11 +188,10 @@ export function settingsRouteElements(): ReactNode {
       <Route path="webhooks-debug" element={wrapSettingsPage(<WebhooksDebugPanel />)} />
       <Route path="event-log" element={wrapSettingsPage(<EventLogPanel />)} />
       <Route path="model-health" element={wrapSettingsPage(<ModelHealthPanel />)} />
-      {/* Knowledge & Memory panels moved to the Brain page. The retired
-          memory-data / analysis-views / intelligence pages bounce to Brain
-          (sync history now lives on the Sync tab). */}
+      {/* Knowledge & Memory panels were retired — old deep links bounce to
+          Brain (sync history now lives on the Sync tab). */}
       <Route path="memory-data" element={<Navigate to="/brain?tab=sync" replace />} />
-      <Route path="memory-debug" element={<Navigate to="/brain?tab=memory-debug" replace />} />
+      <Route path="memory-debug" element={<Navigate to="/brain" replace />} />
       <Route path="analysis-views" element={<Navigate to="/brain" replace />} />
       <Route path="intelligence" element={<Navigate to="/brain" replace />} />
       <Route path="composio-triggers" element={wrapSettingsPage(<ComposioTriagePanel />)} />

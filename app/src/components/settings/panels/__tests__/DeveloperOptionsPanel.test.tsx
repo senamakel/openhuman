@@ -123,10 +123,10 @@ describe('DeveloperOptionsPanel — CoreModeBadge', () => {
       { preloadedState: { locale: { current: 'zh-CN' } } }
     );
 
-    // 'AI 配置' was removed from Developer Options in Pass A, and 智能
-    // (Intelligence) was retired with the Knowledge & Memory cleanup. Assert a
-    // destination that IS present: 调试面板 (Debug panels).
-    expect(screen.getByText('调试面板')).toBeInTheDocument();
+    // 'AI 配置' was removed from Developer Options in Pass A, and the whole
+    // Knowledge & Memory group was retired. Assert a destination that IS
+    // present: 事件日志 (Event Log).
+    expect(screen.getByText('事件日志')).toBeInTheDocument();
     // Two screen-awareness rows now exist (the moved settings row + the debug
     // panel), which collapse to the same zh-CN label — assert at least one.
     expect(screen.getAllByText('屏幕感知').length).toBeGreaterThan(0);

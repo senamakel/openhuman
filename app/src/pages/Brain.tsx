@@ -20,8 +20,6 @@ import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
-import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
-import MemoryDebugPanel from '../components/settings/panels/MemoryDebugPanel';
 import BetaBanner from '../components/ui/BetaBanner';
 import { useSubconscious } from '../hooks/useSubconscious';
 import { useT } from '../lib/i18n/I18nContext';
@@ -33,10 +31,7 @@ import {
   memoryTreeGraphExport,
 } from '../utils/tauriCommands';
 
-type BrainTab = 'graph' | 'goals' | 'sources' | 'sync' | 'memory-debug' | 'subconscious';
-
-/** Tabs that render a relocated settings panel (Knowledge & Memory group). */
-const KNOWLEDGE_TABS: ReadonlySet<BrainTab> = new Set<BrainTab>(['memory-debug']);
+type BrainTab = 'graph' | 'goals' | 'sources' | 'sync' | 'subconscious';
 
 /** Small inline icon helper for the Brain sidebar nav. */
 const navIcon = (d: string) => (
@@ -45,14 +40,7 @@ const navIcon = (d: string) => (
   </svg>
 );
 
-const BRAIN_TABS: readonly BrainTab[] = [
-  'graph',
-  'goals',
-  'sources',
-  'sync',
-  'memory-debug',
-  'subconscious',
-];
+const BRAIN_TABS: readonly BrainTab[] = ['graph', 'goals', 'sources', 'sync', 'subconscious'];
 
 export default function Brain() {
   const { t } = useT();
@@ -155,7 +143,6 @@ export default function Brain() {
             onSelect={value => setActiveTab(value as BrainTab)}
             groups={[
               {
-                label: t('brain.tabs.memory'),
                 items: [
                   {
                     value: 'graph',
@@ -183,20 +170,6 @@ export default function Brain() {
                       'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
                     ),
                   },
-                ],
-              },
-              {
-                label: t('settings.devGroups.knowledgeMemory'),
-                items: [
-                  {
-                    value: 'memory-debug',
-                    label: t('devOptions.debugPanels'),
-                    icon: navIcon('M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4'),
-                  },
-                ],
-              },
-              {
-                items: [
                   {
                     value: 'subconscious',
                     label: t('brain.tabs.subconscious'),
@@ -212,25 +185,9 @@ export default function Brain() {
         </div>
       </SidebarContent>
       <div className="mx-auto h-full w-full max-w-5xl">
-        {/* Knowledge & Memory panels relocated from Settings are themselves
-            PanelPage panels (description, no title; the back button hides
-            because the Brain sidebar owns navigation here), so they fill the
-            content pane and own their own scroll directly. */}
-        {KNOWLEDGE_TABS.has(activeTab) ? (
-          // Knowledge subpages were orphaned flush on the shell — give them a
-          // card surface (the bespoke graph/sources/etc. tabs keep their own
-          // scaffold below and stay flush).
-          <div className="h-full p-4">
-            <div className="h-full overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
-              <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
-                {activeTab === 'memory-debug' && <MemoryDebugPanel />}
-              </SettingsLayoutProvider>
-            </div>
-          </div>
-        ) : (
-          // Bespoke tabs share the standard scaffold: a single scrolling body,
-          // all custom controls live inside it.
-          <PanelPage contentClassName="p-4">
+        {/* All tabs share the standard scaffold: a single scrolling body,
+            all custom controls live inside it. */}
+        <PanelPage contentClassName="p-4">
             <div className="mx-auto max-w-3xl space-y-5">
               {activeTab === 'graph' && (
                 <div className="space-y-5 animate-fade-up">
@@ -304,8 +261,7 @@ export default function Brain() {
                 </div>
               )}
             </div>
-          </PanelPage>
-        )}
+        </PanelPage>
       </div>
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />

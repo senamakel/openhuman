@@ -58,28 +58,6 @@ interface DevGroup {
 //   → Settings home (Assistant group)
 // ---------------------------------------------------------------------------
 
-const knowledgeMemoryGroup: DevGroup = {
-  labelKey: 'settings.devGroups.knowledgeMemory',
-  items: [
-    {
-      id: 'memory-debug',
-      titleKey: 'devOptions.debugPanels',
-      descriptionKey: 'devOptions.debugPanelsDesc',
-      route: 'memory-debug',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-          />
-        </svg>
-      ),
-    },
-  ],
-};
-
 const agentDebugGroup: DevGroup = {
   labelKey: 'settings.devGroups.agentsAutonomy',
   items: [
@@ -400,7 +378,6 @@ const diagnosticsLogsGroup: DevGroup = {
 
 /** All debug-only groups in display order */
 const DEV_GROUPS: DevGroup[] = [
-  knowledgeMemoryGroup,
   agentDebugGroup,
   modelsDebugGroup,
   automationDebugGroup,

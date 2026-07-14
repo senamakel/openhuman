@@ -33,7 +33,6 @@ export type SettingsRoute =
   | 'voice'
   | 'tools'
   | 'memory-sync'
-  | 'memory-debug'
   | 'recovery-phrase'
   | 'wallet-balances'
   | 'webhooks-debug'

@@ -1921,6 +1921,9 @@ async fn memory_read_rpc_score_index_and_summary_helpers_cover_dashboard_paths()
         tree_kind: TreeKind::Global,
         target_level: 1,
         token_budget: 100,
+        input_token_budget: tinycortex::memory::config::INPUT_TOKEN_BUDGET,
+        overhead_reserve_tokens: tinycortex::memory::config::SUMMARY_OVERHEAD_RESERVE_TOKENS,
+        ask: None,
     };
     let empty =
         openhuman_core::openhuman::memory_tree::summarise::summarise(&config, &[], &empty_ctx)
@@ -1967,6 +1970,7 @@ fn memory_retrieval_embedding_and_rpc_model_helpers_round_trip() {
         id: "tree-1".into(),
         kind: TreeKind::Topic,
         scope: "topic:coverage".into(),
+        ask: None,
         root_id: Some("sum-1".into()),
         max_level: 2,
         status: StoredTreeStatus::Active,
@@ -2777,6 +2781,7 @@ fn memory_tree_io_contract_types_round_trip_leaf_read_and_write_shapes() {
         id: "empty-tree".into(),
         kind: TreeKind::Source,
         scope: "source:contract".into(),
+        ask: None,
         root_id: None,
         max_level: 0,
         status: StoredTreeStatus::Active,

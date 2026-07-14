@@ -153,7 +153,6 @@ export const SETTINGS_NAV_ICONS: Record<string, ReactNode> = {
   'mcp-server': icon(
     stroke('M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z')
   ),
-  'dev-workflow': icon(stroke('M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4')),
   search: icon(stroke('M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z')),
   // Diagnostics & Logs
   'event-log': icon(stroke('M4 6h16M4 10h16M4 14h16M4 18h16')),

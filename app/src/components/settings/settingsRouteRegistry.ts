@@ -652,14 +652,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'automationIntegrations',
     searchKeywords: ['mcp', 'server'],
   },
-  {
-    id: 'dev-workflow',
-    titleKey: 'settings.developerMenu.devWorkflow.title',
-    descriptionKey: 'settings.developerMenu.devWorkflow.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'automationIntegrations',
-  },
+  // dev-workflow (the cron-based GitHub dev-automation panel) was retired —
+  // superseded by first-level Workflows (/flows) and the skills workflow runner.
   {
     id: 'cron-jobs',
     titleKey: 'settings.developerMenu.cronJobs.title',

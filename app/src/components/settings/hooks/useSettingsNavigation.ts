@@ -46,7 +46,6 @@ export type SettingsRoute =
   | 'integrations'
   | 'composio-triggers'
   | 'mcp-server'
-  | 'dev-workflow'
   | 'sandbox-settings'
   | 'permissions'
   | 'activity-level'

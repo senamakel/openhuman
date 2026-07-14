@@ -20,7 +20,6 @@ import CronJobsPanel from './panels/CronJobsPanel';
 import DesktopAgentPanel from './panels/DesktopAgentPanel';
 import DeveloperOptionsPanel from './panels/DeveloperOptionsPanel';
 import DevicesPanel from './panels/DevicesPanel';
-import DevWorkflowPanel from './panels/DevWorkflowPanel';
 import EventLogPanel from './panels/EventLogPanel';
 import IntegrationsPanel from './panels/IntegrationsPanel';
 import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
@@ -176,7 +175,8 @@ export function settingsRouteElements(): ReactNode {
       {/* Workflows is a first-level module now — /settings/automations bounces
           to /flows (the Workflows page). */}
       <Route path="automations" element={<Navigate to="/flows" replace />} />
-      <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
+      {/* Dev Workflow panel retired — superseded by Workflows (/flows). */}
+      <Route path="dev-workflow" element={<Navigate to="/flows" replace />} />
       <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
       <Route
         path="screen-awareness-debug"

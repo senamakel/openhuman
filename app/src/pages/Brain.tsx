@@ -17,6 +17,7 @@ import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStat
 import SubconsciousTriggersPanel from '../components/intelligence/SubconsciousTriggersPanel';
 import { SyncAuditPanel } from '../components/intelligence/SyncAuditPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
+import PageWelcome from '../components/layout/PageWelcome';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
@@ -31,7 +32,7 @@ import {
   memoryTreeGraphExport,
 } from '../utils/tauriCommands';
 
-type BrainTab = 'graph' | 'goals' | 'sources' | 'sync' | 'subconscious';
+type BrainTab = 'welcome' | 'graph' | 'goals' | 'sources' | 'sync' | 'subconscious';
 
 /** Small inline icon helper for the Brain sidebar nav. */
 const navIcon = (d: string) => (
@@ -40,7 +41,14 @@ const navIcon = (d: string) => (
   </svg>
 );
 
-const BRAIN_TABS: readonly BrainTab[] = ['graph', 'goals', 'sources', 'sync', 'subconscious'];
+const BRAIN_TABS: readonly BrainTab[] = [
+  'welcome',
+  'graph',
+  'goals',
+  'sources',
+  'sync',
+  'subconscious',
+];
 
 export default function Brain() {
   const { t } = useT();
@@ -50,7 +58,7 @@ export default function Brain() {
   // routes) land on the right sub-page.
   const activeTab = useMemo<BrainTab>(() => {
     const raw = new URLSearchParams(location.search).get('tab');
-    return (BRAIN_TABS as readonly string[]).includes(raw ?? '') ? (raw as BrainTab) : 'graph';
+    return (BRAIN_TABS as readonly string[]).includes(raw ?? '') ? (raw as BrainTab) : 'welcome';
   }, [location.search]);
   const setActiveTab = useCallback(
     (tab: BrainTab) => {
@@ -145,6 +153,11 @@ export default function Brain() {
               {
                 items: [
                   {
+                    value: 'welcome',
+                    label: t('brain.welcome.nav'),
+                    icon: navIcon('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'),
+                  },
+                  {
                     value: 'graph',
                     label: t('brain.tabs.graph'),
                     icon: navIcon(
@@ -185,9 +198,55 @@ export default function Brain() {
         </div>
       </SidebarContent>
       <div className="mx-auto h-full w-full max-w-5xl">
-        {/* All tabs share the standard scaffold: a single scrolling body,
-            all custom controls live inside it. */}
-        <PanelPage contentClassName="p-4">
+        {activeTab === 'welcome' ? (
+          <PageWelcome
+            testId="brain-welcome"
+            accent="sage"
+            icon="🧠"
+            eyebrow={t('brain.welcome.eyebrow')}
+            title={t('brain.welcome.title')}
+            description={t('brain.welcome.body')}
+            ctas={[
+              {
+                label: t('brain.welcome.ctaGraph'),
+                icon: '🕸️',
+                onClick: () => setActiveTab('graph'),
+                testId: 'brain-welcome-cta-graph',
+              },
+              {
+                label: t('brain.welcome.ctaGoals'),
+                icon: '🎯',
+                onClick: () => setActiveTab('goals'),
+              },
+              {
+                label: t('brain.welcome.ctaSources'),
+                icon: '🔗',
+                onClick: () => setActiveTab('sources'),
+              },
+            ]}
+            featuresHeading={t('brain.welcome.featsLabel')}
+            features={[
+              {
+                icon: '🕸️',
+                title: t('brain.welcome.feat1Title'),
+                description: t('brain.welcome.feat1Body'),
+              },
+              {
+                icon: '🎯',
+                title: t('brain.welcome.feat2Title'),
+                description: t('brain.welcome.feat2Body'),
+              },
+              {
+                icon: '🔄',
+                title: t('brain.welcome.feat3Title'),
+                description: t('brain.welcome.feat3Body'),
+              },
+            ]}
+          />
+        ) : (
+          /* All tabs share the standard scaffold: a single scrolling body,
+            all custom controls live inside it. */
+          <PanelPage contentClassName="p-4">
             <div className="mx-auto max-w-3xl space-y-5">
               {activeTab === 'graph' && (
                 <div className="space-y-5 animate-fade-up">
@@ -261,7 +320,8 @@ export default function Brain() {
                 </div>
               )}
             </div>
-        </PanelPage>
+          </PanelPage>
+        )}
       </div>
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />

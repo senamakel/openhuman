@@ -231,6 +231,22 @@ const en: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': 'Your knowledge graph, memory sources, and controls.',
+  // Welcome landing (first destination)
+  'brain.welcome.nav': 'Welcome',
+  'brain.welcome.eyebrow': 'Brain',
+  'brain.welcome.title': "Your agent's memory, mapped",
+  'brain.welcome.body':
+    'Brain is where your agent keeps what it knows — the people, conversations, sources, and goals it draws on to help you with real context instead of starting cold every time.',
+  'brain.welcome.ctaGraph': 'Open memory graph',
+  'brain.welcome.ctaGoals': 'Set goals',
+  'brain.welcome.ctaSources': 'Connect sources',
+  'brain.welcome.featsLabel': 'What lives here',
+  'brain.welcome.feat1Title': 'Memory graph',
+  'brain.welcome.feat1Body': 'See how people, topics, and messages connect at a glance.',
+  'brain.welcome.feat2Title': 'Goals & focus',
+  'brain.welcome.feat2Body': 'Tell your agent what matters so it prioritizes the right work.',
+  'brain.welcome.feat3Title': 'Sources & sync',
+  'brain.welcome.feat3Body': 'Connect the data your agent learns from and keep it fresh.',
   'brain.tabs.memory': 'Memory',
   'brain.tabs.subconscious': 'Subconscious',
   'brain.tabs.graph': 'Graph',

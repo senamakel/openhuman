@@ -103,7 +103,7 @@ describe('Brain page', () => {
   it('renders the graph once data is fetched', async () => {
     graphExportMock.mockResolvedValue(makeGraph(3));
     await act(async () => {
-      renderWithProviders(<Brain />);
+      renderWithProviders(<Brain />, { initialEntries: ['/?tab=graph'] });
     });
     await waitFor(() => {
       expect(screen.getByTestId('memory-graph')).toHaveTextContent('nodes:3');
@@ -113,7 +113,7 @@ describe('Brain page', () => {
   it('renders empty-state graph when there are no nodes', async () => {
     graphExportMock.mockResolvedValue(makeGraph(0));
     await act(async () => {
-      renderWithProviders(<Brain />);
+      renderWithProviders(<Brain />, { initialEntries: ['/?tab=graph'] });
     });
     await waitFor(() => {
       expect(screen.getByTestId('memory-graph')).toHaveTextContent('nodes:0');
@@ -126,7 +126,7 @@ describe('Brain page', () => {
     graphExportMock.mockResolvedValue(makeGraph(0));
     let view!: ReturnType<typeof renderWithProviders>;
     await act(async () => {
-      view = renderWithProviders(<Brain />);
+      view = renderWithProviders(<Brain />, { initialEntries: ['/?tab=graph'] });
     });
     await waitFor(() => expect(graphExportMock).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('memory-graph')).toHaveTextContent('nodes:0');
@@ -147,7 +147,7 @@ describe('Brain page', () => {
   it('surfaces an error alert when the fetch fails', async () => {
     graphExportMock.mockRejectedValue(new Error('boom'));
     await act(async () => {
-      renderWithProviders(<Brain />);
+      renderWithProviders(<Brain />, { initialEntries: ['/?tab=graph'] });
     });
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();

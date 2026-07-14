@@ -7166,6 +7166,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': '코딩 세션 수집 완료',
   'memorySources.codingSessions.completeMessage':
     '세션 {processed}개에서 페르소나 관찰 {observations}개를 만들었습니다.',
+  'memorySources.codingSessions.moreRemaining':
+    '세션 배치 한도에 도달했습니다. 기록 가져오기를 계속하려면 수집을 다시 실행하세요.',
   'memorySources.codingSessions.failed': '코딩 세션 수집 실패',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

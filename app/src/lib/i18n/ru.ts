@@ -7326,6 +7326,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Сеансы программирования загружены',
   'memorySources.codingSessions.completeMessage':
     'Обработано сеансов: {processed}; наблюдений персоны: {observations}.',
+  'memorySources.codingSessions.moreRemaining':
+    'Достигнут лимит сеансов в пакете. Запустите загрузку ещё раз, чтобы продолжить импорт истории.',
   'memorySources.codingSessions.failed': 'Не удалось загрузить сеансы программирования',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

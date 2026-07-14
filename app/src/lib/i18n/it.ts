@@ -7388,6 +7388,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Sessioni di programmazione acquisite',
   'memorySources.codingSessions.completeMessage':
     '{processed} sessioni hanno prodotto {observations} osservazioni della persona.',
+  'memorySources.codingSessions.moreRemaining':
+    'È stato raggiunto il limite di sessioni del batch. Avvia di nuovo l’acquisizione per continuare a importare la cronologia.',
   'memorySources.codingSessions.failed':
     'Acquisizione delle sessioni di programmazione non riuscita',
 

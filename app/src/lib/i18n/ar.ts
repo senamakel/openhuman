@@ -7084,6 +7084,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'تم استيعاب جلسات البرمجة',
   'memorySources.codingSessions.completeMessage':
     'أنتجت {processed} جلسات {observations} ملاحظات شخصية.',
+  'memorySources.codingSessions.moreRemaining':
+    'تم بلوغ حد دفعة الجلسات. شغّل الاستيعاب مرة أخرى لمتابعة استيراد سجلك.',
   'memorySources.codingSessions.failed': 'فشل استيعاب جلسات البرمجة',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

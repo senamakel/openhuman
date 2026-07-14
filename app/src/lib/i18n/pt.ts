@@ -7371,6 +7371,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Sessões de programação ingeridas',
   'memorySources.codingSessions.completeMessage':
     '{processed} sessões produziram {observations} observações de persona.',
+  'memorySources.codingSessions.moreRemaining':
+    'O limite de sessões do lote foi atingido. Execute a ingestão novamente para continuar importando seu histórico.',
   'memorySources.codingSessions.failed': 'Falha ao ingerir sessões de programação',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

@@ -7246,6 +7246,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'कोडिंग सत्र शामिल हो गए',
   'memorySources.codingSessions.completeMessage':
     '{processed} सत्रों से {observations} व्यक्तित्व अवलोकन बने।',
+  'memorySources.codingSessions.moreRemaining':
+    'सत्र बैच की सीमा पूरी हो गई है। अपना इतिहास आयात करना जारी रखने के लिए फिर से अंतर्ग्रहण चलाएँ।',
   'memorySources.codingSessions.failed': 'कोडिंग सत्र शामिल करना विफल रहा',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

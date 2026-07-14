@@ -6857,6 +6857,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': '编程会话已摄取',
   'memorySources.codingSessions.completeMessage':
     '{processed} 个会话生成了 {observations} 条人格观察。',
+  'memorySources.codingSessions.moreRemaining':
+    '已达到本批次的会话上限。请再次运行摄取以继续导入历史记录。',
   'memorySources.codingSessions.failed': '编程会话摄取失败',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

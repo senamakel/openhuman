@@ -51,15 +51,17 @@ pub async fn ingest_coding_sessions_rpc(
     // multiplier before computing the budget.
     let ingest_timeout =
         std::time::Duration::from_secs(120 + (req.max_sessions.min(1_000) as u64) * 30);
-    let response = tokio::time::timeout(
-        ingest_timeout,
-        tokio::task::spawn_blocking(move || {
-            runtime.block_on(crate::openhuman::tinycortex::ingest_coding_sessions(
-                &config, req,
-            ))
-        }),
-    )
+    let response = tokio::task::spawn_blocking(move || {
+        runtime.block_on(async move {
+            tokio::time::timeout(
+                ingest_timeout,
+                crate::openhuman::tinycortex::ingest_coding_sessions(&config, req),
+            )
+            .await
+        })
+    })
     .await
+    .map_err(|error| format!("join coding-session ingestion: {error}"))?
     .map_err(|_elapsed| {
         tracing::error!(
             timeout_secs = ingest_timeout.as_secs(),
@@ -70,11 +72,11 @@ pub async fn ingest_coding_sessions_rpc(
             ingest_timeout.as_secs()
         )
     })?
-    .map_err(|error| format!("join coding-session ingestion: {error}"))?
     .map_err(|error| format!("ingest coding sessions: {error:#}"))?;
     tracing::info!(
         processed = response.sessions_processed,
         failed = response.sessions_failed,
+        budget_hit = response.budget_hit,
         "[memory_sources] ingest_coding_sessions_rpc: exit"
     );
     Ok(RpcOutcome::new(response, vec![]))

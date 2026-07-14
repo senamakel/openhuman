@@ -222,6 +222,14 @@ export interface CodingSessionIngestResult {
   pack_path?: string | null;
 }
 
+// Keep interactive imports below the core RPC client's bounded ten-minute
+// ceiling. Larger histories are intentionally processed in repeatable batches;
+// `budget_hit` tells the card to invite the user to continue.
+const CODING_SESSION_BATCH_MAX = 15;
+const CODING_SESSION_BASE_TIMEOUT_MS = 120_000;
+const CODING_SESSION_PER_SESSION_TIMEOUT_MS = 30_000;
+const CODING_SESSION_RPC_GRACE_MS = 15_000;
+
 export async function getCodingSessionStatus(): Promise<CodingSessionSourceStatus[]> {
   log('coding_session_status: entry');
   const resp = await callCoreRpc<{ sources: CodingSessionSourceStatus[] }>({
@@ -234,18 +242,33 @@ export async function getCodingSessionStatus(): Promise<CodingSessionSourceStatu
 
 export async function ingestCodingSessions(
   backfill = false,
-  maxSessions = 100
+  maxSessions = CODING_SESSION_BATCH_MAX
 ): Promise<CodingSessionIngestResult> {
-  log('ingest_coding_sessions: entry backfill=%s max_sessions=%d', backfill, maxSessions);
+  const boundedMaxSessions = Number.isFinite(maxSessions)
+    ? Math.min(Math.max(Math.trunc(maxSessions), 1), CODING_SESSION_BATCH_MAX)
+    : CODING_SESSION_BATCH_MAX;
+  const timeoutMs =
+    CODING_SESSION_BASE_TIMEOUT_MS +
+    boundedMaxSessions * CODING_SESSION_PER_SESSION_TIMEOUT_MS +
+    CODING_SESSION_RPC_GRACE_MS;
+  log(
+    'ingest_coding_sessions: entry backfill=%s max_sessions=%d requested=%d timeout_ms=%d',
+    backfill,
+    boundedMaxSessions,
+    maxSessions,
+    timeoutMs
+  );
   const resp = await callCoreRpc<CodingSessionIngestResult>({
     method: 'openhuman.memory_sources_ingest_coding_sessions',
-    params: { backfill, max_sessions: maxSessions },
+    params: { backfill, max_sessions: boundedMaxSessions },
+    timeoutMs,
   });
   const data = unwrap<CodingSessionIngestResult>(resp);
   log(
-    'ingest_coding_sessions: exit processed=%d failed=%d',
+    'ingest_coding_sessions: exit processed=%d failed=%d budget_hit=%s',
     data.sessions_processed,
-    data.sessions_failed
+    data.sessions_failed,
+    data.budget_hit
   );
   return data;
 }

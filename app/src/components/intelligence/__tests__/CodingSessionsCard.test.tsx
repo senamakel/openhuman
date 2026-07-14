@@ -80,6 +80,34 @@ describe('CodingSessionsCard', () => {
     expect(screen.getByTestId('coding-sessions-ingest')).toBeDisabled();
   });
 
+  it('warns when more coding sessions remain after the current batch', async () => {
+    mockedIngest.mockResolvedValue({
+      mode: 'incremental',
+      files_seen: 30,
+      sessions_processed: 15,
+      sessions_skipped: 0,
+      sessions_failed: 0,
+      evidence_units: 40,
+      observations: 20,
+      budget_hit: true,
+      pack_path: '/workspace/persona/PERSONA.md',
+    });
+    const onToast = vi.fn();
+    renderWithProviders(<CodingSessionsCard onToast={onToast} />);
+
+    fireEvent.click(await screen.findByTestId('coding-sessions-ingest'));
+
+    await waitFor(() =>
+      expect(onToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'warning',
+          message:
+            'The session batch limit was reached. Run ingestion again to continue importing your history.',
+        })
+      )
+    );
+  });
+
   it('shows status failures as an alert', async () => {
     mockedStatus.mockRejectedValue(new Error('session scan failed'));
     renderWithProviders(<CodingSessionsCard />);

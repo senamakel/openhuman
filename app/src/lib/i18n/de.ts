@@ -7464,6 +7464,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Coding-Sitzungen eingelesen',
   'memorySources.codingSessions.completeMessage':
     '{processed} Sitzungen ergaben {observations} Persona-Beobachtungen.',
+  'memorySources.codingSessions.moreRemaining':
+    'Das Sitzungslimit für diesen Durchlauf wurde erreicht. Starten Sie das Einlesen erneut, um den Import fortzusetzen.',
   'memorySources.codingSessions.failed': 'Einlesen der Coding-Sitzungen fehlgeschlagen',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

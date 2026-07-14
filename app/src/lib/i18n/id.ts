@@ -7280,6 +7280,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Sesi pemrograman telah diserap',
   'memorySources.codingSessions.completeMessage':
     '{processed} sesi menghasilkan {observations} pengamatan persona.',
+  'memorySources.codingSessions.moreRemaining':
+    'Batas batch sesi tercapai. Jalankan penyerapan lagi untuk melanjutkan impor riwayat Anda.',
   'memorySources.codingSessions.failed': 'Gagal menyerap sesi pemrograman',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

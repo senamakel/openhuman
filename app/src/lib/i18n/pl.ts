@@ -7357,6 +7357,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'Sesje programistyczne wczytane',
   'memorySources.codingSessions.completeMessage':
     '{processed} sesji utworzyło {observations} obserwacji persony.',
+  'memorySources.codingSessions.moreRemaining':
+    'Osiągnięto limit sesji w partii. Uruchom import ponownie, aby kontynuować wczytywanie historii.',
   'memorySources.codingSessions.failed': 'Nie udało się wczytać sesji programistycznych',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

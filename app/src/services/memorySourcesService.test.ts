@@ -211,7 +211,7 @@ describe('memorySourcesService', () => {
     expect(sources[0]).toMatchObject({ kind: 'codex', evidence_units: 5 });
   });
 
-  it('requests bounded incremental coding-session ingestion', async () => {
+  it('requests a timeout-aligned incremental coding-session batch', async () => {
     mockedCall.mockResolvedValue({
       result: {
         mode: 'incremental',
@@ -230,7 +230,8 @@ describe('memorySourcesService', () => {
 
     expect(mockedCall).toHaveBeenCalledWith({
       method: 'openhuman.memory_sources_ingest_coding_sessions',
-      params: { backfill: false, max_sessions: 25 },
+      params: { backfill: false, max_sessions: 15 },
+      timeoutMs: 585_000,
     });
     expect(result.sessions_processed).toBe(2);
   });

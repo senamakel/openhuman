@@ -59,16 +59,20 @@ export function CodingSessionsCard({ onToast }: CodingSessionsCardProps) {
     try {
       const result = await ingestCodingSessions(false);
       console.debug(
-        '[coding-sessions] ingest: exit processed=%d failed=%d',
+        '[coding-sessions] ingest: exit processed=%d failed=%d budget_hit=%s',
         result.sessions_processed,
-        result.sessions_failed
+        result.sessions_failed,
+        result.budget_hit
       );
+      const incomplete = result.sessions_failed > 0 || result.budget_hit;
       onToast?.({
-        type: result.sessions_failed > 0 ? 'warning' : 'success',
+        type: incomplete ? 'warning' : 'success',
         title: t('memorySources.codingSessions.complete'),
-        message: t('memorySources.codingSessions.completeMessage')
-          .replace('{processed}', String(result.sessions_processed))
-          .replace('{observations}', String(result.observations)),
+        message: result.budget_hit
+          ? t('memorySources.codingSessions.moreRemaining')
+          : t('memorySources.codingSessions.completeMessage')
+              .replace('{processed}', String(result.sessions_processed))
+              .replace('{observations}', String(result.observations)),
       });
       await load();
     } catch (cause) {

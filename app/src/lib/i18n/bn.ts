@@ -7248,6 +7248,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.complete': 'কোডিং সেশন গ্রহণ সম্পন্ন',
   'memorySources.codingSessions.completeMessage':
     '{processed}টি সেশন থেকে {observations}টি পারসোনা পর্যবেক্ষণ তৈরি হয়েছে।',
+  'memorySources.codingSessions.moreRemaining':
+    'সেশন ব্যাচের সীমা পূর্ণ হয়েছে। আপনার ইতিহাস আমদানি চালিয়ে যেতে আবার গ্রহণ চালান।',
   'memorySources.codingSessions.failed': 'কোডিং সেশন গ্রহণ ব্যর্থ হয়েছে',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

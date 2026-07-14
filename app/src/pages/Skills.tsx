@@ -11,6 +11,7 @@ import {
 } from '../components/composio/toolkitMeta';
 import EmptyStateCard from '../components/EmptyStateCard';
 import { ToastContainer } from '../components/intelligence/Toast';
+import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PageWelcome from '../components/layout/PageWelcome';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
@@ -1171,20 +1172,15 @@ export default function Skills() {
             </div>
           </div>
         ) : (
-          <PanelPage
-            contentClassName="p-4"
-            title={
-              CONNECTIONS_HEADERS[activeTab]
-                ? t(CONNECTIONS_HEADERS[activeTab]!.titleKey)
-                : undefined
-            }
-            description={
-              CONNECTIONS_HEADERS[activeTab]
-                ? t(CONNECTIONS_HEADERS[activeTab]!.descKey)
-                : undefined
-            }>
+          <PanelPage contentClassName="p-4">
             <div
               className={`mx-auto w-full space-y-4 ${activeTab !== 'meetings' ? 'max-w-3xl' : ''}`}>
+              {CONNECTIONS_HEADERS[activeTab] && (
+                <PageSectionHeader
+                  title={t(CONNECTIONS_HEADERS[activeTab]!.titleKey)}
+                  description={t(CONNECTIONS_HEADERS[activeTab]!.descKey)}
+                />
+              )}
               {/* <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <h1 className="text-base font-semibold text-content">

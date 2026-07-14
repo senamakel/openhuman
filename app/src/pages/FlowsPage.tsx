@@ -23,6 +23,7 @@ import SuggestedWorkflows from '../components/flows/SuggestedWorkflows';
 import { useCreateFlow } from '../components/flows/useCreateFlow';
 import WorkflowPromptBar from '../components/flows/WorkflowPromptBar';
 import { ToastContainer } from '../components/intelligence/Toast';
+import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PageWelcome from '../components/layout/PageWelcome';
 import PanelPage from '../components/layout/PanelPage';
 import { usePageWelcomeView } from '../components/layout/usePageWelcomeView';
@@ -365,30 +366,7 @@ export default function FlowsPage() {
   return (
     <>
       {nav}
-      <PanelPage
-        testId="flows-page"
-        title={t('flows.page.title')}
-        description={t('flows.page.description')}
-        action={
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              data-testid="flows-import"
-              onClick={handleImportClick}>
-              {t('flows.page.import')}
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              data-testid="flows-new-workflow"
-              onClick={handleNewWorkflow}>
-              {t('flows.page.newWorkflow')}
-            </Button>
-          </div>
-        }>
+      <PanelPage testId="flows-page" contentClassName="p-4">
         <input
           ref={importInputRef}
           type="file"
@@ -398,6 +376,30 @@ export default function FlowsPage() {
           onChange={e => void handleImportFile(e)}
         />
         <div className="mx-auto w-full max-w-3xl space-y-4">
+          <PageSectionHeader
+            title={t('flows.page.title')}
+            description={t('flows.page.description')}
+            action={
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid="flows-import"
+                  onClick={handleImportClick}>
+                  {t('flows.page.import')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  data-testid="flows-new-workflow"
+                  onClick={handleNewWorkflow}>
+                  {t('flows.page.newWorkflow')}
+                </Button>
+              </div>
+            }
+          />
           <div data-testid="flows-beta-banner">
             <BetaBanner />
           </div>

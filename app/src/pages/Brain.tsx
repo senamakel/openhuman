@@ -17,6 +17,7 @@ import { MemoryTreeStatusPanel } from '../components/intelligence/MemoryTreeStat
 import SubconsciousTriggersPanel from '../components/intelligence/SubconsciousTriggersPanel';
 import { SyncAuditPanel } from '../components/intelligence/SyncAuditPanel';
 import { ToastContainer } from '../components/intelligence/Toast';
+import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PageWelcome from '../components/layout/PageWelcome';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
@@ -254,13 +255,14 @@ export default function Brain() {
           />
         ) : (
           /* All tabs share the standard scaffold: a single scrolling body,
-            all custom controls live inside it. Each tab gets the canonical
-            text header (title + one-line description). */
-          <PanelPage
-            contentClassName="p-4"
-            title={t(BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome'>].titleKey)}
-            description={t(BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome'>].descKey)}>
+            all custom controls live inside it. Each tab opens with the canonical
+            header card (title + one-line description), aligned to the content. */
+          <PanelPage contentClassName="p-4">
             <div className="mx-auto max-w-3xl space-y-5">
+              <PageSectionHeader
+                title={t(BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome'>].titleKey)}
+                description={t(BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome'>].descKey)}
+              />
               {activeTab === 'graph' && (
                 <div className="space-y-5 animate-fade-up">
                   <MemoryControls

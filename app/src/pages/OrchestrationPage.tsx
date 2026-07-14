@@ -18,6 +18,7 @@ import { useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import ChipTabs from '../components/layout/ChipTabs';
+import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
@@ -236,7 +237,11 @@ export default function OrchestrationPage() {
         hasMedullaAccess ? (
           <div className="mx-auto h-full w-full max-w-5xl">
             <PanelPage contentClassName="p-4">
-              <div className="animate-fade-up">
+              <div className="animate-fade-up space-y-4">
+                <PageSectionHeader
+                  title={t('orchPage.tasks.nav')}
+                  description={t('orchPage.tasks.subtitle')}
+                />
                 <OrchestratorTaskBoard />
               </div>
             </PanelPage>
@@ -251,6 +256,10 @@ export default function OrchestrationPage() {
               same content column. */}
           <PanelPage contentClassName="p-4">
             <div className="mx-auto max-w-3xl space-y-5 animate-fade-up">
+              <PageSectionHeader
+                title={t('orchPage.group.network')}
+                description={t('orchPage.network.desc')}
+              />
               <ChipTabs<NetworkSub>
                 as="tab"
                 ariaLabel={t('orchPage.group.network')}

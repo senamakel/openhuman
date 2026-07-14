@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react';
 
 /**
- * PageSectionHeader — the canonical text-only header for a functional page view:
- * a title (16px semibold) over an optional one-line description (14px muted),
- * with an optional right-aligned action. Matches {@link PanelHeader}'s typography
- * so every screen — PanelPage-based or hand-rolled — reads the same.
+ * PageSectionHeader — the canonical header for a functional page view: a title
+ * (16px semibold) over an optional one-line description (14px muted), with an
+ * optional right-aligned action, wrapped in a **card** (rounded border, surface
+ * background, soft shadow) so it sits flush with the rest of the app's cards.
  *
- * Use at the top of a content column on pages that don't route through
- * {@link PanelPage} (which renders the same title/description itself).
+ * Render it as the first element inside a page's content column so it inherits
+ * the same max-width and centering as the content beneath it — header and body
+ * stay aligned. Pass width/centering via `className` (e.g. `mx-auto max-w-2xl`).
  */
 export interface PageSectionHeaderProps {
   title: ReactNode;
@@ -15,6 +16,7 @@ export interface PageSectionHeaderProps {
   description?: ReactNode;
   /** Right-aligned action(s) (e.g. buttons). */
   action?: ReactNode;
+  /** Width / positioning classes (the card chrome is applied internally). */
   className?: string;
   testId?: string;
 }
@@ -27,12 +29,18 @@ export default function PageSectionHeader({
   testId,
 }: PageSectionHeaderProps) {
   return (
-    <header className={className} data-testid={testId}>
+    <header
+      data-testid={testId}
+      className={`rounded-2xl border border-line bg-surface px-4 py-3 shadow-subtle ${className}`}>
       <div className="flex items-start justify-between gap-3">
-        <h1 className="text-base font-semibold text-content">{title}</h1>
+        <div className="min-w-0">
+          <h1 className="text-base font-semibold text-content">{title}</h1>
+          {description != null && (
+            <p className="mt-0.5 text-sm text-content-muted">{description}</p>
+          )}
+        </div>
         {action != null && <div className="flex-shrink-0">{action}</div>}
       </div>
-      {description != null && <p className="mt-0.5 text-sm text-content-muted">{description}</p>}
     </header>
   );
 }

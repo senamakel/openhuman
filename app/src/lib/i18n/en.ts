@@ -35,6 +35,8 @@ const en: TranslationMap = {
   'orchPage.group.network': 'Network',
   'orchPage.group.insights': 'Insights',
   'orchPage.overview.nav': 'Agent graph',
+  'orchPage.overview.desc': 'A live map of your agent and the sub-agents it coordinates.',
+  'orchPage.network.desc': 'Peer agents you’re connected to, discovery, and usage.',
   'orchPage.medulla.nav': 'Overview',
   'orchPage.medulla.badge': 'Coming soon',
   'orchPage.medulla.title': 'Medulla',

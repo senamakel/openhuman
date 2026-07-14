@@ -844,6 +844,7 @@ const messages: TranslationMap = {
   'connections.tabs.skills': 'Навыки',
   'connections.tabs.meetings': 'Встречи',
   'connections.groups.integrations': 'Интеграции',
+  'connections.groups.desktop': 'Рабочий стол',
   'connections.tabs.oauth': 'OAuth',
   'connections.tabs.composioKey': 'Composio',
   'connections.groups.apiKeys': 'API-ключи',

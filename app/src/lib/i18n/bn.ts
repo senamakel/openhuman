@@ -833,6 +833,7 @@ const messages: TranslationMap = {
   'connections.tabs.skills': 'দক্ষতা',
   'connections.tabs.meetings': 'মিটিং',
   'connections.groups.integrations': 'ইন্টিগ্রেশন',
+  'connections.groups.desktop': 'ডেস্কটপ',
   'connections.tabs.oauth': 'OAuth',
   'connections.tabs.composioKey': 'Composio',
   'connections.groups.apiKeys': 'API কী',

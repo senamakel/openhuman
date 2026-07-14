@@ -16,13 +16,17 @@ import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import MeetingsPage from '../components/meetings/MeetingsPage';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
+import CompanionPanel from '../components/settings/panels/CompanionPanel';
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
+import DesktopAgentPanel from '../components/settings/panels/DesktopAgentPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import LlmConnectionsPanel from '../components/settings/panels/LlmConnectionsPanel';
 import MeetingSettingsPanel from '../components/settings/panels/MeetingSettingsPanel';
+import ScreenIntelligencePanel from '../components/settings/panels/ScreenIntelligencePanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import UsagePanel from '../components/settings/panels/UsagePanel';
 import VoicePanel from '../components/settings/panels/VoicePanel';
+import WalletBalancesPanel from '../components/settings/panels/WalletBalancesPanel';
 import AutocompleteSetupModal from '../components/skills/AutocompleteSetupModal';
 import ScreenIntelligenceSetupModal from '../components/skills/ScreenIntelligenceSetupModal';
 import UnifiedSkillCard from '../components/skills/SkillCard';
@@ -449,9 +453,17 @@ type ConnectionsTab =
   | 'embeddings'
   | 'search'
   | 'usage'
-  | 'composio-key';
+  | 'composio-key'
+  | 'wallet'
+  | 'screen-intelligence'
+  | 'desktop-agent'
+  | 'companion';
 
-/** Tabs that render a relocated settings panel (the "API keys" group). */
+/**
+ * Tabs that render a relocated settings panel inside the shared card surface.
+ * Covers the "API keys" group plus the Desktop capability panels and the wallet
+ * balances panel relocated from Settings.
+ */
 const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'llm',
   'voice',
@@ -459,6 +471,10 @@ const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'search',
   'usage',
   'composio-key',
+  'wallet',
+  'screen-intelligence',
+  'desktop-agent',
+  'companion',
 ]);
 
 export default function Skills() {
@@ -485,7 +501,11 @@ export default function Skills() {
       raw === 'embeddings' ||
       raw === 'search' ||
       raw === 'usage' ||
-      raw === 'composio-key'
+      raw === 'composio-key' ||
+      raw === 'wallet' ||
+      raw === 'screen-intelligence' ||
+      raw === 'desktop-agent' ||
+      raw === 'companion'
     )
       return raw;
     // Legacy back-compat aliases
@@ -969,6 +989,39 @@ export default function Skills() {
                       'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'
                     ),
                   },
+                  {
+                    // Wallet balances relocated from Settings → Data.
+                    value: 'wallet',
+                    label: t('pages.settings.account.walletBalances'),
+                    icon: navIcon(
+                      'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'
+                    ),
+                  },
+                ],
+              },
+              {
+                // Desktop capabilities relocated from Settings → Connections.
+                label: t('connections.groups.desktop'),
+                items: [
+                  {
+                    value: 'screen-intelligence',
+                    label: t('pages.settings.features.screenAwareness'),
+                    icon: navIcon('M3 5h18v12H3zM8 21h8m-4-4v4'),
+                  },
+                  {
+                    value: 'desktop-agent',
+                    label: t('settings.desktopAgent.title'),
+                    icon: navIcon(
+                      'M9 17v2m6-2v2M5 5h14a1 1 0 011 1v8a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1zm4 4l-2 2 2 2m6-4l2 2-2 2'
+                    ),
+                  },
+                  {
+                    value: 'companion',
+                    label: t('pages.settings.features.desktopCompanion'),
+                    icon: navIcon(
+                      'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z'
+                    ),
+                  },
                 ],
               },
               {
@@ -1040,6 +1093,10 @@ export default function Skills() {
                 {activeTab === 'search' && <SearchPanel />}
                 {activeTab === 'usage' && <UsagePanel />}
                 {activeTab === 'composio-key' && <ComposioPanel />}
+                {activeTab === 'wallet' && <WalletBalancesPanel />}
+                {activeTab === 'screen-intelligence' && <ScreenIntelligencePanel />}
+                {activeTab === 'desktop-agent' && <DesktopAgentPanel />}
+                {activeTab === 'companion' && <CompanionPanel />}
               </SettingsLayoutProvider>
             </div>
           </div>

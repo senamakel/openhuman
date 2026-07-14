@@ -789,6 +789,7 @@ const messages: TranslationMap = {
   'connections.tabs.skills': '技能',
   'connections.tabs.meetings': '会议',
   'connections.groups.integrations': '集成',
+  'connections.groups.desktop': '桌面',
   'connections.tabs.oauth': 'OAuth',
   'connections.tabs.composioKey': 'Composio',
   'connections.groups.apiKeys': 'API 密钥',

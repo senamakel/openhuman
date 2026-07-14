@@ -832,6 +832,7 @@ const messages: TranslationMap = {
   'connections.tabs.skills': 'कौशल',
   'connections.tabs.meetings': 'मीटिंग',
   'connections.groups.integrations': 'इंटीग्रेशन',
+  'connections.groups.desktop': 'डेस्कटॉप',
   'connections.tabs.oauth': 'OAuth',
   'connections.tabs.composioKey': 'Composio',
   'connections.groups.apiKeys': 'API कुंजियाँ',

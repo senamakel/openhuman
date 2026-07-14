@@ -839,6 +839,7 @@ const messages: TranslationMap = {
   'connections.tabs.skills': 'Keterampilan',
   'connections.tabs.meetings': 'Rapat',
   'connections.groups.integrations': 'Integrasi',
+  'connections.groups.desktop': 'Desktop',
   'connections.tabs.oauth': 'OAuth',
   'connections.tabs.composioKey': 'Composio',
   'connections.groups.apiKeys': 'Kunci API',

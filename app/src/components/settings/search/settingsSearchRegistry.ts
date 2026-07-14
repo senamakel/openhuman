@@ -65,7 +65,6 @@ const SECTION_BADGE_OVERRIDES: Record<string, string> = {
   ai: 'nav.settings',
   'agents-settings': 'nav.settings',
   features: 'nav.settings',
-  integrations: 'nav.settings',
   'developer-options': 'settings.developerDiagnostics',
 };
 

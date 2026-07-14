@@ -70,9 +70,10 @@ describe('features section leaves', () => {
   test('companion resolves to companion', () => expectRoute('/settings/companion', 'companion'));
 });
 
-describe('integrations', () => {
-  test('integrations resolves to integrations', () =>
-    expectRoute('/settings/integrations', 'integrations'));
+describe('integrations (retired)', () => {
+  // The Integrations settings section was removed — the slug redirects to the
+  // Connections page, so it no longer resolves to a registry entry.
+  test('integrations resolves to home', () => expectRoute('/settings/integrations', 'home'));
 });
 
 describe('notifications', () => {

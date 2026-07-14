@@ -828,6 +828,7 @@ const messages: TranslationMap = {
   'connections.tabs.skills': '스킬',
   'connections.tabs.meetings': '미팅',
   'connections.groups.integrations': '통합',
+  'connections.groups.desktop': '데스크톱',
   'connections.tabs.oauth': 'OAuth',
   'connections.tabs.composioKey': 'Composio',
   'connections.groups.apiKeys': 'API 키',

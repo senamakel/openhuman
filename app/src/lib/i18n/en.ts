@@ -721,6 +721,7 @@ const en: TranslationMap = {
   'connections.tabs.skills': 'Skills',
   'connections.tabs.meetings': 'Meetings',
   'connections.groups.integrations': 'Integrations',
+  'connections.groups.desktop': 'Desktop',
   'connections.groups.intelligence': 'Intelligence',
   'connections.groups.apiKeys': 'API keys',
   // Intelligence / Memory

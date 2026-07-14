@@ -59,7 +59,6 @@ const SECTION_BADGE_OVERRIDES: Record<string, string> = {
   personality: 'settings.groups.assistant',
   appearance: 'settings.groups.account',
   devices: 'settings.groups.account',
-  'memory-sync': 'settings.groups.account',
   'notifications-hub': 'settings.groups.notifications',
   crypto: 'settings.cryptoSection.title',
   about: 'settings.about',

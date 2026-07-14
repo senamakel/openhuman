@@ -28,7 +28,6 @@ import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
 import LocalModelDebugPanel from './panels/LocalModelDebugPanel';
 import McpServerPanel from './panels/McpServerPanel';
 import MeetingSettingsPanel from './panels/MeetingSettingsPanel';
-import MemorySyncPanel from './panels/MemorySyncPanel';
 import MigrationPanel from './panels/MigrationPanel';
 import ModelHealthPanel from './panels/ModelHealthPanel';
 import NotificationsTabbedPanel from './panels/NotificationsTabbedPanel';
@@ -138,7 +137,8 @@ export function settingsRouteElements(): ReactNode {
       <Route path="approval-history" element={wrapSettingsPage(<ApprovalHistoryPanel />)} />
 
       {/* ── Data ────────────────────────────────────────────────── */}
-      <Route path="memory-sync" element={wrapSettingsPage(<MemorySyncPanel />)} />
+      {/* Data Sync is a first-class surface on the Brain page now. */}
+      <Route path="memory-sync" element={<Navigate to="/brain?tab=sync" replace />} />
       <Route path="wallet-balances" element={wrapSettingsPage(<WalletBalancesPanel />)} />
       <Route path="recovery-phrase" element={wrapSettingsPage(<RecoveryPhrasePanel />)} />
 

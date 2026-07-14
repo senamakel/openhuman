@@ -32,7 +32,6 @@ export type SettingsRoute =
   | 'llm'
   | 'voice'
   | 'tools'
-  | 'memory-sync'
   | 'recovery-phrase'
   | 'wallet-balances'
   | 'webhooks-debug'

@@ -202,15 +202,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'general',
     navOrder: 3,
   },
-  {
-    id: 'memory-sync',
-    titleKey: 'settings.dataSync.title',
-    descriptionKey: 'settings.dataSync.menuDesc',
-    section: 'home',
-    searchKeywords: ['sync', 'backup', 'data', 'memory'],
-    navGroup: 'data',
-    navOrder: 0,
-  },
 
   // --- Assistant group ---
   // The old 'ai' and 'agents-settings' hub pages are retired — their slugs

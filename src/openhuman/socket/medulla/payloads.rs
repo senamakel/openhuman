@@ -133,7 +133,8 @@ mod tests {
         assert_eq!(parsed.agent_id.as_deref(), Some("orchestrator"));
         assert_eq!(parsed.timeout_ms, 60000);
         // Re-serialize and confirm it decodes back to the same value.
-        let again: TaskRun = serde_json::from_value(serde_json::to_value(&parsed).unwrap()).unwrap();
+        let again: TaskRun =
+            serde_json::from_value(serde_json::to_value(&parsed).unwrap()).unwrap();
         assert_eq!(parsed, again);
     }
 

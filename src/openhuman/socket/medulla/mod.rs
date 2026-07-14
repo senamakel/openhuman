@@ -168,7 +168,10 @@ impl MedullaTaskManager {
         // Session key: reuse the caller-supplied session id when resuming, else
         // fall back to the task id so the envelope stream is still anchored.
         let session_id = run.session_id.clone().unwrap_or_else(|| task_id.clone());
-        let agent_id = run.agent_id.clone().unwrap_or_else(|| DEFAULT_AGENT_ID.to_string());
+        let agent_id = run
+            .agent_id
+            .clone()
+            .unwrap_or_else(|| DEFAULT_AGENT_ID.to_string());
         let seq = Arc::new(AtomicI64::new(0));
 
         let mut agent = match build_agent(&agent_id, &task_id).await {
@@ -198,7 +201,12 @@ impl MedullaTaskManager {
         'outer: loop {
             let (progress_tx, progress_rx) = mpsc::channel::<AgentProgress>(256);
             agent.set_on_progress(Some(progress_tx));
-            let forwarder = spawn_forwarder(task_id.clone(), session_id.clone(), Arc::clone(&seq), progress_rx);
+            let forwarder = spawn_forwarder(
+                task_id.clone(),
+                session_id.clone(),
+                Arc::clone(&seq),
+                progress_rx,
+            );
 
             let origin = AgentTurnOrigin::ExternalChannel {
                 channel: "medulla_harness".to_string(),
@@ -227,7 +235,12 @@ impl MedullaTaskManager {
                 TurnOutcome::TimedOut => {
                     emit_envelope(
                         &task_id,
-                        envelope::error_envelope(&session_id, next_seq(&seq), "task timed out", true),
+                        envelope::error_envelope(
+                            &session_id,
+                            next_seq(&seq),
+                            "task timed out",
+                            true,
+                        ),
                     );
                     result = TaskResult {
                         task_id: task_id.clone(),
@@ -462,10 +475,9 @@ mod tests {
         // a second registration under the same id is ignored.
         let abort = Arc::new(Notify::new());
         let (steer_tx, _rx) = mpsc::unbounded_channel();
-        mgr.tasks.lock().insert(
-            "dup".to_string(),
-            RunningTask { abort, steer_tx },
-        );
+        mgr.tasks
+            .lock()
+            .insert("dup".to_string(), RunningTask { abort, steer_tx });
         assert!(mgr.tasks.lock().contains_key("dup"));
         // A second start_task for "dup" must not overwrite / spawn.
         mgr.start_task(payloads::TaskRun {

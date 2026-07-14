@@ -272,6 +272,22 @@ const en: TranslationMap = {
 
   // Feedback board
   'feedback.board': 'Feedback board',
+  // Welcome landing (first destination)
+  'feedback.welcome.nav': 'Welcome',
+  'feedback.welcome.main': 'Feedback board',
+  'feedback.welcome.eyebrow': 'Feedback',
+  'feedback.welcome.title': 'Help shape what we build',
+  'feedback.welcome.body':
+    "Tell us what's working, what's missing, and what would make OpenHuman better. Post an idea, vote on what others suggest, and watch the best ones rise to the top of our roadmap.",
+  'feedback.welcome.ctaShare': 'Share an idea',
+  'feedback.welcome.ctaBoard': 'See the board',
+  'feedback.welcome.featsLabel': 'What you can do',
+  'feedback.welcome.feat1Title': 'Share ideas',
+  'feedback.welcome.feat1Body': 'Bugs, feature requests, rough thoughts — all welcome.',
+  'feedback.welcome.feat2Title': 'Vote',
+  'feedback.welcome.feat2Body': 'Upvote what matters so we know what to prioritize.',
+  'feedback.welcome.feat3Title': 'Track progress',
+  'feedback.welcome.feat3Body': "See what's planned, in progress, and shipped.",
   'feedback.empty': 'No feedback yet. Be the first to share an idea.',
   'feedback.loadMore': 'Load more',
   'feedback.loadError': 'Failed to load feedback',
@@ -1224,11 +1240,41 @@ const en: TranslationMap = {
   // Notifications / Alerts
   'alerts.title': 'Alerts',
   'alerts.empty': 'No alerts yet',
+  // Welcome landing (first destination)
+  'notifications.welcome.nav': 'Welcome',
+  'notifications.welcome.main': 'Alerts',
+  'notifications.welcome.eyebrow': 'Notifications',
+  'notifications.welcome.title': 'Only what actually needs you',
+  'notifications.welcome.body':
+    'A calm, scored digest of what your agents did and what needs a decision — so the important things surface and the noise stays out of your way.',
+  'notifications.welcome.ctaView': 'View alerts',
+  'notifications.welcome.featsLabel': "What you'll see",
+  'notifications.welcome.feat1Title': 'What needs you',
+  'notifications.welcome.feat1Body': 'Decisions and mentions your agents flagged for a human.',
+  'notifications.welcome.feat2Title': 'Agent activity',
+  'notifications.welcome.feat2Body': 'A running log of what ran and what it produced.',
+  'notifications.welcome.feat3Title': 'Filtered by category',
+  'notifications.welcome.feat3Body': 'Messages, meetings, reminders — sliced how you think.',
   'alerts.markAllRead': 'Mark all as read',
   'alerts.unread': 'unread',
 
   // Rewards
   'rewards.title': 'Rewards',
+  // Welcome landing (first destination)
+  'rewards.welcome.nav': 'Welcome',
+  'rewards.welcome.main': 'Rewards',
+  'rewards.welcome.eyebrow': 'Rewards',
+  'rewards.welcome.title': 'Get rewarded for showing up',
+  'rewards.welcome.body':
+    'Earn points as you use OpenHuman and invite others, keep your streak alive, and redeem what you’ve earned — all tracked in one place.',
+  'rewards.welcome.ctaView': 'View rewards',
+  'rewards.welcome.featsLabel': 'How it works',
+  'rewards.welcome.feat1Title': 'Earn points',
+  'rewards.welcome.feat1Body': 'Everyday actions and referrals add up over time.',
+  'rewards.welcome.feat2Title': 'Keep your streak',
+  'rewards.welcome.feat2Body': 'Show up regularly to unlock streak bonuses.',
+  'rewards.welcome.feat3Title': 'Redeem perks',
+  'rewards.welcome.feat3Body': 'Turn points into coupons and rewards.',
   'rewards.referrals': 'Referrals',
   'rewards.coupons': 'Redeem',
   'rewards.localUnavailable':
@@ -4583,6 +4629,22 @@ const en: TranslationMap = {
   // "chat.flowProposal.*" namespaces (kept apart here to avoid merge
   // conflicts with those in-flight branches).
   'flows.page.title': 'Workflows',
+  // Welcome landing (first destination)
+  'flows.welcome.nav': 'Welcome',
+  'flows.welcome.main': 'Workflows',
+  'flows.welcome.eyebrow': 'Workflows',
+  'flows.welcome.title': 'Put the busywork on autopilot',
+  'flows.welcome.body':
+    'Describe something you do over and over — triage, follow-ups, digests — and your agent turns it into a workflow it can run end to end, on a schedule or on demand.',
+  'flows.welcome.ctaNew': 'New workflow',
+  'flows.welcome.ctaBrowse': 'Browse workflows',
+  'flows.welcome.featsLabel': 'What you can automate',
+  'flows.welcome.feat1Title': 'Describe in words',
+  'flows.welcome.feat1Body': 'Say what you want in plain language; the builder drafts the flow.',
+  'flows.welcome.feat2Title': 'Run on a schedule',
+  'flows.welcome.feat2Body': 'Fire on a timer, an event, or a button — your call.',
+  'flows.welcome.feat3Title': 'Keep humans in the loop',
+  'flows.welcome.feat3Body': 'Approve sensitive steps before anything goes out.',
   'flows.page.description': 'Saved automations you can enable, run, and monitor.',
   'flows.page.emptyTitle': 'No workflows yet',
   'flows.page.emptyDescription':

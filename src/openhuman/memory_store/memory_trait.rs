@@ -55,8 +55,14 @@ fn normalize_namespace(namespace: Option<&str>) -> &str {
 /// `FromStr` mapping, so it falls back to an empty `Custom` (matching the prior
 /// catch-all for that degenerate case).
 fn memory_category_from_stored(raw: &str) -> MemoryCategory {
-    raw.parse()
-        .unwrap_or_else(|_| MemoryCategory::Custom(raw.to_string()))
+    raw.parse().unwrap_or_else(|error| {
+        tracing::debug!(
+            category_chars = raw.chars().count(),
+            reason = %error,
+            "[memory_store] invalid stored category; preserving as custom"
+        );
+        MemoryCategory::Custom(raw.to_string())
+    })
 }
 
 #[async_trait]

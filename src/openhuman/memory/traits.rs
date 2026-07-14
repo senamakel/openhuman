@@ -46,6 +46,19 @@ mod tests {
     }
 
     #[test]
+    fn memory_category_custom_wire_values_round_trip_and_accept_legacy_bare_values() {
+        let current: MemoryCategory = "custom:project_notes".parse().unwrap();
+        let legacy: MemoryCategory = "project_notes".parse().unwrap();
+
+        assert_eq!(current, MemoryCategory::Custom("project_notes".into()));
+        assert_eq!(legacy, MemoryCategory::Custom("project_notes".into()));
+        assert_eq!(
+            serde_json::to_string(&current).unwrap(),
+            "\"custom:project_notes\""
+        );
+    }
+
+    #[test]
     fn memory_category_serde_uses_snake_case() {
         let core = serde_json::to_string(&MemoryCategory::Core).unwrap();
         let daily = serde_json::to_string(&MemoryCategory::Daily).unwrap();

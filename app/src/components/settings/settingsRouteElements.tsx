@@ -21,6 +21,7 @@ import DevicesPanel from './panels/DevicesPanel';
 import EventLogPanel from './panels/EventLogPanel';
 import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
 import McpServerPanel from './panels/McpServerPanel';
+import MemoryDataPanel from './panels/MemoryDataPanel';
 import MigrationPanel from './panels/MigrationPanel';
 import NotificationsTabbedPanel from './panels/NotificationsTabbedPanel';
 import PermissionsPanel from './panels/PermissionsPanel';
@@ -197,9 +198,9 @@ export function settingsRouteElements(): ReactNode {
       <Route path="event-log" element={wrapSettingsPage(<EventLogPanel />)} />
       {/* Model Health page retired. */}
       <Route path="model-health" element={<SettingsRedirect to="/settings/developer-options" />} />
-      {/* Knowledge & Memory panels were retired — old deep links bounce to
-          Brain (sync history now lives on the Sync tab). */}
-      <Route path="memory-data" element={<Navigate to="/brain?tab=sync" replace />} />
+      {/* Memory inspection remains the configuration surface for the memory
+          window, vault health, and connected-source controls. */}
+      <Route path="memory-data" element={wrapSettingsPage(<MemoryDataPanel />)} />
       <Route path="memory-debug" element={<Navigate to="/brain" replace />} />
       <Route path="analysis-views" element={<Navigate to="/brain" replace />} />
       <Route path="intelligence" element={<Navigate to="/brain" replace />} />

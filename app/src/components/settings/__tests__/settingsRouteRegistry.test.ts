@@ -153,15 +153,17 @@ describe('entriesForSection', () => {
     expect(ids).toContain('account');
     expect(ids).toContain('appearance');
     expect(ids).toContain('personality');
-    expect(ids).toContain('automations');
     expect(ids).toContain('integrations');
     expect(ids).toContain('about');
     // The old ai / agents-settings / features / notifications-hub hub pages
-    // were retired — their slugs now redirect to leaf panels.
+    // were retired — their slugs now redirect to leaf panels. Workflows
+    // (automations) and Data Sync (memory-sync) became first-level modules.
     expect(ids).not.toContain('ai');
     expect(ids).not.toContain('agents-settings');
     expect(ids).not.toContain('features');
     expect(ids).not.toContain('notifications-hub');
+    expect(ids).not.toContain('automations');
+    expect(ids).not.toContain('memory-sync');
   });
 
   it('returns empty array for a section that has no non-hidden entries', () => {
@@ -193,8 +195,6 @@ describe('SETTINGS_ROUTE_REGISTRY integrity', () => {
     const homeIds = entriesForSection('home').map(e => e.id);
     expect(homeIds).toContain('integrations');
     expect(homeIds).toContain('personality');
-    expect(homeIds).toContain('automations');
-    expect(homeIds).toContain('memory-sync');
     // billing is surfaced in the General group now (no longer a hidden deep-link).
     expect(homeIds).toContain('billing');
   });

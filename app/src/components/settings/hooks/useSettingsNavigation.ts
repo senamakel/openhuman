@@ -34,7 +34,6 @@ export type SettingsRoute =
   | 'tools'
   | 'recovery-phrase'
   | 'wallet-balances'
-  | 'webhooks-debug'
   | 'screen-awareness-debug'
   | 'autocomplete-debug'
   | 'voice-debug'

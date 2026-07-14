@@ -242,7 +242,8 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
 
       <Route path="/workflows" element={<Navigate to="/flows" replace />} />
 
-      <Route path="/webhooks" element={<Navigate to="/settings/integrations#webhooks" replace />} />
+      {/* Webhooks retired from the UI — land on the Integrations settings. */}
+      <Route path="/webhooks" element={<Navigate to="/settings/integrations" replace />} />
 
       {/* Desktop Settings renders as a modal overlay mounted by AppShellDesktop
           (App.tsx) using the backgroundLocation pattern — it is no longer an

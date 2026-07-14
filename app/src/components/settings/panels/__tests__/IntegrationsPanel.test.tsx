@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { useLocation } from 'react-router-dom';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -11,17 +11,11 @@ const LocationProbe = () => {
   return <div data-testid="location-probe">{`${location.pathname}${location.search}`}</div>;
 };
 
-// The tab bodies have their own test suites — stub them so these tests stay
-// focused on the hash <-> tab mapping that IntegrationsPanel owns.
+// The panel body has its own test suite — stub it so these tests stay focused
+// on the routing IntegrationsPanel owns.
 vi.mock('../TaskSourcesPanel', () => ({
   default: ({ embedded }: { embedded?: boolean }) => (
     <div data-testid="stub-task-sources" data-embedded={String(embedded ?? false)} />
-  ),
-}));
-
-vi.mock('../../../../pages/Webhooks', () => ({
-  default: ({ embedded }: { embedded?: boolean }) => (
-    <div data-testid="stub-webhooks" data-embedded={String(embedded ?? false)} />
   ),
 }));
 
@@ -34,27 +28,10 @@ vi.mock('../../hooks/useSettingsNavigation', () => ({
 }));
 
 describe('IntegrationsPanel', () => {
-  test('default hash renders the Task sources tab embedded', () => {
+  test('renders the Task sources panel (webhooks tab retired)', () => {
     renderWithProviders(<IntegrationsPanel />, { initialEntries: ['/settings/integrations'] });
 
-    expect(screen.getByTestId('integrations-tab-task-sources')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(screen.getByTestId('stub-task-sources')).toHaveAttribute('data-embedded', 'true');
-    expect(screen.queryByTestId('stub-webhooks')).not.toBeInTheDocument();
-  });
-
-  test('#webhooks hash selects the Webhooks tab embedded', () => {
-    renderWithProviders(<IntegrationsPanel />, {
-      initialEntries: ['/settings/integrations#webhooks'],
-    });
-
-    expect(screen.getByTestId('integrations-tab-webhooks')).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(screen.getByTestId('stub-webhooks')).toHaveAttribute('data-embedded', 'true');
+    expect(screen.getByTestId('stub-task-sources')).toBeInTheDocument();
   });
 
   test('legacy #composio hash redirects to Connections → API keys', () => {
@@ -67,15 +44,5 @@ describe('IntegrationsPanel', () => {
     );
 
     expect(screen.getByTestId('location-probe')).toHaveTextContent('/connections?tab=composio-key');
-  });
-
-  test('clicking tabs switches the view in place', async () => {
-    renderWithProviders(<IntegrationsPanel />, { initialEntries: ['/settings/integrations'] });
-
-    fireEvent.click(screen.getByTestId('integrations-tab-webhooks'));
-    await screen.findByTestId('stub-webhooks');
-
-    fireEvent.click(screen.getByTestId('integrations-tab-task-sources'));
-    await screen.findByTestId('stub-task-sources');
   });
 });

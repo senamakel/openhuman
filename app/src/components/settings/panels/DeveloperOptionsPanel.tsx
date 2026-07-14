@@ -256,22 +256,6 @@ const automationDebugGroup: DevGroup = {
       ),
     },
     {
-      id: 'webhooks-debug',
-      titleKey: 'settings.developerMenu.webhooks.title',
-      descriptionKey: 'settings.developerMenu.webhooks.desc',
-      route: 'webhooks-debug',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13.828 10.172a4 4 0 010 5.656l-2 2a4 4 0 01-5.656-5.656l1-1m5-5a4 4 0 015.656 5.656l-1 1m-5 5l5-5"
-          />
-        </svg>
-      ),
-    },
-    {
       id: 'mcp-server',
       titleKey: 'settings.developerMenu.mcpServer.title',
       descriptionKey: 'settings.developerMenu.mcpServer.desc',

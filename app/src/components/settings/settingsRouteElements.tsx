@@ -52,7 +52,6 @@ import ToolsPanel from './panels/ToolsPanel';
 import UsagePanel from './panels/UsagePanel';
 import VoiceDebugPanel from './panels/VoiceDebugPanel';
 import WalletBalancesPanel from './panels/WalletBalancesPanel';
-import WebhooksDebugPanel from './panels/WebhooksDebugPanel';
 import WorkflowRunnerPanel from './panels/WorkflowRunnerPanel';
 
 /**
@@ -186,7 +185,9 @@ export function settingsRouteElements(): ReactNode {
       <Route path="autocomplete-debug" element={wrapSettingsPage(<AutocompleteDebugPanel />)} />
       <Route path="voice-debug" element={wrapSettingsPage(<VoiceDebugPanel />)} />
       <Route path="local-model-debug" element={wrapSettingsPage(<LocalModelDebugPanel />)} />
-      <Route path="webhooks-debug" element={wrapSettingsPage(<WebhooksDebugPanel />)} />
+      {/* Webhooks were retired from the UI — bounce old debug/trigger deep
+          links to the Integrations page. */}
+      <Route path="webhooks-debug" element={<SettingsRedirect to="/settings/integrations" />} />
       <Route path="event-log" element={wrapSettingsPage(<EventLogPanel />)} />
       <Route path="model-health" element={wrapSettingsPage(<ModelHealthPanel />)} />
       {/* Knowledge & Memory panels were retired — old deep links bounce to
@@ -222,10 +223,7 @@ export function settingsRouteElements(): ReactNode {
         path="composio-routing"
         element={<Navigate to="/connections?tab=composio-key" replace />}
       />
-      <Route
-        path="webhooks-triggers"
-        element={<SettingsRedirect to="/settings/integrations#webhooks" />}
-      />
+      <Route path="webhooks-triggers" element={<SettingsRedirect to="/settings/integrations" />} />
       {/* Notification routing tab */}
       <Route
         path="notification-routing"

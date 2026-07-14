@@ -640,14 +640,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'modelsInference',
     searchKeywords: ['agentbox', 'gmi', 'maas', 'marketplace'],
   },
-  {
-    id: 'webhooks-debug',
-    titleKey: 'settings.developerMenu.webhooks.title',
-    descriptionKey: 'settings.developerMenu.webhooks.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'automationIntegrations',
-  },
   // Automation & Integrations (debug)
   {
     id: 'mcp-server',

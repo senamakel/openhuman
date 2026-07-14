@@ -2281,6 +2281,7 @@ fn install_silent_x_error_handler() {
     }
 
     type ErrorHandler = unsafe extern "C" fn(*mut c_void, *mut XErrorEvent) -> c_int;
+    #[link(name = "X11")]
     unsafe extern "C" {
         fn XSetErrorHandler(handler: Option<ErrorHandler>) -> Option<ErrorHandler>;
     }

@@ -17,6 +17,12 @@ const stroke = (d: string) => (
 
 export const SETTINGS_NAV_ICONS: Record<string, ReactNode> = {
   account: icon(stroke('M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z')),
+  // Core connection (local vs remote core) — server stack.
+  core: icon(
+    stroke(
+      'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01'
+    )
+  ),
   appearance: icon(stroke('M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z')),
   theme: icon(
     stroke(

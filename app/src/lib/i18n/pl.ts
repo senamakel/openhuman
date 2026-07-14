@@ -4153,6 +4153,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Testowe uruchamianie przepływu pracy…',
   'flows.copilot.tool.saving': 'Zapisywanie przepływu pracy…',
   'flows.copilot.tool.usingTools': 'Używanie narzędzi…',
+  'flows.copilot.cappedNotice':
+    'Kreator osiągnął limit iteracji przed ukończeniem tego przepływu pracy. Kontynuowanie oznacza dalsze budowanie na podstawie bieżącego szkicu.',
+  'flows.copilot.continueBuilding': 'Kontynuuj tworzenie',
   'flows.list.view': 'Wyświetl przepływ pracy',
   'flows.list.export': 'Eksportuj',
   'flows.list.exported': 'Wyeksportowano przepływ pracy',

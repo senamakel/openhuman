@@ -4172,6 +4172,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Ejecutando prueba del flujo de trabajo…',
   'flows.copilot.tool.saving': 'Guardando flujo de trabajo…',
   'flows.copilot.tool.usingTools': 'Usando herramientas…',
+  'flows.copilot.cappedNotice':
+    'El generador alcanzó su límite de iteraciones antes de terminar este flujo de trabajo. Al continuar, seguirá construyendo a partir del borrador actual.',
+  'flows.copilot.continueBuilding': 'Continuar creando',
   'flows.list.view': 'Ver flujo de trabajo',
   'flows.list.export': 'Exportar',
   'flows.list.exported': 'Flujo de trabajo exportado',

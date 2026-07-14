@@ -4200,6 +4200,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Exécution d’essai du workflow…',
   'flows.copilot.tool.saving': 'Enregistrement du workflow…',
   'flows.copilot.tool.usingTools': 'Utilisation d’outils…',
+  'flows.copilot.cappedNotice':
+    'Le générateur a atteint sa limite d’itérations avant de terminer ce workflow. En continuant, la construction reprendra à partir du brouillon actuel.',
+  'flows.copilot.continueBuilding': 'Continuer la création',
   'flows.list.view': 'Voir le workflow',
   'flows.list.export': 'Exporter',
   'flows.list.exported': 'Workflow exporté',

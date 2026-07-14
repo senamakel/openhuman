@@ -4115,6 +4115,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Menjalankan uji coba alur kerja…',
   'flows.copilot.tool.saving': 'Menyimpan alur kerja…',
   'flows.copilot.tool.usingTools': 'Menggunakan alat…',
+  'flows.copilot.cappedNotice':
+    'Builder mencapai batas iterasinya sebelum menyelesaikan alur kerja ini. Jika dilanjutkan, builder akan terus membangun dari draf saat ini.',
+  'flows.copilot.continueBuilding': 'Lanjutkan membangun',
   'flows.list.view': 'Lihat alur kerja',
   'flows.list.export': 'Ekspor',
   'flows.list.exported': 'Alur kerja diekspor',

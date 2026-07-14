@@ -4136,6 +4136,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Выполняется пробный запуск рабочего процесса…',
   'flows.copilot.tool.saving': 'Сохранение рабочего процесса…',
   'flows.copilot.tool.usingTools': 'Использование инструментов…',
+  'flows.copilot.cappedNotice':
+    'Конструктор достиг предела итераций до завершения этого рабочего процесса. При продолжении сборка возобновится на основе текущего черновика.',
+  'flows.copilot.continueBuilding': 'Продолжить создание',
   'flows.list.view': 'Просмотреть рабочий процесс',
   'flows.list.export': 'Экспорт',
   'flows.list.exported': 'Рабочий процесс экспортирован',

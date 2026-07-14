@@ -4218,6 +4218,9 @@ const messages: TranslationMap = {
   'flows.copilot.tool.dryRunning': 'Workflow wird testweise ausgeführt…',
   'flows.copilot.tool.saving': 'Workflow wird gespeichert…',
   'flows.copilot.tool.usingTools': 'Werkzeuge werden verwendet…',
+  'flows.copilot.cappedNotice':
+    'Der Builder hat sein Iterationslimit erreicht, bevor dieser Workflow fertiggestellt wurde. Beim Fortsetzen wird auf Basis des aktuellen Entwurfs weitergebaut.',
+  'flows.copilot.continueBuilding': 'Weiter erstellen',
   'flows.list.view': 'Workflow anzeigen',
   'flows.list.export': 'Exportieren',
   'flows.list.exported': 'Workflow exportiert',

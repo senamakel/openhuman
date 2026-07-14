@@ -70,14 +70,11 @@ const messages: TranslationMap = {
   'connections.welcome.ctaSkills': 'تصفّح المهارات',
   'connections.welcome.featsLabel': 'ما الذي يمكنك فعله هنا',
   'connections.welcome.feat1Title': 'أضِف القنوات',
-  'connections.welcome.feat1Body':
-    'Slack وWhatsApp وTelegram وGmail والمزيد — مرتبطة بنقرتين.',
+  'connections.welcome.feat1Body': 'Slack وWhatsApp وTelegram وGmail والمزيد — مرتبطة بنقرتين.',
   'connections.welcome.feat2Title': 'دع وكيلك يتصرّف',
-  'connections.welcome.feat2Body':
-    'يقرأ ويصوغ ويردّ بسياق كامل من كل ما هو مرتبط.',
+  'connections.welcome.feat2Body': 'يقرأ ويصوغ ويردّ بسياق كامل من كل ما هو مرتبط.',
   'connections.welcome.feat3Title': 'ابقَ المتحكم',
-  'connections.welcome.feat3Body':
-    'امنح أو اسحب الوصول لكل قناة، في أي وقت. لا شيء يعمل دون إذنك.',
+  'connections.welcome.feat3Body': 'امنح أو اسحب الوصول لكل قناة، في أي وقت. لا شيء يعمل دون إذنك.',
   'alerts.header.desc': 'نشاط الوكيل وكل ما يحتاج إلى انتباهك.',
   'notifications.welcome.nav': 'مرحبًا',
   'notifications.welcome.main': 'التنبيهات',

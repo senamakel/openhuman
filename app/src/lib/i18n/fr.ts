@@ -15,10 +15,13 @@ const messages: TranslationMap = {
   'agentWorld.welcome.feat1Title': 'Rencontrez d’autres agents',
   'agentWorld.welcome.feat1Body': 'Découvrez et contactez des agents de tout le réseau.',
   'agentWorld.welcome.feat2Title': 'Relevez des primes',
-  'agentWorld.welcome.feat2Body': 'Votre agent peut gagner de l’argent en réalisant les tâches publiées.',
+  'agentWorld.welcome.feat2Body':
+    'Votre agent peut gagner de l’argent en réalisant les tâches publiées.',
   'agentWorld.welcome.feat3Title': 'Échangez & effectuez des transactions',
-  'agentWorld.welcome.feat3Body': 'Paiements entre agents adossés à un portefeuille, avec votre approbation.',
-  'brain.header.graph': 'Comment les connaissances de votre agent se relient — personnes, sujets et souvenirs.',
+  'agentWorld.welcome.feat3Body':
+    'Paiements entre agents adossés à un portefeuille, avec votre approbation.',
+  'brain.header.graph':
+    'Comment les connaissances de votre agent se relient — personnes, sujets et souvenirs.',
   'brain.header.goals': 'Ce vers quoi votre agent travaille, et pourquoi.',
   'brain.header.sources': 'Les données dont votre agent apprend.',
   'brain.header.sync': 'Gardez votre mémoire à jour et passez en revue ce qui a changé.',
@@ -33,9 +36,11 @@ const messages: TranslationMap = {
   'brain.welcome.ctaSources': 'Connecter des sources',
   'brain.welcome.featsLabel': 'Ce qui vit ici',
   'brain.welcome.feat1Title': 'Graphe de mémoire',
-  'brain.welcome.feat1Body': 'Visualisez d’un coup d’œil comment personnes, sujets et messages se relient.',
+  'brain.welcome.feat1Body':
+    'Visualisez d’un coup d’œil comment personnes, sujets et messages se relient.',
   'brain.welcome.feat2Title': 'Objectifs & priorités',
-  'brain.welcome.feat2Body': 'Indiquez à votre agent ce qui compte pour qu’il priorise le bon travail.',
+  'brain.welcome.feat2Body':
+    'Indiquez à votre agent ce qui compte pour qu’il priorise le bon travail.',
   'brain.welcome.feat3Title': 'Sources & synchronisation',
   'brain.welcome.feat3Body': 'Connectez les données dont votre agent apprend et gardez-les à jour.',
   'feedback.header.title': 'Retours',
@@ -50,16 +55,19 @@ const messages: TranslationMap = {
   'feedback.welcome.ctaBoard': 'Voir le tableau',
   'feedback.welcome.featsLabel': 'Ce que vous pouvez faire',
   'feedback.welcome.feat1Title': 'Partager des idées',
-  'feedback.welcome.feat1Body': 'Bugs, demandes de fonctionnalités, idées en vrac — tout est bienvenu.',
+  'feedback.welcome.feat1Body':
+    'Bugs, demandes de fonctionnalités, idées en vrac — tout est bienvenu.',
   'feedback.welcome.feat2Title': 'Voter',
   'feedback.welcome.feat2Body': 'Votez pour ce qui compte afin que nous sachions quoi prioriser.',
   'feedback.welcome.feat3Title': 'Suivre l’avancement',
   'feedback.welcome.feat3Body': 'Voyez ce qui est prévu, en cours et livré.',
-  'connections.header.composio': 'Connectez les applications dans lesquelles votre agent peut agir.',
+  'connections.header.composio':
+    'Connectez les applications dans lesquelles votre agent peut agir.',
   'connections.header.channels': 'Reliez les applications de messagerie où vit votre communauté.',
   'connections.header.mcp': 'Ajoutez des serveurs MCP pour étendre les outils de votre agent.',
   'connections.header.skills': 'Installez et gérez les compétences des agents.',
-  'connections.header.meetings': 'Connectez vos agendas et laissez votre agent rejoindre les appels.',
+  'connections.header.meetings':
+    'Connectez vos agendas et laissez votre agent rejoindre les appels.',
   'connections.welcome.nav': 'Bienvenue',
   'connections.welcome.eyebrow': 'Connexions',
   'connections.welcome.title': 'Tout ce que vous utilisez, au même endroit',
@@ -88,9 +96,11 @@ const messages: TranslationMap = {
   'notifications.welcome.ctaView': 'Voir les alertes',
   'notifications.welcome.featsLabel': 'Ce que vous verrez',
   'notifications.welcome.feat1Title': 'Ce qui a besoin de vous',
-  'notifications.welcome.feat1Body': 'Décisions et mentions que vos agents ont signalées à un humain.',
+  'notifications.welcome.feat1Body':
+    'Décisions et mentions que vos agents ont signalées à un humain.',
   'notifications.welcome.feat2Title': 'Activité des agents',
-  'notifications.welcome.feat2Body': 'Un journal en continu de ce qui a tourné et de ce que cela a produit.',
+  'notifications.welcome.feat2Body':
+    'Un journal en continu de ce qui a tourné et de ce que cela a produit.',
   'notifications.welcome.feat3Title': 'Filtré par catégorie',
   'notifications.welcome.feat3Body': 'Messages, réunions, rappels — découpés comme vous pensez.',
   'rewards.header.desc': 'Vos points, séries, parrainages et avantages.',
@@ -103,7 +113,8 @@ const messages: TranslationMap = {
   'rewards.welcome.ctaView': 'Voir les récompenses',
   'rewards.welcome.featsLabel': 'Comment ça marche',
   'rewards.welcome.feat1Title': 'Gagnez des points',
-  'rewards.welcome.feat1Body': 'Les actions quotidiennes et les parrainages s’accumulent au fil du temps.',
+  'rewards.welcome.feat1Body':
+    'Les actions quotidiennes et les parrainages s’accumulent au fil du temps.',
   'rewards.welcome.feat2Title': 'Maintenez votre série',
   'rewards.welcome.feat2Body': 'Revenez régulièrement pour débloquer des bonus de série.',
   'rewards.welcome.feat3Title': 'Échangez des avantages',
@@ -118,9 +129,11 @@ const messages: TranslationMap = {
   'flows.welcome.ctaBrowse': 'Parcourir les flux de travail',
   'flows.welcome.featsLabel': 'Ce que vous pouvez automatiser',
   'flows.welcome.feat1Title': 'Décrivez avec des mots',
-  'flows.welcome.feat1Body': 'Dites ce que vous voulez en langage clair ; le constructeur ébauche le flux.',
+  'flows.welcome.feat1Body':
+    'Dites ce que vous voulez en langage clair ; le constructeur ébauche le flux.',
   'flows.welcome.feat2Title': 'Exécutez selon un calendrier',
-  'flows.welcome.feat2Body': 'Déclenchez sur une minuterie, un événement ou un bouton — à vous de choisir.',
+  'flows.welcome.feat2Body':
+    'Déclenchez sur une minuterie, un événement ou un bouton — à vous de choisir.',
   'flows.welcome.feat3Title': 'Gardez les humains dans la boucle',
   'flows.welcome.feat3Body': 'Approuvez les étapes sensibles avant que quoi que ce soit ne parte.',
   // Privacy Mode selector (#4435) — data-egress posture

@@ -17,7 +17,8 @@ const messages: TranslationMap = {
   'agentWorld.welcome.feat2Title': 'Podejmuj zlecenia',
   'agentWorld.welcome.feat2Body': 'Twój agent może zarabiać, wykonując opublikowane zadania.',
   'agentWorld.welcome.feat3Title': 'Handluj i zawieraj transakcje',
-  'agentWorld.welcome.feat3Body': 'Płatności między agentami obsługiwane przez portfel, za Twoją zgodą.',
+  'agentWorld.welcome.feat3Body':
+    'Płatności między agentami obsługiwane przez portfel, za Twoją zgodą.',
   'brain.header.graph': 'Jak łączy się wiedza Twojego agenta — ludzie, tematy i wspomnienia.',
   'brain.header.goals': 'Nad czym pracuje Twój agent i dlaczego.',
   'brain.header.sources': 'Dane, z których uczy się Twój agent.',
@@ -33,11 +34,13 @@ const messages: TranslationMap = {
   'brain.welcome.ctaSources': 'Połącz źródła',
   'brain.welcome.featsLabel': 'Co się tu znajduje',
   'brain.welcome.feat1Title': 'Graf pamięci',
-  'brain.welcome.feat1Body': 'Zobacz na pierwszy rzut oka, jak łączą się ludzie, tematy i wiadomości.',
+  'brain.welcome.feat1Body':
+    'Zobacz na pierwszy rzut oka, jak łączą się ludzie, tematy i wiadomości.',
   'brain.welcome.feat2Title': 'Cele i skupienie',
   'brain.welcome.feat2Body': 'Powiedz agentowi, co jest ważne, aby priorytetyzował właściwą pracę.',
   'brain.welcome.feat3Title': 'Źródła i synchronizacja',
-  'brain.welcome.feat3Body': 'Połącz dane, z których uczy się Twój agent, i utrzymuj je w aktualności.',
+  'brain.welcome.feat3Body':
+    'Połącz dane, z których uczy się Twój agent, i utrzymuj je w aktualności.',
   'feedback.header.title': 'Opinie',
   'feedback.header.desc': 'Dziel się pomysłami i głosuj na to, co zbudujemy dalej.',
   'feedback.welcome.nav': 'Witamy',
@@ -50,7 +53,8 @@ const messages: TranslationMap = {
   'feedback.welcome.ctaBoard': 'Zobacz tablicę',
   'feedback.welcome.featsLabel': 'Co możesz zrobić',
   'feedback.welcome.feat1Title': 'Dziel się pomysłami',
-  'feedback.welcome.feat1Body': 'Błędy, propozycje funkcji, luźne przemyślenia — wszystko mile widziane.',
+  'feedback.welcome.feat1Body':
+    'Błędy, propozycje funkcji, luźne przemyślenia — wszystko mile widziane.',
   'feedback.welcome.feat2Title': 'Głosuj',
   'feedback.welcome.feat2Body': 'Głosuj na to, co ważne, abyśmy wiedzieli, co priorytetyzować.',
   'feedback.welcome.feat3Title': 'Śledź postępy',
@@ -88,11 +92,14 @@ const messages: TranslationMap = {
   'notifications.welcome.ctaView': 'Zobacz powiadomienia',
   'notifications.welcome.featsLabel': 'Co zobaczysz',
   'notifications.welcome.feat1Title': 'Co Cię potrzebuje',
-  'notifications.welcome.feat1Body': 'Decyzje i wzmianki, które Twoi agenci oznaczyli dla człowieka.',
+  'notifications.welcome.feat1Body':
+    'Decyzje i wzmianki, które Twoi agenci oznaczyli dla człowieka.',
   'notifications.welcome.feat2Title': 'Aktywność agenta',
-  'notifications.welcome.feat2Body': 'Bieżący dziennik tego, co zostało uruchomione i co wytworzyło.',
+  'notifications.welcome.feat2Body':
+    'Bieżący dziennik tego, co zostało uruchomione i co wytworzyło.',
   'notifications.welcome.feat3Title': 'Filtrowane według kategorii',
-  'notifications.welcome.feat3Body': 'Wiadomości, spotkania, przypomnienia — poukładane tak, jak myślisz.',
+  'notifications.welcome.feat3Body':
+    'Wiadomości, spotkania, przypomnienia — poukładane tak, jak myślisz.',
   'rewards.header.desc': 'Twoje punkty, serie, polecenia i korzyści.',
   'rewards.welcome.nav': 'Witamy',
   'rewards.welcome.main': 'Nagrody',
@@ -118,7 +125,8 @@ const messages: TranslationMap = {
   'flows.welcome.ctaBrowse': 'Przeglądaj przepływy pracy',
   'flows.welcome.featsLabel': 'Co możesz zautomatyzować',
   'flows.welcome.feat1Title': 'Opisz słowami',
-  'flows.welcome.feat1Body': 'Powiedz, czego chcesz, zwykłym językiem; kreator naszkicuje przepływ.',
+  'flows.welcome.feat1Body':
+    'Powiedz, czego chcesz, zwykłym językiem; kreator naszkicuje przepływ.',
   'flows.welcome.feat2Title': 'Uruchamiaj według harmonogramu',
   'flows.welcome.feat2Body': 'Uruchamiaj czasowo, zdarzeniowo lub przyciskiem — Ty decydujesz.',
   'flows.welcome.feat3Title': 'Zachowaj udział ludzi',

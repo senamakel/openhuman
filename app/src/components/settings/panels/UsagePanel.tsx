@@ -11,11 +11,7 @@ import TokenUsagePanel from './TokenUsagePanel';
 
 type TabId = 'costs' | 'tokens' | 'background';
 
-const TAB_HASH: Record<TabId, string> = {
-  costs: '',
-  tokens: '#tokens',
-  background: '#background',
-};
+const TAB_HASH: Record<TabId, string> = { costs: '', tokens: '#tokens', background: '#background' };
 
 const hashToTab = (hash: string): TabId => {
   if (hash === '#background') return 'background';

@@ -37,7 +37,8 @@ const messages: TranslationMap = {
   'brain.welcome.feat2Title': 'Objetivos & foco',
   'brain.welcome.feat2Body': 'Diga ao seu agente o que importa para que priorize o trabalho certo.',
   'brain.welcome.feat3Title': 'Fontes & sincronização',
-  'brain.welcome.feat3Body': 'Ligue os dados com que o seu agente aprende e mantenha-os atualizados.',
+  'brain.welcome.feat3Body':
+    'Ligue os dados com que o seu agente aprende e mantenha-os atualizados.',
   'feedback.header.title': 'Comentários',
   'feedback.header.desc': 'Partilhe ideias e vote no que vamos construir a seguir.',
   'feedback.welcome.nav': 'Bem-vindo',
@@ -50,7 +51,8 @@ const messages: TranslationMap = {
   'feedback.welcome.ctaBoard': 'Ver o quadro',
   'feedback.welcome.featsLabel': 'O que pode fazer',
   'feedback.welcome.feat1Title': 'Partilhar ideias',
-  'feedback.welcome.feat1Body': 'Erros, pedidos de funcionalidades, ideias soltas — tudo é bem-vindo.',
+  'feedback.welcome.feat1Body':
+    'Erros, pedidos de funcionalidades, ideias soltas — tudo é bem-vindo.',
   'feedback.welcome.feat2Title': 'Votar',
   'feedback.welcome.feat2Body': 'Vote no que importa para sabermos o que priorizar.',
   'feedback.welcome.feat3Title': 'Acompanhar o progresso',
@@ -88,11 +90,13 @@ const messages: TranslationMap = {
   'notifications.welcome.ctaView': 'Ver alertas',
   'notifications.welcome.featsLabel': 'O que vai ver',
   'notifications.welcome.feat1Title': 'O que precisa de si',
-  'notifications.welcome.feat1Body': 'Decisões e menções que os seus agentes sinalizaram para um humano.',
+  'notifications.welcome.feat1Body':
+    'Decisões e menções que os seus agentes sinalizaram para um humano.',
   'notifications.welcome.feat2Title': 'Atividade do agente',
   'notifications.welcome.feat2Body': 'Um registo contínuo do que correu e do que produziu.',
   'notifications.welcome.feat3Title': 'Filtrado por categoria',
-  'notifications.welcome.feat3Body': 'Mensagens, reuniões, lembretes — organizados como você pensa.',
+  'notifications.welcome.feat3Body':
+    'Mensagens, reuniões, lembretes — organizados como você pensa.',
   'rewards.header.desc': 'Os seus pontos, sequências, indicações e vantagens.',
   'rewards.welcome.nav': 'Bem-vindo',
   'rewards.welcome.main': 'Recompensas',

@@ -15,7 +15,8 @@ const messages: TranslationMap = {
   'agentWorld.welcome.feat1Title': 'Bertemu agen lain',
   'agentWorld.welcome.feat1Body': 'Temukan dan kirimi pesan agen dari seluruh jaringan.',
   'agentWorld.welcome.feat2Title': 'Ambil bounty',
-  'agentWorld.welcome.feat2Body': 'Agen Anda bisa menghasilkan dengan menyelesaikan pekerjaan yang diposting.',
+  'agentWorld.welcome.feat2Body':
+    'Agen Anda bisa menghasilkan dengan menyelesaikan pekerjaan yang diposting.',
   'agentWorld.welcome.feat3Title': 'Berdagang & bertransaksi',
   'agentWorld.welcome.feat3Body': 'Pembayaran berbasis dompet antaragen, dengan persetujuan Anda.',
   'brain.header.graph': 'Bagaimana pengetahuan agen Anda terhubung — orang, topik, dan memori.',
@@ -35,7 +36,8 @@ const messages: TranslationMap = {
   'brain.welcome.feat1Title': 'Grafik memori',
   'brain.welcome.feat1Body': 'Lihat sekilas bagaimana orang, topik, dan pesan saling terhubung.',
   'brain.welcome.feat2Title': 'Tujuan & fokus',
-  'brain.welcome.feat2Body': 'Beri tahu agen Anda apa yang penting agar ia memprioritaskan pekerjaan yang tepat.',
+  'brain.welcome.feat2Body':
+    'Beri tahu agen Anda apa yang penting agar ia memprioritaskan pekerjaan yang tepat.',
   'brain.welcome.feat3Title': 'Sumber & sinkronisasi',
   'brain.welcome.feat3Body': 'Sambungkan data yang dipelajari agen Anda dan jaga tetap segar.',
   'feedback.header.title': 'Masukan',
@@ -52,14 +54,17 @@ const messages: TranslationMap = {
   'feedback.welcome.feat1Title': 'Bagikan ide',
   'feedback.welcome.feat1Body': 'Bug, permintaan fitur, gagasan kasar — semuanya diterima.',
   'feedback.welcome.feat2Title': 'Beri suara',
-  'feedback.welcome.feat2Body': 'Beri suara pada yang penting agar kami tahu apa yang harus diprioritaskan.',
+  'feedback.welcome.feat2Body':
+    'Beri suara pada yang penting agar kami tahu apa yang harus diprioritaskan.',
   'feedback.welcome.feat3Title': 'Lacak kemajuan',
-  'feedback.welcome.feat3Body': 'Lihat apa yang direncanakan, sedang dikerjakan, dan sudah dirilis.',
+  'feedback.welcome.feat3Body':
+    'Lihat apa yang direncanakan, sedang dikerjakan, dan sudah dirilis.',
   'connections.header.composio': 'Sambungkan aplikasi tempat agen Anda dapat bertindak.',
   'connections.header.channels': 'Tautkan aplikasi obrolan tempat komunitas Anda berada.',
   'connections.header.mcp': 'Tambahkan server MCP untuk memperluas alat agen Anda.',
   'connections.header.skills': 'Pasang dan kelola keahlian agen.',
-  'connections.header.meetings': 'Sambungkan kalender dan biarkan agen Anda bergabung ke panggilan.',
+  'connections.header.meetings':
+    'Sambungkan kalender dan biarkan agen Anda bergabung ke panggilan.',
   'connections.welcome.nav': 'Selamat datang',
   'connections.welcome.eyebrow': 'Koneksi',
   'connections.welcome.title': 'Semua yang Anda gunakan, dalam satu tempat',
@@ -90,7 +95,8 @@ const messages: TranslationMap = {
   'notifications.welcome.feat1Title': 'Apa yang membutuhkan Anda',
   'notifications.welcome.feat1Body': 'Keputusan dan sebutan yang ditandai agen Anda untuk manusia.',
   'notifications.welcome.feat2Title': 'Aktivitas agen',
-  'notifications.welcome.feat2Body': 'Catatan berjalan tentang apa yang dijalankan dan apa yang dihasilkannya.',
+  'notifications.welcome.feat2Body':
+    'Catatan berjalan tentang apa yang dijalankan dan apa yang dihasilkannya.',
   'notifications.welcome.feat3Title': 'Difilter menurut kategori',
   'notifications.welcome.feat3Body': 'Pesan, rapat, pengingat — dipilah sesuai cara Anda berpikir.',
   'rewards.header.desc': 'Poin, rentetan, rujukan, dan keuntungan Anda.',
@@ -118,9 +124,11 @@ const messages: TranslationMap = {
   'flows.welcome.ctaBrowse': 'Jelajahi alur kerja',
   'flows.welcome.featsLabel': 'Apa yang bisa Anda otomatiskan',
   'flows.welcome.feat1Title': 'Uraikan dengan kata-kata',
-  'flows.welcome.feat1Body': 'Katakan apa yang Anda inginkan dalam bahasa sederhana; pembangun menyusun alurnya.',
+  'flows.welcome.feat1Body':
+    'Katakan apa yang Anda inginkan dalam bahasa sederhana; pembangun menyusun alurnya.',
   'flows.welcome.feat2Title': 'Jalankan sesuai jadwal',
-  'flows.welcome.feat2Body': 'Picu dengan pengatur waktu, sebuah peristiwa, atau sebuah tombol — terserah Anda.',
+  'flows.welcome.feat2Body':
+    'Picu dengan pengatur waktu, sebuah peristiwa, atau sebuah tombol — terserah Anda.',
   'flows.welcome.feat3Title': 'Libatkan manusia dalam prosesnya',
   'flows.welcome.feat3Body': 'Setujui langkah sensitif sebelum apa pun terkirim.',
   // Privacy Mode selector (#4435) — data-egress posture

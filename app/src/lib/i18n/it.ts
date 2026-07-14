@@ -18,7 +18,8 @@ const messages: TranslationMap = {
   'agentWorld.welcome.feat2Body': 'Il tuo agente può guadagnare completando i lavori pubblicati.',
   'agentWorld.welcome.feat3Title': 'Commercia & negozia',
   'agentWorld.welcome.feat3Body': 'Pagamenti tra agenti tramite wallet, con la tua approvazione.',
-  'brain.header.graph': 'Come si collega la conoscenza del tuo agente — persone, argomenti e ricordi.',
+  'brain.header.graph':
+    'Come si collega la conoscenza del tuo agente — persone, argomenti e ricordi.',
   'brain.header.goals': 'A cosa sta lavorando il tuo agente, e perché.',
   'brain.header.sources': 'I dati da cui il tuo agente impara.',
   'brain.header.sync': 'Mantieni aggiornata la tua memoria e rivedi cosa è cambiato.',
@@ -33,7 +34,8 @@ const messages: TranslationMap = {
   'brain.welcome.ctaSources': 'Collega le fonti',
   'brain.welcome.featsLabel': 'Cosa vive qui',
   'brain.welcome.feat1Title': 'Grafo della memoria',
-  'brain.welcome.feat1Body': 'Vedi a colpo d’occhio come si collegano persone, argomenti e messaggi.',
+  'brain.welcome.feat1Body':
+    'Vedi a colpo d’occhio come si collegano persone, argomenti e messaggi.',
   'brain.welcome.feat2Title': 'Obiettivi & priorità',
   'brain.welcome.feat2Body': 'Di’ al tuo agente cosa conta affinché dia priorità al lavoro giusto.',
   'brain.welcome.feat3Title': 'Fonti & sincronizzazione',
@@ -50,7 +52,8 @@ const messages: TranslationMap = {
   'feedback.welcome.ctaBoard': 'Vedi la bacheca',
   'feedback.welcome.featsLabel': 'Cosa puoi fare',
   'feedback.welcome.feat1Title': 'Condividi idee',
-  'feedback.welcome.feat1Body': 'Bug, richieste di funzionalità, pensieri abbozzati — tutto è benvenuto.',
+  'feedback.welcome.feat1Body':
+    'Bug, richieste di funzionalità, pensieri abbozzati — tutto è benvenuto.',
   'feedback.welcome.feat2Title': 'Vota',
   'feedback.welcome.feat2Body': 'Vota ciò che conta così sappiamo a cosa dare priorità.',
   'feedback.welcome.feat3Title': 'Segui i progressi',
@@ -59,7 +62,8 @@ const messages: TranslationMap = {
   'connections.header.channels': 'Collega le app di chat in cui vive la tua community.',
   'connections.header.mcp': 'Aggiungi server MCP per estendere gli strumenti del tuo agente.',
   'connections.header.skills': 'Installa e gestisci le abilità dell’agente.',
-  'connections.header.meetings': 'Collega i calendari e lascia che il tuo agente partecipi alle chiamate.',
+  'connections.header.meetings':
+    'Collega i calendari e lascia che il tuo agente partecipi alle chiamate.',
   'connections.welcome.nav': 'Benvenuto',
   'connections.welcome.eyebrow': 'Connessioni',
   'connections.welcome.title': 'Tutto ciò che usi, in un unico posto',
@@ -88,9 +92,11 @@ const messages: TranslationMap = {
   'notifications.welcome.ctaView': 'Vedi gli avvisi',
   'notifications.welcome.featsLabel': 'Cosa vedrai',
   'notifications.welcome.feat1Title': 'Cosa richiede te',
-  'notifications.welcome.feat1Body': 'Decisioni e menzioni che i tuoi agenti hanno segnalato per un umano.',
+  'notifications.welcome.feat1Body':
+    'Decisioni e menzioni che i tuoi agenti hanno segnalato per un umano.',
   'notifications.welcome.feat2Title': 'Attività dell’agente',
-  'notifications.welcome.feat2Body': 'Un registro continuo di ciò che è stato eseguito e ciò che ha prodotto.',
+  'notifications.welcome.feat2Body':
+    'Un registro continuo di ciò che è stato eseguito e ciò che ha prodotto.',
   'notifications.welcome.feat3Title': 'Filtrate per categoria',
   'notifications.welcome.feat3Body': 'Messaggi, riunioni, promemoria — suddivisi come pensi tu.',
   'rewards.header.desc': 'I tuoi punti, le serie, gli inviti e i vantaggi.',
@@ -118,7 +124,8 @@ const messages: TranslationMap = {
   'flows.welcome.ctaBrowse': 'Sfoglia i flussi di lavoro',
   'flows.welcome.featsLabel': 'Cosa puoi automatizzare',
   'flows.welcome.feat1Title': 'Descrivi a parole',
-  'flows.welcome.feat1Body': 'Di’ cosa vuoi in linguaggio semplice; il costruttore abbozza il flusso.',
+  'flows.welcome.feat1Body':
+    'Di’ cosa vuoi in linguaggio semplice; il costruttore abbozza il flusso.',
   'flows.welcome.feat2Title': 'Esegui su pianificazione',
   'flows.welcome.feat2Body': 'Si attiva con un timer, un evento o un pulsante — decidi tu.',
   'flows.welcome.feat3Title': 'Tieni gli umani nel ciclo',

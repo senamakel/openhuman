@@ -70,14 +70,11 @@ const messages: TranslationMap = {
   'connections.welcome.ctaSkills': '浏览技能',
   'connections.welcome.featsLabel': '你在这里可以做什么',
   'connections.welcome.feat1Title': '接入渠道',
-  'connections.welcome.feat1Body':
-    'Slack、WhatsApp、Telegram、Gmail 等等——只需点击几下即可关联。',
+  'connections.welcome.feat1Body': 'Slack、WhatsApp、Telegram、Gmail 等等——只需点击几下即可关联。',
   'connections.welcome.feat2Title': '让你的智能体行动起来',
-  'connections.welcome.feat2Body':
-    '它会带着来自所有已连接内容的完整上下文进行阅读、起草和回复。',
+  'connections.welcome.feat2Body': '它会带着来自所有已连接内容的完整上下文进行阅读、起草和回复。',
   'connections.welcome.feat3Title': '始终掌控',
-  'connections.welcome.feat3Body':
-    '随时可按渠道授予或撤销访问权限。未经你同意，一切都不会运行。',
+  'connections.welcome.feat3Body': '随时可按渠道授予或撤销访问权限。未经你同意，一切都不会运行。',
   'alerts.header.desc': '智能体活动以及一切需要你关注的内容。',
   'notifications.welcome.nav': '欢迎',
   'notifications.welcome.main': '提醒',

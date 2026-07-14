@@ -35,7 +35,8 @@ const messages: TranslationMap = {
   'brain.welcome.feat1Title': '기억 그래프',
   'brain.welcome.feat1Body': '사람, 주제, 메시지가 어떻게 연결되는지 한눈에 확인하세요.',
   'brain.welcome.feat2Title': '목표 & 집중',
-  'brain.welcome.feat2Body': '무엇이 중요한지 에이전트에게 알려주어 올바른 일에 우선순위를 두게 하세요.',
+  'brain.welcome.feat2Body':
+    '무엇이 중요한지 에이전트에게 알려주어 올바른 일에 우선순위를 두게 하세요.',
   'brain.welcome.feat3Title': '소스 & 동기화',
   'brain.welcome.feat3Body': '에이전트가 학습하는 데이터를 연결하고 최신 상태로 유지하세요.',
   'feedback.header.title': '피드백',

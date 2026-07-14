@@ -35,7 +35,8 @@ const messages: TranslationMap = {
   'brain.welcome.feat1Title': 'मेमोरी ग्राफ़',
   'brain.welcome.feat1Body': 'एक नज़र में देखें कि लोग, विषय और संदेश कैसे जुड़ते हैं।',
   'brain.welcome.feat2Title': 'लक्ष्य और फ़ोकस',
-  'brain.welcome.feat2Body': 'अपने एजेंट को बताएं कि क्या मायने रखता है ताकि वह सही काम को प्राथमिकता दे।',
+  'brain.welcome.feat2Body':
+    'अपने एजेंट को बताएं कि क्या मायने रखता है ताकि वह सही काम को प्राथमिकता दे।',
   'brain.welcome.feat3Title': 'स्रोत और सिंक',
   'brain.welcome.feat3Body': 'वह डेटा जोड़ें जिससे आपका एजेंट सीखता है और उसे ताज़ा रखें।',
   'feedback.header.title': 'प्रतिक्रिया',
@@ -52,7 +53,8 @@ const messages: TranslationMap = {
   'feedback.welcome.feat1Title': 'विचार साझा करें',
   'feedback.welcome.feat1Body': 'बग, फ़ीचर अनुरोध, कच्चे विचार — सभी का स्वागत है।',
   'feedback.welcome.feat2Title': 'वोट दें',
-  'feedback.welcome.feat2Body': 'जो मायने रखता है उसे अपवोट करें ताकि हमें पता चले कि क्या प्राथमिकता देनी है।',
+  'feedback.welcome.feat2Body':
+    'जो मायने रखता है उसे अपवोट करें ताकि हमें पता चले कि क्या प्राथमिकता देनी है।',
   'feedback.welcome.feat3Title': 'प्रगति ट्रैक करें',
   'feedback.welcome.feat3Body': 'देखें कि क्या योजनाबद्ध है, प्रगति पर है, और शिप हो चुका है।',
   'connections.header.composio': 'उन ऐप्स को जोड़ें जिनमें आपका एजेंट कार्य कर सकता है।',
@@ -88,7 +90,8 @@ const messages: TranslationMap = {
   'notifications.welcome.ctaView': 'अलर्ट देखें',
   'notifications.welcome.featsLabel': 'आप क्या देखेंगे',
   'notifications.welcome.feat1Title': 'जिसके लिए आपकी ज़रूरत है',
-  'notifications.welcome.feat1Body': 'निर्णय और उल्लेख जिन्हें आपके एजेंटों ने किसी इंसान के लिए चिह्नित किया।',
+  'notifications.welcome.feat1Body':
+    'निर्णय और उल्लेख जिन्हें आपके एजेंटों ने किसी इंसान के लिए चिह्नित किया।',
   'notifications.welcome.feat2Title': 'एजेंट गतिविधि',
   'notifications.welcome.feat2Body': 'क्या चला और उसने क्या बनाया, इसका एक चालू लॉग।',
   'notifications.welcome.feat3Title': 'श्रेणी के अनुसार फ़िल्टर किया गया',
@@ -118,7 +121,8 @@ const messages: TranslationMap = {
   'flows.welcome.ctaBrowse': 'वर्कफ़्लो ब्राउज़ करें',
   'flows.welcome.featsLabel': 'आप क्या स्वचालित कर सकते हैं',
   'flows.welcome.feat1Title': 'शब्दों में बताएं',
-  'flows.welcome.feat1Body': 'सरल भाषा में बताएं कि आप क्या चाहते हैं; बिल्डर फ़्लो का ड्राफ़्ट बनाता है।',
+  'flows.welcome.feat1Body':
+    'सरल भाषा में बताएं कि आप क्या चाहते हैं; बिल्डर फ़्लो का ड्राफ़्ट बनाता है।',
   'flows.welcome.feat2Title': 'शेड्यूल पर चलाएँ',
   'flows.welcome.feat2Body': 'टाइमर पर, किसी इवेंट पर, या एक बटन पर चलाएँ — आपकी मर्ज़ी।',
   'flows.welcome.feat3Title': 'इंसानों को शामिल रखें',

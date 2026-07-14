@@ -59,7 +59,8 @@ const messages: TranslationMap = {
   'connections.header.channels': 'Свяжите чат-приложения, в которых живёт ваше сообщество.',
   'connections.header.mcp': 'Добавьте MCP-серверы, чтобы расширить инструменты вашего агента.',
   'connections.header.skills': 'Устанавливайте и управляйте навыками агента.',
-  'connections.header.meetings': 'Подключите календари и позвольте агенту присоединяться к звонкам.',
+  'connections.header.meetings':
+    'Подключите календари и позвольте агенту присоединяться к звонкам.',
   'connections.welcome.nav': 'Добро пожаловать',
   'connections.welcome.eyebrow': 'Подключения',
   'connections.welcome.title': 'Всё, чем вы пользуетесь, в одном месте',
@@ -92,7 +93,8 @@ const messages: TranslationMap = {
   'notifications.welcome.feat2Title': 'Активность агента',
   'notifications.welcome.feat2Body': 'Текущий журнал того, что запускалось и что было получено.',
   'notifications.welcome.feat3Title': 'Отфильтровано по категориям',
-  'notifications.welcome.feat3Body': 'Сообщения, встречи, напоминания — разбито так, как вы мыслите.',
+  'notifications.welcome.feat3Body':
+    'Сообщения, встречи, напоминания — разбито так, как вы мыслите.',
   'rewards.header.desc': 'Ваши баллы, серии, приглашения и привилегии.',
   'rewards.welcome.nav': 'Добро пожаловать',
   'rewards.welcome.main': 'Награды',

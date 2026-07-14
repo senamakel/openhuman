@@ -13,12 +13,16 @@ const messages: TranslationMap = {
   'agentWorld.welcome.ctaDirectory': 'Agenten finden',
   'agentWorld.welcome.featsLabel': 'Was hier passiert',
   'agentWorld.welcome.feat1Title': 'Andere Agenten treffen',
-  'agentWorld.welcome.feat1Body': 'Entdecken Sie Agenten aus dem gesamten Netzwerk und schreiben Sie ihnen.',
+  'agentWorld.welcome.feat1Body':
+    'Entdecken Sie Agenten aus dem gesamten Netzwerk und schreiben Sie ihnen.',
   'agentWorld.welcome.feat2Title': 'Bounties übernehmen',
-  'agentWorld.welcome.feat2Body': 'Ihr Agent kann verdienen, indem er ausgeschriebene Aufgaben erledigt.',
+  'agentWorld.welcome.feat2Body':
+    'Ihr Agent kann verdienen, indem er ausgeschriebene Aufgaben erledigt.',
   'agentWorld.welcome.feat3Title': 'Handeln & abwickeln',
-  'agentWorld.welcome.feat3Body': 'Wallet-gestützte Zahlungen zwischen Agenten, mit Ihrer Zustimmung.',
-  'brain.header.graph': 'Wie das Wissen Ihres Agenten zusammenhängt — Menschen, Themen und Erinnerungen.',
+  'agentWorld.welcome.feat3Body':
+    'Wallet-gestützte Zahlungen zwischen Agenten, mit Ihrer Zustimmung.',
+  'brain.header.graph':
+    'Wie das Wissen Ihres Agenten zusammenhängt — Menschen, Themen und Erinnerungen.',
   'brain.header.goals': 'Woran Ihr Agent arbeitet und warum.',
   'brain.header.sources': 'Die Daten, aus denen Ihr Agent lernt.',
   'brain.header.sync': 'Halten Sie Ihr Gedächtnis aktuell und prüfen Sie, was sich geändert hat.',
@@ -33,13 +37,17 @@ const messages: TranslationMap = {
   'brain.welcome.ctaSources': 'Quellen verbinden',
   'brain.welcome.featsLabel': 'Was hier lebt',
   'brain.welcome.feat1Title': 'Gedächtnisgraph',
-  'brain.welcome.feat1Body': 'Sehen Sie auf einen Blick, wie Menschen, Themen und Nachrichten zusammenhängen.',
+  'brain.welcome.feat1Body':
+    'Sehen Sie auf einen Blick, wie Menschen, Themen und Nachrichten zusammenhängen.',
   'brain.welcome.feat2Title': 'Ziele & Fokus',
-  'brain.welcome.feat2Body': 'Sagen Sie Ihrem Agenten, was zählt, damit er die richtige Arbeit priorisiert.',
+  'brain.welcome.feat2Body':
+    'Sagen Sie Ihrem Agenten, was zählt, damit er die richtige Arbeit priorisiert.',
   'brain.welcome.feat3Title': 'Quellen & Synchronisierung',
-  'brain.welcome.feat3Body': 'Verbinden Sie die Daten, aus denen Ihr Agent lernt, und halten Sie sie aktuell.',
+  'brain.welcome.feat3Body':
+    'Verbinden Sie die Daten, aus denen Ihr Agent lernt, und halten Sie sie aktuell.',
   'feedback.header.title': 'Feedback',
-  'feedback.header.desc': 'Teilen Sie Ideen und stimmen Sie darüber ab, was wir als Nächstes bauen.',
+  'feedback.header.desc':
+    'Teilen Sie Ideen und stimmen Sie darüber ab, was wir als Nächstes bauen.',
   'feedback.welcome.nav': 'Willkommen',
   'feedback.welcome.main': 'Feedback-Board',
   'feedback.welcome.eyebrow': 'Feedback',
@@ -52,14 +60,17 @@ const messages: TranslationMap = {
   'feedback.welcome.feat1Title': 'Ideen teilen',
   'feedback.welcome.feat1Body': 'Fehler, Funktionswünsche, grobe Gedanken — alles ist willkommen.',
   'feedback.welcome.feat2Title': 'Abstimmen',
-  'feedback.welcome.feat2Body': 'Stimmen Sie für das, was zählt, damit wir wissen, was zu priorisieren ist.',
+  'feedback.welcome.feat2Body':
+    'Stimmen Sie für das, was zählt, damit wir wissen, was zu priorisieren ist.',
   'feedback.welcome.feat3Title': 'Fortschritt verfolgen',
   'feedback.welcome.feat3Body': 'Sehen Sie, was geplant, in Arbeit und ausgeliefert ist.',
   'connections.header.composio': 'Verbinden Sie die Apps, in denen Ihr Agent handeln kann.',
   'connections.header.channels': 'Verknüpfen Sie die Chat-Apps, in denen Ihre Community lebt.',
-  'connections.header.mcp': 'Fügen Sie MCP-Server hinzu, um die Werkzeuge Ihres Agenten zu erweitern.',
+  'connections.header.mcp':
+    'Fügen Sie MCP-Server hinzu, um die Werkzeuge Ihres Agenten zu erweitern.',
   'connections.header.skills': 'Agenten-Skills installieren und verwalten.',
-  'connections.header.meetings': 'Verbinden Sie Kalender und lassen Sie Ihren Agenten an Anrufen teilnehmen.',
+  'connections.header.meetings':
+    'Verbinden Sie Kalender und lassen Sie Ihren Agenten an Anrufen teilnehmen.',
   'connections.welcome.nav': 'Willkommen',
   'connections.welcome.eyebrow': 'Verbindungen',
   'connections.welcome.title': 'Alles, was Sie nutzen, an einem Ort',
@@ -88,11 +99,14 @@ const messages: TranslationMap = {
   'notifications.welcome.ctaView': 'Hinweise ansehen',
   'notifications.welcome.featsLabel': 'Was Sie sehen werden',
   'notifications.welcome.feat1Title': 'Was Sie braucht',
-  'notifications.welcome.feat1Body': 'Entscheidungen und Erwähnungen, die Ihre Agenten für einen Menschen markiert haben.',
+  'notifications.welcome.feat1Body':
+    'Entscheidungen und Erwähnungen, die Ihre Agenten für einen Menschen markiert haben.',
   'notifications.welcome.feat2Title': 'Agenten-Aktivität',
-  'notifications.welcome.feat2Body': 'Ein laufendes Protokoll dessen, was lief und was es hervorgebracht hat.',
+  'notifications.welcome.feat2Body':
+    'Ein laufendes Protokoll dessen, was lief und was es hervorgebracht hat.',
   'notifications.welcome.feat3Title': 'Nach Kategorie gefiltert',
-  'notifications.welcome.feat3Body': 'Nachrichten, Meetings, Erinnerungen — so aufgeteilt, wie Sie denken.',
+  'notifications.welcome.feat3Body':
+    'Nachrichten, Meetings, Erinnerungen — so aufgeteilt, wie Sie denken.',
   'rewards.header.desc': 'Ihre Punkte, Serien, Empfehlungen und Vorteile.',
   'rewards.welcome.nav': 'Willkommen',
   'rewards.welcome.main': 'Belohnungen',
@@ -118,7 +132,8 @@ const messages: TranslationMap = {
   'flows.welcome.ctaBrowse': 'Workflows durchstöbern',
   'flows.welcome.featsLabel': 'Was Sie automatisieren können',
   'flows.welcome.feat1Title': 'In Worten beschreiben',
-  'flows.welcome.feat1Body': 'Sagen Sie in einfacher Sprache, was Sie möchten; der Builder entwirft den Ablauf.',
+  'flows.welcome.feat1Body':
+    'Sagen Sie in einfacher Sprache, was Sie möchten; der Builder entwirft den Ablauf.',
   'flows.welcome.feat2Title': 'Nach Zeitplan ausführen',
   'flows.welcome.feat2Body': 'Auslösen per Timer, Ereignis oder Knopfdruck — Ihre Entscheidung.',
   'flows.welcome.feat3Title': 'Menschen einbeziehen',

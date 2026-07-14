@@ -35,7 +35,8 @@ const messages: TranslationMap = {
   'brain.welcome.feat1Title': 'স্মৃতি গ্রাফ',
   'brain.welcome.feat1Body': 'এক নজরে দেখুন মানুষ, বিষয় এবং বার্তা কীভাবে যুক্ত।',
   'brain.welcome.feat2Title': 'লক্ষ্য ও মনোযোগ',
-  'brain.welcome.feat2Body': 'আপনার এজেন্টকে বলুন কী গুরুত্বপূর্ণ যাতে সে সঠিক কাজকে অগ্রাধিকার দেয়।',
+  'brain.welcome.feat2Body':
+    'আপনার এজেন্টকে বলুন কী গুরুত্বপূর্ণ যাতে সে সঠিক কাজকে অগ্রাধিকার দেয়।',
   'brain.welcome.feat3Title': 'উৎস ও সিঙ্ক',
   'brain.welcome.feat3Body': 'যে ডেটা থেকে আপনার এজেন্ট শেখে তা সংযুক্ত করুন এবং তরতাজা রাখুন।',
   'feedback.header.title': 'মতামত',
@@ -52,7 +53,8 @@ const messages: TranslationMap = {
   'feedback.welcome.feat1Title': 'ধারণা শেয়ার করুন',
   'feedback.welcome.feat1Body': 'বাগ, ফিচার অনুরোধ, খসড়া চিন্তা — সবই স্বাগত।',
   'feedback.welcome.feat2Title': 'ভোট দিন',
-  'feedback.welcome.feat2Body': 'যা গুরুত্বপূর্ণ তাতে আপভোট দিন যাতে আমরা জানি কী অগ্রাধিকার দিতে হবে।',
+  'feedback.welcome.feat2Body':
+    'যা গুরুত্বপূর্ণ তাতে আপভোট দিন যাতে আমরা জানি কী অগ্রাধিকার দিতে হবে।',
   'feedback.welcome.feat3Title': 'অগ্রগতি ট্র্যাক করুন',
   'feedback.welcome.feat3Body': 'কী পরিকল্পিত, চলমান এবং সরবরাহ করা হয়েছে তা দেখুন।',
   'connections.header.composio': 'আপনার এজেন্ট যে অ্যাপে কাজ করতে পারে সেগুলো সংযুক্ত করুন।',

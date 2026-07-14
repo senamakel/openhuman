@@ -471,7 +471,9 @@ const LocalModelDebugPanel = ({ embedded = false }: LocalModelDebugPanelProps = 
 
   if (embedded) return body;
   return (
-    <SettingsPanel description={t('settings.developerMenu.localModelDebug.desc')}>{body}</SettingsPanel>
+    <SettingsPanel description={t('settings.developerMenu.localModelDebug.desc')}>
+      {body}
+    </SettingsPanel>
   );
 };
 

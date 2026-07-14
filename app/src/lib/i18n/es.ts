@@ -17,8 +17,10 @@ const messages: TranslationMap = {
   'agentWorld.welcome.feat2Title': 'Acepta recompensas',
   'agentWorld.welcome.feat2Body': 'Tu agente puede ganar completando trabajos publicados.',
   'agentWorld.welcome.feat3Title': 'Comercia y transacciona',
-  'agentWorld.welcome.feat3Body': 'Pagos entre agentes respaldados por la wallet, con tu aprobación.',
-  'brain.header.graph': 'Cómo se conecta el conocimiento de tu agente: personas, temas y recuerdos.',
+  'agentWorld.welcome.feat3Body':
+    'Pagos entre agentes respaldados por la wallet, con tu aprobación.',
+  'brain.header.graph':
+    'Cómo se conecta el conocimiento de tu agente: personas, temas y recuerdos.',
   'brain.header.goals': 'En qué está trabajando tu agente y por qué.',
   'brain.header.sources': 'Los datos de los que aprende tu agente.',
   'brain.header.sync': 'Mantén tu memoria al día y revisa lo que cambió.',
@@ -50,7 +52,8 @@ const messages: TranslationMap = {
   'feedback.welcome.ctaBoard': 'Ver el tablero',
   'feedback.welcome.featsLabel': 'Lo que puedes hacer',
   'feedback.welcome.feat1Title': 'Comparte ideas',
-  'feedback.welcome.feat1Body': 'Errores, solicitudes de funciones, ideas sueltas: todo es bienvenido.',
+  'feedback.welcome.feat1Body':
+    'Errores, solicitudes de funciones, ideas sueltas: todo es bienvenido.',
   'feedback.welcome.feat2Title': 'Vota',
   'feedback.welcome.feat2Body': 'Vota lo que importa para que sepamos qué priorizar.',
   'feedback.welcome.feat3Title': 'Sigue el progreso',
@@ -88,11 +91,13 @@ const messages: TranslationMap = {
   'notifications.welcome.ctaView': 'Ver alertas',
   'notifications.welcome.featsLabel': 'Lo que verás',
   'notifications.welcome.feat1Title': 'Lo que te necesita',
-  'notifications.welcome.feat1Body': 'Decisiones y menciones que tus agentes marcaron para un humano.',
+  'notifications.welcome.feat1Body':
+    'Decisiones y menciones que tus agentes marcaron para un humano.',
   'notifications.welcome.feat2Title': 'Actividad del agente',
   'notifications.welcome.feat2Body': 'Un registro continuo de lo que se ejecutó y lo que produjo.',
   'notifications.welcome.feat3Title': 'Filtrado por categoría',
-  'notifications.welcome.feat3Body': 'Mensajes, reuniones, recordatorios: organizados como piensas.',
+  'notifications.welcome.feat3Body':
+    'Mensajes, reuniones, recordatorios: organizados como piensas.',
   'rewards.header.desc': 'Tus puntos, rachas, referidos y beneficios.',
   'rewards.welcome.nav': 'Bienvenida',
   'rewards.welcome.main': 'Recompensas',
@@ -118,7 +123,8 @@ const messages: TranslationMap = {
   'flows.welcome.ctaBrowse': 'Explorar flujos de trabajo',
   'flows.welcome.featsLabel': 'Lo que puedes automatizar',
   'flows.welcome.feat1Title': 'Descríbelo con palabras',
-  'flows.welcome.feat1Body': 'Di lo que quieres en lenguaje sencillo; el constructor redacta el flujo.',
+  'flows.welcome.feat1Body':
+    'Di lo que quieres en lenguaje sencillo; el constructor redacta el flujo.',
   'flows.welcome.feat2Title': 'Ejecuta según un horario',
   'flows.welcome.feat2Body': 'Actívalo con un temporizador, un evento o un botón: tú decides.',
   'flows.welcome.feat3Title': 'Mantén a los humanos al tanto',

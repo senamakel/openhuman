@@ -48,7 +48,6 @@ export type SettingsRoute =
   | 'approval-history'
   | 'integrations'
   | 'composio-triggers'
-  | 'tasks'
   | 'mcp-server'
   | 'dev-workflow'
   | 'sandbox-settings'

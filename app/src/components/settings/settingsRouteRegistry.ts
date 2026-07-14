@@ -696,14 +696,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     searchKeywords: ['cron', 'schedule', 'jobs'],
   },
   {
-    id: 'tasks',
-    titleKey: 'settings.developerMenu.tasks.title',
-    descriptionKey: 'settings.developerMenu.tasks.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'automationIntegrations',
-  },
-  {
     // composio-triggers: renders ComposioTriagePanel — debug alias kept under Developer Options.
     id: 'composio-triggers',
     titleKey: 'settings.developerMenu.composio.title',

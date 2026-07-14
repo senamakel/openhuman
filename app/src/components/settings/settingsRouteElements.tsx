@@ -44,7 +44,6 @@ import SandboxSettingsPanel from './panels/SandboxSettingsPanel';
 import ScreenAwarenessDebugPanel from './panels/ScreenAwarenessDebugPanel';
 import ScreenIntelligencePanel from './panels/ScreenIntelligencePanel';
 import SecurityPanel from './panels/SecurityPanel';
-import TasksPanel from './panels/TasksPanel';
 import TeamInvitesPanel from './panels/TeamInvitesPanel';
 import TeamManagementPanel from './panels/TeamManagementPanel';
 import TeamMembersPanel from './panels/TeamMembersPanel';
@@ -174,7 +173,8 @@ export function settingsRouteElements(): ReactNode {
       <Route path="search" element={<Navigate to="/connections?tab=search" replace />} />
       <Route path="agent-chat" element={wrapSettingsPage(<AgentChatPanel />)} />
       <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
-      <Route path="tasks" element={wrapSettingsPage(<TasksPanel />)} />
+      {/* Tasks now live on the Orchestration page's Kanban board. */}
+      <Route path="tasks" element={<Navigate to="/orchestration?tab=tasks" replace />} />
       <Route path="automations" element={wrapSettingsPage(<WorkflowsTab asSettingsPanel />)} />
       <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
       <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />

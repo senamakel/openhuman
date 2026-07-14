@@ -81,51 +81,6 @@ export function buildDemoGraph(deviceLabel: string): { nodes: GraphNode[]; edges
   return { nodes, edges };
 }
 
-// ── Demo task board ────────────────────────────────────────────────────────
-
-export type DemoTaskStatus = 'pending' | 'active' | 'blocked' | 'completed';
-
-export interface DemoTask {
-  id: string;
-  /** i18n key for the operation verb/phrase. */
-  titleKey: string;
-  /** Identifier-style agent tag (not translated). */
-  agent: string;
-  status: DemoTaskStatus;
-}
-
-const TASK_VERB_KEYS = [
-  'orchPage.demo.taskRoute',
-  'orchPage.demo.taskSummarize',
-  'orchPage.demo.taskEnrich',
-  'orchPage.demo.taskSchedule',
-  'orchPage.demo.taskDraft',
-  'orchPage.demo.taskSync',
-];
-
-const TASK_STATUSES: DemoTaskStatus[] = ['pending', 'active', 'blocked', 'completed'];
-
-/** ~40 fake tasks spread across the four columns (weighted toward active). */
-export function buildDemoTasks(): DemoTask[] {
-  const rng = makeRng(0x7a5c);
-  const tasks: DemoTask[] = [];
-  for (let i = 0; i < 40; i++) {
-    // Weight: more active/pending than blocked/completed for a "busy" board.
-    const r = rng();
-    const status: DemoTaskStatus =
-      r < 0.34 ? 'active' : r < 0.62 ? 'pending' : r < 0.82 ? 'completed' : 'blocked';
-    tasks.push({
-      id: `task-${i}`,
-      titleKey: TASK_VERB_KEYS[Math.floor(rng() * TASK_VERB_KEYS.length)],
-      agent: `0x${hex4(rng)}`,
-      status,
-    });
-  }
-  return tasks;
-}
-
-export const DEMO_TASK_STATUSES = TASK_STATUSES;
-
 // ── Demo peer network ──────────────────────────────────────────────────────
 
 export type DemoPeerStatus = 'connected' | 'connecting' | 'idle';

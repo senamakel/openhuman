@@ -34,6 +34,9 @@ vi.mock('../../components/orchestration/DiscoverPanel', () => ({
 vi.mock('../../components/orchestration/UsagePanel', () => ({
   default: () => <div data-testid="panel-usage" />,
 }));
+vi.mock('../../components/orchestration/OrchestratorTaskBoard', () => ({
+  default: () => <div data-testid="panel-tasks" />,
+}));
 
 describe('OrchestrationPage shell', () => {
   beforeEach(() => {
@@ -99,13 +102,19 @@ describe('OrchestrationPage scale showcase (no Medulla access)', () => {
   it.each([
     ['agent', 'orch-demo-chat'],
     ['overview', 'orch-demo-graph'],
-    ['tasks', 'orch-demo-tasks'],
     ['network', 'orch-demo-network'],
   ])('renders the demo surface for ?tab=%s', async (tab, testId) => {
     await act(async () => {
       renderWithProviders(<OrchestrationPage />, { initialEntries: [`/orchestration?tab=${tab}`] });
     });
     expect(screen.getByTestId(testId)).toBeInTheDocument();
+  });
+
+  it('keeps the real task board available without Medulla access', async () => {
+    await act(async () => {
+      renderWithProviders(<OrchestrationPage />, { initialEntries: ['/orchestration?tab=tasks'] });
+    });
+    expect(screen.getByTestId('panel-tasks')).toBeInTheDocument();
   });
 
   it('still lands on the Medulla overview by default', async () => {

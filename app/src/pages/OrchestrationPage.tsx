@@ -28,7 +28,6 @@ import ConnectionsPanel from '../components/orchestration/ConnectionsPanel';
 import MedullaDemoChat from '../components/orchestration/demo/MedullaDemoChat';
 import MedullaDemoGraph from '../components/orchestration/demo/MedullaDemoGraph';
 import MedullaDemoNetwork from '../components/orchestration/demo/MedullaDemoNetwork';
-import MedullaDemoTasks from '../components/orchestration/demo/MedullaDemoTasks';
 import DiscoverPanel from '../components/orchestration/DiscoverPanel';
 import MedullaOverviewPanel from '../components/orchestration/MedullaOverviewPanel';
 import OrchestratorTaskBoard from '../components/orchestration/OrchestratorTaskBoard';
@@ -55,9 +54,8 @@ export default function OrchestrationPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const contactSessions = useContactSessions();
-  // Without Medulla access every live surface is replaced by a scale showcase:
-  // demo chat (read-only, composer disabled), demo graph, demo tasks, demo
-  // network. The tabs stay in place so the showcase is fully browsable.
+  // Without Medulla access, Medulla-specific live surfaces are replaced by a
+  // scale showcase. The global task board remains available to every user.
   const hasMedullaAccess = useMedullaAccess();
 
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -232,23 +230,19 @@ export default function OrchestrationPage() {
           <MedullaDemoChat />
         )
       ) : activeTab === 'tasks' ? (
-        // One global Kanban board owned by the orchestrator (not per-thread) —
-        // or the scale-showcase demo board without Medulla access.
-        hasMedullaAccess ? (
-          <div className="mx-auto h-full w-full max-w-3xl">
-            <PanelPage contentClassName="p-4">
-              <div className="animate-fade-up space-y-4">
-                <PageSectionHeader
-                  title={t('orchPage.tasks.nav')}
-                  description={t('orchPage.tasks.subtitle')}
-                />
-                <OrchestratorTaskBoard />
-              </div>
-            </PanelPage>
-          </div>
-        ) : (
-          <MedullaDemoTasks />
-        )
+        // One global Kanban board owned by the orchestrator (not per-thread).
+        // Tasks predate Medulla access and must remain usable without it.
+        <div className="mx-auto h-full w-full max-w-3xl">
+          <PanelPage contentClassName="p-4">
+            <div className="animate-fade-up space-y-4">
+              <PageSectionHeader
+                title={t('orchPage.tasks.nav')}
+                description={t('orchPage.tasks.subtitle')}
+              />
+              <OrchestratorTaskBoard />
+            </div>
+          </PanelPage>
+        </div>
       ) : hasMedullaAccess ? (
         <div className="mx-auto h-full w-full max-w-3xl">
           {/* Network: one page with a Brain-style chip sub-nav (flush pills, no

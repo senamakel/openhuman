@@ -483,7 +483,7 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
     llm: { titleKey: 'pages.settings.ai.llm', descKey: 'connections.header.llm' },
     'composio-key': {
       titleKey: 'connections.tabs.composioKey',
-      descKey: 'settings.composio.apiKeyDesc',
+      descKey: 'connections.header.composioKey',
     },
     voice: { titleKey: 'pages.settings.ai.voice', descKey: 'voice.providers.desc' },
     embeddings: {
@@ -498,15 +498,15 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
     },
     'screen-intelligence': {
       titleKey: 'pages.settings.features.screenAwareness',
-      descKey: 'pages.settings.features.screenAwarenessDesc',
+      descKey: 'connections.header.screen',
     },
     'desktop-agent': {
       titleKey: 'settings.desktopAgent.title',
-      descKey: 'settings.desktopAgent.seamless.description',
+      descKey: 'connections.header.desktopAgent',
     },
     companion: {
       titleKey: 'pages.settings.features.desktopCompanion',
-      descKey: 'pages.settings.features.desktopCompanionDesc',
+      descKey: 'connections.header.companion',
     },
   };
 

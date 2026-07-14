@@ -35,7 +35,7 @@ const LlmConnectionsPanel = () => {
         value={chip}
         onChange={setChip}
         items={[
-          { id: 'api-keys', label: t('pages.settings.ai.llm') },
+          { id: 'api-keys', label: t('connections.llm.apiKeys') },
           { id: 'local-model', label: t('settings.developerMenu.localModelDebug.title') },
           { id: 'agent-chat', label: t('settings.developerMenu.agentChat.title') },
         ]}

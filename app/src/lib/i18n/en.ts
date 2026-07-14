@@ -828,6 +828,13 @@ const en: TranslationMap = {
   'connections.header.embeddings': 'Choose the embedding model used for memory search.',
   'connections.header.search': 'Configure web search for your agent.',
   'connections.header.wallet': 'Your local wallet balance and recovery phrase.',
+  'connections.header.screen': 'Let your agent see your screen to offer timely, in-context help.',
+  'connections.header.desktopAgent':
+    'Let your agent open apps and control your desktop on your behalf.',
+  'connections.header.companion': 'A floating desktop companion for quick, always-on help.',
+  'connections.header.composioKey':
+    'Add a Composio API key to unlock hundreds of app integrations.',
+  'connections.llm.apiKeys': 'API keys & routing',
   // Welcome landing (first destination)
   'connections.welcome.nav': 'Welcome',
   'connections.welcome.eyebrow': 'Connections',
@@ -5050,7 +5057,8 @@ const en: TranslationMap = {
   'pages.settings.features.notifications': 'Notifications',
   'pages.settings.features.notificationsDesc': 'Notifications desc',
   'pages.settings.features.screenAwareness': 'Screen awareness',
-  'pages.settings.features.screenAwarenessDesc': 'Screen awareness desc',
+  'pages.settings.features.screenAwarenessDesc':
+    'Let your agent see your screen to offer timely, in-context help.',
   'pages.settings.features.tools': 'Tools',
   'pages.settings.features.toolsDesc': 'Tools desc',
   'pages.settings.featuresSection.description': 'Screen awareness, messaging, and tools.',

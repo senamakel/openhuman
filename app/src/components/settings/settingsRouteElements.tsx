@@ -22,6 +22,7 @@ import EventLogPanel from './panels/EventLogPanel';
 import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
 import McpServerPanel from './panels/McpServerPanel';
 import MemoryDataPanel from './panels/MemoryDataPanel';
+import MemoryDebugPanel from './panels/MemoryDebugPanel';
 import MigrationPanel from './panels/MigrationPanel';
 import NotificationsTabbedPanel from './panels/NotificationsTabbedPanel';
 import PermissionsPanel from './panels/PermissionsPanel';
@@ -173,7 +174,10 @@ export function settingsRouteElements(): ReactNode {
       <Route path="search" element={<Navigate to="/connections?tab=search" replace />} />
       {/* Agent Chat debug tester moved to the Connections page. */}
       {/* Agent Chat is a chip on the Connections → LLM page. */}
-      <Route path="agent-chat" element={<Navigate to="/connections?tab=llm" replace />} />
+      <Route
+        path="agent-chat"
+        element={<Navigate to="/connections?tab=llm#agent-chat" replace />}
+      />
       <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
       {/* Tasks now live on the Orchestration page's Kanban board. */}
       <Route path="tasks" element={<Navigate to="/orchestration?tab=tasks" replace />} />
@@ -191,7 +195,10 @@ export function settingsRouteElements(): ReactNode {
       {/* Voice Debug page retired. */}
       <Route path="voice-debug" element={<SettingsRedirect to="/settings/developer-options" />} />
       {/* Local Model Debug is a chip on the Connections → LLM page. */}
-      <Route path="local-model-debug" element={<Navigate to="/connections?tab=llm" replace />} />
+      <Route
+        path="local-model-debug"
+        element={<Navigate to="/connections?tab=llm#local-model" replace />}
+      />
       {/* Webhooks were retired from the UI — bounce old debug/trigger deep
           links to the Connections page. */}
       <Route path="webhooks-debug" element={<Navigate to="/connections" replace />} />
@@ -201,7 +208,7 @@ export function settingsRouteElements(): ReactNode {
       {/* Memory inspection remains the configuration surface for the memory
           window, vault health, and connected-source controls. */}
       <Route path="memory-data" element={wrapSettingsPage(<MemoryDataPanel />)} />
-      <Route path="memory-debug" element={<Navigate to="/brain" replace />} />
+      <Route path="memory-debug" element={wrapSettingsPage(<MemoryDebugPanel />)} />
       <Route path="analysis-views" element={<Navigate to="/brain" replace />} />
       <Route path="intelligence" element={<Navigate to="/brain" replace />} />
       {/* Composio trigger-triage config merged into the Connections Composio page. */}

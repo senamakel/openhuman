@@ -32,9 +32,6 @@ describe('Settings - Developer Options', () => {
 
   it('mounts Memory Debug panel (13.4.3)', async function () {
     this.timeout(90_000);
-    // /settings/memory-debug now redirects to /brain?tab=memory-debug, where
-    // the relocated MemoryDebugPanel renders (no "Memory Debug" heading of its
-    // own). Assert on the section content that still renders there.
     await navigateViaHash('/settings/memory-debug');
 
     await waitForText('Documents', 15_000);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import ChipTabs from '../../layout/ChipTabs';
@@ -9,6 +9,8 @@ import LocalModelDebugPanel from './LocalModelDebugPanel';
 
 type LlmChip = 'api-keys' | 'local-model' | 'agent-chat';
 
+const LLM_CHIPS: readonly LlmChip[] = ['api-keys', 'local-model', 'agent-chat'];
+
 /**
  * The Connections → LLM surface as a three-chip page:
  *   - **API keys** — the main AI provider / model configuration (AIPanel).
@@ -17,8 +19,8 @@ type LlmChip = 'api-keys' | 'local-model' | 'agent-chat';
  *
  * Local Model Debug and Agent Chat used to be standalone Developer Options
  * pages; they're folded in here so everything LLM-related lives on one page.
- * The active chip is local UI state (not a route) — deep links land on the
- * API-keys chip.
+ * The active chip is hash-backed so legacy diagnostics deep links select the
+ * intended surface and chip selection remains shareable.
  *
  * Each chip renders its underlying panel unembedded so it keeps the same
  * PanelPage chrome + `p-4` padding as the sibling Connections tabs (Voice,
@@ -26,7 +28,19 @@ type LlmChip = 'api-keys' | 'local-model' | 'agent-chat';
  */
 const LlmConnectionsPanel = () => {
   const { t } = useT();
-  const [chip, setChip] = useState<LlmChip>('api-keys');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const requestedChip = location.hash.slice(1);
+  const chip: LlmChip = LLM_CHIPS.includes(requestedChip as LlmChip)
+    ? (requestedChip as LlmChip)
+    : 'api-keys';
+
+  const setChip = (next: LlmChip) => {
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: `#${next}` },
+      { replace: true }
+    );
+  };
 
   return (
     <div className="flex h-full flex-col gap-4">

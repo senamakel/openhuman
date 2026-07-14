@@ -200,6 +200,16 @@ describe('FlowsPage', () => {
     expect(screen.getByTestId('new-workflow-scratch')).toBeInTheDocument();
   });
 
+  it('opens the chooser from the welcome landing "New workflow" action', async () => {
+    listFlows.mockResolvedValue([]);
+    renderWithProviders(<FlowsPage />);
+
+    fireEvent.click(await screen.findByTestId('flows-welcome-cta-new'));
+
+    expect(screen.getByTestId('new-workflow-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('new-workflow-scratch')).toBeInTheDocument();
+  });
+
   it('opens the chooser from the empty-state "New workflow" action', async () => {
     listFlows.mockResolvedValue([]);
     renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });

@@ -359,6 +359,7 @@ export default function FlowsPage() {
             },
           ]}
         />
+        {chooserOpen && <NewWorkflowModal onClose={() => setChooserOpen(false)} />}
       </>
     );
   }

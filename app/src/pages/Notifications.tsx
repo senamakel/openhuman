@@ -158,7 +158,7 @@ const Notifications = () => {
       {nav}
       <div className="space-y-4 p-4 pt-6">
         <PageSectionHeader
-          className="mx-auto max-w-2xl"
+          className="mx-auto max-w-3xl"
           title={t('alerts.title')}
           description={unread > 0 ? `${unread} ${t('alerts.unread')}` : t('alerts.header.desc')}
           action={
@@ -184,14 +184,14 @@ const Notifications = () => {
         {/* Integration notifications — from connected accounts, scored by local AI */}
         <div
           data-testid="integration-notifications-section"
-          className="max-w-2xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden min-h-[200px]">
+          className="max-w-3xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden min-h-[200px]">
           <NotificationCenter />
         </div>
 
         {/* Core-bridge notifications — system events */}
         <div
           data-testid="system-events-section"
-          className="max-w-2xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden">
+          className="max-w-3xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden">
           {presentCategories.length > 0 && (
             <div
               data-testid="notification-category-filter"

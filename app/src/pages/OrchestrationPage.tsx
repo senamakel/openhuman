@@ -235,7 +235,7 @@ export default function OrchestrationPage() {
         // One global Kanban board owned by the orchestrator (not per-thread) —
         // or the scale-showcase demo board without Medulla access.
         hasMedullaAccess ? (
-          <div className="mx-auto h-full w-full max-w-5xl">
+          <div className="mx-auto h-full w-full max-w-3xl">
             <PanelPage contentClassName="p-4">
               <div className="animate-fade-up space-y-4">
                 <PageSectionHeader
@@ -250,7 +250,7 @@ export default function OrchestrationPage() {
           <MedullaDemoTasks />
         )
       ) : hasMedullaAccess ? (
-        <div className="mx-auto h-full w-full max-w-5xl">
+        <div className="mx-auto h-full w-full max-w-3xl">
           {/* Network: one page with a Brain-style chip sub-nav (flush pills, no
               header background) over connections/discover/usage, aligned to the
               same content column. */}
@@ -259,19 +259,21 @@ export default function OrchestrationPage() {
               <PageSectionHeader
                 title={t('orchPage.group.network')}
                 description={t('orchPage.network.desc')}
-              />
-              <ChipTabs<NetworkSub>
-                as="tab"
-                ariaLabel={t('orchPage.group.network')}
-                testIdPrefix="orch-network"
-                className="inline-flex flex-wrap items-center gap-1.5"
-                items={[
-                  { id: 'connections', label: t('orchPage.connections.nav') },
-                  { id: 'discover', label: t('orchPage.discover.nav') },
-                  { id: 'usage', label: t('orchPage.usage.nav') },
-                ]}
-                value={networkSub}
-                onChange={setNetworkSub}
+                tabs={
+                  <ChipTabs<NetworkSub>
+                    as="tab"
+                    ariaLabel={t('orchPage.group.network')}
+                    testIdPrefix="orch-network"
+                    className="inline-flex flex-wrap items-center gap-1.5"
+                    items={[
+                      { id: 'connections', label: t('orchPage.connections.nav') },
+                      { id: 'discover', label: t('orchPage.discover.nav') },
+                      { id: 'usage', label: t('orchPage.usage.nav') },
+                    ]}
+                    value={networkSub}
+                    onChange={setNetworkSub}
+                  />
+                }
               />
               {networkSub === 'connections' && (
                 <ConnectionsPanel

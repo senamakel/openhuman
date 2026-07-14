@@ -192,7 +192,7 @@ const Feedback = () => {
     <>
       {nav}
       <div className="min-h-full overflow-y-auto px-4 py-6">
-        <div className="mx-auto w-full max-w-2xl animate-fade-up space-y-5">
+        <div className="mx-auto w-full max-w-3xl animate-fade-up space-y-5">
           <PageSectionHeader
             title={t('feedback.header.title')}
             description={t('feedback.header.desc')}

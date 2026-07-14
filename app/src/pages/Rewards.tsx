@@ -172,7 +172,7 @@ const Rewards = () => {
   if (isLocalSession) {
     return (
       <div className="min-h-full px-4 pt-6 pb-10">
-        <div className="mx-auto max-w-2xl space-y-4">
+        <div className="mx-auto max-w-3xl space-y-4">
           <EmptyStateCard
             className="shadow-soft"
             icon={
@@ -204,17 +204,22 @@ const Rewards = () => {
     <>
       {nav}
       <div className="min-h-full px-4 pt-6 pb-10">
-        <div className="mx-auto max-w-2xl space-y-4">
-          <PageSectionHeader title={t('rewards.title')} description={t('rewards.header.desc')} />
-          <ChipTabs<RewardsTab>
-            items={[
-              { id: 'referrals', label: t('rewards.referrals') },
-              { id: 'rewards', label: t('rewards.title') },
-              { id: 'redeem', label: t('rewards.coupons') },
-            ]}
-            value={selectedTab}
-            onChange={handleTabChange}
-            className="flex flex-wrap gap-2 pb-1"
+        <div className="mx-auto max-w-3xl space-y-4">
+          <PageSectionHeader
+            title={t('rewards.title')}
+            description={t('rewards.header.desc')}
+            tabs={
+              <ChipTabs<RewardsTab>
+                items={[
+                  { id: 'referrals', label: t('rewards.referrals') },
+                  { id: 'rewards', label: t('rewards.title') },
+                  { id: 'redeem', label: t('rewards.coupons') },
+                ]}
+                value={selectedTab}
+                onChange={handleTabChange}
+                className="flex flex-wrap gap-1.5"
+              />
+            }
           />
 
           {selectedTab === 'referrals' ? (

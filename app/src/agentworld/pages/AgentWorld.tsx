@@ -153,7 +153,7 @@ export default function AgentWorld() {
       {/* Card surface around the active section so the section chrome and its
           inner cards sit on a framed panel (matching Brain) instead of floating
           flush on the bare shell background. */}
-      <div className={isFlush ? 'h-full w-full p-0' : 'mx-auto h-full w-full max-w-6xl p-4'}>
+      <div className={isFlush ? 'h-full w-full p-0' : 'mx-auto h-full w-full max-w-3xl p-4'}>
         <div
           className={
             isWorld

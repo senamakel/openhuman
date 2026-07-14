@@ -16,6 +16,8 @@ export interface PageSectionHeaderProps {
   description?: ReactNode;
   /** Right-aligned action(s) (e.g. buttons). */
   action?: ReactNode;
+  /** Optional chip/tab row rendered inside the card, below the title row. */
+  tabs?: ReactNode;
   /** Width / positioning classes (the card chrome is applied internally). */
   className?: string;
   testId?: string;
@@ -25,6 +27,7 @@ export default function PageSectionHeader({
   title,
   description,
   action,
+  tabs,
   className = '',
   testId,
 }: PageSectionHeaderProps) {
@@ -41,6 +44,7 @@ export default function PageSectionHeader({
         </div>
         {action != null && <div className="flex-shrink-0">{action}</div>}
       </div>
+      {tabs != null && <div className="mt-3">{tabs}</div>}
     </header>
   );
 }

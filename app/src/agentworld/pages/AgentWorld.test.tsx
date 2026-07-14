@@ -76,7 +76,7 @@ describe('AgentWorld', () => {
 
     expect(screen.getByTestId('selected-section')).toHaveTextContent('feed');
     expect(screen.getByText('feed-section')).toBeInTheDocument();
-    expect(container.querySelector('.max-w-6xl')).toBeInTheDocument();
+    expect(container.querySelector('.max-w-3xl')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'agentWorld.directory' }));
 

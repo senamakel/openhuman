@@ -1099,7 +1099,7 @@ export default function Skills() {
           />
         </div>
       </SidebarContent>
-      <div className="mx-auto h-full w-full max-w-5xl">
+      <div className="mx-auto h-full w-full max-w-3xl">
         {/* Welcome landing — the first destination; pitches the page and offers
             a few immediate actions into the functional views. */}
         {activeTab === 'welcome' ? (
@@ -1173,8 +1173,7 @@ export default function Skills() {
           </div>
         ) : (
           <PanelPage contentClassName="p-4">
-            <div
-              className={`mx-auto w-full space-y-4 ${activeTab !== 'meetings' ? 'max-w-3xl' : ''}`}>
+            <div className={'mx-auto w-full max-w-3xl space-y-4'}>
               {CONNECTIONS_HEADERS[activeTab] && (
                 <PageSectionHeader
                   title={t(CONNECTIONS_HEADERS[activeTab]!.titleKey)}

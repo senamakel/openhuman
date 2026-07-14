@@ -121,6 +121,11 @@ export function CodingSessionsCard({ onToast }: CodingSessionsCardProps) {
                     .replace('{evidence}', String(source.evidence_units))
                 : t('memorySources.codingSessions.notFound')}
             </div>
+            {source.available && source.scan_truncated && (
+              <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                {t('memorySources.codingSessions.truncated')}
+              </div>
+            )}
           </div>
         ))}
       </div>

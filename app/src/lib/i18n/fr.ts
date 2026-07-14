@@ -7427,6 +7427,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.counts': '{files} sessions · {evidence} interventions humaines',
   'memorySources.codingSessions.notFound': 'Aucun historique local trouvé',
   'memorySources.codingSessions.scanning': 'Analyse de l’historique local…',
+  'memorySources.codingSessions.truncated':
+    'L’analyse a été limitée aux 1 000 premiers fichiers de session.',
   'memorySources.codingSessions.complete': 'Sessions de programmation ingérées',
   'memorySources.codingSessions.completeMessage':
     '{processed} sessions ont produit {observations} observations de persona.',

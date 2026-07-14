@@ -6,10 +6,11 @@ use tinycortex::memory::score::extract::{LlmEntityExtractor, LlmExtractorConfig}
 use tinycortex::memory::score::ScoringConfig;
 
 use crate::openhuman::config::Config;
+
 pub struct HostTreeJobSink;
 
 impl HostTreeJobSink {
-    pub fn new(_config: Config) -> Self {
+    pub fn new() -> Self {
         Self
     }
 }
@@ -69,7 +70,7 @@ pub fn context(
 ) {
     (
         super::memory_config_from(config, config.workspace_dir.clone()),
-        HostTreeJobSink::new(config.clone()),
+        HostTreeJobSink::new(),
         scoring_config(config),
     )
 }

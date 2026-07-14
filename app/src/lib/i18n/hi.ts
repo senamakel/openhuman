@@ -7242,6 +7242,7 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.counts': '{files} सत्र · {evidence} मानवीय संदेश',
   'memorySources.codingSessions.notFound': 'कोई स्थानीय इतिहास नहीं मिला',
   'memorySources.codingSessions.scanning': 'स्थानीय सत्र इतिहास स्कैन हो रहा है…',
+  'memorySources.codingSessions.truncated': 'स्कैन पहले 1,000 सत्र फ़ाइलों तक सीमित था।',
   'memorySources.codingSessions.complete': 'कोडिंग सत्र शामिल हो गए',
   'memorySources.codingSessions.completeMessage':
     '{processed} सत्रों से {observations} व्यक्तित्व अवलोकन बने।',

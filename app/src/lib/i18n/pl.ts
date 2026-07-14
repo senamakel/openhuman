@@ -7352,6 +7352,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.counts': '{files} sesji · {evidence} wypowiedzi użytkownika',
   'memorySources.codingSessions.notFound': 'Nie znaleziono lokalnej historii',
   'memorySources.codingSessions.scanning': 'Skanowanie lokalnej historii sesji…',
+  'memorySources.codingSessions.truncated':
+    'Skanowanie ograniczono do pierwszych 1000 plików sesji.',
   'memorySources.codingSessions.complete': 'Sesje programistyczne wczytane',
   'memorySources.codingSessions.completeMessage':
     '{processed} sesji utworzyło {observations} obserwacji persony.',

@@ -7319,12 +7319,13 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.ingesting': 'Загрузка…',
   'memorySources.codingSessions.claude': 'Claude Code',
   'memorySources.codingSessions.codex': 'Codex',
-  'memorySources.codingSessions.counts': '{files} сеансов · {evidence} ходов человека',
+  'memorySources.codingSessions.counts': 'Сеансы: {files} · Сообщения пользователя: {evidence}',
   'memorySources.codingSessions.notFound': 'Локальная история не найдена',
   'memorySources.codingSessions.scanning': 'Сканирование локальной истории…',
+  'memorySources.codingSessions.truncated': 'Сканирование ограничено первыми 1000 файлами сеансов.',
   'memorySources.codingSessions.complete': 'Сеансы программирования загружены',
   'memorySources.codingSessions.completeMessage':
-    '{processed} сеансов дали {observations} наблюдений персоны.',
+    'Обработано сеансов: {processed}; наблюдений персоны: {observations}.',
   'memorySources.codingSessions.failed': 'Не удалось загрузить сеансы программирования',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)

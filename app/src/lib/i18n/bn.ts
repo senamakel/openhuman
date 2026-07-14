@@ -7244,6 +7244,7 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.counts': '{files}টি সেশন · {evidence}টি মানব বার্তা',
   'memorySources.codingSessions.notFound': 'কোনো স্থানীয় ইতিহাস পাওয়া যায়নি',
   'memorySources.codingSessions.scanning': 'স্থানীয় সেশন ইতিহাস স্ক্যান করা হচ্ছে…',
+  'memorySources.codingSessions.truncated': 'স্ক্যানটি প্রথম ১,০০০টি সেশন ফাইলে সীমাবদ্ধ ছিল।',
   'memorySources.codingSessions.complete': 'কোডিং সেশন গ্রহণ সম্পন্ন',
   'memorySources.codingSessions.completeMessage':
     '{processed}টি সেশন থেকে {observations}টি পারসোনা পর্যবেক্ষণ তৈরি হয়েছে।',

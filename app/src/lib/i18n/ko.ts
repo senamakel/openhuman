@@ -7162,6 +7162,7 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.counts': '세션 {files}개 · 사용자 입력 {evidence}개',
   'memorySources.codingSessions.notFound': '로컬 기록을 찾지 못했습니다',
   'memorySources.codingSessions.scanning': '로컬 세션 기록을 검색하는 중…',
+  'memorySources.codingSessions.truncated': '스캔이 처음 1,000개 세션 파일로 제한되었습니다.',
   'memorySources.codingSessions.complete': '코딩 세션 수집 완료',
   'memorySources.codingSessions.completeMessage':
     '세션 {processed}개에서 페르소나 관찰 {observations}개를 만들었습니다.',

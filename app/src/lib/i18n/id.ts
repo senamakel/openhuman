@@ -7276,6 +7276,7 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.counts': '{files} sesi · {evidence} masukan manusia',
   'memorySources.codingSessions.notFound': 'Riwayat lokal tidak ditemukan',
   'memorySources.codingSessions.scanning': 'Memindai riwayat sesi lokal…',
+  'memorySources.codingSessions.truncated': 'Pemindaian dibatasi pada 1.000 file sesi pertama.',
   'memorySources.codingSessions.complete': 'Sesi pemrograman telah diserap',
   'memorySources.codingSessions.completeMessage':
     '{processed} sesi menghasilkan {observations} pengamatan persona.',

@@ -7080,6 +7080,7 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.counts': '{files} جلسات · {evidence} مداخلات بشرية',
   'memorySources.codingSessions.notFound': 'لم يُعثر على سجل محلي',
   'memorySources.codingSessions.scanning': 'جارٍ فحص سجل الجلسات المحلي…',
+  'memorySources.codingSessions.truncated': 'اقتصر الفحص على أول 1,000 ملف جلسة.',
   'memorySources.codingSessions.complete': 'تم استيعاب جلسات البرمجة',
   'memorySources.codingSessions.completeMessage':
     'أنتجت {processed} جلسات {observations} ملاحظات شخصية.',

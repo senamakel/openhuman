@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use tinycortex::memory::persona::readers::{claude_code, codex, RawSession};
 use tinycortex::memory::persona::state::FileStateStore;
 use tinycortex::memory::persona::{PersonaConfig, Pipeline, RunMode};
+use walkdir::WalkDir;
 
 use crate::openhuman::config::Config;
 
@@ -63,12 +64,10 @@ fn source_status(
     kind: &str,
     root: &Path,
     max_files: usize,
-    discover: impl Fn(&Path) -> Vec<PathBuf>,
+    discover: impl Fn(&Path, usize) -> (Vec<PathBuf>, bool),
     read: impl Fn(&Path) -> anyhow::Result<RawSession>,
 ) -> CodingSessionSourceStatus {
-    let mut files = discover(root);
-    let scan_truncated = files.len() > max_files;
-    files.truncate(max_files);
+    let (files, scan_truncated) = discover(root, max_files);
     if scan_truncated {
         tracing::debug!(
             source = kind,
@@ -101,6 +100,48 @@ fn source_status(
     }
 }
 
+fn discover_session_files(
+    root: &Path,
+    max_files: usize,
+    is_candidate: impl Fn(&Path) -> bool,
+) -> (Vec<PathBuf>, bool) {
+    let mut files = Vec::with_capacity(max_files.min(64));
+    for entry in WalkDir::new(root)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+    {
+        let path = entry.path();
+        if !is_candidate(path) {
+            continue;
+        }
+        if files.len() == max_files {
+            return (files, true);
+        }
+        files.push(path.to_path_buf());
+    }
+    (files, false)
+}
+
+fn discover_claude_sessions(root: &Path, max_files: usize) -> (Vec<PathBuf>, bool) {
+    discover_session_files(root, max_files, |path| {
+        path.extension()
+            .is_some_and(|extension| extension == "jsonl")
+    })
+}
+
+fn discover_codex_sessions(root: &Path, max_files: usize) -> (Vec<PathBuf>, bool) {
+    discover_session_files(root, max_files, |path| {
+        path.extension()
+            .is_some_and(|extension| extension == "jsonl")
+            && path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("rollout-"))
+    })
+}
+
 pub fn coding_session_status_for_roots(
     claude_root: &Path,
     codex_root: &Path,
@@ -111,14 +152,14 @@ pub fn coding_session_status_for_roots(
             "claude_code",
             claude_root,
             MAX_STATUS_SESSION_FILES,
-            claude_code::discover,
+            discover_claude_sessions,
             claude_code::read_session,
         ),
         source_status(
             "codex",
             codex_root,
             MAX_STATUS_SESSION_FILES,
-            codex::discover,
+            discover_codex_sessions,
             codex::read_session,
         ),
     ];
@@ -285,7 +326,7 @@ mod tests {
             "fixture",
             Path::new("."),
             1,
-            |_| paths.clone(),
+            |_, max_files| (paths[..max_files].to_vec(), paths.len() > max_files),
             |_| {
                 reads.set(reads.get() + 1);
                 Ok(RawSession::new(
@@ -299,5 +340,19 @@ mod tests {
         assert_eq!(reads.get(), 1);
         assert_eq!(status.session_files, 1);
         assert!(status.scan_truncated);
+    }
+
+    #[test]
+    fn bounded_discovery_stops_after_finding_one_extra_candidate() {
+        let temp = tempdir().unwrap();
+        fs::write(temp.path().join("a.jsonl"), "").unwrap();
+        fs::write(temp.path().join("b.jsonl"), "").unwrap();
+        fs::write(temp.path().join("ignored.txt"), "").unwrap();
+
+        let (files, truncated) = discover_claude_sessions(temp.path(), 1);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].file_name().unwrap(), "a.jsonl");
+        assert!(truncated);
     }
 }

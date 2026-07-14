@@ -7581,6 +7581,7 @@ const en: TranslationMap = {
   'memorySources.codingSessions.counts': '{files} sessions · {evidence} human turns',
   'memorySources.codingSessions.notFound': 'No local history found',
   'memorySources.codingSessions.scanning': 'Scanning local session history…',
+  'memorySources.codingSessions.truncated': 'Scan limited to the first 1,000 session files.',
   'memorySources.codingSessions.complete': 'Coding sessions ingested',
   'memorySources.codingSessions.completeMessage':
     '{processed} sessions produced {observations} persona observations.',

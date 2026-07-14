@@ -7383,6 +7383,8 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.counts': '{files} sessioni · {evidence} interventi umani',
   'memorySources.codingSessions.notFound': 'Nessuna cronologia locale trovata',
   'memorySources.codingSessions.scanning': 'Scansione della cronologia locale…',
+  'memorySources.codingSessions.truncated':
+    'La scansione è stata limitata ai primi 1.000 file di sessione.',
   'memorySources.codingSessions.complete': 'Sessioni di programmazione acquisite',
   'memorySources.codingSessions.completeMessage':
     '{processed} sessioni hanno prodotto {observations} osservazioni della persona.',

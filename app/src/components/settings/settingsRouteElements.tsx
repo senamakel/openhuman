@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, useLocation } from 'react-router-dom';
 
-import WorkflowsTab from '../intelligence/WorkflowsTab';
 import SettingsIndexRedirect from './layout/SettingsIndexRedirect';
 import AboutPanel from './panels/AboutPanel';
 import AccountPanel from './panels/AccountPanel';
@@ -175,7 +174,9 @@ export function settingsRouteElements(): ReactNode {
       <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
       {/* Tasks now live on the Orchestration page's Kanban board. */}
       <Route path="tasks" element={<Navigate to="/orchestration?tab=tasks" replace />} />
-      <Route path="automations" element={wrapSettingsPage(<WorkflowsTab asSettingsPanel />)} />
+      {/* Workflows is a first-level module now — /settings/automations bounces
+          to /flows (the Workflows page). */}
+      <Route path="automations" element={<Navigate to="/flows" replace />} />
       <Route path="dev-workflow" element={wrapSettingsPage(<DevWorkflowPanel />)} />
       <Route path="skills-runner" element={wrapSettingsPage(<WorkflowRunnerPanel />)} />
       <Route

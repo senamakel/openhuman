@@ -235,17 +235,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navGroup: 'assistant',
     navOrder: 2,
   },
-  {
-    // automations: lifecycle-bound workflow rules (renders WorkflowsTab).
-    // Legacy /routines and /workflows routes redirect to /settings/automations.
-    id: 'automations',
-    titleKey: 'workflows.title',
-    descriptionKey: 'workflows.subtitle',
-    section: 'home',
-    searchKeywords: ['workflow', 'automation', 'routine', 'rule', 'trigger', 'lifecycle'],
-    navGroup: 'assistant',
-    navOrder: 4,
-  },
 
   // --- Connections group ---
   // The old 'features' hub page is retired — its slug redirects to

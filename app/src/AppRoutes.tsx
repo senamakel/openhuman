@@ -99,12 +99,13 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
       {/* Workflows — the `flows::` domain's discoverable list hub (issue
           B5a) plus the read-only Workflow Canvas (issue B5b.1) at
           `/flows/:id`. Distinct from the legacy SKILL.md `/workflows/*`
-          Skill routes below (create/run) and their `/workflows` →
-          `/settings/automations` back-compat redirect, which stay untouched.
-          Not a tab-level route (unlike `/flows` itself, `/flows/:id` isn't
-          reached from the BottomTabBar), so `navigation.spec.ts`'s ROUTES
-          table needs no change. Full editing (B5b.2+) and the agent-proposal
-          surface (B4) are separate, later work. */}
+          Skill routes below (create/run); the bare `/workflows` and
+          `/routines` slugs now redirect here (to `/flows`) since Workflows is
+          a first-level module. Not a tab-level route (unlike `/flows` itself,
+          `/flows/:id` isn't reached from the BottomTabBar), so
+          `navigation.spec.ts`'s ROUTES table needs no change. Full editing
+          (B5b.2+) and the agent-proposal surface (B4) are separate, later
+          work. */}
       <Route
         path="/flows"
         element={
@@ -226,10 +227,9 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
         }
       />
 
-      {/* Back-compat: /routines was an orphaned dead page (superseded by the
-          Cron Jobs settings panel).  Redirect to Activity → Automations so
-          any surviving deep links land somewhere sensible. */}
-      <Route path="/routines" element={<Navigate to="/settings/automations" replace />} />
+      {/* Back-compat: /routines was an orphaned dead page. Workflows is now a
+          first-level module — redirect surviving deep links to /flows. */}
+      <Route path="/routines" element={<Navigate to="/flows" replace />} />
 
       <Route
         path="/rewards"
@@ -240,7 +240,7 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
         }
       />
 
-      <Route path="/workflows" element={<Navigate to="/settings/automations" replace />} />
+      <Route path="/workflows" element={<Navigate to="/flows" replace />} />
 
       <Route path="/webhooks" element={<Navigate to="/settings/integrations#webhooks" replace />} />
 

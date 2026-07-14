@@ -466,6 +466,16 @@ type ConnectionsTab =
  * Covers the "API keys" group plus the Desktop capability panels and the wallet
  * balances panel relocated from Settings.
  */
+/** Canonical text header (title + one-line description) per functional tab. */
+const CONNECTIONS_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; descKey: string }>> =
+  {
+    composio: { titleKey: 'connections.tabs.oauth', descKey: 'connections.header.composio' },
+    channels: { titleKey: 'connections.tabs.channels', descKey: 'connections.header.channels' },
+    mcp: { titleKey: 'connections.tabs.mcp', descKey: 'connections.header.mcp' },
+    skills: { titleKey: 'connections.tabs.skills', descKey: 'connections.header.skills' },
+    meetings: { titleKey: 'connections.tabs.meetings', descKey: 'connections.header.meetings' },
+  };
+
 const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'llm',
   'voice',
@@ -1161,7 +1171,18 @@ export default function Skills() {
             </div>
           </div>
         ) : (
-          <PanelPage contentClassName="p-4">
+          <PanelPage
+            contentClassName="p-4"
+            title={
+              CONNECTIONS_HEADERS[activeTab]
+                ? t(CONNECTIONS_HEADERS[activeTab]!.titleKey)
+                : undefined
+            }
+            description={
+              CONNECTIONS_HEADERS[activeTab]
+                ? t(CONNECTIONS_HEADERS[activeTab]!.descKey)
+                : undefined
+            }>
             <div
               className={`mx-auto w-full space-y-4 ${activeTab !== 'meetings' ? 'max-w-3xl' : ''}`}>
               {/* <div className="flex items-center justify-between gap-2">

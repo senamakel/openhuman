@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PageWelcome from '../components/layout/PageWelcome';
 import { usePageWelcomeView } from '../components/layout/usePageWelcomeView';
 import NotificationBody from '../components/notifications/NotificationBody';
@@ -156,24 +157,11 @@ const Notifications = () => {
     <>
       {nav}
       <div className="space-y-4 p-4 pt-6">
-        {/* Integration notifications — from connected accounts, scored by local AI */}
-        <div
-          data-testid="integration-notifications-section"
-          className="max-w-2xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden min-h-[200px]">
-          <NotificationCenter />
-        </div>
-
-        {/* Core-bridge notifications — system events */}
-        <div
-          data-testid="system-events-section"
-          className="max-w-2xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden">
-          <div className="flex items-center justify-between border-b border-line-subtle px-4 py-3">
-            <div>
-              <h1 className="text-lg font-semibold text-content">{t('alerts.title')}</h1>
-              <p className="text-xs text-content-muted">
-                {unread > 0 ? `${unread} ${t('alerts.unread')}` : t('alerts.empty')}
-              </p>
-            </div>
+        <PageSectionHeader
+          className="mx-auto max-w-2xl"
+          title={t('alerts.title')}
+          description={unread > 0 ? `${unread} ${t('alerts.unread')}` : t('alerts.header.desc')}
+          action={
             <div className="flex items-center gap-2">
               <Button
                 variant="tertiary"
@@ -190,8 +178,20 @@ const Notifications = () => {
                 {t('common.clear')}
               </Button>
             </div>
-          </div>
+          }
+        />
 
+        {/* Integration notifications — from connected accounts, scored by local AI */}
+        <div
+          data-testid="integration-notifications-section"
+          className="max-w-2xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden min-h-[200px]">
+          <NotificationCenter />
+        </div>
+
+        {/* Core-bridge notifications — system events */}
+        <div
+          data-testid="system-events-section"
+          className="max-w-2xl mx-auto bg-surface rounded-2xl shadow-soft border border-line overflow-hidden">
           {presentCategories.length > 0 && (
             <div
               data-testid="notification-category-filter"

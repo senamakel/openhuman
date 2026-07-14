@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import EmptyStateCard from '../components/EmptyStateCard';
 import ChipTabs from '../components/layout/ChipTabs';
+import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PageWelcome from '../components/layout/PageWelcome';
 import { usePageWelcomeView } from '../components/layout/usePageWelcomeView';
 import RewardsCommunityTab from '../components/rewards/RewardsCommunityTab';
@@ -204,6 +205,7 @@ const Rewards = () => {
       {nav}
       <div className="min-h-full px-4 pt-6 pb-10">
         <div className="mx-auto max-w-2xl space-y-4">
+          <PageSectionHeader title={t('rewards.title')} description={t('rewards.header.desc')} />
           <ChipTabs<RewardsTab>
             items={[
               { id: 'referrals', label: t('rewards.referrals') },

@@ -231,6 +231,12 @@ const en: TranslationMap = {
 
   // Brain — full-page memory knowledge-graph surface
   'brain.subtitle': 'Your knowledge graph, memory sources, and controls.',
+  // Per-tab text headers (title reuses brain.tabs.*)
+  'brain.header.graph': "How your agent's knowledge connects — people, topics, and memories.",
+  'brain.header.goals': 'What your agent is working toward, and why.',
+  'brain.header.sources': 'The data your agent learns from.',
+  'brain.header.sync': 'Keep your memory fresh and review what changed.',
+  'brain.header.subconscious': 'Background thinking that runs while you’re away.',
   // Welcome landing (first destination)
   'brain.welcome.nav': 'Welcome',
   'brain.welcome.eyebrow': 'Brain',
@@ -272,6 +278,8 @@ const en: TranslationMap = {
 
   // Feedback board
   'feedback.board': 'Feedback board',
+  'feedback.header.title': 'Feedback',
+  'feedback.header.desc': 'Share ideas and vote on what we build next.',
   // Welcome landing (first destination)
   'feedback.welcome.nav': 'Welcome',
   'feedback.welcome.main': 'Feedback board',
@@ -792,6 +800,12 @@ const en: TranslationMap = {
   'connections.groups.integrations': 'Integrations',
   'connections.groups.desktop': 'Desktop',
   'connections.groups.intelligence': 'Intelligence',
+  // Per-tab text headers (title reuses connections.tabs.*)
+  'connections.header.composio': 'Connect the apps your agent can act in.',
+  'connections.header.channels': 'Link the chat apps your community lives in.',
+  'connections.header.mcp': "Add MCP servers to extend your agent's tools.",
+  'connections.header.skills': 'Install and manage agent skills.',
+  'connections.header.meetings': 'Connect calendars and let your agent join calls.',
   // Welcome landing (first destination)
   'connections.welcome.nav': 'Welcome',
   'connections.welcome.eyebrow': 'Connections',
@@ -1239,6 +1253,7 @@ const en: TranslationMap = {
 
   // Notifications / Alerts
   'alerts.title': 'Alerts',
+  'alerts.header.desc': 'Agent activity and everything that needs your attention.',
   'alerts.empty': 'No alerts yet',
   // Welcome landing (first destination)
   'notifications.welcome.nav': 'Welcome',
@@ -1260,6 +1275,7 @@ const en: TranslationMap = {
 
   // Rewards
   'rewards.title': 'Rewards',
+  'rewards.header.desc': 'Your points, streaks, referrals, and perks.',
   // Welcome landing (first destination)
   'rewards.welcome.nav': 'Welcome',
   'rewards.welcome.main': 'Rewards',

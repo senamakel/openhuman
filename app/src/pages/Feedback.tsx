@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import FeedbackFilterSelect from '../components/feedback/FeedbackFilterSelect';
 import FeedbackItemRow from '../components/feedback/FeedbackItemRow';
 import FeedbackSubmitForm from '../components/feedback/FeedbackSubmitForm';
+import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PageWelcome from '../components/layout/PageWelcome';
 import { usePageWelcomeView } from '../components/layout/usePageWelcomeView';
 import Button from '../components/ui/Button';
@@ -192,6 +193,10 @@ const Feedback = () => {
       {nav}
       <div className="min-h-full overflow-y-auto px-4 py-6">
         <div className="mx-auto w-full max-w-2xl animate-fade-up space-y-5">
+          <PageSectionHeader
+            title={t('feedback.header.title')}
+            description={t('feedback.header.desc')}
+          />
           <FeedbackSubmitForm onAccepted={handleAccepted} />
 
           <section className="space-y-4">

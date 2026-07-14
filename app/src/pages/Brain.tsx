@@ -50,6 +50,15 @@ const BRAIN_TABS: readonly BrainTab[] = [
   'subconscious',
 ];
 
+/** Canonical text header (title + one-line description) per functional tab. */
+const BRAIN_HEADERS: Record<Exclude<BrainTab, 'welcome'>, { titleKey: string; descKey: string }> = {
+  graph: { titleKey: 'brain.tabs.graph', descKey: 'brain.header.graph' },
+  goals: { titleKey: 'brain.tabs.goals', descKey: 'brain.header.goals' },
+  sources: { titleKey: 'brain.tabs.sources', descKey: 'brain.header.sources' },
+  sync: { titleKey: 'brain.tabs.sync', descKey: 'brain.header.sync' },
+  subconscious: { titleKey: 'brain.tabs.subconscious', descKey: 'brain.header.subconscious' },
+};
+
 export default function Brain() {
   const { t } = useT();
   const location = useLocation();
@@ -245,8 +254,12 @@ export default function Brain() {
           />
         ) : (
           /* All tabs share the standard scaffold: a single scrolling body,
-            all custom controls live inside it. */
-          <PanelPage contentClassName="p-4">
+            all custom controls live inside it. Each tab gets the canonical
+            text header (title + one-line description). */
+          <PanelPage
+            contentClassName="p-4"
+            title={t(BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome'>].titleKey)}
+            description={t(BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome'>].descKey)}>
             <div className="mx-auto max-w-3xl space-y-5">
               {activeTab === 'graph' && (
                 <div className="space-y-5 animate-fade-up">

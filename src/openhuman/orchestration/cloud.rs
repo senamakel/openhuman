@@ -1,10 +1,10 @@
-//! Cloud event pusher — forwards sanitized orchestration events up to the
-//! hosted brain (`POST /orchestration/v1/events`).
+//! Hosted-brain uplink + read surface.
 //!
-//! Phase 0 runs this in **shadow mode**: the local wake graph remains
-//! authoritative and the push is an additional, best-effort, fire-and-forget
-//! side effect gated behind [`OrchestrationConfig::cloud_shadow`]
-//! (default off). It never blocks or fails ingest.
+//! Forwards sanitized orchestration events (`POST /orchestration/v1/events`) and
+//! world-diff batches (`POST /orchestration/v1/world-diff`) to the hosted brain,
+//! which runs the wake/reasoning graph server-side, and reads back
+//! sessions / messages / steering (`GET /orchestration/v1/*`). Forwarding is
+//! best-effort and fire-and-forget, so it never blocks or fails ingest.
 //!
 //! Auth + base-URL plumbing mirrors the other hosted-API adapters
 //! (`announcements/ops.rs`, `billing/ops.rs`): an app-session JWT via
@@ -14,6 +14,7 @@
 use std::time::Duration;
 
 use reqwest::Method;
+use serde_json::Value;
 
 use crate::api::config::effective_backend_api_url;
 use crate::api::BackendOAuthClient;
@@ -39,7 +40,7 @@ const DEFAULT_BACKOFFS: [Duration; 3] = [
 pub async fn push_event(
     config: &Config,
     envelope: &OrchestrationEventEnvelopeWire,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
     let api_url = effective_backend_api_url(&config.api_url);
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
@@ -69,6 +70,7 @@ pub async fn push_world_diff(config: &Config, batch: &WorldDiffBatchWire) -> Res
         ),
     )
     .await
+    .map(|_| ())
 }
 
 /// Inner push with an injectable client, token, and backoff schedule so the
@@ -80,12 +82,12 @@ pub async fn push_event_with(
     token: &str,
     envelope: &OrchestrationEventEnvelopeWire,
     backoffs: &[Duration],
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     let label = format!(
         "event session={} seq={}",
         envelope.session_id, envelope.event.seq
     );
-    post_with_retry(
+    let resp = post_with_retry(
         client,
         token,
         EVENTS_PATH,
@@ -93,7 +95,13 @@ pub async fn push_event_with(
         backoffs,
         &label,
     )
-    .await
+    .await?;
+    // `202 { accepted, cycleId }` — return the cycleId so the caller can record
+    // the cycle's device-authoritative origin (see `exec_gate`).
+    Ok(resp
+        .get("cycleId")
+        .and_then(|v| v.as_str())
+        .map(str::to_string))
 }
 
 /// Generic authed POST with bounded jittered-backoff retry. Shared by every
@@ -105,16 +113,16 @@ async fn post_with_retry(
     body: serde_json::Value,
     backoffs: &[Duration],
     label: &str,
-) -> Result<(), String> {
+) -> Result<Value, String> {
     let mut attempt: usize = 0;
     loop {
         match client
             .authed_json(token, Method::POST, path, Some(body.clone()))
             .await
         {
-            Ok(_) => {
+            Ok(data) => {
                 log::debug!(target: LOG, "[orchestration] cloud.push.ok {label} attempt={}", attempt + 1);
-                return Ok(());
+                return Ok(data);
             }
             Err(err) => {
                 let msg = crate::api::flatten_authed_error(err);
@@ -151,6 +159,90 @@ pub async fn push_world_diff_with(
         &label,
     )
     .await
+    .map(|_| ())
+}
+
+// ── Hosted read surface (GET) ─────────────────────────────────────────────────
+// The renderer reads session / message / state / steering / world-diff state
+// from the hosted brain over these routes. Each returns the unwrapped `data`
+// payload (`BackendOAuthClient` strips the `{success,data}` envelope). Callers
+// fall back to the local render cache on `Err` and surface an offline notice.
+// A replayed/duplicate write is a 202 (not a 409) server-side, so a read never
+// needs to special-case dedupe.
+
+const SESSIONS_PATH: &str = "/orchestration/v1/sessions";
+const STEERING_PATH: &str = "/orchestration/v1/steering";
+
+/// A session token + backend client resolved once and reused across every GET in a
+/// single sync read pass. `sync_reads` issues `fetch_sessions` + up to
+/// `MAX_SESSIONS_PER_SYNC` `fetch_messages` + `fetch_steering` per 20s tick, so
+/// rebuilding the client (and re-loading the session profile) per GET would repeat
+/// the profile lookup and discard the reqwest connection pool on every request.
+/// Resolve it once with [`read_pass`] and thread it through the pass.
+pub struct ReadPass {
+    client: BackendOAuthClient,
+    token: String,
+}
+
+/// Resolve the token + client for one sync read pass. `Err` (no live session) → the
+/// caller degrades the whole pass to the local render cache.
+pub fn read_pass(config: &Config) -> Result<ReadPass, String> {
+    let token = crate::openhuman::credentials::session_support::require_live_session_token(config)?;
+    let api_url = effective_backend_api_url(&config.api_url);
+    let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
+    Ok(ReadPass { client, token })
+}
+
+impl ReadPass {
+    /// GET the hosted session list →
+    /// `[{ sessionId, counterpartAgentId, lastSeq, status, lastCycleId?, lastEventTs?, updatedAt? }]`.
+    pub async fn fetch_sessions(&self) -> Result<Value, String> {
+        self.authed_get(SESSIONS_PATH.to_string(), "sessions").await
+    }
+
+    /// GET messages for a session, optionally after a `seq` cursor →
+    /// `[{ seq, role, sender, body, kind, ts, cycleId }]`. Cursor param is `?after=`.
+    pub async fn fetch_messages(
+        &self,
+        session_id: &str,
+        after_seq: Option<i64>,
+    ) -> Result<Value, String> {
+        let mut path = format!(
+            "/orchestration/v1/sessions/{}/messages",
+            urlencoding::encode(session_id)
+        );
+        if let Some(after) = after_seq {
+            path.push_str(&format!("?after={after}"));
+        }
+        self.authed_get(path, "messages").await
+    }
+
+    /// GET the current steering directive + recent history →
+    /// `{ active: { directive, consumedCycles, maxCycles } | null, history: [{ directive, createdAt? }] }`.
+    pub async fn fetch_steering(&self) -> Result<Value, String> {
+        self.authed_get(STEERING_PATH.to_string(), "steering").await
+    }
+
+    /// Shared authed GET → unwrapped `data`, reusing this pass's token + client.
+    /// Returns a flattened error string on transport / non-2xx so the caller can
+    /// degrade to the local render cache.
+    async fn authed_get(&self, path: String, label: &str) -> Result<Value, String> {
+        match self
+            .client
+            .authed_json(&self.token, Method::GET, &path, None)
+            .await
+        {
+            Ok(data) => {
+                log::debug!(target: LOG, "[orchestration] cloud.read.ok {label}");
+                Ok(data)
+            }
+            Err(err) => {
+                let msg = crate::api::flatten_authed_error(err);
+                log::warn!(target: LOG, "[orchestration] cloud.read.fail {label} err={msg}");
+                Err(msg)
+            }
+        }
+    }
 }
 
 // Transport tests live in `tests/orchestration_shadow_push_e2e.rs` (integration

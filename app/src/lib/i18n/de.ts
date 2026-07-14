@@ -183,6 +183,8 @@ const messages: TranslationMap = {
   'nav.brain': 'Gehirn',
   'nav.flows': 'Workflows',
   'nav.orchestration': 'Orchestrierung',
+  'orchestration.cloudUnreachable':
+    'Cloud-Gehirn nicht erreichbar – zwischengespeicherte Ansicht wird angezeigt.',
   'orchPage.subtitle': 'Koordiniere deinen Hauptagenten',
   'orchPage.group.agent': 'Agent',
   'orchPage.group.network': 'Netzwerk',
@@ -3324,6 +3326,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.dismiss': 'Verwerfen',
   'chat.flowProposal.error':
     'Der Workflow konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
+  'chat.flowProposal.enableError':
+    'Workflow gespeichert, konnte aber nicht aktiviert werden. Versuchen Sie es erneut oder aktivieren Sie ihn auf der Workflows-Seite.',
   'channels.authMode.managed_dm': 'Mit OpenHuman anmelden',
   'channels.authMode.oauth': 'OAuth-Anmeldung',
   'channels.authMode.bot_token': 'Eigenen Bot-Token verwenden',
@@ -3910,7 +3914,12 @@ const messages: TranslationMap = {
     'Ausstehende Genehmigungen für diesen Lauf konnten nicht geladen werden.',
   'flowRuns.inspector.steps': 'Schritte',
   'flowRuns.inspector.noSteps': 'Noch keine Schritte aufgezeichnet.',
-  'flowRuns.inspector.output': 'Ausgabe',
+  'flowRuns.inspector.output': 'Rohdaten anzeigen',
+  'flowRuns.inspector.summary.failedPrefix': 'Konnte nicht abgeschlossen werden:',
+  'flowRuns.inspector.summary.unknownError': 'etwas ist schiefgelaufen',
+  'flowRuns.inspector.summary.itemsFetched': '{count} Element(e) abgerufen',
+  'flowRuns.inspector.summary.completed': 'Schritt abgeschlossen',
+  'flowRuns.inspector.summary.noOutput': 'Keine Ausgabe erzeugt',
   'flowRuns.inspector.port': 'Port',
   'flowRuns.inspector.loading': 'Lauf wird geladen…',
   'flowRuns.inspector.loadError': 'Dieser Lauf konnte nicht geladen werden',
@@ -4008,6 +4017,10 @@ const messages: TranslationMap = {
     'Ein vorgeschlagener Entwurf wird geprüft — es wurde noch nichts gespeichert.',
   'flows.copilot.repairDisplay':
     'Eine Ausführung ist fehlgeschlagen; sieh sie dir an und schlage eine Lösung vor.',
+  'flows.copilot.tool.proposing': 'Workflow wird vorgeschlagen…',
+  'flows.copilot.tool.dryRunning': 'Workflow wird testweise ausgeführt…',
+  'flows.copilot.tool.saving': 'Workflow wird gespeichert…',
+  'flows.copilot.tool.usingTools': 'Werkzeuge werden verwendet…',
   'flows.list.view': 'Workflow anzeigen',
   'flows.list.export': 'Exportieren',
   'flows.list.exported': 'Workflow exportiert',

@@ -9,7 +9,6 @@ use std::path::Path;
 
 use base64::Engine as _;
 
-use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::config::Config;
 use crate::openhuman::tinyplace::{acknowledge_message, decrypt_envelope};
 
@@ -562,23 +561,23 @@ fn persist_message(
     .map_err(|e| format!("persist: {e}"))
 }
 
-/// Fire-and-forget the Phase 0 shadow push for a freshly-landed event. No-op
-/// unless `orchestration.cloud_shadow` is set. Builds the sanitized wire
-/// envelope (the security allowlist lives in [`super::wire`]) and spawns the
-/// upload so ingest never blocks on the network.
-fn maybe_shadow_push(
+/// Forward a freshly-landed event to the hosted brain
+/// (`POST /orchestration/v1/events`), which runs the wake cycle server-side.
+/// Builds the sanitized wire envelope (the security allowlist lives in
+/// [`super::wire`]) and spawns the upload so ingest never blocks on the network.
+/// Best-effort/fire-and-forget: a push failure (or offline) is logged and
+/// dropped — the render cache still holds the row and the first-login migration
+/// replay backfills anything missed while offline.
+fn forward_event(
     config: &Config,
     agent_id: &str,
     ingest_seq: i64,
     classified: &ClassifiedMessage,
     now: &str,
 ) {
-    if !config.orchestration.cloud_shadow {
-        return;
-    }
     // Content events carry the real per-session ordinal; a status/lifecycle
     // event stamps seq 0 and would collide on the backend's idempotency key, so
-    // only mirror seq-advancing events in shadow mode.
+    // only forward seq-advancing events.
     if ingest_seq <= 0 {
         return;
     }
@@ -602,8 +601,20 @@ fn maybe_shadow_push(
     );
     let config = config.clone();
     tokio::spawn(async move {
-        if let Err(e) = super::cloud::push_event(&config, &envelope).await {
-            log::warn!(target: LOG, "[orchestration] cloud.shadow_push_failed: {e}");
+        match super::cloud::push_event(&config, &envelope).await {
+            Ok(cycle_id) => {
+                // Device-authoritative origin: record the cycle → counterpart we
+                // forwarded, so the local-execution trust gate can resolve this
+                // cycle's origin without trusting the backend (see `exec_gate`).
+                if let Some(cid) = cycle_id {
+                    super::exec_gate::record_cycle_origin(
+                        &cid,
+                        &envelope.counterpart_agent_id,
+                        &envelope.session_id,
+                    );
+                }
+            }
+            Err(e) => log::warn!(target: LOG, "[orchestration] cloud.shadow_push_failed: {e}"),
         }
     });
 }
@@ -712,17 +723,41 @@ async fn ingest_one(
             log::warn!(target: LOG, "[orchestration] ingest.ack_failed id={msg_id}: {e}");
         }
 
-        // Phase 0 shadow migration: mirror the sanitized event up to the hosted
-        // brain. Best-effort and fire-and-forget — the local wake graph below
-        // stays authoritative, so a push failure (or offline) never affects
-        // ingest. Default-off (`orchestration.cloud_shadow`).
-        maybe_shadow_push(config, &agent_id, ingest_seq, &classified, &now);
+        // Forward the sanitized event to the hosted brain, which runs the wake
+        // cycle and replies via socket effects. The device no longer wakes a
+        // local graph.
+        forward_event(config, &agent_id, ingest_seq, &classified, &now);
 
-        publish_global(DomainEvent::OrchestrationSessionMessage {
-            agent_id,
-            session_id: classified.session_id,
-            chat_kind: classified.chat_kind.as_str().to_string(),
-        });
+        // Record a compact device world-observation for the hosted subconscious
+        // tier; the periodic uploader batches these to the world-diff route,
+        // whose receipt schedules a steering tick. Never carries the body — only
+        // a bounded derived note (see `world_model`).
+        let obs_ts = super::wire::parse_ts_ms(&classified.timestamp)
+            .or_else(|| super::wire::parse_ts_ms(&now))
+            .unwrap_or(0);
+        let obs_note = super::world_model::observe_ingest_note(
+            &classified.session_id,
+            &agent_id,
+            classified
+                .event_kind
+                .as_deref()
+                .unwrap_or_else(|| classified.chat_kind.as_str()),
+            &classified.body,
+        );
+        if let Err(e) = store::with_connection(&workspace_dir, |c| {
+            store::append_world_obs(c, &classified.session_id, &obs_note, obs_ts)
+        }) {
+            log::warn!(target: LOG, "[orchestration] world_obs.append_failed id={msg_id}: {e}");
+        }
+
+        // Live-UI nudge: fan the persisted message to the renderer socket so the
+        // affected chat targeted-refetches. Reasoning/reply is the hosted brain's
+        // job now — this is presentation only, no wake scheduling.
+        super::bus::notify_orchestration_message(
+            &agent_id,
+            &classified.session_id,
+            classified.chat_kind.as_str(),
+        );
     }
     log::debug!(
         target: LOG,

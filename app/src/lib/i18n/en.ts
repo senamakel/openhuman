@@ -27,6 +27,7 @@ const en: TranslationMap = {
   'nav.brain': 'Brain',
   'nav.flows': 'Workflows',
   'nav.orchestration': 'Orchestration',
+  'orchestration.cloudUnreachable': 'Cloud brain unreachable — showing your cached view.',
 
   // ── Orchestration sub-pages (orchPage.*) ──────────────────────────────────
   'orchPage.subtitle': 'Coordinate your main agent',
@@ -3659,6 +3660,8 @@ const en: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'Open in canvas',
   'chat.flowProposal.dismiss': 'Dismiss',
   'chat.flowProposal.error': 'Could not save the workflow. Please try again.',
+  'chat.flowProposal.enableError':
+    'Workflow saved, but could not enable it. Try again, or enable it from the Workflows page.',
 
   // Auth mode labels
   'channels.authMode.managed_dm': 'Login with OpenHuman',
@@ -4461,8 +4464,18 @@ const en: TranslationMap = {
   'flowRuns.inspector.approval.loadError': 'Could not load pending approvals for this run.',
   'flowRuns.inspector.steps': 'Steps',
   'flowRuns.inspector.noSteps': 'No steps recorded yet.',
-  'flowRuns.inspector.output': 'Output',
+  // Issue B20 — raw JSON now lives behind this disclosure; the plain-language
+  // summary above it (`flowRuns.inspector.summary.*`) is the primary view.
+  'flowRuns.inspector.output': 'Show raw output',
   'flowRuns.inspector.port': 'Port',
+  // Issue B20 — plain-language, always-visible step summary (no costUsd/
+  // labelIds/markdownFormatted or flow:/run: ids — those stay behind
+  // "Show raw output"). `{count}` is substituted client-side, not via ICU.
+  'flowRuns.inspector.summary.failedPrefix': "Couldn't complete:",
+  'flowRuns.inspector.summary.unknownError': 'something went wrong',
+  'flowRuns.inspector.summary.itemsFetched': 'Fetched {count} item(s)',
+  'flowRuns.inspector.summary.completed': 'Step completed',
+  'flowRuns.inspector.summary.noOutput': 'No output produced',
   // Null-resolution diagnostics: `=`-expressions in a step's config that
   // resolved to null during the run (likely a mis-wired reference).
   'flowRuns.inspector.diagnosticsTitle': 'Expression warnings',
@@ -4590,6 +4603,10 @@ const en: TranslationMap = {
   'flows.copilot.reject': 'Dismiss',
   'flows.copilot.previewHint': 'Reviewing a proposed draft — nothing is saved yet.',
   'flows.copilot.repairDisplay': 'A run failed — please look at it and propose a fix.',
+  'flows.copilot.tool.proposing': 'Proposing workflow…',
+  'flows.copilot.tool.dryRunning': 'Dry-running workflow…',
+  'flows.copilot.tool.saving': 'Saving workflow…',
+  'flows.copilot.tool.usingTools': 'Using tools…',
 
   // ── Workflow Canvas (issue B5b.1) — the read-only graph view of a saved
   // flow at /flows/:id. `flows.nodeKind.*` labels the 12 tinyflows node

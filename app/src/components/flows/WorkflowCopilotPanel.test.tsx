@@ -167,6 +167,41 @@ describe('WorkflowCopilotPanel', () => {
     expect(screen.queryByTestId('workflow-copilot-empty')).not.toBeInTheDocument();
   });
 
+  it('B25: unwraps a raw tool-call envelope message into clean text + a tool activity chip, never raw JSON', () => {
+    // Repro for B25: a turn that both talks and calls a tool can land in the
+    // thread transcript as the provider wire-format `{ content, tool_calls }`
+    // envelope. The panel must render only the human text — never the raw
+    // JSON — plus a compact status chip for the tool activity.
+    hookState.displayMessages = [
+      { id: 'm1', content: 'build me a Slack digest', sender: 'user' },
+      {
+        id: 'm2',
+        content: JSON.stringify({
+          content: "Here's the workflow I propose.",
+          tool_calls: [{ id: 'call_1', name: 'propose_workflow', arguments: '{"nodes":[]}' }],
+        }),
+        sender: 'agent',
+      },
+    ];
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    const bubble = screen.getByTestId('workflow-copilot-agent');
+    expect(bubble).toHaveTextContent("Here's the workflow I propose.");
+    // The raw envelope must never reach the DOM as text.
+    expect(bubble).not.toHaveTextContent('tool_calls');
+    expect(bubble).not.toHaveTextContent('"nodes":[]');
+    expect(screen.getByTestId('tool-activity-chip')).toHaveTextContent(
+      'flows.copilot.tool.proposing'
+    );
+  });
+
   it('does not render an isInterim agent message as a bubble, only the terminal one', () => {
     // The panel only ever renders `displayMessages` — the same filtered set
     // `useWorkflowBuilderChat` computes from the raw transcript (isInterim

@@ -824,6 +824,10 @@ const en: TranslationMap = {
   'connections.header.mcp': "Add MCP servers to extend your agent's tools.",
   'connections.header.skills': 'Install and manage agent skills.',
   'connections.header.meetings': 'Connect calendars and let your agent join calls.',
+  'connections.header.llm': 'Configure AI providers, local models, and the agent chat tester.',
+  'connections.header.embeddings': 'Choose the embedding model used for memory search.',
+  'connections.header.search': 'Configure web search for your agent.',
+  'connections.header.wallet': 'Your local wallet balance and recovery phrase.',
   // Welcome landing (first destination)
   'connections.welcome.nav': 'Welcome',
   'connections.welcome.eyebrow': 'Connections',

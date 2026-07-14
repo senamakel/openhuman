@@ -477,6 +477,39 @@ const CONNECTIONS_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; de
     meetings: { titleKey: 'connections.tabs.meetings', descKey: 'connections.header.meetings' },
   };
 
+/** Canonical header (title + description) for each relocated settings panel. */
+const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; descKey: string }>> =
+  {
+    llm: { titleKey: 'pages.settings.ai.llm', descKey: 'connections.header.llm' },
+    'composio-key': {
+      titleKey: 'connections.tabs.composioKey',
+      descKey: 'settings.composio.apiKeyDesc',
+    },
+    voice: { titleKey: 'pages.settings.ai.voice', descKey: 'voice.providers.desc' },
+    embeddings: {
+      titleKey: 'pages.settings.ai.embeddings',
+      descKey: 'connections.header.embeddings',
+    },
+    search: { titleKey: 'settings.search.title', descKey: 'connections.header.search' },
+    usage: { titleKey: 'settings.usage.title', descKey: 'settings.usage.menuDesc' },
+    wallet: {
+      titleKey: 'pages.settings.account.walletBalances',
+      descKey: 'connections.header.wallet',
+    },
+    'screen-intelligence': {
+      titleKey: 'pages.settings.features.screenAwareness',
+      descKey: 'pages.settings.features.screenAwarenessDesc',
+    },
+    'desktop-agent': {
+      titleKey: 'settings.desktopAgent.title',
+      descKey: 'settings.desktopAgent.seamless.description',
+    },
+    companion: {
+      titleKey: 'pages.settings.features.desktopCompanion',
+      descKey: 'pages.settings.features.desktopCompanionDesc',
+    },
+  };
+
 const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'llm',
   'voice',
@@ -1155,9 +1188,17 @@ export default function Skills() {
           // API-keys / provider panels were orphaned flush on the shell — give
           // them a card surface (the integrations/skills grids below already
           // have their own card layouts, so they stay flush).
-          <div className="h-full p-4">
-            <div className="h-full overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
-              <SettingsLayoutProvider value={{ inTwoPaneShell: true }}>
+          <div className="flex h-full flex-col gap-4 p-4">
+            {INTELLIGENCE_HEADERS[activeTab] && (
+              <PageSectionHeader
+                title={t(INTELLIGENCE_HEADERS[activeTab]!.titleKey)}
+                description={t(INTELLIGENCE_HEADERS[activeTab]!.descKey)}
+              />
+            )}
+            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-line bg-surface shadow-soft">
+              {/* Panels render headerless (the header card above owns the title
+                  + description) to avoid a doubled header in the Connections pane. */}
+              <SettingsLayoutProvider value={{ inTwoPaneShell: true, headerless: true }}>
                 {activeTab === 'llm' && <LlmConnectionsPanel />}
                 {activeTab === 'voice' && <VoicePanel />}
                 {activeTab === 'embeddings' && <EmbeddingsPanel />}

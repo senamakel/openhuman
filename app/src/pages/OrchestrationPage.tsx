@@ -24,14 +24,20 @@ import TwoPaneNav from '../components/layout/TwoPaneNav';
 import ActiveSubagentsRail from '../components/orchestration/ActiveSubagentsRail';
 import AgentChatPanel from '../components/orchestration/AgentChatPanel';
 import ConnectionsPanel from '../components/orchestration/ConnectionsPanel';
+import MedullaDemoChat from '../components/orchestration/demo/MedullaDemoChat';
+import MedullaDemoGraph from '../components/orchestration/demo/MedullaDemoGraph';
+import MedullaDemoNetwork from '../components/orchestration/demo/MedullaDemoNetwork';
+import MedullaDemoTasks from '../components/orchestration/demo/MedullaDemoTasks';
 import DiscoverPanel from '../components/orchestration/DiscoverPanel';
+import MedullaOverviewPanel from '../components/orchestration/MedullaOverviewPanel';
 import OrchestratorTaskBoard from '../components/orchestration/OrchestratorTaskBoard';
 import OverviewPanel from '../components/orchestration/OverviewPanel';
 import UsagePanel from '../components/orchestration/UsagePanel';
 import { useT } from '../lib/i18n/I18nContext';
+import { useMedullaAccess } from '../lib/orchestration/useMedullaAccess';
 import { useContactSessions } from '../lib/orchestration/useOrchestrationSessions';
 
-type OrchestrationTab = 'overview' | 'agent' | 'tasks' | 'network';
+type OrchestrationTab = 'medulla' | 'overview' | 'agent' | 'tasks' | 'network';
 type NetworkSub = 'connections' | 'discover' | 'usage';
 
 const NETWORK_SUBS: readonly NetworkSub[] = ['connections', 'discover', 'usage'];
@@ -48,6 +54,10 @@ export default function OrchestrationPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const contactSessions = useContactSessions();
+  // Without Medulla access every live surface is replaced by a scale showcase:
+  // demo chat (read-only, composer disabled), demo graph, demo tasks, demo
+  // network. The tabs stay in place so the showcase is fully browsable.
+  const hasMedullaAccess = useMedullaAccess();
 
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const rawTab = params.get('tab');
@@ -55,14 +65,17 @@ export default function OrchestrationPage() {
 
   // `?tab=connections|discover|usage` is a legacy deep link → the network page
   // with that sub selected. New links use `?tab=network&sub=…`.
+  // Default landing is the Medulla overview (the orchestration overview page).
   const activeTab: OrchestrationTab =
     rawTab === 'overview'
       ? 'overview'
-      : rawTab === 'tasks'
-        ? 'tasks'
-        : rawTab === 'network' || NETWORK_SUBS.includes(rawTab as NetworkSub)
-          ? 'network'
-          : 'agent';
+      : rawTab === 'agent'
+        ? 'agent'
+        : rawTab === 'tasks'
+          ? 'tasks'
+          : rawTab === 'network' || NETWORK_SUBS.includes(rawTab as NetworkSub)
+            ? 'network'
+            : 'medulla';
 
   const networkSub: NetworkSub = NETWORK_SUBS.includes(rawTab as NetworkSub)
     ? (rawTab as NetworkSub)
@@ -121,10 +134,11 @@ export default function OrchestrationPage() {
   );
 
   console.debug(
-    '[orchestration] page mount tab=%s sub=%s session=%s',
+    '[orchestration] page mount tab=%s sub=%s session=%s medullaAccess=%s',
     activeTab,
     networkSub,
-    openSessionId
+    openSessionId,
+    hasMedullaAccess
   );
 
   return (
@@ -137,8 +151,16 @@ export default function OrchestrationPage() {
             onSelect={value => setActiveTab(value as OrchestrationTab)}
             groups={[
               {
-                // Flat list — no category headers: Chat · Agent graph · Network.
+                // Flat list — no category headers: Overview · Chat · Agent
+                // graph · Tasks · Network. Overview (Medulla) is the landing.
                 items: [
+                  {
+                    value: 'medulla',
+                    label: t('orchPage.medulla.nav'),
+                    icon: navIcon(
+                      'M12 3v2m0 14v2m9-9h-2M5 12H3m14.657-6.657l-1.414 1.414M7.757 16.243l-1.414 1.414m0-11.314l1.414 1.414m8.486 8.486l1.414 1.414M15 12a3 3 0 11-6 0 3 3 0 016 0z'
+                    ),
+                  },
                   {
                     value: 'agent',
                     label: t('orchPage.agent.nav'),
@@ -171,36 +193,58 @@ export default function OrchestrationPage() {
             footer={
               // Active sub-agents, grouped by instance (contact) with a
               // connection-status dot. Clicking a sub-agent opens its chat.
-              <ActiveSubagentsRail
-                byContact={contactSessions.byContact}
-                openSessionId={openSessionId}
-                isAgentTab={activeTab === 'agent'}
-                onOpenSession={setOpenSessionId}
-              />
+              // Driven by live peer sessions, so it's hidden in showcase mode
+              // (no live sub-agents without Medulla access).
+              hasMedullaAccess ? (
+                <ActiveSubagentsRail
+                  byContact={contactSessions.byContact}
+                  openSessionId={openSessionId}
+                  isAgentTab={activeTab === 'agent'}
+                  onOpenSession={setOpenSessionId}
+                />
+              ) : undefined
             }
           />
         </div>
       </SidebarContent>
 
-      {activeTab === 'overview' ? (
-        // Interactive graph of the agent / sub-agent system.
-        <OverviewPanel />
+      {activeTab === 'medulla' ? (
+        // Orchestration overview — the Medulla teaser / early-access landing.
+        <MedullaOverviewPanel />
+      ) : activeTab === 'overview' ? (
+        // Interactive graph of the agent / sub-agent system — or the scale
+        // showcase (core → 2 devices → 120 agents) without Medulla access.
+        hasMedullaAccess ? (
+          <OverviewPanel />
+        ) : (
+          <MedullaDemoGraph />
+        )
       ) : activeTab === 'agent' ? (
         // Full-bleed so it reads exactly like the normal chat page (dark
-        // background, floating composer, one vertical scroll) — no card/gutter.
-        <div className="h-full">
-          <AgentChatPanel openSessionId={openSessionId} onOpenSession={setOpenSessionId} />
-        </div>
+        // background, floating composer, one vertical scroll) — or a read-only
+        // demo conversation (composer disabled) without Medulla access.
+        hasMedullaAccess ? (
+          <div className="h-full">
+            <AgentChatPanel openSessionId={openSessionId} onOpenSession={setOpenSessionId} />
+          </div>
+        ) : (
+          <MedullaDemoChat />
+        )
       ) : activeTab === 'tasks' ? (
-        // One global Kanban board owned by the orchestrator (not per-thread).
-        <div className="mx-auto h-full w-full max-w-5xl">
-          <PanelPage contentClassName="p-4">
-            <div className="animate-fade-up">
-              <OrchestratorTaskBoard />
-            </div>
-          </PanelPage>
-        </div>
-      ) : (
+        // One global Kanban board owned by the orchestrator (not per-thread) —
+        // or the scale-showcase demo board without Medulla access.
+        hasMedullaAccess ? (
+          <div className="mx-auto h-full w-full max-w-5xl">
+            <PanelPage contentClassName="p-4">
+              <div className="animate-fade-up">
+                <OrchestratorTaskBoard />
+              </div>
+            </PanelPage>
+          </div>
+        ) : (
+          <MedullaDemoTasks />
+        )
+      ) : hasMedullaAccess ? (
         <div className="mx-auto h-full w-full max-w-5xl">
           {/* Network: one page with a Brain-style chip sub-nav (flush pills, no
               header background) over connections/discover/usage, aligned to the
@@ -231,6 +275,9 @@ export default function OrchestrationPage() {
             </div>
           </PanelPage>
         </div>
+      ) : (
+        // Scale showcase: fake peer-agent mesh with the preview banner.
+        <MedullaDemoNetwork />
       )}
     </div>
   );

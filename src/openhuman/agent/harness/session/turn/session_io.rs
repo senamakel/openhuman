@@ -161,10 +161,10 @@ impl Agent {
         let usage = crate::openhuman::tinyagents::model::usage_info_from_response(&response);
         let text = response.text();
         // Tools are disabled for wrap-up calls, but text-protocol models can
-        // still ignore that instruction and emit an XML/P-format call in the
-        // response body. Treat both native and dispatcher-parsed calls as an
-        // invalid wrap-up so the caller uses its deterministic fallback.
-        let (_, parsed_tool_calls) = self.tool_dispatcher.parse_response(&response);
+        // still ignore that instruction and emit an XML tool call in the
+        // response body. Treat both native and text-parsed calls as an invalid
+        // wrap-up so the caller uses its deterministic fallback.
+        let (_, parsed_tool_calls) = crate::openhuman::agent::harness::parse_tool_calls(&text);
         let attempted_tool_call =
             !response.tool_calls().is_empty() || !parsed_tool_calls.is_empty();
         let checkpoint = if attempted_tool_call {

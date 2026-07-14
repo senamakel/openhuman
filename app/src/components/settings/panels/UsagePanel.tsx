@@ -36,7 +36,7 @@ const UsagePanel = () => {
   const tab: TabId = hashToTab(location.hash);
 
   const selectTab = (next: TabId) => {
-    navigate(`${location.pathname}${TAB_HASH[next]}`, { replace: true });
+    navigate(`${location.pathname}${location.search}${TAB_HASH[next]}`, { replace: true });
   };
 
   return (

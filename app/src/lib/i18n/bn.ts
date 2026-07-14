@@ -62,6 +62,18 @@ const messages: TranslationMap = {
   'connections.header.mcp': 'আপনার এজেন্টের টুল বাড়াতে MCP সার্ভার যোগ করুন।',
   'connections.header.skills': 'এজেন্ট দক্ষতা ইনস্টল ও পরিচালনা করুন।',
   'connections.header.meetings': 'ক্যালেন্ডার সংযুক্ত করুন এবং আপনার এজেন্টকে কলে যোগ দিতে দিন।',
+  'connections.header.llm': 'AI প্রদানকারী, স্থানীয় মডেল এবং এজেন্ট চ্যাট টেস্টার কনফিগার করুন।',
+  'connections.header.embeddings': 'মেমরি অনুসন্ধানে ব্যবহৃত এমবেডিং মডেল বেছে নিন।',
+  'connections.header.search': 'আপনার এজেন্টের জন্য ওয়েব অনুসন্ধান কনফিগার করুন।',
+  'connections.header.wallet': 'আপনার স্থানীয় ওয়ালেটের ব্যালেন্স এবং পুনরুদ্ধার বাক্যাংশ।',
+  'connections.header.screen':
+    'সময়োপযোগী, প্রাসঙ্গিক সহায়তা দিতে আপনার এজেন্টকে আপনার স্ক্রিন দেখতে দিন।',
+  'connections.header.desktopAgent':
+    'আপনার এজেন্টকে অ্যাপ খুলতে এবং আপনার হয়ে আপনার ডেস্কটপ নিয়ন্ত্রণ করতে দিন।',
+  'connections.header.companion': 'দ্রুত, সর্বদা-সক্রিয় সহায়তার জন্য একটি ভাসমান ডেস্কটপ সঙ্গী।',
+  'connections.header.composioKey':
+    'শত শত অ্যাপ ইন্টিগ্রেশন আনলক করতে একটি Composio API কী যোগ করুন।',
+  'connections.llm.apiKeys': 'API কী ও রাউটিং',
   'connections.welcome.nav': 'স্বাগতম',
   'connections.welcome.eyebrow': 'সংযোগ',
   'connections.welcome.title': 'আপনি যা ব্যবহার করেন সবকিছু এক জায়গায়',
@@ -4347,7 +4359,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'বিজ্ঞপ্তি',
   'pages.settings.features.notificationsDesc': 'বিজ্ঞপ্তির বিবরণ',
   'pages.settings.features.screenAwareness': 'স্ক্রিন সচেতনতা',
-  'pages.settings.features.screenAwarenessDesc': 'স্ক্রিন সচেতনতার বিবরণ',
+  'pages.settings.features.screenAwarenessDesc':
+    'সময়োপযোগী, প্রাসঙ্গিক সহায়তা দিতে আপনার এজেন্টকে আপনার স্ক্রিন দেখতে দিন।',
   'pages.settings.features.tools': 'টুলস',
   'pages.settings.features.toolsDesc': 'টুলসের বিবরণ',
   'pages.settings.featuresSection.description': 'স্ক্রিন সচেতনতা, মেসেজিং এবং টুলস।',

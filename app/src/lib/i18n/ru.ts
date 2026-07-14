@@ -61,6 +61,19 @@ const messages: TranslationMap = {
   'connections.header.skills': 'Устанавливайте и управляйте навыками агента.',
   'connections.header.meetings':
     'Подключите календари и позвольте агенту присоединяться к звонкам.',
+  'connections.header.llm': 'Настройте провайдеров ИИ, локальные модели и тестер чата агента.',
+  'connections.header.embeddings': 'Выберите модель эмбеддингов для поиска в памяти.',
+  'connections.header.search': 'Настройте веб-поиск для вашего агента.',
+  'connections.header.wallet': 'Баланс вашего локального кошелька и фраза восстановления.',
+  'connections.header.screen':
+    'Позвольте агенту видеть ваш экран, чтобы предлагать своевременную контекстную помощь.',
+  'connections.header.desktopAgent':
+    'Позвольте агенту открывать приложения и управлять вашим рабочим столом от вашего имени.',
+  'connections.header.companion':
+    'Плавающий помощник на рабочем столе для быстрой, всегда доступной помощи.',
+  'connections.header.composioKey':
+    'Добавьте ключ API Composio, чтобы разблокировать сотни интеграций приложений.',
+  'connections.llm.apiKeys': 'Ключи API и маршрутизация',
   'connections.welcome.nav': 'Добро пожаловать',
   'connections.welcome.eyebrow': 'Подключения',
   'connections.welcome.title': 'Всё, чем вы пользуетесь, в одном месте',
@@ -4386,7 +4399,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'Уведомления',
   'pages.settings.features.notificationsDesc': 'Описание уведомлений',
   'pages.settings.features.screenAwareness': 'Слежение за экраном',
-  'pages.settings.features.screenAwarenessDesc': 'Описание распознавания экрана',
+  'pages.settings.features.screenAwarenessDesc':
+    'Позвольте агенту видеть ваш экран, чтобы предлагать своевременную контекстную помощь.',
   'pages.settings.features.tools': 'Инструменты',
   'pages.settings.features.toolsDesc': 'Описание инструментов',
   'pages.settings.featuresSection.description': 'Слежение за экраном, мессенджеры и инструменты.',

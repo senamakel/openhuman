@@ -65,6 +65,19 @@ const messages: TranslationMap = {
   'connections.header.skills': 'Pasang dan kelola keahlian agen.',
   'connections.header.meetings':
     'Sambungkan kalender dan biarkan agen Anda bergabung ke panggilan.',
+  'connections.header.llm': 'Konfigurasikan penyedia AI, model lokal, dan penguji obrolan agen.',
+  'connections.header.embeddings': 'Pilih model embedding yang digunakan untuk pencarian memori.',
+  'connections.header.search': 'Konfigurasikan pencarian web untuk agen Anda.',
+  'connections.header.wallet': 'Saldo dompet lokal Anda dan frasa pemulihan Anda.',
+  'connections.header.screen':
+    'Biarkan agen Anda melihat layar Anda untuk memberikan bantuan tepat waktu dan sesuai konteks.',
+  'connections.header.desktopAgent':
+    'Biarkan agen Anda membuka aplikasi dan mengendalikan desktop Anda atas nama Anda.',
+  'connections.header.companion':
+    'Pendamping desktop mengambang untuk bantuan cepat yang selalu tersedia.',
+  'connections.header.composioKey':
+    'Tambahkan kunci API Composio untuk membuka ratusan integrasi aplikasi.',
+  'connections.llm.apiKeys': 'Kunci API & perutean',
   'connections.welcome.nav': 'Selamat datang',
   'connections.welcome.eyebrow': 'Koneksi',
   'connections.welcome.title': 'Semua yang Anda gunakan, dalam satu tempat',
@@ -4362,7 +4375,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'Notifikasi',
   'pages.settings.features.notificationsDesc': 'Deskripsi notifikasi',
   'pages.settings.features.screenAwareness': 'Kesadaran layar',
-  'pages.settings.features.screenAwarenessDesc': 'Deskripsi kesadaran layar',
+  'pages.settings.features.screenAwarenessDesc':
+    'Biarkan agen Anda melihat layar Anda untuk memberikan bantuan tepat waktu dan sesuai konteks.',
   'pages.settings.features.tools': 'Alat',
   'pages.settings.features.toolsDesc': 'Deskripsi alat',
   'pages.settings.featuresSection.description': 'Kesadaran layar, pesan, dan alat.',

@@ -68,6 +68,22 @@ const messages: TranslationMap = {
   'connections.header.skills': 'Installez et gérez les compétences des agents.',
   'connections.header.meetings':
     'Connectez vos agendas et laissez votre agent rejoindre les appels.',
+  'connections.header.llm':
+    'Configurez les fournisseurs d’IA, les modèles locaux et le testeur de chat de l’agent.',
+  'connections.header.embeddings':
+    'Choisissez le modèle d’embeddings utilisé pour la recherche en mémoire.',
+  'connections.header.search': 'Configurez la recherche web pour votre agent.',
+  'connections.header.wallet':
+    'Le solde de votre portefeuille local et votre phrase de récupération.',
+  'connections.header.screen':
+    'Laissez votre agent voir votre écran pour offrir une aide opportune et contextuelle.',
+  'connections.header.desktopAgent':
+    'Laissez votre agent ouvrir des applications et contrôler votre bureau en votre nom.',
+  'connections.header.companion':
+    'Un compagnon de bureau flottant pour une aide rapide et toujours disponible.',
+  'connections.header.composioKey':
+    'Ajoutez une clé API Composio pour débloquer des centaines d’intégrations d’applications.',
+  'connections.llm.apiKeys': 'Clés API et routage',
   'connections.welcome.nav': 'Bienvenue',
   'connections.welcome.eyebrow': 'Connexions',
   'connections.welcome.title': 'Tout ce que vous utilisez, au même endroit',
@@ -4449,7 +4465,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'Notifications',
   'pages.settings.features.notificationsDesc': 'Description des notifications',
   'pages.settings.features.screenAwareness': "Surveillance de l'écran",
-  'pages.settings.features.screenAwarenessDesc': "Description de la surveillance de l'écran",
+  'pages.settings.features.screenAwarenessDesc':
+    'Laissez votre agent voir votre écran pour offrir une aide opportune et contextuelle.',
   'pages.settings.features.tools': 'Outils',
   'pages.settings.features.toolsDesc': 'Description des outils',
   'pages.settings.featuresSection.description': "Surveillance de l'écran, messagerie et outils.",

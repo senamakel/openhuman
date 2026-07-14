@@ -64,6 +64,19 @@ const messages: TranslationMap = {
   'connections.header.mcp': 'Dodaj serwery MCP, aby rozszerzyć narzędzia Twojego agenta.',
   'connections.header.skills': 'Instaluj umiejętności agenta i zarządzaj nimi.',
   'connections.header.meetings': 'Połącz kalendarze i pozwól agentowi dołączać do rozmów.',
+  'connections.header.llm': 'Skonfiguruj dostawców AI, modele lokalne i tester czatu agenta.',
+  'connections.header.embeddings': 'Wybierz model osadzeń używany do wyszukiwania w pamięci.',
+  'connections.header.search': 'Skonfiguruj wyszukiwanie internetowe dla swojego agenta.',
+  'connections.header.wallet': 'Saldo Twojego lokalnego portfela i fraza odzyskiwania.',
+  'connections.header.screen':
+    'Pozwól agentowi widzieć Twój ekran, aby oferować pomoc w odpowiednim czasie i kontekście.',
+  'connections.header.desktopAgent':
+    'Pozwól agentowi otwierać aplikacje i sterować Twoim pulpitem w Twoim imieniu.',
+  'connections.header.companion':
+    'Pływający towarzysz pulpitu do szybkiej, zawsze dostępnej pomocy.',
+  'connections.header.composioKey':
+    'Dodaj klucz API Composio, aby odblokować setki integracji aplikacji.',
+  'connections.llm.apiKeys': 'Klucze API i routing',
   'connections.welcome.nav': 'Witamy',
   'connections.welcome.eyebrow': 'Połączenia',
   'connections.welcome.title': 'Wszystko, czego używasz, w jednym miejscu',
@@ -4410,7 +4423,7 @@ const messages: TranslationMap = {
     'Steruj alertami systemowymi i kategoriami powiadomień',
   'pages.settings.features.screenAwareness': 'Świadomość ekranu',
   'pages.settings.features.screenAwarenessDesc':
-    'Uprawnienia, monitorowanie i sesje przechwytywania ekranu',
+    'Pozwól agentowi widzieć Twój ekran, aby oferować pomoc w odpowiednim czasie i kontekście.',
   'pages.settings.features.tools': 'Narzędzia',
   'pages.settings.features.toolsDesc': 'Wybierz, z jakich możliwości OpenHuman może korzystać',
   'pages.settings.featuresSection.description': 'Świadomość ekranu, komunikacja i narzędzia.',

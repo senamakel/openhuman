@@ -62,6 +62,18 @@ const messages: TranslationMap = {
   'connections.header.mcp': 'अपने एजेंट के टूल का विस्तार करने के लिए MCP सर्वर जोड़ें।',
   'connections.header.skills': 'एजेंट स्किल्स इंस्टॉल और प्रबंधित करें।',
   'connections.header.meetings': 'कैलेंडर जोड़ें और अपने एजेंट को कॉल में शामिल होने दें।',
+  'connections.header.llm': 'AI प्रदाता, स्थानीय मॉडल और एजेंट चैट परीक्षक कॉन्फ़िगर करें।',
+  'connections.header.embeddings': 'मेमोरी खोज के लिए उपयोग किया जाने वाला एम्बेडिंग मॉडल चुनें।',
+  'connections.header.search': 'अपने एजेंट के लिए वेब खोज कॉन्फ़िगर करें।',
+  'connections.header.wallet': 'आपके स्थानीय वॉलेट का बैलेंस और रिकवरी वाक्यांश।',
+  'connections.header.screen':
+    'समय पर, संदर्भ के अनुरूप मदद देने के लिए अपने एजेंट को अपनी स्क्रीन देखने दें।',
+  'connections.header.desktopAgent':
+    'अपने एजेंट को ऐप्स खोलने और आपकी ओर से आपके डेस्कटॉप को नियंत्रित करने दें।',
+  'connections.header.companion': 'त्वरित, हमेशा उपलब्ध मदद के लिए एक फ़्लोटिंग डेस्कटॉप साथी।',
+  'connections.header.composioKey':
+    'सैकड़ों ऐप एकीकरण अनलॉक करने के लिए एक Composio API कुंजी जोड़ें।',
+  'connections.llm.apiKeys': 'API कुंजियाँ और रूटिंग',
   'connections.welcome.nav': 'स्वागत है',
   'connections.welcome.eyebrow': 'कनेक्शन',
   'connections.welcome.title': 'जो कुछ भी आप उपयोग करते हैं, सब एक जगह',
@@ -4344,7 +4356,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'नोटिफिकेशन',
   'pages.settings.features.notificationsDesc': 'नोटिफ़िकेशन विवरण',
   'pages.settings.features.screenAwareness': 'स्क्रीन अवेयरनेस',
-  'pages.settings.features.screenAwarenessDesc': 'स्क्रीन अवेयरनेस विवरण',
+  'pages.settings.features.screenAwarenessDesc':
+    'समय पर, संदर्भ के अनुरूप मदद देने के लिए अपने एजेंट को अपनी स्क्रीन देखने दें।',
   'pages.settings.features.tools': 'टूल्स',
   'pages.settings.features.toolsDesc': 'टूल्स विवरण',
   'pages.settings.featuresSection.description': 'स्क्रीन अवेयरनेस, मैसेजिंग और टूल्स।',

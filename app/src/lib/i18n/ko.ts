@@ -61,6 +61,18 @@ const messages: TranslationMap = {
   'connections.header.mcp': '당신 에이전트의 도구를 확장할 MCP 서버를 추가하세요.',
   'connections.header.skills': '에이전트 스킬을 설치하고 관리하세요.',
   'connections.header.meetings': '캘린더를 연결하고 에이전트가 통화에 참여하게 하세요.',
+  'connections.header.llm': 'AI 제공업체, 로컬 모델, 에이전트 채팅 테스터를 구성하세요.',
+  'connections.header.embeddings': '메모리 검색에 사용할 임베딩 모델을 선택하세요.',
+  'connections.header.search': '에이전트를 위한 웹 검색을 구성하세요.',
+  'connections.header.wallet': '로컬 지갑 잔액과 복구 문구입니다.',
+  'connections.header.screen':
+    '에이전트가 화면을 볼 수 있게 하여 시의적절하고 맥락에 맞는 도움을 제공하세요.',
+  'connections.header.desktopAgent':
+    '에이전트가 당신을 대신해 앱을 열고 데스크톱을 제어하게 하세요.',
+  'connections.header.companion': '빠르고 항상 켜져 있는 도움을 위한 떠 있는 데스크톱 동반자.',
+  'connections.header.composioKey':
+    'Composio API 키를 추가하여 수백 개의 앱 통합을 잠금 해제하세요.',
+  'connections.llm.apiKeys': 'API 키 및 라우팅',
   'connections.welcome.nav': '환영합니다',
   'connections.welcome.eyebrow': '연결',
   'connections.welcome.title': '당신이 사용하는 모든 것을 한곳에',
@@ -4297,7 +4309,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': '알림',
   'pages.settings.features.notificationsDesc': '알림 설명',
   'pages.settings.features.screenAwareness': '화면 인식',
-  'pages.settings.features.screenAwarenessDesc': '화면 인식 설명',
+  'pages.settings.features.screenAwarenessDesc':
+    '에이전트가 화면을 볼 수 있게 하여 시의적절하고 맥락에 맞는 도움을 제공하세요.',
   'pages.settings.features.tools': '도구',
   'pages.settings.features.toolsDesc': '도구 설명',
   'pages.settings.featuresSection.description': '화면 인식, 메시징 및 도구.',

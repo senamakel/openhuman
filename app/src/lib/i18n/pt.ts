@@ -62,6 +62,20 @@ const messages: TranslationMap = {
   'connections.header.mcp': 'Adicione servidores MCP para ampliar as ferramentas do seu agente.',
   'connections.header.skills': 'Instale e faça a gestão das competências do agente.',
   'connections.header.meetings': 'Ligue calendários e deixe o seu agente participar em chamadas.',
+  'connections.header.llm':
+    'Configure fornecedores de IA, modelos locais e o testador de chat do agente.',
+  'connections.header.embeddings': 'Escolha o modelo de embeddings usado na pesquisa da memória.',
+  'connections.header.search': 'Configure a pesquisa na web para o seu agente.',
+  'connections.header.wallet': 'O saldo da sua carteira local e a sua frase de recuperação.',
+  'connections.header.screen':
+    'Deixe o seu agente ver o seu ecrã para oferecer ajuda oportuna e contextual.',
+  'connections.header.desktopAgent':
+    'Deixe o seu agente abrir aplicações e controlar o seu ambiente de trabalho em seu nome.',
+  'connections.header.companion':
+    'Um companheiro de ambiente de trabalho flutuante para ajuda rápida e sempre disponível.',
+  'connections.header.composioKey':
+    'Adicione uma chave de API do Composio para desbloquear centenas de integrações de aplicações.',
+  'connections.llm.apiKeys': 'Chaves de API e encaminhamento',
   'connections.welcome.nav': 'Bem-vindo',
   'connections.welcome.eyebrow': 'Ligações',
   'connections.welcome.title': 'Tudo o que usa, num só lugar',
@@ -4413,7 +4427,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'Notificações',
   'pages.settings.features.notificationsDesc': 'Descrição de notificações',
   'pages.settings.features.screenAwareness': 'Reconhecimento de tela',
-  'pages.settings.features.screenAwarenessDesc': 'Descrição do reconhecimento de tela',
+  'pages.settings.features.screenAwarenessDesc':
+    'Deixe o seu agente ver o seu ecrã para oferecer ajuda oportuna e contextual.',
   'pages.settings.features.tools': 'Ferramentas',
   'pages.settings.features.toolsDesc': 'Descrição de ferramentas',
   'pages.settings.featuresSection.description': 'Reconhecimento de tela, mensagens e ferramentas.',

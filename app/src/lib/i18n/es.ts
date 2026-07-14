@@ -63,6 +63,21 @@ const messages: TranslationMap = {
   'connections.header.mcp': 'Añade servidores MCP para ampliar las herramientas de tu agente.',
   'connections.header.skills': 'Instala y gestiona las habilidades del agente.',
   'connections.header.meetings': 'Conecta calendarios y deja que tu agente se una a las llamadas.',
+  'connections.header.llm':
+    'Configura proveedores de IA, modelos locales y el probador de chat del agente.',
+  'connections.header.embeddings':
+    'Elige el modelo de embeddings usado para la búsqueda en la memoria.',
+  'connections.header.search': 'Configura la búsqueda web para tu agente.',
+  'connections.header.wallet': 'El saldo de tu monedero local y tu frase de recuperación.',
+  'connections.header.screen':
+    'Deja que tu agente vea tu pantalla para ofrecerte ayuda oportuna y en contexto.',
+  'connections.header.desktopAgent':
+    'Deja que tu agente abra apps y controle tu escritorio en tu nombre.',
+  'connections.header.companion':
+    'Un compañero de escritorio flotante para ayuda rápida y siempre disponible.',
+  'connections.header.composioKey':
+    'Añade una clave de API de Composio para desbloquear cientos de integraciones de apps.',
+  'connections.llm.apiKeys': 'Claves de API y enrutamiento',
   'connections.welcome.nav': 'Bienvenida',
   'connections.welcome.eyebrow': 'Conexiones',
   'connections.welcome.title': 'Todo lo que usas, en un solo lugar',
@@ -4422,7 +4437,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'Notificaciones',
   'pages.settings.features.notificationsDesc': 'Descripción de notificaciones',
   'pages.settings.features.screenAwareness': 'Conciencia de pantalla',
-  'pages.settings.features.screenAwarenessDesc': 'Descripción de conciencia de pantalla',
+  'pages.settings.features.screenAwarenessDesc':
+    'Deja que tu agente vea tu pantalla para ofrecerte ayuda oportuna y en contexto.',
   'pages.settings.features.tools': 'Herramientas',
   'pages.settings.features.toolsDesc': 'Descripción de herramientas',
   'pages.settings.featuresSection.description':

@@ -71,6 +71,21 @@ const messages: TranslationMap = {
   'connections.header.skills': 'Agenten-Skills installieren und verwalten.',
   'connections.header.meetings':
     'Verbinden Sie Kalender und lassen Sie Ihren Agenten an Anrufen teilnehmen.',
+  'connections.header.llm':
+    'Konfigurieren Sie KI-Anbieter, lokale Modelle und den Chat-Tester des Agenten.',
+  'connections.header.embeddings': 'Wählen Sie das Embedding-Modell für die Speichersuche.',
+  'connections.header.search': 'Konfigurieren Sie die Websuche für Ihren Agenten.',
+  'connections.header.wallet':
+    'Das Guthaben Ihrer lokalen Wallet und Ihre Wiederherstellungsphrase.',
+  'connections.header.screen':
+    'Lassen Sie Ihren Agenten Ihren Bildschirm sehen, um zeitnahe, kontextbezogene Hilfe zu bieten.',
+  'connections.header.desktopAgent':
+    'Lassen Sie Ihren Agenten Apps öffnen und Ihren Desktop in Ihrem Namen steuern.',
+  'connections.header.companion':
+    'Ein schwebender Desktop-Begleiter für schnelle, jederzeit verfügbare Hilfe.',
+  'connections.header.composioKey':
+    'Fügen Sie einen Composio-API-Schlüssel hinzu, um Hunderte von App-Integrationen freizuschalten.',
+  'connections.llm.apiKeys': 'API-Schlüssel & Routing',
   'connections.welcome.nav': 'Willkommen',
   'connections.welcome.eyebrow': 'Verbindungen',
   'connections.welcome.title': 'Alles, was Sie nutzen, an einem Ort',
@@ -4471,7 +4486,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'Benachrichtigungen',
   'pages.settings.features.notificationsDesc': 'Benachrichtigungen absch',
   'pages.settings.features.screenAwareness': 'Bildschirmbewusstsein',
-  'pages.settings.features.screenAwarenessDesc': 'Abschn. Bildschirmwahrnehmung',
+  'pages.settings.features.screenAwarenessDesc':
+    'Lassen Sie Ihren Agenten Ihren Bildschirm sehen, um zeitnahe, kontextbezogene Hilfe zu bieten.',
   'pages.settings.features.tools': 'Werkzeuge',
   'pages.settings.features.toolsDesc': 'Werkzeugbeschr',
   'pages.settings.featuresSection.description': 'Bildschirmbewusstsein, Nachrichten und Tools.',

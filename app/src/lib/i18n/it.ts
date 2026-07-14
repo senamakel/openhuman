@@ -64,6 +64,21 @@ const messages: TranslationMap = {
   'connections.header.skills': 'Installa e gestisci le abilità dell’agente.',
   'connections.header.meetings':
     'Collega i calendari e lascia che il tuo agente partecipi alle chiamate.',
+  'connections.header.llm':
+    'Configura provider di IA, modelli locali e il tester di chat dell’agente.',
+  'connections.header.embeddings':
+    'Scegli il modello di embedding usato per la ricerca nella memoria.',
+  'connections.header.search': 'Configura la ricerca web per il tuo agente.',
+  'connections.header.wallet': 'Il saldo del tuo wallet locale e la tua frase di recupero.',
+  'connections.header.screen':
+    'Lascia che il tuo agente veda il tuo schermo per offrire un aiuto tempestivo e contestuale.',
+  'connections.header.desktopAgent':
+    'Lascia che il tuo agente apra le app e controlli il tuo desktop per tuo conto.',
+  'connections.header.companion':
+    'Un compagno desktop fluttuante per un aiuto rapido e sempre disponibile.',
+  'connections.header.composioKey':
+    'Aggiungi una chiave API Composio per sbloccare centinaia di integrazioni di app.',
+  'connections.llm.apiKeys': 'Chiavi API e instradamento',
   'connections.welcome.nav': 'Benvenuto',
   'connections.welcome.eyebrow': 'Connessioni',
   'connections.welcome.title': 'Tutto ciò che usi, in un unico posto',
@@ -4420,7 +4435,8 @@ const messages: TranslationMap = {
   'pages.settings.features.notifications': 'Notifiche',
   'pages.settings.features.notificationsDesc': 'Descrizione notifiche',
   'pages.settings.features.screenAwareness': 'Consapevolezza schermo',
-  'pages.settings.features.screenAwarenessDesc': 'Descrizione consapevolezza schermo',
+  'pages.settings.features.screenAwarenessDesc':
+    'Lascia che il tuo agente veda il tuo schermo per offrire un aiuto tempestivo e contestuale.',
   'pages.settings.features.tools': 'Strumenti',
   'pages.settings.features.toolsDesc': 'Descrizione strumenti',
   'pages.settings.featuresSection.description':

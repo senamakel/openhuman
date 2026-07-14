@@ -26,7 +26,21 @@ impl TreeJobSink for HostTreeJobSink {
             default_max_attempts,
             "[memory:ingest] enqueue extract job in chunk transaction"
         );
-        QueueJobSink.enqueue_extract_tx(tx, chunk_id, default_max_attempts)
+        let enqueued = QueueJobSink
+            .enqueue_extract_tx(tx, chunk_id, default_max_attempts)
+            .inspect_err(|error| {
+                tracing::error!(
+                    chunk_id,
+                    error = %error,
+                    "[memory:ingest] enqueue extract job failed"
+                );
+            })?;
+        tracing::trace!(
+            chunk_id,
+            enqueued,
+            "[memory:ingest] enqueue extract job outcome (false = already queued)"
+        );
+        Ok(enqueued)
     }
 }
 

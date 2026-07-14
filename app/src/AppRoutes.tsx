@@ -9,6 +9,7 @@ import PublicRoute from './components/PublicRoute';
 import HumanPage from './features/human/HumanPage';
 import { getIsMobile } from './lib/platform';
 import Accounts from './pages/Accounts';
+import Activity from './pages/Activity';
 import Brain from './pages/Brain';
 import AgentInsightsPreview from './pages/dev/AgentInsightsPreview';
 import Feedback from './pages/Feedback';
@@ -240,7 +241,16 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
         }
       />
 
-      <Route path="/workflows" element={<Navigate to="/flows" replace />} />
+      {/* Installed SKILL.md workflows remain a separate runtime surface from
+          visual Flows. Keep the legacy top-level hub reachable. */}
+      <Route
+        path="/workflows"
+        element={
+          <ProtectedRoute requireAuth={true}>
+            <Activity />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Webhooks retired from the UI — land on the Integrations settings. */}
       <Route path="/webhooks" element={<Navigate to="/settings/integrations" replace />} />

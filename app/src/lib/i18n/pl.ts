@@ -4123,7 +4123,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'Nie udało się uruchomić odkrywania. Spróbuj ponownie.',
   'flows.suggest.why': 'Dlaczego',
   'flows.suggest.build': 'Utwórz to',
-  'flows.suggest.building': 'Tworzenie…',
+  'flows.suggest.opening': 'Otwieranie…',
   'flows.suggest.dismiss': 'Odrzuć',
   'flows.suggest.uses': 'Używa',
   'flows.suggest.trigger.schedule': 'Zaplanowane',

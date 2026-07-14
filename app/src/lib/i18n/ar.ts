@@ -3974,7 +3974,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'تعذّر تشغيل الاكتشاف. يرجى المحاولة مرة أخرى.',
   'flows.suggest.why': 'لماذا',
   'flows.suggest.build': 'أنشئ هذا',
-  'flows.suggest.building': 'جارٍ الإنشاء…',
+  'flows.suggest.opening': 'جارٍ الفتح…',
   'flows.suggest.dismiss': 'تجاهل',
   'flows.suggest.uses': 'يستخدم',
   'flows.suggest.trigger.schedule': 'مجدول',

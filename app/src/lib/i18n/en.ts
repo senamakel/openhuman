@@ -4758,7 +4758,7 @@ const en: TranslationMap = {
   'flows.suggest.error': 'Could not run discovery. Please try again.',
   'flows.suggest.why': 'Why',
   'flows.suggest.build': 'Build this',
-  'flows.suggest.building': 'Building…',
+  'flows.suggest.opening': 'Opening…',
   'flows.suggest.dismiss': 'Dismiss',
   'flows.suggest.uses': 'Uses',
   'flows.suggest.trigger.schedule': 'Scheduled',

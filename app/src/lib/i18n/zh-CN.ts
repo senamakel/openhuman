@@ -3856,7 +3856,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': '无法运行发现，请重试。',
   'flows.suggest.why': '原因',
   'flows.suggest.build': '构建此项',
-  'flows.suggest.building': '正在构建…',
+  'flows.suggest.opening': '正在打开…',
   'flows.suggest.dismiss': '忽略',
   'flows.suggest.uses': '使用',
   'flows.suggest.trigger.schedule': '已排程',

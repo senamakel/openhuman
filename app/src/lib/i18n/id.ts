@@ -4086,7 +4086,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'Tidak dapat menjalankan penemuan. Silakan coba lagi.',
   'flows.suggest.why': 'Alasan',
   'flows.suggest.build': 'Buat ini',
-  'flows.suggest.building': 'Membuat…',
+  'flows.suggest.opening': 'Membuka…',
   'flows.suggest.dismiss': 'Abaikan',
   'flows.suggest.uses': 'Menggunakan',
   'flows.suggest.trigger.schedule': 'Terjadwal',

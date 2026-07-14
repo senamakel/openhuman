@@ -4027,7 +4027,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': '탐색을 실행할 수 없습니다. 다시 시도해 주세요.',
   'flows.suggest.why': '이유',
   'flows.suggest.build': '이것 만들기',
-  'flows.suggest.building': '만드는 중…',
+  'flows.suggest.opening': '여는 중…',
   'flows.suggest.dismiss': '무시',
   'flows.suggest.uses': '사용',
   'flows.suggest.trigger.schedule': '예약됨',

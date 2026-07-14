@@ -4106,7 +4106,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'Не удалось выполнить поиск. Попробуйте ещё раз.',
   'flows.suggest.why': 'Почему',
   'flows.suggest.build': 'Создать это',
-  'flows.suggest.building': 'Создание…',
+  'flows.suggest.opening': 'Открытие…',
   'flows.suggest.dismiss': 'Скрыть',
   'flows.suggest.uses': 'Использует',
   'flows.suggest.trigger.schedule': 'По расписанию',

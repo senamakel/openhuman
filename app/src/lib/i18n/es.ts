@@ -4143,7 +4143,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'No se pudo ejecutar el descubrimiento. Inténtalo de nuevo.',
   'flows.suggest.why': 'Por qué',
   'flows.suggest.build': 'Crear esto',
-  'flows.suggest.building': 'Creando…',
+  'flows.suggest.opening': 'Abriendo…',
   'flows.suggest.dismiss': 'Descartar',
   'flows.suggest.uses': 'Usa',
   'flows.suggest.trigger.schedule': 'Programado',

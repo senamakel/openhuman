@@ -4170,7 +4170,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'Impossible de lancer la découverte. Veuillez réessayer.',
   'flows.suggest.why': 'Pourquoi',
   'flows.suggest.build': 'Créer ceci',
-  'flows.suggest.building': 'Création…',
+  'flows.suggest.opening': 'Ouverture…',
   'flows.suggest.dismiss': 'Ignorer',
   'flows.suggest.uses': 'Utilise',
   'flows.suggest.trigger.schedule': 'Planifié',

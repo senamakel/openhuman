@@ -4140,7 +4140,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'Impossibile eseguire la scoperta. Riprova.',
   'flows.suggest.why': 'Perché',
   'flows.suggest.build': 'Crea questo',
-  'flows.suggest.building': 'Creazione…',
+  'flows.suggest.opening': 'Apertura…',
   'flows.suggest.dismiss': 'Ignora',
   'flows.suggest.uses': 'Usa',
   'flows.suggest.trigger.schedule': 'Pianificato',

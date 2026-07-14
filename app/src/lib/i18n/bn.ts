@@ -4070,7 +4070,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'আবিষ্কার চালানো যায়নি। আবার চেষ্টা করুন।',
   'flows.suggest.why': 'কেন',
   'flows.suggest.build': 'এটি তৈরি করুন',
-  'flows.suggest.building': 'তৈরি হচ্ছে…',
+  'flows.suggest.opening': 'খোলা হচ্ছে…',
   'flows.suggest.dismiss': 'বাতিল করুন',
   'flows.suggest.uses': 'ব্যবহার করে',
   'flows.suggest.trigger.schedule': 'নির্ধারিত',

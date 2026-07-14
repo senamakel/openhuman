@@ -4069,7 +4069,7 @@ const messages: TranslationMap = {
   'flows.suggest.error': 'खोज नहीं चल सकी। कृपया फिर से प्रयास करें।',
   'flows.suggest.why': 'क्यों',
   'flows.suggest.build': 'इसे बनाएँ',
-  'flows.suggest.building': 'बन रहा है…',
+  'flows.suggest.opening': 'खोला जा रहा है…',
   'flows.suggest.dismiss': 'खारिज करें',
   'flows.suggest.uses': 'उपयोग करता है',
   'flows.suggest.trigger.schedule': 'निर्धारित',

@@ -607,33 +607,12 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     devOnly: true,
     searchKeywords: ['developer', 'diagnostics', 'debug'],
   },
-  // Knowledge & Memory
-  {
-    id: 'intelligence',
-    titleKey: 'settings.developerMenu.intelligence.title',
-    descriptionKey: 'settings.developerMenu.intelligence.desc',
-    section: 'developer',
-    devOnly: true,
-  },
-  {
-    id: 'memory-data',
-    titleKey: 'devOptions.memoryInspection',
-    descriptionKey: 'devOptions.memoryInspectionDesc',
-    section: 'developer',
-    devOnly: true,
-    searchKeywords: ['memory', 'inspect'],
-  },
+  // Knowledge & Memory — intelligence / memory-data / analysis-views removed;
+  // sync history now lives on Brain → Sync and the rest was retired.
   {
     id: 'memory-debug',
     titleKey: 'devOptions.debugPanels',
     descriptionKey: 'devOptions.debugPanelsDesc',
-    section: 'developer',
-    devOnly: true,
-  },
-  {
-    id: 'analysis-views',
-    titleKey: 'settings.analysisViews.title',
-    descriptionKey: 'settings.analysisViews.menuDesc',
     section: 'developer',
     devOnly: true,
   },

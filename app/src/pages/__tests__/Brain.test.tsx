@@ -77,24 +77,18 @@ vi.mock('../../components/intelligence/MemorySourcesRegistry', async () => {
   };
 });
 vi.mock('../../components/intelligence/Toast', () => ({ ToastContainer: () => null }));
+vi.mock('../../components/intelligence/SyncAuditPanel', async () => {
+  const React = await import('react');
+  return {
+    SyncAuditPanel: () => React.createElement('div', { 'data-testid': 'brain-sync-audit' }),
+  };
+});
 
-// Knowledge & Memory tabs render relocated settings panels — stub each so the
-// Brain page's per-tab branches are exercised without their deep dependency trees.
-vi.mock('../Intelligence', async () => {
-  const React = await import('react');
-  return { default: () => React.createElement('div', { 'data-testid': 'brain-intelligence' }) };
-});
-vi.mock('../../components/settings/panels/MemoryDataPanel', async () => {
-  const React = await import('react');
-  return { default: () => React.createElement('div', { 'data-testid': 'brain-memory-data' }) };
-});
+// The remaining Knowledge & Memory tab renders a relocated settings panel — stub
+// it so the Brain page's per-tab branch is exercised without its deep dependency tree.
 vi.mock('../../components/settings/panels/MemoryDebugPanel', async () => {
   const React = await import('react');
   return { default: () => React.createElement('div', { 'data-testid': 'brain-memory-debug' }) };
-});
-vi.mock('../../components/settings/panels/AnalysisViewsPanel', async () => {
-  const React = await import('react');
-  return { default: () => React.createElement('div', { 'data-testid': 'brain-analysis-views' }) };
 });
 vi.mock('../../components/settings/layout/SettingsLayoutContext', async () => {
   const React = await import('react');
@@ -173,14 +167,11 @@ describe('Brain page', () => {
     });
   });
 
-  // The Knowledge & Memory tabs render relocated settings panels inside the
+  // The Knowledge & Memory tab renders a relocated settings panel inside the
   // two-pane shell; the bespoke tabs share the standard scaffold. Drive each via
   // the `?tab=` query param so every per-tab branch is exercised.
   it.each([
-    ['intelligence', 'brain-intelligence'],
-    ['memory-data', 'brain-memory-data'],
     ['memory-debug', 'brain-memory-debug'],
-    ['analysis-views', 'brain-analysis-views'],
     ['sources', 'brain-sources'],
     ['sync', 'brain-sync'],
     ['subconscious', 'brain-subconscious'],
@@ -191,6 +182,17 @@ describe('Brain page', () => {
     });
     await waitFor(() => {
       expect(screen.getByTestId(testId)).toBeInTheDocument();
+    });
+  });
+
+  it('shows the sync history panel on the Sync tab', async () => {
+    graphExportMock.mockResolvedValue(makeGraph(0));
+    await act(async () => {
+      renderWithProviders(<Brain />, { initialEntries: ['/?tab=sync'] });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('brain-sync-history')).toBeInTheDocument();
+      expect(screen.getByTestId('brain-sync-audit')).toBeInTheDocument();
     });
   });
 

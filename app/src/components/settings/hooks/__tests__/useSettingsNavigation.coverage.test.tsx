@@ -89,8 +89,11 @@ describe('crypto section leaves', () => {
 
 describe('developer section leaves', () => {
   test('cron-jobs resolves to cron-jobs', () => expectRoute('/settings/cron-jobs', 'cron-jobs'));
-  test('intelligence resolves to intelligence', () =>
-    expectRoute('/settings/intelligence', 'intelligence'));
+  // 'intelligence' was retired with the Brain Knowledge & Memory cleanup — the
+  // old settings slug now falls through to home (redirect handled at the
+  // route-elements layer, which bounces it to /brain).
+  test('intelligence (retired) resolves to home', () =>
+    expectRoute('/settings/intelligence', 'home'));
   test('developer-options resolves to developer-options', () =>
     expectRoute('/settings/developer-options', 'developer-options'));
 });

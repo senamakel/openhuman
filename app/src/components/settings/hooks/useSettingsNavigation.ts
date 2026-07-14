@@ -32,7 +32,6 @@ export type SettingsRoute =
   | 'llm'
   | 'voice'
   | 'tools'
-  | 'memory-data'
   | 'memory-sync'
   | 'memory-debug'
   | 'recovery-phrase'
@@ -48,7 +47,6 @@ export type SettingsRoute =
   | 'personality'
   | 'appearance'
   | 'approval-history'
-  | 'intelligence'
   | 'integrations'
   | 'composio-triggers'
   | 'tasks'
@@ -68,7 +66,6 @@ export type SettingsRoute =
   | 'skills-runner'
   | 'event-log'
   | 'model-health'
-  | 'analysis-views'
   | 'tool-policy-diagnostics'
   | 'about';
 

@@ -18,6 +18,10 @@ type LlmChip = 'api-keys' | 'local-model' | 'agent-chat';
  * pages; they're folded in here so everything LLM-related lives on one page.
  * The active chip is local UI state (not a route) — deep links land on the
  * API-keys chip.
+ *
+ * Each chip renders its underlying panel unembedded so it keeps the same
+ * PanelPage chrome + `p-4` padding as the sibling Connections tabs (Voice,
+ * Embeddings, …); the two-pane shell hides the redundant back button.
  */
 const LlmConnectionsPanel = () => {
   const { t } = useT();
@@ -36,18 +40,10 @@ const LlmConnectionsPanel = () => {
           { id: 'agent-chat', label: t('settings.developerMenu.agentChat.title') },
         ]}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {chip === 'api-keys' && <AIPanel embedded />}
-        {chip === 'local-model' && (
-          <div className="p-4">
-            <LocalModelDebugPanel embedded />
-          </div>
-        )}
-        {chip === 'agent-chat' && (
-          <div className="p-4">
-            <AgentChatPanel embedded />
-          </div>
-        )}
+      <div className="min-h-0 flex-1">
+        {chip === 'api-keys' && <AIPanel />}
+        {chip === 'local-model' && <LocalModelDebugPanel />}
+        {chip === 'agent-chat' && <AgentChatPanel />}
       </div>
     </div>
   );

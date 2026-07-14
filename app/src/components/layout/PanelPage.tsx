@@ -39,13 +39,6 @@ export interface PanelPageProps<T extends string = string> {
   headerExtra?: ReactNode;
 
   /**
-   * Optional friendly intro band (a {@link PageHero}) pinned above the tabs /
-   * body. When set, it replaces the plain title/description chrome: the hero
-   * carries the page identity and the fixed region becomes hero → chips → body.
-   */
-  hero?: ReactNode;
-
-  /**
    * Chip tabs. When provided, the page renders a chip row and swaps the body to
    * the active tab's content. Omit for a single-body panel (use `children`).
    */
@@ -90,7 +83,6 @@ export default function PanelPage<T extends string = string>({
   leading,
   action,
   headerExtra,
-  hero,
   tabs,
   value,
   onChange,
@@ -103,41 +95,6 @@ export default function PanelPage<T extends string = string>({
 }: PanelPageProps<T>) {
   const tabList = tabs ?? [];
   const hasTabs = tabList.length > 0;
-  const active = hasTabs ? (tabList.find(t => t.id === value) ?? tabList[0]) : undefined;
-
-  // Hero pages: a friendly intro band pinned above an optional chip row, then
-  // the scrolling body. The hero owns the page identity, so the plain
-  // title/description chrome is skipped here.
-  if (hero != null) {
-    const heroBody = active ? active.content : children;
-    const heroBodyClass = active ? (active.contentClassName ?? '') : contentClassName;
-    return (
-      <div className={`relative flex h-full min-h-0 flex-col ${className}`} data-testid={testId}>
-        <div className="flex-shrink-0 px-4 pt-4 pb-3">
-          {hero}
-          {headerExtra}
-          {hasTabs && (
-            <ChipTabs
-              className="mt-3 flex flex-wrap gap-1.5"
-              ariaLabel={tabsAriaLabel}
-              testIdPrefix={tabsTestIdPrefix}
-              items={tabList.map(t => ({ id: t.id, label: t.label, testId: t.chipTestId }))}
-              value={(active as PanelPageTab<T>).id}
-              onChange={id => onChange?.(id)}
-            />
-          )}
-        </div>
-        <div className="min-h-0 flex-1">
-          <PanelScaffold
-            description={active?.description}
-            contentClassName={heroBodyClass}
-            bodyBorder>
-            {heroBody}
-          </PanelScaffold>
-        </div>
-      </div>
-    );
-  }
 
   // Single-body panel: the page header *is* the scaffold header.
   if (!hasTabs) {
@@ -156,7 +113,7 @@ export default function PanelPage<T extends string = string>({
     );
   }
 
-  const activeTab = active as PanelPageTab<T>;
+  const active = tabList.find(t => t.id === value) ?? tabList[0];
   const chipItems: ChipTabItem<T>[] = tabList.map(t => ({
     id: t.id,
     label: t.label,
@@ -179,7 +136,7 @@ export default function PanelPage<T extends string = string>({
           ariaLabel={tabsAriaLabel}
           testIdPrefix={tabsTestIdPrefix}
           items={chipItems}
-          value={activeTab.id}
+          value={active.id}
           onChange={id => onChange?.(id)}
         />
       </PanelHeader>
@@ -188,10 +145,10 @@ export default function PanelPage<T extends string = string>({
           seam below the chips. */}
       <div className="min-h-0 flex-1">
         <PanelScaffold
-          description={activeTab.description}
-          contentClassName={activeTab.contentClassName ?? ''}
+          description={active.description}
+          contentClassName={active.contentClassName ?? ''}
           bodyBorder>
-          {activeTab.content}
+          {active.content}
         </PanelScaffold>
       </div>
     </div>

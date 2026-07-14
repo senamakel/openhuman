@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 
 import Button from '../ui/Button';
-import type { PageHeroAccent } from './PageHero';
 
 /**
  * PageWelcome — the welcome landing shown as the first destination of a sidebar
@@ -13,8 +12,11 @@ import type { PageHeroAccent } from './PageHero';
  * view and wire each CTA to switch to the relevant functional tab.
  */
 
+/** Accent families available for the icon tile. Keys map to design tokens. */
+export type PageWelcomeAccent = 'ocean' | 'sage' | 'amber' | 'coral';
+
 /** Static per-accent tile tint (Tailwind only scans literal class names). */
-const ACCENT_TILE: Record<PageHeroAccent, string> = {
+const ACCENT_TILE: Record<PageWelcomeAccent, string> = {
   ocean: 'bg-primary-500/15 text-primary-600',
   sage: 'bg-sage-500/15 text-sage-600',
   amber: 'bg-amber-500/15 text-amber-600',
@@ -54,7 +56,7 @@ export interface PageWelcomeProps {
   featuresHeading?: ReactNode;
   /** Benefit cards. */
   features?: WelcomeFeature[];
-  accent?: PageHeroAccent;
+  accent?: PageWelcomeAccent;
   testId?: string;
 }
 

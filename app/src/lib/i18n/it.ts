@@ -314,6 +314,12 @@ const messages: TranslationMap = {
   'orchPage.group.network': 'Rete',
   'orchPage.group.insights': 'Approfondimenti',
   'orchPage.overview.nav': 'Grafo degli agenti',
+  'orchPage.overview.desc':
+    'Una mappa in tempo reale del tuo agente e dei sotto-agenti che coordina.',
+  'orchPage.network.desc': 'Agenti peer a cui sei connesso, scoperta e utilizzo.',
+  'wallet.tabs.balance': 'Saldo del portafoglio',
+  'wallet.tabs.recovery': 'Recupero',
+  'wallet.ariaLabel': 'Viste del portafoglio',
   'orchPage.medulla.nav': 'Panoramica',
   'orchPage.medulla.badge': 'In arrivo',
   'orchPage.medulla.title': 'Medulla',

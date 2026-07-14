@@ -306,6 +306,12 @@ const messages: TranslationMap = {
   'orchPage.group.network': 'নেটওয়ার্ক',
   'orchPage.group.insights': 'অন্তর্দৃষ্টি',
   'orchPage.overview.nav': 'এজেন্ট গ্রাফ',
+  'orchPage.overview.desc':
+    'আপনার এজেন্ট এবং এটি যে সাব-এজেন্টগুলিকে সমন্বয় করে তার একটি লাইভ মানচিত্র।',
+  'orchPage.network.desc': 'আপনি যে পিয়ার এজেন্টগুলির সাথে সংযুক্ত, আবিষ্কার এবং ব্যবহার।',
+  'wallet.tabs.balance': 'ওয়ালেট ব্যালেন্স',
+  'wallet.tabs.recovery': 'পুনরুদ্ধার',
+  'wallet.ariaLabel': 'ওয়ালেট ভিউ',
   'orchPage.medulla.nav': 'ওভারভিউ',
   'orchPage.medulla.badge': 'শীঘ্রই আসছে',
   'orchPage.medulla.title': 'Medulla',

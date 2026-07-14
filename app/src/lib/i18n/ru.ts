@@ -311,6 +311,12 @@ const messages: TranslationMap = {
   'orchPage.group.network': 'Сеть',
   'orchPage.group.insights': 'Аналитика',
   'orchPage.overview.nav': 'Граф агентов',
+  'orchPage.overview.desc': 'Живая карта вашего агента и субагентов, которых он координирует.',
+  'orchPage.network.desc':
+    'Одноранговые агенты, к которым вы подключены, обнаружение и использование.',
+  'wallet.tabs.balance': 'Баланс кошелька',
+  'wallet.tabs.recovery': 'Восстановление',
+  'wallet.ariaLabel': 'Представления кошелька',
   'orchPage.medulla.nav': 'Обзор',
   'orchPage.medulla.badge': 'Скоро',
   'orchPage.medulla.title': 'Medulla',

@@ -320,6 +320,13 @@ const messages: TranslationMap = {
   'orchPage.group.network': 'Réseau',
   'orchPage.group.insights': 'Analyses',
   'orchPage.overview.nav': 'Graphe des agents',
+  'orchPage.overview.desc':
+    'Une carte en direct de votre agent et des sous-agents qu’il coordonne.',
+  'orchPage.network.desc':
+    'Les agents pairs auxquels vous êtes connecté, la découverte et l’utilisation.',
+  'wallet.tabs.balance': 'Solde du portefeuille',
+  'wallet.tabs.recovery': 'Récupération',
+  'wallet.ariaLabel': 'Vues du portefeuille',
   'orchPage.medulla.nav': 'Aperçu',
   'orchPage.medulla.badge': 'Bientôt disponible',
   'orchPage.medulla.title': 'Medulla',

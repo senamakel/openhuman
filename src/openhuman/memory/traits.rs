@@ -36,9 +36,12 @@ mod tests {
         assert_eq!(MemoryCategory::Core.to_string(), "core");
         assert_eq!(MemoryCategory::Daily.to_string(), "daily");
         assert_eq!(MemoryCategory::Conversation.to_string(), "conversation");
+        // TinyCortex renders `Custom(name)` with a `custom:` prefix so it stays
+        // distinct from the built-in variants and `Display`/`FromStr` are true
+        // inverses (see `memory_category_from_stored`).
         assert_eq!(
             MemoryCategory::Custom("project_notes".into()).to_string(),
-            "project_notes"
+            "custom:project_notes"
         );
     }
 

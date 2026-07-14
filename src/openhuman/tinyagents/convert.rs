@@ -418,33 +418,6 @@ pub(crate) fn ta_call_to_oh_call(
     }
 }
 
-/// Convert openhuman history into harness messages for a one-shot `ChatModel`
-/// request. Exposed (issue #4249, Motion B) for callers outside the seam that
-/// build a crate model request from openhuman [`ChatMessage`]s (e.g. the flows
-/// `agent` node).
-pub(crate) fn chat_messages_to_model_messages(
-    history: &[ChatMessage],
-) -> Vec<tinyagents::harness::message::Message> {
-    history_to_messages(history)
-}
-
-/// Convert a harness [`ModelResponse`](tinyagents::harness::model::ModelResponse)
-/// back into an openhuman [`ChatResponse`] — text + tool calls + reasoning +
-/// usage — for one-shot callers that consume the full response envelope (e.g. the
-/// flows `agent` node round-tripping into its JSON output). Issue #4249, Motion B.
-pub(crate) fn model_response_to_chat_response(
-    response: &tinyagents::harness::model::ModelResponse,
-) -> crate::openhuman::inference::provider::ChatResponse {
-    let assistant = &response.message;
-    let text = response.text();
-    crate::openhuman::inference::provider::ChatResponse {
-        text: (!text.is_empty()).then_some(text),
-        tool_calls: assistant.tool_calls.iter().map(ta_call_to_oh_call).collect(),
-        usage: super::model::usage_info_from_response(response),
-        reasoning_content: reasoning_from_content(&assistant.content),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

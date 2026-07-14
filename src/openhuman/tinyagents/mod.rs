@@ -21,9 +21,6 @@
 
 mod abort_guard;
 mod convert;
-// One-shot response/message converters for callers outside the seam that drive a
-// crate `ChatModel` directly (issue #4249, Motion B — e.g. the flows agent node).
-pub(crate) use convert::{chat_messages_to_model_messages, model_response_to_chat_response};
 pub(crate) mod delegation;
 mod embeddings;
 pub(crate) mod journal;

@@ -43,12 +43,33 @@ pub async fn ingest_coding_sessions_rpc(
     // remains attached to the ambient Tokio runtime, keeping the controller
     // future itself Send-safe for the registry.
     let runtime = tokio::runtime::Handle::current();
-    let response = tokio::task::spawn_blocking(move || {
-        runtime.block_on(crate::openhuman::tinycortex::ingest_coding_sessions(
-            &config, req,
-        ))
-    })
+    // Wall-clock ceiling so a stalled provider call or a wedged session step
+    // can't keep the RPC (and its blocking worker) waiting indefinitely (#4863
+    // review). Scale to the requested budget — each session drives at most one
+    // LLM call — so a large backfill isn't killed mid-flight while a genuine
+    // infinite hang still terminates. `max_sessions` is untrusted, so cap the
+    // multiplier before computing the budget.
+    let ingest_timeout =
+        std::time::Duration::from_secs(120 + (req.max_sessions.min(1_000) as u64) * 30);
+    let response = tokio::time::timeout(
+        ingest_timeout,
+        tokio::task::spawn_blocking(move || {
+            runtime.block_on(crate::openhuman::tinycortex::ingest_coding_sessions(
+                &config, req,
+            ))
+        }),
+    )
     .await
+    .map_err(|_elapsed| {
+        tracing::error!(
+            timeout_secs = ingest_timeout.as_secs(),
+            "[memory_sources] ingest_coding_sessions_rpc: timed out"
+        );
+        format!(
+            "ingest coding sessions: timed out after {}s",
+            ingest_timeout.as_secs()
+        )
+    })?
     .map_err(|error| format!("join coding-session ingestion: {error}"))?
     .map_err(|error| format!("ingest coding sessions: {error:#}"))?;
     tracing::info!(

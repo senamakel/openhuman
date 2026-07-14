@@ -184,9 +184,19 @@ pub async fn ingest_coding_sessions(
     persona.run_budget.max_sessions = max_sessions;
     persona.run_budget.max_llm_calls = max_sessions as u32;
 
-    let provider = super::build_chat_provider(config)?;
+    let provider = super::build_chat_provider(config).inspect_err(|error| {
+        tracing::error!(
+            error = %error,
+            "[memory_persona] coding session ingestion: build_chat_provider failed"
+        );
+    })?;
     let summariser = super::HostSummariser::new(config.clone());
-    let store = FileStateStore::open_in_workspace(&config.workspace_dir)?;
+    let store = FileStateStore::open_in_workspace(&config.workspace_dir).inspect_err(|error| {
+        tracing::error!(
+            error = %error,
+            "[memory_persona] coding session ingestion: open state store failed"
+        );
+    })?;
     let report = Pipeline {
         config: &memory_config,
         persona: &persona,
@@ -195,7 +205,13 @@ pub async fn ingest_coding_sessions(
         store: &store,
     }
     .run(mode)
-    .await?;
+    .await
+    .inspect_err(|error| {
+        tracing::error!(
+            error = %error,
+            "[memory_persona] coding session ingestion: pipeline run failed"
+        );
+    })?;
 
     tracing::info!(
         files_seen = report.files_seen,

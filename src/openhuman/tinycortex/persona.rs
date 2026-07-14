@@ -11,6 +11,7 @@ use crate::openhuman::config::Config;
 
 const DEFAULT_MAX_SESSIONS: usize = 100;
 const MAX_MAX_SESSIONS: usize = 1_000;
+const MAX_STATUS_SESSION_FILES: usize = 1_000;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct CodingSessionSourceStatus {
@@ -19,6 +20,7 @@ pub struct CodingSessionSourceStatus {
     pub session_files: usize,
     pub evidence_units: usize,
     pub invalid_files: usize,
+    pub scan_truncated: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -60,10 +62,20 @@ fn roots_from_environment() -> (PathBuf, PathBuf) {
 fn source_status(
     kind: &str,
     root: &Path,
+    max_files: usize,
     discover: impl Fn(&Path) -> Vec<PathBuf>,
     read: impl Fn(&Path) -> anyhow::Result<RawSession>,
 ) -> CodingSessionSourceStatus {
-    let files = discover(root);
+    let mut files = discover(root);
+    let scan_truncated = files.len() > max_files;
+    files.truncate(max_files);
+    if scan_truncated {
+        tracing::debug!(
+            source = kind,
+            max_files,
+            "[memory_persona] coding session status scan capped"
+        );
+    }
     let mut evidence_units = 0;
     let mut invalid_files = 0;
     for path in &files {
@@ -85,6 +97,7 @@ fn source_status(
         session_files: files.len(),
         evidence_units,
         invalid_files,
+        scan_truncated,
     }
 }
 
@@ -97,10 +110,17 @@ pub fn coding_session_status_for_roots(
         source_status(
             "claude_code",
             claude_root,
+            MAX_STATUS_SESSION_FILES,
             claude_code::discover,
             claude_code::read_session,
         ),
-        source_status("codex", codex_root, codex::discover, codex::read_session),
+        source_status(
+            "codex",
+            codex_root,
+            MAX_STATUS_SESSION_FILES,
+            codex::discover,
+            codex::read_session,
+        ),
     ];
     tracing::debug!(
         files = statuses
@@ -239,5 +259,29 @@ mod tests {
         assert_eq!(statuses[1].session_files, 1);
         assert_eq!(statuses[1].evidence_units, 1);
         assert_eq!(statuses[0].invalid_files + statuses[1].invalid_files, 0);
+    }
+
+    #[test]
+    fn status_scan_stops_parsing_at_the_configured_limit() {
+        let paths = vec![PathBuf::from("one"), PathBuf::from("two")];
+        let reads = std::cell::Cell::new(0);
+        let status = source_status(
+            "fixture",
+            Path::new("."),
+            1,
+            |_| paths.clone(),
+            |_| {
+                reads.set(reads.get() + 1);
+                Ok(RawSession::new(
+                    tinycortex::memory::persona::types::EvidenceSource::new(
+                        tinycortex::memory::persona::types::PersonaSourceKind::Codex,
+                    ),
+                ))
+            },
+        );
+
+        assert_eq!(reads.get(), 1);
+        assert_eq!(status.session_files, 1);
+        assert!(status.scan_truncated);
     }
 }

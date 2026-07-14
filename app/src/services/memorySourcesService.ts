@@ -207,6 +207,7 @@ export interface CodingSessionSourceStatus {
   session_files: number;
   evidence_units: number;
   invalid_files: number;
+  scan_truncated?: boolean;
 }
 
 export interface CodingSessionIngestResult {

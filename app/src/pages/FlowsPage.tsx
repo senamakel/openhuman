@@ -24,6 +24,7 @@ import { useCreateFlow } from '../components/flows/useCreateFlow';
 import WorkflowPromptBar from '../components/flows/WorkflowPromptBar';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
+import BetaBanner from '../components/ui/BetaBanner';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { ModalShell } from '../components/ui/ModalShell';
@@ -342,6 +343,10 @@ export default function FlowsPage() {
         onChange={e => void handleImportFile(e)}
       />
       <div className="mx-auto w-full max-w-3xl space-y-4">
+        <div data-testid="flows-beta-banner">
+          <BetaBanner />
+        </div>
+
         {/* Prompt-first authoring (Phase 5c): describe a workflow and let the
             builder agent propose it. Hero presentation when the list is empty,
             compact otherwise. Always visible, so it's the single "describe a

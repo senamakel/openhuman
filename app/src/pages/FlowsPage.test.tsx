@@ -80,6 +80,14 @@ describe('FlowsPage', () => {
     markSuggestionBuilt.mockResolvedValue(true);
   });
 
+  it('shows the beta banner at the top of the page', async () => {
+    listFlows.mockResolvedValue([]);
+    renderWithProviders(<FlowsPage />);
+
+    await waitFor(() => expect(screen.getByTestId('flows-beta-banner')).toBeInTheDocument());
+    expect(screen.getByTestId('flows-beta-banner')).toHaveTextContent('Beta');
+  });
+
   it('shows a loading state while flows are being fetched', () => {
     listFlows.mockReturnValue(new Promise(() => {})); // never resolves
     renderWithProviders(<FlowsPage />);

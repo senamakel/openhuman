@@ -7084,6 +7084,29 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.completeMessage':
     'أنتجت {processed} جلسات {observations} ملاحظات شخصية.',
   'memorySources.codingSessions.failed': 'فشل استيعاب جلسات البرمجة',
+
+  // Privacy status pill + per-action egress disclosure (#4437 / S3)
+  'privacy.status.ariaLabel': 'حالة الخصوصية',
+  'privacy.status.external': 'خارج الجهاز',
+  'privacy.status.local': 'على الجهاز',
+  'privacy.disclosure.title': 'يغادر جهازك',
+  'privacy.disclosure.body': 'سيؤدي هذا إلى إرسال {kinds} إلى {destination} لأن {reason}.',
+  'privacy.disclosure.dismiss': 'حسنًا',
+  'privacy.disclosure.ariaLabel': 'إفصاح عن البيانات الخارجية',
+  'privacy.disclosure.kindSeparator': '، ',
+  'privacy.disclosure.kind.prompt': 'رسالتك',
+  'privacy.disclosure.kind.toolArguments': 'مدخلات الأداة',
+  'privacy.disclosure.kind.embeddingInput': 'نص للفهرسة',
+  'privacy.disclosure.kind.fileContent': 'محتويات الملف',
+  'privacy.disclosure.kind.url': 'عنوان ويب',
+  'privacy.disclosure.kind.metadata': 'بيانات وصفية للطلب',
+  'privacy.disclosure.kind.unknown': 'بيانات',
+  'privacy.disclosure.reason.inference': 'نموذج الذكاء الاصطناعي يحتاج إلى معالجته',
+  'privacy.disclosure.reason.toolCall': 'أداة تحتاج إليه',
+  'privacy.disclosure.reason.integration': 'تكامل متصل يحتاج إليه',
+  'privacy.disclosure.reason.embedding': 'يجب فهرسته للبحث',
+  'privacy.disclosure.reason.networkFetch': 'طلب ويب يحتاج إليه',
+  'privacy.disclosure.reason.unknown': 'إنه مطلوب لهذا الإجراء',
 };
 
 export default messages;

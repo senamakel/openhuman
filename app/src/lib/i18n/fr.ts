@@ -7431,6 +7431,29 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.completeMessage':
     '{processed} sessions ont produit {observations} observations de persona.',
   'memorySources.codingSessions.failed': 'Échec de l’ingestion des sessions de programmation',
+
+  // Privacy status pill + per-action egress disclosure (#4437 / S3)
+  'privacy.status.ariaLabel': 'État de confidentialité',
+  'privacy.status.external': 'Hors de l’appareil',
+  'privacy.status.local': 'Sur l’appareil',
+  'privacy.disclosure.title': 'Quitte votre appareil',
+  'privacy.disclosure.body': 'Ceci enverra {kinds} vers {destination} car {reason}.',
+  'privacy.disclosure.dismiss': 'Compris',
+  'privacy.disclosure.ariaLabel': 'Divulgation de données externes',
+  'privacy.disclosure.kindSeparator': ', ',
+  'privacy.disclosure.kind.prompt': 'votre message',
+  'privacy.disclosure.kind.toolArguments': 'les entrées de l’outil',
+  'privacy.disclosure.kind.embeddingInput': 'le texte à indexer',
+  'privacy.disclosure.kind.fileContent': 'le contenu du fichier',
+  'privacy.disclosure.kind.url': 'une adresse web',
+  'privacy.disclosure.kind.metadata': 'les métadonnées de la requête',
+  'privacy.disclosure.kind.unknown': 'des données',
+  'privacy.disclosure.reason.inference': 'le modèle d’IA doit le traiter',
+  'privacy.disclosure.reason.toolCall': 'un outil en a besoin',
+  'privacy.disclosure.reason.integration': 'une intégration connectée en a besoin',
+  'privacy.disclosure.reason.embedding': 'il doit être indexé pour la recherche',
+  'privacy.disclosure.reason.networkFetch': 'une requête web en a besoin',
+  'privacy.disclosure.reason.unknown': 'il est requis pour cette action',
 };
 
 export default messages;

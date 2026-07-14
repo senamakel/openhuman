@@ -7397,6 +7397,29 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.completeMessage':
     '{processed} sesiones produjeron {observations} observaciones de personalidad.',
   'memorySources.codingSessions.failed': 'Falló la ingesta de sesiones de programación',
+
+  // Privacy status pill + per-action egress disclosure (#4437 / S3)
+  'privacy.status.ariaLabel': 'Estado de privacidad',
+  'privacy.status.external': 'Fuera del dispositivo',
+  'privacy.status.local': 'En el dispositivo',
+  'privacy.disclosure.title': 'Sale de tu dispositivo',
+  'privacy.disclosure.body': 'Esto enviará {kinds} a {destination} porque {reason}.',
+  'privacy.disclosure.dismiss': 'Entendido',
+  'privacy.disclosure.ariaLabel': 'Divulgación de datos externos',
+  'privacy.disclosure.kindSeparator': ', ',
+  'privacy.disclosure.kind.prompt': 'tu mensaje',
+  'privacy.disclosure.kind.toolArguments': 'entradas de la herramienta',
+  'privacy.disclosure.kind.embeddingInput': 'texto para indexar',
+  'privacy.disclosure.kind.fileContent': 'contenido del archivo',
+  'privacy.disclosure.kind.url': 'una dirección web',
+  'privacy.disclosure.kind.metadata': 'metadatos de la solicitud',
+  'privacy.disclosure.kind.unknown': 'datos',
+  'privacy.disclosure.reason.inference': 'el modelo de IA necesita procesarlo',
+  'privacy.disclosure.reason.toolCall': 'una herramienta lo necesita',
+  'privacy.disclosure.reason.integration': 'una integración conectada lo necesita',
+  'privacy.disclosure.reason.embedding': 'necesita indexarse para la búsqueda',
+  'privacy.disclosure.reason.networkFetch': 'una solicitud web lo necesita',
+  'privacy.disclosure.reason.unknown': 'es necesario para esta acción',
 };
 
 export default messages;

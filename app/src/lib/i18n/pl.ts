@@ -7356,6 +7356,30 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.completeMessage':
     '{processed} sesji utworzyło {observations} obserwacji persony.',
   'memorySources.codingSessions.failed': 'Nie udało się wczytać sesji programistycznych',
+
+  // Privacy status pill + per-action egress disclosure (#4437 / S3)
+  'privacy.status.ariaLabel': 'Stan prywatności',
+  'privacy.status.external': 'Poza urządzeniem',
+  'privacy.status.local': 'Na urządzeniu',
+  'privacy.disclosure.title': 'Opuszcza Twoje urządzenie',
+  'privacy.disclosure.body':
+    'Spowoduje to wysłanie następujących danych do {destination}: {kinds}. Powód: {reason}.',
+  'privacy.disclosure.dismiss': 'Rozumiem',
+  'privacy.disclosure.ariaLabel': 'Ujawnienie danych zewnętrznych',
+  'privacy.disclosure.kindSeparator': ', ',
+  'privacy.disclosure.kind.prompt': 'Twoja wiadomość',
+  'privacy.disclosure.kind.toolArguments': 'dane wejściowe narzędzia',
+  'privacy.disclosure.kind.embeddingInput': 'tekst do zindeksowania',
+  'privacy.disclosure.kind.fileContent': 'zawartość pliku',
+  'privacy.disclosure.kind.url': 'adres internetowy',
+  'privacy.disclosure.kind.metadata': 'metadane żądania',
+  'privacy.disclosure.kind.unknown': 'dane',
+  'privacy.disclosure.reason.inference': 'model AI musi przetworzyć te dane',
+  'privacy.disclosure.reason.toolCall': 'narzędzie potrzebuje tych danych',
+  'privacy.disclosure.reason.integration': 'połączona integracja potrzebuje tych danych',
+  'privacy.disclosure.reason.embedding': 'te dane muszą zostać zindeksowane do wyszukiwania',
+  'privacy.disclosure.reason.networkFetch': 'żądanie sieciowe potrzebuje tych danych',
+  'privacy.disclosure.reason.unknown': 'jest to wymagane do tej akcji',
 };
 
 export default messages;

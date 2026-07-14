@@ -7370,6 +7370,29 @@ const messages: TranslationMap = {
   'memorySources.codingSessions.completeMessage':
     '{processed} sessões produziram {observations} observações de persona.',
   'memorySources.codingSessions.failed': 'Falha ao ingerir sessões de programação',
+
+  // Privacy status pill + per-action egress disclosure (#4437 / S3)
+  'privacy.status.ariaLabel': 'Estado de privacidade',
+  'privacy.status.external': 'Fora do dispositivo',
+  'privacy.status.local': 'No dispositivo',
+  'privacy.disclosure.title': 'A sair do seu dispositivo',
+  'privacy.disclosure.body': 'Isto irá enviar {kinds} para {destination} porque {reason}.',
+  'privacy.disclosure.dismiss': 'Entendido',
+  'privacy.disclosure.ariaLabel': 'Divulgação de dados externos',
+  'privacy.disclosure.kindSeparator': ', ',
+  'privacy.disclosure.kind.prompt': 'a sua mensagem',
+  'privacy.disclosure.kind.toolArguments': 'entradas da ferramenta',
+  'privacy.disclosure.kind.embeddingInput': 'texto para indexar',
+  'privacy.disclosure.kind.fileContent': 'conteúdo do ficheiro',
+  'privacy.disclosure.kind.url': 'um endereço web',
+  'privacy.disclosure.kind.metadata': 'metadados do pedido',
+  'privacy.disclosure.kind.unknown': 'dados',
+  'privacy.disclosure.reason.inference': 'o modelo de IA precisa de processar estes dados',
+  'privacy.disclosure.reason.toolCall': 'uma ferramenta precisa destes dados',
+  'privacy.disclosure.reason.integration': 'uma integração ligada precisa destes dados',
+  'privacy.disclosure.reason.embedding': 'estes dados precisam de ser indexados para pesquisa',
+  'privacy.disclosure.reason.networkFetch': 'um pedido web precisa destes dados',
+  'privacy.disclosure.reason.unknown': 'é necessário para esta ação',
 };
 
 export default messages;

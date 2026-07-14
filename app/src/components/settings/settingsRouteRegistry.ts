@@ -591,15 +591,7 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   },
   // Knowledge & Memory group retired entirely — memory surfaces live on the
   // Brain page (graph / goals / sources / sync / subconscious).
-  // Diagnostics & Logs
-  {
-    id: 'voice-debug',
-    titleKey: 'settings.developerMenu.voiceDebug.title',
-    descriptionKey: 'settings.developerMenu.voiceDebug.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'modelsInference',
-  },
+  // voice-debug retired from the settings UI.
   {
     id: 'screen-awareness-debug',
     titleKey: 'settings.developerMenu.screenAwareness.title',
@@ -618,20 +610,13 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     searchKeywords: ['events', 'log'],
   },
   {
+    // Diagnostics lives under Events & Logs (was Agents & Autonomy).
     id: 'tool-policy-diagnostics',
     titleKey: 'devOptions.diagnostics',
     descriptionKey: 'devOptions.toolPolicyDiagnosticsDesc',
     section: 'developer',
     devOnly: true,
-    navGroup: 'agentsAutonomy',
-  },
-  {
-    id: 'model-health',
-    titleKey: 'settings.modelHealth.title',
-    descriptionKey: 'settings.modelHealth.desc',
-    section: 'developer',
-    devOnly: true,
-    navGroup: 'modelsInference',
+    navGroup: 'diagnosticsLogs',
   },
   {
     id: 'agentbox',

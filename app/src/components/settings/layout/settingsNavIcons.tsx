@@ -126,22 +126,12 @@ export const SETTINGS_NAV_ICONS: Record<string, ReactNode> = {
     </Fragment>
   ),
   // Models & Inference
-  'model-health': icon(
-    stroke(
-      'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
-    )
-  ),
   agentbox: icon(
     stroke(
       'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z'
     )
   ),
   'screen-awareness-debug': icon(stroke('M3 5h18v12H3zM8 21h8m-4-4v4')),
-  'voice-debug': icon(
-    stroke(
-      'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z'
-    )
-  ),
   'autocomplete-debug': icon(stroke('M4 6h16M4 10h10M4 14h7m3 4h3m0 0l-2-2m2 2l-2 2')),
   // Automation & Integrations
   tasks: icon(

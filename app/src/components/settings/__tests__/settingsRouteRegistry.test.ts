@@ -94,15 +94,14 @@ describe('findEntryByRoute', () => {
     expect(entry).toBeDefined();
   });
 
-  it('does not match partial/substring routes — no collision between "voice" and "voice-debug"', () => {
+  it('does not match partial/substring routes — lookup is exact', () => {
     const entry = findEntryByRoute('voice');
     expect(entry).toBeDefined();
     expect(entry!.id).toBe('voice');
-    // 'voice-debug' is a distinct developer entry; exact-match lookup must not
-    // collide with the 'voice' leaf despite the shared prefix.
-    const debugEntry = findEntryByRoute('voice-debug');
-    expect(debugEntry).toBeDefined();
-    expect(debugEntry!.id).toBe('voice-debug');
+    // A substring of a real route must not resolve — exact-match only.
+    expect(findEntryByRoute('voic')).toBeUndefined();
+    // A removed developer route ('voice-debug' was retired) resolves to nothing.
+    expect(findEntryByRoute('voice-debug')).toBeUndefined();
   });
 });
 

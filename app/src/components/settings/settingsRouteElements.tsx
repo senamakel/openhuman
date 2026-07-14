@@ -25,7 +25,6 @@ import IntegrationsPanel from './panels/IntegrationsPanel';
 import KeyboardShortcutsPanel from './panels/KeyboardShortcutsPanel';
 import McpServerPanel from './panels/McpServerPanel';
 import MigrationPanel from './panels/MigrationPanel';
-import ModelHealthPanel from './panels/ModelHealthPanel';
 import NotificationsTabbedPanel from './panels/NotificationsTabbedPanel';
 import PermissionsPanel from './panels/PermissionsPanel';
 import PersonalityPanel from './panels/PersonalityPanel';
@@ -44,7 +43,6 @@ import TeamPanel from './panels/TeamPanel';
 import ThemeStudioPanel from './panels/ThemeStudioPanel';
 import ToolPolicyDiagnosticsPanel from './panels/ToolPolicyDiagnosticsPanel';
 import ToolsPanel from './panels/ToolsPanel';
-import VoiceDebugPanel from './panels/VoiceDebugPanel';
 import WalletBalancesPanel from './panels/WalletBalancesPanel';
 import WorkflowRunnerPanel from './panels/WorkflowRunnerPanel';
 
@@ -183,14 +181,16 @@ export function settingsRouteElements(): ReactNode {
         element={wrapSettingsPage(<ScreenAwarenessDebugPanel />)}
       />
       <Route path="autocomplete-debug" element={wrapSettingsPage(<AutocompleteDebugPanel />)} />
-      <Route path="voice-debug" element={wrapSettingsPage(<VoiceDebugPanel />)} />
+      {/* Voice Debug page retired. */}
+      <Route path="voice-debug" element={<SettingsRedirect to="/settings/developer-options" />} />
       {/* Local Model Debug is a chip on the Connections → LLM page. */}
       <Route path="local-model-debug" element={<Navigate to="/connections?tab=llm" replace />} />
       {/* Webhooks were retired from the UI — bounce old debug/trigger deep
           links to the Integrations page. */}
       <Route path="webhooks-debug" element={<SettingsRedirect to="/settings/integrations" />} />
       <Route path="event-log" element={wrapSettingsPage(<EventLogPanel />)} />
-      <Route path="model-health" element={wrapSettingsPage(<ModelHealthPanel />)} />
+      {/* Model Health page retired. */}
+      <Route path="model-health" element={<SettingsRedirect to="/settings/developer-options" />} />
       {/* Knowledge & Memory panels were retired — old deep links bounce to
           Brain (sync history now lives on the Sync tab). */}
       <Route path="memory-data" element={<Navigate to="/brain?tab=sync" replace />} />

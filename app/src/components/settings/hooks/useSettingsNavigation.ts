@@ -36,7 +36,6 @@ export type SettingsRoute =
   | 'wallet-balances'
   | 'screen-awareness-debug'
   | 'autocomplete-debug'
-  | 'voice-debug'
   | 'local-model-debug'
   | 'notifications'
   | 'notification-routing'
@@ -59,7 +58,6 @@ export type SettingsRoute =
   | 'search'
   | 'skills-runner'
   | 'event-log'
-  | 'model-health'
   | 'tool-policy-diagnostics'
   | 'about';
 

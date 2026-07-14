@@ -124,13 +124,15 @@ describe('unknown / removed routes', () => {
 // ---------------------------------------------------------------------------
 
 describe('no substring collision', () => {
-  test('/settings/voice resolves to voice, not voice-debug', () => {
-    // Exact first-segment extraction prevents "voice" from matching the longer
-    // "voice-debug" developer route (or vice-versa).
+  test('/settings/voice resolves to voice', () => {
+    // Exact first-segment extraction: "voice" resolves to the voice leaf and
+    // is not confused with any longer developer route.
     expectRoute('/settings/voice', 'voice');
   });
 
-  test('/settings/voice-debug resolves to voice-debug', () => {
-    expectRoute('/settings/voice-debug', 'voice-debug');
+  test('/settings/voice-debug (retired) resolves to home', () => {
+    // The voice-debug developer page was removed; its slug no longer resolves
+    // to a registry entry (the route now redirects out).
+    expectRoute('/settings/voice-debug', 'home');
   });
 });

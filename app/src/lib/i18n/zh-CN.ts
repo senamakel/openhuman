@@ -6840,6 +6840,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': '删除',
   'flows.delete.deleting': '正在删除…',
   'flows.canvas.renameLabel': '重命名工作流',
+  'memorySources.codingSessions.title': '编程智能体会话',
+  'memorySources.codingSessions.description':
+    '将 Codex 和 Claude Code 中的决策与纠正转化为私有人格记忆。',
+  'memorySources.codingSessions.ingest': '摄取新会话',
+  'memorySources.codingSessions.ingesting': '正在摄取…',
+  'memorySources.codingSessions.claude': '克劳德代码',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} 个会话 · {evidence} 条用户输入',
+  'memorySources.codingSessions.notFound': '未找到本地历史记录',
+  'memorySources.codingSessions.scanning': '正在扫描本地会话历史…',
+  'memorySources.codingSessions.complete': '编程会话已摄取',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} 个会话生成了 {observations} 条人格观察。',
+  'memorySources.codingSessions.failed': '编程会话摄取失败',
 };
 
 export default messages;

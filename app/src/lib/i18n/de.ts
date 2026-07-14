@@ -7446,6 +7446,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Löschen',
   'flows.delete.deleting': 'Wird gelöscht…',
   'flows.canvas.renameLabel': 'Workflow umbenennen',
+  'memorySources.codingSessions.title': 'Coding-Agent-Sitzungen',
+  'memorySources.codingSessions.description':
+    'Verwandle Entscheidungen und Korrekturen aus Codex und Claude Code in private Persona-Erinnerungen.',
+  'memorySources.codingSessions.ingest': 'Neue Sitzungen einlesen',
+  'memorySources.codingSessions.ingesting': 'Wird eingelesen…',
+  'memorySources.codingSessions.claude': 'Claude-Code-Verlauf',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} Sitzungen · {evidence} menschliche Beiträge',
+  'memorySources.codingSessions.notFound': 'Kein lokaler Verlauf gefunden',
+  'memorySources.codingSessions.scanning': 'Lokaler Sitzungsverlauf wird durchsucht…',
+  'memorySources.codingSessions.complete': 'Coding-Sitzungen eingelesen',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} Sitzungen ergaben {observations} Persona-Beobachtungen.',
+  'memorySources.codingSessions.failed': 'Einlesen der Coding-Sitzungen fehlgeschlagen',
 };
 
 export default messages;

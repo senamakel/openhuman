@@ -88,7 +88,7 @@ tinyagents = { version = "1.7", features = ["sqlite", "repl"] }
 # security gating, and the global singleton stay host-side. rusqlite/git2 are
 # aligned to the host pins (=0.40 / 0.21) so one bundled SQLite + one libgit2
 # link. Keep the version pin in lockstep with the submodule tag.
-tinycortex = { version = "0.1", features = ["git-diff", "sync"] }
+tinycortex = { version = "0.1", features = ["git-diff", "persona", "sync"] }
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
 # TokenJuice code compressor — AST-aware signature extraction. Optional (C build)
 # behind the default `tokenjuice-treesitter` feature; disabling it falls back to

@@ -7263,6 +7263,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Hapus',
   'flows.delete.deleting': 'Menghapus…',
   'flows.canvas.renameLabel': 'Ganti nama alur kerja',
+  'memorySources.codingSessions.title': 'Sesi agen pemrograman',
+  'memorySources.codingSessions.description':
+    'Ubah keputusan dan koreksi Codex serta Claude Code menjadi memori persona pribadi.',
+  'memorySources.codingSessions.ingest': 'Serap sesi baru',
+  'memorySources.codingSessions.ingesting': 'Menyerap…',
+  'memorySources.codingSessions.claude': 'Riwayat Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sesi · {evidence} masukan manusia',
+  'memorySources.codingSessions.notFound': 'Riwayat lokal tidak ditemukan',
+  'memorySources.codingSessions.scanning': 'Memindai riwayat sesi lokal…',
+  'memorySources.codingSessions.complete': 'Sesi pemrograman telah diserap',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sesi menghasilkan {observations} pengamatan persona.',
+  'memorySources.codingSessions.failed': 'Gagal menyerap sesi pemrograman',
 };
 
 export default messages;

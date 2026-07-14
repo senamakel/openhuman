@@ -158,6 +158,7 @@ fn catalog_includes_additional_user_facing_surfaces() {
         "intelligence.embedding_provider_test",
         "intelligence.github_repo_memory_source",
         "intelligence.memory_source_sync_controls",
+        "intelligence.coding_session_memory",
         "conversation.subagent_mascots",
     ] {
         assert!(
@@ -165,6 +166,22 @@ fn catalog_includes_additional_user_facing_surfaces() {
             "missing catalog capability `{expected}`"
         );
     }
+}
+
+#[test]
+fn coding_session_memory_discloses_inference_boundary() {
+    let capability = lookup("intelligence.coding_session_memory")
+        .expect("coding-session memory capability registered");
+    assert_eq!(capability.domain, "memory_sources");
+    assert!(capability.description.contains("Codex"));
+    assert!(capability.description.contains("Claude Code"));
+    let privacy = capability.privacy.expect("privacy disclosure");
+    assert!(privacy.leaves_device);
+    assert_eq!(privacy.data_kind, PrivacyDataKind::Raw);
+    assert_eq!(
+        privacy.destinations,
+        &["Configured OpenHuman inference provider"]
+    );
 }
 
 /// The two embeddings entries surface a Settings-side configuration panel.

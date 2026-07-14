@@ -7309,6 +7309,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Удалить',
   'flows.delete.deleting': 'Удаление…',
   'flows.canvas.renameLabel': 'Переименовать рабочий процесс',
+  'memorySources.codingSessions.title': 'Сеансы агентов программирования',
+  'memorySources.codingSessions.description':
+    'Превратите решения и исправления из Codex и Claude Code в приватную память персоны.',
+  'memorySources.codingSessions.ingest': 'Загрузить новые сеансы',
+  'memorySources.codingSessions.ingesting': 'Загрузка…',
+  'memorySources.codingSessions.claude': 'Клод Код',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} сеансов · {evidence} сообщений пользователя',
+  'memorySources.codingSessions.notFound': 'Локальная история не найдена',
+  'memorySources.codingSessions.scanning': 'Сканирование локальной истории…',
+  'memorySources.codingSessions.complete': 'Сеансы программирования загружены',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} сеансов дали {observations} наблюдений персоны.',
+  'memorySources.codingSessions.failed': 'Не удалось загрузить сеансы программирования',
 };
 
 export default messages;

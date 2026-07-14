@@ -110,7 +110,12 @@ impl Tool for MemoryHybridSearchTool {
             ));
         }
 
-        let profile = WeightProfile::by_name(&parsed.mode);
+        let profile = WeightProfile::by_name(&parsed.mode).ok_or_else(|| {
+            anyhow::anyhow!(
+                "memory_hybrid_search: unknown mode '{}'; expected balanced, semantic, lexical, or graph_first",
+                parsed.mode
+            )
+        })?;
         let limit = parsed.limit.clamp(1, 50);
 
         log::debug!(

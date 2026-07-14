@@ -7545,6 +7545,20 @@ const en: TranslationMap = {
     'Your AI provider has no API key set. Add one in provider settings to continue.',
   'userErrors.scope.chat': 'Chat',
   'userErrors.scope.cron': 'Scheduled job',
+  'memorySources.codingSessions.title': 'Coding-agent sessions',
+  'memorySources.codingSessions.description':
+    'Turn your Codex and Claude Code decisions and corrections into private persona memory.',
+  'memorySources.codingSessions.ingest': 'Ingest new sessions',
+  'memorySources.codingSessions.ingesting': 'Ingesting…',
+  'memorySources.codingSessions.claude': 'Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sessions · {evidence} human turns',
+  'memorySources.codingSessions.notFound': 'No local history found',
+  'memorySources.codingSessions.scanning': 'Scanning local session history…',
+  'memorySources.codingSessions.complete': 'Coding sessions ingested',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sessions produced {observations} persona observations.',
+  'memorySources.codingSessions.failed': 'Coding-session ingestion failed',
 };
 
 export default en;

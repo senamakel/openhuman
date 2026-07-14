@@ -7339,6 +7339,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Usuń',
   'flows.delete.deleting': 'Usuwanie…',
   'flows.canvas.renameLabel': 'Zmień nazwę przepływu pracy',
+  'memorySources.codingSessions.title': 'Sesje agentów programistycznych',
+  'memorySources.codingSessions.description':
+    'Zamień decyzje i poprawki z Codex oraz Claude Code w prywatną pamięć persony.',
+  'memorySources.codingSessions.ingest': 'Wczytaj nowe sesje',
+  'memorySources.codingSessions.ingesting': 'Wczytywanie…',
+  'memorySources.codingSessions.claude': 'Historia Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sesji · {evidence} wypowiedzi użytkownika',
+  'memorySources.codingSessions.notFound': 'Nie znaleziono lokalnej historii',
+  'memorySources.codingSessions.scanning': 'Skanowanie lokalnej historii sesji…',
+  'memorySources.codingSessions.complete': 'Sesje programistyczne wczytane',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sesji utworzyło {observations} obserwacji persony.',
+  'memorySources.codingSessions.failed': 'Nie udało się wczytać sesji programistycznych',
 };
 
 export default messages;

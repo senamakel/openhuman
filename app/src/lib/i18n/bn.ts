@@ -7231,6 +7231,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'মুছুন',
   'flows.delete.deleting': 'মুছে ফেলা হচ্ছে…',
   'flows.canvas.renameLabel': 'ওয়ার্কফ্লো পুনঃনামকরণ করুন',
+  'memorySources.codingSessions.title': 'কোডিং-এজেন্ট সেশন',
+  'memorySources.codingSessions.description':
+    'Codex ও Claude Code-এর সিদ্ধান্ত এবং সংশোধনকে ব্যক্তিগত পারসোনা মেমরিতে রূপ দিন।',
+  'memorySources.codingSessions.ingest': 'নতুন সেশন গ্রহণ করুন',
+  'memorySources.codingSessions.ingesting': 'গ্রহণ করা হচ্ছে…',
+  'memorySources.codingSessions.claude': 'ক্লড কোড',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files}টি সেশন · {evidence}টি মানব বার্তা',
+  'memorySources.codingSessions.notFound': 'কোনো স্থানীয় ইতিহাস পাওয়া যায়নি',
+  'memorySources.codingSessions.scanning': 'স্থানীয় সেশন ইতিহাস স্ক্যান করা হচ্ছে…',
+  'memorySources.codingSessions.complete': 'কোডিং সেশন গ্রহণ সম্পন্ন',
+  'memorySources.codingSessions.completeMessage':
+    '{processed}টি সেশন থেকে {observations}টি পারসোনা পর্যবেক্ষণ তৈরি হয়েছে।',
+  'memorySources.codingSessions.failed': 'কোডিং সেশন গ্রহণ ব্যর্থ হয়েছে',
 };
 
 export default messages;

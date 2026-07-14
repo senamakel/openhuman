@@ -7067,6 +7067,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'حذف',
   'flows.delete.deleting': 'جارٍ الحذف…',
   'flows.canvas.renameLabel': 'إعادة تسمية سير العمل',
+  'memorySources.codingSessions.title': 'جلسات وكلاء البرمجة',
+  'memorySources.codingSessions.description':
+    'حوّل قرارات وتصحيحات Codex وClaude Code إلى ذاكرة شخصية خاصة.',
+  'memorySources.codingSessions.ingest': 'استيعاب الجلسات الجديدة',
+  'memorySources.codingSessions.ingesting': 'جارٍ الاستيعاب…',
+  'memorySources.codingSessions.claude': 'كلود كود',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} جلسات · {evidence} مداخلات بشرية',
+  'memorySources.codingSessions.notFound': 'لم يُعثر على سجل محلي',
+  'memorySources.codingSessions.scanning': 'جارٍ فحص سجل الجلسات المحلي…',
+  'memorySources.codingSessions.complete': 'تم استيعاب جلسات البرمجة',
+  'memorySources.codingSessions.completeMessage':
+    'أنتجت {processed} جلسات {observations} ملاحظات شخصية.',
+  'memorySources.codingSessions.failed': 'فشل استيعاب جلسات البرمجة',
 };
 
 export default messages;

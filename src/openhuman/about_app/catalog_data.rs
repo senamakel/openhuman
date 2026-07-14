@@ -14,6 +14,12 @@ const DERIVED_TO_BACKEND: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
     destinations: &["OpenHuman backend", "TinyHumans Neocortex"],
 });
 
+const CODING_SESSION_TO_BACKEND: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
+    leaves_device: true,
+    data_kind: PrivacyDataKind::Raw,
+    destinations: &["Configured OpenHuman inference provider"],
+});
+
 // Vision sub-agent ships the attached image (raw pixels) to the managed
 // multimodal model for analysis.
 const IMAGE_TO_BACKEND: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
@@ -506,6 +512,16 @@ pub(super) const CAPABILITIES: &[Capability] = &[
             openhuman.memory_sources_apply_all_in (RPC).",
         status: CapabilityStatus::Beta,
         privacy: LOCAL_RAW,
+    },
+    Capability {
+        id: "intelligence.coding_session_memory",
+        name: "Coding-Agent Session Memory",
+        domain: "memory_sources",
+        category: CapabilityCategory::Intelligence,
+        description: "Discover local Codex and Claude Code session histories, retain only human-authored decisions and corrections, and distill them into a durable TinyCortex persona memory pack. Tool output, reasoning, developer prompts, and subagent traffic are excluded before inference.",
+        how_to: "Brain > Sources > Coding-agent sessions > Ingest new sessions. Programmatic: openhuman.memory_sources_coding_session_status and openhuman.memory_sources_ingest_coding_sessions (RPC).",
+        status: CapabilityStatus::Beta,
+        privacy: CODING_SESSION_TO_BACKEND,
     },
     Capability {
         id: "intelligence.memory_sync_schedule",

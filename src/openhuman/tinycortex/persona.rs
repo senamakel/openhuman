@@ -1,0 +1,243 @@
+//! Host orchestration for TinyCortex coding-session persona ingestion.
+
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+use tinycortex::memory::persona::readers::{claude_code, codex, RawSession};
+use tinycortex::memory::persona::state::FileStateStore;
+use tinycortex::memory::persona::{PersonaConfig, Pipeline, RunMode};
+
+use crate::openhuman::config::Config;
+
+const DEFAULT_MAX_SESSIONS: usize = 100;
+const MAX_MAX_SESSIONS: usize = 1_000;
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct CodingSessionSourceStatus {
+    pub kind: String,
+    pub available: bool,
+    pub session_files: usize,
+    pub evidence_units: usize,
+    pub invalid_files: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CodingSessionIngestRequest {
+    #[serde(default)]
+    pub backfill: bool,
+    #[serde(default = "default_max_sessions")]
+    pub max_sessions: usize,
+}
+
+fn default_max_sessions() -> usize {
+    DEFAULT_MAX_SESSIONS
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CodingSessionIngestResponse {
+    pub mode: String,
+    pub files_seen: usize,
+    pub sessions_processed: usize,
+    pub sessions_skipped: usize,
+    pub sessions_failed: usize,
+    pub evidence_units: usize,
+    pub observations: usize,
+    pub budget_hit: bool,
+    pub pack_path: Option<String>,
+}
+
+fn roots_from_environment() -> (PathBuf, PathBuf) {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    let claude_home = std::env::var_os("CLAUDE_CONFIG_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".claude"));
+    let codex_home = std::env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".codex"));
+    (claude_home.join("projects"), codex_home.join("sessions"))
+}
+
+fn source_status(
+    kind: &str,
+    root: &Path,
+    discover: impl Fn(&Path) -> Vec<PathBuf>,
+    read: impl Fn(&Path) -> anyhow::Result<RawSession>,
+) -> CodingSessionSourceStatus {
+    let files = discover(root);
+    let mut evidence_units = 0;
+    let mut invalid_files = 0;
+    for path in &files {
+        match read(path) {
+            Ok(session) => evidence_units += session.evidence.len(),
+            Err(_error) => {
+                invalid_files += 1;
+                tracing::debug!(
+                    source = kind,
+                    reason = "read-or-parse-failed",
+                    "[memory_persona] skipped unreadable coding session"
+                );
+            }
+        }
+    }
+    CodingSessionSourceStatus {
+        kind: kind.to_string(),
+        available: root.is_dir(),
+        session_files: files.len(),
+        evidence_units,
+        invalid_files,
+    }
+}
+
+pub fn coding_session_status_for_roots(
+    claude_root: &Path,
+    codex_root: &Path,
+) -> Vec<CodingSessionSourceStatus> {
+    tracing::debug!("[memory_persona] coding session scan: entry");
+    let statuses = vec![
+        source_status(
+            "claude_code",
+            claude_root,
+            claude_code::discover,
+            claude_code::read_session,
+        ),
+        source_status("codex", codex_root, codex::discover, codex::read_session),
+    ];
+    tracing::debug!(
+        files = statuses
+            .iter()
+            .map(|status| status.session_files)
+            .sum::<usize>(),
+        evidence = statuses
+            .iter()
+            .map(|status| status.evidence_units)
+            .sum::<usize>(),
+        invalid = statuses
+            .iter()
+            .map(|status| status.invalid_files)
+            .sum::<usize>(),
+        "[memory_persona] coding session scan: exit"
+    );
+    statuses
+}
+
+pub fn coding_session_status() -> Vec<CodingSessionSourceStatus> {
+    let (claude_root, codex_root) = roots_from_environment();
+    coding_session_status_for_roots(&claude_root, &codex_root)
+}
+
+pub async fn ingest_coding_sessions(
+    config: &Config,
+    request: CodingSessionIngestRequest,
+) -> anyhow::Result<CodingSessionIngestResponse> {
+    let (claude_root, codex_root) = roots_from_environment();
+    let max_sessions = request.max_sessions.clamp(1, MAX_MAX_SESSIONS);
+    let mode = if request.backfill {
+        RunMode::Backfill
+    } else {
+        RunMode::Incremental
+    };
+    tracing::info!(
+        mode = if request.backfill {
+            "backfill"
+        } else {
+            "incremental"
+        },
+        max_sessions,
+        "[memory_persona] coding session ingestion: entry"
+    );
+
+    let memory_config = super::memory_config_from(config, config.workspace_dir.clone());
+    let mut persona = PersonaConfig::with_home(
+        dirs::home_dir()
+            .as_deref()
+            .unwrap_or_else(|| Path::new(".")),
+        "OpenHuman user",
+    );
+    persona.claude_code_root = Some(claude_root);
+    persona.codex_root = Some(codex_root);
+    // This product surface is deliberately scoped to coding-session history.
+    // Repository history and instruction files can be wired separately with
+    // their own disclosure and cost controls.
+    persona.project_roots.clear();
+    persona.global_instruction_files.clear();
+    persona.author_emails.clear();
+    persona.run_budget.max_sessions = max_sessions;
+    persona.run_budget.max_llm_calls = max_sessions as u32;
+
+    let provider = super::build_chat_provider(config)?;
+    let summariser = super::HostSummariser::new(config.clone());
+    let store = FileStateStore::open_in_workspace(&config.workspace_dir)?;
+    let report = Pipeline {
+        config: &memory_config,
+        persona: &persona,
+        provider: provider.as_ref(),
+        summariser: &summariser,
+        store: &store,
+    }
+    .run(mode)
+    .await?;
+
+    tracing::info!(
+        files_seen = report.files_seen,
+        sessions_processed = report.sessions_processed,
+        sessions_failed = report.sessions_failed,
+        evidence_units = report.evidence_units,
+        observations = report.observations,
+        budget_hit = report.budget_hit,
+        "[memory_persona] coding session ingestion: exit"
+    );
+    Ok(CodingSessionIngestResponse {
+        mode: report.mode,
+        files_seen: report.files_seen,
+        sessions_processed: report.sessions_processed,
+        sessions_skipped: report.sessions_skipped,
+        sessions_failed: report.sessions_failed,
+        evidence_units: report.evidence_units,
+        observations: report.observations,
+        budget_hit: report.budget_hit,
+        pack_path: report.pack_path,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use tempfile::tempdir;
+
+    use super::*;
+
+    #[test]
+    fn scans_codex_and_claude_sessions_and_filters_machine_content() {
+        let temp = tempdir().unwrap();
+        let claude = temp.path().join("claude");
+        let codex = temp.path().join("codex/2026/07/14");
+        fs::create_dir_all(&claude).unwrap();
+        fs::create_dir_all(&codex).unwrap();
+        fs::write(
+            claude.join("session.jsonl"),
+            concat!(
+                "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"machine\"}]}}\n",
+                "{\"type\":\"user\",\"sessionId\":\"c1\",\"cwd\":\"/repo\",\"timestamp\":\"2026-07-14T00:00:00Z\",\"message\":{\"content\":\"Prefer small modules\"}}\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            codex.join("rollout-test.jsonl"),
+            concat!(
+                "{\"type\":\"session_meta\",\"payload\":{\"id\":\"x1\",\"cwd\":\"/repo\"}}\n",
+                "{\"type\":\"response_item\",\"timestamp\":\"2026-07-14T00:00:00Z\",\"payload\":{\"type\":\"message\",\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"secret scaffolding\"}]}}\n",
+                "{\"type\":\"response_item\",\"timestamp\":\"2026-07-14T00:00:01Z\",\"payload\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Run focused tests first\"}]}}\n"
+            ),
+        )
+        .unwrap();
+
+        let statuses = coding_session_status_for_roots(&claude, &temp.path().join("codex"));
+        assert_eq!(statuses.len(), 2);
+        assert_eq!(statuses[0].session_files, 1);
+        assert_eq!(statuses[0].evidence_units, 1);
+        assert_eq!(statuses[1].session_files, 1);
+        assert_eq!(statuses[1].evidence_units, 1);
+        assert_eq!(statuses[0].invalid_files + statuses[1].invalid_files, 0);
+    }
+}

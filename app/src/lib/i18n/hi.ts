@@ -7229,6 +7229,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'हटाएं',
   'flows.delete.deleting': 'हटाया जा रहा है…',
   'flows.canvas.renameLabel': 'वर्कफ़्लो का नाम बदलें',
+  'memorySources.codingSessions.title': 'कोडिंग-एजेंट सत्र',
+  'memorySources.codingSessions.description':
+    'Codex और Claude Code के निर्णयों व सुधारों को निजी व्यक्तित्व स्मृति में बदलें।',
+  'memorySources.codingSessions.ingest': 'नए सत्र शामिल करें',
+  'memorySources.codingSessions.ingesting': 'शामिल किया जा रहा है…',
+  'memorySources.codingSessions.claude': 'क्लॉड कोड',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} सत्र · {evidence} मानवीय संदेश',
+  'memorySources.codingSessions.notFound': 'कोई स्थानीय इतिहास नहीं मिला',
+  'memorySources.codingSessions.scanning': 'स्थानीय सत्र इतिहास स्कैन हो रहा है…',
+  'memorySources.codingSessions.complete': 'कोडिंग सत्र शामिल हो गए',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} सत्रों से {observations} व्यक्तित्व अवलोकन बने।',
+  'memorySources.codingSessions.failed': 'कोडिंग सत्र शामिल करना विफल रहा',
 };
 
 export default messages;

@@ -7353,6 +7353,20 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Excluir',
   'flows.delete.deleting': 'Excluindo…',
   'flows.canvas.renameLabel': 'Renomear fluxo de trabalho',
+  'memorySources.codingSessions.title': 'Sessões de agentes de programação',
+  'memorySources.codingSessions.description':
+    'Transforme decisões e correções do Codex e Claude Code em memória privada de persona.',
+  'memorySources.codingSessions.ingest': 'Ingerir novas sessões',
+  'memorySources.codingSessions.ingesting': 'Ingerindo…',
+  'memorySources.codingSessions.claude': 'Histórico do Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sessões · {evidence} mensagens humanas',
+  'memorySources.codingSessions.notFound': 'Nenhum histórico local encontrado',
+  'memorySources.codingSessions.scanning': 'Verificando o histórico local…',
+  'memorySources.codingSessions.complete': 'Sessões de programação ingeridas',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sessões produziram {observations} observações de persona.',
+  'memorySources.codingSessions.failed': 'Falha ao ingerir sessões de programação',
 };
 
 export default messages;

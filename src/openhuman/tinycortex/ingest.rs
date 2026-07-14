@@ -1,29 +1,32 @@
 //! Host adapters for tinycortex on-demand ingestion.
 
-use tinycortex::memory::ingest::TreeJobSink;
+use rusqlite::Transaction;
+use tinycortex::memory::ingest::{QueueJobSink, TreeJobSink};
 use tinycortex::memory::score::extract::{LlmEntityExtractor, LlmExtractorConfig};
 use tinycortex::memory::score::ScoringConfig;
 
 use crate::openhuman::config::Config;
-use crate::openhuman::memory_queue::{self, ExtractChunkPayload, NewJob};
-
-pub struct HostTreeJobSink {
-    config: Config,
-}
+pub struct HostTreeJobSink;
 
 impl HostTreeJobSink {
-    pub fn new(config: Config) -> Self {
-        Self { config }
+    pub fn new(_config: Config) -> Self {
+        Self
     }
 }
 
 impl TreeJobSink for HostTreeJobSink {
-    fn enqueue_extract(&self, chunk_id: &str) -> anyhow::Result<()> {
-        let job = NewJob::extract_chunk(&ExtractChunkPayload {
-            chunk_id: chunk_id.into(),
-        })?;
-        memory_queue::enqueue(&self.config, &job)?;
-        Ok(())
+    fn enqueue_extract_tx(
+        &self,
+        tx: &Transaction<'_>,
+        chunk_id: &str,
+        default_max_attempts: u32,
+    ) -> anyhow::Result<bool> {
+        tracing::trace!(
+            chunk_id,
+            default_max_attempts,
+            "[memory:ingest] enqueue extract job in chunk transaction"
+        );
+        QueueJobSink.enqueue_extract_tx(tx, chunk_id, default_max_attempts)
     }
 }
 

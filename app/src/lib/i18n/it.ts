@@ -7370,6 +7370,21 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Elimina',
   'flows.delete.deleting': 'Eliminazione…',
   'flows.canvas.renameLabel': 'Rinomina flusso di lavoro',
+  'memorySources.codingSessions.title': 'Sessioni degli agenti di programmazione',
+  'memorySources.codingSessions.description':
+    'Trasforma decisioni e correzioni di Codex e Claude Code in memoria privata della persona.',
+  'memorySources.codingSessions.ingest': 'Acquisisci nuove sessioni',
+  'memorySources.codingSessions.ingesting': 'Acquisizione…',
+  'memorySources.codingSessions.claude': 'Cronologia Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sessioni · {evidence} interventi umani',
+  'memorySources.codingSessions.notFound': 'Nessuna cronologia locale trovata',
+  'memorySources.codingSessions.scanning': 'Scansione della cronologia locale…',
+  'memorySources.codingSessions.complete': 'Sessioni di programmazione acquisite',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sessioni hanno prodotto {observations} osservazioni della persona.',
+  'memorySources.codingSessions.failed':
+    'Acquisizione delle sessioni di programmazione non riuscita',
 };
 
 export default messages;

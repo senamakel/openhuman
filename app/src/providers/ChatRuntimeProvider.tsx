@@ -69,9 +69,8 @@ import {
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   clearActiveExternalForThread,
-  disclosureFromEvent,
   hydratePrivacyMode,
-  pushDisclosureForThread,
+  markActiveExternalForThread,
 } from '../store/privacySlice';
 import { selectSocketStatus } from '../store/socketSelectors';
 import {
@@ -1072,9 +1071,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         );
       },
       onExternalTransferPending: (event: ExternalTransferPendingEvent) => {
-        // #4437 / S3 — DISCLOSURE ONLY. Project the egress descriptor onto the
-        // thread's privacy ledger so the in-chat card + status pill can render
-        // what/where/why. No approve/deny here (that's S4 #4438).
+        // Egress signal for the status pill only. The in-chat "Leaving your
+        // device" disclosure card was removed; we just flip the thread's live
+        // external-transfer flag so the pill reflects off-device activity, and
+        // clear it on the turn boundary below.
         rtLog('external_transfer_pending', {
           thread: event.thread_id,
           provider: event.provider_slug,
@@ -1083,12 +1083,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           kinds: event.data_kinds.length,
           external: String(event.is_external),
         });
-        dispatch(
-          pushDisclosureForThread({
-            threadId: event.thread_id,
-            disclosure: disclosureFromEvent(event),
-          })
-        );
+        if (event.is_external) {
+          dispatch(markActiveExternalForThread({ threadId: event.thread_id }));
+        }
       },
       onApprovalRequest: (event: ChatApprovalRequestEvent) => {
         rtLog('approval_request', {

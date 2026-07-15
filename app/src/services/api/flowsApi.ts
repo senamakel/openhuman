@@ -750,10 +750,7 @@ export async function updateDraft(
 
 /** List all drafts (newest-updated first) via `openhuman.flows_draft_list`. */
 export async function listDrafts(): Promise<FlowDraft[]> {
-  const response = await callCoreRpc<unknown>({
-    method: 'openhuman.flows_draft_list',
-    params: {},
-  });
+  const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_draft_list', params: {} });
   const result = unwrapCliEnvelope<{ drafts: FlowDraft[] }>(response);
   return result.drafts ?? [];
 }
@@ -772,10 +769,7 @@ export async function deleteDraft(id: string): Promise<boolean> {
  * Promote a draft into a saved flow via `openhuman.flows_draft_promote` (runs
  * the normal create/update gates, then removes the draft). Returns the Flow.
  */
-export async function promoteDraft(
-  id: string,
-  requireApproval?: boolean
-): Promise<Flow> {
+export async function promoteDraft(id: string, requireApproval?: boolean): Promise<Flow> {
   log('promoteDraft: request id=%s', id);
   const response = await callCoreRpc<unknown>({
     method: 'openhuman.flows_draft_promote',

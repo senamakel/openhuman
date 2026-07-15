@@ -1716,6 +1716,34 @@ pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -
                 );
                 continue;
             }
+            // A null bound to the OUTPUT of an upstream Composio `tool_call`
+            // node is UNVERIFIABLE in this echo sandbox — the mock renders a
+            // Composio `tool_call` as `{tool, args, connection}` and can NEVER
+            // produce its real output fields (`.item.json.data.<field>`), so a
+            // downstream binding to one resolves `null` here even when the
+            // wiring is perfectly correct. Hard-rejecting it (WS6) would block
+            // a possibly-correct graph from ever being proposed — the exact
+            // false-negative the transcript audit caught. Downgrade to a
+            // debug-logged skip; `dry_run_workflow` remains the surface that
+            // reports it (as an `unverifiable` diagnostic the agent can act on
+            // via get_tool_contract / get_tool_output_sample).
+            if let Some(upstream) =
+                composio_tool_call_upstream_ref(&diag.expression, graph, &step.node_id)
+            {
+                tracing::debug!(
+                    target: "flows",
+                    node = %step.node_id,
+                    %slug,
+                    %field,
+                    upstream = %upstream,
+                    expression = %diag.expression,
+                    "[flows] required-arg resolvability check: arg binds to a Composio \
+                     tool_call's output — UNVERIFIABLE in the echo sandbox (the mock cannot \
+                     produce real tool output fields), not rejecting; dry_run_workflow \
+                     reports it instead"
+                );
+                continue;
+            }
             tracing::warn!(
                 target: "flows",
                 node = %step.node_id,
@@ -1829,6 +1857,72 @@ fn is_trigger_scoped_expression(
         .filter(|e| e.to_node == node_id)
         .peekable();
     predecessors.peek().is_some() && predecessors.all(|e| e.from_node == trigger_id)
+}
+
+/// If a null-resolved config expression on `node_id` is bound to the OUTPUT of
+/// an upstream **Composio `tool_call`** node (a `tool_call` whose `slug` is a
+/// real Composio action — not `=`-derived, not native `oh:`), returns that
+/// upstream node's id; otherwise `None`.
+///
+/// The dry-run / gate sandbox renders a Composio `tool_call` as a deterministic
+/// echo (`{tool, args, connection}`) and can NEVER produce its real output
+/// fields, so a downstream binding to `.item.json.data.<field>` off such a node
+/// resolves `null` in the sandbox **even when the wiring is correct** — the
+/// binding is UNVERIFIABLE here, not necessarily broken. Callers use this to
+/// tell that honest-uncertainty case apart from a genuinely broken binding
+/// (one wired to an `agent` / `transform` / `code` / trigger upstream, whose
+/// real output the sandbox DOES produce, so a null there IS a real bug).
+///
+/// Handles both addressing forms the engine can trace:
+/// - explicit `=nodes.<id>...` / `=.nodes["<id>"]...` (parsed via
+///   [`explicit_nodes_ref`]), and
+/// - implicit `=item...` / `=items...`, resolved against `node_id`'s direct
+///   predecessor — but only when there is exactly ONE incoming edge, so an
+///   ambiguous fan-in is never mis-attributed to a single upstream node.
+///
+/// Anything else (a `=run...` trigger reference, a jq expression not rooted at
+/// one of the above, or a reference to a non-`tool_call` / native / dynamic
+/// node) returns `None`.
+pub(crate) fn composio_tool_call_upstream_ref<'a>(
+    expr: &str,
+    graph: &'a WorkflowGraph,
+    node_id: &str,
+) -> Option<&'a str> {
+    let referenced_id: String = if let Some(id) = explicit_nodes_ref(expr) {
+        id.to_string()
+    } else {
+        let body = expr.strip_prefix('=').unwrap_or(expr).trim();
+        let body = body.strip_prefix('.').unwrap_or(body);
+        let is_item_scoped = body == "item"
+            || body.starts_with("item.")
+            || body.starts_with("item[")
+            || body == "items"
+            || body.starts_with("items.")
+            || body.starts_with("items[");
+        if !is_item_scoped {
+            return None;
+        }
+        let mut preds = graph
+            .edges
+            .iter()
+            .filter(|e| e.to_node == node_id)
+            .map(|e| e.from_node.as_str());
+        let first = preds.next()?;
+        if preds.next().is_some() {
+            // Ambiguous fan-in — cannot attribute the null to one upstream node.
+            return None;
+        }
+        first.to_string()
+    };
+    let node = graph.nodes.iter().find(|n| n.id == referenced_id)?;
+    if node.kind != NodeKind::ToolCall {
+        return None;
+    }
+    let slug = node.config.get("slug").and_then(Value::as_str)?;
+    if slug.starts_with('=') || slug.starts_with("oh:") {
+        return None;
+    }
+    Some(node.id.as_str())
 }
 
 /// Validates a candidate graph without persisting it — the same

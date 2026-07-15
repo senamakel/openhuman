@@ -2542,6 +2542,79 @@ impl Tool for GetNodeKindContractTool {
 /// (an unexercised branch can be entirely intentional), and is surfaced on
 /// both the `ok: true` and `ok: false` result shapes so the caller can
 /// double-check that node's wiring by hand.
+/// Builds one `null_resolutions` diagnostic entry for a `tool_call` node's
+/// null-resolved `args.*` config expression.
+///
+/// The common case reports `{ node_id, location, expression }` — a wiring
+/// mistake the agent should fix. But when the null-resolved expression binds to
+/// the output of an upstream Composio `tool_call` node
+/// ([`ops::composio_tool_call_upstream_ref`]), the entry is instead marked
+/// `unverifiable: true` and carries an honest `suggestion`: the echo sandbox
+/// can NEVER produce a Composio tool's real output fields, so this particular
+/// null is expected here and does NOT prove the binding wrong (WS6 — the
+/// transcript audit where the agent re-wired an already-correct binding three
+/// times chasing this exact false negative). The message points at
+/// `get_tool_contract` / `get_tool_output_sample` as the real disambiguators.
+fn build_null_resolution_entry(
+    node_id: &str,
+    diag: &tinyflows::expr::NullResolution,
+    graph: &WorkflowGraph,
+) -> Value {
+    if let Some(upstream) = crate::openhuman::flows::ops::composio_tool_call_upstream_ref(
+        &diag.expression,
+        graph,
+        node_id,
+    ) {
+        let field = diag.location.strip_prefix("args.").unwrap_or("args");
+        return json!({
+            "node_id": node_id,
+            "location": diag.location,
+            "expression": diag.expression,
+            "unverifiable": true,
+            "upstream_tool_call": upstream,
+            "suggestion": format!(
+                "required arg `{field}` binds to the output of Composio tool_call node \
+                 `{upstream}` — the SANDBOX only echoes tool calls and can never produce \
+                 their real output fields, so this binding is UNVERIFIABLE here (not \
+                 necessarily wrong). Confirm the path against get_tool_contract {{ slug }}'s \
+                 output_fields / primary_array_path (remember Composio results nest under \
+                 `.item.json.data.`), or get_tool_output_sample {{ slug, args }} for the \
+                 real shape. It is a real bug only if the path doesn't match the action's \
+                 actual output."
+            ),
+        });
+    }
+    json!({
+        "node_id": node_id,
+        "location": diag.location,
+        "expression": diag.expression,
+    })
+}
+
+/// Every null-resolved `args.*` config expression that landed on a `tool_call`
+/// node, as `null_resolutions` diagnostic entries (see
+/// [`build_null_resolution_entry`] for the shape, including the WS6
+/// `unverifiable` Composio-upstream variant). Shared by the settled-run path
+/// (which fails the dry run on these) and the errored-run path (which surfaces
+/// only the `unverifiable` ones so a stop-policy preflight abort explains
+/// itself honestly instead of via the generic required-arg text).
+fn tool_call_arg_null_entries(
+    steps: &[tinyflows::observability::ExecutionStep],
+    graph: &WorkflowGraph,
+    tool_call_node_ids: &std::collections::HashSet<&str>,
+) -> Vec<Value> {
+    steps
+        .iter()
+        .filter(|step| tool_call_node_ids.contains(step.node_id.as_str()))
+        .flat_map(|step| {
+            step.diagnostics
+                .iter()
+                .filter(|&diag| diag.location == "args" || diag.location.starts_with("args."))
+                .map(|diag| build_null_resolution_entry(&step.node_id, diag, graph))
+        })
+        .collect()
+}
+
 pub struct DryRunWorkflowTool {
     security: Arc<SecurityPolicy>,
     config: Arc<Config>,
@@ -2745,6 +2818,46 @@ impl Tool for DryRunWorkflowTool {
         {
             Ok(Ok(outcome)) => outcome,
             Ok(Err(e)) => {
+                // A `stop`-policy `tool_call` whose required arg resolved null
+                // aborts the WHOLE run here (via `PreflightToolInvoker`), so
+                // the honest per-field diagnostic never reaches the settled-run
+                // `null_resolutions` path below. Recover it from the observer:
+                // if the abort was caused by a required arg bound to an upstream
+                // Composio `tool_call`'s output, the echo mock simply CAN'T
+                // produce that field — so surface it as `unverifiable` rather
+                // than letting the generic "required arg missing/null" text
+                // (which sent the transcript agent re-wiring a correct binding
+                // three times) stand alone. WS6.
+                let unverifiable_bindings: Vec<Value> =
+                    tool_call_arg_null_entries(&observer.steps(), &graph, &tool_call_node_ids)
+                        .into_iter()
+                        .filter(|entry| {
+                            entry.get("unverifiable").and_then(Value::as_bool) == Some(true)
+                        })
+                        .collect();
+                if !unverifiable_bindings.is_empty() {
+                    tracing::debug!(
+                        target: "flows",
+                        error = %e,
+                        unverifiable_count = unverifiable_bindings.len(),
+                        "[flows] dry_run_workflow: sandbox run aborted on a Composio-upstream \
+                         binding the echo mock cannot verify — surfacing it honestly"
+                    );
+                    return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                        "sandbox": true,
+                        "ok": false,
+                        "error": e.to_string(),
+                        "unverifiable_bindings": unverifiable_bindings,
+                        "note": "SANDBOX (mock) output — a tool_call node aborted because a \
+                            required arg binds to the output of an upstream Composio tool_call, \
+                            which the sandbox can only ECHO (it never produces real tool output \
+                            fields). See unverifiable_bindings: each MAY already be wired \
+                            correctly — confirm the path with get_tool_contract {{ slug }} \
+                            (output_fields / primary_array_path; Composio results nest under \
+                            .item.json.data.) or get_tool_output_sample {{ slug, args }} instead \
+                            of re-wiring blindly. No real side effects occurred.",
+                    }))?));
+                }
                 tracing::debug!(target: "flows", error = %e, "[flows] dry_run_workflow: sandbox run errored");
                 return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
                     "sandbox": true,
@@ -2764,23 +2877,12 @@ impl Tool for DryRunWorkflowTool {
         // `tool_call` node's `args.*` config path — the class of binding
         // mistake that "builds" (compiles, dry-runs against echo mocks) but
         // does nothing at runtime because the wired field never had a value.
-        let null_resolutions: Vec<Value> = observer
-            .steps()
-            .iter()
-            .filter(|step| tool_call_node_ids.contains(step.node_id.as_str()))
-            .flat_map(|step| {
-                step.diagnostics
-                    .iter()
-                    .filter(|&diag| diag.location == "args" || diag.location.starts_with("args."))
-                    .map(|diag| {
-                        json!({
-                            "node_id": step.node_id,
-                            "location": diag.location,
-                            "expression": diag.expression,
-                        })
-                    })
-            })
-            .collect();
+        // Each entry is honest about WHY it resolved null: a binding to an
+        // upstream Composio `tool_call`'s output is flagged `unverifiable`
+        // (the echo mock can't produce real tool output fields) rather than
+        // reported as a plain wiring mistake — see [`build_null_resolution_entry`].
+        let null_resolutions: Vec<Value> =
+            tool_call_arg_null_entries(&observer.steps(), &graph, &tool_call_node_ids);
 
         // Collect every null-resolved `agent`-node `prompt` — execution-
         // breaking in the same way a null `tool_call` arg is: `prompt` is the

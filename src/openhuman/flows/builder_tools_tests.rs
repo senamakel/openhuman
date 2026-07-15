@@ -211,6 +211,26 @@ fn seeded_gmail_send_contract() -> ToolContract {
     }
 }
 
+/// A minimal seeded contract with NO required args, for WS6 dry-run tests: seeds
+/// a bespoke toolkit so the required-arg preflight always passes and the sandbox
+/// run settles into the `null_resolutions` path (rather than aborting), letting
+/// the test assert the honest Composio-upstream diagnostic deterministically —
+/// independent of whatever gmail/slack contracts other tests seed into the
+/// process-global cache.
+fn seeded_ws6_contract(slug: &str, toolkit: &str) -> ToolContract {
+    ToolContract {
+        slug: slug.to_string(),
+        toolkit: toolkit.to_string(),
+        description: Some("ws6 test action".to_string()),
+        required_args: vec![],
+        input_schema: Some(json!({ "type": "object", "additionalProperties": true })),
+        output_fields: vec![],
+        output_schema: None,
+        primary_array_path: None,
+        is_curated: true,
+    }
+}
+
 #[tokio::test]
 async fn search_live_catalog_finds_a_seeded_real_gmail_slug() {
     seed_live_catalog_cache("gmail", vec![seeded_gmail_send_contract()]);
@@ -1053,6 +1073,112 @@ async fn dry_run_flags_tool_call_arg_null_resolved_from_unschemad_agent() {
             .to_lowercase()
             .contains("output_parser"),
         "{parsed}"
+    );
+}
+
+#[tokio::test]
+async fn dry_run_flags_composio_upstream_binding_as_unverifiable_not_a_wiring_bug() {
+    // WS6: `post`'s `body` binds to the OUTPUT of an upstream Composio
+    // `tool_call` (`get_me`). The echo sandbox renders `get_me` as
+    // `{tool, args, connection}` and can NEVER produce `.item.json.data.username`,
+    // so the binding resolves `null` here even when it's wired correctly. The
+    // dry run still fails (`ok: false` — a null could hide a typo), but the
+    // diagnostic must be HONEST: mark it `unverifiable` and point at
+    // get_tool_contract / get_tool_output_sample rather than telling the agent
+    // its (possibly-correct) wiring is broken — the exact false negative that
+    // sent the transcript agent re-wiring an already-correct binding 3 times.
+    // Seed bespoke toolkits (no other test touches `ws6up`/`ws6dl`) with NO
+    // required args, so the required-arg preflight passes and the run settles
+    // into the `null_resolutions` path deterministically — independent of the
+    // process-global catalog cache other tests seed for gmail/slack/etc.
+    seed_live_catalog_cache("ws6up", vec![seeded_ws6_contract("WS6UP_LOOKUP", "ws6up")]);
+    seed_live_catalog_cache("ws6dl", vec![seeded_ws6_contract("WS6DL_SEND", "ws6dl")]);
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "get_me", "kind": "tool_call", "name": "Who am I",
+              "config": { "slug": "WS6UP_LOOKUP", "args": {} } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "WS6DL_SEND",
+                "args": { "recipient_email": "a@b.com", "subject": "hi",
+                  "body": "=nodes.get_me.item.json.data.username" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "get_me" },
+            { "from_node": "get_me", "to_node": "post" }
+        ]
+    });
+    let result = tool.execute(json!({ "graph": graph })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["ok"], false, "{parsed}");
+    let null_resolutions = parsed["null_resolutions"]
+        .as_array()
+        .expect("null_resolutions array");
+    let entry = null_resolutions
+        .iter()
+        .find(|e| e["node_id"] == "post" && e["location"] == "args.body")
+        .unwrap_or_else(|| panic!("expected a post.body null resolution: {parsed}"));
+    assert_eq!(entry["unverifiable"], true, "{parsed}");
+    assert_eq!(entry["upstream_tool_call"], "get_me", "{parsed}");
+    let suggestion = entry["suggestion"].as_str().expect("suggestion string");
+    assert!(suggestion.contains("UNVERIFIABLE"), "{suggestion}");
+    assert!(suggestion.contains("get_tool_contract"), "{suggestion}");
+    assert!(
+        suggestion.contains("get_tool_output_sample"),
+        "{suggestion}"
+    );
+}
+
+#[tokio::test]
+async fn dry_run_keeps_generic_null_text_for_a_non_tool_call_upstream_binding() {
+    // WS6 contrast: `post`'s arg binds to a `transform` node's output (whose
+    // real output the echo sandbox DOES produce), and the transform never sets
+    // the referenced field, so the null IS a genuine wiring bug. This entry must
+    // stay the plain `{ node_id, location, expression }` shape — no
+    // `unverifiable` flag — so the honest-uncertainty treatment doesn't leak
+    // onto real mistakes.
+    seed_live_catalog_cache("ws6dl", vec![seeded_ws6_contract("WS6DL_SEND", "ws6dl")]);
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "build", "kind": "transform", "name": "Build",
+              "config": { "set": { "unrelated": "x" } } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "WS6DL_SEND",
+                "args": { "recipient_email": "a@b.com", "subject": "hi",
+                  "body": "=nodes.build.item.json.missing" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "build" },
+            { "from_node": "build", "to_node": "post" }
+        ]
+    });
+    let result = tool.execute(json!({ "graph": graph })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["ok"], false, "{parsed}");
+    let entry = parsed["null_resolutions"]
+        .as_array()
+        .expect("null_resolutions array")
+        .iter()
+        .find(|e| e["node_id"] == "post" && e["location"] == "args.body")
+        .unwrap_or_else(|| panic!("expected a post.body null resolution: {parsed}"));
+    assert!(
+        entry.get("unverifiable").is_none(),
+        "a non-tool_call upstream must keep the generic diagnostic: {parsed}"
+    );
+    assert!(
+        entry.get("suggestion").is_none(),
+        "generic entry carries no unverifiable suggestion: {parsed}"
     );
 }
 

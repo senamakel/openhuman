@@ -2377,6 +2377,64 @@ async fn validate_required_arg_resolvability_accepts_a_schema_agent_field_bindin
     assert!(errors.is_empty(), "{errors:?}");
 }
 
+/// WS6: a required arg wired to the OUTPUT of an upstream Composio `tool_call`
+/// must NOT be hard-rejected by this gate. The echo sandbox renders a Composio
+/// `tool_call` as `{tool, args, connection}` and can never produce its real
+/// output fields, so `=nodes.<composio>.item.json.data.<field>` resolves `null`
+/// here even when the wiring is perfectly correct — rejecting it would block a
+/// possibly-correct graph from ever being proposed (the transcript false
+/// negative). Contrast `..._rejects_an_explicit_nodes_reference` above, where
+/// the same explicit-`nodes` form addresses a `code` node (whose real output
+/// the sandbox DOES produce) and stays a hard reject.
+#[tokio::test]
+async fn validate_required_arg_resolvability_downgrades_a_composio_tool_call_upstream_binding() {
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "get_me", "kind": "tool_call", "name": "Who am I",
+              "config": { "slug": "TWITTER_USER_LOOKUP_ME", "args": {} } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "GMAIL_SEND_EMAIL",
+                "args": { "recipient_email": "a@b.com", "subject": "hi",
+                  "body": "=nodes.get_me.item.json.data.username" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "get_me" },
+            { "from_node": "get_me", "to_node": "post" }
+        ]
+    }));
+    let errors = validate_required_arg_resolvability(&g).await;
+    assert!(
+        errors.is_empty(),
+        "a binding to a Composio tool_call's output is UNVERIFIABLE, not a hard reject: {errors:?}"
+    );
+}
+
+/// WS6 companion: the implicit `=item...` form of the same case — `post`'s only
+/// predecessor is a Composio `tool_call`, so `=item.json.data.username`
+/// addresses that node's (echo-only) output and is likewise unverifiable, not a
+/// reject.
+#[tokio::test]
+async fn validate_required_arg_resolvability_downgrades_an_item_scoped_composio_upstream_binding() {
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "get_me", "kind": "tool_call", "name": "Who am I",
+              "config": { "slug": "TWITTER_USER_LOOKUP_ME", "args": {} } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "GMAIL_SEND_EMAIL",
+                "args": { "recipient_email": "a@b.com", "subject": "hi",
+                  "body": "=item.json.data.username" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "get_me" },
+            { "from_node": "get_me", "to_node": "post" }
+        ]
+    }));
+    let errors = validate_required_arg_resolvability(&g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
 /// (Codex feedback on this PR) `notion` ships a static curated catalog
 /// (`catalog_for_toolkit`), so at RUNTIME `flow_tool_allowed`'s Path A
 /// hard-rejects any slug `find_curated` doesn't recognize — even a real,

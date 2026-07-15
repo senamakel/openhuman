@@ -191,14 +191,13 @@ async fn handle_connection(
     // while waiting for the producer's next tick.
     let writer = tokio::spawn(async move {
         let initial = latest_rx.borrow().clone();
-        if !initial.is_empty() {
-            if sink
+        if !initial.is_empty()
+            && sink
                 .send(Message::Binary((*initial).clone()))
                 .await
                 .is_err()
-            {
-                return;
-            }
+        {
+            return;
         }
         while latest_rx.changed().await.is_ok() {
             let frame = latest_rx.borrow().clone();

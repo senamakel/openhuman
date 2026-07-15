@@ -15,6 +15,12 @@ use super::jail::{Jail, JailBackend};
 
 pub struct LandlockBackend;
 
+impl Default for LandlockBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LandlockBackend {
     pub fn new() -> Self {
         Self

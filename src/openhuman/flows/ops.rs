@@ -2740,7 +2740,6 @@ pub async fn flows_cancel_run(config: &Config, run_id: &str) -> Result<RpcOutcom
 /// rejects any non-`pending_approval` status); dropping the checkpoint is
 /// belt-and-suspenders that also reclaims the storage.
 async fn drop_checkpoint(config: &Config, thread_id: &str) {
-    use tinyflows::engine::Checkpointer as _;
     match crate::openhuman::tinyflows::open_flow_checkpointer(config) {
         Ok(checkpointer) => match checkpointer.delete_thread(thread_id).await {
             Ok(()) => {

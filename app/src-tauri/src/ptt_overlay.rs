@@ -23,6 +23,7 @@ pub(crate) fn ensure_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), String
         return Ok(());
     }
     let url = WebviewUrl::App("index.html#/ptt-overlay".into());
+    #[allow(unused_mut)] // Mutated by the macOS-only workspace options below.
     let mut builder = WebviewWindowBuilder::new(app, OVERLAY_LABEL, url)
         .title("OpenHuman Push-to-Talk")
         .inner_size(160.0, 56.0)

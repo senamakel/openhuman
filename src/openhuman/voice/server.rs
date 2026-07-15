@@ -537,7 +537,7 @@ impl HotkeyListenerKind {
 fn start_hotkey_listener(
     hotkey_str: &str,
     mode: hotkey::ActivationMode,
-    server_cancel: &CancellationToken,
+    _server_cancel: &CancellationToken,
 ) -> Result<
     (
         HotkeyListenerKind,

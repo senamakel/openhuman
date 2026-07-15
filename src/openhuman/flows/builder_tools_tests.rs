@@ -503,29 +503,34 @@ async fn get_tool_output_sample_refuses_an_unconnected_toolkit() {
 // ── dry_run_workflow ─────────────────────────────────────────────────────────
 
 #[test]
-fn dry_run_is_execute_permission() {
+fn dry_run_is_side_effect_free_and_ungated() {
     let tool = DryRunWorkflowTool::new(
         policy(AutonomyLevel::Supervised),
         test_config(&TempDir::new().unwrap()),
     );
     assert_eq!(tool.name(), "dry_run_workflow");
-    assert_eq!(tool.permission_level(), PermissionLevel::Execute);
-    // Mock-backed: no real outbound effect.
+    // Mock-only + side-effect-free → PermissionLevel::None, available on every
+    // tier including read-only (audit F7).
+    assert_eq!(tool.permission_level(), PermissionLevel::None);
     assert!(!tool.external_effect());
 }
 
 #[tokio::test]
-async fn dry_run_refused_under_readonly_tier() {
+async fn dry_run_allowed_under_readonly_tier() {
+    // F7: dry_run is mock-only and side-effect-free, so a read-only agent must
+    // be able to self-verify its own proposal (previously refused).
     let tool = DryRunWorkflowTool::new(
         policy(AutonomyLevel::ReadOnly),
         test_config(&TempDir::new().unwrap()),
     );
+    assert_eq!(tool.permission_level(), PermissionLevel::None);
     let result = tool
         .execute(json!({ "graph": valid_graph() }))
         .await
         .unwrap();
-    assert!(result.is_error);
-    assert!(result.output().to_lowercase().contains("read-only"));
+    // Not refused for tier reasons — it actually runs against the mocks.
+    assert!(!result.is_error, "{}", result.output());
+    assert!(!result.output().to_lowercase().contains("read-only"));
 }
 
 #[tokio::test]
@@ -1624,4 +1629,98 @@ async fn edit_workflow_edits_a_draft_and_writes_back() {
     // The edit was written back to the draft (survives for the next turn).
     let reloaded = ops::flows_draft_get(&config, &draft.id).unwrap().value;
     assert_eq!(reloaded.graph["nodes"].as_array().unwrap().len(), 3);
+}
+
+// ── Phase 4: gated create / duplicate / debug loop (F4) ──────────────────────
+
+#[tokio::test]
+async fn create_workflow_creates_a_disabled_flow() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let tool = CreateWorkflowTool::new(config.clone());
+    // valid_graph has a manual trigger — flows_create would normally make it
+    // enabled; create_workflow must force it DISABLED.
+    let result = tool
+        .execute(json!({ "name": "Agent-made", "graph": valid_graph() }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["type"], "workflow_created");
+    assert_eq!(parsed["enabled"], false);
+    // Persisted and really disabled.
+    let flow_id = parsed["flow_id"].as_str().unwrap();
+    let flow = ops::flows_get(&config, flow_id).await.unwrap().value;
+    assert!(!flow.enabled, "agent-created flows are born disabled");
+}
+
+#[tokio::test]
+async fn create_workflow_rejects_an_invalid_graph() {
+    let tmp = TempDir::new().unwrap();
+    let tool = CreateWorkflowTool::new(test_config(&tmp));
+    let bad = json!({
+        "nodes": [ { "id": "a", "kind": "output_parser", "name": "A" } ],
+        "edges": []
+    });
+    let result = tool
+        .execute(json!({ "name": "Bad", "graph": bad }))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.output().contains("create_workflow again"));
+}
+
+#[tokio::test]
+async fn duplicate_flow_creates_a_disabled_copy() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = ops::flows_create(&config, "Original".to_string(), valid_graph(), false)
+        .await
+        .unwrap()
+        .value;
+    let tool = DuplicateFlowTool::new(config.clone());
+    let result = tool.execute(json!({ "flow_id": flow.id })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["type"], "workflow_duplicated");
+    assert_eq!(parsed["enabled"], false);
+    assert_ne!(parsed["flow_id"].as_str().unwrap(), flow.id);
+}
+
+#[tokio::test]
+async fn list_flow_runs_is_empty_for_a_fresh_flow() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = ops::flows_create(&config, "F".to_string(), valid_graph(), false)
+        .await
+        .unwrap()
+        .value;
+    let tool = ListFlowRunsTool::new(config.clone());
+    let result = tool.execute(json!({ "flow_id": flow.id })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["runs"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn phase4_write_tools_have_the_right_permissions() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    assert_eq!(
+        CreateWorkflowTool::new(config.clone()).permission_level(),
+        PermissionLevel::Write
+    );
+    assert!(CreateWorkflowTool::new(config.clone()).external_effect());
+    assert_eq!(
+        CancelFlowRunTool::new(config.clone()).permission_level(),
+        PermissionLevel::Write
+    );
+    assert_eq!(
+        ResumeFlowRunTool::new(config.clone()).permission_level(),
+        PermissionLevel::Execute
+    );
+    assert_eq!(
+        ListFlowRunsTool::new(config.clone()).permission_level(),
+        PermissionLevel::None
+    );
 }

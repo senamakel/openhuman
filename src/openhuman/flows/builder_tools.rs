@@ -56,7 +56,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::flows::ops;
 use crate::openhuman::flows::ops::validate_and_migrate_graph;
 use crate::openhuman::flows::tools;
-use crate::openhuman::security::{AutonomyLevel, SecurityPolicy};
+use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 /// Wall-clock bound on a single `dry_run_workflow` mock execution. A malformed
@@ -693,6 +693,386 @@ impl Tool for GetFlowHistoryTool {
             ))),
         }
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 4 — the self-debug loop + gated create (F4, F7)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `list_flow_runs`: read-only listing of a saved flow's recent runs (id /
+/// status / timestamps), so the agent can FIND a failing run to diagnose
+/// instead of needing a run_id handed to it externally — the missing first step
+/// of the self-debug loop (audit F4).
+pub struct ListFlowRunsTool {
+    config: Arc<Config>,
+}
+
+impl ListFlowRunsTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for ListFlowRunsTool {
+    fn name(&self) -> &str {
+        "list_flow_runs"
+    }
+
+    fn description(&self) -> &str {
+        "List a saved flow's recent runs (newest first) so you can find one to diagnose with \
+         get_flow_run. Read-only. Returns a JSON array of runs { id, flow_id, thread_id, status, \
+         started_at, finished_at?, error? }. `id`/`thread_id` is the run id you pass to \
+         get_flow_run / resume_flow_run / cancel_flow_run."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": { "type": "string", "description": "The saved flow whose runs to list." },
+                "limit": { "type": "integer", "description": "Max runs to return (default 20)." }
+            },
+            "required": ["flow_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
+        let limit = args
+            .get("limit")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize)
+            .unwrap_or(20);
+        tracing::debug!(target: "flows", %flow_id, limit, "[flows] list_flow_runs: listing runs (read-only)");
+        match ops::flows_list_runs(&self.config, &flow_id, limit).await {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &json!({ "runs": outcome.value }),
+            )?)),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Could not list runs for flow '{flow_id}': {e}"
+            ))),
+        }
+    }
+}
+
+/// `resume_flow_run`: progress a run parked on a human approval by
+/// approving/rejecting its pending node(s). Execute + approval-gated — it
+/// advances a REAL run that can fire real outbound effects.
+pub struct ResumeFlowRunTool {
+    config: Arc<Config>,
+}
+
+impl ResumeFlowRunTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for ResumeFlowRunTool {
+    fn name(&self) -> &str {
+        "resume_flow_run"
+    }
+
+    fn description(&self) -> &str {
+        "Resume a flow run that is paused on a human approval, approving and/or rejecting its \
+         pending node(s). This ADVANCES A REAL RUN — approved outbound nodes will fire — so it is \
+         approval-gated. Params: { flow_id, run_id, approve?: [node_id...], reject?: [node_id...] }. \
+         Use list_flow_runs / get_flow_run to find a run with status pending_approval and its \
+         pending node ids first."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": { "type": "string", "description": "The run's flow id." },
+                "run_id": { "type": "string", "description": "The run (thread) id to resume (from list_flow_runs)." },
+                "approve": { "type": "array", "items": { "type": "string" }, "description": "Node ids to approve." },
+                "reject": { "type": "array", "items": { "type": "string" }, "description": "Node ids to reject." }
+            },
+            "required": ["flow_id", "run_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        // Advances a real run (approved nodes fire) — gate like an execute-class,
+        // approval-parked action.
+        PermissionLevel::Execute
+    }
+
+    fn external_effect(&self) -> bool {
+        true
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
+        let run_id = match args.get("run_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'run_id' parameter".to_string())),
+        };
+        let approve = string_array(&args, "approve");
+        let reject = string_array(&args, "reject");
+        tracing::debug!(target: "flows", %flow_id, %run_id, approve = approve.len(), reject = reject.len(), "[flows] resume_flow_run: resuming parked run");
+        match ops::flows_resume(&self.config, &flow_id, &run_id, approve, reject).await {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &outcome.value,
+            )?)),
+            Err(e) => Ok(ToolResult::error(format!("Could not resume run: {e}"))),
+        }
+    }
+}
+
+/// `cancel_flow_run`: stop an in-flight or parked run. Write-class — it changes
+/// run state but fires no new outbound effect.
+pub struct CancelFlowRunTool {
+    config: Arc<Config>,
+}
+
+impl CancelFlowRunTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for CancelFlowRunTool {
+    fn name(&self) -> &str {
+        "cancel_flow_run"
+    }
+
+    fn description(&self) -> &str {
+        "Cancel an in-flight or approval-parked flow run by its run_id (from list_flow_runs). \
+         Stops a runaway or stuck run; fires no new outbound effect. Params: { run_id }."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "run_id": { "type": "string", "description": "The run (thread) id to cancel." }
+            },
+            "required": ["run_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let run_id = match args.get("run_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'run_id' parameter".to_string())),
+        };
+        tracing::debug!(target: "flows", %run_id, "[flows] cancel_flow_run: cancelling run");
+        match ops::flows_cancel_run(&self.config, &run_id).await {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &outcome.value,
+            )?)),
+            Err(e) => Ok(ToolResult::error(format!("Could not cancel run: {e}"))),
+        }
+    }
+}
+
+/// `create_workflow`: the gated create tool (audit F4/F12). Persists a NEW
+/// flow, always **born disabled** (enable stays human-only) and behind the
+/// forced `require_approval` floor for side-effect graphs. Write + approval
+/// gated. This is the deliberate widening the Phase 3 rails (versioning,
+/// events, history) make safe.
+pub struct CreateWorkflowTool {
+    config: Arc<Config>,
+}
+
+impl CreateWorkflowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for CreateWorkflowTool {
+    fn name(&self) -> &str {
+        "create_workflow"
+    }
+
+    fn description(&self) -> &str {
+        "Create a NEW saved flow from a graph. Approval-gated. The flow is ALWAYS created DISABLED \
+         (only the user can enable it via the UI) and inherits the forced approval gate for any \
+         outbound action — so a created flow can never fire on its own without an explicit human \
+         enable. Runs the same author hard-gates as save. Params: { name, graph, require_approval? }. \
+         Prefer propose_workflow when the user just wants to review a design; use this when they've \
+         explicitly asked you to create the flow."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "name": { "type": "string", "description": "Human-readable flow name." },
+                "graph": {
+                    "type": "object",
+                    "description": "The tinyflows WorkflowGraph: { nodes: [...], edges: [...] }.",
+                    "properties": { "nodes": { "type": "array" }, "edges": { "type": "array" } },
+                    "required": ["nodes", "edges"]
+                },
+                "require_approval": { "type": "boolean", "description": "Force the approval gate (defaults true)." }
+            },
+            "required": ["name", "graph"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        // Persists a new flow definition.
+        true
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let name = match args.get("name").and_then(Value::as_str).map(str::trim) {
+            Some(n) if !n.is_empty() => n.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'name' parameter".to_string())),
+        };
+        let graph_json = match args.get("graph") {
+            Some(v) if !v.is_null() => v.clone(),
+            _ => return Ok(ToolResult::error("Missing 'graph' parameter".to_string())),
+        };
+        let require_approval = args
+            .get("require_approval")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+
+        // Same structural + hard-gate stack an agent save must pass.
+        if let Err(msg) = ops::strict_gate(&self.config, &graph_json).await {
+            return Ok(ToolResult::error(format!(
+                "{msg}\n\nFix the graph and call create_workflow again."
+            )));
+        }
+
+        tracing::info!(target: "flows", %name, "[flows] create_workflow: agent-initiated create (born disabled)");
+        let flow = match ops::flows_create(&self.config, name, graph_json, require_approval).await {
+            Ok(outcome) => outcome.value,
+            Err(e) => return Ok(ToolResult::error(format!("Could not create flow: {e}"))),
+        };
+
+        // Force born-disabled: enable stays human-only, even for a manual-trigger
+        // graph that flows_create would otherwise create enabled.
+        if flow.enabled {
+            if let Err(e) = ops::flows_set_enabled(&self.config, &flow.id, false).await {
+                tracing::warn!(target: "flows", flow_id = %flow.id, error = %e, "[flows] create_workflow: could not force-disable the new flow");
+            }
+        }
+
+        Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+            "type": "workflow_created",
+            "flow_id": flow.id,
+            "name": flow.name,
+            "enabled": false,
+            "require_approval": flow.require_approval,
+            "note": "Flow created DISABLED. The user must enable it explicitly before it can run.",
+        }))?))
+    }
+}
+
+/// `duplicate_flow`: create an independent, DISABLED copy of a saved flow — the
+/// clone-then-edit pattern. Write-class.
+pub struct DuplicateFlowTool {
+    config: Arc<Config>,
+}
+
+impl DuplicateFlowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for DuplicateFlowTool {
+    fn name(&self) -> &str {
+        "duplicate_flow"
+    }
+
+    fn description(&self) -> &str {
+        "Duplicate a saved flow: create an independent, DISABLED copy of its graph under a new id \
+         (name suffixed \" (copy)\"). The copy never fires until the user enables it. Use this for \
+         the clone-then-edit pattern (edit_workflow the copy). Params: { flow_id }."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "flow_id": { "type": "string", "description": "The saved flow to duplicate." } },
+            "required": ["flow_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        true
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
+        tracing::info!(target: "flows", %flow_id, "[flows] duplicate_flow: agent-initiated duplicate");
+        match ops::flows_duplicate(&self.config, &flow_id).await {
+            Ok(outcome) => {
+                let flow = outcome.value;
+                Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                    "type": "workflow_duplicated",
+                    "flow_id": flow.id,
+                    "name": flow.name,
+                    "enabled": flow.enabled,
+                }))?))
+            }
+            Err(e) => Ok(ToolResult::error(format!("Could not duplicate flow: {e}"))),
+        }
+    }
+}
+
+/// Extracts a string array from `args[key]`, ignoring non-strings; empty when
+/// absent. Shared by the resume tool's approve/reject lists.
+fn string_array(args: &Value, key: &str) -> Vec<String> {
+    args.get(key)
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1787,34 +2167,19 @@ impl Tool for DryRunWorkflowTool {
     }
 
     fn permission_level(&self) -> PermissionLevel {
-        // Represents executable capability (a full sandbox could run code/http),
-        // so it is gated like an execute-class tool even though the mock backend
-        // means no real side effect can fire.
-        PermissionLevel::Execute
+        // Mock-only and side-effect-free: nothing external ever fires (all
+        // capabilities are echo stubs). So it needs no elevated permission and
+        // is available on EVERY tier, read-only included (audit F7) — a
+        // read-only agent must be able to self-verify its own proposal.
+        PermissionLevel::None
     }
 
     fn external_effect(&self) -> bool {
-        // Mock capabilities only — no real outbound effect. The `Execute`
-        // permission above plus the read-only tier refusal below carry the gate.
+        // Mock capabilities only — no real outbound effect.
         false
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        // Autonomy-tier gate: a read-only session cannot dry-run (executable
-        // capability, even simulated). Supervised / Full may.
-        if self.security.autonomy == AutonomyLevel::ReadOnly {
-            tracing::debug!(
-                target: "flows",
-                "[flows] dry_run_workflow: refused — autonomy tier is read-only"
-            );
-            return Ok(ToolResult::error(
-                "dry_run_workflow requires at least 'supervised' autonomy — the current \
-                 tier is read-only. Propose the workflow instead (propose_workflow), or \
-                 raise autonomy in Settings → Agent access."
-                    .to_string(),
-            ));
-        }
-
         // Graph source: a working draft (draft_id) or an inline graph.
         let graph_json = if let Some(draft_id) = args
             .get("draft_id")

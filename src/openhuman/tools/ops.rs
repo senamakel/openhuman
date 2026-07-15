@@ -298,6 +298,16 @@ pub fn all_tools_with_runtime(
         // Read a saved flow's revision history (F6) — prior graph snapshots the
         // agent can inspect / pick a rollback target from. Read-only.
         Box::new(GetFlowHistoryTool::new(config.clone())),
+        // Phase 4 self-debug loop (F4): find a failing run, resume a parked
+        // run (approval-gated), or cancel a runaway one.
+        Box::new(ListFlowRunsTool::new(config.clone())),
+        Box::new(ResumeFlowRunTool::new(config.clone())),
+        Box::new(CancelFlowRunTool::new(config.clone())),
+        // Gated create (F4/F12): create a NEW flow — born disabled, approval
+        // gated — and duplicate an existing one (disabled copy) for
+        // clone-then-edit. Behind the Phase 3 safety rails.
+        Box::new(CreateWorkflowTool::new(config.clone())),
+        Box::new(DuplicateFlowTool::new(config.clone())),
         Box::new(ListFlowsTool::new(config.clone())),
         Box::new(GetFlowTool::new(config.clone())),
         Box::new(GetFlowRunTool::new(config.clone())),

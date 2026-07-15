@@ -140,14 +140,23 @@ safety rails are the prerequisite for widening agent write capabilities (F4, F7)
    than a divergent code path. Also give the agent a standalone `validate_workflow` tool
    (thin wrapper over `flows_validate` + gates) so it can check without proposing.
 
-### Phase 2 — Server-side drafts (F5, and the real fix for F1's token cost)
+### Phase 2 — Core-managed local drafts (F5, and the real fix for F1's token cost)
 
-5. **Draft entity.** New `flow_drafts` table (id, optional `flow_id` it revises, name,
-   graph_json, created/updated, `origin: chat|canvas|import`). RPC:
+5. **Draft entity — local JSON files, not a new table (for now).** Drafts are stored
+   as plain JSON files on disk, managed by the core:
+   `{workspace_dir}/flows/drafts/<draft-id>.json`, each holding
+   `{id, flow_id?, name, graph, origin: chat|canvas|import, created_at, updated_at}`.
+   No SQLite schema/migration. Same thin RPC surface on top:
    `flows_draft_create/get/update/list/delete/promote` — `promote` runs the existing
-   create/update path (same gates, same forced `require_approval` floor).
+   create/update path (same gates, same forced `require_approval` floor) and removes
+   the file. Key constraint this preserves: drafts must be readable/writable by **both**
+   the agent tools (Rust core) and the canvas — which rules out frontend-only
+   `localStorage`. File-based storage keeps drafts trivially inspectable and deletable,
+   and can be migrated into a `flow_drafts` table later if drafts ever need querying,
+   retention caps, or cross-device sync; the RPC contract stays identical either way.
 6. **Agent tools on drafts.** `propose_workflow`/`revise_workflow`/`edit_workflow`/
-   `dry_run_workflow` gain a `draft_id` mode: the graph lives server-side; tool calls
+   `dry_run_workflow` gain a `draft_id` mode: the graph lives in the core-managed
+   draft file; tool calls
    carry only ops/instructions and get back diffs + validation. Cuts per-turn tokens
    dramatically and survives reloads/session hops.
 7. **Frontend adoption.** `/flows/draft/:draftId` loads from core instead of
@@ -212,7 +221,7 @@ releases.
 | Phase | Depends on | Rough size | Risk |
 |---|---|---|---|
 | 1 (patch ops, schema tools, multi-error) | — | M–L (tinyflows crate change for multi-error) | Low |
-| 2 (server drafts) | 1 helps | M | Low — additive tables/RPC |
+| 2 (core-managed local drafts) | 1 helps | S–M | Low — additive files/RPC, no DB migration |
 | 3 (versioning, events, history) | — (parallel to 2) | M | Medium — touches UI save path |
 | 4 (new agent tools) | 3 (safety rails) | S–M each | Medium — permission review each |
 | 5 (renames) | — | S | Low (needs deprecation window) |

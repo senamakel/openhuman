@@ -501,6 +501,181 @@ async fn search_tool_catalog_flags_runtime_gated_uncurated_rows() {
     assert_eq!(uncurated_row["runtime_gated"], true);
 }
 
+// ── WS5: per-token fallback ranking for zero-result multi-word queries ───────
+//
+// Transcript failure: `search_tool_catalog` behaved like near-exact matching —
+// multi-word natural-language queries ("twitter tweet replies lookup") returned
+// `count: 0` even though the toolkit HAS matching actions, so the agent falsely
+// concluded the action didn't exist. The primary pass is a strict case-
+// insensitive AND (every token must match); when that misses for a multi-word
+// query, a per-keyword OR fallback now returns the nearest matches + a note.
+
+fn twt_lookup() -> ToolContract {
+    ToolContract {
+        slug: "TWTFALLBACKTEST_TWEET_LOOKUP".to_string(),
+        toolkit: "twtfallbacktest".to_string(),
+        description: Some("Look up a tweet".to_string()),
+        required_args: vec!["id".to_string()],
+        input_schema: None,
+        output_fields: vec!["text".to_string()],
+        output_schema: None,
+        primary_array_path: None,
+        is_curated: true,
+    }
+}
+
+fn twt_replies() -> ToolContract {
+    ToolContract {
+        slug: "TWTFALLBACKTEST_LIST_REPLIES".to_string(),
+        toolkit: "twtfallbacktest".to_string(),
+        description: Some("List replies to a tweet".to_string()),
+        required_args: vec!["tweet_id".to_string()],
+        input_schema: None,
+        output_fields: vec!["replies".to_string()],
+        output_schema: None,
+        primary_array_path: None,
+        is_curated: true,
+    }
+}
+
+#[tokio::test]
+async fn search_catalog_multiword_miss_falls_back_to_per_keyword() {
+    seed_live_catalog_cache("twtfallbacktest", vec![twt_lookup(), twt_replies()]);
+    let config = Config::default();
+    // Strict AND misses ("twitter"/"timeline" match nothing) but individual
+    // tokens ("tweet", "replies", "lookup") hit — so the fallback fires.
+    let outcome = search_catalog(
+        &config,
+        "twitter tweet replies lookup timeline",
+        Some("twtfallbacktest"),
+        40,
+    )
+    .await;
+    assert!(
+        outcome.fallback,
+        "multi-word AND-miss must run the fallback"
+    );
+    assert_eq!(outcome.results.len(), 2, "{:?}", outcome.results);
+    let note = outcome.note.expect("fallback carries an advisory note");
+    assert!(
+        note.contains("nearest per-keyword"),
+        "note should explain the near-miss + single-keyword retry: {note}"
+    );
+    // Fallback rows carry the SAME shape as primary rows.
+    for r in &outcome.results {
+        assert_eq!(r["toolkit"], "twtfallbacktest");
+        assert_eq!(r["featured"], true);
+        assert!(r["required_args"].is_array());
+    }
+}
+
+#[tokio::test]
+async fn search_tool_catalog_tool_surfaces_fallback_note_with_nonzero_count() {
+    seed_live_catalog_cache("twtfallbacktest", vec![twt_lookup(), twt_replies()]);
+    let tmp = TempDir::new().unwrap();
+    let tool = SearchToolCatalogTool::new(test_config(&tmp));
+    let result = tool
+        .execute(json!({
+            "query": "twitter tweet replies lookup timeline",
+            "toolkit": "twtfallbacktest"
+        }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    // `count` reflects the returned rows (non-zero) so an agent never reads a
+    // fallback as "no such action".
+    assert_eq!(parsed["count"], 2);
+    assert!(parsed["results"].as_array().unwrap().len() == 2);
+    assert!(parsed["note"].as_str().unwrap().contains("No exact match"));
+}
+
+#[tokio::test]
+async fn search_catalog_single_word_behavior_unchanged() {
+    seed_live_catalog_cache("onewordtest", vec![twt_lookup()]);
+    let config = Config::default();
+    // A hit: single-word query returns the primary match, no fallback, no note.
+    let hit = search_catalog(&config, "tweet", Some("onewordtest"), 40).await;
+    assert!(!hit.fallback);
+    assert!(hit.note.is_none());
+    assert_eq!(hit.results.len(), 1);
+    // A miss: single-word query stays empty and does NOT run the fallback.
+    let miss = search_catalog(&config, "zzznomatchzzz", Some("onewordtest"), 40).await;
+    assert!(
+        !miss.fallback,
+        "single-token miss must not trigger fallback"
+    );
+    assert!(miss.results.is_empty());
+}
+
+#[tokio::test]
+async fn search_catalog_multiword_zero_token_match_returns_note() {
+    seed_live_catalog_cache("zerotoktest", vec![twt_lookup()]);
+    let config = Config::default();
+    // Multi-word query where NO token matches anything: still a note (not a bare
+    // count: 0), but zero rows.
+    let outcome = search_catalog(&config, "qqq www eeeeee", Some("zerotoktest"), 40).await;
+    assert!(outcome.fallback, "multi-word miss ran the fallback pass");
+    assert!(outcome.results.is_empty());
+    let note = outcome
+        .note
+        .expect("zero-token multi-word miss still gets a note");
+    assert!(
+        note.contains("keyword-based"),
+        "note should explain the keyword-based search: {note}"
+    );
+}
+
+#[tokio::test]
+async fn search_catalog_fallback_rows_flag_runtime_gated() {
+    // Reuse the exact telegram seed of the runtime_gated primary test so a
+    // concurrent run over the shared cache stays self-consistent; telegram is a
+    // real curated toolkit, so its uncurated action is `runtime_gated`.
+    let curated = ToolContract {
+        slug: "TELEGRAM_SEND_MESSAGE".to_string(),
+        toolkit: "telegram".to_string(),
+        description: Some("Send a message".to_string()),
+        required_args: vec![],
+        input_schema: None,
+        output_fields: vec![],
+        output_schema: None,
+        primary_array_path: None,
+        is_curated: true,
+    };
+    let uncurated = ToolContract {
+        slug: "TELEGRAM_OBSCURE_SEND".to_string(),
+        is_curated: false,
+        ..curated.clone()
+    };
+    seed_live_catalog_cache("telegram", vec![curated, uncurated]);
+
+    let config = Config::default();
+    // "obscure" hits only the uncurated slug; "lookup"/"replies" hit nothing;
+    // "telegram" matches the toolkit of both — so strict AND misses and the
+    // fallback ranks the OBSCURE row first (2 hits) over SEND_MESSAGE (1 hit).
+    let outcome = search_catalog(
+        &config,
+        "telegram obscure lookup replies",
+        Some("telegram"),
+        40,
+    )
+    .await;
+    assert!(outcome.fallback);
+    assert_eq!(outcome.results.len(), 2, "{:?}", outcome.results);
+    let gated = outcome
+        .results
+        .iter()
+        .find(|r| r["featured"] == false)
+        .expect("uncurated row present");
+    assert_eq!(gated["runtime_gated"], true);
+    let curated_row = outcome
+        .results
+        .iter()
+        .find(|r| r["featured"] == true)
+        .expect("curated row present");
+    assert!(curated_row.get("runtime_gated").is_none());
+}
+
 /// B12: a cached real-output probe overrides `get_tool_contract`'s
 /// schema-derived `primary_array_path`/`output_fields` — most relevant for a
 /// slug whose live listing (like every GitHub action, verified live) has NO

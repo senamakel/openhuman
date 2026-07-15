@@ -1613,6 +1613,75 @@ pub(crate) async fn search_live_catalog(
     toolkit_filter: Option<&str>,
     limit: usize,
 ) -> Vec<Value> {
+    search_catalog(config, query, toolkit_filter, limit)
+        .await
+        .results
+}
+
+/// Cap on fallback (per-keyword) matches — a near-miss query must not flood the
+/// agent's context with the whole toolkit, so the OR-scored fallback returns at
+/// most this many rows regardless of the primary `limit`.
+const MAX_FALLBACK_RESULTS: usize = 10;
+
+/// Outcome of a catalog search: the shaped rows, whether the per-keyword
+/// fallback pass fired, and an optional advisory `note` the tool surfaces so an
+/// agent never misreads a keyword miss as "the action doesn't exist".
+pub(crate) struct CatalogSearchOutcome {
+    pub results: Vec<Value>,
+    /// True when the per-token OR fallback pass ran (primary AND match was
+    /// empty for a multi-word query).
+    pub fallback: bool,
+    /// Advisory note explaining a near-miss / keyword-based search, if any.
+    pub note: Option<String>,
+}
+
+/// Shape one live-catalog [`ToolContract`](crate::openhuman::tinyflows::caps::ToolContract)
+/// into a search-result row. The SINGLE row-construction site shared by both
+/// the primary AND-match path and the per-keyword fallback path, so every row
+/// carries the same fields — including WS3's `runtime_gated: true` on an
+/// uncurated action of a toolkit that ships a curated-only allowlist.
+fn shape_catalog_row(
+    tool: &crate::openhuman::tinyflows::caps::ToolContract,
+    toolkit: &str,
+    toolkit_curated: bool,
+) -> Value {
+    let mut row = json!({
+        "slug": tool.slug,
+        "toolkit": toolkit,
+        "description": tool.description,
+        "required_args": tool.required_args,
+        "output_fields": tool.output_fields,
+        "primary_array_path": tool.primary_array_path,
+        "featured": tool.is_curated,
+    });
+    // Compact: only present when true.
+    if !tool.is_curated && toolkit_curated {
+        if let Some(obj) = row.as_object_mut() {
+            obj.insert("runtime_gated".to_string(), Value::Bool(true));
+        }
+    }
+    row
+}
+
+/// Search the FULL LIVE Composio catalog and return a [`CatalogSearchOutcome`].
+///
+/// Primary pass: case-insensitive AND — an action matches only if EVERY
+/// whitespace-separated term substring-matches its slug, toolkit name, or
+/// description (curated matches ranked first, stable sort preserves fetch
+/// order). When that yields zero rows for a MULTI-WORD query, a per-keyword OR
+/// fallback runs: each action is scored by how many query tokens match its
+/// slug/toolkit/description, and the top [`MAX_FALLBACK_RESULTS`] (ranked by
+/// hit-count desc, then curated first) are returned with an advisory `note`.
+/// This is what keeps a natural-language query like "twitter tweet replies
+/// lookup" from returning a bare `count: 0` even though `TWITTER_*` actions
+/// exist — the agent gets the nearest keyword matches instead of falsely
+/// concluding the action is missing.
+pub(crate) async fn search_catalog(
+    config: &Config,
+    query: &str,
+    toolkit_filter: Option<&str>,
+    limit: usize,
+) -> CatalogSearchOutcome {
     use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
     use crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog;
 
@@ -1642,15 +1711,26 @@ pub(crate) async fn search_live_catalog(
     }))
     .await;
 
+    // Drop toolkits whose fetch failed (no backend session / network error) —
+    // they contribute zero results rather than erroring the whole search.
+    let fetched: Vec<(String, Vec<crate::openhuman::tinyflows::caps::ToolContract>)> = fetched
+        .into_iter()
+        .filter_map(|(tk, catalog)| catalog.map(|c| (tk, c)))
+        .collect();
+
+    // Does the scanned scope hold ANY actions at all? Distinguishes "keyword
+    // miss" (has actions, none matched) from "nothing to search" (empty scope).
+    let any_actions = fetched.iter().any(|(_, catalog)| !catalog.is_empty());
+
+    // ── Primary pass: case-insensitive AND across every term ──
     let mut matches: Vec<(bool, Value)> = Vec::new();
-    for (toolkit, catalog) in fetched {
-        let Some(catalog) = catalog else { continue };
+    for (toolkit, catalog) in &fetched {
         // WS3 — a toolkit that ships a curated catalog is a hard curated-only
         // allowlist at RUNTIME, so any `featured: false` action of it is
         // rejected on every real run. Compute once per toolkit and flag those
         // rows so the blocker is visible at search time (transcript failure #2).
-        let toolkit_curated = ops::toolkit_has_curated_catalog(&toolkit);
-        for tool in &catalog {
+        let toolkit_curated = ops::toolkit_has_curated_catalog(toolkit);
+        for tool in catalog {
             let slug_lc = tool.slug.to_ascii_lowercase();
             let desc_lc = tool
                 .description
@@ -1663,22 +1743,10 @@ pub(crate) async fn search_live_catalog(
             if !is_match {
                 continue;
             }
-            let mut row = json!({
-                "slug": tool.slug,
-                "toolkit": toolkit,
-                "description": tool.description,
-                "required_args": tool.required_args,
-                "output_fields": tool.output_fields,
-                "primary_array_path": tool.primary_array_path,
-                "featured": tool.is_curated,
-            });
-            // Compact: only present when true.
-            if !tool.is_curated && toolkit_curated {
-                if let Some(obj) = row.as_object_mut() {
-                    obj.insert("runtime_gated".to_string(), Value::Bool(true));
-                }
-            }
-            matches.push((tool.is_curated, row));
+            matches.push((
+                tool.is_curated,
+                shape_catalog_row(tool, toolkit, toolkit_curated),
+            ));
         }
     }
 
@@ -1686,7 +1754,104 @@ pub(crate) async fn search_live_catalog(
     // within each group.
     matches.sort_by_key(|(is_curated, _)| std::cmp::Reverse(*is_curated));
     matches.truncate(limit);
-    matches.into_iter().map(|(_, v)| v).collect()
+    let primary: Vec<Value> = matches.into_iter().map(|(_, v)| v).collect();
+
+    if !primary.is_empty() {
+        return CatalogSearchOutcome {
+            results: primary,
+            fallback: false,
+            note: None,
+        };
+    }
+
+    // ── Zero primary hits ──
+    // Single-token queries keep today's behavior exactly; only attach a light
+    // advisory note so a lone keyword miss still explains the search is
+    // keyword-based (task WS5.4, optional).
+    if terms.len() <= 1 {
+        let note = if any_actions {
+            Some(format!(
+                "No actions matched '{query}'. This search is keyword-based (matches action \
+                 slug/name/description) — try a different single keyword (e.g. 'gmail' or \
+                 'tweets')."
+            ))
+        } else {
+            None
+        };
+        return CatalogSearchOutcome {
+            results: Vec::new(),
+            fallback: false,
+            note,
+        };
+    }
+
+    // ── Fallback pass (multi-word, zero primary hits): per-token OR scoring ──
+    // Score each action by how many DISTINCT query tokens match its
+    // slug/toolkit/description; keep the primary path's curated boost as the
+    // tiebreak. Rows go through the SAME `shape_catalog_row` path as primary.
+    let mut scored: Vec<(usize, bool, Value)> = Vec::new();
+    for (toolkit, catalog) in &fetched {
+        let toolkit_curated = ops::toolkit_has_curated_catalog(toolkit);
+        for tool in catalog {
+            let slug_lc = tool.slug.to_ascii_lowercase();
+            let desc_lc = tool
+                .description
+                .as_deref()
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            let hits = terms
+                .iter()
+                .filter(|term| {
+                    slug_lc.contains(*term) || toolkit.contains(*term) || desc_lc.contains(*term)
+                })
+                .count();
+            if hits == 0 {
+                continue;
+            }
+            scored.push((
+                hits,
+                tool.is_curated,
+                shape_catalog_row(tool, toolkit, toolkit_curated),
+            ));
+        }
+    }
+
+    // Most keyword hits first, then curated first; stable sort preserves fetch
+    // order within a (hits, curated) group.
+    scored.sort_by_key(|(hits, is_curated, _)| std::cmp::Reverse((*hits, *is_curated)));
+    scored.truncate(limit.min(MAX_FALLBACK_RESULTS));
+    let results: Vec<Value> = scored.into_iter().map(|(_, _, v)| v).collect();
+
+    tracing::debug!(
+        target: "flows",
+        query,
+        fallback = true,
+        hits = results.len(),
+        "[flows] search_tool_catalog: primary AND-match empty for a multi-word query — ran per-keyword OR fallback"
+    );
+
+    if results.is_empty() {
+        // Literally zero tokens matched anything: no rows, but a note so the
+        // agent doesn't read `count: 0` as "action doesn't exist" (task WS5.3).
+        return CatalogSearchOutcome {
+            results,
+            fallback: true,
+            note: Some(format!(
+                "No actions matched any keyword in '{query}'. This search is keyword-based \
+                 (matches action slug/name/description) — retry with a single keyword (e.g. one \
+                 word like 'gmail' or 'tweets') for a full listing."
+            )),
+        };
+    }
+
+    CatalogSearchOutcome {
+        results,
+        fallback: true,
+        note: Some(format!(
+            "No exact match for '{query}'. Showing the nearest per-keyword matches — retry with a \
+             single keyword (e.g. one word like 'gmail' or 'tweets') for a full listing."
+        )),
+    }
 }
 
 #[async_trait]
@@ -1717,7 +1882,7 @@ impl Tool for SearchToolCatalogTool {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Keywords to match against tool slugs/descriptions (case-insensitive; all terms must match)."
+                    "description": "Keywords to match against tool slugs/descriptions (case-insensitive). All terms must match for an exact hit; a multi-word query with no exact match falls back to the nearest per-keyword matches. For the widest listing, prefer ONE keyword (e.g. 'gmail' or 'tweets')."
                 },
                 "toolkit": {
                     "type": "string",
@@ -1749,12 +1914,24 @@ impl Tool for SearchToolCatalogTool {
             toolkit = toolkit.unwrap_or("(any)"),
             "[flows] search_tool_catalog: searching the FULL LIVE Composio catalog (read-only)"
         );
-        let results = search_live_catalog(&self.config, &query, toolkit, MAX_CATALOG_RESULTS).await;
-        Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
-            "query": query,
-            "count": results.len(),
-            "results": results,
-        }))?))
+        let outcome = search_catalog(&self.config, &query, toolkit, MAX_CATALOG_RESULTS).await;
+        // Build with `note` first so an agent reading top-down sees the
+        // near-miss / keyword-based advisory before the (possibly zero) rows.
+        // `count` is always the number of returned rows, never a stand-in for
+        // "no such action" — a fallback carries a non-zero count.
+        let mut obj = serde_json::Map::new();
+        if let Some(note) = outcome.note {
+            obj.insert("note".to_string(), Value::String(note));
+        }
+        obj.insert("query".to_string(), Value::String(query));
+        obj.insert(
+            "count".to_string(),
+            Value::Number(outcome.results.len().into()),
+        );
+        obj.insert("results".to_string(), Value::Array(outcome.results));
+        Ok(ToolResult::success(serde_json::to_string_pretty(
+            &Value::Object(obj),
+        )?))
     }
 }
 

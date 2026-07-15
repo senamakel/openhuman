@@ -1139,7 +1139,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         "run_workflow",
         "await_workflow",
         "list_workflows",
-        "create_workflow",
+        "create_skill",
         "describe_workflow",
         "read_workflow_resource",
         "list_workflow_runs",

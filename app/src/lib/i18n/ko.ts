@@ -4099,6 +4099,14 @@ const messages: TranslationMap = {
   'flows.editor.validate': '검증',
   'flows.editor.validating': '검증 중…',
   'flows.editor.discard': '변경 사항 취소',
+  'flows.editor.confirm.runTitle': '워크플로를 실행할까요?',
+  'flows.editor.confirm.runBody': '지금 워크플로를 실행합니다.',
+  'flows.editor.confirm.saveTitle': '변경 사항을 저장할까요?',
+  'flows.editor.confirm.saveBody': '워크플로에 대한 변경 사항을 저장합니다.',
+  'flows.editor.confirm.discardTitle': '변경 사항을 취소할까요?',
+  'flows.editor.confirm.discardBody': '저장되지 않은 모든 편집을 되돌리며 실행 취소할 수 없습니다.',
+  'flows.editor.confirm.confirm': '확인',
+  'flows.editor.confirm.cancel': '취소',
   'flows.editor.unsaved': '저장되지 않은 변경 사항',
   'flows.editor.saveBlocked': '저장하기 전에 아래 오류를 수정하세요.',
   'flows.editor.errorsTitle': '오류',
@@ -7156,6 +7164,8 @@ const messages: TranslationMap = {
   'flows.delete.confirm': '삭제',
   'flows.delete.deleting': '삭제 중…',
   'flows.canvas.renameLabel': '워크플로 이름 바꾸기',
+  'flows.canvas.sidePanelToggle': '사이드 패널',
+  'flows.canvas.legendTab': '수동',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': '개인정보 상태',

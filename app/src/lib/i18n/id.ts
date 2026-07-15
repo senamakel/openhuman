@@ -4162,6 +4162,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'Validasi',
   'flows.editor.validating': 'Memvalidasi…',
   'flows.editor.discard': 'Buang perubahan',
+  'flows.editor.confirm.runTitle': 'Jalankan alur kerja?',
+  'flows.editor.confirm.runBody': 'Ini akan menjalankan alur kerja sekarang.',
+  'flows.editor.confirm.saveTitle': 'Simpan perubahan?',
+  'flows.editor.confirm.saveBody': 'Ini akan menyimpan perubahan Anda pada alur kerja.',
+  'flows.editor.confirm.discardTitle': 'Buang perubahan?',
+  'flows.editor.confirm.discardBody':
+    'Ini mengembalikan semua suntingan yang belum disimpan dan tidak dapat dibatalkan.',
+  'flows.editor.confirm.confirm': 'Konfirmasi',
+  'flows.editor.confirm.cancel': 'Batal',
   'flows.editor.unsaved': 'Perubahan belum disimpan',
   'flows.editor.saveBlocked': 'Perbaiki kesalahan di bawah sebelum menyimpan.',
   'flows.editor.errorsTitle': 'Kesalahan',
@@ -7272,6 +7281,8 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Hapus',
   'flows.delete.deleting': 'Menghapus…',
   'flows.canvas.renameLabel': 'Ganti nama alur kerja',
+  'flows.canvas.sidePanelToggle': 'Panel samping',
+  'flows.canvas.legendTab': 'Manual',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Status privasi',

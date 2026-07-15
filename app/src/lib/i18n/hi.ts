@@ -4145,6 +4145,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'सत्यापित करें',
   'flows.editor.validating': 'सत्यापित किया जा रहा है…',
   'flows.editor.discard': 'परिवर्तन रद्द करें',
+  'flows.editor.confirm.runTitle': 'वर्कफ़्लो चलाएँ?',
+  'flows.editor.confirm.runBody': 'यह अभी वर्कफ़्लो चलाएगा।',
+  'flows.editor.confirm.saveTitle': 'बदलाव सहेजें?',
+  'flows.editor.confirm.saveBody': 'यह वर्कफ़्लो में आपके बदलाव सहेजेगा।',
+  'flows.editor.confirm.discardTitle': 'बदलाव रद्द करें?',
+  'flows.editor.confirm.discardBody':
+    'यह सभी बिना सहेजे बदलावों को पूर्ववत करता है और इसे वापस नहीं किया जा सकता।',
+  'flows.editor.confirm.confirm': 'पुष्टि करें',
+  'flows.editor.confirm.cancel': 'रद्द करें',
   'flows.editor.unsaved': 'बिना सहेजे परिवर्तन',
   'flows.editor.saveBlocked': 'सहेजने से पहले नीचे दी गई त्रुटियाँ ठीक करें।',
   'flows.editor.errorsTitle': 'त्रुटियाँ',
@@ -7238,6 +7247,8 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'हटाएं',
   'flows.delete.deleting': 'हटाया जा रहा है…',
   'flows.canvas.renameLabel': 'वर्कफ़्लो का नाम बदलें',
+  'flows.canvas.sidePanelToggle': 'साइड पैनल',
+  'flows.canvas.legendTab': 'मैनुअल',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'गोपनीयता स्थिति',

@@ -4246,6 +4246,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'Valider',
   'flows.editor.validating': 'Validation…',
   'flows.editor.discard': 'Annuler les modifications',
+  'flows.editor.confirm.runTitle': 'Exécuter le workflow ?',
+  'flows.editor.confirm.runBody': 'Cela exécutera le workflow maintenant.',
+  'flows.editor.confirm.saveTitle': 'Enregistrer les modifications ?',
+  'flows.editor.confirm.saveBody': 'Cela enregistrera vos modifications du workflow.',
+  'flows.editor.confirm.discardTitle': 'Abandonner les modifications ?',
+  'flows.editor.confirm.discardBody':
+    'Cela annule toutes les modifications non enregistrées et est irréversible.',
+  'flows.editor.confirm.confirm': 'Confirmer',
+  'flows.editor.confirm.cancel': 'Annuler',
   'flows.editor.unsaved': 'Modifications non enregistrées',
   'flows.editor.saveBlocked': 'Corrigez les erreurs ci-dessous avant d’enregistrer.',
   'flows.editor.errorsTitle': 'Erreurs',
@@ -7422,6 +7431,8 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Supprimer',
   'flows.delete.deleting': 'Suppression…',
   'flows.canvas.renameLabel': 'Renommer le workflow',
+  'flows.canvas.sidePanelToggle': 'Panneau latéral',
+  'flows.canvas.legendTab': 'Manuel',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'État de confidentialité',

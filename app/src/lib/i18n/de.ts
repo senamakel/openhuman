@@ -4266,6 +4266,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'Prüfen',
   'flows.editor.validating': 'Wird geprüft…',
   'flows.editor.discard': 'Änderungen verwerfen',
+  'flows.editor.confirm.runTitle': 'Workflow ausführen?',
+  'flows.editor.confirm.runBody': 'Dadurch wird der Workflow jetzt ausgeführt.',
+  'flows.editor.confirm.saveTitle': 'Änderungen speichern?',
+  'flows.editor.confirm.saveBody': 'Dadurch werden deine Änderungen am Workflow gespeichert.',
+  'flows.editor.confirm.discardTitle': 'Änderungen verwerfen?',
+  'flows.editor.confirm.discardBody':
+    'Dadurch werden alle nicht gespeicherten Änderungen rückgängig gemacht und können nicht wiederhergestellt werden.',
+  'flows.editor.confirm.confirm': 'Bestätigen',
+  'flows.editor.confirm.cancel': 'Abbrechen',
   'flows.editor.unsaved': 'Nicht gespeicherte Änderungen',
   'flows.editor.saveBlocked': 'Beheben Sie die Fehler unten vor dem Speichern.',
   'flows.editor.errorsTitle': 'Fehler',
@@ -7455,10 +7464,7 @@ const messages: TranslationMap = {
   'flows.delete.deleting': 'Wird gelöscht…',
   'flows.canvas.renameLabel': 'Workflow umbenennen',
   'flows.canvas.sidePanelToggle': 'Seitenleiste',
-  'flows.canvas.legendTab': 'Legende',
-  'flows.legend.title': 'Knotenlegende',
-  'flows.legend.subtitle': 'Was die Knotenfarben bedeuten',
-  'flows.legend.close': 'Legende schließen',
+  'flows.canvas.legendTab': 'Manuell',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Datenschutzstatus',

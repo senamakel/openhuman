@@ -4046,6 +4046,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'تحقّق',
   'flows.editor.validating': 'جارٍ التحقّق…',
   'flows.editor.discard': 'تجاهل التغييرات',
+  'flows.editor.confirm.runTitle': 'تشغيل سير العمل؟',
+  'flows.editor.confirm.runBody': 'سيؤدي هذا إلى تنفيذ سير العمل الآن.',
+  'flows.editor.confirm.saveTitle': 'حفظ التغييرات؟',
+  'flows.editor.confirm.saveBody': 'سيؤدي هذا إلى حفظ تغييراتك في سير العمل.',
+  'flows.editor.confirm.discardTitle': 'تجاهل التغييرات؟',
+  'flows.editor.confirm.discardBody':
+    'يؤدي هذا إلى التراجع عن جميع التعديلات غير المحفوظة ولا يمكن التراجع عنه.',
+  'flows.editor.confirm.confirm': 'تأكيد',
+  'flows.editor.confirm.cancel': 'إلغاء',
   'flows.editor.unsaved': 'تغييرات غير محفوظة',
   'flows.editor.saveBlocked': 'أصلِح الأخطاء أدناه قبل الحفظ.',
   'flows.editor.errorsTitle': 'أخطاء',
@@ -7075,10 +7084,7 @@ const messages: TranslationMap = {
   'flows.delete.deleting': 'جارٍ الحذف…',
   'flows.canvas.renameLabel': 'إعادة تسمية سير العمل',
   'flows.canvas.sidePanelToggle': 'اللوحة الجانبية',
-  'flows.canvas.legendTab': 'وسيلة الإيضاح',
-  'flows.legend.title': 'وسيلة إيضاح العُقد',
-  'flows.legend.subtitle': 'دلالة ألوان العُقد',
-  'flows.legend.close': 'إغلاق وسيلة الإيضاح',
+  'flows.canvas.legendTab': 'يدوي',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'حالة الخصوصية',

@@ -4219,6 +4219,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'Validar',
   'flows.editor.validating': 'Validando…',
   'flows.editor.discard': 'Descartar cambios',
+  'flows.editor.confirm.runTitle': '¿Ejecutar el flujo de trabajo?',
+  'flows.editor.confirm.runBody': 'Esto ejecutará el flujo de trabajo ahora.',
+  'flows.editor.confirm.saveTitle': '¿Guardar los cambios?',
+  'flows.editor.confirm.saveBody': 'Esto guardará tus cambios en el flujo de trabajo.',
+  'flows.editor.confirm.discardTitle': '¿Descartar los cambios?',
+  'flows.editor.confirm.discardBody':
+    'Esto revierte todas las ediciones sin guardar y no se puede deshacer.',
+  'flows.editor.confirm.confirm': 'Confirmar',
+  'flows.editor.confirm.cancel': 'Cancelar',
   'flows.editor.unsaved': 'Cambios sin guardar',
   'flows.editor.saveBlocked': 'Corrige los errores de abajo antes de guardar.',
   'flows.editor.errorsTitle': 'Errores',
@@ -7388,6 +7397,8 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Eliminar',
   'flows.delete.deleting': 'Eliminando…',
   'flows.canvas.renameLabel': 'Cambiar el nombre del flujo de trabajo',
+  'flows.canvas.sidePanelToggle': 'Panel lateral',
+  'flows.canvas.legendTab': 'Manual',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Estado de privacidad',

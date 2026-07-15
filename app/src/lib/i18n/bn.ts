@@ -4147,6 +4147,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'যাচাই করুন',
   'flows.editor.validating': 'যাচাই করা হচ্ছে…',
   'flows.editor.discard': 'পরিবর্তন বাতিল করুন',
+  'flows.editor.confirm.runTitle': 'ওয়ার্কফ্লো চালাবেন?',
+  'flows.editor.confirm.runBody': 'এটি এখন ওয়ার্কফ্লোটি চালাবে।',
+  'flows.editor.confirm.saveTitle': 'পরিবর্তন সংরক্ষণ করবেন?',
+  'flows.editor.confirm.saveBody': 'এটি ওয়ার্কফ্লোতে আপনার পরিবর্তনগুলি সংরক্ষণ করবে।',
+  'flows.editor.confirm.discardTitle': 'পরিবর্তন বাতিল করবেন?',
+  'flows.editor.confirm.discardBody':
+    'এটি সমস্ত অসংরক্ষিত সম্পাদনা প্রত্যাবর্তন করে এবং তা পূর্বাবস্থায় ফেরানো যায় না।',
+  'flows.editor.confirm.confirm': 'নিশ্চিত করুন',
+  'flows.editor.confirm.cancel': 'বাতিল',
   'flows.editor.unsaved': 'অসংরক্ষিত পরিবর্তন',
   'flows.editor.saveBlocked': 'সংরক্ষণের আগে নিচের ত্রুটিগুলো ঠিক করুন।',
   'flows.editor.errorsTitle': 'ত্রুটি',
@@ -7241,10 +7250,7 @@ const messages: TranslationMap = {
   'flows.delete.deleting': 'মুছে ফেলা হচ্ছে…',
   'flows.canvas.renameLabel': 'ওয়ার্কফ্লো পুনঃনামকরণ করুন',
   'flows.canvas.sidePanelToggle': 'সাইড প্যানেল',
-  'flows.canvas.legendTab': 'লেজেন্ড',
-  'flows.legend.title': 'নোড লেজেন্ড',
-  'flows.legend.subtitle': 'নোডের রঙ কী বোঝায়',
-  'flows.legend.close': 'লেজেন্ড বন্ধ করুন',
+  'flows.canvas.legendTab': 'ম্যানুয়াল',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'গোপনীয়তা স্থিতি',

@@ -4215,6 +4215,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'Convalida',
   'flows.editor.validating': 'Convalida in corso…',
   'flows.editor.discard': 'Annulla modifiche',
+  'flows.editor.confirm.runTitle': 'Eseguire il flusso di lavoro?',
+  'flows.editor.confirm.runBody': 'Questo eseguirà il flusso di lavoro ora.',
+  'flows.editor.confirm.saveTitle': 'Salvare le modifiche?',
+  'flows.editor.confirm.saveBody': 'Questo salverà le tue modifiche al flusso di lavoro.',
+  'flows.editor.confirm.discardTitle': 'Annullare le modifiche?',
+  'flows.editor.confirm.discardBody':
+    'Questo annulla tutte le modifiche non salvate e non può essere ripristinato.',
+  'flows.editor.confirm.confirm': 'Conferma',
+  'flows.editor.confirm.cancel': 'Annulla',
   'flows.editor.unsaved': 'Modifiche non salvate',
   'flows.editor.saveBlocked': 'Correggi gli errori qui sotto prima di salvare.',
   'flows.editor.errorsTitle': 'Errori',
@@ -7378,6 +7387,8 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Elimina',
   'flows.delete.deleting': 'Eliminazione…',
   'flows.canvas.renameLabel': 'Rinomina flusso di lavoro',
+  'flows.canvas.sidePanelToggle': 'Pannello laterale',
+  'flows.canvas.legendTab': 'Manuale',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Stato privacy',

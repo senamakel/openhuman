@@ -3928,6 +3928,14 @@ const messages: TranslationMap = {
   'flows.editor.validate': '验证',
   'flows.editor.validating': '正在验证…',
   'flows.editor.discard': '放弃更改',
+  'flows.editor.confirm.runTitle': '运行工作流？',
+  'flows.editor.confirm.runBody': '这将立即运行工作流。',
+  'flows.editor.confirm.saveTitle': '保存更改？',
+  'flows.editor.confirm.saveBody': '这将保存你对工作流的更改。',
+  'flows.editor.confirm.discardTitle': '放弃更改？',
+  'flows.editor.confirm.discardBody': '这将撤销所有未保存的编辑，且无法恢复。',
+  'flows.editor.confirm.confirm': '确认',
+  'flows.editor.confirm.cancel': '取消',
   'flows.editor.unsaved': '未保存的更改',
   'flows.editor.saveBlocked': '保存前请修复下方的错误。',
   'flows.editor.errorsTitle': '错误',
@@ -6847,6 +6855,8 @@ const messages: TranslationMap = {
   'flows.delete.confirm': '删除',
   'flows.delete.deleting': '正在删除…',
   'flows.canvas.renameLabel': '重命名工作流',
+  'flows.canvas.sidePanelToggle': '侧边栏',
+  'flows.canvas.legendTab': '手动',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': '隐私状态',

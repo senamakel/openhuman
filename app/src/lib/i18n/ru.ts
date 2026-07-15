@@ -4184,6 +4184,15 @@ const messages: TranslationMap = {
   'flows.editor.validate': 'Проверить',
   'flows.editor.validating': 'Проверка…',
   'flows.editor.discard': 'Отменить изменения',
+  'flows.editor.confirm.runTitle': 'Запустить рабочий процесс?',
+  'flows.editor.confirm.runBody': 'Это запустит рабочий процесс сейчас.',
+  'flows.editor.confirm.saveTitle': 'Сохранить изменения?',
+  'flows.editor.confirm.saveBody': 'Это сохранит ваши изменения в рабочем процессе.',
+  'flows.editor.confirm.discardTitle': 'Отменить изменения?',
+  'flows.editor.confirm.discardBody':
+    'Это отменит все несохранённые правки без возможности восстановления.',
+  'flows.editor.confirm.confirm': 'Подтвердить',
+  'flows.editor.confirm.cancel': 'Отмена',
   'flows.editor.unsaved': 'Несохранённые изменения',
   'flows.editor.saveBlocked': 'Исправьте ошибки ниже перед сохранением.',
   'flows.editor.errorsTitle': 'Ошибки',
@@ -7318,6 +7327,8 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Удалить',
   'flows.delete.deleting': 'Удаление…',
   'flows.canvas.renameLabel': 'Переименовать рабочий процесс',
+  'flows.canvas.sidePanelToggle': 'Боковая панель',
+  'flows.canvas.legendTab': 'Вручную',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Состояние конфиденциальности',

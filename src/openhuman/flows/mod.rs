@@ -40,6 +40,6 @@ pub use node_contracts::{
 };
 pub use store::{kv_get, kv_set, upsert_flow_run_step};
 pub use types::{
-    DraftOrigin, Flow, FlowConnection, FlowDraft, FlowImport, FlowRun, FlowRunStep, FlowRunTrigger,
-    FlowSuggestion, FlowValidation, FlowValidationError, SuggestionStatus,
+    DraftOrigin, Flow, FlowConnection, FlowDraft, FlowImport, FlowRevision, FlowRun, FlowRunStep,
+    FlowRunTrigger, FlowSuggestion, FlowValidation, FlowValidationError, SuggestionStatus,
 };

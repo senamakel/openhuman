@@ -119,6 +119,28 @@ pub struct FlowImport {
     pub warnings: Vec<String>,
 }
 
+/// A snapshot of a flow's graph captured just before an update overwrote it —
+/// the safety rail behind `flows_rollback` / `get_flow_history` (audit F6).
+///
+/// Rows live in the `flow_revisions` table, capped (e.g. last 20 per flow).
+/// `graph` is the prior graph as raw JSON so a snapshot never fails to load
+/// even if the schema later evolves.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FlowRevision {
+    /// Stable revision id (UUID).
+    pub id: String,
+    /// The flow this snapshot belongs to.
+    pub flow_id: String,
+    /// The flow's graph at the time this revision was captured (raw JSON).
+    pub graph: Value,
+    /// The flow's name at capture time.
+    pub name: String,
+    /// The flow's `require_approval` at capture time.
+    pub require_approval: bool,
+    /// RFC3339 time the snapshot was captured (i.e. when it was superseded).
+    pub created_at: String,
+}
+
 /// Where a [`FlowDraft`] came from — carried through so the UI can label a
 /// draft and the agent can reason about it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

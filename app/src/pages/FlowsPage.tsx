@@ -21,6 +21,7 @@ import FlowTemplateGallery from '../components/flows/FlowTemplateGallery';
 import NewWorkflowModal from '../components/flows/NewWorkflowModal';
 import SuggestedWorkflows from '../components/flows/SuggestedWorkflows';
 import { useCreateFlow } from '../components/flows/useCreateFlow';
+import { useFlowChanged } from '../hooks/useFlowChanged';
 import WorkflowPromptBar from '../components/flows/WorkflowPromptBar';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PageSectionHeader from '../components/layout/PageSectionHeader';
@@ -104,6 +105,17 @@ export default function FlowsPage() {
   useEffect(() => {
     void loadFlows();
   }, [loadFlows]);
+
+  // Refetch (silently, no spinner) whenever any flow changes underneath us —
+  // e.g. an agent save_workflow — so the list never shows stale state (F6).
+  useFlowChanged(
+    useCallback(() => {
+      log('flow:changed — refetching list');
+      void listFlows()
+        .then(setFlows)
+        .catch(err => log('refetch failed: %o', err));
+    }, [])
+  );
 
   const handleToggle = useCallback(
     async (flow: Flow) => {

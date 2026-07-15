@@ -1791,6 +1791,7 @@ pub async fn flows_create(
         );
     }
 
+    publish_flow_changed(&flow.id, "created", "system");
     Ok(RpcOutcome::new(flow, logs))
 }
 
@@ -2030,6 +2031,37 @@ fn title_case_toolkit(toolkit: &str) -> String {
         .join(" ")
 }
 
+/// Publishes a [`DomainEvent::FlowChanged`](crate::core::event_bus::DomainEvent::FlowChanged)
+/// so an open Workflows list/canvas refetches (bridged to a `flow:changed`
+/// socket event) — the observability half of audit F6. Best-effort broadcast;
+/// `actor` is a coarse hint (`"system"` for RPC-driven changes today).
+fn publish_flow_changed(flow_id: &str, kind: &str, actor: &str) {
+    tracing::debug!(target: "flows", %flow_id, kind, actor, "[flows] publishing FlowChanged");
+    crate::core::event_bus::publish_global(crate::core::event_bus::DomainEvent::FlowChanged {
+        flow_id: flow_id.to_string(),
+        kind: kind.to_string(),
+        actor: actor.to_string(),
+    });
+}
+
+/// Maps a store-level [`FlowUpdateError`](store::FlowUpdateError) to the RPC
+/// error string. A concurrency conflict is encoded as a JSON object the UI can
+/// parse (`{ code: "version_conflict", message, current }`) so it can offer a
+/// reload/diff instead of silently clobbering; other variants are plain text.
+fn map_flow_update_error(e: store::FlowUpdateError) -> String {
+    match e {
+        store::FlowUpdateError::NotFound => "flow not found".to_string(),
+        store::FlowUpdateError::Conflict(current) => serde_json::to_string(&json!({
+            "code": "version_conflict",
+            "message": "This flow changed since you loaded it. Reload to see the latest \
+                        version, then reapply your change.",
+            "current": *current,
+        }))
+        .unwrap_or_else(|_| "version_conflict".to_string()),
+        store::FlowUpdateError::Store(err) => err.to_string(),
+    }
+}
+
 /// Updates a flow's name, graph, and/or `require_approval` toggle.
 /// Re-validates the graph (whether newly supplied or the existing one)
 /// before persisting, same as `flows_create`.
@@ -2047,6 +2079,7 @@ pub async fn flows_update(
     name: Option<String>,
     graph_json: Option<Value>,
     require_approval: Option<bool>,
+    expected_version: Option<String>,
 ) -> Result<RpcOutcome<Flow>, String> {
     let existing = store::get_flow(config, id)
         .map_err(|e| e.to_string())?
@@ -2063,9 +2096,16 @@ pub async fn flows_update(
         }
     };
 
-    tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_update: persisting changes");
-    let updated = store::update_flow_graph(config, id, new_name, graph, new_require_approval)
-        .map_err(|e| e.to_string())?;
+    tracing::debug!(target: "flows", flow_id = %id, has_expected = expected_version.is_some(), "[flows] flows_update: persisting changes");
+    let updated = store::update_flow_graph(
+        config,
+        id,
+        new_name,
+        graph,
+        new_require_approval,
+        expected_version.as_deref(),
+    )
+    .map_err(map_flow_update_error)?;
 
     if graph_changed && updated.enabled {
         let trigger_unchanged = bus::extract_trigger_kind(&existing)
@@ -2078,10 +2118,52 @@ pub async fn flows_update(
         }
     }
 
+    publish_flow_changed(id, "updated", "system");
     Ok(RpcOutcome::single_log(
         updated,
         format!("flow updated: {id}"),
     ))
+}
+
+/// Lists a flow's revision history (prior graph snapshots), newest first,
+/// capped at `limit` (audit F6). The safety rail that makes rollback possible.
+pub fn flows_get_history(
+    config: &Config,
+    id: &str,
+    limit: usize,
+) -> Result<RpcOutcome<Vec<crate::openhuman::flows::FlowRevision>>, String> {
+    let revisions = store::list_revisions(config, id, limit).map_err(|e| e.to_string())?;
+    let count = revisions.len();
+    Ok(RpcOutcome::single_log(
+        revisions,
+        format!("flow history: {id} ({count} revisions)"),
+    ))
+}
+
+/// Rolls a flow back to a prior revision by restoring that revision's graph
+/// through the normal update path — which itself snapshots the current graph as
+/// a new revision, so a rollback is itself undoable. Honours optimistic
+/// concurrency via `expected_version`.
+pub async fn flows_rollback(
+    config: &Config,
+    id: &str,
+    revision_id: &str,
+    expected_version: Option<String>,
+) -> Result<RpcOutcome<Flow>, String> {
+    let rev = store::revision_by_id(config, id, revision_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("revision '{revision_id}' not found for flow '{id}'"))?;
+
+    tracing::debug!(target: "flows", flow_id = %id, %revision_id, "[flows] flows_rollback: restoring prior revision");
+    flows_update(
+        config,
+        id,
+        Some(rev.name),
+        Some(rev.graph),
+        Some(rev.require_approval),
+        expected_version,
+    )
+    .await
 }
 
 /// Deletes a flow by id.
@@ -2106,6 +2188,7 @@ pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>
 
     store::remove_flow(config, id).map_err(|e| e.to_string())?;
     tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_delete: removed");
+    publish_flow_changed(id, "deleted", "system");
     Ok(RpcOutcome::new(
         json!({ "id": id, "removed": true }),
         vec![format!("flow removed: {id}")],
@@ -2160,6 +2243,7 @@ pub async fn flows_set_enabled(
         }
     }
 
+    publish_flow_changed(id, "enabled_changed", "system");
     Ok(RpcOutcome::new(flow, logs))
 }
 
@@ -3863,6 +3947,7 @@ pub async fn flows_draft_promote(
                 Some(draft.name.clone()),
                 Some(draft.graph.clone()),
                 require_approval,
+                None,
             )
             .await?
         }

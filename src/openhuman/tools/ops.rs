@@ -295,6 +295,9 @@ pub fn all_tools_with_runtime(
         // the propose/save tools use, without emitting a proposal — a pure
         // check so the agent can self-verify a draft mid-build. Read-only.
         Box::new(ValidateWorkflowTool::new(config.clone())),
+        // Read a saved flow's revision history (F6) — prior graph snapshots the
+        // agent can inspect / pick a rollback target from. Read-only.
+        Box::new(GetFlowHistoryTool::new(config.clone())),
         Box::new(ListFlowsTool::new(config.clone())),
         Box::new(GetFlowTool::new(config.clone())),
         Box::new(GetFlowRunTool::new(config.clone())),

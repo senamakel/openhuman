@@ -54,6 +54,7 @@ named = [
     "save_workflow",
     "list_flows",
     "get_flow",
+    "get_flow_history",
     "get_flow_run",
     "list_flow_connections",
     "search_tool_catalog",

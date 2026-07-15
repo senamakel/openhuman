@@ -624,6 +624,78 @@ impl Tool for ValidateWorkflowTool {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// get_flow_history — read-only: prior graph snapshots (F6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `get_flow_history`: read a saved flow's revision history — the prior graph
+/// snapshots captured on each update. Lets the agent see what changed and pick
+/// a revision to roll back to (the user drives the actual rollback RPC).
+pub struct GetFlowHistoryTool {
+    config: Arc<Config>,
+}
+
+impl GetFlowHistoryTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for GetFlowHistoryTool {
+    fn name(&self) -> &str {
+        "get_flow_history"
+    }
+
+    fn description(&self) -> &str {
+        "List a saved flow's revision history — the prior graph snapshots captured automatically \
+         on each update (newest first, capped). Read-only. Returns a JSON array of { id, flow_id, \
+         graph, name, require_approval, created_at }. Use it to see what a flow looked like before \
+         a change, or to find the revision id the user can roll back to."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": { "type": "string", "description": "The saved flow whose history to list." },
+                "limit": { "type": "integer", "description": "Max revisions to return (default 20)." }
+            },
+            "required": ["flow_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
+        let limit = args
+            .get("limit")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize)
+            .unwrap_or(20);
+        tracing::debug!(target: "flows", %flow_id, limit, "[flows] get_flow_history: listing revisions (read-only)");
+        match ops::flows_get_history(&self.config, &flow_id, limit) {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &json!({ "revisions": outcome.value }),
+            )?)),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Could not load history for flow '{flow_id}': {e}"
+            ))),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // list_flows — read-only: saved flow summaries
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2346,7 +2418,7 @@ impl Tool for SaveWorkflowTool {
             "[flows] save_workflow: agent-initiated save to existing flow"
         );
 
-        match ops::flows_update(&self.config, &flow_id, name, Some(graph_json), None).await {
+        match ops::flows_update(&self.config, &flow_id, name, Some(graph_json), None, None).await {
             Ok(outcome) => {
                 let flow = outcome.value;
                 tracing::info!(

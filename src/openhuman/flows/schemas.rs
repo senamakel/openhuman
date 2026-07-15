@@ -176,6 +176,18 @@ fn require_approval_input() -> FieldSchema {
     }
 }
 
+fn expected_version_input() -> FieldSchema {
+    FieldSchema {
+        name: "expected_version",
+        ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+        comment:
+            "Optimistic-concurrency token: the flow's `updated_at` as last observed. If the \
+                  flow has changed since, the write is refused with a structured version_conflict \
+                  error carrying the current flow, instead of clobbering. Omit for last-write-wins.",
+        required: false,
+    }
+}
+
 fn strict_input() -> FieldSchema {
     FieldSchema {
         name: "strict",
@@ -281,6 +293,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("draft_list"),
         schemas("draft_delete"),
         schemas("draft_promote"),
+        schemas("get_history"),
+        schemas("rollback"),
     ]
 }
 
@@ -393,6 +407,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("draft_promote"),
             handler: handle_draft_promote,
+        },
+        RegisteredController {
+            schema: schemas("get_history"),
+            handler: handle_get_history,
+        },
+        RegisteredController {
+            schema: schemas("rollback"),
+            handler: handle_rollback,
         },
     ]
 }
@@ -568,6 +590,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 },
                 require_approval_input(),
                 strict_input(),
+                expected_version_input(),
             ],
             outputs: vec![flow_output()],
         },
@@ -919,6 +942,45 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "get_history" => ControllerSchema {
+            namespace: "flows",
+            function: "get_history",
+            description: "List a flow's revision history — prior graph snapshots captured on each \
+                          update (capped, newest first). The safety rail behind rollback.",
+            inputs: vec![
+                id_input("Identifier of the flow whose history to list."),
+                FieldSchema {
+                    name: "limit",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                    comment: "Max revisions to return (defaults to the retention cap).",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "revisions",
+                ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                comment: "Revision snapshots: { id, flow_id, graph, name, require_approval, created_at }.",
+                required: true,
+            }],
+        },
+        "rollback" => ControllerSchema {
+            namespace: "flows",
+            function: "rollback",
+            description: "Roll a flow back to a prior revision (restores that revision's graph \
+                          through the normal update path — itself snapshotted, so rollback is \
+                          undoable). Honours optimistic concurrency via expected_version.",
+            inputs: vec![
+                id_input("Identifier of the flow to roll back."),
+                FieldSchema {
+                    name: "revision_id",
+                    ty: TypeSchema::String,
+                    comment: "The revision (from get_history) to restore.",
+                    required: true,
+                },
+                expected_version_input(),
+            ],
+            outputs: vec![flow_output()],
+        },
         "draft_create" => ControllerSchema {
             namespace: "flows",
             function: "draft_create",
@@ -1131,6 +1193,11 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
             .map_err(|e| format!("invalid 'name': {e}"))?;
         let graph = params.get("graph").filter(|v| !v.is_null()).cloned();
         let require_approval = params.get("require_approval").and_then(Value::as_bool);
+        let expected_version = params
+            .get("expected_version")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
         // Opt-in strict mode (F3): when a new graph is supplied, run the same
         // author hard-gates an agent save must pass, before persisting.
         if params
@@ -1142,7 +1209,17 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
                 ops::strict_gate(&config, graph_json).await?;
             }
         }
-        to_json(ops::flows_update(&config, id.trim(), name, graph, require_approval).await?)
+        to_json(
+            ops::flows_update(
+                &config,
+                id.trim(),
+                name,
+                graph,
+                require_approval,
+                expected_version,
+            )
+            .await?,
+        )
     })
 }
 
@@ -1320,6 +1397,35 @@ fn handle_mark_suggestion_built(params: Map<String, Value>) -> ControllerFuture 
     })
 }
 
+fn handle_get_history(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        let limit = params
+            .get("limit")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize)
+            .unwrap_or(20);
+        to_json(ops::flows_get_history(&config, id.trim(), limit)?)
+    })
+}
+
+fn handle_rollback(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        let revision_id = read_required::<String>(&params, "revision_id")?;
+        let expected_version = params
+            .get("expected_version")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        to_json(
+            ops::flows_rollback(&config, id.trim(), revision_id.trim(), expected_version).await?,
+        )
+    })
+}
+
 fn handle_draft_create(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -1450,6 +1556,8 @@ mod tests {
                 "draft_list",
                 "draft_delete",
                 "draft_promote",
+                "get_history",
+                "rollback",
             ]
         );
     }
@@ -1457,7 +1565,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 27);
+        assert_eq!(controllers.len(), 29);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -1489,6 +1597,8 @@ mod tests {
                 "draft_list",
                 "draft_delete",
                 "draft_promote",
+                "get_history",
+                "rollback",
             ]
         );
     }

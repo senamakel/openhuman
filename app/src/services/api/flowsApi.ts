@@ -220,6 +220,54 @@ export interface FlowUpdate {
   name?: string;
   graph?: unknown;
   requireApproval?: boolean;
+  /**
+   * Optimistic-concurrency token: the flow's `updated_at` as last observed. If
+   * the flow changed since, the update is refused with a {@link FlowVersionConflict}
+   * error instead of clobbering. Omit for last-write-wins.
+   */
+  expectedVersion?: string;
+  /** Run the agent author hard-gates before persisting (F3). */
+  strict?: boolean;
+}
+
+/** A revision snapshot (`src/openhuman/flows/types.rs::FlowRevision`). */
+export interface FlowRevision {
+  id: string;
+  flow_id: string;
+  graph: unknown;
+  name: string;
+  require_approval: boolean;
+  created_at: string;
+}
+
+/**
+ * The structured error `flows_update` returns on an optimistic-concurrency
+ * conflict (encoded in the RPC error message as JSON). Detect it by parsing a
+ * caught update error — see {@link parseFlowVersionConflict}.
+ */
+export interface FlowVersionConflict {
+  code: 'version_conflict';
+  message: string;
+  current: Flow;
+}
+
+/**
+ * If `err` is a `flows_update` version-conflict error, returns the structured
+ * conflict (with the current server flow) so the UI can offer reload/diff;
+ * otherwise `null`.
+ */
+export function parseFlowVersionConflict(err: unknown): FlowVersionConflict | null {
+  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  if (!message.includes('version_conflict')) return null;
+  try {
+    const parsed = JSON.parse(message) as Partial<FlowVersionConflict>;
+    if (parsed?.code === 'version_conflict' && parsed.current) {
+      return parsed as FlowVersionConflict;
+    }
+  } catch {
+    // Not a JSON conflict payload.
+  }
+  return null;
 }
 
 /** Lifecycle status of a {@link FlowSuggestion} (`src/openhuman/flows/types.rs::SuggestionStatus`). */
@@ -499,10 +547,40 @@ export async function updateFlow(id: string, update: FlowUpdate): Promise<Flow> 
   if (update.name !== undefined) params.name = update.name;
   if (update.graph !== undefined) params.graph = update.graph;
   if (update.requireApproval !== undefined) params.require_approval = update.requireApproval;
+  if (update.expectedVersion !== undefined) params.expected_version = update.expectedVersion;
+  if (update.strict !== undefined) params.strict = update.strict;
   const response = await callCoreRpc<unknown>({ method: 'openhuman.flows_update', params });
   const flow = unwrapCliEnvelope<Flow>(response);
   log('updateFlow: response id=%s name=%s', flow.id, flow.name);
   return flow;
+}
+
+/** List a flow's revision history via `openhuman.flows_get_history` (newest first). */
+export async function getFlowHistory(id: string, limit?: number): Promise<FlowRevision[]> {
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_get_history',
+    params: { id, limit },
+  });
+  const result = unwrapCliEnvelope<{ revisions: FlowRevision[] }>(response);
+  return result.revisions ?? [];
+}
+
+/**
+ * Roll a flow back to a prior revision via `openhuman.flows_rollback` (restores
+ * that revision's graph through the normal update path — itself snapshotted, so
+ * a rollback is undoable). Honours optimistic concurrency via `expectedVersion`.
+ */
+export async function rollbackFlow(
+  id: string,
+  revisionId: string,
+  expectedVersion?: string
+): Promise<Flow> {
+  log('rollbackFlow: request id=%s revision=%s', id, revisionId);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_rollback',
+    params: { id, revision_id: revisionId, expected_version: expectedVersion },
+  });
+  return unwrapCliEnvelope<Flow>(response);
 }
 
 /**

@@ -143,6 +143,7 @@ async fn flows_update_replaces_name_and_graph() {
         Some("renamed".to_string()),
         Some(new_graph),
         None,
+        None,
     )
     .await
     .unwrap();
@@ -160,13 +161,13 @@ async fn flows_update_can_set_require_approval() {
         .unwrap();
     assert!(!created.value.require_approval);
 
-    let updated = flows_update(&config, &created.value.id, None, None, Some(true))
+    let updated = flows_update(&config, &created.value.id, None, None, Some(true), None)
         .await
         .unwrap();
     assert!(updated.value.require_approval);
 
     // Omitting `require_approval` on a later update preserves the current value.
-    let unchanged = flows_update(&config, &created.value.id, None, None, None)
+    let unchanged = flows_update(&config, &created.value.id, None, None, None, None)
         .await
         .unwrap();
     assert!(unchanged.value.require_approval);
@@ -186,9 +187,16 @@ async fn flows_update_rejects_invalid_replacement_graph() {
         "edges": []
     });
 
-    let err = flows_update(&config, &created.value.id, None, Some(invalid_graph), None)
-        .await
-        .expect_err("invalid replacement graph must be rejected");
+    let err = flows_update(
+        &config,
+        &created.value.id,
+        None,
+        Some(invalid_graph),
+        None,
+        None,
+    )
+    .await
+    .expect_err("invalid replacement graph must be rejected");
     assert!(err.contains("trigger"));
 }
 
@@ -490,6 +498,7 @@ async fn flows_update_rebinds_schedule_cron_job_when_trigger_schedule_changes() 
         None,
         Some(schedule_trigger_graph("30 8 * * *")),
         None,
+        None,
     )
     .await
     .unwrap();
@@ -536,6 +545,7 @@ async fn flows_update_does_not_rebind_when_graph_is_not_supplied() {
         &config,
         &created.value.id,
         Some("renamed".to_string()),
+        None,
         None,
         None,
     )
@@ -3791,4 +3801,85 @@ async fn draft_promote_of_invalid_graph_is_rejected_and_keeps_the_draft() {
     assert!(flows_draft_promote(&config, &draft.id, None).await.is_err());
     // The draft survives a failed promote so the user can fix it.
     assert!(flows_draft_get(&config, &draft.id).is_ok());
+}
+
+// ── Phase 3: optimistic concurrency + revisions + rollback (F6) ───────────────
+
+#[tokio::test]
+async fn flows_update_rejects_a_stale_expected_version() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = flows_create(&config, "V".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap()
+        .value;
+
+    // A correct expected_version succeeds.
+    let ok = flows_update(
+        &config,
+        &flow.id,
+        Some("renamed".to_string()),
+        None,
+        None,
+        Some(flow.updated_at.clone()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(ok.value.name, "renamed");
+
+    // The OLD version is now stale → conflict.
+    let err = flows_update(
+        &config,
+        &flow.id,
+        Some("again".to_string()),
+        None,
+        None,
+        Some(flow.updated_at.clone()),
+    )
+    .await
+    .unwrap_err();
+    assert!(err.contains("version_conflict"), "{err}");
+    // The structured error carries the current flow.
+    let parsed: serde_json::Value = serde_json::from_str(&err).unwrap();
+    assert_eq!(parsed["code"], "version_conflict");
+    assert_eq!(parsed["current"]["name"], "renamed");
+}
+
+#[tokio::test]
+async fn update_records_revisions_and_rollback_restores() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow = flows_create(&config, "Orig".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap()
+        .value;
+
+    // Update the graph → the prior graph is snapshotted as a revision.
+    let two_node = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "a", "kind": "agent", "name": "Step", "config": { "prompt": "hi" } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "a" } ]
+    });
+    flows_update(&config, &flow.id, None, Some(two_node), None, None)
+        .await
+        .unwrap();
+
+    let history = flows_get_history(&config, &flow.id, 20).unwrap().value;
+    assert_eq!(history.len(), 1, "one prior snapshot");
+    let rev = &history[0];
+    // The snapshot holds the ORIGINAL (single-node trigger-only) graph.
+    assert_eq!(rev.graph["nodes"].as_array().unwrap().len(), 1);
+
+    // Roll back → the flow returns to the single-node graph.
+    let rolled = flows_rollback(&config, &flow.id, &rev.id, None)
+        .await
+        .unwrap()
+        .value;
+    assert_eq!(rolled.graph.nodes.len(), 1);
+
+    // Rollback is itself undoable — it snapshotted the pre-rollback (2-node) graph.
+    let history2 = flows_get_history(&config, &flow.id, 20).unwrap().value;
+    assert_eq!(history2.len(), 2);
 }

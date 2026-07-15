@@ -113,7 +113,7 @@ function ReadonlyFlowCanvas({ nodes, edges }: { nodes: FlowNode[]; edges: FlowEd
  * Fills its parent's box (`h-full w-full` — the page decides how tall/wide
  * that is; `FlowCanvasPage` gives it the full panel body).
  */
-const FlowCanvas = forwardRef<EditableFlowCanvasHandle, FlowCanvasProps>(function FlowCanvas(
+const FlowCanvas = forwardRef<EditableFlowCanvasHandle, FlowCanvasProps>((
   {
     nodes,
     edges,
@@ -131,7 +131,7 @@ const FlowCanvas = forwardRef<EditableFlowCanvasHandle, FlowCanvasProps>(functio
     onSaveMetaChange,
   }: FlowCanvasProps,
   ref
-) {
+) => {
   if (editable) {
     return (
       <EditableFlowCanvas

@@ -21,11 +21,11 @@ import createDebug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import FlowCanvas from '../components/flows/canvas/FlowCanvas';
 import type {
   EditableFlowCanvasHandle,
   EditorSaveMeta,
 } from '../components/flows/canvas/EditableFlowCanvas';
+import FlowCanvas from '../components/flows/canvas/FlowCanvas';
 import FlowRunsSidebar from '../components/flows/FlowRunsSidebar';
 import WorkflowCopilotPanel, {
   type RepairPromptContext,
@@ -617,7 +617,11 @@ function FlowEditor({
       {(
         [
           { key: 'copilot', label: t('flows.copilot.open'), testId: 'flow-canvas-copilot-toggle' },
-          { key: 'legend', label: t('flows.canvas.legendTab'), testId: 'flow-canvas-legend-toggle' },
+          {
+            key: 'legend',
+            label: t('flows.canvas.legendTab'),
+            testId: 'flow-canvas-legend-toggle',
+          },
         ] as const
       ).map(tab => {
         const active = sidePanel === tab.key;

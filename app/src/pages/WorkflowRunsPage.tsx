@@ -70,11 +70,15 @@ export default function WorkflowRunsPage() {
         ) : error ? (
           <ErrorBanner message={error} />
         ) : runs.length === 0 ? (
-          <p className="py-8 text-center text-sm text-content-muted" data-testid="workflow-runs-empty">
+          <p
+            className="py-8 text-center text-sm text-content-muted"
+            data-testid="workflow-runs-empty">
             {t('flows.allRuns.empty')}
           </p>
         ) : (
-          <ul className="divide-y divide-line rounded-xl border border-line" data-testid="workflow-runs-list">
+          <ul
+            className="divide-y divide-line rounded-xl border border-line"
+            data-testid="workflow-runs-list">
             {runs.map(run => (
               <li key={run.id}>
                 <button

@@ -756,12 +756,8 @@ describe('ComposioConnectModal — focus-triggered re-poll', () => {
     // immediate re-poll and flip to "connected" without waiting for the next
     // scheduled tick.
     vi.mocked(composioApi.listConnections)
-      .mockResolvedValueOnce({
-        connections: [{ id: 'ca_1', toolkit: 'gmail', status: 'PENDING' }],
-      })
-      .mockResolvedValue({
-        connections: [{ id: 'ca_1', toolkit: 'gmail', status: 'ACTIVE' }],
-      });
+      .mockResolvedValueOnce({ connections: [{ id: 'ca_1', toolkit: 'gmail', status: 'PENDING' }] })
+      .mockResolvedValue({ connections: [{ id: 'ca_1', toolkit: 'gmail', status: 'ACTIVE' }] });
 
     render(
       <ComposioConnectModal

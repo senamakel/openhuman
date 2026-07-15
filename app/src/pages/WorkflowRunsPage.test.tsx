@@ -36,7 +36,13 @@ describe('WorkflowRunsPage', () => {
   it('renders aggregate runs with their workflow name and status', async () => {
     listAllFlowRuns.mockResolvedValue([
       { id: 'r1', flow_id: 'f1', status: 'completed', started_at: '2026-01-01T00:00:00Z' },
-      { id: 'r2', flow_id: 'f2', status: 'failed', started_at: '2026-01-02T00:00:00Z', error: 'boom' },
+      {
+        id: 'r2',
+        flow_id: 'f2',
+        status: 'failed',
+        started_at: '2026-01-02T00:00:00Z',
+        error: 'boom',
+      },
     ]);
     listFlows.mockResolvedValue([
       { id: 'f1', name: 'Daily digest' },

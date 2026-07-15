@@ -226,7 +226,7 @@ tinyagents = { path = "../../vendor/tinyagents" }
 # TinyAgents so integration work can test crate changes against OpenHuman before
 # publishing.
 tinyflows = { path = "../../vendor/tinyflows" }
-tinycortex = { path = "../../vendor/tinycortex", features = ["git-diff"] }
+tinycortex = { path = "../../vendor/tinycortex" }
 tinyjuice = { path = "../../vendor/tinyjuice" }
 tinychannels = { path = "../../vendor/tinychannels" }
 tinyplace = { path = "../../vendor/tinyplace/sdk/rust" }

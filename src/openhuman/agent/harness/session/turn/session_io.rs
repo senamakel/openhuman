@@ -71,8 +71,9 @@ impl Agent {
 
     /// Ask the provider for a short wrap-up message with native tools
     /// **disabled** so the model returns prose rather than another tool call.
-    /// Streams text deltas to the progress sink (when attached) so the summary
-    /// appears in the UI like any other reply.
+    /// Buffers text deltas and forwards them to the progress sink (when
+    /// attached) only after the completed response is validated as prose, so
+    /// prompt-formatted tool calls cannot flash in the UI before fallback.
     ///
     /// `instruction` is the synthetic user turn that steers the wrap-up — the
     /// tool-call-cap checkpoint (`MAX_ITER_CHECKPOINT_INSTRUCTION`) or the

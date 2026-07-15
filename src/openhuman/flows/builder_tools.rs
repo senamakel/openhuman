@@ -191,6 +191,10 @@ impl Tool for ReviseWorkflowTool {
             require_approval,
             true,
             instruction,
+            // revise_workflow takes only an inline graph — no draft/flow handle
+            // to echo. The payload still carries persisted:false unconditionally.
+            None,
+            None,
         )
         .await
         {
@@ -240,10 +244,14 @@ impl Tool for EditWorkflowTool {
          {id, config} (JSON merge-patch — a null value deletes that config key), set_node_name \
          {id, name}, rename_node {id, new_id} (rewires edges), remove_node {id} (drops its edges), \
          add_edge {edge}, remove_edge {from_node, to_node, from_port?, to_port?}, set_node_position \
-         {id, position}. Like propose/revise_workflow this ONLY VALIDATES and returns a proposal \
-         for the user to review — it never creates, updates, or enables the flow. If an op fails or \
-         the resulting graph is invalid, the error names the failing op / node; fix it and call \
-         edit_workflow again."
+         {id, position}. PERSISTENCE: the applied edit is written to a DRAFT, never onto the saved \
+         flow — this tool NEVER saves. Editing a flow_id SEEDS A NEW DRAFT from that flow's graph \
+         and returns its `draft_id`; editing a draft_id writes back to that same draft. The result \
+         carries `draft_id`, `flow_id` (if any), `persisted: false`, and a `next` hint. To keep \
+         iterating pass that `draft_id` (to edit_workflow / dry_run_workflow); to persist, call \
+         save_workflow { flow_id, draft_id } when the user asks. If an op fails or the resulting \
+         graph is invalid, the error names the failing op / node; fix it and call edit_workflow \
+         again."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -314,9 +322,16 @@ impl Tool for EditWorkflowTool {
             .filter(|s| !s.is_empty());
         let inline_graph = args.get("graph").filter(|v| !v.is_null());
 
-        // When editing a draft, remember its id so the applied edit is written
-        // back — the draft is the durable working copy across turns/reloads.
+        // The applied edit is always written back to a durable DRAFT (the shared
+        // working copy across turns/reloads). `write_back_draft` is the draft id
+        // it lands on; `edited_from_flow` is the saved flow this edit derives
+        // from / would persist onto, if any. The core WS2 fix: editing a bare
+        // `flow_id` used to persist NOTHING and return NO handle — the edit was
+        // unreachable and read as "written onto the flow". Now a `flow_id` base
+        // seeds a NEW draft, so the edit is durable, addressable, and clearly
+        // NOT the saved flow.
         let mut write_back_draft: Option<String> = None;
+        let mut edited_from_flow: Option<String> = None;
 
         let (base_graph, default_name) = match (draft_id, flow_id, inline_graph) {
             (Some(id), _, _) => match ops::flows_draft_get(&self.config, id) {
@@ -325,6 +340,9 @@ impl Tool for EditWorkflowTool {
                     match ops::migrate_and_deserialize_graph(draft.graph.clone()) {
                         Ok(graph) => {
                             write_back_draft = Some(draft.id.clone());
+                            // A draft may already be linked to a saved flow —
+                            // carry that through so the proposal echoes it.
+                            edited_from_flow = draft.flow_id.clone();
                             (graph, draft.name)
                         }
                         Err(e) => {
@@ -341,7 +359,47 @@ impl Tool for EditWorkflowTool {
                 }
             },
             (None, Some(id), _) => match ops::flows_get(&self.config, id).await {
-                Ok(outcome) => (outcome.value.graph, outcome.value.name),
+                Ok(outcome) => {
+                    let flow = outcome.value;
+                    // Seed a NEW draft from the saved flow's graph so the edit is
+                    // durable and reachable (the RPC/canvas path uses the same
+                    // `flows_draft_create` op). Linking the draft to `flow.id`
+                    // means a later save_workflow { flow_id, draft_id } knows its
+                    // target.
+                    let graph_json = match serde_json::to_value(&flow.graph) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Ok(ToolResult::error(format!(
+                                "Could not serialize flow '{id}' to seed a draft: {e}"
+                            )));
+                        }
+                    };
+                    match ops::flows_draft_create(
+                        &self.config,
+                        Some(flow.id.clone()),
+                        flow.name.clone(),
+                        graph_json,
+                        crate::openhuman::flows::DraftOrigin::Chat,
+                    ) {
+                        Ok(created) => {
+                            let new_draft_id = created.value.id.clone();
+                            tracing::debug!(
+                                target: "flows",
+                                draft_id = %new_draft_id,
+                                flow_id = %flow.id,
+                                "[flows] edit_workflow: seeded a new draft from saved flow (edits live on the draft, NOT the flow)"
+                            );
+                            write_back_draft = Some(new_draft_id);
+                            edited_from_flow = Some(flow.id.clone());
+                            (flow.graph, flow.name)
+                        }
+                        Err(e) => {
+                            return Ok(ToolResult::error(format!(
+                                "Could not create a draft to edit flow '{id}': {e}"
+                            )));
+                        }
+                    }
+                }
                 Err(e) => {
                     return Ok(ToolResult::error(format!(
                         "Could not load flow '{id}' to edit: {e}"
@@ -469,6 +527,8 @@ impl Tool for EditWorkflowTool {
         }
 
         // Full builder hard-gate stack + proposal payload (shared with revise).
+        // Thread the persistence-state handles so the payload carries draft_id /
+        // flow_id / persisted:false and can't be misread as a save.
         match ops::build_builder_proposal(
             &self.config,
             "edit_workflow",
@@ -477,12 +537,32 @@ impl Tool for EditWorkflowTool {
             require_approval,
             true,
             instruction,
+            write_back_draft.clone(),
+            edited_from_flow.clone(),
         )
         .await
         {
             Ok(mut payload) => {
-                if let Some(draft_id) = write_back_draft {
-                    payload["draft_id"] = json!(draft_id);
+                // A prominent, one-line pointer at where the edit actually lives
+                // (the draft) vs. where it does NOT (the saved flow) — the exact
+                // confusion the WS2 audit caught. Only meaningful when the edit
+                // landed on a draft (inline-graph edits have no durable handle).
+                if let Some(draft_id) = write_back_draft.as_deref() {
+                    let next = match edited_from_flow.as_deref() {
+                        Some(flow_id) => format!(
+                            "Edits live on draft {draft_id}, NOT on flow {flow_id}. Iterate with \
+                             edit_workflow/dry_run_workflow {{ draft_id: \"{draft_id}\" }}, then \
+                             persist with save_workflow {{ flow_id: \"{flow_id}\", draft_id: \
+                             \"{draft_id}\" }} when the user asks."
+                        ),
+                        None => format!(
+                            "Edits live on draft {draft_id} (not yet linked to a saved flow). \
+                             Iterate with edit_workflow/dry_run_workflow {{ draft_id: \
+                             \"{draft_id}\" }}, then persist with create_workflow, or save_workflow \
+                             {{ flow_id, draft_id: \"{draft_id}\" }} once a flow exists."
+                        ),
+                    };
+                    payload["next"] = json!(next);
                 }
                 Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?))
             }
@@ -524,25 +604,31 @@ impl Tool for ValidateWorkflowTool {
     fn description(&self) -> &str {
         "Check a workflow graph WITHOUT proposing or saving it — the same validation the \
          propose/revise/edit/save tools run, surfaced on its own so you can verify a draft mid-\
-         build. Provide the graph to check (inline `graph`, or `flow_id` for a saved flow). \
-         Returns { ok, structurally_valid, errors, error_details:[{code, message, node_id}], \
-         gate_errors, warnings }: `errors` lists EVERY structural problem at once; `gate_errors` \
-         lists the hard author-gate failures (unresolvable bindings, unreal tool slugs, unwired \
-         required args) checked only once the graph is structurally valid; `warnings` are \
-         non-fatal. `ok` is true only when there are no errors and no gate_errors. Read-only."
+         build. Provide the graph to check as exactly one of `draft_id` (a working draft), \
+         `flow_id` (a saved flow), or inline `graph` (if several are given, draft_id wins, then \
+         flow_id). Returns { ok, structurally_valid, errors, error_details:[{code, message, \
+         node_id}], gate_errors, warnings }: `errors` lists EVERY structural problem at once; \
+         `gate_errors` lists the hard author-gate failures (unresolvable bindings, unreal tool \
+         slugs, unwired required args) checked only once the graph is structurally valid; \
+         `warnings` are non-fatal. `ok` is true only when there are no errors and no gate_errors. \
+         Read-only."
     }
 
     fn parameters_schema(&self) -> Value {
         json!({
             "type": "object",
             "properties": {
+                "draft_id": {
+                    "type": "string",
+                    "description": "A working draft to validate. Provide one of draft_id / flow_id / graph (draft_id wins)."
+                },
                 "flow_id": {
                     "type": "string",
-                    "description": "A saved flow to validate. Provide this OR `graph`."
+                    "description": "A saved flow to validate. Provide one of draft_id / flow_id / graph."
                 },
                 "graph": {
                     "type": "object",
-                    "description": "An inline tinyflows WorkflowGraph to validate. Provide this OR `flow_id`.",
+                    "description": "An inline tinyflows WorkflowGraph to validate. Provide one of draft_id / flow_id / graph.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -561,7 +647,14 @@ impl Tool for ValidateWorkflowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        // Resolve the graph to check from either a saved flow or an inline graph.
+        // Resolve the graph to check from exactly one of a working draft, a
+        // saved flow, or an inline graph — same precedence (draft_id > flow_id >
+        // graph) as edit_workflow, so the sibling tools accept the same handles.
+        let draft_id = args
+            .get("draft_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
         let flow_id = args
             .get("flow_id")
             .and_then(Value::as_str)
@@ -569,8 +662,16 @@ impl Tool for ValidateWorkflowTool {
             .filter(|s| !s.is_empty());
         let inline_graph = args.get("graph").filter(|v| !v.is_null());
 
-        let graph_json = match (flow_id, inline_graph) {
-            (Some(id), _) => match ops::load_flow_graph(&self.config, id) {
+        let graph_json = match (draft_id, flow_id, inline_graph) {
+            (Some(id), _, _) => match ops::flows_draft_get(&self.config, id) {
+                Ok(outcome) => outcome.value.graph,
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load draft '{id}' to validate: {e}"
+                    )));
+                }
+            },
+            (None, Some(id), _) => match ops::load_flow_graph(&self.config, id) {
                 Ok(Some(graph)) => serde_json::to_value(&graph)?,
                 Ok(None) => {
                     return Ok(ToolResult::error(format!("flow '{id}' not found")));
@@ -581,11 +682,11 @@ impl Tool for ValidateWorkflowTool {
                     )));
                 }
             },
-            (None, Some(graph)) => graph.clone(),
-            (None, None) => {
+            (None, None, Some(graph)) => graph.clone(),
+            (None, None, None) => {
                 return Ok(ToolResult::error(
-                    "Provide either `flow_id` (a saved flow) or `graph` (an inline graph) to \
-                     validate."
+                    "Provide one of `draft_id` (a working draft), `flow_id` (a saved flow), or \
+                     `graph` (an inline graph) to validate."
                         .to_string(),
                 ));
             }
@@ -593,6 +694,7 @@ impl Tool for ValidateWorkflowTool {
 
         tracing::debug!(
             target: "flows",
+            from_draft = draft_id.is_some(),
             from_flow = flow_id.is_some(),
             "[flows] validate_workflow: checking graph (read-only)"
         );
@@ -2188,13 +2290,15 @@ impl Tool for DryRunWorkflowTool {
     }
 
     fn description(&self) -> &str {
-        "Dry-run a DRAFT workflow graph in a SANDBOX to self-verify it before \
+        "Dry-run a workflow graph in a SANDBOX to self-verify it before \
          proposing. Compiles the graph and executes it against MOCK capabilities \
          — every LLM / tool_call / http_request / code node returns a deterministic \
          echo, so NOTHING real happens (no messages sent, no code run). Returns the \
          simulated per-node output labeled as sandbox output. Use it to catch \
-         wiring/routing mistakes; it does NOT prove real integrations work. Pass \
-         the same graph shape as propose_workflow, plus an optional `input`."
+         wiring/routing mistakes; it does NOT prove real integrations work. Provide \
+         the graph as exactly one of `draft_id` (a working draft), `flow_id` (a saved \
+         flow), or inline `graph` (draft_id wins, then flow_id), plus an optional \
+         `input`."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -2203,11 +2307,15 @@ impl Tool for DryRunWorkflowTool {
             "properties": {
                 "draft_id": {
                     "type": "string",
-                    "description": "A working draft to simulate. Provide this OR `graph`."
+                    "description": "A working draft to simulate. Provide one of draft_id / flow_id / graph (draft_id wins)."
+                },
+                "flow_id": {
+                    "type": "string",
+                    "description": "A saved flow to simulate. Provide one of draft_id / flow_id / graph."
                 },
                 "graph": {
                     "type": "object",
-                    "description": "The DRAFT tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }. Provide this OR `draft_id`.",
+                    "description": "An inline tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }. Provide one of draft_id / flow_id / graph.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -2235,31 +2343,48 @@ impl Tool for DryRunWorkflowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        // Graph source: a working draft (draft_id) or an inline graph.
-        let graph_json = if let Some(draft_id) = args
+        // Graph source: exactly one of a working draft, a saved flow, or an
+        // inline graph — same precedence (draft_id > flow_id > graph) as the
+        // sibling validate/edit tools, so they all accept the same handles.
+        let draft_id = args
             .get("draft_id")
             .and_then(Value::as_str)
             .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            match ops::flows_draft_get(&self.config, draft_id) {
+            .filter(|s| !s.is_empty());
+        let flow_id = args
+            .get("flow_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let inline_graph = args.get("graph").filter(|v| !v.is_null());
+
+        let graph_json = match (draft_id, flow_id, inline_graph) {
+            (Some(id), _, _) => match ops::flows_draft_get(&self.config, id) {
                 Ok(outcome) => outcome.value.graph,
                 Err(e) => {
                     return Ok(ToolResult::error(format!(
-                        "Could not load draft '{draft_id}' to dry-run: {e}"
+                        "Could not load draft '{id}' to dry-run: {e}"
                     )));
                 }
-            }
-        } else {
-            match args.get("graph") {
-                Some(v) if !v.is_null() => v.clone(),
-                _ => {
-                    return Ok(ToolResult::error(
-                        "Provide `graph` (an inline graph) or `draft_id` (a working draft) to \
-                         dry-run."
-                            .to_string(),
-                    ));
+            },
+            (None, Some(id), _) => match ops::load_flow_graph(&self.config, id) {
+                Ok(Some(graph)) => serde_json::to_value(&graph)?,
+                Ok(None) => {
+                    return Ok(ToolResult::error(format!("flow '{id}' not found")));
                 }
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load flow '{id}' to dry-run: {e}"
+                    )));
+                }
+            },
+            (None, None, Some(v)) => v.clone(),
+            (None, None, None) => {
+                return Ok(ToolResult::error(
+                    "Provide one of `draft_id` (a working draft), `flow_id` (a saved flow), or \
+                     `graph` (an inline graph) to dry-run."
+                        .to_string(),
+                ));
             }
         };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
@@ -2729,12 +2854,16 @@ impl Tool for SaveWorkflowTool {
 
     fn description(&self) -> &str {
         "Save a workflow graph onto an EXISTING saved flow (by `flow_id`), persisting it. \
-         Use this after the user asked you to build/update a workflow and you have \
-         dry-run-verified the graph: it validates and writes the graph (and optional new \
-         `name`) to that flow. It can NOT create a new flow, and it never changes the \
-         flow's enabled state or its approval gate. NOTE: if the flow is enabled and the \
-         graph has a schedule/app_event trigger, saving arms it — it will start firing on \
-         its own. Always tell the user what you saved. Params: { flow_id, graph, name? }."
+         This is the ONLY builder tool that writes onto a saved flow — edit/validate/dry_run \
+         never do. Use it after the user asked you to build/update a workflow and you have \
+         dry-run-verified the graph. The graph source is either `draft_id` (a working draft — \
+         the usual case after editing with edit_workflow; draft_id wins if both are given) or \
+         an inline `graph`; `flow_id` is always required as the persistence TARGET. It \
+         validates and writes the graph (and optional new `name`) to that flow. It can NOT \
+         create a new flow, and it never changes the flow's enabled state or its approval \
+         gate. NOTE: if the flow is enabled and the graph has a schedule/app_event trigger, \
+         saving arms it — it will start firing on its own. Always tell the user what you \
+         saved. Params: { flow_id, draft_id? | graph?, name? }."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -2743,11 +2872,15 @@ impl Tool for SaveWorkflowTool {
             "properties": {
                 "flow_id": {
                     "type": "string",
-                    "description": "Id of the EXISTING saved flow to write the graph to."
+                    "description": "Id of the EXISTING saved flow to write the graph to (the persistence target — always required)."
+                },
+                "draft_id": {
+                    "type": "string",
+                    "description": "A working draft whose graph to persist onto the flow. Provide this OR inline `graph`; if both are given, draft_id wins."
                 },
                 "graph": {
                     "type": "object",
-                    "description": "The full tinyflows WorkflowGraph to persist: { name?, nodes: [...], edges: [...] }. Same shape as propose_workflow.",
+                    "description": "The full tinyflows WorkflowGraph to persist: { name?, nodes: [...], edges: [...] }. Provide this OR `draft_id`. Same shape as propose_workflow.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -2759,7 +2892,7 @@ impl Tool for SaveWorkflowTool {
                     "description": "Optional new human-readable name for the flow."
                 }
             },
-            "required": ["flow_id", "graph"],
+            "required": ["flow_id"],
             "additionalProperties": false
         })
     }
@@ -2787,10 +2920,36 @@ impl Tool for SaveWorkflowTool {
                 ))
             }
         };
-        let graph_json = match args.get("graph") {
-            Some(v) if !v.is_null() => v.clone(),
-            _ => return Ok(ToolResult::error("Missing 'graph' parameter".to_string())),
-        };
+        // Graph source: a working draft (the usual post-edit_workflow handle) or
+        // an inline graph. `flow_id` above is the persistence TARGET, always
+        // required; the draft only supplies the graph to write. If both a
+        // draft_id and an inline graph are given, the draft wins (it is the
+        // durable working copy the agent just iterated on).
+        let draft_id = args
+            .get("draft_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let graph_json =
+            if let Some(id) = draft_id {
+                match ops::flows_draft_get(&self.config, id) {
+                    Ok(outcome) => outcome.value.graph,
+                    Err(e) => {
+                        return Ok(ToolResult::error(format!(
+                            "Could not load draft '{id}' to save: {e}"
+                        )));
+                    }
+                }
+            } else {
+                match args.get("graph") {
+                    Some(v) if !v.is_null() => v.clone(),
+                    _ => return Ok(ToolResult::error(
+                        "Provide `draft_id` (a working draft) or inline `graph` to save onto the \
+                         flow."
+                            .to_string(),
+                    )),
+                }
+            };
         let name = args
             .get("name")
             .and_then(Value::as_str)
@@ -2884,6 +3043,9 @@ impl Tool for SaveWorkflowTool {
                 }
                 Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
                     "type": "workflow_saved",
+                    // Explicit counterpart to a proposal's persisted:false — this
+                    // graph IS now written onto the saved flow.
+                    "persisted": true,
                     "flow_id": flow.id,
                     "name": flow.name,
                     "enabled": flow.enabled,

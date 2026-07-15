@@ -192,11 +192,20 @@ pub(crate) async fn strict_gate(config: &Config, graph_json: &Value) -> Result<(
 /// the tool in the "fix … and call `<tool>` again" guidance so each caller's
 /// error text points the agent back at the right tool.
 ///
+/// `draft_id` / `flow_id` are OPTIONAL persistence-state context echoed onto
+/// the payload (the draft this proposal's edit lives on, and the saved flow it
+/// derives from / targets). The payload ALWAYS carries `"persisted": false` so
+/// a proposal can never be mistaken for a save confirmation — the exact false
+/// belief the WS2 audit caught (an agent read a proposal as "written onto the
+/// saved flow"). Actual persistence only happens via `save_workflow` /
+/// `create_workflow` / `flows_draft_promote`.
+///
 /// Returns `Ok(payload)` on success, or `Err(message)` with a
 /// model-consumable, fix-and-retry error when a gate rejects the graph. The
 /// caller is responsible for structural validation (`validate_and_migrate_graph`
 /// / `validate_all`) *before* calling this — these gates assume a compilable
 /// graph.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn build_builder_proposal(
     config: &Config,
     retry_tool: &str,
@@ -205,6 +214,8 @@ pub(crate) async fn build_builder_proposal(
     require_approval: bool,
     revision: bool,
     instruction: Option<String>,
+    draft_id: Option<String>,
+    flow_id: Option<String>,
 ) -> Result<Value, String> {
     // The full builder hard-gate stack, run through the single canonical
     // runner so every proposal/save/strict-RPC path gates identically (F3).
@@ -238,6 +249,10 @@ pub(crate) async fn build_builder_proposal(
     let mut payload = json!({
         "type": "workflow_proposal",
         "revision": revision,
+        // A proposal is NEVER a persisted flow — it is a candidate the user
+        // still has to accept/save. Stamp this unconditionally so the payload
+        // can't be misread as a save confirmation (WS2 audit).
+        "persisted": false,
         "name": name,
         "graph": graph_value,
         "require_approval": require_approval,
@@ -247,6 +262,14 @@ pub(crate) async fn build_builder_proposal(
     });
     if let Some(instruction) = instruction {
         payload["instruction"] = json!(instruction);
+    }
+    // Echo the persistence-state handles so the agent can iterate/persist
+    // against the right ids (the draft the edit lives on; the flow it targets).
+    if let Some(draft_id) = draft_id {
+        payload["draft_id"] = json!(draft_id);
+    }
+    if let Some(flow_id) = flow_id {
+        payload["flow_id"] = json!(flow_id);
     }
     Ok(payload)
 }

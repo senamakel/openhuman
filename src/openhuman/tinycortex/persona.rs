@@ -13,6 +13,8 @@ use crate::openhuman::config::Config;
 const DEFAULT_MAX_SESSIONS: usize = 100;
 const MAX_MAX_SESSIONS: usize = 1_000;
 const MAX_STATUS_SESSION_FILES: usize = 1_000;
+const MAX_STATUS_SESSION_FILE_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_STATUS_TOTAL_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct CodingSessionSourceStatus {
@@ -67,7 +69,7 @@ fn source_status(
     discover: impl Fn(&Path, usize) -> (Vec<PathBuf>, bool),
     read: impl Fn(&Path) -> anyhow::Result<RawSession>,
 ) -> CodingSessionSourceStatus {
-    let (files, scan_truncated) = discover(root, max_files);
+    let (files, mut scan_truncated) = discover(root, max_files);
     if scan_truncated {
         tracing::debug!(
             source = kind,
@@ -77,7 +79,27 @@ fn source_status(
     }
     let mut evidence_units = 0;
     let mut invalid_files = 0;
+    let mut bytes_scheduled = 0_u64;
     for path in &files {
+        if let Ok(metadata) = path.metadata() {
+            let file_bytes = metadata.len();
+            if file_bytes > MAX_STATUS_SESSION_FILE_BYTES
+                || bytes_scheduled.saturating_add(file_bytes) > MAX_STATUS_TOTAL_BYTES
+            {
+                scan_truncated = true;
+                tracing::debug!(
+                    source = kind,
+                    file_bytes,
+                    bytes_scheduled,
+                    max_file_bytes = MAX_STATUS_SESSION_FILE_BYTES,
+                    max_total_bytes = MAX_STATUS_TOTAL_BYTES,
+                    reason = "status-byte-budget",
+                    "[memory_persona] skipped coding session during bounded status scan"
+                );
+                continue;
+            }
+            bytes_scheduled += file_bytes;
+        }
         match read(path) {
             Ok(session) => evidence_units += session.evidence.len(),
             Err(_error) => {
@@ -356,5 +378,69 @@ mod tests {
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].extension().unwrap(), "jsonl");
         assert!(truncated);
+    }
+
+    #[test]
+    fn status_scan_skips_oversized_sessions_without_parsing_them() {
+        let temp = tempdir().unwrap();
+        let oversized = temp.path().join("oversized.jsonl");
+        let small = temp.path().join("small.jsonl");
+        let file = fs::File::create(&oversized).unwrap();
+        file.set_len(MAX_STATUS_SESSION_FILE_BYTES + 1).unwrap();
+        fs::write(&small, "{}\n").unwrap();
+        let reads = std::cell::Cell::new(0);
+
+        let status = source_status(
+            "fixture",
+            temp.path(),
+            2,
+            |_, _| (vec![oversized.clone(), small.clone()], false),
+            |_| {
+                reads.set(reads.get() + 1);
+                Ok(RawSession::new(
+                    tinycortex::memory::persona::types::EvidenceSource::new(
+                        tinycortex::memory::persona::types::PersonaSourceKind::Codex,
+                    ),
+                ))
+            },
+        );
+
+        assert_eq!(reads.get(), 1);
+        assert_eq!(status.session_files, 2);
+        assert_eq!(status.invalid_files, 0);
+        assert!(status.scan_truncated);
+    }
+
+    #[test]
+    fn status_scan_enforces_the_aggregate_byte_budget() {
+        let temp = tempdir().unwrap();
+        let paths = (0..5)
+            .map(|index| {
+                let path = temp.path().join(format!("session-{index}.jsonl"));
+                let file = fs::File::create(&path).unwrap();
+                file.set_len(MAX_STATUS_SESSION_FILE_BYTES).unwrap();
+                path
+            })
+            .collect::<Vec<_>>();
+        let reads = std::cell::Cell::new(0);
+
+        let status = source_status(
+            "fixture",
+            temp.path(),
+            paths.len(),
+            |_, _| (paths.clone(), false),
+            |_| {
+                reads.set(reads.get() + 1);
+                Ok(RawSession::new(
+                    tinycortex::memory::persona::types::EvidenceSource::new(
+                        tinycortex::memory::persona::types::PersonaSourceKind::Codex,
+                    ),
+                ))
+            },
+        );
+
+        assert_eq!(reads.get(), 4);
+        assert_eq!(status.session_files, 5);
+        assert!(status.scan_truncated);
     }
 }

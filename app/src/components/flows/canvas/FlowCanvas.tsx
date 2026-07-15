@@ -113,46 +113,48 @@ function ReadonlyFlowCanvas({ nodes, edges }: { nodes: FlowNode[]; edges: FlowEd
  * Fills its parent's box (`h-full w-full` — the page decides how tall/wide
  * that is; `FlowCanvasPage` gives it the full panel body).
  */
-const FlowCanvas = forwardRef<EditableFlowCanvasHandle, FlowCanvasProps>((
-  {
-    nodes,
-    edges,
-    editable = false,
-    meta,
-    onSave,
-    onDirtyChange,
-    activeRunId,
-    onGraphChange,
-    addedNodeIds,
-    removedNodeIds,
-    saveDisabled,
-    initialDirty,
-    showPalette = true,
-    onSaveMetaChange,
-  }: FlowCanvasProps,
-  ref
-) => {
-  if (editable) {
-    return (
-      <EditableFlowCanvas
-        ref={ref}
-        nodes={nodes}
-        edges={edges}
-        meta={meta ?? DEFAULT_META}
-        onSave={onSave}
-        onDirtyChange={onDirtyChange}
-        activeRunId={activeRunId}
-        onGraphChange={onGraphChange}
-        addedNodeIds={addedNodeIds}
-        removedNodeIds={removedNodeIds}
-        saveDisabled={saveDisabled}
-        initialDirty={initialDirty}
-        showPalette={showPalette}
-        onSaveMetaChange={onSaveMetaChange}
-      />
-    );
+const FlowCanvas = forwardRef<EditableFlowCanvasHandle, FlowCanvasProps>(
+  (
+    {
+      nodes,
+      edges,
+      editable = false,
+      meta,
+      onSave,
+      onDirtyChange,
+      activeRunId,
+      onGraphChange,
+      addedNodeIds,
+      removedNodeIds,
+      saveDisabled,
+      initialDirty,
+      showPalette = true,
+      onSaveMetaChange,
+    }: FlowCanvasProps,
+    ref
+  ) => {
+    if (editable) {
+      return (
+        <EditableFlowCanvas
+          ref={ref}
+          nodes={nodes}
+          edges={edges}
+          meta={meta ?? DEFAULT_META}
+          onSave={onSave}
+          onDirtyChange={onDirtyChange}
+          activeRunId={activeRunId}
+          onGraphChange={onGraphChange}
+          addedNodeIds={addedNodeIds}
+          removedNodeIds={removedNodeIds}
+          saveDisabled={saveDisabled}
+          initialDirty={initialDirty}
+          showPalette={showPalette}
+          onSaveMetaChange={onSaveMetaChange}
+        />
+      );
+    }
+    return <ReadonlyFlowCanvas nodes={nodes} edges={edges} />;
   }
-  return <ReadonlyFlowCanvas nodes={nodes} edges={edges} />;
-});
+);
 
 export default memo(FlowCanvas);

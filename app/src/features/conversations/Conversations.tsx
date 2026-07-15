@@ -3091,7 +3091,9 @@ const Conversations = ({
                   activity — use the raw `messages` (not `hasVisibleMessages`,
                   which ignores hidden transcript entries) so an already-started
                   thread never looks "fresh" here. */}
-              {messages.length === 0 && <SuperContextToggle />}
+              {/* Key by thread so switching to another empty chat remounts the
+                  toggle and re-runs its off-by-default reset (PR #4874 review). */}
+              {messages.length === 0 && <SuperContextToggle key={selectedThreadId ?? 'new-chat'} />}
               {selectedThreadId && (
                 <button
                   type="button"

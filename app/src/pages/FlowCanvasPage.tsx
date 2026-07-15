@@ -36,7 +36,6 @@ import {
 } from '../components/flows/workflowCopilotThreads';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
-import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
@@ -725,14 +724,15 @@ function FlowEditor({
       leading={backButton}
       action={headerActions}
       contentClassName="h-full p-0">
-      {/* Project this flow's run history into the left shell sidebar while it's
-          open (persisted flows only — a draft has no runs yet). */}
-      {!isDraft && flowId && (
-        <SidebarContent>
-          <FlowRunsSidebar flowId={flowId} />
-        </SidebarContent>
-      )}
       <div className="flex h-full w-full">
+        {/* Run history + "Fix with agent" as an inline left rail (persisted flows
+            only). The app sidebar is hidden on this route (chromeless), so this
+            can't use the shell `SidebarContent` slot — render it in-page. */}
+        {!isDraft && flowId && (
+          <div className="hidden h-full w-60 flex-shrink-0 border-r border-line lg:flex">
+            <FlowRunsSidebar flowId={flowId} />
+          </div>
+        )}
         <div className={`relative h-full flex-1 ${hideGraph ? 'hidden' : ''}`}>
           <FlowCanvas
             key={`canvas-${canvasVersion}`}

@@ -40,22 +40,60 @@ impl FlowRunTrigger {
 /// structural errors and non-fatal warnings (e.g. "this trigger kind never
 /// fires automatically yet") to an authoring surface *before* a flow is saved.
 ///
-/// A graph is `valid` when it passes `tinyflows::validate::validate` after
-/// migration; `errors` carries the single structural error when it does not.
-/// `warnings` is orthogonal to validity — a `valid` graph can still carry
-/// warnings (it saves and enables fine, it just won't behave as an author
-/// might expect), and an invalid graph reports no warnings (there's nothing to
-/// warn about a graph that won't compile).
+/// A graph is `valid` when it passes `tinyflows::validate::validate_all` after
+/// migration; `errors` carries **every** structural error when it does not (a
+/// pre-validation failure — unparseable JSON or an unmigrateable schema — is
+/// still a single entry). `warnings` is orthogonal to validity — a `valid`
+/// graph can still carry warnings (it saves and enables fine, it just won't
+/// behave as an author might expect), and an invalid graph reports no warnings
+/// (there's nothing to warn about a graph that won't compile).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct FlowValidation {
     /// True when the graph is structurally valid (migrates + validates).
     pub valid: bool,
-    /// Structural validation errors (empty when `valid`). Today at most one —
-    /// `tinyflows::validate::validate` returns the first error it hits.
+    /// Human-readable structural validation errors (empty when `valid`). As of
+    /// the multi-error work this carries **all** independent structural
+    /// problems in one pass — an author fixing five costs one validate call,
+    /// not five round-trips. See [`FlowValidation::error_details`] for the
+    /// machine-readable, per-node form.
     pub errors: Vec<String>,
+    /// Structured, machine-readable counterpart to [`FlowValidation::errors`]:
+    /// one entry per structural error, carrying a stable `code`, the anchoring
+    /// `node_id` when node-specific, and the human `message`. Additive and
+    /// `#[serde(default)]` so existing clients that only read `errors` are
+    /// unaffected; agent tools and richer UIs consume this to attach errors to
+    /// the right node and switch on `code`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub error_details: Vec<FlowValidationError>,
     /// Non-fatal warnings: the graph is accepted, but something about it is
     /// worth flagging (e.g. an unfired trigger kind). Never blocks save/enable.
     pub warnings: Vec<String>,
+}
+
+/// A single structural validation error in machine-readable form — the
+/// structured counterpart to a [`FlowValidation::errors`] string.
+///
+/// Mirrors `tinyflows::error::ValidationError` (via its `code()` / `node_id()`
+/// accessors) so a host surface can attach the error to a specific node and
+/// switch on a stable `code` rather than parsing the `message`. `field` is
+/// reserved for future config-level errors that can name the offending config
+/// key; it is `None` for today's graph/edge-level checks.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct FlowValidationError {
+    /// Stable, machine-readable identifier for the error kind (e.g.
+    /// `missing_trigger`, `unknown_node`, `invalid_condition_routing`).
+    pub code: String,
+    /// Human-readable description — identical to the matching
+    /// [`FlowValidation::errors`] string.
+    pub message: String,
+    /// The node id this error is anchored to, when node-specific; `None` for
+    /// graph-wide errors (missing trigger, schema-too-new, multiple triggers).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<String>,
+    /// The offending config field, when the error is config-key-specific.
+    /// Reserved for future use; `None` today.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
 }
 
 /// The result of importing a workflow definition (native tinyflows JSON or an

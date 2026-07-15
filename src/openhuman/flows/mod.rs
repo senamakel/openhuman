@@ -35,5 +35,5 @@ pub use schemas::{
 pub use store::{kv_get, kv_set, upsert_flow_run_step};
 pub use types::{
     Flow, FlowConnection, FlowImport, FlowRun, FlowRunStep, FlowRunTrigger, FlowSuggestion,
-    FlowValidation, SuggestionStatus,
+    FlowValidation, FlowValidationError, SuggestionStatus,
 };

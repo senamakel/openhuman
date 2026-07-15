@@ -87,10 +87,36 @@ const FLOW_PARKED_TTL_SECS: i64 = 600;
 /// which is what keeps the "the agent can never create a flow" invariant
 /// intact: this function validates and returns, it has no persistence effect.
 pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
-    let migrated = tinyflows::migrate::migrate(graph_json).map_err(|e| e.to_string())?;
-    let graph: WorkflowGraph = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
+    let graph = migrate_and_deserialize_graph(graph_json)?;
     tinyflows::validate::validate(&graph).map_err(|e| e.to_string())?;
     Ok(graph)
+}
+
+/// Runs a raw graph JSON value through migration + deserialization **without**
+/// the structural `validate` step. Splits the two so a caller that wants
+/// *every* structural error (via `tinyflows::validate::validate_all`) can run
+/// validation itself — a pre-validation failure here (unparseable JSON, an
+/// unmigrateable schema) is genuinely a single error, whereas structural
+/// validation can surface many at once.
+pub(crate) fn migrate_and_deserialize_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
+    let migrated = tinyflows::migrate::migrate(graph_json).map_err(|e| e.to_string())?;
+    let graph: WorkflowGraph = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
+    Ok(graph)
+}
+
+/// Maps a portable `tinyflows` [`ValidationError`](tinyflows::error::ValidationError)
+/// into the host's structured [`FlowValidationError`], carrying its stable
+/// `code`, anchoring `node_id`, and human `message`. One place so the mapping
+/// stays consistent across `flows_validate` and the builder gate stack.
+pub(crate) fn to_flow_validation_error(
+    err: &tinyflows::error::ValidationError,
+) -> crate::openhuman::flows::FlowValidationError {
+    crate::openhuman::flows::FlowValidationError {
+        code: err.code().to_string(),
+        message: err.to_string(),
+        node_id: err.node_id().map(str::to_string),
+        field: None,
+    }
 }
 
 /// Stable snake_case label for a [`TriggerKind`], matching its serde wire
@@ -1394,39 +1420,71 @@ fn is_trigger_scoped_expression(
 pub fn flows_validate(graph_json: Value) -> RpcOutcome<crate::openhuman::flows::FlowValidation> {
     use crate::openhuman::flows::FlowValidation;
     tracing::debug!(target: "flows", "[flows] flows_validate: validating candidate graph");
-    match validate_and_migrate_graph(graph_json) {
-        Ok(graph) => {
-            let warnings = graph_trigger_warnings(&graph);
-            for warning in &warnings {
-                tracing::warn!(target: "flows", warning = %warning, "[flows] flows_validate: non-fatal validation warning");
-            }
-            tracing::debug!(
-                target: "flows",
-                node_count = graph.nodes.len(),
-                warning_count = warnings.len(),
-                "[flows] flows_validate: graph is structurally valid"
-            );
-            RpcOutcome::single_log(
-                FlowValidation {
-                    valid: true,
-                    errors: Vec::new(),
-                    warnings,
-                },
-                "flow validated",
-            )
-        }
+    // Split migrate/deserialize (a genuinely single failure) from structural
+    // validation (which can surface many problems at once). A pre-validation
+    // failure short-circuits with one error; a deserializable graph is then run
+    // through `validate_all` so the author sees every structural problem in one
+    // pass instead of one round-trip per error.
+    let graph = match migrate_and_deserialize_graph(graph_json) {
+        Ok(graph) => graph,
         Err(error) => {
-            tracing::debug!(target: "flows", %error, "[flows] flows_validate: graph is structurally invalid");
-            RpcOutcome::single_log(
+            tracing::debug!(target: "flows", %error, "[flows] flows_validate: graph could not be migrated/parsed");
+            return RpcOutcome::single_log(
                 FlowValidation {
                     valid: false,
-                    errors: vec![error],
+                    errors: vec![error.clone()],
+                    error_details: vec![crate::openhuman::flows::FlowValidationError {
+                        code: "unparseable_graph".to_string(),
+                        message: error,
+                        node_id: None,
+                        field: None,
+                    }],
                     warnings: Vec::new(),
                 },
                 "flow validation failed",
-            )
+            );
         }
+    };
+
+    let structural = tinyflows::validate::validate_all(&graph);
+    if !structural.is_empty() {
+        let error_details: Vec<_> = structural.iter().map(to_flow_validation_error).collect();
+        let errors: Vec<String> = error_details.iter().map(|e| e.message.clone()).collect();
+        tracing::debug!(
+            target: "flows",
+            error_count = errors.len(),
+            "[flows] flows_validate: graph is structurally invalid"
+        );
+        return RpcOutcome::single_log(
+            FlowValidation {
+                valid: false,
+                errors,
+                error_details,
+                warnings: Vec::new(),
+            },
+            "flow validation failed",
+        );
     }
+
+    let warnings = graph_trigger_warnings(&graph);
+    for warning in &warnings {
+        tracing::warn!(target: "flows", warning = %warning, "[flows] flows_validate: non-fatal validation warning");
+    }
+    tracing::debug!(
+        target: "flows",
+        node_count = graph.nodes.len(),
+        warning_count = warnings.len(),
+        "[flows] flows_validate: graph is structurally valid"
+    );
+    RpcOutcome::single_log(
+        FlowValidation {
+            valid: true,
+            errors: Vec::new(),
+            error_details: Vec::new(),
+            warnings,
+        },
+        "flow validated",
+    )
 }
 
 /// Imports a workflow definition WITHOUT persisting it (PHASE 4d), normalizing

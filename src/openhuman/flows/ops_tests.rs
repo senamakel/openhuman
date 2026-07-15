@@ -1461,6 +1461,76 @@ fn flows_validate_reports_error_for_graph_without_trigger() {
     );
 }
 
+#[test]
+fn flows_validate_accumulates_every_structural_error() {
+    // A graph with several independent problems: no trigger, a duplicate node
+    // id, and a dangling edge. Multi-error validation must surface all of them
+    // in one call (fail-fast would report only the first).
+    let graph = json!({
+        "name": "riddled",
+        "nodes": [
+            { "id": "dup", "kind": "agent", "name": "One" },
+            { "id": "dup", "kind": "agent", "name": "Two" }
+        ],
+        "edges": [ { "from_node": "dup", "to_node": "ghost" } ]
+    });
+    let outcome = flows_validate(graph);
+    assert!(!outcome.value.valid);
+    // errors[] and error_details[] must be 1:1.
+    assert_eq!(
+        outcome.value.errors.len(),
+        outcome.value.error_details.len(),
+        "errors and error_details must be parallel: {:?} vs {:?}",
+        outcome.value.errors,
+        outcome.value.error_details
+    );
+    assert!(
+        outcome.value.errors.len() >= 3,
+        "expected >=3 accumulated errors, got {:?}",
+        outcome.value.errors
+    );
+    let codes: Vec<&str> = outcome
+        .value
+        .error_details
+        .iter()
+        .map(|e| e.code.as_str())
+        .collect();
+    assert!(codes.contains(&"missing_trigger"), "{codes:?}");
+    assert!(codes.contains(&"duplicate_node_id"), "{codes:?}");
+    assert!(codes.contains(&"unknown_node"), "{codes:?}");
+    // A node-anchored error carries its node id; a graph-wide one does not.
+    let dup = outcome
+        .value
+        .error_details
+        .iter()
+        .find(|e| e.code == "duplicate_node_id")
+        .unwrap();
+    assert_eq!(dup.node_id.as_deref(), Some("dup"));
+    let missing = outcome
+        .value
+        .error_details
+        .iter()
+        .find(|e| e.code == "missing_trigger")
+        .unwrap();
+    assert_eq!(missing.node_id, None);
+}
+
+#[test]
+fn flows_validate_reports_unparseable_graph_as_single_error() {
+    // A pre-validation failure (an unknown node kind can't deserialize) is a
+    // genuine single error, not a structural-error accumulation.
+    let graph = json!({
+        "name": "bad",
+        "nodes": [ { "id": "a", "kind": "not_a_real_kind", "name": "A" } ],
+        "edges": []
+    });
+    let outcome = flows_validate(graph);
+    assert!(!outcome.value.valid);
+    assert_eq!(outcome.value.errors.len(), 1);
+    assert_eq!(outcome.value.error_details.len(), 1);
+    assert_eq!(outcome.value.error_details[0].code, "unparseable_graph");
+}
+
 #[tokio::test]
 async fn flows_set_enabled_surfaces_unfired_trigger_warning_at_enable() {
     let tmp = TempDir::new().unwrap();

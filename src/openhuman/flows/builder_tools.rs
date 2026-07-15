@@ -64,6 +64,30 @@ use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 /// capabilities are non-blocking echoes, so this is a generous safety net.
 const DRY_RUN_TIMEOUT_SECS: u64 = 30;
 
+/// Comma list of the valid `op` tag values, for the missing-/unknown-`op`
+/// parse errors surfaced by [`EditWorkflowTool`].
+const VALID_OP_TYPES: &str = "add_node, update_node_config, set_node_name, rename_node, \
+     remove_node, add_edge, remove_edge, set_node_position";
+
+/// The expected field shape for a given `op` tag, used in `edit_workflow`'s
+/// per-op parse diagnostics so a failing op tells the agent exactly what that
+/// op type wants. Returns `None` for an unrecognized tag.
+fn edit_op_shape(op: &str) -> Option<&'static str> {
+    Some(match op {
+        "add_node" => "{ op, node: { id, kind, name, config? } }",
+        "update_node_config" => {
+            "{ op, id, config } (id also accepts alias `node_id`; config is a JSON merge-patch)"
+        }
+        "set_node_name" => "{ op, id, name } (id also accepts alias `node_id`)",
+        "rename_node" => "{ op, id, new_id } (also accept aliases `node_id` / `new_node_id`)",
+        "remove_node" => "{ op, id } (id also accepts alias `node_id`)",
+        "add_edge" => "{ op, edge: { from_node, to_node, from_port?, to_port? } }",
+        "remove_edge" => "{ op, from_node, to_node, from_port?, to_port? }",
+        "set_node_position" => "{ op, id, position: { x, y } } (id also accepts alias `node_id`)",
+        _ => return None,
+    })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // revise_workflow — iterative refine of an existing draft (proposal only)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -191,6 +215,10 @@ impl Tool for ReviseWorkflowTool {
             require_approval,
             true,
             instruction,
+            // revise_workflow takes only an inline graph — no draft/flow handle
+            // to echo. The payload still carries persisted:false unconditionally.
+            None,
+            None,
         )
         .await
         {
@@ -240,10 +268,14 @@ impl Tool for EditWorkflowTool {
          {id, config} (JSON merge-patch — a null value deletes that config key), set_node_name \
          {id, name}, rename_node {id, new_id} (rewires edges), remove_node {id} (drops its edges), \
          add_edge {edge}, remove_edge {from_node, to_node, from_port?, to_port?}, set_node_position \
-         {id, position}. Like propose/revise_workflow this ONLY VALIDATES and returns a proposal \
-         for the user to review — it never creates, updates, or enables the flow. If an op fails or \
-         the resulting graph is invalid, the error names the failing op / node; fix it and call \
-         edit_workflow again."
+         {id, position}. PERSISTENCE: the applied edit is written to a DRAFT, never onto the saved \
+         flow — this tool NEVER saves. Editing a flow_id SEEDS A NEW DRAFT from that flow's graph \
+         and returns its `draft_id`; editing a draft_id writes back to that same draft. The result \
+         carries `draft_id`, `flow_id` (if any), `persisted: false`, and a `next` hint. To keep \
+         iterating pass that `draft_id` (to edit_workflow / dry_run_workflow); to persist, call \
+         save_workflow { flow_id, draft_id } when the user asks. If an op fails or the resulting \
+         graph is invalid, the error names the failing op / node; fix it and call edit_workflow \
+         again."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -314,9 +346,16 @@ impl Tool for EditWorkflowTool {
             .filter(|s| !s.is_empty());
         let inline_graph = args.get("graph").filter(|v| !v.is_null());
 
-        // When editing a draft, remember its id so the applied edit is written
-        // back — the draft is the durable working copy across turns/reloads.
+        // The applied edit is always written back to a durable DRAFT (the shared
+        // working copy across turns/reloads). `write_back_draft` is the draft id
+        // it lands on; `edited_from_flow` is the saved flow this edit derives
+        // from / would persist onto, if any. The core WS2 fix: editing a bare
+        // `flow_id` used to persist NOTHING and return NO handle — the edit was
+        // unreachable and read as "written onto the flow". Now a `flow_id` base
+        // seeds a NEW draft, so the edit is durable, addressable, and clearly
+        // NOT the saved flow.
         let mut write_back_draft: Option<String> = None;
+        let mut edited_from_flow: Option<String> = None;
 
         let (base_graph, default_name) = match (draft_id, flow_id, inline_graph) {
             (Some(id), _, _) => match ops::flows_draft_get(&self.config, id) {
@@ -325,6 +364,9 @@ impl Tool for EditWorkflowTool {
                     match ops::migrate_and_deserialize_graph(draft.graph.clone()) {
                         Ok(graph) => {
                             write_back_draft = Some(draft.id.clone());
+                            // A draft may already be linked to a saved flow —
+                            // carry that through so the proposal echoes it.
+                            edited_from_flow = draft.flow_id.clone();
                             (graph, draft.name)
                         }
                         Err(e) => {
@@ -341,7 +383,47 @@ impl Tool for EditWorkflowTool {
                 }
             },
             (None, Some(id), _) => match ops::flows_get(&self.config, id).await {
-                Ok(outcome) => (outcome.value.graph, outcome.value.name),
+                Ok(outcome) => {
+                    let flow = outcome.value;
+                    // Seed a NEW draft from the saved flow's graph so the edit is
+                    // durable and reachable (the RPC/canvas path uses the same
+                    // `flows_draft_create` op). Linking the draft to `flow.id`
+                    // means a later save_workflow { flow_id, draft_id } knows its
+                    // target.
+                    let graph_json = match serde_json::to_value(&flow.graph) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Ok(ToolResult::error(format!(
+                                "Could not serialize flow '{id}' to seed a draft: {e}"
+                            )));
+                        }
+                    };
+                    match ops::flows_draft_create(
+                        &self.config,
+                        Some(flow.id.clone()),
+                        flow.name.clone(),
+                        graph_json,
+                        crate::openhuman::flows::DraftOrigin::Chat,
+                    ) {
+                        Ok(created) => {
+                            let new_draft_id = created.value.id.clone();
+                            tracing::debug!(
+                                target: "flows",
+                                draft_id = %new_draft_id,
+                                flow_id = %flow.id,
+                                "[flows] edit_workflow: seeded a new draft from saved flow (edits live on the draft, NOT the flow)"
+                            );
+                            write_back_draft = Some(new_draft_id);
+                            edited_from_flow = Some(flow.id.clone());
+                            (flow.graph, flow.name)
+                        }
+                        Err(e) => {
+                            return Ok(ToolResult::error(format!(
+                                "Could not create a draft to edit flow '{id}': {e}"
+                            )));
+                        }
+                    }
+                }
                 Err(e) => {
                     return Ok(ToolResult::error(format!(
                         "Could not load flow '{id}' to edit: {e}"
@@ -370,30 +452,45 @@ impl Tool for EditWorkflowTool {
             }
         };
 
-        // Parse the ops list.
-        let ops_value = match args.get("ops") {
-            Some(v) if v.is_array() => v.clone(),
+        // Parse the ops list element-by-element so a bad op reports its index,
+        // its `op` tag, the serde error, AND the expected field shape for THAT
+        // op type — instead of a bare aggregate "missing field `id`" that names
+        // neither the failing op nor what it wanted (audit WS4).
+        let ops_array = match args.get("ops") {
+            Some(Value::Array(items)) => items.clone(),
             _ => {
                 return Ok(ToolResult::error(
                     "Missing 'ops' parameter (a non-empty array of structured edits).".to_string(),
                 ));
             }
         };
-        let graph_ops: Vec<tinyflows::graph_ops::GraphOp> = match serde_json::from_value(ops_value)
-        {
-            Ok(ops) => ops,
-            Err(e) => {
-                return Ok(ToolResult::error(format!(
-                    "Could not parse `ops`: {e}. Each op is {{ \"op\": <type>, ... }} — valid \
-                         types: add_node, update_node_config, set_node_name, rename_node, \
-                         remove_node, add_edge, remove_edge, set_node_position."
-                )));
-            }
-        };
-        if graph_ops.is_empty() {
+        if ops_array.is_empty() {
             return Ok(ToolResult::error(
                 "`ops` is empty — provide at least one edit.".to_string(),
             ));
+        }
+        let mut graph_ops: Vec<tinyflows::graph_ops::GraphOp> = Vec::with_capacity(ops_array.len());
+        for (index, item) in ops_array.into_iter().enumerate() {
+            let op_tag = item.get("op").and_then(Value::as_str).map(str::to_string);
+            match serde_json::from_value::<tinyflows::graph_ops::GraphOp>(item) {
+                Ok(op) => graph_ops.push(op),
+                Err(e) => {
+                    let shape = match op_tag.as_deref() {
+                        Some(tag) => match edit_op_shape(tag) {
+                            Some(shape) => format!("op `{tag}` expects {shape}"),
+                            None => {
+                                format!("unknown op type `{tag}` — valid types: {VALID_OP_TYPES}")
+                            }
+                        },
+                        None => format!("missing `op` field — valid types: {VALID_OP_TYPES}"),
+                    };
+                    tracing::debug!(target: "flows", index, ?op_tag, error = %e, "[flows] edit_workflow: op failed to parse");
+                    return Ok(ToolResult::error(format!(
+                        "Could not parse op {index}: {e}. Expected {shape}. Each op is \
+                         {{ \"op\": <type>, ... }}. Fix the ops and call edit_workflow again."
+                    )));
+                }
+            }
         }
 
         let name = args
@@ -430,8 +527,22 @@ impl Tool for EditWorkflowTool {
             Ok(graph) => graph,
             Err(e) => {
                 tracing::debug!(target: "flows", %name, error = %e, "[flows] edit_workflow: an op failed to apply");
+                // Ops apply strictly in array order, so an add_node for an id
+                // that already exists is almost always an ordering mistake
+                // (adding before removing the old node). Point at the fix — this
+                // is the exact 2nd wasted call the WS4 audit caught.
+                let hint = match (e.op, &e.kind) {
+                    ("add_node", tinyflows::graph_ops::GraphOpErrorKind::NodeIdExists(id)) => {
+                        format!(
+                            "\n\nOps apply strictly in array order. To replace node `{id}`, put a \
+                             remove_node op for it BEFORE the add_node, or use update_node_config \
+                             to patch it in place."
+                        )
+                    }
+                    _ => String::new(),
+                };
                 return Ok(ToolResult::error(format!(
-                    "{e}\n\nFix the ops and call edit_workflow again."
+                    "{e}{hint}\n\nFix the ops and call edit_workflow again."
                 )));
             }
         };
@@ -469,6 +580,8 @@ impl Tool for EditWorkflowTool {
         }
 
         // Full builder hard-gate stack + proposal payload (shared with revise).
+        // Thread the persistence-state handles so the payload carries draft_id /
+        // flow_id / persisted:false and can't be misread as a save.
         match ops::build_builder_proposal(
             &self.config,
             "edit_workflow",
@@ -477,12 +590,32 @@ impl Tool for EditWorkflowTool {
             require_approval,
             true,
             instruction,
+            write_back_draft.clone(),
+            edited_from_flow.clone(),
         )
         .await
         {
             Ok(mut payload) => {
-                if let Some(draft_id) = write_back_draft {
-                    payload["draft_id"] = json!(draft_id);
+                // A prominent, one-line pointer at where the edit actually lives
+                // (the draft) vs. where it does NOT (the saved flow) — the exact
+                // confusion the WS2 audit caught. Only meaningful when the edit
+                // landed on a draft (inline-graph edits have no durable handle).
+                if let Some(draft_id) = write_back_draft.as_deref() {
+                    let next = match edited_from_flow.as_deref() {
+                        Some(flow_id) => format!(
+                            "Edits live on draft {draft_id}, NOT on flow {flow_id}. Iterate with \
+                             edit_workflow/dry_run_workflow {{ draft_id: \"{draft_id}\" }}, then \
+                             persist with save_workflow {{ flow_id: \"{flow_id}\", draft_id: \
+                             \"{draft_id}\" }} when the user asks."
+                        ),
+                        None => format!(
+                            "Edits live on draft {draft_id} (not yet linked to a saved flow). \
+                             Iterate with edit_workflow/dry_run_workflow {{ draft_id: \
+                             \"{draft_id}\" }}, then persist with create_workflow, or save_workflow \
+                             {{ flow_id, draft_id: \"{draft_id}\" }} once a flow exists."
+                        ),
+                    };
+                    payload["next"] = json!(next);
                 }
                 Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?))
             }
@@ -524,25 +657,31 @@ impl Tool for ValidateWorkflowTool {
     fn description(&self) -> &str {
         "Check a workflow graph WITHOUT proposing or saving it — the same validation the \
          propose/revise/edit/save tools run, surfaced on its own so you can verify a draft mid-\
-         build. Provide the graph to check (inline `graph`, or `flow_id` for a saved flow). \
-         Returns { ok, structurally_valid, errors, error_details:[{code, message, node_id}], \
-         gate_errors, warnings }: `errors` lists EVERY structural problem at once; `gate_errors` \
-         lists the hard author-gate failures (unresolvable bindings, unreal tool slugs, unwired \
-         required args) checked only once the graph is structurally valid; `warnings` are \
-         non-fatal. `ok` is true only when there are no errors and no gate_errors. Read-only."
+         build. Provide the graph to check as exactly one of `draft_id` (a working draft), \
+         `flow_id` (a saved flow), or inline `graph` (if several are given, draft_id wins, then \
+         flow_id). Returns { ok, structurally_valid, errors, error_details:[{code, message, \
+         node_id}], gate_errors, warnings }: `errors` lists EVERY structural problem at once; \
+         `gate_errors` lists the hard author-gate failures (unresolvable bindings, unreal tool \
+         slugs, unwired required args) checked only once the graph is structurally valid; \
+         `warnings` are non-fatal. `ok` is true only when there are no errors and no gate_errors. \
+         Read-only."
     }
 
     fn parameters_schema(&self) -> Value {
         json!({
             "type": "object",
             "properties": {
+                "draft_id": {
+                    "type": "string",
+                    "description": "A working draft to validate. Provide one of draft_id / flow_id / graph (draft_id wins)."
+                },
                 "flow_id": {
                     "type": "string",
-                    "description": "A saved flow to validate. Provide this OR `graph`."
+                    "description": "A saved flow to validate. Provide one of draft_id / flow_id / graph."
                 },
                 "graph": {
                     "type": "object",
-                    "description": "An inline tinyflows WorkflowGraph to validate. Provide this OR `flow_id`.",
+                    "description": "An inline tinyflows WorkflowGraph to validate. Provide one of draft_id / flow_id / graph.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -561,7 +700,14 @@ impl Tool for ValidateWorkflowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        // Resolve the graph to check from either a saved flow or an inline graph.
+        // Resolve the graph to check from exactly one of a working draft, a
+        // saved flow, or an inline graph — same precedence (draft_id > flow_id >
+        // graph) as edit_workflow, so the sibling tools accept the same handles.
+        let draft_id = args
+            .get("draft_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
         let flow_id = args
             .get("flow_id")
             .and_then(Value::as_str)
@@ -569,8 +715,16 @@ impl Tool for ValidateWorkflowTool {
             .filter(|s| !s.is_empty());
         let inline_graph = args.get("graph").filter(|v| !v.is_null());
 
-        let graph_json = match (flow_id, inline_graph) {
-            (Some(id), _) => match ops::load_flow_graph(&self.config, id) {
+        let graph_json = match (draft_id, flow_id, inline_graph) {
+            (Some(id), _, _) => match ops::flows_draft_get(&self.config, id) {
+                Ok(outcome) => outcome.value.graph,
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load draft '{id}' to validate: {e}"
+                    )));
+                }
+            },
+            (None, Some(id), _) => match ops::load_flow_graph(&self.config, id) {
                 Ok(Some(graph)) => serde_json::to_value(&graph)?,
                 Ok(None) => {
                     return Ok(ToolResult::error(format!("flow '{id}' not found")));
@@ -581,11 +735,11 @@ impl Tool for ValidateWorkflowTool {
                     )));
                 }
             },
-            (None, Some(graph)) => graph.clone(),
-            (None, None) => {
+            (None, None, Some(graph)) => graph.clone(),
+            (None, None, None) => {
                 return Ok(ToolResult::error(
-                    "Provide either `flow_id` (a saved flow) or `graph` (an inline graph) to \
-                     validate."
+                    "Provide one of `draft_id` (a working draft), `flow_id` (a saved flow), or \
+                     `graph` (an inline graph) to validate."
                         .to_string(),
                 ));
             }
@@ -593,6 +747,7 @@ impl Tool for ValidateWorkflowTool {
 
         tracing::debug!(
             target: "flows",
+            from_draft = draft_id.is_some(),
             from_flow = flow_id.is_some(),
             "[flows] validate_workflow: checking graph (read-only)"
         );
@@ -1458,6 +1613,75 @@ pub(crate) async fn search_live_catalog(
     toolkit_filter: Option<&str>,
     limit: usize,
 ) -> Vec<Value> {
+    search_catalog(config, query, toolkit_filter, limit)
+        .await
+        .results
+}
+
+/// Cap on fallback (per-keyword) matches — a near-miss query must not flood the
+/// agent's context with the whole toolkit, so the OR-scored fallback returns at
+/// most this many rows regardless of the primary `limit`.
+const MAX_FALLBACK_RESULTS: usize = 10;
+
+/// Outcome of a catalog search: the shaped rows, whether the per-keyword
+/// fallback pass fired, and an optional advisory `note` the tool surfaces so an
+/// agent never misreads a keyword miss as "the action doesn't exist".
+pub(crate) struct CatalogSearchOutcome {
+    pub results: Vec<Value>,
+    /// True when the per-token OR fallback pass ran (primary AND match was
+    /// empty for a multi-word query).
+    pub fallback: bool,
+    /// Advisory note explaining a near-miss / keyword-based search, if any.
+    pub note: Option<String>,
+}
+
+/// Shape one live-catalog [`ToolContract`](crate::openhuman::tinyflows::caps::ToolContract)
+/// into a search-result row. The SINGLE row-construction site shared by both
+/// the primary AND-match path and the per-keyword fallback path, so every row
+/// carries the same fields — including WS3's `runtime_gated: true` on an
+/// uncurated action of a toolkit that ships a curated-only allowlist.
+fn shape_catalog_row(
+    tool: &crate::openhuman::tinyflows::caps::ToolContract,
+    toolkit: &str,
+    toolkit_curated: bool,
+) -> Value {
+    let mut row = json!({
+        "slug": tool.slug,
+        "toolkit": toolkit,
+        "description": tool.description,
+        "required_args": tool.required_args,
+        "output_fields": tool.output_fields,
+        "primary_array_path": tool.primary_array_path,
+        "featured": tool.is_curated,
+    });
+    // Compact: only present when true.
+    if !tool.is_curated && toolkit_curated {
+        if let Some(obj) = row.as_object_mut() {
+            obj.insert("runtime_gated".to_string(), Value::Bool(true));
+        }
+    }
+    row
+}
+
+/// Search the FULL LIVE Composio catalog and return a [`CatalogSearchOutcome`].
+///
+/// Primary pass: case-insensitive AND — an action matches only if EVERY
+/// whitespace-separated term substring-matches its slug, toolkit name, or
+/// description (curated matches ranked first, stable sort preserves fetch
+/// order). When that yields zero rows for a MULTI-WORD query, a per-keyword OR
+/// fallback runs: each action is scored by how many query tokens match its
+/// slug/toolkit/description, and the top [`MAX_FALLBACK_RESULTS`] (ranked by
+/// hit-count desc, then curated first) are returned with an advisory `note`.
+/// This is what keeps a natural-language query like "twitter tweet replies
+/// lookup" from returning a bare `count: 0` even though `TWITTER_*` actions
+/// exist — the agent gets the nearest keyword matches instead of falsely
+/// concluding the action is missing.
+pub(crate) async fn search_catalog(
+    config: &Config,
+    query: &str,
+    toolkit_filter: Option<&str>,
+    limit: usize,
+) -> CatalogSearchOutcome {
     use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
     use crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog;
 
@@ -1487,10 +1711,26 @@ pub(crate) async fn search_live_catalog(
     }))
     .await;
 
+    // Drop toolkits whose fetch failed (no backend session / network error) —
+    // they contribute zero results rather than erroring the whole search.
+    let fetched: Vec<(String, Vec<crate::openhuman::tinyflows::caps::ToolContract>)> = fetched
+        .into_iter()
+        .filter_map(|(tk, catalog)| catalog.map(|c| (tk, c)))
+        .collect();
+
+    // Does the scanned scope hold ANY actions at all? Distinguishes "keyword
+    // miss" (has actions, none matched) from "nothing to search" (empty scope).
+    let any_actions = fetched.iter().any(|(_, catalog)| !catalog.is_empty());
+
+    // ── Primary pass: case-insensitive AND across every term ──
     let mut matches: Vec<(bool, Value)> = Vec::new();
-    for (toolkit, catalog) in fetched {
-        let Some(catalog) = catalog else { continue };
-        for tool in &catalog {
+    for (toolkit, catalog) in &fetched {
+        // WS3 — a toolkit that ships a curated catalog is a hard curated-only
+        // allowlist at RUNTIME, so any `featured: false` action of it is
+        // rejected on every real run. Compute once per toolkit and flag those
+        // rows so the blocker is visible at search time (transcript failure #2).
+        let toolkit_curated = ops::toolkit_has_curated_catalog(toolkit);
+        for tool in catalog {
             let slug_lc = tool.slug.to_ascii_lowercase();
             let desc_lc = tool
                 .description
@@ -1505,15 +1745,7 @@ pub(crate) async fn search_live_catalog(
             }
             matches.push((
                 tool.is_curated,
-                json!({
-                    "slug": tool.slug,
-                    "toolkit": toolkit,
-                    "description": tool.description,
-                    "required_args": tool.required_args,
-                    "output_fields": tool.output_fields,
-                    "primary_array_path": tool.primary_array_path,
-                    "featured": tool.is_curated,
-                }),
+                shape_catalog_row(tool, toolkit, toolkit_curated),
             ));
         }
     }
@@ -1522,7 +1754,104 @@ pub(crate) async fn search_live_catalog(
     // within each group.
     matches.sort_by_key(|(is_curated, _)| std::cmp::Reverse(*is_curated));
     matches.truncate(limit);
-    matches.into_iter().map(|(_, v)| v).collect()
+    let primary: Vec<Value> = matches.into_iter().map(|(_, v)| v).collect();
+
+    if !primary.is_empty() {
+        return CatalogSearchOutcome {
+            results: primary,
+            fallback: false,
+            note: None,
+        };
+    }
+
+    // ── Zero primary hits ──
+    // Single-token queries keep today's behavior exactly; only attach a light
+    // advisory note so a lone keyword miss still explains the search is
+    // keyword-based (task WS5.4, optional).
+    if terms.len() <= 1 {
+        let note = if any_actions {
+            Some(format!(
+                "No actions matched '{query}'. This search is keyword-based (matches action \
+                 slug/name/description) — try a different single keyword (e.g. 'gmail' or \
+                 'tweets')."
+            ))
+        } else {
+            None
+        };
+        return CatalogSearchOutcome {
+            results: Vec::new(),
+            fallback: false,
+            note,
+        };
+    }
+
+    // ── Fallback pass (multi-word, zero primary hits): per-token OR scoring ──
+    // Score each action by how many DISTINCT query tokens match its
+    // slug/toolkit/description; keep the primary path's curated boost as the
+    // tiebreak. Rows go through the SAME `shape_catalog_row` path as primary.
+    let mut scored: Vec<(usize, bool, Value)> = Vec::new();
+    for (toolkit, catalog) in &fetched {
+        let toolkit_curated = ops::toolkit_has_curated_catalog(toolkit);
+        for tool in catalog {
+            let slug_lc = tool.slug.to_ascii_lowercase();
+            let desc_lc = tool
+                .description
+                .as_deref()
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            let hits = terms
+                .iter()
+                .filter(|term| {
+                    slug_lc.contains(*term) || toolkit.contains(*term) || desc_lc.contains(*term)
+                })
+                .count();
+            if hits == 0 {
+                continue;
+            }
+            scored.push((
+                hits,
+                tool.is_curated,
+                shape_catalog_row(tool, toolkit, toolkit_curated),
+            ));
+        }
+    }
+
+    // Most keyword hits first, then curated first; stable sort preserves fetch
+    // order within a (hits, curated) group.
+    scored.sort_by_key(|(hits, is_curated, _)| std::cmp::Reverse((*hits, *is_curated)));
+    scored.truncate(limit.min(MAX_FALLBACK_RESULTS));
+    let results: Vec<Value> = scored.into_iter().map(|(_, _, v)| v).collect();
+
+    tracing::debug!(
+        target: "flows",
+        query,
+        fallback = true,
+        hits = results.len(),
+        "[flows] search_tool_catalog: primary AND-match empty for a multi-word query — ran per-keyword OR fallback"
+    );
+
+    if results.is_empty() {
+        // Literally zero tokens matched anything: no rows, but a note so the
+        // agent doesn't read `count: 0` as "action doesn't exist" (task WS5.3).
+        return CatalogSearchOutcome {
+            results,
+            fallback: true,
+            note: Some(format!(
+                "No actions matched any keyword in '{query}'. This search is keyword-based \
+                 (matches action slug/name/description) — retry with a single keyword (e.g. one \
+                 word like 'gmail' or 'tweets') for a full listing."
+            )),
+        };
+    }
+
+    CatalogSearchOutcome {
+        results,
+        fallback: true,
+        note: Some(format!(
+            "No exact match for '{query}'. Showing the nearest per-keyword matches — retry with a \
+             single keyword (e.g. one word like 'gmail' or 'tweets') for a full listing."
+        )),
+    }
 }
 
 #[async_trait]
@@ -1553,7 +1882,7 @@ impl Tool for SearchToolCatalogTool {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Keywords to match against tool slugs/descriptions (case-insensitive; all terms must match)."
+                    "description": "Keywords to match against tool slugs/descriptions (case-insensitive). All terms must match for an exact hit; a multi-word query with no exact match falls back to the nearest per-keyword matches. For the widest listing, prefer ONE keyword (e.g. 'gmail' or 'tweets')."
                 },
                 "toolkit": {
                     "type": "string",
@@ -1585,12 +1914,24 @@ impl Tool for SearchToolCatalogTool {
             toolkit = toolkit.unwrap_or("(any)"),
             "[flows] search_tool_catalog: searching the FULL LIVE Composio catalog (read-only)"
         );
-        let results = search_live_catalog(&self.config, &query, toolkit, MAX_CATALOG_RESULTS).await;
-        Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
-            "query": query,
-            "count": results.len(),
-            "results": results,
-        }))?))
+        let outcome = search_catalog(&self.config, &query, toolkit, MAX_CATALOG_RESULTS).await;
+        // Build with `note` first so an agent reading top-down sees the
+        // near-miss / keyword-based advisory before the (possibly zero) rows.
+        // `count` is always the number of returned rows, never a stand-in for
+        // "no such action" — a fallback carries a non-zero count.
+        let mut obj = serde_json::Map::new();
+        if let Some(note) = outcome.note {
+            obj.insert("note".to_string(), Value::String(note));
+        }
+        obj.insert("query".to_string(), Value::String(query));
+        obj.insert(
+            "count".to_string(),
+            Value::Number(outcome.results.len().into()),
+        );
+        obj.insert("results".to_string(), Value::Array(outcome.results));
+        Ok(ToolResult::success(serde_json::to_string_pretty(
+            &Value::Object(obj),
+        )?))
     }
 }
 
@@ -1705,6 +2046,37 @@ impl Tool for GetToolContractTool {
                 // permanently `None`.
                 let contract =
                     crate::openhuman::tinyflows::caps::apply_probe_override(contract.clone());
+
+                // WS3 — EARLY runtime-gate warning (transcript failure #2): a
+                // real-but-uncurated action of a toolkit that ships a curated
+                // catalog is a hard curated-only allowlist at RUNTIME, so it is
+                // REJECTED on every real run. The late `validate_workflow` gate
+                // catches it, but only ~15 tool calls after the agent has built
+                // and wired the node. Surface the blocker HERE, at contract-fetch
+                // time (and first in the payload), so the agent never wires it.
+                if !contract.is_curated && ops::toolkit_has_curated_catalog(&toolkit) {
+                    tracing::debug!(
+                        target: "flows",
+                        %slug,
+                        %toolkit,
+                        "[flows] get_tool_contract: uncurated action of a curated toolkit — attaching runtime_gate warning"
+                    );
+                    #[derive(serde::Serialize)]
+                    struct ContractWithRuntimeGate {
+                        runtime_gate: &'static str,
+                        #[serde(flatten)]
+                        contract: crate::openhuman::tinyflows::caps::ToolContract,
+                    }
+                    let payload = ContractWithRuntimeGate {
+                        runtime_gate: "This action will be REJECTED on every real run — the \
+                                       runtime tool gate only allows curated actions for this \
+                                       toolkit. Pick a `featured: true` result from \
+                                       search_tool_catalog instead.",
+                        contract,
+                    };
+                    return Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?));
+                }
+
                 Ok(ToolResult::success(serde_json::to_string_pretty(
                     &contract,
                 )?))
@@ -2170,6 +2542,79 @@ impl Tool for GetNodeKindContractTool {
 /// (an unexercised branch can be entirely intentional), and is surfaced on
 /// both the `ok: true` and `ok: false` result shapes so the caller can
 /// double-check that node's wiring by hand.
+/// Builds one `null_resolutions` diagnostic entry for a `tool_call` node's
+/// null-resolved `args.*` config expression.
+///
+/// The common case reports `{ node_id, location, expression }` — a wiring
+/// mistake the agent should fix. But when the null-resolved expression binds to
+/// the output of an upstream Composio `tool_call` node
+/// ([`ops::composio_tool_call_upstream_ref`]), the entry is instead marked
+/// `unverifiable: true` and carries an honest `suggestion`: the echo sandbox
+/// can NEVER produce a Composio tool's real output fields, so this particular
+/// null is expected here and does NOT prove the binding wrong (WS6 — the
+/// transcript audit where the agent re-wired an already-correct binding three
+/// times chasing this exact false negative). The message points at
+/// `get_tool_contract` / `get_tool_output_sample` as the real disambiguators.
+fn build_null_resolution_entry(
+    node_id: &str,
+    diag: &tinyflows::expr::NullResolution,
+    graph: &WorkflowGraph,
+) -> Value {
+    if let Some(upstream) = crate::openhuman::flows::ops::composio_tool_call_upstream_ref(
+        &diag.expression,
+        graph,
+        node_id,
+    ) {
+        let field = diag.location.strip_prefix("args.").unwrap_or("args");
+        return json!({
+            "node_id": node_id,
+            "location": diag.location,
+            "expression": diag.expression,
+            "unverifiable": true,
+            "upstream_tool_call": upstream,
+            "suggestion": format!(
+                "required arg `{field}` binds to the output of Composio tool_call node \
+                 `{upstream}` — the SANDBOX only echoes tool calls and can never produce \
+                 their real output fields, so this binding is UNVERIFIABLE here (not \
+                 necessarily wrong). Confirm the path against get_tool_contract {{ slug }}'s \
+                 output_fields / primary_array_path (remember Composio results nest under \
+                 `.item.json.data.`), or get_tool_output_sample {{ slug, args }} for the \
+                 real shape. It is a real bug only if the path doesn't match the action's \
+                 actual output."
+            ),
+        });
+    }
+    json!({
+        "node_id": node_id,
+        "location": diag.location,
+        "expression": diag.expression,
+    })
+}
+
+/// Every null-resolved `args.*` config expression that landed on a `tool_call`
+/// node, as `null_resolutions` diagnostic entries (see
+/// [`build_null_resolution_entry`] for the shape, including the WS6
+/// `unverifiable` Composio-upstream variant). Shared by the settled-run path
+/// (which fails the dry run on these) and the errored-run path (which surfaces
+/// only the `unverifiable` ones so a stop-policy preflight abort explains
+/// itself honestly instead of via the generic required-arg text).
+fn tool_call_arg_null_entries(
+    steps: &[tinyflows::observability::ExecutionStep],
+    graph: &WorkflowGraph,
+    tool_call_node_ids: &std::collections::HashSet<&str>,
+) -> Vec<Value> {
+    steps
+        .iter()
+        .filter(|step| tool_call_node_ids.contains(step.node_id.as_str()))
+        .flat_map(|step| {
+            step.diagnostics
+                .iter()
+                .filter(|&diag| diag.location == "args" || diag.location.starts_with("args."))
+                .map(|diag| build_null_resolution_entry(&step.node_id, diag, graph))
+        })
+        .collect()
+}
+
 pub struct DryRunWorkflowTool {
     security: Arc<SecurityPolicy>,
     config: Arc<Config>,
@@ -2188,13 +2633,15 @@ impl Tool for DryRunWorkflowTool {
     }
 
     fn description(&self) -> &str {
-        "Dry-run a DRAFT workflow graph in a SANDBOX to self-verify it before \
+        "Dry-run a workflow graph in a SANDBOX to self-verify it before \
          proposing. Compiles the graph and executes it against MOCK capabilities \
          — every LLM / tool_call / http_request / code node returns a deterministic \
          echo, so NOTHING real happens (no messages sent, no code run). Returns the \
          simulated per-node output labeled as sandbox output. Use it to catch \
-         wiring/routing mistakes; it does NOT prove real integrations work. Pass \
-         the same graph shape as propose_workflow, plus an optional `input`."
+         wiring/routing mistakes; it does NOT prove real integrations work. Provide \
+         the graph as exactly one of `draft_id` (a working draft), `flow_id` (a saved \
+         flow), or inline `graph` (draft_id wins, then flow_id), plus an optional \
+         `input`."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -2203,11 +2650,15 @@ impl Tool for DryRunWorkflowTool {
             "properties": {
                 "draft_id": {
                     "type": "string",
-                    "description": "A working draft to simulate. Provide this OR `graph`."
+                    "description": "A working draft to simulate. Provide one of draft_id / flow_id / graph (draft_id wins)."
+                },
+                "flow_id": {
+                    "type": "string",
+                    "description": "A saved flow to simulate. Provide one of draft_id / flow_id / graph."
                 },
                 "graph": {
                     "type": "object",
-                    "description": "The DRAFT tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }. Provide this OR `draft_id`.",
+                    "description": "An inline tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }. Provide one of draft_id / flow_id / graph.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -2235,31 +2686,48 @@ impl Tool for DryRunWorkflowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        // Graph source: a working draft (draft_id) or an inline graph.
-        let graph_json = if let Some(draft_id) = args
+        // Graph source: exactly one of a working draft, a saved flow, or an
+        // inline graph — same precedence (draft_id > flow_id > graph) as the
+        // sibling validate/edit tools, so they all accept the same handles.
+        let draft_id = args
             .get("draft_id")
             .and_then(Value::as_str)
             .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            match ops::flows_draft_get(&self.config, draft_id) {
+            .filter(|s| !s.is_empty());
+        let flow_id = args
+            .get("flow_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let inline_graph = args.get("graph").filter(|v| !v.is_null());
+
+        let graph_json = match (draft_id, flow_id, inline_graph) {
+            (Some(id), _, _) => match ops::flows_draft_get(&self.config, id) {
                 Ok(outcome) => outcome.value.graph,
                 Err(e) => {
                     return Ok(ToolResult::error(format!(
-                        "Could not load draft '{draft_id}' to dry-run: {e}"
+                        "Could not load draft '{id}' to dry-run: {e}"
                     )));
                 }
-            }
-        } else {
-            match args.get("graph") {
-                Some(v) if !v.is_null() => v.clone(),
-                _ => {
-                    return Ok(ToolResult::error(
-                        "Provide `graph` (an inline graph) or `draft_id` (a working draft) to \
-                         dry-run."
-                            .to_string(),
-                    ));
+            },
+            (None, Some(id), _) => match ops::load_flow_graph(&self.config, id) {
+                Ok(Some(graph)) => serde_json::to_value(&graph)?,
+                Ok(None) => {
+                    return Ok(ToolResult::error(format!("flow '{id}' not found")));
                 }
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load flow '{id}' to dry-run: {e}"
+                    )));
+                }
+            },
+            (None, None, Some(v)) => v.clone(),
+            (None, None, None) => {
+                return Ok(ToolResult::error(
+                    "Provide one of `draft_id` (a working draft), `flow_id` (a saved flow), or \
+                     `graph` (an inline graph) to dry-run."
+                        .to_string(),
+                ));
             }
         };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
@@ -2299,6 +2767,12 @@ impl Tool for DryRunWorkflowTool {
         let mut caps = tinyflows::caps::mock::mock_capabilities_with_agent(
             crate::openhuman::tinyflows::caps::SchemaAwareMockAgentRunner,
         );
+        // Plain agent nodes (no `agent_ref`) never reach the runner above —
+        // the vendored `agent` node routes them to the `llm` slot instead (see
+        // `SchemaAwareMockLlm`'s doc). Swap the vendored `MockLlm` echo for the
+        // schema-aware mock so their `output_parser.schema` is honored too,
+        // instead of the echo shape failing the sub-port's validation.
+        caps.llm = std::sync::Arc::new(crate::openhuman::tinyflows::caps::SchemaAwareMockLlm);
         // Wiring preflight over the echo mocks (see the struct doc): required
         // Composio args must be present and non-null even in the sandbox.
         caps.tools = std::sync::Arc::new(crate::openhuman::tinyflows::caps::PreflightToolInvoker {
@@ -2344,6 +2818,46 @@ impl Tool for DryRunWorkflowTool {
         {
             Ok(Ok(outcome)) => outcome,
             Ok(Err(e)) => {
+                // A `stop`-policy `tool_call` whose required arg resolved null
+                // aborts the WHOLE run here (via `PreflightToolInvoker`), so
+                // the honest per-field diagnostic never reaches the settled-run
+                // `null_resolutions` path below. Recover it from the observer:
+                // if the abort was caused by a required arg bound to an upstream
+                // Composio `tool_call`'s output, the echo mock simply CAN'T
+                // produce that field — so surface it as `unverifiable` rather
+                // than letting the generic "required arg missing/null" text
+                // (which sent the transcript agent re-wiring a correct binding
+                // three times) stand alone. WS6.
+                let unverifiable_bindings: Vec<Value> =
+                    tool_call_arg_null_entries(&observer.steps(), &graph, &tool_call_node_ids)
+                        .into_iter()
+                        .filter(|entry| {
+                            entry.get("unverifiable").and_then(Value::as_bool) == Some(true)
+                        })
+                        .collect();
+                if !unverifiable_bindings.is_empty() {
+                    tracing::debug!(
+                        target: "flows",
+                        error = %e,
+                        unverifiable_count = unverifiable_bindings.len(),
+                        "[flows] dry_run_workflow: sandbox run aborted on a Composio-upstream \
+                         binding the echo mock cannot verify — surfacing it honestly"
+                    );
+                    return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                        "sandbox": true,
+                        "ok": false,
+                        "error": e.to_string(),
+                        "unverifiable_bindings": unverifiable_bindings,
+                        "note": "SANDBOX (mock) output — a tool_call node aborted because a \
+                            required arg binds to the output of an upstream Composio tool_call, \
+                            which the sandbox can only ECHO (it never produces real tool output \
+                            fields). See unverifiable_bindings: each MAY already be wired \
+                            correctly — confirm the path with get_tool_contract {{ slug }} \
+                            (output_fields / primary_array_path; Composio results nest under \
+                            .item.json.data.) or get_tool_output_sample {{ slug, args }} instead \
+                            of re-wiring blindly. No real side effects occurred.",
+                    }))?));
+                }
                 tracing::debug!(target: "flows", error = %e, "[flows] dry_run_workflow: sandbox run errored");
                 return Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
                     "sandbox": true,
@@ -2363,23 +2877,12 @@ impl Tool for DryRunWorkflowTool {
         // `tool_call` node's `args.*` config path — the class of binding
         // mistake that "builds" (compiles, dry-runs against echo mocks) but
         // does nothing at runtime because the wired field never had a value.
-        let null_resolutions: Vec<Value> = observer
-            .steps()
-            .iter()
-            .filter(|step| tool_call_node_ids.contains(step.node_id.as_str()))
-            .flat_map(|step| {
-                step.diagnostics
-                    .iter()
-                    .filter(|&diag| diag.location == "args" || diag.location.starts_with("args."))
-                    .map(|diag| {
-                        json!({
-                            "node_id": step.node_id,
-                            "location": diag.location,
-                            "expression": diag.expression,
-                        })
-                    })
-            })
-            .collect();
+        // Each entry is honest about WHY it resolved null: a binding to an
+        // upstream Composio `tool_call`'s output is flagged `unverifiable`
+        // (the echo mock can't produce real tool output fields) rather than
+        // reported as a plain wiring mistake — see [`build_null_resolution_entry`].
+        let null_resolutions: Vec<Value> =
+            tool_call_arg_null_entries(&observer.steps(), &graph, &tool_call_node_ids);
 
         // Collect every null-resolved `agent`-node `prompt` — execution-
         // breaking in the same way a null `tool_call` arg is: `prompt` is the
@@ -2723,12 +3226,16 @@ impl Tool for SaveWorkflowTool {
 
     fn description(&self) -> &str {
         "Save a workflow graph onto an EXISTING saved flow (by `flow_id`), persisting it. \
-         Use this after the user asked you to build/update a workflow and you have \
-         dry-run-verified the graph: it validates and writes the graph (and optional new \
-         `name`) to that flow. It can NOT create a new flow, and it never changes the \
-         flow's enabled state or its approval gate. NOTE: if the flow is enabled and the \
-         graph has a schedule/app_event trigger, saving arms it — it will start firing on \
-         its own. Always tell the user what you saved. Params: { flow_id, graph, name? }."
+         This is the ONLY builder tool that writes onto a saved flow — edit/validate/dry_run \
+         never do. Use it after the user asked you to build/update a workflow and you have \
+         dry-run-verified the graph. The graph source is either `draft_id` (a working draft — \
+         the usual case after editing with edit_workflow; draft_id wins if both are given) or \
+         an inline `graph`; `flow_id` is always required as the persistence TARGET. It \
+         validates and writes the graph (and optional new `name`) to that flow. It can NOT \
+         create a new flow, and it never changes the flow's enabled state or its approval \
+         gate. NOTE: if the flow is enabled and the graph has a schedule/app_event trigger, \
+         saving arms it — it will start firing on its own. Always tell the user what you \
+         saved. Params: { flow_id, draft_id? | graph?, name? }."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -2737,11 +3244,15 @@ impl Tool for SaveWorkflowTool {
             "properties": {
                 "flow_id": {
                     "type": "string",
-                    "description": "Id of the EXISTING saved flow to write the graph to."
+                    "description": "Id of the EXISTING saved flow to write the graph to (the persistence target — always required)."
+                },
+                "draft_id": {
+                    "type": "string",
+                    "description": "A working draft whose graph to persist onto the flow. Provide this OR inline `graph`; if both are given, draft_id wins."
                 },
                 "graph": {
                     "type": "object",
-                    "description": "The full tinyflows WorkflowGraph to persist: { name?, nodes: [...], edges: [...] }. Same shape as propose_workflow.",
+                    "description": "The full tinyflows WorkflowGraph to persist: { name?, nodes: [...], edges: [...] }. Provide this OR `draft_id`. Same shape as propose_workflow.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -2753,7 +3264,7 @@ impl Tool for SaveWorkflowTool {
                     "description": "Optional new human-readable name for the flow."
                 }
             },
-            "required": ["flow_id", "graph"],
+            "required": ["flow_id"],
             "additionalProperties": false
         })
     }
@@ -2781,10 +3292,36 @@ impl Tool for SaveWorkflowTool {
                 ))
             }
         };
-        let graph_json = match args.get("graph") {
-            Some(v) if !v.is_null() => v.clone(),
-            _ => return Ok(ToolResult::error("Missing 'graph' parameter".to_string())),
-        };
+        // Graph source: a working draft (the usual post-edit_workflow handle) or
+        // an inline graph. `flow_id` above is the persistence TARGET, always
+        // required; the draft only supplies the graph to write. If both a
+        // draft_id and an inline graph are given, the draft wins (it is the
+        // durable working copy the agent just iterated on).
+        let draft_id = args
+            .get("draft_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let graph_json =
+            if let Some(id) = draft_id {
+                match ops::flows_draft_get(&self.config, id) {
+                    Ok(outcome) => outcome.value.graph,
+                    Err(e) => {
+                        return Ok(ToolResult::error(format!(
+                            "Could not load draft '{id}' to save: {e}"
+                        )));
+                    }
+                }
+            } else {
+                match args.get("graph") {
+                    Some(v) if !v.is_null() => v.clone(),
+                    _ => return Ok(ToolResult::error(
+                        "Provide `draft_id` (a working draft) or inline `graph` to save onto the \
+                         flow."
+                            .to_string(),
+                    )),
+                }
+            };
         let name = args
             .get("name")
             .and_then(Value::as_str)
@@ -2878,6 +3415,9 @@ impl Tool for SaveWorkflowTool {
                 }
                 Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
                     "type": "workflow_saved",
+                    // Explicit counterpart to a proposal's persisted:false — this
+                    // graph IS now written onto the saved flow.
+                    "persisted": true,
                     "flow_id": flow.id,
                     "name": flow.name,
                     "enabled": flow.enabled,

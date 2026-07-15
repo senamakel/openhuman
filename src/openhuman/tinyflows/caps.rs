@@ -1201,6 +1201,71 @@ impl AgentRunner for SchemaAwareMockAgentRunner {
     }
 }
 
+/// A **dry-run-only** [`LlmProvider`] mock that, unlike the vendored crate's
+/// `tinyflows::caps::mock::MockLlm`, respects an `agent` node's
+/// `config.output_parser.schema` when synthesizing its completion.
+///
+/// This closes the OTHER half of the same gap [`SchemaAwareMockAgentRunner`]
+/// closes. The vendored `agent` node only routes to an [`AgentRunner`] when the
+/// node carries a **non-empty `agent_ref`** AND the host wired an agent registry
+/// (`vendor/tinyflows/src/nodes/integration/agent.rs`, `run_turn`:
+/// `(Some(agent_ref), Some(runner)) => runner.run_agent(...)`); **every other
+/// case** — and builder-generated agent nodes carry NO `agent_ref` — falls back
+/// to `ctx.caps.llm.complete(cfg.clone(), conn)`. So in the sandbox those plain
+/// agent nodes never reach `SchemaAwareMockAgentRunner` at all: they hit the
+/// `llm` slot, which (with the vendored `MockLlm`) echoes
+/// `{ "completion": <config>, "connection": <conn> }`. The agent node's
+/// output-parser sub-port then validates that echo against the declared schema
+/// (`schema::parse_and_validate` — it validates the WHOLE completion value, not
+/// a `.text` field), no field matches, and it falls to a one-shot LLM auto-fix
+/// that the same `MockLlm` also can't satisfy — so the dry run errors with
+/// `output_parser: value failed schema validation after auto-fix: missing
+/// required property ...` even for a workflow a real run would execute cleanly.
+/// This false-failure burned many dry-run cycles for correctly-built graphs.
+///
+/// When `request` (the node config the node hands to `complete` — see the
+/// `_ => ctx.caps.llm.complete(cfg.clone(), conn)` arm above) carries a non-null
+/// `output_parser.schema`, this returns [`placeholder_for_schema`] DIRECTLY.
+/// The sub-port receives that already-schema-valid object as its `value`
+/// (`validate` returns no errors), so it returns `Ok` WITHOUT ever invoking the
+/// auto-fix LLM path — exactly the shape the vendored validator's
+/// `type`/`required`/`enum` checks accept, with no real model call. With no
+/// schema, it mirrors the vendored `MockLlm` echo shape byte-for-byte
+/// (`{ "completion": request, "connection": conn }`) so schema-less agent
+/// dry-run behavior — and downstream `=nodes.<agent>.item.json.completion...`
+/// bindings — stay identical to today.
+#[derive(Debug, Default, Clone)]
+pub struct SchemaAwareMockLlm;
+
+#[async_trait]
+impl LlmProvider for SchemaAwareMockLlm {
+    async fn complete(&self, request: Value, conn: Option<&str>) -> Result<Value> {
+        let schema = request
+            .get("output_parser")
+            .and_then(|parser| parser.get("schema"))
+            .filter(|schema| !schema.is_null());
+        match schema {
+            Some(schema) => {
+                let placeholder = placeholder_for_schema(schema);
+                tracing::debug!(
+                    target: "flows",
+                    "[flows] dry_run: schema-aware mock LLM synthesized a placeholder \
+                     matching output_parser.schema (plain agent node, no agent_ref)"
+                );
+                Ok(placeholder)
+            }
+            None => {
+                tracing::debug!(
+                    target: "flows",
+                    "[flows] dry_run: schema-aware mock LLM has no output_parser.schema — \
+                     mirroring the vendored MockLlm echo shape"
+                );
+                Ok(json!({ "completion": request, "connection": conn }))
+            }
+        }
+    }
+}
+
 /// Builds a placeholder JSON value satisfying `schema`'s `properties`/`type`
 /// constraints, for [`SchemaAwareMockAgentRunner`]. Only the shallow, top-level
 /// `properties` map is populated — enough for the minimal validator in
@@ -3577,6 +3642,62 @@ mod tests {
             .expect("run_agent");
         assert_eq!(out["agent"], "researcher");
         assert_eq!(out["request"], request);
+    }
+
+    // ── SchemaAwareMockLlm ───────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn schema_aware_mock_llm_mirrors_vendored_echo_without_a_schema() {
+        // No `output_parser.schema`: byte-identical to the vendored `MockLlm`
+        // so schema-less agent dry runs (which route to the `llm` slot, not the
+        // runner) keep today's `{ completion, connection }` shape.
+        let llm = SchemaAwareMockLlm;
+        let request = json!({ "prompt": "hi" });
+        let out = llm
+            .complete(request.clone(), Some("conn_1"))
+            .await
+            .expect("complete");
+        assert_eq!(out["completion"], request);
+        assert_eq!(out["connection"], "conn_1");
+
+        let without_conn = llm.complete(request, None).await.expect("complete");
+        assert!(without_conn["connection"].is_null());
+    }
+
+    #[tokio::test]
+    async fn schema_aware_mock_llm_synthesizes_a_schema_valid_completion() {
+        // A plain agent node (no `agent_ref`) hands its config to the `llm`
+        // slot; the returned object must pass the output-parser sub-port's
+        // validator directly (no auto-fix hop) for every declared type.
+        let llm = SchemaAwareMockLlm;
+        let request = json!({
+            "prompt": "extract",
+            "output_parser": { "schema": { "type": "object",
+                "required": ["email", "count", "active", "meta", "tags"],
+                "properties": {
+                    "email": { "type": "string" },
+                    "count": { "type": "integer" },
+                    "active": { "type": "boolean" },
+                    "meta": { "type": "object" },
+                    "tags": { "type": "array" }
+                } } }
+        });
+        let out = llm.complete(request, None).await.expect("complete");
+        assert_eq!(out["email"], "");
+        assert_eq!(out["count"], 0);
+        assert_eq!(out["active"], false);
+        assert_eq!(out["meta"], json!({}));
+        assert_eq!(out["tags"], json!([]));
+    }
+
+    #[tokio::test]
+    async fn schema_aware_mock_llm_ignores_null_schema() {
+        // `output_parser: { schema: null }` is treated as "no schema" — the
+        // vendored echo shape, same as the runner's null-schema handling.
+        let llm = SchemaAwareMockLlm;
+        let request = json!({ "prompt": "hi", "output_parser": { "schema": null } });
+        let out = llm.complete(request.clone(), None).await.expect("complete");
+        assert_eq!(out["completion"], request);
     }
 
     #[test]

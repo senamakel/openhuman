@@ -58,6 +58,9 @@ async fn valid_graph_returns_workflow_proposal_success() {
     assert_eq!(parsed["type"], "workflow_proposal");
     assert_eq!(parsed["name"], "Daily standup summary");
     assert_eq!(parsed["graph"]["nodes"].as_array().unwrap().len(), 3);
+    // A proposal is never a persisted flow — the payload must say so (WS2) so
+    // an agent can't misread it as a save confirmation.
+    assert_eq!(parsed["persisted"], false);
 }
 
 #[tokio::test]

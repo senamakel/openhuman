@@ -1969,8 +1969,15 @@ const chatRuntimeSlice = createSlice({
       delete state.pendingPlanReviewByThread[threadId];
       // Same for a workflow proposal (B4) — it's a client-only "should the
       // card render" flag with no server-side record, so a rehydrate must
-      // not resurrect one left over from a previous session.
-      delete state.pendingWorkflowProposalsByThread[threadId];
+      // not resurrect one left over from a previous session. But only clear
+      // it on a genuinely stale snapshot (`interrupted` = crashed mid-flight
+      // in a prior process): a `completed` snapshot can be this session's own
+      // just-settled turn, racing against the streaming/blocking path that
+      // set the proposal moments ago — clearing unconditionally here would
+      // wipe a proposal that's still pending the user's Accept/Reject.
+      if (snapshot.lifecycle === 'interrupted') {
+        delete state.pendingWorkflowProposalsByThread[threadId];
+      }
       if (snapshot.taskBoard) {
         state.taskBoardByThread[threadId] = snapshot.taskBoard;
       }

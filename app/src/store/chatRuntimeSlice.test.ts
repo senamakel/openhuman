@@ -18,6 +18,7 @@ import chatRuntimeReducer, {
   setPendingApprovalForThread,
   setQueueStatusForThread,
   setToolTimelineForThread,
+  setWorkflowProposalForThread,
 } from './chatRuntimeSlice';
 
 function makeRun(id: string, status: AgentRunStatus): AgentRun {
@@ -686,6 +687,75 @@ describe('hydrateRuntimeFromSnapshot — live-driver guard', () => {
     const state = store.getState().chatRuntime;
     expect(state.toolTimelineByThread['t-cold'].map(e => e.id)).toEqual(['c-old']);
     expect(state.inferenceTurnLifecycleByThread['t-cold']).toBe('streaming');
+  });
+});
+
+// Regression: `fetchAndHydrateTurnState` (via `hydrateRuntimeFromSnapshot`)
+// fires on thread rehydration (e.g. the always-open Flows copilot re-opening
+// a persisted thread, #4874). A workflow proposal is a client-only flag with
+// no server-side record, so a rehydrate must not resurrect a *stale* one from
+// a crashed prior session — but it must also not wipe a proposal the
+// streaming/blocking path set THIS session, moments before a `completed`
+// snapshot for the same settled turn lands. Only `interrupted` (genuine
+// crashed-mid-flight cleanup) should clear it.
+describe('hydrateRuntimeFromSnapshot — workflow proposal race guard', () => {
+  function makeProposal(name: string) {
+    return {
+      name,
+      graph: { nodes: [], edges: [] },
+      requireApproval: true,
+      summary: { trigger: 'manual', steps: [] },
+    };
+  }
+
+  function makeSnapshot(
+    threadId: string,
+    lifecycle: PersistedTurnState['lifecycle']
+  ): PersistedTurnState {
+    return {
+      threadId,
+      requestId: 'req-1',
+      lifecycle,
+      iteration: 3,
+      maxIterations: 10,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [],
+      startedAt: '2026-06-23T00:00:00Z',
+      updatedAt: '2026-06-23T00:00:00Z',
+    };
+  }
+
+  it('clears a pending proposal on an interrupted (crashed prior-session) snapshot', () => {
+    const store = makeStore();
+    store.dispatch(
+      setWorkflowProposalForThread({ threadId: 't-crashed', proposal: makeProposal('Stale') })
+    );
+
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({ snapshot: makeSnapshot('t-crashed', 'interrupted') })
+    );
+
+    expect(
+      store.getState().chatRuntime.pendingWorkflowProposalsByThread['t-crashed']
+    ).toBeUndefined();
+  });
+
+  it('preserves a pending proposal on a completed snapshot from this session', () => {
+    const store = makeStore();
+    // The streaming/blocking path just set this moments before the
+    // rehydration thunk's `completed` snapshot lands for the same turn.
+    store.dispatch(
+      setWorkflowProposalForThread({ threadId: 't-settled', proposal: makeProposal('Fresh') })
+    );
+
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({ snapshot: makeSnapshot('t-settled', 'completed') })
+    );
+
+    expect(store.getState().chatRuntime.pendingWorkflowProposalsByThread['t-settled']).toEqual(
+      makeProposal('Fresh')
+    );
   });
 });
 

@@ -4111,7 +4111,7 @@ const messages: TranslationMap = {
   'flows.promptBar.submit': 'Создать',
   'flows.promptBar.startBuilding': 'Начать создание',
   'flows.promptBar.disclaimer':
-    'Копайлот — это ИИ, и он может ошибаться. Пожалуйста, проверяйте ответы.',
+    'Копайлот является ИИ и может ошибаться. Пожалуйста, проверяйте ответы.',
   'flows.promptBar.thinking': 'Создание…',
   'flows.promptBar.heroTitle': 'Опишите рабочий процесс',
   'flows.promptBar.heroSubtitle':

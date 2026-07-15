@@ -7,6 +7,7 @@ use tinycortex::memory::score::ScoringConfig;
 
 use crate::openhuman::config::Config;
 
+#[derive(Default)]
 pub struct HostTreeJobSink;
 
 impl HostTreeJobSink {

@@ -2299,6 +2299,12 @@ impl Tool for DryRunWorkflowTool {
         let mut caps = tinyflows::caps::mock::mock_capabilities_with_agent(
             crate::openhuman::tinyflows::caps::SchemaAwareMockAgentRunner,
         );
+        // Plain agent nodes (no `agent_ref`) never reach the runner above —
+        // the vendored `agent` node routes them to the `llm` slot instead (see
+        // `SchemaAwareMockLlm`'s doc). Swap the vendored `MockLlm` echo for the
+        // schema-aware mock so their `output_parser.schema` is honored too,
+        // instead of the echo shape failing the sub-port's validation.
+        caps.llm = std::sync::Arc::new(crate::openhuman::tinyflows::caps::SchemaAwareMockLlm);
         // Wiring preflight over the echo mocks (see the struct doc): required
         // Composio args must be present and non-null even in the sandbox.
         caps.tools = std::sync::Arc::new(crate::openhuman::tinyflows::caps::PreflightToolInvoker {

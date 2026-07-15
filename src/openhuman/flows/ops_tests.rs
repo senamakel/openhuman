@@ -2190,6 +2190,37 @@ async fn validate_required_arg_resolvability_rejects_an_explicit_nodes_reference
     assert!(errors[0].contains("nodes.build_body"), "{}", errors[0]);
 }
 
+/// A required tool arg wired to a PLAIN agent node's (`no agent_ref`)
+/// `output_parser.schema` field must pass this sandbox gate: the schema-aware
+/// mock LLM (wired above via `caps.llm = SchemaAwareMockLlm`) synthesizes a
+/// schema-valid completion, so the agent's output-parser sub-port succeeds and
+/// the downstream `=nodes.<agent>.item.json.<field>` binding resolves to a typed
+/// placeholder (non-null) instead of the run aborting on a schema-validation
+/// failure. Without the mock LLM this gate would sink `propose_workflow`/`save`
+/// on a correctly-built graph (the vendored `MockLlm` echo fails the sub-port).
+#[tokio::test]
+async fn validate_required_arg_resolvability_accepts_a_schema_agent_field_binding() {
+    let g = graph(json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "summarize", "kind": "agent", "name": "Summarize",
+              "config": { "prompt": "summarize the thread",
+                "output_parser": { "schema": { "type": "object",
+                    "required": ["channel"],
+                    "properties": { "channel": { "type": "string" } } } } } },
+            { "id": "post", "kind": "tool_call", "name": "Post",
+              "config": { "slug": "SLACK_SEND_MESSAGE",
+                "args": { "channel": "=nodes.summarize.item.json.channel" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "summarize" },
+            { "from_node": "summarize", "to_node": "post" }
+        ]
+    }));
+    let errors = validate_required_arg_resolvability(&g).await;
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
 /// (Codex feedback on this PR) `notion` ships a static curated catalog
 /// (`catalog_for_toolkit`), so at RUNTIME `flow_tool_allowed`'s Path A
 /// hard-rejects any slug `find_curated` doesn't recognize — even a real,

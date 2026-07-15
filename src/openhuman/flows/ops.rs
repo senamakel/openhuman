@@ -1348,13 +1348,19 @@ const REQUIRED_ARG_NULL_CHECK_TIMEOUT_SECS: u64 = 15;
 /// check only ever adds a diagnostic the sandbox actually observed.
 pub(crate) async fn validate_required_arg_resolvability(graph: &WorkflowGraph) -> Vec<String> {
     use crate::openhuman::flows::builder_tools::CapturingObserver;
-    use crate::openhuman::tinyflows::caps::SchemaAwareMockAgentRunner;
+    use crate::openhuman::tinyflows::caps::{SchemaAwareMockAgentRunner, SchemaAwareMockLlm};
 
     let Ok(compiled) = tinyflows::compiler::compile(graph) else {
         return Vec::new();
     };
 
-    let caps = tinyflows::caps::mock::mock_capabilities_with_agent(SchemaAwareMockAgentRunner);
+    let mut caps = tinyflows::caps::mock::mock_capabilities_with_agent(SchemaAwareMockAgentRunner);
+    // Same fix as `DryRunWorkflowTool`: a plain agent node (no `agent_ref`)
+    // routes to the `llm` slot, not the runner above, so the vendored `MockLlm`
+    // echo would fail its `output_parser.schema` sub-port and make this gate
+    // reject a correct graph (which is why `propose_workflow` was rejecting
+    // valid graphs). The schema-aware mock LLM honors the schema instead.
+    caps.llm = Arc::new(SchemaAwareMockLlm);
 
     let observer = Arc::new(CapturingObserver::default());
     let observer_dyn: Arc<dyn tinyflows::observability::RunObserver> = observer.clone();

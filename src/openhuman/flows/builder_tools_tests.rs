@@ -588,6 +588,78 @@ async fn dry_run_exercises_agent_ref_node_via_mock_agent_runner() {
 }
 
 #[tokio::test]
+async fn dry_run_plain_agent_with_output_parser_schema_is_green() {
+    // Regression for the transcript false-failure: a builder-generated `agent`
+    // node carries NO `agent_ref`, so the vendored engine routes it to the
+    // `llm` slot (not the `AgentRunner`). Before `SchemaAwareMockLlm` the plain
+    // `MockLlm` echo (`{ completion, connection }`) failed the node's
+    // `output_parser.schema` sub-port with `output_parser: value failed schema
+    // validation after auto-fix: missing required property ...`, sinking a
+    // correctly-built graph. Now the mock LLM synthesizes a schema-valid object,
+    // and a downstream node binds the typed placeholders (non-null).
+    let tool = DryRunWorkflowTool::new(
+        policy(AutonomyLevel::Supervised),
+        test_config(&TempDir::new().unwrap()),
+    );
+    let graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Schedule",
+              "config": { "trigger_kind": "schedule" } },
+            { "id": "a", "kind": "agent", "name": "Extract",
+              "config": { "prompt": "extract the fields",
+                "output_parser": { "schema": { "type": "object",
+                    "required": ["subject", "priority", "recipients"],
+                    "properties": {
+                        "subject": { "type": "string" },
+                        "priority": { "type": "integer" },
+                        "recipients": { "type": "array" }
+                    } } } } },
+            // Downstream node binds the schema'd agent fields: proves the
+            // placeholders are addressable and resolve to typed (non-null)
+            // values, not the vendored echo's opaque `{ completion, ... }`.
+            { "id": "down", "kind": "transform", "name": "Route",
+              "config": { "set": {
+                  "subject": "=nodes.a.item.json.subject",
+                  "priority": "=nodes.a.item.json.priority",
+                  "recipients": "=nodes.a.item.json.recipients" } } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "a" },
+            { "from_node": "a", "to_node": "down" }
+        ]
+    });
+    let result = tool
+        .execute(json!({ "graph": graph, "input": { "topic": "launch" } }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let out = result.output();
+    assert!(
+        !out.to_lowercase().contains("schema validation"),
+        "plain agent with a valid schema must not hit the output_parser failure: {out}"
+    );
+    let parsed: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(parsed["sandbox"], true);
+    assert_eq!(
+        parsed["ok"], true,
+        "plain-agent-with-schema dry-run must be green: {parsed}"
+    );
+    // The agent envelope's `json` carries the schema-synthesized placeholders.
+    // (In the run OUTPUT each Item serializes as `{ json: <value> }`, and the
+    // agent's value is the `{json,text,raw}` envelope — hence the double hop.)
+    let agent_json = &parsed["output"]["nodes"]["a"]["items"][0]["json"]["json"];
+    assert_eq!(agent_json["subject"], "", "{parsed}");
+    assert_eq!(agent_json["priority"], 0, "{parsed}");
+    assert_eq!(agent_json["recipients"], json!([]), "{parsed}");
+    // The downstream node's bindings resolved to those typed placeholders —
+    // none of them null.
+    let down_json = &parsed["output"]["nodes"]["down"]["items"][0]["json"];
+    assert!(!down_json["subject"].is_null(), "{parsed}");
+    assert_eq!(down_json["priority"], 0, "{parsed}");
+    assert_eq!(down_json["recipients"], json!([]), "{parsed}");
+}
+
+#[tokio::test]
 async fn dry_run_invalid_graph_is_error() {
     let tool = DryRunWorkflowTool::new(
         policy(AutonomyLevel::Full),

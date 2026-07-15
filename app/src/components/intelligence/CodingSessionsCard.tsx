@@ -106,6 +106,7 @@ export function CodingSessionsCard({ onToast }: CodingSessionsCardProps) {
           </p>
         </div>
         <Button
+          analyticsId="brain-sources-coding-sessions-ingest"
           size="sm"
           onClick={() => void ingest()}
           disabled={loading || ingesting || !hasImportableHistory}

@@ -40,6 +40,10 @@ describe('CodingSessionsCard', () => {
       '3 sessions · 7 human turns'
     );
     expect(screen.getByTestId('coding-sessions-ingest')).toBeEnabled();
+    expect(screen.getByTestId('coding-sessions-ingest')).toHaveAttribute(
+      'data-analytics-id',
+      'brain-sources-coding-sessions-ingest'
+    );
   });
 
   it('ingests incrementally and reports the distilled observations', async () => {

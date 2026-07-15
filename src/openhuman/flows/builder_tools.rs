@@ -438,6 +438,135 @@ impl Tool for EditWorkflowTool {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// validate_workflow — standalone check without proposing (F3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `validate_workflow`: run the SAME structural validation + hard-gate stack
+/// the propose/revise/edit/save tools use, but WITHOUT emitting a proposal —
+/// a pure check so the agent can verify a draft (or a saved flow) mid-build.
+///
+/// Returns a structured report `{ ok, structurally_valid, errors[],
+/// error_details[], gate_errors[], warnings[] }`, so a failing check is
+/// fix-and-retry rather than a proposal the user has to reject.
+pub struct ValidateWorkflowTool {
+    config: Arc<Config>,
+}
+
+impl ValidateWorkflowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for ValidateWorkflowTool {
+    fn name(&self) -> &str {
+        "validate_workflow"
+    }
+
+    fn description(&self) -> &str {
+        "Check a workflow graph WITHOUT proposing or saving it — the same validation the \
+         propose/revise/edit/save tools run, surfaced on its own so you can verify a draft mid-\
+         build. Provide the graph to check (inline `graph`, or `flow_id` for a saved flow). \
+         Returns { ok, structurally_valid, errors, error_details:[{code, message, node_id}], \
+         gate_errors, warnings }: `errors` lists EVERY structural problem at once; `gate_errors` \
+         lists the hard author-gate failures (unresolvable bindings, unreal tool slugs, unwired \
+         required args) checked only once the graph is structurally valid; `warnings` are \
+         non-fatal. `ok` is true only when there are no errors and no gate_errors. Read-only."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": {
+                    "type": "string",
+                    "description": "A saved flow to validate. Provide this OR `graph`."
+                },
+                "graph": {
+                    "type": "object",
+                    "description": "An inline tinyflows WorkflowGraph to validate. Provide this OR `flow_id`.",
+                    "properties": {
+                        "nodes": { "type": "array" },
+                        "edges": { "type": "array" }
+                    }
+                }
+            }
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        // Resolve the graph to check from either a saved flow or an inline graph.
+        let flow_id = args
+            .get("flow_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let inline_graph = args.get("graph").filter(|v| !v.is_null());
+
+        let graph_json = match (flow_id, inline_graph) {
+            (Some(id), _) => match ops::load_flow_graph(&self.config, id) {
+                Ok(Some(graph)) => serde_json::to_value(&graph)?,
+                Ok(None) => {
+                    return Ok(ToolResult::error(format!("flow '{id}' not found")));
+                }
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load flow '{id}' to validate: {e}"
+                    )));
+                }
+            },
+            (None, Some(graph)) => graph.clone(),
+            (None, None) => {
+                return Ok(ToolResult::error(
+                    "Provide either `flow_id` (a saved flow) or `graph` (an inline graph) to \
+                     validate."
+                        .to_string(),
+                ));
+            }
+        };
+
+        tracing::debug!(
+            target: "flows",
+            from_flow = flow_id.is_some(),
+            "[flows] validate_workflow: checking graph (read-only)"
+        );
+
+        // Structural validation first (every error at once).
+        let validation = ops::flows_validate(graph_json.clone()).value;
+
+        // Only run the (expensive) hard gates on a structurally-valid graph.
+        let gate_errors = if validation.valid {
+            match ops::migrate_and_deserialize_graph(graph_json) {
+                Ok(graph) => ops::run_builder_gates(&self.config, &graph).await,
+                Err(_) => Vec::new(),
+            }
+        } else {
+            Vec::new()
+        };
+
+        let ok = validation.valid && gate_errors.is_empty();
+        let report = json!({
+            "ok": ok,
+            "structurally_valid": validation.valid,
+            "errors": validation.errors,
+            "error_details": validation.error_details,
+            "gate_errors": gate_errors,
+            "warnings": validation.warnings,
+        });
+        Ok(ToolResult::success(serde_json::to_string_pretty(&report)?))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // list_flows — read-only: saved flow summaries
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2103,51 +2232,21 @@ impl Tool for SaveWorkflowTool {
                 )));
             }
         };
-        let binding_errors = ops::validate_binding_resolvability(&graph);
-        if !binding_errors.is_empty() {
+        // The full builder hard-gate stack, run through the single canonical
+        // runner shared with propose/revise/edit and the strict create/update
+        // RPC path (F3) — so an agent can never persist a graph that would fail
+        // gates the other planes enforce.
+        let gate_errors = ops::run_builder_gates(&self.config, &graph).await;
+        if !gate_errors.is_empty() {
             tracing::debug!(
                 target: "flows",
                 %flow_id,
-                error_count = binding_errors.len(),
-                "[flows] save_workflow: binding-resolvability check rejected the graph"
+                error_count = gate_errors.len(),
+                "[flows] save_workflow: a hard gate rejected the graph"
             );
             return Ok(ToolResult::error(format!(
-                "{}\n\nFix these bindings and call save_workflow again.",
-                binding_errors.join("\n\n")
-            )));
-        }
-        // Tool-contract enforcement gate (systemic tool-contract fix, Part 2):
-        // reject a `tool_call` node whose slug isn't a REAL action in the
-        // live Composio catalog, or whose real required args aren't all
-        // wired — before the graph is ever persisted.
-        let contract_errors = ops::validate_tool_contracts(&self.config, &graph).await;
-        if !contract_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %flow_id,
-                error_count = contract_errors.len(),
-                "[flows] save_workflow: tool-contract check rejected the graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these tool_call nodes and call save_workflow again.",
-                contract_errors.join("\n\n")
-            )));
-        }
-        // Required-arg resolvability gate (issue B18): reject outright — not
-        // just warn — a REQUIRED outbound arg that LOOKS wired but resolves
-        // to `null` in a sandboxed test run, before the graph is ever
-        // persisted. See `ops::validate_required_arg_resolvability`.
-        let null_arg_errors = ops::validate_required_arg_resolvability(&graph).await;
-        if !null_arg_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %flow_id,
-                error_count = null_arg_errors.len(),
-                "[flows] save_workflow: required-arg resolvability check rejected the graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these bindings and call save_workflow again.",
-                null_arg_errors.join("\n\n")
+                "{}\n\nFix these and call save_workflow again.",
+                gate_errors.join("\n\n")
             )));
         }
         // Author-time warnings (unfired trigger kinds + unwired REQUIRED

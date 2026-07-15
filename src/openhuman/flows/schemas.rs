@@ -167,6 +167,17 @@ fn require_approval_input() -> FieldSchema {
     }
 }
 
+fn strict_input() -> FieldSchema {
+    FieldSchema {
+        name: "strict",
+        ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+        comment: "Run the same author hard-gates an agent save must pass (unresolvable bindings, \
+                  unreal tool slugs, unwired required args) before persisting, rejecting the \
+                  write if any fail. Defaults to `false` — the permissive human-canvas path.",
+        required: false,
+    }
+}
+
 fn run_output_fields() -> Vec<FieldSchema> {
     vec![
         FieldSchema {
@@ -368,6 +379,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
                 require_approval_input(),
+                strict_input(),
             ],
             outputs: vec![flow_output()],
         },
@@ -516,6 +528,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
                 require_approval_input(),
+                strict_input(),
             ],
             outputs: vec![flow_output()],
         },
@@ -896,6 +909,16 @@ fn handle_create(params: Map<String, Value>) -> ControllerFuture {
             .get("require_approval")
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        // Opt-in strict mode (F3): run the same author hard-gates an agent save
+        // must pass, before persisting. Default off — the human canvas save
+        // path stays permissive.
+        if params
+            .get("strict")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            ops::strict_gate(&config, &graph).await?;
+        }
         to_json(ops::flows_create(&config, name, graph, require_approval).await?)
     })
 }
@@ -964,6 +987,17 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
             .map_err(|e| format!("invalid 'name': {e}"))?;
         let graph = params.get("graph").filter(|v| !v.is_null()).cloned();
         let require_approval = params.get("require_approval").and_then(Value::as_bool);
+        // Opt-in strict mode (F3): when a new graph is supplied, run the same
+        // author hard-gates an agent save must pass, before persisting.
+        if params
+            .get("strict")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            if let Some(graph_json) = graph.as_ref() {
+                ops::strict_gate(&config, graph_json).await?;
+            }
+        }
         to_json(ops::flows_update(&config, id.trim(), name, graph, require_approval).await?)
     })
 }

@@ -1539,3 +1539,54 @@ async fn edit_workflow_edits_a_saved_flow_by_id() {
     let agent = nodes.iter().find(|n| n["id"] == "a").unwrap();
     assert_eq!(agent["name"], "Renamed step");
 }
+
+// ── validate_workflow (F3: standalone check) ─────────────────────────────────
+
+#[tokio::test]
+async fn validate_workflow_reports_ok_for_a_valid_graph() {
+    let tmp = TempDir::new().unwrap();
+    let tool = ValidateWorkflowTool::new(test_config(&tmp));
+    let result = tool
+        .execute(json!({ "graph": valid_graph() }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["ok"], true);
+    assert_eq!(parsed["structurally_valid"], true);
+    assert_eq!(parsed["errors"].as_array().unwrap().len(), 0);
+    assert_eq!(parsed["gate_errors"].as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn validate_workflow_surfaces_all_structural_errors() {
+    let tmp = TempDir::new().unwrap();
+    let tool = ValidateWorkflowTool::new(test_config(&tmp));
+    // No trigger + a dangling edge.
+    let graph = json!({
+        "nodes": [ { "id": "a", "kind": "agent", "name": "A", "config": { "prompt": "hi" } } ],
+        "edges": [ { "from_node": "a", "to_node": "ghost" } ]
+    });
+    let result = tool.execute(json!({ "graph": graph })).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["ok"], false);
+    assert_eq!(parsed["structurally_valid"], false);
+    let codes: Vec<&str> = parsed["error_details"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["code"].as_str().unwrap())
+        .collect();
+    assert!(codes.contains(&"missing_trigger"), "{codes:?}");
+    assert!(codes.contains(&"unknown_node"), "{codes:?}");
+}
+
+#[tokio::test]
+async fn validate_workflow_requires_a_base() {
+    let tmp = TempDir::new().unwrap();
+    let tool = ValidateWorkflowTool::new(test_config(&tmp));
+    let result = tool.execute(json!({})).await.unwrap();
+    assert!(result.is_error);
+    assert!(result.output().contains("flow_id"));
+}

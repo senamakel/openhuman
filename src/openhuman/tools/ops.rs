@@ -291,6 +291,10 @@ pub fn all_tools_with_runtime(
         // then validate + gate + return a proposal (same contract as revise).
         // Proposal-only — never persists.
         Box::new(EditWorkflowTool::new(config.clone())),
+        // Standalone validate (F3): run the SAME structural + hard-gate stack
+        // the propose/save tools use, without emitting a proposal — a pure
+        // check so the agent can self-verify a draft mid-build. Read-only.
+        Box::new(ValidateWorkflowTool::new(config.clone())),
         Box::new(ListFlowsTool::new(config.clone())),
         Box::new(GetFlowTool::new(config.clone())),
         Box::new(GetFlowRunTool::new(config.clone())),

@@ -3694,3 +3694,19 @@ fn trigger_is_automatic_no_trigger_kind() {
     let g = graph(trigger_only_graph());
     assert!(!trigger_is_automatic(&g));
 }
+
+#[tokio::test]
+async fn strict_gate_passes_a_valid_graph_and_rejects_a_structurally_invalid_one() {
+    let config = Config::default();
+    // A trigger-only graph is structurally valid and has no outbound gates.
+    assert!(strict_gate(&config, &trigger_only_graph()).await.is_ok());
+
+    // No trigger → structural failure surfaced by strict mode.
+    let bad = json!({
+        "nodes": [ { "id": "a", "kind": "output_parser", "name": "A" } ],
+        "edges": []
+    });
+    let err = strict_gate(&config, &bad).await.unwrap_err();
+    assert!(err.contains("structurally invalid"), "{err}");
+    assert!(err.contains("trigger"), "{err}");
+}

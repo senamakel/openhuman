@@ -119,6 +119,68 @@ pub(crate) fn to_flow_validation_error(
     }
 }
 
+/// The single canonical definition of the builder hard-gate stack: the three
+/// author-time gates that reject (not warn) a graph an agent must not propose
+/// or persist — binding-resolvability, tool-contract, and required-arg
+/// resolvability, in increasing cost order.
+///
+/// Returns an empty `Vec` when the graph passes; otherwise the first failing
+/// gate's node-level error messages (short-circuiting, so an expensive later
+/// gate never runs on a graph already known to be broken). Every plane that
+/// gates an agent-authored graph — `build_builder_proposal` (propose / revise /
+/// edit), `save_workflow`, and the `strict` create/update RPC path — routes
+/// through here, so they cannot drift (audit F3: agent saves and UI saves used
+/// to validate differently).
+///
+/// Assumes `graph` is already structurally valid (run
+/// `validate_and_migrate_graph` / `validate_all` first) — these gates check
+/// resolvability/contracts on a compilable graph.
+pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    // Cheap, sync: a binding guaranteed to resolve null / wrong at runtime.
+    let binding_errors = validate_binding_resolvability(graph);
+    if !binding_errors.is_empty() {
+        return binding_errors;
+    }
+    // Async, live catalog: a tool_call whose slug isn't a real Composio action
+    // or whose real required args aren't all wired.
+    let contract_errors = validate_tool_contracts(config, graph).await;
+    if !contract_errors.is_empty() {
+        return contract_errors;
+    }
+    // Async, sandbox run: a required outbound arg that looks wired but resolves
+    // null in a mock execution.
+    validate_required_arg_resolvability(graph).await
+}
+
+/// Strict-mode gate for the create/update RPC path (audit F3): validates
+/// `graph_json` structurally (surfacing every error at once) and then runs the
+/// same [`run_builder_gates`] the agent tools enforce, returning `Err` with a
+/// combined, model-consumable message if anything fails.
+///
+/// The UI/RPC create/update path stays permissive by default (a human editing
+/// on the canvas may save a work-in-progress graph); passing `strict: true`
+/// opts that call into the *same* gates an agent save must pass, so the two
+/// planes converge on one definition instead of diverging.
+pub(crate) async fn strict_gate(config: &Config, graph_json: &Value) -> Result<(), String> {
+    let graph = migrate_and_deserialize_graph(graph_json.clone())?;
+    let structural = tinyflows::validate::validate_all(&graph);
+    if !structural.is_empty() {
+        let messages: Vec<String> = structural.iter().map(ToString::to_string).collect();
+        return Err(format!(
+            "strict validation failed — the graph is structurally invalid:\n{}",
+            messages.join("\n")
+        ));
+    }
+    let gate_errors = run_builder_gates(config, &graph).await;
+    if !gate_errors.is_empty() {
+        return Err(format!(
+            "strict validation failed:\n{}",
+            gate_errors.join("\n\n")
+        ));
+    }
+    Ok(())
+}
+
 /// Runs the full builder hard-gate stack on an already structurally-valid
 /// `graph` and, if it passes, builds the `workflow_proposal` payload the
 /// propose/revise/edit tools all return.
@@ -143,33 +205,13 @@ pub(crate) async fn build_builder_proposal(
     revision: bool,
     instruction: Option<String>,
 ) -> Result<Value, String> {
-    // Binding-resolvability gate: reject (not warn) a binding guaranteed to
-    // resolve null / wrong at runtime.
-    let binding_errors = validate_binding_resolvability(graph);
-    if !binding_errors.is_empty() {
+    // The full builder hard-gate stack, run through the single canonical
+    // runner so every proposal/save/strict-RPC path gates identically (F3).
+    let gate_errors = run_builder_gates(config, graph).await;
+    if !gate_errors.is_empty() {
         return Err(format!(
-            "{}\n\nFix these bindings and call {retry_tool} again.",
-            binding_errors.join("\n\n")
-        ));
-    }
-
-    // Tool-contract gate: reject a tool_call whose slug isn't a real live
-    // Composio action, or whose real required args aren't all wired.
-    let contract_errors = validate_tool_contracts(config, graph).await;
-    if !contract_errors.is_empty() {
-        return Err(format!(
-            "{}\n\nFix these tool_call nodes and call {retry_tool} again.",
-            contract_errors.join("\n\n")
-        ));
-    }
-
-    // Required-arg resolvability gate: reject a required outbound arg that looks
-    // wired but resolves null in a sandbox run.
-    let null_arg_errors = validate_required_arg_resolvability(graph).await;
-    if !null_arg_errors.is_empty() {
-        return Err(format!(
-            "{}\n\nFix these bindings and call {retry_tool} again.",
-            null_arg_errors.join("\n\n")
+            "{}\n\nFix these and call {retry_tool} again.",
+            gate_errors.join("\n\n")
         ));
     }
 

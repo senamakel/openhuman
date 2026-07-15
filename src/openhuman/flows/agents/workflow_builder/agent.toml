@@ -50,6 +50,7 @@ named = [
     "propose_workflow",
     "revise_workflow",
     "edit_workflow",
+    "validate_workflow",
     "save_workflow",
     "list_flows",
     "get_flow",

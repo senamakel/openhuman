@@ -1,1 +1,2 @@
-export { AnalyticsPageTracker, trackAnalyticsEvent } from './AnalyticsTracker';
+export { trackAnalyticsEvent } from '../../services/analytics';
+export { AnalyticsPageTracker } from './AnalyticsTracker';

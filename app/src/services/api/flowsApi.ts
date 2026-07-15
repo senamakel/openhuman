@@ -28,9 +28,9 @@
  */
 import debug from 'debug';
 
-import { trackAnalyticsEvent } from '../../components/analytics';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
+import { trackAnalyticsEvent } from '../analytics';
 import { callCoreRpc } from '../coreRpcClient';
 
 const log = debug('flowsApi');

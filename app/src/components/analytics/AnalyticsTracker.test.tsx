@@ -2,14 +2,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AnalyticsPageTracker, trackAnalyticsEvent } from './AnalyticsTracker';
+import { AnalyticsPageTracker } from './AnalyticsTracker';
 
-const mocks = vi.hoisted(() => ({ trackEvent: vi.fn(), trackPageView: vi.fn() }));
+const mocks = vi.hoisted(() => ({ trackPageView: vi.fn() }));
 
-vi.mock('../../services/analytics', () => ({
-  trackEvent: mocks.trackEvent,
-  trackPageView: mocks.trackPageView,
-}));
+vi.mock('../../services/analytics', () => ({ trackPageView: mocks.trackPageView }));
 
 describe('analytics tracking primitives', () => {
   it('tracks a page when its path changes', () => {
@@ -34,10 +31,5 @@ describe('analytics tracking primitives', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Navigate' }));
     expect(mocks.trackPageView).toHaveBeenLastCalledWith('/flows');
-  });
-
-  it('provides the same typed facade for successful non-click outcomes', () => {
-    trackAnalyticsEvent('chat_message_sent', { send_mode: 'standard' });
-    expect(mocks.trackEvent).toHaveBeenCalledWith('chat_message_sent', { send_mode: 'standard' });
   });
 });

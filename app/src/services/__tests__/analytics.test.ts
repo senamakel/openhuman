@@ -604,13 +604,13 @@ describe('trackPageView (OpenPanel)', () => {
   test('suppresses synchronous analytics provider failures', async () => {
     hoisted.analyticsEnabled = true;
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { initGA, trackEvent } = await freshAnalytics();
+    const { initGA, trackAnalyticsEvent } = await freshAnalytics();
     initGA();
     window.gtag = vi.fn(() => {
       throw new Error('provider unavailable');
     });
 
-    expect(() => trackEvent('app_open')).not.toThrow();
+    expect(() => trackAnalyticsEvent('app_open')).not.toThrow();
     expect(warn).toHaveBeenCalledWith('[analytics] trackEvent failed', {
       eventName: 'app_open',
       error: 'Error',

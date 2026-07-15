@@ -1,6 +1,6 @@
 import debug from 'debug';
 
-import { trackAnalyticsEvent } from '../../components/analytics';
+import { trackAnalyticsEvent } from '../analytics';
 import { callCoreRpc } from '../coreRpcClient';
 
 const log = debug('skillsApi');

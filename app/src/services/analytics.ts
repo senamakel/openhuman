@@ -37,7 +37,6 @@ import {
 } from '../utils/config';
 import { startInteractionTracking } from './analyticsInteractions';
 import { currentAppPath, currentPageHash, normalizeAnalyticsPagePath } from './analyticsRoutes';
-import { CoreRpcError } from './coreRpcClient';
 
 // ---------------------------------------------------------------------------
 // Google Analytics 4 typings — raw gtag.js API
@@ -120,13 +119,12 @@ export function isAnalyticsEnabled(): boolean {
 
 /**
  * Cross-realm-safe check for a `CoreRpcError` with `kind === 'timeout'`.
- * `instanceof` can fail across module scopes (test harness, dynamic import,
- * Vitest module isolation), so also accept a duck-typed match on `name`
- * and `kind`. Used by the Sentry `beforeSend` filter to drop the
+ * Use a duck-typed match on `name` and `kind` so this service stays independent
+ * from the RPC client and works across test/module realms. Used by the Sentry
+ * `beforeSend` filter to drop the
  * OPENHUMAN-REACT-15/11/10/12/Z/Y family at the source.
  */
 function isCoreRpcTimeoutError(err: unknown): boolean {
-  if (err instanceof CoreRpcError) return err.kind === 'timeout';
   if (typeof err !== 'object' || err === null) return false;
   const candidate = err as { name?: unknown; kind?: unknown };
   return candidate.name === 'CoreRpcError' && candidate.kind === 'timeout';
@@ -400,6 +398,11 @@ export function trackEvent(eventName: string, params?: AnalyticsParams): void {
       error: error instanceof Error ? error.name : typeof error,
     });
   }
+}
+
+/** Typed, best-effort facade for successful domain outcomes. */
+export function trackAnalyticsEvent(eventName: AnalyticsEventName, params?: AnalyticsParams): void {
+  trackEvent(eventName, params);
 }
 
 function trackEventUnsafe(eventName: string, params?: AnalyticsParams): void {

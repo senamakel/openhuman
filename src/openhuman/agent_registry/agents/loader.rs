@@ -1017,7 +1017,12 @@ mod tests {
         // (hard-refused otherwise, regardless of the user's scope preference)
         // against an already-connected toolkit — see `builder_tools.rs`'s
         // module doc. This pins the invariant in the agent definition itself,
-        // not just the tool implementations.
+        // not just the tool implementations. It also has read-only grounding
+        // in the user's memory via `memory_recall` (direct lookups) and
+        // `memory_hybrid_search` (keyword/lexical lookups — pairs with
+        // `memory_recall` the same way the sibling `flow_discovery` agent
+        // does) — no `memory_store`, so it can look up context but never
+        // write it.
         let def = find("workflow_builder");
         assert_eq!(def.agent_tier, AgentTier::Worker);
         assert_eq!(def.delegate_name.as_deref(), Some("build_workflow"));
@@ -1034,23 +1039,47 @@ mod tests {
         );
         match &def.tools {
             ToolScope::Named(names) => {
+                // Reconciled against `agent.toml`'s current `[tools].named`
+                // after the workflow-tools expansion PR widened the belt to
+                // agent-native editing/creation/run-control (`edit_workflow`,
+                // `validate_workflow`, `create_workflow`, `duplicate_flow`,
+                // `list_node_kinds`, `get_node_kind_contract`,
+                // `get_flow_history`, `list_flow_runs`, `resume_flow_run`,
+                // `cancel_flow_run`, `list_connectable_toolkits`) — these are
+                // the agent's own scoped tool surface, not the raw `flows_*`
+                // controller RPCs banned below, so the "no flow
+                // creation/enable via the raw controller" invariant still
+                // holds via the forbidden list.
                 let expected = [
                     "propose_workflow",
                     "revise_workflow",
+                    "edit_workflow",
+                    "validate_workflow",
                     "save_workflow",
                     "list_flows",
                     "get_flow",
+                    "get_flow_history",
                     "get_flow_run",
                     "list_flow_connections",
                     "search_tool_catalog",
                     "get_tool_contract",
                     "get_tool_output_sample",
                     "list_agent_profiles",
+                    "list_connectable_toolkits",
+                    "list_node_kinds",
+                    "get_node_kind_contract",
                     "dry_run_workflow",
+                    "list_flow_runs",
+                    "resume_flow_run",
+                    "cancel_flow_run",
+                    "create_workflow",
+                    "duplicate_flow",
                     "run_flow",
                     "composio_list_toolkits",
                     "composio_list_connections",
                     "composio_connect",
+                    "memory_recall",
+                    "memory_hybrid_search",
                 ];
                 for required in expected {
                     assert!(
@@ -1063,8 +1092,9 @@ mod tests {
                     expected.len(),
                     "workflow_builder scope must be EXACTLY the propose-or-read belt (got {names:?})"
                 );
-                // Hard exclusions: nothing that creates/enables a flow,
-                // executes raw integration actions, or touches the host.
+                // Hard exclusions: nothing that reaches the raw flow
+                // controller directly, executes raw integration actions, or
+                // touches the host.
                 // (Persistence onto an EXISTING flow is the deliberate
                 // `save_workflow` carve-out above; raw `flows_update` — which
                 // could also rename/re-gate arbitrary flows — stays out.)
@@ -1078,6 +1108,8 @@ mod tests {
                     "apply_patch",
                     "composio_execute",
                     "spawn_subagent",
+                    // Memory access must stay read-only: no write tool.
+                    "memory_store",
                 ] {
                     assert!(
                         !names.iter().any(|n| n == forbidden),

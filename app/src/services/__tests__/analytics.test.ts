@@ -601,6 +601,22 @@ describe('trackPageView (OpenPanel)', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  test('suppresses synchronous analytics provider failures', async () => {
+    hoisted.analyticsEnabled = true;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { initGA, trackEvent } = await freshAnalytics();
+    initGA();
+    window.gtag = vi.fn(() => {
+      throw new Error('provider unavailable');
+    });
+
+    expect(() => trackEvent('app_open')).not.toThrow();
+    expect(warn).toHaveBeenCalledWith('[analytics] trackEvent failed', {
+      eventName: 'app_open',
+      error: 'Error',
+    });
+  });
+
   test('is a no-op when OpenPanel was never initialized', async () => {
     const { trackPageView } = await freshAnalytics();
     trackPageView('/home');
@@ -741,6 +757,7 @@ describe('startUiInteractionTracking', () => {
   });
 
   test('distinguishes unlabelled controls without reading their text', async () => {
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
     const { initGA, startUiInteractionTracking } = await freshAnalytics();
     initGA();
     const stop = startUiInteractionTracking();
@@ -754,6 +771,10 @@ describe('startUiInteractionTracking', () => {
 
     expect(openPanelPayload().payload.properties.control_id).toBe('button_2');
     expect(JSON.stringify(openPanelPayload())).not.toContain('private');
+    expect(debug).toHaveBeenCalledWith('[analytics] controlIdentifier fallback', {
+      tag: 'button',
+      position: 1,
+    });
     stop();
   });
 

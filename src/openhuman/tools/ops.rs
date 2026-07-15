@@ -286,6 +286,11 @@ pub fn all_tools_with_runtime(
         // read tools are `PermissionLevel::None`, and `dry_run_workflow` is
         // autonomy-tier gated + wired to deterministic mock capabilities.
         Box::new(ReviseWorkflowTool::new(config.clone())),
+        // Structured incremental edits (F1): apply a small ops[] list to a base
+        // graph (saved flow or inline) instead of re-emitting the whole graph,
+        // then validate + gate + return a proposal (same contract as revise).
+        // Proposal-only — never persists.
+        Box::new(EditWorkflowTool::new(config.clone())),
         Box::new(ListFlowsTool::new(config.clone())),
         Box::new(GetFlowTool::new(config.clone())),
         Box::new(GetFlowRunTool::new(config.clone())),

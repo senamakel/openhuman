@@ -119,6 +119,90 @@ pub(crate) fn to_flow_validation_error(
     }
 }
 
+/// Runs the full builder hard-gate stack on an already structurally-valid
+/// `graph` and, if it passes, builds the `workflow_proposal` payload the
+/// propose/revise/edit tools all return.
+///
+/// The single home for the gate sequence (binding-resolvability →
+/// tool-contract → required-arg resolvability) plus summary/warning assembly,
+/// so `revise_workflow` and `edit_workflow` cannot drift. `retry_tool` names
+/// the tool in the "fix … and call `<tool>` again" guidance so each caller's
+/// error text points the agent back at the right tool.
+///
+/// Returns `Ok(payload)` on success, or `Err(message)` with a
+/// model-consumable, fix-and-retry error when a gate rejects the graph. The
+/// caller is responsible for structural validation (`validate_and_migrate_graph`
+/// / `validate_all`) *before* calling this — these gates assume a compilable
+/// graph.
+pub(crate) async fn build_builder_proposal(
+    config: &Config,
+    retry_tool: &str,
+    name: &str,
+    graph: &WorkflowGraph,
+    require_approval: bool,
+    revision: bool,
+    instruction: Option<String>,
+) -> Result<Value, String> {
+    // Binding-resolvability gate: reject (not warn) a binding guaranteed to
+    // resolve null / wrong at runtime.
+    let binding_errors = validate_binding_resolvability(graph);
+    if !binding_errors.is_empty() {
+        return Err(format!(
+            "{}\n\nFix these bindings and call {retry_tool} again.",
+            binding_errors.join("\n\n")
+        ));
+    }
+
+    // Tool-contract gate: reject a tool_call whose slug isn't a real live
+    // Composio action, or whose real required args aren't all wired.
+    let contract_errors = validate_tool_contracts(config, graph).await;
+    if !contract_errors.is_empty() {
+        return Err(format!(
+            "{}\n\nFix these tool_call nodes and call {retry_tool} again.",
+            contract_errors.join("\n\n")
+        ));
+    }
+
+    // Required-arg resolvability gate: reject a required outbound arg that looks
+    // wired but resolves null in a sandbox run.
+    let null_arg_errors = validate_required_arg_resolvability(graph).await;
+    if !null_arg_errors.is_empty() {
+        return Err(format!(
+            "{}\n\nFix these bindings and call {retry_tool} again.",
+            null_arg_errors.join("\n\n")
+        ));
+    }
+
+    let summary = crate::openhuman::flows::tools::build_summary(graph);
+    let mut warnings = graph_trigger_warnings(graph);
+    warnings.extend(graph_wiring_warnings(config, graph).await);
+    let graph_value = serde_json::to_value(graph).map_err(|e| e.to_string())?;
+
+    tracing::info!(
+        target: "flows",
+        %name,
+        node_count = graph.nodes.len(),
+        require_approval,
+        warning_count = warnings.len(),
+        revision,
+        "[flows] build_builder_proposal: proposal ready for user review"
+    );
+
+    let mut payload = json!({
+        "type": "workflow_proposal",
+        "revision": revision,
+        "name": name,
+        "graph": graph_value,
+        "require_approval": require_approval,
+        "summary": summary,
+        "warnings": warnings,
+    });
+    if let Some(instruction) = instruction {
+        payload["instruction"] = json!(instruction);
+    }
+    Ok(payload)
+}
+
 /// Stable snake_case label for a [`TriggerKind`], matching its serde wire
 /// discriminator — used in loud author-facing warnings (not derived via serde
 /// so the exact human string is unmistakable at the call site).

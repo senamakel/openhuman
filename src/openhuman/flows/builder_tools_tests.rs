@@ -1415,3 +1415,127 @@ async fn get_node_kind_contract_tool_returns_contract_and_rejects_unknown() {
     let missing = tool.execute(json!({})).await.unwrap();
     assert!(missing.is_error);
 }
+
+// ── edit_workflow (F1: structured incremental edits) ─────────────────────────
+
+#[tokio::test]
+async fn edit_workflow_applies_ops_to_inline_graph_and_returns_proposal() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+
+    // Add a merge node `b` and wire the agent into it.
+    let result = tool
+        .execute(json!({
+            "graph": valid_graph(),
+            "name": "Edited flow",
+            "instruction": "add a merge step",
+            "ops": [
+                { "op": "add_node", "node": { "id": "b", "kind": "merge", "name": "Join" } },
+                { "op": "add_edge", "edge": { "from_node": "a", "to_node": "b" } }
+            ]
+        }))
+        .await
+        .unwrap();
+
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["type"], "workflow_proposal");
+    assert_eq!(parsed["name"], "Edited flow");
+    assert_eq!(parsed["graph"]["nodes"].as_array().unwrap().len(), 3);
+    assert_eq!(parsed["graph"]["edges"].as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn edit_workflow_update_node_config_merge_patches() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+
+    let result = tool
+        .execute(json!({
+            "graph": valid_graph(),
+            "ops": [
+                { "op": "update_node_config", "id": "a", "config": { "prompt": "new instruction" } }
+            ]
+        }))
+        .await
+        .unwrap();
+
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    let nodes = parsed["graph"]["nodes"].as_array().unwrap();
+    let agent = nodes.iter().find(|n| n["id"] == "a").unwrap();
+    assert_eq!(agent["config"]["prompt"], "new instruction");
+}
+
+#[tokio::test]
+async fn edit_workflow_requires_a_base() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+    let result = tool
+        .execute(json!({ "ops": [ { "op": "remove_node", "id": "a" } ] }))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.output().contains("flow_id"));
+}
+
+#[tokio::test]
+async fn edit_workflow_reports_failing_op_with_guidance() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+    let result = tool
+        .execute(json!({
+            "graph": valid_graph(),
+            "ops": [ { "op": "remove_node", "id": "ghost" } ]
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    let out = result.output();
+    assert!(out.contains("remove_node"), "{out}");
+    assert!(out.contains("edit_workflow again"), "{out}");
+}
+
+#[tokio::test]
+async fn edit_workflow_rejects_a_result_that_is_structurally_invalid() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+    // Removing the only trigger leaves the graph structurally invalid.
+    let result = tool
+        .execute(json!({
+            "graph": valid_graph(),
+            "ops": [ { "op": "remove_node", "id": "t" } ]
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.output().contains("trigger"), "{}", result.output());
+}
+
+#[tokio::test]
+async fn edit_workflow_edits_a_saved_flow_by_id() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // Create a saved flow to edit.
+    let flow = ops::flows_create(&config, "Base flow".to_string(), valid_graph(), false)
+        .await
+        .unwrap()
+        .value;
+
+    let tool = EditWorkflowTool::new(config.clone());
+    let result = tool
+        .execute(json!({
+            "flow_id": flow.id,
+            "ops": [ { "op": "set_node_name", "id": "a", "name": "Renamed step" } ]
+        }))
+        .await
+        .unwrap();
+
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    // Default name falls back to the base flow's name.
+    assert_eq!(parsed["name"], "Base flow");
+    let nodes = parsed["graph"]["nodes"].as_array().unwrap();
+    let agent = nodes.iter().find(|n| n["id"] == "a").unwrap();
+    assert_eq!(agent["name"], "Renamed step");
+}

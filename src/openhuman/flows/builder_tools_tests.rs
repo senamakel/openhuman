@@ -1672,6 +1672,98 @@ async fn edit_workflow_reports_failing_op_with_guidance() {
 }
 
 #[tokio::test]
+async fn edit_workflow_bad_op_reports_index_type_and_shape() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+    // ops 0 and 1 are well-formed; op 2 is an add_node missing its `node`.
+    let result = tool
+        .execute(json!({
+            "graph": valid_graph(),
+            "ops": [
+                { "op": "set_node_name", "id": "a", "name": "One" },
+                { "op": "set_node_name", "id": "a", "name": "Two" },
+                { "op": "add_node", "id": "b" }
+            ]
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error, "{}", result.output());
+    let out = result.output();
+    // Names the failing op index, its op type, and the expected shape for it.
+    assert!(out.contains("op 2"), "{out}");
+    assert!(out.contains("add_node"), "{out}");
+    assert!(out.contains("node:"), "expected add_node shape in: {out}");
+    assert!(out.contains("edit_workflow again"), "{out}");
+}
+
+#[tokio::test]
+async fn edit_workflow_missing_op_field_lists_valid_types() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+    let result = tool
+        .execute(json!({
+            "graph": valid_graph(),
+            "ops": [ { "id": "a", "name": "No op tag" } ]
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error, "{}", result.output());
+    let out = result.output();
+    assert!(out.contains("op 0"), "{out}");
+    assert!(out.contains("missing `op` field"), "{out}");
+    assert!(out.contains("update_node_config"), "{out}");
+}
+
+#[tokio::test]
+async fn edit_workflow_add_node_exists_carries_ordering_hint() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+    // Re-adding an existing node id fails in-order; the hint should point at the
+    // remove-first / patch-in-place fix.
+    let result = tool
+        .execute(json!({
+            "graph": valid_graph(),
+            "ops": [
+                { "op": "add_node", "node": { "id": "a", "kind": "merge", "name": "Dup" } }
+            ]
+        }))
+        .await
+        .unwrap();
+    assert!(result.is_error, "{}", result.output());
+    let out = result.output();
+    assert!(out.contains("already exists"), "{out}");
+    assert!(out.contains("array order"), "{out}");
+    assert!(out.contains("remove_node"), "{out}");
+    assert!(out.contains("update_node_config"), "{out}");
+}
+
+#[tokio::test]
+async fn edit_workflow_accepts_node_id_aliases_end_to_end() {
+    let tmp = TempDir::new().unwrap();
+    let tool = EditWorkflowTool::new(test_config(&tmp));
+    // A valid ops array using the `node_id` alias (the natural agent guess)
+    // applies cleanly through edit_workflow.
+    let result = tool
+        .execute(json!({
+            "graph": valid_graph(),
+            "name": "Aliased edit",
+            "ops": [
+                { "op": "update_node_config", "node_id": "a", "config": { "prompt": "aliased" } },
+                { "op": "set_node_name", "node_id": "a", "name": "Aliased step" }
+            ]
+        }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["type"], "workflow_proposal");
+    let nodes = parsed["graph"]["nodes"].as_array().unwrap();
+    let agent = nodes.iter().find(|n| n["id"] == "a").unwrap();
+    assert_eq!(agent["config"]["prompt"], "aliased");
+    assert_eq!(agent["name"], "Aliased step");
+}
+
+#[tokio::test]
 async fn edit_workflow_rejects_a_result_that_is_structurally_invalid() {
     let tmp = TempDir::new().unwrap();
     let tool = EditWorkflowTool::new(test_config(&tmp));

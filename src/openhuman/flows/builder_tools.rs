@@ -64,6 +64,30 @@ use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 /// capabilities are non-blocking echoes, so this is a generous safety net.
 const DRY_RUN_TIMEOUT_SECS: u64 = 30;
 
+/// Comma list of the valid `op` tag values, for the missing-/unknown-`op`
+/// parse errors surfaced by [`EditWorkflowTool`].
+const VALID_OP_TYPES: &str = "add_node, update_node_config, set_node_name, rename_node, \
+     remove_node, add_edge, remove_edge, set_node_position";
+
+/// The expected field shape for a given `op` tag, used in `edit_workflow`'s
+/// per-op parse diagnostics so a failing op tells the agent exactly what that
+/// op type wants. Returns `None` for an unrecognized tag.
+fn edit_op_shape(op: &str) -> Option<&'static str> {
+    Some(match op {
+        "add_node" => "{ op, node: { id, kind, name, config? } }",
+        "update_node_config" => {
+            "{ op, id, config } (id also accepts alias `node_id`; config is a JSON merge-patch)"
+        }
+        "set_node_name" => "{ op, id, name } (id also accepts alias `node_id`)",
+        "rename_node" => "{ op, id, new_id } (also accept aliases `node_id` / `new_node_id`)",
+        "remove_node" => "{ op, id } (id also accepts alias `node_id`)",
+        "add_edge" => "{ op, edge: { from_node, to_node, from_port?, to_port? } }",
+        "remove_edge" => "{ op, from_node, to_node, from_port?, to_port? }",
+        "set_node_position" => "{ op, id, position: { x, y } } (id also accepts alias `node_id`)",
+        _ => return None,
+    })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // revise_workflow — iterative refine of an existing draft (proposal only)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -428,30 +452,45 @@ impl Tool for EditWorkflowTool {
             }
         };
 
-        // Parse the ops list.
-        let ops_value = match args.get("ops") {
-            Some(v) if v.is_array() => v.clone(),
+        // Parse the ops list element-by-element so a bad op reports its index,
+        // its `op` tag, the serde error, AND the expected field shape for THAT
+        // op type — instead of a bare aggregate "missing field `id`" that names
+        // neither the failing op nor what it wanted (audit WS4).
+        let ops_array = match args.get("ops") {
+            Some(Value::Array(items)) => items.clone(),
             _ => {
                 return Ok(ToolResult::error(
                     "Missing 'ops' parameter (a non-empty array of structured edits).".to_string(),
                 ));
             }
         };
-        let graph_ops: Vec<tinyflows::graph_ops::GraphOp> = match serde_json::from_value(ops_value)
-        {
-            Ok(ops) => ops,
-            Err(e) => {
-                return Ok(ToolResult::error(format!(
-                    "Could not parse `ops`: {e}. Each op is {{ \"op\": <type>, ... }} — valid \
-                         types: add_node, update_node_config, set_node_name, rename_node, \
-                         remove_node, add_edge, remove_edge, set_node_position."
-                )));
-            }
-        };
-        if graph_ops.is_empty() {
+        if ops_array.is_empty() {
             return Ok(ToolResult::error(
                 "`ops` is empty — provide at least one edit.".to_string(),
             ));
+        }
+        let mut graph_ops: Vec<tinyflows::graph_ops::GraphOp> = Vec::with_capacity(ops_array.len());
+        for (index, item) in ops_array.into_iter().enumerate() {
+            let op_tag = item.get("op").and_then(Value::as_str).map(str::to_string);
+            match serde_json::from_value::<tinyflows::graph_ops::GraphOp>(item) {
+                Ok(op) => graph_ops.push(op),
+                Err(e) => {
+                    let shape = match op_tag.as_deref() {
+                        Some(tag) => match edit_op_shape(tag) {
+                            Some(shape) => format!("op `{tag}` expects {shape}"),
+                            None => {
+                                format!("unknown op type `{tag}` — valid types: {VALID_OP_TYPES}")
+                            }
+                        },
+                        None => format!("missing `op` field — valid types: {VALID_OP_TYPES}"),
+                    };
+                    tracing::debug!(target: "flows", index, ?op_tag, error = %e, "[flows] edit_workflow: op failed to parse");
+                    return Ok(ToolResult::error(format!(
+                        "Could not parse op {index}: {e}. Expected {shape}. Each op is \
+                         {{ \"op\": <type>, ... }}. Fix the ops and call edit_workflow again."
+                    )));
+                }
+            }
         }
 
         let name = args
@@ -488,8 +527,22 @@ impl Tool for EditWorkflowTool {
             Ok(graph) => graph,
             Err(e) => {
                 tracing::debug!(target: "flows", %name, error = %e, "[flows] edit_workflow: an op failed to apply");
+                // Ops apply strictly in array order, so an add_node for an id
+                // that already exists is almost always an ordering mistake
+                // (adding before removing the old node). Point at the fix — this
+                // is the exact 2nd wasted call the WS4 audit caught.
+                let hint = match (e.op, &e.kind) {
+                    ("add_node", tinyflows::graph_ops::GraphOpErrorKind::NodeIdExists(id)) => {
+                        format!(
+                            "\n\nOps apply strictly in array order. To replace node `{id}`, put a \
+                             remove_node op for it BEFORE the add_node, or use update_node_config \
+                             to patch it in place."
+                        )
+                    }
+                    _ => String::new(),
+                };
                 return Ok(ToolResult::error(format!(
-                    "{e}\n\nFix the ops and call edit_workflow again."
+                    "{e}{hint}\n\nFix the ops and call edit_workflow again."
                 )));
             }
         };

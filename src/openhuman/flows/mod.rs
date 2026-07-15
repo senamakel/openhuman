@@ -11,6 +11,7 @@ pub mod agents;
 pub mod builder_tools;
 pub mod bus;
 pub mod discovery_tools;
+mod draft_store;
 mod n8n_import;
 pub mod node_contracts;
 pub mod ops;
@@ -39,6 +40,6 @@ pub use node_contracts::{
 };
 pub use store::{kv_get, kv_set, upsert_flow_run_step};
 pub use types::{
-    Flow, FlowConnection, FlowImport, FlowRun, FlowRunStep, FlowRunTrigger, FlowSuggestion,
-    FlowValidation, FlowValidationError, SuggestionStatus,
+    DraftOrigin, Flow, FlowConnection, FlowDraft, FlowImport, FlowRun, FlowRunStep, FlowRunTrigger,
+    FlowSuggestion, FlowValidation, FlowValidationError, SuggestionStatus,
 };

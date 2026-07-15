@@ -3710,3 +3710,85 @@ async fn strict_gate_passes_a_valid_graph_and_rejects_a_structurally_invalid_one
     assert!(err.contains("structurally invalid"), "{err}");
     assert!(err.contains("trigger"), "{err}");
 }
+
+// ── core-managed drafts (F5) ─────────────────────────────────────────────────
+
+#[tokio::test]
+async fn draft_promote_creates_a_new_flow_and_removes_the_draft() {
+    use crate::openhuman::flows::DraftOrigin;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let draft = flows_draft_create(
+        &config,
+        None,
+        "From draft".to_string(),
+        trigger_only_graph(),
+        DraftOrigin::Chat,
+    )
+    .unwrap()
+    .value;
+
+    let flow = flows_draft_promote(&config, &draft.id, None)
+        .await
+        .unwrap()
+        .value;
+    assert_eq!(flow.name, "From draft");
+    // The draft file is gone once promoted.
+    assert!(flows_draft_get(&config, &draft.id).is_err());
+    // The flow really exists.
+    assert!(flows_get(&config, &flow.id).await.is_ok());
+}
+
+#[tokio::test]
+async fn draft_promote_with_flow_id_updates_the_existing_flow() {
+    use crate::openhuman::flows::DraftOrigin;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let flow = flows_create(&config, "Original".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap()
+        .value;
+
+    let draft = flows_draft_create(
+        &config,
+        Some(flow.id.clone()),
+        "Renamed via draft".to_string(),
+        trigger_only_graph(),
+        DraftOrigin::Canvas,
+    )
+    .unwrap()
+    .value;
+
+    let updated = flows_draft_promote(&config, &draft.id, None)
+        .await
+        .unwrap()
+        .value;
+    assert_eq!(updated.id, flow.id, "same flow, not a new one");
+    assert_eq!(updated.name, "Renamed via draft");
+    assert!(
+        flows_draft_get(&config, &draft.id).is_err(),
+        "draft removed"
+    );
+}
+
+#[tokio::test]
+async fn draft_promote_of_invalid_graph_is_rejected_and_keeps_the_draft() {
+    use crate::openhuman::flows::DraftOrigin;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // A graph with no trigger fails the create gate.
+    let bad = json!({
+        "nodes": [ { "id": "a", "kind": "output_parser", "name": "A" } ],
+        "edges": []
+    });
+    let draft = flows_draft_create(&config, None, "Bad".to_string(), bad, DraftOrigin::Chat)
+        .unwrap()
+        .value;
+
+    assert!(flows_draft_promote(&config, &draft.id, None).await.is_err());
+    // The draft survives a failed promote so the user can fix it.
+    assert!(flows_draft_get(&config, &draft.id).is_ok());
+}

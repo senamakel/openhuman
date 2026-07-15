@@ -142,8 +142,43 @@ export interface Flow {
  */
 export interface FlowValidation {
   valid: boolean;
+  /** All structural errors in one pass (multi-error validation), not just the first. */
   errors: string[];
+  /** Structured, per-node counterpart to {@link errors} (additive). */
+  error_details?: FlowValidationErrorDetail[];
   warnings: string[];
+}
+
+/** One structured validation error (`src/openhuman/flows/types.rs::FlowValidationError`). */
+export interface FlowValidationErrorDetail {
+  /** Stable machine-readable code, e.g. `missing_trigger`, `unknown_node`. */
+  code: string;
+  /** Human-readable message (identical to the matching {@link FlowValidation.errors} entry). */
+  message: string;
+  /** The node this error anchors to, when node-specific. */
+  node_id?: string;
+  /** The offending config field, when field-specific (reserved). */
+  field?: string;
+}
+
+/** Where a {@link FlowDraft} originated (`src/openhuman/flows/types.rs::DraftOrigin`). */
+export type DraftOrigin = 'chat' | 'canvas' | 'import';
+
+/**
+ * A core-managed, durable workflow draft (`src/openhuman/flows/types.rs::FlowDraft`)
+ * — the shared working copy the agent tools and the canvas both read/write by
+ * id across turns and reloads. Never live; promote runs the normal save gates.
+ */
+export interface FlowDraft {
+  id: string;
+  /** The saved flow this draft edits, if any (promote → update vs create). */
+  flow_id?: string;
+  name: string;
+  /** Work-in-progress graph (may be incomplete/invalid) — opaque to this client. */
+  graph: unknown;
+  origin: DraftOrigin;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -530,6 +565,85 @@ export async function importFlow(
   const result = unwrapCliEnvelope<FlowImport>(response);
   log('importFlow: response warnings=%d', result.warnings?.length ?? 0);
   return result;
+}
+
+// ── Core-managed drafts (F5) ─────────────────────────────────────────────────
+
+/** Create a durable draft via `openhuman.flows_draft_create`. */
+export async function createDraft(params: {
+  name: string;
+  graph: unknown;
+  flowId?: string;
+  origin?: DraftOrigin;
+}): Promise<FlowDraft> {
+  log('createDraft: request origin=%s', params.origin ?? 'canvas');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_draft_create',
+    params: {
+      name: params.name,
+      graph: params.graph,
+      flow_id: params.flowId,
+      origin: params.origin,
+    },
+  });
+  return unwrapCliEnvelope<FlowDraft>(response);
+}
+
+/** Fetch a draft by id via `openhuman.flows_draft_get`. */
+export async function getDraft(id: string): Promise<FlowDraft> {
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_draft_get',
+    params: { id },
+  });
+  return unwrapCliEnvelope<FlowDraft>(response);
+}
+
+/** Patch a draft's name/graph/flow_id via `openhuman.flows_draft_update`. */
+export async function updateDraft(
+  id: string,
+  patch: { name?: string; graph?: unknown; flowId?: string }
+): Promise<FlowDraft> {
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_draft_update',
+    params: { id, name: patch.name, graph: patch.graph, flow_id: patch.flowId },
+  });
+  return unwrapCliEnvelope<FlowDraft>(response);
+}
+
+/** List all drafts (newest-updated first) via `openhuman.flows_draft_list`. */
+export async function listDrafts(): Promise<FlowDraft[]> {
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_draft_list',
+    params: {},
+  });
+  const result = unwrapCliEnvelope<{ drafts: FlowDraft[] }>(response);
+  return result.drafts ?? [];
+}
+
+/** Delete a draft via `openhuman.flows_draft_delete`. */
+export async function deleteDraft(id: string): Promise<boolean> {
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_draft_delete',
+    params: { id },
+  });
+  const result = unwrapCliEnvelope<{ id: string; deleted: boolean }>(response);
+  return result.deleted;
+}
+
+/**
+ * Promote a draft into a saved flow via `openhuman.flows_draft_promote` (runs
+ * the normal create/update gates, then removes the draft). Returns the Flow.
+ */
+export async function promoteDraft(
+  id: string,
+  requireApproval?: boolean
+): Promise<Flow> {
+  log('promoteDraft: request id=%s', id);
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_draft_promote',
+    params: { id, require_approval: requireApproval },
+  });
+  return unwrapCliEnvelope<Flow>(response);
 }
 
 /**

@@ -1590,3 +1590,38 @@ async fn validate_workflow_requires_a_base() {
     assert!(result.is_error);
     assert!(result.output().contains("flow_id"));
 }
+
+#[tokio::test]
+async fn edit_workflow_edits_a_draft_and_writes_back() {
+    use crate::openhuman::flows::DraftOrigin;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // A draft holding the base graph.
+    let draft = ops::flows_draft_create(
+        &config,
+        None,
+        "Draft flow".to_string(),
+        valid_graph(),
+        DraftOrigin::Chat,
+    )
+    .unwrap()
+    .value;
+
+    let tool = EditWorkflowTool::new(config.clone());
+    let result = tool
+        .execute(json!({
+            "draft_id": draft.id,
+            "ops": [ { "op": "add_node", "node": { "id": "b", "kind": "merge", "name": "Join" } } ]
+        }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    assert_eq!(parsed["draft_id"], draft.id);
+    assert_eq!(parsed["graph"]["nodes"].as_array().unwrap().len(), 3);
+
+    // The edit was written back to the draft (survives for the next turn).
+    let reloaded = ops::flows_draft_get(&config, &draft.id).unwrap().value;
+    assert_eq!(reloaded.graph["nodes"].as_array().unwrap().len(), 3);
+}

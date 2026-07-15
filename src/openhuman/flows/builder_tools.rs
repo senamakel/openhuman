@@ -233,8 +233,9 @@ impl Tool for EditWorkflowTool {
 
     fn description(&self) -> &str {
         "Iterate on a workflow with STRUCTURED EDITS instead of re-emitting the whole graph — the \
-         cheap, low-regression path for changing a saved or draft flow. Provide the base (either \
-         flow_id for a saved flow, or an inline graph) plus ops[]: a list of edits applied in \
+         cheap, low-regression path for changing a draft, saved, or inline flow. Provide the base \
+         (draft_id for a working draft — the applied edit is written back to it; flow_id for a \
+         saved flow; or an inline graph) plus ops[]: a list of edits applied in \
          order. Op shapes (each is { \"op\": <type>, ... }): add_node {node}, update_node_config \
          {id, config} (JSON merge-patch — a null value deletes that config key), set_node_name \
          {id, name}, rename_node {id, new_id} (rewires edges), remove_node {id} (drops its edges), \
@@ -249,13 +250,17 @@ impl Tool for EditWorkflowTool {
         json!({
             "type": "object",
             "properties": {
+                "draft_id": {
+                    "type": "string",
+                    "description": "A working draft to edit as the base; the applied edit is written back to it. Provide one of draft_id / flow_id / graph."
+                },
                 "flow_id": {
                     "type": "string",
-                    "description": "The saved flow to edit as the base graph. Provide this OR `graph`."
+                    "description": "The saved flow to edit as the base graph. Provide one of draft_id / flow_id / graph."
                 },
                 "graph": {
                     "type": "object",
-                    "description": "An inline base tinyflows WorkflowGraph to edit. Provide this OR `flow_id`.",
+                    "description": "An inline base tinyflows WorkflowGraph to edit. Provide one of draft_id / flow_id / graph.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -294,8 +299,14 @@ impl Tool for EditWorkflowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        // Resolve the base graph + a default name from either a saved flow or
-        // an inline graph (exactly one required).
+        // Resolve the base graph + a default name from exactly one of: a draft
+        // (the shared working copy — edits are written back to it), a saved
+        // flow, or an inline graph.
+        let draft_id = args
+            .get("draft_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
         let flow_id = args
             .get("flow_id")
             .and_then(Value::as_str)
@@ -303,8 +314,33 @@ impl Tool for EditWorkflowTool {
             .filter(|s| !s.is_empty());
         let inline_graph = args.get("graph").filter(|v| !v.is_null());
 
-        let (base_graph, default_name) = match (flow_id, inline_graph) {
-            (Some(id), _) => match ops::flows_get(&self.config, id).await {
+        // When editing a draft, remember its id so the applied edit is written
+        // back — the draft is the durable working copy across turns/reloads.
+        let mut write_back_draft: Option<String> = None;
+
+        let (base_graph, default_name) = match (draft_id, flow_id, inline_graph) {
+            (Some(id), _, _) => match ops::flows_draft_get(&self.config, id) {
+                Ok(outcome) => {
+                    let draft = outcome.value;
+                    match ops::migrate_and_deserialize_graph(draft.graph.clone()) {
+                        Ok(graph) => {
+                            write_back_draft = Some(draft.id.clone());
+                            (graph, draft.name)
+                        }
+                        Err(e) => {
+                            return Ok(ToolResult::error(format!(
+                                "Draft '{id}' holds a graph that could not be parsed: {e}."
+                            )));
+                        }
+                    }
+                }
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load draft '{id}' to edit: {e}"
+                    )));
+                }
+            },
+            (None, Some(id), _) => match ops::flows_get(&self.config, id).await {
                 Ok(outcome) => (outcome.value.graph, outcome.value.name),
                 Err(e) => {
                     return Ok(ToolResult::error(format!(
@@ -312,7 +348,7 @@ impl Tool for EditWorkflowTool {
                     )));
                 }
             },
-            (None, Some(graph_json)) => {
+            (None, None, Some(graph_json)) => {
                 match ops::migrate_and_deserialize_graph(graph_json.clone()) {
                     Ok(graph) => {
                         let name = graph.name.clone();
@@ -325,10 +361,10 @@ impl Tool for EditWorkflowTool {
                     }
                 }
             }
-            (None, None) => {
+            (None, None, None) => {
                 return Ok(ToolResult::error(
-                    "Provide either `flow_id` (a saved flow) or `graph` (an inline base graph) to \
-                     edit."
+                    "Provide one of `draft_id` (a working draft), `flow_id` (a saved flow), or \
+                     `graph` (an inline base graph) to edit."
                         .to_string(),
                 ));
             }
@@ -400,6 +436,22 @@ impl Tool for EditWorkflowTool {
             }
         };
 
+        // Write the applied edit back to the draft (the durable working copy),
+        // so it survives across turns/reloads even if validation/gates below
+        // still flag something to fix next.
+        if let Some(ref draft_id) = write_back_draft {
+            let edited_json = serde_json::to_value(&edited)?;
+            if let Err(e) = ops::flows_draft_update(
+                &self.config,
+                draft_id,
+                Some(name.clone()),
+                Some(edited_json),
+                None,
+            ) {
+                tracing::warn!(target: "flows", %draft_id, error = %e, "[flows] edit_workflow: could not write edit back to draft");
+            }
+        }
+
         // Structural validation of the RESULT — surface every problem at once.
         let structural = tinyflows::validate::validate_all(&edited);
         if !structural.is_empty() {
@@ -428,7 +480,12 @@ impl Tool for EditWorkflowTool {
         )
         .await
         {
-            Ok(payload) => Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?)),
+            Ok(mut payload) => {
+                if let Some(draft_id) = write_back_draft {
+                    payload["draft_id"] = json!(draft_id);
+                }
+                Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?))
+            }
             Err(message) => {
                 tracing::debug!(target: "flows", %name, "[flows] edit_workflow: a hard gate rejected the edited graph");
                 Ok(ToolResult::error(message))
@@ -1637,9 +1694,13 @@ impl Tool for DryRunWorkflowTool {
         json!({
             "type": "object",
             "properties": {
+                "draft_id": {
+                    "type": "string",
+                    "description": "A working draft to simulate. Provide this OR `graph`."
+                },
                 "graph": {
                     "type": "object",
-                    "description": "The DRAFT tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }.",
+                    "description": "The DRAFT tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }. Provide this OR `draft_id`.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -1649,8 +1710,7 @@ impl Tool for DryRunWorkflowTool {
                 "input": {
                     "description": "Optional trigger input passed to the run (defaults to {})."
                 }
-            },
-            "required": ["graph"]
+            }
         })
     }
 
@@ -1683,9 +1743,32 @@ impl Tool for DryRunWorkflowTool {
             ));
         }
 
-        let graph_json = match args.get("graph") {
-            Some(v) if !v.is_null() => v.clone(),
-            _ => return Ok(ToolResult::error("Missing 'graph' parameter".to_string())),
+        // Graph source: a working draft (draft_id) or an inline graph.
+        let graph_json = if let Some(draft_id) = args
+            .get("draft_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            match ops::flows_draft_get(&self.config, draft_id) {
+                Ok(outcome) => outcome.value.graph,
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load draft '{draft_id}' to dry-run: {e}"
+                    )));
+                }
+            }
+        } else {
+            match args.get("graph") {
+                Some(v) if !v.is_null() => v.clone(),
+                _ => {
+                    return Ok(ToolResult::error(
+                        "Provide `graph` (an inline graph) or `draft_id` (a working draft) to \
+                         dry-run."
+                            .to_string(),
+                    ));
+                }
+            }
         };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
 

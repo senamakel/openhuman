@@ -6,6 +6,7 @@
 //! struct is the OpenHuman-side record around it.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tinyflows::model::WorkflowGraph;
 
 /// How a flow run was started. Stamped onto the run's Langfuse trace as a
@@ -116,6 +117,62 @@ pub struct FlowImport {
     /// Non-fatal import warnings surfaced next to the draft. Empty for a clean
     /// native import; an n8n import populates it with any approximations made.
     pub warnings: Vec<String>,
+}
+
+/// Where a [`FlowDraft`] came from — carried through so the UI can label a
+/// draft and the agent can reason about it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DraftOrigin {
+    /// Created from a chat/copilot build turn.
+    Chat,
+    /// Created from the canvas (e.g. "new workflow", or an accepted proposal).
+    Canvas,
+    /// Created from an import (native tinyflows JSON or an n8n export).
+    Import,
+}
+
+impl DraftOrigin {
+    /// The serde wire discriminator, for logging.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Chat => "chat",
+            Self::Canvas => "canvas",
+            Self::Import => "import",
+        }
+    }
+}
+
+/// A durable, core-managed **draft** of a workflow graph — the shared working
+/// copy the agent tools and the canvas both read/write across turns and reloads
+/// (audit F5).
+///
+/// Stored as a plain JSON file on disk (`{workspace_dir}/flows/drafts/<id>.json`),
+/// not in SQLite — trivially inspectable and deletable, no schema/migration.
+/// A draft is **never live**: promoting it (`flows_draft_promote`) runs the
+/// existing `flows_create`/`flows_update` gates (same forced `require_approval`
+/// floor, same human-in-the-loop) and removes the file. `graph` is a raw JSON
+/// value (not a typed `WorkflowGraph`) because a work-in-progress draft is
+/// explicitly allowed to be incomplete or not-yet-valid.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FlowDraft {
+    /// Stable draft id (UUID). Distinct from any `flow_id`.
+    pub id: String,
+    /// The saved flow this draft edits, if any. `None` for a from-scratch draft
+    /// (promote → `flows_create`); `Some` for an edit of an existing flow
+    /// (promote → `flows_update`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flow_id: Option<String>,
+    /// Human-readable name carried into the flow on promote.
+    pub name: String,
+    /// The work-in-progress graph as raw JSON (may be incomplete/invalid).
+    pub graph: Value,
+    /// Where the draft originated.
+    pub origin: DraftOrigin,
+    /// RFC3339 creation time.
+    pub created_at: String,
+    /// RFC3339 last-update time.
+    pub updated_at: String,
 }
 
 /// A saved automation workflow: a `tinyflows` graph plus OpenHuman-side

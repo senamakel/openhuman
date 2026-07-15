@@ -32,6 +32,15 @@ fn flow_output() -> FieldSchema {
     }
 }
 
+fn draft_output() -> FieldSchema {
+    FieldSchema {
+        name: "draft",
+        ty: TypeSchema::Json,
+        comment: "The draft: { id, flow_id?, name, graph, origin, created_at, updated_at }.",
+        required: true,
+    }
+}
+
 /// Output field for the suggestion-returning controllers (`discover`,
 /// `list_suggestions`). Kept in one place so the schema mirrors
 /// `flows::types::FlowSuggestion`.
@@ -266,6 +275,12 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("list_suggestions"),
         schemas("dismiss_suggestion"),
         schemas("mark_suggestion_built"),
+        schemas("draft_create"),
+        schemas("draft_get"),
+        schemas("draft_update"),
+        schemas("draft_list"),
+        schemas("draft_delete"),
+        schemas("draft_promote"),
     ]
 }
 
@@ -354,6 +369,30 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("mark_suggestion_built"),
             handler: handle_mark_suggestion_built,
+        },
+        RegisteredController {
+            schema: schemas("draft_create"),
+            handler: handle_draft_create,
+        },
+        RegisteredController {
+            schema: schemas("draft_get"),
+            handler: handle_draft_get,
+        },
+        RegisteredController {
+            schema: schemas("draft_update"),
+            handler: handle_draft_update,
+        },
+        RegisteredController {
+            schema: schemas("draft_list"),
+            handler: handle_draft_list,
+        },
+        RegisteredController {
+            schema: schemas("draft_delete"),
+            handler: handle_draft_delete,
+        },
+        RegisteredController {
+            schema: schemas("draft_promote"),
+            handler: handle_draft_promote,
         },
     ]
 }
@@ -880,6 +919,111 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "draft_create" => ControllerSchema {
+            namespace: "flows",
+            function: "draft_create",
+            description: "Create a core-managed draft (a durable, non-live working copy of a graph) \
+                          shared by the agent tools and the canvas. Never persists a flow.",
+            inputs: vec![
+                FieldSchema {
+                    name: "name",
+                    ty: TypeSchema::String,
+                    comment: "Human-readable draft name (carried into the flow on promote).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "graph",
+                    ty: TypeSchema::Json,
+                    comment: "The (possibly incomplete) WorkflowGraph JSON to hold in the draft.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "flow_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "The saved flow this draft edits, if any (promote → update vs create).",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "origin",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Where the draft came from: `chat` | `canvas` | `import`. Defaults to `canvas`.",
+                    required: false,
+                },
+            ],
+            outputs: vec![draft_output()],
+        },
+        "draft_get" => ControllerSchema {
+            namespace: "flows",
+            function: "draft_get",
+            description: "Fetch a draft by id.",
+            inputs: vec![id_input("Identifier of the draft to fetch.")],
+            outputs: vec![draft_output()],
+        },
+        "draft_update" => ControllerSchema {
+            namespace: "flows",
+            function: "draft_update",
+            description: "Patch a draft's name/graph/flow_id (any provided field) and bump its \
+                          updated_at. Never persists a flow.",
+            inputs: vec![
+                id_input("Identifier of the draft to update."),
+                FieldSchema {
+                    name: "name",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "New name, if changing it.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "graph",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "New graph JSON, if changing it.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "flow_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "New linked flow id, if changing it.",
+                    required: false,
+                },
+            ],
+            outputs: vec![draft_output()],
+        },
+        "draft_list" => ControllerSchema {
+            namespace: "flows",
+            function: "draft_list",
+            description: "List all drafts, newest-updated first.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "drafts",
+                ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                comment: "The drafts (each { id, flow_id?, name, graph, origin, created_at, updated_at }).",
+                required: true,
+            }],
+        },
+        "draft_delete" => ControllerSchema {
+            namespace: "flows",
+            function: "draft_delete",
+            description: "Delete a draft by id (idempotent).",
+            inputs: vec![id_input("Identifier of the draft to delete.")],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "`{ id, deleted }` — `deleted` is false if the id was already absent.",
+                required: true,
+            }],
+        },
+        "draft_promote" => ControllerSchema {
+            namespace: "flows",
+            function: "draft_promote",
+            description: "Promote a draft into a saved flow through the same create/update gates \
+                          (structural validation, forced require_approval floor, born-disabled for \
+                          automatic triggers), then delete the draft file. A draft with a flow_id \
+                          updates that flow; otherwise it creates a new one.",
+            inputs: vec![
+                id_input("Identifier of the draft to promote."),
+                require_approval_input(),
+            ],
+            outputs: vec![flow_output()],
+        },
         _other => ControllerSchema {
             namespace: "flows",
             function: "unknown",
@@ -1176,6 +1320,84 @@ fn handle_mark_suggestion_built(params: Map<String, Value>) -> ControllerFuture 
     })
 }
 
+fn handle_draft_create(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let name = read_required::<String>(&params, "name")?;
+        let graph = read_required::<Value>(&params, "graph")?;
+        let flow_id = params
+            .get("flow_id")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string);
+        let origin = params
+            .get("origin")
+            .and_then(Value::as_str)
+            .and_then(|s| serde_json::from_value(Value::String(s.to_string())).ok())
+            .unwrap_or(crate::openhuman::flows::DraftOrigin::Canvas);
+        to_json(ops::flows_draft_create(
+            &config, flow_id, name, graph, origin,
+        )?)
+    })
+}
+
+fn handle_draft_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        to_json(ops::flows_draft_get(&config, id.trim())?)
+    })
+}
+
+fn handle_draft_update(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        let name = params
+            .get("name")
+            .filter(|v| !v.is_null())
+            .map(|v| serde_json::from_value(v.clone()))
+            .transpose()
+            .map_err(|e| format!("invalid 'name': {e}"))?;
+        let graph = params.get("graph").filter(|v| !v.is_null()).cloned();
+        // A present `flow_id` (even null) re-links the draft; absent leaves it.
+        let flow_id = params
+            .get("flow_id")
+            .map(|v| v.as_str().filter(|s| !s.is_empty()).map(str::to_string));
+        to_json(ops::flows_draft_update(
+            &config,
+            id.trim(),
+            name,
+            graph,
+            flow_id,
+        )?)
+    })
+}
+
+fn handle_draft_list(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        to_json(ops::flows_draft_list(&config)?)
+    })
+}
+
+fn handle_draft_delete(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        to_json(ops::flows_draft_delete(&config, id.trim())?)
+    })
+}
+
+fn handle_draft_promote(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let id = read_required::<String>(&params, "id")?;
+        let require_approval = params.get("require_approval").and_then(Value::as_bool);
+        to_json(ops::flows_draft_promote(&config, id.trim(), require_approval).await?)
+    })
+}
+
 fn read_required<T: DeserializeOwned>(params: &Map<String, Value>, key: &str) -> Result<T, String> {
     let value = params
         .get(key)
@@ -1222,6 +1444,12 @@ mod tests {
                 "list_suggestions",
                 "dismiss_suggestion",
                 "mark_suggestion_built",
+                "draft_create",
+                "draft_get",
+                "draft_update",
+                "draft_list",
+                "draft_delete",
+                "draft_promote",
             ]
         );
     }
@@ -1229,7 +1457,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 21);
+        assert_eq!(controllers.len(), 27);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -1255,6 +1483,12 @@ mod tests {
                 "list_suggestions",
                 "dismiss_suggestion",
                 "mark_suggestion_built",
+                "draft_create",
+                "draft_get",
+                "draft_update",
+                "draft_list",
+                "draft_delete",
+                "draft_promote",
             ]
         );
     }

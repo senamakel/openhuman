@@ -272,7 +272,11 @@ export function AppShellDesktop() {
   const onHiddenChromePath = ['/', '/login'].some(
     path => location.pathname === path || location.pathname.startsWith(`${path}/`)
   );
-  const chromeless = !token || onOnboardingRoute || onHiddenChromePath;
+  // The workflow graph canvas (`/flows/:id`, `/flows/draft`) owns the full
+  // viewport for a focused builder — no app sidebar. The `/flows` list (and its
+  // in-page Runs / Discoveries sub-views on `?view=`) keep their chrome.
+  const onWorkflowCanvas = location.pathname.startsWith('/flows/');
+  const chromeless = !token || onOnboardingRoute || onHiddenChromePath || onWorkflowCanvas;
 
   // Desktop Settings is a modal overlay (the backgroundLocation pattern): when
   // the URL is a settings path we keep rendering the page *behind* it

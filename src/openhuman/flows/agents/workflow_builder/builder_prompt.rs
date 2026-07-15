@@ -293,6 +293,50 @@ mod tests {
         assert!(p.contains("END-TO-END"));
     }
 
+    /// The standing archetype (`prompt.md`, the always-loaded system prompt —
+    /// as opposed to the per-turn directives rendered above) carries the same
+    /// B27 banned-phrase regression, plus positive coverage for the plain-
+    /// language style rule and the read-only memory grounding tool added
+    /// alongside it. Guards against reintroducing jargon-leaking or
+    /// phantom-review-card language, and against silently losing the
+    /// `memory_recall` guidance if the prompt is ever rewritten.
+    #[test]
+    fn standing_prompt_teaches_plain_language_and_readonly_memory() {
+        const STANDING_PROMPT: &str = include_str!("prompt.md");
+
+        // Negative (B27): the phantom "review card" phrasing must never
+        // reappear in the standing prompt either.
+        for banned in ["review card", "Accept the proposal explicitly"] {
+            assert!(
+                !STANDING_PROMPT.contains(banned),
+                "standing prompt must not carry phantom review-card phrasing `{banned}` (B27)"
+            );
+        }
+
+        // Positive: the anti-jargon Style rule — replies must stay in plain
+        // language, never leak response_format/schema/expression internals.
+        assert!(
+            STANDING_PROMPT.contains("Speak to a non-technical user"),
+            "standing prompt must teach the anti-jargon Style rule"
+        );
+
+        // Positive: read-only memory grounding via the raw `memory_recall`
+        // tool (no `memory_store` — see the agent.toml regression test).
+        assert!(
+            STANDING_PROMPT.contains("memory_recall"),
+            "standing prompt must teach the builder to ground itself with memory_recall"
+        );
+
+        // Positive: the prompt must state the read-only contract explicitly —
+        // not just mention the tool name — so a future edit can't silently
+        // drop the "can't change their memory" guarantee this agent's tool
+        // scope depends on (no `memory_store` in agent.toml).
+        assert!(
+            STANDING_PROMPT.contains("Read-only — you can't change their memory"),
+            "standing prompt must state the memory read-only guarantee, not just mention memory_recall"
+        );
+    }
+
     #[test]
     fn repair_includes_run_id_error_and_failing_nodes() {
         let mut r = req(BuildMode::Repair);

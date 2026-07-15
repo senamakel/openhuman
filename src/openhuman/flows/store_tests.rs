@@ -91,8 +91,15 @@ fn update_flow_graph_bumps_updated_at_and_preserves_created_at() {
 
     let mut new_graph = trigger_graph();
     new_graph.name = "renamed-graph".to_string();
-    let updated =
-        update_flow_graph(&config, &flow.id, "renamed".to_string(), new_graph, false).unwrap();
+    let updated = update_flow_graph(
+        &config,
+        &flow.id,
+        "renamed".to_string(),
+        new_graph,
+        false,
+        None,
+    )
+    .unwrap();
 
     assert_eq!(updated.name, "renamed");
     assert_eq!(updated.created_at, flow.created_at);
@@ -190,8 +197,15 @@ fn update_flow_graph_can_change_require_approval() {
     let flow = create_flow(&config, "demo".to_string(), trigger_graph(), false, true).unwrap();
     assert!(!flow.require_approval);
 
-    let updated =
-        update_flow_graph(&config, &flow.id, flow.name.clone(), trigger_graph(), true).unwrap();
+    let updated = update_flow_graph(
+        &config,
+        &flow.id,
+        flow.name.clone(),
+        trigger_graph(),
+        true,
+        None,
+    )
+    .unwrap();
     assert!(updated.require_approval);
 
     let reloaded = get_flow(&config, &flow.id).unwrap().unwrap();

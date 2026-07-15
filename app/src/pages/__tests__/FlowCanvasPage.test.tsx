@@ -40,6 +40,12 @@ vi.mock('../../components/flows/WorkflowCopilotPanel', () => ({
   },
 }));
 
+// The page auto-collapses the app sidebar via `useRootSidebar` (redux-backed);
+// this test renders without a Provider, so stub the hook to no-ops.
+vi.mock('../../components/layout/shell/RootShellLayout', () => ({
+  useRootSidebar: () => ({ visible: true, toggle: () => {}, show: () => {}, hide: () => {} }),
+}));
+
 function makeFlow(overrides: Partial<Flow> = {}): Flow {
   return {
     id: 'test-id',
@@ -186,8 +192,13 @@ describe('FlowCanvasPage', () => {
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
 
     // Edit the graph (add a node) so it is dirty, then Save.
+    // The node palette is the "Manual" tab — hidden by default now the Copilot
+    // shows — so switch to it before adding a node.
+    fireEvent.click(screen.getByTestId('flow-canvas-legend-toggle'));
     fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
     fireEvent.click(screen.getByTestId('flow-editor-save'));
+    // Save (and Run/Discard) open a confirm popup before firing.
+    fireEvent.click(screen.getByTestId('flow-action-confirm-accept'));
 
     await waitFor(() => expect(updateFlow).toHaveBeenCalledTimes(1));
     const [calledId, update] = updateFlow.mock.calls[0];
@@ -252,10 +263,15 @@ describe('FlowCanvasPage', () => {
     renderEditor();
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
 
+    // The node palette is the "Manual" tab — hidden by default now the Copilot
+    // shows — so switch to it before adding a node.
+    fireEvent.click(screen.getByTestId('flow-canvas-legend-toggle'));
     fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
     expect(screen.getAllByTestId('flow-node')).toHaveLength(2);
 
     fireEvent.click(screen.getByTestId('flow-editor-save'));
+    // Save (and Run/Discard) open a confirm popup before firing.
+    fireEvent.click(screen.getByTestId('flow-action-confirm-accept'));
     await waitFor(() => expect(updateFlow).toHaveBeenCalledTimes(1));
 
     // The canvas now shows the RESPONSE's three nodes (including the one the
@@ -287,6 +303,9 @@ describe('FlowCanvasPage', () => {
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
 
     // Make it dirty, then click Back — a confirmation dialog blocks navigation.
+    // The node palette is the "Manual" tab — hidden by default now the Copilot
+    // shows — so switch to it before adding a node.
+    fireEvent.click(screen.getByTestId('flow-canvas-legend-toggle'));
     fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
     fireEvent.click(screen.getByTestId('flow-canvas-back'));
     expect(screen.getByTestId('flow-leave-confirm')).toBeInTheDocument();
@@ -346,8 +365,13 @@ describe('FlowCanvasPage', () => {
 
     // Edit to make it dirty, then Save → the single persistence gate fires
     // `flows_create` (with the require-approval flag), not `flows_update`.
+    // The node palette is the "Manual" tab — hidden by default now the Copilot
+    // shows — so switch to it before adding a node.
+    fireEvent.click(screen.getByTestId('flow-canvas-legend-toggle'));
     fireEvent.click(screen.getByTestId('flow-palette-item-agent'));
     fireEvent.click(screen.getByTestId('flow-editor-save'));
+    // Save (and Run/Discard) open a confirm popup before firing.
+    fireEvent.click(screen.getByTestId('flow-action-confirm-accept'));
 
     await waitFor(() => expect(createFlow).toHaveBeenCalledTimes(1));
     const [name, graph, requireApproval] = createFlow.mock.calls[0];
@@ -369,6 +393,16 @@ describe('asCopilotBuildSeed', () => {
     expect(asCopilotBuildSeed({ copilotBuild: { description: 'digest my Slack' } })).toEqual({
       description: 'digest my Slack',
     });
+  });
+
+  it('carries chatFirst only when explicitly true (Start building path)', () => {
+    expect(
+      asCopilotBuildSeed({ copilotBuild: { description: 'digest my Slack', chatFirst: true } })
+    ).toEqual({ description: 'digest my Slack', chatFirst: true });
+    // A falsey/absent chatFirst yields a bare seed — no drift on the Build path.
+    expect(
+      asCopilotBuildSeed({ copilotBuild: { description: 'digest my Slack', chatFirst: false } })
+    ).toEqual({ description: 'digest my Slack' });
   });
 
   it('rejects missing, malformed, or blank seeds', () => {
@@ -443,7 +477,7 @@ describe('FlowCanvasPage copilot build seed (prompt-bar instant create)', () => 
     expect(copilotPanelProps.current?.repairSeed).toMatchObject({ runId: 'run-1' });
   });
 
-  it('keeps the copilot closed without a seed', async () => {
+  it('opens the copilot by default even without a seed', async () => {
     render(
       <MemoryRouter initialEntries={['/flows/test-id']}>
         <Routes>
@@ -452,8 +486,10 @@ describe('FlowCanvasPage copilot build seed (prompt-bar instant create)', () => 
       </MemoryRouter>
     );
 
+    // The side panel now defaults to the Copilot (the header toggle switches it
+    // to the Manual node palette or collapses it).
     await waitFor(() => expect(screen.getByTestId('flow-canvas')).toBeInTheDocument());
-    expect(screen.queryByTestId('stub-copilot-panel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('stub-copilot-panel')).toBeInTheDocument();
   });
 });
 

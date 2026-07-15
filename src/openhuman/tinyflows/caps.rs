@@ -656,6 +656,30 @@ pub(crate) fn clamp_run_timeout_secs(requested: Option<u64>) -> u64 {
     requested.map(|s| s.clamp(10, 600)).unwrap_or(240)
 }
 
+/// Issue #4868 — scale `base_timeout_secs` up for agents whose effective
+/// iteration cap exceeds the (until now, universal) global default of 10.
+///
+/// A `tools_agent`/`code_executor`/etc. node now legitimately runs up to 50
+/// iterations (`iteration_policy = "extended"`). At a worst case of
+/// ~10s/iteration that's ~500s, comfortably exceeding the 240s
+/// `clamp_run_timeout_secs` default — the node would be killed by timeout
+/// before it could use its own declared budget. Agents whose effective cap is
+/// still at or below the old global default (10) are unaffected and keep the
+/// unscaled `base_timeout_secs`. The scaled floor is capped at the existing
+/// 600s maximum `clamp_run_timeout_secs` already enforces, so this can only
+/// ever raise the effective timeout up to that ceiling, never past it.
+pub(crate) fn scale_timeout_for_iteration_cap(
+    base_timeout_secs: u64,
+    effective_iteration_cap: usize,
+) -> u64 {
+    if effective_iteration_cap > 10 {
+        let scaled = (effective_iteration_cap as u64).saturating_mul(12).min(600);
+        base_timeout_secs.max(scaled)
+    } else {
+        base_timeout_secs
+    }
+}
+
 /// Renders an agent-node completion `request` into the single user message
 /// [`Agent::run_single`](crate::openhuman::agent::Agent::run_single) takes: the
 /// `prompt` string when present and non-empty, else the `messages` array
@@ -899,14 +923,27 @@ impl OpenHumanAgentRunner {
 
         let prompt = build_harness_run_prompt(&request);
 
-        let timeout_secs =
+        let base_timeout_secs =
             clamp_run_timeout_secs(request.get("timeout_secs").and_then(Value::as_u64));
+
+        // Issue #4868 — the session builder now stamps `agent_ref`'s own
+        // `effective_max_iterations()` onto the agent (instead of the global
+        // default of 10), so `code_executor`/`tools_agent`/etc. can run up to
+        // 50 iterations here. Read the cap actually applied to `agent`
+        // (reflects the definition cap or the global fallback, whichever the
+        // builder resolved) and scale the timeout accordingly — see
+        // `scale_timeout_for_iteration_cap`.
+        let effective_iteration_cap = agent.agent_config().max_tool_iterations;
+        let timeout_secs =
+            scale_timeout_for_iteration_cap(base_timeout_secs, effective_iteration_cap);
 
         tracing::debug!(
             target: "flows",
             agent_ref,
             node_model = node_model.as_deref().unwrap_or("<definition-default>"),
             default_model = effective.default_model.as_deref().unwrap_or("<config-default>"),
+            effective_iteration_cap,
+            base_timeout_secs,
             timeout_secs,
             prompt_len = prompt.len(),
             "[flows] agent_runner: dispatching full harness turn"
@@ -4099,6 +4136,71 @@ mod tests {
     #[test]
     fn nested_harness_does_not_escalate_without_an_origin() {
         assert!(escalated_origin_for_nested_harness(None).is_none());
+    }
+
+    // ── Issue #4868 — agent-node iteration cap + timeout scaling ───────────
+
+    #[test]
+    fn scale_timeout_for_iteration_cap_leaves_default_cap_unscaled() {
+        // An agent whose effective cap is at or below the old global default
+        // (10) doesn't need extra wall-clock time.
+        assert_eq!(scale_timeout_for_iteration_cap(240, 10), 240);
+        assert_eq!(scale_timeout_for_iteration_cap(240, 3), 240);
+    }
+
+    #[test]
+    fn scale_timeout_for_iteration_cap_scales_extended_agents_up() {
+        // 50 iterations * 12s/iter = 600s, exactly the existing ceiling.
+        assert_eq!(scale_timeout_for_iteration_cap(240, 50), 600);
+    }
+
+    #[test]
+    fn scale_timeout_for_iteration_cap_never_lowers_an_explicit_request() {
+        // A caller-requested timeout higher than the scaled floor must win.
+        assert_eq!(scale_timeout_for_iteration_cap(600, 50), 600);
+    }
+
+    #[test]
+    fn scale_timeout_for_iteration_cap_caps_at_600_even_for_very_high_iteration_counts() {
+        assert_eq!(scale_timeout_for_iteration_cap(240, 200), 600);
+    }
+
+    /// Regression for issue #4868: the agent-node runtime path
+    /// (`OpenHumanAgentRunner::run_via_harness`) must build an `Agent` that
+    /// carries `agent_ref`'s definition's effective cap (50 for an
+    /// extended-policy agent), not the global `config.agent.max_tool_iterations`
+    /// default (10). This mirrors the exact build step `run_via_harness` takes
+    /// before dispatching the turn (so it doesn't require a live model
+    /// provider to exercise).
+    #[test]
+    fn agent_node_runtime_resolves_to_the_definitions_effective_iteration_cap() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = resolver_test_config(&tmp);
+        assert_eq!(config.agent.max_tool_iterations, 10);
+
+        crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global(
+            &config.workspace_dir,
+        )
+        .expect("agent registry init");
+        let def = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()
+            .expect("registry initialised")
+            .get("code_executor")
+            .expect("code_executor definition registered")
+            .clone();
+        let expected = def.effective_max_iterations();
+        assert_eq!(expected, 50);
+
+        let agent = crate::openhuman::agent::Agent::from_config_for_agent(&config, "code_executor")
+            .expect("build code_executor agent");
+        assert_eq!(agent.agent_config().max_tool_iterations, expected);
+
+        // And the timeout scaling this cap feeds into actually widens the
+        // default 240s bound for this node.
+        let base_timeout = clamp_run_timeout_secs(None);
+        assert_eq!(base_timeout, 240);
+        let scaled =
+            scale_timeout_for_iteration_cap(base_timeout, agent.agent_config().max_tool_iterations);
+        assert_eq!(scaled, 600);
     }
 
     // ── Phase 7: sub_workflow-by-id resolver ───────────────────────────────

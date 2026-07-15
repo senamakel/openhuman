@@ -160,11 +160,19 @@ impl MemoryProfile {
             }
             SubconsciousMode::Off => return Ok(0),
         }
+        let mode_iteration_cap = effective.agent.max_tool_iterations;
 
         let mut agent = Agent::from_config(&effective).map_err(|e| {
             warn!("[subconscious:memory] agent init failed: {e}");
             format!("agent init: {e}")
         })?;
+        // Issue #4868 — `Agent::from_config` builds as the `orchestrator`
+        // definition (max_iterations=15, strict), so the session builder
+        // would stamp orchestrator's cap onto this agent regardless of mode
+        // — silently dropping `Aggressive`/`EventDriven` mode's intended
+        // 30-iteration budget set above to 15. Re-apply the mode-specific
+        // cap post-construction so this tick keeps its previous behavior.
+        agent.set_max_tool_iterations(mode_iteration_cap);
 
         agent.set_event_context(
             format!("subconscious:tick:{}", now_secs() as u64),

@@ -46,21 +46,53 @@ hint = "reasoning"
 # listing publishes no output schema at all (verified for every GitHub
 # action), so a downstream split_out.path is never guessed. See
 # `builder_tools.rs`'s module doc.
+# `memory_recall` is the raw (un-delegated) memory read tool — READ-ONLY, no
+# write counterpart (`memory_store` is deliberately absent). This agent is a
+# Named-scope agent, so the orchestrator's `retrieve_memory` delegate would
+# not synthesize context for it; the raw tool is the correct mechanism here.
+# `omit_memory_context = true` stays set above, so nothing is injected
+# automatically — the agent must call `memory_recall` explicitly when it
+# needs the user's context.
+# `memory_hybrid_search` is paired alongside it (same convention as the
+# sibling `flow_discovery` agent) for keyword/lexical lookups — the
+# `[learning]`-gated `MemoryAccessSection` bias instruction
+# (`src/openhuman/learning/prompt_sections.rs`) tells every agent with a
+# retrieval tool visible to "call `memory_recall` (or `memory_search` for
+# keyword lookups)"; `memory_search` itself is not a registered tool name
+# anywhere in this codebase (a pre-existing, wider naming inconsistency
+# across several agent configs, out of scope here), so without a real
+# keyword-capable tool visible, a keyword-memory turn on this Named scope
+# could only ever reach `memory_recall` — leaving the guidance's "keyword
+# lookups" half unsatisfiable. `memory_hybrid_search`'s `lexical` mode is
+# the real keyword-heavy retrieval this agent needs; both stay READ-ONLY.
 named = [
     "propose_workflow",
     "revise_workflow",
+    "edit_workflow",
+    "validate_workflow",
     "save_workflow",
     "list_flows",
     "get_flow",
+    "get_flow_history",
     "get_flow_run",
     "list_flow_connections",
     "search_tool_catalog",
     "get_tool_contract",
     "get_tool_output_sample",
     "list_agent_profiles",
+    "list_connectable_toolkits",
+    "list_node_kinds",
+    "get_node_kind_contract",
     "dry_run_workflow",
+    "list_flow_runs",
+    "resume_flow_run",
+    "cancel_flow_run",
+    "create_workflow",
+    "duplicate_flow",
     "run_flow",
     "composio_list_toolkits",
     "composio_list_connections",
     "composio_connect",
+    "memory_recall",
+    "memory_hybrid_search",
 ]

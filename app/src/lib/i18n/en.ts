@@ -46,8 +46,10 @@ const en: TranslationMap = {
   'orchPage.medulla.featAgents': 'Thousands of agents',
   'orchPage.medulla.featContext': '10M-token context',
   'orchPage.medulla.featCost': 'Low-cost orchestration',
-  'orchPage.medulla.subscriberTitle': 'OpenHuman subscribers',
-  'orchPage.medulla.subscriberNote': 'Get early access to Medulla and the orchestration engine.',
+  'orchPage.medulla.subscriberTitle': 'OpenHuman Subscribers',
+  'orchPage.medulla.subscriberNote':
+    'When Medulla goes live, it will be exclusive to OpenHuman subscribers.',
+  'orchPage.medulla.subscriberCta': 'Get a Subscription',
   'orchPage.medulla.discordTitle': 'Join the Discord',
   'orchPage.medulla.earlyAccess':
     'Want in early? Join our Discord and grab an early-access invite.',

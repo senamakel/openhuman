@@ -335,7 +335,9 @@ const messages: TranslationMap = {
   'orchPage.medulla.featContext': '10M-टोकन कॉन्टेक्स्ट',
   'orchPage.medulla.featCost': 'कम लागत वाली ऑर्केस्ट्रेशन',
   'orchPage.medulla.subscriberTitle': 'OpenHuman सब्सक्राइबर',
-  'orchPage.medulla.subscriberNote': 'Medulla और ऑर्केस्ट्रेशन इंजन का जल्दी एक्सेस पाएं।',
+  'orchPage.medulla.subscriberNote':
+    'Medulla के लाइव होने पर यह केवल OpenHuman सब्सक्राइबर के लिए विशेष रूप से उपलब्ध होगा।',
+  'orchPage.medulla.subscriberCta': 'सब्सक्रिप्शन लें',
   'orchPage.medulla.discordTitle': 'Discord से जुड़ें',
   'orchPage.medulla.earlyAccess':
     'पहले पाना चाहते हैं? हमारे Discord से जुड़ें और अर्ली-एक्सेस निमंत्रण प्राप्त करें।',

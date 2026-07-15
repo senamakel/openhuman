@@ -354,7 +354,8 @@ const messages: TranslationMap = {
   'orchPage.medulla.featCost': 'Orchestration à faible coût',
   'orchPage.medulla.subscriberTitle': 'Abonnés OpenHuman',
   'orchPage.medulla.subscriberNote':
-    "Obtenez un accès anticipé à Medulla et au moteur d'orchestration.",
+    'Au lancement de Medulla, il sera exclusivement réservé aux abonnés OpenHuman.',
+  'orchPage.medulla.subscriberCta': 'Obtenir un abonnement',
   'orchPage.medulla.discordTitle': 'Rejoignez le Discord',
   'orchPage.medulla.earlyAccess':
     "Envie d'un accès en avant-première ? Rejoignez notre Discord et obtenez une invitation.",

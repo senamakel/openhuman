@@ -329,7 +329,8 @@ const messages: TranslationMap = {
   'orchPage.medulla.featContext': '10M 토큰 컨텍스트',
   'orchPage.medulla.featCost': '저비용 오케스트레이션',
   'orchPage.medulla.subscriberTitle': 'OpenHuman 구독자',
-  'orchPage.medulla.subscriberNote': 'Medulla와 오케스트레이션 엔진에 대한 얼리 액세스를 받으세요.',
+  'orchPage.medulla.subscriberNote': 'Medulla가 출시되면 OpenHuman 구독자 전용으로 제공됩니다.',
+  'orchPage.medulla.subscriberCta': '구독하기',
   'orchPage.medulla.discordTitle': 'Discord 참여하기',
   'orchPage.medulla.earlyAccess':
     '먼저 사용해 보고 싶으신가요? 저희 Discord에 참여하고 얼리 액세스 초대를 받으세요.',

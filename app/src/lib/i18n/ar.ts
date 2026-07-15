@@ -321,7 +321,8 @@ const messages: TranslationMap = {
   'orchPage.medulla.featContext': 'سياق بسعة 10M توكن',
   'orchPage.medulla.featCost': 'تنسيق منخفض التكلفة',
   'orchPage.medulla.subscriberTitle': 'مشتركو OpenHuman',
-  'orchPage.medulla.subscriberNote': 'احصل على وصول مبكر إلى Medulla ومحرّك التنسيق.',
+  'orchPage.medulla.subscriberNote': 'عند إطلاق Medulla، سيكون حصريًا لمشتركي OpenHuman.',
+  'orchPage.medulla.subscriberCta': 'احصل على اشتراك',
   'orchPage.medulla.discordTitle': 'انضم إلى Discord',
   'orchPage.medulla.earlyAccess':
     'هل تريد الوصول المبكر؟ انضم إلى Discord الخاص بنا واحصل على دعوة الوصول المبكر.',

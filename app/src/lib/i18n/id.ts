@@ -341,7 +341,9 @@ const messages: TranslationMap = {
   'orchPage.medulla.featContext': 'Konteks 10M token',
   'orchPage.medulla.featCost': 'Orkestrasi berbiaya rendah',
   'orchPage.medulla.subscriberTitle': 'Pelanggan OpenHuman',
-  'orchPage.medulla.subscriberNote': 'Dapatkan akses awal ke Medulla dan mesin orkestrasi.',
+  'orchPage.medulla.subscriberNote':
+    'Saat Medulla diluncurkan, akan eksklusif untuk pelanggan OpenHuman.',
+  'orchPage.medulla.subscriberCta': 'Dapatkan langganan',
   'orchPage.medulla.discordTitle': 'Gabung Discord',
   'orchPage.medulla.earlyAccess':
     'Ingin lebih dulu? Gabung Discord kami dan dapatkan undangan akses awal.',

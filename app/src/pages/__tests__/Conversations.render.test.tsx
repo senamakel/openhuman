@@ -31,7 +31,6 @@ import chatRuntimeReducer, {
   setTurnTimelinesForThread,
 } from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
-import privacyReducer from '../../store/privacySlice';
 import socketReducer from '../../store/socketSlice';
 import themeReducer from '../../store/themeSlice';
 import threadReducer, { setSelectedThread } from '../../store/threadSlice';
@@ -203,7 +202,6 @@ function buildStore(preload: Record<string, unknown> = {}) {
       chatRuntime: chatRuntimeReducer,
       agentProfiles: agentProfileReducer,
       theme: themeReducer,
-      privacy: privacyReducer,
     }),
     preloadedState: preload as never,
   });
@@ -2733,7 +2731,6 @@ describe('Conversations — external-transfer disclosure card removed', () => {
       await renderConversations({
         thread: selectedThreadState(thread),
         socket: socketState('connected'),
-        privacy: { privacyMode: 'standard', activeExternalByThread: { 't-sel': true } },
       });
     });
 

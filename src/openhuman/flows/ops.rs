@@ -13,6 +13,7 @@ use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, Trusted
 use crate::openhuman::approval::{FlowRunContext, APPROVAL_FLOW_RUN_CONTEXT};
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::bus;
+use crate::openhuman::flows::draft_store;
 use crate::openhuman::flows::run_registry;
 use crate::openhuman::flows::store;
 use crate::openhuman::flows::types::{
@@ -87,10 +88,167 @@ const FLOW_PARKED_TTL_SECS: i64 = 600;
 /// which is what keeps the "the agent can never create a flow" invariant
 /// intact: this function validates and returns, it has no persistence effect.
 pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
-    let migrated = tinyflows::migrate::migrate(graph_json).map_err(|e| e.to_string())?;
-    let graph: WorkflowGraph = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
+    let graph = migrate_and_deserialize_graph(graph_json)?;
     tinyflows::validate::validate(&graph).map_err(|e| e.to_string())?;
     Ok(graph)
+}
+
+/// Runs a raw graph JSON value through migration + deserialization **without**
+/// the structural `validate` step. Splits the two so a caller that wants
+/// *every* structural error (via `tinyflows::validate::validate_all`) can run
+/// validation itself — a pre-validation failure here (unparseable JSON, an
+/// unmigrateable schema) is genuinely a single error, whereas structural
+/// validation can surface many at once.
+pub(crate) fn migrate_and_deserialize_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
+    let migrated = tinyflows::migrate::migrate(graph_json).map_err(|e| e.to_string())?;
+    let graph: WorkflowGraph = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
+    Ok(graph)
+}
+
+/// Maps a portable `tinyflows` [`ValidationError`](tinyflows::error::ValidationError)
+/// into the host's structured [`FlowValidationError`], carrying its stable
+/// `code`, anchoring `node_id`, and human `message`. One place so the mapping
+/// stays consistent across `flows_validate` and the builder gate stack.
+pub(crate) fn to_flow_validation_error(
+    err: &tinyflows::error::ValidationError,
+) -> crate::openhuman::flows::FlowValidationError {
+    crate::openhuman::flows::FlowValidationError {
+        code: err.code().to_string(),
+        message: err.to_string(),
+        node_id: err.node_id().map(str::to_string),
+        field: None,
+    }
+}
+
+/// The single canonical definition of the builder hard-gate stack: the three
+/// author-time gates that reject (not warn) a graph an agent must not propose
+/// or persist — binding-resolvability, tool-contract, and required-arg
+/// resolvability, in increasing cost order.
+///
+/// Returns an empty `Vec` when the graph passes; otherwise the first failing
+/// gate's node-level error messages (short-circuiting, so an expensive later
+/// gate never runs on a graph already known to be broken). Every plane that
+/// gates an agent-authored graph — `build_builder_proposal` (propose / revise /
+/// edit), `save_workflow`, and the `strict` create/update RPC path — routes
+/// through here, so they cannot drift (audit F3: agent saves and UI saves used
+/// to validate differently).
+///
+/// Assumes `graph` is already structurally valid (run
+/// `validate_and_migrate_graph` / `validate_all` first) — these gates check
+/// resolvability/contracts on a compilable graph.
+pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    // Cheap, sync: a binding guaranteed to resolve null / wrong at runtime.
+    let binding_errors = validate_binding_resolvability(graph);
+    if !binding_errors.is_empty() {
+        return binding_errors;
+    }
+    // Async, live catalog: a tool_call whose slug isn't a real Composio action
+    // or whose real required args aren't all wired.
+    let contract_errors = validate_tool_contracts(config, graph).await;
+    if !contract_errors.is_empty() {
+        return contract_errors;
+    }
+    // Async, sandbox run: a required outbound arg that looks wired but resolves
+    // null in a mock execution.
+    validate_required_arg_resolvability(graph).await
+}
+
+/// Strict-mode gate for the create/update RPC path (audit F3): validates
+/// `graph_json` structurally (surfacing every error at once) and then runs the
+/// same [`run_builder_gates`] the agent tools enforce, returning `Err` with a
+/// combined, model-consumable message if anything fails.
+///
+/// The UI/RPC create/update path stays permissive by default (a human editing
+/// on the canvas may save a work-in-progress graph); passing `strict: true`
+/// opts that call into the *same* gates an agent save must pass, so the two
+/// planes converge on one definition instead of diverging.
+pub(crate) async fn strict_gate(config: &Config, graph_json: &Value) -> Result<(), String> {
+    let graph = migrate_and_deserialize_graph(graph_json.clone())?;
+    let structural = tinyflows::validate::validate_all(&graph);
+    if !structural.is_empty() {
+        let messages: Vec<String> = structural.iter().map(ToString::to_string).collect();
+        return Err(format!(
+            "strict validation failed — the graph is structurally invalid:\n{}",
+            messages.join("\n")
+        ));
+    }
+    let gate_errors = run_builder_gates(config, &graph).await;
+    if !gate_errors.is_empty() {
+        return Err(format!(
+            "strict validation failed:\n{}",
+            gate_errors.join("\n\n")
+        ));
+    }
+    Ok(())
+}
+
+/// Runs the full builder hard-gate stack on an already structurally-valid
+/// `graph` and, if it passes, builds the `workflow_proposal` payload the
+/// propose/revise/edit tools all return.
+///
+/// The single home for the gate sequence (binding-resolvability →
+/// tool-contract → required-arg resolvability) plus summary/warning assembly,
+/// so `revise_workflow` and `edit_workflow` cannot drift. `retry_tool` names
+/// the tool in the "fix … and call `<tool>` again" guidance so each caller's
+/// error text points the agent back at the right tool.
+///
+/// Returns `Ok(payload)` on success, or `Err(message)` with a
+/// model-consumable, fix-and-retry error when a gate rejects the graph. The
+/// caller is responsible for structural validation (`validate_and_migrate_graph`
+/// / `validate_all`) *before* calling this — these gates assume a compilable
+/// graph.
+pub(crate) async fn build_builder_proposal(
+    config: &Config,
+    retry_tool: &str,
+    name: &str,
+    graph: &WorkflowGraph,
+    require_approval: bool,
+    revision: bool,
+    instruction: Option<String>,
+) -> Result<Value, String> {
+    // The full builder hard-gate stack, run through the single canonical
+    // runner so every proposal/save/strict-RPC path gates identically (F3).
+    let gate_errors = run_builder_gates(config, graph).await;
+    if !gate_errors.is_empty() {
+        return Err(format!(
+            "{}\n\nFix these and call {retry_tool} again.",
+            gate_errors.join("\n\n")
+        ));
+    }
+
+    let summary = crate::openhuman::flows::tools::build_summary(graph);
+    let mut warnings = graph_trigger_warnings(graph);
+    warnings.extend(graph_wiring_warnings(config, graph).await);
+    // Connector onboarding (Phase 5, item 18): tell the proposal card which
+    // toolkits this graph needs and whether they're connected, so it can render
+    // "Connect <toolkit>" CTAs instead of a bare gate error later.
+    let required_connections = compute_required_connections(config, graph).await;
+    let graph_value = serde_json::to_value(graph).map_err(|e| e.to_string())?;
+
+    tracing::info!(
+        target: "flows",
+        %name,
+        node_count = graph.nodes.len(),
+        require_approval,
+        warning_count = warnings.len(),
+        revision,
+        "[flows] build_builder_proposal: proposal ready for user review"
+    );
+
+    let mut payload = json!({
+        "type": "workflow_proposal",
+        "revision": revision,
+        "name": name,
+        "graph": graph_value,
+        "require_approval": require_approval,
+        "summary": summary,
+        "warnings": warnings,
+        "required_connections": required_connections,
+    });
+    if let Some(instruction) = instruction {
+        payload["instruction"] = json!(instruction);
+    }
+    Ok(payload)
 }
 
 /// Stable snake_case label for a [`TriggerKind`], matching its serde wire
@@ -1394,39 +1552,71 @@ fn is_trigger_scoped_expression(
 pub fn flows_validate(graph_json: Value) -> RpcOutcome<crate::openhuman::flows::FlowValidation> {
     use crate::openhuman::flows::FlowValidation;
     tracing::debug!(target: "flows", "[flows] flows_validate: validating candidate graph");
-    match validate_and_migrate_graph(graph_json) {
-        Ok(graph) => {
-            let warnings = graph_trigger_warnings(&graph);
-            for warning in &warnings {
-                tracing::warn!(target: "flows", warning = %warning, "[flows] flows_validate: non-fatal validation warning");
-            }
-            tracing::debug!(
-                target: "flows",
-                node_count = graph.nodes.len(),
-                warning_count = warnings.len(),
-                "[flows] flows_validate: graph is structurally valid"
-            );
-            RpcOutcome::single_log(
-                FlowValidation {
-                    valid: true,
-                    errors: Vec::new(),
-                    warnings,
-                },
-                "flow validated",
-            )
-        }
+    // Split migrate/deserialize (a genuinely single failure) from structural
+    // validation (which can surface many problems at once). A pre-validation
+    // failure short-circuits with one error; a deserializable graph is then run
+    // through `validate_all` so the author sees every structural problem in one
+    // pass instead of one round-trip per error.
+    let graph = match migrate_and_deserialize_graph(graph_json) {
+        Ok(graph) => graph,
         Err(error) => {
-            tracing::debug!(target: "flows", %error, "[flows] flows_validate: graph is structurally invalid");
-            RpcOutcome::single_log(
+            tracing::debug!(target: "flows", %error, "[flows] flows_validate: graph could not be migrated/parsed");
+            return RpcOutcome::single_log(
                 FlowValidation {
                     valid: false,
-                    errors: vec![error],
+                    errors: vec![error.clone()],
+                    error_details: vec![crate::openhuman::flows::FlowValidationError {
+                        code: "unparseable_graph".to_string(),
+                        message: error,
+                        node_id: None,
+                        field: None,
+                    }],
                     warnings: Vec::new(),
                 },
                 "flow validation failed",
-            )
+            );
         }
+    };
+
+    let structural = tinyflows::validate::validate_all(&graph);
+    if !structural.is_empty() {
+        let error_details: Vec<_> = structural.iter().map(to_flow_validation_error).collect();
+        let errors: Vec<String> = error_details.iter().map(|e| e.message.clone()).collect();
+        tracing::debug!(
+            target: "flows",
+            error_count = errors.len(),
+            "[flows] flows_validate: graph is structurally invalid"
+        );
+        return RpcOutcome::single_log(
+            FlowValidation {
+                valid: false,
+                errors,
+                error_details,
+                warnings: Vec::new(),
+            },
+            "flow validation failed",
+        );
     }
+
+    let warnings = graph_trigger_warnings(&graph);
+    for warning in &warnings {
+        tracing::warn!(target: "flows", warning = %warning, "[flows] flows_validate: non-fatal validation warning");
+    }
+    tracing::debug!(
+        target: "flows",
+        node_count = graph.nodes.len(),
+        warning_count = warnings.len(),
+        "[flows] flows_validate: graph is structurally valid"
+    );
+    RpcOutcome::single_log(
+        FlowValidation {
+            valid: true,
+            errors: Vec::new(),
+            error_details: Vec::new(),
+            warnings,
+        },
+        "flow validated",
+    )
 }
 
 /// Imports a workflow definition WITHOUT persisting it (PHASE 4d), normalizing
@@ -1606,6 +1796,7 @@ pub async fn flows_create(
         );
     }
 
+    publish_flow_changed(&flow.id, "created", "system");
     Ok(RpcOutcome::new(flow, logs))
 }
 
@@ -1845,6 +2036,37 @@ fn title_case_toolkit(toolkit: &str) -> String {
         .join(" ")
 }
 
+/// Publishes a [`DomainEvent::FlowChanged`](crate::core::event_bus::DomainEvent::FlowChanged)
+/// so an open Workflows list/canvas refetches (bridged to a `flow:changed`
+/// socket event) — the observability half of audit F6. Best-effort broadcast;
+/// `actor` is a coarse hint (`"system"` for RPC-driven changes today).
+fn publish_flow_changed(flow_id: &str, kind: &str, actor: &str) {
+    tracing::debug!(target: "flows", %flow_id, kind, actor, "[flows] publishing FlowChanged");
+    crate::core::event_bus::publish_global(crate::core::event_bus::DomainEvent::FlowChanged {
+        flow_id: flow_id.to_string(),
+        kind: kind.to_string(),
+        actor: actor.to_string(),
+    });
+}
+
+/// Maps a store-level [`FlowUpdateError`](store::FlowUpdateError) to the RPC
+/// error string. A concurrency conflict is encoded as a JSON object the UI can
+/// parse (`{ code: "version_conflict", message, current }`) so it can offer a
+/// reload/diff instead of silently clobbering; other variants are plain text.
+fn map_flow_update_error(e: store::FlowUpdateError) -> String {
+    match e {
+        store::FlowUpdateError::NotFound => "flow not found".to_string(),
+        store::FlowUpdateError::Conflict(current) => serde_json::to_string(&json!({
+            "code": "version_conflict",
+            "message": "This flow changed since you loaded it. Reload to see the latest \
+                        version, then reapply your change.",
+            "current": *current,
+        }))
+        .unwrap_or_else(|_| "version_conflict".to_string()),
+        store::FlowUpdateError::Store(err) => err.to_string(),
+    }
+}
+
 /// Updates a flow's name, graph, and/or `require_approval` toggle.
 /// Re-validates the graph (whether newly supplied or the existing one)
 /// before persisting, same as `flows_create`.
@@ -1862,6 +2084,7 @@ pub async fn flows_update(
     name: Option<String>,
     graph_json: Option<Value>,
     require_approval: Option<bool>,
+    expected_version: Option<String>,
 ) -> Result<RpcOutcome<Flow>, String> {
     let existing = store::get_flow(config, id)
         .map_err(|e| e.to_string())?
@@ -1878,9 +2101,16 @@ pub async fn flows_update(
         }
     };
 
-    tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_update: persisting changes");
-    let updated = store::update_flow_graph(config, id, new_name, graph, new_require_approval)
-        .map_err(|e| e.to_string())?;
+    tracing::debug!(target: "flows", flow_id = %id, has_expected = expected_version.is_some(), "[flows] flows_update: persisting changes");
+    let updated = store::update_flow_graph(
+        config,
+        id,
+        new_name,
+        graph,
+        new_require_approval,
+        expected_version.as_deref(),
+    )
+    .map_err(map_flow_update_error)?;
 
     if graph_changed && updated.enabled {
         let trigger_unchanged = bus::extract_trigger_kind(&existing)
@@ -1893,10 +2123,52 @@ pub async fn flows_update(
         }
     }
 
+    publish_flow_changed(id, "updated", "system");
     Ok(RpcOutcome::single_log(
         updated,
         format!("flow updated: {id}"),
     ))
+}
+
+/// Lists a flow's revision history (prior graph snapshots), newest first,
+/// capped at `limit` (audit F6). The safety rail that makes rollback possible.
+pub fn flows_get_history(
+    config: &Config,
+    id: &str,
+    limit: usize,
+) -> Result<RpcOutcome<Vec<crate::openhuman::flows::FlowRevision>>, String> {
+    let revisions = store::list_revisions(config, id, limit).map_err(|e| e.to_string())?;
+    let count = revisions.len();
+    Ok(RpcOutcome::single_log(
+        revisions,
+        format!("flow history: {id} ({count} revisions)"),
+    ))
+}
+
+/// Rolls a flow back to a prior revision by restoring that revision's graph
+/// through the normal update path — which itself snapshots the current graph as
+/// a new revision, so a rollback is itself undoable. Honours optimistic
+/// concurrency via `expected_version`.
+pub async fn flows_rollback(
+    config: &Config,
+    id: &str,
+    revision_id: &str,
+    expected_version: Option<String>,
+) -> Result<RpcOutcome<Flow>, String> {
+    let rev = store::revision_by_id(config, id, revision_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("revision '{revision_id}' not found for flow '{id}'"))?;
+
+    tracing::debug!(target: "flows", flow_id = %id, %revision_id, "[flows] flows_rollback: restoring prior revision");
+    flows_update(
+        config,
+        id,
+        Some(rev.name),
+        Some(rev.graph),
+        Some(rev.require_approval),
+        expected_version,
+    )
+    .await
 }
 
 /// Deletes a flow by id.
@@ -1921,6 +2193,7 @@ pub async fn flows_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>
 
     store::remove_flow(config, id).map_err(|e| e.to_string())?;
     tracing::debug!(target: "flows", flow_id = %id, "[flows] flows_delete: removed");
+    publish_flow_changed(id, "deleted", "system");
     Ok(RpcOutcome::new(
         json!({ "id": id, "removed": true }),
         vec![format!("flow removed: {id}")],
@@ -1975,6 +2248,7 @@ pub async fn flows_set_enabled(
         }
     }
 
+    publish_flow_changed(id, "enabled_changed", "system");
     Ok(RpcOutcome::new(flow, logs))
 }
 
@@ -2590,6 +2864,22 @@ pub async fn flows_list_runs(
     Ok(RpcOutcome::single_log(
         runs,
         format!("flow runs listed: {flow_id}"),
+    ))
+}
+
+/// List the most recent runs across ALL flows, newest first — backs the
+/// aggregate "All runs" page. Each returned run carries its `flow_id` so the UI
+/// can group/label by workflow.
+pub async fn flows_list_all_runs(
+    config: &Config,
+    limit: usize,
+) -> Result<RpcOutcome<Vec<FlowRun>>, String> {
+    sweep_expired_parked_runs(config).await;
+    let runs = store::list_all_flow_runs(config, limit).map_err(|e| e.to_string())?;
+    let count = runs.len();
+    Ok(RpcOutcome::single_log(
+        runs,
+        format!("all flow runs listed: {count} run(s)"),
     ))
 }
 
@@ -3258,11 +3548,12 @@ pub async fn flows_discover(
 /// own `max_iterations` caps its loop, but a hung LLM/tool call must never let
 /// the RPC block indefinitely.
 ///
-/// Matches [`FLOW_RUN_TIMEOUT_SECS`] (600s): since the (B31) fix below actually
-/// applies the builder's `effective_max_iterations()` (50, not the global
-/// default of 10) to this path, a worst-case run at ~10s/iteration can take up
-/// to ~500s — the old 300s bound would have clipped a legitimate long build
-/// before the iteration cap ever got a chance to.
+/// Matches [`FLOW_RUN_TIMEOUT_SECS`] (600s): the session builder applies the
+/// `workflow_builder` definition's `effective_max_iterations()` (50, not the
+/// global default of 10) to this path (issue #4868), so a worst-case run at
+/// ~10s/iteration can take up to ~500s — the old 300s bound would have
+/// clipped a legitimate long build before the iteration cap ever got a
+/// chance to.
 const FLOW_BUILD_TIMEOUT_SECS: u64 = 600;
 
 /// Tools stripped from the `workflow_builder` belt on the direct `flows_build`
@@ -3304,61 +3595,6 @@ fn restrict_builder_toolset(agent: &mut crate::openhuman::agent::Agent) {
         "[flows] flows_build: hiding live-run tools from builder belt"
     );
     agent.hide_tools(FLOWS_BUILD_HIDDEN_TOOLS);
-}
-
-/// (B31) Returns a clone of `config` with `agent.max_tool_iterations`
-/// overridden to the `workflow_builder` [`AgentDefinition`](crate::openhuman::agent::harness::definition::AgentDefinition)'s
-/// [`effective_max_iterations()`](crate::openhuman::agent::harness::definition::AgentDefinition::effective_max_iterations),
-/// for use by [`Agent::from_config_for_agent`](crate::openhuman::agent::Agent::from_config_for_agent)
-/// in [`flows_build`].
-///
-/// Two independent iteration-cap systems exist in the harness: the per-agent
-/// `AgentDefinition.max_iterations`/`iteration_policy` (`workflow_builder`'s
-/// `agent.toml` declares `iteration_policy = "extended"`, so its effective cap
-/// is `max(max_iterations, EXTENDED_MAX_TOOL_ITERATIONS)` = 50), and the
-/// GLOBAL `Config.agent.max_tool_iterations` (default 10). Only the
-/// **sub-agent runner** path (`spawn_subagent`, used when `workflow_builder`
-/// is invoked as a chat delegate) applies the definition's effective cap.
-/// `flows_build` calls `Agent::from_config_for_agent` directly — the session
-/// builder stamps `config.agent.clone()` onto the session unconditionally, so
-/// without this override the builder silently got the global default (10)
-/// instead of the 50 its own `agent.toml` intends, burning its entire budget
-/// on a handful of dry-run cycles for anything past a trivial graph.
-///
-/// A missing registry or missing `workflow_builder` definition (registry not
-/// yet initialised, a stripped-down test registry) falls back to `config`
-/// unchanged — same behavior as before this fix, never a hard failure.
-fn apply_builder_iteration_cap(config: &Config) -> Config {
-    let mut build_config = config.clone();
-    let Some(reg) = crate::openhuman::agent::harness::AgentDefinitionRegistry::global() else {
-        tracing::warn!(
-            target: "flows",
-            "[flows] flows_build: agent registry not initialised; falling back to global \
-             max_tool_iterations={}",
-            config.agent.max_tool_iterations
-        );
-        return build_config;
-    };
-    let Some(def) = reg.get("workflow_builder") else {
-        tracing::warn!(
-            target: "flows",
-            "[flows] flows_build: workflow_builder definition not found in registry; falling \
-             back to global max_tool_iterations={}",
-            config.agent.max_tool_iterations
-        );
-        return build_config;
-    };
-    let effective = def.effective_max_iterations();
-    tracing::debug!(
-        target: "flows",
-        toml_max_iterations = def.max_iterations,
-        effective_max_iterations = effective,
-        global_default = config.agent.max_tool_iterations,
-        "[flows] flows_build: overriding max_tool_iterations from the workflow_builder agent \
-         definition (the session path does not apply effective_max_iterations() by default)"
-    );
-    build_config.agent.max_tool_iterations = effective;
-    build_config
 }
 
 /// Runs the `workflow_builder` agent for one authoring turn and returns its
@@ -3403,13 +3639,11 @@ pub async fn flows_build(
     crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
         .map_err(|e| format!("failed to initialise agent registry: {e}"))?;
 
-    // (B31) See `apply_builder_iteration_cap`'s doc: the session path below
-    // otherwise stamps the GLOBAL `config.agent.max_tool_iterations` (10)
-    // instead of the `workflow_builder` definition's intended
-    // `effective_max_iterations()` (50).
-    let build_config = apply_builder_iteration_cap(config);
-
-    let mut agent = Agent::from_config_for_agent(&build_config, "workflow_builder")
+    // Issue #4868 — the session builder (`build_session_agent_inner`) now
+    // resolves the per-agent iteration cap from the `workflow_builder`
+    // `AgentDefinition` itself (`iteration_policy = "extended"` ->
+    // `effective_max_iterations()` = 50), so no override is needed here.
+    let mut agent = Agent::from_config_for_agent(config, "workflow_builder")
         .map_err(|e| format!("failed to build workflow_builder agent: {e:#}"))?;
     agent.set_agent_definition_name("workflow_builder".to_string());
 
@@ -3585,6 +3819,271 @@ pub async fn flows_mark_suggestion_built(
         json!({ "id": id, "built": found }),
         "suggestion marked built",
     ))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Connector onboarding (Phase 5, item 18) — which toolkits a graph needs
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The set of Composio toolkits currently connected (lowercased), derived from
+/// the same picker source the node-config credential dropdown uses.
+pub(crate) async fn connected_toolkits(config: &Config) -> std::collections::HashSet<String> {
+    match flows_list_connections(config).await {
+        Ok(outcome) => outcome
+            .value
+            .iter()
+            .filter_map(|c| c.toolkit.as_deref())
+            .map(|t| t.to_ascii_lowercase())
+            .collect(),
+        Err(e) => {
+            tracing::warn!(target: "flows", error = %e, "[flows] connected_toolkits: could not list connections — treating all as unconnected");
+            std::collections::HashSet::new()
+        }
+    }
+}
+
+/// The Composio toolkits a graph needs (from its `tool_call` slugs and any
+/// `app_event` trigger), each tagged connected/missing — the data behind the
+/// canvas/proposal "Connect <toolkit>" CTAs (audit Phase 5, item 18). Native
+/// `oh:` tools and `http_request` nodes need no Composio connection and are
+/// skipped.
+pub async fn compute_required_connections(config: &Config, graph: &WorkflowGraph) -> Vec<Value> {
+    use crate::openhuman::memory_sync::composio::providers::toolkit_from_slug;
+
+    // Collect required toolkits (deduped, order-preserving).
+    let mut required: Vec<String> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut push = |tk: String| {
+        let tk = tk.to_ascii_lowercase();
+        if !tk.is_empty() && seen.insert(tk.clone()) {
+            required.push(tk);
+        }
+    };
+
+    for node in &graph.nodes {
+        if node.kind == NodeKind::ToolCall {
+            if let Some(slug) = node.config.get("slug").and_then(Value::as_str) {
+                // Native OpenHuman tools (`oh:<name>`) need no connection.
+                if slug.starts_with("oh:") {
+                    continue;
+                }
+                if let Some(tk) = toolkit_from_slug(slug) {
+                    push(tk.to_string());
+                }
+            }
+        }
+    }
+    // An app_event trigger names its toolkit directly.
+    if let Some(trigger) = graph.trigger() {
+        if let Some(tk) = trigger.config.get("toolkit").and_then(Value::as_str) {
+            push(tk.to_string());
+        }
+    }
+
+    if required.is_empty() {
+        return Vec::new();
+    }
+
+    let connected = connected_toolkits(config).await;
+    required
+        .into_iter()
+        .map(|toolkit| {
+            let status = if connected.contains(&toolkit) {
+                "connected"
+            } else {
+                "missing"
+            };
+            json!({ "toolkit": toolkit, "status": status })
+        })
+        .collect()
+}
+
+/// RPC: compute the toolkits a candidate graph needs and their connected
+/// status, so the canvas/proposal can render "Connect <toolkit>" CTAs.
+pub async fn flows_required_connections(
+    config: &Config,
+    graph_json: Value,
+) -> Result<RpcOutcome<Value>, String> {
+    let graph = migrate_and_deserialize_graph(graph_json)?;
+    let required = compute_required_connections(config, &graph).await;
+    Ok(RpcOutcome::single_log(
+        json!({ "required_connections": required }),
+        "required connections computed",
+    ))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Catalog RPCs for the UI (Phase 5, item 16) — one implementation, two consumers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Searches the live Composio tool catalog (secret-free) — the RPC the in-canvas
+/// tool browser calls, reusing the exact same core as the agent's
+/// `search_tool_catalog` tool so the two can't drift.
+pub async fn flows_search_tool_catalog(
+    config: &Config,
+    query: &str,
+    toolkit: Option<&str>,
+    limit: usize,
+) -> Result<RpcOutcome<Value>, String> {
+    tracing::debug!(target: "flows", %query, toolkit = toolkit.unwrap_or("<all>"), "[flows] flows_search_tool_catalog: searching live catalog");
+    let tools =
+        crate::openhuman::flows::builder_tools::search_live_catalog(config, query, toolkit, limit)
+            .await;
+    Ok(RpcOutcome::single_log(
+        json!({ "tools": tools }),
+        "tool catalog searched",
+    ))
+}
+
+/// Fetches one Composio action's full contract (secret-free) — the RPC the
+/// canvas tool browser calls to fill in an action's arg schema, reusing the same
+/// core as the agent's `get_tool_contract` tool.
+pub async fn flows_get_tool_contract(
+    config: &Config,
+    slug: &str,
+) -> Result<RpcOutcome<Value>, String> {
+    let slug = slug.trim();
+    let Some(toolkit) = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)
+    else {
+        return Err(format!(
+            "Could not extract a toolkit from slug '{slug}' — it must look like \
+             '<TOOLKIT>_<ACTION>' (e.g. 'GMAIL_SEND_EMAIL')."
+        ));
+    };
+    tracing::debug!(target: "flows", %slug, %toolkit, "[flows] flows_get_tool_contract: fetching contract");
+    let Some(catalog) =
+        crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog(config, &toolkit).await
+    else {
+        return Err(format!(
+            "Could not fetch the live Composio catalog for toolkit '{toolkit}'."
+        ));
+    };
+    match catalog.iter().find(|c| c.slug.eq_ignore_ascii_case(slug)) {
+        Some(contract) => {
+            let contract =
+                crate::openhuman::tinyflows::caps::apply_probe_override(contract.clone());
+            let value = serde_json::to_value(&contract).map_err(|e| e.to_string())?;
+            Ok(RpcOutcome::single_log(
+                json!({ "contract": value }),
+                "tool contract fetched",
+            ))
+        }
+        None => Err(format!(
+            "'{slug}' is not a real action in the '{toolkit}' toolkit's live catalog."
+        )),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Core-managed local drafts (F5) — the shared agent/canvas working copy
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Creates a new draft (a durable, non-live working copy) from a graph.
+pub fn flows_draft_create(
+    config: &Config,
+    flow_id: Option<String>,
+    name: String,
+    graph: Value,
+    origin: crate::openhuman::flows::DraftOrigin,
+) -> Result<RpcOutcome<crate::openhuman::flows::FlowDraft>, String> {
+    let draft = draft_store::create_draft(config, flow_id, name, graph, origin)
+        .map_err(|e| e.to_string())?;
+    Ok(RpcOutcome::single_log(draft, "draft created"))
+}
+
+/// Reads a draft by id (errors if it does not exist).
+pub fn flows_draft_get(
+    config: &Config,
+    id: &str,
+) -> Result<RpcOutcome<crate::openhuman::flows::FlowDraft>, String> {
+    let draft = draft_store::get_draft(config, id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("draft '{id}' not found"))?;
+    Ok(RpcOutcome::single_log(draft, format!("draft loaded: {id}")))
+}
+
+/// Patches a draft's `name`/`graph`/`flow_id` (any `Some` applied) and bumps
+/// `updated_at`.
+pub fn flows_draft_update(
+    config: &Config,
+    id: &str,
+    name: Option<String>,
+    graph: Option<Value>,
+    flow_id: Option<Option<String>>,
+) -> Result<RpcOutcome<crate::openhuman::flows::FlowDraft>, String> {
+    let draft =
+        draft_store::update_draft(config, id, name, graph, flow_id).map_err(|e| e.to_string())?;
+    Ok(RpcOutcome::single_log(draft, "draft updated"))
+}
+
+/// Lists all drafts, newest-updated first.
+pub fn flows_draft_list(
+    config: &Config,
+) -> Result<RpcOutcome<Vec<crate::openhuman::flows::FlowDraft>>, String> {
+    let drafts = draft_store::list_drafts(config).map_err(|e| e.to_string())?;
+    Ok(RpcOutcome::single_log(drafts, "drafts listed"))
+}
+
+/// Deletes a draft by id (idempotent — reports whether a file was removed).
+pub fn flows_draft_delete(config: &Config, id: &str) -> Result<RpcOutcome<Value>, String> {
+    let deleted = draft_store::delete_draft(config, id).map_err(|e| e.to_string())?;
+    Ok(RpcOutcome::single_log(
+        json!({ "id": id, "deleted": deleted }),
+        "draft deleted",
+    ))
+}
+
+/// Promotes a draft into a saved flow, then removes the draft file.
+///
+/// Runs the SAME create/update gates as a normal save (structural validation,
+/// the forced `require_approval` floor for side-effect graphs, born-disabled
+/// for automatic triggers) — a draft is never a back-door around them. A draft
+/// with a `flow_id` updates that flow; otherwise it creates a new one. The
+/// draft file is deleted only on a successful promote.
+pub async fn flows_draft_promote(
+    config: &Config,
+    id: &str,
+    require_approval: Option<bool>,
+) -> Result<RpcOutcome<Flow>, String> {
+    let draft = draft_store::get_draft(config, id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("draft '{id}' not found"))?;
+
+    tracing::debug!(
+        target: "flows",
+        draft_id = %id,
+        promotes_to = draft.flow_id.as_deref().unwrap_or("<new flow>"),
+        "[flows] flows_draft_promote: promoting draft through the create/update gates"
+    );
+
+    let outcome = match &draft.flow_id {
+        Some(flow_id) => {
+            flows_update(
+                config,
+                flow_id,
+                Some(draft.name.clone()),
+                Some(draft.graph.clone()),
+                require_approval,
+                None,
+            )
+            .await?
+        }
+        None => {
+            flows_create(
+                config,
+                draft.name.clone(),
+                draft.graph.clone(),
+                require_approval.unwrap_or(false),
+            )
+            .await?
+        }
+    };
+
+    // Only remove the draft once the flow write succeeded.
+    if let Err(e) = draft_store::delete_draft(config, id) {
+        tracing::warn!(target: "flows", draft_id = %id, error = %e, "[flows] flows_draft_promote: flow saved but draft file could not be removed");
+    }
+    Ok(outcome)
 }
 
 #[cfg(test)]

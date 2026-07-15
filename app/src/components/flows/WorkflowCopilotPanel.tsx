@@ -118,6 +118,12 @@ interface Props {
   seedThreadId?: string | null;
   /** Reports the live thread id up so the host can persist it per workflow. */
   onThreadIdChange?: (threadId: string | null) => void;
+  /**
+   * Drop the panel's `max-w-sm` cap so it fills the available width. Used by
+   * the chat-first canvas open, where the copilot is the whole surface until
+   * the graph appears.
+   */
+  fullWidth?: boolean;
 }
 
 export default function WorkflowCopilotPanel({
@@ -134,6 +140,7 @@ export default function WorkflowCopilotPanel({
   onPrefillSeedConsumed,
   seedThreadId = null,
   onThreadIdChange,
+  fullWidth = false,
 }: Props) {
   const { t } = useT();
   const {
@@ -395,7 +402,9 @@ export default function WorkflowCopilotPanel({
   return (
     <aside
       data-testid="workflow-copilot-panel"
-      className="flex h-full w-full max-w-sm flex-col border-l border-line bg-surface">
+      className={`flex h-full w-full flex-col border-l border-line bg-surface ${
+        fullWidth ? '' : 'max-w-sm'
+      }`}>
       <header className="flex items-start gap-2 border-b border-line px-3 py-2.5">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-content">{t('flows.copilot.title')}</p>

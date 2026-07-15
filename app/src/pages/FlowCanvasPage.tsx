@@ -21,6 +21,10 @@ import createDebug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
+import type {
+  EditableFlowCanvasHandle,
+  EditorSaveMeta,
+} from '../components/flows/canvas/EditableFlowCanvas';
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
 import FlowRunsSidebar from '../components/flows/FlowRunsSidebar';
 import WorkflowCopilotPanel, {
@@ -32,7 +36,6 @@ import {
 } from '../components/flows/workflowCopilotThreads';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PanelPage from '../components/layout/PanelPage';
-import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import Button from '../components/ui/Button';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
 import { asFlowCanvasDraftState } from '../lib/flows/canvasDraft';
@@ -64,6 +67,14 @@ export interface CopilotRepairSeed {
 export interface CopilotBuildSeed {
   /** The user's free-text workflow description from the prompt bar. */
   description: string;
+  /**
+   * Open the copilot chat-first: the graph pane stays hidden and the copilot
+   * panel fills the width until the build produces real nodes, at which point
+   * the normal split view returns ("graph appears later"). Set by the prompt
+   * bar's "Start building" CTA; the "Build" CTA leaves it unset for the
+   * classic graph-canvas open.
+   */
+  chatFirst?: boolean;
 }
 
 /** Narrow an opaque `location.state` to a {@link CopilotBuildSeed}. */
@@ -73,7 +84,10 @@ export function asCopilotBuildSeed(state: unknown): CopilotBuildSeed | null {
   if (!seed || typeof seed !== 'object') return null;
   const description = (seed as Record<string, unknown>).description;
   if (typeof description !== 'string' || description.trim().length === 0) return null;
-  return { description };
+  // Only carry `chatFirst` when explicitly true so the classic ("Build") path
+  // keeps returning a bare `{ description }` seed — no behavioural drift there.
+  const chatFirst = (seed as Record<string, unknown>).chatFirst === true;
+  return chatFirst ? { description, chatFirst: true } : { description };
 }
 
 /**
@@ -131,6 +145,9 @@ export function asCopilotRepairSeed(state: unknown): CopilotRepairSeed | null {
 
 const log = createDebug('app:flows:canvas');
 
+/** Which panel (if any) the canvas side rail shows. Driven by the header toggle. */
+type SidePanel = 'copilot' | 'legend' | null;
+
 type LoadState =
   | { status: 'loading' }
   | { status: 'notFound' }
@@ -150,6 +167,48 @@ function BackIcon() {
       viewBox="0 0 24 24"
       aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7 5l12 7-12 7V5z" />
+    </svg>
+  );
+}
+
+function SaveIcon() {
+  // Floppy disk.
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      viewBox="0 0 24 24"
+      aria-hidden="true">
+      <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+      <path d="M17 21v-8H7v8M7 3v5h8" />
+    </svg>
+  );
+}
+
+function DiscardIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      viewBox="0 0 24 24"
+      aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   );
 }
@@ -202,7 +261,18 @@ function FlowEditor({
   const { t } = useT();
   const navigate = useNavigate();
   const [dirty, setDirty] = useState(false);
+  // Save/Discard now live in the page header; the canvas reports its Save state
+  // up and exposes save()/discard() via this handle.
+  const canvasRef = useRef<EditableFlowCanvasHandle>(null);
+  const [saveMeta, setSaveMeta] = useState<EditorSaveMeta>({
+    dirty: false,
+    hasErrors: false,
+    saving: false,
+  });
   const [leaveConfirm, setLeaveConfirm] = useState(false);
+  // Which header action (run/save/discard) is awaiting confirmation, if any —
+  // every icon click opens a confirm popup before it fires.
+  const [confirmAction, setConfirmAction] = useState<'run' | 'save' | 'discard' | null>(null);
   // Active run id (== thread_id) driving the canvas's live per-node overlay
   // (Phase 3e). Set when the user runs the flow; the canvas subscribes to the
   // `flow:run_progress` feed for it via `useFlowRunProgress`.
@@ -256,21 +326,29 @@ function FlowEditor({
   // the proposed graph plus ghosted removed nodes, painted diff-style. Accept
   // commits the proposed graph into `draftGraph`; Reject reverts to the frozen
   // base. NOTHING here persists — the canvas's own Save is the only gate.
-  const [copilotOpen, setCopilotOpen] = useState(
-    initialCopilotSeed !== null || initialBuildSeed !== null || initialPrefillSeed !== null
+  // The canvas side panel shows one of two things — the Copilot, or the read-only
+  // node Legend — or nothing. The header toggle switches between them. The
+  // Copilot is shown by DEFAULT (and any build/prefill/repair seed also targets
+  // it); the user can switch to the Legend or collapse the rail entirely.
+  const [sidePanel, setSidePanel] = useState<SidePanel>('copilot');
+  const copilotOpen = sidePanel === 'copilot';
+  // Toggle a panel: selecting the active one again closes the side panel.
+  const toggleSidePanel = useCallback(
+    (panel: Exclude<SidePanel, null>) => setSidePanel(cur => (cur === panel ? null : panel)),
+    []
   );
   // Issue B22: a repair seed can also arrive WITHOUT a `FlowEditor` remount —
   // "Fix with agent" clicked from `FlowRunsSidebar` stays on this same
   // `/flows/:id` route (only `location.state`/`location.key` change), so the
   // `useState` initializer above (mount-only) won't re-open the panel for it.
-  // Re-assert open whenever a new repair seed prop arrives — done during
+  // Re-assert the copilot whenever a new repair seed prop arrives — done during
   // render (React's "adjusting state when a prop changes" pattern) rather
   // than a `useEffect`, so it lands in the same render pass instead of an
   // extra one.
   const [seenCopilotSeed, setSeenCopilotSeed] = useState(initialCopilotSeed);
   if (initialCopilotSeed !== seenCopilotSeed) {
     setSeenCopilotSeed(initialCopilotSeed);
-    if (initialCopilotSeed) setCopilotOpen(true);
+    if (initialCopilotSeed) setSidePanel('copilot');
   }
   // Per-workflow copilot thread: seeded from the session cache so opening/closing
   // the panel (or switching flows and back) resumes the same conversation
@@ -293,6 +371,20 @@ function FlowEditor({
     removedNodeIds: Set<string>;
   } | null>(null);
   const [canvasVersion, setCanvasVersion] = useState(0);
+
+  // Chat-first open ("Start building" from the prompt bar): keep the graph pane
+  // hidden and let the copilot fill the surface until the build produces real
+  // nodes — "graph appears later". `graphRevealed` latches true the first time
+  // a proposal preview arrives or the draft gains a node beyond the lone
+  // trigger, and never flips back (so rejecting a proposal can't re-hide it).
+  const chatFirst = initialBuildSeed?.chatFirst === true;
+  const [graphRevealed, setGraphRevealed] = useState(!chatFirst);
+  if (!graphRevealed && (preview !== null || draftGraph.nodes.length > 1)) {
+    setGraphRevealed(true);
+  }
+  // Only actually hide the graph while the copilot is open — closing the panel
+  // must always leave the (possibly empty) canvas visible, never a blank pane.
+  const hideGraph = chatFirst && !graphRevealed && copilotOpen;
 
   // Last-persisted graph, independent of canvas remounts (fixes a P1: the
   // editable canvas seeds its own dirty baseline from whatever graph it's
@@ -460,14 +552,28 @@ function FlowEditor({
     }
   }, [flowId]);
 
+  // Return to wherever the user came from rather than always the list. React
+  // Router stamps the initial history entry with key 'default', so when this
+  // page was the first thing loaded (deep link / fresh load) there's nothing to
+  // go back to — fall back to the workflows list so Back never dead-ends.
+  const goBack = useCallback(() => {
+    if (locationKey === 'default') {
+      log('back: no prior history — falling back to /flows');
+      navigate('/flows');
+    } else {
+      log('back: navigating to previous page');
+      navigate(-1);
+    }
+  }, [locationKey, navigate]);
+
   const handleBack = useCallback(() => {
     if (dirty) {
       log('back: dirty — prompting for confirmation');
       setLeaveConfirm(true);
       return;
     }
-    navigate('/flows');
-  }, [dirty, navigate]);
+    goBack();
+  }, [dirty, goBack]);
 
   const backButton = (
     <Button
@@ -489,25 +595,102 @@ function FlowEditor({
       type="button"
       variant="primary"
       size="xs"
+      analyticsId="flow-canvas-run"
+      iconOnly
       data-testid="flow-canvas-run"
+      aria-label={running ? t('flows.editor.running') : t('flows.editor.run')}
+      title={running ? t('flows.editor.running') : t('flows.editor.run')}
       disabled={running}
-      onClick={() => void handleRun()}>
-      {running ? t('flows.editor.running') : t('flows.editor.run')}
+      onClick={() => setConfirmAction('run')}>
+      <PlayIcon />
     </Button>
   );
 
-  const headerActions = (
-    <div className="flex items-center gap-2">
+  // Segmented toggle for the side rail: Copilot | Legend. Clicking the active
+  // segment again collapses the rail (full-width graph). Replaces the old
+  // single copilot on/off button.
+  const sidePanelToggle = (
+    <div
+      role="group"
+      aria-label={t('flows.canvas.sidePanelToggle')}
+      className="inline-flex items-center rounded-lg border border-line bg-surface p-0.5">
+      {(
+        [
+          { key: 'copilot', label: t('flows.copilot.open'), testId: 'flow-canvas-copilot-toggle' },
+          {
+            key: 'legend',
+            label: t('flows.canvas.legendTab'),
+            testId: 'flow-canvas-legend-toggle',
+          },
+        ] as const
+      ).map(tab => {
+        const active = sidePanel === tab.key;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            aria-pressed={active}
+            data-testid={tab.testId}
+            onClick={() => toggleSidePanel(tab.key)}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              active
+                ? 'bg-primary-500 text-content-inverted shadow-sm'
+                : 'text-content-secondary hover:bg-surface-hover'
+            }`}>
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // Save / Discard moved out of the canvas into the header (the canvas keeps
+  // only undo/redo), as icon buttons. Each opens a confirm popup before firing;
+  // they drive the editable canvas through `canvasRef`.
+  const saveActions = (
+    <div className="flex items-center gap-1.5">
+      {saveMeta.dirty && (
+        <span
+          className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+          data-testid="flow-editor-dirty">
+          {t('flows.editor.unsaved')}
+        </span>
+      )}
       <Button
         type="button"
-        variant={copilotOpen ? 'primary' : 'secondary'}
+        variant="tertiary"
         size="xs"
-        data-testid="flow-canvas-copilot-toggle"
-        aria-pressed={copilotOpen}
-        onClick={() => setCopilotOpen(open => !open)}>
-        {t('flows.copilot.open')}
+        iconOnly
+        data-testid="flow-editor-discard"
+        aria-label={t('flows.editor.discard')}
+        title={t('flows.editor.discard')}
+        disabled={!saveMeta.dirty || saveMeta.saving}
+        onClick={() => setConfirmAction('discard')}>
+        <DiscardIcon />
       </Button>
-      {runButton}
+      <Button
+        type="button"
+        variant="primary"
+        size="xs"
+        iconOnly
+        data-testid="flow-editor-save"
+        aria-label={saveMeta.saving ? t('flows.editor.saving') : t('flows.editor.save')}
+        title={saveMeta.hasErrors ? t('flows.editor.saveBlocked') : t('flows.editor.save')}
+        disabled={!saveMeta.dirty || saveMeta.hasErrors || saveMeta.saving || preview !== null}
+        onClick={() => setConfirmAction('save')}>
+        <SaveIcon />
+      </Button>
+    </div>
+  );
+
+  // Keep the save actions and Run button adjacent; the panel toggle sits apart.
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {sidePanelToggle}
+      <div className="flex items-center gap-1.5">
+        {saveActions}
+        {runButton}
+      </div>
     </div>
   );
 
@@ -542,29 +725,33 @@ function FlowEditor({
       leading={backButton}
       action={headerActions}
       contentClassName="h-full p-0">
-      {/* Project this flow's run history into the left shell sidebar while it's
-          open (persisted flows only — a draft has no runs yet). */}
-      {!isDraft && flowId && (
-        <SidebarContent>
-          <FlowRunsSidebar flowId={flowId} />
-        </SidebarContent>
-      )}
       <div className="flex h-full w-full">
-        <div className="relative h-full flex-1">
+        {/* Run history + "Fix with agent" as an inline left rail (persisted flows
+            only). The app sidebar is hidden on this route (chromeless), so this
+            can't use the shell `SidebarContent` slot — render it in-page. */}
+        {!isDraft && flowId && (
+          <div className="hidden h-full w-60 flex-shrink-0 border-r border-line lg:flex">
+            <FlowRunsSidebar flowId={flowId} />
+          </div>
+        )}
+        <div className={`relative h-full flex-1 ${hideGraph ? 'hidden' : ''}`}>
           <FlowCanvas
             key={`canvas-${canvasVersion}`}
+            ref={canvasRef}
             editable
             nodes={nodes}
             edges={edges}
             meta={meta}
             onSave={handleSave}
             onDirtyChange={setDirty}
+            onSaveMetaChange={setSaveMeta}
             activeRunId={activeRunId}
             onGraphChange={handleGraphChange}
             addedNodeIds={preview?.addedNodeIds}
             removedNodeIds={preview?.removedNodeIds}
             saveDisabled={preview !== null}
             initialDirty={initialDirty}
+            showPalette={sidePanel === 'legend'}
           />
 
           {runError && (
@@ -604,7 +791,7 @@ function FlowEditor({
                     data-testid="flow-leave-discard"
                     onClick={() => {
                       log('back: confirmed leave — discarding unsaved edits');
-                      navigate('/flows');
+                      goBack();
                     }}>
                     {t('flows.editor.leaveDiscard')}
                   </Button>
@@ -629,7 +816,7 @@ function FlowEditor({
             onProposal={handleProposal}
             onAccept={handleAcceptProposal}
             onReject={handleRejectProposal}
-            onClose={() => setCopilotOpen(false)}
+            onClose={() => setSidePanel(null)}
             repairSeed={copilotRepairSeed}
             buildSeed={initialBuildSeed}
             onBuildSeedConsumed={onBuildSeedConsumed}
@@ -637,7 +824,49 @@ function FlowEditor({
             onPrefillSeedConsumed={onPrefillSeedConsumed}
             seedThreadId={copilotThreadId}
             onThreadIdChange={handleCopilotThreadId}
+            fullWidth={hideGraph}
           />
+        )}
+
+        {/* Confirm popup for the header's Run / Save / Discard icon buttons. */}
+        {confirmAction && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+            data-testid="flow-action-confirm">
+            <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-4 shadow-xl">
+              <h2 className="text-sm font-semibold text-content">
+                {t(`flows.editor.confirm.${confirmAction}Title`)}
+              </h2>
+              <p className="mt-1 text-xs text-content-muted">
+                {t(`flows.editor.confirm.${confirmAction}Body`)}
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid="flow-action-cancel"
+                  onClick={() => setConfirmAction(null)}>
+                  {t('flows.editor.confirm.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  tone={confirmAction === 'discard' ? 'danger' : undefined}
+                  size="sm"
+                  data-testid="flow-action-confirm-accept"
+                  onClick={() => {
+                    const action = confirmAction;
+                    setConfirmAction(null);
+                    if (action === 'run') void handleRun();
+                    else if (action === 'save') canvasRef.current?.save();
+                    else if (action === 'discard') canvasRef.current?.discard();
+                  }}>
+                  {t('flows.editor.confirm.confirm')}
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </PanelPage>
@@ -650,6 +879,8 @@ export default function FlowCanvasPage() {
   const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  // The app sidebar is hidden entirely on this route via App's `chromeless`
+  // check, so the builder owns the full viewport — nothing to do here.
   // "Fix with agent" (Phase 5c) navigates here with a repair seed in
   // `location.state` so the copilot opens preloaded with the failed run.
   const copilotSeed = useMemo(() => asCopilotRepairSeed(location.state), [location.state]);

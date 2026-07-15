@@ -56,7 +56,7 @@ use crate::openhuman::config::Config;
 use crate::openhuman::flows::ops;
 use crate::openhuman::flows::ops::validate_and_migrate_graph;
 use crate::openhuman::flows::tools;
-use crate::openhuman::security::{AutonomyLevel, SecurityPolicy};
+use crate::openhuman::security::SecurityPolicy;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 /// Wall-clock bound on a single `dry_run_workflow` mock execution. A malformed
@@ -180,91 +180,954 @@ impl Tool for ReviseWorkflowTool {
             }
         };
 
-        // Enforcing binding-resolvability gate (see
-        // `ops::validate_binding_resolvability`): reject outright — rather
-        // than merely warn — a `tool_call` binding that is guaranteed to
-        // resolve null (or the wrong value) at runtime, so the builder must
-        // fix the graph before the revision can even be proposed.
-        let binding_errors = ops::validate_binding_resolvability(&graph);
-        if !binding_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %name,
-                error_count = binding_errors.len(),
-                "[flows] revise_workflow: binding-resolvability check rejected the revised graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these bindings and call revise_workflow again.",
-                binding_errors.join("\n\n")
-            )));
+        // Full builder hard-gate stack (binding-resolvability → tool-contract →
+        // required-arg resolvability) + summary/warning assembly, shared with
+        // edit_workflow so the two proposal paths can't drift.
+        match ops::build_builder_proposal(
+            &self.config,
+            "revise_workflow",
+            &name,
+            &graph,
+            require_approval,
+            true,
+            instruction,
+        )
+        .await
+        {
+            Ok(payload) => Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?)),
+            Err(message) => {
+                tracing::debug!(target: "flows", %name, "[flows] revise_workflow: a hard gate rejected the revised graph");
+                Ok(ToolResult::error(message))
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// edit_workflow — structured incremental edits (proposal only) — F1
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `edit_workflow`: apply a small list of structured graph ops to a base graph
+/// (a saved flow by `flow_id`, or an inline `graph`) instead of re-emitting the
+/// whole graph. Applies the ops, runs the full validate + hard-gate stack, and
+/// returns the same `workflow_proposal` payload as `revise_workflow`.
+///
+/// This is the cheap, low-regression iteration path (audit F1): a one-field
+/// tweak on a 20-node flow is one `update_node_config` op, not a full re-emit.
+/// Still proposal-only — never persists or enables.
+pub struct EditWorkflowTool {
+    config: Arc<Config>,
+}
+
+impl EditWorkflowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for EditWorkflowTool {
+    fn name(&self) -> &str {
+        "edit_workflow"
+    }
+
+    fn description(&self) -> &str {
+        "Iterate on a workflow with STRUCTURED EDITS instead of re-emitting the whole graph — the \
+         cheap, low-regression path for changing a draft, saved, or inline flow. Provide the base \
+         (draft_id for a working draft — the applied edit is written back to it; flow_id for a \
+         saved flow; or an inline graph) plus ops[]: a list of edits applied in \
+         order. Op shapes (each is { \"op\": <type>, ... }): add_node {node}, update_node_config \
+         {id, config} (JSON merge-patch — a null value deletes that config key), set_node_name \
+         {id, name}, rename_node {id, new_id} (rewires edges), remove_node {id} (drops its edges), \
+         add_edge {edge}, remove_edge {from_node, to_node, from_port?, to_port?}, set_node_position \
+         {id, position}. Like propose/revise_workflow this ONLY VALIDATES and returns a proposal \
+         for the user to review — it never creates, updates, or enables the flow. If an op fails or \
+         the resulting graph is invalid, the error names the failing op / node; fix it and call \
+         edit_workflow again."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "draft_id": {
+                    "type": "string",
+                    "description": "A working draft to edit as the base; the applied edit is written back to it. Provide one of draft_id / flow_id / graph."
+                },
+                "flow_id": {
+                    "type": "string",
+                    "description": "The saved flow to edit as the base graph. Provide one of draft_id / flow_id / graph."
+                },
+                "graph": {
+                    "type": "object",
+                    "description": "An inline base tinyflows WorkflowGraph to edit. Provide one of draft_id / flow_id / graph.",
+                    "properties": {
+                        "nodes": { "type": "array" },
+                        "edges": { "type": "array" }
+                    }
+                },
+                "ops": {
+                    "type": "array",
+                    "description": "The structured edits, applied in order. Each item is { op, ... } — see the tool description for op shapes.",
+                    "items": { "type": "object", "properties": { "op": { "type": "string" } }, "required": ["op"] },
+                    "minItems": 1
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Name for the resulting proposed flow. Defaults to the base flow's name."
+                },
+                "instruction": {
+                    "type": "string",
+                    "description": "The change that motivated these ops (echoed back on the review card)."
+                },
+                "require_approval": {
+                    "type": "boolean",
+                    "description": "Force a human-approval gate on every outbound action once saved. Defaults to true."
+                }
+            },
+            "required": ["ops"]
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        // Pure validation, no side effect — mirrors propose/revise_workflow.
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        // Resolve the base graph + a default name from exactly one of: a draft
+        // (the shared working copy — edits are written back to it), a saved
+        // flow, or an inline graph.
+        let draft_id = args
+            .get("draft_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let flow_id = args
+            .get("flow_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let inline_graph = args.get("graph").filter(|v| !v.is_null());
+
+        // When editing a draft, remember its id so the applied edit is written
+        // back — the draft is the durable working copy across turns/reloads.
+        let mut write_back_draft: Option<String> = None;
+
+        let (base_graph, default_name) = match (draft_id, flow_id, inline_graph) {
+            (Some(id), _, _) => match ops::flows_draft_get(&self.config, id) {
+                Ok(outcome) => {
+                    let draft = outcome.value;
+                    match ops::migrate_and_deserialize_graph(draft.graph.clone()) {
+                        Ok(graph) => {
+                            write_back_draft = Some(draft.id.clone());
+                            (graph, draft.name)
+                        }
+                        Err(e) => {
+                            return Ok(ToolResult::error(format!(
+                                "Draft '{id}' holds a graph that could not be parsed: {e}."
+                            )));
+                        }
+                    }
+                }
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load draft '{id}' to edit: {e}"
+                    )));
+                }
+            },
+            (None, Some(id), _) => match ops::flows_get(&self.config, id).await {
+                Ok(outcome) => (outcome.value.graph, outcome.value.name),
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load flow '{id}' to edit: {e}"
+                    )));
+                }
+            },
+            (None, None, Some(graph_json)) => {
+                match ops::migrate_and_deserialize_graph(graph_json.clone()) {
+                    Ok(graph) => {
+                        let name = graph.name.clone();
+                        (graph, name)
+                    }
+                    Err(e) => {
+                        return Ok(ToolResult::error(format!(
+                            "The inline base `graph` could not be parsed: {e}."
+                        )));
+                    }
+                }
+            }
+            (None, None, None) => {
+                return Ok(ToolResult::error(
+                    "Provide one of `draft_id` (a working draft), `flow_id` (a saved flow), or \
+                     `graph` (an inline base graph) to edit."
+                        .to_string(),
+                ));
+            }
+        };
+
+        // Parse the ops list.
+        let ops_value = match args.get("ops") {
+            Some(v) if v.is_array() => v.clone(),
+            _ => {
+                return Ok(ToolResult::error(
+                    "Missing 'ops' parameter (a non-empty array of structured edits).".to_string(),
+                ));
+            }
+        };
+        let graph_ops: Vec<tinyflows::graph_ops::GraphOp> = match serde_json::from_value(ops_value)
+        {
+            Ok(ops) => ops,
+            Err(e) => {
+                return Ok(ToolResult::error(format!(
+                    "Could not parse `ops`: {e}. Each op is {{ \"op\": <type>, ... }} — valid \
+                         types: add_node, update_node_config, set_node_name, rename_node, \
+                         remove_node, add_edge, remove_edge, set_node_position."
+                )));
+            }
+        };
+        if graph_ops.is_empty() {
+            return Ok(ToolResult::error(
+                "`ops` is empty — provide at least one edit.".to_string(),
+            ));
         }
 
-        // Tool-contract enforcement gate (systemic tool-contract fix, Part 2):
-        // reject a `tool_call` node whose slug isn't a REAL action in the
-        // live Composio catalog, or whose real required args aren't all wired.
-        let contract_errors = ops::validate_tool_contracts(&self.config, &graph).await;
-        if !contract_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %name,
-                error_count = contract_errors.len(),
-                "[flows] revise_workflow: tool-contract check rejected the revised graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these tool_call nodes and call revise_workflow again.",
-                contract_errors.join("\n\n")
-            )));
-        }
+        let name = args
+            .get("name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .unwrap_or(default_name);
+        let name = if name.is_empty() {
+            "Untitled workflow".to_string()
+        } else {
+            name
+        };
+        let instruction = args
+            .get("instruction")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let require_approval = args
+            .get("require_approval")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
 
-        // Required-arg resolvability gate (issue B18): reject outright — not
-        // just warn — a REQUIRED outbound arg that LOOKS wired but resolves
-        // to `null` in a sandboxed test run. See
-        // `ops::validate_required_arg_resolvability`.
-        let null_arg_errors = ops::validate_required_arg_resolvability(&graph).await;
-        if !null_arg_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %name,
-                error_count = null_arg_errors.len(),
-                "[flows] revise_workflow: required-arg resolvability check rejected the revised graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these bindings and call revise_workflow again.",
-                null_arg_errors.join("\n\n")
-            )));
-        }
-
-        let summary = super::tools::build_summary(&graph);
-        let mut warnings = ops::graph_trigger_warnings(&graph);
-        // Author-time wiring check: unwired REQUIRED Composio args come back
-        // as warnings naming the field, before the user ever saves.
-        warnings.extend(ops::graph_wiring_warnings(&self.config, &graph).await);
-        let graph_value = serde_json::to_value(&graph)?;
-
-        tracing::info!(
+        tracing::debug!(
             target: "flows",
             %name,
-            node_count = graph.nodes.len(),
-            require_approval,
-            warning_count = warnings.len(),
-            "[flows] revise_workflow: revised proposal ready for user review"
+            op_count = graph_ops.len(),
+            from_flow = flow_id.is_some(),
+            "[flows] edit_workflow: applying structured ops to base graph"
         );
 
-        let mut payload = json!({
-            "type": "workflow_proposal",
-            "revision": true,
-            "name": name,
-            "graph": graph_value,
-            "require_approval": require_approval,
-            "summary": summary,
-            "warnings": warnings,
-        });
-        if let Some(instruction) = instruction {
-            payload["instruction"] = json!(instruction);
+        // Apply the ops (structural mutation, precise per-op errors).
+        let edited = match tinyflows::graph_ops::apply_ops(&base_graph, &graph_ops) {
+            Ok(graph) => graph,
+            Err(e) => {
+                tracing::debug!(target: "flows", %name, error = %e, "[flows] edit_workflow: an op failed to apply");
+                return Ok(ToolResult::error(format!(
+                    "{e}\n\nFix the ops and call edit_workflow again."
+                )));
+            }
+        };
+
+        // Write the applied edit back to the draft (the durable working copy),
+        // so it survives across turns/reloads even if validation/gates below
+        // still flag something to fix next.
+        if let Some(ref draft_id) = write_back_draft {
+            let edited_json = serde_json::to_value(&edited)?;
+            if let Err(e) = ops::flows_draft_update(
+                &self.config,
+                draft_id,
+                Some(name.clone()),
+                Some(edited_json),
+                None,
+            ) {
+                tracing::warn!(target: "flows", %draft_id, error = %e, "[flows] edit_workflow: could not write edit back to draft");
+            }
         }
 
-        Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?))
+        // Structural validation of the RESULT — surface every problem at once.
+        let structural = tinyflows::validate::validate_all(&edited);
+        if !structural.is_empty() {
+            let messages: Vec<String> = structural.iter().map(ToString::to_string).collect();
+            tracing::debug!(
+                target: "flows",
+                %name,
+                error_count = messages.len(),
+                "[flows] edit_workflow: the edited graph is structurally invalid"
+            );
+            return Ok(ToolResult::error(format!(
+                "The edited graph is invalid:\n\n{}\n\nFix the ops and call edit_workflow again.",
+                messages.join("\n")
+            )));
+        }
+
+        // Full builder hard-gate stack + proposal payload (shared with revise).
+        match ops::build_builder_proposal(
+            &self.config,
+            "edit_workflow",
+            &name,
+            &edited,
+            require_approval,
+            true,
+            instruction,
+        )
+        .await
+        {
+            Ok(mut payload) => {
+                if let Some(draft_id) = write_back_draft {
+                    payload["draft_id"] = json!(draft_id);
+                }
+                Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?))
+            }
+            Err(message) => {
+                tracing::debug!(target: "flows", %name, "[flows] edit_workflow: a hard gate rejected the edited graph");
+                Ok(ToolResult::error(message))
+            }
+        }
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validate_workflow — standalone check without proposing (F3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `validate_workflow`: run the SAME structural validation + hard-gate stack
+/// the propose/revise/edit/save tools use, but WITHOUT emitting a proposal —
+/// a pure check so the agent can verify a draft (or a saved flow) mid-build.
+///
+/// Returns a structured report `{ ok, structurally_valid, errors[],
+/// error_details[], gate_errors[], warnings[] }`, so a failing check is
+/// fix-and-retry rather than a proposal the user has to reject.
+pub struct ValidateWorkflowTool {
+    config: Arc<Config>,
+}
+
+impl ValidateWorkflowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for ValidateWorkflowTool {
+    fn name(&self) -> &str {
+        "validate_workflow"
+    }
+
+    fn description(&self) -> &str {
+        "Check a workflow graph WITHOUT proposing or saving it — the same validation the \
+         propose/revise/edit/save tools run, surfaced on its own so you can verify a draft mid-\
+         build. Provide the graph to check (inline `graph`, or `flow_id` for a saved flow). \
+         Returns { ok, structurally_valid, errors, error_details:[{code, message, node_id}], \
+         gate_errors, warnings }: `errors` lists EVERY structural problem at once; `gate_errors` \
+         lists the hard author-gate failures (unresolvable bindings, unreal tool slugs, unwired \
+         required args) checked only once the graph is structurally valid; `warnings` are \
+         non-fatal. `ok` is true only when there are no errors and no gate_errors. Read-only."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": {
+                    "type": "string",
+                    "description": "A saved flow to validate. Provide this OR `graph`."
+                },
+                "graph": {
+                    "type": "object",
+                    "description": "An inline tinyflows WorkflowGraph to validate. Provide this OR `flow_id`.",
+                    "properties": {
+                        "nodes": { "type": "array" },
+                        "edges": { "type": "array" }
+                    }
+                }
+            }
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        // Resolve the graph to check from either a saved flow or an inline graph.
+        let flow_id = args
+            .get("flow_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let inline_graph = args.get("graph").filter(|v| !v.is_null());
+
+        let graph_json = match (flow_id, inline_graph) {
+            (Some(id), _) => match ops::load_flow_graph(&self.config, id) {
+                Ok(Some(graph)) => serde_json::to_value(&graph)?,
+                Ok(None) => {
+                    return Ok(ToolResult::error(format!("flow '{id}' not found")));
+                }
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load flow '{id}' to validate: {e}"
+                    )));
+                }
+            },
+            (None, Some(graph)) => graph.clone(),
+            (None, None) => {
+                return Ok(ToolResult::error(
+                    "Provide either `flow_id` (a saved flow) or `graph` (an inline graph) to \
+                     validate."
+                        .to_string(),
+                ));
+            }
+        };
+
+        tracing::debug!(
+            target: "flows",
+            from_flow = flow_id.is_some(),
+            "[flows] validate_workflow: checking graph (read-only)"
+        );
+
+        // Structural validation first (every error at once).
+        let validation = ops::flows_validate(graph_json.clone()).value;
+
+        // Only run the (expensive) hard gates on a structurally-valid graph.
+        let gate_errors = if validation.valid {
+            match ops::migrate_and_deserialize_graph(graph_json) {
+                Ok(graph) => ops::run_builder_gates(&self.config, &graph).await,
+                Err(_) => Vec::new(),
+            }
+        } else {
+            Vec::new()
+        };
+
+        let ok = validation.valid && gate_errors.is_empty();
+        let report = json!({
+            "ok": ok,
+            "structurally_valid": validation.valid,
+            "errors": validation.errors,
+            "error_details": validation.error_details,
+            "gate_errors": gate_errors,
+            "warnings": validation.warnings,
+        });
+        Ok(ToolResult::success(serde_json::to_string_pretty(&report)?))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// get_flow_history — read-only: prior graph snapshots (F6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `get_flow_history`: read a saved flow's revision history — the prior graph
+/// snapshots captured on each update. Lets the agent see what changed and pick
+/// a revision to roll back to (the user drives the actual rollback RPC).
+pub struct GetFlowHistoryTool {
+    config: Arc<Config>,
+}
+
+impl GetFlowHistoryTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for GetFlowHistoryTool {
+    fn name(&self) -> &str {
+        "get_flow_history"
+    }
+
+    fn description(&self) -> &str {
+        "List a saved flow's revision history — the prior graph snapshots captured automatically \
+         on each update (newest first, capped). Read-only. Returns a JSON array of { id, flow_id, \
+         graph, name, require_approval, created_at }. Use it to see what a flow looked like before \
+         a change, or to find the revision id the user can roll back to."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": { "type": "string", "description": "The saved flow whose history to list." },
+                "limit": { "type": "integer", "description": "Max revisions to return (default 20)." }
+            },
+            "required": ["flow_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
+        let limit = args
+            .get("limit")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize)
+            .unwrap_or(20);
+        tracing::debug!(target: "flows", %flow_id, limit, "[flows] get_flow_history: listing revisions (read-only)");
+        match ops::flows_get_history(&self.config, &flow_id, limit) {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &json!({ "revisions": outcome.value }),
+            )?)),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Could not load history for flow '{flow_id}': {e}"
+            ))),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 4 — the self-debug loop + gated create (F4, F7)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `list_flow_runs`: read-only listing of a saved flow's recent runs (id /
+/// status / timestamps), so the agent can FIND a failing run to diagnose
+/// instead of needing a run_id handed to it externally — the missing first step
+/// of the self-debug loop (audit F4).
+pub struct ListFlowRunsTool {
+    config: Arc<Config>,
+}
+
+impl ListFlowRunsTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for ListFlowRunsTool {
+    fn name(&self) -> &str {
+        "list_flow_runs"
+    }
+
+    fn description(&self) -> &str {
+        "List a saved flow's recent runs (newest first) so you can find one to diagnose with \
+         get_flow_run. Read-only. Returns a JSON array of runs { id, flow_id, thread_id, status, \
+         started_at, finished_at?, error? }. `id`/`thread_id` is the run id you pass to \
+         get_flow_run / resume_flow_run / cancel_flow_run."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": { "type": "string", "description": "The saved flow whose runs to list." },
+                "limit": { "type": "integer", "description": "Max runs to return (default 20)." }
+            },
+            "required": ["flow_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
+        let limit = args
+            .get("limit")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize)
+            .unwrap_or(20);
+        tracing::debug!(target: "flows", %flow_id, limit, "[flows] list_flow_runs: listing runs (read-only)");
+        match ops::flows_list_runs(&self.config, &flow_id, limit).await {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &json!({ "runs": outcome.value }),
+            )?)),
+            Err(e) => Ok(ToolResult::error(format!(
+                "Could not list runs for flow '{flow_id}': {e}"
+            ))),
+        }
+    }
+}
+
+/// `resume_flow_run`: progress a run parked on a human approval by
+/// approving/rejecting its pending node(s). Execute + approval-gated — it
+/// advances a REAL run that can fire real outbound effects.
+pub struct ResumeFlowRunTool {
+    config: Arc<Config>,
+}
+
+impl ResumeFlowRunTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for ResumeFlowRunTool {
+    fn name(&self) -> &str {
+        "resume_flow_run"
+    }
+
+    fn description(&self) -> &str {
+        "Resume a flow run that is paused on a human approval, approving and/or rejecting its \
+         pending node(s). This ADVANCES A REAL RUN — approved outbound nodes will fire — so it is \
+         approval-gated. Params: { flow_id, run_id, approve?: [node_id...], reject?: [node_id...] }. \
+         Use list_flow_runs / get_flow_run to find a run with status pending_approval and its \
+         pending node ids first."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "flow_id": { "type": "string", "description": "The run's flow id." },
+                "run_id": { "type": "string", "description": "The run (thread) id to resume (from list_flow_runs)." },
+                "approve": { "type": "array", "items": { "type": "string" }, "description": "Node ids to approve." },
+                "reject": { "type": "array", "items": { "type": "string" }, "description": "Node ids to reject." }
+            },
+            "required": ["flow_id", "run_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        // Advances a real run (approved nodes fire) — gate like an execute-class,
+        // approval-parked action.
+        PermissionLevel::Execute
+    }
+
+    fn external_effect(&self) -> bool {
+        true
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
+        let run_id = match args.get("run_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'run_id' parameter".to_string())),
+        };
+        let approve = string_array(&args, "approve");
+        let reject = string_array(&args, "reject");
+        tracing::debug!(target: "flows", %flow_id, %run_id, approve = approve.len(), reject = reject.len(), "[flows] resume_flow_run: resuming parked run");
+        match ops::flows_resume(&self.config, &flow_id, &run_id, approve, reject).await {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &outcome.value,
+            )?)),
+            Err(e) => Ok(ToolResult::error(format!("Could not resume run: {e}"))),
+        }
+    }
+}
+
+/// `cancel_flow_run`: stop an in-flight or parked run. Write-class — it changes
+/// run state but fires no new outbound effect.
+pub struct CancelFlowRunTool {
+    config: Arc<Config>,
+}
+
+impl CancelFlowRunTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for CancelFlowRunTool {
+    fn name(&self) -> &str {
+        "cancel_flow_run"
+    }
+
+    fn description(&self) -> &str {
+        "Cancel an in-flight or approval-parked flow run by its run_id (from list_flow_runs). \
+         Stops a runaway or stuck run; fires no new outbound effect. Params: { run_id }."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "run_id": { "type": "string", "description": "The run (thread) id to cancel." }
+            },
+            "required": ["run_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let run_id = match args.get("run_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'run_id' parameter".to_string())),
+        };
+        tracing::debug!(target: "flows", %run_id, "[flows] cancel_flow_run: cancelling run");
+        match ops::flows_cancel_run(&self.config, &run_id).await {
+            Ok(outcome) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &outcome.value,
+            )?)),
+            Err(e) => Ok(ToolResult::error(format!("Could not cancel run: {e}"))),
+        }
+    }
+}
+
+/// `create_workflow`: the gated create tool (audit F4/F12). Persists a NEW
+/// flow, always **born disabled** (enable stays human-only) and behind the
+/// forced `require_approval` floor for side-effect graphs. Write + approval
+/// gated. This is the deliberate widening the Phase 3 rails (versioning,
+/// events, history) make safe.
+pub struct CreateWorkflowTool {
+    config: Arc<Config>,
+}
+
+impl CreateWorkflowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for CreateWorkflowTool {
+    fn name(&self) -> &str {
+        "create_workflow"
+    }
+
+    fn description(&self) -> &str {
+        "Create a NEW saved flow from a graph. Approval-gated. The flow is ALWAYS created DISABLED \
+         (only the user can enable it via the UI) and inherits the forced approval gate for any \
+         outbound action — so a created flow can never fire on its own without an explicit human \
+         enable. Runs the same author hard-gates as save. Params: { name, graph, require_approval? }. \
+         Prefer propose_workflow when the user just wants to review a design; use this when they've \
+         explicitly asked you to create the flow."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "name": { "type": "string", "description": "Human-readable flow name." },
+                "graph": {
+                    "type": "object",
+                    "description": "The tinyflows WorkflowGraph: { nodes: [...], edges: [...] }.",
+                    "properties": { "nodes": { "type": "array" }, "edges": { "type": "array" } },
+                    "required": ["nodes", "edges"]
+                },
+                "require_approval": { "type": "boolean", "description": "Force the approval gate (defaults true)." }
+            },
+            "required": ["name", "graph"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        // Persists a new flow definition.
+        true
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let name = match args.get("name").and_then(Value::as_str).map(str::trim) {
+            Some(n) if !n.is_empty() => n.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'name' parameter".to_string())),
+        };
+        let graph_json = match args.get("graph") {
+            Some(v) if !v.is_null() => v.clone(),
+            _ => return Ok(ToolResult::error("Missing 'graph' parameter".to_string())),
+        };
+        let require_approval = args
+            .get("require_approval")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+
+        // Same structural + hard-gate stack an agent save must pass.
+        if let Err(msg) = ops::strict_gate(&self.config, &graph_json).await {
+            return Ok(ToolResult::error(format!(
+                "{msg}\n\nFix the graph and call create_workflow again."
+            )));
+        }
+
+        tracing::info!(target: "flows", %name, "[flows] create_workflow: agent-initiated create (born disabled)");
+        let flow = match ops::flows_create(&self.config, name, graph_json, require_approval).await {
+            Ok(outcome) => outcome.value,
+            Err(e) => return Ok(ToolResult::error(format!("Could not create flow: {e}"))),
+        };
+
+        // Force born-disabled: enable stays human-only, even for a manual-trigger
+        // graph that flows_create would otherwise create enabled.
+        if flow.enabled {
+            if let Err(e) = ops::flows_set_enabled(&self.config, &flow.id, false).await {
+                tracing::warn!(target: "flows", flow_id = %flow.id, error = %e, "[flows] create_workflow: could not force-disable the new flow");
+            }
+        }
+
+        Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+            "type": "workflow_created",
+            "flow_id": flow.id,
+            "name": flow.name,
+            "enabled": false,
+            "require_approval": flow.require_approval,
+            "note": "Flow created DISABLED. The user must enable it explicitly before it can run.",
+        }))?))
+    }
+}
+
+/// `duplicate_flow`: create an independent, DISABLED copy of a saved flow — the
+/// clone-then-edit pattern. Write-class.
+pub struct DuplicateFlowTool {
+    config: Arc<Config>,
+}
+
+impl DuplicateFlowTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for DuplicateFlowTool {
+    fn name(&self) -> &str {
+        "duplicate_flow"
+    }
+
+    fn description(&self) -> &str {
+        "Duplicate a saved flow: create an independent, DISABLED copy of its graph under a new id \
+         (name suffixed \" (copy)\"). The copy never fires until the user enables it. Use this for \
+         the clone-then-edit pattern (edit_workflow the copy). Params: { flow_id }."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": { "flow_id": { "type": "string", "description": "The saved flow to duplicate." } },
+            "required": ["flow_id"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    fn external_effect(&self) -> bool {
+        true
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),
+        };
+        tracing::info!(target: "flows", %flow_id, "[flows] duplicate_flow: agent-initiated duplicate");
+        match ops::flows_duplicate(&self.config, &flow_id).await {
+            Ok(outcome) => {
+                let flow = outcome.value;
+                Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
+                    "type": "workflow_duplicated",
+                    "flow_id": flow.id,
+                    "name": flow.name,
+                    "enabled": flow.enabled,
+                }))?))
+            }
+            Err(e) => Ok(ToolResult::error(format!("Could not duplicate flow: {e}"))),
+        }
+    }
+}
+
+/// `list_connectable_toolkits`: read-only list of the Composio toolkits the
+/// builder can wire, each tagged connected/unconnected — so the agent can steer
+/// toolkit choice toward what's already connected (audit Phase 5, item 19).
+pub struct ListConnectableToolkitsTool {
+    config: Arc<Config>,
+}
+
+impl ListConnectableToolkitsTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for ListConnectableToolkitsTool {
+    fn name(&self) -> &str {
+        "list_connectable_toolkits"
+    }
+
+    fn description(&self) -> &str {
+        "List the Composio toolkits available to wire into a tool_call/app_event, each flagged \
+         `connected: true/false`. Read-only. Use it to prefer an ALREADY-connected toolkit when \
+         several would work, and to tell the user which toolkits a proposed flow still needs \
+         connecting. Returns a JSON array of { toolkit, connected }."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({ "type": "object", "properties": {}, "additionalProperties": false })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
+        use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
+        tracing::debug!(target: "flows", "[flows] list_connectable_toolkits: listing toolkits + connected state (read-only)");
+        let connected = ops::connected_toolkits(&self.config).await;
+        let toolkits: Vec<Value> = agent_ready_toolkits()
+            .into_iter()
+            .map(|tk| {
+                let tk_lc = tk.to_ascii_lowercase();
+                json!({ "toolkit": tk_lc, "connected": connected.contains(&tk_lc) })
+            })
+            .collect();
+        Ok(ToolResult::success(serde_json::to_string_pretty(
+            &json!({ "toolkits": toolkits }),
+        )?))
+    }
+}
+
+/// Extracts a string array from `args[key]`, ignoring non-strings; empty when
+/// absent. Shared by the resume tool's approve/reject lists.
+fn string_array(args: &Value, key: &str) -> Vec<String> {
+    args.get(key)
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1065,6 +1928,162 @@ impl Tool for ListAgentProfilesTool {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// list_node_kinds / get_node_kind_contract — queryable DSL schema (F2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `list_node_kinds`: enumerate the 12 tinyflows node kinds with a one-line
+/// summary each. The DSL counterpart of `search_tool_catalog` for Composio
+/// actions — a cheap first call to orient before fetching a full contract.
+pub struct ListNodeKindsTool;
+
+impl ListNodeKindsTool {
+    /// Builds the tool (no configuration — the contracts are static).
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for ListNodeKindsTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Tool for ListNodeKindsTool {
+    fn name(&self) -> &str {
+        "list_node_kinds"
+    }
+
+    fn description(&self) -> &str {
+        "List the 12 tinyflows node kinds you can put in a WorkflowGraph, each with a one-line \
+         summary and its config field names. Read-only, no args. Returns a JSON array of { kind, \
+         summary, required_config, optional_config }. Call get_node_kind_contract { kind } for the \
+         full config-field shapes, ports, an example node, and authoring gotchas of any one kind — \
+         this is the machine-readable DSL schema, so you don't have to rely on prose or memory."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({ "type": "object", "properties": {}, "additionalProperties": false })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
+        tracing::debug!(target: "flows", "[flows] list_node_kinds: enumerating node kinds (read-only)");
+        let kinds: Vec<Value> = crate::openhuman::flows::all_node_kind_contracts()
+            .iter()
+            .map(|c| {
+                let required: Vec<&str> = c
+                    .config_fields
+                    .iter()
+                    .filter(|f| f.required)
+                    .map(|f| f.name.as_str())
+                    .collect();
+                let optional: Vec<&str> = c
+                    .config_fields
+                    .iter()
+                    .filter(|f| !f.required)
+                    .map(|f| f.name.as_str())
+                    .collect();
+                json!({
+                    "kind": c.kind,
+                    "summary": c.summary,
+                    "required_config": required,
+                    "optional_config": optional,
+                })
+            })
+            .collect();
+        Ok(ToolResult::success(serde_json::to_string_pretty(
+            &json!({ "node_kinds": kinds }),
+        )?))
+    }
+}
+
+/// `get_node_kind_contract`: the FULL machine-readable contract for one node
+/// kind — config fields (name/required/type/description/enum), ports, a valid
+/// example node, and the authoring gotchas. Mirrors `get_tool_contract` for
+/// Composio actions but for the DSL itself.
+pub struct GetNodeKindContractTool;
+
+impl GetNodeKindContractTool {
+    /// Builds the tool (no configuration — the contracts are static).
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for GetNodeKindContractTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Tool for GetNodeKindContractTool {
+    fn name(&self) -> &str {
+        "get_node_kind_contract"
+    }
+
+    fn description(&self) -> &str {
+        "Fetch the FULL contract for ONE tinyflows node kind before you author a node of that \
+         kind. Read-only. Returns { kind, summary, description, config_fields:[{name, required, \
+         value_type, description, enum_values?}], ports:{inputs, outputs}, example, notes }. Use \
+         config_fields for exactly what to put in config, ports for how to wire branch edges (the \
+         branch label goes on the edge's from_port), and notes for the envelope/gotcha rules that \
+         otherwise silently resolve to null. Find the kind names via list_node_kinds."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "description": "One of the 12 node kinds, e.g. 'tool_call' (from list_node_kinds).",
+                    "enum": crate::openhuman::flows::NODE_KINDS,
+                }
+            },
+            "required": ["kind"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let kind = match args.get("kind").and_then(Value::as_str).map(str::trim) {
+            Some(k) if !k.is_empty() => k.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'kind' parameter".to_string())),
+        };
+        tracing::debug!(target: "flows", %kind, "[flows] get_node_kind_contract: fetching contract (read-only)");
+        match crate::openhuman::flows::node_kind_contract(&kind) {
+            Some(contract) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &contract,
+            )?)),
+            None => Ok(ToolResult::error(format!(
+                "'{kind}' is not a tinyflows node kind — call list_node_kinds for the 12 valid \
+                 kinds."
+            ))),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // dry_run_workflow — execute a DRAFT against MOCK capabilities (tier-gated)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1182,9 +2201,13 @@ impl Tool for DryRunWorkflowTool {
         json!({
             "type": "object",
             "properties": {
+                "draft_id": {
+                    "type": "string",
+                    "description": "A working draft to simulate. Provide this OR `graph`."
+                },
                 "graph": {
                     "type": "object",
-                    "description": "The DRAFT tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }.",
+                    "description": "The DRAFT tinyflows WorkflowGraph to simulate: { nodes: [...], edges: [...] }. Provide this OR `draft_id`.",
                     "properties": {
                         "nodes": { "type": "array" },
                         "edges": { "type": "array" }
@@ -1194,43 +2217,50 @@ impl Tool for DryRunWorkflowTool {
                 "input": {
                     "description": "Optional trigger input passed to the run (defaults to {})."
                 }
-            },
-            "required": ["graph"]
+            }
         })
     }
 
     fn permission_level(&self) -> PermissionLevel {
-        // Represents executable capability (a full sandbox could run code/http),
-        // so it is gated like an execute-class tool even though the mock backend
-        // means no real side effect can fire.
-        PermissionLevel::Execute
+        // Mock-only and side-effect-free: nothing external ever fires (all
+        // capabilities are echo stubs). So it needs no elevated permission and
+        // is available on EVERY tier, read-only included (audit F7) — a
+        // read-only agent must be able to self-verify its own proposal.
+        PermissionLevel::None
     }
 
     fn external_effect(&self) -> bool {
-        // Mock capabilities only — no real outbound effect. The `Execute`
-        // permission above plus the read-only tier refusal below carry the gate.
+        // Mock capabilities only — no real outbound effect.
         false
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        // Autonomy-tier gate: a read-only session cannot dry-run (executable
-        // capability, even simulated). Supervised / Full may.
-        if self.security.autonomy == AutonomyLevel::ReadOnly {
-            tracing::debug!(
-                target: "flows",
-                "[flows] dry_run_workflow: refused — autonomy tier is read-only"
-            );
-            return Ok(ToolResult::error(
-                "dry_run_workflow requires at least 'supervised' autonomy — the current \
-                 tier is read-only. Propose the workflow instead (propose_workflow), or \
-                 raise autonomy in Settings → Agent access."
-                    .to_string(),
-            ));
-        }
-
-        let graph_json = match args.get("graph") {
-            Some(v) if !v.is_null() => v.clone(),
-            _ => return Ok(ToolResult::error("Missing 'graph' parameter".to_string())),
+        // Graph source: a working draft (draft_id) or an inline graph.
+        let graph_json = if let Some(draft_id) = args
+            .get("draft_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            match ops::flows_draft_get(&self.config, draft_id) {
+                Ok(outcome) => outcome.value.graph,
+                Err(e) => {
+                    return Ok(ToolResult::error(format!(
+                        "Could not load draft '{draft_id}' to dry-run: {e}"
+                    )));
+                }
+            }
+        } else {
+            match args.get("graph") {
+                Some(v) if !v.is_null() => v.clone(),
+                _ => {
+                    return Ok(ToolResult::error(
+                        "Provide `graph` (an inline graph) or `draft_id` (a working draft) to \
+                         dry-run."
+                            .to_string(),
+                    ));
+                }
+            }
         };
         let input = args.get("input").cloned().unwrap_or_else(|| json!({}));
 
@@ -1777,51 +2807,21 @@ impl Tool for SaveWorkflowTool {
                 )));
             }
         };
-        let binding_errors = ops::validate_binding_resolvability(&graph);
-        if !binding_errors.is_empty() {
+        // The full builder hard-gate stack, run through the single canonical
+        // runner shared with propose/revise/edit and the strict create/update
+        // RPC path (F3) — so an agent can never persist a graph that would fail
+        // gates the other planes enforce.
+        let gate_errors = ops::run_builder_gates(&self.config, &graph).await;
+        if !gate_errors.is_empty() {
             tracing::debug!(
                 target: "flows",
                 %flow_id,
-                error_count = binding_errors.len(),
-                "[flows] save_workflow: binding-resolvability check rejected the graph"
+                error_count = gate_errors.len(),
+                "[flows] save_workflow: a hard gate rejected the graph"
             );
             return Ok(ToolResult::error(format!(
-                "{}\n\nFix these bindings and call save_workflow again.",
-                binding_errors.join("\n\n")
-            )));
-        }
-        // Tool-contract enforcement gate (systemic tool-contract fix, Part 2):
-        // reject a `tool_call` node whose slug isn't a REAL action in the
-        // live Composio catalog, or whose real required args aren't all
-        // wired — before the graph is ever persisted.
-        let contract_errors = ops::validate_tool_contracts(&self.config, &graph).await;
-        if !contract_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %flow_id,
-                error_count = contract_errors.len(),
-                "[flows] save_workflow: tool-contract check rejected the graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these tool_call nodes and call save_workflow again.",
-                contract_errors.join("\n\n")
-            )));
-        }
-        // Required-arg resolvability gate (issue B18): reject outright — not
-        // just warn — a REQUIRED outbound arg that LOOKS wired but resolves
-        // to `null` in a sandboxed test run, before the graph is ever
-        // persisted. See `ops::validate_required_arg_resolvability`.
-        let null_arg_errors = ops::validate_required_arg_resolvability(&graph).await;
-        if !null_arg_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %flow_id,
-                error_count = null_arg_errors.len(),
-                "[flows] save_workflow: required-arg resolvability check rejected the graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these bindings and call save_workflow again.",
-                null_arg_errors.join("\n\n")
+                "{}\n\nFix these and call save_workflow again.",
+                gate_errors.join("\n\n")
             )));
         }
         // Author-time warnings (unfired trigger kinds + unwired REQUIRED
@@ -1838,7 +2838,7 @@ impl Tool for SaveWorkflowTool {
             "[flows] save_workflow: agent-initiated save to existing flow"
         );
 
-        match ops::flows_update(&self.config, &flow_id, name, Some(graph_json), None).await {
+        match ops::flows_update(&self.config, &flow_id, name, Some(graph_json), None, None).await {
             Ok(outcome) => {
                 let flow = outcome.value;
                 tracing::info!(

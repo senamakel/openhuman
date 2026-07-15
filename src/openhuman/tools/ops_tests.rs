@@ -1743,7 +1743,7 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
     "read_workflow_resource",
     "list_workflow_runs",
     "read_workflow_run_log",
-    "create_workflow",
+    "create_skill",
     "install_workflow_from_url",
     "uninstall_workflow",
     "thread_list",
@@ -1777,7 +1777,7 @@ const KNOWLEDGE_TOOLS: &[&str] = &[
 
 const KNOWLEDGE_DEFAULT_OFF: &[&str] = &[
     "people_refresh_address_book",
-    "create_workflow",
+    "create_skill",
     "install_workflow_from_url",
     "uninstall_workflow",
     "thread_delete",

@@ -277,8 +277,8 @@ export function AppShellDesktop() {
     path => location.pathname === path || location.pathname.startsWith(`${path}/`)
   );
   // The workflow graph canvas (`/flows/:id`, `/flows/draft`) owns the full
-  // viewport for a focused builder — no app sidebar. The `/flows` list keeps its
-  // chrome (it's the `/flows/` prefix, so the bare list path is unaffected).
+  // viewport for a focused builder — no app sidebar. The `/flows` list (and its
+  // in-page Runs / Discoveries sub-views on `?view=`) keep their chrome.
   const onWorkflowCanvas = location.pathname.startsWith('/flows/');
   const chromeless = !token || onOnboardingRoute || onHiddenChromePath || onWorkflowCanvas;
 

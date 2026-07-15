@@ -681,6 +681,25 @@ pub fn list_flow_runs(config: &Config, flow_id: &str, limit: usize) -> Result<Ve
     })
 }
 
+/// List the most recent runs across ALL flows, newest first (the "All runs"
+/// page). Uses the `idx_flow_runs_started_at` index for the ordering. Each
+/// [`FlowRun`] carries its own `flow_id`, so the UI can group/label by flow.
+pub fn list_all_flow_runs(config: &Config, limit: usize) -> Result<Vec<FlowRun>> {
+    with_connection(config, |conn| {
+        let lim = i64::try_from(limit.max(1)).context("Run history limit overflow")?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {FLOW_RUN_COLUMNS} FROM flow_runs \
+             ORDER BY started_at DESC, id DESC LIMIT ?1"
+        ))?;
+        let rows = stmt.query_map(params![lim], map_flow_run_row)?;
+        let mut runs = Vec::new();
+        for row in rows {
+            runs.push(row?);
+        }
+        Ok(runs)
+    })
+}
+
 fn map_flow_run_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<FlowRun> {
     let steps_raw: String = row.get(6)?;
     let steps: Vec<FlowRunStep> = serde_json::from_str(&steps_raw).map_err(sql_conversion_error)?;

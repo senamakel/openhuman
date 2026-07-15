@@ -2593,6 +2593,22 @@ pub async fn flows_list_runs(
     ))
 }
 
+/// List the most recent runs across ALL flows, newest first — backs the
+/// aggregate "All runs" page. Each returned run carries its `flow_id` so the UI
+/// can group/label by workflow.
+pub async fn flows_list_all_runs(
+    config: &Config,
+    limit: usize,
+) -> Result<RpcOutcome<Vec<FlowRun>>, String> {
+    sweep_expired_parked_runs(config).await;
+    let runs = store::list_all_flow_runs(config, limit).map_err(|e| e.to_string())?;
+    let count = runs.len();
+    Ok(RpcOutcome::single_log(
+        runs,
+        format!("all flow runs listed: {count} run(s)"),
+    ))
+}
+
 /// Manually prunes a flow's run history down to the retention cap
 /// ([`store::MAX_FLOW_RUNS_PER_FLOW`]), deleting only terminal runs outside the
 /// newest-N window. Never removes a `running` or `pending_approval` run — a

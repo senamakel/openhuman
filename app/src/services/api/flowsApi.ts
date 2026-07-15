@@ -327,6 +327,22 @@ export async function listFlowRuns(flowId: string, limit?: number): Promise<Flow
 }
 
 /**
+ * List the most recent runs across ALL flows, newest first, via
+ * `openhuman.flows_list_all_runs` (the aggregate "All runs" page). `limit`
+ * defaults to 100 server-side. Each run carries its `flow_id` for grouping.
+ */
+export async function listAllFlowRuns(limit?: number): Promise<FlowRun[]> {
+  log('listAllFlowRuns: request limit=%s', limit ?? 'default');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_list_all_runs',
+    params: limit === undefined ? {} : { limit },
+  });
+  const runs = unwrapCliEnvelope<FlowRun[]>(response);
+  log('listAllFlowRuns: response count=%d', runs.length);
+  return runs;
+}
+
+/**
  * Load a single flow run record by id (== thread_id) via
  * `openhuman.flows_get_run`. Not used by the B3a approval card — exported now
  * for the B3b run-history inspector.

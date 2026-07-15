@@ -248,6 +248,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("resume"),
         schemas("cancel_run"),
         schemas("list_runs"),
+        schemas("list_all_runs"),
         schemas("get_run"),
         schemas("prune_runs"),
         schemas("build"),
@@ -315,6 +316,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("list_runs"),
             handler: handle_list_runs,
+        },
+        RegisteredController {
+            schema: schemas("list_all_runs"),
+            handler: handle_list_all_runs,
         },
         RegisteredController {
             schema: schemas("get_run"),
@@ -688,6 +693,23 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "list_all_runs" => ControllerSchema {
+            namespace: "flows",
+            function: "list_all_runs",
+            description: "List the most recent runs across all flows, newest first.",
+            inputs: vec![FieldSchema {
+                name: "limit",
+                ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                comment: "Maximum number of runs to return; defaults to 100.",
+                required: false,
+            }],
+            outputs: vec![FieldSchema {
+                name: "runs",
+                ty: TypeSchema::Array(Box::new(TypeSchema::Ref("FlowRun"))),
+                comment: "Persisted run records across all flows, newest first.",
+                required: true,
+            }],
+        },
         "get_run" => ControllerSchema {
             namespace: "flows",
             function: "get_run",
@@ -1050,6 +1072,18 @@ fn handle_list_runs(params: Map<String, Value>) -> ControllerFuture {
             .and_then(|n| usize::try_from(n).ok())
             .unwrap_or(20);
         to_json(ops::flows_list_runs(&config, id.trim(), limit).await?)
+    })
+}
+
+fn handle_list_all_runs(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let limit = params
+            .get("limit")
+            .and_then(Value::as_u64)
+            .and_then(|n| usize::try_from(n).ok())
+            .unwrap_or(100);
+        to_json(ops::flows_list_all_runs(&config, limit).await?)
     })
 }
 

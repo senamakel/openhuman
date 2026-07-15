@@ -966,6 +966,38 @@ async fn flows_run_persists_a_flow_run_row_queryable_via_list_and_get() {
 }
 
 #[tokio::test]
+async fn flows_list_all_runs_aggregates_across_flows_newest_first() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    let a = flows_create(&config, "alpha".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+    let b = flows_create(&config, "beta".to_string(), trigger_only_graph(), false)
+        .await
+        .unwrap();
+
+    // Run alpha first, then beta — beta's run is the newest.
+    flows_run(&config, &a.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let beta_run = flows_run(&config, &b.value.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .unwrap();
+    let beta_thread = beta_run.value["thread_id"].as_str().unwrap().to_string();
+
+    let all = flows_list_all_runs(&config, 100).await.unwrap();
+    assert_eq!(all.value.len(), 2, "runs from both flows should be listed");
+    // Newest first — beta's run leads.
+    assert_eq!(all.value[0].id, beta_thread);
+    assert_eq!(all.value[0].flow_id, b.value.id);
+    // Both flows are represented.
+    let flow_ids: std::collections::HashSet<_> =
+        all.value.iter().map(|r| r.flow_id.clone()).collect();
+    assert!(flow_ids.contains(&a.value.id) && flow_ids.contains(&b.value.id));
+}
+
+#[tokio::test]
 async fn flows_get_run_missing_run_errors() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);

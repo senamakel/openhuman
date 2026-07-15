@@ -131,8 +131,9 @@ describe('FlowsPage', () => {
     fireEvent.click(screen.getByTestId('flow-toggle-flow-1'));
 
     expect(setFlowEnabled).toHaveBeenCalledWith('flow-1', false);
+    // The toggle is an icon button now; state is conveyed via aria-pressed.
     await waitFor(() =>
-      expect(screen.getByTestId('flow-status-flow-1')).toHaveTextContent('Paused')
+      expect(screen.getByTestId('flow-toggle-flow-1')).toHaveAttribute('aria-pressed', 'false')
     );
   });
 
@@ -167,7 +168,9 @@ describe('FlowsPage', () => {
     listFlowRuns.mockResolvedValue([]);
     renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });
 
-    await waitFor(() => expect(screen.getByTestId('flow-view-runs-flow-1')).toBeInTheDocument());
+    // "View runs" is a secondary action behind the row's overflow menu now.
+    await waitFor(() => expect(screen.getByTestId('flow-menu-flow-1')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('flow-menu-flow-1'));
     fireEvent.click(screen.getByTestId('flow-view-runs-flow-1'));
 
     expect(await screen.findByTestId('flow-runs-drawer')).toBeInTheDocument();

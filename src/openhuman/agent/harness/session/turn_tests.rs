@@ -1196,6 +1196,49 @@ async fn turn_final_answer_falls_back_to_deterministic_summary_when_reprompt_emp
 }
 
 #[tokio::test]
+async fn summarize_turn_wrapup_rejects_prompt_tool_call_and_preserves_usage() {
+    let provider: Arc<dyn Provider> = Arc::new(SequenceProvider {
+        responses: AsyncMutex::new(vec![Ok(ChatResponse {
+            text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
+            tool_calls: vec![],
+            usage: Some(UsageInfo {
+                input_tokens: 13,
+                output_tokens: 5,
+                cached_input_tokens: 3,
+                charged_amount_usd: 0.07,
+                ..UsageInfo::default()
+            }),
+            reasoning_content: None,
+        })]),
+        requests: AsyncMutex::new(Vec::new()),
+    });
+    let agent = make_agent_with_builder(
+        provider,
+        vec![],
+        Box::new(FixedMemoryLoader {
+            context: String::new(),
+        }),
+        vec![],
+        crate::openhuman::config::AgentConfig::default(),
+        crate::openhuman::config::ContextConfig::default(),
+    );
+
+    let (summary, usage) = agent
+        .summarize_turn_wrapup(&[], "test-model", 1, "write a wrap-up")
+        .await;
+
+    assert!(
+        summary.is_empty(),
+        "prompt-formatted tool calls must trigger the deterministic fallback"
+    );
+    let usage = usage.expect("rejected wrap-up must preserve provider usage");
+    assert_eq!(usage.input_tokens, 13);
+    assert_eq!(usage.output_tokens, 5);
+    assert_eq!(usage.cached_input_tokens, 3);
+    assert_eq!(usage.charged_amount_usd, 0.07);
+}
+
+#[tokio::test]
 async fn turn_checkpoint_usage_is_folded_into_transcript_accounting() {
     // The extra checkpoint provider call costs tokens; those must land in
     // the persisted transcript's cumulative accounting rather than being

@@ -21,7 +21,6 @@ import createDebug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { TrackedInteraction } from '../components/analytics';
 import FlowCanvas from '../components/flows/canvas/FlowCanvas';
 import FlowRunsSidebar from '../components/flows/FlowRunsSidebar';
 import WorkflowCopilotPanel, {
@@ -486,17 +485,16 @@ function FlowEditor({
   // A draft has nothing persisted to run yet — the canvas's Save (which creates
   // the flow) is the only gate, so no Run affordance until it's saved.
   const runButton = isDraft ? undefined : (
-    <TrackedInteraction id="flow-canvas-run">
-      <Button
-        type="button"
-        variant="primary"
-        size="xs"
-        data-testid="flow-canvas-run"
-        disabled={running}
-        onClick={() => void handleRun()}>
-        {running ? t('flows.editor.running') : t('flows.editor.run')}
-      </Button>
-    </TrackedInteraction>
+    <Button
+      type="button"
+      variant="primary"
+      size="xs"
+      analyticsId="flow-canvas-run"
+      data-testid="flow-canvas-run"
+      disabled={running}
+      onClick={() => void handleRun()}>
+      {running ? t('flows.editor.running') : t('flows.editor.run')}
+    </Button>
   );
 
   const headerActions = (

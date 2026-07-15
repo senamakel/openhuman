@@ -1,6 +1,1 @@
-export {
-  AnalyticsPageTracker,
-  TrackedInteraction,
-  trackAnalyticsEvent,
-  type TrackedInteractionProps,
-} from './AnalyticsTracker';
+export { AnalyticsPageTracker, trackAnalyticsEvent } from './AnalyticsTracker';

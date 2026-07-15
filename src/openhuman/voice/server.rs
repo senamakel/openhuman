@@ -548,7 +548,7 @@ fn start_hotkey_listener(
     #[cfg(target_os = "macos")]
     {
         if hotkey_str.trim().eq_ignore_ascii_case("fn") {
-            return start_globe_hotkey_listener(mode, server_cancel);
+            return start_globe_hotkey_listener(mode, _server_cancel);
         }
         // rdev calls TSMGetInputSourceProperty off the main thread; macOS 26
         // enforces main-queue-only access and crashes the process. Only the

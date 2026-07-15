@@ -197,6 +197,9 @@ async fn handle_connection(
                 .await
                 .is_err()
         {
+            log::debug!(
+                "[meet-video] initial WebSocket frame send failed; closing writer peer_transport=disconnected"
+            );
             return;
         }
         while latest_rx.changed().await.is_ok() {
@@ -236,7 +239,6 @@ async fn handle_connection(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures_util::{SinkExt as _, StreamExt as _};
     use tokio_tungstenite::connect_async;
 
     #[tokio::test]

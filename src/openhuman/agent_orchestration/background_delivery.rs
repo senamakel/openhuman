@@ -167,8 +167,12 @@ async fn try_deliver(session: String) {
                 );
                 requeue(&session, batch); // don't lose results on a failed turn
             }
+        } else {
+            log::warn!(
+                "[background_delivery] dropping headless batch session={session} count={}",
+                batch.len()
+            );
         }
-        // Headless batches (no originating thread to stream into) are dropped.
     }
 
     // Release the slot only AFTER the turn settles.

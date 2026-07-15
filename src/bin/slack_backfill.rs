@@ -359,6 +359,10 @@ async fn main() -> Result<()> {
                         );
                         Outcome::Ratelimit
                     } else {
+                        log::warn!(
+                            "[probe-ratelimit] provider failure on call {i}: {}",
+                            sanitize_probe_error(err)
+                        );
                         Outcome::OtherFail
                     }
                 }
@@ -569,5 +573,29 @@ fn component_status(endpoint: &Option<String>, model: &Option<String>) -> String
             format!("on/{}", m.trim())
         }
         _ => "off".to_string(),
+    }
+}
+
+fn sanitize_probe_error(error: &str) -> String {
+    let single_line = error.split_whitespace().collect::<Vec<_>>().join(" ");
+    openhuman_core::openhuman::inference::provider::ops::sanitize_api_error(&single_line)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_probe_error;
+
+    #[test]
+    fn probe_error_summary_is_single_line_bounded_and_secret_safe() {
+        let raw = format!(
+            "provider failed\nwith xoxb-secret-token {}",
+            "x".repeat(300)
+        );
+        let summary = sanitize_probe_error(&raw);
+
+        assert!(!summary.contains('\n'));
+        assert!(!summary.contains("xoxb-secret-token"));
+        assert!(summary.contains("[REDACTED]"));
+        assert!(summary.chars().count() <= 203);
     }
 }

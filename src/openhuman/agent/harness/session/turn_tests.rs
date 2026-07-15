@@ -1,5 +1,4 @@
 use super::*;
-use crate::core::event_bus::{global, init_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::XmlToolDispatcher;
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
 use crate::openhuman::agent::tool_policy::{
@@ -8,8 +7,7 @@ use crate::openhuman::agent::tool_policy::{
 };
 use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
 use crate::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, ToolResultMessage,
-    UsageInfo,
+    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, UsageInfo,
 };
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tools::ToolResult;
@@ -20,7 +18,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::Notify;
-use tokio::time::{sleep, timeout, Duration};
+use tokio::time::{timeout, Duration};
 
 struct DummyProvider;
 

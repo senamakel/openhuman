@@ -79,7 +79,7 @@ pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{
     HandoffConfig, SuperContextConfig, TranscriptSnapshotSink, TurnContextMiddleware,
 };
-use model::ProviderModel;
+use model::{BuiltTurnModels, ProviderModel, TierRoutes, TurnChatModel};
 pub(crate) use observability::SubagentScope;
 use observability::{
     CapPauser, IterationCursor, OpenhumanEventBridge, ProviderUsageCarry, ToolFailureMap,
@@ -1170,10 +1170,6 @@ fn tinyagents_depth_error(
 /// [`assemble_turn_harness`] takes this bundle instead of the raw provider, so
 /// the harness assembly is expressed purely in crate model types; the
 /// `Provider` → `ChatModel` adaptation is confined to `build_turn_models`.
-type TurnChatModel = Arc<dyn tinyagents::harness::model::ChatModel<()>>;
-type TierRoutes = Vec<(String, TurnChatModel)>;
-type BuiltTurnModels = (TurnChatModel, TierRoutes, TurnChatModel);
-
 pub(crate) struct TurnModels {
     /// The turn's effective/primary model (registry default + dispatch target).
     primary: TurnChatModel,

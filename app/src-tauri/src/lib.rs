@@ -1207,6 +1207,16 @@ fn mascot_window_hide(app: AppHandle<AppRuntime>) -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn mascot_native_window_is_open() -> bool {
+    mascot_native_window::is_open()
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
+fn mascot_native_window_is_open() -> bool {
+    false
+}
+
 /// Dispatch a notch-panel mutation onto the app main thread.
 ///
 /// The notch is a native NSPanel + WKWebView; AppKit requires it to be built
@@ -1834,6 +1844,16 @@ async fn perform_early_teardown_async(app_handle: &AppHandle<AppRuntime>) {
     wait_for_cef_webviews_to_close_async(app_handle, &closed_labels).await;
 
     log::info!("[app] perform_early_teardown_async — early teardown complete");
+}
+
+/// Explicitly wind down CEF and the core before exiting from desktop-owned
+/// quit actions. Linux does not build the tray or macOS application menu.
+#[cfg(not(target_os = "linux"))]
+fn shutdown_app_sync(app_handle: &AppHandle<AppRuntime>, exit_code: i32) {
+    log::info!("[app] shutdown_app_sync — starting early teardown");
+    perform_early_teardown_sync_once(app_handle, "shutdown_app_sync");
+    log::info!("[app] shutdown_app_sync — early teardown complete, exiting");
+    app_handle.exit(exit_code);
 }
 
 #[cfg(target_os = "linux")]

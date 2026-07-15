@@ -57,22 +57,34 @@ pub struct Snapshot {
 
 impl Snapshot {
     /// Run `DOMSnapshot.captureSnapshot` on an attached session and return
-    /// the parsed main-document tree. Iframes are ignored — none of the
-    /// migrated providers render chat lists inside iframes.
+    /// one parsed tree containing the main document and any iframe documents.
     pub async fn capture(cdp: &mut CdpConn, session: &str) -> Result<Self, String> {
+        log::debug!("[cdp::snapshot] capture start session={session}");
         let raw = cdp
             .call(
                 "DOMSnapshot.captureSnapshot",
-                json!({
-                    "computedStyles": [],
-                    "includePaintOrder": false,
-                    "includeDOMRects": false,
-                }),
+                capture_request(),
                 Some(session),
             )
-            .await?;
-        let snap: CaptureSnapshot =
-            serde_json::from_value(raw).map_err(|e| format!("decode DOMSnapshot: {e}"))?;
+            .await
+            .map_err(|error| {
+                log::warn!("[cdp::snapshot] capture call failed session={session} error={error}");
+                error
+            })?;
+        log::debug!("[cdp::snapshot] capture call complete session={session}");
+        let snap: CaptureSnapshot = serde_json::from_value(raw).map_err(|error| {
+            log::warn!("[cdp::snapshot] decode failed session={session} error={error}");
+            format!("decode DOMSnapshot: {error}")
+        })?;
+        let snapshot = Self::from_capture(snap);
+        log::debug!(
+            "[cdp::snapshot] decode complete session={session} nodes={}",
+            snapshot.len()
+        );
+        Ok(snapshot)
+    }
+
+    fn from_capture(snap: CaptureSnapshot) -> Self {
         let strings = snap.strings;
         // Merge every document (main frame + all iframes) into a single
         // flat node array. CDP returns each frame as its own document
@@ -92,7 +104,6 @@ impl Snapshot {
         for document in snap.documents {
             let doc_offset = merged_node_type.len() as i32;
             let doc_nodes = document.nodes;
-            let doc_count = doc_nodes.node_type.len();
             for &p in &doc_nodes.parent_index {
                 merged_parent_index.push(if p < 0 { -1 } else { p + doc_offset });
             }
@@ -111,7 +122,6 @@ impl Snapshot {
             while merged_attributes.len() < merged_node_type.len() {
                 merged_attributes.push(Vec::new());
             }
-            let _ = doc_count;
         }
         let nodes = NodeTreeSnap {
             parent_index: merged_parent_index,
@@ -127,11 +137,11 @@ impl Snapshot {
                 children[p as usize].push(i);
             }
         }
-        Ok(Self {
+        Self {
             strings,
             nodes,
             children,
-        })
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -246,6 +256,14 @@ impl Snapshot {
     }
 }
 
+fn capture_request() -> serde_json::Value {
+    json!({
+        "computedStyles": [],
+        "includePaintOrder": false,
+        "includeDOMRects": false,
+    })
+}
+
 fn collapse_ws(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut last_space = true;
@@ -266,6 +284,51 @@ fn collapse_ws(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn capture_request_disables_dom_rects() {
+        let request = capture_request();
+        assert_eq!(request["includeDOMRects"], false);
+        assert_eq!(request["includePaintOrder"], false);
+        assert_eq!(request["computedStyles"], json!([]));
+    }
+
+    #[test]
+    fn from_capture_offsets_documents_and_builds_child_adjacency_without_layout() {
+        let capture: CaptureSnapshot = serde_json::from_value(json!({
+            "strings": ["DIV", "first", "SPAN", "second"],
+            "documents": [
+                {
+                    "nodes": {
+                        "parentIndex": [-1, 0],
+                        "nodeType": [1, 3],
+                        "nodeName": [0, -1],
+                        "nodeValue": [-1, 1]
+                    }
+                },
+                {
+                    "nodes": {
+                        "parentIndex": [-1, 0],
+                        "nodeType": [1, 3],
+                        "nodeName": [2, -1],
+                        "nodeValue": [-1, 3]
+                    }
+                }
+            ]
+        }))
+        .expect("snapshot fixture should decode without layout data");
+
+        let snapshot = Snapshot::from_capture(capture);
+
+        assert_eq!(snapshot.len(), 4);
+        assert_eq!(snapshot.children(0), &[1]);
+        assert_eq!(snapshot.children(2), &[3]);
+        assert!(snapshot.children(1).is_empty());
+        assert_eq!(snapshot.tag(0), "DIV");
+        assert_eq!(snapshot.tag(2), "SPAN");
+        assert_eq!(snapshot.text_content(0), "first");
+        assert_eq!(snapshot.text_content(2), "second");
+    }
 
     #[test]
     fn collapse_ws_collapses_and_trims() {

@@ -403,6 +403,104 @@ async fn get_tool_contract_rejects_a_hallucinated_slug() {
     assert!(result.output().contains("not a real action"));
 }
 
+// ── WS3: early runtime-gate warnings on uncurated actions ────────────────────
+//
+// Transcript failure #2: `get_tool_contract { slug: "TWITTER_USER_LOOKUP_ME" }`
+// returned `is_curated: false` with no other signal; the agent built and wired
+// the node and only ~15 tool calls later did `validate_workflow` reject it. A
+// real-but-uncurated action of a toolkit that ships a curated catalog is a hard
+// curated-only allowlist at RUNTIME, so surface the blocker at contract-fetch /
+// search time. Uses `spotify` / `telegram` (real curated toolkits unused by
+// other tests) so these seeds can't race with the shared `gmail`/`slack` keys.
+
+fn spotify_curated_action() -> ToolContract {
+    ToolContract {
+        slug: "SPOTIFY_START_PLAYBACK".to_string(),
+        toolkit: "spotify".to_string(),
+        description: Some("Start playback".to_string()),
+        required_args: vec![],
+        input_schema: Some(json!({ "type": "object" })),
+        output_fields: vec![],
+        output_schema: None,
+        primary_array_path: None,
+        is_curated: true,
+    }
+}
+
+#[tokio::test]
+async fn get_tool_contract_warns_on_an_uncurated_action_of_a_curated_toolkit() {
+    let uncurated = ToolContract {
+        slug: "SPOTIFY_OBSCURE_ACTION".to_string(),
+        is_curated: false,
+        ..spotify_curated_action()
+    };
+    seed_live_catalog_cache("spotify", vec![spotify_curated_action(), uncurated]);
+    let tmp = TempDir::new().unwrap();
+    let tool = GetToolContractTool::new(test_config(&tmp));
+
+    // Uncurated action → runtime_gate present, FIRST in the payload, contract intact.
+    let result = tool
+        .execute(json!({ "slug": "SPOTIFY_OBSCURE_ACTION" }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let out = result.output();
+    assert!(out.contains("runtime_gate"), "{out}");
+    assert!(out.contains("REJECTED on every real run"), "{out}");
+    let gate_pos = out.find("runtime_gate").expect("runtime_gate key");
+    let slug_pos = out.find("\"slug\"").expect("slug key");
+    assert!(
+        gate_pos < slug_pos,
+        "runtime_gate must serialize first (agents read top-down): {out}"
+    );
+    let parsed: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(parsed["slug"], "SPOTIFY_OBSCURE_ACTION");
+    assert_eq!(parsed["is_curated"], false);
+
+    // Curated action of the same toolkit → NO runtime_gate.
+    let result = tool
+        .execute(json!({ "slug": "SPOTIFY_START_PLAYBACK" }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    assert!(
+        !result.output().contains("runtime_gate"),
+        "{}",
+        result.output()
+    );
+}
+
+#[tokio::test]
+async fn search_tool_catalog_flags_runtime_gated_uncurated_rows() {
+    let curated = ToolContract {
+        slug: "TELEGRAM_SEND_MESSAGE".to_string(),
+        toolkit: "telegram".to_string(),
+        description: Some("Send a message".to_string()),
+        required_args: vec![],
+        input_schema: None,
+        output_fields: vec![],
+        output_schema: None,
+        primary_array_path: None,
+        is_curated: true,
+    };
+    let uncurated = ToolContract {
+        slug: "TELEGRAM_OBSCURE_SEND".to_string(),
+        is_curated: false,
+        ..curated.clone()
+    };
+    seed_live_catalog_cache("telegram", vec![curated, uncurated]);
+
+    let config = Config::default();
+    let results = search_live_catalog(&config, "send", Some("telegram"), 40).await;
+    assert_eq!(results.len(), 2, "{results:?}");
+    // Curated row: no `runtime_gated` key (only present when true).
+    let curated_row = results.iter().find(|r| r["featured"] == true).unwrap();
+    assert!(curated_row.get("runtime_gated").is_none(), "{curated_row}");
+    // Uncurated row of a curated toolkit: `runtime_gated: true`.
+    let uncurated_row = results.iter().find(|r| r["featured"] == false).unwrap();
+    assert_eq!(uncurated_row["runtime_gated"], true);
+}
+
 /// B12: a cached real-output probe overrides `get_tool_contract`'s
 /// schema-derived `primary_array_path`/`output_fields` — most relevant for a
 /// slug whose live listing (like every GitHub action, verified live) has NO

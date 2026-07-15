@@ -1592,6 +1592,11 @@ pub(crate) async fn search_live_catalog(
     let mut matches: Vec<(bool, Value)> = Vec::new();
     for (toolkit, catalog) in fetched {
         let Some(catalog) = catalog else { continue };
+        // WS3 — a toolkit that ships a curated catalog is a hard curated-only
+        // allowlist at RUNTIME, so any `featured: false` action of it is
+        // rejected on every real run. Compute once per toolkit and flag those
+        // rows so the blocker is visible at search time (transcript failure #2).
+        let toolkit_curated = ops::toolkit_has_curated_catalog(&toolkit);
         for tool in &catalog {
             let slug_lc = tool.slug.to_ascii_lowercase();
             let desc_lc = tool
@@ -1605,18 +1610,22 @@ pub(crate) async fn search_live_catalog(
             if !is_match {
                 continue;
             }
-            matches.push((
-                tool.is_curated,
-                json!({
-                    "slug": tool.slug,
-                    "toolkit": toolkit,
-                    "description": tool.description,
-                    "required_args": tool.required_args,
-                    "output_fields": tool.output_fields,
-                    "primary_array_path": tool.primary_array_path,
-                    "featured": tool.is_curated,
-                }),
-            ));
+            let mut row = json!({
+                "slug": tool.slug,
+                "toolkit": toolkit,
+                "description": tool.description,
+                "required_args": tool.required_args,
+                "output_fields": tool.output_fields,
+                "primary_array_path": tool.primary_array_path,
+                "featured": tool.is_curated,
+            });
+            // Compact: only present when true.
+            if !tool.is_curated && toolkit_curated {
+                if let Some(obj) = row.as_object_mut() {
+                    obj.insert("runtime_gated".to_string(), Value::Bool(true));
+                }
+            }
+            matches.push((tool.is_curated, row));
         }
     }
 
@@ -1807,6 +1816,37 @@ impl Tool for GetToolContractTool {
                 // permanently `None`.
                 let contract =
                     crate::openhuman::tinyflows::caps::apply_probe_override(contract.clone());
+
+                // WS3 — EARLY runtime-gate warning (transcript failure #2): a
+                // real-but-uncurated action of a toolkit that ships a curated
+                // catalog is a hard curated-only allowlist at RUNTIME, so it is
+                // REJECTED on every real run. The late `validate_workflow` gate
+                // catches it, but only ~15 tool calls after the agent has built
+                // and wired the node. Surface the blocker HERE, at contract-fetch
+                // time (and first in the payload), so the agent never wires it.
+                if !contract.is_curated && ops::toolkit_has_curated_catalog(&toolkit) {
+                    tracing::debug!(
+                        target: "flows",
+                        %slug,
+                        %toolkit,
+                        "[flows] get_tool_contract: uncurated action of a curated toolkit — attaching runtime_gate warning"
+                    );
+                    #[derive(serde::Serialize)]
+                    struct ContractWithRuntimeGate {
+                        runtime_gate: &'static str,
+                        #[serde(flatten)]
+                        contract: crate::openhuman::tinyflows::caps::ToolContract,
+                    }
+                    let payload = ContractWithRuntimeGate {
+                        runtime_gate: "This action will be REJECTED on every real run — the \
+                                       runtime tool gate only allows curated actions for this \
+                                       toolkit. Pick a `featured: true` result from \
+                                       search_tool_catalog instead.",
+                        contract,
+                    };
+                    return Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?));
+                }
+
                 Ok(ToolResult::success(serde_json::to_string_pretty(
                     &contract,
                 )?))

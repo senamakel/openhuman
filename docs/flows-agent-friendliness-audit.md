@@ -196,19 +196,65 @@ safety rails are the prerequisite for widening agent write capabilities (F4, F7)
     `run_flow` accept `draft_id` once drafts exist, still behind explicit user
     confirmation.
 
-### Phase 5 — Naming & prompt hygiene (F8)
+### Phase 5 — Builder UX: connector onboarding, tool discovery, chat separation
 
-14. Rename the legacy skills tools (`list_workflows`→`list_skills`,
+Today the builder assumes the user already knows their Composio landscape: the
+`tool_call` config drawer makes them hand-type a toolkit slug before the per-toolkit
+action dropdown appears (`app/src/components/flows/canvas/nodeConfig/composioFields.tsx`),
+the connection selector only lists connections that already exist
+(`flows_list_connections` → `nodeConfigFields.tsx:559`), and full-catalog search
+(`search_tool_catalog` / `get_tool_contract`) is agent-tool-only with no RPC the UI can
+call. When a graph needs an unconnected toolkit, the tool-contract gate just errors —
+nothing walks the user through connecting it.
+
+16. **Catalog RPCs for the UI.** Expose the existing agent-tool logic as controllers:
+    `flows_search_tool_catalog { query, toolkit? }` and `flows_get_tool_contract
+    { slug }` (thin wrappers over the same core code as `search_tool_catalog` /
+    `get_tool_contract`, secret-free). One implementation, two consumers.
+17. **In-canvas tool browser.** Replace the hand-typed toolkit slug with a searchable
+    catalog picker in the `tool_call` config drawer (and a "browse tools" entry in the
+    NodePalette): search across all toolkits, show description / required args /
+    connected-state per result, select → fills toolkit+action and shows the contract's
+    arg schema. Connected toolkits rank first; unconnected results carry a Connect
+    badge.
+18. **Required-connections surfacing.** Compute `required_connections:
+    [{toolkit, connection_ref?, status: connected|missing}]` for any graph (derivable
+    from the existing tool-contract gate) and include it in `flows_validate` output,
+    the `workflow_proposal` payload, and `flows_get`. The proposal card and canvas
+    validation banner render missing ones as explicit "Connect <toolkit>" CTAs
+    deep-linking into the existing `/connections` connect flow, instead of a bare
+    gate error. On return (connection created), re-validate automatically.
+19. **Agent-side guidance.** Teach the workflow_builder prompt to treat a missing
+    connection as a first-class outcome: propose the flow anyway, enumerate the
+    required connections in the proposal summary, and tell the user which toolkits
+    need connecting (the card's CTAs do the rest). Optionally add a read-only
+    `list_connectable_toolkits` tool (catalog toolkits + connected flag) so the agent
+    can steer toolkit choice toward what's already connected.
+20. **Tag workflow chats separately from general chat.** Workflow-copilot
+    conversations are ordinary core threads today, distinguishable only by a
+    client-side `localStorage` mapping (`workflowCopilotThreads.ts` — user-scoped
+    `copilot-thread:<flow>` keys). Instead, tag the thread server-side at creation:
+    add a thread `kind` (e.g. `workflow_copilot`, with the associated
+    `flow_id`/`draft_id` in thread metadata) in the `threads` domain, set it whenever
+    `flows_build` / the copilot panel spawns a thread, and let thread-list queries
+    filter by kind. The general `/chat` thread list excludes `workflow_copilot`
+    threads; the flows UI lists a flow's builder threads from the core by tag. This
+    also lets the copilot resolve "which thread belongs to this flow" server-side,
+    demoting the fragile `localStorage` mapping to a cache (or deleting it).
+
+### Phase 6 — Naming & prompt hygiene (F8)
+
+21. Rename the legacy skills tools (`list_workflows`→`list_skills`,
     `run_workflow`→`run_skill`, etc., with deprecation aliases for one release) so
     "workflow" unambiguously means Flows in the agent's tool belt; delete the
     orchestrator-prompt disambiguation paragraph once done.
-15. Shrink the workflow_builder prompt by replacing the node-kind reference and mock
+22. Shrink the workflow_builder prompt by replacing the node-kind reference and mock
     behavior table with pointers to the Phase 1 introspection tools (generated docs
     keep parity).
 
 ### Delivery: one PR, phased commits
 
-All five phases ship together as **a single PR**, not as separate PRs per item. The
+All six phases ship together as **a single PR**, not as separate PRs per item. The
 phases above define the *internal build order and commit structure* of that PR — each
 numbered item lands as one or more focused commits, in phase order, so the branch is
 reviewable commit-by-commit and bisectable — but the feature is reviewed, tested, and
@@ -224,9 +270,10 @@ releases.
 | 2 (core-managed local drafts) | 1 helps | S–M | Low — additive files/RPC, no DB migration |
 | 3 (versioning, events, history) | — (parallel to 2) | M | Medium — touches UI save path |
 | 4 (new agent tools) | 3 (safety rails) | S–M each | Medium — permission review each |
-| 5 (renames) | — | S | Low (needs deprecation window) |
+| 5 (connector onboarding, tool browser, chat tagging) | 1 (contract gate reuse) | M | Low–Medium — UI + additive RPCs + thread `kind` |
+| 6 (renames) | — | S | Low (needs deprecation window) |
 
-Build within the branch in phase order (1 → 2 → 3 → 4 → 5): items 1–3 (Phase 1) deliver
+Build within the branch in phase order (1 → 2 → 3 → 4 → 5 → 6): items 1–3 (Phase 1) deliver
 the biggest agent-experience win and require no changes to the human-in-the-loop model;
 Phase 3's rails must be in place before Phase 4's write tools are enabled. The PR
 description should map commits to plan items so reviewers can follow the same structure.

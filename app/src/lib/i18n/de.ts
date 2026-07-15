@@ -7454,6 +7454,11 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Löschen',
   'flows.delete.deleting': 'Wird gelöscht…',
   'flows.canvas.renameLabel': 'Workflow umbenennen',
+  'flows.canvas.sidePanelToggle': 'Seitenleiste',
+  'flows.canvas.legendTab': 'Legende',
+  'flows.legend.title': 'Knotenlegende',
+  'flows.legend.subtitle': 'Was die Knotenfarben bedeuten',
+  'flows.legend.close': 'Legende schließen',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Datenschutzstatus',

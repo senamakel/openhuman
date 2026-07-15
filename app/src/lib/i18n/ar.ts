@@ -7074,6 +7074,11 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'حذف',
   'flows.delete.deleting': 'جارٍ الحذف…',
   'flows.canvas.renameLabel': 'إعادة تسمية سير العمل',
+  'flows.canvas.sidePanelToggle': 'اللوحة الجانبية',
+  'flows.canvas.legendTab': 'وسيلة الإيضاح',
+  'flows.legend.title': 'وسيلة إيضاح العُقد',
+  'flows.legend.subtitle': 'دلالة ألوان العُقد',
+  'flows.legend.close': 'إغلاق وسيلة الإيضاح',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'حالة الخصوصية',

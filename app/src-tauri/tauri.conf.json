@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "OpenHuman",
-        "width": 1000,
-        "height": 800,
+        "width": 1280,
+        "height": 900,
         "visible": false,
         "decorations": true,
         "titleBarStyle": "Overlay",

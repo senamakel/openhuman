@@ -7240,6 +7240,11 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'মুছুন',
   'flows.delete.deleting': 'মুছে ফেলা হচ্ছে…',
   'flows.canvas.renameLabel': 'ওয়ার্কফ্লো পুনঃনামকরণ করুন',
+  'flows.canvas.sidePanelToggle': 'সাইড প্যানেল',
+  'flows.canvas.legendTab': 'লেজেন্ড',
+  'flows.legend.title': 'নোড লেজেন্ড',
+  'flows.legend.subtitle': 'নোডের রঙ কী বোঝায়',
+  'flows.legend.close': 'লেজেন্ড বন্ধ করুন',
 
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'গোপনীয়তা স্থিতি',

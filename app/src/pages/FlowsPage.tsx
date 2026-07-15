@@ -21,7 +21,6 @@ import FlowTemplateGallery from '../components/flows/FlowTemplateGallery';
 import NewWorkflowModal from '../components/flows/NewWorkflowModal';
 import SuggestedWorkflows from '../components/flows/SuggestedWorkflows';
 import { useCreateFlow } from '../components/flows/useCreateFlow';
-import WorkflowPromptBar from '../components/flows/WorkflowPromptBar';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PageSectionHeader from '../components/layout/PageSectionHeader';
 import PageWelcome from '../components/layout/PageWelcome';
@@ -404,12 +403,6 @@ export default function FlowsPage() {
           <div data-testid="flows-beta-banner">
             <BetaBanner />
           </div>
-
-          {/* Prompt-first authoring (Phase 5c): describe a workflow and let the
-            builder agent propose it. Hero presentation when the list is empty,
-            compact otherwise. Always visible, so it's the single "describe a
-            workflow" entry point (the chooser modal no longer duplicates it). */}
-          <WorkflowPromptBar variant={!loading && flows.length === 0 ? 'hero' : 'compact'} />
 
           {/* Flow Scout discovery: proactive, buildable workflow suggestions
             grounded in how the user works. Read-only until they click "Build

@@ -220,15 +220,16 @@ describe('FlowsPage', () => {
     expect(screen.getByTestId('new-workflow-modal')).toBeInTheDocument();
   });
 
-  it('always shows the in-place prompt bar and the chooser no longer duplicates it', async () => {
+  it('no longer shows the in-place copilot composer on the list page', async () => {
     listFlows.mockResolvedValue([makeFlow()]);
     renderWithProviders(<FlowsPage />, { initialEntries: ['/?view=main'] });
 
-    // The prompt bar is the single "describe a workflow" entry point.
-    expect(await screen.findByTestId('workflow-prompt-bar')).toBeInTheDocument();
+    // The list-page composer was removed — building now happens in the canvas.
+    await screen.findByTestId('flows-new-workflow');
+    expect(screen.queryByTestId('workflow-prompt-bar')).not.toBeInTheDocument();
 
-    // The chooser modal offers scratch + template only — no redundant describe.
-    fireEvent.click(await screen.findByTestId('flows-new-workflow'));
+    // The chooser modal offers scratch + template only — no describe.
+    fireEvent.click(screen.getByTestId('flows-new-workflow'));
     expect(screen.getByTestId('new-workflow-scratch')).toBeInTheDocument();
     expect(screen.queryByTestId('new-workflow-describe')).not.toBeInTheDocument();
   });

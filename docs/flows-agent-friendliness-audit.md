@@ -197,7 +197,17 @@ safety rails are the prerequisite for widening agent write capabilities (F4, F7)
     behavior table with pointers to the Phase 1 introspection tools (generated docs
     keep parity).
 
-### Sequencing & sizing
+### Delivery: one PR, phased commits
+
+All five phases ship together as **a single PR**, not as separate PRs per item. The
+phases above define the *internal build order and commit structure* of that PR — each
+numbered item lands as one or more focused commits, in phase order, so the branch is
+reviewable commit-by-commit and bisectable — but the feature is reviewed, tested, and
+merged as one unit. Rationale: the pieces are interdependent (drafts remove the need for
+whole-graph tools, versioning/events are the safety rails that justify the wider tool
+belt, the prompt shrink depends on the introspection tools existing), and shipping them
+piecemeal would leave the agent surface in inconsistent intermediate states across
+releases.
 
 | Phase | Depends on | Rough size | Risk |
 |---|---|---|---|
@@ -207,8 +217,10 @@ safety rails are the prerequisite for widening agent write capabilities (F4, F7)
 | 4 (new agent tools) | 3 (safety rails) | S–M each | Medium — permission review each |
 | 5 (renames) | — | S | Low (needs deprecation window) |
 
-Each numbered item is a natural PR-sized slice; items 1–3 (Phase 1) deliver the biggest
-immediate agent-experience win and require no changes to the human-in-the-loop model.
+Build within the branch in phase order (1 → 2 → 3 → 4 → 5): items 1–3 (Phase 1) deliver
+the biggest agent-experience win and require no changes to the human-in-the-loop model;
+Phase 3's rails must be in place before Phase 4's write tools are enabled. The PR
+description should map commits to plan items so reviewers can follow the same structure.
 
 ---
 

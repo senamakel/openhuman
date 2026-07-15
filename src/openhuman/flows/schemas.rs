@@ -295,6 +295,9 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("draft_promote"),
         schemas("get_history"),
         schemas("rollback"),
+        schemas("search_tool_catalog"),
+        schemas("get_tool_contract"),
+        schemas("required_connections"),
     ]
 }
 
@@ -415,6 +418,18 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("rollback"),
             handler: handle_rollback,
+        },
+        RegisteredController {
+            schema: schemas("search_tool_catalog"),
+            handler: handle_search_tool_catalog,
+        },
+        RegisteredController {
+            schema: schemas("get_tool_contract"),
+            handler: handle_get_tool_contract,
+        },
+        RegisteredController {
+            schema: schemas("required_connections"),
+            handler: handle_required_connections,
         },
     ]
 }
@@ -942,6 +957,75 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "required_connections" => ControllerSchema {
+            namespace: "flows",
+            function: "required_connections",
+            description: "Compute which Composio toolkits a candidate graph needs and whether each \
+                          is connected — the data behind the canvas/proposal \"Connect <toolkit>\" \
+                          CTAs. Native oh: tools and http_request nodes need no connection.",
+            inputs: vec![FieldSchema {
+                name: "graph",
+                ty: TypeSchema::Json,
+                comment: "The WorkflowGraph to inspect.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "required_connections",
+                ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                comment: "One per needed toolkit: { toolkit, status: connected|missing }.",
+                required: true,
+            }],
+        },
+        "search_tool_catalog" => ControllerSchema {
+            namespace: "flows",
+            function: "search_tool_catalog",
+            description: "Search the live Composio tool catalog (secret-free) for the in-canvas \
+                          tool browser — the same core as the agent's search_tool_catalog tool.",
+            inputs: vec![
+                FieldSchema {
+                    name: "query",
+                    ty: TypeSchema::String,
+                    comment: "Keyword query matched against slug / toolkit / description.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "toolkit",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Restrict to one toolkit slug (e.g. `gmail`); omit to search all.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "limit",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
+                    comment: "Max results (default 25).",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "tools",
+                ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+                comment: "Matches: { slug, toolkit, description, required_args, output_fields, primary_array_path, featured }.",
+                required: true,
+            }],
+        },
+        "get_tool_contract" => ControllerSchema {
+            namespace: "flows",
+            function: "get_tool_contract",
+            description: "Fetch one Composio action's full contract (secret-free) for the canvas \
+                          tool browser — the same core as the agent's get_tool_contract tool.",
+            inputs: vec![FieldSchema {
+                name: "slug",
+                ty: TypeSchema::String,
+                comment: "The exact Composio action slug (e.g. `GMAIL_SEND_EMAIL`).",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "contract",
+                ty: TypeSchema::Json,
+                comment: "The action contract: { slug, toolkit, description, required_args, input_schema, output_fields, output_schema, primary_array_path, is_curated }.",
+                required: true,
+            }],
+        },
         "get_history" => ControllerSchema {
             namespace: "flows",
             function: "get_history",
@@ -1397,6 +1481,39 @@ fn handle_mark_suggestion_built(params: Map<String, Value>) -> ControllerFuture 
     })
 }
 
+fn handle_required_connections(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let graph = read_required::<Value>(&params, "graph")?;
+        to_json(ops::flows_required_connections(&config, graph).await?)
+    })
+}
+
+fn handle_search_tool_catalog(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let query = read_required::<String>(&params, "query")?;
+        let toolkit = params
+            .get("toolkit")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty());
+        let limit = params
+            .get("limit")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize)
+            .unwrap_or(25);
+        to_json(ops::flows_search_tool_catalog(&config, query.trim(), toolkit, limit).await?)
+    })
+}
+
+fn handle_get_tool_contract(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let slug = read_required::<String>(&params, "slug")?;
+        to_json(ops::flows_get_tool_contract(&config, slug.trim()).await?)
+    })
+}
+
 fn handle_get_history(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -1558,6 +1675,9 @@ mod tests {
                 "draft_promote",
                 "get_history",
                 "rollback",
+                "search_tool_catalog",
+                "get_tool_contract",
+                "required_connections",
             ]
         );
     }
@@ -1565,7 +1685,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 29);
+        assert_eq!(controllers.len(), 32);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -1599,6 +1719,9 @@ mod tests {
                 "draft_promote",
                 "get_history",
                 "rollback",
+                "search_tool_catalog",
+                "get_tool_contract",
+                "required_connections",
             ]
         );
     }

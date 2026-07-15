@@ -1062,6 +1062,61 @@ impl Tool for DuplicateFlowTool {
     }
 }
 
+/// `list_connectable_toolkits`: read-only list of the Composio toolkits the
+/// builder can wire, each tagged connected/unconnected — so the agent can steer
+/// toolkit choice toward what's already connected (audit Phase 5, item 19).
+pub struct ListConnectableToolkitsTool {
+    config: Arc<Config>,
+}
+
+impl ListConnectableToolkitsTool {
+    pub fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+#[async_trait]
+impl Tool for ListConnectableToolkitsTool {
+    fn name(&self) -> &str {
+        "list_connectable_toolkits"
+    }
+
+    fn description(&self) -> &str {
+        "List the Composio toolkits available to wire into a tool_call/app_event, each flagged \
+         `connected: true/false`. Read-only. Use it to prefer an ALREADY-connected toolkit when \
+         several would work, and to tell the user which toolkits a proposed flow still needs \
+         connecting. Returns a JSON array of { toolkit, connected }."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({ "type": "object", "properties": {}, "additionalProperties": false })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
+        use crate::openhuman::memory_sync::composio::providers::agent_ready_toolkits;
+        tracing::debug!(target: "flows", "[flows] list_connectable_toolkits: listing toolkits + connected state (read-only)");
+        let connected = ops::connected_toolkits(&self.config).await;
+        let toolkits: Vec<Value> = agent_ready_toolkits()
+            .into_iter()
+            .map(|tk| {
+                let tk_lc = tk.to_ascii_lowercase();
+                json!({ "toolkit": tk_lc, "connected": connected.contains(&tk_lc) })
+            })
+            .collect();
+        Ok(ToolResult::success(serde_json::to_string_pretty(
+            &json!({ "toolkits": toolkits }),
+        )?))
+    }
+}
+
 /// Extracts a string array from `args[key]`, ignoring non-strings; empty when
 /// absent. Shared by the resume tool's approve/reject lists.
 fn string_array(args: &Value, key: &str) -> Vec<String> {

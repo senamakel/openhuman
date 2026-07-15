@@ -331,6 +331,9 @@ pub fn all_tools_with_runtime(
         // (researcher / code_executor / …) — the agent analogue of
         // search_tool_catalog. Read-only.
         Box::new(ListAgentProfilesTool::new()),
+        // Steer toolkit choice toward what's already connected + surface which
+        // toolkits a flow still needs (Phase 5, item 19). Read-only.
+        Box::new(ListConnectableToolkitsTool::new(config.clone())),
         // Queryable DSL schema (F2): enumerate the 12 node kinds and fetch one
         // kind's full config-field/port/example/gotcha contract — the DSL
         // analogue of search_tool_catalog + get_tool_contract, so an agent need

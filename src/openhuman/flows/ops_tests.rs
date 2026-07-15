@@ -3883,3 +3883,50 @@ async fn update_records_revisions_and_rollback_restores() {
     let history2 = flows_get_history(&config, &flow.id, 20).unwrap().value;
     assert_eq!(history2.len(), 2);
 }
+
+// ── Phase 5: connector onboarding (required_connections, item 18) ─────────────
+
+#[tokio::test]
+async fn compute_required_connections_flags_missing_composio_toolkits() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // A tool_call to a Gmail action (no connections in a fresh workspace).
+    let graph_json = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "send", "kind": "tool_call", "name": "Send",
+              "config": { "slug": "GMAIL_SEND_EMAIL", "args": {} } }
+        ],
+        "edges": [ { "from_node": "t", "to_node": "send" } ]
+    });
+    let graph = migrate_and_deserialize_graph(graph_json).unwrap();
+    let required = compute_required_connections(&config, &graph).await;
+    assert_eq!(required.len(), 1);
+    assert_eq!(required[0]["toolkit"], "gmail");
+    assert_eq!(required[0]["status"], "missing");
+}
+
+#[tokio::test]
+async fn compute_required_connections_skips_native_and_http_nodes() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let graph_json = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Manual" },
+            { "id": "search", "kind": "tool_call", "name": "Search",
+              "config": { "slug": "oh:web_search", "args": {} } },
+            { "id": "http", "kind": "http_request", "name": "Fetch",
+              "config": { "method": "GET", "url": "https://example.com" } }
+        ],
+        "edges": [
+            { "from_node": "t", "to_node": "search" },
+            { "from_node": "search", "to_node": "http" }
+        ]
+    });
+    let graph = migrate_and_deserialize_graph(graph_json).unwrap();
+    let required = compute_required_connections(&config, &graph).await;
+    assert!(
+        required.is_empty(),
+        "native oh: and http_request need no connection: {required:?}"
+    );
+}

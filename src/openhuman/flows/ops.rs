@@ -219,6 +219,10 @@ pub(crate) async fn build_builder_proposal(
     let summary = crate::openhuman::flows::tools::build_summary(graph);
     let mut warnings = graph_trigger_warnings(graph);
     warnings.extend(graph_wiring_warnings(config, graph).await);
+    // Connector onboarding (Phase 5, item 18): tell the proposal card which
+    // toolkits this graph needs and whether they're connected, so it can render
+    // "Connect <toolkit>" CTAs instead of a bare gate error later.
+    let required_connections = compute_required_connections(config, graph).await;
     let graph_value = serde_json::to_value(graph).map_err(|e| e.to_string())?;
 
     tracing::info!(
@@ -239,6 +243,7 @@ pub(crate) async fn build_builder_proposal(
         "require_approval": require_approval,
         "summary": summary,
         "warnings": warnings,
+        "required_connections": required_connections,
     });
     if let Some(instruction) = instruction {
         payload["instruction"] = json!(instruction);
@@ -3855,6 +3860,159 @@ pub async fn flows_mark_suggestion_built(
         json!({ "id": id, "built": found }),
         "suggestion marked built",
     ))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Connector onboarding (Phase 5, item 18) — which toolkits a graph needs
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The set of Composio toolkits currently connected (lowercased), derived from
+/// the same picker source the node-config credential dropdown uses.
+pub(crate) async fn connected_toolkits(config: &Config) -> std::collections::HashSet<String> {
+    match flows_list_connections(config).await {
+        Ok(outcome) => outcome
+            .value
+            .iter()
+            .filter_map(|c| c.toolkit.as_deref())
+            .map(|t| t.to_ascii_lowercase())
+            .collect(),
+        Err(e) => {
+            tracing::warn!(target: "flows", error = %e, "[flows] connected_toolkits: could not list connections — treating all as unconnected");
+            std::collections::HashSet::new()
+        }
+    }
+}
+
+/// The Composio toolkits a graph needs (from its `tool_call` slugs and any
+/// `app_event` trigger), each tagged connected/missing — the data behind the
+/// canvas/proposal "Connect <toolkit>" CTAs (audit Phase 5, item 18). Native
+/// `oh:` tools and `http_request` nodes need no Composio connection and are
+/// skipped.
+pub async fn compute_required_connections(config: &Config, graph: &WorkflowGraph) -> Vec<Value> {
+    use crate::openhuman::memory_sync::composio::providers::toolkit_from_slug;
+
+    // Collect required toolkits (deduped, order-preserving).
+    let mut required: Vec<String> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut push = |tk: String| {
+        let tk = tk.to_ascii_lowercase();
+        if !tk.is_empty() && seen.insert(tk.clone()) {
+            required.push(tk);
+        }
+    };
+
+    for node in &graph.nodes {
+        if node.kind == NodeKind::ToolCall {
+            if let Some(slug) = node.config.get("slug").and_then(Value::as_str) {
+                // Native OpenHuman tools (`oh:<name>`) need no connection.
+                if slug.starts_with("oh:") {
+                    continue;
+                }
+                if let Some(tk) = toolkit_from_slug(slug) {
+                    push(tk.to_string());
+                }
+            }
+        }
+    }
+    // An app_event trigger names its toolkit directly.
+    if let Some(trigger) = graph.trigger() {
+        if let Some(tk) = trigger.config.get("toolkit").and_then(Value::as_str) {
+            push(tk.to_string());
+        }
+    }
+
+    if required.is_empty() {
+        return Vec::new();
+    }
+
+    let connected = connected_toolkits(config).await;
+    required
+        .into_iter()
+        .map(|toolkit| {
+            let status = if connected.contains(&toolkit) {
+                "connected"
+            } else {
+                "missing"
+            };
+            json!({ "toolkit": toolkit, "status": status })
+        })
+        .collect()
+}
+
+/// RPC: compute the toolkits a candidate graph needs and their connected
+/// status, so the canvas/proposal can render "Connect <toolkit>" CTAs.
+pub async fn flows_required_connections(
+    config: &Config,
+    graph_json: Value,
+) -> Result<RpcOutcome<Value>, String> {
+    let graph = migrate_and_deserialize_graph(graph_json)?;
+    let required = compute_required_connections(config, &graph).await;
+    Ok(RpcOutcome::single_log(
+        json!({ "required_connections": required }),
+        "required connections computed",
+    ))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Catalog RPCs for the UI (Phase 5, item 16) — one implementation, two consumers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Searches the live Composio tool catalog (secret-free) — the RPC the in-canvas
+/// tool browser calls, reusing the exact same core as the agent's
+/// `search_tool_catalog` tool so the two can't drift.
+pub async fn flows_search_tool_catalog(
+    config: &Config,
+    query: &str,
+    toolkit: Option<&str>,
+    limit: usize,
+) -> Result<RpcOutcome<Value>, String> {
+    tracing::debug!(target: "flows", %query, toolkit = toolkit.unwrap_or("<all>"), "[flows] flows_search_tool_catalog: searching live catalog");
+    let tools =
+        crate::openhuman::flows::builder_tools::search_live_catalog(config, query, toolkit, limit)
+            .await;
+    Ok(RpcOutcome::single_log(
+        json!({ "tools": tools }),
+        "tool catalog searched",
+    ))
+}
+
+/// Fetches one Composio action's full contract (secret-free) — the RPC the
+/// canvas tool browser calls to fill in an action's arg schema, reusing the same
+/// core as the agent's `get_tool_contract` tool.
+pub async fn flows_get_tool_contract(
+    config: &Config,
+    slug: &str,
+) -> Result<RpcOutcome<Value>, String> {
+    let slug = slug.trim();
+    let Some(toolkit) = crate::openhuman::memory_sync::composio::providers::toolkit_from_slug(slug)
+    else {
+        return Err(format!(
+            "Could not extract a toolkit from slug '{slug}' — it must look like \
+             '<TOOLKIT>_<ACTION>' (e.g. 'GMAIL_SEND_EMAIL')."
+        ));
+    };
+    tracing::debug!(target: "flows", %slug, %toolkit, "[flows] flows_get_tool_contract: fetching contract");
+    let Some(catalog) =
+        crate::openhuman::tinyflows::caps::fetch_live_toolkit_catalog(config, &toolkit).await
+    else {
+        return Err(format!(
+            "Could not fetch the live Composio catalog for toolkit '{toolkit}'."
+        ));
+    };
+    match catalog.iter().find(|c| c.slug.eq_ignore_ascii_case(slug)) {
+        Some(contract) => {
+            let contract =
+                crate::openhuman::tinyflows::caps::apply_probe_override(contract.clone());
+            let value = serde_json::to_value(&contract).map_err(|e| e.to_string())?;
+            Ok(RpcOutcome::single_log(
+                json!({ "contract": value }),
+                "tool contract fetched",
+            ))
+        }
+        None => Err(format!(
+            "'{slug}' is not a real action in the '{toolkit}' toolkit's live catalog."
+        )),
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -645,6 +645,66 @@ export async function importFlow(
   return result;
 }
 
+// ── Catalog RPCs for the UI (Phase 5, item 16) ───────────────────────────────
+
+/** One search hit from `openhuman.flows_search_tool_catalog` (secret-free). */
+export interface ToolCatalogEntry {
+  slug: string;
+  toolkit: string;
+  description?: string | null;
+  required_args?: string[];
+  output_fields?: string[];
+  primary_array_path?: string | null;
+  /** Curated/featured toolkits rank first. */
+  featured?: boolean;
+}
+
+/** Search the live Composio tool catalog via `openhuman.flows_search_tool_catalog`. */
+export async function searchToolCatalog(
+  query: string,
+  opts?: { toolkit?: string; limit?: number }
+): Promise<ToolCatalogEntry[]> {
+  log('searchToolCatalog: query=%s toolkit=%s', query, opts?.toolkit ?? '(all)');
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_search_tool_catalog',
+    params: { query, toolkit: opts?.toolkit, limit: opts?.limit },
+    timeoutMs: 60_000,
+  });
+  const result = unwrapCliEnvelope<{ tools: ToolCatalogEntry[] }>(response);
+  return result.tools ?? [];
+}
+
+/** A toolkit a graph needs, with its connected state (Phase 5, item 18). */
+export interface RequiredConnection {
+  toolkit: string;
+  status: 'connected' | 'missing';
+}
+
+/**
+ * Compute which Composio toolkits a candidate graph needs and whether each is
+ * connected, via `openhuman.flows_required_connections` — the data behind the
+ * "Connect <toolkit>" CTAs. Also surfaced on the workflow_proposal payload.
+ */
+export async function requiredConnections(graph: unknown): Promise<RequiredConnection[]> {
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_required_connections',
+    params: { graph },
+  });
+  const result = unwrapCliEnvelope<{ required_connections: RequiredConnection[] }>(response);
+  return result.required_connections ?? [];
+}
+
+/** Fetch one action's full contract via `openhuman.flows_get_tool_contract`. */
+export async function getToolContract(slug: string): Promise<unknown> {
+  const response = await callCoreRpc<unknown>({
+    method: 'openhuman.flows_get_tool_contract',
+    params: { slug },
+    timeoutMs: 60_000,
+  });
+  const result = unwrapCliEnvelope<{ contract: unknown }>(response);
+  return result.contract;
+}
+
 // ── Core-managed drafts (F5) ─────────────────────────────────────────────────
 
 /** Create a durable draft via `openhuman.flows_draft_create`. */

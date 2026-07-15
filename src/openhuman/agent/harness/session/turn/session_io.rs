@@ -5,7 +5,9 @@ use super::super::types::Agent;
 use crate::openhuman::agent::harness;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::context::ARCHIVIST_EXTRACTION_PROMPT;
-use crate::openhuman::inference::provider::{ChatMessage, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS};
+use crate::openhuman::inference::provider::{
+    ChatMessage, ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
+};
 use futures::StreamExt;
 use tinyagents::harness::model::{ModelRequest, ModelStreamItem};
 
@@ -167,6 +169,22 @@ impl Agent {
         } else {
             String::new()
         };
+        if !checkpoint.trim().is_empty() {
+            let provider_response = ChatResponse {
+                text: Some(checkpoint.clone()),
+                tool_calls: Vec::new(),
+                usage: None,
+                reasoning_content: None,
+            };
+            let (_, prompt_tool_calls) = self.tool_dispatcher.parse_response(&provider_response);
+            if !prompt_tool_calls.is_empty() {
+                tracing::warn!(
+                    parsed_tool_calls = prompt_tool_calls.len(),
+                    "[agent::session] wrap-up model returned a prompt-formatted tool call; using deterministic fallback"
+                );
+                return (String::new(), usage);
+            }
+        }
         (checkpoint, usage)
     }
 

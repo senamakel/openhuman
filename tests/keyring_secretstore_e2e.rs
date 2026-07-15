@@ -74,6 +74,7 @@ async fn config_secrets_roundtrip_via_keyring_backed_master_key_migration() {
                 api_key: Some("parallel-secret".into()),
                 ..Default::default()
             },
+            ..Default::default()
         },
         channels_config: openhuman_core::openhuman::config::schema::ChannelsConfig {
             telegram: Some(TelegramConfig {

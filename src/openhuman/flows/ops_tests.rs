@@ -2170,13 +2170,14 @@ async fn validate_tool_contracts_skips_rather_than_rejects_when_the_catalog_is_u
 //    `missing_required_args` because SOME value was present, just under the
 //    wrong key) ────────────────────────────────────────────────────────────
 
-/// `SLACK_SEND_MESSAGE` with a real `input_schema` naming `channel` and
-/// `markdown_text` — models the live bug this fixes: `markdown_text` is the
-/// real field, `text` is not.
+/// Dedicated fixture with a real `input_schema` naming `channel` and
+/// `markdown_text` — models the live Slack bug this fixes without sharing the
+/// process-global `slack` cache key with required-argument tests running in
+/// parallel. `markdown_text` is the real field; `text` is not.
 fn seeded_slack_send_message_contract_with_schema() -> ToolContract {
     ToolContract {
-        slug: "SLACK_SEND_MESSAGE".to_string(),
-        toolkit: "slack".to_string(),
+        slug: "ARGSCHEMATEST_SEND_MESSAGE".to_string(),
+        toolkit: "argschematest".to_string(),
         description: None,
         required_args: vec![],
         input_schema: Some(json!({
@@ -2189,14 +2190,14 @@ fn seeded_slack_send_message_contract_with_schema() -> ToolContract {
         output_fields: vec![],
         output_schema: None,
         primary_array_path: None,
-        is_curated: true,
+        is_curated: false,
     }
 }
 
 #[tokio::test]
 async fn validate_tool_contracts_rejects_an_arg_name_not_in_the_input_schema() {
     seed_live_catalog_cache(
-        "slack",
+        "argschematest",
         vec![seeded_slack_send_message_contract_with_schema()],
     );
     let config = Config::default();
@@ -2204,7 +2205,7 @@ async fn validate_tool_contracts_rejects_an_arg_name_not_in_the_input_schema() {
         "nodes": [
             { "id": "t", "kind": "trigger", "name": "Manual" },
             { "id": "post", "kind": "tool_call", "name": "Post",
-              "config": { "slug": "SLACK_SEND_MESSAGE",
+              "config": { "slug": "ARGSCHEMATEST_SEND_MESSAGE",
                 "args": { "channel": "#general", "text": "hi" } } }
         ],
         "edges": [ { "from_node": "t", "to_node": "post" } ]
@@ -2220,7 +2221,7 @@ async fn validate_tool_contracts_rejects_an_arg_name_not_in_the_input_schema() {
 #[tokio::test]
 async fn validate_tool_contracts_passes_the_real_arg_name_from_the_input_schema() {
     seed_live_catalog_cache(
-        "slack",
+        "argschematest",
         vec![seeded_slack_send_message_contract_with_schema()],
     );
     let config = Config::default();
@@ -2228,7 +2229,7 @@ async fn validate_tool_contracts_passes_the_real_arg_name_from_the_input_schema(
         "nodes": [
             { "id": "t", "kind": "trigger", "name": "Manual" },
             { "id": "post", "kind": "tool_call", "name": "Post",
-              "config": { "slug": "SLACK_SEND_MESSAGE",
+              "config": { "slug": "ARGSCHEMATEST_SEND_MESSAGE",
                 "args": { "channel": "#general", "markdown_text": "hi" } } }
         ],
         "edges": [ { "from_node": "t", "to_node": "post" } ]

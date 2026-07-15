@@ -58,6 +58,8 @@ named = [
     "get_tool_contract",
     "get_tool_output_sample",
     "list_agent_profiles",
+    "list_node_kinds",
+    "get_node_kind_contract",
     "dry_run_workflow",
     "run_flow",
     "composio_list_toolkits",

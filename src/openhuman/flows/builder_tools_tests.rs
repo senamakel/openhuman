@@ -1374,3 +1374,44 @@ async fn save_workflow_accepts_correctly_schemad_graph() {
     assert_eq!(saved.name, "Summarize and notify");
     assert_eq!(saved.graph.nodes.len(), 3);
 }
+
+#[tokio::test]
+async fn list_node_kinds_tool_returns_all_twelve() {
+    let tool = ListNodeKindsTool::new();
+    let result = tool.execute(json!({})).await.unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    let parsed: Value = serde_json::from_str(&result.output()).unwrap();
+    let kinds = parsed["node_kinds"].as_array().unwrap();
+    assert_eq!(kinds.len(), 12);
+    // Each entry carries a kind + summary + the config-field name lists.
+    assert!(kinds.iter().any(|k| k["kind"] == "tool_call"));
+    assert!(kinds.iter().all(|k| k.get("summary").is_some()));
+}
+
+#[tokio::test]
+async fn get_node_kind_contract_tool_returns_contract_and_rejects_unknown() {
+    let tool = GetNodeKindContractTool::new();
+
+    let ok = tool.execute(json!({ "kind": "tool_call" })).await.unwrap();
+    assert!(!ok.is_error, "{}", ok.output());
+    let parsed: Value = serde_json::from_str(&ok.output()).unwrap();
+    assert_eq!(parsed["kind"], "tool_call");
+    assert!(parsed["config_fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["name"] == "slug"));
+    // Host overlay is present on the tool's output.
+    assert!(parsed["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|n| n.as_str().unwrap_or("").contains("Composio")));
+
+    let bad = tool.execute(json!({ "kind": "nope" })).await.unwrap();
+    assert!(bad.is_error);
+    assert!(bad.output().contains("list_node_kinds"));
+
+    let missing = tool.execute(json!({})).await.unwrap();
+    assert!(missing.is_error);
+}

@@ -1065,6 +1065,162 @@ impl Tool for ListAgentProfilesTool {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// list_node_kinds / get_node_kind_contract — queryable DSL schema (F2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `list_node_kinds`: enumerate the 12 tinyflows node kinds with a one-line
+/// summary each. The DSL counterpart of `search_tool_catalog` for Composio
+/// actions — a cheap first call to orient before fetching a full contract.
+pub struct ListNodeKindsTool;
+
+impl ListNodeKindsTool {
+    /// Builds the tool (no configuration — the contracts are static).
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for ListNodeKindsTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Tool for ListNodeKindsTool {
+    fn name(&self) -> &str {
+        "list_node_kinds"
+    }
+
+    fn description(&self) -> &str {
+        "List the 12 tinyflows node kinds you can put in a WorkflowGraph, each with a one-line \
+         summary and its config field names. Read-only, no args. Returns a JSON array of { kind, \
+         summary, required_config, optional_config }. Call get_node_kind_contract { kind } for the \
+         full config-field shapes, ports, an example node, and authoring gotchas of any one kind — \
+         this is the machine-readable DSL schema, so you don't have to rely on prose or memory."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({ "type": "object", "properties": {}, "additionalProperties": false })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
+        tracing::debug!(target: "flows", "[flows] list_node_kinds: enumerating node kinds (read-only)");
+        let kinds: Vec<Value> = crate::openhuman::flows::all_node_kind_contracts()
+            .iter()
+            .map(|c| {
+                let required: Vec<&str> = c
+                    .config_fields
+                    .iter()
+                    .filter(|f| f.required)
+                    .map(|f| f.name.as_str())
+                    .collect();
+                let optional: Vec<&str> = c
+                    .config_fields
+                    .iter()
+                    .filter(|f| !f.required)
+                    .map(|f| f.name.as_str())
+                    .collect();
+                json!({
+                    "kind": c.kind,
+                    "summary": c.summary,
+                    "required_config": required,
+                    "optional_config": optional,
+                })
+            })
+            .collect();
+        Ok(ToolResult::success(serde_json::to_string_pretty(
+            &json!({ "node_kinds": kinds }),
+        )?))
+    }
+}
+
+/// `get_node_kind_contract`: the FULL machine-readable contract for one node
+/// kind — config fields (name/required/type/description/enum), ports, a valid
+/// example node, and the authoring gotchas. Mirrors `get_tool_contract` for
+/// Composio actions but for the DSL itself.
+pub struct GetNodeKindContractTool;
+
+impl GetNodeKindContractTool {
+    /// Builds the tool (no configuration — the contracts are static).
+    #[must_use]
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for GetNodeKindContractTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Tool for GetNodeKindContractTool {
+    fn name(&self) -> &str {
+        "get_node_kind_contract"
+    }
+
+    fn description(&self) -> &str {
+        "Fetch the FULL contract for ONE tinyflows node kind before you author a node of that \
+         kind. Read-only. Returns { kind, summary, description, config_fields:[{name, required, \
+         value_type, description, enum_values?}], ports:{inputs, outputs}, example, notes }. Use \
+         config_fields for exactly what to put in config, ports for how to wire branch edges (the \
+         branch label goes on the edge's from_port), and notes for the envelope/gotcha rules that \
+         otherwise silently resolve to null. Find the kind names via list_node_kinds."
+    }
+
+    fn parameters_schema(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "description": "One of the 12 node kinds, e.g. 'tool_call' (from list_node_kinds).",
+                    "enum": crate::openhuman::flows::NODE_KINDS,
+                }
+            },
+            "required": ["kind"],
+            "additionalProperties": false
+        })
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::None
+    }
+
+    fn external_effect(&self) -> bool {
+        false
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let kind = match args.get("kind").and_then(Value::as_str).map(str::trim) {
+            Some(k) if !k.is_empty() => k.to_string(),
+            _ => return Ok(ToolResult::error("Missing 'kind' parameter".to_string())),
+        };
+        tracing::debug!(target: "flows", %kind, "[flows] get_node_kind_contract: fetching contract (read-only)");
+        match crate::openhuman::flows::node_kind_contract(&kind) {
+            Some(contract) => Ok(ToolResult::success(serde_json::to_string_pretty(
+                &contract,
+            )?)),
+            None => Ok(ToolResult::error(format!(
+                "'{kind}' is not a tinyflows node kind — call list_node_kinds for the 12 valid \
+                 kinds."
+            ))),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // dry_run_workflow — execute a DRAFT against MOCK capabilities (tier-gated)
 // ─────────────────────────────────────────────────────────────────────────────
 

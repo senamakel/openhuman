@@ -309,6 +309,12 @@ pub fn all_tools_with_runtime(
         // (researcher / code_executor / …) — the agent analogue of
         // search_tool_catalog. Read-only.
         Box::new(ListAgentProfilesTool::new()),
+        // Queryable DSL schema (F2): enumerate the 12 node kinds and fetch one
+        // kind's full config-field/port/example/gotcha contract — the DSL
+        // analogue of search_tool_catalog + get_tool_contract, so an agent need
+        // not rely on prompt prose or memory for node config shapes. Read-only.
+        Box::new(ListNodeKindsTool::new()),
+        Box::new(GetNodeKindContractTool::new()),
         Box::new(DryRunWorkflowTool::new(security.clone(), config.clone())),
         // Real end-to-end test run of a SAVED flow (Write / external-effect). The
         // workflow-builder prompt requires it to ask the user for confirmation

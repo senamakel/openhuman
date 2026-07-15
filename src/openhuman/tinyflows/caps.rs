@@ -681,6 +681,35 @@ pub(crate) fn scale_timeout_for_iteration_cap(
     }
 }
 
+/// Resolves the actual wall-clock timeout for one agent-node harness turn,
+/// combining [`clamp_run_timeout_secs`] and [`scale_timeout_for_iteration_cap`]
+/// per the post-merge Codex P2 finding on issue #4868's iteration-cap timeout
+/// scaling: **an explicit `timeout_secs` the flow author set on the node must
+/// never be scaled up.**
+///
+/// A node's `timeout_secs` can be an intentional fast-fail/SLA bound (e.g.
+/// `timeout_secs: 120` to bound a health-check-style agent call) — scaling
+/// that up to match a 50-iteration-cap agent would silently defeat the
+/// author's explicit choice. So the iteration-cap scaling only ever widens
+/// the *default* (no `timeout_secs` supplied) 240s bound; an explicit value is
+/// clamped to `10..=600` (as it always was) and returned as-is.
+///
+/// `requested_timeout_secs` is the raw `request["timeout_secs"]` (before
+/// clamping) so this function can distinguish "caller supplied a value" from
+/// "caller supplied nothing" — [`clamp_run_timeout_secs`] alone collapses that
+/// distinction into a plain `u64`.
+pub(crate) fn resolve_run_timeout_secs(
+    requested_timeout_secs: Option<u64>,
+    effective_iteration_cap: usize,
+) -> u64 {
+    let base_timeout_secs = clamp_run_timeout_secs(requested_timeout_secs);
+    if requested_timeout_secs.is_some() {
+        base_timeout_secs
+    } else {
+        scale_timeout_for_iteration_cap(base_timeout_secs, effective_iteration_cap)
+    }
+}
+
 /// Renders an agent-node completion `request` into the single user message
 /// [`Agent::run_single`](crate::openhuman::agent::Agent::run_single) takes: the
 /// `prompt` string when present and non-empty, else the `messages` array
@@ -924,19 +953,24 @@ impl OpenHumanAgentRunner {
 
         let prompt = build_harness_run_prompt(&request);
 
-        let base_timeout_secs =
-            clamp_run_timeout_secs(request.get("timeout_secs").and_then(Value::as_u64));
+        let requested_timeout_secs = request.get("timeout_secs").and_then(Value::as_u64);
+        let base_timeout_secs = clamp_run_timeout_secs(requested_timeout_secs);
 
         // Issue #4868 — the session builder now stamps `agent_ref`'s own
         // `effective_max_iterations()` onto the agent (instead of the global
         // default of 10), so `code_executor`/`tools_agent`/etc. can run up to
         // 50 iterations here. Read the cap actually applied to `agent`
         // (reflects the definition cap or the global fallback, whichever the
-        // builder resolved) and scale the timeout accordingly — see
+        // builder resolved) and scale the DEFAULT timeout accordingly — see
         // `scale_timeout_for_iteration_cap`.
+        //
+        // Post-merge Codex P2 finding: an EXPLICIT `timeout_secs` the node
+        // config supplied is a caller-chosen bound (e.g. a fast-fail/SLA of
+        // 120s) and must be honored as-is, never scaled up just because the
+        // agent's iteration cap is high — see `resolve_run_timeout_secs`.
         let effective_iteration_cap = agent.agent_config().max_tool_iterations;
         let timeout_secs =
-            scale_timeout_for_iteration_cap(base_timeout_secs, effective_iteration_cap);
+            resolve_run_timeout_secs(requested_timeout_secs, effective_iteration_cap);
 
         tracing::debug!(
             target: "flows",
@@ -944,6 +978,7 @@ impl OpenHumanAgentRunner {
             node_model = node_model.as_deref().unwrap_or("<definition-default>"),
             default_model = effective.default_model.as_deref().unwrap_or("<config-default>"),
             effective_iteration_cap,
+            explicit_timeout_secs = requested_timeout_secs.is_some(),
             base_timeout_secs,
             timeout_secs,
             prompt_len = prompt.len(),
@@ -4164,6 +4199,29 @@ mod tests {
     #[test]
     fn scale_timeout_for_iteration_cap_caps_at_600_even_for_very_high_iteration_counts() {
         assert_eq!(scale_timeout_for_iteration_cap(240, 200), 600);
+    }
+
+    /// Post-merge Codex P2 finding on issue #4868: an explicit `timeout_secs`
+    /// the node config supplied (a caller-chosen fast-fail/SLA bound) must be
+    /// honored as-is — never scaled up just because the agent's iteration cap
+    /// is high — while the absence of one still gets the iteration-cap
+    /// scaling so a 50-iteration agent isn't killed by the 240s default.
+    #[test]
+    fn resolve_run_timeout_secs_preserves_an_explicit_request_even_for_a_high_cap_agent() {
+        assert_eq!(resolve_run_timeout_secs(Some(120), 50), 120);
+    }
+
+    #[test]
+    fn resolve_run_timeout_secs_scales_the_default_up_for_a_high_cap_agent() {
+        // No explicit timeout_secs (None) -> default 240s, scaled by the
+        // 50-iteration cap to min(50*12, 600) = 600.
+        assert_eq!(resolve_run_timeout_secs(None, 50), 600);
+    }
+
+    #[test]
+    fn resolve_run_timeout_secs_leaves_low_cap_agents_unscaled_either_way() {
+        assert_eq!(resolve_run_timeout_secs(None, 10), 240);
+        assert_eq!(resolve_run_timeout_secs(Some(120), 10), 120);
     }
 
     /// Regression for issue #4868: the agent-node runtime path

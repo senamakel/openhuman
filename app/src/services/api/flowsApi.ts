@@ -799,12 +799,14 @@ export async function promoteDraft(id: string, requireApproval?: boolean): Promi
 
 /**
  * `openhuman.flows_discover` runs the read-only Flow Scout agent, which reasons
- * over the user's memory/threads/connections/flows and can take up to ~300s
- * server-side (`FLOW_DISCOVER_TIMEOUT_SECS` in `src/openhuman/flows/ops.rs`).
- * Give the client a matching budget so a slow discovery run doesn't time out
- * client-side while the agent is still thinking.
+ * over the user's memory/threads/connections/flows and can take up to ~600s
+ * server-side (`FLOW_DISCOVER_TIMEOUT_SECS` in `src/openhuman/flows/ops.rs`,
+ * raised to match `FLOW_BUILD_TIMEOUT_SECS` for the same iteration cap). Give
+ * the client a matching budget (mirrors {@link FLOW_BUILD_TIMEOUT_MS}) so a
+ * slow discovery run doesn't time out client-side while the agent is still
+ * thinking.
  */
-const FLOW_DISCOVER_TIMEOUT_MS = 310_000;
+const FLOW_DISCOVER_TIMEOUT_MS = 610_000;
 
 /**
  * Run the Flow Scout discovery agent via `openhuman.flows_discover` and return

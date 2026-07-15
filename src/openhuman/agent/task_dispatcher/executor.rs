@@ -157,6 +157,13 @@ pub(super) async fn run_autonomous(
     // post-construction override rather than a pre-set on `config` (which
     // the builder would otherwise clobber).
     agent.set_max_tool_iterations(TASK_RUN_MAX_ITERATIONS);
+    tracing::debug!(
+        agent_id = %executor.agent_id,
+        run_id = %run_id,
+        max_tool_iterations = TASK_RUN_MAX_ITERATIONS,
+        "[task_dispatcher] pinned autonomous task-run iteration budget post-construction \
+         (overrides the session builder's per-definition cap)"
+    );
     agent.set_event_context(run_id.to_string(), "task");
     agent.set_agent_definition_name(format!(
         "task-{}-{}",

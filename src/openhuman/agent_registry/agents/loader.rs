@@ -1041,6 +1041,17 @@ mod tests {
         );
         match &def.tools {
             ToolScope::Named(names) => {
+                // Reconciled against `agent.toml`'s current `[tools].named`
+                // after the workflow-tools expansion PR widened the belt to
+                // agent-native editing/creation/run-control (`edit_workflow`,
+                // `validate_workflow`, `create_workflow`, `duplicate_flow`,
+                // `list_node_kinds`, `get_node_kind_contract`,
+                // `get_flow_history`, `list_flow_runs`, `resume_flow_run`,
+                // `cancel_flow_run`, `list_connectable_toolkits`) — these are
+                // the agent's own scoped tool surface, not the raw `flows_*`
+                // controller RPCs banned below, so the "no flow
+                // creation/enable via the raw controller" invariant still
+                // holds via the forbidden list.
                 let expected = [
                     "propose_workflow",
                     "revise_workflow",

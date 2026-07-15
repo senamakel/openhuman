@@ -3296,7 +3296,14 @@ fn notify_pending_approval(flow: &Flow, thread_id: &str, pending_approvals: &[St
 /// reasons read-only over the user's data and ends by emitting
 /// `suggest_workflows`; its own `max_iterations` caps the loop, but a hung
 /// LLM/tool call must never let the RPC block indefinitely.
-const FLOW_DISCOVER_TIMEOUT_SECS: u64 = 300;
+///
+/// Matches [`FLOW_BUILD_TIMEOUT_SECS`] (600s): the session builder applies the
+/// `flow_discovery` definition's `effective_max_iterations()` (50, not the
+/// global default of 10) to this path (issue #4868), so a worst-case run at
+/// ~10s/iteration can take up to ~500s — the old 300s bound could clip a
+/// legitimate long discovery run before the iteration cap ever got a chance
+/// to (post-merge Codex P2 finding).
+const FLOW_DISCOVER_TIMEOUT_SECS: u64 = 600;
 
 /// The canned brief handed to the `flow_discovery` agent. The agent's own
 /// archetype prompt teaches the read → correlate → ground → emit loop; this is

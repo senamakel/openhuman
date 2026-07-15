@@ -22,6 +22,7 @@
  */
 import { useT } from '../../lib/i18n/I18nContext';
 import type { Flow } from '../../services/api/flowsApi';
+import { TrackedInteraction } from '../analytics';
 import SettingsSwitch from '../settings/controls/SettingsSwitch';
 import Button from '../ui/Button';
 import FlowRowMenu from './FlowRowMenu';
@@ -141,15 +142,17 @@ const FlowListRow = ({
           onClick={() => onViewRuns(flow)}>
           {t('flows.list.viewRuns')}
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          data-testid={`flow-run-${flow.id}`}
-          disabled={runBusy}
-          onClick={() => onRun(flow)}>
-          {runBusy ? t('flows.list.running') : t('flows.list.runNow')}
-        </Button>
+        <TrackedInteraction id="flows-list-run">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            data-testid={`flow-run-${flow.id}`}
+            disabled={runBusy}
+            onClick={() => onRun(flow)}>
+            {runBusy ? t('flows.list.running') : t('flows.list.runNow')}
+          </Button>
+        </TrackedInteraction>
         <div className="ml-auto">
           <FlowRowMenu
             rowId={flow.id}

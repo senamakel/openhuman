@@ -34,6 +34,7 @@ import {
   openhumanCronRuns,
   openhumanCronUpdate,
 } from '../../utils/tauriCommands/cron';
+import { TrackedInteraction } from '../analytics';
 import Button from '../ui/Button';
 import CreateSkillModal from './CreateSkillModal';
 import BranchPicker from './inputs/BranchPicker';
@@ -1171,16 +1172,18 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
                 {/* Run now + Edit — act on this workflow with the inputs above. */}
                 <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="primary"
-                      onClick={() => void handleRun()}
-                      disabled={
-                        run.status === 'submitting' || runBusy || missingRequired.length > 0
-                      }>
-                      {run.status === 'submitting'
-                        ? t('settings.skillsRunner.starting')
-                        : t('settings.skillsRunner.runNow')}
-                    </Button>
+                    <TrackedInteraction id="skills-runner-run">
+                      <Button
+                        variant="primary"
+                        onClick={() => void handleRun()}
+                        disabled={
+                          run.status === 'submitting' || runBusy || missingRequired.length > 0
+                        }>
+                        {run.status === 'submitting'
+                          ? t('settings.skillsRunner.starting')
+                          : t('settings.skillsRunner.runNow')}
+                      </Button>
+                    </TrackedInteraction>
                     {selectedWorkflow &&
                       selectedWorkflow.scope === 'user' &&
                       !selectedWorkflow.legacy && (
@@ -1332,13 +1335,15 @@ export const WorkflowRunnerBody = ({ headerText, className }: SkillsRunnerBodyPr
                           testIdRoot={`scheduled-job-${job.id}`}
                           actions={
                             <>
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                disabled={runBusy}
-                                onClick={() => void handleRunJobNow(job)}>
-                                {t('settings.skillsRunner.schedule.runNow')}
-                              </Button>
+                              <TrackedInteraction id="skills-runner-scheduled-run">
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  disabled={runBusy}
+                                  onClick={() => void handleRunJobNow(job)}>
+                                  {t('settings.skillsRunner.schedule.runNow')}
+                                </Button>
+                              </TrackedInteraction>
                               <Button
                                 variant="primary"
                                 tone="danger"

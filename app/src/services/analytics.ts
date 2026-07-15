@@ -69,7 +69,7 @@ let opInitialized = false;
 let analyticsConsentSynced = false;
 let uiInteractionTrackingStarted = false;
 
-type AnalyticsParams = Record<string, string | number | boolean>;
+export type AnalyticsParams = Record<string, string | number | boolean>;
 
 interface PendingAnalyticsEvent {
   type: 'event' | 'page_view';
@@ -93,7 +93,7 @@ let analyticsEnabled = false;
  * Any `trackEvent` call with a name not in this set is dropped and a warning
  * is logged.
  */
-export const ALLOWED_EVENTS = new Set([
+const ALLOWED_EVENT_NAMES = [
   'app_open',
   'onboarding_start',
   'onboarding_step_complete',
@@ -101,6 +101,9 @@ export const ALLOWED_EVENTS = new Set([
   'account_connect_start',
   'account_connect_success',
   'chat_message_sent',
+  'automation_run_started',
+  'automation_run_resumed',
+  'automation_run_cancelled',
   'skill_install',
   'skill_uninstall',
   'tab_bar_change',
@@ -108,7 +111,10 @@ export const ALLOWED_EVENTS = new Set([
   'ui_click',
   'ui_control_change',
   'ui_form_submit',
-]);
+] as const;
+
+export type AnalyticsEventName = (typeof ALLOWED_EVENT_NAMES)[number];
+export const ALLOWED_EVENTS: ReadonlySet<string> = new Set(ALLOWED_EVENT_NAMES);
 
 /** Check if the current user has opted into analytics. */
 export function isAnalyticsEnabled(): boolean {
@@ -512,7 +518,15 @@ function controlIdentifier(element: HTMLElement): string {
   const container = nearestStableContainer(element);
   const tag = element.tagName.toLowerCase();
   if (container) return `${tag}_in_${container}`;
-  return tag;
+  // Every native/shared button is still captured even when its call site has
+  // not yet received a semantic data-analytics-id. Keep those controls
+  // distinguishable without reading their text/aria-label (both can contain
+  // user content) by assigning a page-local, DOM-order fallback.
+  const peers = Array.from(document.querySelectorAll(INTERACTIVE_CLICK_SELECTOR)).filter(
+    peer => peer instanceof HTMLElement && !shouldSkipInteractionElement(peer)
+  );
+  const position = peers.indexOf(element);
+  return position >= 0 ? `${tag}_${position + 1}` : tag;
 }
 
 function destinationForElement(element: HTMLElement): string {
@@ -585,15 +599,43 @@ function currentAppPath(): string {
 
 function currentPageHash(): string {
   if (typeof window === 'undefined') return '';
-  return window.location.hash.startsWith('#/') ? window.location.hash : '';
+  return window.location.hash.startsWith('#/') ? `#${currentAppPath()}` : '';
 }
 
 function normalizeAnalyticsPagePath(path: string): string {
-  if (typeof window !== 'undefined' && window.location.hash.startsWith('#/')) {
-    return hashToPath(window.location.hash);
+  const rawPath =
+    typeof window !== 'undefined' && window.location.hash.startsWith('#/')
+      ? hashToPath(window.location.hash)
+      : path.startsWith('#/')
+        ? hashToPath(path)
+        : path || '/';
+
+  // Analytics records route templates, never entity identifiers or query/hash
+  // values. Besides avoiding high-cardinality dashboards, this prevents thread,
+  // flow, profile, and team identifiers from leaving the app.
+  const pathname = rawPath.split(/[?#]/, 1)[0] || '/';
+  if (/^\/chat\/[^/]+/.test(pathname)) return '/chat/:threadId';
+  if (/^\/flows\/[^/]+/.test(pathname) && pathname !== '/flows/draft') {
+    return '/flows/:flowId';
   }
-  if (path.startsWith('#/')) return hashToPath(path);
-  return path || '/';
+  if (/^\/settings\/team\/manage\/[^/]+\/members$/.test(pathname)) {
+    return '/settings/team/manage/:teamId/members';
+  }
+  if (/^\/settings\/team\/manage\/[^/]+\/invites$/.test(pathname)) {
+    return '/settings/team/manage/:teamId/invites';
+  }
+  if (/^\/settings\/team\/manage\/[^/]+$/.test(pathname)) {
+    return '/settings/team/manage/:teamId';
+  }
+  if (/^\/settings\/agents\/edit\/[^/]+$/.test(pathname)) {
+    return '/settings/agents/edit/:id';
+  }
+  if (/^\/settings\/profiles\/edit\/[^/]+$/.test(pathname)) {
+    return '/settings/profiles/edit/:id';
+  }
+  if (/^\/callback\/[^/]+\/[^/]+$/.test(pathname)) return '/callback/:kind/:status';
+  if (/^\/callback\/[^/]+$/.test(pathname)) return '/callback/:kind';
+  return pathname;
 }
 
 function hashToPath(hash: string): string {

@@ -11,6 +11,7 @@ import { PersistGate } from 'redux-persist/integration/react';
 
 import AppRoutes from './AppRoutes';
 import WebviewHost from './components/accounts/WebviewHost';
+import { AnalyticsPageTracker } from './components/analytics';
 import AnnouncementGate from './components/Announcement/AnnouncementGate';
 import AppBackground from './components/AppBackground';
 import AppUpdatePrompt from './components/AppUpdatePrompt';
@@ -51,7 +52,6 @@ import ChatRuntimeProvider from './providers/ChatRuntimeProvider';
 import CoreStateProvider, { useCoreState } from './providers/CoreStateProvider';
 import SocketProvider from './providers/SocketProvider';
 import ThemeProvider from './providers/ThemeProvider';
-import { trackPageView } from './services/analytics';
 import { startCoreHealthMonitor, stopCoreHealthMonitor } from './services/coreHealthMonitor';
 import {
   startInternetStatusListener,
@@ -149,6 +149,7 @@ function App() {
                       <Router>
                         <CommandProvider>
                           <ServiceBlockingGate>
+                            <AnalyticsPageTracker />
                             <AppShell />
                             <SecurityBanner />
                             {!onMobile && <DictationHotkeyManager />}
@@ -230,11 +231,6 @@ export function AppShellDesktop() {
     location.pathname,
     navigate,
   ]);
-
-  // Track route changes as anonymous page views.
-  useEffect(() => {
-    trackPageView(location.pathname);
-  }, [location.pathname]);
 
   // Hide the active connected-app webview when we navigate away from the chat
   // surface. Provider CEF selection is intentionally route-independent; any

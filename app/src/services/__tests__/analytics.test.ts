@@ -580,6 +580,19 @@ describe('trackPageView (OpenPanel)', () => {
     expect(openPanelPayload().payload.properties.__timestamp).toEqual(expect.any(String));
   });
 
+  test('records route templates without entity ids or query values', async () => {
+    window.location.hash = '#/chat/thread-private-123?tab=files';
+    const { initGA, trackPageView } = await freshAnalytics();
+    initGA();
+    trackPageView('/chat/thread-private-123');
+
+    expect(openPanelPayload().payload.properties).toMatchObject({
+      page: '/chat/:threadId',
+      page_hash: '#/chat/:threadId',
+      __path: '/chat/:threadId',
+    });
+  });
+
   test('is a no-op when consent is off', async () => {
     const { initGA, syncAnalyticsConsent, trackPageView } = await freshAnalytics();
     initGA();
@@ -601,6 +614,7 @@ describe('trackEvent (OpenPanel)', () => {
     hoisted.appEnvironment = 'staging';
     hoisted.currentUserId = null;
     hoisted.isDev = false;
+    window.location.hash = '';
   });
 
   afterEach(() => {
@@ -723,6 +737,23 @@ describe('startUiInteractionTracking', () => {
     expect(openPanelPayload().payload.profileId).toBe('user-456');
     expect(openPanelPayload().payload.properties.__path).toBe('/home');
     expectAnalyticsContext(openPanelPayload().payload.properties);
+    stop();
+  });
+
+  test('distinguishes unlabelled controls without reading their text', async () => {
+    const { initGA, startUiInteractionTracking } = await freshAnalytics();
+    initGA();
+    const stop = startUiInteractionTracking();
+    const first = document.createElement('button');
+    first.textContent = 'Private workspace name';
+    const second = document.createElement('button');
+    second.textContent = 'Another private value';
+    document.body.append(first, second);
+
+    second.click();
+
+    expect(openPanelPayload().payload.properties.control_id).toBe('button_2');
+    expect(JSON.stringify(openPanelPayload())).not.toContain('private');
     stop();
   });
 

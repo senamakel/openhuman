@@ -4126,8 +4126,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'No se pudieron cargar las ejecuciones',
   'flows.runs.empty': 'Aún no hay ejecuciones',
   'flows.promptBar.label': 'Describe un flujo de trabajo',
-  'flows.promptBar.placeholder': 'Describe un flujo de trabajo…',
+  'flows.promptBar.placeholder': 'Describe tu flujo de trabajo',
+  'flows.promptBar.copilotTitle': 'Copiloto',
   'flows.promptBar.submit': 'Crear',
+  'flows.promptBar.startBuilding': 'Empezar a crear',
+  'flows.promptBar.disclaimer':
+    'El Copiloto usa IA y puede cometer errores. Verifica las respuestas.',
   'flows.promptBar.thinking': 'Creando…',
   'flows.promptBar.heroTitle': 'Describe un flujo de trabajo',
   'flows.promptBar.heroSubtitle': 'Indica al generador qué automatizar y revisa su propuesta.',

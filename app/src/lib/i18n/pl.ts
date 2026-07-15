@@ -4106,8 +4106,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'Nie udało się załadować przebiegów',
   'flows.runs.empty': 'Brak przebiegów',
   'flows.promptBar.label': 'Opisz przepływ pracy',
-  'flows.promptBar.placeholder': 'Opisz przepływ pracy…',
+  'flows.promptBar.placeholder': 'Opisz swój przepływ pracy',
+  'flows.promptBar.copilotTitle': 'Kopilot',
   'flows.promptBar.submit': 'Utwórz',
+  'flows.promptBar.startBuilding': 'Zacznij tworzyć',
+  'flows.promptBar.disclaimer':
+    'Kopilot to sztuczna inteligencja i może popełniać błędy. Sprawdź odpowiedzi.',
   'flows.promptBar.thinking': 'Tworzenie…',
   'flows.promptBar.heroTitle': 'Opisz przepływ pracy',
   'flows.promptBar.heroSubtitle':

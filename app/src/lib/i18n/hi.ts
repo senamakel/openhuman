@@ -4052,8 +4052,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'रन लोड नहीं हो सके',
   'flows.runs.empty': 'अभी तक कोई रन नहीं',
   'flows.promptBar.label': 'एक वर्कफ़्लो का वर्णन करें',
-  'flows.promptBar.placeholder': 'एक वर्कफ़्लो का वर्णन करें…',
+  'flows.promptBar.placeholder': 'अपने वर्कफ़्लो का वर्णन करें',
+  'flows.promptBar.copilotTitle': 'कोपायलट',
   'flows.promptBar.submit': 'बनाएँ',
+  'flows.promptBar.startBuilding': 'बनाना शुरू करें',
+  'flows.promptBar.disclaimer':
+    'कोपायलट एआई है और गलतियाँ कर सकता है। कृपया उत्तरों की दोबारा जाँच करें।',
   'flows.promptBar.thinking': 'बनाया जा रहा है…',
   'flows.promptBar.heroTitle': 'एक वर्कफ़्लो का वर्णन करें',
   'flows.promptBar.heroSubtitle':

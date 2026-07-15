@@ -4152,8 +4152,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'Impossible de charger les exécutions',
   'flows.runs.empty': 'Aucune exécution pour le moment',
   'flows.promptBar.label': 'Décrivez un flux de travail',
-  'flows.promptBar.placeholder': 'Décrivez un flux de travail…',
+  'flows.promptBar.placeholder': 'Décrivez votre flux de travail',
+  'flows.promptBar.copilotTitle': 'Copilote',
   'flows.promptBar.submit': 'Créer',
+  'flows.promptBar.startBuilding': 'Commencer à créer',
+  'flows.promptBar.disclaimer':
+    "Le Copilote utilise l'IA et peut se tromper. Veuillez vérifier les réponses.",
   'flows.promptBar.thinking': 'Création…',
   'flows.promptBar.heroTitle': 'Décrivez un flux de travail',
   'flows.promptBar.heroSubtitle':

@@ -4053,8 +4053,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'রান লোড করা যায়নি',
   'flows.runs.empty': 'এখনো কোনো রান নেই',
   'flows.promptBar.label': 'একটি ওয়ার্কফ্লো বর্ণনা করুন',
-  'flows.promptBar.placeholder': 'একটি ওয়ার্কফ্লো বর্ণনা করুন…',
+  'flows.promptBar.placeholder': 'আপনার ওয়ার্কফ্লো বর্ণনা করুন',
+  'flows.promptBar.copilotTitle': 'কো-পাইলট',
   'flows.promptBar.submit': 'তৈরি করুন',
+  'flows.promptBar.startBuilding': 'তৈরি শুরু করুন',
+  'flows.promptBar.disclaimer':
+    'কো-পাইলট একটি AI এবং ভুল করতে পারে। অনুগ্রহ করে উত্তরগুলি যাচাই করুন।',
   'flows.promptBar.thinking': 'তৈরি হচ্ছে…',
   'flows.promptBar.heroTitle': 'একটি ওয়ার্কফ্লো বর্ণনা করুন',
   'flows.promptBar.heroSubtitle':

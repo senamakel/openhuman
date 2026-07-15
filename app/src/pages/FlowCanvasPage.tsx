@@ -64,6 +64,14 @@ export interface CopilotRepairSeed {
 export interface CopilotBuildSeed {
   /** The user's free-text workflow description from the prompt bar. */
   description: string;
+  /**
+   * Open the copilot chat-first: the graph pane stays hidden and the copilot
+   * panel fills the width until the build produces real nodes, at which point
+   * the normal split view returns ("graph appears later"). Set by the prompt
+   * bar's "Start building" CTA; the "Build" CTA leaves it unset for the
+   * classic graph-canvas open.
+   */
+  chatFirst?: boolean;
 }
 
 /** Narrow an opaque `location.state` to a {@link CopilotBuildSeed}. */
@@ -73,7 +81,10 @@ export function asCopilotBuildSeed(state: unknown): CopilotBuildSeed | null {
   if (!seed || typeof seed !== 'object') return null;
   const description = (seed as Record<string, unknown>).description;
   if (typeof description !== 'string' || description.trim().length === 0) return null;
-  return { description };
+  // Only carry `chatFirst` when explicitly true so the classic ("Build") path
+  // keeps returning a bare `{ description }` seed — no behavioural drift there.
+  const chatFirst = (seed as Record<string, unknown>).chatFirst === true;
+  return chatFirst ? { description, chatFirst: true } : { description };
 }
 
 /**
@@ -293,6 +304,20 @@ function FlowEditor({
     removedNodeIds: Set<string>;
   } | null>(null);
   const [canvasVersion, setCanvasVersion] = useState(0);
+
+  // Chat-first open ("Start building" from the prompt bar): keep the graph pane
+  // hidden and let the copilot fill the surface until the build produces real
+  // nodes — "graph appears later". `graphRevealed` latches true the first time
+  // a proposal preview arrives or the draft gains a node beyond the lone
+  // trigger, and never flips back (so rejecting a proposal can't re-hide it).
+  const chatFirst = initialBuildSeed?.chatFirst === true;
+  const [graphRevealed, setGraphRevealed] = useState(!chatFirst);
+  if (!graphRevealed && (preview !== null || draftGraph.nodes.length > 1)) {
+    setGraphRevealed(true);
+  }
+  // Only actually hide the graph while the copilot is open — closing the panel
+  // must always leave the (possibly empty) canvas visible, never a blank pane.
+  const hideGraph = chatFirst && !graphRevealed && copilotOpen;
 
   // Last-persisted graph, independent of canvas remounts (fixes a P1: the
   // editable canvas seeds its own dirty baseline from whatever graph it's
@@ -550,7 +575,7 @@ function FlowEditor({
         </SidebarContent>
       )}
       <div className="flex h-full w-full">
-        <div className="relative h-full flex-1">
+        <div className={`relative h-full flex-1 ${hideGraph ? 'hidden' : ''}`}>
           <FlowCanvas
             key={`canvas-${canvasVersion}`}
             editable
@@ -637,6 +662,7 @@ function FlowEditor({
             onPrefillSeedConsumed={onPrefillSeedConsumed}
             seedThreadId={copilotThreadId}
             onThreadIdChange={handleCopilotThreadId}
+            fullWidth={hideGraph}
           />
         )}
       </div>

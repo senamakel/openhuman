@@ -4167,8 +4167,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'Ausführungen konnten nicht geladen werden',
   'flows.runs.empty': 'Noch keine Ausführungen',
   'flows.promptBar.label': 'Beschreibe einen Workflow',
-  'flows.promptBar.placeholder': 'Beschreibe einen Workflow…',
+  'flows.promptBar.placeholder': 'Beschreibe deinen Workflow',
+  'flows.promptBar.copilotTitle': 'Assistent',
   'flows.promptBar.submit': 'Erstellen',
+  'flows.promptBar.startBuilding': 'Erstellung starten',
+  'flows.promptBar.disclaimer':
+    'Copilot ist KI und kann Fehler machen. Bitte überprüfe die Antworten.',
   'flows.promptBar.thinking': 'Wird erstellt…',
   'flows.promptBar.heroTitle': 'Beschreibe einen Workflow',
   'flows.promptBar.heroSubtitle':

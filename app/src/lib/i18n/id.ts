@@ -4069,8 +4069,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'Tidak dapat memuat proses',
   'flows.runs.empty': 'Belum ada proses',
   'flows.promptBar.label': 'Jelaskan sebuah alur kerja',
-  'flows.promptBar.placeholder': 'Jelaskan sebuah alur kerja…',
+  'flows.promptBar.placeholder': 'Jelaskan alur kerja Anda',
+  'flows.promptBar.copilotTitle': 'Kopilot',
   'flows.promptBar.submit': 'Buat',
+  'flows.promptBar.startBuilding': 'Mulai membangun',
+  'flows.promptBar.disclaimer':
+    'Kopilot adalah AI dan bisa membuat kesalahan. Harap periksa kembali respons.',
   'flows.promptBar.thinking': 'Membuat…',
   'flows.promptBar.heroTitle': 'Jelaskan sebuah alur kerja',
   'flows.promptBar.heroSubtitle':

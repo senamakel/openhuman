@@ -371,6 +371,16 @@ describe('asCopilotBuildSeed', () => {
     });
   });
 
+  it('carries chatFirst only when explicitly true (Start building path)', () => {
+    expect(
+      asCopilotBuildSeed({ copilotBuild: { description: 'digest my Slack', chatFirst: true } })
+    ).toEqual({ description: 'digest my Slack', chatFirst: true });
+    // A falsey/absent chatFirst yields a bare seed — no drift on the Build path.
+    expect(
+      asCopilotBuildSeed({ copilotBuild: { description: 'digest my Slack', chatFirst: false } })
+    ).toEqual({ description: 'digest my Slack' });
+  });
+
   it('rejects missing, malformed, or blank seeds', () => {
     expect(asCopilotBuildSeed(null)).toBeNull();
     expect(asCopilotBuildSeed({})).toBeNull();

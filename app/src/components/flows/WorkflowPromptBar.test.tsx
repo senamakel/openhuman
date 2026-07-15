@@ -21,7 +21,7 @@ describe('WorkflowPromptBar', () => {
     createFlowMock.mockResolvedValue({ id: 'flow-1', name: 'digest my Slack every morning' });
   });
 
-  it('creates a flow named from the prompt and opens its canvas with a build seed', async () => {
+  it('Start building creates a flow and opens the canvas chat-first', async () => {
     render(<WorkflowPromptBar />);
     fireEvent.change(screen.getByTestId('workflow-prompt-input'), {
       target: { value: 'digest my Slack every morning' },
@@ -38,6 +38,23 @@ describe('WorkflowPromptBar', () => {
     // Parity with the proposal-card path: prompt-authored flows must default
     // to requiring approval, matching WorkflowProposalCard's default.
     expect(requireApproval).toBe(true);
+    // Primary CTA is chat-first: the seed carries chatFirst so the canvas opens
+    // conversationally instead of dropping the user onto the raw graph.
+    expect(navigateMock).toHaveBeenCalledWith('/flows/flow-1', {
+      state: { copilotBuild: { description: 'digest my Slack every morning', chatFirst: true } },
+    });
+  });
+
+  it('Build creates a flow and opens the canvas on the graph (no chatFirst)', async () => {
+    render(<WorkflowPromptBar />);
+    fireEvent.change(screen.getByTestId('workflow-prompt-input'), {
+      target: { value: 'digest my Slack every morning' },
+    });
+    fireEvent.click(screen.getByTestId('workflow-prompt-build'));
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1));
+    // Secondary CTA keeps the classic graph-canvas open — the seed omits
+    // chatFirst so the copilot builds alongside a visible graph.
     expect(navigateMock).toHaveBeenCalledWith('/flows/flow-1', {
       state: { copilotBuild: { description: 'digest my Slack every morning' } },
     });

@@ -4766,8 +4766,12 @@ const en: TranslationMap = {
   // the canvas copilot (iterate on a draft with a diff overlay). Everything
   // here only PROPOSES — saving/enabling stays behind explicit clicks.
   'flows.promptBar.label': 'Describe a workflow',
-  'flows.promptBar.placeholder': 'Describe a workflow…',
+  'flows.promptBar.placeholder': 'Describe your workflow',
+  'flows.promptBar.copilotTitle': 'Copilot',
   'flows.promptBar.submit': 'Build',
+  'flows.promptBar.startBuilding': 'Start building',
+  'flows.promptBar.disclaimer':
+    'Copilot is AI and can make mistakes. Please double-check responses.',
   'flows.promptBar.thinking': 'Building…',
   'flows.promptBar.heroTitle': 'Describe a workflow',
   'flows.promptBar.heroSubtitle': 'Tell the builder what to automate and review its proposal.',

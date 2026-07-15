@@ -4089,8 +4089,12 @@ const messages: TranslationMap = {
   'flows.runs.loadError': 'Не удалось загрузить запуски',
   'flows.runs.empty': 'Пока нет запусков',
   'flows.promptBar.label': 'Опишите рабочий процесс',
-  'flows.promptBar.placeholder': 'Опишите рабочий процесс…',
+  'flows.promptBar.placeholder': 'Опишите ваш рабочий процесс',
+  'flows.promptBar.copilotTitle': 'Копайлот',
   'flows.promptBar.submit': 'Создать',
+  'flows.promptBar.startBuilding': 'Начать создание',
+  'flows.promptBar.disclaimer':
+    'Копайлот — это ИИ, и он может ошибаться. Пожалуйста, проверяйте ответы.',
   'flows.promptBar.thinking': 'Создание…',
   'flows.promptBar.heroTitle': 'Опишите рабочий процесс',
   'flows.promptBar.heroSubtitle':

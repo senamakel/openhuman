@@ -1130,7 +1130,7 @@ const messages: TranslationMap = {
   'namespaceOverview.truncated': 'Affichage des {shown} premiers espaces de noms sur {total}.',
   'graphCentrality.title': 'Centralité du graphe de connaissances',
   'graphCentrality.intro':
-    "PageRank sur votre graphe de mémoire met en évidence les hubs porteurs de charge, et les entités connectrices qui relient des clusters autrement séparés, ce qu'un simple comptage de fréquence ne peut révéler.",
+    "Le PageRank de votre graphe de mémoire met en évidence les hubs porteurs de charge et les entités connectrices qui relient des clusters autrement séparés, ce qu'un simple comptage de fréquence ne peut révéler.",
   'graphCentrality.loading': 'Calcul de la centralité…',
   'graphCentrality.errorPrefix': 'Impossible de charger le graphique:',
   'graphCentrality.retry': 'Réessayer',
@@ -1697,7 +1697,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Cherche la clé API',
   'settings.search.allowedSitesLabel': 'Sites web autorisés',
   'settings.search.allowedSitesHint':
-    "Hôtes que l'assistant peut ouvrir et lire (via la récupération web et l'outil navigateur) un par ligne, p. ex. reuters.com. Un hôte couvre également ses sous-domaines. La recherche web elle-même n'est pas limitée par cette liste.",
+    "Saisissez les hôtes que l'assistant peut ouvrir et lire (via la récupération web et l'outil navigateur), un hôte par ligne, p. ex. reuters.com. Un hôte couvre également ses sous-domaines. La recherche web elle-même n'est pas limitée par cette liste.",
   'settings.search.allowedSitesAllOn':
     "L'assistant peut ouvrir n'importe quel site public. Les adresses locales et privées restent bloquées.",
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -2922,7 +2922,7 @@ const messages: TranslationMap = {
   'workspace.vaultNotRegisteredHelp':
     "Obsidian n'ouvre que les dossiers que vous avez ajoutés comme coffre. Dans Obsidian, choisissez « Ouvrir le dossier comme coffre » et sélectionnez le dossier ci-dessous: vous ne devez le faire qu'une seule fois. Cliquez ensuite sur Afficher le coffre.",
   'workspace.obsidianNotFoundHelp':
-    "Obsidian est introuvable sur cet appareil. Installez-le, ou (s'il est installé dans un emplacement non standard) définissez son dossier de configuration sous Avancé.",
+    "Obsidian est introuvable sur cet appareil. Installez-le ou, s'il est installé dans un emplacement non standard, définissez son dossier de configuration sous Avancé.",
   'workspace.openAnyway': 'Ouvrir dans Obsidian quand même',
   'workspace.installObsidian': 'Installer Obsidian',
   'workspace.obsidianAdvanced': 'Obsidian installé ailleurs ?',
@@ -5584,7 +5584,7 @@ const messages: TranslationMap = {
   'settings.agentAccess.accessMode': "Mode d'accès",
   'settings.agentAccess.tier.readonly.title': 'Lecture seule',
   'settings.agentAccess.tier.readonly.desc':
-    "Lit des fichiers et exécute des commandes en lecture seule pour explorer, mais n'écrit jamais, ne modifie jamais, ni n’exécute quoi que ce soit qui change l’état.",
+    "Lit des fichiers et exécute des commandes en lecture seule pour explorer, mais n'écrit jamais, ne modifie jamais ni n’exécute quoi que ce soit qui change l’état.",
   'settings.agentAccess.tier.supervised.title': 'Demandez avant de modifier',
   'settings.agentAccess.tier.supervised.desc':
     'Crée de nouveaux fichiers librement, mais demande votre approbation avant de modifier un fichier existant, d’exécuter une commande, d’accéder au réseau ou d’installer quoi que ce soit.',
@@ -5596,7 +5596,7 @@ const messages: TranslationMap = {
     "⚠ L'accès complet exécute des commandes avec l'accès complet de votre compte et n'est pas isolé. Ne l'activez que lorsque vous faites confiance à l'agent avec cette machine. Les répertoires de systèmes et d'identifiants restent bloqués, et les actions destructrices, réseau et d'installation demandent toujours une approbation.",
   'settings.agentAccess.confine.label': "Confiner à l'espace de travail",
   'settings.agentAccess.confine.desc':
-    "Restreignez l'agent au répertoire de l'espace de travail (plus tous les dossiers accordés), quel que soit le mode d'accès sélectionné. Lorsqu'il est désactivé, il peut accéder à n'importe quel endroit auquel votre utilisateur peut accéder, sauf aux répertoires de crédentiel et système toujours bloqués.",
+    "Restreignez l'agent au répertoire de l'espace de travail (plus tous les dossiers accordés), quel que soit le mode d'accès sélectionné. Lorsqu'il est désactivé, il peut accéder à n'importe quel endroit auquel votre utilisateur peut accéder, sauf aux répertoires d'identifiants et système toujours bloqués.",
   'settings.agentAccess.requireTaskPlanApproval.label': "Exiger l'approbation du plan de tâche",
   'settings.agentAccess.requireTaskPlanApproval.desc':
     "Pause avant qu'un agent assigné n'exécute un briefing de tâche rédigé par un agent.",
@@ -7007,7 +7007,7 @@ const messages: TranslationMap = {
     "À mesure que l'assistant enregistre des faits connectés à votre sujet, leur structure de regroupement apparaîtra ici.",
   'graphCohesion.errorPrefix': 'Impossible de charger le graphe :',
   'graphCohesion.intro':
-    "À quel point le voisinage de chaque entité est étroitement tissé. Les courtiers (entités dont les voisins ne sont pas liés entre eux) sont les points uniques qui maintiennent ensemble des groupes autrement séparés, ce qu'un tri par fréquence ou PageRank ne peut révéler.",
+    "Cette mesure indique à quel point le voisinage de chaque entité est étroitement tissé. Les courtiers (entités dont les voisins ne sont pas liés entre eux) sont les points uniques qui maintiennent ensemble des groupes autrement séparés, ce qu'un tri par fréquence ou PageRank ne peut révéler.",
   'graphCohesion.loading': 'Calcul de la cohésion…',
   'graphCohesion.metricConnections': 'Connexions',
   'graphCohesion.metricEntities': 'Entités',

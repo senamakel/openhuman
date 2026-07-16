@@ -1193,7 +1193,7 @@ const en: TranslationMap = {
 
   'graphCohesion.title': 'Graph Cohesion',
   'graphCohesion.intro':
-    "How tightly knit the neighbourhood is around each entity. Brokers (entities whose neighbours aren't linked to each other) are the single points holding otherwise-separate clusters together, which a frequency or PageRank sort cannot reveal.",
+    "This shows how tightly knit the neighbourhood is around each entity. Brokers (entities whose neighbours aren't linked to each other) are the single points holding otherwise-separate clusters together, which a frequency or PageRank sort cannot reveal.",
   'graphCohesion.loading': 'Computing cohesion…',
   'graphCohesion.errorPrefix': 'Could not load the graph:',
   'graphCohesion.retry': 'Retry',

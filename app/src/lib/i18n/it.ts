@@ -1681,7 +1681,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Chiave Querit API',
   'settings.search.allowedSitesLabel': 'Siti web consentiti',
   'settings.search.allowedSitesHint':
-    "Host che l'assistente può aprire e leggere (tramite recupero web e lo strumento browser) uno per riga, es. reuters.com. Un host include anche i suoi sottodomini. La ricerca web stessa non è limitata da questo elenco.",
+    "Inserisci, uno per riga, gli host che l'assistente può aprire e leggere tramite il recupero web e lo strumento browser, ad es. reuters.com. Un host include anche i suoi sottodomini. La ricerca web stessa non è limitata da questo elenco.",
   'settings.search.allowedSitesAllOn':
     "L'assistente può aprire qualsiasi sito web pubblico. Gli indirizzi locali e privati rimangono bloccati.",
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',

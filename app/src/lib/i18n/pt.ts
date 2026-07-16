@@ -130,7 +130,7 @@ const messages: TranslationMap = {
   'flows.welcome.eyebrow': 'Fluxos de trabalho',
   'flows.welcome.title': 'Coloque o trabalho repetitivo em piloto automático',
   'flows.welcome.body':
-    'Descreva algo que faz uma e outra vez (triagem, acompanhamentos, resumos) e o seu agente transforma-o num fluxo de trabalho que pode executar de ponta a ponta, num horário ou a pedido.',
+    'Descreva algo que faz uma e outra vez (triagem, acompanhamentos, resumos) e o seu agente transforma-o num fluxo de trabalho que pode executar de ponta a ponta, de acordo com um horário ou a pedido.',
   'flows.welcome.ctaNew': 'Novo fluxo de trabalho',
   'flows.welcome.ctaBrowse': 'Explorar fluxos de trabalho',
   'flows.welcome.featsLabel': 'O que pode automatizar',
@@ -1113,7 +1113,7 @@ const messages: TranslationMap = {
   'namespaceOverview.truncated': 'Mostrando os {shown} principais de {total} namespaces.',
   'graphCentrality.title': 'Centralidade do Grafo de Conhecimento',
   'graphCentrality.intro':
-    'O PageRank sobre seu grafo de memória revela os hubs que suportam carga, e as entidades conectoras que ligam clusters que, de outra forma, seriam separados, algo que uma contagem de frequência bruta não consegue revelar.',
+    'O PageRank sobre seu grafo de memória revela os hubs que suportam carga e as entidades conectoras que ligam clusters que, de outra forma, seriam separados, algo que uma contagem de frequência bruta não consegue revelar.',
   'graphCentrality.loading': 'Calculando centralidade…',
   'graphCentrality.errorPrefix': 'Não foi possível carregar o gráfico:',
   'graphCentrality.retry': 'Tentar novamente',
@@ -1679,7 +1679,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Chave Querit API',
   'settings.search.allowedSitesLabel': 'Sites permitidos',
   'settings.search.allowedSitesHint':
-    'Hosts que o assistente pode abrir e ler (via busca na web e ferramenta de navegador) um por linha, ex.: reuters.com. Um host também cobre seus subdomínios. A busca na web em si não é restringida por esta lista.',
+    'Liste, um por linha, os hosts que o assistente pode abrir e ler (via busca na web e ferramenta de navegador), ex.: reuters.com. Um host também cobre seus subdomínios. A busca na web em si não é restringida por esta lista.',
   'settings.search.allowedSitesAllOn':
     'O assistente pode abrir qualquer site público. Endereços locais e privados permanecem bloqueados.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -5547,7 +5547,7 @@ const messages: TranslationMap = {
     '⚠ O acesso total executa comandos com acesso completo à sua conta e não é isolado. Só o habilite quando você confiar no agente com esta máquina. Diretórios de credenciais e do sistema continuam bloqueados, e ações destrutivas, de rede e de instalação ainda solicitam aprovação.',
   'settings.agentAccess.confine.label': 'Confinar ao espaço de trabalho',
   'settings.agentAccess.confine.desc':
-    'Restringir o agente ao diretório de trabalho (mais quaisquer pastas concedidas), qualquer que seja o modo de acesso selecionado. Quando desligado, ele pode acessar qualquer lugar que seu usuário possa, exceto os diretórios de credenciais e do sistema que sempre são bloqueados.',
+    'Restrinja o agente ao diretório de trabalho (mais quaisquer pastas concedidas), qualquer que seja o modo de acesso selecionado. Quando desligado, ele pode acessar qualquer lugar que seu usuário possa, exceto os diretórios de credenciais e do sistema que sempre são bloqueados.',
   'settings.agentAccess.requireTaskPlanApproval.label': 'Exigir aprovação do plano de tarefas',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Pausa antes que um agente designado execute um briefing de tarefa elaborado pelo agente.',
@@ -5919,7 +5919,7 @@ const messages: TranslationMap = {
     'Padrão sensato: boa continuidade sem queimar tokens extras em cada execução.',
   'settings.memoryWindow.balanced.label': 'Balanceado',
   'settings.memoryWindow.description':
-    'Quanto contexto lembrado o OpenHuman injeta em cada nova execução do agente. Janelas maiores parecem mais cientes de conversas passadas, mas usam mais tokens (e custam mais) a cada execução.',
+    'A quantidade de contexto que o OpenHuman injeta em cada nova execução do agente. Janelas maiores parecem mais cientes de conversas passadas, mas usam mais tokens e custam mais a cada execução.',
   'settings.memoryWindow.extended.badge': 'Mais contexto',
   'settings.memoryWindow.extended.hint':
     'Mais memória de longo prazo injetada em cada execução. Custo maior por turno.',
@@ -6944,7 +6944,7 @@ const messages: TranslationMap = {
     'À medida que o assistente registra fatos conectados sobre você, a estrutura de agrupamento aparecerá aqui.',
   'graphCohesion.errorPrefix': 'Não foi possível carregar o grafo:',
   'graphCohesion.intro':
-    'Quão fortemente entrelaçada é a vizinhança ao redor de cada entidade. Intermediadores (entidades cujos vizinhos não estão ligados entre si) são os pontos únicos que mantêm grupos separados unidos, algo que uma ordenação por frequência ou PageRank não pode revelar.',
+    'Esta métrica mede o grau de interligação da vizinhança em torno de cada entidade. Intermediadores (entidades cujos vizinhos não estão ligados entre si) são os pontos únicos que mantêm grupos separados unidos, algo que uma ordenação por frequência ou PageRank não pode revelar.',
   'graphCohesion.loading': 'Calculando coesão…',
   'graphCohesion.metricConnections': 'Conexões',
   'graphCohesion.metricEntities': 'Entidades',

@@ -77,7 +77,7 @@ const messages: TranslationMap = {
   'connections.welcome.eyebrow': '연결',
   'connections.welcome.title': '당신이 사용하는 모든 것을 한곳에',
   'connections.welcome.body':
-    '메시징 앱, 이메일, 캘린더, 도구를 연결하면 당신의 에이전트가 맥락을 읽고 그 모든 것에 걸쳐 조치를 취할 수 있습니다, 수십 개의 탭 사이를 복사·붙여넣기할 필요 없이 말이죠. 무엇에 접근할 수 있는지는 당신이 통제합니다.',
+    '메시징 앱, 이메일, 캘린더, 도구를 연결하면 당신의 에이전트가 맥락을 읽고 그 모든 것에 걸쳐 조치를 취할 수 있습니다. 수십 개의 탭 사이를 복사·붙여넣기할 필요가 없습니다. 무엇에 접근할 수 있는지는 당신이 통제합니다.',
   'connections.welcome.ctaChannel': '채널 연결',
   'connections.welcome.ctaApps': '앱 연결',
   'connections.welcome.ctaSkills': '스킬 둘러보기',
@@ -97,7 +97,7 @@ const messages: TranslationMap = {
   'notifications.welcome.eyebrow': '알림',
   'notifications.welcome.title': '정말로 당신이 필요한 것만',
   'notifications.welcome.body':
-    '당신의 에이전트가 한 일과 결정이 필요한 일을 차분하게 점수화한 요약, 중요한 것은 드러나고 소음은 방해되지 않도록.',
+    '당신의 에이전트가 한 일과 결정이 필요한 일을 차분하게 점수화해 요약합니다. 중요한 것은 드러내고 소음은 방해되지 않게 합니다.',
   'notifications.welcome.ctaView': '알림 보기',
   'notifications.welcome.featsLabel': '보게 될 것',
   'notifications.welcome.feat1Title': '당신이 필요한 것',
@@ -112,7 +112,7 @@ const messages: TranslationMap = {
   'rewards.welcome.eyebrow': '리워드',
   'rewards.welcome.title': '함께해 준 것에 대한 보상',
   'rewards.welcome.body':
-    'OpenHuman을 사용하고 다른 사람을 초대하며 포인트를 모으고, 연속 기록을 이어가고, 모은 것을 사용하세요, 모두 한곳에서 추적됩니다.',
+    'OpenHuman을 사용하고 다른 사람을 초대하며 포인트를 모으고, 연속 기록을 이어가고, 모은 것을 사용하세요. 모두 한곳에서 추적됩니다.',
   'rewards.welcome.ctaView': '리워드 보기',
   'rewards.welcome.featsLabel': '작동 방식',
   'rewards.welcome.feat1Title': '포인트 적립',
@@ -1108,7 +1108,7 @@ const messages: TranslationMap = {
   'memory.tab.associations': 'Associations',
   'entityAssociations.title': '엔티티 연관',
   'entityAssociations.intro':
-    '많은 동일한 연결을 공유하는 엔티티들은 연관됩니다, 단일 사실이 직접 연결하지 않더라도. Jaccard 유사도가 이러한 숨겨진 연관을 드러냅니다.',
+    '많은 동일한 연결을 공유하는 엔티티들은 서로 연관됩니다. 단일 사실이 직접 연결하지 않더라도 Jaccard 유사도가 이러한 숨겨진 연관을 드러냅니다.',
   'entityAssociations.loading': '연관 계산 중…',
   'entityAssociations.errorPrefix': '그래프를 로드할 수 없습니다:',
   'entityAssociations.retry': 'Retry',
@@ -6753,7 +6753,7 @@ const messages: TranslationMap = {
     '어시스턴트가 당신에 관한 연결된 사실들을 기록함에 따라, 그 군집화 구조가 여기에 드러납니다.',
   'graphCohesion.errorPrefix': '그래프를 불러올 수 없습니다:',
   'graphCohesion.intro':
-    '각 엔티티 주변 이웃이 얼마나 촘촘히 엮여 있는지 보여 줍니다. 브로커(이웃들이 서로 연결되지 않은 엔티티)는 서로 분리되었을 클러스터를 묶는 단일 지점이며, 빈도나 PageRank 정렬만으로는 드러나지 않습니다.',
+    '각 엔티티 주변 이웃이 얼마나 촘촘히 엮여 있는지 보여 줍니다. 브로커(이웃들이 서로 연결되지 않은 엔티티)는 서로 분리된 클러스터를 묶는 단일 지점이며, 빈도나 PageRank 정렬만으로는 드러나지 않습니다.',
   'graphCohesion.loading': '응집도 계산 중…',
   'graphCohesion.metricConnections': '연결',
   'graphCohesion.metricEntities': '엔티티',

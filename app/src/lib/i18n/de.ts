@@ -110,7 +110,7 @@ const messages: TranslationMap = {
   'notifications.welcome.eyebrow': 'Benachrichtigungen',
   'notifications.welcome.title': 'Nur, was Sie wirklich braucht',
   'notifications.welcome.body':
-    'Eine ruhige, bewertete Zusammenfassung dessen, was Ihre Agenten getan haben und was eine Entscheidung braucht, damit das Wichtige auftaucht und der Lärm Ihnen aus dem Weg bleibt.',
+    'Eine ruhige, bewertete Zusammenfassung dessen, was Ihre Agenten getan haben und was Ihre Entscheidung erfordert, damit das Wichtige auftaucht und der Lärm Ihnen aus dem Weg bleibt.',
   'notifications.welcome.ctaView': 'Hinweise ansehen',
   'notifications.welcome.featsLabel': 'Was Sie sehen werden',
   'notifications.welcome.feat1Title': 'Was Sie braucht',
@@ -128,7 +128,7 @@ const messages: TranslationMap = {
   'rewards.welcome.eyebrow': 'Belohnungen',
   'rewards.welcome.title': 'Werden Sie fürs Dabeisein belohnt',
   'rewards.welcome.body':
-    'Sammeln Sie Punkte, während Sie OpenHuman nutzen und andere einladen, halten Sie Ihre Serie am Leben und lösen Sie ein, was Sie verdient haben, alles an einem Ort erfasst.',
+    'Sammeln Sie Punkte, indem Sie OpenHuman nutzen und andere einladen. Halten Sie Ihre Serie am Leben und lösen Sie Ihre Prämien ein. Alles wird an einem Ort erfasst.',
   'rewards.welcome.ctaView': 'Belohnungen ansehen',
   'rewards.welcome.featsLabel': 'So funktioniert es',
   'rewards.welcome.feat1Title': 'Punkte sammeln',
@@ -142,7 +142,7 @@ const messages: TranslationMap = {
   'flows.welcome.eyebrow': 'Arbeitsabläufe',
   'flows.welcome.title': 'Schalten Sie die Fleißarbeit auf Autopilot',
   'flows.welcome.body':
-    'Beschreiben Sie etwas, das Sie immer wieder tun (Triage, Nachfassen, Zusammenfassungen) und Ihr Agent verwandelt es in einen Workflow, den er von Anfang bis Ende ausführen kann, nach Zeitplan oder auf Abruf.',
+    'Beschreiben Sie etwas, das Sie immer wieder tun (Triage, Nachfassen, Zusammenfassungen), und Ihr Agent verwandelt es in einen Workflow, den er von Anfang bis Ende ausführen kann, nach Zeitplan oder auf Abruf.',
   'flows.welcome.ctaNew': 'Neuer Workflow',
   'flows.welcome.ctaBrowse': 'Workflows durchstöbern',
   'flows.welcome.featsLabel': 'Was Sie automatisieren können',
@@ -353,7 +353,7 @@ const messages: TranslationMap = {
   'orchPage.medulla.title': 'Medulla',
   'orchPage.medulla.tagline': 'Das Orchestrierungsmodell von OpenHuman',
   'orchPage.medulla.body':
-    'Medulla ist das eigens entwickelte LLM von OpenHuman, konzipiert, um Tausende Agenten gleichzeitig zu orchestrieren, mit einem Kontextfenster von 10 Millionen Tokens und radikal kostengünstiger Orchestrierung.',
+    'Medulla ist das eigens entwickelte LLM von OpenHuman. Es ist darauf ausgelegt, Tausende Agenten gleichzeitig zu orchestrieren, verfügt über ein Kontextfenster von 10 Millionen Tokens und ermöglicht eine radikal kostengünstigere Orchestrierung.',
   'orchPage.medulla.featAgents': 'Tausende Agenten',
   'orchPage.medulla.featContext': 'Kontext mit 10M Tokens',
   'orchPage.medulla.featCost': 'Kostengünstige Orchestrierung',
@@ -1161,7 +1161,7 @@ const messages: TranslationMap = {
   'memory.tab.associations': 'Associations',
   'entityAssociations.title': 'Entitäts-Assoziationen',
   'entityAssociations.intro':
-    'Entitäten, die viele gleiche Verbindungen teilen, sind assoziiert, selbst wenn kein einzelnes Fakt sie direkt verknüpft. Die Jaccard-Ähnlichkeit deckt diese verborgenen Paare auf.',
+    'Entitäten, die viele gemeinsame Verbindungen teilen, sind assoziiert, selbst wenn kein einzelnes Fakt sie direkt verknüpft. Die Jaccard-Ähnlichkeit deckt diese verborgenen Paare auf.',
   'entityAssociations.loading': 'Assoziationen werden berechnet…',
   'entityAssociations.errorPrefix': 'Diagramm konnte nicht geladen werden:',
   'entityAssociations.retry': 'Retry',
@@ -5621,7 +5621,7 @@ const messages: TranslationMap = {
     '⚠ Vollzugriff führt Befehle mit Ihrem vollständigen Kontozugriff aus und ist nicht sandboxed. Aktivieren Sie es nur, wenn Sie dem Agenten dieses Geräts anvertrauen. Anmeldeinformationen und Systemverzeichnisse bleiben blockiert, und destruktive Netzwerk- und Installationsaktionen erfordern immer noch die Genehmigung.',
   'settings.agentAccess.confine.label': 'Auf Arbeitsbereich beschränken',
   'settings.agentAccess.confine.desc':
-    'Beschränken Sie den Agenten auf das Arbeitsbereichsverzeichnis (plus alle gewährten Ordner), je nachdem, welcher Zugriffsmodus ausgewählt ist. Wenn sie ausgeschaltet ist, kann sie an jeden Ort gelangen, den Ihr Benutzer erreichen kann, mit Ausnahme der immer gesperrten Anmeldeinformationen und Systemverzeichnisse.',
+    'Beschränken Sie den Agenten auf das Arbeitsbereichsverzeichnis (plus alle gewährten Ordner), je nachdem, welcher Zugriffsmodus ausgewählt ist. Wenn die Option ausgeschaltet ist, kann der Agent jeden Ort erreichen, auf den Ihr Benutzer zugreifen kann, mit Ausnahme der immer gesperrten Anmeldeinformationen und Systemverzeichnisse.',
   'settings.agentAccess.requireTaskPlanApproval.label':
     'Erfordern Sie die Genehmigung des Aufgabenplans',
   'settings.agentAccess.requireTaskPlanApproval.desc':

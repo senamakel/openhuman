@@ -119,7 +119,7 @@ const messages: TranslationMap = {
   'rewards.welcome.eyebrow': 'Nagrody',
   'rewards.welcome.title': 'Otrzymuj nagrody za obecność',
   'rewards.welcome.body':
-    'Zdobywaj punkty, korzystając z OpenHuman i zapraszając innych, utrzymuj swoją serię i wymieniaj to, co zdobyłeś, wszystko śledzone w jednym miejscu.',
+    'Zdobywaj punkty, korzystając z OpenHuman i zapraszając innych, utrzymuj swoją serię i wymieniaj to, co zdobyłeś, a wszystko śledź w jednym miejscu.',
   'rewards.welcome.ctaView': 'Zobacz nagrody',
   'rewards.welcome.featsLabel': 'Jak to działa',
   'rewards.welcome.feat1Title': 'Zdobywaj punkty',
@@ -133,7 +133,7 @@ const messages: TranslationMap = {
   'flows.welcome.eyebrow': 'Przepływy pracy',
   'flows.welcome.title': 'Ustaw żmudną pracę na autopilocie',
   'flows.welcome.body':
-    'Opisz coś, co robisz w kółko (segregowanie, działania następcze, podsumowania) a Twój agent zamieni to w przepływ pracy, który może uruchomić od początku do końca, według harmonogramu lub na żądanie.',
+    'Opisz coś, co robisz w kółko (segregowanie, działania następcze, podsumowania), a Twój agent zamieni to w przepływ pracy, który może uruchomić od początku do końca, według harmonogramu lub na żądanie.',
   'flows.welcome.ctaNew': 'Nowy przepływ pracy',
   'flows.welcome.ctaBrowse': 'Przeglądaj przepływy pracy',
   'flows.welcome.featsLabel': 'Co możesz zautomatyzować',
@@ -5549,7 +5549,7 @@ const messages: TranslationMap = {
     '⚠ Pełny dostęp uruchamia polecenia z pełnymi uprawnieniami Twojego konta i nie jest sandboxowany. Włącz to tylko wtedy, gdy ufasz agentowi na tym komputerze. Katalogi poświadczeń i systemowe pozostają zablokowane, a akcje destrukcyjne, sieciowe i instalacyjne nadal proszą o zgodę.',
   'settings.agentAccess.confine.label': 'Ogranicz do przestrzeni roboczej',
   'settings.agentAccess.confine.desc':
-    'Ogranicz agenta do katalogu przestrzeni roboczej (oraz dodanych folderów), niezależnie od wybranego trybu dostępu. Wyłączone, może sięgać wszędzie, gdzie Twój użytkownik, oprócz zawsze zablokowanych katalogów poświadczeń i systemowych.',
+    'Ogranicz agenta do katalogu przestrzeni roboczej (oraz dodanych folderów), niezależnie od wybranego trybu dostępu. Po wyłączeniu tej opcji agent może sięgać wszędzie tam, gdzie ma dostęp Twój użytkownik, oprócz zawsze zablokowanych katalogów poświadczeń i systemowych.',
   'settings.agentAccess.requireTaskPlanApproval.label': 'Wymagaj zatwierdzenia planu zadania',
   'settings.agentAccess.requireTaskPlanApproval.desc':
     'Wstrzymaj, zanim przypisany agent wykona opis zadania utworzony przez agenta.',
@@ -6905,7 +6905,7 @@ const messages: TranslationMap = {
     'W miarę jak asystent zapisuje powiązane fakty o Tobie, ich struktura klasteryzacji pojawi się tutaj.',
   'graphCohesion.errorPrefix': 'Nie udało się załadować grafu:',
   'graphCohesion.intro':
-    'Jak ściśle spleciona jest okolica wokół każdej encji. Brokerzy (encje, których sąsiedzi nie są ze sobą połączeni) to pojedyncze punkty trzymające razem klastry, które inaczej byłyby oddzielne, czego sortowanie po częstotliwości ani PageRank nie ujawni.',
+    'Ten widok pokazuje, jak ściśle splecione jest otoczenie każdej encji. Brokerzy (encje, których sąsiedzi nie są ze sobą połączeni) to pojedyncze punkty trzymające razem klastry, które inaczej byłyby oddzielne, czego sortowanie po częstotliwości ani PageRank nie ujawni.',
   'graphCohesion.loading': 'Obliczanie spójności…',
   'graphCohesion.metricConnections': 'Połączenia',
   'graphCohesion.metricEntities': 'Encje',

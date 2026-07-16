@@ -82,7 +82,7 @@ const messages: TranslationMap = {
   'connections.welcome.eyebrow': 'Koneksi',
   'connections.welcome.title': 'Semua yang Anda gunakan, dalam satu tempat',
   'connections.welcome.body':
-    'Sambungkan aplikasi pesan, email, kalender, dan alat Anda agar agen Anda dapat membaca konteks dan bertindak di semuanya: tanpa menyalin-tempel di antara belasan tab. Anda tetap mengendalikan apa yang boleh disentuhnya.',
+    'Sambungkan aplikasi pesan, email, kalender, dan alat Anda agar agen Anda dapat membaca konteks dan bertindak di semuanya, tanpa menyalin-tempel di antara belasan tab. Anda tetap mengendalikan apa yang boleh disentuhnya.',
   'connections.welcome.ctaChannel': 'Sambungkan saluran',
   'connections.welcome.ctaApps': 'Sambungkan aplikasi',
   'connections.welcome.ctaSkills': 'Jelajahi keahlian',
@@ -102,7 +102,7 @@ const messages: TranslationMap = {
   'notifications.welcome.eyebrow': 'Notifikasi',
   'notifications.welcome.title': 'Hanya yang benar-benar membutuhkan Anda',
   'notifications.welcome.body':
-    'Ringkasan tenang dan berperingkat tentang apa yang dilakukan agen Anda dan apa yang butuh keputusan: sehingga hal penting muncul dan kebisingan tidak menghalangi Anda.',
+    'Ringkasan tenang dan berperingkat tentang apa yang dilakukan agen Anda dan apa yang butuh keputusan, sehingga hal penting muncul dan kebisingan tidak menghalangi Anda.',
   'notifications.welcome.ctaView': 'Lihat peringatan',
   'notifications.welcome.featsLabel': 'Apa yang akan Anda lihat',
   'notifications.welcome.feat1Title': 'Apa yang membutuhkan Anda',
@@ -118,7 +118,7 @@ const messages: TranslationMap = {
   'rewards.welcome.eyebrow': 'Hadiah',
   'rewards.welcome.title': 'Dapatkan hadiah karena hadir',
   'rewards.welcome.body':
-    'Kumpulkan poin saat Anda menggunakan OpenHuman dan mengundang orang lain, jaga rentetan Anda tetap hidup, dan tukarkan yang telah Anda peroleh: semuanya terlacak dalam satu tempat.',
+    'Kumpulkan poin saat Anda menggunakan OpenHuman dan mengundang orang lain, jaga rentetan Anda tetap hidup, dan tukarkan yang telah Anda peroleh, semuanya terlacak dalam satu tempat.',
   'rewards.welcome.ctaView': 'Lihat hadiah',
   'rewards.welcome.featsLabel': 'Cara kerjanya',
   'rewards.welcome.feat1Title': 'Kumpulkan poin',
@@ -132,7 +132,7 @@ const messages: TranslationMap = {
   'flows.welcome.eyebrow': 'Alur kerja',
   'flows.welcome.title': 'Jadikan pekerjaan rutin berjalan otomatis',
   'flows.welcome.body':
-    'Uraikan sesuatu yang Anda lakukan berulang kali: triase, tindak lanjut, ringkasan: dan agen Anda mengubahnya menjadi alur kerja yang bisa dijalankan dari awal sampai akhir, terjadwal atau sesuai permintaan.',
+    'Uraikan sesuatu yang Anda lakukan berulang kali (triase, tindak lanjut, ringkasan) dan agen Anda mengubahnya menjadi alur kerja yang bisa dijalankan dari awal sampai akhir, terjadwal atau sesuai permintaan.',
   'flows.welcome.ctaNew': 'Alur kerja baru',
   'flows.welcome.ctaBrowse': 'Jelajahi alur kerja',
   'flows.welcome.featsLabel': 'Apa yang bisa Anda otomatiskan',
@@ -338,7 +338,7 @@ const messages: TranslationMap = {
   'orchPage.medulla.title': 'Medulla',
   'orchPage.medulla.tagline': 'Model orkestrasi OpenHuman',
   'orchPage.medulla.body':
-    'Medulla adalah LLM buatan sendiri dari OpenHuman, direkayasa untuk mengorkestrasi ribuan agen sekaligus: dengan jendela konteks 10 juta token dan orkestrasi berbiaya sangat rendah.',
+    'Medulla adalah LLM buatan sendiri dari OpenHuman, direkayasa untuk mengorkestrasi ribuan agen sekaligus, dengan jendela konteks 10 juta token dan orkestrasi berbiaya sangat rendah.',
   'orchPage.medulla.featAgents': 'Ribuan agen',
   'orchPage.medulla.featContext': 'Konteks 10M token',
   'orchPage.medulla.featCost': 'Orkestrasi berbiaya rendah',
@@ -1129,7 +1129,7 @@ const messages: TranslationMap = {
   'memory.tab.associations': 'Associations',
   'entityAssociations.title': 'Asosiasi Entitas',
   'entityAssociations.intro':
-    'Entitas yang berbagi banyak koneksi yang sama berasosiasi: meskipun tidak ada satu fakta pun yang menghubungkan mereka secara langsung. Kesamaan Jaccard mengungkap pasangan tersembunyi ini.',
+    'Entitas yang berbagi banyak koneksi yang sama berasosiasi, meskipun tidak ada satu fakta pun yang menghubungkan mereka secara langsung. Kesamaan Jaccard mengungkap pasangan tersembunyi ini.',
   'entityAssociations.loading': 'Menghitung asosiasi…',
   'entityAssociations.errorPrefix': 'Tidak dapat memuat graf:',
   'entityAssociations.retry': 'Retry',
@@ -1656,7 +1656,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'kunci Querit API',
   'settings.search.allowedSitesLabel': 'Situs yang diijinkan',
   'settings.search.allowedSitesHint':
-    'Host yang boleh dibuka dan dibaca oleh asisten: melalui pengambilan web dan alat browser: satu per baris, mis. reuters.com. Sebuah host juga mencakup subdomain-nya. Penelusuran web itu sendiri tidak dibatasi oleh daftar ini.',
+    'Host yang boleh dibuka dan dibaca oleh asisten (melalui pengambilan web dan alat browser) satu per baris, mis. reuters.com. Sebuah host juga mencakup subdomain-nya. Penelusuran web itu sendiri tidak dibatasi oleh daftar ini.',
   'settings.search.allowedSitesAllOn':
     'Asisten dapat membuka website publik. Alamat lokal dan pribadi tetap diblokir.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -2852,7 +2852,7 @@ const messages: TranslationMap = {
   'workspace.vaultNotRegisteredHelp':
     'Obsidian hanya membuka folder yang telah Anda tambahkan sebagai vault. Di Obsidian, pilih "Buka folder sebagai vault" dan pilih folder di bawah: Anda hanya perlu melakukan ini sekali. Lalu klik Lihat Vault lagi.',
   'workspace.obsidianNotFoundHelp':
-    'Kami tidak dapat menemukan Obsidian di perangkat ini. Instal, atau: jika dipasang di lokasi non-standar: atur folder konfigurasinya di Lanjutan.',
+    'Kami tidak dapat menemukan Obsidian di perangkat ini. Instal, atau (jika dipasang di lokasi non-standar) atur folder konfigurasinya di Lanjutan.',
   'workspace.openAnyway': 'Buka di Obsidian tetap',
   'workspace.installObsidian': 'Instal Obsidian',
   'workspace.obsidianAdvanced': 'Obsidian dipasang di tempat lain?',
@@ -5549,7 +5549,7 @@ const messages: TranslationMap = {
     'Pilih seberapa banyak kebebasan yang dimiliki asisten saat mengambil tindakan di komputer Anda.',
   'settings.permissions.preset.readonly.title': 'Lihat, jangan sentuh',
   'settings.permissions.preset.readonly.desc':
-    'Asisten dapat membaca file dan menjelajah: tetapi tidak pernah menulis, mengedit, atau menjalankan apa pun yang mengubah status.',
+    'Asisten dapat membaca file dan menjelajah, tetapi tidak pernah menulis, mengedit, atau menjalankan apa pun yang mengubah status.',
   'settings.permissions.preset.supervised.title': 'Tanya saya dulu',
   'settings.permissions.preset.supervised.desc':
     'Dapat membuat file baru secara bebas, tetapi selalu meminta persetujuan Anda sebelum mengedit, menjalankan perintah, atau mengakses jaringan.',
@@ -5699,7 +5699,7 @@ const messages: TranslationMap = {
   'settings.appearance.fontSizeXLarge': 'Sangat besar',
   'settings.appearance.fontSizeXLargeDesc': 'Teks terbesar untuk keterbacaan maksimal.',
   'settings.appearance.fontSizeHelperText':
-    'Menskalakan teks di seluruh aplikasi: obrolan, pengaturan, dan panel: terlepas dari pengaturan font sistem Anda.',
+    'Menskalakan teks di seluruh aplikasi (obrolan, pengaturan, dan panel) terlepas dari pengaturan font sistem Anda.',
   'settings.appearance.fontSizeCustomLabel': 'Ukuran khusus',
   'settings.appearance.fontSizeCustomAria': 'Ukuran font khusus dalam piksel',
   'settings.appearance.fontSizeCustomSliderAria': 'Penggeser ukuran font khusus, dalam piksel',
@@ -5838,7 +5838,7 @@ const messages: TranslationMap = {
     'Default yang masuk akal: kontinuitas yang baik tanpa membakar token tambahan di setiap run.',
   'settings.memoryWindow.balanced.label': 'Seimbang',
   'settings.memoryWindow.description':
-    'Seberapa banyak konteks yang diingat OpenHuman dimasukkan ke setiap run agen baru. Jendela yang lebih besar terasa lebih sadar akan percakapan sebelumnya, tetapi menggunakan lebih banyak token: dan biaya lebih mahal: di setiap run.',
+    'Seberapa banyak konteks yang diingat OpenHuman dimasukkan ke setiap run agen baru. Jendela yang lebih besar terasa lebih sadar akan percakapan sebelumnya, tetapi menggunakan lebih banyak token (dan biaya lebih mahal) di setiap run.',
   'settings.memoryWindow.extended.badge': 'Lebih banyak konteks',
   'settings.memoryWindow.extended.hint':
     'Lebih banyak memori jangka panjang yang dimasukkan ke setiap run. Biaya token per giliran lebih tinggi.',
@@ -6854,7 +6854,7 @@ const messages: TranslationMap = {
     'Saat asisten mencatat fakta-fakta terhubung tentang Anda, struktur pengelompokannya akan muncul di sini.',
   'graphCohesion.errorPrefix': 'Tidak dapat memuat graf:',
   'graphCohesion.intro':
-    'Seberapa rapat lingkungan di sekitar setiap entitas terjalin. Broker: entitas yang tetangganya tidak saling terhubung: adalah titik-titik tunggal yang menyatukan klaster yang sebenarnya terpisah, hal yang tidak dapat diungkap oleh pengurutan frekuensi atau PageRank.',
+    'Seberapa rapat lingkungan di sekitar setiap entitas terjalin. Broker (entitas yang tetangganya tidak saling terhubung) adalah titik-titik tunggal yang menyatukan klaster yang sebenarnya terpisah, hal yang tidak dapat diungkap oleh pengurutan frekuensi atau PageRank.',
   'graphCohesion.loading': 'Menghitung kohesi…',
   'graphCohesion.metricConnections': 'Koneksi',
   'graphCohesion.metricEntities': 'Entitas',

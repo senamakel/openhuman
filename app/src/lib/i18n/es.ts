@@ -133,7 +133,7 @@ const messages: TranslationMap = {
   'flows.welcome.eyebrow': 'Flujos de trabajo',
   'flows.welcome.title': 'Pon el trabajo rutinario en piloto automático',
   'flows.welcome.body':
-    'Describe algo que haces una y otra vez: clasificación, seguimientos, resúmenes: y tu agente lo convierte en un flujo de trabajo que puede ejecutar de principio a fin, según un horario o cuando lo pidas.',
+    'Describe algo que haces una y otra vez (clasificación, seguimientos, resúmenes) y tu agente lo convierte en un flujo de trabajo que puede ejecutar de principio a fin, según un horario o cuando lo pidas.',
   'flows.welcome.ctaNew': 'Nuevo flujo de trabajo',
   'flows.welcome.ctaBrowse': 'Explorar flujos de trabajo',
   'flows.welcome.featsLabel': 'Lo que puedes automatizar',
@@ -1143,7 +1143,7 @@ const messages: TranslationMap = {
   'memory.tab.associations': 'Associations',
   'entityAssociations.title': 'Asociaciones de entidades',
   'entityAssociations.intro':
-    'Las entidades que comparten muchas conexiones están asociadas: incluso cuando ningún hecho las vincula directamente. La similitud de Jaccard revela estos emparejamientos ocultos.',
+    'Las entidades que comparten muchas conexiones están asociadas, incluso cuando ningún hecho las vincula directamente. La similitud de Jaccard revela estos emparejamientos ocultos.',
   'entityAssociations.loading': 'Calculando asociaciones…',
   'entityAssociations.errorPrefix': 'No se pudo cargar el grafo:',
   'entityAssociations.retry': 'Reintentar',
@@ -1680,7 +1680,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'Querit clave API',
   'settings.search.allowedSitesLabel': 'Sitios web permitidos',
   'settings.search.allowedSitesHint':
-    'Hosts que el asistente puede abrir y leer: mediante recuperación web y la herramienta de navegador: uno por línea, p. ej. reuters.com. Un host también incluye sus subdominios. La búsqueda web en sí no está restringida por esta lista.',
+    'Hosts que el asistente puede abrir y leer (mediante recuperación web y la herramienta de navegador) uno por línea, p. ej. reuters.com. Un host también incluye sus subdominios. La búsqueda web en sí no está restringida por esta lista.',
   'settings.search.allowedSitesAllOn':
     'El asistente puede abrir cualquier sitio web público. Las direcciones locales y privadas permanecen bloqueadas.',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -2897,7 +2897,7 @@ const messages: TranslationMap = {
   'workspace.vaultNotRegisteredHelp':
     'Obsidian solo abre las carpetas que hayas agregado como almacén. En Obsidian, elige «Abrir carpeta como almacén» y selecciona la carpeta de abajo; solo necesitas hacerlo una vez. Luego haz clic en Ver almacén de nuevo.',
   'workspace.obsidianNotFoundHelp':
-    'No encontramos Obsidian en este dispositivo. Instálalo, o: si está instalado en una ubicación no estándar: establece su carpeta de configuración en Avanzado.',
+    'No encontramos Obsidian en este dispositivo. Instálalo, o (si está instalado en una ubicación no estándar) establece su carpeta de configuración en Avanzado.',
   'workspace.openAnyway': 'Abrir en Obsidian de todos modos',
   'workspace.installObsidian': 'Instalar Obsidian',
   'workspace.obsidianAdvanced': '¿Obsidian instalado en otro lugar?',
@@ -5784,7 +5784,7 @@ const messages: TranslationMap = {
   'settings.appearance.fontSizeXLarge': 'Extra grande',
   'settings.appearance.fontSizeXLargeDesc': 'El texto más grande, para la máxima legibilidad.',
   'settings.appearance.fontSizeHelperText':
-    'Escala el texto en toda la app: chat, ajustes y paneles: independientemente de la configuración de fuente de tu sistema.',
+    'Escala el texto en toda la app (chat, ajustes y paneles) independientemente de la configuración de fuente de tu sistema.',
   'settings.appearance.fontSizeCustomLabel': 'Tamaño personalizado',
   'settings.appearance.fontSizeCustomAria': 'Tamaño de fuente personalizado en píxeles',
   'settings.appearance.fontSizeCustomSliderAria':
@@ -5925,7 +5925,7 @@ const messages: TranslationMap = {
     'Predeterminado sensato: buena continuidad sin quemar tokens extra en cada ejecución.',
   'settings.memoryWindow.balanced.label': 'Equilibrado',
   'settings.memoryWindow.description':
-    'Cuánto contexto recordado inyecta OpenHuman en cada nueva ejecución del agente. Ventanas más grandes parecen más conscientes de conversaciones pasadas, pero usan más tokens: y cuestan más: en cada ejecución.',
+    'Cuánto contexto recordado inyecta OpenHuman en cada nueva ejecución del agente. Ventanas más grandes parecen más conscientes de conversaciones pasadas, pero usan más tokens (y cuestan más) en cada ejecución.',
   'settings.memoryWindow.extended.badge': 'Más contexto',
   'settings.memoryWindow.extended.hint':
     'Más memoria a largo plazo inyectada en cada ejecución. Mayor coste de tokens por turno.',
@@ -6961,7 +6961,7 @@ const messages: TranslationMap = {
     'A medida que el asistente registra hechos conectados sobre usted, su estructura de agrupamiento aparecerá aquí.',
   'graphCohesion.errorPrefix': 'No se pudo cargar el grafo:',
   'graphCohesion.intro':
-    'Cuán estrechamente tejido está el vecindario de cada entidad. Los intermediarios: entidades cuyos vecinos no están conectados entre sí: son los puntos únicos que mantienen unidos grupos que de otro modo estarían separados, algo que un orden por frecuencia o PageRank no puede revelar.',
+    'Cuán estrechamente tejido está el vecindario de cada entidad. Los intermediarios (entidades cuyos vecinos no están conectados entre sí) son los puntos únicos que mantienen unidos grupos que de otro modo estarían separados, algo que un orden por frecuencia o PageRank no puede revelar.',
   'graphCohesion.loading': 'Calculando cohesión…',
   'graphCohesion.metricConnections': 'Conexiones',
   'graphCohesion.metricEntities': 'Entidades',

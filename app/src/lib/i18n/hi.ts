@@ -78,7 +78,7 @@ const messages: TranslationMap = {
   'connections.welcome.eyebrow': 'कनेक्शन',
   'connections.welcome.title': 'जो कुछ भी आप उपयोग करते हैं, सब एक जगह',
   'connections.welcome.body':
-    'अपने मैसेजिंग ऐप्स, ईमेल, कैलेंडर और टूल जोड़ें ताकि आपका एजेंट उन सभी में संदर्भ पढ़ सके और कार्रवाई कर सके: दर्जनों टैब के बीच कॉपी-पेस्ट किए बिना। यह क्या छू सकता है, इस पर नियंत्रण आपके पास रहता है।',
+    'अपने मैसेजिंग ऐप्स, ईमेल, कैलेंडर और टूल जोड़ें ताकि आपका एजेंट उन सभी में संदर्भ पढ़ सके और कार्रवाई कर सके, दर्जनों टैब के बीच कॉपी-पेस्ट किए बिना। यह क्या छू सकता है, इस पर नियंत्रण आपके पास रहता है।',
   'connections.welcome.ctaChannel': 'एक चैनल जोड़ें',
   'connections.welcome.ctaApps': 'ऐप्स जोड़ें',
   'connections.welcome.ctaSkills': 'स्किल्स ब्राउज़ करें',
@@ -98,7 +98,7 @@ const messages: TranslationMap = {
   'notifications.welcome.eyebrow': 'सूचनाएँ',
   'notifications.welcome.title': 'सिर्फ़ वही जिसके लिए वाकई आपकी ज़रूरत है',
   'notifications.welcome.body':
-    'आपके एजेंटों ने क्या किया और किस पर निर्णय चाहिए, इसका एक शांत, स्कोर किया हुआ सारांश: ताकि ज़रूरी चीज़ें सामने आएँ और शोर आपके रास्ते से दूर रहे।',
+    'आपके एजेंटों ने क्या किया और किस पर निर्णय चाहिए, इसका एक शांत, स्कोर किया हुआ सारांश, ताकि ज़रूरी चीज़ें सामने आएँ और शोर आपके रास्ते से दूर रहे।',
   'notifications.welcome.ctaView': 'अलर्ट देखें',
   'notifications.welcome.featsLabel': 'आप क्या देखेंगे',
   'notifications.welcome.feat1Title': 'जिसके लिए आपकी ज़रूरत है',
@@ -114,7 +114,7 @@ const messages: TranslationMap = {
   'rewards.welcome.eyebrow': 'रिवॉर्ड्स',
   'rewards.welcome.title': 'आते रहने के लिए पुरस्कार पाएँ',
   'rewards.welcome.body':
-    'जैसे-जैसे आप OpenHuman का उपयोग करते हैं और दूसरों को आमंत्रित करते हैं, पॉइंट कमाएँ, अपनी स्ट्रीक जीवित रखें, और जो कमाया है उसे भुनाएँ: सब कुछ एक ही जगह ट्रैक किया जाता है।',
+    'जैसे-जैसे आप OpenHuman का उपयोग करते हैं और दूसरों को आमंत्रित करते हैं, पॉइंट कमाएँ, अपनी स्ट्रीक जीवित रखें, और जो कमाया है उसे भुनाएँ, सब कुछ एक ही जगह ट्रैक किया जाता है।',
   'rewards.welcome.ctaView': 'रिवॉर्ड्स देखें',
   'rewards.welcome.featsLabel': 'यह कैसे काम करता है',
   'rewards.welcome.feat1Title': 'पॉइंट कमाएँ',
@@ -128,7 +128,7 @@ const messages: TranslationMap = {
   'flows.welcome.eyebrow': 'वर्कफ़्लो',
   'flows.welcome.title': 'दोहराव वाले काम को ऑटोपायलट पर लगाएँ',
   'flows.welcome.body':
-    'ऐसा कुछ बताएं जो आप बार-बार करते हैं: ट्राइएज, फ़ॉलो-अप, डाइजेस्ट: और आपका एजेंट उसे एक वर्कफ़्लो में बदल देता है जिसे वह शुरू से अंत तक, शेड्यूल पर या माँग पर चला सकता है।',
+    'ऐसा कुछ बताएं जो आप बार-बार करते हैं (ट्राइएज, फ़ॉलो-अप, डाइजेस्ट) और आपका एजेंट उसे एक वर्कफ़्लो में बदल देता है जिसे वह शुरू से अंत तक, शेड्यूल पर या माँग पर चला सकता है।',
   'flows.welcome.ctaNew': 'नया वर्कफ़्लो',
   'flows.welcome.ctaBrowse': 'वर्कफ़्लो ब्राउज़ करें',
   'flows.welcome.featsLabel': 'आप क्या स्वचालित कर सकते हैं',
@@ -332,7 +332,7 @@ const messages: TranslationMap = {
   'orchPage.medulla.title': 'Medulla',
   'orchPage.medulla.tagline': 'OpenHuman का ऑर्केस्ट्रेशन मॉडल',
   'orchPage.medulla.body':
-    'Medulla, OpenHuman का स्वयं-निर्मित LLM है, जिसे एक साथ हज़ारों एजेंट्स को ऑर्केस्ट्रेट करने के लिए तैयार किया गया है: 10-मिलियन-टोकन कॉन्टेक्स्ट विंडो और बेहद कम लागत वाली ऑर्केस्ट्रेशन के साथ।',
+    'Medulla, OpenHuman का स्वयं-निर्मित LLM है, जिसे एक साथ हज़ारों एजेंट्स को ऑर्केस्ट्रेट करने के लिए तैयार किया गया है, 10-मिलियन-टोकन कॉन्टेक्स्ट विंडो और बेहद कम लागत वाली ऑर्केस्ट्रेशन के साथ।',
   'orchPage.medulla.featAgents': 'हज़ारों एजेंट',
   'orchPage.medulla.featContext': '10M-टोकन कॉन्टेक्स्ट',
   'orchPage.medulla.featCost': 'कम लागत वाली ऑर्केस्ट्रेशन',
@@ -1115,7 +1115,7 @@ const messages: TranslationMap = {
   'memory.tab.associations': 'Associations',
   'entityAssociations.title': 'इकाई संबंध',
   'entityAssociations.intro':
-    'जो इकाइयाँ कई समान कनेक्शन साझा करती हैं, वे संबंधित होती हैं: भले ही कोई एक तथ्य उन्हें सीधे न जोड़े। Jaccard समानता इन छिपे हुए संबंधों को उजागर करती है।',
+    'जो इकाइयाँ कई समान कनेक्शन साझा करती हैं, वे संबंधित होती हैं, भले ही कोई एक तथ्य उन्हें सीधे न जोड़े। Jaccard समानता इन छिपे हुए संबंधों को उजागर करती है।',
   'entityAssociations.loading': 'संबंध स्कोर कर रहे हैं…',
   'entityAssociations.errorPrefix': 'ग्राफ़ लोड नहीं हो सका:',
   'entityAssociations.retry': 'Retry',
@@ -1639,7 +1639,7 @@ const messages: TranslationMap = {
   'settings.search.placeholderQuerit': 'क्वेरिट API कुंजी',
   'settings.search.allowedSitesLabel': 'अनुमत वेबसाइटों',
   'settings.search.allowedSitesHint':
-    'वे होस्ट जिन्हें असिस्टेंट खोल और पढ़ सकता है: वेब फ़ेच और ब्राउज़र टूल के माध्यम से: प्रति पंक्ति एक, जैसे reuters.com। एक होस्ट में उसके सभी सबडोमेन भी शामिल होते हैं। वेब सर्च स्वयं इस सूची से प्रतिबंधित नहीं है।',
+    'वे होस्ट जिन्हें असिस्टेंट खोल और पढ़ सकता है (वेब फ़ेच और ब्राउज़र टूल के माध्यम से) प्रति पंक्ति एक, जैसे reuters.com। एक होस्ट में उसके सभी सबडोमेन भी शामिल होते हैं। वेब सर्च स्वयं इस सूची से प्रतिबंधित नहीं है।',
   'settings.search.allowedSitesAllOn':
     'सहायक किसी भी सार्वजनिक वेबसाइट को खोल सकता है। स्थानीय और निजी पते अवरुद्ध रहते हैं।',
   'settings.search.allowedSitesPlaceholder': 'reuters.com\napnews.com\ngithub.com',
@@ -2839,7 +2839,7 @@ const messages: TranslationMap = {
   'workspace.vaultNotRegisteredHelp':
     'Obsidian केवल वे फ़ोल्डर खोलता है जो आपने वॉल्ट के रूप में जोड़े हैं। Obsidian में "Open folder as vault" चुनें और नीचे दिया फ़ोल्डर चुनें: यह एक बार करना है। फिर View Vault पर क्लिक करें।',
   'workspace.obsidianNotFoundHelp':
-    'इस डिवाइस पर Obsidian नहीं मिला। इसे इंस्टॉल करें, या: यदि यह किसी गैर-मानक स्थान पर इंस्टॉल है: Advanced में इसका कॉन्फ़िग फ़ोल्डर सेट करें।',
+    'इस डिवाइस पर Obsidian नहीं मिला। इसे इंस्टॉल करें, या (यदि यह किसी गैर-मानक स्थान पर इंस्टॉल है) Advanced में इसका कॉन्फ़िग फ़ोल्डर सेट करें।',
   'workspace.openAnyway': 'फिर भी Obsidian में खोलें',
   'workspace.installObsidian': 'Obsidian इंस्टॉल करें',
   'workspace.obsidianAdvanced': 'Obsidian किसी और जगह इंस्टॉल है?',
@@ -5521,7 +5521,7 @@ const messages: TranslationMap = {
     'चुनें कि आपके कंप्यूटर पर कार्रवाई करते समय सहायक को कितनी स्वतंत्रता है।',
   'settings.permissions.preset.readonly.title': 'देखो, छुओ मत',
   'settings.permissions.preset.readonly.desc':
-    'सहायक फ़ाइलें पढ़ और खोज सकता है: लेकिन कभी लिखेगा, संपादित करेगा या ऐसा कुछ नहीं चलाएगा जो स्थिति बदले।',
+    'सहायक फ़ाइलें पढ़ और खोज सकता है, लेकिन कभी लिखेगा, संपादित करेगा या ऐसा कुछ नहीं चलाएगा जो स्थिति बदले।',
   'settings.permissions.preset.supervised.title': 'पहले पूछो',
   'settings.permissions.preset.supervised.desc':
     'नई फ़ाइलें स्वतंत्र रूप से बना सकता है, लेकिन संपादन, कमांड चलाने या नेटवर्क तक पहुँचने से पहले हमेशा आपकी अनुमति माँगेगा।',
@@ -5671,7 +5671,7 @@ const messages: TranslationMap = {
   'settings.appearance.fontSizeXLarge': 'बहुत बड़ा',
   'settings.appearance.fontSizeXLargeDesc': 'अधिकतम पठनीयता के लिए सबसे बड़ा टेक्स्ट।',
   'settings.appearance.fontSizeHelperText':
-    'आपके सिस्टम फ़ॉन्ट सेटिंग से स्वतंत्र रूप से पूरे ऐप: चैट, सेटिंग्स और पैनल: में टेक्स्ट का आकार बदलता है।',
+    'आपके सिस्टम फ़ॉन्ट सेटिंग से स्वतंत्र रूप से पूरे ऐप (चैट, सेटिंग्स और पैनल) में टेक्स्ट का आकार बदलता है।',
   'settings.appearance.fontSizeCustomLabel': 'कस्टम आकार',
   'settings.appearance.fontSizeCustomAria': 'पिक्सेल में कस्टम फ़ॉन्ट आकार',
   'settings.appearance.fontSizeCustomSliderAria': 'कस्टम फ़ॉन्ट आकार स्लाइडर, पिक्सेल में',
@@ -5809,7 +5809,7 @@ const messages: TranslationMap = {
     'समझदारी भरा डिफ़ॉल्ट: हर रन पर अतिरिक्त टोकन खर्च किए बिना अच्छी निरंतरता।',
   'settings.memoryWindow.balanced.label': 'संतुलित',
   'settings.memoryWindow.description':
-    'OpenHuman हर नए एजेंट रन में कितना याद किया गया संदर्भ इंजेक्ट करता है। बड़ी विंडोज़ पिछली बातचीत के बारे में अधिक जागरूक लगती हैं लेकिन हर रन पर अधिक टोकन का उपयोग करती हैं: और अधिक लागत आती है।',
+    'OpenHuman हर नए एजेंट रन में कितना याद किया गया संदर्भ इंजेक्ट करता है। बड़ी विंडोज़ पिछली बातचीत के बारे में अधिक जागरूक लगती हैं लेकिन हर रन पर अधिक टोकन का उपयोग करती हैं, और अधिक लागत आती है।',
   'settings.memoryWindow.extended.badge': 'अधिक संदर्भ',
   'settings.memoryWindow.extended.hint':
     'प्रत्येक रन में अधिक दीर्घकालिक मेमोरी इंजेक्ट होती है। प्रति टर्न उच्च टोकन लागत।',
@@ -6823,7 +6823,7 @@ const messages: TranslationMap = {
     'जैसे-जैसे सहायक आपके बारे में जुड़े हुए तथ्य दर्ज करता है, उनकी क्लस्टरिंग संरचना यहाँ उभरेगी।',
   'graphCohesion.errorPrefix': 'ग्राफ लोड नहीं हो सका:',
   'graphCohesion.intro':
-    'हर इकाई के चारों ओर पड़ोस कितना घनिष्ठ रूप से बुना हुआ है। ब्रोकर: वे इकाइयाँ जिनके पड़ोसी आपस में नहीं जुड़े: एकमात्र बिंदु हैं जो वरना अलग क्लस्टरों को साथ थामे रखते हैं, जिसे आवृत्ति या PageRank-आधारित क्रम नहीं दिखा सकता।',
+    'हर इकाई के चारों ओर पड़ोस कितना घनिष्ठ रूप से बुना हुआ है। ब्रोकर (वे इकाइयाँ जिनके पड़ोसी आपस में नहीं जुड़े) एकमात्र बिंदु हैं जो वरना अलग क्लस्टरों को साथ थामे रखते हैं, जिसे आवृत्ति या PageRank-आधारित क्रम नहीं दिखा सकता।',
   'graphCohesion.loading': 'संसक्ति गणना हो रही है…',
   'graphCohesion.metricConnections': 'कनेक्शन',
   'graphCohesion.metricEntities': 'इकाइयाँ',

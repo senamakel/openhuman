@@ -119,7 +119,7 @@ const messages: TranslationMap = {
   'flows.welcome.eyebrow': '工作流',
   'flows.welcome.title': '让繁琐工作自动运行',
   'flows.welcome.body':
-    '描述一件你反复要做的事情：分类处理、跟进、摘要：你的智能体就会把它变成一个可以端到端运行的工作流，可按计划或按需执行。',
+    '描述一件你反复要做的事情（例如分类处理、跟进或生成摘要），你的智能体就会把它变成一个可以端到端运行的工作流，可按计划或按需执行。',
   'flows.welcome.ctaNew': '新建工作流',
   'flows.welcome.ctaBrowse': '浏览工作流',
   'flows.welcome.featsLabel': '你可以自动化什么',
@@ -5357,7 +5357,7 @@ const messages: TranslationMap = {
   'settings.appearance.modeSystem': '跟随系统',
   'settings.appearance.modeSystemDesc': '跟随操作系统外观设置。',
   'settings.appearance.helperText':
-    '深色模式会将整个应用：聊天、设置、面板：切换为暗色调。"跟随系统"会同步你的操作系统外观并实时更新。',
+    '深色模式会将整个应用（包括聊天、设置和面板）切换为暗色调。"跟随系统"会同步你的操作系统外观并实时更新。',
   'settings.appearance.fontSizeHeading': '字体大小',
   'settings.appearance.fontSizeAria': '字体大小',
   'settings.appearance.fontSizeSmall': '小',
@@ -5369,7 +5369,7 @@ const messages: TranslationMap = {
   'settings.appearance.fontSizeXLarge': '超大',
   'settings.appearance.fontSizeXLargeDesc': '最大的文字，可读性最佳。',
   'settings.appearance.fontSizeHelperText':
-    '在整个应用中缩放文字：聊天、设置和面板：与系统字体设置无关。',
+    '在整个应用（包括聊天、设置和面板）中缩放文字，不受系统字体设置影响。',
   'settings.appearance.fontSizeCustomLabel': '自定义大小',
   'settings.appearance.fontSizeCustomAria': '自定义字体大小（像素）',
   'settings.appearance.fontSizeCustomSliderAria': '自定义字体大小滑块（像素）',
@@ -6449,7 +6449,7 @@ const messages: TranslationMap = {
   'graphCohesion.emptyHint': '随着助手记录有关你的相互关联的事实,它们的聚类结构将在此呈现。',
   'graphCohesion.errorPrefix': '无法加载图:',
   'graphCohesion.intro':
-    '每个实体周围的邻域织得有多紧。经纪者：其邻居彼此之间没有连接的实体：是把本应分离的聚类绑在一起的单点,这是频率或 PageRank 排序无法揭示的。',
+    '每个实体周围的邻域织得有多紧。经纪者（其邻居彼此之间没有连接的实体）是把本应分离的聚类连接起来的关键节点，这是频率或 PageRank 排序无法揭示的。',
   'graphCohesion.loading': '正在计算凝聚度…',
   'graphCohesion.metricConnections': '连接',
   'graphCohesion.metricEntities': '实体',

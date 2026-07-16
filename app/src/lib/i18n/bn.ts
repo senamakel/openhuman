@@ -942,6 +942,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'আজ আমি আপনাকে কীভাবে সাহায্য করতে পারি?',
   'chat.send': 'বার্তা পাঠান',
   'chat.stopGeneration': 'জেনারেশন বন্ধ করুন',
+  'chat.stoppedByUser': 'থামানো হয়েছে',
   'chat.parallelBranchHint': 'সমান্তরাল শাখা টাইপ করুন: পাঠাতে ⌘/Ctrl+Enter',
   'chat.followupHint':
     'একটি ফলো-আপ সারিবদ্ধ করুন: এই উত্তরের পরে পাঠানো হবে · সমান্তরাল শাখার জন্য ⌘/Ctrl+Enter',
@@ -3238,6 +3239,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': 'অডিও স্পষ্টভাবে বোঝা যায়নি: আবার চেষ্টা করুন',
   'mic.failedToStopRecording': 'রেকর্ডিং বন্ধ করতে ব্যর্থ: {message}',
   'mic.transcriptionFailed': 'ট্রান্সক্রিপশন ব্যর্থ: {message}',
+  'mic.voiceNotCompiled':
+    'অ্যাপের এই সংস্করণে ভয়েস ট্রান্সক্রিপশন অন্তর্ভুক্ত নেই। এটি চালু করতে OpenHuman আপডেট করুন।',
   'reflections.kind.retrospective': 'পূর্বদর্শন',
   'reflections.kind.derivedFact': 'ডেরাইভড ফ্যাক্ট',
   'reflections.kind.moodInsight': 'মুড ইনসাইট',
@@ -3461,6 +3464,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'রিমোট কন্ট্রোল (Telegram)',
   'channels.telegram.remoteControlBody':
     'একটি অনুমোদিত Telegram চ্যাট থেকে, /status, /sessions, /new, অথবা /help পাঠান। মডেল রাউটিং এখনও /মডেল এবং /মডেল ব্যবহার করে।',
+  'channels.connectHelp.title': 'কীভাবে সংযুক্ত করবেন',
+  'channels.connectHelp.discord':
+    'নিচে একটি পদ্ধতি বেছে নিন: OpenHuman-এর মাধ্যমে আপনার অ্যাকাউন্ট লিঙ্ক করুন, OAuth দিয়ে বট ইনস্টল করুন, অথবা Discord ডেভেলপার পোর্টাল থেকে আপনার নিজের বট টোকেন পেস্ট করুন।',
+  'channels.connectHelp.telegram':
+    'নিচে একটি পদ্ধতি বেছে নিন: লিঙ্ক করতে ম্যানেজড OpenHuman বটে বার্তা পাঠান, অথবা @BotFather থেকে আপনার নিজের বট টোকেন পেস্ট করুন।',
+  'channels.connectHelp.slackNote':
+    'Slack খুঁজছেন? Slack এখানে মেসেজিং চ্যানেল হিসেবে নয়, সংযোগ → OAuth-এ একটি অ্যাপ হিসেবে সংযুক্ত হয়।',
   'channels.web.displayName': 'ওয়েব',
   'channels.web.description': 'বিল্ট-ইন ওয়েব UI এর মাধ্যমে চ্যাট করুন।',
   'channels.web.authMode.managed_dm.description':
@@ -4114,6 +4124,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': '{count}টি সরানো হয়েছে',
   'flows.copilot.noChanges': 'এই প্রস্তাব কোনো নোড পরিবর্তন করে না।',
   'flows.copilot.accept': 'খসড়ায় প্রয়োগ করুন',
+  'flows.copilot.acceptAndSave': 'গ্রহণ ও সংরক্ষণ করুন',
+  'flows.copilot.saving': 'সংরক্ষণ করা হচ্ছে…',
   'flows.copilot.reject': 'বাতিল করুন',
   'flows.copilot.previewHint':
     'একটি প্রস্তাবিত খসড়া পর্যালোচনা হচ্ছে: এখনও কিছু সংরক্ষণ করা হয়নি।',
@@ -7265,6 +7277,25 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'মুছুন',
   'flows.delete.deleting': 'মুছে ফেলা হচ্ছে…',
   'flows.canvas.renameLabel': 'ওয়ার্কফ্লো পুনঃনামকরণ করুন',
+  'memorySources.codingSessions.title': 'কোডিং-এজেন্ট সেশন',
+  'memorySources.codingSessions.description':
+    'Codex ও Claude Code-এর সিদ্ধান্ত এবং সংশোধনকে ব্যক্তিগত পারসোনা মেমরিতে রূপ দিন।',
+  'memorySources.codingSessions.ingest': 'নতুন সেশন গ্রহণ করুন',
+  'memorySources.codingSessions.ingesting': 'গ্রহণ করা হচ্ছে…',
+  'memorySources.codingSessions.claude': 'ক্লড কোড',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files}টি সেশন · {evidence}টি মানব বার্তা',
+  'memorySources.codingSessions.notFound': 'কোনো স্থানীয় ইতিহাস পাওয়া যায়নি',
+  'memorySources.codingSessions.scanning': 'স্থানীয় সেশন ইতিহাস স্ক্যান করা হচ্ছে…',
+  'memorySources.codingSessions.truncated': 'স্ক্যানটি প্রথম ১,০০০টি সেশন ফাইলে সীমাবদ্ধ ছিল।',
+  'memorySources.codingSessions.complete': 'কোডিং সেশন গ্রহণ সম্পন্ন',
+  'memorySources.codingSessions.completeMessage':
+    '{processed}টি সেশন থেকে {observations}টি পারসোনা পর্যবেক্ষণ তৈরি হয়েছে।',
+  'memorySources.codingSessions.partialFailure':
+    '{processed}টি সেশন প্রক্রিয়া করার সময় {failed}টি ব্যর্থ হয়েছে। আবার চেষ্টা করতে গ্রহণ পুনরায় চালান।',
+  'memorySources.codingSessions.moreRemaining':
+    'সেশন ব্যাচের সীমা পূর্ণ হয়েছে। আপনার ইতিহাস আমদানি চালিয়ে যেতে আবার গ্রহণ চালান।',
+  'memorySources.codingSessions.failed': 'কোডিং সেশন গ্রহণ ব্যর্থ হয়েছে',
   'flows.canvas.sidePanelToggle': 'সাইড প্যানেল',
   'flows.canvas.legendTab': 'ম্যানুয়াল',
 

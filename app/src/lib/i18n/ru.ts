@@ -953,6 +953,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'Чем я могу помочь тебе сегодня?',
   'chat.send': 'Отправить сообщение',
   'chat.stopGeneration': 'Остановить генерацию',
+  'chat.stoppedByUser': 'Остановлено',
   'chat.parallelBranchHint': 'Введите параллельную ветку: ⌘/Ctrl+Enter для отправки',
   'chat.followupHint':
     'Поставить продолжение в очередь: отправится после этого ответа · ⌘/Ctrl+Enter для параллельной ветки',
@@ -3264,6 +3265,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': 'Не удалось чётко распознать аудио: попробуйте ещё раз',
   'mic.failedToStopRecording': 'Не удалось остановить запись: {message}',
   'mic.transcriptionFailed': 'Ошибка транскрипции: {message}',
+  'mic.voiceNotCompiled':
+    'Расшифровка речи не включена в эту версию приложения. Обновите OpenHuman, чтобы включить её.',
   'reflections.kind.retrospective': 'Ретроспектива',
   'reflections.kind.derivedFact': 'Выведенный факт',
   'reflections.kind.moodInsight': 'Инсайт о настроении',
@@ -3490,6 +3493,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'Удаленное управление (Telegram)',
   'channels.telegram.remoteControlBody':
     'Из разрешенного чата Telegram отправьте /status, /sessions, /new или /help. В маршрутизации моделей по-прежнему используются /model и /models.',
+  'channels.connectHelp.title': 'Как подключить',
+  'channels.connectHelp.discord':
+    'Выберите способ ниже: привяжите аккаунт через OpenHuman, установите бота через OAuth или вставьте собственный токен бота из портала разработчика Discord.',
+  'channels.connectHelp.telegram':
+    'Выберите способ ниже: напишите управляемому боту OpenHuman, чтобы привязать его, или вставьте собственный токен бота от @BotFather.',
+  'channels.connectHelp.slackNote':
+    'Ищете Slack? Slack подключается как приложение в разделе Подключения → OAuth, а не как канал сообщений здесь.',
   'channels.web.displayName': 'Интернет',
   'channels.web.description': 'Общайтесь через встроенный веб-интерфейс.',
   'channels.web.authMode.managed_dm.description':
@@ -4152,6 +4162,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': 'удалено: {count}',
   'flows.copilot.noChanges': 'Это предложение не меняет ни одного узла.',
   'flows.copilot.accept': 'Применить к черновику',
+  'flows.copilot.acceptAndSave': 'Принять и сохранить',
+  'flows.copilot.saving': 'Сохранение…',
   'flows.copilot.reject': 'Отклонить',
   'flows.copilot.previewHint': 'Просмотр предложенного черновика: пока ничего не сохранено.',
   'flows.copilot.repairDisplay': 'Запуск завершился ошибкой; изучите его и предложите исправление.',
@@ -7346,6 +7358,25 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Удалить',
   'flows.delete.deleting': 'Удаление…',
   'flows.canvas.renameLabel': 'Переименовать рабочий процесс',
+  'memorySources.codingSessions.title': 'Сеансы агентов программирования',
+  'memorySources.codingSessions.description':
+    'Превратите решения и исправления из Codex и Claude Code в приватную память персоны.',
+  'memorySources.codingSessions.ingest': 'Загрузить новые сеансы',
+  'memorySources.codingSessions.ingesting': 'Загрузка…',
+  'memorySources.codingSessions.claude': 'Клод Код',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': 'Сеансы: {files} · Сообщения пользователя: {evidence}',
+  'memorySources.codingSessions.notFound': 'Локальная история не найдена',
+  'memorySources.codingSessions.scanning': 'Сканирование локальной истории…',
+  'memorySources.codingSessions.truncated': 'Сканирование ограничено первыми 1000 файлами сеансов.',
+  'memorySources.codingSessions.complete': 'Сеансы программирования загружены',
+  'memorySources.codingSessions.completeMessage':
+    'Обработано сеансов: {processed}; наблюдений персоны: {observations}.',
+  'memorySources.codingSessions.partialFailure':
+    'Не удалось обработать сеансов: {failed}; обработано: {processed}. Запустите загрузку ещё раз для повтора.',
+  'memorySources.codingSessions.moreRemaining':
+    'Достигнут лимит сеансов в пакете. Запустите загрузку ещё раз, чтобы продолжить импорт истории.',
+  'memorySources.codingSessions.failed': 'Не удалось загрузить сеансы программирования',
   'flows.canvas.sidePanelToggle': 'Боковая панель',
   'flows.canvas.legendTab': 'Вручную',
 

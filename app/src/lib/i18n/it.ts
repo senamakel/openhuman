@@ -968,6 +968,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'Come posso aiutarti oggi?',
   'chat.send': 'Invia messaggio',
   'chat.stopGeneration': 'Interrompi generazione',
+  'chat.stoppedByUser': 'Interrotto',
   'chat.parallelBranchHint': 'Digita un ramo parallelo: ⌘/Ctrl+Invio per inviare',
   'chat.followupHint':
     'Metti in coda un follow-up: inviato dopo questa risposta · ⌘/Ctrl+Invio per un ramo parallelo',
@@ -3297,6 +3298,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': "Impossibile comprendere l'audio chiaramente: riprova",
   'mic.failedToStopRecording': 'Impossibile fermare la registrazione: {message}',
   'mic.transcriptionFailed': 'Trascrizione fallita: {message}',
+  'mic.voiceNotCompiled':
+    "La trascrizione vocale non è inclusa in questa versione dell'app. Aggiorna OpenHuman per attivarla.",
   'reflections.kind.retrospective': 'Retrospettiva',
   'reflections.kind.derivedFact': 'Fatto derivato',
   'reflections.kind.moodInsight': "Insight sull'umore",
@@ -3523,6 +3526,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'Controllo remoto (Telegram)',
   'channels.telegram.remoteControlBody':
     'Da una chat Telegram consentita, inviare /status, /sessions, /new o /help. Il routing del modello utilizza ancora /model e /models.',
+  'channels.connectHelp.title': 'Come connettersi',
+  'channels.connectHelp.discord':
+    'Scegli un metodo qui sotto: collega il tuo account tramite OpenHuman, installa il bot con OAuth oppure incolla il tuo token bot dal portale sviluppatori di Discord.',
+  'channels.connectHelp.telegram':
+    'Scegli un metodo qui sotto: scrivi al bot gestito di OpenHuman per collegarlo, oppure incolla il tuo token bot da @BotFather.',
+  'channels.connectHelp.slackNote':
+    'Cerchi Slack? Slack si connette come app in Connessioni → OAuth, non come canale di messaggistica qui.',
   'channels.web.displayName': 'Web',
   'channels.web.description': "Chatta tramite l'interfaccia utente Web integrata.",
   'channels.web.authMode.managed_dm.description':
@@ -4182,6 +4192,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': '{count} rimossi',
   'flows.copilot.noChanges': 'Questa proposta non modifica alcun nodo.',
   'flows.copilot.accept': 'Applica alla bozza',
+  'flows.copilot.acceptAndSave': 'Accetta e salva',
+  'flows.copilot.saving': 'Salvataggio…',
   'flows.copilot.reject': 'Ignora',
   'flows.copilot.previewHint': 'Revisione di una bozza proposta: non è stato ancora salvato nulla.',
   'flows.copilot.repairDisplay': 'Un’esecuzione è fallita; esaminala e proponi una correzione.',
@@ -7404,6 +7416,27 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Elimina',
   'flows.delete.deleting': 'Eliminazione…',
   'flows.canvas.renameLabel': 'Rinomina flusso di lavoro',
+  'memorySources.codingSessions.title': 'Sessioni degli agenti di programmazione',
+  'memorySources.codingSessions.description':
+    'Trasforma decisioni e correzioni di Codex e Claude Code in memoria privata della persona.',
+  'memorySources.codingSessions.ingest': 'Acquisisci nuove sessioni',
+  'memorySources.codingSessions.ingesting': 'Acquisizione…',
+  'memorySources.codingSessions.claude': 'Cronologia Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sessioni · {evidence} interventi umani',
+  'memorySources.codingSessions.notFound': 'Nessuna cronologia locale trovata',
+  'memorySources.codingSessions.scanning': 'Scansione della cronologia locale…',
+  'memorySources.codingSessions.truncated':
+    'La scansione è stata limitata ai primi 1.000 file di sessione.',
+  'memorySources.codingSessions.complete': 'Sessioni di programmazione acquisite',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sessioni hanno prodotto {observations} osservazioni della persona.',
+  'memorySources.codingSessions.partialFailure':
+    '{failed} sessioni non sono riuscite mentre {processed} sono state elaborate. Avvia di nuovo l’acquisizione per riprovare.',
+  'memorySources.codingSessions.moreRemaining':
+    'È stato raggiunto il limite di sessioni del batch. Avvia di nuovo l’acquisizione per continuare a importare la cronologia.',
+  'memorySources.codingSessions.failed':
+    'Acquisizione delle sessioni di programmazione non riuscita',
   'flows.canvas.sidePanelToggle': 'Pannello laterale',
   'flows.canvas.legendTab': 'Manuale',
 

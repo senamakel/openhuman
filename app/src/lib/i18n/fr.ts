@@ -979,6 +979,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': "Comment puis-je t'aider aujourd'hui ?",
   'chat.send': 'Envoyer le message',
   'chat.stopGeneration': 'Arrêter la génération',
+  'chat.stoppedByUser': 'Arrêté',
   'chat.parallelBranchHint': 'Saisir une branche parallèle: ⌘/Ctrl+Entrée pour envoyer',
   'chat.followupHint':
     'Mettre un suivi en file: envoyé après cette réponse · ⌘/Ctrl+Entrée pour une branche parallèle',
@@ -3323,6 +3324,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': "Impossible de comprendre l'audio clairement: réessaie",
   'mic.failedToStopRecording': "Échec de l'arrêt de l'enregistrement : {message}",
   'mic.transcriptionFailed': 'Échec de la transcription : {message}',
+  'mic.voiceNotCompiled':
+    "La transcription vocale n'est pas incluse dans cette version de l'application. Mettez à jour OpenHuman pour l'activer.",
   'reflections.kind.retrospective': 'Rétrospective',
   'reflections.kind.derivedFact': 'Fait dérivé',
   'reflections.kind.moodInsight': 'Insight émotionnel',
@@ -3551,6 +3554,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'Télécommande (Telegram)',
   'channels.telegram.remoteControlBody':
     "À partir d'un chat Telegram autorisé, envoyez /status, /sessions, /new ou /help. Le routage de modèles utilise toujours /model et /models.",
+  'channels.connectHelp.title': 'Comment se connecter',
+  'channels.connectHelp.discord':
+    'Choisissez une méthode ci-dessous : reliez votre compte via OpenHuman, installez le bot avec OAuth, ou collez votre propre jeton de bot depuis le portail développeur Discord.',
+  'channels.connectHelp.telegram':
+    'Choisissez une méthode ci-dessous : écrivez au bot OpenHuman géré pour le relier, ou collez votre propre jeton de bot depuis @BotFather.',
+  'channels.connectHelp.slackNote':
+    'Vous cherchez Slack ? Slack se connecte comme une app dans Connexions → OAuth, pas comme un canal de messagerie ici.',
   'channels.web.displayName': 'Web',
   'channels.web.description': "Discutez via l'interface utilisateur Web intégrée.",
   'channels.web.authMode.managed_dm.description':
@@ -4214,6 +4224,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': '{count} supprimés',
   'flows.copilot.noChanges': 'Cette proposition ne modifie aucun nœud.',
   'flows.copilot.accept': 'Appliquer au brouillon',
+  'flows.copilot.acceptAndSave': 'Accepter et enregistrer',
+  'flows.copilot.saving': 'Enregistrement…',
   'flows.copilot.reject': 'Ignorer',
   'flows.copilot.previewHint': 'Examen d’un brouillon proposé: rien n’est encore enregistré.',
   'flows.copilot.repairDisplay': 'Une exécution a échoué ; examinez-la et proposez une correction.',
@@ -7451,6 +7463,26 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Supprimer',
   'flows.delete.deleting': 'Suppression…',
   'flows.canvas.renameLabel': 'Renommer le workflow',
+  'memorySources.codingSessions.title': 'Sessions d’agents de programmation',
+  'memorySources.codingSessions.description':
+    'Transformez vos décisions et corrections Codex et Claude Code en mémoire de persona privée.',
+  'memorySources.codingSessions.ingest': 'Ingérer les nouvelles sessions',
+  'memorySources.codingSessions.ingesting': 'Ingestion…',
+  'memorySources.codingSessions.claude': 'Historique Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sessions · {evidence} interventions humaines',
+  'memorySources.codingSessions.notFound': 'Aucun historique local trouvé',
+  'memorySources.codingSessions.scanning': 'Analyse de l’historique local…',
+  'memorySources.codingSessions.truncated':
+    'L’analyse a été limitée aux 1 000 premiers fichiers de session.',
+  'memorySources.codingSessions.complete': 'Sessions de programmation ingérées',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sessions ont produit {observations} observations de persona.',
+  'memorySources.codingSessions.partialFailure':
+    '{failed} sessions ont échoué tandis que {processed} ont été traitées. Relancez l’ingestion pour réessayer.',
+  'memorySources.codingSessions.moreRemaining':
+    'La limite de sessions du lot a été atteinte. Relancez l’ingestion pour continuer à importer votre historique.',
+  'memorySources.codingSessions.failed': 'Échec de l’ingestion des sessions de programmation',
   'flows.canvas.sidePanelToggle': 'Panneau latéral',
   'flows.canvas.legendTab': 'Manuel',
 

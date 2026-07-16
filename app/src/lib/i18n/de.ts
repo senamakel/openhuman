@@ -981,6 +981,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'Wie kann ich dir heute helfen?',
   'chat.send': 'Nachricht senden',
   'chat.stopGeneration': 'Generierung stoppen',
+  'chat.stoppedByUser': 'Gestoppt',
   'chat.parallelBranchHint': 'Parallelen Zweig eingeben: ⌘/Strg+Enter zum Senden',
   'chat.followupHint':
     'Folgenachricht einreihen: wird nach dieser Antwort gesendet · ⌘/Strg+Enter für parallelen Zweig',
@@ -3328,6 +3329,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': 'Audio konnte nicht klar verstanden werden: bitte erneut versuchen',
   'mic.failedToStopRecording': 'Aufzeichnung konnte nicht gestoppt werden: {message}',
   'mic.transcriptionFailed': 'Transkription fehlgeschlagen: {message}',
+  'mic.voiceNotCompiled':
+    'Sprachtranskription ist in dieser App-Version nicht enthalten. Aktualisiere OpenHuman, um sie zu aktivieren.',
   'reflections.kind.retrospective': 'Retrospektive',
   'reflections.kind.derivedFact': 'Abgeleitete Tatsache',
   'reflections.kind.moodInsight': 'Stimmungseinsicht',
@@ -3561,6 +3564,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'Fernsteuerung (Telegram)',
   'channels.telegram.remoteControlBody':
     'Senden Sie von einem zulässigen Telegram-Chat aus /status, /sessions, /new oder /help. Das Modellrouting verwendet weiterhin /model und /models.',
+  'channels.connectHelp.title': 'So verbindest du',
+  'channels.connectHelp.discord':
+    'Wähle unten eine Methode: verknüpfe dein Konto über OpenHuman, installiere den Bot per OAuth oder füge deinen eigenen Bot-Token aus dem Discord-Entwicklerportal ein.',
+  'channels.connectHelp.telegram':
+    'Wähle unten eine Methode: schreibe dem verwalteten OpenHuman-Bot, um ihn zu verknüpfen, oder füge deinen eigenen Bot-Token von @BotFather ein.',
+  'channels.connectHelp.slackNote':
+    'Du suchst Slack? Slack wird als App unter Verbindungen → OAuth verbunden, nicht als Messaging-Kanal hier.',
   'channels.web.displayName': 'Web',
   'channels.web.description': 'Chatte über die integrierte Web-Oberfläche.',
   'channels.web.authMode.managed_dm.description':
@@ -4229,6 +4239,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': '{count} entfernt',
   'flows.copilot.noChanges': 'Dieser Vorschlag ändert keine Knoten.',
   'flows.copilot.accept': 'Auf Entwurf anwenden',
+  'flows.copilot.acceptAndSave': 'Übernehmen & speichern',
+  'flows.copilot.saving': 'Wird gespeichert…',
   'flows.copilot.reject': 'Verwerfen',
   'flows.copilot.previewHint':
     'Ein vorgeschlagener Entwurf wird geprüft: es wurde noch nichts gespeichert.',
@@ -7478,6 +7490,26 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Löschen',
   'flows.delete.deleting': 'Wird gelöscht…',
   'flows.canvas.renameLabel': 'Workflow umbenennen',
+  'memorySources.codingSessions.title': 'Coding-Agent-Sitzungen',
+  'memorySources.codingSessions.description':
+    'Verwandle Entscheidungen und Korrekturen aus Codex und Claude Code in private Persona-Erinnerungen.',
+  'memorySources.codingSessions.ingest': 'Neue Sitzungen einlesen',
+  'memorySources.codingSessions.ingesting': 'Wird eingelesen…',
+  'memorySources.codingSessions.claude': 'Claude-Code-Verlauf',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} Sitzungen · {evidence} menschliche Beiträge',
+  'memorySources.codingSessions.notFound': 'Kein lokaler Verlauf gefunden',
+  'memorySources.codingSessions.scanning': 'Lokaler Sitzungsverlauf wird durchsucht…',
+  'memorySources.codingSessions.truncated':
+    'Der Scan wurde auf die ersten 1.000 Sitzungsdateien begrenzt.',
+  'memorySources.codingSessions.complete': 'Coding-Sitzungen eingelesen',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} Sitzungen ergaben {observations} Persona-Beobachtungen.',
+  'memorySources.codingSessions.partialFailure':
+    '{failed} Sitzungen sind fehlgeschlagen, während {processed} verarbeitet wurden. Starten Sie das Einlesen erneut.',
+  'memorySources.codingSessions.moreRemaining':
+    'Das Sitzungslimit für diesen Durchlauf wurde erreicht. Starten Sie das Einlesen erneut, um den Import fortzusetzen.',
+  'memorySources.codingSessions.failed': 'Einlesen der Coding-Sitzungen fehlgeschlagen',
   'flows.canvas.sidePanelToggle': 'Seitenleiste',
   'flows.canvas.legendTab': 'Manuell',
 

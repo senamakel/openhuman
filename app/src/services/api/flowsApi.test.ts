@@ -340,7 +340,7 @@ describe('flowsApi', () => {
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_discover',
         params: {},
-        timeoutMs: 310_000,
+        timeoutMs: 610_000,
       });
       expect(result).toEqual([suggestion]);
     });
@@ -353,7 +353,7 @@ describe('flowsApi', () => {
       expect(mockCallCoreRpc).toHaveBeenCalledWith({
         method: 'openhuman.flows_discover',
         params: { thread_id: 'scout-thread-1' },
-        timeoutMs: 310_000,
+        timeoutMs: 610_000,
       });
     });
 

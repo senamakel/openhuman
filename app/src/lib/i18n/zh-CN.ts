@@ -889,6 +889,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': '今天我能帮您做什么？',
   'chat.send': '发送',
   'chat.stopGeneration': '停止生成',
+  'chat.stoppedByUser': '已停止',
   'chat.parallelBranchHint': '输入并行分支：⌘/Ctrl+Enter 发送',
   'chat.followupHint': '将后续消息加入队列：将在本次回复后发送 · ⌘/Ctrl+Enter 开启并行分支',
   'chat.queuedFollowups.label': '排队的后续消息',
@@ -3065,6 +3066,7 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': '无法清楚地理解音频：请重试',
   'mic.failedToStopRecording': '停止录音失败: {message}',
   'mic.transcriptionFailed': '转录失败: {message}',
+  'mic.voiceNotCompiled': '此版本的应用未包含语音转文字功能。请更新 OpenHuman 后再使用。',
   'reflections.kind.retrospective': '回顾',
   'reflections.kind.derivedFact': '派生事实',
   'reflections.kind.moodInsight': '情绪洞察',
@@ -3280,6 +3282,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': '远程控制 (Telegram)',
   'channels.telegram.remoteControlBody':
     '从允许的 Telegram 聊天中，发送 /status、/sessions、/new 或 /help。模型路由仍然使用 /model 和 /models。',
+  'channels.connectHelp.title': '如何连接',
+  'channels.connectHelp.discord':
+    '在下方选择一种方式：通过 OpenHuman 关联你的账号、用 OAuth 安装机器人，或粘贴你在 Discord 开发者门户中的机器人令牌。',
+  'channels.connectHelp.telegram':
+    '在下方选择一种方式：给托管的 OpenHuman 机器人发消息以完成关联，或粘贴你在 @BotFather 获取的机器人令牌。',
+  'channels.connectHelp.slackNote':
+    '在找 Slack？Slack 是在 连接 → OAuth 中作为应用连接的，而不是这里的消息渠道。',
   'channels.web.displayName': '网络',
   'channels.web.description': '通过内置的 Web UI 聊天。',
   'channels.web.authMode.managed_dm.description': '使用嵌入式 Web 聊天：无需设置。',
@@ -3896,6 +3905,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': '移除 {count} 个',
   'flows.copilot.noChanges': '此方案未更改任何节点。',
   'flows.copilot.accept': '应用到草稿',
+  'flows.copilot.acceptAndSave': '接受并保存',
+  'flows.copilot.saving': '保存中…',
   'flows.copilot.reject': '放弃',
   'flows.copilot.previewHint': '正在查看建议的草稿：尚未保存任何内容。',
   'flows.copilot.repairDisplay': '一次运行失败了，请查看并提出修复方案。',
@@ -6866,6 +6877,25 @@ const messages: TranslationMap = {
   'flows.delete.confirm': '删除',
   'flows.delete.deleting': '正在删除…',
   'flows.canvas.renameLabel': '重命名工作流',
+  'memorySources.codingSessions.title': '编程智能体会话',
+  'memorySources.codingSessions.description':
+    '将 Codex 和 Claude Code 中的决策与纠正转化为私有人格记忆。',
+  'memorySources.codingSessions.ingest': '摄取新会话',
+  'memorySources.codingSessions.ingesting': '正在摄取…',
+  'memorySources.codingSessions.claude': '克劳德代码',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} 个会话 · {evidence} 条证据',
+  'memorySources.codingSessions.notFound': '未找到本地历史记录',
+  'memorySources.codingSessions.scanning': '正在扫描本地会话历史…',
+  'memorySources.codingSessions.truncated': '扫描仅限前 1,000 个会话文件。',
+  'memorySources.codingSessions.complete': '编程会话已摄取',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} 个会话生成了 {observations} 条人格观察。',
+  'memorySources.codingSessions.partialFailure':
+    '{processed} 个会话已处理，{failed} 个失败。请再次运行摄取以重试。',
+  'memorySources.codingSessions.moreRemaining':
+    '已达到本批次的会话上限。请再次运行摄取以继续导入历史记录。',
+  'memorySources.codingSessions.failed': '编程会话摄取失败',
   'flows.canvas.sidePanelToggle': '侧边栏',
   'flows.canvas.legendTab': '手动',
 

@@ -1694,6 +1694,7 @@ mod tests {
                 "resume",
                 "cancel_run",
                 "list_runs",
+                "list_all_runs",
                 "get_run",
                 "prune_runs",
                 "build",
@@ -1719,7 +1720,7 @@ mod tests {
     #[test]
     fn all_registered_controllers_has_handler_per_schema() {
         let controllers = all_registered_controllers();
-        assert_eq!(controllers.len(), 32);
+        assert_eq!(controllers.len(), 33);
         let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
         assert_eq!(
             names,
@@ -1738,6 +1739,7 @@ mod tests {
                 "resume",
                 "cancel_run",
                 "list_runs",
+                "list_all_runs",
                 "get_run",
                 "prune_runs",
                 "build",

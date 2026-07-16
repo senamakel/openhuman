@@ -742,6 +742,7 @@ const en: TranslationMap = {
   'chat.typeMessage': 'How can I help you today?',
   'chat.send': 'Send message',
   'chat.stopGeneration': 'Stop generating',
+  'chat.stoppedByUser': 'Stopped',
   'chat.parallelBranchHint': 'Type a parallel branch: ⌘/Ctrl+Enter to send',
   'chat.followupHint':
     'Queue a follow-up: sent after this reply · ⌘/Ctrl+Enter for a parallel branch',
@@ -3629,6 +3630,8 @@ const en: TranslationMap = {
   'mic.lowConfidenceResult': 'Could not understand the audio clearly. Please try again.',
   'mic.failedToStopRecording': 'Failed to stop recording: {message}',
   'mic.transcriptionFailed': 'Transcription failed: {message}',
+  'mic.voiceNotCompiled':
+    'Voice transcription is not included in this version of the app. Update OpenHuman to enable it.',
 
   // Reflections: kind labels
   'reflections.kind.retrospective': 'Retrospective',
@@ -3875,6 +3878,15 @@ const en: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'Remote control (Telegram)',
   'channels.telegram.remoteControlBody':
     'From an allowed Telegram chat, send /status, /sessions, /new, or /help. Model routing still uses /model and /models.',
+
+  // Connect help (in-app guidance so users do not have to ask the agent for the path)
+  'channels.connectHelp.title': 'How to connect',
+  'channels.connectHelp.discord':
+    'Pick a method below: link your account via OpenHuman, install the bot with OAuth, or paste your own bot token from the Discord developer portal.',
+  'channels.connectHelp.telegram':
+    'Pick a method below: message the managed OpenHuman bot to link it, or paste your own bot token from @BotFather.',
+  'channels.connectHelp.slackNote':
+    'Looking for Slack? Slack connects as an app under Connections → OAuth, not as a messaging channel here.',
 
   // Web
   'channels.web.displayName': 'Web',
@@ -4804,6 +4816,8 @@ const en: TranslationMap = {
   'flows.copilot.removed': '{count} removed',
   'flows.copilot.noChanges': 'No node changes in this proposal.',
   'flows.copilot.accept': 'Apply to draft',
+  'flows.copilot.acceptAndSave': 'Accept & save',
+  'flows.copilot.saving': 'Saving…',
   'flows.copilot.reject': 'Dismiss',
   'flows.copilot.previewHint': 'Reviewing a proposed draft: nothing is saved yet.',
   'flows.copilot.repairDisplay': 'A run failed. Please review it and propose a fix.',
@@ -7584,6 +7598,25 @@ const en: TranslationMap = {
     'Your AI provider has no API key set. Add one in provider settings to continue.',
   'userErrors.scope.chat': 'Chat',
   'userErrors.scope.cron': 'Scheduled job',
+  'memorySources.codingSessions.title': 'Coding-agent sessions',
+  'memorySources.codingSessions.description':
+    'Turn your Codex and Claude Code decisions and corrections into private persona memory.',
+  'memorySources.codingSessions.ingest': 'Ingest new sessions',
+  'memorySources.codingSessions.ingesting': 'Ingesting…',
+  'memorySources.codingSessions.claude': 'Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sessions · {evidence} human turns',
+  'memorySources.codingSessions.notFound': 'No local history found',
+  'memorySources.codingSessions.scanning': 'Scanning local session history…',
+  'memorySources.codingSessions.truncated': 'Scan limited to the first 1,000 session files.',
+  'memorySources.codingSessions.complete': 'Coding sessions ingested',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sessions produced {observations} persona observations.',
+  'memorySources.codingSessions.partialFailure':
+    '{failed} sessions failed while {processed} were processed. Run ingestion again to retry them.',
+  'memorySources.codingSessions.moreRemaining':
+    'The session batch limit was reached. Run ingestion again to continue importing your history.',
+  'memorySources.codingSessions.failed': 'Coding-session ingestion failed',
 };
 
 export default en;

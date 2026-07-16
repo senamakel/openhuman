@@ -920,6 +920,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'كيف يمكنني مساعدتك اليوم؟',
   'chat.send': 'إرسال الرسالة',
   'chat.stopGeneration': 'إيقاف التوليد',
+  'chat.stoppedByUser': 'تم الإيقاف',
   'chat.parallelBranchHint': 'فرع متوازٍ: ⌘/Ctrl+Enter للإرسال',
   'chat.followupHint': 'أضِف متابعة إلى القائمة: تُرسَل بعد هذا الرد · ⌘/Ctrl+Enter لفرع متوازٍ',
   'chat.queuedFollowups.label': 'متابعات في قائمة الانتظار',
@@ -3163,6 +3164,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': 'تعذّر فهم الصوت بوضوح: يرجى المحاولة مرة أخرى',
   'mic.failedToStopRecording': 'فشل إيقاف التسجيل: {message}',
   'mic.transcriptionFailed': 'فشل النسخ: {message}',
+  'mic.voiceNotCompiled':
+    'خاصية تحويل الصوت إلى نص غير متوفرة في هذا الإصدار من التطبيق. حدّث OpenHuman لتفعيلها.',
   'reflections.kind.retrospective': 'مراجعة',
   'reflections.kind.derivedFact': 'حقيقة مستنتجة',
   'reflections.kind.moodInsight': 'رؤية المزاج',
@@ -3383,6 +3386,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'جهاز التحكم عن بعد (Telegram)',
   'channels.telegram.remoteControlBody':
     'من دردشة Telegram المسموح بها، أرسل /الحالة، /الجلسات، /جديد، أو /مساعدة. لا يزال توجيه النموذج يستخدم /model و /models.',
+  'channels.connectHelp.title': 'كيفية الاتصال',
+  'channels.connectHelp.discord':
+    'اختر طريقة أدناه: اربط حسابك عبر OpenHuman، أو ثبّت البوت باستخدام OAuth، أو الصق رمز البوت الخاص بك من بوابة مطوري Discord.',
+  'channels.connectHelp.telegram':
+    'اختر طريقة أدناه: راسل بوت OpenHuman المُدار لربطه، أو الصق رمز البوت الخاص بك من @BotFather.',
+  'channels.connectHelp.slackNote':
+    'تبحث عن Slack؟ يتصل Slack كتطبيق من خلال الاتصالات → OAuth، وليس كقناة مراسلة هنا.',
   'channels.web.displayName': 'الويب',
   'channels.web.description': 'الدردشة عبر واجهة مستخدم الويب المضمنة.',
   'channels.web.authMode.managed_dm.description': 'استخدم دردشة الويب المضمنة - لا يلزم الإعداد.',
@@ -4014,6 +4024,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': 'أُزيل {count}',
   'flows.copilot.noChanges': 'هذا الاقتراح لا يغيّر أي عقدة.',
   'flows.copilot.accept': 'تطبيق على المسودة',
+  'flows.copilot.acceptAndSave': 'قبول وحفظ',
+  'flows.copilot.saving': 'جارٍ الحفظ…',
   'flows.copilot.reject': 'تجاهل',
   'flows.copilot.previewHint': 'جارٍ مراجعة مسودة مقترحة: لم يُحفظ شيء بعد.',
   'flows.copilot.repairDisplay': 'فشل تشغيل؛ راجعه واقترح إصلاحًا.',
@@ -7097,6 +7109,25 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'حذف',
   'flows.delete.deleting': 'جارٍ الحذف…',
   'flows.canvas.renameLabel': 'إعادة تسمية سير العمل',
+  'memorySources.codingSessions.title': 'جلسات وكلاء البرمجة',
+  'memorySources.codingSessions.description':
+    'حوّل قرارات وتصحيحات Codex وClaude Code إلى ذاكرة شخصية خاصة.',
+  'memorySources.codingSessions.ingest': 'استيعاب الجلسات الجديدة',
+  'memorySources.codingSessions.ingesting': 'جارٍ الاستيعاب…',
+  'memorySources.codingSessions.claude': 'كلود كود',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} جلسات · {evidence} مداخلات بشرية',
+  'memorySources.codingSessions.notFound': 'لم يُعثر على سجل محلي',
+  'memorySources.codingSessions.scanning': 'جارٍ فحص سجل الجلسات المحلي…',
+  'memorySources.codingSessions.truncated': 'اقتصر الفحص على أول 1,000 ملف جلسة.',
+  'memorySources.codingSessions.complete': 'تم استيعاب جلسات البرمجة',
+  'memorySources.codingSessions.completeMessage':
+    'أنتجت {processed} جلسات {observations} ملاحظات شخصية.',
+  'memorySources.codingSessions.partialFailure':
+    'فشلت {failed} جلسات بينما تمت معالجة {processed}. شغّل الاستيعاب مرة أخرى لإعادة المحاولة.',
+  'memorySources.codingSessions.moreRemaining':
+    'تم بلوغ حد دفعة الجلسات. شغّل الاستيعاب مرة أخرى لمتابعة استيراد سجلك.',
+  'memorySources.codingSessions.failed': 'فشل استيعاب جلسات البرمجة',
   'flows.canvas.sidePanelToggle': 'اللوحة الجانبية',
   'flows.canvas.legendTab': 'يدوي',
 

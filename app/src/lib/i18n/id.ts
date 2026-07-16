@@ -953,6 +953,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'Apa yang bisa saya bantu hari ini?',
   'chat.send': 'Kirim pesan',
   'chat.stopGeneration': 'Hentikan pembuatan',
+  'chat.stoppedByUser': 'Dihentikan',
   'chat.parallelBranchHint': 'Ketik cabang paralel: ⌘/Ctrl+Enter untuk mengirim',
   'chat.followupHint':
     'Antrekan tindak lanjut: dikirim setelah balasan ini · ⌘/Ctrl+Enter untuk cabang paralel',
@@ -3248,6 +3249,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': 'Tidak dapat memahami audio dengan jelas: silakan coba lagi',
   'mic.failedToStopRecording': 'Gagal menghentikan perekaman: {message}',
   'mic.transcriptionFailed': 'Transkripsi gagal: {message}',
+  'mic.voiceNotCompiled':
+    'Transkripsi suara tidak tersedia di versi aplikasi ini. Perbarui OpenHuman untuk mengaktifkannya.',
   'reflections.kind.retrospective': 'Retrospektif',
   'reflections.kind.derivedFact': 'Fakta Turunan',
   'reflections.kind.moodInsight': 'Wawasan Suasana Hati',
@@ -3477,6 +3480,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'Kendali jarak jauh (Telegram)',
   'channels.telegram.remoteControlBody':
     'Dari obrolan Telegram yang diizinkan, kirim /status, /sessions, /new, atau /help. Perutean model masih menggunakan /model dan /models.',
+  'channels.connectHelp.title': 'Cara menghubungkan',
+  'channels.connectHelp.discord':
+    'Pilih metode di bawah: tautkan akun Anda lewat OpenHuman, pasang bot dengan OAuth, atau tempel token bot Anda sendiri dari portal developer Discord.',
+  'channels.connectHelp.telegram':
+    'Pilih metode di bawah: kirim pesan ke bot OpenHuman terkelola untuk menautkannya, atau tempel token bot Anda sendiri dari @BotFather.',
+  'channels.connectHelp.slackNote':
+    'Mencari Slack? Slack terhubung sebagai aplikasi di Koneksi → OAuth, bukan sebagai saluran pesan di sini.',
   'channels.web.displayName': 'Web',
   'channels.web.description': 'Mengobrol melalui UI web bawaan.',
   'channels.web.authMode.managed_dm.description':
@@ -4129,6 +4139,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': '{count} dihapus',
   'flows.copilot.noChanges': 'Usulan ini tidak mengubah simpul apa pun.',
   'flows.copilot.accept': 'Terapkan ke draf',
+  'flows.copilot.acceptAndSave': 'Terima & simpan',
+  'flows.copilot.saving': 'Menyimpan…',
   'flows.copilot.reject': 'Buang',
   'flows.copilot.previewHint': 'Meninjau draf yang diusulkan: belum ada yang disimpan.',
   'flows.copilot.repairDisplay': 'Sebuah eksekusi gagal; periksa dan usulkan perbaikan.',
@@ -7299,6 +7311,25 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'Hapus',
   'flows.delete.deleting': 'Menghapus…',
   'flows.canvas.renameLabel': 'Ganti nama alur kerja',
+  'memorySources.codingSessions.title': 'Sesi agen pemrograman',
+  'memorySources.codingSessions.description':
+    'Ubah keputusan dan koreksi Codex serta Claude Code menjadi memori persona pribadi.',
+  'memorySources.codingSessions.ingest': 'Serap sesi baru',
+  'memorySources.codingSessions.ingesting': 'Menyerap…',
+  'memorySources.codingSessions.claude': 'Riwayat Claude Code',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} sesi · {evidence} masukan manusia',
+  'memorySources.codingSessions.notFound': 'Riwayat lokal tidak ditemukan',
+  'memorySources.codingSessions.scanning': 'Memindai riwayat sesi lokal…',
+  'memorySources.codingSessions.truncated': 'Pemindaian dibatasi pada 1.000 file sesi pertama.',
+  'memorySources.codingSessions.complete': 'Sesi pemrograman telah diserap',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} sesi menghasilkan {observations} pengamatan persona.',
+  'memorySources.codingSessions.partialFailure':
+    '{failed} sesi gagal sementara {processed} berhasil diproses. Jalankan penyerapan lagi untuk mencoba ulang.',
+  'memorySources.codingSessions.moreRemaining':
+    'Batas batch sesi tercapai. Jalankan penyerapan lagi untuk melanjutkan impor riwayat Anda.',
+  'memorySources.codingSessions.failed': 'Gagal menyerap sesi pemrograman',
   'flows.canvas.sidePanelToggle': 'Panel samping',
   'flows.canvas.legendTab': 'Manual',
 

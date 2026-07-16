@@ -934,6 +934,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': '오늘 무엇을 도와드릴까요?',
   'chat.send': '메시지 보내기',
   'chat.stopGeneration': '생성 중지',
+  'chat.stoppedByUser': '중지됨',
   'chat.parallelBranchHint': '병렬 분기 입력: 보내려면 ⌘/Ctrl+Enter',
   'chat.followupHint': '후속 메시지를 대기열에 추가: 이 응답 후 전송 · 병렬 분기는 ⌘/Ctrl+Enter',
   'chat.queuedFollowups.label': '대기 중인 후속 메시지',
@@ -3201,6 +3202,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': '오디오를 명확하게 이해할 수 없습니다: 다시 시도해 주세요',
   'mic.failedToStopRecording': '녹음을 중지하지 못했습니다: {message}',
   'mic.transcriptionFailed': '전사에 실패했습니다: {message}',
+  'mic.voiceNotCompiled':
+    '이 버전의 앱에는 음성 받아쓰기가 포함되어 있지 않습니다. OpenHuman을 업데이트하면 사용할 수 있습니다.',
   'reflections.kind.retrospective': '회고',
   'reflections.kind.derivedFact': '파생된 사실',
   'reflections.kind.moodInsight': '기분 인사이트',
@@ -3425,6 +3428,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': '원격 제어(Telegram)',
   'channels.telegram.remoteControlBody':
     '허용된 Telegram 채팅에서 /status, /sessions, /new 또는 /help를 보냅니다. 모델 라우팅은 여전히 ​​/model 및 /models를 사용합니다.',
+  'channels.connectHelp.title': '연결 방법',
+  'channels.connectHelp.discord':
+    '아래에서 방법을 선택하세요: OpenHuman으로 계정 연결, OAuth로 봇 설치, 또는 Discord 개발자 포털에서 발급한 봇 토큰 붙여넣기.',
+  'channels.connectHelp.telegram':
+    '아래에서 방법을 선택하세요: 관리형 OpenHuman 봇에 메시지를 보내 연결하거나, @BotFather에서 발급한 봇 토큰을 붙여넣으세요.',
+  'channels.connectHelp.slackNote':
+    'Slack을 찾으세요? Slack은 여기서 메시징 채널이 아니라 연결 → OAuth에서 앱으로 연결됩니다.',
   'channels.web.displayName': '웹',
   'channels.web.description': '내장된 웹 UI를 통해 채팅합니다.',
   'channels.web.authMode.managed_dm.description':
@@ -4067,6 +4077,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': '{count}개 제거',
   'flows.copilot.noChanges': '이 제안은 노드를 변경하지 않습니다.',
   'flows.copilot.accept': '초안에 적용',
+  'flows.copilot.acceptAndSave': '수락 및 저장',
+  'flows.copilot.saving': '저장 중…',
   'flows.copilot.reject': '버리기',
   'flows.copilot.previewHint': '제안된 초안을 검토 중입니다: 아직 저장되지 않았습니다.',
   'flows.copilot.repairDisplay': '실행이 실패했습니다. 확인하고 수정을 제안하세요.',
@@ -7176,6 +7188,25 @@ const messages: TranslationMap = {
   'flows.delete.confirm': '삭제',
   'flows.delete.deleting': '삭제 중…',
   'flows.canvas.renameLabel': '워크플로 이름 바꾸기',
+  'memorySources.codingSessions.title': '코딩 에이전트 세션',
+  'memorySources.codingSessions.description':
+    'Codex와 Claude Code의 결정 및 수정 사항을 비공개 페르소나 메모리로 변환합니다.',
+  'memorySources.codingSessions.ingest': '새 세션 수집',
+  'memorySources.codingSessions.ingesting': '수집 중…',
+  'memorySources.codingSessions.claude': '클로드 코드',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '세션 {files}개 · 사용자 입력 {evidence}개',
+  'memorySources.codingSessions.notFound': '로컬 기록을 찾지 못했습니다',
+  'memorySources.codingSessions.scanning': '로컬 세션 기록을 검색하는 중…',
+  'memorySources.codingSessions.truncated': '스캔이 처음 1,000개 세션 파일로 제한되었습니다.',
+  'memorySources.codingSessions.complete': '코딩 세션 수집 완료',
+  'memorySources.codingSessions.completeMessage':
+    '세션 {processed}개에서 페르소나 관찰 {observations}개를 만들었습니다.',
+  'memorySources.codingSessions.partialFailure':
+    '세션 {processed}개를 처리하는 동안 {failed}개가 실패했습니다. 다시 시도하려면 수집을 다시 실행하세요.',
+  'memorySources.codingSessions.moreRemaining':
+    '세션 배치 한도에 도달했습니다. 기록 가져오기를 계속하려면 수집을 다시 실행하세요.',
+  'memorySources.codingSessions.failed': '코딩 세션 수집 실패',
   'flows.canvas.sidePanelToggle': '사이드 패널',
   'flows.canvas.legendTab': '수동',
 

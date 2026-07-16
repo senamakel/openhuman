@@ -941,6 +941,7 @@ const messages: TranslationMap = {
   'chat.typeMessage': 'आज मैं आपकी कैसे मदद कर सकता हूँ?',
   'chat.send': 'मैसेज भेजें',
   'chat.stopGeneration': 'जेनरेशन रोकें',
+  'chat.stoppedByUser': 'रोक दिया गया',
   'chat.parallelBranchHint': 'समानांतर शाखा टाइप करें: भेजने के लिए ⌘/Ctrl+Enter',
   'chat.followupHint':
     'फ़ॉलो-अप कतार में लगाएँ: इस उत्तर के बाद भेजा जाएगा · समानांतर शाखा के लिए ⌘/Ctrl+Enter',
@@ -3236,6 +3237,8 @@ const messages: TranslationMap = {
   'mic.lowConfidenceResult': 'ऑडियो स्पष्ट रूप से समझ नहीं आया: कृपया पुनः प्रयास करें',
   'mic.failedToStopRecording': 'रिकॉर्डिंग रोकने में दिक्कत: {message}',
   'mic.transcriptionFailed': 'ट्रांसक्रिप्शन विफल: {message}',
+  'mic.voiceNotCompiled':
+    'इस ऐप संस्करण में वॉइस ट्रांसक्रिप्शन शामिल नहीं है। इसे चालू करने के लिए OpenHuman को अपडेट करें।',
   'reflections.kind.retrospective': 'रेट्रोस्पेक्टिव',
   'reflections.kind.derivedFact': 'डिराइव्ड फैक्ट',
   'reflections.kind.moodInsight': 'मूड इनसाइट',
@@ -3461,6 +3464,13 @@ const messages: TranslationMap = {
   'channels.telegram.remoteControlTitle': 'रिमोट कंट्रोल (Telegram)',
   'channels.telegram.remoteControlBody':
     'अनुमत Telegram चैट से, /स्थिति, /सत्र, /नया, या /सहायता भेजें। मॉडल रूटिंग अभी भी /मॉडल और /मॉडल का उपयोग करती है।',
+  'channels.connectHelp.title': 'कैसे कनेक्ट करें',
+  'channels.connectHelp.discord':
+    'नीचे एक तरीका चुनें: OpenHuman के ज़रिए अपना अकाउंट लिंक करें, OAuth से बॉट इंस्टॉल करें, या Discord डेवलपर पोर्टल से अपना खुद का बॉट टोकन पेस्ट करें।',
+  'channels.connectHelp.telegram':
+    'नीचे एक तरीका चुनें: लिंक करने के लिए मैनेज्ड OpenHuman बॉट को मैसेज करें, या @BotFather से अपना खुद का बॉट टोकन पेस्ट करें।',
+  'channels.connectHelp.slackNote':
+    'Slack ढूँढ रहे हैं? Slack यहाँ मैसेजिंग चैनल के रूप में नहीं, बल्कि कनेक्शन → OAuth में एक ऐप के रूप में कनेक्ट होता है।',
   'channels.web.displayName': 'वेब',
   'channels.web.description': 'अंतर्निहित वेब यूआई के माध्यम से चैट करें।',
   'channels.web.authMode.managed_dm.description':
@@ -4112,6 +4122,8 @@ const messages: TranslationMap = {
   'flows.copilot.removed': '{count} हटाए गए',
   'flows.copilot.noChanges': 'यह प्रस्ताव किसी नोड को नहीं बदलता।',
   'flows.copilot.accept': 'ड्राफ़्ट पर लागू करें',
+  'flows.copilot.acceptAndSave': 'स्वीकार करें और सहेजें',
+  'flows.copilot.saving': 'सहेजा जा रहा है…',
   'flows.copilot.reject': 'रद्द करें',
   'flows.copilot.previewHint':
     'एक प्रस्तावित ड्राफ़्ट की समीक्षा हो रही है: अभी कुछ सहेजा नहीं गया।',
@@ -7261,6 +7273,25 @@ const messages: TranslationMap = {
   'flows.delete.confirm': 'हटाएं',
   'flows.delete.deleting': 'हटाया जा रहा है…',
   'flows.canvas.renameLabel': 'वर्कफ़्लो का नाम बदलें',
+  'memorySources.codingSessions.title': 'कोडिंग-एजेंट सत्र',
+  'memorySources.codingSessions.description':
+    'Codex और Claude Code के निर्णयों व सुधारों को निजी व्यक्तित्व स्मृति में बदलें।',
+  'memorySources.codingSessions.ingest': 'नए सत्र शामिल करें',
+  'memorySources.codingSessions.ingesting': 'शामिल किया जा रहा है…',
+  'memorySources.codingSessions.claude': 'क्लॉड कोड',
+  'memorySources.codingSessions.codex': 'Codex',
+  'memorySources.codingSessions.counts': '{files} सत्र · {evidence} मानवीय संदेश',
+  'memorySources.codingSessions.notFound': 'कोई स्थानीय इतिहास नहीं मिला',
+  'memorySources.codingSessions.scanning': 'स्थानीय सत्र इतिहास स्कैन हो रहा है…',
+  'memorySources.codingSessions.truncated': 'स्कैन पहले 1,000 सत्र फ़ाइलों तक सीमित था।',
+  'memorySources.codingSessions.complete': 'कोडिंग सत्र शामिल हो गए',
+  'memorySources.codingSessions.completeMessage':
+    '{processed} सत्रों से {observations} व्यक्तित्व अवलोकन बने।',
+  'memorySources.codingSessions.partialFailure':
+    '{processed} सत्र संसाधित हुए, जबकि {failed} विफल रहे। दोबारा प्रयास करने के लिए अंतर्ग्रहण फिर चलाएँ।',
+  'memorySources.codingSessions.moreRemaining':
+    'सत्र बैच की सीमा पूरी हो गई है। अपना इतिहास आयात करना जारी रखने के लिए फिर से अंतर्ग्रहण चलाएँ।',
+  'memorySources.codingSessions.failed': 'कोडिंग सत्र शामिल करना विफल रहा',
   'flows.canvas.sidePanelToggle': 'साइड पैनल',
   'flows.canvas.legendTab': 'मैनुअल',
 

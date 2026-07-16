@@ -202,6 +202,12 @@ pub async fn spawn_workflow_run_background(
             // a post-construction override rather than a pre-set on `config`
             // (which the builder would otherwise clobber).
             agent.set_max_tool_iterations(WORKFLOW_RUN_MAX_ITERATIONS);
+            tracing::debug!(
+                run_id = %run_id,
+                max_tool_iterations = WORKFLOW_RUN_MAX_ITERATIONS,
+                "[skills] workflow_run: pinned iteration budget post-construction (overrides \
+                 the session builder's orchestrator definition cap)"
+            );
             agent.set_event_context(run_id.clone(), "skill");
             agent.set_agent_definition_name(format!(
                 "orchestrator-skill-{}",

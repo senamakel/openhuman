@@ -1,7 +1,7 @@
 import { useUsageState } from '../../hooks/useUsageState';
 import { useT } from '../../lib/i18n/I18nContext';
 import { useAppSelector } from '../../store/hooks';
-import { BILLING_DASHBOARD_URL } from '../../utils/links';
+import { PRICING_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 
 function formatTokens(n: number): string {
@@ -86,7 +86,7 @@ const TokenUsagePill = () => {
           type="button"
           data-analytics-id="chat-token-plan-pill"
           onClick={() => {
-            void openUrl(BILLING_DASHBOARD_URL);
+            void openUrl(PRICING_URL);
           }}
           title={planTitle}
           className={`inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium ring-1 transition-colors ${planSeverity.bg} ${planSeverity.text} ${planSeverity.ring} hover:opacity-80`}>

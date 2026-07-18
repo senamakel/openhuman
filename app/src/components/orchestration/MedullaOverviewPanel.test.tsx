@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BILLING_DASHBOARD_URL, DISCORD_INVITE_URL } from '../../utils/links';
+import { DISCORD_INVITE_URL, PRICING_URL } from '../../utils/links';
 import MedullaOverviewPanel from './MedullaOverviewPanel';
 
 // Pass-through translator so assertions can target the i18n keys directly.
@@ -31,6 +31,6 @@ describe('MedullaOverviewPanel', () => {
   it('opens the billing dashboard when the subscription CTA is clicked', () => {
     render(<MedullaOverviewPanel />);
     fireEvent.click(screen.getByTestId('orch-medulla-subscribe'));
-    expect(openUrl).toHaveBeenCalledWith(BILLING_DASHBOARD_URL);
+    expect(openUrl).toHaveBeenCalledWith(PRICING_URL);
   });
 });

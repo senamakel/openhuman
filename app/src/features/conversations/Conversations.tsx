@@ -133,7 +133,7 @@ import type { ThreadMessage } from '../../types/thread';
 import { splitAgentMessageIntoBubbles } from '../../utils/agentMessageBubbles';
 import { chatThreadPath } from '../../utils/chatRoutes';
 import { CHAT_ATTACHMENTS_ENABLED } from '../../utils/config';
-import { BILLING_DASHBOARD_URL } from '../../utils/links';
+import { PRICING_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 import {
   isTauri,
@@ -2785,7 +2785,7 @@ const Conversations = ({
                   )}
                   ctaLabel={t('chat.upgrade')}
                   onCtaClick={() => {
-                    void openUrl(BILLING_DASHBOARD_URL);
+                    void openUrl(PRICING_URL);
                   }}
                   dismissible
                   onDismiss={() => dismissBanner('conversations-warning')}
@@ -2830,7 +2830,7 @@ const Conversations = ({
                   type="button"
                   data-analytics-id="chat-budget-top-up"
                   onClick={() => {
-                    void openUrl(BILLING_DASHBOARD_URL);
+                    void openUrl(PRICING_URL);
                   }}
                   className="px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-content-inverted text-xs font-medium transition-colors">
                   {t('chat.topUp')}

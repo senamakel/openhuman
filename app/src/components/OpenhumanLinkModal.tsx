@@ -29,7 +29,7 @@ import {
   type AccountStatus,
   PROVIDERS,
 } from '../types/accounts';
-import { BILLING_DASHBOARD_URL, DISCORD_INVITE_URL } from '../utils/links';
+import { DISCORD_INVITE_URL, PRICING_URL } from '../utils/links';
 import { openUrl } from '../utils/openUrl';
 import { ProviderIcon } from './accounts/providerIcons';
 import ChannelSetupModal from './channels/ChannelSetupModal';
@@ -311,7 +311,7 @@ const BillingBody = ({ close }: { close: () => void }) => {
       </div>
       <Button
         onClick={() => {
-          void openUrl(BILLING_DASHBOARD_URL).catch(() => {});
+          void openUrl(PRICING_URL).catch(() => {});
         }}
         className="w-full">
         {t('app.openhumanLink.billing.openDashboard')}

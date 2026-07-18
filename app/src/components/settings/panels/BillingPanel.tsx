@@ -1,5 +1,5 @@
 import { useT } from '../../../lib/i18n/I18nContext';
-import { PRICING_URL } from '../../../utils/links';
+import { BILLING_DASHBOARD_URL } from '../../../utils/links';
 import { openUrl } from '../../../utils/openUrl';
 import Button from '../../ui/Button';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -29,7 +29,7 @@ const BillingPanel = () => {
           variant="primary"
           size="md"
           onClick={() => {
-            void openUrl(PRICING_URL);
+            void openUrl(BILLING_DASHBOARD_URL);
           }}>
           {t('settings.billing.openDashboard')}
         </Button>

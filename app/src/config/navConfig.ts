@@ -5,7 +5,7 @@
  * This module is pure data — no JSX, no React imports.  Icons are owned by
  * BottomTabBar.tsx and mapped from tab.id.
  */
-import { PRICING_URL } from '../utils/links';
+import { BILLING_DASHBOARD_URL } from '../utils/links';
 
 // ── Tab bar ──────────────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ export const AVATAR_MENU_ITEMS: AvatarMenuItem[] = [
   {
     id: 'billing',
     labelKey: 'nav.avatarMenu.billing',
-    target: PRICING_URL,
+    target: BILLING_DASHBOARD_URL,
     kind: 'openUrl',
     cloudOnly: true,
   },

@@ -103,9 +103,9 @@ describe('AVATAR_MENU_ITEMS', () => {
     expect(openUrlItems).toEqual(['billing']);
   });
 
-  it('opens billing on the public pricing page', () => {
+  it('opens billing on the authenticated dashboard', () => {
     expect(AVATAR_MENU_ITEMS.find(i => i.id === 'billing')?.target).toBe(
-      'https://tinyhumans.ai/pricing'
+      'https://tinyhumans.ai/dashboard'
     );
   });
 });

@@ -154,13 +154,11 @@ pub(crate) async fn dispatch_subagent(
             // in every delegation tool's future (which itself nests inside
             // agent-turn futures) overflows the test-thread stack on deep
             // parallel-delegation flows.
-            return Box::pin(
-                async move {
-                    super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-                        .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
-                        .await
-                },
-            )
+            return Box::pin(async move {
+                super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
+                    .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
+                    .await
+            })
             .await;
         }
         log::info!(

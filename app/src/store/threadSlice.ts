@@ -3,9 +3,9 @@ import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/tool
 import { extractWorkflowProposalFromMessages } from '../lib/workflows/workflowProposal';
 import { threadApi } from '../services/api/threadApi';
 import { isThreadNotFoundCoreRpcError } from '../services/coreRpcClient';
-import { setWorkflowProposalForThread } from './chatRuntimeSlice';
 import type { Thread, ThreadMessage } from '../types/thread';
 import { IS_DEV } from '../utils/config';
+import { setWorkflowProposalForThread } from './chatRuntimeSlice';
 import { resetUserScopedState } from './resetActions';
 
 export const THREAD_NOT_FOUND_MESSAGE = 'This thread is no longer available.';

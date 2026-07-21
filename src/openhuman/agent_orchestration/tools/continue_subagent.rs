@@ -56,16 +56,15 @@ impl ContinueSubagentTool {
         };
 
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let sessions =
-            match subagent_sessions::list_for_parent(&store, &parent.session_id, None) {
-                Ok(sessions) => sessions,
-                Err(err) => {
-                    return Ok(ToolResult::error(format!(
-                        "continue_subagent: no checkpoint found for task_id '{task_id}' and \
+        let sessions = match subagent_sessions::list_for_parent(&store, &parent.session_id, None) {
+            Ok(sessions) => sessions,
+            Err(err) => {
+                return Ok(ToolResult::error(format!(
+                    "continue_subagent: no checkpoint found for task_id '{task_id}' and \
                          the durable session store could not be read: {err}"
-                    )));
-                }
-            };
+                )));
+            }
+        };
         let session = sessions.iter().find(|s| {
             s.subagent_session_id == task_id || s.current_task_id.as_deref() == Some(task_id)
         });

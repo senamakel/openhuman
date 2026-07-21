@@ -49,11 +49,7 @@ describe('parseWorkflowProposal / coerceWorkflowProposal', () => {
   it('defaults requireApproval to true unless explicitly false', () => {
     const explicit = coerceWorkflowProposal({ ...proposalPayload('X'), require_approval: false });
     expect(explicit?.requireApproval).toBe(false);
-    const omitted = coerceWorkflowProposal({
-      type: 'workflow_proposal',
-      name: 'X',
-      graph: {},
-    });
+    const omitted = coerceWorkflowProposal({ type: 'workflow_proposal', name: 'X', graph: {} });
     expect(omitted?.requireApproval).toBe(true);
   });
 

@@ -84,6 +84,92 @@ async fn archetype_delegation_tool_runs_child_agent_e2e() {
 }
 
 #[tokio::test]
+async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
+    // The continuity contract: with a parent turn AND a chat thread to
+    // deliver into, a delegate_* call must NOT run inline — it returns an
+    // [async_subagent_ref] immediately (task_id + subagent_session_id the
+    // orchestrator can steer/wait/continue by) and persists a durable
+    // session in the workspace store. The finished result is then queued
+    // for background delivery as a new chat turn.
+    let _ = AgentDefinitionRegistry::init_global_builtins();
+    let workspace = tempfile::TempDir::new().expect("workspace");
+    let provider = Arc::new(ScriptedProvider::new(vec![(
+        ARCHETYPE_DELEGATION_CANARY,
+        "async-delegation-child-answer",
+    )]));
+    let tool = ArchetypeDelegationTool {
+        tool_name: "delegate_researcher".to_string(),
+        agent_id: "researcher".to_string(),
+        tool_description: "Delegate research work.".to_string(),
+    };
+
+    let mut ctx = parent_context(workspace.path(), provider.clone(), vec![]);
+    ctx.session_id = "tools-e2e-async-session".into();
+    let result = with_parent_context(ctx, async {
+        crate::openhuman::inference::provider::thread_context::with_thread_id(
+            "thread-async-parent",
+            async {
+                tool.execute(json!({
+                    "prompt": format!("Research {ARCHETYPE_DELEGATION_CANARY} in the background"),
+                    "model": "test-model"
+                }))
+                .await
+            },
+        )
+        .await
+    })
+    .await
+    .expect("tool execution");
+
+    assert!(!result.is_error, "{}", result.output());
+    let out = result.output();
+    assert!(
+        out.contains("[async_subagent_ref]"),
+        "async ref returned immediately, not the child's answer: {out}"
+    );
+    assert!(out.contains("\"task_id\":\"sub-"), "carries task_id: {out}");
+    assert!(
+        out.contains("subagent_session_id"),
+        "carries durable id: {out}"
+    );
+
+    // The durable session must exist for this parent, and reach a terminal
+    // reusable state once the (scripted, near-instant) child finishes.
+    use crate::openhuman::agent_orchestration::subagent_sessions::{
+        self, DurableSubagentStatus, SubagentSessionStore,
+    };
+    let store = SubagentSessionStore::new(workspace.path().to_path_buf());
+    let mut finished = None;
+    for _ in 0..100 {
+        let sessions = subagent_sessions::list_for_parent(&store, "tools-e2e-async-session", None)
+            .expect("durable store readable");
+        if let Some(session) = sessions.first() {
+            if session.status == DurableSubagentStatus::Idle {
+                finished = Some(session.clone());
+                break;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    let session = finished.expect("durable session reached Idle after background completion");
+    assert_eq!(session.agent_id, "researcher");
+    assert!(
+        session.latest_history.as_ref().is_some_and(|h| !h.is_empty()),
+        "resumable history persisted"
+    );
+    // Completion queued for delivery back into the parent chat as a new turn.
+    assert!(
+        crate::openhuman::agent_orchestration::background_completions::has_pending(
+            "tools-e2e-async-session"
+        ),
+        "finished result queued for background delivery"
+    );
+    let _ = crate::openhuman::agent_orchestration::background_completions::take_pending(
+        "tools-e2e-async-session",
+    );
+}
+
+#[tokio::test]
 async fn skill_delegation_tool_runs_integrations_agent_e2e() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");

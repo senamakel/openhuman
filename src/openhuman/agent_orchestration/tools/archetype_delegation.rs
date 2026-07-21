@@ -252,6 +252,24 @@ mod tests {
     }
 
     #[test]
+    fn parameters_schema_advertises_async_default_blocking_opt_in() {
+        // Delegations are async by default (durable worker + follow-up
+        // delivery turn); `blocking: true` is the explicit opt-in for
+        // results that must gate the current reply. The flag must be
+        // advertised but never required.
+        let schema = sample_tool().parameters_schema();
+        let blocking = &schema["properties"]["blocking"];
+        assert_eq!(blocking["type"], "boolean");
+        let desc = blocking["description"].as_str().unwrap_or_default();
+        assert!(desc.contains("async"), "explains the async default: {desc}");
+        assert!(
+            desc.contains("continue_subagent") && desc.contains("subagent_session_id"),
+            "points at the resume contract: {desc}"
+        );
+        assert_eq!(schema["required"], json!(["prompt"]));
+    }
+
+    #[test]
     fn parameters_schema_requires_prompt_only() {
         let tool = sample_tool();
         let schema = tool.parameters_schema();

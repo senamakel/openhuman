@@ -195,6 +195,19 @@ describe('Brain page', () => {
     });
   });
 
+  it('does not fetch the memory graph on the orchestration tab', async () => {
+    graphExportMock.mockResolvedValue(makeGraph(0));
+    await act(async () => {
+      renderWithProviders(<Brain />, { initialEntries: ['/?tab=orchestration'] });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('brain-orchestration')).toBeInTheDocument();
+    });
+    // Folding Orchestration under Brain must not trigger the unrelated
+    // memoryTreeGraphExport RPC that the standalone page never issued.
+    expect(graphExportMock).not.toHaveBeenCalled();
+  });
+
   it('redirects the legacy tinyplace-orchestration deep link to the orchestration tab', async () => {
     graphExportMock.mockResolvedValue(makeGraph(0));
     await act(async () => {

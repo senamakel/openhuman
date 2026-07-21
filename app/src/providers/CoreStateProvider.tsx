@@ -24,6 +24,7 @@ import {
   listTeams,
   updateCoreLocalState,
 } from '../services/coreStateApi';
+import { daemonHealthService } from '../services/daemonHealthService';
 import { socketService } from '../services/socketService';
 import { store } from '../store';
 import { resetUserScopedState } from '../store/resetActions';
@@ -291,7 +292,12 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
   const refreshCore = useCallback(async () => {
     const requestId = ++snapshotRequestIdRef.current;
-    const snapshot = normalizeSnapshot(await fetchCoreAppSnapshot());
+    const rawSnapshot = await fetchCoreAppSnapshot();
+    // Feed the folded health payload to the daemon-health store — this replaces
+    // the former standalone health_snapshot poll, so daemon status stays fresh
+    // off the same app_state_snapshot refresh.
+    daemonHealthService.ingestHealthSnapshot(rawSnapshot.health);
+    const snapshot = normalizeSnapshot(rawSnapshot);
     if (!isMountedRef.current) {
       return;
     }

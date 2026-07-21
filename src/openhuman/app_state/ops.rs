@@ -168,6 +168,11 @@ pub struct AppStateSnapshot {
     pub local_state: StoredAppState,
     pub keyring_status: crate::openhuman::keyring_consent::KeyringStatus,
     pub runtime: RuntimeSnapshot,
+    /// Process + component health, folded into this snapshot so the frontend
+    /// hydrates the daemon-health store from the same poll instead of running a
+    /// second `health_snapshot` poller. Fields stay snake_case (the type has no
+    /// camelCase rename) to match the frontend's existing health parser.
+    pub health: crate::openhuman::health::HealthSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1220,6 +1225,7 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
     );
 
     let keyring_status = crate::openhuman::keyring_consent::policy::current_status();
+    let health = crate::openhuman::health::snapshot();
 
     Ok(RpcOutcome::new(
         AppStateSnapshot {
@@ -1233,6 +1239,7 @@ pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
             local_state,
             keyring_status,
             runtime,
+            health,
         },
         vec!["core app state snapshot fetched".to_string()],
     ))

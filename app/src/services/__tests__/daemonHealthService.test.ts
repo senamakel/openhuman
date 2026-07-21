@@ -1,11 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { callCoreRpc } from '../coreRpcClient';
+import { setDaemonStatus, updateHealthSnapshot } from '../../features/daemon/store';
 import { DaemonHealthService } from '../daemonHealthService';
-
-vi.mock('../coreRpcClient', () => ({
-  callCoreRpc: vi.fn(),
-}));
 
 vi.mock('../../features/daemon/store', () => ({
   setDaemonStatus: vi.fn(),
@@ -16,78 +12,76 @@ vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: () => ({ snapshot: { sessionToken: null } }),
 }));
 
-const mockedCallCoreRpc = vi.mocked(callCoreRpc);
+const mockedUpdate = vi.mocked(updateHealthSnapshot);
+const mockedSetStatus = vi.mocked(setDaemonStatus);
 
-const healthPayload = () => ({
+const healthPayload = (overrides: Record<string, unknown> = {}) => ({
   pid: 123,
   updated_at: '2026-07-21T00:00:00Z',
   uptime_seconds: 10,
-  components: {},
+  components: { gateway: { status: 'ok', updated_at: '2026-07-21T00:00:00Z', restart_count: 0 } },
+  ...overrides,
 });
 
-describe('DaemonHealthService', () => {
+describe('DaemonHealthService.ingestHealthSnapshot', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    mockedCallCoreRpc.mockReset();
-    mockedCallCoreRpc.mockResolvedValue(healthPayload());
+    mockedUpdate.mockReset();
+    mockedSetStatus.mockReset();
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  const countHealthCalls = () =>
-    mockedCallCoreRpc.mock.calls.filter(
-      ([arg]) => (arg as { method?: string })?.method === 'openhuman.health_snapshot'
-    ).length;
-
-  it('shares a single poll loop across concurrent consumers', async () => {
+  it('parses a valid payload and updates the daemon store', () => {
     const service = new DaemonHealthService();
+    service.ingestHealthSnapshot(healthPayload());
 
-    // Three consumers set up on the same tick (as SocketProvider +
-    // ServiceBlockingGate do on startup). Previously each awaited the first
-    // poll before assigning the interval id, so all three raced past the guard
-    // and spawned their own interval → duplicate health_snapshot RPCs per tick.
-    const releases = await Promise.all([
-      service.setupHealthListener(),
-      service.setupHealthListener(),
-      service.setupHealthListener(),
-    ]);
-
-    // Exactly one immediate poll, not one-per-consumer.
-    expect(countHealthCalls()).toBe(1);
-
-    await vi.advanceTimersByTimeAsync(2000);
-    // One interval tick → one additional poll (total 2), not three.
-    expect(countHealthCalls()).toBe(2);
-
-    // Releasing one of several consumers must NOT stop polling for the rest.
-    releases[0]();
-    await vi.advanceTimersByTimeAsync(2000);
-    expect(countHealthCalls()).toBe(3);
-
-    // Once the last consumer releases, polling stops.
-    releases[1]();
-    releases[2]();
-    await vi.advanceTimersByTimeAsync(6000);
-    expect(countHealthCalls()).toBe(3);
+    expect(mockedUpdate).toHaveBeenCalledTimes(1);
+    const [, snapshot] = mockedUpdate.mock.calls[0];
+    expect(snapshot.pid).toBe(123);
+    expect(snapshot.components.gateway.status).toBe('ok');
 
     service.cleanup();
   });
 
-  it('re-arms the poll loop after all consumers release and a new one attaches', async () => {
+  it('ignores a missing or unparseable payload (older core, no health folded in)', () => {
     const service = new DaemonHealthService();
+    service.ingestHealthSnapshot(undefined);
+    service.ingestHealthSnapshot(null);
+    service.ingestHealthSnapshot({ not: 'a health snapshot' });
 
-    const release = await service.setupHealthListener();
-    expect(countHealthCalls()).toBe(1);
-    release();
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    service.cleanup();
+  });
 
-    const release2 = await service.setupHealthListener();
-    await vi.advanceTimersByTimeAsync(2000);
-    // New consumer starts a fresh loop: immediate poll + one tick.
-    expect(countHealthCalls()).toBe(3);
+  it('marks the daemon disconnected when no snapshot arrives within the timeout', () => {
+    const service = new DaemonHealthService();
+    service.ingestHealthSnapshot(healthPayload());
+    expect(mockedSetStatus).not.toHaveBeenCalled();
 
-    release2();
+    // No further ingest for the watchdog window → disconnected.
+    vi.advanceTimersByTime(30000);
+    expect(mockedSetStatus).toHaveBeenCalledWith(expect.any(String), 'disconnected');
+
+    service.cleanup();
+  });
+
+  it('re-arms the disconnect watchdog on each ingest', () => {
+    const service = new DaemonHealthService();
+    service.ingestHealthSnapshot(healthPayload());
+
+    // A fresh snapshot just before the deadline pushes it out.
+    vi.advanceTimersByTime(25000);
+    service.ingestHealthSnapshot(healthPayload());
+    vi.advanceTimersByTime(25000);
+    expect(mockedSetStatus).not.toHaveBeenCalled();
+
+    // Then go quiet past the window → disconnected.
+    vi.advanceTimersByTime(30000);
+    expect(mockedSetStatus).toHaveBeenCalledWith(expect.any(String), 'disconnected');
+
     service.cleanup();
   });
 });

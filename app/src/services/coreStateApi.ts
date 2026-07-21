@@ -64,6 +64,31 @@ interface AppStateSnapshotResult {
     autocomplete: AutocompleteStatus;
     service: ServiceStatus;
   };
+  /**
+   * Process + component health, folded into this snapshot (#daemon-poll-fold)
+   * so the daemon-health store hydrates from the same poll instead of a second
+   * `health_snapshot` poller. Fields are snake_case on the wire (the core type
+   * has no camelCase rename). Optional so older cores that omit it degrade
+   * gracefully — the daemon store simply isn't refreshed from those.
+   */
+  health?: RawHealthSnapshot;
+}
+
+/** Raw (snake_case) health payload embedded in the app-state snapshot. */
+export interface RawHealthSnapshot {
+  pid: number;
+  updated_at: string;
+  uptime_seconds: number;
+  components: Record<
+    string,
+    {
+      status: string;
+      updated_at: string;
+      last_ok?: string;
+      last_error?: string;
+      restart_count: number;
+    }
+  >;
 }
 
 /**

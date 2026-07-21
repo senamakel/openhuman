@@ -1,7 +1,15 @@
 /**
  * Daemon Health Service
  *
- * Polls the Rust core health snapshot and keeps the frontend daemon store in sync.
+ * Keeps the frontend daemon store in sync with the Rust core's component health.
+ *
+ * Health is no longer polled on its own timer: the core folds its health
+ * snapshot into `app_state_snapshot`, and `CoreStateProvider` feeds each
+ * snapshot's `health` payload here via {@link ingestHealthSnapshot}. That
+ * collapses the former separate `health_snapshot` poll into the one app-state
+ * poll. This service now owns only the parse + store update + the
+ * disconnect-timeout watchdog (no data yet after {@link HEALTH_TIMEOUT_MS} →
+ * mark the daemon disconnected).
  */
 import {
   type ComponentHealth,
@@ -10,76 +18,26 @@ import {
   updateHealthSnapshot,
 } from '../features/daemon/store';
 import { getCoreStateSnapshot } from '../lib/coreState/store';
-import { callCoreRpc } from './coreRpcClient';
 
 export class DaemonHealthService {
   private healthTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private readonly HEALTH_TIMEOUT_MS = 30000;
-  private pollingIntervalId: ReturnType<typeof setInterval> | null = null;
-  private readonly POLL_MS = 2000;
+
   /**
-   * Number of live consumers (React effects) sharing the single poll loop.
-   * `useDaemonHealth` mounts in several places at once (SocketProvider via
-   * useDaemonLifecycle, ServiceBlockingGate directly + via useDaemonLifecycle),
-   * so setup runs concurrently on startup. The interval starts on the first
-   * consumer and is torn down only when the last one releases — so one
-   * component unmounting can't stop polling for the others, and concurrent
-   * setups can't each spawn a duplicate interval (which previously produced
-   * multiple `health_snapshot` RPCs per tick).
+   * Ingest a health payload carried by an `app_state_snapshot` refresh. Parses
+   * it, updates the daemon store, and re-arms the disconnect watchdog. A missing
+   * or unparseable payload (e.g. an older core that doesn't fold health in) is
+   * ignored so the store simply keeps its last-known state.
    */
-  private consumerCount = 0;
-
-  async setupHealthListener(): Promise<() => void> {
-    this.consumerCount += 1;
-
-    // Start the shared poll loop exactly once. Assign the interval id
-    // synchronously — before any `await` — so concurrent callers on the same
-    // tick observe it and don't each spawn their own interval.
-    if (this.pollingIntervalId === null) {
-      this.pollingIntervalId = setInterval(() => {
-        void this.pollOnce();
-      }, this.POLL_MS);
+  ingestHealthSnapshot(payload: unknown): void {
+    const healthSnapshot = this.parseHealthSnapshot(payload);
+    if (healthSnapshot) {
+      this.updateDaemonStoreFromHealth(healthSnapshot);
       this.startHealthTimeout();
-      void this.pollOnce();
-    }
-
-    return () => this.releaseConsumer();
-  }
-
-  /**
-   * Release one consumer. The shared poll loop is torn down only once the last
-   * consumer has released, so an unmount by one of several consumers doesn't
-   * stop health polling for the rest.
-   */
-  private releaseConsumer(): void {
-    if (this.consumerCount > 0) {
-      this.consumerCount -= 1;
-    }
-    if (this.consumerCount === 0) {
-      this.cleanup();
-    }
-  }
-
-  private async pollOnce(): Promise<void> {
-    try {
-      const payload = await callCoreRpc<unknown>({ method: 'openhuman.health_snapshot' });
-      const healthSnapshot = this.parseHealthSnapshot(payload);
-      if (healthSnapshot) {
-        this.updateDaemonStoreFromHealth(healthSnapshot);
-        this.startHealthTimeout();
-      }
-    } catch {
-      // The health endpoint can fail while the sidecar is starting.
     }
   }
 
   cleanup(): void {
-    this.consumerCount = 0;
-    if (this.pollingIntervalId) {
-      clearInterval(this.pollingIntervalId);
-      this.pollingIntervalId = null;
-    }
-
     if (this.healthTimeoutId) {
       clearTimeout(this.healthTimeoutId);
       this.healthTimeoutId = null;

@@ -17,35 +17,64 @@ export class DaemonHealthService {
   private readonly HEALTH_TIMEOUT_MS = 30000;
   private pollingIntervalId: ReturnType<typeof setInterval> | null = null;
   private readonly POLL_MS = 2000;
+  /**
+   * Number of live consumers (React effects) sharing the single poll loop.
+   * `useDaemonHealth` mounts in several places at once (SocketProvider via
+   * useDaemonLifecycle, ServiceBlockingGate directly + via useDaemonLifecycle),
+   * so setup runs concurrently on startup. The interval starts on the first
+   * consumer and is torn down only when the last one releases — so one
+   * component unmounting can't stop polling for the others, and concurrent
+   * setups can't each spawn a duplicate interval (which previously produced
+   * multiple `health_snapshot` RPCs per tick).
+   */
+  private consumerCount = 0;
 
-  async setupHealthListener(): Promise<(() => void) | null> {
-    if (this.pollingIntervalId) {
-      return () => this.cleanup();
+  async setupHealthListener(): Promise<() => void> {
+    this.consumerCount += 1;
+
+    // Start the shared poll loop exactly once. Assign the interval id
+    // synchronously — before any `await` — so concurrent callers on the same
+    // tick observe it and don't each spawn their own interval.
+    if (this.pollingIntervalId === null) {
+      this.pollingIntervalId = setInterval(() => {
+        void this.pollOnce();
+      }, this.POLL_MS);
+      this.startHealthTimeout();
+      void this.pollOnce();
     }
 
-    const pollOnce = async () => {
-      try {
-        const payload = await callCoreRpc<unknown>({ method: 'openhuman.health_snapshot' });
-        const healthSnapshot = this.parseHealthSnapshot(payload);
-        if (healthSnapshot) {
-          this.updateDaemonStoreFromHealth(healthSnapshot);
-          this.startHealthTimeout();
-        }
-      } catch {
-        // The health endpoint can fail while the sidecar is starting.
+    return () => this.releaseConsumer();
+  }
+
+  /**
+   * Release one consumer. The shared poll loop is torn down only once the last
+   * consumer has released, so an unmount by one of several consumers doesn't
+   * stop health polling for the rest.
+   */
+  private releaseConsumer(): void {
+    if (this.consumerCount > 0) {
+      this.consumerCount -= 1;
+    }
+    if (this.consumerCount === 0) {
+      this.cleanup();
+    }
+  }
+
+  private async pollOnce(): Promise<void> {
+    try {
+      const payload = await callCoreRpc<unknown>({ method: 'openhuman.health_snapshot' });
+      const healthSnapshot = this.parseHealthSnapshot(payload);
+      if (healthSnapshot) {
+        this.updateDaemonStoreFromHealth(healthSnapshot);
+        this.startHealthTimeout();
       }
-    };
-
-    await pollOnce();
-    this.pollingIntervalId = setInterval(() => {
-      void pollOnce();
-    }, this.POLL_MS);
-    this.startHealthTimeout();
-
-    return () => this.cleanup();
+    } catch {
+      // The health endpoint can fail while the sidecar is starting.
+    }
   }
 
   cleanup(): void {
+    this.consumerCount = 0;
     if (this.pollingIntervalId) {
       clearInterval(this.pollingIntervalId);
       this.pollingIntervalId = null;

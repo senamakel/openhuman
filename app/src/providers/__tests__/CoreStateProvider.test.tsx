@@ -40,7 +40,6 @@ function makeSnapshot(overrides: {
     runtime: {
       screenIntelligence: null as never,
       localAi: null as never,
-      autocomplete: null as never,
       service: null as never,
     },
   };
@@ -109,7 +108,7 @@ function resetCoreStateStore() {
         activeMode: 'os_keyring',
         backendName: 'os',
       },
-      runtime: { screenIntelligence: null, localAi: null, autocomplete: null, service: null },
+      runtime: { screenIntelligence: null, localAi: null, service: null },
     },
     teams: [],
     teamMembersById: {},

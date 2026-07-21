@@ -78,4 +78,4 @@ pub use traits::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolContent, ToolResult, ToolScope,
     ToolSpec,
 };
-pub(crate) use user_filter::{enables_app_ui_control_mutations, filter_tools_by_user_preference};
+pub(crate) use user_filter::filter_tools_by_user_preference;

@@ -529,8 +529,6 @@ describe('VoicePanel', () => {
     await waitFor(() => expect(screen.getByText('core offline')).toBeInTheDocument());
   });
 
-  // Always-on listening toggle moved to DesktopAgentPanel (see its test).
-
   // ─── STT / TTS Test buttons ────────────────────────────────────────────────
 
   it('clicking Test STT calls testVoiceProvider and shows success result', async () => {

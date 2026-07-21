@@ -563,7 +563,6 @@ fn round16_all_tools_registry_branches_and_browser_allowlist() {
     };
     cfg.node.enabled = false;
     cfg.gitbooks.enabled = true;
-    cfg.computer_control.enabled = true;
     cfg.learning.enabled = true;
     cfg.learning.tool_tracking_enabled = true;
     cfg.browser.enabled = true;

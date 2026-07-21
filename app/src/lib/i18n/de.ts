@@ -126,8 +126,6 @@ const messages: TranslationMap = {
     'Das Guthaben Ihrer lokalen Wallet und Ihre Wiederherstellungsphrase.',
   'connections.header.screen':
     'Lassen Sie Ihren Agenten Ihren Bildschirm sehen, um zeitnahe, kontextbezogene Hilfe zu bieten.',
-  'connections.header.desktopAgent':
-    'Lassen Sie Ihren Agenten Apps öffnen und Ihren Desktop in Ihrem Namen steuern.',
   'connections.header.composioKey':
     'Fügen Sie einen Composio-API-Schlüssel hinzu, um Hunderte von App-Integrationen freizuschalten.',
   'connections.llm.apiKeys': 'API-Schlüssel & Routing',
@@ -2602,29 +2600,6 @@ const messages: TranslationMap = {
     'In exklusivem Vollbild rendert das Overlay nicht: du hörst nur den Hinweiston. Wechsle zu randlosem Vollbild für das Overlay.',
   'pttOverlay.listening': 'Höre zu…',
   'pttOverlay.idle': 'Bereit',
-  'autocomplete.title': 'Automatische Vervollständigung',
-  'autocomplete.settings': 'Einstellungen',
-  'autocomplete.acceptWithTab': 'Mit Tab akzeptieren',
-  'autocomplete.stylePreset': 'Stilvoreinstellung',
-  'autocomplete.style.balanced': 'Ausgewogen',
-  'autocomplete.style.concise': 'Prägnant',
-  'autocomplete.style.formal': 'Formell',
-  'autocomplete.style.casual': 'Lässig',
-  'autocomplete.style.custom': 'Benutzerdefiniert',
-  'autocomplete.disabledApps': 'Deaktivierte Apps (ein Bundle/App-Token pro Zeile)',
-  'autocomplete.saveSettings': 'Einstellungen speichern',
-  'autocomplete.saving': 'Sparen…',
-  'autocomplete.runtime': 'Laufzeit',
-  'autocomplete.running': 'Laufen',
-  'autocomplete.start': 'Starten',
-  'autocomplete.stop': 'Stopp',
-  'autocomplete.settingsSaved': 'Autovervollständigungseinstellungen gespeichert.',
-  'autocomplete.started': 'Die automatische Vervollständigung wurde gestartet.',
-  'autocomplete.didNotStart':
-    'Die automatische Vervollständigung wurde nicht gestartet. Prüfe, ob es aktiviert ist.',
-  'autocomplete.stopped': 'Die automatische Vervollständigung wurde gestoppt.',
-  'autocomplete.advancedSettings': 'Erweiterte Einstellungen',
-  'autocomplete.debugTitle': 'Autocomplete-Debug',
   'chat.agentChat': 'Agenten-Chat',
   'chat.overrides': 'Überschreibt',
   'chat.model': 'Modell',
@@ -5033,68 +5008,6 @@ const messages: TranslationMap = {
   'settings.ai.workload.changeModel': 'Modell ändern',
   'settings.ai.workload.chooseModel': 'Modell auswählen',
   'settings.ai.provider.ollama': 'Ollama',
-  'settings.autocomplete.appFilter.acceptSuggestion': 'Vorschlag annehmen',
-  'settings.autocomplete.appFilter.app': 'App',
-  'settings.autocomplete.appFilter.currentSuggestion': 'Aktueller Vorschlag',
-  'settings.autocomplete.appFilter.contextOverride': 'Kontextüberschreibung (optional)',
-  'settings.autocomplete.appFilter.debounce': 'Entprellen',
-  'settings.autocomplete.appFilter.debugFocus': 'Debug-Fokus',
-  'settings.autocomplete.appFilter.enabled': 'Aktiviert',
-  'settings.autocomplete.appFilter.getSuggestion': 'Hol dir einen Vorschlag',
-  'settings.autocomplete.appFilter.lastError': 'Letzter Fehler',
-  'settings.autocomplete.appFilter.liveLogs': 'Live-Protokolle',
-  'settings.autocomplete.appFilter.model': 'Modell',
-  'settings.autocomplete.appFilter.noLogs': '):',
-  'settings.autocomplete.appFilter.phase': 'Phase',
-  'settings.autocomplete.appFilter.platformSupported': 'Unterstützte Plattform',
-  'settings.autocomplete.appFilter.refreshStatus': 'Erfrischend…',
-  'settings.autocomplete.appFilter.refreshing': 'Erfrischend…',
-  'settings.autocomplete.appFilter.running': 'Wird ausgeführt',
-  'settings.autocomplete.appFilter.runtime': 'Laufzeit',
-  'settings.autocomplete.appFilter.test': 'Testen',
-  'settings.autocomplete.completionStyle.acceptedCompletion':
-    '{count} akzeptierter Abschluss gespeichert – wird zur Personalisierung zukünftiger Vorschläge verwendet.',
-  'settings.autocomplete.completionStyle.acceptedCompletions':
-    '{count} akzeptierte Vervollständigungen werden gespeichert – werden zur Personalisierung zukünftiger Vorschläge verwendet.',
-  'settings.autocomplete.completionStyle.clearHistory': 'Löschen…',
-  'settings.autocomplete.completionStyle.clearing': 'Löschen…',
-  'settings.autocomplete.completionStyle.debounce': 'Entprellung (ms)',
-  'settings.autocomplete.completionStyle.enabled': 'Aktiviert',
-  'settings.autocomplete.completionStyle.maxChars': 'Max. Zeichen',
-  'settings.autocomplete.completionStyle.noHistory':
-    'Noch keine akzeptierten Abschlüsse. Akzeptiere Vorschläge mit der Tabulatortaste, um mit der Personalisierung zu beginnen.',
-  'settings.autocomplete.completionStyle.overlayTtl': 'Overlay-TTL (ms)',
-  'settings.autocomplete.completionStyle.personalizationHistory': 'Personalisierungsverlauf',
-  'settings.autocomplete.completionStyle.styleExamples': 'Stilbeispiele (eines pro Zeile)',
-  'settings.autocomplete.completionStyle.styleInstructions': 'Stilanweisungen',
-  'settings.autocomplete.debug.acceptedPrefix': 'Akzeptiert: {value}',
-  'settings.autocomplete.debug.acceptFailed': 'Vorschlag konnte nicht angenommen werden',
-  'settings.autocomplete.debug.alreadyRunning': 'Autocomplete läuft bereits.',
-  'settings.autocomplete.debug.clearHistoryFailed': 'Der Verlauf konnte nicht gelöscht werden.',
-  'settings.autocomplete.debug.didNotStart':
-    'Die automatische Vervollständigung wurde nicht gestartet.',
-  'settings.autocomplete.debug.disabledInSettings':
-    'Die automatische Vervollständigung ist in den Einstellungen deaktiviert. Aktivieren Sie es und speichern Sie es zunächst.',
-  'settings.autocomplete.debug.fetchSuggestionFailed':
-    'Der aktuelle Vorschlag konnte nicht abgerufen werden.',
-  'settings.autocomplete.debug.inspectFocusedElementFailed':
-    'Das fokussierte Element konnte nicht überprüft werden.',
-  'settings.autocomplete.debug.loadSettingsFailed':
-    'Die Einstellungen für die automatische Vervollständigung konnten nicht geladen werden.',
-  'settings.autocomplete.debug.noSuggestionApplied': 'Es wurde kein Vorschlag angewendet.',
-  'settings.autocomplete.debug.noSuggestionReturned': 'Kein Vorschlag zurückgegeben.',
-  'settings.autocomplete.debug.refreshStatusFailed':
-    'Der Status der automatischen Vervollständigung konnte nicht aktualisiert werden.',
-  'settings.autocomplete.debug.saveAdvancedSettingsFailed':
-    'Die erweiterten Einstellungen konnten nicht gespeichert werden.',
-  'settings.autocomplete.debug.startFailed':
-    'Die automatische Vervollständigung konnte nicht gestartet werden.',
-  'settings.autocomplete.debug.stopFailed':
-    'Die automatische Vervollständigung konnte nicht gestoppt werden.',
-  'settings.autocomplete.debug.suggestionPrefix': 'Vorschlag: {value}',
-  'settings.autocomplete.shared.none': 'Keine',
-  'settings.autocomplete.shared.notApplicable': 'n/a',
-  'settings.autocomplete.shared.unknown': 'Unbekannt',
   'settings.billing.autoRecharge.addAmount': 'Füge diesen Betrag hinzu',
   'settings.billing.autoRecharge.addCard': 'Karte hinzufügen',
   'settings.billing.autoRecharge.amountHint': 'Betragshinweis',
@@ -5640,9 +5553,6 @@ const messages: TranslationMap = {
   'settings.developerMenu.autonomy.title': 'Agent-Autonomie',
   'settings.developerMenu.autonomy.desc':
     'Aktionsraten-Limits und Sicherheitsschwellen für Werkzeuge',
-  'settings.developerMenu.autocomplete.title': 'Autovervollständigung',
-  'settings.developerMenu.autocomplete.desc':
-    'KI-Inline-Autovervollständigung Einstellungen und Debug-Panel',
   'settings.developerMenu.voiceDebug.title': 'Sprache (Debug)',
   'settings.developerMenu.voiceDebug.desc':
     'Laufzeitstatus und Debug-Einstellungen für die Sprachdiktierung',
@@ -6111,26 +6021,6 @@ const messages: TranslationMap = {
   'settings.modelHealth.modal.apply': 'Ersatz anwenden',
   'settings.modelHealth.tag.cheaper': 'CHEAPER',
   'settings.modelHealth.tag.better': 'BETTER',
-  'settings.desktopAgent.title': 'Desktop-Agent',
-  'settings.desktopAgent.description':
-    'Überprüfen und erteilen Sie die Berechtigungen, die der Desktop-Agent benötigt.',
-  'settings.desktopAgent.microphone': 'Mikrofon',
-  'settings.desktopAgent.grant': 'Erlauben',
-  'settings.desktopAgent.notRequiredOnOs': 'Auf diesem Betriebssystem nicht erforderlich',
-  'settings.desktopAgent.allGranted':
-    'Alles bereit – der Desktop-Agent hat alle erforderlichen Berechtigungen.',
-  'settings.desktopAgent.recheck': 'Erneut prüfen',
-  'settings.desktopAgent.restartAndRecheck': 'Kern neu starten und erneut prüfen',
-  'settings.desktopAgent.seamless.title': 'Agentenaktionen',
-  'settings.desktopAgent.seamless.label': 'Den Agenten ohne Nachfrage handeln lassen',
-  'settings.desktopAgent.seamless.description':
-    'Vollzugriff erteilen und Desktop-Aktionen (Apps öffnen, App-Oberflächen steuern) automatisch genehmigen, damit der Agent sie ohne Bestätigungsabfrage ausführt.',
-  'settings.desktopAgent.seamless.note':
-    'Nur Desktop-Aktionen überspringen die Abfrage: das Ausführen von Shell-Befehlen, das Bearbeiten von Dateien, Netzwerkanfragen und das Installieren von Software fragen weiterhin nach. Wird dies deaktiviert, endet die automatische Genehmigung von Desktop-Aktionen, die Zugriffsstufe bleibt jedoch unverändert.',
-  'settings.desktopAgent.beta':
-    'Beta – der Desktop-Agent ist experimentell und funktioniert möglicherweise nicht immer wie erwartet.',
-  'settings.desktopAgent.wakeWordHint':
-    'Sagen Sie „Hey Tiny“ vor Ihrem Befehl, um den Agenten zu wecken.',
   'settings.screenIntel.permissions.accessibility': 'Barrierefreiheit',
   'settings.screenIntel.permissions.grantHint': 'Grant-Hinweis',
   'settings.screenIntel.permissions.inputMonitoring': 'Eingabeüberwachung',
@@ -6409,22 +6299,6 @@ const messages: TranslationMap = {
   'skills.resource.tree.templates': 'Vorlagen',
   'skills.resource.tree.empty': 'Keine gebündelten Ressourcen.',
   'skills.search.placeholder': 'Platzhalter',
-  'skills.setup.autocomplete.acceptKey': 'Schlüssel akzeptieren',
-  'skills.setup.autocomplete.activeDesc': 'Inline-Vervollständigungen laufen und sind bereit.',
-  'skills.setup.autocomplete.activeTitle': 'Die automatische Vervollständigung ist aktiv',
-  'skills.setup.autocomplete.customizeSettings': 'Passe die Einstellungen an',
-  'skills.setup.autocomplete.debounce': 'Entprellen',
-  'skills.setup.autocomplete.description': 'Beschreibung',
-  'skills.setup.autocomplete.enableBtn': 'Aktivieren...',
-  'skills.setup.autocomplete.enableError':
-    'Die automatische Vervollständigung konnte nicht aktiviert werden',
-  'skills.setup.autocomplete.enabling': 'Aktivieren...',
-  'skills.setup.autocomplete.notSupported': 'Nicht unterstützt',
-  'skills.setup.autocomplete.stepEnable': 'Aktiviere Inline-Vervollständigungen',
-  'skills.setup.autocomplete.stepSuccess': 'Bereit zu gehen',
-  'skills.setup.autocomplete.stylePreset': 'Stilvoreinstellung',
-  'skills.setup.autocomplete.stylePresetValue': 'Ausgewogen (später konfigurierbar)',
-  'skills.setup.autocomplete.title': 'Automatische Textvervollständigung',
   'skills.setup.screenIntel.activeDesc':
     'Screen Intelligence läuft und liest dein aktives Fenster.',
   'skills.setup.screenIntel.activeTitle': 'Bildschirmintelligenz ist aktiviert',
@@ -6919,9 +6793,6 @@ const messages: TranslationMap = {
     'Das Artefakt konnte nicht aufgelöst werden. Bitte erneut versuchen.',
   'chat.files.error.download_failed': 'Download fehlgeschlagen. Bitte erneut versuchen.',
   'chat.files.error.delete_failed': 'Datei konnte nicht gelöscht werden. Bitte erneut versuchen.',
-  'autocomplete.debounceMs': 'Entprellung (ms)',
-  'autocomplete.maxChars': 'Maximale Kontextzeichen',
-  'autocomplete.overlayTtlMs': 'Overlay-Timeout (ms)',
   'memory.tab.council': 'Council',
   'activity.tabs.automations': 'Automatisierungen',
   'activity.tabs.automationsDescription':

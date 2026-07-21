@@ -11,8 +11,6 @@ import AgentEditorPage from './panels/AgentEditorPage';
 import AgentsPanel from './panels/AgentsPanel';
 import AppearancePanel from './panels/AppearancePanel';
 import ApprovalHistoryPanel from './panels/ApprovalHistoryPanel';
-import AutocompleteDebugPanel from './panels/AutocompleteDebugPanel';
-import AutocompletePanel from './panels/AutocompletePanel';
 import BillingPanel from './panels/BillingPanel';
 import CoreConnectionPanel from './panels/CoreConnectionPanel';
 import CronJobsPanel from './panels/CronJobsPanel';
@@ -143,15 +141,10 @@ export function settingsRouteElements(): ReactNode {
         path="screen-intelligence"
         element={<Navigate to="/connections?tab=screen-intelligence" replace />}
       />
-      <Route
-        path="desktop-agent"
-        element={<Navigate to="/connections?tab=desktop-agent" replace />}
-      />
       <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
       <Route path="companion" element={<Navigate to="/connections?tab=companion" replace />} />
       {/* Meeting settings moved to the Connections page (meetings tab). */}
       <Route path="meetings" element={<Navigate to="/connections?tab=meetings" replace />} />
-      <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />
 
       {/* ── System ──────────────────────────────────────────────── */}
       {/* Core connection — promotes cloud-mode remote-core config into a
@@ -191,7 +184,6 @@ export function settingsRouteElements(): ReactNode {
         path="screen-awareness-debug"
         element={wrapSettingsPage(<ScreenAwarenessDebugPanel />)}
       />
-      <Route path="autocomplete-debug" element={wrapSettingsPage(<AutocompleteDebugPanel />)} />
       {/* Voice Debug page retired. */}
       <Route path="voice-debug" element={<SettingsRedirect to="/settings/developer-options" />} />
       {/* Local Model Debug is a chip on the Connections → LLM page. */}

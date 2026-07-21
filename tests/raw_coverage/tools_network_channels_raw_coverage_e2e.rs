@@ -28,7 +28,7 @@ use openhuman_core::openhuman::config::{
 };
 use openhuman_core::openhuman::security::{AutonomyLevel, SecurityPolicy};
 use openhuman_core::openhuman::tools::{
-    ComposioTool, GitOperationsTool, MouseTool, PolymarketTool, ScheduleTool, Tool, ToolCallOptions,
+    ComposioTool, GitOperationsTool, PolymarketTool, ScheduleTool, Tool, ToolCallOptions,
 };
 
 #[derive(Clone, Debug)]
@@ -503,49 +503,6 @@ async fn composio_direct_and_mouse_tools_cover_validation_policy_and_schema_path
         .expect("readonly execute");
     assert!(blocked_execute.is_error);
     assert_contains(&text(&blocked_execute), "policy");
-
-    let mouse = MouseTool::new(readonly);
-    assert_eq!(mouse.name(), "mouse");
-    assert_contains(&mouse.parameters_schema().to_string(), "double_click");
-    let blocked_mouse = mouse
-        .execute(json!({"action": "move", "x": 1, "y": 1, "human_like": false}))
-        .await
-        .expect("readonly mouse");
-    assert!(blocked_mouse.is_error);
-    assert_contains(&text(&blocked_mouse), "read-only");
-
-    let mouse = MouseTool::new(full);
-    let missing_xy = mouse
-        .execute(json!({"action": "click", "button": "left"}))
-        .await
-        .expect_err("missing xy should hard fail before enigo");
-    assert_contains(&missing_xy.to_string(), "Missing required 'x'");
-
-    let bad_coord = mouse
-        .execute(json!({"action": "move", "x": -1, "y": 0, "human_like": false}))
-        .await
-        .expect_err("bad coord should hard fail before enigo");
-    assert_contains(&bad_coord.to_string(), "out of range");
-
-    let bad_button = mouse
-        .execute(json!({"action": "click", "x": 1, "y": 1, "button": "side"}))
-        .await
-        .expect_err("bad button should hard fail before enigo");
-    assert_contains(&bad_button.to_string(), "Invalid mouse button");
-
-    let zero_scroll = mouse
-        .execute(json!({"action": "scroll", "scroll_x": 0, "scroll_y": 0}))
-        .await
-        .expect("zero scroll");
-    assert!(zero_scroll.is_error);
-    assert_contains(&text(&zero_scroll), "non-zero");
-
-    let unknown_mouse = mouse
-        .execute(json!({"action": "teleport"}))
-        .await
-        .expect("unknown mouse");
-    assert!(unknown_mouse.is_error);
-    assert_contains(&text(&unknown_mouse), "Unknown mouse action");
 }
 
 #[tokio::test]

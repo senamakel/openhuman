@@ -157,11 +157,6 @@ vi.mock('../../hooks/useStickToBottom', () => ({
   useStickToBottom: vi.fn(() => ({ containerRef: { current: null }, endRef: { current: null } })),
 }));
 
-// useAutocompleteSkillStatus may make API calls; stub it.
-vi.mock('../../features/autocomplete/useAutocompleteSkillStatus', () => ({
-  useAutocompleteSkillStatus: vi.fn(() => ({ status: 'idle', skills: [] })),
-}));
-
 // openUrl uses Tauri; stub it.
 vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
 

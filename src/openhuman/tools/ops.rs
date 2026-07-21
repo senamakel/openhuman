@@ -245,16 +245,6 @@ pub fn all_tools_with_runtime(
         // latest messages). `resolve_time` does the conversion and returns the
         // value ready to paste into a tool argument.
         Box::new(ResolveTimeTool::new()),
-        Box::new(LaunchAppTool::new()),
-        Box::new(AxInteractTool::new(
-            root_config.computer_control.ax_interact_mutations,
-        )),
-        // Multi-step UI automation in one call. Shares the ax_interact opt-in
-        // (mutations) and sensitive-app denylist; runs a Rust perceive→act→verify
-        // loop with a fast model so the chat model stays out of the click loop.
-        Box::new(AutomateTool::new(
-            root_config.computer_control.ax_interact_mutations,
-        )),
         Box::new(DetectToolsTool::new()),
         Box::new(InstallToolTool::new(security.clone())),
         // Orchestration session-history read tools — browse persisted
@@ -996,13 +986,6 @@ pub fn all_tools_with_runtime(
     // Vision tools are always available
     tools.push(Box::new(ScreenshotTool::new(security.clone())));
     tools.push(Box::new(ImageInfoTool::new(security.clone())));
-
-    // Native mouse + keyboard control (disabled by default)
-    if root_config.computer_control.enabled {
-        tools.push(Box::new(MouseTool::new(security.clone())));
-        tools.push(Box::new(KeyboardTool::new(security.clone())));
-        tracing::debug!("[computer] mouse and keyboard tools registered");
-    }
 
     // Tool effectiveness stats (enabled when learning is on)
     tracing::debug!(

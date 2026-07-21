@@ -452,7 +452,6 @@ async fn round22_tool_registry_covers_config_gated_registration() {
         "example.com".to_string(),
         "docs.example.com".to_string(),
     ];
-    harness.config.computer_control.enabled = true;
     harness.config.learning.enabled = true;
     harness.config.learning.tool_tracking_enabled = true;
     harness.config.gitbooks.enabled = true;

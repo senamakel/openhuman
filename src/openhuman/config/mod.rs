@@ -31,7 +31,7 @@ pub use schema::{
     apply_runtime_proxy_to_builder, build_runtime_proxy_client,
     build_runtime_proxy_client_with_timeouts, output_language_directive, runtime_proxy_config,
     set_runtime_proxy_config, AgentConfig, AuditConfig, AutoJoinPolicy, AutoSummarizePolicy,
-    AutocompleteConfig, AutonomyConfig, BrowserComputerUseConfig, BrowserConfig,
+    AutonomyConfig, BrowserComputerUseConfig, BrowserConfig,
     CapabilityProviderConfig, CapabilityProviderTrustState, ChannelsConfig, ComposioConfig, Config,
     ContextConfig, CostConfig, CronConfig, CurlConfig, DashboardConfig, DelegateAgentConfig,
     DiagramViewerConfig, DictationActivationMode, DictationConfig, DiscordConfig,

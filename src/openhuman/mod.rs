@@ -30,7 +30,6 @@ pub mod approval;
 pub mod artifacts;
 #[cfg(feature = "voice")]
 pub mod audio_toolkit;
-pub mod autocomplete;
 pub mod billing;
 pub mod channels;
 pub mod composio;
@@ -123,7 +122,6 @@ pub mod task_sources;
 pub mod team;
 #[cfg(feature = "e2e-test-support")]
 pub mod test_support;
-pub mod text_input;
 pub mod thread_goals;
 pub mod threads;
 pub mod tinyagents;

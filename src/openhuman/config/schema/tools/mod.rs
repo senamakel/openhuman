@@ -10,7 +10,7 @@ pub mod search;
 pub use browser::{BrowserComputerUseConfig, BrowserConfig};
 pub use http::{CurlConfig, HttpRequestConfig};
 pub use integrations::{
-    ComposioConfig, ComputerControlConfig, IntegrationToggle, IntegrationsConfig,
+    ComposioConfig, IntegrationToggle, IntegrationsConfig,
     PolymarketClobCredentials, PolymarketConfig, SecretsConfig, COMPOSIO_MODE_BACKEND,
     COMPOSIO_MODE_DIRECT,
 };

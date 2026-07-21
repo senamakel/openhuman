@@ -365,12 +365,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Web3,
         crate::openhuman::x402::all_x402_registered_controllers(),
     );
-    // Inline autocomplete settings
-    push(
-        &mut controllers,
-        DomainGroup::Platform,
-        crate::openhuman::autocomplete::all_autocomplete_registered_controllers(),
-    );
     // External messaging channels (Web, Telegram, etc.)
     push(
         &mut controllers,
@@ -613,12 +607,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         &mut controllers,
         DomainGroup::Platform,
         crate::openhuman::provider_surfaces::all_provider_surfaces_registered_controllers(),
-    );
-    // OS-level text input interactions
-    push(
-        &mut controllers,
-        DomainGroup::Platform,
-        crate::openhuman::text_input::all_text_input_registered_controllers(),
     );
     // Voice transcription and synthesis (gated behind the `voice` feature).
     #[cfg(feature = "voice")]
@@ -863,7 +851,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "app_state" => Some("Expose core-owned app shell state for frontend polling."),
         "auth" => Some("Manage app session and provider credentials."),
         "agent_experience" => Some("Local procedural experience capture and retrieval for agents."),
-        "autocomplete" => Some("Inline autocomplete engine controls and style settings."),
         "channels" => Some("Channel definitions, connections, and lifecycle management."),
         "composio" => Some(
             "Composio OAuth integrations proxied via the backend — toolkits, connections, tools, and actions."
@@ -965,7 +952,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "subconscious_triggers" => {
             Some("Event-driven trigger pipeline feeding the background orchestrator.")
         }
-        "text_input" => Some("Read, insert, and preview text in the OS-focused input field."),
         "webhooks" => {
             Some("Webhook tunnel registrations and captured request/response debug logs.")
         }

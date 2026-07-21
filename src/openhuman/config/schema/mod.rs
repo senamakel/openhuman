@@ -11,7 +11,6 @@ pub use cloud_providers::{
 };
 mod accessibility;
 mod agent;
-mod autocomplete;
 mod autonomy;
 mod capability_providers;
 mod channels;
@@ -52,7 +51,6 @@ pub use agent::{
     AgentConfig, DelegateAgentConfig, MemoryContextWindow, MemoryWindowLimits,
     OrchestratorModelConfig, RequiredOutputContract, TeamModelConfig,
 };
-pub use autocomplete::AutocompleteConfig;
 pub use autonomy::AutonomyConfig;
 pub use capability_providers::{CapabilityProviderConfig, CapabilityProviderTrustState};
 pub use channels::{
@@ -94,7 +92,7 @@ pub use storage_memory::{
 pub use task_sources::TaskSourcesConfig;
 pub use tokenjuice::TokenjuiceConfig;
 pub use tools::{
-    BrowserComputerUseConfig, BrowserConfig, ComposioConfig, ComputerControlConfig, CurlConfig,
+    BrowserComputerUseConfig, BrowserConfig, ComposioConfig, CurlConfig,
     GitbooksConfig, HttpHeader, HttpRequestConfig, IntegrationToggle, IntegrationsConfig,
     McpAuthConfig, McpClientConfig, McpClientIdentityConfig, McpServerConfig, MultimodalConfig,
     MultimodalFileConfig, PolymarketClobCredentials, PolymarketConfig, SearchConfig, SearchEngine,

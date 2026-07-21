@@ -325,29 +325,7 @@ impl Agent {
             }
         };
 
-        // Enabling the "App UI Control" (`ax_interact`) or "App Automation"
-        // (`automate`) tool in Settings → Features grants the mutating
-        // click/type actions its description promises — not just the read-only
-        // `list`. Previously those actions required the UI-less
-        // `computer_control.ax_interact_mutations` flag or Full autonomy, so the
-        // toggle silently did nothing on the default (Supervised) autonomy
-        // (#3762). The actions stay approval-gated and bound by the
-        // sensitive-app denylist; Full autonomy continues to grant this
-        // independently via `app_control_enabled`.
-        let adjusted_config: Config;
-        let tool_config: &Config = if !config.computer_control.ax_interact_mutations
-            && tools::enables_app_ui_control_mutations(&enabled_tools)
-        {
-            let mut c = config.clone();
-            c.computer_control.ax_interact_mutations = true;
-            log::debug!(
-                "[session-builder] action=grant_app_ui_control_mutations source=features_toggle"
-            );
-            adjusted_config = c;
-            &adjusted_config
-        } else {
-            config
-        };
+        let tool_config: &Config = config;
 
         let mut tools = tools::all_tools_with_runtime(
             Arc::new(tool_config.clone()),

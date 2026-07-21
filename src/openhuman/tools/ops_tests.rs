@@ -935,82 +935,6 @@ fn all_tools_excludes_node_exec_when_node_disabled() {
 }
 
 #[test]
-fn all_tools_excludes_computer_control_when_disabled() {
-    let tmp = TempDir::new().unwrap();
-    let security = Arc::new(SecurityPolicy::default());
-    let mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
-    let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory_store::create_memory(&mem_cfg, tmp.path()).unwrap());
-
-    let browser = BrowserConfig::default();
-    let http = crate::openhuman::config::HttpRequestConfig::default();
-    let cfg = test_config(&tmp);
-
-    // Default config has computer_control.enabled = false
-    let tools = all_tools(
-        Arc::new(Config::default()),
-        &security,
-        AuditLogger::disabled(),
-        mem,
-        &browser,
-        &http,
-        tmp.path(),
-        &HashMap::new(),
-        &cfg,
-    );
-    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
-    assert!(
-        !names.contains(&"mouse"),
-        "mouse tool should not be registered when computer_control.enabled=false"
-    );
-    assert!(
-        !names.contains(&"keyboard"),
-        "keyboard tool should not be registered when computer_control.enabled=false"
-    );
-}
-
-#[test]
-fn all_tools_includes_computer_control_when_enabled() {
-    let tmp = TempDir::new().unwrap();
-    let security = Arc::new(SecurityPolicy::default());
-    let mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
-    let mem: Arc<dyn Memory> =
-        Arc::from(crate::openhuman::memory_store::create_memory(&mem_cfg, tmp.path()).unwrap());
-
-    let browser = BrowserConfig::default();
-    let http = crate::openhuman::config::HttpRequestConfig::default();
-    let mut cfg = test_config(&tmp);
-    cfg.computer_control.enabled = true;
-
-    let tools = all_tools(
-        Arc::new(Config::default()),
-        &security,
-        AuditLogger::disabled(),
-        mem,
-        &browser,
-        &http,
-        tmp.path(),
-        &HashMap::new(),
-        &cfg,
-    );
-    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
-    assert!(
-        names.contains(&"mouse"),
-        "mouse tool must be registered when computer_control.enabled=true; got: {names:?}"
-    );
-    assert!(
-        names.contains(&"keyboard"),
-        "keyboard tool must be registered when computer_control.enabled=true; got: {names:?}"
-    );
-}
-
-#[test]
 fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
@@ -1617,11 +1541,6 @@ async fn readonly_acting_tools_carry_policy_blocked_marker() {
             Box::new(CsvExportTool::new(sec.clone())),
             serde_json::json!({ "data": "col1\nval1", "filename": "x.csv" }),
         ),
-        (
-            Box::new(KeyboardTool::new(sec.clone())),
-            serde_json::json!({}),
-        ),
-        (Box::new(MouseTool::new(sec.clone())), serde_json::json!({})),
         (
             Box::new(BrowserOpenTool::new(sec.clone(), vec![])),
             serde_json::json!({ "url": "https://example.com" }),

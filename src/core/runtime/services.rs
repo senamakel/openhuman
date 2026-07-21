@@ -34,23 +34,6 @@ pub fn spawn_login_gated_services(embedded_core: bool) {
                     log::debug!("[core] desktop core startup");
                 }
 
-                // Register autocomplete shutdown hook so the engine (and its
-                // Swift overlay helper) are stopped cleanly on process exit.
-                // This is unconditional — the hook should fire regardless of
-                // whether the user is currently logged in.
-                crate::core::shutdown::register(|| async {
-                    let engine = crate::openhuman::autocomplete::global_engine();
-                    let status = engine.status().await;
-                    if status.running {
-                        log::info!(
-                            "[core] stopping autocomplete engine (phase={})",
-                            status.phase
-                        );
-                        engine.stop(None).await;
-                        log::info!("[core] autocomplete engine stopped");
-                    }
-                });
-
                 // Check if a user is already logged in from a previous session.
                 let already_logged_in = crate::openhuman::config::default_root_openhuman_dir()
                     .ok()

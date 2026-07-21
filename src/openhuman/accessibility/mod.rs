@@ -1,42 +1,24 @@
-//! Platform accessibility middleware: focus queries, text insertion, key state,
-//! overlays, screen capture, and permission management.
+//! Platform accessibility middleware: focus queries, foreground context,
+//! screen capture, and permission management.
 //!
-//! Centralises all macOS AX/CGEvent/IOKit FFI and the unified Swift helper process.
-//! Consumer modules (autocomplete, screen_intelligence, voice) call into this module
+//! Centralises macOS AX/IOKit FFI and the unified Swift helper process.
+//! Consumer modules (screen_intelligence, voice) call into this module
 //! instead of owning platform-specific code directly.
 
-pub mod app_fastpaths;
-pub mod automate;
 mod automation_state;
-pub mod ax_interact;
 mod capture;
-// Pure ranked/normalized matching of listed AX elements against a target label
-// — the "reliable UI element clicking" selection primitive (no FFI). Consumed by
-// `ax_interact.rs` to order filtered results best-first.
-mod element_match;
 mod focus;
 mod globe;
 mod helper;
-mod keys;
-mod overlay;
-mod paste;
 mod permissions;
 mod terminal;
 mod text_util;
 mod types;
-// Vision fallback for `automate`: screenshot → vision-locate → guarded click,
-// for Electron/partial-AX apps. Consumed by `automate.rs`'s `RealBackend`.
-mod vision_click;
-// Windows accessibility backend for `ax_interact` (UI Automation). Sibling of
-// the macOS Swift-helper path; selected via cfg-dispatch in `ax_interact.rs`.
-#[cfg(target_os = "windows")]
-mod uia_interact;
 
 pub use automation_state::{
     clear as clear_automation_denial, mark_system_events_denied, system_events_denied,
 };
 pub use capture::{capture_screen_image_ref_for_context, CaptureMode, MAX_SCREENSHOT_BYTES};
-pub use element_match::{best_match, ElementMatch, MatchTier};
 pub use focus::{
     focused_text_context, focused_text_context_verbose, foreground_context,
     parse_foreground_output, validate_focused_target,
@@ -46,9 +28,6 @@ pub use globe::{
     GlobeHotkeyStatus,
 };
 pub use helper::precompile_helper_background;
-pub use keys::{any_modifier_down, is_escape_key_down, is_tab_key_down};
-pub use overlay::{hide_overlay, quit_overlay, show_overlay};
-pub use paste::{apply_text_to_focused_field, send_backspace};
 #[cfg(target_os = "macos")]
 pub use permissions::{
     detect_accessibility_permission, detect_input_monitoring_permission,

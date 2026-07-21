@@ -56,10 +56,8 @@ import {
 import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
 import {
   type AgentBubblePosition,
-  buildAcceptedInlineCompletion,
   formatRelativeTime,
   formatResetTime,
-  getInlineCompletionSuffix,
 } from '../../features/conversations/utils/format';
 import {
   GENERAL_TAB_VALUE,
@@ -139,10 +137,7 @@ import { CHAT_ATTACHMENTS_ENABLED } from '../../utils/config';
 import { PRICING_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 import {
-  isTauri,
   notifyOverlaySttState,
-  openhumanAutocompleteAccept,
-  openhumanAutocompleteCurrent,
   openhumanVoiceStatus,
   openhumanVoiceTranscribeBytes,
   openhumanVoiceTts,
@@ -160,8 +155,6 @@ const CHAT_MODEL_HINT = 'hint:chat';
 const STREAMING_PREVIEW_CHARS = 120;
 type InputMode = 'text' | 'voice';
 type ReplyMode = 'text' | 'voice';
-const AUTOCOMPLETE_POLL_DEBOUNCE_MS = 320;
-const AUTOCOMPLETE_MIN_CONTEXT_CHARS = 3;
 const debug = debugFactory('conversations');
 const SAFE_IMAGE_DATA_URI_RE =
   /^data:(image\/(?:png|jpe?g|gif|webp|bmp));base64,([a-z0-9+/=\s]+)$/i;
@@ -364,7 +357,6 @@ const Conversations = ({
   // task/worker threads have dedicated surfaces (Intelligence, Tasks board).
   const selectedLabel = GENERAL_TAB_VALUE;
   const [threadSearch, setThreadSearch] = useState('');
-  const [inlineSuggestionValue, setInlineSuggestionValue] = useState('');
   const [sendError, setSendError] = useState<ChatSendError | null>(null);
   const [attachError, setAttachError] = useState<ChatSendError | null>(null);
   const [sendAdvisory, setSendAdvisory] = useState<string | null>(null);
@@ -565,8 +557,6 @@ const Conversations = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const replyAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastSpokenMessageIdRef = useRef<string | null>(null);
-  const autocompleteDebounceRef = useRef<number | null>(null);
-  const autocompleteRequestSeqRef = useRef(0);
   // Per-thread silence timers. Each in-flight turn gets its own 120s safety
   // timer keyed by thread id, so concurrent turns on different threads don't
   // share (and clobber) a single timeout.
@@ -935,45 +925,6 @@ const Conversations = ({
     taskBoardByThread,
     inferenceHeartbeatByThread,
   ]);
-
-  useEffect(() => {
-    if (
-      !isTauri() ||
-      !rustChat ||
-      inputMode !== 'text' ||
-      selectedThreadActive ||
-      inputValue.trim().length < AUTOCOMPLETE_MIN_CONTEXT_CHARS
-    ) {
-      setInlineSuggestionValue('');
-      return;
-    }
-
-    if (autocompleteDebounceRef.current !== null) {
-      window.clearTimeout(autocompleteDebounceRef.current);
-    }
-
-    autocompleteDebounceRef.current = window.setTimeout(() => {
-      const requestSeq = autocompleteRequestSeqRef.current + 1;
-      autocompleteRequestSeqRef.current = requestSeq;
-
-      void openhumanAutocompleteCurrent({ context: inputValue })
-        .then(response => {
-          if (autocompleteRequestSeqRef.current !== requestSeq) return;
-          setInlineSuggestionValue(response.result.suggestion?.value ?? '');
-        })
-        .catch(() => {
-          if (autocompleteRequestSeqRef.current !== requestSeq) return;
-          setInlineSuggestionValue('');
-        });
-    }, AUTOCOMPLETE_POLL_DEBOUNCE_MS);
-
-    return () => {
-      if (autocompleteDebounceRef.current !== null) {
-        window.clearTimeout(autocompleteDebounceRef.current);
-        autocompleteDebounceRef.current = null;
-      }
-    };
-  }, [selectedThreadActive, inputValue, inputMode, rustChat]);
 
   useEffect(() => {
     return () => {
@@ -1701,9 +1652,6 @@ const Conversations = ({
         if (restored.length > 0) {
           debug('[chat] esc interrupt: restored prompt len=%d', restored.length);
           setInputValue(restored);
-          // Drop any stale inline ghost-completion so it doesn't reappear over
-          // the freshly restored prompt.
-          setInlineSuggestionValue('');
           window.requestAnimationFrame(() => {
             const ta = textInputRef.current;
             if (!ta) return;
@@ -1712,43 +1660,6 @@ const Conversations = ({
           });
         }
       }
-      return;
-    }
-
-    const inlineSuffix = getInlineCompletionSuffix(inputValue, inlineSuggestionValue);
-    const textarea = e.currentTarget;
-    const caretAtEnd =
-      textarea.selectionStart === inputValue.length && textarea.selectionEnd === inputValue.length;
-    const tryAcceptInlineSuggestion = () => {
-      const nextValue = buildAcceptedInlineCompletion(inputValue, inlineSuffix);
-      if (!nextValue || nextValue === inputValue) return false;
-      setInputValue(nextValue);
-      setInlineSuggestionValue('');
-      if (isTauri()) {
-        void openhumanAutocompleteAccept({ suggestion: nextValue, skip_apply: true }).catch(() => {
-          // Keep local UX smooth even if accept RPC fails.
-        });
-      }
-      return true;
-    };
-
-    if (
-      e.key === 'Tab' &&
-      !e.shiftKey &&
-      !e.altKey &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      inlineSuffix.length > 0 &&
-      caretAtEnd
-    ) {
-      e.preventDefault();
-      tryAcceptInlineSuggestion();
-      return;
-    }
-
-    if (e.key === 'ArrowRight' && inlineSuffix.length > 0 && caretAtEnd) {
-      e.preventDefault();
-      tryAcceptInlineSuggestion();
       return;
     }
 
@@ -1907,7 +1818,6 @@ const Conversations = ({
   const selectedParallelStreams = selectedThreadId
     ? Object.values(parallelStreamsByThread[selectedThreadId] ?? {})
     : [];
-  const inlineCompletionSuffix = getInlineCompletionSuffix(inputValue, inlineSuggestionValue);
   // Blocks all composer interaction while a turn is in-flight or Rust chat is unavailable.
   // isSending: the *selected* thread is in-flight (drives selected-thread UI only).
   const composerInteractionBlocked = isComposerInteractionBlocked({
@@ -3176,7 +3086,7 @@ const Conversations = ({
               attachError={attachError}
               onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
               handleInputKeyDown={handleInputKeyDown}
-              inlineCompletionSuffix={inlineCompletionSuffix}
+              inlineCompletionSuffix=""
               isComposingTextRef={isComposingTextRef}
               maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
               // Empty → no native `accept` filter (it greys valid files on

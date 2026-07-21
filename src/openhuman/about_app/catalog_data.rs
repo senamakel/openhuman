@@ -210,16 +210,6 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: DERIVED_TO_BACKEND,
     },
     Capability {
-        id: "conversation.inline_autocomplete",
-        name: "Inline Autocomplete",
-        domain: "conversation",
-        category: CapabilityCategory::Conversation,
-        description: "Show predictive inline text suggestions while you type.",
-        how_to: "Settings > Inline Autocomplete",
-        status: CapabilityStatus::Beta,
-        privacy: None,
-    },
-    Capability {
         id: "conversation.copy_messages",
         name: "Copy Messages",
         domain: "conversation",

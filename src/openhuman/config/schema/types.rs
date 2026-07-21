@@ -155,9 +155,6 @@ pub struct Config {
     pub screen_intelligence: ScreenIntelligenceConfig,
 
     #[serde(default)]
-    pub autocomplete: AutocompleteConfig,
-
-    #[serde(default)]
     pub reliability: ReliabilityConfig,
 
     #[serde(default)]
@@ -317,9 +314,6 @@ pub struct Config {
     /// custom agents and persisted enable/disable/tool-policy overrides.
     #[serde(default)]
     pub agent_registry: crate::openhuman::agent_registry::types::AgentRegistryConfig,
-
-    #[serde(default)]
-    pub computer_control: ComputerControlConfig,
 
     #[serde(default)]
     pub agents: HashMap<String, DelegateAgentConfig>,
@@ -750,7 +744,6 @@ impl Default for Config {
             runtime: RuntimeConfig::default(),
             shell: ShellConfig::default(),
             screen_intelligence: ScreenIntelligenceConfig::default(),
-            autocomplete: AutocompleteConfig::default(),
             reliability: ReliabilityConfig::default(),
             scheduler: SchedulerConfig::default(),
             scheduler_gate: SchedulerGateConfig::default(),
@@ -788,7 +781,6 @@ impl Default for Config {
             cost: CostConfig::default(),
             memory_sources: Vec::new(),
             agent_registry: crate::openhuman::agent_registry::types::AgentRegistryConfig::default(),
-            computer_control: ComputerControlConfig::default(),
             agents: HashMap::new(),
             local_ai: LocalAiConfig::default(),
             claude_agent_sdk: ClaudeAgentSdkConfig::default(),

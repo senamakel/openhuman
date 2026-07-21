@@ -18,10 +18,26 @@
 //! [`crate::openhuman::context::prompt::BOOTSTRAP_MAX_CHARS`] with a
 //! `[... truncated]` marker.
 
+use super::types::BOOTSTRAP_MAX_CHARS;
+use std::io::Read;
 use std::path::Path;
 
 /// The instruction file name loaded at each layer.
 pub const AGENTS_MD_FILENAME: &str = "AGENTS.md";
+
+/// Hard cap on the number of bytes read from an `AGENTS.md` before the
+/// renderer's per-layer character cap ([`BOOTSTRAP_MAX_CHARS`]) applies.
+///
+/// `AGENTS.md` is an untrusted, user/project-controlled file. Reading it whole
+/// via `read_to_string` would allocate an arbitrarily large buffer — a
+/// multi-megabyte file could stall prompt construction or exhaust memory
+/// **before** the renderer ever gets a chance to truncate. Bounding the read
+/// here fixes that at the root. At UTF-8's worst case of 4 bytes per character
+/// this budget still yields at least `BOOTSTRAP_MAX_CHARS` characters (plus
+/// slack), so the renderer's cap + `[... truncated]` marker still fire exactly
+/// as before for any file large enough to matter — the read bound is invisible
+/// to well-formed files and only clamps pathological ones.
+const MAX_AGENTS_MD_READ_BYTES: u64 = (BOOTSTRAP_MAX_CHARS as u64) * 4 + 1024;
 
 /// Pre-loaded `AGENTS.md` contents for the global + local layers.
 ///
@@ -52,32 +68,51 @@ impl AgentsMdContent {
 /// noisy placeholder. Never logs the file contents, only paths and sizes.
 pub fn load_agents_md(dir: &Path) -> Option<String> {
     let path = dir.join(AGENTS_MD_FILENAME);
-    match std::fs::read_to_string(&path) {
-        Ok(content) => {
-            let trimmed = content.trim();
-            if trimmed.is_empty() {
-                log::debug!("[agents_md] skipped empty {}", path.display());
-                return None;
-            }
-            log::debug!(
-                "[agents_md] loaded {} ({} chars)",
-                path.display(),
-                trimmed.len()
-            );
-            Some(trimmed.to_string())
-        }
+    // Bounded read: never slurp an arbitrarily large untrusted file whole into
+    // memory. We open + `take(MAX_AGENTS_MD_READ_BYTES)` rather than
+    // `read_to_string`, so a pathological multi-MB AGENTS.md can't stall prompt
+    // construction or exhaust memory before the renderer's char cap applies.
+    let file = match std::fs::File::open(&path) {
+        Ok(f) => f,
         Err(e) => {
             match e.kind() {
                 std::io::ErrorKind::NotFound => {
                     log::debug!("[agents_md] no AGENTS.md at {}", path.display());
                 }
                 _ => {
-                    log::debug!("[agents_md] failed to read {}: {e}", path.display());
+                    log::debug!("[agents_md] failed to open {}: {e}", path.display());
                 }
             }
-            None
+            return None;
         }
+    };
+    let mut buf = Vec::new();
+    if let Err(e) = file.take(MAX_AGENTS_MD_READ_BYTES).read_to_end(&mut buf) {
+        log::debug!("[agents_md] failed to read {}: {e}", path.display());
+        return None;
     }
+    let hit_read_bound = buf.len() as u64 >= MAX_AGENTS_MD_READ_BYTES;
+    // `from_utf8_lossy` tolerates a multi-byte char clipped at the read bound by
+    // substituting the replacement character for the trailing partial bytes.
+    let content = String::from_utf8_lossy(&buf);
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        log::debug!("[agents_md] skipped empty {}", path.display());
+        return None;
+    }
+    if hit_read_bound {
+        log::debug!(
+            "[agents_md] {} exceeds {} bytes; read bounded before render-time cap",
+            path.display(),
+            MAX_AGENTS_MD_READ_BYTES
+        );
+    }
+    log::debug!(
+        "[agents_md] loaded {} ({} chars)",
+        path.display(),
+        trimmed.chars().count()
+    );
+    Some(trimmed.to_string())
 }
 
 /// Load the global + local `AGENTS.md` layers given the workspace dir and the
@@ -183,6 +218,26 @@ mod tests {
         let dotted = ws.join(".").join("");
         let content = load_agents_md_layers(&ws, &dotted);
         assert_eq!(content.local, None, "canonicalized same-dir must dedupe");
+    }
+
+    #[test]
+    fn oversized_file_is_bounded_at_read_time() {
+        let dir = tmp();
+        // A file far larger than the read bound must not be slurped whole:
+        // the loader returns bounded content (never the full body) so a
+        // pathological AGENTS.md can't exhaust memory before rendering.
+        let oversized = "a".repeat((MAX_AGENTS_MD_READ_BYTES as usize) * 3);
+        fs::write(dir.join(AGENTS_MD_FILENAME), &oversized).unwrap();
+        let loaded = load_agents_md(&dir).expect("non-empty file loads");
+        assert!(
+            (loaded.len() as u64) <= MAX_AGENTS_MD_READ_BYTES,
+            "loader must bound the read to MAX_AGENTS_MD_READ_BYTES, got {} bytes",
+            loaded.len()
+        );
+        assert!(
+            loaded.len() < oversized.len(),
+            "bounded content must be shorter than the on-disk file"
+        );
     }
 
     #[test]

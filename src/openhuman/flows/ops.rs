@@ -3362,7 +3362,15 @@ pub async fn flows_run(
     // Author-time validation cannot protect definitions persisted by an older
     // OpenHuman build. Re-check immediately before compilation so an upgrade
     // fails explicitly instead of silently committing incomplete merge data.
-    ensure_engine_compatible(&flow.graph)?;
+    if let Err(error) = ensure_engine_compatible(&flow.graph) {
+        tracing::warn!(
+            target: "flows",
+            flow_id = %flow_id,
+            %error,
+            "[flows] flows_run: rejected — unsupported engine topology"
+        );
+        return Err(error);
+    }
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
 
     let config_arc = Arc::new(config.clone());
@@ -3617,7 +3625,16 @@ pub async fn flows_resume(
 
     // A pending checkpoint may have been created before this compatibility
     // gate shipped, so resume is an independent authoritative boundary.
-    ensure_engine_compatible(&flow.graph)?;
+    if let Err(error) = ensure_engine_compatible(&flow.graph) {
+        tracing::warn!(
+            target: "flows",
+            flow_id = %flow_id,
+            %thread_id,
+            %error,
+            "[flows] flows_resume: rejected — unsupported engine topology"
+        );
+        return Err(error);
+    }
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
     let config_arc = Arc::new(config.clone());
     let caps =

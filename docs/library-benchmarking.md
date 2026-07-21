@@ -179,9 +179,32 @@ unless noted; see that document for methodology and caveats):
 | ZeroClaw (external, idle) | - | < 5 MiB | - |
 | ZeroClaw (external, under load) | - | 7.8-12 MiB | - |
 
-`long-agent`, `workflow`, `subconscious`, `agent-turn`, and `cold-phases` are
-new scenarios in the pinned contract; run `library-bench.sh` to populate their
-baseline rows once the binaries land, then update this table.
+First full `library-bench.sh` run of the new scenarios (default build, 5
+fresh-process repeats, 2026-07-21, Apple Silicon macOS):
+
+| Scenario | Build | Median settled RSS | Median retained Δ | Median duration |
+| --- | --- | ---: | ---: | ---: |
+| `agent-turn` (cold, 1 turn) | default | 47.6 MiB | 29.5 MiB | 102 ms |
+| `subconscious` (cold, no delegation) | default | 47.9 MiB | 29.8 MiB | 138 ms |
+| `subagents` (cold, 2 children) | default | 48.0 MiB | 29.9 MiB | 142 ms |
+| `workflow` (`flows_create` + `flows_run`) | default | 50.9 MiB | 29.9 MiB | 110 ms |
+| `long-agent` (25 warmed turns) | default | 65.8 MiB | 18.5 MiB | 1,361 ms |
+| `cold-phases` (9 bootstrap phases) | default | 51.2 MiB | 36.5 MiB | 476 ms |
+| `memory-ingest` (100 msgs) | default | 25.8 MiB | 9.3 MiB | 2,099 ms |
+
+Notable structure behind these medians:
+
+- The `long-agent` per-turn series plateaus: typical turns add 30-150 KiB,
+  and the 25-turn total (~16.8 MiB first-to-last) is dominated by two async
+  persistence/compaction bursts of 6-8 MiB each, matching the prior session's
+  warmed-repeat outlier observation. Steady-state growth is not linear.
+- Cold `agent-turn`, `subconscious`, `subagents`, and `workflow` all retain
+  approximately the same ~29-30 MiB, confirming the cost is shared bootstrap
+  (code paging, registries, detectors, allocator high water), not the
+  specific workload on top of it.
+- A dhat run of `agent-turn` measured 33.4 MB total allocated across 135,756
+  blocks, but only 5.0 MB peak live heap and 3.1 MB live at exit, again
+  showing RSS is mostly not live heap data.
 
 ## See also
 

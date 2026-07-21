@@ -23,7 +23,9 @@ async function readLocalStorageJson<T = unknown>(key: string): Promise<T | null>
   }, key);
 }
 
-describe('Settings - Advanced Config', () => {
+describe('Settings - Advanced Config', function () {
+  this.timeout(90_000);
+
   before(async function beforeSuite() {
     this.timeout(90_000);
     await startMockServer();

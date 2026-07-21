@@ -142,6 +142,71 @@ pub struct TurnUsage {
 
 const TURN_USAGE_METADATA_KEY: &str = "openhuman_turn_usage";
 
+/// `extra_metadata` key carrying a tool-result message's failure marker. The
+/// harness folds a tool result into a `role:"tool"` message that drops the
+/// per-call failure flag (`ToolResult::is_error`), so the turn loop re-attaches
+/// the outcome here — from the captured `ToolCallOutcome` side-channel — before
+/// persistence. `extra_metadata` is `#[serde(skip_serializing)]` on
+/// [`ChatMessage`], so this never reaches the provider; the transcript writer
+/// lifts it onto the additive [`MessageLine::failure`] / `failure_detail` line
+/// fields and strips it from the persisted `extra_metadata`.
+const TOOL_FAILURE_METADATA_KEY: &str = "openhuman_tool_failure";
+
+/// Stamp a tool-result [`ChatMessage`] with its failure outcome so the
+/// transcript writer can persist an explicit failure flag. `detail` is an
+/// optional short, single-line reason (e.g. the head of the error output).
+/// No-op semantics: pass this only for genuinely failed tool calls.
+pub(crate) fn attach_tool_failure_metadata(message: &mut ChatMessage, detail: Option<&str>) {
+    let mut payload = serde_json::Map::new();
+    payload.insert("failure".to_string(), serde_json::Value::Bool(true));
+    if let Some(detail) = detail.map(str::trim).filter(|s| !s.is_empty()) {
+        payload.insert(
+            "detail".to_string(),
+            serde_json::Value::String(detail.to_string()),
+        );
+    }
+    let marker = serde_json::Value::Object(payload);
+
+    match message.extra_metadata.take() {
+        Some(serde_json::Value::Object(mut map)) => {
+            map.insert(TOOL_FAILURE_METADATA_KEY.to_string(), marker);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+        Some(existing) => {
+            let mut map = serde_json::Map::new();
+            map.insert("value".to_string(), existing);
+            map.insert(TOOL_FAILURE_METADATA_KEY.to_string(), marker);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+        None => {
+            let mut map = serde_json::Map::new();
+            map.insert(TOOL_FAILURE_METADATA_KEY.to_string(), marker);
+            message.extra_metadata = Some(serde_json::Value::Object(map));
+        }
+    }
+}
+
+/// Pop the tool-failure marker out of a cloned `extra_metadata` map, returning
+/// `Some((true, detail))` when it was present. Strips the key so it is not
+/// duplicated into the persisted `extra_metadata` alongside the top-level
+/// `failure` line field. Legacy lines without the marker return `None`.
+fn take_tool_failure(extra: &mut Option<serde_json::Value>) -> Option<(bool, Option<String>)> {
+    let serde_json::Value::Object(map) = extra.as_mut()? else {
+        return None;
+    };
+    let marker = map.remove(TOOL_FAILURE_METADATA_KEY)?;
+    // If removing the marker emptied the object, drop `extra_metadata` entirely
+    // so a legacy-identical line stays legacy-identical.
+    if map.is_empty() {
+        *extra = None;
+    }
+    let detail = marker
+        .get("detail")
+        .and_then(|d| d.as_str())
+        .map(str::to_string);
+    Some((true, detail))
+}
+
 /// Schema version stamped on the `_meta` header line. Bumped when the JSONL
 /// record shape changes in a way future readers may need to branch on. `0`
 /// (absent) denotes pre-append-only files written before this field existed.
@@ -318,6 +383,17 @@ struct MessageLine {
     /// carries a truncated answer.
     #[serde(default, skip_serializing_if = "is_false")]
     interrupted: bool,
+    /// `true` when this tool-result line's tool call **failed**
+    /// (`ToolResult::is_error`). Additive + optional: legacy lines and every
+    /// non-tool line omit it and default to success. Lifted from the tool
+    /// message's failure metadata by [`build_message_line`]; consumed by the
+    /// display projection to render an error tool row instead of success.
+    #[serde(default, skip_serializing_if = "is_false")]
+    failure: bool,
+    /// Optional short, single-line reason for a failed tool call (the head of
+    /// the error output). Present only alongside `failure: true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    failure_detail: Option<String>,
     /// Absorb any unknown fields so forward-compat reads don't error.
     #[serde(flatten)]
     _extra: HashMap<String, serde_json::Value>,
@@ -366,6 +442,13 @@ pub struct DisplayMessage {
     /// provider/model/usage). Prefer this over digging into [`Self::turn_usage`]
     /// for display: it is populated from `turn_usage.reasoning_content` too.
     pub reasoning_content: Option<String>,
+    /// `true` when this is a **failed** tool-result line (`ToolResult::is_error`
+    /// at execution time). The display projection renders an error tool row
+    /// instead of success. Always `false` for non-tool lines and legacy files.
+    pub failure: bool,
+    /// Optional short reason for a failed tool call (present only with
+    /// `failure: true`).
+    pub failure_detail: Option<String>,
 }
 
 /// A compaction marker in a display projection.
@@ -437,11 +520,19 @@ fn build_message_line(
     } else {
         None
     };
+    // Lift any tool-failure marker off a cloned `extra_metadata` onto the
+    // additive top-level `failure` / `failure_detail` line fields, stripping it
+    // so it is not persisted twice.
+    let mut extra_metadata = msg.extra_metadata.clone();
+    let (failure, failure_detail) = match take_tool_failure(&mut extra_metadata) {
+        Some((failed, detail)) => (failed, detail),
+        None => (false, None),
+    };
     MessageLine {
         id: msg.id.clone(),
         role: msg.role.clone(),
         content: msg.content.clone(),
-        extra_metadata: msg.extra_metadata.clone(),
+        extra_metadata,
         provider: assistant_usage.map(|tu| tu.provider.clone()),
         model: assistant_usage.map(|tu| tu.model.clone()),
         usage: assistant_usage.map(|tu| tu.usage.clone()),
@@ -457,6 +548,8 @@ fn build_message_line(
         ts: assistant_usage.map(|tu| tu.ts.clone()),
         request_id: request_id.map(str::to_string),
         interrupted,
+        failure,
+        failure_detail,
         _extra: HashMap::new(),
     }
 }
@@ -999,6 +1092,8 @@ fn display_message_from_line(ml: MessageLine) -> DisplayMessage {
         ts: ml.ts.clone(),
         turn_usage,
         reasoning_content,
+        failure: ml.failure,
+        failure_detail: ml.failure_detail.clone(),
         message: ChatMessage {
             id: ml.id,
             role: ml.role,

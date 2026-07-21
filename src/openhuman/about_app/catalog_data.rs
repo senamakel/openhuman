@@ -632,7 +632,7 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         domain: "workflow_runs",
         category: CapabilityCategory::Intelligence,
         description: "Run declarative multi-agent workflows such as parallel research with cross-checking: a question is decomposed into angles, researched in parallel, adversarially cross-checked, and synthesized into one cited report. Watch each phase progress with its child agent results, stop or resume a run, and read the final synthesis. High-cost / high-concurrency runs require explicit approval before starting.",
-        how_to: "Intelligence > Orchestration > pick a workflow and Start",
+        how_to: "Brain > Orchestration > pick a workflow and Start",
         status: CapabilityStatus::Beta,
         privacy: DERIVED_TO_BACKEND,
     },
@@ -1833,7 +1833,7 @@ pub(super) const CAPABILITIES: &[Capability] = &[
                       effects the brain pushes back (send the reply, mirror an eviction into local \
                       memory), renders the hosted read surface, and can run the paid Medulla API \
                       directly with its local contact, session-history, and send-to-agent tools.",
-        how_to: "Intelligence > Orchestration (pair a wrapped session, then chat via the Master \
+        how_to: "Brain > Orchestration (pair a wrapped session, then chat via the Master \
                  window), or call openhuman.orchestration_run. Prompt, graph, and resource \
                  overrides live under [orchestration.medulla] in config.toml.",
         status: CapabilityStatus::Beta,

@@ -30,7 +30,11 @@ pub enum ToolCallStatus {
 /// `#[serde(tag = "kind")]` gives each variant a camelCase discriminator
 /// (`userMessage`, `assistantMessage`, …) and every field is camelCase.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum DisplayItem {
     /// A user prompt. `content` is the raw persisted content (may carry the
     /// injected `Current Date & Time:` scaffolding line); `displayContent` is

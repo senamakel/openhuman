@@ -378,7 +378,8 @@ fn parse_tool_args(raw: &str) -> Option<serde_json::Value> {
 /// tag rather than mutate — the raw `content` is preserved alongside).
 fn sanitize_user_content(content: &str) -> Option<String> {
     let trimmed_start = content.trim_start();
-    if trimmed_start.starts_with(DATETIME_PREFIX) || trimmed_start.starts_with(CHANNEL_CONTEXT_PREFIX)
+    if trimmed_start.starts_with(DATETIME_PREFIX)
+        || trimmed_start.starts_with(CHANNEL_CONTEXT_PREFIX)
     {
         // The injector prepends the scaffolding line followed by a blank line,
         // then the user's actual text. Strip the first paragraph.

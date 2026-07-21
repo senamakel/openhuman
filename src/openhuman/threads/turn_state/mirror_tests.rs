@@ -702,13 +702,8 @@ fn seed_root_transcript(workspace: &std::path::Path, thread_id: &str) -> std::pa
         thread_id: Some(thread_id.to_string()),
         task_id: None,
     };
-    transcript::write_transcript(
-        &path,
-        &[ChatMessage::user("hello there")],
-        &meta,
-        None,
-    )
-    .expect("seed transcript");
+    transcript::write_transcript(&path, &[ChatMessage::user("hello there")], &meta, None)
+        .expect("seed transcript");
     path
 }
 
@@ -744,7 +739,10 @@ fn finish_appends_interrupted_partial_to_existing_transcript() {
     // Model context must NOT carry the partial.
     let model = read_transcript(&path).expect("read model context");
     assert!(
-        !model.messages.iter().any(|msg| msg.content.contains("half an answer")),
+        !model
+            .messages
+            .iter()
+            .any(|msg| msg.content.contains("half an answer")),
         "interrupted partial must be excluded from the model context"
     );
 

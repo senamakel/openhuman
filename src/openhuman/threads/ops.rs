@@ -710,8 +710,10 @@ pub struct TranscriptGetRequest {
 /// `hasTranscript: false` when the thread has no persisted transcript yet.
 pub async fn transcript_get(
     request: TranscriptGetRequest,
-) -> Result<RpcOutcome<ApiEnvelope<crate::openhuman::threads::transcript_view::TranscriptPage>>, String>
-{
+) -> Result<
+    RpcOutcome<ApiEnvelope<crate::openhuman::threads::transcript_view::TranscriptPage>>,
+    String,
+> {
     let dir = workspace_dir().await?;
     let thread_id = request.thread_id.trim();
     if thread_id.is_empty() {
@@ -729,9 +731,9 @@ pub async fn transcript_get(
         ("has_transcript", usize::from(page.has_transcript)),
     ]);
     let pagination = Some(PaginationMeta {
-        limit: request.limit.unwrap_or(
-            crate::openhuman::threads::transcript_view::DEFAULT_LIMIT,
-        ),
+        limit: request
+            .limit
+            .unwrap_or(crate::openhuman::threads::transcript_view::DEFAULT_LIMIT),
         offset: request
             .cursor
             .as_deref()

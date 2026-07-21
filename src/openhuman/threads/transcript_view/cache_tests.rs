@@ -34,12 +34,19 @@ fn recomputes_when_file_grows() {
     );
     let cache = TranscriptViewCache::default();
 
-    let a = cache.get_or_project(dir.path(), "thr_cache").expect("first");
+    let a = cache
+        .get_or_project(dir.path(), "thr_cache")
+        .expect("first");
     assert_eq!(a.items.len(), 1);
 
     // Second call, unchanged file → same cached Arc (hit).
-    let b = cache.get_or_project(dir.path(), "thr_cache").expect("second");
-    assert!(std::sync::Arc::ptr_eq(&a, &b), "unchanged file must serve cached Arc");
+    let b = cache
+        .get_or_project(dir.path(), "thr_cache")
+        .expect("second");
+    assert!(
+        std::sync::Arc::ptr_eq(&a, &b),
+        "unchanged file must serve cached Arc"
+    );
 
     // Append a line → file length changes → signature invalidates → recompute.
     let mut appended = std::fs::read_to_string(&path).unwrap();
@@ -47,9 +54,15 @@ fn recomputes_when_file_grows() {
     appended.push('\n');
     std::fs::write(&path, appended).unwrap();
 
-    let c = cache.get_or_project(dir.path(), "thr_cache").expect("third");
+    let c = cache
+        .get_or_project(dir.path(), "thr_cache")
+        .expect("third");
     assert!(!std::sync::Arc::ptr_eq(&a, &c), "grown file must recompute");
-    assert_eq!(c.items.len(), 2, "recomputed projection reflects the append");
+    assert_eq!(
+        c.items.len(),
+        2,
+        "recomputed projection reflects the append"
+    );
 }
 
 #[test]

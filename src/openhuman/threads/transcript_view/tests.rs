@@ -95,7 +95,9 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
             assert_eq!(call_id, "call-1");
             assert_eq!(name, "get_weather");
             assert_eq!(
-                args.as_ref().and_then(|v| v.get("city")).and_then(|v| v.as_str()),
+                args.as_ref()
+                    .and_then(|v| v.get("city"))
+                    .and_then(|v| v.as_str()),
                 Some("NYC")
             );
             assert_eq!(result.as_deref(), Some("72F and sunny"), "paired by id");
@@ -165,7 +167,9 @@ fn legacy_file_without_version_or_request_id_projects() {
     // No request_id → no turn boundary; user + assistant still project, and an
     // un-prefixed user message keeps no displayContent (nothing to strip).
     assert!(
-        !items.iter().any(|i| matches!(i, DisplayItem::TurnBoundary { .. })),
+        !items
+            .iter()
+            .any(|i| matches!(i, DisplayItem::TurnBoundary { .. })),
         "legacy lines have no request_id, so no boundary"
     );
     match items.first() {
@@ -175,13 +179,17 @@ fn legacy_file_without_version_or_request_id_projects() {
             ..
         }) => {
             assert_eq!(content, "plain question");
-            assert_eq!(display_content.as_deref(), None, "no prefix, no displayContent");
+            assert_eq!(
+                display_content.as_deref(),
+                None,
+                "no prefix, no displayContent"
+            );
         }
         other => panic!("expected userMessage first, got {other:?}"),
     }
-    assert!(items
-        .iter()
-        .any(|i| matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "plain answer")));
+    assert!(items.iter().any(
+        |i| matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "plain answer")
+    ));
 }
 
 #[test]
@@ -199,7 +207,9 @@ fn subagent_file_projects_as_nested_item() {
         dir.path(),
         &format!("{root_stem}__100_coder"),
         "thr_s",
-        &[r#"{"role":"assistant","content":"sub work done","provider":"anthropic","model":"claude-x","usage":{"input":5,"output":3,"cached_input":0,"cost_usd":0.0},"ts":"2026-07-21T09:10:00Z","iteration":1}"#],
+        &[
+            r#"{"role":"assistant","content":"sub work done","provider":"anthropic","model":"claude-x","usage":{"input":5,"output":3,"cached_input":0,"cost_usd":0.0},"ts":"2026-07-21T09:10:00Z","iteration":1}"#,
+        ],
     );
 
     let projected = project_thread(dir.path(), "thr_s").expect("project thread");
@@ -212,10 +222,9 @@ fn subagent_file_projects_as_nested_item() {
         })
         .expect("subagent item present");
     assert_eq!(subagent.0, "orchestrator");
-    assert!(subagent
-        .1
-        .iter()
-        .any(|i| matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "sub work done")));
+    assert!(subagent.1.iter().any(
+        |i| matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "sub work done")
+    ));
 }
 
 #[test]
@@ -233,12 +242,18 @@ fn get_page_paginates_newest_first_with_cursor() {
     assert_eq!(page1.total, 5);
     assert!(page1.has_more);
     assert_eq!(page1.items.len(), 2);
-    assert!(matches!(&page1.items[0], DisplayItem::UserMessage { content, .. } if content == "msg-4"));
-    assert!(matches!(&page1.items[1], DisplayItem::UserMessage { content, .. } if content == "msg-3"));
+    assert!(
+        matches!(&page1.items[0], DisplayItem::UserMessage { content, .. } if content == "msg-4")
+    );
+    assert!(
+        matches!(&page1.items[1], DisplayItem::UserMessage { content, .. } if content == "msg-3")
+    );
 
     let cursor = page1.next_cursor.clone().expect("next cursor");
     let page2 = get_page(dir.path(), "thr_p", Some(&cursor), Some(2));
-    assert!(matches!(&page2.items[0], DisplayItem::UserMessage { content, .. } if content == "msg-2"));
+    assert!(
+        matches!(&page2.items[0], DisplayItem::UserMessage { content, .. } if content == "msg-2")
+    );
 
     // Walk to the end.
     let last = get_page(dir.path(), "thr_p", page2.next_cursor.as_deref(), Some(2));

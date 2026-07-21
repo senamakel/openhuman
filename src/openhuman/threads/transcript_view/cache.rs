@@ -93,7 +93,9 @@ impl TranscriptViewCache {
             }
         }
 
-        let projected = Arc::new(project::project_from_files(thread_id, &root_path, &sub_paths));
+        let projected = Arc::new(project::project_from_files(
+            thread_id, &root_path, &sub_paths,
+        ));
 
         let mut inner = self.inner.lock().ok()?;
         inner.entries.insert(

@@ -36,29 +36,10 @@
 //!
 //! ## Compile-time gating (`meet` feature, #4800)
 //!
-//! Every submodule here is `#[cfg(feature = "meet")]` — **except [`wav`]**.
-//!
-//! ### ⚠ The `wav` carve-out is load-bearing — do not "tidy" it
-//!
-//! [`wav::pack_pcm16le_mono_wav`] is called by
-//! `desktop_companion::pipeline::stt`, which is `DomainGroup::Platform` and is
-//! therefore compiled in **every** build, including `--no-default-features`.
-//! `wav` must stay ungated so that call site keeps its **real** implementation.
-//!
-//! This is safe to leave ungated at zero cost: `wav.rs` is a self-contained
-//! hand-rolled RIFF writer with no `use` statements and no dependencies. It
-//! pulls in nothing when the rest of the domain is compiled out. (It is
-//! hand-rolled precisely so Meet never needed `hound`, which the `voice` gate
-//! already owns and sheds.)
-//!
-//! **If you ever add `#[cfg(feature = "meet")]` to `pub mod wav;`**, the
-//! `--no-default-features` build will fail loudly at `desktop_companion`. That
-//! failure is *correct and useful*. Do **not** "fix" it by stubbing
-//! `pack_pcm16le_mono_wav` to return an empty/placeholder buffer: that turns a
-//! compile error into green CI while silently corrupting desktop-companion STT
-//! forever (the STT backend would receive a malformed WAV). Revert the cfg
-//! instead — or, if `wav` genuinely must move, relocate it to a always-compiled
-//! home rather than stubbing it.
+//! Every submodule here is `#[cfg(feature = "meet")]`, including [`wav`].
+//! (`wav` was previously left ungated for the always-on `desktop_companion`
+//! STT path; that domain has since been removed, so its only consumer is now
+//! the gated `brain::speech` code and it gates with the rest of the domain.)
 
 #[cfg(feature = "meet")]
 pub mod brain;
@@ -74,8 +55,7 @@ pub mod session;
 pub mod store;
 #[cfg(feature = "meet")]
 pub mod types;
-// NOT gated — see the carve-out note above. `desktop_companion` (always-on)
-// depends on the real implementation.
+#[cfg(feature = "meet")]
 pub mod wav;
 
 #[cfg(feature = "meet")]

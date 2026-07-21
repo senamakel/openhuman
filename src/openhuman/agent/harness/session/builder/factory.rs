@@ -232,63 +232,6 @@ impl Agent {
         )
     }
 
-    /// Constructs a council juror that runs the normal agent tool loop with
-    /// only read-only tools visible/executable.
-    ///
-    /// Model council calls need research/memory/search before a juror writes a
-    /// turn, but they must not mutate files, memory, schedules, wallets, or the
-    /// host. This constructor reuses the standard harness and provider wiring
-    /// while filtering the registry before tool specs and policy are built.
-    pub fn from_config_for_read_only_council_juror(
-        config: &Config,
-        juror_name: &str,
-        model_override: Option<String>,
-        temperature: Option<f64>,
-        prompt_suffix: String,
-    ) -> Result<Self> {
-        let mut agent = Self::build_session_agent_inner(
-            config,
-            "orchestrator",
-            None,
-            None,
-            Some(prompt_suffix),
-            true,
-            None,
-        )?;
-        let safe_name: String = juror_name
-            .chars()
-            .map(|c| {
-                if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
-                    c
-                } else {
-                    '_'
-                }
-            })
-            .collect();
-        agent.set_event_context(
-            format!("model-council-{safe_name}"),
-            "model_council_readonly",
-        );
-        agent.set_agent_definition_name(format!("model_council_{safe_name}"));
-        // Council jurors are non-interactive, single-shot read-only model calls
-        // built from the orchestrator definition. The first-turn super-context
-        // pass (default-on) is an interactive convenience for the user-facing
-        // chat orchestrator — running it per juror would add an unexpected
-        // `context_scout` LLM call to each jury seat. Suppress it here.
-        agent.context.set_super_context_enabled(false);
-        if let Some(model) = model_override
-            .map(|m| m.trim().to_string())
-            .filter(|m| !m.is_empty())
-        {
-            agent.model_name = model;
-        }
-        if let Some(temp) = temperature {
-            agent.temperature = temp;
-        }
-        agent.auto_save = false;
-        Ok(agent)
-    }
-
     /// Internal constructor that consumes the optionally-resolved agent
     /// definition. Split out from [`Agent::from_config_for_agent`] so
     /// the lookup + logging live in one place and the heavy-lifting

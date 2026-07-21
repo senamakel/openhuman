@@ -255,14 +255,6 @@ pub fn all_tools_with_runtime(
         Box::new(AutomateTool::new(
             root_config.computer_control.ax_interact_mutations,
         )),
-        Box::new(CodegraphIndexTool::new(
-            config.clone(),
-            action_dir.to_path_buf(),
-        )),
-        Box::new(CodegraphSearchTool::new(
-            config.clone(),
-            action_dir.to_path_buf(),
-        )),
         Box::new(DetectToolsTool::new()),
         Box::new(InstallToolTool::new(security.clone())),
         // Orchestration session-history read tools — browse persisted

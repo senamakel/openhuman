@@ -185,7 +185,6 @@ pub(super) const WORKSPACE_INTERNAL_DIRS: &[&str] = &[
     "task_sources",
     "whatsapp_data",
     "redirect_links",
-    "codegraph",
     ".openhuman",
     "tinyplace", // Signal session store + future tinyplace state; agent-write forbidden
 ];

@@ -256,13 +256,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Mcp,
         crate::openhuman::mcp_registry::all_mcp_registry_registered_controllers(),
     );
-    // Webview APIs bridge — proxies connector calls (Gmail, …) through
-    // a WebSocket to the Tauri shell so curl reaches the live webview.
-    push(
-        &mut controllers,
-        DomainGroup::Channels,
-        crate::openhuman::webview_apis::all_webview_apis_registered_controllers(),
-    );
     // Agent definition and prompt inspection
     push(
         &mut controllers,
@@ -418,18 +411,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         &mut controllers,
         DomainGroup::Platform,
         crate::openhuman::migration::all_migration_registered_controllers(),
-    );
-    // Saved council definitions for the desktop Model Council surface.
-    push(
-        &mut controllers,
-        DomainGroup::Platform,
-        crate::openhuman::council_registry::all_council_registry_registered_controllers(),
-    );
-    // Model Council: multi-model deliberation (parallel members + chair synthesis)
-    push(
-        &mut controllers,
-        DomainGroup::Platform,
-        crate::openhuman::model_council::all_model_council_registered_controllers(),
     );
     // Background command monitors for agent-scoped event sources
     push(
@@ -702,12 +683,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Threads,
         crate::openhuman::todos::all_todos_registered_controllers(),
     );
-    // Embedded webview native notifications
-    push(
-        &mut controllers,
-        DomainGroup::Channels,
-        crate::openhuman::webview_notifications::all_webview_notifications_registered_controllers(),
-    );
     // Integration notification ingest, triage, and per-provider settings
     push(
         &mut controllers,
@@ -737,12 +712,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         &mut controllers,
         DomainGroup::Meet,
         crate::openhuman::meet_agent::all_meet_agent_registered_controllers(),
-    );
-    // Desktop companion — Clicky-style interaction loop.
-    push(
-        &mut controllers,
-        DomainGroup::Platform,
-        crate::openhuman::desktop_companion::all_desktop_companion_registered_controllers(),
     );
     // Structured WhatsApp Web data — agent-facing read-only controllers (list/search).
     // The write-path ingest controller is registered separately in build_internal_only_controllers.
@@ -1000,9 +969,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "webhooks" => {
             Some("Webhook tunnel registrations and captured request/response debug logs.")
         }
-        "webview_apis" => Some(
-            "Typed connector APIs (Gmail, …) proxied over a loopback WebSocket to the Tauri shell so core-side JSON-RPC reaches live-webview CDP operations.",
-        ),
         "update" => {
             Some("Self-update: check GitHub Releases for newer core binary and stage updates.")
         }
@@ -1037,9 +1003,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         ),
         "whatsapp_data" => Some(
             "Structured WhatsApp conversation and message store — list chats, read messages, and search across WhatsApp Web data.",
-        ),
-        "companion" => Some(
-            "Desktop companion — Clicky-style hotkey-driven interaction loop with STT, LLM, TTS, and visual pointing.",
         ),
         "tinyplace" => Some(
             "tiny.place A2A social-network integration: directory, explorer, and search over the agent network.",

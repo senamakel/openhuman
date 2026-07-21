@@ -1000,22 +1000,6 @@ pub enum DomainEvent {
         rebuilt_at: f64,
     },
 
-    // ── Desktop Companion ──────────────────────────────────────────────
-    /// A desktop companion session was started.
-    CompanionSessionStarted { session_id: String, ttl_secs: u64 },
-    /// The companion transitioned to a new state.
-    CompanionStateChanged {
-        session_id: String,
-        state: String,
-        previous_state: String,
-    },
-    /// A desktop companion session ended.
-    CompanionSessionEnded {
-        session_id: String,
-        reason: String,
-        turn_count: usize,
-    },
-
     // ── MCP Clients ─────────────────────────────────────────────────────
     /// A new MCP server was installed from the Smithery registry.
     McpServerInstalled {
@@ -1441,10 +1425,6 @@ impl DomainEvent {
             | Self::DevicePeerOffline { .. }
             | Self::DeviceTunnelFrame { .. } => "device",
 
-            Self::CompanionSessionStarted { .. }
-            | Self::CompanionStateChanged { .. }
-            | Self::CompanionSessionEnded { .. } => "companion",
-
             Self::SystemStartup { .. }
             | Self::SystemShutdown { .. }
             | Self::SystemRestartRequested { .. }
@@ -1597,9 +1577,6 @@ impl DomainEvent {
             Self::DevicePeerOnline { .. } => "DevicePeerOnline",
             Self::DevicePeerOffline { .. } => "DevicePeerOffline",
             Self::DeviceTunnelFrame { .. } => "DeviceTunnelFrame",
-            Self::CompanionSessionStarted { .. } => "CompanionSessionStarted",
-            Self::CompanionStateChanged { .. } => "CompanionStateChanged",
-            Self::CompanionSessionEnded { .. } => "CompanionSessionEnded",
             Self::SystemStartup { .. } => "SystemStartup",
             Self::SystemShutdown { .. } => "SystemShutdown",
             Self::SystemRestartRequested { .. } => "SystemRestartRequested",

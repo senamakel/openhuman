@@ -5,7 +5,6 @@ import { NAV_TABS, type NavTab } from '../../../config/navConfig';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { setActiveAccount } from '../../../store/accountsSlice';
-import { selectCompanionSessionActive } from '../../../store/companionSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
 import { AGENT_ACCOUNT_ID } from '../../../utils/accountsFullscreen';
@@ -44,7 +43,6 @@ export default function SidebarNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const unreadCount = useAppSelector(state => selectUnreadCount(state.notifications.items));
-  const companionActive = useAppSelector(selectCompanionSessionActive);
 
   const tabs = useMemo(() => NAV_TABS.map(tab => ({ ...tab, label: t(tab.labelKey) })), [t]);
   const activeTab = tabs.find(tab => matchActive(tab.path, location.pathname));
@@ -67,7 +65,6 @@ export default function SidebarNav() {
       {tabs.map(tab => {
         const active = matchActive(tab.path, location.pathname);
         const showBadge = tab.id === 'notifications' && unreadCount > 0;
-        const showCompanionDot = tab.id === 'settings' && companionActive;
         return (
           <button
             key={tab.id}
@@ -91,9 +88,6 @@ export default function SidebarNav() {
                 <span className="absolute -top-1 -right-1 min-w-[13px] h-[13px] px-1 rounded-full bg-coral-500 text-[9px] font-bold text-content-inverted flex items-center justify-center leading-none">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
-              )}
-              {showCompanionDot && (
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
               )}
             </span>
             <span className="min-w-0 truncate">{tab.label}</span>

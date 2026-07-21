@@ -55,15 +55,12 @@ const DOMAIN_ALLOWLIST = new Set([
   'agent_meetings',
   'announcements',
   'audio_toolkit',
-  'council_registry',
-  'desktop_companion',
   'devices',
   'harness_init',
   'http_host',
   'mcp_audit',
   'memory_diff',
   'memory_goals',
-  'model_council',
   'people',
   'plan_review',
   'provider_surfaces',
@@ -76,7 +73,6 @@ const DOMAIN_ALLOWLIST = new Set([
   'text_input',
   'thread_goals',
   'tinyplace',
-  'webview_notifications',
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -137,8 +137,8 @@ export function settingsRouteElements(): ReactNode {
       {/* The Integrations settings section was retired; the composio/OAuth grid
           lives on the Connections page. */}
       <Route path="integrations" element={<Navigate to="/connections" replace />} />
-      {/* Screen Awareness / Desktop Agent / Desktop Companion moved to the
-          Connections page (Desktop group). */}
+      {/* Screen Awareness / Desktop Agent moved to the Connections page
+          (Desktop group). */}
       <Route
         path="screen-intelligence"
         element={<Navigate to="/connections?tab=screen-intelligence" replace />}
@@ -148,7 +148,6 @@ export function settingsRouteElements(): ReactNode {
         element={<Navigate to="/connections?tab=desktop-agent" replace />}
       />
       <Route path="tools" element={wrapSettingsPage(<ToolsPanel />)} />
-      <Route path="companion" element={<Navigate to="/connections?tab=companion" replace />} />
       {/* Meeting settings moved to the Connections page (meetings tab). */}
       <Route path="meetings" element={<Navigate to="/connections?tab=meetings" replace />} />
       <Route path="autocomplete" element={wrapSettingsPage(<AutocompletePanel />)} />

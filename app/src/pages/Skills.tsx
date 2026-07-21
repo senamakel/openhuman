@@ -18,7 +18,6 @@ import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import MeetingsPage from '../components/meetings/MeetingsPage';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
-import CompanionPanel from '../components/settings/panels/CompanionPanel';
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import DesktopAgentPanel from '../components/settings/panels/DesktopAgentPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
@@ -459,8 +458,7 @@ type ConnectionsTab =
   | 'composio-key'
   | 'wallet'
   | 'screen-intelligence'
-  | 'desktop-agent'
-  | 'companion';
+  | 'desktop-agent';
 
 /**
  * Tabs that render a relocated settings panel inside the shared card surface.
@@ -499,10 +497,6 @@ const INTELLIGENCE_HEADERS: Partial<Record<ConnectionsTab, { titleKey: string; d
       titleKey: 'settings.desktopAgent.title',
       descKey: 'connections.header.desktopAgent',
     },
-    companion: {
-      titleKey: 'pages.settings.features.desktopCompanion',
-      descKey: 'connections.header.companion',
-    },
   };
 
 /** Intelligence tabs whose panel renders its own header card (with chip tabs in
@@ -519,7 +513,6 @@ const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'wallet',
   'screen-intelligence',
   'desktop-agent',
-  'companion',
 ]);
 
 export default function Skills() {
@@ -550,8 +543,7 @@ export default function Skills() {
       raw === 'composio-key' ||
       raw === 'wallet' ||
       raw === 'screen-intelligence' ||
-      raw === 'desktop-agent' ||
-      raw === 'companion'
+      raw === 'desktop-agent'
     )
       return raw;
     // Legacy back-compat aliases
@@ -1071,13 +1063,6 @@ export default function Skills() {
                       'M9 17v2m6-2v2M5 5h14a1 1 0 011 1v8a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1zm4 4l-2 2 2 2m6-4l2 2-2 2'
                     ),
                   },
-                  {
-                    value: 'companion',
-                    label: t('pages.settings.features.desktopCompanion'),
-                    icon: navIcon(
-                      'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z'
-                    ),
-                  },
                 ],
               },
               {
@@ -1214,7 +1199,6 @@ export default function Skills() {
                     {activeTab === 'composio-key' && <ComposioPanel />}
                     {activeTab === 'screen-intelligence' && <ScreenIntelligencePanel />}
                     {activeTab === 'desktop-agent' && <DesktopAgentPanel />}
-                    {activeTab === 'companion' && <CompanionPanel />}
                   </SettingsLayoutProvider>
                 </div>
               </>

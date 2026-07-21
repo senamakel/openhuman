@@ -96,6 +96,10 @@ hex = "0.4"
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 log = "0.4"
 env_logger = "0.11"
+# On-demand desktop resource profiling in Settings -> Developer Options.
+# Samples the Tauri host (which embeds the Rust core) and its CEF child
+# processes; no background sampler runs in production.
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 
 # Sentry for the Tauri shell (desktop host) process — separate Sentry project
 # from the React frontend and the Rust core sidecar. DSN is baked at compile

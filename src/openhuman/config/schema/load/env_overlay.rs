@@ -121,6 +121,11 @@ impl Config {
         if let Some(flag) = env.get_any(&["OPENHUMAN_SHELL_HIDE_WINDOW", "SHELL_HIDE_WINDOW"]) {
             let normalized = flag.trim().to_ascii_lowercase();
             match normalized.as_str() {
+                // An empty / whitespace-only value means the var is present but
+                // unset (common when a `.env` or launcher exports `VAR=`). Treat
+                // it as absent — silently keep the current value rather than
+                // warning on every boot.
+                "" => {}
                 "1" | "true" | "yes" | "on" => {
                     self.shell.hide_window = true;
                     tracing::debug!(

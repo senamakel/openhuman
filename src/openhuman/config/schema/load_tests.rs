@@ -235,6 +235,31 @@ fn apply_env_overrides_shell_hide_window_parses_truthy_falsy() {
     }
     cfg.apply_env_overrides();
     assert!(cfg.shell.hide_window);
+
+    // An empty / whitespace-only value is treated as unset: the field is left
+    // unchanged and it must NOT hit the "unrecognized value" warn path (a bare
+    // `OPENHUMAN_SHELL_HIDE_WINDOW=` in the environment previously warned on
+    // every boot).
+    cfg.shell.hide_window = true;
+    unsafe {
+        std::env::set_var("OPENHUMAN_SHELL_HIDE_WINDOW", "");
+    }
+    cfg.apply_env_overrides();
+    assert!(
+        cfg.shell.hide_window,
+        "empty value should leave hide_window=true"
+    );
+
+    cfg.shell.hide_window = false;
+    unsafe {
+        std::env::set_var("OPENHUMAN_SHELL_HIDE_WINDOW", "   ");
+    }
+    cfg.apply_env_overrides();
+    assert!(
+        !cfg.shell.hide_window,
+        "whitespace-only value should leave hide_window=false"
+    );
+
     unsafe {
         std::env::remove_var("OPENHUMAN_SHELL_HIDE_WINDOW");
     }

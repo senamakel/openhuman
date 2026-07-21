@@ -35,11 +35,14 @@ let inflightStatusFetch: Promise<HarnessInitSnapshot | null> | null = null;
 
 function fetchHarnessInitStatusCoalesced(): Promise<HarnessInitSnapshot | null> {
   if (inflightStatusFetch) {
+    log('status poll: joining in-flight request (coalesced)');
     return inflightStatusFetch;
   }
+  log('status poll: dispatching harness_init_status');
   const pending = fetchHarnessInitStatus().finally(() => {
     if (inflightStatusFetch === pending) {
       inflightStatusFetch = null;
+      log('status poll: in-flight request settled, cache cleared');
     }
   });
   inflightStatusFetch = pending;

@@ -266,6 +266,23 @@ fn apply_env_overrides_shell_hide_window_parses_truthy_falsy() {
 }
 
 #[test]
+fn classify_shell_hide_window_distinguishes_unset_from_unrecognized() {
+    use super::env_overlay::{classify_shell_hide_window, ShellHideWindowParse as P};
+    // The key distinction the change relies on: an empty / whitespace-only value
+    // is `Unset` (silent no-op), NOT `Unrecognized` (which warns on every boot).
+    // Testing the classifier directly proves this — the field-unchanged assertion
+    // above holds for BOTH branches and so can't catch a regression here.
+    assert_eq!(classify_shell_hide_window(""), P::Unset);
+    assert_eq!(classify_shell_hide_window("   "), P::Unset);
+    assert_eq!(classify_shell_hide_window("\t"), P::Unset);
+    assert_eq!(classify_shell_hide_window("on"), P::Set(true));
+    assert_eq!(classify_shell_hide_window("FALSE"), P::Set(false));
+    assert_eq!(classify_shell_hide_window("  yes  "), P::Set(true));
+    assert_eq!(classify_shell_hide_window("maybe"), P::Unrecognized);
+    assert_eq!(classify_shell_hide_window("2"), P::Unrecognized);
+}
+
+#[test]
 fn apply_env_overrides_web_search_limits_only() {
     let _g = env_lock();
     clear_env(&[

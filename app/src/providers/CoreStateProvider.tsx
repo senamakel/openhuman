@@ -293,10 +293,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   const refreshCore = useCallback(async () => {
     const requestId = ++snapshotRequestIdRef.current;
     const rawSnapshot = await fetchCoreAppSnapshot();
-    // Feed the folded health payload to the daemon-health store — this replaces
-    // the former standalone health_snapshot poll, so daemon status stays fresh
-    // off the same app_state_snapshot refresh.
-    daemonHealthService.ingestHealthSnapshot(rawSnapshot.health);
     const snapshot = normalizeSnapshot(rawSnapshot);
     if (!isMountedRef.current) {
       return;
@@ -354,6 +350,16 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
         teamInvitesById: shouldClearScopedCaches ? {} : previous.teamInvitesById,
       };
     });
+
+    // Feed the folded health payload to the daemon-health store (replaces the
+    // former standalone health_snapshot poll). Done AFTER the commit and only
+    // when this refresh is still current, so `daemonHealthService` resolves the
+    // freshly-committed identity — not a stale/pre-commit or superseded token,
+    // which during a login/identity flip would write health under the prior or
+    // `__pending__` user.
+    if (requestId === snapshotRequestIdRef.current) {
+      daemonHealthService.ingestHealthSnapshot(rawSnapshot.health);
+    }
 
     // When the authenticated identity changes without a full restart-driven
     // flip (e.g. same-process session attach or web where `restartApp` is a

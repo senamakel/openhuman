@@ -84,8 +84,10 @@ export interface RawHealthSnapshot {
     {
       status: string;
       updated_at: string;
-      last_ok?: string;
-      last_error?: string;
+      // Rust serializes absent `Option<String>` as `null` (no skip attribute),
+      // so match `src/openhuman/health/core.rs` — not `string | undefined`.
+      last_ok?: string | null;
+      last_error?: string | null;
       restart_count: number;
     }
   >;

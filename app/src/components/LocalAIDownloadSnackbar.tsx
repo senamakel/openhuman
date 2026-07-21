@@ -1,3 +1,4 @@
+import debugFactory from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -18,6 +19,8 @@ import {
   openhumanLocalAiStatus,
 } from '../utils/tauriCommands';
 import Button from './ui/Button';
+
+const log = debugFactory('local-ai-download');
 
 const ACTIVE_POLL_INTERVAL = 2000;
 
@@ -89,9 +92,10 @@ const LocalAIDownloadSnackbar = () => {
     if (!tauriAvailable || !coreDownloadActive) return;
 
     let cancelled = false;
+    log('fast poll: starting (core reports download active)');
 
     const poll = async () => {
-      let active = false;
+      let settled = false;
       try {
         const [statusRes, downloadsRes] = await Promise.all([
           openhumanLocalAiStatus(),
@@ -99,14 +103,21 @@ const LocalAIDownloadSnackbar = () => {
         ]);
         if (statusRes.result) setStatus(statusRes.result);
         if (downloadsRes.result) setDownloads(downloadsRes.result);
-        active = isDownloadInFlight(statusRes.result ?? null, downloadsRes.result ?? null);
-      } catch {
-        // Silently ignore — core may not be ready
+        // The download reached a terminal state — stop the fast poll early
+        // rather than waiting for core state to catch up (it lags up to ~5s).
+        settled = !isDownloadInFlight(statusRes.result ?? null, downloadsRes.result ?? null);
+      } catch (err) {
+        // Transient RPC failure (core may be busy). Do NOT treat this as
+        // settled: keep polling while core state still reports the download
+        // active, otherwise one blip would permanently stop progress updates
+        // for the rest of the download (the effect won't re-run until
+        // `coreDownloadActive` flips).
+        log('fast poll: transient error, will retry: %O', err);
       }
-      // Keep the fast poll alive only while the download is genuinely in flight.
-      // Once it settles we stop; a later download re-arms via `coreDownloadActive`.
-      if (!cancelled && active) {
+      if (!cancelled && !settled) {
         timerRef.current = setTimeout(poll, ACTIVE_POLL_INTERVAL);
+      } else if (settled) {
+        log('fast poll: download settled, stopping');
       }
     };
 
@@ -114,6 +125,7 @@ const LocalAIDownloadSnackbar = () => {
     return () => {
       cancelled = true;
       if (timerRef.current) clearTimeout(timerRef.current);
+      log('fast poll: stopped (unmount or core reports inactive)');
     };
   }, [tauriAvailable, coreDownloadActive]);
 
@@ -122,11 +134,16 @@ const LocalAIDownloadSnackbar = () => {
     downloadState === 'loading' || downloadState === 'downloading' || downloadState === 'installing'
       ? downloadState
       : (status?.state ?? downloadState ?? 'idle');
+  // Gate on `coreDownloadActive` so a download that the core no longer reports
+  // active can't leave the snackbar stuck: when the folded state flips inactive,
+  // polling stops and any still-"downloading" local status/downloads must not
+  // keep the overlay visible.
   const isDownloading =
-    currentState === 'loading' ||
-    currentState === 'downloading' ||
-    currentState === 'installing' ||
-    (downloads?.progress != null && downloads.progress > 0 && downloads.progress < 1);
+    coreDownloadActive &&
+    (currentState === 'loading' ||
+      currentState === 'downloading' ||
+      currentState === 'installing' ||
+      (downloads?.progress != null && downloads.progress > 0 && downloads.progress < 1));
 
   // Render-phase update: when a new download cycle starts (not-downloading → downloading),
   // reset the dismiss/collapsed flags so the snackbar reappears automatically.

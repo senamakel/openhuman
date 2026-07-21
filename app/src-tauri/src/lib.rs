@@ -78,7 +78,6 @@ mod ptt_hotkeys;
 mod ptt_overlay;
 #[cfg(target_os = "windows")]
 mod reset_reboot_schedule;
-mod resource_profiler;
 mod screen_capture;
 mod slack_scanner;
 mod stderr_panic_hook;
@@ -165,11 +164,6 @@ fn process_diagnostics_list_owned() -> Result<Vec<process_recovery::ProcessInfo>
             Err(err)
         }
     }
-}
-
-#[tauri::command]
-async fn resource_profile_snapshot() -> Result<resource_profiler::ResourceProfileSnapshot, String> {
-    resource_profiler::snapshot().await
 }
 
 #[allow(dead_code)] // Overlay disabled in tauri.conf.json; helper kept for future re-enable.
@@ -3829,7 +3823,6 @@ pub fn run() {
             core_rpc::relay_http_rpc,
             overlay_parent_rpc_url,
             process_diagnostics_list_owned,
-            resource_profile_snapshot,
             // Artifact export commands — both cross-platform (#3162). The
             // Downloads command was previously macOS/Linux-gated, but the
             // `directories` + `tokio::fs::copy` flow compiles on Windows too,

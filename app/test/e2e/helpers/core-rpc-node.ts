@@ -90,7 +90,13 @@ function coreHost(): string {
   return (process.env.OPENHUMAN_CORE_HOST || '127.0.0.1').trim() || '127.0.0.1';
 }
 
-/** Ports to try when OPENHUMAN_CORE_PORT is unset (matches typical dev sidecar range). */
+/** Ports to try when OPENHUMAN_CORE_PORT is unset.
+ *
+ * Keep this exactly aligned with connectivity::rpc's desktop fallback range.
+ * A data reset restarts the embedded core; on Windows the preferred socket can
+ * remain unavailable briefly, so the replacement listener may bind as high as
+ * 7798. Stopping at 7793 makes every later RPC test wait out the full probe
+ * deadline even though the restarted core is healthy. */
 function defaultPortProbeList(): number[] {
   const raw = process.env.OPENHUMAN_CORE_PORT?.trim();
   if (raw) {
@@ -100,7 +106,7 @@ function defaultPortProbeList(): number[] {
     }
   }
   const ports: number[] = [];
-  for (let port = 7788; port <= 7793; port += 1) ports.push(port);
+  for (let port = 7788; port <= 7798; port += 1) ports.push(port);
   return ports;
 }
 

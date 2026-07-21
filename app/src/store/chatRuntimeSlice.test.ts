@@ -909,3 +909,150 @@ describe('hydrateRuntimeFromSnapshot — persisted tool result output', () => {
     expect(timeline[1].subagent?.toolCalls[0]?.result).toBe('file body');
   });
 });
+
+describe('hydrateRuntimeFromSnapshot — interrupted partial answer (fix 2)', () => {
+  function makeInterruptedPartialSnapshot(
+    threadId: string,
+    over: Partial<PersistedTurnState> = {}
+  ): PersistedTurnState {
+    return {
+      threadId,
+      requestId: 'req-int',
+      lifecycle: 'interrupted',
+      iteration: 2,
+      maxIterations: 10,
+      streamingText: 'Here is the partial ans',
+      thinking: 'was still reasoning',
+      toolTimeline: [],
+      startedAt: '2026-06-23T00:00:00Z',
+      updatedAt: '2026-06-23T00:00:00Z',
+      ...over,
+    };
+  }
+
+  it('surfaces the persisted partial reply + thinking as a settled buffer', () => {
+    const store = makeStore();
+    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot: makeInterruptedPartialSnapshot('t-int') }));
+
+    const state = store.getState().chatRuntime;
+    expect(state.interruptedAssistantByThread['t-int']).toEqual({
+      requestId: 'req-int',
+      content: 'Here is the partial ans',
+      thinking: 'was still reasoning',
+    });
+    // It is NOT resurrected as a live streaming buffer (would pulse).
+    expect(state.streamingAssistantByThread['t-int']).toBeUndefined();
+    // The lifecycle is recorded as interrupted, not a fake in-flight status.
+    expect(state.inferenceTurnLifecycleByThread['t-int']).toBe('interrupted');
+  });
+
+  it('keeps an interrupted turn that only produced thinking', () => {
+    const store = makeStore();
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({
+        snapshot: makeInterruptedPartialSnapshot('t-think', { streamingText: '' }),
+      })
+    );
+    expect(store.getState().chatRuntime.interruptedAssistantByThread['t-think']).toMatchObject({
+      content: '',
+      thinking: 'was still reasoning',
+    });
+  });
+
+  it('does not surface a partial for an interrupted turn with no persisted text', () => {
+    const store = makeStore();
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({
+        snapshot: makeInterruptedPartialSnapshot('t-empty', { streamingText: '', thinking: '' }),
+      })
+    );
+    expect(store.getState().chatRuntime.interruptedAssistantByThread['t-empty']).toBeUndefined();
+  });
+
+  it('clears a stale interrupted partial when a completed snapshot lands', () => {
+    const store = makeStore();
+    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot: makeInterruptedPartialSnapshot('t-c') }));
+    expect(store.getState().chatRuntime.interruptedAssistantByThread['t-c']).toBeDefined();
+
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({
+        snapshot: makeInterruptedPartialSnapshot('t-c', {
+          lifecycle: 'completed',
+          streamingText: '',
+          thinking: '',
+        }),
+      })
+    );
+    expect(store.getState().chatRuntime.interruptedAssistantByThread['t-c']).toBeUndefined();
+  });
+});
+
+describe('hydrateRuntimeFromSnapshot — transcript seq ordering (fix 5)', () => {
+  it('orders the processing transcript by persisted seq, not array order', () => {
+    const store = makeStore();
+    const snapshot: PersistedTurnState = {
+      threadId: 't-seq',
+      requestId: 'req-1',
+      lifecycle: 'completed',
+      iteration: 1,
+      maxIterations: 10,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [],
+      // Deliberately out of order on the wire.
+      transcript: [
+        { kind: 'narration', round: 0, seq: 2, text: 'second' },
+        { kind: 'thinking', round: 0, seq: 0, text: 'first' },
+        { kind: 'narration', round: 0, seq: 1, text: 'middle' },
+      ],
+      startedAt: '2026-06-23T00:00:00Z',
+      updatedAt: '2026-06-23T00:00:00Z',
+    };
+
+    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot }));
+
+    const items = store.getState().chatRuntime.processingByThread['t-seq'];
+    expect(items.map(i => ('text' in i ? i.text : i.kind))).toEqual(['first', 'middle', 'second']);
+  });
+});
+
+describe('hydrateRuntimeFromSnapshot — sub-agent transcript fallback (fix 4)', () => {
+  it('rebuilds a tool-only transcript when no persisted prose field is present', () => {
+    const store = makeStore();
+    const snapshot: PersistedTurnState = {
+      threadId: 't-fallback',
+      requestId: 'req-1',
+      lifecycle: 'completed',
+      iteration: 1,
+      maxIterations: 10,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [
+        {
+          id: 'subagent:task-old',
+          name: 'subagent:researcher',
+          round: 1,
+          status: 'success',
+          subagent: {
+            taskId: 'task-old',
+            agentId: 'researcher',
+            // No `transcript` field (old snapshot) — only tool calls.
+            toolCalls: [{ callId: 'c1', toolName: 'web_search', status: 'success' }],
+          },
+        },
+      ],
+      startedAt: '2026-06-23T00:00:00Z',
+      updatedAt: '2026-06-23T00:00:00Z',
+    };
+
+    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot }));
+
+    const row = store
+      .getState()
+      .chatRuntime.toolTimelineByThread['t-fallback'].find(e => e.subagent?.taskId === 'task-old');
+    const transcript = row?.subagent?.transcript ?? [];
+    // Falls back to tool-only items so an old snapshot still shows the sequence.
+    expect(transcript).toHaveLength(1);
+    expect(transcript[0].kind).toBe('tool');
+  });
+});

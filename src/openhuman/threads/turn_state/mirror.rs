@@ -36,6 +36,47 @@ const MAX_PERSISTED_TOOL_OUTPUT: usize = 64 * 1024;
 /// [`MAX_PERSISTED_TOOL_OUTPUT`].
 const TRUNCATION_MARKER_BUDGET: usize = 80;
 
+/// Upper bound on a single persisted transcript prose item (one coalesced
+/// narration or reasoning block, parent or sub-agent). A runaway reasoning
+/// stream would otherwise grow one item without bound and bloat every
+/// full-file snapshot rewrite. Tighter than [`MAX_PERSISTED_TOOL_OUTPUT`]
+/// because a turn can accumulate many prose items.
+const MAX_PERSISTED_TRANSCRIPT_ITEM: usize = 16 * 1024;
+
+/// Marker appended once when a transcript prose item is truncated at its cap.
+const TRANSCRIPT_TRUNCATION_MARKER: &str = "\n…[truncated]";
+
+/// Append `delta` to a coalescing transcript prose buffer, enforcing
+/// [`MAX_PERSISTED_TRANSCRIPT_ITEM`] on a char boundary and stamping a one-time
+/// truncation marker the first time the cap is hit. Once at the cap, further
+/// deltas are dropped (the marker is already present). Used by both the parent
+/// and sub-agent transcript coalescers so a single streamed block stays bounded.
+fn append_capped_transcript_text(text: &mut String, delta: &str) {
+    if delta.is_empty() {
+        return;
+    }
+    if text.len() >= MAX_PERSISTED_TRANSCRIPT_ITEM {
+        // Already at the cap but more content is arriving — ensure the marker is
+        // present exactly once so the truncation is visible even when deltas
+        // land exactly on the boundary (never straddling it).
+        if !text.ends_with(TRANSCRIPT_TRUNCATION_MARKER) {
+            text.push_str(TRANSCRIPT_TRUNCATION_MARKER);
+        }
+        return;
+    }
+    let remaining = MAX_PERSISTED_TRANSCRIPT_ITEM - text.len();
+    if delta.len() <= remaining {
+        text.push_str(delta);
+        return;
+    }
+    let mut end = remaining;
+    while end > 0 && !delta.is_char_boundary(end) {
+        end -= 1;
+    }
+    text.push_str(&delta[..end]);
+    text.push_str(TRANSCRIPT_TRUNCATION_MARKER);
+}
+
 /// Cap `output` for snapshot persistence, slicing on a char boundary and
 /// appending a truncation marker when content was dropped. Returns `None`
 /// for empty output (payload capture off) so the field serializes away.
@@ -69,6 +110,11 @@ pub struct TurnStateMirror {
     /// order narration vs thinking vs tool calls *within* one iteration, so
     /// every transcript push stamps and increments this.
     next_seq: u32,
+    /// Separate monotonic ordering key for [`ToolTimelineEntry::seq`] — the flat
+    /// timeline is an independent projection from the interleaved transcript, so
+    /// it gets its own space (sharing `next_seq` would leave gaps in the
+    /// transcript's contiguous ordering).
+    next_tool_seq: u64,
 }
 
 impl TurnStateMirror {
@@ -87,6 +133,7 @@ impl TurnStateMirror {
             state,
             turn_completed: false,
             next_seq: 0,
+            next_tool_seq: 0,
         };
         mirror.flush();
         mirror
@@ -153,6 +200,7 @@ impl TurnStateMirror {
                         existing.detail = display_detail.clone();
                     }
                 } else {
+                    let seq = self.next_tool_seq();
                     self.state.tool_timeline.push(ToolTimelineEntry {
                         id: call_id.clone(),
                         name: tool_name.clone(),
@@ -165,6 +213,7 @@ impl TurnStateMirror {
                         subagent: None,
                         failure: None,
                         output: None,
+                        seq: Some(seq),
                     });
                 }
                 self.flush();
@@ -216,6 +265,7 @@ impl TurnStateMirror {
             } => {
                 self.state.phase = Some(TurnPhase::Subagent);
                 self.state.active_subagent = Some(agent_id.clone());
+                let seq = self.next_tool_seq();
                 self.state.tool_timeline.push(ToolTimelineEntry {
                     id: format!("subagent:{task_id}"),
                     name: format!("subagent:{agent_id}"),
@@ -242,6 +292,7 @@ impl TurnStateMirror {
                     }),
                     failure: None,
                     output: None,
+                    seq: Some(seq),
                 });
                 self.flush();
                 true
@@ -447,6 +498,7 @@ impl TurnStateMirror {
                     // No matching entry yet — `ToolCallArgsDelta` may
                     // arrive before `ToolCallStarted` so synthesise a
                     // placeholder we can update once the start event lands.
+                    let seq = self.next_tool_seq();
                     self.state.tool_timeline.push(ToolTimelineEntry {
                         id: call_id.clone(),
                         name: tool_name.clone(),
@@ -459,6 +511,7 @@ impl TurnStateMirror {
                         subagent: None,
                         failure: None,
                         output: None,
+                        seq: Some(seq),
                     });
                 }
                 false
@@ -526,16 +579,16 @@ impl TurnStateMirror {
             self.state.transcript.last_mut()
         {
             if *r == round {
-                text.push_str(delta);
+                append_capped_transcript_text(text, delta);
                 return;
             }
         }
         let seq = self.next_seq();
-        self.state.transcript.push(TranscriptItem::Narration {
-            round,
-            seq,
-            text: delta.to_string(),
-        });
+        let mut text = String::new();
+        append_capped_transcript_text(&mut text, delta);
+        self.state
+            .transcript
+            .push(TranscriptItem::Narration { round, seq, text });
     }
 
     /// Append a hidden-reasoning delta to the transcript, with the same
@@ -545,16 +598,16 @@ impl TurnStateMirror {
             self.state.transcript.last_mut()
         {
             if *r == round {
-                text.push_str(delta);
+                append_capped_transcript_text(text, delta);
                 return;
             }
         }
         let seq = self.next_seq();
-        self.state.transcript.push(TranscriptItem::Thinking {
-            round,
-            seq,
-            text: delta.to_string(),
-        });
+        let mut text = String::new();
+        append_capped_transcript_text(&mut text, delta);
+        self.state
+            .transcript
+            .push(TranscriptItem::Thinking { round, seq, text });
     }
 
     /// Record a tool call in the transcript at the point it occurred, as a
@@ -580,6 +633,13 @@ impl TurnStateMirror {
     fn next_seq(&mut self) -> u32 {
         let seq = self.next_seq;
         self.next_seq = self.next_seq.saturating_add(1);
+        seq
+    }
+
+    /// Return the next monotonic tool-timeline ordering key and advance it.
+    fn next_tool_seq(&mut self) -> u64 {
+        let seq = self.next_tool_seq;
+        self.next_tool_seq = self.next_tool_seq.saturating_add(1);
         seq
     }
 
@@ -616,27 +676,29 @@ impl TurnStateMirror {
                 iteration: it,
                 text,
             }) if is_thinking && *it == Some(iteration) => {
-                text.push_str(delta);
+                append_capped_transcript_text(text, delta);
                 return;
             }
             Some(SubagentTranscriptItem::Text {
                 iteration: it,
                 text,
             }) if !is_thinking && *it == Some(iteration) => {
-                text.push_str(delta);
+                append_capped_transcript_text(text, delta);
                 return;
             }
             _ => {}
         }
+        let mut text = String::new();
+        append_capped_transcript_text(&mut text, delta);
         activity.transcript.push(if is_thinking {
             SubagentTranscriptItem::Thinking {
                 iteration: Some(iteration),
-                text: delta.to_string(),
+                text,
             }
         } else {
             SubagentTranscriptItem::Text {
                 iteration: Some(iteration),
-                text: delta.to_string(),
+                text,
             }
         });
     }

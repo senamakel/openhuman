@@ -163,38 +163,56 @@ pub(crate) async fn run_chat_task(
         ),
     };
 
-    // Cold-boot resume from the conversation JSONL.
+    // Cold-boot resume. Prefer the full-fidelity `session_raw/{stem}.jsonl`
+    // transcript (tool calls, tool-role results, reasoning) routed by thread
+    // id — the model must not "forget" its tool interactions across an app
+    // restart. Only fall back to the lossy conversation-log prose pairs when
+    // no root transcript exists for the thread or it fails to load; the two
+    // sources overlap (user prompts + final assistant text), so we take one
+    // or the other, never both, to avoid duplicated context.
     if was_built_fresh {
-        match crate::openhuman::memory_conversations::get_messages(
-            config.workspace_dir.clone(),
-            thread_id,
-        ) {
-            Ok(prior_messages) if !prior_messages.is_empty() => {
-                let pairs: Vec<(String, String)> = prior_messages
-                    .into_iter()
-                    .map(|m| (m.sender, m.content))
-                    .collect();
-                if let Err(err) = agent.seed_resume_from_messages(pairs, message) {
+        if agent.seed_resume_from_thread_transcript(thread_id) {
+            log::info!(
+                "[web-channel] cold-boot resumed thread={} from full-fidelity session transcript",
+                thread_id
+            );
+        } else {
+            log::debug!(
+                "[web-channel] no usable session transcript for thread={} — seeding resume \
+                 from conversation-log prose",
+                thread_id
+            );
+            match crate::openhuman::memory_conversations::get_messages(
+                config.workspace_dir.clone(),
+                thread_id,
+            ) {
+                Ok(prior_messages) if !prior_messages.is_empty() => {
+                    let pairs: Vec<(String, String)> = prior_messages
+                        .into_iter()
+                        .map(|m| (m.sender, m.content))
+                        .collect();
+                    if let Err(err) = agent.seed_resume_from_messages(pairs, message) {
+                        log::warn!(
+                            "[web-channel] failed to seed agent resume from conversation log \
+                             thread={} err={}",
+                            thread_id,
+                            err
+                        );
+                    }
+                }
+                Ok(_) => {
+                    log::debug!(
+                        "[web-channel] no prior messages to seed for thread={} — first turn",
+                        thread_id
+                    );
+                }
+                Err(err) => {
                     log::warn!(
-                        "[web-channel] failed to seed agent resume from conversation log \
-                         thread={} err={}",
+                        "[web-channel] failed to read conversation log for resume thread={} err={}",
                         thread_id,
                         err
                     );
                 }
-            }
-            Ok(_) => {
-                log::debug!(
-                    "[web-channel] no prior messages to seed for thread={} — first turn",
-                    thread_id
-                );
-            }
-            Err(err) => {
-                log::warn!(
-                    "[web-channel] failed to read conversation log for resume thread={} err={}",
-                    thread_id,
-                    err
-                );
             }
         }
     }

@@ -46,6 +46,8 @@ import {
 } from '../../features/conversations/components/ThreadGoalChip';
 import { ThreadTodoStrip } from '../../features/conversations/components/ThreadTodoStrip';
 import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
+import { InterruptedAnswer } from '../../features/conversations/components/InterruptedAnswer';
+import { PastTurnInsights } from '../../features/conversations/components/PastTurnInsights';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
@@ -106,6 +108,7 @@ import {
   hydrateThreadUsage,
   markSubagentCancelled,
   markThreadSendPending,
+  type ProcessingTranscriptItem,
   type QueuedFollowup,
   registerParallelRequest,
   setTaskBoardForThread,
@@ -239,6 +242,16 @@ const EMPTY_QUEUED_FOLLOWUPS: Record<string, QueuedFollowup[]> = {};
 // Stable empty reference for the per-thread past-turn timelines map, so the
 // derived value keeps the same identity when the slice field is absent.
 const EMPTY_TURN_TIMELINES: Record<string, ToolTimelineEntry[]> = {};
+// Sibling stable empty for the per-thread past-turn processing transcripts map
+// (restore-fidelity fix 1).
+const EMPTY_TURN_TRANSCRIPTS: Record<string, ProcessingTranscriptItem[]> = {};
+// Stable empty transcript for a past turn that has tool rows but no persisted
+// reasoning/narration trail (legacy snapshot), so `PastTurnInsights` falls back
+// to the tool-only view without allocating a fresh array each render.
+const EMPTY_TRANSCRIPT: ProcessingTranscriptItem[] = [];
+// Stable empty tool-row list for a transcript-only past turn (agent thought /
+// narrated but ran no tools).
+const EMPTY_TRANSCRIPT_ENTRIES: ToolTimelineEntry[] = [];
 
 export function isComposerInteractionBlocked(args: {
   /** Whether the *currently selected* thread has an in-flight inference turn. */
@@ -398,6 +411,12 @@ const Conversations = ({
   const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
   const turnTimelinesByThread = useAppSelector(state => state.chatRuntime.turnTimelinesByThread);
+  const turnTranscriptsByThread = useAppSelector(
+    state => state.chatRuntime.turnTranscriptsByThread
+  );
+  const interruptedAssistantByThread = useAppSelector(
+    state => state.chatRuntime.interruptedAssistantByThread
+  );
   const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
   const taskBoardByThread = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const inferenceStatusByThread = useAppSelector(
@@ -1834,21 +1853,33 @@ const Conversations = ({
   const selectedThreadTurnTimelines = selectedThreadId
     ? (turnTimelinesByThread[selectedThreadId] ?? EMPTY_TURN_TIMELINES)
     : EMPTY_TURN_TIMELINES;
+  // Sibling map: each past turn's persisted reasoning/narration trail, so a
+  // reopened turn replays its thoughts, not just its tool cards (fix 1).
+  const selectedThreadTurnTranscripts = selectedThreadId
+    ? (turnTranscriptsByThread[selectedThreadId] ?? EMPTY_TURN_TRANSCRIPTS)
+    : EMPTY_TURN_TRANSCRIPTS;
   const pastTurnAnchors = useMemo(() => {
-    const anchors: Record<string, ToolTimelineEntry[]> = {};
+    const anchors: Record<
+      string,
+      { entries: ToolTimelineEntry[]; transcript: ProcessingTranscriptItem[] }
+    > = {};
     const seen = new Set<string>();
     for (const msg of timelineMessages) {
       if (msg.sender !== 'agent') continue;
       const requestId = msg.extraMetadata?.requestId;
       if (typeof requestId !== 'string' || seen.has(requestId)) continue;
-      const entries = selectedThreadTurnTimelines[requestId];
-      if (entries && entries.length > 0) {
-        anchors[msg.id] = entries;
+      const entries = selectedThreadTurnTimelines[requestId] ?? EMPTY_TRANSCRIPT_ENTRIES;
+      const transcript = selectedThreadTurnTranscripts[requestId] ?? EMPTY_TRANSCRIPT;
+      // Anchor the turn when it has EITHER tool rows OR a reasoning/narration
+      // trail — a tool-less turn (agent only thought/narrated) must still
+      // render its restored thoughts above its answer (fix 1).
+      if (entries.length > 0 || transcript.length > 0) {
+        anchors[msg.id] = { entries, transcript };
         seen.add(requestId);
       }
     }
     return anchors;
-  }, [timelineMessages, selectedThreadTurnTimelines]);
+  }, [timelineMessages, selectedThreadTurnTimelines, selectedThreadTurnTranscripts]);
   const activeSubagentTimelineEntry = selectedThreadToolTimeline.find(
     entry => entry.status === 'running' && entry.name.startsWith('subagent:')
   );
@@ -1860,6 +1891,12 @@ const Conversations = ({
     : null;
   const selectedStreamingAssistant = selectedThreadId
     ? (streamingAssistantByThread[selectedThreadId] ?? null)
+    : null;
+  // The partial reply an interrupted turn left behind (restore-fidelity fix 2):
+  // surfaced as a settled, marked-interrupted bubble on restore so a turn that
+  // crashed mid-answer keeps its visible work instead of rendering blank.
+  const selectedInterruptedAssistant = selectedThreadId
+    ? (interruptedAssistantByThread[selectedThreadId] ?? null)
     : null;
   // Live streams for concurrent parallel (forked) turns on the selected thread,
   // rendered as separate interleaved branch bubbles.
@@ -1928,7 +1965,10 @@ const Conversations = ({
     isSending ||
     selectedThreadToolTimeline.length > 0 ||
     selectedThreadProcessing.length > 0 ||
-    Boolean(selectedStreamingAssistant);
+    Boolean(selectedStreamingAssistant) ||
+    // An interrupted turn's restored partial answer must surface too, even
+    // before the durable message history loads (restore-fidelity fix 2).
+    Boolean(selectedInterruptedAssistant);
 
   // Anchor the "Agentic task insights" panel right after the latest turn's user
   // message — processing happens *before* the answer, so it reads above the
@@ -2259,14 +2299,20 @@ const Conversations = ({
               // what keeps the marker text out of both the rendered bubble and
               // the copy-to-clipboard action.
               const parsedContent = parseMessageImages(msg.content ?? '');
-              const pastTurnEntries = pastTurnAnchors[msg.id];
+              const pastTurn = pastTurnAnchors[msg.id];
               return (
                 <Fragment key={msg.id}>
-                  {/* Past-turn process trail (Phase 5): each older settled turn's
-                      tool timeline, collapsed, above the answer it produced. */}
-                  {pastTurnEntries ? (
+                  {/* Past-turn process trail (Phase 5 + restore-fidelity fix 1):
+                      each older settled turn's interleaved reasoning/narration +
+                      tool steps (and restored sub-agent transcripts), collapsed,
+                      above the answer it produced. Falls back to tool-cards-only
+                      for legacy snapshots with no persisted transcript. */}
+                  {pastTurn ? (
                     <div data-testid="past-turn-insights">
-                      <ToolTimelineBlock entries={pastTurnEntries} />
+                      <PastTurnInsights
+                        entries={pastTurn.entries}
+                        transcript={pastTurn.transcript}
+                      />
                     </div>
                   ) : null}
                   <div>
@@ -2661,6 +2707,16 @@ const Conversations = ({
                   </div>
                 </div>
               )}
+            {/* Interrupted turn's partial answer (restore-fidelity fix 2):
+                  a settled, marked-interrupted bubble surfaced on restore. Only
+                  when NOT streaming live (the buffer is cleared by any live turn
+                  in the slice; this guard is belt-and-braces). */}
+            {!isSending && selectedInterruptedAssistant ? (
+              <InterruptedAnswer
+                content={selectedInterruptedAssistant.content}
+                thinking={selectedInterruptedAssistant.thinking}
+              />
+            ) : null}
             {/* Parallel (forked) branch streams — concurrent turns on this
                   thread, each its own labeled bubble so they don't collide with
                   the primary stream above. */}

@@ -2892,13 +2892,6 @@ pub async fn flows_update(
             existing.graph.clone()
         }
     };
-    // A graph-changing update must not bless an engine-unsafe topology as
-    // current. Metadata-only updates remain available for definitions saved by
-    // older builds; authoritative run/resume boundaries still fail closed.
-    if graph_changed {
-        ensure_engine_compatible(&graph)?;
-    }
-
     // B29 Rule 1 analogue: disarm every manual/none → automatic trigger
     // transition, unconditionally — see the doc comment above for why this
     // must NOT gate on the (possibly stale) `existing.enabled` read.

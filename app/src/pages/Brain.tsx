@@ -121,7 +121,10 @@ export default function Brain() {
   const { snapshot } = useCoreState();
   const authUserId = snapshot.auth.userId;
 
-  const sub = useSubconscious();
+  // Only poll subconscious/heartbeat status while its own tab is showing — the
+  // data is consumed nowhere else, so other tabs (incl. the folded-in
+  // Orchestration sub-tab) shouldn't keep those RPCs running.
+  const sub = useSubconscious(activeTab === 'subconscious');
 
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
     setToasts(prev => [...prev, { ...toast, id: `toast-${Date.now()}-${Math.random()}` }]);
@@ -132,6 +135,15 @@ export default function Brain() {
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
   useEffect(() => {
+    // Orchestration is a full-bleed sub-tab that never renders the memory graph,
+    // so skip the export RPC + memory-tree listener entirely while it's active.
+    // Without this, folding Orchestration under Brain would fire an unrelated
+    // graph load on every `/brain?tab=orchestration` (and redirected
+    // `/orchestration`) visit, which the old standalone page never did.
+    if (activeTab === 'orchestration') {
+      console.debug('[brain] graph fetch: skipped (orchestration tab)');
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       console.debug('[brain] graph fetch: entry mode=%s', mode);
@@ -163,8 +175,10 @@ export default function Brain() {
     };
     // `authUserId` is a dependency so a logout→login (identity becomes
     // available again) re-pulls the persisted graph instead of leaving the
-    // signed-out empty state on screen (#4149).
-  }, [mode, refreshKey, authUserId]);
+    // signed-out empty state on screen (#4149). `activeTab` gates the fetch off
+    // on the Orchestration sub-tab (and re-runs it when returning to a
+    // graph-bearing tab).
+  }, [mode, refreshKey, authUserId, activeTab]);
 
   const cardClass = 'rounded-lg border border-line bg-surface p-4';
 

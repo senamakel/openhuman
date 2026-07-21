@@ -132,6 +132,15 @@ run_scenario() {
             echo "ERROR: run $i for scenario '$label' did not produce valid JSON: $run_file" >&2
             exit 1
         fi
+
+        # library-heap.sh clobbers target/release/library-profile with the
+        # rss-bench-dhat build, whose allocator perturbs RSS/timing. The dhat
+        # binary marks its output, so refuse to benchmark it.
+        if [[ "$(jq -r '.dhat // false' "$run_file")" == "true" ]]; then
+            echo "ERROR: $BIN was built with rss-bench-dhat (library-heap.sh clobbered it)." >&2
+            echo "       Re-run without --skip-build to rebuild the plain rss-bench binary." >&2
+            exit 1
+        fi
     done
 }
 

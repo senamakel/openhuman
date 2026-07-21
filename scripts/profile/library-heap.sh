@@ -6,6 +6,11 @@
 # library-bench.sh / library-cpu.sh for RSS and CPU numbers; use this script
 # only for live-heap attribution (allocation sites, retained bytes).
 #
+# This build REPLACES target/release/library-profile with the dhat variant.
+# A later `library-bench.sh --skip-build` would pick it up; the bench script
+# detects the dhat marker in the output JSON and refuses, but the clean fix
+# is to rerun library-bench.sh without --skip-build afterwards.
+#
 # Usage:
 #   ./scripts/profile/library-heap.sh <scenario> [-- <extra env VAR=value>...]
 #

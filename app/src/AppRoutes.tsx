@@ -46,24 +46,40 @@ interface AppRoutesProps {
 const NETWORK_SUBS = ['connections', 'discover', 'usage'];
 const ORCH_VIEWS = ['medulla', 'agent', 'overview', 'tasks', 'network'];
 
-function OrchestrationRedirect() {
+export function OrchestrationRedirect() {
   const { search } = useLocation();
   const legacy = new URLSearchParams(search);
   const tab = legacy.get('tab');
+  // Privacy-safe: only the allowlisted branch id and whether a session param was
+  // present are logged — never the session value or any raw query string.
+  console.debug(
+    '[routes] orchestration-redirect: entry tab=%s',
+    tab && ORCH_VIEWS.includes(tab) ? tab : tab && NETWORK_SUBS.includes(tab) ? tab : '<unmapped>'
+  );
 
   const next = new URLSearchParams();
   next.set('tab', 'orchestration');
+  let branch: string;
   if (tab && NETWORK_SUBS.includes(tab)) {
     next.set('ov', 'network');
     next.set('sub', tab);
+    branch = 'network-sub';
   } else {
     if (tab && ORCH_VIEWS.includes(tab)) next.set('ov', tab);
     const sub = legacy.get('sub');
     if (sub && NETWORK_SUBS.includes(sub)) next.set('sub', sub);
+    branch = tab && ORCH_VIEWS.includes(tab) ? 'view' : 'default';
   }
   const session = legacy.get('session');
   if (session) next.set('session', session);
 
+  console.debug(
+    '[routes] orchestration-redirect: exit branch=%s ov=%s hasSub=%s hasSession=%s',
+    branch,
+    next.get('ov') ?? '<none>',
+    next.has('sub'),
+    next.has('session')
+  );
   return <Navigate to={`/brain?${next.toString()}`} replace />;
 }
 

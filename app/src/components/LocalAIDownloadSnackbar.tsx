@@ -105,7 +105,14 @@ const LocalAIDownloadSnackbar = () => {
         if (downloadsRes.result) setDownloads(downloadsRes.result);
         // The download reached a terminal state — stop the fast poll early
         // rather than waiting for core state to catch up (it lags up to ~5s).
-        settled = !isDownloadInFlight(statusRes.result ?? null, downloadsRes.result ?? null);
+        // A successful response that carries no `result` (a soft failure, not a
+        // thrown error) must be treated as transient, not as "download
+        // complete" — otherwise one empty blip would permanently freeze the
+        // fast poll for the rest of the download (same failure mode the catch
+        // below guards against for thrown errors).
+        if (statusRes.result || downloadsRes.result) {
+          settled = !isDownloadInFlight(statusRes.result ?? null, downloadsRes.result ?? null);
+        }
       } catch (err) {
         // Transient RPC failure (core may be busy). Do NOT treat this as
         // settled: keep polling while core state still reports the download

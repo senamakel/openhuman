@@ -50,7 +50,6 @@ export type TimelineItem = TimelineItemBase &
         /** True for a `parallelStreamsByThread` forked branch. */
         branch: boolean;
       }
-    | { kind: 'reasoning'; text: string; settled: boolean }
     | {
         kind: 'toolCall';
         /** The underlying runtime row (rendered via `ToolTimelineBlock`). */
@@ -75,11 +74,7 @@ export type TimelineItem = TimelineItemBase &
 export type TimelineItemKind = TimelineItem['kind'];
 
 /** The "agent process" kinds that `hideAgentInsights` suppresses. */
-export const AGENT_INSIGHT_KINDS: readonly TimelineItemKind[] = [
-  'toolCall',
-  'subagentActivity',
-  'reasoning',
-];
+export const AGENT_INSIGHT_KINDS: readonly TimelineItemKind[] = ['toolCall', 'subagentActivity'];
 
 /** A contiguous group of items sharing a `turnId`, in render order. */
 export interface TimelineTurn {

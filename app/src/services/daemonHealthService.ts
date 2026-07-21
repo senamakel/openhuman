@@ -21,7 +21,14 @@ import { getCoreStateSnapshot } from '../lib/coreState/store';
 
 export class DaemonHealthService {
   private healthTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private readonly HEALTH_TIMEOUT_MS = 30000;
+  // Health now arrives folded into `app_state_snapshot`, which is allowed to run
+  // for up to `SNAPSHOT_TIMEOUT_MS` (90s) — first-launch snapshots legitimately
+  // take 30–40s. The disconnect watchdog must therefore tolerate one worst-case
+  // slow snapshot (plus the poll cadence) between successful ingests, or a merely
+  // slow-but-alive core would be marked `disconnected`. 120s covers the 90s cap
+  // with margin; genuine disconnection (snapshots stop succeeding entirely) is
+  // still detected, just less aggressively than the old dedicated 2s poll.
+  private readonly HEALTH_TIMEOUT_MS = 120000;
 
   /**
    * Ingest a health payload carried by an `app_state_snapshot` refresh. Parses

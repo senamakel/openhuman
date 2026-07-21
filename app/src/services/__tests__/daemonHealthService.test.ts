@@ -56,13 +56,25 @@ describe('DaemonHealthService.ingestHealthSnapshot', () => {
     service.cleanup();
   });
 
+  it('does not mark disconnected during a slow-but-alive snapshot window', () => {
+    const service = new DaemonHealthService();
+    service.ingestHealthSnapshot(healthPayload());
+
+    // A first-launch app_state_snapshot can legitimately take 30–40s; the
+    // watchdog must NOT false-fire while one slow snapshot is in flight.
+    vi.advanceTimersByTime(60000);
+    expect(mockedSetStatus).not.toHaveBeenCalled();
+
+    service.cleanup();
+  });
+
   it('marks the daemon disconnected when no snapshot arrives within the timeout', () => {
     const service = new DaemonHealthService();
     service.ingestHealthSnapshot(healthPayload());
     expect(mockedSetStatus).not.toHaveBeenCalled();
 
-    // No further ingest for the watchdog window → disconnected.
-    vi.advanceTimersByTime(30000);
+    // No further ingest for the full watchdog window → disconnected.
+    vi.advanceTimersByTime(120000);
     expect(mockedSetStatus).toHaveBeenCalledWith(expect.any(String), 'disconnected');
 
     service.cleanup();
@@ -72,14 +84,14 @@ describe('DaemonHealthService.ingestHealthSnapshot', () => {
     const service = new DaemonHealthService();
     service.ingestHealthSnapshot(healthPayload());
 
-    // A fresh snapshot just before the deadline pushes it out.
-    vi.advanceTimersByTime(25000);
+    // A fresh snapshot before the deadline pushes it out.
+    vi.advanceTimersByTime(100000);
     service.ingestHealthSnapshot(healthPayload());
-    vi.advanceTimersByTime(25000);
+    vi.advanceTimersByTime(100000);
     expect(mockedSetStatus).not.toHaveBeenCalled();
 
     // Then go quiet past the window → disconnected.
-    vi.advanceTimersByTime(30000);
+    vi.advanceTimersByTime(120000);
     expect(mockedSetStatus).toHaveBeenCalledWith(expect.any(String), 'disconnected');
 
     service.cleanup();

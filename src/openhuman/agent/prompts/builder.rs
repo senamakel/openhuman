@@ -156,7 +156,24 @@ impl SystemPromptBuilder {
         builder: crate::openhuman::agent::harness::definition::PromptBuilder,
     ) -> Self {
         Self {
-            sections: vec![Box::new(DynamicPromptSection::new(builder))],
+            sections: vec![
+                Box::new(DynamicPromptSection::new(builder)),
+                // Project instructions (AGENTS.md). The ~26 dynamic
+                // `agents/<id>/prompt.rs` builders (orchestrator / main chat,
+                // welcome, integrations_agent, …) hand-assemble their own body
+                // via the `render_*` helpers and none of them individually call
+                // `render_agents_md`, so the pre-loaded AGENTS.md layers on
+                // `PromptContext` would otherwise be silently dropped for the
+                // primary agent. Inject the shared section centrally here —
+                // mirroring how `build()` appends the grounding contract for all
+                // dynamic builders — so every dynamic agent inherits the same
+                // AGENTS.md injection as the `with_defaults` / `for_subagent`
+                // chains. Rendered after the agent's own body (as trailing
+                // standing guidance) and before the central grounding suffix.
+                // Empty (skipped) when neither layer carries content or the
+                // `agents_md_enabled` gate is off.
+                Box::new(AgentsInstructionsSection),
+            ],
         }
     }
 

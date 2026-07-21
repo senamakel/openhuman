@@ -2070,6 +2070,42 @@ fn agents_md_section_registered_in_default_builder() {
 }
 
 #[test]
+fn agents_md_section_registered_in_dynamic_builder() {
+    // The primary/orchestrator + welcome + integrations_agent path:
+    // `PromptSource::Dynamic` agents assemble their own body via `render_*`
+    // helpers and never call `render_agents_md` individually, so the shared
+    // AGENTS.md section is injected centrally in `from_dynamic`. Without this
+    // the main chat agent would load AGENTS.md but silently drop it from the
+    // system prompt.
+    fn dynamic_body(_ctx: &PromptContext<'_>) -> anyhow::Result<String> {
+        Ok("DYNAMIC_AGENT_BODY".to_string())
+    }
+    let ctx = agents_md_ctx(Some("DYNAMIC_GLOBAL_MARKER".into()), None);
+    let rendered = SystemPromptBuilder::from_dynamic(dynamic_body)
+        .build(&ctx)
+        .unwrap();
+    assert!(
+        rendered.contains("DYNAMIC_AGENT_BODY"),
+        "the dynamic agent body must render"
+    );
+    assert!(
+        rendered.contains("## Project instructions (AGENTS.md)"),
+        "from_dynamic() must include the AGENTS.md section for the main/orchestrator agent"
+    );
+    assert!(rendered.contains("DYNAMIC_GLOBAL_MARKER"));
+    // Ordering contract: the agent's own body renders first, AGENTS.md follows
+    // as trailing standing guidance (before the central grounding suffix).
+    let body_pos = rendered.find("DYNAMIC_AGENT_BODY").unwrap();
+    let agents_pos = rendered
+        .find("## Project instructions (AGENTS.md)")
+        .unwrap();
+    assert!(
+        body_pos < agents_pos,
+        "AGENTS.md must render after the dynamic agent body"
+    );
+}
+
+#[test]
 fn agents_md_section_registered_in_subagent_builder() {
     let ctx = agents_md_ctx(None, Some("SUBAGENT_BUILDER_MARKER".into()));
     let builder = SystemPromptBuilder::for_subagent("role body".into(), true, true, true);

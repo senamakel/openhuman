@@ -768,32 +768,97 @@ pub(crate) fn snapshot_for_parent(parent_session: &str) -> Vec<SubagentSnapshot>
     out
 }
 
+/// Most-recent durable sessions surfaced in the roster when they are not in
+/// the live registry (cold boot / later turn). Bounds prompt growth on
+/// threads with a long delegation history.
+const DURABLE_ROSTER_CAP: usize = 12;
+
 /// Build the ambient `[active_subagents]` block prepended to a parent's turn
-/// context when it has async/parallel workers registered. Returns `None` when the
-/// parent owns no registered sub-agents, so the block only appears when it is
-/// actionable — turns for agents that never spawn are untouched. Mirrors the
-/// thread-goal `[active_goal]` block: it rides the per-turn context (not the
-/// cached system-prompt prefix), so it reflects live status every turn.
-pub(crate) fn active_subagents_context_block(parent_session: &str) -> Option<String> {
+/// context. Returns `None` when the parent owns no sub-agents at all, so the
+/// block only appears when it is actionable — turns for agents that never
+/// spawn are untouched. Mirrors the thread-goal `[active_goal]` block: it
+/// rides the per-turn context (not the cached system-prompt prefix), so it
+/// reflects live status every turn.
+///
+/// The roster merges two sources:
+/// 1. the in-memory registry (live async workers spawned this process), and
+/// 2. the durable per-workspace `subagent_sessions` store — workers from
+///    EARLIER turns / process lifetimes. Without this second source a
+///    cold-booted parent had no idea its previous sub-agents existed and
+///    would re-delegate from scratch instead of resuming by
+///    `subagent_session_id` (the "fresh context from day 0" bug).
+pub(crate) fn active_subagents_context_block(
+    parent_session: &str,
+    workspace_dir: &std::path::Path,
+) -> Option<String> {
     let workers = snapshot_for_parent(parent_session);
-    if workers.is_empty() {
+
+    // Durable sessions not already represented by a live registry entry.
+    let live_session_ids: std::collections::HashSet<String> = workers
+        .iter()
+        .filter_map(|w| w.subagent_session_id.clone())
+        .collect();
+    let store = crate::openhuman::agent_orchestration::subagent_sessions::SubagentSessionStore {
+        workspace_dir: workspace_dir.to_path_buf(),
+    };
+    let durable: Vec<_> =
+        match crate::openhuman::agent_orchestration::subagent_sessions::list_for_parent(
+            &store,
+            parent_session,
+            None,
+        ) {
+            Ok(sessions) => sessions
+                .into_iter()
+                .filter(|s| {
+                    use crate::openhuman::agent_orchestration::subagent_sessions::DurableSubagentStatus;
+                    s.status != DurableSubagentStatus::Closed
+                        && !live_session_ids.contains(&s.subagent_session_id)
+                })
+                .take(DURABLE_ROSTER_CAP)
+                .collect(),
+            Err(err) => {
+                log::warn!(
+                    "[running_subagents] durable roster load failed parent_session={parent_session} error={err}"
+                );
+                Vec::new()
+            }
+        };
+
+    if workers.is_empty() && durable.is_empty() {
         return None;
     }
     let mut block = format!(
         "[active_subagents]\n\
-         You have {} background sub-agent(s) in flight (spawned earlier this session). \
-         This is your live roster — trust it over memory. Track each by subagent_session_id; \
-         use wait_subagent to collect a `completed` one, steer_subagent to redirect a `running` \
-         one, continue_subagent to answer an `awaiting_user` one, close_subagent when done, and \
-         list_subagents to re-enumerate. Never fabricate a result for a worker still running or \
-         one that has failed.\n",
-        workers.len()
+         You have {} sub-agent worker(s) for this conversation (live and/or from earlier \
+         turns). This is your authoritative roster — trust it over memory. Track each by \
+         subagent_session_id; use wait_subagent to collect a `completed` one, steer_subagent \
+         to redirect a `running` one, continue_subagent to answer an `awaiting_user` one or \
+         to RESUME an `idle` one with a follow-up (it keeps its full prior context — do NOT \
+         re-delegate the same task from scratch), close_subagent when done, and \
+         list_subagents to re-enumerate. Never fabricate a result for a worker still running \
+         or one that has failed.\n",
+        workers.len() + durable.len()
     );
     for w in &workers {
         let session = w.subagent_session_id.as_deref().unwrap_or("(none)");
         block.push_str(&format!(
             "- {} · session={} · task={} · status={}\n",
             w.agent_id, session, w.task_id, w.status
+        ));
+    }
+    for s in &durable {
+        use crate::openhuman::agent_orchestration::subagent_sessions::DurableSubagentStatus;
+        let status = match s.status {
+            DurableSubagentStatus::Running => "running",
+            DurableSubagentStatus::Idle => "idle",
+            DurableSubagentStatus::AwaitingUser => "awaiting_user",
+            DurableSubagentStatus::Failed => "failed",
+            DurableSubagentStatus::Closed => "closed",
+        };
+        let task = s.current_task_id.as_deref().unwrap_or("(none)");
+        block.push_str(&format!(
+            "- {} · session={} · task={} · status={} · about: {}\n",
+            s.agent_id, s.subagent_session_id, task, status, s.task_title
         ));
     }
     block.push_str("[/active_subagents]\n\n");
@@ -1612,15 +1677,70 @@ mod tests {
         assert_eq!(snap[1].agent_id, "researcher");
         assert_eq!(snap[1].status, "running");
 
-        let block = active_subagents_context_block("fleet-parent").expect("block present");
+        let block = active_subagents_context_block("fleet-parent", &test_workspace())
+            .expect("block present");
         assert!(block.contains("[active_subagents]"));
-        assert!(block.contains("You have 2 background sub-agent(s)"));
+        assert!(block.contains("You have 2 sub-agent worker(s)"));
         assert!(block.contains("session=subsess-a"));
         assert!(block.contains("session=subsess-b · task=task-fleet-b · status=awaiting_user"));
         assert!(block.ends_with("[/active_subagents]\n\n"));
 
         // A parent with no registered workers gets no block (no perturbation).
-        assert!(active_subagents_context_block("nobody-here").is_none());
+        assert!(active_subagents_context_block("nobody-here", &test_workspace()).is_none());
+
+        // Durable-store fallback: a session persisted by an EARLIER turn /
+        // process lifetime (empty live registry for this parent) must still
+        // surface in the roster, so a cold-booted orchestrator can resume by
+        // subagent_session_id instead of re-delegating from scratch.
+        {
+            use crate::openhuman::agent::harness::subagent_runner::SubagentRunStatus;
+            use crate::openhuman::agent_orchestration::subagent_sessions::{
+                self, SubagentSessionSelector, SubagentSessionStore, SubagentSessionUpsert,
+            };
+            let durable_ws = tempfile::tempdir().expect("durable roster tempdir");
+            let store = SubagentSessionStore {
+                workspace_dir: durable_ws.path().to_path_buf(),
+            };
+            let session = subagent_sessions::upsert_running(
+                &store,
+                SubagentSessionUpsert {
+                    selector: SubagentSessionSelector {
+                        parent_session: "cold-parent".into(),
+                        parent_thread_id: Some("thread-cold".into()),
+                        agent_id: "workflow_builder".into(),
+                        toolkit: None,
+                        model: None,
+                        sandbox_mode: "None".into(),
+                        action_root: None,
+                        task_key: "daily-x-trending".into(),
+                    },
+                    display_name: Some("Workflow Builder".into()),
+                    task_title: "Daily X trending email workflow".into(),
+                    worker_thread_id: None,
+                    task_id: "task-cold-1".into(),
+                },
+                None,
+            )
+            .expect("upsert durable session");
+            subagent_sessions::mark_finished(
+                &store,
+                &session.subagent_session_id,
+                "task-cold-1",
+                &SubagentRunStatus::Completed,
+                Vec::new(),
+            )
+            .expect("mark idle");
+
+            let block = active_subagents_context_block("cold-parent", durable_ws.path())
+                .expect("durable-only roster present");
+            assert!(block.contains(&format!("session={}", session.subagent_session_id)));
+            assert!(block.contains("status=idle"));
+            assert!(block.contains("about: Daily X trending email workflow"));
+            // Other parents' durable sessions must not leak in.
+            assert!(
+                active_subagents_context_block("unrelated-parent", durable_ws.path()).is_none()
+            );
+        }
 
         let _ = tx_a.send(SubagentStatus::Completed {
             output: "x".into(),

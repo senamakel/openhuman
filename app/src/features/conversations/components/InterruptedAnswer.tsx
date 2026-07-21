@@ -13,13 +13,7 @@ import { BubbleMarkdown } from './AgentMessageBubble';
  * list — it is a restore-time surfacing of what the agent had produced, so the
  * user sees the partial work instead of a blank turn.
  */
-export function InterruptedAnswer({
-  content,
-  thinking,
-}: {
-  content: string;
-  thinking: string;
-}) {
+export function InterruptedAnswer({ content, thinking }: { content: string; thinking: string }) {
   const { t } = useT();
   const trimmedContent = content.trim();
   const trimmedThinking = thinking.trim();

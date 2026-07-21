@@ -1,9 +1,9 @@
 /**
  * Brain — the centerpiece memory + subconscious surface.
  *
- * Two sub-tabs:
- *   - **Memory**: knowledge graph, tree status, and connected sources.
- *   - **Subconscious**: background thinking engine controls.
+ * Sub-tabs: Welcome, Graph, Goals, Sources, Sync, Subconscious, and
+ * **Orchestration** (the TinyPlace multi-agent surface, folded back in from the
+ * former top-level `/orchestration` tab — see {@link OrchestrationView}).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -23,6 +23,7 @@ import PageWelcome from '../components/layout/PageWelcome';
 import PanelPage from '../components/layout/PanelPage';
 import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
+import OrchestrationView from '../components/orchestration/OrchestrationView';
 import BetaBanner from '../components/ui/BetaBanner';
 import { useSubconscious } from '../hooks/useSubconscious';
 import { useT } from '../lib/i18n/I18nContext';
@@ -34,7 +35,14 @@ import {
   memoryTreeGraphExport,
 } from '../utils/tauriCommands';
 
-type BrainTab = 'welcome' | 'graph' | 'goals' | 'sources' | 'sync' | 'subconscious';
+type BrainTab =
+  | 'welcome'
+  | 'graph'
+  | 'goals'
+  | 'sources'
+  | 'sync'
+  | 'subconscious'
+  | 'orchestration';
 
 /** Small inline icon helper for the Brain sidebar nav. */
 const navIcon = (d: string) => (
@@ -50,10 +58,18 @@ const BRAIN_TABS: readonly BrainTab[] = [
   'sources',
   'sync',
   'subconscious',
+  'orchestration',
 ];
 
-/** Canonical text header (title + one-line description) per functional tab. */
-const BRAIN_HEADERS: Record<Exclude<BrainTab, 'welcome'>, { titleKey: string; descKey: string }> = {
+/**
+ * Canonical text header (title + one-line description) per functional tab.
+ * Orchestration is excluded — it renders its own full-bleed surface
+ * ({@link OrchestrationView}) with its own chip nav, not the shared scaffold.
+ */
+const BRAIN_HEADERS: Record<
+  Exclude<BrainTab, 'welcome' | 'orchestration'>,
+  { titleKey: string; descKey: string }
+> = {
   graph: { titleKey: 'brain.tabs.graph', descKey: 'brain.header.graph' },
   goals: { titleKey: 'brain.tabs.goals', descKey: 'brain.header.goals' },
   sources: { titleKey: 'brain.tabs.sources', descKey: 'brain.header.sources' },
@@ -79,12 +95,13 @@ export default function Brain() {
     },
     [location.pathname, location.search, navigate]
   );
-  // Back-compat: TinyPlace Orchestration was promoted out of Brain into the
-  // top-level `/orchestration` tab. Bounce the old deep link there.
+  // Back-compat: the old `?tab=tinyplace-orchestration` slug (from when
+  // Orchestration was briefly a top-level tab) now maps to the folded-in
+  // Orchestration sub-tab.
   useEffect(() => {
     if (new URLSearchParams(location.search).get('tab') === 'tinyplace-orchestration') {
-      console.debug('[brain] legacy tinyplace-orchestration deep link → /orchestration');
-      navigate('/orchestration', { replace: true });
+      console.debug('[brain] legacy tinyplace-orchestration deep link → ?tab=orchestration');
+      navigate('/brain?tab=orchestration', { replace: true });
     }
   }, [location.search, navigate]);
 
@@ -201,144 +218,168 @@ export default function Brain() {
                       'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z'
                     ),
                   },
+                  {
+                    // TinyPlace multi-agent orchestration, folded back under
+                    // Brain from the former top-level `/orchestration` tab.
+                    value: 'orchestration',
+                    label: t('brain.tabs.orchestration'),
+                    icon: navIcon(
+                      'M12 7v3m0 0l-5.5 6M12 10l5.5 6M12 5a2 2 0 100 0M5 19a2 2 0 100 0M19 19a2 2 0 100 0'
+                    ),
+                  },
                 ],
               },
             ]}
           />
         </div>
       </SidebarContent>
-      <div className="mx-auto h-full w-full max-w-5xl">
-        {activeTab === 'welcome' ? (
-          <PageWelcome
-            testId="brain-welcome"
-            accent="sage"
-            icon="🧠"
-            eyebrow={t('brain.welcome.eyebrow')}
-            title={t('brain.welcome.title')}
-            description={t('brain.welcome.body')}
-            ctas={[
-              {
-                label: t('brain.welcome.ctaGraph'),
-                icon: '🕸️',
-                onClick: () => setActiveTab('graph'),
-                testId: 'brain-welcome-cta-graph',
-              },
-              {
-                label: t('brain.welcome.ctaGoals'),
-                icon: '🎯',
-                onClick: () => setActiveTab('goals'),
-              },
-              {
-                label: t('brain.welcome.ctaSources'),
-                icon: '🔗',
-                onClick: () => setActiveTab('sources'),
-              },
-            ]}
-            featuresHeading={t('brain.welcome.featsLabel')}
-            features={[
-              {
-                icon: '🕸️',
-                title: t('brain.welcome.feat1Title'),
-                description: t('brain.welcome.feat1Body'),
-              },
-              {
-                icon: '🎯',
-                title: t('brain.welcome.feat2Title'),
-                description: t('brain.welcome.feat2Body'),
-              },
-              {
-                icon: '🔄',
-                title: t('brain.welcome.feat3Title'),
-                description: t('brain.welcome.feat3Body'),
-              },
-            ]}
-          />
-        ) : (
-          /* All tabs share the standard scaffold: a single scrolling body,
+      {activeTab === 'orchestration' ? (
+        // Full-bleed: OrchestrationView renders its own chip nav + surfaces
+        // (chat, graph, task board), which need the full content width — so it
+        // sits outside the shared max-w scaffold the other tabs use.
+        <div className="h-full">
+          <OrchestrationView />
+        </div>
+      ) : (
+        <div className="mx-auto h-full w-full max-w-5xl">
+          {activeTab === 'welcome' ? (
+            <PageWelcome
+              testId="brain-welcome"
+              accent="sage"
+              icon="🧠"
+              eyebrow={t('brain.welcome.eyebrow')}
+              title={t('brain.welcome.title')}
+              description={t('brain.welcome.body')}
+              ctas={[
+                {
+                  label: t('brain.welcome.ctaGraph'),
+                  icon: '🕸️',
+                  onClick: () => setActiveTab('graph'),
+                  testId: 'brain-welcome-cta-graph',
+                },
+                {
+                  label: t('brain.welcome.ctaGoals'),
+                  icon: '🎯',
+                  onClick: () => setActiveTab('goals'),
+                },
+                {
+                  label: t('brain.welcome.ctaSources'),
+                  icon: '🔗',
+                  onClick: () => setActiveTab('sources'),
+                },
+              ]}
+              featuresHeading={t('brain.welcome.featsLabel')}
+              features={[
+                {
+                  icon: '🕸️',
+                  title: t('brain.welcome.feat1Title'),
+                  description: t('brain.welcome.feat1Body'),
+                },
+                {
+                  icon: '🎯',
+                  title: t('brain.welcome.feat2Title'),
+                  description: t('brain.welcome.feat2Body'),
+                },
+                {
+                  icon: '🔄',
+                  title: t('brain.welcome.feat3Title'),
+                  description: t('brain.welcome.feat3Body'),
+                },
+              ]}
+            />
+          ) : (
+            /* All tabs share the standard scaffold: a single scrolling body,
             all custom controls live inside it. Each tab opens with the canonical
             header card (title + one-line description), aligned to the content. */
-          <PanelPage contentClassName="p-4">
-            <div className="mx-auto max-w-3xl space-y-5">
-              <PageSectionHeader
-                title={t(BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome'>].titleKey)}
-                description={t(BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome'>].descKey)}
-              />
-              {activeTab === 'graph' && (
-                <div className="space-y-5 animate-fade-up">
-                  <MemoryControls
-                    mode={mode}
-                    onModeChange={setMode}
-                    onRefresh={refresh}
-                    onToast={addToast}
-                    contentRootAbs={graph?.content_root_abs}
-                  />
-
-                  {graph ? (
-                    <MemoryGraph
-                      nodes={graph.nodes}
-                      edges={graph.edges}
+            <PanelPage contentClassName="p-4">
+              <div className="mx-auto max-w-3xl space-y-5">
+                <PageSectionHeader
+                  title={t(
+                    BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome' | 'orchestration'>]
+                      .titleKey
+                  )}
+                  description={t(
+                    BRAIN_HEADERS[activeTab as Exclude<BrainTab, 'welcome' | 'orchestration'>]
+                      .descKey
+                  )}
+                />
+                {activeTab === 'graph' && (
+                  <div className="space-y-5 animate-fade-up">
+                    <MemoryControls
                       mode={mode}
-                      emptyHint={t('brain.empty')}
+                      onModeChange={setMode}
+                      onRefresh={refresh}
+                      onToast={addToast}
+                      contentRootAbs={graph?.content_root_abs}
                     />
-                  ) : error ? (
-                    <div
-                      className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
-                      role="alert">
-                      {t('brain.error')}
+
+                    {graph ? (
+                      <MemoryGraph
+                        nodes={graph.nodes}
+                        edges={graph.edges}
+                        mode={mode}
+                        emptyHint={t('brain.empty')}
+                      />
+                    ) : error ? (
+                      <div
+                        className={`${cardClass} text-sm text-coral-600 dark:text-coral-400`}
+                        role="alert">
+                        {t('brain.error')}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+                {activeTab === 'goals' && <GoalsPanel />}
+
+                {activeTab === 'sources' && (
+                  <div className="space-y-5 animate-fade-up">
+                    <CodingSessionsCard onToast={addToast} />
+                    <MemorySourcesRegistry onToast={addToast} />
+                  </div>
+                )}
+
+                {activeTab === 'sync' && (
+                  <div className="space-y-5 animate-fade-up">
+                    <div className={cardClass}>
+                      <MemoryTreeStatusPanel onToast={addToast} />
                     </div>
-                  ) : null}
-                </div>
-              )}
-
-              {activeTab === 'goals' && <GoalsPanel />}
-
-              {activeTab === 'sources' && (
-                <div className="space-y-5 animate-fade-up">
-                  <CodingSessionsCard onToast={addToast} />
-                  <MemorySourcesRegistry onToast={addToast} />
-                </div>
-              )}
-
-              {activeTab === 'sync' && (
-                <div className="space-y-5 animate-fade-up">
-                  <div className={cardClass}>
-                    <MemoryTreeStatusPanel onToast={addToast} />
-                  </div>
-                  {/* Sync history relocated from the Memory Inspection panel so
+                    {/* Sync history relocated from the Memory Inspection panel so
                       the Sync tab is the single sync surface. */}
-                  <div className={cardClass} data-testid="brain-sync-history">
-                    <h3 className="mb-2 text-sm font-medium text-content-secondary">
-                      {t('sync.auditTitle', 'Sync History')}
-                    </h3>
-                    <SyncAuditPanel />
+                    <div className={cardClass} data-testid="brain-sync-history">
+                      <h3 className="mb-2 text-sm font-medium text-content-secondary">
+                        {t('sync.auditTitle', 'Sync History')}
+                      </h3>
+                      <SyncAuditPanel />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {activeTab === 'subconscious' && (
-                <div className="space-y-3 animate-fade-up">
-                  <BetaBanner />
-                  <div className={cardClass}>
-                    <IntelligenceSubconsciousTab
-                      status={sub.status}
-                      instances={sub.instances}
-                      mode={sub.mode}
-                      intervalMinutes={sub.intervalMinutes}
-                      triggerTick={sub.triggerTick}
-                      triggering={sub.triggering}
-                      isTriggering={sub.isTriggering}
-                      settingMode={sub.settingMode}
-                      setMode={sub.setMode}
-                      setIntervalMinutes={sub.setIntervalMinutes}
-                    />
+                {activeTab === 'subconscious' && (
+                  <div className="space-y-3 animate-fade-up">
+                    <BetaBanner />
+                    <div className={cardClass}>
+                      <IntelligenceSubconsciousTab
+                        status={sub.status}
+                        instances={sub.instances}
+                        mode={sub.mode}
+                        intervalMinutes={sub.intervalMinutes}
+                        triggerTick={sub.triggerTick}
+                        triggering={sub.triggering}
+                        isTriggering={sub.isTriggering}
+                        settingMode={sub.settingMode}
+                        setMode={sub.setMode}
+                        setIntervalMinutes={sub.setIntervalMinutes}
+                      />
+                    </div>
+                    <SubconsciousTriggersPanel />
                   </div>
-                  <SubconsciousTriggersPanel />
-                </div>
-              )}
-            </div>
-          </PanelPage>
-        )}
-      </div>
+                )}
+              </div>
+            </PanelPage>
+          )}
+        </div>
+      )}
 
       <ToastContainer notifications={toasts} onRemove={removeToast} />
     </div>

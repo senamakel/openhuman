@@ -39,6 +39,12 @@ impl SystemPromptBuilder {
                 // get their user files (welcome / orchestrator / the
                 // trigger pair).
                 Box::new(UserFilesSection),
+                // Project instructions (AGENTS.md) sit right after the user
+                // context and before the tool catalogue — standing, per-project
+                // guidance the model should read alongside identity/memory. Both
+                // layers are pre-loaded into `PromptContext` and this section is
+                // empty (skipped) when neither exists or the gate is off.
+                Box::new(AgentsInstructionsSection),
                 // User memory sits right after the identity bootstrap so the
                 // model has rich, persistent context about the user before it
                 // sees the tool catalogue. Section is empty (and skipped) when
@@ -100,6 +106,10 @@ impl SystemPromptBuilder {
         // onboarding + archivist context when `omit_profile` /
         // `omit_memory_md` are opted in.
         sections.push(Box::new(UserFilesSection));
+        // Project instructions (AGENTS.md) — same placement as the default
+        // chain (after user files, before tools). Empty (skipped) unless the
+        // caller pre-loaded content onto `PromptContext`.
+        sections.push(Box::new(AgentsInstructionsSection));
         // Tools section is always included — the sub-agent needs to see
         // its own (filtered) tool catalogue.
         sections.push(Box::new(ToolsSection));

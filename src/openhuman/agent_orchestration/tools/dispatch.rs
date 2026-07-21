@@ -6,7 +6,7 @@ use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunStatus,
 };
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::tools::traits::{ToolCallOptions, ToolResult};
+use crate::openhuman::tools::traits::{Tool as _, ToolCallOptions, ToolResult};
 use tinyagents::harness::tool::ToolExecutionContext;
 
 /// How a delegated sub-agent run should be scheduled relative to the parent
@@ -149,9 +149,19 @@ pub(crate) async fn dispatch_subagent(
                  (result will be delivered as a follow-up turn)",
                 definition.id
             );
-            return super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
-                .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
-                .await;
+            // Box the forwarded future: `SpawnAsyncSubagentTool`'s
+            // `execute_with_context` future is large, and embedding it inline
+            // in every delegation tool's future (which itself nests inside
+            // agent-turn futures) overflows the test-thread stack on deep
+            // parallel-delegation flows.
+            return Box::pin(
+                async move {
+                    super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
+                        .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
+                        .await
+                },
+            )
+            .await;
         }
         log::info!(
             "[agent] {tool_name}: async delegation requested but parent_turn={} \

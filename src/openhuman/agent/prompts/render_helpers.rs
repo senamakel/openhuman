@@ -250,6 +250,8 @@ pub fn render_subagent_system_prompt(
         options,
         tool_call_format,
         connected_integrations,
+        None,
+        None,
     )
 }
 
@@ -257,6 +259,14 @@ pub fn render_subagent_system_prompt(
 /// that know the active dispatcher format can thread it through. The
 /// public [`render_subagent_system_prompt`] defaults to PFormat for
 /// backwards compatibility.
+///
+/// `agents_md_global` / `agents_md_local` are the pre-loaded AGENTS.md layers
+/// (see [`super::agents_md::load_agents_md_layers`]); `None`/`None` (the value
+/// the public wrapper passes) renders no AGENTS.md block. When present they are
+/// injected as `## Project instructions (AGENTS.md)` right after the user files
+/// and before the tool catalogue — matching the section order of the default /
+/// sub-agent builders.
+#[allow(clippy::too_many_arguments)]
 pub fn render_subagent_system_prompt_with_format(
     workspace_dir: &Path,
     model_name: &str,
@@ -267,6 +277,8 @@ pub fn render_subagent_system_prompt_with_format(
     options: SubagentRenderOptions,
     tool_call_format: ToolCallFormat,
     _connected_integrations: &[ConnectedIntegration],
+    agents_md_global: Option<&str>,
+    agents_md_local: Option<&str>,
 ) -> String {
     let mut out = String::new();
 
@@ -323,6 +335,13 @@ pub fn render_subagent_system_prompt_with_format(
             out.push_str(&mem);
         }
     }
+
+    // 1d. Project instructions (AGENTS.md), pre-loaded by the caller and shared
+    //     with the section-based builders through `write_agents_md_blocks` so
+    //     the byte layout can never drift between the two paths. Placed after
+    //     the user files and before the tool catalogue, matching the default
+    //     section order. Skipped entirely when both layers are `None`.
+    write_agents_md_blocks(&mut out, agents_md_global, agents_md_local);
 
     // 2. Filtered tool catalogue. Indices are taken in ascending order
     //    from `allowed_indices`, which itself preserves `parent_tools`

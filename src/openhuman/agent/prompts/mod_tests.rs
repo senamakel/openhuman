@@ -808,6 +808,8 @@ fn render_subagent_system_prompt_honors_identity_safety_and_skills_flags() {
         },
         ToolCallFormat::Json,
         &[],
+        None,
+        None,
     );
 
     assert!(rendered.contains("## Project Context"));
@@ -835,6 +837,8 @@ fn render_subagent_system_prompt_honors_identity_safety_and_skills_flags() {
         SubagentRenderOptions::narrow(),
         ToolCallFormat::Native,
         &[],
+        None,
+        None,
     );
     assert!(native.contains("native tool-calling output"));
     assert!(!native.contains("## Safety"));
@@ -2086,5 +2090,54 @@ fn agents_md_section_absent_from_prompt_when_gate_off_yields_none() {
     assert!(
         !rendered.contains("## Project instructions (AGENTS.md)"),
         "gated-off (None/None) must not emit the AGENTS.md heading"
+    );
+}
+
+#[test]
+fn subagent_renderer_injects_agents_md_before_tools() {
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    let rendered = render_subagent_system_prompt_with_format(
+        Path::new("/tmp"),
+        "reasoning-v1",
+        &[0],
+        &tools,
+        &[],
+        "You are a specialist.",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::PFormat,
+        &[],
+        Some("WS_AGENTS_MARKER"),
+        Some("PROJ_AGENTS_MARKER"),
+    );
+    assert!(rendered.contains("## Project instructions (AGENTS.md)"));
+    assert!(rendered.contains("WS_AGENTS_MARKER"));
+    assert!(rendered.contains("PROJ_AGENTS_MARKER"));
+    let agents_pos = rendered
+        .find("## Project instructions (AGENTS.md)")
+        .expect("agents heading present");
+    let tools_pos = rendered.find("## Tools").expect("tools heading present");
+    assert!(
+        agents_pos < tools_pos,
+        "AGENTS.md must render before the tool catalogue in the subagent renderer"
+    );
+}
+
+#[test]
+fn subagent_renderer_omits_agents_md_when_none() {
+    let tools: Vec<Box<dyn Tool>> = vec![Box::new(TestTool)];
+    let rendered = render_subagent_system_prompt(
+        Path::new("/tmp"),
+        "reasoning-v1",
+        &[0],
+        &tools,
+        &[],
+        "You are a specialist.",
+        SubagentRenderOptions::narrow(),
+        ToolCallFormat::PFormat,
+        &[],
+    );
+    assert!(
+        !rendered.contains("## Project instructions (AGENTS.md)"),
+        "public wrapper passes None/None and must emit no AGENTS.md block"
     );
 }

@@ -152,6 +152,7 @@ test.describe('Settings - Advanced Config', () => {
       .locator('#composio-api-key')
       .locator('xpath=ancestor::div[.//button[normalize-space()="Save"]][1]')
       .getByRole('button', { name: 'Save' })
+      .first()
       .click();
 
     const confirm = page.getByRole('button', { name: 'I understand, switch to Direct' });

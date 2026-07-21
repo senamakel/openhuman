@@ -107,11 +107,8 @@ test.describe('Webhook tunnel CRUD (UI + core RPC + mock backend)', () => {
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
       .toContain('/connections');
 
-    const text = await page.locator('#root').innerText();
-    expect(
-      ['ComposeIO Triggers', 'ComposeIO', 'Archive', 'Refresh'].some(marker =>
-        text.includes(marker)
-      )
-    ).toBe(true);
+    // The Webhooks UI is retired. The redirect's live contract is the
+    // Connections surface, not the former trigger-history controls.
+    await expect(page.getByTestId('two-pane-nav-composio')).toBeVisible();
   });
 });

@@ -31,16 +31,35 @@ export class DaemonHealthService {
   private readonly HEALTH_TIMEOUT_MS = 120000;
 
   /**
-   * Ingest a health payload carried by an `app_state_snapshot` refresh. Parses
-   * it, updates the daemon store, and re-arms the disconnect watchdog. A missing
-   * or unparseable payload (e.g. an older core that doesn't fold health in) is
-   * ignored so the store simply keeps its last-known state.
+   * Arm the disconnect watchdog once when daemon-health tracking starts, if it
+   * isn't already armed. Without this, a core whose `app_state_snapshot`s never
+   * succeed (repeated timeouts) — after `useDaemonHealth`'s one-shot agent probe
+   * has set the status to `running` — would never arm a watchdog and stick at
+   * `running` forever. The baseline watchdog guarantees a fallback to
+   * `disconnected` if no snapshot ever arrives, and is re-armed by each ingest.
+   */
+  ensureWatchdogArmed(): void {
+    if (this.healthTimeoutId === null) {
+      this.startHealthTimeout();
+    }
+  }
+
+  /**
+   * Ingest a health payload carried by an `app_state_snapshot` refresh.
+   *
+   * The snapshot arriving at all is proof the core is alive, so the disconnect
+   * watchdog is re-armed unconditionally — even when the payload is missing or
+   * unparseable (an older core that doesn't fold health, or a partial payload) —
+   * otherwise a live-but-health-less core would eventually be marked
+   * `disconnected`. The daemon store is only updated when a valid health
+   * snapshot is present; otherwise it keeps its last-known state.
    */
   ingestHealthSnapshot(payload: unknown): void {
+    // Called by CoreStateProvider only after a successful snapshot → liveness.
+    this.startHealthTimeout();
     const healthSnapshot = this.parseHealthSnapshot(payload);
     if (healthSnapshot) {
       this.updateDaemonStoreFromHealth(healthSnapshot);
-      this.startHealthTimeout();
     }
   }
 

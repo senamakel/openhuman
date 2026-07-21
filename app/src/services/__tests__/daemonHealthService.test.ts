@@ -46,13 +46,42 @@ describe('DaemonHealthService.ingestHealthSnapshot', () => {
     service.cleanup();
   });
 
-  it('ignores a missing or unparseable payload (older core, no health folded in)', () => {
+  it('ignores a missing or unparseable payload but keeps the core connected (older core)', () => {
     const service = new DaemonHealthService();
     service.ingestHealthSnapshot(undefined);
     service.ingestHealthSnapshot(null);
     service.ingestHealthSnapshot({ not: 'a health snapshot' });
 
+    // Store is not updated with health...
     expect(mockedUpdate).not.toHaveBeenCalled();
+    // ...but the arriving (health-less) snapshot is proof of liveness, so the
+    // watchdog is re-armed and the core is NOT marked disconnected while these
+    // snapshots keep succeeding.
+    vi.advanceTimersByTime(60000);
+    service.ingestHealthSnapshot(null);
+    vi.advanceTimersByTime(60000);
+    expect(mockedSetStatus).not.toHaveBeenCalled();
+    service.cleanup();
+  });
+
+  it('arms a baseline watchdog so a core whose snapshots never arrive disconnects', () => {
+    const service = new DaemonHealthService();
+    // No ingest ever (snapshots keep timing out), but the baseline watchdog is
+    // armed at startup, so status still falls back to disconnected.
+    service.ensureWatchdogArmed();
+    vi.advanceTimersByTime(120000);
+    expect(mockedSetStatus).toHaveBeenCalledWith(expect.any(String), 'disconnected');
+    service.cleanup();
+  });
+
+  it('ensureWatchdogArmed is idempotent and does not reset an in-flight watchdog', () => {
+    const service = new DaemonHealthService();
+    service.ensureWatchdogArmed();
+    vi.advanceTimersByTime(90000);
+    // A second call must NOT restart the timer (would delay disconnect detection).
+    service.ensureWatchdogArmed();
+    vi.advanceTimersByTime(30000);
+    expect(mockedSetStatus).toHaveBeenCalledWith(expect.any(String), 'disconnected');
     service.cleanup();
   });
 

@@ -555,6 +555,12 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       }
     };
 
+    // Arm a baseline disconnect watchdog before the first snapshot lands, so a
+    // core whose snapshots never succeed still falls back to `disconnected`
+    // instead of sticking at a probe-set `running`. Each successful ingest
+    // re-arms it.
+    daemonHealthService.ensureWatchdogArmed();
+
     void load();
     let timeoutId: number | null = null;
     const computePollDelay = (): { delay: number; reason: string } => {

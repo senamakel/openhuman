@@ -140,7 +140,7 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
     };
     let store = SubagentSessionStore::new(workspace.path().to_path_buf());
     let mut finished = None;
-    for _ in 0..100 {
+    for _ in 0..600 {
         let sessions = subagent_sessions::list_for_parent(&store, "tools-e2e-async-session", None)
             .expect("durable store readable");
         if let Some(session) = sessions.first() {
@@ -184,6 +184,7 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
         self, SubagentSessionSelector, SubagentSessionStore, SubagentSessionUpsert,
     };
 
+    let _ = env_logger::builder().is_test(true).try_init();
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let registry = AgentDefinitionRegistry::global().expect("registry");
     let definition = registry.get("researcher").expect("researcher definition");
@@ -209,7 +210,11 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
                 parent_thread_id: Some("thread-continue-parent".into()),
                 agent_id: "researcher".into(),
                 toolkit: None,
-                model: None,
+                // Pin the seeded session to the parent's scripted provider —
+                // continue_subagent forwards session.model into the resume, so
+                // without this the child would resolve the definition's managed
+                // tier and dial a REAL provider instead of the test double.
+                model: Some("test-model".into()),
                 sandbox_mode: format!("{:?}", definition.sandbox_mode),
                 action_root,
                 task_key: "durable-resume-task".into(),
@@ -268,7 +273,7 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
 
     // The background resume must reach the provider carrying BOTH the
     // persisted prior history and the new follow-up.
-    for _ in 0..100 {
+    for _ in 0..600 {
         if provider.saw("continue-durable-canary") {
             break;
         }

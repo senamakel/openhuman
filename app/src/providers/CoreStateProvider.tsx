@@ -48,6 +48,14 @@ const POLL_MS = 2000;
 const MAX_BOOTSTRAP_RETRIES = 5;
 const SUPPRESS_POLL_WARNING_AT = MAX_BOOTSTRAP_RETRIES + 1;
 const BACKOFF_POLL_MS = 10_000;
+// Once the app has finished bootstrapping and is authenticated, the snapshot
+// (auth, onboarding, service/local-AI state) changes rarely and mostly through
+// event-driven refreshes (deep-link, settings toggles) that fire immediately
+// regardless of this cadence. `app_state_snapshot` is expensive server-side
+// (rebuilds the runtime snapshot, reloads config + local state), so steady-state
+// polling backs off from POLL_MS to this slower cadence rather than hammering
+// every 2s for the life of the session.
+const STABLE_POLL_MS = 5000;
 
 /** Extract only non-sensitive fields from an RPC/fetch error. */
 function sanitizeError(error: unknown): { message?: string; code?: string; status?: number } {
@@ -523,9 +531,22 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
     void load();
     let timeoutId: number | null = null;
+    const computePollDelay = (): number => {
+      // Repeated bootstrap failures → slowest cadence to avoid log/CPU churn.
+      if (bootstrapFailCountRef.current >= MAX_BOOTSTRAP_RETRIES) {
+        return BACKOFF_POLL_MS;
+      }
+      // Booted and authenticated → steady state; back off the expensive snapshot
+      // poll. Still-bootstrapping or unauthenticated stays fast so login / boot
+      // transitions surface promptly.
+      const state = getCoreStateSnapshot();
+      if (!state.isBootstrapping && state.snapshot.auth.isAuthenticated) {
+        return STABLE_POLL_MS;
+      }
+      return POLL_MS;
+    };
     const scheduleNext = () => {
-      const delay =
-        bootstrapFailCountRef.current >= MAX_BOOTSTRAP_RETRIES ? BACKOFF_POLL_MS : POLL_MS;
+      const delay = computePollDelay();
       timeoutId = window.setTimeout(async () => {
         await doRefresh();
         if (!cancelled) {

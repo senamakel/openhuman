@@ -68,6 +68,17 @@ export interface DerivedReasoning {
   text: string;
 }
 
+/**
+ * Failure payload attached to an errored tool call. Minimal on the wire (the
+ * persisted transcript only records the failure plus an optional short reason);
+ * the mapper expands it into the richer `ToolFailureExplanation` shape the
+ * `ToolFailureLines` renderer consumes.
+ */
+export interface DerivedToolFailure {
+  /** Short, single-line reason for the failure, when the writer captured one. */
+  detail?: string;
+}
+
 /** A tool invocation with its paired result, when available. */
 export interface DerivedToolCall {
   kind: 'toolCall';
@@ -76,12 +87,20 @@ export interface DerivedToolCall {
   args?: unknown;
   result?: string;
   status: DerivedToolCallStatus;
+  /** Present only when `status` is `'error'`. */
+  failure?: DerivedToolFailure;
 }
 
-/** A delegated sub-agent run, with its own nested projected items. */
+/**
+ * A delegated sub-agent run, with its own nested projected items. `requestId`
+ * anchors the whole trail to the parent turn that spawned it (derived core-side
+ * from the sub-agent's spawn timestamp vs. the parent turns' timestamp ranges);
+ * absent for legacy/CLI transcripts with no `requestId`.
+ */
 export interface DerivedSubagent {
   kind: 'subagent';
   id: string;
+  requestId?: string;
   items: DerivedDisplayItem[];
 }
 

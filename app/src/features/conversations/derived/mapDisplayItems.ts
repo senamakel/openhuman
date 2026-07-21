@@ -27,6 +27,7 @@ import type {
   SubagentActivity,
   SubagentToolCallEntry,
   SubagentTranscriptItem,
+  ToolFailureExplanation,
   ToolTimelineEntry,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
@@ -34,7 +35,9 @@ import type {
   DerivedDisplayItem,
   DerivedToolCall,
   DerivedToolCallStatus,
+  DerivedToolFailure,
 } from '../../../types/derivedTranscript';
+import { formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
 
 const log = debug('conversations.derived.mapDisplayItems');
 
@@ -94,6 +97,30 @@ function timelineStatusFromDerived(status: DerivedToolCallStatus): ToolTimelineE
 /** Same mapping for a sub-agent child tool call. */
 function subagentToolStatus(status: DerivedToolCallStatus): ToolTimelineEntryStatus {
   return timelineStatusFromDerived(status);
+}
+
+/**
+ * Expand the minimal wire {@link DerivedToolFailure} into the richer
+ * {@link ToolFailureExplanation} the `ToolFailureLines` renderer consumes,
+ * matching `turn_state`'s `PersistedToolFailure` shape. The projection only
+ * records that a call failed plus an optional short reason, so we synthesise an
+ * unlocalized `Unknown`/`Recoverable` explanation whose `causePlain` carries the
+ * captured detail (or the tool's error output) — `ToolFailureLines` falls back
+ * to `causePlain`/`nextAction` for unrecognised classes.
+ */
+function toFailureExplanation(
+  failure: DerivedToolFailure | undefined,
+  result: string | undefined
+): ToolFailureExplanation | undefined {
+  if (!failure) return undefined;
+  const causePlain = failure.detail?.trim() || result?.trim() || 'The tool reported an error.';
+  return {
+    class: 'Unknown',
+    category: 'Recoverable',
+    recoverable: true,
+    causePlain,
+    nextAction: 'Review the tool output and try again.',
+  };
 }
 
 function stringifyArgs(args: unknown): string | undefined {
@@ -266,11 +293,15 @@ export function mapDisplayItems(
       }
 
       case 'subagent': {
-        if (!currentRequestId || skip.has(currentRequestId)) {
-          if (currentRequestId) skipped.add(currentRequestId);
+        // Anchor to the turn the sub-agent was spawned in (core-derived
+        // `requestId`), not the current cursor — sub-agent items are appended
+        // after all root items, so the cursor is the last turn by then.
+        const anchorRequestId = item.requestId ?? currentRequestId;
+        if (!anchorRequestId || skip.has(anchorRequestId)) {
+          if (anchorRequestId) skipped.add(anchorRequestId);
           break;
         }
-        const turn = ensureTurn(turns, currentRequestId);
+        const turn = ensureTurn(turns, anchorRequestId);
         const activity = buildSubagentActivity(item.id, item.items);
         turn.entries.push({
           id: `subagent:${item.id}`,
@@ -324,7 +355,7 @@ export function mapDisplayItems(
  *  turn's narration / thinking. */
 function pushToolCall(turn: TurnAccumulator, item: DerivedToolCall): void {
   const seq = turn.seq++;
-  turn.entries.push({
+  const entry: ToolTimelineEntry = {
     id: item.callId,
     name: item.name,
     round: turn.round,
@@ -332,7 +363,17 @@ function pushToolCall(turn: TurnAccumulator, item: DerivedToolCall): void {
     status: timelineStatusFromDerived(item.status),
     argsBuffer: stringifyArgs(item.args),
     result: item.result,
-  });
+  };
+  // A failed tool renders its "why / next" explanation via `ToolFailureLines`.
+  const failure = toFailureExplanation(item.failure, item.result);
+  if (failure) entry.failure = failure;
+  // Derive the human label + detail from tool name + args (the same TS
+  // formatter the live path runs), so settled rows carry `displayName`/`detail`
+  // at parity with `turn_state` rows instead of being unlabelled.
+  const formatted = formatTimelineEntry(entry);
+  entry.displayName = formatted.title;
+  if (formatted.detail !== undefined) entry.detail = formatted.detail;
+  turn.entries.push(entry);
   turn.transcript.push({
     kind: 'toolCall',
     round: turn.round,

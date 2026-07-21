@@ -97,6 +97,84 @@ describe('mapDisplayItems', () => {
     );
   });
 
+  it('maps a failed tool call onto a ToolFailureExplanation for ToolFailureLines', () => {
+    const chronological: DerivedDisplayItem[] = [
+      { kind: 'turnBoundary', requestId: 'req-1' },
+      {
+        kind: 'toolCall',
+        callId: 'call-e',
+        name: 'shell',
+        status: 'error',
+        result: 'boom',
+        failure: { detail: 'exit 1: command not found' },
+      },
+    ];
+
+    const { timelines } = mapDisplayItems(newestFirst(chronological));
+    const row = timelines['req-1'][0];
+
+    expect(row.status).toBe('error');
+    expect(row.failure).toBeDefined();
+    // The wire detail becomes the `causePlain` the ToolFailureLines renderer
+    // shows for an unrecognised failure class.
+    expect(row.failure?.causePlain).toBe('exit 1: command not found');
+    expect(typeof row.failure?.class).toBe('string');
+    expect(typeof row.failure?.nextAction).toBe('string');
+  });
+
+  it('falls back to the tool result as failure cause when no detail was captured', () => {
+    const chronological: DerivedDisplayItem[] = [
+      { kind: 'turnBoundary', requestId: 'req-1' },
+      { kind: 'toolCall', callId: 'call-e', name: 'shell', status: 'error', result: 'raw error text', failure: {} },
+    ];
+
+    const { timelines } = mapDisplayItems(newestFirst(chronological));
+
+    expect(timelines['req-1'][0].failure?.causePlain).toBe('raw error text');
+  });
+
+  it('derives displayName/detail for a tool row (parity with turn_state rows)', () => {
+    const chronological: DerivedDisplayItem[] = [
+      { kind: 'turnBoundary', requestId: 'req-1' },
+      {
+        kind: 'toolCall',
+        callId: 'c1',
+        name: 'shell',
+        args: { command: 'ls -la' },
+        result: 'ok',
+        status: 'success',
+      },
+    ];
+
+    const { timelines } = mapDisplayItems(newestFirst(chronological));
+    const row = timelines['req-1'][0];
+
+    expect(typeof row.displayName).toBe('string');
+    expect(row.displayName?.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('anchors a subagent to its own requestId, not the current turn cursor', () => {
+    // The subagent item is appended after both turns (as the projection emits
+    // it) but belongs to req-1 via its core-derived requestId.
+    const chronological: DerivedDisplayItem[] = [
+      { kind: 'turnBoundary', requestId: 'req-1' },
+      { kind: 'reasoning', text: 'turn one' },
+      { kind: 'turnBoundary', requestId: 'req-2' },
+      { kind: 'reasoning', text: 'turn two' },
+      {
+        kind: 'subagent',
+        id: 'coder',
+        requestId: 'req-1',
+        items: [{ kind: 'assistantMessage', content: 'sub done', iteration: 1 }],
+      },
+    ];
+
+    const { timelines } = mapDisplayItems(newestFirst(chronological));
+
+    expect(timelines['req-1']?.some((e) => e.name === 'subagent:coder')).toBe(true);
+    expect(timelines['req-2']?.some((e) => e.name === 'subagent:coder')).toBeFalsy();
+  });
+
   it('projects a subagent item into a timeline row carrying its activity + transcript', () => {
     const chronological: DerivedDisplayItem[] = [
       { kind: 'turnBoundary', requestId: 'req-1' },

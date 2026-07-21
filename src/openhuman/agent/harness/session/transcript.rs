@@ -360,6 +360,12 @@ pub struct DisplayMessage {
     pub ts: Option<String>,
     /// Usage/provenance for assistant messages that carried it.
     pub turn_usage: Option<TurnUsage>,
+    /// Raw reasoning/thinking captured for this line, when present. Mirrors the
+    /// line's `reasoning_content` directly so it survives even on lines without
+    /// full turn-usage provenance (e.g. an interrupted partial, which carries no
+    /// provider/model/usage). Prefer this over digging into [`Self::turn_usage`]
+    /// for display: it is populated from `turn_usage.reasoning_content` too.
+    pub reasoning_content: Option<String>,
 }
 
 /// A compaction marker in a display projection.
@@ -646,6 +652,7 @@ pub fn append_interrupted_partial(
     partial_content: &str,
     request_id: Option<&str>,
     iteration: Option<u32>,
+    reasoning_content: Option<&str>,
 ) -> Result<()> {
     if partial_content.is_empty() {
         return Ok(());
@@ -661,6 +668,10 @@ pub fn append_interrupted_partial(
         true,
     );
     line.iteration = iteration;
+    line.reasoning_content = reasoning_content
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
     line.ts = Some(chrono::Utc::now().to_rfc3339());
     let mut buf = serde_json::to_string(&line).context("serialise interrupted partial line")?;
     buf.push('\n');
@@ -976,12 +987,18 @@ fn read_transcript_jsonl(path: &Path) -> Result<SessionTranscript> {
 /// turn-boundary + partial flags the model-context path discards.
 fn display_message_from_line(ml: MessageLine) -> DisplayMessage {
     let turn_usage = turn_usage_from_line(&ml);
+    let reasoning_content = ml.reasoning_content.clone().or_else(|| {
+        turn_usage
+            .as_ref()
+            .and_then(|tu| tu.reasoning_content.clone())
+    });
     DisplayMessage {
         interrupted: ml.interrupted,
         request_id: ml.request_id.clone(),
         iteration: ml.iteration,
         ts: ml.ts.clone(),
         turn_usage,
+        reasoning_content,
         message: ChatMessage {
             id: ml.id,
             role: ml.role,

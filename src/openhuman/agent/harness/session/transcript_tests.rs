@@ -1210,6 +1210,7 @@ fn interrupted_partial_display_only() {
         "partial answer that was cut off",
         Some("req-1"),
         Some(3),
+        Some("thinking that was cut off"),
     )
     .expect("append interrupted");
 
@@ -1234,6 +1235,11 @@ fn interrupted_partial_display_only() {
     assert_eq!(partial.message.content, "partial answer that was cut off");
     assert_eq!(partial.request_id.as_deref(), Some("req-1"));
     assert_eq!(partial.iteration, Some(3));
+    assert_eq!(
+        partial.reasoning_content.as_deref(),
+        Some("thinking that was cut off"),
+        "interrupted partial must carry its reasoning_content"
+    );
 }
 
 /// Empty partial content is a no-op — no line is written.
@@ -1244,7 +1250,7 @@ fn interrupted_partial_empty_is_noop() {
     let meta = sample_meta();
     let mut h = AppendHarness::new(path.clone());
     h.turn(&[ChatMessage::user("q")], &meta, None, None);
-    append_interrupted_partial(&path, "", None, None).expect("noop");
+    append_interrupted_partial(&path, "", None, None, None).expect("noop");
     let display = read_transcript_display(&path).unwrap();
     assert!(display
         .records

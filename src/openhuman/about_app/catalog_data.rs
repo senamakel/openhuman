@@ -403,6 +403,25 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: None,
     },
     Capability {
+        id: "intelligence.agents_md_instructions",
+        name: "AGENTS.md Project Instructions",
+        domain: "intelligence",
+        category: CapabilityCategory::Intelligence,
+        description: "Load configurable standing instructions from AGENTS.md files into the agent's \
+            system prompt — OpenHuman's analog of Claude Code's CLAUDE.md / Codex's AGENTS.md. Two \
+            layers are read once at session start: a global layer from the OpenHuman workspace \
+            (<workspace_dir>/AGENTS.md) and a project layer from the folder the agent is operating \
+            in (<action_dir>/AGENTS.md, or a sub-agent's isolated worktree). The global layer is \
+            injected first, the project layer second (project instructions take precedence). \
+            Missing or empty files are silently skipped, and each layer is capped so a large file \
+            can't crowd out the rest of the prompt. On by default; disable via \
+            `agent.agents_md_enabled = false`.",
+        how_to: "Create an AGENTS.md file in your OpenHuman workspace and/or your project's action \
+            directory. Toggle off with `agent.agents_md_enabled = false` in config.toml.",
+        status: CapabilityStatus::Stable,
+        privacy: LOCAL_RAW,
+    },
+    Capability {
         id: "intelligence.tool_scoped_memory",
         name: "Tool-Scoped Memory Rules",
         domain: "intelligence",

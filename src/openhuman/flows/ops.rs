@@ -134,7 +134,12 @@ pub(crate) fn engine_compatibility_errors(
         }
 
         for predecessor in incoming {
-            if reaches_on_main_edges(graph, &trigger.id, predecessor, &fan_in.id) {
+            // Reaching a router itself unconditionally does not make the edge
+            // it selects into the fan-in unconditional. Let router
+            // predecessors reach the port-aware analysis below.
+            if !is_branching_node(graph, predecessor)
+                && reaches_on_main_edges(graph, &trigger.id, predecessor, &fan_in.id)
+            {
                 continue;
             }
 
@@ -151,8 +156,16 @@ pub(crate) fn engine_compatibility_errors(
                 if ports.len() < 2 && !is_router {
                     continue;
                 }
+                // When the router is itself the incoming predecessor, its
+                // branch edge must be tested against the fan-in (asking whether
+                // that edge reaches the router again can never succeed).
+                let controlled_target = if candidate.id == predecessor {
+                    fan_in.id.as_str()
+                } else {
+                    predecessor
+                };
                 let reaches_from_port = |port: &str| {
-                    reaches_via_port(graph, &candidate.id, port, predecessor, &fan_in.id)
+                    reaches_via_port(graph, &candidate.id, port, controlled_target, &fan_in.id)
                 };
                 let any_port_reaches = ports.iter().any(|port| reaches_from_port(port));
                 // A router with one wired output still has unwired runtime
@@ -165,7 +178,7 @@ pub(crate) fn engine_compatibility_errors(
                             graph,
                             &candidate.id,
                             port,
-                            predecessor,
+                            controlled_target,
                             &fan_in.id,
                         )
                     });
@@ -175,8 +188,7 @@ pub(crate) fn engine_compatibility_errors(
                 // TinyAgents' relief proof, which stops at another router.
                 if any_port_reaches && !every_port_deterministically_reaches {
                     controlling_branchers += 1;
-                    controlled_via_main_port |= ports.contains("main")
-                        && reaches_via_port(graph, &candidate.id, "main", predecessor, &fan_in.id);
+                    controlled_via_main_port |= ports.contains("main") && reaches_from_port("main");
                 }
             }
 
@@ -3642,6 +3654,17 @@ pub async fn flows_resume(
     // A pending checkpoint may have been created before this compatibility
     // gate shipped, so resume is an independent authoritative boundary.
     if let Err(error) = ensure_engine_compatible(&flow.graph) {
+        if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %flow_id,
+                %thread_id,
+                error = %rec_err,
+                "[flows] flows_resume: failed to record compatibility rejection"
+            );
+        }
+        let observed = current_persisted_steps(config, thread_id);
+        finish_flow_run_row(config, thread_id, "failed", &observed, &[], Some(&error));
         tracing::warn!(
             target: "flows",
             flow_id = %flow_id,

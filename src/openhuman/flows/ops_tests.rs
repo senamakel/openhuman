@@ -232,6 +232,49 @@ fn engine_compatibility_treats_single_wired_router_outputs_as_conditional() {
 }
 
 #[test]
+fn engine_compatibility_detects_a_router_directly_preceding_fan_in() {
+    let nested = structurally_valid_graph(json!({
+        "name": "direct-nested-router-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "switch", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "case", "to_node": "inner" },
+            { "from_node": "inner", "from_port": "true", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    let errors = engine_compatibility_errors(&nested);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+
+    let main_port = structurally_valid_graph(json!({
+        "name": "direct-main-port-router-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "route", "kind": "switch", "name": "Route", "config": { "field": "kind" } },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "route" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "route", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    let errors = engine_compatibility_errors(&main_port);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_MAIN_PORT_CONDITIONAL_FAN_IN);
+}
+
+#[test]
 fn flows_validate_returns_stable_nested_conditional_fan_in_error() {
     let outcome = flows_validate(nested_conditional_fan_in_graph());
     assert!(!outcome.value.valid);
@@ -1190,6 +1233,61 @@ async fn flows_resume_continues_a_paused_run_to_completion() {
             .any(|s| s.node_id == "downstream"),
         "resume should reconstruct the downstream step that ran after approval"
     );
+}
+
+#[tokio::test]
+async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+
+    // Simulate a graph persisted before the host compatibility gate existed.
+    // The store layer intentionally trusts its typed caller; authoring paths
+    // own validation.
+    store::update_flow_graph(
+        &config,
+        &created.value.id,
+        created.value.name.clone(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        created.value.require_approval,
+        None,
+        None,
+    )
+    .unwrap();
+
+    let error = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
+        .await
+        .expect_err("an incompatible checkpoint cannot be resumed safely");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert_eq!(run_row.status, "failed");
+    assert!(run_row.pending_approvals.is_empty());
+    assert!(
+        run_row
+            .error
+            .as_deref()
+            .is_some_and(|value| value.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN)),
+        "the terminal run row should retain the rejection reason: {run_row:?}"
+    );
+    let flow = flows_get(&config, &created.value.id).await.unwrap().value;
+    assert_eq!(flow.last_status.as_deref(), Some("failed"));
 }
 
 #[tokio::test]

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useT } from '../lib/i18n/I18nContext';
+import { useCoreState } from '../providers/CoreStateProvider';
 import {
   formatBytes,
   formatEta,
@@ -19,27 +20,29 @@ import {
 import Button from './ui/Button';
 
 const ACTIVE_POLL_INTERVAL = 2000;
-const IDLE_POLL_INTERVAL = 15000;
+
+const IN_FLIGHT_STATES = new Set(['loading', 'downloading', 'installing']);
+
+/** Whether a `LocalAiStatus.state` string denotes an active download/bootstrap. */
+const isInFlightState = (state: string | undefined): boolean =>
+  state != null && IN_FLIGHT_STATES.has(state);
 
 /**
  * Pure predicate deciding whether a download/bootstrap is currently in flight,
- * mirroring the `isDownloading` derivation used for rendering. Used only to
- * pick the poll cadence, so an idle app polls slowly instead of hammering
- * `inference_status` + `inference_downloads_progress` every 2s forever.
+ * mirroring the `isDownloading` derivation used for rendering. Drives the fast
+ * poll's continuation: keep polling `inference_downloads_progress` +
+ * `inference_status` only while a download is genuinely in flight.
  */
 const isDownloadInFlight = (
   status: LocalAiStatus | null,
   downloads: LocalAiDownloadsProgress | null
 ): boolean => {
   const downloadState = downloads?.state;
-  const currentState =
-    downloadState === 'loading' || downloadState === 'downloading' || downloadState === 'installing'
-      ? downloadState
-      : (status?.state ?? downloadState ?? 'idle');
+  const currentState = isInFlightState(downloadState)
+    ? downloadState
+    : (status?.state ?? downloadState ?? 'idle');
   return (
-    currentState === 'loading' ||
-    currentState === 'downloading' ||
-    currentState === 'installing' ||
+    isInFlightState(currentState) ||
     (downloads?.progress != null && downloads.progress > 0 && downloads.progress < 1)
   );
 };
@@ -70,11 +73,20 @@ const LocalAIDownloadSnackbar = () => {
     }
   })();
 
-  // Poll download status. Self-scheduling so the cadence can adapt: fast while
-  // a download is in flight, slow when idle — avoids a permanent 2s poll of two
-  // inference RPCs on every app instance regardless of activity.
+  // Detect an active download from the folded local-AI state in the app-state
+  // snapshot (polled by CoreStateProvider) instead of a dedicated idle poll of
+  // the inference RPCs. When idle this component issues ZERO inference calls;
+  // the snapshot's `runtime.localAi.state` is what flips us into the fast poll.
+  const { snapshot: coreSnapshot } = useCoreState();
+  const coreDownloadActive = isInFlightState(coreSnapshot.runtime.localAi?.state ?? undefined);
+
+  // While a download is in flight, poll the inference RPCs fast for smooth,
+  // granular progress/speed/ETA (the 2–5s app-state cadence is too coarse and
+  // carries no downloads-progress detail). The poll starts when core state
+  // reports activity and keeps going as long as the download itself is in
+  // flight, then stops — so there is no steady-state inference polling.
   useEffect(() => {
-    if (!tauriAvailable) return;
+    if (!tauriAvailable || !coreDownloadActive) return;
 
     let cancelled = false;
 
@@ -91,8 +103,10 @@ const LocalAIDownloadSnackbar = () => {
       } catch {
         // Silently ignore — core may not be ready
       }
-      if (!cancelled) {
-        timerRef.current = setTimeout(poll, active ? ACTIVE_POLL_INTERVAL : IDLE_POLL_INTERVAL);
+      // Keep the fast poll alive only while the download is genuinely in flight.
+      // Once it settles we stop; a later download re-arms via `coreDownloadActive`.
+      if (!cancelled && active) {
+        timerRef.current = setTimeout(poll, ACTIVE_POLL_INTERVAL);
       }
     };
 
@@ -101,7 +115,7 @@ const LocalAIDownloadSnackbar = () => {
       cancelled = true;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [tauriAvailable]);
+  }, [tauriAvailable, coreDownloadActive]);
 
   const downloadState = downloads?.state;
   const currentState =

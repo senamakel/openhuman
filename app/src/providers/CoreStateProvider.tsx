@@ -358,7 +358,21 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     // which during a login/identity flip would write health under the prior or
     // `__pending__` user.
     if (requestId === snapshotRequestIdRef.current) {
+      // Privacy-safe: log presence/shape only, never the payload/tokens.
+      log(
+        'health ingest: requestId=%d current=%d hasHealth=%s components=%d',
+        requestId,
+        snapshotRequestIdRef.current,
+        rawSnapshot.health != null,
+        rawSnapshot.health ? Object.keys(rawSnapshot.health.components ?? {}).length : 0
+      );
       daemonHealthService.ingestHealthSnapshot(rawSnapshot.health);
+    } else {
+      log(
+        'health ingest skipped: superseded refresh requestId=%d current=%d',
+        requestId,
+        snapshotRequestIdRef.current
+      );
     }
 
     // When the authenticated identity changes without a full restart-driven
@@ -543,22 +557,23 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
     void load();
     let timeoutId: number | null = null;
-    const computePollDelay = (): number => {
+    const computePollDelay = (): { delay: number; reason: string } => {
       // Repeated bootstrap failures → slowest cadence to avoid log/CPU churn.
       if (bootstrapFailCountRef.current >= MAX_BOOTSTRAP_RETRIES) {
-        return BACKOFF_POLL_MS;
+        return { delay: BACKOFF_POLL_MS, reason: 'failure-backoff' };
       }
       // Booted and authenticated → steady state; back off the expensive snapshot
       // poll. Still-bootstrapping or unauthenticated stays fast so login / boot
       // transitions surface promptly.
       const state = getCoreStateSnapshot();
       if (!state.isBootstrapping && state.snapshot.auth.isAuthenticated) {
-        return STABLE_POLL_MS;
+        return { delay: STABLE_POLL_MS, reason: 'authenticated' };
       }
-      return POLL_MS;
+      return { delay: POLL_MS, reason: 'bootstrap' };
     };
     const scheduleNext = () => {
-      const delay = computePollDelay();
+      const { delay, reason } = computePollDelay();
+      log('poll scheduled: delay=%dms reason=%s', delay, reason);
       timeoutId = window.setTimeout(async () => {
         await doRefresh();
         if (!cancelled) {

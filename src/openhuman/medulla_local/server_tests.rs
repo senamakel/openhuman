@@ -16,7 +16,7 @@ use tokio::net::{UnixListener, UnixStream};
 
 use super::*;
 use crate::openhuman::medulla_local::ports::{HostPorts, PortError};
-use crate::openhuman::medulla_local::types::{InferenceCall, InferenceResult, Usage};
+use crate::openhuman::medulla_local::types::{InferenceCall, InferenceResult, ToolSpec, Usage};
 
 static SOCKET_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -41,8 +41,24 @@ struct RecordingPorts {
     state: Arc<RecordingState>,
 }
 
+/// The curated read-only tool the recording ports advertise and answer. A real
+/// [`OpenhumanHostPorts`] derives this list from the runtime tool surface; the
+/// test uses one fixed spec so both the `hello` advertisement and the
+/// `tools.invoke` dispatch can be asserted end to end.
+fn recording_tool_spec() -> ToolSpec {
+    ToolSpec {
+        name: "file_read".to_string(),
+        description: "Read a file from the workspace".to_string(),
+        parameters: json!({ "type": "object", "properties": { "path": { "type": "string" } } }),
+    }
+}
+
 #[async_trait]
 impl HostPorts for RecordingPorts {
+    fn tool_specs(&self) -> Vec<ToolSpec> {
+        vec![recording_tool_spec()]
+    }
+
     async fn invoke_inference(&self, call: InferenceCall) -> Result<InferenceResult, PortError> {
         self.state
             .inference_tiers
@@ -73,9 +89,15 @@ struct MockOpts {
     /// Issue an `inference.invoke` port call before answering the first
     /// `instruct`, asserting the returned `ret` content.
     issue_inference: bool,
+    /// Issue a `tools.invoke` port call before answering the first `instruct`,
+    /// asserting the returned `ret` content.
+    issue_tool_call: bool,
     /// Drop the connection on the first `instruct` of the first connection,
     /// forcing the supervisor to restart-and-retry.
     die_first_instruct: bool,
+    /// Sink recording the tool names advertised in the `hello` request, so a
+    /// test can assert the host advertised its curated surface.
+    observed_hello_tools: Option<Arc<Mutex<Vec<String>>>>,
 }
 
 /// Spawn a mock serve loop on `listener`, one accepted connection at a time.
@@ -125,6 +147,21 @@ async fn serve_connection(stream: UnixStream, conn_index: u64, opts: &MockOpts) 
         let op = frame.get("op").and_then(Value::as_str).unwrap_or("");
         match op {
             "hello" => {
+                if let Some(sink) = &opts.observed_hello_tools {
+                    let names: Vec<String> = frame
+                        .get("params")
+                        .and_then(|params| params.get("tools"))
+                        .and_then(Value::as_array)
+                        .map(|tools| {
+                            tools
+                                .iter()
+                                .filter_map(|tool| tool.get("name").and_then(Value::as_str))
+                                .map(str::to_string)
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    *sink.lock().unwrap() = names;
+                }
                 write_line(
                     &mut write_half,
                     &json!({
@@ -169,6 +206,29 @@ async fn serve_connection(stream: UnixStream, conn_index: u64, opts: &MockOpts) 
                     assert_eq!(ret["id"], "c1");
                     assert_eq!(ret["ok"], true);
                     assert_eq!(ret["result"]["content"], "canned-answer");
+                }
+                if opts.issue_tool_call {
+                    // Reverse-RPC into the host tools port, then read its ret.
+                    write_line(
+                        &mut write_half,
+                        &json!({
+                            "t": "call", "id": "c2", "port": "tools", "method": "invoke",
+                            "params": {
+                                "name": "file_read",
+                                "args": { "path": "README.md" },
+                                "callId": "cyc:1:tool_call:0", "cycleId": "cyc:1"
+                            }
+                        }),
+                    )
+                    .await;
+                    let ret = read_frame(&mut reader)
+                        .await
+                        .expect("host must answer the tools call");
+                    assert_eq!(ret["t"], "ret");
+                    assert_eq!(ret["id"], "c2");
+                    assert_eq!(ret["ok"], true);
+                    assert_eq!(ret["result"]["isError"], false);
+                    assert_eq!(ret["result"]["content"][0]["text"], "ok");
                 }
                 write_line(
                     &mut write_half,
@@ -220,7 +280,7 @@ impl Connector for MockConnector {
             protocol: super::PROTOCOL_VERSION,
             host: "openhuman/test".to_string(),
             ports: vec!["inference".to_string(), "tools".to_string()],
-            tools: Vec::new(),
+            tools: ports.tool_specs(),
         };
         Connection::establish(stream, ports, hello, None).await
     }
@@ -291,6 +351,37 @@ async fn inference_callback_routes_to_host_ports() {
     // The serve inference call was dispatched to the host ports with its tier.
     let tiers = state.inference_tiers.lock().unwrap().clone();
     assert_eq!(tiers, vec!["orchestrator"]);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn tools_are_advertised_and_invocable() {
+    let path = unique_socket_path("tools");
+    let listener = UnixListener::bind(&path).unwrap();
+    let observed = Arc::new(Mutex::new(Vec::new()));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            issue_tool_call: true,
+            observed_hello_tools: Some(observed.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let state = Arc::new(RecordingState::default());
+    let supervisor = build(path.clone(), state.clone());
+    let receipt = supervisor
+        .instruct("reconcile", json!({}))
+        .await
+        .expect("instruct with a tools callback should complete");
+    assert_eq!(receipt.instruction_id, "inst-agent-0");
+
+    // The host advertised its curated tool surface in the hello handshake, so
+    // serve could bind the tool and drive a `tools.invoke` for it.
+    assert_eq!(observed.lock().unwrap().clone(), vec!["file_read"]);
+    // And that invocation reached the host ports with the advertised name.
+    let names = state.tool_names.lock().unwrap().clone();
+    assert_eq!(names, vec!["file_read"]);
     let _ = std::fs::remove_file(&path);
 }
 

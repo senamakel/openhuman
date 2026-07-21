@@ -411,11 +411,16 @@ impl Connector for NodeServeConnector {
         }
 
         let stream = connect_unix_retry(&self.socket_path, HANDSHAKE_TIMEOUT).await?;
+        // Advertise the curated read-only tool surface so serve binds it into a
+        // MedullaModule and the model can emit `tools.invoke` for these tools.
+        // The spec set comes from the same `HostPorts` the `tools` port callback
+        // dispatches to, so what is advertised is exactly what can be invoked.
+        let tools = ports.tool_specs();
         let hello = HelloParams {
             protocol: PROTOCOL_VERSION,
             host: self.host_identity.clone(),
             ports: vec!["inference".to_string(), "tools".to_string()],
-            tools: Vec::new(),
+            tools,
         };
         Connection::establish(stream, ports, hello, Some(child)).await
     }

@@ -17,7 +17,7 @@ use serde_json::{json, Value};
 use tracing::{debug, warn};
 
 use super::ports::{HostPorts, PortError};
-use super::types::{InferenceCall, InferenceResult, Usage};
+use super::types::{InferenceCall, InferenceResult, ToolSpec, Usage};
 use crate::openhuman::config::Config;
 use crate::openhuman::inference::provider::{
     create_chat_model_with_model_id, provider_for_role, role_for_model_tier,
@@ -61,10 +61,53 @@ impl OpenhumanHostPorts {
             other => role_for_model_tier(other),
         }
     }
+
+    /// The curated read-only tools drawn from the full local surface: the
+    /// intersection of [`CURATED_READ_ONLY_TOOLS`] with the built runtime tools,
+    /// filtered again on `PermissionLevel::ReadOnly` so an allowlisted name that
+    /// ever gained a write action is dropped. Both the `hello` advertisement
+    /// ([`Self::tool_specs`]) and the `tools.invoke` handler
+    /// ([`Self::invoke_tool`]) resolve tools through this one path, keeping the
+    /// advertised set and the invocable set identical.
+    fn curated_read_only_tools(
+        &self,
+    ) -> Result<Vec<Box<dyn crate::openhuman::tools::Tool>>, String> {
+        let tools = crate::openhuman::runtime_node::ops::build_runtime_tools(&self.config)?;
+        Ok(tools
+            .into_iter()
+            .filter(|tool| CURATED_READ_ONLY_TOOLS.contains(&tool.name()))
+            .filter(|tool| tool.permission_level() == PermissionLevel::ReadOnly)
+            .collect())
+    }
 }
 
 #[async_trait]
 impl HostPorts for OpenhumanHostPorts {
+    fn tool_specs(&self) -> Vec<ToolSpec> {
+        let tools = match self.curated_read_only_tools() {
+            Ok(tools) => tools,
+            Err(error) => {
+                warn!(
+                    "[medulla_local] building tool surface for hello advertisement failed: {error}"
+                );
+                return Vec::new();
+            }
+        };
+        let specs: Vec<ToolSpec> = tools
+            .iter()
+            .map(|tool| ToolSpec {
+                name: tool.name().to_string(),
+                description: tool.description().to_string(),
+                parameters: tool.parameters_schema(),
+            })
+            .collect();
+        debug!(
+            count = specs.len(),
+            "[medulla_local] advertising curated read-only tools in hello"
+        );
+        specs
+    }
+
     async fn invoke_inference(&self, call: InferenceCall) -> Result<InferenceResult, PortError> {
         let role = Self::role_for_tier(&call.tier);
         debug!(
@@ -111,7 +154,13 @@ impl HostPorts for OpenhumanHostPorts {
             )));
         }
 
-        let tools = crate::openhuman::runtime_node::ops::build_runtime_tools(&self.config)
+        // Resolve through the same curated (allowlisted + read-only) surface the
+        // `hello` advertisement is built from, so a tool the model was told about
+        // is exactly a tool this handler will run. The `curated_read_only_tools`
+        // filter already drops anything not read-only; the explicit re-check
+        // below is defence in depth against future drift.
+        let tools = self
+            .curated_read_only_tools()
             .map_err(|error| PortError::internal(format!("building tool surface: {error}")))?;
         let tool = tools
             .into_iter()

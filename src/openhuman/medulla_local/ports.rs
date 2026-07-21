@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use super::protocol::ServeError;
-use super::types::{error_codes, InferenceCall, InferenceResult};
+use super::types::{error_codes, InferenceCall, InferenceResult, ToolSpec};
 
 /// A failure answering a port callback. Serialized into a `ret` error
 /// envelope (§8) with one of the reserved [`error_codes`].
@@ -61,6 +61,17 @@ impl PortError {
 /// **unchanged** (the draft's contract) without a lossy re-typing.
 #[async_trait]
 pub trait HostPorts: Send + Sync {
+    /// The host tool specs advertised in the `hello` handshake (§3), which serve
+    /// binds into a `MedullaModule` so the model can see and emit `tools.invoke`
+    /// calls for them.
+    ///
+    /// This MUST correspond to the set [`Self::invoke_tool`] will actually
+    /// answer — an advertised tool the port later refuses is a phantom the model
+    /// wastes a turn on, and a tool the port answers but never advertises can
+    /// never be invoked at all. Both derive from the same curated allowlist in
+    /// the concrete adapter to keep them in lock-step.
+    fn tool_specs(&self) -> Vec<ToolSpec>;
+
     /// `inference.invoke` (§5.1) — route the call's tier onto the host's
     /// per-role model routing and return an `InferenceResult`.
     async fn invoke_inference(&self, call: InferenceCall) -> Result<InferenceResult, PortError>;

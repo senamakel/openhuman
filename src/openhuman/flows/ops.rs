@@ -141,28 +141,34 @@ pub(crate) fn engine_compatibility_errors(
             let mut controlling_branchers = 0usize;
             let mut controlled_via_main_port = false;
             for candidate in &graph.nodes {
+                let is_router = matches!(candidate.kind, NodeKind::Condition | NodeKind::Switch);
                 let ports: HashSet<&str> = graph
                     .edges
                     .iter()
                     .filter(|edge| edge.from_node == candidate.id)
                     .map(|edge| edge.from_port.as_str())
                     .collect();
-                if ports.len() < 2 {
+                if ports.len() < 2 && !is_router {
                     continue;
                 }
                 let reaches_from_port = |port: &str| {
                     reaches_via_port(graph, &candidate.id, port, predecessor, &fan_in.id)
                 };
                 let any_port_reaches = ports.iter().any(|port| reaches_from_port(port));
-                let every_port_deterministically_reaches = ports.iter().all(|port| {
-                    reaches_deterministically_via_port(
-                        graph,
-                        &candidate.id,
-                        port,
-                        predecessor,
-                        &fan_in.id,
-                    )
-                });
+                // A router with one wired output still has unwired runtime
+                // choices that emit no successor, so that sole edge cannot
+                // prove unconditional reachability. Multi-port routers retain
+                // the all-wired-ports reconvergence exception below.
+                let every_port_deterministically_reaches = ports.len() >= 2
+                    && ports.iter().all(|port| {
+                        reaches_deterministically_via_port(
+                            graph,
+                            &candidate.id,
+                            port,
+                            predecessor,
+                            &fan_in.id,
+                        )
+                    });
                 // A multi-port node only controls this predecessor when the
                 // predecessor is reachable from it but not guaranteed by a
                 // deterministic path on every routing choice. This matches
@@ -251,7 +257,9 @@ fn reaches_on_main_edges(graph: &WorkflowGraph, from: &str, to: &str, stop: &str
 }
 
 fn is_branching_node(graph: &WorkflowGraph, node_id: &str) -> bool {
-    graph
+    graph.nodes.iter().any(|node| {
+        node.id == node_id && matches!(node.kind, NodeKind::Condition | NodeKind::Switch)
+    }) || graph
         .edges
         .iter()
         .filter(|edge| edge.from_node == node_id)
@@ -355,10 +363,10 @@ pub(crate) fn to_flow_validation_error(
     }
 }
 
-/// The single canonical definition of the builder hard-gate stack: the three
+/// The single canonical definition of the builder hard-gate stack: the four
 /// author-time gates that reject (not warn) a graph an agent must not propose
-/// or persist — binding-resolvability, tool-contract, and required-arg
-/// resolvability, in increasing cost order.
+/// or persist — engine compatibility, binding-resolvability, tool-contract,
+/// and required-arg resolvability, in increasing cost order.
 ///
 /// Returns an empty `Vec` when the graph passes; otherwise the first failing
 /// gate's node-level error messages (short-circuiting, so an expensive later
@@ -372,6 +380,13 @@ pub(crate) fn to_flow_validation_error(
 /// `validate_and_migrate_graph` / `validate_all` first) — these gates check
 /// resolvability/contracts on a compilable graph.
 pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    let compatibility_errors = engine_compatibility_errors(graph);
+    if !compatibility_errors.is_empty() {
+        return compatibility_errors
+            .into_iter()
+            .map(|error| format!("{}: {}", error.code, error.message))
+            .collect();
+    }
     // Cheap, sync: a binding guaranteed to resolve null / wrong at runtime.
     let binding_errors = validate_binding_resolvability(graph);
     if !binding_errors.is_empty() {
@@ -430,8 +445,9 @@ pub(crate) async fn strict_gate(config: &Config, graph_json: &Value) -> Result<(
 /// `graph` and, if it passes, builds the `workflow_proposal` payload the
 /// propose/revise/edit tools all return.
 ///
-/// The single home for the gate sequence (binding-resolvability →
-/// tool-contract → required-arg resolvability) plus summary/warning assembly,
+/// The single home for the gate sequence (engine compatibility →
+/// binding-resolvability → tool-contract → required-arg resolvability) plus
+/// summary/warning assembly,
 /// so `revise_workflow` and `edit_workflow` cannot drift. `retry_tool` names
 /// the tool in the "fix … and call `<tool>` again" guidance so each caller's
 /// error text points the agent back at the right tool.

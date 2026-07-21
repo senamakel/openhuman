@@ -204,6 +204,34 @@ fn engine_compatibility_rejects_reconvergence_before_nested_router() {
 }
 
 #[test]
+fn engine_compatibility_treats_single_wired_router_outputs_as_conditional() {
+    let graph = structurally_valid_graph(json!({
+        "name": "single-wired-nested-router-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "switch", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "case", "to_node": "inner" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+
+    let errors = engine_compatibility_errors(&graph);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+    assert_eq!(errors[0].node_id.as_deref(), Some("m"));
+}
+
+#[test]
 fn flows_validate_returns_stable_nested_conditional_fan_in_error() {
     let outcome = flows_validate(nested_conditional_fan_in_graph());
     assert!(!outcome.value.valid);
@@ -4708,6 +4736,12 @@ async fn strict_gate_passes_a_valid_graph_and_rejects_a_structurally_invalid_one
     let err = strict_gate(&config, &bad).await.unwrap_err();
     assert!(err.contains("structurally invalid"), "{err}");
     assert!(err.contains("trigger"), "{err}");
+
+    // A structurally valid graph must still pass the shared engine gate.
+    let err = strict_gate(&config, &nested_conditional_fan_in_graph())
+        .await
+        .unwrap_err();
+    assert!(err.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN), "{err}");
 }
 
 // ── core-managed drafts (F5) ─────────────────────────────────────────────────

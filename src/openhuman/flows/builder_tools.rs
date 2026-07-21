@@ -547,25 +547,28 @@ impl Tool for EditWorkflowTool {
             }
         };
 
-        // Write the applied edit back to the draft (the durable working copy),
-        // so it survives across turns/reloads even if validation/gates below
-        // still flag something to fix next.
-        if let Some(ref draft_id) = write_back_draft {
-            let edited_json = serde_json::to_value(&edited)?;
-            if let Err(e) = ops::flows_draft_update(
-                &self.config,
-                draft_id,
-                Some(name.clone()),
-                Some(edited_json),
-                None,
-            ) {
-                tracing::warn!(target: "flows", %draft_id, error = %e, "[flows] edit_workflow: could not write edit back to draft");
+        let write_edit_to_draft = || -> anyhow::Result<()> {
+            if let Some(ref draft_id) = write_back_draft {
+                let edited_json = serde_json::to_value(&edited)?;
+                if let Err(e) = ops::flows_draft_update(
+                    &self.config,
+                    draft_id,
+                    Some(name.clone()),
+                    Some(edited_json),
+                    None,
+                ) {
+                    tracing::warn!(target: "flows", %draft_id, error = %e, "[flows] edit_workflow: could not write edit back to draft");
+                }
             }
-        }
+            Ok(())
+        };
 
         // Structural validation of the RESULT — surface every problem at once.
         let structural = tinyflows::validate::validate_all(&edited);
         if !structural.is_empty() {
+            // Preserve the longstanding working-copy contract: an applied edit
+            // survives for the next repair turn even when structurally invalid.
+            write_edit_to_draft()?;
             let messages: Vec<String> = structural.iter().map(ToString::to_string).collect();
             tracing::debug!(
                 target: "flows",
@@ -578,6 +581,34 @@ impl Tool for EditWorkflowTool {
                 messages.join("\n")
             )));
         }
+
+        // Engine-incompatible topologies are different from ordinary builder
+        // follow-up errors: persisting one would leave a draft that no current
+        // save/run path can accept. Reject it before advancing the durable
+        // working copy, while preserving the established write-back behavior
+        // for later binding/connection/contract gates.
+        let compatibility = ops::engine_compatibility_errors(&edited);
+        if !compatibility.is_empty() {
+            let messages: Vec<String> = compatibility
+                .into_iter()
+                .map(|error| format!("{}: {}", error.code, error.message))
+                .collect();
+            tracing::debug!(
+                target: "flows",
+                %name,
+                error_count = messages.len(),
+                "[flows] edit_workflow: the edited graph is engine-incompatible"
+            );
+            return Ok(ToolResult::error(format!(
+                "The edited graph is incompatible with the current engine:\n\n{}\n\nFix the ops and call edit_workflow again.",
+                messages.join("\n\n")
+            )));
+        }
+
+        // Write the accepted structural edit back to the draft (the durable
+        // working copy), so it survives across turns/reloads even if a later
+        // binding/connection/contract gate flags something to fix next.
+        write_edit_to_draft()?;
 
         // Full builder hard-gate stack + proposal payload (shared with revise).
         // Thread the persistence-state handles so the payload carries draft_id /

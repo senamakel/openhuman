@@ -63,6 +63,10 @@ impl Tool for ArchetypeDelegationTool {
                 "model": {
                     "type": "string",
                     "description": "Optional exact model id for this delegation only. Keeps the parent provider/routing, but pins the child agent to this model instead of the agent definition's default."
+                },
+                "blocking": {
+                    "type": "boolean",
+                    "description": "Default false: the delegation runs as a durable async worker — you immediately get an [async_subagent_ref] with a subagent_session_id (steer_subagent / wait_subagent / continue_subagent / close_subagent operate on it), and the finished result is inserted into this chat as a new turn. Pass true ONLY when the sub-agent's result must gate THIS reply (e.g. verify/review X before answering)."
                 }
             }
         })
@@ -124,13 +128,29 @@ impl Tool for ArchetypeDelegationTool {
             .map(str::trim)
             .filter(|s| !s.is_empty());
 
+        // Async by default: the delegated specialist runs as a durable,
+        // resumable worker and its result comes back as a new chat turn.
+        // `blocking: true` is the opt-in for results that must gate this
+        // reply. (`dispatch_subagent` itself falls back to blocking when
+        // there is no chat thread to deliver an async result into.)
+        let blocking = args
+            .get("blocking")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let mode = if blocking {
+            super::dispatch::DispatchMode::Blocking
+        } else {
+            super::dispatch::DispatchMode::PreferAsync
+        };
+
         super::dispatch_subagent(
             &self.agent_id,
             &self.tool_name,
             &prompt,
             None,
             model_override,
-            tool_context.and_then(|ctx| ctx.workspace.clone()),
+            tool_context,
+            mode,
         )
         .await
     }

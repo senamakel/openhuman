@@ -115,6 +115,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_repr = "0.1"
 serde_yaml = "0.9"
+# dhat — heap profiler for the offline `library-profile` benchmark binary only.
+# Default-OFF, dev-only: pulled in solely by the `rss-bench-dhat` feature so it
+# never enters the shipped desktop/library build (same posture as `rss-bench`).
+dhat = { version = "0.3", optional = true }
 # (Removed `html2md` dep. dhat-rs profiling on real Gmail inboxes
 # showed `html2md::walk` and `html2md::tables::handle` allocating
 # ~894 MB peak heap on a 10 KB HTML input from Otter.ai-style emails
@@ -508,6 +512,11 @@ e2e-test-support = []
 # part of the shipped desktop/library build and the feature-forwarding gate
 # (which only inspects the `default` list) never requires forwarding it.
 rss-bench = []
+# Adds dhat heap profiling on top of `rss-bench` for the `library-profile`
+# binary. Default-OFF, dev-only: installs dhat's global allocator, which
+# perturbs RSS/timing numbers, so it is a separate opt-in feature rather than
+# folded into `rss-bench`. Never forwarded to the shipped build.
+rss-bench-dhat = ["rss-bench", "dep:dhat"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

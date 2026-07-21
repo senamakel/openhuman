@@ -153,15 +153,8 @@ export default function WorkflowCopilotPanel({
   fullWidth = false,
 }: Props) {
   const { t } = useT();
-  const {
-    threadId,
-    sending,
-    proposal,
-    capped,
-    error,
-    send,
-    clearProposal,
-  } = useWorkflowBuilderChat(seedThreadId);
+  const { threadId, sending, proposal, capped, error, send, clearProposal } =
+    useWorkflowBuilderChat(seedThreadId);
   const [text, setText] = useState('');
 
   // Report the (lazily-created) thread id up so the host persists it per flow —

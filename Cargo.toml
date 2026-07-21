@@ -338,7 +338,7 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
-default = ["tokenjuice-treesitter", "voice", "web3", "media", "meet", "skills", "flows", "mcp", "desktop-automation", "tui"]
+default = ["tokenjuice-treesitter", "voice", "web3", "media", "meet", "skills", "flows", "mcp", "desktop-automation", "tui", "medulla-local"]
 # AST-aware code compression (tree-sitter Rust/TS/Python grammars; C build).
 # On by default; disable to fall back to the brace-depth heuristic.
 tokenjuice-treesitter = [
@@ -484,6 +484,22 @@ desktop-automation = ["dep:uiautomation"]
 # build-fact "tui feature disabled at compile time" error from the untouched
 # `"tui" | "chat"` CLI arm (mirrors the `mcp` stub pattern).
 tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
+
+# Local Medulla brain (plan Flavor A, §3.1–§3.2): the `medulla_local` domain —
+# a supervised `medulla-serve` Node child speaking the serve NDJSON protocol,
+# host-side inference + tools port callbacks, the `medulla_local` RPC namespace,
+# and the subconscious-replacement draft (`subconscious.engine = "medulla"`,
+# §5.2). Default-ON — the desktop app ships it — and therefore FORWARDED to the
+# Tauri shell's `openhuman_core` features (default-features=false there). Slim /
+# headless builds opt out via `--no-default-features --features "<list without
+# medulla-local>"`. The module is `#[cfg(feature = "medulla-local")]` at its
+# `pub mod` declaration (a registration-site gate, like `flows`); the
+# `subconscious.engine` config field stays compiled in ALL builds (inert serde),
+# and the subconscious tick's medulla branch is `#[cfg]`-gated so the default
+# (`local`) path is byte-identical whether or not this feature is on.
+# Sheds ZERO exclusive dependencies — tokio net/process, reqwest, serde are all
+# load-bearing for other domains; the value is compile-time surface.
+medulla-local = []
 
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []

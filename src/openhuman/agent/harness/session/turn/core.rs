@@ -507,13 +507,21 @@ impl Agent {
             // instead. Narrow specialists (both flags off) keep the
             // full-body log so prompt-engineering iteration on
             // tools/safety sections stays easy.
-            if self.omit_profile && self.omit_memory_md {
+            //
+            // AGENTS.md instruction layers are also user/project-controlled and
+            // can land in the prompt even when PROFILE/MEMORY are both omitted
+            // (common for narrow specialists), so treat their presence as a
+            // redaction trigger too — otherwise the full-body path would print
+            // raw AGENTS.md contents verbatim.
+            let contains_agents_md =
+                rendered_prompt.contains("## Project instructions (AGENTS.md)");
+            if self.omit_profile && self.omit_memory_md && !contains_agents_md {
                 log::debug!("[agent_loop] system prompt body:\n{}", rendered_prompt);
             } else {
                 let mut hasher = std::collections::hash_map::DefaultHasher::new();
                 rendered_prompt.hash(&mut hasher);
                 log::debug!(
-                    "[agent_loop] system prompt body redacted (contains PROFILE/MEMORY): chars={} hash={:016x}",
+                    "[agent_loop] system prompt body redacted (contains PROFILE/MEMORY/AGENTS.md): chars={} hash={:016x}",
                     rendered_prompt.chars().count(),
                     hasher.finish()
                 );

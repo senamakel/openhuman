@@ -10,6 +10,7 @@ import {
 
 import { useStickToBottom } from '../../../hooks/useStickToBottom';
 import { parseMessageImages } from '../../../lib/attachments';
+import { unwrapToolCallEnvelope } from '../../../lib/chat/toolCallEnvelope';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { subagentApi } from '../../../services/api/subagentApi';
 import {
@@ -552,13 +553,26 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
               style={bottomPadding !== undefined ? { paddingBottom: bottomPadding } : undefined}>
               {timelineMessages.map(msg => {
                 const isAgentTextMode = msg.sender === 'agent' && agentMessageViewMode === 'text';
+                // B25: an agent turn that both talks AND calls a tool can leak
+                // the provider wire-format `{ content, tool_calls }` JSON
+                // envelope as its raw `content` (see `unwrapToolCallEnvelope`).
+                // Unwrap agent messages to the human text so no surface (home
+                // chat OR the workflow copilot, which shares this renderer)
+                // ever paints raw JSON. Shape-based + a strict passthrough for
+                // ordinary prose, so this is a no-op for every non-envelope
+                // message — the tool activity itself renders via the timeline,
+                // so the extracted tool names are intentionally dropped here.
+                const displayContent =
+                  msg.sender === 'agent'
+                    ? unwrapToolCallEnvelope(msg.content ?? '').text
+                    : (msg.content ?? '');
                 // Parsed once per message: for current messages (extraMetadata
-                // present, or agent messages) msg.content already has no markers,
+                // present, or agent messages) the content already has no markers,
                 // so this is a no-op. For legacy persisted user messages with raw
                 // [IMAGE:...]/[FILE:...] markers and no extraMetadata, this is
                 // what keeps the marker text out of both the rendered bubble and
                 // the copy-to-clipboard action.
-                const parsedContent = parseMessageImages(msg.content ?? '');
+                const parsedContent = parseMessageImages(displayContent);
                 const pastTurn = pastTurnAnchors[msg.id];
                 return (
                   <Fragment key={msg.id}>
@@ -586,9 +600,9 @@ export const ChatThreadView = forwardRef<ChatThreadViewHandle, ChatThreadViewPro
                             <div className="space-y-1">
                               <div className="relative space-y-1">
                                 {agentMessageViewMode === 'text' ? (
-                                  <AgentMessageText content={msg.content} />
+                                  <AgentMessageText content={displayContent} />
                                 ) : (
-                                  splitAgentMessageIntoBubbles(msg.content).map(
+                                  splitAgentMessageIntoBubbles(displayContent).map(
                                     (segment, index, parts) => {
                                       const position: AgentBubblePosition =
                                         parts.length === 1

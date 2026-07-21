@@ -183,4 +183,51 @@ describe('ChatThreadView', () => {
     expect(screen.getByText('Message in thread B')).toBeInTheDocument();
     expect(screen.queryByText('Message in thread A')).not.toBeInTheDocument();
   });
+
+  it('B25: unwraps a raw tool-call envelope agent message to clean text, never raw JSON', () => {
+    // A `workflow_builder` turn that both talks AND calls a tool can land in
+    // the transcript as the provider wire-format `{ content, tool_calls }`
+    // envelope. The shared renderer (used by both the home chat and the
+    // workflow copilot) must show only the human text — never the raw JSON.
+    const thread = makeThread({ id: 't-envelope' });
+    const messages: ThreadMessage[] = [
+      {
+        id: 'm-user',
+        sender: 'user',
+        type: 'text',
+        content: 'build me a Slack digest',
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'm-agent',
+        sender: 'agent',
+        type: 'text',
+        content: JSON.stringify({
+          content: "Here's the workflow I propose.",
+          tool_calls: [{ id: 'call_1', name: 'propose_workflow', arguments: '{"nodes":[]}' }],
+        }),
+        extraMetadata: {},
+        createdAt: '2026-01-01T00:01:00.000Z',
+      },
+    ];
+
+    renderThreadView(
+      { threadId: thread.id },
+      {
+        thread: {
+          ...emptyThreadState,
+          threads: [thread],
+          selectedThreadId: thread.id,
+          messagesByThreadId: { [thread.id]: messages },
+        },
+      }
+    );
+
+    const list = screen.getByTestId('chat-message-list');
+    expect(list).toHaveTextContent("Here's the workflow I propose.");
+    // The raw envelope must never reach the DOM as text.
+    expect(list).not.toHaveTextContent('tool_calls');
+    expect(list).not.toHaveTextContent('"nodes":[]');
+  });
 });

@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // German (Deutsch) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': 'Teilen',
+  'share.modalTitle': 'Diesen Moment teilen',
+  'share.modalSubtitle': 'Poste auf X oder LinkedIn, was dein Agent geschafft hat',
+  'share.drafting': 'Deine Karte wird gestaltet...',
+  'share.cardAlt': 'Vorschau der Teilen-Karte',
+  'share.imageError': 'Das Bild konnte nicht erstellt werden. Bitte erneut versuchen.',
+  'share.captionLabel': 'Bildunterschrift',
+  'share.captionPlaceholder': 'Schreibe eine Bildunterschrift...',
+  'share.privacyNote':
+    'Geteilt werden nur die Überschrift, die Bildunterschrift, der Name des Agenten und das Branding. Dein Chat, dein Gedächtnis und deine Dateien bleiben privat.',
+  'share.defaultHeadline': 'Sieh, was mein OpenHuman-Agent gerade gemacht hat',
+  'share.defaultAgentName': 'Mein Agent',
+  'share.defaultCaption': 'Sieh, was mein OpenHuman-Agent gerade gemacht hat.',
+  'share.captionWithHeadline': '{headline}. Erstellt mit meinem OpenHuman-Agenten.',
+  'share.linkedInHint': 'Bildunterschrift kopiert. Füge sie in deinen LinkedIn-Beitrag ein.',
+  'share.shareX': 'Auf X teilen',
+  'share.shareLinkedIn': 'Auf LinkedIn teilen',
+  'share.copyImage': 'Bild kopieren',
+  'share.copiedImage': 'Bild kopiert',
+  'share.copyCaption': 'Bildunterschrift kopieren',
+  'share.copiedCaption': 'Bildunterschrift kopiert',
   'agentWorld.welcome.nav': 'Willkommen',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': 'Eine Welt, in der sich Ihre Agenten treffen',
@@ -576,7 +598,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
   'brain.tabs.sources': 'Quellen',
   'brain.tabs.sync': 'Synchronisierung',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orchestrierung',
   'tinyplaceOrchestration.title': 'TinyPlace-Relay',
   'tinyplaceOrchestration.subtitle': 'Angepinnte Agentenkanäle und App-Sitzungs-Chats',
   'tinyplaceOrchestration.refresh': 'Aktualisieren',
@@ -7570,15 +7592,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': 'Seitenleiste',
   'flows.canvas.legendTab': 'Manuell',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': 'Notabschaltung',
-  'safety.stopFailed': 'Automatisierung konnte nicht gestoppt werden – bitte erneut versuchen.',
-  'safety.resume': 'Automatisierung fortsetzen',
-  'safety.resumeFailed':
-    'Fortsetzen fehlgeschlagen – Automatisierung ist weiterhin angehalten. Bitte erneut versuchen.',
-  'safety.haltedTitle': 'Automatisierung angehalten',
-  'safety.haltedBody':
-    'Alle Desktop-Automatisierungen sind gestoppt. Fortsetzen, wenn Sie bereit sind.',
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Datenschutzstatus',
   'privacy.status.external': 'Außerhalb des Geräts',

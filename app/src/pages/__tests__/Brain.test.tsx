@@ -9,7 +9,7 @@ const graphExportMock = vi.hoisted(() => vi.fn());
 // (userId null → set) and assert the graph reloads (#4149).
 const coreAuthRef = vi.hoisted(() => ({ current: 'user-A' as string | null }));
 // Captures navigate() calls so we can assert the legacy TinyPlace-orchestration
-// deep link bounces to the promoted top-level /orchestration tab.
+// deep link bounces to the folded-in Orchestration sub-tab.
 const navigateSpy = vi.hoisted(() => vi.fn());
 
 vi.mock('react-router-dom', async importOriginal => {
@@ -62,6 +62,10 @@ vi.mock('../../components/layout/ChipTabs', async () => {
   };
 });
 vi.mock('../../components/ui/BetaBanner', () => ({ default: () => null }));
+vi.mock('../../components/orchestration/OrchestrationView', async () => {
+  const React = await import('react');
+  return { default: () => React.createElement('div', { 'data-testid': 'brain-orchestration' }) };
+});
 
 vi.mock('../../components/intelligence/MemoryControls', () => ({ MemoryControls: () => null }));
 vi.mock('../../components/intelligence/MemoryTreeStatusPanel', async () => {
@@ -181,13 +185,23 @@ describe('Brain page', () => {
     });
   });
 
-  it('redirects the legacy tinyplace-orchestration deep link to /orchestration', async () => {
+  it('renders the folded-in Orchestration view on the orchestration tab', async () => {
+    graphExportMock.mockResolvedValue(makeGraph(0));
+    await act(async () => {
+      renderWithProviders(<Brain />, { initialEntries: ['/?tab=orchestration'] });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('brain-orchestration')).toBeInTheDocument();
+    });
+  });
+
+  it('redirects the legacy tinyplace-orchestration deep link to the orchestration tab', async () => {
     graphExportMock.mockResolvedValue(makeGraph(0));
     await act(async () => {
       renderWithProviders(<Brain />, { initialEntries: ['/?tab=tinyplace-orchestration'] });
     });
     await waitFor(() => {
-      expect(navigateSpy).toHaveBeenCalledWith('/orchestration', { replace: true });
+      expect(navigateSpy).toHaveBeenCalledWith('/brain?tab=orchestration', { replace: true });
     });
   });
 });

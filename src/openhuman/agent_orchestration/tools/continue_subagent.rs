@@ -32,6 +32,95 @@ impl ContinueSubagentTool {
     pub fn new() -> Self {
         Self
     }
+
+    /// Resume a durable sub-agent session (no pause checkpoint on disk).
+    ///
+    /// Accepts either the transient `task_id` (`sub-…`) or the durable
+    /// `subagent_session_id` in the tool's `task_id` argument — the ambient
+    /// `[active_subagents]` roster advertises both. The resume routes through
+    /// `spawn_async_subagent` pinned to the session's `task_key`, so the
+    /// reusable-session machinery reattaches: a `running` worker is steered,
+    /// an `idle` one is relaunched seeded with its persisted `latest_history`
+    /// plus the new message, and the finished result is delivered back into
+    /// the parent chat as a new turn.
+    async fn resume_from_durable_store(
+        &self,
+        parent: &crate::openhuman::agent::harness::fork_context::ParentExecutionContext,
+        task_id: &str,
+        agent_id: &str,
+        message: &str,
+        tool_context: Option<&ToolExecutionContext>,
+    ) -> anyhow::Result<ToolResult> {
+        use crate::openhuman::agent_orchestration::subagent_sessions::{
+            self, SubagentSessionStore,
+        };
+
+        let store = SubagentSessionStore::new(parent.workspace_dir.clone());
+        let sessions = match subagent_sessions::list_for_parent(&store, &parent.session_id, None) {
+            Ok(sessions) => sessions,
+            Err(err) => {
+                return Ok(ToolResult::error(format!(
+                    "continue_subagent: no checkpoint found for task_id '{task_id}' and \
+                         the durable session store could not be read: {err}"
+                )));
+            }
+        };
+        let session = sessions.iter().find(|s| {
+            s.subagent_session_id == task_id || s.current_task_id.as_deref() == Some(task_id)
+        });
+        let Some(session) = session else {
+            return Ok(ToolResult::error(format!(
+                "continue_subagent: no checkpoint and no durable session found for \
+                 task_id '{task_id}'. Check the [active_subagents] roster (or call \
+                 list_subagents) and pass that subagent_session_id — or delegate a \
+                 fresh task if the worker was closed."
+            )));
+        };
+        if session.agent_id != agent_id {
+            return Ok(ToolResult::error(format!(
+                "continue_subagent: agent_id mismatch — durable session '{}' belongs to \
+                 '{}', caller passed '{agent_id}'",
+                session.subagent_session_id, session.agent_id
+            )));
+        }
+        if !session.status.reusable() {
+            return Ok(ToolResult::error(format!(
+                "continue_subagent: durable session '{}' is {:?} and cannot be resumed. \
+                 Delegate a fresh task instead.",
+                session.subagent_session_id, session.status
+            )));
+        }
+
+        tracing::info!(
+            task_id = %task_id,
+            subagent_session_id = %session.subagent_session_id,
+            agent_id = %agent_id,
+            status = ?session.status,
+            "[continue_subagent] resuming durable session via reusable async path"
+        );
+
+        let mut async_args = json!({
+            "agent_id": session.agent_id.clone(),
+            "prompt": message,
+            "task_key": session.task_key.clone(),
+            "task_title": session.task_title.clone(),
+        });
+        if let (Some(obj), Some(toolkit)) = (async_args.as_object_mut(), &session.toolkit) {
+            obj.insert(
+                "toolkit".to_string(),
+                serde_json::Value::String(toolkit.clone()),
+            );
+        }
+        if let (Some(obj), Some(model)) = (async_args.as_object_mut(), &session.model) {
+            obj.insert(
+                "model".to_string(),
+                serde_json::Value::String(model.clone()),
+            );
+        }
+        super::spawn_async_subagent::SpawnAsyncSubagentTool::new()
+            .execute_with_context(async_args, ToolCallOptions::default(), tool_context)
+            .await
+    }
 }
 
 #[async_trait]
@@ -41,11 +130,15 @@ impl Tool for ContinueSubagentTool {
     }
 
     fn description(&self) -> &str {
-        "Resume a paused sub-agent that requested user input via \
-         ask_user_clarification. Pass the task_id from the \
-         [SUBAGENT_AWAITING_USER] envelope and the user's answer \
-         as the message. The sub-agent continues from its checkpoint \
-         with full prior context."
+        "Resume an existing sub-agent with a follow-up message, keeping its \
+         full prior context. Two cases: (1) a sub-agent paused on \
+         ask_user_clarification — pass the task_id from the \
+         [SUBAGENT_AWAITING_USER] envelope and the user's answer; (2) a \
+         durable worker from the [active_subagents] roster (e.g. an `idle` \
+         workflow_builder whose proposal the user is now reacting to) — pass \
+         its subagent_session_id (or task id) and the follow-up. Always \
+         prefer this over re-delegating the same task from scratch: a fresh \
+         delegation loses everything the worker already did."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -55,11 +148,11 @@ impl Tool for ContinueSubagentTool {
             "properties": {
                 "task_id": {
                     "type": "string",
-                    "description": "The task_id from the [SUBAGENT_AWAITING_USER] envelope."
+                    "description": "The task_id from the [SUBAGENT_AWAITING_USER] envelope, or the subagent_session_id (preferred) / task id of a durable worker from the [active_subagents] roster."
                 },
                 "agent_id": {
                     "type": "string",
-                    "description": "The agent_id from the [SUBAGENT_AWAITING_USER] envelope."
+                    "description": "The worker's agent_id (from the envelope or the roster line)."
                 },
                 "message": {
                     "type": "string",
@@ -135,16 +228,22 @@ impl Tool for ContinueSubagentTool {
         let checkpoint_json = match std::fs::read_to_string(&checkpoint_path) {
             Ok(json) => json,
             Err(e) => {
-                tracing::warn!(
+                tracing::info!(
                     task_id = %task_id,
                     path = %checkpoint_path.display(),
                     error = %e,
-                    "[continue_subagent] checkpoint not found"
+                    "[continue_subagent] no pause checkpoint — trying durable session store"
                 );
-                return Ok(ToolResult::error(format!(
-                    "continue_subagent: no checkpoint found for task_id '{task_id}'. \
-                     The sub-agent may not have paused, or the checkpoint expired."
-                )));
+                // Durable-session fallback: the sub-agent did not pause on a
+                // clarification (no checkpoint), but it may be a durable
+                // worker from this or an earlier turn — resumable with its
+                // full prior history via the reusable async path. This is
+                // what lets the orchestrator continue a finished
+                // workflow_builder ("looks good, save it") instead of
+                // re-delegating a fresh, stateless one.
+                return self
+                    .resume_from_durable_store(&parent, &task_id, &agent_id, &message, tool_context)
+                    .await;
             }
         };
 

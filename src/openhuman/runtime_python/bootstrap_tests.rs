@@ -167,3 +167,64 @@ fn test_asset_name() -> &'static str {
 fn test_asset_name() -> &'static str {
     "cpython-3.12.13+20260510-aarch64-unknown-linux-gnu-install_only.tar.gz"
 }
+
+/// GH-5047: a warm restart is a fresh process, so `try_cached` is empty. The
+/// durable probe must still recover readiness from a prior managed install on
+/// disk — otherwise `is_done` reports "not ready" every launch and the
+/// harness-init overlay re-appears.
+#[cfg(unix)]
+#[tokio::test]
+async fn probe_installed_true_from_disk_after_simulated_restart() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let cache_root = tmp.path().join("runtime-python");
+    // A prior managed install, extracted under the cache root.
+    let bin_dir = cache_root.join("cpython-3.12.13-managed").join("bin");
+    std::fs::create_dir_all(&bin_dir).expect("mkdir install");
+    let python_path = bin_dir.join("python3.12");
+    std::fs::write(&python_path, b"#!/bin/sh\necho 'Python 3.12.13'\n").expect("write python stub");
+    std::fs::set_permissions(&python_path, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+
+    let mut cfg = RuntimePythonConfig::default();
+    cfg.enabled = true;
+    cfg.cache_dir = cache_root.display().to_string();
+    cfg.prefer_system = false; // force the managed-scan path — no host dependency
+
+    let bootstrap = PythonBootstrap::new(cfg);
+    assert!(
+        bootstrap.try_cached().is_none(),
+        "precondition: process-local cache is empty right after a restart"
+    );
+    let resolved = bootstrap.probe_installed().await;
+    assert!(
+        resolved.is_some(),
+        "durable probe should recover the managed python install from disk"
+    );
+    assert_eq!(resolved.unwrap().source, PythonSource::Managed);
+}
+
+/// A fresh machine (empty cache, no install) must report "not installed" so a
+/// genuine first-run download still runs and the overlay still shows.
+#[tokio::test]
+async fn probe_installed_none_when_nothing_on_disk() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let mut cfg = RuntimePythonConfig::default();
+    cfg.enabled = true;
+    cfg.cache_dir = tmp.path().join("runtime-python").display().to_string();
+    cfg.prefer_system = false;
+    let bootstrap = PythonBootstrap::new(cfg);
+    assert!(
+        bootstrap.probe_installed().await.is_none(),
+        "no on-disk install → provisioning still required"
+    );
+}
+
+/// A disabled runtime is "nothing to provision", not "installed".
+#[tokio::test]
+async fn probe_installed_none_when_disabled() {
+    let mut cfg = RuntimePythonConfig::default();
+    cfg.enabled = false;
+    let bootstrap = PythonBootstrap::new(cfg);
+    assert!(bootstrap.probe_installed().await.is_none());
+}

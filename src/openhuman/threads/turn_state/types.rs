@@ -125,6 +125,13 @@ pub struct ToolTimelineEntry {
     /// `tool_result`. `None` while running and on legacy snapshots.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
+    /// Per-turn monotonic ordering key stamped at the moment the row is first
+    /// created, so a rehydrated timeline can order rows identically to the live
+    /// stream (conversations-timeline-refactor, Phase 4 amendment). Shares the
+    /// per-turn ordering space with [`TranscriptItem::seq`]. `None` on snapshots
+    /// written before this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seq: Option<u64>,
 }
 
 /// Live sub-agent activity nested under a `subagent:*` timeline row.

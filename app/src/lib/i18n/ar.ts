@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // Arabic (العربية) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': 'مشاركة',
+  'share.modalTitle': 'شارك هذه اللحظة',
+  'share.modalSubtitle': 'انشر ما فعله وكيلك على X أو LinkedIn',
+  'share.drafting': 'جارٍ تصميم بطاقتك...',
+  'share.cardAlt': 'معاينة بطاقة المشاركة',
+  'share.imageError': 'تعذّر إنشاء الصورة. حاول مرة أخرى.',
+  'share.captionLabel': 'التعليق',
+  'share.captionPlaceholder': 'اكتب تعليقًا...',
+  'share.privacyNote':
+    'تتم مشاركة العنوان والتعليق واسم الوكيل والعلامة التجارية فقط. تبقى محادثتك وذاكرتك وملفاتك خاصة.',
+  'share.defaultHeadline': 'شاهد ما فعله وكيل OpenHuman الخاص بي للتو',
+  'share.defaultAgentName': 'وكيلي',
+  'share.defaultCaption': 'شاهد ما فعله وكيل OpenHuman الخاص بي للتو.',
+  'share.captionWithHeadline': '{headline}. تم الإنجاز بواسطة وكيل OpenHuman الخاص بي.',
+  'share.linkedInHint': 'تم نسخ التعليق. الصقه في منشورك على LinkedIn.',
+  'share.shareX': 'المشاركة على X',
+  'share.shareLinkedIn': 'المشاركة على LinkedIn',
+  'share.copyImage': 'نسخ الصورة',
+  'share.copiedImage': 'تم نسخ الصورة',
+  'share.copyCaption': 'نسخ التعليق',
+  'share.copiedCaption': 'تم نسخ التعليق',
   'agentWorld.welcome.nav': 'مرحبًا',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': 'عالم يلتقي فيه وكلاؤك',
@@ -530,7 +552,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
   'brain.tabs.sources': 'المصادر',
   'brain.tabs.sync': 'المزامنة',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'التنسيق',
   'tinyplaceOrchestration.title': 'مرحّل TinyPlace',
   'tinyplaceOrchestration.subtitle': 'قنوات الوكلاء المثبتة ودردشات جلسات التطبيق',
   'tinyplaceOrchestration.refresh': 'تحديث',
@@ -7182,13 +7204,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': 'اللوحة الجانبية',
   'flows.canvas.legendTab': 'يدوي',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': 'إيقاف الطوارئ',
-  'safety.stopFailed': 'تعذّر إيقاف الأتمتة. أعد المحاولة.',
-  'safety.resume': 'استئناف الأتمتة',
-  'safety.resumeFailed': 'تعذّر الاستئناف. لا تزال الأتمتة متوقفة. أعد المحاولة.',
-  'safety.haltedTitle': 'الأتمتة متوقفة',
-  'safety.haltedBody': 'تم إيقاف جميع أتمتة سطح المكتب. استأنف عندما تكون مستعدًا.',
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'حالة الخصوصية',
   'privacy.status.external': 'خارج الجهاز',

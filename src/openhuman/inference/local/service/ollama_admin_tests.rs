@@ -757,6 +757,58 @@ async fn lm_studio_diagnostics_reports_loaded_chat_model() {
     assert_eq!(diag["ok"], true);
 }
 
+/// Regression for GH #5053: a custom OpenAI-compatible BYOK endpoint on
+/// localhost (e.g. LM Studio at `http://localhost:1234/v1`) whose `provider`
+/// tag still defaults to `ollama` must be probed with `/v1/models`, NOT the
+/// Ollama-native `/api/tags`. The mock serves ONLY `/v1/models` and no
+/// `/api/tags`, so before the fix diagnostics took the Ollama branch,
+/// hit an unrouted `/v1/api/tags`, and reported the model absent; after the
+/// fix the `/v1` endpoint type routes discovery to `/v1/models` and the model
+/// is found.
+#[tokio::test]
+async fn diagnostics_openai_compatible_v1_endpoint_uses_v1_models_not_api_tags() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+
+    // OpenAI-compatible server: exposes `/v1/models` and deliberately no
+    // `/api/tags` — an Ollama probe here would 404 (silently empty discovery).
+    let app = Router::new().route(
+        "/v1/models",
+        get(|| async {
+            Json(json!({
+                "data": [
+                    { "id": "local-model", "object": "model", "owned_by": "lm-studio" }
+                ]
+            }))
+        }),
+    );
+    let base = spawn_mock(app).await;
+
+    // The #5053 config: a `/v1` OpenAI-compatible endpoint whose provider tag is
+    // the defaulted `ollama` (not `lm_studio`).
+    let mut config = lm_studio_config(&base);
+    config.local_ai.provider = "ollama".to_string();
+
+    let service = LocalAiService::new(&config);
+    let diag = service.diagnostics(&config).await.expect("diagnostics");
+
+    // `lm_studio_running` is emitted only by the OpenAI-compatible (`/v1/models`)
+    // diagnostics path — the Ollama branch reports `ollama_running` and leaves
+    // this key null. Its presence proves discovery was routed by endpoint type,
+    // not sent to `/api/tags`.
+    assert_eq!(diag["lm_studio_running"], true);
+    let installed = diag["installed_models"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        installed
+            .iter()
+            .any(|m| m["name"].as_str() == Some("local-model")),
+        "OpenAI-compatible /v1 endpoint must discover models via /v1/models, got: {:?}",
+        installed
+    );
+}
+
 #[tokio::test]
 async fn lm_studio_diagnostics_flags_missing_chat_model() {
     let _guard = crate::openhuman::inference::inference_test_guard();

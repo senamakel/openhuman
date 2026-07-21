@@ -386,6 +386,105 @@ impl Agent {
         Ok(())
     }
 
+    /// Cold-boot resume for the web-chat path: pre-populate this session's
+    /// LLM context from the **full-fidelity** `session_raw/{stem}.jsonl`
+    /// transcript for `thread_id`.
+    ///
+    /// This is the high-fidelity counterpart to
+    /// [`Self::seed_resume_from_messages`]. That fallback sources lossy
+    /// `(sender, content)` prose from the conversation log, so it drops every
+    /// tool call, tool-role result, and reasoning block — after an app restart
+    /// the model then "forgets" all its tool interactions. This path instead
+    /// routes thread → transcript via
+    /// [`transcript::find_root_transcript_for_thread`] and reuses the exact
+    /// [`transcript::read_transcript`] +
+    /// [`Self::bound_cached_transcript_messages`] machinery as
+    /// [`Self::try_load_session_transcript`], so `tool_calls`, `role:"tool"`
+    /// messages, and `reasoning_content` all survive the round-trip. The only
+    /// difference from `try_load_session_transcript` is the lookup key (thread
+    /// id vs. per-thread agent name), so a thread whose transcript was written
+    /// under a differently-scoped agent name still resumes.
+    ///
+    /// Returns `true` when a transcript was found, loaded, and seeded into
+    /// `cached_transcript_messages`; `false` (a no-op) when the agent is already
+    /// warm, no root transcript exists for the thread, the transcript is empty,
+    /// or it fails to parse — the caller then falls back to prose-pair seeding.
+    ///
+    /// Best-effort like `try_load_session_transcript`: read/parse failures are
+    /// logged and reported as `false` rather than propagated. The current turn's
+    /// user message is appended later by [`Self::run_single`] / `turn`, so it is
+    /// intentionally absent from the loaded prefix — no dedup is needed here (the
+    /// on-disk transcript ends at the previous completed turn).
+    pub fn seed_resume_from_thread_transcript(&mut self, thread_id: &str) -> bool {
+        if !self.history.is_empty() || self.cached_transcript_messages.is_some() {
+            log::debug!(
+                "[web-channel] seed_resume_from_thread_transcript no-op — agent already warm \
+                 (history_len={}, cached={}) thread={thread_id}",
+                self.history.len(),
+                self.cached_transcript_messages.is_some()
+            );
+            return false;
+        }
+
+        let Some(path) =
+            super::transcript::find_root_transcript_for_thread(&self.workspace_dir, thread_id)
+        else {
+            log::debug!(
+                "[web-channel] no root session_raw transcript for thread={thread_id} — \
+                 falling back to conversation-log prose seeding"
+            );
+            return false;
+        };
+
+        log::info!(
+            "[web-channel] cold-boot resume — loading full-fidelity transcript for \
+             thread={thread_id} path={}",
+            path.display()
+        );
+
+        match super::transcript::read_transcript(&path) {
+            Ok(session) => {
+                if session.messages.is_empty() {
+                    log::debug!(
+                        "[web-channel] root transcript for thread={thread_id} is empty — \
+                         falling back to prose seeding"
+                    );
+                    return false;
+                }
+                let loaded_count = session.messages.len();
+                // Count the tool-role results carried into the resumed prefix —
+                // the fidelity the prose fallback would have silently dropped.
+                let tool_result_msgs = session.messages.iter().filter(|m| m.role == "tool").count();
+                let bounded = self.bound_cached_transcript_messages(session.messages);
+                if bounded.len() < loaded_count {
+                    log::warn!(
+                        "[web-channel] resume prefix trimmed from {} to {} messages \
+                         (max_history_messages={}) for thread={thread_id}",
+                        loaded_count,
+                        bounded.len(),
+                        self.config.max_history_messages
+                    );
+                }
+                log::info!(
+                    "[web-channel] cold-boot resume — primed {} transcript message(s) \
+                     ({} tool-role result(s) preserved) for thread={thread_id}",
+                    bounded.len(),
+                    tool_result_msgs
+                );
+                self.cached_transcript_messages = Some(bounded);
+                true
+            }
+            Err(err) => {
+                log::warn!(
+                    "[web-channel] failed to parse root transcript {} for thread={thread_id}: \
+                     {err} — falling back to prose seeding",
+                    path.display()
+                );
+                false
+            }
+        }
+    }
+
     /// Drain and return memory citations collected for the latest completed turn.
     pub fn take_last_turn_citations(
         &mut self,

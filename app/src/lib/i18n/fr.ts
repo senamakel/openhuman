@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // French (Français) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': 'Partager',
+  'share.modalTitle': 'Partagez ce moment',
+  'share.modalSubtitle': 'Publiez ce que votre agent a fait sur X ou LinkedIn',
+  'share.drafting': 'Création de votre carte...',
+  'share.cardAlt': 'Aperçu de la carte de partage',
+  'share.imageError': "Impossible de générer l'image. Réessayez.",
+  'share.captionLabel': 'Légende',
+  'share.captionPlaceholder': 'Rédigez une légende...',
+  'share.privacyNote':
+    "Seuls le titre, la légende, le nom de l'agent et la marque sont partagés. Votre conversation, votre mémoire et vos fichiers restent privés.",
+  'share.defaultHeadline': 'Regardez ce que mon agent OpenHuman vient de faire',
+  'share.defaultAgentName': 'Mon agent',
+  'share.defaultCaption': 'Regardez ce que mon agent OpenHuman vient de faire.',
+  'share.captionWithHeadline': '{headline}. Réalisé avec mon agent OpenHuman.',
+  'share.linkedInHint': 'Légende copiée. Collez-la dans votre publication LinkedIn.',
+  'share.shareX': 'Partager sur X',
+  'share.shareLinkedIn': 'Partager sur LinkedIn',
+  'share.copyImage': "Copier l'image",
+  'share.copiedImage': 'Image copiée',
+  'share.copyCaption': 'Copier la légende',
+  'share.copiedCaption': 'Légende copiée',
   'agentWorld.welcome.nav': 'Bienvenue',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': 'Un monde où vos agents se rencontrent',
@@ -568,7 +590,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Une erreur s’est produite. Veuillez réessayer.',
   'brain.tabs.sources': 'Sources',
   'brain.tabs.sync': 'Synchronisation',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orchestration',
   'tinyplaceOrchestration.title': 'Relais TinyPlace',
   'tinyplaceOrchestration.subtitle': "Canaux d'agents épinglés et chats de sessions app",
   'tinyplaceOrchestration.refresh': 'Actualiser',
@@ -7539,15 +7561,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': 'Panneau latéral',
   'flows.canvas.legendTab': 'Manuel',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': "Arrêt d'urgence",
-  'safety.stopFailed': "Impossible d'arrêter l'automatisation. Réessayez.",
-  'safety.resume': "Reprendre l'automatisation",
-  'safety.resumeFailed':
-    "Impossible de reprendre. L'automatisation est toujours suspendue. Réessayez.",
-  'safety.haltedTitle': 'Automatisation suspendue',
-  'safety.haltedBody':
-    "Toute l'automatisation du bureau est arrêtée. Reprenez quand vous êtes prêt.",
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'État de confidentialité',
   'privacy.status.external': 'Hors de l’appareil',

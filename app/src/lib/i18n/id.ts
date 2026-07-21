@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // Indonesian (Bahasa Indonesia) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': 'Bagikan',
+  'share.modalTitle': 'Bagikan momen ini',
+  'share.modalSubtitle': 'Posting apa yang dilakukan agen Anda ke X atau LinkedIn',
+  'share.drafting': 'Mendesain kartu Anda...',
+  'share.cardAlt': 'Pratinjau kartu berbagi',
+  'share.imageError': 'Tidak dapat membuat gambar. Coba lagi.',
+  'share.captionLabel': 'Keterangan',
+  'share.captionPlaceholder': 'Tulis keterangan...',
+  'share.privacyNote':
+    'Hanya judul, keterangan, nama agen, dan merek yang dibagikan. Obrolan, memori, dan file Anda tetap pribadi.',
+  'share.defaultHeadline': 'Lihat apa yang baru saja dilakukan agen OpenHuman saya',
+  'share.defaultAgentName': 'Agen saya',
+  'share.defaultCaption': 'Lihat apa yang baru saja dilakukan agen OpenHuman saya.',
+  'share.captionWithHeadline': '{headline}. Dibuat dengan agen OpenHuman saya.',
+  'share.linkedInHint': 'Keterangan disalin. Tempel ke postingan LinkedIn Anda.',
+  'share.shareX': 'Bagikan ke X',
+  'share.shareLinkedIn': 'Bagikan ke LinkedIn',
+  'share.copyImage': 'Salin gambar',
+  'share.copiedImage': 'Gambar disalin',
+  'share.copyCaption': 'Salin keterangan',
+  'share.copiedCaption': 'Keterangan disalin',
   'agentWorld.welcome.nav': 'Selamat datang',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': 'Dunia tempat agen Anda bertemu',
@@ -554,7 +576,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Terjadi kesalahan. Silakan coba lagi.',
   'brain.tabs.sources': 'Sumber',
   'brain.tabs.sync': 'Sinkronisasi',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orkestrasi',
   'tinyplaceOrchestration.title': 'Relay TinyPlace',
   'tinyplaceOrchestration.subtitle': 'Kanal agen tersemat dan chat sesi aplikasi',
   'tinyplaceOrchestration.refresh': 'Segarkan',
@@ -7385,13 +7407,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': 'Panel samping',
   'flows.canvas.legendTab': 'Manual',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': 'Hentikan darurat',
-  'safety.stopFailed': 'Tidak dapat menghentikan otomasi. Coba lagi.',
-  'safety.resume': 'Lanjutkan otomasi',
-  'safety.resumeFailed': 'Tidak dapat melanjutkan. Otomasi masih dihentikan. Coba lagi.',
-  'safety.haltedTitle': 'Otomasi dihentikan',
-  'safety.haltedBody': 'Semua otomasi desktop dihentikan. Lanjutkan ketika Anda siap.',
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Status privasi',
   'privacy.status.external': 'Di luar perangkat',

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BILLING_DASHBOARD_URL, DISCORD_INVITE_URL } from '../../../utils/links';
+import { DISCORD_INVITE_URL, PRICING_URL } from '../../../utils/links';
 import { openUrl } from '../../../utils/openUrl';
 import {
   DiscordBanner,
@@ -45,7 +45,7 @@ describe('HomeBanners', () => {
     );
     expect(screen.getByText('Out of Usage')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Get a subscription' }));
-    expect(openUrl).toHaveBeenCalledWith(BILLING_DASHBOARD_URL);
+    expect(openUrl).toHaveBeenCalledWith(PRICING_URL);
   });
 
   it('opens the billing dashboard through openUrl from the promotional credits banner', () => {
@@ -77,7 +77,7 @@ describe('HomeBanners', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /first subscription/i }));
 
-      expect(openUrl).toHaveBeenCalledWith(BILLING_DASHBOARD_URL);
+      expect(openUrl).toHaveBeenCalledWith(PRICING_URL);
     });
 
     it('does not render a dismiss button when onDismiss is not provided', () => {

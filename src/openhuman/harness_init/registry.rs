@@ -30,8 +30,20 @@ pub struct HarnessInitStep {
     pub label: &'static str,
     /// When true, a failure blocks the app. All steps are non-required today.
     pub required: bool,
+    /// When true this step may **download/install/repair** — the only kind of
+    /// work that justifies the blocking first-run overlay. When false the step
+    /// is routine startup (e.g. launching an already-provisioned local server)
+    /// that must run silently in the background on every launch and must NOT
+    /// surface the overlay. Drives the warm-start visibility decision in
+    /// [`super::ops`].
+    pub provisioning: bool,
     /// Cheap, network-free probe: is this step already satisfied on this host?
     /// When true the orchestrator marks it `Done` without invoking `run`.
+    ///
+    /// **Must be durable across process restarts** for provisioning steps — a
+    /// process-local memo (e.g. `try_cached`) reads empty on every launch and
+    /// would wrongly re-enter a visible `running` state (GH-5047). Probe the
+    /// on-disk install instead.
     pub is_done: for<'a> fn(&'a Config) -> StepFuture<'a, bool>,
     /// Perform the work. `Ok(())` → done; `Err(msg)` → failed/skipped.
     pub run: for<'a> fn(&'a Config) -> StepFuture<'a, Result<(), String>>,
@@ -55,6 +67,7 @@ fn python_runtime_step() -> HarnessInitStep {
         id: "python_runtime",
         label: "Python runtime",
         required: false,
+        provisioning: true,
         is_done: |config| Box::pin(python_is_done(config)),
         run: |config| Box::pin(python_run(config)),
     }
@@ -65,11 +78,13 @@ async fn python_is_done(config: &Config) -> bool {
         // Disabled → nothing to provision; treat as satisfied.
         return true;
     }
-    // Memoised within this process. Across restarts this is None at boot and
-    // the (fast) `resolve()` probe in `run` settles it quickly.
+    // Durable on-disk probe: survives restarts (unlike the process-local
+    // `try_cached`), so an already-installed interpreter is detected without
+    // entering a user-visible provisioning run (GH-5047). Never downloads.
     use crate::openhuman::runtime_python::PythonBootstrap;
     PythonBootstrap::new(config.runtime_python.clone())
-        .try_cached()
+        .probe_installed()
+        .await
         .is_some()
 }
 
@@ -98,6 +113,10 @@ fn runtime_python_server_step() -> HarnessInitStep {
         id: "runtime_python_server",
         label: "Runtime Python server",
         required: false,
+        // Routine service startup, not an install: launching an already
+        // provisioned server must stay silent (its venv is provisioned by the
+        // `spacy` / `kompress` steps, which are the ones that surface progress).
+        provisioning: false,
         is_done: |config| Box::pin(runtime_python_server_is_done(config)),
         run: |config| Box::pin(runtime_python_server_run(config)),
     }
@@ -128,6 +147,7 @@ fn spacy_step() -> HarnessInitStep {
         id: "spacy",
         label: "spaCy language model",
         required: false,
+        provisioning: true,
         is_done: |config| Box::pin(spacy_is_done(config)),
         run: |config| Box::pin(spacy_run(config)),
     }
@@ -159,6 +179,7 @@ fn kompress_step() -> HarnessInitStep {
         id: "kompress",
         label: "TokenJuice ML compressor (torch)",
         required: false,
+        provisioning: true,
         is_done: |config| Box::pin(kompress_is_done(config)),
         run: |config| Box::pin(kompress_run(config)),
     }
@@ -199,6 +220,7 @@ fn node_runtime_step() -> HarnessInitStep {
         id: "node_runtime",
         label: "Node.js runtime",
         required: false,
+        provisioning: true,
         is_done: |config| Box::pin(node_is_done(config)),
         run: |config| Box::pin(node_run(config)),
     }
@@ -216,7 +238,13 @@ async fn node_is_done(config: &Config) -> bool {
     if !config.node.enabled {
         return true;
     }
-    build_node_bootstrap(config).try_cached().is_some()
+    // Durable on-disk probe: survives restarts (unlike the process-local
+    // `try_cached`), so an already-installed toolchain is detected without
+    // entering a user-visible provisioning run (GH-5047). Never downloads.
+    build_node_bootstrap(config)
+        .probe_installed()
+        .await
+        .is_some()
 }
 
 async fn node_run(config: &Config) -> Result<(), String> {
@@ -256,6 +284,21 @@ mod tests {
         );
         assert!(steps.iter().all(|s| !s.required));
         assert!(steps.iter().all(|s| !s.label.is_empty()));
+    }
+
+    /// GH-5047: only genuine install/download steps may surface the blocking
+    /// overlay. `runtime_python_server` is routine service startup and must be
+    /// classified non-provisioning so a warm restart never re-shows setup.
+    #[test]
+    fn provisioning_classification_excludes_service_startup() {
+        for step in all_steps() {
+            let expected = step.id != "runtime_python_server";
+            assert_eq!(
+                step.provisioning, expected,
+                "step {} provisioning flag mismatch",
+                step.id
+            );
+        }
     }
 
     #[tokio::test]

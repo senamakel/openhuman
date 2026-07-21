@@ -206,8 +206,17 @@ pub async fn update_settings(
                     _ => 0,
                 };
                 if let Some(reject) = classify_embed_probe(outcome) {
+                    // Log the classified error code (never the raw detail — it can
+                    // carry endpoint response bodies) so support can distinguish
+                    // auth vs wrong-model vs unreachable failures (issue #5017).
+                    let reject_code = reject
+                        .value
+                        .get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("EMBEDDINGS_VERIFICATION_FAILED");
                     tracing::warn!(
                         provider = effective_provider.as_str(),
+                        reject_code,
                         "{LOG_PREFIX} update_settings rejected — embeddings endpoint failed verification"
                     );
                     // Right-feedback (issue #3761): the probe failed. If the
@@ -666,8 +675,16 @@ fn classify_embed_probe(outcome: EmbedProbe) -> Option<RpcOutcome<serde_json::Va
         ),
         EmbedProbe::Failed(detail) => {
             let lower = detail.to_ascii_lowercase();
-            // Reachable but no model loaded (e.g. LM Studio idle).
+            // The endpoint IS reachable and correctly shaped (POST /v1/embeddings
+            // with the user's model + key — verified conformant by the mock-endpoint
+            // regression test). The failures below are all *distinct causes*; issue
+            // #5017 was that they collapsed into one generic "test embed failed"
+            // message, so a user whose endpoint works for chat couldn't tell that
+            // (e.g.) their chosen model isn't an embeddings model, their key was
+            // rejected, or the host was unreachable. Order matters: check the
+            // specific shapes before the generic fallback.
             if lower.contains("no models loaded") {
+                // Reachable but no model loaded (e.g. LM Studio idle).
                 reject(
                     "EMBEDDINGS_NO_MODEL_LOADED",
                     "Your local embeddings server (e.g. LM Studio) is running but has no \
@@ -686,8 +703,59 @@ fn classify_embed_probe(outcome: EmbedProbe) -> Option<RpcOutcome<serde_json::Va
                     "embeddings endpoint has no embeddings API — not saved",
                     Some(&detail),
                 )
+            } else if is_embedding_dimension_mismatch(&lower) {
+                // Endpoint embedded fine but returned a different vector length than
+                // the (Matryoshka) size we requested — a `text-embedding-3-*` model
+                // name pointed at a host that ignores the `dimensions` param.
+                reject(
+                    "EMBEDDINGS_DIMENSION_MISMATCH",
+                    "The endpoint returned a vector with a different length than the \
+                     dimensions you entered. Set dimensions to match the model's native \
+                     output, then save again.",
+                    "embeddings endpoint returned mismatched dimensions — not saved",
+                    Some(&detail),
+                )
+            } else if is_embedding_model_incompatible(&lower) {
+                // Reachable, authenticated embeddings API that rejected the model —
+                // the user pasted a chat/reasoning model (e.g. `gpt-5-mini`) into the
+                // embeddings model field. This is the #5017 reporter's exact case:
+                // the same model works for chat but is not an embeddings model.
+                reject(
+                    "EMBEDDINGS_MODEL_INCOMPATIBLE",
+                    "That model isn't an embeddings model on this endpoint. A chat model \
+                     (the one that works in Chat settings) can't produce embeddings — \
+                     enter an embeddings model id (e.g. text-embedding-3-small, bge-m3), \
+                     then save again.",
+                    "embeddings model is not an embeddings model — not saved",
+                    Some(&detail),
+                )
+            } else if embed_error_mentions_status(&lower, 401)
+                || embed_error_mentions_status(&lower, 403)
+            {
+                // Auth failure — key missing/wrong/lacking embeddings scope. The
+                // embeddings key is stored separately from the chat BYOK key, so
+                // "works for chat" does not imply the embeddings key is set.
+                reject(
+                    "EMBEDDINGS_AUTH_FAILED",
+                    "The endpoint rejected the API key (401/403). Enter a valid key for \
+                     this endpoint — note the embeddings key is stored separately from the \
+                     Chat provider key — then save again.",
+                    "embeddings endpoint rejected the API key — not saved",
+                    Some(&detail),
+                )
+            } else if is_embedding_endpoint_unreachable(&lower) {
+                // Transport-level failure — DNS, refused connection, TLS. The base
+                // URL is wrong or the host is down.
+                reject(
+                    "EMBEDDINGS_ENDPOINT_UNREACHABLE",
+                    "Couldn't reach the embeddings endpoint (network/DNS/connection \
+                     error). Check the base URL and that the host is reachable, then save \
+                     again.",
+                    "embeddings endpoint unreachable — not saved",
+                    Some(&detail),
+                )
             } else {
-                // Any other failure (5xx, auth, network) — didn't pass verification.
+                // Any other failure (5xx, unclassified) — didn't pass verification.
                 reject(
                     "EMBEDDINGS_VERIFICATION_FAILED",
                     "Couldn't verify the embeddings endpoint — the test embed failed. Make \
@@ -699,13 +767,66 @@ fn classify_embed_probe(outcome: EmbedProbe) -> Option<RpcOutcome<serde_json::Va
             }
         }
         EmbedProbe::TimedOut => reject(
-            "EMBEDDINGS_VERIFICATION_FAILED",
+            "EMBEDDINGS_ENDPOINT_UNREACHABLE",
             "Couldn't verify the embeddings endpoint — the test embed timed out. Make sure \
              the endpoint is running and reachable, then save again.",
             "embeddings endpoint timed out during verification — not saved",
             None,
         ),
     }
+}
+
+/// Whether a lowercased embed-error detail names the given HTTP status, tolerant
+/// of the wire shapes the embeddings stack emits:
+///   `openai embeddings returned HTTP 401 Unauthorized: …` (tinyagents adapter)
+///   `Embedding API error (401 Unauthorized): …`           (parenthesized host shape)
+///   `Embedding API error 401 Unauthorized: …`             (bare-status host shape)
+/// The bare-status `Embedding API error {code}` form is the one the observability
+/// classifier in `src/core/observability.rs` covers; without it, setup-time
+/// verification for those hosts fell through to the generic failure code (#5017).
+fn embed_error_mentions_status(lower: &str, code: u16) -> bool {
+    let code = code.to_string();
+    lower.contains(&format!("http {code}"))
+        || lower.contains(&format!("({code}"))
+        || lower.contains(&format!("embedding api error {code}"))
+}
+
+/// A reachable, authenticated embeddings API that **rejected the model id** — the
+/// user pointed the embeddings model field at a chat/reasoning model. Gated on a
+/// 400/422 plus a model-rejection phrase so a genuine 5xx or oversized-input 400
+/// still falls through to the generic failure (issue #5017).
+fn is_embedding_model_incompatible(lower: &str) -> bool {
+    let bad_request =
+        embed_error_mentions_status(lower, 400) || embed_error_mentions_status(lower, 422);
+    bad_request
+        && (lower.contains("does not support embeddings")
+            || lower.contains("not an embedding model")
+            || lower.contains("is not an embedding")
+            || lower.contains("does not exist")
+            || lower.contains("not supported for embeddings")
+            || lower.contains("unexpected model name format"))
+}
+
+/// The post-response length guard fired: the endpoint embedded but returned a
+/// vector whose length differs from the requested (Matryoshka) `dimensions`.
+/// Canonical shape from the tinyagents adapter:
+/// `openai embed dimension mismatch: expected 1024, got 3072`.
+fn is_embedding_dimension_mismatch(lower: &str) -> bool {
+    lower.contains("dimension mismatch")
+}
+
+/// A transport-level failure (DNS, refused connection, TLS, connect timeout) —
+/// the endpoint was never reached, so the base URL is wrong or the host is down.
+/// The tinyagents adapter wraps these as
+/// `openai embeddings request to <url> failed: <reqwest error>`.
+fn is_embedding_endpoint_unreachable(lower: &str) -> bool {
+    lower.contains("request to") && lower.contains("failed")
+        || lower.contains("connection refused")
+        || lower.contains("error sending request")
+        || lower.contains("error trying to connect")
+        || lower.contains("dns error")
+        || lower.contains("failed to lookup address")
+        || lower.contains("tcp connect error")
 }
 
 /// GET `{endpoint}/models` (OpenAI-compatible) and return the served model ids.
@@ -1048,24 +1169,205 @@ mod tests {
         }
     }
 
-    /// Any other failure (5xx/auth/network) and timeouts both reject — the
-    /// endpoint didn't prove it can embed, so we don't accept it.
+    /// An unclassified 5xx still rejects with the generic code — it's a real
+    /// server fault, not one of the actionable user-config shapes.
     #[test]
-    fn classify_embed_probe_rejects_other_failures_and_timeout() {
+    fn classify_embed_probe_rejects_unclassified_5xx_generically() {
         assert_eq!(
             reject_code(EmbedProbe::Failed(
-                "Embedding API error (500 Internal Server Error): boom".into()
+                "openai embeddings returned HTTP 500 Internal Server Error: boom".into()
             ))
             .as_deref(),
             Some("EMBEDDINGS_VERIFICATION_FAILED")
         );
-        assert_eq!(
-            reject_code(EmbedProbe::Failed("connection refused".into())).as_deref(),
-            Some("EMBEDDINGS_VERIFICATION_FAILED")
-        );
+    }
+
+    /// Issue #5017 — the #5017 reporter's exact case: a chat/reasoning model id
+    /// (`gpt-5-mini`) that works for chat is pasted into the embeddings model
+    /// field. The endpoint IS an embeddings API but rejects the model with a 400;
+    /// before the fix this collapsed into the generic "test embed failed", so the
+    /// user couldn't tell the model wasn't an embeddings model. Now it maps to a
+    /// dedicated, actionable code — across both wire shapes.
+    #[test]
+    fn classify_embed_probe_distinguishes_incompatible_model() {
+        for detail in [
+            r#"openai embeddings returned HTTP 400 Bad Request: {"error":{"message":"gpt-5-mini does not support embeddings"}}"#,
+            r#"Embedding API error (400 Bad Request): {"error":{"message":"Model gpt-5-mini does not exist"}}"#,
+            r#"openai embeddings returned HTTP 400 Bad Request: {"error":"this is not an embedding model"}"#,
+        ] {
+            assert_eq!(
+                reject_code(EmbedProbe::Failed(detail.into())).as_deref(),
+                Some("EMBEDDINGS_MODEL_INCOMPATIBLE"),
+                "detail should classify as incompatible model: {detail}"
+            );
+        }
+    }
+
+    /// Issue #5017 — a rejected/absent API key (401/403) is its own actionable
+    /// cause: the embeddings key is stored separately from the Chat BYOK key, so
+    /// "works for chat" does not imply the embeddings key is set. Both wire
+    /// shapes map to the dedicated auth code, not the generic failure.
+    #[test]
+    fn classify_embed_probe_distinguishes_auth_failure() {
+        for detail in [
+            "openai embeddings returned HTTP 401 Unauthorized: {\"error\":\"invalid api key\"}",
+            "Embedding API error (403 Forbidden): no access",
+            // Bare-status host shape (no parentheses) — the form the observability
+            // classifier covers; must map to auth, not the generic failure (#5017).
+            "Embedding API error 401 Unauthorized: {\"error\":\"invalid token\"}",
+        ] {
+            assert_eq!(
+                reject_code(EmbedProbe::Failed(detail.into())).as_deref(),
+                Some("EMBEDDINGS_AUTH_FAILED"),
+                "detail should classify as auth failure: {detail}"
+            );
+        }
+    }
+
+    /// Issue #5017 — a transport-level failure (DNS / refused connection) is a
+    /// reachability problem, distinct from a server that answered. Timeouts fall
+    /// in the same bucket.
+    #[test]
+    fn classify_embed_probe_distinguishes_unreachable() {
+        for detail in [
+            "openai embeddings request to http://127.0.0.1:9/v1/embeddings failed: connection refused",
+            "error trying to connect: dns error: failed to lookup address information",
+        ] {
+            assert_eq!(
+                reject_code(EmbedProbe::Failed(detail.into())).as_deref(),
+                Some("EMBEDDINGS_ENDPOINT_UNREACHABLE"),
+                "detail should classify as unreachable: {detail}"
+            );
+        }
+        // A timeout is a reachability problem too.
         assert_eq!(
             reject_code(EmbedProbe::TimedOut).as_deref(),
-            Some("EMBEDDINGS_VERIFICATION_FAILED")
+            Some("EMBEDDINGS_ENDPOINT_UNREACHABLE")
+        );
+    }
+
+    /// Issue #5017 — a length guard trip (endpoint ignored the `dimensions`
+    /// param and returned its native size) is a dimension problem, not a generic
+    /// failure, so the user knows to fix the dimensions field.
+    #[test]
+    fn classify_embed_probe_distinguishes_dimension_mismatch() {
+        assert_eq!(
+            reject_code(EmbedProbe::Failed(
+                "openai embed dimension mismatch: expected 1024, got 3072".into()
+            ))
+            .as_deref(),
+            Some("EMBEDDINGS_DIMENSION_MISMATCH")
+        );
+    }
+
+    /// Issue #5017 regression — the request the app sends is correct: a conformant
+    /// OpenAI-compatible `POST /v1/embeddings` host (right path, the user's model,
+    /// Bearer key, `{"input":[…],"model":…}` body) verifies successfully. Builds
+    /// the provider exactly as the save-time probe does
+    /// (`create_embedding_provider_with_credentials("custom", …, custom_endpoint)`)
+    /// and drives it against a mock that echoes the OpenAI embeddings wire shape,
+    /// asserting the captured request AND that the probe classifies it as a pass.
+    #[tokio::test]
+    async fn conformant_custom_endpoint_verifies_and_sends_expected_request() {
+        use std::sync::{Arc, Mutex};
+
+        use axum::{
+            extract::State,
+            routing::{get, post},
+            Json, Router,
+        };
+
+        #[derive(Clone, Default)]
+        struct Captured {
+            auth: Arc<Mutex<Option<String>>>,
+            body: Arc<Mutex<Option<serde_json::Value>>>,
+        }
+
+        let captured = Captured::default();
+        let app = Router::new()
+            .route(
+                "/v1/embeddings",
+                post(
+                    |State(cap): State<Captured>,
+                     headers: axum::http::HeaderMap,
+                     Json(body): Json<serde_json::Value>| async move {
+                        *cap.auth.lock().unwrap() = headers
+                            .get("authorization")
+                            .and_then(|v| v.to_str().ok())
+                            .map(str::to_owned);
+                        *cap.body.lock().unwrap() = Some(body);
+                        Json(serde_json::json!({
+                            "object": "list",
+                            "data": [{
+                                "object": "embedding",
+                                "index": 0,
+                                "embedding": [0.1_f32, 0.2, 0.3, 0.4]
+                            }],
+                            "model": "my-embed",
+                        }))
+                    },
+                ),
+            )
+            .route(
+                "/v1/models",
+                get(|| async { Json(serde_json::json!({"data": []})) }),
+            )
+            .with_state(captured.clone());
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!(
+            "http://127.0.0.1:{}/v1",
+            listener.local_addr().unwrap().port()
+        );
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+        // Same construction as the save-time probe for a non-`text-embedding-3-*`
+        // model: probe dimension-agnostically (dims = 0).
+        let embedder = create_embedding_provider_with_credentials(
+            "custom",
+            "gpt-5-mini",
+            0,
+            "sk-secret-key",
+            Some(&base),
+        )
+        .expect("provider builds");
+
+        let vectors = embedder
+            .embed(&["connection test"])
+            .await
+            .expect("conformant endpoint must verify");
+        let probe_dims = vectors.first().map(|v| v.len()).unwrap_or(0);
+        assert_eq!(
+            probe_dims, 4,
+            "auto-detected the endpoint's real vector length"
+        );
+
+        // The probe policy accepts the returned vector.
+        assert!(
+            classify_embed_probe(EmbedProbe::Returned(vectors)).is_none(),
+            "a usable vector from a conformant endpoint must pass verification"
+        );
+
+        // The exact request: user's model forwarded + Bearer key present.
+        assert_eq!(
+            captured.auth.lock().unwrap().as_deref(),
+            Some("Bearer sk-secret-key"),
+            "API key must be sent on the test-embed request"
+        );
+        let body = captured
+            .body
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("body captured");
+        assert_eq!(
+            body["model"], "gpt-5-mini",
+            "user-supplied model must be forwarded"
+        );
+        assert_eq!(
+            body["input"],
+            serde_json::json!(["connection test"]),
+            "input is the OpenAI array-of-strings shape"
         );
     }
 }

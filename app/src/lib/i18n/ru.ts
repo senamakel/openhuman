@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // Russian (Русский) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': 'Поделиться',
+  'share.modalTitle': 'Поделитесь этим моментом',
+  'share.modalSubtitle': 'Опубликуйте то, что сделал ваш агент, в X или LinkedIn',
+  'share.drafting': 'Создаём вашу карточку...',
+  'share.cardAlt': 'Предпросмотр карточки для публикации',
+  'share.imageError': 'Не удалось создать изображение. Попробуйте снова.',
+  'share.captionLabel': 'Подпись',
+  'share.captionPlaceholder': 'Напишите подпись...',
+  'share.privacyNote':
+    'Публикуются только заголовок, подпись, имя агента и элементы брендинга. Ваш чат, память и файлы остаются приватными.',
+  'share.defaultHeadline': 'Смотрите, что только что сделал мой агент OpenHuman',
+  'share.defaultAgentName': 'Мой агент',
+  'share.defaultCaption': 'Смотрите, что только что сделал мой агент OpenHuman.',
+  'share.captionWithHeadline': '{headline}. Создано с помощью моего агента OpenHuman.',
+  'share.linkedInHint': 'Подпись скопирована. Вставьте её в свою публикацию LinkedIn.',
+  'share.shareX': 'Поделиться в X',
+  'share.shareLinkedIn': 'Поделиться в LinkedIn',
+  'share.copyImage': 'Копировать изображение',
+  'share.copiedImage': 'Изображение скопировано',
+  'share.copyCaption': 'Копировать подпись',
+  'share.copiedCaption': 'Подпись скопирована',
   'agentWorld.welcome.nav': 'Добро пожаловать',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': 'Мир, где встречаются ваши агенты',
@@ -554,7 +576,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Что-то пошло не так. Пожалуйста, попробуйте снова.',
   'brain.tabs.sources': 'Источники',
   'brain.tabs.sync': 'Синхронизация',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Оркестрация',
   'tinyplaceOrchestration.title': 'Ретранслятор TinyPlace',
   'tinyplaceOrchestration.subtitle': 'Закрепленные каналы агентов и чаты сессий приложения',
   'tinyplaceOrchestration.refresh': 'Обновить',
@@ -7433,15 +7455,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': 'Боковая панель',
   'flows.canvas.legendTab': 'Вручную',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': 'Аварийная остановка',
-  'safety.stopFailed': 'Не удалось остановить автоматизацию. Попробуйте ещё раз.',
-  'safety.resume': 'Возобновить автоматизацию',
-  'safety.resumeFailed':
-    'Не удалось возобновить. Автоматизация всё ещё приостановлена. Повторите попытку.',
-  'safety.haltedTitle': 'Автоматизация приостановлена',
-  'safety.haltedBody':
-    'Вся автоматизация рабочего стола остановлена. Возобновите, когда будете готовы.',
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'Состояние конфиденциальности',
   'privacy.status.external': 'Вне устройства',

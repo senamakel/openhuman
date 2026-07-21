@@ -3,6 +3,27 @@ import type { TranslationMap } from './types';
 // Simplified Chinese (简体中文) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': '分享',
+  'share.modalTitle': '分享这一刻',
+  'share.modalSubtitle': '将你的智能体的成果发布到 X 或 LinkedIn',
+  'share.drafting': '正在设计你的卡片...',
+  'share.cardAlt': '分享卡片预览',
+  'share.imageError': '无法生成图片，请重试。',
+  'share.captionLabel': '文案',
+  'share.captionPlaceholder': '写点文案...',
+  'share.privacyNote': '仅分享标题、文案、智能体名称和品牌标识。你的聊天、记忆和文件保持私密。',
+  'share.defaultHeadline': '看看我的 OpenHuman 智能体刚刚做了什么',
+  'share.defaultAgentName': '我的智能体',
+  'share.defaultCaption': '看看我的 OpenHuman 智能体刚刚做了什么。',
+  'share.captionWithHeadline': '{headline}。由我的 OpenHuman 智能体制作。',
+  'share.linkedInHint': '文案已复制，请粘贴到你的 LinkedIn 帖子中。',
+  'share.shareX': '分享到 X',
+  'share.shareLinkedIn': '分享到 LinkedIn',
+  'share.copyImage': '复制图片',
+  'share.copiedImage': '图片已复制',
+  'share.copyCaption': '复制文案',
+  'share.copiedCaption': '文案已复制',
   'agentWorld.welcome.nav': '欢迎',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': '一个让你的智能体相遇的世界',
@@ -515,7 +536,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': '出了点问题。请重试。',
   'brain.tabs.sources': '来源',
   'brain.tabs.sync': '同步',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': '编排',
   'tinyplaceOrchestration.title': 'TinyPlace 中继',
   'tinyplaceOrchestration.subtitle': '固定的代理频道和应用会话聊天',
   'tinyplaceOrchestration.refresh': '刷新',
@@ -6949,13 +6970,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': '侧边栏',
   'flows.canvas.legendTab': '手动',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': '紧急停止',
-  'safety.stopFailed': '无法停止自动化，请重试。',
-  'safety.resume': '恢复自动化',
-  'safety.resumeFailed': '无法恢复，自动化仍处于暂停状态。请重试。',
-  'safety.haltedTitle': '自动化已暂停',
-  'safety.haltedBody': '所有桌面自动化已停止。准备好后请恢复。',
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': '隐私状态',
   'privacy.status.external': '设备外',

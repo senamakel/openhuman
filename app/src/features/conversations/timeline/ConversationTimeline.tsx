@@ -85,10 +85,6 @@ export function ConversationTimeline({
           />
         );
         break;
-      case 'reasoning':
-        // Reasoning is rendered inside the process/streaming affordances today;
-        // no standalone element yet.
-        break;
       default:
         break;
     }

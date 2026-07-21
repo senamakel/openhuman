@@ -100,6 +100,54 @@ impl PythonBootstrap {
         Ok(managed)
     }
 
+    /// Durable, **non-downloading** readiness probe.
+    ///
+    /// Unlike [`try_cached`], whose state is process-local and therefore empty
+    /// after every app restart, this inspects the host itself: a compatible
+    /// system interpreter (when `prefer_system`) or an already-extracted managed
+    /// distribution under the cache root. It performs only cheap `stat`/version
+    /// checks and **never** touches the network, so it is safe to call as a
+    /// warm-start guard before deciding whether to surface a visible
+    /// provisioning run. A hit is memoised into the same cache `resolve()` uses.
+    ///
+    /// Returns `Some(..)` when Python is already provisioned on disk, `None`
+    /// when a genuine download/install is still required (or the runtime is
+    /// disabled — callers treat that as "nothing to provision" separately).
+    pub async fn probe_installed(&self) -> Option<ResolvedPython> {
+        if let Some(existing) = self.try_cached() {
+            return Some(existing);
+        }
+        if !self.config.enabled {
+            return None;
+        }
+        if self.config.prefer_system {
+            if let Some(system) = detect_system_python(
+                &self.config.minimum_version,
+                empty_to_none(&self.config.preferred_command),
+            ) {
+                let resolved = resolve_from_system(system);
+                tracing::debug!(
+                    version = %resolved.version,
+                    "[runtime_python::bootstrap] durable probe found system python"
+                );
+                *self.cached.lock().await = Some(resolved.clone());
+                return Some(resolved);
+            }
+        }
+        if let Some(resolved) = probe_any_managed_install(&self.cache_root()) {
+            tracing::debug!(
+                version = %resolved.version,
+                "[runtime_python::bootstrap] durable probe found managed python on disk"
+            );
+            *self.cached.lock().await = Some(resolved.clone());
+            return Some(resolved);
+        }
+        tracing::debug!(
+            "[runtime_python::bootstrap] durable probe found no installed python (provisioning required)"
+        );
+        None
+    }
+
     /// Build a preconfigured child-process launcher for stdio-oriented Python
     /// workloads such as MCP servers.
     pub async fn spawn_stdio(
@@ -208,6 +256,46 @@ fn empty_to_none(value: &str) -> Option<&str> {
     } else {
         Some(trimmed)
     }
+}
+
+/// Scan the managed cache root for an already-extracted CPython install,
+/// probing each immediate subdirectory without any network access. Returns the
+/// first usable interpreter found. Used by the durable readiness probe so a
+/// warm restart detects a prior managed install without re-downloading — the
+/// exact install-dir name is derived from network release metadata during
+/// install, so on a cold cache we cannot reconstruct it offline and must scan.
+fn probe_any_managed_install(cache_root: &Path) -> Option<ResolvedPython> {
+    let entries = std::fs::read_dir(cache_root).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        // Reject symlinked cache entries before probing: `path.is_dir()` follows
+        // symlinks, so a link planted under `cache_root` could point the durable
+        // probe at a directory *outside* the cache root and have it reused as a
+        // trusted managed install. `entry.file_type()` reports the link itself
+        // (it does not follow), so skip anything symlinked; treat an unknown type
+        // as untrusted too. (The Node bootstrap gets equivalent protection from
+        // its `canonicalize` + `starts_with(cache_root)` guard.)
+        match entry.file_type() {
+            Ok(ft) if ft.is_symlink() => continue,
+            Ok(_) => {}
+            Err(_) => continue,
+        }
+        if !path.is_dir() {
+            continue;
+        }
+        // Skip transient staging dirs (`.stage-<pid>-<uuid>`) left mid-install.
+        if path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.starts_with(".stage-"))
+        {
+            continue;
+        }
+        if let Some(resolved) = probe_managed_install(&path) {
+            return Some(resolved);
+        }
+    }
+    None
 }
 
 fn probe_managed_install(install_dir: &Path) -> Option<ResolvedPython> {

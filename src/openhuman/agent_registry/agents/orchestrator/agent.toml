@@ -160,6 +160,11 @@ allowlist = [
     # or flow" request here — it grounds nodes in real tool slugs + connections,
     # can sandbox dry-run a draft, and returns a workflow PROPOSAL for the user
     # to review and save. It never creates/enables/runs a real flow itself.
+    # Delegations run ASYNC by default: `build_workflow` returns an
+    # [async_subagent_ref] immediately and the proposal arrives as a follow-up
+    # turn; iterate on it via continue_subagent with the subagent_session_id
+    # from that ref / the [active_subagents] roster — never re-delegate the
+    # same build from scratch.
     "workflow_builder",
     # Workflow-discovery specialist (the "Flow Scout"). Synthesised into a
     # `discover_workflows` tool at agent-build time. Route "what workflows

@@ -748,6 +748,7 @@ impl Agent {
         if let Some(block) =
             crate::openhuman::agent_orchestration::running_subagents::active_subagents_context_block(
                 &self.event_session_id,
+                &self.workspace_dir,
             )
         {
             log::info!(

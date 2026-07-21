@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // Hindi (हिन्दी) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': 'साझा करें',
+  'share.modalTitle': 'इस पल को साझा करें',
+  'share.modalSubtitle': 'आपके एजेंट ने जो किया उसे X या LinkedIn पर पोस्ट करें',
+  'share.drafting': 'आपका कार्ड बनाया जा रहा है...',
+  'share.cardAlt': 'साझा कार्ड का पूर्वावलोकन',
+  'share.imageError': 'छवि नहीं बनाई जा सकी। फिर से प्रयास करें।',
+  'share.captionLabel': 'कैप्शन',
+  'share.captionPlaceholder': 'एक कैप्शन लिखें...',
+  'share.privacyNote':
+    'केवल शीर्षक, कैप्शन, एजेंट का नाम और ब्रांडिंग साझा की जाती है। आपकी चैट, मेमोरी और फ़ाइलें निजी रहती हैं।',
+  'share.defaultHeadline': 'देखिए मेरे OpenHuman एजेंट ने अभी क्या किया',
+  'share.defaultAgentName': 'मेरा एजेंट',
+  'share.defaultCaption': 'देखिए मेरे OpenHuman एजेंट ने अभी क्या किया।',
+  'share.captionWithHeadline': '{headline}। मेरे OpenHuman एजेंट के साथ बनाया गया।',
+  'share.linkedInHint': 'कैप्शन कॉपी हो गया। इसे अपनी LinkedIn पोस्ट में पेस्ट करें।',
+  'share.shareX': 'X पर साझा करें',
+  'share.shareLinkedIn': 'LinkedIn पर साझा करें',
+  'share.copyImage': 'छवि कॉपी करें',
+  'share.copiedImage': 'छवि कॉपी हो गई',
+  'share.copyCaption': 'कैप्शन कॉपी करें',
+  'share.copiedCaption': 'कैप्शन कॉपी हो गया',
   'agentWorld.welcome.nav': 'स्वागत है',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': 'एक ऐसी दुनिया जहाँ आपके एजेंट मिलते हैं',
@@ -548,7 +570,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'कुछ गलत हो गया। कृपया पुनः प्रयास करें।',
   'brain.tabs.sources': 'स्रोत',
   'brain.tabs.sync': 'सिंक',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'ऑर्केस्ट्रेशन',
   'tinyplaceOrchestration.title': 'TinyPlace रिले',
   'tinyplaceOrchestration.subtitle': 'पिन किए गए एजेंट चैनल और ऐप-सत्र चैट',
   'tinyplaceOrchestration.refresh': 'रीफ़्रेश',
@@ -7347,13 +7369,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': 'साइड पैनल',
   'flows.canvas.legendTab': 'मैनुअल',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': 'आपातकालीन रोक',
-  'safety.stopFailed': 'स्वचालन रोका नहीं जा सका। पुनः प्रयास करें।',
-  'safety.resume': 'स्वचालन पुनः प्रारंभ करें',
-  'safety.resumeFailed': 'पुनः प्रारंभ नहीं हो सका। स्वचालन अभी भी रुका हुआ है। पुनः प्रयास करें।',
-  'safety.haltedTitle': 'स्वचालन रोका गया',
-  'safety.haltedBody': 'सभी डेस्कटॉप स्वचालन रोक दिया गया है। तैयार होने पर पुनः प्रारंभ करें।',
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'गोपनीयता स्थिति',
   'privacy.status.external': 'डिवाइस के बाहर',

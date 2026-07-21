@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // Korean (한국어) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': '공유',
+  'share.modalTitle': '이 순간을 공유하세요',
+  'share.modalSubtitle': '에이전트가 한 일을 X 또는 LinkedIn에 게시하세요',
+  'share.drafting': '카드를 디자인하는 중...',
+  'share.cardAlt': '공유 카드 미리보기',
+  'share.imageError': '이미지를 생성할 수 없습니다. 다시 시도하세요.',
+  'share.captionLabel': '캡션',
+  'share.captionPlaceholder': '캡션을 작성하세요...',
+  'share.privacyNote':
+    '제목, 캡션, 에이전트 이름, 브랜딩만 공유됩니다. 대화, 메모리, 파일은 비공개로 유지됩니다.',
+  'share.defaultHeadline': '내 OpenHuman 에이전트가 방금 한 일을 확인해 보세요',
+  'share.defaultAgentName': '내 에이전트',
+  'share.defaultCaption': '내 OpenHuman 에이전트가 방금 한 일을 확인해 보세요.',
+  'share.captionWithHeadline': '{headline}. 제 OpenHuman 에이전트와 함께 만들었습니다.',
+  'share.linkedInHint': '캡션이 복사되었습니다. LinkedIn 게시물에 붙여넣으세요.',
+  'share.shareX': 'X에 공유',
+  'share.shareLinkedIn': 'LinkedIn에 공유',
+  'share.copyImage': '이미지 복사',
+  'share.copiedImage': '이미지가 복사됨',
+  'share.copyCaption': '캡션 복사',
+  'share.copiedCaption': '캡션이 복사됨',
   'agentWorld.welcome.nav': '환영합니다',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': '당신의 에이전트들이 만나는 세계',
@@ -541,7 +563,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': '문제가 발생했습니다. 다시 시도해 주세요.',
   'brain.tabs.sources': '소스',
   'brain.tabs.sync': '동기화',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': '오케스트레이션',
   'tinyplaceOrchestration.title': 'TinyPlace 릴레이',
   'tinyplaceOrchestration.subtitle': '고정된 에이전트 채널과 앱 세션 채팅',
   'tinyplaceOrchestration.refresh': '새로 고침',
@@ -7262,13 +7284,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': '사이드 패널',
   'flows.canvas.legendTab': '수동',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': '긴급 정지',
-  'safety.stopFailed': '자동화를 중지할 수 없습니다. 다시 시도하세요.',
-  'safety.resume': '자동화 재개',
-  'safety.resumeFailed': '재개하지 못했습니다. 자동화가 여전히 중단된 상태입니다. 다시 시도하세요.',
-  'safety.haltedTitle': '자동화 중단됨',
-  'safety.haltedBody': '모든 데스크톱 자동화가 중지되었습니다. 준비가 되면 재개하세요.',
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': '개인정보 상태',
   'privacy.status.external': '기기 외',

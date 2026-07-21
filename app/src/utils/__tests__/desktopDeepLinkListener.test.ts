@@ -12,9 +12,12 @@ import { getStoredCoreMode } from '../configPersistence';
 import {
   authStoreFailureUserMessage,
   classifyAuthStoreFailure,
+  handleDeepLinkUrls,
   registerAuthDeepLinkState,
   setupDesktopDeepLinkListener,
 } from '../desktopDeepLinkListener';
+import { BILLING_DASHBOARD_URL } from '../links';
+import { openUrl } from '../openUrl';
 import { storeSession } from '../tauriCommands';
 
 vi.mock('../configPersistence', () => ({ getStoredCoreMode: vi.fn() }));
@@ -22,6 +25,7 @@ vi.mock('../../services/coreRpcClient', () => ({
   clearCoreRpcUrlCache: vi.fn(),
   clearCoreRpcTokenCache: vi.fn(),
 }));
+vi.mock('../openUrl', () => ({ openUrl: vi.fn() }));
 
 // Build an `openhuman://auth` deep link bound to a freshly registered state
 // nonce, mirroring how the real OAuth button registers the loopback/deep-link
@@ -83,10 +87,25 @@ describe('desktopDeepLinkListener', () => {
     vi.mocked(getStoredCoreMode).mockReturnValue(null);
     vi.mocked(clearCoreRpcUrlCache).mockClear();
     vi.mocked(clearCoreRpcTokenCache).mockClear();
+    vi.mocked(openUrl).mockReset();
+    vi.mocked(openUrl).mockResolvedValue(undefined);
     windowControls.show.mockClear();
     windowControls.unminimize.mockClear();
     windowControls.setFocus.mockClear();
     completeDeepLinkAuthProcessing();
+  });
+
+  it('returns successful payment deep links to the billing dashboard', async () => {
+    await handleDeepLinkUrls(['openhuman://payment/success?session_id=checkout-session']);
+
+    expect(openUrl).toHaveBeenCalledWith(BILLING_DASHBOARD_URL);
+    expect(BILLING_DASHBOARD_URL).toBe('https://tinyhumans.ai/dashboard');
+  });
+
+  it('returns cancelled payment deep links to the billing dashboard', async () => {
+    await handleDeepLinkUrls(['openhuman://payment/cancel']);
+
+    expect(openUrl).toHaveBeenCalledWith(BILLING_DASHBOARD_URL);
   });
 
   it('turns Twitter OAuth error deep links into actionable UI and event diagnostics', async () => {

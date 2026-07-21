@@ -24,6 +24,7 @@ import {
   listTeams,
   updateCoreLocalState,
 } from '../services/coreStateApi';
+import { daemonHealthService } from '../services/daemonHealthService';
 import { socketService } from '../services/socketService';
 import { store } from '../store';
 import { resetUserScopedState } from '../store/resetActions';
@@ -48,6 +49,14 @@ const POLL_MS = 2000;
 const MAX_BOOTSTRAP_RETRIES = 5;
 const SUPPRESS_POLL_WARNING_AT = MAX_BOOTSTRAP_RETRIES + 1;
 const BACKOFF_POLL_MS = 10_000;
+// Once the app has finished bootstrapping and is authenticated, the snapshot
+// (auth, onboarding, service/local-AI state) changes rarely and mostly through
+// event-driven refreshes (deep-link, settings toggles) that fire immediately
+// regardless of this cadence. `app_state_snapshot` is expensive server-side
+// (rebuilds the runtime snapshot, reloads config + local state), so steady-state
+// polling backs off from POLL_MS to this slower cadence rather than hammering
+// every 2s for the life of the session.
+const STABLE_POLL_MS = 5000;
 
 /** Extract only non-sensitive fields from an RPC/fetch error. */
 function sanitizeError(error: unknown): { message?: string; code?: string; status?: number } {
@@ -283,7 +292,8 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
   const refreshCore = useCallback(async () => {
     const requestId = ++snapshotRequestIdRef.current;
-    const snapshot = normalizeSnapshot(await fetchCoreAppSnapshot());
+    const rawSnapshot = await fetchCoreAppSnapshot();
+    const snapshot = normalizeSnapshot(rawSnapshot);
     if (!isMountedRef.current) {
       return;
     }
@@ -340,6 +350,30 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
         teamInvitesById: shouldClearScopedCaches ? {} : previous.teamInvitesById,
       };
     });
+
+    // Feed the folded health payload to the daemon-health store (replaces the
+    // former standalone health_snapshot poll). Done AFTER the commit and only
+    // when this refresh is still current, so `daemonHealthService` resolves the
+    // freshly-committed identity — not a stale/pre-commit or superseded token,
+    // which during a login/identity flip would write health under the prior or
+    // `__pending__` user.
+    if (requestId === snapshotRequestIdRef.current) {
+      // Privacy-safe: log presence/shape only, never the payload/tokens.
+      log(
+        'health ingest: requestId=%d current=%d hasHealth=%s components=%d',
+        requestId,
+        snapshotRequestIdRef.current,
+        rawSnapshot.health != null,
+        rawSnapshot.health ? Object.keys(rawSnapshot.health.components ?? {}).length : 0
+      );
+      daemonHealthService.ingestHealthSnapshot(rawSnapshot.health);
+    } else {
+      log(
+        'health ingest skipped: superseded refresh requestId=%d current=%d',
+        requestId,
+        snapshotRequestIdRef.current
+      );
+    }
 
     // When the authenticated identity changes without a full restart-driven
     // flip (e.g. same-process session attach or web where `restartApp` is a
@@ -521,11 +555,31 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       }
     };
 
+    // Arm a baseline disconnect watchdog before the first snapshot lands, so a
+    // core whose snapshots never succeed still falls back to `disconnected`
+    // instead of sticking at a probe-set `running`. Each successful ingest
+    // re-arms it.
+    daemonHealthService.ensureWatchdogArmed();
+
     void load();
     let timeoutId: number | null = null;
+    const computePollDelay = (): { delay: number; reason: string } => {
+      // Repeated bootstrap failures → slowest cadence to avoid log/CPU churn.
+      if (bootstrapFailCountRef.current >= MAX_BOOTSTRAP_RETRIES) {
+        return { delay: BACKOFF_POLL_MS, reason: 'failure-backoff' };
+      }
+      // Booted and authenticated → steady state; back off the expensive snapshot
+      // poll. Still-bootstrapping or unauthenticated stays fast so login / boot
+      // transitions surface promptly.
+      const state = getCoreStateSnapshot();
+      if (!state.isBootstrapping && state.snapshot.auth.isAuthenticated) {
+        return { delay: STABLE_POLL_MS, reason: 'authenticated' };
+      }
+      return { delay: POLL_MS, reason: 'bootstrap' };
+    };
     const scheduleNext = () => {
-      const delay =
-        bootstrapFailCountRef.current >= MAX_BOOTSTRAP_RETRIES ? BACKOFF_POLL_MS : POLL_MS;
+      const { delay, reason } = computePollDelay();
+      log('poll scheduled: delay=%dms reason=%s', delay, reason);
       timeoutId = window.setTimeout(async () => {
         await doRefresh();
         if (!cancelled) {

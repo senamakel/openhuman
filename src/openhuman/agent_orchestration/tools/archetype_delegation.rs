@@ -63,6 +63,10 @@ impl Tool for ArchetypeDelegationTool {
                 "model": {
                     "type": "string",
                     "description": "Optional exact model id for this delegation only. Keeps the parent provider/routing, but pins the child agent to this model instead of the agent definition's default."
+                },
+                "blocking": {
+                    "type": "boolean",
+                    "description": "Default false: the delegation runs as a durable async worker — you immediately get an [async_subagent_ref] with a subagent_session_id (steer_subagent / wait_subagent / continue_subagent / close_subagent operate on it), and the finished result is inserted into this chat as a new turn. Pass true ONLY when the sub-agent's result must gate THIS reply (e.g. verify/review X before answering)."
                 }
             }
         })
@@ -124,13 +128,29 @@ impl Tool for ArchetypeDelegationTool {
             .map(str::trim)
             .filter(|s| !s.is_empty());
 
+        // Async by default: the delegated specialist runs as a durable,
+        // resumable worker and its result comes back as a new chat turn.
+        // `blocking: true` is the opt-in for results that must gate this
+        // reply. (`dispatch_subagent` itself falls back to blocking when
+        // there is no chat thread to deliver an async result into.)
+        let blocking = args
+            .get("blocking")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let mode = if blocking {
+            super::dispatch::DispatchMode::Blocking
+        } else {
+            super::dispatch::DispatchMode::PreferAsync
+        };
+
         super::dispatch_subagent(
             &self.agent_id,
             &self.tool_name,
             &prompt,
             None,
             model_override,
-            tool_context.and_then(|ctx| ctx.workspace.clone()),
+            tool_context,
+            mode,
         )
         .await
     }
@@ -229,6 +249,24 @@ mod tests {
             sample_tool().timeout_policy(&json!({})),
             ToolTimeout::Unbounded,
         );
+    }
+
+    #[test]
+    fn parameters_schema_advertises_async_default_blocking_opt_in() {
+        // Delegations are async by default (durable worker + follow-up
+        // delivery turn); `blocking: true` is the explicit opt-in for
+        // results that must gate the current reply. The flag must be
+        // advertised but never required.
+        let schema = sample_tool().parameters_schema();
+        let blocking = &schema["properties"]["blocking"];
+        assert_eq!(blocking["type"], "boolean");
+        let desc = blocking["description"].as_str().unwrap_or_default();
+        assert!(desc.contains("async"), "explains the async default: {desc}");
+        assert!(
+            desc.contains("continue_subagent") && desc.contains("subagent_session_id"),
+            "points at the resume contract: {desc}"
+        );
+        assert_eq!(schema["required"], json!(["prompt"]));
     }
 
     #[test]

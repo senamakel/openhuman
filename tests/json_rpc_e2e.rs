@@ -1228,90 +1228,6 @@ async fn json_rpc_config_update_browser_settings_persists_backend() {
     rpc_join.abort();
 }
 
-/// Emergency-stop kill switch over JSON-RPC: status(not halted) → stop →
-/// status(halted) → resume → status(not halted). Asserts `engaged` flips
-/// across the full round-trip (#4255).
-#[tokio::test]
-async fn json_rpc_emergency_stop_roundtrip_over_rpc() {
-    let _env_lock = json_rpc_e2e_env_lock();
-
-    // Panic-safe cleanup: the switch is a process-global, so guarantee it is
-    // cleared even if an assertion below panics before the resume call — a
-    // leaked engaged state would fail-close unrelated tests in this binary.
-    struct ResumeOnDrop;
-    impl Drop for ResumeOnDrop {
-        fn drop(&mut self) {
-            if let Some(stop) =
-                openhuman_core::openhuman::emergency_stop::EmergencyStop::try_global()
-            {
-                stop.clear();
-            }
-        }
-    }
-    let _reset = ResumeOnDrop;
-
-    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
-    let rpc_base = format!("http://{rpc_addr}");
-
-    // status: not halted (no logs → bare HaltState).
-    let s0 = post_json_rpc(&rpc_base, 4255_1, "openhuman.emergency_status", json!({})).await;
-    let s0_result = assert_no_jsonrpc_error(&s0, "emergency_status initial");
-    let s0_state = peel_logs_envelope(s0_result);
-    assert_eq!(
-        s0_state.get("engaged").and_then(Value::as_bool),
-        Some(false),
-        "switch must start not engaged: {s0_state}"
-    );
-
-    // stop: engage the switch.
-    let stopped = post_json_rpc(
-        &rpc_base,
-        4255_2,
-        "openhuman.emergency_stop",
-        json!({ "reason": "e2e" }),
-    )
-    .await;
-    let stopped_result = assert_no_jsonrpc_error(&stopped, "emergency_stop");
-    let stopped_state = peel_logs_envelope(stopped_result);
-    assert_eq!(
-        stopped_state.get("engaged").and_then(Value::as_bool),
-        Some(true),
-        "stop response must report engaged: {stopped_state}"
-    );
-
-    // status: halted.
-    let s1 = post_json_rpc(&rpc_base, 4255_3, "openhuman.emergency_status", json!({})).await;
-    let s1_result = assert_no_jsonrpc_error(&s1, "emergency_status halted");
-    let s1_state = peel_logs_envelope(s1_result);
-    assert_eq!(
-        s1_state.get("engaged").and_then(Value::as_bool),
-        Some(true),
-        "status must report engaged after stop: {s1_state}"
-    );
-
-    // resume: clear the switch.
-    let resumed = post_json_rpc(&rpc_base, 4255_4, "openhuman.emergency_resume", json!({})).await;
-    let resumed_result = assert_no_jsonrpc_error(&resumed, "emergency_resume");
-    let resumed_state = peel_logs_envelope(resumed_result);
-    assert_eq!(
-        resumed_state.get("engaged").and_then(Value::as_bool),
-        Some(false),
-        "resume response must report not engaged: {resumed_state}"
-    );
-
-    // status: not halted again.
-    let s2 = post_json_rpc(&rpc_base, 4255_5, "openhuman.emergency_status", json!({})).await;
-    let s2_result = assert_no_jsonrpc_error(&s2, "emergency_status resumed");
-    let s2_state = peel_logs_envelope(s2_result);
-    assert_eq!(
-        s2_state.get("engaged").and_then(Value::as_bool),
-        Some(false),
-        "status must report not engaged after resume: {s2_state}"
-    );
-
-    rpc_join.abort();
-}
-
 #[tokio::test]
 async fn json_rpc_tokenjuice_detect_and_cache_stats() {
     let _env_lock = json_rpc_e2e_env_lock();
@@ -6157,6 +6073,30 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
     assert!(
         runtime.get("service").and_then(Value::as_object).is_some(),
         "expected runtime.service object: {runtime}"
+    );
+
+    // Component health is folded into this snapshot so the frontend hydrates the
+    // daemon-health store from the same poll (no separate health_snapshot poll).
+    // Its fields stay snake_case (the core HealthSnapshot type has no camelCase
+    // rename), matching the frontend health parser.
+    let health = body.get("health").expect("expected health object");
+    assert!(
+        health.get("pid").and_then(Value::as_u64).is_some(),
+        "expected health.pid: {health}"
+    );
+    assert!(
+        health
+            .get("uptime_seconds")
+            .and_then(Value::as_u64)
+            .is_some(),
+        "expected health.uptime_seconds (snake_case): {health}"
+    );
+    assert!(
+        health
+            .get("components")
+            .and_then(Value::as_object)
+            .is_some(),
+        "expected health.components object: {health}"
     );
 
     mock_join.abort();

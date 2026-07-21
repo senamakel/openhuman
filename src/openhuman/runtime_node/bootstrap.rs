@@ -89,6 +89,57 @@ impl NodeBootstrap {
         self.cached.try_lock().ok().and_then(|g| g.clone())
     }
 
+    /// Durable, **non-downloading** readiness probe.
+    ///
+    /// Unlike [`try_cached`], whose state is process-local and therefore empty
+    /// after every app restart, this inspects the host: a compatible system
+    /// `node` (when `prefer_system`) or an already-extracted managed
+    /// distribution under the cache root. The managed install directory is
+    /// derived deterministically from the configured version + host arch (no
+    /// network), so the check is purely filesystem `stat`s. A hit is memoised
+    /// into the same cache `resolve()` uses.
+    ///
+    /// Returns `Some(..)` when Node is already provisioned on disk, `None` when
+    /// a genuine download/install is still required (or the runtime is
+    /// disabled — callers treat that as "nothing to provision" separately).
+    pub async fn probe_installed(&self) -> Option<ResolvedNode> {
+        if let Some(existing) = self.try_cached() {
+            return Some(existing);
+        }
+        if !self.config.enabled {
+            return None;
+        }
+        if self.config.prefer_system {
+            if let Some(system) = detect_system_node(&self.config.version) {
+                if let Ok(resolved) = resolve_from_system(system) {
+                    tracing::debug!(
+                        version = %resolved.version,
+                        "[node_runtime::bootstrap] durable probe found system node"
+                    );
+                    *self.cached.lock().await = Some(resolved.clone());
+                    return Some(resolved);
+                }
+            }
+        }
+        let dist = NodeDistribution::for_host(&self.config.version).ok()?;
+        let install_dir = self.install_dir(&dist);
+        let cache_root = self.cache_root();
+        if let Some(resolved) =
+            probe_managed_install(&install_dir, &cache_root, &self.config.version)
+        {
+            tracing::debug!(
+                version = %resolved.version,
+                "[node_runtime::bootstrap] durable probe found managed node on disk"
+            );
+            *self.cached.lock().await = Some(resolved.clone());
+            return Some(resolved);
+        }
+        tracing::debug!(
+            "[node_runtime::bootstrap] durable probe found no installed node (provisioning required)"
+        );
+        None
+    }
+
     /// Resolve the Node.js toolchain, downloading + extracting a managed
     /// distribution if necessary. Idempotent: the first successful call
     /// memoises the result; later calls return it without further I/O.
@@ -359,3 +410,7 @@ fn probe_managed_install(
     }
     Some(resolved)
 }
+
+#[cfg(test)]
+#[path = "bootstrap_tests.rs"]
+mod tests;

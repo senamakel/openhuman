@@ -19,12 +19,30 @@ use crate::openhuman::config::Config;
 /// *required* step fails.
 pub async fn run_harness_init_with(config: Config, force: bool) -> HarnessInitSnapshot {
     log::info!("[harness_init] starting one-time init run (force={force})");
-    store::set_overall(OverallState::Running);
+
+    let steps = registry::all_steps();
+
+    // Warm-start guard (GH-5047): decide visibility *before* publishing any
+    // `Running` state. The blocking overlay is justified only when a
+    // provisioning step (download/install/repair) genuinely needs work. Routine
+    // startup — e.g. re-launching an already-installed local Python server — is
+    // NOT provisioning and must run silently in the background on every launch.
+    // Probing on-disk readiness first (durably) keeps the overlay off warm
+    // restarts entirely instead of flashing it while the run settles.
+    let needs_provisioning = force || provisioning_required(&config, &steps).await;
+    if needs_provisioning {
+        log::info!("[harness_init] provisioning required — surfacing setup overlay");
+        store::set_overall(OverallState::Running);
+    } else {
+        log::info!(
+            "[harness_init] warm start — all provisioning satisfied; running remaining startup silently"
+        );
+    }
 
     let mut failed_required = false;
 
-    for step in registry::all_steps() {
-        run_one(&config, &step, force, &mut failed_required).await;
+    for step in &steps {
+        run_one(&config, step, force, &mut failed_required).await;
     }
 
     let overall = if failed_required {
@@ -41,6 +59,28 @@ pub async fn run_harness_init_with(config: Config, force: bool) -> HarnessInitSn
 /// Boot entrypoint: run all not-yet-done steps.
 pub async fn run_harness_init(config: Config) {
     run_harness_init_with(config, false).await;
+}
+
+/// Whether any *provisioning* step (download/install/repair) still needs work.
+///
+/// Only provisioning steps gate the visible overlay; a non-provisioning step
+/// (routine service startup) is ignored here so an already-installed host never
+/// surfaces the blocking screen just to relaunch a background server. Each
+/// probe is the step's durable, network-free `is_done` — see [`registry`].
+async fn provisioning_required(config: &Config, steps: &[HarnessInitStep]) -> bool {
+    for step in steps {
+        if !step.provisioning {
+            continue;
+        }
+        if !(step.is_done)(config).await {
+            log::info!(
+                "[harness_init] provisioning step {} not satisfied on disk — setup needed",
+                step.id
+            );
+            return true;
+        }
+    }
+    false
 }
 
 async fn run_one(config: &Config, step: &HarnessInitStep, force: bool, failed_required: &mut bool) {

@@ -1,4 +1,4 @@
-import { type Location, Navigate, Route, Routes } from 'react-router-dom';
+import { type Location, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import AgentWorldShell from './agentworld/AgentWorldShell';
 import AgentWorld from './agentworld/pages/AgentWorld';
@@ -18,7 +18,6 @@ import FlowsPage from './pages/FlowsPage';
 import Invites from './pages/Invites';
 import Notifications from './pages/Notifications';
 import Onboarding from './pages/onboarding/Onboarding';
-import OrchestrationPage from './pages/OrchestrationPage';
 import { PttOverlayPage } from './pages/PttOverlayPage';
 import Rewards from './pages/Rewards';
 import Skills from './pages/Skills';
@@ -34,6 +33,38 @@ interface AppRoutesProps {
    * everywhere else (router uses the ambient location).
    */
   location?: Location | string;
+}
+
+/**
+ * Redirects the retired `/orchestration` route to its new home under Brain
+ * (`/brain?tab=orchestration`), mapping the legacy `?tab=`/`?sub=` query onto
+ * Brain's `?ov=`/`?sub=` scheme so old deep links land on the same view:
+ *   - `?tab=connections|discover|usage` → `?ov=network&sub=<that>`
+ *   - `?tab=agent|overview|tasks|network|medulla` → `?ov=<that>`
+ *   - `?session=` is preserved for the agent chat.
+ */
+const NETWORK_SUBS = ['connections', 'discover', 'usage'];
+const ORCH_VIEWS = ['medulla', 'agent', 'overview', 'tasks', 'network'];
+
+function OrchestrationRedirect() {
+  const { search } = useLocation();
+  const legacy = new URLSearchParams(search);
+  const tab = legacy.get('tab');
+
+  const next = new URLSearchParams();
+  next.set('tab', 'orchestration');
+  if (tab && NETWORK_SUBS.includes(tab)) {
+    next.set('ov', 'network');
+    next.set('sub', tab);
+  } else {
+    if (tab && ORCH_VIEWS.includes(tab)) next.set('ov', tab);
+    const sub = legacy.get('sub');
+    if (sub && NETWORK_SUBS.includes(sub)) next.set('sub', sub);
+  }
+  const session = legacy.get('session');
+  if (session) next.set('session', session);
+
+  return <Navigate to={`/brain?${next.toString()}`} replace />;
 }
 
 const AppRoutes = ({ location }: AppRoutesProps = {}) => {
@@ -137,21 +168,16 @@ const AppRoutes = ({ location }: AppRoutesProps = {}) => {
         }
       />
 
-      {/* Orchestration — TinyPlace multi-agent coordination surface, promoted
-          from a Brain sub-tab into a first-class sidebar destination (sits
-          right after Workflows). */}
-      <Route
-        path="/orchestration"
-        element={
-          <ProtectedRoute requireAuth={true}>
-            <OrchestrationPage />
-          </ProtectedRoute>
-        }
-      />
-      {/* Back-compat: the old Brain deep link → the promoted top-level tab. */}
+      {/* Orchestration folded back under Brain (`/brain?tab=orchestration`).
+          The old first-class `/orchestration` route and the even older Brain
+          deep link both redirect there; `<OrchestrationRedirect>` maps the
+          legacy `?tab=`/`?sub=` query onto Brain's `?ov=`/`?sub=` scheme so
+          deep links (e.g. `/orchestration?tab=tasks`) keep landing on the same
+          view. */}
+      <Route path="/orchestration" element={<OrchestrationRedirect />} />
       <Route
         path="/brain/tinyplace-orchestration"
-        element={<Navigate to="/orchestration" replace />}
+        element={<Navigate to="/brain?tab=orchestration" replace />}
       />
 
       {/* Back-compat: /activity and /intelligence → settings notifications page. */}

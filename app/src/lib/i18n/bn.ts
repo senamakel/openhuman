@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // Bengali (বাংলা) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  // Share cards (#5006).
+  'share.button': 'শেয়ার',
+  'share.modalTitle': 'এই মুহূর্তটি শেয়ার করুন',
+  'share.modalSubtitle': 'আপনার এজেন্ট যা করেছে তা X বা LinkedIn-এ পোস্ট করুন',
+  'share.drafting': 'আপনার কার্ড ডিজাইন করা হচ্ছে...',
+  'share.cardAlt': 'শেয়ার কার্ডের প্রিভিউ',
+  'share.imageError': 'ছবিটি তৈরি করা যায়নি। আবার চেষ্টা করুন।',
+  'share.captionLabel': 'ক্যাপশন',
+  'share.captionPlaceholder': 'একটি ক্যাপশন লিখুন...',
+  'share.privacyNote':
+    'শুধু শিরোনাম, ক্যাপশন, এজেন্টের নাম এবং ব্র্যান্ডিং শেয়ার করা হয়। আপনার চ্যাট, মেমরি এবং ফাইল ব্যক্তিগত থাকে।',
+  'share.defaultHeadline': 'দেখুন আমার OpenHuman এজেন্ট এইমাত্র কী করেছে',
+  'share.defaultAgentName': 'আমার এজেন্ট',
+  'share.defaultCaption': 'দেখুন আমার OpenHuman এজেন্ট এইমাত্র কী করেছে।',
+  'share.captionWithHeadline': '{headline}। আমার OpenHuman এজেন্ট দিয়ে তৈরি।',
+  'share.linkedInHint': 'ক্যাপশন কপি করা হয়েছে। আপনার LinkedIn পোস্টে পেস্ট করুন।',
+  'share.shareX': 'X-এ শেয়ার করুন',
+  'share.shareLinkedIn': 'LinkedIn-এ শেয়ার করুন',
+  'share.copyImage': 'ছবি কপি করুন',
+  'share.copiedImage': 'ছবি কপি হয়েছে',
+  'share.copyCaption': 'ক্যাপশন কপি করুন',
+  'share.copiedCaption': 'ক্যাপশন কপি হয়েছে',
   'agentWorld.welcome.nav': 'স্বাগতম',
   'agentWorld.welcome.eyebrow': 'TinyPlace',
   'agentWorld.welcome.title': 'একটি জগৎ যেখানে আপনার এজেন্টরা মিলিত হয়',
@@ -548,7 +570,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'কিছু ভুল হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।',
   'brain.tabs.sources': 'উৎস',
   'brain.tabs.sync': 'সিঙ্ক',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'অর্কেস্ট্রেশন',
   'tinyplaceOrchestration.title': 'TinyPlace রিলে',
   'tinyplaceOrchestration.subtitle': 'পিন করা এজেন্ট চ্যানেল এবং অ্যাপ সেশন চ্যাট',
   'tinyplaceOrchestration.refresh': 'রিফ্রেশ',
@@ -7350,13 +7372,6 @@ const messages: TranslationMap = {
   'flows.canvas.sidePanelToggle': 'সাইড প্যানেল',
   'flows.canvas.legendTab': 'ম্যানুয়াল',
 
-  // Emergency stop (#4255)
-  'safety.emergencyStop': 'জরুরি বন্ধ',
-  'safety.stopFailed': 'অটোমেশন থামানো যায়নি। আবার চেষ্টা করুন।',
-  'safety.resume': 'অটোমেশন পুনরায় শুরু করুন',
-  'safety.resumeFailed': 'পুনরায় শুরু করা যায়নি। অটোমেশন এখনও বন্ধ। আবার চেষ্টা করুন।',
-  'safety.haltedTitle': 'অটোমেশন বন্ধ',
-  'safety.haltedBody': 'সমস্ত ডেস্কটপ অটোমেশন বন্ধ করা হয়েছে। প্রস্তুত হলে পুনরায় শুরু করুন।',
   // Privacy status pill + per-action egress disclosure (#4437 / S3)
   'privacy.status.ariaLabel': 'গোপনীয়তা স্থিতি',
   'privacy.status.external': 'ডিভাইসের বাইরে',

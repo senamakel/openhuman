@@ -235,9 +235,51 @@ fn apply_env_overrides_shell_hide_window_parses_truthy_falsy() {
     }
     cfg.apply_env_overrides();
     assert!(cfg.shell.hide_window);
+
+    // An empty / whitespace-only value is treated as unset: the field is left
+    // unchanged and it must NOT hit the "unrecognized value" warn path (a bare
+    // `OPENHUMAN_SHELL_HIDE_WINDOW=` in the environment previously warned on
+    // every boot).
+    cfg.shell.hide_window = true;
+    unsafe {
+        std::env::set_var("OPENHUMAN_SHELL_HIDE_WINDOW", "");
+    }
+    cfg.apply_env_overrides();
+    assert!(
+        cfg.shell.hide_window,
+        "empty value should leave hide_window=true"
+    );
+
+    cfg.shell.hide_window = false;
+    unsafe {
+        std::env::set_var("OPENHUMAN_SHELL_HIDE_WINDOW", "   ");
+    }
+    cfg.apply_env_overrides();
+    assert!(
+        !cfg.shell.hide_window,
+        "whitespace-only value should leave hide_window=false"
+    );
+
     unsafe {
         std::env::remove_var("OPENHUMAN_SHELL_HIDE_WINDOW");
     }
+}
+
+#[test]
+fn classify_shell_hide_window_distinguishes_unset_from_unrecognized() {
+    use super::env_overlay::{classify_shell_hide_window, ShellHideWindowParse as P};
+    // The key distinction the change relies on: an empty / whitespace-only value
+    // is `Unset` (silent no-op), NOT `Unrecognized` (which warns on every boot).
+    // Testing the classifier directly proves this — the field-unchanged assertion
+    // above holds for BOTH branches and so can't catch a regression here.
+    assert_eq!(classify_shell_hide_window(""), P::Unset);
+    assert_eq!(classify_shell_hide_window("   "), P::Unset);
+    assert_eq!(classify_shell_hide_window("\t"), P::Unset);
+    assert_eq!(classify_shell_hide_window("on"), P::Set(true));
+    assert_eq!(classify_shell_hide_window("FALSE"), P::Set(false));
+    assert_eq!(classify_shell_hide_window("  yes  "), P::Set(true));
+    assert_eq!(classify_shell_hide_window("maybe"), P::Unrecognized);
+    assert_eq!(classify_shell_hide_window("2"), P::Unrecognized);
 }
 
 #[test]

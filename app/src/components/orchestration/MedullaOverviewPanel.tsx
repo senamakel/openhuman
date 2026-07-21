@@ -10,7 +10,7 @@
  * ("Medulla", "OpenHuman", "Discord") stay in every locale.
  */
 import { useT } from '../../lib/i18n/I18nContext';
-import { BILLING_DASHBOARD_URL, DISCORD_INVITE_URL } from '../../utils/links';
+import { DISCORD_INVITE_URL, PRICING_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 
 export default function MedullaOverviewPanel() {
@@ -79,7 +79,7 @@ export default function MedullaOverviewPanel() {
             <button
               type="button"
               data-testid="orch-medulla-subscribe"
-              onClick={() => void openUrl(BILLING_DASHBOARD_URL)}
+              onClick={() => void openUrl(PRICING_URL)}
               className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2 text-xs font-semibold text-content-inverted shadow-soft transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1">
               {t('orchPage.medulla.subscriberCta')}
             </button>

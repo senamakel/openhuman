@@ -25,7 +25,6 @@ import mascotReducer from '../store/mascotSlice';
 import notificationReducer from '../store/notificationSlice';
 import personaReducer from '../store/personaSlice';
 import { pttReducer } from '../store/pttSlice';
-import safetyReducer from '../store/safetySlice';
 import socketReducer from '../store/socketSlice';
 import themeReducer from '../store/themeSlice';
 import threadReducer from '../store/threadSlice';
@@ -55,7 +54,6 @@ const testRootReducer = combineReducers({
   notifications: notificationReducer,
   persona: personaReducer,
   ptt: pttReducer,
-  safety: safetyReducer,
   socket: socketReducer,
   theme: themeReducer,
   thread: threadReducer,

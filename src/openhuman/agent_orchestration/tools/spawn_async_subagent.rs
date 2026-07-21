@@ -17,6 +17,7 @@ use crate::openhuman::agent_orchestration::subagent_sessions::{
     SubagentSessionUpsert,
 };
 use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::memory_conversations::{self as conversations, ConversationMessage};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -466,6 +467,7 @@ impl Tool for SpawnAsyncSubagentTool {
         let (status_tx, status_rx) = running_subagents::status_channel();
 
         let background_parent = parent.clone();
+        let background_workspace_dir = parent.workspace_dir.clone();
         let background_definition = definition.clone();
         let background_agent_id = definition.id.clone();
         let background_task_id = task_id.clone();
@@ -547,6 +549,20 @@ impl Tool for SpawnAsyncSubagentTool {
                             output: outcome.output.clone(),
                             iterations: outcome.iterations,
                         });
+                        // A workflow proposal produced inside the child's tool
+                        // history is durable state, not prose: persist it into
+                        // the parent chat thread (survives reload / reconnect —
+                        // the old socket-only delivery could silently drop it)
+                        // and carry the full payload in the delivery notice so
+                        // the follow-up turn can present it faithfully.
+                        let delivery_summary = attach_workflow_proposal(
+                            &background_workspace_dir,
+                            background_parent_thread_id.as_deref(),
+                            &outcome.task_id,
+                            &outcome.agent_id,
+                            &outcome.final_history,
+                            outcome.output.clone(),
+                        );
                         // Queue the finished result for idle-gated, batched
                         // delivery back into the parent chat (the session
                         // runtime drains this when the session is next idle).
@@ -554,7 +570,7 @@ impl Tool for SpawnAsyncSubagentTool {
                             background_parent_session.clone(),
                             outcome.task_id.clone(),
                             outcome.agent_id.clone(),
-                            outcome.output.clone(),
+                            delivery_summary,
                             background_parent_thread_id.clone(),
                         );
                         crate::openhuman::agent_orchestration::subagent_events::publish_subagent_completed(
@@ -610,6 +626,16 @@ impl Tool for SpawnAsyncSubagentTool {
                             output: framed.clone(),
                             iterations: outcome.iterations,
                         });
+                        // An incomplete run may still have produced a full
+                        // proposal before stalling — preserve it durably too.
+                        let framed = attach_workflow_proposal(
+                            &background_workspace_dir,
+                            background_parent_thread_id.as_deref(),
+                            &outcome.task_id,
+                            &outcome.agent_id,
+                            &outcome.final_history,
+                            framed,
+                        );
                         crate::openhuman::agent_orchestration::background_completions::record_completion(
                             background_parent_session.clone(),
                             outcome.task_id.clone(),
@@ -908,6 +934,97 @@ fn durable_task_key_source(
     }
 }
 
+/// Scan a finished child's history for the LAST `workflow_proposal` tool
+/// result (the workflow_builder's `propose_workflow` / `revise_workflow` /
+/// `edit_workflow` all return `{"type":"workflow_proposal", ...}` JSON).
+/// Returns the parsed payload, or `None` when the run produced no proposal.
+/// Lives here (not in `flows`) so the always-on orchestration path has no
+/// dependency on the feature-gated flows domain — it is a generic scan for a
+/// structured tool payload.
+pub(crate) fn extract_workflow_proposal_from_history(
+    history: &[ChatMessage],
+) -> Option<serde_json::Value> {
+    history
+        .iter()
+        .rev()
+        .filter(|message| message.role == "tool")
+        .find_map(|message| {
+            let value: serde_json::Value = serde_json::from_str(message.content.trim()).ok()?;
+            (value.get("type").and_then(|t| t.as_str()) == Some("workflow_proposal"))
+                .then_some(value)
+        })
+}
+
+/// Durably surface a workflow proposal found in a finished child's history:
+/// persist it as a parent-thread conversation message (metadata carries the
+/// full payload so the UI can rehydrate the proposal card after reload) and
+/// append a `[workflow_proposal]` envelope to the delivery summary so the
+/// follow-up turn presents it faithfully. Returns the (possibly extended)
+/// summary; on any persistence error the summary still carries the envelope —
+/// losing durability must not lose delivery.
+fn attach_workflow_proposal(
+    workspace_dir: &std::path::Path,
+    parent_thread_id: Option<&str>,
+    task_id: &str,
+    agent_id: &str,
+    final_history: &[ChatMessage],
+    summary: String,
+) -> String {
+    let Some(proposal) = extract_workflow_proposal_from_history(final_history) else {
+        return summary;
+    };
+    let proposal_json = match serde_json::to_string(&proposal) {
+        Ok(json) => json,
+        Err(err) => {
+            log::warn!(
+                "[spawn_async_subagent] workflow proposal re-serialize failed task_id={task_id} error={err}"
+            );
+            return summary;
+        }
+    };
+    let name = proposal
+        .get("name")
+        .and_then(|n| n.as_str())
+        .unwrap_or("Untitled workflow");
+    log::info!(
+        "[spawn_async_subagent] extracted workflow proposal '{name}' task_id={task_id} \
+         ({} chars) — persisting to parent thread {:?}",
+        proposal_json.len(),
+        parent_thread_id
+    );
+    if let Some(thread_id) = parent_thread_id {
+        let persisted = conversations::append_message(
+            workspace_dir.to_path_buf(),
+            thread_id,
+            ConversationMessage {
+                id: format!("workflow-proposal:{task_id}"),
+                content: format!("Workflow proposal ready: {name}"),
+                message_type: "text".to_string(),
+                extra_metadata: json!({
+                    "scope": "workflow_proposal",
+                    "proposal": proposal,
+                    "task_id": task_id,
+                    "agent_id": agent_id,
+                }),
+                sender: "agent".to_string(),
+                created_at: chrono::Utc::now().to_rfc3339(),
+            },
+        );
+        if let Err(err) = persisted {
+            log::warn!(
+                "[spawn_async_subagent] workflow proposal persistence failed \
+                 thread_id={thread_id} task_id={task_id} error={err} — proposal still \
+                 rides the delivery notice"
+            );
+        }
+    }
+    format!(
+        "{summary}\n\n[workflow_proposal]\n{proposal_json}\n[/workflow_proposal]\n\
+         (The full proposal above was also saved to the chat thread; present it to the \
+         user for review — do not re-run the builder unless they ask for changes.)"
+    )
+}
+
 fn reusable_follow_up_message(prompt: &str, context: Option<&str>) -> String {
     let mut message = String::from("[Follow-up instruction for reusable sub-agent]\n");
     if let Some(context) = context.map(str::trim).filter(|s| !s.is_empty()) {
@@ -1046,6 +1163,103 @@ mod tests {
         let rendered = reusable_follow_up_message("Continue the audit", Some("prior result: 42"));
         assert!(rendered.contains("[Context]\nprior result: 42"));
         assert!(rendered.contains("[Task]\nContinue the audit"));
+    }
+
+    #[test]
+    fn extract_workflow_proposal_finds_last_proposal_tool_result() {
+        let history = vec![
+            ChatMessage::user("build me a workflow"),
+            ChatMessage::tool(r#"{"type":"something_else","x":1}"#),
+            ChatMessage::tool(
+                r#"{"type":"workflow_proposal","persisted":false,"name":"Old Draft"}"#,
+            ),
+            ChatMessage::assistant("revising…"),
+            ChatMessage::tool(
+                r#"{"type":"workflow_proposal","persisted":false,"name":"Daily X Trending Email"}"#,
+            ),
+            ChatMessage::assistant("Here's the proposed workflow."),
+        ];
+        let proposal =
+            extract_workflow_proposal_from_history(&history).expect("proposal extracted");
+        // The LAST proposal wins — later revisions supersede earlier drafts.
+        assert_eq!(proposal["name"], "Daily X Trending Email");
+    }
+
+    #[test]
+    fn extract_workflow_proposal_ignores_non_proposal_history() {
+        let history = vec![
+            ChatMessage::user("hello"),
+            ChatMessage::tool("plain text tool output, not json"),
+            ChatMessage::assistant("done"),
+        ];
+        assert!(extract_workflow_proposal_from_history(&history).is_none());
+    }
+
+    #[test]
+    fn attach_workflow_proposal_persists_thread_message_and_extends_summary() {
+        use crate::openhuman::memory_conversations::CreateConversationThread;
+        let temp = tempfile::tempdir().expect("tempdir");
+        conversations::ensure_thread(
+            temp.path().to_path_buf(),
+            CreateConversationThread {
+                id: "thread-parent".into(),
+                title: "Main chat".into(),
+                created_at: chrono::Utc::now().to_rfc3339(),
+                parent_thread_id: None,
+                labels: None,
+                personality_id: None,
+            },
+        )
+        .expect("thread created");
+
+        let history = vec![ChatMessage::tool(
+            r#"{"type":"workflow_proposal","persisted":false,"name":"Daily X Trending Email","graph":{"nodes":[],"edges":[]}}"#,
+        )];
+        let summary = attach_workflow_proposal(
+            temp.path(),
+            Some("thread-parent"),
+            "sub-task-1",
+            "workflow_builder",
+            &history,
+            "Here's the proposed workflow.".to_string(),
+        );
+
+        // Delivery notice carries the machine-readable envelope.
+        assert!(summary.starts_with("Here's the proposed workflow."));
+        assert!(summary.contains("[workflow_proposal]"));
+        assert!(summary.contains("\"name\":\"Daily X Trending Email\""));
+        assert!(summary.contains("[/workflow_proposal]"));
+
+        // Proposal is durably persisted in the parent thread with rehydratable
+        // metadata (this is what survives reload / a dropped socket event).
+        let messages = conversations::get_messages(temp.path().to_path_buf(), "thread-parent")
+            .expect("messages");
+        let proposal_msg = messages
+            .iter()
+            .find(|m| m.id == "workflow-proposal:sub-task-1")
+            .expect("proposal message persisted");
+        assert_eq!(proposal_msg.sender, "agent");
+        assert!(proposal_msg.content.contains("Daily X Trending Email"));
+        assert_eq!(proposal_msg.extra_metadata["scope"], "workflow_proposal");
+        assert_eq!(
+            proposal_msg.extra_metadata["proposal"]["name"],
+            "Daily X Trending Email"
+        );
+        assert_eq!(proposal_msg.extra_metadata["task_id"], "sub-task-1");
+    }
+
+    #[test]
+    fn attach_workflow_proposal_without_proposal_returns_summary_unchanged() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let summary = attach_workflow_proposal(
+            temp.path(),
+            Some("thread-x"),
+            "sub-task-2",
+            "researcher",
+            &[ChatMessage::tool("no proposal here")],
+            "research done".to_string(),
+        );
+        assert_eq!(summary, "research done");
     }
 
     #[tokio::test]

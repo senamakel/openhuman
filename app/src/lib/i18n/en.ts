@@ -321,7 +321,7 @@ const en: TranslationMap = {
   'brain.tabs.goals': 'Goals',
   'brain.tabs.sources': 'Sources',
   'brain.tabs.sync': 'Sync',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orchestration',
   'brain.empty': 'Your brain is empty for now: connect a source to start building memory.',
   'brain.error': "Couldn't load your brain. Please try again.",
   'brain.goals.title': 'Long-term Goals',
@@ -796,6 +796,29 @@ const en: TranslationMap = {
   'chat.regenerate': 'Regenerate',
   'chat.copyResponse': 'Copy response',
   'chat.citations': 'Citations',
+
+  // Share cards (#5006): one-tap "look what my agent did" post to X / LinkedIn.
+  'share.button': 'Share',
+  'share.modalTitle': 'Share this moment',
+  'share.modalSubtitle': 'Post what your agent did to X or LinkedIn',
+  'share.drafting': 'Designing your card...',
+  'share.cardAlt': 'Share card preview',
+  'share.imageError': "Couldn't generate the image. Try again.",
+  'share.captionLabel': 'Caption',
+  'share.captionPlaceholder': 'Write a caption...',
+  'share.privacyNote':
+    'Only the headline, caption, agent name, and branding are shared. Your chat, memory, and files stay private.',
+  'share.defaultHeadline': 'Look what my OpenHuman agent just did',
+  'share.defaultAgentName': 'My agent',
+  'share.defaultCaption': 'Look what my OpenHuman agent just did.',
+  'share.captionWithHeadline': '{headline}. Made with my OpenHuman agent.',
+  'share.linkedInHint': 'Caption copied. Paste it into your LinkedIn post.',
+  'share.shareX': 'Share on X',
+  'share.shareLinkedIn': 'Share on LinkedIn',
+  'share.copyImage': 'Copy image',
+  'share.copiedImage': 'Image copied',
+  'share.copyCaption': 'Copy caption',
+  'share.copiedCaption': 'Caption copied',
   'chat.toolUsed': 'Tool used',
 
   // Skills / Connections
@@ -7650,15 +7673,6 @@ const en: TranslationMap = {
     'Your AI provider has no API key set. Add one in provider settings to continue.',
   'userErrors.scope.chat': 'Chat',
   'userErrors.scope.cron': 'Scheduled job',
-
-  // Emergency stop (#4255)
-  'safety.emergencyStop': 'Emergency stop',
-  'safety.stopFailed': 'Could not stop automation. Try again.',
-  'safety.resume': 'Resume automation',
-  'safety.resumeFailed': 'Could not resume. Automation is still halted. Try again.',
-  'safety.haltedTitle': 'Automation halted',
-  'safety.haltedBody': 'All desktop automation is stopped. Resume when you are ready.',
-
   'memorySources.codingSessions.title': 'Coding-agent sessions',
   'memorySources.codingSessions.description':
     'Turn your Codex and Claude Code decisions and corrections into private persona memory.',

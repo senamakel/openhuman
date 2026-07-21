@@ -293,13 +293,18 @@ impl Tool for SkillDelegationTool {
             slug,
             prompt.chars().count()
         );
+        // Integration delegations stay blocking: their outcomes (send the
+        // email, create the page, …) are usually approval-gated mid-turn and
+        // the orchestrator's reply reports the concrete result. The durable
+        // async default applies to archetype delegations only for now.
         super::dispatch_subagent(
             "integrations_agent",
             &self.tool_name,
             &prompt,
             Some(&slug),
             model_override,
-            tool_context.and_then(|ctx| ctx.workspace.clone()),
+            tool_context,
+            super::dispatch::DispatchMode::Blocking,
         )
         .await
     }

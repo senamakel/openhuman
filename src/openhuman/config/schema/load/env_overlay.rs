@@ -7,6 +7,31 @@ use super::dirs::MEMORY_SYNC_INTERVAL_SECS_ENV_VAR;
 use super::env::parse_env_bool;
 use std::path::PathBuf;
 
+/// Classification of an `OPENHUMAN_SHELL_HIDE_WINDOW` env value. Split out from
+/// the apply site (where the three cases differ only by log level) so the
+/// empty-vs-unrecognized distinction is unit-testable without capturing tracing
+/// output — a bare `VAR=` must classify as `Unset` (silent no-op), not
+/// `Unrecognized` (which warns).
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum ShellHideWindowParse {
+    /// Empty / whitespace-only — the var is present but has no value; treat as
+    /// absent (no change, no warning).
+    Unset,
+    /// A recognized boolean value.
+    Set(bool),
+    /// A non-empty value that isn't a recognized boolean — warn and ignore.
+    Unrecognized,
+}
+
+pub(super) fn classify_shell_hide_window(raw: &str) -> ShellHideWindowParse {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "" => ShellHideWindowParse::Unset,
+        "1" | "true" | "yes" | "on" => ShellHideWindowParse::Set(true),
+        "0" | "false" | "no" | "off" => ShellHideWindowParse::Set(false),
+        _ => ShellHideWindowParse::Unrecognized,
+    }
+}
+
 impl Config {
     pub fn apply_env_overrides(&mut self) {
         use super::env::ProcessEnv;
@@ -119,23 +144,25 @@ impl Config {
         }
 
         if let Some(flag) = env.get_any(&["OPENHUMAN_SHELL_HIDE_WINDOW", "SHELL_HIDE_WINDOW"]) {
-            let normalized = flag.trim().to_ascii_lowercase();
-            match normalized.as_str() {
-                "1" | "true" | "yes" | "on" => {
-                    self.shell.hide_window = true;
+            match classify_shell_hide_window(&flag) {
+                // An empty / whitespace-only value means the var is present but
+                // unset (common when a `.env` or launcher exports `VAR=`). Treat
+                // it as absent — keep the current value rather than warning on
+                // every boot. Trace-level so the no-op stays diagnosable without
+                // the INFO/WARN noise this change exists to remove.
+                ShellHideWindowParse::Unset => tracing::trace!(
+                    "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW empty value treated as unset; \
+                     keeping hide_window={}",
+                    self.shell.hide_window
+                ),
+                ShellHideWindowParse::Set(value) => {
+                    self.shell.hide_window = value;
                     tracing::debug!(
                         value = %flag,
-                        "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW applied: hide_window=true"
+                        "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW applied: hide_window={value}"
                     );
                 }
-                "0" | "false" | "no" | "off" => {
-                    self.shell.hide_window = false;
-                    tracing::debug!(
-                        value = %flag,
-                        "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW applied: hide_window=false"
-                    );
-                }
-                _ => tracing::warn!(
+                ShellHideWindowParse::Unrecognized => tracing::warn!(
                     value = %flag,
                     "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW unrecognized value ignored; \
                      keeping current hide_window={}",

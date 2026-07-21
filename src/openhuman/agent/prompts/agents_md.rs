@@ -68,24 +68,62 @@ impl AgentsMdContent {
 /// noisy placeholder. Never logs the file contents, only paths and sizes.
 pub fn load_agents_md(dir: &Path) -> Option<String> {
     let path = dir.join(AGENTS_MD_FILENAME);
-    // Bounded read: never slurp an arbitrarily large untrusted file whole into
-    // memory. We open + `take(MAX_AGENTS_MD_READ_BYTES)` rather than
-    // `read_to_string`, so a pathological multi-MB AGENTS.md can't stall prompt
-    // construction or exhaust memory before the renderer's char cap applies.
-    let file = match std::fs::File::open(&path) {
+    // Path hardening (race-free): the project-layer AGENTS.md lives in the
+    // agent's user/project-controlled action dir, so a checkout could make it a
+    // symlink pointing outside the root (a home-directory secret, a device node)
+    // and have its bytes read into the system prompt and shipped to the
+    // configured inference provider. We open with `O_NOFOLLOW` (Unix), so the
+    // kernel atomically refuses to follow a final-component symlink at open
+    // time — there is no stat-then-open window a racing writer could exploit by
+    // swapping a checked regular file for a symlink. We then fstat the *opened*
+    // handle and require a regular file (rejecting a directory / FIFO / socket /
+    // device substituted in the same race), and — defence in depth against a
+    // symlinked *parent* component — require the canonical path to stay under
+    // `dir` (mirroring `validate_path_within_root`, used for agent-definition
+    // TOML). All rejections skip silently, exactly like a missing file.
+    let file = match open_no_follow(&path) {
         Ok(f) => f,
         Err(e) => {
-            match e.kind() {
-                std::io::ErrorKind::NotFound => {
-                    log::debug!("[agents_md] no AGENTS.md at {}", path.display());
-                }
-                _ => {
-                    log::debug!("[agents_md] failed to open {}: {e}", path.display());
-                }
+            if is_symlink_refusal(&e) {
+                log::warn!(
+                    "[agents_md] refusing to read symlinked {} (path hardening)",
+                    path.display()
+                );
+            } else if e.kind() == std::io::ErrorKind::NotFound {
+                log::debug!("[agents_md] no AGENTS.md at {}", path.display());
+            } else {
+                log::debug!("[agents_md] failed to open {}: {e}", path.display());
             }
             return None;
         }
     };
+    // fstat on the opened fd (race-free): reject anything that is not a regular
+    // file — a directory, FIFO, socket, or device that slipped through.
+    match file.metadata() {
+        Ok(m) if m.is_file() => {}
+        Ok(_) => {
+            log::debug!(
+                "[agents_md] {} is not a regular file; skipping",
+                path.display()
+            );
+            return None;
+        }
+        Err(e) => {
+            log::debug!("[agents_md] failed to stat opened {}: {e}", path.display());
+            return None;
+        }
+    }
+    if let Err(e) = crate::openhuman::security::validate_path_within_root(&path, dir) {
+        log::warn!(
+            "[agents_md] refusing to read {} outside its root: {e}",
+            path.display()
+        );
+        return None;
+    }
+    // Bounded read: never slurp an arbitrarily large untrusted file whole into
+    // memory. We `take(MAX_AGENTS_MD_READ_BYTES)` rather than `read_to_string`,
+    // so a pathological multi-MB AGENTS.md can't stall prompt construction or
+    // exhaust memory before the renderer's char cap applies.
     let mut buf = Vec::new();
     if let Err(e) = file.take(MAX_AGENTS_MD_READ_BYTES).read_to_end(&mut buf) {
         log::debug!("[agents_md] failed to read {}: {e}", path.display());
@@ -145,6 +183,51 @@ fn paths_equal(a: &Path, b: &Path) -> bool {
         (Ok(ca), Ok(cb)) => ca == cb,
         _ => a == b,
     }
+}
+
+/// Open `path` read-only while refusing to follow a final-component symlink.
+///
+/// On Unix this passes `O_NOFOLLOW` (the kernel returns `ELOOP`/`EMLINK` instead
+/// of opening the symlink target) plus `O_NONBLOCK` (never block on a FIFO /
+/// device a racing writer may substitute — it is rejected by the `is_file`
+/// fstat check afterwards). This closes the check-to-open race that a
+/// stat-then-`File::open` sequence would leave open. See [`load_agents_md`].
+#[cfg(unix)]
+fn open_no_follow(path: &Path) -> std::io::Result<std::fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+}
+
+/// Non-Unix fallback: best-effort pre-open symlink check. Windows symlink
+/// creation requires elevation / developer mode, so the residual
+/// check-to-open race is low risk on these platforms.
+#[cfg(not(unix))]
+fn open_no_follow(path: &Path) -> std::io::Result<std::fs::File> {
+    let meta = std::fs::symlink_metadata(path)?;
+    if meta.file_type().is_symlink() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "refusing to follow symlink",
+        ));
+    }
+    std::fs::File::open(path)
+}
+
+/// Whether an [`open_no_follow`] error is the "refused a symlink" signal (as
+/// opposed to a genuine I/O failure), so the caller can log it distinctly.
+#[cfg(unix)]
+fn is_symlink_refusal(e: &std::io::Error) -> bool {
+    // `O_NOFOLLOW` on a symlink yields `ELOOP` on Linux/macOS and `EMLINK` on
+    // some BSDs — either way the open was refused *because* it was a symlink.
+    matches!(e.raw_os_error(), Some(v) if v == libc::ELOOP || v == libc::EMLINK)
+}
+
+#[cfg(not(unix))]
+fn is_symlink_refusal(e: &std::io::Error) -> bool {
+    e.kind() == std::io::ErrorKind::InvalidInput
 }
 
 #[cfg(test)]
@@ -237,6 +320,42 @@ mod tests {
         assert!(
             loaded.len() < oversized.len(),
             "bounded content must be shorter than the on-disk file"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_agents_md_is_refused() {
+        // A project-controlled AGENTS.md that symlinks to a secret outside the
+        // action root must not be read into the prompt (path hardening).
+        let dir = tmp();
+        let secret_dir = tmp();
+        let secret = secret_dir.join("secret.txt");
+        fs::write(&secret, "TOP SECRET — must not leak").unwrap();
+        std::os::unix::fs::symlink(&secret, dir.join(AGENTS_MD_FILENAME)).unwrap();
+        assert_eq!(
+            load_agents_md(&dir),
+            None,
+            "symlinked AGENTS.md must be refused"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fifo_agents_md_is_refused_without_hanging() {
+        use std::ffi::CString;
+        // A FIFO (or device) is the kind of non-regular file a racing writer
+        // could substitute after a naive stat check. The opened-fd `is_file`
+        // fstat must reject it, and `O_NONBLOCK` must keep the open from
+        // blocking on a FIFO that has no writer.
+        let dir = tmp();
+        let cpath = CString::new(dir.join(AGENTS_MD_FILENAME).to_str().unwrap()).unwrap();
+        let rc = unsafe { libc::mkfifo(cpath.as_ptr(), 0o600) };
+        assert_eq!(rc, 0, "mkfifo failed: {}", std::io::Error::last_os_error());
+        assert_eq!(
+            load_agents_md(&dir),
+            None,
+            "FIFO AGENTS.md must be refused, not read"
         );
     }
 

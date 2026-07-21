@@ -176,8 +176,8 @@ fn send_message(
             "message": message,
             "source": "tui",
         });
-        if let Err(e) = rt.invoke("channel.web_chat", params).await {
-            log::error!("[tui] channel.web_chat failed: {e}");
+        if let Err(e) = rt.invoke("openhuman.channel_web_chat", params).await {
+            log::error!("[tui] openhuman.channel_web_chat failed: {e}");
             // Surface the failure in-transcript via a synthetic chat_error so
             // the reducer clears the streaming state and shows the reason.
             web_chat::publish_web_channel_event(WebChannelEvent {
@@ -210,8 +210,8 @@ fn cancel_turn(
     tokio::spawn(async move {
         // Omit `request_id` → stop whatever is running on the thread.
         let params = json!({ "client_id": cid, "thread_id": tid });
-        if let Err(e) = rt.invoke("channel.web_cancel", params).await {
-            log::error!("[tui] channel.web_cancel failed: {e}");
+        if let Err(e) = rt.invoke("openhuman.channel_web_cancel", params).await {
+            log::error!("[tui] openhuman.channel_web_cancel failed: {e}");
         }
     });
 }
@@ -221,7 +221,7 @@ fn cancel_turn(
 async fn new_thread(runtime: &Arc<CoreRuntime>, state: &mut TranscriptState, ui: &mut UiState) {
     log::info!("[tui] creating new thread");
     match runtime
-        .invoke("threads.create_new", json!({}))
+        .invoke("openhuman.threads_create_new", json!({}))
         .await
         .ok()
         .and_then(|v| super::runner::extract_thread_id(&v))

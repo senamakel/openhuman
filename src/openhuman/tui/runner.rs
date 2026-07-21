@@ -108,11 +108,12 @@ async fn resolve_thread(
     }
 
     let created = runtime
-        .invoke("threads.create_new", json!({}))
+        .invoke("openhuman.threads_create_new", json!({}))
         .await
-        .map_err(|e| anyhow::anyhow!("threads.create_new failed: {e}"))?;
-    extract_thread_id(&created)
-        .ok_or_else(|| anyhow::anyhow!("threads.create_new returned no thread id: {created}"))
+        .map_err(|e| anyhow::anyhow!("openhuman.threads_create_new failed: {e}"))?;
+    extract_thread_id(&created).ok_or_else(|| {
+        anyhow::anyhow!("openhuman.threads_create_new returned no thread id: {created}")
+    })
 }
 
 /// Pull a thread id out of a `threads.create_new` / `threads.list` response,
@@ -197,5 +198,27 @@ mod tests {
     #[test]
     fn short_hex_is_twelve_chars() {
         assert_eq!(short_hex().len(), 12);
+    }
+
+    /// Regression guard: the RPC method names the TUI invokes must be the
+    /// canonical `openhuman.<namespace>_<function>` form that the registry
+    /// resolves — NOT the dotted `namespace.function` short form, which
+    /// `schema_for_rpc_method` does not recognise and which would make every
+    /// turn (and the launch-time thread creation) fail with "unknown method".
+    /// The dispatcher only rewrites a fixed set of legacy aliases; none of
+    /// these three are in that table, so the short form never resolves.
+    #[test]
+    fn tui_invokes_use_canonical_registered_rpc_method_names() {
+        for method in [
+            "openhuman.channel_web_chat",
+            "openhuman.channel_web_cancel",
+            "openhuman.threads_create_new",
+        ] {
+            assert!(
+                crate::core::all::schema_for_rpc_method(method).is_some(),
+                "TUI invokes `{method}`, but it is not a registered RPC method — \
+                 the terminal chat UI would fail with `unknown method: {method}`"
+            );
+        }
     }
 }

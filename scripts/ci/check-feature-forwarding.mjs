@@ -32,6 +32,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
  */
 const INTENTIONALLY_NOT_FORWARDED = {
   // 'some-gate': 'Reason it must not ship in the desktop build.',
+  tui: 'Terminal UI subcommand (openhuman tui/chat); the desktop app ships its own Tauri UI and never runs the ratatui terminal front-end.',
 };
 
 function usage() {

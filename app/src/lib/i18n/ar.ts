@@ -3,6 +3,28 @@ import type { TranslationMap } from './types';
 // Arabic (العربية) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion': 'رفيق سطح مكتب عائم للمساعدة السريعة والدائمة.',
+  'settings.assistant.desktopCompanion': 'المرافق لسطح المكتب',
+  'settings.assistant.desktopCompanionDesc': 'وضع المرافق الدائم مع اختصار شريط النظام',
+  'pages.settings.features.desktopCompanion': 'الرفيق المكتبي',
+  'pages.settings.features.desktopCompanionDesc': 'مساعد صوتي يدرك الشاشة: يستمع ويرى ويتحدث ويشير',
+  'settings.companion.title': 'رفيق سطح المكتب',
+  'settings.companion.session': 'الجلسة',
+  'settings.companion.activeLabel': 'نشط',
+  'settings.companion.inactiveStatus': 'غير نشط',
+  'settings.companion.stopping': 'إيقاف...',
+  'settings.companion.stopSession': 'إيقاف الجلسة',
+  'settings.companion.starting': 'البدء...',
+  'settings.companion.startSession': 'بدء الجلسة',
+  'settings.companion.sessionId': 'معرف الجلسة',
+  'settings.companion.turns': 'يتحول إلى',
+  'settings.companion.remaining': 'تكوين',
+  'settings.companion.configuration': 'المتبقي',
+  'settings.companion.hotkey': 'مفتاح التشغيل السريع',
+  'settings.companion.activationMode': 'وضع التنشيط',
+  'settings.companion.sessionTtl': 'جلسة TTL',
+  'settings.companion.screenCapture': 'لقطة الشاشة',
+  'settings.companion.appContext': 'سياق التطبيق',
   // Share cards (#5006).
   'share.button': 'مشاركة',
   'share.modalTitle': 'شارك هذه اللحظة',

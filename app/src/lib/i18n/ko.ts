@@ -3,6 +3,30 @@ import type { TranslationMap } from './types';
 // Korean (한국어) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion': '빠르고 항상 켜져 있는 도움을 위한 떠 있는 데스크톱 동반자.',
+  'settings.assistant.desktopCompanion': '데스크탑 동반자',
+  'settings.assistant.desktopCompanionDesc':
+    '시스템 트레이 단축키가 있는 항상 활성화된 동반자 모드',
+  'pages.settings.features.desktopCompanion': '데스크탑 동반자',
+  'pages.settings.features.desktopCompanionDesc':
+    '화면 인식 기능이 있는 음성 도우미: 듣고, 보고, 말하고, 가리킵니다.',
+  'settings.companion.title': '데스크톱 컴패니언',
+  'settings.companion.session': '세션',
+  'settings.companion.activeLabel': '활성',
+  'settings.companion.inactiveStatus': '비활성',
+  'settings.companion.stopping': '중지 중…',
+  'settings.companion.stopSession': '중지 세션',
+  'settings.companion.starting': '시작 중…',
+  'settings.companion.startSession': '세션 시작',
+  'settings.companion.sessionId': '세션 ID',
+  'settings.companion.turns': '회전',
+  'settings.companion.remaining': '남음',
+  'settings.companion.configuration': '구성',
+  'settings.companion.hotkey': '단축키',
+  'settings.companion.activationMode': '활성화 모드',
+  'settings.companion.sessionTtl': '세션 TTL',
+  'settings.companion.screenCapture': '화면 캡처',
+  'settings.companion.appContext': '앱 컨텍스트',
   // Share cards (#5006).
   'share.button': '공유',
   'share.modalTitle': '이 순간을 공유하세요',

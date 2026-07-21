@@ -3,6 +3,29 @@ import type { TranslationMap } from './types';
 // Bengali (বাংলা) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion': 'দ্রুত, সর্বদা-সক্রিয় সহায়তার জন্য একটি ভাসমান ডেস্কটপ সঙ্গী।',
+  'settings.assistant.desktopCompanion': 'ডেস্কটপ সঙ্গী',
+  'settings.assistant.desktopCompanionDesc': 'সিস্টেম ট্রে শর্টকাট সহ সর্বদা-চালু সঙ্গী মোড',
+  'pages.settings.features.desktopCompanion': 'ডেস্কটপ কম্প্যানিয়ন',
+  'pages.settings.features.desktopCompanionDesc':
+    'স্ক্রিন সচেতনতা সহ ভয়েস সহকারী: শোনে, দেখে, কথা বলে, নির্দেশ করে',
+  'settings.companion.title': 'ডেস্কটপ সঙ্গী',
+  'settings.companion.session': 'সেশন',
+  'settings.companion.activeLabel': 'সক্রিয়',
+  'settings.companion.inactiveStatus': 'নিষ্ক্রিয়',
+  'settings.companion.stopping': 'টপিং...',
+  'settings.companion.stopSession': 'স্টপ সেশন',
+  'settings.companion.starting': 'শুরু হচ্ছে...',
+  'settings.companion.startSession': 'শুরু হচ্ছে সেশন',
+  'settings.companion.sessionId': 'সেশন আইডি',
+  'settings.companion.turns': '92 টার্ন',
+  'settings.companion.remaining': 'অবশিষ্ট',
+  'settings.companion.configuration': 'কনফিগারেশন',
+  'settings.companion.hotkey': 'হটকি',
+  'settings.companion.activationMode': 'সক্রিয়করণ মোড',
+  'settings.companion.sessionTtl': 'সেশন TTL',
+  'settings.companion.screenCapture': 'স্ক্রিন ক্যাপচার',
+  'settings.companion.appContext': 'অ্যাপ প্রসঙ্গ',
   // Share cards (#5006).
   'share.button': 'শেয়ার',
   'share.modalTitle': 'এই মুহূর্তটি শেয়ার করুন',

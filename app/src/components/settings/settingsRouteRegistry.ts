@@ -482,6 +482,14 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     navOrder: 3,
   },
   {
+    // Surfaced on the Connections page (Desktop group); route redirects there.
+    id: 'companion',
+    titleKey: 'pages.settings.features.desktopCompanion',
+    descriptionKey: 'pages.settings.features.desktopCompanionDesc',
+    section: 'features',
+    searchKeywords: ['desktop', 'overlay', 'companion'],
+  },
+  {
     // meetings: Meeting Assistant settings (issue #3511 / epic #3505 PR-5).
     // Surfaced on the Connections page (meetings tab, below the meetings list);
     // the route redirects there and it's no longer in the settings sidebar.

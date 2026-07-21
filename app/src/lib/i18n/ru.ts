@@ -3,6 +3,31 @@ import type { TranslationMap } from './types';
 // Russian (Русский) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion':
+    'Плавающий помощник на рабочем столе для быстрой, всегда доступной помощи.',
+  'settings.assistant.desktopCompanion': 'Компаньон рабочего стола',
+  'settings.assistant.desktopCompanionDesc':
+    'Режим постоянного компаньона с ярлыком в системном лотке',
+  'pages.settings.features.desktopCompanion': 'Десктоп-спутник',
+  'pages.settings.features.desktopCompanionDesc':
+    'Голосовой ассистент с распознаванием экрана: слушает, видит, говорит, указывает',
+  'settings.companion.title': 'Настольный компаньон',
+  'settings.companion.session': 'Сеанс',
+  'settings.companion.activeLabel': 'Активен',
+  'settings.companion.inactiveStatus': 'Неактивен',
+  'settings.companion.stopping': 'Остановка…',
+  'settings.companion.stopSession': 'Остановить сеанс',
+  'settings.companion.starting': 'Начало…',
+  'settings.companion.startSession': 'Начало сеанса',
+  'settings.companion.sessionId': 'Идентификатор сеанса',
+  'settings.companion.turns': 'Выключает',
+  'settings.companion.remaining': 'Оставшуюся',
+  'settings.companion.configuration': 'конфигурацию',
+  'settings.companion.hotkey': 'Горячая клавиша',
+  'settings.companion.activationMode': 'Режим активации',
+  'settings.companion.sessionTtl': 'TTL сеанса',
+  'settings.companion.screenCapture': 'Снимок экрана',
+  'settings.companion.appContext': 'Контекст приложения',
   // Share cards (#5006).
   'share.button': 'Поделиться',
   'share.modalTitle': 'Поделитесь этим моментом',

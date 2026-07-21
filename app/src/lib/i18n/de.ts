@@ -3,6 +3,31 @@ import type { TranslationMap } from './types';
 // German (Deutsch) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion':
+    'Ein schwebender Desktop-Begleiter für schnelle, jederzeit verfügbare Hilfe.',
+  'settings.assistant.desktopCompanion': 'Desktop-Begleiter',
+  'settings.assistant.desktopCompanionDesc':
+    'Immer aktiver Begleiter-Modus mit System-Tray-Shortcut',
+  'pages.settings.features.desktopCompanion': 'Desktop-Begleiter',
+  'pages.settings.features.desktopCompanionDesc':
+    'Sprachassistent mit Bildschirmerkennung – hört zu, sieht, spricht, zeigt',
+  'settings.companion.title': 'Desktop-Begleiter',
+  'settings.companion.session': 'Sitzung',
+  'settings.companion.activeLabel': 'Aktiv',
+  'settings.companion.inactiveStatus': 'Inaktiv',
+  'settings.companion.stopping': 'Wird gestoppt…',
+  'settings.companion.stopSession': 'Sitzung beenden',
+  'settings.companion.starting': 'Wird gestartet…',
+  'settings.companion.startSession': 'Sitzung starten',
+  'settings.companion.sessionId': 'Sitzungs-ID',
+  'settings.companion.turns': 'Drehungen',
+  'settings.companion.remaining': 'Verbleibende',
+  'settings.companion.configuration': 'Konfiguration',
+  'settings.companion.hotkey': 'Hotkey',
+  'settings.companion.activationMode': 'Aktivierungsmodus',
+  'settings.companion.sessionTtl': 'Sitzungs-TTL',
+  'settings.companion.screenCapture': 'Bildschirmaufnahme',
+  'settings.companion.appContext': 'App-Kontext',
   // Share cards (#5006).
   'share.button': 'Teilen',
   'share.modalTitle': 'Diesen Moment teilen',

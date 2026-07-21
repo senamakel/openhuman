@@ -3,6 +3,31 @@ import type { TranslationMap } from './types';
 // Indonesian (Bahasa Indonesia) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion':
+    'Pendamping desktop mengambang untuk bantuan cepat yang selalu tersedia.',
+  'settings.assistant.desktopCompanion': 'Pendamping desktop',
+  'settings.assistant.desktopCompanionDesc':
+    'Mode pendamping selalu aktif dengan pintasan baki sistem',
+  'pages.settings.features.desktopCompanion': 'Pendamping Desktop',
+  'pages.settings.features.desktopCompanionDesc':
+    'Asisten suara dengan kesadaran layar: mendengar, melihat, berbicara, menunjuk',
+  'settings.companion.title': 'Perusahaan Desktop',
+  'settings.companion.session': 'Sesi',
+  'settings.companion.activeLabel': 'Aktif',
+  'settings.companion.inactiveStatus': 'Tidak aktif',
+  'settings.companion.stopping': 'Berhenti…',
+  'settings.companion.stopSession': 'Hentikan Sesi',
+  'settings.companion.starting': 'Mulai…',
+  'settings.companion.startSession': 'Mulai Sesi',
+  'settings.companion.sessionId': 'ID Sesi',
+  'settings.companion.turns': 'Putaran',
+  'settings.companion.remaining': 'Tersisa',
+  'settings.companion.configuration': 'Konfigurasi',
+  'settings.companion.hotkey': 'Tombol Pintas',
+  'settings.companion.activationMode': 'Mode Aktivasi',
+  'settings.companion.sessionTtl': 'Sesi TTL',
+  'settings.companion.screenCapture': 'Tangkapan Layar',
+  'settings.companion.appContext': 'Konteks Aplikasi',
   // Share cards (#5006).
   'share.button': 'Bagikan',
   'share.modalTitle': 'Bagikan momen ini',

@@ -46,6 +46,8 @@ pub(crate) async fn register_companion_hotkey(
                     if let Err(e) = app_clone.emit("companion://activate", ()) {
                         warn!("[companion] emit failed: {e}");
                     }
+                    // Drive the native tap-to-talk capture/turn loop.
+                    crate::companion::handle_activation(app_clone.clone());
                 }
             })
             .map_err(|e| format!("Failed to register shortcut '{variant}': {e}"))
@@ -132,5 +134,8 @@ pub(crate) async fn unregister_companion_hotkey(app: AppHandle<AppRuntime>) -> R
 pub(crate) async fn companion_activate(app: AppHandle<AppRuntime>) -> Result<(), String> {
     info!("[companion] companion_activate: called");
     app.emit("companion://activate", ())
-        .map_err(|e| format!("Failed to emit companion://activate: {e}"))
+        .map_err(|e| format!("Failed to emit companion://activate: {e}"))?;
+    // Drive the native tap-to-talk capture/turn loop.
+    crate::companion::handle_activation(app.clone());
+    Ok(())
 }

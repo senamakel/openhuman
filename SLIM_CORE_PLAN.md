@@ -33,7 +33,27 @@ Decisions (from user):
   into Tauri crate (near webview_accounts/native_notifications); `mod.rs:155`; `all.rs:709`; rm dir.
   Keep prefix byte-identical (app/src-tauri/src/webview_accounts/mod.rs:1148 doc contract).
 
-## Phase 2 — whatsapp_data → Tauri (sizeable)
+## Phase 2 DESIGN (updated per user)
+
+Bridge mechanisms (established):
+- shell→core: `relay_http_rpc` Tauri command → core `/rpc` (exists; frontend + shell use it).
+- core→shell: loopback WS (the retired `webview_apis` pattern). Tauri server infra still lives at
+  `app/src-tauri/src/webview_apis/{server,router}.rs` (router empty). Core-side client was deleted
+  in Phase 1 — revive a generalized version for agent-tool proxying.
+
+### Phase 2a — desktop_companion → Tauri (REVERSAL: migrate, don't delete)
+Phase 1 removed it from core (commit b4e9e80f9). Now ADD it to the Tauri shell to complete the
+migration. Recover source from `b4e9e80f9^:src/openhuman/desktop_companion/*`.
+- Move orchestration (session state machine, pipeline turn loop, pointing parse, handoff) into
+  `app/src-tauri/src/` (companion already has shell-side hotkey/mic/screen/overlay).
+- Tauri companion calls core over `relay_http_rpc` for: STT (`voice::cloud_transcribe`), TTS
+  (`voice::reply_speech`), config, LLM (backend chat-completions). wav packing + accessibility
+  foreground context: use shell-side equivalents.
+- Replace core `companion.*` controllers with Tauri commands + emit `companion:state_changed`
+  from the shell. KEEP the overlay/notch companion bubble + CompanionPointer (do NOT remove).
+- Re-add about_app catalog entries pointing at the Tauri feature (or a shell-provided catalog).
+
+### Phase 2b — whatsapp_data → Tauri (relocate + agent tools via bridge)
 Core removal: `all.rs:754,818,1038,1230`; `runtime/context.rs` boot-plan field;
 `observability.rs:158,611-614,804-835,2175-2184` error classifiers; `security/policy/types.rs:186`;
 `tools/mod.rs:67`; `tools/ops.rs:458,1332`; rm dir.

@@ -3,6 +3,31 @@ import type { TranslationMap } from './types';
 // Portuguese (Português) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion':
+    'Um companheiro de ambiente de trabalho flutuante para ajuda rápida e sempre disponível.',
+  'settings.assistant.desktopCompanion': 'Companheiro de área de trabalho',
+  'settings.assistant.desktopCompanionDesc':
+    'Modo companheiro sempre ativo com atalho na bandeja do sistema',
+  'pages.settings.features.desktopCompanion': 'Companion Desktop',
+  'pages.settings.features.desktopCompanionDesc':
+    'Assistente de voz com consciência da tela: escuta, vê, fala, aponta',
+  'settings.companion.title': 'Companheiro de Área de Trabalho',
+  'settings.companion.session': 'Sessão',
+  'settings.companion.activeLabel': 'Ativo',
+  'settings.companion.inactiveStatus': 'Inativo',
+  'settings.companion.stopping': 'Parando…',
+  'settings.companion.stopSession': 'Interromper sessão',
+  'settings.companion.starting': 'Iniciando…',
+  'settings.companion.startSession': 'Iniciar sessão',
+  'settings.companion.sessionId': 'ID da sessão',
+  'settings.companion.turns': 'Turnos',
+  'settings.companion.remaining': 'Restante',
+  'settings.companion.configuration': 'Configuração',
+  'settings.companion.hotkey': 'Tecla de atalho',
+  'settings.companion.activationMode': 'Modo de ativação',
+  'settings.companion.sessionTtl': 'Sessão TTL',
+  'settings.companion.screenCapture': 'Captura de tela',
+  'settings.companion.appContext': 'Contexto do aplicativo',
   // Share cards (#5006).
   'share.button': 'Partilhar',
   'share.modalTitle': 'Partilhe este momento',

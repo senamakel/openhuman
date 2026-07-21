@@ -67,6 +67,7 @@ describe('agents section leaves', () => {
 
 describe('features section leaves', () => {
   test('tools resolves to tools', () => expectRoute('/settings/tools', 'tools'));
+  test('companion resolves to companion', () => expectRoute('/settings/companion', 'companion'));
 });
 
 describe('integrations (retired)', () => {

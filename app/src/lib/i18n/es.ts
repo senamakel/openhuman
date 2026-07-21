@@ -3,6 +3,31 @@ import type { TranslationMap } from './types';
 // Spanish (Español) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion':
+    'Un compañero de escritorio flotante para ayuda rápida y siempre disponible.',
+  'settings.assistant.desktopCompanion': 'Compañero de escritorio',
+  'settings.assistant.desktopCompanionDesc':
+    'Modo compañero siempre activo con acceso directo en la bandeja del sistema',
+  'pages.settings.features.desktopCompanion': 'Acompañante de escritorio',
+  'pages.settings.features.desktopCompanionDesc':
+    'Asistente de voz con conciencia de pantalla: escucha, ve, habla, señala',
+  'settings.companion.title': 'Compañero de escritorio',
+  'settings.companion.session': 'Sesión',
+  'settings.companion.activeLabel': 'Activo',
+  'settings.companion.inactiveStatus': 'Inactivo',
+  'settings.companion.stopping': 'Parando…',
+  'settings.companion.stopSession': 'Detener sesión',
+  'settings.companion.starting': 'Empezando…',
+  'settings.companion.startSession': 'Iniciar sesión',
+  'settings.companion.sessionId': 'ID de sesión',
+  'settings.companion.turns': 'vueltas',
+  'settings.companion.remaining': 'restante',
+  'settings.companion.configuration': 'Configuración',
+  'settings.companion.hotkey': 'tecla de acceso rápido',
+  'settings.companion.activationMode': 'Modo de activación',
+  'settings.companion.sessionTtl': 'TTL de sesión',
+  'settings.companion.screenCapture': 'Captura de pantalla',
+  'settings.companion.appContext': 'Contexto de la aplicación',
   // Share cards (#5006).
   'share.button': 'Compartir',
   'share.modalTitle': 'Comparte este momento',

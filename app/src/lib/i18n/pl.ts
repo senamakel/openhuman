@@ -3,6 +3,31 @@ import type { TranslationMap } from './types';
 // Polish (Polski) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion':
+    'Pływający towarzysz pulpitu do szybkiej, zawsze dostępnej pomocy.',
+  'settings.assistant.desktopCompanion': 'Towarzysz pulpitu',
+  'settings.assistant.desktopCompanionDesc':
+    'Tryb towarzyski zawsze aktywny ze skrótem w zasobniku systemowym',
+  'pages.settings.features.desktopCompanion': 'Towarzysz pulpitu',
+  'pages.settings.features.desktopCompanionDesc':
+    'Asystent głosowy ze świadomością ekranu: słucha, widzi, mówi, wskazuje',
+  'settings.companion.title': 'Towarzysz komputerowy',
+  'settings.companion.session': 'Sesja',
+  'settings.companion.activeLabel': 'Aktywna',
+  'settings.companion.inactiveStatus': 'Nieaktywna',
+  'settings.companion.stopping': 'Zatrzymywanie…',
+  'settings.companion.stopSession': 'Zatrzymaj sesję',
+  'settings.companion.starting': 'Uruchamianie…',
+  'settings.companion.startSession': 'Uruchom sesję',
+  'settings.companion.sessionId': 'ID sesji',
+  'settings.companion.turns': 'Tury',
+  'settings.companion.remaining': 'Pozostało',
+  'settings.companion.configuration': 'Konfiguracja',
+  'settings.companion.hotkey': 'Skrót klawiszowy',
+  'settings.companion.activationMode': 'Tryb aktywacji',
+  'settings.companion.sessionTtl': 'TTL sesji',
+  'settings.companion.screenCapture': 'Przechwytywanie ekranu',
+  'settings.companion.appContext': 'Kontekst aplikacji',
   // Share cards (#5006).
   'share.button': 'Udostępnij',
   'share.modalTitle': 'Udostępnij tę chwilę',

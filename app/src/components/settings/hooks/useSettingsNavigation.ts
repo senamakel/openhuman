@@ -52,6 +52,7 @@ export type SettingsRoute =
   | 'usage'
   | 'security'
   | 'migration'
+  | 'companion'
   | 'meetings'
   | 'embeddings'
   | 'search'

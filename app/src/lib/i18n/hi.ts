@@ -3,6 +3,29 @@ import type { TranslationMap } from './types';
 // Hindi (हिन्दी) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion': 'त्वरित, हमेशा उपलब्ध मदद के लिए एक फ़्लोटिंग डेस्कटॉप साथी।',
+  'settings.assistant.desktopCompanion': 'डेस्कटॉप साथी',
+  'settings.assistant.desktopCompanionDesc': 'सिस्टम ट्रे शॉर्टकट के साथ हमेशा-चालू साथी मोड',
+  'pages.settings.features.desktopCompanion': 'डेस्कटॉप कंपैनियन',
+  'pages.settings.features.desktopCompanionDesc':
+    'स्क्रीन जागरूकता के साथ वॉयस सहायक: सुनता है, देखता है, बोलता है, इशारा करता है',
+  'settings.companion.title': 'डेस्कटॉप साथी',
+  'settings.companion.session': 'सत्र',
+  'settings.companion.activeLabel': 'सक्रिय',
+  'settings.companion.inactiveStatus': 'निष्क्रिय',
+  'settings.companion.stopping': 'रुक रहा हूँ...',
+  'settings.companion.stopSession': 'सत्र रोकें',
+  'settings.companion.starting': 'शुरू हो रहा है...',
+  'settings.companion.startSession': 'सत्र प्रारंभ करें',
+  'settings.companion.sessionId': 'सत्र आईडी',
+  'settings.companion.turns': 'बदल जाता है',
+  'settings.companion.remaining': 'शेष',
+  'settings.companion.configuration': 'विन्यास',
+  'settings.companion.hotkey': 'हॉटकी',
+  'settings.companion.activationMode': 'सक्रियण मोड',
+  'settings.companion.sessionTtl': 'सत्र टीटीएल',
+  'settings.companion.screenCapture': 'स्क्रीन कैप्चर',
+  'settings.companion.appContext': 'ऐप संदर्भ',
   // Share cards (#5006).
   'share.button': 'साझा करें',
   'share.modalTitle': 'इस पल को साझा करें',

@@ -1,6 +1,29 @@
 import type { TranslationMap } from './types';
 
 const en: TranslationMap = {
+  'settings.assistant.desktopCompanion': 'Desktop companion',
+  'settings.assistant.desktopCompanionDesc': 'Always-on companion mode with a system-tray shortcut',
+  'connections.header.companion': 'A floating desktop companion for quick, always-on help.',
+  'pages.settings.features.desktopCompanion': 'Desktop Companion',
+  'pages.settings.features.desktopCompanionDesc':
+    'Voice assistant with screen awareness: listens, sees, speaks, points',
+  'settings.companion.title': 'Desktop Companion',
+  'settings.companion.session': 'Session',
+  'settings.companion.activeLabel': 'Active',
+  'settings.companion.inactiveStatus': 'Inactive',
+  'settings.companion.stopping': 'Stopping…',
+  'settings.companion.stopSession': 'Stop Session',
+  'settings.companion.starting': 'Starting…',
+  'settings.companion.startSession': 'Start Session',
+  'settings.companion.sessionId': 'Session ID',
+  'settings.companion.turns': 'Turns',
+  'settings.companion.remaining': 'Remaining',
+  'settings.companion.configuration': 'Configuration',
+  'settings.companion.hotkey': 'Hotkey',
+  'settings.companion.activationMode': 'Activation Mode',
+  'settings.companion.sessionTtl': 'Session TTL',
+  'settings.companion.screenCapture': 'Screen Capture',
+  'settings.companion.appContext': 'App Context',
   'skills.recallCalendar.title': 'Google Calendar',
   'skills.recallCalendar.description': 'Auto-join Google Meet calls via Recall.ai',
   // Navigation

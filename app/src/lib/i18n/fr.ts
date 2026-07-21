@@ -3,6 +3,31 @@ import type { TranslationMap } from './types';
 // French (Français) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion':
+    'Un compagnon de bureau flottant pour une aide rapide et toujours disponible.',
+  'settings.assistant.desktopCompanion': 'Compagnon de bureau',
+  'settings.assistant.desktopCompanionDesc':
+    'Mode compagnon toujours actif avec raccourci dans la barre système',
+  'pages.settings.features.desktopCompanion': 'Compagnon de bureau',
+  'pages.settings.features.desktopCompanionDesc':
+    "Assistant vocal avec conscience de l'écran: écoute, voit, parle, pointe",
+  'settings.companion.title': 'Compagnon de bureau',
+  'settings.companion.session': 'Session',
+  'settings.companion.activeLabel': 'Actif',
+  'settings.companion.inactiveStatus': 'Inactif',
+  'settings.companion.stopping': 'Arrêt…',
+  'settings.companion.stopSession': 'Arrêter la session',
+  'settings.companion.starting': 'Démarrage…',
+  'settings.companion.startSession': 'Démarrer la session',
+  'settings.companion.sessionId': 'ID de session',
+  'settings.companion.turns': 'Tours',
+  'settings.companion.remaining': 'Configuration',
+  'settings.companion.configuration': 'restante',
+  'settings.companion.hotkey': 'Raccourci clavier',
+  'settings.companion.activationMode': "Mode d'activation",
+  'settings.companion.sessionTtl': 'Durée de vie de la session',
+  'settings.companion.screenCapture': "Capture d'écran",
+  'settings.companion.appContext': "Contexte de l'application",
   // Share cards (#5006).
   'share.button': 'Partager',
   'share.modalTitle': 'Partagez ce moment',

@@ -3,6 +3,29 @@ import type { TranslationMap } from './types';
 // Simplified Chinese (简体中文) translations. Keys mirror en.ts; missing/
 // English-identical values fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
+  'connections.header.companion': '一个悬浮的桌面伙伴，随时提供快速帮助。',
+  'settings.assistant.desktopCompanion': '桌面伴侣',
+  'settings.assistant.desktopCompanionDesc': '带有系统托盘快捷方式的常驻伴侣模式',
+  'pages.settings.features.desktopCompanion': '桌面伴侣',
+  'pages.settings.features.desktopCompanionDesc':
+    '具有屏幕感知能力的语音助手：倾听、观看、说话、指向',
+  'settings.companion.title': '桌面伴侣',
+  'settings.companion.session': '会议',
+  'settings.companion.activeLabel': '活跃',
+  'settings.companion.inactiveStatus': '不活跃',
+  'settings.companion.stopping': '停止…',
+  'settings.companion.stopSession': '停止会话',
+  'settings.companion.starting': '开始…',
+  'settings.companion.startSession': '开始会话',
+  'settings.companion.sessionId': '会话ID',
+  'settings.companion.turns': '转弯',
+  'settings.companion.remaining': '剩余',
+  'settings.companion.configuration': '配置',
+  'settings.companion.hotkey': '热键',
+  'settings.companion.activationMode': '激活模式',
+  'settings.companion.sessionTtl': '会话生存时间',
+  'settings.companion.screenCapture': '屏幕截图',
+  'settings.companion.appContext': '应用程序上下文',
   // Share cards (#5006).
   'share.button': '分享',
   'share.modalTitle': '分享这一刻',

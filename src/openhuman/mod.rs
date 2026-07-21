@@ -146,6 +146,7 @@ pub mod wallet;
 pub mod web3;
 pub mod web_chat;
 pub mod webhooks;
+pub mod webview_accounts;
 pub mod whatsapp_data;
 pub mod workspace;
 pub mod x402;

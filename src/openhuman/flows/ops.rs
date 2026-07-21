@@ -3,6 +3,7 @@
 //! `schemas.rs`'s `handle_*` RPC/CLI handlers, mirroring
 //! `src/openhuman/cron/ops.rs`.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -36,6 +37,10 @@ const FLOW_RUN_TIMEOUT_SECS: u64 = 600;
 /// `TrustedAutomation { Workflow }`, which the tool-call gate lets through), so
 /// this is a dedicated flows-side TTL, not a reuse of the approval store's.
 const FLOW_PARKED_TTL_SECS: i64 = 600;
+
+/// Stable host-validation code for a topology that the currently vendored
+/// TinyFlows/TinyAgents barrier-relief implementation cannot execute safely.
+const UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN: &str = "unsupported_nested_conditional_fan_in";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 2 — autonomy-tier gating of acting flow nodes
@@ -90,7 +95,151 @@ const FLOW_PARKED_TTL_SECS: i64 = 600;
 pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
     let graph = migrate_and_deserialize_graph(graph_json)?;
     tinyflows::validate::validate(&graph).map_err(|e| e.to_string())?;
+    ensure_engine_compatible(&graph)?;
     Ok(graph)
+}
+
+/// Detects fan-in predecessors controlled by more than one branching decision.
+///
+/// TinyFlows lowers every fan-in edge as a waiting edge and registers a
+/// barrier relief for conditional predecessors. The current lowering chooses
+/// only the first upstream brancher, while TinyAgents cannot prove reachability
+/// through a second brancher. Depending on node declaration order, that can
+/// either relieve the barrier before the real predecessor runs (silently
+/// dropping its data) or leave the fan-in unfired. Fail closed until the
+/// vendored engine models nested decisions directly.
+///
+/// This intentionally mirrors TinyFlows' topology classification rather than
+/// limiting the check to `merge` nodes: any node with multiple incoming edges
+/// is lowered as a fan-in barrier. A predecessor reachable from the trigger by
+/// `main`-only edges is unconditional and needs no relief, so it is safe.
+pub(crate) fn engine_compatibility_errors(
+    graph: &WorkflowGraph,
+) -> Vec<crate::openhuman::flows::FlowValidationError> {
+    let Some(trigger) = graph.trigger() else {
+        return Vec::new();
+    };
+    let mut errors = Vec::new();
+
+    for fan_in in &graph.nodes {
+        let incoming: Vec<&str> = graph
+            .edges
+            .iter()
+            .filter(|edge| edge.to_node == fan_in.id)
+            .map(|edge| edge.from_node.as_str())
+            .collect();
+        if incoming.len() <= 1 {
+            continue;
+        }
+
+        for predecessor in incoming {
+            if reaches_on_main_edges(graph, &trigger.id, predecessor, &fan_in.id) {
+                continue;
+            }
+
+            let controlling_branchers = graph
+                .nodes
+                .iter()
+                .filter(|candidate| {
+                    let ports: HashSet<&str> = graph
+                        .edges
+                        .iter()
+                        .filter(|edge| edge.from_node == candidate.id)
+                        .map(|edge| edge.from_port.as_str())
+                        .collect();
+                    ports.len() >= 2
+                        && ports.iter().any(|port| {
+                            reaches_via_port(graph, &candidate.id, port, predecessor, &fan_in.id)
+                        })
+                })
+                .take(2)
+                .count();
+
+            if controlling_branchers >= 2 {
+                errors.push(crate::openhuman::flows::FlowValidationError {
+                    code: UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN.to_string(),
+                    message: format!(
+                        "Fan-in node '{}' has predecessor '{}' behind nested conditional routing; \
+                         this topology is temporarily unsupported because it can silently lose \
+                         merged data. Flatten the nested branch or join it before this fan-in.",
+                        fan_in.id, predecessor
+                    ),
+                    node_id: Some(fan_in.id.clone()),
+                    field: None,
+                });
+            }
+        }
+    }
+
+    errors
+}
+
+fn ensure_engine_compatible(graph: &WorkflowGraph) -> Result<(), String> {
+    match engine_compatibility_errors(graph).into_iter().next() {
+        Some(error) => Err(format!("{}: {}", error.code, error.message)),
+        None => Ok(()),
+    }
+}
+
+fn reaches_on_main_edges(graph: &WorkflowGraph, from: &str, to: &str, stop: &str) -> bool {
+    if from == to {
+        return true;
+    }
+    let mut stack: Vec<&str> = graph
+        .edges
+        .iter()
+        .filter(|edge| edge.from_node == from && edge.from_port == "main")
+        .map(|edge| edge.to_node.as_str())
+        .collect();
+    let mut seen = HashSet::new();
+    while let Some(node) = stack.pop() {
+        if node == to {
+            return true;
+        }
+        if node == stop || !seen.insert(node) {
+            continue;
+        }
+        stack.extend(
+            graph
+                .edges
+                .iter()
+                .filter(|edge| edge.from_node == node && edge.from_port == "main")
+                .map(|edge| edge.to_node.as_str()),
+        );
+    }
+    false
+}
+
+fn reaches_via_port(
+    graph: &WorkflowGraph,
+    brancher: &str,
+    port: &str,
+    target: &str,
+    stop: &str,
+) -> bool {
+    let mut stack: Vec<&str> = graph
+        .edges
+        .iter()
+        .filter(|edge| edge.from_node == brancher && edge.from_port == port)
+        .map(|edge| edge.to_node.as_str())
+        .collect();
+    let mut seen = HashSet::new();
+    while let Some(node) = stack.pop() {
+        if node == target {
+            return true;
+        }
+        if node == stop || !seen.insert(node) {
+            continue;
+        }
+        stack.extend(
+            graph
+                .edges
+                .iter()
+                .filter(|edge| edge.from_node == node)
+                .map(|edge| edge.to_node.as_str()),
+        );
+    }
+    false
 }
 
 /// Runs a raw graph JSON value through migration + deserialization **without**
@@ -2050,6 +2199,28 @@ pub fn flows_validate(graph_json: Value) -> RpcOutcome<crate::openhuman::flows::
         );
     }
 
+    let error_details = engine_compatibility_errors(&graph);
+    if !error_details.is_empty() {
+        let errors = error_details
+            .iter()
+            .map(|error| error.message.clone())
+            .collect();
+        tracing::debug!(
+            target: "flows",
+            error_count = error_details.len(),
+            "[flows] flows_validate: graph uses an unsupported engine topology"
+        );
+        return RpcOutcome::single_log(
+            FlowValidation {
+                valid: false,
+                errors,
+                error_details,
+                warnings: Vec::new(),
+            },
+            "flow validation failed",
+        );
+    }
+
     let warnings = graph_trigger_warnings(&graph);
     for warning in &warnings {
         tracing::warn!(target: "flows", warning = %warning, "[flows] flows_validate: non-fatal validation warning");
@@ -2635,6 +2806,10 @@ pub async fn flows_update(
             existing.graph.clone()
         }
     };
+    // The `None` branch can load a definition persisted before this host-side
+    // compatibility gate existed; keep stored data readable, but do not let a
+    // subsequent save bless an engine-unsafe topology as current.
+    ensure_engine_compatible(&graph)?;
 
     // B29 Rule 1 analogue: disarm every manual/none → automatic trigger
     // transition, unconditionally — see the doc comment above for why this
@@ -3102,6 +3277,11 @@ pub async fn flows_run(
     // `store::get_flow` already ran the stored `graph_json` through
     // `tinyflows::migrate::migrate` before deserializing, so `flow.graph` is
     // always on the current schema here.
+    //
+    // Author-time validation cannot protect definitions persisted by an older
+    // OpenHuman build. Re-check immediately before compilation so an upgrade
+    // fails explicitly instead of silently committing incomplete merge data.
+    ensure_engine_compatible(&flow.graph)?;
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
 
     let config_arc = Arc::new(config.clone());
@@ -3354,6 +3534,9 @@ pub async fn flows_resume(
         ));
     }
 
+    // A pending checkpoint may have been created before this compatibility
+    // gate shipped, so resume is an independent authoritative boundary.
+    ensure_engine_compatible(&flow.graph)?;
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
     let config_arc = Arc::new(config.clone());
     let caps =

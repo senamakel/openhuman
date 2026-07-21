@@ -24,6 +24,145 @@ fn trigger_only_graph() -> Value {
     })
 }
 
+fn nested_conditional_fan_in_graph() -> Value {
+    json!({
+        "name": "nested-conditional-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    })
+}
+
+fn structurally_valid_graph(value: Value) -> WorkflowGraph {
+    let graph = migrate_and_deserialize_graph(value).expect("graph should deserialize");
+    tinyflows::validate::validate(&graph).expect("fixture should be structurally valid");
+    graph
+}
+
+#[test]
+fn engine_compatibility_rejects_only_nested_conditional_fan_in() {
+    let risky = structurally_valid_graph(nested_conditional_fan_in_graph());
+    let errors = engine_compatibility_errors(&risky);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+    assert_eq!(errors[0].node_id.as_deref(), Some("m"));
+
+    let one_level = structurally_valid_graph(json!({
+        "name": "one-level-mixed-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "cond", "kind": "condition", "name": "Condition", "config": { "field": "flag" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "other", "kind": "output_parser", "name": "Other" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "cond" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "cond", "from_port": "true", "to_node": "a" },
+            { "from_node": "cond", "from_port": "false", "to_node": "other" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&one_level).is_empty());
+
+    let nested_without_fan_in = structurally_valid_graph(json!({
+        "name": "nested-without-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&nested_without_fan_in).is_empty());
+
+    let unconditional = structurally_valid_graph(json!({
+        "name": "unconditional-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "a" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&unconditional).is_empty());
+}
+
+#[test]
+fn flows_validate_returns_stable_nested_conditional_fan_in_error() {
+    let outcome = flows_validate(nested_conditional_fan_in_graph());
+    assert!(!outcome.value.valid);
+    assert_eq!(outcome.value.error_details.len(), 1);
+    assert_eq!(
+        outcome.value.error_details[0].code,
+        UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN
+    );
+    assert_eq!(outcome.value.error_details[0].node_id.as_deref(), Some("m"));
+    assert!(outcome.value.warnings.is_empty());
+}
+
+#[tokio::test]
+async fn flows_run_rejects_legacy_nested_conditional_fan_in_before_execution() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // Bypass the current author-time gate to simulate a definition persisted
+    // by an older OpenHuman build. Reads remain supported; execution does not.
+    let graph = structurally_valid_graph(nested_conditional_fan_in_graph());
+    let flow = store::create_flow(&config, "legacy".to_string(), graph, false, true).unwrap();
+
+    let err = flows_run(
+        &config,
+        &flow.id,
+        json!({ "outer": true, "inner": true }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .expect_err("legacy unsafe topology must fail closed");
+    assert!(err.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN), "{err}");
+
+    let reloaded = flows_get(&config, &flow.id).await.unwrap();
+    assert_eq!(reloaded.value.last_status, None);
+    assert_eq!(
+        reloaded.value.graph, flow.graph,
+        "stored graph must be preserved"
+    );
+}
+
 #[tokio::test]
 async fn flows_create_rejects_graph_without_trigger() {
     let tmp = TempDir::new().unwrap();

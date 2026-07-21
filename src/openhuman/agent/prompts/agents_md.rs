@@ -68,6 +68,50 @@ impl AgentsMdContent {
 /// noisy placeholder. Never logs the file contents, only paths and sizes.
 pub fn load_agents_md(dir: &Path) -> Option<String> {
     let path = dir.join(AGENTS_MD_FILENAME);
+    // Path hardening: the project-layer AGENTS.md lives in the agent's
+    // user/project-controlled action dir, so a checkout could make it a symlink
+    // pointing outside the root (a home-directory secret, a blocking device
+    // node) and have its bytes read into the system prompt and shipped to the
+    // configured inference provider. Refuse symlinks, require a regular file,
+    // and (defence in depth against a symlinked parent component) require the
+    // canonical path to stay under `dir` — mirroring the hardening used for
+    // agent-definition TOML (`validate_path_within_root`). All rejections skip
+    // silently, exactly like a missing file.
+    let meta = match std::fs::symlink_metadata(&path) {
+        Ok(m) => m,
+        Err(e) => {
+            match e.kind() {
+                std::io::ErrorKind::NotFound => {
+                    log::debug!("[agents_md] no AGENTS.md at {}", path.display());
+                }
+                _ => {
+                    log::debug!("[agents_md] failed to stat {}: {e}", path.display());
+                }
+            }
+            return None;
+        }
+    };
+    if meta.file_type().is_symlink() {
+        log::warn!(
+            "[agents_md] refusing to read symlinked {} (path hardening)",
+            path.display()
+        );
+        return None;
+    }
+    if !meta.is_file() {
+        log::debug!(
+            "[agents_md] {} is not a regular file; skipping",
+            path.display()
+        );
+        return None;
+    }
+    if let Err(e) = crate::openhuman::security::validate_path_within_root(&path, dir) {
+        log::warn!(
+            "[agents_md] refusing to read {} outside its root: {e}",
+            path.display()
+        );
+        return None;
+    }
     // Bounded read: never slurp an arbitrarily large untrusted file whole into
     // memory. We open + `take(MAX_AGENTS_MD_READ_BYTES)` rather than
     // `read_to_string`, so a pathological multi-MB AGENTS.md can't stall prompt
@@ -75,14 +119,10 @@ pub fn load_agents_md(dir: &Path) -> Option<String> {
     let file = match std::fs::File::open(&path) {
         Ok(f) => f,
         Err(e) => {
-            match e.kind() {
-                std::io::ErrorKind::NotFound => {
-                    log::debug!("[agents_md] no AGENTS.md at {}", path.display());
-                }
-                _ => {
-                    log::debug!("[agents_md] failed to open {}: {e}", path.display());
-                }
-            }
+            // Existence + type were already checked above, so this is a genuine
+            // read/permission failure (or a race). Skip silently like any other
+            // unreadable file.
+            log::debug!("[agents_md] failed to open {}: {e}", path.display());
             return None;
         }
     };
@@ -237,6 +277,23 @@ mod tests {
         assert!(
             loaded.len() < oversized.len(),
             "bounded content must be shorter than the on-disk file"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_agents_md_is_refused() {
+        // A project-controlled AGENTS.md that symlinks to a secret outside the
+        // action root must not be read into the prompt (path hardening).
+        let dir = tmp();
+        let secret_dir = tmp();
+        let secret = secret_dir.join("secret.txt");
+        fs::write(&secret, "TOP SECRET — must not leak").unwrap();
+        std::os::unix::fs::symlink(&secret, dir.join(AGENTS_MD_FILENAME)).unwrap();
+        assert_eq!(
+            load_agents_md(&dir),
+            None,
+            "symlinked AGENTS.md must be refused"
         );
     }
 

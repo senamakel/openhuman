@@ -14958,6 +14958,10 @@ async fn json_rpc_agent_team_live_member_run_roundtrip_inner() {
         poll_team_task_status(&rpc_base, &team_id, &task_b_id, "done").await,
         "Task B must reach done"
     );
+    assert!(
+        poll_team_members_status(&rpc_base, &team_id, "idle").await,
+        "team members must return to idle"
+    );
 
     // Final state: both tasks done with evidence, both members idle, and the
     // lead message is in the team timeline.
@@ -15053,6 +15057,38 @@ async fn poll_team_task_status(rpc_base: &str, team_id: &str, task_id: &str, wan
                     return true;
                 }
             }
+        }
+    }
+    false
+}
+
+/// Poll `agent_team_get` until every team member reaches `want` status.
+///
+/// Task completion and member cleanup are separate ledger writes, so observing
+/// a `done` task does not guarantee the member's idle transition is visible in
+/// the same snapshot.
+async fn poll_team_members_status(rpc_base: &str, team_id: &str, want: &str) -> bool {
+    for attempt in 0..160 {
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let got = post_json_rpc(
+            rpc_base,
+            38_200_000 + attempt,
+            "openhuman.agent_team_get",
+            json!({ "teamId": team_id }),
+        )
+        .await;
+        let view = assert_no_jsonrpc_error(&got, "agent_team_get member poll");
+        let members = view
+            .get("team")
+            .and_then(|team| team.get("members"))
+            .and_then(Value::as_array);
+        if members.is_some_and(|members| {
+            !members.is_empty()
+                && members
+                    .iter()
+                    .all(|member| member.get("memberStatus").and_then(Value::as_str) == Some(want))
+        }) {
+            return true;
         }
     }
     false

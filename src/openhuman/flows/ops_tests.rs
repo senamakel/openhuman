@@ -72,6 +72,24 @@ fn main_port_conditional_fan_in_graph() -> Value {
     })
 }
 
+fn referenced_child_graph(workflow_id: &str) -> Value {
+    json!({
+        "name": "parent-with-saved-child",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "saved-child",
+                "kind": "sub_workflow",
+                "name": "Saved child",
+                "config": { "workflow_id": workflow_id }
+            }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "saved-child" }
+        ]
+    })
+}
+
 fn structurally_valid_graph(value: Value) -> WorkflowGraph {
     let graph = migrate_and_deserialize_graph(value).expect("graph should deserialize");
     tinyflows::validate::validate(&graph).expect("fixture should be structurally valid");
@@ -4901,6 +4919,110 @@ async fn strict_gate_passes_a_valid_graph_and_rejects_a_structurally_invalid_one
         .await
         .unwrap_err();
     assert!(err.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN), "{err}");
+}
+
+#[tokio::test]
+async fn strict_gate_rejects_an_incompatible_saved_child_reference() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+
+    let error = strict_gate(&config, &referenced_child_graph(&child.id))
+        .await
+        .expect_err("strict authoring must reject an incompatible saved child");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    assert!(error.contains("saved-child"), "{error}");
+}
+
+#[tokio::test]
+async fn builder_proposal_rejects_an_incompatible_saved_child_reference() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let parent = structurally_valid_graph(referenced_child_graph(&child.id));
+
+    let error = build_builder_proposal(
+        &config,
+        "propose_workflow",
+        "parent",
+        &parent,
+        false,
+        false,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect_err("a proposal must reject an incompatible saved child");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    assert!(error.contains("saved-child"), "{error}");
+}
+
+#[test]
+fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let flow_a = store::create_flow(
+        &config,
+        "cycle a".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let flow_b = store::create_flow(
+        &config,
+        "cycle b".to_string(),
+        structurally_valid_graph(trigger_only_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    store::update_flow_graph(
+        &config,
+        &flow_a.id,
+        flow_a.name.clone(),
+        structurally_valid_graph(referenced_child_graph(&flow_b.id)),
+        false,
+        None,
+        None,
+    )
+    .unwrap();
+    store::update_flow_graph(
+        &config,
+        &flow_b.id,
+        flow_b.name.clone(),
+        structurally_valid_graph(referenced_child_graph(&flow_a.id)),
+        false,
+        None,
+        None,
+    )
+    .unwrap();
+
+    let candidate = structurally_valid_graph(referenced_child_graph(&flow_a.id));
+    assert!(referenced_workflow_compatibility_errors(&config, &candidate).is_empty());
 }
 
 // ── core-managed drafts (F5) ─────────────────────────────────────────────────

@@ -438,6 +438,10 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
             .map(|error| format!("{}: {}", error.code, error.message))
             .collect();
     }
+    let referenced_compatibility_errors = referenced_workflow_compatibility_errors(config, graph);
+    if !referenced_compatibility_errors.is_empty() {
+        return referenced_compatibility_errors;
+    }
     // Cheap, sync: a binding guaranteed to resolve null / wrong at runtime.
     let binding_errors = validate_binding_resolvability(graph);
     if !binding_errors.is_empty() {
@@ -461,6 +465,88 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
     // Async, sandbox run: a required outbound arg that looks wired but resolves
     // null in a mock execution.
     validate_required_arg_resolvability(graph).await
+}
+
+/// Checks literal `workflow_id` children reachable from an authoring candidate.
+///
+/// Pure graph validation can recurse through inline children, but resolving a
+/// saved child requires the host store. Keep that lookup in the config-aware
+/// builder gate so strict RPC and agent-authored proposals/saves cannot bless a
+/// parent that is already known to fail at execution. Dynamic `=` expressions,
+/// missing ids, and store failures retain their existing runtime diagnostics;
+/// this gate only rejects a saved graph whose topology is demonstrably unsafe.
+fn referenced_workflow_compatibility_errors(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    let mut pending = vec![(graph.clone(), 0_u64, Vec::<String>::new())];
+    // Record the shallowest visit, not just whether an id was seen. The same
+    // child can be referenced by multiple branches; a deep DFS visit must not
+    // suppress a later shallower visit that has more depth budget remaining.
+    let mut visited_depths = std::collections::HashMap::<String, u64>::new();
+
+    while let Some((current, depth, path)) = pending.pop() {
+        if depth >= tinyflows::engine::MAX_SUB_WORKFLOW_DEPTH {
+            continue;
+        }
+
+        for node in &current.nodes {
+            if node.kind != NodeKind::SubWorkflow {
+                continue;
+            }
+
+            let mut child_path = path.clone();
+            child_path.push(node.id.clone());
+
+            let inline = node.config.get("workflow");
+            let configured_workflow_id = node
+                .config
+                .get("workflow_id")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|id| !id.is_empty());
+            // Structural validation requires exactly one source and runs before
+            // this helper. Retain that precedence defensively if a future caller
+            // passes an invalid graph directly: do not inspect either source as
+            // though TinyFlows could choose between them at runtime.
+            if inline.is_some() && configured_workflow_id.is_some() {
+                continue;
+            }
+
+            if let Some(inline) = inline {
+                if let Ok(child) = serde_json::from_value::<WorkflowGraph>(inline.clone()) {
+                    pending.push((child, depth + 1, child_path.clone()));
+                }
+                continue;
+            }
+
+            let Some(workflow_id) = configured_workflow_id.filter(|id| !id.starts_with('=')) else {
+                continue;
+            };
+            let child_depth = depth + 1;
+            if visited_depths
+                .get(workflow_id)
+                .is_some_and(|seen_depth| *seen_depth <= child_depth)
+            {
+                continue;
+            }
+            visited_depths.insert(workflow_id.to_string(), child_depth);
+
+            let Ok(Some(child)) = load_flow_graph(config, workflow_id) else {
+                continue;
+            };
+            if let Some(error) = engine_compatibility_errors(&child).into_iter().next() {
+                return vec![format!(
+                    "Sub_workflow path '{}' references workflow_id '{}' with an unsupported \
+                     engine topology: {}: {}",
+                    child_path.join(" -> "),
+                    workflow_id,
+                    error.code,
+                    error.message
+                )];
+            }
+            pending.push((child, child_depth, child_path));
+        }
+    }
+
+    Vec::new()
 }
 
 /// Strict-mode gate for the create/update RPC path (audit F3): validates

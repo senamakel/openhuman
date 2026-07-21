@@ -117,6 +117,45 @@ pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGr
 pub(crate) fn engine_compatibility_errors(
     graph: &WorkflowGraph,
 ) -> Vec<crate::openhuman::flows::FlowValidationError> {
+    let mut errors = Vec::new();
+    collect_engine_compatibility_errors(graph, 0, &mut errors);
+    errors
+}
+
+fn collect_engine_compatibility_errors(
+    graph: &WorkflowGraph,
+    depth: u64,
+    errors: &mut Vec<crate::openhuman::flows::FlowValidationError>,
+) {
+    errors.extend(graph_engine_compatibility_errors(graph));
+    if depth >= tinyflows::engine::MAX_SUB_WORKFLOW_DEPTH {
+        return;
+    }
+
+    for node in &graph.nodes {
+        if node.kind != NodeKind::SubWorkflow {
+            continue;
+        }
+        let Some(inline) = node.config.get("workflow") else {
+            continue;
+        };
+        let Ok(child) = serde_json::from_value::<WorkflowGraph>(inline.clone()) else {
+            // TinyFlows reports malformed inline children as capability errors;
+            // this gate is specifically for otherwise-deserializable unsafe
+            // topologies.
+            continue;
+        };
+        let first_child_error = errors.len();
+        collect_engine_compatibility_errors(&child, depth + 1, errors);
+        for error in &mut errors[first_child_error..] {
+            error.message = format!("Inline sub_workflow node '{}': {}", node.id, error.message);
+        }
+    }
+}
+
+fn graph_engine_compatibility_errors(
+    graph: &WorkflowGraph,
+) -> Vec<crate::openhuman::flows::FlowValidationError> {
     let Some(trigger) = graph.trigger() else {
         return Vec::new();
     };
@@ -2589,6 +2628,21 @@ pub fn load_flow_graph(config: &Config, id: &str) -> Result<Option<WorkflowGraph
         found = graph.is_some(),
         "[flows] load_flow_graph: resolver lookup complete"
     );
+    Ok(graph)
+}
+
+/// Resolver-only saved-graph lookup. Authoring tools use [`load_flow_graph`]
+/// so a legacy draft can still be opened and repaired; execution resolves only
+/// graphs the current engine can run safely.
+pub(crate) fn load_engine_compatible_flow_graph(
+    config: &Config,
+    id: &str,
+) -> Result<Option<WorkflowGraph>, String> {
+    let graph = load_flow_graph(config, id)?;
+    if let Some(graph) = graph.as_ref() {
+        ensure_engine_compatible(graph)
+            .map_err(|error| format!("workflow_id '{id}' is engine-incompatible: {error}"))?;
+    }
     Ok(graph)
 }
 

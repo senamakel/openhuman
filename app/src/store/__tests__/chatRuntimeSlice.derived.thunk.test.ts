@@ -89,16 +89,16 @@ describe('fetchAndHydrateDerivedTranscript', () => {
     mockThreadApi.getDerivedTranscript.mockRejectedValueOnce(new Error('boom'));
     mockThreadApi.getTurnStateHistory.mockResolvedValueOnce([]);
 
-    await expect(store.dispatch(fetchAndHydrateDerivedTranscript('thread-1'))).resolves.toBeDefined();
+    await expect(
+      store.dispatch(fetchAndHydrateDerivedTranscript('thread-1'))
+    ).resolves.toBeDefined();
 
     expect(mockThreadApi.getTurnStateHistory).toHaveBeenCalledWith('thread-1');
   });
 
   it('falls back to turn_state history when the thread has no persisted transcript (legacy)', async () => {
     const store = configureStore({ reducer });
-    mockThreadApi.getDerivedTranscript.mockResolvedValueOnce(
-      page([], { hasTranscript: false })
-    );
+    mockThreadApi.getDerivedTranscript.mockResolvedValueOnce(page([], { hasTranscript: false }));
     mockThreadApi.getTurnStateHistory.mockResolvedValueOnce([]);
 
     await store.dispatch(fetchAndHydrateDerivedTranscript('thread-1'));

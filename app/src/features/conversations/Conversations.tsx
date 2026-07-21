@@ -37,6 +37,8 @@ import {
   CitationChips,
   type MessageCitation,
 } from '../../features/conversations/components/CitationChips';
+import { InterruptedAnswer } from '../../features/conversations/components/InterruptedAnswer';
+import { PastTurnInsights } from '../../features/conversations/components/PastTurnInsights';
 import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
 import { SubagentDrawer } from '../../features/conversations/components/SubagentDrawer';
 import {
@@ -46,8 +48,6 @@ import {
 } from '../../features/conversations/components/ThreadGoalChip';
 import { ThreadTodoStrip } from '../../features/conversations/components/ThreadTodoStrip';
 import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
-import { InterruptedAnswer } from '../../features/conversations/components/InterruptedAnswer';
-import { PastTurnInsights } from '../../features/conversations/components/PastTurnInsights';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,

@@ -2550,10 +2550,7 @@ export const loadOlderDerivedTranscript = createAsyncThunk(
     const skipRequestIds = liveRequestIdsToSkip(getState(), threadId, page.items);
     const { timelines, transcripts } = mapDisplayItems(page.items, { skipRequestIds });
     const runtime = readChatRuntimeState(getState());
-    const mergedTimelines = {
-      ...timelines,
-      ...(runtime?.turnTimelinesByThread[threadId] ?? {}),
-    };
+    const mergedTimelines = { ...timelines, ...(runtime?.turnTimelinesByThread[threadId] ?? {}) };
     const mergedTranscripts = {
       ...transcripts,
       ...(runtime?.turnTranscriptsByThread[threadId] ?? {}),

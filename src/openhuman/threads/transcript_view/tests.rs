@@ -345,7 +345,10 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
             _ => None,
         })
         .expect("tool display message present");
-    assert!(failed.failure, "failure flag survived the write/read round trip");
+    assert!(
+        failed.failure,
+        "failure flag survived the write/read round trip"
+    );
     assert_eq!(failed.failure_detail.as_deref(), Some("boom: exit 1"));
 }
 

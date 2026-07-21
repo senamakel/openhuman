@@ -378,10 +378,7 @@ fn stamp_tool_failures(
 /// P-Format dispatchers, which don't emit `role:"tool"` messages anyway).
 fn parse_tool_call_id(content: &str) -> Option<String> {
     let value: serde_json::Value = serde_json::from_str(content).ok()?;
-    value
-        .get("tool_call_id")?
-        .as_str()
-        .map(str::to_string)
+    value.get("tool_call_id")?.as_str().map(str::to_string)
 }
 
 /// Reduce a tool's error output to a short, single-line reason for display.

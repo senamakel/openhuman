@@ -125,7 +125,14 @@ describe('mapDisplayItems', () => {
   it('falls back to the tool result as failure cause when no detail was captured', () => {
     const chronological: DerivedDisplayItem[] = [
       { kind: 'turnBoundary', requestId: 'req-1' },
-      { kind: 'toolCall', callId: 'call-e', name: 'shell', status: 'error', result: 'raw error text', failure: {} },
+      {
+        kind: 'toolCall',
+        callId: 'call-e',
+        name: 'shell',
+        status: 'error',
+        result: 'raw error text',
+        failure: {},
+      },
     ];
 
     const { timelines } = mapDisplayItems(newestFirst(chronological));
@@ -171,8 +178,8 @@ describe('mapDisplayItems', () => {
 
     const { timelines } = mapDisplayItems(newestFirst(chronological));
 
-    expect(timelines['req-1']?.some((e) => e.name === 'subagent:coder')).toBe(true);
-    expect(timelines['req-2']?.some((e) => e.name === 'subagent:coder')).toBeFalsy();
+    expect(timelines['req-1']?.some(e => e.name === 'subagent:coder')).toBe(true);
+    expect(timelines['req-2']?.some(e => e.name === 'subagent:coder')).toBeFalsy();
   });
 
   it('projects a subagent item into a timeline row carrying its activity + transcript', () => {
@@ -244,7 +251,12 @@ describe('mapDisplayItems', () => {
   it('does not emit the final assistant or user text as trail items (dedupe vs thread messages)', () => {
     const chronological: DerivedDisplayItem[] = [
       { kind: 'turnBoundary', requestId: 'req-1' },
-      { kind: 'userMessage', content: 'a question', displayContent: 'a question', requestId: 'req-1' },
+      {
+        kind: 'userMessage',
+        content: 'a question',
+        displayContent: 'a question',
+        requestId: 'req-1',
+      },
       { kind: 'assistantMessage', content: 'a final answer', requestId: 'req-1' },
     ];
 
@@ -273,7 +285,13 @@ describe('mapDisplayItems', () => {
   it('carries the assistant iteration onto the turn round for its items', () => {
     const chronological: DerivedDisplayItem[] = [
       { kind: 'turnBoundary', requestId: 'req-1' },
-      { kind: 'assistantMessage', content: 'step', interim: true, iteration: 2, requestId: 'req-1' },
+      {
+        kind: 'assistantMessage',
+        content: 'step',
+        interim: true,
+        iteration: 2,
+        requestId: 'req-1',
+      },
       { kind: 'toolCall', callId: 'c1', name: 'shell', status: 'success' },
     ];
 

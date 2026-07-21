@@ -19,7 +19,6 @@
  * Live streaming is untouched: the caller skips the live/most-recent turn's
  * `requestId` so derived data never fights socket-fed `chatRuntimeSlice` state.
  */
-
 import debug from 'debug';
 
 import type {
@@ -184,13 +183,7 @@ function buildSubagentActivity(id: string, items: DerivedDisplayItem[]): Subagen
     }
   }
 
-  return {
-    taskId: id,
-    agentId: id,
-    status: 'completed',
-    toolCalls,
-    transcript,
-  };
+  return { taskId: id, agentId: id, status: 'completed', toolCalls, transcript };
 }
 
 /** Mutable per-turn accumulator. */
@@ -374,10 +367,5 @@ function pushToolCall(turn: TurnAccumulator, item: DerivedToolCall): void {
   entry.displayName = formatted.title;
   if (formatted.detail !== undefined) entry.detail = formatted.detail;
   turn.entries.push(entry);
-  turn.transcript.push({
-    kind: 'toolCall',
-    round: turn.round,
-    seq,
-    callId: item.callId,
-  });
+  turn.transcript.push({ kind: 'toolCall', round: turn.round, seq, callId: item.callId });
 }

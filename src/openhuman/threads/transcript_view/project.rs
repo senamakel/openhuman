@@ -161,7 +161,12 @@ fn build_subagent_items(
             }
         };
         let mut items = project_records(&display.records);
-        items.extend(build_subagent_items(all_sub_paths, stem, depth + 1, segments));
+        items.extend(build_subagent_items(
+            all_sub_paths,
+            stem,
+            depth + 1,
+            segments,
+        ));
         // Prefer the archetype id from meta; fall back to the stem suffix.
         let id = if display.meta.agent_name.is_empty() {
             rest.to_string()
@@ -170,9 +175,7 @@ fn build_subagent_items(
         };
         // Anchor to the parent turn active at the sub-agent's spawn time.
         let request_id = anchor_request_id(child_spawn_unix(rest), segments);
-        log::debug!(
-            "{LOG_PREFIX} subagent id={id} stem={rest} anchored request_id={request_id:?}"
-        );
+        log::debug!("{LOG_PREFIX} subagent id={id} stem={rest} anchored request_id={request_id:?}");
         out.push(DisplayItem::Subagent {
             id,
             request_id,

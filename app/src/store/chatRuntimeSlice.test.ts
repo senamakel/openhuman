@@ -932,7 +932,9 @@ describe('hydrateRuntimeFromSnapshot — interrupted partial answer (fix 2)', ()
 
   it('surfaces the persisted partial reply + thinking as a settled buffer', () => {
     const store = makeStore();
-    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot: makeInterruptedPartialSnapshot('t-int') }));
+    store.dispatch(
+      hydrateRuntimeFromSnapshot({ snapshot: makeInterruptedPartialSnapshot('t-int') })
+    );
 
     const state = store.getState().chatRuntime;
     expect(state.interruptedAssistantByThread['t-int']).toEqual({

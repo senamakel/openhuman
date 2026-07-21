@@ -15496,7 +15496,10 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
         Some("72F sunny")
     );
     assert_eq!(tool.get("status").and_then(Value::as_str), Some("success"));
-    assert!(tool.get("failure").is_none(), "successful tool has no failure");
+    assert!(
+        tool.get("failure").is_none(),
+        "successful tool has no failure"
+    );
 
     // A failed tool result projects an error status + failure payload rather
     // than a false success (Gap 1).

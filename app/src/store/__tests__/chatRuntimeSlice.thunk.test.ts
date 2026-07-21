@@ -89,7 +89,7 @@ describe('fetchAndHydrateTurnHistory', () => {
     expect(timelines['req-0']).toBeUndefined();
   });
 
-  it('keeps each past turn\'s reasoning/narration transcript (fix 1), ordered by seq (fix 5)', async () => {
+  it("keeps each past turn's reasoning/narration transcript (fix 1), ordered by seq (fix 5)", async () => {
     const store = configureStore({ reducer });
     mockThreadApi.getTurnStateHistory.mockResolvedValueOnce([
       // req-latest is skipped (index 0).

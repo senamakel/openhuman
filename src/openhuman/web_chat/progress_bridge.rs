@@ -34,6 +34,7 @@ fn flush_interim_narration(
     client_id: &str,
     thread_id: &str,
     request_id: &str,
+    emit_seq: &mut u64,
 ) {
     let text = std::mem::take(buffer);
     let Some(narration) = interim_narration_text(&text) else {
@@ -45,15 +46,31 @@ fn flush_interim_narration(
         narration.chars().count(),
         request_id,
     );
-    publish_web_channel_event(WebChannelEvent {
-        event: "chat_interim".to_string(),
-        client_id: client_id.to_string(),
-        thread_id: thread_id.to_string(),
-        request_id: request_id.to_string(),
-        full_response: Some(narration),
-        round: Some(round),
-        ..Default::default()
-    });
+    publish_seq_stamped(
+        emit_seq,
+        WebChannelEvent {
+            event: "chat_interim".to_string(),
+            client_id: client_id.to_string(),
+            thread_id: thread_id.to_string(),
+            request_id: request_id.to_string(),
+            full_response: Some(narration),
+            round: Some(round),
+            ..Default::default()
+        },
+    );
+}
+
+/// Stamp a per-request monotonic sequence number on an outgoing web-channel
+/// event and publish it. `request_id` is already carried on every
+/// [`WebChannelEvent`]; `seq` is the additive ordering key the frontend uses to
+/// dedup replayed vs live events by `(request_id, seq)` and to order them
+/// identically to the persisted turn-state snapshot
+/// (conversations-timeline-refactor, Phase 4). The counter advances once per
+/// emitted event so each `(request_id, seq)` pair is unique within a turn.
+fn publish_seq_stamped(next_seq: &mut u64, mut event: WebChannelEvent) {
+    event.seq = Some(*next_seq);
+    *next_seq = next_seq.saturating_add(1);
+    publish_web_channel_event(event);
 }
 
 /// The trimmed narration to surface as an interim bubble, or `None` when it is
@@ -340,6 +357,10 @@ pub(crate) fn spawn_progress_bridge(
         // (it belongs to the terminal round, which ends with no tool call).
         let mut pending_narration = String::new();
         let mut events_seen: u64 = 0;
+        // Per-request monotonic ordering key stamped on every emitted
+        // web-channel event (see `publish_seq_stamped`). Unique per emission so
+        // the frontend can dedup by `(request_id, seq)`.
+        let mut emit_seq: u64 = 0;
         let mut parent_completed = false;
         let mut parent_tool_count: u64 = 0;
         let mut child_tool_counts: HashMap<String, u64> = HashMap::new();
@@ -444,7 +465,7 @@ pub(crate) fn spawn_progress_bridge(
                             thread_id,
                             request_id,
                         );
-                        publish_web_channel_event(WebChannelEvent {
+                        publish_seq_stamped(&mut emit_seq, WebChannelEvent {
                             event: "inference_heartbeat".to_string(),
                             client_id: client_id.clone(),
                             thread_id: thread_id.clone(),
@@ -580,13 +601,16 @@ pub(crate) fn spawn_progress_bridge(
                             payload: json!({ "threadId": thread_id, "clientId": client_id }),
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "inference_start".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "inference_start".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::IterationStarted {
                     iteration,
@@ -594,15 +618,18 @@ pub(crate) fn spawn_progress_bridge(
                 } => {
                     round = iteration;
                     parent_max_iterations = max_iterations;
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "iteration_start".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        message: Some(format!("Iteration {iteration}/{max_iterations}")),
-                        round: Some(iteration),
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "iteration_start".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            message: Some(format!("Iteration {iteration}/{max_iterations}")),
+                            round: Some(iteration),
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::ToolCallStarted {
                     call_id,
@@ -621,6 +648,7 @@ pub(crate) fn spawn_progress_bridge(
                         &client_id,
                         &thread_id,
                         &request_id,
+                        &mut emit_seq,
                     );
                     parent_tool_count += 1;
                     ledger_append_event(
@@ -643,20 +671,23 @@ pub(crate) fn spawn_progress_bridge(
                             ..Default::default()
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "tool_call".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        tool_name: Some(tool_name),
-                        skill_id: Some("web_channel".to_string()),
-                        args: Some(arguments),
-                        round: Some(iteration),
-                        tool_call_id: Some(call_id),
-                        tool_display_label: display_label,
-                        tool_display_detail: display_detail,
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "tool_call".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            tool_name: Some(tool_name),
+                            skill_id: Some("web_channel".to_string()),
+                            args: Some(arguments),
+                            round: Some(iteration),
+                            tool_call_id: Some(call_id),
+                            tool_display_label: display_label,
+                            tool_display_detail: display_detail,
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::ToolCallCompleted {
                     call_id,
@@ -687,24 +718,27 @@ pub(crate) fn spawn_progress_bridge(
                             }),
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "tool_result".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        tool_name: Some(tool_name),
-                        skill_id: Some("web_channel".to_string()),
-                        // Forward the real tool result (size-capped) so the UI
-                        // can render tool output — mirrors the subagent
-                        // `subagent_tool_result` path. Frontends that only
-                        // need size/timing read the ledger telemetry instead.
-                        output: Some(cap_wire_output(output)),
-                        success: Some(success),
-                        round: Some(iteration),
-                        tool_call_id: Some(call_id),
-                        failure: failure_json,
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "tool_result".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            tool_name: Some(tool_name),
+                            skill_id: Some("web_channel".to_string()),
+                            // Forward the real tool result (size-capped) so the UI
+                            // can render tool output — mirrors the subagent
+                            // `subagent_tool_result` path. Frontends that only
+                            // need size/timing read the ledger telemetry instead.
+                            output: Some(cap_wire_output(output)),
+                            success: Some(success),
+                            round: Some(iteration),
+                            tool_call_id: Some(call_id),
+                            failure: failure_json,
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::SubagentSpawned {
                     agent_id,
@@ -770,25 +804,28 @@ pub(crate) fn spawn_progress_bridge(
                             }),
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_spawned".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        message: Some(format!("Sub-agent '{label}' spawned")),
-                        tool_name: Some(agent_id),
-                        skill_id: Some(task_id),
-                        round: Some(round),
-                        subagent: Some(SubagentProgressDetail {
-                            mode: Some(mode),
-                            dedicated_thread: Some(dedicated_thread),
-                            prompt_chars: Some(prompt_chars as u64),
-                            worker_thread_id,
-                            display_name,
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_spawned".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            message: Some(format!("Sub-agent '{label}' spawned")),
+                            tool_name: Some(agent_id),
+                            skill_id: Some(task_id),
+                            round: Some(round),
+                            subagent: Some(SubagentProgressDetail {
+                                mode: Some(mode),
+                                dedicated_thread: Some(dedicated_thread),
+                                prompt_chars: Some(prompt_chars as u64),
+                                worker_thread_id,
+                                display_name,
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
+                        },
+                    );
                 }
                 AgentProgress::SubagentCompleted {
                     agent_id,
@@ -851,29 +888,36 @@ pub(crate) fn spawn_progress_bridge(
                             }),
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_completed".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        message: Some(format!(
-                            "Sub-agent '{agent_id}' completed in {elapsed_ms}ms"
-                        )),
-                        tool_name: Some(agent_id),
-                        skill_id: Some(task_id),
-                        success: Some(true),
-                        round: Some(round),
-                        subagent: Some(SubagentProgressDetail {
-                            elapsed_ms: Some(elapsed_ms),
-                            iterations: Some(iterations),
-                            output_chars: Some(output_chars as u64),
-                            // Worktree isolation metadata (#3376) — drives the
-                            // inline subagent worktree row's open/diff/remove
-                            // actions. All `None`/absent for non-isolated workers.
-                            ..subagent_worktree_detail(worktree_path, changed_files, dirty_status)
-                        }),
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_completed".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            message: Some(format!(
+                                "Sub-agent '{agent_id}' completed in {elapsed_ms}ms"
+                            )),
+                            tool_name: Some(agent_id),
+                            skill_id: Some(task_id),
+                            success: Some(true),
+                            round: Some(round),
+                            subagent: Some(SubagentProgressDetail {
+                                elapsed_ms: Some(elapsed_ms),
+                                iterations: Some(iterations),
+                                output_chars: Some(output_chars as u64),
+                                // Worktree isolation metadata (#3376) — drives the
+                                // inline subagent worktree row's open/diff/remove
+                                // actions. All `None`/absent for non-isolated workers.
+                                ..subagent_worktree_detail(
+                                    worktree_path,
+                                    changed_files,
+                                    dirty_status,
+                                )
+                            }),
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::SubagentFailed {
                     agent_id,
@@ -920,18 +964,21 @@ pub(crate) fn spawn_progress_bridge(
                             payload: json!({ "agentId": agent_id, "error": error }),
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_failed".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        message: Some(error),
-                        tool_name: Some(agent_id),
-                        skill_id: Some(task_id),
-                        success: Some(false),
-                        round: Some(round),
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_failed".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            message: Some(error),
+                            tool_name: Some(agent_id),
+                            skill_id: Some(task_id),
+                            success: Some(false),
+                            round: Some(round),
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::SubagentAwaitingUser {
                     agent_id,
@@ -995,22 +1042,25 @@ pub(crate) fn spawn_progress_bridge(
                             }),
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_awaiting_user".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        message: Some(question),
-                        tool_name: Some(agent_id),
-                        skill_id: Some(task_id),
-                        success: Some(true),
-                        round: Some(round),
-                        subagent: Some(SubagentProgressDetail {
-                            worker_thread_id,
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_awaiting_user".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            message: Some(question),
+                            tool_name: Some(agent_id),
+                            skill_id: Some(task_id),
+                            success: Some(true),
+                            round: Some(round),
+                            subagent: Some(SubagentProgressDetail {
+                                worker_thread_id,
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
+                        },
+                    );
                 }
                 AgentProgress::SubagentIterationStarted {
                     agent_id,
@@ -1019,30 +1069,35 @@ pub(crate) fn spawn_progress_bridge(
                     max_iterations,
                     extended_policy,
                 } => {
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_iteration_start".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        message: Some(if extended_policy {
-                            format!("Sub-agent '{agent_id}' step {iteration}")
-                        } else {
-                            format!("Sub-agent '{agent_id}' iteration {iteration}/{max_iterations}")
-                        }),
-                        tool_name: Some(agent_id),
-                        skill_id: Some(task_id),
-                        round: Some(round),
-                        subagent: Some(SubagentProgressDetail {
-                            child_iteration: Some(iteration),
-                            child_max_iterations: if extended_policy {
-                                None
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_iteration_start".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            message: Some(if extended_policy {
+                                format!("Sub-agent '{agent_id}' step {iteration}")
                             } else {
-                                Some(max_iterations)
-                            },
+                                format!(
+                                    "Sub-agent '{agent_id}' iteration {iteration}/{max_iterations}"
+                                )
+                            }),
+                            tool_name: Some(agent_id),
+                            skill_id: Some(task_id),
+                            round: Some(round),
+                            subagent: Some(SubagentProgressDetail {
+                                child_iteration: Some(iteration),
+                                child_max_iterations: if extended_policy {
+                                    None
+                                } else {
+                                    Some(max_iterations)
+                                },
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
+                        },
+                    );
                 }
                 AgentProgress::SubagentToolCallStarted {
                     agent_id,
@@ -1077,33 +1132,36 @@ pub(crate) fn spawn_progress_bridge(
                             }),
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_tool_call".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        tool_name: Some(tool_name),
-                        skill_id: Some(task_id.clone()),
-                        // The child's tool arguments, so the UI can show what
-                        // the sub-agent actually did (issue: subagent drawer
-                        // detail). Skipped from the wire when `null`.
-                        args: if arguments.is_null() {
-                            None
-                        } else {
-                            Some(arguments)
-                        },
-                        round: Some(round),
-                        tool_call_id: Some(call_id),
-                        tool_display_label: display_label,
-                        tool_display_detail: display_detail,
-                        subagent: Some(SubagentProgressDetail {
-                            child_iteration: Some(iteration),
-                            agent_id: Some(agent_id),
-                            task_id: Some(task_id),
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_tool_call".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            tool_name: Some(tool_name),
+                            skill_id: Some(task_id.clone()),
+                            // The child's tool arguments, so the UI can show what
+                            // the sub-agent actually did (issue: subagent drawer
+                            // detail). Skipped from the wire when `null`.
+                            args: if arguments.is_null() {
+                                None
+                            } else {
+                                Some(arguments)
+                            },
+                            round: Some(round),
+                            tool_call_id: Some(call_id),
+                            tool_display_label: display_label,
+                            tool_display_detail: display_detail,
+                            subagent: Some(SubagentProgressDetail {
+                                child_iteration: Some(iteration),
+                                agent_id: Some(agent_id),
+                                task_id: Some(task_id),
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
+                        },
+                    );
                 }
                 AgentProgress::SubagentToolCallCompleted {
                     agent_id,
@@ -1139,32 +1197,35 @@ pub(crate) fn spawn_progress_bridge(
                             }),
                         },
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_tool_result".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        tool_name: Some(tool_name),
-                        skill_id: Some(task_id.clone()),
-                        success: Some(success),
-                        round: Some(round),
-                        tool_call_id: Some(call_id),
-                        // The child's actual tool output, so the drawer can show
-                        // *what came back* (not just a char count). Capped to a
-                        // bounded size for the wire (#4007); `output_chars` +
-                        // `elapsed_ms` still ride along in `subagent` below.
-                        output: Some(cap_wire_output(output)),
-                        failure: failure_json,
-                        subagent: Some(SubagentProgressDetail {
-                            child_iteration: Some(iteration),
-                            agent_id: Some(agent_id),
-                            task_id: Some(task_id),
-                            elapsed_ms: Some(elapsed_ms),
-                            output_chars: Some(output_chars as u64),
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_tool_result".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            tool_name: Some(tool_name),
+                            skill_id: Some(task_id.clone()),
+                            success: Some(success),
+                            round: Some(round),
+                            tool_call_id: Some(call_id),
+                            // The child's actual tool output, so the drawer can show
+                            // *what came back* (not just a char count). Capped to a
+                            // bounded size for the wire (#4007); `output_chars` +
+                            // `elapsed_ms` still ride along in `subagent` below.
+                            output: Some(cap_wire_output(output)),
+                            failure: failure_json,
+                            subagent: Some(SubagentProgressDetail {
+                                child_iteration: Some(iteration),
+                                agent_id: Some(agent_id),
+                                task_id: Some(task_id),
+                                elapsed_ms: Some(elapsed_ms),
+                                output_chars: Some(output_chars as u64),
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
+                        },
+                    );
                 }
                 AgentProgress::SubagentTextDelta {
                     agent_id,
@@ -1172,23 +1233,26 @@ pub(crate) fn spawn_progress_bridge(
                     delta,
                     iteration,
                 } => {
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_text_delta".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        round: Some(round),
-                        delta: Some(delta),
-                        delta_kind: Some("text".to_string()),
-                        skill_id: Some(task_id.clone()),
-                        subagent: Some(SubagentProgressDetail {
-                            child_iteration: Some(iteration),
-                            agent_id: Some(agent_id),
-                            task_id: Some(task_id),
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_text_delta".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            round: Some(round),
+                            delta: Some(delta),
+                            delta_kind: Some("text".to_string()),
+                            skill_id: Some(task_id.clone()),
+                            subagent: Some(SubagentProgressDetail {
+                                child_iteration: Some(iteration),
+                                agent_id: Some(agent_id),
+                                task_id: Some(task_id),
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
+                        },
+                    );
                 }
                 AgentProgress::SubagentThinkingDelta {
                     agent_id,
@@ -1196,23 +1260,26 @@ pub(crate) fn spawn_progress_bridge(
                     delta,
                     iteration,
                 } => {
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "subagent_thinking_delta".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        round: Some(round),
-                        delta: Some(delta),
-                        delta_kind: Some("thinking".to_string()),
-                        skill_id: Some(task_id.clone()),
-                        subagent: Some(SubagentProgressDetail {
-                            child_iteration: Some(iteration),
-                            agent_id: Some(agent_id),
-                            task_id: Some(task_id),
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "subagent_thinking_delta".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            round: Some(round),
+                            delta: Some(delta),
+                            delta_kind: Some("thinking".to_string()),
+                            skill_id: Some(task_id.clone()),
+                            subagent: Some(SubagentProgressDetail {
+                                child_iteration: Some(iteration),
+                                agent_id: Some(agent_id),
+                                task_id: Some(task_id),
+                                ..Default::default()
+                            }),
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
+                        },
+                    );
                 }
                 AgentProgress::TaskBoardUpdated { board } => {
                     log::debug!(
@@ -1222,43 +1289,52 @@ pub(crate) fn spawn_progress_bridge(
                         request_id,
                         board.cards.len()
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "task_board_updated".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        task_board: Some(serde_json::to_value(board).unwrap_or_else(
-                            |_| serde_json::json!({ "threadId": thread_id, "cards": [] }),
-                        )),
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "task_board_updated".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            task_board: Some(serde_json::to_value(board).unwrap_or_else(
+                                |_| serde_json::json!({ "threadId": thread_id, "cards": [] }),
+                            )),
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::TextDelta { delta, iteration } => {
                     // Buffer the round's narration so it can be flushed as an
                     // interim bubble if a tool call closes this round.
                     pending_narration.push_str(&delta);
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "text_delta".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        round: Some(iteration),
-                        delta: Some(delta),
-                        delta_kind: Some("text".to_string()),
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "text_delta".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            round: Some(iteration),
+                            delta: Some(delta),
+                            delta_kind: Some("text".to_string()),
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::ThinkingDelta { delta, iteration } => {
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "thinking_delta".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        round: Some(iteration),
-                        delta: Some(delta),
-                        delta_kind: Some("thinking".to_string()),
-                        ..Default::default()
-                    });
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "thinking_delta".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            round: Some(iteration),
+                            delta: Some(delta),
+                            delta_kind: Some("thinking".to_string()),
+                            ..Default::default()
+                        },
+                    );
                 }
                 AgentProgress::ToolCallArgsDelta {
                     call_id,
@@ -1266,23 +1342,26 @@ pub(crate) fn spawn_progress_bridge(
                     delta,
                     iteration,
                 } => {
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "tool_args_delta".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        tool_name: if tool_name.is_empty() {
-                            None
-                        } else {
-                            Some(tool_name)
+                    publish_seq_stamped(
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "tool_args_delta".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            tool_name: if tool_name.is_empty() {
+                                None
+                            } else {
+                                Some(tool_name)
+                            },
+                            skill_id: Some("web_channel".to_string()),
+                            round: Some(iteration),
+                            delta: Some(delta),
+                            delta_kind: Some("tool_args".to_string()),
+                            tool_call_id: Some(call_id),
+                            ..Default::default()
                         },
-                        skill_id: Some("web_channel".to_string()),
-                        round: Some(iteration),
-                        delta: Some(delta),
-                        delta_kind: Some("tool_args".to_string()),
-                        tool_call_id: Some(call_id),
-                        ..Default::default()
-                    });
+                    );
                 }
                 AgentProgress::TurnCompleted { iterations } => {
                     parent_completed = true;
@@ -1787,6 +1866,61 @@ mod tests {
                 Err(TryRecvError::Lagged(_)) => continue,
             }
         }
+
+        drop(tx);
+    }
+
+    /// Every event the bridge emits carries an additive per-request monotonic
+    /// `seq` (conversations-timeline-refactor, Phase 4), so the frontend can
+    /// dedup replayed vs live events by `(request_id, seq)` and order them
+    /// identically to the persisted snapshot. Drive a short deterministic
+    /// sequence and assert the emitted seqs are present and strictly increasing.
+    #[tokio::test]
+    async fn stamps_monotonic_seq_on_emitted_events() {
+        let mut events = super::super::event_bus::subscribe_web_channel_events();
+        let thread_id = "thread-seq-stamp";
+        let request_id = "req-seq-stamp";
+        let tx = spawn_test_bridge(thread_id, request_id);
+
+        // Each of these emits exactly one web-channel event: inference_start,
+        // tool_call, tool_result (the fast test never trips the 20s heartbeat).
+        tx.send(AgentProgress::TurnStarted).await.unwrap();
+        tx.send(AgentProgress::ToolCallStarted {
+            call_id: "tc-1".into(),
+            tool_name: "shell".into(),
+            arguments: serde_json::json!({}),
+            iteration: 1,
+            display_label: None,
+            display_detail: None,
+        })
+        .await
+        .unwrap();
+        tx.send(AgentProgress::ToolCallCompleted {
+            call_id: "tc-1".into(),
+            tool_name: "shell".into(),
+            success: true,
+            output_chars: 0,
+            output: String::new(),
+            arguments: None,
+            elapsed_ms: 5,
+            iteration: 1,
+            failure: None,
+        })
+        .await
+        .unwrap();
+
+        let mut seqs = Vec::new();
+        for _ in 0..3 {
+            let ev = recv_for_thread(&mut events, thread_id).await;
+            assert_eq!(ev.request_id, request_id);
+            seqs.push(ev.seq.expect("every emitted event carries a seq"));
+        }
+        // The very first emitted event starts the per-request counter at 0.
+        assert_eq!(seqs[0], 0, "seq counter starts at 0 for the request");
+        assert!(
+            seqs.windows(2).all(|w| w[0] < w[1]),
+            "emitted seqs must be strictly increasing, got {seqs:?}"
+        );
 
         drop(tx);
     }

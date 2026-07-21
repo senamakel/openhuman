@@ -195,6 +195,160 @@ fn tool_call_completed_persists_capped_output() {
 }
 
 #[test]
+fn tool_timeline_entries_carry_monotonic_seq() {
+    // Every timeline row is stamped with a per-turn monotonic `seq` at creation
+    // so a rehydrated snapshot can order rows identically to the live stream
+    // (conversations-timeline-refactor, Phase 4 amendment). Cover the three
+    // creation paths: a normal tool start, an args-delta placeholder, and a
+    // sub-agent spawn.
+    let (_d, mut m) = fresh("t");
+    m.observe(&AgentProgress::IterationStarted {
+        iteration: 1,
+        max_iterations: 25,
+    });
+    m.observe(&AgentProgress::ToolCallStarted {
+        call_id: "tc-1".into(),
+        tool_name: "shell".into(),
+        arguments: serde_json::json!({}),
+        iteration: 1,
+        display_label: None,
+        display_detail: None,
+    });
+    // Placeholder-first path (args delta before start) for a second call.
+    m.observe(&AgentProgress::ToolCallArgsDelta {
+        call_id: "tc-2".into(),
+        tool_name: "shell".into(),
+        delta: "{".into(),
+        iteration: 1,
+    });
+    m.observe(&AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 10,
+        prompt: String::new(),
+        worker_thread_id: None,
+        display_name: None,
+    });
+
+    let seqs: Vec<u64> = m
+        .snapshot()
+        .tool_timeline
+        .iter()
+        .map(|e| e.seq.expect("every row is seq-stamped"))
+        .collect();
+    assert_eq!(seqs.len(), 3);
+    // Strictly increasing in creation order.
+    assert!(
+        seqs.windows(2).all(|w| w[0] < w[1]),
+        "tool timeline seqs must be strictly increasing, got {seqs:?}"
+    );
+
+    // A later `ToolCallStarted` that reuses the args-delta placeholder must NOT
+    // restamp the row's seq (the row keeps its original creation order).
+    let tc2_seq_before = m
+        .snapshot()
+        .tool_timeline
+        .iter()
+        .find(|e| e.id == "tc-2")
+        .and_then(|e| e.seq)
+        .expect("placeholder seq");
+    m.observe(&AgentProgress::ToolCallStarted {
+        call_id: "tc-2".into(),
+        tool_name: "shell".into(),
+        arguments: serde_json::json!({}),
+        iteration: 1,
+        display_label: None,
+        display_detail: None,
+    });
+    let tc2_seq_after = m
+        .snapshot()
+        .tool_timeline
+        .iter()
+        .find(|e| e.id == "tc-2")
+        .and_then(|e| e.seq)
+        .expect("placeholder seq after reuse");
+    assert_eq!(
+        tc2_seq_before, tc2_seq_after,
+        "reusing a placeholder must not restamp its seq"
+    );
+}
+
+#[test]
+fn subagent_prose_item_is_size_capped() {
+    // A runaway reasoning stream must not grow a single transcript item without
+    // bound (the snapshot is rewritten in full at every flush). Streaming far
+    // past the per-item cap coalesces into one item that stays bounded and
+    // carries a truncation marker.
+    let (_d, mut m) = fresh("t");
+    m.observe(&AgentProgress::IterationStarted {
+        iteration: 1,
+        max_iterations: 25,
+    });
+    m.observe(&AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 10,
+        prompt: String::new(),
+        worker_thread_id: None,
+        display_name: None,
+    });
+    // 40 KiB of reasoning in same-iteration chunks — must coalesce and cap.
+    for _ in 0..40 {
+        m.observe(&AgentProgress::SubagentThinkingDelta {
+            agent_id: "researcher".into(),
+            task_id: "sub-1".into(),
+            delta: "x".repeat(1024),
+            iteration: 1,
+        });
+    }
+    let activity = m.snapshot().tool_timeline[0]
+        .subagent
+        .as_ref()
+        .expect("activity")
+        .clone();
+    assert_eq!(
+        activity.transcript.len(),
+        1,
+        "same-iteration prose coalesces"
+    );
+    match &activity.transcript[0] {
+        SubagentTranscriptItem::Thinking { text, .. } => {
+            assert!(
+                text.len() <= super::MAX_PERSISTED_TRANSCRIPT_ITEM + 64,
+                "capped prose item stays bounded, got {} bytes",
+                text.len()
+            );
+            assert!(text.contains("truncated"), "capped item carries a marker");
+        }
+        other => panic!("expected thinking, got {other:?}"),
+    }
+}
+
+#[test]
+fn parent_transcript_prose_item_is_size_capped() {
+    let (_d, mut m) = fresh("t");
+    for _ in 0..40 {
+        m.observe(&AgentProgress::ThinkingDelta {
+            delta: "y".repeat(1024),
+            iteration: 1,
+        });
+    }
+    let s = m.snapshot();
+    assert_eq!(s.transcript.len(), 1);
+    match &s.transcript[0] {
+        TranscriptItem::Thinking { text, .. } => {
+            assert!(text.len() <= super::MAX_PERSISTED_TRANSCRIPT_ITEM + 64);
+            assert!(text.contains("truncated"));
+        }
+        other => panic!("expected thinking, got {other:?}"),
+    }
+}
+
+#[test]
 fn args_delta_arriving_before_start_creates_placeholder() {
     let (_d, mut m) = fresh("t");
     let flushed = m.observe(&AgentProgress::ToolCallArgsDelta {

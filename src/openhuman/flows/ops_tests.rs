@@ -50,6 +50,28 @@ fn nested_conditional_fan_in_graph() -> Value {
     })
 }
 
+fn main_port_conditional_fan_in_graph() -> Value {
+    json!({
+        "name": "main-port-conditional-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "route", "kind": "switch", "name": "Route", "config": { "field": "kind" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "other", "kind": "output_parser", "name": "Other" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "route" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "route", "from_port": "main", "to_node": "a" },
+            { "from_node": "route", "from_port": "other", "to_node": "other" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    })
+}
+
 fn structurally_valid_graph(value: Value) -> WorkflowGraph {
     let graph = migrate_and_deserialize_graph(value).expect("graph should deserialize");
     tinyflows::validate::validate(&graph).expect("fixture should be structurally valid");
@@ -57,7 +79,7 @@ fn structurally_valid_graph(value: Value) -> WorkflowGraph {
 }
 
 #[test]
-fn engine_compatibility_rejects_only_nested_conditional_fan_in() {
+fn engine_compatibility_distinguishes_nested_from_safe_fan_ins() {
     let risky = structurally_valid_graph(nested_conditional_fan_in_graph());
     let errors = engine_compatibility_errors(&risky);
     assert_eq!(errors.len(), 1);
@@ -124,6 +146,64 @@ fn engine_compatibility_rejects_only_nested_conditional_fan_in() {
 }
 
 #[test]
+fn engine_compatibility_rejects_main_label_on_conditional_fan_in_path() {
+    let graph = structurally_valid_graph(main_port_conditional_fan_in_graph());
+    let errors = engine_compatibility_errors(&graph);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_MAIN_PORT_CONDITIONAL_FAN_IN);
+    assert_eq!(errors[0].node_id.as_deref(), Some("m"));
+
+    let reconverged = structurally_valid_graph(json!({
+        "name": "main-port-reconverges-before-fan-in",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "route", "kind": "switch", "name": "Route", "config": { "field": "kind" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "route" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "route", "from_port": "main", "to_node": "a" },
+            { "from_node": "route", "from_port": "other", "to_node": "a" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    assert!(engine_compatibility_errors(&reconverged).is_empty());
+}
+
+#[test]
+fn engine_compatibility_rejects_reconvergence_before_nested_router() {
+    let graph = structurally_valid_graph(json!({
+        "name": "reconverged-before-nested-router",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "from_port": "main", "to_node": "outer" },
+            { "from_node": "start", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "inner" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" },
+            { "from_node": "c", "from_port": "main", "to_node": "m" }
+        ]
+    }));
+    let errors = engine_compatibility_errors(&graph);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+}
+
+#[test]
 fn flows_validate_returns_stable_nested_conditional_fan_in_error() {
     let outcome = flows_validate(nested_conditional_fan_in_graph());
     assert!(!outcome.value.valid);
@@ -161,6 +241,29 @@ async fn flows_run_rejects_legacy_nested_conditional_fan_in_before_execution() {
         reloaded.value.graph, flow.graph,
         "stored graph must be preserved"
     );
+}
+
+#[tokio::test]
+async fn flows_update_allows_metadata_only_edits_of_legacy_incompatible_graph() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let graph = structurally_valid_graph(nested_conditional_fan_in_graph());
+    let flow = store::create_flow(&config, "legacy".to_string(), graph, false, false).unwrap();
+
+    let updated = flows_update(
+        &config,
+        &flow.id,
+        Some("renamed legacy".to_string()),
+        None,
+        Some(true),
+        None,
+    )
+    .await
+    .expect("metadata-only update should preserve access to a legacy graph");
+
+    assert_eq!(updated.value.name, "renamed legacy");
+    assert!(updated.value.require_approval);
+    assert_eq!(updated.value.graph, flow.graph);
 }
 
 #[tokio::test]

@@ -41,6 +41,7 @@ const FLOW_PARKED_TTL_SECS: i64 = 600;
 /// Stable host-validation code for a topology that the currently vendored
 /// TinyFlows/TinyAgents barrier-relief implementation cannot execute safely.
 const UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN: &str = "unsupported_nested_conditional_fan_in";
+const UNSUPPORTED_MAIN_PORT_CONDITIONAL_FAN_IN: &str = "unsupported_main_port_conditional_fan_in";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 2 — autonomy-tier gating of acting flow nodes
@@ -137,37 +138,66 @@ pub(crate) fn engine_compatibility_errors(
                 continue;
             }
 
-            let controlling_branchers = graph
-                .nodes
-                .iter()
-                .filter(|candidate| {
-                    let ports: HashSet<&str> = graph
-                        .edges
-                        .iter()
-                        .filter(|edge| edge.from_node == candidate.id)
-                        .map(|edge| edge.from_port.as_str())
-                        .collect();
-                    ports.len() >= 2
-                        && ports.iter().any(|port| {
-                            reaches_via_port(graph, &candidate.id, port, predecessor, &fan_in.id)
-                        })
-                })
-                .take(2)
-                .count();
-
-            if controlling_branchers >= 2 {
-                errors.push(crate::openhuman::flows::FlowValidationError {
-                    code: UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN.to_string(),
-                    message: format!(
-                        "Fan-in node '{}' has predecessor '{}' behind nested conditional routing; \
-                         this topology is temporarily unsupported because it can silently lose \
-                         merged data. Flatten the nested branch or join it before this fan-in.",
-                        fan_in.id, predecessor
-                    ),
-                    node_id: Some(fan_in.id.clone()),
-                    field: None,
+            let mut controlling_branchers = 0usize;
+            let mut controlled_via_main_port = false;
+            for candidate in &graph.nodes {
+                let ports: HashSet<&str> = graph
+                    .edges
+                    .iter()
+                    .filter(|edge| edge.from_node == candidate.id)
+                    .map(|edge| edge.from_port.as_str())
+                    .collect();
+                if ports.len() < 2 {
+                    continue;
+                }
+                let reaches_from_port = |port: &str| {
+                    reaches_via_port(graph, &candidate.id, port, predecessor, &fan_in.id)
+                };
+                let any_port_reaches = ports.iter().any(|port| reaches_from_port(port));
+                let every_port_deterministically_reaches = ports.iter().all(|port| {
+                    reaches_deterministically_via_port(
+                        graph,
+                        &candidate.id,
+                        port,
+                        predecessor,
+                        &fan_in.id,
+                    )
                 });
+                // A multi-port node only controls this predecessor when the
+                // predecessor is reachable from it but not guaranteed by a
+                // deterministic path on every routing choice. This matches
+                // TinyAgents' relief proof, which stops at another router.
+                if any_port_reaches && !every_port_deterministically_reaches {
+                    controlling_branchers += 1;
+                    controlled_via_main_port |= ports.contains("main")
+                        && reaches_via_port(graph, &candidate.id, "main", predecessor, &fan_in.id);
+                }
             }
+
+            let (code, routing_kind) = if controlled_via_main_port {
+                (
+                    UNSUPPORTED_MAIN_PORT_CONDITIONAL_FAN_IN,
+                    "a conditional branch labelled 'main'",
+                )
+            } else if controlling_branchers >= 2 {
+                (
+                    UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN,
+                    "nested conditional routing",
+                )
+            } else {
+                continue;
+            };
+            errors.push(crate::openhuman::flows::FlowValidationError {
+                code: code.to_string(),
+                message: format!(
+                    "Fan-in node '{}' has predecessor '{}' behind {routing_kind}; \
+                     this topology is temporarily unsupported because it can silently lose \
+                     merged data. Flatten the conditional branch or join it before this fan-in.",
+                    fan_in.id, predecessor
+                ),
+                node_id: Some(fan_in.id.clone()),
+                field: None,
+            });
         }
     }
 
@@ -185,18 +215,28 @@ fn reaches_on_main_edges(graph: &WorkflowGraph, from: &str, to: &str, stop: &str
     if from == to {
         return true;
     }
-    let mut stack: Vec<&str> = graph
-        .edges
-        .iter()
-        .filter(|edge| edge.from_node == from && edge.from_port == "main")
-        .map(|edge| edge.to_node.as_str())
-        .collect();
+    let mut stack: Vec<&str> = if is_branching_node(graph, from) {
+        Vec::new()
+    } else {
+        graph
+            .edges
+            .iter()
+            .filter(|edge| edge.from_node == from && edge.from_port == "main")
+            .map(|edge| edge.to_node.as_str())
+            .collect()
+    };
     let mut seen = HashSet::new();
     while let Some(node) = stack.pop() {
         if node == to {
             return true;
         }
         if node == stop || !seen.insert(node) {
+            continue;
+        }
+        // Port labels are arbitrary. A node with multiple distinct output
+        // ports is runtime-selective even when one label happens to be `main`,
+        // so nothing beyond it is unconditionally reachable.
+        if is_branching_node(graph, node) {
             continue;
         }
         stack.extend(
@@ -208,6 +248,17 @@ fn reaches_on_main_edges(graph: &WorkflowGraph, from: &str, to: &str, stop: &str
         );
     }
     false
+}
+
+fn is_branching_node(graph: &WorkflowGraph, node_id: &str) -> bool {
+    graph
+        .edges
+        .iter()
+        .filter(|edge| edge.from_node == node_id)
+        .map(|edge| edge.from_port.as_str())
+        .collect::<HashSet<_>>()
+        .len()
+        >= 2
 }
 
 fn reaches_via_port(
@@ -240,6 +291,41 @@ fn reaches_via_port(
         );
     }
     false
+}
+
+fn reaches_deterministically_via_port(
+    graph: &WorkflowGraph,
+    brancher: &str,
+    port: &str,
+    target: &str,
+    stop: &str,
+) -> bool {
+    graph
+        .edges
+        .iter()
+        .filter(|edge| edge.from_node == brancher && edge.from_port == port)
+        .any(|edge| deterministically_reaches(graph, &edge.to_node, target, stop))
+}
+
+fn deterministically_reaches(graph: &WorkflowGraph, from: &str, target: &str, stop: &str) -> bool {
+    let mut current = from;
+    let mut seen = HashSet::new();
+    loop {
+        if current == target {
+            return true;
+        }
+        if current == stop || !seen.insert(current) {
+            return false;
+        }
+        let mut outgoing = graph.edges.iter().filter(|edge| edge.from_node == current);
+        let Some(edge) = outgoing.next() else {
+            return false;
+        };
+        if edge.from_port != "main" || outgoing.next().is_some() {
+            return false;
+        }
+        current = &edge.to_node;
+    }
 }
 
 /// Runs a raw graph JSON value through migration + deserialization **without**
@@ -2806,10 +2892,12 @@ pub async fn flows_update(
             existing.graph.clone()
         }
     };
-    // The `None` branch can load a definition persisted before this host-side
-    // compatibility gate existed; keep stored data readable, but do not let a
-    // subsequent save bless an engine-unsafe topology as current.
-    ensure_engine_compatible(&graph)?;
+    // A graph-changing update must not bless an engine-unsafe topology as
+    // current. Metadata-only updates remain available for definitions saved by
+    // older builds; authoritative run/resume boundaries still fail closed.
+    if graph_changed {
+        ensure_engine_compatible(&graph)?;
+    }
 
     // B29 Rule 1 analogue: disarm every manual/none → automatic trigger
     // transition, unconditionally — see the doc comment above for why this

@@ -105,7 +105,7 @@ test.describe('Webhook tunnel CRUD (UI + core RPC + mock backend)', () => {
     // webhooks-triggers was merged into the Integrations page (#webhooks tab).
     await expect
       .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
-      .toContain('/settings/integrations');
+      .toContain('/connections');
 
     const text = await page.locator('#root').innerText();
     expect(

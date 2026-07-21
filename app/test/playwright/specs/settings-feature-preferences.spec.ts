@@ -175,16 +175,14 @@ function readEnabledTools(snapshot: ToolsSnapshot): string[] {
 
 test.describe('Settings - Feature Preferences', () => {
   test('renders the features settings section route', async ({ page }) => {
-    // The old "Features" hub page is retired and redirects to
-    // /settings/screen-intelligence; its destinations are sidebar entries now.
+    // The old "Features" hub page is retired and redirects to the Screen
+    // Awareness tab on Connections.
     await openAuthenticatedRoute(page, 'pw-settings-features-route', '/settings/features');
 
     await expect
       .poll(async () => page.evaluate(() => window.location.hash))
-      .toContain('/settings/screen-intelligence');
-    await expect(page.getByTestId('settings-nav-screen-intelligence')).toBeVisible();
-    await expect(page.getByTestId('settings-nav-tools')).toBeVisible();
-    await expect(page.getByTestId('settings-nav-companion')).toBeVisible();
+      .toContain('/connections?tab=screen-intelligence');
+    await expect(page.getByText('Screen awareness', { exact: true }).first()).toBeVisible();
   });
 
   test('persists the default messaging channel through redux state', async ({ page }) => {
@@ -254,36 +252,27 @@ test.describe('Settings - Feature Preferences', () => {
     expect(readEnabledTools(after)).not.toContain('shell');
   });
 
-  test('persists notifications DND and category preferences', async ({ page }) => {
+  test('persists notification category preferences', async ({ page }) => {
     await openAuthenticatedRoute(page, 'pw-settings-notification-prefs', '/settings/notifications');
 
     await expect(page.getByText('Do Not Disturb', { exact: true })).toBeVisible();
     await expect(page.getByText('Messages', { exact: true })).toBeVisible();
 
-    const dndLabel = 'Toggle Do Not Disturb';
     const messagesLabel = 'Toggle Messages notifications';
-    const dndBefore = await getAriaChecked(page, dndLabel);
     const messagesBefore = await getAriaChecked(page, messagesLabel);
 
-    await page.getByRole('switch', { name: dndLabel }).click();
+    // Global DND is native webview-account state and cannot persist in the web
+    // harness. Category preferences are Redux-persisted and are the portable
+    // behavior this lane can verify.
     await page.getByRole('switch', { name: messagesLabel }).click();
 
-    await expect
-      .poll(async () => ({
-        dnd: await getAriaChecked(page, dndLabel),
-        messages: await getAriaChecked(page, messagesLabel),
-      }))
-      .not.toEqual({ dnd: dndBefore, messages: messagesBefore });
+    await expect.poll(() => getAriaChecked(page, messagesLabel)).not.toBe(messagesBefore);
 
-    const toggled = {
-      dnd: await getAriaChecked(page, dndLabel),
-      messages: await getAriaChecked(page, messagesLabel),
-    };
+    const toggled = await getAriaChecked(page, messagesLabel);
 
     await reloadAndWait(page);
     await expect(page.getByText('Do Not Disturb')).toBeVisible();
-    await expect.poll(() => getAriaChecked(page, dndLabel)).not.toBeNull();
-    await expect.poll(() => getAriaChecked(page, messagesLabel)).toBe(toggled.messages);
+    await expect.poll(() => getAriaChecked(page, messagesLabel)).toBe(toggled);
   });
 
   test('persists mascot color selection', async ({ page }) => {

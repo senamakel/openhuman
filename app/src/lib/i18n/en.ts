@@ -321,7 +321,7 @@ const en: TranslationMap = {
   'brain.tabs.goals': 'Goals',
   'brain.tabs.sources': 'Sources',
   'brain.tabs.sync': 'Sync',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orchestration',
   'brain.empty': 'Your brain is empty for now: connect a source to start building memory.',
   'brain.error': "Couldn't load your brain. Please try again.",
   'brain.goals.title': 'Long-term Goals',

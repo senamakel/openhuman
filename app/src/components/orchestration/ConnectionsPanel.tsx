@@ -8,7 +8,7 @@
  * composer. Pending requests + a summary sit on top. Linking new agents still
  * lives in the sibling DiscoverPanel.
  *
- * Renders inside the same single `max-w-3xl` column OrchestrationPage gives it.
+ * Renders inside the same single `max-w-3xl` column OrchestrationView gives it.
  */
 import debugFactory from 'debug';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';

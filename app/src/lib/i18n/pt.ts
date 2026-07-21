@@ -576,7 +576,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Algo deu errado. Tente novamente.',
   'brain.tabs.sources': 'Fontes',
   'brain.tabs.sync': 'Sincronização',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orquestração',
   'tinyplaceOrchestration.title': 'Relay TinyPlace',
   'tinyplaceOrchestration.subtitle': 'Canais de agentes fixados e chats de sessões do app',
   'tinyplaceOrchestration.refresh': 'Atualizar',

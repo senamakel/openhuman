@@ -590,7 +590,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Une erreur s’est produite. Veuillez réessayer.',
   'brain.tabs.sources': 'Sources',
   'brain.tabs.sync': 'Synchronisation',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orchestration',
   'tinyplaceOrchestration.title': 'Relais TinyPlace',
   'tinyplaceOrchestration.subtitle': "Canaux d'agents épinglés et chats de sessions app",
   'tinyplaceOrchestration.refresh': 'Actualiser',

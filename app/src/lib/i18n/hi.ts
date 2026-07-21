@@ -570,7 +570,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'कुछ गलत हो गया। कृपया पुनः प्रयास करें।',
   'brain.tabs.sources': 'स्रोत',
   'brain.tabs.sync': 'सिंक',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'ऑर्केस्ट्रेशन',
   'tinyplaceOrchestration.title': 'TinyPlace रिले',
   'tinyplaceOrchestration.subtitle': 'पिन किए गए एजेंट चैनल और ऐप-सत्र चैट',
   'tinyplaceOrchestration.refresh': 'रीफ़्रेश',

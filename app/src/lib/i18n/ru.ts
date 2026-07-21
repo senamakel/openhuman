@@ -576,7 +576,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Что-то пошло не так. Пожалуйста, попробуйте снова.',
   'brain.tabs.sources': 'Источники',
   'brain.tabs.sync': 'Синхронизация',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Оркестрация',
   'tinyplaceOrchestration.title': 'Ретранслятор TinyPlace',
   'tinyplaceOrchestration.subtitle': 'Закрепленные каналы агентов и чаты сессий приложения',
   'tinyplaceOrchestration.refresh': 'Обновить',

@@ -367,8 +367,8 @@ function SessionChatView({ session }: { session: SessionSummary }) {
 export interface AgentChatPanelProps {
   /**
    * Controlled open peer-session id (the full-page session subpage). When
-   * `onOpenSession` is provided the parent owns this (OrchestrationPage drives
-   * it from the `?session=` query param + the sidebar's active sub-agents list);
+   * `onOpenSession` is provided the parent owns this (OrchestrationView drives
+   * it from the `?session=` query param + the active sub-agents rail);
    * otherwise the panel falls back to its own local state.
    */
   openSessionId?: string | null;
@@ -405,8 +405,8 @@ export default function AgentChatPanel({
   const [composerBody, setComposerBody] = useState('');
   const [sending, setSending] = useState(false);
   const [runningReview, setRunningReview] = useState(false);
-  // Controlled by the parent when `onOpenSession` is wired (OrchestrationPage
-  // drives it from the URL + sidebar session list); local state otherwise.
+  // Controlled by the parent when `onOpenSession` is wired (OrchestrationView
+  // drives it from the URL + active sub-agents rail); local state otherwise.
   const [localOpenSessionId, setLocalOpenSessionId] = useState<string | null>(null);
   const openSessionId =
     controlledOpenSessionId !== undefined ? controlledOpenSessionId : localOpenSessionId;

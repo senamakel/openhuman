@@ -576,7 +576,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Terjadi kesalahan. Silakan coba lagi.',
   'brain.tabs.sources': 'Sumber',
   'brain.tabs.sync': 'Sinkronisasi',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orkestrasi',
   'tinyplaceOrchestration.title': 'Relay TinyPlace',
   'tinyplaceOrchestration.subtitle': 'Kanal agen tersemat dan chat sesi aplikasi',
   'tinyplaceOrchestration.refresh': 'Segarkan',

@@ -110,6 +110,28 @@ async function getAriaChecked(page: Page, label: string): Promise<string | null>
   return value;
 }
 
+async function getPersistedNotificationPreference(
+  page: Page,
+  category: string
+): Promise<boolean | null> {
+  return page.evaluate(categoryName => {
+    const userId = localStorage.getItem('OPENHUMAN_ACTIVE_USER_ID');
+    if (!userId) return null;
+    const raw = localStorage.getItem(`${userId}:persist:notifications`);
+    if (!raw) return null;
+    try {
+      const persisted = JSON.parse(raw) as { preferences?: string };
+      if (typeof persisted.preferences !== 'string') return null;
+      const preferences = JSON.parse(persisted.preferences) as Record<string, unknown>;
+      return typeof preferences[categoryName] === 'boolean'
+        ? (preferences[categoryName] as boolean)
+        : null;
+    } catch {
+      return null;
+    }
+  }, category);
+}
+
 async function installMascotManifestMock(page: Page): Promise<void> {
   const manifest = {
     schemaVersion: 1,
@@ -269,6 +291,9 @@ test.describe('Settings - Feature Preferences', () => {
     await expect.poll(() => getAriaChecked(page, messagesLabel)).not.toBe(messagesBefore);
 
     const toggled = await getAriaChecked(page, messagesLabel);
+    await expect
+      .poll(() => getPersistedNotificationPreference(page, 'messages'))
+      .toBe(toggled === 'true');
 
     await reloadAndWait(page);
     await expect(page.getByText('Do Not Disturb')).toBeVisible();

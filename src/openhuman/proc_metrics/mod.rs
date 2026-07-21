@@ -1,4 +1,4 @@
-//! Process memory sampling from Linux `/proc`.
+//! Cross-platform process memory sampling.
 //!
 //! Reads the current process's resident-memory breakdown from
 //! `/proc/self/smaps_rollup` + `/proc/self/status` and aggregates repeated
@@ -6,12 +6,13 @@
 //! `rss-bench` benchmark harness (#5046), which measures the steady-state RSS
 //! of an embedded `openhuman_core` agent roster against the 20–30 MiB budget,
 //! but [`sample_self`] is a general capability: any caller wanting this
-//! process's RSS / PSS / private-page / peak-RSS figures on Linux can use it.
+//! process's RSS / peak-RSS figures can use it. Linux additionally reports PSS
+//! and private-page breakdowns; macOS leaves those Linux-only fields at zero.
 //!
 //! The parsers ([`parse_status`], [`parse_smaps_rollup`]) are OS-agnostic and
 //! take `&str`, so they are unit-tested without a live `/proc`. [`sample_self`]
-//! is Linux-only and returns a structured error elsewhere — it never fabricates
-//! a reading (a macOS local run fails loudly rather than emitting garbage).
+//! supports Linux and macOS and returns a structured error elsewhere — it never
+//! fabricates a reading.
 
 use serde::{Deserialize, Serialize};
 
@@ -124,12 +125,81 @@ pub fn sample_self() -> anyhow::Result<ProcSample> {
     })
 }
 
-/// Sample this process's resident memory. Non-Linux stub — fails loudly rather
-/// than fabricating a reading.
-#[cfg(not(target_os = "linux"))]
+/// Sample this process's resident memory on macOS via `proc_pid_rusage`.
+///
+/// `ri_resident_size` and `ru_maxrss` are bytes on Darwin. PSS and private-page
+/// accounting have no direct macOS equivalent, so those Linux-specific fields
+/// remain zero rather than being populated with a misleading substitute.
+#[cfg(target_os = "macos")]
+pub fn sample_self() -> anyhow::Result<ProcSample> {
+    use std::mem::{size_of, MaybeUninit};
+
+    let pid = std::process::id() as libc::c_int;
+    let mut usage = MaybeUninit::<libc::rusage_info_v2>::uninit();
+    // SAFETY: `usage` points to writable storage of the exact structure size
+    // required by `RUSAGE_INFO_V2`; the kernel initializes it on success.
+    let result = unsafe {
+        libc::proc_pid_rusage(
+            pid,
+            libc::RUSAGE_INFO_V2,
+            usage.as_mut_ptr().cast::<libc::rusage_info_t>(),
+        )
+    };
+    if result != 0 {
+        return Err(std::io::Error::last_os_error()).map_err(Into::into);
+    }
+    // SAFETY: `proc_pid_rusage` returned success and initialized `usage`.
+    let usage = unsafe { usage.assume_init() };
+
+    let mut peak = MaybeUninit::<libc::rusage>::uninit();
+    // SAFETY: `peak` is valid writable storage for `getrusage`.
+    let peak_result = unsafe { libc::getrusage(libc::RUSAGE_SELF, peak.as_mut_ptr()) };
+    let vm_hwm_kib = if peak_result == 0 {
+        // SAFETY: `getrusage` returned success and initialized `peak`.
+        (unsafe { peak.assume_init() }.ru_maxrss as u64) / 1024
+    } else {
+        0
+    };
+
+    let mut task = MaybeUninit::<libc::proc_taskinfo>::uninit();
+    // SAFETY: `task` points to writable storage and its size is passed to
+    // `proc_pidinfo`, which initializes it when the returned byte count matches.
+    let task_bytes = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTASKINFO,
+            0,
+            task.as_mut_ptr().cast(),
+            size_of::<libc::proc_taskinfo>() as libc::c_int,
+        )
+    };
+    let threads = if task_bytes == size_of::<libc::proc_taskinfo>() as libc::c_int {
+        // SAFETY: the kernel returned the full structure size.
+        unsafe { task.assume_init() }.pti_threadnum.max(0) as u64
+    } else {
+        0
+    };
+
+    let binary_size_bytes = std::env::current_exe()
+        .and_then(std::fs::metadata)
+        .map(|meta| meta.len())
+        .unwrap_or(0);
+    Ok(ProcSample {
+        rss_kib: usage.ri_resident_size / 1024,
+        pss_kib: 0,
+        private_clean_kib: 0,
+        private_dirty_kib: 0,
+        vm_hwm_kib,
+        threads,
+        binary_size_bytes,
+    })
+}
+
+/// Unsupported-platform stub — fails loudly rather than fabricating a reading.
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 pub fn sample_self() -> anyhow::Result<ProcSample> {
     anyhow::bail!(
-        "proc_metrics::sample_self requires Linux /proc/self/smaps_rollup + status (this is a {} build)",
+        "proc_metrics::sample_self supports Linux and macOS (this is a {} build)",
         std::env::consts::OS
     )
 }
@@ -438,9 +508,20 @@ mod tests {
         assert_eq!(report.per_agent_increment_kib(), None);
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     #[test]
-    fn sample_self_is_linux_only() {
+    fn sample_self_rejects_unsupported_platform() {
         assert!(sample_self().is_err());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn sample_self_reports_macos_resident_memory() {
+        let sample = sample_self().expect("macOS process metrics");
+        assert!(sample.rss_kib > 0);
+        assert!(sample.vm_hwm_kib >= sample.rss_kib);
+        assert!(sample.threads > 0);
+        assert!(sample.binary_size_bytes > 0);
+        assert_eq!(sample.pss_kib, 0);
     }
 }

@@ -172,8 +172,8 @@ pub fn create_routed_provider_with_options(
 ) -> anyhow::Result<Box<dyn Provider>> {
     // Test-only: a mock provider injected by an e2e test wins over any
     // config-derived routing (covers the triage remote arm). Gated on
-    // cfg(test) / the off-by-default `e2e-test-support` feature.
-    #[cfg(any(test, feature = "e2e-test-support"))]
+    // cfg(test) / the off-by-default test and profiling features.
+    #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(p) = super::super::factory::test_provider_override::current() {
         return Ok(Box::new(
             super::super::factory::test_provider_override::ProviderHandle(p),

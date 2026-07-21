@@ -50,6 +50,13 @@ name = "rss-bench"
 path = "src/bin/rss_bench.rs"
 required-features = ["rss-bench"]
 
+# Stateful library profiling workloads (memory ingestion + real sub-agent
+# delegation under a hermetic mock provider). Local/dev only.
+[[bin]]
+name = "library-profile"
+path = "src/bin/library_profile/main.rs"
+required-features = ["rss-bench"]
+
 [lib]
 name = "openhuman_core"
 crate-type = ["rlib"]

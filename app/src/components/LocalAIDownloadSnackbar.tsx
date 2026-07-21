@@ -18,7 +18,31 @@ import {
 } from '../utils/tauriCommands';
 import Button from './ui/Button';
 
-const POLL_INTERVAL = 2000;
+const ACTIVE_POLL_INTERVAL = 2000;
+const IDLE_POLL_INTERVAL = 15000;
+
+/**
+ * Pure predicate deciding whether a download/bootstrap is currently in flight,
+ * mirroring the `isDownloading` derivation used for rendering. Used only to
+ * pick the poll cadence, so an idle app polls slowly instead of hammering
+ * `inference_status` + `inference_downloads_progress` every 2s forever.
+ */
+const isDownloadInFlight = (
+  status: LocalAiStatus | null,
+  downloads: LocalAiDownloadsProgress | null
+): boolean => {
+  const downloadState = downloads?.state;
+  const currentState =
+    downloadState === 'loading' || downloadState === 'downloading' || downloadState === 'installing'
+      ? downloadState
+      : (status?.state ?? downloadState ?? 'idle');
+  return (
+    currentState === 'loading' ||
+    currentState === 'downloading' ||
+    currentState === 'installing' ||
+    (downloads?.progress != null && downloads.progress > 0 && downloads.progress < 1)
+  );
+};
 
 /**
  * Persistent snackbar that shows local AI download progress.
@@ -31,7 +55,7 @@ const LocalAIDownloadSnackbar = () => {
   const [downloads, setDownloads] = useState<LocalAiDownloadsProgress | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   // Track previous isDownloading in state so we can reset the dismiss flag on a
   // not-downloading → downloading transition during render (render-phase update,
   // the officially recommended React pattern for adjusting state on derived-value changes).
@@ -46,11 +70,16 @@ const LocalAIDownloadSnackbar = () => {
     }
   })();
 
-  // Poll download status
+  // Poll download status. Self-scheduling so the cadence can adapt: fast while
+  // a download is in flight, slow when idle — avoids a permanent 2s poll of two
+  // inference RPCs on every app instance regardless of activity.
   useEffect(() => {
     if (!tauriAvailable) return;
 
+    let cancelled = false;
+
     const poll = async () => {
+      let active = false;
       try {
         const [statusRes, downloadsRes] = await Promise.all([
           openhumanLocalAiStatus(),
@@ -58,14 +87,20 @@ const LocalAIDownloadSnackbar = () => {
         ]);
         if (statusRes.result) setStatus(statusRes.result);
         if (downloadsRes.result) setDownloads(downloadsRes.result);
+        active = isDownloadInFlight(statusRes.result ?? null, downloadsRes.result ?? null);
       } catch {
         // Silently ignore — core may not be ready
+      }
+      if (!cancelled) {
+        timerRef.current = setTimeout(poll, active ? ACTIVE_POLL_INTERVAL : IDLE_POLL_INTERVAL);
       }
     };
 
     void poll();
-    timerRef.current = setInterval(poll, POLL_INTERVAL);
-    return () => clearInterval(timerRef.current);
+    return () => {
+      cancelled = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [tauriAvailable]);
 
   const downloadState = downloads?.state;

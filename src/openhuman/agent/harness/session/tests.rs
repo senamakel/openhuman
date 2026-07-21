@@ -1469,8 +1469,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
         .and_then(|v| v.get("openhuman_turn_usage"))
         .cloned()
         .expect("turn usage metadata present");
-    let parsed: TurnUsage =
-        serde_json::from_value(usage_value).expect("turn usage deserializes");
+    let parsed: TurnUsage = serde_json::from_value(usage_value).expect("turn usage deserializes");
     assert!(
         parsed.tool_calls.iter().any(|c| c.name == "web_search"),
         "the persisted tool call must round-trip into the resumed context"

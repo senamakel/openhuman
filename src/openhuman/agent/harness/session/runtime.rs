@@ -454,11 +454,7 @@ impl Agent {
                 let loaded_count = session.messages.len();
                 // Count the tool-role results carried into the resumed prefix —
                 // the fidelity the prose fallback would have silently dropped.
-                let tool_result_msgs = session
-                    .messages
-                    .iter()
-                    .filter(|m| m.role == "tool")
-                    .count();
+                let tool_result_msgs = session.messages.iter().filter(|m| m.role == "tool").count();
                 let bounded = self.bound_cached_transcript_messages(session.messages);
                 if bounded.len() < loaded_count {
                     log::warn!(

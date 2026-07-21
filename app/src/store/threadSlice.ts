@@ -1,7 +1,9 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+import { extractWorkflowProposalFromMessages } from '../lib/workflows/workflowProposal';
 import { threadApi } from '../services/api/threadApi';
 import { isThreadNotFoundCoreRpcError } from '../services/coreRpcClient';
+import { setWorkflowProposalForThread } from './chatRuntimeSlice';
 import type { Thread, ThreadMessage } from '../types/thread';
 import { IS_DEV } from '../utils/config';
 import { resetUserScopedState } from './resetActions';
@@ -115,6 +117,16 @@ export const loadThreadMessages = createAsyncThunk(
   async (threadId: string, { dispatch, rejectWithValue }) => {
     try {
       const response = await threadApi.getThreadMessages(threadId);
+      // Durable workflow-proposal rehydration: the Rust core persists a
+      // proposal produced by an async workflow_builder run as a thread
+      // message (extraMetadata.scope === 'workflow_proposal'). Restoring it
+      // here means the proposal card survives reloads, reconnects, and
+      // dropped socket events — the live `tool_result` events remain the
+      // fast path and simply overwrite this with the same payload.
+      const persistedProposal = extractWorkflowProposalFromMessages(response.messages);
+      if (persistedProposal) {
+        dispatch(setWorkflowProposalForThread({ threadId, proposal: persistedProposal }));
+      }
       return { threadId, messages: response.messages };
     } catch (error) {
       // A cached/seeded thread id (e.g. the Flows copilot's persisted

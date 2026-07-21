@@ -536,6 +536,13 @@ export interface WorkflowProposal {
     /** Ordered non-trigger steps. */
     steps: WorkflowProposalStep[];
   };
+  /**
+   * Id of the persisted thread message this proposal was rehydrated from
+   * (`extraMetadata.scope === 'workflow_proposal'`), when it came from the
+   * durable backstop rather than a live socket event. Save/Dismiss mark that
+   * message `consumed: true` so the card does not resurrect on reload.
+   */
+  sourceMessageId?: string;
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   SKILL_TOOL_CHAIN_TARGET_MS,
 } from '../lib/ai/skillToolChainLatency';
 import { ingestRuntimeErrorSignal } from '../lib/userErrors/report';
+import { maybeParseWorkflowProposalTool } from '../lib/workflows/workflowProposal';
 import {
   type ChatApprovalRequestEvent,
   type ChatDoneEvent,
@@ -63,7 +64,6 @@ import {
   upsertArtifactFailedForThread,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
-  type WorkflowProposal,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { selectSocketStatus } from '../store/socketSelectors';
@@ -259,75 +259,10 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
   };
 }
 
-/**
- * Parses a completed `propose_workflow` tool call's JSON `output` into a
- * `WorkflowProposal` for `WorkflowProposalCard` (issue B4 — agent-first
- * Workflow authoring). The tool's `execute()`
- * (`src/openhuman/flows/tools.rs`) returns
- * `{ type: "workflow_proposal", name, graph, require_approval, summary }` as
- * its `ToolResult` body; this maps that wire shape onto the store's camelCase
- * `WorkflowProposal`. Returns `null` for anything that fails to parse or
- * doesn't match the expected shape — defensive, since a malformed proposal
- * must never crash the chat runtime, it should just silently not render a
- * card.
- */
-/**
- * Recognition is content-based, not name-based: ANY workflow-builder tool
- * (`propose_workflow`, `revise_workflow`, `edit_workflow`, and any future
- * addition) whose successful `output` is `{ type: "workflow_proposal", ... }`
- * (see `src/openhuman/flows/builder_tools.rs` / `ops::build_builder_proposal`)
- * is surfaced as a `WorkflowProposalCard`. This mirrors the Rust-side blocking
- * path's `extract_workflow_proposal`, which also scans tool results by
- * payload `type` rather than tool name — a name allowlist here can silently
- * drop proposals from newly added tools (as happened when `edit_workflow` was
- * added without updating this list). `parseWorkflowProposal`'s own
- * `obj.type !== 'workflow_proposal'` check is the only gate needed. These
- * tools run inside the `workflow_builder` specialist — reached either as the
- * main agent's own tool or, in the Flows copilot / prompt-bar flow, as a
- * delegated subagent (`build_workflow`) — so BOTH `onToolResult` and
- * `onSubagentToolResult` funnel through {@link maybeParseWorkflowProposalTool}.
- */
-function maybeParseWorkflowProposalTool(
-  _toolName: string,
-  success: boolean,
-  output: string | undefined
-): WorkflowProposal | null {
-  if (!success || !output) return null;
-  return parseWorkflowProposal(output);
-}
-
-function parseWorkflowProposal(output: string): WorkflowProposal | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(output);
-  } catch {
-    return null;
-  }
-  if (!parsed || typeof parsed !== 'object') return null;
-  const obj = parsed as Record<string, unknown>;
-  if (obj.type !== 'workflow_proposal') return null;
-  if (typeof obj.name !== 'string' || obj.graph == null) return null;
-
-  const summary = (obj.summary ?? {}) as Record<string, unknown>;
-  const rawSteps = Array.isArray(summary.steps) ? summary.steps : [];
-  const steps = rawSteps
-    .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object')
-    .map(s => ({
-      kind: typeof s.kind === 'string' ? s.kind : 'unknown',
-      name: typeof s.name === 'string' ? s.name : '',
-      config_hint: typeof s.config_hint === 'string' ? s.config_hint : undefined,
-    }));
-
-  return {
-    name: obj.name,
-    graph: obj.graph,
-    // The Rust tool defaults `require_approval` to `true` when the caller
-    // omits it, so treat anything other than an explicit `false` as `true`
-    // here too — keeps the client's fallback in lockstep with the server's.
-    requireApproval: obj.require_approval !== false,
-    summary: { trigger: typeof summary.trigger === 'string' ? summary.trigger : '', steps },
-  };
-}
+// `maybeParseWorkflowProposalTool` / `parseWorkflowProposal` moved to
+// `lib/workflows/workflowProposal.ts` so the live socket handlers below and
+// the persisted-message rehydration path (`threadSlice.loadThreadMessages`)
+// share one content-based parser. See that module's doc comment.
 
 const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();

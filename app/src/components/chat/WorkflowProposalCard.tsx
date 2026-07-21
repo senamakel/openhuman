@@ -6,6 +6,7 @@ import { FLOW_CANVAS_DRAFT_ROUTE, type FlowCanvasDraftState } from '../../lib/fl
 import type { WorkflowGraph } from '../../lib/flows/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import { createFlow, setFlowEnabled } from '../../services/api/flowsApi';
+import { threadApi } from '../../services/api/threadApi';
 import {
   clearWorkflowProposalForThread,
   type WorkflowProposal,
@@ -64,7 +65,24 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
   // and only retry the enable step.
   const [savedFlowId, setSavedFlowId] = useState<string | null>(null);
 
+  /**
+   * When this proposal was rehydrated from a persisted thread message (the
+   * durable backstop the core writes for async builder runs), mark that
+   * message consumed so the card does not resurrect on the next thread load.
+   * Fire-and-forget: a failed mark only risks a stale card reappearing.
+   */
+  const markSourceMessageConsumed = () => {
+    if (!proposal.sourceMessageId) return;
+    threadApi
+      .updateMessage(threadId, proposal.sourceMessageId, {
+        scope: 'workflow_proposal',
+        consumed: true,
+      })
+      .catch(e => log('markSourceMessageConsumed failed (non-fatal): %o', e));
+  };
+
   const dismiss = () => {
+    markSourceMessageConsumed();
     dispatch(clearWorkflowProposalForThread({ threadId }));
   };
 
@@ -110,6 +128,7 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
         flowPersisted = true;
         if (flow.enabled) {
           log('save: createFlow returned enabled — nothing further to arm id=%s', flow.id);
+          markSourceMessageConsumed();
           dispatch(clearWorkflowProposalForThread({ threadId }));
           onSaved?.();
           return;
@@ -121,6 +140,7 @@ export const WorkflowProposalCard: React.FC<Props> = ({ threadId, proposal, onSa
         setSavedFlowId(flow.id);
       }
       await setFlowEnabled(flowId, true);
+      markSourceMessageConsumed();
       dispatch(clearWorkflowProposalForThread({ threadId }));
       onSaved?.();
     } catch (e) {

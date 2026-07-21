@@ -332,7 +332,10 @@ pub trait Connector: Send + Sync {
 /// `dist/serve` entry pointed at a unix socket, drains stderr, and connects.
 pub struct NodeServeConnector {
     node_bootstrap: Arc<crate::openhuman::runtime_node::NodeBootstrap>,
-    serve_entry: PathBuf,
+    /// `None` when neither `subconscious.medulla_local.serve_entry` nor the
+    /// `OPENHUMAN_MEDULLA_SERVE_ENTRY` env override is set; `connect` then bails
+    /// with an actionable message rather than probing a bogus path.
+    serve_entry: Option<PathBuf>,
     socket_path: PathBuf,
     host_identity: String,
 }
@@ -340,7 +343,7 @@ pub struct NodeServeConnector {
 impl NodeServeConnector {
     pub fn new(
         node_bootstrap: Arc<crate::openhuman::runtime_node::NodeBootstrap>,
-        serve_entry: PathBuf,
+        serve_entry: Option<PathBuf>,
         socket_path: PathBuf,
         host_identity: String,
     ) -> Self {
@@ -356,10 +359,18 @@ impl NodeServeConnector {
 #[async_trait]
 impl Connector for NodeServeConnector {
     async fn connect(&self, ports: Arc<dyn HostPorts>) -> Result<Connection> {
-        if !self.serve_entry.is_file() {
+        let serve_entry = self.serve_entry.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "medulla serve entry not configured: set subconscious.medulla_local.serve_entry \
+                 or the OPENHUMAN_MEDULLA_SERVE_ENTRY env var to medulla-v1's built \
+                 `dist/serve/index.js`"
+            )
+        })?;
+        if !serve_entry.is_file() {
             bail!(
-                "medulla serve entry not found: {} (build medulla-v1 `dist/serve` or set subconscious.medulla_local.serve_entry)",
-                self.serve_entry.display()
+                "medulla serve entry not found: {} (build medulla-v1 `dist/serve` or set \
+                 subconscious.medulla_local.serve_entry / OPENHUMAN_MEDULLA_SERVE_ENTRY)",
+                serve_entry.display()
             );
         }
         let node = self
@@ -380,13 +391,13 @@ impl Connector for NodeServeConnector {
 
         info!(
             node = %node.node_bin.display(),
-            entry = %self.serve_entry.display(),
+            entry = %serve_entry.display(),
             socket = %self.socket_path.display(),
             "[medulla_local] spawning serve child"
         );
         let mut command = tokio::process::Command::new(&node.node_bin);
         command
-            .arg(&self.serve_entry)
+            .arg(serve_entry)
             .arg("--socket")
             .arg(&self.socket_path)
             .env("PATH", prepend_path(&node.bin_dir))

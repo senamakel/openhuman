@@ -34,36 +34,49 @@ impl SubconsciousEngine {
 }
 
 /// Settings for the supervised local `medulla-serve` child.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct MedullaLocalConfig {
     /// Path to medulla-v1's built serve entry (`dist/serve/index.js`). Empty
-    /// resolves to the in-repo dev default via [`Self::resolved_serve_entry`].
+    /// falls back to the `OPENHUMAN_MEDULLA_SERVE_ENTRY` environment override;
+    /// with neither set the medulla engine reports its serve entry as
+    /// unconfigured (see [`Self::resolved_serve_entry`]).
     #[serde(default)]
     pub serve_entry: String,
 }
 
-/// The in-repo dev default for the serve entry — resolvable on a developer
-/// checkout of the umbrella workspace. Shipping builds set an explicit path.
-const DEV_SERVE_ENTRY: &str =
-    "/Users/enamakel/work/tinyhumansai/workflow-medulla/medulla-v1/dist/serve/index.js";
-
-impl Default for MedullaLocalConfig {
-    fn default() -> Self {
-        Self {
-            serve_entry: String::new(),
-        }
-    }
-}
+/// Environment override for the serve entry when `serve_entry` is left unset.
+///
+/// There is no portable compiled-in default: medulla-v1's built `dist/serve`
+/// lives outside this repo, so its location is deployment-specific. A developer
+/// pointing at their umbrella checkout sets this env var (or the config field)
+/// rather than relying on a machine-local path baked into the binary.
+const SERVE_ENTRY_ENV: &str = "OPENHUMAN_MEDULLA_SERVE_ENTRY";
 
 impl MedullaLocalConfig {
-    /// The configured serve entry, falling back to the dev default when unset.
-    pub fn resolved_serve_entry(&self) -> std::path::PathBuf {
-        let trimmed = self.serve_entry.trim();
-        if trimmed.is_empty() {
-            std::path::PathBuf::from(DEV_SERVE_ENTRY)
+    /// The resolved serve entry, or `None` when it is unconfigured.
+    ///
+    /// Precedence: the explicit `serve_entry` config value, then the
+    /// `OPENHUMAN_MEDULLA_SERVE_ENTRY` environment override. When neither is
+    /// set this returns `None` — the medulla engine then reports the serve
+    /// entry as unconfigured instead of pointing at a machine-local path.
+    pub fn resolved_serve_entry(&self) -> Option<std::path::PathBuf> {
+        Self::resolve_entry(&self.serve_entry, std::env::var(SERVE_ENTRY_ENV).ok())
+    }
+
+    /// Pure resolver shared by [`Self::resolved_serve_entry`], factored out so
+    /// the precedence rules are testable without mutating process env.
+    fn resolve_entry(configured: &str, env_override: Option<String>) -> Option<std::path::PathBuf> {
+        let trimmed = configured.trim();
+        if !trimmed.is_empty() {
+            return Some(std::path::PathBuf::from(trimmed));
+        }
+        let env = env_override?;
+        let env = env.trim();
+        if env.is_empty() {
+            None
         } else {
-            std::path::PathBuf::from(trimmed)
+            Some(std::path::PathBuf::from(env))
         }
     }
 }
@@ -112,17 +125,39 @@ mod tests {
     }
 
     #[test]
-    fn serve_entry_falls_back_to_dev_default() {
-        let empty = MedullaLocalConfig::default();
-        assert!(empty
-            .resolved_serve_entry()
-            .ends_with("dist/serve/index.js"));
-        let custom = MedullaLocalConfig {
-            serve_entry: "/tmp/serve.js".to_string(),
-        };
+    fn explicit_serve_entry_wins_over_env() {
+        // An explicit config value is used verbatim, ignoring any env override.
         assert_eq!(
-            custom.resolved_serve_entry(),
-            std::path::PathBuf::from("/tmp/serve.js")
+            MedullaLocalConfig::resolve_entry("/tmp/serve.js", Some("/env/serve.js".to_string())),
+            Some(std::path::PathBuf::from("/tmp/serve.js"))
+        );
+        // Surrounding whitespace is trimmed.
+        assert_eq!(
+            MedullaLocalConfig::resolve_entry("  /tmp/serve.js  ", None),
+            Some(std::path::PathBuf::from("/tmp/serve.js"))
+        );
+    }
+
+    #[test]
+    fn serve_entry_falls_back_to_env_override() {
+        assert_eq!(
+            MedullaLocalConfig::resolve_entry("", Some("/env/serve.js".to_string())),
+            Some(std::path::PathBuf::from("/env/serve.js"))
+        );
+        assert_eq!(
+            MedullaLocalConfig::resolve_entry("   ", Some("  /env/serve.js  ".to_string())),
+            Some(std::path::PathBuf::from("/env/serve.js"))
+        );
+    }
+
+    #[test]
+    fn serve_entry_unconfigured_resolves_to_none() {
+        // No machine-local default is baked in: unset config + unset (or blank)
+        // env resolves to None so the engine reports it unconfigured.
+        assert_eq!(MedullaLocalConfig::resolve_entry("", None), None);
+        assert_eq!(
+            MedullaLocalConfig::resolve_entry("", Some("   ".to_string())),
+            None
         );
     }
 }

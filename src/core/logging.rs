@@ -319,6 +319,87 @@ pub fn init_for_embedded(data_dir: &Path, verbose: bool) {
     });
 }
 
+/// Initialize logging for the terminal chat UI (`openhuman tui` / `chat`).
+///
+/// **File-only, never stderr.** The TUI owns the whole terminal (alternate
+/// screen + raw mode); a single `tracing`/`log` line written to stdout or
+/// stderr would corrupt the rendered UI. So — unlike [`init_for_cli_run`]
+/// (stderr) and [`init_for_embedded`] (stderr + file) — this installs **only**
+/// a daily-rotated file appender at `<data_dir>/logs/openhuman-YYYY-MM-DD.log`
+/// plus the Sentry layer (which keeps no console handle). Core boot logs and
+/// the `[tui]` state-transition logs land in that file for post-mortem
+/// debugging without ever touching the screen.
+///
+/// Idempotent (`Once`-guarded, shared with the other init entry points). If a
+/// subscriber was somehow already installed, this is a no-op and logging keeps
+/// whatever destination the first caller chose — still never stderr from *this*
+/// path. Returns the resolved log directory on success (for a status line), or
+/// `None` when the file appender could not be created.
+pub fn init_for_tui(data_dir: &Path, verbose: bool) -> Option<PathBuf> {
+    INIT.call_once(|| {
+        let scope = CliLogDefault::Global;
+        seed_rust_log(verbose, scope);
+        let filter = build_env_filter(verbose, scope);
+
+        let logs_dir = data_dir.join("logs");
+        let pending_file: Option<(_, tracing_appender::non_blocking::WorkerGuard, PathBuf)> =
+            match std::fs::create_dir_all(&logs_dir) {
+                Ok(()) => match tracing_appender::rolling::Builder::new()
+                    .rotation(tracing_appender::rolling::Rotation::DAILY)
+                    .filename_prefix("openhuman")
+                    .filename_suffix("log")
+                    .max_log_files(7)
+                    .build(&logs_dir)
+                {
+                    Ok(appender) => {
+                        let (writer, guard) = tracing_appender::non_blocking(appender);
+                        Some((writer, guard, logs_dir.clone()))
+                    }
+                    Err(err) => {
+                        // No tracing subscriber yet, but we deliberately do NOT
+                        // eprintln! here (the TUI is about to take the terminal).
+                        // Losing this one diagnostic is the correct trade.
+                        let _ = err;
+                        None
+                    }
+                },
+                Err(_) => None,
+            };
+
+        let file_layer = pending_file.as_ref().map(|(writer, _, _)| {
+            let constraints = parse_log_file_constraints();
+            tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .event_format(CleanCliFormat)
+                .with_writer(writer.clone())
+                .with_filter(tracing_subscriber::filter::filter_fn(move |meta| {
+                    event_matches_file_constraints(meta, &constraints)
+                }))
+        });
+
+        // NOTE: no stderr layer here — that is the whole point of this entry
+        // point. Only the file layer + Sentry are attached.
+        if tracing_subscriber::registry()
+            .with(filter)
+            .with(file_layer)
+            .with(sentry_tracing_layer())
+            .try_init()
+            .is_ok()
+        {
+            if let Some((_, guard, dir)) = pending_file {
+                if let Ok(mut slot) = FILE_GUARD.lock() {
+                    *slot = Some(guard);
+                }
+                let _ = LOG_DIR.set(dir);
+            }
+        }
+
+        let _ = tracing_log::LogTracer::init();
+    });
+
+    log_directory().map(Path::to_path_buf)
+}
+
 /// Path to the active log directory (set by [`init_for_embedded`]). Returns
 /// `None` if logging hasn't been initialized in embedded mode (e.g. bare
 /// CLI runs).

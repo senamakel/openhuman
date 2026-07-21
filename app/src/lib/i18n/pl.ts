@@ -583,7 +583,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Coś poszło nie tak. Spróbuj ponownie.',
   'brain.tabs.sources': 'Źródła',
   'brain.tabs.sync': 'Synchronizacja',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orkiestracja',
   'tinyplaceOrchestration.title': 'Przekaźnik TinyPlace',
   'tinyplaceOrchestration.subtitle': 'Przypięte kanały agentów i czaty sesji aplikacji',
   'tinyplaceOrchestration.refresh': 'Odśwież',

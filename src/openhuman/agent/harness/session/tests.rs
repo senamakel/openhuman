@@ -1342,6 +1342,171 @@ fn bound_cached_transcript_messages_snaps_past_leading_orphan_tool() {
     );
 }
 
+/// Cold-boot web-chat resume must prefer the full-fidelity `session_raw`
+/// transcript over lossy conversation-log prose. This is the regression for the
+/// "model forgets its tool interactions after an app restart" bug: once the
+/// in-memory agent is dropped and a fresh agent cold-boots for the same thread,
+/// the resumed context must still carry the tool call, the tool-role result, and
+/// the reasoning that prose seeding (`seed_resume_from_messages`) discards.
+#[test]
+fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
+    use super::transcript::{self, MessageUsage, TranscriptMeta, TurnUsage};
+    use crate::openhuman::inference::provider::{ChatMessage, ToolCall};
+
+    let ws = tempfile::TempDir::new().expect("temp workspace");
+    let wsp = ws.path().to_path_buf();
+    let thread_id = "thr_resume_fidelity";
+
+    // ── Simulate a prior session persisted to session_raw carrying a tool
+    // call + reasoning on the tool-calling assistant turn and a tool-role
+    // result — exactly the fidelity the prose fallback drops. ──
+    let mut assistant_toolcall = ChatMessage::assistant("Let me look that up.");
+    transcript::attach_turn_usage_metadata(
+        &mut assistant_toolcall,
+        &TurnUsage {
+            provider: "openai".to_string(),
+            model: "gpt-x".to_string(),
+            usage: MessageUsage {
+                input: 10,
+                output: 5,
+                cached_input: 0,
+                context_window: 0,
+                cost_usd: 0.0,
+            },
+            ts: "2026-01-01T00:00:00Z".to_string(),
+            reasoning_content: Some("I should search the web for the price.".to_string()),
+            tool_calls: vec![ToolCall {
+                id: "call_1".to_string(),
+                name: "web_search".to_string(),
+                arguments: r#"{"query":"btc price"}"#.to_string(),
+                extra_content: None,
+            }],
+            iteration: 1,
+        },
+    );
+
+    let messages = vec![
+        ChatMessage::system("system prompt"),
+        ChatMessage::user("what is btc price"),
+        assistant_toolcall,
+        ChatMessage::tool(r#"{"tool_call_id":"call_1","content":"$80,000"}"#),
+        ChatMessage::assistant("BTC is around $80,000."),
+    ];
+    let meta = TranscriptMeta {
+        agent_name: "orchestrator_thread-resume".to_string(),
+        agent_id: Some("orchestrator".to_string()),
+        agent_type: Some("root".to_string()),
+        dispatcher: "native".to_string(),
+        provider: None,
+        model: None,
+        created: "2026-01-01T00:00:00Z".to_string(),
+        updated: "2026-01-01T00:00:00Z".to_string(),
+        turn_count: 1,
+        input_tokens: 10,
+        output_tokens: 5,
+        cached_input_tokens: 0,
+        charged_amount_usd: 0.0,
+        thread_id: Some(thread_id.to_string()),
+        task_id: None,
+    };
+    // Root stem: no `__`, so `find_root_transcript_for_thread` accepts it.
+    let path = transcript::resolve_keyed_transcript_path(&wsp, "1700000000_orchestrator")
+        .expect("resolve transcript path");
+    transcript::write_transcript(&path, &messages, &meta, None).expect("write transcript");
+
+    // ── Cold boot: a brand-new agent for the same thread whose agent
+    // definition name deliberately does NOT match the transcript stem — the
+    // resume must route purely by thread id, not by agent name. ──
+    let memory_cfg = crate::openhuman::config::MemoryConfig {
+        backend: "none".into(),
+        ..crate::openhuman::config::MemoryConfig::default()
+    };
+    let mem: Arc<dyn Memory> =
+        Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &wsp).unwrap());
+    let mut agent = Agent::builder()
+        .provider(Box::new(MockProvider {
+            responses: Mutex::new(vec![]),
+        }))
+        .tools(vec![Box::new(MockTool)])
+        .memory(mem)
+        .tool_dispatcher(Box::new(NativeToolDispatcher))
+        .agent_definition_name("some_other_agent_name")
+        .workspace_dir(wsp.clone())
+        .build()
+        .expect("agent build should succeed");
+
+    let loaded = agent.seed_resume_from_thread_transcript(thread_id);
+    assert!(
+        loaded,
+        "cold-boot resume must load the thread's root transcript"
+    );
+
+    let cached = agent
+        .cached_transcript_messages
+        .as_ref()
+        .expect("cached transcript populated");
+
+    // The tool-role result must survive — prose seeding would have dropped it.
+    assert!(
+        cached.iter().any(|m| m.role == "tool"),
+        "resumed context must include the tool-role result message"
+    );
+
+    // The assistant tool call + reasoning survive, carried in metadata.
+    let tool_call_carrier = cached
+        .iter()
+        .find(|m| {
+            m.role == "assistant"
+                && m.extra_metadata
+                    .as_ref()
+                    .and_then(|v| v.get("openhuman_turn_usage"))
+                    .is_some()
+        })
+        .expect("resumed context must include the assistant tool-call turn");
+    let usage_value = tool_call_carrier
+        .extra_metadata
+        .as_ref()
+        .and_then(|v| v.get("openhuman_turn_usage"))
+        .cloned()
+        .expect("turn usage metadata present");
+    let parsed: TurnUsage = serde_json::from_value(usage_value).expect("turn usage deserializes");
+    assert!(
+        parsed.tool_calls.iter().any(|c| c.name == "web_search"),
+        "the persisted tool call must round-trip into the resumed context"
+    );
+    assert_eq!(
+        parsed.reasoning_content.as_deref(),
+        Some("I should search the web for the price."),
+        "reasoning content must be preserved on resume"
+    );
+}
+
+/// When no root transcript exists for the thread, the transcript resume is a
+/// no-op returning `false` so the caller falls back to prose-pair seeding.
+#[test]
+fn seed_resume_from_thread_transcript_returns_false_without_transcript() {
+    let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
+    assert!(!agent.seed_resume_from_thread_transcript("thr_missing"));
+    assert!(agent.cached_transcript_messages.is_none());
+}
+
+/// Transcript resume must not stomp an already-warm agent (in-process session
+/// cache hit) — mirrors the `seed_resume_from_messages` warm-agent guard.
+#[test]
+fn seed_resume_from_thread_transcript_is_noop_on_warm_agent() {
+    let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
+    agent.cached_transcript_messages = Some(vec![
+        crate::openhuman::inference::provider::ChatMessage::system("warm prefix"),
+    ]);
+    assert!(!agent.seed_resume_from_thread_transcript("thr_x"));
+    let cached = agent
+        .cached_transcript_messages
+        .as_ref()
+        .expect("still populated");
+    assert_eq!(cached.len(), 1);
+    assert_eq!(cached[0].content, "warm prefix");
+}
+
 /// `hide_tools` on an agent that already has a visible-tool filter must drop
 /// only the named tools and leave the rest of the belt intact.
 #[test]

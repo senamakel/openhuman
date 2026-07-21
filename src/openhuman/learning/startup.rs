@@ -32,6 +32,8 @@ use crate::core::event_bus::SubscriptionHandle;
 use crate::openhuman::memory::global::client_if_ready;
 use crate::openhuman::memory_store::MemoryClientRef;
 
+static EMAIL_SIG_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
+
 /// Register the always-on learning subscribers on the global event bus.
 ///
 /// Idempotent for any caller: every subscription is guarded by a process-wide
@@ -46,10 +48,26 @@ pub fn register_learning_subscribers(workspace_dir: std::path::PathBuf) {
     // Phase 2 learning producer: email-signature subscriber reacts to
     // DocumentCanonicalized events and emits Identity candidates into the
     // buffer. Needs no memory client, so it always registers.
-    static EMAIL_SIG_HANDLE: OnceLock<Option<SubscriptionHandle>> = OnceLock::new();
-    EMAIL_SIG_HANDLE.get_or_init(|| {
-        let handle =
-            crate::openhuman::learning::extract::signature::register_email_signature_subscriber();
+    register_email_signature_once(&EMAIL_SIG_HANDLE, || {
+        crate::openhuman::learning::extract::signature::register_email_signature_subscriber()
+    });
+
+    // Phase 3 + Phase 4 learning: rebuild trigger + periodic loop + the
+    // ProfileMdRenderer. All three need the global memory client. The
+    // client-dependent work is split into `register_with_client` so both the
+    // ready and not-ready arms are unit-testable without touching process
+    // globals.
+    static CLIENT_HANDLES: OnceLock<(Option<SubscriptionHandle>, Option<SubscriptionHandle>)> =
+        OnceLock::new();
+    CLIENT_HANDLES.get_or_init(|| register_with_client(client_if_ready(), &workspace_dir));
+}
+
+fn register_email_signature_once<F>(handle_cell: &OnceLock<Option<SubscriptionHandle>>, register: F)
+where
+    F: FnOnce() -> Option<SubscriptionHandle>,
+{
+    handle_cell.get_or_init(|| {
+        let handle = register();
         if handle.is_some() {
             tracing::info!(
                 "[learning] email-signature subscriber registered (channel-independent boot path)"
@@ -61,15 +79,6 @@ pub fn register_learning_subscribers(workspace_dir: std::path::PathBuf) {
         }
         handle
     });
-
-    // Phase 3 + Phase 4 learning: rebuild trigger + periodic loop + the
-    // ProfileMdRenderer. All three need the global memory client. The
-    // client-dependent work is split into `register_with_client` so both the
-    // ready and not-ready arms are unit-testable without touching process
-    // globals.
-    static CLIENT_HANDLES: OnceLock<(Option<SubscriptionHandle>, Option<SubscriptionHandle>)> =
-        OnceLock::new();
-    CLIENT_HANDLES.get_or_init(|| register_with_client(client_if_ready(), &workspace_dir));
 }
 
 /// Register the client-dependent learning subscribers.
@@ -157,11 +166,12 @@ fn register_with_client(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::event_bus::{init_global, publish_global, DomainEvent, DEFAULT_CAPACITY};
-    use crate::openhuman::learning::candidate::{self, EvidenceRef};
-    use crate::openhuman::learning::extract::signature::parse_signature;
+    use crate::core::event_bus::{DomainEvent, EventBus};
+    use crate::openhuman::learning::candidate::Buffer;
+    use crate::openhuman::learning::extract::signature::{
+        parse_signature, register_email_signature_subscriber_on,
+    };
     use crate::openhuman::memory_store::MemoryClient;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
     use tempfile::TempDir;
@@ -177,18 +187,6 @@ mod tests {
         (tmp, client)
     }
 
-    /// Process-unique email source id so buffer assertions never collide with
-    /// candidates pushed by other tests running in parallel against the shared
-    /// global buffer.
-    fn unique_source_id(tag: &str) -> String {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        format!(
-            "gmail:5003-{tag}-{}-{}",
-            std::process::id(),
-            COUNTER.fetch_add(1, Ordering::Relaxed)
-        )
-    }
-
     /// A body whose trailing lines form a clear email signature — yields several
     /// Identity candidates (name/role/timezone/employer).
     fn signature_body() -> String {
@@ -202,50 +200,33 @@ mod tests {
         .to_string()
     }
 
-    fn publish_email_doc(source_id: &str, body: &str) {
-        publish_global(DomainEvent::DocumentCanonicalized {
+    fn email_doc(source_id: &str, body: &str) -> DomainEvent {
+        DomainEvent::DocumentCanonicalized {
             source_id: source_id.to_string(),
             source_kind: "email".to_string(),
             chunks_written: 1,
             chunk_ids: vec![format!("{source_id}-c1")],
             canonicalized_at: 0.0,
             body_preview: Some(body.to_string()),
-        });
+        }
     }
 
-    /// Count candidates in the global buffer whose evidence points at
-    /// `source_id`. Isolates this test's assertions from concurrent producers.
-    fn candidates_for(source_id: &str) -> usize {
-        candidate::global()
-            .peek()
-            .iter()
-            .filter(|c| {
-                matches!(
-                    &c.evidence,
-                    EvidenceRef::EmailMessage { source_id: sid, .. } if sid == source_id
-                )
-            })
-            .count()
-    }
-
-    /// Poll the global buffer until at least `expected` candidates for
-    /// `source_id` appear (async bus delivery), then settle briefly and return
-    /// the final count so an accidental double-registration would surface.
-    async fn wait_for_candidates(source_id: &str, expected: usize) -> usize {
-        for _ in 0..200 {
-            if candidates_for(source_id) >= expected {
+    /// Poll an isolated buffer until at least `expected` candidates appear,
+    /// then settle briefly so an accidental duplicate subscription surfaces.
+    async fn wait_for_candidates(buffer: &Buffer, expected: usize) -> usize {
+        for _ in 0..50 {
+            if buffer.len() >= expected {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        // Settle: let any (unexpected) duplicate subscriber also deliver.
-        tokio::time::sleep(Duration::from_millis(40)).await;
-        candidates_for(source_id)
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        buffer.len()
     }
 
     #[tokio::test]
     async fn register_with_client_registers_both_handles_when_ready() {
-        init_global(DEFAULT_CAPACITY);
+        crate::core::event_bus::init_global(crate::core::event_bus::DEFAULT_CAPACITY);
         let (tmp, client) = test_client();
         let (trigger, renderer) = register_with_client(Some(client), tmp.path());
         assert!(
@@ -271,67 +252,49 @@ mod tests {
 
     #[tokio::test]
     async fn learning_subscriber_fires_with_no_channel_configured() {
-        init_global(DEFAULT_CAPACITY);
-        let (tmp, _client) = test_client();
-        // Make the memory client ready so the full Platform wiring runs — no
-        // channel runtime is ever constructed in this test.
-        let _ = crate::openhuman::memory::global::init(tmp.path().join("workspace"));
-        register_learning_subscribers(tmp.path().to_path_buf());
+        let bus = EventBus::create(16);
+        let buffer: &'static Buffer = Box::leak(Box::new(Buffer::new(16)));
+        let handle_cell = OnceLock::new();
+        register_email_signature_once(&handle_cell, || {
+            Some(register_email_signature_subscriber_on(&bus, buffer))
+        });
 
-        let source_id = unique_source_id("e2e");
+        let source_id = "gmail:5003-e2e";
         let body = signature_body();
-        let expected = parse_signature(&body, &source_id, &source_id).len();
+        let expected = parse_signature(&body, source_id, source_id).len();
         assert!(
             expected > 0,
             "signature body must yield at least one identity candidate"
         );
 
-        // The email-signature subscriber lives on the process-wide *global*
-        // event bus and pushes into the shared, bounded `candidate::global()`
-        // ring. Under the full-suite coverage run (thousands of tests in one
-        // process — the module filter widened when this tree stopped touching
-        // only `learning/`), that global bus is under heavy concurrent load: a
-        // single published event can be dropped to tokio broadcast lag, or its
-        // candidates evicted from the 1024-entry ring before we read them. That
-        // made the original single-publish assertion flaky (it passes in
-        // isolation but fails deterministically in busy CI). Re-publish on every
-        // poll tick until *this* source's candidates land. The subscriber is
-        // idempotent per event and we filter by our unique `source_id`, so this
-        // only ever proves the subscriber *fires* — it can never mask a missing
-        // one (a never-registered subscriber yields 0 forever and still fails).
-        let mut got = 0;
-        for _ in 0..200 {
-            publish_email_doc(&source_id, &body);
-            tokio::time::sleep(Duration::from_millis(20)).await;
-            got = candidates_for(&source_id);
-            if got >= expected {
-                break;
-            }
-        }
-        assert!(
-            got >= expected,
+        bus.publish(email_doc(source_id, &body));
+        let got = wait_for_candidates(buffer, expected).await;
+        assert_eq!(
+            got, expected,
             "email-signature subscriber must push the parsed identity candidates \
-             with no channel configured anywhere (#5003); got {got}, expected >= {expected}"
+             with no channel configured anywhere (#5003)"
         );
     }
 
     #[tokio::test]
     async fn register_learning_subscribers_is_idempotent() {
-        init_global(DEFAULT_CAPACITY);
-        let tmp = TempDir::new().expect("tempdir");
-        let _ = crate::openhuman::memory::global::init(tmp.path().join("workspace"));
-        // Call twice — the process-wide OnceLock guards must keep exactly one
-        // email-signature subscriber alive, so a single event is handled once.
-        register_learning_subscribers(tmp.path().to_path_buf());
-        register_learning_subscribers(tmp.path().to_path_buf());
+        let bus = EventBus::create(16);
+        let buffer: &'static Buffer = Box::leak(Box::new(Buffer::new(16)));
+        let handle_cell = OnceLock::new();
+        register_email_signature_once(&handle_cell, || {
+            Some(register_email_signature_subscriber_on(&bus, buffer))
+        });
+        register_email_signature_once(&handle_cell, || {
+            Some(register_email_signature_subscriber_on(&bus, buffer))
+        });
 
-        let source_id = unique_source_id("idem");
+        let source_id = "gmail:5003-idem";
         let body = signature_body();
-        let expected = parse_signature(&body, &source_id, &source_id).len();
+        let expected = parse_signature(&body, source_id, source_id).len();
         assert!(expected > 0);
 
-        publish_email_doc(&source_id, &body);
-        let got = wait_for_candidates(&source_id, expected).await;
+        bus.publish(email_doc(source_id, &body));
+        let got = wait_for_candidates(buffer, expected).await;
         assert_eq!(
             got, expected,
             "double registration must not double the pushed candidates (#5003 idempotency)"

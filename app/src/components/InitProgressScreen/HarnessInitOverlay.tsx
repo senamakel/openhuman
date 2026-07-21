@@ -25,6 +25,30 @@ const UNKEYED_RUN = 'pending';
 
 let dismissedRunMirror: string | null = null;
 
+// Coalesce overlapping status polls onto a single in-flight request. React
+// StrictMode double-mounts this overlay in dev (effect → cleanup → effect),
+// and each setup fires an immediate poll — without this that boots two
+// `harness_init_status` RPCs at the same instant. Concurrent callers share the
+// in-flight promise; it clears once settled, so the ongoing (sequential) poll
+// loop is unaffected. Also guards any genuine remount during the boot window.
+let inflightStatusFetch: Promise<HarnessInitSnapshot | null> | null = null;
+
+function fetchHarnessInitStatusCoalesced(): Promise<HarnessInitSnapshot | null> {
+  if (inflightStatusFetch) {
+    log('status poll: joining in-flight request (coalesced)');
+    return inflightStatusFetch;
+  }
+  log('status poll: dispatching harness_init_status');
+  const pending = fetchHarnessInitStatus().finally(() => {
+    if (inflightStatusFetch === pending) {
+      inflightStatusFetch = null;
+      log('status poll: in-flight request settled, cache cleared');
+    }
+  });
+  inflightStatusFetch = pending;
+  return pending;
+}
+
 function runKey(snapshot: HarnessInitSnapshot | null): string {
   return snapshot?.startedAt ?? UNKEYED_RUN;
 }
@@ -85,7 +109,7 @@ export default function HarnessInitOverlay() {
 
     const poll = async () => {
       try {
-        const next = await fetchHarnessInitStatus();
+        const next = await fetchHarnessInitStatusCoalesced();
         if (cancelledRef.current || dismissedRef.current) {
           return;
         }

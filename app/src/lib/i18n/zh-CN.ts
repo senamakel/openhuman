@@ -536,7 +536,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': '出了点问题。请重试。',
   'brain.tabs.sources': '来源',
   'brain.tabs.sync': '同步',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': '编排',
   'tinyplaceOrchestration.title': 'TinyPlace 中继',
   'tinyplaceOrchestration.subtitle': '固定的代理频道和应用会话聊天',
   'tinyplaceOrchestration.refresh': '刷新',

@@ -179,8 +179,8 @@ export function settingsRouteElements(): ReactNode {
         element={<Navigate to="/connections?tab=llm#agent-chat" replace />}
       />
       <Route path="cron-jobs" element={wrapSettingsPage(<CronJobsPanel />)} />
-      {/* Tasks now live on the Orchestration page's Kanban board. */}
-      <Route path="tasks" element={<Navigate to="/orchestration?tab=tasks" replace />} />
+      {/* Tasks now live on Brain's Orchestration Kanban board. */}
+      <Route path="tasks" element={<Navigate to="/brain?tab=orchestration&ov=tasks" replace />} />
       {/* Workflows is a first-level module now — /settings/automations bounces
           to /flows (the Workflows page). */}
       <Route path="automations" element={<Navigate to="/flows" replace />} />

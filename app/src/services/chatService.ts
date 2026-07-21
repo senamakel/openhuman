@@ -17,6 +17,8 @@ const chatLog = debug('realtime:chat');
 export interface ChatToolCallEvent {
   thread_id: string;
   request_id?: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   tool_name: string;
   skill_id: string;
   args: Record<string, unknown>;
@@ -42,6 +44,8 @@ export interface ChatToolCallEvent {
 export interface ChatToolResultEvent {
   thread_id: string;
   request_id?: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   tool_name: string;
   skill_id: string;
   output: string;
@@ -85,6 +89,8 @@ export interface TurnUsageWire {
 export interface ChatDoneEvent {
   thread_id: string;
   request_id?: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   full_response: string;
   rounds_used: number;
   /**
@@ -126,6 +132,8 @@ export interface ChatSegmentEvent {
    */
   full_response: string;
   request_id: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   segment_index: number;
   segment_total: number;
   reaction_emoji?: string | null;
@@ -147,6 +155,8 @@ export function segmentText(event: ChatSegmentEvent): string {
 export interface ChatInterimEvent {
   thread_id: string;
   request_id: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   /** Wire name is `full_response`; carries only this round's narration text. */
   full_response: string;
   round: number;
@@ -463,6 +473,8 @@ export interface ChatSubagentToolResultEvent {
 export interface ChatSubagentTextDeltaEvent {
   thread_id: string;
   request_id: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   /** Parent iteration index (inherited from the parent context). */
   round: number;
   /** Text fragment from the sub-agent. */
@@ -478,6 +490,8 @@ export interface ChatSubagentTextDeltaEvent {
 export interface ChatSubagentThinkingDeltaEvent {
   thread_id: string;
   request_id: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   round: number;
   delta: string;
   subagent?: SubagentProgressDetail;
@@ -491,6 +505,8 @@ export interface ChatSubagentThinkingDeltaEvent {
 export interface ChatTextDeltaEvent {
   thread_id: string;
   request_id: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   /** 1-based iteration index the chunk belongs to. */
   round: number;
   /** Text fragment; may be a single token or a few characters. */
@@ -506,6 +522,8 @@ export interface ChatTextDeltaEvent {
 export interface ChatThinkingDeltaEvent {
   thread_id: string;
   request_id: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   round: number;
   delta: string;
 }
@@ -519,6 +537,8 @@ export interface ChatThinkingDeltaEvent {
 export interface ChatToolArgsDeltaEvent {
   thread_id: string;
   request_id: string;
+  /** Per-request monotonic ordering key stamped by the core progress bridge. */
+  seq?: number;
   round: number;
   tool_call_id: string;
   tool_name: string;

@@ -82,6 +82,27 @@ describe('HarnessInitOverlay', () => {
     expect(second.container).toBeEmptyDOMElement();
   });
 
+  it('coalesces overlapping status polls into one RPC (StrictMode double-mount)', async () => {
+    // Hold the fetch pending so both mounts' immediate polls overlap.
+    let resolveFetch: (snap: HarnessInitSnapshot) => void = () => {};
+    fetchHarnessInitStatus.mockImplementation(
+      () =>
+        new Promise<HarnessInitSnapshot>(resolve => {
+          resolveFetch = resolve;
+        })
+    );
+
+    // Two concurrent overlays stand in for the effect→cleanup→effect double-mount.
+    renderWithProviders(<HarnessInitOverlay />);
+    renderWithProviders(<HarnessInitOverlay />);
+
+    // Both immediate polls should share a single in-flight request.
+    expect(fetchHarnessInitStatus).toHaveBeenCalledTimes(1);
+
+    resolveFetch(snapshot({ overall: 'done', startedAt: 'warm-run' }));
+    await waitFor(() => expect(screen.queryByText('Run in background')).not.toBeInTheDocument());
+  });
+
   it('reopens for a genuinely new provisioning run after a prior dismissal', async () => {
     // Dismiss the first run.
     fetchHarnessInitStatus.mockResolvedValue(snapshot({ startedAt: 'run-1' }));

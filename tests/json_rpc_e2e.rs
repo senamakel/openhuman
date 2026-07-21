@@ -6075,6 +6075,34 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
         "expected runtime.service object: {runtime}"
     );
 
+    // Component health is folded into this snapshot so the frontend hydrates the
+    // daemon-health store from the same poll (no separate health_snapshot poll).
+    // Its fields stay snake_case (the core HealthSnapshot type has no camelCase
+    // rename), matching the frontend health parser.
+    let health = body.get("health").expect("expected health object");
+    assert!(
+        health.get("pid").and_then(Value::as_u64).is_some(),
+        "expected health.pid: {health}"
+    );
+    assert!(
+        health.get("updated_at").and_then(Value::as_str).is_some(),
+        "expected health.updated_at (snake_case): {health}"
+    );
+    assert!(
+        health
+            .get("uptime_seconds")
+            .and_then(Value::as_u64)
+            .is_some(),
+        "expected health.uptime_seconds (snake_case): {health}"
+    );
+    assert!(
+        health
+            .get("components")
+            .and_then(Value::as_object)
+            .is_some(),
+        "expected health.components object: {health}"
+    );
+
     mock_join.abort();
     rpc_join.abort();
 }

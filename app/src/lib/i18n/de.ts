@@ -598,7 +598,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
   'brain.tabs.sources': 'Quellen',
   'brain.tabs.sync': 'Synchronisierung',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'Orchestrierung',
   'tinyplaceOrchestration.title': 'TinyPlace-Relay',
   'tinyplaceOrchestration.subtitle': 'Angepinnte Agentenkanäle und App-Sitzungs-Chats',
   'tinyplaceOrchestration.refresh': 'Aktualisieren',

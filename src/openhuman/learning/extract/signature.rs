@@ -24,7 +24,7 @@ use async_trait::async_trait;
 
 use crate::core::event_bus::{subscribe_global, DomainEvent, EventHandler, SubscriptionHandle};
 use crate::openhuman::learning::candidate::{
-    self, CueFamily, EvidenceRef, FacetClass, LearningCandidate,
+    self, Buffer, CueFamily, EvidenceRef, FacetClass, LearningCandidate,
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -463,8 +463,16 @@ fn now_secs() -> f64 {
 // ── Subscriber ───────────────────────────────────────────────────────────────
 
 /// Event subscriber that reacts to `DocumentCanonicalized` events for email
-/// sources and routes detected identity candidates into the global buffer.
-pub struct EmailSignatureSubscriber;
+/// sources and routes detected identity candidates into its configured buffer.
+pub struct EmailSignatureSubscriber {
+    buffer: &'static Buffer,
+}
+
+impl EmailSignatureSubscriber {
+    fn new(buffer: &'static Buffer) -> Self {
+        Self { buffer }
+    }
+}
 
 #[async_trait]
 impl EventHandler for EmailSignatureSubscriber {
@@ -516,9 +524,8 @@ impl EventHandler for EmailSignatureSubscriber {
 
             let candidates = parse_signature(body, source_id, &message_id);
             let count = candidates.len();
-            let buf = candidate::global();
             for c in candidates {
-                buf.push(c);
+                self.buffer.push(c);
             }
             tracing::debug!(
                 "[learning::extract::signature] pushed {} identity candidate(s) for source_id={}",
@@ -535,7 +542,16 @@ impl EventHandler for EmailSignatureSubscriber {
 /// The returned handle keeps the subscription alive — store it in a long-lived
 /// container (e.g. alongside other `SubscriptionHandle`s in startup).
 pub fn register_email_signature_subscriber() -> Option<SubscriptionHandle> {
-    subscribe_global(Arc::new(EmailSignatureSubscriber))
+    subscribe_global(Arc::new(EmailSignatureSubscriber::new(candidate::global())))
+}
+
+/// Register the email signature subscriber with isolated test dependencies.
+#[cfg(test)]
+pub(crate) fn register_email_signature_subscriber_on(
+    bus: &crate::core::event_bus::EventBus,
+    buffer: &'static Buffer,
+) -> SubscriptionHandle {
+    bus.subscribe(Arc::new(EmailSignatureSubscriber::new(buffer)))
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

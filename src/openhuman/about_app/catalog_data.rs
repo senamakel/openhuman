@@ -228,6 +228,23 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         privacy: None,
     },
     Capability {
+        id: "conversation.terminal_chat",
+        name: "Terminal Chat (TUI)",
+        domain: "tui",
+        category: CapabilityCategory::Conversation,
+        description: "Chat with the assistant from a terminal instead of the desktop UI. \
+                      `openhuman tui` (alias `chat`) opens a ratatui full-screen chat onto the \
+                      same conversation surface the app uses, running the core in-process. \
+                      Streams replies, thinking, and tool activity live; supports scrollback, \
+                      cancelling a turn, and starting a new thread. Ships only in the standalone \
+                      `openhuman-core` binary (the desktop app has its own UI).",
+        how_to: "Run `openhuman tui` (or `openhuman chat`) from a terminal. Flags: \
+                 `--thread <id>` to resume a thread, `--new` for a fresh one. Keys: Enter send, \
+                 Esc cancel, Ctrl+N new thread, PgUp/PgDn scroll, Ctrl+C quit.",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+    Capability {
         id: "conversation.suggested_questions",
         name: "Suggested Questions",
         domain: "conversation",

@@ -552,7 +552,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
   'brain.tabs.sources': 'المصادر',
   'brain.tabs.sync': 'المزامنة',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': 'التنسيق',
   'tinyplaceOrchestration.title': 'مرحّل TinyPlace',
   'tinyplaceOrchestration.subtitle': 'قنوات الوكلاء المثبتة ودردشات جلسات التطبيق',
   'tinyplaceOrchestration.refresh': 'تحديث',

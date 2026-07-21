@@ -110,6 +110,9 @@ pub(crate) async fn deliver_response(
                 Some(serde_json::json!(citations))
             },
             usage: usage_payload,
+            // Terminal delivery events are emitted outside the seq-stamping
+            // progress bridge; leave `seq` unset (older clients ignore it).
+            seq: None,
         });
         return;
     }
@@ -161,6 +164,7 @@ pub(crate) async fn deliver_response(
             },
             // Usage is attached only to the terminal `chat_done`, never segments.
             usage: None,
+            seq: None,
         });
     }
 
@@ -201,6 +205,9 @@ pub(crate) async fn deliver_response(
             Some(serde_json::json!(citations))
         },
         usage: usage_payload,
+        // Terminal delivery events are emitted outside the seq-stamping
+        // progress bridge; leave `seq` unset (older clients ignore it).
+        seq: None,
     });
 }
 

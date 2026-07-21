@@ -223,6 +223,15 @@ pub struct WebChannelEvent {
     /// for synthetic done events that never ran a real turn.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<TurnUsagePayload>,
+    /// Additive per-request monotonic ordering key stamped by the web-channel
+    /// progress bridge on every event it emits (conversations-timeline-refactor,
+    /// Phase 4). Together with the always-present `request_id`, the frontend
+    /// dedups replayed vs live events by `(request_id, seq)` and orders them
+    /// identically to the persisted turn-state snapshot. `None` on events not
+    /// emitted through the stamping bridge and on older cores — older frontends
+    /// simply ignore it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seq: Option<u64>,
 }
 
 /// Token/cost/context totals for one completed turn, attached to `chat_done`.

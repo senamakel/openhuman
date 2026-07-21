@@ -563,7 +563,7 @@ const messages: TranslationMap = {
   'brain.goals.actionError': '문제가 발생했습니다. 다시 시도해 주세요.',
   'brain.tabs.sources': '소스',
   'brain.tabs.sync': '동기화',
-  'brain.tabs.tinyplaceOrchestration': 'TinyPlace',
+  'brain.tabs.orchestration': '오케스트레이션',
   'tinyplaceOrchestration.title': 'TinyPlace 릴레이',
   'tinyplaceOrchestration.subtitle': '고정된 에이전트 채널과 앱 세션 채팅',
   'tinyplaceOrchestration.refresh': '새로 고침',

@@ -54,7 +54,7 @@ pub struct KeyringStatus {
     pub backend_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ConsentPreference {
     #[serde(default)]

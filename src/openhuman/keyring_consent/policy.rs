@@ -24,14 +24,33 @@ static CONSENT_EVENT_PUBLISHED: AtomicBool = AtomicBool::new(false);
 /// they never touch disk on the hot path.
 static CONSENT_CACHE: RwLock<Option<ConsentPreference>> = RwLock::new(None);
 
-/// Pre-populate the consent cache from persisted app state. Call once at core
-/// startup after config is loadable.
-pub fn initialize(consent: Option<ConsentPreference>) {
+/// Populate the consent cache from persisted app state.
+///
+/// Called from the per-request `app_state_snapshot` path, so it runs many times
+/// over a session — not once at startup as the name suggests. It is therefore
+/// change-gated: it writes and logs only when the persisted consent actually
+/// differs from what is already cached. A repeat call with the same value (the
+/// common case on every snapshot) is a silent no-op, keeping boot logs clean.
+///
+/// Returns `true` when the cache was updated (the INFO log fired) and `false`
+/// on the no-op path — this lets callers/tests observe the suppressed side
+/// effect directly rather than only the (identical) resulting cache value.
+pub fn initialize(consent: Option<ConsentPreference>) -> bool {
+    // Hold the write lock across the compare + set so concurrent snapshots
+    // can't both observe a change and double-log / double-write.
+    let mut cache = CONSENT_CACHE.write();
+    if *cache == consent {
+        // No-op path (every app_state_snapshot with unchanged consent). Trace so
+        // it stays diagnosable without the INFO noise this change removes.
+        log::trace!("{LOG_PREFIX} initialize no-op: cached consent unchanged");
+        return false;
+    }
     info!(
         "{LOG_PREFIX} initialize cached_consent={}",
         consent.as_ref().map_or("none", |p| p.storage_mode.as_str()),
     );
-    *CONSENT_CACHE.write() = consent;
+    *cache = consent;
+    true
 }
 
 /// Check whether the caller is allowed to proceed with secret storage.
@@ -242,6 +261,7 @@ mod tests {
     #[test]
     fn initialize_populates_cache() {
         let _lock = cache_test_lock();
+        *CONSENT_CACHE.write() = None;
         let pref = ConsentPreference {
             storage_mode: "declined".to_string(),
             consented_at_ms: Some(12345),
@@ -249,5 +269,41 @@ mod tests {
         initialize(Some(pref.clone()));
         let cached = CONSENT_CACHE.read().clone();
         assert_eq!(cached.unwrap().storage_mode, "declined");
+    }
+
+    #[test]
+    fn initialize_is_change_gated() {
+        let _lock = cache_test_lock();
+        *CONSENT_CACHE.write() = None;
+
+        // First real value populates the cache and reports it applied (the INFO
+        // log + write happened).
+        let pref = ConsentPreference {
+            storage_mode: "local_encrypted".to_string(),
+            consented_at_ms: Some(111),
+        };
+        assert!(initialize(Some(pref.clone())), "first value should apply");
+        assert_eq!(CONSENT_CACHE.read().clone(), Some(pref.clone()));
+
+        // Repeat with the identical value — the no-op path: returns false (no
+        // write, no INFO log), which is what every app_state_snapshot hits.
+        // Asserting the return value proves the side effect is suppressed, not
+        // merely that the resulting cache value is unchanged.
+        assert!(
+            !initialize(Some(pref.clone())),
+            "identical value must be a no-op (no re-log / re-write)"
+        );
+        assert_eq!(CONSENT_CACHE.read().clone(), Some(pref));
+
+        // A genuine change is still applied (returns true).
+        let changed = ConsentPreference {
+            storage_mode: "declined".to_string(),
+            consented_at_ms: Some(222),
+        };
+        assert!(
+            initialize(Some(changed.clone())),
+            "a genuine change should apply"
+        );
+        assert_eq!(CONSENT_CACHE.read().clone(), Some(changed));
     }
 }

@@ -4187,7 +4187,11 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'এই প্রস্তাব কোনো নোড পরিবর্তন করে না।',
   'flows.copilot.accept': 'খসড়ায় প্রয়োগ করুন',
   'flows.copilot.acceptAndSave': 'গ্রহণ ও সংরক্ষণ করুন',
+  'flows.copilot.saveAndEnable': 'সংরক্ষণ ও সক্রিয় করুন',
   'flows.copilot.saving': 'সংরক্ষণ করা হচ্ছে…',
+  'flows.copilot.enabling': 'সক্রিয় করা হচ্ছে…',
+  'flows.copilot.enableError':
+    'সংরক্ষিত হয়েছে, কিন্তু ওয়ার্কফ্লো সক্রিয় করা যায়নি। তালিকা থেকে এটি চালু করার চেষ্টা করুন।',
   'flows.copilot.reject': 'বাতিল করুন',
   'flows.copilot.previewHint':
     'একটি প্রস্তাবিত খসড়া পর্যালোচনা হচ্ছে: এখনও কিছু সংরক্ষণ করা হয়নি।',

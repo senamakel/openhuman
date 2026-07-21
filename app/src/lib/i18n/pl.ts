@@ -4241,7 +4241,11 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'Ta propozycja nie zmienia żadnego węzła.',
   'flows.copilot.accept': 'Zastosuj do wersji roboczej',
   'flows.copilot.acceptAndSave': 'Zaakceptuj i zapisz',
+  'flows.copilot.saveAndEnable': 'Zapisz i włącz',
   'flows.copilot.saving': 'Zapisywanie…',
+  'flows.copilot.enabling': 'Włączanie…',
+  'flows.copilot.enableError':
+    'Zapisano, ale nie udało się włączyć przepływu pracy. Spróbuj włączyć go z listy.',
   'flows.copilot.reject': 'Odrzuć',
   'flows.copilot.previewHint':
     'Przeglądasz proponowaną wersję roboczą: nic nie zostało jeszcze zapisane.',

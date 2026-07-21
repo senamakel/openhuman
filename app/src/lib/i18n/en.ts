@@ -4880,7 +4880,11 @@ const en: TranslationMap = {
   'flows.copilot.noChanges': 'No node changes in this proposal.',
   'flows.copilot.accept': 'Apply to draft',
   'flows.copilot.acceptAndSave': 'Accept & save',
+  'flows.copilot.saveAndEnable': 'Save & enable',
   'flows.copilot.saving': 'Saving…',
+  'flows.copilot.enabling': 'Enabling…',
+  'flows.copilot.enableError':
+    'Saved, but could not enable the workflow. Try toggling it on from the list.',
   'flows.copilot.reject': 'Dismiss',
   'flows.copilot.previewHint': 'Reviewing a proposed draft: nothing is saved yet.',
   'flows.copilot.repairDisplay': 'A run failed. Please review it and propose a fix.',

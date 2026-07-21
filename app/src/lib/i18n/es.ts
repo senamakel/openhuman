@@ -4259,7 +4259,11 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'Esta propuesta no cambia ningún nodo.',
   'flows.copilot.accept': 'Aplicar al borrador',
   'flows.copilot.acceptAndSave': 'Aceptar y guardar',
+  'flows.copilot.saveAndEnable': 'Guardar y activar',
   'flows.copilot.saving': 'Guardando…',
+  'flows.copilot.enabling': 'Activando…',
+  'flows.copilot.enableError':
+    'Guardado, pero no se pudo activar el flujo de trabajo. Actívalo desde la lista.',
   'flows.copilot.reject': 'Descartar',
   'flows.copilot.previewHint': 'Revisando un borrador propuesto: aún no se ha guardado nada.',
   'flows.copilot.repairDisplay': 'Falló una ejecución; revísala y propón una solución.',

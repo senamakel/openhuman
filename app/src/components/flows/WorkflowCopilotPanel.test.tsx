@@ -244,6 +244,107 @@ describe('WorkflowCopilotPanel', () => {
     expect(hookState.clearProposal).not.toHaveBeenCalled();
   });
 
+  // PR1 — "Save & enable": a second button next to "Accept & save" that asks
+  // the host to save AND arm the flow in one click, mirroring the main-chat
+  // `WorkflowProposalCard`'s create+arm parity.
+  describe('Save & enable (PR1)', () => {
+    it('calls onAccept with { enable: true } and clears the proposal once it resolves', async () => {
+      const onAccept = vi.fn().mockResolvedValue(undefined);
+      hookState.proposal = proposalWith(['a', 'c']);
+      render(
+        <WorkflowCopilotPanel
+          graph={baseGraph}
+          onProposal={vi.fn()}
+          onAccept={onAccept}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+      fireEvent.click(screen.getByTestId('workflow-copilot-accept-and-enable'));
+      expect(onAccept).toHaveBeenCalledWith(hookState.proposal, { enable: true });
+      await waitFor(() => expect(hookState.clearProposal).toHaveBeenCalledTimes(1));
+    });
+
+    it('shows the enabling label and disables both accept buttons while the host save is in flight', async () => {
+      let resolveSave!: () => void;
+      const savePromise = new Promise<void>(resolve => {
+        resolveSave = resolve;
+      });
+      const onAccept = vi.fn().mockReturnValue(savePromise);
+      hookState.proposal = proposalWith(['a', 'c']);
+      render(
+        <WorkflowCopilotPanel
+          graph={baseGraph}
+          onProposal={vi.fn()}
+          onAccept={onAccept}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('workflow-copilot-accept-and-enable'));
+      await waitFor(() =>
+        expect(screen.getByTestId('workflow-copilot-accept-and-enable')).toHaveTextContent(
+          'flows.copilot.enabling'
+        )
+      );
+      expect(screen.getByTestId('workflow-copilot-accept-and-enable')).toBeDisabled();
+      // The plain "Accept & save" button must also be disabled while the
+      // enable-flavored save is in flight — the two must not race.
+      expect(screen.getByTestId('workflow-copilot-accept')).toBeDisabled();
+      expect(hookState.clearProposal).not.toHaveBeenCalled();
+
+      resolveSave();
+      await waitFor(() => expect(hookState.clearProposal).toHaveBeenCalledTimes(1));
+    });
+
+    it('leaves the proposal visible and shows an enable-error message when the host save/enable rejects', async () => {
+      const onAccept = vi.fn().mockRejectedValue(new Error('enable failed'));
+      hookState.proposal = proposalWith(['a', 'c']);
+      render(
+        <WorkflowCopilotPanel
+          graph={baseGraph}
+          onProposal={vi.fn()}
+          onAccept={onAccept}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('workflow-copilot-accept-and-enable'));
+      await waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+      // The button re-enables once the rejected save settles, the proposal
+      // was never cleared (stays up for retry), and the dedicated enable-error
+      // message appears.
+      await waitFor(() =>
+        expect(screen.getByTestId('workflow-copilot-accept-and-enable')).not.toBeDisabled()
+      );
+      expect(hookState.clearProposal).not.toHaveBeenCalled();
+      expect(screen.getByTestId('workflow-copilot-enable-error')).toHaveTextContent(
+        'flows.copilot.enableError'
+      );
+    });
+
+    it('does not show the enable-error message for a plain Accept & save failure', async () => {
+      const onAccept = vi.fn().mockRejectedValue(new Error('save failed'));
+      hookState.proposal = proposalWith(['a', 'c']);
+      render(
+        <WorkflowCopilotPanel
+          graph={baseGraph}
+          onProposal={vi.fn()}
+          onAccept={onAccept}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('workflow-copilot-accept'));
+      await waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.getByTestId('workflow-copilot-accept')).not.toBeDisabled());
+      expect(screen.queryByTestId('workflow-copilot-enable-error')).not.toBeInTheDocument();
+    });
+  });
+
   it('disables Reject while an Accept save is in flight, so it cannot race the persisted save', async () => {
     // Regression for the CodeRabbit finding: Reject must not stay clickable
     // while `onAccept`'s save is still pending, otherwise the user's cancel

@@ -4226,7 +4226,11 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'Это предложение не меняет ни одного узла.',
   'flows.copilot.accept': 'Применить к черновику',
   'flows.copilot.acceptAndSave': 'Принять и сохранить',
+  'flows.copilot.saveAndEnable': 'Сохранить и включить',
   'flows.copilot.saving': 'Сохранение…',
+  'flows.copilot.enabling': 'Включение…',
+  'flows.copilot.enableError':
+    'Сохранено, но не удалось включить рабочий процесс. Попробуйте включить его из списка.',
   'flows.copilot.reject': 'Отклонить',
   'flows.copilot.previewHint': 'Просмотр предложенного черновика: пока ничего не сохранено.',
   'flows.copilot.repairDisplay': 'Запуск завершился ошибкой; изучите его и предложите исправление.',

@@ -4202,7 +4202,11 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'Usulan ini tidak mengubah simpul apa pun.',
   'flows.copilot.accept': 'Terapkan ke draf',
   'flows.copilot.acceptAndSave': 'Terima & simpan',
+  'flows.copilot.saveAndEnable': 'Simpan & aktifkan',
   'flows.copilot.saving': 'Menyimpan…',
+  'flows.copilot.enabling': 'Mengaktifkan…',
+  'flows.copilot.enableError':
+    'Tersimpan, tetapi alur kerja tidak dapat diaktifkan. Coba aktifkan dari daftar.',
   'flows.copilot.reject': 'Buang',
   'flows.copilot.previewHint': 'Meninjau draf yang diusulkan: belum ada yang disimpan.',
   'flows.copilot.repairDisplay': 'Sebuah eksekusi gagal; periksa dan usulkan perbaikan.',

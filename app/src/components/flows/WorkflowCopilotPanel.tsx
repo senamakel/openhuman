@@ -75,8 +75,14 @@ interface Props {
    * persists it — "accept" is now review + save in one step). May return a
    * promise the panel awaits to show a saving state; a rejected promise
    * leaves the proposal visible so the user can retry.
+   *
+   * `opts.enable` (PR1 — "Save & enable") requests an immediate follow-up
+   * arm after the save succeeds, mirroring the main-chat
+   * `WorkflowProposalCard`'s one-click create+arm. Optional and backward
+   * compatible — a plain "Accept & save" click omits `opts` entirely, so it
+   * neither enables nor force-disables an already-enabled existing flow.
    */
-  onAccept: (proposal: WorkflowProposal) => void | Promise<void>;
+  onAccept: (proposal: WorkflowProposal, opts?: { enable?: boolean }) => void | Promise<void>;
   /** Reject the pending proposal (host reverts the overlay). */
   onReject: () => void;
   /** Close the panel. */
@@ -168,11 +174,25 @@ export default function WorkflowCopilotPanel({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isComposingTextRef = useRef(false);
 
+  // Set only when a "Save & enable" attempt's `onAccept` rejects — surfaced
+  // as a dedicated inline message (`flows.copilot.enableError`) distinct from
+  // a plain "Accept & save" failure, which stays silent-but-retryable as
+  // before (the button re-enabling is signal enough there). Declared early
+  // (ahead of the proposal-surfacing effect below, which also clears it) so
+  // both that effect and the accept/reject handlers further down can
+  // reference it without a temporal-dead-zone ordering issue.
+  const [enableError, setEnableError] = useState(false);
+
   // Surface each NEW proposal to the host exactly once (enter preview overlay).
   const lastSurfacedRef = useRef<WorkflowProposal | null>(null);
   useEffect(() => {
     if (proposal && proposal !== lastSurfacedRef.current) {
       lastSurfacedRef.current = proposal;
+      // A genuinely new proposal object replacing a prior one (e.g. a further
+      // revise turn) supersedes any stale "Save & enable" failure from the
+      // earlier proposal — clear it so the new card doesn't inherit an
+      // unrelated error message.
+      setEnableError(false);
       onProposal(proposal);
     }
   }, [proposal, onProposal]);
@@ -376,39 +396,61 @@ export default function WorkflowCopilotPanel({
 
   // Accept now review-and-saves: `onAccept` (the host's `handleAcceptProposal`)
   // applies the proposal to the draft AND persists it. Track a local
-  // `acceptSaving` flag so the button can show a saving state and disable
-  // re-clicks while that's in flight. If the host's save throws, leave the
-  // proposal card visible (don't `clearProposal()`) so the user can retry —
-  // otherwise a failed autosave would silently vanish the only affordance to
-  // try again from the copilot itself (the header Save button is a fallback,
-  // but this keeps the copilot's own flow self-contained).
-  const [acceptSaving, setAcceptSaving] = useState(false);
-  const accept = useCallback(async () => {
-    // Self-guard against re-entrance: the JSX `disabled={acceptSaving}` on
-    // the Accept button prevents a normal double-click, but `acceptSaving`
-    // only flips after the FIRST call's `setAcceptSaving(true)` commits — a
-    // second invocation racing ahead of that render (e.g. programmatic
-    // re-fire) must not start a second concurrent save.
-    if (!proposal || acceptSaving) return;
-    setAcceptSaving(true);
-    log('accept: saving proposal via host onAccept');
-    try {
-      await onAccept(proposal);
-      log('accept: save succeeded, clearing proposal');
-      clearProposal();
-      lastSurfacedRef.current = null;
-    } catch (err) {
-      log('accept: save failed, leaving proposal visible for retry err=%o', err);
-    } finally {
-      setAcceptSaving(false);
-    }
-  }, [proposal, acceptSaving, onAccept, clearProposal]);
+  // `acceptState` union (rather than a plain boolean) so the two accept
+  // buttons ("Accept & save" / "Save & enable", PR1) can each show their own
+  // in-flight label while BOTH stay disabled — a save-in-flight click on the
+  // other button, or Reject, must not race the pending persist. If the
+  // host's save (or enable) throws, leave the proposal card visible (don't
+  // `clearProposal()`) so the user can retry — otherwise a failed autosave
+  // would silently vanish the only affordance to try again from the copilot
+  // itself (the header Save button is a fallback, but this keeps the
+  // copilot's own flow self-contained).
+  const [acceptState, setAcceptState] = useState<'idle' | 'saving' | 'enabling'>('idle');
+  const acceptBusy = acceptState !== 'idle';
+  const runAccept = useCallback(
+    async (opts?: { enable?: boolean }) => {
+      // Self-guard against re-entrance: the JSX `disabled={acceptBusy}` on
+      // both buttons prevents a normal double-click, but `acceptState` only
+      // flips after the FIRST call's `setAcceptState(...)` commits — a
+      // second invocation racing ahead of that render (e.g. programmatic
+      // re-fire) must not start a second concurrent save.
+      if (!proposal || acceptBusy) return;
+      const enable = Boolean(opts?.enable);
+      setAcceptState(enable ? 'enabling' : 'saving');
+      setEnableError(false);
+      log('accept: saving proposal via host onAccept enable=%s', enable);
+      try {
+        // Plain "Accept & save" calls `onAccept` with just the proposal (no
+        // second argument at all) — matching the pre-PR1 call signature
+        // exactly — so a host that doesn't care about `opts` (or a caller
+        // asserting on `onAccept`'s exact arguments) sees no behavioral
+        // change. Only "Save & enable" adds the `{ enable: true }` opts.
+        if (enable) {
+          await onAccept(proposal, opts);
+        } else {
+          await onAccept(proposal);
+        }
+        log('accept: save succeeded, clearing proposal');
+        clearProposal();
+        lastSurfacedRef.current = null;
+      } catch (err) {
+        log('accept: save (or enable) failed, leaving proposal visible for retry err=%o', err);
+        if (enable) setEnableError(true);
+      } finally {
+        setAcceptState('idle');
+      }
+    },
+    [proposal, acceptBusy, onAccept, clearProposal, setEnableError]
+  );
+  const accept = useCallback(() => runAccept(), [runAccept]);
+  const acceptAndEnable = useCallback(() => runAccept({ enable: true }), [runAccept]);
 
   const reject = useCallback(() => {
     onReject();
     clearProposal();
     lastSurfacedRef.current = null;
-  }, [onReject, clearProposal]);
+    setEnableError(false);
+  }, [onReject, clearProposal, setEnableError]);
 
   const diff = proposal ? diffGraphs(graph, proposal.graph as WorkflowGraph) : null;
 
@@ -492,26 +534,46 @@ export default function WorkflowCopilotPanel({
               )}
             </div>
 
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="primary"
                 size="sm"
-                disabled={acceptSaving}
+                analyticsId="workflow-copilot-accept"
+                disabled={acceptBusy}
                 data-testid="workflow-copilot-accept"
                 onClick={() => void accept()}>
-                {acceptSaving ? t('flows.copilot.saving') : t('flows.copilot.acceptAndSave')}
+                {acceptState === 'saving'
+                  ? t('flows.copilot.saving')
+                  : t('flows.copilot.acceptAndSave')}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                analyticsId="workflow-copilot-accept-and-enable"
+                disabled={acceptBusy}
+                data-testid="workflow-copilot-accept-and-enable"
+                onClick={() => void acceptAndEnable()}>
+                {acceptState === 'enabling'
+                  ? t('flows.copilot.enabling')
+                  : t('flows.copilot.saveAndEnable')}
               </Button>
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
-                disabled={acceptSaving}
+                disabled={acceptBusy}
                 data-testid="workflow-copilot-reject"
                 onClick={reject}>
                 {t('flows.copilot.reject')}
               </Button>
             </div>
+            {acceptState === 'idle' && enableError && (
+              <p className="mt-2 text-xs text-coral" data-testid="workflow-copilot-enable-error">
+                {t('flows.copilot.enableError')}
+              </p>
+            )}
           </div>
         )}
 

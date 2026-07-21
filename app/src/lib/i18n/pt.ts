@@ -4248,7 +4248,11 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'Esta proposta não altera nenhum nó.',
   'flows.copilot.accept': 'Aplicar ao rascunho',
   'flows.copilot.acceptAndSave': 'Aceitar e salvar',
+  'flows.copilot.saveAndEnable': 'Salvar e ativar',
   'flows.copilot.saving': 'Salvando…',
+  'flows.copilot.enabling': 'Ativando…',
+  'flows.copilot.enableError':
+    'Salvo, mas não foi possível ativar o fluxo de trabalho. Tente ativá-lo pela lista.',
   'flows.copilot.reject': 'Descartar',
   'flows.copilot.previewHint': 'Revisando um rascunho proposto: nada foi salvo ainda.',
   'flows.copilot.repairDisplay': 'Uma execução falhou; analise-a e proponha uma correção.',

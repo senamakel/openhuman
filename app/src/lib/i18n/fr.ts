@@ -4287,7 +4287,11 @@ const messages: TranslationMap = {
   'flows.copilot.noChanges': 'Cette proposition ne modifie aucun nœud.',
   'flows.copilot.accept': 'Appliquer au brouillon',
   'flows.copilot.acceptAndSave': 'Accepter et enregistrer',
+  'flows.copilot.saveAndEnable': 'Enregistrer et activer',
   'flows.copilot.saving': 'Enregistrement…',
+  'flows.copilot.enabling': 'Activation…',
+  'flows.copilot.enableError':
+    'Enregistré, mais impossible d’activer le workflow. Essayez de l’activer depuis la liste.',
   'flows.copilot.reject': 'Ignorer',
   'flows.copilot.previewHint': 'Examen d’un brouillon proposé: rien n’est encore enregistré.',
   'flows.copilot.repairDisplay': 'Une exécution a échoué ; examinez-la et proposez une correction.',

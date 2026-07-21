@@ -121,7 +121,10 @@ export default function Brain() {
   const { snapshot } = useCoreState();
   const authUserId = snapshot.auth.userId;
 
-  const sub = useSubconscious();
+  // Only poll subconscious/heartbeat status while its own tab is showing — the
+  // data is consumed nowhere else, so other tabs (incl. the folded-in
+  // Orchestration sub-tab) shouldn't keep those RPCs running.
+  const sub = useSubconscious(activeTab === 'subconscious');
 
   const addToast = useCallback((toast: Omit<ToastNotification, 'id'>) => {
     setToasts(prev => [...prev, { ...toast, id: `toast-${Date.now()}-${Math.random()}` }]);

@@ -119,6 +119,9 @@ async function tryPingRpc(url: string): Promise<boolean> {
       method: 'POST',
       headers: buildHeaders(false),
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'core.ping', params: {} }),
+      // A recently stopped listener can take several seconds to reject on
+      // Windows. Keep discovery inside resetApp's eight-second RPC budget.
+      signal: AbortSignal.timeout(750),
     });
     // 401 means "endpoint exists, auth required" — that's a positive match
     // for the core RPC URL; the real call will retry with auth attached.
@@ -136,7 +139,10 @@ async function tryPingRpc(url: string): Promise<boolean> {
  * `OPENHUMAN_CORE_HOST` + `OPENHUMAN_CORE_PORT`, then probe host:port until core.ping succeeds.
  */
 export async function resolveCoreRpcUrl(): Promise<string> {
-  if (cachedRpcUrl) return cachedRpcUrl;
+  if (cachedRpcUrl) {
+    if (await tryPingRpc(cachedRpcUrl)) return cachedRpcUrl;
+    cachedRpcUrl = null;
+  }
 
   const env = process.env.OPENHUMAN_CORE_RPC_URL?.trim();
   if (env) {

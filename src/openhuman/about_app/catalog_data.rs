@@ -20,6 +20,18 @@ const CODING_SESSION_TO_BACKEND: Option<CapabilityPrivacy> = Some(CapabilityPriv
     destinations: &["Configured OpenHuman inference provider"],
 });
 
+// AGENTS.md instruction layers are injected verbatim into the agent's system
+// prompt, which is sent to whichever inference provider is configured (the
+// managed cloud default or a user-selected remote model). The raw file content
+// therefore leaves the device whenever a remote provider is active —
+// `LOCAL_RAW` (leaves_device: false) under-reported this. Same shape as
+// `CODING_SESSION_TO_BACKEND`: raw payload to the configured provider.
+const AGENTS_MD_TO_INFERENCE_PROVIDER: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
+    leaves_device: true,
+    data_kind: PrivacyDataKind::Raw,
+    destinations: &["Configured OpenHuman inference provider"],
+});
+
 // Vision sub-agent ships the attached image (raw pixels) to the managed
 // multimodal model for analysis.
 const IMAGE_TO_BACKEND: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
@@ -419,7 +431,7 @@ pub(super) const CAPABILITIES: &[Capability] = &[
         how_to: "Create an AGENTS.md file in your OpenHuman workspace and/or your project's action \
             directory. Toggle off with `agent.agents_md_enabled = false` in config.toml.",
         status: CapabilityStatus::Stable,
-        privacy: LOCAL_RAW,
+        privacy: AGENTS_MD_TO_INFERENCE_PROVIDER,
     },
     Capability {
         id: "intelligence.tool_scoped_memory",

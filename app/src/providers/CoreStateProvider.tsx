@@ -353,10 +353,11 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
     // Feed the folded health payload to the daemon-health store (replaces the
     // former standalone health_snapshot poll). Done AFTER the commit and only
-    // when this refresh is still current, so `daemonHealthService` resolves the
-    // freshly-committed identity — not a stale/pre-commit or superseded token,
-    // which during a login/identity flip would write health under the prior or
-    // `__pending__` user.
+    // when this refresh is still current. The resolved `sessionToken` for THIS
+    // refresh is passed explicitly: `commitState` writes the non-React snapshot
+    // store inside a (deferred) React `setState` updater, so reading identity
+    // from that store here would still see the pre-commit token and, during a
+    // login/identity flip, write health under the prior or `__pending__` user.
     if (requestId === snapshotRequestIdRef.current) {
       // Privacy-safe: log presence/shape only, never the payload/tokens.
       log(
@@ -366,7 +367,7 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
         rawSnapshot.health != null,
         rawSnapshot.health ? Object.keys(rawSnapshot.health.components ?? {}).length : 0
       );
-      daemonHealthService.ingestHealthSnapshot(rawSnapshot.health);
+      daemonHealthService.ingestHealthSnapshot(rawSnapshot.health, nextSnapshot.sessionToken);
     } else {
       log(
         'health ingest skipped: superseded refresh requestId=%d current=%d',

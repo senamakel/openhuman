@@ -40,7 +40,10 @@ export class DaemonHealthService {
    */
   ensureWatchdogArmed(): void {
     if (this.healthTimeoutId === null) {
+      console.debug('[DaemonHealth] watchdog: initial arm (no existing timer)');
       this.startHealthTimeout();
+    } else {
+      console.debug('[DaemonHealth] watchdog: already armed, no-op');
     }
   }
 
@@ -53,13 +56,29 @@ export class DaemonHealthService {
    * otherwise a live-but-health-less core would eventually be marked
    * `disconnected`. The daemon store is only updated when a valid health
    * snapshot is present; otherwise it keeps its last-known state.
+   *
+   * `sessionToken` is the token resolved by the *current* snapshot refresh.
+   * Passing it explicitly is load-bearing: `CoreStateProvider` commits the new
+   * identity via React `setState`, whose updater (and the non-React
+   * `setCoreStateSnapshot` it calls) runs *deferred*, so at ingest time the
+   * store still holds the previous token. Deriving the user from the store here
+   * would file this health payload under the prior / `__pending__` user during a
+   * login/identity flip. When omitted (e.g. the hook's baseline arm), we fall
+   * back to the store token.
    */
-  ingestHealthSnapshot(payload: unknown): void {
+  ingestHealthSnapshot(payload: unknown, sessionToken?: string | null): void {
     // Called by CoreStateProvider only after a successful snapshot → liveness.
-    this.startHealthTimeout();
+    this.startHealthTimeout(sessionToken);
     const healthSnapshot = this.parseHealthSnapshot(payload);
+    console.debug(
+      '[DaemonHealth] ingest: hasPayload=%s parsed=%s components=%d storeUpdate=%s',
+      payload != null,
+      healthSnapshot != null,
+      healthSnapshot ? Object.keys(healthSnapshot.components).length : 0,
+      healthSnapshot != null
+    );
     if (healthSnapshot) {
-      this.updateDaemonStoreFromHealth(healthSnapshot);
+      this.updateDaemonStoreFromHealth(healthSnapshot, sessionToken);
     }
   }
 
@@ -129,20 +148,23 @@ export class DaemonHealthService {
     }
   }
 
-  private updateDaemonStoreFromHealth(snapshot: HealthSnapshot): void {
+  private updateDaemonStoreFromHealth(
+    snapshot: HealthSnapshot,
+    sessionToken?: string | null
+  ): void {
     try {
-      updateHealthSnapshot(this.getUserId(), snapshot);
+      updateHealthSnapshot(this.getUserId(sessionToken), snapshot);
     } catch (error) {
       console.error('[DaemonHealth] Error updating daemon store from health:', error);
     }
   }
 
-  private startHealthTimeout(): void {
+  private startHealthTimeout(sessionToken?: string | null): void {
     if (this.healthTimeoutId) {
       clearTimeout(this.healthTimeoutId);
     }
 
-    const userId = this.getUserId();
+    const userId = this.getUserId(sessionToken);
     this.healthTimeoutId = setTimeout(() => {
       console.warn('[DaemonHealth] Health timeout reached - setting status to disconnected');
       setDaemonStatus(userId, 'disconnected');
@@ -150,8 +172,16 @@ export class DaemonHealthService {
     }, this.HEALTH_TIMEOUT_MS);
   }
 
-  private getUserId(): string {
-    const token = getCoreStateSnapshot().snapshot.sessionToken;
+  /**
+   * Resolve the destination user for health writes. When the caller supplies the
+   * refresh's own `sessionToken` (even `null`, meaning signed-out), it wins over
+   * the store — see {@link ingestHealthSnapshot} for why the store token is
+   * stale during an identity flip. `undefined` means "no override", so fall back
+   * to the store.
+   */
+  private getUserId(tokenOverride?: string | null): string {
+    const token =
+      tokenOverride !== undefined ? tokenOverride : getCoreStateSnapshot().snapshot.sessionToken;
     if (!token) {
       return '__pending__';
     }

@@ -6085,6 +6085,10 @@ async fn json_rpc_app_state_snapshot_returns_runtime_shape() {
         "expected health.pid: {health}"
     );
     assert!(
+        health.get("updated_at").and_then(Value::as_str).is_some(),
+        "expected health.updated_at (snake_case): {health}"
+    );
+    assert!(
         health
             .get("uptime_seconds")
             .and_then(Value::as_u64)

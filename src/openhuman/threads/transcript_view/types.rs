@@ -19,10 +19,24 @@ pub enum ToolCallStatus {
     Running,
     /// A result line was paired to the call.
     Success,
-    /// Reserved for a result the projection can identify as an error. The
-    /// transcript does not currently persist an explicit tool-failure flag, so
-    /// projection emits `Success` on pairing; kept for forward-compat.
+    /// A result line the projection identified as a **failure**: the persisted
+    /// tool line carried the additive `failure` flag (stamped at turn-loop
+    /// persistence from the tool's `ToolResult::is_error` outcome). Paired with
+    /// a [`ToolCallFailure`] payload on the item.
     Error,
+}
+
+/// Failure payload attached to an errored [`DisplayItem::ToolCall`]. Minimal by
+/// design: the persisted transcript only records that the call failed plus an
+/// optional short reason. The frontend mapper expands this into its richer
+/// `ToolFailureExplanation` shape (`class` / `category` / `causePlain` /
+/// `nextAction`) for the `ToolFailureLines` renderer.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCallFailure {
+    /// Short, single-line reason for the failure, when the writer captured one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 /// One item in a projected transcript, in the frontend's display vocabulary.
@@ -70,9 +84,26 @@ pub enum DisplayItem {
         #[serde(skip_serializing_if = "Option::is_none")]
         result: Option<String>,
         status: ToolCallStatus,
+        /// Present only when `status` is `Error` — the failure payload the
+        /// frontend expands for the `ToolFailureLines` renderer.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        failure: Option<ToolCallFailure>,
     },
     /// A delegated sub-agent run, with its own nested projected items.
-    Subagent { id: String, items: Vec<DisplayItem> },
+    ///
+    /// `request_id` anchors the whole sub-agent trail to the parent turn that
+    /// spawned it. Sub-agent transcripts are sibling files with no explicit
+    /// back-link to the delegating tool call, so the projection derives this by
+    /// matching the sub-agent's spawn timestamp (encoded in its file stem)
+    /// against the parent turns' timestamp ranges (see
+    /// `project::anchor_request_id`). Absent for legacy/CLI transcripts whose
+    /// lines carry no `request_id`.
+    Subagent {
+        id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
+        items: Vec<DisplayItem>,
+    },
     /// A turn boundary — emitted when the `request_id` changes between lines.
     TurnBoundary { request_id: String },
     /// A partial assistant answer captured when a turn was interrupted.

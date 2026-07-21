@@ -15415,8 +15415,9 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
         &[
             r#"{"role":"system","content":"[tool-policy preamble] ..."}"#,
             r#"{"role":"user","content":"Current Date & Time: 2026-07-21 09:00:00 UTC\n\nWeather in NYC?","request_id":"req-1"}"#,
-            r#"{"role":"assistant","content":"Checking.","provider":"anthropic","model":"claude-x","usage":{"input":10,"output":5,"cached_input":0,"cost_usd":0.001},"ts":"2026-07-21T09:00:01Z","reasoning_content":"call the tool","tool_calls":[{"id":"call-1","name":"get_weather","arguments":"{\"city\":\"NYC\"}"}],"iteration":1,"request_id":"req-1"}"#,
+            r#"{"role":"assistant","content":"Checking.","provider":"anthropic","model":"claude-x","usage":{"input":10,"output":5,"cached_input":0,"cost_usd":0.001},"ts":"2026-07-21T09:00:01Z","reasoning_content":"call the tool","tool_calls":[{"id":"call-1","name":"get_weather","arguments":"{\"city\":\"NYC\"}"},{"id":"call-2","name":"get_traffic","arguments":"{\"city\":\"NYC\"}"}],"iteration":1,"request_id":"req-1"}"#,
             r#"{"role":"tool","content":"72F sunny","id":"call-1","request_id":"req-1"}"#,
+            r#"{"role":"tool","content":"error: traffic service unavailable","id":"call-2","request_id":"req-1","failure":true,"failure_detail":"traffic service unavailable"}"#,
             r#"{"role":"assistant","content":"72F and sunny.","provider":"anthropic","model":"claude-x","usage":{"input":20,"output":8,"cached_input":0,"cost_usd":0.002},"ts":"2026-07-21T09:00:02Z","iteration":2,"request_id":"req-1"}"#,
         ],
     );
@@ -15456,10 +15457,11 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
         .get("items")
         .and_then(Value::as_array)
         .expect("items array");
-    // 6 top-level from the root turn + 1 subagent = 7.
+    // 7 top-level from the root turn (turnBoundary, userMessage, reasoning,
+    // interim assistant, 2 toolCalls, final assistant) + 1 subagent = 8.
     assert_eq!(
         data.get("total").and_then(Value::as_u64),
-        Some(7),
+        Some(8),
         "items: {items:#?}"
     );
 
@@ -15487,14 +15489,32 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
     // Tool call paired with its result.
     let tool = items
         .iter()
-        .find(|i| i.get("kind").and_then(Value::as_str) == Some("toolCall"))
-        .expect("toolCall present");
-    assert_eq!(tool.get("callId").and_then(Value::as_str), Some("call-1"));
+        .find(|i| i.get("callId").and_then(Value::as_str) == Some("call-1"))
+        .expect("toolCall call-1 present");
     assert_eq!(
         tool.get("result").and_then(Value::as_str),
         Some("72F sunny")
     );
     assert_eq!(tool.get("status").and_then(Value::as_str), Some("success"));
+    assert!(tool.get("failure").is_none(), "successful tool has no failure");
+
+    // A failed tool result projects an error status + failure payload rather
+    // than a false success (Gap 1).
+    let failed_tool = items
+        .iter()
+        .find(|i| i.get("callId").and_then(Value::as_str) == Some("call-2"))
+        .expect("toolCall call-2 present");
+    assert_eq!(
+        failed_tool.get("status").and_then(Value::as_str),
+        Some("error")
+    );
+    assert_eq!(
+        failed_tool
+            .get("failure")
+            .and_then(|f| f.get("detail"))
+            .and_then(Value::as_str),
+        Some("traffic service unavailable")
+    );
 
     // Pagination: newest-first, limit 2 → 2 items + a cursor.
     let page1 = post_json_rpc(

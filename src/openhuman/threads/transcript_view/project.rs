@@ -13,7 +13,7 @@ use crate::openhuman::agent::harness::session::transcript::{
     self, CompactionMarker, DisplayMessage, DisplayRecord,
 };
 
-use super::types::{DisplayItem, ProjectedTranscript, ToolCallStatus};
+use super::types::{DisplayItem, ProjectedTranscript, ToolCallFailure, ToolCallStatus};
 
 const LOG_PREFIX: &str = "[threads][transcript]";
 
@@ -69,18 +69,20 @@ pub fn project_from_files(
         sub_paths.len()
     );
 
-    let mut items = match transcript::read_transcript_display(root_path) {
-        Ok(d) => project_records(&d.records),
+    // Read the root display records once: they feed both the top-level items
+    // and the per-turn timestamp ranges used to anchor sub-agent trails.
+    let (mut items, segments) = match transcript::read_transcript_display(root_path) {
+        Ok(d) => (project_records(&d.records), turn_segments(&d.records)),
         Err(err) => {
             log::warn!(
                 "{LOG_PREFIX} failed to read root transcript {}: {err}",
                 root_path.display()
             );
-            Vec::new()
+            (Vec::new(), Vec::new())
         }
     };
 
-    let subagents = build_subagent_items(sub_paths, &root_stem, 0);
+    let subagents = build_subagent_items(sub_paths, &root_stem, 0, &segments);
     log::debug!(
         "{LOG_PREFIX} projected thread={thread_id} top_level_items={} subagents={}",
         items.len(),
@@ -122,10 +124,15 @@ fn discover_subagent_files(workspace_dir: &Path, root_stem: &str) -> Vec<PathBuf
 /// [`MAX_SUBAGENT_DEPTH`]. Attachment is flat (ordered by file timestamp): the
 /// transcript doesn't record a robust delegation-call → file link, so we nest
 /// by stem lineage rather than guessing the parent tool call.
+///
+/// Each item is anchored to a parent turn via [`anchor_request_id`] so the
+/// frontend can render the trail under the turn that spawned it rather than the
+/// most recent turn. `segments` are the root turns' start timestamps.
 fn build_subagent_items(
     all_sub_paths: &[PathBuf],
     parent_stem: &str,
     depth: usize,
+    segments: &[(String, i64)],
 ) -> Vec<DisplayItem> {
     if depth >= MAX_SUBAGENT_DEPTH {
         return Vec::new();
@@ -154,16 +161,95 @@ fn build_subagent_items(
             }
         };
         let mut items = project_records(&display.records);
-        items.extend(build_subagent_items(all_sub_paths, stem, depth + 1));
+        items.extend(build_subagent_items(all_sub_paths, stem, depth + 1, segments));
         // Prefer the archetype id from meta; fall back to the stem suffix.
         let id = if display.meta.agent_name.is_empty() {
             rest.to_string()
         } else {
             display.meta.agent_name.clone()
         };
-        out.push(DisplayItem::Subagent { id, items });
+        // Anchor to the parent turn active at the sub-agent's spawn time.
+        let request_id = anchor_request_id(child_spawn_unix(rest), segments);
+        log::debug!(
+            "{LOG_PREFIX} subagent id={id} stem={rest} anchored request_id={request_id:?}"
+        );
+        out.push(DisplayItem::Subagent {
+            id,
+            request_id,
+            items,
+        });
     }
     out
+}
+
+/// The root turns' start timestamps as `(request_id, unix_seconds)` in file
+/// order — one entry per turn boundary. Built from the first timestamped line
+/// of each `request_id` run. Turns whose lines carry no `request_id` or no
+/// parseable timestamp contribute nothing (legacy/CLI transcripts yield an
+/// empty list, so sub-agents there stay unanchored).
+fn turn_segments(records: &[DisplayRecord]) -> Vec<(String, i64)> {
+    let mut segments: Vec<(String, i64)> = Vec::new();
+    let mut last_request_id: Option<String> = None;
+    for record in records {
+        let DisplayRecord::Message(msg) = record else {
+            continue;
+        };
+        let (Some(rid), Some(ts)) = (msg.request_id.as_deref(), msg.ts.as_deref()) else {
+            continue;
+        };
+        if last_request_id.as_deref() == Some(rid) {
+            continue;
+        }
+        let Some(unix) = parse_rfc3339_unix(ts) else {
+            continue;
+        };
+        segments.push((rid.to_string(), unix));
+        last_request_id = Some(rid.to_string());
+    }
+    segments
+}
+
+/// Extract a sub-agent's spawn unix timestamp (seconds) from its file-stem
+/// suffix. Stems are `{unix_ts}_{agent_id}`; the leading integer is the agent
+/// build/spawn time (see the transcript module's stem docs). `None` for
+/// non-numeric legacy stems.
+fn child_spawn_unix(stem_suffix: &str) -> Option<i64> {
+    stem_suffix
+        .split('_')
+        .next()
+        .and_then(|s| s.parse::<i64>().ok())
+}
+
+/// Parse an RFC-3339 timestamp into unix seconds.
+fn parse_rfc3339_unix(ts: &str) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc3339(ts)
+        .ok()
+        .map(|dt| dt.timestamp())
+}
+
+/// Anchor a sub-agent to the parent turn that was active at its `child_unix`
+/// spawn time: the last turn segment whose start is `<= child_unix`.
+///
+/// Fallbacks (documented heuristic, since sub-agent files carry no explicit
+/// delegation-call back-link):
+/// - No segments (legacy/CLI root): `None` — the item stays unanchored and the
+///   frontend leaves it under the current turn cursor, as before.
+/// - Unknown spawn time (non-numeric stem): the newest turn (best effort).
+/// - Spawn time precedes every turn start: the first turn.
+fn anchor_request_id(child_unix: Option<i64>, segments: &[(String, i64)]) -> Option<String> {
+    if segments.is_empty() {
+        return None;
+    }
+    let Some(child_unix) = child_unix else {
+        return segments.last().map(|(rid, _)| rid.clone());
+    };
+    let mut chosen = &segments[0];
+    for seg in segments {
+        if seg.1 <= child_unix {
+            chosen = seg;
+        }
+    }
+    Some(chosen.0.clone())
 }
 
 /// Project one file's display records into display items, in file order.
@@ -301,6 +387,7 @@ fn project_assistant(
             args,
             result: None,
             status: ToolCallStatus::Running,
+            failure: None,
         });
         pending.push_back((call.id.clone(), items.len() - 1));
     }
@@ -312,6 +399,18 @@ fn project_tool_result(
     pending: &mut VecDeque<(String, usize)>,
 ) {
     let result = msg.message.content.clone();
+    // A failed tool line (`ToolResult::is_error`, stamped at persistence) pairs
+    // to an error row with a failure payload instead of a false success.
+    let (status, failure) = if msg.failure {
+        (
+            ToolCallStatus::Error,
+            Some(ToolCallFailure {
+                detail: msg.failure_detail.clone(),
+            }),
+        )
+    } else {
+        (ToolCallStatus::Success, None)
+    };
     // Pair by explicit call id first, else FIFO.
     let idx = msg
         .message
@@ -323,12 +422,14 @@ fn project_tool_result(
     if let Some(idx) = idx {
         if let Some(DisplayItem::ToolCall {
             result: slot,
-            status,
+            status: status_slot,
+            failure: failure_slot,
             ..
         }) = items.get_mut(idx)
         {
             *slot = Some(result);
-            *status = ToolCallStatus::Success;
+            *status_slot = status;
+            *failure_slot = failure;
             return;
         }
     }
@@ -341,7 +442,8 @@ fn project_tool_result(
         name: "tool".to_string(),
         args: None,
         result: Some(result),
-        status: ToolCallStatus::Success,
+        status,
+        failure,
     });
 }
 

@@ -4,6 +4,7 @@ use super::project::{project_records, project_thread};
 use super::types::{DisplayItem, ToolCallStatus};
 use super::{get_page, DEFAULT_LIMIT};
 use crate::openhuman::agent::harness::session::transcript::{self, read_transcript_display};
+use crate::openhuman::inference::provider::ChatMessage;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
@@ -91,6 +92,7 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
             args,
             result,
             status,
+            failure,
         } => {
             assert_eq!(call_id, "call-1");
             assert_eq!(name, "get_weather");
@@ -102,6 +104,7 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
             );
             assert_eq!(result.as_deref(), Some("72F and sunny"), "paired by id");
             assert_eq!(*status, ToolCallStatus::Success);
+            assert!(failure.is_none(), "successful tool carries no failure");
         }
         other => panic!("expected toolCall, got {other:?}"),
     }
@@ -217,7 +220,7 @@ fn subagent_file_projects_as_nested_item() {
         .items
         .iter()
         .find_map(|i| match i {
-            DisplayItem::Subagent { id, items } => Some((id, items)),
+            DisplayItem::Subagent { id, items, .. } => Some((id, items)),
             _ => None,
         })
         .expect("subagent item present");
@@ -259,6 +262,164 @@ fn get_page_paginates_newest_first_with_cursor() {
     let last = get_page(dir.path(), "thr_p", page2.next_cursor.as_deref(), Some(2));
     assert!(!last.has_more, "final page exhausts the thread");
     assert!(last.next_cursor.is_none());
+}
+
+#[test]
+fn failed_tool_line_projects_error_status_with_failure_payload() {
+    let dir = TempDir::new().unwrap();
+    // Assistant issues a tool call; the paired tool result line carries the
+    // additive `failure` flag (stamped at persistence from `is_error`).
+    let body = vec![
+        r#"{"role":"assistant","content":"trying","provider":"anthropic","model":"m","usage":{"input":1,"output":1,"cached_input":0,"cost_usd":0.0},"ts":"2026-07-21T09:00:01Z","tool_calls":[{"id":"call-9","name":"shell","arguments":"{\"cmd\":\"boom\"}"}],"iteration":1,"request_id":"req-1"}"#,
+        r#"{"role":"tool","content":"error: command not found","id":"call-9","request_id":"req-1","failure":true,"failure_detail":"error: command not found"}"#,
+    ];
+    let path = write_raw(dir.path(), "600_orchestrator", "thr_f", &body);
+    let display = read_transcript_display(&path).unwrap();
+    let items = project_records(&display.records);
+
+    let tool = items
+        .iter()
+        .find_map(|i| match i {
+            DisplayItem::ToolCall {
+                status, failure, ..
+            } => Some((status, failure)),
+            _ => None,
+        })
+        .expect("toolCall projected");
+    assert_eq!(*tool.0, ToolCallStatus::Error, "failed tool → error status");
+    let failure = tool.1.as_ref().expect("failure payload present");
+    assert_eq!(failure.detail.as_deref(), Some("error: command not found"));
+}
+
+#[test]
+fn tool_failure_metadata_round_trips_write_to_display_line() {
+    // Full write path: a failed tool ChatMessage stamped with failure metadata
+    // must serialise the additive `failure` line field and read back as a failed
+    // display message — proving the harness → transcript → projection seam.
+    let dir = TempDir::new().unwrap();
+    let now = "2026-07-21T09:00:00Z".to_string();
+    let meta = transcript::TranscriptMeta {
+        agent_name: "orchestrator".into(),
+        agent_id: Some("orchestrator".into()),
+        agent_type: Some("root".into()),
+        dispatcher: "native".into(),
+        provider: Some("anthropic".into()),
+        model: Some("m".into()),
+        created: now.clone(),
+        updated: now,
+        turn_count: 1,
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_input_tokens: 0,
+        charged_amount_usd: 0.0,
+        thread_id: Some("thr_rt".into()),
+        task_id: None,
+    };
+
+    let mut tool_msg = ChatMessage {
+        id: Some("call-1".into()),
+        role: "tool".into(),
+        content: r#"{"tool_call_id":"call-1","content":"boom"}"#.into(),
+        extra_metadata: None,
+    };
+    transcript::attach_tool_failure_metadata(&mut tool_msg, Some("boom: exit 1"));
+
+    let messages = vec![
+        ChatMessage {
+            id: None,
+            role: "user".into(),
+            content: "do it".into(),
+            extra_metadata: None,
+        },
+        tool_msg,
+    ];
+    let path = transcript::resolve_keyed_transcript_path(dir.path(), "700_orchestrator").unwrap();
+    transcript::write_transcript(&path, &messages, &meta, None).unwrap();
+
+    let display = read_transcript_display(&path).unwrap();
+    let failed = display
+        .records
+        .iter()
+        .find_map(|r| match r {
+            transcript::DisplayRecord::Message(m) if m.message.role == "tool" => Some(m),
+            _ => None,
+        })
+        .expect("tool display message present");
+    assert!(failed.failure, "failure flag survived the write/read round trip");
+    assert_eq!(failed.failure_detail.as_deref(), Some("boom: exit 1"));
+}
+
+#[test]
+fn subagent_anchors_to_parent_turn_by_spawn_timestamp() {
+    let dir = TempDir::new().unwrap();
+    let root_stem = "800_orchestrator";
+    let thread_id = "thr_anchor";
+
+    let t1 = chrono::DateTime::from_timestamp(1_000_000, 0)
+        .unwrap()
+        .to_rfc3339();
+    let t2 = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .to_rfc3339();
+
+    // Two turns: req-1 (assistant ts t1), req-2 (assistant ts t2).
+    let root_body = vec![
+        r#"{"role":"user","content":"one","request_id":"req-1"}"#.to_string(),
+        format!(
+            r#"{{"role":"assistant","content":"a1","provider":"anthropic","model":"m","usage":{{"input":1,"output":1,"cached_input":0,"cost_usd":0.0}},"ts":"{t1}","iteration":1,"request_id":"req-1"}}"#
+        ),
+        r#"{"role":"user","content":"two","request_id":"req-2"}"#.to_string(),
+        format!(
+            r#"{{"role":"assistant","content":"a2","provider":"anthropic","model":"m","usage":{{"input":1,"output":1,"cached_input":0,"cost_usd":0.0}},"ts":"{t2}","iteration":1,"request_id":"req-2"}}"#
+        ),
+    ];
+    let root_refs: Vec<&str> = root_body.iter().map(String::as_str).collect();
+    write_raw(dir.path(), root_stem, thread_id, &root_refs);
+
+    // Sub-agent stems encode the spawn unix timestamp: coder spawned during
+    // turn 1 (1_000_050), planner during turn 2 (2_000_050).
+    write_raw(
+        dir.path(),
+        &format!("{root_stem}__1000050_coder"),
+        thread_id,
+        &[r#"{"role":"assistant","content":"coder work"}"#],
+    );
+    write_raw(
+        dir.path(),
+        &format!("{root_stem}__2000050_planner"),
+        thread_id,
+        &[r#"{"role":"assistant","content":"planner work"}"#],
+    );
+
+    let projected = project_thread(dir.path(), thread_id).expect("project thread");
+    // The seeded sub-agent files share the `orchestrator` meta agent name, so
+    // key the anchoring by each sub-agent's inner work content instead of `id`.
+    let mut anchors: Vec<(String, Option<String>)> = projected
+        .items
+        .iter()
+        .filter_map(|i| match i {
+            DisplayItem::Subagent {
+                request_id, items, ..
+            } => {
+                let marker = items.iter().find_map(|inner| match inner {
+                    DisplayItem::AssistantMessage { content, .. } => Some(content.clone()),
+                    _ => None,
+                })?;
+                Some((marker, request_id.clone()))
+            }
+            _ => None,
+        })
+        .collect();
+    anchors.sort();
+
+    assert_eq!(
+        anchors,
+        vec![
+            ("coder work".to_string(), Some("req-1".to_string())),
+            ("planner work".to_string(), Some("req-2".to_string())),
+        ],
+        "each sub-agent anchors to the turn active at its spawn time"
+    );
 }
 
 #[test]

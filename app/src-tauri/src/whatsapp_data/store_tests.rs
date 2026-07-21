@@ -5,7 +5,7 @@
 //! for one `account_id` must never appear in queries for a different account.
 
 use super::super::sqlite_retry::BUSY_TIMEOUT;
-use super::super::types::{
+use openhuman_core::openhuman::whatsapp_data::types::{
     ChatMeta, IngestMessage, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
 };
 use super::WhatsAppDataStore;

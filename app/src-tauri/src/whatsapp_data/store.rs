@@ -13,10 +13,10 @@ use std::sync::Mutex;
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 
-use crate::openhuman::whatsapp_data::sqlite_retry::{
+use super::sqlite_retry::{
     is_sqlite_corrupt, retry_on_sqlite_busy, BUSY_TIMEOUT,
 };
-use crate::openhuman::whatsapp_data::types::{
+use openhuman_core::openhuman::whatsapp_data::types::{
     ChatMeta, IngestMessage, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
     WhatsAppChat, WhatsAppMessage,
 };
@@ -233,7 +233,7 @@ impl WhatsAppDataStore {
         // latch the scanner's 2–30s poll re-hits the wedged DB and re-pages on
         // every tick (TAURI-RUST-KNH: 1,813 events from one host).
         if !CORRUPT_REPORTED.swap(true, Ordering::Relaxed) {
-            crate::core::observability::report_error(
+            openhuman_core::core::observability::report_error(
                 err,
                 "whatsapp_data",
                 "ingest_corrupt",

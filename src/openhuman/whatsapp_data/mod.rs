@@ -1,31 +1,42 @@
-//! Structured WhatsApp Web data — local-only SQLite persistence and agent API.
+//! Structured WhatsApp Web data — shared DTOs + agent query tools.
 //!
-//! This domain stores WhatsApp chats and messages scraped by the Tauri
-//! `whatsapp_scanner` via CDP, making them queryable by the agent through
-//! the JSON-RPC controller surface.
+//! **Storage lives in the Tauri shell, not the core.** The SQLite store, the
+//! scanner-side ingest write path, and the list/search business logic were
+//! relocated to `app/src-tauri/src/whatsapp_data/` (desktop-only). The core
+//! keeps only:
 //!
-//! **Data locality**: all data remains on-device in `whatsapp_data.db`; it is
-//! never transmitted to any external service.
+//! - [`types`] — the shared serde DTOs (chat / message rows, list / search /
+//!   ingest request + response types). Both the core agent tools and the shell
+//!   store reference this single definition so the two sides never drift.
+//! - [`tools`] — the three read-only agent tools. Their bodies dispatch over
+//!   the in-process native request bus
+//!   (`openhuman_core::core::event_bus::request_native_global`) keyed by
+//!   `whatsapp_data.list_chats` / `.list_messages` / `.search_messages`. The
+//!   shell registers the matching handlers at startup.
 //!
-//! ## Agent-facing RPC methods (read-only)
-//! - `openhuman.whatsapp_data_list_chats`
-//! - `openhuman.whatsapp_data_list_messages`
-//! - `openhuman.whatsapp_data_search_messages`
+//! When no shell handler is registered (headless / CLI / docker — no desktop),
+//! the tools degrade gracefully to an empty result with a "WhatsApp data
+//! unavailable (desktop only)" note rather than erroring.
 //!
-//! ## Internal-only RPC method (write, scanner-side)
-//! - `openhuman.whatsapp_data_ingest` — NOT exposed via agent tool listings
+//! **Data locality**: all data remains on-device; it is never transmitted to
+//! any external service.
 
-pub mod global;
-pub mod ops;
-pub mod rpc;
-mod schemas;
-mod sqlite_retry;
-pub mod store;
 pub mod tools;
 pub mod types;
 
-pub use schemas::{
-    all_controller_schemas as all_whatsapp_data_controller_schemas,
-    all_internal_controllers as all_whatsapp_data_internal_controllers,
-    all_registered_controllers as all_whatsapp_data_registered_controllers,
-};
+/// Native-request method names bridging the core agent tools to the shell store.
+///
+/// The shell registers a handler for each of these via
+/// `register_native_global`; the core tools dispatch to them via
+/// `request_native_global`. Kept here as the single source of truth so the two
+/// sides never disagree on the string key.
+pub mod methods {
+    /// List chats — req [`super::types::ListChatsRequest`], resp `Vec<`[`super::types::WhatsAppChat`]`>`.
+    pub const LIST_CHATS: &str = "whatsapp_data.list_chats";
+    /// List messages — req [`super::types::ListMessagesRequest`], resp `Vec<`[`super::types::WhatsAppMessage`]`>`.
+    pub const LIST_MESSAGES: &str = "whatsapp_data.list_messages";
+    /// Search messages — req [`super::types::SearchMessagesRequest`], resp `Vec<`[`super::types::WhatsAppMessage`]`>`.
+    pub const SEARCH_MESSAGES: &str = "whatsapp_data.search_messages";
+    /// Ingest a scanner snapshot — req [`super::types::IngestRequest`], resp [`super::types::IngestResult`].
+    pub const INGEST: &str = "whatsapp_data.ingest";
+}

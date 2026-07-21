@@ -1,6 +1,8 @@
+use crate::core::event_bus::request_native_global;
 use crate::openhuman::tools::traits::{Tool, ToolResult};
-use crate::openhuman::whatsapp_data::rpc as whatsapp_rpc;
-use crate::openhuman::whatsapp_data::types::SearchMessagesRequest;
+use crate::openhuman::whatsapp_data::methods;
+use crate::openhuman::whatsapp_data::tools::{is_handler_absent, UNAVAILABLE_NOTE};
+use crate::openhuman::whatsapp_data::types::{SearchMessagesRequest, WhatsAppMessage};
 use async_trait::async_trait;
 use serde_json::json;
 
@@ -66,13 +68,26 @@ impl Tool for WhatsAppDataSearchMessagesTool {
             req.limit,
             req.query.len(),
         );
-        let outcome = whatsapp_rpc::whatsapp_data_search_messages(req)
-            .await
-            .map_err(|e| {
-                log::warn!("[tool][whatsapp_data] search_messages rpc_error error={e}");
-                anyhow::anyhow!("whatsapp_data_search_messages: {e}")
-            })?;
-        let messages = outcome.value;
+        let messages: Vec<WhatsAppMessage> =
+            match request_native_global(methods::SEARCH_MESSAGES, req).await {
+                Ok(messages) => messages,
+                Err(e) if is_handler_absent(&e) => {
+                    log::debug!(
+                        "[tool][whatsapp_data] search_messages handler_absent — degrading ({e})"
+                    );
+                    let body = serde_json::to_string(&json!({
+                        "provider": "whatsapp",
+                        "count": 0,
+                        "messages": [],
+                        "note": UNAVAILABLE_NOTE,
+                    }))?;
+                    return Ok(ToolResult::success(body));
+                }
+                Err(e) => {
+                    log::warn!("[tool][whatsapp_data] search_messages bridge_error error={e}");
+                    return Err(anyhow::anyhow!("whatsapp_data_search_messages: {e}"));
+                }
+            };
         log::debug!(
             "[tool][whatsapp_data] search_messages returning count={}",
             messages.len()
@@ -123,5 +138,19 @@ mod tests {
             .await
             .expect_err("expected missing query error");
         assert!(err.to_string().contains("whatsapp_data_search_messages"));
+    }
+
+    #[tokio::test]
+    async fn execute_degrades_gracefully_without_shell_handler() {
+        let tool = WhatsAppDataSearchMessagesTool;
+        let result = tool
+            .execute(json!({ "query": "hello" }))
+            .await
+            .expect("degradation must succeed, not error");
+        let body: serde_json::Value =
+            serde_json::from_str(&result.text()).expect("tool body is JSON");
+        assert_eq!(body["provider"], "whatsapp");
+        assert_eq!(body["count"], 0);
+        assert_eq!(body["note"], UNAVAILABLE_NOTE);
     }
 }

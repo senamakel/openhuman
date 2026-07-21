@@ -701,15 +701,11 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Meet,
         crate::openhuman::meet_agent::all_meet_agent_registered_controllers(),
     );
-    // Structured WhatsApp Web data — agent-facing read-only controllers (list/search).
-    // The write-path ingest controller is registered separately in build_internal_only_controllers.
-    // Classified Channels (WhatsApp Web messaging surface) — not enumerated in the
-    // spec Platform list; grouped with the other channel/webview domains.
-    push(
-        &mut controllers,
-        DomainGroup::Channels,
-        crate::openhuman::whatsapp_data::all_whatsapp_data_registered_controllers(),
-    );
+    // Structured WhatsApp Web data has NO core RPC controllers: the SQLite
+    // store + ingest + list/search moved to the Tauri shell
+    // (`app/src-tauri/src/whatsapp_data/`). The agent's read-only query tools
+    // live in `openhuman::whatsapp_data::tools` and reach the shell store via
+    // the in-process native request bus, not the controller registry.
     // Mobile device pairing and management
     push(
         &mut controllers,
@@ -767,13 +763,8 @@ fn build_registered_controllers() -> Vec<GroupedController> {
 /// (e.g. the Tauri scanner ingest path) that should not appear in agent tool listings.
 fn build_internal_only_controllers() -> Vec<GroupedController> {
     let mut controllers = Vec::new();
-    // whatsapp_data ingest: scanner-side write path.  Callable over RPC by the
-    // Tauri scanner but excluded from agent-facing schema discovery.
-    push(
-        &mut controllers,
-        DomainGroup::Channels,
-        crate::openhuman::whatsapp_data::all_whatsapp_data_internal_controllers(),
-    );
+    // (whatsapp_data ingest is no longer a core RPC path — the scanner writes
+    // the shell-side store directly over the in-process native request bus.)
     // MCP write audit list: internal-only so the desktop UI/CLI can inspect
     // local write history without exposing cross-client history as an MCP tool.
     push(
@@ -987,9 +978,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "devices" => Some(
             "Paired mobile device management — pairing channel creation, listing, and revocation.",
         ),
-        "whatsapp_data" => Some(
-            "Structured WhatsApp conversation and message store — list chats, read messages, and search across WhatsApp Web data.",
-        ),
         "tinyplace" => Some(
             "tiny.place A2A social-network integration: directory, explorer, and search over the agent network.",
         ),
@@ -1176,7 +1164,7 @@ fn check_type(value: &Value, ty: &crate::core::TypeSchema) -> Result<(), &'stati
 /// Attempts to invoke a registered RPC method by name.
 ///
 /// Checks both the agent-facing controller registry and the internal-only registry,
-/// so scanner-side write paths (e.g. `openhuman.whatsapp_data_ingest`) are routable
+/// so internal-only write paths (e.g. the MCP write-audit list) are routable
 /// even though they are not included in agent tool listings.
 ///
 /// Returns `None` if the method is not found in either registry.

@@ -5,12 +5,10 @@
 
 use anyhow::Result;
 
-use crate::openhuman::whatsapp_data::{
-    store::WhatsAppDataStore,
-    types::{
-        IngestRequest, IngestResult, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
-        WhatsAppChat, WhatsAppMessage,
-    },
+use super::store::WhatsAppDataStore;
+use openhuman_core::openhuman::whatsapp_data::types::{
+    IngestRequest, IngestResult, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
+    WhatsAppChat, WhatsAppMessage,
 };
 
 /// Number of seconds in 90 days — the auto-prune horizon.
@@ -90,7 +88,7 @@ pub fn search_messages(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openhuman::whatsapp_data::types::{ChatMeta, IngestMessage};
+    use openhuman_core::openhuman::whatsapp_data::types::{ChatMeta, IngestMessage};
     use std::collections::HashMap;
     use tempfile::tempdir;
 

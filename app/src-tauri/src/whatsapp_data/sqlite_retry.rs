@@ -1,7 +1,6 @@
 //! SQLite busy/locked detection and retry-with-backoff for WhatsApp data writes.
 //!
-//! Modelled on [`crate::openhuman::memory_queue::worker::is_sqlite_busy`] —
-//! the configured `busy_timeout` absorbs short waits inside rusqlite; this layer
+//! The configured `busy_timeout` absorbs short waits inside rusqlite; this layer
 //! catches residual `SQLITE_BUSY` / `SQLITE_LOCKED` after that window.
 
 use std::thread;
@@ -41,16 +40,13 @@ pub fn is_sqlite_busy(err: &anyhow::Error) -> bool {
 /// re-opens the dead file, re-hits the error, and re-reports to Sentry —
 /// turning one corrupt file into an escalating flood (Sentry TAURI-RUST-KNH:
 /// 1,813 events from a single host). Detecting it here is what lets the store
-/// drive its quarantine + rebuild recovery
-/// ([`WhatsAppDataStore::recover_corrupt_db`](crate::openhuman::whatsapp_data::store::WhatsAppDataStore))
-/// instead of retrying forever.
+/// drive its quarantine + rebuild recovery instead of retrying forever.
 ///
 /// Matching on the error **code** is rusqlite-version-stable. The text
 /// fallback covers the case where the rusqlite error was flattened to a plain
 /// `anyhow!` string across `.context()` layers — SQLite renders these as
 /// "database disk image is malformed" (code 11) and "file is not a database"
-/// (code 26). The `"disk image is malformed"` substring matches both the bare
-/// and `Error code 11: The database disk image is malformed` envelope shapes.
+/// (code 26).
 pub fn is_sqlite_corrupt(err: &anyhow::Error) -> bool {
     if let Some(rusqlite::Error::SqliteFailure(sqlite_err, _)) =
         err.downcast_ref::<rusqlite::Error>()
@@ -161,10 +157,6 @@ mod tests {
         assert!(is_sqlite_corrupt(&anyhow::Error::from(raw)));
     }
 
-    /// The rusqlite error sits under the `[whatsapp_data] ingest failed:` +
-    /// `upsert wa_chat …` context layers when it bubbles out of the store; the
-    /// downcast must still find the `DatabaseCorrupt` code (regression guard:
-    /// don't rely on the top-level error type).
     #[test]
     fn is_sqlite_corrupt_matches_through_context_layers() {
         let raw = rusqlite::Error::SqliteFailure(
@@ -180,8 +172,6 @@ mod tests {
         assert!(is_sqlite_corrupt(&wrapped));
     }
 
-    /// Text fallback: the exact flattened Sentry string (TAURI-RUST-KNH) must
-    /// classify even when no rusqlite error is available to downcast.
     #[test]
     fn is_sqlite_corrupt_text_fallback() {
         let err = anyhow::anyhow!(
@@ -191,8 +181,6 @@ mod tests {
         assert!(is_sqlite_corrupt(&err));
     }
 
-    /// Busy/locked and constraint violations must NOT be swallowed as
-    /// corruption — quarantining on those would destroy a perfectly good DB.
     #[test]
     fn is_sqlite_corrupt_does_not_match_busy_or_constraint() {
         let busy = rusqlite::Error::SqliteFailure(

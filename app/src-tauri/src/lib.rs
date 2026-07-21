@@ -86,6 +86,7 @@ mod telegram_scanner;
 mod webview_accounts;
 mod webview_apis;
 mod wechat_scanner;
+mod whatsapp_data;
 mod whatsapp_scanner;
 mod window_state;
 mod workspace_paths;
@@ -3110,6 +3111,12 @@ pub fn run() {
             // state machine can emit `companion://state_changed` events.
             companion::setup(app.handle());
 
+            // Structured WhatsApp Web data store lives shell-side. Register the
+            // in-process native handlers so the core agent tools (list/search)
+            // and the scanner ingest path can reach the SQLite store over the
+            // native request bus. No handler = graceful degradation core-side.
+            whatsapp_data::register_native_handlers();
+
             #[cfg(windows)]
             {
                 // `register_all` writes HKCU\Software\Classes\openhuman so the
@@ -3792,6 +3799,10 @@ pub fn run() {
             // and the Save-As fallback needs it there (CodeRabbit on #4127).
             artifact_commands::save_artifact_via_dialog,
             artifact_commands::download_artifact_to_downloads,
+            // Structured WhatsApp data (store lives shell-side).
+            whatsapp_data::whatsapp_data_list_chats,
+            whatsapp_data::whatsapp_data_list_messages,
+            whatsapp_data::whatsapp_data_search_messages,
             check_core_update,
             apply_core_update,
             check_app_update,

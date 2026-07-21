@@ -16,7 +16,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
-use crate::openhuman::whatsapp_data::store::WhatsAppDataStore;
+use super::store::WhatsAppDataStore;
 
 /// Shared, thread-safe reference to the store.
 pub type WhatsAppDataStoreRef = Arc<WhatsAppDataStore>;
@@ -58,37 +58,10 @@ pub fn init(workspace_dir: PathBuf) -> Result<WhatsAppDataStoreRef, String> {
     Ok(store)
 }
 
-/// Return the global store. Errors if [`init`] has not been called yet.
-pub fn store() -> Result<WhatsAppDataStoreRef, String> {
-    GLOBAL_STORE
-        .read()
-        .map_err(|e| format!("[whatsapp_data:global] read lock poisoned: {e}"))?
-        .as_ref()
-        .map(Arc::clone)
-        .ok_or_else(|| {
-            "whatsapp_data global store accessed before init — call init(workspace) at startup"
-                .to_string()
-        })
-}
-
-/// Return the global store if already initialised, without error.
+/// Return the global store if already initialised, without error. The shell
+/// resolves the workspace lazily on first use (see
+/// [`crate::whatsapp_data::ensure_store`]), so callers probe this first and
+/// fall back to `init` only when it returns `None`.
 pub fn store_if_ready() -> Option<WhatsAppDataStoreRef> {
     GLOBAL_STORE.read().ok()?.as_ref().map(Arc::clone)
-}
-
-/// Drop any currently-installed store handle so the next [`init`] re-binds
-/// the global to a fresh workspace. Reachable from integration tests under
-/// `tests/`, which see the crate as an external consumer and therefore can't
-/// use a `#[cfg(test)]`-only symbol. Gated behind `cfg(any(test,
-/// debug_assertions))` so the symbol is compiled out of release builds —
-/// `cargo test` and dev builds keep `debug_assertions` on, `--release` turns
-/// it off. Production callers MUST NOT invoke this at runtime — the SQLite
-/// connection used by in-flight handlers would be released mid-call. Hidden
-/// from rustdoc to discourage misuse.
-#[cfg(any(test, debug_assertions))]
-#[doc(hidden)]
-pub fn reset_for_tests() {
-    if let Ok(mut guard) = GLOBAL_STORE.write() {
-        *guard = None;
-    }
 }

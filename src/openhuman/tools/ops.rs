@@ -436,10 +436,10 @@ pub fn all_tools_with_runtime(
         Box::new(MonitorListTool),
         Box::new(MonitorStopTool),
         Box::new(MonitorReadTool),
-        // WhatsApp data store — read-only agent surface (issue #1341).
-        // The matching `whatsapp_data_ingest` write-path stays internal-only
-        // (registered in `src/core/all.rs::build_internal_only_controllers`)
-        // and is intentionally NOT wrapped here.
+        // WhatsApp data store — read-only agent surface (issue #1341). The
+        // store lives in the Tauri shell; these tools reach it over the
+        // in-process native request bus. The matching ingest write-path is
+        // scanner-only (dispatched by the shell) and intentionally NOT a tool.
         Box::new(WhatsAppDataListChatsTool),
         Box::new(WhatsAppDataListMessagesTool),
         Box::new(WhatsAppDataSearchMessagesTool),

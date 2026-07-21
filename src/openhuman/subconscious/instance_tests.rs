@@ -341,3 +341,40 @@ async fn superseded_tick_discards_result_and_skips_commit() {
         "not counted a failure"
     );
 }
+
+// ── Subconscious-replacement draft (plan §5.2): default path is untouched ────
+
+/// The subconscious engine defaults to `local` when the `[subconscious]` block
+/// (or its `engine` field) is unset. This test pins that a default-config tick
+/// runs the LOCAL tinyagents graph — proven by `reflect` executing — rather
+/// than the medulla instruct path (which observes → instructs → commits and
+/// never calls `reflect`). It is the "byte-identical when the flag is unset"
+/// guarantee for the draft: whether or not the `medulla-local` feature is
+/// compiled in, an unset flag routes exactly as before.
+#[tokio::test]
+async fn default_engine_runs_local_graph_not_medulla() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = Arc::new(FakeProfile::new(
+        FakeProfile::changed(),
+        Ok(Reflection::Acted { response_chars: 7 }),
+    ));
+    let instance = build(profile.clone(), dir.path());
+
+    let config = test_config(dir.path());
+    // Precondition: the flag is unset, so the engine is the default `local`.
+    assert!(
+        !config.subconscious.engine.is_medulla(),
+        "default config must select the local engine"
+    );
+
+    let result = instance.run_tick_for_test(config).await.unwrap();
+
+    // The local graph's reflect stage ran — the medulla path never calls it.
+    assert_eq!(
+        profile.reflect_calls.load(Ordering::SeqCst),
+        1,
+        "default engine must drive the local reflect graph"
+    );
+    assert_eq!(profile.commit_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(result.response_chars, 7);
+}

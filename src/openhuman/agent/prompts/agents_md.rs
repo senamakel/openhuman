@@ -118,13 +118,16 @@ mod tests {
     use std::fs;
 
     fn tmp() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         let base = std::env::temp_dir().join(format!(
-            "openhuman-agents-md-{}-{}",
+            "openhuman-agents-md-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            COUNTER.fetch_add(1, Ordering::Relaxed),
         ));
         fs::create_dir_all(&base).unwrap();
         base

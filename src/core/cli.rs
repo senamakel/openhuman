@@ -45,7 +45,14 @@ Contribute & Star us on GitHub: https://github.com/tinyhumansai/openhuman
 /// the subcommand/namespace is unknown.
 pub fn run_from_cli_args(args: &[String]) -> Result<()> {
     // Print the welcome banner to stderr to keep stdout clean for JSON output.
-    if !matches!(args.first().map(String::as_str), Some("mcp" | "mcp-server")) {
+    // `mcp`/`mcp-server` speak JSON-RPC on stdout; `tui`/`chat` own the whole
+    // terminal (alternate screen + raw mode) — a banner on either would corrupt
+    // the stream / the UI, so both suppress it. The `matches!` is on the raw
+    // string, so it stays valid even when the `tui` feature is compiled out.
+    if !matches!(
+        args.first().map(String::as_str),
+        Some("mcp" | "mcp-server" | "tui" | "chat")
+    ) {
         eprint!("{CLI_BANNER}");
     }
 
@@ -61,6 +68,11 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
     match args[0].as_str() {
         "run" | "serve" => run_server_command(&args[1..]),
         "mcp" | "mcp-server" => crate::openhuman::mcp_server::run_stdio_from_cli(&args[1..]),
+        // Terminal chat UI. Un-`#[cfg]`'d on purpose: in a slim build this
+        // resolves to `tui::stub::run_from_cli`, which bails with a build-fact
+        // error (see `src/openhuman/tui/stub.rs`) rather than falling through to
+        // `unknown namespace: tui`.
+        "tui" | "chat" => crate::openhuman::tui::run_from_cli(&args[1..]),
         "call" => run_call_command(&args[1..]),
         // Domain-specific CLI adapters that don't follow the generic namespace pattern.
         "screen-intelligence" => {
@@ -561,6 +573,7 @@ fn print_general_help(grouped: &BTreeMap<String, Vec<ControllerSchema>>) {
     println!(
         "  openhuman mcp [-v|--verbose]              (stdio MCP server; read-only memory tools)"
     );
+    println!("  openhuman tui [--thread <id>|--new]        (terminal chat UI, alias: chat)");
     println!("  openhuman skills <subcommand> [options]   (skill development runtime)");
     println!("  openhuman agent <subcommand> [options]    (inspect agent definitions & prompts)");
     println!("  openhuman voice [--hotkey <combo>] [--mode <tap|push>]  (voice dictation server)");

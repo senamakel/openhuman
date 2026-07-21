@@ -195,3 +195,55 @@ fn mcp_server_alias_reports_disabled_build_when_gate_off() {
         "the `mcp-server` alias must give the same build-fact diagnostic as `mcp`"
     );
 }
+
+// --- `tui` compile-time gate --------------------------------------------
+
+/// With the `tui` feature compiled out, `openhuman tui` must fail with a
+/// diagnostic that names the BUILD as the cause — not a generic
+/// "unknown namespace" error.
+///
+/// Same reasoning as the `mcp` gate test above: the naive way to gate the CLI
+/// is to delete the `"tui" | "chat"` match arm, which is WRONG — `tui` would
+/// fall through to generic namespace resolution and die with `unknown
+/// namespace: tui`, reading like a user typo. Instead `cli.rs` is untouched and
+/// the arm resolves to `tui::stub::run_from_cli`, which bails with the message
+/// asserted below.
+#[test]
+#[cfg(not(feature = "tui"))]
+fn tui_subcommand_reports_disabled_build_when_gate_off() {
+    let _guard = env_lock();
+
+    let err = crate::core::cli::run_from_cli_args(&["tui".to_string()])
+        .expect_err("`openhuman tui` must fail when the `tui` feature is compiled out");
+    let msg = err.to_string();
+
+    assert!(
+        msg.contains("tui feature disabled"),
+        "error must name the compile-time gate as the cause; got: {msg}"
+    );
+    assert!(
+        msg.contains("--features tui"),
+        "error must tell the user how to get a working build; got: {msg}"
+    );
+    assert!(
+        !msg.contains("unknown namespace"),
+        "must NOT degrade into generic namespace resolution — that reads like a typo, \
+         not a build fact; got: {msg}"
+    );
+}
+
+/// The `chat` alias must behave identically to `tui` — both arms route to the
+/// same stub, so neither can silently regress into the fall-through.
+#[test]
+#[cfg(not(feature = "tui"))]
+fn chat_alias_reports_disabled_build_when_gate_off() {
+    let _guard = env_lock();
+
+    let err = crate::core::cli::run_from_cli_args(&["chat".to_string()])
+        .expect_err("`openhuman chat` must fail when the `tui` feature is compiled out");
+
+    assert!(
+        err.to_string().contains("tui feature disabled"),
+        "the `chat` alias must give the same build-fact diagnostic as `tui`"
+    );
+}

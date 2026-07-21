@@ -8,13 +8,16 @@
  * transcript, surfaces each proposal's node-level diff, and hands Accept/Reject
  * up to the host, which applies it to the local draft overlay.
  *
- * Chat UI parity: the copilot reuses the SHARED chat surface end-to-end — the
- * same {@link ChatComposer} the main chat windows use (mic/attachments off
- * here), turns render as bubbles via the shared {@link BubbleMarkdown}, and the
- * builder turn's live tool activity + streaming reply render through the shared
- * {@link ToolTimelineBlock} (fed from the runtime's `toolTimelineByThread` /
- * `streamingAssistantByThread`, streamed here by Phase B). So the copilot reads
- * like a real chat rather than a one-shot form.
+ * Chat UI parity: the copilot renders its transcript through the SAME
+ * {@link ChatThreadView} the home composer chat uses — message bubbles,
+ * past-turn insights, the shared tool timeline + sub-agent drawer, and the
+ * streaming / interrupted / parallel previews — driven by this copilot's
+ * DEDICATED thread. `flows_build` streams the `workflow_builder` turn onto
+ * that thread via the global `ChatRuntimeProvider` (Phase B), exactly as a
+ * normal chat turn streams, so the copilot reads like the real chat rather
+ * than a bespoke transcript. This panel keeps only the authoring concerns:
+ * the {@link ChatComposer} footer (mic/attachments off), the seed auto-sends,
+ * and the proposal-preview + capped cards pinned above the composer.
  *
  * Invariant: the copilot only PROPOSES — the agent turn itself never
  * persists. Accept applies the proposal to the local draft AND immediately
@@ -27,18 +30,14 @@
 import createDebug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { BubbleMarkdown } from '../../features/conversations/components/AgentMessageBubble';
-import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
-import { useStickToBottom } from '../../hooks/useStickToBottom';
+import { ChatThreadView } from '../../features/conversations/components/ChatThreadView';
 import { useWorkflowBuilderChat } from '../../hooks/useWorkflowBuilderChat';
-import { unwrapToolCallEnvelope } from '../../lib/flows/copilotMessageSanitizer';
 import { diffGraphs } from '../../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import ChatComposer from '../chat/ChatComposer';
 import Button from '../ui/Button';
-import ToolActivityChip from './ToolActivityChip';
 
 const log = createDebug('app:flows:copilot-panel');
 
@@ -154,19 +153,8 @@ export default function WorkflowCopilotPanel({
   fullWidth = false,
 }: Props) {
   const { t } = useT();
-  const {
-    threadId,
-    sending,
-    turnActive,
-    proposal,
-    capped,
-    displayMessages,
-    toolTimeline,
-    liveResponse,
-    error,
-    send,
-    clearProposal,
-  } = useWorkflowBuilderChat(seedThreadId);
+  const { threadId, sending, proposal, capped, error, send, clearProposal } =
+    useWorkflowBuilderChat(seedThreadId);
   const [text, setText] = useState('');
 
   // Report the (lazily-created) thread id up so the host persists it per flow —
@@ -313,36 +301,11 @@ export default function WorkflowCopilotPanel({
     onPrefillSeedConsumed?.();
   }, [prefillSeed, onPrefillSeedConsumed]);
 
-  // Keep the transcript pinned to the newest message / streamed activity —
-  // but ONLY while the user is already at (or near) the bottom. The previous
-  // implementation here was an unconditional `scrollTo(bottom)` effect keyed
-  // on every streaming dependency (messages, tool timeline, live text, …):
-  // it fired on every streamed token and force-scrolled regardless of where
-  // the user was reading, which is what made the transcript feel "stuck" —
-  // any attempt to scroll up got yanked back down by the very next token.
-  // `useStickToBottom` is the same pinning hook the main chat surfaces use:
-  // it only auto-scrolls while `stickingRef` is true (user at/near bottom),
-  // and permanently disengages the moment the user scrolls away, so reading
-  // history is never fought. `resetKey` is a stable constant here — this
-  // panel is fully unmounted/remounted on close/reopen (see the seed refs
-  // above), so there's no in-place "navigation" case to reset for.
-  const { containerRef: scrollRef } = useStickToBottom(
-    displayMessages,
-    threadId,
-    'workflow-copilot'
-  );
-  useEffect(() => {
-    log(
-      'scroll: stick-to-bottom deps changed messages=%d thread=%s sending=%s hasProposal=%s timeline=%d liveTextLen=%d',
-      displayMessages.length,
-      threadId ?? 'null',
-      sending,
-      Boolean(proposal),
-      toolTimeline.length,
-      liveResponse.length
-    );
-  }, [displayMessages, threadId, sending, proposal, toolTimeline, liveResponse]);
-
+  // Transcript rendering + scroll pinning (stick-to-bottom) are owned by the
+  // shared `ChatThreadView` below — the copilot no longer hand-rolls the
+  // transcript. This component keeps only the authoring concerns: the
+  // structured `flows_build` send path, the seed auto-sends, and the
+  // proposal / capped cards surfaced in the footer.
   const submit = useCallback(
     async (raw?: string) => {
       const trimmed = (raw ?? text).trim();
@@ -448,14 +411,6 @@ export default function WorkflowCopilotPanel({
   }, [onReject, clearProposal]);
 
   const diff = proposal ? diffGraphs(graph, proposal.graph as WorkflowGraph) : null;
-  const hasTimeline = toolTimeline.length > 0;
-  // B25: the in-flight streaming text can also carry the raw tool-call
-  // envelope mid-turn — unwrap once and reuse the clean text everywhere below
-  // (the pre-tool streaming bubble and the shared `ToolTimelineBlock`).
-  const liveResponseText = unwrapToolCallEnvelope(liveResponse).text;
-  const hasLiveText = liveResponseText.trim().length > 0;
-  const isEmpty =
-    displayMessages.length === 0 && !proposal && !sending && !error && !hasTimeline && !hasLiveText;
 
   return (
     <aside
@@ -478,80 +433,30 @@ export default function WorkflowCopilotPanel({
         </button>
       </header>
 
-      <div
-        ref={scrollRef}
-        className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
-        data-testid="workflow-copilot-transcript">
-        {isEmpty && (
-          <p className="text-xs text-content-muted" data-testid="workflow-copilot-empty">
-            {t('flows.copilot.emptyState')}
-          </p>
-        )}
-
-        {/* Conversation transcript: user turns right-aligned, agent turns left.
-            Renders `displayMessages` (interim narration bubbles filtered out —
-            that narration already streams via the tool timeline / live text
-            below it double-renders it as a bubble too, see B4). */}
-        {displayMessages.map(message => {
-          if (message.sender === 'user') {
-            return (
-              <div
-                key={message.id}
-                className="flex justify-end"
-                data-testid="workflow-copilot-user">
-                <div className="max-w-[85%] rounded-2xl bg-primary-500 px-3 py-1.5 text-sm text-content-inverted">
-                  {message.content}
-                </div>
-              </div>
-            );
-          }
-          // B25: a turn that both talks and calls a tool can carry the
-          // provider wire-format `{ content, tool_calls }` envelope as this
-          // message's raw `content` — unwrap it so the bubble renders only
-          // the human text (+ a compact tool-activity chip), never raw JSON.
-          const { text, toolNames } = unwrapToolCallEnvelope(message.content);
-          return (
-            <div
-              key={message.id}
-              className="max-w-[92%] rounded-2xl bg-surface-subtle px-3 py-1.5"
-              data-testid="workflow-copilot-agent">
-              <BubbleMarkdown content={text} />
-              <ToolActivityChip toolNames={toolNames} />
-            </div>
-          );
-        })}
-
-        {/* Live builder activity — the SHARED tool timeline (tool cards + the
-            streaming reply) the main chat uses, fed from the runtime's streamed
-            per-thread state. Renders nothing until the turn produces a tool
-            call. */}
-        {hasTimeline && (
-          <div data-testid="workflow-copilot-timeline">
-            <ToolTimelineBlock
-              entries={toolTimeline}
-              liveResponse={hasLiveText ? liveResponseText : undefined}
-              turnActive={turnActive}
-            />
+      {/* Full builder transcript — the SAME rich renderer the home composer
+          chat uses (message bubbles, past-turn insights, the shared tool
+          timeline + sub-agent drawer, streaming/interrupted/parallel previews),
+          driven by this copilot's DEDICATED thread. `flows_build` streams the
+          `workflow_builder` turn onto `threadId` via the global
+          `ChatRuntimeProvider`, exactly as a normal chat turn streams, so the
+          copilot now reads like the real chat instead of a bespoke transcript.
+          The empty hint, proposal preview, and capped card are the copilot's
+          own authoring affordances, kept in the footer below. */}
+      <ChatThreadView
+        threadId={threadId}
+        variant="sidebar"
+        scrollResetKey="workflow-copilot"
+        shareAgentName={t('flows.copilot.title')}
+        emptyContent={
+          <div className="flex h-full items-center justify-center px-3">
+            <p className="text-xs text-content-muted" data-testid="workflow-copilot-empty">
+              {t('flows.copilot.emptyState')}
+            </p>
           </div>
-        )}
+        }
+      />
 
-        {/* Pre-tool phase: the reply is streaming but no tool has run yet, so the
-            timeline is still empty — surface the live text as an agent bubble so
-            the copilot never looks frozen. */}
-        {hasLiveText && !hasTimeline && (
-          <div
-            className="max-w-[92%] rounded-2xl bg-surface-subtle px-3 py-1.5"
-            data-testid="workflow-copilot-streaming">
-            <BubbleMarkdown content={liveResponseText} />
-          </div>
-        )}
-
-        {sending && !hasTimeline && !hasLiveText && (
-          <p className="text-xs text-content-muted" data-testid="workflow-copilot-thinking">
-            {t('flows.copilot.thinking')}
-          </p>
-        )}
-
+      <div className="space-y-3 border-t border-line px-3 py-2.5">
         {error && (
           <p className="text-xs text-coral" data-testid="workflow-copilot-error">
             {error === 'offline' ? t('flows.copilot.offline') : t('flows.copilot.error')}
@@ -612,9 +517,9 @@ export default function WorkflowCopilotPanel({
 
         {/* (B34) The turn hit the agent's iteration limit with no proposal
             yet — distinguish this from a voluntary clarifying question (which
-            renders as a plain agent bubble above, no card) with an explicit
-            "reached its iteration limit" signal and a one-click resume that
-            continues building from the current draft (see `continueBuilding`
+            renders as a plain agent bubble in the transcript, no card) with an
+            explicit "reached its iteration limit" signal and a one-click resume
+            that continues building from the current draft (see `continueBuilding`
             above for why this is accurate rather than a seamless resume).
             Never shown alongside `sending` (a fresh turn already cleared
             `capped`) or a proposal (mutually exclusive server-side — see
@@ -636,9 +541,7 @@ export default function WorkflowCopilotPanel({
             </div>
           </div>
         )}
-      </div>
 
-      <div className="border-t border-line px-3 py-2.5">
         <ChatComposer
           inputValue={text}
           setInputValue={setText}

@@ -364,16 +364,30 @@ mod tests {
     ///
     /// Mirrors how the agent loader tolerates the orchestrator TOML's dangling
     /// `mcp_agent` subagent id (#4799).
-    #[cfg(feature = "mcp")]
-    fn is_compiled_out_method(_method: &str) -> bool {
-        false
-    }
-
-    #[cfg(not(feature = "mcp"))]
     fn is_compiled_out_method(method: &str) -> bool {
-        // `mcp` feature OFF ⇒ the `mcp_clients` (dynamic registry) and
-        // `mcp_audit` (write log) controllers are unregistered.
-        method.starts_with("openhuman.mcp_clients_") || method.starts_with("openhuman.mcp_audit_")
+        // Each compile-time gate contributes the RPC namespaces whose controllers
+        // it unregisters. The frontend catalog is data (it always names the full
+        // shipped surface), so a slim build must ignore exactly those methods and
+        // keep asserting on everything else.
+        #[cfg(not(feature = "mcp"))]
+        // `mcp` OFF ⇒ the `mcp_clients` (dynamic registry) + `mcp_audit` (write
+        // log) controllers are unregistered.
+        if method.starts_with("openhuman.mcp_clients_")
+            || method.starts_with("openhuman.mcp_audit_")
+        {
+            return true;
+        }
+        #[cfg(not(feature = "desktop-automation"))]
+        // `desktop-automation` OFF ⇒ the autocomplete / screen_intelligence /
+        // desktop-companion controllers are unregistered (#5049).
+        if method.starts_with("openhuman.autocomplete_")
+            || method.starts_with("openhuman.screen_intelligence_")
+            || method.starts_with("openhuman.companion_")
+        {
+            return true;
+        }
+        let _ = method;
+        false
     }
 
     #[test]

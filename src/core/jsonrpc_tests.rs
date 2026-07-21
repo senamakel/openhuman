@@ -295,6 +295,10 @@ async fn invoke_config_get_runtime_flags_via_registry() {
     assert!(result.get("result").is_some());
 }
 
+// `autocomplete_*` is gated behind `desktop-automation` (#5049); with the gate
+// off the controller is unregistered, so this param-validation test only applies
+// when the feature is enabled (it is in the default/shipped build).
+#[cfg(feature = "desktop-automation")]
 #[tokio::test]
 async fn invoke_autocomplete_status_rejects_unknown_param() {
     let err = invoke_method(

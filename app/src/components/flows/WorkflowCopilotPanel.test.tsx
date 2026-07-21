@@ -2,28 +2,30 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkflowGraph, WorkflowNode } from '../../lib/flows/types';
-import type { ToolTimelineEntry, WorkflowProposal } from '../../store/chatRuntimeSlice';
+import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
 import WorkflowCopilotPanel from './WorkflowCopilotPanel';
 
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
 
-interface MockMessage {
-  id: string;
-  content: string;
-  sender: 'user' | 'agent';
-  extraMetadata?: { isInterim?: boolean };
-}
+// The panel now delegates its entire transcript to the shared `ChatThreadView`
+// (message bubbles, tool timeline, sub-agent drawer, streaming previews). That
+// component reads the real Redux store; its rendering — including the B25
+// tool-call-envelope unwrap and interim-narration handling — is covered by
+// `features/conversations/components/ChatThreadView.test.tsx`. Here we stub it
+// so these tests stay focused on the copilot's OWN authoring behavior (the
+// `flows_build` send path, seed auto-sends, and the proposal / capped cards)
+// without needing a Redux Provider.
+vi.mock('../../features/conversations/components/ChatThreadView', () => ({
+  ChatThreadView: ({ emptyContent }: { emptyContent?: unknown }) => (
+    <div data-testid="chat-thread-view">{emptyContent as never}</div>
+  ),
+}));
 
 const hookState = vi.hoisted(() => ({
+  threadId: null as string | null,
   sending: false,
   proposal: null as WorkflowProposal | null,
   capped: false,
-  // Panel renders `displayMessages` (already interim-filtered upstream by
-  // `useWorkflowBuilderChat`) — kept separate from `messages` in these tests
-  // so a mismatch between the two proves the panel is reading the right field.
-  displayMessages: [] as MockMessage[],
-  toolTimeline: [] as ToolTimelineEntry[],
-  liveResponse: '',
   error: null as string | null,
   send: vi.fn(),
   clearProposal: vi.fn(),
@@ -50,12 +52,10 @@ const baseGraph = graph(['a', 'b']);
 
 describe('WorkflowCopilotPanel', () => {
   beforeEach(() => {
+    hookState.threadId = null;
     hookState.sending = false;
     hookState.proposal = null;
     hookState.capped = false;
-    hookState.displayMessages = [];
-    hookState.toolTimeline = [];
-    hookState.liveResponse = '';
     hookState.error = null;
     hookState.send = vi.fn().mockResolvedValue({ outcome: 'dispatched', proposed: false });
     hookState.clearProposal = vi.fn();
@@ -147,268 +147,13 @@ describe('WorkflowCopilotPanel', () => {
     expect(thirdArg.request.instruction).toBe('also add a filter step');
   });
 
-  it('renders the conversation transcript (user + agent turns)', () => {
-    hookState.displayMessages = [
-      { id: 'm1', content: 'add a Slack step', sender: 'user' },
-      { id: 'm2', content: 'Done — proposed a Slack notification.', sender: 'agent' },
-    ];
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
-    expect(screen.getByTestId('workflow-copilot-user')).toHaveTextContent('add a Slack step');
-    expect(screen.getByTestId('workflow-copilot-agent')).toHaveTextContent(
-      'Done — proposed a Slack notification.'
-    );
-    // With a transcript present, the empty-state hint is gone.
-    expect(screen.queryByTestId('workflow-copilot-empty')).not.toBeInTheDocument();
-  });
-
-  it('B25: unwraps a raw tool-call envelope message into clean text + a tool activity chip, never raw JSON', () => {
-    // Repro for B25: a turn that both talks and calls a tool can land in the
-    // thread transcript as the provider wire-format `{ content, tool_calls }`
-    // envelope. The panel must render only the human text — never the raw
-    // JSON — plus a compact status chip for the tool activity.
-    hookState.displayMessages = [
-      { id: 'm1', content: 'build me a Slack digest', sender: 'user' },
-      {
-        id: 'm2',
-        content: JSON.stringify({
-          content: "Here's the workflow I propose.",
-          tool_calls: [{ id: 'call_1', name: 'propose_workflow', arguments: '{"nodes":[]}' }],
-        }),
-        sender: 'agent',
-      },
-    ];
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
-    const bubble = screen.getByTestId('workflow-copilot-agent');
-    expect(bubble).toHaveTextContent("Here's the workflow I propose.");
-    // The raw envelope must never reach the DOM as text.
-    expect(bubble).not.toHaveTextContent('tool_calls');
-    expect(bubble).not.toHaveTextContent('"nodes":[]');
-    expect(screen.getByTestId('tool-activity-chip')).toHaveTextContent(
-      'flows.copilot.tool.proposing'
-    );
-  });
-
-  it('does not render an isInterim agent message as a bubble, only the terminal one', () => {
-    // The panel only ever renders `displayMessages` — the same filtered set
-    // `useWorkflowBuilderChat` computes from the raw transcript (isInterim
-    // agent messages dropped since that narration already streams live via
-    // the tool timeline / live text). Mirror that filter here so this test
-    // documents (and would catch a regression in) the composition: an
-    // isInterim message must never reach the panel as a bubble, while the
-    // terminal (non-interim) answer still does.
-    const raw: MockMessage[] = [
-      { id: 'm1', content: 'build me a Slack digest', sender: 'user' },
-      {
-        id: 'm2',
-        content: 'Let me check your calendar first.',
-        sender: 'agent',
-        extraMetadata: { isInterim: true },
-      },
-      { id: 'm3', content: 'Done — proposed a Slack notification.', sender: 'agent' },
-    ];
-    hookState.displayMessages = raw.filter(m => m.sender === 'user' || !m.extraMetadata?.isInterim);
-
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
-    expect(screen.queryByText('Let me check your calendar first.')).not.toBeInTheDocument();
-    expect(screen.getByTestId('workflow-copilot-agent')).toHaveTextContent(
-      'Done — proposed a Slack notification.'
-    );
-  });
-
-  it('renders the shared tool timeline + streaming reply during a builder turn', () => {
-    hookState.sending = true;
-    hookState.toolTimeline = [
-      { id: 'call-1', name: 'propose_workflow', round: 0, status: 'running' } as ToolTimelineEntry,
-    ];
-    hookState.liveResponse = 'Drafting your workflow…';
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
-    // The shared ToolTimelineBlock renders (not the bespoke transcript), and the
-    // one-shot "thinking" placeholder is suppressed once activity is streaming.
-    expect(screen.getByTestId('workflow-copilot-timeline')).toBeInTheDocument();
-    expect(screen.queryByTestId('workflow-copilot-thinking')).not.toBeInTheDocument();
-  });
-
-  it('shows the live reply as a bubble before the first tool call streams', () => {
-    hookState.sending = true;
-    hookState.toolTimeline = [];
-    hookState.liveResponse = 'Thinking about your Slack digest…';
-    render(
-      <WorkflowCopilotPanel
-        graph={baseGraph}
-        onProposal={vi.fn()}
-        onAccept={vi.fn()}
-        onReject={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
-    expect(screen.getByTestId('workflow-copilot-streaming')).toHaveTextContent(
-      'Thinking about your Slack digest…'
-    );
-    // No tool timeline yet, and the plain "thinking" line is replaced by the
-    // streamed text.
-    expect(screen.queryByTestId('workflow-copilot-timeline')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('workflow-copilot-thinking')).not.toBeInTheDocument();
-  });
-
-  // Regression coverage for the "copilot chat gets stuck" bug: the panel used
-  // to force-scroll to the bottom on every render of a streaming turn (an
-  // unconditional `scrollTo` effect keyed on messages/tool timeline/live
-  // text), which fought a user trying to scroll up to read. The panel now
-  // delegates to the shared `useStickToBottom` hook (same one the main chat
-  // surfaces use) — these tests exercise the REAL hook (not mocked) wired
-  // through the actual transcript container.
-  describe('transcript scroll pinning (#regression: chat gets stuck)', () => {
-    function scrollContainer() {
-      return screen.getByTestId('workflow-copilot-transcript');
-    }
-
-    // jsdom performs no real layout, so scroll metrics are inert unless
-    // defined explicitly — mirrors the approach in useStickToBottom.test.ts.
-    function mockScrollMetrics(
-      el: HTMLElement,
-      metrics: { scrollTop: number; scrollHeight: number; clientHeight: number }
-    ) {
-      Object.defineProperty(el, 'scrollHeight', {
-        configurable: true,
-        value: metrics.scrollHeight,
-      });
-      Object.defineProperty(el, 'clientHeight', {
-        configurable: true,
-        value: metrics.clientHeight,
-      });
-      Object.defineProperty(el, 'scrollTop', {
-        configurable: true,
-        writable: true,
-        value: metrics.scrollTop,
-      });
-    }
-
-    function renderPanel() {
-      return render(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-          onClose={vi.fn()}
-        />
-      );
-    }
-
-    it('keeps the transcript container freely scrollable (overflow-y-auto)', () => {
-      renderPanel();
-      expect(scrollContainer()).toHaveClass('overflow-y-auto');
-    });
-
-    it('auto-scrolls to the bottom when a new message arrives while the user is pinned to the bottom', () => {
-      hookState.displayMessages = [{ id: 'm1', content: 'hi', sender: 'user' }];
-      const { rerender } = renderPanel();
-      const container = scrollContainer();
-
-      mockScrollMetrics(container, { scrollTop: 50, scrollHeight: 100, clientHeight: 50 });
-      rerender(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-          onClose={vi.fn()}
-        />
-      );
-
-      // A new agent turn lands while the user never scrolled away.
-      hookState.displayMessages = [
-        ...hookState.displayMessages,
-        { id: 'm2', content: 'Done — proposed a Slack notification.', sender: 'agent' },
-      ];
-      mockScrollMetrics(container, { scrollTop: 50, scrollHeight: 300, clientHeight: 50 });
-      rerender(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-          onClose={vi.fn()}
-        />
-      );
-
-      expect(container.scrollTop).toBe(300);
-    });
-
-    it('does NOT force-scroll the user back down once they have scrolled up to read history', () => {
-      hookState.displayMessages = [{ id: 'm1', content: 'hi', sender: 'user' }];
-      const { rerender } = renderPanel();
-      const container = scrollContainer();
-
-      mockScrollMetrics(container, { scrollTop: 50, scrollHeight: 100, clientHeight: 50 });
-      rerender(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-          onClose={vi.fn()}
-        />
-      );
-
-      // The user scrolls up to read earlier context, well past the stick
-      // threshold (400 - 0 - 50 = 350px from the bottom).
-      mockScrollMetrics(container, { scrollTop: 0, scrollHeight: 400, clientHeight: 50 });
-      fireEvent.scroll(container);
-
-      // A new agent turn streams in regardless — this is exactly the bug:
-      // the old unconditional `scrollTo` effect would yank the reader back
-      // to the bottom here. The container must stay put.
-      hookState.displayMessages = [
-        ...hookState.displayMessages,
-        { id: 'm2', content: 'Still drafting…', sender: 'agent' },
-      ];
-      mockScrollMetrics(container, { scrollTop: 0, scrollHeight: 700, clientHeight: 50 });
-      rerender(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-          onClose={vi.fn()}
-        />
-      );
-
-      expect(container.scrollTop).toBe(0);
-    });
-  });
+  // Transcript rendering (message bubbles, the shared tool timeline + sub-agent
+  // drawer, streaming previews, the B25 tool-call-envelope unwrap, interim
+  // narration, and stick-to-bottom scroll pinning) now lives in the shared
+  // `ChatThreadView` and is covered by
+  // `features/conversations/components/ChatThreadView.test.tsx`. The panel here
+  // stubs that component (see the mock above), so these tests assert only the
+  // copilot's own authoring surface (send path, seeds, proposal / capped cards).
 
   it('surfaces a new proposal to the host and shows the added/removed diff', () => {
     const onProposal = vi.fn();

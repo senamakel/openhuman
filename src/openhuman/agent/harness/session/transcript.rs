@@ -1187,6 +1187,13 @@ pub fn read_transcript_display(path: &Path) -> Result<DisplaySessionTranscript> 
 /// transcript without accidentally folding delegated worker transcripts
 /// into the main chat timeline.
 pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) -> Option<PathBuf> {
+    raw_session_dirs(workspace_dir)
+        .into_iter()
+        .filter_map(|raw_dir| find_root_transcript_for_thread_in_dir(&raw_dir, thread_id))
+        .max_by(|left, right| left.file_name().cmp(&right.file_name()))
+}
+
+fn raw_session_dirs(workspace_dir: &Path) -> Vec<PathBuf> {
     let mut raw_dirs = vec![raw_session_dir(workspace_dir)];
     if let Ok(entries) = fs::read_dir(workspace_dir) {
         raw_dirs.extend(entries.flatten().map(|entry| entry.path()).filter(|path| {
@@ -1200,11 +1207,8 @@ pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) ->
                     })
         }));
     }
-
+    raw_dirs.sort();
     raw_dirs
-        .into_iter()
-        .filter_map(|raw_dir| find_root_transcript_for_thread_in_dir(&raw_dir, thread_id))
-        .max_by(|left, right| left.file_name().cmp(&right.file_name()))
 }
 
 pub fn find_root_transcript_for_thread_in_dir(raw_dir: &Path, thread_id: &str) -> Option<PathBuf> {
@@ -1356,39 +1360,41 @@ pub fn read_thread_usage_summary(
         return None;
     }
 
-    let raw_dir = raw_session_dir(workspace_dir);
-    let entries = fs::read_dir(&raw_dir).ok()?;
-
     // Single scan: split the thread's transcripts into root (orchestrator) and
     // `__` sub-agent files. Root totals stay the parent's; sub-agent files are
     // grouped by archetype for the per-agent breakdown.
     let mut root_matches: Vec<PathBuf> = Vec::new();
     let mut sub_matches: Vec<PathBuf> = Vec::new();
-    for path in entries.flatten().map(|entry| entry.path()) {
-        if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
-            continue;
-        }
-        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+    for raw_dir in raw_session_dirs(workspace_dir) {
+        let Ok(entries) = fs::read_dir(&raw_dir) else {
             continue;
         };
-        let is_subagent = stem.contains("__");
-        let matches_thread = read_transcript_meta_only(&path)
-            .map(|m| m.thread_id.as_deref() == Some(thread_id))
-            .unwrap_or(false);
-        if !matches_thread {
-            continue;
-        }
-        if is_subagent {
-            sub_matches.push(path);
-        } else {
-            root_matches.push(path);
+        for path in entries.flatten().map(|entry| entry.path()) {
+            if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
+                continue;
+            }
+            let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let is_subagent = stem.contains("__");
+            let matches_thread = read_transcript_meta_only(&path)
+                .map(|m| m.thread_id.as_deref() == Some(thread_id))
+                .unwrap_or(false);
+            if !matches_thread {
+                continue;
+            }
+            if is_subagent {
+                sub_matches.push(path);
+            } else {
+                root_matches.push(path);
+            }
         }
     }
 
     if root_matches.is_empty() && sub_matches.is_empty() {
         return None;
     }
-    root_matches.sort();
+    root_matches.sort_by(|left, right| left.file_name().cmp(&right.file_name()));
 
     let mut summary = ThreadUsageSummary::default();
     for path in &root_matches {

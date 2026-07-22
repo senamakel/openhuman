@@ -914,6 +914,31 @@ fn read_thread_usage_summary_sums_multiple_transcripts() {
 }
 
 #[test]
+fn read_thread_usage_summary_scans_profile_scoped_raw_dirs() {
+    let ws = TempDir::new().unwrap();
+    let raw = ws.path().join("session_raw-alice");
+    std::fs::create_dir_all(&raw).unwrap();
+    let mut meta = sample_meta();
+    meta.thread_id = Some("thr-scoped-usage".into());
+    meta.input_tokens = 321;
+    meta.output_tokens = 45;
+    meta.turn_count = 2;
+    write_transcript(
+        &raw.join("1700000000_main.jsonl"),
+        &sample_messages(),
+        &meta,
+        None,
+    )
+    .unwrap();
+
+    let summary = read_thread_usage_summary(ws.path(), "thr-scoped-usage")
+        .expect("scoped usage summary present");
+    assert_eq!(summary.input_tokens, 321);
+    assert_eq!(summary.output_tokens, 45);
+    assert_eq!(summary.turn_count, 2);
+}
+
+#[test]
 fn read_thread_usage_summary_none_for_unknown_thread() {
     let ws = TempDir::new().unwrap();
     assert!(read_thread_usage_summary(ws.path(), "no-such-thread").is_none());

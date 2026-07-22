@@ -550,12 +550,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Memory,
         crate::openhuman::memory_diff::all_memory_diff_registered_controllers(),
     );
-    // Link shortener for long tracking URLs — saves LLM tokens
-    push(
-        &mut controllers,
-        DomainGroup::Platform,
-        crate::openhuman::redirect_links::all_redirect_links_registered_controllers(),
-    );
     // Referral and growth tracking
     push(
         &mut controllers,
@@ -897,9 +891,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         ),
         "memory_diff" => Some(
             "Snapshot-based change tracking for memory sources — capture state, compute diffs, and surface changes to agents.",
-        ),
-        "redirect_links" => Some(
-            "Shorten long tracking URLs to `openhuman://link/<id>` placeholders (SQLite-backed) to save tokens in prompts, with round-trip rewrite helpers.",
         ),
         "referral" => Some("Referral codes, stats, and apply flows via the hosted backend API."),
         "run_ledger" => Some(

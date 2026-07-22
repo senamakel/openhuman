@@ -78,6 +78,57 @@ fn domain_subscriber_plan_harness_gates_by_owning_group() {
     assert!(!plan.mcp, "harness must skip mcp_registry bus init");
 }
 
+/// #5027 — the tool-execution timeout must be seeded on the always-on core boot
+/// path (`register_domain_subscribers`), NOT inside
+/// `channels::runtime::startup::start_channels`, which is skipped for
+/// channel-less / web-chat-only cores (and when `OPENHUMAN_DISABLE_CHANNEL_LISTENERS`
+/// is set). A minimal `DomainSet::none()` must still seed, because the seed is
+/// DomainSet-independent.
+///
+/// The seed sits just *before* the ungated `INFRA: Once` block, so it re-runs on
+/// every `register_domain_subscribers` call (each `bootstrap_core_runtime`),
+/// re-applying the freshly reloaded config on an in-process restart — a seed gated
+/// by the process-global `Once` would only fire on the first boot. `TEST_ENV_LOCK`
+/// (via `EnvVarGuard`) serializes with `OPENHUMAN_TOOL_TIMEOUT_SECS` cleared so the
+/// operator env override cannot mask the config-derived value. Runs under a tokio
+/// runtime like the real boot paths — the INFRA block calls `subscribe_global`,
+/// which `tokio::spawn`s when the global bus is already initialized by another test
+/// in the binary.
+#[tokio::test]
+async fn tool_timeout_seeds_on_channelless_core_boot() {
+    // Clear the operator override behind a panic-safe RAII guard: if any assertion
+    // below panics, `Drop` still restores the previous value, so sibling tests that
+    // share `TEST_ENV_LOCK` never inherit the cleared var.
+    let _env = EnvVarGuard::remove_many(vec!["OPENHUMAN_TOOL_TIMEOUT_SECS"]);
+
+    // Distinctive, in-range (1..=3600) value so the assertion can only pass on a
+    // real seed, never on the default. Channel-less: `channels_config` stays empty,
+    // which is exactly the config for which `start_channels` is skipped.
+    let mut config = crate::openhuman::config::Config::default();
+    config.agent.agent_timeout_secs = 1234;
+    assert!(
+        config.channels_config.active_channel.is_none(),
+        "test premise: channel-less config, so start_channels would be skipped"
+    );
+
+    let tmp = tempfile::tempdir().expect("tempdir");
+    // Minimal DomainSet — INFRA (and thus the timeout seed) is DomainSet-independent,
+    // so even `none()` must seed. `embedded_core = true` skips the standalone
+    // process-exit shutdown subscriber.
+    super::register_domain_subscribers(
+        tmp.path().to_path_buf(),
+        config,
+        true,
+        crate::core::runtime::DomainSet::none(),
+    );
+
+    assert_eq!(
+        crate::openhuman::tool_timeout::tool_execution_timeout_secs(),
+        1234,
+        "channel-less core boot must seed the tool-execution timeout from [agent].agent_timeout_secs"
+    );
+}
+
 struct EnvVarGuard {
     old_values: Vec<(&'static str, Option<OsString>)>,
     _lock: MutexGuard<'static, ()>,
@@ -92,6 +143,25 @@ impl EnvVarGuard {
         for (key, value) in vars {
             let old = std::env::var_os(key);
             std::env::set_var(key, value);
+            old_values.push((key, old));
+        }
+        Self {
+            old_values,
+            _lock: lock,
+        }
+    }
+
+    /// Remove the named vars (capturing their prior values) for the guard's
+    /// lifetime, restoring each on `Drop`. Mirrors [`set_many`] for tests that
+    /// need an env var *absent* rather than set to a fixed value.
+    fn remove_many(keys: Vec<&'static str>) -> Self {
+        let lock = crate::openhuman::config::TEST_ENV_LOCK
+            .lock()
+            .expect("test env lock poisoned");
+        let mut old_values = Vec::with_capacity(keys.len());
+        for key in keys {
+            let old = std::env::var_os(key);
+            std::env::remove_var(key);
             old_values.push((key, old));
         }
         Self {

@@ -325,10 +325,16 @@ impl Agent {
             }
         };
 
-        let tool_config: &Config = config;
+        // Share a single `Arc<Config>` across the heavyweight per-build consumers
+        // (the tool registry, the reflection hook, the turn provider) instead of
+        // deep-cloning the large `Config` at each site (#5050, Fix 1). `Config` is
+        // immutable after construction, so one refcounted instance is behaviourally
+        // identical to N independent clones.
+        let base_config: Arc<Config> = Arc::new(config.clone());
+        let tool_config: Arc<Config> = Arc::clone(&base_config);
 
         let mut tools = tools::all_tools_with_runtime(
-            Arc::new(tool_config.clone()),
+            Arc::clone(&tool_config),
             &security,
             runtime,
             audit,
@@ -337,7 +343,7 @@ impl Agent {
             &tool_config.http_request,
             &tool_config.action_dir,
             &tool_config.agents,
-            tool_config,
+            &tool_config,
             profile_skill_allowlist.as_ref(),
             profile_mcp_allowlist.as_deref(),
         );
@@ -615,11 +621,10 @@ impl Agent {
             Vec::new();
         if config.learning.enabled {
             if config.learning.reflection_enabled {
-                // Only the reflection hook needs an owned snapshot of the
-                // full config, so create the `Arc` lazily inside this
-                // branch instead of paying for the clone whenever
-                // `learning.enabled` is true.
-                let full_config = Arc::new(config.clone());
+                // The reflection hook needs an owned `Arc<Config>`; reuse the
+                // shared base config (a refcount bump) rather than a second deep
+                // clone of the full config (#5050, Fix 1).
+                let full_config = Arc::clone(&base_config);
                 // For cloud reflection, wrap the provider in an Arc.
                 // For local, no provider needed.
                 let reflection_provider: Option<
@@ -1085,7 +1090,7 @@ impl Agent {
             effective_agent_config.max_tool_iterations = def_cap;
         }
         let mut builder = Agent::builder()
-            .crate_native_provider(provider_role, std::sync::Arc::new(config.clone()))
+            .crate_native_provider(provider_role, Arc::clone(&base_config))
             .tools(tools)
             .visible_tool_names(visible)
             .memory(memory)

@@ -667,6 +667,8 @@ pub fn all_tools_with_runtime(
         // call tools default-ON; OS permission prompts (screen_permissions),
         // MCP install/uninstall (mcp_manage), and persona/workspace writers
         // (workspace_manage) ship default-OFF via `tools::user_filter`.
+        //
+        // Screen intelligence tools (always-on Platform family).
         Box::new(ScreenStatusTool),
         Box::new(ScreenCaptureImageRefTool),
         Box::new(ScreenVisionRecentTool),
@@ -1328,7 +1330,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     if name.starts_with("thread_") || name.starts_with("todo_") || THREADS_EXTRA.contains(&name) {
         return DomainGroup::Threads;
     }
-    // Everything else — shell/file/screen/config/security/agent/billing/… — is
+    // Everything else — shell/file/config/security/agent/billing/… — is
     // Platform: present under full(), absent under harness()/none().
     DomainGroup::Platform
 }

@@ -119,6 +119,9 @@ async function tryPingRpc(url: string): Promise<boolean> {
       method: 'POST',
       headers: buildHeaders(false),
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'core.ping', params: {} }),
+      // A recently stopped listener can take several seconds to reject on
+      // Windows. Keep discovery inside resetApp's eight-second RPC budget.
+      signal: AbortSignal.timeout(750),
     });
     // 401 means "endpoint exists, auth required" — that's a positive match
     // for the core RPC URL; the real call will retry with auth attached.
@@ -136,7 +139,10 @@ async function tryPingRpc(url: string): Promise<boolean> {
  * `OPENHUMAN_CORE_HOST` + `OPENHUMAN_CORE_PORT`, then probe host:port until core.ping succeeds.
  */
 export async function resolveCoreRpcUrl(): Promise<string> {
-  if (cachedRpcUrl) return cachedRpcUrl;
+  if (cachedRpcUrl) {
+    if (await tryPingRpc(cachedRpcUrl)) return cachedRpcUrl;
+    cachedRpcUrl = null;
+  }
 
   const env = process.env.OPENHUMAN_CORE_RPC_URL?.trim();
   if (env) {
@@ -168,33 +174,43 @@ export async function callOpenhumanRpcNode<T = unknown>(
   method: string,
   params: Record<string, unknown> = {}
 ): Promise<RpcCallResult<T>> {
-  try {
-    const rpcUrl = await resolveCoreRpcUrl();
-    const id = Math.floor(Math.random() * 1e9);
-    const res = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: buildHeaders(),
-      body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
-    });
-    const text = await res.text();
-    let json: { error?: { message?: string }; result?: T };
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      json = JSON.parse(text) as typeof json;
-    } catch {
-      return {
-        ok: false,
-        httpStatus: res.status,
-        error: `Invalid JSON (${res.status}): ${text.slice(0, 240)}`,
-      };
+      const rpcUrl = await resolveCoreRpcUrl();
+      const id = Math.floor(Math.random() * 1e9);
+      const res = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: buildHeaders(),
+        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+      });
+      const text = await res.text();
+      let json: { error?: { message?: string }; result?: T };
+      try {
+        json = JSON.parse(text) as typeof json;
+      } catch {
+        return {
+          ok: false,
+          httpStatus: res.status,
+          error: `Invalid JSON (${res.status}): ${text.slice(0, 240)}`,
+        };
+      }
+      if (!res.ok) {
+        return { ok: false, httpStatus: res.status, error: text.slice(0, 500) };
+      }
+      if (json.error) {
+        return { ok: false, error: json.error.message || JSON.stringify(json.error) };
+      }
+      return { ok: true, result: json.result };
+    } catch (e) {
+      // A data reset can restart the embedded core on another fallback port.
+      // Discard a cached listener after a transport failure and discover the
+      // replacement once before surfacing the error to the spec.
+      cachedRpcUrl = null;
+      if (attempt === 1) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      }
     }
-    if (!res.ok) {
-      return { ok: false, httpStatus: res.status, error: text.slice(0, 500) };
-    }
-    if (json.error) {
-      return { ok: false, error: json.error.message || JSON.stringify(json.error) };
-    }
-    return { ok: true, result: json.result };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+
+  return { ok: false, error: 'Core JSON-RPC retry exhausted' };
 }

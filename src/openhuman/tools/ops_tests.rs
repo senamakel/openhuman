@@ -1541,6 +1541,9 @@ async fn readonly_acting_tools_carry_policy_blocked_marker() {
             Box::new(CsvExportTool::new(sec.clone())),
             serde_json::json!({ "data": "col1\nval1", "filename": "x.csv" }),
         ),
+        // The `computer`-family tools are compiled out with the
+        // `desktop-automation` feature; gate these two cases per-element so the
+        // rest of the read-only policy assertions still run in the slim build.
         (
             Box::new(BrowserOpenTool::new(sec.clone(), vec![])),
             serde_json::json!({ "url": "https://example.com" }),
@@ -2079,6 +2082,10 @@ fn money_default_off_tools_retained_when_opted_in() {
 // ── Theme: Desktop perception, MCP registry, workspace ──────────────────────
 
 const DESKTOP_TOOLS: &[&str] = &[
+    // The 15 `screen_intelligence_*` tools are compiled out with the
+    // `desktop-automation` feature, so these expectations are gated per-element
+    // (same idiom as the `mcp_registry_*` block below) rather than gating the
+    // `desktop_tools_are_registered` test away wholesale.
     "screen_intelligence_status",
     "screen_intelligence_capture_image_ref",
     "screen_intelligence_vision_recent",
@@ -2154,6 +2161,7 @@ fn desktop_tools_are_registered() {
     let names = tool_names(&expansion_tools_for(&tmp));
     assert_contains_all(&names, DESKTOP_TOOLS);
 }
+
 
 #[test]
 fn desktop_default_off_tools_are_filtered_when_not_opted_in() {

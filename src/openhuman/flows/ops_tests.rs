@@ -3886,6 +3886,86 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
     }
 }
 
+/// Pins the exact contents of both `flows_build` hide-lists so a future edit
+/// can't silently narrow/widen either belt without a test catching it
+/// (PR3: flows-copilot-live-run-approval).
+#[test]
+fn flows_build_hide_lists_have_the_expected_contents() {
+    assert_eq!(
+        FLOWS_BUILD_COPILOT_HIDDEN_TOOLS,
+        ["run_workflow", "cancel_flow_run"],
+        "the streaming (copilot) hide-list must hide the legacy `run_workflow` AND \
+         `cancel_flow_run` — the latter has no external_effect to park and no \
+         run-ownership guard (codex #5090), so it must NOT be exposed unapproved; \
+         only `run_flow`/`resume_flow_run` stay visible, gated by the WebChat \
+         approval surface"
+    );
+    for tool in [
+        "run_workflow",
+        "run_flow",
+        "resume_flow_run",
+        "cancel_flow_run",
+    ] {
+        assert!(
+            FLOWS_BUILD_HIDDEN_TOOLS.contains(&tool),
+            "the headless hide-list must still contain `{tool}` (existing #4593/#4881 \
+             contract) — {FLOWS_BUILD_HIDDEN_TOOLS:?}"
+        );
+    }
+}
+
+/// Streaming (copilot) path: `restrict_builder_toolset_for_copilot` leaves
+/// `run_flow` / `resume_flow_run` visible on the builder's belt — they're gated
+/// by the WebChat approval surface, not hidden — while hiding the unrelated
+/// legacy `run_workflow` AND `cancel_flow_run` (the latter can't be parked and
+/// has no run-ownership guard — codex #5090) and keeping every authoring tool
+/// reachable (PR3: flows-copilot-live-run-approval).
+#[tokio::test]
+async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    crate::openhuman::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
+        .expect("agent registry init");
+    let mut agent =
+        crate::openhuman::agent::Agent::from_config_for_agent(&config, "workflow_builder")
+            .expect("build workflow_builder agent");
+    agent.set_agent_definition_name("workflow_builder".to_string());
+
+    restrict_builder_toolset_for_copilot(&mut agent);
+
+    let visible = agent.visible_tool_names_for_test();
+    for still_reachable in ["run_flow", "resume_flow_run"] {
+        assert!(
+            visible.contains(still_reachable),
+            "`{still_reachable}` must stay reachable on the streaming copilot path — it \
+             is gated behind the WebChat approval surface, not hidden; visible = {visible:?}"
+        );
+    }
+    for hidden in ["run_workflow", "cancel_flow_run"] {
+        assert!(
+            !visible.contains(hidden),
+            "`{hidden}` must stay hidden on the copilot path (legacy runner / \
+             unparkable-and-unguarded cancel — codex #5090); visible = {visible:?}"
+        );
+    }
+    for keep in [
+        "propose_workflow",
+        "revise_workflow",
+        "save_workflow",
+        "dry_run_workflow",
+        "list_flows",
+        "create_workflow",
+        "duplicate_flow",
+    ] {
+        assert!(
+            visible.contains(keep),
+            "authoring tool `{keep}` must remain visible on the copilot path; visible = \
+             {visible:?}"
+        );
+    }
+}
+
 /// Regression for issue #4868 (systemic fix, superseding the old B31
 /// per-caller `apply_builder_iteration_cap` override): `flows_build` must get
 /// an agent carrying the `workflow_builder` `AgentDefinition`'s

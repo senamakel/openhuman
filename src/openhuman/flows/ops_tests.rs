@@ -275,8 +275,19 @@ fn engine_compatibility_requires_exhaustive_router_choices_for_reconvergence() {
     let missing_switch_default =
         nested_router_reconvergence_graph("switch", &["known-case", "other-case"]);
     let errors = engine_compatibility_errors(&missing_switch_default);
-    assert_eq!(errors.len(), 1);
-    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+    assert!(!errors.is_empty());
+    assert!(errors
+        .iter()
+        .all(|error| error.code == UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN));
+    // Both the switch's own reconvergence and the downstream merge are unsafe;
+    // multiple switch ports may also report the same predecessor. Pin the
+    // affected fan-ins without coupling the test to diagnostic multiplicity.
+    assert!(errors
+        .iter()
+        .any(|error| error.node_id.as_deref() == Some("a")));
+    assert!(errors
+        .iter()
+        .any(|error| error.node_id.as_deref() == Some("m")));
 }
 
 #[test]

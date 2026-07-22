@@ -9,7 +9,9 @@
 
 use std::io::{self, Stdout};
 
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use crossterm::event::{
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+};
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -33,7 +35,12 @@ impl TerminalGuard {
         install_panic_hook();
         enable_raw_mode()?;
         let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        execute!(
+            stdout,
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            EnableBracketedPaste
+        )?;
         let backend = CrosstermBackend::new(io::stdout());
         let terminal = Terminal::new(backend)?;
         log::debug!("[tui] terminal: entered alternate screen + raw mode");
@@ -63,7 +70,12 @@ impl Drop for TerminalGuard {
 /// down as far as possible.
 fn restore() -> io::Result<()> {
     let mut stdout = io::stdout();
-    let _ = execute!(stdout, LeaveAlternateScreen, DisableMouseCapture);
+    let _ = execute!(
+        stdout,
+        DisableBracketedPaste,
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    );
     disable_raw_mode()
 }
 

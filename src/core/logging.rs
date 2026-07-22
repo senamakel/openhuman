@@ -50,6 +50,7 @@ static FILE_GUARD: Mutex<Option<WorkerGuard>> = Mutex::new(None);
 static LOG_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 const TUI_LOG_CAPACITY: usize = 2_000;
+const TUI_LOG_LINE_MAX_CHARS: usize = 4_096;
 static TUI_LOG_BUFFER: OnceLock<std::sync::Arc<Mutex<VecDeque<String>>>> = OnceLock::new();
 
 #[derive(Clone)]
@@ -96,7 +97,7 @@ impl TuiLogWriter {
                 if lines.len() == TUI_LOG_CAPACITY {
                     lines.pop_front();
                 }
-                lines.push_back(line.to_string());
+                lines.push_back(line.chars().take(TUI_LOG_LINE_MAX_CHARS).collect());
             }
         }
         self.pending.clear();
@@ -772,6 +773,22 @@ mod tests {
         assert_eq!(
             lines.back().map(String::as_str),
             Some(expected_last.as_str())
+        );
+    }
+
+    #[test]
+    fn tui_log_writer_caps_individual_lines() {
+        let buffer = std::sync::Arc::new(Mutex::new(VecDeque::new()));
+        let mut writer = TuiLogWriter {
+            buffer: buffer.clone(),
+            pending: Vec::new(),
+        };
+        writeln!(writer, "{}", "x".repeat(TUI_LOG_LINE_MAX_CHARS + 50)).expect("write long line");
+        writer.flush().expect("flush long line");
+        let lines = buffer.lock().expect("buffer lock");
+        assert_eq!(
+            lines.front().map(|line| line.chars().count()),
+            Some(TUI_LOG_LINE_MAX_CHARS)
         );
     }
 }

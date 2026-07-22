@@ -81,7 +81,15 @@ fn draw_logs(frame: &mut Frame, area: Rect, ui: &UiState) {
         Text::from(lines.join("\n"))
     };
     let inner_height = area.height.saturating_sub(2).max(1);
-    let max_scroll = text.lines.len().saturating_sub(inner_height as usize) as u16;
+    let inner_width = area.width.saturating_sub(2).max(1);
+    let total_rows = text
+        .lines
+        .iter()
+        .map(|line| u32::from(wrapped_line_count(line, inner_width)))
+        .sum::<u32>();
+    let max_scroll = total_rows
+        .saturating_sub(u32::from(inner_height))
+        .min(u32::from(u16::MAX)) as u16;
     let top = max_scroll.saturating_sub(ui.log_scroll_from_bottom.min(max_scroll));
     let paragraph = Paragraph::new(text)
         .block(Block::default().borders(Borders::ALL).title(" Core logs "))
@@ -129,7 +137,8 @@ fn draw_config(frame: &mut Frame, area: Rect, ui: &UiState) {
 
     let selected = &ui.config_items[ui.config_selected.min(ui.config_items.len() - 1)];
     let detail = if let Some(input) = &ui.config_edit {
-        format!("Editing {}\n> {}▏", selected.label, input)
+        let visible = tail_to_width(input, chunks[1].width.saturating_sub(5) as usize);
+        format!("Editing {}\n> {}▏", selected.label, visible)
     } else {
         format!("{}\n{}", selected.hint, ui.config_status)
     };
@@ -180,9 +189,15 @@ fn draw_settings(frame: &mut Frame, area: Rect, ui: &UiState) {
     );
 
     let detail = if let Some(token) = &ui.login_token {
+        let visible = "•".repeat(
+            token
+                .chars()
+                .count()
+                .min(chunks[2].width.saturating_sub(5) as usize),
+        );
         format!(
             "Paste a one-time login token, then press Enter.\n> {}▏",
-            "•".repeat(token.chars().count())
+            visible
         )
     } else if ui.logout_confirm {
         "Log out and stop account-bound services? Press y to confirm or Esc to cancel.".to_string()
@@ -271,8 +286,13 @@ fn draw_footer(frame: &mut Frame, area: Rect, state: &TranscriptState, ui: &UiSt
         format!(" {turn} "),
         Style::default().fg(Color::Black).bg(OCEAN),
     );
+    let navigation = if ui.is_editing() {
+        "Finish or Esc before switching tabs"
+    } else {
+        "Tab/Shift+Tab switch · Alt+1-4 tabs"
+    };
     let hints = Span::styled(
-        format!("  Tab/Shift+Tab switch · 1-4 tabs · {context} · Ctrl+C quit"),
+        format!("  {navigation} · {context} · Ctrl+C quit"),
         Style::default().fg(Color::DarkGray),
     );
     let paragraph = Paragraph::new(Line::from(vec![left, hints]));
@@ -384,6 +404,16 @@ mod tests {
         }
         assert!(output.contains("Tab/Shift+Tab switch"));
         assert!(output.contains("PgUp/PgDn scroll"));
+    }
+
+    #[test]
+    fn editing_footer_explains_that_tab_switching_is_paused() {
+        let mut ui = UiState::new("thread-1".into(), "client-1".into());
+        ui.active_tab = AppTab::Config;
+        ui.config_edit = Some("value".to_string());
+        let output = rendered(&ui);
+        assert!(output.contains("Finish or Esc before switching tabs"));
+        assert!(!output.contains("Alt+1-4 tabs"));
     }
 
     #[test]

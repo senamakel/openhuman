@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::json;
+use zeroize::Zeroize;
 
 use crate::core::runtime::CoreRuntime;
 
@@ -40,7 +41,19 @@ async fn save_config(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
         return;
     };
     let key = ui.config_items[ui.config_selected].key;
-    let (method, params) = match key {
+    let (method, params) = config_update(key, value);
+    ui.config_status = "Saving…".to_string();
+    match runtime.invoke(method, params).await {
+        Ok(_) => {
+            ui.config_status = "Saved.".to_string();
+            refresh_config(runtime, ui).await;
+        }
+        Err(err) => ui.config_status = format!("Save failed: {err}"),
+    }
+}
+
+fn config_update(key: ConfigKey, value: String) -> (&'static str, serde_json::Value) {
+    match key {
         ConfigKey::ApiUrl => (
             "openhuman.config_update_model_settings",
             json!({"api_url": value}),
@@ -58,14 +71,6 @@ async fn save_config(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
             json!({"level": value}),
         ),
         ConfigKey::PrivacyMode => ("openhuman.config_set_privacy_mode", json!({"mode": value})),
-    };
-    ui.config_status = "Saving…".to_string();
-    match runtime.invoke(method, params).await {
-        Ok(_) => {
-            ui.config_status = "Saved.".to_string();
-            refresh_config(runtime, ui).await;
-        }
-        Err(err) => ui.config_status = format!("Save failed: {err}"),
     }
 }
 
@@ -103,7 +108,7 @@ pub async fn handle_settings_key(key: KeyEvent, runtime: &Arc<CoreRuntime>, ui: 
     if let Some(token) = ui.login_token.as_mut() {
         match key.code {
             KeyCode::Esc => {
-                token.clear();
+                token.zeroize();
                 ui.login_token = None;
             }
             KeyCode::Backspace => {
@@ -166,13 +171,7 @@ async fn view_account(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
     match runtime.invoke("openhuman.auth_get_me", json!({})).await {
         Ok(value) => {
             let user = rpc_payload(&value);
-            let name = string_at(user, &["name"]);
-            let email = string_at(user, &["email"]);
-            ui.account_detail = [name, email]
-                .into_iter()
-                .filter(|s| !s.is_empty())
-                .collect::<Vec<_>>()
-                .join(" · ");
+            ui.account_detail = account_detail(user);
             ui.settings_status = "Account refreshed.".to_string();
             refresh_auth(runtime, ui).await;
         }
@@ -184,7 +183,7 @@ async fn login_with_token(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
     let mut token = ui.login_token.take().unwrap_or_default();
     if token.trim().is_empty() {
         ui.settings_status = "Login token cannot be empty.".to_string();
-        token.clear();
+        token.zeroize();
         return;
     }
     ui.settings_status = "Signing in…".to_string();
@@ -194,7 +193,7 @@ async fn login_with_token(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
             json!({"loginToken": token.trim()}),
         )
         .await;
-    token.clear();
+    token.zeroize();
     let result = match consumed {
         Ok(value) => value,
         Err(err) => {
@@ -210,11 +209,12 @@ async fn login_with_token(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
     let stored = runtime
         .invoke("openhuman.auth_store_session", json!({"token": jwt}))
         .await;
-    jwt.clear();
+    jwt.zeroize();
     match stored {
         Ok(_) => {
             ui.settings_status = "Signed in.".to_string();
             refresh_auth(runtime, ui).await;
+            ui.identity_changed = true;
         }
         Err(err) => ui.settings_status = format!("Could not store session: {err}"),
     }
@@ -229,6 +229,7 @@ async fn logout(runtime: &Arc<CoreRuntime>, ui: &mut UiState) {
         Ok(_) => {
             ui.settings_status = "Signed out.".to_string();
             refresh_auth(runtime, ui).await;
+            ui.identity_changed = true;
         }
         Err(err) => ui.settings_status = format!("Logout failed: {err}"),
     }
@@ -250,6 +251,26 @@ fn string_at(value: &serde_json::Value, path: &[&str]) -> String {
         .to_string()
 }
 
+fn account_detail(user: &serde_json::Value) -> String {
+    let name = [
+        string_at(user, &["firstName"]),
+        string_at(user, &["lastName"]),
+    ]
+    .into_iter()
+    .filter(|s| !s.is_empty())
+    .collect::<Vec<_>>()
+    .join(" ");
+    let identity = [string_at(user, &["email"]), string_at(user, &["username"])]
+        .into_iter()
+        .find(|value| !value.is_empty())
+        .unwrap_or_default();
+    [name, identity]
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -266,5 +287,52 @@ mod tests {
         let value = json!({"enabled": true});
         assert_eq!(string_at(&value, &["enabled"]), "");
         assert_eq!(string_at(&value, &["missing"]), "");
+    }
+
+    #[test]
+    fn account_detail_uses_canonical_backend_user_fields() {
+        let user = json!({
+            "firstName": "Ada",
+            "lastName": "Lovelace",
+            "email": "ada@example.test",
+            "username": "ada"
+        });
+        assert_eq!(account_detail(&user), "Ada Lovelace · ada@example.test");
+    }
+
+    #[test]
+    fn curated_config_fields_map_to_safe_specific_updates() {
+        let cases = [
+            (
+                ConfigKey::ApiUrl,
+                "openhuman.config_update_model_settings",
+                json!({"api_url": "value"}),
+            ),
+            (
+                ConfigKey::InferenceUrl,
+                "openhuman.config_update_model_settings",
+                json!({"inference_url": "value"}),
+            ),
+            (
+                ConfigKey::DefaultModel,
+                "openhuman.config_update_model_settings",
+                json!({"default_model": "value"}),
+            ),
+            (
+                ConfigKey::AutonomyLevel,
+                "openhuman.config_update_autonomy_settings",
+                json!({"level": "value"}),
+            ),
+            (
+                ConfigKey::PrivacyMode,
+                "openhuman.config_set_privacy_mode",
+                json!({"mode": "value"}),
+            ),
+        ];
+        for (key, expected_method, expected_params) in cases {
+            let (method, params) = config_update(key, "value".to_string());
+            assert_eq!(method, expected_method);
+            assert_eq!(params, expected_params);
+        }
     }
 }

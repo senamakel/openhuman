@@ -60,7 +60,10 @@ pub fn run_from_cli_args(args: &[String]) -> Result<()> {
         return crate::openhuman::tui::run_from_cli(&[]);
     }
 
-    let args = if args == ["--no-tui"] { &[] } else { args };
+    // `--no-tui` is a global opt-out, not a synthetic subcommand. Strip it
+    // before normal dispatch so `openhuman --no-tui --help` and
+    // `openhuman --no-tui run ...` retain their ordinary CLI meaning.
+    let args = strip_no_tui(args);
     // Print the welcome banner to stderr to keep stdout clean for JSON output.
     // `mcp`/`mcp-server` speak JSON-RPC on stdout; `tui`/`chat` own the whole
     // terminal (alternate screen + raw mode) — a banner on either would corrupt
@@ -131,6 +134,14 @@ fn should_auto_launch_tui(
         && stdout_is_terminal
         && host == crate::core::types::HostKind::Cli
         && tui_compiled
+}
+
+fn strip_no_tui(args: &[String]) -> &[String] {
+    if args.first().map(String::as_str) == Some("--no-tui") {
+        &args[1..]
+    } else {
+        args
+    }
 }
 
 /// Handles the `sentry-test` subcommand used to verify Sentry wiring end-to-end.

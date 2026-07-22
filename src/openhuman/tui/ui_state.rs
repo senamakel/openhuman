@@ -1,5 +1,7 @@
 //! Pure navigation and form state for the four terminal pages.
 
+use zeroize::Zeroize;
+
 /// Top-level terminal pages. The order is part of the CLI UX contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppTab {
@@ -71,7 +73,7 @@ impl SettingsAction {
     pub fn label(self) -> &'static str {
         match self {
             Self::ViewAccount => "View account",
-            Self::Login => "Log in",
+            Self::Login => "Log in with one-time token",
             Self::Logout => "Log out",
         }
     }
@@ -95,6 +97,7 @@ pub struct UiState {
     pub login_token: Option<String>,
     pub logout_confirm: bool,
     pub settings_status: String,
+    pub identity_changed: bool,
 }
 
 impl UiState {
@@ -142,11 +145,20 @@ impl UiState {
             login_token: None,
             logout_confirm: false,
             settings_status: "Select an account action and press Enter.".to_string(),
+            identity_changed: false,
         }
     }
 
     pub fn is_editing(&self) -> bool {
         self.config_edit.is_some() || self.login_token.is_some() || self.logout_confirm
+    }
+}
+
+impl Drop for UiState {
+    fn drop(&mut self) {
+        if let Some(token) = &mut self.login_token {
+            token.zeroize();
+        }
     }
 }
 

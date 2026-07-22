@@ -1,6 +1,6 @@
 use super::{
     grouped_schemas, load_dotenv_for_cli, parse_function_params, parse_input_value,
-    should_auto_launch_tui,
+    should_auto_launch_tui, strip_no_tui,
 };
 use crate::core::types::HostKind;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
@@ -64,6 +64,19 @@ fn explicit_args_never_trigger_bare_cli_auto_launch() {
             true
         ));
     }
+}
+
+#[test]
+fn no_tui_is_stripped_before_normal_cli_dispatch() {
+    let args = vec![
+        "--no-tui".to_string(),
+        "run".to_string(),
+        "--jsonrpc-only".to_string(),
+    ];
+    assert_eq!(strip_no_tui(&args), &args[1..]);
+
+    let ordinary = vec!["run".to_string()];
+    assert_eq!(strip_no_tui(&ordinary), ordinary.as_slice());
 }
 
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {

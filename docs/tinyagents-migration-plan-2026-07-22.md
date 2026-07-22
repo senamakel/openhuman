@@ -335,7 +335,14 @@ Independent, individually shippable slices:
    becomes seam tests; policy/quality parity tests go upstream.
 2. **`tool_timeout/` → crate `ToolTimeout`.** Host keeps only the
    config/env push (`OPENHUMAN_TOOL_TIMEOUT_SECS` precedence) into the crate
-   value. 316 LOC → ~50.
+   value. 316 LOC → ~50. **In review:** TinyAgents
+   [#70](https://github.com/tinyhumansai/tinyagents/pull/70) adds shared,
+   dynamically updateable timeout settings and enforces per-tool policies in
+   both serial and parallel execution. The host cutover re-exports the crate
+   `ToolTimeout`, removes its adapter-level timer, and reduces
+   `tool_timeout/mod.rs` to a 124-line config/env + scripting-helper shim
+   (the remaining size above the estimate is product precedence and tests,
+   not duplicate deadline mechanics).
 3. **`model_council/` ensemble → crate graph pattern.** `council.rs` +
    `graph.rs` become a crate-side parallel-fanout + chair-synthesis graph
    (natural fit for `map_reduce` + post-WP-0 `BarrierRelief`); host keeps

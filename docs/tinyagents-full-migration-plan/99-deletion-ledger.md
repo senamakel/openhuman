@@ -16,7 +16,7 @@ also name its upstream PR before the host copy is removed.
 | WP-1 | `tinyagents/convert.rs` message conversion | No host `ChatMessage`; retain tool-schema conversion until WP-4 | PENDING | Conversion tests moved or retired |
 | WP-1 | `inference/provider/crate_provider.rs` | No legacy `Provider` consumer needs the reverse adapter | PENDING | `rg 'impl Provider' src` empty |
 | WP-2 | `routing/{policy,quality,factory}.rs` | Generic decisions use crate `ModelRouter`; host health signals remain | PENDING | Routing parity tests host/crate |
-| WP-2 | `tool_timeout` implementation | Crate `ToolTimeout` owns timeout mechanics; host only projects config/env | PENDING | Timeout precedence tests |
+| WP-2 | `tool_timeout` implementation | Crate `ToolTimeout` owns timeout mechanics; host only projects config/env | IN REVIEW — tinyagents#70 + `feat/tinyagents-wp2-timeout` | Crate serial/parallel recovery tests; host timeout-policy + precedence tests |
 | WP-2 | `model_council/{council,graph}.rs` | Generic ensemble graph released in tinyagents | PENDING | Upstream PR + offline graph tests |
 | WP-3 | legacy `run_turn_engine` and graph escape hatches | All regression assertions exercise the crate turn path | PENDING | `rg OPENHUMAN_AGENT_GRAPH_` history-only |
 | WP-4 | host tool trait/adapter artifacts selected by design | Approved tool-model decision preserves security and ungated result types | DESIGN GATE | Successor design document |

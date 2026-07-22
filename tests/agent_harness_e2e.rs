@@ -2861,9 +2861,8 @@ use openhuman_core::openhuman::config::AgentConfig;
 // delta forwarding through a ScriptedProvider that returns a *pre-assembled*
 // ChatResponse — it never exercises the real provider's chunk-by-chunk
 // accumulation. The accumulation that issue #3471 case 13 targets lives in
-// `OpenAiCompatibleProvider::stream_native_chat`
-// (src/openhuman/inference/provider/compatible_stream_native.rs:~320 and
-// ~405-425): `entry.arguments.push_str(args)` glues partial `function.arguments`
+// TinyAgents' `OpenAiModel` SSE transport: its accumulator glues partial
+// `function.arguments`
 // fragments from successive SSE chunks into one JSON string, which only parses
 // once the stream completes. Nothing else covers that path beyond its error-frame
 // unit tests.
@@ -2871,12 +2870,12 @@ use openhuman_core::openhuman::config::AgentConfig;
 // This test stands up a real axum SSE upstream that emits OpenAI-style
 // `chat.completion.chunk` frames whose `function.arguments` fragments are split
 // at awkward byte offsets (mid-key, mid-value), points a real
-// `OpenAiCompatibleProvider` at it, and drives `provider.chat()` with a live
-// delta receiver. It asserts the provider:
+// crate-native `OpenAiModel` at it, and drives `ChatModel::stream`. It asserts
+// the model:
 //   - reassembles exactly one tool call with `name == "echo_tool"`,
 //   - produces an `arguments` string that parses AND equals the canonical JSON,
-//   - forwards a `ToolCallStart` + ≥3 `ToolCallArgsDelta` whose concatenation
-//     is the full JSON.
+//   - forwards ≥3 correlated `ToolCallDelta`s whose concatenation is the full
+//     JSON and whose tool name remains available to streaming consumers.
 
 /// The JSON the upstream streams back, split across SSE chunks. Chosen so the
 /// splits land mid-key and mid-value, the worst case for naive accumulation.
@@ -2997,24 +2996,20 @@ fn sse_tool_args_router() -> Router {
 }
 
 /// Provider-level coverage for issue #3471 case 13: the real
-/// `OpenAiCompatibleProvider` accumulates `function.arguments` fragments split
+/// TinyAgents' `OpenAiModel` accumulates `function.arguments` fragments split
 /// across SSE chunks into one valid JSON string, and forwards the ordered
 /// `ToolCallStart` → `ToolCallArgsDelta*` events to the live receiver.
 ///
 /// Unlike `streaming_tool_call_accumulation` (which uses a ScriptedProvider that
 /// returns a pre-assembled response), this drives the actual provider HTTP +
 /// SSE-parse path against an in-test upstream, so the `entry.arguments.push_str`
-/// accumulation in compatible_stream_native.rs is what assembles the final
-/// `ChatResponse.tool_calls[0].arguments`.
+/// accumulation in its SSE transport is what assembles the final tool call.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn provider_sse_tool_args_accumulation() {
-    use openhuman_core::openhuman::inference::provider::compatible::{
-        AuthStyle, OpenAiCompatibleProvider,
-    };
-    use openhuman_core::openhuman::inference::provider::{
-        ChatMessage, ChatRequest, Provider, ProviderDelta,
-    };
-    use openhuman_core::openhuman::tools::ToolSpec;
+    use tinyagents::harness::message::Message;
+    use tinyagents::harness::model::{ChatModel, ModelRequest, ModelStreamItem};
+    use tinyagents::harness::providers::openai::{AuthStyle, OpenAiModel};
+    use tinyagents::harness::tool::ToolSchema;
 
     let _lock = env_lock();
 
@@ -3026,61 +3021,54 @@ async fn provider_sse_tool_args_accumulation() {
     // credential_for_request() does not short-circuit. base_url has no path, so
     // chat_completions_url() targets `<base_url>/chat/completions` — the route
     // the upstream serves.
-    let provider = OpenAiCompatibleProvider::new(
-        "e2e-sse-canary",
-        &base_url,
-        Some("test-key"),
-        AuthStyle::Bearer,
-    );
+    let model = OpenAiModel::new("test-key")
+        .with_provider("e2e-sse-canary")
+        .with_base_url(&base_url)
+        .with_auth_style(AuthStyle::Bearer);
 
     // A native tool spec so the streaming request carries `tools` (and the
     // handler's assertion that the provider forwarded echo_tool passes).
-    let tools = vec![ToolSpec {
-        name: "echo_tool".to_string(),
-        description: "Echo the provided value back.".to_string(),
-        parameters: json!({
+    let tools = vec![ToolSchema::new(
+        "echo_tool",
+        "Echo the provided value back.",
+        json!({
             "type": "object",
             "properties": { "value": { "type": "string" }, "n": { "type": "number" } },
             "required": ["value"],
         }),
-    }];
-    let messages = vec![ChatMessage::user("call echo_tool")];
-
-    // Drain the delta receiver concurrently — the provider sends on it while the
-    // chat() future is still in flight, so a non-concurrent recv would deadlock.
-    let (delta_tx, mut delta_rx) = tokio::sync::mpsc::channel::<ProviderDelta>(64);
-    let collector = tokio::spawn(async move {
-        let mut deltas = Vec::new();
-        while let Some(delta) = delta_rx.recv().await {
-            deltas.push(delta);
-        }
-        deltas
-    });
-
-    let request = ChatRequest {
-        messages: &messages,
-        tools: Some(&tools),
-        stream: Some(&delta_tx),
-        max_tokens: None,
-    };
-    let response = provider
-        .chat(request, "e2e-sse-model", 0.0)
+    )];
+    let request = ModelRequest::new(vec![Message::user("call echo_tool")])
+        .with_tools(tools)
+        .with_model("e2e-sse-model")
+        .with_temperature(0.0);
+    let mut stream = model
+        .stream(&(), request)
         .await
-        .unwrap_or_else(|e| panic!("provider.chat() over SSE failed: {e:#}"));
-
-    // Dropping the sender lets the collector task finish and yield the deltas.
-    drop(delta_tx);
-    let deltas = collector.await.expect("delta collector task panicked");
+        .unwrap_or_else(|e| panic!("model stream over SSE failed: {e:#}"));
+    let mut deltas = Vec::new();
+    let mut response = None;
+    while let Some(item) = stream.next().await {
+        match item {
+            ModelStreamItem::ToolCallDelta(delta) => deltas.push(delta),
+            ModelStreamItem::Completed(completed) => response = Some(completed),
+            ModelStreamItem::Failed(error) => panic!("model stream failed: {error}"),
+            ModelStreamItem::ProviderFailed(error) => {
+                panic!("provider stream failed: {}", error.message)
+            }
+            _ => {}
+        }
+    }
+    let response = response.expect("stream must emit its completed response");
 
     // ── Assert 1: exactly one tool call, name echo_tool ───────────────────────
     assert_eq!(
-        response.tool_calls.len(),
+        response.message.tool_calls.len(),
         1,
         "expected exactly one accumulated tool call; got {}: {:?}",
-        response.tool_calls.len(),
-        response.tool_calls
+        response.message.tool_calls.len(),
+        response.message.tool_calls
     );
-    let tool_call = &response.tool_calls[0];
+    let tool_call = &response.message.tool_calls[0];
     assert_eq!(
         tool_call.name, "echo_tool",
         "accumulated tool call must be echo_tool; got {:?}",
@@ -3089,13 +3077,7 @@ async fn provider_sse_tool_args_accumulation() {
 
     // ── Assert 2: accumulated arguments parse AND equal the canonical JSON ─────
     let expected: Value = json!({ "value": "SSE_STREAM_CANARY", "n": 42 });
-    let parsed: Value = serde_json::from_str(&tool_call.arguments).unwrap_or_else(|e| {
-        panic!(
-            "accumulated tool-call arguments must be valid JSON (proves SSE fragments were glued, \
-             not mangled); parse error: {e}; raw arguments: {:?}",
-            tool_call.arguments
-        )
-    });
+    let parsed = tool_call.arguments.clone();
     assert_eq!(
         parsed, expected,
         "accumulated arguments must equal the canonical JSON exactly; \
@@ -3103,31 +3085,26 @@ async fn provider_sse_tool_args_accumulation() {
         tool_call.arguments
     );
 
-    // ── Assert 3: ToolCallStart + ≥3 ToolCallArgsDelta, concatenation == JSON ──
-    let start_count = deltas
+    // ── Assert 3: correlated ToolCallDelta stream concatenates to the JSON ────
+    let named_delta_count = deltas
         .iter()
-        .filter(|d| {
-            matches!(
-                d,
-                ProviderDelta::ToolCallStart { tool_name, .. } if tool_name == "echo_tool"
-            )
-        })
+        .filter(|d| d.tool_name.as_deref() == Some("echo_tool"))
         .count();
-    assert_eq!(
-        start_count, 1,
-        "expected exactly one ToolCallStart for echo_tool; got {start_count}; deltas: {deltas:?}"
+    assert!(
+        named_delta_count >= 1,
+        "expected the streamed tool name to be available; deltas: {deltas:?}"
+    );
+    assert!(
+        deltas
+            .iter()
+            .all(|delta| delta.call_id == "call_sse_canary"),
+        "every argument fragment must retain the provider call id; deltas: {deltas:?}"
     );
 
-    let arg_deltas: Vec<String> = deltas
-        .iter()
-        .filter_map(|d| match d {
-            ProviderDelta::ToolCallArgsDelta { delta, .. } => Some(delta.clone()),
-            _ => None,
-        })
-        .collect();
+    let arg_deltas: Vec<String> = deltas.iter().map(|delta| delta.content.clone()).collect();
     assert!(
         arg_deltas.len() >= 3,
-        "expected ≥3 ToolCallArgsDelta events (split fragments); got {}: {arg_deltas:?}",
+        "expected ≥3 ToolCallDelta events (split fragments); got {}: {arg_deltas:?}",
         arg_deltas.len()
     );
     let concatenated: String = arg_deltas.concat();

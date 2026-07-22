@@ -1,7 +1,9 @@
 //! Deterministic offline `Provider` mocks installed via
 //! `test_provider_override` (honoured only under the `rss-bench` feature).
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -119,6 +121,110 @@ impl Provider for SubagentMock {
             .collect::<Vec<_>>()
             .join("\n");
         Ok(self.reply(&joined))
+    }
+}
+
+/// Latency-configurable text-only mock used by the `fleet` scenario. Before
+/// returning its fixed answer it sleeps a sampled latency: a mean from
+/// `OPENHUMAN_PROFILE_MOCK_LATENCY_MS` (default `0` = no sleep) with jitter
+/// `± OPENHUMAN_PROFILE_MOCK_JITTER_MS` (default `mean / 4`). Per-call jitter is
+/// derived from a seeded xorshift counter — deterministic and dependency-free
+/// (no `rand` crate).
+pub struct LatencyMock {
+    text: String,
+    mean_ms: u64,
+    jitter_ms: u64,
+    counter: AtomicU64,
+    pub prompts: Mutex<Vec<String>>,
+}
+
+/// Read `key` as a `u64`, falling back to `default` when unset/unparsable.
+fn env_u64(key: &str, default: u64) -> u64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(default)
+}
+
+impl LatencyMock {
+    /// Build from the standard env knobs.
+    pub fn from_env(text: impl Into<String>) -> Arc<Self> {
+        let mean_ms = env_u64("OPENHUMAN_PROFILE_MOCK_LATENCY_MS", 0);
+        let jitter_ms = env_u64("OPENHUMAN_PROFILE_MOCK_JITTER_MS", mean_ms / 4);
+        eprintln!("[library-profile] LatencyMock mean_ms={mean_ms} jitter_ms={jitter_ms}");
+        Arc::new(Self {
+            text: text.into(),
+            mean_ms,
+            jitter_ms,
+            counter: AtomicU64::new(0),
+            prompts: Mutex::new(Vec::new()),
+        })
+    }
+
+    /// Sample `mean ± jitter` (clamped at zero) via a seeded xorshift step. The
+    /// seed advances per call so successive turns get distinct latencies.
+    pub fn sample_latency_ms(&self) -> u64 {
+        if self.mean_ms == 0 && self.jitter_ms == 0 {
+            return 0;
+        }
+        let seed = self.counter.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+        // xorshift64 — deterministic, dependency-free pseudo-randomness.
+        let mut x = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        let span = self.jitter_ms.saturating_mul(2).saturating_add(1);
+        let delta = (x % span) as i64 - self.jitter_ms as i64;
+        (self.mean_ms as i64 + delta).max(0) as u64
+    }
+
+    async fn sleep_sampled(&self) {
+        let ms = self.sample_latency_ms();
+        if ms > 0 {
+            tokio::time::sleep(Duration::from_millis(ms)).await;
+        }
+    }
+}
+
+#[async_trait]
+impl Provider for LatencyMock {
+    fn capabilities(&self) -> ProviderCapabilities {
+        ProviderCapabilities {
+            native_tool_calling: true,
+            vision: false,
+        }
+    }
+
+    async fn chat_with_system(
+        &self,
+        system_prompt: Option<&str>,
+        message: &str,
+        _model: &str,
+        _temperature: f64,
+    ) -> Result<String> {
+        self.sleep_sampled().await;
+        record(
+            &self.prompts,
+            &format!("{}\n{message}", system_prompt.unwrap_or("")),
+        );
+        Ok(self.text.clone())
+    }
+
+    async fn chat(
+        &self,
+        request: ChatRequest<'_>,
+        _model: &str,
+        _temperature: f64,
+    ) -> Result<ChatResponse> {
+        self.sleep_sampled().await;
+        let joined = request
+            .messages
+            .iter()
+            .map(|message| format!("{}: {}", message.role, message.content))
+            .collect::<Vec<_>>()
+            .join("\n");
+        record(&self.prompts, &joined);
+        Ok(response(&self.text))
     }
 }
 

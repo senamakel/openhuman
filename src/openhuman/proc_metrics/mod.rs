@@ -40,6 +40,20 @@ pub struct ProcSample {
     pub threads: u64,
     /// On-disk size of the running executable, in bytes.
     pub binary_size_bytes: u64,
+    /// Cumulative user-mode CPU time, in milliseconds. Linux: `/proc/self/stat`
+    /// `utime` (ticks → ms). macOS: `proc_pid_rusage` `ri_user_time` (ns → ms).
+    /// Defaulted so pre-existing JSON consumers keep deserializing.
+    #[serde(default)]
+    pub cpu_user_ms: u64,
+    /// Cumulative system-mode CPU time, in milliseconds. Linux: `/proc/self/stat`
+    /// `stime`. macOS: `proc_pid_rusage` `ri_system_time`.
+    #[serde(default)]
+    pub cpu_system_ms: u64,
+    /// Open file-descriptor count. Linux: entries in `/proc/self/fd`. macOS:
+    /// `proc_pidinfo(PROC_PIDLISTFDS)` buffer size / `proc_fdinfo` size. `None`
+    /// when the platform lookup is unavailable rather than a misleading zero.
+    #[serde(default)]
+    pub open_fds: Option<u64>,
 }
 
 /// Fields extracted from `/proc/<pid>/status`.
@@ -101,6 +115,49 @@ pub fn parse_smaps_rollup(contents: &str) -> SmapsRollupFields {
     fields
 }
 
+/// User/system CPU jiffies parsed from `/proc/<pid>/stat`.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct StatCpuFields {
+    pub utime_ticks: u64,
+    pub stime_ticks: u64,
+}
+
+/// Parse `utime` (field 14) and `stime` (field 15) out of `/proc/<pid>/stat`.
+/// The `comm` field (2) is parenthesised and may itself contain spaces or
+/// parens, so we split on the **last** `')'` and index the remaining
+/// whitespace-separated fields: after `)`, token 0 is `state`, so `utime` is
+/// token 11 and `stime` token 12. Missing/short input yields zero.
+pub fn parse_proc_stat_cpu(contents: &str) -> StatCpuFields {
+    let Some(after) = contents.rsplit_once(')').map(|(_, tail)| tail) else {
+        return StatCpuFields::default();
+    };
+    let fields: Vec<&str> = after.split_whitespace().collect();
+    // token 0 == state; utime == token 11, stime == token 12.
+    let utime_ticks = fields.get(11).and_then(|t| t.parse().ok()).unwrap_or(0);
+    let stime_ticks = fields.get(12).and_then(|t| t.parse().ok()).unwrap_or(0);
+    StatCpuFields {
+        utime_ticks,
+        stime_ticks,
+    }
+}
+
+/// Convert CPU clock ticks to milliseconds given `CLK_TCK` (ticks per second).
+/// A zero or negative tick rate yields zero rather than dividing by zero.
+pub fn cpu_ticks_to_ms(ticks: u64, clk_tck: i64) -> u64 {
+    if clk_tck <= 0 {
+        return 0;
+    }
+    ticks.saturating_mul(1000) / clk_tck as u64
+}
+
+/// Count entries in `/proc/<pid>/fd` (excluding `.`/`..`, which `read_dir`
+/// already omits). `None` when the directory can't be read.
+#[cfg(target_os = "linux")]
+fn count_open_fds() -> Option<u64> {
+    let entries = std::fs::read_dir("/proc/self/fd").ok()?;
+    Some(entries.filter(|e| e.is_ok()).count() as u64)
+}
+
 /// Sample this process's resident memory. Linux-only.
 #[cfg(target_os = "linux")]
 pub fn sample_self() -> anyhow::Result<ProcSample> {
@@ -110,6 +167,10 @@ pub fn sample_self() -> anyhow::Result<ProcSample> {
         .context("read /proc/self/smaps_rollup")?;
     let status = parse_status(&status);
     let smaps = parse_smaps_rollup(&smaps);
+    let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+    let cpu = parse_proc_stat_cpu(&stat);
+    // SAFETY: `sysconf` is a pure lookup; `_SC_CLK_TCK` is a valid selector.
+    let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
     let binary_size_bytes = std::env::current_exe()
         .and_then(std::fs::metadata)
         .map(|meta| meta.len())
@@ -122,6 +183,9 @@ pub fn sample_self() -> anyhow::Result<ProcSample> {
         vm_hwm_kib: status.vm_hwm_kib,
         threads: status.threads,
         binary_size_bytes,
+        cpu_user_ms: cpu_ticks_to_ms(cpu.utime_ticks, clk_tck),
+        cpu_system_ms: cpu_ticks_to_ms(cpu.stime_ticks, clk_tck),
+        open_fds: count_open_fds(),
     })
 }
 
@@ -180,6 +244,18 @@ pub fn sample_self() -> anyhow::Result<ProcSample> {
         0
     };
 
+    // `proc_pidinfo(PROC_PIDLISTFDS, .., NULL, 0)` returns the byte size of the
+    // fd table; dividing by `proc_fdinfo` size gives the descriptor count.
+    // SAFETY: passing a null buffer with zero length is the documented
+    // size-probe form of `proc_pidinfo`.
+    let fd_bytes =
+        unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDLISTFDS, 0, std::ptr::null_mut(), 0) };
+    let open_fds = if fd_bytes > 0 {
+        Some(fd_bytes as u64 / size_of::<libc::proc_fdinfo>() as u64)
+    } else {
+        None
+    };
+
     let binary_size_bytes = std::env::current_exe()
         .and_then(std::fs::metadata)
         .map(|meta| meta.len())
@@ -192,6 +268,10 @@ pub fn sample_self() -> anyhow::Result<ProcSample> {
         vm_hwm_kib,
         threads,
         binary_size_bytes,
+        // `ri_user_time` / `ri_system_time` are nanoseconds on Darwin.
+        cpu_user_ms: usage.ri_user_time / 1_000_000,
+        cpu_system_ms: usage.ri_system_time / 1_000_000,
+        open_fds,
     })
 }
 
@@ -410,7 +490,39 @@ mod tests {
             vm_hwm_kib: hwm,
             threads,
             binary_size_bytes: 1024,
+            cpu_user_ms: 0,
+            cpu_system_ms: 0,
+            open_fds: None,
         }
+    }
+
+    // A realistic `/proc/self/stat` line whose `comm` field embeds spaces and a
+    // close-paren, to prove the last-`)` split is robust.
+    const SAMPLE_STAT: &str = "1234 (weird ) name) R 1 1234 1234 0 -1 4194304 500 0 0 0 \
+        420 137 0 0 20 0 8 0 99999 123456789 512 18446744073709551615";
+
+    #[test]
+    fn parse_proc_stat_cpu_extracts_utime_stime() {
+        let f = parse_proc_stat_cpu(SAMPLE_STAT);
+        assert_eq!(f.utime_ticks, 420);
+        assert_eq!(f.stime_ticks, 137);
+    }
+
+    #[test]
+    fn parse_proc_stat_cpu_short_input_stays_zero() {
+        assert_eq!(
+            parse_proc_stat_cpu("1234 (x) R 1"),
+            StatCpuFields::default()
+        );
+        assert_eq!(parse_proc_stat_cpu(""), StatCpuFields::default());
+    }
+
+    #[test]
+    fn cpu_ticks_to_ms_converts_and_guards_zero_rate() {
+        // 420 ticks at 100 Hz == 4200 ms.
+        assert_eq!(cpu_ticks_to_ms(420, 100), 4200);
+        assert_eq!(cpu_ticks_to_ms(1000, 0), 0);
+        assert_eq!(cpu_ticks_to_ms(1000, -1), 0);
     }
 
     #[test]
@@ -523,5 +635,7 @@ mod tests {
         assert!(sample.threads > 0);
         assert!(sample.binary_size_bytes > 0);
         assert_eq!(sample.pss_kib, 0);
+        // A live process has consumed at least some CPU and holds open fds.
+        assert!(sample.open_fds.map(|n| n > 0).unwrap_or(false));
     }
 }

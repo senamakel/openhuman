@@ -12,6 +12,7 @@
 //! - `workflow`      — a real flows trigger->transform->agent graph, end to end.
 //! - `subconscious`  — one promoted subconscious turn WITHOUT delegation.
 //! - `cold-phases`   — per-phase checkpoints of the cold bootstrap in one region.
+//! - `fleet`         — N live agents: marginal RSS, idle CPU, fd/thread growth, turn latency.
 //!
 //! stdout is ALWAYS a single pretty JSON object (the pinned schema in
 //! `harness::ProfileResult`); every diagnostic goes to stderr with the stable
@@ -58,15 +59,34 @@ async fn dispatch(scenario: &str) -> Result<ProfileResult> {
         "workflow" => scenarios::workflow::run().await,
         "subconscious" => scenarios::subconscious::run().await,
         "cold-phases" => scenarios::cold_phases::run().await,
+        "fleet" => scenarios::fleet::run().await,
         other => anyhow::bail!("unknown scenario: {other}"),
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+/// Build the tokio runtime. When `OPENHUMAN_PROFILE_WORKER_THREADS` is set the
+/// multi-thread runtime is built manually with that worker count (set to `2` to
+/// simulate the 2 vCPU box); otherwise the standard multi-thread default runs.
+fn build_runtime() -> Result<tokio::runtime::Runtime> {
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    builder.enable_all();
+    if let Some(workers) = std::env::var("OPENHUMAN_PROFILE_WORKER_THREADS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|n| *n > 0)
+    {
+        eprintln!("[library-profile] tokio worker_threads={workers}");
+        builder.worker_threads(workers);
+    }
+    builder.build().context("build tokio runtime")
+}
+
+fn main() -> Result<()> {
+    // Parse args BEFORE building the runtime so `OPENHUMAN_PROFILE_WORKER_THREADS`
+    // can size the worker pool (the `fleet` scenario simulates the 2 vCPU box).
     let scenario = std::env::args().nth(1).context(
         "usage: library-profile \
-         <memory-ingest|subagents|agent-turn|long-agent|workflow|subconscious|cold-phases>",
+         <memory-ingest|subagents|agent-turn|long-agent|workflow|subconscious|cold-phases|fleet>",
     )?;
 
     // Profiler must outlive the whole run + the JSON print so its Drop writes
@@ -78,26 +98,30 @@ async fn main() -> Result<()> {
         "[library-profile] pid={} scenario={scenario} start",
         std::process::id()
     );
-    #[cfg_attr(not(feature = "rss-bench-dhat"), allow(unused_mut))]
-    let mut result = dispatch(&scenario).await?;
 
-    #[cfg(feature = "rss-bench-dhat")]
-    {
-        result.dhat = Some(true);
-    }
+    let runtime = build_runtime()?;
+    runtime.block_on(async move {
+        #[cfg_attr(not(feature = "rss-bench-dhat"), allow(unused_mut))]
+        let mut result = dispatch(&scenario).await?;
 
-    println!("{}", serde_json::to_string_pretty(&result)?);
+        #[cfg(feature = "rss-bench-dhat")]
+        {
+            result.dhat = Some(true);
+        }
 
-    if let Some(seconds) = std::env::var("OPENHUMAN_PROFILE_HOLD_SECS")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .filter(|seconds| *seconds > 0)
-    {
-        eprintln!(
-            "[library-profile] pid={} holding for {seconds}s",
-            std::process::id()
-        );
-        tokio::time::sleep(Duration::from_secs(seconds)).await;
-    }
-    Ok(())
+        println!("{}", serde_json::to_string_pretty(&result)?);
+
+        if let Some(seconds) = std::env::var("OPENHUMAN_PROFILE_HOLD_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|seconds| *seconds > 0)
+        {
+            eprintln!(
+                "[library-profile] pid={} holding for {seconds}s",
+                std::process::id()
+            );
+            tokio::time::sleep(Duration::from_secs(seconds)).await;
+        }
+        Ok(())
+    })
 }

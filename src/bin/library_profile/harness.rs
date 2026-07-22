@@ -23,6 +23,26 @@ pub struct Checkpoint {
     pub delta_kib: i64,
 }
 
+/// Turn wall-latency percentiles (milliseconds) collected under overlapping
+/// load by the `fleet` scenario.
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct TurnLatency {
+    pub p50: u128,
+    pub p95: u128,
+    pub p99: u128,
+    pub max: u128,
+}
+
+/// Fleet capacity budget math (purely informational — scripts turn `fits` into
+/// pass/fail). `projected_rss_mib_at_target = settled_base + marginal * target`.
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct FleetBudget {
+    pub target_agents: u64,
+    pub ram_budget_mib: u64,
+    pub projected_rss_mib_at_target: f64,
+    pub fits: bool,
+}
+
 /// Pinned JSON output contract (schema_version = 2). New optional fields are
 /// skipped when absent so the two original scenarios stay byte-identical.
 #[derive(Debug, Serialize)]
@@ -38,6 +58,24 @@ pub struct ProfileResult {
     pub peak_delta_kib: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub turns: Option<usize>,
+    /// (`fleet`) requested live-agent count.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agents: Option<usize>,
+    /// (`fleet`) agents actually constructed (may be < `agents` on fd/OOM).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agents_built: Option<usize>,
+    /// (`fleet`) marginal RSS cost per agent (`baseline → constructed`), KiB.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub marginal_rss_kib_per_agent: Option<f64>,
+    /// (`fleet`) user+system CPU delta over the 10 s idle window, ms.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idle_cpu_ms: Option<u64>,
+    /// (`fleet`) turn wall-latency percentiles under overlapping load.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_latency_ms: Option<TurnLatency>,
+    /// (`fleet`) capacity budget projection.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub budget: Option<FleetBudget>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub checkpoints: Option<Vec<Checkpoint>>,
     /// Present (and `true`) only when the dhat heap profiler is active, since
@@ -272,6 +310,12 @@ where
         retained_delta_kib: settled.rss_kib as i64 - baseline.rss_kib as i64,
         peak_delta_kib: peak_rss_kib.saturating_sub(baseline.rss_kib),
         turns,
+        agents: None,
+        agents_built: None,
+        marginal_rss_kib_per_agent: None,
+        idle_cpu_ms: None,
+        turn_latency_ms: None,
+        budget: None,
         checkpoints,
         dhat: None,
     })

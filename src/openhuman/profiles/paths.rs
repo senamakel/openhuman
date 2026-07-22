@@ -1,5 +1,6 @@
 //! Personality-scoped path resolution and context for multi-agent sessions.
 
+use std::hash::{Hash, Hasher};
 use std::path::{Component, Path};
 
 use super::home::validate_profile_id;
@@ -203,6 +204,20 @@ pub fn resolve_personality_memory_md(
         }
         _ => None,
     }
+}
+
+/// Fingerprint every profile input baked into a cached session agent.
+///
+/// The profile record alone is insufficient because users may edit the
+/// canonical SOUL.md or MEMORY.md files directly. Hashing their resolved
+/// contents makes the next web-chat turn rebuild its cached agent without
+/// retaining the files themselves in cache metadata or logs.
+pub fn profile_session_signature(workspace_dir: &Path, profile: &AgentProfile) -> String {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    super::types::profile_signature(profile).hash(&mut hasher);
+    resolve_personality_soul(workspace_dir, profile).hash(&mut hasher);
+    resolve_personality_memory_md(workspace_dir, profile).hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
 }
 
 /// Derive the effective memory directory suffix for a profile.
@@ -552,6 +567,25 @@ mod tests {
         let profile = test_profile("alice");
         let result = resolve_personality_memory_md(tmp.path(), &profile);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn profile_session_signature_tracks_profile_file_edits() {
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path().join("personalities/alice");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join("SOUL.md"), "first soul").unwrap();
+        std::fs::write(home.join("MEMORY.md"), "first memory").unwrap();
+        let profile = test_profile("alice");
+
+        let original = profile_session_signature(tmp.path(), &profile);
+        std::fs::write(home.join("SOUL.md"), "second soul").unwrap();
+        let after_soul_edit = profile_session_signature(tmp.path(), &profile);
+        assert_ne!(original, after_soul_edit);
+
+        std::fs::write(home.join("MEMORY.md"), "second memory").unwrap();
+        let after_memory_edit = profile_session_signature(tmp.path(), &profile);
+        assert_ne!(after_soul_edit, after_memory_edit);
     }
 
     #[test]

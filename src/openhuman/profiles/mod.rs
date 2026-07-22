@@ -70,8 +70,8 @@ pub use home::{
 };
 pub use paths::{
     effective_memory_suffix, filter_integrations, memory_subdir_for_suffix,
-    memory_tree_subdir_for_suffix, resolve_personality_memory_md, resolve_personality_soul,
-    session_raw_subdir_for_suffix, HasToolkit, PersonalityContext,
+    memory_tree_subdir_for_suffix, profile_session_signature, resolve_personality_memory_md,
+    resolve_personality_soul, session_raw_subdir_for_suffix, HasToolkit, PersonalityContext,
 };
 pub use prompt_section::{cross_profile_workspace_notice, AgentProfilePromptSection};
 pub use store::{built_in_profiles, load_profiles, AgentProfileStore};

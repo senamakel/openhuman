@@ -197,8 +197,11 @@ pub(super) fn build_session_fingerprint(
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
         model_registry_signature: model_registry_signature(config),
-        // Any change to the resolved profile (id, allowlists, soul, …) changes
-        // this string and forces a session-agent rebuild — see the field doc.
-        profile_signature: crate::openhuman::profiles::profile_signature(profile),
+        // Any change to the resolved profile record or its canonical on-disk
+        // SOUL/MEMORY files forces a session-agent rebuild — see the field doc.
+        profile_signature: crate::openhuman::profiles::profile_session_signature(
+            &config.workspace_dir,
+            profile,
+        ),
     }
 }

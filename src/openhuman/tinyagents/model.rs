@@ -60,6 +60,16 @@ fn build_chat_inputs(
     (messages, specs)
 }
 
+/// Convert a crate request into the host's native-role message shape while the
+/// remaining bespoke transports still consume `ChatMessage`.
+pub(crate) fn native_chat_messages(request: &ModelRequest) -> Vec<ChatMessage> {
+    request
+        .messages
+        .iter()
+        .map(super::convert::message_to_native_chat_message)
+        .collect()
+}
+
 /// Build a [`PFormatRegistry`](crate::openhuman::agent::pformat::PFormatRegistry)
 /// from the tool schemas advertised on a [`ModelRequest`] (issue #4465).
 ///
@@ -193,6 +203,15 @@ fn response_to_model_response(
         raw: openhuman_usage_meta_raw(response.usage.as_ref()),
         resolved_model: None,
     }
+}
+
+/// Convert a native host response into the crate model response shape.
+pub(crate) fn native_model_response(response: &ChatResponse) -> ModelResponse {
+    response_to_model_response(
+        response,
+        &crate::openhuman::agent::pformat::PFormatRegistry::default(),
+        false,
+    )
 }
 
 /// Normalize a completed prompt-guided response for a crate-native model.
@@ -337,7 +356,7 @@ pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<Usage
 /// the `Completed` response (the `StreamAccumulator` treats it as
 /// authoritative), so these fragments are progress-only — the UI can show the
 /// call being composed.
-fn forward_delta(tx: &UnboundedSender<ModelStreamItem>, delta: ProviderDelta) {
+pub(crate) fn forward_provider_delta(tx: &UnboundedSender<ModelStreamItem>, delta: ProviderDelta) {
     match delta {
         ProviderDelta::TextDelta { delta } => {
             if !delta.is_empty() {
@@ -748,7 +767,7 @@ impl ChatModel<()> for ProviderModel {
                     maybe = delta_rx.recv() => {
                         if let Some(delta) = maybe {
                             streamed_thinking |= matches!(delta, ProviderDelta::ThinkingDelta { .. });
-                            forward_delta(&item_tx, delta);
+                            forward_provider_delta(&item_tx, delta);
                         }
                     }
                     res = &mut chat_fut => break res,
@@ -757,7 +776,7 @@ impl ChatModel<()> for ProviderModel {
             // Drain any deltas that landed before the call returned.
             while let Ok(delta) = delta_rx.try_recv() {
                 streamed_thinking |= matches!(delta, ProviderDelta::ThinkingDelta { .. });
-                forward_delta(&item_tx, delta);
+                forward_provider_delta(&item_tx, delta);
             }
 
             let terminal = match response {

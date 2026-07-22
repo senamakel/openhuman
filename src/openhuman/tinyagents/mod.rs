@@ -19,7 +19,7 @@
 //! `ask_user_clarification` early-exit pause are all re-wired onto the
 //! tinyagents harness.
 
-mod abort_guard;
+pub(crate) mod abort_guard;
 mod convert;
 pub(crate) mod delegation;
 mod embeddings;

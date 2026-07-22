@@ -11,14 +11,14 @@
 use tokio::task::JoinHandle;
 
 /// Aborts the wrapped task on drop unless it has already finished.
-pub(super) struct AbortOnDrop {
+pub(crate) struct AbortOnDrop {
     handle: JoinHandle<()>,
     /// Grep-friendly label for the abort debug log (e.g. the model name).
     label: String,
 }
 
 impl AbortOnDrop {
-    pub(super) fn new(handle: JoinHandle<()>, label: impl Into<String>) -> Self {
+    pub(crate) fn new(handle: JoinHandle<()>, label: impl Into<String>) -> Self {
         Self {
             handle,
             label: label.into(),

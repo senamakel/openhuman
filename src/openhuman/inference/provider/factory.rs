@@ -951,14 +951,10 @@ pub fn create_chat_provider_from_string(
 
 /// Build an `Arc<dyn ChatModel>` for the given workload role.
 ///
-/// Phase 1 of the tinyagents inference migration (#4249): the crate
-/// [`ChatModel`] is the model interface the harness and one-shot inference
-/// callers target. Today this wraps the existing openhuman [`Provider`] stack
-/// via [`ProviderModel`](crate::openhuman::tinyagents::model) — a **zero
-/// behaviour change** shim — so callers can move off `Box<dyn Provider>`
-/// incrementally while the provider stack is dismantled underneath. `temperature`
-/// is pinned onto the returned model because the crate model interface bakes
-/// sampling into the model rather than the per-call request.
+/// The crate [`ChatModel`] is the model interface for the harness and one-shot
+/// inference callers. Production routes construct crate-native models directly;
+/// the legacy [`Provider`] adapter remains only for injected test providers and
+/// callers not yet swept in WP1. `temperature` is retained for that fallback.
 pub fn create_chat_model(
     role: &str,
     config: &Config,
@@ -998,6 +994,9 @@ pub fn create_chat_model_with_model_id(
             return make_openhuman_backend_model(role, config);
         }
         if let Some(result) = try_create_claude_agent_sdk_chat_model(role, config) {
+            return result;
+        }
+        if let Some(result) = try_create_claude_code_chat_model(role, config, None) {
             return result;
         }
         // Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
@@ -1080,6 +1079,11 @@ pub fn create_chat_model_from_string_with_model_id(
         }
         if let Some(result) =
             try_create_claude_agent_sdk_chat_model_from_string(role, &resolved, config)
+        {
+            return result;
+        }
+        if let Some(result) =
+            try_create_claude_code_chat_model_from_string(role, &resolved, config, None)
         {
             return result;
         }
@@ -1465,8 +1469,8 @@ pub(crate) fn make_openhuman_backend_model(
 ///   `Provider` path had the same behaviour via the role's resolved model.
 /// - **Claude Agent SDK** → its direct prompt-guided [`ChatModel`] subprocess
 ///   adapter, pinned to `model`.
-/// - **Other bespoke providers** (claude-code) → a `ProviderModel` over the
-///   resolved `Provider`, pinned to `model` — no crate-native client yet.
+/// - **Claude Code** → its direct native-tool streaming [`ChatModel`] subprocess
+///   adapter, pinned to `model`.
 ///
 /// Respects the test-provider override (routes through `create_chat_provider`, so
 /// an installed mock still wins), exactly as [`create_chat_model_with_model_id`].
@@ -1516,6 +1520,14 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
                 model,
             )));
         }
+        if let Some(result) = try_create_claude_code_chat_model_from_string(
+            role,
+            &resolved_provider,
+            config,
+            Some(model),
+        ) {
+            return result.map(|(chat, _model)| chat);
+        }
         if let Some(result) = try_create_local_runtime_chat_model(role, config) {
             return result.map(|(chat, _model)| chat);
         }
@@ -1525,9 +1537,8 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
             return result.map(|(chat, _model)| chat);
         }
     }
-    // Remaining bespoke subprocess providers (claude-code) — and the test
-    // override — have no direct crate model: wrap the resolved `Provider` as a
-    // `ProviderModel` pinned to `model`, exactly as `create_chat_model`'s fallback.
+    // Test overrides still speak the legacy Provider trait; retain the adapter
+    // until the test-provider seam is migrated later in WP1.
     let (provider, _resolved_model) = create_chat_provider(role, config)?;
     Ok(crate::openhuman::tinyagents::model::provider_chat_model(
         Arc::from(provider),
@@ -1587,6 +1598,63 @@ fn claude_agent_sdk_model_from_string(provider: &str, config: &Config) -> Option
         return None;
     };
     Some(model)
+}
+
+fn try_create_claude_code_chat_model(
+    role: &str,
+    config: &Config,
+    model_override: Option<&str>,
+) -> OptionalChatModelResult {
+    let resolved = provider_for_role(role, config);
+    try_create_claude_code_chat_model_from_string(role, &resolved, config, model_override)
+}
+
+fn try_create_claude_code_chat_model_from_string(
+    role: &str,
+    provider: &str,
+    config: &Config,
+    model_override: Option<&str>,
+) -> OptionalChatModelResult {
+    let provider = provider.trim();
+    let model_with_temp = provider
+        .strip_prefix(crate::openhuman::inference::provider::claude_code::PROVIDER_PREFIX)?;
+    let (configured_model, temperature_override) = split_model_and_temperature(model_with_temp);
+    if temperature_override.is_some() {
+        log::warn!(
+            "[providers][chat-factory] claude-code provider: per-model temperature override \
+             is accepted but not wired through to the CLI — the @<temp> suffix is ignored"
+        );
+    }
+    if configured_model.is_empty() {
+        return Some(Err(anyhow::anyhow!(
+            "[chat-factory] provider string '{}' for role '{}' has an empty model — \
+             use 'claude-code:<model-id>'",
+            provider,
+            role
+        )));
+    }
+    if let Err(error) = enforce_local_only_inference(role, provider) {
+        return Some(Err(error));
+    }
+    #[cfg(not(test))]
+    if let Err(error) = verify_session_active(config) {
+        return Some(Err(error));
+    }
+    emit_inference_egress(role, provider);
+
+    let workspace =
+        crate::openhuman::inference::provider::claude_code::workspace_dir_from_config(config);
+    let effective_model = model_override.unwrap_or(&configured_model).to_string();
+    let chat =
+        match crate::openhuman::inference::provider::claude_code::ClaudeCodeProvider::from_env(
+            effective_model,
+            workspace,
+            config.action_dir.clone(),
+        ) {
+            Ok(model) => Arc::new(model) as Arc<dyn ChatModel<()>>,
+            Err(error) => return Some(Err(error)),
+        };
+    Some(Ok((chat, configured_model)))
 }
 
 /// Like [`create_turn_chat_model`] but for an **explicit** `provider_string` — the

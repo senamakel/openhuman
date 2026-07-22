@@ -1690,6 +1690,14 @@ fn claude_agent_sdk_turn_model_honors_turn_pin() {
     assert_eq!(profile.model.as_deref(), Some("turn-model"));
 }
 
+#[test]
+fn claude_code_chat_model_rejects_empty_model_before_cli_probe() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let error = create_chat_model_from_string("coding", "claude-code:", &Config::default(), 0.0)
+        .expect_err("empty Claude Code model must fail");
+    assert!(error.to_string().contains("empty model"));
+}
+
 // ── resolve_byok_fallback_provider_string direct tests ───────────────────────
 
 #[test]
@@ -2811,6 +2819,17 @@ fn enforce_local_only_inference_errors_on_external_when_local_only() {
     )
     .expect_err("direct Claude SDK model must preserve the privacy gate");
     assert!(sdk_error.to_string().contains("Local-only privacy mode"));
+
+    let claude_code_error = create_chat_model_from_string(
+        "coding",
+        "claude-code:claude-sonnet-4-6",
+        &Config::default(),
+        0.0,
+    )
+    .expect_err("direct Claude Code model must preserve the privacy gate");
+    assert!(claude_code_error
+        .to_string()
+        .contains("Local-only privacy mode"));
 
     // Local provider passes.
     enforce_local_only_inference("chat", "ollama:llama3")

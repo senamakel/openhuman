@@ -330,6 +330,23 @@ fn find_root_transcript_for_thread_skips_subagent_siblings() {
 }
 
 #[test]
+fn find_root_transcript_for_thread_scans_profile_scoped_raw_dirs() {
+    let dir = TempDir::new().unwrap();
+    let scoped_raw = dir.path().join("session_raw-alice");
+    fs::create_dir_all(&scoped_raw).unwrap();
+
+    let mut meta = sample_meta();
+    meta.thread_id = Some("thread-scoped".into());
+    let expected = scoped_raw.join("1714000000_orchestrator_thread-scoped.jsonl");
+    write_transcript(&expected, &sample_messages(), &meta, None).unwrap();
+
+    assert_eq!(
+        find_root_transcript_for_thread(dir.path(), "thread-scoped"),
+        Some(expected)
+    );
+}
+
+#[test]
 fn find_latest_falls_back_to_legacy_ddmmyyyy_raw_dir() {
     // Pre-migration transcript at session_raw/DDMMYYYY/main_*.jsonl
     // must still resolve via the legacy fallback when the flat dir is

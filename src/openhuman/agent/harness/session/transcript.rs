@@ -1177,8 +1177,9 @@ pub fn read_transcript_display(path: &Path) -> Result<DisplaySessionTranscript> 
     Ok(DisplaySessionTranscript { meta, records })
 }
 
-/// Find the newest root `session_raw/*.jsonl` transcript whose metadata
-/// declares `thread_id`.
+/// Find the newest root transcript whose metadata declares `thread_id`, across
+/// the shared `session_raw/` store and every profile-scoped
+/// `session_raw-<id>/` store.
 ///
 /// Root transcripts live directly under `session_raw/` and do not carry
 /// the `__` separator used for sub-agent siblings. This helper is the
@@ -1186,7 +1187,24 @@ pub fn read_transcript_display(path: &Path) -> Result<DisplaySessionTranscript> 
 /// transcript without accidentally folding delegated worker transcripts
 /// into the main chat timeline.
 pub fn find_root_transcript_for_thread(workspace_dir: &Path, thread_id: &str) -> Option<PathBuf> {
-    find_root_transcript_for_thread_in_dir(&raw_session_dir(workspace_dir), thread_id)
+    let mut raw_dirs = vec![raw_session_dir(workspace_dir)];
+    if let Ok(entries) = fs::read_dir(workspace_dir) {
+        raw_dirs.extend(entries.flatten().map(|entry| entry.path()).filter(|path| {
+            path.is_dir()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| {
+                        name.strip_prefix("session_raw-")
+                            .is_some_and(|suffix| !suffix.is_empty())
+                    })
+        }));
+    }
+
+    raw_dirs
+        .into_iter()
+        .filter_map(|raw_dir| find_root_transcript_for_thread_in_dir(&raw_dir, thread_id))
+        .max_by(|left, right| left.file_name().cmp(&right.file_name()))
 }
 
 pub fn find_root_transcript_for_thread_in_dir(raw_dir: &Path, thread_id: &str) -> Option<PathBuf> {

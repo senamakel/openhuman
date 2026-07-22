@@ -22,7 +22,7 @@
 use chrono::{TimeZone, Utc};
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::memory::ingest_pipeline::{ingest_chat, ingest_email};
-use openhuman_core::openhuman::memory::jobs::drain_until_idle;
+use openhuman_core::openhuman::memory_queue::drain_until_idle;
 use openhuman_core::openhuman::memory_sync::canonicalize::chat::{ChatBatch, ChatMessage};
 use openhuman_core::openhuman::memory_sync::canonicalize::email::{EmailMessage, EmailThread};
 use openhuman_core::openhuman::tools::{

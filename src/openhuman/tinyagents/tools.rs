@@ -185,6 +185,37 @@ pub(crate) fn tool_policy_from_openhuman_tool(
 /// `"javascript"` label the node runtime uses for the same events).
 const TINYAGENTS_TOOL_SESSION: &str = "tinyagents";
 
+fn adapt_openhuman_tool_result(
+    call_id: String,
+    name: String,
+    result: crate::openhuman::tools::ToolResult,
+    elapsed_ms: u64,
+) -> TaToolResult {
+    let content = result.output_for_llm(true);
+    let reported_error = result.is_error.then(|| content.clone());
+    match serde_json::to_value(&result) {
+        Ok(raw) => TaToolResult {
+            call_id,
+            name,
+            content,
+            raw: Some(raw),
+            error: reported_error,
+            elapsed_ms,
+        },
+        Err(error) => {
+            let message = format!("failed to preserve structured tool result: {error}");
+            TaToolResult {
+                call_id,
+                name,
+                content: format!("Error: {message}"),
+                raw: None,
+                error: Some(message),
+                elapsed_ms,
+            }
+        }
+    }
+}
+
 /// Execute an openhuman [`Tool`](crate::openhuman::tools::Tool) for a harness
 /// [`TaToolCall`] and render the [`TaToolResult`] the way the LLM should see it
 /// (mirrors the live-path `HarnessToolExecutor`).
@@ -272,22 +303,7 @@ pub(crate) async fn execute_openhuman_tool(
     };
     let elapsed_ms = started.elapsed().as_millis() as u64;
     let result = match outcome {
-        Ok(result) => {
-            let content = result.output_for_llm(true);
-            let error = if result.is_error {
-                Some(content.clone())
-            } else {
-                None
-            };
-            TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content,
-                raw: None,
-                error,
-                elapsed_ms,
-            }
-        }
+        Ok(result) => adapt_openhuman_tool_result(call.id, call.name, result, elapsed_ms),
         Err(e) => {
             tracing::warn!(tool = %call.name, error = %e, "[tinyagents] tool failed");
             TaToolResult {
@@ -435,7 +451,7 @@ impl SharedToolAdapter {
 mod tests {
     use super::*;
     use crate::openhuman::tools::traits::ToolTimeout;
-    use crate::openhuman::tools::ToolResult as OhToolResult;
+    use crate::openhuman::tools::{ToolContent, ToolResult as OhToolResult};
 
     /// A tool whose `execute_with_options` sleeps forever but declares a short
     /// per-call timeout, so the adapter's deadline must fire.
@@ -515,5 +531,45 @@ mod tests {
         .await;
         assert!(result.error.is_none());
         assert!(result.content.contains("echoed:hi"));
+        assert_eq!(
+            result.raw,
+            Some(serde_json::json!({
+                "content": [{"type": "text", "text": "echoed:hi"}],
+                "is_error": false
+            }))
+        );
+    }
+
+    #[test]
+    fn adapter_preserves_mixed_blocks_markdown_and_errors() {
+        let host = OhToolResult {
+            content: vec![
+                ToolContent::Text {
+                    text: "plain".into(),
+                },
+                ToolContent::Json {
+                    data: serde_json::json!({"answer": 42}),
+                },
+            ],
+            is_error: true,
+            markdown_formatted: Some("**rendered**".into()),
+        };
+
+        let result = adapt_openhuman_tool_result("call-7".into(), "mixed".into(), host, 12);
+
+        assert_eq!(result.content, "**rendered**");
+        assert_eq!(result.error.as_deref(), Some("**rendered**"));
+        assert_eq!(result.elapsed_ms, 12);
+        assert_eq!(
+            result.raw,
+            Some(serde_json::json!({
+                "content": [
+                    {"type": "text", "text": "plain"},
+                    {"type": "json", "data": {"answer": 42}}
+                ],
+                "is_error": true,
+                "markdownFormatted": "**rendered**"
+            }))
+        );
     }
 }

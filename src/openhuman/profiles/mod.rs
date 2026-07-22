@@ -21,6 +21,7 @@
 //! ```text
 //! <workspace>/personalities/<id>/SOUL.md              identity (hot-read each prompt)
 //! <workspace>/personalities/<id>/MEMORY.md            curated per-profile memory
+//! <workspace>/personalities/<id>/skills/              private skills (owner-only discovery)
 //! <workspace>/{memory,memory_tree,session_raw}-<id>/  dedicated memory subtree (opt-in)
 //! <action_dir>/profiles/<id>/                         agent-writable workspace (opt-in)
 //! ```
@@ -32,8 +33,22 @@
 //!   wins for back-compat.
 //! - `dedicated_workspace` roots a per-profile default cwd for acting tools (see
 //!   [`dedicated_workspace_dir`] and the session builder's section-D wiring).
+//! - `skills/` (see [`profile_skills_dir`]) holds SKILL.md/WORKFLOW.md bundles
+//!   private to this profile: discovered ONLY for turns running under it,
+//!   implicitly allowed for their owner, and winning same-name collisions
+//!   against global skills (`skills::discover_workflows_with_profile`). Advertised
+//!   read-only as `skillsDir` in the enriched RPC payload when present.
 //! - [`ensure_profile_home`] materializes the home idempotently (never
-//!   overwriting a user's edited files) on upsert/select.
+//!   overwriting a user's edited files) on upsert/select — including the empty
+//!   `skills/` dir.
+//!
+//! # Cron attribution
+//!
+//! A cron job may carry a `profile_id` (`cron::CronJob::profile_id`). When it is
+//! set and the profile still exists, the scheduled run is built under that
+//! profile (soul, memory scope, dedicated workspace, allowlists) via the same
+//! profile-aware session path the task dispatcher uses; a deleted profile falls
+//! back to a profile-less run rather than failing the job.
 
 pub mod guard;
 pub mod home;

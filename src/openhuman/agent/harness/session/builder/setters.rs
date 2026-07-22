@@ -43,6 +43,7 @@ impl AgentBuilder {
             event_channel: None,
             agent_definition_name: None,
             active_profile_id: None,
+            personality_memory_md: None,
             memory_subdir: None,
             session_raw_subdir: None,
             session_parent_prefix: None,
@@ -212,6 +213,13 @@ impl AgentBuilder {
     /// it. A `None` here keeps every downstream consumer on its legacy path.
     pub fn active_profile_id(mut self, profile_id: Option<String>) -> Self {
         self.active_profile_id = profile_id;
+        self
+    }
+
+    /// Binds the active profile's curated MEMORY.md to the frozen session
+    /// prompt. `None` keeps the legacy workspace-root fallback.
+    pub fn personality_memory_md(mut self, memory_md: Option<String>) -> Self {
+        self.personality_memory_md = memory_md;
         self
     }
 
@@ -553,6 +561,7 @@ impl AgentBuilder {
             // `subagents` declaration against the global registry.
             agent_definition_id: agent_definition_name.clone(),
             active_profile_id: self.active_profile_id,
+            personality_memory_md: self.personality_memory_md,
             memory_subdir,
             session_raw_subdir,
             session_transcript_path: None,

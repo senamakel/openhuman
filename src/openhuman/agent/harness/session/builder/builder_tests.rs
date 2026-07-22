@@ -425,6 +425,42 @@ async fn build_session_agent_injects_profile_soul_into_prompt() {
     );
 }
 
+#[tokio::test]
+async fn build_session_agent_uses_profile_memory_instead_of_root_memory() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+    use crate::openhuman::context::prompt::LearnedContextData;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    std::fs::write(
+        config.workspace_dir.join("MEMORY.md"),
+        "shared root memory marker",
+    )
+    .unwrap();
+    let home = config.workspace_dir.join("personalities").join("alice");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(home.join("MEMORY.md"), "alice private memory marker").unwrap();
+
+    let profile = custom_profile("alice", false);
+    let orchestrator = builtin_def("orchestrator");
+    let agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        Some(&orchestrator),
+        None,
+        None,
+        false,
+        Some(&profile),
+    )
+    .expect("build profile session");
+
+    let prompt = agent
+        .build_system_prompt(LearnedContextData::default())
+        .expect("build_system_prompt");
+    assert!(prompt.contains("alice private memory marker"));
+    assert!(!prompt.contains("shared root memory marker"));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // B38 (Gap 2) — a custom (non-shipped) `AgentRegistryEntry` must synthesize a
 // real `AgentDefinition` and run with its own `ToolScope::Named` filter,

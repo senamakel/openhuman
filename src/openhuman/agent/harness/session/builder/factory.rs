@@ -1262,6 +1262,12 @@ impl Agent {
             // see which profile the turn ran under. `None` for the profile-less
             // session keeps every consumer byte-identical.
             .active_profile_id(profile.map(|p| p.id.clone()))
+            .personality_memory_md(profile.and_then(|profile| {
+                crate::openhuman::profiles::resolve_personality_memory_md(
+                    &config.workspace_dir,
+                    profile,
+                )
+            }))
             .profile_memory_storage(memory_subdir, session_raw_subdir)
             .workflows(
                 crate::openhuman::skills::load_workflow_metadata_for_profile(

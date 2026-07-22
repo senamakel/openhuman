@@ -138,6 +138,9 @@ pub struct Agent {
     /// active id also arms the tool-layer sibling-workspace guard, regardless
     /// of whether this profile uses a dedicated cwd.
     pub(super) active_profile_id: Option<String>,
+    /// Profile-local curated MEMORY.md resolved when the session is built.
+    /// `None` preserves the workspace-root MEMORY.md fallback.
+    pub(super) personality_memory_md: Option<String>,
     /// Profile-selected memory subtree name (`memory`, `memory-<id>`, or a
     /// legacy numeric suffix). Used for memory-tree reads and paired with the
     /// profile-specific transcript directory below.
@@ -393,6 +396,8 @@ pub struct AgentBuilder {
     /// (default) means the profile-less session; the profile-launching callers
     /// (web chat, task dispatcher, cron) set the active profile id here.
     pub(super) active_profile_id: Option<String>,
+    /// Forwarded to [`Agent::personality_memory_md`] at build time.
+    pub(super) personality_memory_md: Option<String>,
     pub(super) memory_subdir: Option<String>,
     pub(super) session_raw_subdir: Option<String>,
     /// Directory chain of parent session keys for a sub-agent. `None`

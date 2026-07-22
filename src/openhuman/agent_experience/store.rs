@@ -1,5 +1,5 @@
 use crate::openhuman::agent_experience::types::{
-    redact_text, stable_experience_id, AgentExperience, ExperienceHit,
+    redact_text, stable_experience_id_for_profile, AgentExperience, ExperienceHit,
 };
 use crate::openhuman::memory::{Memory, MemoryCategory};
 use serde::{Deserialize, Serialize};
@@ -58,10 +58,11 @@ impl AgentExperienceStore {
 
     pub async fn put(&self, mut experience: AgentExperience) -> Result<AgentExperience, String> {
         if experience.id.trim().is_empty() {
-            experience.id = stable_experience_id(
+            experience.id = stable_experience_id_for_profile(
                 &experience.task_summary,
                 &experience.tool_sequence,
                 experience.outcome,
+                experience.profile_id.as_deref(),
             );
         }
         if experience.task_summary.trim().is_empty() {
@@ -390,6 +391,28 @@ mod tests {
         let listed = store.list().await.unwrap();
         assert_eq!(listed.len(), 1);
         assert!(listed[0].dismissed);
+    }
+
+    #[tokio::test]
+    async fn generated_ids_partition_identical_experiences_by_profile() {
+        let (store, _) = fresh_store();
+        let mut alice = sample_experience("", "same task", vec!["grep"], vec!["docs"], 0.8);
+        alice.profile_id = Some("alice".into());
+        let mut bob = alice.clone();
+        bob.profile_id = Some("bob".into());
+
+        let alice = store.put(alice).await.unwrap();
+        let bob = store.put(bob).await.unwrap();
+
+        assert_ne!(alice.id, bob.id);
+        let listed = store.list().await.unwrap();
+        assert_eq!(listed.len(), 2);
+        assert!(listed
+            .iter()
+            .any(|item| item.profile_id.as_deref() == Some("alice")));
+        assert!(listed
+            .iter()
+            .any(|item| item.profile_id.as_deref() == Some("bob")));
     }
 
     #[tokio::test]

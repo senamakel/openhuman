@@ -28,10 +28,9 @@ use crate::openhuman::agent::dispatcher::{
     NativeToolDispatcher, ToolDispatcher, ToolExecutionResult, XmlToolDispatcher,
 };
 use crate::openhuman::agent::harness::session::Agent;
+use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage, ToolResultMessage};
 use crate::openhuman::config::{AgentConfig, MemoryConfig};
-use crate::openhuman::inference::provider::{
-    ChatMessage, ChatResponse, ConversationMessage, ToolCall, ToolResultMessage,
-};
+use crate::openhuman::inference::provider::{ChatResponse, ToolCall};
 use crate::openhuman::memory::Memory;
 use crate::openhuman::memory_store;
 use crate::openhuman::tools::{Tool, ToolResult};

@@ -9,12 +9,13 @@ use super::dispatch::{
 pub use super::startup::test_support::resolve_yuanbao_app_secret_for_test;
 use crate::core::event_bus::{init_global, register_native_global, DomainEvent, DEFAULT_CAPACITY};
 use crate::openhuman::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::channels::context::{ChannelRuntimeContext, CHANNEL_MESSAGE_TIMEOUT_SECS};
 use crate::openhuman::channels::traits::{ChannelMessage, SendMessage};
 use crate::openhuman::channels::Channel;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig, ReliabilityConfig};
-use crate::openhuman::inference::provider::{ChatMessage, ProviderRuntimeOptions};
+use crate::openhuman::inference::provider::ProviderRuntimeOptions;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::tools::{Tool, ToolResult};
 use anyhow::Result;

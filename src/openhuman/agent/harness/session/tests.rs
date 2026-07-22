@@ -8,7 +8,8 @@
 use super::types::{Agent, AgentBuilder};
 use crate::core::event_bus::DomainEvent;
 use crate::openhuman::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
-use crate::openhuman::inference::provider::{ChatResponse, ConversationMessage};
+use crate::openhuman::agent::messages::ConversationMessage;
+use crate::openhuman::inference::provider::ChatResponse;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tools::Tool;
 use anyhow::Result;
@@ -1230,8 +1231,8 @@ fn seed_resume_from_messages_primes_cached_transcript() {
 fn seed_resume_from_messages_is_noop_on_warm_agent() {
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
     agent.cached_transcript_messages = Some(vec![
-        crate::openhuman::inference::provider::ChatMessage::system("warm prefix"),
-        crate::openhuman::inference::provider::ChatMessage::user("hi"),
+        crate::openhuman::agent::messages::ChatMessage::system("warm prefix"),
+        crate::openhuman::agent::messages::ChatMessage::user("hi"),
     ]);
     agent
         .seed_resume_from_messages(vec![("user".into(), "different".into())], "different")
@@ -1306,11 +1307,11 @@ fn bound_cached_transcript_messages_without_system_prefix_keeps_tail() {
     agent.config.max_history_messages = 3;
 
     let messages = vec![
-        crate::openhuman::inference::provider::ChatMessage::user("u1"),
-        crate::openhuman::inference::provider::ChatMessage::assistant("a1"),
-        crate::openhuman::inference::provider::ChatMessage::user("u2"),
-        crate::openhuman::inference::provider::ChatMessage::assistant("a2"),
-        crate::openhuman::inference::provider::ChatMessage::user("u3"),
+        crate::openhuman::agent::messages::ChatMessage::user("u1"),
+        crate::openhuman::agent::messages::ChatMessage::assistant("a1"),
+        crate::openhuman::agent::messages::ChatMessage::user("u2"),
+        crate::openhuman::agent::messages::ChatMessage::assistant("a2"),
+        crate::openhuman::agent::messages::ChatMessage::user("u3"),
     ];
     let bounded = agent.bound_cached_transcript_messages(messages);
     assert_eq!(bounded.len(), 3);
@@ -1326,7 +1327,7 @@ fn bound_cached_transcript_messages_without_system_prefix_keeps_tail() {
 /// provider 400s (surfacing as "Something went wrong").
 #[test]
 fn bound_cached_transcript_messages_snaps_past_leading_orphan_tool() {
-    use crate::openhuman::inference::provider::ChatMessage;
+    use crate::openhuman::agent::messages::ChatMessage;
 
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
     agent.config.max_history_messages = 3;
@@ -1372,7 +1373,8 @@ fn bound_cached_transcript_messages_snaps_past_leading_orphan_tool() {
 #[test]
 fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
     use super::transcript::{self, MessageUsage, TranscriptMeta, TurnUsage};
-    use crate::openhuman::inference::provider::{ChatMessage, ToolCall};
+    use crate::openhuman::agent::messages::ChatMessage;
+    use crate::openhuman::inference::provider::ToolCall;
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -1509,7 +1511,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
 #[test]
 fn seed_resume_replays_compaction_to_reduced_context() {
     use super::transcript::{self, TranscriptMeta};
-    use crate::openhuman::inference::provider::ChatMessage;
+    use crate::openhuman::agent::messages::ChatMessage;
 
     let ws = tempfile::TempDir::new().expect("temp workspace");
     let wsp = ws.path().to_path_buf();
@@ -1592,7 +1594,7 @@ fn seed_resume_from_thread_transcript_returns_false_without_transcript() {
 fn seed_resume_from_thread_transcript_is_noop_on_warm_agent() {
     let mut agent = build_minimal_agent_with_definition_name(Some("orchestrator"));
     agent.cached_transcript_messages = Some(vec![
-        crate::openhuman::inference::provider::ChatMessage::system("warm prefix"),
+        crate::openhuman::agent::messages::ChatMessage::system("warm prefix"),
     ]);
     assert!(!agent.seed_resume_from_thread_transcript("thr_x"));
     let cached = agent

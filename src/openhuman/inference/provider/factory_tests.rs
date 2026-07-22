@@ -1,8 +1,9 @@
 use super::*;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::AuthService;
-use crate::openhuman::inference::provider::types::{ChatMessage, ChatRequest, ProviderDelta};
+use crate::openhuman::inference::provider::types::{ChatRequest, ProviderDelta};
 use tempfile::TempDir;
 use tinyagents::harness::model::ModelRequest;
 use wiremock::matchers::{method, path};

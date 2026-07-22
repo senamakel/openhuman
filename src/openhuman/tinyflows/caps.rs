@@ -25,6 +25,7 @@ use tinyflows::error::{EngineError, Result};
 use tinyflows::model::WorkflowGraph;
 
 use crate::openhuman::agent::harness::definition::SandboxMode;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::composio::client::{
     create_composio_client, direct_execute, direct_list_tools, ComposioClientKind,
 };
@@ -32,8 +33,7 @@ use crate::openhuman::config::{Config, HttpRequestConfig};
 use crate::openhuman::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::openhuman::flows;
 use crate::openhuman::inference::provider::{
-    create_chat_model_with_model_id, is_raw_passthrough_model, role_for_model_tier, ChatMessage,
-    UsageInfo,
+    create_chat_model_with_model_id, is_raw_passthrough_model, role_for_model_tier, UsageInfo,
 };
 use crate::openhuman::sandbox::{execute_in_sandbox, resolve_sandbox_policy};
 use crate::openhuman::security::{

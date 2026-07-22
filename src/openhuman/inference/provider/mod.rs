@@ -23,8 +23,7 @@ pub mod types;
 
 #[allow(unused_imports)]
 pub use types::{
-    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, ProviderDelta, ToolCall,
-    ToolResultMessage, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
+    ChatRequest, ChatResponse, ProviderDelta, ToolCall, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
 };
 
 pub use billing_error::is_budget_exhausted_message;

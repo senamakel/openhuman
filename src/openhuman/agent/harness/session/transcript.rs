@@ -92,7 +92,7 @@
 //! the session transcript can eventually replace the separate thread
 //! message log without losing message-level addressing.
 
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::inference::provider::ToolCall;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};

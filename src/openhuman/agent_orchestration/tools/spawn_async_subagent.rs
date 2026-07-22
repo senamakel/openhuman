@@ -10,13 +10,13 @@ use crate::openhuman::agent::harness::run_queue::RunQueue;
 use crate::openhuman::agent::harness::subagent_runner::{
     run_subagent, SubagentRunOptions, SubagentRunStatus,
 };
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent_orchestration::running_subagents::{self, SubagentStatus};
 use crate::openhuman::agent_orchestration::subagent_sessions::{
     self, DurableSubagentStatus, SubagentSessionSelector, SubagentSessionStore,
     SubagentSessionUpsert,
 };
-use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::memory_conversations::{self as conversations, ConversationMessage};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;

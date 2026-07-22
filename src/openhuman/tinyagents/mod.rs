@@ -43,9 +43,11 @@ pub mod thread_context;
 pub(crate) mod tools;
 mod topology;
 
+pub(crate) use crate::openhuman::agent::message_convert::{
+    chat_message_to_message, reasoning_from_content, ta_call_to_oh_call,
+};
 #[cfg(test)]
 pub(crate) use convert::spec_to_schema;
-pub(crate) use convert::{chat_message_to_message, reasoning_from_content, ta_call_to_oh_call};
 
 use std::sync::Arc;
 
@@ -73,8 +75,8 @@ use crate::openhuman::agent::harness::tool_result_artifacts::{
     ToolResultArtifactIndexStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
 use crate::openhuman::agent::harness::{run_queue::RunQueue, MAX_SPAWN_DEPTH};
+use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage};
 
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
@@ -397,7 +399,7 @@ pub(crate) async fn run_turn_via_tinyagents(
         "[tinyagents] routing agent turn through tinyagents harness"
     );
 
-    let input = convert::history_to_messages(&history);
+    let input = crate::openhuman::agent::message_convert::history_to_messages(&history);
     // Explicit persistence boundary (issue #4455): the request transcript length,
     // captured *before* the run consumes `input`. Everything the harness appends
     // after this index — assistant/tool rounds plus any mid-turn steer messages —
@@ -427,11 +429,13 @@ pub(crate) async fn run_turn_via_tinyagents(
     };
 
     let text = run.text().unwrap_or_default();
-    let out_history = convert::messages_to_history(&run.messages);
-    let conversation = convert::messages_to_conversation(convert::messages_since_request(
-        &run.messages,
-        request_base_len,
-    ));
+    let out_history = crate::openhuman::agent::message_convert::messages_to_history(&run.messages);
+    let conversation = crate::openhuman::agent::message_convert::messages_to_conversation(
+        crate::openhuman::agent::message_convert::messages_since_request(
+            &run.messages,
+            request_base_len,
+        ),
+    );
     tracing::debug!(
         request_base_len,
         transcript_len = run.messages.len(),
@@ -657,7 +661,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         "[tinyagents] routing turn through tinyagents harness (shared tools)"
     );
 
-    let input = convert::history_to_messages(&history);
+    let input = crate::openhuman::agent::message_convert::history_to_messages(&history);
     // Explicit persistence boundary (issue #4455): the request transcript length,
     // captured *before* the run consumes `input`. The turn's persisted
     // `conversation` is everything appended past this index — assistant/tool
@@ -1127,10 +1131,12 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
         .map(|guard| guard.clone())
         .unwrap_or_default();
 
-    let conversation = convert::messages_to_conversation(convert::messages_since_request(
-        &run.messages,
-        request_base_len,
-    ));
+    let conversation = crate::openhuman::agent::message_convert::messages_to_conversation(
+        crate::openhuman::agent::message_convert::messages_since_request(
+            &run.messages,
+            request_base_len,
+        ),
+    );
     tracing::debug!(
         model,
         request_base_len,
@@ -1142,7 +1148,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
 
     Ok(TinyagentsTurnOutcome {
         text,
-        history: convert::messages_to_history(&run.messages),
+        history: crate::openhuman::agent::message_convert::messages_to_history(&run.messages),
         conversation,
         model_calls: run.model_calls,
         tool_calls: run.tool_calls,

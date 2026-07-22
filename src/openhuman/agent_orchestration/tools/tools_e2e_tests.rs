@@ -3,8 +3,8 @@ use super::{
 };
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::{with_parent_context, ParentExecutionContext};
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::context::prompt::{ConnectedIntegration, ToolCallFormat};
-use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::memory_conversations as conversations;
 use crate::openhuman::tools::Tool;

@@ -14,6 +14,7 @@ use crate::core::event_bus::{
     publish_global, request_native_global, DomainEvent, NativeRequestError,
 };
 use crate::openhuman::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::channels::context::{
     build_memory_context, compact_sender_history, conversation_history_key,
@@ -25,7 +26,7 @@ use crate::openhuman::channels::routes::{
 };
 use crate::openhuman::channels::traits;
 use crate::openhuman::channels::{ChannelSendExt, SendMessage};
-use crate::openhuman::inference::provider::{self, ChatMessage};
+use crate::openhuman::inference::provider;
 use crate::openhuman::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

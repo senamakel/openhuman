@@ -38,12 +38,12 @@ use crate::core::event_bus::{request_native_global, NativeRequestError};
 use crate::openhuman::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
 use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource};
 use crate::openhuman::agent::harness::AgentDefinitionRegistry;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::config::Config;
 use crate::openhuman::config::MultimodalConfig;
 use crate::openhuman::inference::provider::error_classify::{
     is_rate_limited, is_upstream_unhealthy, parse_retry_after_ms,
 };
-use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::scheduler_gate::LlmPermit;
 
 use super::decision::{parse_triage_decision, ParseError, TriageDecision};

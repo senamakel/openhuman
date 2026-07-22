@@ -8,7 +8,7 @@ use openhuman_core::openhuman::agent::dispatcher::XmlToolDispatcher;
 use openhuman_core::openhuman::agent::{Agent, AgentBuilder};
 use openhuman_core::openhuman::config::{AgentConfig, MultimodalConfig, MultimodalFileConfig};
 use openhuman_core::openhuman::context::prompt::LearnedContextData;
-use openhuman_core::openhuman::inference::provider::ChatMessage;
+use openhuman_core::openhuman::agent::messages::ChatMessage;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };

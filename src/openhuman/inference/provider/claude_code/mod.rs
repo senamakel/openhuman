@@ -29,7 +29,8 @@ use tinyagents::harness::model::{
 };
 use tokio::sync::Semaphore;
 
-use super::types::{ChatMessage, ChatRequest, ChatResponse};
+use super::types::{ChatRequest, ChatResponse};
+use crate::openhuman::agent::messages::ChatMessage;
 
 /// Provider string prefix used in the factory grammar: `claude-code:<model>`.
 pub const PROVIDER_PREFIX: &str = "claude-code:";

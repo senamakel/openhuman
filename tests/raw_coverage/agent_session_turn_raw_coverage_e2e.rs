@@ -14,7 +14,7 @@ use openhuman_core::openhuman::agent::tool_policy::{
 use openhuman_core::openhuman::agent::Agent;
 use openhuman_core::openhuman::agent_memory::memory_loader::MemoryLoader;
 use openhuman_core::openhuman::config::{AgentConfig, ContextConfig, MemoryConfig};
-use openhuman_core::openhuman::inference::provider::ConversationMessage;
+use openhuman_core::openhuman::agent::messages::ConversationMessage;
 use openhuman_core::openhuman::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };

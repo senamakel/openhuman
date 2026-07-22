@@ -11,7 +11,8 @@ use tinyagents::harness::tool::{ToolCall as TaToolCall, ToolDelta};
 use tinyagents::harness::usage::Usage;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::openhuman::inference::provider::{ChatMessage, ChatResponse, ProviderDelta, UsageInfo};
+use crate::openhuman::agent::messages::ChatMessage;
+use crate::openhuman::inference::provider::{ChatResponse, ProviderDelta, UsageInfo};
 
 pub(super) type TurnChatModel = Arc<dyn ChatModel<()>>;
 pub(super) type TierRoutes = Vec<(String, TurnChatModel)>;
@@ -23,7 +24,7 @@ pub(crate) fn native_chat_messages(request: &ModelRequest) -> Vec<ChatMessage> {
     request
         .messages
         .iter()
-        .map(super::convert::message_to_native_chat_message)
+        .map(crate::openhuman::agent::message_convert::message_to_native_chat_message)
         .collect()
 }
 
@@ -120,9 +121,9 @@ fn response_to_model_response(
     // reply. Preserve it as a typed thinking block so it stays out of
     // `Message::text()` but survives persistence and the next turn's request,
     // where thinking-mode providers require it back.
-    if let Some(block) =
-        super::convert::reasoning_content_block(response.reasoning_content.as_deref())
-    {
+    if let Some(block) = crate::openhuman::agent::message_convert::reasoning_content_block(
+        response.reasoning_content.as_deref(),
+    ) {
         content.push(block);
     }
     let usage = response.usage.as_ref().map(|u| {

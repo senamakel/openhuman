@@ -6,7 +6,7 @@ use super::super::context::{
 };
 use super::super::traits;
 use super::common::DummyModel;
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::agent::messages::ChatMessage;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 

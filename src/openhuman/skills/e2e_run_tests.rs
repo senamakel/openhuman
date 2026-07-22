@@ -30,12 +30,12 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::openhuman::agent::harness::run_channel_turn_via_graph;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::task_board::{TaskBoardCard, TaskCardStatus};
 use crate::openhuman::agent::task_dispatcher::{dispatch_card, DispatchOutcome};
 use crate::openhuman::agent::tools::RunWorkflowTool;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::openhuman::inference::provider::factory::test_provider_override;
-use crate::openhuman::inference::provider::types::ChatMessage;
 use crate::openhuman::skill_runtime::{await_run_outcome, spawn_workflow_run_background};
 use crate::openhuman::skills::schemas::resolve_workspace_dir;
 use crate::openhuman::todos::ops as board_ops;

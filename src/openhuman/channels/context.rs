@@ -1,6 +1,6 @@
 //! Shared channel runtime state and memory helpers.
 
-use crate::openhuman::inference::provider::ChatMessage;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tinyagents::TurnModelSource;
 use crate::openhuman::tools::Tool;
@@ -340,11 +340,11 @@ mod tests {
         let ctx = runtime_context();
         let sender = "discord_alice_reply_thread:thread-1";
         let mut history = Vec::new();
-        history.push(crate::openhuman::inference::provider::ChatMessage::user(
+        history.push(crate::openhuman::agent::messages::ChatMessage::user(
             "short",
         ));
         history.extend((0..20).map(|idx| {
-            crate::openhuman::inference::provider::ChatMessage::assistant("x".repeat(700 + idx))
+            crate::openhuman::agent::messages::ChatMessage::assistant("x".repeat(700 + idx))
         }));
         ctx.conversation_histories
             .lock()

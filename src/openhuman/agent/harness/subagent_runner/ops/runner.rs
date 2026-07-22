@@ -1068,7 +1068,7 @@ async fn run_typed_mode(
     if let Some(ref ctx) = options.context {
         context_parts.push(ctx);
     }
-    let mut history: Vec<crate::openhuman::inference::provider::ChatMessage> =
+    let mut history: Vec<crate::openhuman::agent::messages::ChatMessage> =
         if let Some(ref initial) = options.initial_history {
             tracing::info!(
                 agent_id = %definition.id,
@@ -1084,8 +1084,8 @@ async fn run_typed_mode(
                 format!("[Context]\n{}\n\n{task_prompt}", context_parts.join("\n\n"))
             };
             vec![
-                crate::openhuman::inference::provider::ChatMessage::system(system_prompt),
-                crate::openhuman::inference::provider::ChatMessage::user(user_message),
+                crate::openhuman::agent::messages::ChatMessage::system(system_prompt),
+                crate::openhuman::agent::messages::ChatMessage::user(user_message),
             ]
         };
 

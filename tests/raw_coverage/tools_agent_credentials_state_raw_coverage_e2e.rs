@@ -759,7 +759,7 @@ async fn round16_agent_builder_turn_uses_public_harness_paths() {
     assert_eq!(answer, "builder final");
     assert!(agent.history().iter().any(|message| matches!(
         message,
-        openhuman_core::openhuman::inference::provider::ConversationMessage::ToolResults(results)
+        openhuman_core::openhuman::agent::messages::ConversationMessage::ToolResults(results)
             if results.iter().any(|result| result.content.contains("echo:builder"))
     )));
 }

@@ -5,13 +5,13 @@ use crate::openhuman::agent::harness::definition::{
     AgentDefinition, AgentTier, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
 };
 use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
+use crate::openhuman::agent::messages::ConversationMessage;
 use crate::openhuman::agent::Agent;
 use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
     prepare_spawn_parallel_tasks_from_defs, ParallelTaskRejectionKind, SpawnParallelTaskPreflight,
 };
 use crate::openhuman::config::AgentConfig;
 use crate::openhuman::context::prompt::ToolCallFormat;
-use crate::openhuman::inference::provider::ConversationMessage;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::tools::traits::ToolTimeout;
 use crate::openhuman::tools::{PermissionLevel, Tool, ToolResult};

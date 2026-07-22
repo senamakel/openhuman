@@ -27,6 +27,8 @@ pub mod harness;
 pub mod hooks;
 pub mod host_runtime;
 pub mod library;
+pub(crate) mod message_convert;
+pub mod messages;
 pub mod multimodal;
 pub mod pformat;
 /// Cross-platform shell selection shared by [`host_runtime::NativeRuntime`]

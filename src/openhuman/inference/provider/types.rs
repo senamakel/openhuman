@@ -1,55 +1,7 @@
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::tools::ToolSpec;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
-
-/// A single message in a conversation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatMessage {
-    #[serde(default, skip_serializing)]
-    pub id: Option<String>,
-    pub role: String,
-    pub content: String,
-    #[serde(default, skip_serializing)]
-    pub extra_metadata: Option<serde_json::Value>,
-}
-
-impl ChatMessage {
-    pub fn system(content: impl Into<String>) -> Self {
-        Self {
-            id: None,
-            role: "system".into(),
-            content: content.into(),
-            extra_metadata: None,
-        }
-    }
-
-    pub fn user(content: impl Into<String>) -> Self {
-        Self {
-            id: None,
-            role: "user".into(),
-            content: content.into(),
-            extra_metadata: None,
-        }
-    }
-
-    pub fn assistant(content: impl Into<String>) -> Self {
-        Self {
-            id: None,
-            role: "assistant".into(),
-            content: content.into(),
-            extra_metadata: None,
-        }
-    }
-
-    pub fn tool(content: impl Into<String>) -> Self {
-        Self {
-            id: None,
-            role: "tool".into(),
-            content: content.into(),
-            extra_metadata: None,
-        }
-    }
-}
 
 /// A tool call requested by the LLM.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,32 +149,6 @@ pub struct ChatRequest<'a> {
     /// low-balance BYO user who could easily afford the few thousand tokens
     /// the turn actually needs (TAURI-RUST-C62).
     pub max_tokens: Option<u32>,
-}
-
-/// A tool result to feed back to the LLM.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ToolResultMessage {
-    pub tool_call_id: String,
-    pub content: String,
-}
-
-/// A message in a multi-turn conversation, including tool interactions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "data")]
-pub enum ConversationMessage {
-    /// Regular chat message (system, user, assistant).
-    Chat(ChatMessage),
-    /// Tool calls from the assistant (stored for history fidelity).
-    AssistantToolCalls {
-        text: Option<String>,
-        tool_calls: Vec<ToolCall>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        reasoning_content: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        extra_metadata: Option<serde_json::Value>,
-    },
-    /// Results of tool executions, fed back to the LLM.
-    ToolResults(Vec<ToolResultMessage>),
 }
 
 /// Errors that can occur during streaming.

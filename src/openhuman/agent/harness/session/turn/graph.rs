@@ -30,8 +30,9 @@ use anyhow::Result;
 use tokio::sync::mpsc::Sender;
 
 use crate::openhuman::agent::harness::run_queue::RunQueue;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::inference::provider::{ChatMessage, AGENT_TURN_MAX_OUTPUT_TOKENS};
+use crate::openhuman::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use crate::openhuman::tinyagents::{
     run_turn_via_tinyagents_shared, TinyagentsTurnOutcome, TurnContextMiddleware,
 };

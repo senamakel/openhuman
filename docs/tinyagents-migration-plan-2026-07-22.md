@@ -193,12 +193,12 @@ The seam is healthy: 23/25 files use the crate; it implements `Middleware`
 `HarnessStatusStore`, `EmbeddingModel`, and `GraphEventSink`. Post-migration it
 **shrinks but remains host-owned**. Specific shrink targets:
 
-- **`model.rs` (1,004): `ProviderModel` still exists** (`struct` at :375,
-  `impl ChatModel<()>` at :542) and is referenced from ~7 modules — the Phase 1
-  exit criterion ("constructed in exactly one place, then zero") is unmet.
-  Deleted in WP-1 along with `convert.rs`'s (655) message-translation layer
-  (`chat_message_to_message`, `spec_to_schema` split: tool-schema conversion
-  survives until WP-4; message conversion dies with `ChatMessage`).
+- **`model.rs`: `ProviderModel` is deleted.** The former `convert.rs` was split:
+  tool-schema conversion remains as the 34-line WP-4 seam, while durable-message
+  conversion moved to `agent/message_convert.rs`. The execution audit found that
+  `ChatMessage` is OpenHuman's versioned JSONL/thread persistence record (including
+  message ids and product metadata), not a duplicate provider request type;
+  replacing it directly with the crate enum would change existing on-disk data.
 - **`middleware.rs` (4,702):** audit each of the 17 middlewares for crate
   analogues (`ArgRecovery` overlaps crate #45 arg-recovery; `SchemaGuard`
   overlaps crate schema validation + `InvalidArgsPolicy` #42; `RepeatProgress`
@@ -302,8 +302,9 @@ The continuation of #4727 Motion B / drift-ledger P1-8/P1-9. Slices:
 4. **Delete, in dependency order:** `router.rs` → `reliable.rs` →
    `legacy_provider.rs` (+ the `as compatible` alias in `provider/mod.rs:14`)
    → `provider/traits.rs` → seam `ProviderModel`/`MaxTokensModel`
-   (`tinyagents/model.rs`) + `convert.rs` message layer → the reverse adapter
-   `crate_provider.rs` last. Each deletion is its own commit with its test
+   (`tinyagents/model.rs`) → the reverse adapter `crate_provider.rs` last.
+   Re-home the durable transcript adapter beside the agent persistence DTO;
+   retain only tool-schema conversion in the seam until WP-4. Each deletion is its own commit with its test
    fallout (§4.5) handled in the same commit.
 5. **Consumer sweep:** migrate the 187 importing files to crate types
    (`Message`, `ModelRequest`, `Usage`, `TinyAgentsError`). Mechanical for
@@ -454,7 +455,8 @@ prematurely.**
 | `inference/provider/{crate_openai,openhuman_backend_model,factory}.rs` | KEEP — becomes the host↔crate boundary (WP-1 finishes) |
 | `inference/provider/{temperature,thread_context,resolved_route,auth_error_registry}.rs` | RE-HOME to seam (WP-1) |
 | `inference/{local,voice,http,openai_oauth}/`, `provider/ops/`, bespoke providers, root host files | STAYS |
-| `tinyagents/model.rs` (`ProviderModel`), `convert.rs` message layer | DELETE (WP-1) |
+| `tinyagents/model.rs` (`ProviderModel`) | DELETED (WP-1) |
+| `tinyagents/convert.rs` message layer | RE-HOMED to `agent/message_convert.rs`; durable JSONL/thread compatibility is product-owned. Tool-schema conversion remains for WP-4. |
 | `tinyagents/middleware.rs` generic middlewares | UPSTREAM case-by-case (WP-5) |
 | `tinyagents/` remainder (seam) | STAYS, shrinks |
 | `agent/` legacy `run_turn_engine` + escape hatches | ALREADY DELETED; WP-3 corrected the stale audit and runner documentation |

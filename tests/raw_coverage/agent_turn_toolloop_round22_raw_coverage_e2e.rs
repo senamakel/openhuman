@@ -5,7 +5,7 @@ use openhuman_core::openhuman::agent::bus::{
 };
 use openhuman_core::openhuman::agent::progress::AgentProgress;
 use openhuman_core::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
-use openhuman_core::openhuman::inference::provider::ChatMessage;
+use openhuman_core::openhuman::agent::messages::ChatMessage;
 use openhuman_core::openhuman::security::POLICY_BLOCKED_MARKER;
 use openhuman_core::openhuman::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
 use serde_json::json;

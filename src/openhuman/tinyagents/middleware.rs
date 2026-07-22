@@ -108,7 +108,7 @@ pub(crate) struct TurnContextMiddleware {
 /// conversation into, so the caller can persist completed rounds even when the
 /// harness run ends in `Err` (#4466).
 pub(crate) type TranscriptSnapshotSink =
-    Arc<std::sync::Mutex<Vec<crate::openhuman::inference::provider::ChatMessage>>>;
+    Arc<std::sync::Mutex<Vec<crate::openhuman::agent::messages::ChatMessage>>>;
 
 /// Observation-only middleware that snapshots the running transcript into a
 /// shared [`TranscriptSnapshotSink`] before each model call (#4466).
@@ -138,7 +138,8 @@ impl Middleware<()> for TranscriptSnapshotMiddleware {
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
-        let history = super::convert::messages_to_history(&request.messages);
+        let history =
+            crate::openhuman::agent::message_convert::messages_to_history(&request.messages);
         if let Ok(mut guard) = self.sink.lock() {
             *guard = history;
         }

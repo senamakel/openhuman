@@ -5918,7 +5918,7 @@ async fn compute_required_connections_skips_native_and_http_nodes() {
 
 #[test]
 fn extract_workflow_proposal_survives_large_graph() {
-    use crate::openhuman::inference::provider::{ConversationMessage, ToolResultMessage};
+    use crate::openhuman::agent::messages::{ConversationMessage, ToolResultMessage};
 
     // 6 nodes, several columns each — comfortably over tinyjuice's MIN_ROWS (3)
     // and ~512-byte tabulation thresholds, so an unprotected payload would get
@@ -5970,7 +5970,7 @@ fn extract_workflow_proposal_survives_large_graph() {
 
 #[test]
 fn extract_workflow_proposal_returns_the_latest_of_multiple_results() {
-    use crate::openhuman::inference::provider::{ConversationMessage, ToolResultMessage};
+    use crate::openhuman::agent::messages::{ConversationMessage, ToolResultMessage};
 
     let first = json!({ "type": "workflow_proposal", "flow_id": "first" });
     let second = json!({ "type": "workflow_proposal", "flow_id": "second" });
@@ -5991,7 +5991,7 @@ fn extract_workflow_proposal_returns_the_latest_of_multiple_results() {
 
 #[test]
 fn extract_workflow_proposal_ignores_non_proposal_tool_results() {
-    use crate::openhuman::inference::provider::{ConversationMessage, ToolResultMessage};
+    use crate::openhuman::agent::messages::{ConversationMessage, ToolResultMessage};
 
     let history = vec![ConversationMessage::ToolResults(vec![ToolResultMessage {
         tool_call_id: "call-1".to_string(),
@@ -6009,8 +6009,9 @@ fn extract_workflow_proposal_ignores_non_proposal_tool_results() {
 fn builder_tool_call(
     id: &str,
     name: &str,
-) -> crate::openhuman::inference::provider::ConversationMessage {
-    use crate::openhuman::inference::provider::{ConversationMessage, ToolCall};
+) -> crate::openhuman::agent::messages::ConversationMessage {
+    use crate::openhuman::agent::messages::ConversationMessage;
+    use crate::openhuman::inference::provider::ToolCall;
     ConversationMessage::AssistantToolCalls {
         text: None,
         tool_calls: vec![ToolCall {
@@ -6027,8 +6028,8 @@ fn builder_tool_call(
 fn builder_tool_result(
     call_id: &str,
     content: &str,
-) -> crate::openhuman::inference::provider::ConversationMessage {
-    use crate::openhuman::inference::provider::{ConversationMessage, ToolResultMessage};
+) -> crate::openhuman::agent::messages::ConversationMessage {
+    use crate::openhuman::agent::messages::{ConversationMessage, ToolResultMessage};
     ConversationMessage::ToolResults(vec![ToolResultMessage {
         tool_call_id: call_id.to_string(),
         content: content.to_string(),

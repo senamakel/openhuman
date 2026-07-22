@@ -24,7 +24,8 @@ use crate::openhuman::agent::harness::session::transcript::{
     attach_turn_usage_metadata, read_transcript, write_transcript, MessageUsage, SessionTranscript,
     TranscriptMeta, TurnUsage,
 };
-use crate::openhuman::inference::provider::{ChatMessage, ToolCall};
+use crate::openhuman::agent::messages::ChatMessage;
+use crate::openhuman::inference::provider::ToolCall;
 
 /// A transcript meta header matching the importer's `native` fixture shape.
 fn meta(thread_id: &str) -> TranscriptMeta {

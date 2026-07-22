@@ -1,11 +1,11 @@
 use super::*;
 use crate::core::event_bus::{DomainEvent, EventHandler};
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::channels::context::{
     ChannelRuntimeContext, RouteSelectionMap, TurnModelSourceCacheMap,
 };
 use crate::openhuman::channels::telegram::{TelegramRemoteCommand, TelegramRemoteSubscriber};
 use crate::openhuman::channels::traits::ChannelMessage;
-use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry};
 use crate::openhuman::tools::{Tool, ToolResult};
 use async_trait::async_trait;

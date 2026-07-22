@@ -11,8 +11,9 @@ use super::types::{Agent, AgentBuilder};
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::dispatcher::ParsedToolCall;
 use crate::openhuman::agent::error::AgentError;
+use crate::openhuman::agent::messages::ConversationMessage;
 use crate::openhuman::agent_tool_policy::ToolPolicyEngine;
-use crate::openhuman::inference::provider::{self, ConversationMessage, ToolCall};
+use crate::openhuman::inference::provider::{self, ToolCall};
 use crate::openhuman::memory::Memory;
 use crate::openhuman::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
@@ -349,21 +350,21 @@ impl Agent {
         let learned = crate::openhuman::agent::prompts::LearnedContextData::default();
         let system_prompt = self.build_system_prompt(learned)?;
 
-        let mut cached: Vec<crate::openhuman::inference::provider::ChatMessage> =
+        let mut cached: Vec<crate::openhuman::agent::messages::ChatMessage> =
             Vec::with_capacity(prior.len() + 1);
-        cached.push(crate::openhuman::inference::provider::ChatMessage::system(
+        cached.push(crate::openhuman::agent::messages::ChatMessage::system(
             system_prompt,
         ));
         for (role, content) in prior {
             let chat = match role.as_str() {
-                "user" => crate::openhuman::inference::provider::ChatMessage::user(content),
+                "user" => crate::openhuman::agent::messages::ChatMessage::user(content),
                 "agent" | "assistant" => {
-                    crate::openhuman::inference::provider::ChatMessage::assistant(content)
+                    crate::openhuman::agent::messages::ChatMessage::assistant(content)
                 }
                 // Fall back to user role for unknown senders rather than
                 // dropping the message — losing context is worse than
                 // mislabelling a system/tool message.
-                _ => crate::openhuman::inference::provider::ChatMessage::user(content),
+                _ => crate::openhuman::agent::messages::ChatMessage::user(content),
             };
             cached.push(chat);
         }

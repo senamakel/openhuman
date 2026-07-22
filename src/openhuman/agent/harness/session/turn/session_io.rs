@@ -3,10 +3,11 @@
 use super::super::transcript;
 use super::super::types::Agent;
 use crate::openhuman::agent::harness;
+use crate::openhuman::agent::messages::ChatMessage;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::context::ARCHIVIST_EXTRACTION_PROMPT;
 use crate::openhuman::inference::provider::{
-    ChatMessage, ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
+    ChatResponse, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
 };
 use futures::StreamExt;
 use tinyagents::harness::model::{ModelRequest, ModelStreamItem};

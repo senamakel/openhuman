@@ -399,7 +399,7 @@ async fn turn_rejects_empty_final_response_and_keeps_history_nonfinal() -> Resul
     assert!(agent
         .history()
         .iter()
-        .any(|message| matches!(message, openhuman_core::openhuman::inference::provider::ConversationMessage::Chat(chat) if chat.role == "user")));
+        .any(|message| matches!(message, openhuman_core::openhuman::agent::messages::ConversationMessage::Chat(chat) if chat.role == "user")));
     Ok(())
 }
 

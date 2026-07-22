@@ -3,14 +3,13 @@ use crate::openhuman::agent::dispatcher::{
     PFormatToolDispatcher, ToolDispatcher, XmlToolDispatcher,
 };
 use crate::openhuman::agent::hooks::{PostTurnHook, TurnContext};
+use crate::openhuman::agent::messages::{ChatMessage, ConversationMessage};
 use crate::openhuman::agent::tool_policy::{
     GeneratedToolRuntimeContext, GeneratedToolRuntimeRisk, ToolPolicy, ToolPolicyDecision,
     ToolPolicyRequest,
 };
 use crate::openhuman::agent_memory::memory_loader::MemoryLoader;
-use crate::openhuman::inference::provider::{
-    ChatMessage, ChatResponse, ConversationMessage, UsageInfo,
-};
+use crate::openhuman::inference::provider::{ChatResponse, UsageInfo};
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tools::ToolResult;
 use crate::openhuman::tools::{PermissionLevel, Tool};
@@ -454,7 +453,8 @@ fn trim_history_preserves_system_and_keeps_latest_non_system_entries() {
 /// `trim_history` must snap past the orphan so the window starts on a clean turn.
 #[test]
 fn trim_history_snaps_past_orphaned_tool_results() {
-    use crate::openhuman::inference::provider::{ToolCall, ToolResultMessage};
+    use crate::openhuman::agent::messages::ToolResultMessage;
+    use crate::openhuman::inference::provider::ToolCall;
 
     let mut agent = make_agent(None); // max_history_messages = 3
     agent.history = vec![

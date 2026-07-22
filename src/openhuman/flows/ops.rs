@@ -5528,7 +5528,7 @@ const TRAIL_OFF_BLOCKER_TOOLS: &[&str] = &[
 /// blocker is found (the model may have simply stopped with nothing to point
 /// to).
 fn build_trail_off_fallback(
-    history: &[crate::openhuman::inference::provider::ConversationMessage],
+    history: &[crate::openhuman::agent::messages::ConversationMessage],
 ) -> String {
     match last_builder_tool_blocker(history) {
         Some(blocker) => format!(
@@ -5568,9 +5568,9 @@ fn combine_trail_off_fallback(fallback: &str, original: &str) -> String {
 /// misattributes an unrelated read-only tool's plain-text output as a
 /// blocker.
 fn last_builder_tool_blocker(
-    history: &[crate::openhuman::inference::provider::ConversationMessage],
+    history: &[crate::openhuman::agent::messages::ConversationMessage],
 ) -> Option<String> {
-    use crate::openhuman::inference::provider::ConversationMessage;
+    use crate::openhuman::agent::messages::ConversationMessage;
 
     let mut call_names: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
@@ -5641,9 +5641,9 @@ fn describe_tool_result_blocker(content: &str) -> Option<String> {
 /// their tool result, so we match on that (the same gate the frontend uses) and
 /// return the LAST one — the most recent proposal in the turn.
 fn extract_workflow_proposal(
-    history: &[crate::openhuman::inference::provider::ConversationMessage],
+    history: &[crate::openhuman::agent::messages::ConversationMessage],
 ) -> Option<Value> {
-    use crate::openhuman::inference::provider::ConversationMessage;
+    use crate::openhuman::agent::messages::ConversationMessage;
     let mut latest = None;
     for message in history {
         if let ConversationMessage::ToolResults(results) = message {

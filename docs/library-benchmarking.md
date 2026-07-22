@@ -140,9 +140,12 @@ headline numbers, `library-cpu.sh` when CPU attribution is the question, and
 
 ## The ZeroClaw comparison
 
-ZeroClaw is reported to idle under 5 MiB RAM and use approximately 7.8-12 MiB
-under load. OpenHuman's Rust core currently settles around 35-50 MiB
-depending on scenario and feature set (see the baseline table below).
+ZeroClaw self-reports idling under 5 MiB RAM; the "7.8-12 MiB under load"
+figure sometimes quoted alongside it has no locatable primary source, and even
+the idle figure is vendor marketing with no third-party verification (see
+[`docs/harness-comparison-2026-07-22.md`](harness-comparison-2026-07-22.md)).
+OpenHuman's Rust core currently settles around 35-50 MiB depending on
+scenario and feature set (see the baseline table below).
 
 Treat this as a **north star, not an apples-to-apples benchmark**. ZeroClaw's
 scope and feature set differ substantially from the OpenHuman core: OpenHuman
@@ -281,8 +284,7 @@ unless noted; see that document for methodology and caveats):
 | `subagents` (cold, 2 children) | slim | 42.4 MiB | 25.7 MiB |
 | `subagents` (warmed repeat, persistence off) | default | - | 0.52 MiB |
 | `subagents` (warmed repeat, normal capture) | default | - | 1.84 MiB |
-| ZeroClaw (external, idle) | - | < 5 MiB | - |
-| ZeroClaw (external, under load) | - | 7.8-12 MiB | - |
+| ZeroClaw (external, idle, self-reported/unverified) | - | < 5 MiB | - |
 
 First full `library-bench.sh` run of the new scenarios (default build, 5
 fresh-process repeats, 2026-07-21, Apple Silicon macOS):

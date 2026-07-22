@@ -259,7 +259,7 @@ write_summary() {
         cat <<'EOF'
 ## External comparison point (not apples-to-apples)
 
-ZeroClaw is reported to idle under 5 MiB RAM and use approximately 7.8-12 MiB
+ZeroClaw self-reports (unverified) idling under 5 MiB RAM and roughly 8-12 MiB
 under load. OpenHuman's Rust core currently settles around 35-50 MiB depending
 on scenario and feature set (see docs/library-benchmarking.md and
 docs/resource-profiling-session-2026-07-21.md for scope/caveats). Treat this as

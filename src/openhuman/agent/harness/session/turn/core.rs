@@ -1676,6 +1676,10 @@ impl Agent {
             agent_id: Some(self.agent_definition_id.clone()).filter(|id| !id.trim().is_empty()),
             entrypoint: Some(self.event_channel.clone())
                 .filter(|entrypoint| !entrypoint.trim().is_empty()),
+            // 1c — partition recall by the active profile: this turn sees records
+            // stamped with its profile plus unstamped legacy records, and never a
+            // sibling profile's. `None` (profile-less) recalls the whole pool.
+            profile_id: self.active_profile_id.clone(),
             max_hits: MAX_EXPERIENCE_HITS,
         };
 

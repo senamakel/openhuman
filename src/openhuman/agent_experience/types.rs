@@ -28,6 +28,13 @@ pub struct AgentExperience {
     pub source: ExperienceSource,
     pub agent_id: Option<String>,
     pub entrypoint: Option<String>,
+    /// Id of the agent profile the turn ran under when this experience was
+    /// captured (1c). `None` for the default profile-less session and for every
+    /// record written before profile scoping existed (legacy). Serde-defaulted
+    /// so older stored payloads deserialize unchanged; retrieval treats `None`
+    /// records as shared/legacy and surfaces them under any profile.
+    #[serde(default)]
+    pub profile_id: Option<String>,
     pub task_fingerprint: String,
     pub task_summary: String,
     pub tools_used: Vec<String>,

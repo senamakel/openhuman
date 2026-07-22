@@ -3,7 +3,9 @@ use serde_json::{Map, Value};
 
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
-use crate::openhuman::agent_experience::ops::{CaptureParams, DismissParams, RetrieveParams};
+use crate::openhuman::agent_experience::ops::{
+    CaptureParams, DismissParams, ListParams, RetrieveParams,
+};
 use crate::rpc::RpcOutcome;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -92,6 +94,13 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
                 FieldSchema {
+                    name: "profile_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Optional profile partition: returns records stamped with this \
+                              profile plus unstamped legacy records; omit to recall the whole pool.",
+                    required: false,
+                },
+                FieldSchema {
                     name: "max_hits",
                     ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
                     comment: "Maximum number of matching experiences to return. Defaults to 5.",
@@ -109,7 +118,13 @@ pub fn schemas(function: &str) -> ControllerSchema {
             namespace: "agent_experience",
             function: "list",
             description: "List locally stored procedural operating experiences.",
-            inputs: vec![],
+            inputs: vec![FieldSchema {
+                name: "profile_id",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Optional profile partition: lists records stamped with this profile plus \
+                          unstamped legacy records; omit to list the whole pool.",
+                required: false,
+            }],
             outputs: vec![FieldSchema {
                 name: "experiences",
                 ty: TypeSchema::Array(Box::new(TypeSchema::Ref("AgentExperience"))),
@@ -183,8 +198,11 @@ fn handle_retrieve(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-fn handle_list(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move { to_json(crate::openhuman::agent_experience::ops::list().await?) })
+fn handle_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = read_params::<ListParams>(params)?;
+        to_json(crate::openhuman::agent_experience::ops::list(params).await?)
+    })
 }
 
 fn handle_dismiss(params: Map<String, Value>) -> ControllerFuture {

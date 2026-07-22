@@ -21,8 +21,19 @@ pub struct RetrieveParams {
     pub agent_id: Option<String>,
     #[serde(default)]
     pub entrypoint: Option<String>,
+    /// Profile partition filter (1c). `None` (omitted) recalls the whole pool;
+    /// `Some(P)` recalls records stamped `P` plus unstamped legacy records.
+    #[serde(default)]
+    pub profile_id: Option<String>,
     #[serde(default)]
     pub max_hits: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ListParams {
+    /// Profile partition filter (1c), same semantics as `RetrieveParams`.
+    #[serde(default)]
+    pub profile_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,15 +75,16 @@ pub async fn retrieve(params: RetrieveParams) -> Result<RpcOutcome<Vec<Experienc
             tags: params.tags,
             agent_id: params.agent_id,
             entrypoint: params.entrypoint,
+            profile_id: params.profile_id,
             max_hits: params.max_hits.unwrap_or(5),
         })
         .await?;
     Ok(RpcOutcome::single_log(hits, "agent experiences retrieved"))
 }
 
-pub async fn list() -> Result<RpcOutcome<Vec<AgentExperience>>, String> {
+pub async fn list(params: ListParams) -> Result<RpcOutcome<Vec<AgentExperience>>, String> {
     let store = open_store().await?;
-    let experiences = store.list().await?;
+    let experiences = store.list_for_profile(params.profile_id.as_deref()).await?;
     Ok(RpcOutcome::single_log(
         experiences,
         "agent experiences listed",

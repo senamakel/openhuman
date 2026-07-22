@@ -800,10 +800,14 @@ impl Agent {
             }
 
             if config.learning.tool_memory_capture_enabled {
+                // 1c — stamp captured experiences with the active profile id so
+                // retrieval can partition them. `None` for the profile-less
+                // session leaves records unstamped (shared/legacy).
                 post_turn_hooks.push(Arc::new(
-                    crate::openhuman::agent_experience::AgentExperienceCaptureHook::new(
+                    crate::openhuman::agent_experience::AgentExperienceCaptureHook::with_profile(
                         memory.clone(),
                         true,
+                        profile.map(|p| p.id.clone()),
                     ),
                 ));
                 log::info!("[learning] agent_experience_capture hook registered");

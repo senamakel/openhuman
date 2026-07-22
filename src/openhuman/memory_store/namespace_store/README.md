@@ -1,6 +1,11 @@
-# Unified memory store
+# Namespace memory store
 
-SQLite-backed implementation of the memory store. One `UnifiedMemory` struct owns a WAL-mode connection plus the on-disk markdown sidecar tree and vector storage path; the rest of this directory adds capabilities to it via per-domain `impl` blocks.
+Host-retained SQLite namespace/document tier. One `UnifiedMemory` struct owns
+the shared connection plus the on-disk markdown sidecar and compatibility
+embedding handle; the rest of this directory adds the product-owned document,
+graph, episodic, event, segment, profile, and retrieval policy via `impl`
+blocks. TinyCortex owns the generic chunk/vector/tree/queue engine beside this
+tier; this directory is intentionally not migration staging.
 
 ## Files
 

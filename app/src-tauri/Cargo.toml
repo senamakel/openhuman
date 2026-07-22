@@ -1,6 +1,6 @@
 [package]
 name = "OpenHuman"
-version = "0.63.0"
+version = "0.63.1"
 description = "OpenHuman - AI-powered Super Assistant"
 authors = ["OpenHuman"]
 edition = "2021"
@@ -178,6 +178,7 @@ openhuman_core = { path = "../..", package = "openhuman", default-features = fal
     # (#5048). Enforced by the HTTP_SERVER_COMPILED_IN compile assert in lib.rs.
     "http-server",
     "desktop-automation",
+    "medulla-local",
 ] }
 tinyjuice = { version = "0.2.1", default-features = false }
 

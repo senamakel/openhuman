@@ -1609,6 +1609,11 @@ const messages: TranslationMap = {
   'settings.about.releases': 'Rilis',
   'settings.about.releasesDesc': 'Telusuri catatan rilis dan build sebelumnya di GitHub.',
   'settings.about.openReleases': 'Buka rilis GitHub',
+  'settings.about.starCta.title': 'Menikmati OpenHuman?',
+  'settings.about.starCta.body':
+    'Beri kami bintang di GitHub. Ini membantu lebih banyak orang menemukan kami.',
+  'settings.about.starCta.star': 'Beri bintang di GitHub',
+  'settings.about.starCta.dismiss': 'Nanti saja',
   'settings.about.connection': 'Koneksi',
   'settings.about.connectionMode': 'Mode',
   'settings.about.connectionModeLocal': 'Lokal',

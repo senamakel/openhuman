@@ -1626,6 +1626,11 @@ const messages: TranslationMap = {
   'settings.about.releasesDesc':
     'Przeglądaj notatki o wydaniach i wcześniejsze buildy na GitHubie.',
   'settings.about.openReleases': 'Otwórz wydania na GitHubie',
+  'settings.about.starCta.title': 'Podoba Ci się OpenHuman?',
+  'settings.about.starCta.body':
+    'Daj nam gwiazdkę na GitHubie. Dzięki temu więcej osób nas znajdzie.',
+  'settings.about.starCta.star': 'Oznacz gwiazdką na GitHub',
+  'settings.about.starCta.dismiss': 'Nie teraz',
   'settings.about.connection': 'Połączenie',
   'settings.about.connectionMode': 'Tryb',
   'settings.about.connectionModeLocal': 'Lokalny',

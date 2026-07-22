@@ -1563,6 +1563,11 @@ const messages: TranslationMap = {
   'settings.about.releases': 'الإصدارات',
   'settings.about.releasesDesc': 'تصفح ملاحظات الإصدار والإصدارات السابقة على GitHub.',
   'settings.about.openReleases': 'فتح إصدارات GitHub',
+  'settings.about.starCta.title': 'هل يعجبك OpenHuman؟',
+  'settings.about.starCta.body':
+    'امنحنا نجمة على GitHub. هذا يساعد المزيد من الأشخاص على العثور علينا.',
+  'settings.about.starCta.star': 'ضع نجمة على GitHub',
+  'settings.about.starCta.dismiss': 'ليس الآن',
   'settings.about.connection': 'اتصال',
   'settings.about.connectionMode': 'الوضع',
   'settings.about.connectionModeLocal': 'محلي',

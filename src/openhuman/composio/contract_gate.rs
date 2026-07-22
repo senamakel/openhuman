@@ -83,15 +83,32 @@ pub enum GateDecision {
     Proceed,
 }
 
-/// Consult the gate before executing `action_slug`.
+/// Consult the gate before executing `action_slug` with the model's `args`.
 ///
 /// On the FIRST consult for a slug this turn, if a fuller live contract can be
-/// resolved, returns [`GateDecision::Surface`] with the formatted contract and
-/// marks the slug seen. Every later consult — and any consult where no live
-/// contract is available (unconfigured client, unknown action, network miss) —
-/// returns [`GateDecision::Proceed`], so the gate never blocks an action more
-/// than once and never blocks when it cannot help.
-pub async fn consult(gate: &ContractGate, config: &Config, action_slug: &str) -> GateDecision {
+/// resolved, the gate compares the model's supplied `args` against it:
+///
+/// - **Args already satisfy the contract** (all required present, every supplied
+///   key a known property, types compatible) → [`GateDecision::Proceed`]. The
+///   model did not need the schema, so bouncing would be pure overhead — and, on
+///   the weak text-mode `integrations_agent` path, forcing a needless retry lets
+///   a Kimi-family model corrupt the re-issued call (`<|"|>` sentinel-token leak)
+///   and loop forever without ever executing (#5119).
+/// - **Args do NOT satisfy the contract** (missing required, unknown key, wrong
+///   type — i.e. the model *guessed*) → [`GateDecision::Surface`] with the
+///   formatted contract, exactly the case the gate exists for (#4853).
+///
+/// The slug is marked seen on this first consult either way, so every later
+/// consult — and any consult where no live contract is available (unconfigured
+/// client, unknown action, network miss) — returns [`GateDecision::Proceed`]:
+/// the gate never blocks an action more than once and never blocks when it
+/// cannot help.
+pub async fn consult(
+    gate: &ContractGate,
+    config: &Config,
+    action_slug: &str,
+    args: &serde_json::Value,
+) -> GateDecision {
     // Mark first (releasing the lock) so the retry — and any concurrent
     // sibling call — proceeds even if the contract lookup below is slow.
     let first_time = gate.mark_seen(action_slug);
@@ -110,6 +127,16 @@ pub async fn consult(gate: &ContractGate, config: &Config, action_slug: &str) ->
     // just does not get the pre-execute contract nudge).
     #[cfg(feature = "flows")]
     if let Some(contract) = lookup_contract(config, action_slug).await {
+        // Validate-then-pass (#5119): only surface when the model actually needs
+        // the schema. A call whose args already conform is executed directly.
+        if args_satisfy_contract(args, &contract) {
+            tracing::debug!(
+                target: "composio",
+                slug = %action_slug,
+                "[composio][contract-gate] args already satisfy the live contract; proceeding without surfacing"
+            );
+            return GateDecision::Proceed;
+        }
         tracing::debug!(
             target: "composio",
             slug = %action_slug,
@@ -120,9 +147,10 @@ pub async fn consult(gate: &ContractGate, config: &Config, action_slug: &str) ->
         return GateDecision::Surface(format_contract(action_slug, &contract));
     }
 
-    // `config` is only consulted through the flows-gated lookup above.
+    // `config` and `args` are only consulted through the flows-gated lookup +
+    // validation above.
     #[cfg(not(feature = "flows"))]
-    let _ = config;
+    let _ = (config, args);
 
     tracing::debug!(
         target: "composio",
@@ -130,6 +158,106 @@ pub async fn consult(gate: &ContractGate, config: &Config, action_slug: &str) ->
         "[composio][contract-gate] no live contract available; proceeding without gating"
     );
     GateDecision::Proceed
+}
+
+/// Whether the model's supplied `args` already conform to `contract` — the test
+/// that lets the gate execute a well-formed first call instead of bouncing it
+/// (#5119). Conservative: an object whose required args are all present, whose
+/// every supplied key is a known schema property, and whose values are
+/// type-compatible with the schema. Anything short of that is treated as a
+/// guess and surfaces the contract (#4853).
+///
+/// Type checks are intentionally lenient about stringified scalars (a model may
+/// send `max_results: "10"`), so only a genuinely wrong shape — a string where
+/// an array is required, an unknown/invented key, a missing required arg — fails.
+/// When the schema publishes no `properties`, only the required-args presence
+/// check applies.
+#[cfg(feature = "flows")]
+fn args_satisfy_contract(args: &serde_json::Value, contract: &ToolContract) -> bool {
+    let obj = match args.as_object() {
+        Some(obj) => obj,
+        // Non-object args satisfy the contract only when nothing is required
+        // (e.g. a no-arg action called with `null`/absent args).
+        None => return contract.required_args.is_empty(),
+    };
+
+    // Every required argument must be present and non-null.
+    for req in &contract.required_args {
+        match obj.get(req) {
+            Some(v) if !v.is_null() => {}
+            _ => return false,
+        }
+    }
+
+    // If the schema publishes its properties, every supplied key must be known
+    // (no invented args) and type-compatible. A hallucinated key or a
+    // wrong-typed value is exactly the guess the gate exists to catch.
+    if let Some(props) = contract
+        .input_schema
+        .as_ref()
+        .and_then(|s| s.get("properties"))
+        .and_then(|p| p.as_object())
+    {
+        for (key, value) in obj {
+            // `connection_id` is an OpenHuman-injected routing parameter
+            // (`ComposioActionTool::parameters_schema` / `ComposioExecuteTool`),
+            // consumed before dispatch and absent from Composio's live catalog
+            // `input_schema`. Skip it so a valid multi-account call isn't bounced
+            // as an "unknown key" into the retry path this gate exists to avoid.
+            if key == "connection_id" {
+                continue;
+            }
+            match props.get(key) {
+                None => return false,
+                Some(prop) => {
+                    if let Some(expected) = prop.get("type").and_then(|t| t.as_str()) {
+                        if !json_value_matches_type(value, expected) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    true
+}
+
+/// Loose JSON-Schema scalar/compound `type` check used by
+/// [`args_satisfy_contract`]. Numeric/boolean types also accept a string that
+/// parses to that type, so a model sending `"10"` for an `integer` field is not
+/// treated as a schema violation. An unrecognised or union `type` (the
+/// `and_then(as_str)` returns `None` for a `["string","null"]` array) is never
+/// reached here, so callers simply skip the check — lenient by construction.
+#[cfg(feature = "flows")]
+fn json_value_matches_type(value: &serde_json::Value, expected: &str) -> bool {
+    match expected {
+        "string" => value.is_string(),
+        "integer" => {
+            value.is_i64()
+                || value.is_u64()
+                || value
+                    .as_str()
+                    .is_some_and(|s| s.trim().parse::<i64>().is_ok())
+        }
+        "number" => {
+            value.is_number()
+                || value
+                    .as_str()
+                    .is_some_and(|s| s.trim().parse::<f64>().is_ok())
+        }
+        "boolean" => {
+            value.is_boolean()
+                || value
+                    .as_str()
+                    .is_some_and(|s| matches!(s.trim(), "true" | "false"))
+        }
+        "array" => value.is_array(),
+        "object" => value.is_object(),
+        "null" => value.is_null(),
+        // Unknown/unsupported type keyword → don't reject on type grounds.
+        _ => true,
+    }
 }
 
 /// Resolve the full live contract for `action_slug` from the process-cached

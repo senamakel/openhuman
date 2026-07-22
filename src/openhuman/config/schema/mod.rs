@@ -9,6 +9,8 @@ pub use cloud_providers::{
     generate_provider_id, is_slug_reserved, migrate_legacy_fields, AuthStyle, CloudProviderCreds,
     CloudProviderType,
 };
+pub mod subconscious;
+pub use subconscious::{MedullaLocalConfig, SubconsciousConfig, SubconsciousEngine};
 mod accessibility;
 mod agent;
 mod autocomplete;

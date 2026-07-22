@@ -7828,6 +7828,128 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
     rpc_join.abort();
 }
 
+// ---------------------------------------------------------------------------
+// Agent profiles — home materialization + dedicated-memory field lifecycle
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn json_rpc_profiles_dedicated_memory_lifecycle() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _action_guard = EnvVarGuard::unset("OPENHUMAN_ACTION_DIR");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // --- upsert a custom profile opting into dedicated memory ---
+    // agentId "orchestrator" is always admitted without a registry (the implicit
+    // default), so this upsert persists even in the bare e2e core.
+    let upsert = post_json_rpc(
+        &rpc_base,
+        60,
+        "openhuman.profiles_upsert",
+        json!({
+            "profile": {
+                "id": "writer",
+                "name": "Writer",
+                "description": "Drafts crisp copy.",
+                "agentId": "orchestrator",
+                "builtIn": false,
+                "dedicatedMemory": true
+            }
+        }),
+    )
+    .await;
+    let upsert_result = assert_no_jsonrpc_error(&upsert, "profiles_upsert");
+    let upsert_payload = upsert_result.get("result").unwrap_or(upsert_result);
+    let writer = upsert_payload
+        .get("profiles")
+        .and_then(Value::as_array)
+        .expect("profiles array")
+        .iter()
+        .find(|p| p.get("id").and_then(Value::as_str) == Some("writer"))
+        .expect("writer profile present after upsert");
+    assert_eq!(
+        writer.get("dedicatedMemory").and_then(Value::as_bool),
+        Some(true),
+        "dedicatedMemory should round-trip: {upsert_payload}"
+    );
+
+    // --- list must surface the field + the resolved soulMdFile path ---
+    let list = post_json_rpc(&rpc_base, 61, "openhuman.profiles_list", json!({})).await;
+    let list_result = assert_no_jsonrpc_error(&list, "profiles_list");
+    let list_payload = list_result.get("result").unwrap_or(list_result);
+    let listed_writer = list_payload
+        .get("profiles")
+        .and_then(Value::as_array)
+        .expect("profiles array")
+        .iter()
+        .find(|p| p.get("id").and_then(Value::as_str) == Some("writer"))
+        .expect("writer present in list");
+    assert_eq!(
+        listed_writer.get("dedicatedMemory").and_then(Value::as_bool),
+        Some(true)
+    );
+    // The home was materialized on upsert, so SOUL.md exists and its path is
+    // surfaced read-only. A shared-memory profile carries no workspaceDir.
+    assert!(
+        listed_writer
+            .get("soulMdFile")
+            .and_then(Value::as_str)
+            .is_some_and(|s| s.ends_with("personalities/writer/SOUL.md")),
+        "soulMdFile should resolve: {listed_writer}"
+    );
+    assert!(
+        listed_writer.get("workspaceDir").is_none(),
+        "dedicated_memory (not workspace) must not surface workspaceDir"
+    );
+
+    // --- select then delete round-trips the active id ---
+    let select = post_json_rpc(
+        &rpc_base,
+        62,
+        "openhuman.profiles_select",
+        json!({"profile_id": "writer"}),
+    )
+    .await;
+    let select_result = assert_no_jsonrpc_error(&select, "profiles_select");
+    let select_payload = select_result.get("result").unwrap_or(select_result);
+    assert_eq!(
+        select_payload.get("activeProfileId").and_then(Value::as_str),
+        Some("writer")
+    );
+
+    let delete = post_json_rpc(
+        &rpc_base,
+        63,
+        "openhuman.profiles_delete",
+        json!({"profile_id": "writer"}),
+    )
+    .await;
+    let delete_result = assert_no_jsonrpc_error(&delete, "profiles_delete");
+    let delete_payload = delete_result.get("result").unwrap_or(delete_result);
+    assert_eq!(
+        delete_payload.get("activeProfileId").and_then(Value::as_str),
+        Some("default"),
+        "deleting the active custom profile falls back to default"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
 #[tokio::test]
 async fn json_rpc_local_ai_lm_studio_config_diagnostics_and_prompt() {
     let _env_lock = json_rpc_e2e_env_lock();

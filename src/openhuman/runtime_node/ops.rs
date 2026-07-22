@@ -75,7 +75,7 @@ fn command_class_for_tool(
     }
 }
 
-fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
+pub fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
     debug!(
         workspace = %config.workspace_dir.display(),
         "[runtime_node::ops] build_runtime_tools: start"

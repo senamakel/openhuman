@@ -1584,6 +1584,11 @@ const messages: TranslationMap = {
   'settings.about.releases': '릴리스',
   'settings.about.releasesDesc': 'GitHub에서 릴리스 노트와 이전 빌드를 찾아보세요.',
   'settings.about.openReleases': 'GitHub 릴리스 열기',
+  'settings.about.starCta.title': 'OpenHuman이 마음에 드시나요?',
+  'settings.about.starCta.body':
+    'GitHub에서 별을 눌러 주세요. 더 많은 사람이 저희를 발견하는 데 도움이 됩니다.',
+  'settings.about.starCta.star': 'GitHub에서 별 누르기',
+  'settings.about.starCta.dismiss': '나중에',
   'settings.about.connection': '연결',
   'settings.about.connectionMode': '모드',
   'settings.about.connectionModeLocal': '로컬',

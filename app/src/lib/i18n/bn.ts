@@ -1598,6 +1598,11 @@ const messages: TranslationMap = {
   'settings.about.releases': 'রিলিজ',
   'settings.about.releasesDesc': 'GitHub-এ রিলিজ নোট ও আগের বিল্ড দেখুন।',
   'settings.about.openReleases': 'GitHub রিলিজ খুলুন',
+  'settings.about.starCta.title': 'OpenHuman ভালো লাগছে?',
+  'settings.about.starCta.body':
+    'GitHub-এ আমাদের একটি স্টার দিন। এতে আরও বেশি মানুষ আমাদের খুঁজে পান।',
+  'settings.about.starCta.star': 'GitHub-এ স্টার দিন',
+  'settings.about.starCta.dismiss': 'এখন নয়',
   'settings.about.connection': 'সংযোগ',
   'settings.about.connectionMode': 'মোড',
   'settings.about.connectionModeLocal': 'স্থানীয়',

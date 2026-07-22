@@ -78,6 +78,7 @@ this section as investigation history.
 | P1-11 | OpenAI/Codex/custom cloud slugs | **CLOSED** | [openhuman#4782](https://github.com/tinyhumansai/openhuman/pull/4782) completed the configured cloud-slug client cutover, including Responses API construction. |
 | P1-12 | Host workload routing | **CLOSED** | [openhuman#4783](https://github.com/tinyhumansai/openhuman/pull/4783) adopted crate `ModelRouter` for fallback and capability decisions. |
 | P1-13 | Crate-native registered turn models / `compatible*.rs` deletion | **CLOSED** | [openhuman#4784](https://github.com/tinyhumansai/openhuman/pull/4784) moved the hot turn path and deleted the former `compatible*.rs` cluster. The collapsed `legacy_provider.rs` facade and the broader legacy `Provider` stack remain WP-1 deletion work; see the deletion ledger. |
+| P1-14 | Legacy `run_turn_engine` and `OPENHUMAN_AGENT_GRAPH_*` escape hatches | **CLOSED BEFORE AUDIT** | WP-3 verified that both session and subagent production paths call the TinyAgents seam unconditionally. No engine definition or env read remains; only historical parity comments and stale migration prose named the retired implementation. |
 
 Motion A confined all `Provider` handling to the seam + factory. Motion B
 replaces the *construction* of host `Provider`s with crate-native

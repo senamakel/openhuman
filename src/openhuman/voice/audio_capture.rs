@@ -368,8 +368,7 @@ fn record_on_thread(
                     .build_input_stream(
                         &stream_config,
                         move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                            let floats: Vec<f32> =
-                                data.iter().map(|&s| s as f32 / 32768.0).collect();
+                            let floats = i16_to_f32(data);
                             let mono = to_mono(&floats, source_channels);
                             update_peak_rms(&rms_tracker, &mono);
                             let gated = gate.lock().process(&mono);
@@ -389,10 +388,7 @@ fn record_on_thread(
                     .build_input_stream(
                         &stream_config,
                         move |data: &[u16], _: &cpal::InputCallbackInfo| {
-                            let floats: Vec<f32> = data
-                                .iter()
-                                .map(|&s| (s as f32 - 32768.0) / 32768.0)
-                                .collect();
+                            let floats = u16_to_f32(data);
                             let mono = to_mono(&floats, source_channels);
                             update_peak_rms(&rms_tracker, &mono);
                             let gated = gate.lock().process(&mono);
@@ -446,8 +442,7 @@ fn record_on_thread(
                             .build_input_stream(
                                 &sc,
                                 move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                                    let floats: Vec<f32> =
-                                        data.iter().map(|&s| s as f32 / 32768.0).collect();
+                                    let floats = i16_to_f32(data);
                                     let mono = to_mono(&floats, ch);
                                     update_peak_rms(&rt, &mono);
                                     let gated = gate.lock().process(&mono);
@@ -459,7 +454,23 @@ fn record_on_thread(
                                 None,
                             )
                             .map_err(|e| format!("fallback i16 stream failed: {e}")),
-                        _ => Err(format!("unsupported fallback format: {fmt:?}")),
+                        SampleFormat::U16 => device
+                            .build_input_stream(
+                                &sc,
+                                move |data: &[u16], _: &cpal::InputCallbackInfo| {
+                                    let floats = u16_to_f32(data);
+                                    let mono = to_mono(&floats, ch);
+                                    update_peak_rms(&rt, &mono);
+                                    let gated = gate.lock().process(&mono);
+                                    if !gated.is_empty() {
+                                        sw.lock().extend_from_slice(&gated);
+                                    }
+                                },
+                                |err| error!("{LOG_PREFIX} audio stream error: {err}"),
+                                None,
+                            )
+                            .map_err(|e| format!("fallback u16 stream failed: {e}")),
+                        other => Err(format!("unsupported fallback format: {other:?}")),
                     };
                     match fallback_stream {
                         Ok(s) => (s, sr, ch),
@@ -517,6 +528,22 @@ pub fn list_input_devices() -> Result<Vec<String>, String> {
 
     debug!("{LOG_PREFIX} found {} input devices", names.len());
     Ok(names)
+}
+
+/// Convert interleaved signed `i16` PCM samples to normalised `f32` in
+/// `[-1.0, 1.0)` (`s / 32768`). Extracted so the preferred and fallback stream
+/// paths share one conversion instead of duplicating it inline.
+pub(crate) fn i16_to_f32(data: &[i16]) -> Vec<f32> {
+    data.iter().map(|&s| s as f32 / 32768.0).collect()
+}
+
+/// Convert interleaved unsigned `u16` PCM samples (mid-scale 32768) to
+/// normalised `f32` in `[-1.0, 1.0)` (`(s - 32768) / 32768`). Shared by the
+/// preferred and fallback stream paths.
+pub(crate) fn u16_to_f32(data: &[u16]) -> Vec<f32> {
+    data.iter()
+        .map(|&s| (s as f32 - 32768.0) / 32768.0)
+        .collect()
 }
 
 /// Convert interleaved multi-channel samples to mono by averaging channels.

@@ -498,6 +498,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'تعذّر تحميل الملف الشخصي الكامل.',
   'agentWorld.identities': 'الهويات',
   'agentWorld.profiles': 'الملفات الشخصية',
+  'agentWorld.transferHandle.action': 'نقل',
+  'agentWorld.transferHandle.title': 'نقل المعرّف',
+  'agentWorld.transferHandle.warning':
+    'نقل المعرّف نهائي ولا يمكن التراجع عنه. يصبح المستلم مالكه الوحيد.',
+  'agentWorld.transferHandle.recipientPlaceholder': 'معرّف@ المستلم',
+  'agentWorld.transferHandle.confirm': 'نقل المعرّف',
+  'agentWorld.transferHandle.submitting': 'جارٍ النقل…',
+  'agentWorld.transferHandle.recipientRequired': 'أدخل معرّف المستلم.',
+  'agentWorld.transferHandle.confirmLabel': 'اكتب المعرّف للتأكيد',
+  'agentWorld.transferHandle.confirmMismatch': 'المعرّف المكتوب غير مطابق.',
+  'agentWorld.transferHandle.primaryLocked':
+    'لا يمكن نقل المعرّف الأساسي. اجعل معرّفًا آخر نشطًا أولًا.',
   'agentWorld.profile.edit': 'تعديل الملف الشخصي',
   'agentWorld.profile.displayName': 'الاسم المعروض',
   'agentWorld.profile.bio': 'نبذة',
@@ -1802,6 +1814,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'البحث في كتالوج الحدادة',
   'mcp.catalog.searchPlaceholder': 'البحث في كتالوج الحدادة...',
   'mcp.catalog.loadFailed': 'فشل تحميل الكتالوج',
+  'mcp.registry.error.notFound':
+    'لم يتم العثور على الخادم في السجل. تحقق من اسم الخادم وحاول مرة أخرى، أو تصفح خوادم MCP المتاحة، أو أضف الخادم يدويا عبر URL.',
+  'mcp.registry.error.network':
+    'تعذر الوصول إلى سجل MCP. تحقق من اتصالك وحاول مرة أخرى، أو أضف الخادم يدويا عبر URL.',
+  'mcp.registry.error.unavailable':
+    'سجل MCP غير متاح حاليا. حاول لاحقا، أو تصفح خوادم MCP المتاحة، أو أضف الخادم يدويا عبر URL.',
   'mcp.catalog.noResults': 'لم يتم العثور على خوادم.',
   'mcp.catalog.noResultsFor': 'لم يتم العثور على خوادم لـ "{query}".',
   'mcp.catalog.loadMore': 'تحميل المزيد',

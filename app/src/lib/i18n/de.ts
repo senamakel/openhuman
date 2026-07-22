@@ -541,6 +541,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Vollständiges Profil konnte nicht geladen werden.',
   'agentWorld.identities': 'Identitäten',
   'agentWorld.profiles': 'Profile',
+  'agentWorld.transferHandle.action': 'Übertragen',
+  'agentWorld.transferHandle.title': 'Handle übertragen',
+  'agentWorld.transferHandle.warning':
+    'Das Übertragen eines Handles ist dauerhaft und kann nicht rückgängig gemacht werden. Der Empfänger wird alleiniger Eigentümer.',
+  'agentWorld.transferHandle.recipientPlaceholder': 'Empfänger-@handle',
+  'agentWorld.transferHandle.confirm': 'Handle übertragen',
+  'agentWorld.transferHandle.submitting': 'Wird übertragen…',
+  'agentWorld.transferHandle.recipientRequired': 'Gib den Empfänger-Handle ein.',
+  'agentWorld.transferHandle.confirmLabel': 'Zum Bestätigen den Handle eingeben',
+  'agentWorld.transferHandle.confirmMismatch': 'Der eingegebene Handle stimmt nicht überein.',
+  'agentWorld.transferHandle.primaryLocked':
+    'Ein primäres Handle kann nicht übertragen werden. Mache zuerst ein anderes Handle aktiv.',
   'agentWorld.profile.edit': 'Profil bearbeiten',
   'agentWorld.profile.displayName': 'Anzeigename',
   'agentWorld.profile.bio': 'Bio',
@@ -1904,6 +1916,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'MCP-Server-Katalog durchsuchen',
   'mcp.catalog.searchPlaceholder': 'MCP-Server-Katalog durchsuchen...',
   'mcp.catalog.loadFailed': 'Katalog konnte nicht geladen werden',
+  'mcp.registry.error.notFound':
+    'Server in der Registrierung nicht gefunden. Prüfen Sie den Servernamen und versuchen Sie es erneut, durchsuchen Sie verfügbare MCP-Server oder fügen Sie den Server manuell per URL hinzu.',
+  'mcp.registry.error.network':
+    'Die MCP-Registrierung ist nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut, oder fügen Sie den Server manuell per URL hinzu.',
+  'mcp.registry.error.unavailable':
+    'Die MCP-Registrierung ist derzeit nicht verfügbar. Versuchen Sie es später erneut, durchsuchen Sie verfügbare MCP-Server oder fügen Sie den Server manuell per URL hinzu.',
   'mcp.catalog.noResults': 'Keine Server gefunden.',
   'mcp.catalog.noResultsFor': 'Keine Server für „{query}“ gefunden.',
   'mcp.catalog.loadMore': 'Mehr laden',

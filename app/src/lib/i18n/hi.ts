@@ -514,6 +514,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'पूरा प्रोफ़ाइल लोड नहीं हो सका।',
   'agentWorld.identities': 'पहचान',
   'agentWorld.profiles': 'प्रोफ़ाइल',
+  'agentWorld.transferHandle.action': 'स्थानांतरित करें',
+  'agentWorld.transferHandle.title': 'हैंडल स्थानांतरित करें',
+  'agentWorld.transferHandle.warning':
+    'हैंडल स्थानांतरण स्थायी है और इसे पूर्ववत नहीं किया जा सकता। प्राप्तकर्ता इसका एकमात्र स्वामी बन जाता है।',
+  'agentWorld.transferHandle.recipientPlaceholder': 'प्राप्तकर्ता का @handle',
+  'agentWorld.transferHandle.confirm': 'हैंडल स्थानांतरित करें',
+  'agentWorld.transferHandle.submitting': 'स्थानांतरित किया जा रहा है…',
+  'agentWorld.transferHandle.recipientRequired': 'प्राप्तकर्ता का हैंडल दर्ज करें।',
+  'agentWorld.transferHandle.confirmLabel': 'पुष्टि के लिए हैंडल टाइप करें',
+  'agentWorld.transferHandle.confirmMismatch': 'टाइप किया गया हैंडल मेल नहीं खाता।',
+  'agentWorld.transferHandle.primaryLocked':
+    'प्राथमिक हैंडल स्थानांतरित नहीं किया जा सकता। पहले कोई अन्य हैंडल सक्रिय करें।',
   'agentWorld.profile.edit': 'प्रोफ़ाइल संपादित करें',
   'agentWorld.profile.displayName': 'प्रदर्शित नाम',
   'agentWorld.profile.bio': 'परिचय',
@@ -1837,6 +1849,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'स्मिथेरी कैटलॉग खोजें',
   'mcp.catalog.searchPlaceholder': 'स्मिथरी कैटलॉग खोजें...',
   'mcp.catalog.loadFailed': 'कैटलॉग लोड करने में विफल',
+  'mcp.registry.error.notFound':
+    'रजिस्ट्री में सर्वर नहीं मिला। सर्वर का नाम जांचकर फिर कोशिश करें, उपलब्ध MCP सर्वर ब्राउज करें, या URL से सर्वर को मैन्युअल रूप से जोड़ें।',
+  'mcp.registry.error.network':
+    'MCP रजिस्ट्री तक नहीं पहुंचा जा सका। अपना कनेक्शन जांचकर फिर कोशिश करें, या URL से सर्वर को मैन्युअल रूप से जोड़ें।',
+  'mcp.registry.error.unavailable':
+    'MCP रजिस्ट्री अभी उपलब्ध नहीं है। बाद में फिर कोशिश करें, उपलब्ध MCP सर्वर ब्राउज करें, या URL से सर्वर को मैन्युअल रूप से जोड़ें।',
   'mcp.catalog.noResults': 'कोई सर्वर नहीं मिला.',
   'mcp.catalog.noResultsFor': '"{query}" के लिए कोई सर्वर नहीं मिला।',
   'mcp.catalog.loadMore': 'और अधिक लोड करें',

@@ -487,7 +487,7 @@ const messages: TranslationMap = {
   'agentWorld.profileViewer.notFoundTitle': 'প্রোফাইল পাওয়া যায়নি',
   'agentWorld.profileViewer.notFoundBody': 'এই হ্যান্ডেলের জন্য এখনও কোনো প্রকাশিত প্রোফাইল নেই।',
   'agentWorld.profileViewer.errorTitle': 'প্রোফাইল লোড করা যায়নি',
-  'agentWorld.profileViewer.follow': 'অনুসরণ',
+  'agentWorld.profileViewer.follow': 'অনুসরণ করুন',
   'agentWorld.profileViewer.following': 'অনুসরণ করছেন',
   'agentWorld.profileViewer.copyLink': 'লিঙ্ক কপি করুন',
   'agentWorld.profileViewer.linkCopied': 'লিঙ্ক কপি হয়েছে',
@@ -514,6 +514,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'সম্পূর্ণ প্রোফাইল লোড করা যায়নি।',
   'agentWorld.identities': 'পরিচয়',
   'agentWorld.profiles': 'প্রোফাইল',
+  'agentWorld.transferHandle.action': 'স্থানান্তর',
+  'agentWorld.transferHandle.title': 'হ্যান্ডেল স্থানান্তর',
+  'agentWorld.transferHandle.warning':
+    'হ্যান্ডেল স্থানান্তর স্থায়ী এবং এটি ফেরানো যায় না। প্রাপক একমাত্র মালিক হয়ে যাবেন।',
+  'agentWorld.transferHandle.recipientPlaceholder': 'প্রাপকের @handle',
+  'agentWorld.transferHandle.confirm': 'হ্যান্ডেল স্থানান্তর',
+  'agentWorld.transferHandle.submitting': 'স্থানান্তর করা হচ্ছে…',
+  'agentWorld.transferHandle.recipientRequired': 'প্রাপকের হ্যান্ডেল লিখুন।',
+  'agentWorld.transferHandle.confirmLabel': 'নিশ্চিত করতে হ্যান্ডেলটি টাইপ করুন',
+  'agentWorld.transferHandle.confirmMismatch': 'টাইপ করা হ্যান্ডেল মিলছে না।',
+  'agentWorld.transferHandle.primaryLocked':
+    'প্রাথমিক হ্যান্ডেল স্থানান্তর করা যায় না। প্রথমে অন্য একটি হ্যান্ডেল সক্রিয় করুন।',
   'agentWorld.profile.edit': 'প্রোফাইল সম্পাদনা',
   'agentWorld.profile.displayName': 'প্রদর্শন নাম',
   'agentWorld.profile.bio': 'পরিচিতি',
@@ -1839,6 +1851,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'MCP সার্ভার ক্যাটালগ অনুসন্ধান',
   'mcp.catalog.searchPlaceholder': 'MCP সার্ভার অনুসন্ধান করুন...',
   'mcp.catalog.loadFailed': 'ক্যাটালগ করতে ব্যর্থ হয়েছে',
+  'mcp.registry.error.notFound':
+    'রেজিস্ট্রিতে সার্ভারটি পাওয়া যায়নি। সার্ভারের নাম পরীক্ষা করে আবার চেষ্টা করুন, উপলব্ধ MCP সার্ভার ব্রাউজ করুন, অথবা URL দিয়ে সার্ভারটি ম্যানুয়ালি যোগ করুন।',
+  'mcp.registry.error.network':
+    'MCP রেজিস্ট্রিতে পৌঁছানো যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন, অথবা URL দিয়ে সার্ভারটি ম্যানুয়ালি যোগ করুন।',
+  'mcp.registry.error.unavailable':
+    'MCP রেজিস্ট্রি এখন উপলব্ধ নয়। পরে আবার চেষ্টা করুন, উপলব্ধ MCP সার্ভার ব্রাউজ করুন, অথবা URL দিয়ে সার্ভারটি ম্যানুয়ালি যোগ করুন।',
   'mcp.catalog.noResults': 'কোনো সার্ভার পাওয়া যায়নি।',
   'mcp.catalog.noResultsFor': '"{query}" এর জন্য কোনো সার্ভার পাওয়া যায়নি।',
   'mcp.catalog.loadMore': 'আরও লোড করুন',

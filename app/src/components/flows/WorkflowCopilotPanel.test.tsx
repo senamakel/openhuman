@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WorkflowGraph, WorkflowNode } from '../../lib/flows/types';
-import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
+import type { PendingApproval, WorkflowProposal } from '../../store/chatRuntimeSlice';
 import WorkflowCopilotPanel from './WorkflowCopilotPanel';
 
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
@@ -21,10 +21,22 @@ vi.mock('../../features/conversations/components/ChatThreadView', () => ({
   ),
 }));
 
+// `ApprovalRequestCard` / `IntegrationConnectCard` (rendered for PR3:
+// flows-copilot-live-run-approval) dispatch via `useAppDispatch` internally —
+// stub the store hook rather than wrapping every render in a real Redux
+// `Provider`, since these tests only assert which card renders, not the
+// decide/connect flow those components own (covered by their own test files).
+vi.mock('../../store/hooks', () => ({ useAppDispatch: () => vi.fn() }));
+// Neither card calls this on mount (only on Approve/Deny/Connect click), but
+// stub it defensively so a real network call can never sneak into a render
+// test.
+vi.mock('../../services/coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
+
 const hookState = vi.hoisted(() => ({
-  threadId: null as string | null,
+  threadId: 'builder-1' as string | null,
   sending: false,
   proposal: null as WorkflowProposal | null,
+  pendingApproval: null as PendingApproval | null,
   capped: false,
   error: null as string | null,
   send: vi.fn(),
@@ -52,9 +64,10 @@ const baseGraph = graph(['a', 'b']);
 
 describe('WorkflowCopilotPanel', () => {
   beforeEach(() => {
-    hookState.threadId = null;
+    hookState.threadId = 'builder-1';
     hookState.sending = false;
     hookState.proposal = null;
+    hookState.pendingApproval = null;
     hookState.capped = false;
     hookState.error = null;
     hookState.send = vi.fn().mockResolvedValue({ outcome: 'dispatched', proposed: false });
@@ -912,5 +925,95 @@ describe('WorkflowCopilotPanel', () => {
     fireEvent.click(screen.getByTestId('send-message-button'));
 
     expect(hookState.send.mock.calls[0][0].request.mode).toBe('revise');
+  });
+
+  // PR3 (flows-copilot-live-run-approval): `flows_build` now runs the
+  // streaming turn under `AgentTurnOrigin::WebChat` + `APPROVAL_CHAT_CONTEXT`,
+  // so a parked `run_flow` / `resume_flow_run` call surfaces here via the same
+  // `pendingApproval` (sourced from `pendingApprovalByThread`) the main chat's
+  // `Conversations.tsx` reads — reusing the EXISTING `ApprovalRequestCard` /
+  // `IntegrationConnectCard`, no new component.
+  describe('parked approval surface (PR3: flows-copilot-live-run-approval)', () => {
+    function approvalOf(over: Partial<PendingApproval> = {}): PendingApproval {
+      return {
+        requestId: 'req-1',
+        toolName: 'run_flow',
+        message: 'Run the saved flow "Daily digest" to test it?',
+        ...over,
+      };
+    }
+
+    it('renders nothing when there is no pending approval', () => {
+      hookState.pendingApproval = null;
+      render(
+        <WorkflowCopilotPanel
+          graph={baseGraph}
+          onProposal={vi.fn()}
+          onAccept={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+      expect(screen.queryByTestId('workflow-copilot-approval')).not.toBeInTheDocument();
+    });
+
+    it('renders the shared ApprovalRequestCard for a parked run_flow/resume_flow_run/cancel_flow_run call', () => {
+      hookState.pendingApproval = approvalOf({ toolName: 'run_flow' });
+      render(
+        <WorkflowCopilotPanel
+          graph={baseGraph}
+          onProposal={vi.fn()}
+          onAccept={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+      expect(screen.getByTestId('workflow-copilot-approval')).toBeInTheDocument();
+      // ApprovalRequestCard renders the parked call's message text verbatim.
+      expect(screen.getByText('Run the saved flow "Daily digest" to test it?')).toBeInTheDocument();
+    });
+
+    it('renders IntegrationConnectCard (not ApprovalRequestCard) for a parked composio_connect call', () => {
+      hookState.pendingApproval = approvalOf({
+        toolName: 'composio_connect',
+        toolkit: 'slack',
+        message: 'Connect slack to complete your task',
+      });
+      render(
+        <WorkflowCopilotPanel
+          graph={baseGraph}
+          onProposal={vi.fn()}
+          onAccept={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+      const surface = screen.getByTestId('workflow-copilot-approval');
+      expect(surface).toBeInTheDocument();
+      // IntegrationConnectCard's affordance is a Connect button, not
+      // Approve/Deny — assert the connect-specific copy is present and the
+      // approve/deny copy is not, distinguishing it from ApprovalRequestCard.
+      expect(screen.getByText('composio.connect.connect')).toBeInTheDocument();
+      expect(screen.queryByText('chat.approval.approve')).not.toBeInTheDocument();
+    });
+
+    it('does not render the approval surface when threadId is not yet established', () => {
+      // Guards the `pendingApproval && threadId` render condition: a parked
+      // approval with no resolved thread id (shouldn't happen in practice —
+      // an approval can only park on a thread `flows_build` already streamed
+      // into — but defends against a stale/mismatched hook state).
+      hookState.threadId = null;
+      hookState.pendingApproval = approvalOf();
+      render(
+        <WorkflowCopilotPanel
+          graph={baseGraph}
+          onProposal={vi.fn()}
+          onAccept={vi.fn()}
+          onReject={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+      expect(screen.queryByTestId('workflow-copilot-approval')).not.toBeInTheDocument();
+    });
   });
 });

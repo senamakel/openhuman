@@ -355,7 +355,10 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Platform,
         crate::openhuman::heartbeat::all_heartbeat_registered_controllers(),
     );
-    // Ad-hoc static directory HTTP hosting for local file sharing / previews
+    // Ad-hoc static directory HTTP hosting for local file sharing / previews.
+    // Gated with the `http-server` feature (#5048): the domain is an axum server,
+    // so a slim build has no `http_host.*` controllers to register.
+    #[cfg(feature = "http-server")]
     push(
         &mut controllers,
         DomainGroup::Platform,

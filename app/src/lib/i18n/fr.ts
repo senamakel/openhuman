@@ -534,6 +534,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Impossible de charger le profil complet.',
   'agentWorld.identities': 'Identités',
   'agentWorld.profiles': 'Profils',
+  'agentWorld.transferHandle.action': 'Transférer',
+  'agentWorld.transferHandle.title': 'Transférer le handle',
+  'agentWorld.transferHandle.warning':
+    "Le transfert d'un handle est définitif et irréversible. Le destinataire en devient le seul propriétaire.",
+  'agentWorld.transferHandle.recipientPlaceholder': '@handle du destinataire',
+  'agentWorld.transferHandle.confirm': 'Transférer le handle',
+  'agentWorld.transferHandle.submitting': 'Transfert…',
+  'agentWorld.transferHandle.recipientRequired': 'Saisissez le handle du destinataire.',
+  'agentWorld.transferHandle.confirmLabel': 'Saisissez le handle pour confirmer',
+  'agentWorld.transferHandle.confirmMismatch': 'Le handle saisi ne correspond pas.',
+  'agentWorld.transferHandle.primaryLocked':
+    "Un identifiant principal ne peut pas être transféré. Activez d'abord un autre identifiant.",
   'agentWorld.profile.edit': 'Modifier le profil',
   'agentWorld.profile.displayName': 'Nom affiché',
   'agentWorld.profile.bio': 'Bio',
@@ -1898,6 +1910,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'Rechercher des serveurs MCP',
   'mcp.catalog.searchPlaceholder': 'Rechercher des serveurs MCP...',
   'mcp.catalog.loadFailed': 'Échec du chargement du catalogue',
+  'mcp.registry.error.notFound':
+    'Serveur introuvable dans le registre. Vérifiez le nom du serveur puis réessayez, parcourez les serveurs MCP disponibles ou ajoutez le serveur manuellement par URL.',
+  'mcp.registry.error.network':
+    'Impossible de joindre le registre MCP. Vérifiez votre connexion puis réessayez, ou ajoutez le serveur manuellement par URL.',
+  'mcp.registry.error.unavailable':
+    'Le registre MCP est indisponible pour le moment. Réessayez plus tard, parcourez les serveurs MCP disponibles ou ajoutez le serveur manuellement par URL.',
   'mcp.catalog.noResults': 'Aucun serveur trouvé.',
   'mcp.catalog.noResultsFor': 'Aucun serveur trouvé pour "{query}".',
   'mcp.catalog.loadMore': 'Charger plus',

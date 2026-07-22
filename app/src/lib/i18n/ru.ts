@@ -520,6 +520,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Не удалось загрузить полный профиль.',
   'agentWorld.identities': 'Идентичности',
   'agentWorld.profiles': 'Профили',
+  'agentWorld.transferHandle.action': 'Передать',
+  'agentWorld.transferHandle.title': 'Передать хэндл',
+  'agentWorld.transferHandle.warning':
+    'Передача хэндла необратима и не может быть отменена. Получатель становится его единственным владельцем.',
+  'agentWorld.transferHandle.recipientPlaceholder': '@handle получателя',
+  'agentWorld.transferHandle.confirm': 'Передать хэндл',
+  'agentWorld.transferHandle.submitting': 'Передача…',
+  'agentWorld.transferHandle.recipientRequired': 'Введите хэндл получателя.',
+  'agentWorld.transferHandle.confirmLabel': 'Введите хэндл для подтверждения',
+  'agentWorld.transferHandle.confirmMismatch': 'Введённый хэндл не совпадает.',
+  'agentWorld.transferHandle.primaryLocked':
+    'Основной хэндл нельзя передать. Сначала сделайте активным другой хэндл.',
   'agentWorld.profile.edit': 'Изменить профиль',
   'agentWorld.profile.displayName': 'Отображаемое имя',
   'agentWorld.profile.bio': 'О себе',
@@ -1862,6 +1874,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'Поиск в каталоге кузнечного дела',
   'mcp.catalog.searchPlaceholder': 'Поиск в каталоге кузнечного дела...',
   'mcp.catalog.loadFailed': 'Не удалось загрузить каталог.',
+  'mcp.registry.error.notFound':
+    'Сервер не найден в реестре. Проверьте имя сервера и повторите попытку, просмотрите доступные MCP-серверы или добавьте сервер вручную по URL.',
+  'mcp.registry.error.network':
+    'Не удалось подключиться к реестру MCP. Проверьте соединение и повторите попытку или добавьте сервер вручную по URL.',
+  'mcp.registry.error.unavailable':
+    'Реестр MCP сейчас недоступен. Повторите попытку позже, просмотрите доступные MCP-серверы или добавьте сервер вручную по URL.',
   'mcp.catalog.noResults': 'Серверы не найдены.',
   'mcp.catalog.noResultsFor': 'Серверы для «{query}» не найдены.',
   'mcp.catalog.loadMore': 'Загрузить больше',

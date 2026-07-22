@@ -527,6 +527,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Nie udało się załadować pełnego profilu.',
   'agentWorld.identities': 'Tożsamości',
   'agentWorld.profiles': 'Profile',
+  'agentWorld.transferHandle.action': 'Przekaż',
+  'agentWorld.transferHandle.title': 'Przekaż handle',
+  'agentWorld.transferHandle.warning':
+    "Przekazanie handle'a jest trwałe i nie można go cofnąć. Odbiorca staje się jego jedynym właścicielem.",
+  'agentWorld.transferHandle.recipientPlaceholder': '@handle odbiorcy',
+  'agentWorld.transferHandle.confirm': 'Przekaż handle',
+  'agentWorld.transferHandle.submitting': 'Przekazywanie…',
+  'agentWorld.transferHandle.recipientRequired': 'Podaj handle odbiorcy.',
+  'agentWorld.transferHandle.confirmLabel': 'Wpisz handle, aby potwierdzić',
+  'agentWorld.transferHandle.confirmMismatch': 'Wpisany handle nie pasuje.',
+  'agentWorld.transferHandle.primaryLocked':
+    "Podstawowego handle'a nie można przekazać. Najpierw ustaw inny handle jako aktywny.",
   'agentWorld.profile.edit': 'Edytuj profil',
   'agentWorld.profile.displayName': 'Wyświetlana nazwa',
   'agentWorld.profile.bio': 'Bio',
@@ -1870,6 +1882,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'Szukaj serwerów MCP',
   'mcp.catalog.searchPlaceholder': 'Szukaj serwerów MCP...',
   'mcp.catalog.loadFailed': 'Nie udało się załadować katalogu',
+  'mcp.registry.error.notFound':
+    'Nie znaleziono serwera w rejestrze. Sprawdź nazwę serwera i spróbuj ponownie, przeglądaj dostępne serwery MCP albo dodaj serwer ręcznie przez URL.',
+  'mcp.registry.error.network':
+    'Nie można połączyć się z rejestrem MCP. Sprawdź połączenie i spróbuj ponownie albo dodaj serwer ręcznie przez URL.',
+  'mcp.registry.error.unavailable':
+    'Rejestr MCP jest teraz niedostępny. Spróbuj później, przeglądaj dostępne serwery MCP albo dodaj serwer ręcznie przez URL.',
   'mcp.catalog.noResults': 'Nie znaleziono serwerów.',
   'mcp.catalog.noResultsFor': 'Nie znaleziono serwerów dla „{query}”.',
   'mcp.catalog.loadMore': 'Załaduj więcej',

@@ -783,6 +783,7 @@ pub fn all_tools_with_runtime(
     // backed) as of the #2780-follow-up rust-engine refactor — no
     // managed Python venv, no first-call install latency. Always
     // registered.
+    #[cfg(feature = "documents")]
     tools.push(Box::new(PresentationTool::new(
         root_config.workspace_dir.clone(),
         security.clone(),
@@ -792,6 +793,7 @@ pub fn all_tools_with_runtime(
     // (docx-rs backed) — no managed runtime, no subprocess — emitting a
     // real `.docx` through the same byte-agnostic artifact pipeline as
     // the presentation tool. Always registered; same constructor shape.
+    #[cfg(feature = "documents")]
     tools.push(Box::new(DocumentTool::new(
         root_config.workspace_dir.clone(),
         security.clone(),

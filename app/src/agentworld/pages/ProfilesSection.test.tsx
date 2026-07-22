@@ -19,7 +19,7 @@ vi.mock('../AgentWorldShell', () => ({
   apiClient: {
     directory: { reverse: vi.fn() },
     follows: { stats: vi.fn() },
-    registry: { export: vi.fn(), assignPrimary: vi.fn() },
+    registry: { export: vi.fn(), assignPrimary: vi.fn(), transfer: vi.fn() },
     graphql: { user: vi.fn() },
     users: { get: vi.fn(), updateProfile: vi.fn() },
   },
@@ -361,6 +361,74 @@ function makeProfile(overrides: Partial<GqlProfile> = {}): GqlProfile {
     ...overrides,
   };
 }
+
+// GH-4929: a non-primary owned handle offers an enabled Transfer action that
+// opens the destructive-confirm modal. #4998 M3: a primary (active) handle now
+// renders a DISABLED Transfer control with an explanation (make another handle
+// active first) instead of silently omitting it. A handle with no explicit
+// primary flag (unknown state) shows no Transfer control at all.
+describe('handle transfer action', () => {
+  test('opens the transfer confirm modal for a non-primary owned handle', async () => {
+    graphqlUser.mockResolvedValueOnce(
+      makeProfile({
+        displayName: 'Owner',
+        identities: [
+          { ...minimalIdentity, username: 'primaryhandle', cryptoId: SOLANA_ADDR, primary: true },
+          { ...minimalIdentity, username: 'giftme', cryptoId: SOLANA_ADDR, primary: false },
+        ],
+      })
+    );
+    render(<ProfilesSection />);
+
+    // Both handles render a Transfer control (#4998 M3): the non-primary one is
+    // enabled, the primary one disabled. Pick the enabled one — it opens the modal.
+    const transferButtons = await screen.findAllByRole('button', { name: 'Transfer' });
+    const enabled = transferButtons.find(b => !(b as HTMLButtonElement).disabled);
+    expect(enabled, 'the non-primary handle must expose an enabled Transfer control').toBeDefined();
+    fireEvent.click(enabled!);
+
+    // The destructive-confirm modal opens with its explicit confirm control.
+    expect(await screen.findByTestId('transfer-handle-modal')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Transfer handle' })).toBeInTheDocument();
+  });
+
+  test('shows a disabled Transfer control with an explanation for a primary handle (#4998 M3)', async () => {
+    graphqlUser.mockResolvedValueOnce(
+      makeProfile({
+        displayName: 'Owner',
+        identities: [
+          { ...minimalIdentity, username: 'onlyprimary', cryptoId: SOLANA_ADDR, primary: true },
+        ],
+      })
+    );
+    render(<ProfilesSection />);
+
+    // Rendered, but disabled and explained — not an invisible dead end.
+    const transferButton = await screen.findByRole('button', { name: 'Transfer' });
+    expect(transferButton).toBeDisabled();
+    expect(transferButton).toHaveAttribute(
+      'title',
+      'A primary handle cannot be transferred. Make another handle active first.'
+    );
+
+    // Clicking the locked control must NOT open the destructive modal.
+    fireEvent.click(transferButton);
+    expect(screen.queryByTestId('transfer-handle-modal')).not.toBeInTheDocument();
+  });
+
+  test('shows no Transfer control when the primary flag is absent (unknown state)', async () => {
+    graphqlUser.mockResolvedValueOnce(
+      makeProfile({
+        displayName: 'Owner',
+        identities: [{ ...minimalIdentity, username: 'unknownstate', cryptoId: SOLANA_ADDR }],
+      })
+    );
+    render(<ProfilesSection />);
+
+    expect(await screen.findByRole('button', { name: 'Make active' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Transfer' })).not.toBeInTheDocument();
+  });
+});
 
 describe('graphql-enriched profile card', () => {
   test('renders rich profile from graphql.user when available', async () => {

@@ -520,6 +520,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'Tidak dapat memuat profil lengkap.',
   'agentWorld.identities': 'Identitas',
   'agentWorld.profiles': 'Profil',
+  'agentWorld.transferHandle.action': 'Pindahkan',
+  'agentWorld.transferHandle.title': 'Pindahkan handle',
+  'agentWorld.transferHandle.warning':
+    'Memindahkan handle bersifat permanen dan tidak dapat dibatalkan. Penerima menjadi satu-satunya pemilik.',
+  'agentWorld.transferHandle.recipientPlaceholder': '@handle penerima',
+  'agentWorld.transferHandle.confirm': 'Pindahkan handle',
+  'agentWorld.transferHandle.submitting': 'Memindahkan…',
+  'agentWorld.transferHandle.recipientRequired': 'Masukkan handle penerima.',
+  'agentWorld.transferHandle.confirmLabel': 'Ketik handle untuk mengonfirmasi',
+  'agentWorld.transferHandle.confirmMismatch': 'Handle yang diketik tidak cocok.',
+  'agentWorld.transferHandle.primaryLocked':
+    'Handle utama tidak dapat ditransfer. Aktifkan handle lain terlebih dahulu.',
   'agentWorld.profile.edit': 'Edit profil',
   'agentWorld.profile.displayName': 'Nama tampilan',
   'agentWorld.profile.bio': 'Bio',
@@ -1855,6 +1867,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'Cari katalog server MCP',
   'mcp.catalog.searchPlaceholder': 'Cari katalog server MCP...',
   'mcp.catalog.loadFailed': 'Gagal memuat katalog',
+  'mcp.registry.error.notFound':
+    'Server tidak ditemukan di registri. Periksa nama server lalu coba lagi, jelajahi server MCP yang tersedia, atau tambahkan server secara manual lewat URL.',
+  'mcp.registry.error.network':
+    'Tidak dapat menjangkau registri MCP. Periksa koneksi Anda lalu coba lagi, atau tambahkan server secara manual lewat URL.',
+  'mcp.registry.error.unavailable':
+    'Registri MCP sedang tidak tersedia. Coba lagi nanti, jelajahi server MCP yang tersedia, atau tambahkan server secara manual lewat URL.',
   'mcp.catalog.noResults': 'Tidak ada server yang ditemukan.',
   'mcp.catalog.noResultsFor': 'Tidak ditemukan server untuk "{query}".',
   'mcp.catalog.loadMore': 'Muat selengkapnya',

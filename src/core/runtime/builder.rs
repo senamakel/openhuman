@@ -389,6 +389,12 @@ impl CoreRuntime {
     /// When `rpc_http` is not selected this returns immediately (a harness-only
     /// embedder has no transport to run); background services selected in the
     /// [`ServiceSet`] are still spawned.
+    ///
+    /// In a slim build compiled without the `http-server` feature an `rpc_http`
+    /// request cannot be honoured — the axum / Socket.IO transport is compiled
+    /// out — so `serve` returns a build-feature `Err` rather than binding no
+    /// listener and reporting success. The no-transport (`!rpc_http`) path above
+    /// is unaffected and still returns `Ok(())`.
     pub async fn serve(
         &self,
         ready_tx: Option<tokio::sync::oneshot::Sender<EmbeddedReadySignal>>,
@@ -401,6 +407,55 @@ impl CoreRuntime {
             return Ok(());
         }
 
+        // Transport compiled out (#5048): run the selected background services
+        // and return without binding an HTTP/Socket.IO listener — same shape as
+        // the no-`rpc_http` guard above. The desktop shell always ships
+        // `http-server`; this keeps slim / headless-embedding builds linkable.
+        #[cfg(not(feature = "http-server"))]
+        {
+            // `rpc_http` was requested (we passed the guard above) but the HTTP +
+            // Socket.IO transport is compiled out of this slim build. Fail loudly
+            // rather than returning Ok with no listener bound — a supervisor / CLI
+            // (`openhuman run`, `serve`, `--headless-api`) would otherwise observe
+            // a clean start while the requested API is unavailable. Embedders that
+            // genuinely want no transport leave `ServiceSet::rpc_http` unset, which
+            // is handled by the early return above.
+            //
+            // The bind inputs are only read by the compiled-out `serve_http`; touch
+            // them so they don't read as dead fields in the slim build.
+            let _ = (
+                ready_tx,
+                shutdown_token,
+                self.has_operator_token,
+                self.host.as_ref(),
+                self.port,
+            );
+            anyhow::bail!(
+                "rpc_http transport was requested but this build was compiled \
+                 without the `http-server` feature; rebuild with the default \
+                 `http-server` feature, or use an embedding that does not set \
+                 `ServiceSet::rpc_http`"
+            );
+        }
+
+        #[cfg(feature = "http-server")]
+        {
+            self.serve_http(ready_tx, shutdown_token).await
+        }
+    }
+
+    /// HTTP + Socket.IO transport body of [`Self::serve`].
+    ///
+    /// Compiled only under the `http-server` feature (#5048): builds the axum
+    /// router, binds the listener, starts the selected background services, and
+    /// serves until shutdown. With the feature off, [`serve`](Self::serve) runs
+    /// background services and returns without binding (see the arms above).
+    #[cfg(feature = "http-server")]
+    async fn serve_http(
+        &self,
+        ready_tx: Option<tokio::sync::oneshot::Sender<EmbeddedReadySignal>>,
+        shutdown_token: Option<CancellationToken>,
+    ) -> anyhow::Result<()> {
         // --- Host / port resolution ---
         let (resolved_port, port_source) = match self.port {
             Some(p) => (p, "builder port"),

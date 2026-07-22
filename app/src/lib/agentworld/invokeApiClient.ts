@@ -336,6 +336,12 @@ export interface AssignPrimaryResult {
   [key: string]: unknown;
 }
 
+/** Result of a handle transfer: the Identity now owned by the recipient. */
+export interface TransferHandleResult {
+  identity?: Identity;
+  [key: string]: unknown;
+}
+
 // -- Registry export types ------------------------------------------------
 
 export interface LedgerReference {
@@ -1863,6 +1869,16 @@ export function createInvokeApiClient() {
        */
       assignPrimary: (name: string) =>
         call<AssignPrimaryResult>('openhuman.tinyplace_registry_assign_primary', { name }),
+      /**
+       * Transfer one of the wallet's handles to another tiny.place identity
+       * (#4929). DESTRUCTIVE + irreversible: on success the `recipient` handle's
+       * owner becomes the sole owner of `name`. The recipient is resolved from
+       * their @handle server-side; an unregistered recipient or an unconfirmed
+       * read-back fails closed. The owning wallet is proven by the
+       * signer-attached signature, not by params.
+       */
+      transfer: (name: string, recipient: string) =>
+        call<TransferHandleResult>('openhuman.tinyplace_registry_transfer', { name, recipient }),
     },
     directoryIdentities: {
       /** List identity listings from the directory. */

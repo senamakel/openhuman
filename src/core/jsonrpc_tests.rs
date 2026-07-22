@@ -6,9 +6,16 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    build_http_schema_dump, default_state, escape_html, invoke_method, is_param_validation_error,
-    is_session_expired_error, is_unconfirmed_unauthorized_error, is_wallet_not_configured_error,
-    params_to_object, parse_json_params, rpc_handler, type_name, DomainSubscriberPlan,
+    default_state, invoke_method, is_session_expired_error, is_unconfirmed_unauthorized_error,
+    params_to_object, parse_json_params, type_name, DomainSubscriberPlan,
+};
+// These are the `http-server`-gated RPC-surface symbols (#5048); the tests that
+// name them below carry the same `#[cfg]` so the disabled-build test compile
+// (`cargo test --no-default-features`) stays green.
+#[cfg(feature = "http-server")]
+use super::{
+    build_http_schema_dump, escape_html, is_param_validation_error, is_wallet_not_configured_error,
+    rpc_handler,
 };
 
 // ---- domain-subscriber gating (#4796 DoD item 3) ----------------------------
@@ -476,6 +483,7 @@ async fn invoke_migrate_hermes_rejects_unknown_param() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn http_schema_dump_includes_openhuman_and_core_methods() {
     let dump = build_http_schema_dump();
     let methods = dump.methods;
@@ -681,6 +689,7 @@ async fn team_revoke_invite_missing_invite_id_fails_validation() {
 }
 
 #[tokio::test]
+#[cfg(feature = "http-server")]
 async fn schema_dump_includes_new_billing_and_team_methods() {
     let dump = build_http_schema_dump();
     let methods: Vec<&str> = dump.methods.iter().map(|m| m.method.as_str()).collect();
@@ -954,6 +963,7 @@ fn is_session_expired_error_skips_discord_rewrap_for_2285() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn is_param_validation_error_matches_the_three_validator_shapes() {
     // Regression guard for OPENHUMAN-TAURI-20: pre-#1467 cores rejected
     // `api_key` because it wasn't in the schema yet. The error string
@@ -973,6 +983,7 @@ fn is_param_validation_error_matches_the_three_validator_shapes() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn is_param_validation_error_does_not_match_unrelated_errors() {
     // Handler-side / network / auth failures must still be reported.
     assert!(!is_param_validation_error(
@@ -1009,6 +1020,7 @@ fn is_session_expired_error_matches_missing_backend_session_token() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "http-server")]
 async fn structured_rpc_error_envelope_passes_through_generic_dispatch() {
     // The transport layer must surface any controller-emitted
     // `StructuredRpcError` payload without inspecting the method name —
@@ -1048,7 +1060,9 @@ async fn structured_rpc_error_envelope_passes_through_generic_dispatch() {
     assert!(message.contains("thread-ghost"));
 }
 
+#[cfg(feature = "crash-reporting")]
 #[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "http-server")]
 async fn thread_not_found_rpc_error_does_not_report_to_sentry() {
     use axum::body::to_bytes;
     use axum::extract::State;
@@ -1161,7 +1175,9 @@ async fn thread_not_found_rpc_error_does_not_report_to_sentry() {
     );
 }
 
+#[cfg(feature = "crash-reporting")]
 #[tokio::test(flavor = "current_thread")]
+#[cfg(feature = "http-server")]
 async fn unknown_method_severity_split_by_probe_allow_list() {
     // #3567: prove the full severity split at the transport boundary —
     // (1) an allow-listed probe name is NOT captured to Sentry (debug-only),
@@ -1289,6 +1305,7 @@ fn is_session_expired_error_matches_session_jwt_required() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn escape_html_escapes_all_special_chars() {
     let raw = r#"<script>alert("x&y'z")</script>"#;
     let escaped = escape_html(raw);
@@ -1305,6 +1322,7 @@ fn escape_html_escapes_all_special_chars() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn escape_html_is_noop_for_safe_text() {
     assert_eq!(escape_html("safe text 123"), "safe text 123");
     assert_eq!(escape_html(""), "");
@@ -1312,6 +1330,7 @@ fn escape_html_is_noop_for_safe_text() {
 
 // --- telegram callback fetch-metadata gate --------------------------------
 
+#[cfg(feature = "http-server")]
 fn hdr_map(pairs: &[(&str, &str)]) -> axum::http::HeaderMap {
     let mut m = axum::http::HeaderMap::new();
     for (k, v) in pairs {
@@ -1324,6 +1343,7 @@ fn hdr_map(pairs: &[(&str, &str)]) -> axum::http::HeaderMap {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn telegram_callback_origin_ok_accepts_no_metadata_headers() {
     // Older browsers and CLI clients (curl) send neither Sec-Fetch-* nor
     // Origin/Referer. The legacy flow has to keep working — reject only
@@ -1333,6 +1353,7 @@ fn telegram_callback_origin_ok_accepts_no_metadata_headers() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn telegram_callback_origin_ok_accepts_legit_top_nav_from_telegram() {
     let headers = hdr_map(&[
         ("sec-fetch-mode", "navigate"),
@@ -1344,6 +1365,7 @@ fn telegram_callback_origin_ok_accepts_legit_top_nav_from_telegram() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn telegram_callback_origin_ok_accepts_same_origin_local_nav() {
     let headers = hdr_map(&[
         ("sec-fetch-mode", "navigate"),
@@ -1354,6 +1376,7 @@ fn telegram_callback_origin_ok_accepts_same_origin_local_nav() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn telegram_callback_origin_ok_rejects_image_embed() {
     let headers = hdr_map(&[
         ("sec-fetch-mode", "no-cors"),
@@ -1364,6 +1387,7 @@ fn telegram_callback_origin_ok_rejects_image_embed() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn telegram_callback_origin_ok_rejects_iframe_embed() {
     let headers = hdr_map(&[
         ("sec-fetch-mode", "navigate"),
@@ -1374,6 +1398,7 @@ fn telegram_callback_origin_ok_rejects_iframe_embed() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn telegram_callback_origin_ok_rejects_cross_site_from_non_telegram() {
     let headers = hdr_map(&[
         ("sec-fetch-mode", "navigate"),
@@ -1385,12 +1410,14 @@ fn telegram_callback_origin_ok_rejects_cross_site_from_non_telegram() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn telegram_callback_origin_ok_rejects_non_telegram_referer_without_fetch_metadata() {
     let headers = hdr_map(&[("referer", "https://attacker.example/post")]);
     assert!(super::telegram_callback_origin_ok(&headers).is_err());
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn telegram_callback_origin_ok_rejects_localhost_host_prefix_decoy() {
     // Regression: prefix-matching the referer accepted hostnames like
     // `http://localhost.attacker.example/...`. With exact-host parsing
@@ -1472,6 +1499,7 @@ async fn invoke_method_core_version_via_tier1_reflects_state() {
 }
 
 #[tokio::test]
+#[cfg(feature = "http-server")]
 async fn test_http_health_handler_returns_correct_status() {
     use axum::body::to_bytes;
     use axum::http::StatusCode;
@@ -1533,6 +1561,7 @@ async fn test_http_health_handler_returns_correct_status() {
 }
 
 #[tokio::test]
+#[cfg(feature = "http-server")]
 async fn desktop_auth_rejects_deprecated_direct_session_token_marker() {
     use axum::body::to_bytes;
     use axum::extract::Query;
@@ -1560,6 +1589,7 @@ async fn desktop_auth_rejects_deprecated_direct_session_token_marker() {
 }
 
 #[tokio::test]
+#[cfg(feature = "http-server")]
 async fn desktop_auth_rejects_embedded_fetch_metadata() {
     use axum::body::to_bytes;
     use axum::extract::Query;
@@ -1590,6 +1620,7 @@ async fn desktop_auth_rejects_embedded_fetch_metadata() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn is_wallet_not_configured_error_matches_wallet_constant() {
     // The classifier keys off the wallet layer's exact "not configured"
     // message so a wallet-less user's tinyplace RPC stays out of Sentry.
@@ -1599,6 +1630,7 @@ fn is_wallet_not_configured_error_matches_wallet_constant() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn is_wallet_not_configured_error_is_coupled_to_the_wallet_constant() {
     // Drift guard: if the wallet wording changes without updating the shared
     // constant the classifier matches, this fails — preventing the noise from
@@ -1610,6 +1642,7 @@ fn is_wallet_not_configured_error_is_coupled_to_the_wallet_constant() {
 }
 
 #[test]
+#[cfg(feature = "http-server")]
 fn is_wallet_not_configured_error_does_not_match_other_errors() {
     // Other wallet/seed-derivation failures (decrypt, key derivation, locked
     // keychain) are real defects and must keep reaching Sentry.

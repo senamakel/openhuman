@@ -525,6 +525,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': 'No se pudo cargar el perfil completo.',
   'agentWorld.identities': 'Identidades',
   'agentWorld.profiles': 'Perfiles',
+  'agentWorld.transferHandle.action': 'Transferir',
+  'agentWorld.transferHandle.title': 'Transferir handle',
+  'agentWorld.transferHandle.warning':
+    'Transferir un handle es permanente y no se puede deshacer. El destinatario se convierte en su único propietario.',
+  'agentWorld.transferHandle.recipientPlaceholder': '@handle del destinatario',
+  'agentWorld.transferHandle.confirm': 'Transferir handle',
+  'agentWorld.transferHandle.submitting': 'Transfiriendo…',
+  'agentWorld.transferHandle.recipientRequired': 'Introduce el handle del destinatario.',
+  'agentWorld.transferHandle.confirmLabel': 'Escribe el handle para confirmar',
+  'agentWorld.transferHandle.confirmMismatch': 'El handle escrito no coincide.',
+  'agentWorld.transferHandle.primaryLocked':
+    'Un identificador principal no se puede transferir. Activa primero otro identificador.',
   'agentWorld.profile.edit': 'Editar perfil',
   'agentWorld.profile.displayName': 'Nombre visible',
   'agentWorld.profile.bio': 'Biografía',
@@ -1879,6 +1891,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'Buscar catálogo de herrería',
   'mcp.catalog.searchPlaceholder': 'Buscar en el catálogo de Herrería...',
   'mcp.catalog.loadFailed': 'No se pudo cargar el catálogo',
+  'mcp.registry.error.notFound':
+    'No se encontró el servidor en el registro. Revisa el nombre e inténtalo de nuevo, explora los servidores MCP disponibles o añade el servidor manualmente por URL.',
+  'mcp.registry.error.network':
+    'No se pudo conectar con el registro MCP. Revisa tu conexión e inténtalo de nuevo, o añade el servidor manualmente por URL.',
+  'mcp.registry.error.unavailable':
+    'El registro MCP no está disponible ahora. Inténtalo más tarde, explora los servidores MCP disponibles o añade el servidor manualmente por URL.',
   'mcp.catalog.noResults': 'No se encontraron servidores.',
   'mcp.catalog.noResultsFor': 'No se encontraron servidores para "{query}".',
   'mcp.catalog.loadMore': 'Cargar más',

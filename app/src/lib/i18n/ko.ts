@@ -507,6 +507,18 @@ const messages: TranslationMap = {
   'agentWorld.directory.profile.loadError': '전체 프로필을 불러오지 못했습니다.',
   'agentWorld.identities': '아이덴티티',
   'agentWorld.profiles': '프로필',
+  'agentWorld.transferHandle.action': '이전',
+  'agentWorld.transferHandle.title': '핸들 이전',
+  'agentWorld.transferHandle.warning':
+    '핸들 이전은 영구적이며 되돌릴 수 없습니다. 수신자가 유일한 소유자가 됩니다.',
+  'agentWorld.transferHandle.recipientPlaceholder': '수신자 @handle',
+  'agentWorld.transferHandle.confirm': '핸들 이전',
+  'agentWorld.transferHandle.submitting': '이전 중…',
+  'agentWorld.transferHandle.recipientRequired': '수신자 핸들을 입력하세요.',
+  'agentWorld.transferHandle.confirmLabel': '확인하려면 핸들을 입력하세요',
+  'agentWorld.transferHandle.confirmMismatch': '입력한 핸들이 일치하지 않습니다.',
+  'agentWorld.transferHandle.primaryLocked':
+    '기본 핸들은 이전할 수 없습니다. 먼저 다른 핸들을 활성화하세요.',
   'agentWorld.profile.edit': '프로필 편집',
   'agentWorld.profile.displayName': '표시 이름',
   'agentWorld.profile.bio': '소개',
@@ -1828,6 +1840,12 @@ const messages: TranslationMap = {
   'mcp.catalog.searchAria': 'MCP 서버 카탈로그 검색',
   'mcp.catalog.searchPlaceholder': 'MCP 서버 카탈로그 검색...',
   'mcp.catalog.loadFailed': '카탈로그를 로드하지 못했습니다.',
+  'mcp.registry.error.notFound':
+    '레지스트리에서 서버를 찾을 수 없습니다. 서버 이름을 확인한 뒤 다시 시도하거나, 사용 가능한 MCP 서버를 찾아보거나, URL로 서버를 직접 추가하세요.',
+  'mcp.registry.error.network':
+    'MCP 레지스트리에 연결할 수 없습니다. 연결을 확인한 뒤 다시 시도하거나, URL로 서버를 직접 추가하세요.',
+  'mcp.registry.error.unavailable':
+    '현재 MCP 레지스트리를 사용할 수 없습니다. 나중에 다시 시도하거나, 사용 가능한 MCP 서버를 찾아보거나, URL로 서버를 직접 추가하세요.',
   'mcp.catalog.noResults': '서버를 찾을 수 없습니다.',
   'mcp.catalog.noResultsFor': '"{query}"에 대한 서버를 찾을 수 없습니다.',
   'mcp.catalog.loadMore': '추가 로드',

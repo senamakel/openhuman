@@ -221,6 +221,18 @@ const en: TranslationMap = {
   'agentWorld.directory.profile.loadError': "Couldn't load the full profile.",
   'agentWorld.identities': 'Identities',
   'agentWorld.profiles': 'Profiles',
+  'agentWorld.transferHandle.action': 'Transfer',
+  'agentWorld.transferHandle.title': 'Transfer handle',
+  'agentWorld.transferHandle.warning':
+    'Transferring a handle is permanent and cannot be undone. The recipient becomes its sole owner.',
+  'agentWorld.transferHandle.recipientPlaceholder': 'Recipient @handle',
+  'agentWorld.transferHandle.confirm': 'Transfer handle',
+  'agentWorld.transferHandle.submitting': 'Transferring…',
+  'agentWorld.transferHandle.recipientRequired': 'Enter the recipient handle.',
+  'agentWorld.transferHandle.confirmLabel': 'Type the handle to confirm',
+  'agentWorld.transferHandle.confirmMismatch': "The typed handle doesn't match.",
+  'agentWorld.transferHandle.primaryLocked':
+    'A primary handle cannot be transferred. Make another handle active first.',
   'agentWorld.profile.edit': 'Edit profile',
   'agentWorld.profile.displayName': 'Display name',
   'agentWorld.profile.bio': 'Bio',
@@ -2066,6 +2078,12 @@ const en: TranslationMap = {
   'mcp.catalog.searchAria': 'Search MCP server catalog',
   'mcp.catalog.searchPlaceholder': 'Search MCP servers...',
   'mcp.catalog.loadFailed': 'Failed to load catalog',
+  'mcp.registry.error.notFound':
+    'Server not found in registry. Check the server name and try again, browse available MCP servers, or add the server manually by URL.',
+  'mcp.registry.error.network':
+    'Could not reach the MCP registry. Check your connection and try again, or add the server manually by URL.',
+  'mcp.registry.error.unavailable':
+    'The MCP registry is unavailable right now. Try again later, browse available MCP servers, or add the server manually by URL.',
   'mcp.catalog.noResults': 'No servers found.',
   'mcp.catalog.noResultsFor': 'No servers found for "{query}".',
   'mcp.catalog.loadMore': 'Load more',

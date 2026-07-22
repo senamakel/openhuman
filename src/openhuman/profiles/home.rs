@@ -68,6 +68,29 @@ pub fn validate_profile_id(id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Seed `target` with `contents` atomically: write a temp file in the same
+/// directory, then `rename` it over `target`. Callers invoke this only when
+/// `target` is absent, so the rename never clobbers a user's edited file; the
+/// write-then-rename keeps any concurrent reader from ever observing a
+/// half-written seed (a bare `write` can be seen mid-flush). Idempotency
+/// semantics are identical to the previous check-then-`write`.
+fn seed_file_atomic(dir: &Path, target: &Path, contents: &[u8]) -> io::Result<()> {
+    let base = target
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("seed");
+    let tmp = dir.join(format!(".{base}.tmp-{}", std::process::id()));
+    std::fs::write(&tmp, contents)?;
+    match std::fs::rename(&tmp, target) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            // Best-effort cleanup so a failed rename doesn't leave a stray temp.
+            let _ = std::fs::remove_file(&tmp);
+            Err(e)
+        }
+    }
+}
+
 /// Render the default seed persona for a profile lacking an inline `soul_md`.
 ///
 /// Kept intentionally short — a real persona is authored by the user by editing
@@ -105,6 +128,21 @@ pub fn ensure_profile_home(
     action_dir: &Path,
     profile: &AgentProfile,
 ) -> io::Result<()> {
+    // Guard: only materialize a home for ids the read paths will actually load.
+    // `resolve_personality_soul`, `dedicated_workspace_dir`, and
+    // `effective_memory_suffix` all skip ids that fail `validate_profile_id`, so
+    // seeding `personalities/<id>/` for such an id would leave a home nothing
+    // ever reads. Early-return (no dir, no seed) to keep write/read symmetric.
+    if let Err(e) = validate_profile_id(&profile.id) {
+        tracing::warn!(
+            profile_id = %profile.id,
+            error = %e,
+            "[profiles][home] ensure_profile_home skipped: id fails validation, \
+             no home materialized (read paths would never load it)"
+        );
+        return Ok(());
+    }
+
     let home = profile_home(workspace_dir, &profile.id);
     tracing::debug!(
         profile_id = %profile.id,
@@ -149,7 +187,7 @@ pub fn ensure_profile_home(
             .as_ref()
             .map(|s| !s.trim().is_empty())
             .unwrap_or(false);
-        std::fs::write(&soul_path, contents.as_bytes()).map_err(|e| {
+        seed_file_atomic(&home, &soul_path, contents.as_bytes()).map_err(|e| {
             tracing::debug!(
                 profile_id = %profile.id,
                 soul_path = %soul_path.display(),
@@ -172,7 +210,7 @@ pub fn ensure_profile_home(
             "[profiles][home] MEMORY.md already present, not overwriting"
         );
     } else {
-        std::fs::write(&memory_path, b"").map_err(|e| {
+        seed_file_atomic(&home, &memory_path, b"").map_err(|e| {
             tracing::debug!(
                 profile_id = %profile.id,
                 memory_path = %memory_path.display(),
@@ -362,6 +400,30 @@ mod tests {
 
         ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
         assert!(profile_action_workspace(action.path(), "dave").is_dir());
+    }
+
+    #[test]
+    fn ensure_profile_home_skips_invalid_id() {
+        let ws = TempDir::new().unwrap();
+        let action = TempDir::new().unwrap();
+        // An id that fails validate_profile_id must not materialize a home — the
+        // read paths would never load it, so a seeded dir would be dead weight.
+        let mut profile = test_profile("placeholder");
+        profile.id = "Bad Id".to_string();
+        profile.dedicated_workspace = true;
+
+        ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
+
+        assert!(
+            !profile_home(ws.path(), "Bad Id").exists(),
+            "no home dir should be materialized for an invalid id"
+        );
+        assert!(
+            !profile_action_workspace(action.path(), "Bad Id").exists(),
+            "no dedicated workspace should be materialized for an invalid id"
+        );
+        // The `personalities/` root itself must not be created for it either.
+        assert!(!ws.path().join("personalities").join("Bad Id").exists());
     }
 
     #[test]

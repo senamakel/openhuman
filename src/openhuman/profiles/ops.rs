@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::home::{dedicated_workspace_dir, ensure_profile_home, profile_home};
+use super::home::{
+    dedicated_workspace_dir, ensure_profile_home, profile_home, validate_profile_id,
+};
 use super::store::AgentProfileStore;
 use super::types::{AgentProfile, AgentProfilesState};
 use crate::openhuman::config::rpc as config_rpc;
@@ -25,8 +27,27 @@ use crate::openhuman::config::rpc as config_rpc;
 fn enrich_profile(workspace_dir: &Path, action_dir: &Path, profile: &AgentProfile) -> Value {
     let mut obj: Map<String, Value> = match serde_json::to_value(profile) {
         Ok(Value::Object(map)) => map,
-        _ => Map::new(),
+        _ => {
+            // A profile must serialize to a JSON object; anything else drops every
+            // field. This should be unreachable for `AgentProfile`, so warn (but
+            // keep the empty-map fallback so the RPC still returns a value).
+            tracing::warn!(
+                profile_id = %profile.id,
+                "[profiles][ops] enrich_profile: profile did not serialize to a JSON \
+                 object; enrichment yields an empty object"
+            );
+            Map::new()
+        }
     };
+    // Skip the derived path enrichment for ids the read paths would never load
+    // (they fail `validate_profile_id`). `dedicated_workspace_dir` already gates
+    // on the same check, so `workspaceDir` was never emitted for them; matching
+    // that for `soulMdFile` keeps the advertised paths symmetric with what the
+    // core will actually read, and — paired with the `ensure_profile_home` guard
+    // — such an id has no SOUL.md on disk to advertise anyway.
+    if validate_profile_id(&profile.id).is_err() {
+        return Value::Object(obj);
+    }
     let soul = profile_home(workspace_dir, &profile.id).join("SOUL.md");
     if soul.exists() {
         obj.insert(
@@ -348,6 +369,42 @@ mod tests {
         // (SOUL.md) is still seeded, so soulMdFile resolves.
         assert!(shared.get("workspaceDir").is_none());
         assert!(shared["soulMdFile"].as_str().is_some());
+    }
+
+    #[test]
+    fn enrich_profile_skips_paths_for_invalid_id() {
+        let ws = tempfile::tempdir().expect("ws tempdir");
+        let action = tempfile::tempdir().expect("action tempdir");
+        let mut p = profile("placeholder", "orchestrator");
+        p.id = "Bad Id".to_string();
+        p.dedicated_workspace = true;
+
+        // Even if a SOUL.md somehow exists at the would-be home, an invalid id must
+        // not advertise soulMdFile/workspaceDir — the read paths would never load
+        // it, so the enriched payload must stay symmetric with what core reads.
+        let home = super::profile_home(ws.path(), "Bad Id");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join("SOUL.md"), "x").unwrap();
+
+        let enriched = super::enrich_profile(ws.path(), action.path(), &p);
+        assert!(
+            enriched.get("soulMdFile").is_none(),
+            "invalid id must not advertise soulMdFile even when the file exists"
+        );
+        assert!(
+            enriched.get("workspaceDir").is_none(),
+            "invalid id must not advertise workspaceDir"
+        );
+
+        // Control: a valid id with the same on-disk SOUL.md does advertise it.
+        let mut valid = p.clone();
+        valid.id = "goodid".to_string();
+        let valid_home = super::profile_home(ws.path(), "goodid");
+        std::fs::create_dir_all(&valid_home).unwrap();
+        std::fs::write(valid_home.join("SOUL.md"), "x").unwrap();
+        let enriched_valid = super::enrich_profile(ws.path(), action.path(), &valid);
+        assert!(enriched_valid["soulMdFile"].as_str().is_some());
+        assert!(enriched_valid["workspaceDir"].as_str().is_some());
     }
 
     #[tokio::test]

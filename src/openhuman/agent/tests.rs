@@ -30,8 +30,7 @@ use crate::openhuman::agent::dispatcher::{
 use crate::openhuman::agent::harness::session::Agent;
 use crate::openhuman::config::{AgentConfig, MemoryConfig};
 use crate::openhuman::inference::provider::{
-    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, Provider, ToolCall,
-    ToolResultMessage,
+    ChatMessage, ChatResponse, ConversationMessage, ToolCall, ToolResultMessage,
 };
 use crate::openhuman::memory::Memory;
 use crate::openhuman::memory_store;
@@ -39,6 +38,7 @@ use crate::openhuman::tools::{Tool, ToolResult};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
+use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Test Helpers — Mock Provider, Mock Tool, Mock Memory
@@ -48,56 +48,50 @@ use std::sync::{Arc, Mutex};
 /// When the queue is exhausted it returns a simple "done" text response.
 struct ScriptedProvider {
     responses: Mutex<Vec<ChatResponse>>,
-    /// Records every request for assertion.
-    requests: Mutex<Vec<Vec<ChatMessage>>>,
 }
 
 impl ScriptedProvider {
     fn new(responses: Vec<ChatResponse>) -> Self {
         Self {
             responses: Mutex::new(responses),
-            requests: Mutex::new(Vec::new()),
         }
-    }
-
-    fn request_count(&self) -> usize {
-        self.requests.lock().unwrap().len()
     }
 }
 
 #[async_trait]
-impl Provider for ScriptedProvider {
-    async fn chat_with_system(
-        &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        Ok("fallback".into())
+impl ChatModel<()> for ScriptedProvider {
+    fn profile(&self) -> Option<&ModelProfile> {
+        static PROFILE: std::sync::LazyLock<ModelProfile> =
+            std::sync::LazyLock::new(|| ModelProfile {
+                provider: Some("agent-test".to_string()),
+                tool_calling: true,
+                parallel_tool_calls: true,
+                ..ModelProfile::default()
+            });
+        Some(&PROFILE)
     }
 
-    async fn chat(
+    async fn invoke(
         &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<ChatResponse> {
-        self.requests
-            .lock()
-            .unwrap()
-            .push(request.messages.to_vec());
-
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         let mut guard = self.responses.lock().unwrap();
-        if guard.is_empty() {
-            return Ok(ChatResponse {
+        let response = if guard.is_empty() {
+            ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
                 usage: None,
                 reasoning_content: None,
-            });
-        }
-        Ok(guard.remove(0))
+            }
+        } else {
+            guard.remove(0)
+        };
+        Ok(
+            crate::openhuman::tinyagents::model::native_model_response_for_request(
+                &response, &request,
+            ),
+        )
     }
 }
 
@@ -105,24 +99,15 @@ impl Provider for ScriptedProvider {
 struct FailingProvider;
 
 #[async_trait]
-impl Provider for FailingProvider {
-    async fn chat_with_system(
+impl ChatModel<()> for FailingProvider {
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        anyhow::bail!("provider error")
-    }
-
-    async fn chat(
-        &self,
-        _request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<ChatResponse> {
-        anyhow::bail!("provider error")
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        Err(tinyagents::TinyAgentsError::Model(
+            "provider error".to_string(),
+        ))
     }
 }
 
@@ -266,13 +251,13 @@ fn make_sqlite_memory() -> (Arc<dyn Memory>, tempfile::TempDir) {
 /// Build an agent with an isolated temp workspace.
 /// Returns `(Agent, TempDir)` — hold `_tmp` in the test to keep the dir alive.
 fn build_agent_with(
-    provider: Box<dyn Provider>,
+    provider: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     dispatcher: Box<dyn ToolDispatcher>,
 ) -> (Agent, tempfile::TempDir) {
     let (mem, tmp) = make_memory();
     let agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(tools)
         .memory(mem)
         .tool_dispatcher(dispatcher)
@@ -283,14 +268,14 @@ fn build_agent_with(
 }
 
 fn build_agent_with_memory(
-    provider: Box<dyn Provider>,
+    provider: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     mem: Arc<dyn Memory>,
     auto_save: bool,
 ) -> (Agent, tempfile::TempDir) {
     let tmp = tempfile::TempDir::new().unwrap();
     let agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(tools)
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -302,13 +287,13 @@ fn build_agent_with_memory(
 }
 
 fn build_agent_with_config(
-    provider: Box<dyn Provider>,
+    provider: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
     config: AgentConfig,
 ) -> (Agent, tempfile::TempDir) {
     let (mem, tmp) = make_memory();
     let agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(tools)
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -357,7 +342,7 @@ fn xml_tool_response(name: &str, args: &str) -> ChatResponse {
 
 #[tokio::test]
 async fn turn_returns_text_when_no_tools_called() {
-    let provider = Box::new(ScriptedProvider::new(vec![text_response("Hello world")]));
+    let provider = Arc::new(ScriptedProvider::new(vec![text_response("Hello world")]));
     let (mut agent, _tmp) = build_agent_with(
         provider,
         vec![Box::new(EchoTool)],
@@ -377,7 +362,7 @@ async fn turn_returns_text_when_no_tools_called() {
 
 #[tokio::test]
 async fn turn_executes_single_tool_then_returns() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         tool_response(vec![ToolCall {
             id: "tc1".into(),
             name: "echo".into(),
@@ -408,7 +393,7 @@ async fn turn_executes_single_tool_then_returns() {
 async fn turn_handles_multi_step_tool_chain() {
     let (counting_tool, count) = CountingTool::new();
 
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         tool_response(vec![ToolCall {
             id: "tc1".into(),
             name: "counter".into(),
@@ -471,7 +456,7 @@ async fn turn_emits_checkpoint_at_max_iterations() {
         }]));
     }
 
-    let provider = Box::new(ScriptedProvider::new(responses));
+    let provider = Arc::new(ScriptedProvider::new(responses));
 
     let config = AgentConfig {
         max_tool_iterations: max_iters,
@@ -507,7 +492,7 @@ async fn turn_emits_checkpoint_at_max_iterations() {
 
 #[tokio::test]
 async fn turn_handles_unknown_tool_gracefully() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         tool_response(vec![ToolCall {
             id: "tc1".into(),
             name: "nonexistent_tool".into(),
@@ -551,7 +536,7 @@ async fn turn_handles_unknown_tool_gracefully() {
 
 #[tokio::test]
 async fn turn_recovers_from_tool_failure() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         tool_response(vec![ToolCall {
             id: "tc1".into(),
             name: "fail".into(),
@@ -576,7 +561,7 @@ async fn turn_recovers_from_tool_failure() {
 
 #[tokio::test]
 async fn turn_recovers_from_tool_error() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         tool_response(vec![ToolCall {
             id: "tc1".into(),
             name: "panicker".into(),
@@ -606,7 +591,7 @@ async fn turn_recovers_from_tool_error() {
 #[tokio::test]
 async fn turn_propagates_provider_error() {
     let (mut agent, _tmp) = build_agent_with(
-        Box::new(FailingProvider),
+        Arc::new(FailingProvider),
         vec![],
         Box::new(NativeToolDispatcher),
     );
@@ -627,7 +612,7 @@ async fn history_trims_after_max_messages() {
         responses.push(text_response("ok"));
     }
 
-    let provider = Box::new(ScriptedProvider::new(responses));
+    let provider = Arc::new(ScriptedProvider::new(responses));
     let config = AgentConfig {
         max_history_messages: max_history,
         ..AgentConfig::default()
@@ -660,7 +645,7 @@ async fn history_trims_after_max_messages() {
 #[tokio::test]
 async fn auto_save_stores_messages_in_memory() {
     let (mem, _tmp) = make_sqlite_memory();
-    let provider = Box::new(ScriptedProvider::new(vec![text_response(
+    let provider = Arc::new(ScriptedProvider::new(vec![text_response(
         "I remember everything",
     )]));
 
@@ -695,7 +680,7 @@ async fn auto_save_stores_messages_in_memory() {
 #[tokio::test]
 async fn auto_save_disabled_does_not_store() {
     let (mem, _tmp) = make_sqlite_memory();
-    let provider = Box::new(ScriptedProvider::new(vec![text_response("hello")]));
+    let provider = Arc::new(ScriptedProvider::new(vec![text_response("hello")]));
 
     let (mut agent, _tmp2) = build_agent_with_memory(
         provider,
@@ -716,7 +701,7 @@ async fn auto_save_disabled_does_not_store() {
 
 #[tokio::test]
 async fn xml_dispatcher_parses_and_loops() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         xml_tool_response("echo", r#"{"message": "xml-test"}"#),
         text_response("XML tool completed"),
     ]));
@@ -736,7 +721,7 @@ async fn xml_dispatcher_parses_and_loops() {
 
 #[tokio::test]
 async fn native_dispatcher_sends_tool_specs() {
-    let provider = Box::new(ScriptedProvider::new(vec![text_response("ok")]));
+    let provider = Arc::new(ScriptedProvider::new(vec![text_response("ok")]));
     let (mut agent, _tmp) = build_agent_with(
         provider,
         vec![Box::new(EchoTool)],
@@ -766,7 +751,7 @@ async fn turn_errors_on_empty_text_response() {
     // answer. The old behaviour returned `Ok("")`, which rendered as a blank
     // reply and silently wedged the thread; now it surfaces as a visible
     // error the user can retry on (bug-report-2026-05-26 A1).
-    let provider = Box::new(ScriptedProvider::new(vec![ChatResponse {
+    let provider = Arc::new(ScriptedProvider::new(vec![ChatResponse {
         text: Some(String::new()),
         tool_calls: vec![],
         usage: None,
@@ -787,7 +772,7 @@ async fn turn_errors_on_empty_text_response() {
 
 #[tokio::test]
 async fn turn_errors_on_none_text_response() {
-    let provider = Box::new(ScriptedProvider::new(vec![ChatResponse {
+    let provider = Arc::new(ScriptedProvider::new(vec![ChatResponse {
         text: None,
         tool_calls: vec![],
         usage: None,
@@ -812,7 +797,7 @@ async fn turn_errors_on_none_text_response() {
 
 #[tokio::test]
 async fn turn_preserves_text_alongside_tool_calls() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         ChatResponse {
             text: Some("Let me check...".into()),
             tool_calls: vec![ToolCall {
@@ -861,7 +846,7 @@ async fn turn_preserves_text_alongside_tool_calls() {
 async fn turn_handles_multiple_tools_in_one_response() {
     let (counting_tool, count) = CountingTool::new();
 
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         tool_response(vec![
             ToolCall {
                 id: "tc1".into(),
@@ -905,7 +890,7 @@ async fn turn_handles_multiple_tools_in_one_response() {
 
 #[tokio::test]
 async fn e2e_native_loop_executes_text_fallback_tool_calls_and_persists_history() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         ChatResponse {
             text: Some(
                 "I'll inspect now.\n<invoke>{\"name\":\"echo\",\"arguments\":{\"message\":\"from-fallback\"}}</invoke>"
@@ -964,7 +949,7 @@ async fn e2e_native_loop_executes_text_fallback_tool_calls_and_persists_history(
 
 #[tokio::test]
 async fn system_prompt_injected_on_first_turn() {
-    let provider = Box::new(ScriptedProvider::new(vec![text_response("ok")]));
+    let provider = Arc::new(ScriptedProvider::new(vec![text_response("ok")]));
     let (mut agent, _tmp) = build_agent_with(
         provider,
         vec![Box::new(EchoTool)],
@@ -985,7 +970,7 @@ async fn system_prompt_injected_on_first_turn() {
 
 #[tokio::test]
 async fn system_prompt_not_duplicated_on_second_turn() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         text_response("first"),
         text_response("second"),
     ]));
@@ -1012,7 +997,7 @@ async fn system_prompt_not_duplicated_on_second_turn() {
 
 #[tokio::test]
 async fn history_contains_all_expected_entries_after_tool_loop() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         tool_response(vec![ToolCall {
             id: "tc1".into(),
             name: "echo".into(),
@@ -1078,7 +1063,7 @@ async fn builder_fails_without_provider() {
 
 #[tokio::test]
 async fn multi_turn_maintains_growing_history() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         text_response("response 1"),
         text_response("response 2"),
         text_response("response 3"),
@@ -1468,7 +1453,7 @@ fn native_dispatcher_prompt_instructions_are_protocol_only_not_tool_catalog() {
 
 #[tokio::test]
 async fn clear_history_resets_conversation() {
-    let provider = Box::new(ScriptedProvider::new(vec![
+    let provider = Arc::new(ScriptedProvider::new(vec![
         text_response("first"),
         text_response("second"),
     ]));
@@ -1495,7 +1480,7 @@ async fn clear_history_resets_conversation() {
 
 #[tokio::test]
 async fn run_single_delegates_to_turn() {
-    let provider = Box::new(ScriptedProvider::new(vec![text_response("via run_single")]));
+    let provider = Arc::new(ScriptedProvider::new(vec![text_response("via run_single")]));
     let (mut agent, _tmp) = build_agent_with(provider, vec![], Box::new(NativeToolDispatcher));
 
     let response = agent.run_single("test").await.unwrap();

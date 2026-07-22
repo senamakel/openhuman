@@ -214,6 +214,21 @@ pub(crate) fn native_model_response(response: &ChatResponse) -> ModelResponse {
     )
 }
 
+/// Convert a host response while preserving the legacy text-tool fallback for
+/// a request that advertised tools. This remains available to migration
+/// fixtures that exercise the old XML/P-Format recovery contract without
+/// constructing a [`ProviderModel`].
+pub(crate) fn native_model_response_for_request(
+    response: &ChatResponse,
+    request: &ModelRequest,
+) -> ModelResponse {
+    response_to_model_response(
+        response,
+        &pformat_registry_from_request(request),
+        !request.tools.is_empty(),
+    )
+}
+
 /// Normalize a completed prompt-guided response for a crate-native model.
 ///
 /// TinyAgents owns the generic prompt protocol and XML tool-call grammar. The

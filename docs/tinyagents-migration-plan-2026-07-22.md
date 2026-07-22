@@ -390,6 +390,13 @@ deciding (a) trait unification vs permanent adapter, (b) the
 `SharedToolAdapter` seam is cheap and correct; **do not delete it
 prematurely.**
 
+The proposed decision is recorded in
+[`tinyagents-tool-model-decision-2026-07-23.md`](tinyagents-tool-model-decision-2026-07-23.md).
+It selects a permanent ownership-boundary adapter, keeps the host's structured
+result types in the always-compiled carve-out while preserving them through
+TinyAgents `raw`, and defines the required scope-enforcement matrix. WP-4 code
+changes remain gated on explicit approval of that proposal.
+
 ### WP-5 — Seam shrink + orchestration lifecycle upstreaming
 
 1. Middleware audit (§4.3): per-middleware ledger rows; upstream

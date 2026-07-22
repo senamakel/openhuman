@@ -204,6 +204,21 @@ impl NodeExecTool {
                 "[policy-blocked] Action blocked: the agent is in read-only mode and cannot execute code.",
             ));
         }
+        let path_policy = super::security_for_tool_context(&self.security, context, "node_exec");
+        let guard_command = inline_code.clone().unwrap_or_else(|| {
+            std::iter::once(script_path.as_deref().unwrap_or_default())
+                .chain(extra_args.iter().map(String::as_str))
+                .collect::<Vec<_>>()
+                .join(" ")
+        });
+        if let Err(reason) = super::check_cross_profile_command(
+            &path_policy,
+            &guard_command,
+            &path_policy.action_dir,
+            "node_exec",
+        ) {
+            return Ok(ToolResult::error(reason));
+        }
         if self.security.is_rate_limited() {
             return Ok(ToolResult::error(
                 "Rate limit exceeded: too many actions in the last hour",
@@ -231,8 +246,6 @@ impl NodeExecTool {
             node_bin = %resolved.node_bin.display(),
             "[node_exec] starting invocation"
         );
-
-        let path_policy = super::security_for_tool_context(&self.security, context, "node_exec");
 
         let command = if let Some(code) = inline_code.as_deref() {
             format!(
@@ -655,5 +668,46 @@ mod tests {
             "resolved path leaked into workspace_dir; got {}",
             resolved.display()
         );
+    }
+
+    #[tokio::test]
+    async fn inline_code_cannot_write_to_sibling_profile() {
+        use crate::openhuman::agent::host_runtime::NativeRuntime;
+        use crate::openhuman::config::schema::NodeConfig;
+        use crate::openhuman::security::policy::ActiveProfileGuard;
+        use crate::openhuman::security::AutonomyLevel;
+
+        let temp = tempfile::tempdir().unwrap();
+        let action_root = temp.path().join("actions");
+        let alice = action_root.join("profiles/alice");
+        std::fs::create_dir_all(action_root.join("profiles/bob")).unwrap();
+        std::fs::create_dir_all(&alice).unwrap();
+        let security = Arc::new(SecurityPolicy {
+            autonomy: AutonomyLevel::Full,
+            workspace_dir: temp.path().join("state"),
+            action_dir: alice,
+            workspace_only: false,
+            active_profile: Some(ActiveProfileGuard {
+                profile_id: "alice".into(),
+                action_dir: action_root,
+            }),
+            ..SecurityPolicy::default()
+        });
+        let bootstrap = Arc::new(NodeBootstrap::new(
+            NodeConfig::default(),
+            temp.path().to_path_buf(),
+            reqwest::Client::new(),
+        ));
+        let tool = NodeExecTool::new(security, Arc::new(NativeRuntime::new()), bootstrap);
+
+        let result = tool
+            .execute(json!({
+                "inline_code": "require('fs').writeFileSync('../bob/loot.txt', 'x')"
+            }))
+            .await
+            .unwrap();
+
+        assert!(result.is_error);
+        assert!(result.text().contains("Cross-profile access blocked"));
     }
 }

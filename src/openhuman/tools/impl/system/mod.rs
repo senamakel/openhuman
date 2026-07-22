@@ -19,6 +19,7 @@ mod update_check;
 mod workspace_state;
 
 use crate::openhuman::security::SecurityPolicy;
+use std::path::Path;
 use tinyagents::harness::tool::ToolExecutionContext;
 
 pub use current_time::CurrentTimeTool;
@@ -61,4 +62,41 @@ pub(super) fn security_for_tool_context(
         scoped.action_dir = workspace.root.clone();
     }
     scoped
+}
+
+/// Apply the dedicated-workspace profile boundary to an arbitrary process
+/// command before it is spawned. Process tools do not funnel their runtime file
+/// writes through `SecurityPolicy::validate_path`, so shell, Node, and npm must
+/// all share this defense-in-depth scan.
+pub(super) fn check_cross_profile_command(
+    security: &SecurityPolicy,
+    command: &str,
+    cwd: &Path,
+    tool: &str,
+) -> Result<(), String> {
+    let Some(guard) = security.active_profile.as_ref() else {
+        return Ok(());
+    };
+    let Some(other_id) = crate::openhuman::profiles::scan_command_for_cross_profile(
+        command,
+        cwd,
+        &guard.action_dir,
+        &guard.profile_id,
+    ) else {
+        return Ok(());
+    };
+
+    tracing::warn!(
+        tool,
+        active_profile = %guard.profile_id,
+        other_profile = %other_id,
+        "[profiles] cross-profile process command blocked"
+    );
+    Err(format!(
+        "{} Cross-profile access blocked: profile '{}' may not touch profile '{}'s workspace. \
+         Stay within your own profile directory; do not retry this command.",
+        crate::openhuman::security::POLICY_BLOCKED_MARKER,
+        guard.profile_id,
+        other_id
+    ))
 }

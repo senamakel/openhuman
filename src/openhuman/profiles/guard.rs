@@ -14,9 +14,9 @@
 //!    write/command whose resolved target lands in a *sibling* profile's
 //!    workspace `<action_dir>/profiles/<Q>/` (Q != P) is blocked. See
 //!    [`classify_cross_profile_target`] (file tools) and
-//!    [`scan_command_for_cross_profile`] (shell). The guard only ever
-//!    **tightens**: with no active profile the classifier is never consulted
-//!    and behaviour is byte-identical to today.
+//!    [`scan_command_for_cross_profile`] (shell / `node_exec` / `npm_exec`). The
+//!    guard only ever **tightens**: with no active profile the classifier is
+//!    never consulted and behaviour is byte-identical to today.
 
 use std::path::{Component, Path, PathBuf};
 
@@ -117,15 +117,15 @@ pub fn classify_cross_profile_target(
     }
 }
 
-/// Best-effort scan of a shell `command` for a token that targets a sibling
+/// Best-effort scan of a process `command` for a token that targets a sibling
 /// profile's workspace, given the command's working directory `cwd` (the active
 /// profile's own dir).
 ///
 /// # Guarantee level (read before relying on this)
 ///
-/// This is **best-effort defense-in-depth for the model-facing shell path, not a
+/// This is **best-effort defense-in-depth for model-facing process tools, not a
 /// hard boundary.** It is a static, pre-execution token scan — it cannot see
-/// what the shell will actually do at runtime. Known, deliberate gaps:
+/// what the process will actually do at runtime. Known, deliberate gaps:
 ///
 /// - **Variable / command substitution.** `$HOME`, `${VAR}`, `$(cmd)`, and
 ///   backtick substitution resolve to paths only at runtime; a token like
@@ -138,9 +138,9 @@ pub fn classify_cross_profile_target(
 ///
 /// The **hard** cross-profile boundary for file mutations is
 /// [`SecurityPolicy::validate_path`](crate::openhuman::security) at the file-tool
-/// call site (every write funnels through it). Shell commands do **not** funnel
-/// through that gate, so this scan is their only in-Rust backstop — and the
-/// airtight shell confinement (an OS sandbox: cwd_jail / Seatbelt / Landlock
+/// call site (every write funnels through it). Process commands do **not** funnel
+/// through that gate, so this scan is their only in-Rust backstop — and
+/// airtight process confinement (an OS sandbox: cwd_jail / Seatbelt / Landlock
 /// restricting the process to its own subtree) is deliberate follow-up work, not
 /// provided here. Do not treat a `None` result as proof a command cannot reach a
 /// sibling profile.

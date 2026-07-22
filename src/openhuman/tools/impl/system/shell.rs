@@ -356,31 +356,11 @@ impl ShellTool {
         // session runs under a dedicated-workspace profile. See
         // `profiles::guard::scan_command_for_cross_profile` for the containment
         // rationale (the cwd is already rooted at the profile's own dir).
-        if let Some(guard) = self.security.active_profile.as_ref() {
-            let cwd = self.effective_action_dir_for_context(context);
-            if let Some(other_id) = crate::openhuman::profiles::scan_command_for_cross_profile(
-                command,
-                &cwd,
-                &guard.action_dir,
-                &guard.profile_id,
-            ) {
-                tracing::warn!(
-                    active_profile = %guard.profile_id,
-                    other_profile = %other_id,
-                    "[profiles] cross-profile shell command blocked"
-                );
-                return (
-                    false,
-                    ToolResult::error(format!(
-                        "{} Cross-profile access blocked: profile '{}' may not touch profile \
-                         '{}'s workspace. Stay within your own profile directory; do not retry \
-                         this command.",
-                        crate::openhuman::security::POLICY_BLOCKED_MARKER,
-                        guard.profile_id,
-                        other_id
-                    )),
-                );
-            }
+        let cwd = self.effective_action_dir_for_context(context);
+        if let Err(reason) =
+            super::check_cross_profile_command(self.security.as_ref(), command, &cwd, "shell")
+        {
+            return (false, ToolResult::error(reason));
         }
 
         if self.security.is_rate_limited() {

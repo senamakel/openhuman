@@ -1078,7 +1078,8 @@ pub fn create_chat_model_from_string_with_model_id(
         if resolved == PROVIDER_OPENHUMAN {
             return make_openhuman_backend_model(role, config);
         }
-        if let Some(result) = try_create_claude_agent_sdk_chat_model_from_string(&resolved, config)
+        if let Some(result) =
+            try_create_claude_agent_sdk_chat_model_from_string(role, &resolved, config)
         {
             return result;
         }
@@ -1507,7 +1508,9 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
             ));
         }
         let resolved_provider = provider_for_role(role, config);
-        if claude_agent_sdk_model_from_string(&resolved_provider, config).is_some() {
+        if let Some(result) = prepare_claude_agent_sdk_chat_model(role, &resolved_provider, config)
+        {
+            let _resolved_model = result?;
             return Ok(Arc::new(ClaudeAgentSdkProvider::for_model(
                 config.claude_agent_sdk.clone(),
                 model,
@@ -1538,19 +1541,40 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
 /// provider owns only subprocess transport and NDJSON decoding.
 fn try_create_claude_agent_sdk_chat_model(role: &str, config: &Config) -> OptionalChatModelResult {
     let resolved = provider_for_role(role, config);
-    try_create_claude_agent_sdk_chat_model_from_string(&resolved, config)
+    try_create_claude_agent_sdk_chat_model_from_string(role, &resolved, config)
 }
 
 fn try_create_claude_agent_sdk_chat_model_from_string(
+    role: &str,
     provider: &str,
     config: &Config,
 ) -> OptionalChatModelResult {
-    let model = claude_agent_sdk_model_from_string(provider, config)?;
+    let model = match prepare_claude_agent_sdk_chat_model(role, provider, config)? {
+        Ok(model) => model,
+        Err(error) => return Some(Err(error)),
+    };
     let chat: Arc<dyn ChatModel<()>> = Arc::new(ClaudeAgentSdkProvider::for_model(
         config.claude_agent_sdk.clone(),
         model.clone(),
     ));
     Some(Ok((chat, model)))
+}
+
+fn prepare_claude_agent_sdk_chat_model(
+    role: &str,
+    provider: &str,
+    config: &Config,
+) -> Option<anyhow::Result<String>> {
+    let model = claude_agent_sdk_model_from_string(provider, config)?;
+    if let Err(error) = enforce_local_only_inference(role, provider) {
+        return Some(Err(error));
+    }
+    #[cfg(not(test))]
+    if let Err(error) = verify_session_active(config) {
+        return Some(Err(error));
+    }
+    emit_inference_egress(role, provider);
+    Some(Ok(model))
 }
 
 fn claude_agent_sdk_model_from_string(provider: &str, config: &Config) -> Option<String> {

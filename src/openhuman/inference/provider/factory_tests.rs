@@ -2725,6 +2725,13 @@ fn local_only_blocks_claude_code_cli() {
 }
 
 #[test]
+fn local_only_blocks_claude_agent_sdk() {
+    use crate::openhuman::config::PrivacyMode;
+    let violation = local_only_violation(PrivacyMode::LocalOnly, "claude_agent_sdk:sonnet");
+    assert_eq!(violation.as_deref(), Some("Claude Agent SDK"));
+}
+
+#[test]
 fn local_only_permits_local_runtimes() {
     use crate::openhuman::config::PrivacyMode;
     for local in [
@@ -2795,6 +2802,15 @@ fn enforce_local_only_inference_errors_on_external_when_local_only() {
         msg.contains("openai"),
         "error should name the provider: {msg}"
     );
+
+    let sdk_error = create_chat_model_from_string(
+        "chat",
+        "claude_agent_sdk:claude-sonnet-4-6",
+        &Config::default(),
+        0.0,
+    )
+    .expect_err("direct Claude SDK model must preserve the privacy gate");
+    assert!(sdk_error.to_string().contains("Local-only privacy mode"));
 
     // Local provider passes.
     enforce_local_only_inference("chat", "ollama:llama3")

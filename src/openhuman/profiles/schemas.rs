@@ -277,6 +277,99 @@ mod tests {
         assert_eq!(deleted["activeProfileId"], DEFAULT_PROFILE_ID);
     }
 
+    /// Resolve the enriched `soulMdFile` absolute path for `profile_id` from a
+    /// profiles-state payload (present once the home's SOUL.md exists on disk).
+    fn soul_md_file(payload: &Value, profile_id: &str) -> Option<String> {
+        payload["profiles"]
+            .as_array()?
+            .iter()
+            .find(|p| p["id"] == profile_id)?
+            .get("soulMdFile")?
+            .as_str()
+            .map(str::to_string)
+    }
+
+    #[tokio::test]
+    async fn built_in_profile_soul_edit_syncs_to_disk() {
+        // Regression (PR #5118 review, Codex): select() seeds a built-in's home on
+        // first activation, so a later Soul edit through the editor must reconcile
+        // the on-disk SOUL.md — the sync path must NOT be gated on `!built_in`.
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let temp = tempfile::tempdir().expect("tempdir");
+        let _env = WorkspaceEnvGuard::set(temp.path());
+
+        // Seed the built-in default home the way first activation does; the
+        // enriched payload advertises the resolved SOUL.md path once it exists.
+        let selected = handle_profile_select(Map::from_iter([(
+            "profile_id".into(),
+            Value::String(DEFAULT_PROFILE_ID.into()),
+        )]))
+        .await
+        .expect("select default");
+        let soul_path =
+            soul_md_file(&selected, DEFAULT_PROFILE_ID).expect("select seeds the built-in SOUL.md");
+
+        // User later edits the built-in's Soul in Settings.
+        handle_profile_upsert(Map::from_iter([(
+            "profile".into(),
+            json!({
+                "id": DEFAULT_PROFILE_ID,
+                "name": "Default",
+                "description": "",
+                "agentId": "orchestrator",
+                "soulMd": "Edited built-in persona.",
+                "builtIn": true,
+            }),
+        )]))
+        .await
+        .expect("upsert default with edited soul");
+
+        assert_eq!(
+            std::fs::read_to_string(&soul_path).unwrap(),
+            "Edited built-in persona.\n",
+            "editing a built-in's soul must overwrite its seeded SOUL.md"
+        );
+    }
+
+    #[tokio::test]
+    async fn built_in_profile_empty_soul_leaves_file_untouched() {
+        // The sync is a no-op when soulMd is empty/None, so a user's manual edit
+        // to a built-in's SOUL.md stays authoritative.
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let temp = tempfile::tempdir().expect("tempdir");
+        let _env = WorkspaceEnvGuard::set(temp.path());
+
+        let selected = handle_profile_select(Map::from_iter([(
+            "profile_id".into(),
+            Value::String(DEFAULT_PROFILE_ID.into()),
+        )]))
+        .await
+        .expect("select default");
+        let soul_path =
+            soul_md_file(&selected, DEFAULT_PROFILE_ID).expect("select seeds the built-in SOUL.md");
+        std::fs::write(&soul_path, "MANUAL EDIT").unwrap();
+
+        // Upsert with no soulMd — must not touch the manually edited file.
+        handle_profile_upsert(Map::from_iter([(
+            "profile".into(),
+            json!({
+                "id": DEFAULT_PROFILE_ID,
+                "name": "Default",
+                "description": "",
+                "agentId": "orchestrator",
+                "builtIn": true,
+            }),
+        )]))
+        .await
+        .expect("upsert default without soul");
+
+        assert_eq!(
+            std::fs::read_to_string(&soul_path).unwrap(),
+            "MANUAL EDIT",
+            "empty soulMd must leave a manually edited built-in SOUL.md untouched"
+        );
+    }
+
     #[tokio::test]
     async fn profile_upsert_rejects_unknown_registered_agent_id() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());

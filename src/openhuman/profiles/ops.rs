@@ -218,13 +218,22 @@ pub async fn upsert(profile: AgentProfile) -> Result<Value, String> {
         .profiles
         .iter()
         .find(|p| p.id == super::store::normalise_profile_id(&upserted_id))
-        .filter(|p| !p.built_in)
     {
-        materialize_home(&workspace_dir, &action_dir, persisted);
-        // Reconcile an edited persona into the on-disk SOUL.md: `ensure_profile_home`
-        // only seeds the file when absent, and `resolve_personality_soul` reads the
-        // file first, so a Settings edit after the home exists would otherwise never
-        // reach the prompt. Non-fatal — the profile is already persisted.
+        // Full home materialization (SOUL.md seed + MEMORY.md + skills/ +
+        // dedicated workspace) is for CUSTOM profiles here; built-ins are seeded
+        // on `select` (first activation), matching the spec.
+        if !persisted.built_in {
+            materialize_home(&workspace_dir, &action_dir, persisted);
+        }
+        // Reconcile an edited persona into the on-disk SOUL.md for EVERY profile,
+        // built-in included. `ensure_profile_home` only seeds SOUL.md when absent,
+        // and `select` seeds built-in homes on first activation — so a user who
+        // selects Default/Research once and later edits its Soul in Settings would
+        // otherwise keep a stale `personalities/<id>/SOUL.md` that
+        // `resolve_personality_soul` reads before the inline value. The sync is a
+        // no-op when `soul_md` is empty/None (manual file edits stay
+        // authoritative) and creates the home dir if needed. Non-fatal — the
+        // profile is already persisted.
         if let Err(e) = super::home::sync_soul_md_on_upsert(&workspace_dir, persisted) {
             tracing::warn!(
                 profile_id = %persisted.id,

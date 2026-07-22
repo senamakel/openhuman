@@ -5,7 +5,7 @@
 //! chunks / tree / retrieval / queue / ingest / score + the long tail). This
 //! module is the **adapter seam**, mirroring `src/openhuman/tinyagents/`: it
 //! implements the crate's engine traits over OpenHuman services and derives the
-//! engine's [`MemoryConfig`] from the host [`Config`]. Nothing here contains
+//! engine's [`tinycortex::memory::MemoryConfig`] from the host [`Config`]. Nothing here contains
 //! engine logic — that lives in the crate.
 //!
 //! ## Ownership boundary (the seam contract)
@@ -66,13 +66,4 @@ pub use sync::{
     load_composio_sync_state, run_composio_connection, run_composio_connection_with_budgets,
     run_gmail_backfill, run_slack_search_backfill, run_source_pipeline, sync_context,
     HostSyncAdapter, SourcePipelineFailure, HOST_SYNC_STATE_NAMESPACE,
-};
-// Facade re-exports — the rest of the host imports memory-engine types through
-// this one seam so consumer import paths stay stable as the internals flip to
-// the crate (the type-unification decision, spec §0.5). `MemoryTaint` is the
-// security-critical provenance type; it is proven byte-identical to the host's
-// (fail-closed to `ExternalSync`) before re-exporting.
-pub use tinycortex::memory::{
-    MemoryCategory, MemoryConfig, MemoryEntry, MemoryTaint, NamespaceSummary, RecallOpts,
-    WeightProfile,
 };

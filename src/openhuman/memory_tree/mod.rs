@@ -13,7 +13,6 @@ pub mod nlp;
 pub mod retrieval;
 pub mod score;
 pub mod summarise;
-pub mod tools;
 pub mod tree;
 pub mod tree_runtime;
 

@@ -581,6 +581,83 @@ async fn flows_update_allows_metadata_only_edits_of_legacy_incompatible_graph() 
 }
 
 #[tokio::test]
+async fn flows_create_rejects_an_incompatible_saved_child_before_persisting() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+
+    let error = flows_create(
+        &config,
+        "rejected parent".to_string(),
+        referenced_child_graph(&child.id),
+        false,
+    )
+    .await
+    .expect_err("create must reject an unsafe saved child");
+
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    let flows = store::list_flows(&config).unwrap();
+    assert_eq!(flows.len(), 1, "the rejected parent must not be persisted");
+    assert_eq!(flows[0].id, child.id);
+}
+
+#[tokio::test]
+async fn flows_update_rejects_an_incompatible_saved_child_before_persisting() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let original_graph = structurally_valid_graph(trigger_only_graph());
+    let parent = store::create_flow(
+        &config,
+        "safe parent".to_string(),
+        original_graph.clone(),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let error = flows_update(
+        &config,
+        &parent.id,
+        None,
+        Some(referenced_child_graph(&child.id)),
+        None,
+        None,
+    )
+    .await
+    .expect_err("update must reject an unsafe saved child");
+
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+    let reloaded = flows_get(&config, &parent.id).await.unwrap().value;
+    assert_eq!(
+        reloaded.graph, original_graph,
+        "the rejected graph update must not be persisted"
+    );
+}
+
+#[tokio::test]
 async fn flows_create_rejects_graph_without_trigger() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);

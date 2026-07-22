@@ -282,11 +282,14 @@ fn ensure_engine_compatible(graph: &WorkflowGraph) -> Result<(), String> {
     }
 }
 
-/// Execution-boundary compatibility check, including saved descendants that
-/// graph-only validation cannot inspect. This must run before compiling a root
-/// run/resume as well as before returning a resolver graph: otherwise earlier
-/// side-effect nodes could execute before an unsafe saved descendant resolves.
-fn ensure_execution_compatible(config: &Config, graph: &WorkflowGraph) -> Result<(), String> {
+/// Host-aware compatibility check, including saved descendants that graph-only
+/// validation cannot inspect. Authoring boundaries use it before persistence;
+/// execution boundaries use it before compiling a root run/resume or returning
+/// a resolver graph, so an unsafe descendant cannot run after earlier effects.
+fn ensure_config_aware_engine_compatible(
+    config: &Config,
+    graph: &WorkflowGraph,
+) -> Result<(), String> {
     match config_aware_engine_compatibility_errors(config, graph)
         .into_iter()
         .next()
@@ -2621,6 +2624,7 @@ pub async fn flows_create(
     require_approval: bool,
 ) -> Result<RpcOutcome<Flow>, String> {
     let graph = validate_and_migrate_graph(graph_json)?;
+    ensure_config_aware_engine_compatible(config, &graph)?;
 
     // Rule 1: automatic triggers create DISABLED — the user must arm them
     // explicitly.
@@ -2744,7 +2748,7 @@ pub(crate) fn load_engine_compatible_flow_graph(
 ) -> Result<Option<WorkflowGraph>, String> {
     let graph = load_flow_graph(config, id)?;
     if let Some(graph) = graph.as_ref() {
-        ensure_execution_compatible(config, graph)
+        ensure_config_aware_engine_compatible(config, graph)
             .map_err(|error| format!("workflow_id '{id}' is engine-incompatible: {error}"))?;
     }
     Ok(graph)
@@ -3072,7 +3076,11 @@ pub async fn flows_update(
     let new_require_approval = require_approval.unwrap_or(existing.require_approval);
     let graph_changed = graph_json.is_some();
     let graph = match graph_json {
-        Some(raw) => validate_and_migrate_graph(raw)?,
+        Some(raw) => {
+            let graph = validate_and_migrate_graph(raw)?;
+            ensure_config_aware_engine_compatible(config, &graph)?;
+            graph
+        }
         None => {
             tinyflows::validate::validate(&existing.graph).map_err(|e| e.to_string())?;
             existing.graph.clone()
@@ -3548,7 +3556,7 @@ pub async fn flows_run(
     // Author-time validation cannot protect definitions persisted by an older
     // OpenHuman build. Re-check immediately before compilation so an upgrade
     // fails explicitly instead of silently committing incomplete merge data.
-    if let Err(error) = ensure_execution_compatible(config, &flow.graph) {
+    if let Err(error) = ensure_config_aware_engine_compatible(config, &flow.graph) {
         tracing::warn!(
             target: "flows",
             flow_id = %flow_id,
@@ -3811,7 +3819,7 @@ pub async fn flows_resume(
 
     // A pending checkpoint may have been created before this compatibility
     // gate shipped, so resume is an independent authoritative boundary.
-    if let Err(error) = ensure_execution_compatible(config, &flow.graph) {
+    if let Err(error) = ensure_config_aware_engine_compatible(config, &flow.graph) {
         if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
             tracing::warn!(
                 target: "flows",

@@ -391,28 +391,7 @@ fn reaches_deterministically_via_port(
         .edges
         .iter()
         .filter(|edge| edge.from_node == brancher && edge.from_port == port)
-        .any(|edge| deterministically_reaches(graph, &edge.to_node, target, stop))
-}
-
-fn deterministically_reaches(graph: &WorkflowGraph, from: &str, target: &str, stop: &str) -> bool {
-    let mut current = from;
-    let mut seen = HashSet::new();
-    loop {
-        if current == target {
-            return true;
-        }
-        if current == stop || !seen.insert(current) {
-            return false;
-        }
-        let mut outgoing = graph.edges.iter().filter(|edge| edge.from_node == current);
-        let Some(edge) = outgoing.next() else {
-            return false;
-        };
-        if edge.from_port != "main" || outgoing.next().is_some() {
-            return false;
-        }
-        current = &edge.to_node;
-    }
+        .any(|edge| reaches_on_main_edges(graph, &edge.to_node, target, stop))
 }
 
 /// Runs a raw graph JSON value through migration + deserialization **without**

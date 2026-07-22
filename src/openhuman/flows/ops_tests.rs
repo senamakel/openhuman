@@ -106,9 +106,14 @@ fn nested_router_reconvergence_graph(inner_kind: &str, inner_ports: &[&str]) -> 
     edges.extend(
         inner_ports
             .iter()
-            .map(|port| json!({ "from_node": "inner", "from_port": port, "to_node": "a" })),
+            .map(|port| json!({ "from_node": "inner", "from_port": port, "to_node": "fanout" })),
     );
     edges.extend([
+        // Same-port fan-out is unconditional: TinyFlows schedules both main
+        // successors. The side path must not make the route to `a` look like
+        // another conditional choice.
+        json!({ "from_node": "fanout", "from_port": "main", "to_node": "a" }),
+        json!({ "from_node": "fanout", "from_port": "main", "to_node": "side" }),
         json!({ "from_node": "a", "from_port": "main", "to_node": "m" }),
         json!({ "from_node": "c", "from_port": "main", "to_node": "m" }),
     ]);
@@ -120,7 +125,9 @@ fn nested_router_reconvergence_graph(inner_kind: &str, inner_ports: &[&str]) -> 
             { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
             { "id": "inner", "kind": inner_kind, "name": "Inner", "config": { "field": "inner" } },
             { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "fanout", "kind": "output_parser", "name": "Fan out" },
             { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "side", "kind": "output_parser", "name": "Side" },
             { "id": "c", "kind": "output_parser", "name": "C" },
             { "id": "m", "kind": "merge", "name": "Merge" }
         ],

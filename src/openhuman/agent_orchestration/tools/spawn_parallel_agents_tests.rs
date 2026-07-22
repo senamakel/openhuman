@@ -11,10 +11,7 @@ use crate::openhuman::agent_orchestration::spawn_parallel_graph::{
 };
 use crate::openhuman::config::AgentConfig;
 use crate::openhuman::context::prompt::ToolCallFormat;
-use crate::openhuman::inference::provider::traits::ProviderCapabilities;
-use crate::openhuman::inference::provider::{
-    ChatRequest, ChatResponse, ConversationMessage, Provider, ToolCall,
-};
+use crate::openhuman::inference::provider::ConversationMessage;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::tools::traits::ToolTimeout;
 use crate::openhuman::tools::{PermissionLevel, Tool, ToolResult};
@@ -26,6 +23,9 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
+use tinyagents::harness::message::{AssistantMessage, Message};
+use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyagents::harness::tool::ToolCall;
 use tokio::time::{sleep, Duration};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";
@@ -601,7 +601,7 @@ impl ParallelHarnessProvider {
         }
     }
 
-    async fn respond_for_subagent(&self, flattened: &str) -> anyhow::Result<ChatResponse> {
+    async fn respond_for_subagent(&self, flattened: &str) -> tinyagents::Result<ModelResponse> {
         let current = self
             .state
             .active_subagent_calls
@@ -610,7 +610,7 @@ impl ParallelHarnessProvider {
         self.record_active_peak(current);
         sleep(Duration::from_millis(25)).await;
 
-        let response = (|| -> anyhow::Result<ChatResponse> {
+        let response = (|| -> tinyagents::Result<ModelResponse> {
             if flattened.contains(RESEARCH_PROMPT_CANARY) {
                 if flattened.contains("research-step-3-ok") {
                     Ok(text_response(RESEARCH_DONE_CANARY))
@@ -650,7 +650,9 @@ impl ParallelHarnessProvider {
                     ))
                 }
             } else {
-                anyhow::bail!("unexpected subagent payload: {flattened}");
+                Err(tinyagents::TinyAgentsError::Model(format!(
+                    "unexpected subagent payload: {flattened}"
+                )))
             }
         })();
 
@@ -662,35 +664,36 @@ impl ParallelHarnessProvider {
 }
 
 #[async_trait]
-impl Provider for ParallelHarnessProvider {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
+impl ChatModel<()> for ParallelHarnessProvider {
+    fn profile(&self) -> Option<&ModelProfile> {
+        static PROFILE: std::sync::LazyLock<ModelProfile> =
+            std::sync::LazyLock::new(|| ModelProfile {
+                provider: Some("parallel-harness-test".to_string()),
+                tool_calling: true,
+                parallel_tool_calls: true,
+                ..ModelProfile::default()
+            });
+        Some(&PROFILE)
     }
 
-    async fn chat_with_system(
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        Ok("ok".into())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         self.state.total_calls.fetch_add(1, Ordering::SeqCst);
         let flattened = request
             .messages
             .iter()
-            .map(|m| format!("{}:{}", m.role, m.content))
+            .map(|message| {
+                let role = match message {
+                    Message::System(_) => "system",
+                    Message::User(_) => "user",
+                    Message::Assistant(_) => "assistant",
+                    Message::Tool(_) => "tool",
+                };
+                format!("{role}:{}", message.text())
+            })
             .collect::<Vec<_>>()
             .join("\n");
         self.state.seen_payloads.lock().push(flattened.clone());
@@ -725,26 +728,22 @@ impl Provider for ParallelHarnessProvider {
     }
 }
 
-fn text_response(text: impl Into<String>) -> ChatResponse {
-    ChatResponse {
-        text: Some(text.into()),
-        tool_calls: Vec::new(),
-        usage: None,
-        reasoning_content: None,
-    }
+fn text_response(text: impl Into<String>) -> ModelResponse {
+    ModelResponse::assistant(text)
 }
 
-fn tool_response(name: &str, arguments: serde_json::Value) -> ChatResponse {
-    ChatResponse {
-        text: Some(String::new()),
-        tool_calls: vec![ToolCall {
-            id: format!("call-{name}"),
-            name: name.to_string(),
-            arguments: arguments.to_string(),
-            extra_content: None,
-        }],
+fn tool_response(name: &str, arguments: serde_json::Value) -> ModelResponse {
+    ModelResponse {
+        message: AssistantMessage {
+            id: None,
+            content: Vec::new(),
+            tool_calls: vec![ToolCall::new(format!("call-{name}"), name, arguments)],
+            usage: None,
+        },
         usage: None,
-        reasoning_content: None,
+        finish_reason: Some("tool_calls".to_string()),
+        raw: None,
+        resolved_model: None,
     }
 }
 
@@ -773,7 +772,7 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
     ];
 
     let mut agent = Agent::builder()
-        .provider(Box::new(provider.clone()))
+        .chat_model(Arc::new(provider.clone()))
         .tools(tools)
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))

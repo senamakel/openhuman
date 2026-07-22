@@ -6,18 +6,13 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, Mutex, OnceLock,
-};
+use std::sync::{Arc, Mutex, OnceLock};
 
-use async_trait::async_trait;
 use axum::extract::State;
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use futures_util::{stream, StreamExt};
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
@@ -32,12 +27,7 @@ use openhuman_core::openhuman::inference::local::LocalAiService;
 use openhuman_core::openhuman::inference::provider::factory::{
     auth_key_for_slug, create_chat_provider_from_string,
 };
-use openhuman_core::openhuman::inference::provider::traits::{
-    StreamChunk, StreamError, StreamOptions, StreamResult,
-};
-use openhuman_core::openhuman::inference::provider::{
-    list_configured_models, ChatMessage, ChatRequest, ChatResponse, Provider, ToolCall,
-};
+use openhuman_core::openhuman::inference::provider::list_configured_models;
 
 #[derive(Clone, Default)]
 struct MockState {
@@ -106,7 +96,7 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|e| e.into_inner())
 }
 
- #[tokio::test]
+#[tokio::test]
 async fn provider_admin_model_listing_covers_openrouter_validation_and_local_synthesis() {
     let _env = env_lock();
     let (base, state) = serve_mock().await;
@@ -266,14 +256,16 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
         .iter()
         .any(|req| req.path == "/legacy/v1/chat/completions"
             && req.auth.as_deref() == Some("Bearer sk-legacy-direct")));
-    assert!(seen.iter().any(|req| req.path == "/other/v1/chat/completions"
-        && !req
-            .auth
-            .as_deref()
-            .is_some_and(|auth| auth.contains("sk-legacy-direct"))));
+    assert!(seen
+        .iter()
+        .any(|req| req.path == "/other/v1/chat/completions"
+            && !req
+                .auth
+                .as_deref()
+                .is_some_and(|auth| auth.contains("sk-legacy-direct"))));
 }
 
- #[tokio::test]
+#[tokio::test]
 async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_fake_bins() {
     let _env = env_lock();
     let (base, _state) = serve_mock().await;
@@ -346,128 +338,6 @@ async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_f
     assert!(service.has_owned_ollama());
     service.shutdown_owned_ollama(&config).await;
     assert!(!service.has_owned_ollama());
-}
-
-#[derive(Clone, Copy)]
-enum Round22Mode {
-    FailsThenSucceeds,
-    ToolsOk,
-    ContextExceeded,
-    StreamNonRetryable,
-    StreamOk,
-}
-
-struct Round22Provider {
-    calls: Arc<AtomicUsize>,
-    mode: Round22Mode,
-}
-
-#[async_trait]
-impl Provider for Round22Provider {
-    async fn chat_with_system(
-        &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        match self.mode {
-            Round22Mode::ContextExceeded => {
-                anyhow::bail!("400 context_length_exceeded: maximum context length")
-            }
-            _ => Ok("system ok".to_string()),
-        }
-    }
-
-    async fn chat_with_history(
-        &self,
-        _messages: &[ChatMessage],
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        match self.mode {
-            Round22Mode::ContextExceeded => {
-                anyhow::bail!("400 context_length_exceeded: maximum context length")
-            }
-            _ => Ok("history ok".to_string()),
-        }
-    }
-
-    async fn chat(
-        &self,
-        _request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
-        match self.mode {
-            Round22Mode::FailsThenSucceeds => {
-                let attempt = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
-                if attempt == 1 {
-                    anyhow::bail!("503 service unavailable Retry-After: 0")
-                }
-                Ok(ChatResponse {
-                    text: Some("chat recovered".to_string()),
-                    ..ChatResponse::default()
-                })
-            }
-            Round22Mode::ContextExceeded => {
-                anyhow::bail!("400 context_length_exceeded: maximum context length")
-            }
-            _ => Ok(ChatResponse {
-                text: Some("chat ok".to_string()),
-                ..ChatResponse::default()
-            }),
-        }
-    }
-
-    async fn chat_with_tools(
-        &self,
-        _messages: &[ChatMessage],
-        _tools: &[Value],
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
-        Ok(ChatResponse {
-            text: Some("tool response".to_string()),
-            tool_calls: vec![ToolCall {
-                id: "round22-call".to_string(),
-                name: "round22_tool".to_string(),
-                arguments: "{}".to_string(),
-                extra_content: None,
-            }],
-            usage: None,
-            reasoning_content: None,
-        })
-    }
-
-    fn supports_streaming(&self) -> bool {
-        matches!(
-            self.mode,
-            Round22Mode::StreamNonRetryable | Round22Mode::StreamOk
-        )
-    }
-
-    fn stream_chat_with_system(
-        &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-        _options: StreamOptions,
-    ) -> stream::BoxStream<'static, StreamResult<StreamChunk>> {
-        match self.mode {
-            Round22Mode::StreamNonRetryable => {
-                stream::once(async { Err(StreamError::Provider("invalid api key".to_string())) })
-                    .boxed()
-            }
-            Round22Mode::StreamOk => stream::iter(vec![
-                Ok(StreamChunk::delta("stream ok")),
-                Ok(StreamChunk::final_chunk()),
-            ])
-            .boxed(),
-            _ => stream::empty().boxed(),
-        }
-    }
 }
 
 async fn serve_mock() -> (String, MockState) {

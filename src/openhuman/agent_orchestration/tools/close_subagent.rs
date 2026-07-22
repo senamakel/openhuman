@@ -130,7 +130,6 @@ mod tests {
     };
     use crate::openhuman::config::AgentConfig;
     use crate::openhuman::context::prompt::ToolCallFormat;
-    use crate::openhuman::inference::provider::Provider;
     use crate::openhuman::memory::{
         Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
     };
@@ -233,13 +232,13 @@ mod tests {
     }
 
     fn parent_context(workspace_dir: &Path) -> ParentExecutionContext {
+        let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+            Arc::new(tinyagents::harness::testkit::ScriptedModel::new(Vec::new()));
         ParentExecutionContext {
             workspace_descriptor: None,
             agent_definition_id: "orchestrator".into(),
             allowed_subagent_ids: HashSet::new(),
-            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
-                NoopProvider,
-            )),
+            turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(model),
             all_tools: Arc::new(Vec::new()),
             all_tool_specs: Arc::new(Vec::new()),
             visible_tool_names: std::collections::HashSet::new(),
@@ -258,21 +257,6 @@ mod tests {
             session_parent_prefix: None,
             on_progress: None,
             run_queue: None,
-        }
-    }
-
-    struct NoopProvider;
-
-    #[async_trait::async_trait]
-    impl Provider for NoopProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok(String::new())
         }
     }
 

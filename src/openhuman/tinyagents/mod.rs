@@ -1453,6 +1453,15 @@ impl TurnModelSource {
         }
     }
 
+    /// Inject a model while supplying capability metadata that the model itself
+    /// does not expose (common for deterministic scripted tests).
+    pub(crate) fn from_model_with_profile(
+        model: TurnChatModel,
+        profile: tinyagents::harness::model::ModelProfile,
+    ) -> Self {
+        Self::from_model(Arc::new(ProfileOverrideModel::new(model, profile)))
+    }
+
     /// Build a crate-native source: [`build`](Self::build) constructs the tiered
     /// [`TurnModels`] from `(role, config)` via [`build_turn_models_crate`] rather
     /// than wrapping a provider in `ProviderModel`s. Used by the session-builder producer

@@ -46,9 +46,6 @@ mod topology;
 pub(crate) use crate::openhuman::agent::message_convert::{
     chat_message_to_message, reasoning_from_content, ta_call_to_oh_call,
 };
-#[cfg(test)]
-pub(crate) use convert::spec_to_schema;
-
 use std::sync::Arc;
 
 use anyhow::Result;

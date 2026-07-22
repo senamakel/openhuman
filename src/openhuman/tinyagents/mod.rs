@@ -1593,7 +1593,9 @@ impl TurnModelSource {
             let supports_vision = profile.modalities.image_in;
             let context_window = context_window.or(profile.max_input_tokens);
             let primary: TurnChatModel = Arc::new(
-                ProfileOverrideModel::new(direct.clone(), profile).with_request_model(model),
+                ProfileOverrideModel::new(direct.clone(), profile)
+                    .with_request_model(model)
+                    .with_request_temperature(temperature),
             );
             return Ok(TurnModels {
                 primary,

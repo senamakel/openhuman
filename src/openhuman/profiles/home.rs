@@ -311,10 +311,11 @@ pub fn ensure_profile_home(
 ///
 /// When `soul_md` was already empty/`None`, the file is left untouched so a
 /// manual `SOUL.md` remains authoritative. A transition from a previously
-/// non-empty inline value to empty removes the file that Settings had synced,
-/// allowing the normal root fallback to take effect. Only ever called from the
-/// upsert path; select must not clobber a manually edited file with a stale
-/// inline value. Returns `Ok(true)` when the file was rewritten or removed.
+/// non-empty inline value to empty replaces the synced file with an empty
+/// tombstone, allowing the normal root fallback while preventing a later
+/// `ensure_profile_home` call from re-seeding the default template. Only ever
+/// called from the upsert path; select must not clobber a manually edited file
+/// with a stale inline value. Returns `Ok(true)` when the file was rewritten.
 pub fn sync_soul_md_on_upsert(
     workspace_dir: &Path,
     profile: &AgentProfile,
@@ -332,8 +333,10 @@ pub fn sync_soul_md_on_upsert(
     let soul_path = home.join("SOUL.md");
 
     // Clearing a previously persisted inline soul is an explicit Settings edit:
-    // remove the file that prior inline value created. If inline was already
-    // empty, preserve any manual file exactly as before.
+    // replace the file that prior inline value created with an empty tombstone.
+    // `ensure_profile_home` treats that existing file as materialized, while
+    // `resolve_personality_soul` treats it as empty and falls back to root.
+    // If inline was already empty, preserve any manual file exactly as before.
     let desired = match profile
         .soul_md
         .as_ref()
@@ -346,17 +349,13 @@ pub fn sync_soul_md_on_upsert(
                 .map(str::trim)
                 .is_some_and(|value| !value.is_empty());
             if previously_inline {
-                match std::fs::remove_file(&soul_path) {
-                    Ok(()) => {
-                        tracing::debug!(
-                            profile_id = %profile.id,
-                            "[profiles][home] sync_soul_md_on_upsert: cleared synced SOUL.md"
-                        );
-                        return Ok(true);
-                    }
-                    Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
-                    Err(error) => return Err(error),
-                }
+                std::fs::create_dir_all(&home)?;
+                seed_file_atomic(&home, &soul_path, b"")?;
+                tracing::debug!(
+                    profile_id = %profile.id,
+                    "[profiles][home] sync_soul_md_on_upsert: cleared synced SOUL.md with tombstone"
+                );
+                return Ok(true);
             }
             tracing::debug!(
                 profile_id = %profile.id,
@@ -680,7 +679,7 @@ mod tests {
     }
 
     #[test]
-    fn sync_soul_md_on_upsert_removes_file_when_inline_is_cleared() {
+    fn sync_soul_md_on_upsert_persists_empty_tombstone_when_inline_is_cleared() {
         let ws = TempDir::new().unwrap();
         let action = TempDir::new().unwrap();
         let mut profile = test_profile("judy");
@@ -694,7 +693,12 @@ mod tests {
             sync_soul_md_on_upsert(ws.path(), &profile, Some("Settings identity"))
                 .expect("clear synced soul")
         );
-        assert!(!soul_path.exists());
+        assert_eq!(std::fs::read_to_string(&soul_path).unwrap(), "");
+
+        // Selecting/materializing the profile again must not resurrect the
+        // default profile template over the explicit clear.
+        ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure after clear");
+        assert_eq!(std::fs::read_to_string(&soul_path).unwrap(), "");
     }
 
     #[test]

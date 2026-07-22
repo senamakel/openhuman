@@ -1,6 +1,7 @@
 # TinyCortex Migration — Current-State Audit & Consolidated Plan (2026-07-22)
 
-**Status:** execution in progress on `feat/tinycortex-migration-2026-07-22`
+**Status:** implementation complete on `feat/tinycortex-migration-2026-07-22`;
+CI Full validation pending
 (companion to `tinyagents-migration-plan-2026-07-22.md`;
 supersedes the *status/phasing* in `tinycortex-memory-migration-plan.md`,
 `tinycortex-migration-spec.md`, `tinycortex-api-gap-audit.md`, and
@@ -350,6 +351,17 @@ re-export except deliberate facades recorded in the spec.
 - Docs: the five tinycortex docs + `src/openhuman/memory*/README.md` files +
   `gitbooks/developing/architecture.md` reflect the post-flip reality; this
   plan stamped done.
+
+### Execution record (2026-07-22)
+
+| Package | Result |
+| --- | --- |
+| WP-0 | TinyAgents unified at 2.1 across OpenHuman, TinyCortex, and TinyFlows; obsolete fork patch removed; TinyCortex CI covers `persona`; docs and phantom references repaired. TinyCortex intentionally tracks reviewed upstream commits rather than nonexistent tags. |
+| WP-1 | G1 count is zero. The ten-table namespace/document product tier is host-owned, so the complete `unified/` directory was renamed to `namespace_store/` instead of deleted as engine duplication. Its 153 targeted tests pass. |
+| WP-2 | The live default path was already TinyCortex-backed. D4 is CLOSED; dead Gmail duplicate removed; remaining provider task/profile projections explicitly classified as product policy. Provider tests pass (301). |
+| WP-3 | Concrete provider transports deduplicated into TinyAgents. The memory tree now uses a thin `ProviderEmbedder`; Ollama's 8k context/batch and missing-model guidance moved upstream before the host client was deleted. TinyAgents embedding tests pass (38); host library check passes. |
+| WP-4 | Archivist, search scoring/MMR, tool-memory type/store, tree-tool, jobs-alias, and unused seam type facades retired. Direct crate imports are canonical. Seam production code is 2,229 LOC (below the 2.5k exit target). |
+| WP-5 | Local focused validation is recorded above. The heavyweight repository-wide suite is delegated to the CI Full workflow per the requested testing preference. |
 
 ---
 

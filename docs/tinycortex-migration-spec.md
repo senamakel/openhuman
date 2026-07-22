@@ -149,7 +149,7 @@ traits confirmed present (§0.2).
 
 ---
 
-## 2. Deletion ledger (skeleton)
+## 2. Deletion ledger
 
 Every legacy engine file is deleted only when its module's **drift row is closed**, its **gaps are
 resolved**, and the **golden-workspace parity harness is green** for its flip. Counts from the host
@@ -172,6 +172,15 @@ audit SHA.
 | `memory_tools/` | 10 (1) | W7 | engine → `tool_memory/`; tool surface kept host |
 | `memory_search/` | 8 (0) | W5 | `vector`/`scoring` → crate `retrieval`/`score`; `tools/` kept host |
 | `memory/ingest_pipeline.rs` internals | (thin entry points kept) | W6 | `ingest_chat`/`ingest_document_with_scope` signatures unchanged; 11 call sites untouched |
+
+### 2026-07-22 consolidation actuals
+
+| Package | Actual result |
+| --- | --- |
+| WP-1 namespace tier | `memory_store/unified/` removed and re-homed byte-for-byte as `memory_store/namespace_store/`; G1 re-audit found zero `sqlite_conn()` call sites. The retained ten-table product store explains why total `memory_store` remains 17.7k LOC rather than the plan's speculative 9–10k target. |
+| WP-2 sync | The default provider `sync()` and `run_connection_sync` already call the TinyCortex engine. Deleted the dead host Gmail sync parser; renamed GitHub/Notion/Linear/ClickUp product projections from `sync.rs` to `normalization.rs`. D4.1-D4.4 are CLOSED. The retained 17.2k LOC is schedulers, bus/RPC, action tools/catalogs, credentials, profiles, post-processing, and product task projections; 6.9k LOC is provider catalogs/tools/normalization/profile/RPC alone. |
+| WP-3 embeddings | Deleted host OpenAI, Cohere, Voyage, general Ollama, memory-tree cloud, and memory-tree Ollama provider implementations (746 production LOC) plus their obsolete 828-line raw-coverage suite. Provider transport now has one implementation in TinyAgents; OpenHuman retains selection and credential/privacy adapters. |
+| WP-4 shims | Deleted `memory_archivist`, `memory_search::{scoring,vector}`, `memory_tools::{types,store}`, `memory_tree::tools`, and the `memory::jobs` alias. Removed the unused TinyCortex type facade; direct `tinycortex::memory::*` imports are the convention. The seam is 2,229 pre-test LOC. |
 
 **Kept host (never deleted):** `memory/{ops,schemas,schema,read_rpc,tools,query,tree_source,
 ingestion,util}`, `memory/{global,source_scope,chat,sync,preferences,remember,tree_policy,rpc_models,

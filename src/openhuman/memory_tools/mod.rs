@@ -35,13 +35,22 @@
 
 pub mod capture;
 pub mod prompt;
-pub mod store;
 #[cfg(test)]
 pub mod test_helpers;
 pub mod tools;
-pub mod types;
+
+use std::sync::Arc;
+
+use crate::openhuman::memory::Memory;
 
 pub use capture::ToolMemoryCaptureHook;
 pub use prompt::{render_tool_memory_rules, ToolMemoryRulesSection, TOOL_MEMORY_HEADING};
-pub use store::{tool_memory_store, ToolMemoryStore, TOOL_MEMORY_PROMPT_CAP};
-pub use types::{tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule, ToolMemorySource};
+pub use tinycortex::memory::tool_memory::store::{ToolMemoryStore, TOOL_MEMORY_PROMPT_CAP};
+pub use tinycortex::memory::tool_memory::types::{
+    tool_memory_namespace, ToolMemoryPriority, ToolMemoryRule, ToolMemorySource,
+};
+
+/// Build the crate-owned store over OpenHuman's shared memory object.
+pub fn tool_memory_store(memory: Arc<dyn Memory>) -> ToolMemoryStore {
+    ToolMemoryStore::new(memory)
+}

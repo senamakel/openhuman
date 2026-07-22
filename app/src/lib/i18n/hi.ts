@@ -7288,11 +7288,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'समर्पित वर्कस्पेस',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'फ़ाइल और टूल कार्यों के लिए इस प्रोफ़ाइल को अपनी खुद की वर्किंग डायरेक्टरी दें।',
-  'settings.profiles.editor.soulMdFile': 'पहचान फ़ाइल',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md फ़ाइल',
   'settings.profiles.editor.workspaceDir': 'वर्कस्पेस डायरेक्टरी',
   'settings.profiles.editor.skillsDir': 'स्किल निर्देशिका',
   'settings.profiles.editor.skillsDirHint':
-    'यहाँ रखे गए SKILL.md वर्कफ़्लो केवल इस प्रोफ़ाइल के लिए निजी हैं।',
+    'यहाँ रखी गई SKILL.md फ़ाइलें केवल इस प्रोफ़ाइल के लिए निजी हैं।',
   'settings.profiles.editor.all': 'सभी',
   'settings.profiles.editor.selected': 'चयनित',
   'settings.profiles.editor.addPlaceholder': 'आईडी टाइप करें, एंटर दबाएँ',

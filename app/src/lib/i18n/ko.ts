@@ -7205,11 +7205,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': '전용 작업 공간',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     '파일 및 도구 작업을 위해 이 프로필에 전용 작업 디렉터리를 부여합니다.',
-  'settings.profiles.editor.soulMdFile': '아이덴티티 파일',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md 파일',
   'settings.profiles.editor.workspaceDir': '작업 공간 디렉터리',
   'settings.profiles.editor.skillsDir': '기술 디렉터리',
   'settings.profiles.editor.skillsDirHint':
-    '여기에 넣은 SKILL.md 워크플로는 이 프로필에만 적용됩니다.',
+    '여기에 넣은 SKILL.md 파일은 이 프로필에만 적용됩니다.',
   'settings.profiles.editor.all': '전체',
   'settings.profiles.editor.selected': '선택됨',
   'settings.profiles.editor.addPlaceholder': '식별자를 입력하고 Enter를 누르세요',

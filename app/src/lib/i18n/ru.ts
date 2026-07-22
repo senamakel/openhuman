@@ -7376,11 +7376,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'Выделенное рабочее пространство',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'Выделить этому профилю собственный рабочий каталог для операций с файлами и инструментами.',
-  'settings.profiles.editor.soulMdFile': 'Файл идентичности',
+  'settings.profiles.editor.soulMdFile': 'Файл SOUL.md',
   'settings.profiles.editor.workspaceDir': 'Рабочий каталог',
   'settings.profiles.editor.skillsDir': 'Каталог навыков',
   'settings.profiles.editor.skillsDirHint':
-    'Рабочие процессы SKILL.md, размещённые здесь, доступны только этому профилю.',
+    'Файлы SKILL.md, размещённые здесь, доступны только этому профилю.',
   'settings.profiles.editor.all': 'Все',
   'settings.profiles.editor.selected': 'Выбранные',
   'settings.profiles.editor.addPlaceholder': 'Введите идентификатор и нажмите Enter',

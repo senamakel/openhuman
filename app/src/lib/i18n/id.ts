@@ -7325,11 +7325,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'Ruang kerja khusus',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'Berikan profil ini direktori kerjanya sendiri untuk operasi file dan alat.',
-  'settings.profiles.editor.soulMdFile': 'Berkas identitas',
+  'settings.profiles.editor.soulMdFile': 'Berkas SOUL.md',
   'settings.profiles.editor.workspaceDir': 'Direktori ruang kerja',
   'settings.profiles.editor.skillsDir': 'Direktori keterampilan',
   'settings.profiles.editor.skillsDirHint':
-    'Alur kerja SKILL.md yang ditempatkan di sini bersifat pribadi untuk profil ini.',
+    'File SKILL.md yang ditempatkan di sini bersifat pribadi untuk profil ini.',
   'settings.profiles.editor.all': 'Semua',
   'settings.profiles.editor.selected': 'Terpilih',
   'settings.profiles.editor.addPlaceholder': 'Ketik id, tekan Enter',

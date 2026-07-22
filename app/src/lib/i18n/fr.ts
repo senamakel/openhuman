@@ -7478,11 +7478,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'Espace de travail dédié',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'Donner à ce profil son propre répertoire de travail pour les opérations de fichiers et d’outils.',
-  'settings.profiles.editor.soulMdFile': 'Fichier d’identité',
+  'settings.profiles.editor.soulMdFile': 'Fichier SOUL.md',
   'settings.profiles.editor.workspaceDir': 'Répertoire de travail',
   'settings.profiles.editor.skillsDir': 'Répertoire des compétences',
   'settings.profiles.editor.skillsDirHint':
-    'Les workflows SKILL.md placés ici sont privés à ce profil.',
+    'Les fichiers SKILL.md placés ici sont privés à ce profil.',
   'settings.profiles.editor.all': 'Tous',
   'settings.profiles.editor.selected': 'Sélectionnés',
   'settings.profiles.editor.addPlaceholder': 'Saisissez un identifiant, puis Entrée',

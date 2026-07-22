@@ -461,6 +461,13 @@ describe('<CronJobFormModal />', () => {
     expect(picker.value).toBe('');
   });
 
+  it('associates the profile label with the select for screen readers', () => {
+    render(<CronJobFormModal {...makeProps({ profiles: sampleProfiles })} />);
+    // getByLabelText only resolves when the <label htmlFor> matches the select id.
+    const labelled = screen.getByLabelText('Agent profile') as HTMLSelectElement;
+    expect(labelled).toBe(screen.getByTestId('cron-form-profile'));
+  });
+
   it('hides the profile picker for shell jobs', () => {
     render(<CronJobFormModal {...makeProps({ profiles: sampleProfiles })} />);
     fireEvent.click(screen.getByTestId('cron-form-job-type-shell'));

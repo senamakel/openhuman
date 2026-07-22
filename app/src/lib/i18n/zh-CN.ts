@@ -6893,10 +6893,10 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': '专属工作区',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     '为此配置分配专属工作目录，用于文件和工具操作。',
-  'settings.profiles.editor.soulMdFile': '身份文件',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md 文件',
   'settings.profiles.editor.workspaceDir': '工作目录',
   'settings.profiles.editor.skillsDir': '技能目录',
-  'settings.profiles.editor.skillsDirHint': '放在此处的 SKILL.md 工作流仅对该配置私有。',
+  'settings.profiles.editor.skillsDirHint': '放在此处的 SKILL.md 文件仅对该配置私有。',
   'settings.profiles.editor.all': '全部',
   'settings.profiles.editor.selected': '指定',
   'settings.profiles.editor.addPlaceholder': '输入标识后按回车',

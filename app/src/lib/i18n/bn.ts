@@ -7293,11 +7293,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'নিবেদিত ওয়ার্কস্পেস',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'ফাইল ও টুল কাজের জন্য এই প্রোফাইলকে নিজস্ব ওয়ার্কিং ডিরেক্টরি দিন।',
-  'settings.profiles.editor.soulMdFile': 'পরিচয় ফাইল',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md ফাইল',
   'settings.profiles.editor.workspaceDir': 'ওয়ার্কস্পেস ডিরেক্টরি',
   'settings.profiles.editor.skillsDir': 'স্কিল ডিরেক্টরি',
   'settings.profiles.editor.skillsDirHint':
-    'এখানে রাখা SKILL.md ওয়ার্কফ্লোগুলি শুধু এই প্রোফাইলের জন্য ব্যক্তিগত।',
+    'এখানে রাখা SKILL.md ফাইলগুলি শুধু এই প্রোফাইলের জন্য ব্যক্তিগত।',
   'settings.profiles.editor.all': 'সব',
   'settings.profiles.editor.selected': 'নির্বাচিত',
   'settings.profiles.editor.addPlaceholder': 'একটি আইডি লিখে এন্টার চাপুন',

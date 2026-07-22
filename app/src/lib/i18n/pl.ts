@@ -7403,11 +7403,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'Dedykowany obszar roboczy',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'Nadaj temu profilowi własny katalog roboczy do operacji na plikach i narzędziach.',
-  'settings.profiles.editor.soulMdFile': 'Plik tożsamości',
+  'settings.profiles.editor.soulMdFile': 'Plik SOUL.md',
   'settings.profiles.editor.workspaceDir': 'Katalog roboczy',
   'settings.profiles.editor.skillsDir': 'Katalog umiejętności',
   'settings.profiles.editor.skillsDirHint':
-    'Przepływy SKILL.md umieszczone tutaj są prywatne dla tego profilu.',
+    'Pliki SKILL.md umieszczone tutaj są prywatne dla tego profilu.',
   'settings.profiles.editor.all': 'Wszystkie',
   'settings.profiles.editor.selected': 'Wybrane',
   'settings.profiles.editor.addPlaceholder': 'Wpisz identyfikator i naciśnij Enter',

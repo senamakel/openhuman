@@ -7127,11 +7127,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'مساحة عمل مخصصة',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'امنح هذا الملف مجلد عمل خاص به لعمليات الملفات والأدوات.',
-  'settings.profiles.editor.soulMdFile': 'ملف الهوية',
+  'settings.profiles.editor.soulMdFile': 'ملف SOUL.md',
   'settings.profiles.editor.workspaceDir': 'مجلد مساحة العمل',
   'settings.profiles.editor.skillsDir': 'دليل المهارات',
   'settings.profiles.editor.skillsDirHint':
-    'ملفات سير عمل SKILL.md الموضوعة هنا خاصة بهذا الملف وحده.',
+    'ملفات SKILL.md الموضوعة هنا خاصة بهذا الملف الشخصي وحده.',
   'settings.profiles.editor.all': 'الكل',
   'settings.profiles.editor.selected': 'محدّد',
   'settings.profiles.editor.addPlaceholder': 'اكتب معرّفًا ثم اضغط Enter',

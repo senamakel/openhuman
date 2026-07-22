@@ -7509,11 +7509,11 @@ const messages: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'Dedizierter Arbeitsbereich',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'Gib diesem Profil ein eigenes Arbeitsverzeichnis für Datei- und Tool-Operationen.',
-  'settings.profiles.editor.soulMdFile': 'Identitätsdatei',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md-Datei',
   'settings.profiles.editor.workspaceDir': 'Arbeitsverzeichnis',
   'settings.profiles.editor.skillsDir': 'Skill-Verzeichnis',
   'settings.profiles.editor.skillsDirHint':
-    'Hier abgelegte SKILL.md-Workflows sind privat für dieses Profil.',
+    'Hier abgelegte SKILL.md-Dateien sind privat für dieses Profil.',
   'settings.profiles.editor.all': 'Alle',
   'settings.profiles.editor.selected': 'Ausgewählt',
   'settings.profiles.editor.addPlaceholder': 'Kennung eingeben und Enter drücken',

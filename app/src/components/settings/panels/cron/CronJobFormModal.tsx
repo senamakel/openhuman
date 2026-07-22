@@ -240,6 +240,7 @@ const CronJobFormModal = ({
           scheduleKind: params.schedule.kind,
           hasName: Boolean(params.name),
           hasSessionTarget: Boolean(params.session_target),
+          hasProfileAttribution: 'profile_id' in params,
           deleteAfterRun: params.delete_after_run,
         });
         await onCreate(params);
@@ -266,6 +267,9 @@ const CronJobFormModal = ({
           scheduleKind: patchSchedule?.kind ?? 'unknown',
           hasName: patch.name !== null,
           hasSessionTarget: 'session_target' in patch,
+          // Whether the patch (re)attributes a profile (truthy) vs clears/omits
+          // it (null/absent). Privacy-safe: boolean only, never the profile id.
+          hasProfileAttribution: Boolean(patch.profile_id),
           deleteAfterRun: patch.delete_after_run,
         });
         await onUpdate(job.id, patch);
@@ -589,10 +593,13 @@ const CronJobFormModal = ({
           {/* Agent profile attribution (agent only) */}
           {jobType === 'agent' && (
             <div>
-              <label className="block text-xs font-medium text-content-secondary mb-1">
+              <label
+                htmlFor="cron-form-profile"
+                className="block text-xs font-medium text-content-secondary mb-1">
                 {t('settings.cron.jobs.formProfile')}
               </label>
               <select
+                id="cron-form-profile"
                 data-testid="cron-form-profile"
                 value={profileId}
                 onChange={e => setProfileId(e.target.value)}

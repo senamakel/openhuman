@@ -179,7 +179,7 @@ describe('ProfileEditorPage', () => {
 
   it('hides the resolved read-only path rows when the profile has none', () => {
     renderAt('/settings/profiles/edit/writer', [profile({ id: 'writer' })]);
-    expect(screen.queryByText('Identity file')).not.toBeInTheDocument();
+    expect(screen.queryByText('SOUL.md file')).not.toBeInTheDocument();
     expect(screen.queryByText('Workspace directory')).not.toBeInTheDocument();
     expect(screen.queryByText('Skills directory')).not.toBeInTheDocument();
   });
@@ -195,7 +195,7 @@ describe('ProfileEditorPage', () => {
     expect(screen.getByText('Skills directory')).toBeInTheDocument();
     expect(screen.getByText('/workspace/personalities/writer/skills')).toBeInTheDocument();
     expect(
-      screen.getByText('SKILL.md workflows placed here are private to this profile.')
+      screen.getByText('SKILL.md files placed here are private to this profile.')
     ).toBeInTheDocument();
   });
 });

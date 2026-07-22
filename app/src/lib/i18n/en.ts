@@ -7435,11 +7435,11 @@ const en: TranslationMap = {
   'settings.profiles.editor.dedicatedWorkspace': 'Dedicated workspace',
   'settings.profiles.editor.dedicatedWorkspaceHint':
     'Give this profile its own working directory for file and tool operations.',
-  'settings.profiles.editor.soulMdFile': 'Identity file',
+  'settings.profiles.editor.soulMdFile': 'SOUL.md file',
   'settings.profiles.editor.workspaceDir': 'Workspace directory',
   'settings.profiles.editor.skillsDir': 'Skills directory',
   'settings.profiles.editor.skillsDirHint':
-    'SKILL.md workflows placed here are private to this profile.',
+    'SKILL.md files placed here are private to this profile.',
   'settings.profiles.editor.all': 'All',
   'settings.profiles.editor.selected': 'Selected',
   'settings.profiles.editor.addPlaceholder': 'Type an id, press Enter',

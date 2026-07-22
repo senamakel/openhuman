@@ -55,17 +55,19 @@ feature gates; the crate stays impossible to gate away (26+ domains consume it).
 | --- | --- | --- |
 | Host requirement | `tinyagents = { version = "2.1", features = ["sqlite"] }` | root `Cargo.toml:107` |
 | Path override | `[patch.crates-io] tinyagents = { path = "vendor/tinyagents" }` | `Cargo.toml:677` |
-| Historical fork patch | Removed in WP-0; no dependency uses the former fork URL | root and Tauri manifests |
+| Historical fork patch | Removed in WP-0; TinyCortex now declares crates.io `2.1`, so the existing host path patch unifies its dependency too | root and Tauri manifests; TinyCortex #121 |
 | Vendored crate | `version = "2.1.0"`, tag `v2.1.0` / `2583fcc`, edition 2024, GPL-3.0-only | `vendor/tinyagents/Cargo.toml`, gitlink |
 | Included since the audit | `bytes` bump (#59), **`BarrierRelief` graph fan-in primitive (#62)**, v2.0/v2.1 release commits | submodule history |
 | TinyFlows requirement | `tinyagents = "2.1"`; prevents Cargo resolving a second 1.9 crate | `vendor/tinyflows/Cargo.toml` |
+| TinyCortex requirement | `tinyagents = "2.1"`; its repo-local patch serves standalone development while host patches select the canonical copy | `vendor/tinycortex/Cargo.toml` |
 | Drift ledger | Current pin `v2.1.0` / `2583fcc` | `docs/tinyagents-drift-ledger.md` §Anchors |
 
 WP-0 bumped the gitlink to the released v2.1.0 manifest, regenerated both Cargo
-worlds, removed the unused fork-source patch, and aligned TinyFlows to 2.1.
-Before that TinyFlows alignment, correct dependency resolution introduced a
-second crates.io TinyAgents 1.9 package; `cargo tree` now proves the root and
-TinyFlows both use the vendored 2.1 package.
+worlds, removed the unused fork-source patch, and aligned TinyFlows and
+TinyCortex to 2.1. Before those transitive alignments, correct dependency
+resolution introduced separate TinyAgents 1.9 and nested-path 2.0 packages;
+the lockfiles now prove the root, TinyFlows, and TinyCortex all use the one
+vendored 2.1 package.
 
 ---
 
@@ -276,7 +278,9 @@ force).
 4. Fix the §4.4 broken references, create the deletion ledger, and replace the
    phantom numbered-plan references with real WP-5/C4 anchors.
 5. Remove the stale fork-source patch after verifying that no dependency uses
-   it.
+   it. Align TinyCortex's nested path dependency through a crates.io `2.1`
+   declaration plus its repo-local development patch, so the host's canonical
+   path patch produces one trait identity (TinyCortex #121).
 
 **Exit:** `Cargo.toml`, submodule, lockfiles, and ledger all agree on one
 version; zero dangling `docs/tinyagents*` references (`grep -rn` clean).

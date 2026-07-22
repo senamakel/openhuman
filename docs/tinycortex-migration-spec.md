@@ -4,7 +4,8 @@
 is active (§0.4); W1 seam + W2 type re-export + W3-chunks partial landed; **drift closure COMPLETE**
 (**D3** via #59, **D2** via tinycortex#63, **D1** via tinycortex#64; gitlink `a8e10f7`) — so **W4
 (queue) and W7 (conversations) are unblocked**. Anchors the migration to exact reviewed SHAs and ties
-together the drift, gap, and parity ledgers. Modeled on `docs/tinyagents-migration-spec.md` + its
+together the drift, gap, and parity ledgers. Modeled on
+`docs/tinyagents-migration-plan-2026-07-22.md` and its
 deletion ledger.
 
 **Companion plan:** [`tinycortex-memory-migration-plan.md`](tinycortex-memory-migration-plan.md)

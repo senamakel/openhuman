@@ -1,8 +1,9 @@
 # TinyAgents Port — Plan & Audit (inference / tools / agent_orchestration)
 
-**Status:** Phase 1 partial host cutover — TinyAgents `v1.7.1` is tagged and
-the host now pins it; `SchemaCleanr`, the generic model-context table, and the
-context-preserving `invoke_stream` path are crate-backed.
+**Status:** superseded on 2026-07-22 by
+[`tinyagents-migration-plan-2026-07-22.md`](tinyagents-migration-plan-2026-07-22.md).
+This document is retained as historical design detail; its version pins,
+phase status, and present-tense file inventory are not current.
 **Anchor precedent:** the TinyAgents harness migration (#4249 / #4399 / #4473) and the TinyCortex memory migration plan (`docs/tinycortex-memory-migration-plan.md`).
 **Target:** move the genuinely framework-shaped parts of `src/openhuman/inference/`, `src/openhuman/tools/`, and `src/openhuman/agent_orchestration/` down into the `tinyagents` crate (vendored git submodule at **`vendor/tinyagents`**, `https://github.com/tinyhumansai/tinyagents`), and delete the in-tree duplicates in favor of crate primitives.
 

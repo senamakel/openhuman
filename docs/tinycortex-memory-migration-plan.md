@@ -103,7 +103,7 @@ This phase produces documents and upstream issues only; it is the gate for every
 
 **0.5 Type-unification decision.** Host `memory::traits` types and crate types are wire-compatible twins. Decide: host re-exports crate types (preferred — one source of truth, 30+ consumer sites unchanged via `pub use`), vs. keeping host types + `From` conversions (fallback if serde/API divergence is found in 0.3). Special care: `MemoryTaint` is **security-critical provenance** (fails closed to `ExternalSync`, drives external-effect-tool gating) — its semantics, serde representation, and fail-closed defaults must be proven identical before re-exporting.
 
-**0.6 Spec doc.** Write `docs/tinycortex-migration-spec.md` version-anchored to exact reviewed SHAs (host + tinycortex), with the ownership lists above, the drift/gap/parity ledgers, and a **deletion ledger** skeleton (every legacy file, with preconditions for deletion) — directly modeled on `docs/tinyagents-migration-spec.md` + `99-deletion-ledger.md`.
+**0.6 Spec doc.** Write `docs/tinycortex-migration-spec.md` version-anchored to exact reviewed SHAs (host + tinycortex), with the ownership lists above, the drift/gap/parity ledgers, and a **deletion ledger** skeleton (every legacy file, with preconditions for deletion) — directly modeled on `docs/tinyagents-migration-plan-2026-07-22.md` + `docs/tinyagents-full-migration-plan/99-deletion-ledger.md`.
 
 ---
 

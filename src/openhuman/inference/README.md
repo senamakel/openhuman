@@ -13,8 +13,8 @@ Unified inference domain: the canonical home for everything LLM/STT/TTS/embeddin
 - Expose an OpenAI-compatible `/v1/*` HTTP endpoint guarded by a stable user-managed external bearer.
 - Detect device hardware profile and recommend/apply local model presets/tiers.
 - Maintain the built-in BYOK provider preset catalog used by Connections → API keys → LLM.
-  The current matrix lives in `docs/inference-provider-catalog.md`; credentials
-  are stored under `provider:<slug>` in the auth-profile store.
+  The current matrix is `config/schema/cloud_providers.rs`; credentials are
+  stored under `provider:<slug>` in the auth-profile store.
 
 ## Key files
 

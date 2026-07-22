@@ -1,4 +1,4 @@
-//! Per-model temperature suppression helpers.
+//! Host-owned per-model temperature suppression helpers.
 //!
 //! Some models (OpenAI o-series, GPT-5 reasoning variants) reject the
 //! `temperature` field in the request body and return an error when it is

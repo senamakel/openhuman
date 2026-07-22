@@ -34,6 +34,7 @@ pub mod presets;
 pub mod provider;
 mod schemas;
 pub mod sentiment;
+pub mod temperature;
 pub mod types;
 pub mod voice;
 

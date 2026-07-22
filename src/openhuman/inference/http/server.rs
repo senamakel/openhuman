@@ -131,7 +131,7 @@ async fn chat_completions_handler(
     // check on the outbound body, so this is belt-and-suspenders for logging.
     let temperature = {
         let raw = req.temperature.unwrap_or(config.default_temperature);
-        let suppressed = crate::openhuman::inference::provider::temperature::temperature_for_model(
+        let suppressed = crate::openhuman::inference::temperature::temperature_for_model(
             &model_id, raw, &config,
         );
         if suppressed.is_none() && req.temperature.is_some() {

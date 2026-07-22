@@ -546,7 +546,7 @@ async fn openai_compat_bearer_auth_sends_authorization_header() {
 #[test]
 fn temperature_helper_suppresses_o1_by_default_config() {
     use openhuman_core::openhuman::config::Config;
-    use openhuman_core::openhuman::inference::provider::temperature::temperature_for_model;
+    use openhuman_core::openhuman::inference::temperature::temperature_for_model;
 
     let config = Config::default();
 

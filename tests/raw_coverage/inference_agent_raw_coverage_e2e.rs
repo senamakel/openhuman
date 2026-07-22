@@ -133,9 +133,7 @@ use openhuman_core::openhuman::inference::provider::factory::{
     BYOK_INCOMPLETE_SENTINEL,
 };
 use openhuman_core::openhuman::inference::provider::openhuman_backend::OpenHumanBackendProvider;
-use openhuman_core::openhuman::inference::provider::temperature::{
-    glob_match, temperature_for_model,
-};
+use openhuman_core::openhuman::inference::temperature::{glob_match, temperature_for_model};
 use openhuman_core::openhuman::inference::provider::thread_context::{
     current_thread_id, with_thread_id,
 };

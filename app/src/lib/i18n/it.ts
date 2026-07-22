@@ -7419,6 +7419,14 @@ const messages: TranslationMap = {
     'Flussi di lavoro che questo profilo può elencare ed eseguire.',
   'settings.profiles.editor.mcpServers': 'Server MCP',
   'settings.profiles.editor.mcpServersHint': 'Server MCP raggiungibili da questo profilo.',
+  'settings.profiles.editor.dedicatedMemory': 'Memoria dedicata',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Assegna a questo profilo una memoria propria invece di condividere quella predefinita.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Area di lavoro dedicata',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Assegna a questo profilo una propria directory di lavoro per le operazioni su file e strumenti.',
+  'settings.profiles.editor.soulMdFile': 'File di identità',
+  'settings.profiles.editor.workspaceDir': 'Directory di lavoro',
   'settings.profiles.editor.all': 'Tutti',
   'settings.profiles.editor.selected': 'Selezionati',
   'settings.profiles.editor.addPlaceholder': 'Digita un identificativo e premi Invio',

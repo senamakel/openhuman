@@ -7314,6 +7314,14 @@ const messages: TranslationMap = {
     'Alur kerja yang dapat didaftar dan dijalankan profil ini.',
   'settings.profiles.editor.mcpServers': 'Server MCP',
   'settings.profiles.editor.mcpServersHint': 'Server MCP yang dapat dijangkau profil ini.',
+  'settings.profiles.editor.dedicatedMemory': 'Memori khusus',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Berikan profil ini memorinya sendiri alih-alih berbagi memori bawaan.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Ruang kerja khusus',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Berikan profil ini direktori kerjanya sendiri untuk operasi file dan alat.',
+  'settings.profiles.editor.soulMdFile': 'Berkas identitas',
+  'settings.profiles.editor.workspaceDir': 'Direktori ruang kerja',
   'settings.profiles.editor.all': 'Semua',
   'settings.profiles.editor.selected': 'Terpilih',
   'settings.profiles.editor.addPlaceholder': 'Ketik id, tekan Enter',

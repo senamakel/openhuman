@@ -7282,6 +7282,14 @@ const messages: TranslationMap = {
   'settings.profiles.editor.skillsHint': 'এই প্রোফাইল যেসব ওয়ার্কফ্লো তালিকাভুক্ত ও চালাতে পারে।',
   'settings.profiles.editor.mcpServers': 'MCP সার্ভার',
   'settings.profiles.editor.mcpServersHint': 'এই প্রোফাইল যেসব MCP সার্ভারে পৌঁছাতে পারে।',
+  'settings.profiles.editor.dedicatedMemory': 'নিবেদিত মেমরি',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'ডিফল্ট মেমরি ভাগ করার পরিবর্তে এই প্রোফাইলকে নিজস্ব মেমরি দিন।',
+  'settings.profiles.editor.dedicatedWorkspace': 'নিবেদিত ওয়ার্কস্পেস',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'ফাইল ও টুল কাজের জন্য এই প্রোফাইলকে নিজস্ব ওয়ার্কিং ডিরেক্টরি দিন।',
+  'settings.profiles.editor.soulMdFile': 'পরিচয় ফাইল',
+  'settings.profiles.editor.workspaceDir': 'ওয়ার্কস্পেস ডিরেক্টরি',
   'settings.profiles.editor.all': 'সব',
   'settings.profiles.editor.selected': 'নির্বাচিত',
   'settings.profiles.editor.addPlaceholder': 'একটি আইডি লিখে এন্টার চাপুন',

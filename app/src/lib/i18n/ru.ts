@@ -7365,6 +7365,14 @@ const messages: TranslationMap = {
   'settings.profiles.editor.mcpServers': 'Серверы MCP',
   'settings.profiles.editor.mcpServersHint':
     'Серверы MCP, к которым может обращаться этот профиль.',
+  'settings.profiles.editor.dedicatedMemory': 'Выделенная память',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Выделить этому профилю собственную память вместо общей памяти по умолчанию.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Выделенное рабочее пространство',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Выделить этому профилю собственный рабочий каталог для операций с файлами и инструментами.',
+  'settings.profiles.editor.soulMdFile': 'Файл идентичности',
+  'settings.profiles.editor.workspaceDir': 'Рабочий каталог',
   'settings.profiles.editor.all': 'Все',
   'settings.profiles.editor.selected': 'Выбранные',
   'settings.profiles.editor.addPlaceholder': 'Введите идентификатор и нажмите Enter',

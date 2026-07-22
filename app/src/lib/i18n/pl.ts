@@ -7392,6 +7392,14 @@ const messages: TranslationMap = {
     'Przepływy pracy, które ten profil może wyświetlać i uruchamiać.',
   'settings.profiles.editor.mcpServers': 'Serwery MCP',
   'settings.profiles.editor.mcpServersHint': 'Serwery MCP, do których ma dostęp ten profil.',
+  'settings.profiles.editor.dedicatedMemory': 'Dedykowana pamięć',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Nadaj temu profilowi własną pamięć zamiast korzystać z pamięci współdzielonej.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Dedykowany obszar roboczy',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Nadaj temu profilowi własny katalog roboczy do operacji na plikach i narzędziach.',
+  'settings.profiles.editor.soulMdFile': 'Plik tożsamości',
+  'settings.profiles.editor.workspaceDir': 'Katalog roboczy',
   'settings.profiles.editor.all': 'Wszystkie',
   'settings.profiles.editor.selected': 'Wybrane',
   'settings.profiles.editor.addPlaceholder': 'Wpisz identyfikator i naciśnij Enter',

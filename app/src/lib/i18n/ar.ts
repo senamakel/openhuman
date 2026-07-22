@@ -7116,6 +7116,14 @@ const messages: TranslationMap = {
   'settings.profiles.editor.skillsHint': 'سير العمل الذي يمكن لهذا الملف سرده وتشغيله.',
   'settings.profiles.editor.mcpServers': 'خوادم MCP',
   'settings.profiles.editor.mcpServersHint': 'خوادم MCP التي يمكن لهذا الملف الوصول إليها.',
+  'settings.profiles.editor.dedicatedMemory': 'ذاكرة مخصصة',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'امنح هذا الملف ذاكرته الخاصة بدلاً من مشاركة الذاكرة الافتراضية.',
+  'settings.profiles.editor.dedicatedWorkspace': 'مساحة عمل مخصصة',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'امنح هذا الملف مجلد عمل خاص به لعمليات الملفات والأدوات.',
+  'settings.profiles.editor.soulMdFile': 'ملف الهوية',
+  'settings.profiles.editor.workspaceDir': 'مجلد مساحة العمل',
   'settings.profiles.editor.all': 'الكل',
   'settings.profiles.editor.selected': 'محدّد',
   'settings.profiles.editor.addPlaceholder': 'اكتب معرّفًا ثم اضغط Enter',

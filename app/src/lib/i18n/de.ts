@@ -7498,6 +7498,14 @@ const messages: TranslationMap = {
     'Workflows, die dieses Profil auflisten und ausführen kann.',
   'settings.profiles.editor.mcpServers': 'MCP-Server',
   'settings.profiles.editor.mcpServersHint': 'MCP-Server, die dieses Profil erreichen kann.',
+  'settings.profiles.editor.dedicatedMemory': 'Dediziertes Gedächtnis',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Gib diesem Profil ein eigenes Gedächtnis, statt das Standardgedächtnis zu teilen.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Dedizierter Arbeitsbereich',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Gib diesem Profil ein eigenes Arbeitsverzeichnis für Datei- und Tool-Operationen.',
+  'settings.profiles.editor.soulMdFile': 'Identitätsdatei',
+  'settings.profiles.editor.workspaceDir': 'Arbeitsverzeichnis',
   'settings.profiles.editor.all': 'Alle',
   'settings.profiles.editor.selected': 'Ausgewählt',
   'settings.profiles.editor.addPlaceholder': 'Kennung eingeben und Enter drücken',

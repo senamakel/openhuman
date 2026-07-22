@@ -7401,6 +7401,14 @@ const messages: TranslationMap = {
     'Fluxos de trabalho que este perfil pode listar e executar.',
   'settings.profiles.editor.mcpServers': 'Servidores MCP',
   'settings.profiles.editor.mcpServersHint': 'Servidores MCP que este perfil pode acessar.',
+  'settings.profiles.editor.dedicatedMemory': 'Memória dedicada',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Dê a este perfil sua própria memória em vez de compartilhar a memória padrão.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Espaço de trabalho dedicado',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Dê a este perfil seu próprio diretório de trabalho para operações de arquivos e ferramentas.',
+  'settings.profiles.editor.soulMdFile': 'Arquivo de identidade',
+  'settings.profiles.editor.workspaceDir': 'Diretório de trabalho',
   'settings.profiles.editor.all': 'Todos',
   'settings.profiles.editor.selected': 'Selecionados',
   'settings.profiles.editor.addPlaceholder': 'Digite um identificador e pressione Enter',

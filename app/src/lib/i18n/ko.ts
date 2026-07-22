@@ -7194,6 +7194,14 @@ const messages: TranslationMap = {
   'settings.profiles.editor.skillsHint': '이 프로필이 나열하고 실행할 수 있는 워크플로.',
   'settings.profiles.editor.mcpServers': 'MCP 서버',
   'settings.profiles.editor.mcpServersHint': '이 프로필이 접근할 수 있는 MCP 서버.',
+  'settings.profiles.editor.dedicatedMemory': '전용 메모리',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    '기본 메모리를 공유하는 대신 이 프로필에 전용 메모리를 부여합니다.',
+  'settings.profiles.editor.dedicatedWorkspace': '전용 작업 공간',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    '파일 및 도구 작업을 위해 이 프로필에 전용 작업 디렉터리를 부여합니다.',
+  'settings.profiles.editor.soulMdFile': '아이덴티티 파일',
+  'settings.profiles.editor.workspaceDir': '작업 공간 디렉터리',
   'settings.profiles.editor.all': '전체',
   'settings.profiles.editor.selected': '선택됨',
   'settings.profiles.editor.addPlaceholder': '식별자를 입력하고 Enter를 누르세요',

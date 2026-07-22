@@ -7424,6 +7424,14 @@ const en: TranslationMap = {
   'settings.profiles.editor.skillsHint': 'Workflows this profile can list and run.',
   'settings.profiles.editor.mcpServers': 'MCP servers',
   'settings.profiles.editor.mcpServersHint': 'MCP servers this profile can reach.',
+  'settings.profiles.editor.dedicatedMemory': 'Dedicated memory',
+  'settings.profiles.editor.dedicatedMemoryHint':
+    'Give this profile its own memory instead of sharing the default one.',
+  'settings.profiles.editor.dedicatedWorkspace': 'Dedicated workspace',
+  'settings.profiles.editor.dedicatedWorkspaceHint':
+    'Give this profile its own working directory for file and tool operations.',
+  'settings.profiles.editor.soulMdFile': 'Identity file',
+  'settings.profiles.editor.workspaceDir': 'Workspace directory',
   'settings.profiles.editor.all': 'All',
   'settings.profiles.editor.selected': 'Selected',
   'settings.profiles.editor.addPlaceholder': 'Type an id, press Enter',

@@ -1446,7 +1446,7 @@ pub fn resolve_keyed_transcript_path(workspace_dir: &Path, stem: &str) -> Result
 }
 
 pub fn resolve_keyed_transcript_path_in_dir(raw_dir: &Path, stem: &str) -> Result<PathBuf> {
-    fs::create_dir_all(&raw_dir)
+    fs::create_dir_all(raw_dir)
         .with_context(|| format!("create session_raw dir {}", raw_dir.display()))?;
     let sanitized = sanitize_stem(stem);
     Ok(raw_dir.join(format!("{sanitized}.jsonl")))

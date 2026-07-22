@@ -313,6 +313,31 @@ Notable structure behind these medians:
   blocks, but only 5.0 MB peak live heap and 3.1 MB live at exit, again
   showing RSS is mostly not live heap data.
 
+### Fleet, instances, and runtime baselines (2026-07-22, post-PII-prefilter)
+
+`library-fleet.sh` sweep (default build, 3 repeats, 3 turns/agent, 200 ms
+mock latency, 2 worker threads, target 1000 agents / 2048 MiB):
+
+| N agents | Marginal KiB/agent | Settled MiB | Idle CPU ms/10s | Threads | fds | p95 turn ms | Projected MiB @1000 | Fits |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| 50 | 1,985 | 223 | 3 | 71 | 420 | 2,848 | 1,956 | yes |
+| 100 | 1,866 | 356 | 3 | 123 | 820 | 5,402 | 1,840 | yes |
+| 500 | 1,770 | 1,393 | 3 | 211 | 3,220 | 25,484 | 1,747 | yes |
+
+`library-instances.sh` (many-processes model, `agent-turn` held 20 s):
+~47.8-48.2 MiB per instance flat at N=10/25/50 → roughly 42 instances per
+2 GiB by sum-RSS (upper bound; macOS has no PSS). The one-process fleet
+model is ~25x denser than the per-process model.
+
+Runtime/subagent scenarios: `skill-run` measures a real `node` child at
+~72-75 MB RSS (~121 MB process tree vs ~51 MB self) — the basis of the
+runtime-pooling issue (tinyhumansai/openhuman#5106); `subagent-storm` shows
+~0.78 MiB marginal per additional parallel subagent (K=8→32 cross-width).
+
+Watch-items from the sweep: thread count grows ~0.35/agent (needs
+attribution + cap before real 1000-agent runs), and p95 latency at N=500 on
+2 workers shows CPU saturation is the load constraint, not memory.
+
 ## See also
 
 - [`docs/resource-profiling-session-2026-07-21.md`](resource-profiling-session-2026-07-21.md) — the full manual investigation (deep attribution, cold-path CPU, library-design implications, recommended optimization order).

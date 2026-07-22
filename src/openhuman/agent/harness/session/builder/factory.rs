@@ -326,6 +326,41 @@ impl Agent {
                 "[profiles] applying per-profile session gate"
             );
         }
+
+        // Section D — per-profile dedicated workspace. When the active profile
+        // opts into `dedicated_workspace` (and its id passes validation), derive
+        // a `WorkspaceDescriptor` rooted at `<action_dir>/profiles/<id>` and
+        // thread it into the top-level chat turn so acting tools (shell/file/git)
+        // resolve their default cwd there. Because the dir is under `action_dir`,
+        // `SecurityPolicy` already permits it — no hardening change, and the
+        // agent's broad write root is left intact (cross-profile write guarding
+        // is a deliberate follow-up). `None` (the common case) preserves the
+        // shared-`action_dir` cwd behaviour byte-for-byte.
+        let profile_workspace_descriptor: Option<tinyagents::harness::workspace::WorkspaceDescriptor> =
+            profile
+                .and_then(|p| {
+                    crate::openhuman::profiles::dedicated_workspace_dir(&config.action_dir, p)
+                        .map(|dir| (p.id.clone(), dir))
+                })
+                .map(|(profile_id, dir)| {
+                    if let Err(e) = std::fs::create_dir_all(&dir) {
+                        tracing::warn!(
+                            profile_id = %profile_id,
+                            dir = %dir.display(),
+                            error = %e,
+                            "[profiles] failed to create dedicated workspace dir; \
+                             tools will still target it as cwd"
+                        );
+                    }
+                    tracing::debug!(
+                        profile_id = %profile_id,
+                        dir = %dir.display(),
+                        "[profiles] session bound to dedicated workspace as default cwd"
+                    );
+                    tinyagents::harness::workspace::WorkspaceDescriptor::new(dir)
+                        .with_policy_id(format!("openhuman.profile:{profile_id}"))
+                });
+
         let runtime: Arc<dyn host_runtime::RuntimeAdapter> = Arc::from(
             host_runtime::create_runtime(&config.runtime, config.shell.hide_window)?,
         );
@@ -1186,6 +1221,7 @@ impl Agent {
             .temperature(effective_temperature)
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())
+            .workspace_descriptor(profile_workspace_descriptor)
             .workflows(crate::openhuman::skills::load_workflow_metadata(
                 &config.workspace_dir,
             ))
@@ -1428,5 +1464,67 @@ mod provider_role_tests {
             resolve_dispatcher_kind("pformat", true, "integrations_agent"),
             DispatcherKind::PFormat
         );
+    }
+}
+
+/// Section D — per-profile dedicated-workspace descriptor seam.
+///
+/// The session builder derives the top-level chat turn's workspace descriptor
+/// from `profiles::dedicated_workspace_dir` exactly as the tests below assert,
+/// then wraps it in a `WorkspaceDescriptor`. These tests pin that the descriptor
+/// root points at `<action_dir>/profiles/<id>` for an opted-in profile, and that
+/// shared/legacy profiles produce no descriptor (so the shared `action_dir` cwd
+/// is preserved).
+#[cfg(test)]
+mod profile_workspace_descriptor_tests {
+    use crate::openhuman::profiles::{dedicated_workspace_dir, store::built_in_default_profile};
+    use std::path::Path;
+
+    fn profile(id: &str, dedicated_workspace: bool) -> crate::openhuman::profiles::AgentProfile {
+        let mut p = built_in_default_profile();
+        p.id = id.to_string();
+        p.name = id.to_string();
+        p.built_in = false;
+        p.is_master = false;
+        p.memory_dir_suffix = None;
+        p.dedicated_workspace = dedicated_workspace;
+        p
+    }
+
+    /// Mirror the exact expression `build_session_agent_inner` uses to build the
+    /// descriptor, so this test tracks the production seam.
+    fn descriptor_for(
+        action_dir: &Path,
+        profile: &crate::openhuman::profiles::AgentProfile,
+    ) -> Option<tinyagents::harness::workspace::WorkspaceDescriptor> {
+        dedicated_workspace_dir(action_dir, profile).map(|dir| {
+            tinyagents::harness::workspace::WorkspaceDescriptor::new(dir)
+                .with_policy_id(format!("openhuman.profile:{}", profile.id))
+        })
+    }
+
+    #[test]
+    fn dedicated_workspace_profile_roots_descriptor_at_profile_dir() {
+        let action = Path::new("/tmp/action");
+        let desc = descriptor_for(action, &profile("alice", true))
+            .expect("dedicated_workspace profile yields a descriptor");
+        assert_eq!(
+            desc.root.as_path(),
+            Path::new("/tmp/action/profiles/alice")
+        );
+    }
+
+    #[test]
+    fn shared_profile_yields_no_descriptor() {
+        let action = Path::new("/tmp/action");
+        assert!(descriptor_for(action, &profile("bob", false)).is_none());
+    }
+
+    #[test]
+    fn legacy_invalid_id_yields_no_descriptor_even_when_opted_in() {
+        let action = Path::new("/tmp/action");
+        // An id that fails validation can't mint a workspace path → no descriptor,
+        // so the session falls back to the shared action_dir cwd.
+        assert!(descriptor_for(action, &profile("Bad Id", true)).is_none());
     }
 }

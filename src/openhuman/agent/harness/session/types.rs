@@ -64,6 +64,12 @@ pub struct Agent {
     pub(super) temperature: f64,
     pub(super) workspace_dir: std::path::PathBuf,
     pub(super) action_dir: std::path::PathBuf,
+    /// Optional per-profile workspace descriptor. When set (a profile with
+    /// `dedicated_workspace` opted in), it is threaded into the top-level chat
+    /// turn so acting tools (shell/file/git) resolve their default cwd to
+    /// `<action_dir>/profiles/<id>` instead of the shared `action_dir`. `None`
+    /// (the common case) preserves the shared-cwd behaviour unchanged.
+    pub(super) workspace_descriptor: Option<tinyagents::harness::workspace::WorkspaceDescriptor>,
     pub(super) workflows: Vec<crate::openhuman::skills::Workflow>,
     /// Agent workflows discovered at session start.
     pub(super) auto_save: bool,
@@ -350,6 +356,9 @@ pub struct AgentBuilder {
     pub(super) temperature: Option<f64>,
     pub(super) workspace_dir: Option<std::path::PathBuf>,
     pub(super) action_dir: Option<std::path::PathBuf>,
+    /// Optional per-profile workspace descriptor forwarded to [`Agent`] at build
+    /// time. Defaults to `None` (shared `action_dir` cwd).
+    pub(super) workspace_descriptor: Option<tinyagents::harness::workspace::WorkspaceDescriptor>,
     pub(super) workflows: Option<Vec<crate::openhuman::skills::Workflow>>,
     /// Agent workflows to surface in the prompt. Populated from `load_workflows`
     /// at session start; defaults to empty when not explicitly set.

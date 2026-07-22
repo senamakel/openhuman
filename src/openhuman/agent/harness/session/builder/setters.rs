@@ -33,6 +33,7 @@ impl AgentBuilder {
             temperature: None,
             workspace_dir: None,
             action_dir: None,
+            workspace_descriptor: None,
             workflows: None,
             auto_save: None,
             post_turn_hooks: Vec::new(),
@@ -185,6 +186,17 @@ impl AgentBuilder {
 
     pub fn action_dir(mut self, action_dir: std::path::PathBuf) -> Self {
         self.action_dir = Some(action_dir);
+        self
+    }
+
+    /// Sets the per-profile workspace descriptor (section D of agent-profile
+    /// homes). When set, the top-level chat turn threads it through so acting
+    /// tools resolve their default cwd to the profile's dedicated workspace.
+    pub fn workspace_descriptor(
+        mut self,
+        descriptor: Option<tinyagents::harness::workspace::WorkspaceDescriptor>,
+    ) -> Self {
+        self.workspace_descriptor = descriptor;
         self
     }
 
@@ -491,6 +503,7 @@ impl AgentBuilder {
             temperature: self.temperature.unwrap_or(0.7),
             workspace_dir,
             action_dir,
+            workspace_descriptor: self.workspace_descriptor,
             workflows: self.workflows.unwrap_or_default(),
             auto_save: self.auto_save.unwrap_or(false),
             last_memory_context: None,

@@ -332,6 +332,8 @@ pub fn built_in_profiles() -> Vec<AgentProfile> {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         },
         AgentProfile {
             id: "research".to_string(),
@@ -358,6 +360,8 @@ pub fn built_in_profiles() -> Vec<AgentProfile> {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         },
         AgentProfile {
             id: "planner".to_string(),
@@ -384,6 +388,8 @@ pub fn built_in_profiles() -> Vec<AgentProfile> {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         },
         AgentProfile {
             id: "review".to_string(),
@@ -410,6 +416,8 @@ pub fn built_in_profiles() -> Vec<AgentProfile> {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         },
     ]
 }
@@ -437,6 +445,8 @@ pub(crate) fn built_in_default_profile() -> AgentProfile {
         memory_dir_suffix: Some("".into()),
         is_master: true,
         sort_order: None,
+        dedicated_memory: false,
+        dedicated_workspace: false,
     }
 }
 
@@ -575,6 +585,14 @@ fn next_available_suffix(existing: &std::collections::HashSet<String>) -> String
     }
 }
 
+/// Normalise a raw profile id into its persisted slug form, mirroring the
+/// transformation `normalise_profile` applies on upsert. Exposed so callers
+/// (e.g. `ops::upsert`) can locate the persisted profile by its stored id after
+/// the store has slugified it.
+pub(crate) fn normalise_profile_id(input: &str) -> String {
+    slugify_profile_id(input)
+}
+
 fn slugify_profile_id(input: &str) -> String {
     let mut out = String::new();
     let mut last_was_sep = false;
@@ -629,6 +647,8 @@ mod tests {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         }
     }
 
@@ -821,6 +841,25 @@ mod tests {
             .expect("upsert charlie");
         let charlie = state.profiles.iter().find(|p| p.id == "charlie").unwrap();
         assert_eq!(charlie.memory_dir_suffix.as_deref(), Some("-1"));
+    }
+
+    #[test]
+    fn upsert_roundtrips_dedicated_home_fields() {
+        let dir = tempdir().expect("tempdir");
+        let store = AgentProfileStore::new(dir.path().to_path_buf());
+        let mut profile = custom("iso", "Iso", "orchestrator");
+        profile.dedicated_memory = true;
+        profile.dedicated_workspace = true;
+        store.upsert(profile).expect("upsert");
+
+        let loaded = store.load().expect("load");
+        let iso = loaded
+            .profiles
+            .iter()
+            .find(|p| p.id == "iso")
+            .expect("iso profile");
+        assert!(iso.dedicated_memory);
+        assert!(iso.dedicated_workspace);
     }
 
     #[test]

@@ -1377,6 +1377,8 @@ fn agent_profile_store_and_personality_helpers_cover_normalisation_edges() {
             memory_dir_suffix: None,
             is_master: true,
             sort_order: Some(50),
+            dedicated_memory: false,
+            dedicated_workspace: false,
         })
         .expect("upsert first");
     let writing = first
@@ -1415,6 +1417,8 @@ fn agent_profile_store_and_personality_helpers_cover_normalisation_edges() {
             memory_dir_suffix: None,
             is_master: false,
             sort_order: None,
+            dedicated_memory: false,
+            dedicated_workspace: false,
         })
         .expect("upsert second");
     let second_profile = second
@@ -1752,6 +1756,8 @@ fn agent_personality_paths_cover_safe_fallbacks_and_integration_filters() {
         memory_dir_suffix: Some("-7".into()),
         is_master: false,
         sort_order: Some(10),
+        dedicated_memory: false,
+        dedicated_workspace: false,
     };
 
     assert_eq!(

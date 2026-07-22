@@ -46,7 +46,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "list" => ControllerSchema {
             namespace: "profiles",
             function: "list",
-            description: "List persistent agent profiles and the active profile id.",
+            description: "List persistent agent profiles and the active profile id. Each \
+                          profile is enriched with resolved read-only path info: soulMdFile \
+                          (personalities/<id>/SOUL.md if present) and workspaceDir (the \
+                          dedicated workspace when opted in).",
             inputs: vec![],
             outputs: vec![json_output("profiles", "Agent profile state payload.")],
         },
@@ -65,8 +68,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
             function: "upsert",
             description: "Create or update an agent profile. The `profile` payload may include \
                           memory_sources, includeAgentConversations, allowedSkills, \
-                          allowedMcpServers, composioIntegrations, allowedTools, and soulMd; \
-                          an omitted/empty allowlist means \"all\".",
+                          allowedMcpServers, composioIntegrations, allowedTools, soulMd, \
+                          dedicatedMemory (own memory subtree), and dedicatedWorkspace (own \
+                          working dir under action_dir); an omitted/empty allowlist means \"all\".",
             inputs: vec![FieldSchema {
                 name: "profile",
                 ty: TypeSchema::Json,

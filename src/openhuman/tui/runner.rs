@@ -57,7 +57,7 @@ pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
     let data_dir = resolve_data_dir();
     let log_dir = crate::core::logging::init_for_tui(&data_dir, verbose);
     log::info!(
-        "[tui] starting terminal chat UI (thread={:?} new={} logs={:?})",
+        "[tui] starting tabbed terminal UI (thread={:?} new={} logs={:?})",
         thread_id,
         force_new,
         log_dir
@@ -161,7 +161,7 @@ fn print_help() {
     println!("  --new           Force a new thread (default when --thread is omitted).");
     println!("  -v, --verbose   Debug-level logging (written to the log file, never the UI).");
     println!();
-    println!("Keys: Tab/Shift+Tab or 1-4 switch tabs · arrows navigate · Enter select ·");
+    println!("Keys: Tab/Shift+Tab or Alt+1-4 switch tabs · arrows navigate · Enter select ·");
     println!("      Ctrl+C / Ctrl+D quit.");
 }
 
@@ -229,7 +229,7 @@ mod tests {
             assert!(
                 crate::core::all::schema_for_rpc_method(method).is_some(),
                 "TUI invokes `{method}`, but it is not a registered RPC method — \
-                 the terminal chat UI would fail with `unknown method: {method}`"
+                 the tabbed terminal UI would fail with `unknown method: {method}`"
             );
         }
     }

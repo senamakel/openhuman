@@ -174,7 +174,7 @@ struct ManagedEnvelopeBilling {
 /// `OpenAiModel` leaves only on `ModelResponse.raw` — into the metadata the host
 /// cost bridge reads: `openhuman_usage_meta` (charged USD + context window) plus a
 /// crate `Usage.cache_read_tokens` reconciliation when the crate missed the
-/// envelope's cached count. Parity with the `ProviderModel` path's
+/// envelope's cached count. Parity with the legacy model-adapter path's
 /// `usage_info_from_response`; without it the crate-native managed turn reports
 /// `$0` charged and drops backend-reported cached tokens.
 fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
@@ -329,7 +329,7 @@ mod tests {
 
     /// The managed `openhuman.{billing,usage}` envelope on `raw` must re-project
     /// into the host `UsageInfo` the cost bridge reads — charged USD, cached
-    /// tokens, and context window — exactly as the legacy `ProviderModel` path did.
+    /// tokens, and context window — exactly as the legacy legacy model-adapter path did.
     #[test]
     fn project_managed_usage_recovers_charged_and_cached() {
         use crate::openhuman::tinyagents::model::usage_info_from_response;

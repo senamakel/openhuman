@@ -15,6 +15,8 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
+use tinyagents::harness::message::Message;
+use tinyagents::harness::model::ModelRequest;
 
 use openhuman_core::openhuman::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
@@ -25,7 +27,7 @@ use openhuman_core::openhuman::credentials::{
 };
 use openhuman_core::openhuman::inference::local::LocalAiService;
 use openhuman_core::openhuman::inference::provider::factory::{
-    auth_key_for_slug, create_chat_provider_from_string,
+    auth_key_for_slug, create_chat_model_from_string_with_model_id,
 };
 use openhuman_core::openhuman::inference::provider::list_configured_models;
 
@@ -221,29 +223,48 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
     .expect("store app session");
     let _workspace = EnvVarGuard::set("OPENHUMAN_WORKSPACE", config.config_path.parent().unwrap());
 
-    let (legacy, legacy_model) =
-        create_chat_provider_from_string("chat", "legacy:requested-model", &config)
-            .expect("legacy direct provider");
+    let (legacy, legacy_model) = create_chat_model_from_string_with_model_id(
+        "chat",
+        "legacy:requested-model",
+        &config,
+        0.4,
+    )
+    .expect("legacy direct model");
     assert_eq!(legacy_model, "requested-model");
+    let legacy_response = legacy
+        .invoke(
+            &(),
+            ModelRequest::new(vec![Message::user("hello")]).with_model(&legacy_model),
+        )
+        .await
+        .expect("legacy chat");
     assert_eq!(
-        legacy
-            .chat_with_system(None, "hello", &legacy_model, 0.4)
-            .await
-            .expect("legacy chat"),
+        legacy_response.text(),
         "legacy direct ok"
     );
 
-    let (other, other_model) =
-        create_chat_provider_from_string("chat", "other:other-model", &config)
-            .expect("other provider");
+    let (other, other_model) = create_chat_model_from_string_with_model_id(
+        "chat",
+        "other:other-model",
+        &config,
+        0.4,
+    )
+    .expect("other model");
     let other_text = other
-        .chat_with_system(None, "hello", &other_model, 0.4)
+        .invoke(
+            &(),
+            ModelRequest::new(vec![Message::user("hello")]).with_model(&other_model),
+        )
         .await
-        .expect("other provider dispatches without inheriting the legacy key");
-    assert_eq!(other_text, "other no key ok");
+        .expect("other model dispatches without inheriting the legacy key");
+    assert_eq!(other_text.text(), "other no key ok");
 
-    let abstract_err =
-        match create_chat_provider_from_string("reasoning", "abstract:reasoning-v1", &config) {
+    let abstract_err = match create_chat_model_from_string_with_model_id(
+        "reasoning",
+        "abstract:reasoning-v1",
+        &config,
+        0.4,
+    ) {
             Ok(_) => panic!("expected abstract tier error"),
             Err(err) => err,
         };

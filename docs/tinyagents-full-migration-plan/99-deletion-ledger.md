@@ -12,10 +12,10 @@ also name its upstream PR before the host copy is removed.
 | WP-1 | `inference/provider/reliable.rs` + tests | Crate retry/fallback owns every model call | DELETED | `fcd3f3331`; crate retry/fallback plus root `cargo check` green |
 | WP-1 | Legacy compatible raw-coverage trio | Wire parity retained against crate `OpenAiModel` | DELETED | `4750defb0`; all 14 `inference_provider_e2e` tests green |
 | WP-1 | `inference/provider/legacy_provider.rs` and `compatible` alias | Every OpenAI-compatible slug uses crate `OpenAiModel` | DELETED | #4780/#4782/#4784 plus native wire/SSE parity tests; root check and raw-coverage target compile green |
-| WP-1 | `inference/provider/traits.rs` + tests | No `impl Provider`; consumers use crate model/message/usage types | PENDING | Consumer sweep + `inference_provider_e2e` and `agent_harness_e2e` |
-| WP-1 | `tinyagents/model.rs::ProviderModel` / `MaxTokensModel` | Tier and bespoke models are direct `ChatModel`s | PENDING | `rg ProviderModel src` empty |
+| WP-1 | `inference/provider/traits.rs` + tests | No `impl Provider`; remaining host bridge data types live in `provider/types.rs` | DELETED | `rg 'impl Provider' src` empty; factory unit suite 173 passed |
+| WP-1 | `tinyagents/model.rs::ProviderModel` / `MaxTokensModel` | Tier and bespoke models are direct `ChatModel`s | DELETED | `rg ProviderModel src` empty; tinyagents unit suite 127 passed |
 | WP-1 | `tinyagents/convert.rs` message conversion | No host `ChatMessage`; retain tool-schema conversion until WP-4 | PENDING | Conversion tests moved or retired |
-| WP-1 | `inference/provider/crate_provider.rs` | No legacy `Provider` consumer needs the reverse adapter | PENDING | `rg 'impl Provider' src` empty |
+| WP-1 | `inference/provider/crate_provider.rs` | No legacy `Provider` consumer needs the reverse adapter | DELETED | `rg 'impl Provider' src` empty; root `cargo check --lib` green |
 | WP-1 | `inference/provider/{auth_error_registry,resolved_route,temperature,thread_context}.rs` | Host state/policy lives outside the legacy provider abstraction | REHOMED | `4ce6ca726`, `59871c8ab`, `6cb17f91e`, `07f675ba3`; root `cargo check` and focused auth-registry tests green |
 | WP-2 | `routing/` parallel implementation | Generic decisions use crate `ModelRouter`; no live consumer remained | DELETED | Repository-wide reference audit found the module self-contained; #4783 owns live routing; root check green |
 | WP-2 | `tool_timeout` implementation | No deletion: crate `ToolTimeout` is per-tool metadata, while the host owns global config/env state and enforces the adapter deadline | HOST-OWNED | Execution-path audit; timeout precedence/deadline tests |

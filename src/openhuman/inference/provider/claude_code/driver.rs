@@ -22,7 +22,7 @@ use super::event_mapper::EventMapper;
 use super::input_builder::build_stdin;
 use super::session_store::{generate_uuid_v4, is_uuid_v4, SessionStore};
 use super::stream_parser::StreamJsonParser;
-use crate::openhuman::inference::provider::traits::{ChatMessage, ChatResponse, ProviderDelta};
+use crate::openhuman::inference::provider::types::{ChatMessage, ChatResponse, ProviderDelta};
 
 /// Tools withheld in the DEFAULT (`acceptEdits`) posture: Claude Code can
 /// read/edit files in the project, but not run shell, hit the network, or

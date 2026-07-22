@@ -16,6 +16,8 @@ use axum::{Json, Router};
 use futures_util::StreamExt;
 use serde_json::{json, Value};
 use tempfile::tempdir;
+use tinyagents::harness::message::Message;
+use tinyagents::harness::model::ModelRequest;
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
@@ -5598,18 +5600,24 @@ async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header
     let loaded_config = openhuman_core::openhuman::config::load_config_with_timeout()
         .await
         .expect("load_config after auth-none update");
-    let (provider, model) = openhuman_core::openhuman::inference::provider::create_chat_provider(
-        "chat",
-        &loaded_config,
-    )
-    .expect("custom auth-none provider should build");
-    let direct = provider
-        .simple_chat("direct custom-provider smoke test", &model, 0.0)
+    let (model, model_id) =
+        openhuman_core::openhuman::inference::provider::create_chat_model_with_model_id(
+            "chat",
+            &loaded_config,
+            0.0,
+        )
+        .expect("custom auth-none model should build");
+    let direct = model
+        .invoke(
+            &(),
+            ModelRequest::new(vec![Message::user("direct custom-provider smoke test")])
+                .with_model(model_id),
+        )
         .await
-        .expect("direct custom auth-none provider call should succeed");
+        .expect("direct custom auth-none model call should succeed");
     assert!(
-        direct.contains("Hello from custom provider"),
-        "unexpected direct custom-provider response: {direct}"
+        direct.text().contains("Hello from custom provider"),
+        "unexpected direct custom-provider response: {direct:?}"
     );
 
     with_chat_completion_models(|models| models.clear());

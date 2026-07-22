@@ -15,7 +15,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use openhuman_core::openhuman::config::Config;
 use openhuman_core::openhuman::inference::local::LocalAiService;
-use openhuman_core::openhuman::inference::provider::traits::{ChatRequest, ProviderDelta};
+use openhuman_core::openhuman::inference::provider::types::{ChatRequest, ProviderDelta};
 use openhuman_core::openhuman::inference::provider::{ChatMessage, Provider};
 use openhuman_core::openhuman::tools::ToolSpec;
 use serde_json::{json, Value};

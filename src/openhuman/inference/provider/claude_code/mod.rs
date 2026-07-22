@@ -29,7 +29,7 @@ use tinyagents::harness::model::{
 };
 use tokio::sync::Semaphore;
 
-use super::traits::{ChatMessage, ChatRequest, ChatResponse};
+use super::types::{ChatMessage, ChatRequest, ChatResponse};
 
 /// Provider string prefix used in the factory grammar: `claude-code:<model>`.
 pub const PROVIDER_PREFIX: &str = "claude-code:";
@@ -245,7 +245,7 @@ impl ChatModel<()> for ClaudeCodeProvider {
             let _ = item_tx.send(ModelStreamItem::Started);
             let messages = crate::openhuman::tinyagents::model::native_chat_messages(&request);
             let (delta_tx, mut delta_rx) =
-                tokio::sync::mpsc::channel::<super::traits::ProviderDelta>(64);
+                tokio::sync::mpsc::channel::<super::types::ProviderDelta>(64);
             let chat = async {
                 provider
                     .run_chat(

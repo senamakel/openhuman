@@ -8,7 +8,7 @@
 //! `agent::triage::evaluator`) classify failures against the same source of
 //! truth through this module.
 
-use super::traits::StreamError;
+use super::types::StreamError;
 use std::time::Duration;
 
 /// Extract an HTTP `4xx` status code from an error message, but only when it

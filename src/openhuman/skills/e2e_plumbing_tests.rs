@@ -30,7 +30,7 @@ use parking_lot::Mutex;
 use crate::openhuman::agent::harness::run_channel_turn_via_graph;
 use crate::openhuman::agent::tools::RunWorkflowTool;
 use crate::openhuman::config::{Config, MultimodalConfig, MultimodalFileConfig};
-use crate::openhuman::inference::provider::traits::ChatMessage;
+use crate::openhuman::inference::provider::types::ChatMessage;
 use crate::openhuman::skill_runtime::await_run_outcome;
 use crate::openhuman::skills::ops_create::{
     create_workflow_inner, CreateWorkflowParams, WorkflowCreateInputDef,

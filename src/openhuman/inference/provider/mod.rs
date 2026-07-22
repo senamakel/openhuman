@@ -11,7 +11,6 @@ pub mod claude_code;
 pub mod config_rejection;
 /// Crate-native OpenAI-compatible client construction (issue #4727, Motion B).
 pub mod crate_openai;
-pub(crate) mod crate_provider;
 pub mod error_classify;
 pub mod error_code;
 pub mod factory;
@@ -20,13 +19,12 @@ mod openai_codex;
 pub mod openhuman_backend_model;
 pub mod ops;
 pub mod schemas;
-pub mod traits;
+pub mod types;
 
 #[allow(unused_imports)]
-pub use traits::{
-    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, PromptCacheCapabilities, Provider,
-    ProviderCapabilityError, ProviderDelta, ToolCall, ToolResultMessage, UsageInfo,
-    AGENT_TURN_MAX_OUTPUT_TOKENS,
+pub use types::{
+    ChatMessage, ChatRequest, ChatResponse, ConversationMessage, ProviderDelta, ToolCall,
+    ToolResultMessage, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
 };
 
 pub use billing_error::is_budget_exhausted_message;
@@ -42,7 +40,7 @@ pub use error_code::{
 pub(crate) use factory::is_raw_passthrough_model;
 pub use factory::{
     create_chat_model, create_chat_model_from_string, create_chat_model_from_string_with_model_id,
-    create_chat_model_with_model_id, create_chat_provider, provider_for_role, role_for_model_tier,
+    create_chat_model_with_model_id, provider_for_role, role_for_model_tier,
     BYOK_INCOMPLETE_SENTINEL,
 };
 pub use openhuman_backend_model::{OpenHumanBackendModel, PROVIDER_LABEL};

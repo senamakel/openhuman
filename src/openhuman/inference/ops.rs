@@ -32,7 +32,7 @@ fn is_unknown_provider_user_config(err: &str) -> bool {
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct InferenceTestProviderModelResult {
+pub struct InferenceTestChatModelResult {
     pub reply: String,
 }
 
@@ -139,7 +139,7 @@ pub async fn inference_test_provider_model(
     workload: &str,
     provider: &str,
     prompt: &str,
-) -> Result<RpcOutcome<InferenceTestProviderModelResult>, String> {
+) -> Result<RpcOutcome<InferenceTestChatModelResult>, String> {
     debug!(
         workload,
         provider,
@@ -181,7 +181,7 @@ pub async fn inference_test_provider_model(
         .map_err(|e| e.to_string())
         .map(|response| {
             RpcOutcome::single_log(
-                InferenceTestProviderModelResult {
+                InferenceTestChatModelResult {
                     reply: response.text(),
                 },
                 "provider model test completed",

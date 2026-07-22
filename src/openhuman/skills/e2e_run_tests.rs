@@ -35,7 +35,7 @@ use crate::openhuman::agent::task_dispatcher::{dispatch_card, DispatchOutcome};
 use crate::openhuman::agent::tools::RunWorkflowTool;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::openhuman::inference::provider::factory::test_provider_override;
-use crate::openhuman::inference::provider::traits::ChatMessage;
+use crate::openhuman::inference::provider::types::ChatMessage;
 use crate::openhuman::skill_runtime::{await_run_outcome, spawn_workflow_run_background};
 use crate::openhuman::skills::schemas::resolve_workspace_dir;
 use crate::openhuman::todos::ops as board_ops;

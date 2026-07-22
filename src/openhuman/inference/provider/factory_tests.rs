@@ -2,10 +2,139 @@ use super::*;
 use crate::openhuman::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::AuthService;
-use crate::openhuman::inference::provider::traits::{ChatMessage, ChatRequest, ProviderDelta};
+use crate::openhuman::inference::provider::types::{ChatMessage, ChatRequest, ProviderDelta};
 use tempfile::TempDir;
+use tinyagents::harness::model::ModelRequest;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+
+#[derive(Debug, Clone, Copy)]
+struct TestModelCapabilities {
+    native_tool_calling: bool,
+    vision: bool,
+}
+
+#[async_trait::async_trait]
+trait TestChatModelExt {
+    fn capabilities(&self) -> TestModelCapabilities;
+    async fn chat_with_system(
+        &self,
+        system_prompt: Option<&str>,
+        message: &str,
+        model: &str,
+        temperature: f64,
+    ) -> anyhow::Result<String>;
+    async fn chat(
+        &self,
+        request: ChatRequest<'_>,
+        model: &str,
+        temperature: f64,
+    ) -> anyhow::Result<crate::openhuman::inference::provider::ChatResponse>;
+}
+
+#[async_trait::async_trait]
+impl TestChatModelExt for Arc<dyn ChatModel<()>> {
+    fn capabilities(&self) -> TestModelCapabilities {
+        let Some(profile) = self.profile() else {
+            return TestModelCapabilities {
+                native_tool_calling: false,
+                vision: false,
+            };
+        };
+        TestModelCapabilities {
+            native_tool_calling: profile.tool_calling,
+            vision: profile.modalities.image_in,
+        }
+    }
+
+    async fn chat_with_system(
+        &self,
+        system_prompt: Option<&str>,
+        message: &str,
+        model: &str,
+        temperature: f64,
+    ) -> anyhow::Result<String> {
+        let mut messages = Vec::new();
+        if let Some(system) = system_prompt {
+            messages.push(tinyagents::harness::message::Message::system(system));
+        }
+        messages.push(tinyagents::harness::message::Message::user(message));
+        let mut request = ModelRequest::new(messages).with_model(model);
+        request.temperature = Some(temperature);
+        Ok(self.invoke(&(), request).await?.text())
+    }
+
+    async fn chat(
+        &self,
+        request: ChatRequest<'_>,
+        model: &str,
+        temperature: f64,
+    ) -> anyhow::Result<crate::openhuman::inference::provider::ChatResponse> {
+        let mut native = ModelRequest::new(
+            request
+                .messages
+                .iter()
+                .map(crate::openhuman::tinyagents::chat_message_to_message)
+                .collect(),
+        )
+        .with_model(model);
+        native.temperature = Some(temperature);
+        native.max_tokens = request.max_tokens;
+        native.tools = request
+            .tools
+            .unwrap_or_default()
+            .iter()
+            .map(crate::openhuman::tinyagents::spec_to_schema)
+            .collect();
+        let response = self.invoke(&(), native).await?;
+        Ok(crate::openhuman::inference::provider::ChatResponse {
+            text: Some(response.text()),
+            tool_calls: response
+                .message
+                .tool_calls
+                .iter()
+                .map(|call| crate::openhuman::inference::provider::ToolCall {
+                    id: call.id.clone(),
+                    name: call.name.clone(),
+                    arguments: serde_json::to_string(&call.arguments).unwrap_or_default(),
+                    extra_content: None,
+                })
+                .collect(),
+            usage: crate::openhuman::tinyagents::model::usage_info_from_response(&response),
+            reasoning_content: None,
+        })
+    }
+}
+
+fn create_test_chat_model(
+    role: &str,
+    config: &Config,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    create_chat_model_with_model_id(role, config, 0.7)
+}
+
+fn create_test_chat_model_from_string(
+    role: &str,
+    provider: &str,
+    config: &Config,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    create_chat_model_from_string_with_model_id(role, provider, config, 0.7)
+}
+
+fn create_test_local_chat_model_from_string(
+    provider: &str,
+    config: &Config,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    create_local_chat_model_from_string(provider, config)
+}
+
+fn create_test_omlx_model(
+    model: &str,
+    _temperature: Option<f64>,
+    config: &Config,
+) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+    create_local_chat_model_from_string(&format!("omlx:{model}"), config)
+}
 
 fn config_with_providers(providers: Vec<CloudProviderCreds>) -> Config {
     let mut c = Config::default();
@@ -58,7 +187,7 @@ fn anthropic_entry(id: &str, slug: &str) -> CloudProviderCreds {
 #[test]
 fn openhuman_literal() {
     let config = Config::default();
-    let (_, model) = create_chat_provider_from_string("reasoning", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("reasoning", "openhuman", &config)
         .expect("openhuman literal must build");
     assert!(!model.is_empty(), "model must not be empty");
 }
@@ -66,7 +195,7 @@ fn openhuman_literal() {
 #[test]
 fn cloud_no_providers_falls_back_to_openhuman() {
     let config = Config::default();
-    let result = create_chat_provider_from_string("reasoning", "cloud", &config);
+    let result = create_test_chat_model_from_string("reasoning", "cloud", &config);
     assert!(
         result.is_ok(),
         "cloud fallback must succeed: {:?}",
@@ -80,7 +209,7 @@ fn direct_cloud_sentinel_resolves_to_primary_custom_provider() {
     config.primary_cloud = Some("p_oai".to_string());
 
     let (_, model) =
-        create_chat_provider_from_string("reasoning", "cloud", &config).expect("build");
+        create_test_chat_model_from_string("reasoning", "cloud", &config).expect("build");
     assert_eq!(model, "gpt-4o");
 }
 
@@ -88,14 +217,14 @@ fn direct_cloud_sentinel_resolves_to_primary_custom_provider() {
 fn openhuman_slug_routes_to_backend() {
     let config = config_with_providers(vec![oh_entry("p_oh")]);
     let (_, model) =
-        create_chat_provider_from_string("reasoning", "openhuman:", &config).expect("build");
+        create_test_chat_model_from_string("reasoning", "openhuman:", &config).expect("build");
     assert!(!model.is_empty());
 }
 
 #[test]
 fn openai_slug_model() {
     let config = config_with_providers(vec![openai_entry("p_oai", "openai")]);
-    let (_, model) = create_chat_provider_from_string("agentic", "openai:gpt-4o-mini", &config)
+    let (_, model) = create_test_chat_model_from_string("agentic", "openai:gpt-4o-mini", &config)
         .expect("openai:<model> must build");
     assert_eq!(model, "gpt-4o-mini");
 }
@@ -104,7 +233,7 @@ fn openai_slug_model() {
 fn anthropic_slug_model() {
     let config = config_with_providers(vec![anthropic_entry("p_ant", "anthropic")]);
     let (_, model) =
-        create_chat_provider_from_string("coding", "anthropic:claude-sonnet-4-6", &config)
+        create_test_chat_model_from_string("coding", "anthropic:claude-sonnet-4-6", &config)
             .expect("anthropic:<model> must build");
     assert_eq!(model, "claude-sonnet-4-6");
 }
@@ -121,9 +250,12 @@ fn openrouter_slug_model() {
         default_model: Some("openai/gpt-4o".to_string()),
         ..Default::default()
     });
-    let (_, model) =
-        create_chat_provider_from_string("agentic", "openrouter:meta-llama/llama-3.1-8b", &config)
-            .expect("openrouter:<model> must build");
+    let (_, model) = create_test_chat_model_from_string(
+        "agentic",
+        "openrouter:meta-llama/llama-3.1-8b",
+        &config,
+    )
+    .expect("openrouter:<model> must build");
     assert_eq!(model, "meta-llama/llama-3.1-8b");
 }
 
@@ -141,7 +273,7 @@ fn custom_provider_remaps_abstract_tier_to_concrete_default_model() {
     });
 
     let (_, model) =
-        create_chat_provider_from_string("reasoning", "deepseek:reasoning-v1", &config)
+        create_test_chat_model_from_string("reasoning", "deepseek:reasoning-v1", &config)
             .expect("abstract tier should remap to concrete default model");
     assert_eq!(model, "deepseek-v4-pro");
 }
@@ -161,11 +293,11 @@ fn custom_provider_rejects_abstract_tier_without_concrete_default_model() {
 
     // Can't use `.expect_err(..)` here because `Box<dyn Provider>` doesn't
     // implement `Debug`, so the success arm has no Debug to print.
-    let err = match create_chat_provider_from_string("reasoning", "deepseek:reasoning-v1", &config)
-    {
-        Ok(_) => panic!("abstract tier without concrete provider default should fail"),
-        Err(e) => e,
-    };
+    let err =
+        match create_test_chat_model_from_string("reasoning", "deepseek:reasoning-v1", &config) {
+            Ok(_) => panic!("abstract tier without concrete provider default should fail"),
+            Err(e) => e,
+        };
     assert!(err.to_string().contains("abstract tier"));
 }
 
@@ -182,7 +314,7 @@ fn orcarouter_slug_model() {
         ..Default::default()
     });
     let (_, model) =
-        create_chat_provider_from_string("agentic", "orcarouter:orcarouter/auto", &config)
+        create_test_chat_model_from_string("agentic", "orcarouter:orcarouter/auto", &config)
             .expect("orcarouter:<model> must build");
     assert_eq!(model, "orcarouter/auto");
 }
@@ -205,7 +337,7 @@ fn orcarouter_legacy_type_seeds_defaults() {
 #[test]
 fn ollama_prefix() {
     let config = Config::default();
-    let (_, model) = create_chat_provider_from_string("heartbeat", "ollama:llama3.1:8b", &config)
+    let (_, model) = create_test_chat_model_from_string("heartbeat", "ollama:llama3.1:8b", &config)
         .expect("ollama:<model> must build");
     assert_eq!(model, "llama3.1:8b");
 }
@@ -220,7 +352,7 @@ fn ollama_provider_opts_out_of_native_tool_calling() {
     // with native tool calling disabled so the agent harness uses the
     // prompt-guided text format from the first request.
     let config = Config::default();
-    let (provider, _model) = create_chat_provider_from_string("chat", "ollama:llama3.2", &config)
+    let (provider, _model) = create_test_chat_model_from_string("chat", "ollama:llama3.2", &config)
         .expect("ollama:<model> must build");
     let caps = provider.capabilities();
     assert!(
@@ -243,7 +375,7 @@ fn lmstudio_provider_defaults_to_prompt_guided_tools() {
     let mut config = Config::default();
     config.local_ai.base_url = Some("http://127.0.0.1:1234".to_string());
     let (provider, _model) =
-        create_chat_provider_from_string("chat", "lmstudio:google/gemma-4-e4b", &config)
+        create_test_chat_model_from_string("chat", "lmstudio:google/gemma-4-e4b", &config)
             .expect("lmstudio:<model> must build");
     let caps = provider.capabilities();
     assert!(
@@ -268,7 +400,7 @@ fn lmstudio_prefix() {
     let mut config = Config::default();
     config.local_ai.base_url = Some("http://127.0.0.1:1234".to_string());
     let (_, model) =
-        create_chat_provider_from_string("heartbeat", "lmstudio:google/gemma-4-e4b", &config)
+        create_test_chat_model_from_string("heartbeat", "lmstudio:google/gemma-4-e4b", &config)
             .expect("lmstudio:<model> must build");
     assert_eq!(model, "google/gemma-4-e4b");
 }
@@ -279,7 +411,7 @@ fn temperature_suffix_is_stripped_from_model_id() {
     // upstream must not include it, or providers will 404 on an unknown model.
     let config = Config::default();
     let (_, model) =
-        create_chat_provider_from_string("heartbeat", "ollama:llama3.1:8b@0.2", &config)
+        create_test_chat_model_from_string("heartbeat", "ollama:llama3.1:8b@0.2", &config)
             .expect("ollama:<model>@<temp> must build");
     assert_eq!(
         model, "llama3.1:8b",
@@ -292,7 +424,7 @@ fn malformed_temperature_suffix_kept_as_part_of_model_id() {
     // If the tail after `@` isn't a number, treat the whole string as the model
     // id rather than silently dropping a chunk of it.
     let config = Config::default();
-    let (_, model) = create_chat_provider_from_string("heartbeat", "ollama:llama3@beta", &config)
+    let (_, model) = create_test_chat_model_from_string("heartbeat", "ollama:llama3@beta", &config)
         .expect("ollama:<model>@<garbage> must still build");
     assert_eq!(model, "llama3@beta");
 }
@@ -302,7 +434,7 @@ async fn ollama_provider_does_not_require_api_key() {
     let mut config = Config::default();
     config.local_ai.base_url = Some("http://127.0.0.1:9".to_string());
     let (provider, model) =
-        create_chat_provider_from_string("heartbeat", "ollama:llama3.1:8b", &config)
+        create_test_chat_model_from_string("heartbeat", "ollama:llama3.1:8b", &config)
             .expect("ollama:<model> must build");
 
     let err = provider
@@ -321,7 +453,7 @@ async fn lmstudio_provider_without_api_key_does_not_require_credentials() {
     let mut config = Config::default();
     config.local_ai.base_url = Some("http://127.0.0.1:9/v1".to_string());
     let (provider, model) =
-        create_chat_provider_from_string("heartbeat", "lmstudio:test-model", &config)
+        create_test_chat_model_from_string("heartbeat", "lmstudio:test-model", &config)
             .expect("lmstudio:<model> must build");
 
     let err = provider
@@ -381,13 +513,13 @@ fn workload_override_respected() {
 }
 
 #[test]
-fn create_chat_provider_uses_role() {
+fn create_test_chat_model_uses_role() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(openai_entry("p_oai", "openai"));
     config.reasoning_provider = Some("openai:gpt-4o-mini".to_string());
     let (_, model) =
-        create_chat_provider("reasoning", &config).expect("create_chat_provider must succeed");
+        create_test_chat_model("reasoning", &config).expect("create_test_chat_model must succeed");
     assert_eq!(model, "gpt-4o-mini");
 }
 
@@ -418,7 +550,7 @@ fn managed_backend_pins_specialised_role_to_tier() {
         ("coding", MODEL_CODING_V1),
         ("vision", MODEL_VISION_V1),
     ] {
-        let (_, model) = create_chat_provider_from_string(role, "openhuman", &config)
+        let (_, model) = create_test_chat_model_from_string(role, "openhuman", &config)
             .expect("managed backend must build");
         assert_eq!(
             model, *expected_tier,
@@ -437,12 +569,12 @@ fn managed_backend_pins_specialised_role_to_tier() {
 fn managed_backend_summarization_role_resolves_summarization_tier() {
     // Default config: cloud_llm_model defaults to summarization-v1.
     let config = Config::default();
-    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("summarization", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "summarization-v1");
 
     // `memory` is an alias of `summarization` (both → memory_provider).
-    let (_, model) = create_chat_provider_from_string("memory", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("memory", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "summarization-v1");
 }
@@ -453,7 +585,7 @@ fn managed_backend_summarization_role_resolves_summarization_tier() {
 fn managed_backend_summarization_ignores_default_model() {
     let mut config = Config::default();
     config.default_model = Some("reasoning-v1".to_string());
-    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("summarization", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "summarization-v1");
 }
@@ -467,18 +599,18 @@ fn managed_backend_summarization_ignores_cloud_llm_model_override() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.memory_tree.cloud_llm_model = Some("chat-v1".to_string());
-    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("summarization", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "summarization-v1");
 
     config.memory_tree.cloud_llm_model = Some("custom-summary-model".to_string());
-    let (_, model) = create_chat_provider_from_string("summarization", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("summarization", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "summarization-v1");
 }
 
 // End-to-end of the sub-agent path: the subagent runner resolves a
-// `ModelSpec::Hint(workload)` by calling `create_chat_provider(workload, cfg)`.
+// `ModelSpec::Hint(workload)` by calling `create_test_chat_model(workload, cfg)`.
 // With a default config (every per-workload provider unset → managed backend),
 // each shipped hint must still reach its tier. This is the exact call the
 // `code_executor` agent (`hint = "coding"`) makes when it spawns.
@@ -496,7 +628,7 @@ fn subagent_hint_resolves_to_tier_on_managed_backend() {
         ("reasoning", MODEL_REASONING_V1),
     ] {
         let (_, model) =
-            create_chat_provider(hint, &config).expect("create_chat_provider must succeed");
+            create_test_chat_model(hint, &config).expect("create_test_chat_model must succeed");
         assert_eq!(
             model, *expected_tier,
             "hint={hint} sub-agent must run on {expected_tier}, got {model}"
@@ -512,7 +644,7 @@ fn subagent_hint_resolves_to_tier_on_managed_backend() {
 fn managed_backend_chat_role_inherits_default_model() {
     // Default (chat-v1).
     let config = Config::default();
-    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("chat", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "chat-v1");
 
@@ -520,7 +652,7 @@ fn managed_backend_chat_role_inherits_default_model() {
     // get reasoning-v1 for the chat-role front-line turn.
     let mut config = Config::default();
     config.default_model = Some("reasoning-v1".to_string());
-    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("chat", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "reasoning-v1");
 }
@@ -537,14 +669,14 @@ fn coding_workload_byok_route_wins_over_managed_pin() {
         .push(anthropic_entry("p_ant", "anthropic"));
     config.coding_provider = Some("anthropic:claude-sonnet-4-6".to_string());
     let (_, model) =
-        create_chat_provider("coding", &config).expect("create_chat_provider must succeed");
+        create_test_chat_model("coding", &config).expect("create_test_chat_model must succeed");
     assert_eq!(model, "claude-sonnet-4-6");
 }
 
 #[test]
 fn unknown_slug_rejected() {
     let config = Config::default();
-    let err = create_chat_provider_from_string("reasoning", "groq:llama3", &config)
+    let err = create_test_chat_model_from_string("reasoning", "groq:llama3", &config)
         .err()
         .expect("unknown slug must fail");
     assert!(
@@ -557,7 +689,7 @@ fn unknown_slug_rejected() {
 #[test]
 fn bare_string_without_colon_rejected() {
     let config = Config::default();
-    let err = create_chat_provider_from_string("reasoning", "openai", &config)
+    let err = create_test_chat_model_from_string("reasoning", "openai", &config)
         .err()
         .expect("bare string must fail");
     assert!(
@@ -569,7 +701,7 @@ fn bare_string_without_colon_rejected() {
 #[test]
 fn empty_model_in_ollama_rejected() {
     let config = Config::default();
-    let err = create_chat_provider_from_string("reasoning", "ollama:", &config)
+    let err = create_test_chat_model_from_string("reasoning", "ollama:", &config)
         .err()
         .expect("empty model must fail");
     assert!(err.to_string().contains("empty model"), "{err}");
@@ -591,7 +723,7 @@ fn cloud_provider_with_no_model_and_no_default_rejected() {
         ..Default::default()
     });
 
-    let err = match create_chat_provider_from_string("reasoning", "nvidia-nim:", &config) {
+    let err = match create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config) {
         Ok(_) => panic!("empty model must fail"),
         Err(e) => e,
     };
@@ -638,7 +770,7 @@ fn cloud_provider_default_model_used_when_model_part_is_empty() {
         ..Default::default()
     });
 
-    let (_, model) = create_chat_provider_from_string("reasoning", "nvidia-nim:", &config)
+    let (_, model) = create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config)
         .expect("empty model with default_model must succeed");
     assert_eq!(model, "meta/llama-3.1-8b-instruct");
 }
@@ -646,7 +778,7 @@ fn cloud_provider_default_model_used_when_model_part_is_empty() {
 #[test]
 fn missing_slug_for_openai_gives_clear_error() {
     let config = Config::default();
-    let err = create_chat_provider_from_string("reasoning", "openai:gpt-4o", &config)
+    let err = create_test_chat_model_from_string("reasoning", "openai:gpt-4o", &config)
         .err()
         .expect("missing slug must fail");
     let msg = err.to_string();
@@ -660,8 +792,9 @@ fn missing_slug_for_openai_gives_clear_error() {
 async fn cloud_provider_without_stored_key_fails_with_actionable_error() {
     let tmp = TempDir::new().expect("tempdir");
     let config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
-    let (provider, model) = create_chat_provider_from_string("reasoning", "openai:gpt-4o", &config)
-        .expect("provider should build without eagerly requiring credentials");
+    let (provider, model) =
+        create_test_chat_model_from_string("reasoning", "openai:gpt-4o", &config)
+            .expect("provider should build without eagerly requiring credentials");
     assert!(
         provider.capabilities().vision,
         "cloud OpenAI-compatible providers must advertise vision so reasoning attachment turns reach the provider"
@@ -684,8 +817,9 @@ async fn cloud_provider_with_auth_none_does_not_require_api_key() {
     entry.auth_style = AuthStyle::None;
     entry.endpoint = "http://127.0.0.1:9".to_string();
     let config = config_with_providers_in_tempdir(&tmp, vec![entry]);
-    let (provider, model) = create_chat_provider_from_string("reasoning", "proxy:gpt-oss", &config)
-        .expect("auth:none provider must build");
+    let (provider, model) =
+        create_test_chat_model_from_string("reasoning", "proxy:gpt-oss", &config)
+            .expect("auth:none provider must build");
 
     let err = provider
         .chat_with_system(None, "hello", &model, 0.0)
@@ -714,8 +848,9 @@ async fn cloud_provider_with_malformed_endpoint_surfaces_url_error() {
     )
     .expect("store provider token");
 
-    let (provider, model) = create_chat_provider_from_string("reasoning", "openai:gpt-4o", &config)
-        .expect("provider should still build");
+    let (provider, model) =
+        create_test_chat_model_from_string("reasoning", "openai:gpt-4o", &config)
+            .expect("provider should still build");
 
     let err = provider
         .chat_with_system(None, "hello", &model, 0.0)
@@ -735,7 +870,7 @@ async fn cloud_provider_with_malformed_endpoint_surfaces_url_error() {
 fn primary_cloud_defaults_to_openhuman_when_no_providers() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     let config = Config::default();
-    assert!(create_chat_provider("reasoning", &config).is_ok());
+    assert!(create_test_chat_model("reasoning", &config).is_ok());
 }
 
 #[test]
@@ -747,7 +882,7 @@ fn cloud_sentinel_resolves_to_primary_custom_provider() {
     assert_eq!(provider_for_role("reasoning", &config), "openai:gpt-4o");
 
     let (_, model) =
-        create_chat_provider("reasoning", &config).expect("primary custom provider must build");
+        create_test_chat_model("reasoning", &config).expect("primary custom provider must build");
     assert_eq!(model, "gpt-4o");
 }
 
@@ -844,7 +979,7 @@ fn openhuman_backend_uses_config_path_parent_as_state_dir() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.config_path = std::path::PathBuf::from("/tmp/oh-test-workspace/config.toml");
-    let (_provider, model) = create_chat_provider("reasoning", &config)
+    let (_provider, model) = create_test_chat_model("reasoning", &config)
         .expect("openhuman backend must build with no cloud_providers");
     assert!(!model.is_empty(), "model must be set")
 }
@@ -961,13 +1096,13 @@ fn verify_session_active_passes_when_session_token_present() {
 fn verify_session_active_called_for_custom_provider_not_for_openhuman() {
     // openhuman backend must always build (no session gate applied).
     let config = Config::default();
-    assert!(create_chat_provider_from_string("reasoning", "openhuman", &config).is_ok(),);
+    assert!(create_test_chat_model_from_string("reasoning", "openhuman", &config).is_ok(),);
     // Verify that when a custom provider is tried without a session,
     // we'd get blocked (this test exercises the non-#[cfg(test)] path
     // by directly calling verify_session_active).
     let tmp = TempDir::new().expect("tempdir");
     let config = config_in_tempdir(&tmp);
-    let _ = create_chat_provider_from_string("reasoning", "ollama:llama3", &config);
+    let _ = create_test_chat_model_from_string("reasoning", "ollama:llama3", &config);
     // Under #[cfg(test)] the gate is skipped, so this succeeds.
     // We assert the gate *would* fire by testing verify_session_active directly.
     assert!(
@@ -1034,7 +1169,7 @@ fn known_hints_pass() {
 fn managed_backend_translates_hint_burst_to_burst_tier() {
     let mut config = Config::default();
     config.default_model = Some("hint:burst".to_string());
-    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("chat", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, crate::openhuman::config::MODEL_BURST_V1);
 }
@@ -1085,22 +1220,22 @@ fn raw_passthrough_model_excludes_tiers_hints_and_empty() {
 // `default_model` reaches provider construction verbatim on the managed backend,
 // while a known tier and a `hint:*` alias keep their existing resolution.
 #[test]
-fn managed_backend_passthrough_via_create_chat_provider_from_string() {
+fn managed_backend_passthrough_via_create_test_chat_model_from_string() {
     let mut config = Config::default();
     config.default_model = Some("claude-opus-4".to_string());
-    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("chat", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "claude-opus-4");
 
     // Managed tier resolution is unchanged.
     config.default_model = Some("chat-v1".to_string());
-    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("chat", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, "chat-v1");
 
     // `hint:*` resolution is unchanged.
     config.default_model = Some("hint:reasoning".to_string());
-    let (_, model) = create_chat_provider_from_string("chat", "openhuman", &config)
+    let (_, model) = create_test_chat_model_from_string("chat", "openhuman", &config)
         .expect("managed backend must build");
     assert_eq!(model, crate::openhuman::config::MODEL_REASONING_V1);
 }
@@ -1163,7 +1298,8 @@ fn make_openhuman_backend_forwards_unknown_hint_verbatim() {
     for hint in ["hint:reaction", "hint:garbage", "hint:lightweight"] {
         let mut config = Config::default();
         config.default_model = Some(hint.to_string());
-        let (_, model) = make_openhuman_backend("chat", &config).expect("factory should succeed");
+        let (_, model) =
+            make_openhuman_backend_model("chat", &config).expect("factory should succeed");
         assert_eq!(model, hint, "hint '{hint}' should pass through unchanged");
     }
 }
@@ -1172,7 +1308,7 @@ fn make_openhuman_backend_forwards_unknown_hint_verbatim() {
 fn make_openhuman_backend_translates_summarization_hint() {
     let mut config = Config::default();
     config.default_model = Some("hint:summarization".to_string());
-    let (_, model) = make_openhuman_backend("chat", &config).expect("factory should succeed");
+    let (_, model) = make_openhuman_backend_model("chat", &config).expect("factory should succeed");
     assert_eq!(model, crate::openhuman::config::MODEL_SUMMARIZATION_V1);
 }
 
@@ -1186,44 +1322,44 @@ fn managed_backend_pins_subconscious_role_to_chat_tier() {
     let mut config = Config::default();
     config.default_model = Some("hint:subconscious".to_string());
     let (_, model) =
-        make_openhuman_backend("subconscious", &config).expect("factory should succeed");
+        make_openhuman_backend_model("subconscious", &config).expect("factory should succeed");
     assert_eq!(model, crate::openhuman::config::MODEL_CHAT_V1);
 
     // Even with a heavy `default_model`, the subconscious role stays on chat-v1.
     config.default_model = Some("reasoning-v1".to_string());
     let (_, model) =
-        make_openhuman_backend("subconscious", &config).expect("factory should succeed");
+        make_openhuman_backend_model("subconscious", &config).expect("factory should succeed");
     assert_eq!(model, crate::openhuman::config::MODEL_CHAT_V1);
 }
 
 #[test]
-fn create_chat_provider_subconscious_managed_resolves_chat_v1() {
+fn create_test_chat_model_subconscious_managed_resolves_chat_v1() {
     let _guard = crate::openhuman::inference::inference_test_guard();
     // End-to-end of the managed tick path: provider role `subconscious` with the
     // hint default_model, no BYOK subconscious_provider → managed backend, model
     // pinned to chat-v1 (no regression vs the pre-change chat-role behaviour).
     let mut config = Config::default();
     config.default_model = Some("hint:subconscious".to_string());
-    let (_, model) =
-        create_chat_provider("subconscious", &config).expect("create_chat_provider must succeed");
+    let (_, model) = create_test_chat_model("subconscious", &config)
+        .expect("create_test_chat_model must succeed");
     assert_eq!(model, crate::openhuman::config::MODEL_CHAT_V1);
 }
 
 #[test]
-fn create_chat_provider_subconscious_honours_byok_route() {
+fn create_test_chat_model_subconscious_honours_byok_route() {
     // When the user pins a concrete cloud provider for the subconscious workload
     // in Connections → API keys → LLM, the factory builds that provider and returns
     // its exact model id.
     // Serialize with the process-global `test_provider_override` (installed by the
     // `create_chat_model` seam tests): while an override is active, every
-    // `create_chat_provider` returns the sentinel `mock-model`, so an unguarded
+    // `create_test_chat_model` returns the sentinel `mock-model`, so an unguarded
     // read here can race it and see `mock-model` instead of the resolved BYOK id.
     let _guard = crate::openhuman::inference::inference_test_guard();
     let mut config = Config::default();
     config.cloud_providers.push(openai_entry("p_oai", "openai"));
     config.subconscious_provider = Some("openai:gpt-4o-mini".to_string());
-    let (_, model) =
-        create_chat_provider("subconscious", &config).expect("create_chat_provider must succeed");
+    let (_, model) = create_test_chat_model("subconscious", &config)
+        .expect("create_test_chat_model must succeed");
     assert_eq!(model, "gpt-4o-mini");
 }
 
@@ -1246,7 +1382,8 @@ fn provider_for_role_subconscious_override_respected() {
 #[test]
 fn make_openhuman_backend_reports_vision_capability() {
     let config = Config::default();
-    let (provider, _) = make_openhuman_backend("chat", &config).expect("factory should succeed");
+    let (provider, _) =
+        make_openhuman_backend_model("chat", &config).expect("factory should succeed");
     let caps = provider.capabilities();
     assert!(caps.native_tool_calling);
     assert!(
@@ -1264,7 +1401,7 @@ fn make_openhuman_backend_forwards_raw_byok_model_verbatim() {
     // their validity.
     let mut config = Config::default();
     config.default_model = Some("claude-opus-4".to_string());
-    let (_, model) = make_openhuman_backend("chat", &config).expect("factory should succeed");
+    let (_, model) = make_openhuman_backend_model("chat", &config).expect("factory should succeed");
     assert_eq!(
         model, "claude-opus-4",
         "a raw/BYOK default_model must be forwarded verbatim, not collapsed"
@@ -1272,7 +1409,7 @@ fn make_openhuman_backend_forwards_raw_byok_model_verbatim() {
 
     // Another stale/custom id shape from the wild — still forwarded verbatim.
     config.default_model = Some("deepseek-v4-pro".to_string());
-    let (_, model) = make_openhuman_backend("chat", &config).expect("factory should succeed");
+    let (_, model) = make_openhuman_backend_model("chat", &config).expect("factory should succeed");
     assert_eq!(model, "deepseek-v4-pro");
 }
 
@@ -1280,7 +1417,7 @@ fn make_openhuman_backend_forwards_raw_byok_model_verbatim() {
 fn make_openhuman_backend_keeps_valid_tier() {
     let mut config = Config::default();
     config.default_model = Some("chat-v1".to_string());
-    let (_, model) = make_openhuman_backend("chat", &config).expect("factory should succeed");
+    let (_, model) = make_openhuman_backend_model("chat", &config).expect("factory should succeed");
     assert_eq!(model, "chat-v1");
 }
 
@@ -1288,7 +1425,7 @@ fn make_openhuman_backend_keeps_valid_tier() {
 fn make_openhuman_backend_keeps_reasoning_quick() {
     let mut config = Config::default();
     config.default_model = Some("reasoning-quick-v1".to_string());
-    let (_, model) = make_openhuman_backend("chat", &config).expect("factory should succeed");
+    let (_, model) = make_openhuman_backend_model("chat", &config).expect("factory should succeed");
     assert_eq!(model, "reasoning-quick-v1");
 }
 
@@ -1301,7 +1438,8 @@ fn make_openhuman_backend_pins_vision_role_to_vision_tier() {
     // the turn engine strips every attached image, blinding the vision sub-agent.
     let config = Config::default();
     assert_eq!(config.default_model.as_deref(), Some("chat-v1"));
-    let (_, model) = make_openhuman_backend("vision", &config).expect("factory should succeed");
+    let (_, model) =
+        make_openhuman_backend_model("vision", &config).expect("factory should succeed");
     assert_eq!(model, crate::openhuman::config::MODEL_VISION_V1);
     assert!(
         oh_tier_supports_vision(&model),
@@ -1360,11 +1498,11 @@ fn byok_sentinel_makes_provider_creation_error_with_clear_message() {
     config.inference_url = Some("https://custom-api.example.com/v1".to_string());
 
     // Use match instead of unwrap_err(): Box<dyn Provider> doesn't impl Debug.
-    let msg = match create_chat_provider_from_string("reasoning", BYOK_INCOMPLETE_SENTINEL, &config)
-    {
-        Ok(_) => panic!("sentinel must produce an error, not a provider"),
-        Err(e) => e.to_string(),
-    };
+    let msg =
+        match create_test_chat_model_from_string("reasoning", BYOK_INCOMPLETE_SENTINEL, &config) {
+            Ok(_) => panic!("sentinel must produce an error, not a provider"),
+            Err(e) => e.to_string(),
+        };
     assert!(
         msg.contains("BYOK_INCOMPLETE"),
         "error must name BYOK_INCOMPLETE; got: {msg}"
@@ -1382,7 +1520,7 @@ fn byok_sentinel_error_mentions_configuration_action() {
     config.inference_url = Some("https://byok.example.com/v1".to_string());
 
     // Use match instead of unwrap_err(): Box<dyn Provider> doesn't impl Debug.
-    let msg = match create_chat_provider_from_string("chat", BYOK_INCOMPLETE_SENTINEL, &config) {
+    let msg = match create_test_chat_model_from_string("chat", BYOK_INCOMPLETE_SENTINEL, &config) {
         Ok(_) => panic!("sentinel must produce an error"),
         Err(e) => e.to_string(),
     };
@@ -1628,7 +1766,7 @@ fn byok_fallback_empty_string_treated_as_unset() {
 #[test]
 fn claude_agent_sdk_bare_provider_string_uses_default_model() {
     let config = Config::default();
-    let (_, model) = create_chat_provider_from_string("reasoning", "claude_agent_sdk", &config)
+    let (_, model) = create_test_chat_model_from_string("reasoning", "claude_agent_sdk", &config)
         .expect("claude_agent_sdk must build without a model suffix");
     // Default model from ClaudeAgentSdkConfig
     assert_eq!(
@@ -1640,9 +1778,12 @@ fn claude_agent_sdk_bare_provider_string_uses_default_model() {
 #[test]
 fn claude_agent_sdk_with_model_suffix() {
     let config = Config::default();
-    let (_, model) =
-        create_chat_provider_from_string("reasoning", "claude_agent_sdk:claude-opus-4-7", &config)
-            .expect("claude_agent_sdk:<model> must build");
+    let (_, model) = create_test_chat_model_from_string(
+        "reasoning",
+        "claude_agent_sdk:claude-opus-4-7",
+        &config,
+    )
+    .expect("claude_agent_sdk:<model> must build");
     assert_eq!(model, "claude-opus-4-7");
 }
 
@@ -1650,7 +1791,7 @@ fn claude_agent_sdk_with_model_suffix() {
 fn claude_agent_sdk_with_custom_default_model_in_config() {
     let mut config = Config::default();
     config.claude_agent_sdk.default_model = "claude-haiku-4-5".to_string();
-    let (_, model) = create_chat_provider_from_string("chat", "claude_agent_sdk", &config)
+    let (_, model) = create_test_chat_model_from_string("chat", "claude_agent_sdk", &config)
         .expect("claude_agent_sdk must build with config default model");
     assert_eq!(model, "claude-haiku-4-5");
 }
@@ -1810,7 +1951,7 @@ async fn ollama_provider_does_not_fall_back_to_responses_on_404() {
     // Point the Ollama base URL at the mock server.
     config.local_ai.base_url = Some(mock_server.uri());
     let (provider, model) =
-        create_chat_provider_from_string("chat", "ollama:gemma3:1b-it-qat", &config)
+        create_test_chat_model_from_string("chat", "ollama:gemma3:1b-it-qat", &config)
             .expect("ollama provider must build");
 
     // The call should fail (404), but must not trigger the /v1/responses path.
@@ -1854,7 +1995,7 @@ async fn lmstudio_provider_does_not_fall_back_to_responses_on_404() {
     let mut config = Config::default();
     config.local_ai.base_url = Some(mock_server.uri());
     let (provider, model) =
-        create_chat_provider_from_string("chat", "lmstudio:google/gemma-4-e4b", &config)
+        create_test_chat_model_from_string("chat", "lmstudio:google/gemma-4-e4b", &config)
             .expect("lmstudio provider must build");
 
     let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
@@ -1907,7 +2048,7 @@ async fn cloud_provider_does_not_fall_back_to_responses_on_404() {
     }]);
 
     let (provider, model) =
-        create_chat_provider_from_string("chat", "test-cloud:test-model", &config)
+        create_test_chat_model_from_string("chat", "test-cloud:test-model", &config)
             .expect("cloud provider must build");
 
     let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
@@ -1965,7 +2106,7 @@ async fn deepseek_builtin_does_not_fall_back_to_responses_on_404() {
         .expect("store provider token");
 
     let (provider, model) =
-        create_chat_provider_from_string("chat", "deepseek:deepseek-v4-flash", &config)
+        create_test_chat_model_from_string("chat", "deepseek:deepseek-v4-flash", &config)
             .expect("deepseek provider must build");
 
     let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
@@ -2026,7 +2167,7 @@ async fn custom_bearer_provider_does_not_fall_back_to_responses_on_404() {
         .expect("store provider token");
 
     let (provider, model) =
-        create_chat_provider_from_string("chat", "my-openai-proxy:proxy-model", &config)
+        create_test_chat_model_from_string("chat", "my-openai-proxy:proxy-model", &config)
             .expect("custom bearer provider must build");
 
     let result = provider.chat_with_system(None, "hello", &model, 0.0).await;
@@ -2044,7 +2185,8 @@ async fn live_lmstudio_provider_streams_thinking_and_text() {
         .expect("discover live lmstudio model");
     let provider_string = format!("lmstudio:{model}");
     let (provider, resolved_model) =
-        create_local_chat_provider_from_string(&provider_string, &config).expect("build provider");
+        create_test_local_chat_model_from_string(&provider_string, &config)
+            .expect("build provider");
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(64);
     let messages = vec![ChatMessage::user(
@@ -2105,7 +2247,8 @@ async fn live_ollama_provider_streams_text() {
         .expect("discover live ollama model");
     let provider_string = format!("ollama:{model}");
     let (provider, resolved_model) =
-        create_local_chat_provider_from_string(&provider_string, &config).expect("build provider");
+        create_test_local_chat_model_from_string(&provider_string, &config)
+            .expect("build provider");
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(64);
     let messages = vec![ChatMessage::user("Reply with exactly OLLAMA_LIVE_OK.")];
@@ -2162,7 +2305,7 @@ fn nvidia_nim_entry(id: &str, default_model: Option<&str>) -> CloudProviderCreds
 #[test]
 fn nvidia_nim_with_explicit_model_builds_correctly() {
     let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
-    let (_, model) = create_chat_provider_from_string(
+    let (_, model) = create_test_chat_model_from_string(
         "reasoning",
         "nvidia-nim:meta/llama-3.1-8b-instruct",
         &config,
@@ -2183,7 +2326,7 @@ fn nvidia_nim_with_explicit_model_builds_correctly() {
 #[test]
 fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
     let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
-    let err = match create_chat_provider_from_string("reasoning", "nvidia-nim:", &config) {
+    let err = match create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config) {
         Ok(_) => panic!("empty model string must not succeed — would send model='' to the API"),
         Err(e) => e,
     };
@@ -2206,7 +2349,7 @@ fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
         "p_nim",
         Some("meta/llama-3.1-70b-instruct"),
     )]);
-    let (_, model) = create_chat_provider_from_string("reasoning", "nvidia-nim:", &config)
+    let (_, model) = create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config)
         .expect("nvidia-nim: with default_model configured must build");
     assert_eq!(
         model, "meta/llama-3.1-70b-instruct",
@@ -2282,7 +2425,7 @@ fn config_api_key_fallback_inert_without_inference_url() {
 #[test]
 fn mlx_provider_string_resolves() {
     let config = Config::default();
-    let result = create_chat_provider_from_string("chat", "mlx:llama-3.1-8b", &config);
+    let result = create_test_chat_model_from_string("chat", "mlx:llama-3.1-8b", &config);
     assert!(result.is_ok(), "mlx provider must resolve");
     let (_, model) = result.unwrap();
     assert_eq!(model, "llama-3.1-8b");
@@ -2291,7 +2434,7 @@ fn mlx_provider_string_resolves() {
 #[test]
 fn local_openai_provider_string_resolves() {
     let config = Config::default();
-    let result = create_chat_provider_from_string("chat", "local-openai:phi3", &config);
+    let result = create_test_chat_model_from_string("chat", "local-openai:phi3", &config);
     assert!(result.is_ok(), "local-openai provider must resolve");
     let (_, model) = result.unwrap();
     assert_eq!(model, "phi3");
@@ -2300,7 +2443,7 @@ fn local_openai_provider_string_resolves() {
 #[test]
 fn mlx_provider_empty_model_errors() {
     let config = Config::default();
-    let result = create_chat_provider_from_string("chat", "mlx:", &config);
+    let result = create_test_chat_model_from_string("chat", "mlx:", &config);
     let err = result.err().expect("mlx: with empty model must error");
     assert!(err.to_string().contains("empty model"));
 }
@@ -2308,7 +2451,7 @@ fn mlx_provider_empty_model_errors() {
 #[test]
 fn local_openai_provider_empty_model_errors() {
     let config = Config::default();
-    let result = create_chat_provider_from_string("chat", "local-openai:", &config);
+    let result = create_test_chat_model_from_string("chat", "local-openai:", &config);
     let err = result
         .err()
         .expect("local-openai: with empty model must error");
@@ -2319,7 +2462,7 @@ fn local_openai_provider_empty_model_errors() {
 fn ollama_provider_passes_num_ctx() {
     let mut config = Config::default();
     config.local_ai.num_ctx = Some(32768);
-    let result = create_chat_provider_from_string("chat", "ollama:qwen3:14b", &config);
+    let result = create_test_chat_model_from_string("chat", "ollama:qwen3:14b", &config);
     assert!(result.is_ok());
     // The provider is constructed — num_ctx is set on the provider instance.
     // Full integration test verifying the serialized body is in the JSON-RPC
@@ -2516,17 +2659,17 @@ fn omlx_provider_builds_with_bearer_key() {
     config.local_ai.api_key = Some("sk-omlx-test".to_string());
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
     let (_provider, model) =
-        super::make_omlx_provider("my-model", None, &config).expect("omlx provider builds");
+        create_test_omlx_model("my-model", None, &config).expect("omlx provider builds");
     assert_eq!(model, "my-model");
 }
 
 #[test]
 fn omlx_dispatch_empty_model_errors() {
-    // Covers the empty-model bail! arms in create_chat_provider_from_string
-    // and create_local_chat_provider_from_string for the "omlx:" prefix.
+    // Covers the empty-model bail! arms in create_test_chat_model_from_string
+    // and create_test_local_chat_model_from_string for the "omlx:" prefix.
     let config = crate::openhuman::config::Config::default();
 
-    let err = create_chat_provider_from_string("chat", "omlx:", &config)
+    let err = create_test_chat_model_from_string("chat", "omlx:", &config)
         .err()
         .expect("omlx: with empty model must fail");
     let msg = err.to_string();
@@ -2535,7 +2678,7 @@ fn omlx_dispatch_empty_model_errors() {
         "expected empty-model diagnostic, got: {msg}"
     );
 
-    let err_local = create_local_chat_provider_from_string("omlx:", &config)
+    let err_local = create_test_local_chat_model_from_string("omlx:", &config)
         .err()
         .expect("omlx: with empty model must fail via local dispatch");
     let msg_local = err_local.to_string();
@@ -2553,24 +2696,25 @@ fn omlx_provider_builds_without_key_uses_no_auth() {
     config.local_ai.api_key = None;
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
     let (_provider, model) =
-        super::make_omlx_provider("m", None, &config).expect("omlx provider builds without key");
+        create_test_omlx_model("m", None, &config).expect("omlx provider builds without key");
     assert_eq!(model, "m");
 }
 
 #[test]
 fn omlx_dispatch_success_builds_provider() {
     // Covers the success arms (non-empty model -> make_omlx_provider) in both
-    // create_chat_provider_from_string and create_local_chat_provider_from_string.
+    // create_test_chat_model_from_string and create_test_local_chat_model_from_string.
     let mut config = crate::openhuman::config::Config::default();
     config.local_ai.api_key = Some("sk-omlx-test".to_string());
     config.local_ai.base_url = Some("http://127.0.0.1:8000/v1".to_string());
 
-    let (_p, model) = create_chat_provider_from_string("chat", "omlx:my-model", &config)
+    let (_p, model) = create_test_chat_model_from_string("chat", "omlx:my-model", &config)
         .expect("omlx:<model> builds via public factory");
     assert_eq!(model, "my-model");
 
-    let (_p_local, model_local) = create_local_chat_provider_from_string("omlx:my-model", &config)
-        .expect("omlx:<model> builds via local dispatch");
+    let (_p_local, model_local) =
+        create_test_local_chat_model_from_string("omlx:my-model", &config)
+            .expect("omlx:<model> builds via local dispatch");
     assert_eq!(model_local, "my-model");
 }
 
@@ -2919,7 +3063,7 @@ fn create_chat_model_routes_local_runtime_to_crate_native() {
         .expect("local create_chat_model must build");
     assert_eq!(model_id, "qwen2.5");
     // Motion B (#4727): a local runtime now builds a crate-native `OpenAiModel`
-    // (not a `ProviderModel` wrapper), so its profile carries the concrete
+    // (not a legacy model wrapper), so its profile carries the concrete
     // provider slug — `ollama`, not the adapter's neutral `local`/`remote` — and
     // native tools + vision are forced off (Ollama rejects the OpenAI `tools`
     // param and is text-only here).
@@ -3131,7 +3275,7 @@ fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
 }
 
 /// Real-path smoke (privacy epic S2, #4436): driving the actual inference
-/// chokepoint `create_chat_provider_from_string` with an EXTERNAL provider must
+/// chokepoint `create_test_chat_model_from_string` with an EXTERNAL provider must
 /// publish an `ExternalTransferPending` egress event — proving the emit is wired
 /// into the live construction path, not merely callable in isolation.
 /// Complements the isolated emit unit tests in `security::egress`.
@@ -3145,7 +3289,7 @@ async fn from_string_external_provider_emits_egress_realpath() {
 
     let config = Config::default();
     // External provider → real chokepoint must emit BEFORE constructing.
-    let _ = create_chat_provider_from_string("agentic", "openai:gpt-4o-mini", &config);
+    let _ = create_test_chat_model_from_string("agentic", "openai:gpt-4o-mini", &config);
 
     // Bus is process-wide; drain past unrelated events until our descriptor lands.
     let found = tokio::time::timeout(std::time::Duration::from_secs(2), async {
@@ -3170,7 +3314,7 @@ async fn from_string_external_provider_emits_egress_realpath() {
 
     assert!(
         found.is_ok(),
-        "external inference via create_chat_provider_from_string must publish ExternalTransferPending"
+        "external inference via create_test_chat_model_from_string must publish ExternalTransferPending"
     );
 }
 

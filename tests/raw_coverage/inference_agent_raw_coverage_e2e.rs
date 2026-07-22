@@ -126,7 +126,7 @@ use openhuman_core::openhuman::inference::presets::{
     MIN_RAM_GB_FOR_LOCAL_AI, MVP_MAX_TIER,
 };
 use openhuman_core::openhuman::inference::provider::factory::{
-    auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
+    auth_key_for_slug, create_chat_model_from_string_with_model_id, provider_for_role,
     BYOK_INCOMPLETE_SENTINEL,
 };
 use openhuman_core::openhuman::inference::provider::OpenHumanBackendModel;
@@ -1981,8 +1981,13 @@ async fn inference_provider_factory_and_classifiers_cover_user_state_edges() {
     // silently collapsing it onto `reasoning-v1`, so the selected model actually
     // reaches the backend (which validates it).
     config.default_model = Some("stale-provider-model".into());
-    let (_, openhuman_model) =
-        create_chat_provider_from_string("chat", "openhuman", &config).expect("openhuman provider");
+    let (_, openhuman_model) = create_chat_model_from_string_with_model_id(
+        "chat",
+        "openhuman",
+        &config,
+        0.0,
+    )
+    .expect("openhuman model");
     assert_eq!(openhuman_model, "stale-provider-model");
 
     let byok_err = provider_factory_error("chat", BYOK_INCOMPLETE_SENTINEL, &config);
@@ -2064,7 +2069,7 @@ async fn inference_openhuman_backend_provider_covers_authless_and_streaming_edge
 }
 
 fn provider_factory_error(role: &str, provider: &str, config: &Config) -> String {
-    match create_chat_provider_from_string(role, provider, config) {
+    match create_chat_model_from_string_with_model_id(role, provider, config, 0.0) {
         Ok((_, model)) => panic!("provider factory unexpectedly succeeded with model {model}"),
         Err(err) => err.to_string(),
     }

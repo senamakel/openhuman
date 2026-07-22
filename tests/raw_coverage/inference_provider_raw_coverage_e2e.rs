@@ -24,7 +24,7 @@ use openhuman_core::openhuman::credentials::{
 };
 use openhuman_core::openhuman::inference::local::LocalAiService;
 use openhuman_core::openhuman::inference::provider::factory::{
-    auth_key_for_slug, create_chat_provider_from_string, provider_for_role,
+    auth_key_for_slug, create_chat_model_from_string_with_model_id, provider_for_role,
 };
 use openhuman_core::openhuman::inference::provider::{
     list_configured_models, sanitize_api_error, ChatMessage, ChatRequest, Provider, ProviderDelta,
@@ -174,16 +174,23 @@ async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes
     );
 
     let (_provider, model) =
-        create_chat_provider_from_string("chat", "custom:demo-chat@0.4", &config)
-            .expect("cloud provider");
+        create_chat_model_from_string_with_model_id("chat", "custom:demo-chat@0.4", &config, 0.7)
+            .expect("cloud model");
     assert_eq!(model, "demo-chat");
 
     let (_local_provider, local_model) =
-        create_chat_provider_from_string("chat", "ollama:gemma3:1b-it-qat@0.1", &config)
-            .expect("ollama provider");
+        create_chat_model_from_string_with_model_id(
+            "chat",
+            "ollama:gemma3:1b-it-qat@0.1",
+            &config,
+            0.7,
+        )
+        .expect("ollama model");
     assert_eq!(local_model, "gemma3:1b-it-qat");
 
-    let empty_model = match create_chat_provider_from_string("chat", "ollama:", &config) {
+    let empty_model = match create_chat_model_from_string_with_model_id(
+        "chat", "ollama:", &config, 0.7,
+    ) {
         Ok(_) => panic!("expected empty model error"),
         Err(err) => err,
     };

@@ -28,7 +28,7 @@ host adapter duplicate code.
 | host `ToolPolicyMiddleware` | KEEP host; rename later | Despite the shared name, this evaluates OpenHuman's argument-sensitive policy and approval decision. The crate middleware enforces static SDK `ToolPolicy`; both are required at different layers. Rename the host type to `OpenHumanToolPolicyMiddleware` when touching registration order. |
 | `ToolOutcomeCaptureMiddleware` | KEEP host | Projects final capped/redacted results into OpenHuman `ToolCallRecord` and event/usage state. |
 | `ArgRecoveryMiddleware` | UPSTREAM | JSON-string/fenced-object recovery and empty-object coercion are provider-neutral harness behavior. Add a crate argument-normalization hook before schema validation, port the regression cases, then delete the host middleware. |
-| `SchemaGuardMiddleware` | UPSTREAM | Converts invalid tool arguments from fatal run errors into recoverable tool results. The host currently rewrites to schema-valid stubs because crate validation sits between middleware phases. Add a crate `RecoverableToolError`/validation policy so no stub is needed, then delete both the middleware and pending-error map. |
+| `SchemaGuardMiddleware` | ADOPTED; DELETE | TinyAgents 2.1 already has `InvalidArgsPolicy::ReturnToolError` in admission. WP-5 enables it and deletes the host pre-validation, schema-valid stub synthesis, pending map, and wrap short-circuit. |
 | `MemoryProtocolMiddleware` | KEEP host | Enforces the OpenHuman read/dedupe/write/`MEMORY.md` product protocol and names specific memory tools. |
 | `CostBudgetMiddleware` | SPLIT | Crate `BudgetMiddleware` owns token accumulation; OpenHuman remains authoritative for USD pricing, daily/monthly product limits, global tracker state, and pre-spend denial. Delete only the token-parity shadow after it is clean. |
 | `RepeatedToolFailureMiddleware` | KEEP thin driver | The escalation ladder is already crate-owned by `NoProgressTracker`. OpenHuman still maps verdicts to steering, halt summaries, user-actionable connection wording, and two workflow body-level failure conventions. |
@@ -41,9 +41,9 @@ the rows above move.
 
 ## Upstream PR order
 
-1. Recoverable tool validation: combine `ArgRecoveryMiddleware` and
-   `SchemaGuardMiddleware` behind a crate validation policy. This removes the
-   only middleware that must manufacture schema-valid stub arguments.
+1. Argument normalization: upstream the still-useful JSON-string/fenced-object
+   recovery from `ArgRecoveryMiddleware`; schema-invalid recovery is already
+   crate-owned through `InvalidArgsPolicy::ReturnToolError`.
 2. Message trimming parity: port the image/system/order/reserve tests and fix
    crate `MessageTrimMiddleware`.
 3. Successful-repeat progress detection: extend `NoProgressTracker` with
@@ -64,4 +64,3 @@ blocked on those PRs and are not migration debt.
   invalid arguments are rejected before approval/security sees rewritten data.
 - The crate no-progress tracker owns detection; the host owns only product
   steering and presentation.
-

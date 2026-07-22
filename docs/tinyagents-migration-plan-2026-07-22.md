@@ -406,8 +406,10 @@ prematurely.**
 
 **WP-5 middleware audit status:** complete in
 [`tinyagents-middleware-ledger-2026-07-22.md`](tinyagents-middleware-ledger-2026-07-22.md).
-The first upstream slice is recoverable tool validation (`ArgRecovery` plus
-`SchemaGuard`), followed by message-trim parity and successful-repeat detection.
+TinyAgents 2.1 already owns recoverable schema validation, so WP-5 enables its
+`InvalidArgsPolicy::ReturnToolError` and deletes `SchemaGuard`; the first actual
+upstream slice is the remaining argument normalization in `ArgRecovery`,
+followed by message-trim parity and successful-repeat detection.
 Security, billing, persistence, memory protocol, and product steering remain
 host-owned by design.
 

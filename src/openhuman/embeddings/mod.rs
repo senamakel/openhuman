@@ -15,14 +15,8 @@
 pub mod catalog;
 #[path = "cloud_adapter.rs"]
 pub mod cloud;
-#[path = "cohere_adapter.rs"]
-pub mod cohere;
 mod factory;
 pub mod noop;
-#[path = "ollama_adapter.rs"]
-pub mod ollama;
-#[path = "openai_adapter.rs"]
-pub mod openai;
 mod provider_trait;
 pub mod rate_limit {
     pub use tinyagents::harness::embeddings::{
@@ -42,8 +36,6 @@ pub mod retry_after {
 }
 mod rpc;
 mod schemas;
-#[path = "voyage_adapter.rs"]
-pub mod voyage;
 
 pub use catalog::non_embedding_model_reason;
 pub use cloud::{
@@ -60,8 +52,6 @@ pub(crate) use factory::model_supports_dimensions;
 // #002 FR-015: the memory-tree OpenAI-compat embedder reuses the same key
 // resolution the embeddings RPC uses, so there is one source of truth.
 pub use noop::NoopEmbedding;
-pub use ollama::OllamaEmbedding;
-pub use openai::OpenAiEmbedding;
 pub use provider_trait::{
     format_embedding_signature, EmbeddingProvider, TinyAgentsEmbeddingProvider,
 };
@@ -71,7 +61,9 @@ pub use schemas::{
     all_controller_schemas as all_embeddings_controller_schemas,
     all_registered_controllers as all_embeddings_registered_controllers,
 };
-pub use tinyagents::harness::embeddings::{DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL};
+pub use tinyagents::harness::embeddings::{
+    DEFAULT_OLLAMA_DIMENSIONS, DEFAULT_OLLAMA_MODEL, DEFAULT_OLLAMA_URL,
+};
 
 #[cfg(test)]
 #[path = "mod_tests.rs"]

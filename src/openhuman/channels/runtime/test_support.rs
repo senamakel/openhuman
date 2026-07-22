@@ -14,7 +14,7 @@ use crate::openhuman::channels::context::{ChannelRuntimeContext, CHANNEL_MESSAGE
 use crate::openhuman::channels::traits::{ChannelMessage, SendMessage};
 use crate::openhuman::channels::Channel;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig, ReliabilityConfig};
-use crate::openhuman::inference::provider::{ChatMessage, Provider, ProviderRuntimeOptions};
+use crate::openhuman::inference::provider::{ChatMessage, ProviderRuntimeOptions};
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::tools::{Tool, ToolResult};
 use anyhow::Result;
@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tinyagents::harness::model::{ChatModel, ModelRequest, ModelResponse};
 
 #[derive(Debug, Clone)]
 pub struct DispatchHarnessOptions {
@@ -177,18 +178,21 @@ impl Channel for HarnessChannel {
     }
 }
 
-struct HarnessProvider;
+struct HarnessModel;
 
 #[async_trait]
-impl Provider for HarnessProvider {
-    async fn chat_with_system(
+impl ChatModel<()> for HarnessModel {
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        Ok(format!("provider echo: {message}"))
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        let message = request
+            .messages
+            .last()
+            .map(|message| message.text())
+            .unwrap_or_default();
+        Ok(ModelResponse::assistant(format!("model echo: {message}")))
     }
 }
 
@@ -398,11 +402,11 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
     let mut channels_by_name = HashMap::new();
     channels_by_name.insert(options.channel_name.clone(), channel);
 
-    let provider: Arc<dyn Provider> = Arc::new(HarnessProvider);
+    let model: Arc<dyn ChatModel<()>> = Arc::new(HarnessModel);
     let mut provider_cache = HashMap::new();
     provider_cache.insert(
         "harness-provider".to_string(),
-        crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(&provider)),
+        crate::openhuman::tinyagents::TurnModelSource::from_model(Arc::clone(&model)),
     );
     let conversation_histories = Arc::new(Mutex::new(HashMap::new()));
     let history_key = if options.channel_name == "telegram" {
@@ -423,7 +427,9 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
 
     let ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(provider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+            model,
+        )),
         default_provider: Arc::new("harness-provider".to_string()),
         memory: Arc::new(HarnessMemory {
             entries: options

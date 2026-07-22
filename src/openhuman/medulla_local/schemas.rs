@@ -4,6 +4,7 @@
 //! `medulla-local` feature. Two methods this draft: `status` and `instruct`.
 
 use serde_json::{Map, Value};
+use tracing::warn;
 
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
@@ -98,7 +99,10 @@ fn handle_status(_params: Map<String, Value>) -> ControllerFuture {
 fn handle_instruct(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let params: InstructParams =
-            serde_json::from_value(Value::Object(params)).map_err(|error| error.to_string())?;
+            serde_json::from_value(Value::Object(params)).map_err(|error| {
+                warn!("[medulla_local] medulla_local.instruct rejected malformed params: {error}");
+                error.to_string()
+            })?;
         instruct_handler(params).await
     })
 }

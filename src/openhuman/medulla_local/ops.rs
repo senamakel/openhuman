@@ -7,6 +7,7 @@
 
 use serde::Deserialize;
 use serde_json::{json, Value};
+use tracing::warn;
 
 use super::server;
 use super::types::{InstructReceipt, MedullaLocalStatus};
@@ -37,14 +38,17 @@ pub async fn instruct_tick(
 pub async fn status(config: &Config) -> MedullaLocalStatus {
     match server::ensure_started(config).await {
         Ok(supervisor) => supervisor.snapshot().await,
-        Err(error) => MedullaLocalStatus {
-            enabled: true,
-            running: false,
-            serve_version: None,
-            session_id: None,
-            ports: Vec::new(),
-            message: Some(error.to_string()),
-        },
+        Err(error) => {
+            warn!("[medulla_local] medulla_local.status: serve unavailable: {error:#}");
+            MedullaLocalStatus {
+                enabled: true,
+                running: false,
+                serve_version: None,
+                session_id: None,
+                ports: Vec::new(),
+                message: Some(error.to_string()),
+            }
+        }
     }
 }
 
@@ -69,7 +73,10 @@ pub(crate) async fn instruct_handler(params: InstructParams) -> Result<Value, St
     };
     let receipt = instruct_tick(&config, &params.message, meta)
         .await
-        .map_err(|error| format!("{error:#}"))?;
+        .map_err(|error| {
+            warn!("[medulla_local] medulla_local.instruct failed: {error:#}");
+            format!("{error:#}")
+        })?;
     let payload = json!(receipt);
     let log = vec![format!(
         "medulla_local.instruct: instruction_id={} cycle_id={}",

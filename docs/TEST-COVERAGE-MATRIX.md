@@ -611,15 +611,31 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 14.1.4 | Disabled-build stub (`--no-default-features`)     | RU    | `src/core/cli_tests.rs` (`tui`/`chat` `*_reports_disabled_build_when_gate_off`)     | ✅     | Build-fact error, not `unknown namespace`                                                                 |
 | 14.1.5 | Interactive terminal session (raw mode, streaming) | MS    | manual smoke                                                                        | 🚫     | Needs a real TTY; not driver-automatable                                                                  |
 
+## 15. Agent Profile Homes (multi-agent profiles)
+
+### 15.1 Profile Homes & Isolation
+
+| ID     | Feature                                                        | Layer | Test path(s)                                                                                                   | Status | Notes                                                                                                          |
+| ------ | -------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------- |
+| 15.1.1 | Profile home materialization + file-backed SOUL.md             | RU    | `src/openhuman/profiles/home.rs`, `src/openhuman/profiles/paths.rs`                                            | ✅     | Idempotent atomic seeds, id validation matrix, soul resolution order incl. legacy-id skip                       |
+| 15.1.2 | Dedicated memory suffix + dedicated workspace descriptor       | RU    | `src/openhuman/profiles/paths.rs`, `src/openhuman/agent/harness/session/builder/factory.rs`                    | ✅     | `effective_memory_suffix` matrix; real `derive_profile_workspace_descriptor` seam, None path unchanged          |
+| 15.1.3 | Cross-profile write guard (file tools + shell)                 | RU    | `src/openhuman/profiles/guard.rs`, `src/openhuman/security/policy/policy_tests.rs`                             | ✅     | Block sibling / allow own / disarmed-allows; traversal + symlink cases through real `validate_parent_path`      |
+| 15.1.4 | Profile-scoped agent experience (capture stamp + partition)    | RU    | `src/openhuman/agent_experience/` (capture/store/ops tests)                                                    | ✅     | Profiled query sees own + legacy, excludes siblings; profile-less sees all                                      |
+| 15.1.5 | Per-profile skills dir (discover/describe/read/run precedence) | RU    | `src/openhuman/skills/registry.rs`, `src/openhuman/skills/ops_discover.rs`                                     | ✅     | Owner-only visibility; profile-local wins collisions; global-only resolves everywhere                           |
+| 15.1.6 | Cron profile attribution (schema, patch clearing, fallback)    | RU/RI | `src/openhuman/cron/types.rs`, `src/openhuman/cron/store.rs`, `tests/json_rpc_e2e.rs`                          | ✅     | Double-option wire semantics (absent/null/value); deleted-profile fallback; e2e round-trip incl. null clearing  |
+| 15.1.7 | Profiles RPC lifecycle (dedicated memory, enriched paths)      | RI    | `tests/json_rpc_e2e.rs` (`json_rpc_profiles_dedicated_memory_lifecycle`)                                       | ✅     | Upsert → list shows `dedicatedMemory` + enriched `soulMdFile`/`workspaceDir`/`skillsDir`                        |
+| 15.1.8 | Profile editor isolation UI (toggles, path rows)               | VU    | `app/src/components/settings/panels/ProfileEditorPage.test.tsx`                                                | ✅     | Default-off render, dispatch payload, hydration, path rows shown/hidden                                         |
+| 15.1.9 | Cron profile picker UI (assign, clear, deleted fallback)       | VU    | `app/src/components/settings/panels/cron/` tests, `app/src/services/api/agentProfilesApi.test.ts`              | ✅     | Create with/without id, edit prefill, clear→null, deleted-profile preserved, list label fallback                |
+
 ## Summary
 
 | Status           | Count                                            |
 | ---------------- | ------------------------------------------------ |
-| ✅ Covered       | 70                                               |
+| ✅ Covered       | 79                                               |
 | 🟡 Partial       | 27                                               |
 | ❌ Missing       | 26                                               |
 | 🚫 Manual smoke  | 11                                               |
-| **Total leaves** | **135 explicit + nested = 206 product features** |
+| **Total leaves** | **144 explicit + nested = 215 product features** |
 
 PR-A delta: 13 leaves moved from ❌ → ✅ via 5 WDIO specs + 2 Vitest + 1 Rust integration test.
 Remaining gaps tracked under sub-issues #965 (process), #966 (docs), #967 (tools), #968 (auth/perm), #969 (settings), #970 (rewards), #971 (manual smoke).

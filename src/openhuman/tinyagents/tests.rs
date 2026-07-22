@@ -774,6 +774,16 @@ fn run_policy_for_arms_the_wall_clock_ceiling() {
     );
 }
 
+#[test]
+fn run_policy_for_makes_invalid_tool_arguments_recoverable() {
+    let policy = run_policy_for(10, false);
+    assert_eq!(
+        policy.invalid_args,
+        InvalidArgsPolicy::ReturnToolError,
+        "schema-invalid calls must return a corrective tool result instead of aborting the turn"
+    );
+}
+
 /// The `OPENHUMAN_AGENT_TURN_TIMEOUT_SECS` override maps seconds → ms, falls
 /// back to the default when absent/unparseable, and treats `0` as an explicit
 /// unbounded opt-out (`None`). Tested through the env-free pure core so it stays

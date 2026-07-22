@@ -59,7 +59,7 @@ use tinyagents::harness::middleware::{
 };
 use tinyagents::harness::model::CapabilitySet;
 use tinyagents::harness::retry::RetryPolicy;
-use tinyagents::harness::runtime::{AgentHarness, RunPolicy, UnknownToolPolicy};
+use tinyagents::harness::runtime::{AgentHarness, InvalidArgsPolicy, RunPolicy, UnknownToolPolicy};
 use tinyagents::harness::steering::SteeringHandle;
 use tinyagents::harness::store::StoreRegistry;
 use tinyagents::harness::workspace::WorkspaceDescriptor;
@@ -221,6 +221,12 @@ fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPol
     // would drop both. The original name + args are also preserved verbatim on
     // `AgentEvent::UnknownToolCall` and projected by `OpenhumanEventBridge`.
     policy.unknown_tool = UnknownToolPolicy::ReturnToolError;
+    // Registered tools with schema-invalid arguments should produce a tool
+    // error the model can correct, not abort the entire run. TinyAgents 2.1
+    // owns this admission behavior directly; the former host SchemaGuard had
+    // to manufacture valid stub arguments only because this policy was left at
+    // its historical fail-fast default.
+    policy.invalid_args = InvalidArgsPolicy::ReturnToolError;
     // Prompt-prefix protection is always on (issue #4249, 03.2): the
     // `PromptCacheGuardMiddleware` records a `CacheLayoutEvent` whenever volatile
     // content busts the provider KV-cache prefix. Purely diagnostic — never
@@ -2265,20 +2271,6 @@ fn assemble_turn_harness(
         TaToolPolicyMiddleware::new(harness.tools().policies()).require_sandbox(true),
     ));
 
-    // Schema-guard (issue #4451): the crate runs a **fatal** JSON-schema gate on
-    // every tool call between `before_tool` and the tool-wrap onion — a missing
-    // required field / wrong type / bad enum returns `TinyAgentsError::Validation`
-    // and aborts the whole turn (`chat_error`). This middleware re-runs the same
-    // validation in `before_tool`; on failure it records a descriptive error and
-    // rewrites the args to a schema-satisfying stub (so the crate gate passes),
-    // then its `wrap_tool` hook short-circuits the flagged call with a synthetic
-    // failed `ToolResult` before the stub can reach the tool — restoring the
-    // legacy engine's "bad args → recoverable tool error the model self-corrects
-    // on" behaviour. Installed as the **outermost** tool wrap so an invalid call
-    // becomes a tool error before approval/policy wraps ever see the stub args.
-    let schema_guard = Arc::new(middleware::SchemaGuardMiddleware::new(tool_sets.clone()));
-    harness.push_tool_middleware(schema_guard.clone());
-
     // Human-in-the-loop approval as a named tool middleware (issue #4249,
     // Phase 1): an external-effect tool intercepts through the global
     // `ApprovalGate`, a denial short-circuits with a model-consumable result, and
@@ -2326,18 +2318,12 @@ fn assemble_turn_harness(
     // arguments before the crate's schema gate — decode JSON-encoded-string args
     // (optionally markdown-fenced) to an object, or coerce to `{}` only when the
     // tool schema has no required fields (engine parity). A non-object against a
-    // required-field schema is left untouched so the schema-guard tool-error path
-    // handles it instead of forcing a fatal `"<field> is required"` abort. Runs
-    // before `SchemaGuardMiddleware::before_tool` (registered next) validates.
+    // required-field schema is left untouched so the crate's
+    // `InvalidArgsPolicy::ReturnToolError` admission path reports the original
+    // validation error. It never reaches approval/policy wrappers or the tool.
     harness.push_middleware(Arc::new(middleware::ArgRecoveryMiddleware::new(
         tool_sets.clone(),
     )));
-
-    // Schema-guard `before_tool` (see the tool-wrap registration above): runs the
-    // crate's schema validation and, on failure, flags the call + stubs its args
-    // so the fatal gate passes and `wrap_tool` can short-circuit it. Registered
-    // last so it validates the arguments `ArgRecoveryMiddleware` just repaired.
-    harness.push_middleware(schema_guard);
 
     AssembledTurnHarness {
         harness,

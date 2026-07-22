@@ -80,6 +80,21 @@ pub enum RequestError {
     /// result payload). Not retryable — a restart replays the same exchange.
     #[error("{0:#}")]
     Protocol(anyhow::Error),
+    /// The established connection broke mid-request on a **non-idempotent**
+    /// op: the request may or may not have reached serve before the break, so
+    /// replaying it could duplicate the side effect (e.g. enqueue the same
+    /// instruction twice). Never retried; the caller reconciles the true
+    /// outcome out of band (for `instruct`: `harness_status` shows the queue
+    /// and active instruction).
+    #[error(
+        "medulla serve `{op}` connection broke mid-request; the operation may or may not have \
+         been applied — reconcile via `status` before re-issuing: {source:#}"
+    )]
+    MaybeApplied {
+        op: String,
+        #[source]
+        source: anyhow::Error,
+    },
 }
 
 impl RequestError {
@@ -88,6 +103,21 @@ impl RequestError {
     pub fn is_retryable(&self) -> bool {
         matches!(self, Self::Transport(_))
     }
+}
+
+/// Whether replaying `op` after a mid-request transport break is safe.
+///
+/// `instruct` is NOT idempotent: the wire op carries only `message`/`meta` —
+/// there is no client-supplied instruction id the host could reuse to dedupe a
+/// replay (`instructionId` is assigned serve-side and only returned in the
+/// receipt, §4.1). If the first attempt reached serve before the connection
+/// broke, a retry would enqueue the instruction twice. So a transport failure
+/// on `instruct` fails fast as [`RequestError::MaybeApplied`] instead of
+/// retrying; the caller reconciles via `status` (`HarnessStatus` exposes the
+/// queue depth and active instruction). Read-only ops (`status`) and the
+/// replayed handshake stay on the restart-and-retry-once path.
+fn op_is_idempotent(op: &str) -> bool {
+    !matches!(op, "instruct")
 }
 
 /// A live, handshaken connection to one serve child.
@@ -566,16 +596,37 @@ impl MedullaSupervisor {
     }
 
     /// Request with restart-and-retry-once (§7) — restricted to transport
-    /// failures: only when the established connection broke mid-request
-    /// (process death, closed socket, IO failure, timeout) does the host
-    /// reset, respawn via the connector (which replays `hello`), and retry
-    /// exactly once. Application-level rejections (`ok=false`), undecodable
-    /// results, and connect/handshake failures are deterministic — retrying
-    /// them would kill a healthy child and can duplicate side effects — so
-    /// they fail fast with the typed [`RequestError`].
+    /// failures on **idempotent** ops: only when the established connection
+    /// broke mid-request (process death, closed socket, IO failure, timeout)
+    /// does the host reset, respawn via the connector (which replays
+    /// `hello`), and retry exactly once. Application-level rejections
+    /// (`ok=false`), undecodable results, and connect/handshake failures are
+    /// deterministic — retrying them would kill a healthy child — so they
+    /// fail fast with the typed [`RequestError`]. Non-idempotent ops (see
+    /// [`op_is_idempotent`]) are excluded from the retry entirely: the first
+    /// attempt may have reached serve before the break, so the connection is
+    /// reset (it is broken regardless) but the request is NOT replayed —
+    /// the caller gets [`RequestError::MaybeApplied`] and reconciles out of
+    /// band.
     pub async fn request<T: DeserializeOwned>(&self, op: &str, params: Value) -> Result<T> {
         match self.request_once(op, params.clone()).await {
             Ok(value) => Ok(value),
+            Err(error) if error.is_retryable() && !op_is_idempotent(op) => {
+                warn!(
+                    "[medulla_local] non-idempotent request `{op}` hit a transport failure; \
+                     NOT retrying (the op may or may not have been applied), resetting {}: {error}",
+                    self.connector.describe()
+                );
+                self.reset().await;
+                match error {
+                    RequestError::Transport(source) => Err(RequestError::MaybeApplied {
+                        op: op.to_string(),
+                        source,
+                    }
+                    .into()),
+                    other => Err(other.into()),
+                }
+            }
             Err(error) if error.is_retryable() => {
                 warn!(
                     "[medulla_local] request `{op}` hit a transport failure; restarting {} before retry: {error}",

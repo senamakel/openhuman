@@ -92,9 +92,16 @@ struct MockOpts {
     /// Issue a `tools.invoke` port call before answering the first `instruct`,
     /// asserting the returned `ret` content.
     issue_tool_call: bool,
-    /// Drop the connection on the first `instruct` of the first connection,
-    /// forcing the supervisor to restart-and-retry.
+    /// Drop the connection on the first `instruct` of the first connection.
+    /// `instruct` is non-idempotent, so the supervisor must fail fast with
+    /// `MaybeApplied` instead of restart-and-retry.
     die_first_instruct: bool,
+    /// Drop the connection on the first `status` of the first connection,
+    /// forcing the supervisor to restart-and-retry (status is idempotent).
+    die_first_status: bool,
+    /// Counts `instruct` requests that actually reached the mock, so a test
+    /// can assert a transport break did not cause a duplicate submission.
+    instruct_count: Option<Arc<AtomicU64>>,
     /// Answer every `instruct` with `ok=false` (`bad_request`): a healthy
     /// connection issuing an application-level rejection, which must NOT
     /// trigger restart-and-retry.
@@ -182,6 +189,11 @@ async fn serve_connection(stream: UnixStream, conn_index: u64, opts: &MockOpts) 
                 .await;
             }
             "status" => {
+                if opts.die_first_status && conn_index == 0 {
+                    // Drop the connection mid-request: status is idempotent,
+                    // so the host must restart and retry.
+                    return;
+                }
                 write_line(
                     &mut write_half,
                     &json!({
@@ -192,8 +204,12 @@ async fn serve_connection(stream: UnixStream, conn_index: u64, opts: &MockOpts) 
                 .await;
             }
             "instruct" => {
+                if let Some(counter) = &opts.instruct_count {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                }
                 if opts.die_first_instruct && conn_index == 0 {
-                    // Drop the connection mid-request: the host must restart.
+                    // Drop the connection mid-request: instruct is
+                    // non-idempotent, so the host must NOT replay it.
                     return;
                 }
                 if opts.reject_instruct {
@@ -409,32 +425,88 @@ async fn tools_are_advertised_and_invocable() {
 }
 
 #[tokio::test]
-async fn restart_on_death_retries_once() {
+async fn restart_on_death_retries_idempotent_status_once() {
     let path = unique_socket_path("restart");
     let listener = UnixListener::bind(&path).unwrap();
     let connections = Arc::new(AtomicU64::new(0));
     spawn_mock_serve(
         listener,
         MockOpts {
-            die_first_instruct: true,
+            die_first_status: true,
             connection_count: Some(connections.clone()),
             ..MockOpts::default()
         },
     );
 
     let supervisor = build(path.clone(), Arc::new(RecordingState::default()));
-    // First connection dies mid-instruct; the supervisor restarts and the
-    // second connection answers.
-    let receipt = supervisor
-        .instruct("reconcile", json!({}))
+    // First connection dies mid-status; status is idempotent, so the
+    // supervisor restarts and the second connection answers.
+    let status = supervisor
+        .harness_status()
         .await
-        .expect("restart-and-retry-once should recover");
-    assert_eq!(receipt.instruction_id, "inst-agent-0");
+        .expect("restart-and-retry-once should recover an idempotent op");
+    assert_eq!(status.state, "running");
     assert_eq!(
         connections.load(Ordering::SeqCst),
         2,
         "a mid-request transport death must trigger exactly one respawn"
     );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn instruct_transport_failure_fails_fast_without_replay() {
+    let path = unique_socket_path("instruct-transport");
+    let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
+    let instructs = Arc::new(AtomicU64::new(0));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            die_first_instruct: true,
+            connection_count: Some(connections.clone()),
+            instruct_count: Some(instructs.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let supervisor = build(path.clone(), Arc::new(RecordingState::default()));
+    let error = supervisor
+        .instruct("reconcile", json!({}))
+        .await
+        .expect_err("a mid-instruct transport break must surface as an error");
+
+    // The error is the typed maybe-applied outcome, telling the caller the
+    // instruction may or may not have been enqueued…
+    let request_error = error
+        .downcast_ref::<RequestError>()
+        .expect("supervisor errors must stay downcastable to RequestError");
+    assert!(
+        matches!(request_error, RequestError::MaybeApplied { op, .. } if op == "instruct"),
+        "expected MaybeApplied for the non-idempotent op, got: {request_error:?}"
+    );
+    assert!(!request_error.is_retryable());
+
+    // …the instruct was submitted exactly once — no duplicate enqueue…
+    assert_eq!(
+        instructs.load(Ordering::SeqCst),
+        1,
+        "a non-idempotent op must never be replayed after a transport break"
+    );
+    // …and no respawn-driven retry connection was made for it.
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        1,
+        "failing fast must not respawn to replay the instruct"
+    );
+
+    // The broken connection was reset: a later idempotent request reconnects.
+    let status = supervisor
+        .harness_status()
+        .await
+        .expect("the supervisor must recover on the next request");
+    assert_eq!(status.state, "running");
+    assert_eq!(connections.load(Ordering::SeqCst), 2);
     let _ = std::fs::remove_file(&path);
 }
 

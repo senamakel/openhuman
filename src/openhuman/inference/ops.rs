@@ -362,7 +362,7 @@ pub async fn inference_device_profile() -> Result<RpcOutcome<Value>, String> {
 /// editor, not only in the notification center. Cleared when the user updates
 /// or removes the offending key.
 pub async fn inference_provider_auth_errors() -> Result<RpcOutcome<Value>, String> {
-    let errors = providers::auth_error_registry::snapshot();
+    let errors = crate::openhuman::inference::auth_error_registry::snapshot();
     debug!(count = errors.len(), "{LOG_PREFIX} provider_auth_errors:ok");
     Ok(RpcOutcome::single_log(
         json!({ "errors": errors }),

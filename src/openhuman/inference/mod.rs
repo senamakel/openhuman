@@ -20,6 +20,7 @@
 /// `cargo tree -i whisper-rs` / `cargo tree -i cpal`).
 pub const INFERENCE_COMPILED_IN: bool = cfg!(feature = "inference");
 
+pub mod auth_error_registry;
 pub mod device;
 pub mod http;
 pub mod local;

@@ -836,15 +836,14 @@ pub fn log_byo_provider_auth_failure(
     // TAURI-RUST-4RC), so the registry latch is what keeps this from
     // re-flooding the notification center the way the raw error flooded Sentry.
     let status_code = status.as_u16();
-    if crate::openhuman::inference::provider::auth_error_registry::record(provider, status_code) {
+    if crate::openhuman::inference::auth_error_registry::record(provider, status_code) {
         crate::core::event_bus::publish_global(
             crate::core::event_bus::DomainEvent::ProviderApiKeyRejected {
                 provider: provider.to_string(),
-                message:
-                    crate::openhuman::inference::provider::auth_error_registry::auth_error_message(
-                        provider,
-                        status_code,
-                    ),
+                message: crate::openhuman::inference::auth_error_registry::auth_error_message(
+                    provider,
+                    status_code,
+                ),
             },
         );
     }

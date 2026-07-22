@@ -10,7 +10,7 @@
 //!     `openhuman.inference_provider_auth_errors` RPC ([`snapshot`]).
 //!
 //! Entries are recorded at the demote site
-//! ([`super::ops::http_error::log_byo_provider_auth_failure`]) and cleared
+//! ([`provider::ops::http_error::log_byo_provider_auth_failure`](super::provider::ops::http_error::log_byo_provider_auth_failure)) and cleared
 //! when the user updates or removes that provider's key
 //! (`credentials::ops`). The [`record`] latch is what makes the notification
 //! fire **once per failure episode** rather than once per retry: the

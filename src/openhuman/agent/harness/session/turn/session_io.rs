@@ -20,7 +20,11 @@ impl Agent {
     ///
     /// Best-effort: failures are logged and silently ignored.
     pub(in super::super) fn try_load_session_transcript(&mut self) {
-        match transcript::find_latest_transcript(&self.workspace_dir, &self.agent_definition_name) {
+        match transcript::find_latest_transcript_in_subdir(
+            &self.workspace_dir,
+            &self.session_raw_subdir,
+            &self.agent_definition_name,
+        ) {
             Some(path) => {
                 log::info!(
                     "[transcript] found previous transcript path={}",

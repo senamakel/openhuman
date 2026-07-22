@@ -669,6 +669,54 @@ async fn transcript_resume_is_bounded_by_max_history_messages() {
     assert_eq!(cached[4].content, "a7");
 }
 
+#[tokio::test]
+async fn transcript_resume_uses_profile_scoped_raw_directory() {
+    let mut shared = make_agent(None);
+    shared.persist_session_transcript(
+        &[
+            ChatMessage::system("shared-system"),
+            ChatMessage::user("shared-user"),
+        ],
+        0,
+        0,
+        0,
+        0.0,
+        None,
+    );
+
+    let mut profile = make_agent(None);
+    profile.workspace_dir = shared.workspace_dir.clone();
+    profile.agent_definition_name = shared.agent_definition_name.clone();
+    profile.session_raw_subdir = "session_raw-alice".to_string();
+    profile.persist_session_transcript(
+        &[
+            ChatMessage::system("profile-system"),
+            ChatMessage::user("profile-user"),
+        ],
+        0,
+        0,
+        0,
+        0.0,
+        None,
+    );
+
+    let mut resumed = make_agent(None);
+    resumed.workspace_dir = shared.workspace_dir.clone();
+    resumed.agent_definition_name = shared.agent_definition_name.clone();
+    resumed.session_raw_subdir = "session_raw-alice".to_string();
+    resumed.try_load_session_transcript();
+
+    let cached = resumed
+        .cached_transcript_messages
+        .expect("profile transcript");
+    assert!(cached
+        .iter()
+        .any(|message| message.content == "profile-user"));
+    assert!(cached
+        .iter()
+        .all(|message| message.content != "shared-user"));
+}
+
 // NOTE: The `execute_tool_call_*` tests that exercised the legacy per-call
 // direct tool executor (`Agent::execute_tool_call`) were removed during the
 // tinyagents migration. The direct executor and its test-only parity shim

@@ -221,6 +221,17 @@ pub async fn upsert(profile: AgentProfile) -> Result<Value, String> {
         .filter(|p| !p.built_in)
     {
         materialize_home(&workspace_dir, &action_dir, persisted);
+        // Reconcile an edited persona into the on-disk SOUL.md: `ensure_profile_home`
+        // only seeds the file when absent, and `resolve_personality_soul` reads the
+        // file first, so a Settings edit after the home exists would otherwise never
+        // reach the prompt. Non-fatal — the profile is already persisted.
+        if let Err(e) = super::home::sync_soul_md_on_upsert(&workspace_dir, persisted) {
+            tracing::warn!(
+                profile_id = %persisted.id,
+                error = %e,
+                "[profiles][ops] sync_soul_md_on_upsert failed (non-fatal)"
+            );
+        }
     }
     tracing::debug!(
         request_id = %request_id,

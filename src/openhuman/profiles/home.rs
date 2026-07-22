@@ -295,6 +295,83 @@ pub fn ensure_profile_home(
     Ok(())
 }
 
+/// Reconcile the on-disk `SOUL.md` with an edited inline `soul_md` on an
+/// **explicit profile save** (upsert only — never on select).
+///
+/// [`ensure_profile_home`] seeds `SOUL.md` only when the file is *absent*, so a
+/// persona edited in Settings after the home already exists would update
+/// `agent_profiles.json` but leave the file stale — and because
+/// [`resolve_personality_soul`](super::paths::resolve_personality_soul) reads
+/// the file first, the agent would keep using the old identity. This closes that
+/// gap by overwriting the file (atomic temp+rename, same as the seed path) when:
+/// - the id passes [`validate_profile_id`] (read paths would load it),
+/// - `profile.soul_md` is `Some(non-empty)`, and
+/// - the trimmed inline content differs from the current file content.
+///
+/// When `soul_md` is empty/`None` the file is left untouched, so a user who
+/// manually edits `SOUL.md` (and clears the inline value) keeps that file
+/// authoritative. Only ever called from the upsert path; select must not clobber
+/// a manually edited file with a stale inline value. Returns `Ok(true)` when the
+/// file was rewritten.
+pub fn sync_soul_md_on_upsert(workspace_dir: &Path, profile: &AgentProfile) -> io::Result<bool> {
+    if let Err(e) = validate_profile_id(&profile.id) {
+        tracing::debug!(
+            profile_id = %profile.id,
+            error = %e,
+            "[profiles][home] sync_soul_md_on_upsert skipped: id fails validation"
+        );
+        return Ok(false);
+    }
+    // Empty / absent inline soul_md → leave any manual file edits authoritative.
+    let desired = match profile
+        .soul_md
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        Some(s) => s,
+        None => {
+            tracing::debug!(
+                profile_id = %profile.id,
+                "[profiles][home] sync_soul_md_on_upsert: inline soul_md empty, file left as-is"
+            );
+            return Ok(false);
+        }
+    };
+
+    let home = profile_home(workspace_dir, &profile.id);
+    let soul_path = home.join("SOUL.md");
+    // No-op when the file already matches the edited value (compare trimmed so a
+    // trailing-newline difference doesn't churn the file).
+    if let Ok(current) = std::fs::read_to_string(&soul_path) {
+        if current.trim() == desired {
+            tracing::debug!(
+                profile_id = %profile.id,
+                "[profiles][home] sync_soul_md_on_upsert: file already matches inline soul_md"
+            );
+            return Ok(false);
+        }
+    }
+
+    // Persist with a trailing newline for tidy files, matching the seed path.
+    let contents = format!("{desired}\n");
+    std::fs::create_dir_all(&home)?;
+    seed_file_atomic(&home, &soul_path, contents.as_bytes()).map_err(|e| {
+        tracing::debug!(
+            profile_id = %profile.id,
+            soul_path = %soul_path.display(),
+            error = %e,
+            "[profiles][home] sync_soul_md_on_upsert: overwrite SOUL.md failed"
+        );
+        e
+    })?;
+    tracing::debug!(
+        profile_id = %profile.id,
+        "[profiles][home] sync_soul_md_on_upsert: SOUL.md overwritten from edited inline soul_md"
+    );
+    Ok(true)
+}
+
 /// Resolve the agent-writable workspace directory for a profile *iff* it opts
 /// into a dedicated workspace and its id passes [`validate_profile_id`].
 ///
@@ -501,6 +578,72 @@ mod tests {
         );
         // The `personalities/` root itself must not be created for it either.
         assert!(!ws.path().join("personalities").join("Bad Id").exists());
+    }
+
+    #[test]
+    fn sync_soul_md_on_upsert_overwrites_edited_inline_soul() {
+        let ws = TempDir::new().unwrap();
+        let action = TempDir::new().unwrap();
+        let mut profile = test_profile("grace");
+        profile.soul_md = Some("Original identity.".to_string());
+        // Seed the home once (writes SOUL.md from the original inline value).
+        ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
+        let soul_path = profile_home(ws.path(), "grace").join("SOUL.md");
+        assert_eq!(
+            std::fs::read_to_string(&soul_path).unwrap(),
+            "Original identity.\n"
+        );
+
+        // User edits the persona in Settings → the stored inline value changes.
+        profile.soul_md = Some("Rewritten identity from Settings.".to_string());
+        let rewritten = sync_soul_md_on_upsert(ws.path(), &profile).expect("sync");
+        assert!(
+            rewritten,
+            "differing inline soul_md must overwrite the file"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&soul_path).unwrap(),
+            "Rewritten identity from Settings.\n"
+        );
+
+        // Idempotent: a second sync with the same value is a no-op.
+        let again = sync_soul_md_on_upsert(ws.path(), &profile).expect("sync 2");
+        assert!(!again, "matching inline soul_md must not rewrite the file");
+    }
+
+    #[test]
+    fn sync_soul_md_on_upsert_leaves_file_when_inline_empty() {
+        let ws = TempDir::new().unwrap();
+        let action = TempDir::new().unwrap();
+        // Seed with a default template (no inline soul_md).
+        let mut profile = test_profile("heidi");
+        ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
+        let soul_path = profile_home(ws.path(), "heidi").join("SOUL.md");
+        // User edits the file manually; inline soul_md stays empty/None.
+        std::fs::write(&soul_path, "MANUALLY EDITED SOUL").unwrap();
+
+        profile.soul_md = None;
+        let none_written = sync_soul_md_on_upsert(ws.path(), &profile).expect("sync none");
+        assert!(!none_written);
+        profile.soul_md = Some("   ".to_string()); // whitespace-only → treated as empty
+        let blank_written = sync_soul_md_on_upsert(ws.path(), &profile).expect("sync blank");
+        assert!(!blank_written);
+
+        // The manual edit stays authoritative.
+        assert_eq!(
+            std::fs::read_to_string(&soul_path).unwrap(),
+            "MANUALLY EDITED SOUL"
+        );
+    }
+
+    #[test]
+    fn sync_soul_md_on_upsert_skips_invalid_id() {
+        let ws = TempDir::new().unwrap();
+        let mut profile = test_profile("placeholder");
+        profile.id = "Bad Id".to_string();
+        profile.soul_md = Some("ignored".to_string());
+        assert!(!sync_soul_md_on_upsert(ws.path(), &profile).expect("sync"));
+        assert!(!profile_home(ws.path(), "Bad Id").join("SOUL.md").exists());
     }
 
     #[test]

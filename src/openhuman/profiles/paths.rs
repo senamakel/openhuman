@@ -208,30 +208,24 @@ pub fn resolve_personality_memory_md(
 /// Derive the effective memory directory suffix for a profile.
 ///
 /// Precedence:
-/// 1. an explicit `memory_dir_suffix` (the legacy auto-assigned numeric suffix,
-///    e.g. `"-1"`) always wins — pre-existing profiles keep their directories;
-/// 2. else, when `dedicated_memory` is set, derive `"-<id>"` from the profile id
+/// 1. when `dedicated_memory` is set, derive `"-<id>"` from the profile id
 ///    (id must pass [`validate_profile_id`], else fall back to the shared `""`
-///    and warn — a legacy id can't mint an unexpected directory name);
+///    and warn — a legacy id can't mint an unexpected directory name). This is
+///    an explicit user opt-in and **wins over** the auto-assigned numeric
+///    suffix: the store stamps every non-default profile with `Some("-1")`,
+///    `Some("-2")`, … on upsert, so if the numeric suffix took precedence the
+///    isolation toggle could never take effect (it would be dead code). Toggling
+///    `dedicated_memory` on therefore switches the profile to its own
+///    `memory-<id>` subtree — the intended behaviour of the toggle.
+/// 2. else, an explicit `memory_dir_suffix` (the legacy auto-assigned numeric
+///    suffix, e.g. `"-1"`) — pre-existing non-dedicated profiles keep their
+///    directories;
 /// 3. else `""` (the shared/global memory tree).
 ///
 /// The returned suffix feeds the existing
 /// [`memory_subdir_for_suffix`] / [`memory_tree_subdir_for_suffix`] /
 /// [`session_raw_subdir_for_suffix`] helpers unchanged.
 pub fn effective_memory_suffix(profile: &AgentProfile) -> String {
-    if let Some(suffix) = profile
-        .memory_dir_suffix
-        .as_ref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-    {
-        tracing::debug!(
-            profile_id = %profile.id,
-            suffix = %suffix,
-            "[personality] effective_memory_suffix using legacy numeric suffix"
-        );
-        return suffix.to_string();
-    }
     if profile.dedicated_memory {
         match validate_profile_id(&profile.id) {
             Ok(()) => {
@@ -248,10 +242,23 @@ pub fn effective_memory_suffix(profile: &AgentProfile) -> String {
                     profile_id = %profile.id,
                     error = %e,
                     "[personality] dedicated_memory requested but id fails validation, \
-                     falling back to shared memory tree"
+                     falling back to legacy/shared memory tree"
                 );
             }
         }
+    }
+    if let Some(suffix) = profile
+        .memory_dir_suffix
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        tracing::debug!(
+            profile_id = %profile.id,
+            suffix = %suffix,
+            "[personality] effective_memory_suffix using legacy numeric suffix"
+        );
+        return suffix.to_string();
     }
     tracing::debug!(
         profile_id = %profile.id,
@@ -424,13 +431,36 @@ mod tests {
     }
 
     #[test]
-    fn effective_memory_suffix_legacy_numeric_wins() {
+    fn effective_memory_suffix_dedicated_wins_over_numeric() {
         let mut profile = test_profile("alice");
+        // The store auto-assigns a numeric suffix to every non-default profile,
+        // so `dedicated_memory` must win over it — otherwise the toggle would be
+        // dead code and could never route to the `memory-<id>` subtree.
         profile.memory_dir_suffix = Some("-3".to_string());
-        // Even with dedicated_memory set, the persisted legacy suffix wins so the
-        // existing memory directory is never orphaned.
         profile.dedicated_memory = true;
+        assert_eq!(effective_memory_suffix(&profile), "-alice");
+    }
+
+    #[test]
+    fn effective_memory_suffix_numeric_retained_when_not_dedicated() {
+        let mut profile = test_profile("alice");
+        // With dedicated_memory off, the persisted legacy numeric suffix is
+        // retained so an existing memory directory is never orphaned.
+        profile.memory_dir_suffix = Some("-3".to_string());
+        profile.dedicated_memory = false;
         assert_eq!(effective_memory_suffix(&profile), "-3");
+    }
+
+    #[test]
+    fn effective_memory_suffix_invalid_id_dedicated_falls_back_to_numeric() {
+        let mut profile = test_profile("placeholder");
+        profile.id = "Bad Id".to_string();
+        // An invalid id can't mint a `-<id>` directory even with dedicated on, so
+        // it falls back to the persisted numeric suffix rather than the shared
+        // tree.
+        profile.memory_dir_suffix = Some("-2".to_string());
+        profile.dedicated_memory = true;
+        assert_eq!(effective_memory_suffix(&profile), "-2");
     }
 
     #[test]

@@ -29,8 +29,9 @@
 //! - `SOUL.md` is re-read on every prompt build (see
 //!   [`resolve_personality_soul`]) so identity edits take effect live.
 //! - `dedicated_memory` derives a `-<id>` memory suffix (see
-//!   [`effective_memory_suffix`]); a legacy numeric `memory_dir_suffix` still
-//!   wins for back-compat.
+//!   [`effective_memory_suffix`]) and, as an explicit user opt-in, wins over the
+//!   store's auto-assigned numeric `memory_dir_suffix`; the numeric suffix is
+//!   retained only when `dedicated_memory` is off (back-compat).
 //! - `dedicated_workspace` roots a per-profile default cwd for acting tools (see
 //!   [`dedicated_workspace_dir`] and the session builder's section-D wiring).
 //! - `skills/` (see [`profile_skills_dir`]) holds SKILL.md/WORKFLOW.md bundles

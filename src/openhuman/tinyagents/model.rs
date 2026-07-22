@@ -659,7 +659,7 @@ impl ChatModel<()> for ProviderModel {
                 // retry pin at a single attempt the mapping is behavior-neutral today; it
                 // stages honest retry semantics for when the crate loop owns retries.
                 let non_retryable =
-                    crate::openhuman::inference::provider::reliable::is_non_retryable(&e);
+                    crate::openhuman::inference::provider::error_classify::is_non_retryable(&e);
                 tracing::debug!(
                     model = %self.model,
                     non_retryable,
@@ -821,7 +821,7 @@ impl ChatModel<()> for ProviderModel {
                     // the retry pin at a single attempt this has no effect today; logged
                     // under `[models]` for parity/auditability (issue #4249, 02.2).
                     let non_retryable =
-                        crate::openhuman::inference::provider::reliable::is_non_retryable(&e);
+                        crate::openhuman::inference::provider::error_classify::is_non_retryable(&e);
                     tracing::debug!(
                         model = %model,
                         non_retryable,

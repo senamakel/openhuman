@@ -4,11 +4,10 @@
 //! transient-vs-permanent classifiers, Retry-After parsing, and failure
 //! formatting have a home independent of the `ReliableProvider` retry
 //! wrapper. These free functions carry no state — `ReliableProvider` still
-//! uses them (via the `pub(crate) use super::error_classify::*;` re-export in
-//! `reliable.rs`), and external callers that run their own retry loop over a
+//! uses them directly, and external callers that run their own retry loop over a
 //! provider call (`tinyagents::model`, `memory_tree::score::extract::llm`,
 //! `agent::triage::evaluator`) classify failures against the same source of
-//! truth via the existing `reliable::` paths.
+//! truth through this module.
 
 use super::traits::StreamError;
 use std::time::Duration;

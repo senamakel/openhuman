@@ -40,7 +40,7 @@ use crate::openhuman::agent::harness::definition::{AgentDefinition, PromptSource
 use crate::openhuman::agent::harness::AgentDefinitionRegistry;
 use crate::openhuman::config::Config;
 use crate::openhuman::config::MultimodalConfig;
-use crate::openhuman::inference::provider::reliable::{
+use crate::openhuman::inference::provider::error_classify::{
     is_rate_limited, is_upstream_unhealthy, parse_retry_after_ms,
 };
 use crate::openhuman::inference::provider::ChatMessage;

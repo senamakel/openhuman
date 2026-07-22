@@ -201,7 +201,7 @@ impl ClaudeCodeProvider {
 
 fn map_model_error(error: anyhow::Error) -> TinyAgentsError {
     let message = format!("claude-code model call failed: {error}");
-    if crate::openhuman::inference::provider::reliable::is_non_retryable(&error) {
+    if crate::openhuman::inference::provider::error_classify::is_non_retryable(&error) {
         TinyAgentsError::Validation(message)
     } else {
         TinyAgentsError::Model(message)

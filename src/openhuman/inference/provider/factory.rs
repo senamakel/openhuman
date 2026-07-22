@@ -940,7 +940,7 @@ pub fn create_chat_model(
 pub fn create_chat_model_with_model_id(
     role: &str,
     config: &Config,
-    temperature: f64,
+    _temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(model) = test_provider_override::current() {
@@ -987,9 +987,11 @@ pub fn create_chat_model_with_model_id(
             return result;
         }
     }
-    let (provider, model) = create_chat_provider(role, config)?;
-    let chat = chat_model_from_provider(provider, model.clone(), temperature);
-    Ok((chat, model))
+    Err(unresolved_chat_model_error(
+        role,
+        &provider_for_role(role, config),
+        config,
+    ))
 }
 
 /// Whether `role` resolves to the managed OpenHuman backend (vs BYOK / local /
@@ -1030,7 +1032,7 @@ pub fn create_chat_model_from_string_with_model_id(
     role: &str,
     provider: &str,
     config: &Config,
-    temperature: f64,
+    _temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(model) = test_provider_override::current() {
@@ -1074,32 +1076,87 @@ pub fn create_chat_model_from_string_with_model_id(
             return result;
         }
     }
-    let (provider, model) = create_chat_provider_from_string(role, provider, config)?;
-    Ok((
-        chat_model_from_provider(provider, model.clone(), temperature),
-        model,
-    ))
+    Err(unresolved_chat_model_error(role, provider, config))
 }
 
-/// Wrap an owned [`Provider`] as an `Arc<dyn ChatModel>` pinned to
-/// `model`/`temperature`.
+/// Reproduce the legacy provider factory's access gates and diagnostics for a
+/// provider string that none of the crate-native model constructors accepted.
 ///
-/// The single seam where a boxed provider becomes the crate model interface.
-/// As consumers migrate off `Box<dyn Provider>` this stays the conversion point,
-/// shrinking toward the Phase 1 exit criterion (`ProviderModel` constructed in
-/// exactly one place) and, ultimately, the `Provider` trait's deletion in
-/// Phase 4. Exposed `pub(crate)` so a caller that must build a specific provider
-/// itself (e.g. the LinkedIn enrichment path, which deliberately forces the
-/// managed backend) can still hand back a `ChatModel` without naming the trait.
-pub(crate) fn chat_model_from_provider(
-    provider: Box<dyn Provider>,
-    model: String,
-    temperature: f64,
-) -> Arc<dyn ChatModel<()>> {
-    crate::openhuman::tinyagents::model::provider_chat_model(
-        Arc::from(provider),
-        model,
-        temperature,
+/// Successful production routes never reach this function. Keeping error
+/// resolution separate means `create_chat_model*` no longer constructs a
+/// legacy `Provider` merely to discover that a route is invalid.
+fn unresolved_chat_model_error(role: &str, provider: &str, config: &Config) -> anyhow::Error {
+    let p = provider.trim();
+
+    if let Err(error) = enforce_local_only_inference(role, p) {
+        return error;
+    }
+
+    if p == BYOK_INCOMPLETE_SENTINEL {
+        let inference_url = config
+            .inference_url
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("<unset>");
+        return anyhow::anyhow!(
+            "[chat-factory] BYOK_INCOMPLETE: inference_url is set to a custom/direct endpoint \
+             ({inference_url}) but no matching cloud_providers entry was found for role '{role}'. \
+             To complete BYOK setup add a cloud_providers entry whose endpoint matches \
+             {inference_url} (or use a workload-specific route). \
+             To use the OpenHuman managed backend instead, clear inference_url from config."
+        );
+    }
+
+    if p.is_empty() || p == "cloud" {
+        return unresolved_chat_model_error(
+            role,
+            &resolve_primary_cloud_provider_string(config),
+            config,
+        );
+    }
+
+    #[cfg(not(test))]
+    if let Err(error) = verify_session_active(config) {
+        return error;
+    }
+
+    // Preserve the legacy chokepoint's disclosure ordering for invalid custom
+    // routes: after both gates pass, the attempted external destination is
+    // visible even when configuration validation then fails.
+    emit_inference_egress(role, p);
+
+    if let Some((slug, model_with_temperature)) = p.split_once(':') {
+        if slug.trim().is_empty() {
+            return anyhow::anyhow!(
+                "[chat-factory] provider string '{}' for role '{}' has an empty slug",
+                p,
+                role
+            );
+        }
+        let (model, _) = split_model_and_temperature(model_with_temperature);
+        return match resolve_cloud_slug(role, slug.trim(), &model, config) {
+            Err(error) => error,
+            Ok(_) => anyhow::anyhow!(
+                "[chat-factory] configured provider '{}' for role '{}' did not produce a crate-native chat model",
+                p,
+                role
+            ),
+        };
+    }
+
+    anyhow::anyhow!(
+        "[chat-factory] unrecognised provider string '{}' for role '{}'. \
+         Valid forms: openhuman, ollama:<model>, lmstudio:<model>, mlx:<model>, omlx:<model>, \
+         local-openai:<model>, claude_agent_sdk, claude_agent_sdk:<model>, <slug>:<model>. \
+         Configured slugs: [{}]",
+        p,
+        role,
+        config
+            .cloud_providers
+            .iter()
+            .map(|entry| entry.slug.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
     )
 }
 
@@ -1469,7 +1526,7 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
     role: &str,
     config: &Config,
     model: &str,
-    temperature: f64,
+    _temperature: f64,
     native_tool_calling: bool,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
@@ -1521,13 +1578,10 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
             return result.map(|(chat, _model)| chat);
         }
     }
-    // Test overrides still speak the legacy Provider trait; retain the adapter
-    // until the test-provider seam is migrated later in WP1.
-    let (provider, _resolved_model) = create_chat_provider(role, config)?;
-    Ok(crate::openhuman::tinyagents::model::provider_chat_model(
-        Arc::from(provider),
-        model,
-        temperature,
+    Err(unresolved_chat_model_error(
+        role,
+        &provider_for_role(role, config),
+        config,
     ))
 }
 

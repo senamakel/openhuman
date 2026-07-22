@@ -2876,10 +2876,9 @@ async fn create_chat_model_uses_native_test_override() {
 
 // ── Motion B (#4727): managed-backend crate-native routing ──────────────────
 // `create_chat_model` must route the managed OpenHuman backend through the
-// crate-native `OpenHumanBackendModel` (which advertises no static profile),
-// while BYOK/local roles keep the `ProviderModel`-wrapped path (profile
-// `Some`). The `profile()` discriminant is the cheapest observable that tells
-// the two construction paths apart without a network round-trip.
+// crate-native `OpenHumanBackendModel`, whose concrete `managed` profile
+// advertises the capabilities that routing previously inferred through the
+// provider adapter.
 
 #[test]
 fn resolves_to_managed_backend_for_default_config_but_not_for_local() {
@@ -2902,11 +2901,12 @@ fn create_chat_model_routes_managed_backend_to_crate_native() {
     let config = Config::default();
     let (model, _model_id) = create_chat_model_with_model_id("chat", &config, 0.7)
         .expect("managed create_chat_model must build");
-    // The crate-native `OpenHumanBackendModel` serves every tier via
-    // `request.model`, so it advertises no single static profile.
-    assert!(
-        model.profile().is_none(),
-        "managed backend must build the crate-native OpenHumanBackendModel (profile None)"
+    assert_eq!(
+        model
+            .profile()
+            .and_then(|profile| profile.provider.as_deref()),
+        Some("managed"),
+        "managed backend must expose the crate-native managed profile"
     );
 }
 
@@ -3053,8 +3053,11 @@ fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
             .clone()
             .unwrap_or_else(|| crate::openhuman::config::DEFAULT_MODEL.to_string())
     );
-    assert!(
-        model.profile().is_none(),
+    assert_eq!(
+        model
+            .profile()
+            .and_then(|profile| profile.provider.as_deref()),
+        Some("managed"),
         "OpenhumanJwt must use the crate-native managed backend model"
     );
 }
@@ -3085,6 +3088,46 @@ fn try_create_cloud_slug_flips_openai_but_declines_non_cloud() {
     let mut unconfigured = Config::default();
     unconfigured.chat_provider = Some("deepseek:deepseek-chat".to_string());
     assert!(try_create_cloud_slug_chat_model("chat", &unconfigured).is_none());
+}
+
+#[test]
+fn crate_native_chat_model_factory_preserves_invalid_route_diagnostics() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let config = Config::default();
+
+    let unconfigured =
+        create_chat_model_from_string_with_model_id("reasoning", "groq:llama3", &config, 0.7)
+            .err()
+            .expect("unconfigured slug must fail")
+            .to_string();
+    assert!(
+        unconfigured.contains("no cloud provider configured for slug 'groq'"),
+        "unexpected diagnostic: {unconfigured}"
+    );
+
+    let bare =
+        create_chat_model_from_string_with_model_id("reasoning", "unknown-provider", &config, 0.7)
+            .err()
+            .expect("bare unknown provider must fail")
+            .to_string();
+    assert!(
+        bare.contains("unrecognised provider string 'unknown-provider'"),
+        "unexpected diagnostic: {bare}"
+    );
+
+    let byok = create_chat_model_from_string_with_model_id(
+        "reasoning",
+        BYOK_INCOMPLETE_SENTINEL,
+        &config,
+        0.7,
+    )
+    .err()
+    .expect("incomplete BYOK must fail")
+    .to_string();
+    assert!(
+        byok.contains("BYOK_INCOMPLETE"),
+        "unexpected diagnostic: {byok}"
+    );
 }
 
 /// Real-path smoke (privacy epic S2, #4436): driving the actual inference

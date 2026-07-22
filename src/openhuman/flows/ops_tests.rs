@@ -483,6 +483,40 @@ async fn flows_run_rejects_legacy_nested_conditional_fan_in_before_execution() {
 }
 
 #[tokio::test]
+async fn flows_run_rejects_an_incompatible_saved_child_before_execution() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    let parent = store::create_flow(
+        &config,
+        "parent".to_string(),
+        structurally_valid_graph(referenced_child_graph(&child.id)),
+        false,
+        true,
+    )
+    .unwrap();
+
+    let error = flows_run(&config, &parent.id, json!({}), FlowRunTrigger::Rpc)
+        .await
+        .expect_err("an unsafe saved child must fail before root execution starts");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+
+    let reloaded = flows_get(&config, &parent.id).await.unwrap().value;
+    assert_eq!(reloaded.last_status, None, "no run should have started");
+}
+
+#[tokio::test]
 async fn flows_update_allows_metadata_only_edits_of_legacy_incompatible_graph() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -1454,6 +1488,63 @@ async fn flows_resume_marks_an_incompatible_legacy_checkpoint_failed() {
             .is_some_and(|value| value.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN)),
         "the terminal run row should retain the rejection reason: {run_row:?}"
     );
+    let flow = flows_get(&config, &created.value.id).await.unwrap().value;
+    assert_eq!(flow.last_status.as_deref(), Some("failed"));
+}
+
+#[tokio::test]
+async fn flows_resume_marks_a_checkpoint_with_an_incompatible_saved_child_failed() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let created = flows_create(&config, "gated".to_string(), approval_gated_graph(), false)
+        .await
+        .unwrap();
+    let run = flows_run(
+        &config,
+        &created.value.id,
+        json!({ "x": 1 }),
+        FlowRunTrigger::Rpc,
+    )
+    .await
+    .unwrap();
+    let thread_id = run.value["thread_id"].as_str().unwrap().to_string();
+    let pending: Vec<String> =
+        serde_json::from_value(run.value["pending_approvals"].clone()).unwrap();
+    let child = store::create_flow(
+        &config,
+        "legacy unsafe child".to_string(),
+        structurally_valid_graph(nested_conditional_fan_in_graph()),
+        false,
+        false,
+    )
+    .unwrap();
+    store::update_flow_graph(
+        &config,
+        &created.value.id,
+        created.value.name.clone(),
+        structurally_valid_graph(referenced_child_graph(&child.id)),
+        created.value.require_approval,
+        None,
+        None,
+    )
+    .unwrap();
+
+    let error = flows_resume(&config, &created.value.id, &thread_id, pending, vec![])
+        .await
+        .expect_err("an incompatible saved child cannot be resumed safely");
+    assert!(
+        error.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN),
+        "{error}"
+    );
+    assert!(error.contains(&child.id), "{error}");
+
+    let run_row = flows_get_run(&config, &thread_id).await.unwrap().value;
+    assert_eq!(run_row.status, "failed");
+    assert!(run_row.pending_approvals.is_empty());
+    assert!(run_row
+        .error
+        .as_deref()
+        .is_some_and(|value| value.contains(UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN)));
     let flow = flows_get(&config, &created.value.id).await.unwrap().value;
     assert_eq!(flow.last_status.as_deref(), Some("failed"));
 }

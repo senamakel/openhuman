@@ -282,6 +282,21 @@ fn ensure_engine_compatible(graph: &WorkflowGraph) -> Result<(), String> {
     }
 }
 
+/// Execution-boundary compatibility check, including saved descendants that
+/// graph-only validation cannot inspect. This must run before compiling a root
+/// run/resume as well as before returning a resolver graph: otherwise earlier
+/// side-effect nodes could execute before an unsafe saved descendant resolves.
+fn ensure_execution_compatible(config: &Config, graph: &WorkflowGraph) -> Result<(), String> {
+    ensure_engine_compatible(graph)?;
+    match referenced_workflow_compatibility_errors(config, graph)
+        .into_iter()
+        .next()
+    {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
 fn reaches_on_main_edges(graph: &WorkflowGraph, from: &str, to: &str, stop: &str) -> bool {
     if from == to {
         return true;
@@ -2740,16 +2755,8 @@ pub(crate) fn load_engine_compatible_flow_graph(
 ) -> Result<Option<WorkflowGraph>, String> {
     let graph = load_flow_graph(config, id)?;
     if let Some(graph) = graph.as_ref() {
-        ensure_engine_compatible(graph)
+        ensure_execution_compatible(config, graph)
             .map_err(|error| format!("workflow_id '{id}' is engine-incompatible: {error}"))?;
-        if let Some(error) = referenced_workflow_compatibility_errors(config, graph)
-            .into_iter()
-            .next()
-        {
-            return Err(format!(
-                "workflow_id '{id}' references an engine-incompatible workflow: {error}"
-            ));
-        }
     }
     Ok(graph)
 }
@@ -3552,7 +3559,7 @@ pub async fn flows_run(
     // Author-time validation cannot protect definitions persisted by an older
     // OpenHuman build. Re-check immediately before compilation so an upgrade
     // fails explicitly instead of silently committing incomplete merge data.
-    if let Err(error) = ensure_engine_compatible(&flow.graph) {
+    if let Err(error) = ensure_execution_compatible(config, &flow.graph) {
         tracing::warn!(
             target: "flows",
             flow_id = %flow_id,
@@ -3815,7 +3822,7 @@ pub async fn flows_resume(
 
     // A pending checkpoint may have been created before this compatibility
     // gate shipped, so resume is an independent authoritative boundary.
-    if let Err(error) = ensure_engine_compatible(&flow.graph) {
+    if let Err(error) = ensure_execution_compatible(config, &flow.graph) {
         if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
             tracing::warn!(
                 target: "flows",

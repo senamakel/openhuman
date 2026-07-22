@@ -1,7 +1,7 @@
-//! Terminal chat UI — the `openhuman tui` (alias `chat`) CLI subcommand.
+//! Tabbed terminal UI — bare `openhuman` or the explicit `tui` / `chat` subcommand.
 //!
-//! A [ratatui]-based terminal front-end onto the **same `web_chat` surface**
-//! the desktop app drives (`openhuman.channel_web_chat` /
+//! A [ratatui]-based terminal front-end with Logs, Chat, Config, and Settings.
+//! Chat uses the **same `web_chat` surface** the desktop app drives (`openhuman.channel_web_chat` /
 //! `openhuman.channel_web_cancel` +
 //! [`web_chat::subscribe_web_channel_events`](crate::openhuman::web_chat::subscribe_web_channel_events)).
 //! It boots the core in-process — no HTTP, no sockets — via
@@ -26,6 +26,8 @@
 #[cfg(feature = "tui")]
 mod app;
 #[cfg(feature = "tui")]
+mod controls;
+#[cfg(feature = "tui")]
 mod render;
 #[cfg(feature = "tui")]
 mod runner;
@@ -33,6 +35,8 @@ mod runner;
 mod state;
 #[cfg(feature = "tui")]
 mod terminal;
+#[cfg(feature = "tui")]
+mod ui_state;
 
 #[cfg(feature = "tui")]
 pub use runner::run_from_cli;

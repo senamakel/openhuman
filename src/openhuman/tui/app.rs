@@ -24,9 +24,10 @@ use crate::core::runtime::CoreRuntime;
 use crate::core::socketio::WebChannelEvent;
 use crate::openhuman::web_chat;
 
-use super::render::{self, UiState};
+use super::render;
 use super::state::TranscriptState;
 use super::terminal::TerminalGuard;
+use super::ui_state::{AppTab, UiState};
 
 /// Run the terminal chat loop until the user quits (Ctrl+C / Ctrl+D) or the
 /// web-channel bus closes. The [`TerminalGuard`] restores the terminal on every
@@ -44,6 +45,8 @@ pub async fn run(
         "Connected · thread {thread_id}. Type a message and press Enter. Ctrl+C to quit."
     ));
     let mut ui = UiState::new(thread_id, client_id.clone());
+    super::controls::refresh_config(&runtime, &mut ui).await;
+    super::controls::refresh_auth(&runtime, &mut ui).await;
 
     // Blocking crossterm reader → async channel.
     let (input_tx, mut input_rx) = tokio::sync::mpsc::unbounded_channel::<Event>();
@@ -117,30 +120,78 @@ async fn handle_key(
         return false;
     }
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    let shift = key.modifiers.contains(KeyModifiers::SHIFT);
 
-    match key.code {
-        KeyCode::Char('c') if ctrl => {
-            log::info!("[tui] quit via Ctrl+C");
-            return true;
+    if matches!(key.code, KeyCode::Char('c')) && ctrl {
+        log::info!("[tui] quit via Ctrl+C");
+        return true;
+    }
+    if matches!(key.code, KeyCode::Char('d')) && ctrl {
+        log::info!("[tui] quit via Ctrl+D");
+        return true;
+    }
+
+    if !ui.is_editing() {
+        match key.code {
+            KeyCode::Tab if shift => ui.active_tab = ui.active_tab.previous(),
+            KeyCode::Tab => ui.active_tab = ui.active_tab.next(),
+            KeyCode::BackTab => ui.active_tab = ui.active_tab.previous(),
+            KeyCode::Char('1') => ui.active_tab = AppTab::Logs,
+            KeyCode::Char('2') => ui.active_tab = AppTab::Chat,
+            KeyCode::Char('3') => ui.active_tab = AppTab::Config,
+            KeyCode::Char('4') => ui.active_tab = AppTab::Settings,
+            _ => return handle_tab_key(key, runtime, client_id, state, ui).await,
         }
-        KeyCode::Char('d') if ctrl => {
-            log::info!("[tui] quit via Ctrl+D");
-            return true;
-        }
-        KeyCode::Char('n') if ctrl => new_thread(runtime, state, ui).await,
-        KeyCode::Esc => cancel_turn(runtime, client_id, &ui.thread_id, state),
-        KeyCode::PageUp => {
-            ui.scroll_from_bottom = ui.scroll_from_bottom.saturating_add(5);
-        }
-        KeyCode::PageDown => {
-            ui.scroll_from_bottom = ui.scroll_from_bottom.saturating_sub(5);
-        }
-        KeyCode::Enter => send_message(runtime, client_id, state, ui),
-        KeyCode::Backspace => {
-            ui.input.pop();
-        }
-        KeyCode::Char(c) if !ctrl => ui.input.push(c),
-        _ => {}
+        return false;
+    }
+
+    handle_tab_key(key, runtime, client_id, state, ui).await
+}
+
+async fn handle_tab_key(
+    key: KeyEvent,
+    runtime: &Arc<CoreRuntime>,
+    client_id: &str,
+    state: &mut TranscriptState,
+    ui: &mut UiState,
+) -> bool {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    match ui.active_tab {
+        AppTab::Logs => match key.code {
+            KeyCode::PageUp | KeyCode::Up => {
+                ui.log_scroll_from_bottom = ui.log_scroll_from_bottom.saturating_add(5)
+            }
+            KeyCode::PageDown | KeyCode::Down => {
+                ui.log_scroll_from_bottom = ui.log_scroll_from_bottom.saturating_sub(5)
+            }
+            _ => {}
+        },
+        AppTab::Chat => match key.code {
+            KeyCode::Char('c') if ctrl => {
+                log::info!("[tui] quit via Ctrl+C");
+                return true;
+            }
+            KeyCode::Char('d') if ctrl => {
+                log::info!("[tui] quit via Ctrl+D");
+                return true;
+            }
+            KeyCode::Char('n') if ctrl => new_thread(runtime, state, ui).await,
+            KeyCode::Esc => cancel_turn(runtime, client_id, &ui.thread_id, state),
+            KeyCode::PageUp => {
+                ui.scroll_from_bottom = ui.scroll_from_bottom.saturating_add(5);
+            }
+            KeyCode::PageDown => {
+                ui.scroll_from_bottom = ui.scroll_from_bottom.saturating_sub(5);
+            }
+            KeyCode::Enter => send_message(runtime, client_id, state, ui),
+            KeyCode::Backspace => {
+                ui.input.pop();
+            }
+            KeyCode::Char(c) if !ctrl => ui.input.push(c),
+            _ => {}
+        },
+        AppTab::Config => super::controls::handle_config_key(key, runtime, ui).await,
+        AppTab::Settings => super::controls::handle_settings_key(key, runtime, ui).await,
     }
     false
 }

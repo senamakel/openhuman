@@ -365,7 +365,7 @@ impl SubconsciousInstance {
         let prefix = self.log_prefix();
         let started = std::time::Instant::now();
         let tick_at = now_secs();
-        let _my_generation = self.tick_generation.fetch_add(1, Ordering::SeqCst) + 1;
+        let my_generation = self.tick_generation.fetch_add(1, Ordering::SeqCst) + 1;
 
         let observation = self.profile.observe(&config).await;
         debug!(
@@ -374,6 +374,15 @@ impl SubconsciousInstance {
         );
 
         if !observation.has_changes {
+            // Superseded-generation discard (mirrors the local graph path):
+            // a newer tick owns the baseline now, so committing this stale
+            // observation would clobber it.
+            if self.tick_generation.load(Ordering::SeqCst) != my_generation {
+                info!("{prefix} medulla quiet tick superseded by newer tick, discarding");
+                let mut state = self.state.lock().await;
+                state.total_ticks += 1;
+                return Ok(self.quiet_result(tick_at, started));
+            }
             // Quiet window: no billed cycle, but still advance the baseline so
             // the next tick observes only genuinely-new content (mirrors the
             // local observe→commit quiet edge).
@@ -403,6 +412,16 @@ impl SubconsciousInstance {
                     "{prefix} medulla instruct enqueued instruction_id={} cycle_id={}",
                     receipt.instruction_id, receipt.cycle_id
                 );
+                // Superseded-generation discard (mirrors the local graph
+                // path): the instruction is already enqueued serve-side, but a
+                // newer tick owns the baseline now, so this stale observation
+                // must not commit or advance last_tick_at.
+                if self.tick_generation.load(Ordering::SeqCst) != my_generation {
+                    info!("{prefix} medulla tick superseded by newer tick, discarding");
+                    let mut state = self.state.lock().await;
+                    state.total_ticks += 1;
+                    return Ok(self.quiet_result(tick_at, started));
+                }
                 // Baseline advances on a successful enqueue; the cycle itself is
                 // observed via events (a failed cycle does not re-observe here).
                 self.profile.commit(&config, &observation).await;

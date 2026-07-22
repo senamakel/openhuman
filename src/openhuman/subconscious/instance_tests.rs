@@ -24,6 +24,10 @@ struct FakeProfile {
     /// newer tick superseding the in-flight one.
     supersede: Mutex<Option<Arc<AtomicU64>>>,
     supersede_pending: AtomicUsize,
+    /// Like `supersede_pending`, but fires during `observe` — the medulla
+    /// engine has no reflect stage, so supersession is injected at its only
+    /// pre-commit await point.
+    supersede_in_observe: AtomicUsize,
 }
 
 impl FakeProfile {
@@ -37,6 +41,7 @@ impl FakeProfile {
             commit_calls: AtomicUsize::new(0),
             supersede: Mutex::new(None),
             supersede_pending: AtomicUsize::new(0),
+            supersede_in_observe: AtomicUsize::new(0),
         }
     }
 
@@ -69,6 +74,11 @@ impl SubconsciousProfile for FakeProfile {
     }
     async fn observe(&self, _config: &Config) -> Observation {
         self.observe_calls.fetch_add(1, Ordering::SeqCst);
+        if self.supersede_in_observe.swap(0, Ordering::SeqCst) > 0 {
+            if let Some(gen) = self.supersede.lock().unwrap().as_ref() {
+                gen.fetch_add(1, Ordering::SeqCst);
+            }
+        }
         let mut obs = self.observations.lock().unwrap();
         if obs.len() > 1 {
             obs.remove(0)
@@ -377,4 +387,77 @@ async fn default_engine_runs_local_graph_not_medulla() {
     );
     assert_eq!(profile.commit_calls.load(Ordering::SeqCst), 1);
     assert_eq!(result.response_chars, 7);
+}
+
+/// A medulla-engine config for the hermetic quiet-path tests: the quiet edge
+/// commits the baseline without ever touching the serve supervisor, so no
+/// child process or socket is involved.
+#[cfg(feature = "medulla-local")]
+fn medulla_config(workspace: &std::path::Path) -> Config {
+    use crate::openhuman::config::schema::SubconsciousEngine;
+    let mut cfg = test_config(workspace);
+    cfg.subconscious.engine = SubconsciousEngine::Medulla;
+    cfg
+}
+
+/// The medulla quiet edge mirrors the local one: no reflect, no instruct,
+/// baseline committed and `last_tick_at` advanced.
+#[cfg(feature = "medulla-local")]
+#[tokio::test]
+async fn medulla_quiet_tick_commits_and_advances() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = Arc::new(FakeProfile::new(FakeProfile::quiet(), Ok(Reflection::Idle)));
+    let instance = build(profile.clone(), dir.path());
+
+    let result = instance
+        .run_tick_for_test(medulla_config(dir.path()))
+        .await
+        .unwrap();
+
+    assert_eq!(profile.observe_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        profile.reflect_calls.load(Ordering::SeqCst),
+        0,
+        "the medulla engine never runs the local reflect graph"
+    );
+    assert_eq!(profile.commit_calls.load(Ordering::SeqCst), 1, "committed");
+    let status = instance.status().await;
+    assert!(status.last_tick_at.is_some());
+    assert_eq!(status.total_ticks, 1);
+    assert_eq!(result.response_chars, 0);
+}
+
+/// A superseded medulla tick must not commit its stale observation — the same
+/// generation guard the local graph path applies before its commit.
+#[cfg(feature = "medulla-local")]
+#[tokio::test]
+async fn medulla_superseded_tick_skips_commit() {
+    let dir = tempfile::tempdir().unwrap();
+    let profile = Arc::new(FakeProfile::new(FakeProfile::quiet(), Ok(Reflection::Idle)));
+    let instance = build(profile.clone(), dir.path());
+    // Wire the profile to bump the instance's generation during observe — the
+    // medulla path's only pre-commit await point.
+    *profile.supersede.lock().unwrap() = Some(instance.generation_handle());
+    profile.supersede_in_observe.store(1, Ordering::SeqCst);
+
+    let result = instance
+        .run_tick_for_test(medulla_config(dir.path()))
+        .await
+        .unwrap();
+
+    assert_eq!(profile.observe_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        profile.commit_calls.load(Ordering::SeqCst),
+        0,
+        "a superseded medulla tick must not commit"
+    );
+    assert_eq!(result.response_chars, 0);
+    let status = instance.status().await;
+    assert!(status.last_tick_at.is_none(), "no baseline advance");
+    assert_eq!(status.total_ticks, 1, "the discarded tick is still counted");
+    assert_eq!(
+        instance.snapshot_failures().await,
+        0,
+        "not counted a failure"
+    );
 }

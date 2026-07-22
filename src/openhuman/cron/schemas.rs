@@ -324,6 +324,12 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
             .get("profile_id")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
+        // Privacy-safe diagnostic: whether the created job carries profile
+        // attribution, never the profile id itself.
+        tracing::debug!(
+            has_profile_attribution = profile_id.is_some(),
+            "[cron][schemas] create: parsed agent-profile attribution"
+        );
         let delivery: Option<crate::openhuman::cron::DeliveryConfig> = match params.get("delivery")
         {
             None | Some(Value::Null) => None,
@@ -394,6 +400,19 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let job_id = read_required::<String>(&params, "job_id")?;
         let patch = read_required::<CronJobPatch>(&params, "patch")?;
+        // Privacy-safe diagnostic for the profile-attribution patch. Double-option
+        // `profile_id`: `None` = no change, `Some(None)` = clear, `Some(Some)` =
+        // (re)attribute. Log only the state, never the profile id.
+        let (patches_profile_attribution, clears_profile_attribution) = match &patch.profile_id {
+            None => (false, false),
+            Some(None) => (true, true),
+            Some(Some(_)) => (true, false),
+        };
+        tracing::debug!(
+            patches_profile_attribution,
+            clears_profile_attribution,
+            "[cron][schemas] update: parsed agent-profile attribution patch"
+        );
         to_json(crate::openhuman::cron::rpc::cron_update(&config, job_id.trim(), patch).await?)
     })
 }

@@ -333,9 +333,20 @@ impl Agent {
         let profile_skills_root = self.active_profile_id.as_deref().and_then(|id| {
             crate::openhuman::profiles::profile_skills_root(&self.workspace_dir, id)
         });
+        // An invalid/absent active profile id silently falls back to shared
+        // discovery. Log the branch id-free (boolean only, never the profile id or
+        // resolved path) per the observability convention for new/changed flows.
+        let profile_local_skills_active = profile_skills_root.is_some();
+        log::debug!(
+            "[agent_loop] refreshing installed-skills metadata (trigger={trigger}, profile_local_skills_active={profile_local_skills_active})"
+        );
         let latest = crate::openhuman::skills::load_workflow_metadata_for_profile(
             &self.workspace_dir,
             profile_skills_root.as_deref(),
+        );
+        log::debug!(
+            "[agent_loop] refreshed installed-skills metadata (trigger={trigger}, profile_local_skills_active={profile_local_skills_active}, workflow_count={})",
+            latest.len()
         );
         let current_ids: std::collections::HashSet<String> =
             self.workflows.iter().map(&id_of).collect();

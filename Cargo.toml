@@ -684,12 +684,6 @@ tinyjuice = { path = "vendor/tinyjuice" }
 tinychannels = { path = "vendor/tinychannels" }
 tinyplace = { path = "vendor/tinyplace/sdk/rust" }
 
-# TinyCortex temporarily pins the embedding API port while tinyagents #58 is
-# pending. Resolve that git source to the same vendored crate so host adapters
-# and TinyCortex share one `EmbeddingModel` trait identity.
-[patch."https://github.com/senamakel/tinyagents"]
-tinyagents = { path = "vendor/tinyagents" }
-
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the
 # binary small (only file+line tables, no full type info) while still

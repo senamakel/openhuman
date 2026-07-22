@@ -294,11 +294,6 @@ tauri-plugin-global-shortcut = { git = "https://github.com/tauri-apps/plugins-wo
 tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", rev = "c6561ab6b4f9e7f650d4fc8c53fd8acc9b65b9b2" }
 tauri-plugin-notification = { path = "vendor/tauri-plugin-notification" }
 
-# Match the root Cargo world: TinyCortex's temporary git pin must resolve to
-# the vendored TinyAgents crate to preserve one embedding trait identity.
-[patch."https://github.com/senamakel/tinyagents"]
-tinyagents = { path = "../../vendor/tinyagents" }
-
 [dev-dependencies]
 # `test-util` enables `#[tokio::test(start_paused = true)]` for the
 # idle-watchdog unit tests in `cdp/session.rs` (#1213).

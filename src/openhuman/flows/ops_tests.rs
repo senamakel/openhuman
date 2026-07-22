@@ -96,6 +96,38 @@ fn structurally_valid_graph(value: Value) -> WorkflowGraph {
     graph
 }
 
+fn nested_router_reconvergence_graph(inner_kind: &str, inner_ports: &[&str]) -> WorkflowGraph {
+    let mut edges = vec![
+        json!({ "from_node": "start", "from_port": "main", "to_node": "outer" }),
+        json!({ "from_node": "start", "from_port": "main", "to_node": "c" }),
+        json!({ "from_node": "outer", "from_port": "true", "to_node": "inner" }),
+        json!({ "from_node": "outer", "from_port": "false", "to_node": "outer_else" }),
+    ];
+    edges.extend(
+        inner_ports
+            .iter()
+            .map(|port| json!({ "from_node": "inner", "from_port": port, "to_node": "a" })),
+    );
+    edges.extend([
+        json!({ "from_node": "a", "from_port": "main", "to_node": "m" }),
+        json!({ "from_node": "c", "from_port": "main", "to_node": "m" }),
+    ]);
+
+    structurally_valid_graph(json!({
+        "name": "nested-router-reconvergence",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": inner_kind, "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": edges
+    }))
+}
+
 #[test]
 fn engine_compatibility_distinguishes_nested_from_safe_fan_ins() {
     let risky = structurally_valid_graph(nested_conditional_fan_in_graph());
@@ -184,12 +216,32 @@ fn engine_compatibility_rejects_main_label_on_conditional_fan_in_path() {
             { "from_node": "start", "from_port": "main", "to_node": "route" },
             { "from_node": "start", "from_port": "main", "to_node": "c" },
             { "from_node": "route", "from_port": "main", "to_node": "a" },
-            { "from_node": "route", "from_port": "other", "to_node": "a" },
+            { "from_node": "route", "from_port": "default", "to_node": "a" },
             { "from_node": "a", "from_port": "main", "to_node": "m" },
             { "from_node": "c", "from_port": "main", "to_node": "m" }
         ]
     }));
     assert!(engine_compatibility_errors(&reconverged).is_empty());
+}
+
+#[test]
+fn engine_compatibility_requires_exhaustive_router_choices_for_reconvergence() {
+    let exhaustive_condition = nested_router_reconvergence_graph("condition", &["true", "false"]);
+    assert!(engine_compatibility_errors(&exhaustive_condition).is_empty());
+
+    let missing_condition_branch = nested_router_reconvergence_graph("condition", &["true"]);
+    let errors = engine_compatibility_errors(&missing_condition_branch);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
+
+    let exhaustive_switch = nested_router_reconvergence_graph("switch", &["known-case", "default"]);
+    assert!(engine_compatibility_errors(&exhaustive_switch).is_empty());
+
+    let missing_switch_default =
+        nested_router_reconvergence_graph("switch", &["known-case", "other-case"]);
+    let errors = engine_compatibility_errors(&missing_switch_default);
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].code, UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN);
 }
 
 #[test]

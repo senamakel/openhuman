@@ -211,9 +211,17 @@ fn graph_engine_compatibility_errors(
                 let any_port_reaches = ports.iter().any(|port| reaches_from_port(port));
                 // A router with one wired output still has unwired runtime
                 // choices that emit no successor, so that sole edge cannot
-                // prove unconditional reachability. Multi-port routers retain
-                // the all-wired-ports reconvergence exception below.
+                // prove unconditional reachability. Router reconvergence is
+                // only deterministic when every runtime choice is wired:
+                // both condition outcomes, or a switch fallback. Generic
+                // multi-port nodes retain their existing all-port behavior.
+                let routing_choices_are_exhaustive = match candidate.kind {
+                    NodeKind::Condition => ports.contains("true") && ports.contains("false"),
+                    NodeKind::Switch => ports.contains("default"),
+                    _ => true,
+                };
                 let every_port_deterministically_reaches = ports.len() >= 2
+                    && routing_choices_are_exhaustive
                     && ports.iter().all(|port| {
                         reaches_deterministically_via_port(
                             graph,

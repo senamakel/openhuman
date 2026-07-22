@@ -626,3 +626,64 @@ fn config_fingerprint_tracks_relevant_config_changes() {
         config_fingerprint(&action_dir_changed).unwrap()
     );
 }
+
+#[test]
+fn config_fingerprint_is_stable_across_map_insertion_orders() {
+    use crate::openhuman::config::schema::TeamModelConfig;
+
+    // `Config` carries HashMap-backed fields whose serde emission order is
+    // unstable (per-instance hash seeds). Two configs holding the SAME team
+    // pins inserted in opposite orders must fingerprint identically — a
+    // mismatch would spuriously kill and respawn the supervised child.
+    let team = |model: &str| TeamModelConfig {
+        lead_model: Some(model.to_string()),
+        agent_model: None,
+    };
+    let mut config_a = crate::openhuman::config::Config::default();
+    for name in ["alpha", "beta", "gamma", "delta", "epsilon"] {
+        config_a.teams.insert(name.to_string(), team(name));
+    }
+    let mut config_b = crate::openhuman::config::Config::default();
+    for name in ["epsilon", "delta", "gamma", "beta", "alpha"] {
+        config_b.teams.insert(name.to_string(), team(name));
+    }
+
+    assert_eq!(
+        config_fingerprint(&config_a).unwrap(),
+        config_fingerprint(&config_b).unwrap(),
+        "identical configs must fingerprint identically regardless of map order"
+    );
+
+    // And a genuinely different map value still changes the fingerprint.
+    let mut config_c = config_a.clone();
+    config_c.teams.insert("alpha".to_string(), team("changed"));
+    assert_ne!(
+        config_fingerprint(&config_a).unwrap(),
+        config_fingerprint(&config_c).unwrap()
+    );
+}
+
+#[test]
+fn canonical_json_hash_ignores_object_key_order() {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hasher;
+
+    let hash = |value: &Value| {
+        let mut hasher = DefaultHasher::new();
+        hash_canonical_json(value, &mut hasher);
+        hasher.finish()
+    };
+
+    // serde_json is built with `preserve_order` in this workspace, so these
+    // two literals genuinely serialize with different key orders.
+    let ab = json!({ "a": 1, "b": { "x": [1, 2], "y": null } });
+    let ba = json!({ "b": { "y": null, "x": [1, 2] }, "a": 1 });
+    assert_eq!(hash(&ab), hash(&ba), "key order must not affect the hash");
+
+    // Same keys, different value → different hash.
+    let changed = json!({ "a": 2, "b": { "x": [1, 2], "y": null } });
+    assert_ne!(hash(&ab), hash(&changed));
+    // Array order stays significant.
+    let reordered_array = json!({ "a": 1, "b": { "x": [2, 1], "y": null } });
+    assert_ne!(hash(&ab), hash(&reordered_array));
+}

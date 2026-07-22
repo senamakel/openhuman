@@ -732,9 +732,14 @@ fn supervisor_slot() -> &'static Mutex<SupervisorCache> {
 fn config_fingerprint(config: &Config) -> Result<u64> {
     use std::hash::{Hash, Hasher};
     let encoded =
-        serde_json::to_string(config).context("encoding config for medulla cache fingerprint")?;
+        serde_json::to_value(config).context("encoding config for medulla cache fingerprint")?;
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    encoded.hash(&mut hasher);
+    // Hash the JSON tree with object keys visited in sorted order, NOT the
+    // serialized string: `Config` contains `HashMap`-backed fields whose
+    // serde emission order is unstable (per-instance hash seeds), so hashing
+    // the raw encoding would spuriously invalidate the cache — and restart
+    // the child — for a byte-identical config.
+    hash_canonical_json(&encoded, &mut hasher);
     // The runtime-resolved path roots are `#[serde(skip)]` and therefore
     // absent from the encoding, but both feed the supervisor — the socket
     // path lives under `workspace_dir` and the tool sandbox resolves against
@@ -742,6 +747,46 @@ fn config_fingerprint(config: &Config) -> Result<u64> {
     config.workspace_dir.hash(&mut hasher);
     config.action_dir.hash(&mut hasher);
     Ok(hasher.finish())
+}
+
+/// Feed a JSON value into `hasher` in a canonical order: object entries are
+/// visited sorted by key (recursively), arrays in element order, and every
+/// node is tagged with a type discriminant so differently-shaped trees cannot
+/// collide by concatenation.
+fn hash_canonical_json<H: std::hash::Hasher>(value: &Value, hasher: &mut H) {
+    use std::hash::Hash;
+    match value {
+        Value::Null => 0u8.hash(hasher),
+        Value::Bool(flag) => {
+            1u8.hash(hasher);
+            flag.hash(hasher);
+        }
+        Value::Number(number) => {
+            2u8.hash(hasher);
+            number.to_string().hash(hasher);
+        }
+        Value::String(text) => {
+            3u8.hash(hasher);
+            text.hash(hasher);
+        }
+        Value::Array(items) => {
+            4u8.hash(hasher);
+            items.len().hash(hasher);
+            for item in items {
+                hash_canonical_json(item, hasher);
+            }
+        }
+        Value::Object(entries) => {
+            5u8.hash(hasher);
+            entries.len().hash(hasher);
+            let mut keys: Vec<&String> = entries.keys().collect();
+            keys.sort();
+            for key in keys {
+                key.hash(hasher);
+                hash_canonical_json(&entries[key.as_str()], hasher);
+            }
+        }
+    }
 }
 
 /// Resolve (and lazily start) the process-global supervisor for `config`.

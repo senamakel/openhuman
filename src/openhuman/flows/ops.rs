@@ -4036,7 +4036,15 @@ pub async fn flows_resume(
             );
         }
         let observed = current_persisted_steps(config, thread_id);
-        finish_flow_run_row(config, thread_id, "failed", &observed, &[], Some(&error));
+        finish_flow_run_row(
+            config,
+            thread_id,
+            flow_id,
+            "failed",
+            &observed,
+            &[],
+            Some(&error),
+        );
         tracing::warn!(
             target: "flows",
             flow_id = %flow_id,

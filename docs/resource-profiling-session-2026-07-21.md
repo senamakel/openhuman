@@ -415,3 +415,89 @@ Repository warnings observed during builds were pre-existing unused-import/dead-
 OpenHuman's Rust core is not holding 45 MiB of agent objects. The steady process is mostly executable working set plus runtime/allocator pages, with a small live heap. The cold first turn is expensive because it initializes and touches a broad application-oriented path. Once warmed, subagent turns are inexpensive and appear to plateau rather than grow linearly.
 
 The best route to an efficient library is therefore not micro-optimizing every agent struct. It is narrowing and sharing the initialization graph: reuse memory and SQLite services, avoid rebuilding agent infrastructure for children, simplify the PII prefilter, expose an explicit warm-up lifecycle, and provide a compile-time library-minimal profile.
+
+---
+
+## Addendum: library benchmarking session (2026-07-22)
+
+The follow-up session turned the manual investigation above into a permanent
+benchmark environment, executed two of the recommended optimizations, and
+answered the deployment-density question. Full detail lives in
+[`library-benchmarking.md`](library-benchmarking.md); this addendum records
+the deltas against this document.
+
+### What was built
+
+- **Ten hermetic scenarios** in `library-profile` (was two): `agent-turn`,
+  `long-agent`, `workflow`, `subconscious`, `cold-phases`, `fleet`,
+  `skill-run`, `subagent-storm` joined `memory-ingest`/`subagents`. All
+  offline, mock-provider, JSON schema v2 with per-phase/per-turn checkpoints.
+- **Five driver scripts** under `scripts/profile/`: `library-bench.sh`
+  (medians + summary), `library-fleet.sh` (agent-count sweep with a
+  2 GB/2 vCPU pass/fail gate), `library-instances.sh` (many-processes model),
+  `library-cpu.sh` (samply), `library-heap.sh` (dhat).
+- **Professional profilers wired in**: dhat behind the default-off
+  `rss-bench-dhat` feature; samply scripted; `proc_metrics` extended with
+  CPU-time, fd counts, and a descendant process-tree sampler (`tree.rs`).
+
+### Headline results (Apple Silicon, default build unless noted)
+
+| Question | Answer |
+| --- | --- |
+| Cold turn cost, any shape (chat/subconscious/delegation/workflow) | ~29-30 MiB retained — shared bootstrap, not workload |
+| Warmed long-agent growth | 30-150 KiB/turn plateau; occasional 6-8 MiB async persistence bursts |
+| Live heap vs RSS (dhat, agent-turn) | 33.4 MB total allocated, 5.0 MB peak live, 3.1 MB at exit |
+| Fleet marginal per in-process agent | ~1.7-2.0 MiB (N=50/100/500 sweep) |
+| Idle CPU, parked fleet | ~3 ms per 10 s at every N |
+| **1000 agents in 2 GiB (one process)** | **PASS — projected ~1747 MiB @ 1000; real 500-agent run settled 1393 MiB** |
+| Same workload as N processes | ~48 MiB/instance flat → only ~42 instances per 2 GiB; one-process model is ~25x denser |
+| True cost of a JS skill run | node child ~72-75 MB RSS (tree ~121 MB vs ~51 MB self) |
+| Marginal per parallel subagent (storm K=8→32) | ~0.78 MiB |
+| Library-minimal build (`--no-default-features --features skills,flows`) | 81 MiB binary (60 stripped) vs 116; RSS -3.5 to -4.7 MiB |
+
+### Changes landed
+
+- **PII prefilter replaced upstream** (recommendation 2 above):
+  tinycortex#119 swaps the resident 17-pattern `RegexSet` + per-thread DFA
+  caches for a single-pass byte candidate scan gating lazily-compiled
+  per-class regexes; superset-verified against the old set, no common-path
+  heap regression, wins scale with thread/agent concurrency. Merged with
+  #120 (unrelated rustdoc fix); submodule bumped.
+- **Library-minimal recipe** documented and measured
+  ([`library-minimal-recipe.md`](library-minimal-recipe.md)); ranked
+  follow-up sheds identified (an `inference` gate for whisper/GGML first).
+- **Harness comparison** ([`harness-comparison-2026-07-22.md`](harness-comparison-2026-07-22.md)):
+  the scope-matched peer (Hermes, Python) self-reports ~10x our RSS; the
+  ZeroClaw "7.8-12 MiB under load" figure has no locatable primary source and
+  is now flagged unverified wherever cited. Our in-process ~2 MiB marginal
+  scaling has no equivalent among the surveyed harnesses.
+
+### New watch-items surfaced by the fleet sweep
+
+1. **Thread growth ~0.35/agent** (71 @ N=50 → 211 @ N=500, →~420 projected at
+   1000). Attribute (SQLite? blocking pool?) and cap before 1000-agent runs.
+2. **CPU, not memory, is the load constraint on 2 workers**: p95 turn latency
+   25.5 s at N=500 under 200 ms mock latency. Scheduling/backpressure design
+   matters more than RAM once the fleet is dense.
+3. **Interpreter children break the budget**: pooling/sharing the node and
+   python runtimes is filed as tinyhumansai/openhuman#5106 — without it,
+   ~25 concurrent JS skill runs exhaust the whole 2 GiB box.
+
+### Updated optimization order
+
+1. Shared services between parent/child agents (unchanged, still first; the
+   fleet benchmark is its regression instrument).
+2. ~~PII prefilter~~ — done, merged upstream.
+3. Runtime pooling for node/python (#5106) — new, promoted to near-top by the
+   skill-run measurement.
+4. Thread-growth attribution and cap (new).
+5. Warm-up API, allocator experiment, per-phase checkpoints in CI — the
+   checkpoints now exist (`cold-phases`); CI wiring remains.
+6. `inference` compile gate (whisper/GGML) for the library-minimal profile.
+
+### Next: the live desktop app
+
+The same rigor now needs to reach the shipped Tauri/CEF app (the ~1.2-1.4 GiB
+family this document opened with). The prepared brief for that session —
+scenarios, reusable assets, gates — is
+[`tauri-live-profiling-brief.md`](tauri-live-profiling-brief.md).

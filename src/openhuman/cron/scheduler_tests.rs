@@ -64,7 +64,7 @@ async fn resolve_cron_profile_present_and_deleted_fallback() {
     // Profile does not exist yet → None (the deleted-profile fallback path;
     // the scheduler runs the job without a profile rather than failing it).
     assert!(
-        resolve_cron_profile(&config, &job).is_none(),
+        resolve_cron_profile(&config, &job).unwrap().is_none(),
         "missing profile must resolve to None"
     );
 
@@ -77,12 +77,42 @@ async fn resolve_cron_profile_present_and_deleted_fallback() {
     crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
         .upsert(profile)
         .expect("seed profile");
-    let resolved = resolve_cron_profile(&config, &job).expect("profile resolves");
+    let resolved = resolve_cron_profile(&config, &job)
+        .expect("profile store loads")
+        .expect("profile resolves");
     assert_eq!(resolved.id, "alice");
 
     // A job with no attribution is always None.
     let plain = test_job("");
-    assert!(resolve_cron_profile(&config, &plain).is_none());
+    assert!(resolve_cron_profile(&config, &plain).unwrap().is_none());
+}
+
+#[tokio::test]
+async fn existing_profile_agent_build_failure_does_not_fall_back_profile_less() {
+    crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins()
+        .expect("init built-in agent definitions");
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.id = "alice".into();
+    profile.agent_id = "removed-agent-definition".into();
+    profile.built_in = false;
+    profile.is_master = false;
+    crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
+        .upsert(profile)
+        .expect("seed profile");
+
+    let mut job = test_job("");
+    job.job_type = JobType::Agent;
+    job.profile_id = Some("alice".into());
+
+    let error = match build_agent_for_cron_job(&config, &job) {
+        Ok(_) => panic!("existing profile build failure must not fall back profile-less"),
+        Err(error) => error,
+    };
+    assert!(error.to_string().contains("under attributed profile"));
+    assert!(error.to_string().contains("removed-agent-definition"));
 }
 
 #[test]

@@ -1017,13 +1017,17 @@ const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
 /// Resolve the agent profile a cron job is attributed to, if any.
 ///
 /// Returns `Some(profile)` only when `job.profile_id` is set AND that profile
-/// still exists in the store. A deleted profile (or a load error) yields `None`
-/// so the caller runs the job without a profile rather than failing it (2b).
+/// still exists in the store. A deleted profile yields `Ok(None)` so the caller
+/// runs the job without a profile rather than failing it (2b). Profile-store
+/// failures are returned: attribution must not fail open when the scheduler
+/// cannot determine whether the referenced profile still exists.
 fn resolve_cron_profile(
     config: &Config,
     job: &CronJob,
-) -> Option<crate::openhuman::profiles::AgentProfile> {
-    let profile_id = job.profile_id.as_deref()?;
+) -> anyhow::Result<Option<crate::openhuman::profiles::AgentProfile>> {
+    let Some(profile_id) = job.profile_id.as_deref() else {
+        return Ok(None);
+    };
     match crate::openhuman::profiles::load_profiles(&config.workspace_dir) {
         Ok(state) => {
             let found = state.profiles.into_iter().find(|p| p.id == profile_id);
@@ -1034,17 +1038,12 @@ fn resolve_cron_profile(
                     "[cron] attributed profile no longer exists — running job without a profile"
                 );
             }
-            found
+            Ok(found)
         }
-        Err(e) => {
-            tracing::warn!(
-                job_id = %job.id,
-                profile_id = %profile_id,
-                error = %e,
-                "[cron] failed to load profiles for cron attribution — running without a profile"
-            );
-            None
-        }
+        Err(e) => Err(anyhow::anyhow!(
+            "failed to load attributed profile {profile_id:?} for cron job {}: {e}",
+            job.id
+        )),
     }
 }
 
@@ -1055,39 +1054,36 @@ fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Ag
     // the profile's SOUL, memory scope, dedicated-workspace descriptor, and
     // tool/skill/MCP allowlists. A deleted profile falls through (warned in
     // `resolve_cron_profile`) to the profile-less path below.
-    if let Some(profile) = resolve_cron_profile(config, job) {
+    if let Some(profile) = resolve_cron_profile(config, job)? {
         // A job may pin a built-in `agent_id`; otherwise the profile picks its
         // own agent definition.
         let agent_id = job
             .agent_id
             .clone()
             .unwrap_or_else(|| profile.agent_id.clone());
-        match Agent::from_config_for_agent_with_profile(
+        return Agent::from_config_for_agent_with_profile(
             config,
             &agent_id,
             None,
             None,
             Some(&profile),
-        ) {
-            Ok(agent) => {
-                tracing::debug!(
-                    job_id = %job.id,
-                    profile_id = %profile.id,
-                    agent_id = %agent_id,
-                    "[cron] built scheduled job agent under attributed profile"
-                );
-                return Ok(agent);
-            }
-            Err(e) => {
-                tracing::warn!(
-                    job_id = %job.id,
-                    profile_id = %profile.id,
-                    agent_id = %agent_id,
-                    error = %e,
-                    "[cron] profile-aware agent build failed; falling back to profile-less build"
-                );
-            }
-        }
+        )
+        .inspect(|_| {
+            tracing::debug!(
+                job_id = %job.id,
+                profile_id = %profile.id,
+                agent_id = %agent_id,
+                "[cron] built scheduled job agent under attributed profile"
+            );
+        })
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "failed to build cron job {} under attributed profile {:?} with agent {:?}: {e:#}",
+                job.id,
+                profile.id,
+                agent_id
+            )
+        });
     }
 
     if let Some(agent_id) = job.agent_id.as_deref() {

@@ -17,7 +17,7 @@ also name its upstream PR before the host copy is removed.
 | WP-1 | `tinyagents/convert.rs` message conversion | No host `ChatMessage`; retain tool-schema conversion until WP-4 | PENDING | Conversion tests moved or retired |
 | WP-1 | `inference/provider/crate_provider.rs` | No legacy `Provider` consumer needs the reverse adapter | PENDING | `rg 'impl Provider' src` empty |
 | WP-1 | `inference/provider/{auth_error_registry,resolved_route,temperature,thread_context}.rs` | Host state/policy lives outside the legacy provider abstraction | REHOMED | `4ce6ca726`, `59871c8ab`, `6cb17f91e`, `07f675ba3`; root `cargo check` and focused auth-registry tests green |
-| WP-2 | `routing/{policy,quality,factory}.rs` | Generic decisions use crate `ModelRouter`; host health signals remain | PENDING | Routing parity tests host/crate |
+| WP-2 | `routing/` parallel implementation | Generic decisions use crate `ModelRouter`; no live consumer remained | DELETED | Repository-wide reference audit found the module self-contained; #4783 owns live routing; root check green |
 | WP-2 | `tool_timeout` implementation | Crate `ToolTimeout` owns timeout mechanics; host only projects config/env | PENDING | Timeout precedence tests |
 | WP-2 | `model_council/{council,graph}.rs` | Generic ensemble graph released in tinyagents | PENDING | Upstream PR + offline graph tests |
 | WP-3 | legacy `run_turn_engine` and graph escape hatches | All regression assertions exercise the crate turn path | PENDING | `rg OPENHUMAN_AGENT_GRAPH_` history-only |

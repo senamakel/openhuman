@@ -110,7 +110,6 @@ pub mod recall_calendar;
 pub mod referral;
 #[cfg(feature = "flows")]
 pub mod rhai_workflows;
-pub mod routing;
 pub mod runtime_node;
 pub mod runtime_python;
 pub mod runtime_python_server;

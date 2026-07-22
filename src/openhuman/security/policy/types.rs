@@ -51,7 +51,9 @@ pub enum TrustedAccess {
 
 /// A directory outside the workspace the agent is explicitly granted access to.
 /// Takes precedence over `workspace_only` and `forbidden_paths` for its subtree,
-/// except for credential stores (see `SecurityPolicy::is_always_forbidden`).
+/// except for credential stores and workspace-internal application state (see
+/// `SecurityPolicy::is_always_forbidden` and
+/// `SecurityPolicy::is_workspace_internal_path`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct TrustedRoot {
     /// Absolute path (a leading `~` is expanded to the user's home).

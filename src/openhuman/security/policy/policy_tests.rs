@@ -2635,6 +2635,12 @@ fn is_workspace_internal_path_blocks_state_dirs() {
     };
     assert!(policy.is_workspace_internal_path(&ws.join("memory")));
     assert!(policy.is_workspace_internal_path(&ws.join("memory").join("namespaces")));
+    assert!(policy.is_workspace_internal_path(&ws.join("memory-alice").join("memory.db")));
+    assert!(policy.is_workspace_internal_path(&ws.join("memory_tree-alice").join("tree")));
+    assert!(policy.is_workspace_internal_path(
+        &ws.join("session_raw-alice")
+            .join("1700000000_orchestrator.jsonl")
+    ));
     assert!(policy.is_workspace_internal_path(&ws.join("sessions")));
     assert!(policy.is_workspace_internal_path(&ws.join("state")));
     assert!(policy.is_workspace_internal_path(&ws.join("cron")));
@@ -2700,6 +2706,37 @@ fn is_path_string_allowed_blocks_workspace_internal() {
         !policy.is_path_string_allowed(&memory_path.to_string_lossy()),
         "absolute path to workspace internal dir should be blocked"
     );
+}
+
+#[tokio::test]
+async fn trusted_root_cannot_expose_workspace_internal_state() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let ws = tmp.path().join("workspace");
+    let personality = ws.join("personalities").join("alice");
+    std::fs::create_dir_all(&personality).expect("create profile home");
+    let soul = personality.join("SOUL.md");
+    std::fs::write(&soul, "private identity").expect("write soul");
+    let policy = SecurityPolicy {
+        workspace_dir: ws.clone(),
+        action_dir: ws.clone(),
+        workspace_only: false,
+        trusted_roots: vec![TrustedRoot {
+            path: ws.to_string_lossy().into_owned(),
+            access: TrustedAccess::ReadWrite,
+        }],
+        ..SecurityPolicy::default()
+    };
+
+    assert!(!policy.is_path_string_allowed(&soul.to_string_lossy()));
+    assert!(policy.validate_path(&soul.to_string_lossy()).await.is_err());
+    assert!(policy
+        .validate_parent_path(
+            &ws.join("session_raw-alice")
+                .join("new.jsonl")
+                .to_string_lossy()
+        )
+        .await
+        .is_err());
 }
 
 #[test]

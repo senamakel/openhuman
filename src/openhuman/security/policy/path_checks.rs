@@ -48,22 +48,21 @@ impl SecurityPolicy {
         // operation-specific validators (validate_path / validate_parent_path).
         let in_trusted_root = self.is_within_trusted_root(expanded_path, false);
 
-        // Block agent access to internal state paths under workspace_dir
-        // (unless the path falls under an explicitly granted trusted root).
-        if !in_trusted_root {
-            let check = if expanded_path.is_absolute() {
-                expanded_path.to_path_buf()
-            } else {
-                self.workspace_dir.join(expanded_path)
-            };
-            if self.is_workspace_internal_path(&check) {
-                log::trace!(
-                    "[security:policy] path blocked: agent access to workspace-internal state (requested={}, resolved={})",
-                    path,
-                    check.display()
-                );
-                return false;
-            }
+        // Workspace-internal application state is never agent-accessible. A
+        // trusted-root grant cannot weaken this invariant, even when it points
+        // at workspace_dir or one of its parents.
+        let check = if expanded_path.is_absolute() {
+            expanded_path.to_path_buf()
+        } else {
+            self.workspace_dir.join(expanded_path)
+        };
+        if self.is_workspace_internal_path(&check) {
+            log::trace!(
+                "[security:policy] path blocked: agent access to workspace-internal state (requested={}, resolved={})",
+                path,
+                check.display()
+            );
+            return false;
         }
 
         // Block absolute paths when workspace_only is set (unless trusted-rooted).
@@ -364,9 +363,15 @@ impl SecurityPolicy {
             Some(std::path::Component::Normal(s)) => s.to_string_lossy(),
             _ => return false,
         };
-        if WORKSPACE_INTERNAL_DIRS
-            .iter()
-            .any(|d| *d == first_component.as_ref())
+        let component = first_component.as_ref();
+        if WORKSPACE_INTERNAL_DIRS.iter().any(|d| *d == component)
+            || ["memory-", "memory_tree-", "session_raw-"]
+                .iter()
+                .any(|prefix| {
+                    component
+                        .strip_prefix(prefix)
+                        .is_some_and(|s| !s.is_empty())
+                })
         {
             return true;
         }
@@ -489,6 +494,14 @@ impl SecurityPolicy {
         if Self::is_always_forbidden(resolved) {
             return Err(format!(
                 "{POLICY_BLOCKED_MARKER} Resolved path is a protected credential store: {}",
+                resolved.display()
+            ));
+        }
+        // Trusted roots may override user-configured forbidden paths, but never
+        // the core-managed workspace-state boundary.
+        if self.is_workspace_internal_path(resolved) {
+            return Err(format!(
+                "{POLICY_BLOCKED_MARKER} Resolved path is workspace-internal application state: {}",
                 resolved.display()
             ));
         }

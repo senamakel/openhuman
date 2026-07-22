@@ -57,7 +57,6 @@ pub async fn set(
     log::debug!("[thread_goals] rpc=set thread_id={thread_id}");
     let goal = store::set(workspace_dir, thread_id, objective, token_budget).await?;
     emit_updated(&goal);
-    super::crate_adapter::shadow_mirror_goal(workspace_dir, &goal).await;
     Ok(RpcOutcome::single_log(
         GoalEnvelope {
             goal: Some(goal.clone()),
@@ -78,7 +77,6 @@ pub async fn complete(
     log::debug!("[thread_goals] rpc=complete thread_id={thread_id}");
     let goal = store::complete(workspace_dir, thread_id).await?;
     emit_updated(&goal);
-    super::crate_adapter::shadow_mirror_goal(workspace_dir, &goal).await;
     Ok(RpcOutcome::single_log(
         GoalEnvelope {
             goal: Some(goal.clone()),
@@ -95,7 +93,6 @@ pub async fn pause(
     log::debug!("[thread_goals] rpc=pause thread_id={thread_id}");
     let goal = store::pause(workspace_dir, thread_id).await?;
     emit_updated(&goal);
-    super::crate_adapter::shadow_mirror_goal(workspace_dir, &goal).await;
     Ok(RpcOutcome::single_log(
         GoalEnvelope {
             goal: Some(goal.clone()),
@@ -112,7 +109,6 @@ pub async fn resume(
     log::debug!("[thread_goals] rpc=resume thread_id={thread_id}");
     let goal = store::resume(workspace_dir, thread_id).await?;
     emit_updated(&goal);
-    super::crate_adapter::shadow_mirror_goal(workspace_dir, &goal).await;
     Ok(RpcOutcome::single_log(
         GoalEnvelope {
             goal: Some(goal.clone()),
@@ -133,8 +129,6 @@ pub async fn clear(
             thread_id: thread_id.to_string(),
         });
     }
-    // Shadow: mirror the clear into the crate graph.goals store (flag-gated OFF).
-    super::crate_adapter::shadow_mirror_clear(workspace_dir, thread_id).await;
     Ok(RpcOutcome::single_log(
         ClearResult { removed },
         format!("cleared thread goal (removed={removed})"),

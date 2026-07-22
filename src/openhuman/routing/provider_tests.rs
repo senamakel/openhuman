@@ -128,17 +128,16 @@ async fn records_local_route_for_lightweight_task() {
         RoutingHints::default(),
     );
 
-    let recorded =
-        crate::openhuman::inference::provider::with_resolved_provider_route_scope(async {
-            let result = r
-                .chat_with_system(None, "React to this", "hint:reaction", 0.7)
-                .await
-                .unwrap();
-            assert_eq!(result, "Great reaction!");
-            crate::openhuman::inference::provider::current_resolved_provider_route()
-        })
-        .await
-        .expect("intelligent routing should record the selected local route");
+    let recorded = crate::openhuman::tinyagents::with_resolved_provider_route_scope(async {
+        let result = r
+            .chat_with_system(None, "React to this", "hint:reaction", 0.7)
+            .await
+            .unwrap();
+        assert_eq!(result, "Great reaction!");
+        crate::openhuman::tinyagents::current_resolved_provider_route()
+    })
+    .await
+    .expect("intelligent routing should record the selected local route");
 
     assert_eq!(recorded.provider, "local");
     assert_eq!(recorded.model, "gemma3:4b-it-qat");

@@ -1,6 +1,6 @@
 //! Per-turn resolved provider/model metadata.
 //!
-//! Provider wrappers that translate model aliases or perform fallbacks record
+//! Model adapters that translate aliases or perform fallbacks record
 //! the concrete route that actually handled the latest successful provider
 //! call. The agent bus reads this after the turn so channel audit events can
 //! persist the resolved provider/model instead of the caller's requested route.

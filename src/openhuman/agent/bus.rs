@@ -24,11 +24,12 @@ use crate::core::event_bus::register_native_global;
 use crate::openhuman::agent::progress::AgentProgress;
 use crate::openhuman::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::openhuman::config::MultimodalConfig;
-use crate::openhuman::inference::provider::{
-    current_resolved_provider_route, with_resolved_provider_route_scope, ChatMessage,
-};
+use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
+};
+use crate::openhuman::tinyagents::{
+    current_resolved_provider_route, with_resolved_provider_route_scope,
 };
 use crate::openhuman::tools::Tool;
 

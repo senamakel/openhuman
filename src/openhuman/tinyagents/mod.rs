@@ -31,6 +31,7 @@ pub(crate) mod orchestration;
 pub(crate) mod payload_summarizer;
 mod policy_denial;
 pub(crate) mod replay;
+pub mod resolved_route;
 pub(crate) mod retriever;
 mod routes;
 pub(crate) mod run_cancellation_context;
@@ -84,6 +85,10 @@ pub(crate) use observability::SubagentScope;
 use observability::{
     CapPauser, IterationCursor, OpenhumanEventBridge, ProviderUsageCarry, ToolFailureMap,
     ToolNameMap,
+};
+pub use resolved_route::{
+    current_resolved_provider_route, current_route_slot, record_resolved_provider_route,
+    with_resolved_provider_route_scope, with_route_slot, ResolvedProviderRoute, RouteSlot,
 };
 pub(crate) use run_cancellation_context::{current_run_cancellation, with_run_cancellation};
 #[cfg(test)]

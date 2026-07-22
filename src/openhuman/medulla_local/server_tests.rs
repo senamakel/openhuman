@@ -39,6 +39,10 @@ struct RecordingState {
 
 struct RecordingPorts {
     state: Arc<RecordingState>,
+    /// Never resolve `invoke_inference` (after recording the dispatch): the
+    /// shape of a hung model provider, so a test can assert the overall
+    /// request deadline bounds port-callback servicing too.
+    stall_inference: bool,
 }
 
 /// The curated read-only tool the recording ports advertise and answer. A real
@@ -65,6 +69,9 @@ impl HostPorts for RecordingPorts {
             .lock()
             .unwrap()
             .push(call.tier.clone());
+        if self.stall_inference {
+            std::future::pending::<()>().await;
+        }
         Ok(InferenceResult {
             content: "canned-answer".to_string(),
             reasoning_content: None,
@@ -117,6 +124,12 @@ struct MockOpts {
     /// idle timeout, so only the overall per-request deadline can end the
     /// wait — the regression shape for a wedged child that keeps emitting.
     stream_events_instead_of_res: bool,
+    /// On `instruct`/`status`, issue an `inference.invoke` port call and then
+    /// go silent (never answer the correlated `res`). Paired with a host whose
+    /// inference port never resolves, this is the regression shape for a hung
+    /// provider/tool holding the connection during callback servicing — only
+    /// the overall per-request deadline can end the wait.
+    stall_call_before_res: bool,
 }
 
 /// Spawn a mock serve loop on `listener`, one accepted connection at a time.
@@ -192,6 +205,31 @@ async fn serve_connection(stream: UnixStream, conn_index: u64, opts: &MockOpts) 
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
+        }
+        if opts.stall_call_before_res && matches!(op, "instruct" | "status") {
+            if op == "instruct" {
+                if let Some(counter) = &opts.instruct_count {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+            // Reverse-RPC into the host, then go silent: no further frames.
+            // The host's inference port never resolves either, so only its
+            // overall per-request deadline can end the callback servicing.
+            write_line(
+                &mut write_half,
+                &json!({
+                    "t": "call", "id": format!("stall-{conn_index}"),
+                    "port": "inference", "method": "invoke",
+                    "params": {
+                        "tier": "orchestrator", "op": "orchestrate", "cycleId": "cyc:1",
+                        "messages": [{ "role": "user", "content": "stall" }]
+                    }
+                }),
+            )
+            .await;
+            // Drain until the host gives up and drops the connection.
+            while let Ok(Some(_)) = reader.next_line().await {}
+            return;
         }
         match op {
             "hello" => {
@@ -409,7 +447,21 @@ fn build_with_deadline(
     state: Arc<RecordingState>,
     request_deadline: Duration,
 ) -> MedullaSupervisor {
-    let ports: Arc<dyn HostPorts> = Arc::new(RecordingPorts { state });
+    build_with_ports(
+        path,
+        Arc::new(RecordingPorts {
+            state,
+            stall_inference: false,
+        }),
+        request_deadline,
+    )
+}
+
+fn build_with_ports(
+    path: PathBuf,
+    ports: Arc<dyn HostPorts>,
+    request_deadline: Duration,
+) -> MedullaSupervisor {
     MedullaSupervisor::new(
         Arc::new(MockConnector {
             path,
@@ -748,6 +800,122 @@ async fn overall_deadline_bounds_idempotent_status_with_one_retry() {
 }
 
 #[tokio::test]
+async fn overall_deadline_bounds_instruct_during_hung_port_callback() {
+    let path = unique_socket_path("deadline-callback-instruct");
+    let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
+    let instructs = Arc::new(AtomicU64::new(0));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            stall_call_before_res: true,
+            connection_count: Some(connections.clone()),
+            instruct_count: Some(instructs.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let state = Arc::new(RecordingState::default());
+    let supervisor = build_with_ports(
+        path.clone(),
+        Arc::new(RecordingPorts {
+            state: state.clone(),
+            stall_inference: true,
+        }),
+        Duration::from_millis(300),
+    );
+    let started = std::time::Instant::now();
+    let error = supervisor
+        .instruct("reconcile", json!({}))
+        .await
+        .expect_err("a callback that never returns must trip the overall deadline");
+
+    // The hung port callback could not suspend the deadline: the request
+    // ended promptly instead of pinning the connection on the provider.
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "the overall deadline must bound callback servicing; waited {:?}",
+        started.elapsed()
+    );
+
+    // Deadline expiry rides the same path as a read-timeout expiry, so the
+    // non-idempotent op keeps its fail-fast MaybeApplied contract.
+    let request_error = error
+        .downcast_ref::<RequestError>()
+        .expect("supervisor errors must stay downcastable to RequestError");
+    assert!(
+        matches!(request_error, RequestError::MaybeApplied { op, .. } if op == "instruct"),
+        "expected MaybeApplied for the deadline on a non-idempotent op, got: {request_error:?}"
+    );
+    assert!(format!("{request_error:#}").contains("deadline"));
+    assert_eq!(
+        instructs.load(Ordering::SeqCst),
+        1,
+        "the deadline must not cause a silent replay of the instruct"
+    );
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        1,
+        "failing fast on the deadline must not respawn to replay the instruct"
+    );
+    // The callback was dispatched into the host ports exactly once.
+    assert_eq!(state.inference_tiers.lock().unwrap().len(), 1);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn overall_deadline_bounds_status_during_hung_port_callback() {
+    let path = unique_socket_path("deadline-callback-status");
+    let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            stall_call_before_res: true,
+            connection_count: Some(connections.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let state = Arc::new(RecordingState::default());
+    let supervisor = build_with_ports(
+        path.clone(),
+        Arc::new(RecordingPorts {
+            state,
+            stall_inference: true,
+        }),
+        Duration::from_millis(300),
+    );
+    let started = std::time::Instant::now();
+    let error = supervisor
+        .harness_status()
+        .await
+        .expect_err("a hung callback must trip the deadline on both attempts");
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "both attempts together must stay bounded; waited {:?}",
+        started.elapsed()
+    );
+
+    // The deadline surfaces as the typed transport error, so the idempotent
+    // op kept restart-and-retry-once: exactly one respawn happened.
+    let request_error = error
+        .downcast_ref::<RequestError>()
+        .expect("supervisor errors must stay downcastable to RequestError");
+    assert!(
+        matches!(request_error, RequestError::Transport(_)),
+        "expected the typed transport deadline error, got: {request_error:?}"
+    );
+    assert!(format!("{request_error:#}").contains("deadline"));
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        2,
+        "an idempotent deadline trip must restart-and-retry exactly once"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
 async fn dead_child_reports_not_running_and_respawns_on_next_request() {
     let path = unique_socket_path("dead-child");
     let listener = UnixListener::bind(&path).unwrap();
@@ -763,6 +931,7 @@ async fn dead_child_reports_not_running_and_respawns_on_next_request() {
     let spawned_pids = Arc::new(Mutex::new(Vec::new()));
     let ports: Arc<dyn HostPorts> = Arc::new(RecordingPorts {
         state: Arc::new(RecordingState::default()),
+        stall_inference: false,
     });
     let supervisor = MedullaSupervisor::new(
         Arc::new(ChildSpawningConnector {

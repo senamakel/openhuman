@@ -115,7 +115,8 @@ impl RequestError {
 fn deadline_exceeded(op: &str, deadline: Duration) -> RequestError {
     RequestError::Transport(anyhow::anyhow!(
         "medulla serve `{op}` exceeded the overall request deadline ({deadline:?}) while awaiting \
-         its correlated response (interleaved frames kept arriving but no `res` was seen)"
+         its correlated response (interleaved frames or port callbacks kept the connection busy \
+         but no `res` was seen)"
     ))
 }
 
@@ -311,7 +312,24 @@ impl Connection {
                     }
                     return Ok(res.result.unwrap_or(Value::Null));
                 }
-                FrameKind::Call => self.handle_call(frame).await,
+                FrameKind::Call => {
+                    // Port callbacks (`inference.invoke` / `tools.invoke`) are
+                    // serviced under the SAME wall-clock deadline as the
+                    // response wait: a hung provider or tool must not suspend
+                    // the deadline and pin the request (and the supervisor's
+                    // connection lock) past the configured ceiling. Expiry
+                    // surfaces through the exact path a read-timeout expiry
+                    // takes, so the instruct→MaybeApplied / status→retry
+                    // policy split is preserved unchanged.
+                    let remaining = deadline.saturating_duration_since(Instant::now());
+                    if remaining.is_zero()
+                        || tokio::time::timeout(remaining, self.handle_call(frame))
+                            .await
+                            .is_err()
+                    {
+                        return Err(deadline_exceeded(op, self.request_deadline));
+                    }
+                }
                 FrameKind::Event => self.fold_event(frame),
                 FrameKind::Ready | FrameKind::Unknown => {
                     debug!("[medulla_local] ignoring unexpected inbound frame while awaiting res");

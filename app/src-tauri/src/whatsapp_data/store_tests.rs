@@ -5,10 +5,10 @@
 //! for one `account_id` must never appear in queries for a different account.
 
 use super::super::sqlite_retry::BUSY_TIMEOUT;
+use super::WhatsAppDataStore;
 use openhuman_core::openhuman::whatsapp_data::types::{
     ChatMeta, IngestMessage, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
 };
-use super::WhatsAppDataStore;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::mpsc;

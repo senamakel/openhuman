@@ -425,7 +425,9 @@ mod tests {
         src.assigned_executor = Some("  agent-x  ".into());
         let e = enriched("123", Some("https://github.com/octo/repo/issues/123"), 0.7);
 
-        add_card(&config, &src, &e, None).await.expect("add_card succeeds");
+        add_card(&config, &src, &e, None)
+            .await
+            .expect("add_card succeeds");
 
         let cards = board_cards(&config).await.expect("board_cards");
         assert_eq!(cards.len(), 1);
@@ -467,7 +469,9 @@ mod tests {
             enriched_at: Utc::now(),
         };
 
-        add_card(&config, &src, &e, None).await.expect("add_card succeeds");
+        add_card(&config, &src, &e, None)
+            .await
+            .expect("add_card succeeds");
 
         let cards = board_cards(&config).await.expect("board_cards");
         let card = &cards[0];
@@ -490,7 +494,9 @@ mod tests {
         src.assigned_executor = Some("   ".into());
         let e = enriched("9", None, 0.4);
 
-        add_card(&config, &src, &e, None).await.expect("add_card succeeds");
+        add_card(&config, &src, &e, None)
+            .await
+            .expect("add_card succeeds");
 
         let cards = board_cards(&config).await.expect("board_cards");
         assert_eq!(cards.len(), 1);

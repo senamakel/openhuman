@@ -286,7 +286,9 @@ async fn ops_remove_prunes_routed_cards_for_source() {
         workspace_dir: config.workspace_dir.clone(),
         thread_id: route::TASK_SOURCES_THREAD_ID.to_string(),
     };
-    let snapshot = todo_add(&location, "[GitHub] A", CardPatch::default()).await.unwrap();
+    let snapshot = todo_add(&location, "[GitHub] A", CardPatch::default())
+        .await
+        .unwrap();
     let card_id = snapshot.cards.last().unwrap().id.clone();
     mark_ingested(
         &config,

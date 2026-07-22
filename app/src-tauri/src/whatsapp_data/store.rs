@@ -13,9 +13,7 @@ use std::sync::Mutex;
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 
-use super::sqlite_retry::{
-    is_sqlite_corrupt, retry_on_sqlite_busy, BUSY_TIMEOUT,
-};
+use super::sqlite_retry::{is_sqlite_corrupt, retry_on_sqlite_busy, BUSY_TIMEOUT};
 use openhuman_core::openhuman::whatsapp_data::types::{
     ChatMeta, IngestMessage, ListChatsRequest, ListMessagesRequest, SearchMessagesRequest,
     WhatsAppChat, WhatsAppMessage,

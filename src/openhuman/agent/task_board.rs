@@ -181,12 +181,19 @@ impl TaskBoardStore {
         let thread_id = validate_thread_id(&board.thread_id)?;
         board.thread_id = thread_id.clone();
         let store = crate_adapter::crate_todos_store(&self.workspace_dir);
-        let crate_cards: Vec<_> = board.cards.iter().map(crate_adapter::to_crate_card).collect();
+        let crate_cards: Vec<_> = board
+            .cards
+            .iter()
+            .map(crate_adapter::to_crate_card)
+            .collect();
         let snap = crate_todos::replace(&store, &thread_id, crate_cards)
             .await
             .map_err(|e| e.to_string())?;
-        let cards: Vec<TaskBoardCard> =
-            snap.cards.iter().map(crate_adapter::from_crate_card).collect();
+        let cards: Vec<TaskBoardCard> = snap
+            .cards
+            .iter()
+            .map(crate_adapter::from_crate_card)
+            .collect();
         tracing::debug!(
             thread_id = %thread_id,
             card_count = cards.len(),

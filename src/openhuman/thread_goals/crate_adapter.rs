@@ -194,7 +194,12 @@ async fn read_legacy_file_goals(workspace_dir: &Path) -> Result<Vec<ThreadGoal>,
     let mut entries = match tokio::fs::read_dir(&dir).await {
         Ok(rd) => rd,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => return Err(format!("read legacy thread goals dir {}: {e}", dir.display())),
+        Err(e) => {
+            return Err(format!(
+                "read legacy thread goals dir {}: {e}",
+                dir.display()
+            ))
+        }
     };
     let mut goals = Vec::new();
     while let Some(entry) = entries

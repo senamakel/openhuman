@@ -318,10 +318,14 @@ async fn task_card_picked_up_runs_workflow_and_resolves_done() {
         workspace_dir: workspace.clone(),
         thread_id: "t1".into(),
     };
-    let snap = board_ops::add(&loc, "Triage my inbox", CardPatch::default()).await.expect("add card");
+    let snap = board_ops::add(&loc, "Triage my inbox", CardPatch::default())
+        .await
+        .expect("add card");
     let id = snap.cards[0].id.clone();
     // Mark Ready to bypass the plan-approval gate (which only parks Todo cards).
-    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).await.expect("ready");
+    board_ops::update_status(&loc, &id, TaskCardStatus::Ready)
+        .await
+        .expect("ready");
 
     // Pick it up: dispatch_card claims it (→ InProgress) and detaches the run.
     let card = board_ops::list(&loc)
@@ -389,10 +393,13 @@ async fn task_with_no_workflow_runs_directly_and_resolves_done() {
         workspace_dir: workspace.clone(),
         thread_id: "t1".into(),
     };
-    let snap =
-        board_ops::add(&loc, "Answer a quick question.", CardPatch::default()).await.expect("add card");
+    let snap = board_ops::add(&loc, "Answer a quick question.", CardPatch::default())
+        .await
+        .expect("add card");
     let id = snap.cards[0].id.clone();
-    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).await.expect("ready");
+    board_ops::update_status(&loc, &id, TaskCardStatus::Ready)
+        .await
+        .expect("ready");
 
     let card = board_ops::list(&loc)
         .await
@@ -486,10 +493,13 @@ async fn task_run_failure_resolves_card_to_blocked() {
         workspace_dir: workspace.clone(),
         thread_id: "t1".into(),
     };
-    let snap =
-        board_ops::add(&loc, "Do a thing that will fail", CardPatch::default()).await.expect("add card");
+    let snap = board_ops::add(&loc, "Do a thing that will fail", CardPatch::default())
+        .await
+        .expect("add card");
     let id = snap.cards[0].id.clone();
-    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).await.expect("ready");
+    board_ops::update_status(&loc, &id, TaskCardStatus::Ready)
+        .await
+        .expect("ready");
 
     let card = board_ops::list(&loc)
         .await
@@ -552,10 +562,13 @@ async fn redispatch_of_claimed_card_is_rejected() {
         workspace_dir: workspace.clone(),
         thread_id: "t1".into(),
     };
-    let snap =
-        board_ops::add(&loc, "Claim me exactly once", CardPatch::default()).await.expect("add card");
+    let snap = board_ops::add(&loc, "Claim me exactly once", CardPatch::default())
+        .await
+        .expect("add card");
     let id = snap.cards[0].id.clone();
-    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).await.expect("ready");
+    board_ops::update_status(&loc, &id, TaskCardStatus::Ready)
+        .await
+        .expect("ready");
     // Capture a Ready snapshot; we'll try to dispatch it twice.
     let stale = board_ops::list(&loc)
         .await

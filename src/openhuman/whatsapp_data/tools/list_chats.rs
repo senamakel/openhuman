@@ -62,28 +62,25 @@ impl Tool for WhatsAppDataListChatsTool {
             req.limit,
             req.offset,
         );
-        let chats: Vec<WhatsAppChat> =
-            match request_native_global(methods::LIST_CHATS, req).await {
-                Ok(chats) => chats,
-                Err(e) if is_handler_absent(&e) => {
-                    // Headless / CLI / docker: no desktop shell handler is
-                    // registered. Degrade gracefully to an empty result.
-                    log::debug!(
-                        "[tool][whatsapp_data] list_chats handler_absent — degrading ({e})"
-                    );
-                    let body = serde_json::to_string(&json!({
-                        "provider": "whatsapp",
-                        "count": 0,
-                        "chats": [],
-                        "note": UNAVAILABLE_NOTE,
-                    }))?;
-                    return Ok(ToolResult::success(body));
-                }
-                Err(e) => {
-                    log::warn!("[tool][whatsapp_data] list_chats bridge_error error={e}");
-                    return Err(anyhow::anyhow!("whatsapp_data_list_chats: {e}"));
-                }
-            };
+        let chats: Vec<WhatsAppChat> = match request_native_global(methods::LIST_CHATS, req).await {
+            Ok(chats) => chats,
+            Err(e) if is_handler_absent(&e) => {
+                // Headless / CLI / docker: no desktop shell handler is
+                // registered. Degrade gracefully to an empty result.
+                log::debug!("[tool][whatsapp_data] list_chats handler_absent — degrading ({e})");
+                let body = serde_json::to_string(&json!({
+                    "provider": "whatsapp",
+                    "count": 0,
+                    "chats": [],
+                    "note": UNAVAILABLE_NOTE,
+                }))?;
+                return Ok(ToolResult::success(body));
+            }
+            Err(e) => {
+                log::warn!("[tool][whatsapp_data] list_chats bridge_error error={e}");
+                return Err(anyhow::anyhow!("whatsapp_data_list_chats: {e}"));
+            }
+        };
         log::debug!(
             "[tool][whatsapp_data] list_chats returning count={}",
             chats.len()

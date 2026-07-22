@@ -37,11 +37,7 @@ function makeSnapshot(overrides: {
     chatOnboardingCompleted: false,
     analyticsEnabled: false,
     localState: {},
-    runtime: {
-      screenIntelligence: null as never,
-      localAi: null as never,
-      service: null as never,
-    },
+    runtime: { screenIntelligence: null as never, localAi: null as never, service: null as never },
   };
 }
 

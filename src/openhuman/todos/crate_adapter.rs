@@ -250,7 +250,12 @@ async fn read_legacy_file_boards(workspace_dir: &Path) -> Result<Vec<OhBoard>, S
     let mut entries = match tokio::fs::read_dir(&dir).await {
         Ok(rd) => rd,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => return Err(format!("read legacy task boards dir {}: {e}", dir.display())),
+        Err(e) => {
+            return Err(format!(
+                "read legacy task boards dir {}: {e}",
+                dir.display()
+            ))
+        }
     };
     let mut boards = Vec::new();
     while let Some(entry) = entries

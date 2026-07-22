@@ -516,9 +516,7 @@ async fn execute_intent(
     use crate::openhuman::voice::command_router::VoiceIntent as VI;
     match intent {
         VI::Play { .. } => Err("play has no local fast-path; defer to agent".to_string()),
-        VI::OpenApp { .. } => {
-            Err("app launch has no local fast-path; defer to agent".to_string())
-        }
+        VI::OpenApp { .. } => Err("app launch has no local fast-path; defer to agent".to_string()),
         VI::Pause => osa("tell application \"Music\" to pause")
             .await
             .map(|_| "Paused".to_string()),

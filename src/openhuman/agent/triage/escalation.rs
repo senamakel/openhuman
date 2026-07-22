@@ -354,7 +354,8 @@ async fn gate_linked_card_terminal(envelope: &TriggerEnvelope, decision: &str) {
 
     match current {
         Some(TaskCardStatus::Todo | TaskCardStatus::Ready | TaskCardStatus::AwaitingApproval) => {
-            match ops::update_status(&link.location, &link.card_id, TaskCardStatus::Rejected).await {
+            match ops::update_status(&link.location, &link.card_id, TaskCardStatus::Rejected).await
+            {
                 Ok(_) => tracing::info!(
                     card_id = %link.card_id,
                     decision = %decision,

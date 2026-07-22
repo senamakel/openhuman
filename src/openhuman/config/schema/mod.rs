@@ -92,9 +92,9 @@ pub use storage_memory::{
 pub use task_sources::TaskSourcesConfig;
 pub use tokenjuice::TokenjuiceConfig;
 pub use tools::{
-    BrowserComputerUseConfig, BrowserConfig, ComposioConfig, CurlConfig,
-    GitbooksConfig, HttpHeader, HttpRequestConfig, IntegrationToggle, IntegrationsConfig,
-    McpAuthConfig, McpClientConfig, McpClientIdentityConfig, McpServerConfig, MultimodalConfig,
+    BrowserComputerUseConfig, BrowserConfig, ComposioConfig, CurlConfig, GitbooksConfig,
+    HttpHeader, HttpRequestConfig, IntegrationToggle, IntegrationsConfig, McpAuthConfig,
+    McpClientConfig, McpClientIdentityConfig, McpServerConfig, MultimodalConfig,
     MultimodalFileConfig, PolymarketClobCredentials, PolymarketConfig, SearchConfig, SearchEngine,
     SearchEngineCredentials, SearxngConfig, SecretsConfig, SeltzConfig, WebSearchConfig,
     COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT, SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DISABLED,

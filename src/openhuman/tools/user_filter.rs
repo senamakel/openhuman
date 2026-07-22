@@ -432,9 +432,7 @@ pub(crate) fn filter_tools_by_user_preference(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        expand_enabled_tool_names, filter_tools_by_user_preference,
-    };
+    use super::{expand_enabled_tool_names, filter_tools_by_user_preference};
     use crate::openhuman::tools::traits::{Tool, ToolResult};
     use async_trait::async_trait;
 

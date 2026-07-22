@@ -392,9 +392,7 @@ export async function whatsappListChats(params?: {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  const resp = await safeInvoke<WhatsAppChat[]>('whatsapp_data_list_chats', {
-    req: params ?? {},
-  });
+  const resp = await safeInvoke<WhatsAppChat[]>('whatsapp_data_list_chats', { req: params ?? {} });
   return resp ?? [];
 }
 
@@ -411,8 +409,6 @@ export async function whatsappListMessages(params: {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  const resp = await safeInvoke<WhatsAppMessage[]>('whatsapp_data_list_messages', {
-    req: params,
-  });
+  const resp = await safeInvoke<WhatsAppMessage[]>('whatsapp_data_list_messages', { req: params });
   return resp ?? [];
 }

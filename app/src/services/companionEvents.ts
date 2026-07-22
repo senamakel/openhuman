@@ -32,9 +32,7 @@ const COMPANION_STATES: ReadonlySet<string> = new Set([
  * event, or `null` if the shape is invalid. Tolerant of a missing/invalid
  * `previousState` (defaults to `'idle'`).
  */
-export function parseCompanionStateChangedEvent(
-  value: unknown
-): CompanionStateChangedEvent | null {
+export function parseCompanionStateChangedEvent(value: unknown): CompanionStateChangedEvent | null {
   if (!value || typeof value !== 'object') return null;
   const obj = value as Record<string, unknown>;
   if (typeof obj.sessionId !== 'string') return null;
@@ -45,11 +43,7 @@ export function parseCompanionStateChangedEvent(
       ? (obj.previousState as CompanionState)
       : 'idle';
 
-  return {
-    sessionId: obj.sessionId,
-    state: obj.state as CompanionState,
-    previousState,
-  };
+  return { sessionId: obj.sessionId, state: obj.state as CompanionState, previousState };
 }
 
 /**

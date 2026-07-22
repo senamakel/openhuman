@@ -194,4 +194,3 @@ pub(crate) fn migrate_cloud_provider_slugs(config: &mut Config) {
             || looks_like_openhuman_provider_endpoint(&entry.endpoint)
     }
 }
-

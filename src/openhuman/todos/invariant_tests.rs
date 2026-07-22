@@ -15,7 +15,9 @@ use std::time::Duration;
 use tempfile::tempdir;
 
 use crate::openhuman::agent::task_board::{TaskBoardCard, TaskCardStatus};
-use crate::openhuman::todos::ops::{add, claim_card, list, update_status, BoardLocation, CardPatch};
+use crate::openhuman::todos::ops::{
+    add, claim_card, list, update_status, BoardLocation, CardPatch,
+};
 use crate::openhuman::todos::runs::{
     complete_run, create_run, get_run, list_runs, reclaim_stale, update_heartbeat, RunLimits,
     RunOutcome,

@@ -169,17 +169,13 @@ describe('whatsappListChats', () => {
   test('invokes the shell command with provided params wrapped in req', async () => {
     mockSafeInvoke.mockResolvedValueOnce([]);
     await whatsappListChats({ limit: 10 });
-    expect(mockSafeInvoke).toHaveBeenCalledWith('whatsapp_data_list_chats', {
-      req: { limit: 10 },
-    });
+    expect(mockSafeInvoke).toHaveBeenCalledWith('whatsapp_data_list_chats', { req: { limit: 10 } });
   });
 
   test('uses empty req object when no params provided', async () => {
     mockSafeInvoke.mockResolvedValueOnce([]);
     await whatsappListChats();
-    expect(mockSafeInvoke).toHaveBeenCalledWith('whatsapp_data_list_chats', {
-      req: {},
-    });
+    expect(mockSafeInvoke).toHaveBeenCalledWith('whatsapp_data_list_chats', { req: {} });
   });
 
   test('returns the chat array from the command', async () => {

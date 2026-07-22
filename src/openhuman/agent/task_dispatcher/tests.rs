@@ -84,7 +84,9 @@ async fn cancel_session_scoped_aborts_the_run_when_the_request_matches() {
         .cards[0]
         .id
         .clone();
-    ops::update_status(&loc, &id, TaskCardStatus::InProgress).await.unwrap();
+    ops::update_status(&loc, &id, TaskCardStatus::InProgress)
+        .await
+        .unwrap();
 
     let (tx, _rx) = tokio::sync::watch::channel(false);
     let handle = tokio::spawn(async { std::future::pending::<()>().await });
@@ -397,7 +399,9 @@ async fn write_back_marks_done_with_evidence_on_success() {
         .cards[0]
         .id
         .clone();
-    ops::update_status(&loc, &id, TaskCardStatus::InProgress).await.unwrap();
+    ops::update_status(&loc, &id, TaskCardStatus::InProgress)
+        .await
+        .unwrap();
 
     write_back(
         &loc,
@@ -432,7 +436,9 @@ async fn write_back_preserves_agent_set_blocked_on_clean_run() {
         .cards[0]
         .id
         .clone();
-    ops::update_status(&loc, &id, TaskCardStatus::InProgress).await.unwrap();
+    ops::update_status(&loc, &id, TaskCardStatus::InProgress)
+        .await
+        .unwrap();
     // Agent self-blocks mid-run, as build_progress_instruction asks it to.
     ops::edit(
         &loc,
@@ -484,7 +490,9 @@ async fn write_back_marks_blocked_with_reason_on_failure() {
         .cards[0]
         .id
         .clone();
-    ops::update_status(&loc, &id, TaskCardStatus::InProgress).await.unwrap();
+    ops::update_status(&loc, &id, TaskCardStatus::InProgress)
+        .await
+        .unwrap();
 
     write_back(&loc, &id, "run-1", Err("agent build failed".to_string())).await;
 

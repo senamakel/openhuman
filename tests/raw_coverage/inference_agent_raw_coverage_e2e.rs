@@ -1630,13 +1630,14 @@ named = ["todo", "plan_exit"]
     assert_eq!(registry.list().len(), 1);
 }
 
-#[test]
-fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes() {
+#[tokio::test]
+async fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes() {
     let workspace = tempdir().expect("workspace");
     let store = TaskBoardStore::new(workspace.path().to_path_buf());
-    assert!(store.get("thread-1").expect("missing board").is_none());
+    assert!(store.get("thread-1").await.expect("missing board").is_none());
     assert!(store
         .get("   ")
+        .await
         .unwrap_err()
         .contains("invalid task board thread_id"));
 
@@ -1666,7 +1667,7 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
         updated_at: "2026-05-29T12:00:00Z".into(),
     });
 
-    let saved = store.put(board).expect("put board");
+    let saved = store.put(board).await.expect("put board");
     assert_eq!(saved.cards[0].status.as_str(), "todo");
     assert_eq!(
         saved.cards[0]
@@ -1678,6 +1679,7 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
     );
     let loaded = store
         .get("thread-1")
+        .await
         .expect("load board")
         .expect("board exists");
     assert_eq!(loaded.cards[0].id, "card-1");
@@ -1705,6 +1707,7 @@ fn agent_task_board_and_dispatcher_public_paths_cover_storage_and_prompt_shapes(
             cards: vec![],
             updated_at: String::new(),
         })
+        .await
         .expect("replace board");
     assert!(replaced.cards.is_empty());
 }

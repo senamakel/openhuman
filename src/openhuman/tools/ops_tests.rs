@@ -2162,7 +2162,6 @@ fn desktop_tools_are_registered() {
     assert_contains_all(&names, DESKTOP_TOOLS);
 }
 
-
 #[test]
 fn desktop_default_off_tools_are_filtered_when_not_opted_in() {
     let tmp = TempDir::new().unwrap();

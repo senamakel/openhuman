@@ -197,10 +197,9 @@ impl Tool for TodoAddTool {
         let content = read_required_str(&args, "content")?;
         let location = board_location(&self.config, &args);
         let patch = card_patch(&args)?;
-        let snapshot =
-            ops::add(&location, &content, patch)
-                .await
-                .map_err(|e| anyhow::anyhow!("todo_add: {e}"))?;
+        let snapshot = ops::add(&location, &content, patch)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_add: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }
@@ -258,10 +257,9 @@ impl Tool for TodoEditTool {
         let id = read_required_str(&args, "id")?;
         let location = board_location(&self.config, &args);
         let patch = card_patch(&args)?;
-        let snapshot =
-            ops::edit(&location, &id, patch)
-                .await
-                .map_err(|e| anyhow::anyhow!("todo_edit: {e}"))?;
+        let snapshot = ops::edit(&location, &id, patch)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_edit: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }
@@ -414,10 +412,9 @@ impl Tool for TodoRemoveTool {
         log::debug!("[tool][todos] remove invoked");
         let id = read_required_str(&args, "id")?;
         let location = board_location(&self.config, &args);
-        let snapshot =
-            ops::remove(&location, &id)
-                .await
-                .map_err(|e| anyhow::anyhow!("todo_remove: {e}"))?;
+        let snapshot = ops::remove(&location, &id)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_remove: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }
@@ -474,10 +471,9 @@ impl Tool for TodoReplaceTool {
         let cards = serde_json::from_value(cards_val)
             .map_err(|e| anyhow::anyhow!("todo_replace: invalid cards: {e}"))?;
         let location = board_location(&self.config, &args);
-        let snapshot =
-            ops::replace(&location, cards)
-                .await
-                .map_err(|e| anyhow::anyhow!("todo_replace: {e}"))?;
+        let snapshot = ops::replace(&location, cards)
+            .await
+            .map_err(|e| anyhow::anyhow!("todo_replace: {e}"))?;
         snapshot_to_result(snapshot)
     }
 }

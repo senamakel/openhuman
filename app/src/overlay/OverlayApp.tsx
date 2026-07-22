@@ -401,12 +401,7 @@ export default function OverlayApp() {
       }
       clearDismissTimer();
     };
-  }, [
-    clearDismissTimer,
-    handleAttention,
-    handleDictationToggle,
-    handleDictationTranscription,
-  ]);
+  }, [clearDismissTimer, handleAttention, handleDictationToggle, handleDictationTranscription]);
 
   // ── Companion state via Tauri event ────────────────────────────────────
   // The desktop companion now lives shell-side and emits a

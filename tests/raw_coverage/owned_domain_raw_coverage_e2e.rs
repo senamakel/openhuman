@@ -545,9 +545,10 @@ async fn agent_task_board_store_normalizes_persists_and_surfaces_errors() {
 
     assert_eq!(TaskCardStatus::InProgress.as_str(), "in_progress");
     assert_eq!(TaskApprovalMode::NotRequired.as_str(), "not_required");
-    assert!(store.get(" missing ").expect("get missing").is_none());
+    assert!(store.get(" missing ").await.expect("get missing").is_none());
     assert!(store
         .get("   ")
+        .await
         .expect_err("blank id")
         .contains("thread_id"));
 
@@ -598,6 +599,7 @@ async fn agent_task_board_store_normalizes_persists_and_surfaces_errors() {
             ],
             updated_at: String::new(),
         })
+        .await
         .expect("put task board");
 
     assert_eq!(saved.thread_id, "thread-owned");
@@ -614,6 +616,7 @@ async fn agent_task_board_store_normalizes_persists_and_surfaces_errors() {
     assert_eq!(saved.cards[0].order, 0);
 
     let loaded = board_for_thread(dir.path(), " thread-owned ")
+        .await
         .expect("board_for_thread")
         .cards;
     assert_eq!(loaded[0].approval_mode, Some(TaskApprovalMode::Required));
@@ -623,10 +626,12 @@ async fn agent_task_board_store_normalizes_persists_and_surfaces_errors() {
         Some("task-sess-owned")
     );
 
-    assert!(store.delete("thread-owned").expect("delete present"));
-    assert!(!store.delete("thread-owned").expect("delete missing"));
+    assert!(store.delete("thread-owned").await.expect("delete present"));
+    assert!(!store.delete("thread-owned").await.expect("delete missing"));
 
-    let missing = board_for_thread(dir.path(), "thread-owned").expect("missing board");
+    let missing = board_for_thread(dir.path(), "thread-owned")
+        .await
+        .expect("missing board");
     assert!(missing.cards.is_empty());
 }
 

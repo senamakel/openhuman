@@ -105,9 +105,7 @@ pub fn register_native_handlers() {
 /// List locally-stored WhatsApp chats. Frontend replacement for the former
 /// `openhuman.whatsapp_data_list_chats` core RPC.
 #[tauri::command]
-pub async fn whatsapp_data_list_chats(
-    req: ListChatsRequest,
-) -> Result<Vec<WhatsAppChat>, String> {
+pub async fn whatsapp_data_list_chats(req: ListChatsRequest) -> Result<Vec<WhatsAppChat>, String> {
     log::debug!(
         "[whatsapp_data][cmd] list_chats has_account={} limit={:?} offset={:?}",
         req.account_id.is_some(),

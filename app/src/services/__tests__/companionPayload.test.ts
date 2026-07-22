@@ -29,11 +29,7 @@ describe('parseCompanionStateChangedEvent', () => {
       state: 'speaking',
       previousState: 'thinking',
     });
-    expect(event).toEqual({
-      sessionId: 'sess-1',
-      state: 'speaking',
-      previousState: 'thinking',
-    });
+    expect(event).toEqual({ sessionId: 'sess-1', state: 'speaking', previousState: 'thinking' });
   });
 
   it("defaults previousState to 'idle' when missing or invalid", () => {

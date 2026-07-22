@@ -1069,7 +1069,6 @@ enabled = false
         toml::from_str(&cfg).expect("config toml must match Config schema");
 }
 
-
 fn ensure_test_rpc_auth() {
     JSON_RPC_AUTH_INIT.get_or_init(|| {
         // SAFETY: set_var is inside get_or_init so it runs exactly once across
@@ -2217,7 +2216,6 @@ async fn json_rpc_protocol_auth_and_agent_hello_inner() {
     mock_join.abort();
     rpc_join.abort();
 }
-
 
 #[tokio::test]
 async fn json_rpc_prompt_injection_is_rejected_before_model_call() {
@@ -9448,8 +9446,7 @@ async fn whatsapp_data_agent_tools_e2e_1341() {
     };
     use openhuman_core::openhuman::whatsapp_data::methods;
     use openhuman_core::openhuman::whatsapp_data::types::{
-        ListChatsRequest, ListMessagesRequest, SearchMessagesRequest, WhatsAppChat,
-        WhatsAppMessage,
+        ListChatsRequest, ListMessagesRequest, SearchMessagesRequest, WhatsAppChat, WhatsAppMessage,
     };
 
     fn sample_chat(chat_id: &str) -> WhatsAppChat {

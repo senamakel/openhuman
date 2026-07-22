@@ -24,6 +24,15 @@ use openhuman_core::core::jsonrpc::build_core_http_router;
 
 const TEST_RPC_TOKEN: &str = "medulla-local-e2e-token";
 
+/// The startup-failure needle the supervisor must surface with no serve entry
+/// configured: the actionable configuration error on unix, and the typed
+/// unsupported-platform error on targets without unix domain sockets (where
+/// the serve transport is stubbed out).
+#[cfg(unix)]
+const STARTUP_UNAVAILABLE_NEEDLE: &str = "serve entry not configured";
+#[cfg(not(unix))]
+const STARTUP_UNAVAILABLE_NEEDLE: &str = "unavailable on this platform";
+
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
 static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -305,7 +314,7 @@ async fn medulla_local_status_and_instruct_round_trip_without_serve_child() {
         .and_then(Value::as_str)
         .unwrap_or_default();
     assert!(
-        message.contains("serve entry not configured"),
+        message.contains(STARTUP_UNAVAILABLE_NEEDLE),
         "status.message must carry the actionable startup error: {status_response}"
     );
 
@@ -335,8 +344,8 @@ async fn medulla_local_status_and_instruct_round_trip_without_serve_child() {
     .await;
     let instruct_error = err_message(&instruct_response, "medulla_local_instruct unconfigured");
     assert!(
-        instruct_error.contains("serve entry not configured"),
-        "instruct must surface the actionable serve-entry error: {instruct_response}"
+        instruct_error.contains(STARTUP_UNAVAILABLE_NEEDLE),
+        "instruct must surface the actionable startup error: {instruct_response}"
     );
 
     harness.join.abort();

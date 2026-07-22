@@ -15,7 +15,9 @@
 //! * [`ports`]      — the [`HostPorts`] seam serve's reverse-RPC drives.
 //! * [`server`]     — the supervisor: spawn, handshake, id-correlated NDJSON,
 //!                    restart-and-retry-once, stderr drain (mirrors
-//!                    `runtime_python_server/server.rs`).
+//!                    `runtime_python_server/server.rs`). Unix-only — the
+//!                    transport is a unix domain socket; non-unix targets get
+//!                    a stub that reports the platform as unsupported.
 //! * [`host_ports`] — the concrete openhuman [`HostPorts`] (inference + tools).
 //! * [`ops`]        — RPC handlers + the subconscious tick entrypoint.
 //! * [`schemas`]    — the `medulla_local` controller schemas.
@@ -25,6 +27,15 @@ pub mod ops;
 pub mod ports;
 pub mod protocol;
 pub mod schemas;
+#[cfg(unix)]
+pub mod server;
+/// The serve transport is a unix domain socket, which `tokio::net` only
+/// provides on unix targets. On other targets (Windows) the feature still
+/// compiles: this stub keeps the same supervisor surface but every entry
+/// point reports a typed unsupported-platform error. A portable transport
+/// (e.g. stdio) can lift this later without touching the callers.
+#[cfg(not(unix))]
+#[path = "server_unsupported.rs"]
 pub mod server;
 pub mod types;
 

@@ -600,6 +600,10 @@ tui = ["dep:ratatui", "dep:crossterm", "dep:unicode-width"]
 # (`local`) path is byte-identical whether or not this feature is on.
 # Sheds ZERO exclusive dependencies — tokio net/process, reqwest, serde are all
 # load-bearing for other domains; the value is compile-time surface.
+# The serve transport is unix-only (unix domain sockets): on non-unix targets
+# (Windows desktop) the feature still compiles via a supervisor stub that
+# reports a typed unsupported-platform error, so forwarding the default-ON
+# gate to the Tauri shell never breaks Windows packaging.
 medulla-local = []
 
 sandbox-landlock = ["dep:landlock"]

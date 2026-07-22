@@ -17,12 +17,13 @@
 //! run) and meant to be run serially:
 //!
 //! ```text
-//! cargo test --lib workflows::e2e_run_tests -- --ignored --test-threads=1
+//! RUST_MIN_STACK=16777216 cargo test --lib workflows::e2e_run_tests -- --ignored --test-threads=1
 //! ```
 //!
 //! A module-level async mutex also serializes them against each other if run
 //! with `--ignored` but without `--test-threads=1`.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -34,15 +35,15 @@ use crate::openhuman::agent::task_dispatcher::{dispatch_card, DispatchOutcome};
 use crate::openhuman::agent::tools::RunWorkflowTool;
 use crate::openhuman::config::{MultimodalConfig, MultimodalFileConfig};
 use crate::openhuman::inference::provider::factory::test_provider_override;
-use crate::openhuman::inference::provider::traits::{
-    ChatMessage, ChatRequest, ChatResponse, ProviderCapabilities,
-};
-use crate::openhuman::inference::provider::{Provider, ToolCall};
+use crate::openhuman::inference::provider::traits::ChatMessage;
 use crate::openhuman::skill_runtime::{await_run_outcome, spawn_workflow_run_background};
 use crate::openhuman::skills::schemas::resolve_workspace_dir;
 use crate::openhuman::todos::ops as board_ops;
 use crate::openhuman::todos::ops::{BoardLocation, CardPatch};
 use crate::openhuman::tools::traits::Tool;
+use tinyagents::harness::message::AssistantMessage;
+use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyagents::harness::tool::ToolCall;
 
 /// Serialize this module's tests (each touches process-global state).
 fn serial() -> &'static tokio::sync::Mutex<()> {
@@ -79,57 +80,47 @@ impl Drop for WorkspaceEnv {
 ///     directly (the "no workflow fits, the agent does it itself" path).
 struct MockLlm {
     workflow_id: Option<String>,
+    workflow_call_emitted: AtomicBool,
 }
 
-fn final_text(t: &str) -> ChatResponse {
-    ChatResponse {
-        text: Some(t.into()),
-        tool_calls: vec![],
-        usage: None,
-        reasoning_content: None,
+impl MockLlm {
+    fn new(workflow_id: Option<&str>) -> Arc<Self> {
+        Arc::new(Self {
+            workflow_id: workflow_id.map(str::to_string),
+            workflow_call_emitted: AtomicBool::new(false),
+        })
     }
 }
-fn tool_call_resp(id: &str, name: &str, args: serde_json::Value) -> ChatResponse {
-    ChatResponse {
-        text: Some(String::new()),
-        tool_calls: vec![ToolCall {
-            id: id.into(),
-            name: name.into(),
-            arguments: args.to_string(),
-            extra_content: None,
-        }],
+
+fn final_text(t: &str) -> ModelResponse {
+    ModelResponse::assistant(t)
+}
+fn tool_call_resp(id: &str, name: &str, args: serde_json::Value) -> ModelResponse {
+    ModelResponse {
+        message: AssistantMessage {
+            id: None,
+            content: Vec::new(),
+            tool_calls: vec![ToolCall::new(id, name, args)],
+            usage: None,
+        },
         usage: None,
-        reasoning_content: None,
+        finish_reason: Some("tool_calls".to_string()),
+        raw: None,
+        resolved_model: None,
     }
 }
 
 #[async_trait]
-impl Provider for MockLlm {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            ..ProviderCapabilities::default()
-        }
-    }
-    async fn chat_with_system(
+impl ChatModel<()> for MockLlm {
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        Ok("ok".into())
-    }
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         let convo: String = request
             .messages
             .iter()
-            .map(|m| m.content.as_str())
+            .map(|message| message.text())
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -145,11 +136,14 @@ impl Provider for MockLlm {
         // Orchestrator, first turn.
         match &self.workflow_id {
             // A workflow is selected → run it.
-            Some(id) => Ok(tool_call_resp(
-                "c1",
-                "run_workflow",
-                serde_json::json!({ "workflow_id": id, "wait_seconds": 20 }),
-            )),
+            Some(id) if !self.workflow_call_emitted.swap(true, Ordering::SeqCst) => {
+                Ok(tool_call_resp(
+                    "c1",
+                    "run_workflow",
+                    serde_json::json!({ "workflow_id": id, "wait_seconds": 20 }),
+                ))
+            }
+            Some(_) => Ok(final_text("WORKFLOW_DONE: inbox triaged")),
             // No workflow fits → the agent just answers the task itself.
             None => Ok(final_text("TASK_DONE_NO_WORKFLOW")),
         }
@@ -176,8 +170,8 @@ fn seed_runnable_workflow(ws: &std::path::Path, id: &str) {
 
 // ── Test 1: a workflow RUN executes via the mock LLM and reaches DONE ─────
 
-#[ignore = "process-global provider override + OPENHUMAN_WORKSPACE; run: \
-            cargo test --lib workflows::e2e_run_tests -- --ignored --test-threads=1"]
+#[ignore = "process-global model override + OPENHUMAN_WORKSPACE; run with \
+            RUST_MIN_STACK=16777216 and --ignored --test-threads=1"]
 #[tokio::test]
 async fn inner_workflow_run_executes_via_mock_llm_and_reaches_done() {
     let _serial = serial().lock().await;
@@ -187,9 +181,7 @@ async fn inner_workflow_run_executes_via_mock_llm_and_reaches_done() {
     // OPENHUMAN_WORKSPACE → <root>/workspace), so get_workflow/load_workflow_metadata finds it.
     let workspace = crate::openhuman::skills::schemas::resolve_workspace_dir().await;
     seed_runnable_workflow(&workspace, "triage-inbox");
-    let _guard = test_provider_override::install(Arc::new(MockLlm {
-        workflow_id: Some("triage-inbox".into()),
-    }));
+    let _guard = test_provider_override::install_model(MockLlm::new(Some("triage-inbox")));
 
     let started = spawn_workflow_run_background("triage-inbox".to_string(), None)
         .await
@@ -217,8 +209,8 @@ async fn inner_workflow_run_executes_via_mock_llm_and_reaches_done() {
 
 // ── Test 2: orchestrator composes a workflow via the run_workflow tool ────
 
-#[ignore = "process-global provider override + OPENHUMAN_WORKSPACE; run: \
-            cargo test --lib workflows::e2e_run_tests -- --ignored --test-threads=1"]
+#[ignore = "process-global model override + OPENHUMAN_WORKSPACE; run with \
+            RUST_MIN_STACK=16777216 and --ignored --test-threads=1"]
 #[tokio::test]
 async fn orchestrator_runs_workflow_tool_and_gets_inner_result() {
     let _serial = serial().lock().await;
@@ -228,18 +220,17 @@ async fn orchestrator_runs_workflow_tool_and_gets_inner_result() {
     seed_runnable_workflow(&workspace, "triage-inbox");
     // The inner run (spawned by the run_workflow tool) builds its provider from
     // config → needs the global override. The outer loop gets the mock directly.
-    let _guard = test_provider_override::install(Arc::new(MockLlm {
-        workflow_id: Some("triage-inbox".into()),
-    }));
-
-    let provider: Arc<dyn crate::openhuman::inference::provider::Provider> = Arc::new(MockLlm {
-        workflow_id: Some("triage-inbox".into()),
-    });
+    let mock = MockLlm::new(Some("triage-inbox"));
+    let _guard = test_provider_override::install_model(mock.clone());
+    let model: Arc<dyn ChatModel<()>> = mock;
+    let mut profile = ModelProfile::default();
+    profile.tool_calling = true;
+    profile.parallel_tool_calls = true;
     let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(RunWorkflowTool::new())]);
     let mut history = vec![ChatMessage::user("Triage my inbox.")];
 
     let result = run_channel_turn_via_graph(
-        crate::openhuman::tinyagents::TurnModelSource::new(provider),
+        crate::openhuman::tinyagents::TurnModelSource::from_model_with_profile(model, profile),
         &mut history,
         tools,
         vec![],
@@ -294,8 +285,8 @@ async fn wait_for_status(
     }
 }
 
-#[ignore = "process-global provider override + OPENHUMAN_WORKSPACE; run: \
-            cargo test --lib workflows::e2e_run_tests -- --ignored --test-threads=1"]
+#[ignore = "process-global model override + OPENHUMAN_WORKSPACE; run with \
+            RUST_MIN_STACK=16777216 and --ignored --test-threads=1"]
 #[tokio::test]
 async fn task_card_picked_up_runs_workflow_and_resolves_done() {
     // Real orchestrator definition (so its tool allow-list incl. run_workflow
@@ -309,9 +300,7 @@ async fn task_card_picked_up_runs_workflow_and_resolves_done() {
     let _env = WorkspaceEnv::set(ws_root.path());
     let workspace = resolve_workspace_dir().await;
     seed_runnable_workflow(&workspace, "triage-inbox");
-    let _guard = test_provider_override::install(Arc::new(MockLlm {
-        workflow_id: Some("triage-inbox".into()),
-    }));
+    let _guard = test_provider_override::install_model(MockLlm::new(Some("triage-inbox")));
 
     // Create a task card on the board.
     let loc = BoardLocation::Thread {
@@ -366,8 +355,8 @@ async fn task_card_picked_up_runs_workflow_and_resolves_done() {
 
 // ── Test 4: a task with NO workflow selected runs directly → resolves Done ─
 
-#[ignore = "process-global provider override + OPENHUMAN_WORKSPACE; run: \
-            cargo test --lib workflows::e2e_run_tests -- --ignored --test-threads=1"]
+#[ignore = "process-global model override + OPENHUMAN_WORKSPACE; run with \
+            RUST_MIN_STACK=16777216 and --ignored --test-threads=1"]
 #[tokio::test]
 async fn task_with_no_workflow_runs_directly_and_resolves_done() {
     let _ =
@@ -380,7 +369,7 @@ async fn task_with_no_workflow_runs_directly_and_resolves_done() {
     let workspace = resolve_workspace_dir().await;
     // No workflow seeded, and the mock LLM is given no workflow to pick — the
     // orchestrator must complete the task itself (no run_workflow call).
-    let _guard = test_provider_override::install(Arc::new(MockLlm { workflow_id: None }));
+    let _guard = test_provider_override::install_model(MockLlm::new(None));
 
     let loc = BoardLocation::Thread {
         workspace_dir: workspace.clone(),
@@ -440,31 +429,20 @@ async fn task_with_no_workflow_runs_directly_and_resolves_done() {
 /// to `Err`, and `write_back` records it as `Blocked` + a blocker reason.
 struct FailingLlm;
 #[async_trait]
-impl Provider for FailingLlm {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            ..ProviderCapabilities::default()
-        }
-    }
-    async fn chat_with_system(
+impl ChatModel<()> for FailingLlm {
+    async fn invoke(
         &self,
-        _: Option<&str>,
-        _: &str,
-        _: &str,
-        _: f64,
-    ) -> anyhow::Result<String> {
-        Ok("ok".into())
-    }
-    async fn chat(&self, _: ChatRequest<'_>, _: &str, _: f64) -> anyhow::Result<ChatResponse> {
-        Err(anyhow::anyhow!(
-            "simulated provider failure: model unavailable"
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        Err(tinyagents::TinyAgentsError::Model(
+            "simulated provider failure: model unavailable".to_string(),
         ))
     }
 }
 
-#[ignore = "process-global provider override + OPENHUMAN_WORKSPACE; run: \
-            cargo test --lib workflows::e2e_run_tests -- --ignored --test-threads=1"]
+#[ignore = "process-global model override + OPENHUMAN_WORKSPACE; run with \
+            RUST_MIN_STACK=16777216 and --ignored --test-threads=1"]
 #[tokio::test]
 async fn task_run_failure_resolves_card_to_blocked() {
     let _ =
@@ -474,7 +452,7 @@ async fn task_run_failure_resolves_card_to_blocked() {
     let ws_root = tempfile::tempdir().unwrap();
     let _env = WorkspaceEnv::set(ws_root.path());
     let workspace = resolve_workspace_dir().await;
-    let _guard = test_provider_override::install(Arc::new(FailingLlm));
+    let _guard = test_provider_override::install_model(Arc::new(FailingLlm));
 
     let loc = BoardLocation::Thread {
         workspace_dir: workspace.clone(),
@@ -525,8 +503,8 @@ async fn task_run_failure_resolves_card_to_blocked() {
 
 // ── Test 6: re-dispatching an already-claimed card is rejected (dedup) ─────
 
-#[ignore = "process-global provider override + OPENHUMAN_WORKSPACE; run: \
-            cargo test --lib workflows::e2e_run_tests -- --ignored --test-threads=1"]
+#[ignore = "process-global model override + OPENHUMAN_WORKSPACE; run with \
+            RUST_MIN_STACK=16777216 and --ignored --test-threads=1"]
 #[tokio::test]
 async fn redispatch_of_claimed_card_is_rejected() {
     let _ =
@@ -537,7 +515,7 @@ async fn redispatch_of_claimed_card_is_rejected() {
     let _env = WorkspaceEnv::set(ws_root.path());
     let workspace = resolve_workspace_dir().await;
     // Direct-answer mock so the claimed run resolves without needing a workflow.
-    let _guard = test_provider_override::install(Arc::new(MockLlm { workflow_id: None }));
+    let _guard = test_provider_override::install_model(MockLlm::new(None));
 
     let loc = BoardLocation::Thread {
         workspace_dir: workspace.clone(),

@@ -96,7 +96,8 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "profile_id",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Optional profile partition: returns records stamped with this \
+                    comment:
+                        "Optional profile partition: returns records stamped with this \
                               profile plus unstamped legacy records; omit to recall the whole pool.",
                     required: false,
                 },
@@ -121,7 +122,8 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![FieldSchema {
                 name: "profile_id",
                 ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                comment: "Optional profile partition: lists records stamped with this profile plus \
+                comment:
+                    "Optional profile partition: lists records stamped with this profile plus \
                           unstamped legacy records; omit to list the whole pool.",
                 required: false,
             }],

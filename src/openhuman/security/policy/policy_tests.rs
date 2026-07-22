@@ -28,9 +28,7 @@ fn full_policy() -> SecurityPolicy {
 /// Build a `<root>/projects/profiles/{alice,bob}` layout and a policy whose cwd
 /// is scoped to alice (as `security_for_tool_context` would), with the guard
 /// optionally armed for alice against the broad action root.
-fn cross_profile_policy(
-    arm_for_alice: bool,
-) -> (tempfile::TempDir, PathBuf, SecurityPolicy) {
+fn cross_profile_policy(arm_for_alice: bool) -> (tempfile::TempDir, PathBuf, SecurityPolicy) {
     let root = tempfile::tempdir().expect("root tempdir");
     let action_root = root.path().join("projects");
     let profiles = action_root.join("profiles");

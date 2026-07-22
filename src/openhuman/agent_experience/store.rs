@@ -33,7 +33,10 @@ pub struct ExperienceQuery {
 /// - A **profiled** query (`Some(P)`) sees records stamped `P` plus unstamped
 ///   legacy/shared records (`record_profile == None`), and excludes records
 ///   stamped with a different profile `Q` — the isolation the feature adds.
-pub fn experience_matches_profile(record_profile: Option<&str>, query_profile: Option<&str>) -> bool {
+pub fn experience_matches_profile(
+    record_profile: Option<&str>,
+    query_profile: Option<&str>,
+) -> bool {
     match query_profile {
         None => true,
         Some(active) => match record_profile {
@@ -485,7 +488,10 @@ mod tests {
             .unwrap();
         let ids: BTreeSet<_> = hits.iter().map(|h| h.experience.id.clone()).collect();
         assert!(ids.contains("exp_p"), "profile P must see its own record");
-        assert!(ids.contains("exp_legacy"), "profile P must see legacy records");
+        assert!(
+            ids.contains("exp_legacy"),
+            "profile P must see legacy records"
+        );
         assert!(!ids.contains("exp_q"), "profile P must not see sibling Q");
 
         // Profile-less: sees everything.

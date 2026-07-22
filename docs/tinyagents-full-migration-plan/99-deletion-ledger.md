@@ -18,8 +18,10 @@ also name its upstream PR before the host copy is removed.
 | WP-1 | `inference/provider/crate_provider.rs` | No legacy `Provider` consumer needs the reverse adapter | PENDING | `rg 'impl Provider' src` empty |
 | WP-1 | `inference/provider/{auth_error_registry,resolved_route,temperature,thread_context}.rs` | Host state/policy lives outside the legacy provider abstraction | REHOMED | `4ce6ca726`, `59871c8ab`, `6cb17f91e`, `07f675ba3`; root `cargo check` and focused auth-registry tests green |
 | WP-2 | `routing/` parallel implementation | Generic decisions use crate `ModelRouter`; no live consumer remained | DELETED | Repository-wide reference audit found the module self-contained; #4783 owns live routing; root check green |
-| WP-2 | `tool_timeout` implementation | Crate `ToolTimeout` owns timeout mechanics; host only projects config/env | PENDING | Timeout precedence tests |
-| WP-2 | `model_council/{council,graph}.rs` | Generic ensemble graph released in tinyagents | PENDING | Upstream PR + offline graph tests |
+| WP-2 | `tool_timeout` implementation | No deletion: crate `ToolTimeout` is per-tool metadata, while the host owns global config/env state and enforces the adapter deadline | HOST-OWNED | Execution-path audit; timeout precedence/deadline tests |
+| WP-2 | `model_council/graph.rs` | Crate `parallel::map_reduce` owns generic ordered fan-out | ALREADY ADOPTED | Existing map/reduce implementation + offline fan-out tests |
+| WP-2 | `model_council/council.rs` | Product juror construction, model selection, prompt/result semantics, and limits | HOST-OWNED | Execution-path audit; council unit tests |
+| WP-2 | `tool_status/` | OpenHuman security markers, serialized UI/persistence taxonomy, retry categories, and remediation copy | HOST-OWNED | Consumer audit; classifier/type unit tests |
 | WP-3 | legacy `run_turn_engine` and graph escape hatches | All regression assertions exercise the crate turn path | ALREADY DELETED | Audit found no engine definition or runtime env read; session and subagent paths call TinyAgents unconditionally. Removed the stale runner comment. |
 | WP-4 | host tool trait/adapter artifacts selected by design | Approved tool-model decision preserves security and ungated result types | DESIGN GATE | Successor design document |
 | WP-5 | generic seam middlewares | Equivalent crate middleware released and adopted | PENDING | Per-middleware drift rows + parity tests |

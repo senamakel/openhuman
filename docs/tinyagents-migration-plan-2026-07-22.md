@@ -177,10 +177,10 @@ host files (`schemas.rs`, `presets.rs`, `model_ids.rs`, `paths.rs`, `parse.rs`,
 | `agent/` | 144 / 66.9k | **Mostly stays** (product brain). 37 files already crate-backed. WP-3 verified that `session/turn/core.rs` is the product turn-preparation shell and `subagent_runner/ops/graph.rs` unconditionally calls `run_turn_via_tinyagents_shared`; the legacy loops and runtime escape hatches were removed before this audit. Heaviest coupling in the tree (config=31, memory=20, event_bus=13 files). |
 | `agent_orchestration/` | 64 / 27.9k | Engine already on `tinyagents::graph` (workflow runs, teams, delegation, `map_reduce`); what remains is the product layer (ledgers, RPC). Residual upstream item: detached-subagent `TaskStore` lifecycle — WP-5. 25 files crate-backed. |
 | `routing/` | 8 / 2.7k | **Deleted in WP-2.** A repository-wide reference audit found no consumer outside the module; #4783's crate `ModelRouter` already owns the live path, so retaining the nominally host-specific health/provider files would preserve an unreachable parallel stack. |
-| `model_council/` | 4 / 1.1k | `council.rs` (573) + `graph.rs` (128, already graph-shaped) are a generic N-model ensemble → upstream as a crate graph pattern; `schemas.rs` (392, RPC) stays — WP-2. |
+| `model_council/` | 4 / 1.1k | **Already adopted / remainder HOST-OWNED.** `graph.rs` already uses crate `parallel::map_reduce`; `council.rs` is OpenHuman product behavior (read-only `Agent` jurors, configured model resolution, prompts, result contract) and `schemas.rs` is RPC — WP-2 audit closed. |
 | `council_registry/` | 4 / 0.6k | Definitions-as-data + RPC. Stays. |
-| `tool_timeout/` | 1 / 316 | Process-global timeout with env/config precedence; crate analogue `harness::tool::ToolTimeout` exists. Collapse to a host shim that pushes config into the crate — WP-2. |
-| `tool_status/` | 3 / 0.7k | Pure failure-classification data+logic, parallel to crate tool-outcome handling. Upstream the generic classification; keep host taxonomy mapping — WP-2 (candidate, low priority). |
+| `tool_timeout/` | 1 / 316 | **HOST-OWNED.** TinyAgents `harness::tool::ToolTimeout` is declarative per-tool metadata; it has no process-global value to receive OpenHuman config. This module owns UI/config + env precedence and the actual `tokio::time::timeout` deadline used by the host-tool adapter — WP-2 audit closed. |
+| `tool_status/` | 3 / 0.7k | **HOST-OWNED.** Its serialized UI/persistence taxonomy, OpenHuman security markers, retry categories, and user-facing remediation copy are product semantics. TinyAgents tool outcomes remain the generic execution input — WP-2 audit closed. |
 | `tools/` | 98 / 40.9k | The `Tool` trait + `ToolSpec` mechanics (`traits.rs:255`), `schema.rs`, `policy.rs`, `orchestrator_tools.rs`, `user_filter.rs` are framework-shaped; all of `tools/impl/*` + RPC (`schemas.rs` 985, `ops.rs` 1,407) are product. **Design-gated** (port-plan §2 blockers still apply) — WP-4. Note: `ToolResult`/`ToolContent` are re-exported from `skills::types` (~236 consumer files) — moving those types is the highest-blast-radius single step in the whole migration and must be its own slice. Security coupling: 49 files. |
 | `tool_registry/` | 7 / 1.8k | Read-only cross-surface discovery + RPC. Stays. |
 | `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/` | — | All host/product (definitions-as-data, RPC controllers, marketplace HTTP, remote-brain client — `orchestration/` talks to the hosted backend, not the local crate). Stay. `agent_tool_policy` overlaps crate `tool_policy` middleware mechanically but encodes host channel-permission policy — stays, mechanism may thin post-WP-4. |
@@ -328,20 +328,26 @@ Independent, individually shippable slices:
    outside `routing/` constructed its provider or consumed its health signals.
    #4783's crate `ModelRouter` already owns live workload routing, so WP-2
    removed the unreachable parallel stack and its self-tests.
-2. **`tool_timeout/` → crate `ToolTimeout`.** Host keeps only the
-   config/env push (`OPENHUMAN_TOOL_TIMEOUT_SECS` precedence) into the crate
-   value. 316 LOC → ~50.
-3. **`model_council/` ensemble → crate graph pattern.** `council.rs` +
-   `graph.rs` become a crate-side parallel-fanout + chair-synthesis graph
-   (natural fit for `map_reduce` + post-WP-0 `BarrierRelief`); host keeps
-   `schemas.rs` RPC + `council_registry/` definitions.
-4. **`tool_status/` classification (low priority):** upstream the generic
-   failure-classification table into crate tool-outcome handling; host keeps
-   the RPC-facing taxonomy mapping. Skip if the crate's outcome model diverges
-   — reclassify HOST-OWNED in the ledger instead.
+2. **`tool_timeout/` — HOST-OWNED (audit closed).** The similarly named crate
+   `ToolTimeout` is per-tool policy metadata, not a global timeout store or
+   executor. OpenHuman must retain config/env precedence, live UI updates,
+   seconds clamping, grace handling, and the adapter's hard deadline. The seam
+   already projects host policy into crate `ToolRuntime`; there is no duplicate
+   crate implementation to delete.
+3. **`model_council/` — crate graph already adopted (audit closed).** Member
+   fan-out already runs through `tinyagents::graph::parallel::map_reduce` with
+   ordered collection and `CollectAll`. The remaining council code is product
+   behavior: read-only OpenHuman agent jurors, configured model selection,
+   synthesis prompt/result semantics, limits, and RPC. No new upstream graph is
+   required.
+4. **`tool_status/` — HOST-OWNED (audit closed).** The classifier is tied to
+   OpenHuman security markers, serialized thread/UI types, retry categories,
+   localized-copy keys, and remediation language. TinyAgents owns generic tool
+   outcomes; mapping those outcomes into product status remains in the host.
 
-**Exit:** `routing/policy|quality|factory` and `tool_timeout` deleted or
-shimmed; ledger rows added per slice (DRIFT→PR or HOST-OWNED).
+**Exit: complete.** `routing/` is deleted; timeout and status are explicitly
+HOST-OWNED; the council fan-out is already crate-backed and its remainder is
+product code. Ledger rows record the audit evidence.
 
 ### WP-3 — Retire the legacy turn engine
 
@@ -454,9 +460,10 @@ prematurely.**
 | `agent/` legacy `run_turn_engine` + escape hatches | ALREADY DELETED; WP-3 corrected the stale audit and runner documentation |
 | `agent/` remainder, `agent_registry/`, `agent_experience/`, `agent_memory/`, `agent_tool_policy/`, `agentbox/`, `orchestration/`, `council_registry/`, `tool_registry/` | STAYS (product/host) |
 | `routing/` | DELETED; #4783 crate router already owned the only live path (WP-2) |
-| `tool_timeout/` | COLLAPSE to shim over crate `ToolTimeout` (WP-2) |
-| `tool_status/` classification | UPSTREAM candidate (WP-2, low priority) |
-| `model_council/{council,graph}.rs` | UPSTREAM as crate graph pattern (WP-2) |
+| `tool_timeout/` | HOST-OWNED: config/env state + hard-deadline enforcement; crate timeout is metadata only (WP-2 closed) |
+| `tool_status/` classification | HOST-OWNED: OpenHuman UI/security/recovery taxonomy (WP-2 closed) |
+| `model_council/graph.rs` | ALREADY ADOPTED: crate `parallel::map_reduce` (WP-2 closed) |
+| `model_council/council.rs` | HOST-OWNED: product jurors, prompts, limits, model selection, and result contract |
 | `tools/` trait mechanics | DESIGN-GATED (WP-4) |
 | `tools/impl/*`, all `schemas.rs` RPC controllers | STAYS |
 | `agent_orchestration/` detached-run mechanics | UPSTREAM to `TaskStore` (WP-5) |

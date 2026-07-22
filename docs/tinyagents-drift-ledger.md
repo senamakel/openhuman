@@ -80,6 +80,15 @@ this section as investigation history.
 | P1-13 | Crate-native registered turn models / `compatible*.rs` deletion | **CLOSED** | [openhuman#4784](https://github.com/tinyhumansai/openhuman/pull/4784) moved the hot turn path and deleted the former `compatible*.rs` cluster. The collapsed `legacy_provider.rs` facade and the broader legacy `Provider` stack remain WP-1 deletion work; see the deletion ledger. |
 | P1-14 | Legacy `run_turn_engine` and `OPENHUMAN_AGENT_GRAPH_*` escape hatches | **CLOSED BEFORE AUDIT** | WP-3 verified that both session and subagent production paths call the TinyAgents seam unconditionally. No engine definition or env read remains; only historical parity comments and stale migration prose named the retired implementation. |
 
+## WP-2 Consolidation Audit
+
+| # | Area | Status | Evidence / action |
+| --- | --- | --- | --- |
+| WP2-1 | `routing/` parallel provider/health stack | **CLOSED / DELETED** | Repository-wide reference audit found no caller outside the module; the live route already uses crate `ModelRouter`. Deleted the unreachable stack and kept the crate-backed seam. |
+| WP2-2 | `tool_timeout/` vs crate `harness::tool::ToolTimeout` | **HOST-OWNED** | The crate type is declarative per-tool metadata (`Inherit`/`Unbounded`/`Millis`) and has no process-global setting or execution store. OpenHuman owns persisted-config and `OPENHUMAN_TOOL_TIMEOUT_SECS` precedence, live UI updates, bounds/grace semantics, and the `tokio::time::timeout` around adapted host tools. The seam already projects host timeout policy into crate `ToolRuntime`; no upstream gap or duplicate engine remains. |
+| WP2-3 | `model_council/` ensemble | **CLOSED / CRATE ADOPTED** | `graph.rs` already executes ordered member fan-out through `tinyagents::graph::parallel::map_reduce` with `FailurePolicy::CollectAll`. The remaining `council.rs` and RPC code are HOST-OWNED product semantics: read-only OpenHuman jurors, config/model selection, synthesis prompt/result schema, cost limit, and validation. |
+| WP2-4 | `tool_status/` failure classification | **HOST-OWNED** | The types are serialized into OpenHuman threads/UI and the classifier consumes OpenHuman security markers, product retry categories, and user-facing remediation copy. TinyAgents owns raw tool outcomes; the host mapping is deliberately downstream product policy. |
+
 Motion A confined all `Provider` handling to the seam + factory. Motion B
 replaces the *construction* of host `Provider`s with crate-native
 `ChatModel`s at each build boundary, so `compatible*.rs` can eventually be

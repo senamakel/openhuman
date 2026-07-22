@@ -234,8 +234,8 @@ fn council_member_label(index: usize) -> String {
 /// Reuses [`agent_chat_simple`] for both the member calls and the chair call so
 /// provider resolution, prompt-injection guarding, and temperature handling are
 /// all inherited unchanged. Member calls run concurrently via
-/// [`futures_util::future::join_all`]; wall-clock is the slowest single member,
-/// not their sum.
+/// [`tinyagents::graph::parallel::map_reduce`]; wall-clock is the slowest
+/// concurrency wave, not the sum of every member call.
 pub async fn run_council(
     config: &Config,
     question: &str,

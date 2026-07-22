@@ -599,7 +599,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 
 ---
 
-## 14. Terminal Chat UI (`openhuman tui`)
+## 14. Tabbed Terminal UI (`openhuman` / `openhuman tui`)
 
 ### 14.1 TUI Subcommand (feature-gated `tui`)
 
@@ -607,9 +607,11 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | ------ | ------------------------------------------------- | ----- | ----------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
 | 14.1.1 | Transcript reducer (deltas, done, error, tools)   | RU    | `src/openhuman/tui/state.rs`                                                        | ✅     | Pure `TranscriptState::apply_event` — client-id filtering, text/thinking split, `chat_done` finalization |
 | 14.1.2 | Runner flags + thread resolution + RPC name pins  | RU    | `src/openhuman/tui/runner.rs`, `src/openhuman/tui/app.rs`                           | ✅     | `--thread`/`--new` parsing; canonical `openhuman.*` method names resolve via registry                     |
-| 14.1.3 | Render layout (viewport, input, status)           | RU    | `src/openhuman/tui/render.rs`                                                       | ✅     | ratatui TestBackend                                                                                       |
+| 14.1.3 | Tab order + render layout + persistent footer     | RU    | `src/openhuman/tui/state.rs`, `src/openhuman/tui/render.rs`                         | ✅     | Logs-first tab reducer and ratatui TestBackend                                                            |
 | 14.1.4 | Disabled-build stub (`--no-default-features`)     | RU    | `src/core/cli_tests.rs` (`tui`/`chat` `*_reports_disabled_build_when_gate_off`)     | ✅     | Build-fact error, not `unknown namespace`                                                                 |
-| 14.1.5 | Interactive terminal session (raw mode, streaming) | MS    | manual smoke                                                                        | 🚫     | Needs a real TTY; not driver-automatable                                                                  |
+| 14.1.5 | Bare-command launch policy                        | RU    | `src/core/cli_tests.rs`                                                             | ✅     | TTY + CLI auto-launch; Docker, pipes, feature-off, and explicit commands stay headless                    |
+| 14.1.6 | Bounded live core-log buffer                      | RU    | `src/core/logging.rs`                                                               | ✅     | Preserves ordering and evicts oldest entries at the fixed capacity                                        |
+| 14.1.7 | Interactive terminal session (raw mode, streaming) | MS    | manual PTY smoke                                                                    | 🚫     | Requires a real PTY to verify key input and terminal restoration                                          |
 
 ## Summary
 

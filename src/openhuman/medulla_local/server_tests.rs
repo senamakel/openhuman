@@ -484,3 +484,73 @@ async fn serve_rejection_fails_fast_without_restart() {
     let _ = std::fs::remove_file(&path);
 }
 
+#[tokio::test]
+async fn ensure_started_backoff_is_keyed_on_config_fingerprint() {
+    // An explicit (nonexistent) serve entry wins over any env override, so
+    // the build fails deterministically before touching Node or the network.
+    let mut config_a = crate::openhuman::config::Config::default();
+    config_a.subconscious.medulla_local.serve_entry =
+        "/nonexistent/medulla-local-test/serve-a.js".to_string();
+
+    let first = ensure_started(&config_a)
+        .await
+        .expect_err("a missing serve entry must fail startup");
+    assert!(
+        format!("{first:#}").contains("serve entry not found"),
+        "unexpected first startup error: {first:#}"
+    );
+
+    // Same config within the backoff window: fail fast on the cached failure.
+    let cached = ensure_started(&config_a)
+        .await
+        .expect_err("the same config must stay in start-failure backoff");
+    assert!(
+        format!("{cached:#}").contains("after previous startup failure"),
+        "unexpected backoff error: {cached:#}"
+    );
+
+    // A changed config bypasses the backoff and attempts a fresh build — the
+    // new snapshot may be exactly what fixes the failure.
+    let mut config_b = config_a.clone();
+    config_b.subconscious.medulla_local.serve_entry =
+        "/nonexistent/medulla-local-test/serve-b.js".to_string();
+    let rebuilt = ensure_started(&config_b)
+        .await
+        .expect_err("the changed config still points at a missing entry");
+    let rebuilt_message = format!("{rebuilt:#}");
+    assert!(
+        !rebuilt_message.contains("after previous startup failure"),
+        "a config change must bypass the stale backoff: {rebuilt_message}"
+    );
+    assert!(
+        rebuilt_message.contains("serve-b.js"),
+        "the fresh build must run against the NEW config: {rebuilt_message}"
+    );
+}
+
+#[test]
+fn config_fingerprint_tracks_relevant_config_changes() {
+    let base = crate::openhuman::config::Config::default();
+    let base_fingerprint = config_fingerprint(&base).unwrap();
+    assert_eq!(
+        base_fingerprint,
+        config_fingerprint(&base.clone()).unwrap(),
+        "the fingerprint must be deterministic for an identical config"
+    );
+
+    // The cached ports capture the whole config: a serve-entry change, a
+    // security-root change, and an action-dir change must each invalidate.
+    let mut serve_changed = base.clone();
+    serve_changed.subconscious.medulla_local.serve_entry = "/elsewhere/serve.js".to_string();
+    assert_ne!(
+        base_fingerprint,
+        config_fingerprint(&serve_changed).unwrap()
+    );
+
+    let mut action_dir_changed = base.clone();
+    action_dir_changed.action_dir = std::path::PathBuf::from("/elsewhere/projects");
+    assert_ne!(
+        base_fingerprint,
+        config_fingerprint(&action_dir_changed).unwrap()
+    );
+}

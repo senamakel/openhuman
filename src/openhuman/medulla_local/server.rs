@@ -651,13 +651,19 @@ impl MedullaSupervisor {
 }
 
 /// Cached global supervisor + start-failure backoff, mirroring the Python
-/// server's `ServerCache`.
+/// server's `ServerCache`. Both live variants carry the fingerprint of the
+/// config they were built from, so a config change invalidates them (the
+/// Python server does the same via its `backends()` comparison).
 enum SupervisorCache {
     Empty,
-    Ready(Arc<MedullaSupervisor>),
+    Ready {
+        supervisor: Arc<MedullaSupervisor>,
+        config_fingerprint: u64,
+    },
     Failed {
         message: String,
         retry_after: Instant,
+        config_fingerprint: u64,
     },
 }
 
@@ -667,20 +673,56 @@ fn supervisor_slot() -> &'static Mutex<SupervisorCache> {
     SUPERVISOR.get_or_init(|| Mutex::new(SupervisorCache::Empty))
 }
 
+/// Fingerprint of the config snapshot a supervisor is built from. The whole
+/// config is hashed because the cached [`OpenhumanHostPorts`] captures the
+/// whole `Arc<Config>`: security policy, `action_dir`, trusted roots, and
+/// model/provider routing all feed the port callbacks, so any change must
+/// invalidate the cached child.
+fn config_fingerprint(config: &Config) -> Result<u64> {
+    use std::hash::{Hash, Hasher};
+    let encoded =
+        serde_json::to_string(config).context("encoding config for medulla cache fingerprint")?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    encoded.hash(&mut hasher);
+    // The runtime-resolved path roots are `#[serde(skip)]` and therefore
+    // absent from the encoding, but both feed the supervisor — the socket
+    // path lives under `workspace_dir` and the tool sandbox resolves against
+    // `action_dir` — so fold them in explicitly.
+    config.workspace_dir.hash(&mut hasher);
+    config.action_dir.hash(&mut hasher);
+    Ok(hasher.finish())
+}
+
 /// Resolve (and lazily start) the process-global supervisor for `config`.
+///
+/// The cache is keyed on [`config_fingerprint`]: a cached supervisor built
+/// from a different config snapshot is dropped (killing the child once the
+/// last in-flight handle releases its connection) and rebuilt, so callbacks
+/// never keep answering under a stale security policy or routing table. A
+/// config change also bypasses the start-failure backoff, since the new
+/// config may be exactly what fixes the startup failure.
 pub async fn ensure_started(config: &Config) -> Result<Arc<MedullaSupervisor>> {
+    let fingerprint = config_fingerprint(config)?;
     let mut guard = supervisor_slot().lock().await;
     match &*guard {
-        SupervisorCache::Ready(existing) => {
-            let existing = existing.clone();
+        SupervisorCache::Ready {
+            supervisor,
+            config_fingerprint,
+        } if *config_fingerprint == fingerprint => {
+            let existing = supervisor.clone();
             drop(guard);
             existing.ensure().await?;
             return Ok(existing);
         }
+        SupervisorCache::Ready { .. } => {
+            info!("[medulla_local] config changed; rebuilding serve supervisor");
+            *guard = SupervisorCache::Empty;
+        }
         SupervisorCache::Failed {
             message,
             retry_after,
-        } if Instant::now() < *retry_after => {
+            config_fingerprint,
+        } if *config_fingerprint == fingerprint && Instant::now() < *retry_after => {
             bail!("medulla serve unavailable after previous startup failure: {message}");
         }
         SupervisorCache::Failed { .. } | SupervisorCache::Empty => {}
@@ -688,7 +730,10 @@ pub async fn ensure_started(config: &Config) -> Result<Arc<MedullaSupervisor>> {
 
     match build_supervisor(config).await {
         Ok(supervisor) => {
-            *guard = SupervisorCache::Ready(supervisor.clone());
+            *guard = SupervisorCache::Ready {
+                supervisor: supervisor.clone(),
+                config_fingerprint: fingerprint,
+            };
             Ok(supervisor)
         }
         Err(error) => {
@@ -700,6 +745,7 @@ pub async fn ensure_started(config: &Config) -> Result<Arc<MedullaSupervisor>> {
             *guard = SupervisorCache::Failed {
                 message: message.clone(),
                 retry_after: Instant::now() + START_FAILURE_BACKOFF,
+                config_fingerprint: fingerprint,
             };
             bail!("medulla serve unavailable: {message}");
         }

@@ -653,7 +653,13 @@ fn classify_embed_probe(outcome: EmbedProbe) -> Option<RpcOutcome<serde_json::Va
     let reject = |error: &str, message: &str, summary: &str, detail: Option<&str>| {
         let mut body = serde_json::json!({ "error": error, "message": message });
         if let Some(d) = detail {
-            body["detail"] = serde_json::Value::String(d.to_string());
+            // The probe detail is the raw endpoint response body. It can carry the
+            // API key (OpenAI's 401 echoes `Incorrect API key provided: sk-…`), and
+            // the frontend appends `detail` to the surfaced message — so redact any
+            // key/bearer material before it ever leaves the core, for both the UI
+            // and logs (#5116). The clean classified `message` is the primary text;
+            // the sanitized detail only adds a self-diagnosis hint.
+            body["detail"] = serde_json::Value::String(redact_secrets(d));
         }
         Some(RpcOutcome::new(body, vec![summary.to_string()]))
     };
@@ -792,19 +798,52 @@ fn embed_error_mentions_status(lower: &str, code: u16) -> bool {
 }
 
 /// A reachable, authenticated embeddings API that **rejected the model id** — the
-/// user pointed the embeddings model field at a chat/reasoning model. Gated on a
-/// 400/422 plus a model-rejection phrase so a genuine 5xx or oversized-input 400
-/// still falls through to the generic failure (issue #5017).
+/// user pointed the embeddings model field at a chat/reasoning model.
+///
+/// Two tiers of phrasing:
+///
+/// - **Strong, status-independent phrasings** unambiguously name a model that
+///   can't embed. OpenAI returns *HTTP 403* "You are not allowed to generate
+///   embeddings from this model" when a chat model (e.g. `gpt-4o-mini`) is used
+///   as the embeddings model — a MODEL problem, not an auth problem. Because
+///   `classify_embed_probe` checks this **before** the 401/403 auth branch, that
+///   403 must be caught here or it falls through and misreports "enter a valid
+///   key" (issue #5116). None of these phrases appear in a genuine auth rejection
+///   (`Incorrect API key provided …`), so matching them ahead of auth is safe.
+/// - **Weak phrasings** (a stray "does not exist" / odd model-name format) are
+///   only unambiguous alongside a 400/422 bad-request, so a genuine 5xx or an
+///   oversized-input 400 still falls through to the generic failure (issue #5017).
 fn is_embedding_model_incompatible(lower: &str) -> bool {
+    let strong_model_rejection = lower.contains("not allowed to generate embeddings")
+        || lower.contains("does not support embeddings")
+        || lower.contains("not an embedding model")
+        || lower.contains("is not an embedding")
+        || lower.contains("not supported for embeddings")
+        || (lower.contains("unsupported") && lower.contains("embedding"));
+    if strong_model_rejection {
+        return true;
+    }
     let bad_request =
         embed_error_mentions_status(lower, 400) || embed_error_mentions_status(lower, 422);
     bad_request
-        && (lower.contains("does not support embeddings")
-            || lower.contains("not an embedding model")
-            || lower.contains("is not an embedding")
-            || lower.contains("does not exist")
-            || lower.contains("not supported for embeddings")
-            || lower.contains("unexpected model name format"))
+        && (lower.contains("does not exist") || lower.contains("unexpected model name format"))
+}
+
+/// Strip API-key / bearer-token material from any text before it reaches the UI
+/// or logs. Matches OpenAI-style keys (`sk-…`, including the modern `sk-proj-…`
+/// form with embedded hyphens/underscores) and `Bearer <token>` headers, and
+/// replaces each **whole** match — the replacements deliberately contain no `sk-`
+/// substring, so not even a key *prefix* can surface (#5116).
+fn redact_secrets(input: &str) -> String {
+    use once_cell::sync::Lazy;
+    use regex::Regex;
+    static SK_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bsk-[A-Za-z0-9_-]+").unwrap());
+    static BEARER_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+").unwrap());
+    let redacted = SK_KEY_RE.replace_all(input, "[redacted-key]");
+    BEARER_RE
+        .replace_all(&redacted, "Bearer [redacted]")
+        .into_owned()
 }
 
 /// The post-response length guard fired: the endpoint embedded but returned a
@@ -1222,6 +1261,73 @@ mod tests {
                 "detail should classify as auth failure: {detail}"
             );
         }
+    }
+
+    /// Issue #5116 — a **chat** model used as an embeddings model. OpenAI answers
+    /// *HTTP 403* "You are not allowed to generate embeddings from this model".
+    /// Before the fix this fell through to the 401/403 auth branch and told the
+    /// user to "enter a valid key" even though the key was fine — the model is the
+    /// problem. It must classify as MODEL_INCOMPATIBLE, ahead of the auth branch.
+    #[test]
+    fn classify_embed_probe_403_not_an_embeddings_model_is_model_incompatible_not_auth() {
+        for detail in [
+            r#"openai embeddings returned HTTP 403 Forbidden: {"error":{"message":"You are not allowed to generate embeddings from this model","type":"invalid_request_error","param":null,"code":null}}"#,
+            r#"Embedding API error (403 Forbidden): {"error":{"message":"This is not an embedding model"}}"#,
+            r#"openai embeddings returned HTTP 403 Forbidden: {"error":{"message":"unsupported model for embedding"}}"#,
+        ] {
+            assert_eq!(
+                reject_code(EmbedProbe::Failed(detail.into())).as_deref(),
+                Some("EMBEDDINGS_MODEL_INCOMPATIBLE"),
+                "403 model-rejection must be model-incompatible, not auth: {detail}"
+            );
+        }
+    }
+
+    /// Issue #5116 (security) — a genuine bad key (401 "Incorrect API key
+    /// provided: sk-…") must STILL classify as auth, but the surfaced payload must
+    /// never carry the key: neither the message nor the redacted detail may
+    /// contain an `sk-` substring.
+    #[test]
+    fn classify_embed_probe_401_bad_key_is_auth_and_redacts_key() {
+        let detail = r#"openai embeddings returned HTTP 401 Unauthorized: {"error":{"message":"Incorrect API key provided: sk-proj-ABC123def456GHI789jkl012MNO. You can find your API key at https://platform.openai.com/account/api-keys.","type":"invalid_request_error","param":null,"code":"invalid_api_key"}}"#;
+        let rpc = classify_embed_probe(EmbedProbe::Failed(detail.into()))
+            .expect("bad key must reject the save");
+        assert_eq!(
+            rpc.value.get("error").and_then(|v| v.as_str()),
+            Some("EMBEDDINGS_AUTH_FAILED"),
+            "a genuine 401 bad key must stay classified as auth"
+        );
+        // Nothing in the surfaced payload may leak the key.
+        let surfaced = serde_json::to_string(&rpc.value).unwrap();
+        assert!(
+            !surfaced.contains("sk-"),
+            "surfaced payload must not contain any sk- key material: {surfaced}"
+        );
+        assert!(
+            rpc.value
+                .get("detail")
+                .and_then(|v| v.as_str())
+                .map(|d| d.contains("[redacted-key]"))
+                .unwrap_or(false),
+            "the detail should keep a redaction marker for support diagnosis"
+        );
+    }
+
+    /// The redaction helper strips whole OpenAI-style keys (incl. the modern
+    /// `sk-proj-…` form) and bearer tokens, leaving no `sk-` prefix behind.
+    #[test]
+    fn redact_secrets_removes_key_and_bearer_material() {
+        let redacted =
+            redact_secrets("key sk-proj-ABC123_def-456 and Authorization: Bearer tok-xyz.789");
+        assert!(
+            !redacted.contains("sk-"),
+            "no sk- prefix survives: {redacted}"
+        );
+        assert!(!redacted.contains("tok-xyz.789"), "bearer token stripped");
+        assert!(redacted.contains("[redacted-key]"));
+        assert!(redacted.contains("Bearer [redacted]"));
+        // Non-secret text is preserved.
+        assert!(redacted.contains("Authorization:"));
     }
 
     /// Issue #5017 — a transport-level failure (DNS / refused connection) is a

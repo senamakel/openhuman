@@ -1771,6 +1771,7 @@ const messages: TranslationMap = {
     'Войдите снова, чтобы обновить сеанс OpenHuman, или переключитесь на локального провайдера эмбеддингов либо провайдера с собственным ключом.',
   'settings.embeddings.signInAgain': 'Войти снова',
   'settings.embeddings.apiKeyLabel': 'API-ключ {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'API-ключ',
   'settings.embeddings.placeholderStored': '•••••••• (сохранено)',
   'settings.embeddings.placeholderKey': 'Вставьте API-ключ…',
   'settings.embeddings.keyStoredEncrypted':
@@ -3540,6 +3541,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Не удалось сохранить рабочий процесс. Попробуйте еще раз.',
   'chat.flowProposal.enableError':
     'Рабочий процесс сохранён, но не удалось его включить. Попробуйте ещё раз или включите его на странице Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Сохранено',
+  'chat.flowProposal.viewWorkflow': 'Просмотреть рабочий процесс',
   'chat.flowProposal.stepKind.agent': 'Агент',
   'chat.flowProposal.stepKind.toolCall': 'Действие',
   'chat.flowProposal.stepKind.httpRequest': 'Веб-запрос',
@@ -7495,6 +7498,15 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Состояние конфиденциальности',
   'privacy.status.external': 'Вне устройства',
   'privacy.status.local': 'На устройстве',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Только загружено',
+  'sync.pipeline.storedWithoutVectors': 'Сохранено без векторов. Семантический поиск недоступен.',
+  'sync.pipeline.signInToEnable': 'Войдите, чтобы включить',
+  'sync.pipeline.extractionFailed':
+    'Не удалось извлечь структуру памяти. Вики может быть неполной.',
+  'sync.pipeline.treeDegraded':
+    'Дерево памяти деградировало. Поиск может возвращать устаревшие результаты.',
+  'sync.pipeline.viewHealth': 'Показать состояние памяти',
 };
 
 export default messages;

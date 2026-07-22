@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 
 import PanelPage from '../components/layout/PanelPage';
 import { CenteredLoadingState, ErrorBanner } from '../components/ui/LoadingState';
+import { useFlowRunFinished } from '../hooks/useFlowRunFinished';
 import { useFlowRunsLiveRefresh } from '../hooks/useFlowRunsLiveRefresh';
 import { useFlowRunStarted } from '../hooks/useFlowRunStarted';
 import {
@@ -102,6 +103,11 @@ export default function WorkflowRunsPage() {
   // instantly instead of waiting for a manual refresh (issue B35). No
   // `flowId` filter — this is the flow-agnostic "all runs" page.
   useFlowRunStarted(() => void refetchRuns());
+  // Terminal companion to the above (issue B35 follow-up) — flips a run to
+  // Completed/Failed the instant it settles instead of waiting on
+  // `useFlowRunsLiveRefresh`'s debounced/backstop refetch to notice. No
+  // `flowId` filter, same rationale as `useFlowRunStarted` above.
+  useFlowRunFinished(() => void refetchRuns());
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
   const statusLabel = (status: FlowRunStatus) =>

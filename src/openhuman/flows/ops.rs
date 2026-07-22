@@ -3,6 +3,7 @@
 //! `schemas.rs`'s `handle_*` RPC/CLI handlers, mirroring
 //! `src/openhuman/cron/ops.rs`.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -11,7 +12,8 @@ use tinyflows::model::{NodeKind, TriggerKind, WorkflowGraph};
 
 use crate::openhuman::agent::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};
 use crate::openhuman::approval::{
-    ApprovalChatContext, FlowRunContext, APPROVAL_CHAT_CONTEXT, APPROVAL_FLOW_RUN_CONTEXT,
+    ApprovalChatContext, FlowRunContext, APPROVAL_CHAT_CONTEXT, APPROVAL_COPILOT_STREAM_CONTEXT,
+    APPROVAL_FLOW_RUN_CONTEXT,
 };
 use crate::openhuman::config::Config;
 use crate::openhuman::flows::bus;
@@ -38,6 +40,11 @@ const FLOW_RUN_TIMEOUT_SECS: u64 = 600;
 /// `TrustedAutomation { Workflow }`, which the tool-call gate lets through), so
 /// this is a dedicated flows-side TTL, not a reuse of the approval store's.
 const FLOW_PARKED_TTL_SECS: i64 = 600;
+
+/// Stable host-validation code for a topology that the currently vendored
+/// TinyFlows/TinyAgents barrier-relief implementation cannot execute safely.
+const UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN: &str = "unsupported_nested_conditional_fan_in";
+const UNSUPPORTED_MAIN_PORT_CONDITIONAL_FAN_IN: &str = "unsupported_main_port_conditional_fan_in";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 2 — autonomy-tier gating of acting flow nodes
@@ -92,7 +99,303 @@ const FLOW_PARKED_TTL_SECS: i64 = 600;
 pub(crate) fn validate_and_migrate_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
     let graph = migrate_and_deserialize_graph(graph_json)?;
     tinyflows::validate::validate(&graph).map_err(|e| e.to_string())?;
+    ensure_engine_compatible(&graph)?;
     Ok(graph)
+}
+
+/// Detects fan-in predecessors controlled by more than one branching decision.
+///
+/// TinyFlows lowers every fan-in edge as a waiting edge and registers a
+/// barrier relief for conditional predecessors. The current lowering chooses
+/// only the first upstream brancher, while TinyAgents cannot prove reachability
+/// through a second brancher. Depending on node declaration order, that can
+/// either relieve the barrier before the real predecessor runs (silently
+/// dropping its data) or leave the fan-in unfired. Fail closed until the
+/// vendored engine models nested decisions directly.
+///
+/// This intentionally mirrors TinyFlows' topology classification rather than
+/// limiting the check to `merge` nodes: any node with multiple incoming edges
+/// is lowered as a fan-in barrier. A predecessor reachable from the trigger by
+/// `main`-only edges is unconditional and needs no relief, so it is safe.
+pub(crate) fn engine_compatibility_errors(
+    graph: &WorkflowGraph,
+) -> Vec<crate::openhuman::flows::FlowValidationError> {
+    let mut errors = Vec::new();
+    collect_engine_compatibility_errors(graph, 0, &mut errors);
+    errors
+}
+
+fn collect_engine_compatibility_errors(
+    graph: &WorkflowGraph,
+    depth: u64,
+    errors: &mut Vec<crate::openhuman::flows::FlowValidationError>,
+) {
+    errors.extend(graph_engine_compatibility_errors(graph));
+    if depth >= tinyflows::engine::MAX_SUB_WORKFLOW_DEPTH {
+        return;
+    }
+
+    for node in &graph.nodes {
+        if node.kind != NodeKind::SubWorkflow {
+            continue;
+        }
+        let Some(inline) = node.config.get("workflow") else {
+            continue;
+        };
+        let Ok(child) = serde_json::from_value::<WorkflowGraph>(inline.clone()) else {
+            // TinyFlows reports malformed inline children as capability errors;
+            // this gate is specifically for otherwise-deserializable unsafe
+            // topologies.
+            continue;
+        };
+        let first_child_error = errors.len();
+        collect_engine_compatibility_errors(&child, depth + 1, errors);
+        for error in &mut errors[first_child_error..] {
+            error.message = format!("Inline sub_workflow node '{}': {}", node.id, error.message);
+        }
+    }
+}
+
+fn graph_engine_compatibility_errors(
+    graph: &WorkflowGraph,
+) -> Vec<crate::openhuman::flows::FlowValidationError> {
+    let Some(trigger) = graph.trigger() else {
+        return Vec::new();
+    };
+    let mut errors = Vec::new();
+
+    for fan_in in &graph.nodes {
+        let incoming: Vec<&str> = graph
+            .edges
+            .iter()
+            .filter(|edge| edge.to_node == fan_in.id)
+            .map(|edge| edge.from_node.as_str())
+            .collect();
+        if incoming.len() <= 1 {
+            continue;
+        }
+
+        for predecessor in incoming {
+            // Reaching a router itself unconditionally does not make the edge
+            // it selects into the fan-in unconditional. Let router
+            // predecessors reach the port-aware analysis below.
+            if !is_branching_node(graph, predecessor)
+                && reaches_on_main_edges(graph, &trigger.id, predecessor, &fan_in.id)
+            {
+                continue;
+            }
+
+            let mut controlling_branchers = 0usize;
+            let mut controlled_via_main_port = false;
+            for candidate in &graph.nodes {
+                let is_router = matches!(candidate.kind, NodeKind::Condition | NodeKind::Switch);
+                let ports: HashSet<&str> = graph
+                    .edges
+                    .iter()
+                    .filter(|edge| edge.from_node == candidate.id)
+                    .map(|edge| edge.from_port.as_str())
+                    .collect();
+                if ports.len() < 2 && !is_router {
+                    continue;
+                }
+                // When the router is itself the incoming predecessor, its
+                // branch edge must be tested against the fan-in (asking whether
+                // that edge reaches the router again can never succeed).
+                let controlled_target = if candidate.id == predecessor {
+                    fan_in.id.as_str()
+                } else {
+                    predecessor
+                };
+                let reaches_from_port = |port: &str| {
+                    reaches_via_port(graph, &candidate.id, port, controlled_target, &fan_in.id)
+                };
+                let any_port_reaches = ports.iter().any(|port| reaches_from_port(port));
+                // A router with one wired output still has unwired runtime
+                // choices that emit no successor, so that sole edge cannot
+                // prove unconditional reachability. Router reconvergence is
+                // only deterministic when every runtime choice is wired:
+                // both condition outcomes, or a switch fallback. Generic
+                // multi-port nodes retain their existing all-port behavior.
+                let routing_choices_are_exhaustive = match candidate.kind {
+                    NodeKind::Condition => ports.contains("true") && ports.contains("false"),
+                    NodeKind::Switch => ports.contains("default"),
+                    _ => true,
+                };
+                let can_prove_all_routing_choices = if is_router {
+                    routing_choices_are_exhaustive
+                } else {
+                    ports.len() >= 2
+                };
+                let every_port_deterministically_reaches = can_prove_all_routing_choices
+                    && ports.iter().all(|port| {
+                        reaches_deterministically_via_port(
+                            graph,
+                            &candidate.id,
+                            port,
+                            controlled_target,
+                            &fan_in.id,
+                        )
+                    });
+                // A multi-port node only controls this predecessor when the
+                // predecessor is reachable from it but not guaranteed by a
+                // deterministic path on every routing choice. This matches
+                // TinyAgents' relief proof, which stops at another router.
+                if any_port_reaches && !every_port_deterministically_reaches {
+                    controlling_branchers += 1;
+                    controlled_via_main_port |= ports.contains("main") && reaches_from_port("main");
+                }
+            }
+
+            let (code, routing_kind) = if controlled_via_main_port {
+                (
+                    UNSUPPORTED_MAIN_PORT_CONDITIONAL_FAN_IN,
+                    "a conditional branch labelled 'main'",
+                )
+            } else if controlling_branchers >= 2 {
+                (
+                    UNSUPPORTED_NESTED_CONDITIONAL_FAN_IN,
+                    "nested conditional routing",
+                )
+            } else {
+                continue;
+            };
+            errors.push(crate::openhuman::flows::FlowValidationError {
+                code: code.to_string(),
+                message: format!(
+                    "Fan-in node '{}' has predecessor '{}' behind {routing_kind}; \
+                     this topology is temporarily unsupported because it can silently lose \
+                     merged data. Flatten the conditional branch or join it before this fan-in.",
+                    fan_in.id, predecessor
+                ),
+                node_id: Some(fan_in.id.clone()),
+                field: None,
+            });
+        }
+    }
+
+    errors
+}
+
+fn ensure_engine_compatible(graph: &WorkflowGraph) -> Result<(), String> {
+    match engine_compatibility_errors(graph).into_iter().next() {
+        Some(error) => Err(format!("{}: {}", error.code, error.message)),
+        None => Ok(()),
+    }
+}
+
+/// Host-aware compatibility check, including saved descendants that graph-only
+/// validation cannot inspect. Authoring boundaries use it before persistence;
+/// execution boundaries use it before compiling a root run/resume or returning
+/// a resolver graph, so an unsafe descendant cannot run after earlier effects.
+fn ensure_config_aware_engine_compatible(
+    config: &Config,
+    graph: &WorkflowGraph,
+) -> Result<(), String> {
+    match config_aware_engine_compatibility_errors(config, graph)
+        .into_iter()
+        .next()
+    {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
+fn reaches_on_main_edges(graph: &WorkflowGraph, from: &str, to: &str, stop: &str) -> bool {
+    if from == to {
+        return true;
+    }
+    let mut stack: Vec<&str> = if is_branching_node(graph, from) {
+        Vec::new()
+    } else {
+        graph
+            .edges
+            .iter()
+            .filter(|edge| edge.from_node == from && edge.from_port == "main")
+            .map(|edge| edge.to_node.as_str())
+            .collect()
+    };
+    let mut seen = HashSet::new();
+    while let Some(node) = stack.pop() {
+        if node == to {
+            return true;
+        }
+        if node == stop || !seen.insert(node) {
+            continue;
+        }
+        // Port labels are arbitrary. A node with multiple distinct output
+        // ports is runtime-selective even when one label happens to be `main`,
+        // so nothing beyond it is unconditionally reachable.
+        if is_branching_node(graph, node) {
+            continue;
+        }
+        stack.extend(
+            graph
+                .edges
+                .iter()
+                .filter(|edge| edge.from_node == node && edge.from_port == "main")
+                .map(|edge| edge.to_node.as_str()),
+        );
+    }
+    false
+}
+
+fn is_branching_node(graph: &WorkflowGraph, node_id: &str) -> bool {
+    graph.nodes.iter().any(|node| {
+        node.id == node_id && matches!(node.kind, NodeKind::Condition | NodeKind::Switch)
+    }) || graph
+        .edges
+        .iter()
+        .filter(|edge| edge.from_node == node_id)
+        .map(|edge| edge.from_port.as_str())
+        .collect::<HashSet<_>>()
+        .len()
+        >= 2
+}
+
+fn reaches_via_port(
+    graph: &WorkflowGraph,
+    brancher: &str,
+    port: &str,
+    target: &str,
+    stop: &str,
+) -> bool {
+    let mut stack: Vec<&str> = graph
+        .edges
+        .iter()
+        .filter(|edge| edge.from_node == brancher && edge.from_port == port)
+        .map(|edge| edge.to_node.as_str())
+        .collect();
+    let mut seen = HashSet::new();
+    while let Some(node) = stack.pop() {
+        if node == target {
+            return true;
+        }
+        if node == stop || !seen.insert(node) {
+            continue;
+        }
+        stack.extend(
+            graph
+                .edges
+                .iter()
+                .filter(|edge| edge.from_node == node)
+                .map(|edge| edge.to_node.as_str()),
+        );
+    }
+    false
+}
+
+fn reaches_deterministically_via_port(
+    graph: &WorkflowGraph,
+    brancher: &str,
+    port: &str,
+    target: &str,
+    stop: &str,
+) -> bool {
+    graph
+        .edges
+        .iter()
+        .filter(|edge| edge.from_node == brancher && edge.from_port == port)
+        .any(|edge| reaches_on_main_edges(graph, &edge.to_node, target, stop))
 }
 
 /// Runs a raw graph JSON value through migration + deserialization **without**
@@ -122,9 +425,10 @@ pub(crate) fn to_flow_validation_error(
     }
 }
 
-/// The single canonical definition of the builder hard-gate stack: the three
+/// The single canonical definition of the builder hard-gate stack: the
 /// author-time gates that reject (not warn) a graph an agent must not propose
-/// or persist — binding-resolvability, tool-contract, and required-arg
+/// or persist — engine compatibility, binding-resolvability, agent-ref
+/// resolvability, connection-ref, tool-contract, and required-arg
 /// resolvability, in increasing cost order.
 ///
 /// Returns an empty `Vec` when the graph passes; otherwise the first failing
@@ -139,10 +443,22 @@ pub(crate) fn to_flow_validation_error(
 /// `validate_and_migrate_graph` / `validate_all` first) — these gates check
 /// resolvability/contracts on a compilable graph.
 pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    let compatibility_errors = config_aware_engine_compatibility_errors(config, graph);
+    if !compatibility_errors.is_empty() {
+        return compatibility_errors;
+    }
     // Cheap, sync: a binding guaranteed to resolve null / wrong at runtime.
     let binding_errors = validate_binding_resolvability(graph);
     if !binding_errors.is_empty() {
         return binding_errors;
+    }
+    // Cheap: an `agent` node's `agent_ref` that would hit the runtime's
+    // `RegistryFallback` "unknown agent_ref" hard error mid-run. Almost always a
+    // pure in-memory harness-registry lookup; only a ref that ISN'T a harness
+    // definition falls through to a local config read (custom agent registry).
+    let agent_ref_errors = validate_agent_refs(config, graph).await;
+    if !agent_ref_errors.is_empty() {
+        return agent_ref_errors;
     }
     // Async, live connection list: a tool_call whose `connection_ref` names the
     // wrong toolkit for its slug, or a connection id the user doesn't actually
@@ -162,6 +478,106 @@ pub(crate) async fn run_builder_gates(config: &Config, graph: &WorkflowGraph) ->
     // Async, sandbox run: a required outbound arg that looks wired but resolves
     // null in a mock execution.
     validate_required_arg_resolvability(graph).await
+}
+
+/// Checks literal `workflow_id` children reachable from an authoring candidate.
+///
+/// Pure graph validation can recurse through inline children, but resolving a
+/// saved child requires the host store. Keep that lookup in the config-aware
+/// builder gate so strict RPC and agent-authored proposals/saves cannot bless a
+/// parent that is already known to fail at execution. Dynamic `=` expressions,
+/// missing ids, and store failures retain their existing runtime diagnostics;
+/// this gate only rejects a saved graph whose topology is demonstrably unsafe.
+fn referenced_workflow_compatibility_errors(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    let mut pending = vec![(graph.clone(), 0_u64, Vec::<String>::new())];
+    // Record the shallowest visit, not just whether an id was seen. The same
+    // child can be referenced by multiple branches; a deep DFS visit must not
+    // suppress a later shallower visit that has more depth budget remaining.
+    let mut visited_depths = std::collections::HashMap::<String, u64>::new();
+
+    while let Some((current, depth, path)) = pending.pop() {
+        if depth >= tinyflows::engine::MAX_SUB_WORKFLOW_DEPTH {
+            continue;
+        }
+
+        for node in &current.nodes {
+            if node.kind != NodeKind::SubWorkflow {
+                continue;
+            }
+
+            let mut child_path = path.clone();
+            child_path.push(node.id.clone());
+
+            let inline = node.config.get("workflow");
+            let configured_workflow_id = node
+                .config
+                .get("workflow_id")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|id| !id.is_empty());
+            // Structural validation requires exactly one source and runs before
+            // this helper. Retain that precedence defensively if a future caller
+            // passes an invalid graph directly: do not inspect either source as
+            // though TinyFlows could choose between them at runtime.
+            if inline.is_some() && configured_workflow_id.is_some() {
+                continue;
+            }
+
+            if let Some(inline) = inline {
+                if let Ok(child) = serde_json::from_value::<WorkflowGraph>(inline.clone()) {
+                    pending.push((child, depth + 1, child_path.clone()));
+                }
+                continue;
+            }
+
+            let Some(workflow_id) = configured_workflow_id.filter(|id| !id.starts_with('=')) else {
+                continue;
+            };
+            let child_depth = depth + 1;
+            if visited_depths
+                .get(workflow_id)
+                .is_some_and(|seen_depth| *seen_depth <= child_depth)
+            {
+                continue;
+            }
+            visited_depths.insert(workflow_id.to_string(), child_depth);
+
+            let Ok(Some(child)) = load_flow_graph(config, workflow_id) else {
+                continue;
+            };
+            if let Some(error) = engine_compatibility_errors(&child).into_iter().next() {
+                return vec![format!(
+                    "Sub_workflow path '{}' references workflow_id '{}' with an unsupported \
+                     engine topology: {}: {}",
+                    child_path.join(" -> "),
+                    workflow_id,
+                    error.code,
+                    error.message
+                )];
+            }
+            pending.push((child, child_depth, child_path));
+        }
+    }
+
+    Vec::new()
+}
+
+/// Returns the complete engine-topology gate for a graph in its host context.
+/// The graph-only half covers inline descendants; the config-aware half follows
+/// literal saved-workflow references. Authoring and execution boundaries share
+/// this helper so neither can accept a graph the other must reject.
+pub(crate) fn config_aware_engine_compatibility_errors(
+    config: &Config,
+    graph: &WorkflowGraph,
+) -> Vec<String> {
+    let direct = engine_compatibility_errors(graph);
+    if !direct.is_empty() {
+        return direct
+            .into_iter()
+            .map(|error| format!("{}: {}", error.code, error.message))
+            .collect();
+    }
+    referenced_workflow_compatibility_errors(config, graph)
 }
 
 /// Strict-mode gate for the create/update RPC path (audit F3): validates
@@ -197,8 +613,9 @@ pub(crate) async fn strict_gate(config: &Config, graph_json: &Value) -> Result<(
 /// `graph` and, if it passes, builds the `workflow_proposal` payload the
 /// propose/revise/edit tools all return.
 ///
-/// The single home for the gate sequence (binding-resolvability →
-/// tool-contract → required-arg resolvability) plus summary/warning assembly,
+/// The single home for the gate sequence (engine compatibility →
+/// binding-resolvability → tool-contract → required-arg resolvability) plus
+/// summary/warning assembly,
 /// so `revise_workflow` and `edit_workflow` cannot drift. `retry_tool` names
 /// the tool in the "fix … and call `<tool>` again" guidance so each caller's
 /// error text points the agent back at the right tool.
@@ -1164,6 +1581,174 @@ pub(crate) fn validate_binding_resolvability(graph: &WorkflowGraph) -> Vec<Strin
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Agent-ref resolvability gate: an `agent` node's `agent_ref` must name a
+// real agent, not the runtime's `RegistryFallback` "unknown agent_ref" case
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// `run_via_registry_fallback` (`tinyflows/caps.rs`) hard-errors mid-run with
+// "unknown agent_ref '…'" the moment an `agent` node's `config.agent_ref`
+// doesn't resolve to either a harness `AgentDefinition` or a custom agent
+// registry entry. Today that is the FIRST time an author finds out — the
+// graph proposes, saves, and even passes every other builder gate, then
+// fails on the very node whose whole job was to run. This gate moves that
+// same check to propose/edit/save time so a broken `agent_ref` is rejected
+// before it's ever persisted, using the exact resolution the runtime uses
+// (`route_for_agent_ref` + `agent_registry::get_agent`) rather than
+// re-implementing it.
+//
+// A plain `agent` node with NO `agent_ref` is unaffected (and must stay
+// that way) — it runs on the default LLM completion (`caps.llm`), never
+// touches `OpenHumanAgentRunner`'s routing at all, so there is nothing to
+// resolve.
+
+/// Rejects an `agent` node whose `config.agent_ref` would hit the runtime's
+/// `RegistryFallback` "unknown agent_ref" hard error mid-run
+/// (`run_via_registry_fallback` in `tinyflows/caps.rs`) — a real ref is one
+/// that resolves via [`crate::openhuman::tinyflows::caps::route_for_agent_ref`]
+/// to a harness [`AgentDefinition`](crate::openhuman::agent::harness::definition::AgentDefinition)
+/// (`AgentRoute::Harness`), OR — when it routes to `AgentRoute::RegistryFallback`
+/// — resolves to an *enabled*
+/// [`AgentRegistryEntry`](crate::openhuman::agent_registry::AgentRegistryEntry)
+/// via [`crate::openhuman::agent_registry::get_agent`]. Both are exactly the
+/// checks `OpenHumanAgentRunner::run_agent` performs at run time, reused here
+/// rather than duplicated so the two planes cannot drift.
+///
+/// A node with no `agent_ref` (or a blank one) is a plain agent node — it
+/// runs on the default LLM completion, never reaches this routing at all —
+/// and is skipped, not rejected. A registry lookup failure (e.g. config
+/// unavailable) fails OPEN (skipped, logged) like the sibling
+/// `validate_connection_refs` gate: this gate must never false-reject a
+/// graph because of a transient local read.
+///
+/// Takes `config` for two reasons. First (CodeRabbit/Codex review on #5114):
+/// one-shot contexts — the generic `openhuman <namespace> <function>` CLI
+/// dispatcher (`default_state()`, no bootstrap), cron, tests — may reach this
+/// gate before the full server bootstrap has called
+/// [`AgentDefinitionRegistry::init_global`]. Without it, `route_for_agent_ref`
+/// sees an empty global registry and routes EVERY ref — including a real
+/// workspace-TOML harness definition — to `RegistryFallback`, which then only
+/// checks the custom agent registry and would reject a valid harness agent
+/// as unknown. So this gate defensively (re-)initialises the harness registry
+/// itself, same idempotent (`OnceLock`) idiom as
+/// `memory_goals::enrich::enrich`, before resolving any ref — the two planes
+/// (author-time gate and `OpenHumanAgentRunner::run_agent` at actual run
+/// time) then always see the same registry state. Second, it threads through
+/// to `agent_registry::get_agent`'s underlying config load.
+///
+/// Also lazily caches the custom agent registry snapshot on the first
+/// `RegistryFallback` node (CodeRabbit nitpick): a graph with several
+/// non-harness `agent_ref`s previously triggered one `config_rpc::
+/// load_config_with_timeout` per node; an all-`Harness`/no-custom-ref graph
+/// still never reads it at all.
+pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
+    use crate::openhuman::agent::harness::AgentDefinitionRegistry;
+    use crate::openhuman::agent_registry::AgentRegistryEntry;
+    use crate::openhuman::tinyflows::caps::{route_for_agent_ref, AgentRoute};
+
+    let mut errors = Vec::new();
+    let mut harness_registry_init_attempted = false;
+    let mut custom_registry: Option<Result<Vec<AgentRegistryEntry>, String>> = None;
+
+    for node in &graph.nodes {
+        if node.kind != NodeKind::Agent {
+            continue;
+        }
+        let Some(agent_ref) = node.config.get("agent_ref").and_then(Value::as_str) else {
+            continue;
+        };
+        let agent_ref = agent_ref.trim();
+        if agent_ref.is_empty() {
+            continue;
+        }
+
+        if !harness_registry_init_attempted && AgentDefinitionRegistry::global().is_none() {
+            harness_registry_init_attempted = true;
+            if let Err(e) = AgentDefinitionRegistry::init_global(&config.workspace_dir) {
+                tracing::debug!(
+                    target: "flows",
+                    error = %e,
+                    "[flows] agent-ref check: harness registry init failed — falling through \
+                     to route resolution with whatever state is available"
+                );
+            }
+        }
+
+        match route_for_agent_ref(agent_ref) {
+            AgentRoute::Harness => {
+                tracing::debug!(
+                    target: "flows",
+                    node = %node.id,
+                    %agent_ref,
+                    "[flows] agent-ref check: resolves to a harness agent definition"
+                );
+            }
+            AgentRoute::RegistryFallback => {
+                if custom_registry.is_none() {
+                    custom_registry =
+                        Some(crate::openhuman::agent_registry::list_agents(true).await);
+                }
+                match custom_registry.as_ref().expect("just populated") {
+                    Ok(entries) => match entries.iter().find(|entry| entry.id == agent_ref) {
+                        Some(entry) if entry.enabled => {
+                            tracing::debug!(
+                                target: "flows",
+                                node = %node.id,
+                                %agent_ref,
+                                "[flows] agent-ref check: resolves to an enabled custom agent \
+                                 registry entry"
+                            );
+                        }
+                        Some(_disabled) => {
+                            tracing::warn!(
+                                target: "flows",
+                                node = %node.id,
+                                %agent_ref,
+                                "[flows] agent-ref check: agent_ref is registered but disabled — \
+                                 rejecting"
+                            );
+                            errors.push(format!(
+                                "Node '{}': `agent_ref` `{agent_ref}` is registered but currently \
+                                 disabled — enable it (or pick another agent_ref via \
+                                 list_agent_profiles) before this node can run.",
+                                node.id
+                            ));
+                        }
+                        None => {
+                            tracing::warn!(
+                                target: "flows",
+                                node = %node.id,
+                                %agent_ref,
+                                "[flows] agent-ref check: unknown agent_ref — neither a harness \
+                                 definition nor a custom agent registry entry — rejecting"
+                            );
+                            errors.push(format!(
+                                "Node '{}': `agent_ref` `{agent_ref}` is not a real agent — it \
+                                 names neither a built-in agent definition nor a custom agent \
+                                 registry entry, and would fail at run time with an \"unknown \
+                                 agent_ref\" error. Call list_agent_profiles to see the real, \
+                                 selectable agent_ref values.",
+                                node.id
+                            ));
+                        }
+                    },
+                    Err(e) => {
+                        tracing::debug!(
+                            target: "flows",
+                            node = %node.id,
+                            %agent_ref,
+                            error = %e,
+                            "[flows] agent-ref check: custom agent registry lookup unavailable — \
+                             skipping (fail-open)"
+                        );
+                    }
+                }
+            }
+        }
+    }
+    errors
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tool-contract enforcement gate (systemic tool-contract fix, Part 2)
 // ─────────────────────────────────────────────────────────────────────────────
 //
@@ -2052,6 +2637,28 @@ pub fn flows_validate(graph_json: Value) -> RpcOutcome<crate::openhuman::flows::
         );
     }
 
+    let error_details = engine_compatibility_errors(&graph);
+    if !error_details.is_empty() {
+        let errors = error_details
+            .iter()
+            .map(|error| error.message.clone())
+            .collect();
+        tracing::debug!(
+            target: "flows",
+            error_count = error_details.len(),
+            "[flows] flows_validate: graph uses an unsupported engine topology"
+        );
+        return RpcOutcome::single_log(
+            FlowValidation {
+                valid: false,
+                errors,
+                error_details,
+                warnings: Vec::new(),
+            },
+            "flow validation failed",
+        );
+    }
+
     let warnings = graph_trigger_warnings(&graph);
     for warning in &warnings {
         tracing::warn!(target: "flows", warning = %warning, "[flows] flows_validate: non-fatal validation warning");
@@ -2195,6 +2802,7 @@ pub async fn flows_create(
     require_approval: bool,
 ) -> Result<RpcOutcome<Flow>, String> {
     let graph = validate_and_migrate_graph(graph_json)?;
+    ensure_config_aware_engine_compatible(config, &graph)?;
 
     // Rule 1: automatic triggers create DISABLED — the user must arm them
     // explicitly.
@@ -2306,6 +2914,21 @@ pub fn load_flow_graph(config: &Config, id: &str) -> Result<Option<WorkflowGraph
         found = graph.is_some(),
         "[flows] load_flow_graph: resolver lookup complete"
     );
+    Ok(graph)
+}
+
+/// Resolver-only saved-graph lookup. Authoring tools use [`load_flow_graph`]
+/// so a legacy draft can still be opened and repaired; execution resolves only
+/// graphs the current engine can run safely.
+pub(crate) fn load_engine_compatible_flow_graph(
+    config: &Config,
+    id: &str,
+) -> Result<Option<WorkflowGraph>, String> {
+    let graph = load_flow_graph(config, id)?;
+    if let Some(graph) = graph.as_ref() {
+        ensure_config_aware_engine_compatible(config, graph)
+            .map_err(|error| format!("workflow_id '{id}' is engine-incompatible: {error}"))?;
+    }
     Ok(graph)
 }
 
@@ -2631,13 +3254,16 @@ pub async fn flows_update(
     let new_require_approval = require_approval.unwrap_or(existing.require_approval);
     let graph_changed = graph_json.is_some();
     let graph = match graph_json {
-        Some(raw) => validate_and_migrate_graph(raw)?,
+        Some(raw) => {
+            let graph = validate_and_migrate_graph(raw)?;
+            ensure_config_aware_engine_compatible(config, &graph)?;
+            graph
+        }
         None => {
             tinyflows::validate::validate(&existing.graph).map_err(|e| e.to_string())?;
             existing.graph.clone()
         }
     };
-
     // B29 Rule 1 analogue: disarm every manual/none → automatic trigger
     // transition, unconditionally — see the doc comment above for why this
     // must NOT gate on the (possibly stale) `existing.enabled` read.
@@ -3104,6 +3730,19 @@ pub async fn flows_run(
     // `store::get_flow` already ran the stored `graph_json` through
     // `tinyflows::migrate::migrate` before deserializing, so `flow.graph` is
     // always on the current schema here.
+    //
+    // Author-time validation cannot protect definitions persisted by an older
+    // OpenHuman build. Re-check immediately before compilation so an upgrade
+    // fails explicitly instead of silently committing incomplete merge data.
+    if let Err(error) = ensure_config_aware_engine_compatible(config, &flow.graph) {
+        tracing::warn!(
+            target: "flows",
+            flow_id = %flow_id,
+            %error,
+            "[flows] flows_run: rejected — unsupported engine topology"
+        );
+        return Err(error);
+    }
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
 
     let config_arc = Arc::new(config.clone());
@@ -3154,7 +3793,15 @@ pub async fn flows_run(
             );
         }
         let observed = current_persisted_steps(config, &thread_id);
-        finish_flow_run_row(config, &thread_id, "failed", &observed, &[], Some(error));
+        finish_flow_run_row(
+            config,
+            &thread_id,
+            flow_id,
+            "failed",
+            &observed,
+            &[],
+            Some(error),
+        );
     };
 
     let origin = workflow_origin(flow_id, flow.require_approval);
@@ -3209,7 +3856,15 @@ pub async fn flows_run(
                 tracing::warn!(target: "flows", flow_id = %flow_id, error = %e, "[flows] flows_run: failed to record cancelled run");
             }
             let observed = current_persisted_steps(config, &thread_id);
-            finish_flow_run_row(config, &thread_id, "cancelled", &observed, &[], Some("run cancelled"));
+            finish_flow_run_row(
+                config,
+                &thread_id,
+                flow_id,
+                "cancelled",
+                &observed,
+                &[],
+                Some("run cancelled"),
+            );
             drop_checkpoint(config, &thread_id).await;
             return Ok(RpcOutcome::single_log(
                 json!({
@@ -3244,6 +3899,7 @@ pub async fn flows_run(
     finish_flow_run_row(
         config,
         &thread_id,
+        flow_id,
         status,
         &settled,
         &outcome.pending_approvals,
@@ -3367,6 +4023,37 @@ pub async fn flows_resume(
         ));
     }
 
+    // A pending checkpoint may have been created before this compatibility
+    // gate shipped, so resume is an independent authoritative boundary.
+    if let Err(error) = ensure_config_aware_engine_compatible(config, &flow.graph) {
+        if let Err(rec_err) = store::record_run(config, flow_id, "failed") {
+            tracing::warn!(
+                target: "flows",
+                flow_id = %flow_id,
+                %thread_id,
+                error = %rec_err,
+                "[flows] flows_resume: failed to record compatibility rejection"
+            );
+        }
+        let observed = current_persisted_steps(config, thread_id);
+        finish_flow_run_row(
+            config,
+            thread_id,
+            flow_id,
+            "failed",
+            &observed,
+            &[],
+            Some(&error),
+        );
+        tracing::warn!(
+            target: "flows",
+            flow_id = %flow_id,
+            %thread_id,
+            %error,
+            "[flows] flows_resume: rejected — unsupported engine topology"
+        );
+        return Err(error);
+    }
     let compiled = tinyflows::compiler::compile(&flow.graph).map_err(|e| e.to_string())?;
     let config_arc = Arc::new(config.clone());
     let caps =
@@ -3437,6 +4124,7 @@ pub async fn flows_resume(
             finish_flow_run_row(
                 config,
                 thread_id,
+                flow_id,
                 "failed",
                 &observed,
                 &[],
@@ -3449,7 +4137,15 @@ pub async fn flows_resume(
             let msg = format!("flow resume timed out after {FLOW_RUN_TIMEOUT_SECS}s");
             let _ = store::record_run(config, flow_id, "failed");
             let observed = current_persisted_steps(config, thread_id);
-            finish_flow_run_row(config, thread_id, "failed", &observed, &[], Some(&msg));
+            finish_flow_run_row(
+                config,
+                thread_id,
+                flow_id,
+                "failed",
+                &observed,
+                &[],
+                Some(&msg),
+            );
             tracing::warn!(target: "flows", flow_id = %flow_id, %thread_id, timeout_secs = FLOW_RUN_TIMEOUT_SECS, "[flows] flows_resume: run timed out");
             return Err(msg);
         }
@@ -3462,6 +4158,7 @@ pub async fn flows_resume(
     finish_flow_run_row(
         config,
         thread_id,
+        flow_id,
         status,
         &settled,
         &outcome.pending_approvals,
@@ -3659,6 +4356,7 @@ pub async fn flows_cancel_run(config: &Config, run_id: &str) -> Result<RpcOutcom
     finish_flow_run_row(
         config,
         run_id,
+        &run.flow_id,
         "cancelled",
         &observed,
         &[],
@@ -3719,6 +4417,7 @@ fn start_flow_run_row(config: &Config, thread_id: &str, flow_id: &str) {
 fn finish_flow_run_row(
     config: &Config,
     thread_id: &str,
+    flow_id: &str,
     status: &str,
     steps: &[FlowRunStep],
     pending_approvals: &[String],
@@ -3736,6 +4435,42 @@ fn finish_flow_run_row(
     ) {
         tracing::warn!(target: "flows", thread_id, status, error = %e, "[flows] failed to persist flow run finish");
     }
+
+    // `status` can be `"pending_approval"` here (see `finalize_terminal_status`)
+    // when the run merely paused at a gate — that isn't a finish. `flows_resume`
+    // later settles under the SAME `thread_id`/`run_id`, and `useFlowRunFinished`
+    // de-dupes delivered events by `${flow_id}:${run_id}` (needed because the
+    // socket bridge re-emits this event under two aliases and must collapse
+    // them into one `onFinish` call). Publishing here for a pause would poison
+    // that dedup cache, so the real completion event after resume would be
+    // dropped as an "alias replay" and the run could stay stale in the runs
+    // list until the 30s poll backstop (Codex review, PR #5115). Gate the
+    // publish to actual terminal statuses; the row itself is still written
+    // above so poll-based fallbacks (list/get RPCs) see the paused state
+    // either way.
+    if status == "pending_approval" {
+        tracing::debug!(
+            target: "flows",
+            flow_id,
+            thread_id,
+            status,
+            "[flows] finish_flow_run_row: run paused for approval — not a finish, skipping FlowRunFinished"
+        );
+        return;
+    }
+
+    tracing::debug!(
+        target: "flows",
+        flow_id,
+        thread_id,
+        status,
+        "[flows] finish_flow_run_row: publishing FlowRunFinished"
+    );
+    crate::core::event_bus::publish_global(crate::core::event_bus::DomainEvent::FlowRunFinished {
+        flow_id: flow_id.to_string(),
+        run_id: thread_id.to_string(),
+        status: status.to_string(),
+    });
 }
 
 /// Reconstructs a lean per-node step list from a settled run's
@@ -4451,11 +5186,22 @@ pub async fn flows_build(
                 request_id = %target.request_id,
                 "[flows] flows_build: streaming copilot turn — WebChat origin + \
                  APPROVAL_CHAT_CONTEXT scoped, live-run tools park for approval instead \
-                 of auto-allowing"
+                 of auto-allowing (shortened to COPILOT_APPROVAL_TTL via \
+                 APPROVAL_COPILOT_STREAM_CONTEXT)"
             );
+            // `APPROVAL_COPILOT_STREAM_CONTEXT` scopes alongside the existing
+            // chat context so any `run_flow`/`resume_flow_run` park raised by
+            // this turn is clamped to the shorter `COPILOT_APPROVAL_TTL`
+            // instead of the gate's full ten-minute default — a stale park on
+            // a copilot pane the user may have already navigated away from
+            // shouldn't idle that long. Main-chat turns never scope this, so
+            // they are unaffected.
             let run = with_origin(
                 origin,
-                APPROVAL_CHAT_CONTEXT.scope(chat_ctx, agent.run_single(&prompt)),
+                APPROVAL_CHAT_CONTEXT.scope(
+                    chat_ctx,
+                    APPROVAL_COPILOT_STREAM_CONTEXT.scope((), agent.run_single(&prompt)),
+                ),
             );
             let run =
                 tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run);

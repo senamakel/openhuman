@@ -912,9 +912,9 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
-version = "1.11.1"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 dependencies = [
  "serde",
 ]
@@ -4603,9 +4603,9 @@ dependencies = [
 
 [[package]]
 name = "mail-parser"
-version = "0.11.3"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8a2420e9ce11c2b0583ca97ddff7ab2398c8a613154e9b72e3bafdbf767f1d7"
+checksum = "47785d444be4d32c1709171c6219a90f667c0ad0ffe68b4b179e794f31f4f9e8"
 dependencies = [
  "hashify",
 ]
@@ -5603,7 +5603,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror 2.0.18",
- "tinyagents 1.9.0",
+ "tinyagents 2.1.0",
  "tinychannels",
  "tinycortex",
  "tinyflows",
@@ -8970,15 +8970,13 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "1.9.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "bytes",
  "chrono",
  "futures",
  "reqwest 0.12.28",
- "rhai",
- "rusqlite",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -8989,13 +8987,15 @@ dependencies = [
 
 [[package]]
 name = "tinyagents"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "async-trait",
  "bytes",
  "chrono",
  "futures",
  "reqwest 0.12.28",
+ "rhai",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -9084,7 +9084,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "tinyagents 1.9.0",
+ "tinyagents 2.1.0",
  "tracing",
 ]
 

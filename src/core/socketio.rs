@@ -1128,6 +1128,31 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                     let _ = io_memory_sync.emit("flow:run_started", &payload);
                     let _ = io_memory_sync.emit("flow_run_started", &payload);
                 }
+                // The terminal companion to `FlowRunStarted` above (issue B35
+                // follow-up). Published once `flows::ops::finish_flow_run_row`
+                // persists the settled `flow_runs` row, so an open Workflows
+                // canvas/sidebar can flip a run to Completed/Failed live
+                // instead of relying on a poll to notice. Best-effort, same
+                // rationale as the other `flow:*` bridges.
+                crate::core::event_bus::DomainEvent::FlowRunFinished {
+                    flow_id,
+                    run_id,
+                    status,
+                } => {
+                    let payload = serde_json::json!({
+                        "flow_id": flow_id,
+                        "run_id": run_id,
+                        "status": status,
+                    });
+                    log::debug!(
+                        "[socketio] broadcast flow_run_finished flow_id={} run_id={} status={}",
+                        flow_id,
+                        run_id,
+                        status
+                    );
+                    let _ = io_memory_sync.emit("flow:run_finished", &payload);
+                    let _ = io_memory_sync.emit("flow_run_finished", &payload);
+                }
                 // A saved flow's definition changed (create/update/delete/
                 // enable). Broadcast so an open Workflows list/canvas refetches
                 // — most importantly, so an agent `save_workflow` becomes

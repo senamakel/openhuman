@@ -666,7 +666,7 @@ const EmbeddingsPanel = ({ embedded = false }: EmbeddingsPanelProps = {}) => {
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-content-secondary mb-1">
-                    {t('settings.embeddings.apiKeyLabel').replace('{provider}', 'API')} (
+                    {t('settings.embeddings.apiKeyLabelGeneric')} (
                     {t('settings.embeddings.optional')})
                   </label>
                   <SettingsTextField

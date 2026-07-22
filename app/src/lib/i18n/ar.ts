@@ -1714,6 +1714,7 @@ const messages: TranslationMap = {
     'سجّل الدخول مرة أخرى لتحديث جلسة OpenHuman، أو انتقل إلى مزوّد تضمينات محلي أو بمفتاحك الخاص.',
   'settings.embeddings.signInAgain': 'تسجيل الدخول مرة أخرى',
   'settings.embeddings.apiKeyLabel': 'مفتاح API لـ {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'مفتاح API',
   'settings.embeddings.placeholderStored': '•••••••• (مخزن)',
   'settings.embeddings.placeholderKey': 'الصق مفتاح API الخاص بك…',
   'settings.embeddings.keyStoredEncrypted': 'يتم تخزين مفتاح API الخاص بك مشفرًا على هذا الجهاز.',
@@ -3433,6 +3434,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'تعذّر حفظ سير العمل. حاول مرة أخرى.',
   'chat.flowProposal.enableError':
     'تم حفظ سير العمل، لكن تعذّر تفعيله. حاول مرة أخرى، أو فعّله من صفحة سير العمل.',
+  'chat.flowProposal.savedConfirmation': 'تم الحفظ',
+  'chat.flowProposal.viewWorkflow': 'عرض سير العمل',
   'chat.flowProposal.stepKind.agent': 'وكيل',
   'chat.flowProposal.stepKind.toolCall': 'إجراء',
   'chat.flowProposal.stepKind.httpRequest': 'طلب ويب',
@@ -7243,6 +7246,13 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'حالة الخصوصية',
   'privacy.status.external': 'خارج الجهاز',
   'privacy.status.local': 'على الجهاز',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'تم الاستيعاب فقط',
+  'sync.pipeline.storedWithoutVectors': 'مخزَّن بدون متجهات. البحث الدلالي غير متاح.',
+  'sync.pipeline.signInToEnable': 'سجّل الدخول للتفعيل',
+  'sync.pipeline.extractionFailed': 'فشل استخراج بنية الذاكرة. قد يكون الويكي غير مكتمل.',
+  'sync.pipeline.treeDegraded': 'شجرة الذاكرة متدهورة. قد يُرجع الاسترجاع نتائج قديمة.',
+  'sync.pipeline.viewHealth': 'عرض حالة الذاكرة',
 };
 
 export default messages;

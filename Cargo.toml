@@ -72,9 +72,9 @@ crate-type = ["rlib"]
 tinyplace = "2.0"
 # tinyflows — host-agnostic workflow engine (typed node graph → validate → compile →
 # run on tinyagents). Powers the "Workflows" feature via the seam in
-# `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 1.7 transitively
-# (same version openhuman already uses — no conflict). Published on crates.io
-# and patched below to the vendored submodule.
+# `src/openhuman/tinyflows/` + the `flows::` domain. Pulls tinyagents 2.1 transitively
+# (same version OpenHuman uses directly, preserving one trait identity). Published
+# on crates.io and patched below to the vendored submodule.
 #
 # `mock` feature: enables `tinyflows::caps::mock::mock_capabilities()` — the
 # deterministic in-memory capability bundle the flows `dry_run_workflow` agent
@@ -104,7 +104,7 @@ tinyjuice = { version = "0.2.1", default-features = false }
 # NOT enabled here — the default-ON `flows` feature turns it on via
 # `tinyagents/repl` (#4797), so a slim build without `flows` sheds `rhai`.
 # The crate itself can never be dropped: 26+ domains consume tinyagents.
-tinyagents = { version = "1.7", features = ["sqlite"] }
+tinyagents = { version = "2.1", features = ["sqlite"] }
 # TinyCortex — Rust core for the memory engine (store/chunks/tree/retrieval/
 # queue/ingest/score + long tail), vendored as a git submodule and patched
 # below to `vendor/tinycortex`. OpenHuman's memory subsystem migrates onto this

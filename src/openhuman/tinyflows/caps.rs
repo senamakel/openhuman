@@ -3291,7 +3291,7 @@ impl WorkflowResolver for OpenHumanWorkflowResolver {
             %workflow_id,
             "[flows] sub_workflow resolver: resolving workflow_id to a saved flow graph"
         );
-        match flows::ops::load_flow_graph(&self.config, workflow_id) {
+        match flows::ops::load_engine_compatible_flow_graph(&self.config, workflow_id) {
             Ok(Some(graph)) => {
                 tracing::debug!(
                     target: "flows",
@@ -4709,6 +4709,63 @@ mod tests {
             EngineError::Capability(msg) => assert!(
                 msg.contains("does-not-exist"),
                 "error should name the missing id: {msg}"
+            ),
+            other => panic!("expected a capability error, got: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn resolver_rejects_an_engine_incompatible_saved_graph() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = Arc::new(resolver_test_config(&tmp));
+        let flow = flows::ops::flows_create(
+            &config,
+            "legacy child".to_string(),
+            serde_json::to_value(trigger_only_graph()).unwrap(),
+            false,
+        )
+        .await
+        .unwrap()
+        .value;
+        let unsafe_graph = json!({
+            "nodes": [
+                { "id": "t", "kind": "trigger", "name": "Trigger" },
+                { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+                { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+                { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+                { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+                { "id": "a", "kind": "output_parser", "name": "A" },
+                { "id": "c", "kind": "output_parser", "name": "C" },
+                { "id": "m", "kind": "merge", "name": "Merge" }
+            ],
+            "edges": [
+                { "from_node": "t", "from_port": "main", "to_node": "outer" },
+                { "from_node": "t", "from_port": "main", "to_node": "c" },
+                { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+                { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+                { "from_node": "inner", "from_port": "true", "to_node": "a" },
+                { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+                { "from_node": "a", "from_port": "main", "to_node": "m" },
+                { "from_node": "c", "from_port": "main", "to_node": "m" }
+            ]
+        });
+        let db = config.workspace_dir.join("flows").join("flows.db");
+        rusqlite::Connection::open(db)
+            .unwrap()
+            .execute(
+                "UPDATE flow_definitions SET graph_json = ?1 WHERE id = ?2",
+                rusqlite::params![unsafe_graph.to_string(), flow.id],
+            )
+            .unwrap();
+
+        let error = OpenHumanWorkflowResolver { config }
+            .resolve(&flow.id)
+            .await
+            .expect_err("resolver must reject an incompatible legacy child");
+        match error {
+            EngineError::Capability(message) => assert!(
+                message.contains("unsupported_nested_conditional_fan_in"),
+                "{message}"
             ),
             other => panic!("expected a capability error, got: {other:?}"),
         }

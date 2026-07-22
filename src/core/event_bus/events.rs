@@ -478,6 +478,21 @@ pub enum DomainEvent {
         run_id: String,
     },
 
+    /// The terminal companion to [`FlowRunStarted`] (issue B35 follow-up, runs
+    /// rail live finish). Published from `flows::ops::finish_flow_run_row`
+    /// right after `store::finish_flow_run` persists the terminal
+    /// `flow_runs` row, so the UI can flip a run to Completed/Failed live
+    /// instead of relying on a poll to notice the settled row.
+    FlowRunFinished {
+        /// The affected flow's id.
+        flow_id: String,
+        /// The run's stable identifier (== the tinyflows checkpointer thread id).
+        run_id: String,
+        /// Terminal status: `"completed"` | `"failed"` |
+        /// `"completed_with_warnings"` | `"cancelled"`.
+        status: String,
+    },
+
     /// A saved flow's definition changed (created / updated / deleted /
     /// enable-toggled). Bridged to a `flow:changed` socket event so an open
     /// Workflows list or canvas refetches instead of silently showing stale
@@ -1413,6 +1428,7 @@ impl DomainEvent {
             | Self::FlowScheduleTick { .. }
             | Self::FlowRunProgress { .. }
             | Self::FlowRunStarted { .. }
+            | Self::FlowRunFinished { .. }
             | Self::FlowChanged { .. } => "cron",
 
             Self::WorkflowLoaded { .. }
@@ -1578,6 +1594,7 @@ impl DomainEvent {
             Self::FlowScheduleTick { .. } => "FlowScheduleTick",
             Self::FlowRunProgress { .. } => "FlowRunProgress",
             Self::FlowRunStarted { .. } => "FlowRunStarted",
+            Self::FlowRunFinished { .. } => "FlowRunFinished",
             Self::FlowChanged { .. } => "FlowChanged",
             Self::WorkflowLoaded { .. } => "WorkflowLoaded",
             Self::WorkflowStopped { .. } => "WorkflowStopped",

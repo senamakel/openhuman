@@ -1790,6 +1790,7 @@ const messages: TranslationMap = {
     'Vuelve a iniciar sesión para actualizar tu sesión de OpenHuman, o cambia a un proveedor de embeddings local o con tu propia clave.',
   'settings.embeddings.signInAgain': 'Volver a iniciar sesión',
   'settings.embeddings.apiKeyLabel': 'Clave API de {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'Clave de API',
   'settings.embeddings.placeholderStored': '•••••••• (almacenado)',
   'settings.embeddings.placeholderKey': 'Pega tu clave API…',
   'settings.embeddings.keyStoredEncrypted': 'Tu clave API se almacena cifrada en este dispositivo.',
@@ -3576,6 +3577,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'No se pudo guardar el flujo de trabajo. Inténtalo de nuevo.',
   'chat.flowProposal.enableError':
     'Flujo de trabajo guardado, pero no se pudo activar. Inténtalo de nuevo o actívalo desde la página de Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Guardado',
+  'chat.flowProposal.viewWorkflow': 'Ver flujo de trabajo',
   'chat.flowProposal.stepKind.agent': 'Agente',
   'chat.flowProposal.stepKind.toolCall': 'Acción',
   'chat.flowProposal.stepKind.httpRequest': 'Solicitud web',
@@ -7567,6 +7570,16 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Estado de privacidad',
   'privacy.status.external': 'Fuera del dispositivo',
   'privacy.status.local': 'En el dispositivo',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Solo ingerido',
+  'sync.pipeline.storedWithoutVectors':
+    'Almacenado sin vectores. La búsqueda semántica no está disponible.',
+  'sync.pipeline.signInToEnable': 'Inicia sesión para activar',
+  'sync.pipeline.extractionFailed':
+    'Error al extraer la estructura de memoria. Es posible que el wiki esté incompleto.',
+  'sync.pipeline.treeDegraded':
+    'Árbol de memoria degradado. La recuperación puede devolver resultados obsoletos.',
+  'sync.pipeline.viewHealth': 'Ver estado de la memoria',
 };
 
 export default messages;

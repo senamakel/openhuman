@@ -2159,18 +2159,224 @@ async fn edit_workflow_accepts_node_id_aliases_end_to_end() {
 
 #[tokio::test]
 async fn edit_workflow_rejects_a_result_that_is_structurally_invalid() {
+    use crate::openhuman::flows::DraftOrigin;
     let tmp = TempDir::new().unwrap();
-    let tool = EditWorkflowTool::new(test_config(&tmp));
+    let config = test_config(&tmp);
+    let draft = ops::flows_draft_create(
+        &config,
+        None,
+        "Structural repair".to_string(),
+        valid_graph(),
+        DraftOrigin::Chat,
+    )
+    .unwrap()
+    .value;
+    let tool = EditWorkflowTool::new(config.clone());
     // Removing the only trigger leaves the graph structurally invalid.
     let result = tool
         .execute(json!({
-            "graph": valid_graph(),
+            "draft_id": draft.id,
             "ops": [ { "op": "remove_node", "id": "t" } ]
         }))
         .await
         .unwrap();
     assert!(result.is_error);
     assert!(result.output().contains("trigger"), "{}", result.output());
+    let reloaded = ops::flows_draft_get(&config, &draft.id).unwrap().value;
+    assert!(
+        reloaded.graph["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|node| node["id"] != "t"),
+        "structurally invalid applied edits remain available for the repair turn"
+    );
+}
+
+#[tokio::test]
+async fn edit_workflow_rejects_an_engine_incompatible_result() {
+    use crate::openhuman::flows::DraftOrigin;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let safe_graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "t", "from_port": "main", "to_node": "outer" },
+            { "from_node": "t", "from_port": "main", "to_node": "c" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+            { "from_node": "a", "from_port": "main", "to_node": "m" }
+        ]
+    });
+    let draft = ops::flows_draft_create(
+        &config,
+        None,
+        "Safe draft".to_string(),
+        safe_graph.clone(),
+        DraftOrigin::Chat,
+    )
+    .unwrap()
+    .value;
+    let tool = EditWorkflowTool::new(config.clone());
+    let result = tool
+        .execute(json!({
+            "draft_id": draft.id,
+            "ops": [
+                { "op": "add_edge", "edge": { "from_node": "c", "from_port": "main", "to_node": "m" } }
+            ]
+        }))
+        .await
+        .unwrap();
+
+    assert!(result.is_error, "{}", result.output());
+    assert!(
+        result
+            .output()
+            .contains("unsupported_nested_conditional_fan_in"),
+        "{}",
+        result.output()
+    );
+    let reloaded = ops::flows_draft_get(&config, &draft.id).unwrap().value;
+    assert_eq!(
+        reloaded.graph, safe_graph,
+        "a rejected edit must not advance the durable draft"
+    );
+}
+
+#[tokio::test]
+async fn edit_workflow_does_not_persist_an_incompatible_saved_child_reference() {
+    use crate::openhuman::flows::DraftOrigin;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let legacy_child = json!({
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "outer", "kind": "condition", "name": "Outer", "config": { "field": "outer" } },
+            { "id": "inner", "kind": "condition", "name": "Inner", "config": { "field": "inner" } },
+            { "id": "outer_else", "kind": "output_parser", "name": "Outer else" },
+            { "id": "inner_else", "kind": "output_parser", "name": "Inner else" },
+            { "id": "a", "kind": "output_parser", "name": "A" },
+            { "id": "c", "kind": "output_parser", "name": "C" },
+            { "id": "m", "kind": "merge", "name": "Merge" }
+        ],
+        "edges": [
+            { "from_node": "start", "to_node": "outer" },
+            { "from_node": "start", "to_node": "c" },
+            { "from_node": "outer", "from_port": "true", "to_node": "inner" },
+            { "from_node": "outer", "from_port": "false", "to_node": "outer_else" },
+            { "from_node": "inner", "from_port": "true", "to_node": "a" },
+            { "from_node": "inner", "from_port": "false", "to_node": "inner_else" },
+            { "from_node": "a", "to_node": "m" },
+            { "from_node": "c", "to_node": "m" }
+        ]
+    });
+    let child_graph = ops::migrate_and_deserialize_graph(legacy_child).unwrap();
+    tinyflows::validate::validate(&child_graph).unwrap();
+    let child = crate::openhuman::flows::store::create_flow(
+        &config,
+        "Legacy unsafe child".to_string(),
+        child_graph,
+        false,
+        false,
+    )
+    .unwrap();
+    let safe_graph = json!({
+        "nodes": [
+            { "id": "t", "kind": "trigger", "name": "Trigger" },
+            {
+                "id": "child",
+                "kind": "sub_workflow",
+                "name": "Child",
+                "config": { "workflow_id": "=inputs.workflow_id" }
+            }
+        ],
+        "edges": [{ "from_node": "t", "to_node": "child" }]
+    });
+    let draft = ops::flows_draft_create(
+        &config,
+        None,
+        "Safe draft".to_string(),
+        safe_graph.clone(),
+        DraftOrigin::Chat,
+    )
+    .unwrap()
+    .value;
+
+    let result = EditWorkflowTool::new(config.clone())
+        .execute(json!({
+            "draft_id": draft.id,
+            "ops": [{
+                "op": "update_node_config",
+                "id": "child",
+                "config": { "workflow_id": child.id }
+            }]
+        }))
+        .await
+        .unwrap();
+
+    assert!(result.is_error, "{}", result.output());
+    assert!(
+        result
+            .output()
+            .contains("unsupported_nested_conditional_fan_in"),
+        "{}",
+        result.output()
+    );
+    let reloaded = ops::flows_draft_get(&config, &draft.id).unwrap().value;
+    assert_eq!(
+        reloaded.graph, safe_graph,
+        "a rejected saved-child edit must not advance the durable draft"
+    );
+}
+
+#[tokio::test]
+async fn edit_workflow_preserves_non_engine_gate_edits_in_the_draft() {
+    use crate::openhuman::flows::DraftOrigin;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let draft = ops::flows_draft_create(
+        &config,
+        None,
+        "Binding follow-up".to_string(),
+        unresolvable_binding_graph(),
+        DraftOrigin::Chat,
+    )
+    .unwrap()
+    .value;
+    let tool = EditWorkflowTool::new(config.clone());
+    let result = tool
+        .execute(json!({
+            "draft_id": draft.id,
+            "ops": [
+                { "op": "set_node_name", "id": "summarize", "name": "Renamed before binding fix" }
+            ]
+        }))
+        .await
+        .unwrap();
+
+    assert!(
+        result.is_error,
+        "binding gate should still reject the proposal"
+    );
+    let reloaded = ops::flows_draft_get(&config, &draft.id).unwrap().value;
+    let renamed = reloaded.graph["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == "summarize")
+        .unwrap();
+    assert_eq!(renamed["name"], "Renamed before binding fix");
 }
 
 #[tokio::test]

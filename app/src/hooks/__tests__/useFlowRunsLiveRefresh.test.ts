@@ -80,10 +80,10 @@ describe('useFlowRunsLiveRefresh', () => {
     expect(on).toHaveBeenCalledWith('flow:run_progress', expect.any(Function));
     expect(on).toHaveBeenCalledWith('flow_run_progress', expect.any(Function));
 
-    vi.advanceTimersByTime(5_000);
+    vi.advanceTimersByTime(30_000);
     expect(refetch).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(5_000);
+    vi.advanceTimersByTime(30_000);
     expect(refetch).toHaveBeenCalledTimes(2);
   });
 
@@ -92,7 +92,7 @@ describe('useFlowRunsLiveRefresh', () => {
     renderHook(() => useFlowRunsLiveRefresh([makeRun({ status: 'running' })], refetch));
 
     // Keep every emit + the final debounce settle comfortably inside the
-    // first 5s poll tick so the poll fallback doesn't also fire here — that
+    // first 30s poll tick so the poll fallback doesn't also fire here — that
     // interplay is covered separately by the "poll fallback" test above.
     emit('flow:run_progress', { run_id: 'run-1', node_id: 'a', status: 'success' });
     vi.advanceTimersByTime(500);

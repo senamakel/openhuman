@@ -142,9 +142,9 @@ describe('WorkflowRunsPage', () => {
       expect(listAllFlowRuns).toHaveBeenCalledTimes(1);
       expect(listFlows).toHaveBeenCalledTimes(1);
 
-      // The 5s poll fallback fires `refetchRuns` while the one run is still 'running'.
+      // The 30s poll backstop fires `refetchRuns` while the one run is still 'running'.
       await act(async () => {
-        vi.advanceTimersByTime(5_000);
+        vi.advanceTimersByTime(30_000);
         await Promise.resolve();
       });
 
@@ -169,7 +169,7 @@ describe('WorkflowRunsPage', () => {
       expect(screen.getByTestId('workflow-runs-list')).toBeInTheDocument();
 
       await act(async () => {
-        vi.advanceTimersByTime(5_000);
+        vi.advanceTimersByTime(30_000);
         await Promise.resolve();
       });
 

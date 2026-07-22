@@ -28,6 +28,7 @@ import debug from 'debug';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { useFlowRunFinished } from '../../hooks/useFlowRunFinished';
 import { useFlowRunsLiveRefresh } from '../../hooks/useFlowRunsLiveRefresh';
 import { useFlowRunStarted } from '../../hooks/useFlowRunStarted';
 import {
@@ -167,6 +168,10 @@ export function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Pr
   // can't reach, so the very first run shows up as "Running" instantly
   // instead of waiting for a manual refresh (issue B35).
   useFlowRunStarted(() => void refetch(), flowId);
+  // Terminal companion to the above (issue B35 follow-up) — flips a run to
+  // Completed/Failed the instant it settles instead of waiting on
+  // `useFlowRunsLiveRefresh`'s debounced/backstop refetch to notice.
+  useFlowRunFinished(() => void refetch(), flowId);
   const pendingRunIds = useRunsPendingApprovalSet(runs);
 
   useEscapeKey(

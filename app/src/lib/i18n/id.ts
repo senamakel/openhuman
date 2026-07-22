@@ -1765,6 +1765,7 @@ const messages: TranslationMap = {
     'Masuk lagi untuk menyegarkan sesi OpenHuman Anda, atau beralih ke penyedia embedding lokal atau bawa-kunci-sendiri.',
   'settings.embeddings.signInAgain': 'Masuk lagi',
   'settings.embeddings.apiKeyLabel': 'Kunci API {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'Kunci API',
   'settings.embeddings.placeholderStored': '•••••••• (disimpan)',
   'settings.embeddings.placeholderKey': 'Tempel kunci API Anda…',
   'settings.embeddings.keyStoredEncrypted': 'Kunci API Anda disimpan terenkripsi di perangkat ini.',
@@ -3528,6 +3529,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'Alur kerja tidak dapat disimpan. Silakan coba lagi.',
   'chat.flowProposal.enableError':
     'Alur kerja disimpan, tetapi tidak dapat diaktifkan. Coba lagi, atau aktifkan dari halaman Workflows.',
+  'chat.flowProposal.savedConfirmation': 'Tersimpan',
+  'chat.flowProposal.viewWorkflow': 'Lihat alur kerja',
   'chat.flowProposal.stepKind.agent': 'Agen',
   'chat.flowProposal.stepKind.toolCall': 'Tindakan',
   'chat.flowProposal.stepKind.httpRequest': 'Permintaan web',
@@ -7447,6 +7450,14 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'Status privasi',
   'privacy.status.external': 'Di luar perangkat',
   'privacy.status.local': 'Di perangkat',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Hanya diserap',
+  'sync.pipeline.storedWithoutVectors': 'Disimpan tanpa vektor. Pencarian semantik tidak tersedia.',
+  'sync.pipeline.signInToEnable': 'Masuk untuk mengaktifkan',
+  'sync.pipeline.extractionFailed': 'Ekstraksi struktur memori gagal. Wiki mungkin tidak lengkap.',
+  'sync.pipeline.treeDegraded':
+    'Pohon memori menurun. Pengambilan mungkin mengembalikan hasil usang.',
+  'sync.pipeline.viewHealth': 'Lihat kesehatan memori',
 };
 
 export default messages;

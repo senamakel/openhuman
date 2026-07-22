@@ -1748,6 +1748,7 @@ const messages: TranslationMap = {
     'अपने OpenHuman सत्र को रीफ़्रेश करने के लिए फिर से साइन इन करें, या स्थानीय/अपनी-कुंजी वाले एम्बेडिंग प्रदाता पर स्विच करें।',
   'settings.embeddings.signInAgain': 'फिर से साइन इन करें',
   'settings.embeddings.apiKeyLabel': '{provider} API कुंजी',
+  'settings.embeddings.apiKeyLabelGeneric': 'API कुंजी',
   'settings.embeddings.placeholderStored': '•••••••• (संग्रहीत)',
   'settings.embeddings.placeholderKey': 'अपनी API कुंजी पेस्ट करें…',
   'settings.embeddings.keyStoredEncrypted':
@@ -3511,6 +3512,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'वर्कफ़्लो सहेजा नहीं जा सका। कृपया फिर से प्रयास करें।',
   'chat.flowProposal.enableError':
     'वर्कफ़्लो सहेजा गया, लेकिन सक्षम नहीं किया जा सका। फिर से प्रयास करें, या Workflows पेज से इसे सक्षम करें।',
+  'chat.flowProposal.savedConfirmation': 'सहेजा गया',
+  'chat.flowProposal.viewWorkflow': 'वर्कफ़्लो देखें',
   'chat.flowProposal.stepKind.agent': 'एजेंट',
   'chat.flowProposal.stepKind.toolCall': 'कार्रवाई',
   'chat.flowProposal.stepKind.httpRequest': 'वेब अनुरोध',
@@ -7409,6 +7412,13 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'गोपनीयता स्थिति',
   'privacy.status.external': 'डिवाइस के बाहर',
   'privacy.status.local': 'डिवाइस पर',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'केवल अंतर्ग्रहीत',
+  'sync.pipeline.storedWithoutVectors': 'वेक्टर के बिना संग्रहीत। सिमेंटिक खोज अनुपलब्ध।',
+  'sync.pipeline.signInToEnable': 'सक्षम करने के लिए साइन इन करें',
+  'sync.pipeline.extractionFailed': 'मेमोरी संरचना निष्कर्षण विफल रहा। विकी अपूर्ण हो सकता है।',
+  'sync.pipeline.treeDegraded': 'मेमोरी ट्री अवक्रमित। पुनर्प्राप्ति पुराने परिणाम दे सकती है।',
+  'sync.pipeline.viewHealth': 'मेमोरी स्वास्थ्य देखें',
 };
 
 export default messages;

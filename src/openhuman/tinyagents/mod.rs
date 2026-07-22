@@ -1592,8 +1592,9 @@ impl TurnModelSource {
             let native_tools = profile.tool_calling;
             let supports_vision = profile.modalities.image_in;
             let context_window = context_window.or(profile.max_input_tokens);
-            let primary: TurnChatModel =
-                Arc::new(ProfileOverrideModel::new(direct.clone(), profile));
+            let primary: TurnChatModel = Arc::new(
+                ProfileOverrideModel::new(direct.clone(), profile).with_request_model(model),
+            );
             return Ok(TurnModels {
                 primary,
                 routes: Vec::new(),

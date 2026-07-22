@@ -455,11 +455,28 @@ pub(super) struct MaxTokensModel {
 pub(super) struct ProfileOverrideModel {
     inner: Arc<dyn ChatModel<()>>,
     profile: ModelProfile,
+    request_model: Option<String>,
 }
 
 impl ProfileOverrideModel {
     pub(super) fn new(inner: Arc<dyn ChatModel<()>>, profile: ModelProfile) -> Self {
-        Self { inner, profile }
+        Self {
+            inner,
+            profile,
+            request_model: None,
+        }
+    }
+
+    pub(super) fn with_request_model(mut self, model: impl Into<String>) -> Self {
+        self.request_model = Some(model.into());
+        self
+    }
+
+    fn pin_request_model(&self, mut request: ModelRequest) -> ModelRequest {
+        if request.model.is_none() {
+            request.model.clone_from(&self.request_model);
+        }
+        request
     }
 }
 
@@ -470,11 +487,15 @@ impl ChatModel<()> for ProfileOverrideModel {
     }
 
     async fn invoke(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelResponse> {
-        self.inner.invoke(state, request).await
+        self.inner
+            .invoke(state, self.pin_request_model(request))
+            .await
     }
 
     async fn stream(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
-        self.inner.stream(state, request).await
+        self.inner
+            .stream(state, self.pin_request_model(request))
+            .await
     }
 }
 

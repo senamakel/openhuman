@@ -179,7 +179,7 @@ host files (`schemas.rs`, `presets.rs`, `model_ids.rs`, `paths.rs`, `parse.rs`,
 | `agent/` | 144 / 66.9k | **Mostly stays** (product brain). 37 files already crate-backed. One big deletion: the legacy `run_turn_engine` parallel loop (`agent/harness/session/turn/core.rs`, `agent/harness/subagent_runner/ops/graph.rs`) duplicating `harness::agent_loop` — WP-3. Heaviest coupling in the tree (config=31, memory=20, event_bus=13 files). |
 | `agent_orchestration/` | 64 / 27.9k | Engine already on `tinyagents::graph` (workflow runs, teams, delegation, `map_reduce`); what remains is the product layer (ledgers, RPC). Residual upstream item: detached-subagent `TaskStore` lifecycle — WP-5. 25 files crate-backed. |
 | `routing/` | 8 / 2.7k | **Zero crate refs — fully parallel implementation** of what `registry::router` + harness fallback now do. `policy.rs` (463), `quality.rs` (445), `factory.rs` migrate/upstream; `provider.rs`, `health.rs`, `telemetry.rs` (local-model health) stay host — WP-2. |
-| `model_council/` | 4 / 1.1k | `council.rs` (573) + `graph.rs` (128, already graph-shaped) are a generic N-model ensemble → upstream as a crate graph pattern; `schemas.rs` (392, RPC) stays — WP-2. |
+| `model_council/` | 4 / 1.1k | **ADOPTED / HOST-OWNED.** `graph.rs` already delegates ordered bounded fan-out to TinyAgents `parallel::map_reduce`; the remaining council code is product behavior: read-only juror agents, configured-model sentinel, five-seat cost cap, chair prompt, partial-failure UX, progressive desktop calls, and RPC types. No duplicate engine remains — WP-2 audit complete. |
 | `council_registry/` | 4 / 0.6k | Definitions-as-data + RPC. Stays. |
 | `tool_timeout/` | 1 / 316 | Process-global timeout with env/config precedence; crate analogue `harness::tool::ToolTimeout` exists. Collapse to a host shim that pushes config into the crate — WP-2. |
 | `tool_status/` | 3 / 0.7k | Pure failure-classification data+logic, parallel to crate tool-outcome handling. Upstream the generic classification; keep host taxonomy mapping — WP-2 (candidate, low priority). |
@@ -336,17 +336,24 @@ Independent, individually shippable slices:
 2. **`tool_timeout/` → crate `ToolTimeout`.** Host keeps only the
    config/env push (`OPENHUMAN_TOOL_TIMEOUT_SECS` precedence) into the crate
    value. 316 LOC → ~50.
-3. **`model_council/` ensemble → crate graph pattern.** `council.rs` +
-   `graph.rs` become a crate-side parallel-fanout + chair-synthesis graph
-   (natural fit for `map_reduce` + post-WP-0 `BarrierRelief`); host keeps
-   `schemas.rs` RPC + `council_registry/` definitions.
+3. **`model_council/` — ADOPTED / HOST-OWNED (audit complete).** Its generic
+   concurrency is already crate-owned: `graph.rs` calls
+   `tinyagents::graph::parallel::map_reduce` with bounded concurrency,
+   collect-all failure policy, and ordered outcomes. The remaining orchestration
+   is deliberately product-specific: jurors run as OpenHuman read-only agents,
+   the five-member ceiling bounds billing, `default` resolves through user
+   config, chair instructions define the product UX, partial failures stay
+   visible in-band, and the desktop uses progressive member/synthesis RPCs.
+   Retain the four-file host domain; an additional crate "council" wrapper would
+   merely rename `map_reduce` while importing product policy downstream.
 4. **`tool_status/` classification (low priority):** upstream the generic
    failure-classification table into crate tool-outcome handling; host keeps
    the RPC-facing taxonomy mapping. Skip if the crate's outcome model diverges
    — reclassify HOST-OWNED in the ledger instead.
 
 **Exit:** `routing/policy|quality|factory` and `tool_timeout` deleted or
-shimmed; ledger rows added per slice (DRIFT→PR or HOST-OWNED).
+shimmed; ledger rows added per slice (DRIFT→PR or HOST-OWNED). The council slice
+is terminal: TinyAgents owns fan-out mechanics and OpenHuman owns council policy.
 
 ### WP-3 — Retire the legacy turn engine
 
@@ -463,7 +470,7 @@ prematurely.**
 | `routing/{provider,health,telemetry}.rs` | STAYS (host signals) |
 | `tool_timeout/` | COLLAPSE to shim over crate `ToolTimeout` (WP-2) |
 | `tool_status/` classification | UPSTREAM candidate (WP-2, low priority) |
-| `model_council/{council,graph}.rs` | UPSTREAM as crate graph pattern (WP-2) |
+| `model_council/` | ADOPTED / HOST-OWNED — already uses crate `map_reduce`; remaining juror/chair/RPC behavior is product policy |
 | `tools/` trait mechanics | DESIGN-GATED (WP-4) |
 | `tools/impl/*`, all `schemas.rs` RPC controllers | STAYS |
 | `agent_orchestration/` detached-run mechanics | UPSTREAM to `TaskStore` (WP-5) |

@@ -17,7 +17,7 @@ also name its upstream PR before the host copy is removed.
 | WP-1 | `inference/provider/crate_provider.rs` | No legacy `Provider` consumer needs the reverse adapter | PENDING | `rg 'impl Provider' src` empty |
 | WP-2 | `routing/{policy,quality,factory}.rs` | Generic decisions use crate `ModelRouter`; host health signals remain | PENDING | Routing parity tests host/crate |
 | WP-2 | `tool_timeout` implementation | Crate `ToolTimeout` owns timeout mechanics; host only projects config/env | PENDING | Timeout precedence tests |
-| WP-2 | `model_council/{council,graph}.rs` | Generic ensemble graph released in tinyagents | PENDING | Upstream PR + offline graph tests |
+| WP-2 | `model_council/` | Crate owns generic fan-out; host retains product council policy | **ADOPTED / HOST-OWNED** | `graph.rs` already uses bounded ordered `parallel::map_reduce`. Remaining code owns read-only jurors, billing cap, configured model resolution, chair UX, partial failures, and progressive RPCs. |
 | WP-3 | legacy `run_turn_engine` and graph escape hatches | All regression assertions exercise the crate turn path | PENDING | `rg OPENHUMAN_AGENT_GRAPH_` history-only |
 | WP-4 | host tool trait/adapter artifacts selected by design | Approved tool-model decision preserves security and ungated result types | DESIGN GATE | Successor design document |
 | WP-5 | generic seam middlewares | Equivalent crate middleware released and adopted | PENDING | Per-middleware drift rows + parity tests |

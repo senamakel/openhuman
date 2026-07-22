@@ -11,14 +11,14 @@ subconscious pass, a memory ingest, a bare embed) that each have their own
 startup cost, steady-state footprint, and growth curve.
 
 This document describes the benchmark environment built to measure that: a
-pinned `library-profile` binary with seven scenarios, three driver scripts
+pinned `library-profile` binary with eight scenarios, four driver scripts
 under `scripts/profile/`, and the comparison point the team cares about
 (ZeroClaw). It builds on the manual investigation in
 [`docs/resource-profiling-session-2026-07-21.md`](resource-profiling-session-2026-07-21.md);
 read that document for the deep memory/CPU attribution work. This document is
 about running repeatable benchmarks, not re-deriving those findings.
 
-## The seven scenarios
+## The eight scenarios
 
 All scenarios run in `target/release/library-profile <scenario>`, replace
 network inference with a deterministic provider (`rss-bench` feature), and
@@ -34,10 +34,11 @@ stderr). Each models a distinct embedding use case:
 | `workflow` | A saved automation run (`flows_create` + `flows_run`), representing the flows/automation embedding path rather than ad hoc chat. |
 | `subconscious` | A background subconscious turn (the always-on reflective pass), distinct from an interactive chat turn. |
 | `cold-phases` | Bootstrap attribution: per-phase checkpoints (config load, registry init, agent build, memory construction, first turn) so cold-start cost can be attributed to a phase instead of one lump sum. |
+| `fleet` | N concurrent live agents with latency-realistic mock inference — the "100-1000 agents in a 2 GB / 2 vCPU server" question. See [below](#the-2-gb--2-vcpu-server-budget). |
 
 ## How to run
 
-Three scripts under `scripts/profile/` (each has `-h`/`--help`):
+Four scripts under `scripts/profile/` (each has `-h`/`--help`):
 
 - **`library-bench.sh`** — the primary RSS/duration benchmark. Builds the
   binaries, runs each scenario N fresh-process repeats (default 5), and
@@ -66,6 +67,15 @@ Three scripts under `scripts/profile/` (each has `-h`/`--help`):
   ./scripts/profile/library-heap.sh memory-ingest
   # load target/profile/rust-library/dhat-memory-ingest.json at
   # https://nnethercote.github.io/dh_view/dh_view.html
+  ```
+
+- **`library-fleet.sh`** — sweeps the `fleet` scenario across a list of agent
+  counts and gates the result against the 2 GB / 2 vCPU server budget (see
+  below).
+
+  ```bash
+  ./scripts/profile/library-fleet.sh --agents 100 --latency-ms 200
+  ./scripts/profile/library-fleet.sh --agents "50,100,500" --target 1000 --budget-mib 2048
   ```
 
 ### Default vs slim builds
@@ -134,6 +144,48 @@ graph is leaner; it is not evidence of feature parity, and a wider gap is not
 automatically a regression if it comes from carrying more capability. Every
 `library-bench.sh` summary includes a labeled comparison row/note for exactly
 this reason: visible, but explicitly called out as external.
+
+## The 2 GB / 2 vCPU server budget
+
+"opencompany" wants a single server to host 100-1000 live agents inside a 2 GB
+RAM / 2 vCPU box. That is a budget question, not a per-scenario RSS question:
+2048 MiB / 1000 agents is roughly 2 MiB per agent all-in, but the fixed
+per-process base (allocator high water, code paging, registries, detectors —
+the same ~30 MiB every scenario above pays once) amortizes across however many
+agents share the process. What actually determines whether 1000 agents fit is
+the **marginal** cost per additional agent once that base is paid, not the
+per-agent average. `library-fleet.sh` runs the `fleet` scenario (N concurrent
+live agents, latency-realistic mock inference so idle time looks like real
+network waits rather than a busy loop) across a sweep of N and reports that
+marginal cost directly (`marginal_rss_kib_per_agent`), alongside idle CPU over
+a parked 10s window, thread count, and open FD count — all of which should
+stay roughly flat as N grows if per-agent state is cheap and idle agents cost
+~zero CPU.
+
+Working targets: marginal cost ≤ 1.5 MiB/agent, threads and FDs flat (not
+linear) in N, and idle CPU low regardless of N — an agent that isn't mid-turn
+should not be spending cycles. `OPENHUMAN_PROFILE_WORKER_THREADS=2` pins the
+scenario's tokio runtime to 2 worker threads to simulate the 2 vCPU box rather
+than scaling with the host's actual core count. The `budget` block in each
+run's JSON (`target_agents`, `ram_budget_mib`, `projected_rss_mib_at_target`,
+`fits`) projects the swept marginal cost out to the real target (default 1000
+agents / 2048 MiB); `library-fleet.sh` aggregates medians per N into
+`summary.md` and exits nonzero if any swept N projects `fits: false`, making
+it usable as a CI-style regression gate (`--no-gate` to disable).
+
+**Caveats, stated plainly:** these numbers are gathered on macOS, which has no
+cgroup memory limit to enforce or observe locally — the budget check is a
+projection from measured marginal cost, not a live "did it actually get
+OOM-killed at N agents" test. macOS also lacks Linux's `/proc/<pid>/smaps_rollup`,
+which would give true PSS (proportional shared memory) instead of RSS; RSS
+overcounts shared pages (executable text, shared library mappings) in a way
+that matters more as agent count grows and more of the process footprint is
+genuinely shared. Treat the macOS numbers as an approximation of the target
+Linux server, not a substitute for it. The JSON schema already has a Linux
+path — `proc_metrics` reads `/proc/<pid>/status` and `/proc/<pid>/stat` on
+Linux — so true validation should eventually mean running the same
+`library-profile fleet` binary on a cgroup-limited Linux box (matching the 2
+vCPU / 2 GB target) rather than trusting the macOS projection alone.
 
 ## Profiling escalation path
 

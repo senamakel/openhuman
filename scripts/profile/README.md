@@ -6,6 +6,10 @@ binaries (see `src/bin/library_profile/main.rs`). Full write-up:
 [`docs/library-benchmarking.md`](../../docs/library-benchmarking.md). Prior
 findings: [`docs/resource-profiling-session-2026-07-21.md`](../../docs/resource-profiling-session-2026-07-21.md).
 
+Four driver scripts: `library-bench.sh` (per-scenario RSS/duration),
+`library-cpu.sh` (samply), `library-heap.sh` (dhat), and `library-fleet.sh`
+(fleet-scale sweep + budget gate).
+
 ## Scripts
 
 ### `library-bench.sh` — RSS/duration benchmark
@@ -44,6 +48,24 @@ for allocation-site/retained-bytes attribution, not for RSS comparisons.
 # open https://nnethercote.github.io/dh_view/dh_view.html and load
 # target/profile/rust-library/dhat-memory-ingest.json
 ```
+
+### `library-fleet.sh` — fleet sweep + 2 GB / 2 vCPU budget gate
+
+Builds `library-profile` + `rss-bench`, sweeps the `fleet` scenario (N
+concurrent live agents with latency-realistic mock inference) across a list
+of agent counts, aggregates medians per N, and gates on whether the
+projected footprint at the target agent count fits the RAM budget.
+
+```bash
+./scripts/profile/library-fleet.sh --agents 100 --latency-ms 200
+./scripts/profile/library-fleet.sh --agents "50,100,500" --target 1000 --budget-mib 2048
+```
+
+Results land in `target/profile/rust-library/fleet-<timestamp>/` (or
+`--out DIR`). Exits nonzero if any swept N reports `fits: false` (use
+`--no-gate` to report only). See
+[`docs/library-benchmarking.md`](../../docs/library-benchmarking.md#the-2-gb--2-vcpu-server-budget)
+for the budget math.
 
 ## Quick start
 

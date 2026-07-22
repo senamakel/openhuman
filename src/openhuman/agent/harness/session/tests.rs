@@ -906,7 +906,7 @@ async fn turn_with_native_dispatcher_persists_fallback_tool_calls() {
 /// chain. `Inherit` keeps `parent.provider`, which is exactly the
 /// plumbing this test asserts. Provider *routing* for Hint sub-agents
 /// is covered independently by
-/// `subagent_runner::ops::tests::resolve_subagent_provider_*`.
+/// `subagent_runner::ops::tests::resolve_subagent_source_*`.
 #[tokio::test]
 async fn turn_dispatches_spawn_subagent_through_full_path() {
     use crate::openhuman::agent::harness::AgentDefinitionRegistry;

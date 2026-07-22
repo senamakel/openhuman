@@ -1156,77 +1156,65 @@ async fn typed_mode_progress_emission_is_a_noop_without_sink() {
 // Truncation tests live in ops_truncation_tests.rs to keep this file
 // under the ~500-line guideline.
 
-// ── resolve_subagent_provider ─────────────────────────────────────────
-
-/// `Arc<dyn Provider>` identity helper — every test below uses a fresh
-/// `ScriptedProvider` and we want to assert "is this the *same* Arc as
-/// the parent's" without leaning on `PartialEq` on dyn trait objects.
-fn arc_ptr_eq<P: ?Sized>(a: &std::sync::Arc<P>, b: &std::sync::Arc<P>) -> bool {
-    std::sync::Arc::ptr_eq(a, b)
-}
+// ── resolve_subagent_source ───────────────────────────────────────────
 
 #[test]
-fn resolve_subagent_provider_inherit_uses_parent_provider_and_model() {
+fn resolve_subagent_source_inherit_uses_parent_source_and_model() {
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (resolved_provider, resolved_model) = super::resolve_subagent_provider(
+    let parent_source = crate::openhuman::tinyagents::TurnModelSource::new(parent.clone());
+    let (resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Inherit,
         "test_agent",
         None,
-        parent.clone(),
+        parent_source,
         "parent-model-x".to_string(),
         false,
         None,
+        0.0,
     );
-    assert!(
-        arc_ptr_eq(&parent, &resolved_provider),
-        "Inherit must return the parent's Arc unchanged"
-    );
+    assert!(Arc::ptr_eq(&parent, &resolved_source.provider().unwrap()));
     assert_eq!(resolved_model, "parent-model-x");
 }
 
 #[test]
-fn resolve_subagent_provider_exact_overrides_only_model() {
+fn resolve_subagent_source_exact_overrides_only_model() {
     // Exact keeps the parent's provider but replaces the model name.
     // This is the explicit "I want a cheaper tier on the same backend"
     // escape hatch.
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (resolved_provider, resolved_model) = super::resolve_subagent_provider(
+    let (resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Exact("haiku-mini".to_string()),
         "test_agent",
         None,
-        parent.clone(),
+        crate::openhuman::tinyagents::TurnModelSource::new(parent.clone()),
         "parent-model-x".to_string(),
         false,
         None,
+        0.0,
     );
-    assert!(
-        arc_ptr_eq(&parent, &resolved_provider),
-        "Exact must keep the parent's provider — only the model name changes"
-    );
+    assert!(Arc::ptr_eq(&parent, &resolved_source.provider().unwrap()));
     assert_eq!(resolved_model, "haiku-mini");
 }
 
 #[test]
-fn resolve_subagent_provider_spawn_override_wins_over_definition_model() {
+fn resolve_subagent_source_spawn_override_wins_over_definition_model() {
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (resolved_provider, resolved_model) = super::resolve_subagent_provider(
+    let (resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Exact("definition-model".to_string()),
         "test_agent",
         None,
-        parent.clone(),
+        crate::openhuman::tinyagents::TurnModelSource::new(parent.clone()),
         "parent-model-x".to_string(),
         false,
         Some("spawn-model-y"),
+        0.0,
     );
-    assert!(
-        arc_ptr_eq(&parent, &resolved_provider),
-        "inline spawn override should not change the provider"
-    );
+    assert!(Arc::ptr_eq(&parent, &resolved_source.provider().unwrap()));
     assert_eq!(resolved_model, "spawn-model-y");
 }
 
 #[test]
-fn resolve_subagent_provider_config_model_wins_over_definition_model() {
+fn resolve_subagent_source_config_model_wins_over_definition_model() {
     use crate::openhuman::config::{Config, TeamModelConfig};
 
     let mut config = Config::default();
@@ -1239,24 +1227,22 @@ fn resolve_subagent_provider_config_model_wins_over_definition_model() {
     );
 
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (resolved_provider, resolved_model) = super::resolve_subagent_provider(
+    let (resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Exact("definition-model".to_string()),
         "test_agent",
         Some(&config),
-        parent.clone(),
+        crate::openhuman::tinyagents::TurnModelSource::new(parent.clone()),
         "parent-model-x".to_string(),
         false,
         None,
+        0.0,
     );
-    assert!(
-        arc_ptr_eq(&parent, &resolved_provider),
-        "config model pin should not change the provider"
-    );
+    assert!(Arc::ptr_eq(&parent, &resolved_source.provider().unwrap()));
     assert_eq!(resolved_model, "configured-agent-model");
 }
 
 #[test]
-fn resolve_subagent_provider_inline_override_wins_over_config_model() {
+fn resolve_subagent_source_inline_override_wins_over_config_model() {
     use crate::openhuman::config::{Config, TeamModelConfig};
 
     let mut config = Config::default();
@@ -1269,20 +1255,21 @@ fn resolve_subagent_provider_inline_override_wins_over_config_model() {
     );
 
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (_resolved_provider, resolved_model) = super::resolve_subagent_provider(
+    let (_resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Exact("definition-model".to_string()),
         "test_agent",
         Some(&config),
-        parent.clone(),
+        crate::openhuman::tinyagents::TurnModelSource::new(parent),
         "parent-model-x".to_string(),
         false,
         Some("inline-model"),
+        0.0,
     );
     assert_eq!(resolved_model, "inline-model");
 }
 
 #[test]
-fn resolve_subagent_provider_config_alias_matches_issue_team_examples() {
+fn resolve_subagent_source_config_alias_matches_issue_team_examples() {
     use crate::openhuman::config::{Config, TeamModelConfig};
 
     let mut config = Config::default();
@@ -1295,39 +1282,38 @@ fn resolve_subagent_provider_config_alias_matches_issue_team_examples() {
     );
 
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (_provider, resolved_model) = super::resolve_subagent_provider(
+    let (_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Hint("agentic".to_string()),
         "researcher",
         Some(&config),
-        parent,
+        crate::openhuman::tinyagents::TurnModelSource::new(parent),
         "parent-model-x".to_string(),
         false,
         None,
+        0.0,
     );
     assert_eq!(resolved_model, "research-agent-model");
 }
 
 #[test]
-fn resolve_subagent_provider_hint_with_no_config_falls_back() {
+fn resolve_subagent_source_hint_with_no_config_falls_back() {
     // The async config load failed (transient I/O, missing file, etc.).
     // The Hint arm must NOT silently swallow the failure and synthesise
     // `{workload}-v1` — that's the OpenHuman-only naming that breaks
     // Anthropic/OpenAI. Fall back to the parent's known-good
     // (provider, model) instead.
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (resolved_provider, resolved_model) = super::resolve_subagent_provider(
+    let (resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Hint("agentic".to_string()),
         "test_agent",
         None, // no config loaded
-        parent.clone(),
+        crate::openhuman::tinyagents::TurnModelSource::new(parent.clone()),
         "real-claude-id".to_string(),
         false,
         None,
+        0.0,
     );
-    assert!(
-        arc_ptr_eq(&parent, &resolved_provider),
-        "config-load failure must fall back to parent provider, not synthesize a new one"
-    );
+    assert!(Arc::ptr_eq(&parent, &resolved_source.provider().unwrap()));
     assert_eq!(
         resolved_model, "real-claude-id",
         "model must be parent's current model — NOT '{{workload}}-v1'"
@@ -1335,7 +1321,7 @@ fn resolve_subagent_provider_hint_with_no_config_falls_back() {
 }
 
 #[test]
-fn resolve_subagent_provider_hint_with_config_routes_via_factory() {
+fn resolve_subagent_source_hint_with_config_routes_via_factory() {
     // The Hint arm with a real config takes the workload-factory path.
     // We don't assert the *resulting* provider identity here (the
     // factory may return a fresh OpenHuman backend or whatever
@@ -1357,14 +1343,15 @@ fn resolve_subagent_provider_hint_with_config_routes_via_factory() {
     config.default_model = Some("chat-v1".to_string());
 
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (_resolved_provider, resolved_model) = super::resolve_subagent_provider(
+    let (_resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Hint("agentic".to_string()),
         "test_agent",
         Some(&config),
-        parent.clone(),
+        crate::openhuman::tinyagents::TurnModelSource::new(parent),
         "parent-model-ignored-on-hint".to_string(),
         false,
         None,
+        0.0,
     );
     assert_eq!(
         resolved_model, "agentic-v1",
@@ -1374,7 +1361,7 @@ fn resolve_subagent_provider_hint_with_config_routes_via_factory() {
 }
 
 #[test]
-fn resolve_subagent_provider_hint_falls_back_on_factory_error() {
+fn resolve_subagent_source_hint_falls_back_on_factory_error() {
     // An invalid provider string in the workload config (e.g. a typo
     // like "groq:something") makes the factory return Err. The Hint
     // arm must fall back to the parent provider rather than
@@ -1385,19 +1372,17 @@ fn resolve_subagent_provider_hint_falls_back_on_factory_error() {
     config.agentic_provider = Some("groq:not-a-real-prefix".to_string());
 
     let parent: Arc<dyn Provider> = ScriptedProvider::new(vec![]);
-    let (resolved_provider, resolved_model) = super::resolve_subagent_provider(
+    let (resolved_source, resolved_model) = super::resolve_subagent_source(
         &ModelSpec::Hint("agentic".to_string()),
         "test_agent",
         Some(&config),
-        parent.clone(),
+        crate::openhuman::tinyagents::TurnModelSource::new(parent.clone()),
         "fallback-model".to_string(),
         false,
         None,
+        0.0,
     );
-    assert!(
-        arc_ptr_eq(&parent, &resolved_provider),
-        "factory error must fall back to parent provider"
-    );
+    assert!(Arc::ptr_eq(&parent, &resolved_source.provider().unwrap()));
     assert_eq!(resolved_model, "fallback-model");
 }
 

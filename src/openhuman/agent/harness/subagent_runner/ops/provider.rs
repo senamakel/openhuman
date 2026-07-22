@@ -5,8 +5,6 @@
 
 use std::sync::Arc;
 
-use crate::openhuman::inference::provider::Provider;
-
 pub(crate) fn resolve_subagent_source(
     spec: &crate::openhuman::agent::harness::definition::ModelSpec,
     agent_id: &str,
@@ -84,118 +82,6 @@ pub(crate) fn resolve_subagent_source(
         },
         ModelSpec::Inherit => (parent_source, parent_model),
         ModelSpec::Exact(model) => (parent_source, model.clone()),
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Provider / model resolution
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Resolve a sub-agent's `(provider, model)` based on its declarative
-/// `[model]` spec.
-///
-///   - inline `model` override — highest precedence for one call.
-///   - config-level pin — `[orchestrator] model` or `[teams.*]`
-///     `lead_model` / `agent_model`, when present.
-///   - `Inherit` — use the parent's provider AND model. Literally
-///     "do what the parent does".
-///   - `Hint(workload)` — build a fresh provider via the per-workload
-///     factory (e.g. `integrations_agent`'s `[model] hint = "agentic"`
-///     resolves to whatever `agentic_provider` is routed to in
-///     AI Settings). The factory returns the *exact* model id for that
-///     workload — the OpenHuman backend and every third-party provider
-///     accept exact model names, so there's no `{hint}-v1` synthesis
-///     anywhere on this path.
-///   - `Exact(name)` — escape hatch: use the parent's provider with
-///     this model name overriding the parent's. Callers are expected
-///     to know the model is valid for the parent's provider; the enum
-///     is the wrong place to encode provider switching, which belongs
-///     to `Hint` + AI-settings routing.
-///
-/// `config` is `None` when the live `Config::load_or_init()` failed
-/// (rare — transient I/O). Both `None` config and factory build errors
-/// fall back to `(parent_provider, parent_model)` so a config glitch
-/// can't sink sub-agent execution entirely.
-///
-/// The async part (config load) is hoisted out of the caller so this
-/// helper stays sync and can be exercised by a focused unit test
-/// without spinning up a `tokio::test` runtime per case.
-pub(crate) fn resolve_subagent_provider(
-    spec: &crate::openhuman::agent::harness::definition::ModelSpec,
-    agent_id: &str,
-    config: Option<&crate::openhuman::config::Config>,
-    parent_provider: Arc<dyn Provider>,
-    parent_model: String,
-    is_team_lead: bool,
-    model_override: Option<&str>,
-) -> (Arc<dyn Provider>, String) {
-    use crate::openhuman::agent::harness::definition::ModelSpec;
-    if let Some(model) = model_override
-        .map(str::trim)
-        .filter(|model| !model.is_empty())
-    {
-        log::debug!(
-            "[subagent_runner] agent_id={} using inline model override model={}",
-            agent_id,
-            model
-        );
-        return (parent_provider, model.to_string());
-    }
-
-    if let Some(model) = config.and_then(|cfg| cfg.configured_agent_model(agent_id, is_team_lead)) {
-        log::debug!(
-            "[subagent_runner] agent_id={} using config-level model pin model={}",
-            agent_id,
-            model
-        );
-        return (parent_provider, model.to_string());
-    }
-
-    match spec {
-        ModelSpec::Hint(workload) => match config {
-            Some(cfg) => {
-                match crate::openhuman::inference::provider::create_chat_provider(workload, cfg) {
-                    Ok((p, m)) => {
-                        log::info!(
-                            "[subagent_runner] role={} agent_id={} resolved via workload factory model={}",
-                            workload,
-                            agent_id,
-                            m
-                        );
-                        (std::sync::Arc::from(p), m)
-                    }
-                    Err(e) => {
-                        let suggested_key = match workload.as_str() {
-                            "summarization" | "memory" => "memory_provider".to_string(),
-                            _ => format!("{workload}_provider"),
-                        };
-                        log::warn!(
-                            "[subagent_runner] workload='{}' provider build failed for agent_id={} error='{}' \
-                             falling back to parent provider (parent_model='{}'). \
-                             Consider setting {} in config.",
-                            workload,
-                            agent_id,
-                            e,
-                            parent_model,
-                            suggested_key
-                        );
-                        (parent_provider, parent_model)
-                    }
-                }
-            }
-            None => {
-                log::warn!(
-                    "[subagent_runner] config load failed for workload '{}' (agent_id={}) — \
-                     falling back to parent provider + parent model '{}'",
-                    workload,
-                    agent_id,
-                    parent_model
-                );
-                (parent_provider, parent_model)
-            }
-        },
-        ModelSpec::Inherit => (parent_provider, parent_model),
-        ModelSpec::Exact(name) => (parent_provider, name.clone()),
     }
 }
 

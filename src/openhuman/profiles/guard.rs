@@ -121,26 +121,61 @@ pub fn classify_cross_profile_target(
 /// profile's workspace, given the command's working directory `cwd` (the active
 /// profile's own dir).
 ///
-/// Shell commands do not funnel through the per-path `validate_path` gate that
-/// file tools use, so this is the shell-side call site of the same guard. It
-/// splits the command on whitespace and redirect operators, keeps only
-/// path-shaped tokens (those containing a path separator or a leading `~`),
-/// resolves each against `cwd`, and classifies it via
-/// [`classify_cross_profile_target`]. Returns the first sibling profile id it
-/// would write into, or `None` when the command stays clear of other profiles.
+/// # Guarantee level (read before relying on this)
 ///
-/// This is deliberately a *containment* backstop layered on top of the cwd —
-/// which is already rooted at the profile's own workspace — rather than a full
-/// shell parser. It reliably catches the realistic escape vectors (an absolute
-/// path into `profiles/<Q>` or a `../<Q>/…` traversal); the airtight guarantee
-/// for file mutations lives in the file-tool `validate_path` call site.
+/// This is **best-effort defense-in-depth for the model-facing shell path, not a
+/// hard boundary.** It is a static, pre-execution token scan — it cannot see
+/// what the shell will actually do at runtime. Known, deliberate gaps:
+///
+/// - **Variable / command substitution.** `$HOME`, `${VAR}`, `$(cmd)`, and
+///   backtick substitution resolve to paths only at runtime; a token like
+///   `$SOME_VAR` is not path-shaped textually and is skipped.
+/// - **Paths embedded inside interpreter code.** `python -c 'open("../bob/x","w")'`
+///   or any inline script hides the path inside a program string. The tokenizer
+///   below splits on quotes/parens/commas/`=` so the *simple* embedded cases are
+///   still isolated and classified, but an arbitrary interpreter can construct a
+///   path the scanner never sees.
+///
+/// The **hard** cross-profile boundary for file mutations is
+/// [`SecurityPolicy::validate_path`](crate::openhuman::security) at the file-tool
+/// call site (every write funnels through it). Shell commands do **not** funnel
+/// through that gate, so this scan is their only in-Rust backstop — and the
+/// airtight shell confinement (an OS sandbox: cwd_jail / Seatbelt / Landlock
+/// restricting the process to its own subtree) is deliberate follow-up work, not
+/// provided here. Do not treat a `None` result as proof a command cannot reach a
+/// sibling profile.
+///
+/// # What it does catch
+///
+/// It splits the command on whitespace, redirect/pipe operators, and common
+/// shell punctuation (quotes, parens, backtick, `,`, `=`, `{`, `}`, `&`), keeps
+/// only path-shaped tokens (those containing a path separator or a leading `~`),
+/// resolves each against `cwd`, and classifies it via
+/// [`classify_cross_profile_target`]. This reliably catches the realistic
+/// non-adversarial escape vectors: an absolute path into `profiles/<Q>`, a
+/// `../<Q>/…` traversal, a `--flag=../<Q>/…` form, and simple quoted paths.
+/// Returns the first sibling profile id it would write into, or `None` when no
+/// scanned token lands in another profile.
 pub fn scan_command_for_cross_profile(
     command: &str,
     cwd: &Path,
     action_dir: &Path,
     active_profile: &str,
 ) -> Option<String> {
-    for raw in command.split(|c: char| c.is_whitespace() || matches!(c, '>' | '<' | '|' | ';')) {
+    // Split on shell punctuation as well as whitespace/redirects so a path
+    // embedded in a quoted string, a `flag=value`, a comma list, or a brace
+    // expansion is isolated into its own token. Splitting only ever produces
+    // substrings of the original command, so it cannot invent a path that
+    // resolves into a sibling — it can only surface one that was genuinely
+    // referenced (no new false positives, strictly better coverage).
+    for raw in command.split(|c: char| {
+        c.is_whitespace()
+            || matches!(
+                c,
+                '>' | '<' | '|' | ';' | ',' | '=' | '"' | '\'' | '(' | ')' | '`' | '{' | '}' | '&'
+            )
+    }) {
+        // Residual wrapper chars the split didn't consume at the edges.
         let token = raw.trim_matches(|c| matches!(c, '"' | '\'' | '(' | ')' | '`'));
         if token.is_empty() {
             continue;
@@ -375,6 +410,51 @@ mod tests {
         assert_eq!(
             scan_command_for_cross_profile("cp x ../bob/y", &cwd, &action, "alice"),
             Some("bob".to_string())
+        );
+    }
+
+    #[test]
+    fn scan_command_blocks_path_embedded_in_quoted_interpreter_arg() {
+        // The path is buried inside a python -c program string. Splitting on
+        // quotes/parens/commas isolates `../bob/loot.txt` so the simple embedded
+        // case is still caught.
+        let (_g, action) = profiles_layout();
+        let cwd = action.join("profiles").join("alice");
+        let command = r#"python -c 'open("../bob/loot.txt","w").write("x")'"#;
+        assert_eq!(
+            scan_command_for_cross_profile(command, &cwd, &action, "alice"),
+            Some("bob".to_string())
+        );
+    }
+
+    #[test]
+    fn scan_command_blocks_flag_equals_sibling_path() {
+        // A `--flag=../bob/…` form: splitting on `=` isolates the path token.
+        let (_g, action) = profiles_layout();
+        let cwd = action.join("profiles").join("alice");
+        assert_eq!(
+            scan_command_for_cross_profile(
+                "tar --directory=../bob/x -cf a.tar .",
+                &cwd,
+                &action,
+                "alice"
+            ),
+            Some("bob".to_string())
+        );
+    }
+
+    #[test]
+    fn scan_command_documents_variable_expansion_gap() {
+        // Documented best-effort limitation: a shell variable that expands to a
+        // sibling path at runtime is not statically resolvable, so the scan does
+        // not catch it. The hard boundary for this is an OS sandbox (follow-up);
+        // this test pins the known gap so it's a conscious contract, not a
+        // surprise regression.
+        let (_g, action) = profiles_layout();
+        let cwd = action.join("profiles").join("alice");
+        assert_eq!(
+            scan_command_for_cross_profile("cp x $TARGET_DIR/y", &cwd, &action, "alice"),
+            None
         );
     }
 }

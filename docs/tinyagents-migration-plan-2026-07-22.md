@@ -199,7 +199,9 @@ The seam is healthy: 23/25 files use the crate; it implements `Middleware`
   `ChatMessage` is OpenHuman's versioned JSONL/thread persistence record (including
   message ids and product metadata), not a duplicate provider request type;
   replacing it directly with the crate enum would change existing on-disk data.
-- **`middleware.rs` (4,702):** audit each of the 17 middlewares for crate
+- **`middleware.rs` (4,702):** the WP-5 audit now records all 18 concrete
+  middleware types (the tool-exposure shadow was added after the 17-type
+  snapshot) in `docs/tinyagents-drift-ledger.md`, with crate
   analogues (`ArgRecovery` overlaps crate #45 arg-recovery; `SchemaGuard`
   overlaps crate schema validation + `InvalidArgsPolicy` #42; `RepeatProgress`
   overlaps `no_progress/`). Upstream the generic ones; host-policy ones

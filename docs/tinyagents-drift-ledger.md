@@ -78,6 +78,7 @@ this section as investigation history.
 | P1-11 | OpenAI/Codex/custom cloud slugs | **CLOSED** | [openhuman#4782](https://github.com/tinyhumansai/openhuman/pull/4782) completed the configured cloud-slug client cutover, including Responses API construction. |
 | P1-12 | Host workload routing | **CLOSED** | [openhuman#4783](https://github.com/tinyhumansai/openhuman/pull/4783) adopted crate `ModelRouter` for fallback and capability decisions. |
 | P1-13 | Crate-native registered turn models / `compatible*.rs` deletion | **CLOSED** | [openhuman#4784](https://github.com/tinyhumansai/openhuman/pull/4784) moved the hot turn path and deleted the former `compatible*.rs` cluster. The collapsed `legacy_provider.rs` facade and the broader legacy `Provider` stack remain WP-1 deletion work; see the deletion ledger. |
+| WP2-4 | `tool_status/` generic failure classification candidate | **HOST-OWNED** | Audit found the entire contract is product-facing: serialized UI/event-bus enums, OpenHuman `POLICY_BLOCKED_MARKER` / `POLICY_DENIED_MARKER`, approval expiry and denial behavior, user-facing next-action copy, and product retry categories. TinyAgents retains provider-neutral tool outcomes; no upstream port is appropriate. |
 
 Motion A confined all `Provider` handling to the seam + factory. Motion B
 replaces the *construction* of host `Provider`s with crate-native

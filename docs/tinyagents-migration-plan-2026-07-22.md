@@ -340,13 +340,15 @@ Independent, individually shippable slices:
    `graph.rs` become a crate-side parallel-fanout + chair-synthesis graph
    (natural fit for `map_reduce` + post-WP-0 `BarrierRelief`); host keeps
    `schemas.rs` RPC + `council_registry/` definitions.
-4. **`tool_status/` classification (low priority):** upstream the generic
-   failure-classification table into crate tool-outcome handling; host keeps
-   the RPC-facing taxonomy mapping. Skip if the crate's outcome model diverges
-   — reclassify HOST-OWNED in the ledger instead.
+4. **`tool_status/` classification — HOST-OWNED (audit complete):** retain the
+   module. Its public enums are serialized UI/event-bus vocabulary; its mapping
+   depends on OpenHuman security markers, autonomy phrasing, approval semantics,
+   localized next-action copy, and product retry policy. TinyAgents tool outcomes
+   should stay provider-neutral and must not absorb this product taxonomy.
 
 **Exit:** `routing/policy|quality|factory` and `tool_timeout` deleted or
-shimmed; ledger rows added per slice (DRIFT→PR or HOST-OWNED).
+shimmed; ledger rows added per slice (DRIFT→PR or HOST-OWNED). The
+`tool_status/` slice is terminal as HOST-OWNED.
 
 ### WP-3 — Retire the legacy turn engine
 
@@ -462,7 +464,7 @@ prematurely.**
 | `routing/{policy,quality,factory}.rs` | MIGRATE to `registry::router` (WP-2) |
 | `routing/{provider,health,telemetry}.rs` | STAYS (host signals) |
 | `tool_timeout/` | COLLAPSE to shim over crate `ToolTimeout` (WP-2) |
-| `tool_status/` classification | UPSTREAM candidate (WP-2, low priority) |
+| `tool_status/` classification | HOST-OWNED — serialized UI taxonomy, OpenHuman security markers, approval semantics, and product copy |
 | `model_council/{council,graph}.rs` | UPSTREAM as crate graph pattern (WP-2) |
 | `tools/` trait mechanics | DESIGN-GATED (WP-4) |
 | `tools/impl/*`, all `schemas.rs` RPC controllers | STAYS |

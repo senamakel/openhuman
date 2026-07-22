@@ -116,9 +116,11 @@ async fn message_dispatch_processes_messages_in_parallel() {
 
         let runtime_ctx = Arc::new(ChannelRuntimeContext {
             channels_by_name: Arc::new(channels_by_name),
-            provider: Some(Arc::new(SlowProvider {
-                delay: Duration::from_millis(5),
-            })),
+            turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+                Arc::new(SlowProvider {
+                    delay: Duration::from_millis(5),
+                }),
+            )),
             default_provider: Arc::new("test-provider".to_string()),
             memory: Arc::new(NoopMemory),
             tools_registry: Arc::new(vec![]),
@@ -129,7 +131,7 @@ async fn message_dispatch_processes_messages_in_parallel() {
             max_tool_iterations: 10,
             min_relevance_score: 0.0,
             conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-            provider_cache: Arc::new(Mutex::new(HashMap::new())),
+            turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
             route_overrides: Arc::new(Mutex::new(HashMap::new())),
             api_url: None,
             inference_url: None,
@@ -189,9 +191,11 @@ async fn process_channel_message_cancels_scoped_typing_task() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::new(SlowProvider {
-            delay: Duration::from_millis(20),
-        })),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(SlowProvider {
+                delay: Duration::from_millis(20),
+            }),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -202,7 +206,7 @@ async fn process_channel_message_cancels_scoped_typing_task() {
         max_tool_iterations: 10,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,
@@ -279,7 +283,9 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
         channels_by_name: Arc::new(channels_by_name),
         // Still need a Provider for the Arc field, but the stubbed bus
         // handler never invokes it — so a minimal no-op is fine.
-        provider: Some(Arc::new(super::common::DummyProvider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(super::common::DummyProvider),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -290,7 +296,7 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
         max_tool_iterations: 10,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,
@@ -362,7 +368,9 @@ async fn channel_processed_event_records_resolved_agent_route() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::new(super::common::DummyProvider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(super::common::DummyProvider),
+        )),
         default_provider: Arc::new("requested-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -373,7 +381,7 @@ async fn channel_processed_event_records_resolved_agent_route() {
         max_tool_iterations: 10,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,
@@ -474,7 +482,9 @@ async fn process_channel_message_hardens_multimodal_files_against_smuggled_marke
     };
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::new(super::common::DummyProvider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(super::common::DummyProvider),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -485,7 +495,7 @@ async fn process_channel_message_hardens_multimodal_files_against_smuggled_marke
         max_tool_iterations: 10,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,
@@ -557,7 +567,9 @@ async fn process_channel_message_hardens_against_relative_path_markers() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::new(super::common::DummyProvider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(super::common::DummyProvider),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -568,7 +580,7 @@ async fn process_channel_message_hardens_against_relative_path_markers() {
         max_tool_iterations: 10,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,

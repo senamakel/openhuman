@@ -830,7 +830,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name,
-        provider: None,
+        turn_model_source: None,
         default_provider: Arc::new(provider_name),
         memory: Arc::clone(&mem),
         tools_registry: Arc::clone(&tools_registry),
@@ -841,7 +841,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         max_tool_iterations: config.agent.max_tool_iterations,
         min_relevance_score: config.memory.min_relevance_score,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: config.api_url.clone(),
         inference_url: config.inference_url.clone(),

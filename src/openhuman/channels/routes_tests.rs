@@ -1,7 +1,7 @@
 use super::*;
 use crate::core::event_bus::{DomainEvent, EventHandler};
 use crate::openhuman::channels::context::{
-    ChannelRuntimeContext, ProviderCacheMap, RouteSelectionMap,
+    ChannelRuntimeContext, RouteSelectionMap, TurnModelSourceCacheMap,
 };
 use crate::openhuman::channels::telegram::{TelegramRemoteCommand, TelegramRemoteSubscriber};
 use crate::openhuman::channels::traits::ChannelMessage;
@@ -133,7 +133,9 @@ impl Channel for RecordingChannel {
 fn runtime_context(workspace_dir: PathBuf) -> ChannelRuntimeContext {
     ChannelRuntimeContext {
         channels_by_name: Arc::new(HashMap::new()),
-        provider: Some(Arc::new(DummyProvider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(DummyProvider),
+        )),
         default_provider: Arc::new("openai".into()),
         memory: Arc::new(DummyMemory),
         tools_registry: Arc::new(vec![Box::new(DummyTool) as Box<dyn Tool>]),
@@ -144,7 +146,7 @@ fn runtime_context(workspace_dir: PathBuf) -> ChannelRuntimeContext {
         max_tool_iterations: 1,
         min_relevance_score: 0.4,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: ProviderCacheMap::default(),
+        turn_model_source_cache: TurnModelSourceCacheMap::default(),
         route_overrides: RouteSelectionMap::default(),
         api_url: None,
         inference_url: None,

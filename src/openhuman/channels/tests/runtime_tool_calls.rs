@@ -23,7 +23,9 @@ async fn process_channel_message_executes_tool_calls_instead_of_sending_raw_json
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::new(ToolCallingProvider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(ToolCallingProvider),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
@@ -34,7 +36,7 @@ async fn process_channel_message_executes_tool_calls_instead_of_sending_raw_json
         max_tool_iterations: 10,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,
@@ -80,7 +82,9 @@ async fn process_channel_message_executes_tool_calls_with_alias_tags() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::new(ToolCallingAliasProvider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(ToolCallingAliasProvider),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
@@ -91,7 +95,7 @@ async fn process_channel_message_executes_tool_calls_with_alias_tags() {
         max_tool_iterations: 10,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,
@@ -140,13 +144,21 @@ async fn process_channel_message_handles_models_command_without_llm_call() {
     let fallback_provider_impl = Arc::new(ModelCaptureProvider::default());
     let fallback_provider: Arc<dyn Provider> = fallback_provider_impl.clone();
 
-    let mut provider_cache_seed: HashMap<String, Arc<dyn Provider>> = HashMap::new();
-    provider_cache_seed.insert("test-provider".to_string(), Arc::clone(&default_provider));
-    provider_cache_seed.insert("openrouter".to_string(), fallback_provider);
+    let mut provider_cache_seed = HashMap::new();
+    provider_cache_seed.insert(
+        "test-provider".to_string(),
+        crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(&default_provider)),
+    );
+    provider_cache_seed.insert(
+        "openrouter".to_string(),
+        crate::openhuman::tinyagents::TurnModelSource::new(fallback_provider),
+    );
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::clone(&default_provider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::clone(&default_provider),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -157,7 +169,7 @@ async fn process_channel_message_handles_models_command_without_llm_call() {
         max_tool_iterations: 5,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(provider_cache_seed)),
+        turn_model_source_cache: Arc::new(Mutex::new(provider_cache_seed)),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,
@@ -214,9 +226,15 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
     let routed_provider_impl = Arc::new(ModelCaptureProvider::default());
     let routed_provider: Arc<dyn Provider> = routed_provider_impl.clone();
 
-    let mut provider_cache_seed: HashMap<String, Arc<dyn Provider>> = HashMap::new();
-    provider_cache_seed.insert("test-provider".to_string(), Arc::clone(&default_provider));
-    provider_cache_seed.insert("openrouter".to_string(), routed_provider);
+    let mut provider_cache_seed = HashMap::new();
+    provider_cache_seed.insert(
+        "test-provider".to_string(),
+        crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(&default_provider)),
+    );
+    provider_cache_seed.insert(
+        "openrouter".to_string(),
+        crate::openhuman::tinyagents::TurnModelSource::new(routed_provider),
+    );
 
     let routed_msg = traits::ChannelMessage {
         id: "msg-routed-1".to_string(),
@@ -239,7 +257,9 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::clone(&default_provider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::clone(&default_provider),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -250,7 +270,7 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
         max_tool_iterations: 5,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(provider_cache_seed)),
+        turn_model_source_cache: Arc::new(Mutex::new(provider_cache_seed)),
         route_overrides: Arc::new(Mutex::new(route_overrides)),
         api_url: None,
         inference_url: None,
@@ -288,9 +308,11 @@ async fn process_channel_message_respects_configured_max_tool_iterations_above_d
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::new(IterativeToolProvider {
-            required_tool_iterations: 11,
-        })),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(IterativeToolProvider {
+                required_tool_iterations: 11,
+            }),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
@@ -301,7 +323,7 @@ async fn process_channel_message_respects_configured_max_tool_iterations_above_d
         max_tool_iterations: 12,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,
@@ -346,9 +368,11 @@ async fn process_channel_message_reports_configured_max_tool_iterations_limit() 
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(Arc::new(IterativeToolProvider {
-            required_tool_iterations: 20,
-        })),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+            Arc::new(IterativeToolProvider {
+                required_tool_iterations: 20,
+            }),
+        )),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![Box::new(MockPriceTool)]),
@@ -359,7 +383,7 @@ async fn process_channel_message_reports_configured_max_tool_iterations_limit() 
         max_tool_iterations: 3,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,

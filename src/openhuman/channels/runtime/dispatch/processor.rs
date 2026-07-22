@@ -21,7 +21,7 @@ use crate::openhuman::channels::context::{
 };
 use crate::openhuman::channels::providers::telegram::TELEGRAM_APPROVAL_CLIENT_ID;
 use crate::openhuman::channels::routes::{
-    get_or_create_provider, get_route_selection, handle_runtime_command_if_needed,
+    get_or_create_turn_model_source, get_route_selection, handle_runtime_command_if_needed,
 };
 use crate::openhuman::channels::traits;
 use crate::openhuman::channels::{ChannelSendExt, SendMessage};
@@ -229,9 +229,9 @@ pub(crate) async fn process_channel_runtime_message(
 
     let history_key = conversation_history_key(&msg);
     let route = get_route_selection(ctx.as_ref(), &history_key);
-    let active_provider = if ctx.config.is_none() {
-        match get_or_create_provider(ctx.as_ref(), &route.provider).await {
-            Ok(provider) => Some(provider),
+    let active_turn_model_source = if ctx.config.is_none() {
+        match get_or_create_turn_model_source(ctx.as_ref(), &route.provider).await {
+            Ok(source) => Some(source),
             Err(err) => {
                 crate::core::observability::report_error(
                     &err,
@@ -466,7 +466,7 @@ pub(crate) async fn process_channel_runtime_message(
         // Crate-native channel turn models (Phase 3 P3-B): when the runtime carries
         // the full config, build crate `ChatModel`s from `("chat", route.provider,
         // config)` — `route.provider` is the effective provider string. Tests (no
-        // `config`) stay on the injected `Provider` path.
+        // `config`) stay on an injected model source.
         turn_model_source: match &ctx.config {
             Some(cfg) => {
                 crate::openhuman::tinyagents::TurnModelSource::new_crate_native_from_string(
@@ -475,11 +475,8 @@ pub(crate) async fn process_channel_runtime_message(
                     cfg.clone(),
                 )
             }
-            None => crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(
-                active_provider
-                    .as_ref()
-                    .expect("test channel context must inject a provider"),
-            )),
+            None => active_turn_model_source
+                .expect("test channel context must inject a turn model source"),
         },
         history: std::mem::take(&mut history),
         tools_registry: Arc::clone(&ctx.tools_registry),

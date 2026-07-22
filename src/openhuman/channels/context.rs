@@ -1,7 +1,8 @@
 //! Shared channel runtime state and memory helpers.
 
-use crate::openhuman::inference::provider::{ChatMessage, Provider};
+use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::memory::Memory;
+use crate::openhuman::tinyagents::TurnModelSource;
 use crate::openhuman::tools::Tool;
 use crate::openhuman::util::truncate_with_ellipsis;
 use std::collections::HashMap;
@@ -23,13 +24,15 @@ pub(crate) use tinychannels::context::MIN_CHANNEL_MESSAGE_TIMEOUT_SECS;
 /// Per-sender conversation history for channel messages.
 pub(crate) type ConversationHistoryMap = Arc<Mutex<HashMap<String, Vec<ChatMessage>>>>;
 
-pub(crate) type ProviderCacheMap = Arc<Mutex<HashMap<String, Arc<dyn Provider>>>>;
+pub(crate) type TurnModelSourceCacheMap = Arc<Mutex<HashMap<String, TurnModelSource>>>;
 pub(crate) type RouteSelectionMap = Arc<Mutex<HashMap<String, ChannelRouteSelection>>>;
 
 #[derive(Clone)]
 pub(crate) struct ChannelRuntimeContext {
     pub(crate) channels_by_name: Arc<HashMap<String, Arc<dyn super::Channel>>>,
-    pub(crate) provider: Option<Arc<dyn Provider>>,
+    /// Injected model source used only by tests and bespoke channel hosts.
+    /// Production contexts carry `config` and construct crate-native sources.
+    pub(crate) turn_model_source: Option<TurnModelSource>,
     pub(crate) default_provider: Arc<String>,
     pub(crate) memory: Arc<dyn Memory>,
     pub(crate) tools_registry: Arc<Vec<Box<dyn Tool>>>,
@@ -40,7 +43,7 @@ pub(crate) struct ChannelRuntimeContext {
     pub(crate) max_tool_iterations: usize,
     pub(crate) min_relevance_score: f64,
     pub(crate) conversation_histories: ConversationHistoryMap,
-    pub(crate) provider_cache: ProviderCacheMap,
+    pub(crate) turn_model_source_cache: TurnModelSourceCacheMap,
     pub(crate) route_overrides: RouteSelectionMap,
     pub(crate) api_url: Option<String>,
     pub(crate) inference_url: Option<String>,
@@ -52,7 +55,7 @@ pub(crate) struct ChannelRuntimeContext {
     pub(crate) multimodal: crate::openhuman::config::MultimodalConfig,
     pub(crate) multimodal_files: crate::openhuman::config::MultimodalFileConfig,
     /// Full config for building crate-native turn models (Phase 3 P3-B). `Some` in
-    /// production; `None` in tests keeps the channel turn on the `Provider` path.
+    /// production; `None` lets tests inject a model source directly.
     pub(crate) config: Option<Arc<crate::openhuman::config::Config>>,
 }
 
@@ -284,7 +287,9 @@ mod tests {
     fn runtime_context() -> ChannelRuntimeContext {
         ChannelRuntimeContext {
             channels_by_name: Arc::new(HashMap::new()),
-            provider: Some(Arc::new(DummyProvider)),
+            turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
+                Arc::new(DummyProvider),
+            )),
             default_provider: Arc::new("default".into()),
             memory: Arc::new(MockMemory {
                 entries: Vec::new(),
@@ -297,7 +302,7 @@ mod tests {
             max_tool_iterations: 1,
             min_relevance_score: 0.4,
             conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-            provider_cache: Arc::new(Mutex::new(HashMap::new())),
+            turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
             route_overrides: Arc::new(Mutex::new(HashMap::new())),
             api_url: None,
             inference_url: None,

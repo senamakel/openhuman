@@ -63,7 +63,9 @@ fn compact_sender_history_keeps_recent_truncated_messages() {
 
     let ctx = ChannelRuntimeContext {
         channels_by_name: Arc::new(HashMap::new()),
-        provider: Some(Arc::new(DummyProvider)),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(Arc::new(
+            DummyProvider,
+        ))),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(super::common::NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -74,7 +76,7 @@ fn compact_sender_history_keeps_recent_truncated_messages() {
         max_tool_iterations: 5,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(histories)),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,

@@ -400,7 +400,10 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
 
     let provider: Arc<dyn Provider> = Arc::new(HarnessProvider);
     let mut provider_cache = HashMap::new();
-    provider_cache.insert("harness-provider".to_string(), Arc::clone(&provider));
+    provider_cache.insert(
+        "harness-provider".to_string(),
+        crate::openhuman::tinyagents::TurnModelSource::new(Arc::clone(&provider)),
+    );
     let conversation_histories = Arc::new(Mutex::new(HashMap::new()));
     let history_key = if options.channel_name == "telegram" {
         format!("{}_alice_reply", options.channel_name)
@@ -420,7 +423,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
 
     let ctx = Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels_by_name),
-        provider: Some(provider),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(provider)),
         default_provider: Arc::new("harness-provider".to_string()),
         memory: Arc::new(HarnessMemory {
             entries: options
@@ -437,7 +440,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
         max_tool_iterations: 3,
         min_relevance_score: 0.2,
         conversation_histories: Arc::clone(&conversation_histories),
-        provider_cache: Arc::new(Mutex::new(provider_cache)),
+        turn_model_source_cache: Arc::new(Mutex::new(provider_cache)),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,

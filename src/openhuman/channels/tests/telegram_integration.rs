@@ -94,7 +94,7 @@ fn make_test_context(
 
     Arc::new(ChannelRuntimeContext {
         channels_by_name: Arc::new(channels),
-        provider: Some(provider),
+        turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(provider)),
         default_provider: Arc::new("test-provider".to_string()),
         memory: Arc::new(NoopMemory),
         tools_registry: Arc::new(vec![]),
@@ -105,7 +105,7 @@ fn make_test_context(
         max_tool_iterations: 1,
         min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
-        provider_cache: Arc::new(Mutex::new(HashMap::new())),
+        turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: None,
         inference_url: None,

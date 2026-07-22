@@ -8,46 +8,59 @@
 use super::types::{Agent, AgentBuilder};
 use crate::core::event_bus::DomainEvent;
 use crate::openhuman::agent::dispatcher::{NativeToolDispatcher, XmlToolDispatcher};
-use crate::openhuman::inference::provider::{ChatRequest, ConversationMessage, Provider};
+use crate::openhuman::inference::provider::{ChatResponse, ConversationMessage};
 use crate::openhuman::memory::Memory;
 use crate::openhuman::tools::Tool;
 use anyhow::Result;
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use std::sync::Arc;
+use tinyagents::harness::message::Message;
+use tinyagents::harness::model::{
+    ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
+};
 
 struct MockProvider {
-    responses: Mutex<Vec<crate::openhuman::inference::provider::ChatResponse>>,
+    responses: Mutex<Vec<ChatResponse>>,
 }
 
 #[async_trait]
-impl Provider for MockProvider {
-    async fn chat_with_system(
-        &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        Ok("ok".into())
+impl ChatModel<()> for MockProvider {
+    fn profile(&self) -> Option<&ModelProfile> {
+        static PROFILE: std::sync::LazyLock<ModelProfile> =
+            std::sync::LazyLock::new(ModelProfile::default);
+        Some(&PROFILE)
     }
 
-    async fn chat(
+    async fn invoke(
         &self,
-        _request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<crate::openhuman::inference::provider::ChatResponse> {
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         let mut guard = self.responses.lock();
-        if guard.is_empty() {
-            return Ok(crate::openhuman::inference::provider::ChatResponse {
+        let response = if guard.is_empty() {
+            ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
                 usage: None,
                 reasoning_content: None,
-            });
-        }
-        Ok(guard.remove(0))
+            }
+        } else {
+            guard.remove(0)
+        };
+        Ok(
+            crate::openhuman::tinyagents::model::native_model_response_for_request(
+                &response, &request,
+            ),
+        )
+    }
+
+    async fn stream(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
+        let response = self.invoke(state, request).await?;
+        Ok(Box::pin(futures::stream::iter(vec![
+            ModelStreamItem::Started,
+            ModelStreamItem::Completed(response),
+        ])))
     }
 }
 
@@ -58,7 +71,7 @@ impl Provider for MockProvider {
 #[derive(Default)]
 struct RecordingProvider {
     captures: Mutex<Vec<CapturedCall>>,
-    responses: Mutex<Vec<crate::openhuman::inference::provider::ChatResponse>>,
+    responses: Mutex<Vec<ChatResponse>>,
 }
 
 #[derive(Clone)]
@@ -68,43 +81,51 @@ struct CapturedCall {
 }
 
 #[async_trait]
-impl Provider for RecordingProvider {
-    async fn chat_with_system(
-        &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> Result<String> {
-        Ok("ok".into())
+impl ChatModel<()> for RecordingProvider {
+    fn profile(&self) -> Option<&ModelProfile> {
+        static PROFILE: std::sync::LazyLock<ModelProfile> =
+            std::sync::LazyLock::new(ModelProfile::default);
+        Some(&PROFILE)
     }
 
-    async fn chat(
+    async fn invoke(
         &self,
-        request: ChatRequest<'_>,
-        model: &str,
-        _temperature: f64,
-    ) -> Result<crate::openhuman::inference::provider::ChatResponse> {
-        let system_prompt = request
-            .messages
-            .iter()
-            .find(|m| m.role == "system")
-            .map(|m| m.content.clone());
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        let system_prompt = request.messages.iter().find_map(|message| match message {
+            Message::System(_) => Some(message.text()),
+            _ => None,
+        });
         self.captures.lock().push(CapturedCall {
             system_prompt,
-            model: model.to_string(),
+            model: request.model.clone().unwrap_or_default(),
         });
 
         let mut guard = self.responses.lock();
-        if guard.is_empty() {
-            return Ok(crate::openhuman::inference::provider::ChatResponse {
+        let response = if guard.is_empty() {
+            ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
                 usage: None,
                 reasoning_content: None,
-            });
-        }
-        Ok(guard.remove(0))
+            }
+        } else {
+            guard.remove(0)
+        };
+        Ok(
+            crate::openhuman::tinyagents::model::native_model_response_for_request(
+                &response, &request,
+            ),
+        )
+    }
+
+    async fn stream(&self, state: &(), request: ModelRequest) -> tinyagents::Result<ModelStream> {
+        let response = self.invoke(state, request).await?;
+        Ok(Box::pin(futures::stream::iter(vec![
+            ModelStreamItem::Started,
+            ModelStreamItem::Completed(response),
+        ])))
     }
 }
 
@@ -149,7 +170,7 @@ fn build_minimal_agent_with_definition_name(definition_name: Option<&str>) -> Ag
     let workspace = tempfile::TempDir::new().expect("temp workspace");
     let workspace_path = workspace.path().to_path_buf();
 
-    let provider = Box::new(MockProvider {
+    let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![]),
     });
 
@@ -162,7 +183,7 @@ fn build_minimal_agent_with_definition_name(definition_name: Option<&str>) -> Ag
     );
 
     let mut builder = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -515,11 +536,11 @@ fn refresh_workflows_picks_up_skill_installed_on_disk() {
     };
     let mem: Arc<dyn Memory> =
         Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &wsp).unwrap());
-    let provider = Box::new(MockProvider {
+    let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![]),
     });
     let mut agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -585,11 +606,11 @@ fn refresh_workflows_retracts_skill_removed_from_disk() {
     };
     let mem: Arc<dyn Memory> =
         Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &wsp).unwrap());
-    let provider = Box::new(MockProvider {
+    let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![]),
     });
     let mut agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -669,7 +690,7 @@ async fn turn_without_tools_returns_text() {
     let workspace = tempfile::TempDir::new().expect("temp workspace");
     let workspace_path = workspace.path().to_path_buf();
 
-    let provider = Box::new(MockProvider {
+    let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![crate::openhuman::inference::provider::ChatResponse {
             text: Some("hello".into()),
             tool_calls: vec![],
@@ -687,7 +708,7 @@ async fn turn_without_tools_returns_text() {
     );
 
     let mut agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
         .tool_dispatcher(Box::new(XmlToolDispatcher))
@@ -709,7 +730,7 @@ async fn last_turn_usage_is_public_and_non_draining() {
     let workspace = tempfile::TempDir::new().expect("temp workspace");
     let workspace_path = workspace.path().to_path_buf();
 
-    let provider = Box::new(MockProvider {
+    let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![crate::openhuman::inference::provider::ChatResponse {
             text: Some("hello".into()),
             tool_calls: vec![],
@@ -733,7 +754,7 @@ async fn last_turn_usage_is_public_and_non_draining() {
     );
 
     let mut agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
         .tool_dispatcher(Box::new(XmlToolDispatcher))
@@ -782,7 +803,7 @@ async fn turn_with_native_dispatcher_handles_tool_results_variant() {
     let workspace = tempfile::TempDir::new().expect("temp workspace");
     let workspace_path = workspace.path().to_path_buf();
 
-    let provider = Box::new(MockProvider {
+    let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![
             crate::openhuman::inference::provider::ChatResponse {
                 text: Some(String::new()),
@@ -813,7 +834,7 @@ async fn turn_with_native_dispatcher_handles_tool_results_variant() {
     );
 
     let mut agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -834,7 +855,7 @@ async fn turn_with_native_dispatcher_persists_fallback_tool_calls() {
     let workspace = tempfile::TempDir::new().expect("temp workspace");
     let workspace_path = workspace.path().to_path_buf();
 
-    let provider = Box::new(MockProvider {
+    let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![
             crate::openhuman::inference::provider::ChatResponse {
                 text: Some(
@@ -863,7 +884,7 @@ async fn turn_with_native_dispatcher_persists_fallback_tool_calls() {
     );
 
     let mut agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(vec![Box::new(MockTool)])
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -922,7 +943,7 @@ async fn turn_dispatches_spawn_subagent_through_full_path() {
     //   1. Parent turn iter 0 — emit a spawn_subagent tool call.
     //   2. Sub-agent (researcher) iter 0 — return final text "X is Y".
     //   3. Parent turn iter 1 — fold sub-agent result into "Based on the research, X is Y."
-    let provider = Box::new(MockProvider {
+    let provider = Arc::new(MockProvider {
         responses: Mutex::new(vec![
             crate::openhuman::inference::provider::ChatResponse {
                 text: Some(String::new()),
@@ -967,7 +988,7 @@ async fn turn_dispatches_spawn_subagent_through_full_path() {
     let tools: Vec<Box<dyn Tool>> = vec![Box::new(SpawnSubagentTool::new())];
 
     let mut agent = Agent::builder()
-        .provider(provider)
+        .chat_model(provider)
         .tools(tools)
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -1056,7 +1077,7 @@ async fn system_prompt_and_model_are_byte_stable_across_turns() {
     );
 
     let mut agent = Agent::builder()
-        .provider_arc(provider.clone() as Arc<dyn Provider>)
+        .chat_model(provider.clone() as Arc<dyn ChatModel<()>>)
         .tools(vec![])
         .memory(mem)
         .tool_dispatcher(Box::new(NativeToolDispatcher))
@@ -1424,7 +1445,7 @@ fn seed_resume_from_thread_transcript_preserves_tool_calls_and_reasoning() {
     let mem: Arc<dyn Memory> =
         Arc::from(crate::openhuman::memory_store::create_memory(&memory_cfg, &wsp).unwrap());
     let mut agent = Agent::builder()
-        .provider(Box::new(MockProvider {
+        .chat_model(Arc::new(MockProvider {
             responses: Mutex::new(vec![]),
         }))
         .tools(vec![Box::new(MockTool)])

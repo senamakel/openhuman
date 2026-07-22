@@ -493,6 +493,48 @@ fn build_parent_context_and_sanitize_helpers_cover_snapshot_paths() {
 }
 
 #[test]
+fn build_parent_context_propagates_own_descriptor_on_root_turn() {
+    // Regression (PR #5118 review, Codex): on a ROOT chat turn `current_parent()`
+    // is `None`, so the parent snapshot must fall back to the agent's OWN
+    // descriptor. Without it, a dedicated-workspace profile's descriptor never
+    // reaches subagents spawned via spawn_subagent/spawn_async_subagent, and they
+    // silently fall back to the shared action_dir instead of
+    // `<action_dir>/profiles/<id>`.
+    let descriptor = tinyagents::harness::workspace::WorkspaceDescriptor::new(
+        std::path::PathBuf::from("/tmp/act/profiles/alice"),
+    )
+    .with_policy_id("openhuman.profile:alice");
+
+    let mut agent = make_agent(None);
+    // No ambient parent context is installed in this test, so current_parent()
+    // is None — exactly the root-turn scenario.
+    agent.workspace_descriptor = Some(descriptor);
+
+    let parent = agent.build_parent_execution_context();
+    assert_eq!(
+        parent.workspace_descriptor.as_ref().map(|d| d.root.clone()),
+        Some(std::path::PathBuf::from("/tmp/act/profiles/alice")),
+        "root turn must propagate the agent's own profile descriptor to spawned subagents"
+    );
+    assert_eq!(
+        parent
+            .workspace_descriptor
+            .as_ref()
+            .map(|d| d.policy_id.clone()),
+        Some("openhuman.profile:alice".to_string()),
+    );
+}
+
+#[test]
+fn build_parent_context_has_no_descriptor_without_profile_or_parent() {
+    // A profile-less root turn (no ambient parent, no own descriptor) keeps the
+    // snapshot's descriptor `None` so shared-action_dir behaviour is unchanged.
+    let agent = make_agent(None);
+    let parent = agent.build_parent_execution_context();
+    assert!(parent.workspace_descriptor.is_none());
+}
+
+#[test]
 fn collect_tree_root_summaries_maps_namespace_body_and_timestamp() {
     // #2944: the wrapper must carry the root node's `updated_at` from the
     // store tuple into the `NamespaceSummary` the prompt renderer stamps.

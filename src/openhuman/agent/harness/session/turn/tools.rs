@@ -15,13 +15,23 @@ impl Agent {
     /// Snapshot the parent's runtime so spawned sub-agents can read
     /// it via the [`harness::PARENT_CONTEXT`] task-local.
     pub(super) fn build_parent_execution_context(&self) -> harness::ParentExecutionContext {
-        let workspace_descriptor =
-            harness::current_parent().and_then(|parent| parent.workspace_descriptor);
+        // Prefer an ambient `current_parent()` descriptor (a nested subagent
+        // inherits its enclosing worktree/profile workspace threaded down the
+        // spawn chain). Fall back to THIS session agent's own descriptor: on a
+        // ROOT chat turn `current_parent()` is `None`, so without the fallback a
+        // dedicated-workspace profile's descriptor (`<action_dir>/profiles/<id>`,
+        // set on the Agent at build time) would never reach delegated subagents
+        // spawned via `spawn_subagent` / `spawn_async_subagent`, and they'd drop
+        // to the shared `action_dir` — the profile isolation would silently not
+        // apply to common delegated writes.
+        let workspace_descriptor = harness::current_parent()
+            .and_then(|parent| parent.workspace_descriptor)
+            .or_else(|| self.workspace_descriptor.clone());
         if let Some(descriptor) = workspace_descriptor.as_ref() {
             tracing::debug!(
                 root = %descriptor.root.display(),
                 policy_id = %descriptor.policy_id,
-                "[agent_loop] inheriting ambient workspace descriptor for parent context snapshot"
+                "[agent_loop] snapshotting workspace descriptor for parent context (ambient or own)"
             );
         }
         let allowed_subagent_ids = crate::openhuman::agent::harness::definition::AgentDefinitionRegistry::global()

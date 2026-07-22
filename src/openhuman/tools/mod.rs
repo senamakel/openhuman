@@ -77,6 +77,7 @@ pub use schemas::{
     all_controller_schemas as all_tools_controller_schemas,
     all_registered_controllers as all_tools_registered_controllers,
 };
+pub(crate) use traits::ToolEntryPoint;
 pub use traits::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolContent, ToolResult, ToolScope,
     ToolSpec,

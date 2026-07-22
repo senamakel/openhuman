@@ -424,7 +424,7 @@ impl Agent {
             let before = tools.len();
             tools.retain(|tool| {
                 tool.permission_level() <= tools::PermissionLevel::ReadOnly
-                    && !matches!(tool.scope(), tools::ToolScope::CliRpcOnly)
+                    && tool.scope().allows(tools::ToolEntryPoint::Agent)
             });
             log::info!(
                 "[agent::builder] read-only tool filter applied: before={} after={}",

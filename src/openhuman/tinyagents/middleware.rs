@@ -1113,7 +1113,10 @@ impl CliRpcOnlyMiddleware {
             .iter()
             .flat_map(|set| set.iter())
             .find(|t| t.name() == name)
-            .map(|t| t.scope() == crate::openhuman::tools::ToolScope::CliRpcOnly)
+            .map(|t| {
+                !t.scope()
+                    .allows(crate::openhuman::tools::ToolEntryPoint::Agent)
+            })
             .unwrap_or(false)
     }
 }

@@ -7,7 +7,9 @@ use crate::openhuman::config::Config;
 use crate::openhuman::memory::Memory;
 use crate::openhuman::runtime_node::types::{ExecuteToolOutcome, RuntimeToolSummary};
 use crate::openhuman::security::{CommandClass, SecurityPolicy};
-use crate::openhuman::tools::{self, PermissionLevel, Tool, ToolCallOptions, ToolScope};
+use crate::openhuman::tools::{
+    self, PermissionLevel, Tool, ToolCallOptions, ToolEntryPoint, ToolScope,
+};
 use tracing::{debug, trace};
 
 fn tool_scope_label(scope: ToolScope) -> &'static str {
@@ -27,6 +29,17 @@ fn summarize_tool(tool: &dyn Tool) -> RuntimeToolSummary {
         scope: tool_scope_label(tool.scope()).to_string(),
         supports_markdown: tool.supports_markdown(),
         parameters: tool.parameters_schema(),
+    }
+}
+
+fn require_explicit_scope(tool: &dyn Tool) -> Result<(), String> {
+    if tool.scope().allows(ToolEntryPoint::Explicit) {
+        Ok(())
+    } else {
+        Err(format!(
+            "tool `{}` is available only in the autonomous agent loop",
+            tool.name()
+        ))
     }
 }
 
@@ -139,6 +152,7 @@ pub fn list_tools(config: &Config) -> Result<Vec<RuntimeToolSummary>, String> {
     debug!("[runtime_node::ops] list_tools: start");
     let mut summaries: Vec<RuntimeToolSummary> = build_runtime_tools(config)?
         .into_iter()
+        .filter(|tool| tool.scope().allows(ToolEntryPoint::Explicit))
         .map(|tool| summarize_tool(tool.as_ref()))
         .collect();
     summaries.sort_by(|a, b| a.name.cmp(&b.name));
@@ -168,6 +182,7 @@ pub fn classify_tool_call(
             );
             format!("unknown tool `{tool_name}`")
         })?;
+    require_explicit_scope(tool.as_ref())?;
     let class = command_class_for_tool(&security, tool.as_ref(), args);
     debug!(
         tool_name,
@@ -205,6 +220,7 @@ pub async fn execute_tool(
             );
             format!("unknown tool `{tool_name}`")
         })?;
+    require_explicit_scope(tool.as_ref())?;
 
     let started = Instant::now();
     debug!(

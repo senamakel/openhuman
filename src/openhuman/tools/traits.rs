@@ -11,13 +11,29 @@ pub use crate::openhuman::skills::types::{ToolContent, ToolResult};
 pub enum ToolScope {
     /// Available in agent loop, CLI, and RPC.
     All,
-    /// Intended to mark tools available only in the autonomous agent loop.
-    /// NOTE: not yet gated — no execution path filters on `AgentOnly`, so it
-    /// currently behaves like `All`. The `AgentOnly` vs `All` reconciliation is
-    /// deferred to the Phase 2 tool-model work (docs/tinyagents-port-plan.md §5).
+    /// Available only in the autonomous agent loop.
     AgentOnly,
     /// Only available via explicit CLI/RPC invocation (not autonomous agent).
     CliRpcOnly,
+}
+
+/// Host entry point requesting access to a tool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ToolEntryPoint {
+    Agent,
+    Explicit,
+}
+
+impl ToolScope {
+    /// Whether this scope permits execution from the requested host entry point.
+    pub(crate) fn allows(self, entry_point: ToolEntryPoint) -> bool {
+        matches!(
+            (self, entry_point),
+            (Self::All, _)
+                | (Self::AgentOnly, ToolEntryPoint::Agent)
+                | (Self::CliRpcOnly, ToolEntryPoint::Explicit)
+        )
+    }
 }
 
 /// Category of a tool — used by the sub-agent runner to scope which
@@ -746,5 +762,15 @@ mod tests {
         assert_ne!(ToolScope::All, ToolScope::AgentOnly);
         assert_ne!(ToolScope::All, ToolScope::CliRpcOnly);
         assert_ne!(ToolScope::AgentOnly, ToolScope::CliRpcOnly);
+    }
+
+    #[test]
+    fn tool_scope_enforces_entry_point_matrix() {
+        assert!(ToolScope::All.allows(ToolEntryPoint::Agent));
+        assert!(ToolScope::All.allows(ToolEntryPoint::Explicit));
+        assert!(ToolScope::AgentOnly.allows(ToolEntryPoint::Agent));
+        assert!(!ToolScope::AgentOnly.allows(ToolEntryPoint::Explicit));
+        assert!(!ToolScope::CliRpcOnly.allows(ToolEntryPoint::Agent));
+        assert!(ToolScope::CliRpcOnly.allows(ToolEntryPoint::Explicit));
     }
 }

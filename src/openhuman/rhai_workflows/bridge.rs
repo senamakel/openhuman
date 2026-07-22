@@ -41,7 +41,7 @@ use crate::openhuman::approval::{
 use crate::openhuman::tinyagents::tools::{
     execute_openhuman_tool, tool_policy_from_openhuman_tool,
 };
-use crate::openhuman::tools::traits::ToolScope;
+use crate::openhuman::tools::traits::ToolEntryPoint;
 use crate::openhuman::tools::Tool as OhTool;
 
 /// Tools never exposed to a `.ragsh` script, to prevent recursion (a script
@@ -107,7 +107,7 @@ pub(super) fn build_capability_registry(
         if is_excluded_tool(name) {
             continue;
         }
-        if matches!(tool.scope(), ToolScope::CliRpcOnly) {
+        if !tool.scope().allows(ToolEntryPoint::Agent) {
             continue;
         }
         registry.replace_tool(Arc::new(RhaiToolAdapter::new(

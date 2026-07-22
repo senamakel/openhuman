@@ -42,9 +42,28 @@ pub async fn spawn_workflow_run_background(
     skill_id_param: String,
     inputs_param: Option<Value>,
 ) -> Result<WorkflowRunStarted, String> {
+    spawn_workflow_run_background_with_profile(skill_id_param, inputs_param, None).await
+}
+
+/// Like [`spawn_workflow_run_background`], but resolves the target skill against
+/// the active profile's private skills root too
+/// (`<workspace>/personalities/<id>/skills/`) when `profile_skills_root` is
+/// supplied — so `run_workflow` under profile P can run P's private skills, with
+/// profile-local winning same-name collisions. `None` is byte-identical to
+/// [`spawn_workflow_run_background`]. The root is passed by value (owned) so it
+/// can cross the resolution boundary without borrowing across the spawn.
+pub async fn spawn_workflow_run_background_with_profile(
+    skill_id_param: String,
+    inputs_param: Option<Value>,
+    profile_skills_root: Option<std::path::PathBuf>,
+) -> Result<WorkflowRunStarted, String> {
     let workspace = resolve_workspace_dir().await;
-    let skill = registry::get_workflow(&workspace, &skill_id_param)
-        .ok_or_else(|| format!("workflow_run: unknown skill '{skill_id_param}'"))?;
+    let skill = registry::get_workflow_with_profile(
+        &workspace,
+        &skill_id_param,
+        profile_skills_root.as_deref(),
+    )
+    .ok_or_else(|| format!("workflow_run: unknown skill '{skill_id_param}'"))?;
     let inputs = inputs_param.unwrap_or(Value::Null);
     let missing = registry::missing_required_inputs(&skill.inputs, &inputs);
     if !missing.is_empty() {

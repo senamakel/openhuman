@@ -229,7 +229,11 @@ pub fn all_tools_with_runtime(
         // `await_run_outcome` — the same spawn path `openhuman.skills_run`
         // JSON-RPC uses, so RPC and tool callers stay in sync.
         #[cfg(feature = "skills")]
-        Box::new(RunWorkflowTool::new().with_skill_allowlist(skill_allowlist.cloned())),
+        Box::new(
+            RunWorkflowTool::new()
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
+        ),
         #[cfg(feature = "skills")]
         Box::new(AwaitWorkflowTool::new()),
         Box::new(CurrentTimeTool::new()),
@@ -521,7 +525,8 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "skills")]
         Box::new(
             WorkflowDescribeTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned()),
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         // Skill registry tools — browse/search/install from remote registries.
         // Browse and search are read-only (default-ON); install is a write
@@ -543,7 +548,8 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "skills")]
         Box::new(
             WorkflowReadResourceTool::new(config.clone())
-                .with_skill_allowlist(skill_allowlist.cloned()),
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         #[cfg(feature = "skills")]
         Box::new(WorkflowRecentRunsTool::new(config.clone())),

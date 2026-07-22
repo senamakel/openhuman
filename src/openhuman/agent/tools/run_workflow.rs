@@ -33,7 +33,9 @@
 use async_trait::async_trait;
 use serde_json::json;
 
-use crate::openhuman::skill_runtime::{await_run_outcome, spawn_workflow_run_background};
+use crate::openhuman::skill_runtime::{
+    await_run_outcome, spawn_workflow_run_background_with_profile,
+};
 use crate::openhuman::skills::schemas::resolve_workspace_dir;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
@@ -211,6 +213,10 @@ pub struct RunWorkflowTool {
     /// Per-profile allowlist of runnable workflow `dir_name` slugs. `None`
     /// (the default) means every installed workflow may be run.
     skill_allowlist: Option<std::collections::HashSet<String>>,
+    /// Active profile's private skills root
+    /// (`<workspace>/personalities/<id>/skills/`). Resolves + implicitly allows
+    /// the owner's profile-local skills. `None` = byte-identical to today.
+    profile_skills_root: Option<std::path::PathBuf>,
 }
 
 impl Default for RunWorkflowTool {
@@ -223,6 +229,7 @@ impl RunWorkflowTool {
     pub fn new() -> Self {
         Self {
             skill_allowlist: None,
+            profile_skills_root: None,
         }
     }
 
@@ -232,6 +239,13 @@ impl RunWorkflowTool {
         allowlist: Option<std::collections::HashSet<String>>,
     ) -> Self {
         self.skill_allowlist = allowlist;
+        self
+    }
+
+    /// Resolve (and implicitly allow) the active profile's private skills so a
+    /// turn under profile P can run P's own skills.
+    pub fn with_profile_skills_root(mut self, root: Option<std::path::PathBuf>) -> Self {
+        self.profile_skills_root = root;
         self
     }
 }
@@ -308,7 +322,12 @@ impl Tool for RunWorkflowTool {
             }
         };
         if let Some(allow) = &self.skill_allowlist {
-            if !allow.contains(&workflow_id) {
+            // Profile-local skills are implicitly allowed for their owner (they
+            // bypass `allowed_skills`), mirroring `list_workflows`.
+            let profile_local = crate::openhuman::skills::profile_local_skill_ids(
+                self.profile_skills_root.as_deref(),
+            );
+            if !profile_local.contains(&workflow_id) && !allow.contains(&workflow_id) {
                 log::debug!("[profiles] run_workflow blocked by profile allowlist: {workflow_id}");
                 return Ok(ToolResult::error(format!(
                     "run_workflow: workflow `{workflow_id}` is not available to the active agent profile"
@@ -321,7 +340,13 @@ impl Tool for RunWorkflowTool {
         // Fire-and-forget: only the spawn backstop applies — no await, so no
         // re-entrancy/nesting slot to take.
         if wait_seconds == 0 {
-            return match spawn_workflow_run_background(workflow_id.clone(), inputs).await {
+            return match spawn_workflow_run_background_with_profile(
+                workflow_id.clone(),
+                inputs,
+                self.profile_skills_root.clone(),
+            )
+            .await
+            {
                 // Count only spawns that actually start against the backstop —
                 // unknown-workflow / bad-input rejections (the Err arm) must not
                 // burn the budget, or rejected calls accumulate and trip the
@@ -355,7 +380,13 @@ impl Tool for RunWorkflowTool {
             Err(e) => return Ok(ToolResult::error(format!("run_workflow: {e}"))),
         };
 
-        let started = match spawn_workflow_run_background(workflow_id.clone(), inputs).await {
+        let started = match spawn_workflow_run_background_with_profile(
+            workflow_id.clone(),
+            inputs,
+            self.profile_skills_root.clone(),
+        )
+        .await
+        {
             Ok(s) => {
                 if let Err(e) = guard::account_spawn() {
                     return Ok(ToolResult::error(format!("run_workflow: {e}")));

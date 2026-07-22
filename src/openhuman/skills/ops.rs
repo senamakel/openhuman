@@ -33,7 +33,7 @@ pub use super::ops_create::{create_workflow, CreateWorkflowParams, WorkflowCreat
 pub use super::ops_discover::{
     discover_automations, discover_workflows, discover_workflows_with_profile, init_workflows_dir,
     is_workspace_trusted, load_workflow_metadata, load_workflow_metadata_for_profile,
-    read_workflow_resource,
+    profile_local_skill_ids, read_workflow_resource, read_workflow_resource_with_profile,
 };
 pub use super::ops_install::{
     install_workflow_from_url, uninstall_workflow, validate_install_url, validate_resolved_host,

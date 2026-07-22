@@ -479,10 +479,49 @@ pub fn read_workflow_resource(
     skill_id: &str,
     relative_path: &Path,
 ) -> Result<String, String> {
+    read_workflow_resource_with_profile(workspace_dir, skill_id, relative_path, None)
+}
+
+/// The dir_name/name set of skills discovered under a profile-local skills root.
+///
+/// Used by the `describe_workflow` / `read_workflow_resource` / `run_workflow`
+/// tools to treat a profile's private skills as implicitly allowed for their
+/// owner (they bypass the `allowed_skills` allowlist, mirroring `list_workflows`).
+/// Empty when no profile root is active, so the profile-less session and other
+/// profiles are unaffected.
+pub fn profile_local_skill_ids(
+    profile_skills_root: Option<&Path>,
+) -> std::collections::HashSet<String> {
+    let Some(root) = profile_skills_root else {
+        return std::collections::HashSet::new();
+    };
+    scan_root(root, WorkflowScope::Profile)
+        .into_iter()
+        .map(|w| {
+            if w.dir_name.is_empty() {
+                w.name
+            } else {
+                w.dir_name
+            }
+        })
+        .collect()
+}
+
+/// Like [`read_workflow_resource`], but resolves the skill against the active
+/// profile's private skills root too (`<workspace>/personalities/<id>/skills/`)
+/// when `profile_skills_root` is supplied. `None` is byte-identical to
+/// [`read_workflow_resource`].
+pub fn read_workflow_resource_with_profile(
+    workspace_dir: &Path,
+    skill_id: &str,
+    relative_path: &Path,
+    profile_skills_root: Option<&Path>,
+) -> Result<String, String> {
     tracing::debug!(
         skill_id = %skill_id,
         relative_path = %relative_path.display(),
         workspace = %workspace_dir.display(),
+        has_profile_root = profile_skills_root.is_some(),
         "[skills] read_workflow_resource: entry"
     );
 
@@ -514,10 +553,14 @@ pub fn read_workflow_resource(
     }
 
     // Resolve the skill by running the standard discovery pipeline. We reuse
-    // `load_workflow_metadata` (which honors both user and workspace roots plus the
-    // trust marker) so the resource read is scoped to the exact same set of
-    // skills the UI would already have shown the user.
-    let skill = resolve_workflow_for_resource(load_workflow_metadata(workspace_dir), skill_id)?;
+    // `load_workflow_metadata_for_profile` (which honors both user and workspace
+    // roots plus the trust marker, and the active profile's private root when
+    // supplied) so the resource read is scoped to the exact same set of skills
+    // the owner would already have seen listed.
+    let skill = resolve_workflow_for_resource(
+        load_workflow_metadata_for_profile(workspace_dir, profile_skills_root),
+        skill_id,
+    )?;
     let skill_root = skill
         .location
         .as_deref()
@@ -812,6 +855,85 @@ mod profile_scope_tests {
         assert!(precedence(WorkflowScope::Profile) > precedence(WorkflowScope::Project));
         assert!(precedence(WorkflowScope::Profile) > precedence(WorkflowScope::User));
         assert!(precedence(WorkflowScope::Profile) > precedence(WorkflowScope::Legacy));
+    }
+
+    /// Seed a runnable bundle with a bundled resource under `references/`.
+    fn seed_bundle_with_resource(root: &Path, slug: &str, resource_body: &str) {
+        let dir = root.join(slug);
+        std::fs::create_dir_all(dir.join("references")).unwrap();
+        std::fs::write(
+            dir.join("WORKFLOW.md"),
+            format!("---\nname: {slug}\ndescription: {slug} desc\n---\n\n{slug} body\n"),
+        )
+        .unwrap();
+        std::fs::write(dir.join("references").join("note.md"), resource_body).unwrap();
+    }
+
+    /// `read_workflow_resource_with_profile` (the `read_workflow_resource` tool's
+    /// seam) resolves a profile's private skill resources for the owner only,
+    /// resolves collisions to the profile-local copy, hides them from other
+    /// profiles / the profile-less session, and leaves global-only resources
+    /// readable everywhere.
+    #[test]
+    fn read_workflow_resource_with_profile_resolution_matrix() {
+        let ws = tempfile::TempDir::new().unwrap();
+        let profile_root = tempfile::TempDir::new().unwrap();
+        let other_root = tempfile::TempDir::new().unwrap();
+
+        // Global (legacy) skill + resource, private skill + resource, and a
+        // collision under both.
+        seed_bundle_with_resource(&ws.path().join("skills"), "resglobal7788", "GLOBAL_RES");
+        seed_bundle_with_resource(profile_root.path(), "reslocal7788", "LOCAL_RES");
+        seed_bundle_with_resource(&ws.path().join("skills"), "rescollide7788", "GLOBAL_RES");
+        seed_bundle_with_resource(profile_root.path(), "rescollide7788", "PROFILE_RES");
+
+        let rel = Path::new("references/note.md");
+        let read = |id: &str, root: Option<&Path>| {
+            read_workflow_resource_with_profile(ws.path(), id, rel, root)
+        };
+
+        // Owner reads its private skill's resource.
+        assert_eq!(
+            read("reslocal7788", Some(profile_root.path())).unwrap(),
+            "LOCAL_RES"
+        );
+        // Profile-less + other profile cannot resolve the private skill at all.
+        assert!(read("reslocal7788", None).is_err());
+        assert!(read("reslocal7788", Some(other_root.path())).is_err());
+
+        // Global-only resource is readable with or without a profile root.
+        assert_eq!(read("resglobal7788", None).unwrap(), "GLOBAL_RES");
+        assert_eq!(
+            read("resglobal7788", Some(profile_root.path())).unwrap(),
+            "GLOBAL_RES"
+        );
+
+        // Collision: owner reads the profile-local resource; everyone else the global.
+        assert_eq!(
+            read("rescollide7788", Some(profile_root.path())).unwrap(),
+            "PROFILE_RES"
+        );
+        assert_eq!(read("rescollide7788", None).unwrap(), "GLOBAL_RES");
+    }
+
+    /// `profile_local_skill_ids` returns exactly the dir_names under the profile
+    /// root (the implicit-allow set the describe/read/run tools consult), and is
+    /// empty for the profile-less session.
+    #[test]
+    fn profile_local_skill_ids_lists_only_the_profile_root() {
+        let profile_root = tempfile::TempDir::new().unwrap();
+        seed_bundle(profile_root.path(), "priv-a");
+        seed_bundle(profile_root.path(), "priv-b");
+
+        let ids = profile_local_skill_ids(Some(profile_root.path()));
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains("priv-a"));
+        assert!(ids.contains("priv-b"));
+
+        assert!(
+            profile_local_skill_ids(None).is_empty(),
+            "profile-less session has no implicitly-allowed profile-local ids"
+        );
     }
 
     /// A `None` profile root reproduces `load_workflow_metadata` byte-for-byte —

@@ -27,13 +27,6 @@ pub enum CompanionState {
     Error,
 }
 
-impl CompanionState {
-    /// Returns `true` for states that represent an active interaction turn.
-    pub fn is_active(self) -> bool {
-        !matches!(self, Self::Idle | Self::Error)
-    }
-}
-
 impl std::fmt::Display for CompanionState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

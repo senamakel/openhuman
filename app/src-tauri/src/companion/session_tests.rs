@@ -364,15 +364,3 @@ fn start_session_ttl_overflow_guard() {
         );
     });
 }
-
-// ── is_active helper ──────────────────────────────────────────────────
-
-#[test]
-fn companion_state_is_active() {
-    assert!(!CompanionState::Idle.is_active());
-    assert!(CompanionState::Listening.is_active());
-    assert!(CompanionState::Thinking.is_active());
-    assert!(CompanionState::Speaking.is_active());
-    assert!(CompanionState::Pointing.is_active());
-    assert!(!CompanionState::Error.is_active());
-}

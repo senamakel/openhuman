@@ -1524,36 +1524,6 @@ impl TurnModelSource {
         })
     }
 
-    /// The underlying provider handle. An escape hatch for the few seam-boundary
-    /// sites that still resolve/inherit a raw provider (sub-agent provider
-    /// resolution + its unit tests, the rhai-workflow model build): they consume
-    /// it inline rather than holding it, so no agent-harness *struct* carries an
-    /// `Arc<dyn Provider>`. Shrinks further as those callers move to the crate
-    /// `ModelRegistry` (Motion B).
-    pub(crate) fn provider(&self) -> anyhow::Result<Arc<dyn Provider>> {
-        if let Some(provider) = &self.provider {
-            return Ok(provider.clone());
-        }
-        let source = self
-            .crate_native
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("turn model source has no provider configuration"))?;
-        let built = match source.primary_override.as_deref() {
-            Some(provider) => {
-                crate::openhuman::inference::provider::factory::create_chat_provider_from_string(
-                    &source.role,
-                    provider,
-                    &source.config,
-                )
-            }
-            None => crate::openhuman::inference::provider::create_chat_provider(
-                &source.role,
-                &source.config,
-            ),
-        }?;
-        Ok(Arc::from(built.0))
-    }
-
     /// Build this turn's [`TurnModels`] (primary + tier routes + summarizer),
     /// capturing provider telemetry id + capabilities onto the bundle.
     pub(crate) fn build(

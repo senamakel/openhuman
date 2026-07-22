@@ -112,6 +112,11 @@ struct MockOpts {
     /// Sink recording the tool names advertised in the `hello` request, so a
     /// test can assert the host advertised its curated surface.
     observed_hello_tools: Option<Arc<Mutex<Vec<String>>>>,
+    /// On `instruct`/`status`, stream `event` frames forever instead of ever
+    /// answering the correlated `res`. Each frame feeds the host's per-read
+    /// idle timeout, so only the overall per-request deadline can end the
+    /// wait — the regression shape for a wedged child that keeps emitting.
+    stream_events_instead_of_res: bool,
 }
 
 /// Spawn a mock serve loop on `listener`, one accepted connection at a time.
@@ -162,6 +167,32 @@ async fn serve_connection(stream: UnixStream, conn_index: u64, opts: &MockOpts) 
             .unwrap_or("")
             .to_string();
         let op = frame.get("op").and_then(Value::as_str).unwrap_or("");
+        if opts.stream_events_instead_of_res && matches!(op, "instruct" | "status") {
+            if op == "instruct" {
+                if let Some(counter) = &opts.instruct_count {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+            // Never answer the correlated res; keep the connection chatty so
+            // the per-read idle timeout is fed on every iteration. Stop when
+            // the host gives up and drops the connection (write error).
+            let mut seq = 0u64;
+            loop {
+                seq += 1;
+                let mut line = json!({
+                    "t": "event", "seq": seq, "at": 0,
+                    "event": { "type": "progress" }
+                })
+                .to_string();
+                line.push('\n');
+                if write_half.write_all(line.as_bytes()).await.is_err()
+                    || write_half.flush().await.is_err()
+                {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }
         match op {
             "hello" => {
                 if let Some(sink) = &opts.observed_hello_tools {
@@ -309,19 +340,15 @@ async fn read_frame(
 /// A connector that dials the mock listener instead of spawning Node.
 struct MockConnector {
     path: PathBuf,
+    request_deadline: Duration,
 }
 
 #[async_trait]
 impl Connector for MockConnector {
     async fn connect(&self, ports: Arc<dyn HostPorts>) -> anyhow::Result<Connection> {
         let stream = connect_unix_retry(&self.path, Duration::from_secs(5)).await?;
-        let hello = super::HelloParams {
-            protocol: super::PROTOCOL_VERSION,
-            host: "openhuman/test".to_string(),
-            ports: vec!["inference".to_string(), "tools".to_string()],
-            tools: ports.tool_specs(),
-        };
-        Connection::establish(stream, ports, hello, None).await
+        let hello = mock_hello(&ports);
+        Connection::establish(stream, ports, hello, None, self.request_deadline).await
     }
 
     fn describe(&self) -> String {
@@ -329,9 +356,67 @@ impl Connector for MockConnector {
     }
 }
 
+fn mock_hello(ports: &Arc<dyn HostPorts>) -> super::HelloParams {
+    super::HelloParams {
+        protocol: super::PROTOCOL_VERSION,
+        host: "openhuman/test".to_string(),
+        ports: vec!["inference".to_string(), "tools".to_string()],
+        tools: ports.tool_specs(),
+    }
+}
+
+/// A connector that dials the mock listener AND spawns a stand-in child
+/// process (`sleep`) whose only job is to be supervised, so the child-liveness
+/// probe can be exercised hermetically: the transport stays "healthy" (the
+/// mock listener never closes) while the supervised process dies.
+struct ChildSpawningConnector {
+    path: PathBuf,
+    /// Pids of every stand-in child spawned, in connect order, so the test
+    /// can kill one externally.
+    spawned_pids: Arc<Mutex<Vec<u32>>>,
+}
+
+#[async_trait]
+impl Connector for ChildSpawningConnector {
+    async fn connect(&self, ports: Arc<dyn HostPorts>) -> anyhow::Result<Connection> {
+        let child = tokio::process::Command::new("sleep")
+            .arg("600")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .spawn()?;
+        self.spawned_pids
+            .lock()
+            .unwrap()
+            .push(child.id().expect("freshly spawned child has a pid"));
+        let stream = connect_unix_retry(&self.path, Duration::from_secs(5)).await?;
+        let hello = mock_hello(&ports);
+        Connection::establish(stream, ports, hello, Some(child), Duration::from_secs(300)).await
+    }
+
+    fn describe(&self) -> String {
+        "mock+child".to_string()
+    }
+}
+
 fn build(path: PathBuf, state: Arc<RecordingState>) -> MedullaSupervisor {
+    build_with_deadline(path, state, Duration::from_secs(300))
+}
+
+fn build_with_deadline(
+    path: PathBuf,
+    state: Arc<RecordingState>,
+    request_deadline: Duration,
+) -> MedullaSupervisor {
     let ports: Arc<dyn HostPorts> = Arc::new(RecordingPorts { state });
-    MedullaSupervisor::new(Arc::new(MockConnector { path }), ports)
+    MedullaSupervisor::new(
+        Arc::new(MockConnector {
+            path,
+            request_deadline,
+        }),
+        ports,
+    )
 }
 
 #[tokio::test]
@@ -552,6 +637,193 @@ async fn serve_rejection_fails_fast_without_restart() {
     assert!(
         status.running,
         "the connection must survive a serve rejection"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn overall_deadline_bounds_instruct_despite_continuous_events() {
+    let path = unique_socket_path("deadline-instruct");
+    let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
+    let instructs = Arc::new(AtomicU64::new(0));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            stream_events_instead_of_res: true,
+            connection_count: Some(connections.clone()),
+            instruct_count: Some(instructs.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let supervisor = build_with_deadline(
+        path.clone(),
+        Arc::new(RecordingState::default()),
+        Duration::from_millis(300),
+    );
+    let started = std::time::Instant::now();
+    let error = supervisor
+        .instruct("reconcile", json!({}))
+        .await
+        .expect_err("a never-answered instruct must trip the overall deadline");
+
+    // The request ended promptly even though event frames kept feeding the
+    // per-read idle timeout — the overall deadline is what fired.
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "the overall deadline must bound the wait; waited {:?}",
+        started.elapsed()
+    );
+
+    // The deadline on a non-idempotent op keeps the fail-fast MaybeApplied
+    // contract: the instruct reached serve but its outcome was never observed.
+    let request_error = error
+        .downcast_ref::<RequestError>()
+        .expect("supervisor errors must stay downcastable to RequestError");
+    assert!(
+        matches!(request_error, RequestError::MaybeApplied { op, .. } if op == "instruct"),
+        "expected MaybeApplied for the deadline on a non-idempotent op, got: {request_error:?}"
+    );
+    assert!(format!("{request_error:#}").contains("deadline"));
+    assert_eq!(
+        instructs.load(Ordering::SeqCst),
+        1,
+        "the deadline must not cause a silent replay of the instruct"
+    );
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        1,
+        "failing fast on the deadline must not respawn to replay the instruct"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn overall_deadline_bounds_idempotent_status_with_one_retry() {
+    let path = unique_socket_path("deadline-status");
+    let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            stream_events_instead_of_res: true,
+            connection_count: Some(connections.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let supervisor = build_with_deadline(
+        path.clone(),
+        Arc::new(RecordingState::default()),
+        Duration::from_millis(300),
+    );
+    let started = std::time::Instant::now();
+    let error = supervisor
+        .harness_status()
+        .await
+        .expect_err("a never-answered status must trip the deadline on both attempts");
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "both attempts together must stay bounded; waited {:?}",
+        started.elapsed()
+    );
+
+    // The deadline is a transport-class failure, so the idempotent op kept
+    // its restart-and-retry-once semantics: exactly one respawn happened.
+    let request_error = error
+        .downcast_ref::<RequestError>()
+        .expect("supervisor errors must stay downcastable to RequestError");
+    assert!(
+        matches!(request_error, RequestError::Transport(_)),
+        "expected the typed transport deadline error, got: {request_error:?}"
+    );
+    assert!(format!("{request_error:#}").contains("deadline"));
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        2,
+        "an idempotent deadline trip must restart-and-retry exactly once"
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[tokio::test]
+async fn dead_child_reports_not_running_and_respawns_on_next_request() {
+    let path = unique_socket_path("dead-child");
+    let listener = UnixListener::bind(&path).unwrap();
+    let connections = Arc::new(AtomicU64::new(0));
+    spawn_mock_serve(
+        listener,
+        MockOpts {
+            connection_count: Some(connections.clone()),
+            ..MockOpts::default()
+        },
+    );
+
+    let spawned_pids = Arc::new(Mutex::new(Vec::new()));
+    let ports: Arc<dyn HostPorts> = Arc::new(RecordingPorts {
+        state: Arc::new(RecordingState::default()),
+    });
+    let supervisor = MedullaSupervisor::new(
+        Arc::new(ChildSpawningConnector {
+            path: path.clone(),
+            spawned_pids: spawned_pids.clone(),
+        }),
+        ports,
+    );
+
+    supervisor.ensure().await.expect("handshake should succeed");
+    assert!(
+        supervisor.snapshot().await.running,
+        "a live supervised child must report running"
+    );
+
+    // Kill the supervised child externally, leaving the cached transport
+    // untouched — the exact shape of a child dying between requests.
+    let pid = spawned_pids.lock().unwrap()[0];
+    let killed = std::process::Command::new("kill")
+        .args(["-9", &pid.to_string()])
+        .status()
+        .expect("kill must run");
+    assert!(killed.success(), "kill -9 must reach the stand-in child");
+
+    // Signal delivery is asynchronous: poll until the snapshot notices.
+    let mut status = supervisor.snapshot().await;
+    let poll_started = std::time::Instant::now();
+    while status.running && poll_started.elapsed() < Duration::from_secs(5) {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        status = supervisor.snapshot().await;
+    }
+    assert!(
+        !status.running,
+        "a dead child must not be reported as running from the cached handshake"
+    );
+    assert!(
+        status
+            .message
+            .as_deref()
+            .is_some_and(|message| message.contains("exited")),
+        "the status must say the child exited, got: {:?}",
+        status.message
+    );
+
+    // The cache moved to the restartable state: the next request respawns a
+    // fresh child instead of writing into the dead one — in particular the
+    // non-idempotent instruct succeeds rather than misreporting MaybeApplied.
+    let receipt = supervisor
+        .instruct("reconcile", json!({}))
+        .await
+        .expect("a request after child death must respawn and succeed");
+    assert_eq!(receipt.instruction_id, "inst-agent-0");
+    assert_eq!(
+        connections.load(Ordering::SeqCst),
+        2,
+        "child death must lead to exactly one respawn on the next request"
+    );
+    assert_eq!(spawned_pids.lock().unwrap().len(), 2);
+    assert!(
+        supervisor.snapshot().await.running,
+        "the respawned child must report running again"
     );
     let _ = std::fs::remove_file(&path);
 }

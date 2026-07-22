@@ -42,8 +42,10 @@ use crate::openhuman::config::Config;
 
 /// Ceiling for the `ready` handshake (§7). Matches the Python server.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
-/// Ceiling for a single `req`/`ret`-awaiting read. `instruct` returns its
-/// receipt fast; the cycle itself is observed via events, not this timeout.
+/// Idle ceiling for a single frame read while awaiting a `res`. Resets on
+/// every inbound frame, so it only catches a *silent* child; a child that
+/// keeps streaming frames is bounded by the overall per-request deadline
+/// carried on [`Connection`] (`subconscious.medulla_local.request_deadline_secs`).
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 /// Backoff after a failed spawn before the host retries (§7).
 const START_FAILURE_BACKOFF: Duration = Duration::from_secs(300);
@@ -105,6 +107,18 @@ impl RequestError {
     }
 }
 
+/// The typed overall-deadline failure: classified as
+/// [`RequestError::Transport`] so it rides the existing policy axis — an
+/// idempotent op is restarted-and-retried once, while a non-idempotent op
+/// (e.g. `instruct`) surfaces as [`RequestError::MaybeApplied`] because the
+/// request reached serve but its outcome was never observed.
+fn deadline_exceeded(op: &str, deadline: Duration) -> RequestError {
+    RequestError::Transport(anyhow::anyhow!(
+        "medulla serve `{op}` exceeded the overall request deadline ({deadline:?}) while awaiting \
+         its correlated response (interleaved frames kept arriving but no `res` was seen)"
+    ))
+}
+
 /// Whether replaying `op` after a mid-request transport break is safe.
 ///
 /// `instruct` is NOT idempotent: the wire op carries only `message`/`meta` —
@@ -132,21 +146,31 @@ pub struct Connection {
     ports: Arc<dyn HostPorts>,
     ready: ReadyLine,
     hello: HelloResult,
-    /// Kept alive for the connection's lifetime; `None` in tests that connect
-    /// to a mock listener instead of spawning Node.
-    _child: Option<Child>,
+    /// Kept alive for the connection's lifetime and probed for liveness
+    /// before the cached connection is trusted (see [`Self::child_has_exited`]);
+    /// `None` in tests that connect to a mock listener instead of spawning
+    /// Node.
+    child: Option<Child>,
     last_event_seq: Option<u64>,
+    /// Overall wall-clock ceiling for one request (write → correlated `res`).
+    /// Unlike [`REQUEST_TIMEOUT`], interleaved `call`/`event` frames do NOT
+    /// reset it: a request either completes within this window or fails with
+    /// the typed transport-timeout error.
+    request_deadline: Duration,
 }
 
 impl Connection {
     /// Read the `ready` banner, negotiate `hello`, and return a live
     /// connection. `child` is retained so the caller can tie the process
-    /// lifetime to the connection.
+    /// lifetime to the connection. `request_deadline` is the overall
+    /// per-request ceiling applied to every request on this connection
+    /// (including the `hello` negotiated here).
     pub async fn establish(
         stream: UnixStream,
         ports: Arc<dyn HostPorts>,
         hello: HelloParams,
         child: Option<Child>,
+        request_deadline: Duration,
     ) -> Result<Self> {
         let (read_half, write_half) = stream.into_split();
         let mut reader = BufReader::new(read_half).lines();
@@ -182,8 +206,9 @@ impl Connection {
             ports,
             ready,
             hello: HelloResult::default(),
-            _child: child,
+            child,
             last_event_seq: None,
+            request_deadline,
         };
 
         let hello_value = serde_json::to_value(&hello).context("encoding medulla hello params")?;
@@ -223,11 +248,27 @@ impl Connection {
             .await
             .map_err(RequestError::Transport)?;
 
+        // One wall-clock deadline bounds the whole await-`res` loop.
+        // Interleaved `call`/`event` frames keep resetting the per-read idle
+        // timeout below, so without this ceiling a child that streams frames
+        // forever while never answering the correlated `res` would keep the
+        // request (and the supervisor's connection lock) pending indefinitely.
+        let deadline = Instant::now() + self.request_deadline;
         loop {
-            let line = self
-                .next_line(REQUEST_TIMEOUT)
-                .await
-                .map_err(RequestError::Transport)?;
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Err(deadline_exceeded(op, self.request_deadline));
+            }
+            let line = match self.next_line(REQUEST_TIMEOUT.min(remaining)).await {
+                Ok(line) => line,
+                // A read that fails once the deadline has elapsed is reported
+                // as the overall-deadline trip, not a per-read idle timeout —
+                // the shortened read window above is how the deadline fires.
+                Err(_) if Instant::now() >= deadline => {
+                    return Err(deadline_exceeded(op, self.request_deadline));
+                }
+                Err(error) => return Err(RequestError::Transport(error)),
+            };
             let frame: Value = match serde_json::from_str(&line) {
                 Ok(frame) => frame,
                 Err(error) => {
@@ -391,6 +432,20 @@ impl Connection {
         }
     }
 
+    /// Whether the supervised child has exited (killed externally, crashed
+    /// between requests). `try_wait` reaps without blocking. A connection
+    /// established without a child (tests dialing a mock listener) has no
+    /// process to supervise and reports alive; so does an indeterminate probe
+    /// error — discarding a possibly-healthy child on a probe failure would
+    /// be worse than one optimistic status report, and the next request's
+    /// transport error corrects it anyway.
+    fn child_has_exited(&mut self) -> bool {
+        match self.child.as_mut() {
+            Some(child) => matches!(child.try_wait(), Ok(Some(_))),
+            None => false,
+        }
+    }
+
     /// The `ready`/`hello` state captured at handshake, for status reporting.
     fn status(&self) -> MedullaLocalStatus {
         MedullaLocalStatus {
@@ -429,6 +484,9 @@ pub struct NodeServeConnector {
     serve_entry: Option<PathBuf>,
     socket_path: PathBuf,
     host_identity: String,
+    /// Overall per-request deadline handed to every [`Connection`] this
+    /// connector establishes (from `subconscious.medulla_local`).
+    request_deadline: Duration,
 }
 
 impl NodeServeConnector {
@@ -437,12 +495,14 @@ impl NodeServeConnector {
         serve_entry: Option<PathBuf>,
         socket_path: PathBuf,
         host_identity: String,
+        request_deadline: Duration,
     ) -> Self {
         Self {
             node_bootstrap,
             serve_entry,
             socket_path,
             host_identity,
+            request_deadline,
         }
     }
 }
@@ -513,7 +573,7 @@ impl Connector for NodeServeConnector {
             ports: vec!["inference".to_string(), "tools".to_string()],
             tools,
         };
-        Connection::establish(stream, ports, hello, Some(child)).await
+        Connection::establish(stream, ports, hello, Some(child), self.request_deadline).await
     }
 
     fn describe(&self) -> String {
@@ -586,13 +646,32 @@ impl MedullaSupervisor {
         }
     }
 
-    /// Ensure a connection exists (lazy spawn + handshake).
+    /// Ensure a connection exists (lazy spawn + handshake). A cached
+    /// connection whose child has since died is discarded and respawned.
     pub async fn ensure(&self) -> Result<()> {
         let mut guard = self.connection.lock().await;
+        Self::prune_dead_child(&mut guard);
         if guard.is_none() {
             *guard = Some(self.connector.connect(self.ports.clone()).await?);
         }
         Ok(())
+    }
+
+    /// Drop the cached connection when its supervised child has exited
+    /// (killed externally, crashed between requests). Returns whether a stale
+    /// connection was discarded. Probing BEFORE trusting the cache keeps two
+    /// contracts honest: `snapshot` never advertises `running: true` over a
+    /// dead child, and a non-idempotent request is never written into a
+    /// known-dead transport — which would have surfaced a spurious
+    /// [`RequestError::MaybeApplied`] for an operation that provably never
+    /// reached serve.
+    fn prune_dead_child(guard: &mut Option<Connection>) -> bool {
+        let dead = guard.as_mut().is_some_and(Connection::child_has_exited);
+        if dead {
+            warn!("[medulla_local] supervised serve child has exited; discarding the stale connection");
+            *guard = None;
+        }
+        dead
     }
 
     /// Request with restart-and-retry-once (§7) — restricted to transport
@@ -648,6 +727,10 @@ impl MedullaSupervisor {
         params: Value,
     ) -> Result<T, RequestError> {
         let mut guard = self.connection.lock().await;
+        // A cached connection over a dead child would fail mid-request — for
+        // a non-idempotent op that misreads as MaybeApplied even though the
+        // request never reached serve. Detect and respawn up front instead.
+        Self::prune_dead_child(&mut guard);
         if guard.is_none() {
             *guard = Some(
                 self.connector
@@ -685,8 +768,15 @@ impl MedullaSupervisor {
     }
 
     /// Non-spawning status snapshot from the currently-cached connection.
+    ///
+    /// The cached handshake state alone is not proof of life: the child can
+    /// die between requests without any I/O touching the socket. Liveness is
+    /// verified first, so a dead child is reported as `running: false` (and
+    /// the cache transitions to the restartable empty state) instead of
+    /// advertising a healthy supervisor that no longer exists.
     pub async fn snapshot(&self) -> MedullaLocalStatus {
-        let guard = self.connection.lock().await;
+        let mut guard = self.connection.lock().await;
+        let child_exited = Self::prune_dead_child(&mut guard);
         match guard.as_ref() {
             Some(connection) => connection.status(),
             None => MedullaLocalStatus {
@@ -695,7 +785,12 @@ impl MedullaSupervisor {
                 serve_version: None,
                 session_id: None,
                 ports: Vec::new(),
-                message: Some("medulla serve not connected".to_string()),
+                message: Some(if child_exited {
+                    "medulla serve child exited; it will be respawned on the next request"
+                        .to_string()
+                } else {
+                    "medulla serve not connected".to_string()
+                }),
             },
         }
     }
@@ -857,11 +952,13 @@ async fn build_supervisor(config: &Config) -> Result<Arc<MedullaSupervisor>> {
     let serve_entry = config.subconscious.medulla_local.resolved_serve_entry();
     let socket_path = medulla_socket_path(config);
     let host_identity = format!("openhuman/{}", env!("CARGO_PKG_VERSION"));
+    let request_deadline = config.subconscious.medulla_local.request_deadline();
     let connector = Arc::new(NodeServeConnector::new(
         node_bootstrap,
         serve_entry,
         socket_path,
         host_identity,
+        request_deadline,
     ));
     let ports: Arc<dyn HostPorts> = Arc::new(OpenhumanHostPorts::new(Arc::new(config.clone())));
     let supervisor = Arc::new(MedullaSupervisor::new(connector, ports));

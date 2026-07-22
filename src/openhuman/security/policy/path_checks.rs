@@ -364,7 +364,7 @@ impl SecurityPolicy {
             _ => return false,
         };
         let component = first_component.as_ref();
-        if WORKSPACE_INTERNAL_DIRS.iter().any(|d| *d == component)
+        if WORKSPACE_INTERNAL_DIRS.contains(&component)
             || ["memory-", "memory_tree-", "session_raw-"]
                 .iter()
                 .any(|prefix| {

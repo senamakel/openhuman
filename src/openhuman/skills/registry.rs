@@ -286,9 +286,37 @@ pub fn get_workflow_with_profile(
     id: &str,
     profile_skills_root: Option<&Path>,
 ) -> Option<WorkflowDefinition> {
-    load_workflows_with_profile(workspace_dir, profile_skills_root)
+    let workflows = load_workflows_with_profile(workspace_dir, profile_skills_root);
+    if let Some(exact) = workflows.iter().find(|s| s.definition.id == id) {
+        return Some(exact.clone());
+    }
+
+    // Lists advertise the frontmatter display name as well as the directory
+    // slug. Resolve that name back to the canonical runnable slug so a private
+    // workflow admitted by the profile-local allow set can actually be
+    // described and run. Discovery has already applied scope precedence and
+    // collision deduplication, matching the list surface.
+    let home = dirs::home_dir();
+    let trusted = super::ops_discover::is_workspace_trusted(workspace_dir);
+    let slug = super::ops_discover::discover_workflows_with_profile(
+        home.as_deref(),
+        Some(workspace_dir),
+        profile_skills_root,
+        trusted,
+    )
+    .into_iter()
+    .find(|workflow| workflow.name == id)
+    .map(|workflow| {
+        if workflow.dir_name.is_empty() {
+            workflow.name
+        } else {
+            workflow.dir_name
+        }
+    })?;
+
+    workflows
         .into_iter()
-        .find(|s| s.definition.id == id)
+        .find(|workflow| workflow.definition.id == slug)
 }
 
 #[cfg(test)]
@@ -358,11 +386,15 @@ mod tests {
     /// Seed a runnable WORKFLOW.md bundle under `root/slug/` with a distinct
     /// body marker so the resolved definition can be traced back to its source.
     fn seed_runnable(root: &std::path::Path, slug: &str, body_marker: &str) {
+        seed_runnable_with_name(root, slug, slug, body_marker);
+    }
+
+    fn seed_runnable_with_name(root: &std::path::Path, slug: &str, name: &str, body_marker: &str) {
         let dir = root.join(slug);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("WORKFLOW.md"),
-            format!("---\nname: {slug}\ndescription: {slug} desc\n---\n\n{body_marker}\n"),
+            format!("---\nname: {name}\ndescription: {name} desc\n---\n\n{body_marker}\n"),
         )
         .unwrap();
     }
@@ -430,6 +462,25 @@ mod tests {
             "---\nname: zzcollide7788\ndescription: zzcollide7788 desc\n---\n\nGLOBAL_COLLIDE\n",
             "profile-less session resolves the global copy on collision"
         );
+    }
+
+    #[test]
+    fn get_profile_workflow_resolves_distinct_display_name() {
+        let ws = tempfile::TempDir::new().unwrap();
+        let profile_root = tempfile::TempDir::new().unwrap();
+        seed_runnable_with_name(
+            profile_root.path(),
+            "mail-helper",
+            "Inbox Assistant",
+            "PROFILE_NAME_BODY",
+        );
+
+        let resolved =
+            get_workflow_with_profile(ws.path(), "Inbox Assistant", Some(profile_root.path()))
+                .expect("display name must resolve for the owning profile");
+        assert_eq!(resolved.definition.id, "mail-helper");
+        assert!(resolved_body(&resolved).contains("PROFILE_NAME_BODY"));
+        assert!(get_workflow_with_profile(ws.path(), "Inbox Assistant", None).is_none());
     }
 
     #[test]

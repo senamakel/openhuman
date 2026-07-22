@@ -78,6 +78,7 @@ pub fn all_tools(
         root_config,
         None,
         None,
+        None,
     )
 }
 
@@ -100,11 +101,13 @@ pub fn all_tools_with_runtime(
     root_config: &crate::openhuman::config::Config,
     skill_allowlist: Option<&std::collections::HashSet<String>>,
     mcp_allowlist: Option<&[String]>,
+    profile_skills_root: Option<&std::path::Path>,
 ) -> Vec<Box<dyn Tool>> {
-    // `skill_allowlist` scopes only the `skills`-gated tool registrations
-    // below, so it is genuinely unread when that feature is compiled out.
+    // `skill_allowlist` / `profile_skills_root` scope only the `skills`-gated
+    // tool registrations below, so they are genuinely unread when that feature
+    // is compiled out.
     #[cfg(not(feature = "skills"))]
-    let _ = skill_allowlist;
+    let _ = (skill_allowlist, profile_skills_root);
 
     // Build a session-scoped managed Node.js bootstrap once, so ShellTool,
     // NodeExecTool, and NpmExecTool all share the same memoised resolution
@@ -511,7 +514,9 @@ pub fn all_tools_with_runtime(
         // `tools::user_filter` (install also fetches remote content).
         #[cfg(feature = "skills")]
         Box::new(
-            WorkflowListTool::new(config.clone()).with_skill_allowlist(skill_allowlist.cloned()),
+            WorkflowListTool::new(config.clone())
+                .with_skill_allowlist(skill_allowlist.cloned())
+                .with_profile_skills_root(profile_skills_root.map(|p| p.to_path_buf())),
         ),
         #[cfg(feature = "skills")]
         Box::new(

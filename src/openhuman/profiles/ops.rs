@@ -55,6 +55,16 @@ fn enrich_profile(workspace_dir: &Path, action_dir: &Path, profile: &AgentProfil
             Value::String(soul.to_string_lossy().into_owned()),
         );
     }
+    // 2a — advertise the profile-local skills dir when it exists on disk (seeded
+    // by `ensure_profile_home`). Read-only, derived, never persisted. The UI
+    // (Phase 3) surfaces it as "skills placed here are private to this profile".
+    let skills_dir = super::home::profile_skills_dir(workspace_dir, &profile.id);
+    if skills_dir.is_dir() {
+        obj.insert(
+            "skillsDir".to_string(),
+            Value::String(skills_dir.to_string_lossy().into_owned()),
+        );
+    }
     if let Some(ws) = dedicated_workspace_dir(action_dir, profile) {
         obj.insert(
             "workspaceDir".to_string(),
@@ -134,7 +144,11 @@ pub async fn select(profile_id: &str) -> Result<Value, String> {
     })?;
     // Materialize the selected profile's home (covers built-ins, which are only
     // seeded when a user first activates them).
-    if let Some(profile) = state.profiles.iter().find(|p| p.id == state.active_profile_id) {
+    if let Some(profile) = state
+        .profiles
+        .iter()
+        .find(|p| p.id == state.active_profile_id)
+    {
         materialize_home(&workspace_dir, &action_dir, profile);
     }
     tracing::debug!(
@@ -344,6 +358,16 @@ mod tests {
         // The dedicated workspace dir was actually created.
         assert!(std::path::Path::new(workspace_dir).is_dir());
         assert_eq!(writer["dedicatedWorkspace"], json!(true));
+        // 2a — the profile-local skills dir is seeded by `ensure_profile_home`
+        // and advertised read-only as `skillsDir`.
+        let skills_dir = writer["skillsDir"]
+            .as_str()
+            .expect("skillsDir present (skills dir was seeded on disk)");
+        assert!(
+            skills_dir.ends_with("personalities/writer/skills"),
+            "skillsDir should end at the profile skills dir, got {skills_dir}"
+        );
+        assert!(std::path::Path::new(skills_dir).is_dir());
     }
 
     #[tokio::test]

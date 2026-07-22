@@ -50,7 +50,7 @@ pub use guard::{
 };
 pub use home::{
     dedicated_workspace_dir, ensure_profile_home, profile_action_workspace, profile_home,
-    validate_profile_id,
+    profile_skills_dir, profile_skills_root, validate_profile_id,
 };
 pub use paths::{
     effective_memory_suffix, filter_integrations, memory_subdir_for_suffix,

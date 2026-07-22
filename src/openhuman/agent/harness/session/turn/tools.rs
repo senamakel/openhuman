@@ -326,7 +326,17 @@ impl Agent {
                 w.dir_name.clone()
             }
         };
-        let latest = crate::openhuman::skills::load_workflow_metadata(&self.workspace_dir);
+        // Keep the mid-session refresh consistent with the initial catalog
+        // (built in the session factory): include the active profile's private
+        // skills root so profile-local installs are tracked/announced too. `None`
+        // for the profile-less session reproduces the prior behaviour.
+        let profile_skills_root = self.active_profile_id.as_deref().and_then(|id| {
+            crate::openhuman::profiles::profile_skills_root(&self.workspace_dir, id)
+        });
+        let latest = crate::openhuman::skills::load_workflow_metadata_for_profile(
+            &self.workspace_dir,
+            profile_skills_root.as_deref(),
+        );
         let current_ids: std::collections::HashSet<String> =
             self.workflows.iter().map(&id_of).collect();
         let latest_ids: std::collections::HashSet<String> = latest.iter().map(&id_of).collect();

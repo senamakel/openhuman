@@ -35,6 +35,38 @@ pub fn profile_action_workspace(action_dir: &Path, profile_id: &str) -> PathBuf 
     action_dir.join("profiles").join(profile_id)
 }
 
+/// A profile's private skills directory: `<workspace>/personalities/<id>/skills/`.
+///
+/// SKILL.md / WORKFLOW.md bundles placed here are discovered ONLY for turns
+/// running under this profile (see
+/// `skills::discover_workflows_with_profile`). Seeded empty by
+/// [`ensure_profile_home`].
+pub fn profile_skills_dir(workspace_dir: &Path, profile_id: &str) -> PathBuf {
+    profile_home(workspace_dir, profile_id).join("skills")
+}
+
+/// The profile-local skills discovery root for `profile_id`, iff the id passes
+/// [`validate_profile_id`].
+///
+/// The discovery/list seam (harness catalog build, `list_workflows` /
+/// `describe_workflow` / resource-read tools) passes this into
+/// `skills::discover_workflows_with_profile` /
+/// `skills::load_workflow_metadata_for_profile`. Returns `None` for legacy ids
+/// that fail validation — matching [`profile_skills_dir`]'s companion guards on
+/// the home/workspace paths, so a home the read paths would never load never
+/// contributes skills either.
+pub fn profile_skills_root(workspace_dir: &Path, profile_id: &str) -> Option<PathBuf> {
+    if let Err(e) = validate_profile_id(profile_id) {
+        tracing::debug!(
+            profile_id = %profile_id,
+            error = %e,
+            "[profiles][home] profile_skills_root: id fails validation, no profile-local skills root"
+        );
+        return None;
+    }
+    Some(profile_skills_dir(workspace_dir, profile_id))
+}
+
 /// Validate a profile id against the hermes-style name grammar
 /// `^[a-z0-9][a-z0-9_-]{0,63}$`.
 ///
@@ -46,9 +78,7 @@ pub fn validate_profile_id(id: &str) -> Result<(), String> {
         return Err("profile id must not be empty".to_string());
     }
     if id.len() > 64 {
-        return Err(format!(
-            "profile id '{id}' is too long (max 64 characters)"
-        ));
+        return Err(format!("profile id '{id}' is too long (max 64 characters)"));
     }
     let mut chars = id.chars();
     let first = chars.next().expect("non-empty checked above");
@@ -225,6 +255,25 @@ pub fn ensure_profile_home(
         );
     }
 
+    // Profile-local skills root: `<workspace>/personalities/<id>/skills/`.
+    // Created empty so the user has an obvious place to drop private SKILL.md
+    // bundles; discovery surfaces them only for this profile's turns.
+    let skills_dir = profile_skills_dir(workspace_dir, &profile.id);
+    std::fs::create_dir_all(&skills_dir).map_err(|e| {
+        tracing::debug!(
+            profile_id = %profile.id,
+            skills_dir = %skills_dir.display(),
+            error = %e,
+            "[profiles][home] create profile skills dir failed"
+        );
+        e
+    })?;
+    tracing::debug!(
+        profile_id = %profile.id,
+        skills_dir = %skills_dir.display(),
+        "[profiles][home] profile skills dir ensured"
+    );
+
     if let Some(ws) = dedicated_workspace_dir(action_dir, profile) {
         std::fs::create_dir_all(&ws).map_err(|e| {
             tracing::debug!(
@@ -319,14 +368,14 @@ mod tests {
         }
         // Invalid.
         for id in [
-            "",                      // empty
-            "-alice",                // leading dash
-            "_alice",                // leading underscore
-            "Alice",                 // uppercase
-            "alice bob",             // space
-            "alice.bob",             // dot
-            "alice/bob",             // slash
-            "über",                  // non-ascii
+            "",          // empty
+            "-alice",    // leading dash
+            "_alice",    // leading underscore
+            "Alice",     // uppercase
+            "alice bob", // space
+            "alice.bob", // dot
+            "alice/bob", // slash
+            "über",      // non-ascii
         ] {
             assert!(validate_profile_id(id).is_err(), "expected err: {id}");
         }
@@ -362,8 +411,7 @@ mod tests {
         profile.soul_md = Some("I am Bob, terse and exact.".to_string());
 
         ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
-        let soul =
-            std::fs::read_to_string(profile_home(ws.path(), "bob").join("SOUL.md")).unwrap();
+        let soul = std::fs::read_to_string(profile_home(ws.path(), "bob").join("SOUL.md")).unwrap();
         assert_eq!(soul, "I am Bob, terse and exact.\n");
     }
 
@@ -389,6 +437,35 @@ mod tests {
             std::fs::read_to_string(home.join("MEMORY.md")).unwrap(),
             "EDITED MEMORY"
         );
+    }
+
+    #[test]
+    fn ensure_profile_home_creates_empty_skills_dir() {
+        let ws = TempDir::new().unwrap();
+        let action = TempDir::new().unwrap();
+        let profile = test_profile("frank");
+
+        ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
+
+        let skills = profile_skills_dir(ws.path(), "frank");
+        assert!(skills.is_dir(), "profile skills dir must be created");
+        // Empty — the user drops private SKILL.md bundles here.
+        assert_eq!(std::fs::read_dir(&skills).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn profile_skills_dir_and_root_paths() {
+        let ws = Path::new("/tmp/ws");
+        assert_eq!(
+            profile_skills_dir(ws, "alice"),
+            Path::new("/tmp/ws/personalities/alice/skills")
+        );
+        // Valid id → Some(root); invalid id → None (read paths never load it).
+        assert_eq!(
+            profile_skills_root(ws, "alice"),
+            Some(Path::new("/tmp/ws/personalities/alice/skills").to_path_buf())
+        );
+        assert_eq!(profile_skills_root(ws, "Bad Id"), None);
     }
 
     #[test]

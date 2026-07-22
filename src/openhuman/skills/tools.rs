@@ -24,11 +24,14 @@ use crate::openhuman::config::Config;
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 use super::ops_create::{create_workflow, CreateWorkflowParams};
-use super::ops_discover::{discover_workflows, is_workspace_trusted, read_workflow_resource};
+use super::ops_discover::{
+    discover_workflows_with_profile, is_workspace_trusted, read_workflow_resource,
+};
 use super::ops_install::{
     install_workflow_from_url, uninstall_workflow, InstallWorkflowFromUrlParams,
     UninstallWorkflowParams,
 };
+use super::ops_types::WorkflowScope;
 use super::registry::get_workflow;
 use super::run_log::{find_run_log_path, read_run_log_slice, scan_runs};
 
@@ -65,6 +68,10 @@ fn skill_allowed(allowlist: &SkillAllowlist, dir_name: &str) -> bool {
 pub struct WorkflowListTool {
     workspace_dir: PathBuf,
     skill_allowlist: SkillAllowlist,
+    /// 2a — the active profile's private skills root
+    /// (`<workspace>/personalities/<id>/skills/`). `None` for the profile-less
+    /// session and other profiles, so the listed set is byte-identical to today.
+    profile_skills_root: Option<PathBuf>,
 }
 
 impl WorkflowListTool {
@@ -72,6 +79,7 @@ impl WorkflowListTool {
         Self {
             workspace_dir: config.workspace_dir.clone(),
             skill_allowlist: None,
+            profile_skills_root: None,
         }
     }
 
@@ -79,6 +87,15 @@ impl WorkflowListTool {
     /// slugs. `None` leaves all workflows visible.
     pub fn with_skill_allowlist(mut self, allowlist: SkillAllowlist) -> Self {
         self.skill_allowlist = allowlist;
+        self
+    }
+
+    /// Surface the active profile's private skills
+    /// (`<workspace>/personalities/<id>/skills/`) in this list. Profile-local
+    /// skills are implicitly allowed for their owner (they bypass the
+    /// `skill_allowlist`) and win same-name collisions against global skills.
+    pub fn with_profile_skills_root(mut self, root: Option<PathBuf>) -> Self {
+        self.profile_skills_root = root;
         self
     }
 }
@@ -104,10 +121,21 @@ impl Tool for WorkflowListTool {
         log::debug!("[tool][workflows] list invoked");
         let home = dirs::home_dir();
         let trusted = is_workspace_trusted(&self.workspace_dir);
-        let mut workflows = discover_workflows(home.as_deref(), Some(&self.workspace_dir), trusted);
+        let mut workflows = discover_workflows_with_profile(
+            home.as_deref(),
+            Some(&self.workspace_dir),
+            self.profile_skills_root.as_deref(),
+            trusted,
+        );
         if self.skill_allowlist.is_some() {
             let before = workflows.len();
-            workflows.retain(|w| skill_allowed(&self.skill_allowlist, &w.dir_name));
+            // Profile-local skills are implicitly allowed for their owner — they
+            // bypass the `allowed_skills` allowlist (which scopes only global
+            // skills). Keep any skill whose scope is `Profile`.
+            workflows.retain(|w| {
+                w.scope == WorkflowScope::Profile
+                    || skill_allowed(&self.skill_allowlist, &w.dir_name)
+            });
             log::debug!(
                 "[profiles] list_workflows scoped to profile allowlist: before={before} after={}",
                 workflows.len()

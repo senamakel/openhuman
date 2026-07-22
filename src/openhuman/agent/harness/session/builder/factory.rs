@@ -347,10 +347,8 @@ impl Agent {
         // The expression is extracted into [`derive_profile_workspace_descriptor`]
         // so the unit tests exercise the *same* code path rather than a
         // hand-copied mirror.
-        let profile_workspace_descriptor = derive_profile_workspace_descriptor(
-            &config.action_dir,
-            profile,
-        );
+        let profile_workspace_descriptor =
+            derive_profile_workspace_descriptor(&config.action_dir, profile);
 
         let runtime: Arc<dyn host_runtime::RuntimeAdapter> = Arc::from(
             host_runtime::create_runtime(&config.runtime, config.shell.hide_window)?,
@@ -370,8 +368,9 @@ impl Agent {
         );
         let security = Arc::new(
             match profile.filter(|_| profile_workspace_descriptor.is_some()) {
-                Some(p) => base_security
-                    .with_active_profile(p.id.clone(), config.action_dir.clone()),
+                Some(p) => {
+                    base_security.with_active_profile(p.id.clone(), config.action_dir.clone())
+                }
                 None => base_security,
             },
         );
@@ -403,6 +402,21 @@ impl Agent {
             .map(|v| v.into_iter().collect());
         let profile_mcp_allowlist: Option<Vec<String>> =
             profile.and_then(|p| p.allowed_mcp_servers.clone());
+
+        // 2a — profile-local skills root (`<workspace>/personalities/<id>/skills/`).
+        // Threaded into the harness workflow catalog AND the discovery/list tools
+        // so a turn running under this profile sees its private skills (implicitly
+        // allowed for their owner, winning same-name collisions). `None` for the
+        // profile-less session / legacy ids keeps discovery byte-identical.
+        let profile_skills_root: Option<std::path::PathBuf> = profile.and_then(|p| {
+            crate::openhuman::profiles::profile_skills_root(&config.workspace_dir, &p.id)
+        });
+        if let Some(root) = profile_skills_root.as_deref() {
+            tracing::debug!(
+                skills_root = %root.display(),
+                "[profiles] profile-local skills root active for this session"
+            );
+        }
 
         // Load the user's persisted tool preferences once. They drive two
         // things below: granting the App UI Control / App Automation mutation
@@ -454,6 +468,7 @@ impl Agent {
             &tool_config,
             profile_skill_allowlist.as_ref(),
             profile_mcp_allowlist.as_deref(),
+            profile_skills_root.as_deref(),
         );
 
         // Filter tools by the user preference loaded above.
@@ -718,14 +733,16 @@ impl Agent {
         let profile_suffix = profile_prompt_suffix
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
-        let workspace_notice = profile_workspace_descriptor.as_ref().and_then(|descriptor| {
-            profile.map(|p| {
-                crate::openhuman::profiles::cross_profile_workspace_notice(
-                    &p.id,
-                    &descriptor.root,
-                )
-            })
-        });
+        let workspace_notice = profile_workspace_descriptor
+            .as_ref()
+            .and_then(|descriptor| {
+                profile.map(|p| {
+                    crate::openhuman::profiles::cross_profile_workspace_notice(
+                        &p.id,
+                        &descriptor.root,
+                    )
+                })
+            });
         if profile_suffix.is_some() || workspace_notice.is_some() {
             log::debug!(
                 "[agent:builder] profile prompt section injected suffix_chars={} workspace_notice={}",
@@ -1254,9 +1271,12 @@ impl Agent {
             // see which profile the turn ran under. `None` for the profile-less
             // session keeps every consumer byte-identical.
             .active_profile_id(profile.map(|p| p.id.clone()))
-            .workflows(crate::openhuman::skills::load_workflow_metadata(
-                &config.workspace_dir,
-            ))
+            .workflows(
+                crate::openhuman::skills::load_workflow_metadata_for_profile(
+                    &config.workspace_dir,
+                    profile_skills_root.as_deref(),
+                ),
+            )
             .auto_save(config.memory.auto_save)
             .post_turn_hooks(post_turn_hooks)
             .learning_enabled(config.learning.enabled)

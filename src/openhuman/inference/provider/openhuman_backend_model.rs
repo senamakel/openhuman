@@ -33,7 +33,7 @@ use tinyagents::harness::providers::openai::OpenAiModel;
 use tinyagents::{Result as TaResult, TinyAgentsError};
 
 use super::openhuman_backend::{OpenHumanBackendProvider, PROVIDER_LABEL};
-use super::thread_context;
+use crate::openhuman::tinyagents::thread_context;
 
 /// The managed OpenHuman backend as a crate [`ChatModel`]. Holds the backend
 /// provider (for JWT + base-URL resolution) and the default model id sent when a

@@ -661,7 +661,7 @@ fn persist_subagent_transcript(
         output_tokens: usage.output_tokens,
         cached_input_tokens: usage.cached_input_tokens,
         charged_amount_usd: usage.charged_amount_usd,
-        thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
+        thread_id: crate::openhuman::tinyagents::thread_context::current_thread_id(),
         task_id: Some(task_id.to_string()),
     };
     if let Err(err) = transcript::write_transcript(&path, history, &meta, Some(&turn_usage)) {

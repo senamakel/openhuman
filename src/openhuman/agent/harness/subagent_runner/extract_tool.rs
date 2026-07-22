@@ -571,7 +571,7 @@ fn write_extract_transcript(
         output_tokens: 0,
         cached_input_tokens: 0,
         charged_amount_usd: 0.0,
-        thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
+        thread_id: crate::openhuman::tinyagents::thread_context::current_thread_id(),
         task_id: None,
     };
 

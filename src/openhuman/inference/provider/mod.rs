@@ -23,7 +23,6 @@ pub mod openhuman_backend;
 pub mod openhuman_backend_model;
 pub mod ops;
 pub mod schemas;
-pub mod thread_context;
 pub mod traits;
 
 #[allow(unused_imports)]

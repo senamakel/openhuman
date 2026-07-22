@@ -1,4 +1,4 @@
-//! Ambient `thread_id` propagation for outbound provider requests.
+//! Ambient `thread_id` propagation across an agent turn.
 //!
 //! The web channel keys runtime sessions by `(client_id, thread_id)` and the
 //! backend's `/openai/v1/chat/completions` endpoint accepts an optional
@@ -14,7 +14,7 @@
 //! it.
 //!
 //! ```ignore
-//! use crate::openhuman::inference::provider::thread_context::{with_thread_id, current_thread_id};
+//! use crate::openhuman::tinyagents::thread_context::{with_thread_id, current_thread_id};
 //!
 //! with_thread_id("abc123", async {
 //!     // any provider.chat() call inside this future sees thread_id=Some("abc123")

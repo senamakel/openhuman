@@ -469,7 +469,7 @@ impl Tool for SpawnSubagentTool {
         // still proceeds live-only (`worker_thread_id: None`).
         let worker_thread_id = current_parent().and_then(|p| {
             let parent_thread_id =
-                crate::openhuman::inference::provider::thread_context::current_thread_id()?;
+                crate::openhuman::tinyagents::thread_context::current_thread_id()?;
             let title: String = prompt.chars().take(60).collect();
             super::worker_thread::create_worker_thread(
                 p.workspace_dir.clone(),

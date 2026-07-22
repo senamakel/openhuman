@@ -7,7 +7,6 @@ use openhuman_core::openhuman::agent::harness::run_queue::RunQueue;
 use openhuman_core::openhuman::agent::harness::session::Agent;
 use openhuman_core::openhuman::agent::host_runtime::NativeRuntime;
 use openhuman_core::openhuman::config::AgentConfig;
-use openhuman_core::openhuman::inference::provider::thread_context::with_thread_id;
 use openhuman_core::openhuman::inference::provider::traits::ProviderCapabilities;
 use openhuman_core::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ChatResponse, Provider, ToolCall,
@@ -19,6 +18,7 @@ use openhuman_core::openhuman::monitor::tools::{
     MonitorListTool, MonitorReadTool, MonitorStopTool, MonitorTool,
 };
 use openhuman_core::openhuman::security::{AuditLogger, AutonomyLevel, SecurityPolicy};
+use openhuman_core::openhuman::tinyagents::thread_context::with_thread_id;
 use openhuman_core::openhuman::tools::Tool;
 use parking_lot::Mutex;
 use serde_json::json;

@@ -4882,7 +4882,7 @@ pub async fn flows_discover(
     );
     let timed = match &stream {
         Some(target) => {
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
+            crate::openhuman::tinyagents::thread_context::with_thread_id(
                 target.thread_id.clone(),
                 run,
             )
@@ -5205,7 +5205,7 @@ pub async fn flows_build(
             );
             let run =
                 tokio::time::timeout(std::time::Duration::from_secs(FLOW_BUILD_TIMEOUT_SECS), run);
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
+            crate::openhuman::tinyagents::thread_context::with_thread_id(
                 target.thread_id.clone(),
                 run,
             )

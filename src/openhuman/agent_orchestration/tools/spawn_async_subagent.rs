@@ -223,8 +223,7 @@ impl Tool for SpawnAsyncSubagentTool {
 
         let parent_session = parent.session_id.clone();
         let progress_sink = parent.on_progress.clone();
-        let parent_thread_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id();
+        let parent_thread_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
         let workspace_descriptor = tool_context.and_then(|ctx| ctx.workspace.clone());
         let effective_action_root = workspace_descriptor
@@ -517,7 +516,7 @@ impl Tool for SpawnAsyncSubagentTool {
             };
 
             let result = with_parent_context(background_parent, async move {
-                crate::openhuman::inference::provider::thread_context::with_thread_id(
+                crate::openhuman::tinyagents::thread_context::with_thread_id(
                     background_thread_affinity_id,
                     async move {
                         run_subagent(&background_definition, &background_prompt, options).await

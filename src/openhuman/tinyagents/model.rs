@@ -19,10 +19,10 @@ use tinyagents::harness::usage::Usage;
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::abort_guard::AbortOnDrop;
-use crate::openhuman::inference::provider::thread_context::{current_thread_id, with_thread_id};
 use crate::openhuman::inference::provider::{
     ChatMessage, ChatRequest, ChatResponse, Provider, ProviderDelta, UsageInfo,
 };
+use crate::openhuman::tinyagents::thread_context::{current_thread_id, with_thread_id};
 use crate::openhuman::tinyagents::{current_route_slot, with_route_slot};
 use crate::openhuman::tools::ToolSpec;
 

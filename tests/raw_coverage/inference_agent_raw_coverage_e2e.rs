@@ -134,7 +134,7 @@ use openhuman_core::openhuman::inference::provider::factory::{
 };
 use openhuman_core::openhuman::inference::provider::openhuman_backend::OpenHumanBackendProvider;
 use openhuman_core::openhuman::inference::temperature::{glob_match, temperature_for_model};
-use openhuman_core::openhuman::inference::provider::thread_context::{
+use openhuman_core::openhuman::tinyagents::thread_context::{
     current_thread_id, with_thread_id,
 };
 use openhuman_core::openhuman::inference::provider::traits::ProviderCapabilities;

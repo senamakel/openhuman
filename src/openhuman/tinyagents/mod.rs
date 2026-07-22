@@ -39,6 +39,7 @@ mod steering_forwarder;
 pub(crate) mod stop_hooks;
 pub(crate) mod subagent_graph;
 mod summarize;
+pub mod thread_context;
 pub(crate) mod tools;
 mod topology;
 

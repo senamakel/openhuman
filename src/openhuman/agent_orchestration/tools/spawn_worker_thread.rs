@@ -153,9 +153,8 @@ impl Tool for SpawnWorkerThreadTool {
 
         // ── Depth Guard ────────────────────────────────────────────────
         // Check if the current thread is already a worker thread.
-        let current_thread_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id()
-                .unwrap_or_else(|| "unknown".to_string());
+        let current_thread_id = crate::openhuman::tinyagents::thread_context::current_thread_id()
+            .unwrap_or_else(|| "unknown".to_string());
 
         tracing::info!(
             agent_id = %agent_id,
@@ -443,7 +442,7 @@ mod tests {
         )
         .unwrap();
 
-        crate::openhuman::inference::provider::thread_context::with_thread_id(
+        crate::openhuman::tinyagents::thread_context::with_thread_id(
             thread_id.to_string(),
             async {
                 let parent = test_parent_ctx(temp.path().to_path_buf());
@@ -486,7 +485,7 @@ mod tests {
         )
         .unwrap();
 
-        crate::openhuman::inference::provider::thread_context::with_thread_id(
+        crate::openhuman::tinyagents::thread_context::with_thread_id(
             thread_id.to_string(),
             async {
                 let parent = test_parent_ctx(temp.path().to_path_buf());

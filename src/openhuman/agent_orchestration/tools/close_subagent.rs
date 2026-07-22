@@ -70,8 +70,7 @@ impl Tool for CloseSubagentTool {
             }
         };
         let store = SubagentSessionStore::new(parent.workspace_dir.clone());
-        let parent_thread_id =
-            crate::openhuman::inference::provider::thread_context::current_thread_id();
+        let parent_thread_id = crate::openhuman::tinyagents::thread_context::current_thread_id();
         let owned = match subagent_sessions::list_for_parent(
             &store,
             &parent.session_id,
@@ -153,16 +152,13 @@ mod tests {
         let session = seed_session(&store, "thread-b");
 
         let res = with_parent_context(parent_context(workspace.path()), async {
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
-                "thread-a",
-                async {
-                    CloseSubagentTool::new()
-                        .execute(json!({
-                            "subagent_session_id": session.subagent_session_id,
-                        }))
-                        .await
-                },
-            )
+            crate::openhuman::tinyagents::thread_context::with_thread_id("thread-a", async {
+                CloseSubagentTool::new()
+                    .execute(json!({
+                        "subagent_session_id": session.subagent_session_id,
+                    }))
+                    .await
+            })
             .await
         })
         .await
@@ -184,16 +180,13 @@ mod tests {
         let session = seed_session(&store, "thread-a");
 
         let res = with_parent_context(parent_context(workspace.path()), async {
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
-                "thread-a",
-                async {
-                    CloseSubagentTool::new()
-                        .execute(json!({
-                            "subagent_session_id": session.subagent_session_id,
-                        }))
-                        .await
-                },
-            )
+            crate::openhuman::tinyagents::thread_context::with_thread_id("thread-a", async {
+                CloseSubagentTool::new()
+                    .execute(json!({
+                        "subagent_session_id": session.subagent_session_id,
+                    }))
+                    .await
+            })
             .await
         })
         .await

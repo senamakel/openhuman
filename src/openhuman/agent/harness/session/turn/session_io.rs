@@ -542,7 +542,7 @@ impl Agent {
             output_tokens,
             cached_input_tokens,
             charged_amount_usd,
-            thread_id: crate::openhuman::inference::provider::thread_context::current_thread_id(),
+            thread_id: crate::openhuman::tinyagents::thread_context::current_thread_id(),
             task_id: None,
         };
 

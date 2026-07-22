@@ -232,11 +232,8 @@ pub(super) async fn run_autonomous(
     );
     let result = match session_thread_id.as_deref() {
         Some(thread_id) => {
-            crate::openhuman::inference::provider::thread_context::with_thread_id(
-                thread_id.to_string(),
-                run,
-            )
-            .await
+            crate::openhuman::tinyagents::thread_context::with_thread_id(thread_id.to_string(), run)
+                .await
         }
         None => run.await,
     }

@@ -29,7 +29,7 @@ use super::store;
 use super::types::{ThreadGoal, ThreadGoalStatus};
 use crate::core::event_bus::{publish_global, DomainEvent};
 use crate::openhuman::agent::stop_hooks::{StopDecision, StopHook, TurnState};
-use crate::openhuman::inference::provider::thread_context::current_thread_id;
+use crate::openhuman::tinyagents::thread_context::current_thread_id;
 
 /// Load the goal for the ambient chat thread, if any. Returns `None` outside a
 /// thread scope (CLI / background paths) or when the thread has no goal.
@@ -358,7 +358,7 @@ mod tests {
     async fn account_turn_charges_active_goal_and_trips_budget() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().to_path_buf();
-        crate::openhuman::inference::provider::thread_context::with_thread_id("t-acct", async {
+        crate::openhuman::tinyagents::thread_context::with_thread_id("t-acct", async {
             store::set(&dir, "t-acct", "obj", Some(100)).await.unwrap();
             account_turn_against_goal(&dir, 80, 40, 3).await; // 120 >= 100
             let g = store::get(&dir, "t-acct").await.unwrap().unwrap();
@@ -372,7 +372,7 @@ mod tests {
     async fn account_turn_skips_non_active_goal() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().to_path_buf();
-        crate::openhuman::inference::provider::thread_context::with_thread_id("t-paused", async {
+        crate::openhuman::tinyagents::thread_context::with_thread_id("t-paused", async {
             store::set(&dir, "t-paused", "obj", Some(1000))
                 .await
                 .unwrap();

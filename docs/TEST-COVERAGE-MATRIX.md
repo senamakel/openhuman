@@ -635,7 +635,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 🟡 Partial       | 27                                               |
 | ❌ Missing       | 26                                               |
 | 🚫 Manual smoke  | 11                                               |
-| **Total leaves** | **144 explicit + nested = 215 product features** |
+| **Total leaves** | **143 explicit + nested = 214 product features** |
 
 PR-A delta: 13 leaves moved from ❌ → ✅ via 5 WDIO specs + 2 Vitest + 1 Rust integration test.
 Remaining gaps tracked under sub-issues #965 (process), #966 (docs), #967 (tools), #968 (auth/perm), #969 (settings), #970 (rewards), #971 (manual smoke).

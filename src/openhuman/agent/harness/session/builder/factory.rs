@@ -294,27 +294,12 @@ impl Agent {
         let runtime: Arc<dyn host_runtime::RuntimeAdapter> = Arc::from(
             host_runtime::create_runtime(&config.runtime, config.shell.hide_window)?,
         );
-        // 1b — arm the cross-profile write guard for the session iff the active
-        // profile owns a dedicated workspace (i.e. a descriptor was derived
-        // above). The guard blocks tool writes/commands that target a *sibling*
-        // profile's `<action_dir>/profiles/<Q>` dir. A profile-less session, or
-        // a shared-workspace profile, leaves it disarmed (`active_profile =
-        // None`) so path validation is byte-identical. The broad `action_dir`
-        // is captured so the guard survives the per-tool-call `action_dir`
-        // override `security_for_tool_context` applies.
-        let base_security = SecurityPolicy::from_config(
-            &config.autonomy,
-            &config.workspace_dir,
-            &config.action_dir,
-        );
-        let security = Arc::new(
-            match profile.filter(|_| profile_workspace_descriptor.is_some()) {
-                Some(p) => {
-                    base_security.with_active_profile(p.id.clone(), config.action_dir.clone())
-                }
-                None => base_security,
-            },
-        );
+        // 1b — arm the cross-profile write guard for every active profile,
+        // independently of whether that profile uses (or successfully created)
+        // a dedicated workspace. A shared/default profile still must not reach
+        // another profile's `<action_dir>/profiles/<Q>` subtree from the broad
+        // action root. Profile-less sessions remain byte-identical.
+        let security = Arc::new(build_profile_security(config, profile));
         // Phase 1 of #1401: see comment in channels/runtime/startup.rs.
         let audit = crate::openhuman::security::get_or_create_workspace_audit_logger(
             crate::openhuman::config::AuditConfig::default(),
@@ -1645,6 +1630,18 @@ pub(crate) fn derive_profile_workspace_descriptor(
     )
 }
 
+fn build_profile_security(
+    config: &crate::openhuman::config::Config,
+    profile: Option<&crate::openhuman::profiles::AgentProfile>,
+) -> SecurityPolicy {
+    let base =
+        SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir, &config.action_dir);
+    match profile {
+        Some(profile) => base.with_active_profile(profile.id.clone(), config.action_dir.clone()),
+        None => base,
+    }
+}
+
 /// Section D — per-profile dedicated-workspace descriptor seam.
 ///
 /// These tests exercise the **production** [`derive_profile_workspace_descriptor`]
@@ -1654,7 +1651,7 @@ pub(crate) fn derive_profile_workspace_descriptor(
 /// profiles produce no descriptor (so the shared `action_dir` cwd is preserved).
 #[cfg(test)]
 mod profile_workspace_descriptor_tests {
-    use super::derive_profile_workspace_descriptor;
+    use super::{build_profile_security, derive_profile_workspace_descriptor};
     use crate::openhuman::profiles::store::built_in_default_profile;
 
     fn profile(id: &str, dedicated_workspace: bool) -> crate::openhuman::profiles::AgentProfile {
@@ -1717,5 +1714,30 @@ mod profile_workspace_descriptor_tests {
             derive_profile_workspace_descriptor(&action_file, Some(&p)).is_none(),
             "a create_dir_all failure must fall back to None"
         );
+    }
+
+    #[test]
+    fn shared_profile_still_arms_cross_profile_guard() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mut config = crate::openhuman::config::Config::default();
+        config.action_dir = temp.path().join("actions");
+        config.workspace_dir = temp.path().join("state");
+        let profile = profile("default", false);
+
+        let security = build_profile_security(&config, Some(&profile));
+
+        let guard = security
+            .active_profile
+            .expect("every active profile must arm the guard");
+        assert_eq!(guard.profile_id, "default");
+        assert_eq!(guard.action_dir, config.action_dir);
+    }
+
+    #[test]
+    fn profile_less_session_leaves_cross_profile_guard_disarmed() {
+        let config = crate::openhuman::config::Config::default();
+        assert!(build_profile_security(&config, None)
+            .active_profile
+            .is_none());
     }
 }

@@ -134,10 +134,9 @@ pub struct Agent {
     /// Set once at build time from the resolved [`AgentProfile`] and never
     /// rewritten. Consumed by the profile-scoped agent-experience capture +
     /// retrieval (1c): records are stamped with this id and only records
-    /// matching it (plus unstamped legacy records) are recalled. Distinct from
-    /// the tool-layer guard identity, which rides the
-    /// [`WorkspaceDescriptor::policy_id`](tinyagents::harness::workspace::WorkspaceDescriptor)
-    /// and only exists for *dedicated-workspace* profiles.
+    /// matching it (plus unstamped legacy records) are recalled. The same
+    /// active id also arms the tool-layer sibling-workspace guard, regardless
+    /// of whether this profile uses a dedicated cwd.
     pub(super) active_profile_id: Option<String>,
     /// Profile-selected memory subtree name (`memory`, `memory-<id>`, or a
     /// legacy numeric suffix). Used for memory-tree reads and paired with the

@@ -302,8 +302,8 @@ impl SecurityPolicy {
         Ok(result)
     }
 
-    /// Cross-profile write guard (1b). A no-op unless the session runs under a
-    /// dedicated-workspace profile (`active_profile` armed via
+    /// Cross-profile write guard (1b). A no-op unless the session runs under an
+    /// active profile (`active_profile` armed via
     /// [`SecurityPolicy::with_active_profile`]). When armed, a resolved target
     /// that lands inside a *sibling* profile's workspace
     /// (`<action_dir>/profiles/<Q>/`, `Q != active`) is refused with the

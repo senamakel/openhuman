@@ -169,8 +169,8 @@ impl SecurityPolicy {
             tracker: ActionTracker::new(),
             canonical_workspace: Arc::new(OnceCell::new()),
             // No active profile by default — armed explicitly by the session
-            // builder via [`with_active_profile`] when a dedicated-workspace
-            // profile is in play. Keeps every existing `from_config` caller on
+            // builder via [`with_active_profile`] when any profile is in play.
+            // Keeps every existing profile-less `from_config` caller on
             // the byte-identical, guard-off path.
             active_profile: None,
         }
@@ -182,8 +182,8 @@ impl SecurityPolicy {
     ///
     /// Builder-style so the session builder reads as
     /// `SecurityPolicy::from_config(..).with_active_profile(id, action_dir)`.
-    /// Only the dedicated-workspace path calls this; a profile-less session
-    /// never does, so the guard stays dormant and path validation is unchanged.
+    /// Every profiled session calls this; a profile-less session never does, so
+    /// the guard stays dormant and path validation is unchanged.
     #[must_use]
     pub fn with_active_profile(
         mut self,

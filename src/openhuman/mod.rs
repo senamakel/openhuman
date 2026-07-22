@@ -82,7 +82,6 @@ pub mod media_generation;
 pub mod meet;
 pub mod meet_agent;
 pub mod memory;
-pub mod memory_archivist;
 pub mod memory_conversations;
 pub mod memory_diff;
 pub mod memory_goals;

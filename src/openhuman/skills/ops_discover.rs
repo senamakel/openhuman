@@ -525,12 +525,12 @@ pub fn profile_local_skill_ids(
     };
     scan_root(root, WorkflowScope::Profile)
         .into_iter()
-        .map(|w| {
-            if w.dir_name.is_empty() {
-                w.name
-            } else {
-                w.dir_name
+        .flat_map(|w| {
+            let mut ids = vec![w.name];
+            if !w.dir_name.is_empty() {
+                ids.push(w.dir_name);
             }
+            ids
         })
         .collect()
 }
@@ -974,9 +974,9 @@ mod profile_scope_tests {
         assert_eq!(read("rescollide7788", None).unwrap(), "GLOBAL_RES");
     }
 
-    /// `profile_local_skill_ids` returns exactly the dir_names under the profile
-    /// root (the implicit-allow set the describe/read/run tools consult), and is
-    /// empty for the profile-less session.
+    /// `profile_local_skill_ids` returns both runnable names and directory slugs
+    /// under the profile root (the implicit-allow set the describe/read/run tools
+    /// consult), and is empty for the profile-less session.
     #[test]
     fn profile_local_skill_ids_lists_only_the_profile_root() {
         let profile_root = tempfile::TempDir::new().unwrap();
@@ -992,6 +992,17 @@ mod profile_scope_tests {
             profile_local_skill_ids(None).is_empty(),
             "profile-less session has no implicitly-allowed profile-local ids"
         );
+    }
+
+    #[test]
+    fn profile_local_skill_ids_include_distinct_name_and_slug() {
+        let profile_root = tempfile::TempDir::new().unwrap();
+        seed_bundle_with_name(profile_root.path(), "mail-helper", "Inbox Assistant");
+
+        let ids = profile_local_skill_ids(Some(profile_root.path()));
+        assert_eq!(ids.len(), 2);
+        assert!(ids.contains("mail-helper"));
+        assert!(ids.contains("Inbox Assistant"));
     }
 
     /// A `None` profile root reproduces `load_workflow_metadata` byte-for-byte —

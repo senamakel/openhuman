@@ -323,35 +323,63 @@ fn project_roots(workspace: &Path) -> Vec<(PathBuf, RootKind)> {
 fn absorb(by_name: &mut HashMap<String, Workflow>, incoming: Vec<Workflow>) {
     for mut skill in incoming {
         let key = skill.name.clone();
-        if let Some(existing) = by_name.remove(&key) {
-            // Higher-precedence scope wins; lower loses and is dropped.
-            let (winner, loser) = if precedence(skill.scope) >= precedence(existing.scope) {
-                (&mut skill, existing)
-            } else {
-                // Put existing back; discard incoming.
-                let mut kept = existing;
-                kept.warnings.push(format!(
-                    "name '{}' also declared in {:?} scope at {} (ignored)",
-                    kept.name,
-                    skill.scope,
-                    skill
+        // A workflow's runnable identity is `dir_name`, while `name` is only
+        // display metadata. Collapse on either so a profile-local `foo/` also
+        // shadows a global `foo/` whose frontmatter happens to use a different
+        // display name. Otherwise registry lookup by slug could nondeterministically
+        // select the global copy.
+        let collision_keys: Vec<String> = by_name
+            .iter()
+            .filter(|(existing_name, existing)| {
+                existing_name.as_str() == key || existing.dir_name == skill.dir_name
+            })
+            .map(|(existing_name, _)| existing_name.clone())
+            .collect();
+
+        if let Some((_, highest_name, highest_scope)) = collision_keys
+            .iter()
+            .filter_map(|collision_key| by_name.get(collision_key))
+            .map(|existing| {
+                (
+                    precedence(existing.scope),
+                    existing.name.clone(),
+                    existing.scope,
+                )
+            })
+            .max_by_key(|(rank, _, _)| *rank)
+        {
+            if precedence(skill.scope) < precedence(highest_scope) {
+                if let Some(kept) = by_name.get_mut(&highest_name) {
+                    kept.warnings.push(format!(
+                        "workflow id '{}' or name '{}' also declared in {:?} scope at {} (ignored)",
+                        skill.dir_name,
+                        skill.name,
+                        skill.scope,
+                        skill
+                            .location
+                            .as_deref()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_else(|| "<unknown>".to_string())
+                    ));
+                }
+                continue;
+            }
+        }
+
+        for collision_key in collision_keys {
+            if let Some(loser) = by_name.remove(&collision_key) {
+                skill.warnings.push(format!(
+                    "shadowed {:?}-scope skill '{}' (workflow id '{}') at {}",
+                    loser.scope,
+                    loser.name,
+                    loser.dir_name,
+                    loser
                         .location
                         .as_deref()
                         .map(|p| p.display().to_string())
                         .unwrap_or_else(|| "<unknown>".to_string())
                 ));
-                by_name.insert(key, kept);
-                continue;
-            };
-            winner.warnings.push(format!(
-                "shadowed {:?}-scope skill at {} with same name",
-                loser.scope,
-                loser
-                    .location
-                    .as_deref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "<unknown>".to_string())
-            ));
+            }
         }
         by_name.insert(key, skill);
     }
@@ -743,11 +771,15 @@ mod profile_scope_tests {
 
     /// Write a minimal `WORKFLOW.md` bundle under `root/slug/`.
     fn seed_bundle(root: &Path, slug: &str) {
+        seed_bundle_with_name(root, slug, slug);
+    }
+
+    fn seed_bundle_with_name(root: &Path, slug: &str, name: &str) {
         let dir = root.join(slug);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("WORKFLOW.md"),
-            format!("---\nname: {slug}\ndescription: {slug} desc\n---\n\n{slug} body\n"),
+            format!("---\nname: {name}\ndescription: {name} desc\n---\n\n{name} body\n"),
         )
         .unwrap();
     }
@@ -846,6 +878,32 @@ mod profile_scope_tests {
             "winning skill must live under the profile root, got {}",
             loc.display()
         );
+    }
+
+    #[test]
+    fn profile_local_wins_same_runnable_id_with_different_display_name() {
+        let home = tempfile::TempDir::new().unwrap();
+        seed_bundle_with_name(
+            &home.path().join(".openhuman").join("skills"),
+            "shared-slug",
+            "Global display name",
+        );
+        let profile_root = tempfile::TempDir::new().unwrap();
+        seed_bundle_with_name(profile_root.path(), "shared-slug", "Profile display name");
+
+        let workflows = discover_workflows_with_profile(
+            Some(home.path()),
+            None,
+            Some(profile_root.path()),
+            false,
+        );
+        let by_slug: Vec<_> = workflows
+            .iter()
+            .filter(|workflow| workflow.dir_name == "shared-slug")
+            .collect();
+        assert_eq!(by_slug.len(), 1, "runnable ids must be unique");
+        assert_eq!(by_slug[0].scope, WorkflowScope::Profile);
+        assert_eq!(by_slug[0].name, "Profile display name");
     }
 
     /// `WorkflowScope::Profile` outranks every global scope in the precedence

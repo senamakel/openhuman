@@ -12,8 +12,10 @@ use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider,
 use crate::openhuman::tools::{Tool, ToolResult};
 
 #[test]
-fn run_policy_installs_shared_tool_timeout_settings() {
-    assert!(run_policy_for(10, false).tool_timeouts.is_some());
+fn harness_installs_shared_tool_timeout_settings() {
+    let mut harness: AgentHarness<()> = AgentHarness::new();
+    harness.with_tool_timeout_settings(crate::openhuman::tool_timeout::settings());
+    assert!(harness.tool_timeout_settings().is_some());
 }
 
 #[test]

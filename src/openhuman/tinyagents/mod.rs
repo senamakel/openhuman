@@ -177,7 +177,6 @@ fn parse_agent_turn_wall_clock_ms(env_value: Option<&str>) -> Option<u64> {
 
 fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPolicy {
     let mut policy = RunPolicy::default();
-    policy.tool_timeouts = Some(crate::openhuman::tool_timeout::settings());
     policy.limits.max_model_calls = max_iterations;
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
@@ -359,7 +358,9 @@ pub(crate) async fn run_turn_via_tinyagents(
     let max_iterations = effective_max_iterations(max_iterations);
     let mut harness: AgentHarness<()> = AgentHarness::new();
     // Thin test variant: no response cache (chat-safe default).
-    harness.with_policy(run_policy_for(max_iterations, false));
+    harness
+        .with_policy(run_policy_for(max_iterations, false))
+        .with_tool_timeout_settings(crate::openhuman::tool_timeout::settings());
     let provider_model = ProviderModel::new(provider, model, temperature);
     let error_slot = provider_model.error_slot();
     harness
@@ -1744,7 +1745,9 @@ fn assemble_turn_harness(
         fallback_chain = ?route_fallback.as_ref().map(|f| &f.models),
         "[models] assembling turn harness with SDK retry/fallback policy"
     );
-    harness.with_policy(policy);
+    harness
+        .with_policy(policy)
+        .with_tool_timeout_settings(crate::openhuman::tool_timeout::settings());
     // Deterministic internal runs (summarizer/triage/memory-scoring style) may
     // reuse a prior identical model response; attach an in-memory response cache
     // so the agent loop can short-circuit a recurring provider call and emit

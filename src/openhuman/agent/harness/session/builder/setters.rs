@@ -52,32 +52,6 @@ impl AgentBuilder {
         }
     }
 
-    /// Sets the AI provider for the agent.
-    ///
-    /// Accepts a `Box<dyn Provider>` for backward compatibility but wraps it in
-    /// the seam [`TurnModelSource`](crate::openhuman::tinyagents::TurnModelSource)
-    /// internally (issue #4249, Phase 3 / Motion A) so the agent + sub-agents
-    /// spawned from it share the same source.
-    pub fn provider(
-        mut self,
-        provider: Box<dyn crate::openhuman::inference::provider::Provider>,
-    ) -> Self {
-        self.turn_model_source = Some(crate::openhuman::tinyagents::TurnModelSource::new(
-            Arc::from(provider),
-        ));
-        self
-    }
-
-    /// Sets the AI provider from an existing `Arc`. Use this when sharing
-    /// a provider instance across multiple agents.
-    pub fn provider_arc(
-        mut self,
-        provider: Arc<dyn crate::openhuman::inference::provider::Provider>,
-    ) -> Self {
-        self.turn_model_source = Some(crate::openhuman::tinyagents::TurnModelSource::new(provider));
-        self
-    }
-
     /// Sets an already-constructed TinyAgents chat model. This is the native
     /// injection seam for tests and embedders; no legacy `Provider` adapter is
     /// constructed.
@@ -91,7 +65,7 @@ impl AgentBuilder {
     /// Sets the AI provider as a **crate-native** turn-model source (Phase 3 P3-B):
     /// `build`/`build_summarizer` construct crate `ChatModel`s from `(role, config)`
     /// via `create_turn_chat_model` (managed → `OpenHumanBackendModel`, local/cloud →
-    /// crate `OpenAiModel`) instead of wrapping `provider` in `ProviderModel`s.
+    /// crate `OpenAiModel`) instead of wrapping `provider` in `native model adapters.
     /// Used by the production session factory; the plain
     /// [`provider`](Self::provider) setter (Provider path) stays for tests that
     /// inject a mock they observe.

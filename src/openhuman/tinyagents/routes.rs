@@ -1,23 +1,6 @@
-//! Workload-route → model-registry projection (issue #4249, Workstream 02.1).
-//!
-//! `provider/router.rs` owns the product policy that maps a workload **tier
-//! name** (`chat`, `reasoning`, `agentic`, `coding`, `burst`, `summarization`,
-//! `vision`) to a concrete provider + model. This module is a thin *projection*
-//! of that route set into `tinyagents` [`ProviderModel`] registry entries: for
-//! each route it builds a [`ProviderModel`] carrying a real [`ModelProfile`]
-//! (per-route vision/reasoning capability + context window) so the crate's
-//! registry can resolve and capability-check the full route set — the enabler
-//! for SDK-owned fallback (02.2) and the model catalog (02.4).
-//!
-//! It does **not** move route policy into the crate: the dispatch model string
-//! for each entry is the OpenHuman tier alias (`chat-v1`, `reasoning-v1`, …),
-//! which the wrapped [`Provider`] (a `RouterProvider` for BYOK, or the managed
-//! backend) resolves to a concrete model at call time exactly as it does today.
-//! Registering the extra routes is additive: `set_default_model` still points at
-//! the turn's effective model, so nothing dispatches to these entries until a
-//! future fallback/selection step chooses them.
+//! Workload routing and model-call middleware for native TinyAgents models.
 
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use tinyagents::harness::context::RunContext;
@@ -31,11 +14,6 @@ use crate::openhuman::config::{
     MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_V1,
     MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
 };
-use crate::openhuman::inference::model_context::context_window_for_model;
-use crate::openhuman::inference::provider::factory::oh_tier_supports_vision;
-use crate::openhuman::inference::provider::Provider;
-
-use super::model::ProviderModel;
 
 /// The workload routes projected into the registry, keyed by their OpenHuman
 /// tier alias (the string the wrapped provider resolves at dispatch).
@@ -61,11 +39,8 @@ pub(super) const WORKLOAD_ROUTE_TIERS: &[&str] = &[
 /// source for cross-route **fallback chains** and per-tier **required-capability
 /// gates** (issue #4249, Phase 3: RouterProvider → crate registry projection).
 ///
-/// This does not move tier→provider/model *resolution* into the crate —
-/// `provider/router.rs` stays the product source of truth for what each tier
-/// name resolves to, and [`build_route_models`] still registers the per-tier
-/// [`ProviderModel`] with its real profile. The router owns only the *policy*
-/// this module previously open-coded as `same_family_fallbacks` +
+/// The router owns the policy this module previously open-coded as
+/// `same_family_fallbacks` +
 /// `turn_required_capabilities`: it answers [`route_fallback_policy`] and
 /// [`turn_required_capabilities`] from one declarative table.
 ///
@@ -110,84 +85,6 @@ static OH_WORKLOAD_ROUTER: LazyLock<ModelRouter> = LazyLock::new(|| {
         // with no fallback (primary-only), matching the legacy static gate.
         .with_route(WorkloadRoute::new("hint:vision", MODEL_VISION_V1).requiring(vision_gate))
 });
-
-/// Whether a workload tier emits reasoning/thinking output.
-///
-/// Static, tier-identity based: only the dedicated reasoning tier is projected
-/// as reasoning-capable. There is no per-tier reasoning accessor on the managed
-/// backend yet (mirrors the vision map in `factory::oh_tier_supports_vision`);
-/// flip an arm here once one exists.
-fn tier_supports_reasoning(tier: &str) -> bool {
-    tier == MODEL_REASONING_V1
-}
-
-/// One projected registry entry: the registry name (dispatch model alias) and
-/// its capability-carrying [`ProviderModel`] adapter.
-pub(super) struct RouteModel {
-    pub(super) name: String,
-    pub(super) model: Arc<ProviderModel>,
-}
-
-/// Build the [`ProviderModel`] registry entries for every resolvable workload
-/// route, excluding `skip_model` (the turn's effective/primary model, which the
-/// caller registers separately and keeps as the default).
-///
-/// Each entry wraps the same `provider` handle under a tier-alias model string
-/// and records the route's real [`ModelProfile`]: per-route vision
-/// (`factory::oh_tier_supports_vision`), reasoning ([`tier_supports_reasoning`]),
-/// and context window (`model_context::context_window_for_model`). Tool-calling
-/// and streaming flags come from the wrapped provider (as
-/// [`ProviderModel::new`] derives them). A route whose context window cannot be
-/// resolved is still registered (window is optional metadata) but logged; the
-/// projection never fails a turn.
-pub(super) fn build_route_models(
-    provider: &Arc<dyn Provider>,
-    temperature: f64,
-    skip_model: &str,
-) -> Vec<RouteModel> {
-    let mut out = Vec::new();
-    for &tier in WORKLOAD_ROUTE_TIERS {
-        if tier == skip_model {
-            // The turn's own model is registered (and set as default) by the
-            // caller; don't shadow it.
-            continue;
-        }
-        let vision = oh_tier_supports_vision(tier);
-        let reasoning = tier_supports_reasoning(tier);
-        let window = context_window_for_model(tier);
-        if window.is_none() {
-            tracing::debug!(
-                route = tier,
-                "[models] projecting workload route with no known context window"
-            );
-        }
-        let mut model = ProviderModel::new(provider.clone(), tier, temperature)
-            .with_vision(vision)
-            .with_reasoning(reasoning);
-        // Provider usage (incl. fallback-route calls) reaches the cost bridge via
-        // `UsageCarryMiddleware`, which reads it off each response — so route
-        // models no longer carry the usage side-channel.
-        // The per-turn output cap now rides `RunConfig.max_turn_output_tokens`
-        // (Phase 5 groundwork): the loop stamps it onto every `ModelRequest`, so
-        // route models no longer bake it in — they carry only model identity +
-        // capability profile.
-        if let Some(window) = window.filter(|w| *w > 0) {
-            model = model.with_context_window(window);
-        }
-        tracing::debug!(
-            route = tier,
-            vision,
-            reasoning,
-            context_window = window,
-            "[models] registered workload route as registry entry"
-        );
-        out.push(RouteModel {
-            name: tier.to_string(),
-            model: Arc::new(model),
-        });
-    }
-    out
-}
 
 /// The capability needs a turn imposes on every model call, derived from what is
 /// cheaply available at harness-assembly time.
@@ -252,12 +149,8 @@ impl ModelMiddleware<()> for RequiredCapabilitiesMiddleware {
 ///
 /// The chain now comes straight from the declarative [`OH_WORKLOAD_ROUTER`]
 /// (`fallback_policy` leads with the primary, then the tier's same-family
-/// alternates). Every alternate is a distinct workload tier that
-/// [`build_route_models`] has already registered in the harness model registry
-/// (the primary tier itself is skipped there, since the caller registers it as the
-/// default), so the harness can resolve each fallback name to its capability-carrying
-/// route adapter. Returns `None` when no same-family alternate exists (vision, or a
-/// raw non-tier model string), leaving the turn primary-only.
+/// alternates). Returns `None` when no same-family alternate exists (vision, or
+/// a raw non-tier model string), leaving the turn primary-only.
 pub(super) fn route_fallback_policy(model: &str) -> Option<FallbackPolicy> {
     let policy = OH_WORKLOAD_ROUTER.fallback_policy(model);
     match &policy {
@@ -341,9 +234,7 @@ impl ModelMiddleware<()> for FallbackObserverMiddleware {
 /// the [`OpenhumanEventBridge`](super::OpenhumanEventBridge) drains on
 /// `UsageRecorded`.
 ///
-/// This replaces the per-[`ProviderModel`] usage push (buffered + streamed), so
-/// the adapter — and every projected route model — carries only model identity +
-/// capability profile. It wraps the whole retry/fallback core, so it fires
+/// It wraps the whole retry/fallback core, so it fires
 /// exactly once per logical model call (matching the single `UsageRecorded` the
 /// crate emits), for both the buffered and streamed paths (the streamed response
 /// is folded back to a `ModelResponse` with usage + raw intact). Push happens

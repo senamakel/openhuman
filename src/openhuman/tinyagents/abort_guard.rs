@@ -1,6 +1,6 @@
 //! RAII guard that aborts a spawned task when it is dropped (issue #4460).
 //!
-//! `ProviderModel::stream` runs the provider call in a detached `tokio::spawn`
+//! `native model streaming` runs the provider call in a detached `tokio::spawn`
 //! producer. Without a lifetime tie, a hard turn cancellation (`AbortHandle`)
 //! drops the consumer stream but leaves the producer running to completion — the
 //! provider call still finishes and is still billed. Holding the producer's

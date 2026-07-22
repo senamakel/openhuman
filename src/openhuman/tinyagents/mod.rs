@@ -13,7 +13,7 @@
 //! The chat route is at functional parity with the legacy `run_turn_engine`:
 //! the [`OpenhumanEventBridge`] mirrors the harness event stream onto
 //! `AgentProgress` (live tool timeline, incremental text deltas, cost footer),
-//! [`ProviderModel::stream`] forwards true token streaming, multimodal markers
+//! [`native model streaming`] forwards true token streaming, multimodal markers
 //! are expanded, and history is trimmed to the context window. Mid-flight
 //! steering, sub-agent child-progress deltas (incl. thinking), and the
 //! `ask_user_clarification` early-exit pause are all re-wired onto the
@@ -74,14 +74,14 @@ use crate::openhuman::agent::harness::tool_result_artifacts::{
 };
 use crate::openhuman::agent::harness::{run_queue::RunQueue, MAX_SPAWN_DEPTH};
 use crate::openhuman::agent::progress::AgentProgress;
-use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage, Provider};
+use crate::openhuman::inference::provider::{ChatMessage, ConversationMessage};
 
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{
     HandoffConfig, SuperContextConfig, TranscriptSnapshotSink, TurnContextMiddleware,
 };
-use model::{BuiltTurnModels, ProfileOverrideModel, ProviderModel, TierRoutes, TurnChatModel};
+use model::{BuiltTurnModels, ProfileOverrideModel, TierRoutes, TurnChatModel};
 pub(crate) use observability::SubagentScope;
 use observability::{
     CapPauser, IterationCursor, OpenhumanEventBridge, ProviderUsageCarry, ToolFailureMap,
@@ -130,7 +130,7 @@ pub(crate) struct ToolPolicyEnforcement {
 /// harness model call. The schedule mirrors the former `ReliableProvider`
 /// defaults — 2 retries (3 attempts) with 500 ms exponential backoff — so
 /// transient 429/5xx behavior is preserved. Retryability is decided by the crate
-/// `is_retryable`, which the [`ProviderModel`](super::model) adapter feeds
+/// `is_retryable`, which the [`native model adapter`](super::model) adapter feeds
 /// correctly: a permanent config/auth/quota/context error is mapped to a
 /// non-retryable `TinyAgentsError::Validation`, a transient blip to a retryable
 /// `Model` error. The crate caps `max_attempts` at
@@ -352,7 +352,7 @@ pub(crate) type HaltSummarySlot = std::sync::Arc<std::sync::Mutex<Option<String>
 /// transcript translated back to openhuman [`ChatMessage`]s.
 #[cfg(test)]
 pub(crate) async fn run_turn_via_tinyagents(
-    provider: Arc<dyn Provider>,
+    chat_model: TurnChatModel,
     model: &str,
     temperature: f64,
     history: Vec<ChatMessage>,
@@ -365,10 +365,15 @@ pub(crate) async fn run_turn_via_tinyagents(
     let mut harness: AgentHarness<()> = AgentHarness::new();
     // Thin test variant: no response cache (chat-safe default).
     harness.with_policy(run_policy_for(max_iterations, false));
-    let provider_model = ProviderModel::new(provider, model, temperature);
-    let error_slot = provider_model.error_slot();
+    let profile = chat_model.profile().cloned().unwrap_or_default();
+    let chat_model: TurnChatModel = Arc::new(
+        ProfileOverrideModel::new(chat_model, profile)
+            .with_request_model(model)
+            .with_request_temperature(temperature),
+    );
+    let error_slot = Arc::new(std::sync::Mutex::new(None));
     harness
-        .register_model(model, Arc::new(provider_model))
+        .register_model(model, chat_model)
         .set_default_model(model);
     let tool_count = resolved_tools.len();
     for tool in resolved_tools {
@@ -637,7 +642,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             "unobserved"
         });
     // Per-turn output cap rides RunConfig now (Phase 5 groundwork): the loop
-    // stamps it onto every `ModelRequest.max_tokens` and the ProviderModel
+    // stamps it onto every `ModelRequest.max_tokens` and the native model adapter
     // adapter honors it, so the cap no longer bakes into the primary + route
     // models. Mirrors the legacy `AGENT_TURN_MAX_OUTPUT_TOKENS` / sub-agent cap.
     if let Some(cap) = max_output_tokens {
@@ -908,7 +913,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
             // failure kinds FIRST, before consulting `error_slot`. The slot
             // preserves the last provider error the model adapter saw — but the
             // adapter now clears it on every successful call (see
-            // `ProviderModel::chat`/`stream`), so a stale slot should not exist
+            // `native model adapter::chat`/`stream`), so a stale slot should not exist
             // here. Ordering the cap/depth mappings ahead of the slot is
             // defense-in-depth: a run that failed on the model-call cap or a
             // spawn-depth limit is not a provider error, so it must surface as
@@ -968,7 +973,7 @@ pub(crate) async fn run_turn_via_tinyagents_shared(
     // `AgentEvent::Compressed` projection only carries token deltas, so drain the
     // compression middleware's `records()` here — each carries the full
     // `CompressionProvenance` (source ids + before/after token estimates + policy
-    // reason) built by `ProviderModelSummarizer`. Surfaced at info with a
+    // reason) built by `ModelSummarizer`. Surfaced at info with a
     // grep-friendly `[context]` prefix so every compaction is auditable, not just
     // its net token saving.
     if let Some(mw) = &compression_mw {
@@ -1171,7 +1176,7 @@ fn tinyagents_depth_error(
 
 /// The per-turn crate [`ChatModel`](tinyagents::harness::model::ChatModel) set,
 /// built once from an openhuman [`Provider`] by [`build_turn_models`] — the
-/// single place a turn's `ProviderModel`s are constructed (issue #4249, Phase 5).
+/// single place a turn's `native model adapters are constructed (issue #4249, Phase 5).
 ///
 /// [`assemble_turn_harness`] takes this bundle instead of the raw provider, so
 /// the harness assembly is expressed purely in crate model types; the
@@ -1186,7 +1191,7 @@ pub(crate) struct TurnModels {
     /// its provider errors don't touch the turn's `error_slot`).
     summarizer: TurnChatModel,
     /// Recovers the primary's original (downcastable) provider error on failure.
-    error_slot: crate::openhuman::tinyagents::model::ProviderErrorSlot,
+    error_slot: crate::openhuman::tinyagents::model::ModelErrorSlot,
     /// Provider telemetry id (`{provider_id}.{model}` in Langfuse), captured from
     /// the source `Provider` at build time. Carried here (issue #4249, Phase 3 /
     /// Motion A) so the harness turn path no longer reads it off a raw
@@ -1227,63 +1232,9 @@ impl TurnModels {
     }
 }
 
-/// Build the per-turn [`TurnModels`] from an openhuman [`Provider`] — the sole
-/// `ProviderModel` construction site for a turn (issue #4249, Phase 5). The
-/// primary carries the model's context window on its capability profile; the
-/// workload-tier routes are projected via [`routes::build_route_models`]; the
-/// summarizer is a separate adapter over the same provider/model.
-pub(crate) fn build_turn_models(
-    provider: Arc<dyn Provider>,
-    model: &str,
-    temperature: f64,
-    context_window: Option<u64>,
-) -> TurnModels {
-    // Capture the provider metadata the harness turn path used to read directly
-    // off the raw `Provider` (issue #4249, Phase 3 / Motion A). Recording it on
-    // `TurnModels` is what lets `AgentTurnRequest`/`Agent`/the harness graph hold
-    // crate model types only — no `dyn Provider` above the seam.
-    let provider_id = provider.telemetry_provider_id();
-    let native_tools = provider.supports_native_tools();
-    let supports_vision = provider.supports_vision();
-    let summary_provider = provider.clone();
-    let mut primary = ProviderModel::new(provider, model, temperature);
-    // Record the model's context window on its capability profile (issue #4249,
-    // Phase 2) so the crate can validate input capacity before dispatch. The
-    // per-call output cap rides `RunConfig.max_turn_output_tokens` instead.
-    if let Some(window) = context_window.filter(|w| *w > 0) {
-        primary = primary.with_context_window(window);
-    }
-    let error_slot = primary.error_slot();
-    let primary: Arc<dyn tinyagents::harness::model::ChatModel<()>> = Arc::new(primary);
-
-    let routes = routes::build_route_models(&summary_provider, temperature, model)
-        .into_iter()
-        .map(|route| {
-            let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> = route.model;
-            (route.name, model)
-        })
-        .collect();
-
-    // A distinct adapter instance for the summarizer (own error_slot), matching
-    // the pre-Phase-5 separate `summary_provider` clone.
-    let summarizer: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
-        Arc::new(ProviderModel::new(summary_provider, model, temperature));
-
-    TurnModels {
-        primary,
-        routes,
-        summarizer,
-        error_slot,
-        provider_id,
-        context_window,
-        native_tools,
-        supports_vision,
-    }
-}
-
 /// Build the per-turn [`TurnModels`] **crate-natively** from `(role, config)` —
 /// the Phase 3 P3-B cutover of [`build_turn_models`]: instead of wrapping one host
-/// `Provider` per tier in a [`ProviderModel`], each tier is built as a crate-native
+/// `Provider` per tier in a [`native model adapter`], each tier is built as a crate-native
 /// [`ChatModel`] via [`factory::create_turn_chat_model`] (managed →
 /// `OpenHumanBackendModel`, local/cloud → crate `OpenAiModel`).
 ///
@@ -1386,7 +1337,7 @@ fn build_turn_models_crate(
 }
 
 /// A model-agnostic source of per-turn [`TurnModels`] — the seam-owned handle the
-/// agent harness holds instead of a raw `Arc<dyn Provider>` (issue #4249, Phase 3
+/// agent harness holds instead of a provider-specific client (issue #4249, Phase 3
 /// / Motion A).
 ///
 /// An [`Agent`](crate::openhuman::agent::Agent) (and each channel/subagent turn
@@ -1397,9 +1348,8 @@ fn build_turn_models_crate(
 /// exactly one place — [`create_turn_model_source`](crate::openhuman::inference::provider::factory::create_turn_model_source).
 #[derive(Clone)]
 pub struct TurnModelSource {
-    provider: Option<Arc<dyn Provider>>,
     /// A directly injected crate model. This is the replacement test seam for
-    /// provider-backed mocks while WP-1 removes `ProviderModel`.
+    /// provider-backed mocks while WP-1 removes `native model adapter`.
     direct_model: Option<TurnChatModel>,
     /// When set, [`build`](Self::build) / [`build_summarizer`](Self::build_summarizer)
     /// construct **crate-native** models from `(role, config)` (Phase 3 P3-B) via
@@ -1426,27 +1376,11 @@ struct CrateNativeSource {
 }
 
 impl TurnModelSource {
-    /// Wrap a resolved provider. The host↔seam boundary: the inference factory
-    /// (or a producer holding a resolved provider) builds a source here; the
-    /// agent harness above the seam then names only `TurnModelSource`, never the
-    /// `Provider` trait. `pub` so the native-bus request type
-    /// ([`AgentTurnRequest`](crate::openhuman::agent::bus::AgentTurnRequest)) and
-    /// its integration tests can construct one.
-    pub fn new(provider: Arc<dyn Provider>) -> Self {
-        Self {
-            provider: Some(provider),
-            direct_model: None,
-            crate_native: None,
-            force_text_mode: false,
-        }
-    }
-
     /// Use an already-constructed TinyAgents model as the complete turn model
     /// source. Intended for deterministic tests and embedding callers that do
     /// not need role/config-based route construction.
     pub fn from_model(model: TurnChatModel) -> Self {
         Self {
-            provider: None,
             direct_model: Some(model),
             crate_native: None,
             force_text_mode: false,
@@ -1464,7 +1398,7 @@ impl TurnModelSource {
 
     /// Build a crate-native source: [`build`](Self::build) constructs the tiered
     /// [`TurnModels`] from `(role, config)` via [`build_turn_models_crate`] rather
-    /// than wrapping a provider in `ProviderModel`s. Used by the session-builder producer
+    /// than wrapping a provider in `native model adapters. Used by the session-builder producer
     /// (`crate_native_provider`); the triage path uses
     /// [`new_crate_native_from_string`](Self::new_crate_native_from_string).
     pub(crate) fn new_crate_native(
@@ -1472,7 +1406,6 @@ impl TurnModelSource {
         config: Arc<crate::openhuman::config::Config>,
     ) -> Self {
         Self {
-            provider: None,
             direct_model: None,
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
@@ -1495,7 +1428,6 @@ impl TurnModelSource {
         config: Arc<crate::openhuman::config::Config>,
     ) -> Self {
         Self {
-            provider: None,
             direct_model: None,
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
@@ -1520,9 +1452,6 @@ impl TurnModelSource {
     /// value that drives the context-window summarization step. Resolved before
     /// [`build`](Self::build) so the harness graph makes no async `Provider` call.
     pub(crate) async fn effective_context_window(&self, model: &str) -> Option<u64> {
-        if let Some(provider) = &self.provider {
-            return provider.effective_context_window(model).await;
-        }
         if let Some(direct) = &self.direct_model {
             return direct
                 .profile()
@@ -1548,9 +1477,6 @@ impl TurnModelSource {
     /// A passthrough so callers (e.g. the sub-agent summarization-route decision)
     /// can branch on locality without naming the `Provider` trait.
     pub(crate) fn is_local_provider(&self) -> bool {
-        if let Some(provider) = &self.provider {
-            return provider.is_local_provider();
-        }
         if let Some(direct) = &self.direct_model {
             return direct
                 .profile()
@@ -1640,23 +1566,7 @@ impl TurnModelSource {
                 cn.force_text_mode,
             );
         }
-        let provider = self.provider.as_ref().ok_or_else(|| {
-            anyhow::anyhow!("provider-backed turn source is missing its provider")
-        })?;
-        let mut models = build_turn_models(provider.clone(), model, temperature, context_window);
-        if self.force_text_mode {
-            let primary =
-                ProviderModel::new(provider.clone(), model, temperature).with_tool_calling(false);
-            let primary = if let Some(window) = context_window.filter(|w| *w > 0) {
-                primary.with_context_window(window)
-            } else {
-                primary
-            };
-            models.error_slot = primary.error_slot();
-            models.primary = Arc::new(primary);
-            models.native_tools = false;
-        }
-        Ok(models)
+        Err(anyhow::anyhow!("turn model source is missing a model"))
     }
 
     /// Build a standalone summarizer [`ChatModel`](tinyagents::harness::model::ChatModel)
@@ -1691,14 +1601,7 @@ impl TurnModelSource {
             };
             return built;
         }
-        let provider = self.provider.as_ref().ok_or_else(|| {
-            anyhow::anyhow!("provider-backed turn source is missing its provider")
-        })?;
-        Ok(Arc::new(ProviderModel::new(
-            provider.clone(),
-            model,
-            temperature,
-        )))
+        Err(anyhow::anyhow!("turn model source is missing a model"))
     }
 }
 
@@ -1727,7 +1630,7 @@ struct AssembledTurnHarness {
     /// usage — restores charged-USD precedence on the tinyagents path (#4467).
     provider_usage_carry: ProviderUsageCarry,
     /// Recovers the original (downcastable) provider error on run failure.
-    error_slot: crate::openhuman::tinyagents::model::ProviderErrorSlot,
+    error_slot: crate::openhuman::tinyagents::model::ModelErrorSlot,
     /// Root-cause summary recorded by the repeated-tool-failure breaker.
     halt_summary: HaltSummarySlot,
     /// Per-call tool success/content capture for honest `ToolCallRecord`s.
@@ -1825,7 +1728,7 @@ fn assemble_turn_harness(
     // carry no usage side-channel (Phase 5).
     let provider_usage_carry: ProviderUsageCarry = Arc::default();
     // The turn's models are pre-built by `build_turn_models` (the single
-    // `ProviderModel` construction site) and handed in as crate `ChatModel`s —
+    // `native model adapter` construction site) and handed in as crate `ChatModel`s —
     // the assembly no longer touches the raw provider (issue #4249, Phase 5).
     let TurnModels {
         primary,
@@ -1854,7 +1757,7 @@ fn assemble_turn_harness(
 
     // Cost usage capture (issue #4249, Phase 5): feed the event bridge's usage
     // carry from a wrap-model middleware that reads the full `UsageInfo` off each
-    // response, instead of every `ProviderModel` pushing it. Installed
+    // response, instead of every `native model adapter` pushing it. Installed
     // unconditionally — usage flows on every turn — and shares the same carry the
     // bridge drains on `UsageRecorded`.
     harness.push_model_middleware(Arc::new(routes::UsageCarryMiddleware::new(
@@ -2279,10 +2182,7 @@ fn assemble_turn_harness(
             // turn (warn + circuit-breaker + deterministic trim instead), and an
             // identical re-issued input slice must not re-run the summarizer LLM.
             let summarizer = summarize::FaultTolerantCachingSummarizer::new(
-                Box::new(summarize::ProviderModelSummarizer::new(
-                    summarizer_model,
-                    model,
-                )),
+                Box::new(summarize::ModelSummarizer::new(summarizer_model, model)),
                 &policy,
             );
             let mw = Arc::new(ContextCompressionMiddleware::with_summarizer(

@@ -138,12 +138,20 @@ pub fn schemas(function: &str) -> ControllerSchema {
             namespace: "agent_experience",
             function: "dismiss",
             description: "Mark an operating experience as dismissed so retrieval ignores it.",
-            inputs: vec![FieldSchema {
-                name: "id",
-                ty: TypeSchema::String,
-                comment: "Experience id to dismiss.",
-                required: true,
-            }],
+            inputs: vec![
+                FieldSchema {
+                    name: "id",
+                    ty: TypeSchema::String,
+                    comment: "Experience id to dismiss.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "profile_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Optional owning profile whose memory store contains the experience.",
+                    required: false,
+                },
+            ],
             outputs: vec![FieldSchema {
                 name: "result",
                 ty: TypeSchema::Object {

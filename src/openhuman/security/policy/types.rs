@@ -177,6 +177,10 @@ pub(super) const WORKSPACE_INTERNAL_DIRS: &[&str] = &[
     "approval",
     "sessions",
     "session_raw",
+    // Per-profile homes contain prompt-controlling SOUL.md files and private
+    // skills. They are core-managed state, never part of the agent action
+    // surface, even when a trusted root otherwise reaches workspace_dir.
+    "personalities",
     "cron",
     "devices",
     "mcp_clients",

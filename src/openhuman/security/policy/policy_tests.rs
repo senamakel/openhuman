@@ -2639,6 +2639,16 @@ fn is_workspace_internal_path_blocks_state_dirs() {
     assert!(policy.is_workspace_internal_path(&ws.join("state")));
     assert!(policy.is_workspace_internal_path(&ws.join("cron")));
     assert!(policy.is_workspace_internal_path(&ws.join("memory_tree")));
+    assert!(
+        policy.is_workspace_internal_path(&ws.join("personalities").join("alice").join("SOUL.md"))
+    );
+    assert!(policy.is_workspace_internal_path(
+        &ws.join("personalities")
+            .join("alice")
+            .join("skills")
+            .join("private-skill")
+            .join("SKILL.md")
+    ));
     assert!(policy.is_workspace_internal_path(&ws.join("approval")));
     assert!(policy.is_workspace_internal_path(&ws.join("mcp_clients")));
 }

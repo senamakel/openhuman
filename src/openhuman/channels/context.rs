@@ -167,25 +167,9 @@ pub(crate) async fn build_memory_context(
 mod tests {
     use super::*;
     use crate::openhuman::channels::traits;
-    use crate::openhuman::inference::provider::Provider;
     use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry};
     use crate::openhuman::tools::{Tool, ToolResult};
     use async_trait::async_trait;
-
-    struct DummyProvider;
-
-    #[async_trait]
-    impl Provider for DummyProvider {
-        async fn chat_with_system(
-            &self,
-            _system_prompt: Option<&str>,
-            _message: &str,
-            _model: &str,
-            _temperature: f64,
-        ) -> anyhow::Result<String> {
-            Ok("ok".into())
-        }
-    }
 
     struct DummyTool;
 
@@ -285,10 +269,14 @@ mod tests {
     }
 
     fn runtime_context() -> ChannelRuntimeContext {
+        let model: Arc<dyn tinyagents::harness::model::ChatModel<()>> =
+            Arc::new(tinyagents::harness::testkit::ScriptedModel::replies(vec![
+                "ok",
+            ]));
         ChannelRuntimeContext {
             channels_by_name: Arc::new(HashMap::new()),
-            turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::new(
-                Arc::new(DummyProvider),
+            turn_model_source: Some(crate::openhuman::tinyagents::TurnModelSource::from_model(
+                model,
             )),
             default_provider: Arc::new("default".into()),
             memory: Arc::new(MockMemory {

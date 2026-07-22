@@ -1,7 +1,7 @@
 //! Engine unit tests (#3375 PR2).
 //!
 //! These exercise the phase scheduler ([`super::super::graph::drive_phases`]) directly with a
-//! mock `Provider` so child agents resolve deterministically and never touch the
+//! mock `ChatModel` so child agents resolve deterministically and never touch the
 //! network. The full [`super::start_workflow_run`] entry point (which builds a
 //! real `Agent` from config) is covered by the JSON-RPC e2e test over the live
 //! core stack with the mock backend.
@@ -28,13 +28,12 @@ use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
 use crate::openhuman::config::{AgentConfig, Config};
 use crate::openhuman::context::prompt::ToolCallFormat;
-use crate::openhuman::inference::provider::traits::ProviderCapabilities;
-use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider};
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::session_db::run_ledger::{
     get_workflow_run, upsert_workflow_run, WorkflowRunUpsert,
 };
 use crate::openhuman::tools::{Tool, ToolSpec};
+use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 use super::super::types::{WorkflowDefinition, WorkflowPhase, WorkflowSafetyTier};
 
@@ -91,20 +90,15 @@ impl Memory for NoopMemory {
     }
 }
 
-fn text_response(text: impl Into<String>) -> ChatResponse {
-    ChatResponse {
-        text: Some(text.into()),
-        tool_calls: Vec::new(),
-        usage: None,
-        reasoning_content: None,
-    }
+fn text_response(text: impl Into<String>) -> ModelResponse {
+    ModelResponse::assistant(text)
 }
 
-/// Mock provider that records peak concurrency and answers each child with a
+/// Mock model that records peak concurrency and answers each child with a
 /// short deterministic completion. Sleeps briefly so overlapping spawns are
 /// observable for the concurrency-cap assertions.
 #[derive(Clone, Default)]
-struct PeakProvider {
+struct PeakModel {
     calls: Arc<AtomicUsize>,
     active: Arc<AtomicUsize>,
     max_active: Arc<AtomicUsize>,
@@ -112,7 +106,7 @@ struct PeakProvider {
     fail_on: Arc<Mutex<Option<String>>>,
 }
 
-impl PeakProvider {
+impl PeakModel {
     fn calls(&self) -> usize {
         self.calls.load(Ordering::SeqCst)
     }
@@ -139,28 +133,12 @@ impl PeakProvider {
 }
 
 #[async_trait]
-impl Provider for PeakProvider {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-    async fn chat_with_system(
+impl ChatModel<()> for PeakModel {
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        Ok("ok".to_string())
-    }
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         let current = self.active.fetch_add(1, Ordering::SeqCst) + 1;
         self.record_peak(current);
@@ -168,7 +146,7 @@ impl Provider for PeakProvider {
         let flattened = request
             .messages
             .iter()
-            .map(|m| m.content.as_str())
+            .map(|message| message.text())
             .collect::<Vec<_>>()
             .join("\n");
         self.prompts.lock().push(flattened.clone());
@@ -176,19 +154,28 @@ impl Provider for PeakProvider {
 
         if let Some(needle) = self.fail_on.lock().as_ref() {
             if flattened.contains(needle.as_str()) {
-                return Err(anyhow::anyhow!("mock provider forced failure"));
+                return Err(tinyagents::TinyAgentsError::Model(
+                    "mock model forced failure".to_string(),
+                ));
             }
         }
         Ok(text_response("PHASE_OUTPUT_OK"))
     }
 }
 
-fn mock_parent(provider: Arc<dyn Provider>) -> ParentExecutionContext {
+fn mock_parent(model: Arc<dyn ChatModel<()>>) -> ParentExecutionContext {
     ParentExecutionContext {
         workspace_descriptor: None,
         agent_definition_id: "workflow_engine".to_string(),
         allowed_subagent_ids: HashSet::new(),
-        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(provider),
+        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model_with_profile(
+            model,
+            ModelProfile {
+                tool_calling: true,
+                parallel_tool_calls: true,
+                ..ModelProfile::default()
+            },
+        ),
         all_tools: Arc::new(Vec::<Box<dyn Tool>>::new()),
         all_tool_specs: Arc::new(Vec::<ToolSpec>::new()),
         visible_tool_names: std::collections::HashSet::new(),
@@ -288,7 +275,7 @@ fn phase_states(config: &Config, id: &str) -> Value {
 async fn unit_phases_execute_in_dependency_order() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let (_dir, config) = test_config();
-    let provider = PeakProvider::default();
+    let provider = PeakModel::default();
     let def = linear_def(2, 8, 2);
     let id = seed_run(
         &config,
@@ -333,13 +320,13 @@ async fn unit_phases_execute_in_dependency_order() {
 /// Covers `run_engine_loop` — the `with_root_parent` wrapper around
 /// `drive_phases`. With a mock parent installed, `with_root_parent` reuses it
 /// (rather than building a real root), so the engine loop drives the run to
-/// completion under the mock provider. Mirrors the `drive_phases` happy path,
+/// completion under the mock model. Mirrors the `drive_phases` happy path,
 /// but through the wrapper the live engine spawns on its background task.
 #[tokio::test]
 async fn run_engine_loop_completes_run_under_ambient_parent() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let (_dir, config) = test_config();
-    let provider = PeakProvider::default();
+    let provider = PeakModel::default();
     let def = linear_def(2, 8, 2);
     let id = seed_run(
         &config,
@@ -363,7 +350,7 @@ async fn run_engine_loop_completes_run_under_ambient_parent() {
 async fn unit_concurrency_cap_is_respected() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let (_dir, config) = test_config();
-    let provider = PeakProvider::default();
+    let provider = PeakModel::default();
     // 4 parallel workers in phase b, but concurrency capped at 2.
     let def = linear_def(2, 16, 4);
     let id = seed_run(
@@ -391,7 +378,7 @@ async fn unit_concurrency_cap_is_respected() {
 async fn unit_max_children_hard_cap_fails_run() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let (_dir, config) = test_config();
-    let provider = PeakProvider::default();
+    let provider = PeakModel::default();
     // a(1) + b(4) = 5 needed, but max_children = 3 → run fails in phase b.
     let def = linear_def(2, 3, 4);
     let id = seed_run(
@@ -431,7 +418,7 @@ async fn unit_max_children_hard_cap_fails_run() {
 async fn unit_failed_child_marks_run_failed_with_partial_state() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let (_dir, config) = test_config();
-    let provider = PeakProvider::default();
+    let provider = PeakModel::default();
     // Force the phase-b child to fail (its prompt mentions "PARALLEL").
     provider.fail_when_prompt_contains("phase b PARALLEL");
     let def = linear_def(2, 8, 1);
@@ -479,7 +466,7 @@ async fn unit_failed_child_marks_run_failed_with_partial_state() {
 async fn unit_stop_mid_run_marks_interrupted() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let (_dir, config) = test_config();
-    let provider = PeakProvider::default();
+    let provider = PeakModel::default();
     let def = linear_def(2, 8, 1);
     let id = seed_run(
         &config,
@@ -504,7 +491,7 @@ async fn unit_stop_mid_run_marks_interrupted() {
 async fn unit_resume_skips_completed_phases() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
     let (_dir, config) = test_config();
-    let provider = PeakProvider::default();
+    let provider = PeakModel::default();
     let def = linear_def(2, 8, 1);
     let id = seed_run(
         &config,

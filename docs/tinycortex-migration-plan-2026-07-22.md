@@ -1,7 +1,9 @@
 # TinyCortex Migration — Current-State Audit & Consolidated Plan (2026-07-22)
 
-**Status:** implementation complete on `feat/tinycortex-migration-2026-07-22`;
-CI Full validation pending
+**Status:** **DONE** on `feat/tinycortex-migration-2026-07-22`.
+[CI Full run 29925645209](https://github.com/senamakel/openhuman/actions/runs/29925645209)
+is green, including the final gate and every Linux, macOS, and Windows desktop
+shard
 (companion to `tinyagents-migration-plan-2026-07-22.md`;
 supersedes the *status/phasing* in `tinycortex-memory-migration-plan.md`,
 `tinycortex-migration-spec.md`, `tinycortex-api-gap-audit.md`, and
@@ -361,7 +363,7 @@ re-export except deliberate facades recorded in the spec.
 | WP-2 | The live default path was already TinyCortex-backed. D4 is CLOSED; dead Gmail duplicate removed; remaining provider task/profile projections explicitly classified as product policy. Provider tests pass (301). |
 | WP-3 | Concrete provider transports deduplicated into TinyAgents. The memory tree now uses a thin `ProviderEmbedder`; Ollama's 8k context/batch and missing-model guidance moved upstream before the host client was deleted. TinyAgents embedding tests pass (38); host library check passes. |
 | WP-4 | Archivist, search scoring/MMR, tool-memory type/store, tree-tool, jobs-alias, and unused seam type facades retired. Direct crate imports are canonical. Seam production code is 2,229 LOC (below the 2.5k exit target). |
-| WP-5 | Local focused validation is recorded above. The heavyweight repository-wide suite is delegated to the CI Full workflow per the requested testing preference. |
+| WP-5 | Local focused validation is recorded above; the slim `--no-default-features --features tokenjuice-treesitter` build also passes. [CI Full run 29925645209](https://github.com/senamakel/openhuman/actions/runs/29925645209) is green: core quality and full tests, TinyCortex, Tauri, frontend, mock-backend Rust E2E, Playwright, three desktop builds, every launched desktop shard, and the final gate. Two first-attempt Linux jobs ended without uploaded logs; rerunning only failed jobs passed the Linux build, Rust integration suite, and all eight Linux shards. |
 
 ---
 

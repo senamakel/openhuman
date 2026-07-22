@@ -4,7 +4,7 @@ use super::{
 use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::{with_parent_context, ParentExecutionContext};
 use crate::openhuman::context::prompt::{ConnectedIntegration, ToolCallFormat};
-use crate::openhuman::inference::provider::{ChatMessage, ChatRequest, ChatResponse, Provider};
+use crate::openhuman::inference::provider::ChatMessage;
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::memory_conversations as conversations;
 use crate::openhuman::tools::Tool;
@@ -13,6 +13,8 @@ use parking_lot::Mutex;
 use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
+use tinyagents::harness::message::Message;
+use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
 const SPAWN_SUBAGENT_CANARY: &str = "tool-e2e-spawn-subagent-canary";
 const ARCHETYPE_DELEGATION_CANARY: &str = "tool-e2e-archetype-delegation-canary";
@@ -23,7 +25,7 @@ const WORKER_THREAD_CANARY: &str = "tool-e2e-worker-thread-canary";
 async fn spawn_subagent_tool_runs_child_agent_e2e() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedProvider::new(vec![(
+    let provider = Arc::new(ScriptedModel::new(vec![(
         SPAWN_SUBAGENT_CANARY,
         "spawn-subagent-child-answer",
     )]));
@@ -55,7 +57,7 @@ async fn spawn_subagent_tool_runs_child_agent_e2e() {
 async fn archetype_delegation_tool_runs_child_agent_e2e() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedProvider::new(vec![(
+    let provider = Arc::new(ScriptedModel::new(vec![(
         ARCHETYPE_DELEGATION_CANARY,
         "archetype-delegation-child-answer",
     )]));
@@ -93,7 +95,7 @@ async fn archetype_delegation_defaults_to_async_with_durable_session_e2e() {
     // for background delivery as a new chat turn.
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedProvider::new(vec![(
+    let provider = Arc::new(ScriptedModel::new(vec![(
         ARCHETYPE_DELEGATION_CANARY,
         "async-delegation-child-answer",
     )]));
@@ -186,7 +188,7 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
     let registry = AgentDefinitionRegistry::global().expect("registry");
     let definition = registry.get("researcher").expect("researcher definition");
     let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedProvider::new(vec![(
+    let provider = Arc::new(ScriptedModel::new(vec![(
         "continue-durable-canary",
         "resumed-child-answer",
     )]));
@@ -294,7 +296,7 @@ async fn continue_subagent_without_checkpoint_or_durable_session_names_the_roste
     use super::ContinueSubagentTool;
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedProvider::new(vec![]));
+    let provider = Arc::new(ScriptedModel::new(vec![]));
 
     let mut ctx = parent_context(workspace.path(), provider, vec![]);
     ctx.session_id = "tools-e2e-continue-missing".into();
@@ -326,7 +328,7 @@ async fn continue_subagent_without_checkpoint_or_durable_session_names_the_roste
 async fn skill_delegation_tool_runs_integrations_agent_e2e() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedProvider::new(vec![(
+    let provider = Arc::new(ScriptedModel::new(vec![(
         SKILL_DELEGATION_CANARY,
         "skill-delegation-child-answer",
     )]));
@@ -372,7 +374,7 @@ async fn skill_delegation_tool_runs_integrations_agent_e2e() {
 async fn spawn_worker_thread_tool_persists_worker_thread_e2e() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
     let workspace = tempfile::TempDir::new().expect("workspace");
-    let provider = Arc::new(ScriptedProvider::new(vec![(
+    let provider = Arc::new(ScriptedModel::new(vec![(
         WORKER_THREAD_CANARY,
         "worker-thread-child-answer",
     )]));
@@ -417,7 +419,7 @@ async fn spawn_worker_thread_tool_persists_worker_thread_e2e() {
 
 fn parent_context(
     workspace_dir: &Path,
-    provider: Arc<dyn Provider>,
+    model: Arc<dyn ChatModel<()>>,
     connected_integrations: Vec<ConnectedIntegration>,
 ) -> ParentExecutionContext {
     ParentExecutionContext {
@@ -426,7 +428,7 @@ fn parent_context(
         allowed_subagent_ids: ["researcher".to_string(), "integrations_agent".to_string()]
             .into_iter()
             .collect(),
-        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(provider),
+        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model(model),
         all_tools: Arc::new(Vec::new()),
         all_tool_specs: Arc::new(Vec::new()),
         visible_tool_names: std::collections::HashSet::new(),
@@ -448,12 +450,12 @@ fn parent_context(
     }
 }
 
-struct ScriptedProvider {
+struct ScriptedModel {
     responses: Vec<(&'static str, &'static str)>,
     seen: Mutex<Vec<String>>,
 }
 
-impl ScriptedProvider {
+impl ScriptedModel {
     fn new(responses: Vec<(&'static str, &'static str)>) -> Self {
         Self {
             responses,
@@ -470,48 +472,39 @@ impl ScriptedProvider {
 }
 
 #[async_trait]
-impl Provider for ScriptedProvider {
-    fn supports_native_tools(&self) -> bool {
-        true
+impl ChatModel<()> for ScriptedModel {
+    fn profile(&self) -> Option<&ModelProfile> {
+        static PROFILE: std::sync::OnceLock<ModelProfile> = std::sync::OnceLock::new();
+        Some(PROFILE.get_or_init(|| {
+            let mut profile = ModelProfile::default();
+            profile.tool_calling = true;
+            profile.parallel_tool_calls = true;
+            profile
+        }))
     }
 
-    async fn chat_with_system(
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        self.seen.lock().push(message.to_string());
-        Ok("ok".into())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
-        let flattened = flatten_messages(request.messages);
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
+        let flattened = flatten_messages(&request.messages);
         self.seen.lock().push(flattened.clone());
         for (needle, answer) in &self.responses {
             if flattened.contains(needle) {
-                return Ok(ChatResponse {
-                    text: Some((*answer).to_string()),
-                    tool_calls: Vec::new(),
-                    usage: None,
-                    reasoning_content: None,
-                });
+                return Ok(ModelResponse::assistant(*answer));
             }
         }
-        anyhow::bail!("unexpected provider request: {flattened}");
+        Err(tinyagents::TinyAgentsError::Model(format!(
+            "unexpected model request: {flattened}"
+        )))
     }
 }
 
-fn flatten_messages(messages: &[ChatMessage]) -> String {
+fn flatten_messages(messages: &[Message]) -> String {
     messages
         .iter()
-        .map(|message| format!("{}:{}", message.role, message.content))
+        .map(Message::text)
         .collect::<Vec<_>>()
         .join("\n")
 }

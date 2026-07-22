@@ -145,22 +145,20 @@ pub const DISCORD_CURATED: &[CuratedTool] = &[
         slug: "DISCORD_LIST_MY_CONNECTIONS",
         scope: ToolScope::Read,
     },
-    CuratedTool {
-        slug: "DISCORD_LIST_GUILD_CHANNELS",
-        scope: ToolScope::Read,
-    },
-    CuratedTool {
-        slug: "DISCORD_GET_CHANNEL",
-        scope: ToolScope::Read,
-    },
-    CuratedTool {
-        slug: "DISCORD_SEND_MESSAGE",
-        scope: ToolScope::Write,
-    },
-    CuratedTool {
-        slug: "DISCORD_CREATE_MESSAGE",
-        scope: ToolScope::Write,
-    },
+    // NOTE: guild-channel and channel-message actions are intentionally NOT
+    // listed here. Composio's `discord` toolkit is OAuth2 / user-scoped and does
+    // not expose them (its full action set is user/account-scoped: my user, my
+    // guilds, my member, invites, …). `DISCORD_LIST_GUILD_CHANNELS`,
+    // `DISCORD_GET_CHANNEL`, `DISCORD_SEND_MESSAGE`, and `DISCORD_CREATE_MESSAGE`
+    // were whitelisted here (#3085/#3144) but no such slugs exist on this
+    // toolkit, so Composio never returned them — the whitelist entries were
+    // inert and misleadingly implied channel access was possible over OAuth.
+    // Guild-channel / message reads live in Composio's SEPARATE `discordbot`
+    // toolkit (bot-token auth, `DISCORDBOT_*` slugs, e.g.
+    // `DISCORDBOT_FETCH_MESSAGES_FROM_CHANNEL`). Those pass the visibility
+    // filter via `classify_unknown` once a `discordbot` connection exists; do
+    // NOT hand-list `DISCORDBOT_*` slugs here from guesses — a wrong slug makes
+    // `find_curated` drop the real tool (worse than the pass-through default).
 ];
 
 // ── telegram ────────────────────────────────────────────────────────

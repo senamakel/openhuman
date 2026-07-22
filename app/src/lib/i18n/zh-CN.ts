@@ -1656,6 +1656,7 @@ const messages: TranslationMap = {
     '重新登录以刷新 OpenHuman 会话，或切换到本地/自带密钥的嵌入提供商。',
   'settings.embeddings.signInAgain': '重新登录',
   'settings.embeddings.apiKeyLabel': '{provider} API 密钥',
+  'settings.embeddings.apiKeyLabelGeneric': 'API 密钥',
   'settings.embeddings.placeholderStored': '••••••••（已存储）',
   'settings.embeddings.placeholderKey': '粘贴您的 API 密钥…',
   'settings.embeddings.keyStoredEncrypted': '您的 API 密钥已加密存储在此设备上。',
@@ -3329,6 +3330,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.dismiss': '忽略',
   'chat.flowProposal.error': '无法保存该工作流。请重试。',
   'chat.flowProposal.enableError': '工作流已保存，但无法启用。请重试，或在“工作流”页面手动启用。',
+  'chat.flowProposal.savedConfirmation': '已保存',
+  'chat.flowProposal.viewWorkflow': '查看工作流',
   'chat.flowProposal.stepKind.agent': '智能体',
   'chat.flowProposal.stepKind.toolCall': '操作',
   'chat.flowProposal.stepKind.httpRequest': '网络请求',
@@ -7020,6 +7023,13 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': '隐私状态',
   'privacy.status.external': '设备外',
   'privacy.status.local': '本地设备',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': '仅已导入',
+  'sync.pipeline.storedWithoutVectors': '已存储但无向量。语义搜索不可用。',
+  'sync.pipeline.signInToEnable': '登录以启用',
+  'sync.pipeline.extractionFailed': '记忆结构提取失败。维基可能不完整。',
+  'sync.pipeline.treeDegraded': '记忆树已降级。检索可能返回过时的结果。',
+  'sync.pipeline.viewHealth': '查看记忆健康状况',
 };
 
 export default messages;

@@ -363,31 +363,56 @@ mod tests {
     /// failure by deleting live frontend methods from the catalog).
     ///
     /// Mirrors how the agent loader tolerates the orchestrator TOML's dangling
-    /// `mcp_agent` subagent id (#4799).
+    /// `mcp_agent` subagent id (#4799). Composed from one predicate per gate so
+    /// each new gate adds a self-contained pair (keeps the attribute-`#[cfg]`
+    /// form the feature-gate smoke lane's coverage guard tracks).
     fn is_compiled_out_method(method: &str) -> bool {
-        // Each compile-time gate contributes the RPC namespaces whose controllers
-        // it unregisters. The frontend catalog is data (it always names the full
-        // shipped surface), so a slim build must ignore exactly those methods and
-        // keep asserting on everything else.
-        #[cfg(not(feature = "mcp"))]
-        // `mcp` OFF ⇒ the `mcp_clients` (dynamic registry) + `mcp_audit` (write
-        // log) controllers are unregistered.
-        if method.starts_with("openhuman.mcp_clients_")
-            || method.starts_with("openhuman.mcp_audit_")
-        {
-            return true;
-        }
-        #[cfg(not(feature = "desktop-automation"))]
+        mcp_method_compiled_out(method)
+            || channels_method_compiled_out(method)
+            || desktop_automation_method_compiled_out(method)
+    }
+
+    #[cfg(feature = "mcp")]
+    fn mcp_method_compiled_out(_method: &str) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "mcp"))]
+    fn mcp_method_compiled_out(method: &str) -> bool {
+        // `mcp` feature OFF ⇒ the `mcp_clients` (dynamic registry) and
+        // `mcp_audit` (write log) controllers are unregistered.
+        method.starts_with("openhuman.mcp_clients_") || method.starts_with("openhuman.mcp_audit_")
+    }
+
+    #[cfg(feature = "channels")]
+    fn channels_method_compiled_out(_method: &str) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "channels"))]
+    fn channels_method_compiled_out(method: &str) -> bool {
+        // `channels` feature OFF ⇒ the channels + webview_apis +
+        // webview_notifications + whatsapp_data controllers are unregistered
+        // (#4801). NOTE: the in-app web chat (`openhuman.channel_*`) is NOT
+        // gated (core product surface, #5002) — do not add that prefix here.
+        method.starts_with("openhuman.channels_")
+            || method.starts_with("openhuman.webview_apis_")
+            || method.starts_with("openhuman.webview_notifications_")
+            || method.starts_with("openhuman.whatsapp_data_")
+    }
+
+    #[cfg(feature = "desktop-automation")]
+    fn desktop_automation_method_compiled_out(_method: &str) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "desktop-automation"))]
+    fn desktop_automation_method_compiled_out(method: &str) -> bool {
         // `desktop-automation` OFF ⇒ the autocomplete / screen_intelligence /
         // desktop-companion controllers are unregistered (#5049).
-        if method.starts_with("openhuman.autocomplete_")
+        method.starts_with("openhuman.autocomplete_")
             || method.starts_with("openhuman.screen_intelligence_")
             || method.starts_with("openhuman.companion_")
-        {
-            return true;
-        }
-        let _ = method;
-        false
     }
 
     #[test]

@@ -1739,6 +1739,7 @@ const messages: TranslationMap = {
     'OpenHuman 세션을 새로 고치려면 다시 로그인하거나, 로컬 또는 자체 키 임베딩 공급자로 전환하세요.',
   'settings.embeddings.signInAgain': '다시 로그인',
   'settings.embeddings.apiKeyLabel': '{provider} API 키',
+  'settings.embeddings.apiKeyLabelGeneric': 'API 키',
   'settings.embeddings.placeholderStored': '•••••••(저장됨)',
   'settings.embeddings.placeholderKey': 'API 키를 붙여넣으세요…',
   'settings.embeddings.keyStoredEncrypted': 'API 키는 이 기기에 암호화되어 저장됩니다.',
@@ -3476,6 +3477,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': '워크플로를 저장할 수 없습니다. 다시 시도하세요.',
   'chat.flowProposal.enableError':
     '워크플로는 저장되었지만 활성화할 수 없습니다. 다시 시도하거나 Workflows 페이지에서 활성화하세요.',
+  'chat.flowProposal.savedConfirmation': '저장됨',
+  'chat.flowProposal.viewWorkflow': '워크플로 보기',
   'chat.flowProposal.stepKind.agent': '에이전트',
   'chat.flowProposal.stepKind.toolCall': '작업',
   'chat.flowProposal.stepKind.httpRequest': '웹 요청',
@@ -7339,6 +7342,14 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': '개인정보 상태',
   'privacy.status.external': '기기 외',
   'privacy.status.local': '기기 내',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': '수집만 완료',
+  'sync.pipeline.storedWithoutVectors': '벡터 없이 저장됨. 의미 검색을 사용할 수 없습니다.',
+  'sync.pipeline.signInToEnable': '사용하려면 로그인하세요',
+  'sync.pipeline.extractionFailed': '메모리 구조 추출에 실패했습니다. 위키가 불완전할 수 있습니다.',
+  'sync.pipeline.treeDegraded':
+    '메모리 트리가 저하되었습니다. 검색이 오래된 결과를 반환할 수 있습니다.',
+  'sync.pipeline.viewHealth': '메모리 상태 보기',
 };
 
 export default messages;

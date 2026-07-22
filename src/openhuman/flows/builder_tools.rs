@@ -547,25 +547,28 @@ impl Tool for EditWorkflowTool {
             }
         };
 
-        // Write the applied edit back to the draft (the durable working copy),
-        // so it survives across turns/reloads even if validation/gates below
-        // still flag something to fix next.
-        if let Some(ref draft_id) = write_back_draft {
-            let edited_json = serde_json::to_value(&edited)?;
-            if let Err(e) = ops::flows_draft_update(
-                &self.config,
-                draft_id,
-                Some(name.clone()),
-                Some(edited_json),
-                None,
-            ) {
-                tracing::warn!(target: "flows", %draft_id, error = %e, "[flows] edit_workflow: could not write edit back to draft");
+        let write_edit_to_draft = || -> anyhow::Result<()> {
+            if let Some(ref draft_id) = write_back_draft {
+                let edited_json = serde_json::to_value(&edited)?;
+                if let Err(e) = ops::flows_draft_update(
+                    &self.config,
+                    draft_id,
+                    Some(name.clone()),
+                    Some(edited_json),
+                    None,
+                ) {
+                    tracing::warn!(target: "flows", %draft_id, error = %e, "[flows] edit_workflow: could not write edit back to draft");
+                }
             }
-        }
+            Ok(())
+        };
 
         // Structural validation of the RESULT — surface every problem at once.
         let structural = tinyflows::validate::validate_all(&edited);
         if !structural.is_empty() {
+            // Preserve the longstanding working-copy contract: an applied edit
+            // survives for the next repair turn even when structurally invalid.
+            write_edit_to_draft()?;
             let messages: Vec<String> = structural.iter().map(ToString::to_string).collect();
             tracing::debug!(
                 target: "flows",
@@ -578,6 +581,30 @@ impl Tool for EditWorkflowTool {
                 messages.join("\n")
             )));
         }
+
+        // Engine-incompatible topologies are different from ordinary builder
+        // follow-up errors: persisting one would leave a draft that no current
+        // save/run path can accept. Reject it before advancing the durable
+        // working copy, while preserving the established write-back behavior
+        // for later binding/connection/contract gates.
+        let compatibility = ops::config_aware_engine_compatibility_errors(&self.config, &edited);
+        if !compatibility.is_empty() {
+            tracing::debug!(
+                target: "flows",
+                %name,
+                error_count = compatibility.len(),
+                "[flows] edit_workflow: the edited graph is engine-incompatible"
+            );
+            return Ok(ToolResult::error(format!(
+                "The edited graph is incompatible with the current engine:\n\n{}\n\nFix the ops and call edit_workflow again.",
+                compatibility.join("\n\n")
+            )));
+        }
+
+        // Write the accepted structural edit back to the draft (the durable
+        // working copy), so it survives across turns/reloads even if a later
+        // binding/connection/contract gate flags something to fix next.
+        write_edit_to_draft()?;
 
         // Full builder hard-gate stack + proposal payload (shared with revise).
         // Thread the persistence-state handles so the payload carries draft_id /
@@ -2264,10 +2291,12 @@ impl Tool for ListAgentProfilesTool {
          field (e.g. researcher, code_executor, crypto_agent). Read-only. Returns \
          a JSON array of { id, name, description, model, tools, tags }. Use this to \
          pick a real agent_ref — a coding step should reference the coding agent, a \
-         research step the researcher — instead of guessing an id. Note: an \
-         agent_ref applies that agent's persona/model to the step; its private \
-         tool loop is a follow-up, so a step still gets tools from the node's own \
-         inline `tools` list for now."
+         research step the researcher — instead of guessing an id. Note: setting \
+         agent_ref runs the step as a REAL agent turn (its own `run_single`), with \
+         the selected specialist's full persona, model, tool loop, and iteration \
+         cap — not just a persona-flavored completion. A plain `agent` node with \
+         no agent_ref only gets the default LLM plus its own inline `tools` list; \
+         it cannot run code, search the web, or use any specialist's tools."
     }
 
     fn parameters_schema(&self) -> Value {

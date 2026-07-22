@@ -23,9 +23,7 @@ use serde_json::{json, Value};
 use tinyflows::model::{Node, NodeKind, WorkflowGraph};
 
 use crate::openhuman::config::Config;
-use crate::openhuman::flows::ops::{
-    validate_and_migrate_graph, validate_binding_resolvability, validate_tool_contracts,
-};
+use crate::openhuman::flows::ops::{build_builder_proposal, validate_and_migrate_graph};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 
 /// Max characters kept for a `config_hint` before truncation, so a long
@@ -183,94 +181,34 @@ impl Tool for ProposeWorkflowTool {
             }
         };
 
-        // Enforcing binding-resolvability gate (see
-        // `ops::validate_binding_resolvability`): reject outright — rather
-        // than merely warn — a `tool_call` binding that is guaranteed to
-        // resolve null (or the wrong value) at runtime, so the builder must
-        // fix the graph before it can even be proposed to the user.
-        let binding_errors = validate_binding_resolvability(&graph);
-        if !binding_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %name,
-                error_count = binding_errors.len(),
-                "[flows] propose_workflow: binding-resolvability check rejected the graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these bindings and call propose_workflow again.",
-                binding_errors.join("\n\n")
-            )));
-        }
-
-        // Tool-contract enforcement gate (systemic tool-contract fix, Part 2):
-        // reject a `tool_call` node whose slug isn't a REAL action in the
-        // live Composio catalog, or whose real required args aren't all
-        // wired — before the user ever reviews the proposal.
-        let contract_errors = validate_tool_contracts(&self.config, &graph).await;
-        if !contract_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %name,
-                error_count = contract_errors.len(),
-                "[flows] propose_workflow: tool-contract check rejected the graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these tool_call nodes and call propose_workflow again.",
-                contract_errors.join("\n\n")
-            )));
-        }
-
-        // Required-arg resolvability gate (issue B18): reject outright —
-        // rather than merely warn — a REQUIRED outbound arg (e.g.
-        // `GMAIL_SEND_EMAIL.subject`/`.body`) that LOOKS wired but resolves
-        // to `null` in a sandboxed test run, before the user ever reviews
-        // the proposal. See `ops::validate_required_arg_resolvability`.
-        let null_arg_errors =
-            crate::openhuman::flows::ops::validate_required_arg_resolvability(&graph).await;
-        if !null_arg_errors.is_empty() {
-            tracing::debug!(
-                target: "flows",
-                %name,
-                error_count = null_arg_errors.len(),
-                "[flows] propose_workflow: required-arg resolvability check rejected the graph"
-            );
-            return Ok(ToolResult::error(format!(
-                "{}\n\nFix these bindings and call propose_workflow again.",
-                null_arg_errors.join("\n\n")
-            )));
-        }
-
-        let summary = build_summary(&graph);
-        // Author-time warnings: unfired trigger kinds + unwired REQUIRED
-        // Composio args (see `ops::graph_wiring_warnings`) — surfaced on the
-        // proposal so the builder fixes wiring before the user saves.
-        let mut warnings = crate::openhuman::flows::ops::graph_trigger_warnings(&graph);
-        warnings.extend(
-            crate::openhuman::flows::ops::graph_wiring_warnings(&self.config, &graph).await,
-        );
-        let graph_value = serde_json::to_value(&graph)?;
-
-        tracing::info!(
-            target: "flows",
-            %name,
-            node_count = graph.nodes.len(),
+        // Route every first proposal through the same canonical hard-gate and
+        // payload builder as revise/edit/save. In particular, this includes
+        // compatibility checks for literal workflow_id children, which cannot
+        // be detected by graph-only validation because they require the store.
+        match build_builder_proposal(
+            &self.config,
+            "propose_workflow",
+            &name,
+            &graph,
             require_approval,
-            warning_count = warnings.len(),
-            "[flows] propose_workflow: proposal ready for user review"
-        );
-
-        Ok(ToolResult::success(serde_json::to_string_pretty(&json!({
-            "type": "workflow_proposal",
-            // A proposal is never a persisted flow — stamp it so the payload
-            // can't be misread as a save confirmation (WS2 audit). Matches
-            // `ops::build_builder_proposal`'s unconditional persisted:false.
-            "persisted": false,
-            "name": name,
-            "graph": graph_value,
-            "require_approval": require_approval,
-            "summary": summary,
-            "warnings": warnings,
-        }))?))
+            false,
+            None,
+            None,
+            None,
+        )
+        .await
+        {
+            Ok(payload) => Ok(ToolResult::success(serde_json::to_string_pretty(&payload)?)),
+            Err(error) => {
+                tracing::debug!(
+                    target: "flows",
+                    %name,
+                    %error,
+                    "[flows] propose_workflow: builder gate rejected the graph"
+                );
+                Ok(ToolResult::error(error))
+            }
+        }
     }
 }
 

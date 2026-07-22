@@ -546,6 +546,18 @@ export interface WorkflowProposal {
    * message `consumed: true` so the card does not resurrect on reload.
    */
   sourceMessageId?: string;
+  /**
+   * Id of the flow once `WorkflowProposalCard`'s "Save & enable" has fully
+   * persisted AND enabled it (issue B36). Mirrored into Redux (rather than
+   * living only in the card's component state) because the card
+   * deliberately stays mounted showing a "saved" confirmation after success
+   * instead of dispatching `clearWorkflowProposalForThread` right away — so
+   * a thread/route change can remount the card before the user clicks
+   * "View workflow". Without this, the remount would reset local state to
+   * `null`, fall back to the pre-save editable view, and a second "Save &
+   * enable" click would call `createFlow` again and duplicate the flow.
+   */
+  completedFlowId?: string;
 }
 
 /**
@@ -1749,6 +1761,23 @@ const chatRuntimeSlice = createSlice({
       delete state.pendingWorkflowProposalsByThread[action.payload.threadId];
     },
     /**
+     * Record that a pending workflow proposal's flow finished saving AND
+     * enabling (issue B36), so `WorkflowProposalCard`'s terminal "saved"
+     * state survives a remount (thread switch, route change) while the
+     * proposal is still sitting in `pendingWorkflowProposalsByThread` — see
+     * `WorkflowProposal.completedFlowId`. No-op if the proposal was already
+     * cleared (e.g. a race with `clearWorkflowProposalForThread`).
+     */
+    markWorkflowProposalCompleted: (
+      state,
+      action: PayloadAction<{ threadId: string; flowId: string }>
+    ) => {
+      const proposal = state.pendingWorkflowProposalsByThread[action.payload.threadId];
+      if (proposal) {
+        proposal.completedFlowId = action.payload.flowId;
+      }
+    },
+    /**
      * Mark a producer-tool call as in-flight so the `ArtifactCard` can
      * render a spinner before any ready/failed event arrives. Caller
      * usually fires this off the corresponding `ChatToolCallEvent`
@@ -2286,6 +2315,7 @@ export const {
   clearPendingPlanReviewForThread,
   setWorkflowProposalForThread,
   clearWorkflowProposalForThread,
+  markWorkflowProposalCompleted,
   upsertArtifactInProgressForThread,
   upsertArtifactReadyForThread,
   upsertArtifactFailedForThread,

@@ -294,7 +294,7 @@ describe('FlowRunsDrawer', () => {
       // Trigger the live-refresh poll fallback — issues the second, hanging
       // listFlowRuns('flow-a') call.
       await act(async () => {
-        vi.advanceTimersByTime(5_000);
+        vi.advanceTimersByTime(30_000);
       });
       expect(flowACalls).toBe(2);
 

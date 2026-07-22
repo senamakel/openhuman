@@ -1805,6 +1805,7 @@ const messages: TranslationMap = {
     'Reconnectez-vous pour actualiser votre session OpenHuman, ou passez à un fournisseur local ou avec votre propre clé.',
   'settings.embeddings.signInAgain': 'Se reconnecter',
   'settings.embeddings.apiKeyLabel': 'Clé API {provider}',
+  'settings.embeddings.apiKeyLabelGeneric': 'Clé API',
   'settings.embeddings.placeholderStored': '•••••••• (stocké)',
   'settings.embeddings.placeholderKey': 'Collez votre clé API…',
   'settings.embeddings.keyStoredEncrypted':
@@ -3599,6 +3600,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': "Impossible d'enregistrer le workflow. Veuillez réessayer.",
   'chat.flowProposal.enableError':
     "Workflow enregistré, mais impossible de l'activer. Réessayez, ou activez-le depuis la page Workflows.",
+  'chat.flowProposal.savedConfirmation': 'Enregistré',
+  'chat.flowProposal.viewWorkflow': 'Voir le workflow',
   'chat.flowProposal.stepKind.agent': 'Agent',
   'chat.flowProposal.stepKind.toolCall': 'Action',
   'chat.flowProposal.stepKind.httpRequest': 'Requête web',
@@ -7617,6 +7620,16 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'État de confidentialité',
   'privacy.status.external': 'Hors de l’appareil',
   'privacy.status.local': 'Sur l’appareil',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'Ingéré uniquement',
+  'sync.pipeline.storedWithoutVectors':
+    'Enregistré sans vecteurs. Recherche sémantique indisponible.',
+  'sync.pipeline.signInToEnable': 'Connectez-vous pour activer',
+  'sync.pipeline.extractionFailed':
+    "Échec de l'extraction de la structure mémoire. Le wiki peut être incomplet.",
+  'sync.pipeline.treeDegraded':
+    'Arbre mémoire dégradé. La récupération peut renvoyer des résultats obsolètes.',
+  'sync.pipeline.viewHealth': "Voir l'état de la mémoire",
 };
 
 export default messages;

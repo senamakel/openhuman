@@ -1750,6 +1750,7 @@ const messages: TranslationMap = {
     'OpenHuman সেশন রিফ্রেশ করতে আবার সাইন ইন করুন, অথবা স্থানীয়/নিজস্ব-কী এমবেডিং প্রোভাইডারে যান।',
   'settings.embeddings.signInAgain': 'আবার সাইন ইন করুন',
   'settings.embeddings.apiKeyLabel': '{provider} API কী',
+  'settings.embeddings.apiKeyLabelGeneric': 'API কী',
   'settings.embeddings.placeholderStored': '•••••••• (সঞ্চিত)',
   'settings.embeddings.placeholderKey': 'আপনার API কী পেস্ট করুন…',
   'settings.embeddings.keyStoredEncrypted': 'আপনার API কী এই ডিভাইসে এনক্রিপ্ট করে সংরক্ষিত আছে।',
@@ -3512,6 +3513,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.error': 'ওয়ার্কফ্লো সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
   'chat.flowProposal.enableError':
     'ওয়ার্কফ্লো সংরক্ষিত হয়েছে, কিন্তু সক্ষম করা যায়নি। আবার চেষ্টা করুন, বা Workflows পৃষ্ঠা থেকে সক্ষম করুন।',
+  'chat.flowProposal.savedConfirmation': 'সংরক্ষিত হয়েছে',
+  'chat.flowProposal.viewWorkflow': 'ওয়ার্কফ্লো দেখুন',
   'chat.flowProposal.stepKind.agent': 'এজেন্ট',
   'chat.flowProposal.stepKind.toolCall': 'কার্যক্রম',
   'chat.flowProposal.stepKind.httpRequest': 'ওয়েব অনুরোধ',
@@ -7428,6 +7431,13 @@ const messages: TranslationMap = {
   'privacy.status.ariaLabel': 'গোপনীয়তা স্থিতি',
   'privacy.status.external': 'ডিভাইসের বাইরে',
   'privacy.status.local': 'ডিভাইসে',
+  // Data Sync layered pipeline status (GH-4690)
+  'sync.pipeline.ingestedOnly': 'শুধু গৃহীত',
+  'sync.pipeline.storedWithoutVectors': 'ভেক্টর ছাড়াই সংরক্ষিত। শব্দার্থিক অনুসন্ধান অনুপলব্ধ।',
+  'sync.pipeline.signInToEnable': 'সক্রিয় করতে সাইন ইন করুন',
+  'sync.pipeline.extractionFailed': 'মেমরি কাঠামো নিষ্কাশন ব্যর্থ হয়েছে। উইকি অসম্পূর্ণ হতে পারে।',
+  'sync.pipeline.treeDegraded': 'মেমরি ট্রি অবনমিত। পুনরুদ্ধার পুরনো ফলাফল দিতে পারে।',
+  'sync.pipeline.viewHealth': 'মেমরির স্বাস্থ্য দেখুন',
 };
 
 export default messages;

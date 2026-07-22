@@ -421,6 +421,9 @@ impl Agent {
             profile_skill_allowlist.as_ref(),
             profile_mcp_allowlist.as_deref(),
             profile_skills_root.as_deref(),
+            profile_workspace_descriptor
+                .as_ref()
+                .map(|descriptor| descriptor.root.as_path()),
         );
 
         // Filter tools by the user preference loaded above.

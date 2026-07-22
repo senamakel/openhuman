@@ -80,6 +80,7 @@ pub fn all_tools(
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -104,6 +105,7 @@ pub fn all_tools_with_runtime(
     skill_allowlist: Option<&std::collections::HashSet<String>>,
     mcp_allowlist: Option<&[String]>,
     profile_skills_root: Option<&std::path::Path>,
+    approval_workspace_root: Option<&std::path::Path>,
 ) -> Vec<Box<dyn Tool>> {
     // `skill_allowlist` / `profile_skills_root` scope only the `skills`-gated
     // tool registrations below, so they are genuinely unread when that feature
@@ -156,10 +158,18 @@ pub fn all_tools_with_runtime(
         python_bootstrap.as_ref().map(Arc::clone),
     ));
 
+    let file_write: Box<dyn Tool> = match approval_workspace_root {
+        Some(root) => Box::new(FileWriteTool::with_approval_workspace_root(
+            security.clone(),
+            root.to_path_buf(),
+        )),
+        None => Box::new(FileWriteTool::new(security.clone())),
+    };
+
     let mut tools: Vec<Box<dyn Tool>> = vec![
         shell,
         Box::new(FileReadTool::new(security.clone())),
-        Box::new(FileWriteTool::new(security.clone())),
+        file_write,
         // Coding-harness baseline tools (issue #1205): file navigation
         // + atomic editing primitives. Use these instead of falling
         // through to `shell` for grep/find/sed work.

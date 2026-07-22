@@ -997,6 +997,9 @@ pub fn create_chat_model_with_model_id(
         if resolves_to_managed_backend(role, config) {
             return make_openhuman_backend_model(role, config);
         }
+        if let Some(result) = try_create_claude_agent_sdk_chat_model(role, config) {
+            return result;
+        }
         // Local OpenAI-compatible runtimes (Ollama / LM Studio / MLX / OMLX /
         // local-openai) → crate-native `ChatModel` (issue #4727 Motion B) instead
         // of a `ProviderModel`-wrapped host provider. Cloud/BYOK/bespoke providers
@@ -1074,6 +1077,10 @@ pub fn create_chat_model_from_string_with_model_id(
         }
         if resolved == PROVIDER_OPENHUMAN {
             return make_openhuman_backend_model(role, config);
+        }
+        if let Some(result) = try_create_claude_agent_sdk_chat_model_from_string(&resolved, config)
+        {
+            return result;
         }
         if let Some(result) =
             try_create_local_runtime_chat_model_from_string(role, &resolved, config, true)
@@ -1455,7 +1462,9 @@ pub(crate) fn make_openhuman_backend_model(
 ///   provider string. A config-level *primary-model pin* on a local/cloud provider
 ///   is not re-pinned here (pins are tier selection on the managed backend); the
 ///   `Provider` path had the same behaviour via the role's resolved model.
-/// - **Bespoke** (claude-code / claude_agent_sdk) → a `ProviderModel` over the
+/// - **Claude Agent SDK** → its direct prompt-guided [`ChatModel`] subprocess
+///   adapter, pinned to `model`.
+/// - **Other bespoke providers** (claude-code) → a `ProviderModel` over the
 ///   resolved `Provider`, pinned to `model` — no crate-native client yet.
 ///
 /// Respects the test-provider override (routes through `create_chat_provider`, so
@@ -1497,6 +1506,13 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
                 .with_native_tool_calling(native_tool_calling),
             ));
         }
+        let resolved_provider = provider_for_role(role, config);
+        if claude_agent_sdk_model_from_string(&resolved_provider, config).is_some() {
+            return Ok(Arc::new(ClaudeAgentSdkProvider::for_model(
+                config.claude_agent_sdk.clone(),
+                model,
+            )));
+        }
         if let Some(result) = try_create_local_runtime_chat_model(role, config) {
             return result.map(|(chat, _model)| chat);
         }
@@ -1506,8 +1522,8 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
             return result.map(|(chat, _model)| chat);
         }
     }
-    // Bespoke subprocess providers (claude-code / claude_agent_sdk) — and the test
-    // override — have no crate-native client: wrap the resolved `Provider` as a
+    // Remaining bespoke subprocess providers (claude-code) — and the test
+    // override — have no direct crate model: wrap the resolved `Provider` as a
     // `ProviderModel` pinned to `model`, exactly as `create_chat_model`'s fallback.
     let (provider, _resolved_model) = create_chat_provider(role, config)?;
     Ok(crate::openhuman::tinyagents::model::provider_chat_model(
@@ -1515,6 +1531,38 @@ pub(crate) fn create_turn_chat_model_with_native_tools(
         model,
         temperature,
     ))
+}
+
+/// Build the Claude Agent SDK subprocess directly as a crate model. This is a
+/// prompt-guided model: TinyAgents owns its text-tool protocol, while the
+/// provider owns only subprocess transport and NDJSON decoding.
+fn try_create_claude_agent_sdk_chat_model(role: &str, config: &Config) -> OptionalChatModelResult {
+    let resolved = provider_for_role(role, config);
+    try_create_claude_agent_sdk_chat_model_from_string(&resolved, config)
+}
+
+fn try_create_claude_agent_sdk_chat_model_from_string(
+    provider: &str,
+    config: &Config,
+) -> OptionalChatModelResult {
+    let model = claude_agent_sdk_model_from_string(provider, config)?;
+    let chat: Arc<dyn ChatModel<()>> = Arc::new(ClaudeAgentSdkProvider::for_model(
+        config.claude_agent_sdk.clone(),
+        model.clone(),
+    ));
+    Some(Ok((chat, model)))
+}
+
+fn claude_agent_sdk_model_from_string(provider: &str, config: &Config) -> Option<String> {
+    let provider = provider.trim();
+    let model = if provider == CLAUDE_AGENT_SDK_PROVIDER {
+        config.claude_agent_sdk.default_model.clone()
+    } else if let Some(model) = provider.strip_prefix(CLAUDE_AGENT_SDK_PREFIX) {
+        model.trim().to_string()
+    } else {
+        return None;
+    };
+    Some(model)
 }
 
 /// Like [`create_turn_chat_model`] but for an **explicit** `provider_string` — the

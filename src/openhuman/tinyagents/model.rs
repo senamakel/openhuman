@@ -195,6 +195,32 @@ fn response_to_model_response(
     }
 }
 
+/// Normalize a completed prompt-guided response for a crate-native model.
+///
+/// TinyAgents owns the generic prompt protocol and XML tool-call grammar. The
+/// host keeps a temporary second pass for its legacy P-Format prompts until
+/// those prompts are migrated (migration plan WP1/WP4).
+pub(crate) fn prompt_guided_text_response(text: String, request: &ModelRequest) -> ModelResponse {
+    if request.tools.is_empty() {
+        return ModelResponse::assistant(text);
+    }
+
+    let response =
+        tinyagents::harness::tool::apply_prompt_tool_calls(ModelResponse::assistant(text.clone()));
+    if !response.message.tool_calls.is_empty() {
+        return response;
+    }
+
+    response_to_model_response(
+        &ChatResponse {
+            text: Some(text),
+            ..Default::default()
+        },
+        &pformat_registry_from_request(request),
+        true,
+    )
+}
+
 /// JSON key under which the model adapter stashes the provider-reported
 /// billing/context metadata that the crate [`Usage`] has no field for
 /// (gap G1). Consumed by [`usage_info_from_response`].
@@ -926,6 +952,56 @@ mod g1_usage_tests {
         assert_eq!(response.text(), "");
         assert_eq!(response.message.tool_calls.len(), 1);
         assert_eq!(response.message.tool_calls[0].name, "lookup");
+    }
+
+    fn tool_request() -> ModelRequest {
+        ModelRequest {
+            tools: vec![tinyagents::harness::tool::ToolSchema::new(
+                "lookup",
+                "looks up a record",
+                serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "integer" },
+                        "query": { "type": "string" }
+                    }
+                }),
+            )],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn prompt_guided_response_uses_tinyagents_xml_parser() {
+        let response = prompt_guided_text_response(
+            r#"Checking.<tool_call>{"name":"lookup","arguments":{"id":7}}</tool_call>"#.to_string(),
+            &tool_request(),
+        );
+
+        assert_eq!(response.text(), "Checking.");
+        assert_eq!(response.message.tool_calls.len(), 1);
+        assert_eq!(response.message.tool_calls[0].id, "call_1");
+        assert_eq!(response.message.tool_calls[0].name, "lookup");
+        assert_eq!(
+            response.message.tool_calls[0].arguments,
+            serde_json::json!({"id": 7})
+        );
+    }
+
+    #[test]
+    fn prompt_guided_response_keeps_legacy_pformat_fallback() {
+        let response = prompt_guided_text_response(
+            "<tool_call>lookup[7|needle]</tool_call>".to_string(),
+            &tool_request(),
+        );
+
+        assert_eq!(response.text(), "");
+        assert_eq!(response.message.tool_calls.len(), 1);
+        assert_eq!(response.message.tool_calls[0].name, "lookup");
+        assert_eq!(
+            response.message.tool_calls[0].arguments,
+            serde_json::json!({"id": 7, "query": "needle"})
+        );
     }
 }
 

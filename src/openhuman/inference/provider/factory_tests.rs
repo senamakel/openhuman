@@ -1655,6 +1655,41 @@ fn claude_agent_sdk_with_custom_default_model_in_config() {
     assert_eq!(model, "claude-haiku-4-5");
 }
 
+#[test]
+fn claude_agent_sdk_chat_model_is_crate_native() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let config = Config::default();
+
+    let (model, model_id) = create_chat_model_from_string_with_model_id(
+        "reasoning",
+        "claude_agent_sdk:claude-opus-4-7",
+        &config,
+        0.4,
+    )
+    .expect("claude SDK ChatModel must build");
+
+    assert_eq!(model_id, "claude-opus-4-7");
+    let profile = model.profile().expect("direct model profile");
+    assert_eq!(profile.provider.as_deref(), Some("claude-agent-sdk"));
+    assert_eq!(profile.model.as_deref(), Some("claude-opus-4-7"));
+    assert!(!profile.tool_calling);
+    assert!(!profile.streaming);
+}
+
+#[test]
+fn claude_agent_sdk_turn_model_honors_turn_pin() {
+    let _guard = crate::openhuman::inference::inference_test_guard();
+    let mut config = Config::default();
+    config.chat_provider = Some("claude_agent_sdk:configured-model".to_string());
+
+    let model = create_turn_chat_model("chat", &config, "turn-model", 0.4)
+        .expect("claude SDK turn model must build");
+
+    let profile = model.profile().expect("direct model profile");
+    assert_eq!(profile.provider.as_deref(), Some("claude-agent-sdk"));
+    assert_eq!(profile.model.as_deref(), Some("turn-model"));
+}
+
 // ── resolve_byok_fallback_provider_string direct tests ───────────────────────
 
 #[test]

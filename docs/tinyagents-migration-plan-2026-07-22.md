@@ -389,6 +389,14 @@ deciding (a) trait unification vs permanent adapter, (b) the
 `SharedToolAdapter` seam is cheap and correct; **do not delete it
 prematurely.**
 
+**WP-4 design status:** proposed in
+[`tinyagents-tool-model-design-2026-07-22.md`](tinyagents-tool-model-design-2026-07-22.md).
+It recommends a permanent dual-trait adapter, keeping the structured result
+types in the dep-light host carve-out, preserving them through the crate
+result's `raw` field, and centrally enforcing a three-by-two scope matrix.
+Public-contract and filesystem-tool moves remain review-gated; the scope and
+lossless-adapter slices are reversible first steps.
+
 ### WP-5 — Seam shrink + orchestration lifecycle upstreaming
 
 1. Middleware audit (§4.3): per-middleware ledger rows; upstream

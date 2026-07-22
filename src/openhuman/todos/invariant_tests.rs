@@ -3,17 +3,19 @@
 //! These tests exercise concurrent claim races, run-pointer consistency,
 //! status-transition validity, double-completion rejection, and randomised
 //! operation sequences over small task graphs. Each test is deterministic
-//! (seeded PRNG where randomness is needed) and runs under the standard
-//! `cargo test` harness / `pnpm debug rust` runner.
+//! (seeded PRNG where randomness is needed).
+//!
+//! The board CRUD is now crate-backed and **async** (see
+//! [`crate::openhuman::todos::ops`]), so the concurrency tests use tokio tasks
+//! and the per-board async claim lock rather than OS threads.
 
 use std::collections::HashSet;
-use std::sync::{Arc, Barrier};
+use std::sync::Arc;
+use std::time::Duration;
 use tempfile::tempdir;
 
-use crate::openhuman::agent::task_board::TaskCardStatus;
-use crate::openhuman::todos::ops::{
-    add, claim_card, list, update_status, BoardLocation, CardPatch,
-};
+use crate::openhuman::agent::task_board::{TaskBoardCard, TaskCardStatus};
+use crate::openhuman::todos::ops::{add, claim_card, list, update_status, BoardLocation, CardPatch};
 use crate::openhuman::todos::runs::{
     complete_run, create_run, get_run, list_runs, reclaim_stale, update_heartbeat, RunLimits,
     RunOutcome,
@@ -26,8 +28,9 @@ fn thread_loc(dir: &std::path::Path, id: &str) -> BoardLocation {
     }
 }
 
-fn add_card(loc: &BoardLocation, title: &str) -> String {
+async fn add_card(loc: &BoardLocation, title: &str) -> String {
     add(loc, title, CardPatch::default())
+        .await
         .unwrap()
         .cards
         .last()
@@ -36,10 +39,38 @@ fn add_card(loc: &BoardLocation, title: &str) -> String {
         .clone()
 }
 
+/// Race `n` concurrent claimers of `card_id` (Todo/Ready → InProgress) on tokio
+/// tasks gated by a shared barrier, returning each claim's result. Exercises the
+/// per-board async CAS lock in [`claim_card`].
+async fn race_claims(
+    loc: &BoardLocation,
+    card_id: &str,
+    n: usize,
+    expected: Vec<TaskCardStatus>,
+) -> Vec<Result<TaskBoardCard, String>> {
+    let barrier = Arc::new(tokio::sync::Barrier::new(n));
+    let mut handles = Vec::new();
+    for _ in 0..n {
+        let loc = loc.clone();
+        let id = card_id.to_string();
+        let barrier = barrier.clone();
+        let expected = expected.clone();
+        handles.push(tokio::spawn(async move {
+            barrier.wait().await;
+            claim_card(&loc, &id, &expected, TaskCardStatus::InProgress).await
+        }));
+    }
+    let mut results = Vec::new();
+    for h in handles {
+        results.push(h.await.unwrap());
+    }
+    results
+}
+
 // ── Invariant checkers ─────────────────────────────────────────────────
 
-fn assert_board_invariants(loc: &BoardLocation) {
-    let snap = list(loc).unwrap();
+async fn assert_board_invariants(loc: &BoardLocation) {
+    let snap = list(loc).await.unwrap();
     let cards = &snap.cards;
 
     // At most one InProgress card.
@@ -74,8 +105,8 @@ fn assert_board_invariants(loc: &BoardLocation) {
     );
 }
 
-fn assert_run_pointer_invariants(loc: &BoardLocation) {
-    let snap = list(loc).unwrap();
+async fn assert_run_pointer_invariants(loc: &BoardLocation) {
+    let snap = list(loc).await.unwrap();
     let runs = list_runs(loc, None).unwrap_or_default();
 
     // Every active run's card_id references a card that exists on the board.
@@ -126,77 +157,45 @@ fn assert_run_pointer_invariants(loc: &BoardLocation) {
 
 /// Wait just long enough for `check_staleness` (which truncates to whole
 /// seconds via `num_seconds()`) to see the run as older than 0s.
-fn sleep_for_staleness() {
-    std::thread::sleep(std::time::Duration::from_millis(1100));
+async fn sleep_for_staleness() {
+    tokio::time::sleep(Duration::from_millis(1100)).await;
 }
 
 // ── 1. Double-claim invariant (stress) ────────────────────────────────
 
-#[test]
-fn stress_concurrent_claims_n_threads() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn stress_concurrent_claims_n_threads() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "stress-claim-1");
-    let card_id = add_card(&loc, "race target");
+    let card_id = add_card(&loc, "race target").await;
 
     let n = 8;
-    let barrier = Arc::new(Barrier::new(n));
-    let results: Vec<_> = (0..n)
-        .map(|_| {
-            let loc = loc.clone();
-            let id = card_id.clone();
-            let barrier = barrier.clone();
-            std::thread::spawn(move || {
-                barrier.wait();
-                claim_card(
-                    &loc,
-                    &id,
-                    &[TaskCardStatus::Todo, TaskCardStatus::Ready],
-                    TaskCardStatus::InProgress,
-                )
-            })
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .map(|h| h.join().unwrap())
-        .collect();
+    let results = race_claims(
+        &loc,
+        &card_id,
+        n,
+        vec![TaskCardStatus::Todo, TaskCardStatus::Ready],
+    )
+    .await;
 
     let wins = results.iter().filter(|r| r.is_ok()).count();
     assert_eq!(wins, 1, "exactly one of {n} concurrent claimers must win");
 
-    let snap = list(&loc).unwrap();
+    let snap = list(&loc).await.unwrap();
     assert_eq!(snap.cards[0].status, TaskCardStatus::InProgress);
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }
 
-#[test]
-fn stress_concurrent_claims_multiple_cards() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn stress_concurrent_claims_multiple_cards() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "stress-claim-multi");
 
-    let id_a = add_card(&loc, "card A");
-    let id_b = add_card(&loc, "card B");
+    let id_a = add_card(&loc, "card A").await;
+    let id_b = add_card(&loc, "card B").await;
 
-    // 4 threads race to claim card A.
-    let barrier = Arc::new(Barrier::new(4));
-    let results_a: Vec<_> = (0..4)
-        .map(|_| {
-            let loc = loc.clone();
-            let id = id_a.clone();
-            let barrier = barrier.clone();
-            std::thread::spawn(move || {
-                barrier.wait();
-                claim_card(
-                    &loc,
-                    &id,
-                    &[TaskCardStatus::Todo],
-                    TaskCardStatus::InProgress,
-                )
-            })
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .map(|h| h.join().unwrap())
-        .collect();
+    // 4 tasks race to claim card A.
+    let results_a = race_claims(&loc, &id_a, 4, vec![TaskCardStatus::Todo]).await;
 
     assert_eq!(
         results_a.iter().filter(|r| r.is_ok()).count(),
@@ -210,22 +209,23 @@ fn stress_concurrent_claims_multiple_cards() {
         &id_b,
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
-    );
+    )
+    .await;
     assert!(
         claim_b.is_err(),
         "claiming card B as InProgress must fail while card A is InProgress"
     );
 
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }
 
 // ── 2. Run pointer invariant ──────────────────────────────────────────
 
-#[test]
-fn run_pointer_active_run_references_existing_card() {
+#[tokio::test]
+async fn run_pointer_active_run_references_existing_card() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "run-ptr-1");
-    let card_id = add_card(&loc, "task with run");
+    let card_id = add_card(&loc, "task with run").await;
 
     claim_card(
         &loc,
@@ -233,18 +233,19 @@ fn run_pointer_active_run_references_existing_card() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
 
     let run = create_run(&loc, "run-1", &card_id, "dispatcher").unwrap();
     assert!(run.is_active());
-    assert_run_pointer_invariants(&loc);
+    assert_run_pointer_invariants(&loc).await;
 }
 
-#[test]
-fn run_pointer_completed_run_consistency() {
+#[tokio::test]
+async fn run_pointer_completed_run_consistency() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "run-ptr-2");
-    let card_id = add_card(&loc, "task to complete");
+    let card_id = add_card(&loc, "task to complete").await;
 
     claim_card(
         &loc,
@@ -252,6 +253,7 @@ fn run_pointer_completed_run_consistency() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
 
     create_run(&loc, "run-2", &card_id, "dispatcher").unwrap();
@@ -264,9 +266,11 @@ fn run_pointer_completed_run_consistency() {
     )
     .unwrap();
 
-    update_status(&loc, &card_id, TaskCardStatus::Done).unwrap();
+    update_status(&loc, &card_id, TaskCardStatus::Done)
+        .await
+        .unwrap();
 
-    let snap = list(&loc).unwrap();
+    let snap = list(&loc).await.unwrap();
     assert_eq!(snap.cards[0].status, TaskCardStatus::Done);
 
     // No active runs remain.
@@ -275,14 +279,14 @@ fn run_pointer_completed_run_consistency() {
         runs.iter().all(|r| !r.is_active()),
         "all runs should be completed after card is Done"
     );
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }
 
-#[test]
-fn run_pointer_no_orphaned_active_runs_after_reclaim() {
+#[tokio::test]
+async fn run_pointer_no_orphaned_active_runs_after_reclaim() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "run-ptr-3");
-    let card_id = add_card(&loc, "stale task");
+    let card_id = add_card(&loc, "stale task").await;
 
     claim_card(
         &loc,
@@ -290,23 +294,24 @@ fn run_pointer_no_orphaned_active_runs_after_reclaim() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
 
     create_run(&loc, "run-stale", &card_id, "dispatcher").unwrap();
 
     // check_staleness uses strict `>`, so we need the run to age past 0s.
-    sleep_for_staleness();
+    sleep_for_staleness().await;
 
     let limits = RunLimits {
         heartbeat_stale_secs: 0,
         claim_ttl_secs: 0,
         max_reclaim_count: 3,
     };
-    let result = reclaim_stale(&loc, &limits).unwrap();
+    let result = reclaim_stale(&loc, &limits).await.unwrap();
     assert_eq!(result.reclaimed_count, 1);
 
     // After reclaim, the card should be back to Todo and no active runs.
-    let snap = list(&loc).unwrap();
+    let snap = list(&loc).await.unwrap();
     assert_eq!(snap.cards[0].status, TaskCardStatus::Todo);
 
     let runs = list_runs(&loc, Some(&card_id)).unwrap();
@@ -314,16 +319,16 @@ fn run_pointer_no_orphaned_active_runs_after_reclaim() {
         runs.iter().all(|r| !r.is_active()),
         "no active runs should remain after reclaim"
     );
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }
 
 // ── 3. Status invariant ───────────────────────────────────────────────
 
-#[test]
-fn status_claim_rejects_wrong_expected_status() {
+#[tokio::test]
+async fn status_claim_rejects_wrong_expected_status() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "status-inv-1");
-    let card_id = add_card(&loc, "wrong status");
+    let card_id = add_card(&loc, "wrong status").await;
 
     // Card is Todo; claiming with expected=[InProgress] must fail.
     let err = claim_card(
@@ -331,17 +336,18 @@ fn status_claim_rejects_wrong_expected_status() {
         &card_id,
         &[TaskCardStatus::InProgress],
         TaskCardStatus::Done,
-    );
+    )
+    .await;
     assert!(err.is_err(), "claim with wrong expected status must fail");
 
     // Card should still be Todo.
-    let snap = list(&loc).unwrap();
+    let snap = list(&loc).await.unwrap();
     assert_eq!(snap.cards[0].status, TaskCardStatus::Todo);
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }
 
-#[test]
-fn status_all_valid_statuses_accepted() {
+#[tokio::test]
+async fn status_all_valid_statuses_accepted() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "status-inv-2");
 
@@ -355,20 +361,20 @@ fn status_all_valid_statuses_accepted() {
     ];
 
     for status in &statuses {
-        let card_id = add_card(&loc, &format!("card-{:?}", status));
-        update_status(&loc, &card_id, status.clone()).unwrap();
-        let snap = list(&loc).unwrap();
+        let card_id = add_card(&loc, &format!("card-{:?}", status)).await;
+        update_status(&loc, &card_id, status.clone()).await.unwrap();
+        let snap = list(&loc).await.unwrap();
         let card = snap.cards.iter().find(|c| c.id == card_id).unwrap();
         assert_eq!(&card.status, status);
     }
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }
 
-#[test]
-fn status_claim_metadata_consistent_with_status() {
+#[tokio::test]
+async fn status_claim_metadata_consistent_with_status() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "status-inv-3");
-    let card_id = add_card(&loc, "claim consistency");
+    let card_id = add_card(&loc, "claim consistency").await;
 
     // Claim Todo → InProgress via claim_card.
     let claimed = claim_card(
@@ -377,6 +383,7 @@ fn status_claim_metadata_consistent_with_status() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
     assert_eq!(claimed.status, TaskCardStatus::InProgress);
     assert!(
@@ -386,18 +393,18 @@ fn status_claim_metadata_consistent_with_status() {
 
     // The board snapshot agrees with the returned card's status.
     // (normalise_board may re-stamp updated_at, so only compare status.)
-    let snap = list(&loc).unwrap();
+    let snap = list(&loc).await.unwrap();
     let board_card = snap.cards.iter().find(|c| c.id == card_id).unwrap();
     assert_eq!(board_card.status, TaskCardStatus::InProgress);
     assert!(!board_card.updated_at.is_empty());
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }
 
-#[test]
-fn status_blocked_card_has_blocker_after_reclaim() {
+#[tokio::test]
+async fn status_blocked_card_has_blocker_after_reclaim() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "status-inv-4");
-    let card_id = add_card(&loc, "reclaim-to-blocked");
+    let card_id = add_card(&loc, "reclaim-to-blocked").await;
 
     let limits = RunLimits {
         heartbeat_stale_secs: 0,
@@ -412,10 +419,11 @@ fn status_blocked_card_has_blocker_after_reclaim() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
     create_run(&loc, "run-r1", &card_id, "d").unwrap();
-    sleep_for_staleness();
-    let r1 = reclaim_stale(&loc, &limits).unwrap();
+    sleep_for_staleness().await;
+    let r1 = reclaim_stale(&loc, &limits).await.unwrap();
     assert_eq!(r1.reclaimed_count, 1);
 
     // Second reclaim (count=2 >= max=2): card goes to Blocked.
@@ -425,29 +433,30 @@ fn status_blocked_card_has_blocker_after_reclaim() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
     create_run(&loc, "run-r2", &card_id, "d").unwrap();
-    sleep_for_staleness();
-    let r2 = reclaim_stale(&loc, &limits).unwrap();
+    sleep_for_staleness().await;
+    let r2 = reclaim_stale(&loc, &limits).await.unwrap();
     assert_eq!(r2.blocked_count, 1);
 
-    let snap = list(&loc).unwrap();
+    let snap = list(&loc).await.unwrap();
     let card = snap.cards.iter().find(|c| c.id == card_id).unwrap();
     assert_eq!(card.status, TaskCardStatus::Blocked);
     assert!(
         card.blocker.is_some(),
         "blocked card must have a blocker message"
     );
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }
 
 // ── 4. Completion invariant ───────────────────────────────────────────
 
-#[test]
-fn completion_run_cannot_be_completed_twice() {
+#[tokio::test]
+async fn completion_run_cannot_be_completed_twice() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "complete-inv-1");
-    let card_id = add_card(&loc, "double complete");
+    let card_id = add_card(&loc, "double complete").await;
 
     claim_card(
         &loc,
@@ -455,6 +464,7 @@ fn completion_run_cannot_be_completed_twice() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
 
     create_run(&loc, "run-dc", &card_id, "dispatcher").unwrap();
@@ -474,11 +484,11 @@ fn completion_run_cannot_be_completed_twice() {
     );
 }
 
-#[test]
-fn completion_distinct_runs_same_card_only_one_active() {
+#[tokio::test]
+async fn completion_distinct_runs_same_card_only_one_active() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "complete-inv-2");
-    let card_id = add_card(&loc, "multi-run card");
+    let card_id = add_card(&loc, "multi-run card").await;
 
     // First claim + run cycle.
     claim_card(
@@ -487,6 +497,7 @@ fn completion_distinct_runs_same_card_only_one_active() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
     create_run(&loc, "run-a", &card_id, "d1").unwrap();
     complete_run(
@@ -499,7 +510,9 @@ fn completion_distinct_runs_same_card_only_one_active() {
     .unwrap();
 
     // Move card back to Todo for re-dispatch.
-    update_status(&loc, &card_id, TaskCardStatus::Todo).unwrap();
+    update_status(&loc, &card_id, TaskCardStatus::Todo)
+        .await
+        .unwrap();
 
     // Second claim + run cycle.
     claim_card(
@@ -508,6 +521,7 @@ fn completion_distinct_runs_same_card_only_one_active() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
     create_run(&loc, "run-b", &card_id, "d2").unwrap();
 
@@ -517,14 +531,14 @@ fn completion_distinct_runs_same_card_only_one_active() {
     assert!(!run_a.is_active());
     assert!(run_b.is_active());
 
-    assert_run_pointer_invariants(&loc);
+    assert_run_pointer_invariants(&loc).await;
 }
 
-#[test]
-fn completion_heartbeat_after_completion_fails() {
+#[tokio::test]
+async fn completion_heartbeat_after_completion_fails() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "complete-inv-3");
-    let card_id = add_card(&loc, "hb after complete");
+    let card_id = add_card(&loc, "hb after complete").await;
 
     claim_card(
         &loc,
@@ -532,6 +546,7 @@ fn completion_heartbeat_after_completion_fails() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
     create_run(&loc, "run-hb", &card_id, "d").unwrap();
     complete_run(&loc, "run-hb", RunOutcome::Success, None, vec![]).unwrap();
@@ -542,8 +557,8 @@ fn completion_heartbeat_after_completion_fails() {
 
 // ── 5. Randomised operation sequence ──────────────────────────────────
 
-#[test]
-fn randomised_operation_sequence_maintains_invariants() {
+#[tokio::test]
+async fn randomised_operation_sequence_maintains_invariants() {
     // Deterministic PRNG via simple LCG.
     struct Lcg(u64);
     impl Lcg {
@@ -574,7 +589,7 @@ fn randomised_operation_sequence_maintains_invariants() {
             // Add a new card.
             0 => {
                 let title = format!("task-{}", card_ids.len());
-                let id = add_card(&loc, &title);
+                let id = add_card(&loc, &title).await;
                 card_ids.push(id);
             }
             // Claim a random card Todo → InProgress.
@@ -585,11 +600,12 @@ fn randomised_operation_sequence_maintains_invariants() {
                     &card_ids[idx],
                     &[TaskCardStatus::Todo, TaskCardStatus::Ready],
                     TaskCardStatus::InProgress,
-                );
+                )
+                .await;
             }
             // Complete the in-progress card's run (if any) then mark Done.
             2 => {
-                let snap = list(&loc).unwrap();
+                let snap = list(&loc).await.unwrap();
                 if let Some(ip) = snap
                     .cards
                     .iter()
@@ -604,12 +620,12 @@ fn randomised_operation_sequence_maintains_invariants() {
                         };
                         let _ = complete_run(&loc, &active.run_id, outcome, None, vec![]);
                     }
-                    let _ = update_status(&loc, &ip.id, TaskCardStatus::Done);
+                    let _ = update_status(&loc, &ip.id, TaskCardStatus::Done).await;
                 }
             }
             // Create a run for an InProgress card that lacks one.
             3 => {
-                let snap = list(&loc).unwrap();
+                let snap = list(&loc).await.unwrap();
                 if let Some(ip) = snap
                     .cards
                     .iter()
@@ -625,13 +641,13 @@ fn randomised_operation_sequence_maintains_invariants() {
             // Move a random card back to Todo (simulating retry).
             4 if !card_ids.is_empty() => {
                 let idx = rng.range(card_ids.len() as u64) as usize;
-                let snap = list(&loc).unwrap();
+                let snap = list(&loc).await.unwrap();
                 if let Some(card) = snap.cards.iter().find(|c| c.id == card_ids[idx]) {
                     if matches!(
                         card.status,
                         TaskCardStatus::Done | TaskCardStatus::Blocked | TaskCardStatus::Rejected
                     ) {
-                        let _ = update_status(&loc, &card_ids[idx], TaskCardStatus::Todo);
+                        let _ = update_status(&loc, &card_ids[idx], TaskCardStatus::Todo).await;
                     }
                 }
             }
@@ -648,65 +664,53 @@ fn randomised_operation_sequence_maintains_invariants() {
         }
 
         // After every operation, all invariants must hold.
-        assert_board_invariants(&loc);
+        assert_board_invariants(&loc).await;
     }
 }
 
 // ── 6. Concurrent claim + run lifecycle stress ────────────────────────
 
-#[test]
-fn stress_claim_create_run_complete_cycle() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn stress_claim_create_run_complete_cycle() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "stress-lifecycle");
-    let card_id = add_card(&loc, "lifecycle target");
+    let card_id = add_card(&loc, "lifecycle target").await;
 
     for round in 0..10 {
-        // N threads race to claim.
-        let n = 4;
-        let barrier = Arc::new(Barrier::new(n));
-        let results: Vec<_> = (0..n)
-            .map(|_| {
-                let loc = loc.clone();
-                let id = card_id.clone();
-                let barrier = barrier.clone();
-                std::thread::spawn(move || {
-                    barrier.wait();
-                    claim_card(
-                        &loc,
-                        &id,
-                        &[TaskCardStatus::Todo, TaskCardStatus::Ready],
-                        TaskCardStatus::InProgress,
-                    )
-                })
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|h| h.join().unwrap())
-            .collect();
+        // N tasks race to claim.
+        let results = race_claims(
+            &loc,
+            &card_id,
+            4,
+            vec![TaskCardStatus::Todo, TaskCardStatus::Ready],
+        )
+        .await;
 
         let wins = results.iter().filter(|r| r.is_ok()).count();
         assert_eq!(wins, 1, "round {round}: exactly one claimer wins");
 
-        assert_board_invariants(&loc);
+        assert_board_invariants(&loc).await;
 
         // Winner creates a run, completes it, moves card back.
         let run_id = format!("run-cycle-{round}");
         create_run(&loc, &run_id, &card_id, "d").unwrap();
-        assert_run_pointer_invariants(&loc);
+        assert_run_pointer_invariants(&loc).await;
 
         complete_run(&loc, &run_id, RunOutcome::Success, None, vec![]).unwrap();
-        update_status(&loc, &card_id, TaskCardStatus::Todo).unwrap();
-        assert_board_invariants(&loc);
+        update_status(&loc, &card_id, TaskCardStatus::Todo)
+            .await
+            .unwrap();
+        assert_board_invariants(&loc).await;
     }
 }
 
 // ── 7. Claim after reclaim race ───────────────────────────────────────
 
-#[test]
-fn reclaim_then_concurrent_re_claim() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn reclaim_then_concurrent_re_claim() {
     let dir = tempdir().unwrap();
     let loc = thread_loc(dir.path(), "reclaim-race-1");
-    let card_id = add_card(&loc, "reclaim-race");
+    let card_id = add_card(&loc, "reclaim-race").await;
 
     // Claim and create a run, then let it age and reclaim.
     claim_card(
@@ -715,49 +719,30 @@ fn reclaim_then_concurrent_re_claim() {
         &[TaskCardStatus::Todo],
         TaskCardStatus::InProgress,
     )
+    .await
     .unwrap();
     create_run(&loc, "run-pre-reclaim", &card_id, "d").unwrap();
 
-    sleep_for_staleness();
+    sleep_for_staleness().await;
 
     let limits = RunLimits {
         heartbeat_stale_secs: 0,
         claim_ttl_secs: 0,
         max_reclaim_count: 10,
     };
-    let result = reclaim_stale(&loc, &limits).unwrap();
+    let result = reclaim_stale(&loc, &limits).await.unwrap();
     assert_eq!(
         result.reclaimed_count, 1,
         "run must be reclaimed after aging"
     );
 
-    // Card is back to Todo. Now N threads race to re-claim.
-    let n = 6;
-    let barrier = Arc::new(Barrier::new(n));
-    let results: Vec<_> = (0..n)
-        .map(|_| {
-            let loc = loc.clone();
-            let id = card_id.clone();
-            let barrier = barrier.clone();
-            std::thread::spawn(move || {
-                barrier.wait();
-                claim_card(
-                    &loc,
-                    &id,
-                    &[TaskCardStatus::Todo],
-                    TaskCardStatus::InProgress,
-                )
-            })
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .map(|h| h.join().unwrap())
-        .collect();
+    // Card is back to Todo. Now N tasks race to re-claim.
+    let results = race_claims(&loc, &card_id, 6, vec![TaskCardStatus::Todo]).await;
 
     assert_eq!(
         results.iter().filter(|r| r.is_ok()).count(),
         1,
         "exactly one re-claimer wins after reclaim"
     );
-    assert_board_invariants(&loc);
+    assert_board_invariants(&loc).await;
 }

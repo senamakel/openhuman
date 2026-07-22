@@ -233,6 +233,12 @@ pub fn start_boot_once_jobs(services: ServiceSet, config: &Config) {
     // authoritative. Idempotent (skips already-copied rows) and returns fast on
     // an empty/absent legacy dir. Runs single-writer inside this core process.
     spawn_thread_goals_migration(config.clone());
+
+    // One-time copy of any task boards left in the retired
+    // `{workspace}/agent_task_boards/*.json` file-JSON tree into the crate
+    // `graph.todos` store, which is now authoritative. Idempotent and returns
+    // fast on an empty/absent legacy dir (the `*.runs.json` ledger stays local).
+    spawn_task_boards_migration(config.clone());
 }
 
 fn spawn_thread_goals_migration(config: Config) {
@@ -254,6 +260,30 @@ fn spawn_thread_goals_migration(config: Config) {
                 }
                 Ok(_) => {}
                 Err(e) => log::warn!("[thread_goals] legacy→crate migration failed: {e}"),
+            }
+        });
+    });
+}
+
+fn spawn_task_boards_migration(config: Config) {
+    static MIGRATION_SPAWNED: Once = Once::new();
+    MIGRATION_SPAWNED.call_once(|| {
+        tokio::spawn(async move {
+            match crate::openhuman::todos::crate_adapter::migrate_legacy_task_boards_into_crate_store(
+                &config.workspace_dir,
+            )
+            .await
+            {
+                Ok(report) if report.total > 0 => {
+                    log::info!(
+                        "[todos] legacy→crate migration: total={} copied={} skipped={}",
+                        report.total,
+                        report.copied,
+                        report.skipped
+                    );
+                }
+                Ok(_) => {}
+                Err(e) => log::warn!("[todos] legacy→crate task-board migration failed: {e}"),
             }
         });
     });

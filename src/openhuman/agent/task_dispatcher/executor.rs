@@ -289,7 +289,7 @@ pub(super) async fn run_autonomous(
 /// Success → `done` + evidence; failure → `blocked` + blocker reason. An
 /// external write failure here is logged, never propagated — the run already
 /// happened.
-pub(super) fn write_back(
+pub(super) async fn write_back(
     location: &BoardLocation,
     card_id: &str,
     run_id: &str,
@@ -301,8 +301,8 @@ pub(super) fn write_back(
     // The task then stays paused in that state until the user responds, instead
     // of a "clean turn" being silently recorded as done. Otherwise mark done
     // with evidence; a run error marks blocked with the error as the blocker.
-    let agent_self_blocked =
-        outcome.is_ok() && current_card_status(location, card_id) == Some(TaskCardStatus::Blocked);
+    let agent_self_blocked = outcome.is_ok()
+        && current_card_status(location, card_id).await == Some(TaskCardStatus::Blocked);
 
     let patch = if agent_self_blocked {
         tracing::info!(
@@ -343,7 +343,7 @@ pub(super) fn write_back(
     };
 
     if let Some(patch) = patch {
-        if let Err(e) = ops::edit(location, card_id, patch) {
+        if let Err(e) = ops::edit(location, card_id, patch).await {
             tracing::error!(
                 card_id = %card_id,
                 run_id = %run_id,
@@ -376,8 +376,9 @@ pub(super) fn write_back(
 
 /// Current persisted status of a card, or `None` if the board can't be read or
 /// the card is gone. Used by `write_back` to detect a run that blocked itself.
-fn current_card_status(location: &BoardLocation, card_id: &str) -> Option<TaskCardStatus> {
+async fn current_card_status(location: &BoardLocation, card_id: &str) -> Option<TaskCardStatus> {
     ops::list(location)
+        .await
         .ok()
         .and_then(|snap| snap.cards.into_iter().find(|c| c.id == card_id))
         .map(|c| c.status)

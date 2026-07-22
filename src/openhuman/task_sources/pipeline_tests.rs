@@ -110,7 +110,7 @@ async fn fetch_routes_cards_and_dedups_on_rerun() {
     assert_eq!(outcome.skipped_dupe, 0);
     assert!(outcome.error.is_none());
 
-    let cards = route::board_cards(&config).unwrap();
+    let cards = route::board_cards(&config).await.unwrap();
     assert_eq!(cards.len(), 2);
     assert!(cards.iter().any(|c| c.title.contains("First task")));
     assert!(cards.iter().all(|c| c.title.starts_with("[GitHub]")));
@@ -121,7 +121,7 @@ async fn fetch_routes_cards_and_dedups_on_rerun() {
     assert_eq!(outcome2.routed, 0);
     assert_eq!(outcome2.skipped_dupe, 2);
 
-    let cards_after = route::board_cards(&config).unwrap();
+    let cards_after = route::board_cards(&config).await.unwrap();
     assert_eq!(cards_after.len(), 2, "dedup must not add duplicate cards");
 
     // Ingested ledger reflects both tasks.
@@ -153,7 +153,7 @@ async fn edited_task_reroutes_as_new_card() {
 
     // Board must have exactly one card: the stale card was removed before
     // the fresh one was added, so no duplicate accumulation.
-    let cards = route::board_cards(&config).unwrap();
+    let cards = route::board_cards(&config).await.unwrap();
     assert_eq!(
         cards.len(),
         1,
@@ -183,7 +183,7 @@ async fn task_missing_from_latest_fetch_is_pruned() {
 
     let first = run_source_once(&config, &source, FetchReason::Manual).await;
     assert_eq!(first.routed, 2, "error={:?}", first.error);
-    assert_eq!(route::board_cards(&config).unwrap().len(), 2);
+    assert_eq!(route::board_cards(&config).await.unwrap().len(), 2);
 
     // Simulate the provider returning only currently-open/matching tasks:
     // task 2 was closed or no longer matches the source filter.
@@ -198,7 +198,7 @@ async fn task_missing_from_latest_fetch_is_pruned() {
     assert_eq!(second.pruned, 1);
     assert!(second.error.is_none());
 
-    let cards = route::board_cards(&config).unwrap();
+    let cards = route::board_cards(&config).await.unwrap();
     assert_eq!(cards.len(), 1);
     assert!(cards[0].title.contains("Keep task"));
 

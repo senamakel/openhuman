@@ -40,7 +40,7 @@ pub async fn route_enriched(
     enriched: &EnrichedTask,
     stale_card_id: Option<&str>,
 ) -> Result<String, String> {
-    let card_id = add_card(config, source, enriched, stale_card_id)?;
+    let card_id = add_card(config, source, enriched, stale_card_id).await?;
 
     match source.target {
         SourceTarget::TodoOnly => {
@@ -66,7 +66,7 @@ pub async fn route_enriched(
 /// entries from accumulating across edit cycles. If the stale card is already
 /// gone (e.g. user manually removed it) the remove error is logged and
 /// ignored so the fresh card still lands.
-fn add_card(
+async fn add_card(
     config: &Config,
     source: &TaskSource,
     enriched: &EnrichedTask,
@@ -78,7 +78,7 @@ fn add_card(
     // before creating the replacement, so the board never accumulates
     // duplicate cards for the same upstream item.
     if let Some(old_id) = stale_card_id {
-        match remove_card(config, old_id) {
+        match remove_card(config, old_id).await {
             Ok(_) => {
                 tracing::debug!(
                     source_id = %source.id,
@@ -149,6 +149,7 @@ fn add_card(
             ..Default::default()
         },
     )
+    .await
     .map_err(|e| format!("[task_sources:route] failed to add todo card: {e}"))?;
 
     // The newly created card is always the last one in the snapshot (add
@@ -287,18 +288,18 @@ fn provider_label(provider: &str) -> String {
 
 /// Read the current cards on the `task-sources` board. Used by tests and
 /// callers that want to inspect routed work without an RPC round-trip.
-pub fn board_cards(
+pub async fn board_cards(
     config: &Config,
 ) -> Result<Vec<crate::openhuman::agent::task_board::TaskBoardCard>, String> {
     let location = task_sources_location(config);
-    todos::ops::list(&location).map(|snap| snap.cards)
+    todos::ops::list(&location).await.map(|snap| snap.cards)
 }
 
 /// Remove a task-source board card. Missing cards are treated as already
 /// reconciled so ledger cleanup can still proceed.
-pub fn remove_card(config: &Config, card_id: &str) -> Result<bool, String> {
+pub async fn remove_card(config: &Config, card_id: &str) -> Result<bool, String> {
     let location = task_sources_location(config);
-    match todo_remove(&location, card_id) {
+    match todo_remove(&location, card_id).await {
         Ok(_) => Ok(true),
         Err(e) if e.contains("not found") => {
             tracing::debug!(
@@ -416,17 +417,17 @@ mod tests {
         (tmp, config)
     }
 
-    #[test]
-    fn add_card_stamps_objective_assigned_agent_and_metadata() {
+    #[tokio::test]
+    async fn add_card_stamps_objective_assigned_agent_and_metadata() {
         let (_tmp, config) = temp_config();
         let mut src = github_source(Some("octo/repo"));
         // Whitespace around the executor must be trimmed into assigned_agent.
         src.assigned_executor = Some("  agent-x  ".into());
         let e = enriched("123", Some("https://github.com/octo/repo/issues/123"), 0.7);
 
-        add_card(&config, &src, &e, None).expect("add_card succeeds");
+        add_card(&config, &src, &e, None).await.expect("add_card succeeds");
 
-        let cards = board_cards(&config).expect("board_cards");
+        let cards = board_cards(&config).await.expect("board_cards");
         assert_eq!(cards.len(), 1);
         let card = &cards[0];
         // Display title is the `[provider] title` form; objective is the bare title.
@@ -443,8 +444,8 @@ mod tests {
         assert!(meta.get("kind").is_none());
     }
 
-    #[test]
-    fn pull_request_card_carries_review_objective_and_kind_metadata() {
+    #[tokio::test]
+    async fn pull_request_card_carries_review_objective_and_kind_metadata() {
         let (_tmp, config) = temp_config();
         let src = github_source(Some("octo/repo"));
         let mut task = NormalizedTask {
@@ -466,9 +467,9 @@ mod tests {
             enriched_at: Utc::now(),
         };
 
-        add_card(&config, &src, &e, None).expect("add_card succeeds");
+        add_card(&config, &src, &e, None).await.expect("add_card succeeds");
 
-        let cards = board_cards(&config).expect("board_cards");
+        let cards = board_cards(&config).await.expect("board_cards");
         let card = &cards[0];
         // The objective tells the picking agent (and triage) the job is a review.
         assert_eq!(
@@ -482,16 +483,16 @@ mod tests {
         assert_eq!(meta["kind"], json!("pull_request"));
     }
 
-    #[test]
-    fn add_card_drops_whitespace_only_assigned_executor() {
+    #[tokio::test]
+    async fn add_card_drops_whitespace_only_assigned_executor() {
         let (_tmp, config) = temp_config();
         let mut src = github_source(None);
         src.assigned_executor = Some("   ".into());
         let e = enriched("9", None, 0.4);
 
-        add_card(&config, &src, &e, None).expect("add_card succeeds");
+        add_card(&config, &src, &e, None).await.expect("add_card succeeds");
 
-        let cards = board_cards(&config).expect("board_cards");
+        let cards = board_cards(&config).await.expect("board_cards");
         assert_eq!(cards.len(), 1);
         assert!(
             cards[0].assigned_agent.is_none(),

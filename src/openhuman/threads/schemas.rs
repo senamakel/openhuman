@@ -715,6 +715,7 @@ fn handle_task_board_get(params: Map<String, Value>) -> ControllerFuture {
             &config.workspace_dir,
             &thread_id,
         )
+        .await
         .map_err(|e| {
             tracing::debug!(
                 thread_id = %thread_id,
@@ -758,6 +759,7 @@ fn handle_task_board_put(params: Map<String, Value>) -> ControllerFuture {
         };
         let saved = TaskBoardStore::new(config.workspace_dir)
             .put(board)
+            .await
             .map_err(|e| {
                 tracing::debug!(
                     thread_id = %thread_id,

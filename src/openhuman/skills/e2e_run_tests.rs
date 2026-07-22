@@ -280,7 +280,7 @@ async fn wait_for_status(
 ) -> Option<TaskBoardCard> {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(secs);
     loop {
-        if let Ok(snap) = board_ops::list(loc) {
+        if let Ok(snap) = board_ops::list(loc).await {
             if let Some(c) = snap.cards.into_iter().find(|c| c.id == id) {
                 if c.status == want {
                     return Some(c);
@@ -318,13 +318,14 @@ async fn task_card_picked_up_runs_workflow_and_resolves_done() {
         workspace_dir: workspace.clone(),
         thread_id: "t1".into(),
     };
-    let snap = board_ops::add(&loc, "Triage my inbox", CardPatch::default()).expect("add card");
+    let snap = board_ops::add(&loc, "Triage my inbox", CardPatch::default()).await.expect("add card");
     let id = snap.cards[0].id.clone();
     // Mark Ready to bypass the plan-approval gate (which only parks Todo cards).
-    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).expect("ready");
+    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).await.expect("ready");
 
     // Pick it up: dispatch_card claims it (→ InProgress) and detaches the run.
     let card = board_ops::list(&loc)
+        .await
         .unwrap()
         .cards
         .into_iter()
@@ -339,10 +340,11 @@ async fn task_card_picked_up_runs_workflow_and_resolves_done() {
     // The detached run: orchestrator (mock) calls run_workflow → inner agent
     // (mock) runs to DONE → orchestrator wraps up → write_back marks the card
     // Done. Poll for it.
-    let done = wait_for_status(&loc, &id, TaskCardStatus::Done, 25)
-        .await
-        .unwrap_or_else(|| {
+    let done = match wait_for_status(&loc, &id, TaskCardStatus::Done, 25).await {
+        Some(card) => card,
+        None => {
             let c = board_ops::list(&loc)
+                .await
                 .unwrap()
                 .cards
                 .into_iter()
@@ -353,7 +355,8 @@ async fn task_card_picked_up_runs_workflow_and_resolves_done() {
                 c.status.as_str(),
                 c.blocker
             );
-        });
+        }
+    };
     assert_eq!(done.status, TaskCardStatus::Done);
     assert!(
         done.evidence
@@ -387,11 +390,12 @@ async fn task_with_no_workflow_runs_directly_and_resolves_done() {
         thread_id: "t1".into(),
     };
     let snap =
-        board_ops::add(&loc, "Answer a quick question.", CardPatch::default()).expect("add card");
+        board_ops::add(&loc, "Answer a quick question.", CardPatch::default()).await.expect("add card");
     let id = snap.cards[0].id.clone();
-    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).expect("ready");
+    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).await.expect("ready");
 
     let card = board_ops::list(&loc)
+        .await
         .unwrap()
         .cards
         .into_iter()
@@ -400,10 +404,11 @@ async fn task_with_no_workflow_runs_directly_and_resolves_done() {
     let outcome = dispatch_card(loc.clone(), card).await.expect("dispatch");
     assert!(matches!(outcome, DispatchOutcome::Running { .. }));
 
-    let done = wait_for_status(&loc, &id, TaskCardStatus::Done, 25)
-        .await
-        .unwrap_or_else(|| {
+    let done = match wait_for_status(&loc, &id, TaskCardStatus::Done, 25).await {
+        Some(card) => card,
+        None => {
             let c = board_ops::list(&loc)
+                .await
                 .unwrap()
                 .cards
                 .into_iter()
@@ -414,7 +419,8 @@ async fn task_with_no_workflow_runs_directly_and_resolves_done() {
                 c.status.as_str(),
                 c.blocker
             );
-        });
+        }
+    };
     assert_eq!(done.status, TaskCardStatus::Done);
     // The orchestrator answered directly; its output is captured as evidence.
     assert!(
@@ -481,11 +487,12 @@ async fn task_run_failure_resolves_card_to_blocked() {
         thread_id: "t1".into(),
     };
     let snap =
-        board_ops::add(&loc, "Do a thing that will fail", CardPatch::default()).expect("add card");
+        board_ops::add(&loc, "Do a thing that will fail", CardPatch::default()).await.expect("add card");
     let id = snap.cards[0].id.clone();
-    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).expect("ready");
+    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).await.expect("ready");
 
     let card = board_ops::list(&loc)
+        .await
         .unwrap()
         .cards
         .into_iter()
@@ -496,10 +503,11 @@ async fn task_run_failure_resolves_card_to_blocked() {
     let outcome = dispatch_card(loc.clone(), card).await.expect("dispatch");
     assert!(matches!(outcome, DispatchOutcome::Running { .. }));
 
-    let blocked = wait_for_status(&loc, &id, TaskCardStatus::Blocked, 25)
-        .await
-        .unwrap_or_else(|| {
+    let blocked = match wait_for_status(&loc, &id, TaskCardStatus::Blocked, 25).await {
+        Some(card) => card,
+        None => {
             let c = board_ops::list(&loc)
+                .await
                 .unwrap()
                 .cards
                 .into_iter()
@@ -510,7 +518,8 @@ async fn task_run_failure_resolves_card_to_blocked() {
                 c.status.as_str(),
                 c.blocker
             );
-        });
+        }
+    };
     assert_eq!(blocked.status, TaskCardStatus::Blocked);
     assert!(
         blocked
@@ -544,11 +553,12 @@ async fn redispatch_of_claimed_card_is_rejected() {
         thread_id: "t1".into(),
     };
     let snap =
-        board_ops::add(&loc, "Claim me exactly once", CardPatch::default()).expect("add card");
+        board_ops::add(&loc, "Claim me exactly once", CardPatch::default()).await.expect("add card");
     let id = snap.cards[0].id.clone();
-    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).expect("ready");
+    board_ops::update_status(&loc, &id, TaskCardStatus::Ready).await.expect("ready");
     // Capture a Ready snapshot; we'll try to dispatch it twice.
     let stale = board_ops::list(&loc)
+        .await
         .unwrap()
         .cards
         .into_iter()

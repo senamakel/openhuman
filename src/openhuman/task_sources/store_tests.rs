@@ -286,7 +286,7 @@ async fn ops_remove_prunes_routed_cards_for_source() {
         workspace_dir: config.workspace_dir.clone(),
         thread_id: route::TASK_SOURCES_THREAD_ID.to_string(),
     };
-    let snapshot = todo_add(&location, "[GitHub] A", CardPatch::default()).unwrap();
+    let snapshot = todo_add(&location, "[GitHub] A", CardPatch::default()).await.unwrap();
     let card_id = snapshot.cards.last().unwrap().id.clone();
     mark_ingested(
         &config,
@@ -299,7 +299,7 @@ async fn ops_remove_prunes_routed_cards_for_source() {
     let out = ops::remove(&config, &src.id).await.expect("remove source");
     assert_eq!(out.value["removed"], true);
     assert_eq!(out.value["pruned"], 1);
-    assert!(route::board_cards(&config).unwrap().is_empty());
+    assert!(route::board_cards(&config).await.unwrap().is_empty());
     assert!(list_ingested(&config, &src.id, 10).unwrap().is_empty());
 }
 

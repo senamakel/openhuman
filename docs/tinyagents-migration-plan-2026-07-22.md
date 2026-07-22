@@ -404,6 +404,13 @@ prematurely.**
    `progress_tracing/langfuse.rs` (825) in favor of crate observability —
    respecting the recorded S2a replayability blocker.
 
+**WP-5 middleware audit status:** complete in
+[`tinyagents-middleware-ledger-2026-07-22.md`](tinyagents-middleware-ledger-2026-07-22.md).
+The first upstream slice is recoverable tool validation (`ArgRecovery` plus
+`SchemaGuard`), followed by message-trim parity and successful-repeat detection.
+Security, billing, persistence, memory protocol, and product steering remain
+host-owned by design.
+
 ### WP-6 — Exit gate
 
 - Full suite: `scripts/test-rust-with-mock.sh` (all targets incl.

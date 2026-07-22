@@ -1014,7 +1014,82 @@ fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
 /// no text. Never delivered to chat — used only for the run-history record.
 const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
 
+/// Resolve the agent profile a cron job is attributed to, if any.
+///
+/// Returns `Some(profile)` only when `job.profile_id` is set AND that profile
+/// still exists in the store. A deleted profile (or a load error) yields `None`
+/// so the caller runs the job without a profile rather than failing it (2b).
+fn resolve_cron_profile(
+    config: &Config,
+    job: &CronJob,
+) -> Option<crate::openhuman::profiles::AgentProfile> {
+    let profile_id = job.profile_id.as_deref()?;
+    match crate::openhuman::profiles::load_profiles(&config.workspace_dir) {
+        Ok(state) => {
+            let found = state.profiles.into_iter().find(|p| p.id == profile_id);
+            if found.is_none() {
+                tracing::warn!(
+                    job_id = %job.id,
+                    profile_id = %profile_id,
+                    "[cron] attributed profile no longer exists — running job without a profile"
+                );
+            }
+            found
+        }
+        Err(e) => {
+            tracing::warn!(
+                job_id = %job.id,
+                profile_id = %profile_id,
+                error = %e,
+                "[cron] failed to load profiles for cron attribution — running without a profile"
+            );
+            None
+        }
+    }
+}
+
 fn build_agent_for_cron_job(config: &Config, job: &CronJob) -> anyhow::Result<Agent> {
+    // 2b — profile attribution. When the job names a profile that still exists,
+    // build the run under it via the SAME profile-aware session path the task
+    // dispatcher uses (`from_config_for_agent_with_profile`), so the run inherits
+    // the profile's SOUL, memory scope, dedicated-workspace descriptor, and
+    // tool/skill/MCP allowlists. A deleted profile falls through (warned in
+    // `resolve_cron_profile`) to the profile-less path below.
+    if let Some(profile) = resolve_cron_profile(config, job) {
+        // A job may pin a built-in `agent_id`; otherwise the profile picks its
+        // own agent definition.
+        let agent_id = job
+            .agent_id
+            .clone()
+            .unwrap_or_else(|| profile.agent_id.clone());
+        match Agent::from_config_for_agent_with_profile(
+            config,
+            &agent_id,
+            None,
+            None,
+            Some(&profile),
+        ) {
+            Ok(agent) => {
+                tracing::debug!(
+                    job_id = %job.id,
+                    profile_id = %profile.id,
+                    agent_id = %agent_id,
+                    "[cron] built scheduled job agent under attributed profile"
+                );
+                return Ok(agent);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    job_id = %job.id,
+                    profile_id = %profile.id,
+                    agent_id = %agent_id,
+                    error = %e,
+                    "[cron] profile-aware agent build failed; falling back to profile-less build"
+                );
+            }
+        }
+    }
+
     if let Some(agent_id) = job.agent_id.as_deref() {
         match Agent::from_config_for_agent(config, agent_id) {
             Ok(agent) => {

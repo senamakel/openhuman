@@ -7916,6 +7916,66 @@ async fn json_rpc_profiles_dedicated_memory_lifecycle() {
         "dedicated_memory (not workspace) must not surface workspaceDir"
     );
 
+    // --- 2b: a cron agent job can be attributed to this profile, and the
+    // attribution round-trips through cron_add and cron_list (snake_case
+    // `profile_id`, matching the cron domain's wire convention). ---
+    let cron_add = post_json_rpc(
+        &rpc_base,
+        64,
+        "openhuman.cron_add",
+        json!({
+            "schedule": "0 9 * * *",
+            "prompt": "draft the daily note",
+            "profile_id": "writer"
+        }),
+    )
+    .await;
+    let cron_add_result = assert_no_jsonrpc_error(&cron_add, "cron_add");
+    // `RpcOutcome::single_log` wraps the job as `{ "result": <job>, "logs": [..] }`.
+    let added_job = cron_add_result.get("result").unwrap_or(cron_add_result);
+    let job_id = added_job
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("cron job id present")
+        .to_string();
+    assert_eq!(
+        added_job.get("profile_id").and_then(Value::as_str),
+        Some("writer"),
+        "cron_add must round-trip profile_id: {cron_add_result}"
+    );
+
+    let cron_list = post_json_rpc(&rpc_base, 65, "openhuman.cron_list", json!({})).await;
+    let cron_list_result = assert_no_jsonrpc_error(&cron_list, "cron_list");
+    let jobs = cron_list_result
+        .get("result")
+        .and_then(Value::as_array)
+        .expect("cron_list jobs array");
+    let listed_job = jobs
+        .iter()
+        .find(|j| j.get("id").and_then(Value::as_str) == Some(job_id.as_str()))
+        .expect("added cron job present in cron_list");
+    assert_eq!(
+        listed_job.get("profile_id").and_then(Value::as_str),
+        Some("writer"),
+        "cron_list must surface profile_id: {listed_job}"
+    );
+
+    // cron_update can repoint the attribution (Some(Some) over the wire).
+    let cron_update = post_json_rpc(
+        &rpc_base,
+        66,
+        "openhuman.cron_update",
+        json!({ "job_id": job_id, "patch": { "profile_id": "editor" } }),
+    )
+    .await;
+    let cron_update_result = assert_no_jsonrpc_error(&cron_update, "cron_update");
+    let updated_job = cron_update_result.get("result").unwrap_or(cron_update_result);
+    assert_eq!(
+        updated_job.get("profile_id").and_then(Value::as_str),
+        Some("editor"),
+        "cron_update must repoint profile_id: {cron_update_result}"
+    );
+
     // --- select then delete round-trips the active id ---
     let select = post_json_rpc(
         &rpc_base,

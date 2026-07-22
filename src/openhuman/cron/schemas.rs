@@ -116,6 +116,13 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
                 FieldSchema {
+                    name: "profile_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Agent profile id to run the job under (soul, memory scope, \
+                              workspace, allowlists). Ignored if the profile is deleted.",
+                    required: false,
+                },
+                FieldSchema {
                     name: "delivery",
                     ty: TypeSchema::Option(Box::new(TypeSchema::Ref("DeliveryConfig"))),
                     comment: "Delivery mode (proactive, announce, etc.).",
@@ -311,6 +318,12 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
             .get("agent_id")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
+        // 2b — optional agent-profile attribution. Snake_case `profile_id` matches
+        // the existing cron wire convention (`agent_id`, `session_target`).
+        let profile_id = params
+            .get("profile_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         let delivery: Option<crate::openhuman::cron::DeliveryConfig> = match params.get("delivery")
         {
             None | Some(Value::Null) => None,
@@ -358,6 +371,7 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
                     agent_id,
                     // RPC-created jobs default to enabled (current behaviour).
                     true,
+                    profile_id,
                 )
                 .map_err(|e| e.to_string())?
             }

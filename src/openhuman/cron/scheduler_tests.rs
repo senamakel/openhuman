@@ -39,6 +39,7 @@ fn test_job(command: &str) -> CronJob {
         session_target: SessionTarget::Isolated,
         model: None,
         agent_id: None,
+        profile_id: None,
         enabled: true,
         delivery: DeliveryConfig::default(),
         delete_after_run: false,
@@ -48,6 +49,40 @@ fn test_job(command: &str) -> CronJob {
         last_status: None,
         last_output: None,
     }
+}
+
+#[tokio::test]
+async fn resolve_cron_profile_present_and_deleted_fallback() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+
+    // A job attributed to profile "alice".
+    let mut job = test_job("");
+    job.job_type = JobType::Agent;
+    job.profile_id = Some("alice".into());
+
+    // Profile does not exist yet → None (the deleted-profile fallback path;
+    // the scheduler runs the job without a profile rather than failing it).
+    assert!(
+        resolve_cron_profile(&config, &job).is_none(),
+        "missing profile must resolve to None"
+    );
+
+    // Seed the profile → it now resolves.
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.id = "alice".into();
+    profile.name = "Alice".into();
+    profile.built_in = false;
+    profile.is_master = false;
+    crate::openhuman::profiles::store::AgentProfileStore::new(config.workspace_dir.clone())
+        .upsert(profile)
+        .expect("seed profile");
+    let resolved = resolve_cron_profile(&config, &job).expect("profile resolves");
+    assert_eq!(resolved.id, "alice");
+
+    // A job with no attribution is always None.
+    let plain = test_job("");
+    assert!(resolve_cron_profile(&config, &plain).is_none());
 }
 
 #[test]

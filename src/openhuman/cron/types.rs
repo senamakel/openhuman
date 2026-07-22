@@ -232,6 +232,15 @@ pub struct CronJob {
     /// definition's prompt, tool allowlist, iteration cap, and model hint
     /// instead of the generic `Agent::from_config` path.
     pub agent_id: Option<String>,
+    /// Optional agent-profile id (`profiles::AgentProfile::id`) this job runs
+    /// under. When set and the profile still exists, the triggered run is built
+    /// via the profile-aware session path so it inherits the profile's SOUL,
+    /// memory scope, workspace descriptor, and allowlists. When the profile was
+    /// deleted, the scheduler warns and runs without a profile (never fails the
+    /// job). `#[serde(default)]` keeps legacy rows / payloads without the field
+    /// deserializing unchanged.
+    #[serde(default)]
+    pub profile_id: Option<String>,
     pub enabled: bool,
     pub delivery: DeliveryConfig,
     pub delete_after_run: bool,
@@ -265,6 +274,9 @@ pub struct CronJobPatch {
     pub session_target: Option<SessionTarget>,
     pub delete_after_run: Option<bool>,
     pub agent_id: Option<Option<String>>,
+    /// `Option<Option<String>>` distinguishes "no change" (`None`) from
+    /// "clear the profile" (`Some(None)`) — same shape as `agent_id`.
+    pub profile_id: Option<Option<String>>,
 }
 
 #[cfg(test)]
@@ -505,6 +517,56 @@ mod tests {
         assert!(p.session_target.is_none());
         assert!(p.delete_after_run.is_none());
         assert!(p.agent_id.is_none());
+    }
+
+    #[test]
+    fn cron_job_deserializes_without_profile_id() {
+        // A pre-2b serialized CronJob (no `profile_id` key) must still
+        // deserialize, with the field defaulting to None.
+        let raw = json!({
+            "id": "j1",
+            "expression": "0 9 * * *",
+            "schedule": { "kind": "cron", "expr": "0 9 * * *" },
+            "command": "",
+            "prompt": "hi",
+            "name": "briefing",
+            "job_type": "agent",
+            "session_target": "isolated",
+            "model": null,
+            "agent_id": null,
+            "enabled": true,
+            "delivery": {},
+            "delete_after_run": false,
+            "created_at": "2027-01-15T12:00:00Z",
+            "next_run": "2027-01-16T09:00:00Z",
+            "last_run": null,
+            "last_status": null,
+            "last_output": null
+        });
+        let job: CronJob = serde_json::from_value(raw).unwrap();
+        assert_eq!(job.profile_id, None);
+    }
+
+    #[test]
+    fn cron_job_patch_default_leaves_profile_id_none() {
+        assert!(CronJobPatch::default().profile_id.is_none());
+    }
+
+    #[test]
+    fn cron_job_patch_profile_id_supports_explicit_none_clearing() {
+        // Option<Option<String>>: None = no change, Some(None) = clear.
+        let clear = CronJobPatch {
+            profile_id: Some(None),
+            ..Default::default()
+        };
+        assert!(clear.profile_id.is_some());
+        assert!(clear.profile_id.as_ref().unwrap().is_none());
+
+        let set = CronJobPatch {
+            profile_id: Some(Some("alice".into())),
+            ..Default::default()
+        };
+        assert_eq!(set.profile_id, Some(Some("alice".to_string())));
     }
 
     #[test]

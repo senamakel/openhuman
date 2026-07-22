@@ -305,7 +305,8 @@ pub fn ensure_profile_home(
 /// the file first, the agent would keep using the old identity. This closes that
 /// gap by overwriting the file (atomic temp+rename, same as the seed path) when:
 /// - the id passes [`validate_profile_id`] (read paths would load it),
-/// - `profile.soul_md` is `Some(non-empty)`, and
+/// - `profile.soul_md` is `Some(non-empty)` and differs from the previously
+///   persisted inline value, and
 /// - the trimmed inline content differs from the current file content.
 ///
 /// When `soul_md` is empty/`None` the file is left untouched, so a user who
@@ -313,7 +314,11 @@ pub fn ensure_profile_home(
 /// authoritative. Only ever called from the upsert path; select must not clobber
 /// a manually edited file with a stale inline value. Returns `Ok(true)` when the
 /// file was rewritten.
-pub fn sync_soul_md_on_upsert(workspace_dir: &Path, profile: &AgentProfile) -> io::Result<bool> {
+pub fn sync_soul_md_on_upsert(
+    workspace_dir: &Path,
+    profile: &AgentProfile,
+    previous_soul_md: Option<&str>,
+) -> io::Result<bool> {
     if let Err(e) = validate_profile_id(&profile.id) {
         tracing::debug!(
             profile_id = %profile.id,
@@ -338,6 +343,18 @@ pub fn sync_soul_md_on_upsert(workspace_dir: &Path, profile: &AgentProfile) -> i
             return Ok(false);
         }
     };
+
+    // The editor submits the complete profile on every save. If the inline
+    // soul did not change, this is an unrelated settings update and the
+    // hot-read file remains authoritative (it may have been edited manually
+    // since the profile was loaded).
+    if previous_soul_md.map(str::trim) == Some(desired) {
+        tracing::debug!(
+            profile_id = %profile.id,
+            "[profiles][home] sync_soul_md_on_upsert: inline soul_md unchanged, file left as-is"
+        );
+        return Ok(false);
+    }
 
     let home = profile_home(workspace_dir, &profile.id);
     let soul_path = home.join("SOUL.md");
@@ -596,7 +613,8 @@ mod tests {
 
         // User edits the persona in Settings → the stored inline value changes.
         profile.soul_md = Some("Rewritten identity from Settings.".to_string());
-        let rewritten = sync_soul_md_on_upsert(ws.path(), &profile).expect("sync");
+        let rewritten =
+            sync_soul_md_on_upsert(ws.path(), &profile, Some("Original identity.")).expect("sync");
         assert!(
             rewritten,
             "differing inline soul_md must overwrite the file"
@@ -607,7 +625,12 @@ mod tests {
         );
 
         // Idempotent: a second sync with the same value is a no-op.
-        let again = sync_soul_md_on_upsert(ws.path(), &profile).expect("sync 2");
+        let again = sync_soul_md_on_upsert(
+            ws.path(),
+            &profile,
+            Some("Rewritten identity from Settings."),
+        )
+        .expect("sync 2");
         assert!(!again, "matching inline soul_md must not rewrite the file");
     }
 
@@ -623,10 +646,10 @@ mod tests {
         std::fs::write(&soul_path, "MANUALLY EDITED SOUL").unwrap();
 
         profile.soul_md = None;
-        let none_written = sync_soul_md_on_upsert(ws.path(), &profile).expect("sync none");
+        let none_written = sync_soul_md_on_upsert(ws.path(), &profile, None).expect("sync none");
         assert!(!none_written);
         profile.soul_md = Some("   ".to_string()); // whitespace-only → treated as empty
-        let blank_written = sync_soul_md_on_upsert(ws.path(), &profile).expect("sync blank");
+        let blank_written = sync_soul_md_on_upsert(ws.path(), &profile, None).expect("sync blank");
         assert!(!blank_written);
 
         // The manual edit stays authoritative.
@@ -642,8 +665,28 @@ mod tests {
         let mut profile = test_profile("placeholder");
         profile.id = "Bad Id".to_string();
         profile.soul_md = Some("ignored".to_string());
-        assert!(!sync_soul_md_on_upsert(ws.path(), &profile).expect("sync"));
+        assert!(!sync_soul_md_on_upsert(ws.path(), &profile, None).expect("sync"));
         assert!(!profile_home(ws.path(), "Bad Id").join("SOUL.md").exists());
+    }
+
+    #[test]
+    fn sync_soul_md_on_upsert_preserves_manual_file_when_inline_unchanged() {
+        let ws = TempDir::new().unwrap();
+        let action = TempDir::new().unwrap();
+        let mut profile = test_profile("ivy");
+        profile.soul_md = Some("Stored identity.".to_string());
+        ensure_profile_home(ws.path(), action.path(), &profile).expect("ensure");
+        let soul_path = profile_home(ws.path(), "ivy").join("SOUL.md");
+        std::fs::write(&soul_path, "MANUALLY EDITED IDENTITY\n").unwrap();
+
+        let rewritten = sync_soul_md_on_upsert(ws.path(), &profile, Some("Stored identity."))
+            .expect("sync unchanged");
+
+        assert!(!rewritten);
+        assert_eq!(
+            std::fs::read_to_string(soul_path).unwrap(),
+            "MANUALLY EDITED IDENTITY\n"
+        );
     }
 
     #[test]

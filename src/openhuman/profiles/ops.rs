@@ -206,6 +206,21 @@ pub async fn upsert(profile: AgentProfile) -> Result<Value, String> {
     }
     let upserted_id = profile.id.clone();
     let (store, workspace_dir, action_dir) = store_and_roots().await?;
+    // Keep the previous inline value so SOUL.md is rewritten only when the
+    // persona field itself changed. The editor submits the full profile for
+    // unrelated settings saves; comparing only against the file would clobber
+    // a newer manual edit with the unchanged, stale inline value.
+    let normalised_id = super::store::normalise_profile_id(&upserted_id);
+    let previous_soul_md = store
+        .load()
+        .map_err(|e| {
+            tracing::debug!(request_id = %request_id, error = %e, "[profiles][ops] upsert preload error");
+            e
+        })?
+        .profiles
+        .into_iter()
+        .find(|p| p.id == normalised_id)
+        .and_then(|p| p.soul_md);
     let state = store.upsert(profile).map_err(|e| {
         tracing::debug!(request_id = %request_id, error = %e, "[profiles][ops] upsert error");
         e
@@ -214,11 +229,7 @@ pub async fn upsert(profile: AgentProfile) -> Result<Value, String> {
     // the id (slugify), so resolve the persisted profile from the returned state
     // rather than trusting the raw input id. Built-ins are seeded on select, not
     // here, matching the spec.
-    if let Some(persisted) = state
-        .profiles
-        .iter()
-        .find(|p| p.id == super::store::normalise_profile_id(&upserted_id))
-    {
+    if let Some(persisted) = state.profiles.iter().find(|p| p.id == normalised_id) {
         // Full home materialization (SOUL.md seed + MEMORY.md + skills/ +
         // dedicated workspace) is for CUSTOM profiles here; built-ins are seeded
         // on `select` (first activation), matching the spec.
@@ -231,10 +242,14 @@ pub async fn upsert(profile: AgentProfile) -> Result<Value, String> {
         // selects Default/Research once and later edits its Soul in Settings would
         // otherwise keep a stale `personalities/<id>/SOUL.md` that
         // `resolve_personality_soul` reads before the inline value. The sync is a
-        // no-op when `soul_md` is empty/None (manual file edits stay
-        // authoritative) and creates the home dir if needed. Non-fatal — the
-        // profile is already persisted.
-        if let Err(e) = super::home::sync_soul_md_on_upsert(&workspace_dir, persisted) {
+        // no-op when `soul_md` is empty/None or unchanged (manual file edits
+        // stay authoritative) and creates the home dir if needed. Non-fatal —
+        // the profile is already persisted.
+        if let Err(e) = super::home::sync_soul_md_on_upsert(
+            &workspace_dir,
+            persisted,
+            previous_soul_md.as_deref(),
+        ) {
             tracing::warn!(
                 profile_id = %persisted.id,
                 error = %e,

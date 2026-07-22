@@ -506,7 +506,7 @@ pub(crate) fn resolve_byok_fallback_provider_string(config: &Config) -> Option<S
     None
 }
 
-/// Test-only seam: inject a mock chat `Provider` so e2e tests can drive the
+/// Test-only seam: inject a mock [`ChatModel`] so e2e tests can drive the
 /// autonomous run paths (`spawn_workflow_run_background`, the task dispatcher)
 /// with a scripted LLM and no network. Process-global because those runs are
 /// detached `tokio::spawn`s — a thread/task-local would not reach them.
@@ -517,7 +517,6 @@ pub(crate) fn resolve_byok_fallback_provider_string(config: &Config) -> Option<S
 /// so the override is never consulted in shipped builds.
 #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
 pub mod test_provider_override {
-    use super::Provider;
     use std::sync::{Arc, Mutex, OnceLock};
     use tinyagents::harness::model::ChatModel;
 
@@ -528,17 +527,6 @@ pub mod test_provider_override {
 
     pub(crate) fn current() -> Option<Arc<dyn ChatModel<()>>> {
         cell().lock().unwrap().clone()
-    }
-
-    /// Install a legacy mock provider during the consumer-test migration.
-    #[must_use]
-    pub fn install(provider: Arc<dyn Provider>) -> InstallGuard {
-        *cell().lock().unwrap() = Some(crate::openhuman::tinyagents::model::provider_chat_model(
-            provider,
-            "mock-model".to_string(),
-            0.7,
-        ));
-        InstallGuard
     }
 
     /// Install a crate-native mock model; the returned guard clears it on drop.

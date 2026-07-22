@@ -287,7 +287,10 @@ pub fn get_workflow_with_profile(
     profile_skills_root: Option<&Path>,
 ) -> Option<WorkflowDefinition> {
     let workflows = load_workflows_with_profile(workspace_dir, profile_skills_root);
-    if let Some(exact) = workflows.iter().find(|s| s.definition.id == id) {
+    // Built-ins are prepended and discovered workflows follow them. Search in
+    // reverse so the scope-resolved discovered entry (profile wins over global)
+    // also wins over a built-in with the same runnable id.
+    if let Some(exact) = workflows.iter().rev().find(|s| s.definition.id == id) {
         return Some(exact.clone());
     }
 
@@ -316,6 +319,7 @@ pub fn get_workflow_with_profile(
 
     workflows
         .into_iter()
+        .rev()
         .find(|workflow| workflow.definition.id == slug)
 }
 
@@ -481,6 +485,17 @@ mod tests {
         assert_eq!(resolved.definition.id, "mail-helper");
         assert!(resolved_body(&resolved).contains("PROFILE_NAME_BODY"));
         assert!(get_workflow_with_profile(ws.path(), "Inbox Assistant", None).is_none());
+    }
+
+    #[test]
+    fn profile_workflow_exact_id_overrides_builtin() {
+        let ws = tempfile::TempDir::new().unwrap();
+        let profile_root = tempfile::TempDir::new().unwrap();
+        seed_runnable(profile_root.path(), "critic", "PROFILE_CRITIC_BODY");
+
+        let resolved = get_workflow_with_profile(ws.path(), "critic", Some(profile_root.path()))
+            .expect("profile critic resolves");
+        assert!(resolved_body(&resolved).contains("PROFILE_CRITIC_BODY"));
     }
 
     #[test]

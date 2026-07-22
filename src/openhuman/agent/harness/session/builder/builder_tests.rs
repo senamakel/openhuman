@@ -292,6 +292,139 @@ async fn build_session_agent_leaves_active_profile_id_none_without_profile() {
     );
 }
 
+// ── Finding #1 (Codex): dedicated memory subtree on the ordinary session path ─
+
+/// Build a non-default profile with the given id + dedicated-memory flag.
+fn custom_profile(id: &str, dedicated_memory: bool) -> crate::openhuman::profiles::AgentProfile {
+    let mut profile = crate::openhuman::profiles::store::built_in_default_profile();
+    profile.id = id.to_string();
+    profile.name = id.to_string();
+    profile.built_in = false;
+    profile.is_master = false;
+    profile.memory_dir_suffix = None;
+    profile.dedicated_memory = dedicated_memory;
+    profile
+}
+
+#[tokio::test]
+async fn build_session_agent_routes_dedicated_memory_to_profile_subtree() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let profile = custom_profile("alice", true);
+
+    let _agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        None,
+        None,
+        None,
+        false,
+        Some(&profile),
+    )
+    .expect("build_session_agent_inner with a dedicated-memory profile should succeed");
+
+    // The session's capture/recall store (UnifiedMemory) is rooted at
+    // `<workspace>/memory-alice`, not the shared `memory/` tree.
+    assert!(
+        config
+            .workspace_dir
+            .join("memory-alice")
+            .join("memory.db")
+            .exists(),
+        "a dedicatedMemory profile must route session memory to memory-<id>"
+    );
+}
+
+#[tokio::test]
+async fn build_session_agent_profile_less_uses_shared_memory_subtree() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // Profile-less path stays byte-identical: session memory uses the shared
+    // `memory/` subtree, and no per-profile subtree is created.
+    let _agent =
+        Agent::build_session_agent_inner(&config, "orchestrator", None, None, None, false, None)
+            .expect("build_session_agent_inner without a profile should succeed");
+
+    assert!(
+        config
+            .workspace_dir
+            .join("memory")
+            .join("memory.db")
+            .exists(),
+        "the profile-less session must use the shared memory subtree"
+    );
+    assert!(
+        !config.workspace_dir.join("memory-alice").exists(),
+        "no per-profile memory subtree should exist for a profile-less session"
+    );
+}
+
+// ── Finding #2 (Codex): profile SOUL.md injected into the live session prompt ─
+
+#[tokio::test]
+async fn build_session_agent_injects_profile_soul_into_prompt() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+    use crate::openhuman::context::prompt::LearnedContextData;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // Seed the non-default profile's home SOUL.md (as ensure_profile_home would).
+    let home = config.workspace_dir.join("personalities").join("alice");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(home.join("SOUL.md"), "I am Alice, a meticulous archivist.").unwrap();
+
+    let profile = custom_profile("alice", false);
+    let agent = Agent::build_session_agent_inner(
+        &config,
+        "orchestrator",
+        None,
+        None,
+        None,
+        false,
+        Some(&profile),
+    )
+    .expect("build_session_agent_inner with a profile should succeed");
+
+    let prompt = agent
+        .build_system_prompt(LearnedContextData::default())
+        .expect("build_system_prompt");
+    assert!(
+        prompt.contains("I am Alice, a meticulous archivist."),
+        "the live profile session prompt must include the profile SOUL.md content"
+    );
+}
+
+#[tokio::test]
+async fn build_session_agent_profile_less_prompt_has_no_personality_soul() {
+    use crate::openhuman::agent::harness::session::types::Agent;
+    use crate::openhuman::context::prompt::LearnedContextData;
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // A personalities/alice/SOUL.md exists on disk, but a profile-less session
+    // must never pull it — the prompt stays byte-identical to today.
+    let home = config.workspace_dir.join("personalities").join("alice");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(home.join("SOUL.md"), "I am Alice, a meticulous archivist.").unwrap();
+
+    let agent =
+        Agent::build_session_agent_inner(&config, "orchestrator", None, None, None, false, None)
+            .expect("build_session_agent_inner without a profile should succeed");
+
+    let prompt = agent
+        .build_system_prompt(LearnedContextData::default())
+        .expect("build_system_prompt");
+    assert!(
+        !prompt.contains("I am Alice, a meticulous archivist."),
+        "a profile-less session must not inject any profile SOUL.md"
+    );
+}
+
 // ── #5050 Fix 1: shared `Arc<Config>` for the per-build tool config ──────────
 
 #[test]

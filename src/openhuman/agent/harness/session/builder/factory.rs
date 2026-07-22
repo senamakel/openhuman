@@ -385,6 +385,25 @@ impl Agent {
             config,
             &config.memory.embedding_provider,
         );
+        // Route this session's captures + recall into the active profile's memory
+        // subtree so `dedicatedMemory` isolation takes effect on the ordinary
+        // session path (web chat, cron), not just delegation preambles. The
+        // profile-less / default / shared cases resolve to `"memory"`
+        // (byte-identical): `effective_memory_suffix` returns `""` for them and
+        // `memory_subdir_for_suffix("")` == `"memory"`. A dedicated-memory profile
+        // yields `"memory-<id>"`; a legacy numeric-suffix profile `"memory-<n>"`.
+        let memory_subdir = profile
+            .map(|p| {
+                crate::openhuman::profiles::memory_subdir_for_suffix(
+                    &crate::openhuman::profiles::effective_memory_suffix(p),
+                )
+            })
+            .unwrap_or_else(|| "memory".to_string());
+        tracing::debug!(
+            memory_subdir = %memory_subdir,
+            has_profile = profile.is_some(),
+            "[profiles] session memory subtree selected"
+        );
         let session_memory = memory_store::factories::create_session_memory_with_local_ai(
             &config.memory,
             local_embedding.as_deref(),
@@ -392,6 +411,7 @@ impl Agent {
             &config.embedding_routes,
             Some(&config.storage.provider.config),
             &config.workspace_dir,
+            &memory_subdir,
         )?;
         let archivist_connection = session_memory.sqlite_connection;
         let memory: Arc<dyn Memory> = Arc::from(session_memory.memory);
@@ -743,17 +763,29 @@ impl Agent {
                     )
                 })
             });
-        if profile_suffix.is_some() || workspace_notice.is_some() {
+        // A non-default profile drives its live persona from its own SOUL.md
+        // (hot-read in the section), so ordinary web-chat / cron turns get the
+        // seeded/synced identity — not just delegation. The default/master
+        // profile keeps the workspace root SOUL.md (its identity), so the common
+        // default session stays byte-identical.
+        let soul_profile: Option<crate::openhuman::profiles::AgentProfile> = profile
+            .filter(|p| p.id != crate::openhuman::profiles::DEFAULT_PROFILE_ID)
+            .cloned();
+        if profile_suffix.is_some() || workspace_notice.is_some() || soul_profile.is_some() {
             log::debug!(
-                "[agent:builder] profile prompt section injected suffix_chars={} workspace_notice={}",
+                "[agent:builder] profile prompt section injected suffix_chars={} workspace_notice={} profile_soul={}",
                 profile_suffix.as_deref().map(|s| s.chars().count()).unwrap_or(0),
-                workspace_notice.is_some()
+                workspace_notice.is_some(),
+                soul_profile.is_some(),
             );
             let mut section = crate::openhuman::profiles::AgentProfilePromptSection::new(
                 profile_suffix.unwrap_or_default(),
             );
             if let Some(notice) = workspace_notice {
                 section = section.with_workspace_notice(notice);
+            }
+            if let Some(soul_profile) = soul_profile {
+                section = section.with_profile_soul(soul_profile);
             }
             prompt_builder = prompt_builder.add_section(Box::new(section));
         }

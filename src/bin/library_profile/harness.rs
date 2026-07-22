@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use openhuman_core::openhuman::config::Config;
-use openhuman_core::openhuman::proc_metrics::{self, ProcSample};
+use openhuman_core::openhuman::proc_metrics::{self, ProcSample, TreeSample};
 use serde::Serialize;
 
 /// One sampled point inside a measured workload. `delta_kib` is the RSS change
@@ -31,6 +31,42 @@ pub struct TurnLatency {
     pub p95: u128,
     pub p99: u128,
     pub max: u128,
+}
+
+/// Per-descendant RSS entry in a [`TreeReport`].
+#[derive(Debug, Clone, Serialize)]
+pub struct TreeChild {
+    pub name: String,
+    pub rss_kib: u64,
+}
+
+/// Process-*tree* RSS reporting: this process plus every descendant
+/// (interpreter children such as `node` / `python` a skill run spawns). Folds a
+/// [`TreeSample`] down to the reported shape. `tree_rss_kib` counts self + all
+/// descendants, so it exceeds `settled.rss_kib` whenever a child was live at
+/// sample time.
+#[derive(Debug, Clone, Serialize)]
+pub struct TreeReport {
+    pub tree_rss_kib: u64,
+    pub child_count: usize,
+    pub children: Vec<TreeChild>,
+}
+
+impl TreeReport {
+    pub fn from_sample(sample: &TreeSample) -> Self {
+        Self {
+            tree_rss_kib: sample.tree_rss_kib,
+            child_count: sample.children.len(),
+            children: sample
+                .children
+                .iter()
+                .map(|child| TreeChild {
+                    name: child.name.clone(),
+                    rss_kib: child.rss_kib,
+                })
+                .collect(),
+        }
+    }
 }
 
 /// Fleet capacity budget math (purely informational — scripts turn `fits` into
@@ -78,6 +114,14 @@ pub struct ProfileResult {
     pub budget: Option<FleetBudget>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub checkpoints: Option<Vec<Checkpoint>>,
+    /// (`subagent-storm`) K parallel researcher subagents fanned out in the turn.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subagents: Option<usize>,
+    /// (`skill-run`) process-tree RSS including interpreter child processes.
+    /// Reports the richest tree seen — the peak-during-workload sample when a
+    /// short-lived child (e.g. `node`) has already exited by settle time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tree: Option<TreeReport>,
     /// Present (and `true`) only when the dhat heap profiler is active, since
     /// RSS/time numbers are perturbed by dhat's global allocator.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -113,6 +157,7 @@ pub struct Fixture {
     pub config: Config,
     _workspace_env: EnvGuard,
     _keyring_env: EnvGuard,
+    _action_env: EnvGuard,
     _tmp: tempfile::TempDir,
 }
 
@@ -121,6 +166,11 @@ pub fn fixture() -> Result<Fixture> {
     let root = tmp.path();
     let workspace = root.join("workspace");
     std::fs::create_dir_all(&workspace)?;
+    // A real, writable action sandbox so acting tools (e.g. `node_exec`, which
+    // spawns `node` in the action dir) have a valid cwd. Harmless for scenarios
+    // that never act.
+    let action_dir = root.join("action");
+    std::fs::create_dir_all(&action_dir)?;
 
     let mut config_toml = r#"api_url = "http://127.0.0.1:9"
 default_model = "profile-mock"
@@ -152,12 +202,26 @@ episodic_capture_enabled = false
 "#,
         );
     }
+    // `skill-run` executes real acting tools (`node_exec`); those need the Full
+    // autonomy tier so the write-class gate does not park the turn on approval.
+    // Config::load_or_init inside the detached workflow run re-reads this file,
+    // so the tier must live in config.toml (not just the in-memory Config).
+    if std::env::var_os("OPENHUMAN_PROFILE_FULL_AUTONOMY").is_some() {
+        config_toml.push_str(
+            r#"
+[autonomy]
+level = "full"
+"#,
+        );
+    }
     std::fs::write(root.join("config.toml"), &config_toml)?;
 
     let workspace_env = EnvGuard::set("OPENHUMAN_WORKSPACE", &root.to_string_lossy());
     let keyring_env = EnvGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
+    let action_env = EnvGuard::set("OPENHUMAN_ACTION_DIR", &action_dir.to_string_lossy());
     let mut config: Config = toml::from_str(&config_toml)?;
     config.workspace_dir = workspace;
+    config.action_dir = action_dir;
     config.memory_tree.embedding_endpoint = None;
     config.memory_tree.embedding_model = None;
     config.memory_tree.embedding_strict = false;
@@ -166,6 +230,7 @@ episodic_capture_enabled = false
         config,
         _workspace_env: workspace_env,
         _keyring_env: keyring_env,
+        _action_env: action_env,
         _tmp: tmp,
     })
 }
@@ -199,6 +264,47 @@ impl PeakSampler {
         self.stop.store(1, Ordering::Relaxed);
         let _ = self.task.await;
         self.peak.load(Ordering::Relaxed)
+    }
+}
+
+/// Background task that polls `proc_metrics::sample_tree()` and keeps the
+/// [`TreeSample`] with the highest `tree_rss_kib` seen — capturing the moment a
+/// short-lived interpreter child (e.g. a `node -e` step) is resident, which a
+/// settle-time-only sample would miss because the child has already exited.
+pub struct TreePeakSampler {
+    best: Arc<Mutex<Option<TreeSample>>>,
+    stop: Arc<AtomicU64>,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl TreePeakSampler {
+    pub fn start() -> Self {
+        let best: Arc<Mutex<Option<TreeSample>>> = Arc::new(Mutex::new(None));
+        let stop = Arc::new(AtomicU64::new(0));
+        let task_best = Arc::clone(&best);
+        let task_stop = Arc::clone(&stop);
+        let task = tokio::spawn(async move {
+            while task_stop.load(Ordering::Relaxed) == 0 {
+                if let Ok(sample) = proc_metrics::sample_tree() {
+                    let mut guard = task_best.lock().expect("tree peak lock");
+                    let replace = guard
+                        .as_ref()
+                        .map(|prev| sample.tree_rss_kib > prev.tree_rss_kib)
+                        .unwrap_or(true);
+                    if replace {
+                        *guard = Some(sample);
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(15)).await;
+            }
+        });
+        Self { best, stop, task }
+    }
+
+    pub async fn stop(self) -> Option<TreeSample> {
+        self.stop.store(1, Ordering::Relaxed);
+        let _ = self.task.await;
+        self.best.lock().expect("tree peak lock").clone()
     }
 }
 
@@ -270,6 +376,38 @@ where
     F: FnOnce(Recorder) -> Fut,
     Fut: std::future::Future<Output = Result<()>>,
 {
+    measure_impl(scenario, workload_units, turns, false, workload).await
+}
+
+/// Like [`measure`], but also samples the process **tree** (self + descendant
+/// interpreter processes). A [`TreePeakSampler`] runs alongside the RSS peak
+/// sampler, and the settle-time tree is captured too; the reported `tree` is
+/// whichever of the two has the higher `tree_rss_kib`, so a `node` child that
+/// exits before settle is still attributed. Used by `skill-run`.
+pub async fn measure_with_tree<F, Fut>(
+    scenario: &'static str,
+    workload_units: usize,
+    turns: Option<usize>,
+    workload: F,
+) -> Result<ProfileResult>
+where
+    F: FnOnce(Recorder) -> Fut,
+    Fut: std::future::Future<Output = Result<()>>,
+{
+    measure_impl(scenario, workload_units, turns, true, workload).await
+}
+
+async fn measure_impl<F, Fut>(
+    scenario: &'static str,
+    workload_units: usize,
+    turns: Option<usize>,
+    sample_tree: bool,
+    workload: F,
+) -> Result<ProfileResult>
+where
+    F: FnOnce(Recorder) -> Fut,
+    Fut: std::future::Future<Output = Result<()>>,
+{
     tokio::time::sleep(Duration::from_millis(250)).await;
     let baseline = proc_metrics::sample_self()?;
     if let Some(seconds) = std::env::var("OPENHUMAN_PROFILE_HOLD_BEFORE_SECS")
@@ -284,6 +422,11 @@ where
         tokio::time::sleep(Duration::from_secs(seconds)).await;
     }
     let sampler = PeakSampler::start(baseline.rss_kib);
+    let tree_sampler = if sample_tree {
+        Some(TreePeakSampler::start())
+    } else {
+        None
+    };
     let started = Instant::now();
     let recorder = Recorder::new(baseline.rss_kib, started);
     eprintln!("[library-profile] scenario={scenario} workload starting");
@@ -293,6 +436,34 @@ where
     tokio::time::sleep(Duration::from_millis(500)).await;
     let settled = proc_metrics::sample_self()?;
     let peak_rss_kib = sampler.stop().await.max(settled.rss_kib);
+
+    // Fold the process-tree samples (peak-during-workload + settle-time) into a
+    // single report: whichever has the higher tree RSS wins, so a short-lived
+    // interpreter child that already exited by settle is still attributed.
+    let tree = if let Some(tree_sampler) = tree_sampler {
+        let peak_tree = tree_sampler.stop().await;
+        let settle_tree = proc_metrics::sample_tree().ok();
+        let best = match (peak_tree, settle_tree) {
+            (Some(peak), Some(settle)) => {
+                if peak.tree_rss_kib >= settle.tree_rss_kib {
+                    Some(peak)
+                } else {
+                    Some(settle)
+                }
+            }
+            (peak, settle) => peak.or(settle),
+        };
+        if let Some(best) = best.as_ref() {
+            eprintln!(
+                "[library-profile] scenario={scenario} tree_rss_kib={} child_count={}",
+                best.tree_rss_kib,
+                best.children.len()
+            );
+        }
+        best.map(|sample| TreeReport::from_sample(&sample))
+    } else {
+        None
+    };
     let checkpoints = recorder.take();
     let checkpoints = if checkpoints.is_empty() {
         None
@@ -317,6 +488,8 @@ where
         turn_latency_ms: None,
         budget: None,
         checkpoints,
+        subagents: None,
+        tree,
         dhat: None,
     })
 }

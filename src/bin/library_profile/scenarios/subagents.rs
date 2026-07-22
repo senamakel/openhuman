@@ -12,7 +12,7 @@ use openhuman_core::openhuman::inference::provider::Provider;
 use openhuman_core::openhuman::subconscious::LongLivedSession;
 
 use crate::harness::{fixture, measure, ProfileResult};
-use crate::mock::{SubagentMock, SUBAGENT_A, SUBAGENT_B};
+use crate::mock::{subagent_marker, SubagentMock};
 
 pub async fn run() -> Result<ProfileResult> {
     let fixture = fixture()?;
@@ -48,8 +48,8 @@ pub async fn run() -> Result<ProfileResult> {
             .map_err(anyhow::Error::msg)?;
         anyhow::ensure!(!outcome.response.is_empty(), "empty orchestrator response");
         let prompts = mock.prompts.lock().expect("mock prompt lock");
-        anyhow::ensure!(prompts.iter().any(|p| p.contains(SUBAGENT_A)));
-        anyhow::ensure!(prompts.iter().any(|p| p.contains(SUBAGENT_B)));
+        anyhow::ensure!(prompts.iter().any(|p| p.contains(&subagent_marker(1))));
+        anyhow::ensure!(prompts.iter().any(|p| p.contains(&subagent_marker(2))));
         Ok(())
     })
     .await

@@ -16,6 +16,9 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod tree;
+pub use tree::{sample_tree, ChildSample, TreeSample};
+
 /// Product budget for the embedded roster, in KiB (#5046). Target the agent
 /// roster should land under.
 pub const RSS_BUDGET_KIB: u64 = 20 * 1024;

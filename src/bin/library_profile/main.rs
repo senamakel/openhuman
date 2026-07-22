@@ -13,6 +13,8 @@
 //! - `subconscious`  — one promoted subconscious turn WITHOUT delegation.
 //! - `cold-phases`   — per-phase checkpoints of the cold bootstrap in one region.
 //! - `fleet`         — N live agents: marginal RSS, idle CPU, fd/thread growth, turn latency.
+//! - `skill-run`     — a skill step executing on a real `node` child: process-tree RSS.
+//! - `subagent-storm`— K parallel researcher subagents in one instance: marginal RSS per subagent.
 //!
 //! stdout is ALWAYS a single pretty JSON object (the pinned schema in
 //! `harness::ProfileResult`); every diagnostic goes to stderr with the stable
@@ -60,6 +62,8 @@ async fn dispatch(scenario: &str) -> Result<ProfileResult> {
         "subconscious" => scenarios::subconscious::run().await,
         "cold-phases" => scenarios::cold_phases::run().await,
         "fleet" => scenarios::fleet::run().await,
+        "skill-run" => scenarios::skill_run::run().await,
+        "subagent-storm" => scenarios::subagent_storm::run().await,
         other => anyhow::bail!("unknown scenario: {other}"),
     }
 }
@@ -86,7 +90,8 @@ fn main() -> Result<()> {
     // can size the worker pool (the `fleet` scenario simulates the 2 vCPU box).
     let scenario = std::env::args().nth(1).context(
         "usage: library-profile \
-         <memory-ingest|subagents|agent-turn|long-agent|workflow|subconscious|cold-phases|fleet>",
+         <memory-ingest|subagents|agent-turn|long-agent|workflow|subconscious|cold-phases|fleet|\
+         skill-run|subagent-storm>",
     )?;
 
     // Profiler must outlive the whole run + the JSON print so its Drop writes

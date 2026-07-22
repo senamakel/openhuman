@@ -3,8 +3,6 @@ use crate::openhuman::agent::harness::definition::AgentDefinitionRegistry;
 use crate::openhuman::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
 use crate::openhuman::config::AgentConfig;
 use crate::openhuman::context::prompt::ToolCallFormat;
-use crate::openhuman::inference::provider::traits::ProviderCapabilities;
-use crate::openhuman::inference::provider::{ChatRequest, ChatResponse, Provider};
 use crate::openhuman::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::openhuman::tools::{Tool, ToolSpec};
 use async_trait::async_trait;
@@ -13,6 +11,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
+use tinyagents::harness::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tokio::time::Duration;
 
 #[derive(Default)]
@@ -74,12 +73,19 @@ impl Memory for NoopMemory {
     }
 }
 
-fn parent_context(provider: Arc<dyn Provider>) -> ParentExecutionContext {
+fn parent_context(model: Arc<dyn ChatModel<()>>) -> ParentExecutionContext {
     ParentExecutionContext {
         workspace_descriptor: None,
         agent_definition_id: "orchestrator".to_string(),
         allowed_subagent_ids: ["researcher".to_string()].into_iter().collect(),
-        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::new(provider),
+        turn_model_source: crate::openhuman::tinyagents::TurnModelSource::from_model_with_profile(
+            model,
+            ModelProfile {
+                tool_calling: true,
+                parallel_tool_calls: true,
+                ..ModelProfile::default()
+            },
+        ),
         all_tools: Arc::new(Vec::<Box<dyn Tool>>::new()),
         all_tool_specs: Arc::new(Vec::<ToolSpec>::new()),
         visible_tool_names: std::collections::HashSet::new(),
@@ -101,13 +107,8 @@ fn parent_context(provider: Arc<dyn Provider>) -> ParentExecutionContext {
     }
 }
 
-fn text_response(text: impl Into<String>) -> ChatResponse {
-    ChatResponse {
-        text: Some(text.into()),
-        tool_calls: Vec::new(),
-        usage: None,
-        reasoning_content: None,
-    }
+fn text_response(text: impl Into<String>) -> ModelResponse {
+    ModelResponse::assistant(text)
 }
 
 #[derive(Default)]
@@ -116,45 +117,27 @@ struct ConversationState {
 }
 
 #[derive(Clone, Default)]
-struct CodingQuestionProvider {
+struct CodingQuestionModel {
     state: Arc<ConversationState>,
 }
 
-impl CodingQuestionProvider {
+impl CodingQuestionModel {
     fn prompts(&self) -> Vec<String> {
         self.state.prompts.lock().clone()
     }
 }
 
 #[async_trait]
-impl Provider for CodingQuestionProvider {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-
-    async fn chat_with_system(
+impl ChatModel<()> for CodingQuestionModel {
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        Ok("ok".to_string())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         let flattened = request
             .messages
             .iter()
-            .map(|message| message.content.as_str())
+            .map(|message| message.text())
             .collect::<Vec<_>>()
             .join("\n");
         self.state.prompts.lock().push(flattened.clone());
@@ -171,7 +154,7 @@ impl Provider for CodingQuestionProvider {
     }
 }
 
-/// Number of parallel sub-agents the parallel-coding test spawns. The provider's
+/// Number of parallel sub-agents the parallel-coding test spawns. The model's
 /// synchronization barrier is sized to this so the peak-concurrency assertion is
 /// deterministic regardless of scheduler/load.
 const PARALLEL_CHILDREN: usize = 3;
@@ -184,7 +167,7 @@ struct ParallelState {
     /// Rendezvous point: every child parks here (yielding its worker thread)
     /// until all `PARALLEL_CHILDREN` are concurrently inside `chat`, so
     /// `max_active` deterministically reaches the peak instead of depending on
-    /// whether the brief provider calls happen to overlap in wall-clock time.
+    /// whether the brief model calls happen to overlap in wall-clock time.
     gate: tokio::sync::Barrier,
 }
 
@@ -201,11 +184,11 @@ impl Default for ParallelState {
 }
 
 #[derive(Clone, Default)]
-struct ParallelCodingProvider {
+struct ParallelCodingModel {
     state: Arc<ParallelState>,
 }
 
-impl ParallelCodingProvider {
+impl ParallelCodingModel {
     fn calls(&self) -> usize {
         self.state.calls.load(Ordering::SeqCst)
     }
@@ -235,30 +218,12 @@ impl ParallelCodingProvider {
 }
 
 #[async_trait]
-impl Provider for ParallelCodingProvider {
-    fn capabilities(&self) -> ProviderCapabilities {
-        ProviderCapabilities {
-            native_tool_calling: true,
-            vision: false,
-        }
-    }
-
-    async fn chat_with_system(
+impl ChatModel<()> for ParallelCodingModel {
+    async fn invoke(
         &self,
-        _system_prompt: Option<&str>,
-        _message: &str,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<String> {
-        Ok("ok".to_string())
-    }
-
-    async fn chat(
-        &self,
-        request: ChatRequest<'_>,
-        _model: &str,
-        _temperature: f64,
-    ) -> anyhow::Result<ChatResponse> {
+        _state: &(),
+        request: ModelRequest,
+    ) -> tinyagents::Result<ModelResponse> {
         self.state.calls.fetch_add(1, Ordering::SeqCst);
         let current = self.state.active.fetch_add(1, Ordering::SeqCst) + 1;
         self.record_peak(current);
@@ -271,7 +236,7 @@ impl Provider for ParallelCodingProvider {
         let flattened = request
             .messages
             .iter()
-            .map(|message| message.content.as_str())
+            .map(|message| message.text())
             .collect::<Vec<_>>()
             .join("\n");
         self.state.prompts.lock().push(flattened.clone());
@@ -312,7 +277,7 @@ async fn unit_message_agent_rejects_empty_parent_reply() {
 #[tokio::test]
 async fn e2e_orchestrator_answers_coding_agent_question_and_resumes_child() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
-    let provider = CodingQuestionProvider::default();
+    let provider = CodingQuestionModel::default();
     let parent = parent_context(Arc::new(provider.clone()));
     let session = AgentOrchestrationSession::new("orchestrator-session");
 
@@ -331,7 +296,7 @@ async fn e2e_orchestrator_answers_coding_agent_question_and_resumes_child() {
 
     // These waits spawn a *real* builtin (`code_executor`) sub-agent on the
     // detached executor, which builds the full agent (prompt assembly, tool
-    // resolution, registry) before the mock provider returns — ~2.7s per child.
+    // resolution, registry) before the mock model returns — ~2.7s per child.
     // The wait budget must clear that with CI headroom; a tight 2s expires first
     // and reports the child as `Running`.
     let first_wait = session
@@ -402,14 +367,14 @@ async fn e2e_orchestrator_answers_coding_agent_question_and_resumes_child() {
 
 // Multi-thread runtime: this test asserts the three detached sub-agents run
 // *concurrently* (`max_active >= 2`). Each child does a CPU-bound builtin-agent
-// build before its (mock) provider call; on a single-threaded runtime those
-// builds serialize, so the brief provider calls never overlap and the peak-
+// build before its (mock) model call; on a single-threaded runtime those
+// builds serialize, so the brief model calls never overlap and the peak-
 // concurrency assertion flakes under load. Real worker threads let the builds —
-// and therefore the provider calls — actually overlap.
+// and therefore the model calls — actually overlap.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn e2e_orchestrator_waits_for_multiple_parallel_coding_subagents() {
     AgentDefinitionRegistry::init_global_builtins().unwrap();
-    let provider = ParallelCodingProvider::default();
+    let provider = ParallelCodingModel::default();
     let parent = parent_context(Arc::new(provider.clone()));
     let session = AgentOrchestrationSession::new("parallel-orchestrator-session");
 
